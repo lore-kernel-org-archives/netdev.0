@@ -1,79 +1,44 @@
-From: =?ISO-8859-1?Q?Malte_Schr=F6der?= <MalteSch@gmx.de>
-Subject: Re: [PATCH] WOL for sis900
-Date: Sun, 31 Oct 2004 14:08:08 +0100
-Message-ID: <4184E3B8.2030400@gmx.de>
-References: <4183B6B0.7010906@gmx.de> <4183BDB3.8000302@pobox.com> <20041030185959.GA7088@renditai.milesteg.arr>
+From: maximilian attems <janitor@sternwelten.at>
+Subject: Re: [patch 2.4] back port msleep(), msleep_interruptible()
+Date: Sun, 31 Oct 2004 15:43:53 +0100
+Message-ID: <20041031144353.GA28667__29994.8798878633$1099234018$gmane$org@stro.at>
+References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enigCF698CBEB1F5492250D043A6"
-Content-Transfer-Encoding: 8bit
-Cc: NetDev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniele Venzano <webvenza@libero.it>
-In-Reply-To: <20041030185959.GA7088@renditai.milesteg.arr>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Margit Schubert-While <margitsw@t-online.de>,
+	Nishanth Aravamudan <nacc@us.ibm.com>, hvr@gnu.org,
+	mcgrof@studorgs.rutgers.edu, kernel-janitors@lists.osdl.org,
+	netdev@oss.sgi.com, Domen Puncer <domen@coderock.org>,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261631AbUJaOoI@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <41841886.2080609@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enigCF698CBEB1F5492250D043A6
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 8bit
+On Sat, 30 Oct 2004, Jeff Garzik wrote:
 
-Daniele Venzano wrote:
-> On Sat, Oct 30, 2004 at 12:13:39PM -0400, Jeff Garzik wrote:
+> I'm pretty sure more than one of these symbols clashes with a symbol 
+> defined locally in a driver.  I like the patch but we can't apply it 
+> until the impact on existing code is evaluated.
 > 
->>Malte Schröder wrote:
->>
->>>Hello,
->>>I have applied the patch from http://lkml.org/lkml/2003/7/16/88 manually 
->>>to 2.6.7 (also works on 2.6.{8,9}) and have been using it since then.
->>>Attached is a diff against 2.6.9.
->>
->>2) Please use ethtool to enable/disable WOL.  No need for a module option.
-> 
-> 
-> Attached is a first try at this wol via ethtool thing. I don't think to
-> have got it right, but here it is.
-> 
-> I tried to test WoL on my laptop, obvioulsy it didn't work, but I don't
-> even know if I have the hardware support for it.
-> On this page:
-> http://www.sis.com/products/connectivity/900.htm
-> it says that the magic packet feature is optional.
-> 
-> I would really like to have some way to check if WoL is supported by the
-> hardware before thinking to include this. I didn't find any
-> documentation of some use for this.
-> 
-> Finally, I have never realized the sorry state of sis900 wrt ethtool,
-> I'll try to get some more support...
-> 
-> The attached patch is against clean 2.6.9 and is NOT for inclusion.
+> 	Jeff
 
-I just tried your patch and it works for me :)
-My sis900 is on-board component of the sis746 chipset.
--- 
----------------------------------------
-Malte Schröder
-MalteSch@gmx.de
-ICQ# 68121508
----------------------------------------
+current 2.4 has no ssleep() nor jiffies_to_usecs() nor jiffies_to_msecs()
+users. so no namespace conflicts on them.
+
+i found a strange unsupported "msleep" syscall in
+./arch/parisc/hpux/sys_hpux.c
+
+left this one appart, i resend the msleep patch + 5 cleanup patches.
+they remove duplicate msleep() or msecs_to_jiffies() definitions.
+they are all compile tested, but the one touching drivers/char/shwdt.c
+please show me if i forgot something.
+
+--
+maks
+kernel janitor  	http://janitor.kernelnewbies.org/
 
 
---------------enigCF698CBEB1F5492250D043A6
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
-
-iD8DBQFBhOO74q3E2oMjYtURAsPUAKCSgD/OGm+q3dl9W0lmcnWdj04JoACfcED8
-V3eSoQgUIveqDwHwjtGfLlE=
-=O+a2
------END PGP SIGNATURE-----
-
---------------enigCF698CBEB1F5492250D043A6--
+ps dropped  prism54-devel@prism54.org from cc as this ml rejects my mails.
