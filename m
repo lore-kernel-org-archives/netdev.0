@@ -1,41 +1,58 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: dsmark must take care of shared/cloned skbs
-Date: Wed, 22 Dec 2004 14:50:30 +0100
-Message-ID: <20041222135030.GD7884@postel.suug.ch>
-References: <20041218170017.GH17998@postel.suug.ch> <1103487827.1048.188.camel@jzny.localdomain> <20041219203641.GL17998@postel.suug.ch> <41C687EE.1090205@trash.net> <1103552026.1048.324.camel@jzny.localdomain> <20041220170222.5ee14588.davem@davemloft.net> <1103721246.1093.39.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] PKT_SCHED: Provide compat policer stats
+	in	action	policer
+Date: 22 Dec 2004 08:54:34 -0500
+Message-ID: <1103723674.1090.90.camel@jzny.localdomain>
+References: <20041215130128.GK8493@postel.suug.ch>
+	 <1103119774.1077.74.camel@jzny.localdomain> <41C05B60.6030504@trash.net>
+	 <1103484249.1046.143.camel@jzny.localdomain> <41C6A6CC.1050105@trash.net>
+	 <1103552830.1049.355.camel@jzny.localdomain>
+	 <20041221001621.GY17998@postel.suug.ch>
+	 <1103721013.1090.30.camel@jzny.localdomain>
+	 <20041222133251.GC7884@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, kaber@trash.net,
-        netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com, Werner Almesberger <werner@almesberger.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1103721246.1093.39.camel@jzny.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041222133251.GC7884@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1103721246.1093.39.camel@jzny.localdomain> 2004-12-22 08:14
-> On Mon, 2004-12-20 at 20:02, David S. Miller wrote:
-> > We have a similar problem with TSO and some gigabit cards whose
-> > drivers muck with the iphdr->tot_len field on transmit.  I still
-> > am not sure how I want to address that case yet.  Since transmitted
-> > TCP data packets are always shared/cloned, we'll have to do a data
-> > copy on every TSO send on these cards which frankly nullifies much
-> > of the performance gain TSO gives.  If we end of fixing it via a copy
-> > we'll probably need to seriously consider not doing TSO unless we
-> > are doing sendfile.
+On Wed, 2004-12-22 at 08:32, Thomas Graf wrote:
+> * jamal <1103721013.1090.30.camel@jzny.localdomain> 2004-12-22 08:10
+> > Dont have time to look at it right now - If you can also have it
+> > generate traffic in that framework and validate results that would
+> > be similar to what i have.
 > 
-> Ok, makes sense. I can see how TSO may not be useful if you have to
-> copy. I suppose NICS with hardware based retransmits will behave
-> differently.
+> Sure, no problem. Here's an example:
+> 
+> ts_tc "attr-police" "police creation" $FILTER police rate 2kbit buffer 10k drop
+> 
+> ts_log "cls-police: Sending 10 ICMP echo requests"
+> hping2 -c 10 -1 --fast ${DEST} &> /dev/null
+> 
+> ts_tc "cls-police" "police dumping" -s -s -d filter list dev $DEV parent 10:0
+> 
 
-I think we should move all packet manngling to be an action and warn
-about the loss of performance. We might be able to add a fast path for
-simple modifications such as dsmark dscp maping and other simple header
-modifications by not copying but mangle the fragment itself assuming we
-can accept some drawbacks with packet sockets. More advanced mangling
-as done by pedit is less of a problem since it will likely be used
-in combination with heavy filtering but we could of course do some
-analysis of the edit request and go the fast path under some
-circumstances.
+Good start. Now if there was two hooks which could be empty. First one
+to say what to do with traffic - you have it going to /dev/null
+Note that i had tcpdump capture it because i wanted to analyze it for
+pedit sake at the second spot: after you finish testing.
+In order to really tell whether test passed or not, you need to see
+those counters and analyze them too ;-> (I dont - but it is valuable).
+
+> It could be done a lot better but I'm not aiming at replacing tcsim
+> but rather to complement it so we have tcsim to validate the
+> correctness of queueing and classification algorithms and my naive brutal
+> testing framework for regression and stress testing under real conditions.
+
+I think tcsim for testing the infrastructure sounds reasonable. Whats
+Mr. Almesberger's long term plans for it? CCed him.
+
+cheers,
+jamal
