@@ -1,7 +1,7 @@
 From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH] Get rid of sk_protinfo use in netrom
-Date: Mon, 21 Mar 2005 09:49:05 +0000
-Message-ID: <20050321094905.GA10022@linux-mips.org>
+Subject: [PATCH] Get rid of sk_protinfo use in rose
+Date: Mon, 21 Mar 2005 09:50:37 +0000
+Message-ID: <20050321095037.GA10220@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@davemloft.net>
@@ -11,419 +11,464 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Below patch puts struct sock into nr_cb to get rid of the need for the
-use of sk_protinfo in nr_sk().  While we're touching the data structure
+Below patch puts struct sock into rose_cb to get rid of the need for the
+use of sk_protinfo in rose_sk().  While we're touching the data structure
 convert it from a typedef into a struct.
 
-Index: bk-afu/net/netrom/nr_timer.c
+Index: bk-afu/net/rose/rose_in.c
 ===================================================================
---- bk-afu.orig/net/netrom/nr_timer.c	2005-03-17 23:54:00.000000000 +0000
-+++ bk-afu/net/netrom/nr_timer.c	2005-03-20 10:40:08.000000000 +0000
-@@ -38,7 +38,7 @@
- 
- void nr_init_timers(struct sock *sk)
+--- bk-afu.orig/net/rose/rose_in.c	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/net/rose/rose_in.c	2005-03-21 09:34:39.000000000 +0000
+@@ -41,7 +41,7 @@
+  */
+ static int rose_state1_machine(struct sock *sk, struct sk_buff *skb, int frametype)
  {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
  
- 	init_timer(&nr->t1timer);
- 	nr->t1timer.data     = (unsigned long)sk;
-@@ -63,28 +63,28 @@
- 
- void nr_start_t1timer(struct sock *sk)
+ 	switch (frametype) {
+ 	case ROSE_CALL_ACCEPTED:
+@@ -78,7 +78,7 @@
+  */
+ static int rose_state2_machine(struct sock *sk, struct sk_buff *skb, int frametype)
  {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
  
- 	mod_timer(&nr->t1timer, jiffies + nr->t1);
- }
- 
- void nr_start_t2timer(struct sock *sk)
+ 	switch (frametype) {
+ 	case ROSE_CLEAR_REQUEST:
+@@ -106,7 +106,7 @@
+  */
+ static int rose_state3_machine(struct sock *sk, struct sk_buff *skb, int frametype, int ns, int nr, int q, int d, int m)
  {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	int queued = 0;
  
- 	mod_timer(&nr->t2timer, jiffies + nr->t2);
- }
- 
- void nr_start_t4timer(struct sock *sk)
+ 	switch (frametype) {
+@@ -216,7 +216,7 @@
+  */
+ static int rose_state4_machine(struct sock *sk, struct sk_buff *skb, int frametype)
  {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
  
- 	mod_timer(&nr->t4timer, jiffies + nr->t4);
- }
- 
- void nr_start_idletimer(struct sock *sk)
+ 	switch (frametype) {
+ 	case ROSE_RESET_REQUEST:
+@@ -265,7 +265,7 @@
+ /* Higher level upcall for a LAPB frame */
+ int rose_process_rx_frame(struct sock *sk, struct sk_buff *skb)
  {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	int queued = 0, frametype, ns, nr, q, d, m;
  
- 	if (nr->idle > 0)
- 		mod_timer(&nr->idletimer, jiffies + nr->idle);
-@@ -128,7 +128,7 @@
- static void nr_heartbeat_expiry(unsigned long param)
- {
- 	struct sock *sk = (struct sock *)param;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	bh_lock_sock(sk);
- 	switch (nr->state) {
-@@ -167,7 +167,7 @@
- static void nr_t2timer_expiry(unsigned long param)
- {
- 	struct sock *sk = (struct sock *)param;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	bh_lock_sock(sk);
- 	if (nr->condition & NR_COND_ACK_PENDING) {
-@@ -189,7 +189,7 @@
- static void nr_idletimer_expiry(unsigned long param)
- {
- 	struct sock *sk = (struct sock *)param;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	bh_lock_sock(sk);
- 
-@@ -217,7 +217,7 @@
- static void nr_t1timer_expiry(unsigned long param)
- {
- 	struct sock *sk = (struct sock *)param;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	bh_lock_sock(sk);
- 	switch (nr->state) {
-Index: bk-afu/include/net/netrom.h
+ 	if (rose->state == ROSE_STATE_0)
+Index: bk-afu/net/rose/rose_route.c
 ===================================================================
---- bk-afu.orig/include/net/netrom.h	2005-03-19 20:00:15.000000000 +0000
-+++ bk-afu/include/net/netrom.h	2005-03-20 10:36:50.000000000 +0000
-@@ -55,7 +55,8 @@
- #define NR_MAX_WINDOW_SIZE		127			/* Maximum Window Allowable - 127 */
- #define	NR_MAX_PACKET_SIZE		236			/* Maximum Packet Length - 236 */
+--- bk-afu.orig/net/rose/rose_route.c	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/net/rose/rose_route.c	2005-03-21 09:34:39.000000000 +0000
+@@ -899,7 +899,8 @@
+ 	 */
+ 	if ((sk = rose_find_socket(lci, rose_neigh)) != NULL) {
+ 		if (frametype == ROSE_CALL_REQUEST) {
+-			rose_cb *rose = rose_sk(sk);
++			struct rose_sock *rose = rose_sk(sk);
++
+ 			/* Remove an existing unused socket */
+ 			rose_clear_queues(sk);
+ 			rose->cause	 = ROSE_NETWORK_CONGESTION;
+Index: bk-afu/net/rose/rose_timer.c
+===================================================================
+--- bk-afu.orig/net/rose/rose_timer.c	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/net/rose/rose_timer.c	2005-03-21 09:34:39.000000000 +0000
+@@ -46,7 +46,7 @@
+ 
+ void rose_start_t1timer(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	del_timer(&rose->timer);
+ 
+@@ -59,7 +59,7 @@
+ 
+ void rose_start_t2timer(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	del_timer(&rose->timer);
+ 
+@@ -72,7 +72,7 @@
+ 
+ void rose_start_t3timer(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	del_timer(&rose->timer);
+ 
+@@ -85,7 +85,7 @@
+ 
+ void rose_start_hbtimer(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	del_timer(&rose->timer);
+ 
+@@ -98,7 +98,7 @@
+ 
+ void rose_start_idletimer(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	del_timer(&rose->idletimer);
+ 
+@@ -129,7 +129,7 @@
+ static void rose_heartbeat_expiry(unsigned long param)
+ {
+ 	struct sock *sk = (struct sock *)param;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	bh_lock_sock(sk);
+ 	switch (rose->state) {
+@@ -166,7 +166,7 @@
+ static void rose_timer_expiry(unsigned long param)
+ {
+ 	struct sock *sk = (struct sock *)param;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	bh_lock_sock(sk);
+ 	switch (rose->state) {
+Index: bk-afu/include/net/rose.h
+===================================================================
+--- bk-afu.orig/include/net/rose.h	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/include/net/rose.h	2005-03-21 09:34:39.000000000 +0000
+@@ -6,7 +6,9 @@
+ 
+ #ifndef _ROSE_H
+ #define _ROSE_H 
++
+ #include <linux/rose.h>
++#include <net/sock.h>
+ 
+ #define	ROSE_ADDR_LEN			5
+ 
+@@ -114,7 +116,8 @@
+ 	unsigned int		rand;
+ };
  
 -typedef struct {
-+struct nr_sock {
++struct rose_sock {
 +	struct sock		sock;
- 	ax25_address		user_addr, source_addr, dest_addr;
- 	struct net_device		*device;
- 	unsigned char		my_index,   my_id;
-@@ -72,10 +73,9 @@
- 	struct sk_buff_head	ack_queue;
- 	struct sk_buff_head	reseq_queue;
- 	struct sk_buff_head	frag_queue;
+ 	rose_address		source_addr,   dest_addr;
+ 	ax25_address		source_call,   dest_call;
+ 	unsigned char		source_ndigis, dest_ndigis;
+@@ -135,10 +138,9 @@
+ 	struct rose_facilities_struct facilities;
+ 	struct timer_list	timer;
+ 	struct timer_list	idletimer;
 -	struct sock		*sk;		/* Backlink to socket */
--} nr_cb;
+-} rose_cb;
 +};
  
--#define nr_sk(__sk) ((nr_cb *)(__sk)->sk_protinfo)
-+#define nr_sk(sk) ((struct nr_sock *)(sk))
+-#define rose_sk(__sk) ((rose_cb *)(__sk)->sk_protinfo)
++#define rose_sk(sk) ((struct rose_sock *)(sk))
  
- struct nr_neigh {
- 	struct hlist_node	neigh_node;
-Index: bk-afu/net/netrom/af_netrom.c
+ /* af_rose.c */
+ extern ax25_address rose_callsign;
+Index: bk-afu/net/rose/rose_subr.c
 ===================================================================
---- bk-afu.orig/net/netrom/af_netrom.c	2005-03-19 20:00:13.000000000 +0000
-+++ bk-afu/net/netrom/af_netrom.c	2005-03-20 10:44:54.000000000 +0000
-@@ -66,24 +66,7 @@
+--- bk-afu.orig/net/rose/rose_subr.c	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/net/rose/rose_subr.c	2005-03-21 09:34:39.000000000 +0000
+@@ -28,7 +28,7 @@
+ #include <linux/interrupt.h>
+ #include <net/rose.h>
  
- static struct sock *nr_alloc_sock(void)
+-static int rose_create_facilities(unsigned char *buffer, rose_cb *rose);
++static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose);
+ 
+ /*
+  *	This routine purges all of the queues of frames.
+@@ -47,7 +47,7 @@
+ void rose_frames_acked(struct sock *sk, unsigned short nr)
  {
--	nr_cb *nr;
--	struct sock *sk = sk_alloc(PF_NETROM, GFP_ATOMIC, 1, NULL);
+ 	struct sk_buff *skb;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	/*
+ 	 * Remove all the ack-ed frames from the ack queue.
+@@ -85,7 +85,7 @@
+  */
+ int rose_validate_nr(struct sock *sk, unsigned short nr)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	unsigned short vc = rose->va;
+ 
+ 	while (vc != rose->vs) {
+@@ -102,7 +102,7 @@
+  */
+ void rose_write_internal(struct sock *sk, int frametype)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	struct sk_buff *skb;
+ 	unsigned char  *dptr;
+ 	unsigned char  lci1, lci2;
+@@ -396,7 +396,7 @@
+ 	return 1;
+ }
+ 
+-static int rose_create_facilities(unsigned char *buffer, rose_cb *rose)
++static int rose_create_facilities(unsigned char *buffer, struct rose_sock *rose)
+ {
+ 	unsigned char *p = buffer + 1;
+ 	char *callsign;
+@@ -492,7 +492,7 @@
+ 
+ void rose_disconnect(struct sock *sk, int reason, int cause, int diagnostic)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	rose_stop_timer(sk);
+ 	rose_stop_idletimer(sk);
+Index: bk-afu/net/rose/rose_out.c
+===================================================================
+--- bk-afu.orig/net/rose/rose_out.c	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/net/rose/rose_out.c	2005-03-21 09:34:39.000000000 +0000
+@@ -33,7 +33,7 @@
+  */
+ static void rose_send_iframe(struct sock *sk, struct sk_buff *skb)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	if (skb == NULL)
+ 		return;
+@@ -48,7 +48,7 @@
+ 
+ void rose_kick(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	struct sk_buff *skb, *skbn;
+ 	unsigned short start, end;
+ 
+@@ -112,7 +112,7 @@
+ 
+ void rose_enquiry_response(struct sock *sk)
+ {
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 
+ 	if (rose->condition & ROSE_COND_OWN_RX_BUSY)
+ 		rose_write_internal(sk, ROSE_RNR);
+Index: bk-afu/net/rose/af_rose.c
+===================================================================
+--- bk-afu.orig/net/rose/af_rose.c	2005-03-21 09:33:42.000000000 +0000
++++ bk-afu/net/rose/af_rose.c	2005-03-21 09:34:39.000000000 +0000
+@@ -128,24 +128,7 @@
+ 
+ static struct sock *rose_alloc_sock(void)
+ {
+-	rose_cb *rose;
+-	struct sock *sk = sk_alloc(PF_ROSE, GFP_ATOMIC, 1, NULL);
 -
 -	if (!sk)
 -		goto out;
 -
--	nr = sk->sk_protinfo = kmalloc(sizeof(*nr), GFP_ATOMIC);
--	if (!nr)
+-	rose = sk->sk_protinfo = kmalloc(sizeof(*rose), GFP_ATOMIC);
+-	if (!rose)
 -		goto frees;
 -
--	memset(nr, 0x00, sizeof(*nr));
--	nr->sk = sk;
+-	memset(rose, 0x00, sizeof(*rose));
+-	rose->sk = sk;
 -out:
 -	return sk;
 -frees:
 -	sk_free(sk);
 -	sk = NULL;
 -	goto out;
-+	return  sk_alloc(PF_NETROM, GFP_ATOMIC, sizeof(struct nr_sock), NULL);
++	return sk_alloc(PF_ROSE, GFP_ATOMIC, sizeof(struct rose_sock), NULL);
  }
  
  /*
 @@ -169,7 +152,7 @@
  
- 	spin_lock_bh(&nr_list_lock);
- 	sk_for_each(s, node, &nr_list) {
--		nr_cb *nr = nr_sk(s);
-+		struct nr_sock *nr = nr_sk(s);
- 		
- 		if (nr->my_index == index && nr->my_id == id) {
- 			bh_lock_sock(s);
-@@ -193,7 +176,7 @@
+ 	spin_lock_bh(&rose_list_lock);
+ 	sk_for_each(s, node, &rose_list) {
+-		rose_cb *rose = rose_sk(s);
++		struct rose_sock *rose = rose_sk(s);
  
- 	spin_lock_bh(&nr_list_lock);
- 	sk_for_each(s, node, &nr_list) {
--		nr_cb *nr = nr_sk(s);
-+		struct nr_sock *nr = nr_sk(s);
- 		
- 		if (nr->your_index == index && nr->your_id == id &&
- 		    !ax25cmp(&nr->dest_addr, dest)) {
-@@ -300,7 +283,7 @@
+ 		if (rose->neighbour == neigh) {
+ 			rose_disconnect(s, ENETUNREACH, ROSE_OUT_OF_ORDER, 0);
+@@ -190,7 +173,7 @@
+ 
+ 	spin_lock_bh(&rose_list_lock);
+ 	sk_for_each(s, node, &rose_list) {
+-		rose_cb *rose = rose_sk(s);
++		struct rose_sock *rose = rose_sk(s);
+ 
+ 		if (rose->device == dev) {
+ 			rose_disconnect(s, ENETUNREACH, ROSE_OUT_OF_ORDER, 0);
+@@ -247,7 +230,7 @@
+ 
+ 	spin_lock_bh(&rose_list_lock);
+ 	sk_for_each(s, node, &rose_list) {
+-		rose_cb *rose = rose_sk(s);
++		struct rose_sock *rose = rose_sk(s);
+ 
+ 		if (!rosecmp(&rose->source_addr, addr) &&
+ 		    !ax25cmp(&rose->source_call, call) &&
+@@ -256,7 +239,7 @@
+ 	}
+ 
+ 	sk_for_each(s, node, &rose_list) {
+-		rose_cb *rose = rose_sk(s);
++		struct rose_sock *rose = rose_sk(s);
+ 
+ 		if (!rosecmp(&rose->source_addr, addr) &&
+ 		    !ax25cmp(&rose->source_call, &null_ax25_address) &&
+@@ -279,7 +262,7 @@
+ 
+ 	spin_lock_bh(&rose_list_lock);
+ 	sk_for_each(s, node, &rose_list) {
+-		rose_cb *rose = rose_sk(s);
++		struct rose_sock *rose = rose_sk(s);
+ 
+ 		if (rose->lci == lci && rose->neighbour == neigh)
+ 			goto found;
+@@ -372,7 +355,7 @@
  	char __user *optval, int optlen)
  {
  	struct sock *sk = sock->sk;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
  	int opt;
  
- 	if (level != SOL_NETROM)
-@@ -352,7 +335,7 @@
+ 	if (level != SOL_ROSE)
+@@ -432,7 +415,7 @@
  	char __user *optval, int __user *optlen)
  {
  	struct sock *sk = sock->sk;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
  	int val = 0;
- 	int len; 
+ 	int len;
  
-@@ -418,7 +401,7 @@
- static int nr_create(struct socket *sock, int protocol)
+@@ -491,7 +474,7 @@
+ 	struct sock *sk = sock->sk;
+ 
+ 	if (sk->sk_state != TCP_LISTEN) {
+-		rose_cb *rose = rose_sk(sk);
++		struct rose_sock *rose = rose_sk(sk);
+ 
+ 		rose->dest_ndigis = 0;
+ 		memset(&rose->dest_addr, 0, ROSE_ADDR_LEN);
+@@ -508,7 +491,7 @@
+ static int rose_create(struct socket *sock, int protocol)
  {
  	struct sock *sk;
--	nr_cb *nr;
-+	struct nr_sock *nr;
+-	rose_cb *rose;
++	struct rose_sock *rose;
  
  	if (sock->type != SOCK_SEQPACKET || protocol != 0)
  		return -ESOCKTNOSUPPORT;
-@@ -456,7 +439,7 @@
- static struct sock *nr_make_new(struct sock *osk)
+@@ -547,7 +530,7 @@
+ static struct sock *rose_make_new(struct sock *osk)
  {
  	struct sock *sk;
--	nr_cb *nr, *onr;
-+	struct nr_sock *nr, *onr;
+-	rose_cb *rose, *orose;
++	struct rose_sock *rose, *orose;
  
  	if (osk->sk_type != SOCK_SEQPACKET)
  		return NULL;
-@@ -508,7 +491,7 @@
- static int nr_release(struct socket *sock)
+@@ -600,7 +583,7 @@
+ static int rose_release(struct socket *sock)
  {
  	struct sock *sk = sock->sk;
--	nr_cb *nr;
-+	struct nr_sock *nr;
+-	rose_cb *rose;
++	struct rose_sock *rose;
  
  	if (sk == NULL) return 0;
  
-@@ -556,7 +539,7 @@
- static int nr_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
+@@ -646,7 +629,7 @@
+ static int rose_bind(struct socket *sock, struct sockaddr *uaddr, int addr_len)
  {
  	struct sock *sk = sock->sk;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	struct full_sockaddr_ax25 *addr = (struct full_sockaddr_ax25 *)uaddr;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	struct sockaddr_rose *addr = (struct sockaddr_rose *)uaddr;
  	struct net_device *dev;
  	ax25_address *user, *source;
-@@ -625,7 +608,7 @@
- 	int addr_len, int flags)
+@@ -705,7 +688,7 @@
+ static int rose_connect(struct socket *sock, struct sockaddr *uaddr, int addr_len, int flags)
  {
  	struct sock *sk = sock->sk;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	struct sockaddr_ax25 *addr = (struct sockaddr_ax25 *)uaddr;
- 	ax25_address *user, *source = NULL;
- 	struct net_device *dev;
-@@ -822,7 +805,7 @@
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	struct sockaddr_rose *addr = (struct sockaddr_rose *)uaddr;
+ 	unsigned char cause, diagnostic;
+ 	ax25_address *user;
+@@ -906,7 +889,7 @@
  {
- 	struct full_sockaddr_ax25 *sax = (struct full_sockaddr_ax25 *)uaddr;
+ 	struct full_sockaddr_rose *srose = (struct full_sockaddr_rose *)uaddr;
  	struct sock *sk = sock->sk;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	int n;
  
- 	lock_sock(sk);
  	if (peer != 0) {
-@@ -850,7 +833,7 @@
+@@ -935,7 +918,7 @@
  {
  	struct sock *sk;
- 	struct sock *make;	
--	nr_cb *nr_make;
-+	struct nr_sock *nr_make;
- 	ax25_address *src, *dest, *user;
- 	unsigned short circuit_index, circuit_id;
- 	unsigned short peer_circuit_index, peer_circuit_id;
-@@ -1015,7 +998,7 @@
- 		      struct msghdr *msg, size_t len)
+ 	struct sock *make;
+-	rose_cb *make_rose;
++	struct rose_sock *make_rose;
+ 	struct rose_facilities_struct facilities;
+ 	int n, len;
+ 
+@@ -1016,7 +999,7 @@
+ 			struct msghdr *msg, size_t len)
  {
  	struct sock *sk = sock->sk;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	struct sockaddr_ax25 *usax = (struct sockaddr_ax25 *)msg->msg_name;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	struct sockaddr_rose *usrose = (struct sockaddr_rose *)msg->msg_name;
  	int err;
- 	struct sockaddr_ax25 sax;
-@@ -1273,7 +1256,7 @@
+ 	struct full_sockaddr_rose srose;
+@@ -1186,7 +1169,7 @@
+ 			struct msghdr *msg, size_t size, int flags)
  {
- 	struct sock *s = v;
- 	struct net_device *dev;
--	nr_cb *nr;
-+	struct nr_sock *nr;
- 	const char *devname;
- 
- 	if (v == SEQ_START_TOKEN)
-Index: bk-afu/net/netrom/nr_in.c
-===================================================================
---- bk-afu.orig/net/netrom/nr_in.c	2005-03-17 23:53:59.000000000 +0000
-+++ bk-afu/net/netrom/nr_in.c	2005-03-20 10:38:57.000000000 +0000
-@@ -34,7 +34,7 @@
- static int nr_queue_rx_frame(struct sock *sk, struct sk_buff *skb, int more)
+ 	struct sock *sk = sock->sk;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	struct sockaddr_rose *srose = (struct sockaddr_rose *)msg->msg_name;
+ 	size_t copied;
+ 	unsigned char *asmptr;
+@@ -1251,7 +1234,7 @@
+ static int rose_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
  {
- 	struct sk_buff *skbo, *skbn = skb;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
+ 	struct sock *sk = sock->sk;
+-	rose_cb *rose = rose_sk(sk);
++	struct rose_sock *rose = rose_sk(sk);
+ 	void __user *argp = (void __user *)arg;
  
- 	skb_pull(skb, NR_NETWORK_LEN + NR_TRANSPORT_LEN);
+ 	switch (cmd) {
+@@ -1384,7 +1367,7 @@
  
-@@ -76,7 +76,7 @@
- {
- 	switch (frametype) {
- 	case NR_CONNACK: {
--		nr_cb *nr = nr_sk(sk);
-+		struct nr_sock *nr = nr_sk(sk);
+ 	else {
+ 		struct sock *s = v;
+-		rose_cb *rose = rose_sk(s);
++		struct rose_sock *rose = rose_sk(s);
+ 		const char *devname, *callsign;
+ 		const struct net_device *dev = rose->device;
  
- 		nr_stop_t1timer(sk);
- 		nr_start_idletimer(sk);
-@@ -138,7 +138,7 @@
-  */
- static int nr_state3_machine(struct sock *sk, struct sk_buff *skb, int frametype)
- {
--	nr_cb *nrom = nr_sk(sk);
-+	struct nr_sock *nrom = nr_sk(sk);
- 	struct sk_buff_head temp_queue;
- 	struct sk_buff *skbn;
- 	unsigned short save_vr;
-@@ -264,7 +264,7 @@
- /* Higher level upcall for a LAPB frame - called with sk locked */
- int nr_process_rx_frame(struct sock *sk, struct sk_buff *skb)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	int queued = 0, frametype;
- 
- 	if (nr->state == NR_STATE_0)
-Index: bk-afu/net/netrom/nr_subr.c
-===================================================================
---- bk-afu.orig/net/netrom/nr_subr.c	2005-03-17 23:54:00.000000000 +0000
-+++ bk-afu/net/netrom/nr_subr.c	2005-03-20 10:39:42.000000000 +0000
-@@ -34,7 +34,7 @@
-  */
- void nr_clear_queues(struct sock *sk)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	skb_queue_purge(&sk->sk_write_queue);
- 	skb_queue_purge(&nr->ack_queue);
-@@ -49,7 +49,7 @@
-  */
- void nr_frames_acked(struct sock *sk, unsigned short nr)
- {
--	nr_cb *nrom = nr_sk(sk);
-+	struct nr_sock *nrom = nr_sk(sk);
- 	struct sk_buff *skb;
- 
- 	/*
-@@ -88,7 +88,7 @@
-  */
- int nr_validate_nr(struct sock *sk, unsigned short nr)
- {
--	nr_cb *nrom = nr_sk(sk);
-+	struct nr_sock *nrom = nr_sk(sk);
- 	unsigned short vc = nrom->va;
- 
- 	while (vc != nrom->vs) {
-@@ -104,7 +104,7 @@
-  */
- int nr_in_rx_window(struct sock *sk, unsigned short ns)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	unsigned short vc = nr->vr;
- 	unsigned short vt = (nr->vl + nr->window) % NR_MODULUS;
- 
-@@ -122,7 +122,7 @@
-  */
- void nr_write_internal(struct sock *sk, int frametype)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	struct sk_buff *skb;
- 	unsigned char  *dptr;
- 	int len, timeout;
-Index: bk-afu/net/netrom/nr_out.c
-===================================================================
---- bk-afu.orig/net/netrom/nr_out.c	2005-03-17 23:53:59.000000000 +0000
-+++ bk-afu/net/netrom/nr_out.c	2005-03-20 10:39:20.000000000 +0000
-@@ -82,7 +82,7 @@
-  */
- static void nr_send_iframe(struct sock *sk, struct sk_buff *skb)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	if (skb == NULL)
- 		return;
-@@ -101,7 +101,7 @@
- void nr_send_nak_frame(struct sock *sk)
- {
- 	struct sk_buff *skb, *skbn;
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	if ((skb = skb_peek(&nr->ack_queue)) == NULL)
- 		return;
-@@ -125,7 +125,7 @@
- 
- void nr_kick(struct sock *sk)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	struct sk_buff *skb, *skbn;
- 	unsigned short start, end;
- 
-@@ -188,7 +188,7 @@
- 
- void nr_transmit_buffer(struct sock *sk, struct sk_buff *skb)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	unsigned char *dptr;
- 
- 	/*
-@@ -223,7 +223,7 @@
- 
- void nr_establish_data_link(struct sock *sk)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 
- 	nr->condition = 0x00;
- 	nr->n2count   = 0;
-@@ -241,7 +241,7 @@
-  */
- void nr_enquiry_response(struct sock *sk)
- {
--	nr_cb *nr = nr_sk(sk);
-+	struct nr_sock *nr = nr_sk(sk);
- 	int frametype = NR_INFOACK;
- 
- 	if (nr->condition & NR_COND_OWN_RX_BUSY) {
-@@ -259,7 +259,7 @@
- 
- void nr_check_iframes_acked(struct sock *sk, unsigned short nr)
- {
--	nr_cb *nrom = nr_sk(sk);
-+	struct nr_sock *nrom = nr_sk(sk);
- 
- 	if (nrom->vs == nr) {
- 		nr_frames_acked(sk, nr);
