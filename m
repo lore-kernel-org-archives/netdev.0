@@ -1,46 +1,48 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [1/1] connector: Kernel connector - userspace <-> kernelspace "linker".
-Date: Thu, 23 Sep 2004 17:54:47 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Oops when stopping IPsec connection
+Date: Fri, 24 Sep 2004 08:05:33 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923215447.GD30131@ruslug.rutgers.edu>
-References: <1095331899.18219.58.camel@uganda> <20040921124623.GA6942@uganda.factory.vocord.ru> <20040924000739.112f07dd@zanzibar.2ka.mipt.ru>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="TRYliJ5NKNqkz5bu"
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Message-ID: <E1CAbiX-00016Q-00@gondolin.me.apana.org.au>
+References: <1095975655.5976.13.camel@pegasus>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Content-Disposition: inline
-In-Reply-To: <20040924000739.112f07dd@zanzibar.2ka.mipt.ru>
+To: marcel@holtmann.org (Marcel Holtmann)
+In-Reply-To: <1095975655.5976.13.camel@pegasus>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Marcel Holtmann <marcel@holtmann.org> wrote:
+> EIP is at fib_nh_match+0x58/0x61
+>
+> Call Trace:
+> [<c02680dd>] fn_hash_delete+0x231/0x243
+> [<c02657d1>] inet_rtm_delroute+0x66/0x7a
 
---TRYliJ5NKNqkz5bu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-
-RFC:=20
-
-Can and should we work towards using this as interface for drivers that
-need callbacks from an external (closed source) library/HAL?
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---TRYliJ5NKNqkz5bu
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFBU0Ynat1JN+IKUl4RAv84AJ48EAwhP4PmmERogfg6cyipV2jYNgCfWMCF
-LCot3fpQXCwbd5Y/T+4cJPc=
-=4RAE
------END PGP SIGNATURE-----
-
---TRYliJ5NKNqkz5bu--
+Does this patch help?
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+===== net/ipv4/fib_hash.c 1.22 vs edited =====
+--- 1.22/net/ipv4/fib_hash.c	2004-09-22 09:31:48 +10:00
++++ edited/net/ipv4/fib_hash.c	2004-09-23 21:16:04 +10:00
+@@ -608,6 +608,7 @@
+ 	struct fn_hash *table = (struct fn_hash*)tb->tb_data;
+ 	struct fib_node *f;
+ 	struct fib_alias *fa, *fa_to_delete;
++	struct list_head *fa_head;
+ 	int z = r->rtm_dst_len;
+ 	struct fn_zone *fz;
+ 	u32 key;
+@@ -633,7 +634,8 @@
+ 		return -ESRCH;
+ 
+ 	fa_to_delete = NULL;
+-	list_for_each_entry(fa, fa->fa_list.prev, fa_list) {
++	fa_head = fa->fa_list.prev;
++	list_for_each_entry(fa, fa_head, fa_list) {
+ 		struct fib_info *fi = fa->fa_info;
+ 
+ 		if ((!r->rtm_type ||
