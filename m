@@ -1,122 +1,74 @@
-From: <SpamControl@icrier.res.in>
-Subject: BANNED (P=p003,M=audio/x-wav,T=exe,T=exe-ms,N=message.scr) IN
- MAIL FROM YOU
-Date: Fri, 26 Nov 2004 22:07:54 +0530 (IST)
-Message-ID: <VS30820-08@FIREWALL>
-References: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
+From: P@draigBrady.com
+Subject: Re: [E1000-devel] Transmission limit
+Date: Fri, 26 Nov 2004 16:57:41 +0000
+Message-ID: <41A76085.7000105@draigBrady.com>
+References: <1101467291.24742.70.camel@mellia.lipar.polito.it>	 <41A73826.3000109@draigBrady.com>  <16807.20052.569125.686158@robur.slu.se> <1101484740.24742.213.camel@mellia.lipar.polito.it>
 Mime-Version: 1.0
-Content-Type: multipart/report; report-type=delivery-status;
- boundary="----------=_1101487074-30820-3"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
-To: <netdev@oss.sgi.com>
+To: mellia@prezzemolo.polito.it
+In-Reply-To: <1101484740.24742.213.camel@mellia.lipar.polito.it>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format...
+I forgot a smilely on my previous post
+about not beleiving you. So here's 2: :-) :-)
 
-------------=_1101487074-30820-3
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
+Comments below:
 
-BANNED CONTENTS ALERT
+Marco Mellia wrote:
+> Robert,
+> It a pleasure to hear from you.
+>=20
+>> Touching the packet-data givs a major impact. See eth_type_trans
+>> in all profiles.
 
-Our content checker found
-    banned name: P=p003,M=audio/x-wav,T=exe,T=exe-ms,N=message.scr
-in email presumably from you (<netdev@oss.sgi.com>),
-to the following recipient:
--> ija@icrier.res.in
+Notice the e1000 sets up the alignment for IP by default.
 
-Delivery of the email was stopped!
+> skb are de/allocated using standard kernel memory management. Still,
+> without touching the packet, we can receive 100% of them.
 
-The message has been blocked because it contains a component
-(as a MIME part or nested within) with declared name
-or MIME type or contents type violating our access policy.
+I was doing some playing in this area this week.
+I changed the alloc per packet to a "realloc" per packet.
+I.E. the e1000 driver owns the packets. I noticed a
+very nice speedup from this. In summary a userspace
+app was able to receive 2x250Kpps without this patch,
+and 2x490Kpps with it. The patch is here:
+http://www.pixelbeat.org/tmp/linux-2.4.20-pb.diff
+Note 99% of that patch is just upgrading from
+e1000 V4.4.12-k1 to V5.2.52 (which doesn't affect
+the performance).
 
-To transfer contents that may be considered risky or unwanted
-by site policies, or simply too large for mailing, please consider
-publishing your content on the web, and only sending an URL of the
-document to the recipient.
+Wow I just read you're excellent paper, and noticed
+you used this approach also :-)
 
-Depending on the recipient and sender site policies, with a little
-effort it might still be possible to send any contents (including
-viruses) using one of the following methods:
+>> Small packet performance is dependent on low latency. Higher bus speed
+>> gives shorter latency but also on higher speed buses there use to be =20
+>> bridges that adds latency.
+>=20
+> That's true. We suspect that the limit is due to bus latency. But still=
+,
+> we are surprised, since the bus allows to receive 100%, but to transmit
+> up to ~50%. Moreover the raw aggerate bandwidth of the buffer is _far_
+> larger (133MHz*64bit ~ 8gbit/s
 
-- encrypted using pgp, gpg or other encryption methods;
+Well there definitely could be an asymmetry wrt bus latency.
+Saying that though, in my tests with much the same hardware
+as you, I could only get 800Kpps into the driver. I'll
+check this again when I have time. Note also that as I understand
+it the PCI control bus is running at a much lower rate,
+and that is used to arbitrate the bus for each packet.
+I.E. the 8Gb/s number above is not the bottleneck.
 
-- wrapped in a password-protected or scrambled container or archive
-  (e.g.: zip -e, arj -g, arc g, rar -p, or other methods)
+An lspci -vvv for your ethernet devices would be useful
+Also to view the burst size: setpci -d 8086:1010 e6.b
+(where 8086:1010 is the ethernet device PCI id).
 
-Note that if the contents is not intended to be secret, the
-encryption key or password may be included in the same message
-for recipient's convenience.
-
-We are sorry for inconvenience if the contents was not malicious.
-
-The purpose of these restrictions is to cut the most common propagation
-methods used by viruses and other malware. These often exploit automatic
-mechanisms and security holes in certain mail readers (Microsoft mail
-readers and browsers are a common and easy target). By requiring an
-explicit and decisive action from the recipient to decode mail,
-the dangers of automatic malware propagation is largely reduced.
-
-
-For your reference, here are headers from your email:
-------------------------- BEGIN HEADERS -----------------------------
-Return-Path: <netdev@oss.sgi.com>
-Received: from icrier.res.in (unknown [82.124.144.60])
-	by firewall.icrier.res.in (Postfix) with ESMTP id 7AEBD2687D
-	for <ija@icrier.res.in>; Fri, 26 Nov 2004 22:07:47 +0530 (IST)
-From: netdev@oss.sgi.com
-To: ija@icrier.res.in
-Subject: Mail Delivery (failure ija@icrier.res.in)
-Date: Fri, 26 Nov 2004 17:28:19 +0100
-MIME-Version: 1.0
-Content-Type: multipart/related;
-	type="multipart/alternative";
-	boundary="----=_NextPart_000_001B_01C0CA80.6B015D10"
-X-Priority: 3
-X-MSMail-Priority: Normal
-Message-Id: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
--------------------------- END HEADERS ------------------------------
-
-------------=_1101487074-30820-3
-Content-Type: message/delivery-status
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-Content-Description: Delivery error report
-
-Reporting-MTA: dns; FIREWALL
-Received-From-MTA: smtp; firewall.icrier.res.in ([127.0.0.1])
-Arrival-Date: Fri, 26 Nov 2004 22:07:54 +0530 (IST)
-
-Final-Recipient: rfc822; ija@icrier.res.in
-Action: failed
-Status: 5.7.1
-Diagnostic-Code: smtp; 550 5.7.1 Message content rejected, id=30820-08 - BANNED: P=p003,M=audio/x-wav,T=exe,T=exe-ms,N=message.scr
-Last-Attempt-Date: Fri, 26 Nov 2004 22:07:54 +0530 (IST)
-
-------------=_1101487074-30820-3
-Content-Type: text/rfc822-headers
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-Content-Description: Undelivered-message headers
-
-Received: from icrier.res.in (unknown [82.124.144.60])
-	by firewall.icrier.res.in (Postfix) with ESMTP id 7AEBD2687D
-	for <ija@icrier.res.in>; Fri, 26 Nov 2004 22:07:47 +0530 (IST)
-From: netdev@oss.sgi.com
-To: ija@icrier.res.in
-Subject: Mail Delivery (failure ija@icrier.res.in)
-Date: Fri, 26 Nov 2004 17:28:19 +0100
-MIME-Version: 1.0
-Content-Type: multipart/related;
-	type="multipart/alternative";
-	boundary="----=_NextPart_000_001B_01C0CA80.6B015D10"
-X-Priority: 3
-X-MSMail-Priority: Normal
-Message-Id: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
-
-------------=_1101487074-30820-3--
+cheers,
+P=E1draig.
