@@ -1,29 +1,44 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.11 on AMD64 traps
-Date: Wed, 9 Mar 2005 16:43:04 -0800
-Message-ID: <20050309164304.5902e558.davem@davemloft.net>
-References: <200503081900.18686.vanco@satro.sk>
-	<200503092217.01106.vanco@satro.sk>
-	<422F8649.8050707@trash.net>
-	<200503100050.05582.vanco@satro.sk>
-	<422F8D84.8010103@trash.net>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/5] r8169: auto detect 32-bit slot
+Date: Thu, 10 Mar 2005 01:45:25 +0100
+Message-ID: <20050310004525.GA12735@electric-eye.fr.zoreil.com>
+References: <20050309112925.7f7900ab@dxpl.pdx.osdl.net> <m17jkgwp6i.fsf@muc.de> <20050309214023.GA9502@electric-eye.fr.zoreil.com> <20050309135530.5c5c80b6@dxpl.pdx.osdl.net> <20050309230809.GC9502@electric-eye.fr.zoreil.com> <20050309232024.GC63395@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: vanco@satro.sk, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <422F8D84.8010103@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+To: Andi Kleen <ak@muc.de>
+Content-Disposition: inline
+In-Reply-To: <20050309232024.GC63395@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Mar 2005 00:57:56 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+Andi Kleen <ak@muc.de> :
+[...]
+> The concept of "64bit systems" is useless here anyways. Even on a 32bit
+> system with highmem like i386 you can get >32bit addresses to deal
+> with. One usecase for that would be sendfile() out of user space.
+> This is widely used these days.
 
-> > Will this patch be included in future kernels?
-> 
-> I hope so. Dave, are you fine with making /proc more efficient than
-> netlink ? :)
+The combination "32 bit system with weird addressing mode + r8169 adapter"
+has accounted for 0 bug/success report so far and I do not know a single
+tester for it anyway. Whence my narrow-minded view of the issue :o)
 
-No objection :-)  I'll hit this on my next pass over my 2.6.x
-backlog which should start tonight.
+[...]
+> Again are you sure it depends on 64bit slots? Normally 64bit slots
+> only offer more bandwidth, but the address protocol is the same
+> as 32bit and both support DAC in the same way.
+
+I do not know. The 8169 includes a register which tells (various things +)
+the bus width. Without further documentation, I do not see how the relevance
+of this register can be established/discarded if the aforementioned
+test-cases are not experienced.
+
+[...]
+> You really should forget about amd64 or not, all that counts is
+> sizeof(dma_addr_t) 
+
+(assuming the on-board 8169 is wired correctly, be it on-board or not, yes)
+
+--
+Ueimor
