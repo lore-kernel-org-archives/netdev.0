@@ -1,26 +1,30 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] NET: typo in include/linux/skbuff.h
-Date: Wed, 31 Dec 2003 22:05:33 +0900 (JST)
+Subject: Re: [PATCH] NET: typo in include/linux/skbuff.h
+Date: Wed, 31 Dec 2003 22:08:46 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031231.220533.102712852.yoshfuji@linux-ipv6.org>
+Message-ID: <20031231.220846.98269358.yoshfuji@linux-ipv6.org>
+References: <20031231.220533.102712852.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
+In-Reply-To: <20031231.220533.102712852.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.  I found wrong description in include/linux/skbuff.h.
+In article <20031231.220533.102712852.yoshfuji@linux-ipv6.org> (at Wed, 31 Dec 2003 22:05:33 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-D: Fix description for skb_dequeue_tail().
+> Hello.  I found wrong description in include/linux/skbuff.h.
+> 
+> D: Fix description for skb_dequeue_tail().
 
-Thanks.
+Oops, root of patch was wrong. Please use this instead.
 
-===== skbuff.h 1.35 vs edited =====
+===== include/linux/skbuff.h 1.35 vs edited =====
 --- 1.35/include/linux/skbuff.h	Thu Oct  9 00:39:36 2003
-+++ edited/skbuff.h	Wed Dec 31 22:00:34 2003
++++ edited/include/linux/skbuff.h	Wed Dec 31 22:07:21 2003
 @@ -764,10 +764,10 @@
  }
  
