@@ -1,65 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Sam Ravnborg <sam@ravnborg.org>
 Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 02:24:10 -0700
+Date: Tue, 30 Sep 2003 11:57:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930022410.08c5649c.davem@redhat.com>
-References: <20030928225941.GW15338@fs.tum.de>
-	<20030928231842.GE1039@conectiva.com.br>
-	<20030928232403.GX15338@fs.tum.de>
-	<20030929220916.19c9c90d.davem@redhat.com>
-	<1064903562.6154.160.camel@imladris.demon.co.uk>
-	<20030930000302.3e1bf8bb.davem@redhat.com>
-	<1064907572.21551.31.camel@hades.cambridge.redhat.com>
-	<20030930010855.095c2c35.davem@redhat.com>
-	<1064910398.21551.41.camel@hades.cambridge.redhat.com>
-	<20030930013025.697c786e.davem@redhat.com>
-	<1064911360.21551.49.camel@hades.cambridge.redhat.com>
-	<20030930015125.5de36d97.davem@redhat.com>
-	<1064913241.21551.69.camel@hades.cambridge.redhat.com>
+Message-ID: <20030930095721.GA1036@mars.ravnborg.org>
+References: <1064903562.6154.160.camel@imladris.demon.co.uk> <20030930000302.3e1bf8bb.davem@redhat.com> <1064907572.21551.31.camel@hades.cambridge.redhat.com> <20030930010855.095c2c35.davem@redhat.com> <1064910398.21551.41.camel@hades.cambridge.redhat.com> <20030930013025.697c786e.davem@redhat.com> <1064911360.21551.49.camel@hades.cambridge.redhat.com> <20030930015125.5de36d97.davem@redhat.com> <1064913241.21551.69.camel@hades.cambridge.redhat.com> <20030930022410.08c5649c.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bunk@fs.tum.de, acme@conectiva.com.br, netdev@oss.sgi.com,
-        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: David Woodhouse <dwmw2@infradead.org>, bunk@fs.tum.de,
+        acme@conectiva.com.br, netdev@oss.sgi.com, pekkas@netcore.fi,
+        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1064913241.21551.69.camel@hades.cambridge.redhat.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030930022410.08c5649c.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Sep 2003 10:14:02 +0100
-David Woodhouse <dwmw2@infradead.org> wrote:
+On Tue, Sep 30, 2003 at 02:24:10AM -0700, David S. Miller wrote:
+> 
+> > In the 2.6 kernel, I suspect that these same version strings are now
+> > produced as a side-effect of the 'make vmlinux' stage, and hence that
+> > it's required to 'make vmlinux' before any modules can be built.
+> 
+> What this means is that it's required for the kernel image to be up to
+> date before any modules can be built.  If we can check that in the
+> build system for the sake of modversions (and if we're not doing that
+> now it's a bug we should fix) we can do it equally for ipv6.
 
-> Not at all. You're talking about something entirely different.
+There is a postprocessing step when building modules that take care
+of modversioning. And yes, it requires a final vmlinux.
 
-I think they are the same.  It's module building depending upon the
-kernel image being up to date.
-
-modules: vmlinux image
-	... blah blah blah
-
-or however you want to express it in the makefiles.
-
-> In the 2.6 kernel, I suspect that these same version strings are now
-> produced as a side-effect of the 'make vmlinux' stage, and hence that
-> it's required to 'make vmlinux' before any modules can be built.
-
-What this means is that it's required for the kernel image to be up to
-date before any modules can be built.  If we can check that in the
-build system for the sake of modversions (and if we're not doing that
-now it's a bug we should fix) we can do it equally for ipv6.
-
-> This (potential) dependency is entirely unrelated to any _changes_ in
-> configuration.
-
-I don't see how this changes the argument I'm trying to make.
-
-I'm saying that either you accept that the kernel image must be
-uptodate in order to build modules, or you don't.  It doesn't matter
-what creates that dependency.
-
-You can't say "the ipv6 thing is different because a config change
-from 'n' to 'm' is creating the dependency", that doesn't make it
-special.  In all such cases, modules require the kernel image they are
-being built for to be uptodate.
+	Sam
