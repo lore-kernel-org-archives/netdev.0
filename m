@@ -1,52 +1,29 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: [dzila@tassadar.physics.auth.gr: Re: [LARTC] tc reliably hangs my system]
-Date: Fri, 5 Jul 2002 16:57:10 +0200
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: IPv6 ND on PPC hardware
+Date: Fri, 5 Jul 2002 20:05:19 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020705145710.GA5919@outpost.ds9a.nl>
+Message-ID: <200207051605.UAA06535@sex.inr.ac.ru>
+References: <20020629143901.GA1963@wonderland.linux.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com, md@Linux.IT
+In-Reply-To: <20020629143901.GA1963@wonderland.linux.it> from "Marco d'Itri" at Jun 29, 2 07:15:01 pm
 List-Id: netdev.vger.kernel.org
 
-Jamal,
+Hello!
 
-The patch you mentioned works fine, so I suggest it be merged pronto :-)
+> When I try to ping another host on the LAN it usually works the first
+> time, and then stops working because the other host does not replies to
+> ND requests. 
 
-Thanks!
+It would be better if you gave full tcpdump where "working" stage
+is present too.
 
------ Forwarded message from Dimitris Zilaskos <dzila@tassadar.physics.auth.gr> -----
+> Apparently verything works again if I switch the interface
+> in promiscuous mode.
 
-Date: Fri, 5 Jul 2002 16:35:33 +0300 (EEST)
-From: Dimitris Zilaskos <dzila@tassadar.physics.auth.gr>
-To: bert hubert <ahu@ds9a.nl>
-Cc: lartc@mailman.ds9a.nl
-Subject: Re: [LARTC] tc reliably hangs my system
+At receiver? If yes, then it is most likely wrongly configured
+multicast filter at device. Though it is still not clear why it worked
+the first time.
 
->
->
-> http://www.cyberus.ca/~hadi/patches/ing-stats.patch
->
-> This fixes a known issue that looks like this - can you try if this resolves
-> your problem? This patch will be in in 2.4.19 probably.
-
-  Thnx . I am using the patch now with success . I can no longer reproduce
-the hang .
-
-  Regards ,
-
---
-=============================================================================
-
-Dimitris Zilaskos
-
-Department of Physics @ Aristotle Univercity of Thessaloniki , Greece
-=============================================================================
-
------ End forwarded message -----
-
--- 
-http://www.PowerDNS.com          Versatile DNS Software & Services
-http://www.tk                              the dot in .tk
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+Alexey
