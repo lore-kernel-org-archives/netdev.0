@@ -1,23 +1,49 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] 2.4, 2.6 patchset for fealnx.c
-Date: Tue, 13 Apr 2004 14:32:24 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <407C3238.9030103@pobox.com>
-References: <200404052217.35883.vda@port.imtp.ilyichevsk.odessa.ua>
+Subject: Re: [NET] net driver updates
+Date: Tue, 13 Apr 2004 14:31:16 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <407C31F4.9070800@pobox.com>
+References: <4072CD01.6070408@pobox.com> <FE87A41F-8809-11D8-8F2A-000A9597297C@fhm.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, andreas@fjortis.info,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-In-Reply-To: <200404052217.35883.vda@port.imtp.ilyichevsk.odessa.ua>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Daniel Egger <degger@fhm.edu>
+In-Reply-To: <FE87A41F-8809-11D8-8F2A-000A9597297C@fhm.edu>
 List-Id: netdev.vger.kernel.org
 
-Can you please patchbomb me instead?
+Daniel Egger wrote:
+> On 06.04.2004, at 17:30, Jeff Garzik wrote:
+> 
+>> * Francois work on r8169, epic100, sis190: PCI DMA, NAPI, other minor 
+>> fixes and cleanups
+> 
+> 
+> r8169 seems to work though it is not even a tad bit faster
+> than plain 2.6.5.
 
-One patch per email, and separate patchbombs for 2.4 and 2.6 if a single 
-set does not apply to both kernels.
+Francois is still trying to fix all the vendor-created bugs, so 
+performance is a secondary consideration.
+
+RTL8169 is a nice chipset, though.  Robert Ollsson had some nice pktgen 
+numbers for it, IIRC.
+
+
+> Those cards are really driving me nuts. Between two r8169 cards, one
+> on Athlon with kernel 2.4.24, one on Athlon with 2.6.5 or 2.4.24, I
+> get 90Mbit/s in one direction and 39Mbit/s in the other using iperf and
+> TCP. With iperf and UDP they deliver 100Mbit/s resp. 230Mbit/s depending
+> on the direction. Crosschecking with my PowerBook (OS X) shows that I can
+> get 844Mbit/s (UDP) or 572Mbit/s (TCP) to one host and 844Mbit/s (UDP) but
+> only 88Mbit/s (TCP) to the other.
+> 
+> The environment is switched and changing cables and/or ports doesn't
+> improve the results.
+> 
+> Ideas? (Yeah, I'll get Intel NICs RSN...)
+
+Yeah -- I plan to kill r8169, and use 8139cp.c to drive it instead :)
 
 	Jeff
