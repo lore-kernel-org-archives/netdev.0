@@ -1,73 +1,96 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: Re: [PATCH] Use nfmark as a key for u32 classifier
-Date: Mon, 8 Nov 2004 12:06:50 +0200 (EET)
-Message-ID: <Pine.LNX.4.61.0411081204290.9229@webhosting.rdsbv.ro>
-References: <Pine.LNX.4.61.0411051317330.23651@webhosting.rdsbv.ro>
- <1099669841.1026.18.camel@jzny.localdomain>
+From: Ulrich Weber <uweber@astaro.de>
+Subject: Re: [Vpn-failover] [RFC] IPSEC failover - Netlink part
+Date: Mon, 08 Nov 2004 11:31:21 +0100
+Message-ID: <418F4AF9.7050605@astaro.de>
+References: <1099045435.2888.47.camel@nienna.balabit> <418A3630.1040900@astaro.de> <418A71DA.2090607@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1099669841.1026.18.camel@jzny.localdomain>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: vpn-failover@lists.balabit.hu, netdev@oss.sgi.com,
+        ipsec-tools-devel@lists.sourceforge.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <418A71DA.2090607@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I think this is an ok midterm solution and should be applied.
-Thanks.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> One comment Catalin: Can you resend the patch  make this a selectable
-> choice via kconfig?
-Yes, of course.
-Also, as a bonus, I will add a mask. Something like this:
-tc filter add dev eth0 protocol ip parent 1:0 prio 5 u32 \
- 	match mark 0x0090 0xffff \
-                           ^^^^^^
- 	flowid 1:90
+what did you mean with "leaks xfrm_state reference"? The missing
+xfrm_state_put(x) ?
+I changed it (see below) to use Krisztian's xfrm_state_replay_update function.
 
-It's ok?
+|>
+|> +    struct xfrm_replay_state *replay;
+|> + +    x = xfrm_state_lookup(&p->daddr, p->spi, p->proto, p->family);
+|> +        if (x == NULL) {
+|> +        printk(KERN_INFO "Found no xfrm state for sa seq update\n");
+|> +                return -ESRCH;
+|> +        }
+|> +
+|> +    if(xfrma[XFRMA_REPLAY-1]) {
+|> +        replay = RTA_DATA(xfrma[XFRMA_REPLAY - 1]);
+|> +        x->replay = *replay;
+|>
+|>
+|> +        }
+|> +    else return -EINVAL;
+|>
+|>
+| ^^ leaks xfrm_state reference
+|
+|> +
+|> +    return 0;
+|>
+|>
+| ^^ same here
+|
+|> +} +
+|> static const int xfrm_msg_min[(XFRM_MSG_MAX + 1 - XFRM_MSG_BASE)] = {
+|>     NLMSG_LENGTH(sizeof(struct xfrm_usersa_info)),    /* NEW SA */
+|>     NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),    /* DEL SA */
+|> @@ -867,6 +897,7 @@
+|>     NLMSG_LENGTH(sizeof(struct xfrm_user_polexpire)), /* POLEXPIRE */
+|>     NLMSG_LENGTH(sizeof(struct xfrm_usersa_flush)),    /* FLUSH SA */
+|>     NLMSG_LENGTH(0),                /* FLUSH POLICY */
+|> +    NLMSG_LENGTH(sizeof(struct xfrm_usersa_id)),/* UPD SEQ */
+|>
+|>
+| ^^ what about struct xfrm_replay_state ?
+it's attached as rt attribute, so it should be ok.
 
-> Eventually  - we should kill this + the indev choices on u32 and move it
-> up one so that we can have all filters capable of following filters from
-> other classifiers. As a matter of fact we already have this feature but
-> it is a little on the inefficient side at the moment.
+- ---
+static int xfrm_update_seq(struct sk_buff *skb, struct nlmsghdr *nlh, void
+**xfrma)
+{
+~        struct xfrm_state *x;
+~        struct xfrm_usersa_id *p = NLMSG_DATA(nlh);
+~        struct xfrm_replay_state *replay;
 
-It will be very good. It will add the missing flexibility.
-I'll try to cook up something.
+~        x = xfrm_state_lookup(&p->daddr, p->spi, p->proto, p->family);
+~        if (x == NULL) {
+~                printk(KERN_INFO "Found no xfrm state for sa seq update\n");
+~                return -ESRCH;
+~                }
 
->
-> cheers,
-> jamal
->
-> On Fri, 2004-11-05 at 06:38, Catalin(ux aka Dino) BOIE wrote:
->> Hello!
->>
->> I am glad to announce a patch for u32 to allow matches on nfmark.
->> The patch is non intrusive (few lines).
->>
->> Why I did this? Because fw classifier cannot be used together with u32.
->> For example, now, you cannot match a mark of 0x90 and a destination
->> port of 80. I know you can do it with iptables to do the marking, but if
->> you use Jamal actions to apply mark to policed packets, you need this.
->>
->> All stuff can be found at http://kernel.umbrella.ro/ also.
->>
->> Dave, please consider adding this patch.
->>
->> Stephen, if Dave accepts the patch, please apply the iproute2 patch. Thank
->> you.
->>
->> Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
->>
->> Thank you for you time.
->> ---
->> Catalin(ux aka Dino) BOIE
->> catab at deuroconsult.ro
->> http://kernel.umbrella.ro/
->
+~        if(xfrma[XFRMA_REPLAY-1]) {
+~                replay = RTA_DATA(xfrma[XFRMA_REPLAY - 1]);
+~                xfrm_state_replay_update(x, replay);
+~                xfrm_state_put(x);
+~                }
+~        else return -EINVAL;
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+~        return 0;
+}
+
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+
+iD8DBQFBj0r522t2oTuElzoRAgBWAKCKSQXB2rX9DeMpMwVIMl9mXfmxUQCfeYYY
+1d3V4P8C3+d5YgsYpwkFHPQ=
+=RihP
+-----END PGP SIGNATURE-----
