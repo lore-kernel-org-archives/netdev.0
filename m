@@ -1,62 +1,82 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [6/6]: jenkins hash for neigh
-Date: Sun, 26 Sep 2004 19:11:27 +0900 (JST)
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [IPv4]: More fib_alias insertion fixes
+Date: Sun, 26 Sep 2004 13:28:44 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040926.191127.96477984.yoshfuji@linux-ipv6.org>
-References: <20040924142702.62a2b23d.davem@davemloft.net>
-	<20040925064406.GL3236@sunbeam.de.gnumonks.org>
-	<20040925005623.2faf8faf.davem@davemloft.net>
+Message-ID: <Pine.LNX.4.58.0409261224350.8973@u.domain.uli>
+References: <E1CBUBF-00034F-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20040925005623.2faf8faf.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1CBUBF-00034F-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040925005623.2faf8faf.davem@davemloft.net> (at Sat, 25 Sep 2004 00:56:23 -0700), "David S. Miller" <davem@davemloft.net> says:
 
-> So let's discuss #4.  It is the first idea I had to combat the
-> "problem", but honestly right now I am beginning to think that
-> the real solution is to simply remove the INCOMPLETE checks
-> altogether.
-> 
-> Neighbours are a sub-cache of the routing cache.  Therefore when
-> a neigh entry has a singular refcount, no routing cache entry
-> points to it.  No routing cache entry, we're not sending packets
-> to that neighbour any time soon, so there is no reason (especially
-> during strong pressure) to hold onto such entries.
+	Hello,
 
-First, in IPv6, we usually do not create cache entries for now.
-(I assume it is rt6_info with RTF_CACHE flag set.)
-We create one if we receives
- - redirect
-or
- - too big (for pmtu).
+On Sun, 26 Sep 2004, Herbert Xu wrote:
 
-Personally, I agree to change this; always to create routing cache.
+> Well if we're doing this then we might as well keep it sorted by TOS.
+> It makes the code simpler, right?
 
-Second, we should free only STALE entries first for specification
-conformity; lifetime of stale entries is not standardized,
-but ones of others are.
-We will be broken especially for neighbour-cache reachable-time is
-longer than routing-cache lifetime) case.
+	I do not know for good reason to avoid order by TOS, may be
+Dave can explain.
 
-So, I would say
- - stage 1: if num_entries > low_thresh,
-             try purge STALE entries (with refcnt == 1).
-             if not enough, schedule flushing routing cache.
- - stage 2: if num_entries > high_thresh,
-             try to purge all states (except for permanent entries, 
-             but including 1 second-old INCOMPLETE entries.)
-             if not enough, schedule flushing routing cache.
- - stage 3: if num_entries > ultimate_thresh, we fail.
-or something.
+	As for your last change, it is wrong:
 
-So, I cannot agree simiply removing the "INCOMPLETE" test.
+>                 prev_fa = NULL;
+>                 list_for_each_entry(fa, head, fa_list) {
+> -                       if (fa->fa_tos != tos)
+> -                               continue;
+> +                       if (fa->fa_tos < tos)
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+	here prev_fa can be NULL but we require to stop at fa.
+It happens when we are creating first entry in our subchain.
+
+> +                               break;
+>                         prev_fa = fa;
+> +                       if (fa->fa_tos > tos)
+> +                               continue;
+>                         if (prio <= fa->fa_info->fib_priority)
+>                                 break;
+
+	here if fa is the last one it is wrong to return prev_fa!=NULL,
+we need to return NULL (append) because we have to append
+new entry in our subchain (which is last in this case).
+
+>                 }
+
+	Here is my understanding how should work fib_find_alias (already
+implemented, refer to my first posting, the case where we sort by TOS).
+Note that the logic is same as before fib_alias appeared:
+
+- fib_find_alias can return exact match: the desired TOS & PRIO.
+This is the first entry in a subchain where append and prepend
+matter (NLM_F_APPEND).
+
+- the return value should be used in this way: if NULL then we have
+to append the new entry at end of list. Else, it is a fa with
+fa_tos<desired_TOS || (fa_tos==desired_TOS && fib_priority >= desired PRIO)
+We are going to insert the new entry before this fa (even if it is
+not exact match, even if it is from next subchain). Saying it in
+another way: use append only if there is no place to insert.
+
+	Sometimes we can add entry with metric less
+than existing one but sometimes we have to insert new entry
+between two subchains (fa points to first entry in next subchain).
+The result: fa points to next subchain or somehere in our
+subchain - the place to insert.
+
+- list_add serves the purpose to insert between head and first
+(fa and next fa/fn_alias), we need list_add_tail (insert before fa
+or fn_alias, i.e. append at tail).
+
+	So, may be we need my 1st version of fib_find_alias plus
+'fa->fa_tos == tos' plus list_add_tail?
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
