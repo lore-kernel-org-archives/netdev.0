@@ -1,69 +1,40 @@
-From: maximilian attems <janitor@sternwelten.at>
-Subject: Re: [Kernel-janitors] Re: [patch 1/8] irda/act200l-sir: replace
-	schedule_timeout() with msleep()
-Date: Thu, 2 Sep 2004 00:58:42 +0200
-Sender: kernel-janitors-bounces@lists.osdl.org
-Message-ID: <20040901225841.GF7467@stro.at>
-References: <E1C2cIF-0007yy-Lb@sputnik>
-	<20040901210929.GA11442@bougret.hpl.hp.com>
-	<20040901214003.GC7467@stro.at>
-	<20040901214815.GA13071@bougret.hpl.hp.com>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: HELP for dccp implementation.
+Date: Wed, 1 Sep 2004 23:48:05 -0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040902024805.GA23844@conectiva.com.br>
+References: <412CC269.8080907@rus.uni-stuttgart.de> <1093454747.1034.85.camel@jzny.localdomain> <4135A32A.4030901@rus.uni-stuttgart.de> <20040901133709.3637d63d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============9078948611254507=="
-Cc: kj <kernel-janitors@osdl.org>, netdev@oss.sgi.com, jgarzik@pobox.com
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: jt@hpl.hp.com
-In-Reply-To: <20040901214815.GA13071@bougret.hpl.hp.com>
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Zhikui Chen <zhikui.chen@rus.uni-stuttgart.de>, hadi@cyberus.ca,
+        dccp@ietf.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040901133709.3637d63d.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============9078948611254507==
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Wed, 01 Sep 2004, Jean Tourrilhes wrote:
-
-> On Wed, Sep 01, 2004 at 11:40:03PM +0200, maximilian attems wrote:
-> > On Wed, 01 Sep 2004, Jean Tourrilhes wrote:
-..
-> > 
-> > hmm we have still archs were HZ < 100.
-> > i find msleep use msecs units a lot more readable than
-> > 	schedule_timeout((HZ + 99) / 100);
-> > 
-> > the schedule_timeout(HZ/100) gets safely converted with msleep.
+Em Wed, Sep 01, 2004 at 01:37:09PM -0700, David S. Miller escreveu:
+> On Wed, 01 Sep 2004 12:23:38 +0200
+> Zhikui Chen <zhikui.chen@rus.uni-stuttgart.de> wrote:
 > 
-> 	I don't have complain about converting the (HZ + 99) / 100
-> expressions to something saner. My beef is the fact that msleep hide
-> the fact that a schedule might happen. This is important in the IrDA
-> code.
+> > If I assign a value such as 0x ee9fbc00 to sk in dccp_rcv (before lookup 
+> > calling), and comment lookkup calling, I get a error report from 
+> > bh_lock_sock(sk) calling inside dccp_rcv, which error report is  
+> > spin_is_locked on uninitialized spinlock ee9fbc00, and spin_lock 
+> > (<NULL>:ee9fbc00) already locked by <NULL>/73.
+> > 
+> > Do you know its reason? Thanks,
+> 
+> Zhikui, are you working together with Arnaldo using his
+> code base, like we suggested to you?  Or are you working
+> still on your own code?
 
-sorry my woding was confusing:
-(HZ + 99) / 100 is correct!
-as msleep(10)
- 
---
-maks
-kernel janitor  	http://janitor.kernelnewbies.org/
+Dave, I've been quite busy lately with some other projects and haven't
+been able to colaborate with Zhikui, I hope to change this situation
+soon.
 
+Regards,
 
-
---===============9078948611254507==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============9078948611254507==--
+                        - Arnaldo
