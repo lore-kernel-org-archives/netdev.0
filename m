@@ -1,29 +1,63 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Info: NAPI performance at "low" loads
-Date: Tue, 17 Sep 2002 18:00:14 -0700 (PDT)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: bonding vs 802.3ad/Cisco EtherChannel link agregation
+Date: Tue, 17 Sep 2002 21:07:53 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020917.180014.07882539.davem@redhat.com>
-References: <3D87A59C.410FFE3E@digeo.com>
-	<Pine.GSO.4.30.0209172053360.3686-100000@shell.cyberus.ca>
+Message-ID: <Pine.GSO.4.30.0209172100361.3686-100000@shell.cyberus.ca>
+References: <3D875BA9.70501@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: akpm@digeo.com, manfred@colorfullife.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chris Friesen <cfriesen@nortelnetworks.com>,
+   Cacophonix <cacophonix@yahoo.com>, <linux-net@vger.kernel.org>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <Pine.GSO.4.30.0209172053360.3686-100000@shell.cyberus.ca>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3D875BA9.70501@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: jamal <hadi@cyberus.ca>
-   Date: Tue, 17 Sep 2002 20:57:58 -0400 (EDT)
-   
-   I am not so sure with that 6% difference there is no other bug lurking
-   there; 6% seems too large for an extra two PCI transactions per packet.
 
-{in,out}{b,w,l}() operations have a fixed timing, therefore his
-results doesn't sound that far off.
 
-It is also one of the reasons I suspect Andrew saw such bad results
-with 3c59x, but probably that is not the only reason.
+On Tue, 17 Sep 2002, Ben Greear wrote:
+
+> I have a program that sends and receives UDP packets with 32-bit sequence
+> numbers.  I can detect OOO packets if they fit into the last 10 packets
+> received.  If they are farther out of order than that, the code treats
+> them as dropped....
+>
+
+So let me understand this:
+You have a packet going out eth0 looped back to eth0 and you are seeing
+reordering? What sort of things are happening from departure at udp socket
+to arrival on the other side? Are you doing anything funky yourself or
+it is all kernel?
+
+> I used smp_afinity to tie a NIC to a CPU, and the napi patch for 2.4.20-pre7.
+
+Did you get reordering with affinity?
+
+>
+> When sending and receiving 250Mbps of UDP/IP traffic (sending over cross-over
+> cable to other NIC on same machine), I see the occasional OOO packet.  I also
+> see bogus dropped packets, which means sometimes the order is off by 10 or more
+> packets....
+
+A lot of shit is happening at that rate in particular with PCI bus. If
+i understood correctly a packet crosses the bus about 4 times?
+
+>
+> The other fun thing about this setup is that after running around 65 billion bytes
+> with this test, the machine crashes with an OOPs.
+
+No clue whats going on - probably a race somewhere and cant help since
+i dont have this NIC but if you get Robert excited he might be able to
+help you.
+
+> I can repeat this at will, but so far only on
+> this dual-proc machine, and only using the e1000 driver (NAPI or regular).  Soon, I'll
+> test with a 4-port tulip NIC to see if I can take the e1000 out of the equation...
+>
+
+I doubt youll see it there.
+
+cheers,
+jamal
