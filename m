@@ -1,46 +1,43 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Wed, 08 Jan 2003 15:56:34 -0800
+From: Fabio Massimo Di Nitto <fabbione@fabbione.net>
+Subject: Re: ipv6 stack seems to forget to send ACKs
+Date: Thu, 9 Jan 2003 08:29:19 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E1CBAB2.78FE168A@us.ibm.com>
-References: <Pine.LNX.4.33.0301081451110.2281-100000@dyn9-47-18-86.beaverton.ibm.com> <20030108.150638.09647984.davem@redhat.com> <3E1CAACB.5D1B82DB@us.ibm.com>
-Reply-To: niv@us.ibm.com
+Message-ID: <Pine.LNX.4.51.0301090822001.19862@trider-g7.ext.fabbione.net>
+References: <20030108130850.GQ22951@wiggy.net>
+ <Pine.LNX.4.51.0301081849550.564@diapolon.int.fabbione.net>
+ <78180000.1042055993@localhost.localdomain> <20030108224339.GO22951@wiggy.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, sri@us.ibm.com, kuznet@ms2.inr.ac.ru,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew McGregor <andrew@indranet.co.nz>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Grimm <jgrimm2@us.ibm.com>
+To: Wichert Akkerman <wichert@wiggy.net>
+In-Reply-To: <20030108224339.GO22951@wiggy.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Grimm wrote:
-> 
-> "David S. Miller" wrote:
-> >
-> >    From: Sridhar Samudrala <sri@us.ibm.com>
-> >    Date: Wed, 8 Jan 2003 15:04:53 -0800 (PST)
 
-> > Sigh... I guess the new argument to ip_queue_xmit() is the least
-> > intrusive.
-> 
-> I hate to mention it, but there is at least one other alternative (to
-> complete the picture) that is to chunk up the messages into their
-> smallest fragment and then bundle these chunks up to the MTU allowable
-> packet.
-> This however does each up space in the packet for each chunk header and
-> require more processing at the other end to reassemble the records.
-> 
-> IIRC, this is what OpenSS7s SCTP does, while the KAME SCTP manually
-> controls the DF bit as per Sridhar's suggestion.   There are tradeoffs
-> in either approach.
+On Wed, 8 Jan 2003, Wichert Akkerman wrote:
 
-Jon, from the performance standpoint, that would be the least
-preferred approach, right? Also, adding the argument to ip_queue_xmit()
-would at least be a general solution for other possible protocols,
-raw apps, etc or features that might want to make use of it..
-(heaven forbid ;))..
+> Previously Andrew McGregor wrote:
+> > Probably on the server's side it got an ICMP Host Unreachable or two as
+> > some router updated its tables, and decided to close the connection.
+>
+> The fact that this problem does not seem to occur when using a window
+> XP client seems to contradict the suggestions that it may be a router
+> problem.
+>
+> Wichert.
+>
+>
 
-thanks,
-Nivedita
+Is the WinXP client located in the same place where you are?
+
+>From my side the ISP that is giving me problems is xs26.net
+at 2 different points. One is flapping and one is the link between them
+and another ISP (i can't even reach it now) where pkts get seriously
+delayed (from 100ms to more than 350ms) probably due to a slow link.
+But what is seriously annoying is that xs26.net keeps announcing a network
+that it can't reach, fscking the entire routing.
+
+Fabio
