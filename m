@@ -1,36 +1,47 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [PATCH] pci_get_slot()
-Date: Wed, 17 Dec 2003 16:24:44 -0800
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: Re: [BK PATCHES] 2.6.x experimental net driver updates
+Date: Thu, 18 Dec 2003 02:31:45 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031218002444.GI6258@kroah.com>
-References: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <20031218013145.GG25717@fs.tum.de>
+References: <3FDEA6FA.4010906@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>,
-        linux-pci@atrey.karlin.mff.cuni.cz, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: Netdev <netdev@oss.sgi.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
+        linux.nics@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew Wilcox <willy@debian.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <3FDEA6FA.4010906@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 15, 2003 at 07:32:13PM +0100, Matthew Wilcox wrote:
-> 
-> Hi Linus.
-> 
-> tg3.c has a bug where it can find the wrong 5704 peer on a machine with
-> PCI domains.  The problem is that pci_find_slot() can't distinguish
-> whether it has the correct domain or not.
-> 
-> This patch fixes that problem by introducing pci_get_slot() and converts
-> tg3 to use it.  It also fixes another problem where tg3 wouldn't find
-> a peer on function 7 (0 to <8, not 0 to <7).
+Hi Jeff,
 
-I've applied the pci portions of this patch to my trees and will send it
-on after 2.6.0 is out.
+I got the following compile error when trying to compile e100 statically 
+into a kernel using gcc 2.95:
 
-thanks,
+<--  snip  -->
 
-greg k-h
+...
+  CC      drivers/net/e100.o
+drivers/net/e100.c:170: parse error before `int'
+drivers/net/e100.c:170: warning: type defaults to `int' in declaration 
+of `module_param'
+drivers/net/e100.c:170: warning: function declaration isn't a prototype
+drivers/net/e100.c:170: warning: data definition has no type or storage 
+class
+make[2]: *** [drivers/net/e100.o] Error 1
+make[1]: *** [drivers/net] Error 2
+make: *** [drivers] Error 2
+
+<--  snip  -->
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
