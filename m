@@ -1,56 +1,317 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: Fw: Re: [PATCH] (6/6) ipvs -- get rid of skb_linearize
-Date: Tue, 23 Sep 2003 00:45:06 +1000
+From: Vinay K Nallamothu <vinay.nallamothu@gsecone.com>
+Subject: [PATCH 2.6.0-test5][ROSE] timer cleanups
+Date: Mon, 22 Sep 2003 20:55:15 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030922145239.976AE2C244@lists.samba.org>
-References: <20030920010526.7d9a3ff4.davem@redhat.com>
-Cc: Julian Anastasov <ja@ssi.bg>, Stephen Hemminger <shemminger@osdl.org>,
-        Wensong Zhang <wensong@linux-vs.org>, lvs-users@LinuxVirtualServer.org,
-        netdev@oss.sgi.com
+Message-ID: <1064244315.4358.54.camel@lima.royalchallenge.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-reply-to: Your message of "Sat, 20 Sep 2003 01:05:26 MST."
-             <20030920010526.7d9a3ff4.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20030920010526.7d9a3ff4.davem@redhat.com> you write:
-> 	We have another solution for this problem, may be it is
-> better the following stuff to be included now. Rusty, Dave? Is
-> someone willing to review this before inclusion?
+1. Use mod_timer
+2. Use del_timer_sync in rose_loopback_clear 
+3. Use static timer initializaer
+4. Use skb_queue_purge
 
-Sure...
 
-> http://www.ssi.bg/~ja/ipvs-2.6.0-test2/readme.txt
+ af_rose.c       |    9 ++------
+ rose_link.c     |   21 +++++++++---------
+ rose_loopback.c |   37 +++++++--------------------------
+ rose_route.c    |    7 ++----
+ rose_timer.c    |   62 ++++++++++++++++++--------------------------------------
+ 5 files changed, 45 insertions(+), 91 deletions(-)
 
-> - at least struct iphdr in first fragment, not shared
-> 
-> - ip_defrag is already called, so ip_send_check is still needed
-> 
-> - then we add all needed checks for read and write access and extending
-> the first fragment
-
-Alexey's advice was not to pull packets we don't modify, but use
-skb_copy_bits, and use skb_ip_make_writable() where we do modify.
-This means that you don't have to care about shared or cloned skbs, it
-makes your intentions explicit, and it's more future-proof.
-
-It's more invasive, but my experience with doing netfilter_ipv4 was
-that it made things much neater when finished.  It helps to get rid of
-lots of the temporary variables, too, I've found (too easy to forget
-to update them).
-
-Here's a patch series below which does this.  Compiled, not tested.
-Please read and advise if you want to go this way:
-
-http://www.kernel.org/pub/linux/kernel/people/rusty/patches/IPVS/ipvs_packet_app_pkt_return.patch.gz
-http://www.kernel.org/pub/linux/kernel/people/rusty/patches/IPVS/ipvs_nonlinear_protocols.patch.gz
-http://www.kernel.org/pub/linux/kernel/people/rusty/patches/IPVS/ipvs_nonlinear_scheduler.patch.gz
-http://www.kernel.org/pub/linux/kernel/people/rusty/patches/IPVS/ipvs_nonlinear_apps.patch.gz
-http://www.kernel.org/pub/linux/kernel/people/rusty/patches/IPVS/ipvs_nonlinear_ip_vs_core.patch.gz
-http://www.kernel.org/pub/linux/kernel/people/rusty/patches/IPVS/ipvs_nonlinear_ip_vs_xmit.patch.gz
-
-Thanks,
-Rusty.
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+diff -urN linux-2.6.0-test5/net/rose/af_rose.c linux-2.6.0-test5-nvk/net/rose/af_rose.c
+--- linux-2.6.0-test5/net/rose/af_rose.c	2003-09-09 11:12:05.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/rose/af_rose.c	2003-09-22 16:25:33.000000000 +0530
+@@ -64,6 +64,7 @@
+ 
+ ax25_address rose_callsign;
+ 
++void rose_init_timers(struct sock *sk);
+ /*
+  *	Convert a ROSE address into text.
+  */
+@@ -353,10 +354,8 @@
+ 	if (atomic_read(&sk->sk_wmem_alloc) ||
+ 	    atomic_read(&sk->sk_rmem_alloc)) {
+ 		/* Defer: outstanding buffers */
+-		init_timer(&sk->sk_timer);
+ 		sk->sk_timer.expires  = jiffies + 10 * HZ;
+ 		sk->sk_timer.function = rose_destroy_timer;
+-		sk->sk_timer.data     = (unsigned long)sk;
+ 		add_timer(&sk->sk_timer);
+ 	} else
+ 		sk_free(sk);
+@@ -529,8 +528,7 @@
+ 	sock->ops    = &rose_proto_ops;
+ 	sk->sk_protocol = protocol;
+ 
+-	init_timer(&rose->timer);
+-	init_timer(&rose->idletimer);
++	rose_init_timers(sk);
+ 
+ 	rose->t1   = sysctl_rose_call_request_timeout;
+ 	rose->t2   = sysctl_rose_reset_request_timeout;
+@@ -576,8 +574,7 @@
+ 	sk->sk_sleep    = osk->sk_sleep;
+ 	sk->sk_zapped   = osk->sk_zapped;
+ 
+-	init_timer(&rose->timer);
+-	init_timer(&rose->idletimer);
++	rose_init_timers(sk);
+ 
+ 	orose		= rose_sk(osk);
+ 	rose->t1	= orose->t1;
+diff -urN linux-2.6.0-test5/net/rose/rose_link.c linux-2.6.0-test5-nvk/net/rose/rose_link.c
+--- linux-2.6.0-test5/net/rose/rose_link.c	2003-09-09 11:12:05.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/rose/rose_link.c	2003-09-22 18:21:21.000000000 +0530
+@@ -31,26 +31,25 @@
+ static void rose_ftimer_expiry(unsigned long);
+ static void rose_t0timer_expiry(unsigned long);
+ 
+-void rose_start_ftimer(struct rose_neigh *neigh)
++void rose_neigh_init_timers(struct rose_neigh *neigh)
+ {
+-	del_timer(&neigh->ftimer);
++	init_timer(&neigh->t0timer);
++	neigh->t0timer.data     = (unsigned long)neigh;
++	neigh->t0timer.function = &rose_t0timer_expiry;
+ 
++	init_timer(&neigh->ftimer);
+ 	neigh->ftimer.data     = (unsigned long)neigh;
+ 	neigh->ftimer.function = &rose_ftimer_expiry;
+-	neigh->ftimer.expires  = jiffies + sysctl_rose_link_fail_timeout;
++}
+ 
+-	add_timer(&neigh->ftimer);
++void rose_start_ftimer(struct rose_neigh *neigh)
++{
++	mod_timer(&neigh->ftimer, jiffies + sysctl_rose_link_fail_timeout);
+ }
+ 
+ void rose_start_t0timer(struct rose_neigh *neigh)
+ {
+-	del_timer(&neigh->t0timer);
+-
+-	neigh->t0timer.data     = (unsigned long)neigh;
+-	neigh->t0timer.function = &rose_t0timer_expiry;
+-	neigh->t0timer.expires  = jiffies + sysctl_rose_restart_request_timeout;
+-
+-	add_timer(&neigh->t0timer);
++	mod_timer(&neigh->t0timer, jiffies + sysctl_rose_restart_request_timeout);
+ }
+ 
+ void rose_stop_ftimer(struct rose_neigh *neigh)
+diff -urN linux-2.6.0-test5/net/rose/rose_loopback.c linux-2.6.0-test5-nvk/net/rose/rose_loopback.c
+--- linux-2.6.0-test5/net/rose/rose_loopback.c	2003-09-09 11:12:05.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/rose/rose_loopback.c	2003-09-22 16:31:40.000000000 +0530
+@@ -14,19 +14,17 @@
+ #include <net/rose.h>
+ #include <linux/init.h>
+ 
+-static struct sk_buff_head loopback_queue;
+-static struct timer_list loopback_timer;
++static void rose_loopback_timer(unsigned long);
+ 
+-static void rose_set_loopback_timer(void);
++static struct sk_buff_head loopback_queue;
++static struct timer_list loopback_timer = TIMER_INITIALIZER(rose_loopback_timer, 0, 0);
+ 
+-void rose_loopback_init(void)
++void __init rose_loopback_init(void)
+ {
+ 	skb_queue_head_init(&loopback_queue);
+-
+-	init_timer(&loopback_timer);
+ }
+ 
+-static int rose_loopback_running(void)
++static inline int rose_loopback_running(void)
+ {
+ 	return timer_pending(&loopback_timer);
+ }
+@@ -43,25 +41,12 @@
+ 		skb_queue_tail(&loopback_queue, skbn);
+ 
+ 		if (!rose_loopback_running())
+-			rose_set_loopback_timer();
++			mod_timer(&loopback_timer, jiffies + 10);
+ 	}
+ 
+ 	return 1;
+ }
+ 
+-static void rose_loopback_timer(unsigned long);
+-
+-static void rose_set_loopback_timer(void)
+-{
+-	del_timer(&loopback_timer);
+-
+-	loopback_timer.data     = 0;
+-	loopback_timer.function = &rose_loopback_timer;
+-	loopback_timer.expires  = jiffies + 10;
+-
+-	add_timer(&loopback_timer);
+-}
+-
+ static void rose_loopback_timer(unsigned long param)
+ {
+ 	struct sk_buff *skb;
+@@ -100,12 +85,6 @@
+ 
+ void __exit rose_loopback_clear(void)
+ {
+-	struct sk_buff *skb;
+-
+-	del_timer(&loopback_timer);
+-
+-	while ((skb = skb_dequeue(&loopback_queue)) != NULL) {
+-		skb->sk = NULL;
+-		kfree_skb(skb);
+-	}
++	del_timer_sync(&loopback_timer);
++	skb_queue_purge(&loopback_queue);
+ }
+diff -urN linux-2.6.0-test5/net/rose/rose_route.c linux-2.6.0-test5-nvk/net/rose/rose_route.c
+--- linux-2.6.0-test5/net/rose/rose_route.c	2003-09-09 11:12:05.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/rose/rose_route.c	2003-09-22 20:46:44.000000000 +0530
+@@ -49,6 +49,7 @@
+ struct rose_neigh *rose_loopback_neigh;
+ 
+ static void rose_remove_neigh(struct rose_neigh *);
++void rose_neigh_init_timers(struct rose_neigh *);
+ 
+ /*
+  *	Add a new route to a node, and in the process add the node and the
+@@ -106,8 +107,7 @@
+ 
+ 		skb_queue_head_init(&rose_neigh->queue);
+ 
+-		init_timer(&rose_neigh->ftimer);
+-		init_timer(&rose_neigh->t0timer);
++		rose_neigh_init_timers(rose_neigh);
+ 
+ 		if (rose_route->ndigis != 0) {
+ 			if ((rose_neigh->digipeat = kmalloc(sizeof(ax25_digi), GFP_KERNEL)) == NULL) {
+@@ -389,8 +389,7 @@
+ 
+ 	skb_queue_head_init(&rose_loopback_neigh->queue);
+ 
+-	init_timer(&rose_loopback_neigh->ftimer);
+-	init_timer(&rose_loopback_neigh->t0timer);
++	rose_neigh_init_timers(rose_loopback_neigh);
+ 
+ 	spin_lock_bh(&rose_neigh_list_lock);
+ 	rose_loopback_neigh->next = rose_neigh_list;
+diff -urN linux-2.6.0-test5/net/rose/rose_timer.c linux-2.6.0-test5-nvk/net/rose/rose_timer.c
+--- linux-2.6.0-test5/net/rose/rose_timer.c	2003-09-09 11:12:05.000000000 +0530
++++ linux-2.6.0-test5-nvk/net/rose/rose_timer.c	2003-09-22 17:24:25.000000000 +0530
+@@ -33,82 +33,62 @@
+ static void rose_timer_expiry(unsigned long);
+ static void rose_idletimer_expiry(unsigned long);
+ 
+-void rose_start_heartbeat(struct sock *sk)
++void rose_init_timers(struct sock *sk)
+ {
+-	del_timer(&sk->sk_timer);
++	rose_cb *rose = rose_sk(sk);
++
++	init_timer(&rose->timer);
++	rose->timer.data     = (unsigned long)sk;
++	rose->timer.function = &rose_timer_expiry;
+ 
++	init_timer(&rose->idletimer);
++	rose->idletimer.data     = (unsigned long)sk;
++	rose->idletimer.function = &rose_idletimer_expiry;
++
++	/* initialized by sock_init_data */
+ 	sk->sk_timer.data     = (unsigned long)sk;
+ 	sk->sk_timer.function = &rose_heartbeat_expiry;
+-	sk->sk_timer.expires  = jiffies + 5 * HZ;
++}
+ 
+-	add_timer(&sk->sk_timer);
++void rose_start_heartbeat(struct sock *sk)
++{
++	mod_timer(&sk->sk_timer, jiffies + 5 * HZ);
+ }
+ 
+ void rose_start_t1timer(struct sock *sk)
+ {
+ 	rose_cb *rose = rose_sk(sk);
+ 
+-	del_timer(&rose->timer);
+-
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
+-	rose->timer.expires  = jiffies + rose->t1;
+-
+-	add_timer(&rose->timer);
++	mod_timer(&rose->timer, jiffies + rose->t1);
+ }
+ 
+ void rose_start_t2timer(struct sock *sk)
+ {
+ 	rose_cb *rose = rose_sk(sk);
+ 
+-	del_timer(&rose->timer);
+-
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
+-	rose->timer.expires  = jiffies + rose->t2;
+-
+-	add_timer(&rose->timer);
++	mod_timer(&rose->timer, jiffies + rose->t2);
+ }
+ 
+ void rose_start_t3timer(struct sock *sk)
+ {
+ 	rose_cb *rose = rose_sk(sk);
+ 
+-	del_timer(&rose->timer);
+-
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
+-	rose->timer.expires  = jiffies + rose->t3;
+-
+-	add_timer(&rose->timer);
++	mod_timer(&rose->timer, jiffies + rose->t3);
+ }
+ 
+ void rose_start_hbtimer(struct sock *sk)
+ {
+ 	rose_cb *rose = rose_sk(sk);
+ 
+-	del_timer(&rose->timer);
+-
+-	rose->timer.data     = (unsigned long)sk;
+-	rose->timer.function = &rose_timer_expiry;
+-	rose->timer.expires  = jiffies + rose->hb;
+-
+-	add_timer(&rose->timer);
++	mod_timer(&rose->timer, jiffies + rose->hb);
+ }
+ 
+ void rose_start_idletimer(struct sock *sk)
+ {
+ 	rose_cb *rose = rose_sk(sk);
+ 
+-	del_timer(&rose->idletimer);
+-
+-	if (rose->idle > 0) {
+-		rose->idletimer.data     = (unsigned long)sk;
+-		rose->idletimer.function = &rose_idletimer_expiry;
+-		rose->idletimer.expires  = jiffies + rose->idle;
+-
+-		add_timer(&rose->idletimer);
+-	}
++	if (rose->idle > 0)
++		mod_timer(&rose->idletimer, jiffies + rose->idle);
+ }
+ 
+ void rose_stop_heartbeat(struct sock *sk)
