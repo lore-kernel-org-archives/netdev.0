@@ -1,128 +1,38 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [2.6 PATCH] ipvs - avoid returning NF_DROP from the packet schedulers
-Date: Wed, 8 Oct 2003 11:09:20 +0300 (EEST)
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: RE: e1000 close (NAPI)
+Date: Wed, 8 Oct 2003 11:16:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310081101170.5889-200000@u.domain.uli>
+Message-ID: <16259.54738.75122.134408@robur.slu.se>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229702@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-1839944973-1065600560=:5889"
-Cc: Wensong Zhang <wensong@linux-vs.org>,
-        Rusty Russell <rusty@rustcorp.com.au>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>,
+        "Jeff Garzik" <jgarzik@pobox.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0102229702@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
 
---1607745702-1839944973-1065600560=:5889
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Feldman, Scott writes:
+ > > -	if(work_done < work_to_do) {
+ > > +	if(work_done < work_to_do || !netif_running(netdev)) {
+ > >  		netif_rx_complete(netdev);
+ > >  		e1000_irq_enable(adapter);
+ > >  	}
+ > 
+ > Is e1000 unique in this regard, or do the other NAPI-enabled drivers
+ > have the same issue?
 
+ Hello!
 
-	Hello,
+ Other drivers may have the same issue. This was spotted while stress-testing 
+ tulip. Patch was sent here some days ago. It's only seen if trying to close 
+ device under extreme loads. See the syncing code in dev_close()
 
-	It seems my NF_DROP approach leads to new bugs. So, better
-free skb, return NF_STOLEN and add some comments. If someone
-wants to fix it in another way, go ahead.
+ You may try the e100 as well. We update the docs when see that this is OK.
 
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
-
---1607745702-1839944973-1065600560=:5889
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="drop-1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310081109200.5889@u.domain.uli>
-Content-Description: Better return NF_STOLEN
-Content-Disposition: attachment; filename="drop-1.diff"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTUwMSAgLT4gMS4xNTAyIA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2NvcmUuYwkxLjUgICAgIC0+IDEuNiAgICAN
-CiMJIGluY2x1ZGUvbmV0L2lwX3ZzLmgJMS42ICAgICAtPiAxLjcgICAgDQoj
-CW5ldC9pcHY0L2lwdnMvaXBfdnNfeG1pdC5jCTEuMyAgICAgLT4gMS40ICAg
-IA0KIw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdl
-U2V0IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLQ0KIyAwMy8xMC8wOAlqYUBzc2kuYmcJMS4xNTAyDQojIFtJ
-UFZTXTogYXZvaWQgcmV0dXJuaW5nIE5GX0RST1AgZnJvbSB0aGUgcGFja2V0
-IHNjaGVkdWxlcnMNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0NCiMNCmRpZmYgLU5ydSBhL2luY2x1ZGUvbmV0L2lw
-X3ZzLmggYi9pbmNsdWRlL25ldC9pcF92cy5oDQotLS0gYS9pbmNsdWRlL25l
-dC9pcF92cy5oCVdlZCBPY3QgIDggMTA6NTk6MDUgMjAwMw0KKysrIGIvaW5j
-bHVkZS9uZXQvaXBfdnMuaAlXZWQgT2N0ICA4IDEwOjU5OjA1IDIwMDMNCkBA
-IC01MjUsOCArNTI1LDggQEANCiAJYXRvbWljX3QgICAgICAgICAgICAgICAg
-aW5fcGt0czsgICAgICAgIC8qIGluY29taW5nIHBhY2tldCBjb3VudGVyICov
-DQogDQogCS8qIHBhY2tldCB0cmFuc21pdHRlciBmb3IgZGlmZmVyZW50IGZv
-cndhcmRpbmcgbWV0aG9kcy4gIElmIGl0DQotCSAgIG1hbmdsZXMgdGhlIHBh
-Y2tldCwgaXQgbXVzdCByZXR1cm4gTkZfRFJPUCBvciBORl9TVE9MRU4sIG90
-aGVyd2lzZQ0KLQkgICB0aGlzIG11c3QgYmUgY2hhbmdlZCB0byBhIHNrX2J1
-ZmYgKiouDQorCSAgIG1hbmdsZXMgdGhlIHBhY2tldCwgaXQgbXVzdCByZXR1
-cm4gTkZfRFJPUCBvciBiZXR0ZXIgTkZfU1RPTEVOLA0KKwkgICBvdGhlcndp
-c2UgdGhpcyBtdXN0IGJlIGNoYW5nZWQgdG8gYSBza19idWZmICoqLg0KIAkg
-Ki8NCiAJaW50ICgqcGFja2V0X3htaXQpKHN0cnVjdCBza19idWZmICpza2Is
-IHN0cnVjdCBpcF92c19jb25uICpjcCwNCiAJCQkgICBzdHJ1Y3QgaXBfdnNf
-cHJvdG9jb2wgKnBwKTsNCmRpZmYgLU5ydSBhL25ldC9pcHY0L2lwdnMvaXBf
-dnNfY29yZS5jIGIvbmV0L2lwdjQvaXB2cy9pcF92c19jb3JlLmMNCi0tLSBh
-L25ldC9pcHY0L2lwdnMvaXBfdnNfY29yZS5jCVdlZCBPY3QgIDggMTA6NTk6
-MDUgMjAwMw0KKysrIGIvbmV0L2lwdjQvaXB2cy9pcF92c19jb3JlLmMJV2Vk
-IE9jdCAgOCAxMDo1OTowNSAyMDAzDQpAQCAtNDg1LDYgKzQ4NSw3IEBADQog
-DQogCQkvKiB0cmFuc21pdCB0aGUgZmlyc3QgU1lOIHBhY2tldCAqLw0KIAkJ
-cmV0ID0gY3AtPnBhY2tldF94bWl0KHNrYiwgY3AsIHBwKTsNCisJCS8qIGRv
-IG5vdCB0b3VjaCBza2IgYW55bW9yZSAqLw0KIA0KIAkJYXRvbWljX2luYygm
-Y3AtPmluX3BrdHMpOw0KIAkJaXBfdnNfY29ubl9wdXQoY3ApOw0KQEAgLTgy
-Miw3ICs4MjMsOCBAQA0KIA0KICAgZHJvcDoNCiAJaXBfdnNfY29ubl9wdXQo
-Y3ApOw0KLQlyZXR1cm4gTkZfRFJPUDsNCisJa2ZyZWVfc2tiKCpwc2tiKTsN
-CisJcmV0dXJuIE5GX1NUT0xFTjsNCiB9DQogDQogDQpAQCAtOTM5LDYgKzk0
-MSw3IEBADQogCWlmIChJUFBST1RPX1RDUCA9PSBjaXBoLnByb3RvY29sIHx8
-IElQUFJPVE9fVURQID09IGNpcGgucHJvdG9jb2wpDQogCQlvZmZzZXQgKz0g
-MiAqIHNpemVvZihfX3UxNik7DQogCXZlcmRpY3QgPSBpcF92c19pY21wX3ht
-aXQoc2tiLCBjcCwgcHAsIG9mZnNldCk7DQorCS8qIGRvIG5vdCB0b3VjaCBz
-a2IgYW55bW9yZSAqLw0KIA0KICAgb3V0Og0KIAlfX2lwX3ZzX2Nvbm5fcHV0
-KGNwKTsNCkBAIC0xMDMyLDYgKzEwMzUsNyBAQA0KIAlyZXN0YXJ0ID0gaXBf
-dnNfc2V0X3N0YXRlKGNwLCBJUF9WU19ESVJfSU5QVVQsIHNrYiwgcHApOw0K
-IAlpZiAoY3AtPnBhY2tldF94bWl0KQ0KIAkJcmV0ID0gY3AtPnBhY2tldF94
-bWl0KHNrYiwgY3AsIHBwKTsNCisJCS8qIGRvIG5vdCB0b3VjaCBza2IgYW55
-bW9yZSAqLw0KIAllbHNlIHsNCiAJCUlQX1ZTX0RCR19STCgid2FybmluZzog
-cGFja2V0X3htaXQgaXMgbnVsbCIpOw0KIAkJcmV0ID0gTkZfQUNDRVBUOw0K
-ZGlmZiAtTnJ1IGEvbmV0L2lwdjQvaXB2cy9pcF92c194bWl0LmMgYi9uZXQv
-aXB2NC9pcHZzL2lwX3ZzX3htaXQuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9p
-cF92c194bWl0LmMJV2VkIE9jdCAgOCAxMDo1OTowNSAyMDAzDQorKysgYi9u
-ZXQvaXB2NC9pcHZzL2lwX3ZzX3htaXQuYwlXZWQgT2N0ICA4IDEwOjU5OjA1
-IDIwMDMNCkBAIC0xNDMsNiArMTQzLDcgQEANCiBpcF92c19udWxsX3htaXQo
-c3RydWN0IHNrX2J1ZmYgKnNrYiwgc3RydWN0IGlwX3ZzX2Nvbm4gKmNwLA0K
-IAkJc3RydWN0IGlwX3ZzX3Byb3RvY29sICpwcCkNCiB7DQorCS8qIHdlIGRv
-IG5vdCB0b3VjaCBza2IgYW5kIGRvIG5vdCBuZWVkIHBza2IgcHRyICovDQog
-CXJldHVybiBORl9BQ0NFUFQ7DQogfQ0KIA0KQEAgLTIxNCw4ICsyMTUsOSBA
-QA0KICB0eF9lcnJvcl9pY21wOg0KIAlkc3RfbGlua19mYWlsdXJlKHNrYik7
-DQogIHR4X2Vycm9yOg0KKwlrZnJlZV9za2Ioc2tiKTsNCiAJTGVhdmVGdW5j
-dGlvbigxMCk7DQotCXJldHVybiBORl9EUk9QOw0KKwlyZXR1cm4gTkZfU1RP
-TEVOOw0KIH0NCiANCiANCkBAIC0yOTIsNyArMjk0LDggQEANCiAJZHN0X2xp
-bmtfZmFpbHVyZShza2IpOw0KICAgdHhfZXJyb3I6DQogCUxlYXZlRnVuY3Rp
-b24oMTApOw0KLQlyZXR1cm4gTkZfRFJPUDsNCisJa2ZyZWVfc2tiKHNrYik7
-DQorCXJldHVybiBORl9TVE9MRU47DQogICB0eF9lcnJvcl9wdXQ6DQogCWlw
-X3J0X3B1dChydCk7DQogCWdvdG8gdHhfZXJyb3I7DQpAQCAtMzc1LDggKzM3
-OCw5IEBADQogCQkJc2tiX3JlYWxsb2NfaGVhZHJvb20oc2tiLCBtYXhfaGVh
-ZHJvb20pOw0KIAkJaWYgKCFuZXdfc2tiKSB7DQogCQkJaXBfcnRfcHV0KHJ0
-KTsNCisJCQlrZnJlZV9za2Ioc2tiKTsNCiAJCQlJUF9WU19FUlJfUkwoImlw
-X3ZzX3R1bm5lbF94bWl0KCk6IG5vIG1lbW9yeVxuIik7DQotCQkJcmV0dXJu
-IE5GX0RST1A7DQorCQkJcmV0dXJuIE5GX1NUT0xFTjsNCiAJCX0NCiAJCWtm
-cmVlX3NrYihza2IpOw0KIAkJc2tiID0gbmV3X3NrYjsNCkBAIC00MjksOCAr
-NDMzLDkgQEANCiAgIHR4X2Vycm9yX2ljbXA6DQogCWRzdF9saW5rX2ZhaWx1
-cmUoc2tiKTsNCiAgIHR4X2Vycm9yOg0KKwlrZnJlZV9za2Ioc2tiKTsNCiAJ
-TGVhdmVGdW5jdGlvbigxMCk7DQotCXJldHVybiBORl9EUk9QOw0KKwlyZXR1
-cm4gTkZfU1RPTEVOOw0KIH0NCiANCiANCkBAIC00ODgsOCArNDkzLDkgQEAN
-CiAgIHR4X2Vycm9yX2ljbXA6DQogCWRzdF9saW5rX2ZhaWx1cmUoc2tiKTsN
-CiAgIHR4X2Vycm9yOg0KKwlrZnJlZV9za2Ioc2tiKTsNCiAJTGVhdmVGdW5j
-dGlvbigxMCk7DQotCXJldHVybiBORl9EUk9QOw0KKwlyZXR1cm4gTkZfU1RP
-TEVOOw0KIH0NCiANCiANCkBAIC01MTUsNiArNTIxLDcgQEANCiAJCQlyYyA9
-IGNwLT5wYWNrZXRfeG1pdChza2IsIGNwLCBwcCk7DQogCQllbHNlDQogCQkJ
-cmMgPSBORl9BQ0NFUFQ7DQorCQkvKiBkbyBub3QgdG91Y2ggc2tiIGFueW1v
-cmUgKi8NCiAJCWF0b21pY19pbmMoJmNwLT5pbl9wa3RzKTsNCiAJCV9faXBf
-dnNfY29ubl9wdXQoY3ApOw0KIAkJZ290byBvdXQ7DQo=
---1607745702-1839944973-1065600560=:5889--
+ Cheers.
+						--ro
