@@ -1,47 +1,56 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [8/9][PATCH 2.6] Small fixes and clean-up
-Date: Sun, 20 Jun 2004 00:23:19 +0200
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: wireless management... kernel or user space?
+Date: Sun, 20 Jun 2004 09:18:12 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040619222319.GE3313@k3.hellgate.ch>
-References: <20040615174956.GA11359@k3.hellgate.ch> <40D4AFE1.6020508@pobox.com>
+Message-ID: <200406200918.17829.vkondra@mail.ru>
+References: <40D20373.3020406@linux.jf.intel.com> <20040619190441.GE7340@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Jouni Malinen <jkmaline@cc.hut.fi>,
+        James Ketrenos <jketreno@linux.jf.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040619190441.GE7340@jm.kir.nu>
 Content-Disposition: inline
-In-Reply-To: <40D4AFE1.6020508@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 19 Jun 2004 17:28:01 -0400, Jeff Garzik wrote:
-> In Linux lists of model names are discouraged.  It's not terribly bad in 
-> via-rhine, but overall these things wind up getting patches quite often, 
-> and become a maintenance annoyance.
-> 
-> It's up to you as maintainer, but I would recommend removing the string 
-> completely.  For dmesg/printk purposes, the user only needs to know they 
-> have a 'via-rhine' controller.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-The reason I put that in is that lspci does not identify those chips
-correctly (because models differ only by PCI revision, not PCI id)
-and thus people get confused. But maybe I should rather file patches
-against pci.ids. Okay, I think I'll remove the model names.
+On Saturday 19 June 2004 22:04, Jouni Malinen wrote:
+> > Does anyone have any thoughts on how much logic should be placed into the
+> > generic 802.11 frame/management/control handling stack vs. pushing to a
+> > user space component?
+>
+> The ideal location of this logic implementation seems to depend a bit on
+> what one is doing..
+[skip]
+I would add 2 points:
 
-> >-	dev = alloc_etherdev(sizeof(*rp));
-> >-	if (dev == NULL) {
-> >+	dev = alloc_etherdev(sizeof(struct rhine_private));
-> >+	if (!dev) {
-> > 		rc = -ENOMEM;
-> >-		printk(KERN_ERR "init_ethernet failed for card #%d\n",
-> >-		       card_idx);
-> >+		printk(KERN_ERR "alloc_etherdev failed\n");
-> 
-> this error message change seems like a step backwards... print out 
-> pci_name() or _something_ to let the user know which card failed.
+- - we should look carefully for timing requirements. For example, for 
+association req/resp, there is no timing requirement in the standard at all; 
+for auth sequence with WEP, there is maximum timeout between 2-nd and 3-rd 
+frames, but it is not very strong. My point is, if there is flow that require 
+timing under 10-20 ms (or even 50), it should be done in kernel.
 
-It is indeed. I plan to clean up all error messages together (there
-are other issues like where dev->name is defined, what information is
-useful, should use a bit mask instead of debug level, etc.).
+- - there are lots of meta-information associated with self and wireless peers, 
+related to rate scaling, QoS parameters, authentication details etc. I would 
+say there is such entity, "peers data base". It may reside in either user 
+space, or within the kernel. Logically, management entity and peers data base 
+should be on the same side of kernel/user boundary. Rate scaling, if done on 
+the host, is very time critical and should be done in kernel. This pushes me 
+to the point that it should be in kernel.
 
-Roger
+BTW, .1X flow is pure data. It is not management one, in terms of 802.11.
+
+Vladimir.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFA1Swpqxdj7mhC6o0RAhH3AKCL5CBpytVRs65jl8HHCI2eSbasNACgo+vZ
+ta5MHMuyGgvqOtlt6LjiD+s=
+=ZZIH
+-----END PGP SIGNATURE-----
