@@ -1,31 +1,45 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Fri, 13 Jun 2003 18:34:40 -0700 (PDT)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [XFRM] xfrm_alloc_spi() always selected minspi
+Date: Sat, 14 Jun 2003 11:16:19 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030613.183440.41634090.davem@redhat.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D93A@orsmsx402.jf.intel.com>
-	<20030613.165250.41635765.davem@redhat.com>
-	<20030614005534.GF32097@krispykreme>
+Message-ID: <20030614.111619.37286104.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: scott.feldman@intel.com, haveblue@us.ibm.com, hdierks@us.ibm.com,
-   dwg@au1.ibm.com, linux-kernel@vger.kernel.org, milliner@us.ibm.com,
-   ricardoz@us.ibm.com, twichell@us.ibm.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, miyazawa@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: anton@samba.org
-In-Reply-To: <20030614005534.GF32097@krispykreme>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Anton Blanchard <anton@samba.org>
-   Date: Sat, 14 Jun 2003 10:55:34 +1000
+Hello.
 
-   What I think is happening is that we arent tripping the prefetch
-   logic.  We should take a latency hit for only the first cacheline
-   at which point the host bridge decides to start prefetching for
-   us. If not then we take take the latency hit on each transaction.
+net/xfrm/xfrm_state.c:xfrm_alloc_spi() always selected minspi because of typo.
+Bug was originally introduced in ChangeSet 1.889.1.182
+(net/xfrm/xfrm_state.c@1.11); it is 4 months old...
 
-It sounds like what happens is that the sub-cacheline word reads
-don't trigger the prefetch, but the first PCI read multiple
-transaction does.
+Here's the fix.
+
+Thanks in advance.
+
+Index: linux-2.5/net/xfrm/xfrm_state.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/xfrm/xfrm_state.c,v
+retrieving revision 1.9
+diff -u -p -r1.9 xfrm_state.c
+--- linux-2.5/net/xfrm/xfrm_state.c	7 Jun 2003 00:22:34 -0000	1.9
++++ linux-2.5/net/xfrm/xfrm_state.c	14 Jun 2003 00:54:18 -0000
+@@ -513,7 +513,7 @@ xfrm_alloc_spi(struct xfrm_state *x, u32
+ 		maxspi = ntohl(maxspi);
+ 		for (h=0; h<maxspi-minspi+1; h++) {
+ 			spi = minspi + net_random()%(maxspi-minspi+1);
+-			x0 = xfrm_state_lookup(&x->id.daddr, minspi, x->id.proto, x->props.family);
++			x0 = xfrm_state_lookup(&x->id.daddr, htonl(spi), x->id.proto, x->props.family);
+ 			if (x0 == NULL)
+ 				break;
+ 			xfrm_state_put(x0);
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
