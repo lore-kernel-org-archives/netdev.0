@@ -1,35 +1,37 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: Prism / Hostap Bridge Problems...
-Date: Fri, 10 Dec 2004 20:16:31 -0800
-Message-ID: <20041211041631.GB7015@jm.kir.nu>
-References: <41B9B6E9.7010600@novolab.de> <41B9C4E0.40407@novolab.de>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/5] sis900 printk and stack usage audit
+Date: Sat, 11 Dec 2004 14:04:08 -0500
+Message-ID: <41BB44A8.7000906@pobox.com>
+References: <20041208104721.GA31707@picchio.gall.it> <20041208110156.GB31707@picchio.gall.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Brande <brande@novolab.de>
-Content-Disposition: inline
-In-Reply-To: <41B9C4E0.40407@novolab.de>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: NetDev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Daniele Venzano <webvenza@libero.it>
+In-Reply-To: <20041208110156.GB31707@picchio.gall.it>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 10, 2004 at 04:46:40PM +0100, Brande wrote:
+Daniele Venzano wrote:
+> Audit of current printk() calls
+> Changed debug levels to 0,1,2,3 as follows:
+>  0 No debug
+>  1 load/probe/unload/suspend/resume stuff
+>  2 rx/tx errors
+>  3 rx/tx packets and every interrupt are logged (very verbose)
+> Debug levels are incremental
+> Removed double printing of version string in module_init and in sis900_probe
+> Made the sis900_debug parameter modifiable at runtime
 
-> I have a meshcube (www.meshcube.org) with two prim 2.5 mini-pci WLAN 
-> cards...
-> wlan0 should connect as client (managed mode) to a normal access point 
-> which is connected to the internet.
-> wlan1 should work as accesspoint (master mode).
-> I would like to bridge between wlan0 and wlan1 so that I can connect 
+Debug levels are standardized, please follow the standard.
 
-IEEE 802.11 protocol does not support this kind of configuration. The
-card in client mode can only send packet with its own layer 2 MAC
-address whereas bridge functionality would require that the other MAC
-addresses can also be used as source address. If it is enough to handle
-only some IP protocols, Proxy ARP or IP routing could be used to setup
-this kind of network. Another option would be to use WDS link between
-these APs (assuming the other AP supports WDS) and bridge packet through
-it.
+All messages are bitmapped.  See NETIF_MSG_* and netif_msg_* in 
+include/linux/netdevice.h.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Given the standard 'debug' module parameter, which takes a value from 
+0-N (where N==10 or so), the driver uses netif_msg_init() to construct 
+the bitmap of messages to be enabled.
+
+	Jeff
