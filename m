@@ -1,53 +1,51 @@
-From: sebastian.ionita@focomunicatii.ro
-Subject: Re: ZyXEL GN650-T
-Date: Wed, 10 Nov 2004 22:10:10 +0200
-Message-ID: <20041110201010.18341.qmail__19088.9650410556$1100160782$gmane$org@focomunicatii.ro>
-References: <20041107214427.20301.qmail@focomunicatii.ro>
-            <20041107224803.GA29248@electric-eye.fr.zoreil.com>
-            <20041109000006.GA14911@electric-eye.fr.zoreil.com>
-            <20041109232510.GA5582@electric-eye.fr.zoreil.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: some TSO analysis
+Date: Thu, 11 Nov 2004 19:36:47 +1100
+Message-ID: <20041111083647.GA20769@krispykreme.ozlabs.ibm.com>
+References: <20041111050608.GG1922@krispykreme.ozlabs.ibm.com> <E1CS9Fm-0004hC-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset="utf-8"
-Content-Transfer-Encoding: 7bit
-Cc: seby@focomunicatii.ro, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        alan@redhat.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20041109232510.GA5582@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1CS9Fm-0004hC-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu writes: 
 
-> Francois Romieu <romieu@fr.zoreil.com> :
->> seby@focomunicatii.ro <seby@focomunicatii.ro> :
->> [...]
->> > I just bouth a zyxel GN650T network card .. and it sems that vlan's don't 
->> > work on this card .. anybody had this problems with this card ..  
->> 
->> Patch below against 2.6.10-rc1-bk15 + Jeff's netdev should convert the driver
->> to the in-kernel vlan API.
+> >  data: 1634 frags: 1408 4096 4096 4096 2108 4
+> > 
+> >  Is there a reason why the remaining 1408 bytes cant be stuffed into
+> >  skb->data? Or is that an issue with MTU sized buffers?
 > 
-> Cr*p, the driver had not been backported to 2.4.x. Ok, instant patch (155 ko)
-> against 2.4.28-rc2 available at:
-> http://www.fr.zoreil.com/people/francois/misc/20041110-2.4.28-rc2-via-velocity-backport.patch
-The kernel compiles but I have 1 unresolved simbole in the via-velocity 
-modul
-depmod: *** Unresolved symbols in 
-/lib/modules/2.4.28-rc2/kernel/drivers/net/via-velocity.o
-depmod:         crc_ccitt_R3771b461 
-
-Seby..
+> The reason is that the skb has to accomodate other things like
+> headers and skb_shared_info.  It seems to have added up to a
+> quite considerable value in your case.
 > 
-> --
-> Ueimor
- 
+> Perhaps sendmsg should check whether the data can fit in the space
+> available in skb->data, and if not just go for a fragment right away.
 
+Originally I thought we could save ourselves a fragment. However
+thinking about it more we will always have at least the headers in 
+skb->data. If so there isnt much to gain by spilling into the fragment
+straight away. Or am I wrong?
 
-____________________________________________________________
-SC. FO Comunicatii SRL.
-Sebastian Ionita
-Administrator Sistem
-mobil: 0724 212408
-tel fix: 0264 450456 
+> This is understandable.  You really need to have a rcv window that's
+> much bigger than 64K to have any chance of filling up the TSO packet
+> with tcp_tso_win_divisor set to 8.
+
+That makes sense.
+
+> BTW, how did you measure the gains?
+
+The TSO gains? On older 2.6 the TSO gain was easy to see on a web
+benchmark. On recent kernels it isnt, but we havent tested a divisor
+of 4 or 2 yet.
+
+Im interested if the divisor of 8 was based on some testing, or if we
+can tune the default a bit. It would be nice for TSO to kick in on
+normal workloads (like web serving).
+
+Anton
