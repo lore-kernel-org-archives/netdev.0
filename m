@@ -1,52 +1,48 @@
-From: Joseph Golio <golio@vieo.com>
-Subject: [Fwd: IPoIB]
-Date: Thu, 30 May 2002 07:32:32 -0500
+From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
+Subject: Re: [Fwd: IPoIB]
+Date: Thu, 30 May 2002 17:56:43 +0200 (MET DST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CF61BE0.BDF0F05B@vieo.com>
+Message-ID: <Pine.GSO.4.05.10205301751370.9848-100000@mausmaki.cosy.sbg.ac.at>
+References: <3CF61BE0.BDF0F05B@vieo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Joseph Golio <golio@vieo.com>
+In-Reply-To: <3CF61BE0.BDF0F05B@vieo.com>
 List-Id: netdev.vger.kernel.org
 
-Joseph Golio wrote:
+--snip/snip
 
-To whom it may concern,
+> >     I have a question. I am working on developing a Linux driver for IP over
+> > Infiniband (IPoIB) and
+> >     have run into an issue that I need your advice. The draft standard from the
+> > IETF on IPoIB
+> >     encapsulation and address resolution over Infiniband networks (see the link
+> > below - section 6.1.1)
+> >     defines the hardware address as being 20 bytes in length. It appears that
+> > the "netdevice.h" file in
+> >     Linux has MAX_ADDR_LEN set to 7 (at least in my version which is SuSe 7.3 -
 
 
-I originally sent this note to Alan Cox, but he has suggested that I send it to
-you folks. I'm
-new at this process so please bare with me...
+for 2.5.18 at least it's set to 8, but there is no reason to not change it to
+20 beside wasting some memory
 
-So, here goes.
+n time for
+	a) broadcast address
+	b) device address
+	int netdevice
+sum(m[n]) times for the multicast list
 
-> Alan,
->
->     I have a question. I am working on developing a Linux driver for IP over
-> Infiniband (IPoIB) and
->     have run into an issue that I need your advice. The draft standard from the
-> IETF on IPoIB
->     encapsulation and address resolution over Infiniband networks (see the link
-> below - section 6.1.1)
->     defines the hardware address as being 20 bytes in length. It appears that
-> the "netdevice.h" file in
->     Linux has MAX_ADDR_LEN set to 7 (at least in my version which is SuSe 7.3 -
-> kernel 2.4.4).
->
-> http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-01.txt
->
->     Obviously, this will not.
->
->     What do you suggest as a good solution to this problem ?
->
->     Thanks in advance for a quick response.
->
-> Thanks for your time,
->
-> Joe Golio
-> golio@vieo.com
-> 651-698-9350 (ext. 111)
-> VIEO Inc.
->
-> VIEO: The Adaptive Application Infrastructure Management (AAIM) Company
+where n == number of network devices, m == number of MC entries per device
+as i can see it.
+
+and this "overhead" should be really acceptable :)
+
+... probably you will break some "external" stuff like freeswan, but this
+shouldn't be your problem.
+
+	tm
+
+-- 
+in some way i do, and in some way i don't.
