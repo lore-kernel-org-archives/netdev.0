@@ -1,42 +1,30 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] fix select() for SOCK_RAW sockets (ipv6)
-Date: Tue, 7 Dec 2004 10:56:20 -0800
-Message-ID: <20041207105620.241652d0@dxpl.pdx.osdl.net>
-References: <20041207045302.GA23746@linuxace.com>
-	<20041207054840.GD61527@gaz.sfgoth.com>
-	<20041207150834.GA75700@gaz.sfgoth.com>
-	<20041208.023530.26430801.yoshfuji@linux-ipv6.org>
-	<20041207100140.781f4c00@dxpl.pdx.osdl.net>
-	<20041207104815.3f7a4684.davem@davemloft.net>
+Subject: Re: [PATCH] rtnetlink & address family problem
+Date: Tue, 7 Dec 2004 11:12:06 -0800
+Message-ID: <20041207111206.5060ccfc@dxpl.pdx.osdl.net>
+References: <41B0A5B4.6060108@suse.cz>
+	<20041206140214.GA749@postel.suug.ch>
+	<1102386461.1093.26.camel@jzny.localdomain>
+	<20041207124922.GA1371@postel.suug.ch>
+	<1102424568.1089.120.camel@jzny.localdomain>
+	<20041207175259.GH1371@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, mitch@sfgoth.com, kernel@linuxace.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041207104815.3f7a4684.davem@davemloft.net>
-Sender: linux-net-owner@vger.kernel.org
+Cc: jamal <hadi@cyberus.ca>, Michal Ludvig <mludvig@suse.cz>,
+        Andrew Morton
+ <akpm@osdl.org>, netdev@oss.sgi.com,
+        Jan Kara <jack@suse.cz>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041207175259.GH1371@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Dec 2004 10:48:15 -0800
-"David S. Miller" <davem@davemloft.net> wrote:
+On Tue, 7 Dec 2004 18:52:59 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> On Tue, 7 Dec 2004 10:01:40 -0800
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > > Probably, we need to do the same for ipv6, don't we?
-> > 
-> > diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > --- a/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
-> > +++ b/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
-> > @@ -513,6 +513,27 @@
-> 
-> We didn't do the "UDP select() fix" on ipv6 because we don't
-> have the delayed checksumming optimization there.  So the
-> ipv6 side really doesn't need this change.
-> 
-> Or did I miss something?
+> http://people.suug.ch/~tgr/iproute2/iproute2-2.6.9-tgr.tar.gz
 
-yeah, didn't look that deeply.
+Thanks, I'm behind on iproute2
