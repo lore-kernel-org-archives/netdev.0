@@ -1,49 +1,69 @@
-From: "Elvin Fry" <279erre@yahoo.com>
-Subject: =?ISO-8859-1?Q?=A1=DA=B1=DE=C7=D1=B5=B7!=C0=E5=B1=E2=C7=D2=BA=CE=B7=CE?=
-	=?ISO-8859-1?Q?=BA=F4=B7=C1=B5=E5=B8=B3=B4=CF=B4=D9(5000=B8=B8=BF=F8)?= mon oib ofl
-Date: Sun, 04 Jul 04 10:40:17 GMT
+From: "울트라론" <q32gdfe@dreamwiz.com>
+Subject: =?ISO-8859-1?Q?=B0=F8=C0=CE=20=BD=C5=BF=EB=B4=EB=C3=E2?=
+	=?ISO-8859-1?Q?=C0=DA=B1=DD=C1=F6=BF=F8-=C1=F7=C0=E5=C0=CE=C0=FC=B9=AE?= yrxuq
+Date: Sun, 04 Jul 04 15:04:01 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2-160tf-38gw70747$i@w2ya.bs>
-Reply-To: "Elvin Fry" <279erre@yahoo.com>
+Message-ID: <9x5cd$1is-c60i-8v$$-3--h$v2sen9@a5hoz4.c8bf.v9>
+Reply-To: "울트라론" <q32gdfe@dreamwiz.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="F4.2E.D5B_"
+	boundary="4.C2BEE_B_..335"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---F4.2E.D5B_
+--4.C2BEE_B_..335
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
 <html>
-<head>
-</head>
-<body>
-<table border=3D"0" cellpadding=3D"0" cellspacing=3D"0" width=3D"600">
-  <tr>
-   <td><a href=3D"http://bank.haolen.com//?i=3Dkim02" target=3D"_blank"><i=
-mg src=3D"http://bank.loancallcenter.com/mail_dd/images/111.jpg" width=3D"=
-600" height=3D"408" border=3D"0" alt=3D""></a></td>
-  </tr>
-  <tr>
-   <td><a href=3D"http://bank.haolen.com//?i=3Dkim02" target=3D"_blank"><i=
-mg src=3D"http://bank.loancallcenter.com/mail_dd/images/222.gif" width=3D"=
-600" height=3D"299" border=3D"0" alt=3D""></a></td>
-  </tr>
-  <tr>
-   <td><a href=3D"http://bank.loancallcenter.com/reject.php?i=3Dkim02" tar=
-get=3D"_self"><img src=3D"http://bank.loancallcenter.com/mail_dd/images/33=
-3.gif" width=3D"600" height=3D"88" border=3D"0" alt=3D""></a></td>
-  </tr>
-</table>
-</body>
-</html>
-al  hwygqfeeobgoogyixmjg  gtioerlyjswcrluudggu 
-itl
-bacn mvycnjydqktpejwq h
- c kl 
+<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
+k=3D"red">
+<a href=3D"http://www.loan-JI.kf.to"><IMG src=3D"http://61.109.247.55:3018=
+/form/image/jikjangin.jpg"></a>
+<HR color=3D#8bb5e2>
+<DIV align=3Dcenter>
+<FONT face=3D=FFFFFFB1=FFFFFFBC=FFFFFFB8=FFFFFFB2 size=3D2
+color=3D#8bb5e2>=FFFFFFBA=FFFFFFBB =FFFFFFB8=FFFFFFDE=FFFFFFC0=FFFFFFCF=FFFFFFC0=FFFFFFBA=
+=FFFFFFC1=FFFFFFA4=FFFFFFBA=FFFFFFB8=FFFFFFC5=FFFFFFEB=FFFFFFBD=FFFFFFC5=FFFFFFBA=FFFFFFCE =FFFFFFB1=FFFFFFC7=FFFFFFB0=FFFFFFED
+=FFFFFFBB=FFFFFFE7=FFFFFFC7=FFFFFFD7=FFFFFFBF=FFFFFFA1 =FFFFFFC0=FFFFFFC7=FFFFFFB0=FFFFFFC5=
 
---F4.2E.D5B_--
+=FFFFFFC1=FFFFFFA6=FFFFFFB8=FFFFFFF1=FFFFFFBF=FFFFFFA1
+[=FFFFFFB1=FFFFFFA4=FFFFFFB0=FFFFFFED]=FFFFFFB6=FFFFFFF3
+=FFFFFFC7=FFFFFFA5=FFFFFFBD=FFFFFFC3=FFFFFFB5=FFFFFFC8 =FFFFFFB1=FFFFFFA4=FFFFFFB0=FFFFFFED
+=FFFFFFB8=
+=FFFFFFDE=FFFFFFC0=FFFFFFCF=FFFFFFC0=FFFFFFD4=FFFFFFB4=FFFFFFCF=FFFFFFB4=FFFFFFD9.</FONT><BR>
+<A style=3D"PADDING-RIGHT: 3px; PADDING-LEFT: 3px; FONT-SIZE: 12px;
+PADDING-BOTTOM: 3px; COLOR: #ffff00; PADDING-TOP: 3px; FONT-FAMILY:
+=FFFFFFB1=FFFFFFBC=
+=FFFFFFB8=FFFFFFB2;
+BACKGROUND-COLOR: #8bb5e2; TEXT-DECORATION:
+none"
+href=3D"mailto:deny_reject@hotmail.com">=FFFFFFBC=FFFFFFF6=FFFFFFBD=FFFFFFC5=FFFFFFB0=FFFFFFC5=FFFFFFBA=FFFFFFCE[Deny]</A>=
+
+<FONT color=3D#8bb5e2  size=3D2
+color=3D#8bb5e2>=FFFFFFB9=FFFFFFF6=FFFFFFC6=FFFFFFB0=FFFFFFC0=FFFFFFBB =FFFFFFC5=FFFFFFAC=FFFFFFB8=
+=FFFFFFAF=FFFFFFC7=FFFFFFCF=FFFFFFBD=FFFFFFC3=FFFFFFB8=FFFFFFE9
+=FFFFFFBC=FFFFFFF6=FFFFFFBD=FFFFFFC5=FFFFFFB0=FFFFFFC5=FFFFFFBA=FFFFFFCE=FFFFFFC3=FFFFFFB3=FFFFFFB8=FFFFFFAE=FFFFFFB0=FFFFFFA1 =FFFFFFC0=FFFFFFCC=FFFFFFB7=
+=FFFFFFE7=FFFFFFBE=FFFFFFEE
+=FFFFFFC1=FFFFFFFD=FFFFFFB4=FFFFFFCF=FFFFFFB4=FFFFFFD9.<br>
+If you don't want to receive this mail anymore, click here [Deny]</FONT>
+</DIV>
+<HR color=3D#8bb5e2>
+</body>
+
+</html>
+veuzfivduwhw
+ k fx g
+  
+tc
+t
+efewnrsbyzvmhsya cmbj
+ ui 
+js   zdelf anysm
+f l
+qtjzpwhilhqsmu
+
+--4.C2BEE_B_..335--
