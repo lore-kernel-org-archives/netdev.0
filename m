@@ -1,62 +1,72 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [Openswan dev] Proposal for dealing with ICMP black holes for
-	IPsec
-Date: Mon, 5 Jul 2004 07:40:15 +1000
-Sender: dev-bounces@lists.openswan.org
-Message-ID: <20040704214015.GC671@gondor.apana.org.au>
-References: <20040703004320.GA28139@gondor.apana.org.au>
-	<Pine.LNX.4.44.0407041433410.12943-100000@tla.xelerance.com>
+From: bert hubert <ahu@ds9a.nl>
+Subject: [alessandro.suardi@oracle.com: TCP window scaling still bad in 2.6.7-bk17]
+Date: Sun, 4 Jul 2004 23:41:27 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040704214127.GA24721@outpost.ds9a.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com
-Return-path: <dev-bounces@lists.openswan.org>
-To: Ken Bantoft <ken@xelerance.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0407041433410.12943-100000@tla.xelerance.com>
-Cc: kuznet@ms2.inr.ac.ru
-Cc: netdev@oss.sgi.com
-Cc: dev@lists.openswan.org
-List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
-List-Archive: <http://lists.openswan.org/pipermail/dev>
-List-Post: <mailto:dev@lists.openswan.org>
-List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
-List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
-	<mailto:dev-request@lists.openswan.org?subject=subscribe>
-Errors-To: dev-bounces@lists.openswan.org
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 04, 2004 at 02:37:36PM +0200, Ken Bantoft wrote:
-> 
-> Interesting idea - tcp/500 connection (or maybe it should be port 4500, to 
-> deal with NAT boxes.  I assume you want to do this as early as possible, 
-> eg: Phase 1, however until we have a PH2 we can't do a secure TCP, only 
-> authenticated.  
+Probably worth looking at:
 
-Encrypting it is not very useful since the information we're tryint
-to convey is public anyway.
+----- Forwarded message from Alessandro Suardi <alessandro.suardi@oracle.com> -----
 
-Authenticating it is useful to a certain extent.  What we're trying to
-prevent is for an attacker to lower our MTU unnecessarily.  However there
-are limits to what we can do since the information we're trying to obatin
-can only be there through modification of the TCP header.
+Date: Sun, 04 Jul 2004 23:11:19 +0200
+From: Alessandro Suardi <alessandro.suardi@oracle.com>
+To: linux-kernel <linux-kernel@vger.kernel.org>
+Subject: TCP window scaling still bad in 2.6.7-bk17
+X-Mailing-List: linux-kernel@vger.kernel.org
 
-So the easiest thing to do would be to verify the MSS obtained in this
-way by sending a packet of mtu(MSS) + 1 bytes and checking whether it
-arrives.
+I have a tcpdump and a description of what happens here
 
-We'll also be repeating this process periodically (once every ten minutes)
-as long as the tunnel is not idle, so even if we do get an incorrect MTU
-it is not fatal.
+http://xoomer.virgilio.it/incident/tcpdump.out
 
-I should also point out that if the attacker can inject packets into
-the network and our firewalls are configured properly, then it is rather
-trivial for them to lower the path MTU anyway by sending us a need-to-frag
-packet.
+with www.kernel.org, but I'm mostly shut off the entire 'net.
 
-Cheers,
+The _only_ site I found I can browse without disabling TCP
+ window scaling is http://www.google.it.
+
+
+My system:
+
+ RedHat 9 base distro
+ 2.6.7-bk17 plus ACX100 out-of-kernel wireless driver (version
+  0.2.0-pre8_plus_fixes_13) from acx100.sf.net
+ built with binutils 2.15.91.0.1 and GCC 3.4.0
+
+System behaved properly until 2.6.7-bk1, was bad since 2.6.7-bk7
+ (haven't tried in-between kernels as I was on holiday).
+
+I also tried walking up to my router and connecting via eth0
+ instead of wlan0 (to rule out the wireless driver) - still the
+ connection to www.kernel.org hangs (always -bk17).
+
+
+I'm available for further digging, please CC: me on replies as I
+ only read lkml from the USSG archives.
+
+
+Thanks,
+
+--alessandro
+
+ "Practice is more important than theory. A _lot_ more important."
+    (Linus Torvalds on lkml, 1 June 2004)
+
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
+
+
+----- End forwarded message -----
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
