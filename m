@@ -1,28 +1,56 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: Fw: [PATCH 2.4.22-bk] dev->promiscuity refcounting broken in
-Date: Thu, 3 Jul 2003 02:00:09 +1000 (EST)
+From: Michael Bellion and Thomas Heinz <nf@hipac.org>
+Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
+Date: Wed, 02 Jul 2003 18:57:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0307030159230.32293-100000@excalibur.intercode.com.au>
-References: <200307020517.JAA05258@dub.inr.ac.ru>
+Message-ID: <3F030EFC.7090809@hipac.org>
+References: <Pine.LNX.4.44.0307020826530.23232-100000@netcore.fi> <200307021426.56138.nf@hipac.org> <3F02D964.7050301@draigBrady.com> <200307021548.19989.nf@hipac.org> <3F02EAE2.8050609@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <jmorris@redhat.com>,
-   <netdev@oss.sgi.com>, <lunz@falooley.org>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307020517.JAA05258@dub.inr.ac.ru>
+To: P@draigbrady.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
+Hi P=E1draig
 
-> Dave, the patch looks OK.
+You wrote:
+> I was testing with 64 byte packets (so around 190Kpps). e100 cards at=20
+> least have a handy mode for continually sending a packet as fast as=20
+> possible. Also you can use more than one interface.
 
-Applied to bk://kernel.bkbits.net/jmorris/net-2.5 and 
-bk://kernel.bkbits.net/jmorris/net-2.4
+Yes, that's true. When we did the performance tests we had in mind to
+compare the worst case behaviour of nf-hipac and iptables.
+Therefore we designed a ruleset which models the worst case for both
+iptables and nf-hipac. Of course, the test environment could have been
+tuned a lot more, e.g. udp instead of tcp, FORWARD chain instead of
+INPUT, tuned network parameters, more interfaces etc.
+
+Anyway, we prefer independent, more sophisticated performance tests.
+
+>>> # ./readprofile -m /boot/System.map | sort -nr | head -30
+>>>   6779 total                                      0.0047
+>>>   4441 default_idle                              69.3906
+>>>    787 handle_IRQ_event                           7.0268
+>>>    589 ip_packet_match                            1.6733
+>>>    433 ipt_do_table                               0.6294
+>>>    106 eth_type_trans                             0.5521
+>>>    [...]
+>=20
+> Confused me too. The system would lock up and start dropping
+> packets after 125 rules. I.E. it would linearly degrade
+> as more rules were added. I'm guessing there is a fixed
+> interrupt overhead that is accounted for
+> by default_idle?
+
+Hm, but once the system starts to drop packets ip_packet_match and
+ipt_do_table start to dominate the profile, don't they?
 
 
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Regards,
+
++-----------------------+----------------------+
+|   Michael Bellion     |     Thomas Heinz     |
+| <mbellion@hipac.org>  |  <creatix@hipac.org> |
++-----------------------+----------------------+
