@@ -1,80 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: Bug somewhere in crypto or ipsec stuff
-Date: Thu, 30 Oct 2003 14:24:58 +0900 (JST)
+From: Amir Noam <amir.noam@intel.com>
+Subject: Re: [Bonding-devel] Re: [PATCH 2/10] [bonding 2.6] fix monitoring functions
+Date: Thu, 30 Oct 2003 10:56:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031030.142458.350988313.yoshfuji@linux-ipv6.org>
-References: <20031030.124124.26191552.yoshfuji@linux-ipv6.org>
-	<Xine.LNX.4.44.0310292344530.23580-100000@thoron.boston.redhat.com>
+Message-ID: <200310301056.07221.amir.noam@intel.com>
+References: <E6F7D288B394A64585E67497E5126BA601F99143@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: paulus@samba.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        davem@redhat.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <davem@redhat.com>, <bonding-devel@lists.sourceforge.net>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@redhat.com
-In-Reply-To: <Xine.LNX.4.44.0310292344530.23580-100000@thoron.boston.redhat.com>
+To: "Jeff Garzik" <jgarzik@pobox.com>
+In-Reply-To: <E6F7D288B394A64585E67497E5126BA601F99143@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Xine.LNX.4.44.0310292344530.23580-100000@thoron.boston.redhat.com> (at Wed, 29 Oct 2003 23:47:05 -0500 (EST)), James Morris <jmorris@redhat.com> says:
+On Wednesday 29 October 2003 10:01 pm, Jeff Garzik wrote:
+> applied to 2.6.  does this need to go into 2.4, too?
 
-> > Do you mean that we need to fix the caller?
-> 
-> Yes.
+As Jay has pointed out this is already in 2.4.
 
-> >  - crypto allows name == NULL, and return any algorithm
-> >    (for example, an algorithm that we see first.)
-> >  - caller may filter name == NULL case if it is ambiguous in their context.
-> 
-> I think that could be dangerous, including if calling with null is a 
-> bug, and they get an inappropriate algorithm.  An incorrect algorithm type 
-> could also be returned (e.g. digest instead of a cipher).
+However, the following patch that restores backward compatibility with
+old ifenslave is still needed for 2.6. I see that it's already been
+applied by David Miller to 2.4.
 
-okay. how about this?
+Amir
 
-===== crypto/api.c 1.30 vs edited =====
---- 1.30/crypto/api.c	Sat Mar 29 20:16:58 2003
-+++ edited/crypto/api.c	Thu Oct 30 14:21:53 2003
-@@ -36,6 +36,9 @@
- struct crypto_alg *crypto_alg_lookup(const char *name)
- {
- 	struct crypto_alg *q, *alg = NULL;
-+
-+	if (!name)
-+		return NULL;
- 	
- 	down_read(&crypto_alg_sem);
- 	
-===== net/ipv4/ipcomp.c 1.16 vs edited =====
---- 1.16/net/ipv4/ipcomp.c	Mon Aug 18 20:14:38 2003
-+++ edited/net/ipv4/ipcomp.c	Thu Oct 30 14:18:49 2003
-@@ -360,7 +360,12 @@
- 	ipcd->scratch = kmalloc(IPCOMP_SCRATCH_SIZE, GFP_KERNEL);
- 	if (!ipcd->scratch)
- 		goto error;
--	
-+
-+	if (!x->calg->alg_name) {
-+		err = -EINVAL;
-+		goto error;
-+	}
-+
- 	ipcd->tfm = crypto_alloc_tfm(x->calg->alg_name, 0);
- 	if (!ipcd->tfm)
- 		goto error;
-===== net/ipv6/ipcomp6.c 1.7 vs edited =====
---- 1.7/net/ipv6/ipcomp6.c	Mon Aug 18 20:14:38 2003
-+++ edited/net/ipv6/ipcomp6.c	Thu Oct 30 14:18:49 2003
-@@ -293,6 +293,11 @@
- 	if (!ipcd->scratch)
- 		goto error;
- 
-+	if (!x->calg->alg_name) {
-+		err = -EINVAL;
-+		goto error;
-+	}
-+
- 	ipcd->tfm = crypto_alloc_tfm(x->calg->alg_name, 0);
- 	if (!ipcd->tfm)
- 		goto error;
+diff -Naurp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c	Thu Oct 30 10:38:34 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Oct 30 10:45:02 2003
+@@ -3047,6 +3047,10 @@ static int bond_ioctl(struct net_device 
+ 		case SIOCBONDRELEASE:	
+ 			ret = bond_release(master_dev, slave_dev); 
+ 			break;
++		case BOND_SETHWADDR_OLD:
++		case SIOCBONDSETHWADDR:
++			res = bond_sethwaddr(bond_dev, slave_dev);
++			break;
+ 		case BOND_CHANGE_ACTIVE_OLD:
+ 		case SIOCBONDCHANGEACTIVE:
+ 			if (USES_PRIMARY(bond_mode)) {
