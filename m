@@ -1,71 +1,35 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RFC/PATCH] Add support for setting net_device flags via RTM_SETLINK
-Date: Mon, 23 Aug 2004 23:16:11 +0200
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
+Date: Mon, 23 Aug 2004 14:18:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823211611.GC19921@postel.suug.ch>
+Message-ID: <OF4320C747.75C5E93A-ON88256EF9.00744FBA-88256EF9.00750996@us.ibm.com>
+References: <41289859.2040803@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "David S. Miller" <davem@redhat.com>, laforge@netfilter.org,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, okir@suse.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
-Content-Disposition: inline
+In-Reply-To: <41289859.2040803@trash.net>
+To: Patrick McHardy <kaber@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello
+BTW, since some of the frags (esp. the one that triggers the problem)
+are added post-routing, a valid dst is available. It just isn't the first
+frag in the particular scenario.
 
-The patch below extends RTM_SETLINK to change net_device flags if
-a new value is provided via ifinfomsg and modifies the way flags
-are shown to userspace to maintain balance and only show flags
-which can be modified (as in ioctl handlers):
+So, one solution would be to set skb->dst for the head (if NULL)  based
+on a non-null fragment skb->dst. I believe that would prevent the problem
+case without dropping the fragment, since it'll be processed post-routing
+only if one of the frags is.
 
-The change in behaviour:
+When I was looking at it, I wondered if conntrack really has a need to
+reassemble itself, though. Couldn't it let IP do the reassembling and
+just ignore offset != 0 frags? The offset==0 frags will have enough
+protocol header to identify by port (a requirement for ICMP). But I don't
+know this code well enough to know if conntrack does actually need
+to reassemble for some good reason. Superficially, I wouldn't think
+there'd be a reason for it.
 
-old:
-    r->ifi_flags = dev->flags;
-
-    if (!netif_running(dev) || !netif_carrier_ok(dev))
-        r->ifi_flags &= ~IFF_RUNNING;
-    else
-        r->ifi_flags |= IFF_RUNNING;
-
-new:
-    flags = (dev->flags & ~(IFF_PROMISC | IFF_ALLMULTI | IFF_RUNNING)) | 
-            (dev->gflags & (IFF_PROMISC | IFF_ALLMULTI));
-
-    if (netif_running(dev) && netif_carrier_ok(dev))
-        flags |= IFF_RUNNING;
-
-I will implement the 2 hidden flags IFF_PROMISC and IFF_ALLMULTI as separate
-message attributes (IFLA_PROMISC and IFLA_ALLMULTI) as soon as I get some
-comments on this idea.
-
-
---- 1.20/net/core/rtnetlink.c	Sun Aug 22 18:11:03 2004
-+++ 1.21/net/core/rtnetlink.c	Mon Aug 23 22:32:39 2004
-@@ -166,14 +166,9 @@
- 	r->ifi_family = AF_UNSPEC;
- 	r->ifi_type = dev->type;
- 	r->ifi_index = dev->ifindex;
--	r->ifi_flags = dev->flags;
-+	r->ifi_flags = dev_get_flags(dev);
- 	r->ifi_change = change;
- 
--	if (!netif_running(dev) || !netif_carrier_ok(dev))
--		r->ifi_flags &= ~IFF_RUNNING;
--	else
--		r->ifi_flags |= IFF_RUNNING;
--
- 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
- 	RTA_PUT(skb, IFLA_TXQLEN, sizeof(unsigned long), &dev->tx_queue_len);
- 	if (dev->addr_len) {
-@@ -246,6 +241,9 @@
- 		return -ENODEV;
- 
- 	err = -EINVAL;
-+
-+	if (ifm->ifi_flags)
-+		dev_change_flags(dev, ifm->ifi_flags);
- 
- 	if (ida[IFLA_ADDRESS - 1]) {
- 		if (!dev->set_mac_address) {
+                                        +-DLS
