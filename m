@@ -1,32 +1,25 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: Re: [PATCH] skbuff more likely/unlikely
-Date: Thu, 2 Oct 2003 19:34:31 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: mod_timer improvement
+Date: Thu, 2 Oct 2003 23:40:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003023431.GC42593@gaz.sfgoth.com>
-References: <20031002102420.6e1cece9.shemminger@osdl.org>
+Message-ID: <20031002234036.704c4588.davem@redhat.com>
+References: <3F7C5863.1080403@sgi.com>
+	<3F7C5D22.7010103@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031002102420.6e1cece9.shemminger@osdl.org>
+To: Steve Modica <modica@sgi.com>
+In-Reply-To: <3F7C5D22.7010103@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> A couple more places where we can help by hinting the compiler
-> for 2.6.0-test6.  If we are pulling off header, is is likely there;
-> and skb alloc's succeed in the normal case.
-> 
-> Thought I saw an earlier similar patch, but here is my take on it.
+On Thu, 02 Oct 2003 12:15:14 -0500
+Steve Modica <modica@sgi.com> wrote:
 
-Yes, my patch from a couple weeks ago does the same thing (but also
-did a lot in skbuff.c)  I haven't had a chance to rediff and test
-after the const parts went in.  Do you want to adopt the rest of the
-changes?
+> D'OH! Sorry about the formatting.  I think this is better:
 
-Original patch:
-  http://oss.sgi.com/projects/netdev/archive/2003-09/msg00036.html
-
--Mitch
+Probably the networking development list isn't the place
+to post patches that modify generic code such as the timer
+stuff you are modifying here.
