@@ -1,41 +1,62 @@
-From: Patrick McHardy <kaber@trash.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: patch: introduce simple actions
-Date: Sun, 20 Mar 2005 20:58:30 +0100
-Message-ID: <423DD5E6.2020708@trash.net>
-References: <1111345551.1095.82.camel@jzny.localdomain>	 <423DCD8C.6030100@trash.net> <1111347345.1094.98.camel@jzny.localdomain>
+Date: 20 Mar 2005 15:10:27 -0500
+Message-ID: <1111349426.1092.128.camel@jzny.localdomain>
+References: <1111345551.1095.82.camel@jzny.localdomain>
+	 <20050320194408.GU3086@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Thomas Graf <tgraf@suug.ch>
-To: hadi@znyx.com
-In-Reply-To: <1111347345.1094.98.camel@jzny.localdomain>
+        Patrick McHardy <kaber@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050320194408.GU3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi Salim wrote:
-> On Sun, 2005-03-20 at 14:22, Patrick McHardy wrote:
->
->>One of the next things I wanted to do in this area was
->>moving all the large inline functions to act_generic.c,
->>so if possible I would prefer not to put these in a header
->>file.
+On Sun, 2005-03-20 at 14:44, Thomas Graf wrote:
+> * Jamal Hadi Salim <1111345551.1095.82.camel@jzny.localdomain> 2005-03-20 14:05
+
+> > +static inline int
+> > +tcf_defact_init(struct rtattr *rta, struct rtattr *est,
+> > +		struct tc_action *a, int ovr, int bind)
+> > +{
+> > +	struct rtattr *tb[TCA_DEF_MAX];
+> > +	struct tc_defact *parm;
+> > +	struct tcf_defact *p;
+> > +	void *defdata;
+> > +	u32 datalen = 0;
+> > +	int ret = 0;
+> > +
+> > +	if (rta == NULL || rtattr_parse_nested(tb, TCA_DEF_MAX, rta) < 0)
+> > +		return -EINVAL;
+> > +
+> > +	if (tb[TCA_DEF_PARMS - 1] == NULL)
+> > +		return -EINVAL;
+> > +	parm = RTA_DATA(tb[TCA_DEF_PARMS - 1]);
+> > +	defdata = RTA_DATA(tb[TCA_DEF_DATA - 1]);
 > 
-> These are small functions. Take a look at the simple action i attached.
-> If you can give me the same functionality and still move things
-> de_inlined to act_generic.c i would be fine with it.
+> Maybe do a size sanity check here for TCA_DEF_PARMS?
+> 
 
-The functions are not inlined anyway, so the question is whether any
-#define magic is done as with pkt_act.h, otherwise there is no reason
-to have them in a header file. Looking at your patch, it seems
-tc_defact.h uses the redefined pkt_act.h functions, so it does need to
-be in a header file, but frankly, I find this horrible. The patch
-doesn't conflict with cleanup of pkt_act.h, but it means more work when
-doing it, so I think this is what should be done first. Especially
-since this is only an example, not useful for users, but it will be
-possibly used to create more actions that also need to be changed
-afterwards.
+Will do.
 
-Regards
-Patrick
+> > +
+> > +struct tc_defact
+> > +{
+> > +	tc_gen;
+> > +};
+> 
+> tcf_defact, tc_defact, .. quite easy to get this wrong. Maybe
+> it would a good idea to rename tcf_defact to tcf_defact_parm?
+> 
+
+sigh. another LinuxWay(tm). Unfortunately this is all over the net/sched
+code to imply something thats user specific vs kernel specific. If
+you feel strongly about it i will change it - otherwise maybe we can
+leave it till some day some brave person will clean up the whole thing?
+
+cheers,
+jamal
