@@ -1,7 +1,7 @@
 From: maximilian attems <janitor@sternwelten.at>
-Subject: [patch 2/6] libata remove duplicate definition msecs_to_jiffies()
-Date: Sun, 31 Oct 2004 15:44:42 +0100
-Message-ID: <20041031144442.GC28667@stro.at>
+Subject: [patch 3/6] sx8 remove duplicate definition msleep(), msecs_to_jiffies()
+Date: Sun, 31 Oct 2004 15:44:54 +0100
+Message-ID: <20041031144454.GD28667@stro.at>
 References: <20040923221303.GB13244@us.ibm.com> <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -20,30 +20,37 @@ List-Id: netdev.vger.kernel.org
 
 
 
-remove duplicate definition of msecs_to_jiffies().
-already includes delay.h
+
+remove duplicate definition msleep(), msecs_to_jiffies().
+delay.h already included.
 
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 
 
 ---
 
- linux-2.4.28-rc1-max/include/linux/libata.h |    5 -----
- 1 files changed, 5 deletions(-)
+ linux-2.4.28-rc1-max/drivers/block/sx8.c |   11 -----------
+ 1 files changed, 11 deletions(-)
 
-diff -puN include/linux/libata.h~remove-msecs_to_jiffies-libata.h include/linux/libata.h
---- linux-2.4.28-rc1/include/linux/libata.h~remove-msecs_to_jiffies-libata.h	2004-10-31 13:33:52.000000000 +0100
-+++ linux-2.4.28-rc1-max/include/linux/libata.h	2004-10-31 13:36:16.000000000 +0100
-@@ -419,11 +419,6 @@ extern int ata_std_bios_param(Disk * dis
- extern void libata_msleep(unsigned long msecs);
- 
+diff -puN drivers/block/sx8.c~remove-msleep+msecs_to_jiffies-drivers_block_sx8 drivers/block/sx8.c
+--- linux-2.4.28-rc1/drivers/block/sx8.c~remove-msleep+msecs_to_jiffies-drivers_block_sx8	2004-10-31 13:37:56.000000000 +0100
++++ linux-2.4.28-rc1-max/drivers/block/sx8.c	2004-10-31 13:38:56.000000000 +0100
+@@ -548,17 +548,6 @@ static int carm_bdev_ioctl(struct inode 
+ 	return -EOPNOTSUPP;
+ }
  
 -static inline unsigned long msecs_to_jiffies(unsigned long msecs)
 -{
 -	return ((HZ * msecs + 999) / 1000);
 -}
 -
- static inline unsigned int ata_tag_valid(unsigned int tag)
- {
- 	return (tag < ATA_MAX_QUEUE) ? 1 : 0;
+-static void msleep(unsigned long msecs)
+-{
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(msecs_to_jiffies(msecs) + 1);
+-}
+-
+ static const u32 msg_sizes[] = { 32, 64, 128, CARM_MSG_SIZE };
+ 
+ static inline int carm_lookup_bucket(u32 msg_size)
 _
