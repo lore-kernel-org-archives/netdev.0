@@ -1,24 +1,25 @@
-From: root <jberna@disc.ua.es>
-Subject: Token Ring Hardware Address in ARP
-Date: Thu, 25 Apr 2002 19:03:54 +0200
+From: Mike_Phillips@URSCorp.com
+Subject: Re: Token Ring Hardware Address in ARP
+Date: Thu, 25 Apr 2002 12:22:06 -0500
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3CC836FA.D0971576@disc.ua.es>
+Message-ID: <OFB41AEBD7.9D970803-ON86256BA6.005FEDC4@urscorp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org
+To: root <jberna@disc.ua.es>
 List-Id: netdev.vger.kernel.org
 
-Hello everybody,
+>                I want to know which is the format for token ring 
+hardware address to
+>set entries in the ARP table. I tried the Ethernet one
+>(00:00:00:00:00:00) but doesn't work. Any idea ??
 
-	I want to know which is the format for token ring hardware address to
-set entries in the ARP table. I tried the Ethernet one
-(00:00:00:00:00:00) but doesn't work. Any idea ??
+Token ring mac addresses are the same as ethernet, but the high order bits 
+have special meaning. You have to ensure the address adheres to these 
+requirements.
 
-Please help. I need it a lot.
+Mike
+Linux Token Ring Project
+http://www.linuxtr.net
 
-Best regards,
-
-
-	Jose A. Berna
