@@ -1,8 +1,8 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] [PACKET] LL_RESERVED_SPACE
-Date: Mon, 09 Feb 2004 13:43:41 +0900 (JST)
+Subject: [PATCH] [NETFILTER] LL_RESERVED_SPACE
+Date: Mon, 09 Feb 2004 13:44:18 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209.134341.43254113.yoshfuji@linux-ipv6.org>
+Message-ID: <20040209.134418.72875541.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -12,44 +12,32 @@ To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-D: [PACKET] Use LL_RESERVED_SPACE() where appricable.
+D: [NETFILTER] Use LL_RESERVED_SPACE() where appricable.
 
-===== net/packet/af_packet.c 1.40 vs edited =====
---- 1.40/net/packet/af_packet.c	Sat Feb  7 06:30:12 2004
-+++ edited/net/packet/af_packet.c	Mon Feb  9 12:41:20 2004
-@@ -327,7 +327,7 @@
- 		goto out_unlock;
+===== net/ipv4/netfilter/ipt_REJECT.c 1.26 vs edited =====
+--- 1.26/net/ipv4/netfilter/ipt_REJECT.c	Fri Jan 30 10:00:13 2004
++++ edited/net/ipv4/netfilter/ipt_REJECT.c	Mon Feb  9 12:47:03 2004
+@@ -117,7 +117,7 @@
+ 	if ((rt = route_reverse(oldskb, hook)) == NULL)
+ 		return;
  
- 	err = -ENOBUFS;
--	skb = sock_wmalloc(sk, len+dev->hard_header_len+15, 0, GFP_KERNEL);
-+	skb = sock_wmalloc(sk, len + LL_RESERVED_SPACE(dev), 0, GFP_KERNEL);
+-	hh_len = (rt->u.dst.dev->hard_header_len + 15)&~15;
++	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
  
- 	/*
- 	 *	If the write buffer is full, then tough. At this level the user gets to
-@@ -346,7 +346,7 @@
- 	 * hard header at transmission time by themselves. PPP is the
- 	 * notable one here. This should really be fixed at the driver level.
- 	 */
--	skb_reserve(skb,(dev->hard_header_len+15)&~15);
-+	skb_reserve(skb, LL_RESERVED_SPACE(dev));
- 	skb->nh.raw = skb->data;
+ 	/* We need a linear, writeable skb.  We also need to expand
+ 	   headroom in case hh_len of incoming interface < hh_len of
+@@ -305,9 +305,9 @@
+ 	if (length > 576)
+ 		length = 576;
  
- 	/* Try to align data part correctly */
-@@ -700,12 +700,12 @@
- 	if (len > dev->mtu+reserve)
- 		goto out_unlock;
+-	hh_len = (rt->u.dst.dev->hard_header_len + 15)&~15;
++	hh_len = LL_RESERVED_SPACE(rt->u.dst.dev);
  
--	skb = sock_alloc_send_skb(sk, len+dev->hard_header_len+15, 
-+	skb = sock_alloc_send_skb(sk, len + LL_RESERVED_SPACE(dev),
- 				msg->msg_flags & MSG_DONTWAIT, &err);
- 	if (skb==NULL)
- 		goto out_unlock;
- 
--	skb_reserve(skb, (dev->hard_header_len+15)&~15);
-+	skb_reserve(skb, LL_RESERVED_SPACE(dev));
- 	skb->nh.raw = skb->data;
- 
- 	if (dev->hard_header) {
+-	nskb = alloc_skb(hh_len+15+length, GFP_ATOMIC);
++	nskb = alloc_skb(hh_len + length, GFP_ATOMIC);
+ 	if (!nskb) {
+ 		ip_rt_put(rt);
+ 		return;
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
