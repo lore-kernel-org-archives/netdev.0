@@ -1,8 +1,8 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [uPD98402] exported symbols should not be marked __init
-Date: Sun, 21 Sep 2003 10:48:29 -0400
+Subject: [PATCH][ATM]: [zatm] correct way to prevent module unload (from shemminger@osdl.org)
+Date: Sun, 21 Sep 2003 10:48:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309211448.h8LEmTkT023785@ginger.cmf.nrl.navy.mil>
+Message-ID: <200309211448.h8LEmtkT023791@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,25 +16,28 @@ please apply to 2.6.  --thanks
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1444  -> 1.1445 
-#	drivers/atm/uPD98402.c	1.7     -> 1.8    
+#	           ChangeSet	1.1442  -> 1.1443 
+#	  drivers/atm/zatm.c	1.20    -> 1.21   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/09/21	chas@relax.cmf.nrl.navy.mil	1.1445
-# uPD98402.c:
-#   [ATM]: [uPD98402] exported symbols should not be marked __init
+# 03/09/16	chas@relax.cmf.nrl.navy.mil	1.1443
+# [ATM]: [zatm] correct way to prevent module unload (from shemminger@osdl.org)
 # --------------------------------------------
 #
-diff -Nru a/drivers/atm/uPD98402.c b/drivers/atm/uPD98402.c
---- a/drivers/atm/uPD98402.c	Sun Sep 21 10:42:35 2003
-+++ b/drivers/atm/uPD98402.c	Sun Sep 21 10:42:35 2003
-@@ -246,7 +246,7 @@
- };
+diff -Nru a/drivers/atm/zatm.c b/drivers/atm/zatm.c
+--- a/drivers/atm/zatm.c	Sun Sep 21 09:36:31 2003
++++ b/drivers/atm/zatm.c	Sun Sep 21 09:36:31 2003
+@@ -1617,11 +1617,10 @@
+ out:
+ 	kfree(zatm_dev);
  
+-	/* XXX: currently the driver is not unloadable.. */
+-	MOD_INC_USE_COUNT;
+ 	return 0;
+ }
  
--int __init uPD98402_init(struct atm_dev *dev)
-+int uPD98402_init(struct atm_dev *dev)
- {
- DPRINTK("phy_init\n");
- 	dev->phy = &uPD98402_ops;
+ MODULE_LICENSE("GPL");
+ 
+ module_init(zatm_module_init);
++/* module_exit not defined so not unloadable */
