@@ -1,116 +1,121 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (1/5) replay netdev notifier events on registration
-Date: Thu, 15 Jan 2004 10:16:17 -0800
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH] IPv6 MIB:ipv6inetNetToMediaTable
+Date: Thu, 15 Jan 2004 10:18:44 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115101617.0782fcca.shemminger@osdl.org>
-References: <20040113105843.0d1351cb.shemminger@osdl.org>
-	<20040113163631.1a9c1a59.davem@redhat.com>
-	<20040114164416.753a62fc.shemminger@osdl.org>
-	<20040115004255.62dc8b95.davem@redhat.com>
+Message-ID: <OFE052816E.2064C677-ON88256E1C.0063EDA2@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, chas@cmf.nrl.navy.mil
+Content-Type: multipart/alternative;
+	Boundary="0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32"
+Cc: mashirle@us.ibm.com, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040115004255.62dc8b95.davem@redhat.com>
+To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jan 2004 00:42:55 -0800
-"David S. Miller" <davem@redhat.com> wrote:
-
-> On Wed, 14 Jan 2004 16:44:16 -0800
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > Possible problems:
-> > qeth: s390 driver -- bug, code is narcissistic and thinks it only gets
-> > 	notified about it's own devices.
-> > 
-> > atm/mpc: only looks for "lec" devices, don't know if they could exist
-> > 	before it starts.
-> 
-> These are both hard errors and potential bogus pointer derefences, they both
-> assume the type of dev->priv.  The atm/mpc case has a netdev->name==NULL
-> test which is a funny relic :-)
-> 
-> Both these cases ought to be fixed.  However, the atm/mpc case poses an issue,
-> how to identify "my" devices?  We've established that the textual name is
-> basically arbitrary and not a reliable key.  Currently I see only two
-> possible reliable solutions, but I like neither of them:
-> 
-> 1) Device driver doing this needs to keep own list of net devices it
->    has created.  Then it's notifiier code does something like:
-> 
-> 	if (!find_in_mpoa_devlist(dev))
-> 		return NOTIFY_DONE;
-
-This is done other places, but your right it scales poorly
-
-> 2) Add a type cookie or similar to the generic netdev, only devices
->    which need to identify themselves in these generic kind of cases
->    add identifier values there, so currently that would be MPOA and
->    QETH, then the code goes:
-> 
-> 	if (dev->type_cookie == NETDEV_TYPE_MPOA)
-> 		return NOTIFY_DONE;
-
-faster, but uglier.
-
-> But as stated I think both of these ideas absolutely stink.
-
-Well, we could switch to an object language with RTTI ;-(
-
-> ... wait...
-> 
-> Ok, I have an idea, consider this.  We add a netdev->notifier()
-> method.  We create a new routine to net/core/dev.c:
-> 
-> static void run_netdev_notifiers(int event, struct net_device *dev)
-> {
-> 	notifier_call_chain(&netdev_chain, event, dev);
-> 
-> 	if (dev->notifier)
-> 		dev->notifier(dev, event);
-> }
-> 
-> Then replace all the notifier_call_chain(&netdev_chain, ...) calls
-> in net/core/dev.c with invocations of run_netdev_notifiers().
-> 
-> I believe we can (and thus should) add an ASSERT_RTNL() to this new
-> run_netdev_notifiers() functions, although I'm not %100 sure.
-> 
-> What do you think Stephen?
-
-Feeling stupid this morning, how wold this help?  Would device set
-dev->notifier and not register for other notifications?
-Rather than a single notifier why not add a dev->notify_chain and
-do:
-	notifier_call_chain(&netdev_chain, event, dev);
-	notifier_call_chain(dev->notify_chain, event, dev);
-
-But the whole programming model of responding to callbacks seems bassackwards
-in these cases, because the device can process the same events (up/down)
-on the front side (open/close) rather than getting callbacks.  At least in the
-qeth case it seems like a messed up design.  
+--0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32
+Content-type: text/plain; charset=ISO-2022-JP
+Content-transfer-encoding: quoted-printable
 
 
-> > Unrelated problems:
-> > ddp: registers for notifier before it is initialized
-> 
-> Just moving it down to the end of atalk_init() should fix this?
-I'll test a patch for it.
 
-> Actually, I don't really see any potential problem here.
-> 
-> > ipmr: no locking for add/delete
-> 
-> Not a problem, RTNL semaphore is held.
-> 
-> > ipfwadm: no module owner on /proc interface
 
-> Please elaborate.  I don't see the ipfwadm netdev event notifier
-> messing with procfs stuff, or is this happen at a level or two of
-> indirection somewhere else?
 
-Just never looked there before... patch coming.
+
+Thanks. This is a bug fix for the update value (last change) to be a
+TimeStamp according to new IP MIBs. There is no confirm value in the ne=
+w IP
+MIBs inetNetTomedia Entry, I don't know what's the confirm for, I still=
+
+keep it, but change it to TimeStamp. Is there any application using the=
+se
+values right now? If you agree we can fix any applications reference th=
+ese
+values.
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
+
+
+
+YOSHIFUJI Hideaki / =1B$B5HF#1QL@=1B(B
+<yoshfuji@linux-ipv6.org>@cerberus.hongo.wide.ad.jp> on 01/15/2004 01:0=
+4:11
+AM
+
+Sent by:    "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp>
+
+
+To:    mashirle@us.ltcfwd.linux.ibm.com
+cc:    davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Shir=
+ley
+       Ma/Beaverton/IBM@IBMUS
+Subject:    Re: [PATCH] IPv6 MIB:ipv6inetNetToMediaTable
+
+
+In article <200401141621.26317.mashirle@us.ibm.com> (at Wed, 14 Jan 200=
+4
+16:21:26 -0800), Shirley Ma <mashirle@us.ibm.com> says:
+
+> This patch is against 2.6.1 kernel.
+
+Wrong. Do not change interface.
+
+--yoshfuji
+
+=
+
+--0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32
+Content-type: text/html; charset=ISO-2022-JP
+Content-Disposition: inline
+Content-transfer-encoding: quoted-printable
+
+<html><body>
+<p>Thanks. This is a bug fix for the update value (last change) to be a=
+ TimeStamp according to new IP MIBs. There is no confirm value in the n=
+ew IP MIBs inetNetTomedia Entry, I don't know what's the confirm for, I=
+ still keep it, but change it to TimeStamp. Is there any application us=
+ing these values right now? If you agree we can fix any applications re=
+ference these values. <br>
+<br>
+Thanks<br>
+Shirley Ma<br>
+IBM Linux Technology Center<br>
+15300 SW Koll Parkway<br>
+Beaverton, OR 97006-6063<br>
+Phone: (503) 578-7638<br>
+FAX:      (503) 578-3228<br>
+<br>
+<br>
+
+<p><font size=3D"2" color=3D"#800080">Sent by:	&quot;Hideaki YOSHIFUJI&=
+quot; &lt;yoshfuji@cerberus.hongo.wide.ad.jp&gt;</font>
+<p><font size=3D"2" color=3D"#800080">To:	</font><font size=3D"2">mashi=
+rle@us.ltcfwd.linux.ibm.com</font><br>
+<font size=3D"2" color=3D"#800080">cc:	</font><font size=3D"2">davem@re=
+dhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Shirley Ma/Beaverto=
+n/IBM@IBMUS</font><font size=3D"2" color=3D"#800080"> </font><br>
+<font size=3D"2" color=3D"#800080">Subject:	</font><font size=3D"2">Re:=
+ [PATCH] IPv6 MIB:ipv6inetNetToMediaTable</font><br>
+<br>
+<br>
+<font face=3D"Courier New">In article &lt;200401141621.26317.mashirle@u=
+s.ibm.com&gt; (at Wed, 14 Jan 2004 16:21:26 -0800), Shirley Ma &lt;mash=
+irle@us.ibm.com&gt; says:<br>
+<br>
+&gt; This patch is against 2.6.1 kernel.<br>
+<br>
+Wrong. Do not change interface.<br>
+<br>
+--yoshfuji<br>
+</font><br>
+<br>
+</body></html>=
+
+--0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32--
