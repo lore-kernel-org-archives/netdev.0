@@ -1,36 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: IPSEC patch 0 for netlink events
-Date: Sun, 27 Mar 2005 05:47:07 +1000
-Message-ID: <20050326194707.GA9872@gondor.apana.org.au>
-References: <1111864971.1092.904.camel@jzny.localdomain>
+Subject: Re: PATCH: IPSEC acquire in presence of multiple managers
+Date: Sun, 27 Mar 2005 05:45:03 +1000
+Message-ID: <20050326194503.GA9826@gondor.apana.org.au>
+References: <E1DF15m-0006JT-00@gondolin.me.apana.org.au> <1111862486.1090.880.camel@jzny.localdomain> <20050326194217.GA9778@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@redhat.com>, nakam@linux-ipv6.org,
+        shinta.sugimoto@ericsson.com, netdev <netdev@oss.sgi.com>,
+        Patrick McHardy <kaber@trash.net>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1111864971.1092.904.camel@jzny.localdomain>
+In-Reply-To: <20050326194217.GA9778@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 26, 2005 at 02:22:51PM -0500, jamal wrote:
->
-> --- a/include/linux/xfrm.h	2005/03/26 18:30:26	1.1
-> +++ b/include/linux/xfrm.h	2005/03/26 18:47:48
-> @@ -254,5 +254,8 @@
->  
->  #define XFRMGRP_ACQUIRE		1
->  #define XFRMGRP_EXPIRE		2
-> +#define XFRMGRP_POLEXPIRE	4
-> +#define XFRMGRP_SA		8
-> +#define XFRMGRP_POLICY		0x10
+On Sun, Mar 27, 2005 at 05:42:17AM +1000, herbert wrote:
+> 
+> It's only sitting there forever because ping is configured to send
+> packets forever by default.
+> 
+> Try ping -c 1 and things will probably be different.
 
-Since we're adding new multicast groups, what about adding one for
-the passive event monitor? That way we can return ESRCH in km_query
-if there are no registered ACQUIRE listeners but still send messages
-to the monitor.
+Actually it won't.  It will try it forever when the larval state
+expires.  When we fix the xfrm state resolution, we can add a
+knob for this case.
 
 Cheers,
 -- 
