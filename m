@@ -1,51 +1,70 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Fri, 11 Oct 2002 00:23:21 +0900 (JST)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
+Date: Fri, 11 Oct 2002 02:36:41 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021011.002321.27802563.yoshfuji@linux-ipv6.org>
-References: <20021006.033351.33728380.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0210101724030.9287-100000@netcore.fi>
+Message-ID: <Mutt.LNX.4.44.0210110220230.3139-100000@blackbird.intercode.com.au>
+References: <Mutt.LNX.4.44.0210052152400.25151-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0210101724030.9287-100000@netcore.fi>
+To: Martin Pool <mbp@samba.org>
+In-Reply-To: <Mutt.LNX.4.44.0210052152400.25151-100000@blackbird.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0210101724030.9287-100000@netcore.fi> (at Thu, 10 Oct 2002 17:29:38 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+Martin,
 
-> Dave, Alexey.. I think there has to be a high-level decision on how to
-> proceed here.  I'm referring to the optimization.  TCP or other
-> connection-oriented protocols use this one per connection; UDP and the
-> like probably once per packet.  The latter is at least quite undesirable,
-> as you pointed out.
+Below is a simplified version of your patch, which maintains the 
+(skb->len < mss_now) check per Alexey's comments.
 
-Hmm, what we think is, performance critical applications such as DVTS
-(Digital Video Transport System) will do bind(2) so the latter is not 
-fatal problem.
+Note that I've not been able to reproduce the problem with network
+configurations from 10-1000Gbps and various combinations of hosts, kernels
+and 'server' applications.  I did run into what looked like stalled
+ESTABLISHED/FIN_WAIT1 connections, although these turned out to be the
+(valid) result of the server advertising zero windows after it ran out of
+resources.  The FIN_WAIT1 states on the client were running timers and
+performing zero window probes.  A further check showed that it didn't
+matter if the client socket sockets were corked or not.
 
-
-We need improved source address selection for further feature(s)
-(like privacy extentions).
-
-Our code is easy to implement further rules and order of calculation
-cost is same as before; O(n) while n is number of addresses.
-
-We think netdev and/or usagi can develop optimization later,
-and we think people can survive until then.
+Would you please give this patch some testing?  (It would be really great
+if any of the RH 6.2 distcc users who reported problems could test it 
+also).
 
 
-> Putting the stuff in the routing table could work, but then this algorithm
-> would have to be re-run always when there are changes in any address in
-> the node.  There might be other ways.
+Thanks,
 
-How about
- - store one (daddr,ddev,saddr,tstamp) set in sk
- - update addrconf_tstamp in addrconf_verify() (etc.)
- - check tstamp and addrconf_tstamp and use saddr if ok in saddr selection
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
 
---yoshfuji
+diff -urN -X dontdiff linux-2.2.22.orig/net/ipv4/tcp_output.c linux-2.2.22.corkfix/net/ipv4/tcp_output.c
+--- linux-2.2.22.orig/net/ipv4/tcp_output.c	Fri May 10 12:10:08 2002
++++ linux-2.2.22.corkfix/net/ipv4/tcp_output.c	Fri Oct 11 01:22:33 2002
+@@ -766,24 +766,7 @@
+ 		TCP_SKB_CB(skb)->flags |= TCPCB_FLAG_FIN;
+ 		TCP_SKB_CB(skb)->end_seq++;
+ 		tp->write_seq++;
+-
+-		/* Special case to avoid Nagle bogosity.  If this
+-		 * segment is the last segment, and it was queued
+-		 * due to Nagle/SWS-avoidance, send it out now.
+-		 */
+-		if(tp->send_head == skb &&
+-		   !sk->nonagle &&
+-		   skb->len < (tp->mss_cache >> 1) &&
+-		   tp->packets_out &&
+-		   !(TCP_SKB_CB(skb)->flags & TCPCB_FLAG_URG)) {
+-			update_send_head(sk);
+-			TCP_SKB_CB(skb)->when = tcp_time_stamp;
+-			tp->snd_nxt = TCP_SKB_CB(skb)->end_seq;
+-			tp->packets_out++;
+-			tcp_transmit_skb(sk, skb_clone(skb, GFP_ATOMIC));
+-			if(!tcp_timer_is_set(sk, TIME_RETRANS))
+-				tcp_reset_xmit_timer(sk, TIME_RETRANS, tp->rto);
+-		}
++		tcp_push_pending_frames(sk, tp);
+ 	} else {
+ 		/* Socket is locked, keep trying until memory is available. */
+ 		for (;;) {
