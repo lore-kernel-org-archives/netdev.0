@@ -1,65 +1,62 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/4] deferred drop, __parent workaround, reshape_fail
-Date: 14 Aug 2004 17:21:31 -0400
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Deleting incoming network packets / sk_buff
+Date: Sat, 14 Aug 2004 15:15:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1092518370.2876.3.camel@jzny.localdomain>
-References: <411C0FCE.9060906@crocetta.org>
-	 <1092401484.1043.30.camel@jzny.localdomain> <411CCB98.4080904@crocetta.org>
-Reply-To: hadi@cyberus.ca
+Message-ID: <411E8EE4.70900@candelatech.com>
+References: <411E642C.9010708@web.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Alexey <kuznet@ms2.inr.ac.ru>, "David S. Miller" <davem@redhat.com>,
-        devik@cdi.cz, shemminger@osdl.org, kaber@trash.net,
-        rusty@rustcorp.com.au, Harald Welte <laforge@netfilter.org>,
-        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sandr8@crocetta.org
-In-Reply-To: <411CCB98.4080904@crocetta.org>
+To: Michael Renzmann <mrenzmann@web.de>
+In-Reply-To: <411E642C.9010708@web.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[please wrap your email at about 76 characters; makes it easier to
-respond to]
+Michael Renzmann wrote:
+> Hi all.
+> 
+> I'm just making my first steps in kernel programming, and I have a few 
+> questions.
+> 
+> It's necessary for me to "delete" network packets that come in on a 
+> ethernet device after passing them to an userspace program (through a 
+> packet socket that the program has opened). My first idea was to write a 
+> kernel module that registers on the NF_IP_PRE_ROUTING netfilter hook and 
+> does its job. But there are two downsides on this approach:
+> 
+> 1. I need to delete every packet, no matter if it is IP or something 
+> else. As far as I understood only IP-packets will pass the netfilter 
+> hooks, since the netfilter framework only works with IP traffic.
+> 
+> 2. The solution also has to work for 2.2.x kernels, as long as there is 
+> any way to achieve this functionality for these kernel series and 2.4.x 
+> as well.
+> 
+> I continued to dig some documentation, and found a possible solution in 
+> a rather old phrack article [1]: "What we do is code our own kernel 
+> module that registers our packet_type{} data structure to handle all 
+> incoming packets (sk_buff's) right after they come out of the device 
+> driver." While the authors use this technique to implement some 
+> "protocol obfuscation" or an in-kernel packet sniffer, it seems to be a 
+> good way to reach what I want to do.
+> 
+> Now, what I'm wondering about is the way to "correctly" remove an 
+> sk_buff so that the upper layer won't see the corresponding packet. I 
+> somewhere read that the code for packet sockets have to clone the 
+> sk_buff before passing it to the socket, else it would be "lost" and 
+> could not be seen by following handlers.
 
-On Fri, 2004-08-13 at 10:09, sandr8 wrote:
-> jamal wrote:
+There is no way that I am aware of to block packets from high-level protocols,
+but you can disable the higher protocols (ie, set IP to 0.0.0.0).
 
-> >1) You cant change the enqueue/dequeue API just because one qdisc
-> >doesnt seem to use it right. Whats all that contrack stuff doing in 
-> >dev.c and pkt sched areas?
-> >
-> the conntrack stuff (actually that little part of code that adds 
-> unbilling to ACCT in case of a drop) is something that comes later 
-> (patch 4) and is not in the pkt sched part. please, don't let it 
-> divert your mind from the real point. just forget it for the moment...
->  [in any case it is _not_ in the pkt sched area and as i said in mail 
-> 4/4 i don't like to put the variables into dev.c, that's why i am 
-> there asking for alternatives]
+You can also hack net/core/dev.c to stop the packets from going
+up the stack, but it requires more than just a new kernel module,
+you'd have to actually change dev.c.  (Search for BRIDGE).
 
-This actually seems to be the core issue. 
-Correct me if i misunderstood what you are trying to achieve: 
-Somewhere above, the netfilter code bills some packet. Packet gets 
-all the way to the scheduler on egress.
-Scheduler drops packet although it has been billed already.
-You being a man looking for justice ;-> decides that was unfair and
-you are trying to undo it. Is this accurate?
+Ben
 
-Also is their a corrective factor that happens once the _accounting_ 
-data has been shipped? Example: 
-- account for packet
-- ship accounting data to some billing server
-- oops, unbill
-- what now?
-
-BTW, what happens if you clone the packet below netfilter and send
-several copies of it possibly over several different interfaces? This
-may happen with tc extensions.
-I think accounting is important - especially if it is almost free with
-contracking.
- 
-Lets talk about this issue first instead of confusing it with everything
-else you have in other patches.
-
-cheers,
-jamal
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
