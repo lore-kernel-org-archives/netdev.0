@@ -1,51 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: linux-2.6.9 eepro100 warning
-Date: Thu, 28 Oct 2004 00:38:20 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH]  802.1Q VLAN
+Date: Wed, 27 Oct 2004 21:42:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <418077BC.10806@pobox.com>
-References: <200410232313.AA00003@prism.kumin.ne.jp>	<417C9A4E.3030909@pobox.com> <wxxr7nma801.fsf@nommo.uio.no>
+Message-ID: <20041027214257.24637a9f.davem@davemloft.net>
+References: <41797696.9070905@candelatech.com>
+	<20041022214611.GA4948@electric-eye.fr.zoreil.com>
+	<41798506.1030909@candelatech.com>
+	<417D675F.3000909@candelatech.com>
+	<417D929A.2090809@candelatech.com>
+	<20041027164912.09cc63f8.davem@davemloft.net>
+	<41804B35.1080306@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Seiichi Nakashima <nakasima@kumin.ne.jp>, linux-kernel@vger.kernel.org,
-        Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Terje Kvernes <terjekv@math.uio.no>
-In-Reply-To: <wxxr7nma801.fsf@nommo.uio.no>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <41804B35.1080306@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Terje Kvernes wrote:
-> Jeff Garzik <jgarzik@pobox.com> writes:
-> 
->   [ ... ]
-> 
-> 
->>Note that eepro100 driver will be deleted soon.
-> 
-> 
->   we have several systems where e100 produces netdev watchdog errors,
->   while eepro100 works without problems.  I can understand the desire
->   to migrate, but what timeframe are we looking at?  roughly
->   translated, when do I _have_ to start help debugging the e100
->   driver?  ;-)
-> 
->   I can do another attempt at rolling out the e100 driver, see what
->   breaks, and try to report it around 2.6.1[01] or something like that
->   if that helps?
+On Wed, 27 Oct 2004 18:28:21 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
+> > Also, what is up with the magic "23" constant in the get realdev
+> > name function strncpy() call?
+> 
+> Well, the fields are 24-bytes long, as defined in the include/linux/if_vlan.h
+> file.  I could change it to a #define and/or use sizeof if you prefer.
 
-If there are e100 problems, report them to the maintainers so we can get 
-them resolved ASAP...
-
-INTEL PRO/100 ETHERNET SUPPORT
-P:      John Ronciak
-M:      john.ronciak@intel.com
-P:      Ganesh Venkatesan
-M:      ganesh.venkatesan@intel.com
-P:      Scott Feldman
-M:      scott.feldman@intel.com
-W:      http://sourceforge.net/projects/e1000/
-S:      Supported
-
-(and of course netdev@oss.sgi.com as well)
+You could also use "sizeof(obj->member)".
