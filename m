@@ -1,51 +1,35 @@
 From: David Dillow <dave@thedillows.org>
-Subject: Re: [RFC 2.6.10 7/22] xfrm: Allow device drivers to force
-	recalculation of offloads
-Date: Sat, 22 Jan 2005 00:53:36 -0500
-Message-ID: <1106373216.3691.43.camel@ori.thedillows.org>
-References: <20041230035000.15@ori.thedillows.org>
-	 <20041230035000.16@ori.thedillows.org>
-	 <20050121152358.5c60d0db.davem@davemloft.net>
+Subject: Re: [IPSEC] Stop using dst->xfrm
+Date: Sat, 22 Jan 2005 00:58:33 -0500
+Message-ID: <1106373513.3691.49.camel@ori.thedillows.org>
+References: <20050121102319.GA3160@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@davemloft.net>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050121152358.5c60d0db.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050121102319.GA3160@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-01-21 at 15:23 -0800, David S. Miller wrote: 
-> On Thu, 30 Dec 2004 03:48:35 -0500
-> David Dillow <dave@thedillows.org> wrote:
-> 
-> > # This is a BitKeeper generated diff -Nru style patch.
-> > #
-> > # ChangeSet
-> > #   2004/12/30 00:37:44-05:00 dave@thedillows.org 
-> > #   Give device drivers a method to allow the use of crypto
-> > #   offload features for existing xfrm_states and bundles, as
-> > #   well as dynamically remove crypto offload capabilities.
-> > #   
-> > #   Signed-off-by: David Dillow <dave@thedillows.org>
-> 
-> This change looks fine, but it reminds me of something.
-> 
-> We have to make sure there is no way for xfrm_offloads to
-> refer to a device when it is brought down.
-> 
-> One way to ensure that, is to make each xfrm_offload attached
-> grab a reference to the device it is for.  The refcounting will
-> help catch cases where stale xfrm_offload are around at
-> unregister_netdev() time.
+On Fri, 2005-01-21 at 21:23 +1100, Herbert Xu wrote:
 
-You're right, it would be a problem, and I have the oopsen to prove
-it. :)
+> Here is a precursor to the xfrm dst consolidation that I talked about.
+> In order to be able to store multiple SAs in one dst, we need to stop
+> using dst->xfrm directly.
 
-In patch 3 of the series, xfrm_offload_add() grabs a reference to the
-device, and xfrm_offload_release() releases it when the offload's own
-reference count hits zero.
+Can you tell me more about this? A quick search of google and the netdev
+archives didn't turn up anything that looked relevant.
+
+I'd like to see where you're going, so I can meet you there. The xfrm
+offload patches currently add dst->xfrm_offload to cache the info needed
+to offload the crypto operations. It'll be slower, but I could lookup
+that up each time if need be.
+
+The part I'm most curious about is the storing of multiple SAs in one
+dst, since I think may cause the most changes for me. I'd like to start
+thinking about them early.
 -- 
 David Dillow <dave@thedillows.org>
