@@ -1,32 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC] Yield in netlink_broadcast when congested
-Date: Tue, 19 Oct 2004 22:28:07 -0700
+Subject: Re: r8169: page allocation failure
+Date: Tue, 19 Oct 2004 22:30:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041019222807.6b1e8454.davem@davemloft.net>
-References: <20041016113006.GA12843@gondor.apana.org.au>
+Message-ID: <20041019223029.35be700b.davem@davemloft.net>
+References: <20041016204848.GB21849@electric-eye.fr.zoreil.com>
+	<E1CJ5lg-0005eC-00@gondolin.me.apana.org.au>
+	<20041017090837.GA24362@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pablo@eurodev.net, hadi@cyberus.ca, netdev@oss.sgi.com
+Cc: romieu@fr.zoreil.com, jkillius@arcor.de, netdev@oss.sgi.com,
+        jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041016113006.GA12843@gondor.apana.org.au>
+In-Reply-To: <20041017090837.GA24362@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 16 Oct 2004 21:30:06 +1000
+On Sun, 17 Oct 2004 19:08:37 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> So here is my proposal: if we detect signs of impending congestion
-> in netlink_broadcast(), and that we're in a sleepable context, then
-> we yield().
+> On Sun, Oct 17, 2004 at 05:47:52PM +1000, Herbert Xu wrote:
+> > 
+> > It should instead allocate a new skb of 1 mss.  I'll work on it.
 > 
-> This gives the receivers a chance to pull down the messages without
-> having the sender spinning indefinitely.  I've tested it on my UP
-> machine and it does resolve the problem for ip monitor.
+> In fact it was allocating space that it wasn't even using :)
 > 
-> Comments anyone?
+> The following patch makes it allocate skb_headlen(skb) - len instead
+> of skb->len - len.  When skb is linear there is no difference.  When
+> it's non-linear we only ever copy the bytes in the header.
+> 
+> Please let me know whether this fixes your problem.
 
-This looks great, patch applied.
-
-Thanks Herbert.
+Looks great, good catch.  Patch applied.
