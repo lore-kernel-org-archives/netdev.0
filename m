@@ -1,30 +1,34 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Updated 8139too with NAPI
-Date: Tue, 11 Nov 2003 19:20:18 -0500
+From: James Morris <jmorris@redhat.com>
+Subject: Re: af_packet & CHECKSUM_HW
+Date: Sun, 16 Nov 2003 08:44:38 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FB17CC2.4090401@pobox.com>
-References: <3F9070B6.9090306@pobox.com>	<873cdqbt6z.fsf@devron.myhome.or.jp>	<20031020131106.6862e951.shemminger@osdl.org>	<877k2ysohc.fsf@devron.myhome.or.jp>	<20031028114707.1d234da6.shemminger@osdl.org>	<3FA01629.2080202@pobox.com>	<873cdaabue.fsf@devron.myhome.or.jp>	<20031030104943.20b61af0.shemminger@osdl.org>	<87ekwu9tn4.fsf@devron.myhome.or.jp> <20031111143143.794909e8.shemminger@osdl.org>
+Message-ID: <Xine.LNX.4.44.0311160841500.31201-100000@thoron.boston.redhat.com>
+References: <20031115024434.GA12276@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031111143143.794909e8.shemminger@osdl.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20031115024434.GA12276@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Here is the latest update for 8139too with NAPI.
+On Sat, 15 Nov 2003, Herbert Xu wrote:
+
+> Hi:
 > 
-> The changes from last time were to get rid of some of the netif_poll_disable calls
-> to avoid getting trapped by receive interrupt races.  It is okay for the interrupt
-> code to enable the poll routine to run even if we are just about to suspend or
-> change multicast list.
+> Should the packet socket compute the checksums of CHECKSUM_HW packets
+> before sending them to userspace?
+> 
+> In other words, what do I tell confused users who see bad checksums
+> in the tcpdump output over loopback and interfaces capable of
+> hardware checksums?
+
+That this functionality does not belong in the kernel, as it serves no
+real purpose.
 
 
-I'm OK with the patch, but like last time, it doesn't apply cleanly to 
-net-drivers-2.5-exp...  About to post an update, can you please rediff 
-against that?
-
-	Jeff
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
