@@ -1,33 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fixing the cases where tcp_tw_bucket was accessed as a
- sock
-Date: Wed, 15 Oct 2003 22:10:20 -0700
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: 6to4/SIT and IP DF
+Date: Wed, 15 Oct 2003 22:21:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015221020.098f9779.davem@redhat.com>
-References: <20031012131344.GH16182@conectiva.com.br>
-	<20031013124930.0e75a325.davem@redhat.com>
-	<20031015113648.GD1174@conectiva.com.br>
+Message-ID: <OF32DA07F2.CE83636D-ON88256DC1.001CC44C@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: pekkas@netcore.fi, r.venning@telstra.com, nate@thebog.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20031015113648.GD1174@conectiva.com.br>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Oct 2003 08:36:48 -0300
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> Em Mon, Oct 13, 2003 at 12:49:30PM -0700, David S. Miller escreveu:
-> > Let's do one thing at a time.  First, fix the original bug
-> > in tcp_ipv4.c by just putting your inet_rcv_saddr() shorthand
-> > right there in tcp_ipv4.c and name it tcp4_rcv_saddr() or
-> > something like that.
- ... 
-> :) Here is the first part:
 
-Perfect, patch applied.
 
-Thanks.
+
+That doesn't sound terrible, but won't it have to drop a minimum of
+2 packets per tunnel on an MTU change (or initial probe with a large
+packet)?
+
+So, it wouldn't be a good idea to connect multiple v6 clouds in series,
+with
+6to4 tunnels between them and decreasing MTU's and then try to send a
+large packet from one end to the other; you might run out of retransmits
+before
+you get to the other end. :-)
+
+But using v4 PMTU info is probably almost always better than fragmenting
+everything. A "fragment, but tell me about it" ICMP message would come in
+handy here. And a requirement that ICMPv4 with tunnels include encapsulated
+headers +8.
+
+Thanks, Dave,
+                  +-DLS
