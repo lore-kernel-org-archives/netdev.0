@@ -1,53 +1,48 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH] Uninitialized dst in ip6_dst_lookup
-Date: Tue, 20 Jan 2004 11:46:02 -0800 (PST)
+From: Mike Fedyk <mfedyk@matchmail.com>
+Subject: [SOLVED] Stale Filehandles was: [2.6] nfs_rename: target $file busy, d_count=2
+Date: Tue, 20 Jan 2004 12:12:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0401201115500.23508-100000@linux-udp15191261uds.beaverton.ibm.com>
-References: <20040119211156.4bff1640.davem@redhat.com>
+Message-ID: <20040120201212.GH23765@srv-lnx2600.matchmail.com>
+References: <20040116050642.GF1748@srv-lnx2600.matchmail.com> <20040116130336.GA5220@oscar.prima.de> <20040116184031.GM1748@srv-lnx2600.matchmail.com> <20040116185504.GN1748@srv-lnx2600.matchmail.com> <20040117184716.GX1748@srv-lnx2600.matchmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, KK <krkumar@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040119211156.4bff1640.davem@redhat.com>
+To: Patrick Mau <mau@oscar.ping.de>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040117184716.GX1748@srv-lnx2600.matchmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Sat, Jan 17, 2004 at 10:47:16AM -0800, Mike Fedyk wrote:
+> On Fri, Jan 16, 2004 at 10:55:04AM -0800, Mike Fedyk wrote:
+> > On Fri, Jan 16, 2004 at 10:40:31AM -0800, Mike Fedyk wrote:
+> > > I only had a few nfs clients doing light load, (kde home directories, and
+> > > such) and was able to reproduce stale nfs file handles just by running "find
+> > > > /dev/null" on the nfs share.
+> > > 
+> > > Have you tried the -mm tree recently?  2.6.1-mm4 even has some new nfsd
+> > > patches in there (maybe you should wait until -mm5 though, there are a few
+> > 
+> > Stale filehandles is the main problem right now, and I don't see how
+> > nfs_raname would be related (just that it was there while I was having
+> > trouble with the stale file handles...)
+> > 
+> > http://www.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.1/2.6.1-mm4/broken-out/nfsd-01-stale-filehandles-fixes.patch
+> > 
+> > This one looks particularly interesting...
+> > 
+> 
+> I'm running 2.6.1-bk2-nfs-stale-file-handles on my nfsd server now, and so
+> far I haven't seen any stale filehandles.
+> 
+> Can you guys patch stock 2.6.1 with the above and test also so we can get
+> more breadth in the testing results?
+> 
 
-ip6_dst_lookup() is supposed to fill in the *dst, hence it must not
-dereference *dst until it allocates it. However if the passed sk is
-NULL and *dst is not set by the caller, the following code will
-dereference uninitialized memory :
+Well, it's been running since friday with the same load that killed it in
+less than a day, so I'm happy.
 
-	if (*dst == NULL)
-		*dst = ip6_route_output(sk, fl); >>>>> will not execute
-	if ((err = (*dst)->error))  >>>>> dereference bad stack address.
-		goto out_err_release;
+And BTW, the code has been merged by Linus and is in 2.6.1-bk6.
 
-I am suggesting moving the responsibility of ensuring a good *dst from the
-callers to ip6_dst_lookup().
-
-Currently the existing code doesn't cause any problem since this routine
-is called either with sk!=NULL or if sk is NULL, the *dst passed is NULL
-(tcp_v6_send_reset() and tcp_v6_send_ack() do alloc_skb() which sets all
-fields till truesize to NULL). However if some code is added/changed such
-that sk is NULL and an uninitialized *dst is passed, we will reference
-uninitialized *dst.
-
-Suggesting following patch to handle this case.
-
-thanks,
-
-- KK
-
-diff -ruN linux-2.6.1.bk2/net/ipv6/ip6_output.c linux-2.6.1.bk2.new/net/ipv6/ip6_output.c
---- linux-2.6.1.bk2/net/ipv6/ip6_output.c	2004-01-20 11:12:06.000000000 -0800
-+++ linux-2.6.1.bk2.new/net/ipv6/ip6_output.c	2004-01-20 11:13:28.000000000 -0800
-@@ -725,6 +725,7 @@
- {
- 	int err = 0;
-
-+	*dst = NULL;
- 	if (sk) {
- 		struct ipv6_pinfo *np = inet6_sk(sk);
+Mike
