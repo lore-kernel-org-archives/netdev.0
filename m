@@ -1,42 +1,80 @@
-From: "TintasInk" <tintasink@techniciansupport.com.ar>
-Subject: TINTAS PARA IMPRESORAS
-Date: Mon, 3 Feb 2003 23:49:02 -0300
+From: Michael Rozhavsky <mrozhavsky@mrv.com>
+Subject: [PATCH] e100 oops in 2.4.20
+Date: Wed, 5 Feb 2003 10:12:10 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <117523-220032242492956@pentium3>
-Reply-To: "TintasInk" <tintasink@techniciansupport.com.ar>
+Message-ID: <20030205081210.GB10600@mike.nbase.co.il>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/mixed; boundary="p2kqVDKq5asng8Dg"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: linux.nics@intel.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hola !=20
-Le ofrecemos TINTAS PARA IMPRESORAS CHORRO DE TINTA, para todas
-las marcas y modelos (HP - EPSON - CANON - LEXMARK).
-TINTAS PIGMENTADAS - CALIDAD ORIGINAL
+--p2kqVDKq5asng8Dg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-1 LITRO DE TINTA NEGRA $ 90.-
-1 LITRO DE TINTA COLOR $ 105.-
-Tambi=E9n por 1/2 Litro,a $ 60.- el negro y $ 70 cada color.
-Y por 1/4 litro a $ 40.- cualquier color, inclu=EDdo el negro.
-Todos Precios Netos. Proveemos cargadores e instrucciones sin cargo.
+Hi,
 
-RECARGUE HASTA 70 VECES SU CARTUCHO!!!!
+In 2.4.20 with CONFIG_NET_CARRIER_NETLINK compiled when I'm loading e100
+module I'm receiving consistent OOPS.
 
-Env=EDos al Interior por ContraReembolso.
-Tiene toda la informacion necesaria en
-NUESTRO SITIO WEB: www.techniciansupport.com.ar/tintasink
+The reason for this is e100_update_link_state() on device init calls to
+netif_carrier_on() or netif_carrier_off() while dev->carrier_task is not
+initialized yet (will be initialized on register_netdev) and thus it
+causes NULL pointer exception.
 
-CONSULTENOS:
-POR TELEFONO AL (011) 4666-6733
-POR E-MAIL A tintasink@techniciansupport.com.ar
-O EN NUESTRO SITIO WEB: www.techniciansupport.com.ar/tintasink
-O POR ICQ: 159631730
+[<c8adbfc8>] e100_find_speed_duplex
+[<c8adc46d>] e100_auto_neg
+[<c8adc4bd>] e100_phy_set_speed_duplex
+[<c8adc5b2>] e100_phy_set_loopback
+[<c8ad6ddb>] e100_hw_init
+[<c8ad6d61>] e100_init
+[<c8ad62d8>] e100_found1
 
-Para no recibir m=E1s estos mails, por favor, RESPONDA con la palabra REM=
-OVE en el
-asunto. Todos los pedidos son procesados.
+I'm not sure that my fix is elegant but it works for me.
 
-Muchas Gracias
+
+--
+  Michael Rozhavsky
+  Senior Software Engineer
+  MRV International
+  Tel: +972 (4) 993-6248
+  Fax: +972 (4) 989-0564
+  http://www.mrv.com
+
+--p2kqVDKq5asng8Dg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="e100_phy.c.diff"
+
+--- linux-2.4.20/drivers/net/e100/e100_phy.c	2002-11-29 01:53:13.000000000 +0200
++++ linux-2.4.20-test/drivers/net/e100/e100_phy.c	2003-02-05 09:38:07.000000000 +0200
+@@ -963,14 +963,16 @@
+ 
+ 	/* Logical AND PHY link & netif_running */
+ 	link = e100_get_link_state(bdp) && netif_running(bdp->device);
+-
+-	if (link) {
+-		if (!netif_carrier_ok(bdp->device))
+-			netif_carrier_on(bdp->device);
+-	} else {
+-		if (netif_carrier_ok(bdp->device))
+-			netif_carrier_off(bdp->device);
+-	}
++#ifdef CONFIG_NET_CARRIER_NETLINK
++	if (bdp->device->carrier_task)
++#endif
++		if (link) {
++			if (!netif_carrier_ok(bdp->device))
++				netif_carrier_on(bdp->device);
++		} else {
++			if (netif_carrier_ok(bdp->device))
++				netif_carrier_off(bdp->device);
++		}
+ 
+ 	return link;
+ }
+
+--p2kqVDKq5asng8Dg--
