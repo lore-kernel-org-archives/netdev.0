@@ -1,31 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
-Date: Sat, 11 Oct 2003 12:03:39 -0700
+Subject: Re: patches for PROC_FS=n (2.6.0-test7)
+Date: Sat, 11 Oct 2003 12:08:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011120339.0da631e6.davem@redhat.com>
-References: <3F87430D.2040000@tpack.net>
-	<3F87464B.1020908@candelatech.com>
-	<3F874A30.6010700@tpack.net>
-	<3F885418.3090407@candelatech.com>
+Message-ID: <20031011120852.13fa8ec4.davem@redhat.com>
+References: <20031010141646.779f10bb.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tommy.christensen@tpack.net, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F885418.3090407@candelatech.com>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20031010141646.779f10bb.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2003 12:03:52 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+On Fri, 10 Oct 2003 14:16:46 -0700
+"Randy.Dunlap" <rddunlap@osdl.org> wrote:
 
-> Maybe we should have a method called:  skb_get_me_an_skb_that_I_can_modify(skb);
-> 
-> Then the subtle differences between sharing, cloning, etc can be handled
-> by the skb code internally...
+> http://developer.osdl.org/rddunlap/patches/atmprocfs_260t7.patch
 
-We can't create this routine, because it depends upon context.
-
-The current code is correct and handles shared SKBs properly,
-so I don't think it's worth playing around with this much more.
+How can this be needed?  When procfs is disabled then
+remove_proc_entry() is defined as "do { } while (0)", ie. a nop.
