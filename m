@@ -1,88 +1,142 @@
-From: Kirby Bakken <kirbyb@us.ibm.com>
-Subject: forcedeth HELP!
-Date: Tue, 21 Sep 2004 16:22:03 -0500
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH][ATM]: [drivers] fix warnings related to readl/writel
+ changes
+Date: Tue, 21 Sep 2004 14:49:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFAE924C89.3D2C8DEF-ON86256F16.0074991B-86256F16.007560A3@us.ibm.com>
+Message-ID: <20040921144920.7e62ca9e.davem@davemloft.net>
+References: <200409212027.i8LKR2Ja010520@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="=_alternative 007560A086256F16_="
-Cc: <c-d.hailfinger.kernel.2004@gmx.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200409212027.i8LKR2Ja010520@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multipart message in MIME format.
---=_alternative 007560A086256F16_=
-Content-Type: text/plain; charset="US-ASCII"
+On Tue, 21 Sep 2004 16:27:03 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-Please excuse my ignorance...  and hopefully having done that, point me to 
-the forum, mailing list, or whatever so I can figure this out (most likely 
-with help....  )  :-)
+> this patch gets rid of warnings from some of the atm drivers related to
+> the recent readl/writel changes.
+> 
+> # This is a BitKeeper generated diff -Nru style patch.
+> #
+> # ChangeSet
+> #   2004/09/17 19:50:46-04:00 chas@relax.cmf.nrl.navy.mil 
+> #   [ATM]: [drivers] fix warnings related to readl/writel changes
 
-I'm running a Nvidia Nforce2 MB (Biostar M7NCG 400).  When I boot with 
-gentoo and a 2.4 kernel, eth0 works fine.  When I boot with a 2.6.7 
-kernel, eth0 does not work.  When booted with the 2.6.7 kernel,  an 
-'lsmod' shows forcedeth with a size of 12160, and a 'used by' of '0' (I'm 
-so dumb, I'm not even sure if that means its just not used by anybody 
-else, OR if the kernel isn't even using it, even though its loaded).
+Applied, then I added a further patch on top of this
+one which uses the correct "void __iomem *" for these
+things, as follows.
 
-A look at /proc/net/dev is pretty much 0's, except for a 'drop' of 4 
-bytes.... 
+Thanks.
 
-I've read that I can turn on 'generous' debug output by changing the #if 0 
-in forcedeth.c from to a '1'...  But how then do I compile that?  A 'make 
-forcedeth.o' produces a ton of errors....  And given that I CAN get that 
-to compile,  where does the debug output show up.
-
-Thanks in advance  :-)
-
-=======================
-Kirby Bakken
-ESW Build Architect
-Rochester, MN
-email: kirbyb@us.ibm.com
-ezpage:kirbyb
-507-253-4549 / Tie:  553-4549
-Fax:  507-253-3495
-
-......one more straw can't possibly matter....
-
---=_alternative 007560A086256F16_=
-Content-Type: text/html; charset="US-ASCII"
-
-
-<br><font size=2 face="sans-serif">Please excuse my ignorance... &nbsp;and
-hopefully having done that, point me to the forum, mailing list, or whatever
-so I can figure this out (most likely with help.... &nbsp;) &nbsp;:-)</font>
-<br>
-<br><font size=2 face="sans-serif">I'm running a Nvidia Nforce2 MB (Biostar
-M7NCG 400). &nbsp;When I boot with gentoo and a 2.4 kernel, eth0 works
-fine. &nbsp;When I boot with a 2.6.7 kernel, eth0 does not work. &nbsp;When
-booted with the 2.6.7 kernel, &nbsp;an 'lsmod' shows forcedeth with a size
-of 12160, and a 'used by' of '0' (I'm so dumb, I'm not even sure if that
-means its just not used by anybody else, OR if the kernel isn't even using
-it, even though its loaded).</font>
-<br>
-<br><font size=2 face="sans-serif">A look at /proc/net/dev is pretty much
-0's, except for a 'drop' of 4 bytes.... </font>
-<br>
-<br><font size=2 face="sans-serif">I've read that I can turn on 'generous'
-debug output by changing the #if 0 in forcedeth.c from to a '1'... &nbsp;But
-how then do I compile that? &nbsp;A 'make forcedeth.o' produces a ton of
-errors.... &nbsp;And given that I CAN get that to compile, &nbsp;where
-does the debug output show up.</font>
-<br>
-<br><font size=2 face="sans-serif">Thanks in advance &nbsp;:-)</font>
-<br><font size=2 face="sans-serif"><br>
-=======================<br>
-Kirby Bakken<br>
-ESW Build Architect<br>
-Rochester, MN<br>
-email: kirbyb@us.ibm.com<br>
-ezpage:kirbyb<br>
-507-253-4549 / Tie: &nbsp;553-4549<br>
-Fax: &nbsp;507-253-3495<br>
-<br>
-......one more straw can't possibly matter....<br>
-</font>
---=_alternative 007560A086256F16_=--
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/09/21 14:28:56-07:00 davem@nuts.davemloft.net 
+#   [ATM]: Use __iomem where appropriate.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# drivers/atm/nicstarmac.h
+#   2004/09/21 14:28:23-07:00 davem@nuts.davemloft.net +1 -1
+#   [ATM]: Use __iomem where appropriate.
+# 
+# drivers/atm/nicstar.h
+#   2004/09/21 14:28:23-07:00 davem@nuts.davemloft.net +1 -1
+#   [ATM]: Use __iomem where appropriate.
+# 
+# drivers/atm/lanai.c
+#   2004/09/21 14:28:23-07:00 davem@nuts.davemloft.net +1 -1
+#   [ATM]: Use __iomem where appropriate.
+# 
+# drivers/atm/idt77252.h
+#   2004/09/21 14:28:23-07:00 davem@nuts.davemloft.net +2 -2
+#   [ATM]: Use __iomem where appropriate.
+# 
+# drivers/atm/he.h
+#   2004/09/21 14:28:23-07:00 davem@nuts.davemloft.net +1 -1
+#   [ATM]: Use __iomem where appropriate.
+# 
+# drivers/atm/firestream.h
+#   2004/09/21 14:28:23-07:00 davem@nuts.davemloft.net +1 -1
+#   [ATM]: Use __iomem where appropriate.
+# 
+diff -Nru a/drivers/atm/firestream.h b/drivers/atm/firestream.h
+--- a/drivers/atm/firestream.h	2004-09-21 14:29:53 -07:00
++++ b/drivers/atm/firestream.h	2004-09-21 14:29:53 -07:00
+@@ -477,7 +477,7 @@
+ 	struct timer_list timer;
+ 
+ 	unsigned long hw_base;		/* mem base address */
+-	void *base;             /* Mapping of base address */
++	void __iomem *base;             /* Mapping of base address */
+ 	int channo;
+ 	unsigned long channel_mask;
+ 
+diff -Nru a/drivers/atm/he.h b/drivers/atm/he.h
+--- a/drivers/atm/he.h	2004-09-21 14:29:53 -07:00
++++ b/drivers/atm/he.h	2004-09-21 14:29:53 -07:00
+@@ -265,7 +265,7 @@
+ struct he_dev {
+ 	unsigned int number;
+ 	unsigned int irq;
+-	void *membase;
++	void __iomem *membase;
+ 
+ 	char prod_id[30];
+ 	char mac_addr[6];
+diff -Nru a/drivers/atm/idt77252.h b/drivers/atm/idt77252.h
+--- a/drivers/atm/idt77252.h	2004-09-21 14:29:53 -07:00
++++ b/drivers/atm/idt77252.h	2004-09-21 14:29:53 -07:00
+@@ -355,9 +355,9 @@
+ 	struct pci_dev		*pcidev;	/* PCI handle (desriptor) */
+ 	struct atm_dev		*atmdev;	/* ATM device desriptor */
+ 
+-	void			*membase;	/* SAR's memory base address */
++	void __iomem		*membase;	/* SAR's memory base address */
+ 	unsigned long		srambase;	/* SAR's sram  base address */
+-	void 			*fbq[4];	/* FBQ fill addresses */
++	void __iomem		*fbq[4];	/* FBQ fill addresses */
+ 
+ 	struct semaphore	mutex;
+ 	spinlock_t		cmd_lock;	/* for r/w utility/sram */
+diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+--- a/drivers/atm/lanai.c	2004-09-21 14:29:53 -07:00
++++ b/drivers/atm/lanai.c	2004-09-21 14:29:53 -07:00
+@@ -191,7 +191,7 @@
+ #define LANAI_EEPROM_SIZE	(128)
+ 
+ typedef int vci_t;
+-typedef void *bus_addr_t;
++typedef void __iomem *bus_addr_t;
+ 
+ /* DMA buffer in host memory for TX, RX, or service list. */
+ struct lanai_buffer {
+diff -Nru a/drivers/atm/nicstar.h b/drivers/atm/nicstar.h
+--- a/drivers/atm/nicstar.h	2004-09-21 14:29:53 -07:00
++++ b/drivers/atm/nicstar.h	2004-09-21 14:29:53 -07:00
+@@ -763,7 +763,7 @@
+ {
+    int index;				/* Card ID to the device driver */
+    int sram_size;			/* In k x 32bit words. 32 or 128 */
+-   void *membase;			/* Card's memory base address */
++   void __iomem *membase;		/* Card's memory base address */
+    unsigned long max_pcr;
+    int rct_size;			/* Number of entries */
+    int vpibits;
+diff -Nru a/drivers/atm/nicstarmac.h b/drivers/atm/nicstarmac.h
+--- a/drivers/atm/nicstarmac.h	2004-09-21 14:29:53 -07:00
++++ b/drivers/atm/nicstarmac.h	2004-09-21 14:29:53 -07:00
+@@ -7,7 +7,7 @@
+  ******************************************************************************/
+ 
+ 
+-typedef void * virt_addr_t;
++typedef void __iomem *virt_addr_t;
+ 
+ u_int32_t nicstar_read_eprom_status( virt_addr_t base );
+ void nicstar_init_eprom( virt_addr_t base );
