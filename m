@@ -1,53 +1,43 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: [PATCH] tiny af_packet.c cleanup
-Date: Fri, 12 Sep 2003 22:50:33 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] NET: use proc_net_fops_create() for /proc/net/wireless
+Date: Sat, 13 Sep 2003 14:29:29 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030913055033.GB94744@gaz.sfgoth.com>
+Message-ID: <20030913.142929.91737848.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In both places af_packet.c calls sk_run_filter() it does a "filter =
-sk->sk_filter" to store the pointer in a local variable.  However, it
-never actually uses this variable for anything -- it always refers to
-the filter as sk->sk_filter instead.  Clearly this wasn't intentional.
+use proc_net_fops_create() for /proc/net/wireless
 
-This patch fixes up both of those cases and cleans up the code a tiny bit.
+===== net/core/wireless.c 1.13 vs edited =====
+--- 1.13/net/core/wireless.c	Tue Sep  9 10:35:35 2003
++++ edited/net/core/wireless.c	Sat Sep 13 14:09:03 2003
+@@ -495,15 +495,10 @@
+ 
+ int __init wireless_proc_init(void)
+ {
+-	struct proc_dir_entry *p;
+-	int rc = 0;
++	if (!proc_net_fops_create("wireless", S_IRUGO, &wireless_seq_fops))
++		return -ENOMEM;
+ 
+-	p = create_proc_entry("wireless", S_IRUGO, proc_net);
+-	if (p)
+-		p->proc_fops = &wireless_seq_fops;
+-	else
+-		rc = -ENOMEM;
+-	return rc;
++	return 0;
+ }
+ #endif	/* CONFIG_PROC_FS */
+ 
 
-Patch is versus 2.6.0-test5.
-
--Mitch
-
---- linux-2.6.0-test5-VIRGIN/net/packet/af_packet.c	2003-09-08 12:39:53.000000000 -0700
-+++ linux-2.6.0-test5mnb1/net/packet/af_packet.c	2003-09-12 13:28:53.857179768 -0700
-@@ -433,9 +433,9 @@
- 		struct sk_filter *filter;
- 
- 		bh_lock_sock(sk);
--		if ((filter = sk->sk_filter) != NULL)
--			res = sk_run_filter(skb, sk->sk_filter->insns,
--					    sk->sk_filter->len);
-+		filter = sk->sk_filter;
-+		if (likely(filter != NULL))	/* re-check under lock */
-+			res = sk_run_filter(skb, filter->insns, filter->len);
- 		bh_unlock_sock(sk);
- 
- 		if (res == 0)
-@@ -537,9 +537,9 @@
- 		struct sk_filter *filter;
- 
- 		bh_lock_sock(sk);
--		if ((filter = sk->sk_filter) != NULL)
--			res = sk_run_filter(skb, sk->sk_filter->insns,
--					    sk->sk_filter->len);
-+		filter = sk->sk_filter;
-+		if (likely(filter != NULL))	/* re-check under lock */
-+			res = sk_run_filter(skb, filter->insns, filter->len);
- 		bh_unlock_sock(sk);
- 
- 		if (res == 0)
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
