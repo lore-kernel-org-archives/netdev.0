@@ -1,71 +1,28 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] PKT_SCHED: Make rate estimator work for all platforms
-Date: 04 Oct 2004 19:47:34 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Hang when testing with AMD64 with Tg3
+Date: Mon, 04 Oct 2004 17:11:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096933654.2163.1.camel@jzny.localdomain>
-References: <20041004211152.GF15898@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Message-ID: <1096935071.22155.6.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041004211152.GF15898@postel.suug.ch>
+To: Andi Kleen <ak@suse.de>, davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Doing simple iperf test on new opteron with tg3 against existing Xeon
+system.  I am seeing something wierd, the connection hangs right away.
+Is this a TSO bug.  
 
-Looking good.
-Dave, Please apply all the patches (earlier 3 + this one) that Thomas
-posted.
+Sender: BK latest (2.6.9-rc3) Tg3 (XX.YY.250.3)
+Receiver: BK + netdev(jeffm) + dave's latest e100 (XX.YY.1.73)
 
-cheers,
-jamal
+Both machines are directly connected with a netgear 100mbit switch.
 
-On Mon, 2004-10-04 at 17:11, Thomas Graf wrote:
-> Fixes the existing rate estimator to compile cleanly on all platforms
-> and avoids carrying on the variance on platforms with HZ%4 != 0.
-> 
-> Patch also applies to 2.4 with some fuzz.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
-> 
-> --- linux-2.6.9-rc3-bk4.orig/net/sched/estimator.c	2004-10-04 22:41:26.000000000 +0200
-> +++ linux-2.6.9-rc3-bk4/net/sched/estimator.c	2004-10-04 22:53:54.000000000 +0200
-> @@ -66,15 +66,11 @@
->  
->     * Minimal interval is HZ/4=250msec (it is the greatest common divisor
->       for HZ=100 and HZ=1024 8)), maximal interval
-> -     is (HZ/4)*2^EST_MAX_INTERVAL = 8sec. Shorter intervals
-> +     is (HZ*2^EST_MAX_INTERVAL)/4 = 8sec. Shorter intervals
->       are too expensive, longer ones can be implemented
->       at user level painlessly.
->   */
->  
-> -#if (HZ%4) != 0
-> -#error Bad HZ value.
-> -#endif
-> -
->  #define EST_MAX_INTERVAL	5
->  
->  struct qdisc_estimator
-> @@ -128,7 +124,7 @@
->  		spin_unlock(e->stats_lock);
->  	}
->  
-> -	mod_timer(&elist[idx].timer, jiffies + ((HZ/4)<<idx));
-> +	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
->  	read_unlock(&est_lock);
->  }
->  
-> @@ -161,7 +157,7 @@
->  	if (est->next == NULL) {
->  		init_timer(&elist[est->interval].timer);
->  		elist[est->interval].timer.data = est->interval;
-> -		elist[est->interval].timer.expires = jiffies + ((HZ/4)<<est->interval);
-> +		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
->  		elist[est->interval].timer.function = est_timer;
->  		add_timer(&elist[est->interval].timer);
->  	}
-> 
+16:59:30.726551 IP XX.YY.250.3.32948 > XX.YY.1.73.5001: S 4113740578:4113740578(0) win 5840 <mss 1460,sackOK,timestamp 4233878 0,nop,wscale 2>
+16:59:30.726574 IP XX.YY.1.73.5001 > XX.YY.250.3.32948: S 4117129705:4117129705(0) ack 4113740579 win 5792 <mss 1460,sackOK,timestamp 25903995 4233878,nop,wscale 2>
+16:59:30.726578 IP XX.YY.250.3.32948 > XX.YY.1.73.5001: . ack 1 win 1460 <nop,nop,timestamp 4233879 25903995>
+16:59:30.726604 IP XX.YY.250.3.32948 > XX.YY.1.73.5001: P 1:25(24) ack 1 win 1460 <nop,nop,timestamp 4233879 25903995>
+16:59:30.726641 IP XX.YY.1.73.5001 > XX.YY.250.3.32948: . ack 25 win 1448 <nop,nop,timestamp 25903995 4233879>
