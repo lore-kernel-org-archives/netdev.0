@@ -1,41 +1,132 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: netif_rx packet dumping
-Date: Fri, 4 Mar 2005 02:42:27 +0100
-Message-ID: <20050304014227.GB28874@xi.wantstofly.org>
-References: <20050303125556.6850cfe5.davem@davemloft.net> <1109884688.1090.282.camel@jzny.localdomain> <20050303132143.7eef517c@dxpl.pdx.osdl.net> <1109885065.1098.285.camel@jzny.localdomain> <20050303133237.5d64578f.davem@davemloft.net> <20050303135416.0d6e7708@dxpl.pdx.osdl.net> <Pine.LNX.4.58.0503031657300.22311@tesla.psc.edu> <1109888811.1092.352.camel@jzny.localdomain> <20050303151606.3587394f@dxpl.pdx.osdl.net> <Pine.LNX.4.58.0503031818270.22311@tesla.psc.edu>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 1/2] [NEIGH]: rtnetlink neighbour cleanups
+Date: Fri, 4 Mar 2005 03:29:40 +0100
+Message-ID: <20050304022940.GB31837@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, hadi@cyberus.ca,
-        "David S. Miller" <davem@davemloft.net>, rhee@eos.ncsu.edu,
-        Yee-Ting.Li@nuim.ie, baruch@ev-en.org, netdev@oss.sgi.com
-To: John Heffner <jheffner@psc.edu>
+Cc: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0503031818270.22311@tesla.psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 03, 2005 at 06:48:50PM -0500, John Heffner wrote:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> > Another alternative would be some form of adaptive threshold,
-> > something like adaptive drop tail described in this paper.
-> > http://www.ee.cityu.edu.hk/~gchen/pdf/ITC18.pdf
-> >
-> > Since netif_rx is running at interrupt time, it has to be simple/quick.
-> 
-> All these AQM schemes are trying to solve a fundamentally different
-> problem.  With TCP at least, the only congestion experienced at this point
-> will be transient, so you do not want to send any congestion signals (drop
-> packets) if you can avoid it at all.  Making the limit as high as you can
-> tolerate seems like the best thing to me.
-
-If the traffic does not terminate locally (f.e. when doing routing),
-an insanely large queue has more disadvantages than advantages.
-
-If you're routing those exact same TCP packets on the way to their
-final destination, you run the risk of not sending out any congestion
-signals in the cases where you should, making your forwarding latency
-skyrocket (punishing all the other flows) in the process.
-
-
---L
+--- linux-2.6.11.orig/net/core/neighbour.c	2005-03-04 00:45:05.000000000 +0100
++++ linux-2.6.11/net/core/neighbour.c	2005-03-04 02:25:26.000000000 +0100
+@@ -1430,6 +1430,7 @@
+ 
+ 	read_lock(&neigh_tbl_lock);
+ 	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
++		struct rtattr *dst_attr = nda[NDA_DST - 1];
+ 		struct neighbour *n;
+ 
+ 		if (tbl->family != ndm->ndm_family)
+@@ -1437,20 +1438,18 @@
+ 		read_unlock(&neigh_tbl_lock);
+ 
+ 		err = -EINVAL;
+-		if (!nda[NDA_DST - 1] ||
+-		    nda[NDA_DST - 1]->rta_len != RTA_LENGTH(tbl->key_len))
++		if (!dst_attr || RTA_PAYLOAD(dst_attr) < tbl->key_len)
+ 			goto out_dev_put;
+ 
+ 		if (ndm->ndm_flags & NTF_PROXY) {
+-			err = pneigh_delete(tbl,
+-					    RTA_DATA(nda[NDA_DST - 1]), dev);
++			err = pneigh_delete(tbl, RTA_DATA(dst_attr), dev);
+ 			goto out_dev_put;
+ 		}
+ 
+ 		if (!dev)
+ 			goto out;
+ 
+-		n = neigh_lookup(tbl, RTA_DATA(nda[NDA_DST - 1]), dev);
++		n = neigh_lookup(tbl, RTA_DATA(dst_attr), dev);
+ 		if (n) {
+ 			err = neigh_update(n, NULL, NUD_FAILED, 
+ 					   NEIGH_UPDATE_F_OVERRIDE|
+@@ -1482,6 +1481,8 @@
+ 
+ 	read_lock(&neigh_tbl_lock);
+ 	for (tbl = neigh_tables; tbl; tbl = tbl->next) {
++		struct rtattr *lladdr_attr = nda[NDA_LLADDR - 1];
++		struct rtattr *dst_attr = nda[NDA_DST - 1];
+ 		int override = 1;
+ 		struct neighbour *n;
+ 
+@@ -1490,48 +1491,49 @@
+ 		read_unlock(&neigh_tbl_lock);
+ 
+ 		err = -EINVAL;
+-		if (!nda[NDA_DST - 1] ||
+-		    nda[NDA_DST - 1]->rta_len != RTA_LENGTH(tbl->key_len))
++		if (!dst_attr || RTA_PAYLOAD(dst_attr) < tbl->key_len)
+ 			goto out_dev_put;
++
+ 		if (ndm->ndm_flags & NTF_PROXY) {
+ 			err = -ENOBUFS;
+-			if (pneigh_lookup(tbl,
+-					  RTA_DATA(nda[NDA_DST - 1]), dev, 1))
++			if (pneigh_lookup(tbl, RTA_DATA(dst_attr), dev, 1))
+ 				err = 0;
+ 			goto out_dev_put;
+ 		}
++
+ 		err = -EINVAL;
+ 		if (!dev)
+ 			goto out;
+-		if (nda[NDA_LLADDR - 1] &&
+-		    nda[NDA_LLADDR - 1]->rta_len != RTA_LENGTH(dev->addr_len))
++		if (lladdr_attr && RTA_PAYLOAD(lladdr_attr) < dev->addr_len)
+ 			goto out_dev_put;
+-		err = 0;
+-		n = neigh_lookup(tbl, RTA_DATA(nda[NDA_DST - 1]), dev);
++	
++		n = neigh_lookup(tbl, RTA_DATA(dst_attr), dev);
+ 		if (n) {
+-			if (nlh->nlmsg_flags & NLM_F_EXCL)
++			if (nlh->nlmsg_flags & NLM_F_EXCL) {
+ 				err = -EEXIST;
++				neigh_release(n);
++				goto out_dev_put;
++			}
++			
+ 			override = nlh->nlmsg_flags & NLM_F_REPLACE;
+-		} else if (!(nlh->nlmsg_flags & NLM_F_CREATE))
++		} else if (!(nlh->nlmsg_flags & NLM_F_CREATE)) {
+ 			err = -ENOENT;
+-		else {
+-			n = __neigh_lookup_errno(tbl, RTA_DATA(nda[NDA_DST - 1]),
+-						 dev);
++			goto out_dev_put;
++		} else {
++			n = __neigh_lookup_errno(tbl, RTA_DATA(dst_attr), dev);
+ 			if (IS_ERR(n)) {
+ 				err = PTR_ERR(n);
+-				n = NULL;
++				goto out_dev_put;
+ 			}
+ 		}
+-		if (!err) {
+-			err = neigh_update(n, nda[NDA_LLADDR - 1] ?
+-						RTA_DATA(nda[NDA_LLADDR - 1]) :
+-						NULL,
+-					   ndm->ndm_state,
+-					   (override ? NEIGH_UPDATE_F_OVERRIDE : 0) |
+-					   NEIGH_UPDATE_F_ADMIN);
+-		}
+-		if (n)
+-			neigh_release(n);
++
++		err = neigh_update(n,
++				   lladdr_attr ? RTA_DATA(lladdr_attr) : NULL,
++				   ndm->ndm_state,
++				   (override ? NEIGH_UPDATE_F_OVERRIDE : 0) |
++				   NEIGH_UPDATE_F_ADMIN);
++
++		neigh_release(n);
+ 		goto out_dev_put;
+ 	}
+ 
