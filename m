@@ -1,29 +1,30 @@
-From: Martin Pool <mbp@samba.org>
+From: James Morris <jmorris@intercode.com.au>
 Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Tue, 8 Oct 2002 20:21:38 +1000
+Date: Tue, 8 Oct 2002 20:28:49 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021008102137.GA10627@toey.sourcefrog.net>
-References: <20021005075157.GC2531@samba.org> <Mutt.LNX.4.44.0210052152400.25151-100000@blackbird.intercode.com.au>
+Message-ID: <Mutt.LNX.4.44.0210082026030.8854-100000@blackbird.intercode.com.au>
+References: <20021008102137.GA10627@toey.sourcefrog.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
-Content-Disposition: inline
-In-Reply-To: <Mutt.LNX.4.44.0210052152400.25151-100000@blackbird.intercode.com.au>
+To: Martin Pool <mbp@samba.org>
+In-Reply-To: <20021008102137.GA10627@toey.sourcefrog.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On  5 Oct 2002, James Morris <jmorris@intercode.com.au> wrote:
+On Tue, 8 Oct 2002, Martin Pool wrote:
 
-> > I can't reproduce it locally, but I can reproduce it going to a 2.4.18
-> > machine across a 100Mbps switched network.  A tcpdump (complete?) is
-> > attached.
-> 
-> Thanks for the extra info.
+> OK, let me know if there's anything else you need.  At a stretch I
+> could install 2.2 on a non-VM machine.
 
-OK, let me know if there's anything else you need.  At a stretch I
-could install 2.2 on a non-VM machine.
+Thanks, but I can at least partially reproduce the problem with a specific 
+network configuration.  At this stage, I'd say the patch supplied is 
+probably fine, but I'm taking some time to make sure I really understand 
+what's happening.
 
+
+- James
 -- 
-Martin                                                   Discontent Provider
+James Morris
+<jmorris@intercode.com.au>
