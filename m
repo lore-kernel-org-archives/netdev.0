@@ -1,29 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 08:49:40 -0700 (PDT)
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: [RFC] suggest changes cleanup to atm svc/pvc family
+Date: Tue, 10 Jun 2003 11:55:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610.084940.74727904.davem@redhat.com>
-References: <008001c32eda$56760830$4a00000a@badass>
-	<20030609195652.E35696@shell.cyberus.ca>
-	<Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: hadi@shell.cyberus.ca, xerox@foonet.net, sim@netnation.com,
-   fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Message-ID: <200306101555.h5AFtbQ00899@relax.cmf.nrl.navy.mil>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralph+d@istop.com, ralph@istop.com
-In-Reply-To: <Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Ralph Doncaster <ralph@istop.com>
-   Date: Mon, 9 Jun 2003 20:32:48 -0400 (EDT)
-   
-   Lastly from the software side Linux doesn't seem to have anything like
-   BSD's parameter to control user/system CPU sharing.  Once my CPU load
-   reaches 70-80%, I'd rather have some dropped packets than let the CPU hit
-   100% and end up with my BGP sessions drop.
+i was hoping some people might take a look at the following changes
+and let me know what they think.
 
-When packet (more specifically, software interrupt) processing
-reaches a certain level, we offload the work into process context.
+ftp://galileo.cmf.nrl.navy.mil/pub/chas/linux-atm/2_5_70_vcc_sklist_diffs
+
+a quick summary (since the diff is rather lengthy):
+
+- vcc are now in a global list protected by a rw lock (much like other
+  protocol families).  this means the atm devices dont hold a list of
+  vcc's.  this make some things much easier to write.
+- a few things where renamed to vcc_XXX from atm_XXX.  eventually routines
+  deal with vcc's will be vcc_, svc_, or pvc_.  atm devices functions
+  should be called atm_dev_XXX.  this makes things a bit easier to read.
+- vcc are now reference counted properly (or so i think)  (this doenst
+  mean all the atm drivers understand this yet. the he driver should do
+  the right thing though, holding a read on vcc sklist lock during recv
+  operations to keep vcc's from prematurely disappearing.
+- SOCKOPS_WRAP was removed and lock_sock's introduced in the appropriate 
+  locations.  i might have a missed some.
+- atm_ioctl was split into vcc_ioctl and atm_dev_ioctl
+- recvmsg was rewritten to take advantage of some the existing kernel 
+  routines that make datagram manipulation so much easier.
+- sendmsg needs rewritten but the ip components will need to skb_clone
+  so they can skb_set_owner_w on skb's that might already be owned by
+  another socket.  right?
+- changed add_wait_queue to prepare_to_wait and finish_wait.  is this
+  the accepted interface?
