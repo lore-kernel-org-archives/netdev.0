@@ -1,32 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] UDP/IPv6 multicasting
-Date: Mon, 17 Nov 2003 12:41:04 -0800
+Subject: Re: [PATCH] IPv6: Fix erratic behavior in rt6_dump_route()
+Date: Mon, 17 Nov 2003 12:43:07 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031117124104.570e1c72.davem@redhat.com>
-References: <OF974281CA.F4EE30F2-ON88256DDE.007F34F9@us.ibm.com>
+Message-ID: <20031117124307.660df624.davem@redhat.com>
+References: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF974281CA.F4EE30F2-ON88256DDE.007F34F9@us.ibm.com>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Nov 2003 16:11:50 -0700
-David Stevens <dlstevens@us.ibm.com> wrote:
+On Mon, 17 Nov 2003 12:11:52 +0200 (EET)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
->       Below is a patch to fix a problem reported by Brian Buesker. When
-> binding to
-> two different multicast addresses on the same UDP port, a copy sent to
-> either multicast
-> address is delivered to both.
+> Hi Dave!
+> 
+> I noticed some erratic behavior when doing "ip -6 r". I traced the problem
+> to rt6_dump_route() where we typecast NLMSG_DATA() to a rtmsg without
+> checking the size of the netlink message first. Seems like ip only passes
+> a rtgenmsg to the kernel when it does a dump, so we end up reading pure
+> garbage when we interpret it as a rtmsg. Please apply the patch!
 
-Thanks a lot David, I will review and probably apply this later
-on today.
-
-2.4.x has identical code in this spot so I'll put the fix there
-as well and queue it up for 2.4.24-pre1.
-
-Thanks again.
+Thanks a lot Ville, I will review your patch a bit more and
+most likely apply it later today.
