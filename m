@@ -1,35 +1,34 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] repairing rtcache killer
-Date: Wed, 6 Aug 2003 19:01:47 +0200
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] repairing rtcache killer
+Date: Wed, 6 Aug 2003 21:14:56 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16177.13435.45921.229742@robur.slu.se>
-References: <200308051340.RAA28267@dub.inr.ac.ru>
+Message-ID: <200308061714.VAA01614@dub.inr.ac.ru>
+References: <16175.58503.134543.310459@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: davem@redhat.com, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200308051340.RAA28267@dub.inr.ac.ru>
+To: Robert.Olsson@data.slu.se (Robert Olsson)
+In-Reply-To: <16175.58503.134543.310459@robur.slu.se> from "Robert Olsson" at Aug 05, 2003 07:08:23 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-kuznet@ms2.inr.ac.ru writes:
+>  For autotuning I think we can have help from a ratio of warm cache hits (in_hit)
+>  and misses (in_slow_tot) to set threshhold to trim hash chain lengths.
 
- > # This is a BitKeeper generated patch for the following project:
- > # Project Name: Linux kernel tree
- > # This patch format is intended for GNU patch command version 2.5 or higher.
- > # This patch includes the following deltas:
- > #	           ChangeSet	1.1613  -> 1.1614 
- > #	    net/ipv4/route.c	1.66    -> 1.67   
+Have you already forgotten the whole day lost staring to some impossible
+numbers for number of misses? :-)
 
- Hello!
+The only output which you can get from ratio hits/misses is to _increase_
+size of cache when number of misses growth. It is not only useless, it
+is exactly opposite to the behaviour which you want to see.
 
- Crap. We are back to the dst cache overflow again even with routing tables 
- loaded. Well test is now on SMP and 2.6.0-test1. Undo the min_score test 
- and give it retry? Or some new RCU stuff discover. It's current lab setup. 
+We want to shrink it at DoS, remember? I still do not know any criterium,
+apparently it should be based not on ratio hits/misses, but on absolute
+rates or something like that. average/max = 1/2 is always acceptable,
+perfect at normal flow rates and not disasterous even for 1packet/flow.
 
- Cheers.
-						--ro
- 
+Alexey
