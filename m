@@ -1,47 +1,76 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [patch 8/9] AES: allow modular build
-Date: Thu, 28 Oct 2004 10:04:31 +0100
+From: Daniele Venzano <webvenza@libero.it>
+Subject: [PATCH] Add Altimata PHY to sis900 driver
+Date: Thu, 28 Oct 2004 12:21:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041028090431.GA8193@infradead.org>
-References: <200410280721.i9S7Lk908015@mail.osdl.org>
+Message-ID: <20041028102102.GD3806@picchio.gall.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, jgarzik@pobox.com, netdev@oss.sgi.com,
-        pluto@pld-linux.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="p2kqVDKq5asng8Dg"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
+To: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
 Content-Disposition: inline
-In-Reply-To: <200410280721.i9S7Lk908015@mail.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 28, 2004 at 12:19:47AM -0700, akpm@osdl.org wrote:
-> 
-> From: <pluto@pld-linux.org>
-> 
-> 
-> Signed-off-by: Andrew Morton <akpm@osdl.org>
-> ---
-> 
->  25-akpm/arch/i386/crypto/Makefile |    2 +-
->  1 files changed, 1 insertion(+), 1 deletion(-)
-> 
-> diff -puN arch/i386/crypto/Makefile~aes-allow-modular-build arch/i386/crypto/Makefile
-> --- 25/arch/i386/crypto/Makefile~aes-allow-modular-build	2004-10-28 00:17:08.598496816 -0700
-> +++ 25-akpm/arch/i386/crypto/Makefile	2004-10-28 00:17:08.603496056 -0700
-> @@ -6,4 +6,4 @@
->  
->  obj-$(CONFIG_CRYPTO_AES_586) += aes-i586.o
->  
-> -aes-i586-y := aes-i586-asm.o aes.o
-> +aes-i586-objs := aes-i586-asm.o aes.o
 
-This doesn't make any sense to me.
+--p2kqVDKq5asng8Dg
+Content-Type: multipart/mixed; boundary="xXmbgvnjoT4axfJE"
+Content-Disposition: inline
 
-foo-objs and foo-y are treated equivalent by the build system, and not
-related to modular builds at all.  In fact -y is preffered these days
-as it allows to build parts of the multi-object module conditionally using
-expressions like:
 
-  foo-y			+= foo_main.o
-  foo-$(CONFIG_FOO_BAR) += foo_bar.o
+--xXmbgvnjoT4axfJE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+The attached patch fixes a long standing detection problem with the
+sis900 driver.
+This PHY chip is used on some Pentium 4  with SiS chipset and on the
+Acer Aspire 1705SMi (at least) notebook.
+
+The patch is made against kernel 2.6.9 and is available also on
+http://teg.homeunix.org/sis900.html
+
+Please, consider for inclusion.
+
+Signed-Off-By: Daniele Venzano <webvenza@libero.it>
+
+--=20
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
+
+
+--xXmbgvnjoT4axfJE
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sis900-new-altimata-phy.diff"
+
+Index: sis900.c
+===================================================================
+--- a/drivers/net/sis900.c	(revision 12)
++++ b/drivers/net/sis900.c	(working copy)
+@@ -120,6 +120,7 @@
+ } mii_chip_table[] = {
+ 	{ "SiS 900 Internal MII PHY", 		0x001d, 0x8000, LAN },
+ 	{ "SiS 7014 Physical Layer Solution", 	0x0016, 0xf830, LAN },
++	{ "Altimata AC101LF PHY",               0x0022, 0x5520, LAN },
+ 	{ "AMD 79C901 10BASE-T PHY",  		0x0000, 0x6B70, LAN },
+ 	{ "AMD 79C901 HomePNA PHY",		0x0000, 0x6B90, HOME},
+ 	{ "ICS LAN PHY",			0x0015, 0xF440, LAN },
+
+--xXmbgvnjoT4axfJE--
+
+--p2kqVDKq5asng8Dg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBgMgN2rmHZCWzV+0RAjCmAKCdIPKBXO5IQkW81RxFN7nA4/uRkgCfRHkP
+vvGATLCvtCud6L5uk6gQ0Sg=
+=Yjk4
+-----END PGP SIGNATURE-----
+
+--p2kqVDKq5asng8Dg--
