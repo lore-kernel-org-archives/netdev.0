@@ -1,42 +1,45 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [RFC][PATCH 2/3] netlink check sender, audit
-Date: Sat, 12 Feb 2005 22:41:14 +0100
-Message-ID: <420E77FA.6080007@eurodev.net>
-References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net> <20050212010504.X24171@build.pdx.osdl.net> <420E334B.8060805@eurodev.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+From: rick jones <rick.jones2@hp.com>
+Subject: Re: 2.6.10 TCP troubles -- suggested patch
+Date: Sat, 12 Feb 2005 13:43:52 -0800
+Message-ID: <0db5e06aa50422877f9ec4a2e35d6795@hp.com>
+References: <0525M9211@server5.heliogroup.fr> <420D37A3.6020209@hp.com> <20050211170958.17fcde21.davem@davemloft.net> <20050212143105.GB27456@yakov.inr.ac.ru> <86de38db09518ced8865af09cd79c064@hp.com> <20050212205617.GA29146@yakov.inr.ac.ru>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com, davem@davemloft.net,
-        jmorris@redhat.com, sds@epoch.ncsc.mil, serue@us.ibm.com
-To: Pablo Neira <pablo@eurodev.net>
-In-Reply-To: <420E334B.8060805@eurodev.net>
+Cc: netdev@oss.sgi.com, romieu@fr.zoreil.com, hubert.tonneau@fullpliant.org,
+        shemminger@osdl.org
+In-Reply-To: <20050212205617.GA29146@yakov.inr.ac.ru>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira wrote:
 
-> I also see another option which is passing as parameter such function 
-> which check for capabilities/audit stuff to my netlink_process_skb 
-> function, calling it before process_msg. But in that case, the packet 
-> sent by a sender that doesn't has the right to was already enqueued. I 
-> understand that this is exactly what you are trying to avoid.
+> If receiver sent an ACK it still does not mean that sender used it
+> to increase its cwnd. Particularly, small packet exchange definitely
+> does not inflate cwnd.
 
+Is that in general, or in Linux?
 
-With your patch, a message from user space process that doesn't have the 
-capabilites follows this path:
+>> output.  All the stacks with ACK avoidance with which I am familiar do
+>> not make the assumption that the sender is not doing slow-start.  They
+>> make sure to send enough ACKs at the beginning (or after packet loss)
+>> to allow the sender's cwnd to grow.
+>
+> Well, we do similar thing with delayed ACKs. And it took a few of runs
+> of testing to understand that we cannot detect even packet loss 
+> reliably
+> enough. :-)
 
-sys_sendmsg() -> netlink_sendmsg() -> netlink_unicast() -> 
-netlink_sendskb() = discarded here.
+I never claimed it was easy :)
 
-Currently, it continues, for example in case of rtnetlink:
+> Actually, those receivers could use the first delayed ACK event as
+> a sign of failure of their heuristics and block stretching acks for
+> this connection.
 
-... -> netlink_sendskb() -> sk_data_ready(sk, len) -> rtnetlink_rcv() -> 
-rtnetlink_rcv_skb() -> rtnetlink_rcv_msg() = discarded here.
+The ones with which I am familiar do - after N delayed ACK events where 
+N is something other than one though.  And they still send immediate 
+ACKs to the senders upon out of order data and all that.
 
-Nowadays the message is enqueued but it's discarded later. So if I'm not 
-missing anything, I don't see the point of adding a new function to 
-check for capabilities/audit stuff just a bit before.
-
---
-Pablo
+rick jones
+Wisdom teeth are impacted, people are affected by the effects of events
