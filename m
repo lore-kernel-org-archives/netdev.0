@@ -1,93 +1,69 @@
-From: cynthia abacha <mari_abach2@yahoo.com>
-Subject: Assistance
-Date: Thu, 13 Mar 2003 07:34:19 -0800 (PST)
+From: Anton Blanchard <anton@samba.org>
+Subject: recvmsg compat code
+Date: Fri, 14 Mar 2003 06:24:57 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030313153419.45111.qmail@web41403.mail.yahoo.com>
+Message-ID: <20030313192457.GA3279@krispykreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
+Cc: davem@redhat.com, akpm@digeo.com, bcrl@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mari_abach2@yahoo.com
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mrs. Maryam Abacha =20
-C/o Desmond & Associate =20
-E-mail: mohammed_law1@yahoo.com=09
-Lagos - Nigeria. =20
- =20
-Dear Sir, =20
- =20
-It is with heart full of hope that I write to seek
-your help in the context below. I am Mrs. Maryam
-Abacha the wife of the former Nigeria Head of state
-Late General Sani Abacha, whose sudden death occurred
-on 8th of June, 1998.=09
- =20
-Having gotten your particulars from the family
-catalogue, I have no doubt about your capacity and
-good will to assist me in receiving into your custody
-(for safety) the sum of   US$ 48 Million willed and
-deposited in my favour by my late husband.  =20
-  =20
-This money is currently kept in a Trust Deposit
-Account with  West African Sub-Regional Finance and
-Security Co. As it is legally required, the asset of
-my late husband is under the authority of our family
-lawyer named Barrister Mohammed Kariam (Esq).
-Unfortunately, the new Democratic Government has on
-assumption of office set up a Panel of Enquires to
-probe the financial activities of my late
-husband(Former Head of State) with a decision to
-freeze all his assets. The investigation teams have
-submitted their reports, presently some cash and
-assets have been frozen and seized.  =20
- =20
-Fortunately, with our family lawyer=92s assistance we
-secretly  protected the =93Personal will=94 of my husband
-from the notice of the investigators and have strictly
-advised that the willed money be urgently moved into
-an overseas account of a Trusted foreigner without
-delay for security reasons.=20
 
-The government had long time ago placed foreign Travel
-Embargo on all our family members and seized our
-international passports and all our local and
-international business outfits. The situation has been
-so terrible that we are virtually living on the
-assistance of well wishers.  In view of this plight
-therefore, I expect you to be trustworthy and kind
-enough to respond to this call to save my children and
-me from a hopeless future by assisting me in receiving
-this money into your overseas account for save keeping
-until our International Passports are released to us
-after  the investigatio n is concluded. =20
- =20
-I hereby agree to compensate your sincere and candid
-effort in this regard with 20% of the fund when
-finally received in your bank account. Our Attorney
-has perfected arrangement with the financial Security
-Company to effect complete dislodgment of this money
-within a week of the receipt of your response. They
-have equally guaranteed 100% smooth transfer.	 =20
- =20
-Please all contacts must be made through our lawyer
-Mohammed Karim of Garry Chambers via  his e-mail
-address: mohammed_law1@yahoo.com =20
- =20
-I look forward to your quick response, may Almighty
-Allah bless you.
-=20
- =20
-Yours faithfully, =20
- =20
-Mrs. Maryam Abacha =20
+Hi,
 
+The recent clean up of the duplicated recvmsg code (which I was happy to
+see go in) broke my sshd.
 
+It turns out compat handling of fd passing is broken. We were looking
+for the MSG_CMSG_COMPAT flag in msg->msg_flags. I was just about to pass
+down flags into the two problem functions, however put_cmsg is called
+from a bunch of places.
 
+Any thoughts?
 
+Anton
 
-__________________________________________________
-Do you Yahoo!?
-Yahoo! Web Hosting - establish your business online
-http://webhosting.yahoo.com
+===== net/core/scm.c 1.6 vs edited =====
+--- 1.6/net/core/scm.c	Fri Mar  7 06:06:44 2003
++++ edited/net/core/scm.c	Fri Mar 14 06:18:03 2003
+@@ -165,14 +165,15 @@
+ 	return err;
+ }
+ 
+-int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data)
++int put_cmsg(struct msghdr * msg, int level, int type, int len, void *data,
++	     unsigned int flags)
+ {
+ 	struct cmsghdr *cm = (struct cmsghdr*)msg->msg_control;
+ 	struct cmsghdr cmhdr;
+ 	int cmlen = CMSG_LEN(len);
+ 	int err;
+ 
+-	if (MSG_CMSG_COMPAT & msg->msg_flags)
++	if (MSG_CMSG_COMPAT & flags)
+ 		return put_cmsg_compat(msg, level, type, len, data);
+ 
+ 	if (cm==NULL || msg->msg_controllen < sizeof(*cm)) {
+@@ -200,7 +201,8 @@
+ 	return err;
+ }
+ 
+-void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm)
++void scm_detach_fds(struct msghdr *msg, struct scm_cookie *scm,
++		    unsigned long flags)
+ {
+ 	struct cmsghdr *cm = (struct cmsghdr*)msg->msg_control;
+ 
+@@ -210,7 +212,7 @@
+ 	int *cmfptr;
+ 	int err = 0, i;
+ 
+-	if (MSG_CMSG_COMPAT & msg->msg_flags)
++	if (MSG_CMSG_COMPAT & flags)
+ 		return scm_detach_fds_compat(msg, scm);
+ 
+ 	if (msg->msg_controllen > sizeof(struct cmsghdr))
