@@ -1,49 +1,47 @@
-From: Donald Becker <becker@scyld.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: SIOCADDMULTI for unicast broken
-Date: Fri, 3 Jan 2003 20:39:50 -0500 (EST)
+Date: Fri, 03 Jan 2003 17:45:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0301032029540.29812-100000@beohost.scyld.com>
-References: <3E163648.2040204@pobox.com>
+Message-ID: <3E163CBB.30206@candelatech.com>
+References: <Pine.LNX.4.44.0301032029540.29812-100000@beohost.scyld.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jamal <hadi@cyberus.ca>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, jamal <hadi@cyberus.ca>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3E163648.2040204@pobox.com>
+To: Donald Becker <becker@scyld.com>
+In-Reply-To: <Pine.LNX.4.44.0301032029540.29812-100000@beohost.scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Jan 2003, Jeff Garzik wrote:
-> jamal wrote:
-> > Some programs require ability to accept packets destined to certain
-> > MAC addresses (in addition to their own).
-> > Example Jerome Ettienes vrrpd (http://w3.arobas.net/~jetienne/vrrpd/)
-> > 
-> > The trick is to add unicast addresses via SIOCADDMULTI and accept those
-> > packets when they make their way up the stack.
-> > I think this used to work, no? Donald, any history/comments behind
-> > this?
+Donald Becker wrote:
+
+> It was
+>   "If you need this capability for a RESEARCH PROJECT, you can buy this
+>   specific board and thus not need to modify the kernel or device
+>   driver. "
 > 
-> Over and above Donald's comments, from an interface perspective I think 
-> this is a bit of a hack, don't you?  :)  Calling an "add-multi" ioctl 
-> should do precisely that... and only that :)
+> You can also find a few people that want to receive specific corrupted
+> packets, change the meaning of LEDs on a NIC, and do many other strange
+> things.  But we don't need a defined kernel interface for each one.
 
-Yes, it is totally a hack, not an interface.
+Just out of curiosity, what is the suggested manner for adding such
+back-door hacks as this?  Maybe in a proc file system that the driver
+implements?  It would be neat to see various driver-specific features
+like this be implemented, and it would be even nicer if they followed
+at least some general guideline for how to interface with the rest of
+the world...
 
-It was
-  "If you need this capability for a RESEARCH PROJECT, you can buy this
-  specific board and thus not need to modify the kernel or device
-  driver. "
+> 
+> Improvement is what you can eliminate or simplify, not adding complexity.
 
-You can also find a few people that want to receive specific corrupted
-packets, change the meaning of LEDs on a NIC, and do many other strange
-things.  But we don't need a defined kernel interface for each one.
+Exposing new features can also be an improvement, though one does
+not imply the other ;)
 
-Improvement is what you can eliminate or simplify, not adding complexity.
-
+Ben
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
