@@ -1,46 +1,22 @@
-From: Horms <horms@verge.net.au>
-Subject: Re: bridge between ppp and ethernet - 1 IP address and assign it to another host
-Date: Wed, 16 Mar 2005 11:37:54 +0900
-Message-ID: <20050316023752.GS23777@verge.net.au>
-References: <20050305220429.GA9335@outpost.ds9a.nl>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: [patch 2.6.11] bonding: avoid tx balance for IGMP (alb/tlb mode)
+Date: Wed, 16 Mar 2005 01:59:08 -0800
+Message-ID: <OFDEDA7621.E9BF197B-ON88256FC6.003688EE-88256FC6.0036DABF@us.ibm.com>
+References: <200503160103.j2G132YO016999@death.nxdomain.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20050305220429.GA9335@outpost.ds9a.nl>
+Content-Type: text/plain; charset="US-ASCII"
+Cc: bonding-devel@lists.sourceforge.net, ctindel@users.sourceforge.net,
+        jgarzik@pobox.com, linux-kernel@vger.kernel.org,
+        "John W. Linville" <linville@tuxdriver.com>, netdev@oss.sgi.com,
+        netdev-bounce@oss.sgi.com, Rick Jones <rick.jones2@hp.com>
+In-Reply-To: <200503160103.j2G132YO016999@death.nxdomain.ibm.com>
+To: fubar@us.ibm.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 05, 2005 at 11:04:30PM +0100, bert hubert wrote:
-> Hi people,
-> 
-> I have an application that wants a Real IP Address, but for a variety of
-> good reasons, I can't connect the machine to the internet directly.
-> 
-> So, I need this:
-> 
-> DSL - Linux - Windows PC
-> 
-> Where I need the Windows PC to think it has the real single IP addres
-> assigned to me by the DSL provider. I run PPTP on the Linux box, which
-> should not touch traffic for that IP address.
-> 
-> Now I know that several DSL routers are capable of this stunt, so we should
-> be able to do this too. But how?
-> 
-> Linux is pretty stubborn in routing packets for its own IP address elsewhere
-> (rightfully so). I previously spent some time on this with a lot of
-> SNAT/DNAT trickery but it is not very pleasing, nor did it work.
-> 
-> What we're trying to do is a lot like building a bridge between ethernet and
-> ppp, but not quite.
-> 
-> Anybody have ideas? If we find something I'll post it on http://lartc.org.
+I didn't look to see if there's a case in that switch for IPv6, but MLD 
+will have
+the same issue with switches, and probably needs a similar exception.
 
-Have you tried using LVS with Direct Routing? It might do the trick
-as long as the Windows PC can route outgoing packets directly through
-the DLS router.
-
--- 
-Horms
+                                        +-DLS
