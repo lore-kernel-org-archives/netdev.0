@@ -1,31 +1,33 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: is sk->reuse truly a boolean?
-Date: Tue, 20 May 2003 14:08:36 -0300
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.5.69++] fixup for latest netdev change.
+Date: Tue, 20 May 2003 11:23:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030520170836.GH801@conectiva.com.br>
-References: <20030520162906.GF801@conectiva.com.br> <20030521.015317.125867074.yoshfuji@linux-ipv6.org> <20030520165831.GG801@conectiva.com.br> <20030521.020242.16237776.yoshfuji@linux-ipv6.org>
+Message-ID: <20030520112355.6d40d98b.shemminger@osdl.org>
+References: <20030519.212814.26529040.davem@redhat.com>
+	<20030520050238.D5BEF2C208@lists.samba.org>
+	<20030519.232133.45877480.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20030521.020242.16237776.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030519.232133.45877480.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, May 21, 2003 at 02:02:42AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
-> In article <20030520165831.GG801@conectiva.com.br> (at Tue, 20 May 2003 13:58:31 -0300), Arnaldo Carvalho de Melo <acme@conectiva.com.br> says:
-> 
-> > > I don't think so.  Above modification will break current 
-> > > reasonable bind(2) behavior.
-> > > 
-> > > Well, it would be dead code, which would be used for (still 
-> > > unsupported) SO_REUSEPORT.
-> > 
-> > So just delete the test?
-> 
-> Hmm, (bacause I want to remember this path in the code,) how about #if 0 ?
-> David?
+One driver was setting owner directly, so won't build now.
+This should fix it.
 
-Sounds good to me.
+diff -urNp -X dontdiff linux-2.5/drivers/net/ns83820.c linux-2.5-sysfs/drivers/net/ns83820.c
+--- linux-2.5/drivers/net/ns83820.c	2003-04-24 16:02:05.000000000 -0700
++++ linux-2.5-sysfs/drivers/net/ns83820.c	2003-05-20 11:15:01.000000000 -0700
+@@ -1788,7 +1788,7 @@ static int __devinit ns83820_init_one(st
+ 
+ 	dev->ee.cache = &dev->MEAR_cache;
+ 	dev->ee.lock = &dev->misc_lock;
+-	dev->net_dev.owner = THIS_MODULE;
++	SET_MODULE_OWNER(dev->net_dev);
+ 	dev->net_dev.priv = dev;
+ 
+ 	INIT_WORK(&dev->tq_refill, queue_refill, dev);
