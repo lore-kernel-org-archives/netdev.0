@@ -1,42 +1,20 @@
-From: Dan Aloni <da-x@gmx.net>
-Subject: Re: [BK PATCH 2.6] repost, fix sysctl breakage during network device renaming, for ipv4
-Date: Mon, 1 Sep 2003 21:55:32 +0300
+From: esafe@aacom.fr
+Subject: Ceci est un message du relai de mail =?ISO-8859-1?Q?s=E9curis=E9?=
+Date: Mon, 1 Sep 2003 21:11:48 +0200 (MET DST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030901185532.GA28941@callisto.yi.org>
-References: <20030901164624.GA26886@callisto.yi.org> <20030901094127.6a0f6878.davem@redhat.com> <20030901165559.GA27099@callisto.yi.org> <20030901113143.1ba34464.davem@redhat.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Message-ID: <200309011911.h81JBlF04249@aacom.fr>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030901113143.1ba34464.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 01, 2003 at 11:31:43AM -0700, David S. Miller wrote:
-> On Mon, 1 Sep 2003 19:55:59 +0300
-> Dan Aloni <da-x@gmx.net> wrote:
-> 
-> > The private copy of strdup() is something that I'd also wouldn't
-> > want, but I don't have much choice. Please read a recent 
-> > thread in lkml regarding strdup() consolidation.
-> 
-> Ugh, I'm afraid to look...  I guess the controversy is
-> over the allocation function, what GFP_* flags it should
-> use etc.?
+*** Le message suivant a été bloqué par le logiciel antivirus ***
 
-Yes, this is the one reason against consolidation, though
-I don't know why anyone would want to call strdup() from a 
-context other than GPF_KERNEL. Copying strings around in the 
-kernel is done as a result of userspace interaction.
- 
-> For now just call the thing in your patch netdev_name_dup() or
-> something like that.  I can't handle having something named
-> "strdup()" in there :-)
 
-Sure, I'll do it and resend.
-
--- 
-Dan Aloni
-da-x@gmx.net
+Time: 01 Sep 2002 21:12:48
+Scan result: Mail modified to remove malicious content
+Protocol: SMTP in
+File Name\Mail Subject: mail_1030890651: Re: Approved
+Source: netdev@oss.sgi.com
+Destination: drh@aacom.fr
+Details: thank_you.pif  Msg #705 - The file type pif,APPLICATION/OCTET-STREAM is on the Restricted List.
