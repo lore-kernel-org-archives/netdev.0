@@ -1,26 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: PATCH: Add C99 initializers to ip_conntrack_standalone.c
-Date: Fri, 20 Feb 2004 11:06:21 -0800
+Subject: Re: Initialising net/ipv4/ before net/ipv6/ breaks IPv6 autoconf
+ with nfsroot....
+Date: Fri, 20 Feb 2004 11:07:17 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040220110621.2b6281e8.davem@redhat.com>
-References: <20040220190148.GA26386@artsapartment.org>
+Message-ID: <20040220110717.4c8e9f59.davem@redhat.com>
+References: <1077201499.18703.381.camel@hades.cambridge.redhat.com>
+	<20040219222253.082458cf.davem@redhat.com>
+	<1077303696.427.570.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Art Haas" <ahaas@airmail.net>
-In-Reply-To: <20040220190148.GA26386@artsapartment.org>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1077303696.427.570.camel@hades.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 20 Feb 2004 13:01:48 -0600
-"Art Haas" <ahaas@airmail.net> wrote:
+On Fri, 20 Feb 2004 19:01:37 +0000
+David Woodhouse <dwmw2@infradead.org> wrote:
 
-> Here's a patch that converts this file to use C99 initializers. The code
-> is much easier to read after the conversion, I believe. I have
-> recompiled the file with the changes successfully.
+> On Thu, 2004-02-19 at 22:22 -0800, David S. Miller wrote:
+> > If at some point we create some initialization dependency between ipv4
+> > and ipv6 (f.e. ipv6 init needs some ipv4 table setup) we will need to
+> > tread carefully to keep this from breaking.
 > 
-> The patch is against the current BK.
+> True. For 2.6 in fact we can do it this way...
 
-Applied, thanks Art.
+I like this version of this fix a lot, applied.
