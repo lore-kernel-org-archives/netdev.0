@@ -1,12 +1,12 @@
 From: Florian Schirmer <jolt@tuxbox.org>
-Subject: [PATCH][2/4] b44: Cleanup SiliconBackplane definitions/functions
-Date: Sun, 29 Aug 2004 22:34:01 +0200
+Subject: [PATCH][4/4] b44: Add bcm47xx support
+Date: Sun, 29 Aug 2004 22:39:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408292234.04238.jolt@tuxbox.org>
+Message-ID: <200408292239.53601.jolt@tuxbox.org>
 References: <200408292218.00756.jolt@tuxbox.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart12595084.zQyxp4o0NF";
+  boundary="nextPart2900989.SpQvQGFGbN";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
@@ -17,7 +17,7 @@ In-Reply-To: <200408292218.00756.jolt@tuxbox.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart12595084.zQyxp4o0NF
+--nextPart2900989.SpQvQGFGbN
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -25,250 +25,252 @@ Content-Disposition: inline
 
 Hi,
 
-there is a good amount of code to support SiliconBackplane functions which =
-are unneeded or simply plain wrong. Lets get rid of it.
+finally add bcm47xx support using the infrastructure created by the earlier=
+ patches.
 
 Regards,
-  Florian
+   Florian
 
 Signed-off-by: Florian Schirmer <jolt@tuxbox.org>
 
-=2D-- linux/drivers/net/b44.c-old2 2004-08-29 16:27:00.000000000 +0200
-+++ linux/drivers/net/b44.c 2004-08-29 16:59:24.000000000 +0200
-@@ -130,41 +130,8 @@ static int b44_wait_bit(struct b44 *bp,=20
-  * interrupts disabled.
+
+=2D-- linux/drivers/net/b44.c-old4 2004-08-29 17:24:23.000000000 +0200
++++ linux/drivers/net/b44.c 2004-08-29 18:48:45.000000000 +0200
+@@ -1,7 +1,8 @@
+=2D/* b44.c: Broadcom 4400 device driver.
++/* b44.c: Broadcom 4400/47xx device driver.
+  *
+  * Copyright (C) 2002 David S. Miller (davem@redhat.com)
+=2D * Fixed by Pekka Pietikainen (pp@ee.oulu.fi)
++ * Copyright (C) 2004 Pekka Pietikainen (pp@ee.oulu.fi)
++ * Copyright (C) 2004 Florian Schirmer (jolt@tuxbox.org)
+  *
+  * Distribute under GPL.
   */
+@@ -75,7 +76,7 @@ static char version[] __devinitdata =3D
+  DRV_MODULE_NAME ".c:v" DRV_MODULE_VERSION " (" DRV_MODULE_RELDATE ")\n";
 =20
-=2D#define SBID_SDRAM  0
-=2D#define SBID_PCI_MEM  1
-=2D#define SBID_PCI_CFG  2
-=2D#define SBID_PCI_DMA  3
-=2D#define SBID_SDRAM_SWAPPED 4
-=2D#define SBID_ENUM  5
-=2D#define SBID_REG_SDRAM  6
-=2D#define SBID_REG_ILINE20 7
-=2D#define SBID_REG_EMAC  8
-=2D#define SBID_REG_CODEC  9
-=2D#define SBID_REG_USB  10
-=2D#define SBID_REG_PCI  11
-=2D#define SBID_REG_MIPS  12
-=2D#define SBID_REG_EXTIF  13
-=2D#define SBID_EXTIF  14
-=2D#define SBID_EJTAG  15
-=2D#define SBID_MAX  16
-=2D
-=2Dstatic u32 ssb_get_addr(struct b44 *bp, u32 id, u32 instance)
-=2D{
-=2D switch (id) {
-=2D case SBID_PCI_DMA:
-=2D  return 0x40000000;
-=2D case SBID_ENUM:
-=2D  return 0x18000000;
-=2D case SBID_REG_EMAC:
-=2D  return 0x18000000;
-=2D case SBID_REG_CODEC:
-=2D  return 0x18001000;
-=2D case SBID_REG_PCI:
-=2D  return 0x18002000;
-=2D default:
-=2D  return 0;
-=2D };
-=2D}
-+#define SB_PCI_DMA             0x40000000      /* Client Mode PCI memory a=
-ccess space (1 GB) */
-+#define BCM4400_PCI_CORE_ADDR  0x18002000      /* Address of PCI core on B=
-CM4400 cards */
+ MODULE_AUTHOR("David S. Miller (davem@redhat.com)");
+=2DMODULE_DESCRIPTION("Broadcom 4400 10/100 PCI ethernet driver");
++MODULE_DESCRIPTION("Broadcom 4400/47xx 10/100 PCI ethernet driver");
+ MODULE_LICENSE("GPL");
+ MODULE_PARM(b44_debug, "i");
+ MODULE_PARM_DESC(b44_debug, "B44 bitmapped debugging message enable value"=
+);
+@@ -89,6 +90,8 @@ static struct pci_device_id b44_pci_tbl[
+    PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+  { PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_BCM4401B1,
+    PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
++ { PCI_VENDOR_ID_BROADCOM, PCI_DEVICE_ID_BCM4713,
++   PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0UL },
+  { } /* terminate list with empty entry */
+ };
 =20
- static u32 ssb_get_core_rev(struct b44 *bp)
+@@ -202,29 +205,14 @@ static void ssb_core_reset(struct b44 *b
+  udelay(1);
+ }
+=20
++static int b44_4713_instance;
++
+ static int ssb_core_unit(struct b44 *bp)
  {
-@@ -176,8 +143,7 @@ static u32 ssb_pci_setup(struct b44 *bp,
-  u32 bar_orig, pci_rev, val;
+=2D#if 0
+=2D u32 val =3D br32(B44_SBADMATCH0);
+=2D u32 base;
+=2D
+=2D type =3D val & SBADMATCH0_TYPE_MASK;
+=2D switch (type) {
+=2D case 0:
+=2D  base =3D val & SBADMATCH0_BS0_MASK;
+=2D  break;
+=2D
+=2D case 1:
+=2D  base =3D val & SBADMATCH0_BS1_MASK;
+=2D  break;
+=2D
+=2D case 2:
+=2D default:
+=2D  base =3D val & SBADMATCH0_BS2_MASK;
+=2D  break;
+=2D };
+=2D#endif
+=2D return 0;
++ if (bp->pdev->device =3D=3D PCI_DEVICE_ID_BCM4713)
++  return b44_4713_instance++;
++ else
++  return 0;
+ }
 =20
-  pci_read_config_dword(bp->pdev, SSB_BAR0_WIN, &bar_orig);
-=2D pci_write_config_dword(bp->pdev, SSB_BAR0_WIN,
-=2D          ssb_get_addr(bp, SBID_REG_PCI, 0));
-+ pci_write_config_dword(bp->pdev, SSB_BAR0_WIN, BCM4400_PCI_CORE_ADDR);
-  pci_rev =3D ssb_get_core_rev(bp);
+ static int ssb_is_core_up(struct b44 *bp)
+@@ -233,6 +221,28 @@ static int ssb_is_core_up(struct b44 *bp
+   =3D=3D SBTMSLOW_CLOCK);
+ }
 =20
-  val =3D br32(B44_SBINTVEC);
-@@ -1676,7 +1642,6 @@ static int __devinit b44_get_invariants(
-  bp->dev->dev_addr[5] =3D eeprom[82];
++static void __b44_cam_read(struct b44 *bp, unsigned char *data, int index)
++{
++ u32 val;
++
++ bw32(B44_CAM_CTRL, (CAM_CTRL_READ |
++       (index << CAM_CTRL_INDEX_SHIFT)));
++
++ b44_wait_bit(bp, B44_CAM_CTRL, CAM_CTRL_BUSY, 100, 1);=20
++
++ val =3D br32(B44_CAM_DATA_LO);
++
++ data[2] =3D (val >> 24) & 0xFF;
++ data[3] =3D (val >> 16) & 0xFF;
++ data[4] =3D (val >> 8) & 0xFF;
++ data[5] =3D (val >> 0) & 0xFF;
++
++ val =3D br32(B44_CAM_DATA_HI);
++=20
++ data[0] =3D (val >> 8) & 0xFF;
++ data[1] =3D (val >> 0) & 0xFF;
++}
++
+ static void __b44_cam_write(struct b44 *bp, unsigned char *data, int index)
+ {
+  u32 val;
+@@ -1110,6 +1120,8 @@ static void b44_clear_stats(struct b44 *
+ /* bp->lock is held. */
+ static void b44_chip_reset(struct b44 *bp)
+ {
++ unsigned int sb_clock;
++
+  if (ssb_is_core_up(bp)) {
+   bw32(B44_RCV_LAZY, 0);
+   bw32(B44_ENET_CTRL, ENET_CTRL_DISABLE);
+@@ -1123,9 +1135,10 @@ static void b44_chip_reset(struct b44 *b
+   bw32(B44_DMARX_CTRL, 0);
+   bp->rx_prod =3D bp->rx_cons =3D 0;
+  } else {
+=2D  ssb_pci_setup(bp, (bp->core_unit =3D=3D 0 ?
+=2D       SBINTVEC_ENET0 :
+=2D       SBINTVEC_ENET1));
++  if (bp->pdev->device !=3D PCI_DEVICE_ID_BCM4713)
++   ssb_pci_setup(bp, (bp->core_unit =3D=3D 0 ?
++        SBINTVEC_ENET0 :
++        SBINTVEC_ENET1));
+  }
 =20
-  bp->phy_addr =3D eeprom[90] & 0x1f;
-=2D bp->mdc_port =3D (eeprom[90] >> 14) & 0x1;
+  ssb_core_reset(bp);
+@@ -1133,8 +1146,14 @@ static void b44_chip_reset(struct b44 *b
+  b44_clear_stats(bp);
+=20
+  /* Make PHY accessible. */
++ if (bp->pdev->device =3D=3D PCI_DEVICE_ID_BCM4713)
++  sb_clock =3D 100000000; /* 100 MHz */
++ else
++  sb_clock =3D 62500000; /* 62.5 MHz */
++
+  bw32(B44_MDIO_CTRL, (MDIO_CTRL_PREAMBLE |
+=2D        (0x0d & MDIO_CTRL_MAXF_MASK)));
++        (((sb_clock + (B44_MDC_RATIO / 2)) / B44_MDC_RATIO)
++        & MDIO_CTRL_MAXF_MASK)));
+  br32(B44_MDIO_CTRL);
+=20
+  if (!(br32(B44_DEVCTRL) & DEVCTRL_IPP)) {
+@@ -1654,19 +1673,41 @@ static int __devinit b44_get_invariants(
+ {
+  u8 eeprom[128];
+  int err;
++ unsigned long flags;
+=20
+=2D err =3D b44_read_eeprom(bp, &eeprom[0]);
+=2D if (err)
+=2D  goto out;
+=2D
+=2D bp->dev->dev_addr[0] =3D eeprom[79];
+=2D bp->dev->dev_addr[1] =3D eeprom[78];
+=2D bp->dev->dev_addr[2] =3D eeprom[81];
+=2D bp->dev->dev_addr[3] =3D eeprom[80];
+=2D bp->dev->dev_addr[4] =3D eeprom[83];
+=2D bp->dev->dev_addr[5] =3D eeprom[82];
+=2D
+=2D bp->phy_addr =3D eeprom[90] & 0x1f;
++ if (bp->pdev->device =3D=3D PCI_DEVICE_ID_BCM4713) {
++  /*=20
++   * BCM47xx boards don't have a EEPROM. The MAC is stored in
++   * a NVRAM area somewhere in the flash memory. As we don't
++   * know the location and/or the format of the NVRAM area
++   * here, we simply rely on the bootloader to write the
++   * MAC into the CAM.
++   */
++  spin_lock_irqsave(&bp->lock, flags);
++  __b44_cam_read(bp, bp->dev->dev_addr, 0);
++  spin_unlock_irqrestore(&bp->lock, flags);
++
++  /*=20
++   * BCM47xx boards don't have a PHY. Usually there is a switch
++   * chip with multiple PHYs connected to the PHY port.
++   */
++  bp->phy_addr =3D B44_PHY_ADDR_NO_PHY;
++  bp->dma_offset =3D 0;
++ } else {
++  err =3D b44_read_eeprom(bp, &eeprom[0]);
++  if (err)
++   return err;
++
++  bp->dev->dev_addr[0] =3D eeprom[79];
++  bp->dev->dev_addr[1] =3D eeprom[78];
++  bp->dev->dev_addr[2] =3D eeprom[81];
++  bp->dev->dev_addr[3] =3D eeprom[80];
++  bp->dev->dev_addr[4] =3D eeprom[83];
++  bp->dev->dev_addr[5] =3D eeprom[82];
++
++  bp->phy_addr =3D eeprom[90] & 0x1f;
++  bp->dma_offset =3D SB_PCI_DMA;
++ }=20
 =20
   /* With this, plus the rx_header prepended to the data by the
    * hardware, we'll land the ethernet header on a 2-byte boundary.
-@@ -1686,7 +1651,7 @@ static int __devinit b44_get_invariants(
+@@ -1676,13 +1717,12 @@ static int __devinit b44_get_invariants(
   bp->imask =3D IMASK_DEF;
 =20
   bp->core_unit =3D ssb_core_unit(bp);
-=2D bp->dma_offset =3D ssb_get_addr(bp, SBID_PCI_DMA, 0);
-+ bp->dma_offset =3D SB_PCI_DMA;
+=2D bp->dma_offset =3D SB_PCI_DMA;
 =20
   /* XXX - really required?=20
      bp->flags |=3D B44_FLAG_BUGGY_TXPTR;
-=2D-- linux/drivers/net/b44.h-old2 2004-08-29 16:25:36.000000000 +0200
-+++ linux/drivers/net/b44.h 2004-08-29 17:06:44.000000000 +0200
-@@ -223,21 +223,8 @@
- #define B44_RX_SYM 0x05D0UL /* MIB RX Symbol Errors */
- #define B44_RX_PAUSE 0x05D4UL /* MIB RX Pause Packets */
- #define B44_RX_NPAUSE 0x05D8UL /* MIB RX Non-Pause Packets */
-=2D#define B44_SBIPSFLAG 0x0F08UL /* SB Initiator Port OCP Slave Flag */
-=2D#define  SBIPSFLAG_IMASK1 0x0000003f /* Which sbflags --> mips interrupt=
- 1 */
-=2D#define  SBIPSFLAG_ISHIFT1 0
-=2D#define  SBIPSFLAG_IMASK2 0x00003f00 /* Which sbflags --> mips interrupt=
- 2 */
-=2D#define  SBIPSFLAG_ISHIFT2 8
-=2D#define  SBIPSFLAG_IMASK3 0x003f0000 /* Which sbflags --> mips interrupt=
- 3 */
-=2D#define  SBIPSFLAG_ISHIFT3 16
-=2D#define  SBIPSFLAG_IMASK4 0x3f000000 /* Which sbflags --> mips interrupt=
- 4 */
-=2D#define  SBIPSFLAG_ISHIFT4 24
-=2D#define B44_SBTPSFLAG 0x0F18UL /* SB Target Port OCP Slave Flag */
-=2D#define  SBTPS_NUM0_MASK 0x0000003f
-=2D#define  SBTPS_F0EN0  0x00000040
-=2D#define B44_SBADMATCH3 0x0F60UL /* SB Address Match 3 */
-=2D#define B44_SBADMATCH2 0x0F68UL /* SB Address Match 2 */
-=2D#define B44_SBADMATCH1 0x0F70UL /* SB Address Match 1 */
+          */
+=2Dout:
+=2D return err;
 +
-+/* Silicon backplane register definitions */
- #define B44_SBIMSTATE 0x0F90UL /* SB Initiator Agent State */
- #define  SBIMSTATE_PC  0x0000000f /* Pipe Count */
- #define  SBIMSTATE_AP_MASK 0x00000030 /* Arbitration Priority */
-@@ -269,86 +256,6 @@
- #define  SBTMSHIGH_GCR  0x20000000 /* Gated Clock Request */
- #define  SBTMSHIGH_BISTF 0x40000000 /* BIST Failed */
- #define  SBTMSHIGH_BISTD 0x80000000 /* BIST Done */
-=2D#define B44_SBBWA0 0x0FA0UL /* SB Bandwidth Allocation Table 0 */
-=2D#define  SBBWA0_TAB0_MASK 0x0000ffff /* Lookup Table 0 */
-=2D#define  SBBWA0_TAB0_SHIFT 0
-=2D#define  SBBWA0_TAB1_MASK 0xffff0000 /* Lookup Table 0 */
-=2D#define  SBBWA0_TAB1_SHIFT 16
-=2D#define B44_SBIMCFGLOW 0x0FA8UL /* SB Initiator Configuration Low */
-=2D#define  SBIMCFGLOW_STO_MASK 0x00000003 /* Service Timeout */
-=2D#define  SBIMCFGLOW_RTO_MASK 0x00000030 /* Request Timeout */
-=2D#define  SBIMCFGLOW_RTO_SHIFT 4
-=2D#define  SBIMCFGLOW_CID_MASK 0x00ff0000 /* Connection ID */
-=2D#define  SBIMCFGLOW_CID_SHIFT 16
-=2D#define B44_SBIMCFGHIGH 0x0FACUL /* SB Initiator Configuration High */
-=2D#define  SBIMCFGHIGH_IEM_MASK 0x0000000c /* Inband Error Mode */
-=2D#define  SBIMCFGHIGH_TEM_MASK 0x00000030 /* Timeout Error Mode */
-=2D#define  SBIMCFGHIGH_TEM_SHIFT 4
-=2D#define  SBIMCFGHIGH_BEM_MASK 0x000000c0 /* Bus Error Mode */
-=2D#define  SBIMCFGHIGH_BEM_SHIFT 6
-=2D#define B44_SBADMATCH0 0x0FB0UL /* SB Address Match 0 */
-=2D#define  SBADMATCH0_TYPE_MASK 0x00000003 /* Address Type */
-=2D#define  SBADMATCH0_AD64 0x00000004 /* Reserved */
-=2D#define  SBADMATCH0_AI0_MASK 0x000000f8 /* Type0 Size */
-=2D#define  SBADMATCH0_AI0_SHIFT 3
-=2D#define  SBADMATCH0_AI1_MASK 0x000001f8 /* Type1 Size */
-=2D#define  SBADMATCH0_AI1_SHIFT 3
-=2D#define  SBADMATCH0_AI2_MASK 0x000001f8 /* Type2 Size */
-=2D#define  SBADMATCH0_AI2_SHIFT 3
-=2D#define  SBADMATCH0_ADEN 0x00000400 /* Enable */
-=2D#define  SBADMATCH0_ADNEG 0x00000800 /* Negative Decode */
-=2D#define  SBADMATCH0_BS0_MASK 0xffffff00 /* Type0 Base Address */
-=2D#define  SBADMATCH0_BS0_SHIFT 8
-=2D#define  SBADMATCH0_BS1_MASK 0xfffff000 /* Type1 Base Address */
-=2D#define  SBADMATCH0_BS1_SHIFT 12
-=2D#define  SBADMATCH0_BS2_MASK 0xffff0000 /* Type2 Base Address */
-=2D#define  SBADMATCH0_BS2_SHIFT 16
-=2D#define B44_SBTMCFGLOW 0x0FB8UL /* SB Target Configuration Low */
-=2D#define  SBTMCFGLOW_CD_MASK 0x000000ff /* Clock Divide Mask */
-=2D#define  SBTMCFGLOW_CO_MASK 0x0000f800 /* Clock Offset Mask */
-=2D#define  SBTMCFGLOW_CO_SHIFT 11
-=2D#define  SBTMCFGLOW_IF_MASK 0x00fc0000 /* Interrupt Flags Mask */
-=2D#define  SBTMCFGLOW_IF_SHIFT 18
-=2D#define  SBTMCFGLOW_IM_MASK 0x03000000 /* Interrupt Mode Mask */
-=2D#define  SBTMCFGLOW_IM_SHIFT 24
-=2D#define B44_SBTMCFGHIGH 0x0FBCUL /* SB Target Configuration High */
-=2D#define  SBTMCFGHIGH_BM_MASK 0x00000003 /* Busy Mode */
-=2D#define  SBTMCFGHIGH_RM_MASK 0x0000000C /* Retry Mode */
-=2D#define  SBTMCFGHIGH_RM_SHIFT 2
-=2D#define  SBTMCFGHIGH_SM_MASK 0x00000030 /* Stop Mode */
-=2D#define  SBTMCFGHIGH_SM_SHIFT 4
-=2D#define  SBTMCFGHIGH_EM_MASK 0x00000300 /* Error Mode */
-=2D#define  SBTMCFGHIGH_EM_SHIFT 8
-=2D#define  SBTMCFGHIGH_IM_MASK 0x00000c00 /* Interrupt Mode */
-=2D#define  SBTMCFGHIGH_IM_SHIFT 10
-=2D#define B44_SBBCFG 0x0FC0UL /* SB Broadcast Configuration */
-=2D#define  SBBCFG_LAT_MASK 0x00000003 /* SB Latency */
-=2D#define  SBBCFG_MAX0_MASK 0x000f0000 /* MAX Counter 0 */
-=2D#define  SBBCFG_MAX0_SHIFT 16
-=2D#define  SBBCFG_MAX1_MASK 0x00f00000 /* MAX Counter 1 */
-=2D#define  SBBCFG_MAX1_SHIFT 20
-=2D#define B44_SBBSTATE 0x0FC8UL /* SB Broadcast State */
-=2D#define  SBBSTATE_SRD  0x00000001 /* ST Reg Disable */
-=2D#define  SBBSTATE_HRD  0x00000002 /* Hold Reg Disable */
-=2D#define B44_SBACTCNFG 0x0FD8UL /* SB Activate Configuration */
-=2D#define B44_SBFLAGST 0x0FE8UL /* SB Current SBFLAGS */
-=2D#define B44_SBIDLOW 0x0FF8UL /* SB Identification Low */
-=2D#define  SBIDLOW_CS_MASK 0x00000003 /* Config Space Mask */
-=2D#define  SBIDLOW_AR_MASK 0x00000038 /* Num Address Ranges Supported */
-=2D#define  SBIDLOW_AR_SHIFT 3
-=2D#define  SBIDLOW_SYNCH  0x00000040 /* Sync */
-=2D#define  SBIDLOW_INIT  0x00000080 /* Initiator */
-=2D#define  SBIDLOW_MINLAT_MASK 0x00000f00 /* Minimum Backplane Latency */
-=2D#define  SBIDLOW_MINLAT_SHIFT 8
-=2D#define  SBIDLOW_MAXLAT_MASK 0x0000f000 /* Maximum Backplane Latency */
-=2D#define  SBIDLOW_MAXLAT_SHIFT 12
-=2D#define  SBIDLOW_FIRST  0x00010000 /* This Initiator is First */
-=2D#define  SBIDLOW_CW_MASK 0x000c0000 /* Cycle Counter Width */
-=2D#define  SBIDLOW_CW_SHIFT 18
-=2D#define  SBIDLOW_TP_MASK 0x00f00000 /* Target Ports */
-=2D#define  SBIDLOW_TP_SHIFT 20
-=2D#define  SBIDLOW_IP_MASK 0x0f000000 /* Initiator Ports */
-=2D#define  SBIDLOW_IP_SHIFT 24
- #define B44_SBIDHIGH 0x0FFCUL /* SB Identification High */
- #define  SBIDHIGH_RC_MASK 0x0000000f /* Revision Code */
- #define  SBIDHIGH_CC_MASK 0x0000fff0 /* Core Code */
-@@ -356,23 +263,13 @@
- #define  SBIDHIGH_VC_MASK 0xffff0000 /* Vendor Code */
- #define  SBIDHIGH_VC_SHIFT 16
++ return 0;
+ }
 =20
-=2D#define  CORE_CODE_ILINE20 0x801
-=2D#define  CORE_CODE_SDRAM 0x803
-=2D#define  CORE_CODE_PCI  0x804
-=2D#define  CORE_CODE_MIPS  0x805
-=2D#define  CORE_CODE_ENET  0x806
-=2D#define  CORE_CODE_CODEC 0x807
-=2D#define  CORE_CODE_USB  0x808
-=2D#define  CORE_CODE_ILINE100 0x80a
-=2D#define  CORE_CODE_EXTIF 0x811
-=2D
- /* SSB PCI config space registers.  */
- #define SSB_BAR0_WIN  0x80
- #define SSB_BAR1_WIN  0x84
- #define SSB_SPROM_CONTROL 0x88
- #define SSB_BAR1_CONTROL 0x8c
+ static int __devinit b44_init_one(struct pci_dev *pdev,
+@@ -1811,7 +1851,8 @@ static int __devinit b44_init_one(struct
 =20
-=2D/* SSB core and hsot control registers.  */
-+/* SSB core and host control registers.  */
- #define SSB_CONTROL  0x0000UL
- #define SSB_ARBCONTROL  0x0010UL
- #define SSB_ISTAT  0x0020UL
-@@ -540,7 +437,6 @@ struct b44 {
-  u32   tx_pending;
-  u32   pci_cfg_state[64 / sizeof(u32)];
-  u8   phy_addr;
-=2D u8   mdc_port;
-  u8   core_unit;
+  pci_save_state(bp->pdev, bp->pci_cfg_state);
 =20
-  struct mii_if_info mii_if;
+=2D printk(KERN_INFO "%s: Broadcom 4400 10/100BaseT Ethernet ", dev->name);
++ printk(KERN_INFO "%s: Broadcom %s 10/100BaseT Ethernet ", dev->name,
++  (pdev->device =3D=3D PCI_DEVICE_ID_BCM4713) ? "47xx" : "4400");
+  for (i =3D 0; i < 6; i++)
+   printk("%2.2x%c", dev->dev_addr[i],
+          i =3D=3D 5 ? '\n' : ':');
+=2D-- linux/drivers/net/b44.h-old4 2004-08-29 17:24:53.000000000 +0200
++++ linux/drivers/net/b44.h 2004-08-29 18:42:56.000000000 +0200
+@@ -363,6 +363,7 @@ struct ring_info {
+=20
+ #define B44_MCAST_TABLE_SIZE 32
+ #define B44_PHY_ADDR_NO_PHY 30
++#define B44_MDC_RATIO  5000000
+=20
+ /* SW copy of device statistics, kept up to date by periodic timer
+  * which probes HW values.  Must have same relative layout as HW
 
 
---nextPart12595084.zQyxp4o0NF
+--nextPart2900989.SpQvQGFGbN
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.5 (GNU/Linux)
 
-iD8DBQBBMj28XRF2vHoIlBsRAmxjAJoDpX9f67tHSQnhAXoyGdjtmFUt9gCfeQiL
-rR2HZQX6xf/xjzUH5QQWwz8=
-=1yNi
+iD8DBQBBMj8ZXRF2vHoIlBsRAg5hAKCZeRnTtZq/RAKJqbXhy2rSvpal8ACguam3
+PYdcWx3/uhC3PJ5ctmFqYkI=
+=Iq4P
 -----END PGP SIGNATURE-----
 
---nextPart12595084.zQyxp4o0NF--
+--nextPart2900989.SpQvQGFGbN--
