@@ -1,41 +1,27 @@
-From: Mika Liljeberg <mika.liljeberg@welho.com>
-Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
-Date: 17 Jul 2003 02:39:02 +0300
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH 1/4] Prefix List against 2.5.73
+Date: Thu, 17 Jul 2003 03:41:07 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1058398742.5778.26.camel@hades>
-References: <200307162328.DAA12405@dub.inr.ac.ru>
+Message-ID: <200307162341.DAA12466@dub.inr.ac.ru>
+References: <20030716.173926.81875946.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, davem@redhat.com, jmorris@redhat.com,
-   netdev@oss.sgi.com
+Cc: krkumar@us.ibm.com, davem@redhat.com, netdev@oss.sgi.com,
+   yoshfuji@linux-ipv6.org, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307162328.DAA12405@dub.inr.ac.ru>
+To: yoshfuji@linux-ipv6.org (YOSHIFUJIHideaki/=?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
+In-Reply-To: <20030716.173926.81875946.yoshfuji@linux-ipv6.org> from "YOSHIFUJIHideaki/=?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Jul 16, 2003 05:39:26 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2003-07-17 at 02:28, kuznet@ms2.inr.ac.ru wrote:
-> > While I see where you're coming from, I don't really understand what the
-> > fuss is all about.
-> 
-> The issue definitely does not worth of time already spent for the discussion.
+Hello!
 
-I agree. :)
+> My suggestion is:
+>  - create L3 per-interface RTM, say, RTM_xxxIFACE.
+>  - provide inet_device / inet6_dev things via this RTM.
+>     e.g. per-interface statistics, flags etc.
 
-> All the fuss is about the fact that this code lived and will live for years.
-> If we allowed to add small tricks of this kind, it would end up as a full mess.
-> Each convenience trick must have a logical background.
+I agree for all 100%. I understand your attitude now.
 
-So what's the background for having the hack to specify a tunnel EP with
-a gateway route?
-
-> I have been asked for an opinion, this is my opinion: 6to4 is wrong,
-> addresses in format of 6over4 are natural, if they are deprecated,
-> another and even more natural variant is use of link-local format,
-> fe80::a.b.c.d.
-
-IPv4-mapped would be semantically correct. It definately can't be
-confused with any real IPv6 address.
-
-	MikaL
+Alexey
