@@ -1,47 +1,29 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] /driver/net/wan/sbs520
-Date: Mon, 10 Jan 2005 21:29:47 +0100
-Message-ID: <20050110202947.GA31426@electric-eye.fr.zoreil.com>
-References: <4F23E557A0317D45864097982DE907941A3383@pilotmail.sbscorp.sbs.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [BK PATCH] 2.6 and 2.4 SCTP updates
+Date: Mon, 10 Jan 2005 12:33:38 -0800
+Message-ID: <20050110123338.20363b62.davem@davemloft.net>
+References: <Pine.LNX.4.58.0412301645380.6939@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matthias-Christian Ott <matthias.christian@tiscali.de>,
-        Alexey Dobriyan <adobriyan@mail.ru>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adam Anthony <AAnthony@sbs.com>
-Content-Disposition: inline
-In-Reply-To: <4F23E557A0317D45864097982DE907941A3383@pilotmail.sbscorp.sbs.com>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0412301645380.6939@w-sridhar.beaverton.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adam Anthony <AAnthony@sbs.com> :
-> Thank you for the heads up A&M.  I have destroyed the evil [^M]'s, and
-> updated the package.
-> http://prdownloads.sourceforge.net/sbs520lnxdrv/sbs520patch.bz2?download
+On Thu, 30 Dec 2004 16:53:56 -0800 (PST)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-o OsMapPhysToVirt
-  -> should be ioremap/pci_iomap()
+> Please do a
+> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work &
+> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
+> 
+> to get the following SCTP updates to 2.6 and 2.4.
+> 
+> The 2.4 csets include a patch that gets rid of sk_xxx macros that were
+> causing backporting issues for other networking components.
 
-o OsUnMapVirt
-  -> iounmap, etc.
-
-o OsAllocateNonPagedMemory/OsMemcpy/OsStall/OsSleep/OsZeroMem
-  -> useless wrappers.
-
-o OsAllocateDeviceMemory
-  Yuck, virt_to_bus !
-  Please read:
-  - linux-2.6.x/Documentation/DMA-mapping.txt
-  - linux-2.6.x/Documentation/DMA-API.txt
-  drivers/net/*.c provides a lot of good examples for recent PCI
-  devices.
-
-o OsReadPciConfiguration
-  Please see pci_resource_{start/len} and friends.
-
-At this point, lnxosl.c will be removable and nobody will regret it.
-
---
-Ueimor
+All pulled, thanks Sridhar.
