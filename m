@@ -1,42 +1,61 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Werner Almesberger <werner@almesberger.net>
 Subject: Re: [RFC] batched tc to improve change throughput
-Date: Tue, 18 Jan 2005 16:07:23 +0100
-Message-ID: <20050118150723.GT26856@postel.suug.ch>
-References: <20050117152312.GC26856@postel.suug.ch> <1105976711.1078.1.camel@jzny.localdomain> <20050117160539.GD26856@postel.suug.ch> <1105979807.1078.16.camel@jzny.localdomain> <20050117165626.GE26856@postel.suug.ch> <1106002197.1046.19.camel@jzny.localdomain> <20050118134406.GR26856@postel.suug.ch> <1106058592.1035.95.camel@jzny.localdomain> <20050118143658.GA11474@xi.wantstofly.org> <1106059431.1035.101.camel@jzny.localdomain>
+Date: Tue, 18 Jan 2005 12:07:37 -0300
+Message-ID: <20050118120737.I15303@almesberger.net>
+References: <20050117152312.GC26856@postel.suug.ch> <1105976711.1078.1.camel@jzny.localdomain> <20050117160539.GD26856@postel.suug.ch> <1105979807.1078.16.camel@jzny.localdomain> <20050117165626.GE26856@postel.suug.ch> <1106002197.1046.19.camel@jzny.localdomain> <20050118134406.GR26856@postel.suug.ch> <1106058592.1035.95.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Lennert Buytenhek <buytenh@wantstofly.org>,
-        Patrick McHardy <kaber@trash.net>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        Werner Almesberger <werner@almesberger.net>
+Cc: Thomas Graf <tgraf@suug.ch>, Patrick McHardy <kaber@trash.net>,
+        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1106059431.1035.101.camel@jzny.localdomain>
+In-Reply-To: <1106058592.1035.95.camel@jzny.localdomain>; from hadi@cyberus.ca on Tue, Jan 18, 2005 at 09:29:52AM -0500
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1106059431.1035.101.camel@jzny.localdomain> 2005-01-18 09:43
-> On Tue, 2005-01-18 at 09:36, Lennert Buytenhek wrote:
-> > On Tue, Jan 18, 2005 at 09:29:52AM -0500, jamal wrote:
+jamal wrote:
+> On Tue, 2005-01-18 at 08:44, Thomas Graf wrote:
+> > I'm aware of [tcng] but naturally it always lags behind a bit and keeping
+> > it up to date requires quite some work and I already have problems
+> > finding the time for my own changes ;-> 
+
+Sigh, yes, I don't have all that much time for it myself, and
+my focus of interest has shifted, too. Unfortunately, everybody
+I've tried to talk in to taking over its maintenance so far was
+wise enough to politely pass up the offer :-(
+
+There's also the issue of classifier construction: while I think
+that the language for this is near-perfect, the internal
+processing is scary at best, and doesn't produce very nice
+results. I dream of a new classifier works on a state machine
+constructed from single-bit classification decisions, but the
+graph theory required for ordering them properly is a bit above
+me. (Construction of an unordered and redundant FSM is almost
+trivial - tcng can already do this.)
+
+> >  - interactive shell supporting context help + completion
 > 
-> > If you do this, please consider using Juniper config syntax instead
-> > of doing it the Cisco/quagga way.
-> > 
-> 
-> Juniper is XML driven config files?
-> [I am hoping Thomas would do it, btw;-> only if we strongly disagree
-> then i will be tempted to provide an alternative]. 
+> MUST
 
-I'm sure we can find somethign everyone ges along with just fine.
-Iff we do the XML thing we might want to try to stick to the ietf
-netconf thoughts.
+I'm not so sure about interactive use of "tc". In general, a
+single configuration line has no meaning. You almost always
+need a lot more context to understand what it does.
 
-> btw, libio uses libevent; i recall you said you had some alternative to
-> it.
+Think of the interactive BASIC systems on ancient PCs. There,
+you would enter/edit/remove lines by their number. Now, would
+you want to use something like this for C ? Me, I prefer a
+free-format text editor :-)
 
-libio couldbe put underneath libreadline but it doesn't make much sense,
-I think remote shells do the job just fine. I'd favour a XML protocol
-like netconf if we want to follow the remote configuration path.
-Endianess issues will hit us quite hard though.
+An interactive help system that could be called from an
+editor, e.g. when editing tcng configurations, would certainly
+be a nice touch. But that's an orthogonal issue. A set of man,
+info, etc. pages would serve nicely, too.
+
+- Werner
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
