@@ -1,153 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [2/2] [NET] Add skb_header_cloned and use it in e1000/tg3
-Date: Sat, 29 Jan 2005 14:22:10 +1100
-Message-ID: <20050129032210.GA7424@gondor.apana.org.au>
-References: <20050121204024.6f94fc26.davem@davemloft.net> <20050122054346.GA1635@gondor.apana.org.au> <20050122170533.GB11499@yakov.inr.ac.ru> <20050123071027.GA20296@gondor.apana.org.au> <20050126110043.GA29950@yakov.inr.ac.ru> <20050126222522.GA21670@gondor.apana.org.au> <20050127110946.GA20494@gondor.apana.org.au> <20050127111201.GB20494@gondor.apana.org.au> <20050128202542.GA23670@yakov.inr.ac.ru> <20050129031740.GA6130@gondor.apana.org.au>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: Sat, 29 Jan 2005 07:59:33 +0100
+Message-ID: <m1hdl0lnze.fsf@muc.de>
+References: <1106932637.3778.92.camel@localhost.localdomain>
+	<20050128100229.5c0e4ea1@dxpl.pdx.osdl.net>
+	<1106937110.3864.5.camel@localhost.localdomain>
+	<20050128105217.1dc5ef42@dxpl.pdx.osdl.net>
+	<1106944492.3864.30.camel@localhost.localdomain>
+	<20050128124517.36aa5e05.davem@davemloft.net>
+	<20050128133408.49021343@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Content-Disposition: inline
-In-Reply-To: <20050129031740.GA6130@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: =?iso-8859-1?q?Lorenzo_Hern=E1ndez_Garc=EDa-Hierro?=
+	<lorenzo@gnu.org>, linux-kernel@vger.kernel.org, chrisw@osdl.org,
+	netdev@oss.sgi.com, arjan@infradead.org,
+	hlein@progressive-comp.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262863AbVA2G7h@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050128133408.49021343@dxpl.pdx.osdl.net> (Stephen
+ Hemminger's message of "Fri, 28 Jan 2005 13:34:08 -0800")
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Stephen Hemminger <shemminger@osdl.org> writes:
 
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> On Fri, 28 Jan 2005 12:45:17 -0800
+> "David S. Miller" <davem@davemloft.net> wrote:
+>
+>> On Fri, 28 Jan 2005 21:34:52 +0100
+>> Lorenzo Hern=E1ndez Garc=EDa-Hierro <lorenzo@gnu.org> wrote:
+>>=20
+>> > Attached the new patch following Arjan's recommendations.
+>>=20
+>> No SMP protection on the SBOX, better look into that.
+>> The locking you'll likely need to add will make this
+>> routine serialize many networking operations which is
+>> one thing we've been trying to avoid.
+>>=20
+>
+> per-cpu would be the way to go here.
 
-Hi:
- 
-This patch adds skb_header_cloned which tells us whether we need to
-copy the data before we can modify the header part of the skb.  Again,
-what constitutes the header is left up to the users of the skb to define.
+I don't think so no - just doing per cpu counters you
+risk nearby duplicates, which can cause even easier data corruption=20
+(e.g. during ip fragment reassembly - it is already very weak
+and making it weaker is probably not a good idea)=20
 
-This patch then uses this function in e1000/tg3 to copy the data before
-the TCP/IP header is modified.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+If you want SMP performance for ipids you can resurrect
+the old "cookie jar" approach I used in 2.4 time frame to get
+rid of inetpeers. The idea was that you have global state,
+and each CPU would regenerate some numbers from the state,
+then store them in a private "jar" and use them use, then
+look at the global state with locking again etc.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+This can be tuned on how big the jar is - the bigger the
+smaller the sequence space (risky for 16bit ipids), but
+the better the scalability.
 
---gBBFr7Ir9EOA20Yy
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=tso-mangle-2
+But before doing anything like this I would recommend
+that someone skilled in cryptography evaluates the security
+of these functions carefully and see if it actually has any=20
+advantages. I remember that Andrey S. broke
+some of the "cool" "secure" openbsd IDs easily some years ago.
 
-===== drivers/net/tg3.c 1.231 vs edited =====
---- 1.231/drivers/net/tg3.c	2005-01-23 14:41:32 +11:00
-+++ edited/drivers/net/tg3.c	2005-01-29 14:08:53 +11:00
-@@ -3103,6 +3103,10 @@
- 	    (mss = skb_shinfo(skb)->tso_size) != 0) {
- 		int tcp_opt_len, ip_tcp_len;
- 
-+		if (skb_header_cloned(skb) &&
-+		    pskb_expand_head(skb, 0, 0, GFP_ATOMIC))
-+			goto out_unlock;
-+
- 		tcp_opt_len = ((skb->h.th->doff - 5) * 4);
- 		ip_tcp_len = (skb->nh.iph->ihl * 4) + sizeof(struct tcphdr);
- 
-===== drivers/net/e1000/e1000_main.c 1.147 vs edited =====
---- 1.147/drivers/net/e1000/e1000_main.c	2005-01-21 08:24:31 +11:00
-+++ edited/drivers/net/e1000/e1000_main.c	2005-01-29 14:11:09 +11:00
-@@ -1522,7 +1522,7 @@
- #define E1000_TX_FLAGS_VLAN_MASK	0xffff0000
- #define E1000_TX_FLAGS_VLAN_SHIFT	16
- 
--static inline boolean_t
-+static inline int
- e1000_tso(struct e1000_adapter *adapter, struct sk_buff *skb)
- {
- #ifdef NETIF_F_TSO
-@@ -1531,8 +1531,15 @@
- 	uint32_t cmd_length = 0;
- 	uint16_t ipcse, tucse, mss;
- 	uint8_t ipcss, ipcso, tucss, tucso, hdr_len;
-+	int err;
- 
- 	if(skb_shinfo(skb)->tso_size) {
-+		if (skb_header_cloned(skb)) {
-+			err = pskb_expand_head(skb, 0, 0, GFP_ATOMIC);
-+			if (err)
-+				return err;
-+		}
-+
- 		hdr_len = ((skb->h.raw - skb->data) + (skb->h.th->doff << 2));
- 		mss = skb_shinfo(skb)->tso_size;
- 		skb->nh.iph->tot_len = 0;
-@@ -1569,11 +1576,11 @@
- 		if(++i == adapter->tx_ring.count) i = 0;
- 		adapter->tx_ring.next_to_use = i;
- 
--		return TRUE;
-+		return 1;
- 	}
- #endif
- 
--	return FALSE;
-+	return 0;
- }
- 
- static inline boolean_t
-@@ -1798,6 +1805,7 @@
- 	unsigned int nr_frags = 0;
- 	unsigned int mss = 0;
- 	int count = 0;
-+	int tso;
- 	unsigned int f;
- 	len -= skb->data_len;
- 
-@@ -1869,7 +1877,13 @@
- 
- 	first = adapter->tx_ring.next_to_use;
- 	
--	if(likely(e1000_tso(adapter, skb)))
-+	tso = e1000_tso(adapter, skb);
-+	if (tso < 0) {
-+		dev_kfree_skb_any(skb);
-+		return NETDEV_TX_OK;
-+	}
-+
-+	if (likely(tso))
- 		tx_flags |= E1000_TX_FLAGS_TSO;
- 	else if(likely(e1000_tx_csum(adapter, skb)))
- 		tx_flags |= E1000_TX_FLAGS_CSUM;
-===== include/linux/skbuff.h 1.60 vs edited =====
---- 1.60/include/linux/skbuff.h	2005-01-29 14:01:43 +11:00
-+++ edited/include/linux/skbuff.h	2005-01-29 14:06:35 +11:00
-@@ -395,6 +395,25 @@
- }
- 
- /**
-+ *	skb_header_cloned - is the header a clone
-+ *	@skb: buffer to check
-+ *
-+ *	Returns true if modifying the header part of the buffer requires
-+ *	the data to be copied.
-+ */
-+static inline int skb_header_cloned(const struct sk_buff *skb)
-+{
-+	int dataref;
-+
-+	if (!skb->cloned)
-+		return 0;
-+
-+	dataref = atomic_read(&skb_shinfo(skb)->dataref);
-+	dataref = (dataref & SKB_DATAREF_MASK) - (dataref >> SKB_DATAREF_SHIFT);
-+	return dataref != 1;
-+}
-+
-+/**
-  *	skb_header_release - release reference to header
-  *	@skb: buffer to operate on
-  *
+At least for ipids I'm utterly sceptical. 16bits are just
+hopeless.
 
---gBBFr7Ir9EOA20Yy--
+-Andi
