@@ -1,33 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][RESEND] Update of tcp_syncookies explanation
-Date: Tue, 01 Apr 2003 09:47:25 -0800 (PST)
+From: rask@sygehus.dk (Rask Ingemann Lambertsen)
+Subject: Re:  Is a driver allowed to modify dev->flags?
+Date: Tue, 1 Apr 2003 19:40:30 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030401.094725.01304107.davem@redhat.com>
-References: <Pine.LNX.4.44.0304011911270.22637-200000@laptop1.agatha>
+Message-ID: <3383.14929181269$1049220831@news.gmane.org>
+References: <Pine.LNX.4.44.0304011213380.1685-100000@beohost.scyld.com>
+Reply-To: rask@sygehus.dk
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: blueflux@koffein.net
-In-Reply-To: <Pine.LNX.4.44.0304011911270.22637-200000@laptop1.agatha>
+To: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Oskar Andreasson <blueflux@koffein.net>
-   Date: Tue, 1 Apr 2003 19:33:13 +0200 (CEST)
 
-   If anyone has any objections against this patch, please tell me so, with 
-   an explanation of why! 
-   
-You didn't explain how TCP syncookies "seriously violates the TCP
-protocol" yet you choose to remove that statement written by Alexey.
+Donald Becker wrote:
+> On Tue, 1 Apr 2003, Rask Ingemann Lambertsen wrote:
+> 
+> > Is a network device driver allowed to modify dev->flags? For example:
+> >
+> > if (dev->flags & IFF_ALLMULTI)
+> >         dev->flags |= IFF_PROMISC;
+> 
+> You must be looking at the atp.c driver, or a driver that cribbed from
+> it.  (Is anyone still running a parallel port Ethernet device?!)
 
-Either retain Alexey's statement (because it's true) or replace it
-with proper text.
+No, but I've seen such code in other Ethernet drivers and adopted it for my NE3200 driver.
 
-I'm not going into the details of how syncookies violates the TCP
-protocol here, that has been hashed out many times on netdev and
-linux-net years in the past, so I direct people to search up such
-discussions instead of starting up yet another flame war here about
-the topic.  Thanks.
+> > I've found it to cause the IFF_PROMISC flag to stick when using
+> > "tcpdump -p", which to my surprice sets the IFF_ALLMULTI flag.
+> 
+> Which driver are you using?
+
+My experimental NE3200 driver, linux 2.4.20 and tcpdump from Redhat 7.3.
+
+Regards,
+Rask Ingemann Lambertsen
