@@ -1,73 +1,78 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Tue, 10 Sep 2002 14:02:20 +0200
+From: "Mala Anand" <manand@us.ibm.com>
+Subject: Early SPECWeb99 results on 2.5.33 with TSO on e1000
+Date: Tue, 10 Sep 2002 09:59:27 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15741.57164.402952.136812@robur.slu.se>
-References: <3D78F55C.4020207@colorfullife.com>
-	<20020906.113829.65591342.davem@redhat.com>
-	<3D790499.8020501@colorfullife.com>
-	<20020906.123428.28085660.davem@redhat.com>
+Message-ID: <OF085D17C8.33546271-ON87256C30.005200C4@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: manfred@colorfullife.com, haveblue@us.ibm.com, hadi@cyberus.ca,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020906.123428.28085660.davem@redhat.com>
+To: inux-net@vger.kernel.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I am resending this note with the subject heading, so that
+it can be viewed through the subject catagory.
 
-Manfred Spraul:
+=A0>=A0"David S. Miller" wrote:
+>> NAPI is also not the panacea to all problems in the world.
 
->> But what if the backlog queue is empty all the time? Then NAPI thinks 
->> that the system is idle, and reenables the interrupts after each packet :-(
-
-Yes and this happens even with without NAPI. Just set RxIntDelay=X and send 
-pkts at >= X+1 interval.
-
->>   Dave, do you have interrupt rates from the clients with and without NAPI?
-
-DaveM:
-> Robert does.
+=A0=A0=A0>Mala did some testing on this a couple of weeks back. It appear=
+s that
+=A0=A0=A0>NAPI damaged performance significantly.
 
 
-Yes we get into this interesting discussion now... Since with NAPI we can 
-safely use RxIntDelay=0 (e1000 terminologi). With the classical IRQ we simply 
-had to add latency (RxIntDelay of 64-128 us common for GIGE) this just to 
-survive at higher speeds  (GIGE max is 1.48 Mpps) and with the interrupt latency 
-also comes higher network latencies... IMO this delay was a "work-around" 
-for the old interrupt scheme.
 
-So we now have the option of removing it... But we are trading less latency 
-for for more interrupts. So yes Manfred is correct...
+>http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/resul=
+ts/july_02/netperf2.5.25results.htm
 
-So is there a decent setting/compromise? 
 
-Well first approximation is just to do just what DaveM suggested.
-RxIntDelay=0. This solved many problems with buggy hardware and complicated 
-tuning and RxIntDelay used to be combined with other mitigation parameters to 
-compensate for different packets sizes etc. This leading to very "fragile" 
-performance where a NIC could perform excellent w. single TCP stream but 
-to be seriously broke in many other tests. So tuning to just one "test" 
-can cause a lot of mis-tuning as well. 
 
-Anyway. A tulip NAPI variant added mitigation when we reached "some load" to 
-avoid the static interrupt delay. (Still keeping things pretty simple):
- 
-Load   "Mode"
--------------------
-Lo  1) RxIntDelay=0
-Mid 2) RxIntDelay=fix (When we had X pkts on the RX ring)
-Hi  3) Consecutive polling. No RX interrupts.
+>Unfortunately it is not listed what e1000 and core NAPI
+>patch was used. Also, not listed, are the RX/TX mitigation
+>and ring sizes given to the kernel module upon loading.
+The default driver that is included in 2.5.25 kernel for Intel
+gigabit adapter was used for the baseline test and the NAPI driver
+was downloaded from Robert Olsson's website. I have updated my web
+page to include Robert's patch. However it is given there for reference
+purpose only. Except for the ones mentioned explicitly the rest of
+the configurable values used are default. The default for RX/TX mitigatio=
+n
+is 64 microseconds and the default ring size is 80.
 
-Is it worth the effort? 
+I have added statistics collected during the test to my web site. I do
+want to analyze and understand how NAPI can be improved in my tcp_stream
+test. Last year around November, when I first tested NAPI, I did find NAP=
+I
+results better than the baseline using udp_stream. However I am
+concentrating on tcp_stream since that is where NAPI can be improved in
+my setup. I will update the website as I do more work on this.
 
-For SMP w/o affinity the delay could eventually reduce the cache bouncing 
-since the packets becomes more "batched" at cost the of latency of course. 
-We use RxIntDelay=0 for production use. (IP-forwarding on UP)
 
-Cheers.
+>Robert can comment on optimal settings
+I saw Robert's postings. Looks like he may have a more recent version of
+NAPI
+driver than the one I used. I also see 2.5.33 has NAPI, I will move to
+2.5.33
+and continue my work on that.
 
-						--ro
+
+>Robert and Jamal can make a more detailed analysis of Mala's
+>graphs than I.
+Jamal has questioned about socket buffer size that I used, I have tried
+132k
+socket buffer size in the past and I didn't see much difference in my
+tests.
+I will add that to my list again.
+
+
+Regards,
+    Mala
+
+
+   Mala Anand
+   IBM Linux Technology Center - Kernel Performance
+   E-mail:manand@us.ibm.com
+   http://www-124.ibm.com/developerworks/opensource/linuxperf
+   http://www-124.ibm.com/developerworks/projects/linuxperf
+   Phone:838-8088; Tie-line:678-8088
