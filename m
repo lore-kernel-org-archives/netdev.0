@@ -1,33 +1,28 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Iproute2: update
-Date: 17 Jan 2005 17:39:54 -0500
-Message-ID: <1106001594.1036.10.camel@jzny.localdomain>
-References: <20050112125903.64d42737@dxpl.pdx.osdl.net>
-	 <1105895352.1091.705.camel@jzny.localdomain>
-	 <1105897532.1097.749.camel@jzny.localdomain>
-	 <20050117202022.GG26856@postel.suug.ch>
-	 <20050117205734.GH26856@postel.suug.ch>
-	 <1105997946.1078.308.camel@jzny.localdomain>
-	 <20050117222437.GI26856@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [TCP] Remove tcp_pcount_t
+Date: Mon, 17 Jan 2005 14:39:35 -0800
+Message-ID: <20050117143935.6b141791.davem@davemloft.net>
+References: <20050117101058.GA27521@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050117222437.GI26856@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050117101058.GA27521@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-17 at 17:24, Thomas Graf wrote:
+On Mon, 17 Jan 2005 21:10:58 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> IMHO the TSO stuff has mostly settled down now.  As a result
+> tcp_pcount_t is now more of a liability in that it reduces the
+> readability of the code.
 > 
-> I'll keep those changes and eventually merge them sometimes. It's not
-> that important.
+> So here is a patch to remove it.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-np - they all look good except the one where you refer to me as talking
-to myself ;->
-
-cheers,
-jamal
+Agreed and applied, thanks Herbert.
