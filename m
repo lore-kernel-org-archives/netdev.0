@@ -1,53 +1,56 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: The ultimate TOE design
-Date: Wed, 15 Sep 2004 16:37:04 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409152337.i8FNbDqG026335@guinness.s2io.com>
-References: <Xine.LNX.4.44.0409151914400.32649-100000@thoron.boston.redhat.com>
+From: Hans-Frieder Vogt <hfvogt@arcor.de>
+Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot (FIX included)
+Date: Thu, 16 Sep 2004 01:32:34 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200409160132.34160.hfvogt@arcor.de>
+References: <200409130035.50823.hfvogt@arcor.de> <200409160040.03532.hfvogt@arcor.de> <20040915230936.GA24467@electric-eye.fr.zoreil.com>
+Reply-To: hfvogt@arcor.de
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
+  charset="iso-8859-15"
 Content-Transfer-Encoding: 7bit
-Cc: "'Netdev'" <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "'James Morris'" <jmorris@redhat.com>, "'John Heffner'" <jheffner@psc.edu>
-In-Reply-To: <Xine.LNX.4.44.0409151914400.32649-100000@thoron.boston.redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, jgarzik@pobox.com, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267786AbUIOXmK@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040915230936.GA24467@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
- 
-
-> -----Original Message-----
-> From: James Morris [mailto:jmorris@redhat.com] 
-> Sent: Wednesday, September 15, 2004 4:16 PM
-> To: John Heffner
-> Cc: Netdev; leonid.grossman@s2io.com
-> Subject: Re: The ultimate TOE design
-> 
-> On Wed, 15 Sep 2004, John Heffner wrote:
-> 
-> > The other (much nicer) solution to case (b) is to just USE 
-> A BIGGER MTU.
-> > 1500 bytes is ridiculously small.  Even with a 9k MTU, the 
-> benefits of 
-> > TOE or TSO are nearly vanishing.
-> 
-> Do you have any figures on (large) MTU size vs performance on 
-> a current commidity system?
-
-It's very system-dependent. Say on 2-way Xeon our card goes from ~2Gbps to
-~6Gbps, on 64-bit systems the delta is obviously less.
-
-For 9k MTU, the delta goes down of course but it is still ~10% on 2.6
-systems - say on 2-way Opterons we go from 7Gbps to 7.6Gbps.
-
-Leonid
-
-> 
-> 
-> - James
+Am Donnerstag, 16. September 2004 01:09 schrieb Francois Romieu:
+> Hans-Frieder Vogt <hfvogt@arcor.de> :
+> [...]
+> [...]
+>
+> > Of course x86-64 has the address-space that enables >4GB RAM, and x86-64
+> > always supports DAC (as stated in include/asm-x86_64/pci.h), but I have
+> > currently only 1GB RAM, so, strictly speaking, DAC is not really
+> > necessary.
+>
+> Worse than that: r8169 in 2.6.9-rc[1/2] does not advertise its ability to
+> DMA to high memory.
+>
+> > Strange enough, the latest Realtek driver 2.2 does not even support DAC
+> > (only the lower 32 bit of the DMA-Addresses are written to the
+> > registers). Could it be that the Realtek driver does not support DAC for
+> > a good reason?
+> >
+> > Anyway, I will continue searching for the problem...
+>
+> Can you simply try the attached patch with the network cable unplugged ?
+>
+> It will not fix your issue but if the result & 0x08 != 0, you can probably
+> stop your testing for now as it will mean "known issue".
+>
 > --
-> James Morris
-> <jmorris@redhat.com>
-> 
-> 
+> Ueimor
+
+r8169: eth0: Config2 = 0x10
+
+... does not seem to be the already known issue? Anyhow, if you have more 
+ideas, I will be happy to test them :-)
+
+Hans-Frieder
+
+-- 
+--
+Hans-Frieder Vogt                 e-mail: hfvogt (at) arcor (dot) de
