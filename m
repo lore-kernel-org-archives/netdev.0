@@ -1,44 +1,43 @@
-From: James Carlson <carlson@workingcode.com>
-Subject: Re: [PATCH, untested] Support for PPPOE on SMP
-Date: Fri, 27 Jun 2003 11:27:40 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16124.25196.268015.288718@h006008986325.ne.client2.attbi.com>
-References: <20030625.143334.85380461.davem@redhat.com>
-	<20030626035824.D68B62C147@lists.samba.org>
-	<20030625.205941.41631020.davem@redhat.com>
-	<16122.53298.150512.793074@h006008986325.ne.client2.attbi.com>
-	<20030626190407.S87648@shell.cyberus.ca>
-	<16124.11495.374998.153330@h006008986325.ne.client2.attbi.com>
-	<16124.13469.944716.441016@nanango.paulus.ozlabs.org>
-	<20030627075946.7ab6f591.shemminger@osdl.org>
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: [PATCH] Prefix List against 2.5.70 (re-done)
+Date: Fri, 27 Jun 2003 08:45:19 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3EFC668F.9010004@us.ibm.com>
+References: <3EF9D5C2.5080101@us.ibm.com>	<20030625.234251.116353369.davem@redhat.com>	<3EFB2017.5030202@us.ibm.com> <20030626.230727.35666164.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Paul Mackerras <paulus@samba.org>, hadi@shell.cyberus.ca, davem@redhat.com,
-   rusty@rustcorp.com.au, netdev@oss.sgi.com, fcusack@samba.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: Stephen Hemminger's message of 27 June 2003 07:59:46
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030626.230727.35666164.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger writes:
-> Does LLC allow for re-ordering?
+rtnetlink_rcv_msg() calls dumpit() (via netlink_dump_start) only for those
+messages for which the last two bits are binary '10'. So I had to use these
+values. All the other *GET* macros use the same semantics.
 
-ANSI/IEEE Std 802.2, 1998, section 8.5.2.2 describes a common LLC type
-3 simplification that relies on MAC ordering.  This is used on media
-(such as Ethernet) that don't reorder.
+thanks,
 
-I believe that LLC type 2 ought to be able to handle misordering and
-duplication, at least that's the intent of I-mode frames.  I don't
-know if this actually works in all implementations (after all,
-Ethernet doesn't reorder, so it's not as if anyone's really had to
-test it), but I can check one or two if someone cares.
+- KK
 
-I'm not sure about LLC type 1.  It appears to expose the client to the
-ordering guarantees of the underlying MAC layer, and thus it's very
-likely the case that LLC type 1 clients make assumptions about known
-MAC types.
 
--- 
-James Carlson                                  <carlson@workingcode.com>
+David S. Miller wrote:
+>    From: Krishna Kumar <krkumar@us.ibm.com>
+>    Date: Thu, 26 Jun 2003 09:32:23 -0700
+> 
+> I still have problems with this patch.
+>    
+>    -#define	RTM_MAX		(RTM_BASE+31)
+>    +#define	RTM_GETLNKFLAGS	(RTM_BASE+34)
+>    +
+>    +#define	RTM_GETPLIST	(RTM_BASE+38)
+> 
+> Please allocate contiguous numbers to the new messages, don't skip
+> around like this.
+> 
+> Thanks.  (this of course means you have to redo your 2.4.x patch
+> as well)
+> 
+
