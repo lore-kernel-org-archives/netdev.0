@@ -1,54 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: bk16 changes to cbq
-Date: 03 Jul 2004 21:21:51 -0400
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: Re: [PATCH] Update in-kernel orinoco drivers to upstream current CVS
+Date: Sun, 4 Jul 2004 12:01:06 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1088904111.1043.731.camel@jzny.localdomain>
-References: <1088861810.1039.298.camel@jzny.localdomain>
-	 <20040703101646.52ae1e01.davem@redhat.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040704020106.GB25992@zax>
+References: <1088795498.18039.25.camel@dcbw.boston.redhat.com> <40E5B6AD.6060904@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Alexey <kuznet@ms2.inr.ac.ru>, shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Dan Williams <dcbw@redhat.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040703101646.52ae1e01.davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40E5B6AD.6060904@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, Jul 02, 2004 at 03:25:33PM -0400, Jeff Garzik wrote:
+> Dan Williams wrote:
+> >Hi,
+> >
+> >This patch is simply the fixed-up diff between the kernel's current
+> >0.13e version and the upstream 0.15rc1+ version from savannah CVS.
+> >0.15rc1 has been out for a couple months now and seems stable.
+> >
+> >The major benefits that this newer version brings are, of course, many
+> >bugfixes, but best of all wireless scanning support for the Orinoco line
+> >of cards.
+> >
+> >http://people.redhat.com/dcbw/linux-2.6.7-orinoco.patch.bz2
+> >
+> >Dan Williams
+> >Red Hat, Inc.
+> 
+> 
+> I'm desperately hoping that someone will split this up into multiple 
+> patches...
 
-Ok, I looked at Stephens email; i found it here:
-http://marc.theaimsgroup.com/?l=linux-netdev&m=108751387802077&w=2
-Basically similar to what you said.
-My suggestion is we back out this change - i think there may be a
-problem elsewhere, somehow we end up pointing here. It is also possible
-there was a hidden bug, but if this stuff was problematic we would have
-had complaints in the last few years related.
-The other thing is you can leave it in there and wait for people to
-complain.
+Urg, yes.  I've dropped the ball badly on this.  I've done very, very
+little work on the driver for well over a year now and the changes
+have built up to a megapatch.  I really does need to be broken up, but
+the chances of me finding the time and motivation to do so are not
+looking good.
 
-Lets say there was a race condition:
-The worst that could happen in such a case (on TX completion) is that
-the cbq watchdog is started (which later reschedules the device) and the
-top layer reschedules the device as well(because the device was stopped;
-stopped devices get descheduled). In such a case there will be two
-netif_schedules() with one being unnecessary. No biggie, just a few
-extra lines.
-
-Lets say there was no race condition:
-The cbq watchdog gets scheduled only when the netdevice is not stopped.
-This is optimization is now gone.
-
-To reiterate what i said earlier.
-The only thing the tx complete can do is open up the device for
-more packets to tx into the device... i.e !netif_queue_stopped(sch->dev)
-is true in that specific case. 
-
-Actually while looking at this i noticed some odd things; it may
-be time to remind people of the return code rules on
-dev->hard_start_xmit(). 
-
-I will make another posting.
-
-cheers,
-jamal
+-- 
+David Gibson			| For every complex problem there is a
+david AT gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
