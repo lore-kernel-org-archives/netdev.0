@@ -1,35 +1,47 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM]: [lanai] ioctl only meant for debugging (from mitch@sfgoth.com)
-Date: Tue, 23 Sep 2003 07:42:42 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (1/3) Space.c -- alloc_divert_blk not needed here.
+Date: Tue, 23 Sep 2003 10:11:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309231142.h8NBgfkT023226@ginger.cmf.nrl.navy.mil>
-References: <davem@redhat.com>
-Cc: hch@infradead.org, netdev@oss.sgi.com, mitch@sfgoth.com
+Message-ID: <20030923101116.5c5bea3b.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: Message from "David S. Miller" <davem@redhat.com>
-   of "Tue, 23 Sep 2003 03:57:29 PDT." <20030923035729.2aa1afd6.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20030923035729.2aa1afd6.davem@redhat.com>,"David S. Miller" writes:
->On Mon, 22 Sep 2003 13:55:07 -0400
->chas williams <chas@cmf.nrl.navy.mil> wrote:
->
->> i suppose i am not convinced that two #ifdef/#endif's are better than an
->> #if/#else/#endif
->
->True, but how about we use an LANAI_DEBUG or something instead of "#if
->0" that can sit undef'd at the top of the file?
+No longer need to alloc_divert_blk in probe process because
+the network probe code now calls register_netdevice which does it
+if necessary.
 
-i suppose i might suggest DEBUG_RW which already exists in the code.
-
-/*
- * Debug _all_ register operations with card, except the memory test.
- * Also disables the timed poll to prevent extra chattiness.  This
- * isn't for normal use
- */
-#undef DEBUG_RW
-
-DEBUG seems to be typically defined so isnt a great choice.  any
-comments mitch?
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Tue Sep 23 09:36:52 2003
++++ b/drivers/net/Space.c	Tue Sep 23 09:36:52 2003
+@@ -125,22 +125,14 @@
+ {
+ 	struct devprobe *p = plist;
+ 	unsigned long base_addr = dev->base_addr;
+-	int ret;
+ 
+ 	while (p->probe != NULL) {
+-		if (base_addr && p->probe(dev) == 0) {	/* probe given addr */
+-			ret = alloc_divert_blk(dev);
+-			if (ret)
+-				return ret;
++		if (base_addr && p->probe(dev) == 0) 	/* probe given addr */
+ 			return 0;
+-		} else if (p->status == 0) {		/* has autoprobe failed yet? */
++		else if (p->status == 0) {		/* has autoprobe failed yet? */
+ 			p->status = p->probe(dev);	/* no, try autoprobe */
+-			if (p->status == 0) {
+-				ret = alloc_divert_blk(dev);
+-				if (ret)
+-					return ret;
++			if (p->status == 0)
+ 				return 0;
+-			}
+ 		}
+ 		p++;
+ 	}
