@@ -1,32 +1,23 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Wed, 27 Oct 2004 21:42:57 -0700
+Subject: Re: [NETLINK] Check netlink_insert in kernel_create
+Date: Wed, 27 Oct 2004 21:44:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027214257.24637a9f.davem@davemloft.net>
-References: <41797696.9070905@candelatech.com>
-	<20041022214611.GA4948@electric-eye.fr.zoreil.com>
-	<41798506.1030909@candelatech.com>
-	<417D675F.3000909@candelatech.com>
-	<417D929A.2090809@candelatech.com>
-	<20041027164912.09cc63f8.davem@davemloft.net>
-	<41804B35.1080306@candelatech.com>
+Message-ID: <20041027214438.6f4a9210.davem@davemloft.net>
+References: <20041028030700.GA14181@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <41804B35.1080306@candelatech.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041028030700.GA14181@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Oct 2004 18:28:21 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+On Thu, 28 Oct 2004 13:07:00 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> > Also, what is up with the magic "23" constant in the get realdev
-> > name function strncpy() call?
-> 
-> Well, the fields are 24-bytes long, as defined in the include/linux/if_vlan.h
-> file.  I could change it to a #define and/or use sizeof if you prefer.
+> Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
+                            ^^^^^^^^^^
 
-You could also use "sizeof(obj->member)".
+Hehe, what's that? :-)
