@@ -1,8 +1,7 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.4 1/3] e100: Replace locally implemented delay routines
- with call to msleep (nacc@us.ibm.com)
-Date: Thu, 6 Jan 2005 17:01:47 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061407420.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.4] e1000: Documentation/networking/e1000.txt update
+Date: Thu, 6 Jan 2005 17:03:12 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061416230.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -14,56 +13,91 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 
-diff -up net-drivers-2.6/drivers/net/e100.c net-drivers-2.6/drivers/net/e100.c.new
---- net-drivers-2.6/drivers/net/e100.c	2004-12-02 10:09:34.000000000 -0800
-+++ net-drivers-2.6/drivers/net/e100.c.new	2004-12-02 10:09:36.000000000 -0800
-@@ -620,8 +620,7 @@ static int e100_self_test(struct nic *ni
- 	writel(selftest | dma_addr, &nic->csr->port);
- 	e100_write_flush(nic);
- 	/* Wait 10 msec for self-test to complete */
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 100 + 1);
-+	msleep(10);
+diff -Nuar -u net-drivers-2.4/Documentation/networking/e1000.txt net-drivers-2.4.new/Documentation/networking/e1000.txt
+--- net-drivers-2.4/Documentation/networking/e1000.txt	2004-11-18 04:11:17.000000000 -0800
++++ net-drivers-2.4.new/Documentation/networking/e1000.txt	2005-01-06 11:01:03.000000000 -0800
+@@ -1,14 +1,14 @@
+ Linux* Base Driver for the Intel(R) PRO/1000 Family of Adapters
+ ===============================================================
  
- 	/* Interrupts are enabled after self-test */
- 	e100_disable_irq(nic);
-@@ -669,8 +668,7 @@ static void e100_eeprom_write(struct nic
- 			e100_write_flush(nic); udelay(4);
- 		}
- 		/* Wait 10 msec for cmd to complete */
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 100 + 1);
-+		msleep(10);
+-September 13, 2004
++November 17, 2004
  
- 		/* Chip deselect */
- 		writeb(0, &nic->csr->eeprom_ctrl_lo);
-@@ -1759,8 +1758,7 @@ static int e100_loopback_test(struct nic
- 	memset(skb->data, 0xFF, ETH_DATA_LEN);
- 	e100_xmit_frame(skb, nic->netdev);
  
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 100 + 1);
-+	msleep(10);
+ Contents
+ ========
  
- 	if(memcmp(nic->rx_to_clean->skb->data + sizeof(struct rfd),
- 	   skb->data, ETH_DATA_LEN))
-@@ -1846,8 +1843,7 @@ static void e100_get_regs(struct net_dev
- 			mdio_read(netdev, nic->mii.phy_id, i);
- 	memset(nic->mem->dump_buf, 0, sizeof(nic->mem->dump_buf));
- 	e100_exec_cb(nic, NULL, e100_dump);
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 100 + 1);
-+	msleep(10);
- 	memcpy(&buff[2 + E100_PHY_REGS], nic->mem->dump_buf,
- 		sizeof(nic->mem->dump_buf));
- }
-@@ -2026,8 +2022,7 @@ static int e100_phys_id(struct net_devic
- 	if(!data || data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ))
- 		data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
- 	mod_timer(&nic->blink_timer, jiffies);
--	set_current_state(TASK_INTERRUPTIBLE);
--	schedule_timeout(data * HZ);
-+	msleep_interruptible(data * 1000);
- 	del_timer_sync(&nic->blink_timer);
- 	mdio_write(netdev, nic->mii.phy_id, MII_LED_CONTROL, 0);
+ - In This Release
+-- Supported Adapters
++- Identifying Your Adapter
+ - Command Line Parameters
+ - Speed and Duplex Configuration
+ - Additional Configurations
+@@ -20,8 +20,7 @@
+ ===============
  
+ This file describes the Linux* Base Driver for the Intel(R) PRO/1000 Family
+-of Adapters, version 5.x.x.  This driver includes support for Itanium(TM)2 
+-and EM64T systems.
++of Adapters, version 5.x.x.  
+ 
+ For questions related to hardware requirements, refer to the documentation 
+ supplied with your Intel PRO/1000 adapter. All hardware requirements listed 
+@@ -145,9 +144,11 @@
+ Default Value: 256
+     This value is the number of receive descriptors allocated by the driver. 
+     Increasing this value allows the driver to buffer more incoming packets. 
+-    Each descriptor is 16 bytes.  A receive buffer is also allocated for each
+-    descriptor and can be either 2048, 4096, 8192, or 16384 bytes, depending 
+-    on the MTU setting. The maximum MTU size is 16110.
++    Each descriptor is 16 bytes.  A receive buffer is allocated for each
++    descriptor and can either be 2048 or 4096 bytes long, depending on the MTU 
++
++    setting. An incoming packet can span one or more receive descriptors. 
++    The maximum MTU size is 16110.
+ 
+     NOTE: MTU designates the frame size. It only needs to be set for Jumbo 
+           Frames.
+@@ -251,17 +252,18 @@
+   also be forced.
+ 
+ The AutoNeg parameter is used when more control is required over the auto-
+-negotiation process.  When this parameter is used, Speed and Duplex must not 
+-be specified.  This parameter is a bitmap that specifies which speed and 
+-duplex settings are advertised to the link partner.
+-
+-Bit            7      6      5       4       3      2      1       0
+-Speed (Mbps)   N/A    N/A    1000    N/A     100    100    10      10
+-Duplex                       Full            Full   Half   Full    Half
+-
+-For example to limit the negotiated speed/duplex on the interface to 10 Mbps 
+-Half or Full duplex, set AutoNeg to 0x02: 
+-    insmod e1000 AutoNeg=0x02
++negotiation process. When this parameter is used, Speed and Duplex parameters 
++must not be specified. The following table describes supported values for the 
++AutoNeg parameter:
++
++
++Speed (Mbps)             1000    100    100    10      10
++Duplex                   Full    Full   Half   Full    Half
++Value (in base 16)       0x20    0x08   0x04   0x02    0x01
++
++
++Example: insmod e1000 AutoNeg=0x03, loads e1000 and specifies (10 full duplex, 
++10 half duplex) for negotiation with the peer.
+ 
+ Note that setting AutoNeg does not guarantee that the board will link at the 
+ highest specified speed or duplex mode, but the board will link at the 
+@@ -333,11 +335,7 @@
+   version 1.6 or later is required for this functionality.
+ 
+   The latest release of ethtool can be found from
+-  http://sf.net/projects/gkernel.  After ethtool is installed,
+-  ethtool-copy.h must be copied and renamed to ethtool.h in your kernel
+-  source tree at <linux_kernel_src>/include/linux.  Backup the original
+-  ethtool.h as needed before copying.  The driver then must be recompiled
+-  in order to take advantage of the latest ethtool features.
++  http://sf.net/projects/gkernel.  
+ 
+   NOTE: Ethtool 1.6 only supports a limited set of ethtool options. Support 
+   for a more complete ethtool feature set can be enabled by upgrading 
