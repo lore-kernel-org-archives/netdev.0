@@ -1,32 +1,26 @@
-From: Stefan Rompf <srompf@isg.de>
-Subject: Re: Patch: Make linkwatch more robust against rtnl holders
-Date: Fri, 20 Feb 2004 17:44:21 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH]: ipv6_skip_exthdr() may refer invalid memory area
+Date: Fri, 20 Feb 2004 09:30:27 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402201744.21348.srompf@isg.de>
-References: <200402151511.49432.srompf@isg.de> <20040218171159.62e76670.davem@redhat.com>
+Message-ID: <20040220093027.2c03f48c.davem@redhat.com>
+References: <200402200534.OAA04081@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040218171159.62e76670.davem@redhat.com>
-Content-Disposition: inline
+To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+In-Reply-To: <200402200534.OAA04081@toshiba.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+On Fri, 20 Feb 2004 14:33:59 +0900 (JST)
+Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp> wrote:
 
-> > the attached patch updates the linkwatch code so that it backs off and
-> > retries whenever it cannot get the rtnl semaphore.
->
-> I think we should fix locking conflicts created by things like what
-> the sungem driver is doing instead.
+> ipv6_skip_exthdr() refer invalid memory area in the case
+> that packet includes Fragment Header.
+> 
+> please apply this patch.
 
-On the other hand, I'm not aware of any convention when flush_scheduled_work() 
-is allowed to be called. As long as anyone inside kernel space is can 
-schedule work and anyone else can wait for completion, it does not hurt to 
-make a schedule task less vulnerable to deadlocks.
-
-Stefan
+Applied, thank you Yasuyuki-san.
