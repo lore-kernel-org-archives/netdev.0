@@ -1,27 +1,41 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Getting details about an 802.1q VLAN interface from userspace
-Date: Mon, 17 Feb 2003 18:29:15 -0800 (PST)
+Subject: Re: NAPI note
+Date: Mon, 17 Feb 2003 18:57:19 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030217.182915.41644338.davem@redhat.com>
-References: <20030213143921.A21977@cisco.com>
+Message-ID: <20030217.185719.28797590.davem@redhat.com>
+References: <3E4D66DF.3040800@colorfullife.com>
+	<3E4D8295.2050400@pobox.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@oss.sgi.com
+Cc: manfred@colorfullife.com, zaitcev@redhat.com, jbourne@mtroyal.ab.ca,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: wjhun@cisco.com
-In-Reply-To: <20030213143921.A21977@cisco.com>
+To: jgarzik@pobox.com
+In-Reply-To: <3E4D8295.2050400@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Will Jhun <wjhun@cisco.com>
-   Date: Thu, 13 Feb 2003 14:39:21 -0800
-   
-   Is there a better way to get this information via netlink or some
-   ioctl()? Would it be useful if I (or someone) added an ioctl() type to
-   get information about a VLAN interface? (vlan, ifindex of trunking
-   (real_dev) interface, priority maps; basically the content of struct
-   vlan_dev_info)
+   From: Jeff Garzik <jgarzik@pobox.com>
+   Date: Fri, 14 Feb 2003 18:58:13 -0500
 
-I would accept new netlink interfaces to get and set this
-information.  ioctls are gross and will not be tolerated :)
+   Manfred Spraul wrote:
+   > It seems to be a generic NAPI restriction:
+   > The caller of netif_receive_skb() must not own a spinlock that is 
+   > acquired from an interrupt handler.
+   
+   Thanks much for noticing this, Manfred.
+
+I think this logic is buggy.
+
+In the example I've seen posted, only a NAPI implementation bug
+could cause the situation to occur.
+
+If cpu1 is in ->poll() for the driver, then by definition the
+device shall not cause interrupts.  The device's interrupts
+are disabled before we enter the ->poll() handler, and as such
+the "cpu2 take device interrupt and takes driver->lock" cannot
+occur.
+
+If anything we've found a bug in interrupt disabling in the tg3
+driver.
