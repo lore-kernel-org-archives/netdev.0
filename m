@@ -1,29 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Wrong UIDs reported in /proc/net/tcp
-Date: Wed, 10 Nov 2004 10:18:56 +1100
-Message-ID: <20041109231856.GA6152@gondor.apana.org.au>
-References: <20041109205358.GA64015@calma.pair.com> <E1CRdBr-0001P2-00@gondolin.me.apana.org.au> <20041109224337.GB87321@calma.pair.com> <20041109225812.GA6001@gondor.apana.org.au> <20041109230411.GA91891@calma.pair.com>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: node-local multicast issues
+Date: Tue, 9 Nov 2004 15:21:54 -0800
+Message-ID: <OF18E2258F.5E2E252A-ON88256F47.007FA9FD-88256F47.0080590C@us.ibm.com>
+References: <1099995700.21310.8.camel@mn-2>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "Chad N. Tindel" <chad@tindel.net>
-Content-Disposition: inline
-In-Reply-To: <20041109230411.GA91891@calma.pair.com>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: hessu@cs.tut.fi, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <1099995700.21310.8.camel@mn-2>
+To: Mark Borst <mark@borst.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 09, 2004 at 06:04:11PM -0500, Chad N. Tindel wrote:
-> 
-> You're saying that since pidentd is calling fgets(), that can actually result
-> in multiple read() calls.  Because of this, the first half of the line
+        The loopback device doesn't have IFF_MULTICAST set, so technically
+it is not a multicast-capable device, and you shouldn't be able to join a 
+group on it.
+I think the way it ought to work is that you join the group on any device, 
+with
+IPV6_MULTICAST_LOOP set and local guys should hear the node-local 
+multicasts,
+but it shouldn't be sent on the wire. Multicasting could be supported on 
+loopback, too,
+but it doesn't matter all that much unless there are no multicast-capable 
+real devices.
+        However, it appears that node-local multicasts are being sent out 
+the device,
+at least on an early 2.6 kernel I did a quick test with. There probably 
+isn't anything
+enforcing the node-locality in the send path, which I would consider a 
+bug. :-)
 
-fgets() is implemented on top of a buffered read, with my glibc it reads
-4096 bytes.  Whatever that size is, the second read is most likely going
-to be reading a partial record.  There is no guarantee that the partial
-record is going to match the end of the first read.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+                                                +-DLS
