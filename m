@@ -1,38 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [SUNGEM] LLTX support
-Date: Thu, 16 Sep 2004 13:13:00 -0700
+Subject: Re: [PATCH] [IPV6] NDISC: ensure responding to NS without
+ link-layer information.
+Date: Thu, 16 Sep 2004 13:14:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916131300.6388d432.davem@davemloft.net>
-References: <5cac192f04091423453ae3cb@mail.gmail.com>
-	<20040915083559.6c36759f.davem@davemloft.net>
-	<5cac192f04091514433c9e13c8@mail.gmail.com>
+Message-ID: <20040916131428.39736d91.davem@davemloft.net>
+References: <20040916.125921.56481183.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f04091514433c9e13c8@mail.gmail.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040916.125921.56481183.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004 23:43:16 +0200
-Eric Lemoine <eric.lemoine@gmail.com> wrote:
+On Thu, 16 Sep 2004 12:59:21 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> On Wed, 15 Sep 2004 08:35:59 -0700, David S. Miller <davem@davemloft.net> wrote:
-> > On Wed, 15 Sep 2004 08:45:21 +0200
-> > Eric Lemoine <eric.lemoine@gmail.com> wrote:
-> > 
-> > > The attached patch adds LLTX support to SunGEM NAPI. The tx_lock patch
-> > > I just sent must be applied first.
-> > 
-> > Also applied, thanks Eric.
-> > 
-> > I remember you mentioning yesterday that Harald's sungem NAPI
-> > patch had netpoll support, can you cook up a patch that adds
-> > it for current sungem?
+> When sending NA in response to NS, we may not know the 
+> link-layer address for the destination of the NA 
+> since unicast NS is not required to include its link-layer information.
+> In this case, we first need to resolve the link-layer address.
+> (RFC 2461 7.2.4)
 > 
-> Patch attached. Unlike Harald's, this patch doesn't disable_irq before
-> calling gem_interrupt because gem_interrupt is safe to reentrance.
+> We now create neighbour entry for the destination 
+> and link-layer information will be automatically solved 
+> in the output path.
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Looks fine to me.  Patch applied, thanks Eric.
+Patch applied, thank you.
