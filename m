@@ -1,27 +1,39 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: Maciej Soltysiak <solt@dns.toxicfilms.tv>
 Subject: Re: connecting ipv6 nodes throu' ipv4 network ....
-Date: Thu, 20 Feb 2003 20:53:03 +0900 (JST)
+Date: Thu, 20 Feb 2003 12:52:55 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030220.205303.112795862.yoshfuji@linux-ipv6.org>
-References: <20030220114636.21895.qmail@webmail29.rediffmail.com>
+Message-ID: <Pine.LNX.4.51.0302201249190.6510@dns.toxicfilms.tv>
+References: <20030220104719.835.qmail@webmail32.rediffmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ipv6_san@rediffmail.com
-In-Reply-To: <20030220114636.21895.qmail@webmail29.rediffmail.com>
+To: santosh kumar gowda <ipv6_san@rediffmail.com>
+In-Reply-To: <20030220104719.835.qmail@webmail32.rediffmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030220114636.21895.qmail@webmail29.rediffmail.com> (at 20 Feb 2003 11:46:36 -0000), "santosh kumar gowda" <ipv6_san@rediffmail.com> says:
+> IPv6 addr of machine-1 is 3ff3:1234::1
+> IPv6 addr of machine-2 is 3ff3:1234::2
+> My LAN is based on IPv4.
+> To make these IPv6-hosts to communicate on the LAN, what
+> configuration do i need to make ???
 
-> 8: epmac1: <BROADCAST,UP> mtu 1500 qdisc pfifo_fast qlen 100
->     inet6 3ffe:1234::2/128 scope global
-:
->     inet6 3ffe:1234::1/128 scope global
+Well, as in ipv4 the hosts need an address and routing:
+machine-1:
+# ip addr add 3ff3:1234::1 dev eth0
+# ip route add 3ffe:1234/mask dev eth0
 
-use /64 instead.
+machine-2:
+# ip addr add 3ff3:1234::1 dev eth0
+# ip route add 3ff3:1234/mask dev eth0
 
---yoshfuji
+If you have a route to the ip6 world, then add to them:
+# ip route add 2001::/3 via (your:ip6:router:address) dev eth0
+
+> I tried connecting only these two machines using a cross cable and
+> sending IPv6 packets. But it failed. Is it correct to do so ???
+Should work, maybe the cables are bad?
+
+Regards,
+Maciej
