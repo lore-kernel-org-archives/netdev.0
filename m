@@ -1,43 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6] cache align qdisc data
-Date: Tue, 03 Aug 2004 22:42:44 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6] (2/3) vlan propogate carrier and hotplug state
+Date: Tue, 3 Aug 2004 13:40:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410FF8C4.7010705@trash.net>
-References: <410FAE42.2050909@trash.net>	<20040803083820.711c917c@dell_ss3.pdx.osdl.net>	<410FE4DD.5000306@trash.net> <20040803133139.43107fd3@dell_ss3.pdx.osdl.net>
+Message-ID: <20040803134014.7164280c@dell_ss3.pdx.osdl.net>
+References: <20040803105017.0774e1db@dell_ss3.pdx.osdl.net>
+	<410FD348.9040301@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040803133139.43107fd3@dell_ss3.pdx.osdl.net>
+To: Ben Greear <greearb@candelatech.com>,
+        "David S. Miller"
+ <davem@redhat.com>
+In-Reply-To: <410FD348.9040301@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
+The bridge STP code now wants to handle device's getting connected/disconnected
+and this includes vlan devices.  This patch makes the VLAN pseudo device state
+mirror the state of the real device.  Only bothered with carrier and hotplug.
 
->That was some old messing around, that got in there...
->Here is the correct patch.
->  
->
-The hunks are still there.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-> 
->@@ -1554,7 +1554,6 @@ hfsc_init_qdisc(struct Qdisc *sch, struc
-> 	qopt = RTA_DATA(opt);
-> 
-> 	memset(q, 0, sizeof(struct hfsc_sched));
->-	sch->stats_lock = &sch->dev->queue_lock;
-> 
-> 	q->defcls = qopt->defcls;
-> 	for (i = 0; i < HFSC_HSIZE; i++)
->@@ -1674,7 +1673,7 @@ hfsc_dump_qdisc(struct Qdisc *sch, struc
-> 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
-> 
-> 	sch->stats.qlen = sch->q.qlen;
->-	if (qdisc_copy_stats(skb, &sch->stats, sch->stats_lock) < 0)
->+	if (qdisc_copy_stats(skb, &sch->stats, &sch->dev->queue_lock) < 0)
-> 		goto rtattr_failure;
-> 
-> 	return skb->len;
->
+diff -Nru a/net/8021q/vlan.c b/net/8021q/vlan.c
+--- a/net/8021q/vlan.c	2004-08-03 13:35:48 -07:00
++++ b/net/8021q/vlan.c	2004-08-03 13:35:48 -07:00
+@@ -69,6 +69,10 @@
+ 	.func = vlan_skb_recv, /* VLAN receive method */
+ };
+ 
++/* Bits of netdev state that are propogated from real device to virtual */
++#define VLAN_LINK_STATE_MASK \
++	((1<<__LINK_STATE_PRESENT)|(1<<__LINK_STATE_NOCARRIER))
++
+ /* End of global variables definitions. */
+ 
+ /*
+@@ -472,6 +476,8 @@
+ 	new_dev->flags = real_dev->flags;
+ 	new_dev->flags &= ~IFF_UP;
+ 
++	new_dev->state = real_dev->state & VLAN_LINK_STATE_MASK;
++
+ 	/* need 4 bytes for extra VLAN header info,
+ 	 * hope the underlying device can handle it.
+ 	 */
+@@ -598,9 +604,20 @@
+ 	 */
+ 
+ 	switch (event) {
+-	case NETDEV_CHANGEADDR:
+-	case NETDEV_GOING_DOWN:
+-		/* Ignore for now */
++	case NETDEV_CHANGE:
++		/* Propogate real device state to vlan devices */
++		flgs = dev->state & VLAN_LINK_STATE_MASK;
++		for (i = 0; i < VLAN_GROUP_ARRAY_LEN; i++) {
++			vlandev = grp->vlan_devices[i];
++			if (!vlandev)
++				continue;
++
++			if ((vlandev->state & VLAN_LINK_STATE_MASK) != flgs) {
++				vlandev->state = (vlandev->state &~ VLAN_LINK_STATE_MASK) 
++					| flgs;
++				netdev_state_change(vlandev);
++			}
++		}
+ 		break;
+ 
+ 	case NETDEV_DOWN:
