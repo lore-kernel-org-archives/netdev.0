@@ -1,59 +1,220 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PROBLEM] r8169 deadlocks
-Date: Thu, 15 Jan 2004 22:08:27 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [Fwd: [PATCH] add sysfs class support for raw devices [06/10]]
+Date: Thu, 15 Jan 2004 16:11:10 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115220827.A22007@electric-eye.fr.zoreil.com>
-References: <200401152039.00182.harisri@bigpond.com>
+Message-ID: <400701EE.3060707@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------040007080600050907040103"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Srihari Vijayaraghavan <harisri@bigpond.com>
-Content-Disposition: inline
-In-Reply-To: <200401152039.00182.harisri@bigpond.com>; from harisri@bigpond.com on Thu, Jan 15, 2004 at 08:38:59PM +1100
+To: Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Srihari Vijayaraghavan <harisri@bigpond.com> :
-[...]
-> Consider desktop as the computer with the RealTek r8169 card and laptop from 
-> where I perform these steps:
-> 1. ssh desktop
-> 2. while true; do ls -la /; done
-> 3. In few seconds the desktop computer hangs
-> (And of course at the laptop computer the ssh session hangs)
-> 
-> Here is the sysrq-p from the desktop computer (captured using serial-console):
-> Pid: 1963, comm: ls Not tainted
-> RIP: 0010:[<ffffffffa008afd9>] 
-> <ffffffffa008afd9>{:r8169:rtl8169_tx_interrupt+73}
-> RSP: 0000:ffffffff80374dc8  EFLAGS: 00000286
-> RAX: 0000000000000420 RBX: ffffffff80374d18 RCX: 0000010000399000
-> RDX: ffffffff80370e80 RSI: 000000003525d05e RDI: 0000000080391bf0
-> RBP: ffffffff801100d9 R08: 0000000000000007 R09: 0000000000000000
-> R10: 0000002a95587de0 R11: 0000000000000003 R12: 0000000000000042
-> R13: 0000000000000001 R14: 00000000000000bc R15: 000001003f7d1340
-> FS:  00000000005144a0(005b) GS:ffffffff80370e80(0000) knlGS:0000000000000000
-> CS:  0010 DS: 0000 ES: 0000 CR0: 000000008005003b
-> CR2: 0000002a957876d0 CR3: 0000000000101000 CR4: 00000000000006a0
-> 
-> Call Trace:<IRQ> <ffffffffa008b3c8>{:r8169:rtl8169_interrupt+120} 
-> <ffffffff8011222f>{handle_IRQ_event+47}
->        <ffffffff801123b3>{do_IRQ+147} <ffffffff801100d9>{ret_from_intr+0}
->         <EOI> <ffffffff80110152>{retint_careful+13}
+This is a multi-part message in MIME format.
+--------------040007080600050907040103
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-*head scratch*
 
-Can you monitor 'vmstat 1' output on the r8169 host during the test ?
+Regarding the recent discussion on bonding/vlan/bridge/blah configuration...
 
-You can try 2.6.1-bk2 + Jeff Garzik's -netdev4 + 
-http://www.fr.zoreil.com/people/francois/misc/r8169-tx-index-overflow.patch 
 
-If it does not perform better, you can try against 2.6.1-bk1 the set at
-http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-b
 
-If I remember correctly, you are the first report of a non-completely
-disfunctional driver for the new version of the r8169. Things improve.
+--------------040007080600050907040103
+Content-Type: message/rfc822;
+ name="[PATCH] add sysfs class support for raw devices [06/10]"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="[PATCH] add sysfs class support for raw devices [06/10]"
 
---
-Ueimor
+Return-Path: <linux-kernel-owner+jgarzik=40pobox.com@vger.kernel.org>
+Delivered-To: garzik@gtf.org
+Received: from majesty.pobox.com (majesty.pobox.com [208.210.124.70])
+	by havoc.gtf.org (Postfix) with ESMTP id BF2126644
+	for <garzik@gtf.org>; Thu, 15 Jan 2004 15:51:36 -0500 (EST)
+Received: from majesty.pobox.com (localhost [127.0.0.1])
+	by majesty.pobox.com (Postfix) with ESMTP id B481BE3D2
+	for <garzik@gtf.org>; Thu, 15 Jan 2004 15:51:36 -0500 (EST)
+Delivered-To: jgarzik@pobox.com
+Received: from colander (localhost [127.0.0.1])
+	by majesty.pobox.com (Postfix) with ESMTP id 25244E408
+	for <jgarzik@pobox.com>; Thu, 15 Jan 2004 15:51:36 -0500 (EST)
+Received: from vger.kernel.org (vger.kernel.org [67.72.78.212])
+	by majesty.pobox.com (Postfix) with ESMTP
+	for <jgarzik@pobox.com>; Thu, 15 Jan 2004 15:51:33 -0500 (EST)
+Received: (majordomo@vger.kernel.org) by vger.kernel.org via listexpand
+	id S263101AbUAOUqO (ORCPT <rfc822;jgarzik@pobox.com>);
+	Thu, 15 Jan 2004 15:46:14 -0500
+Received: (majordomo@vger.kernel.org) by vger.kernel.org id S263173AbUAOUoo
+	(ORCPT <rfc822;linux-kernel-outgoing>);
+	Thu, 15 Jan 2004 15:44:44 -0500
+Received: from mail.kroah.org ([65.200.24.183]:14299 "EHLO perch.kroah.org")
+	by vger.kernel.org with ESMTP id S262795AbUAOUoF (ORCPT
+	<rfc822;linux-kernel@vger.kernel.org>);
+	Thu, 15 Jan 2004 15:44:05 -0500
+Received: from [9.47.21.222] (bi01p1.nc.us.ibm.com [129.33.49.251])
+	(authenticated)
+	by perch.kroah.org (8.11.6/8.11.6) with ESMTP id i0FKf0c16992;
+	Thu, 15 Jan 2004 12:41:00 -0800
+Received: from greg by echidna.kroah.org with local (masqmail 0.2.19)
+ id 1AhEK9-5my-00; Thu, 15 Jan 2004 12:42:41 -0800
+Date: Thu, 15 Jan 2004 12:42:41 -0800
+From: Greg KH <greg@kroah.com>
+To: Andrew Morton <akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org,
+	linux-hotplug-devel@lists.sourceforge.net
+Subject: [PATCH] add sysfs class support for raw devices [06/10]
+Message-ID: <20040115204241.GG22199@kroah.com>
+References: <20040115204048.GA22199@kroah.com> <20040115204111.GB22199@kroah.com> <20040115204125.GC22199@kroah.com> <20040115204138.GD22199@kroah.com> <20040115204153.GE22199@kroah.com> <20040115204209.GF22199@kroah.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+In-Reply-To: <20040115204209.GF22199@kroah.com>
+User-Agent: Mutt/1.4.1i
+Sender: linux-kernel-owner@vger.kernel.org
+Precedence: bulk
+X-Mailing-List: linux-kernel@vger.kernel.org
+X-Spam-Checker-Version: SpamAssassin 2.60 (1.212-2003-09-23-exp) on
+	havoc.gtf.org
+X-Spam-Status: No, hits=-3.2 required=7.0 tests=AWL,BAYES_00,
+	REMOVE_REMOVAL_2WORD autolearn=no version=2.60
+X-Spam-Level: 
+
+
+This adds class/raw/ support for all raw devices.  It also provides a
+symlink to the block device that the raw device is mapped to.  For
+example:
+
+$ tree /sys/class/raw/
+/sys/class/raw/
+|-- raw1
+|   |-- dev
+|   `-- device -> ../../../block/sda
+|-- raw2
+|   |-- dev
+|   `-- device -> ../../../block/sda/sda2
+`-- rawctl
+    `-- dev
+
+
+Note, in order to get that symlink, I had to export get_gendisk() so that
+modules can use it.  I hope this is ok with everyone.
+
+This is based on a patch originally written by 
+Leann Ogasawara <ogasawara@osdl.org>
+
+
+
+diff -Nru a/drivers/block/genhd.c b/drivers/block/genhd.c
+--- a/drivers/block/genhd.c	Thu Jan 15 11:05:57 2004
++++ b/drivers/block/genhd.c	Thu Jan 15 11:05:57 2004
+@@ -224,6 +224,8 @@
+ 	return  kobj ? to_disk(kobj) : NULL;
+ }
+ 
++EXPORT_SYMBOL(get_gendisk);
++
+ #ifdef CONFIG_PROC_FS
+ /* iterator */
+ static void *part_start(struct seq_file *part, loff_t *pos)
+diff -Nru a/drivers/char/raw.c b/drivers/char/raw.c
+--- a/drivers/char/raw.c	Thu Jan 15 11:05:47 2004
++++ b/drivers/char/raw.c	Thu Jan 15 11:05:47 2004
+@@ -17,6 +17,8 @@
+ #include <linux/raw.h>
+ #include <linux/capability.h>
+ #include <linux/uio.h>
++#include <linux/device.h>
++#include <linux/genhd.h>
+ 
+ #include <asm/uaccess.h>
+ 
+@@ -25,6 +27,7 @@
+ 	int inuse;
+ };
+ 
++static struct class_simple *raw_class;
+ static struct raw_device_data raw_devices[MAX_RAW_MINORS];
+ static DECLARE_MUTEX(raw_mutex);
+ static struct file_operations raw_ctl_fops;	     /* forward declaration */
+@@ -119,6 +122,29 @@
+ 	return ioctl_by_bdev(bdev, command, arg);
+ }
+ 
++static void bind_device(struct raw_config_request rq)
++{
++	int part;
++	struct gendisk *gen;
++	struct class_device *dev;
++	struct kobject *target = NULL;
++
++	gen = get_gendisk(MKDEV(rq.block_major, rq.block_minor), &part);
++	if (gen) {
++		if (part && gen->part[part])
++			target = &gen->part[part]->kobj;
++		else
++			target = &gen->kobj;
++	}
++
++	class_simple_device_remove(MKDEV(RAW_MAJOR, rq.raw_minor));
++	dev = class_simple_device_add(raw_class, MKDEV(RAW_MAJOR, rq.raw_minor),
++				      NULL, "raw%d", rq.raw_minor);
++	if (dev && target) {
++		sysfs_create_link(&dev->kobj, target, "device");
++	}
++}
++
+ /*
+  * Deal with ioctls against the raw-device control interface, to bind
+  * and unbind other raw devices.
+@@ -187,12 +213,15 @@
+ 			if (rq.block_major == 0 && rq.block_minor == 0) {
+ 				/* unbind */
+ 				rawdev->binding = NULL;
++				class_simple_device_remove(MKDEV(RAW_MAJOR, rq.raw_minor));
+ 			} else {
+ 				rawdev->binding = bdget(dev);
+ 				if (rawdev->binding == NULL)
+ 					err = -ENOMEM;
+-				else
++				else {
+ 					__module_get(THIS_MODULE);
++					bind_device(rq);
++				}
+ 			}
+ 			up(&raw_mutex);
+ 		} else {
+@@ -262,6 +291,14 @@
+ 	int i;
+ 
+ 	register_chrdev(RAW_MAJOR, "raw", &raw_fops);
++
++	raw_class = class_simple_create(THIS_MODULE, "raw");
++	if (IS_ERR(raw_class)) {
++		printk (KERN_ERR "Error creating raw class.\n");
++		return PTR_ERR(raw_class);
++	}
++	class_simple_device_add(raw_class, MKDEV(RAW_MAJOR, 0), NULL, "rawctl");
++
+ 	devfs_mk_cdev(MKDEV(RAW_MAJOR, 0),
+ 		      S_IFCHR | S_IRUGO | S_IWUGO,
+ 		      "raw/rawctl");
+@@ -280,6 +317,8 @@
+ 		devfs_remove("raw/raw%d", i);
+ 	devfs_remove("raw/rawctl");
+ 	devfs_remove("raw");
++	class_simple_device_remove(MKDEV(RAW_MAJOR, 0));
++	class_simple_destroy(raw_class);
+ 	unregister_chrdev(RAW_MAJOR, "raw");
+ }
+ 
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
+
+
+
+--------------040007080600050907040103--
