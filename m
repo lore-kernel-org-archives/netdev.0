@@ -1,44 +1,43 @@
-From: jamal <hadi@cyberus.ca>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: IP stack question
-Date: Mon, 24 Jun 2002 09:34:47 -0400 (EDT)
+Date: Mon, 24 Jun 2002 10:48:15 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0206240922230.12806-100000@shell.cyberus.ca>
-References: <180577A42806D61189D30008C7E632E8793946@boca213a.boca.ssc.siemens.com>
+Message-ID: <3D175B5F.5050403@candelatech.com>
+References: <Pine.GSO.4.30.0206240922230.12806-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "Bloch, Jack" <Jack.Bloch@icn.siemens.com>,
+   "'netdev@oss.sgi.com'"
+ <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: "Bloch, Jack" <Jack.Bloch@icn.siemens.com>
-In-Reply-To: <180577A42806D61189D30008C7E632E8793946@boca213a.boca.ssc.siemens.com>
+To: jamal <hadi@cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
+> I tried to explain to you in private mail:
+> Both 10.1.1.4 and 10.1.1.5 are recognized to be local addresses
+> by the IP stack. It is legit that the stack limits the scope
+> to just that i.e _local_
+>  The only way to do what you want to do is bypass the IP stack.
+> Use packet socket to write your  test app.
+> (which actually probably defetas the whole purpose of what you may
+> be trying to do -- HA).
 
-I tried to explain to you in private mail:
-Both 10.1.1.4 and 10.1.1.5 are recognized to be local addresses
-by the IP stack. It is legit that the stack limits the scope
-to just that i.e _local_
- The only way to do what you want to do is bypass the IP stack.
-Use packet socket to write your  test app.
-(which actually probably defetas the whole purpose of what you may
-be trying to do -- HA).
+It would not defeat the purpose of detecting at least one bad network
+link of the two.
 
-cheers,
-jamal
+I wonder if a ping -I eth1 255.255.255.255 would accomplish the
+goal as well?
 
-On Mon, 24 Jun 2002, Bloch, Jack wrote:
+I would actually like to be able to force a machine to not do local
+routing as well, and force packets out over an interface even if
+the destination is a local IP,  using source-based-routing,
+or something similar.  There is no way to do this currently?
 
-> I am writing this e-mail at the recommendation of Alan Cox. I have an
-> embedded system running on cPCI HW which has two physical Ethernet
-> connections. This system is connected to an internal network and the IP
-> addresses are not made public. I use the IP addresses 10.1.1.4 and 10.1.1.5
-> respectively. The two physical ports are connected to two separate LAN
-> switches which are connected by an uplink. I want to periodically test this
-> uplink cable. My plan to do this is to send a simple test message (much like
-> a ping) from 10.1.1.4 to 10.1.1.5, however, the IP stack does not let me do
-> this. Is there any specific reason why not?
->
-> Jack Bloch
-> Siemens Carrier Networks
-> e-mail    : jack.bloch@icn.siemens.com
-> phone     : (561) 923-6550
->
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
