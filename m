@@ -1,42 +1,48 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [RFC] tulip VLAN support
-Date: Wed, 05 Jan 2005 14:17:57 -0800
-Message-ID: <41DC6795.6060000@candelatech.com>
-References: <20050105193425.GY18847@sventech.com> <41DC6669.9090407@pobox.com>
+From: "Andriy Korud" <a.korud@vector.com.pl>
+Subject: RE: Re: [Prism54-users] Open hardware wireless cards
+Date: Wed, 5 Jan 2005 23:34:02 +0100
+Message-ID: <60E856FD577CC04BA3727AF4122D3F161134B8@3bit.vector.com.pl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Johannes Erdfelt <johannes@erdfelt.com>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41DC6669.9090407@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+	charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: Netdev <netdev@oss.sgi.com>,
+	Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+	"Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
+	prism54-devel@prism54.org, linux-kernel@vger.kernel.org,
+	prism54-users@prism54.org, Jeff Garzik <jgarzik@pobox.com>
+Return-path: <prism54-devel-bounces@prism54.org>
+Content-class: urn:content-classes:message
+To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
+	"Steve Hill" <steve@nexusuk.org>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Johannes Erdfelt wrote:
-> 
->> @@ -259,7 +259,7 @@
->>  #define RX_RING_SIZE    128  #define MEDIA_MASK     31
->>  
->> -#define PKT_BUF_SZ        1536    /* Size of each temporary Rx 
->> buffer. */
->> +#define PKT_BUF_SZ        1540    /* Size of each temporary Rx 
->> buffer. */
-> 
-> 
-> 
-> This is the reason why the tulip "vlan" patch is continually rejected. 
-> You shouldn't need to increase this constant, but rather follow the 
-> other "large MTU" driver conversions.
 
-Has anyone tried just leaving this line as it was (but adding the rest
-of the patch)?  I believe the 1536 already has plenty of space and
-can hold the extra 4 bytes w/out problem.
+> AFAICT the FullMAC chipsets have reached the END OF LIFE period.
 
-Ben
+Sorry, as I know (no more details - NDA, sorry) some manufacturers are =
+developing (and planning to continue) FullMAC 802.11g (and further) =
+chipsets and also they are offering Linux drivers (however had no chance =
+to test yet).
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+But from my point of view, SoftMAC cards are better sometimes - you have =
+more control from drivers and can implement some interesting features =
+(for example, madwifi Linux driver with MAC layer ported from xBSD).=20
+
+Any thoughts why we should prefer FullMAC cards over SoftMAC (except CPU =
+usage, of course)?
+
+regards,
+
+--
+
+Andriy Korud=20
