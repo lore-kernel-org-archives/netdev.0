@@ -1,28 +1,35 @@
-From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: Re: acenic lockup
-Date: Wed, 14 May 2003 07:40:16 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: comment about struct tcp_tw_bucket in struct sock
+Date: Wed, 14 May 2003 12:17:27 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030514073815.G23367@shell.cyberus.ca>
-References: <200305072221.CAA00973@mops.inr.ac.ru> <20030508.090049.48375778.davem@redhat.com>
- <20030508131135.G22565@devserv.devel.redhat.com> <20030508.090954.94579344.davem@redhat.com>
- <20030508132735.J22565@devserv.devel.redhat.com>
+Message-ID: <20030514.121727.74733052.davem@redhat.com>
+References: <20030513210541.GA4415@suse.de>
+	<20030513.163150.28800008.davem@redhat.com>
+	<20030514080043.GA2575@suse.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
-   anton@samba.org, jes@trained-monkey.org, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: marcelo@conectiva.com.br, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@redhat.com>
-In-Reply-To: <20030508132735.J22565@devserv.devel.redhat.com>
+To: olh@suse.de
+In-Reply-To: <20030514080043.GA2575@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Olaf Hering <olh@suse.de>
+   Date: Wed, 14 May 2003 10:00:43 +0200
 
+    On Tue, May 13, David S. Miller wrote:
+   
+   > It's documented in tcp.h already.
+   
+   True, but not in struct sock.
 
-Jeff,
+When you edit the layout of struct sock you assume
+the full responsibility that you might be breaking
+something that uses struct sock.  This includes
+third party modules.
 
-Dont forget that nice looking fixed tulip which gets rid of the
-nonsense tx_timeout;->
-http://www.cyberus.ca/~hadi/patches/tulip-sym-fixed-20030103.tgz
-
-cheers,
-jamal
+You shouldn't be making changing to it lightly.  How this made TCP
+blow up is the negative feedback you get for trying to change struct
+sock ;-)
