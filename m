@@ -1,18 +1,21 @@
-From: "David S. Miller" <davem@redhat.com>
+From: latten@austin.ibm.com
 Subject: Re: IPSecv6/Neighbor discovery crash
-Date: Fri, 22 Aug 2003 15:58:12 -0700
+Date: Fri, 22 Aug 2003 20:10:47 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030822155812.06ab718f.davem@redhat.com>
-References: <200308222312.h7MNCAJl019005@faith.austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Message-ID: <200308230110.h7N1AkOc019141@faith.austin.ibm.com>
 Cc: kazunori@miyazawa.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: latten@austin.ibm.com
-In-Reply-To: <200308222312.h7MNCAJl019005@faith.austin.ibm.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
+
+Sighhhhh and red-face.... I won't make that mistake again.
+I'm learning.
+
+OK, yes, it seems to be complaining about dev->hard_header...
+
+Joy
+
 
 On Fri, 22 Aug 2003 18:12:10 -0500
 latten@austin.ibm.com wrote:
