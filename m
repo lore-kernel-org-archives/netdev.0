@@ -1,30 +1,63 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: Dealing with buggy hardware (was: b44 and 4g4g)
-Date: Fri, 11 Jun 2004 09:17:30 +0300
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: [margitsw@t-online.de: Re: [PATCH 6/17 linux-2.6.7-rc2] prism54: Kernel compatibility (resend)]
+Date: Fri, 11 Jun 2004 02:43:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040611061730.GA8081@ee.oulu.fi>
-References: <20040531202104.GA8301@ee.oulu.fi> <20040605200643.GA2210@ee.oulu.fi> <20040605131923.232f8950.davem@redhat.com> <20040609122905.GA12715@ee.oulu.fi> <20040610200504.GG4507@openzaurus.ucw.cz> <20040610203442.GA27762@ee.oulu.fi> <20040610211217.GA6634@elf.ucw.cz>
+Message-ID: <20040611064309.GH24773@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@ucw.cz>
+To: Netdev <netdev@oss.sgi.com>
 Content-Disposition: inline
-In-Reply-To: <20040610211217.GA6634@elf.ucw.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 10, 2004 at 11:12:17PM +0200, Pavel Machek wrote:
-> Okay, this is probably other problem. When the bug hit, what are the symptoms?
-Total immediate crash without an oops. When the RX ring skbufs are allocated
-with GFP_DMA receives work, but any transmits from > 1GB cause a link
-down/link up (which is just about all of them). With GPF_DMA bounce
-buffers those start working too.
+----- Forwarded message from Margit Schubert-While <margitsw@t-online.de> -----
 
-> > (Or the issue isn't fully understood yet, figuring out what breaks and what
-> > doesn't was basically just trial and error :-/ )
-> 
-> Can you try the driver from broadcom? bcom4400, or how is it
-> called. Its extremely ugly, but might get this kind of stuff right...
-Tried that, it breaks with 4:4 and >1GB in exactly the same way :-)
+To: Jeff Garzik <jgarzik@pobox.com>
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: Re: [PATCH 6/17 linux-2.6.7-rc2] prism54: Kernel compatibility
+  (resend)
+Cc: mcgrof@ruslug.rutgers.edu
+X-Seen: false
+X-ID: S8bLN4ZZQeIA8qC+ZpICD6L0IGei0K+D9QQxKNHm+ij+0kUy-mO-85
+
+Hi Jeff,
+At 20:04 10.06.2004 -0400, you wrote:
+>I believe I misread patch #6 before, it seems fine.
+>
+>Applied patches 6 through 17.
+
+OK. Super. Thanks.
+
+Quick question - I have the next set of patches ready.
+These are not obtrusive -
+ function definition cleanup (extraneous inlines, missing static)
+ wmb() -> smp_wmb()
+ dev_kfree_skb(_irq) -> dev_kfree_skb_any
+They depend on the previous patches 1 - 17.
+Should I wait until patches 1- 17 appear in kernel BK or can I
+start to send now ?
+
+Just for info - re. the question of ->
+#define init_wds 0
+ versus
+static const int init_wds = 0;
+
+I did some tests and it appears that gcc's < 3.3.3 don't
+optimize out the static const correctly. gcc 3.3.3 produces
+exactly the same code for both definitions. (ie. it optimizes
+it completely out)
+(Tested gcc versions 2.95, 3.2.1, 3.3.1, 3.3.3)
+Anyway, in the last patches, I left it as was ie. static const.
+
+Thanks again.
+
+Cheers
+
+Margit
+
+
+----- End forwarded message -----
+
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
