@@ -1,67 +1,95 @@
-From: Valdis.Kletnieks@vt.edu
+From: Sridhar Samudrala <sri@us.ibm.com>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 17:03:10 -0400
+Date: Wed, 12 May 2004 14:03:24 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405122103.i4CL3AUp014523@turing-police.cc.vt.edu>
-References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu> <20040512202807.GA16849@elte.hu> <20040512203500.GA17999@elte.hu>
-            <20040512205028.GA18806@elte.hu>
+Message-ID: <Pine.LNX.4.58.0405121352060.8535@localhost.localdomain>
+References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com>
+ <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu>
+ <Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com>
+ <20040512200305.GA16078@elte.hu> <20040512132050.6eae6905.akpm@osdl.org>
+ <40A28815.2020009@pobox.com> <20040512133520.44fbfd39.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_-725252706P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jeff Garzik <jgarzik@pobox.com>, mingo@elte.hu, davidel@xmailserver.org,
+        greg@kroah.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ingo Molnar <mingo@elte.hu>
-In-Reply-To: Your message of "Wed, 12 May 2004 22:50:28 +0200."
-             <20040512205028.GA18806@elte.hu>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040512133520.44fbfd39.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_-725252706P
-Content-Type: text/plain; charset=us-ascii
+I have submitted a patch just to do this some time back on netdev mailing
+list. You can find it at
+	http://marc.theaimsgroup.com/?l=linux-netdev&m=108024598716537&w=2
 
-On Wed, 12 May 2004 22:50:28 +0200, Ingo Molnar said:
+static inline unsigned long msecs_to_jiffies(unsigned long msecs)
+{
+#if 1000 % HZ == 0
+	return msecs / (1000 / HZ);
+#elif HZ % 1000 == 0
+	return msecs * (HZ / 1000);
+#else
+	return (msecs / 1000) * HZ + (msecs % 1000) * HZ / 1000;
+#endif
+}
 
-> Content-Disposition: attachment; filename="hz-cleanup-2.6.6-A2"
-> 
-> --- linux/include/linux/time.h.orig	
-> +++ linux/include/linux/time.h	
-> @@ -177,6 +177,24 @@ struct timezone {
->  	(SH_DIV((MAX_JIFFY_OFFSET >> SEC_JIFFIE_SC) * TICK_NSEC, NSEC_PER_SEC, 
-1) - 1)
->  
->  #endif
-> +
-> +/*
-> + * Convert jiffies to milliseconds and back.
-> + *
-> + * Avoid unnecessary multiplications/divisions in the
-> + * two most common HZ cases:
-> + */
-> +#if HZ == 1000
-> +# define JIFFIES_TO_MSECS(x)	(x)
-> +# define MSECS_TO_JIFFIES(x)	(x)
-> +#elif HZ == 100
-> +# define JIFFIES_TO_MSECS(x)	((x) * 10)
-> +# define MSECS_TO_JIFFIES(x)	((x) / 10)
-> +#else
-> +# define JIFFIES_TO_MSECS(x)	((x) * 1000 / HZ)
-> +# define MSECS_TO_JIFFIES(x)	((x) * HZ / 1000)
-> +#endif
-> +
+static inline unsigned long jiffies_to_msecs(unsigned long jiffs)
+{
+#if 1000 % HZ == 0
+	return jiffs * (1000 / HZ);
+#elif HZ % 1000 == 0
+	return jiffs / (HZ / 1000);
+#else
+	return (jiffs / HZ) * 1000 + (jiffs % HZ) * 1000 / HZ;
+#endif
+}
 
-Looks good to me.. :)
+I was told that some users of these routines need an explicit roundup of
+delays.
+For ex: when HZ=100 and msecs is less than 10, the above msecs_to_jiffies()
+returns 0 jiffies, whereas some users expect 1 jiffy.
 
---==_Exmh_-725252706P
-Content-Type: application/pgp-signature
+So i modified msecs_to_jiffies() as follows which should do proper rounding
+when HZ=100. But didn't get back any response.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+static inline unsigned long msecs_to_jiffies(unsigned long msecs)
+{
+#if 1000 % HZ == 0
+        return (msecs + ((1000 / HZ) - 1)) / (1000 / HZ);
+#elif HZ % 1000 == 0
+        return msecs * (HZ / 1000);
+#else
+        return (msecs / 1000) * HZ + (msecs % 1000) * HZ / 1000;
+#endif
+}
 
-iD8DBQFAopEOcC3lWbTT17ARArOzAKDM3xA1BVYCfW4BJhF7WIRcbbVVlACfciAe
-ZNSdcKBxy1tXpJvpoUky7w0=
-=8oxt
------END PGP SIGNATURE-----
+Thanks
+Sridhar
 
---==_Exmh_-725252706P--
+
+On Wed, 12 May 2004, Andrew Morton wrote:
+
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> >
+> > > How about we do:
+> >  >
+> >  > #if HZ=1000
+> >  > #define	MSEC_TO_JIFFIES(msec) (msec)
+> >  > #define JIFFIES_TO_MESC(jiffies) (jiffies)
+> >  > #elif HZ=100
+> >  > #define	MSEC_TO_JIFFIES(msec) (msec * 10)
+> >  > #define JIFFIES_TO_MESC(jiffies) (jiffies / 10)
+> >  > #else
+> >  > #define	MSEC_TO_JIFFIES(msec) ((HZ * (msec) + 999) / 1000)
+> >  > #define	JIFFIES_TO_MSEC(jiffies) ...
+> >  > #endif
+> >  >
+> >  > in some kernel-wide header then kill off all the private implementations?
+> >
+> >
+> >  include/linux/time.h.  One of the SCTP people already did this, but I
+> >  suppose it's straightforward to reproduce.
+>
+> OK, I'll do it.
+>
+>
