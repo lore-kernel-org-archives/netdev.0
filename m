@@ -1,20 +1,20 @@
-From: "" <uri_2gds@hanmir.com>
-Subject: =?ISO-8859-1?Q?=A1=D8=20=BF=C0=BA=FC=20=BA=B8=B0=ED=BD=CD=BE=EE....?=
-	=?ISO-8859-1?Q?=A1=D8?=  jhbwvczvh wep
-Date: Mon, 08 Mar 04 01:57:16 GMT
+From: "" <master_f2f@netian.com>
+Subject: re: =?ISO-8859-1?Q?=B4=E4=BA=AF=C0=D4=B4=CF=B4=D9.?=
+	=?ISO-8859-1?Q?=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9=A1=D9?= id
+Date: Sun, 07 Mar 04 18:11:33 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7$o0o50t43th2evh8126@lvds.sel.w6>
-Reply-To: "" <uri_2gds@hanmir.com>
+Message-ID: <3i10x-11$773$zmq454w54$5$9-2@2lxuge0.9t>
+Reply-To: "" <master_f2f@netian.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="EE7889_E3.FDB_0DFF5__0"
+	boundary="FBEB8BA2F76_25B_FDCED_0."
 Return-path: <netdev-bounce@oss.sgi.com>
 To: majordomo@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---EE7889_E3.FDB_0DFF5__0
+--FBEB8BA2F76_25B_FDCED_0.
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
@@ -100,6 +100,6 @@ _blank ><img src=3D"http://yoohofilm.co.kr/banner/150300_01.gif" width=3D"=
 </a></body>
 
 </html>
-xqv wtjngymvm obefil dhn eil
+e iqscc
 
---EE7889_E3.FDB_0DFF5__0--
+--FBEB8BA2F76_25B_FDCED_0.--
