@@ -1,85 +1,151 @@
-From: "Noam, Amir" <amir.noam@intel.com>
-Subject: Changing bonding <-> ifenslave interface  [was: Problem with current /proc entries]
-Date: Sun, 19 Oct 2003 17:56:01 +0200
+From: "Noah J. Misch" <noah@caltech.edu>
+Subject: [PATCH] Make LLC2 compile with PROC_FS=n
+Date: Sun, 19 Oct 2003 22:03:52 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E6F7D288B394A64585E67497E5126BA601EB5067@hasmsx403.iil.intel.com>
+Message-ID: <Pine.GSO.4.58.0310171452540.13905@blinky>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: rddunlap@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+To: acme@conectiva.com.br
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello Arnaldo,
 
-[adding netdev to the discussion]
+This patch allows the LLC2 code to link properly when CONFIG_PROC_FS=n.  The
+problem was that the Makefile only built llc_proc.c when PROC_FS=y/m, but
+af_llc.c called functions in that file in all cases.  The log details how I
+fixed this.
 
-"Chad N. Tindel" <chad@tindel.net> wrote:
+I think this is the best fix, but of course there are a number of less intrusive
+fixes, including (I think) one as simple as making llc_proc.c always compile.
+This one does apply cleanly to linux-2.5 BK as of 0400 UTC 10/20/2003 and passes
+allyesconfig and (allyesconfig - PROC_FS) compiles on i386.
 
->  > >I say that if people want to switch between 2.4 and 2.6, they can
->  > >write a script to create the appropriate ifenslave symbolic link.
->  > 
->  > 	To clarify, I'm interpreting this to mean:
->  > 
->  > 	2.4.X ifenslave (where "X" is recent enough that it doesn't
->  > use SIOCDEVPRIVATE) should work with 2.6.anything.
+Please let me know if I should supply you with further information.
 
-I disagree. See below.
+Thanks,
+Noah
 
->  > 	2.4.X ifenslave (where "X" is old and it uses SIOCDEVPRIVATE)
->  > need not work with 2.6.anything.
->  > 
->  > 	2.6.X ifenslave (where "X" is 0 or better) should work with
->  > any 2.6 later than the one it was shipped with.
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1340.1.34 -> 1.1340.1.35
+#	    net/llc/af_llc.c	1.50    -> 1.51
+#	  net/llc/llc_proc.c	1.17    -> 1.18
+#	include/net/llc_proc.h	1.1     -> 1.3     net/llc/llc_proc.h (moved)
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/10/17	noah@caltech.edu	1.1340.1.35
+# Move include/net/llc_proc.h to net/llc/llc_proc.h since it is a private
+# header file.  Add static inline stub functions to that header and remove
+# the extern stub functions from llc_proc.c  This fixes a link error and
+# saves space.  Also mark two private structs in llc_proc.c static.
+# --------------------------------------------
+#
+diff -Nru a/include/net/llc_proc.h b/include/net/llc_proc.h
+--- a/include/net/llc_proc.h	Fri Oct 17 16:24:05 2003
++++ /dev/null	Wed Dec 31 16:00:00 1969
+@@ -1,18 +0,0 @@
+-#ifndef LLC_PROC_H
+-#define LLC_PROC_H
+-/*
+- * Copyright (c) 1997 by Procom Technology, Inc.
+- * 		 2002 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+- *
+- * This program can be redistributed or modified under the terms of the
+- * GNU General Public License as published by the Free Software Foundation.
+- * This program is distributed without any warranty or implied warranty
+- * of merchantability or fitness for a particular purpose.
+- *
+- * See the GNU General Public License for more details.
+- */
+-
+-extern int llc_proc_init(void);
+-extern void llc_proc_exit(void);
+-
+-#endif /* LLC_PROC_H */
+diff -Nru a/net/llc/af_llc.c b/net/llc/af_llc.c
+--- a/net/llc/af_llc.c	Fri Oct 17 16:24:05 2003
++++ b/net/llc/af_llc.c	Fri Oct 17 16:24:05 2003
+@@ -30,7 +30,7 @@
+ #include <net/llc_sap.h>
+ #include <net/llc_pdu.h>
+ #include <net/llc_conn.h>
+-#include <net/llc_proc.h>
++#include "llc_proc.h"
 
-Yes.
+ /* remember: uninitialized global data is zeroed because its in .bss */
+ static u16 llc_ui_sap_last_autoport = LLC_SAP_DYN_START;
+diff -Nru a/net/llc/llc_proc.c b/net/llc/llc_proc.c
+--- a/net/llc/llc_proc.c	Fri Oct 17 16:24:05 2003
++++ b/net/llc/llc_proc.c	Fri Oct 17 16:24:05 2003
+@@ -14,7 +14,6 @@
 
->  > 	2.6.X ifenslave (where "X" is 0 or better) need not work with
->  > 2.4.anything.
+ #include <linux/config.h>
+ #include <linux/init.h>
+-#ifdef CONFIG_PROC_FS
+ #include <linux/kernel.h>
+ #include <linux/proc_fs.h>
+ #include <linux/errno.h>
+@@ -193,14 +192,14 @@
+ 	return 0;
+ }
 
-I disagree. I think that the latest version of ifenslave should work
-with all versions of the bonding module that we can reasonably expect
-people to use. This means that if ifenslave fails to use the new
-interface it can try the old one. (This is how I understood Jeff's
-position).
+-struct seq_operations llc_seq_socket_ops = {
++static struct seq_operations llc_seq_socket_ops = {
+ 	.start  = llc_seq_start,
+ 	.next   = llc_seq_next,
+ 	.stop   = llc_seq_stop,
+ 	.show   = llc_seq_socket_show,
+ };
 
-However, I'm definitely in favor of dropping compatibility in the
-*module* in 2.6. This is because most recent distributions (Red Hat 9,
-for example) still use an antique version of ifenslave that still uses
-the SIOCDEVPRIVATE ioctls. If we remove support for these ioctls in
-2.6 (as we should), then the bonding module will break compatibility
-with those ifenslave versions anyway. I see no point in trying to keep
-compatibility with the ifenslave version that is in the 2.4 kernel
-tree, while it is not yet in use by any distribution.
-
->  My opinion is this.  What has worked in 2.4 in the past 
->  should always work
->  for 2.4.  Once you upgrade to 2.6, all bets for that are off.  
-
-I agree, except that I think that if you upgrade to 2.6, and update
-your ifenslave accordingly, you shouldn't have to switch user space
-utilities when you boot into different kernels. That's why I said that
-once you update ifenslave it should work with old bonding as well.
-
->  > 	Amir, how close are you to having a first draft patch for
->  > inspection?  I'm not concerned so much that it be fully baked
->  > as that
->  > it be something to look at and mess with for the usual gang.
-
-We can probably provide a version of bonding/ifenslave that works with
-the new interface within two weeks (hopefully less). This is, of course,
-assuming we reach a consensus on the compatibility issue.
-
->  > 	Am I nuts to want to get the new API stuff in for 2.6.0?  It'd
->  > be nice to not be locked in to supporting the current 
->  scheme because
->  > the first ifenslave in 2.6.0 uses it.
->  
->  I agree wholeheartedly.
-
-I also agree. The question is, can we really push such a change into
-bonding in 2.6, now that Linus only accepts bug fixes?
-
-Amir
+-struct seq_operations llc_seq_core_ops = {
++static struct seq_operations llc_seq_core_ops = {
+ 	.start  = llc_seq_start,
+ 	.next   = llc_seq_next,
+ 	.stop   = llc_seq_stop,
+@@ -273,13 +272,3 @@
+ 	remove_proc_entry("core", llc_proc_dir);
+ 	remove_proc_entry("llc", proc_net);
+ }
+-#else /* CONFIG_PROC_FS */
+-int __init llc_proc_init(void)
+-{
+-	return 0;
+-}
+-
+-void llc_proc_exit(void)
+-{
+-}
+-#endif /* CONFIG_PROC_FS */
+diff -Nru a/net/llc/llc_proc.h b/net/llc/llc_proc.h
+--- /dev/null	Wed Dec 31 16:00:00 1969
++++ b/net/llc/llc_proc.h	Fri Oct 17 16:24:05 2003
+@@ -0,0 +1,23 @@
++#ifndef LLC_PROC_H
++#define LLC_PROC_H
++/*
++ * Copyright (c) 1997 by Procom Technology, Inc.
++ * 		 2002 by Arnaldo Carvalho de Melo <acme@conectiva.com.br>
++ *
++ * This program can be redistributed or modified under the terms of the
++ * GNU General Public License as published by the Free Software Foundation.
++ * This program is distributed without any warranty or implied warranty
++ * of merchantability or fitness for a particular purpose.
++ *
++ * See the GNU General Public License for more details.
++ */
++
++#ifdef CONFIG_PROC_FS
++extern int llc_proc_init(void);
++extern void llc_proc_exit(void);
++#else /* CONFIG_PROC_FS */
++static inline int llc_proc_init(void)  { return 0; }
++static inline void llc_proc_exit(void) {           }
++#endif /* CONFIG_PROC_FS */
++
++#endif /* LLC_PROC_H */
