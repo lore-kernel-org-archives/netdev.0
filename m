@@ -1,31 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6] allow large MTU on dummy net device
-Date: Wed, 30 Jun 2004 11:37:54 -0700
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] New version of net timestamp optimization
+Date: Wed, 30 Jun 2004 11:46:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040630113754.5ae6b14a@dell_ss3.pdx.osdl.net>
+Message-ID: <40E30A8E.6000507@candelatech.com>
+References: <20040406182941.7e759f4c.ak@suse.de>	<1081340659.15893.117.camel@jzny.localdomain> <20040407143703.6af5bb71.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040407143703.6af5bb71.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It is useful for testing to allow larger MTU value to be set on
-the dummy network device. The current code limits it to valid Ether mtu's.
+Andi Kleen wrote:
+> On 07 Apr 2004 08:24:19 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> 
+>>The patch does look clean and attractive. I havent had time toi play
+>>with it myself - but given the way gettimeofday has been torturing me
+>>i will at some point. Also if you have time a 2.4.x patch would be
+> 
+> 
+> Thanks. All feedback I received so far was positive. I hope DaveM will
+> merge it soon. I don't have plans to work on 2.4 anymore.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
- 
+I finally got around to working with 2.6, and I ran into the
+new timestamp code.  I would like to be able to have timestamps
+even though I do not have a socket structure (I am using a kernel
+module to grab all frames)...
 
-diff -Nru a/drivers/net/dummy.c b/drivers/net/dummy.c
---- a/drivers/net/dummy.c	2004-06-30 11:37:38 -07:00
-+++ b/drivers/net/dummy.c	2004-06-30 11:37:38 -07:00
-@@ -78,6 +78,7 @@
- 	/* Fill in device structure with ethernet-generic values. */
- 	ether_setup(dev);
- 	dev->tx_queue_len = 0;
-+	dev->change_mtu = NULL;
- 	dev->flags |= IFF_NOARP;
- 	dev->flags &= ~IFF_MULTICAST;
- 	SET_MODULE_OWNER(dev);
+How would you feel about either exporting the netstamp_needed variable
+or offering a method that explicitly incremented or decremented the
+use count?
+
+Thanks,
+Ben
+
+> 
+> -Andi
+> 
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
