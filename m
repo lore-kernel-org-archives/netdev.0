@@ -1,31 +1,45 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: Any plan for inclusion of linux-wlan-ng ?
-Date: Mon, 12 Apr 2004 21:21:03 -0700
+From: "Shawn Starr" <shawn.starr@rogers.com>
+Subject: RE: [BUG][2.6.5 final][e100/ee100pro] NETDEV_WATCHDOG Timeout -Related to i2c interface?
+Date: Tue, 13 Apr 2004 01:16:33 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040413042103.GB3670@jm.kir.nu>
-References: <plopm3lll26bsg.fsf@drizzt.kilobug.org> <20040411164011.GA21257@kroah.com> <4079B313.7010907@pobox.com>
+Message-ID: <000001c42116$7d00fb70$0200080a@panic>
+References: <4079B246.4070107@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Greg KH <greg@kroah.com>, Ga?l Le Mignot <kilobug@freesurf.fr>,
-        linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Len Brown'" <len.brown@intel.com>, <linux-kernel@vger.kernel.org>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4079B313.7010907@pobox.com>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: <4079B246.4070107@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Apr 11, 2004 at 05:05:23PM -0400, Jeff Garzik wrote:
+Might be, I have since not had any issues with timeouts. Though, I don't
+know where it is doing this. It is an IBM machine so some things are
+proprietary.
 
-> I had hoped that HostAP would be submitted, and that could form the 
-> basis of a common 802.11 stack, but I haven't heard anything about that 
-> in many weeks.
+-----Original Message-----
+From: Jeff Garzik 
+Sent: Sunday, April 11, 2004 05:02 PM
+To: Shawn Starr
+Cc: 'Len Brown'; linux-kernel@; netdev@
+Subject: Re: [BUG][2.6.5 final][e100/ee100pro] NETDEV_WATCHDOG Timeout
+-Related to i2c interface?
 
-It will be.. WPA2 distracted me from this preparation, but I will try to
-get back to cleaning up the Host AP driver for 2.6. Actually, I might
-consider submitting it first without CCMP (AES-counter with CBC-MAC),
-because that is the part that is likely to take most time to convert for
-crypto API and this can be easily added separately.
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Shawn Starr wrote:
+> Ok, this is strange, I put in an external 10/100 PRO S Adaptor, and im 
+> not getting anymore eth0 timeouts, I would only get eth0 timeouts on 
+> the ONBOARD nic if I enabled the lm80 sensor driver.. I don't know 
+> what to say, the onboard nic would work fine without lm80 being 
+> loaded?
+> 
+> Is there some sort of race condition that the onboard 10/100 PRO is 
+> doing ?
+
+If i2c is killing the network, sounds like it's diddling something on 
+the motherboard it shouldn't...
+
+	Jeff
