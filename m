@@ -1,31 +1,62 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] USAGI IPsec
-Date: Fri, 11 Oct 2002 19:41:08 -0700 (PDT)
+From: Donald Becker <becker@scyld.com>
+Subject: Re: Patch: link state detection for 8139too against 2.5.41
+Date: Sat, 12 Oct 2002 00:14:44 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021011.194108.102576152.davem@redhat.com>
-References: <m3u1js1l1a.wl@karaba.org>
-	<20021011.185332.115906289.davem@redhat.com>
-	<20021012.114330.78212112.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.44.0210120013500.1159-100000@beohost.scyld.com>
+References: <3DA764D8.FCDF34F8@isg.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: mk@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jgarzik@mandrakesoft.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20021012.114330.78212112.yoshfuji@linux-ipv6.org>
+To: Stefan Rompf <srompf@isg.de>
+In-Reply-To: <3DA764D8.FCDF34F8@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Sat, 12 Oct 2002 11:43:30 +0900 (JST)
-   
-   Would you tell us the points of the "several details," please?
+On Sat, 12 Oct 2002, Stefan Rompf wrote:
 
-We believe that the whole SPD/SAD mechanism should move
-eventually to a top-level flow cache shared by ipv4 and
-ipv6.
+> Date: Sat, 12 Oct 2002 01:55:04 +0200
+> From: Stefan Rompf <srompf@isg.de>
+> To: jgarzik@mandrakesoft.com
+> Cc: netdev@oss.sgi.com
+> Subject: Patch: link state detection for 8139too against 2.5.41
+> 
+> Hi Jeff,
+> 
+> attached you find a patch that enables link state detection for the
+> 8139too driver. It applies cleanly against 2.5.41 and with some line
+> offset against 2.4.19.
+> 
+> I've written this stuff on a friends' computer using 2.4.18, so it is
+> only slightly tested.
 
-Therefore all the interfaces will be architected such that
-a move to a flow cache based lookup system will be a very
-simple change.
+Uhmmm, you don't need to poll with the rtl8139.  There is a link change
+interrupt.  Here is the recently added from rtl8139.c
+
+	if (status & RxUnderrun){
+		/* This might actually be a link change event. */
+		if ((tp->drv_flags & HAS_LNK_CHNG)  &&  link_changed) {
+			/* Really link-change on new chips. */
+			int lpar = inw(ioaddr + NWayLPAR);
+			int duplex = (lpar&0x0100) || (lpar & 0x01C0) == 0x0040
+				|| tp->duplex_lock;
+			/* Do not use MII_BMSR as that clears sticky bit. */
+			if (inw(ioaddr + GPPinData) & 0x0004) {
+				netif_link_down(dev);
+			} else
+				netif_link_up(dev);
+			if (tp->msg_level & NETIF_MSG_LINK)
+				printk(KERN_DEBUG "%s: Link changed, link partner "
+					   "%4.4x new duplex %d.\n",
+					   dev->name, lpar, duplex);
+			tp->full_duplex = duplex;
+			/* Only count as errors with no link change. */
+			status &= ~RxUnderrun;
+		} else {
+
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
