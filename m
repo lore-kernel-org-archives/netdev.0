@@ -1,24 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC/PATCH] Add support for setting net_device flags via RTM_SETLINK
-Date: Tue, 24 Aug 2004 00:04:54 +0200
+From: "Voluspa" <lista4@comhem.se>
+Subject: Re: 2.6.8-rc4-bk1 problem: unregister_netdevice: waiting for ppp0
+Date: Tue, 24 Aug 2004 00:31:14 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823220454.GO31616@rei.reeler.org>
-References: <20040823211611.GC19921@postel.suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Message-ID: <200408232231.i7NMVEh13558@d1o408.telia.com>
+Reply-To: "Voluspa" <lista4@comhem.se>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
-Content-Disposition: inline
-In-Reply-To: <20040823211611.GC19921@postel.suug.ch>
+To: "Patrick McHardy" <kaber@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Thomas Graf <20040823211611.GC19921@postel.suug.ch> 2004-08-23 23:16
-> I will implement the 2 hidden flags IFF_PROMISC and IFF_ALLMULTI as separate
-> message attributes (IFLA_PROMISC and IFLA_ALLMULTI) as soon as I get some
-> comments on this idea.
+citerar Patrick McHardy:
 
-Ignore the above statement, it's nonsense. Sorry.
+> Did you also apply this patch ? If not, please try it and tell us
+> if it helps.
 
-  Thomas
+No, haven't seen that one before. Ok, results:
+
+01-2.6-cbq-leaks.diff aka [PKT_SCHED]: Fix class leak in CBQ scheduler
+plus
+[PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+
+_Clean environment_
+
+"shutdown -r now": OK
+"rmmod 8139too"  : OK
+
+_QoS through wshaper script_
+
+"shutdown -r now": OK
+"rmmod 8139too"  : OK
+
+_Compiled kernel for size, no debugging_
+
+Rest of my modules loaded. As above: OK and OK
+
+Nice work. Thanks.
+
+Mvh
+Mats Johannesson
