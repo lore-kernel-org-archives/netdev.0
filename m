@@ -1,61 +1,46 @@
 From: Paul Jakma <paul@clubi.ie>
 Subject: Re: [patch 4/10] s390: network driver.
-Date: Wed, 5 Jan 2005 06:26:32 +0000 (GMT)
-Message-ID: <Pine.LNX.4.61.0501050604390.27046@hibernia.jakma.org>
+Date: Wed, 5 Jan 2005 06:30:11 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0501050627050.27046@hibernia.jakma.org>
 References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
- <1104764710.1048.580.camel@jzny.localdomain> <41DB26A6.2070008@pobox.com>
+  <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+ <1104895169.1117.63.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: hadi@cyberus.ca, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
         "David S. Miller" <davem@davemloft.net>,
         Hasso Tepper <hasso@estpak.ee>,
         Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
         Tommy Christensen <tommy.christensen@tpack.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41DB26A6.2070008@pobox.com>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1104895169.1117.63.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 4 Jan 2005, Jeff Garzik wrote:
+On Wed, 4 Jan 2005, jamal wrote:
 
-> Aren't there cases where people would -not- want the queue to be 
-> cleared?
+> Theres possibly people who would want it differently - so for we 
+> havent heard from them. Maybe poll far and wide - or push it in and 
+> wait for them to whine.
 
-Why *do* you want the queue to be cleared? (avoiding NIC /dev/null is 
-only reason right?)
+We're whining.
 
-TCP (AIUI) has its owns means to resend.
+This policy in the Linux kernel makes using Linux dangerous for 
+certain routing applications (RIP, routing advertisements).
 
-Most (all?) other transports have *never* had an expectation of such 
-reliability. Applications *know* they have to provide their own 
-reliability. Queueing and later sending (by then) stale packets is 
-*bad*
+Name a non-TCP application that *does* want this newish kernel policy 
+and tell me how it breaks without this *new* policy. ;)
 
-Think:
-
-- heartbeat applications
-- Router or route advertisements (IPv6 RA, IPv4 ICMP IRDP, RIP)
-- Streaming media (ok, not much damage here, but still there's simply
-   no point queueing while link is down..)
-
-Why queue packets on behalf of applications which have no expectation 
-of kernel doing this (any application expecting such is certainlty 
-broken) and which very likely implement their own reliability or 
-packet-loss recovery strategies? Particularly when queueing is quite 
-possibly *detrimental* to what the application is trying to achieve 
-(timely sending of packets).
-
-If an application wants reliable sending of packets, it will be using 
-TCP..
-
-> 	Jeff
+> cheers,
+> jamal
 
 regards,
 -- 
 Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
 Fortune:
-When the speaker and he to whom he is speaks do not understand, that is
-metaphysics.
- 		-- Voltaire
+My only love sprung from my only hate!
+Too early seen unknown, and known too late!
+ 		-- William Shakespeare, "Romeo and Juliet"
