@@ -1,45 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
-Date: Wed, 6 Apr 2005 11:15:09 -0700
-Message-ID: <20050406111509.0462abcf.davem@davemloft.net>
-References: <20050405213023.0256.LARK@linux.net.cn>
-	<1112717495.1076.22.camel@jzny.localdomain>
-	<20050406143842.026B.LARK@linux.net.cn>
-	<20050406123036.GO26731@postel.suug.ch>
-	<1112794459.1096.61.camel@jzny.localdomain>
-	<20050406134502.GP26731@postel.suug.ch>
-	<20050406141020.GQ26731@postel.suug.ch>
+Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Wed, 6 Apr 2005 11:17:21 -0700
+Message-ID: <20050406111721.3ac67605.davem@davemloft.net>
+References: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
+	<E1DJ5y2-0003rF-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, lark@linux.net.cn, netdev@oss.sgi.com
+Cc: christoph@lameter.com, herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050406141020.GQ26731@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Apr 2005 16:10:20 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+On Wed, 06 Apr 2005 18:32:54 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> The thing I'm worrying about is that I don't want to break the perfect
-> alignment of fw_head to good slab obj sizes but I guess there is no
-> way around. I'd really like to make hash size and hash function
-> configureable. For example a hash size of 1024 would perform much
-> better and would still fit into a single page on most systems.
+> In fact, the atomic_dec_and_test is really only needed for unhashed
+> entries (i.e., IPsec).  So we could do something like this so that
+> all hashed entries undergo atomic_dec.
+> 
+> This would only make sense if there were architectures where
+> atomic_dec is significantly cheaper compared to atomic_dec_and_test.
+> 
+> Do such beasts exist?
 
-I think a hash xor'ing in the high bits into the low 8 bits, as has
-been suggested a few times already, meets your criteria and solves
-Lark's problem.
+See his other emails in this thread.  If it can be converted to
+atomic_dec() then he wants to change the counter into an array
+of counters on NUMA systems.
 
-The hash table size, if still an issue, can be dynamically sized based
-upon some criteria with some reasonable default initial selection
-(such as the current 256).
-
-I think dynamic hash function selection is madness.  You have a key
-that needs to be hashed, you are aware of one very common usage
-(the one that perfectly hashes currently) and you are also aware of
-a method by which the cases that don't fit into that mold can be made
-to perform acceptably too (xor'ing in the upper bits).  We can thus
-do this with one single hash function.
+But his trick only works if the atomic_dec_and_test() can be eliminated
+for all cases, which we're now quite certain is not possible.
