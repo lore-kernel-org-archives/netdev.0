@@ -1,36 +1,33 @@
-From: Pablo Neira <pablo@eurodev.net>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Mon, 20 Sep 2004 00:14:46 +0200
+Date: 19 Sep 2004 18:39:29 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414E04D6.5010106@eurodev.net>
-References: <E1C8way-0000aH-00@gondolin.me.apana.org.au> <414DF05E.7020601@eurodev.net> <20040919212033.GA9254@gondor.apana.org.au>
+Message-ID: <1095633569.1047.107.camel@jzny.localdomain>
+References: <414D0CCD.90209@eurodev.net>
+	 <E1C8way-0000aH-00@gondolin.me.apana.org.au>
+	 <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net>
+	 <20040919215915.GB9573@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040919212033.GA9254@gondor.apana.org.au>
+In-Reply-To: <20040919215915.GB9573@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
 
-Herbert Xu wrote:
+Theres one valuable piece in his patch. Ability to congestion control
+the kernel so user space can clear the socket queue. The alternative is
+an overun. You have shot a hole in the workqueue approach. May i also
+recommend we revert the patch until we have a better resolution, Dave?
 
->However, let's do it properly rather than adding random wake_up calls.
->  
->
+Pablo you really need to provide some good testcases to prove this.
+I have my own netlink stress testing that i havent gotten around to
+testing this issue. 
 
-When the buffer is full, I wake up the user process and put the kernel 
-thread to sleep to let the user process empty the queue.
-
->You're waking up a process based on its pid. With thread groups this is simply broken.
->  
->
-
-I didn't know about netlink applications using thread groups, in that 
-case, submit a patch to delete that wake up call.
-
-regards,
-Pablo
+cheers,
+jamal
