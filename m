@@ -1,45 +1,84 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: gettimeofday scalability
-Date: Tue, 05 Oct 2004 11:48:00 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: PATCH: [SKBUFF] remove some ethernet header related magic numbers
+Date: Tue, 05 Oct 2004 15:53:05 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1097002080.22947.18.camel@localhost.localdomain>
-References: <4162CD76.4070204@draigBrady.com>
+Message-ID: <4162ED91.20605@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, Ingo Molnar <mingo@elte.hu>,
-        Andrea Arcangeli <andrea@suse.de>
+Content-Type: multipart/mixed;
+ boundary="------------030406070407000204070009"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: P@draigBrady.com
-In-Reply-To: <4162CD76.4070204@draigBrady.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-10-05 at 17:36 +0100, P@draigBrady.com wrote:
-> I'm starting to look again at the performance of my packet sniffer.
-> Any performace tips are appreciated (I'm using irq affinity and
-> CONFIG_PACKET_MMAP on 2.4.20 on a dual P4 xeon at present).
->=20
-> In particular I was wondering about reducing the overhead of
-> calling do_gettimeofday.
->=20
-> I noticed in the following paper that the xeon is much less
-> efficient than the P3 for gettimeofday (for the syscall at least):
-> http://www.labs.fujitsu.com/en/techinfo/linux/lse-0211/lse-0211.pdf
->=20
-> I've seen various gettimeofday locking speedup patches floating
-> around for 2.4. There is a version from Stephen and Andrea
-> that uses frlock, claiming 18%, and one from ingo that uses brlock.
-> 2.6.8.1 uses seqlock, which contains the comment
-> that it's not as cache friendly as brlock.
+This is a multi-part message in MIME format.
+--------------030406070407000204070009
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Don't bother with doing new work on 2.4. Look at 2.6.
-You could use TSC in user space but you aren't going to see absolute
-times and you run into all the portablity, and possible speed change
-issues.
+Hi David,
 
-> So can anyone summarise the relative merits of these locking
-> mechanisms, before I start benchmarking?
->=20
-> thanks,
-> P=E1draig.
+	Plesase consider pulling from:
+
+bk://kernel.bkbits.net/acme/sk_buff-2.6
+
+	Now there are twelve outstanding changesets in this
+tree.
+
+Best Regards,
+
+- Arnaldo
+
+--------------030406070407000204070009
+Content-Type: text/plain;
+ name="ethhdr_magic_numbers.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ethhdr_magic_numbers.patch"
+
+===================================================================
+
+
+ChangeSet@1.2041, 2004-10-05 15:45:31-03:00, acme@conectiva.com.br
+  [SKBUFF] remove some ethernet header related magic numbers
+  
+  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  Signed-off-by: David S. Miller <davem@redhat.com>
+
+
+ drivers/net/loopback.c |    2 +-
+ net/core/pktgen.c      |    4 ++--
+ 2 files changed, 3 insertions(+), 3 deletions(-)
+
+
+diff -Nru a/drivers/net/loopback.c b/drivers/net/loopback.c
+--- a/drivers/net/loopback.c	2004-10-05 15:50:11 -03:00
++++ b/drivers/net/loopback.c	2004-10-05 15:50:11 -03:00
+@@ -85,7 +85,7 @@
+ 		if (!nskb)
+ 			break;
+ 		skb_reserve(nskb, 32);
+-		nskb->mac.raw = nskb->data - 14;
++		nskb->mac.raw = nskb->data - ETH_HLEN;
+ 		nskb->nh.raw = nskb->data;
+ 		iph = nskb->nh.iph;
+ 		memcpy(nskb->data, skb->nh.raw, doffset);
+diff -Nru a/net/core/pktgen.c b/net/core/pktgen.c
+--- a/net/core/pktgen.c	2004-10-05 15:50:11 -03:00
++++ b/net/core/pktgen.c	2004-10-05 15:50:11 -03:00
+@@ -515,8 +515,8 @@
+ 	iph->tot_len = htons(iplen);
+ 	iph->check = 0;
+ 	iph->check = ip_fast_csum((void *) iph, iph->ihl);
+-	skb->protocol = __constant_htons(ETH_P_IP);
+-	skb->mac.raw = ((u8 *)iph) - 14;
++	skb->protocol = htons(ETH_P_IP);
++	skb->mac.raw = ((u8 *)iph) - ETH_ALEN;
+ 	skb->dev = odev;
+ 	skb->pkt_type = PACKET_HOST;
+ 
+
+===================================================================
+
+--------------030406070407000204070009--
