@@ -1,8 +1,8 @@
 From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [lec] lec_push() races with vcc->proto_data
-Date: Wed, 24 Mar 2004 18:12:22 -0500
+Subject: [PATCH][ATM]: [nicstar] use kernel min/max (by "Randy.Dunlap" <rddunlap@osdl.org>)
+Date: Wed, 24 Mar 2004 18:12:57 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403242312.i2ONCKGG026715@ginger.cmf.nrl.navy.mil>
+Message-ID: <200403242312.i2ONCu6E026729@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -18,25 +18,34 @@ thanks!
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1674  -> 1.1675 
-#	       net/atm/lec.c	1.39    -> 1.40   
+#	           ChangeSet	1.1673  -> 1.1674 
+#	drivers/atm/nicstar.c	1.21    -> 1.22   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 04/03/24	chas@relax.cmf.nrl.navy.mil	1.1675
-# [ATM]: [lec] lec_push() races with vcc->proto_data
+# 04/03/24	chas@relax.cmf.nrl.navy.mil	1.1674
+# [ATM]: [nicstar] use kernel min/max (by "Randy.Dunlap" <rddunlap@osdl.org>)
 # --------------------------------------------
 #
-diff -Nru a/net/atm/lec.c b/net/atm/lec.c
---- a/net/atm/lec.c	Wed Mar 24 15:17:37 2004
-+++ b/net/atm/lec.c	Wed Mar 24 15:17:37 2004
-@@ -797,8 +797,8 @@
- 	vcc->pop = lec_pop;
-         lec_vcc_added(dev_lec[ioc_data.dev_num]->priv, 
-                       &ioc_data, vcc, vcc->push);
--        vcc->push = lec_push;
-         vcc->proto_data = dev_lec[ioc_data.dev_num];
-+        vcc->push = lec_push;
-         return 0;
- }
+diff -Nru a/drivers/atm/nicstar.c b/drivers/atm/nicstar.c
+--- a/drivers/atm/nicstar.c	Wed Mar 24 15:17:23 2004
++++ b/drivers/atm/nicstar.c	Wed Mar 24 15:17:23 2004
+@@ -112,9 +112,6 @@
  
+ /* Macros *********************************************************************/
+ 
+-#define MAX(a,b) ((a) > (b) ? (a) : (b))
+-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+-
+ #define CMD_BUSY(card) (readl((card)->membase + STAT) & NS_STAT_CMDBZ)
+ 
+ #define NS_DELAY mdelay(1)
+@@ -2483,7 +2480,7 @@
+             for (j = 1; j < NS_SKB(iovb)->iovcnt; j++)
+             {
+                lb = (struct sk_buff *) iov->iov_base;
+-               tocopy = MIN(remaining, iov->iov_len);
++               tocopy = min_t(int, remaining, iov->iov_len);
+                memcpy(hb->tail, lb->data, tocopy);
+                skb_put(hb, tocopy);
+                iov++;
