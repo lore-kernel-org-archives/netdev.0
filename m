@@ -1,72 +1,55 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: Re: [Bonding-devel] Re: [bonding] compatibilty issues
-Date: Wed, 1 Oct 2003 11:49:04 +0300
+From: "Gallery-a" <1cat_a_lqe@rin.ru>
+Subject: Art-catalogue update (1156729506)@-d-v -SCs
+Date: 01 Oct 2003 13:18:02 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310011149.04612.shmulik.hen@intel.com>
-References: <E791C176A6139242A988ABA8B3D9B38A02A464F2@hasmsx403.iil.intel.com>
-Reply-To: shmulik.hen@intel.com
+Message-ID: <2003.10.01.456D7E0E1D5E1FF1@rin.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, "Chad N. Tindel" <chad@tindel.net>,
-        <fubar@us.ibm.com>, <jgarzik@pobox.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A02A464F2@hasmsx403.iil.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 01 October 2003 10:05 am, David S. Miller wrote:
-> On Tue, 30 Sep 2003 17:36:50 -0400
->
-> "Chad N. Tindel" <chad@tindel.net> wrote:
-> > My recommendations are more towards the middle than either end. 
-> > I would like to see us get rid of the _OLD ioctls in the 2.6
-> > kernel specifically because it uses the SIOCDEVPRIVATE ioctls.
->
->  ...
->
-> > I would like to see them stay in 2.4 for the rest of the 2.4 tree
-> > specifically so that people who want to run on 3 year old systems
-> > can continue to do so without us breaking their world.
->
-> I think this is fine, personally.
->
-> I defer to Jeff for final judgment, he should be allowed to chime
-> in at least once more.
->
+Dear Ladies and Gentlemen,
 
-So here is what I did in the meantime:
-* Created a version for 2.4 that puts back all old compatibility stuff 
-  that was removed either during the propagation set or the cleanup 
-  set.
-* Created a version for 2.6 that puts back just the compatibility 
-  stuff that was removed in the propagation set (BOND_SETHWADDR, since 
-  we got a complaint from a RH9 user).
-* Removed the mention of the multicast param from the read-me.
-* Raised the ABI version to 2 so the new ifenslave keeps propagating 
-  IP settings to slaves for older drivers, and doesn't do that for new 
-  ones that contain Willy Tarreau's panic fix.
+Dear Ladies and Gentlemen,
+We are pleased to inform you, that during the process of our site=20
+modernization, due to every day updating of our link system, we became on=
+e=20
+of the most full world art catalogues, as well as the largest catalogue o=
+f=20
+the art sites and museums.
+                http://www.gallery-a.ru/links
+If you are the owner of a art-website than you have a chance to register=20
+yourself in our catalogue, to add a link and banner to your site via this=
+=20
+registration form: http://www.gallery-a.ru/links/register.php
 
-As for not putting new stuff in 2.4.x kernels, here is where we stand;
-We believe new distributions based on 2.4.x kernels will keep showing 
-for at least a year, probably longer, and that customers would like 
-to see more bonding features in those distributions, so our intention 
-is to keep getting new stuff into 2.4. We understand the drive to put 
-new stuff into 2.6 and backport to 2.4 from time to time, but we'll 
-really need to keep doing stuff the current way for a while.
+Now in the =93Links=94 section you can find more than 5000 links to the a=
+rt-
+sites all round the world.   1074 of them are Russian sites, 20003 are=20
+links to the sites of the former USSR.
+We have plans to enlarge this system up to the size of art-portal in the=20
+nearest future.=20
+If you would like to be informed about the new events in art and art-
+business, to get acquainted with the contemporary creative work of the=20
+contemporary artists, welcome to our web site!
+Gallery curator.
 
-The cleanup stuff came up as a necessity before developing the next 
-set of features, and those are all based on a cleaned-up bonding, so 
-delaying the acceptance of the cleanup into 2.4 also delays our 
-features acceptance.
+Also available on our site
+E-Cards:http://www.gallery-a.ru/ecards/compose.php
+Wallpapers: http://www.gallery-a.ru/luxury.php
 
-I'm waiting for the final word from everyone. I'll need to test the 
-two new versions, but then I can release them accordingly.
+Welcome to our website!
+Gallery curator.
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+
+Sorry if that information not interesting for You and we disturb You with=
+=20
+our message!
+For removing yor address from this mailing list just replay this message=20
+with word 'unsubscribe' in subject field
+or simple click this link:
+ http://www.gallery-a.ru/unsubscribe.php?e=3DbmV0ZGV2QG9zcy5zZ2kuY29tOjE2=
+OTg0NjYw
