@@ -1,141 +1,123 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [patch 1/3] fix buggy IEEE80211_CRYPT_* selects
-Date: Sat, 5 Mar 2005 00:07:18 +0100
-Message-ID: <20050304230718.GL3327@stusta.de>
-References: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net> <42289BDF.1080409@pobox.com> <20050304221014.GJ3327@stusta.de> <4228DF62.4000205@pobox.com>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] atm/lanai: fix section references
+Date: Fri, 4 Mar 2005 15:19:37 -0800
+Message-ID: <20050304151937.68eb11c0.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, akpm@osdl.org,
-        davem@davemloft.net, netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4228DF62.4000205@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@oss.sgi.com>, akpm <akpm@osdl.org>
+To: chas@cmf.nrl.navy.mil
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 04, 2005 at 05:21:22PM -0500, Jeff Garzik wrote:
-> Adrian Bunk wrote:
-> >On Fri, Mar 04, 2005 at 12:33:19PM -0500, Jeff Garzik wrote:
-> >
-> >>akpm@osdl.org wrote:
-> >>
-> >>>From: Adrian Bunk <bunk@stusta.de>
-> >>>
-> >>>Some of the options that needlessly wrote in their help text which 
-> >>>options
-> >>>they do select (patch already sent) didn't obey the most important rule 
-> >>>of
-> >>>select
-> >>>
-> >>>If you select something, you have to ensure that the dependencies
-> >>>of what you do select are fulfilled.
-> >>
-> >>>diff -puN net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects 
-> >>>net/ieee80211/Kconfig
-> >>>--- 25/net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects 
-> >>>2005-02-28 14:49:54.000000000 -0800
-> >>>+++ 25-akpm/net/ieee80211/Kconfig	2005-02-28 14:49:54.000000000 -0800
-> >>>@@ -44,6 +44,7 @@ config IEEE80211_CRYPT_WEP
-> >>>config IEEE80211_CRYPT_CCMP
-> >>>	tristate "IEEE 802.11i CCMP support"
-> >>>	depends on IEEE80211
-> >>>+	select CRYPTO
-> >>>	select CRYPTO_AES
-> >>>	---help---
-> >>>	Include software based cipher suites in support of IEEE 802.11i 
-> >>>@@ -56,6 +57,7 @@ config IEEE80211_CRYPT_CCMP
-> >>>config IEEE80211_CRYPT_TKIP
-> >>>	tristate "IEEE 802.11i TKIP encryption"
-> >>>	depends on IEEE80211
-> >>>+	select CRYPTO
-> >>>	select CRYPTO_MICHAEL_MIC
-> >>>	---help---
-> >>
-> >>
-> >>You are resending the old patch that is incorrect.  We don't need 
-> >>multiple selects, CRYPTO_AES and CRYPTO_MICHAEL_MIC should pull things in.
-> >
-> >
-> >As I already said, this implies that options like CRYPTO_AES and 
-> >CRYPTO_MICHAEL_MIC can no longer depend on CRYPTO.
-> 
-> No.  Because CRYPTO_AES and CRYPTO_MICHAEL_MIC __obviously__ depend on 
-> CRYPTO, it should select CRYPTO automatically given the existing entries.
-> 
-> Otherwise, we must start specifying dependency chains in every damn 
-> Kconfig entry, which is completely illogical and a maintenance nightmare.
 
-The way kconfig currently works, you have to ensure that the 
-dependencies of what you select are fulfilled.
+atm/lanai: fix text section references to __init text;
+  they should be __devinit instead of __init;
 
-And handling dependencies as select chains creates some subtle problems:
+Error: ./drivers/atm/lanai.o .text refers to 0000000000002105 R_X86_64_PC32     .init.text+0x0000000000000021
+Error: ./drivers/atm/lanai.o .text refers to 0000000000002116 R_X86_64_PC32     .init.text+0x0000000000000021
+Error: ./drivers/atm/lanai.o .text refers to 0000000000002132 R_X86_64_PC32     .init.text+0x0000000000000021
 
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 
-Consider the following example:
+diffstat:=
+ drivers/atm/lanai.c |   20 ++++++++++----------
+ 1 files changed, 10 insertions(+), 10 deletions(-)
 
-config A
-	tristate "foo"
-	depends on !B && (C || D)
-
-config E
-	tristate "bar"
-	select B
-
-config F
-	tristate "42"
-	select A
-
-With:
-A=n
-B=y
-C=n
-D=n
-E=y
-
-
-What values of the variables A-E do you expect exactly if the user turns 
-on F?
-
-
-Or even better, the code in question as a example due to the current 
-confusing CRYPTO_AES dependencies (discussed in another thread and will 
-be solved):
-
-config IEEE80211_CRYPT_CCMP
-        tristate "IEEE 802.11i CCMP support"
-        depends on IEEE80211
-        select CRYPTO_AES
-
-config CRYPTO_AES
-        tristate "AES cipher algorithms"
-        depends on CRYPTO && !(X86 && !X86_64)
-
-On i386, should your "select CRYPTO_AES" set X86=n or X86_64=y ?
-
-This would create even nastier bugs if it was hidden somewhere in a 
-dependency chain.
-
-
-Some people say that you mustn't select an user-visible option - this 
-way you avoid any such problems.
-
-This would mean you weren't allowed to select CRYPTO or CRYPTO_AES or 
-CRYPTO_MICHAEL_MIC.
-
-I'm less dogmatic regarding this because I care more about the usability 
-of the kernel config system than about such rules, but what you want is 
-simply not possible in a reasonable way.
+diff -Naurp ./drivers/atm/lanai.c~atm_lanai_sections ./drivers/atm/lanai.c
+--- ./drivers/atm/lanai.c~atm_lanai_sections	2005-03-01 23:37:50.000000000 -0800
++++ ./drivers/atm/lanai.c	2005-03-04 13:44:45.000000000 -0800
+@@ -566,7 +566,7 @@ static int __init sram_test_word(
+ 	return -EIO;
+ }
+ 
+-static int __init sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
++static int __devinit sram_test_pass(const struct lanai_dev *lanai, u32 pattern)
+ {
+ 	int offset, result = 0;
+ 	for (offset = 0; offset < SRAM_BYTES && result == 0; offset += 4)
+@@ -574,7 +574,7 @@ static int __init sram_test_pass(const s
+ 	return result;
+ }
+ 
+-static int __init sram_test_and_clear(const struct lanai_dev *lanai)
++static int __devinit sram_test_and_clear(const struct lanai_dev *lanai)
+ {
+ #ifdef FULL_MEMORY_TEST
+ 	int result;
+@@ -860,7 +860,7 @@ static inline void aal0_buffer_free(stru
+ #ifndef READ_EEPROM
+ 
+ /* Stub functions to use if EEPROM reading is disabled */
+-static int __init eeprom_read(struct lanai_dev *lanai)
++static int __devinit eeprom_read(struct lanai_dev *lanai)
+ {
+ 	printk(KERN_INFO DEV_LABEL "(itf %d): *NOT* reading EEPROM\n",
+ 	    lanai->number);
+@@ -868,7 +868,7 @@ static int __init eeprom_read(struct lan
+ 	return 0;
+ }
+ 
+-static int __init eeprom_validate(struct lanai_dev *lanai)
++static int __devinit eeprom_validate(struct lanai_dev *lanai)
+ {
+ 	lanai->serialno = 0;
+ 	lanai->magicno = EEPROM_MAGIC_VALUE;
+@@ -877,7 +877,7 @@ static int __init eeprom_validate(struct
+ 
+ #else /* READ_EEPROM */
+ 
+-static int __init eeprom_read(struct lanai_dev *lanai)
++static int __devinit eeprom_read(struct lanai_dev *lanai)
+ {
+ 	int i, address;
+ 	u8 data;
+@@ -953,7 +953,7 @@ static inline u32 eeprom_be4(const struc
+ }
+ 
+ /* Checksum/validate EEPROM contents */
+-static int __init eeprom_validate(struct lanai_dev *lanai)
++static int __devinit eeprom_validate(struct lanai_dev *lanai)
+ {
+ 	int i, s;
+ 	u32 v;
+@@ -1449,7 +1449,7 @@ static void vcc_rx_aal0(struct lanai_dev
+ #include <linux/vmalloc.h>
+ #endif
+ 
+-static int __init vcc_table_allocate(struct lanai_dev *lanai)
++static int __devinit vcc_table_allocate(struct lanai_dev *lanai)
+ {
+ #ifdef VCCTABLE_GETFREEPAGE
+ 	APRINTK((lanai->num_vci) * sizeof(struct lanai_vcc *) <= PAGE_SIZE,
+@@ -1596,7 +1596,7 @@ static void lanai_reset(struct lanai_dev
+ /*
+  * Allocate service buffer and tell card about it
+  */
+-static int __init service_buffer_allocate(struct lanai_dev *lanai)
++static int __devinit service_buffer_allocate(struct lanai_dev *lanai)
+ {
+ 	lanai_buf_allocate(&lanai->service, SERVICE_ENTRIES * 4, 8,
+ 	    lanai->pci);
+@@ -1952,7 +1952,7 @@ static int check_board_id_and_rev(const 
+ 
+ /* -------------------- PCI INITIALIZATION/SHUTDOWN: */
+ 
+-static int __init lanai_pci_start(struct lanai_dev *lanai)
++static int __devinit lanai_pci_start(struct lanai_dev *lanai)
+ {
+ 	struct pci_dev *pci = lanai->pci;
+ 	int result;
+@@ -2148,7 +2148,7 @@ static inline void lanai_cbr_shutdown(st
+ /* -------------------- OPERATIONS: */
+ 
+ /* setup a newly detected device */
+-static int __init lanai_dev_open(struct atm_dev *atmdev)
++static int __devinit lanai_dev_open(struct atm_dev *atmdev)
+ {
+ 	struct lanai_dev *lanai = (struct lanai_dev *) atmdev->dev_data;
+ 	unsigned long raw_base;
 
 
-> 	Jeff
-
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+---
