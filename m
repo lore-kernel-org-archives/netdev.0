@@ -1,30 +1,16 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: wireless 2.6 work
-Date: Thu, 24 Mar 2005 23:11:28 -0500
-Message-ID: <42438F70.9000505@pobox.com>
-References: <20050310025036.GE17854@ruslug.rutgers.edu> <4240D158.1060302@pobox.com> <200503240007.11954.vkondra@mail.ru>
+Subject: Re: [PATCH: 2.6.12-rc1] mii: Add test for GigE support
+Date: Thu, 24 Mar 2005 23:42:30 -0500
+Message-ID: <424396B6.5040907@pobox.com>
+References: <20050322231746.GA27770@xyzzy> <4240A9F3.5040704@pobox.com> <212e5bf54766a68d2ab8716574225203@freescale.com> <4240CABB.5090701@pobox.com> <20050323061446.GA6943@xyzzy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-        Netdev <netdev@oss.sgi.com>, Dan Williams <dcbw@redhat.com>,
-        Linux Kernel <linux-kernel@vger.kernel.org>,
-        James Ketrenos <jketreno@linux.intel.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200503240007.11954.vkondra@mail.ru>
+Cc: Netdev <netdev@oss.sgi.com>
+To: Dale Farnsworth <dale@farnsworth.org>
+In-Reply-To: <20050323061446.GA6943@xyzzy>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Vladimir Kondratiev wrote:
-> I did posted once; it was long time ago. I am sure I sent it to Dave. I can 
-> resend if needed. Basically, I made Dave's stack work on 2.6 kernels; did 
-> some changes toward QoS and provided simple utility to imitate low level 
-> driver. I was concentrated on interfaces, it is still just skeleton.
-
-If you could send your latest code to netdev@oss.sgi.com (once more?), 
-that would be great.
-
-Regards,
-
-	Jeff
+applied, thanks
