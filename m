@@ -1,40 +1,71 @@
-From: drjim_ovia@o2.pl
-Subject: =?iso-8859-2?Q?CAN_WE_DO_IT=3F_VERY_URGENT!!?=
-Date: Fri, 18 Jun 2004 16:44:49 +0200
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC] Wireless extensions rethink
+Date: Thu, 17 Jun 2004 15:34:22 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618144448.C0F3DD0B12@rekin6.o2.pl>
-Content-Type: text/plain; charset="iso-8859-2";
-Content-Transfer-Encoding: 8bit
+Message-ID: <40D1F23E.9090307@pobox.com>
+References: <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com> <20040617174717.GA30460@bougret.hpl.hp.com> <40D1E185.2010201@pobox.com> <40D1E24C.8090802@pobox.com> <20040617185815.GB32216@bougret.hpl.hp.com> <40D1EAD9.6090403@pobox.com> <20040617191338.GD32216@bougret.hpl.hp.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Gertjan van Wingerde <gwingerde@home.nl>,
+        sfeldma@pobox.com, jkmaline@cc.hut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: drjim_ovia@o2.pl
+To: jt@hpl.hp.com
+In-Reply-To: <20040617191338.GD32216@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-FROM THE DESK OF DR. JIM OVIA.
-THE BRANCH MANAGER,OF THE 
-{BANK OF AFRICA} .
-ABIDJAN-COTE D?IVOIRE BRANCH,
-P.O BOX 3467 NEW ABIDJAN ROAD.
-MY PRIVATE CONTACT E-MAIL:drjim_ovia1@surimail.com
-ATTN:
-PRIVATE BUSINESS PROPOSAL,                      [NEXT OF KIN.]
-Dear Friend ,
-Compliment of the day and how is life general with you? Of course it is my humble wish to solicit and cave your indulgence to make this project request for a joint business transaction which I hope will not come to you as a surprise, hence I plead for your pardon.
+Jean Tourrilhes wrote:
+> On Thu, Jun 17, 2004 at 03:02:49PM -0400, Jeff Garzik wrote:
+> 
+>>Jean Tourrilhes wrote:
+>>
+>>>On Thu, Jun 17, 2004 at 02:26:20PM -0400, Jeff Garzik wrote:
+>>>
+>>>
+>>>>Note that the above is only a first step.  Through the standard Linux 
+>>>>development process -- evolution -- each hook can be pared down to 
+>>>>precisely what each call needs.  The above allows for a quick transition 
+>>>>of drivers, while keeping them working.
+>>>>
+>>>>	Jeff
+>>>
+>>>
+>>>	Have you looked at the patch I sent you ? In which way does it
+>>>fails to meet your need ?
+>>
+>>
+>>The three major problems I listed in a previous email are still 
+>>present...
+> 
+> 
+> 	Are we talking of the same patch ? I'm talking of this patch :
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=108749580004668&w=2
+> 	I reattached the patch below. It's short enough.
 
-I am Dr.JIM OVIA,The Branch Manager of the {Bank Of AFrica} in Abidjan Cote-Doivira Branch. I have an urgent and very Confidential business proposition for you. On December, 2000 a foreign Oil consultant/contractor with the Cote-Doivira National Petroleum Corporation, Dr. mike Kelvin made a numbered time (Fixed) Deposit for twelve calendar months, valued at US$16,500,000.00 (sixteen Million Five Hundred Thousand United State Dollars) in my branch. Upon maturity, I sent a routine notification to his forwarding address but got no reply.
+Your patch is half the job -- it allows development of a type-specific 
+interface...  but it does nothing to address the problems with the 
+underlying type-opaque interface.
 
-After a month, we sent a reminder and finally we discovered from his Contract employers, the Cote-Doivira National Petroleum Corporation that Dr Mike Kelvin died from an automobile accident. On further Investigation, I found out that he died without making a WILL and all attempts to trace his next of kin was fruitless. I therefore made further investigation and discovered that Dr Mike Kelvin did not declare any kin or relations in all his official documents, including his Bank Deposit paperwork in my Bank.
+The creation of the type-specific interface replaces the type-opaque 
+interface, not layers on top of it.
 
-This sum of US$16,500,000.00 is still sitting in my Bank and theinterest is being rolled over with the principal sum at the end of each year. No one has ever come forward to claim it. According to Cote-Doivira Law, at the expiration of 5(five)years,the money will revert to the ownership of the Cote-Doivira Government if nobody applies to claim the fund. Consequently, my proposal is that I Will like you to stand in as the next of kin to Dr mike Kelvin so that the fruits of this old man labour will not get into the hands of some corrupt government officials.
+So while this patch may be useful in early development, it does not 
+allow the direct exposure of core wireless code to the type-specific 
+interfaces, and as such, it can paper over problems that would be 
+immediately obviously if the type-specific interface were the only one 
+to exist.
 
-This is simple, I will like you to provide immediately your full names and address so thatthe Attorney will prepare the necessary documents and affidavits which will put you in place as the next of kin. We shall employ the services of two Attorney for drafting and notarization of the WILL and to obtain the necessary documents and letter of probate/administration in your favour for the transfer.
 
-A bank account in any part of the world which you will provide will then facilitate the transfer of this money to you as the beneficiary/next of kin. The money will be paid into your account for us to share in the ratio Of 65% for me and 30% for you and 5% be used in settling taxation and all local and foreign expenses. There is no risk at all as all the paperwork for this
-transaction will be done by the Attorney and my position as the Branch Manager guarantees the successful execution of this transaction.
+>> Also there is a fourth -- WE doesn't work 100% when you have 
+>>a 32-bit userland and a 64-bit kernel.
+> 
+> 
+> 	Since when ? What made you change your mind ?
+> 	Please check :
+> http://marc.theaimsgroup.com/?l=linux-netdev&m=107894322418086&w=2
 
-Upon your response, I shall then provide you with more details and relevant documentsthat will help you understand the transaction. Please observe utmost confidentiality,and be rest assured that thistransaction would be most profitable for both of us because I shall require your assistance to invest my share in your country.
+The general API, yes.  But most driver-private interfaces will fail 
+miserably through 32/64-bit translation.
 
-Best regards,
-
-DR. JIM OVIA.
-MY PRIVATE CONTACT E-MAIL:drjim_ovia1@surimail.com
+	Jeff
