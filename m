@@ -1,51 +1,109 @@
-From: Pedro Fortuna <pedro.fortuna@gmail.com>
-Subject: Re: filtering packtes before OS takes care about them
-Date: Sat, 5 Mar 2005 14:08:56 +0000
-Message-ID: <db95d40c0503050608e1e98d9@mail.gmail.com>
-References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
-	 <7bca1cb50502281209798e8a00@mail.gmail.com>
-Reply-To: Pedro Fortuna <pedro.fortuna@gmail.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority in case forwarded frame has VLAN-header]
+Date: Sat, 5 Mar 2005 15:12:25 +0100
+Message-ID: <20050305141225.GA5180@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Asim Shankar <asimshankar@gmail.com>
-In-Reply-To: <7bca1cb50502281209798e8a00@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Asim,
-I wasnt able to compile your packet_type_test.c :( I even tried your
-scripts (i.e. make-native.sh and make-uml.sh), which seem to me that
-proceeded to compile the example against the kernel source (which I
-have installed and in place), but all I got was a huge list of errors
-and warnings, and no .o compiled in the end.
+----- Forwarded message from Leo Yuriev <leo@yuriev.ru> -----
 
-./make-native.sh modules
-./make-uml.sh modules
+From: Leo Yuriev <leo@yuriev.ru>
+To: Lennert Buytenhek <buytenh@gnu.org>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: linux-kernel@vger.kernel.org
+Subject: [PATCH] ethernet-bridge: update skb->priority in case forwarded frame has VLAN-header
 
-I used ubuntu 4.10 with kernel 2.6.8.1-3 and kernel source 2.6.8.1.
+Kernel 2.6 (2.6.11)
 
-Any clues?
-Thanks. 
--Pedro Fortuna
+When ethernet-bridge forward a packet and such ethernet-frame has
+VLAN-tag, bridge should update skb->prioriry for properly QoS
+handling.
 
-On Mon, 28 Feb 2005 14:09:56 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
-> > i need a possibility to catch IP4 packets (from ethernet devices) before OS' netmodules (IP, UDP, TCP, ICMP, ARP, ROUTE, NETFILTER ...) takes care about them and
-> > * to delete them from input buffer such that OS' netmodules can't receive them
-> > * to modify packet headers and move packets to interface related output buffers
-> > * to keep them in input buffers such that OS' netmodules can take care about them.
-> 
-> You can process packets even before ip_rcv() gets them by registering
-> your own packet handler (struct packet_type) using dev_add_pack().  I
-> have a small sample at:
-> http://limnos.csrd.uiuc.edu/notes/code-samples/samples/kernel/packet_type/packet_type_test.c
-> This may not be the cleanest way, but it isn't that dirty either.
-> 
-> Also see:
-> http://www.phrack.org/show.php?p=55&a=12
-> 
-> -- Asim
-> 
->
+This small patch does this. Currently vlan_TCI-priority directly
+mapped to skb->priority, but this looks enough.
+
+Patch-by: Leo Yuriev <leo@yuriev.ru>
+
+
+-- net/bridge/br_input.c.orig   2005-03-02 10:37:50.000000000 +0300
++++ net/bridge/br_input.c       2005-03-05 16:11:00.000000000 +0300
+@@ -5,6 +5,10 @@
+  *     Authors:
+  *     Lennert Buytenhek               <buytenh@gnu.org>
+  *
++ *     Changes:
++ *             03/Mar/2005: Leo Yuriev <leo@yuriev.ru>
++ *             Update skb->priority for packets with VLAN-tag.
++ *
+  *     $Id: br_input.c,v 1.10 2001/12/24 04:50:20 davem Exp $
+  *
+  *     This program is free software; you can redistribute it and/or
+@@ -17,6 +21,9 @@
+ #include <linux/netdevice.h>
+ #include <linux/etherdevice.h>
+ #include <linux/netfilter_bridge.h>
++#ifdef CONFIG_NET_SCHED
++#      include <linux/if_vlan.h>
++#endif /* CONFIG_NET_SCHED*/
+ #include "br_private.h"
+ 
+ const unsigned char bridge_ula[6] = { 0x01, 0x80, 0xc2, 0x00, 0x00, 0x00 };
+@@ -45,6 +52,40 @@ static void br_pass_frame_up(struct net_
+                        br_pass_frame_up_finish);
+ }
+ 
++
++#ifdef CONFIG_NET_SCHED
++/*
++ *   Leo Yuriev: Just update skb->priority for properly QoS handling in case
++ *               frame in the skb is contain VLAN-header.
++ *
++ *  SANITY NOTE: We are referencing to the VLAN_HDR frields, which MAY be
++ *               stored UNALIGNED in the memory.
++ *               According to Dave Miller & Alexey, it will always be aligned,
++ *               so there doesn't need to be any of the unaligned stuff.
++ *
++ */
++static __inline__ void br_update_skb_priority_if_vlan(struct sk_buff *skb)
++{
++       unsigned short vlan_TCI;
++       struct vlan_hdr *vhdr;
++
++       if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
++               vhdr = (struct vlan_hdr *)(skb->data);
++               /* vlan_TCI = ntohs(get_unaligned(&vhdr->h_vlan_TCI)); */
++               vlan_TCI = ntohs(vhdr->h_vlan_TCI);
++#ifdef VLAN_DEBUG
++               printk(VLAN_DBG "%s: skb: %p vlan_id: %hx\n",
++                       __FUNCTION__, skb, (vlan_TCI & VLAN_VID_MASK));
++#endif
++               /*
++                *   We map VLAN_TCI priority (0..7) to skb->priority (0..15) 
++                *   most similarly e.g. 0->0, 1->1, .., 7->7
++                */
++               skb->priority = (vlan_TCI >> 13) & 7;
++       }
++}
++#endif /* CONFIG_NET_SCHED */
++
+ /* note: already called with rcu_read_lock (preempt_disabled) */
+ int br_handle_frame_finish(struct sk_buff *skb)
+ {
+@@ -54,6 +95,10 @@ int br_handle_frame_finish(struct sk_buf
+        struct net_bridge_fdb_entry *dst;
+        int passedup = 0;
+ 
++#ifdef CONFIG_NET_SCHED
++       br_update_skb_priority_if_vlan(skb);
++#endif /* CONFIG_NET_SCHED*/
++
+        if (br->dev->flags & IFF_PROMISC) {
+                struct sk_buff *skb2;
+
+
+----- End forwarded message -----
