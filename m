@@ -1,38 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Subject: Re: [PATCH 2.6] Wireless Extension v17 for Linus
-Date: Wed, 11 Aug 2004 14:14:36 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411A620C.30504@pobox.com>
-References: <20040811181030.GA23701@bougret.hpl.hp.com>
+Date: Wed, 11 Aug 2004 11:24:37 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040811182437.GA24286@bougret.hpl.hp.com>
+References: <20040811181030.GA23701@bougret.hpl.hp.com> <411A620C.30504@pobox.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20040811181030.GA23701@bougret.hpl.hp.com>
-Errors-to: netdev-bounce@oss.sgi.com
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268157AbUHKSYk@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <411A620C.30504@pobox.com>
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes wrote:
-> 	Hi Jeff,
+On Wed, Aug 11, 2004 at 02:14:36PM -0400, Jeff Garzik wrote:
+> Jean Tourrilhes wrote:
+> >	By the way, I would not mind a ack that you have properly
+> >received this patch (and the driver patch) and that they are queued
+> >for Linus...
 > 
-> 	New improved version of my previous patch :
-> http://marc.theaimsgroup.com/?l=linux-netdev&m=109158012711737&w=2
 > 
-> 	When you think it's over, you always end up receiving new
-> feedback. This version only fixes a few comments and remove some
-> useless and potentially confusing consts. No code change to previous
-> version.
-> 	By the way, I would not mind a ack that you have properly
-> received this patch (and the driver patch) and that they are queued
-> for Linus...
+> It looks OK, but I am going to wait to commit it until after 2.6.8 is 
+> released.
 
+	Perfect. That was the original plan (check my previous e-mail).
+	Thanks !
 
-It looks OK, but I am going to wait to commit it until after 2.6.8 is 
-released.  I need that time to recover from a hard drive disaster, which 
-lost some useful details in the netdev-2.6 queue (but the queue itself 
-is still fine, being mirrored in several locations).
+>  I need that time to recover from a hard drive disaster, which 
+> lost some useful details in the netdev-2.6 queue (but the queue itself 
+> is still fine, being mirrored in several locations).
 
-	Jeff
+	I did not had one for some time, cross fingers. Good luck...
+
+> 	Jeff
+
+	Jean
