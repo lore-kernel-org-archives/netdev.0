@@ -1,100 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Fix ipv6_ifa_notify race (was: IPv6 "badness" in recent releases)
-Date: Fri, 19 Nov 2004 20:49:24 +1100
-Message-ID: <20041119094924.GA3726@gondor.apana.org.au>
-References: <4197AC20.6020707@pobox.com> <E1CTR5h-0006ac-00@gondolin.me.apana.org.au>
+From: Daniele Venzano <webvenza@libero.it>
+Subject: Re: sis900 oops on resume
+Date: Fri, 19 Nov 2004 11:01:46 +0100
+Message-ID: <20041119100146.GA26017@picchio.gall.it>
+References: <20041117182403.GC2252@stro.at> <20041117201008.GA11439@elf.ucw.cz> <20041118021425.GA2128@stro.at> <20041118084431.GA13870@gateway.milesteg.arr> <20041118094602.GB2287@stro.at>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="azLHFNyN32YCQGCU"
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, acme@conectiva.com.br,
-        Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: NetDev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: maximilian attems <janitor@sternwelten.at>
 Content-Disposition: inline
-In-Reply-To: <E1CTR5h-0006ac-00@gondolin.me.apana.org.au>
+In-Reply-To: <20041118094602.GB2287@stro.at>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---azLHFNyN32YCQGCU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Mon, Nov 15, 2004 at 07:35:17AM +1100, Herbert Xu wrote:
+On Thu, Nov 18, 2004 at 10:46:02AM +0100, maximilian attems wrote:
+> On Thu, 18 Nov 2004, Daniele Venzano wrote:
+> > I'm aware of this problem, sis900 looses the first interrupt after
+> > resume, I have to check the code.
+> > On my tests the card, after that lost interrupt, worked normally. Is
+> > that your case, or do you have a non working sis900 after resume ?
 > 
-> Could you please apply this patch and see if the warning triggers
-> before the underflows start coming in? We already know that if it
-> does then it can cause underflows but I want to make sure that
-> this is what's causing your problems.
+> well it works, as long as i do not use guessnet(8),
+> as described in the bug report, but the lost interrupt is reported
+> on every resume. 
 
-Well I think it's time to fix this bug so that we don't release
-2.6.10 with it.
+Unfortunately I'm no longer able to reproduce this problem. I just tried
+to suspend/resume with a running ping -f and I can't see any lost or
+abnormal interrupts.
 
-This is only a temporary hack that should be rolled back once
-the locking in addrconf.c is fixed properly.  At the moment
-the locking is just too twisted to fix properly for 2.6.10 :(
+There is a noticeable delay after resume and before the NIC is on line
+and able to handle traffic, but that is caused by the link
+detection/autonegotiation and I can do little to speed things up.
 
-This patch doesn't even fix all the races in ipv6_ifa_notify.
-For example, the anycast/multicast addresses may be left
-standing should the race strike.  However, they should have
-a much milder effect compared to a dead route in the routing
-table :)
+Have you tried delaying the guessnet invocation ?
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-May I ask this question again: Is it possible to move some of
-this complexity to user-space?
-
-addrconf.c is by far the biggest file in net/ipv6.  This is
-also not the first time we've had a serious bug in this file.
-I recall fixing another timer-related bug in this file a year
-ago that left dangling references on devices.
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---azLHFNyN32YCQGCU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv6/addrconf.c 1.120 vs edited =====
---- 1.120/net/ipv6/addrconf.c	2004-11-16 09:08:09 +11:00
-+++ edited/net/ipv6/addrconf.c	2004-11-19 20:43:45 +11:00
-@@ -2987,8 +2987,13 @@
- 	switch (event) {
- 	case RTM_NEWADDR:
- 		dst_hold(&ifp->rt->u.dst);
--		if (ip6_ins_rt(ifp->rt, NULL, NULL))
-+		spin_lock_bh(&ifp->lock);
-+
-+		if (ifp->dead || ip6_ins_rt(ifp->rt, NULL, NULL))
- 			dst_release(&ifp->rt->u.dst);
-+
-+		spin_unlock_bh(&ifp->lock);
-+
- 		if (ifp->idev->cnf.forwarding)
- 			addrconf_join_anycast(ifp);
- 		break;
-@@ -2996,11 +3001,16 @@
- 		if (ifp->idev->cnf.forwarding)
- 			addrconf_leave_anycast(ifp);
- 		addrconf_leave_solict(ifp->idev, &ifp->addr);
-+
- 		dst_hold(&ifp->rt->u.dst);
-+		spin_lock_bh(&ifp->lock);
-+
- 		if (ip6_del_rt(ifp->rt, NULL, NULL))
- 			dst_free(&ifp->rt->u.dst);
- 		else
- 			dst_release(&ifp->rt->u.dst);
-+
-+		spin_unlock_bh(&ifp->lock);
- 		break;
- 	}
- }
-
---azLHFNyN32YCQGCU--
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
