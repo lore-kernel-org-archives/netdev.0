@@ -1,85 +1,46 @@
-From: Wichert Akkerman <wichert@wiggy.net>
-Subject: Re: ing_filter debug messages
-Date: Fri, 31 Dec 2004 10:38:27 +0100
-Message-ID: <20041231093827.GG24603@wiggy.net>
-References: <20041230160643.GD24603@wiggy.net> <1104469666.1049.231.camel@jzny.localdomain>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2/9] PKT_SCHED: tc filter extension API
+Date: Fri, 31 Dec 2004 10:52:54 +0100
+Message-ID: <41D52176.80703@trash.net>
+References: <20041230122652.GM32419@postel.suug.ch>	 <20041230123023.GO32419@postel.suug.ch>  <41D4A4D2.4000109@trash.net> <1104469362.1049.224.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, tgraf@suug.ch
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1104469666.1049.231.camel@jzny.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1104469362.1049.224.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Previously jamal wrote:
-> The emssage is useful but debug (mostly). 
-> Whats your ifconfig look like? Have some tunnels in there maybe?
+jamal wrote:
+> On Thu, 2004-12-30 at 20:01, Patrick McHardy wrote:
+> 
+>>This isn't right (its also wrong in the current code). If the
+>>CPU reorders stores and another CPU looks at dst->action at
+>>the wrong time it might see an inconsistent structure. 
+> 
+> 
+> I think an xchg around the else should fix this.
 
-three ethernet interfaces and a ipv6/ip tunnel. Here is the ifconfig
-output:
+Yes.
 
-eth0      Link encap:Ethernet  HWaddr 00:50:04:0B:DD:79
-          inet addr:192.168.10.1  Bcast:192.168.10.255  Mask:255.255.255.0
-          inet6 addr: fe80::250:4ff:fe0b:dd79/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:673540 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:668357 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:229549898 (218.9 MiB)  TX bytes:465650601 (444.0 MiB)
-          Interrupt:11 Base address:0xec00
+>>I also wonder if anyone
+>>actually knows why we need the xchg (here and in all the other
+>>places), it looks totally useless.
+> 
+> All these were put in by Alexey and the LinuxWay(tm) took effect.
+> an xchg puts almost a lock and ensures an atomic swap. I dont see any
+> harm in leaving it as is - just needs fixing the else
 
-eth1      Link encap:Ethernet  HWaddr 00:90:27:BE:60:55
-          inet addr:194.109.254.66  Bcast:255.255.255.255  Mask:255.255.255.0
-          inet6 addr: fe80::290:27ff:febe:6055/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:1276385 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:1172898 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:1128 txqueuelen:1000
-          RX bytes:1332651102 (1.2 GiB)  TX bytes:293617934 (280.0 MiB)
+No real harm, but it still should be removed IMO, or used _instead_
+of tcf_tree_lock in this place. I've asked myself multiple times what
+it is meant for and I've seen others do the same, this alone justifies
+removing it. Another reason is what you call LinuxWay(tm), strange
+things spread on their own and at some time you have to touch lots of
+files to get rid them. So its best to do it as early as possible.
 
-eth2      Link encap:Ethernet  HWaddr 00:90:27:BE:4B:EC
-          inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
-          inet6 addr: 2001:888:101d::1/64 Scope:Global
-          inet6 addr: fe80::290:27ff:febe:4bec/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:713928 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:752929 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:111560554 (106.3 MiB)  TX bytes:860040830 (820.1 MiB)
-
-lo        Link encap:Local Loopback
-          inet addr:127.0.0.1  Mask:255.0.0.0
-          inet6 addr: ::1/128 Scope:Host
-          UP LOOPBACK RUNNING  MTU:16436  Metric:1
-          RX packets:33261 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:33261 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:3401641 (3.2 MiB)  TX bytes:3401641 (3.2 MiB)
-
-xs4all    Link encap:IPv6-in-IPv4
-          inet6 addr: 2001:888:10:1d::2/64 Scope:Global
-          inet6 addr: fe80::c26d:fe42/64 Scope:Link
-          inet6 addr: fe80::c0a8:a01/64 Scope:Link
-          inet6 addr: fe80::c0a8:102/64 Scope:Link
-          inet6 addr: fe80::c0a8:101/64 Scope:Link
-          UP POINTOPOINT RUNNING NOARP  MTU:1480  Metric:1
-          RX packets:128 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:116 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:0
-          RX bytes:95545 (93.3 KiB)  TX bytes:19613 (19.1 KiB)
-
-there is also a secondary address on eth2 which ifconfig does not show.
-
-> Whats your netfilter setup? 
-
-One chain attached to the FORWARD chain and two to the OUTPUT chain,
-all pretty simple.
-
-Wichert.
-
--- 
-Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
-http://www.wiggy.net/                   It is hard to make things simple.
+Regards
+Patrick
