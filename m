@@ -1,54 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 2938] New: broken udp packets silently dropped
-Date: Wed, 23 Jun 2004 10:22:51 -0700
+From: P@draigBrady.com
+Subject: Re: [E1000-devel] e1000 jumbo problems
+Date: Wed, 23 Jun 2004 18:35:39 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040623102251.11654dc3.akpm@osdl.org>
+Message-ID: <40D9BF6B.4050807@draigBrady.com>
+References: <40D883C2.7010106@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: e1000-devel@lists.sourceforge.net
+In-Reply-To: <40D883C2.7010106@draigBrady.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+P@draigBrady.com wrote:
+> Another related issue, is that the driver uses 4KiB buffers
+> for MTUs in the 1500 -> 2000 range which seems a bit silly.
+> Any particular reason for that?
 
+I changed the driver to use 2KiB buffers for frames in the
+1518 -> 2048 range (BSEX=3D0, LPE=3D1). This breaks however
+as packets are not dropped that are larger than the max specified?
+Instead they're scribbled into memory causing a lockup after a while.
 
-Begin forwarded message:
+I noticed in e1000_change_mtu() that adapter->hw.max_frame_size
+is only set after e1000_down();e1000_up(); Is that correct?
 
-Date: Wed, 23 Jun 2004 03:02:37 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 2938] New: broken udp packets silently dropped
+Are there any anwsers for the general questions I had even?
 
+1. Is there a public dev tree available for the e1000 driver?
+2. Are there programming docs for the various GigE chipsets?
 
-http://bugme.osdl.org/show_bug.cgi?id=2938
-
-           Summary: broken udp packets silently dropped
-    Kernel Version: 2.6.6
-            Status: NEW
-          Severity: normal
-             Owner: niv@us.ibm.com
-         Submitter: martin@rabbta.com
-
-
-Distribution: Debian testing
-Hardware Environment: Intel(R) Xeon(TM) CPU 3.06GHz, Intel Corp. 82546EB Gigabit
-Ethernet Controller (Copper) (rev 01)
-Software Environment: iptables, netstat, tethereal
-Problem Description: 
-Packets arrive to my MAC and my IP (according to output from tethereal as well
-as log output from iptables), but get dropped at "Routing Decision" in
-http://ebtables.sourceforge.net/br_fw_ia/PacketFlow.png (according to log output
-from iptables). 
-No mention of new packet receive errors in "netstat -s". 
-On a 2.4.22-kernel the listening socket gets a "Resource temporarily
-unavailable" and "netstat -s" shows new packet receive errors when the same
-source sends packets.
-
-Steps to reproduce:
-I will try to submit a tethereal-dump as soon as I get the possibility to do
-this again. But probably all you need to do is send packets with wrong checksum
-to a 2.6.6-kernel and watch them get silently dropped.
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+thanks,
+P=C3=A1draig.
