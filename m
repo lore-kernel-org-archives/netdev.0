@@ -1,34 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: PATCH: ethtool power manglement hooks
-Date: Tue, 08 Jun 2004 14:02:43 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40C5FF43.1090805@pobox.com>
-References: <20040607155018.GA5810@devserv.devel.redhat.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] e1000 module parameter incompatiablity
+Date: Tue, 8 Jun 2004 11:04:20 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040608110420.3b93338d@dell_ss3.pdx.osdl.net>
+References: <468F3FDA28AA87429AD807992E22D07E0158A1CD@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, akpm@osdl.org,
-	Netdev <netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265276AbUFHSDa@vger.kernel.org>
-To: Alan Cox <alan@redhat.com>
-In-Reply-To: <20040607155018.GA5810@devserv.devel.redhat.com>
+Cc: "cramerj" <cramerj@intel.com>, "Ronciak, John" <john.ronciak@intel.com>,
+        "Jeff Garzik" <jgarzik@pobox.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+In-Reply-To: <468F3FDA28AA87429AD807992E22D07E0158A1CD@orsmsx408>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> Several ethernet drivers have been broken by the ethtool support because
-> the ioctl code used to power the interface up and down as needed. Rather
+E1000 driver is mixing new style 'module_param' with old style 'MODULE_PARM'
+this generates the runtime warning
+	e1000: Ignoring new-style parameters in presence of obsolete ones
+and prevents using module parameters to set ring size.
+
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 
-To be more specific, the new ethtool_ops feature bypasses code in net 
-drivers which did one of two things:
-* power up the hardware, perform the ioctl, and power down the hardware
-	or
-* fail if netif_running() is false, indicating the driver's requirement 
-that MII and ethtool operations only occur when the interface is up 
-(thereby ignoring the power management issues)
-
-
-Also, CC net driver patches to me and netdev, pretty please with sugar 
-on it.
-
-	Jeff
+diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+--- a/drivers/net/e1000/e1000_main.c	2004-06-08 11:01:58 -07:00
++++ b/drivers/net/e1000/e1000_main.c	2004-06-08 11:01:58 -07:00
+@@ -202,8 +202,8 @@
+ MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
+ MODULE_LICENSE("GPL");
+ 
+-static int debug = 3;
+-module_param(debug, int, 0);
++static int debug = NETIF_MSG_DRV | NETIF_MSG_PROBE;
++MODULE_PARM(debug, "i");
+ MODULE_PARM_DESC(debug, "Debug level (0=none,...,16=all)");
+ 
+ /**
