@@ -1,83 +1,40 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [IPX]: Fix checksum computation.
-Date: Fri, 31 Oct 2003 23:19:26 -0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: Oops in 2.6.0-test[89] in tcp_v4_get_port (kernel with IPv6
+ enabled)
+Date: Sat, 01 Nov 2003 12:15:37 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031101011926.GX3705@conectiva.com.br>
-References: <200310312006.h9VK62Hh005910@hera.kernel.org> <1067635446.11564.92.camel@localhost.localdomain> <20031031213159.GO3705@conectiva.com.br> <20031031163843.6bcf4ca4.shemminger@osdl.org> <20031101011301.GW3705@conectiva.com.br>
+Message-ID: <20031101.121537.105697095.yoshfuji@linux-ipv6.org>
+References: <20031031145542.28e8b820.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Joe Perches <joe@perches.com>, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, akpm@digeo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031101011301.GW3705@conectiva.com.br>
+To: raffaele.brancaleoni@sun.com
+In-Reply-To: <20031031145542.28e8b820.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Fri, Oct 31, 2003 at 11:13:01PM -0200, Arnaldo C. Melo escreveu:
-> Em Fri, Oct 31, 2003 at 04:38:43PM -0800, Stephen Hemminger escreveu:
-> > 
-> > Okay, here is the standard: (Inside Appletalk)
-> > 
-> > > The DDP checksum is provided to detect errors caused by faulty operation (such as memor
-> > > data bus errors) within routers on the internet. Implementers of DDP should treat generati
-> > > the checksum as an optional feature. The 16-bit DDP checksum is computed as follows:
-> > > CkSum := 0 ;
-> > > FOR each datagram byte starting with the byte immediately following th
-> > > Checksum field
-> > > REPEAT the following algorithm:
-> > >           CkSum := CkSum + byte; (unsigned addition)
-> > >           Rotate CkSum left one bit, rotating the most significant bit in
-> > >                               least significant bit;
-> > > IF, at the end, CkSum = 0 THEN
-> > >           CkSum := $FFFF (all ones).
-> > > Reception of a datagram with CkSum equal to 0 implies that a checksum is not performed.
-> > 
-> > 
-> > Here is the old loop:
-> > 
-> > 	while (len--) {
-> > 		sum += *data;
-> > 		sum <<=1;
-> > 		if (sum & 0x10000) {
-> > 			sum++;
-> > 			sum &= 0xffff;
-> > 		}
-> > 		data++;
-> > 	}
-> > 
-> > My buggy loop is:
-> > 
-> > 	while (len--) {
-> > 		sum += *data++;
-> > 		sum <<= 1;
-> > 		sum = ((sum >> 16) + sum) & 0xFFFF;
-> > 	}
-> > 
-> > The problem is the carry from the first addition needs to be dropped
-> > not folded back (like IP).  
-> > 
-> > Corrected fast code is:
-> > 
-> > 	while (len--) {
-> > 		sum += *data++;
-> > 		sum <<= 1;
-> > 		sum = (((sum & 0x10000) >> 16) + sum) & 0xffff;
-> > 	}
-> > 
-> > At least it is correct on the standalone random data test, and the
-> > new code is 30% faster for the cached memory case (13.7 clks/byte vs 18 clks/byte).
-> 
-> Testing...
+In article <20031031145542.28e8b820.akpm@osdl.org> (at Fri, 31 Oct 2003 14:55:42 -0800), Andrew Morton <akpm@osdl.org> says:
 
-[root@lolo apple]# md5sum b/kernel-2.4.21-32898cl.i586.rpm kernel-2.4.21-32898cl.i586.rpm
-79adde6c4dd97fb214d30009e100a835  b/kernel-2.4.21-32898cl.i586.rpm
-79adde6c4dd97fb214d30009e100a835  kernel-2.4.21-32898cl.i586.rpm
-[root@lolo apple]#
+> Date: Fri, 31 Oct 2003 12:30:06 +0100
+> From: Raffaele Brancaleoni <raffaele.brancaleoni@sun.com>
+> To: linux-kernel@vger.kernel.org
+> Subject: Oops in 2.6.0-test[89] in tcp_v4_get_port (kernel with IPv6 enabled)
+:
+> I just encountered a oops with kernels 2.6.0-test8 and -test9 (system
+> freezes the hard way, not even magic-key works). Problem does not exist
+> in 2.4.20.
+:
+> I found a thread about similar issue in the archive
+> (thread subject: "oops in inet_bind/tcp_v4_get_port"). Yoshifuji Hideaki 
+>   provided a patch but unfortunately it causes some problems with 
+> ip_nat_helper and ip_nat_cores modules compilation (duplicate functions 
+> definitions)...
 
-Perfect, it works as well, but as this is not bugfixing, but an improvement,
-I'd say this can well wait for 2.6.1 :-)
+Please try the latest bk tree (with IPv6 enable, of course).  Thanks.
 
-Case closed.
-
-- Arnaldo
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
