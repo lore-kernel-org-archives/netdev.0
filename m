@@ -1,24 +1,77 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [NET]: Device mtu/txqlen/ifmap via rtnetlink.
-Date: Wed, 25 Aug 2004 23:33:30 -0700
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] Kernel oops in ip6t_LOG.c:ip6_nexthdr
+Date: Thu, 26 Aug 2004 13:35:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040825233330.15a82d29.davem@redhat.com>
-References: <200408260506.i7Q56Ebq022683@hera.kernel.org>
-	<412D832F.2070003@pobox.com>
+Message-ID: <20040826113538.GE15409@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="24zk1gE8NUlDmwG9"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <412D832F.2070003@pobox.com>
+To: netfilter-devel@lists.netfilter.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 26 Aug 2004 02:29:03 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> Why are new calls to deprecated hook ->set_config() being added?
+--24zk1gE8NUlDmwG9
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Because it's the only way to %100 implement ifconfig
-using netlink.
+Hi,
+
+We just ran into a kernel oops after enabling ipv6 packet filtering.
+The machine would choke on the IGMPv6 packets sent out when the
+interface is taken up. The reason is this code:
+
+                /*stupid rfc2402 */
+                case IPPROTO_DSTOPTS:
+                case IPPROTO_ROUTING:
+                case IPPROTO_HOPOPTS:
+                        nexthdr = **hdrptr;
+                        hdrlen = *hdrptr[1] * 8 + 8;
+			         ^^^^^^^^^^ it dies here
+                        *hdrptr = *hdrptr + hdrlen;
+                        break;
+
+hdrptr is a u_int8_t **. What you really want to do here is
+look at (*hdrptr)[1], but what the expression does is look at
+*(hdrptr[1]). Unfortunately, hdrptr[1] is usually random garbage.
+
+The attached patch fixes this.
+
+Olaf
+-- 
+Olaf Kirch     |  The Hardware Gods hate me.
+okir@suse.de   |
+---------------+ 
+
+--24zk1gE8NUlDmwG9
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=netfilter6-logging
+
+Prevent oopses when logging IGMPv6 packets and similar.
+
+Index: linux-2.6.5/net/ipv6/netfilter/ip6t_LOG.c
+===================================================================
+--- linux-2.6.5.orig/net/ipv6/netfilter/ip6t_LOG.c
++++ linux-2.6.5/net/ipv6/netfilter/ip6t_LOG.c
+@@ -55,7 +55,7 @@ static u_int8_t ip6_nexthdr(u_int8_t cur
+ 		repeatedly...with a large stick...no, an even LARGER
+ 		stick...no, you're still not thinking big enough */
+ 			nexthdr = **hdrptr;
+-			hdrlen = *hdrptr[1] * 4 + 8;
++			hdrlen = (*hdrptr)[1] * 4 + 8;
+ 			*hdrptr = *hdrptr + hdrlen;
+ 			break;
+ 		/*stupid rfc2402 */
+@@ -63,7 +63,7 @@ static u_int8_t ip6_nexthdr(u_int8_t cur
+ 		case IPPROTO_ROUTING:
+ 		case IPPROTO_HOPOPTS:
+ 			nexthdr = **hdrptr;
+-			hdrlen = *hdrptr[1] * 8 + 8;
++			hdrlen = (*hdrptr)[1] * 8 + 8;
+ 			*hdrptr = *hdrptr + hdrlen;
+ 			break;
+ 		case IPPROTO_FRAGMENT:
+
+--24zk1gE8NUlDmwG9--
