@@ -1,30 +1,35 @@
-From: Jeff Garzik <jgarzik@mandrakesoft.com>
-Subject: Re: PATCH Re: [Bonding-devel] Re: Bonding driver unreliable under
- high CPUload
-Date: Wed, 18 Sep 2002 21:03:48 -0400
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
+Date: Thu, 19 Sep 2002 03:38:37 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D892274.4070600@mandrakesoft.com>
-References: <OF516AEB0B.459BB3DC-ON88256C39.0004B863@boulder.ibm.com>
+Message-ID: <200209182338.DAA00778@mops.inr.ac.ru>
+References: <20020918020927.GB2285@samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@digeo.com>,
-   "Cureington, Tony" <tony.cureington@hp.com>,
-   Pascal Brisset <pascal.brisset-ml@wanadoo.fr>,
-   bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: davem@redhat.com, ak@muc.de, netdev@oss.sgi.com, Alan.Cox@linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>
+To: mbp@samba.org (Martin Pool)
+In-Reply-To: <20020918020927.GB2285@samba.org> from "Martin Pool" at Sep 18, 2 12:09:29 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jay Vosburgh wrote:
-> 
->       No, it doesn't.  This is a mere band aid until somebody can get time
-> to do it right.  It's "less bad."
+Hello!
+
+> I can't reproduce it on 2.4.18 or .19.  It looked to me like
+> tcp_snd_test() and related stuff had been substantially rewritten.
+
+No, tcp_snd_test() in 2.2 is backport and it is accurate.
+Apparently, the problem remained in another place, which was not backported.
+
+I think this is tcp_send_fin(). It is obscure and apparently incorrect
+at least on corked sockets. I would kill all the dubious "if" after
+
+/* Special case to avoid Nagle bogosity....
+
+and replaced it with straight tcp_push_pending_frames() like it was
+made in 2.4. Please, try.
+
+Alexey
 
 
-Oh, well, in that case, patch approved :)
-
-I'll apply it, unless you prefer to send it through DaveM or somebody else.
-
-	Jeff
+BTW your tcpdump contains less than 25% of packets. And all the interesting
+piece is absent completely. :-)
