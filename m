@@ -1,39 +1,39 @@
-From: Karsten Desler <kdesler@soohrt.org>
-Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
-Date: Tue, 7 Dec 2004 13:50:01 +0100
-Message-ID: <20041207125001.GA26644@soohrt.org>
-References: <20041206205305.GA11970@soohrt.org> <20041206134849.498bfc93.davem@davemloft.net> <20041206224107.GA8529@soohrt.org> <41B58A58.8010007@draigBrady.com> <20041207112139.GA3610@soohrt.org> <16821.42080.932184.167780@robur.slu.se>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] rtnetlink & address family problem
+Date: Tue, 7 Dec 2004 13:49:22 +0100
+Message-ID: <20041207124922.GA1371@postel.suug.ch>
+References: <41B0A5B4.6060108@suse.cz> <20041206140214.GA749@postel.suug.ch> <1102386461.1093.26.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: P@draigBrady.com, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Michal Ludvig <mludvig@suse.cz>, Andrew Morton <akpm@osdl.org>,
+        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
+        Jan Kara <jack@suse.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <16821.42080.932184.167780@robur.slu.se>
+In-Reply-To: <1102386461.1093.26.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Robert Olsson wrote:
-> Well my experience is that it very hard not to say almost impossible to 
-> extrapolate idle cpu into any network system capacity. I guess this is 
-> what you are trying to do? 
+* jamal <1102386461.1093.26.camel@jzny.localdomain> 2004-12-06 21:27
+> On Mon, 2004-12-06 at 09:02, Thomas Graf wrote:
+> 
+> > Your patch would fix this issue but might break various things. The
+> > actual problem is that iproute2 doesn't check the family in its filter.
+> > It blindly assumes that the kernel only returns addresses of the kind it
+> > has requested. I can understand if you think the current behaviour
+> > is wrong but we shouldn't change it in the middle of a stable tree.
+> 
+> Why would it be wrong? The PF_UNSPEC is there for a purpose.
 
-Kinda, yes.
-I'm trying to evaluate if the behaviour I'm seeing is expected, which
-would heavily influence my choice of hardware/software for future
-projects (and of course to optimize the current setup).
+I don't think it is wrong myself but I understand if someone does. If
+one sends a GETADDR request for PF_INET6 one might expect to either
+receive all ipv6 addresses or none and to only receive all addresess
+of any type if PF_UNSPEC was specified.
 
-Currently I'm having problems capturing packets with tcpdump (lots of
-"packets dropped by kernel") which indicates to me that there's
-genuinely not much (enough) idle time sitting around.
+> If user space decides it wants to flush ipv4 addresses blindly that user
+> spaces fault. The patch you attached seems legit. did you verify it?
 
-> Rather load and overload the system with traffic having the characteristics
-> you expect as a bonus you will get some kind proof of robustness and 
-> responsiveness a max load. There are tools for this type of tests.
-
-Will do, that could take a couple of days though.
-
-Cheers,
- Karsten
+Not yet, it probably has to be applied to iproute.c as well. I'll have
+a look at it and do some testing.
