@@ -1,86 +1,153 @@
-From: Manu Garg <manu.garg@med.ge.com>
-Subject: Re: how ip header added in ip_bulid_xmit function?
-Date: Tue, 18 May 2004 19:53:16 +0530
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <40AA1C54.2090201@med.ge.com>
-References: <20040518063106.85290.qmail@web90102.mail.scd.yahoo.com>
+From: Ricardo C Gonzalez <ricardoz@us.ibm.com>
+Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Tue, 18 May 2004 09:34:40 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <OF817307D7.5FC78280-ON85256E98.004FDB43-86256E98.00500AA1@us.ibm.com>
+References: <Pine.LNX.4.58.0405141430340.4622@fcat>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linuxnet <linux-net@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
-	netfilter <netfilter-devel@lists.netfilter.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux lover <linux_lover2004@yahoo.com>
-In-Reply-To: <20040518063106.85290.qmail@web90102.mail.scd.yahoo.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+In-Reply-To: <Pine.LNX.4.58.0405141430340.4622@fcat>
+To: Marc Herbert <marc.herbert@free.fr>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-linux lover wrote:
 
->hello ,
->   In ip_output.c file there is ip_build_xmit function
->call. when packet comes from tcp layer to IP layer
->this function is called. In that i found that 
->   skb = sock_alloc_send_skb(sk, length+hh_len+15
->,flags&MSG_DONTWAIT, &err);
->staement allocates skb for packet. after that i found
->that no iphdr adding statement in ip_build_xmit. i
->want to know where is iphdr push to skb? cause skb
->works using first alloc_skb to allocate memory then
->skb_reserve to reserve headroom then put data in skb
->by skb_put or skb_push for pushing headers in skb. so
->there i found       
->  skb->nh.iph = iph = (struct iphdr *)skb_put(skb,
->length); 
->statement is this does that iphdr adding?
->
->regards,
->linuxlover
->
->
->	
->		
->__________________________________
->Do you Yahoo!?
->SBC Yahoo! - Internet access at a great low price.
->http://promo.yahoo.com/sbc/
->-
->To unsubscribe from this list: send the line "unsubscribe linux-net" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->
->  
->
-A packet comes from TCP layer to IP layer through function call 
-tp->af_specific->queue_xmit() (in tcp_output.c:tcp_transmit_skb() ). For 
-IP this function is nothing but ip_queue_xmit() defined in
-ip_output.c.
+Marc,
 
-If you'll check this function, it clearly allocates ip header and put 
-information in it.
+      Are you considering the case of small packets?  Many applications u=
+se
+lots of small packets.  Example is the volano benchmark.
+You needs to look at throughput rates for small packets. A 1GB  ethernet
+can send something like 1.4 Million 64 byte packets per second.
 
-----------------------------------------------------
-iph = (struct iphdr *) skb_push(skb, sizeof(struct iphdr) + (opt ? 
-opt->optlen : 0));
-        *((__u16 *)iph) = htons((4 << 12) | (5 << 8) | 
-(sk->protinfo.af_inet.tos & 0xff));
-iph->tot_len = htons(skb->len);
-if (ip_dont_fragment(sk, &rt->u.dst))
-    iph->frag_off = htons(IP_DF);
-else
-    iph->frag_off = 0;
-iph->ttl      = sk->protinfo.af_inet.ttl;
-iph->protocol = sk->protocol;
-iph->saddr    = rt->rt_src;
-iph->daddr    = rt->rt_dst;
-skb->nh.iph   = iph;
----------------------------------------------------
+Let me know what you think.
 
-I hope this answers your question.
+
 
 regards,
-Manu Garg
-http://manugarg.freezope.org/notes
+
+
+---------------------------------------------------------
+Rick Gonzalez
+LTC pSeries Performance
+Building: 908    Office: 1D004
+Phone: (512) 838-0623
+
+
+                                                                         =
+ =20
+             Marc Herbert                                                =
+ =20
+             <marc.herbert@fre                                           =
+ =20
+             e.fr>                                                      T=
+o=20
+                                       Ricardo C Gonzalez/Austin/IBM@ibmu=
+s=20
+             05/14/2004 09:16                                           c=
+c=20
+             AM                        "David S. Miller"                 =
+ =20
+                                       <davem@redhat.com>,               =
+ =20
+                                       netdev@oss.sgi.com                =
+ =20
+                                                                   Subjec=
+t=20
+                                       Re: [e1000 2.6 10/11] TxDescriptor=
+s=20
+                                       -> 1024 default                   =
+ =20
+                                                                         =
+ =20
+                                                                         =
+ =20
+                                                                         =
+ =20
+                                                                         =
+ =20
+                                                                         =
+ =20
+                                                                         =
+ =20
 
 
 
 
+On Sun, 14 Sep 2003, Ricardo C Gonzalez wrote:
+
+> David Miller wrote:
+>
+> >Back to the main topic, maybe we should set dev->tx_queue_len to
+> >1000 by default for all ethernet devices.
+>
+>
+> I definately agree with setting the dev->tx_queue_len to 1000 as a
+default
+> for all ethernet adapters. All adapters will benefit from this change.
+>
+
+Sorry to exhume this discussion but I only recently discovered this
+change, the hard way.
+
+I carefully read this old thread and did not grasp every detail, but
+there is one thing that I am sure of: 1000 packets @ 1=A0Gb/s looks
+good, but on the other hand, 1000 full size packets @ 10=A0Mb/s are
+about 1.2=A0seconds long!
+
+Too little buffering means not enough dampering effect, which is very
+important for performance in asynchronous systems. Granted. However,
+_too much_ buffering means too big and too variable latencies. When
+discussing buffers, duration is very often more important than size.
+Applications, TCP's dynamic (and kernel dynamics too?) do not care
+much about buffer sizes, they more often care about latencies (and
+throughput, of course). Buffers sizes is often "just a small matter of
+implementation" :-) People designing routers for instance talk about
+buffers in _milliseconds_ much more often than in _bytes_ (despite the
+fact that their memories cost more than in hosts, considering the
+throughputs involved).
+
+100 packets @ 100=A0Mb/s was 12 ms. 1000 packets @ 1=A0Gb/s is still
+12=A0ms. 12=A0ms is great. It's a "good" latency because it is the
+order of magnitude of real-world constants like:  comfortable
+interactive applications, operating system sheduler granularity or
+propagation time in 2000=A0km of cable.
+
+But 1000=A0packets @ 100=A0Mb/s is 120=A0ms and is neither very good nor
+useful anymore. 1000=A0packets @ 10=A0Mb/s is 1.2=A0s, which is ridiculou=
+s.
+It does mean that, when joe user is uploading some big file through
+his cheap Ethernet card, and that there are no other bottleneck/drops
+further in the network, every concurrent application will have to wait
+1.2 s before accessing the network. Imagine now that some packet is
+lost for whatever reason on some _other_ TCP connection going through
+this terrible 1.2=A0s queue. Then you need one SACK/RTX extra round trip
+time to recover from it: so it's now 2.4=A0s to deliver the data just
+after the drop.  Assuming of course TCP does not become confused by
+this huge latency and probably huge jitter.
+
+And I don't think you want to make fiddling with "tc" mandatory for
+joe user.
+
+I am unfortunately not familiar with this part of the linux kernel,
+but I really think that, if possible, txqueuelen should be initialized
+at "12=A0ms" and not at "1000 packets". I=A0can imagine there are some
+corner cases, like for instance when some GEth NIC is hot-plugged into
+a 100=A0Mb/s, but hey, those are corner cases. I think even a simple
+constant-per-model txqueuelen initialization would be already great.
+
+Cheers,
+
+Marc.
+
+
+PS: one workaround for joe user against this 1.2s latency would be to
+keep his SND_BUF and number of sockets small. But this is poor.
+
+
+--
+"Je n'ai fait cette lettre-ci plus longue que parce que je n'ai pas eu
+le loisir de la faire plus courte." -- Blaise Pascal
