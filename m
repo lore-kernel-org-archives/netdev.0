@@ -1,8 +1,8 @@
 From: Joe Perches <joe@perches.com>
-Subject: [PATCH] 2.6.0-test5-bk11 PKT_CAN_SHARE_SKB [2/3] drivers/net/*
-Date: Wed, 24 Sep 2003 15:33:31 -0700
+Subject: [PATCH] 2.6.0-test5-bk11 PKT_CAN_SHARE_SKB [3/3] net/*
+Date: Wed, 24 Sep 2003 15:33:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064442811.15437.26.camel@localhost.localdomain>
+Message-ID: <1064442830.15437.27.camel@localhost.localdomain>
 References: <Pine.LNX.4.44.0309241012110.3178-100000@home.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain
@@ -15,70 +15,165 @@ In-Reply-To: <Pine.LNX.4.44.0309241012110.3178-100000@home.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -urN linux-2.6.0-test5/drivers/net/bonding/bond_alb.c shared_skb/drivers/net/bonding/bond_alb.c
--- linux-2.6.0-test5/drivers/net/bonding/bond_alb.c	2003-09-22 08:03:41.000000000 -0700
-+++ shared_skb/drivers/net/bonding/bond_alb.c	2003-09-22 13:10:57.000000000 -0700
-@@ -888,7 +888,7 @@
- 	pk_type->type = __constant_htons(ETH_P_ARP);
- 	pk_type->dev = bond->device;
- 	pk_type->func = rlb_arp_recv;
--	pk_type->data = (void*)1;  /* understand shared skbs */
-+	pk_type->data = PKT_CAN_SHARE_SKB;
- 
- 	dev_add_pack(pk_type);
- 
-diff -urN linux-2.6.0-test5/drivers/net/bonding/bond_main.c shared_skb/drivers/net/bonding/bond_main.c
--- linux-2.6.0-test5/drivers/net/bonding/bond_main.c	2003-09-22 08:03:41.000000000 -0700
-+++ shared_skb/drivers/net/bonding/bond_main.c	2003-09-22 13:10:55.000000000 -0700
-@@ -955,7 +955,7 @@
- 	pk_type->type = PKT_TYPE_LACPDU;
- 	pk_type->dev = bond->device;
- 	pk_type->func = bond_3ad_lacpdu_recv;
--	pk_type->data = (void*)1;  /* understand shared skbs */
-+	pk_type->data = PKT_CAN_SHARE_SKB;
- 
- 	dev_add_pack(pk_type);
- }
-diff -urN linux-2.6.0-test5/drivers/net/pppoe.c shared_skb/drivers/net/pppoe.c
--- linux-2.6.0-test5/drivers/net/pppoe.c	2003-09-22 08:03:43.000000000 -0700
-+++ shared_skb/drivers/net/pppoe.c	2003-09-22 13:10:52.000000000 -0700
-@@ -468,13 +468,13 @@
- static struct packet_type pppoes_ptype = {
- 	.type	= __constant_htons(ETH_P_PPP_SES),
- 	.func	= pppoe_rcv,
--	.data   = (void *)1,
-+	.data   = PKT_CAN_SHARE_SKB,
+diff -urN linux-2.6.0-test5/net/8021q/vlan.c shared_skb/net/8021q/vlan.c
+-- linux-2.6.0-test5/net/8021q/vlan.c	2003-09-08 12:50:21.000000000 -0700
++++ shared_skb/net/8021q/vlan.c	2003-09-22 13:10:22.000000000 -0700
+@@ -67,7 +67,7 @@
+ static struct packet_type vlan_packet_type = {
+ 	.type = __constant_htons(ETH_P_8021Q),
+ 	.func = vlan_skb_recv, /* VLAN receive method */
+-	.data = (void *)1,     /* understands shared skb */
++	.data = PKT_CAN_SHARE_SKB,
  };
  
- static struct packet_type pppoed_ptype = {
- 	.type	= __constant_htons(ETH_P_PPP_DISC),
- 	.func	= pppoe_disc_rcv,
--	.data   = (void *)1,
-+	.data   = PKT_CAN_SHARE_SKB,
+ /* End of global variables definitions. */
+diff -urN linux-2.6.0-test5/net/appletalk/ddp.c shared_skb/net/appletalk/ddp.c
+-- linux-2.6.0-test5/net/appletalk/ddp.c	2003-09-08 12:50:43.000000000 -0700
++++ shared_skb/net/appletalk/ddp.c	2003-09-22 13:10:26.000000000 -0700
+@@ -1872,13 +1872,13 @@
+ struct packet_type ltalk_packet_type = {
+ 	.type		= __constant_htons(ETH_P_LOCALTALK),
+ 	.func		= ltalk_rcv,
+-	.data		= (void *)1,
++	.data		= PKT_CAN_SHARE_SKB,
  };
  
- /***********************************************************************
-diff -urN linux-2.6.0-test5/drivers/net/wan/hdlc_generic.c shared_skb/drivers/net/wan/hdlc_generic.c
--- linux-2.6.0-test5/drivers/net/wan/hdlc_generic.c	2003-09-08 12:49:53.000000000 -0700
-+++ shared_skb/drivers/net/wan/hdlc_generic.c	2003-09-22 13:11:02.000000000 -0700
-@@ -283,7 +283,7 @@
- {
- 	.type = __constant_htons(ETH_P_HDLC),
- 	.func = hdlc_rcv,
+ struct packet_type ppptalk_packet_type = {
+ 	.type		= __constant_htons(ETH_P_PPPTALK),
+ 	.func		= atalk_rcv,
+-	.data		= (void *)1,
++	.data		= PKT_CAN_SHARE_SKB,
+ };
+ 
+ static unsigned char ddp_snap_id[] = { 0x08, 0x00, 0x07, 0x80, 0x9B };
+diff -urN linux-2.6.0-test5/net/ax25/af_ax25.c shared_skb/net/ax25/af_ax25.c
+-- linux-2.6.0-test5/net/ax25/af_ax25.c	2003-09-08 12:50:28.000000000 -0700
++++ shared_skb/net/ax25/af_ax25.c	2003-09-22 13:10:30.000000000 -0700
+@@ -1978,7 +1978,7 @@
+ 	.type	=	__constant_htons(ETH_P_AX25),
+ 	.dev	=	NULL,				/* All devices */
+ 	.func	=	ax25_kiss_rcv,
+-	.data	=	(void *) 1
++	.data	=	PKT_CAN_SHARE_SKB,
+ };
+ 
+ static struct notifier_block ax25_dev_notifier = {
+diff -urN linux-2.6.0-test5/net/core/dev.c shared_skb/net/core/dev.c
+-- linux-2.6.0-test5/net/core/dev.c	2003-09-22 08:04:06.000000000 -0700
++++ shared_skb/net/core/dev.c	2003-09-22 14:02:08.000000000 -0700
+@@ -233,7 +233,7 @@
+ 	spin_lock_bh(&ptype_lock);
+ #ifdef CONFIG_NET_FASTROUTE
+ 	/* Hack to detect packet socket */
+-	if (pt->data && (long)(pt->data) != 1) {
++	if (pt->data && pt->data != PKT_CAN_SHARE_SKB) {
+ 		netdev_fastroute_obstacles++;
+ 		dev_clear_fastroute(pt->dev);
+ 	}
+@@ -281,7 +281,7 @@
+ 	list_for_each_entry(pt1, head, list) {
+ 		if (pt == pt1) {
+ #ifdef CONFIG_NET_FASTROUTE
+-			if (pt->data)
++			if (pt->data && pt->data != PKT_CAN_SHARE_SKB)
+ 				netdev_fastroute_obstacles--;
+ #endif
+ 			list_del_rcu(&pt->list);
+diff -urN linux-2.6.0-test5/net/decnet/af_decnet.c shared_skb/net/decnet/af_decnet.c
+-- linux-2.6.0-test5/net/decnet/af_decnet.c	2003-09-22 08:04:06.000000000 -0700
++++ shared_skb/net/decnet/af_decnet.c	2003-09-22 13:10:24.000000000 -0700
+@@ -2081,7 +2081,7 @@
+ 	.type =		__constant_htons(ETH_P_DNA_RT),
+ 	.dev =		NULL,		/* All devices */
+ 	.func =		dn_route_rcv,
+-	.data =		(void*)1,
++	.data =		PKT_CAN_SHARE_SKB,
+ };
+ 
+ #ifdef CONFIG_PROC_FS
+diff -urN linux-2.6.0-test5/net/ipv4/arp.c shared_skb/net/ipv4/arp.c
+-- linux-2.6.0-test5/net/ipv4/arp.c	2003-09-22 08:04:06.000000000 -0700
++++ shared_skb/net/ipv4/arp.c	2003-09-22 13:10:36.000000000 -0700
+@@ -1108,7 +1108,7 @@
+ static struct packet_type arp_packet_type = {
+ 	.type =	__constant_htons(ETH_P_ARP),
+ 	.func =	arp_rcv,
+-	.data =	(void*) 1, /* understand shared skbs */
++	.data =	PKT_CAN_SHARE_SKB,
+ };
+ 
+ static int arp_proc_init(void);
+diff -urN linux-2.6.0-test5/net/ipv4/ip_output.c shared_skb/net/ipv4/ip_output.c
+-- linux-2.6.0-test5/net/ipv4/ip_output.c	2003-09-08 12:50:40.000000000 -0700
++++ shared_skb/net/ipv4/ip_output.c	2003-09-22 13:10:41.000000000 -0700
+@@ -1299,7 +1299,7 @@
+ 	.type = __constant_htons(ETH_P_IP),
+ 	.dev  = NULL,	/* All devices */
+ 	.func = ip_rcv,
+-	.data = (void*)1,
++	.data = PKT_CAN_SHARE_SKB,
+ };
+ 
+ /*
+diff -urN linux-2.6.0-test5/net/ipv6/ipv6_sockglue.c shared_skb/net/ipv6/ipv6_sockglue.c
+-- linux-2.6.0-test5/net/ipv6/ipv6_sockglue.c	2003-09-08 12:49:52.000000000 -0700
++++ shared_skb/net/ipv6/ipv6_sockglue.c	2003-09-22 13:10:28.000000000 -0700
+@@ -62,7 +62,7 @@
+ 	.type = __constant_htons(ETH_P_IPV6), 
+ 	.dev  = NULL,				/* All devices */
+ 	.func = ipv6_rcv,
+-	.data = (void*)1,
++	.data = PKT_CAN_SHARE_SKB,
+ };
+ 
+ /*
+diff -urN linux-2.6.0-test5/net/ipx/af_ipx.c shared_skb/net/ipx/af_ipx.c
+-- linux-2.6.0-test5/net/ipx/af_ipx.c	2003-09-08 12:49:54.000000000 -0700
++++ shared_skb/net/ipx/af_ipx.c	2003-09-22 14:01:56.000000000 -0700
+@@ -1920,13 +1920,13 @@
+ static struct packet_type ipx_8023_packet_type = {
+ 	.type		= __constant_htons(ETH_P_802_3),
+ 	.func		= ipx_rcv,
+-	.data		= (void *)1,	/* yap, I understand shared skbs :-) */
++	.data		= PKT_CAN_SHARE_SKB,
+ };
+ 
+ static struct packet_type ipx_dix_packet_type = {
+ 	.type		= __constant_htons(ETH_P_IPX),
+ 	.func		= ipx_rcv,
+-	.data		= (void *)1,	/* yap, I understand shared skbs :-) */
++	.data		= PKT_CAN_SHARE_SKB,
+ };
+ 
+ static struct notifier_block ipx_dev_notifier = {
+diff -urN linux-2.6.0-test5/net/irda/irsyms.c shared_skb/net/irda/irsyms.c
+-- linux-2.6.0-test5/net/irda/irsyms.c	2003-09-08 12:50:28.000000000 -0700
++++ shared_skb/net/irda/irsyms.c	2003-09-22 13:10:38.000000000 -0700
+@@ -191,7 +191,7 @@
+ 	.type	= __constant_htons(ETH_P_IRDA),
+ 	.dev	= NULL,			/* Wildcard : All devices */
+ 	.func	= irlap_driver_rcv,	/* Packet type handler irlap_frame.c */
+-	.data	= (void*) 1,		/* Understand shared skbs */
++	.data	= PKT_CAN_SHARE_SKB,
+ 	//.next	= NULL,
+ };
+ 
+diff -urN linux-2.6.0-test5/net/llc/llc_core.c shared_skb/net/llc/llc_core.c
+-- linux-2.6.0-test5/net/llc/llc_core.c	2003-09-22 08:04:08.000000000 -0700
++++ shared_skb/net/llc/llc_core.c	2003-09-22 13:10:33.000000000 -0700
+@@ -140,13 +140,13 @@
+ static struct packet_type llc_packet_type = {
+ 	.type = __constant_htons(ETH_P_802_2),
+ 	.func = llc_rcv,
 -	.data = (void *)1,
 +	.data = PKT_CAN_SHARE_SKB,
  };
  
-
-diff -urN linux-2.6.0-test5/drivers/net/wan/syncppp.c shared_skb/drivers/net/wan/syncppp.c
--- linux-2.6.0-test5/drivers/net/wan/syncppp.c	2003-09-08 12:49:58.000000000 -0700
-+++ shared_skb/drivers/net/wan/syncppp.c	2003-09-22 13:11:00.000000000 -0700
-@@ -1454,7 +1454,7 @@
- struct packet_type sppp_packet_type = {
- 	.type	= __constant_htons(ETH_P_WAN_PPP),
- 	.func	= sppp_rcv,
--	.data   = (void*)1, /* must be non-NULL to indicate 'new' protocol */
-+	.data   = PKT_CAN_SHARE_SKB,
+ static struct packet_type llc_tr_packet_type = {
+ 	.type = __constant_htons(ETH_P_TR_802_2),
+ 	.func = llc_rcv,
+-	.data = (void *)1,
++	.data = PKT_CAN_SHARE_SKB,
  };
  
- static char banner[] __initdata = 
+ static int __init llc_init(void)
