@@ -1,54 +1,27 @@
-From: Nick Piggin <piggin@cyberone.com.au>
-Subject: Re: 2.6.10-rc1-mm4 -1 EAGAIN after allocation failure was: Re: Kernel
- 2.6.9 Multiple Page Allocation Failures
-Date: Thu, 11 Nov 2004 12:23:13 +1100
-Message-ID: <4192BF01.1090509@cyberone.com.au>
-References: <20041109223558.GR1309@mail.muni.cz> <20041109144607.2950a41a.akpm@osdl.org> <20041109235201.GC20754@zaphods.net> <20041110012733.GD20754@zaphods.net> <20041109173920.08746dbd.akpm@osdl.org> <20041110020327.GE20754@zaphods.net> <419197EA.9090809@cyberone.com.au> <20041110102854.GI20754@zaphods.net> <20041110120624.GF28163@zaphods.net> <20041110085831.GB10740@logos.cnet> <20041110124810.GG28163@zaphods.net>
+From: Colin Leroy <colin.lkml@colino.net>
+Subject: Re: [PATCH] sungem: Fix stop_phy
+Date: Wed, 10 Nov 2004 17:46:16 +0100
+Message-ID: <20041110174616.099ad8e1.colin.lkml__27540.0011604235$1100139633$gmane$org@colino.net>
+References: <20041110092731.230719cb.colin@colino.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262162AbUKKBXq@vger.kernel.org>
-To: Stefan Schmidt <zaphodb@zaphods.net>
-In-Reply-To: <20041110124810.GG28163@zaphods.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+In-Reply-To: <20041110092731.230719cb.colin@colino.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 10 Nov 2004 at 09h11, Colin Leroy wrote:
 
+Hi, 
 
-Stefan Schmidt wrote:
+> oops from it during boot while hacking on it), so booting and checking
+> that network works should be enough.
 
->On Wed, Nov 10, 2004 at 06:58:31AM -0200, Marcelo Tosatti wrote:
->
->>>>>Can you try the following patch, please? It is diffed against 2.6.10-rc1,
->>>>>
->>>I did. No apparent change with mm4 and vm.min_free_kbytes = 8192. I will try
->>>latest bk next.
->>>
->
->>>>I set it back to CONFIG_PACKET_MMAP=y and if the application does not freeze
->>>>for some hours at this load we can blame at least this issue (-1 EAGAIN) on
->>>>that parameter.
->>>>
->>>Nope, that didn't change anything, still getting EAGAIN, checked two times.
->>>
->>Its not clear to me - do you have Nick's watermark patch in? 
->>
->Yes i have vm.min_free_kbytes=8192 and Nick's patch in mm4. I'll try
->rc1-bk19 with his restore-atomic-buffer patch in a few minutes.
->
->
+(also check sleep/resume if your laptop supports it, there may be
+problems there...)
 
-You'll actually want to increase min_free_kbytes in order to have the same
-amount of memory free as 2.6.8 did.
-
-Start by applying my patch and using the default min_free_kbytes. Then 
-increase
-it until the page allocation failures stop, and let us know what the end 
-result
-was.
-
-BTW we should probably have a message in the page allocation failure path
-to tell people to try increasing /proc/sys/vm/min_free_kbytes...
+-- 
+Colin
