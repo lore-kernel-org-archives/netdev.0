@@ -1,41 +1,30 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
-Date: 07 Jul 2004 17:11:39 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] net/ipv4/ipmr.c fixes
+Date: Wed, 7 Jul 2004 14:09:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089234699.1026.448.camel@jzny.localdomain>
-References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
-	 <20040702134437.5891e998@dell_ss3.pdx.osdl.net>
-	 <1088824432.1043.271.camel@jzny.localdomain>
-	 <20040707111055.32ebb25b@dell_ss3.pdx.osdl.net>
-	 <1089226667.1027.411.camel@jzny.localdomain>
-	 <20040707135831.4c98dd51@dell_ss3.pdx.osdl.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040707140945.07c88057.davem@redhat.com>
+References: <877jtfmxg9.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, Catalin BOIE <util@deuroconsult.ro>,
-        netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040707135831.4c98dd51@dell_ss3.pdx.osdl.net>
+To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+In-Reply-To: <877jtfmxg9.fsf@devron.myhome.or.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-07-07 at 16:58, Stephen Hemminger wrote:
+On Thu, 08 Jul 2004 04:25:26 +0900
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> wrote:
 
-> TBF works but since the sender (on the same local machine) may go over 
-> it's allocation, it will drop packets.
-
-As should any queue that gets congested.
-
-> For example, if I use tbf to simulate a slow 33k bits/sec link then 
-> TCP test never
-> completes, it just hangs!  TBF does work for intermediate sizes.
+> - pim_protocol warning fix
 > 
-> But if I use the pacing simulation it works.
+> - ipmr_vif_open() and ipmr_mfc_open() allocates the memory, so it
+>   should use seq_release_private().
+> 
+> - ipmr_mfc_seq_xxx is using it->cache, in order to control whether
+>   unlock should be do or not, but it->cache was not initialized in
+>   ipmr_mfc_seq_start(). So it can point the previous state if user
+>   did seek(). This become to the cause of twice unlock.
 
-I am not sure i follow; is this because of the return code from the
-enqueue?
-
-cheers,
-jamal
+Looks good, patch applied.  Thanks!
