@@ -1,31 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6.0-test6][X25] timer cleanup
-Date: Tue, 7 Oct 2003 07:48:33 -0700
+Subject: Re: [PATCH] Deadlock on ip_mc_list->lock
+Date: Tue, 7 Oct 2003 07:54:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007074833.6bb5a6e1.davem@redhat.com>
-References: <1065018387.7194.336.camel@lima.royalchallenge.com>
-	<20031001155623.06b89258.akpm@osdl.org>
-	<1065078208.4340.3.camel@lima.royalchallenge.com>
-	<20031002013620.6d8b6f10.davem@redhat.com>
-	<1065362979.4370.34.camel@lima.royalchallenge.com>
+Message-ID: <20031007075417.0e2a9173.davem@redhat.com>
+References: <20031006140320.GB24082@vana.vc.cvut.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vinay K Nallamothu <vinay.nallamothu@gsecone.com>
-In-Reply-To: <1065362979.4370.34.camel@lima.royalchallenge.com>
+To: Petr Vandrovec <vandrove@vc.cvut.cz>
+In-Reply-To: <20031006140320.GB24082@vana.vc.cvut.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 05 Oct 2003 19:39:39 +0530
-Vinay K Nallamothu <vinay.nallamothu@gsecone.com> wrote:
+On Mon, 6 Oct 2003 16:03:20 +0200
+Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
 
-> On Thu, 2003-10-02 at 14:06, David S. Miller wrote:
-> > Please find a way to at least minimally test the protocols
-> > you are changing then, or find someone else who can.
->
-> I have tested the patch using LAPB over Ethernet (I do not have real
-> hardware) under linux-2.6.0-test5-uml1 and it works fine for me.
+>    Currently this 'return -EINVAL' below is one I suspect from
+> being guilty, as it looks to me like that nobody is unlocking
+> spinlock & bh in this case, and so system dies horrible death
+> after this (saying that userspace scheduled while in_atomic:1).
 
-Fair enough, I've applied this patch, thanks a lot Vinay.
+Patch applied, thanks Petr.
