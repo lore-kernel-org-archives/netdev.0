@@ -1,48 +1,37 @@
-From: James Ketrenos <jketreno@linux.intel.com>
-Subject: Re: Steps for netdev-2.6 inclusion?
-Date: Thu, 06 Jan 2005 10:10:50 -0600
-Message-ID: <41DD630A.1030604@linux.intel.com>
-References: <41AE7143.80505@linux.intel.com> <41C88183.3020906@pobox.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Thu, 6 Jan 2005 23:11:05 +0100
+Message-ID: <16861.46969.536236.11355@robur.slu.se>
+References: <200501031455.26980.jeremy.guthrie@berbee.com>
+	<200501061520.02362.jeremy.guthrie@berbee.com>
+	<16861.44870.968343.578778@robur.slu.se>
+	<200501061546.32116.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41C88183.3020906@pobox.com>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501061546.32116.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
 
-> James Ketrenos wrote:
->
->>
->> Ok, its been a long time coming, but it appears the ipw* wireless 
->> drivers are to the point where being more proactive at getting them 
->> into the kernel is appropriate (at least based on the frequency of 
->> emails I'm getting of 'why isn't this in mainline?')
->>
->> So, what would be the set of steps required to get a version in the 
->> queue for inclusion?
->
->
-> Any updates?  Where do we stand with this?
+Jeremy M. Guthrie writes:
 
-Sorry -- we had some fires to put out, and then Christmas kicked in :)
+ > >  I don't follow...
+ > Technically by turning off NAPI, I have 'solved' my short term packet loss 
+ > problem.
 
-We're rolling in a couple fixes into the 2200 driver this week for 
-ad-hoc mode and will then send out the patches to this list.
+ You need NAPI of course just wait until your packet load increases just
+ a little bit... I saw drops in your 2.4 /proc/net/softnet_stat which 
+ indicates you are close to your system performance. With NAPI you keep
+ up your system system performance regardless of incoming load. 
 
-Thanks,
-James
+ The e1000 driver has some bugs in "your setup" as it enables irq's when
+ there is only RX and no TX and should have irq's disabled. I sent patch 
+ to intel.
 
->
-> I would suggest sending a patch for each driver, diff'd against -mm 
-> (which auto-includes my netdev-2.6 and wireless-2.6 queues).
->
->     Jeff
->
->
->
+					      --ro
