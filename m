@@ -1,46 +1,44 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH,pktgen] account for preamble and inter-packet gap
-Date: Mon, 29 Nov 2004 17:16:13 +0100
-Message-ID: <16811.19277.594137.939120@robur.slu.se>
-References: <20041128213251.GA9330@xi.wantstofly.org>
+From: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 29 Nov 2004 17:41:42 +0100
+Message-ID: <OF7E76C3BE.B1D182D3-ONC1256F5B.005B3E84-C1256F5B.005BB584@de.ibm.com>
+References: <Pine.LNX.4.61.0411291602330.18143@hibernia.jakma.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@data.slu.se, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041128213251.GA9330@xi.wantstofly.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261757AbUK2QmI@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.61.0411291602330.18143@hibernia.jakma.org>
+To: Paul Jakma <paul@clubi.ie>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-Lennert Buytenhek writes:
 
- > If you account for the Frame Check Sequence when computing bandwidth
- > stats, it's only fair that you count the preamble and inter-packet gap
- > as well.  Suggested patch attached.
 
- Well from pktgen TX view we don't know what the layer under us will do. 
- We simply deliver packets and hope those get transmitted but we are not
- 100% sure neither about ipg or preample. We don't even know that packets 
- are seen on the wire. We use to verify this in our specific HW setup. 
- So what trusted statistics can we give? 
 
- I've heard some boxes that didn't do the ipg correctly. Don't know what NIC 
- this was. We can only estimate stats at the point where we are delivering 
- packets. Other devices has "true" L2 stats.
- 
- OK. Adding FCS yes kinda compromise and maybe was wrong in this aspect.
+Paul Jakma <paul@clubi.ie> wrote on 29.11.2004 17:30:23:
+> Well, if the kernel is going to queue these packets without notifying
+> us, we absolutely *must* have some way to flush those queues. Sending
+> stale packets many minutes after the application generated them could
+> have serious consequences for routing (eg, think sending RIP, IPv4
+> IRDP or v6 RAs which are no longer valid - client receives them and
+> installs routes which are long invalid and loses connectivity to some
+> part of the network).
+>
 
- Also we should think of calculation should work with link other link
- link layers not only ethernet.
- 
- The only solution I can think of is of having a selectable option in 
- the config for output stats. To support different L2 layers and with  
- warning if we are "predicting" L2 statistics. Feel free to extend your
- patch.
+Yes, for the examples you mentioned the app should better be notified.
+However, AFAICS, there are no such notification mechanisms on a
+per-packet basis implemented in the kernel.
+And I doubt that they are going to be implemented.
 
-						--ro
- 
- 
+> I'd be very interested to hear advice from the kernel gurus (eg "god,
+> dont be so stupid, do xyz in your application instead"). We can
+> accomodate whatever kernel wants as long as its workable.
+
+Good suggestion, if anyone has an interesting and feasible solution
+I will be happy to integrate it. So far, however, it don't see one and I
+would point people being worried about lost packets to TCP.
+
+
+Regards,
+Thomas.
