@@ -1,45 +1,50 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: Badness in local_bh_enable at kernel/softirq.c:119
-Date: Tue, 30 Sep 2003 04:53:06 -0700
+From: Olivier Galibert <galibert@pobox.com>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Tue, 30 Sep 2003 14:06:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930045306.5ac6be0d.davem@redhat.com>
-References: <20030929143642.18b491ba.akpm@osdl.org>
-	<20030929224929.4dc6ed4a.davem@redhat.com>
+Message-ID: <20030930120622.GA24747@dspnet.fr.eu.org>
+References: <20030928225941.GW15338@fs.tum.de> <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de> <20030929220916.19c9c90d.davem@redhat.com> <1064903562.6154.160.camel@imladris.demon.co.uk> <20030930000302.3e1bf8bb.davem@redhat.com> <1064907572.21551.31.camel@hades.cambridge.redhat.com> <20030930010855.095c2c35.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com, cramerj@intel.com,
-        scott.feldman@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: David Woodhouse <dwmw2@infradead.org>, bunk@fs.tum.de,
+        acme@conectiva.com.br, netdev@oss.sgi.com, pekkas@netcore.fi,
+        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030929224929.4dc6ed4a.davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030930010855.095c2c35.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Sep 2003 22:49:29 -0700
-"David S. Miller" <davem@redhat.com> wrote:
-
-> On Mon, 29 Sep 2003 14:36:42 -0700
-> Andrew Morton <akpm@osdl.org> wrote:
+On Tue, Sep 30, 2003 at 01:08:55AM -0700, David S. Miller wrote:
+> On Tue, 30 Sep 2003 08:39:33 +0100
+> David Woodhouse <dwmw2@infradead.org> wrote:
+> > 99% or more of tristate options can be enabled without affecting the
+> > kernel, and it is expected that such options can be set to 'm' later,
+> > while the kernel in question is actually running, then built and loaded
+> > without a reboot.
 > 
-> > Oh, it's taking xmit_lock in a timer handler.  I give up.
+> Expected by whom?  Not by me.
+
+By me for instance.  I'm used to modules having no influence until
+loaded, even at compilation time.  I'm used to in-tree and out-of-tree
+modules to have exactly the same status (ignoring the binary-only
+modules crap).
+
+
+> > We should strive to keep this true.
 > 
-> I think e1000 should rethink what it is doing :-)
+> For things _OUTSIDE_ the kernel, surely.  But inside the kernel
+> tree I don't see any value in this new restriction.
+> 
+> > 	Allow this kernel to ever support IPv6? Y/N
+> > 	Build IPv6 support? Y/M/N
+> 
+> And I still think this is a complete joke.
 
-Sorry, in case it isn't painfully obvious, instead of hinting
-at it let me state explicitly that ->xmit_lock is a BH disabling
-lock not an IRQ disabling one.
+I suspect what you _really_ want is a "disable ipv6 entirely"
+depending on CONFIG_EMBEDDED which would remove the then bloat.
+Normal users would never see it and the meaning would be obvious for
+the ones who care.
 
-Therefore, e1000's IRQ disabling when grabbing that lock is
-buggy and need to be changed to BH disabling.
-
-If it needs to disable IRQs for it's own internal locking, it
-needs to do so such that such IRQ disabling internal locks
-are not held while kfree_skb() is being invoked.
-
-Calling kfree_skb() with IRQs disabled in the e1000 driver is
-the cause of this bug.
-
-Jeff, if you pushed these e1000 updates that make it grap
-->xmit_lock() with disabling IRQs instead of BH into 2.4.x
-trees too, beware!
+  OG.
