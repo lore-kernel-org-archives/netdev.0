@@ -1,48 +1,52 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: suggestion for routing code improvement
-Date: Thu, 11 Apr 2002 08:18:50 -0400 (EDT)
+Subject: Re: QoS _put, _get and _delete class ops semantic
+Date: Thu, 11 Apr 2002 08:35:22 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0204110805460.651-100000@shell.cyberus.ca>
-References: <Pine.LNX.4.44.0204111451570.9056-100000@l>
+Message-ID: <Pine.GSO.4.30.0204101918200.24339-100000@shell.cyberus.ca>
+References: <Pine.LNX.4.10.10204091332410.15162-100000@luxik.cdi.cz>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
+Cc: <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0204111451570.9056-100000@l>
+To: Martin Devera <devik@cdi.cz>
+In-Reply-To: <Pine.LNX.4.10.10204091332410.15162-100000@luxik.cdi.cz>
 List-Id: netdev.vger.kernel.org
 
 
+Hi Martin,
 
-On Thu, 11 Apr 2002, Julian Anastasov wrote:
+On Tue, 9 Apr 2002, Martin Devera wrote:
 
+> Hi Jamal,
 >
-> 	Hello,
->
-> On Thu, 11 Apr 2002, Robert Olsson wrote:
->
-> > There is already RTPROT_KERNEL and proto RTPROT_STATIC is way for the
-> > administrator to interact with the routing daemon even if is a you say
-> > that this is not currently implemented by all daemons. I have used this
-> > with gated.
->
-> 	Well, I now see, it is used in gated. But only in one route table
-> which is a drawback.
+> put and get seem to be simply reference counting on
+> class object.
 
-I thought gated was capable of using at least main and local.
-If i am not mistaken zebra is now capable of using more tables as well.
-It would probably be actually better policy to enter all static routes in
-one table.
-Robert, when you enter a static route from gated, is it registered as
-proto gated or proto static?
-While i like Julians patch (adding no complexity, IMO) I see that the
-functionality could be very easily moved outside the kernel where you
-could also do a lot more fancy things (very complex decision making
-example: based on which devs go down, what next multihops to use etc).
-Unfortunately, it does require extra code in user space.
-The question is: Would people who need this functionality be not very lazy
-and actually fetch this code and compile it? ;->
+nod
+
+> I'd expect thet class creation will call
+> get once to assure that it is locked in active state and
+> "tc class del" would call last put to release this last
+> reference (and class will destroy itself).
+
+actually sequence would be get();delete();put() whenever
+"tc class del" is invoked (theres other activity that may happen here as
+well instead of delete(), example attaching filters to class etc).
+
+I think what you do with the delete+put combo is specific
+to your needs though. So for example you could return 0
+in get() and your put() code will never be invoked.
+
+> Unfortunately there is delete class op which seems to do
+> almost the same as put.
+> Do you know rationale behind it ? Why we have both put
+> and delete and what tc framework expect from qdisc ?
+
+Alexey can give a better answer.
+Typically put() is the backup for delete. Should delete fail
+to destroy because of reference counts being non-zero, put will catch it.
+CBQ is an easier scheduler to see this. For a fun one look at the ATM
+scheduler.
 
 cheers,
 jamal
