@@ -1,41 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fragmentation Attack
-Date: Sun, 8 Feb 2004 13:18:26 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
+Date: Mon, 09 Feb 2004 06:26:09 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040208131826.104eaef4.davem@redhat.com>
-References: <20040208124528.2c667378.davem@redhat.com>
-	<BC4C0264.E3F3%gandalf@digital.net>
+Message-ID: <20040209.062609.55856700.yoshfuji@linux-ipv6.org>
+References: <20040207.131455.27570445.yoshfuji@linux-ipv6.org>
+	<200402071333.51909.kazunori@miyazawa.org>
+	<20040208130811.328225e7.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kazunori@miyazawa.org, mika.penttila@kolumbus.fi, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Gandalf The White <gandalf@digital.net>
-In-Reply-To: <BC4C0264.E3F3%gandalf@digital.net>
+To: davem@redhat.com
+In-Reply-To: <20040208130811.328225e7.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 08 Feb 2004 15:12:36 -0600
-Gandalf The White <gandalf@digital.net> wrote:
+In article <20040208130811.328225e7.davem@redhat.com> (at Sun, 8 Feb 2004 13:08:11 -0800), "David S. Miller" <davem@redhat.com> says:
 
-> The attack has ICMP, UDP and TCP.  If you were seeing a specific signature
-> over and over again then I agree that it might be easy to block (depending
-> on the firewall) ... But ... If someone were sending fragments destined for
-> port 80 to your web server I don't see how you could differentiate between
-> "real" fragments going to the web server and faked fragmentation requests.
+> 
+> Is a fixed version of this output path unification patch
+> coming soon?
 
-In this day and age, and with all the headaches fragmentation causes
-(either directly or indirectly via these resource consumption DoS's)
-we may soon be reaching the point where only talking to sites doing
-path-MTU discovery (yes, even for UDP) is a valid decision for a big
-site.
+No. The second patch from Miyazawa-san is fine.
 
-This would solve the problem in a hurry.
-
-For TCP I think people can do this today.  For UDP, what do you need fragmented
-UDP for, DNS queries?  I think not for those types of usage, and even streaming
-voice or whatever UDP uses chop up the datastream themselves spitting out a
-non-fragmented time transmitted line of packets looking sort of ATM'ish.
-
-Fragmented ICMP should just be blocked at firewall for people concerned about
-this, I see no valid use of this.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
