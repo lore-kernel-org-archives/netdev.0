@@ -1,8 +1,8 @@
 From: Shmuel Hen <shmulik.hen@intel.com>
-Subject: [PATCH 5/6][bonding][2.4] Add VLAN support in TLB mode
-Date: Thu, 22 Jan 2004 17:58:46 +0200
+Subject: [PATCH 1/6][NET][2.6] split arp_send into arp_create and arp_xmit
+Date: Thu, 22 Jan 2004 17:59:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401221758.47815.shmulik.hen@intel.com>
+Message-ID: <200401221759.34877.shmulik.hen@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -13,175 +13,148 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add capability to tag self generated learning packets that are
-required to speed up port selection in the switch after a fail
-over in bonding since some switches will only update their MAC
-tables from tagged packets when VLAN support is turned on. All
-VLAN Id's that have been configured on top of the bond interface
-will be used in cyclic order.
+Enable intermediate network drivers like bonding to create an ARP
+packet and modify it to their needs before sending it, while avoiding
+code duplication. It does not affect any other place in the kernel
+that uses arp_send.
 
 
-diff -Nuarp a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
---- a/drivers/net/bonding/bond_alb.c	Wed Jan 21 16:55:10 2004
-+++ b/drivers/net/bonding/bond_alb.c	Wed Jan 21 16:55:12 2004
-@@ -50,6 +50,7 @@
+diff -Nuarp a/include/net/arp.h b/include/net/arp.h
+--- a/include/net/arp.h	Wed Jan 21 16:56:05 2004
++++ b/include/net/arp.h	Wed Jan 21 16:56:07 2004
+@@ -5,6 +5,8 @@
  #include <linux/if_arp.h>
- #include <linux/if_ether.h>
- #include <linux/if_bonding.h>
-+#include <linux/if_vlan.h>
- #include <net/ipx.h>
- #include <net/arp.h>
- #include <asm/byteorder.h>
-@@ -79,7 +80,7 @@
+ #include <net/neighbour.h>
  
- 
- #define TLB_NULL_INDEX		0xffffffff
--#define MAX_LP_RETRY		3
-+#define MAX_LP_BURST		3
- 
- /* rlb defs */
- #define RLB_HASH_TABLE_SIZE	256
-@@ -817,6 +818,7 @@ static void rlb_deinitialize(struct bond
- 
- static void alb_send_learning_packets(struct slave *slave, u8 mac_addr[])
- {
-+	struct bonding *bond = bond_get_bond_by_slave(slave);
- 	struct learning_pkt pkt;
- 	int size = sizeof(struct learning_pkt);
- 	int i;
-@@ -826,7 +828,7 @@ static void alb_send_learning_packets(st
- 	memcpy(pkt.mac_src, mac_addr, ETH_ALEN);
- 	pkt.type = __constant_htons(ETH_P_LOOP);
- 
--	for (i = 0; i < MAX_LP_RETRY; i++) {
-+	for (i = 0; i < MAX_LP_BURST; i++) {
- 		struct sk_buff *skb;
- 		char *data;
- 
-@@ -844,6 +846,26 @@ static void alb_send_learning_packets(st
- 		skb->priority = TC_PRIO_CONTROL;
- 		skb->dev = slave->dev;
- 
-+		if (!list_empty(&bond->vlan_list)) {
-+			struct vlan_entry *vlan;
++#define HAVE_ARP_CREATE
 +
-+			vlan = bond_next_vlan(bond,
-+					      bond->alb_info.current_alb_vlan);
-+
-+			bond->alb_info.current_alb_vlan = vlan;
-+			if (!vlan) {
-+				kfree_skb(skb);
-+				continue;
-+			}
-+
-+			skb = vlan_put_tag(skb, vlan->vlan_id);
-+			if (!skb) {
-+				printk(KERN_ERR DRV_NAME
-+				       ": Error: failed to insert VLAN tag\n");
-+				continue;
-+			}
-+		}
-+
- 		dev_queue_xmit(skb);
- 	}
- }
-@@ -1589,3 +1611,11 @@ int bond_alb_set_mac_address(struct net_
- 	return 0;
- }
+ extern struct neigh_table arp_tbl;
  
-+void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id)
-+{
-+	if (bond->alb_info.current_alb_vlan &&
-+	    (bond->alb_info.current_alb_vlan->vlan_id == vlan_id)) {
-+		bond->alb_info.current_alb_vlan = NULL;
-+	}
-+}
-+
-diff -Nuarp a/drivers/net/bonding/bond_alb.h b/drivers/net/bonding/bond_alb.h
---- a/drivers/net/bonding/bond_alb.h	Wed Jan 21 16:55:10 2004
-+++ b/drivers/net/bonding/bond_alb.h	Wed Jan 21 16:55:12 2004
-@@ -122,6 +122,7 @@ struct alb_bond_info {
- 						 * rx traffic should be
- 						 * rebalanced
- 						 */
-+	struct vlan_entry	*current_alb_vlan;
- };
+ extern void	arp_init(void);
+@@ -19,6 +21,12 @@ extern int	arp_bind_neighbour(struct dst
+ extern int	arp_mc_map(u32 addr, u8 *haddr, struct net_device *dev, int dir);
+ extern void	arp_ifdown(struct net_device *dev);
  
- int bond_alb_initialize(struct bonding *bond, int rlb_enabled);
-@@ -133,6 +134,6 @@ void bond_alb_handle_active_change(struc
- int bond_alb_xmit(struct sk_buff *skb, struct net_device *bond_dev);
- void bond_alb_monitor(struct bonding *bond);
- int bond_alb_set_mac_address(struct net_device *bond_dev, void *addr);
++extern struct sk_buff *arp_create(int type, int ptype, u32 dest_ip,
++				  struct net_device *dev, u32 src_ip,
++				  unsigned char *dest_hw, unsigned char *src_hw,
++				  unsigned char *target_hw);
++extern void arp_xmit(struct sk_buff *skb);
++
+ extern struct neigh_ops arp_broken_ops;
+ 
+ #endif	/* _ARP_H */
+diff -Nuarp a/net/ipv4/arp.c b/net/ipv4/arp.c
+--- a/net/ipv4/arp.c	Wed Jan 21 16:56:05 2004
++++ b/net/ipv4/arp.c	Wed Jan 21 16:56:07 2004
+@@ -67,6 +67,10 @@
+  *					now it is in net/core/neighbour.c.
+  *		Krzysztof Halasa:	Added Frame Relay ARP support.
+  *		Arnaldo C. Melo :	convert /proc/net/arp to seq_file
++ *		Shmulik Hen:		Split arp_send to arp_create and
++ *					arp_xmit so intermediate drivers like
++ *					bonding can change the skb before
++ *					sending (e.g. insert 8021q tag).
+  */
+ 
+ #include <linux/module.h>
+@@ -487,34 +491,26 @@ static inline int arp_fwd_proxy(struct i
+  */
+ 
+ /*
+- *	Create and send an arp packet. If (dest_hw == NULL), we create a broadcast
++ *	Create an arp packet. If (dest_hw == NULL), we create a broadcast
+  *	message.
+  */
 -
-+void bond_alb_clear_vlan(struct bonding *bond, unsigned short vlan_id);
- #endif /* __BOND_ALB_H__ */
+-void arp_send(int type, int ptype, u32 dest_ip, 
+-	      struct net_device *dev, u32 src_ip, 
+-	      unsigned char *dest_hw, unsigned char *src_hw,
+-	      unsigned char *target_hw)
++struct sk_buff *arp_create(int type, int ptype, u32 dest_ip,
++			   struct net_device *dev, u32 src_ip,
++			   unsigned char *dest_hw, unsigned char *src_hw,
++			   unsigned char *target_hw)
+ {
+ 	struct sk_buff *skb;
+ 	struct arphdr *arp;
+ 	unsigned char *arp_ptr;
  
-diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Wed Jan 21 16:55:10 2004
-+++ b/drivers/net/bonding/bond_main.c	Wed Jan 21 16:55:12 2004
-@@ -676,6 +676,11 @@ static int bond_del_vlan(struct bonding 
- 		if (vlan->vlan_id == vlan_id) {
- 			list_del(&vlan->vlan_list);
- 
-+			if ((bond->params.mode == BOND_MODE_TLB) ||
-+			    (bond->params.mode == BOND_MODE_ALB)) {
-+				bond_alb_clear_vlan(bond, vlan_id);
-+			}
-+
- 			dprintk("removed VLAN ID %d from bond %s\n", vlan_id,
- 				bond->dev->name);
- 
-@@ -731,6 +736,42 @@ static int bond_has_challenged_slaves(st
- }
- 
- /**
-+ * bond_next_vlan - safely skip to the next item in the vlans list.
-+ * @bond: the bond we're working on
-+ * @curr: item we're advancing from
-+ *
-+ * Returns %NULL if list is empty, bond->next_vlan if @curr is %NULL,
-+ * or @curr->next otherwise (even if it is @curr itself again).
-+ * 
-+ * Caller must hold bond->lock
-+ */
-+struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr)
-+{
-+	struct vlan_entry *next, *last;
-+
-+	if (list_empty(&bond->vlan_list)) {
+ 	/*
+-	 *	No arp on this interface.
+-	 */
+-	
+-	if (dev->flags&IFF_NOARP)
+-		return;
+-
+-	/*
+ 	 *	Allocate a buffer
+ 	 */
+ 	
+ 	skb = alloc_skb(sizeof(struct arphdr)+ 2*(dev->addr_len+4)
+ 				+ LL_RESERVED_SPACE(dev), GFP_ATOMIC);
+ 	if (skb == NULL)
+-		return;
 +		return NULL;
-+	}
-+
-+	if (!curr) {
-+		next = list_entry(bond->vlan_list.next,
-+				  struct vlan_entry, vlan_list);
-+	} else {
-+		last = list_entry(bond->vlan_list.prev,
-+				  struct vlan_entry, vlan_list);
-+		if (last == curr) {
-+			next = list_entry(bond->vlan_list.next,
-+					  struct vlan_entry, vlan_list);
-+		} else {
-+			next = list_entry(curr->vlan_list.next,
-+					  struct vlan_entry, vlan_list);
-+		}
-+	}
-+
-+	return next;
+ 
+ 	skb_reserve(skb, LL_RESERVED_SPACE(dev));
+ 	skb->nh.raw = skb->data;
+@@ -594,12 +590,46 @@ void arp_send(int type, int ptype, u32 d
+ 	arp_ptr+=dev->addr_len;
+ 	memcpy(arp_ptr, &dest_ip, 4);
+ 
+-	/* Send it off, maybe filter it using firewalling first.  */
+-	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, dev, dev_queue_xmit);
+-	return;
++	return skb;
+ 
+ out:
+ 	kfree_skb(skb);
++	return NULL;
 +}
 +
-+/**
-  * bond_dev_queue_xmit - Prepare skb for xmit.
-  * 
-  * @bond: bond device that got this skb for tx.
-diff -Nuarp a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
---- a/drivers/net/bonding/bonding.h	Wed Jan 21 16:55:10 2004
-+++ b/drivers/net/bonding/bonding.h	Wed Jan 21 16:55:12 2004
-@@ -245,6 +245,7 @@ extern inline void bond_set_slave_active
- 	slave->dev->flags &= ~IFF_NOARP;
++/*
++ *	Send an arp packet.
++ */
++void arp_xmit(struct sk_buff *skb)
++{
++	/* Send it off, maybe filter it using firewalling first.  */
++	NF_HOOK(NF_ARP, NF_ARP_OUT, skb, NULL, skb->dev, dev_queue_xmit);
++}
++
++/*
++ *	Create and send an arp packet.
++ */
++void arp_send(int type, int ptype, u32 dest_ip, 
++	      struct net_device *dev, u32 src_ip, 
++	      unsigned char *dest_hw, unsigned char *src_hw,
++	      unsigned char *target_hw)
++{
++	struct sk_buff *skb;
++
++	/*
++	 *	No arp on this interface.
++	 */
++	
++	if (dev->flags&IFF_NOARP)
++		return;
++
++	skb = arp_create(type, ptype, dest_ip, dev, src_ip,
++			 dest_hw, src_hw, target_hw);
++	if (skb == NULL) {
++		return;
++	}
++
++	arp_xmit(skb);
  }
  
-+struct vlan_entry *bond_next_vlan(struct bonding *bond, struct vlan_entry *curr);
- int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev);
+ static void parp_redo(struct sk_buff *skb)
+@@ -1437,6 +1467,8 @@ static int __init arp_proc_init(void)
+ EXPORT_SYMBOL(arp_broken_ops);
+ EXPORT_SYMBOL(arp_find);
+ EXPORT_SYMBOL(arp_rcv);
++EXPORT_SYMBOL(arp_create);
++EXPORT_SYMBOL(arp_xmit);
+ EXPORT_SYMBOL(arp_send);
+ EXPORT_SYMBOL(arp_tbl);
  
- #endif /* _LINUX_BONDING_H */
