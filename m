@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH] 2.4.25 pcnet32.c SLAB_DEBUG length error fix
-Date: Thu, 19 Feb 2004 08:46:38 -0800 (PST)
+Subject: [PATCH] 2.4.25 pcnet32.c transmit hang fix
+Date: Thu, 19 Feb 2004 08:52:40 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402191646.i1JGkcf04984@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200402191652.i1JGqei05003@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,70 +11,96 @@ To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The pcnet32 driver uses the incorrect length (of zero) in
-pci_[un]map_single for receive buffers.  This is seen with SLAB_DEBUG
-enabled.
+The transmit routine will stop interrupting and hang, causing the
+tx_timeout routine to attempt to restart the device when the 32-bit
+cur_tx counter wraps below dirty_tx.  If the device had called
+netif_stop_queue it will never call netif_wake_queue in the interrupt
+routine (at least on an IA32 system) due to 32-bit wrap around arithmetic.
 
---- linux-2.4.25/drivers/net/orig.pcnet32.c	Fri Nov 28 10:26:20 2003
-+++ linux-2.4.25/drivers/net/pcnet32.c	Thu Feb 19 08:35:21 2004
-@@ -976,9 +976,10 @@
- 	}
+On my IA32 system 'dirty_tx > lp->cur_tx - TX_RING_SIZE + 2' would
+always evaluate to false when dirty and cur_tx were less than 15,
+preventing netif_wake_queue to be called.
+
+By starting dirty_tx and cur_tx at 0xfffffff0 (to reduce test time) I
+found that once cur_tx wrapped to zero, that transmitted buffers would
+never be unmapped or freed because 'while (dirty_tx < lp->cur_tx) {'
+was not true.  cur_tx would keep incrementing (in start_xmit) but dirty_tx
+would not (in pcnet32_interrupt), thus leaking skb's and pci map entries.
+On PPC machines, the system would quickly run out of pci maps.
+
+--- linux-2.4.25/drivers/net/slab.pcnet32.c	Thu Feb 19 08:44:52 2004
++++ linux-2.4.25/drivers/net/pcnet32.c	Thu Feb 19 08:45:17 2004
+@@ -1050,7 +1050,7 @@
+ 	pcnet32_restart(dev, 0x0042);
  
- 	if (lp->rx_dma_addr[i] == 0) 
--		lp->rx_dma_addr[i] = pci_map_single(lp->pci_dev, rx_skbuff->tail, rx_skbuff->len, PCI_DMA_FROMDEVICE);
-+		lp->rx_dma_addr[i] = pci_map_single(lp->pci_dev,
-+			rx_skbuff->tail, PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
- 	lp->rx_ring[i].base = (u32)le32_to_cpu(lp->rx_dma_addr[i]);
--	lp->rx_ring[i].buf_length = le16_to_cpu(-PKT_BUF_SZ);
-+	lp->rx_ring[i].buf_length = le16_to_cpu(2-PKT_BUF_SZ);
- 	lp->rx_ring[i].status = le16_to_cpu(0x8000);
-     }
-     /* The Tx buffer address is filled in as needed, but we do need to clear
-@@ -1312,13 +1313,14 @@
- 		    if ((newskb = dev_alloc_skb (PKT_BUF_SZ))) {
- 			skb_reserve (newskb, 2);
- 			skb = lp->rx_skbuff[entry];
--			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[entry], skb->len, PCI_DMA_FROMDEVICE);
-+			pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[entry],
-+				PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
- 			skb_put (skb, pkt_len);
- 			lp->rx_skbuff[entry] = newskb;
- 			newskb->dev = dev;
-                         lp->rx_dma_addr[entry] = 
- 				pci_map_single(lp->pci_dev, newskb->tail,
--					newskb->len, PCI_DMA_FROMDEVICE);
-+					PKT_BUF_SZ-2, PCI_DMA_FROMDEVICE);
- 			lp->rx_ring[entry].base = le32_to_cpu(lp->rx_dma_addr[entry]);
- 			rx_in_place = 1;
- 		    } else
-@@ -1347,7 +1349,7 @@
- 		    skb_put(skb,pkt_len);	/* Make room */
- 		    pci_dma_sync_single(lp->pci_dev,
- 		                        lp->rx_dma_addr[entry],
--		                        PKT_BUF_SZ,
-+		                        PKT_BUF_SZ-2,
- 		                        PCI_DMA_FROMDEVICE);
- 		    eth_copy_and_sum(skb,
- 				     (unsigned char *)(lp->rx_skbuff[entry]->tail),
-@@ -1364,7 +1366,7 @@
- 	 * The docs say that the buffer length isn't touched, but Andrew Boyd
- 	 * of QNX reports that some revs of the 79C965 clear it.
- 	 */
--	lp->rx_ring[entry].buf_length = le16_to_cpu(-PKT_BUF_SZ);
-+	lp->rx_ring[entry].buf_length = le16_to_cpu(2-PKT_BUF_SZ);
- 	lp->rx_ring[entry].status |= le16_to_cpu(0x8000);
- 	entry = (++lp->cur_rx) & RX_RING_MOD_MASK;
-     }
-@@ -1402,7 +1404,8 @@
-     for (i = 0; i < RX_RING_SIZE; i++) {
- 	lp->rx_ring[i].status = 0;			    
- 	if (lp->rx_skbuff[i]) {
--            pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], lp->rx_skbuff[i]->len, PCI_DMA_FROMDEVICE);
-+            pci_unmap_single(lp->pci_dev, lp->rx_dma_addr[i], PKT_BUF_SZ-2,
-+		    PCI_DMA_FROMDEVICE);
- 	    dev_kfree_skb(lp->rx_skbuff[i]);
-         }
- 	lp->rx_skbuff[i] = NULL;
+ 	dev->trans_start = jiffies;
+-	netif_start_queue(dev);
++	netif_wake_queue(dev);
+ 
+ 	spin_unlock_irqrestore(&lp->lock, flags);
+ }
+@@ -1076,9 +1076,10 @@
+      * interrupt when that option is available to us.
+      */
+     status = 0x8300;
++    entry = (lp->cur_tx - lp->dirty_tx) & TX_RING_MOD_MASK;
+     if ((lp->ltint) &&
+-	((lp->cur_tx - lp->dirty_tx == TX_RING_SIZE/2) ||
+-	 (lp->cur_tx - lp->dirty_tx >= TX_RING_SIZE-2)))
++	((entry == TX_RING_SIZE/2) ||
++	 (entry >= TX_RING_SIZE-2)))
+     {
+ 	/* Enable Successful-TxDone interrupt if we have
+ 	 * 1/2 of, or nearly all of, our ring buffer Tx'd
+@@ -1093,7 +1094,7 @@
+     /* Mask to ring buffer boundary. */
+     entry = lp->cur_tx & TX_RING_MOD_MASK;
+   
+-    /* Caution: the write order is important here, set the base address
++    /* Caution: the write order is important here, set the status
+        with the "ownership" bits last. */
+ 
+     lp->tx_ring[entry].length = le16_to_cpu(-skb->len);
+@@ -1115,7 +1116,7 @@
+     dev->trans_start = jiffies;
+ 
+     if (lp->tx_ring[(entry+1) & TX_RING_MOD_MASK].base == 0)
+-	netif_start_queue(dev);
++	netif_wake_queue(dev);
+     else {
+ 	lp->tx_full = 1;
+ 	netif_stop_queue(dev);
+@@ -1162,8 +1163,9 @@
+ 
+ 	if (csr0 & 0x0200) {		/* Tx-done interrupt */
+ 	    unsigned int dirty_tx = lp->dirty_tx;
++	    int delta;
+ 
+-	    while (dirty_tx < lp->cur_tx) {
++	    while (dirty_tx != lp->cur_tx) {
+ 		int entry = dirty_tx & TX_RING_MOD_MASK;
+ 		int status = (short)le16_to_cpu(lp->tx_ring[entry].status);
+ 			
+@@ -1217,15 +1219,17 @@
+ 		dirty_tx++;
+ 	    }
+ 
+-	    if (lp->cur_tx - dirty_tx >= TX_RING_SIZE) {
++	    delta = (lp->cur_tx - dirty_tx) & (TX_RING_MOD_MASK + TX_RING_SIZE);
++	    if (delta >= TX_RING_SIZE) {
+ 		printk(KERN_ERR "%s: out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
+ 			dev->name, dirty_tx, lp->cur_tx, lp->tx_full);
+ 		dirty_tx += TX_RING_SIZE;
++		delta -= TX_RING_SIZE;
+ 	    }
+ 
+ 	    if (lp->tx_full &&
+ 		netif_queue_stopped(dev) &&
+-		dirty_tx > lp->cur_tx - TX_RING_SIZE + 2) {
++		delta < TX_RING_SIZE - 2) {
+ 		/* The ring is no longer full, clear tbusy. */
+ 		lp->tx_full = 0;
+ 		netif_wake_queue (dev);
 
 -- 
 Don Fry
