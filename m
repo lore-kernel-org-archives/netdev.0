@@ -1,29 +1,61 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Known problems with TCP window size on 2.6.7?
-Date: Wed, 27 Oct 2004 22:18:30 +1000
+From: Dan Williams <dcbw@redhat.com>
+Subject: Re: [PATCH 2.6.10-rc1 1/15] wireless/orinoco: Use msleep() instead
+	of hardcoded schedule_timeout()s
+Date: Wed, 27 Oct 2004 09:11:11 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CMml4-0001Cm-00@gondolin.me.apana.org.au>
-References: <20041027110617.GA28757@vana.vc.cvut.cz>
-Cc: netdev@oss.sgi.com
+Message-ID: <1098882671.13459.2.camel@dcbw.boston.redhat.com>
+References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
+	 <1098815604.3663.35.camel@dcbw.boston.redhat.com>
+	 <20041026184749.GA16621@infradead.org>
+	 <1098819336.9874.11.camel@dcbw.boston.redhat.com>
+	 <20041026194219.GA17343@infradead.org>
+	 <1098820512.9874.13.camel@dcbw.boston.redhat.com>
+	 <20041027031305.GG7925@zax>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@oss.sgi.com,
+        jgarzik@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vandrove@vc.cvut.cz (Petr Vandrovec)
-In-Reply-To: <20041027110617.GA28757@vana.vc.cvut.cz>
+To: David Gibson <hermes@gibson.dropbear.id.au>
+In-Reply-To: <20041027031305.GG7925@zax>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
->   are there some known problems with 2.6.7 and TCP window growing up over limits?  
+Ok, so in my zeal to get the kernel orinoco drivers to _not_ _suck_,
+what branch is the most up-to-date?  Have you been commiting the stuff
+here that you say is "committed to CVS" to _both_ HEAD and for_linus?
 
-No.
+The things I care about (to bring orinoco drivers up to par with others
+like prism54 & aironet):
 
-> usermap is running 2.6.7-bk1, regata1 is running some AIX5.
+1) Scanning support
+2) monitor mode
+3) the better firmware handling
 
-You need to show us the SYN packets as well.  More importantly,
-you need to show us dumps on both sides of the connection since
-there may be a router/firewall in the middle that's fiddling with
-the bits.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Dan
+
+On Wed, 2004-10-27 at 13:13 +1000, David Gibson wrote:
+> On Tue, Oct 26, 2004 at 03:55:12PM -0400, Dan Williams wrote:
+> > I will leave that do David/jgarzik since I didn't actually write any of
+> > this code, I just broke the megadiff down.
+> 
+> What's happened is that the old explicit schedule_timeout() constructs
+> were replaced in CVS with msleep() (ssleep() didn't exist at the
+> time).  In the meantime, at least some of them were replaced with
+> ssleep() in mainline.
+> 
+> I'm about to commit a patch to CVS replacing the msleep()s with
+> ssleep()s.  In the for_linus branch, at least, HEAD will take longer
+> because we'll need to come up with something to maintain compatibility
+> with pre-ssleep() kernels.
+> 
+> > On Tue, 2004-10-26 at 20:42 +0100, Christoph Hellwig wrote:
+> > > On Tue, Oct 26, 2004 at 03:35:36PM -0400, Dan Williams wrote:
+> > > > New description:
+> > > > 
+> > > > o Use msleep() instead of hardcoded schedule_timeout()s
+> > > > o Normalize sleep calls to use msleep() everywhere
+> > > 
+> > > care to explain what's the point of the latter?
+> 
