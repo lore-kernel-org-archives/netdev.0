@@ -1,60 +1,68 @@
 From: netdev-bounce@oss.sgi.com
 Subject: (no subject)
-Date: Tue, 29 Oct 2002 12:12:09 +1100 (EST)
+Date: Tue, 29 Oct 2002 17:01:28 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021029011209.CB709130104__2401.40076862208$1035904653@splat.its.monash.edu.au>
+Message-ID: <20021029060128.AABB012C935__1075.44652787528$1035905709@blammo.its.monash.edu.au>
 Content-Transfer-Encoding: 7BIT
 Return-path: <netdev-bounce@oss.sgi.com>
 To: undisclosed-recipients: ;
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hi
+On Wed, 23 Oct 2002, Nivedita Singhvi wrote:
 
-I've got this video server serving video for VoD. problem is the P4 1.8 seems 
-to be maxed out by a few system calls. The below output is for ~50 clients 
-streaming at ~4.5Mbps. if trying to increase this to ~70, the CPU maxes out.
+> bert hubert wrote:
+> 
+> > I still refuse to believe that a 1.8GHz Pentium4 can only checksum
+> > 250megabits/second. MD Raid5 does better and they probably don't use a
+> > checksum as braindead as that used by TCP.
+> > 
+> > If the checksumming is not the problem, the copying is, which would be a
+> > weakness of your hardware. The function profiled does both the copying and
+> > the checksumming.
+> 
+> Yep, its not so much the checksumming as the fact that this is
+> done over each byte of data and copied.
+> 
+> thanks,
+> Nivedita
 
-Does anyone have an idea?
+No. It's done over each word (short int) and the actual summation
+takes place during the address calculation of the next word. This
+gets you a checksum that is practically free.
 
-bash-2.05# readprofile | sort -rn +2 | head -30
-154203 default_idle                             2409.4219
-212723 csum_partial_copy_generic                916.9095
-100164 handle_IRQ_event                         695.5833
- 24979 system_call                              390.2969
- 37300 e1000_intr                               388.5417
-119699 ide_intr                                 340.0540
- 30598 skb_release_data                         273.1964
- 40740 do_softirq                               195.8654
-131818 do_wp_page                               164.7725
-  9935 fget                                     155.2344
- 24747 kfree                                    154.6687
- 10911 del_timer                                113.6562
- 11683 ip_conntrack_find_get                     91.2734
-  4120 sock_poll                                 85.8333
-  9357 ip_ct_find_proto                          83.5446
-  5194 sock_wfree                                81.1562
-  4929 add_wait_queue                            77.0156
-  8361 flush_tlb_page                            74.6518
-  4571 remove_wait_queue                         71.4219
-  2191 __brelse                                  68.4688
- 29477 skb_clone                                 68.2338
-  8562 do_gettimeofday                           59.4583
-  5673 process_timeout                           59.0938
- 11097 tcp_v4_send_check                         57.7969
-  6124 kfree_skbmem                              54.6786
- 17115 tcp_poll                                  53.4844
- 21130 nf_hook_slow                              52.8250
-  8299 ip_ct_refresh                             51.8687
- 15429 __kfree_skb                               50.7533
-  1059 lru_cache_del                             46.0435
+A 400 MHz ix86 CPU will checksum/copy at 685 megabytes per second.
+It will copy at 1,549 megabytes per second. Those are megaBYTES!
+
+If you have slow network performance it has nothing to do with
+either copy or checksum. Data transmission acts like a low-pass
+filter. The dominant pole of that transfer function determines
+the speed, that's why it's called dominant. If you measure
+a data-rate of 10 megabytes/second. Nothing you do with copy
+or checksum will affect it to any significant extent.
+
+If you have a data-rate of 100 megabytes per second, then any
+tinkering with copy will have an effective improvement ratio
+of 100/1,559 ~= 0.064. If you have a data rate of 100 megabytes
+per second and you tinker with checksum, you get an improvement
+ratio of 100/685 ~=0.14. These are just not the things that are
+affecting your performance.
+
+If you were to double the checksumming speed, you increase the
+throughput by 2 * 0.14 = 0.28 with the parameters shown.
+
+The TCP/IP checksum is quite nice. It may have been discovered
+by accident, but it's still nice. It works regardless of whether
+you have a little endian or big endian machine. It also doesn't
+wrap so you don't (usually) show a good checksum when the data
+is bad. It does have the characteristic that if all the bits are
+inverted, it will checksum good. However, there are not too many
+real-world scenarios that would result in this inversion. So it's
+not "brain-dead" as you state. A hardware checksum is really
+quick because it's really easy.
 
 
-roy
--- 
-Roy Sigurd Karlsbakk, Datavaktmester
-ProntoTV AS - http://www.pronto.tv/
-Tel: +47 9801 3356
-
-Computers are like air conditioners.
-They stop working when you open Windows.
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.4.18 on an i686 machine (797.90 BogoMips).
+   Bush : The Fourth Reich of America
