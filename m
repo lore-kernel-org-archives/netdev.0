@@ -1,21 +1,20 @@
 From: maximilian attems <janitor@sternwelten.at>
 Subject: Re: [KJ] Re: [patch 2.4] back port msleep(), msleep_interruptible()
 Date: Sun, 31 Oct 2004 01:19:12 +0200
-Message-ID: <20041030231912.GC1456__38137.0373921984$1099178449$gmane$org@stro.at>
+Message-ID: <20041030231912.GC1456__42571.5463854887$1099178800$gmane$org@stro.at>
 References: <20040923221303.GB13244@us.ibm.com> <5.1.0.14.2.20040924074745.00b1cd40@pop.t-online.de> <415CD9D9.2000607@pobox.com> <20041030222228.GB1456@stro.at> <41841886.2080609@pobox.com> <29495f1d041030155953a9a776@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        Margit Schubert-While <margitsw@t-online.de>,
-        kernel-janitors@lists.osdl.org, mcgrof@studorgs.rutgers.edu,
-        prism54-devel@prism54.org, Domen Puncer <domen@coderock.org>,
-        linux-kernel@vger.kernel.org, hvr@gnu.org
-Return-path: <netdev-bounce@oss.sgi.com>
+	Margit Schubert-While <margitsw@t-online.de>,
+	kernel-janitors@lists.osdl.org, mcgrof@studorgs.rutgers.edu,
+	prism54-devel@prism54.org, Domen Puncer <domen@coderock.org>,
+	linux-kernel@vger.kernel.org, hvr@gnu.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261437AbUJ3XVp@vger.kernel.org>
 To: Nish Aravamudan <nish.aravamudan@gmail.com>
 Content-Disposition: inline
 In-Reply-To: <29495f1d041030155953a9a776@mail.gmail.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 On Sat, 30 Oct 2004, Nish Aravamudan wrote:
