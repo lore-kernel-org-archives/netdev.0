@@ -1,39 +1,85 @@
-From: Abhinav Gupta <kernelnetworkguy@hotpop.com>
-Subject: Quirky Behaviour while counting #tcp packets received.
-Date: Tue, 23 Mar 2004 13:02:27 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <406097D3.10608@hotpop.com>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: [BK PATCH] 2.6 SCTP updates.
+Date: Tue, 23 Mar 2004 12:13:56 -0800 (PST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.58.0403231211310.1818@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-net-owner@vger.kernel.org>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I am not sure if this is the correct mailing list for my question or 
-not. If it isn't could someone please direct me to the correct one.
+Hi Dave,
 
-Here's what I am doing and the problem emanating from it:
-I wanted to keep a track of tcp packets received from the network, so I 
-started keeping a count of that by incrementing pkts_recv variable in 
-the function tcp_recv_established in usr/src/linux/net/ipv4/tcp_input.c 
-, everytime I receive a packet. The structure(tcp_opt) that contains 
-pkts_recv variable is defined in usr/src/linux/include/net/sock.h.
+please do a
+	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
+to get the following updates to SCTP on top of linux 2.6.5-rc2.
 
-The problem that I am facing is that this count(pkts_recv) increments by 
-one each time I receive a tcp packet, but then something goes wrong and 
-the next time it receives a packet it(pkts_recv) increments by some 
-random quantity (like 36,3, 55 ...). But after this incrementation by 
-the random value, the next time it receives a packet it increments by 1 
-again (instead of the random value)! And there are several instances 
-where the incrementation takes place by the random quantity (3-7 times 
-when 1000 packets are received). I have checked in the source and the 
-only place I am incrementing the count is in tcp_recv_established function.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1817  -> 1.1819
+#	net/sctp/sm_make_chunk.c	1.66    -> 1.67
+#	 net/sctp/ulpevent.c	1.23    -> 1.24
+#	    net/sctp/Kconfig	1.11    -> 1.12
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 04/03/23	sri@us.ibm.com	1.1818
+# [SCTP] Don't do any ppid byte-order conversions as it is opaque to SCTP.
+# --------------------------------------------
+# 04/03/23	sri@us.ibm.com	1.1819
+# [SCTP] Avoid the use of hackish CONFIG_IPV6_SCTP__ option.
+# --------------------------------------------
+#
+diff -Nru a/net/sctp/Kconfig b/net/sctp/Kconfig
+--- a/net/sctp/Kconfig	Tue Mar 23 11:54:23 2004
++++ b/net/sctp/Kconfig	Tue Mar 23 11:54:23 2004
+@@ -5,14 +5,9 @@
+ menu "SCTP Configuration (EXPERIMENTAL)"
+ 	depends on INET && EXPERIMENTAL
 
-Does anyone have views on this quirky behavior?
+-config IPV6_SCTP__
+-	tristate
+-	default y if IPV6=n
+-	default IPV6 if IPV6
+-
+ config IP_SCTP
+ 	tristate "The SCTP Protocol (EXPERIMENTAL)"
+-	depends on IPV6_SCTP__
++	depends on IPV6 || IPV6=n
+ 	---help---
+ 	  Stream Control Transmission Protocol
 
-Any help would be greatly appreciated.
+@@ -61,6 +56,7 @@
+ choice
+ 	prompt "SCTP: Cookie HMAC Algorithm"
+ 	depends on IP_SCTP
++	default SCTP_HMAC_MD5
+ 	help
+ 	  HMAC algorithm to be used during association initialization.  It
+ 	  is strongly recommended to use HMAC-SHA1 or HMAC-MD5.  See
+diff -Nru a/net/sctp/sm_make_chunk.c b/net/sctp/sm_make_chunk.c
+--- a/net/sctp/sm_make_chunk.c	Tue Mar 23 11:54:23 2004
++++ b/net/sctp/sm_make_chunk.c	Tue Mar 23 11:54:23 2004
+@@ -516,7 +516,7 @@
+ 	 */
+ 	dp.tsn = 0;
+ 	dp.stream = htons(sinfo->sinfo_stream);
+-	dp.ppid   = htonl(sinfo->sinfo_ppid);
++	dp.ppid   = sinfo->sinfo_ppid;
 
-Thanks,
-Abhinav.
+ 	/* Set the flags for an unordered send.  */
+ 	if (sinfo->sinfo_flags & MSG_UNORDERED) {
+diff -Nru a/net/sctp/ulpevent.c b/net/sctp/ulpevent.c
+--- a/net/sctp/ulpevent.c	Tue Mar 23 11:54:23 2004
++++ b/net/sctp/ulpevent.c	Tue Mar 23 11:54:23 2004
+@@ -663,7 +663,7 @@
+ 	 * for and this information is passed opaquely by the SCTP stack from
+ 	 * one end to the other.
+ 	 */
+-	info->sinfo_ppid = ntohl(chunk->subh.data_hdr->ppid);
++	info->sinfo_ppid = chunk->subh.data_hdr->ppid;
 
+ 	/* Sockets API Extensions for SCTP
+ 	 * Section 5.2.2 SCTP Header Information Structure (SCTP_SNDRCV)
