@@ -1,34 +1,34 @@
-From: Larry McVoy <lm@bitmover.com>
-Subject: Re: TOE brain dump
-Date: Sun, 3 Aug 2003 16:44:19 -0700
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: e100 "Ferguson" release
+Date: Sun, 03 Aug 2003 20:09:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030803234419.GA13604@work.bitmover.com>
-References: <20030803203051.GA9057@work.bitmover.com> <Pine.LNX.4.44.0308031405130.24695-100000@dlang.diginsite.com>
+Message-ID: <3F2DCE56.6030601@pacbell.net>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010222927D@orsmsx402.jf.intel.com>	<3F2CA65F.8060105@pobox.com>	<3F2CBA71.2070503@candelatech.com> <20030803003239.4257ef24.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Larry McVoy <lm@bitmover.com>, Erik Andersen <andersen@codepoet.org>,
-   Werner Almesberger <werner@almesberger.net>,
-   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, Nivedita Singhvi <niv@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Ben Greear <greearb@candelatech.com>, jgarzik@pobox.com,
+   scott.feldman@intel.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Lang <david.lang@digitalinsight.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0308031405130.24695-100000@dlang.diginsite.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030803003239.4257ef24.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Aug 03, 2003 at 02:21:12PM -0700, David Lang wrote:
-> if your 8-way opteron database box is already the bottleneck for your
-> system you will have to spend a LOT of money to get anything that gives
-> you more available processing power, getting a card to offload any
-> processing from the main CPU's can be a win.
+David S. Miller wrote:
+>>Although I have not tried this latest patch, the existing e100 and e1000 in
+>>2.4.21 seldom seem to return true to this method:  netif_queue_stopped(odev),
+>>even when the next hard_start_xmit() call fails.
+> 
+> 
+> Returning an error from hard_start_xmit() from normal ethernet
+> drivers is, frankly, a driver bug and should never happen.
 
-I'd like to see data which supports this.  CPUs have gotten so fast and
-disk I/O still sucks.  All the systems I've seen are CPU rich and I/O
-starved.  The smartest thing you could do would be to get a cheap box
-with a GB of ram as a disk cache and make it be a SAN device.  Make
-N of those and you have tons of disk space and tons of cache and your
-8 way opteron database box is going to work just fine.
--- 
----
-Larry McVoy              lm at bitmover.com          http://www.bitmover.com/lm
+What's "normal" mean?
+
+With the current USB stack, network adapters tend to need
+memory allocations there.  Those can fail, though it seems
+that's not very common.  Doesn't seem like a bug, for all
+that I'd rather see the those paths be zero-alloc in 2.7.
+
+- Dave
