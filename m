@@ -1,84 +1,132 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] net_random_init needs to get seed later in boot process
-Date: Mon, 30 Aug 2004 13:20:30 -0700
+Subject: [PATCH] netem - distribution table fixes.
+Date: Mon, 30 Aug 2004 13:57:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040830132030.32d071d0@dell_ss3.pdx.osdl.net>
-References: <64243634.20040830173251@huno.net>
+Message-ID: <20040830135717.1f4a3af0@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: thomas <tom@huno.net>, "David S. Miller" <davem@redhat.com>
-In-Reply-To: <64243634.20040830173251@huno.net>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Argh.. random_init isn't called until the device's are initialized.
-Rather than mess with random.c initialization, how about this; it resets
-the net_random state late in initialization when get_random_bytes is ready.
+Fix some issues with netem. 
+ * fix memory link in q_destroy where distribution table not freed
+ * fix math error in tabledist that made it work for only small values
+ * change API for distribution table so scaling factor is constant and
+   table size is determined by looking at the rtnetlink payload size.
+   this is faster and simpler. Since haven't actually released the tools to load
+   the table yet, this is the chance to get it right ;-)
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
+diff -Nru a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+--- a/include/linux/pkt_sched.h	2004-08-30 13:55:55 -07:00
++++ b/include/linux/pkt_sched.h	2004-08-30 13:55:55 -07:00
+@@ -429,11 +429,6 @@
+ 	__u32	dup_corr;	/* duplicate correlation  */
+ };
  
-diff -Nru a/net/core/utils.c b/net/core/utils.c
---- a/net/core/utils.c	2004-08-30 11:56:15 -07:00
-+++ b/net/core/utils.c	2004-08-30 11:56:15 -07:00
-@@ -21,6 +21,7 @@
- #include <linux/types.h>
- #include <linux/random.h>
- #include <linux/percpu.h>
-+#include <linux/init.h>
+-struct tc_netem_dist
+-{
+-	__u32	size;		/* table size */
+-	__u32	factor;		/* table scaling factor */
+-	__s16	data[0];	/* distribution table values */
+-};
++#define NETEM_DIST_SCALE	8192
  
- #include <asm/system.h>
- #include <asm/uaccess.h>
-@@ -77,10 +78,8 @@
- 	return (state->s1 ^ state->s2 ^ state->s3);
- }
+ #endif
+diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c	2004-08-30 13:55:55 -07:00
++++ b/net/sched/sch_netem.c	2004-08-30 13:55:55 -07:00
+@@ -71,7 +71,6 @@
  
--static void __net_srandom(struct nrnd_state *state, unsigned long entropy)
-+static void __net_srandom(struct nrnd_state *state, unsigned long s)
+ 	struct disttable {
+ 		u32  size;
+-		u32  factor;
+ 		s16 table[0];
+ 	} *delay_dist;
+ };
+@@ -113,11 +112,10 @@
+  * std deviation sigma.  Uses table lookup to approximate the desired
+  * distribution, and a uniformly-distributed pseudo-random source.
+  */
+-static unsigned long tabledist(int mu, int sigma, 
+-			       struct crndstate *state,
+-			       const struct disttable *dist)
++static long tabledist(unsigned long mu, long sigma, 
++		      struct crndstate *state, const struct disttable *dist)
  {
--	u32 s = state->s1 ^ entropy;
+-	int t, x, factor;
++	long t, x;
+ 	unsigned long rnd;
+ 
+ 	if (sigma == 0)
+@@ -129,16 +127,14 @@
+ 	if (dist == NULL) 
+ 		return (rnd % (2*sigma)) - sigma + mu;
+ 
+-	factor = dist->factor;
+ 	t = dist->table[rnd % dist->size];
 -
- 	if (s == 0)
- 		s = 1;      /* default seed is 1 */
+-	x = (sigma % factor) * t;
++	x = (sigma % NETEM_DIST_SCALE) * t;
+ 	if (x >= 0)
+-		x += factor/2;
++		x += NETEM_DIST_SCALE/2;
+ 	else
+-		x -= factor/2;
++		x -= NETEM_DIST_SCALE/2;
  
-@@ -112,24 +111,33 @@
- void net_srandom(unsigned long entropy)
- {
- 	struct nrnd_state *state = &get_cpu_var(net_rand_state);
--	__net_srandom(state, entropy);
-+	__net_srandom(state, state->s1^entropy);
- 	put_cpu_var(state);
+-	return (x + (sigma / factor) * t) / factor + mu;
++	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
  }
  
- void __init net_random_init(void)
+ /* Put skb in the private delayed queue. */
+@@ -305,25 +301,28 @@
+ 	return ret;
+ }
+ 
++/*
++ * Distribution data is a variable size payload containing
++ * signed 16 bit values.
++ */
+ static int get_dist_table(struct Qdisc *sch, const struct rtattr *attr)
  {
+ 	struct netem_sched_data *q = qdisc_priv(sch);
+-	const struct tc_netem_dist *dist = RTA_DATA(attr);
++	unsigned long n = RTA_PAYLOAD(attr)/sizeof(__s16);
++	const __s16 *data = RTA_DATA(attr);
+ 	struct disttable *d;
  	int i;
-+
-+	for (i = 0; i < NR_CPUS; i++) {
-+		struct nrnd_state *state = &per_cpu(net_rand_state,i);
-+		__net_srandom(state, i+jiffies);
-+	}
-+}
-+
-+static int net_random_reseed(void)
-+{
-+	int i;
- 	unsigned long seed[NR_CPUS];
  
- 	get_random_bytes(seed, sizeof(seed));
--
- 	for (i = 0; i < NR_CPUS; i++) {
- 		struct nrnd_state *state = &per_cpu(net_rand_state,i);
--
--		memset(state, 0, sizeof(*state));
- 		__net_srandom(state, seed[i]);
- 	}
-+	return 0;
+-	if (RTA_PAYLOAD(attr) < sizeof(*dist) ||
+-	    dist->factor < 2 || dist->factor > 1<<16 || dist->size > 65536)
++	if (n > 65536)
+ 		return -EINVAL;
+ 
+-	d = kmalloc(sizeof(*d) + dist->size*sizeof(d->table[0]), GFP_KERNEL);
++	d = kmalloc(sizeof(*d) + n*sizeof(d->table[0]), GFP_KERNEL);
+ 	if (!d)
+ 		return -ENOMEM;
+ 
+-	d->size = dist->size;
+-	d->factor = dist->factor;
+-	for (i = 0; i < dist->size; i++)
+-		d->table[i] = dist->data[i];
++	d->size = n;
++	for (i = 0; i < n; i++)
++		d->table[i] = data[i];
+ 	
+ 	spin_lock_bh(&sch->dev->queue_lock);
+ 	d = xchg(&q->delay_dist, d);
+@@ -431,6 +430,7 @@
+ 
+ 	del_timer_sync(&q->timer);
+ 	qdisc_destroy(q->qdisc);
++	kfree(q->delay_dist);
  }
-+late_initcall(net_random_reseed);
  
- int net_msg_cost = 5*HZ;
- int net_msg_burst = 10;
+ static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
