@@ -1,26 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: fix dst leakage caused by rt6_cow()
-Date: Mon, 18 Aug 2003 03:45:05 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] ibmtr - get rid of MOD_INC/DEC
+Date: Fri, 15 Aug 2003 09:30:05 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818034505.08182f5b.davem@redhat.com>
-References: <Pine.LNX.4.44.0308051530560.30970-200000@rhea.tcs.hut.fi>
-	<Pine.LNX.4.44.0308051642460.31172-100000@rhea.tcs.hut.fi>
+Message-ID: <3F3CE05D.5080306@pobox.com>
+References: <20030813174658.2c5125af.shemminger@osdl.org> <20030814205747.5fcd83d0.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>, mikep@linuxtr.net,
+   linux-tr@linuxtr.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0308051642460.31172-100000@rhea.tcs.hut.fi>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030814205747.5fcd83d0.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 11:13:13 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+David S. Miller wrote:
+> On Wed, 13 Aug 2003 17:46:58 -0700
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+> 
+>>With the new module system MOD_INC/MOD_DEC are no longer necessary.
+>>Also changed to new module init/exit macros for function setup.
+>>
+>>The module exit code can sleep, so calling schedule_timeout is better
+>>than spinning.
+> 
+> 
+> Can't we lose the MODULE ifdefs too?
 
-> since rt6_cow() calls dst_hold() it looks like we're leaking refcounts in
-> three places in route.c. The patch below should fix this.
 
-You are absolutely correct.
+Doubtful for ibmtr, which requires some of them for ibmtr_cs (which 
+#includes it).
 
-Patch applied, thanks.
+	Jeff
