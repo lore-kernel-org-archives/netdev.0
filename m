@@ -1,26 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: b44: timeout on initialization
-Date: Thu, 13 Jan 2005 18:31:47 -0800
-Message-ID: <20050113183147.0772941c.shemminger@osdl.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [DEBUG]: sk_forward_alloc assertion failures
+Date: Thu, 13 Jan 2005 19:44:51 -0800
+Message-ID: <20050113194451.1b6685a2.davem@davemloft.net>
+References: <20050113171234.3fde0925.davem@davemloft.net>
+	<Pine.LNX.4.58.0501131741430.25252@w-sridhar.beaverton.ibm.com>
+	<20050114021005.GA11962@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: sri@us.ibm.com, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Florian Schirmer <jolt@tuxbox.org>, "David S. Miller" <davem@redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050114021005.GA11962@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I get this all the time on my laptop (2.6.8 - 2.6.10) even
-when connected to the router
-b44: eth0: BUG!  Timeout waiting for bit 00000001 of register 41c to set.
+On Fri, 14 Jan 2005 13:10:05 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-repeats about 5 times then goes away. Connection works fine.
-Description is
+> Since there is no reclaim for sk_wmem_queued it doesn't happen
+> there.
+> 
+> So taking out the adjustments should not cause any problems of
+> sk_wmem_queued, theoretically :)
 
-01:0c.0 Ethernet controller: Broadcom Corporation BCM4401-B0 100Base-TX (rev 02)
-        Subsystem: Fujitsu Limited.: Unknown device 123b
-        Flags: bus master, fast devsel, latency 64, IRQ 11
-        Memory at d0204000 (32-bit, non-prefetchable) [size=8K]
-        Capabilities: [40] Power Management version 2
+If we take out the skb->truesize adjustment, as the test patch does,
+then we must take out the sk_wmem_queued and sk_forward_alloc
+adjustments, as the test patch also does. :-)
