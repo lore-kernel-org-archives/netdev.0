@@ -1,12 +1,12 @@
 From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
 Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 6 Jan 2005 14:55:50 -0600
-Message-ID: <200501061455.53590.jeremy.guthrie@berbee.com>
+Date: Thu, 6 Jan 2005 15:19:59 -0600
+Message-ID: <200501061520.02362.jeremy.guthrie@berbee.com>
 References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501061335.55104.jeremy.guthrie@berbee.com> <16861.40858.80960.794144@robur.slu.se>
 Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
 Content-Type: multipart/signed;
-  boundary="nextPart1938077.N2rRDRFtMu";
+  boundary="nextPart1762425.JcF5JoSj3n";
   protocol="application/pgp-signature";
   micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
@@ -19,20 +19,20 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1938077.N2rRDRFtMu
-Content-Type: multipart/mixed;
-  boundary="Boundary-01=_XXa3BZ690xkxonk"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
---Boundary-01=_XXa3BZ690xkxonk
+--nextPart1762425.JcF5JoSj3n
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 Content-Disposition: inline
 
-=46orgot the attachment. =20
-
+Pulling Rx Polling has kept V2.6 from dropping packets.  argh?!?!?!  I shou=
+ld=20
+have caught that sooner.   8(  Well, I have a window of opportunity here.  =
+If=20
+you want I can still provide a broken environment but that seems pointless=
+=20
+while NAPI is not acting right... what is evident is that this will run=20
+better till we start to bump up against the top of CPU0.
 
 On Thursday 06 January 2005 02:29 pm, Robert Olsson wrote:
 > Jeremy M. Guthrie writes:
@@ -74,95 +74,15 @@ Berbee                           Fax: 608-288-3007
 5520 Research Park Drive         NOC: 608-298-1102
 Madison, WI 53711
 
---Boundary-01=_XXa3BZ690xkxonk
-Content-Type: text/plain;
-  charset="iso-8859-1";
-  name="results-2.4.28.txt"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="results-2.4.28.txt"
-
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
-  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
-        |     tot|      mc|     ute|        |  an_dst|  an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_search|
-    9092|   21888|       0|       0|    1656|       0|       0|       9|      42|       0|    1836|    1833|       0|       0|  158622|     206|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       1|       1|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       1|       1|       0|       0|       9|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       2|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       3|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       3|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       3|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|      14|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|      14|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
-  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
-        |     tot|      mc|     ute|        |  an_dst|  an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_search|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       7|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       7|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       9|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       2|       0|       0|       0|       0|       0|       0|       0|       0|       1|       1|       0|       0|      14|       0|
-       0|       2|       0|       0|       0|       0|       0|       0|       0|       0|       1|       1|       0|       0|      14|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       7|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       3|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       3|       0|
-rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|rt_cache|
-  in_hit|in_slow_|in_slow_|in_no_ro|  in_brd|in_marti|in_marti| out_hit|out_slow|out_slow|gc_total|gc_ignor|gc_goal_|gc_dst_o|in_hlist|out_hlis|
-        |     tot|      mc|     ute|        |  an_dst|  an_src|        |    _tot|     _mc|        |      ed|    miss| verflow| _search|t_search|
-       1|       2|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|      16|       0|
-       1|       2|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|      16|       0|
-       1|       2|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|      16|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       8|       0|
-       0|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       8|       0|
-       2|       2|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|      16|       0|
-       1|       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       8|       0|
-       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       6|       0|
-       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       6|       0|
-       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       6|       0|
-       2|       2|       0|       0|       1|       0|       0|       0|       0|       0|       1|       1|       0|       0|      24|       0|
-       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       2|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       1|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       2|       0|       0|       1|       0|       0|       0|       0|       0|       1|       1|       0|       0|      16|       0|
-       0|       2|       0|       0|       1|       0|       0|       0|       0|       0|       1|       1|       0|       0|      16|       0|
-       2|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       2|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       4|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|       0|
-
---Boundary-01=_XXa3BZ690xkxonk--
-
---nextPart1938077.N2rRDRFtMu
+--nextPart1762425.JcF5JoSj3n
 Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQBB3aXZqtjaBHGZBeURAjLjAJkBi385GCSOhiNUVhsZwINncCXMKQCgkGNO
-KF1TaJcccd9gfXJxV+yZeXs=
-=A1iR
+iD8DBQBB3auCqtjaBHGZBeURAjvkAJ45z7mmyPo5uy7j5n6AUuz9mom0ZwCfabzF
+9epO/lWTp3KOLc5IGxztcJU=
+=c04g
 -----END PGP SIGNATURE-----
 
---nextPart1938077.N2rRDRFtMu--
+--nextPart1762425.JcF5JoSj3n--
