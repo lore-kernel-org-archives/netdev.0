@@ -1,51 +1,26 @@
-From: Mark Mielke <mark@mark.mielke.cc>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Sat, 8 Jun 2002 17:05:11 -0400
+Date: Sat, 08 Jun 2002 16:04:07 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020608170511.B26821@mark.mielke.cc>
-References: <3CFFB9F8.54455B6E@nortelnetworks.com> <20020606.202108.52904668.davem@redhat.com> <3D01307C.4090503@candelatech.com>
+Message-ID: <adu3a4$l7d$2@main.gmane.org>
+References: <20020606.202108.52904668.davem@redhat.com>
+	<3D01307C.4090503@candelatech.com>
+	<20020608170511.B26821@mark.mielke.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, cfriesen@nortelnetworks.com,
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: greearb@candelatech.com, cfriesen@nortelnetworks.com,
    linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <3D01307C.4090503@candelatech.com>; from greearb@candelatech.com on Fri, Jun 07, 2002 at 03:15:24PM -0700
+To: mark@mark.mielke.cc
+In-Reply-To: <20020608170511.B26821@mark.mielke.cc>
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jun 07, 2002 at 03:15:24PM -0700, Ben Greear wrote:
-> David S. Miller wrote:
-> > Your idea is totally useless for non-datagram sockets.
-> > Only datagram sockets use the interfaces where you bump
-> > the counters.
-> > I don't like the patch, nor the idea behind it, at all.
-> Datagram sockets are the ones that drop data though (tcp will
-> deal with it via re-transmits).
 
-Outside of the specific changes suggested by Chris, I can see a
-requirement to be able to detect poor connections. While TCP/IP may
-not drop packets from the perspective of user space applications,
-TCP/IP packets do get lost. For certain applications that require high
-bandwidth, or low latency, applications may be able to optimize code
-paths by analyzing statistics related to the socket.
+You guys we have SNMP statistics for these events, there
+is no reason to have them per-socket.  You cannot convince
+me that when you are diagnosing a problem the SNMP stats
+are not enough to show you if the packets are being dropped.
 
-Datagram sockets are more straight forward to implement this for, but
-that does not mean that TCP/IP does not have similar potential.
-
-I am not certain what the exact requirement is for in Chris' cases,
-but I do know that in his field, he is writing something far more
-complicated and resource intensive than a telnet server.
-
-mark
-
--- 
-mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
-.  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
-|\/| |_| |_| |/    |_     |\/|  |  |_  |   |/  |_   | 
-|  | | | | \ | \   |__ .  |  | .|. |__ |__ | \ |__  | Ottawa, Ontario, Canada
-
-  One ring to rule them all, one ring to find them, one ring to bring them all
-                       and in the darkness bind them...
-
-                           http://mark.mielke.cc/
+If not, this means we need to add more SNMP events, that is
+all it means.
