@@ -1,164 +1,423 @@
-From: "Jon Fraser" <J_Fraser@bit-net.com>
-Subject: RE: Poor gige performance with 2.4.20-pre*
-Date: Mon, 30 Sep 2002 17:21:59 -0400
+From: Andrew Morton <akpm@digeo.com>
+Subject: Re: Copy patch for kernel 2.5.38
+Date: Mon, 30 Sep 2002 15:20:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <010c01c268c7$69f48b90$3701020a@CONCORDIA>
-References: <200209292054.g8TKsQv14870@vindaloo.ras.ucalgary.ca>
-Reply-To: <J_Fraser@bit-net.com>
+Message-ID: <3D98CE3A.B47251DF@digeo.com>
+References: <OFCD687C7E.7D759551-ON87256C40.0068B3E2@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: Hirokazu Takahashi <taka@valinux.co.jp>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, lse-tech@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-In-Reply-To: <200209292054.g8TKsQv14870@vindaloo.ras.ucalgary.ca>
+To: Mala Anand <manand@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Mala Anand wrote:
+> 
+> Attached is the patch that adds an unrolled loop copy using
+> integer registers.
+...
 
+OK, thanks.  I'll do some pagecache testing.
 
-Hello,
+>  __generic_copy_to_user(void *to, const void *from, unsigned long n)
+>  {
+>       prefetch(from);
+> -     if (access_ok(VERIFY_WRITE, to, n))
+> +     if (access_ok(VERIFY_WRITE, to, n)){
+> +       if ((n < 64) || ((((int)from | (int)to) & 0x00000007)==0))
+>             __copy_user(to,from,n);
+> +       else
+> +         n=__copy_user_int(to,from,n);
+> +     }
+>       return n;
+>  }
 
-	I'm new to this list, so please bear with me.
+I was going to whine about the codesize increase from this.
 
+But guess what?  Your patch shrinks 17 kilobytes from my vmlinux's
+text section.  That's almost 1%.
 
-	I'm doing similar tests with gige and am seeing similar
-issues.  I have two different but similar test machines, both running 2.4.18
+How interesting.
 
-	Dell 1550
-		dual  1 ghz PIII, 256k cache
-		serverworks HE chipset
-		intel E1000, 82542 chipset
+mnm:/usr/src/25> size vmlinux 
+   text    data     bss     dec     hex filename
+1998724  313284  616692 2928700  2cb03c vmlinux
 
-	embedded card
+mnm:/usr/src/xx> size vmlinux 
+   text    data     bss     dec     hex filename
+2016531  313284  616692 2946507  2cf5cb vmlinux
 
-		dual 1.266 ghz PIII, 512k cache
-		serverworks HE chipset
-		embedded intel E1000, 28543 chipset
+mnm:/usr/src/xx> expr 2016531 - 1998724
+17807
 
-We're using IXIA test gear to source/sink the packets.  The systems are
-just ip-forwarding the traffic back out the same interface.  That is, we
-have the gige setup with aliases so it is on two different nets.
+mnm:/usr/src/25> size net/socket.o
+   text    data     bss     dec     hex filename
+   8730    1312     192   10234    27fa net/socket.o
 
-I'm trying to find the bottlenecks in small packet performance.  With large
-packets, we can exceed 900 mpbs on the embedded card, so that's not an
-issue.
-The Dell 1550 seems to run out of bus bandwidth before reaching that level.
+mnm:/usr/src/xx> size net/socket.o
+   text    data     bss     dec     hex filename
+   8922    1312     192   10426    28ba net/socket.o
 
-With 64 byte packets, we can achive 250 kpps running dual processor.
-This consumes about 65% of each cpu.  Can't go faster without dropping
-a significant percentage of the packets.
+Most of this was in tcp_sendmsg().  Having looked at the asm, it's not
+immediately clear to me where the reductions come from. It's not due
+to the out-of-line exception table stuff.  Looks like the inlines somehow
+generated smaller instructions.
 
-If we run with the 28543 intrrupts tied to a single processor, we can
-achieve
-about 285 kpps, at which point we're using 95% of the single cpu.
+I bet we'd get decent gains by just making all the uaccess functions
+be simple subroutines.  But the same goes for the rest of the kernel
+so whatever.
 
-Running a uniprocessor kernel, we top out around 350 kpps.
+Making all the out-of-line copy functions be FASTCALL increased
+the kernel size by 1k, so forget that.
 
-There's nothing else running on the boxes.
+Here's what I ended up with.  Your code is enabled for CONFIG_M586MMX,
+CONFIG_M686, CONFIG_MPENTIUMIII and CONFIG_MPENTIUM4.  Because I'm
+pretty sure that this is specific to Intel implementations.
 
+If this tests out OK we should be able to go back to using copy_*_user
+in networking, rather than abusing the csum routines as faster copy
+functions.
 
-I'm perplexed by a couple of issues.
+ arch/i386/kernel/i386_ksyms.c |    4 
+ arch/i386/lib/usercopy.c      |  210 +++++++++++++++++++++++++++++++++++++++++-
+ include/asm-i386/uaccess.h    |   54 +++++++---
+ 3 files changed, 248 insertions(+), 20 deletions(-)
 
-The network performance of the SMP kernel with the gige bound to single
-processor is only
-about 80% of the UP kernel.  Is this typical?  Are the causes of the
-performance degradation
-well known?
+--- 2.5.39/arch/i386/lib/usercopy.c~intel-user-copy	Mon Sep 30 14:10:23 2002
++++ 2.5.39-akpm/arch/i386/lib/usercopy.c	Mon Sep 30 15:08:43 2002
+@@ -45,8 +45,12 @@ unsigned long
+ __generic_copy_to_user(void *to, const void *from, unsigned long n)
+ {
+ 	prefetch(from);
+-	if (access_ok(VERIFY_WRITE, to, n))
+-		__copy_user(to,from,n);
++	if (access_ok(VERIFY_WRITE, to, n)) {
++		if (movsl_is_ok(to, from, n))
++			__copy_user(to, from, n);
++		else
++			n = __copy_user_int(to, from, n);
++	}
+ 	return n;
+ }
+ 
+@@ -54,10 +58,14 @@ unsigned long
+ __generic_copy_from_user(void *to, const void *from, unsigned long n)
+ {
+ 	prefetchw(to);
+-	if (access_ok(VERIFY_READ, from, n))
+-		__copy_user_zeroing(to,from,n);
+-	else
++	if (access_ok(VERIFY_READ, from, n)) {
++		if (movsl_is_ok(to, from, n))
++			__copy_user_zeroing(to,from,n);
++		else
++			n = __copy_user_zeroing_int(to, from, n);
++	} else {
+ 		memset(to, 0, n);
++	}
+ 	return n;
+ }
+ 
+@@ -188,3 +196,195 @@ long strnlen_user(const char *s, long n)
+ 		:"cc");
+ 	return res & mask;
+ }
++
++#ifdef INTEL_MOVSL
++/*
++ * Copy To/From Userspace
++ */
++
++/* Generic arbitrary sized copy.  */
++unsigned long __copy_user_int(void *to, const void *from,unsigned long size)
++{
++	int d0, d1;
++	__asm__ __volatile__(
++		       "       .align 2,0x90\n" 
++		       "0:     movl 32(%4), %%eax\n"
++		       "       cmpl $67, %0\n"     
++		       "       jbe 1f\n"            
++		       "       movl 64(%4), %%eax\n"
++		       "       .align 2,0x90\n"     
++		       "1:     movl 0(%4), %%eax\n" 
++		       "       movl 4(%4), %%edx\n" 
++		       "2:     movl %%eax, 0(%3)\n" 
++		       "21:    movl %%edx, 4(%3)\n" 
++		       "       movl 8(%4), %%eax\n" 
++		       "       movl 12(%4),%%edx\n" 
++		       "3:     movl %%eax, 8(%3)\n" 
++		       "31:    movl %%edx, 12(%3)\n"
++		       "       movl 16(%4), %%eax\n"
++		       "       movl 20(%4), %%edx\n"
++		       "4:     movl %%eax, 16(%3)\n"
++		       "41:    movl %%edx, 20(%3)\n"
++		       "       movl 24(%4), %%eax\n"
++		       "       movl 28(%4), %%edx\n"
++		       "10:    movl %%eax, 24(%3)\n"
++		       "51:    movl %%edx, 28(%3)\n"
++		       "       movl 32(%4), %%eax\n"
++		       "       movl 36(%4), %%edx\n"
++		       "11:    movl %%eax, 32(%3)\n"
++		       "61:    movl %%edx, 36(%3)\n"
++		       "       movl 40(%4), %%eax\n"
++		       "       movl 44(%4), %%edx\n"
++		       "12:    movl %%eax, 40(%3)\n"
++		       "71:    movl %%edx, 44(%3)\n"
++		       "       movl 48(%4), %%eax\n"
++		       "       movl 52(%4), %%edx\n"
++		       "13:    movl %%eax, 48(%3)\n"
++		       "81:    movl %%edx, 52(%3)\n"
++		       "       movl 56(%4), %%eax\n"
++		       "       movl 60(%4), %%edx\n"
++		       "14:    movl %%eax, 56(%3)\n"
++		       "91:    movl %%edx, 60(%3)\n"
++		       "       addl $-64, %0\n"     
++		       "       addl $64, %4\n"      
++		       "       addl $64, %3\n"      
++		       "       cmpl $63, %0\n"      
++		       "       ja  0b\n"            
++		       "5:     movl  %0, %%eax\n"   
++		       "       shrl  $2, %0\n"      
++		       "       andl  $3, %%eax\n"   
++		       "       cld\n"               
++		       "6:     rep; movsl\n"        
++		       "       movl %%eax, %0\n"    
++		       "7:     rep; movsb\n"		
++		       "8:\n"				
++		       ".section .fixup,\"ax\"\n"	
++		       "9:     lea 0(%%eax,%0,4),%0\n"	
++		       "       jmp 8b\n"		
++		       "15:    movl %6, %0\n"          
++		       "       jmp 8b\n"               
++		       ".previous\n"			
++		       ".section __ex_table,\"a\"\n"	
++		       "       .align 4\n"		
++		       "       .long 2b,15b\n"		
++		       "       .long 21b,15b\n"	
++		       "       .long 3b,15b\n"		
++		       "       .long 31b,15b\n"	
++		       "       .long 4b,15b\n"		
++		       "       .long 41b,15b\n"	
++		       "       .long 10b,15b\n"	
++		       "       .long 51b,15b\n"	
++		       "       .long 11b,15b\n"	
++		       "       .long 61b,15b\n"	
++		       "       .long 12b,15b\n"	
++		       "       .long 71b,15b\n"	
++		       "       .long 13b,15b\n"	
++		       "       .long 81b,15b\n"	
++		       "       .long 14b,15b\n"	
++		       "       .long 91b,15b\n"	
++		       "       .long 6b,9b\n"		
++		       "       .long 7b,8b\n"          
++		       ".previous"			
++		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
++		       :  "1"(to), "2"(from), "0"(size),"i"(-EFAULT)
++		       : "eax", "edx", "memory");			
++	return size;
++}
++
++unsigned long
++__copy_user_zeroing_int(void *to, const void *from, unsigned long size)
++{
++	int d0, d1;
++	__asm__ __volatile__(
++		       "        .align 2,0x90\n"
++		       "0:      movl 32(%4), %%eax\n"
++		       "        cmpl $67, %0\n"      
++		       "        jbe 2f\n"            
++		       "1:      movl 64(%4), %%eax\n"
++		       "        .align 2,0x90\n"     
++		       "2:      movl 0(%4), %%eax\n" 
++		       "21:     movl 4(%4), %%edx\n" 
++		       "        movl %%eax, 0(%3)\n" 
++		       "        movl %%edx, 4(%3)\n" 
++		       "3:      movl 8(%4), %%eax\n" 
++		       "31:     movl 12(%4),%%edx\n" 
++		       "        movl %%eax, 8(%3)\n" 
++		       "        movl %%edx, 12(%3)\n"
++		       "4:      movl 16(%4), %%eax\n"
++		       "41:     movl 20(%4), %%edx\n"
++		       "        movl %%eax, 16(%3)\n"
++		       "        movl %%edx, 20(%3)\n"
++		       "10:     movl 24(%4), %%eax\n"
++		       "51:     movl 28(%4), %%edx\n"
++		       "        movl %%eax, 24(%3)\n"
++		       "        movl %%edx, 28(%3)\n"
++		       "11:     movl 32(%4), %%eax\n"
++		       "61:     movl 36(%4), %%edx\n"
++		       "        movl %%eax, 32(%3)\n"
++		       "        movl %%edx, 36(%3)\n"
++		       "12:     movl 40(%4), %%eax\n"
++		       "71:     movl 44(%4), %%edx\n"
++		       "        movl %%eax, 40(%3)\n"
++		       "        movl %%edx, 44(%3)\n"
++		       "13:     movl 48(%4), %%eax\n"
++		       "81:     movl 52(%4), %%edx\n"
++		       "        movl %%eax, 48(%3)\n"
++		       "        movl %%edx, 52(%3)\n"
++		       "14:     movl 56(%4), %%eax\n"
++		       "91:     movl 60(%4), %%edx\n"
++		       "        movl %%eax, 56(%3)\n"
++		       "        movl %%edx, 60(%3)\n"
++		       "        addl $-64, %0\n"     
++		       "        addl $64, %4\n"      
++		       "        addl $64, %3\n"      
++		       "        cmpl $63, %0\n"      
++		       "        ja  0b\n"            
++		       "5:      movl  %0, %%eax\n"   
++		       "        shrl  $2, %0\n"      
++		       "        andl $3, %%eax\n"    
++		       "        cld\n"               
++		       "6:      rep; movsl\n"   
++		       "        movl %%eax,%0\n"
++		       "7:      rep; movsb\n"	
++		       "8:\n"			
++		       ".section .fixup,\"ax\"\n"
++		       "9:      lea 0(%%eax,%0,4),%0\n"	
++		       "16:     pushl %0\n"	
++		       "        pushl %%eax\n"	
++		       "        xorl %%eax,%%eax\n"
++		       "        rep; stosb\n"	
++		       "        popl %%eax\n"	
++		       "        popl %0\n"	
++		       "        jmp 8b\n"	
++		       "15:     movl %6, %0\n"  
++		       "        jmp 8b\n"       
++		       ".previous\n"		
++		       ".section __ex_table,\"a\"\n"
++		       "	.align 4\n"	   
++		       "	.long 0b,16b\n"	 
++		       "	.long 1b,16b\n"
++		       "	.long 2b,16b\n"
++		       "	.long 21b,16b\n"
++		       "	.long 3b,16b\n"	
++		       "	.long 31b,16b\n"
++		       "	.long 4b,16b\n"	
++		       "	.long 41b,16b\n"
++		       "	.long 10b,16b\n"
++		       "	.long 51b,16b\n"
++		       "	.long 11b,16b\n"
++		       "	.long 61b,16b\n"
++		       "	.long 12b,16b\n"
++		       "	.long 71b,16b\n"
++		       "	.long 13b,16b\n"
++		       "	.long 81b,16b\n"
++		       "	.long 14b,16b\n"
++		       "	.long 91b,16b\n"
++		       "	.long 6b,9b\n"	
++		       "        .long 7b,16b\n" 
++		       ".previous"		
++		       : "=&c"(size), "=&D" (d0), "=&S" (d1)
++		       :  "1"(to), "2"(from), "0"(size),"i"(-EFAULT)
++		       : "eax", "edx", "memory");
++	return size;
++}
++#endif	/* INTEL_MOVSL */
+--- 2.5.39/include/asm-i386/uaccess.h~intel-user-copy	Mon Sep 30 14:10:23 2002
++++ 2.5.39-akpm/include/asm-i386/uaccess.h	Mon Sep 30 15:16:37 2002
+@@ -33,7 +33,33 @@
+ 
+ #define segment_eq(a,b)	((a).seg == (b).seg)
+ 
+-extern int __verify_write(const void *, unsigned long);
++/*
++ * movsl can be slow when source and dest are not both 8-byte aligned
++ */
++#if defined(CONFIG_M586MMX) || defined(CONFIG_M686) || \
++	defined(CONFIG_MPENTIUMIII) || defined(CONFIG_MPENTIUM4)
++#define INTEL_MOVSL
++#endif
++
++#ifdef INTEL_MOVSL
++static inline int movsl_is_ok(const void *a1, const void *a2, unsigned long n)
++{
++	if (n < 64)
++		return 1;
++	if ((((const long)a1 | (const long)a2) & 7) == 0)
++		return 1;
++	return 0;
++}
++unsigned long __copy_user_int(void *, const void *, unsigned long);
++unsigned long __copy_user_zeroing_int(void *, const void *, unsigned long);
++#else
++static inline int movsl_is_ok(const void *a1, const void *a2, unsigned long n)
++{
++	return 1;
++}
++#endif
++
++int __verify_write(const void *, unsigned long);
+ 
+ #define __addr_ok(addr) ((unsigned long)(addr) < (current_thread_info()->addr_limit.seg))
+ 
+@@ -309,14 +335,20 @@ do {									\
+ static inline unsigned long
+ __generic_copy_from_user_nocheck(void *to, const void *from, unsigned long n)
+ {
+-	__copy_user_zeroing(to,from,n);
++	if (movsl_is_ok(to, from, n))
++		__copy_user_zeroing(to, from, n);
++	else
++		n = __copy_user_zeroing_int(to, from, n);
+ 	return n;
+ }
+ 
+ static inline unsigned long
+ __generic_copy_to_user_nocheck(void *to, const void *from, unsigned long n)
+ {
+-	__copy_user(to,from,n);
++	if (movsl_is_ok(to, from, n))
++		__copy_user(to, from, n);
++	else
++		n = __copy_user_int(to, from, n);
+ 	return n;
+ }
+ 
+@@ -578,24 +610,16 @@ __constant_copy_from_user_nocheck(void *
+ }
+ 
+ #define copy_to_user(to,from,n)				\
+-	(__builtin_constant_p(n) ?			\
+-	 __constant_copy_to_user((to),(from),(n)) :	\
+-	 __generic_copy_to_user((to),(from),(n)))
++	 __generic_copy_to_user((to),(from),(n))
+ 
+ #define copy_from_user(to,from,n)			\
+-	(__builtin_constant_p(n) ?			\
+-	 __constant_copy_from_user((to),(from),(n)) :	\
+-	 __generic_copy_from_user((to),(from),(n)))
++	 __generic_copy_from_user((to),(from),(n))
+ 
+ #define __copy_to_user(to,from,n)			\
+-	(__builtin_constant_p(n) ?			\
+-	 __constant_copy_to_user_nocheck((to),(from),(n)) :	\
+-	 __generic_copy_to_user_nocheck((to),(from),(n)))
++	 __generic_copy_to_user_nocheck((to),(from),(n))
+ 
+ #define __copy_from_user(to,from,n)			\
+-	(__builtin_constant_p(n) ?			\
+-	 __constant_copy_from_user_nocheck((to),(from),(n)) :	\
+-	 __generic_copy_from_user_nocheck((to),(from),(n)))
++	 __generic_copy_from_user_nocheck((to),(from),(n))
+ 
+ long strncpy_from_user(char *dst, const char *src, long count);
+ long __strncpy_from_user(char *dst, const char *src, long count);
+--- 2.5.39/arch/i386/kernel/i386_ksyms.c~intel-user-copy	Mon Sep 30 14:55:22 2002
++++ 2.5.39-akpm/arch/i386/kernel/i386_ksyms.c	Mon Sep 30 15:11:13 2002
+@@ -111,6 +111,10 @@ EXPORT_SYMBOL(__clear_user);
+ EXPORT_SYMBOL(__generic_copy_from_user);
+ EXPORT_SYMBOL(__generic_copy_to_user);
+ EXPORT_SYMBOL(strnlen_user);
++#ifdef INTEL_MOVSL
++EXPORT_SYMBOL(__copy_user_int);
++EXPORT_SYMBOL(__copy_user_zeroing_int);
++#endif
+ 
+ EXPORT_SYMBOL(pci_alloc_consistent);
+ EXPORT_SYMBOL(pci_free_consistent);
 
-
-With the gige running on both processors, we get rather poor performance.
-We can't even reach the same number of pps on two processors that we can
-with one.
-Using cpu performance measurement counters, we seem to reach a point where
-there is as much time being spent doing cache invalidates as there is doing
-real work.
-All the queues and statistics are per-cpu in the 2.14.18 kernel.  Are there
-other known problems causing excessive cache invalidates?  Are there any
-significant
-improvements in later kernels?
-
-
-	Thanks in advance,
-
-	Jon Fraser
-
-
-
-
-
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com]On
-> Behalf Of Richard Gooch
-> Sent: Sunday, September 29, 2002 4:54 PM
-> To: Ben Greear
-> Cc: netdev@oss.sgi.com
-> Subject: Re: Poor gige performance with 2.4.20-pre*
->
->
-> Ben Greear writes:
-> > Richard Gooch wrote:
-> > > Ben Greear writes:
-> > >
-> > >>Richard Gooch wrote:
-> > >>
-> > >>>  Hi, all. For a while now I've noticed poor performance
-> with gige
-> > >>>cards under 2.4.19 and 2.4.20-pre*. At first I thought
-> it was because
-> > >>>of the cheap-ass Addtron cards I bought (these use the
-> ns83820 chip).
-> > >>>But now that the Intel E1000 cards are pretty cheap too,
-> I've grabbed
-> > >>>a couple (part number: PWLA8390MT) and see the same
-> problem. In fact,
-> > >>>the E1000 cards are no better than the Addtron cards.
-> I'm using the
-> > >>>D-Link DGS-1008T 8-port gige switch. MTU=1500 bytes.
-> > >>
-> > >>Try setting the TxDescriptors=4096 RxDescriptors=1024
-> when loading the
-> > >>e1000 module, that helps tremendously when using smaller packets.
-> > >
-> > > Didn't help at all. Just to summarise, I've got:
-> > > options e1000 TxDescriptors=4096 RxDescriptors=1024
-> > > net.ipv4.tcp_rmem = 262144 262144 262144
-> > > net.ipv4.tcp_wmem = 262144 262144 262144
-> > > MTU=1500
-> > >
-> > > I'm doing read(2)/write(2) to/from a user-space buffer over a TCP
-> > > socket with 256 KiB buffer size.
-> > >
-> > > Is the E1000 supposed to have hardware interrupt mitigation (thus
-> > > avoiding the need for NAPI)?
-> >
-> > NAPI did not greatly improve the performance I saw with
-> larger packets,
-> > but it did help with smaller (say, 60 byte) packets.
->
-> My packets should be 1500 bytes, or close to it.
->
-> > One other thing I saw with TCP connections: They started off slow,
-> > but after a few seconds they were reacing their peak throughput.
-> > How long are you running your test?
->
-> I normally send 100 MB, so that's around 2 seconds or more. Sending
-> 1 GB doesn't change anything (other than the test taking 20 seconds or
-> more).
->
-> Oh, BTW: some possibly relevant config options:
-> CONFIG_M686=y
-> CONFIG_HIGHMEM4G=y
-> # CONFIG_HIGHMEM64G is not set
-> CONFIG_HIGHMEM=y
-> CONFIG_HIGHIO=y
-> CONFIG_SMP=y
-> CONFIG_E1000=m
->
-> 				Regards,
->
-> 					Richard....
-> Permanent: rgooch@atnf.csiro.au
-> Current:   rgooch@ras.ucalgary.ca
->
->
+.
