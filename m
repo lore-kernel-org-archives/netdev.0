@@ -1,24 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6.0-test5][NETROM] timer code cleanup
-Date: Sun, 21 Sep 2003 18:07:40 -0700
+Subject: Re: [PATCH][ATM]: [eni] correct way to prevent module unload (from
+ shemminger@osdl.org)
+Date: Sun, 21 Sep 2003 18:08:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030921180740.0051dd30.davem@redhat.com>
-References: <1064145739.4349.28.camel@lima.royalchallenge.com>
+Message-ID: <20030921180840.6457b06d.davem@redhat.com>
+References: <200309211444.h8LEiakT023723@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vinay K Nallamothu <vinay.nallamothu@gsecone.com>
-In-Reply-To: <1064145739.4349.28.camel@lima.royalchallenge.com>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200309211444.h8LEiakT023723@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 21 Sep 2003 17:32:19 +0530
-Vinay K Nallamothu <vinay.nallamothu@gsecone.com> wrote:
+On Sun, 21 Sep 2003 10:44:37 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> 1. move timer initialization into nr_init_timers so that we can use mod_timer
-> 2. remove skb queue purge in af_netrom as its already done by nr_clear_queues
-> 3. Use del_timer_sync in nr_loopback_clear
+> please apply to 2.6.  --thanks
+ ..
+> # [ATM]: [eni] correct way to prevent module unload (from shemminger@osdl.org)
 
-Looks good, applied.
+Applied, thanks.
