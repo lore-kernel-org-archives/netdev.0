@@ -1,27 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPSec: IPv6 random failures
-Date: Fri, 23 May 2003 13:50:55 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030523.135055.104051001.davem@redhat.com>
-References: <OFD45FE8D2.BE223435-ON86256D2F.004DFD33-86256D2F.005647E2@pok.ibm.com>
+From: Andrew Morton <akpm@digeo.com>
+Subject: Re: Route cache performance under stress
+Date: Fri, 23 May 2003 17:41:56 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030523174156.210d7f94.akpm@digeo.com>
+References: <20030520.173607.88482742.davem@redhat.com>
+	<20030522084003.GA22613@netnation.com>
+	<20030522.015815.91322249.davem@redhat.com>
+	<20030522.034058.71558626.davem@redhat.com>
+	<1053602138.9475.34.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: toml@us.ibm.com
-In-Reply-To: <OFD45FE8D2.BE223435-ON86256D2F.004DFD33-86256D2F.005647E2@pok.ibm.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: davem@redhat.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <1053602138.9475.34.camel@tux.rsn.bth.se>
 List-Id: netdev.vger.kernel.org
 
-   From: "Tom Lendacky" <toml@us.ibm.com>
-   Date: Fri, 23 May 2003 10:42:25 -0500
-   
-   I'll try and do some debugging and see if I can find the problem.
+Martin Josefsson <gandalf@wlug.westbo.se> wrote:
+>
+> Any reason you're not using get_order() ?
 
-Thanks.  It is possible that I broke something while transferring
-the flow cache into a generic location... but you did not see these
-hangs with plain 2.5.69 which had that change already.
+hm.
 
-I'll be away for the weekend, so don't be alarmed if I am silent
-during this time :-)
+a) mips64 and cris seem to have forgotten to implement it.
+
+b) ppc and ia64 just had to sneak a bit of asm into their version
+
+c) all other architectures did a copy-n-paste.
+
+
+I get the feeling that we need just a single copy of this guy, in
+<linux/bitops.h>
+
+
