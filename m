@@ -1,40 +1,64 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
-Date: Thu, 27 Jan 2005 09:26:18 +0100
-Message-ID: <20050127082618.GE2731@wotan.suse.de>
-References: <20050119164640.6c67bdfa.davem@davemloft.net> <52r7kgu5n5.fsf@topspin.com> <20050119230526.393a5184.davem@davemloft.net> <20050120085611.33f9485e@dxpl.pdx.osdl.net> <20050121105452.GA12988@xi.wantstofly.org> <20050125222705.1ee878fd.davem@davemloft.net> <20050126132512.GA18220@xi.wantstofly.org> <20050126223247.3e4643cc.davem@davemloft.net> <20050127071645.GA2731@wotan.suse.de> <20050126232227.3ce4decb.davem@davemloft.net>
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Thu, 27 Jan 2005 08:28:09 +0000
+Message-ID: <20050127082809.A20510@flint.arm.linux.org.uk>
+References: <20050121161959.GO3922@fi.muni.cz> <1106360639.15804.1.camel@boxen> <20050123091154.GC16648@suse.de> <20050123011918.295db8e8.akpm@osdl.org> <20050123095608.GD16648@suse.de> <20050123023248.263daca9.akpm@osdl.org> <20050123200315.A25351@flint.arm.linux.org.uk> <20050124114853.A16971@flint.arm.linux.org.uk> <20050125193207.B30094@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, buytenh@wantstofly.org, shemminger@osdl.org,
-        roland@topspin.com, hadi@cyberus.ca, iod00d@hp.com,
-        eric.lemoine@gmail.com, netdev@oss.sgi.com, openib-general@openib.org,
-        kaber@trash.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262291AbVA0I22@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>,
+	alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050126232227.3ce4decb.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050125193207.B30094@flint.arm.linux.org.uk>; from rmk+lkml@arm.linux.org.uk on Tue, Jan 25, 2005 at 07:32:07PM +0000
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 26, 2005 at 11:22:27PM -0800, David S. Miller wrote:
-> On Thu, 27 Jan 2005 08:16:45 +0100
-> Andi Kleen <ak@suse.de> wrote:
-> 
-> > > Yes, that's the idea.
+On Tue, Jan 25, 2005 at 07:32:07PM +0000, Russell King wrote:
+> On Mon, Jan 24, 2005 at 11:48:53AM +0000, Russell King wrote:
+> > On Sun, Jan 23, 2005 at 08:03:15PM +0000, Russell King wrote:
+> > > I think I may be seeing something odd here, maybe a possible memory leak.
+> > > The only problem I have is wondering whether I'm actually comparing like
+> > > with like.  Maybe some networking people can provide a hint?
+> > > 
+> > > Below is gathered from 2.6.11-rc1.
+> > > 
+> > > bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+> > > 24
+> > > ip_dst_cache         669    885    256   15    1
+> > > 
+> > > I'm fairly positive when I rebooted the machine a couple of days ago,
+> > > ip_dst_cache was significantly smaller for the same number of lines in
+> > > /proc/net/rt_cache.
 > > 
-> > per CPU only works in preemptive kernel if you have preemption
-> > disabled all the time. Do you? 
+> > FYI, today it looks like this:
 > > 
-> > Seems not likely to me.
+> > bash-2.05a# cat /proc/net/rt_cache | wc -l; grep ip_dst /proc/slabinfo
+> > 26
+> > ip_dst_cache         820   1065    256   15    1 
+> > 
+> > So the dst cache seems to have grown by 151 in 16 hours...  I'll continue
+> > monitoring and providing updates.
 > 
-> BH is disabled in these code paths (specifically we're talking
-> about ->hard_start_xmit()), as that is where the recursion
-> check goes.
+> Tonights update:
+> 50
+> ip_dst_cache        1024   1245    256   15    1
+> 
+> As you can see, the dst cache is consistently growing by about 200
+> entries per day.  Given this, I predict that the box will fall over
+> due to "dst cache overflow" in roughly 35 days.
 
-Hmm, but hard_start_xmit is allowed to enable preemption again, isn't it?
+This mornings magic numbers are:
 
-An safer alternative may be to change the cpu mask of the current process
-temporarily.
+3
+ip_dst_cache        1292   1485    256   15    1
 
--Andi
+Is no one interested in the fact that the DST cache is leaking and
+eventually takes out machines?  I've had virtually zero interest in
+this problem so far.
+
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
