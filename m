@@ -1,31 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] consolidate skb delivery
-Date: Thu, 2 Oct 2003 12:43:45 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: do_gettimeofday
+Date: Thu, 2 Oct 2003 21:29:42 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002124345.7b34bf24.shemminger@osdl.org>
-References: <20031002102133.7285b5ee.shemminger@osdl.org>
-	<20031002192546.GA29673@wotan.suse.de>
+Message-ID: <20031002192942.GB29673@wotan.suse.de>
+References: <3F7C6F3B.6070502@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20031002192546.GA29673@wotan.suse.de>
+To: Steve Modica <modica@sgi.com>
+Content-Disposition: inline
+In-Reply-To: <3F7C6F3B.6070502@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Oct 2003 21:25:46 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Thu, Oct 02, 2003 at 01:32:27PM -0500, Steve Modica wrote:
+> We've been doing some experiments here with large numbers of adapters on a 
+> 64p Linux system. 
+> When running 8 threads and 8 cpus, the do_gettimeofday code starts to use a 
+> lot of time.
 
-> > +static __inline__ int deliver_skb(struct sk_buff *skb,
-> > +				  struct packet_type *pt_prev, int last)
-> > +{
-> > +	if (unlikely(!pt_prev->data))
-> > +		return deliver_to_old_ones(pt_prev, skb, last);
-> 
-> Are there even any old style protocols left? If not you could just make
-> it BUG() 
-> 
+That's a known problem. The funny thing is that the only users
+of this time stamp is SO_TIMESTAMP, which is rarely used (except tcpdump)
+and something in DECnet. IMHO the right fix is to add a global
+counter that counts all all sockets that use SO_TIMESTAMP and when it's
+zero never call it. Decnet could be probably fixed to just use jiffies
+like TCP does.
 
-bpqether,lapbether,ipconfig, and econet are still old style.
+Drawback is that when you enable SO_TIMESTAMP there is a small time window
+when the packets are not time stamped yet. The socket layer can just fill
+in the current time though.
+
+-Andi
