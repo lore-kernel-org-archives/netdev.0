@@ -1,527 +1,1076 @@
-From: RFC822 mailer (LMail release 1.2d/1.8d) <MAILER@CUNYVM.CUNY.EDU>
-Subject: Undelivered mail
-Date: Sat, 22 May 2004 02:56:33 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: 2/x: [NETDRV] Use driver-specific name for resources
+Date: Sat, 22 May 2004 17:44:35 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405220659.i4M6xFKO025362@oss.sgi.com>
-Reply-To: Postmaster@CUNYVM.CUNY.EDU
+Message-ID: <20040522074435.GA9628@gondor.apana.org.au>
+References: <20040313025859.GA8186@gondor.apana.org.au> <405C294D.5040508@pobox.com> <20040520111937.GA21804@gondor.apana.org.au>
+Mime-Version: 1.0
+Content-Type: multipart/mixed; boundary="UlVJffcvxoiEqYs2"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040520111937.GA21804@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-An error was detected while processing the enclosed message. A list of
-the affected recipients follows. This list is in a special format that
-allows software like LISTSERV to automatically take action on incorrect
-addresses; you can safely ignore the numeric codes.
 
---> Error description:
-Error-For:  JZDQC@CUNYVM.CUNY.EDU
-Alias:      JZDQC@CUNYVMV2.BITNET
-Alias:      JZDQC@CUNYVM.BITNET
-Error-Code: 3
-Error-Text: No such local user.
+--UlVJffcvxoiEqYs2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Error-End:  One error reported.
+On Thu, May 20, 2004 at 09:19:37PM +1000, herbert wrote:
+> 
+> Thanks for the comments.
+> 
+> I'll split it up.  Here is the bit which conditionalises the
+> builtin-only probe functions.
 
------------------------- Rejected message (503 lines) -------------------------
-Received: from LISTSERV.CUNY.EDU [128.228.100.10] by CUNYVM.CUNY.EDU (IBM VM SMTP Level 320) via TCP with SMTP ; Sat, 22 May 2004 02:56:32 EDT
-Received: from cunyvm.cuny.edu (218.104.103.136) by LISTSERV.CUNY.EDU (LSMTP for Windows NT v1.1b) with SMTP id <3.00C9A389@LISTSERV.CUNY.EDU>; Sat, 22 May 2004 2:59:25 -0400
-From: netdev@oss.sgi.com
-To: jzdqc@cunyvm.cuny.edu
-Subject: your eyes?
-Date: Sat, 22 May 2004 14:59:18 +0800
-MIME-Version: 1.0
-Content-Type: multipart/mixed;
-        boundary="----=_NextPart_000_0013_000006B1.00005D30"
-X-Priority: 3
-X-MSMail-Priority: Normal
+Here is the next part which uses a driver-specific name instead of
+dev->name for resource allocations prior to netdev registration.
+It also changes printks that are in direct response to errors in
+resource allocations.
 
-This is a multi-part message in MIME format.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-------=_NextPart_000_0013_000006B1.00005D30
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
+--UlVJffcvxoiEqYs2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-do not give up!
+diff -Nru a/drivers/net/3c501.c b/drivers/net/3c501.c
+--- a/drivers/net/3c501.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/3c501.c	Sat May 22 17:40:55 2004
+@@ -225,7 +225,7 @@
+ 	 *	Reserve I/O resource for exclusive use by this driver
+ 	 */
+ 
+-	if (!request_region(ioaddr, EL1_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, EL1_IO_EXTENT, DRV_NAME))
+ 		return -ENODEV;
+ 
+ 	/*
+diff -Nru a/drivers/net/3c503.c b/drivers/net/3c503.c
+--- a/drivers/net/3c503.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/3c503.c	Sat May 22 17:40:55 2004
+@@ -184,10 +184,10 @@
+     static unsigned version_printed;
+     unsigned long vendor_id;
+ 
+-    if (!request_region(ioaddr, EL2_IO_EXTENT, dev->name))
++    if (!request_region(ioaddr, EL2_IO_EXTENT, DRV_NAME))
+ 	return -EBUSY;
+ 
+-    if (!request_region(ioaddr + 0x400, 8, dev->name)) {
++    if (!request_region(ioaddr + 0x400, 8, DRV_NAME)) {
+ 	retval = -EBUSY;
+ 	goto out;
+     }
+diff -Nru a/drivers/net/3c507.c b/drivers/net/3c507.c
+--- a/drivers/net/3c507.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/3c507.c	Sat May 22 17:40:55 2004
+@@ -373,7 +373,7 @@
+ 		init_ID_done = 1;
+ 	}
+ 
+-	if (!request_region(ioaddr, EL16_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, EL16_IO_EXTENT, DRV_NAME))
+ 		return -ENODEV;
+ 
+ 	if ((inb(ioaddr) != '*') || (inb(ioaddr + 1) != '3') || 
+@@ -392,7 +392,7 @@
+ 
+ 	irq = inb(ioaddr + IRQ_CONFIG) & 0x0f;
+ 
+-	irqval = request_irq(irq, &el16_interrupt, 0, dev->name, dev);
++	irqval = request_irq(irq, &el16_interrupt, 0, DRV_NAME, dev);
+ 	if (irqval) {
+ 		printk ("unable to get IRQ %d (irqval=%d).\n", irq, irqval);
+ 		retval = -EAGAIN;
+diff -Nru a/drivers/net/3c523.c b/drivers/net/3c523.c
+--- a/drivers/net/3c523.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/3c523.c	Sat May 22 17:40:55 2004
+@@ -445,7 +445,7 @@
+ 			slot = mca_find_adapter(ELMC_MCA_ID, slot + 1);
+ 			continue;
+ 		}
+-		if (!request_region(dev->base_addr, ELMC_IO_EXTENT, dev->name)) {
++		if (!request_region(dev->base_addr, ELMC_IO_EXTENT, DRV_NAME)) {
+ 			slot = mca_find_adapter(ELMC_MCA_ID, slot + 1);
+ 			continue;
+ 		}
+diff -Nru a/drivers/net/3c527.c b/drivers/net/3c527.c
+--- a/drivers/net/3c527.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/3c527.c	Sat May 22 17:40:55 2004
+@@ -434,10 +434,10 @@
+ 	 *	Grab the IRQ
+ 	 */
+ 
+-	err = request_irq(dev->irq, &mc32_interrupt, SA_SHIRQ | SA_SAMPLE_RANDOM, dev->name, dev);
++	err = request_irq(dev->irq, &mc32_interrupt, SA_SHIRQ | SA_SAMPLE_RANDOM, DRV_NAME, dev);
+ 	if (err) {
+ 		release_region(dev->base_addr, MC32_IO_EXTENT);
+-		printk(KERN_ERR "%s: unable to get IRQ %d.\n", dev->name, dev->irq);
++		printk(KERN_ERR "%s: unable to get IRQ %d.\n", DRV_NAME, dev->irq);
+ 		goto err_exit_ports;
+ 	}
+ 
+diff -Nru a/drivers/net/82596.c b/drivers/net/82596.c
+--- a/drivers/net/82596.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/82596.c	Sat May 22 17:40:55 2004
+@@ -63,6 +63,8 @@
+ static char version[] __initdata =
+ 	"82596.c $Revision: 1.5 $\n";
+ 
++#define DRV_NAME	"82596"
++
+ /* DEBUG flags
+  */
+ 
+@@ -1191,7 +1193,7 @@
+ 		/* this is easy the ethernet interface can only be at 0x300 */
+ 		/* first check nothing is already registered here */
+ 
+-		if (!request_region(ioaddr, I596_TOTAL_SIZE, dev->name)) {
++		if (!request_region(ioaddr, I596_TOTAL_SIZE, DRV_NAME)) {
+ 			printk(KERN_ERR "82596: IO address 0x%04x in use\n", ioaddr);
+ 			err = -EBUSY;
+ 			goto out;
+diff -Nru a/drivers/net/ac3200.c b/drivers/net/ac3200.c
+--- a/drivers/net/ac3200.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ac3200.c	Sat May 22 17:40:55 2004
+@@ -39,6 +39,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME	"ac3200"
++
+ /* Offsets from the base address. */
+ #define AC_NIC_BASE	0x00
+ #define AC_SA_PROM	0x16			/* The station address PROM. */
+@@ -161,7 +163,7 @@
+ {
+ 	int i, retval;
+ 
+-	if (!request_region(ioaddr, AC_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, AC_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	if (inb_p(ioaddr + AC_ID_PORT) == 0xff) {
+@@ -205,7 +207,7 @@
+ 		printk(", assigning");
+ 	}
+ 
+-	retval = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev);
++	retval = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev);
+ 	if (retval) {
+ 		printk (" nothing! Unable to get IRQ %d.\n", dev->irq);
+ 		goto out1;
+diff -Nru a/drivers/net/acenic.c b/drivers/net/acenic.c
+--- a/drivers/net/acenic.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/acenic.c	Sat May 22 17:40:55 2004
+@@ -85,6 +85,8 @@
+ #include <asm/uaccess.h>
+ 
+ 
++#define DRV_NAME "acenic"
++
+ #undef INDEX_DEBUG
+ 
+ #ifdef CONFIG_ACENIC_OMIT_TIGON_I
+@@ -1454,10 +1456,10 @@
+ 	}
+ 
+ 	ecode = request_irq(pdev->irq, ace_interrupt, SA_SHIRQ,
+-			    dev->name, dev);
++			    DRV_NAME, dev);
+ 	if (ecode) {
+ 		printk(KERN_WARNING "%s: Requested IRQ %d is busy\n",
+-		       dev->name, pdev->irq);
++		       DRV_NAME, pdev->irq);
+ 		goto init_error;
+ 	} else
+ 		dev->irq = pdev->irq;
+diff -Nru a/drivers/net/apne.c b/drivers/net/apne.c
+--- a/drivers/net/apne.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/apne.c	Sat May 22 17:40:55 2004
+@@ -49,6 +49,8 @@
+ 
+ /* ---- No user-serviceable parts below ---- */
+ 
++#define DRV_NAME "apne"
++
+ #define NE_BASE	 (dev->base_addr)
+ #define NE_CMD	 		0x00
+ #define NE_DATAPORT		0x10            /* NatSemi-defined port window offset. */
+@@ -168,7 +170,7 @@
+ 		return ERR_PTR(-ENODEV);
+ 	}
+ 
+-	if (!request_region(IOBASE, 0x20, dev->name)) {
++	if (!request_region(IOBASE, 0x20, DRV_NAME)) {
+ 		free_netdev(dev);
+ 		return ERR_PTR(-EBUSY);
+ 	}
+@@ -310,7 +312,7 @@
+     dev->base_addr = ioaddr;
+ 
+     /* Install the Interrupt handler */
+-    i = request_irq(IRQ_AMIGA_PORTS, apne_interrupt, SA_SHIRQ, dev->name, dev);
++    i = request_irq(IRQ_AMIGA_PORTS, apne_interrupt, SA_SHIRQ, DRV_NAME, dev);
+     if (i) return i;
+ 
+     for(i = 0; i < ETHER_ADDR_LEN; i++) {
+diff -Nru a/drivers/net/at1700.c b/drivers/net/at1700.c
+--- a/drivers/net/at1700.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/at1700.c	Sat May 22 17:40:55 2004
+@@ -65,6 +65,8 @@
+ static char version[] __initdata =
+ 	"at1700.c:v1.15 4/7/98  Donald Becker (becker@cesdis.gsfc.nasa.gov)\n";
+ 
++#define DRV_NAME "at1700"
++
+ /* Tunable parameters. */
+ 
+ /* When to switch from the 64-entry multicast filter to Rx-all-multicast. */
+@@ -322,11 +324,11 @@
+ 	struct net_local *lp = netdev_priv(dev);
+ 
+ #ifndef CONFIG_X86_PC9800
+-	if (!request_region(ioaddr, AT1700_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, AT1700_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ #else
+ 	for (i = 0; i < 0x2000; i += 0x0200) {
+-		if (!request_region(ioaddr + i, 2, dev->name)) {
++		if (!request_region(ioaddr + i, 2, DRV_NAME)) {
+ 			while (i > 0) {
+ 				i -= 0x0200;
+ 				release_region(ioaddr + i, 2);
+@@ -542,7 +544,7 @@
+ 	lp->jumpered = is_fmv18x;
+ 	lp->mca_slot = slot;
+ 	/* Snarf the interrupt vector now. */
+-	ret = request_irq(irq, &net_interrupt, 0, dev->name, dev);
++	ret = request_irq(irq, &net_interrupt, 0, DRV_NAME, dev);
+ 	if (ret) {
+ 		printk ("  AT1700 at %#3x is unusable due to a conflict on"
+ 				"IRQ %d.\n", ioaddr, irq);
+diff -Nru a/drivers/net/cs89x0.c b/drivers/net/cs89x0.c
+--- a/drivers/net/cs89x0.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/cs89x0.c	Sat May 22 17:40:55 2004
+@@ -141,6 +141,8 @@
+ static char version[] __initdata =
+ "cs89x0.c: v2.4.3-pre1 Russell Nelson <nelson@crynwr.com>, Andrew Morton <andrewm@uow.edu.au>\n";
+ 
++#define DRV_NAME "cs89x0"
++
+ /* First, a few definitions that the brave might change.
+    A zero-terminated list of I/O addresses to be probed. Some special flags..
+       Addr & 1 = Read back the address port, look for signature and reset
+@@ -425,9 +427,9 @@
+ 
+ 	/* Grab the region so we can find another board if autoIRQ fails. */
+ 	/* WTF is going on here? */
+-	if (!request_region(ioaddr & ~3, NETCARD_IO_EXTENT, dev->name)) {
++	if (!request_region(ioaddr & ~3, NETCARD_IO_EXTENT, DRV_NAME)) {
+ 		printk(KERN_ERR "%s: request_region(0x%x, 0x%x) failed\n",
+-				dev->name, ioaddr, NETCARD_IO_EXTENT);
++				DRV_NAME, ioaddr, NETCARD_IO_EXTENT);
+ 		retval = -EBUSY;
+ 		goto out1;
+ 	}
+diff -Nru a/drivers/net/defxx.c b/drivers/net/defxx.c
+--- a/drivers/net/defxx.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/defxx.c	Sat May 22 17:40:55 2004
+@@ -219,6 +219,8 @@
+ static char version[] __devinitdata =
+ 	"defxx.c:v1.06 2003/08/04  Lawrence V. Stefani and others\n";
+ 
++#define DRV_NAME "defxx"
++
+ #define DYNAMIC_BUFFERS 1
+ 
+ #define SKBUFF_RX_COPYBREAK 200
+@@ -435,9 +437,9 @@
+ 
+ 	bp = dev->priv;
+ 
+-	if (!request_region (ioaddr, pdev ? PFI_K_CSR_IO_LEN : PI_ESIC_K_CSR_IO_LEN, dev->name)) {
++	if (!request_region (ioaddr, pdev ? PFI_K_CSR_IO_LEN : PI_ESIC_K_CSR_IO_LEN, DRV_NAME)) {
+ 		printk (KERN_ERR "%s: Cannot reserve I/O resource 0x%x @ 0x%lx, aborting\n",
+-			dev->name, PFI_K_CSR_IO_LEN, ioaddr);
++			DRV_NAME, PFI_K_CSR_IO_LEN, ioaddr);
+ 		err = -EBUSY;
+ 		goto err_out;
+ 	}
+diff -Nru a/drivers/net/e2100.c b/drivers/net/e2100.c
+--- a/drivers/net/e2100.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/e2100.c	Sat May 22 17:40:55 2004
+@@ -51,6 +51,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "e2100"
++
+ static int e21_probe_list[] = {0x300, 0x280, 0x380, 0x220, 0};
+ 
+ /* Offsets from the base_addr.
+@@ -177,7 +179,7 @@
+ 	unsigned char *station_addr = dev->dev_addr;
+ 	static unsigned version_printed;
+ 
+-	if (!request_region(ioaddr, E21_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, E21_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	/* First check the station address for the Ctron prefix. */
+diff -Nru a/drivers/net/eepro.c b/drivers/net/eepro.c
+--- a/drivers/net/eepro.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/eepro.c	Sat May 22 17:40:55 2004
+@@ -151,6 +151,8 @@
+ #include <asm/io.h>
+ #include <asm/dma.h>
+ 
++#define DRV_NAME "eepro"
++
+ #define compat_dev_kfree_skb( skb, mode ) dev_kfree_skb( (skb) )
+ /* I had reports of looong delays with SLOW_DOWN defined as udelay(2) */
+ #define SLOW_DOWN inb(0x80)
+@@ -747,7 +749,7 @@
+ 	int ioaddr = dev->base_addr;
+ 
+ 	/* Grab the region so we can find another board if autoIRQ fails. */
+-	if (!request_region(ioaddr, EEPRO_IO_EXTENT, dev->name)) { 
++	if (!request_region(ioaddr, EEPRO_IO_EXTENT, DRV_NAME)) { 
+ 		if (!autoprobe)
+ 			printk(KERN_WARNING "EEPRO: io-port 0x%04x in use \n",
+ 				ioaddr);
+diff -Nru a/drivers/net/eth16i.c b/drivers/net/eth16i.c
+--- a/drivers/net/eth16i.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/eth16i.c	Sat May 22 17:40:55 2004
+@@ -493,7 +493,7 @@
+ 	int retval;
+ 
+ 	/* Let's grab the region */
+-	if (!request_region(ioaddr, ETH16I_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, ETH16I_IO_EXTENT, cardname))
+ 		return -EBUSY;
+ 
+ 	/*
+@@ -540,9 +540,9 @@
+ 
+ 	/* Try to obtain interrupt vector */
+ 
+-	if ((retval = request_irq(dev->irq, (void *)&eth16i_interrupt, 0, dev->name, dev))) {
+-		printk(KERN_WARNING "%s: %s at %#3x, but is unusable due conflicting IRQ %d.\n", 
+-		       dev->name, cardname, ioaddr, dev->irq);
++	if ((retval = request_irq(dev->irq, (void *)&eth16i_interrupt, 0, cardname, dev))) {
++		printk(KERN_WARNING "%s at %#3x, but is unusable due to conflicting IRQ %d.\n", 
++		       cardname, ioaddr, dev->irq);
+ 		goto out;
+ 	}
+ 
+diff -Nru a/drivers/net/ewrk3.c b/drivers/net/ewrk3.c
+--- a/drivers/net/ewrk3.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ewrk3.c	Sat May 22 17:40:55 2004
+@@ -1271,7 +1271,7 @@
+ 	for (; (i < maxSlots) && (dev != NULL);
+ 	     iobase += EWRK3_IOP_INC, i++)
+ 	{
+-		if (request_region(iobase, EWRK3_TOTAL_SIZE, dev->name)) {
++		if (request_region(iobase, EWRK3_TOTAL_SIZE, DRV_NAME)) {
+ 			if (DevicePresent(iobase) == 0) {
+ 				int irq = dev->irq;
+ 				ret = ewrk3_hw_init(dev, iobase);
+@@ -1312,7 +1312,7 @@
+ 
+ 	for (i = 1; (i < maxSlots) && (dev != NULL); i++, iobase += EISA_SLOT_INC) {
+ 		if (EISA_signature(name, EISA_ID) == 0) {
+-			if (request_region(iobase, EWRK3_TOTAL_SIZE, dev->name) &&
++			if (request_region(iobase, EWRK3_TOTAL_SIZE, DRV_NAME) &&
+ 			    DevicePresent(iobase) == 0) {
+ 				int irq = dev->irq;
+ 				ret = ewrk3_hw_init(dev, iobase);
+diff -Nru a/drivers/net/fmv18x.c b/drivers/net/fmv18x.c
+--- a/drivers/net/fmv18x.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/fmv18x.c	Sat May 22 17:40:55 2004
+@@ -57,6 +57,8 @@
+ #include <asm/io.h>
+ #include <asm/dma.h>
+ 
++#define DRV_NAME "fmv18x"
++
+ static unsigned fmv18x_probe_list[] __initdata = {
+ 	0x220, 0x240, 0x260, 0x280, 0x2a0, 0x2c0, 0x300, 0x340, 0
+ };
+@@ -192,7 +194,7 @@
+ 	   That means we have to be careful with the register values we probe for.
+ 	   */
+ 
+-	if (!request_region(ioaddr, FMV18X_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, FMV18X_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	dev->irq = irq;
+@@ -224,7 +226,7 @@
+ 	}
+ 
+ 	/* Snarf the interrupt vector now. */
+-	retval = request_irq(dev->irq, &net_interrupt, 0, dev->name, dev);
++	retval = request_irq(dev->irq, &net_interrupt, 0, DRV_NAME, dev);
+ 	if (retval) {
+ 		printk ("FMV-18x found at %#3x, but it's unusable due to a conflict on"
+ 				"IRQ %d.\n", ioaddr, dev->irq);
+diff -Nru a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/forcedeth.c	Sat May 22 17:40:55 2004
+@@ -81,6 +81,7 @@
+  * superfluous timer interrupts from the nic.
+  */
+ #define FORCEDETH_VERSION		"0.25"
++#define DRV_NAME			"forcedeth"
+ 
+ #include <linux/module.h>
+ #include <linux/types.h>
+@@ -1424,7 +1425,7 @@
+ 
+ 	pci_set_master(pci_dev);
+ 
+-	err = pci_request_regions(pci_dev, dev->name);
++	err = pci_request_regions(pci_dev, DRV_NAME);
+ 	if (err < 0)
+ 		goto out_disable;
+ 
+diff -Nru a/drivers/net/hp-plus.c b/drivers/net/hp-plus.c
+--- a/drivers/net/hp-plus.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/hp-plus.c	Sat May 22 17:40:55 2004
+@@ -37,6 +37,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "hp-plus"
++
+ /* A zero-terminated list of I/O addresses to be probed. */
+ static unsigned int hpplus_portlist[] __initdata =
+ {0x200, 0x240, 0x280, 0x2C0, 0x300, 0x320, 0x340, 0};
+@@ -178,7 +180,7 @@
+ 	int mem_start;
+ 	static unsigned version_printed;
+ 
+-	if (!request_region(ioaddr, HP_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, HP_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	/* Check for the HP+ signature, 50 48 0x 53. */
+diff -Nru a/drivers/net/hp.c b/drivers/net/hp.c
+--- a/drivers/net/hp.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/hp.c	Sat May 22 17:40:55 2004
+@@ -37,6 +37,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "hp"
++
+ /* A zero-terminated list of I/O addresses to be probed. */
+ static unsigned int hppclan_portlist[] __initdata =
+ { 0x300, 0x320, 0x340, 0x280, 0x2C0, 0x200, 0x240, 0};
+@@ -139,7 +141,7 @@
+ 	const char *name;
+ 	static unsigned version_printed;
+ 
+-	if (!request_region(ioaddr, HP_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, HP_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	/* Check for the HP physical address, 08 00 09 xx xx xx. */
+@@ -184,7 +186,7 @@
+ 				outb_p(irqmap[irq] | HP_RUN, ioaddr + HP_CONFIGURE);
+ 				outb_p( 0x00 | HP_RUN, ioaddr + HP_CONFIGURE);
+ 				if (irq == probe_irq_off(cookie)		 /* It's a good IRQ line! */
+-					&& request_irq (irq, ei_interrupt, 0, dev->name, dev) == 0) {
++					&& request_irq (irq, ei_interrupt, 0, DRV_NAME, dev) == 0) {
+ 					printk(" selecting IRQ %d.\n", irq);
+ 					dev->irq = *irqp;
+ 					break;
+@@ -199,7 +201,7 @@
+ 	} else {
+ 		if (dev->irq == 2)
+ 			dev->irq = 9;
+-		if ((retval = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev))) {
++		if ((retval = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev))) {
+ 			printk (" unable to get IRQ %d.\n", dev->irq);
+ 			goto out;
+ 		}
+diff -Nru a/drivers/net/ibmlana.c b/drivers/net/ibmlana.c
+--- a/drivers/net/ibmlana.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ibmlana.c	Sat May 22 17:40:55 2004
+@@ -97,6 +97,8 @@
+ 
+ #undef DEBUG
+ 
++#define DRV_NAME "ibmlana"
++
+ /* ------------------------------------------------------------------------
+  * global static data - not more since we can handle multiple boards and
+  * have to pack all state info into the device struct!
+@@ -951,8 +953,8 @@
+ 	printk(KERN_INFO "%s: IBM LAN Adapter/A found in slot %d\n", dev->name, slot + 1);
+ 
+ 	/* try to obtain I/O range */
+-	if (!request_region(iobase, IBM_LANA_IORANGE, dev->name)) {
+-		printk(KERN_ERR "%s: cannot allocate I/O range at %#x!\n", dev->name, iobase);
++	if (!request_region(iobase, IBM_LANA_IORANGE, DRV_NAME)) {
++		printk(KERN_ERR "%s: cannot allocate I/O range at %#x!\n", DRV_NAME, iobase);
+ 		startslot = slot + 1;
+ 		return -EBUSY;
+ 	}
+diff -Nru a/drivers/net/jazzsonic.c b/drivers/net/jazzsonic.c
+--- a/drivers/net/jazzsonic.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/jazzsonic.c	Sat May 22 17:40:55 2004
+@@ -37,6 +37,8 @@
+ #include <asm/jazz.h>
+ #include <asm/jazzdma.h>
+ 
++#define DRV_NAME "jazzsonic"
++
+ #define SREGS_PAD(n)    u16 n;
+ 
+ #include "sonic.h"
+@@ -151,7 +153,7 @@
+ 	int err = -ENODEV;
+ 	int i;
+ 
+-	if (!request_region(base_addr, 0x100, dev->name))
++	if (!request_region(base_addr, 0x100, DRV_NAME))
+ 		return -EBUSY;
+ 	/*
+ 	 * get the Silicon Revision ID. If this is one of the known
+diff -Nru a/drivers/net/lne390.c b/drivers/net/lne390.c
+--- a/drivers/net/lne390.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/lne390.c	Sat May 22 17:40:55 2004
+@@ -49,6 +49,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "lne390"
++
+ static int lne390_probe1(struct net_device *dev, int ioaddr);
+ 
+ static int lne390_open(struct net_device *dev);
+@@ -112,7 +114,7 @@
+ 	SET_MODULE_OWNER(dev);
+ 
+ 	if (ioaddr > 0x1ff) {		/* Check a single specified location. */
+-		if (!request_region(ioaddr, LNE390_IO_EXTENT, dev->name))
++		if (!request_region(ioaddr, LNE390_IO_EXTENT, DRV_NAME))
+ 			return -EBUSY;
+ 		ret = lne390_probe1(dev, ioaddr);
+ 		if (ret)
+@@ -131,7 +133,7 @@
+ 
+ 	/* EISA spec allows for up to 16 slots, but 8 is typical. */
+ 	for (ioaddr = 0x1000; ioaddr < 0x9000; ioaddr += 0x1000) {
+-		if (!request_region(ioaddr, LNE390_IO_EXTENT, dev->name))
++		if (!request_region(ioaddr, LNE390_IO_EXTENT, DRV_NAME))
+ 			continue;
+ 		if (lne390_probe1(dev, ioaddr) == 0)
+ 			return 0;
+@@ -230,7 +232,7 @@
+ 	}
+ 	printk(" IRQ %d,", dev->irq);
+ 
+-	if ((ret = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev))) {
++	if ((ret = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev))) {
+ 		printk (" unable to get IRQ %d.\n", dev->irq);
+ 		return ret;
+ 	}
+diff -Nru a/drivers/net/lp486e.c b/drivers/net/lp486e.c
+--- a/drivers/net/lp486e.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/lp486e.c	Sat May 22 17:40:55 2004
+@@ -75,6 +75,8 @@
+ #include <asm/io.h>
+ #include <asm/dma.h>
+ 
++#define DRV_NAME "lp486e"
++
+ /* debug print flags */
+ #define LOG_SRCDST    0x80000000
+ #define LOG_STATINT   0x40000000
+@@ -970,7 +972,7 @@
+ 		return -ENODEV;
+ 	probed++;
+ 
+-	if (!request_region(IOADDR, LP486E_TOTAL_SIZE, dev->name)) {
++	if (!request_region(IOADDR, LP486E_TOTAL_SIZE, DRV_NAME)) {
+ 		printk(KERN_ERR "lp486e: IO address 0x%x in use\n", IOADDR);
+ 		return -EBUSY;
+ 	}
+diff -Nru a/drivers/net/natsemi.c b/drivers/net/natsemi.c
+--- a/drivers/net/natsemi.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/natsemi.c	Sat May 22 17:40:55 2004
+@@ -766,7 +766,7 @@
+ 	SET_MODULE_OWNER(dev);
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+-	i = pci_request_regions(pdev, dev->name);
++	i = pci_request_regions(pdev, DRV_NAME);
+ 	if (i)
+ 		goto err_pci_request_regions;
+ 
+diff -Nru a/drivers/net/ne-h8300.c b/drivers/net/ne-h8300.c
+--- a/drivers/net/ne-h8300.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ne-h8300.c	Sat May 22 17:40:55 2004
+@@ -34,6 +34,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "ne-h8300"
++
+ /* Some defines that people can play with if so inclined. */
+ 
+ /* Do we perform extra sanity checks on stuff ? */
+@@ -202,7 +204,7 @@
+ 	struct ei_device *ei_local = (struct ei_device *) netdev_priv(dev);
+ 	unsigned char bus_width;
+ 
+-	if (!request_region(ioaddr, NE_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, NE_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	reg0 = inb_p(ioaddr);
+diff -Nru a/drivers/net/ne.c b/drivers/net/ne.c
+--- a/drivers/net/ne.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ne.c	Sat May 22 17:40:55 2004
+@@ -55,6 +55,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "ne"
++
+ /* Some defines that people can play with if so inclined. */
+ 
+ /* Do we support clones that don't adhere to 14,15 of the SAprom ? */
+@@ -286,7 +288,7 @@
+ 	int reg0, ret;
+ 	static unsigned version_printed;
+ 
+-	if (!request_region(ioaddr, NE_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, NE_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	reg0 = inb_p(ioaddr);
+diff -Nru a/drivers/net/ne2.c b/drivers/net/ne2.c
+--- a/drivers/net/ne2.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ne2.c	Sat May 22 17:40:55 2004
+@@ -82,6 +82,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "ne2"
++
+ /* Some defines that people can play with if so inclined. */
+ 
+ /* Do we perform extra sanity checks on stuff ? */
+@@ -370,7 +372,7 @@
+ 		irq = irqs[(POS & 0x60)>>5];
+ 	}
+ 
+-	if (!request_region(base_addr, NE_IO_EXTENT, dev->name))
++	if (!request_region(base_addr, NE_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ #ifdef DEBUG
+@@ -472,7 +474,7 @@
+ 
+ 	/* Snarf the interrupt now.  There's no point in waiting since we cannot
+ 	   share and the board will usually be enabled. */
+-	retval = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev);
++	retval = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev);
+ 	if (retval) {
+ 		printk (" unable to get IRQ %d (irqval=%d).\n", 
+ 				dev->irq, retval);
+diff -Nru a/drivers/net/ne2k_cbus.c b/drivers/net/ne2k_cbus.c
+--- a/drivers/net/ne2k_cbus.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ne2k_cbus.c	Sat May 22 17:40:55 2004
+@@ -37,6 +37,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "ne2k_cbus"
++
+ /* Some defines that people can play with if so inclined. */
+ 
+ /* Do we support clones that don't adhere to 14,15 of the SAprom ? */
+@@ -265,7 +267,7 @@
+ 
+ 	for (rlist = hw->regionlist; rlist->range; rlist++)
+ 		if (!request_region(ioaddr + rlist->start,
+-					rlist->range, dev->name)) {
++					rlist->range, DRV_NAME)) {
+ 			ret = -EBUSY;
+ 			goto err_out;
+ 		}
+diff -Nru a/drivers/net/ne3210.c b/drivers/net/ne3210.c
+--- a/drivers/net/ne3210.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ne3210.c	Sat May 22 17:40:55 2004
+@@ -45,6 +45,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "ne3210"
++
+ static int ne3210_open(struct net_device *dev);
+ static int ne3210_close(struct net_device *dev);
+ 
+@@ -111,13 +113,13 @@
+ 	device->driver_data = dev;
+ 	ioaddr = edev->base_addr;
+ 
+-	if (!request_region(ioaddr, NE3210_IO_EXTENT, dev->name)) {
++	if (!request_region(ioaddr, NE3210_IO_EXTENT, DRV_NAME)) {
+ 		retval = -EBUSY;
+ 		goto out;
+ 	}
+ 
+ 	if (!request_region(ioaddr + NE3210_CFG1,
+-			    NE3210_CFG_EXTENT, dev->name)) {
++			    NE3210_CFG_EXTENT, DRV_NAME)) {
+ 		retval = -EBUSY;
+ 		goto out1;
+ 	}
+@@ -140,7 +142,7 @@
+ 	dev->irq = irq_map[(inb(ioaddr + NE3210_CFG2) >> 3) & 0x07];
+ 	printk(".\nne3210.c: using IRQ %d, ", dev->irq);
+ 
+-	retval = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev);
++	retval = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev);
+ 	if (retval) {
+ 		printk (" unable to get IRQ %d.\n", dev->irq);
+ 		goto out2;
+@@ -163,7 +165,7 @@
+ 		}
+ 	}
+ 	
+-	if (!request_mem_region (phys_mem, NE3210_STOP_PG*0x100, dev->name)) {
++	if (!request_mem_region (phys_mem, NE3210_STOP_PG*0x100, DRV_NAME)) {
+ 		printk ("ne3210.c: Unable to request shared memory at physical address %#lx\n",
+ 			phys_mem);
+ 		goto out3;
+diff -Nru a/drivers/net/ni52.c b/drivers/net/ni52.c
+--- a/drivers/net/ni52.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ni52.c	Sat May 22 17:40:55 2004
+@@ -124,6 +124,8 @@
+ 
+ #include "ni52.h"
+ 
++#define DRV_NAME "ni52"
++
+ #define DEBUG       /* debug on */
+ #define SYSBUSVAL 1 /* 8 Bit */
+ 
+@@ -424,7 +426,7 @@
+ 	dev->mem_start = memstart;
+ 	dev->mem_end = memend;
+ 
+-	if (!request_region(ioaddr, NI52_TOTAL_SIZE, dev->name))
++	if (!request_region(ioaddr, NI52_TOTAL_SIZE, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	if( !(inb(ioaddr+NI52_MAGIC1) == NI52_MAGICVAL1) ||
+diff -Nru a/drivers/net/ns83820.c b/drivers/net/ns83820.c
+--- a/drivers/net/ns83820.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/ns83820.c	Sat May 22 17:40:55 2004
+@@ -113,6 +113,8 @@
+ #include <asm/uaccess.h>
+ #include <asm/system.h>
+ 
++#define DRV_NAME "ns83820"
++
+ /* Global parameters.  See MODULE_PARM near the bottom. */
+ static int ihr = 2;
+ static int reset_phy = 0;
+@@ -1851,7 +1853,7 @@
+ 		0);
+ 
+ 	err = request_irq(pci_dev->irq, ns83820_irq, SA_SHIRQ,
+-			  ndev->name, ndev);
++			  DRV_NAME, ndev);
+ 	if (err) {
+ 		printk(KERN_INFO "ns83820: unable to register irq %d\n",
+ 			pci_dev->irq);
+diff -Nru a/drivers/net/oaknet.c b/drivers/net/oaknet.c
+--- a/drivers/net/oaknet.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/oaknet.c	Sat May 22 17:40:55 2004
+@@ -164,7 +164,7 @@
+ 	ret = -EAGAIN;
+ 	if (request_irq(dev->irq, ei_interrupt, 0, name, dev)) {
+ 		printk("%s: unable to request interrupt %d.\n",
+-		       dev->name, dev->irq);
++		       name, dev->irq);
+ 		goto out_region;
+ 	}
+ 
+diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/r8169.c	Sat May 22 17:40:55 2004
+@@ -716,7 +716,7 @@
+ 		goto err_out_disable;
+ 	}
+ 
+-	rc = pci_request_regions(pdev, dev->name);
++	rc = pci_request_regions(pdev, MODULENAME);
+ 	if (rc) {
+ 		printk(KERN_ERR PFX "%s: Could not request regions.\n", pdev->slot_name);
+ 		goto err_out_disable;
+diff -Nru a/drivers/net/smc-mca.c b/drivers/net/smc-mca.c
+--- a/drivers/net/smc-mca.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/smc-mca.c	Sat May 22 17:40:55 2004
+@@ -51,6 +51,8 @@
+ #include "8390.h"
+ #include "smc-mca.h"
+ 
++#define DRV_NAME "smc-mca"
++
+ static int ultramca_open(struct net_device *dev);
+ static void ultramca_reset_8390(struct net_device *dev);
+ static void ultramca_get_8390_hdr(struct net_device *dev,
+@@ -265,7 +267,7 @@
+ 		goto err_unclaim;
+ 	}
+ 
+-	if (!request_region(ioaddr, ULTRA_IO_EXTENT, dev->name)) {
++	if (!request_region(ioaddr, ULTRA_IO_EXTENT, DRV_NAME)) {
+ 		rc = -ENODEV;
+ 		goto err_unclaim;
+ 	}
+diff -Nru a/drivers/net/smc-ultra.c b/drivers/net/smc-ultra.c
+--- a/drivers/net/smc-ultra.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/smc-ultra.c	Sat May 22 17:40:55 2004
+@@ -72,6 +72,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "smc-ultra"
++
+ /* A zero-terminated list of I/O addresses to be probed. */
+ static unsigned int ultra_portlist[] __initdata =
+ {0x200, 0x220, 0x240, 0x280, 0x300, 0x340, 0x380, 0};
+@@ -217,7 +219,7 @@
+ 	unsigned char idreg = inb(ioaddr + 7);
+ 	unsigned char reg4 = inb(ioaddr + 4) & 0x7f;
+ 
+-	if (!request_region(ioaddr, ULTRA_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, ULTRA_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	/* Check the ID nibble. */
+diff -Nru a/drivers/net/smc-ultra32.c b/drivers/net/smc-ultra32.c
+--- a/drivers/net/smc-ultra32.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/smc-ultra32.c	Sat May 22 17:40:55 2004
+@@ -61,6 +61,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "smc-ultra32"
++
+ static int ultra32_probe1(struct net_device *dev, int ioaddr);
+ static int ultra32_open(struct net_device *dev);
+ static void ultra32_reset_8390(struct net_device *dev);
+@@ -163,7 +165,7 @@
+ 	unsigned char reg4;
+ 	const char *ifmap[] = {"UTP No Link", "", "UTP/AUI", "UTP/BNC"};
+ 
+-	if (!request_region(ioaddr, ULTRA32_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, ULTRA32_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	if (inb(ioaddr + ULTRA32_IDPORT) == 0xff ||
+diff -Nru a/drivers/net/smc9194.c b/drivers/net/smc9194.c
+--- a/drivers/net/smc9194.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/smc9194.c	Sat May 22 17:40:55 2004
+@@ -78,6 +78,8 @@
+ 
+ #include "smc9194.h"
+ 
++#define DRV_NAME "smc9194"
++
+ /*------------------------------------------------------------------------
+  .
+  . Configuration options, for the experienced user to change.
+@@ -843,7 +845,7 @@
+ 	word memory_cfg_register;
+ 
+ 	/* Grab the region so that no one else tries to probe our ioports. */
+-	if (!request_region(ioaddr, SMC_IO_EXTENT, dev->name))
++	if (!request_region(ioaddr, SMC_IO_EXTENT, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	dev->irq = irq;
+@@ -1001,9 +1003,9 @@
+ 	memset(dev->priv, 0, sizeof(struct smc_local));
+ 
+ 	/* Grab the IRQ */
+-      	retval = request_irq(dev->irq, &smc_interrupt, 0, dev->name, dev);
++      	retval = request_irq(dev->irq, &smc_interrupt, 0, DRV_NAME, dev);
+       	if (retval) {
+-		printk("%s: unable to get IRQ %d (irqval=%d).\n", dev->name,
++		printk("%s: unable to get IRQ %d (irqval=%d).\n", DRV_NAME,
+ 			dev->irq, retval);
+   	  	goto err_out;
+       	}
+diff -Nru a/drivers/net/starfire.c b/drivers/net/starfire.c
+--- a/drivers/net/starfire.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/starfire.c	Sat May 22 17:40:55 2004
+@@ -880,7 +880,7 @@
+ 
+ 	irq = pdev->irq;
+ 
+-	if (pci_request_regions (pdev, dev->name)) {
++	if (pci_request_regions (pdev, DRV_NAME)) {
+ 		printk(KERN_ERR DRV_NAME " %d: cannot reserve PCI resources, aborting\n", card_idx);
+ 		goto err_out_free_netdev;
+ 	}
+diff -Nru a/drivers/net/stnic.c b/drivers/net/stnic.c
+--- a/drivers/net/stnic.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/stnic.c	Sat May 22 17:40:55 2004
+@@ -28,6 +28,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "stnic"
++
+ #define byte	unsigned char
+ #define half	unsigned short
+ #define word	unsigned int
+@@ -130,7 +132,7 @@
+ 
+   /* Snarf the interrupt now.  There's no point in waiting since we cannot
+      share and the board will usually be enabled. */
+-  err = request_irq (dev->irq, ei_interrupt, 0, dev->name, dev);
++  err = request_irq (dev->irq, ei_interrupt, 0, DRV_NAME, dev);
+   if (err)  {
+       printk (KERN_EMERG " unable to get IRQ %d.\n", dev->irq);
+       free_netdev(dev);
+diff -Nru a/drivers/net/sun3_82586.c b/drivers/net/sun3_82586.c
+--- a/drivers/net/sun3_82586.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/sun3_82586.c	Sat May 22 17:40:55 2004
+@@ -53,6 +53,8 @@
+ 
+ #include "sun3_82586.h"
+ 
++#define DRV_NAME "sun3_82586"
++
+ #define DEBUG       /* debug on */
+ #define SYSBUSVAL 0 /* 16 Bit */
+ #define SUN3_82586_TOTAL_SIZE	PAGE_SIZE
+@@ -336,7 +338,7 @@
+ {
+ 	int i, size, retval;
+ 
+-	if (!request_region(ioaddr, SUN3_82586_TOTAL_SIZE, dev->name))
++	if (!request_region(ioaddr, SUN3_82586_TOTAL_SIZE, DRV_NAME))
+ 		return -EBUSY;
+ 
+ 	/* copy in the ethernet address from the prom */
+diff -Nru a/drivers/net/sungem.c b/drivers/net/sungem.c
+--- a/drivers/net/sungem.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/sungem.c	Sat May 22 17:40:55 2004
+@@ -2717,7 +2717,7 @@
+ 
+ 	gp = dev->priv;
+ 
+-	err = pci_request_regions(pdev, dev->name);
++	err = pci_request_regions(pdev, DRV_NAME);
+ 	if (err) {
+ 		printk(KERN_ERR PFX "Cannot obtain PCI resources, "
+ 		       "aborting.\n");
+diff -Nru a/drivers/net/sunhme.c b/drivers/net/sunhme.c
+--- a/drivers/net/sunhme.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/sunhme.c	Sat May 22 17:40:55 2004
+@@ -68,6 +68,8 @@
+ #include "sunhme.h"
+ 
+ 
++#define DRV_NAME "sunhme"
++
+ static int macaddr[6];
+ 
+ /* accept MAC address of the form macaddr=0x08,0x00,0x20,0x30,0x40,0x50 */
+@@ -3085,7 +3087,7 @@
+ 		printk(KERN_ERR "happymeal(PCI): Cannot find proper PCI device base address.\n");
+ 		goto err_out_clear_quattro;
+ 	}
+-	if (pci_request_regions(pdev, dev->name)) {
++	if (pci_request_regions(pdev, DRV_NAME)) {
+ 		printk(KERN_ERR "happymeal(PCI): Cannot obtain PCI resources, "
+ 		       "aborting.\n");
+ 		goto err_out_clear_quattro;
+diff -Nru a/drivers/net/wd.c b/drivers/net/wd.c
+--- a/drivers/net/wd.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/wd.c	Sat May 22 17:40:55 2004
+@@ -43,6 +43,8 @@
+ 
+ #include "8390.h"
+ 
++#define DRV_NAME "wd"
++
+ /* A zero-terminated list of I/O addresses to be probed. */
+ static unsigned int wd_portlist[] __initdata =
+ {0x300, 0x280, 0x380, 0x240, 0};
+@@ -302,7 +304,7 @@
+ 
+ 	/* Snarf the interrupt now.  There's no point in waiting since we cannot
+ 	   share and the board will usually be enabled. */
+-	i = request_irq(dev->irq, ei_interrupt, 0, dev->name, dev);
++	i = request_irq(dev->irq, ei_interrupt, 0, DRV_NAME, dev);
+ 	if (i) {
+ 		printk (" unable to get IRQ %d.\n", dev->irq);
+ 		return i;
+diff -Nru a/drivers/net/yellowfin.c b/drivers/net/yellowfin.c
+--- a/drivers/net/yellowfin.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/yellowfin.c	Sat May 22 17:40:55 2004
+@@ -448,7 +448,7 @@
+ 
+ 	np = dev->priv;
+ 
+-	if (pci_request_regions(pdev, dev->name))
++	if (pci_request_regions(pdev, DRV_NAME))
+ 		goto err_out_free_netdev;
+ 
+ 	pci_set_master (pdev);
+diff -Nru a/drivers/net/zorro8390.c b/drivers/net/zorro8390.c
+--- a/drivers/net/zorro8390.c	Sat May 22 17:40:55 2004
++++ b/drivers/net/zorro8390.c	Sat May 22 17:40:55 2004
+@@ -36,6 +36,8 @@
+ #include "8390.h"
+ 
+ 
++#define DRV_NAME	"zorro8390"
++
+ #define NE_BASE		(dev->base_addr)
+ #define NE_CMD		(0x00*2)
+ #define NE_DATAPORT	(0x10*2)	/* NatSemi-defined port window offset. */
+@@ -115,7 +117,7 @@
+     if (!dev)
+ 	return -ENOMEM;
+     SET_MODULE_OWNER(dev);
+-    if (!request_mem_region(ioaddr, NE_IO_EXTENT*2, dev->name)) {
++    if (!request_mem_region(ioaddr, NE_IO_EXTENT*2, DRV_NAME)) {
+ 	free_netdev(dev);
+ 	return -EBUSY;
+     }
+@@ -198,7 +200,7 @@
+     dev->irq = IRQ_AMIGA_PORTS;
+ 
+     /* Install the Interrupt handler */
+-    i = request_irq(IRQ_AMIGA_PORTS, ei_interrupt, SA_SHIRQ, dev->name, dev);
++    i = request_irq(IRQ_AMIGA_PORTS, ei_interrupt, SA_SHIRQ, DRV_NAME, dev);
+     if (i) return i;
+ 
+     for(i = 0; i < ETHER_ADDR_LEN; i++) {
 
-------=_NextPart_000_0013_000006B1.00005D30
-Content-Type: application/octet-stream;
-	name="poster_topseller.pif"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="poster_topseller.pif"
-
-TVqQAAMAAAAEAAAA//8AALgAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAuAAAAGsiX1YvQzEFL0MxBS9DMQWsXz8FI0MxBcdcOwU0QzEFL0MwBXBDMQWsS2wF
-IkMxBcdcOgUqQzEFl0U3BS5DMQVSaWNoL0MxBQAAAAAAAAAAQ29tcHJlc3NlZCBieSBQZXRp
-dGUgKGMpMTk5OSBJYW4gTHVjay4AAFBFAABMAQMA7Kc7QAAAAAAAAAAA4AAPAQsBBgAAUAAA
-ABwBAAAAAABCoAEAABAAAABgAAAAAEAAABAAAAACAAAEAAAAAAAAAAQAAAAAAAAAALABAAAE
-AAAAAAAAAgAAAAAAEAAAEAAAAAAQAAAQAAAAAAAAEAAAAAAAAAAAAAAA/KEBAK8BAAAAkAEA
-CAUAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAgAEAABAAAABWAAAACAAAAAAAAAAAAAAAAAAAYAAA4C5wZXRpdGUAABAAAACQ
-AQAIBQAAAF4AAAAAAAAAAAAAAAAAAEAAAEAAAAAAAAAAAKsDAAAAoAEAAAQAAAAEAAAAAAAA
-AAAAAAAAAABgAADiAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-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
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgADAAAA
-IAAAgA4AAABAAACAAAAAAAAAAAAAAAAAAAACAAEAAABYAACAAgAAAHAAAIAAAAAAAAAAAAAA
-AAAAAAEAZQAAAIgAAIAAAAAAAAAAAAAAAAAAAAEABwQAAKAAAAAAAAAAAAAAAAAAAAAAAAEA
-BwQAALAAAAAAAAAAAAAAAAAAAAAAAAEABwQAAMAAAADQkAEA6AIAAAAAAAAAAAAAuJMBACgB
-AAAAAAAAAAAAAOCUAQAiAAAAAAAAAAAAAAAoAAAAIAAAAEAAAAABAAQAAAAAAIACAAAAAAAA
-AAAAAAAAAAAAAAAAzP//AGhXWAAAAAAAgICAAP///wDAwMAA/wAAAAD//wC/AAAAAAD/AAAA
-AAAAAAAAAAAAAAAAAAAAAAAAAAAAACIhEiIiIiIiIiIiIiIiIiIiITVVVVVVVVVVVVVVJSIi
-IiNERERERERERERERFJSIiIjREREREREVVRERVVSUiIiI0SIiIhESZlERJmUUlIiIiNERERE
-RESVRERJVFJSIiIjRIiIiIhESVVVWVRSUiIiI0RERERERESZmZlUUlIiIiNEiIiIiIhESVRJ
-VFJSIiIjRERERERERESVSVRSUiIiI0SIiIiIiIhESVlUUlIiIiNERERERERERESZVFJSIiIj
-RIiIiIiIiIhESURSUiIiI0REREREREREREREUlIiIiNEiIiIiIiIiIiIRFJSIiIjRERERERE
-RERERERSUiIiI0SIiIiIiIiIiIhEUlIiIiNERERERERERERERFJSIiIjRCIiIiJEiIiIiERS
-UiIiI0Q5kkRCREREREREUlIiIiNEMiIiIkSIiIiIRFJSIiIjRDRCd3JERERERERSUiIiI0Qy
-IndyRIiIiIhEUlIiIiNENEJ3ckRERERERFJSIiIjRDRCZmJERERERERSUiIiI0Q0QmZiRERE
-REREUlIiIiNEMzIiIkRERERERFJSIiIjRERERERERERERERSUiIiI0JEJEJEJEJEJEJEMlIi
-IiNCRCRCRCRCRCRCRDJSIiIiJDNDNDNDNDNDNDNDIiIiIiIiIiIiIiIiIiIiIiIi4AAAD+AA
-AAfgAAAH4AAAB+AAAAfgAAAH4AAAB+AAAAfgAAAH4AAAB+AAAAfgAAAH4AAAB+AAAAfgAAAH
-4AAAB+AAAAfgAAAH4AAAB+AAAAfgAAAH4AAAB+AAAAfgAAAH4AAAB+AAAAfgAAAH4AAAB+AA
-AAfgAAAH+AAAD/////8oAAAAEAAAACAAAAABAAQAAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAA
-AAAAAAAAgAAAgAAAAICAAIAAAACAAIAAgIAAAMDAwACAgIAAAAD/AAD/AAAA//8A/wAAAP8A
-/wD//wAA////AAAAAAAAAAAAAHd3d3d3cAAA//+f/59wAAD//3mZn3AAAPRE95+fcAAA////
-eZ9wAAD0RET3n3AAAP//////cAAA9ERERE9wAAD//////3AAAPRERERPcAAA//////9wAAD/
-/////3AAAPDw8PDw8AAAD4+Pj4+AAAAAAAAAAAAAwAcAAMADAADAAwAAwAMAAMADAADAAwAA
-wAMAAMADAADAAwAAwAMAAMADAADAAwAAwAMAAMADAADABwAA6q8AAAAAAQACACAgEAABAAQA
-6AIAAAEAEBAQAAEABAAoAQAAAgAAAAAAAAD/
-
-
-------=_NextPart_000_0013_000006B1.00005D30--
+--UlVJffcvxoiEqYs2--
