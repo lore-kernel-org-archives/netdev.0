@@ -1,61 +1,36 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [Bridge] RE: [VLAN] Re: [PATCH/RFC] Let {ip, arp}tables "see"
-  bridged VLAN tagged{I,AR}P packets
-Date: Wed, 08 Oct 2003 09:34:20 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Fix 64bit bugs in dscc44.c II
+Date: Wed, 8 Oct 2003 09:31:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F843C8C.4030100@candelatech.com>
-References: <5B537508CDBED3118403009027745A210B8C14A1@knant18.kna.flextronics.com>
+Message-ID: <20031008093153.3daaa6b3.davem@redhat.com>
+References: <20031007175953.GA1802@averell>
+	<20031008084205.5c81faac.davem@redhat.com>
+	<20031008155548.GB16937@wotan.suse.de>
+	<20031008090132.2b58c067.davem@redhat.com>
+	<20031008160859.GD16937@wotan.suse.de>
+	<20031008161149.GA8134@wotan.suse.de>
+	<20031008091050.11b2acb7.davem@redhat.com>
+	<20031008163345.GA28793@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Tommy Christensen'" <tommy.christensen@tpack.net>, netdev@oss.sgi.com,
-        bridge <bridge@osdl.org>
+Cc: ak@suse.de, ak@muc.de, ncorbic@sangoma.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Linux 802.1Q VLAN" <vlan@wanfear.com>
-In-Reply-To: <5B537508CDBED3118403009027745A210B8C14A1@knant18.kna.flextronics.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20031008163345.GA28793@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christian Darnell wrote:
-> -----Original Message-----
-> 
->>From: Tommy Christensen [mailto:tommy.christensen@tpack.net]
->>Sent: Wednesday, October 08, 2003 10:09 AM
->>To: Christian Darnell
->>Cc: 'Linux 802.1Q VLAN'; Bart De Schuymer; netdev@oss.sgi.com; bridge
->>Subject: Re: [Bridge] RE: [VLAN] Re: [PATCH/RFC] Let {ip, arp}tables
->>"see" bridged VLAN tagged{I,AR}P packets
->>
->>
->>
->>This is because the VLAN code is mangling shared data.
->>You need to do something like this:
->>
->>
->>--- linux-2.4/net/8021q/vlan_dev.c.org	2003-02-25 15:23:09.000000000
->>+0100
->>+++ linux-2.4/net/8021q/vlan_dev.c	2003-10-07 16:01:29.000000000 +0200
->>@@ -75,7 +75,12 @@
->>static inline struct sk_buff *vlan_check_reorder_header(struct sk_buff
->>*skb)
->>{
->>	if (VLAN_DEV_INFO(skb->dev)->flags & 1) {
->>-		skb = skb_share_check(skb, GFP_ATOMIC);
->>+		if (skb_shared(skb) || skb_cloned(skb)) {
->>+			struct sk_buff *nskb;
->>+			nskb = skb_copy(skb, GFP_ATOMIC);
->>+			kfree_skb(skb);
->>+			skb = nskb;
->>+		}
+On Wed, 8 Oct 2003 18:33:45 +0200
+Andi Kleen <ak@suse.de> wrote:
 
-Thanks for catching that!
+> Just do that then when you apply the patch. Would have been faster
+> than to write all these emails ;-)
 
-So, what good is skb_share_check then?
-Maybe we should have a skb_share_or_cloned_check() ?
+I deleted the original patch, so you have to resend it to
+me anyways, so please make the fix I've suggested as you
+do this.
 
-Ben
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+When I ask you to do these small fixes, I don't do it to make your
+life miserable, I do it because it allows me to review and apply
+patches at a higher rate and scale better.
