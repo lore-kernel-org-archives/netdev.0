@@ -1,30 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: build breakage
-Date: Mon, 7 Mar 2005 09:34:33 -0800
-Message-ID: <20050307093433.3b3270b0.davem@davemloft.net>
-References: <422C09FD.3000702@pobox.com>
+Subject: Re: [10/*] [TCP] Get rid of dst_ptmu/ext2_header_len
+Date: Mon, 7 Mar 2005 09:33:12 -0800
+Message-ID: <20050307093312.68a2dd22.davem@davemloft.net>
+References: <20050214221006.GA18415@gondor.apana.org.au>
+	<20050214221200.GA18465@gondor.apana.org.au>
+	<20050214221433.GB18465@gondor.apana.org.au>
+	<20050214221607.GC18465@gondor.apana.org.au>
+	<20050216103744.GA476@gondor.apana.org.au>
+	<20050307114533.GA11190@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <422C09FD.3000702@pobox.com>
+Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, yoshfuji@linux-ipv6.org,
+        kaber@trash.net, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050307114533.GA11190@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 07 Mar 2005 02:59:57 -0500
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Mon, 7 Mar 2005 22:45:33 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Upstream net changes caused this to appear..
+> Here is a patch that replaces all occurrences of dst_pmtu in the TCP
+> stack.  As a result we no longer need ext2_header_len.
 > 
->    CC      drivers/net/appletalk/cops.o
-> In file included from drivers/net/appletalk/cops.c:70:
-> include/linux/atalk.h:67: error: field `sk' has incomplete type
-> make[3]: *** [drivers/net/appletalk/cops.o] Error 1
-> make[2]: *** [drivers/net/appletalk] Error 2
+> This has a nice synergetic effect with Arnaldo's latest change to
+> linux/tcp.h :)
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> I'll be removing other users of dst->path/dst_pmtu next.
 
-atalk.h needs net/sock.h, I've just applied a patch from
-Andrew Morton fixing exactly that.
-
-Thanks.
+Also applied, thanks Herbert.
