@@ -1,26 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (1/4) packet scheduler exports
-Date: Tue, 29 Jun 2004 14:33:47 -0700
+Subject: Re: [PATCH] (2/4) packet scheduler bad TDIFF_SAFE in csz
+Date: Tue, 29 Jun 2004 14:45:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040629143347.510a1531.davem@redhat.com>
-References: <20040629140014.1aba3719@dell_ss3.pdx.osdl.net>
+Message-ID: <20040629144506.0649d217.davem@redhat.com>
+References: <20040629140016.4afeb36b@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040629140014.1aba3719@dell_ss3.pdx.osdl.net>
+In-Reply-To: <20040629140016.4afeb36b@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Jun 2004 14:00:14 -0700
+On Tue, 29 Jun 2004 14:00:16 -0700
 Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> The packet scheduling code has some ugly define's which were to deal with
-> configuration possibilities and the old style module exports.  With the current
-> 2.6 method, this is unnecessary.
+> This code in the csz scheduler, is just plain broken.  The TDIFF_SAFE 
+> effectively expands to:
+> 	unsigned long delay = now - q->t_c;
+> 	if (delay > 0) {
+> 		delay = 0;
+> 		goto do_reset;
+> 	}
+> 	if (delay >> q->delta_log)
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> So delay is always 0!  I assume that what was originally intended
+> is the to keep delay bounded to 1<<q->delta_log. 
 
-Applied.
+This bug has been there since day one, wow.
+
+Good spotting, applied.
