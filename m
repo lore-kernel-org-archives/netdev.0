@@ -1,39 +1,48 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: Understanding the reason for placing a tcp_sock on stack in tcp network functions
-Date: Tue, 1 Mar 2005 07:13:48 -0300
-Message-ID: <39e6f6c70503010213214101a@mail.gmail.com>
-References: <1109638277.9693.15.camel@base.torri.org>
-Reply-To: acme@conectiva.com.br
+From: Kaigai Kohei <kaigai@ak.jp.nec.com>
+Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
+Date: Tue, 01 Mar 2005 22:38:25 +0900
+Message-ID: <42247051.7070303@ak.jp.nec.com>
+References: <4221E548.4000008@ak.jp.nec.com>	 <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com>	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>	 <20050227233943.6cb89226.akpm@osdl.org>	 <1109592658.2188.924.camel@jzny.localdomain>	 <20050228132051.GO31837@postel.suug.ch>	 <1109598010.2188.994.camel@jzny.localdomain>	 <20050228135307.GP31837@postel.suug.ch>	 <1109599803.2188.1014.camel@jzny.localdomain>	 <20050228142551.GQ31837@postel.suug.ch>	 <1109604693.1072.8.camel@jzny.localdomain>	 <20050228191759.6f7b656e@zanzibar.2ka.mipt.ru> <1109665299.8594.55.camel@frecb000711.frec.bull.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-2022-JP
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
-To: Stephen Torri <storri@torri.org>
-In-Reply-To: <1109638277.9693.15.camel@base.torri.org>
+Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, hadi@cyberus.ca,
+        Thomas Graf <tgraf@suug.ch>, Andrew Morton <akpm@osdl.org>,
+        marcelo.tosatti@cyclades.com, "David S. Miller" <davem@redhat.com>,
+        jlan@sgi.com, LSE-Tech <lse-tech@lists.sourceforge.net>,
+        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        elsa-devel <elsa-devel@lists.sourceforge.net>
+To: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
+In-Reply-To: <1109665299.8594.55.camel@frecb000711.frec.bull.fr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is not the case for at least some of these functions:
+Hello,
 
-ChangeSet@1.2035.2.55, 2005-02-22 10:48:28-08:00, acme@conectiva.com.br
-  [TCP]: Fix excessive stack usage resulting in OOPS with 4KSTACKS.
+> I tested without user space listeners and the cost is negligible. I will
+> test with a user space listeners and see the results. I'm going to run
+> the test this week after improving the mechanism that switch on/off the
+> sending of the message.
 
-  Various routines were putting a full struct tcp_sock on
-  the local stack.  What they really wanted was a subset
-  of this information when doing TCP options processing
-  when we only have a mini-socket (for example in SYN-RECVD
-  and TIME_WAIT states).
+I'm also trying to mesure the process-creation/destruction performance on following three environment.
+Archtechture: i686 / Distribution: Fedora Core 3
+* Kernel Preemption is DISABLE
+* SMP kernel but UP-machine / Not Hyper Threading
+[1] 2.6.11-rc4-mm1 normal
+[2] 2.6.11-rc4-mm1 with PAGG based Process Accounting Module
+[3] 2.6.11-rc4-mm1 with fork-connector notification (it's enabled)
 
-  Therefore pull out the needed information into a sub-struct
-  and use that in the TCP options processing routines.
+When 367th-fork() was called after fork-connector notification, kernel was locked up.
+(User-Space-Listener has been also run until 366th-fork() notification was received)
 
-  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-  Signed-off-by: David S. Miller <davem@davemloft.net>
+Does this number have any sort of means ?
+In my second trial, kernel was also locked up after 366th-fork() notification.
+Currently, I don't know its causition. Is there a person encounted it?
 
+# I wanted to say "[2] is faster than [3]" when process-grouping is enable, but the plan came off.  :(
 
-On Mon, 28 Feb 2005 19:51:17 -0500, Stephen Torri <storri@torri.org> wrote:
-> I am trying to help out reducing the stack size of functions in the
-> kernel. The function names and values below, with comments and
-> questions, was obtained of the linux-2.6 kernel kept at bkbits.net when
-> I did 'make checkstack'.
+Thanks.
+-- 
+Linux Promotion Center, NEC
+KaiGai Kohei <kaigai@ak.jp.nec.com>
