@@ -1,65 +1,48 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: Mika Liljeberg <mika.liljeberg@welho.com>
 Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
-Date: Thu, 17 Jul 2003 16:55:14 +0300 (EEST)
+Date: 17 Jul 2003 17:35:36 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307171648230.6323-100000@netcore.fi>
-References: <1058442897.5780.69.camel@hades>
+Message-ID: <1058452536.5781.87.camel@hades>
+References: <Pine.LNX.4.44.0307171648230.6323-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kuznet@ms2.inr.ac.ru, <davem@redhat.com>, <jmorris@redhat.com>,
-   <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, jmorris@redhat.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika Liljeberg <mika.liljeberg@welho.com>
-In-Reply-To: <1058442897.5780.69.camel@hades>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0307171648230.6323-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 17 Jul 2003, Mika Liljeberg wrote:
-> On Thu, 2003-07-17 at 14:16, Mika Liljeberg wrote:
-> > On Thu, 2003-07-17 at 10:04, Pekka Savola wrote:
-> > > >     ip route add 3ffe::.... via 193.233.7.65
-> > > 
-> > > That would be simpler but, we actually require:
-> > > 
-> > > ip route add 3ffe::... via ::193.233.7.65
-> > > 
-> > > and thus require a route for ::/96.  That's confusing: ::/96 has a very 
-> > > specific purpose in RFCs, and we should not be overloading the 
-> > > functionality, it's just plain confusing.
-> > 
-> > I agree with Pekka. Alexey, you yourself admitted that this hack was put
-> > in, because you needed a way to represent an IPv4 address in IPv6
-> > format. The IPv4-mapped format (::ffff:a.b.c.d) exists exactly for this
-> > purpose. User space tools can accept it as a.b.c.d and convert to
-> > IPv4-Mapped for the IPv6 API. There is no need to invent non-standard
-> > practises.
-> 
-> Ok, I have to correct myself a bit here. Looking at the 6to4 RFC it
-> actually does recommend the fe80::v4addr format, already mentioned, in
-> case a link-local address is needed.
+Pekka,
 
-Note that the spec refers to the generation of your *own* fe80::x address, 
-in the case that e.g. the implementations like to have link-local 
-addresses on interfaces.  One doesn't say that when you're contacting 6to4 
-relays, you should use a link-local address formed like above to 
-communicagte the IP address.
+Looks like I've talked myself around to Alexey's point of view. :-)
+
+On Thu, 2003-07-17 at 16:55, Pekka Savola wrote:
+> Note that the spec refers to the generation of your *own* fe80::x address, 
+> in the case that e.g. the implementations like to have link-local 
+> addresses on interfaces.  One doesn't say that when you're contacting 6to4 
+> relays, you should use a link-local address formed like above to 
+> communicagte the IP address.
+
+Yes, but section 3.7 of rfc2893 talks about the use of that link-layer
+address with routing protocols. I take this to include "as next hop
+address".
  
-> So we would have:
-> 
-> ip route add 3ffe:... via fe80::bada:bee4 dev sitX
-> 
-> Clean, although not as convenient for the user.
+> I disagree a bit on cleanliness.  The problem with the above is that when
+> you see the next-hop "fe80::bada:bee4", you can't have any idea whether it
+> really means "tunnel to (dec)bada:bee4" or "a router known as
+> fe80::bada:bee4".  It depends on the interface.  The context of 6to4 is
+> lost.
 
-I disagree a bit on cleanliness.  The problem with the above is that when
-you see the next-hop "fe80::bada:bee4", you can't have any idea whether it
-really means "tunnel to (dec)bada:bee4" or "a router known as
-fe80::bada:bee4".  It depends on the interface.  The context of 6to4 is
-lost.
+I would say that is a feature. The next hop address *always* identifies
+the next hop router, and it's a link-local unicast as it is supposed to
+be. In the case of 6to4, the next hop router just happens to be a 6to4
+relay located on the virtual link provided by the SIT interface. The
+tunneling is purely a property of the SIT interface, the routing code
+doesn't have to care. Theoretically, you could even create solicited
+node multicast addresses the same way and run ND over the tunnel (not
+that it's needed).
 
-For that reason, IMO 2002:v4:addr is the clearest, and "via v4addr" seems
-like the next best one (IMHO).
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+	MikaL
