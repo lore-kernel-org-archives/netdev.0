@@ -1,44 +1,32 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: RE: [PATCH] fix BUG in tg3_tx
-Date: Tue, 25 May 2004 13:04:24 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch] 2.4.27-pre3 - r8169 backport
+Date: Wed, 26 May 2004 01:33:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <B1508D50A0692F42B217C22C02D849727FEDB8@NT-IRVA-0741.brcm.ad.broadcom.com>
+Message-ID: <20040526013349.A25318@electric-eye.fr.zoreil.com>
+References: <20040525011811.C3940@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, Johannes Petersson <johpe@vimmerbytidning.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@redhat.com>, "Greg Banks" <gnb@sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040525011811.C3940@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, May 25, 2004 at 01:18:11AM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Greg, did you see Micahel Chan's response?  A Broadcom 
-> engineer is telling us "the hardware does not ACK partial TX packets."
-> 
-That's right. The hw is designed to always complete tx packets on packet
-boundaries and not BD boundaries. The send data completion state machine
-will create 1 single dma descriptor and 1 host coalescing descriptor for
-the entire packet. All of our drivers do not handle individual BD
-completions and I'm not aware of any problems caused by this. Actually
-we did see some partial packet completions during the early
-implementions of TSO/LSO. But those were firmware issues and have been
-fixed long time ago. tg3 is not using those early TSO firmware.
+The backport against 2.4.27-pre3 of the latest 2.6.x changes (2.6.7-rc1)
+is available for testing.
 
-> I don't argue that you aren't seeing something strange, but 
-> perhaps that is due to corruption occuring elsewhere, or 
-> perhaps something peculiar about your system hardware 
-> (perhaps the PCI controller mis-orders PCI transactions or 
-> something silly like that)?
-Good point. A few years ago we saw cases where there were tx completions
-on BDs that had not been sent. It turned out that on that machine, the
-chipset was re-ordering the posted mmio writes to the send mailbox
-register from 2 CPUs. For example, CPU 1 wrote index 1 and CPU wrote
-index 2 a little later. On the PCI bus, we saw memory write of 2
-followed by 1. When the chip saw 2, it would send both packets. When it
-later saw 1, it thought that there were 512 new tx BDs and went ahead to
-send them. The only effective workaround for this chipset problem was a
-read of the send mailbox after the write to flush it.
+Testers/comments welcome.
 
-Michael
+Single patch against 2.4.27-pre3
+  http://www.fr.zoreil.com/people/francois/misc/20040526-2.4.27-pre3-r8169.c-test.patch
+
+Individual files:
+  http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.27-pre3/
+
+Tarball:
+  http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.27-pre3/r8169-blob.tar.bz2
+
+--
+Ueimor
