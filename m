@@ -1,65 +1,82 @@
-From: call4donations@yahoo.com
-Subject: Emergent Assistance Needed to Relieve Taiwan People from Disasters
-Date: Tue, 6 Jul 2004 14:37:57 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
+Date: Tue, 6 Jul 2004 14:41:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407062137.i66Lbbgj017055@oss.sgi.com>
+Message-ID: <20040706144132.4a5fe83b.davem@redhat.com>
+References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
+	<20040702134437.5891e998@dell_ss3.pdx.osdl.net>
+	<1088824432.1043.271.camel@jzny.localdomain>
+	<20040705194925.37b7efcb.davem@redhat.com>
+	<1089119090.4260.2.camel@jzny.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, util@deuroconsult.ro, netdev@oss.sgi.com,
+        lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1089119090.4260.2.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-      Monday, July 5, 2004 American Business News Vol. 1, No.90 ISSN 1548-1255
-      Full report with photos: http://www.abnews.us/en/2004-090/16.htm
+On 06 Jul 2004 09:04:50 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-Emergent Assistance Needed to Relieve Taiwan People from Disasters
- 
-Dear friends,
- 
-As a 501(c)(3) charitable and educational foundation in USA, the World Hongming Foundation would like to invite 
-you to help the victims of the underlying calamity. Taiwan people have been suffering a widespread disaster 
-caused by storm since July 1, 2004. 
- 
-Tens of people have been killed, and thousands of people became homeless. Many factories and public facilities 
-were completely destroyed. The estimated loss is over $10 billions. 
+> On Mon, 2004-07-05 at 22:49, David S. Miller wrote:
+> > I'm going to hold off on Stephen's patches until Jamal and he has
+> > a chance to fight it out :-)
+> 
+> Actually i would be fine with it if Stephen gets rid of the new "rate"
+> thing.
 
-"I want to cry but I have no tears. I have not seen such serious flooding," a man living in the mountainous county 
-of Nantou told cable news network ETTV in front of his home which was covered by a thick layer of yellow mud. 
- 
-"The rain came fast and heavy, sweeping away cars and motorcycles and flooding streets. It's really bad," said 
-another villager. 
- 
-Early this month, a typhoon lashed heavy rain over Taiwan, triggering widespread flooding. Persistent rain caused 
-landslides and mudslides in the mountainous regions in the center and south of the Taiwan Island. Heavy 
-downpours flooded streets in many parts of the island, submerging cars and forcing thousands to evacuate their 
-homes. Power was cut to more than 80,000 households. 
+Ok, so for now I'm going to just put in this part of Stephen's
+patch which just adds the rtnetlink.h include and the loss
+optimization.
 
-At the same time, the Central Weather Bureau of Taiwan warned of more torrential rain in the next few days. 
- 
-Typhoon Toraji killed 200 people in Taiwan in 2001. A few months later, Typhoon Nari caused Taipei's worst 
-flooding on record and killed 100.
- 
-Now emergent assistance is needed. Your donation will be tax-deductible! Any donation please make payable to:
+To be honest, the rate feature is such a tiny amount of code...
+it's not the end of the world if we put it in :-)
 
-          World Hongming Foundation
-          P. O. Box 4820
-          El Monte, CA 91734-0820
-          USA
-
-Alternatively, you may make a donation through our PayPal online system at 
-https://www.paypal.com/cgi-bin/webscr. 
-Your donations will be distributed to those who lost their homes in Taiwan as soon as possible. 
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/07/06 14:35:36-07:00 shemminger@osdl.org 
+#   [PKT_SCHED]: Two small netem fixes.
+#   
+#   - rtnetlink.h needs including
+#   - optimize loss test so that net_random() call is not done
+#     when no-loss is indicated
+#   
+#   Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+# net/sched/sch_netem.c
+#   2004/07/06 14:31:50-07:00 shemminger@osdl.org +2 -1
+#   [PKT_SCHED]: Two small netem fixes.
+#   
+#   - rtnetlink.h needs including
+#   - optimize loss test so that net_random() call is not done
+#     when no-loss is indicated
+#   
+#   Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+#   Signed-off-by: David S. Miller <davem@redhat.com>
+# 
+diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c	2004-07-06 14:36:05 -07:00
++++ b/net/sched/sch_netem.c	2004-07-06 14:36:05 -07:00
+@@ -18,6 +18,7 @@
+ #include <linux/errno.h>
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
  
-Your early attention and assistance will be deeply appreciated.
+ #include <net/pkt_sched.h>
  
-World Hongming Foundation
-Website: http://www.hongming.us/foundation/en.htm
-Donation Form: www.hongming.us/foundation/en-donation-form.pdf
-Email: donation@hongming.us 
-Fax: +1-561-431-7612
-
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Note: This is a charitable message only; please do not reply directly. Any inquiry regarding the programs and 
-organizations in this email should be sent to the non-profit organization. If you do not wish to receive additional 
-message from Donations to Charity, please simply click donations2charity@yahoo.com?subject=Remove or mail to 
-514 E. Huntington Dr., Arcadia, CA 91006. This request may take two business days to complete.
+@@ -54,7 +55,7 @@
+ 	pr_debug("netem_enqueue skb=%p @%lu\n", skb, jiffies);
+ 
+ 	/* Random packet drop 0 => none, ~0 => all */
+-	if (q->loss >= net_random()) {
++	if (q->loss && q->loss >= net_random()) {
+ 		sch->stats.drops++;
+ 		return 0;	/* lie about loss so TCP doesn't know */
+ 	}
