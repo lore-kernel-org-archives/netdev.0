@@ -1,44 +1,32 @@
-From: Sandy Harris <sandy@storm.ca>
+From: "David S. Miller" <davem@rth.ninka.net>
 Subject: Re: [Design] [PATCH] USAGI IPsec
-Date: Mon, 21 Oct 2002 07:46:16 -0700
+Date: 20 Oct 2002 19:41:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB41338.3070502@storm.ca>
-References: <m3k7kpjt7c.wl@karaba.org>
+Message-ID: <1035168066.4817.1.camel@rth.ninka.net>
+References: <m3k7kpjt7c.wl@karaba.org>  <3DB41338.3070502@storm.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   cryptoapi-devel@kerneli.org, design@lists.freeswan.org,
+Cc: Mitsuru KANDA <mk@linux-ipv6.org>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, cryptoapi-devel@kerneli.org, design@lists.freeswan.org,
    usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitsuru KANDA <mk@linux-ipv6.org>
+To: Sandy Harris <sandy@storm.ca>
+In-Reply-To: <3DB41338.3070502@storm.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mitsuru KANDA wrote:
+> Is this code being checked in to the mainline kernel? Or becoming part 
+> of the
+> CryptoAPI patch set? Bravo, in either case.
 
->Hello Linux kernel network maintainers,
->
->I'm a member of USAGI project.
->
->In IPv6 specifications, IPsec is mandatory.
->
->We implemented IPsec for Linux IP stack.
->
->At present, our implementation includes:
->	PF_KEY V2 interface,
->	Security Association Database and
->	Security Policy Database for whole IP versions,
->	IPsec for IPv6,(transport, tunnel mode),
->	IPsec for IPv4 (transport mode),
->
->Would you mind checking it ?
->
-Is this code being checked in to the mainline kernel? Or becoming part 
-of the
-CryptoAPI patch set? Bravo, in either case.
+We will be incorporating lots of ideas and small code pieces
+from USAGI's work, but most of the core engine will be a new
+implementation.
 
-How does that affect FreeS/WAN development?
+A completely new CryptoAPI subsystem has been implemented so that
+full lists of page vectors can be passed into the ciphers, which is
+necessary for a clean IPSEC implementation.
 
->  
->
+It is intended that this work will be complete (it isn't done as I
+type this) and pushed to Linus upon his return from vacation.
