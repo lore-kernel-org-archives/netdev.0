@@ -1,62 +1,57 @@
-From: Felipe W Damasio <felipewd@terra.com.br>
-Subject: [PATCH] unneeded memory barrier in olympic tokenring driver
-Date: Sun, 28 Sep 2003 18:57:08 -0300
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: RFC: [2.6 patch] disallow modular IPv6
+Date: Mon, 29 Sep 2003 00:59:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F775934.5080004@terra.com.br>
+Message-ID: <20030928225941.GW15338@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000309040203080606010809"
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com, linux-tr@linuxtr.net
+Content-Type: text/plain; charset=us-ascii
+Cc: lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mikep@linuxtr.net
+To: netdev@oss.sgi.com, davem@redhat.com, pekkas@netcore.fi
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000309040203080606010809
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+It seems modular IPv6 doesn't work 100% reliable, e.g. after looking at 
+the code it doesn't seem to be a good idea to compile a kernel without 
+IPv6 support and later build and install IPv6 modules. Is there a great 
+need for modular IPv6 or is the patch below to disallow modular IPv6 OK?
 
-	Hi Daniel,
+diffstat output:
 
-	Patch against 2.6.0-test6.
+ net/Kconfig      |    2 +-
+ net/sctp/Kconfig |    6 ------
+ 2 files changed, 1 insertion(+), 7 deletions(-)
 
-	Removes 2 unneeded memory barriers when setting the current task to 
-TASK_RUNNING.
+cu
+Adrian
 
-	Please consider applying,
 
-Felipe
--- 
-It's most certainly GNU/Linux, not Linux. Read more at
-http://www.gnu.org/gnu/why-gnu-linux.html
-
---------------000309040203080606010809
-Content-Type: text/plain;
- name="olympic-barrier.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="olympic-barrier.patch"
-
---- linux-2.6.0-test6/drivers/net/tokenring/olympic.c.orig	Sun Sep 28 18:51:13 2003
-+++ linux-2.6.0-test6/drivers/net/tokenring/olympic.c	Sun Sep 28 18:51:36 2003
-@@ -531,7 +531,7 @@
- 			set_current_state(TASK_INTERRUPTIBLE) ; 
-     		}
- 		remove_wait_queue(&olympic_priv->srb_wait,&wait) ; 
--		set_current_state(TASK_RUNNING) ; 
-+		__set_current_state(TASK_RUNNING) ; 
- 		olympic_priv->srb_queued = 0 ; 
- #if OLYMPIC_DEBUG
- 		printk("init_srb(%p): ",init_srb);
-@@ -1122,7 +1122,7 @@
- 		set_current_state(TASK_INTERRUPTIBLE) ; 
-     	}
- 	remove_wait_queue(&olympic_priv->srb_wait,&wait) ; 
--	set_current_state(TASK_RUNNING) ; 
-+	__set_current_state(TASK_RUNNING) ; 
+--- linux-2.6.0-test6-full/net/Kconfig.old	2003-09-29 00:53:05.000000000 +0200
++++ linux-2.6.0-test6-full/net/Kconfig	2003-09-29 00:55:55.000000000 +0200
+@@ -117,7 +117,7 @@
  
- 	olympic_priv->rx_status_last_received++;
- 	olympic_priv->rx_status_last_received&=OLYMPIC_RX_RING_SIZE-1;
-
---------------000309040203080606010809--
+ #   IPv6 as module will cause a CRASH if you try to unload it
+ config IPV6
+-	tristate "The IPv6 protocol (EXPERIMENTAL)"
++	bool "The IPv6 protocol (EXPERIMENTAL)"
+ 	depends on INET && EXPERIMENTAL
+ 	---help---
+ 	  This is experimental support for the next version of the Internet
+--- linux-2.6.0-test6-full/net/sctp/Kconfig.old	2003-09-29 00:50:11.000000000 +0200
++++ linux-2.6.0-test6-full/net/sctp/Kconfig	2003-09-29 00:52:55.000000000 +0200
+@@ -5,14 +5,8 @@
+ menu "SCTP Configuration (EXPERIMENTAL)"
+ 	depends on INET && EXPERIMENTAL
+ 
+-config IPV6_SCTP__
+-	tristate
+-	default y if IPV6=n
+-	default IPV6 if IPV6
+-
+ config IP_SCTP
+ 	tristate "The SCTP Protocol (EXPERIMENTAL)"
+-	depends on IPV6_SCTP__
+ 	---help---
+ 	  Stream Control Transmission Protocol
+ 
