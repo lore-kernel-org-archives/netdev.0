@@ -1,48 +1,96 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] sctp/outqueue.c: remove an unused function
-Date: Fri, 29 Oct 2004 02:22:01 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2/6] cls_fw: Cleanup fw_classify
+Date: Fri, 29 Oct 2004 02:23:18 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029002201.GQ29142@stusta.de>
-References: <20041028230353.GW3207@stusta.de>
+Message-ID: <20041029002318.GA12289@postel.suug.ch>
+References: <20041029002113.GY12289@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: lksctp-developers@lists.sourceforge.net, davem@davemloft.net,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sri@us.ibm.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20041028230353.GW3207@stusta.de>
+In-Reply-To: <20041029002113.GY12289@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[ this time without the problems due to a digital signature... ]
+Cleans up fw_classify by using the generic routines and
+adds a additional but unneeded "continue" to document that
+an action may overrule the filter's match result.
 
-The patch below removes an unused function from net/sctp/outqueue.c
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-
-diffstat output:
- net/sctp/outqueue.c |   10 ----------
- 1 files changed, 10 deletions(-)
-
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.10-rc1-mm1-full/net/sctp/outqueue.c.old	2004-10-28 23:52:37.000000000 +0200
-+++ linux-2.6.10-rc1-mm1-full/net/sctp/outqueue.c	2004-10-28 23:52:50.000000000 +0200
-@@ -98,16 +98,6 @@
- 	return;
+--- linux-2.6.10-rc1-bk7.orig/net/sched/cls_fw.c	2004-10-28 22:03:29.000000000 +0200
++++ linux-2.6.10-rc1-bk7/net/sched/cls_fw.c	2004-10-29 00:00:50.000000000 +0200
+@@ -84,47 +84,39 @@
+ 	u32 id = 0;
+ #endif
+ 
+-	if (head == NULL)
+-		goto old_method;
+-
+-	for (f=head->ht[fw_hash(id)]; f; f=f->next) {
+-		if (f->id == id) {
+-			*res = f->res;
++	if (head != NULL) {
++		for (f=head->ht[fw_hash(id)]; f; f=f->next) {
++			if (f->id == id) {
++				*res = f->res;
+ #ifdef CONFIG_NET_CLS_ACT
+ #ifdef CONFIG_NET_CLS_IND
+-			if (0 != f->indev[0]) {
+-				if  (NULL == skb->input_dev) {
++				if (!tcf_match_indev(skb, f->indev))
++					continue;
++#endif /* CONFIG_NET_CLS_IND */
++				if (f->action) {
++					int act_res = tcf_action_exec(skb, f->action, res);
++					if (act_res >= 0)
++						return act_res;
+ 					continue;
+-				} else {
+-					if (0 != strcmp(f->indev, skb->input_dev->name)) {
+-						continue;
+-					}
+ 				}
+-			}
+-#endif
+-                               if (f->action) {
+-                                       int pol_res = tcf_action_exec(skb, f->action, res);
+-                                       if (pol_res >= 0)
+-                                               return pol_res;
+-                               } else
+-#else
++#else /* CONFIG_NET_CLS_ACT */
+ #ifdef CONFIG_NET_CLS_POLICE
+-			if (f->police)
+-				return tcf_police(skb, f->police);
+-#endif
+-#endif
++				if (f->police)
++					return tcf_police(skb, f->police);
++#endif /* CONFIG_NET_CLS_POLICE */
++#endif /* CONFIG_NET_CLS_ACT */
++				return 0;
++			}
++		}
++	} else {
++		/* old method */
++		if (id && (TC_H_MAJ(id) == 0 || !(TC_H_MAJ(id^tp->q->handle)))) {
++			res->classid = id;
++			res->class = 0;
+ 			return 0;
+ 		}
+ 	}
+-	return -1;
+ 
+-old_method:
+-	if (id && (TC_H_MAJ(id) == 0 ||
+-		     !(TC_H_MAJ(id^tp->q->handle)))) {
+-		res->classid = id;
+-		res->class = 0;
+-		return 0;
+-	}
+ 	return -1;
  }
  
--/* Insert a chunk behind chunk 'pos'. */
--static inline void sctp_outq_insert_data(struct sctp_outq *q,
--					 struct sctp_chunk *ch,
--					 struct sctp_chunk *pos)
--{
--	__skb_insert((struct sk_buff *)ch, (struct sk_buff *)pos->prev,
--		     (struct sk_buff *)pos, pos->list);
--	q->out_qlen += ch->skb->len;
--}
--
- /*
-  * SFR-CACC algorithm:
-  * D) If count_of_newacks is greater than or equal to 2
