@@ -1,65 +1,157 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Hardcoding instead of using MAX_UNITS in 3c590.c driver
-Date: Sun, 17 Aug 2003 14:03:38 +0200
+From: "Carlos Velasco" <carlosev@newipnet.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Sun, 17 Aug 2003 15:09:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <45450000.1061121818@worker.muc.bieringer.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Message-ID: <200308171509570955.003E4FEC@192.168.128.16>
+References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com>
+ <20030728213933.F81299@coredump.scriptkiddie.org>
+Content-Type: text/plain; charset="us-ascii"
+Cc: "David S. Miller" <davem@redhat.com>, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maillist netdev <netdev@oss.sgi.com>
-Content-Disposition: inline
+In-Reply-To: <20030728213933.F81299@coredump.scriptkiddie.org>
+To: "Lamont Granquist" <lamont@scriptkiddie.org>,
+   "Bill Davidsen" <davidsen@tmr.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I have received reply from Cisco:
 
-during looking for some "how-would-this-be-done" code, I wonder that driver
-3c590.c doesn't always use MAX_UNITS. In difference, ne2.c does.
+*********** BEGIN FORWARDED MESSAGE  ***********
 
-Perhaps fix below would helps. Possible, that such inconsistency also
-exists in other drivers, too:
+On 06/08/2003 at 11:40 Oscar Madrid <omadrid@cisco.com> wrote:
 
-# diff -u 3c59x.c.orig 3c59x.c
---- 3c59x.c.orig        Sun Aug 17 13:57:29 2003
-+++ 3c59x.c     Sun Aug 17 13:58:45 2003
-@@ -269,12 +269,13 @@
-                                        DRV_VERSION " " DRV_RELDATE);
- MODULE_LICENSE("GPL");
+>
+>My name is Oscar Madrid and I'm Luis Isselin's escalation engineer.
+I've
+>decided to answer to this case straight as this is a question of
+whether
+>or not Cisco is following a standard.
+>
+>I can only think of one scenario where an arp request would come in
+from
+>192.168.140.x to a router interface that has 192.168.128.1.  That one
+>scenario is a misconfiguration.    
+>ARP is designed to find the next hop on a LAN.   If the host has an IP
+>address of 192.168.140.140 and wants to get to 192.168.128.1, it will
+have
+>to have a default gateway configured.
+>This default gateway would have to be on the same logical local
+network.
+>
+>Now, lets say that the host has an IP address of 192.168.140.140/17
+which
+>will include both 192.168.128.x and 192.168.140.x.   This would still
+be a
+>misconfig as the router is not on the same subnet. (meaning the router
+>does not have the same /17 mask. The host can see the router, but the
+>router cannot see the host).
+>
+>You could, in theory, say that we're not following "similar algorithm"
+in
+>the RFC as we check the source, but this is more for a sanity check as
+if
+>it was a perfect world and everything is configured properly and there
+>were no such things as bad implementations of TCP/IP stacks, then we
+>wouldn't need to check.
+>
+>If the router for some reason was responding to the ARP broadcast, how
+>would anyone know where the packet came from since the network is not
+>being advertised as connected to this router? Meaning, how would a
+return
+>packet make it back to the host? The router doesn't "see" the host in
+his
+>logical network therefore it cannot communicate with it.
+>
+>I believe that reason we do the sanity check is because of basic IP
+>routing. If the source is not from an IP address on the interface we
+>received it on, we cannot reply to that IP address.  It is simple as
+that.
+>As I stated, ARP is designed to be used on a LAN.  This means that all
+>stations that send/receive ARP packets are on the same subnet.  This
+is
+>the reason we do the check.   
+>
+>Please also note another portion of the RFC 0826 in question: 
+>
+>[The purpose of this RFC is to present a method of Converting
+>Protocol Addresses (e.g., IP addresses) to Local Network
+>Addresses (e.g., Ethernet addresses).  This is a issue of general
+>concern in the ARPA Internet community at this time.  The
+>method proposed here is presented for your consideration and
+>comment.  This is not the specification of a Internet Standard.]
+>
+>When it is talking about Local Network Addresses, that means IP
+addresses
+>on the same network.   This is why we can perform the checks we
+perform in
+>our IOS.
+>
+>The point of the check would be to verify that the hosts are
+configured
+>correctly.   There is no case where a properly configured host should
+ever
+>send a ARP request for an IP address on a different subnet.
+>
+>The best example I can point out is this: 
+>Ethernet is a Broadcast  network which uses ARP to find HW addresses
+of
+>other IP addresses on the same broadcast network.  If the IP address
+is
+>not on the same network, then the host/router/client needs to find the
+>gateway which is on the local network.
+>
+>Basic and proper implementations of the TCP/IP stack should never ARP
+out
+>for a device that it is not located on the same logical network the
+host
+>is, the reason for this being they cannot communicate directly unless
+a
+>gateway is involved. The only ARP request a host should send in this
+case
+>is for its gateway that should also be a "local" device to the host
+(same
+>network).
+>
+>I hope this clears up the reson why Cisco's ARP implementation has
+this
+>safeguard you have found along with several others, HOWEVER, please
+refer
+>to RFC 1027, (http://www.ietf.org/rfc/rfc1027.txt) and under section
+2.4,
+>it contains the following paragraph:
+>
+>[If the IP networks of the source and target hosts of an ARP request 
+>are different, an ARP subnet gateway implementation should not 
+>reply. This is to prevent the ARP subnet gateway from being used to 
+>reach foreign IP networks and thus possibly bypass security checks 
+>provided by IP gateways. ]
+>
+>I would also ask you if you would be so kind to send me the link to
+the
+>netdev list of linux kernel you are making mention to so I can
+escalate it
+>and respond to the linux community if higher up is deemed up necesary.
+>
+>Best Regards,
+>
+>
+>
+>Oscar Madrid
+>Customer Support Engineer
+>Routing Protocols Team
+>Cisco Systems
+>omadrid@cisco.com
+>
+>                                    
+>Open a TAC case on the web for faster response!
+www.cisco.com/tac/caseopen
+>Visit the TAC Web Site for quick access to technical support!
+>www.cisco.com/tac
+>Use the new TAC Advanced Search to find information fast!
+>www.cisco.com/tac/advancedsearch
+>
+>
 
-+#define MAX_UNITS 8
- MODULE_PARM(debug, "i");
--MODULE_PARM(options, "1-" __MODULE_STRING(8) "i");
--MODULE_PARM(full_duplex, "1-" __MODULE_STRING(8) "i");
--MODULE_PARM(hw_checksums, "1-" __MODULE_STRING(8) "i");
--MODULE_PARM(flow_ctrl, "1-" __MODULE_STRING(8) "i");
--MODULE_PARM(enable_wol, "1-" __MODULE_STRING(8) "i");
-+MODULE_PARM(options, "1-" __MODULE_STRING(MAX_UNITS) "i");
-+MODULE_PARM(full_duplex, "1-" __MODULE_STRING(MAX_UNITS) "i");
-+MODULE_PARM(hw_checksums, "1-" __MODULE_STRING(MAX_UNITS) "i");
-+MODULE_PARM(flow_ctrl, "1-" __MODULE_STRING(MAX_UNITS) "i");
-+MODULE_PARM(enable_wol, "1-" __MODULE_STRING(MAX_UNITS) "i");
- MODULE_PARM(rx_copybreak, "i");
- MODULE_PARM(max_interrupt_work, "i");
- MODULE_PARM(compaq_ioaddr, "i");
-@@ -847,7 +848,6 @@
-
-
- /* This driver uses 'options' to pass the media type, full-duplex flag,
-etc. */
- /* Option count limit only -- unlimited interfaces are supported. */
--#define MAX_UNITS 8
- static int options[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1,};
- static int full_duplex[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
- static int hw_checksums[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
-
-
-BTW:
-- static int options[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1,};
-+ static int options[MAX_UNITS] = { -1, -1, -1, -1, -1, -1, -1, -1};
-
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+*********** END FORWARDED MESSAGE  ***********
