@@ -1,38 +1,39 @@
-From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+From: "H. Peter Anvin" <hpa@zytor.com>
 Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
-	Topics
-Date: Wed, 30 Mar 2005 09:39:43 -0800
-Message-ID: <1112204383.11620.2.camel@beastie>
-References: <20050327054831.GA15453@waste.org>
-	 <1111905181.4753.15.camel@mylaptop>
-	 <20050326224621.61f6d917.davem@davemloft.net>
-	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
-	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>
-	 <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie>
-	 <1112130512.1077.107.camel@jzny.localdomain>
-	 <20050330152208.GB12672@muc.de>  <20050330172412.GP15453@waste.org>
+ Topics
+Date: Wed, 30 Mar 2005 09:48:15 -0800
+Message-ID: <424AE65F.5020306@zytor.com>
+References: <20050326224621.61f6d917.davem@davemloft.net>	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>	 <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie>	 <1112130512.1077.107.camel@jzny.localdomain>	 <20050330152208.GB12672@muc.de> <20050330153313.GD32111@g5.random>	 <20050330153948.GE12672@muc.de> <20050330154418.GE32111@g5.random>	 <Pine.LNX.4.61.0503301049440.28633@chimarrao.boston.redhat.com> <1112198694.5452.15.camel@mulgrave>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, jamal <hadi@cyberus.ca>,
-        James Bottomley <James.Bottomley@HansenPartnership.com>,
-        Rik van Riel <riel@redhat.com>, andrea@suse.de, michaelc@cs.wisc.edu,
+Cc: Rik van Riel <riel@redhat.com>, Andrea Arcangeli <andrea@suse.de>,
+        Andi Kleen <ak@muc.de>, jamal <hadi@cyberus.ca>,
+        Dmitry Yusupov <dmitry_yus@yahoo.com>, mpm@selenic.com,
+        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
         ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: open-iscsi@googlegroups.com
-In-Reply-To: <20050330172412.GP15453@waste.org>
+To: James Bottomley <James.Bottomley@HansenPartnership.com>
+In-Reply-To: <1112198694.5452.15.camel@mulgrave>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-03-30 at 09:24 -0800, Matt Mackall wrote: 
-> I seem to recall this being fairly easy to trigger by simply pulling
-> the network cable while there's heavy mmap + write load. The system
-> will quickly spiral down into OOM and will remain wedged when you plug
-> the network back in. With iSCSI, after some extended period all the
-> I/Os will have SCSI timeouts and lose everything.
+James Bottomley wrote:
+> On Wed, 2005-03-30 at 10:50 -0500, Rik van Riel wrote:
+> 
+>>Agreed, this is definately solvable.  If people don't agree,
+>>we should probably fight this out at the kernel summit. ;)
+> 
+> 
+> So just to make this explicit, we kill this thread and lobby for a topic
+> at the kernel summit discussing the problem of storage over net and the
+> ways of solving it.  Yes, I think that's a very good idea.
+> 
 
-We've discussed that already. SCSI timeout logic just doesn't fit. (see
-rfc3720). For iSCSI, SCSI timeout logic *must* be disabled until iSCSI
-recovery is complete. host block/unblock logic in recent iSCSI transport
-patch will help to implement that.
+That was the whole start of this thread; not just one but two proposed 
+topics that amount to exactly this.
+
+Yes, we need this topic.
+
+	-hpa
