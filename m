@@ -1,24 +1,45 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch] af_packet: use void* for virtual addresses
-Date: Fri, 27 Aug 2004 16:51:39 -0700
+Subject: Re: [PATCH 2.6] netem update
+Date: Fri, 27 Aug 2004 16:56:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040827165139.0061175a.davem@redhat.com>
-References: <E1C0p77-0004Ik-00@kernel.beaverton.ibm.com>
+Message-ID: <20040827165659.616ed762.davem@redhat.com>
+References: <20040827121752.6b7fdf82@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, haveblue@us.ibm.com
+Cc: hadi@znyx.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Hansen <haveblue@us.ibm.com>
-In-Reply-To: <E1C0p77-0004Ik-00@kernel.beaverton.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040827121752.6b7fdf82@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 27 Aug 2004 12:17:52 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-This patch works for me.
+> This is a third revision of the netem extensions which provides
+> 	* packet duplication
+> 	* correlated random number
+> 	* loading distribution table
+> 
+> The API is backwards compatible and now uses nested elements to allow
+> for easier future changes.
 
-I hope people agree and fix up the page alloc/free return
-types, because your change has basically currently just
-moved the casts from one place to another :-)
+Looks great, applied.  A 2.4.x version is coming? :-)
 
-Anyways, patch applied, thanks.
+Also, if someone is bored, can we get the pkt_sched.h
+enumeration stuff cleaned up a bit?  I mean, instead
+of all of these error prone FOO_MAX tricks, just do
+what we do for the netlink headers.
+
+enum {
+	FOO_A,
+	FOO_B,
+	...
+	__FOO_MAX,
+};
+
+#define FOO_MAX		(__FOO_MAX - 1)
+
+This way to add new enumerations is just a one line
+change and less error prone.
