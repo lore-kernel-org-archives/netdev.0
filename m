@@ -1,58 +1,75 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
-Date: Wed, 16 Jul 2003 03:32:03 +0400 (MSD)
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [patches] invalid nh.raw use after free
+Date: Wed, 16 Jul 2003 02:41:00 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307152332.DAA09710@dub.inr.ac.ru>
-References: <Pine.LNX.4.44.0307152029580.14070-100000@netcore.fi>
+Message-ID: <Pine.LNX.4.44.0307160233540.14682-400000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, jmorris@redhat.com, netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-670464987-1058312460=:14682"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi (Pekka Savola)
-In-Reply-To: <Pine.LNX.4.44.0307152029580.14070-100000@netcore.fi> from "Pekka Savola" at È¿Ã 15, 2003 10:26:21 
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-> Such addresses are link-locals, of link local scope only.  A link-local 
-> IPv6 address is awfully difficult to remember and type for all of your 
-> possible links.
-> 
-> The only reasonable value user could supply is a global address.
-
-So what? I do not see connection to previous. You want to live with global
-addresses as nexthop? OK. But I remember you have spoken something quite
-opposite yesterday.
+--1607745702-670464987-1058312460=:14682
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
-> Please describe what you mean by "real IPv6 6to4 addresses".
-...
-> If the node processing those as a next-hop supports 6to4 and has the sit0
-> pseudointerface configured, the address will be but through the special
-> handling.
-> 
-> If the node doesn't support 6to4 or doesn't have the sit0 pseudointerface 
-> configured, the address will be processed as normal, as any other IPv6 
-> nexthop.
-> 
-> Right?
+	Hello,
 
-I do not understand why did you ask previous question. You answered to
-this.
+	The attached patches fix similar bug to many places (I'm not
+sure if there are more instances), where pointers remain to refer to 
+freed skbs. For 2.5 and 2.4.
 
+Regards
 
-> Redundant information can be ignored.  This is not computer science
-> theory, removing everything which is not directly relevant.  The use of
-> the same representation for the next-hop (2002:F00:BA::x) as an address
-> (2002:BA:F00:y) is the only logical, user-friendly way.
+--
+Julian Anastasov <ja@ssi.bg>
 
-What a bullshit... The second is address of host "x". The first is supposed
-to be address of host F00:BA, whatever it is. Probably, you can decrypt
-this only because poisoned by computer science. :-)
+--1607745702-670464987-1058312460=:14682
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ipip_old_iph-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0307160241000.14682@u.domain.uli>
+Content-Description: ipip
+Content-Disposition: attachment; filename="ipip_old_iph-1.diff"
 
-Just to complete discussion, let's stay on format fe80::A.B.C.D, for example.
-Unlike anothers it is 100% logically clean. :-)
+LS0tIGxpbnV4L25ldC9pcHY0L2lwaXAuYy5vbGRfaXBoCVNhdCBKdWwgMTIg
+MTE6MDk6MjkgMjAwMw0KKysrIGxpbnV4L25ldC9pcHY0L2lwaXAuYwlXZWQg
+SnVsIDE2IDAyOjE4OjQxIDIwMDMNCkBAIC02MTYsNiArNjE2LDcgQEANCiAJ
+CQlza2Jfc2V0X293bmVyX3cobmV3X3NrYiwgc2tiLT5zayk7DQogCQlkZXZf
+a2ZyZWVfc2tiKHNrYik7DQogCQlza2IgPSBuZXdfc2tiOw0KKwkJb2xkX2lw
+aCA9IHNrYi0+bmguaXBoOw0KIAl9DQogDQogCXNrYi0+bmgucmF3ID0gc2ti
+X3B1c2goc2tiLCBzaXplb2Yoc3RydWN0IGlwaGRyKSk7DQo=
+--1607745702-670464987-1058312460=:14682
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ip_gre_old_iph-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0307160241001.14682@u.domain.uli>
+Content-Description: ip_gre
+Content-Disposition: attachment; filename="ip_gre_old_iph-1.diff"
 
-Alexey
+LS0tIGxpbnV4L25ldC9pcHY0L2lwX2dyZS5jLm9sZF9pcGgJU2F0IEp1bCAx
+MiAxMTowOToyOSAyMDAzDQorKysgbGludXgvbmV0L2lwdjQvaXBfZ3JlLmMJ
+V2VkIEp1bCAxNiAwMjoxMjo1NiAyMDAzDQpAQCAtODE2LDYgKzgxNiw3IEBA
+DQogCQkJc2tiX3NldF9vd25lcl93KG5ld19za2IsIHNrYi0+c2spOw0KIAkJ
+ZGV2X2tmcmVlX3NrYihza2IpOw0KIAkJc2tiID0gbmV3X3NrYjsNCisJCW9s
+ZF9pcGggPSBza2ItPm5oLmlwaDsNCiAJfQ0KIA0KIAlza2ItPm5oLnJhdyA9
+IHNrYl9wdXNoKHNrYiwgZ3JlX2hsZW4pOw0K
+--1607745702-670464987-1058312460=:14682
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="sit_iph6-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0307160241002.14682@u.domain.uli>
+Content-Description: sit
+Content-Disposition: attachment; filename="sit_iph6-1.diff"
+
+LS0tIGxpbnV4L25ldC9pcHY2L3NpdC5jLm9sZF9pcGg2CVNhdCBKdWwgMTIg
+MTE6MDk6MjkgMjAwMw0KKysrIGxpbnV4L25ldC9pcHY2L3NpdC5jCVdlZCBK
+dWwgMTYgMDI6MjM6MDYgMjAwMw0KQEAgLTU1MCw2ICs1NTAsNyBAQA0KIAkJ
+CXNrYl9zZXRfb3duZXJfdyhuZXdfc2tiLCBza2ItPnNrKTsNCiAJCWRldl9r
+ZnJlZV9za2Ioc2tiKTsNCiAJCXNrYiA9IG5ld19za2I7DQorCQlpcGg2ID0g
+c2tiLT5uaC5pcHY2aDsNCiAJfQ0KIA0KIAlza2ItPm5oLnJhdyA9IHNrYl9w
+dXNoKHNrYiwgc2l6ZW9mKHN0cnVjdCBpcGhkcikpOw0K
+--1607745702-670464987-1058312460=:14682--
