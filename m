@@ -1,16 +1,17 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC 2.6.10 6/22] xfrm: add a parameter to xfrm_prune_bundles()
-Date: Fri, 21 Jan 2005 15:21:27 -0800
-Message-ID: <20050121152127.0a89a768.davem@davemloft.net>
-References: <20041230035000.14@ori.thedillows.org>
-	<20041230035000.15@ori.thedillows.org>
+Subject: Re: [RFC 2.6.10 7/22] xfrm: Allow device drivers to force
+ recalculation of offloads
+Date: Fri, 21 Jan 2005 15:23:58 -0800
+Message-ID: <20050121152358.5c60d0db.davem@davemloft.net>
+References: <20041230035000.15@ori.thedillows.org>
+	<20041230035000.16@ori.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: David Dillow <dave@thedillows.org>
-In-Reply-To: <20041230035000.15@ori.thedillows.org>
+In-Reply-To: <20041230035000.16@ori.thedillows.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -21,12 +22,19 @@ David Dillow <dave@thedillows.org> wrote:
 > # This is a BitKeeper generated diff -Nru style patch.
 > #
 > # ChangeSet
-> #   2004/12/30 00:35:34-05:00 dave@thedillows.org 
-> #   Add a parameter to the decision function(s) used by
-> #   xfrm_prune_bundles(). This will allow us to have more
-> #   fine grained selection of bundles pruned (like, say,
-> #   per device.)
+> #   2004/12/30 00:37:44-05:00 dave@thedillows.org 
+> #   Give device drivers a method to allow the use of crypto
+> #   offload features for existing xfrm_states and bundles, as
+> #   well as dynamically remove crypto offload capabilities.
 > #   
 > #   Signed-off-by: David Dillow <dave@thedillows.org>
 
-This one looks OK.
+This change looks fine, but it reminds me of something.
+
+We have to make sure there is no way for xfrm_offloads to
+refer to a device when it is brought down.
+
+One way to ensure that, is to make each xfrm_offload attached
+grab a reference to the device it is for.  The refcounting will
+help catch cases where stale xfrm_offload are around at
+unregister_netdev() time.
