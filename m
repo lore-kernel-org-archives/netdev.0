@@ -1,58 +1,198 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH|RFC] IPv6: have a proxy discard link-local traffic
-Date: Wed, 14 Jan 2004 12:59:32 +0200 (EET)
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: [PATCH|RFC] IPv6 netfilter: a module for complete proxy ND
+ support
+Date: Wed, 14 Jan 2004 13:34:16 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0401141257200.30270-100000@netcore.fi>
-References: <Pine.LNX.4.58.0401141108530.24125@rhea.tcs.hut.fi>
+Message-ID: <Pine.LNX.4.58.0401141332390.24125@rhea.tcs.hut.fi>
+References: <Pine.LNX.4.58.0401141250470.24125@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, <usagi-core@linux-ipv6.org>, <netdev@oss.sgi.com>
+Content-Type: MULTIPART/MIXED; BOUNDARY="-377318441-531813261-1074080056=:24125"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0401141108530.24125@rhea.tcs.hut.fi>
+To: netfilter-devel@lists.netfilter.org, davem@redhat.com
+In-Reply-To: <Pine.LNX.4.58.0401141250470.24125@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
+
+---377318441-531813261-1074080056=:24125
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+
+Sorry about that,
+
+here's the patch. Shouldn't try to do too many things at once...
+
+Regards,
+Ville
+
 On Wed, 14 Jan 2004, Ville Nuorvala wrote:
-> the patch below causes a router proxying a link-local address to discard
-> traffic sent to it, also sending an ICMPv6 Destination Unreachable, Code 3
-> message to the source. This behavior is required by the Mobile IPv6
-> specification (the only user of proxy ND I'm aware of).
-> 
-> This seems like reasonable behavior in any case, since the router won't be
-> able to forward the link-local traffic to the proxied node anyway.
 
-Please check out draft-thaler-ipv6-ndproxy-xx.txt -- it used ND 
-proxying (similar to proxy ARP).
-
-I fear this change might break that..
-
-> --- 1.48/net/ipv6/ip6_output.c	Thu Jan  1 22:25:30 2004
-> +++ 1.50/net/ipv6/ip6_output.c	Wed Jan 14 12:08:51 2004
-> @@ -385,6 +385,15 @@
->  	if (!xfrm6_route_forward(skb))
->  		goto drop;
-> 
-> +	/* The proxy can't forward traffic sent to a link-local address,
-> +	   so signal the sender and discard the packet */
-> +
-> +	if (ipv6_addr_type(&hdr->daddr) & IPV6_ADDR_LINKLOCAL &&
-> +	    skb->dev && pneigh_lookup(&nd_tbl, &hdr->daddr, skb->dev, 0)) {
-> +		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH,
-> +			    0, skb->dev);
-> +		goto drop;
-> +	}
->  	/* IPv6 specs say nothing about it, but it is clear that we cannot
->  	   send redirects to source routed frames.
->  	 */
+> Hello all,
+>
+> a proxy needs to capture and process Neighbor Solicitations on behalf of
+> the proxied node. Normal multicast NS messages are already handled by the
+> existing neigbor discovery code, but unicast NS messages used for Neighbor
+> Unreachability Detection will only be handled by the proxy if it captures
+> the packets for local processing. I think the cleanest solution for this
+> is a netfilter module (which I have incidentally written already :)
+>
+> The attached patch contains the afore mentioned module.
+>
+> Any comments are welcome!
+>
+> Thanks,
+> Ville
 > --
 > Ville Nuorvala
 > Research Assistant, Institute of Digital Communications,
 > Helsinki University of Technology
 > email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
-> 
+>
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+---377318441-531813261-1074080056=:24125
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="nf_proxy_nd.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.58.0401141334160.24125@rhea.tcs.hut.fi>
+Content-Description: 
+Content-Disposition: attachment; filename="nf_proxy_nd.patch"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTUxNSAgLT4gMS4xNTE2IA0KIwlu
+ZXQvaXB2Ni9uZXRmaWx0ZXIvTWFrZWZpbGUJMS4xMiAgICAtPiAxLjEzICAg
+DQojCW5ldC9pcHY2L2lwdjZfc3ltcy5jCTEuMTggICAgLT4gMS4xOSAgIA0K
+IwluZXQvaXB2Ni9uZXRmaWx0ZXIvS2NvbmZpZwkxLjQgICAgIC0+IDEuNSAg
+ICANCiMJICAgICAgICAgICAgICAgKG5ldykJICAgICAgICAtPiAxLjEgICAg
+IG5ldC9pcHY2L25ldGZpbHRlci9pcDZfcHJveHlfbmQuYw0KIw0KIyBUaGUg
+Zm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0IExvZw0KIyAt
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0K
+IyAwNC8wMS8xMwl2bnVvcnZhbEBhbWJlci5odXQubWVkaWFwb2xpLmNvbQkx
+LjE1MTYNCiMgQSBwcm94eSBuZWVkcyB0byBjYXB0dXJlIGFuZCBwcm9jZXNz
+IE5laWdoYm9yIFNvbGljaXRhdGlvbnMgb24gYmVoYWxmIG9mIHRoZSBwcm94
+aWVkIG5vZGUuDQojIE5vcm1hbCBtdWx0aWNhc3QgTlMgbWVzc2FnZXMgYXJl
+IGFscmVhZHkgaGFuZGxlZCBieSB0aGUgZXhpc3RpbmcgbmVpZ2JvciBkaXNj
+b3ZlcnkgY29kZSwNCiMgYnV0IHVuaWNhc3QgTlMgbWVzc2FnZXMgdXNlZCBm
+b3IgTmVpZ2hib3IgVW5yZWFjaGFiaWxpdHkgRGV0ZWN0aW9uIHdpbGwgb25s
+eSBiZSBoYW5kbGVkIGJ5DQojIHRoZSBwcm94eSBpZiBpdCBjYXB0dXJlcyB0
+aGUgcGFja2V0cyBmb3IgbG9jYWwgcHJvY2Vzc2luZyB1c2luZyBuZXRmaWx0
+ZXIuDQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tDQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2Ni9pcHY2X3N5bXMuYyBi
+L25ldC9pcHY2L2lwdjZfc3ltcy5jDQotLS0gYS9uZXQvaXB2Ni9pcHY2X3N5
+bXMuYwlUdWUgSmFuIDEzIDIxOjAyOjE4IDIwMDQNCisrKyBiL25ldC9pcHY2
+L2lwdjZfc3ltcy5jCVR1ZSBKYW4gMTMgMjE6MDI6MTggMjAwNA0KQEAgLTE3
+LDYgKzE3LDkgQEANCiBFWFBPUlRfU1lNQk9MKGlwNl9yb3V0ZV9vdXRwdXQp
+Ow0KICNpZmRlZiBDT05GSUdfTkVURklMVEVSDQogRVhQT1JUX1NZTUJPTChp
+cDZfcm91dGVfbWVfaGFyZGVyKTsNCitFWFBPUlRfU1lNQk9MKGlwdjZfc2tp
+cF9leHRoZHIpOw0KK0VYUE9SVF9TWU1CT0woaXA2X2lucHV0KTsNCitFWFBP
+UlRfU1lNQk9MKG5kX3RibCk7DQogI2VuZGlmDQogRVhQT1JUX1NZTUJPTChh
+ZGRyY29uZl9sb2NrKTsNCiBFWFBPUlRfU1lNQk9MKGlwdjZfc2V0c29ja29w
+dCk7DQpkaWZmIC1OcnUgYS9uZXQvaXB2Ni9uZXRmaWx0ZXIvS2NvbmZpZyBi
+L25ldC9pcHY2L25ldGZpbHRlci9LY29uZmlnDQotLS0gYS9uZXQvaXB2Ni9u
+ZXRmaWx0ZXIvS2NvbmZpZwlUdWUgSmFuIDEzIDIxOjAyOjE4IDIwMDQNCisr
+KyBiL25ldC9pcHY2L25ldGZpbHRlci9LY29uZmlnCVR1ZSBKYW4gMTMgMjE6
+MDI6MTggMjAwNA0KQEAgLTIxOCw1ICsyMTgsMTQgQEANCiAJICBUbyBjb21w
+aWxlIGl0IGFzIGEgbW9kdWxlLCBjaG9vc2UgTSBoZXJlLiAgSWYgdW5zdXJl
+LCBzYXkgTi4NCiANCiAjZGVwX3RyaXN0YXRlICcgIExPRyB0YXJnZXQgc3Vw
+cG9ydCcgQ09ORklHX0lQNl9ORl9UQVJHRVRfTE9HICRDT05GSUdfSVA2X05G
+X0lQVEFCTEVTDQorDQorY29uZmlnIElQNl9ORl9QUk9YWV9ORA0KKwl0cmlz
+dGF0ZSAiQ29tcGxldGUgcHJveHkgTmVpZ2JvciBEaXNjb3Zlcnkgc3VwcG9y
+dCINCisJaGVscA0KKwkgIFRoaXMgZmlsdGVyIGFsbG93cyB0aGUgcHJveHkg
+dG8gcHJvY2VzcyB1bmljYXN0IE5laWdoYm9yDQorCSAgVW5yZWFjaGFiaWxp
+dHkgUHJvYmVzIGFzIHdlbGwgYXMgbm9ybWFsIG11bHRpY2FzdA0KKwkgIE5l
+aWdoYm9yIFNvbGljaXRhdGlvbnMgc2VudCB0byB0aGUgcHJveGllZCBub2Rl
+Lg0KKw0KKwkgIFRvIGNvbXBpbGUgaXQgYXMgYSBtb2R1bGUsIGNob29zZSBN
+IGhlcmUuICBJZiB1bnN1cmUsIHNheSBOLg0KIGVuZG1lbnUNCiANCmRpZmYg
+LU5ydSBhL25ldC9pcHY2L25ldGZpbHRlci9NYWtlZmlsZSBiL25ldC9pcHY2
+L25ldGZpbHRlci9NYWtlZmlsZQ0KLS0tIGEvbmV0L2lwdjYvbmV0ZmlsdGVy
+L01ha2VmaWxlCVR1ZSBKYW4gMTMgMjE6MDI6MTggMjAwNA0KKysrIGIvbmV0
+L2lwdjYvbmV0ZmlsdGVyL01ha2VmaWxlCVR1ZSBKYW4gMTMgMjE6MDI6MTgg
+MjAwNA0KQEAgLTIyLDMgKzIyLDQgQEANCiBvYmotJChDT05GSUdfSVA2X05G
+X1FVRVVFKSArPSBpcDZfcXVldWUubw0KIG9iai0kKENPTkZJR19JUDZfTkZf
+VEFSR0VUX0xPRykgKz0gaXA2dF9MT0cubw0KIG9iai0kKENPTkZJR19JUDZf
+TkZfTUFUQ0hfSEwpICs9IGlwNnRfaGwubw0KK29iai0kKENPTkZJR19JUDZf
+TkZfUFJPWFlfTkQpICs9IGlwNl9wcm94eV9uZC5vDQpkaWZmIC1OcnUgYS9u
+ZXQvaXB2Ni9uZXRmaWx0ZXIvaXA2X3Byb3h5X25kLmMgYi9uZXQvaXB2Ni9u
+ZXRmaWx0ZXIvaXA2X3Byb3h5X25kLmMNCi0tLSAvZGV2L251bGwJV2VkIERl
+YyAzMSAxNjowMDowMCAxOTY5DQorKysgYi9uZXQvaXB2Ni9uZXRmaWx0ZXIv
+aXA2X3Byb3h5X25kLmMJVHVlIEphbiAxMyAyMTowMjoxOCAyMDA0DQpAQCAt
+MCwwICsxLDEwMCBAQA0KKy8qDQorICogQ29weXJpZ2h0IChDKTIwMDMgSGVs
+c2lua2kgVW5pdmVyc2l0eSBvZiBUZWNobm9sb2d5DQorICogDQorICogVGhp
+cyBwcm9ncmFtIGlzIGZyZWUgc29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmli
+dXRlIGl0IGFuZC9vciBtb2RpZnkNCisgKiBpdCB1bmRlciB0aGUgdGVybXMg
+b2YgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNlbnNlIGFzIHB1Ymxpc2hl
+ZCBieQ0KKyAqIHRoZSBGcmVlIFNvZnR3YXJlIEZvdW5kYXRpb247IGVpdGhl
+ciB2ZXJzaW9uIDIgb2YgdGhlIExpY2Vuc2UsIG9yDQorICogKGF0IHlvdXIg
+b3B0aW9uKSBhbnkgbGF0ZXIgdmVyc2lvbi4NCisgKiANCisgKiBUaGlzIHBy
+b2dyYW0gaXMgZGlzdHJpYnV0ZWQgaW4gdGhlIGhvcGUgdGhhdCBpdCB3aWxs
+IGJlIHVzZWZ1bCwNCisgKiBidXQgV0lUSE9VVCBBTlkgV0FSUkFOVFk7IHdp
+dGhvdXQgZXZlbiB0aGUgaW1wbGllZCB3YXJyYW50eSBvZg0KKyAqIE1FUkNI
+QU5UQUJJTElUWSBvciBGSVRORVNTIEZPUiBBIFBBUlRJQ1VMQVIgUFVSUE9T
+RS4gIFNlZSB0aGUNCisgKiBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZSBm
+b3IgbW9yZSBkZXRhaWxzLg0KKyAqIA0KKyAqIFlvdSBzaG91bGQgaGF2ZSBy
+ZWNlaXZlZCBhIGNvcHkgb2YgdGhlIEdOVSBHZW5lcmFsIFB1YmxpYyBMaWNl
+bnNlDQorICogYWxvbmcgd2l0aCB0aGlzIHByb2dyYW07IGlmIG5vdCwgd3Jp
+dGUgdG8gdGhlIEZyZWUgU29mdHdhcmUNCisgKiBGb3VuZGF0aW9uLCBJbmMu
+LCA1OSBUZW1wbGUgUGxhY2UsIFN1aXRlIDMzMCwgQm9zdG9uLCBNQSAgMDIx
+MTEtMTMwNyAgVVNBDQorICoNCisgKiBMaW51eCBJTkVUNiBpbXBsZW1lbnRh
+dGlvbiANCisgKg0KKyAqIG5mIGhvb2sgZm9yIGNhcHR1cmluZyB1bmljYXN0
+IG5laWdoYm9yIGRpc2NvdmVyeSBtZXNzYWdlcyBzbyBhIHByb3h5DQorICog
+Y2FuIHBhcnRpY2lwYXRlIGluIE5laWdoYm9yIFVucmVhY2hhYmlsaXR5IERl
+dGVjdGlvbiBvbiBiZWhhbGYgb2YgaXRzDQorICogY2xpZW50DQorICoNCisg
+KiBBdXRob3JzDQorICoJVmlsbGUgTnVvcnZhbGEJCTx2bnVvcnZhbEB0Y3Mu
+aHV0LmZpPgkNCisgKi8NCisNCisjaW5jbHVkZSA8bGludXgvbW9kdWxlLmg+
+DQorI2luY2x1ZGUgPGxpbnV4L25ldGZpbHRlcl9pcHY2Lmg+DQorI2luY2x1
+ZGUgPG5ldC9pcHY2Lmg+DQorI2luY2x1ZGUgPG5ldC9uZGlzYy5oPg0KKw0K
+K01PRFVMRV9MSUNFTlNFKCJHUEwiKTsNCitNT0RVTEVfQVVUSE9SKCJWaWxs
+ZSBOdW9ydmFsYSA8dm51b3J2YWxAdGNzLmh1dC5maT4iKTsNCitNT0RVTEVf
+REVTQ1JJUFRJT04oIklQdjYgUHJveHkgTkQgZmlsdGVyIik7DQorDQorDQor
+c3RhdGljIHVuc2lnbmVkIGludCBpcDZfcHJveHlfbmRfaG9vayh1bnNpZ25l
+ZCBpbnQgaG9va251bSwNCisJCQkJICAgICAgc3RydWN0IHNrX2J1ZmYgKipw
+c2tiLA0KKwkJCQkgICAgICBjb25zdCBzdHJ1Y3QgbmV0X2RldmljZSAqaW4s
+DQorCQkJCSAgICAgIGNvbnN0IHN0cnVjdCBuZXRfZGV2aWNlICpvdXQsDQor
+CQkJCSAgICAgIGludCAoKm9rZm4pKHN0cnVjdCBza19idWZmICopKQ0KK3sN
+CisJc3RydWN0IHNrX2J1ZmYgKnNrYiA9ICpwc2tiOw0KKwlzdHJ1Y3QgaXB2
+NmhkciAqaXB2NmggPSBza2ItPm5oLmlwdjZoOw0KKwl1OCBuZXh0aGRyID0g
+aXB2NmgtPm5leHRoZHI7DQorCWludCBvZmZzZXQ7DQorCXN0cnVjdCBpbjZf
+YWRkciAqZGFkZHIgPSAmc2tiLT5uaC5pcHY2aC0+ZGFkZHI7DQorCXN0cnVj
+dCBpY21wNmhkciBtc2c7DQorDQorCWlmIChpcHY2X2V4dF9oZHIobmV4dGhk
+cikpIHsNCisJCW9mZnNldCA9IGlwdjZfc2tpcF9leHRoZHIoc2tiLCBzaXpl
+b2Yoc3RydWN0IGlwdjZoZHIpLCANCisJCQkJCSAgJm5leHRoZHIsIA0KKwkJ
+CQkJICBza2ItPmxlbiAtIHNpemVvZihzdHJ1Y3QgaXB2NmhkcikpOw0KKwkJ
+aWYgKG9mZnNldCA8IDApDQorCQkJcmV0dXJuIE5GX0FDQ0VQVDsNCisJfSBl
+bHNlDQorCQlvZmZzZXQgPSBzaXplb2Yoc3RydWN0IGlwdjZoZHIpOw0KKw0K
+KwkvKiBjYXB0dXJlIHVuaWNhc3QgTlVEIHByb2JlcyBvbiBiZWhhbGYgb2Yg
+dGhlIHByb3hpZWQgbm9kZSAqLw0KKwlpZiAobmV4dGhkciA9PSBJUFBST1RP
+X0lDTVBWNiAmJiANCisJICAgIGlwdjZfYWRkcl90eXBlKGRhZGRyKSAmIElQ
+VjZfQUREUl9VTklDQVNUICYmIA0KKwkgICAgIXNrYl9jb3B5X2JpdHMoc2ti
+LCBvZmZzZXQsICZtc2csIHNpemVvZihtc2cpKSkgew0KKwkJaW50IGlpZjsg
+DQorCQlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2Ow0KKwkJc3dpdGNoIChtc2cu
+aWNtcDZfdHlwZSkgew0KKwkJY2FzZSBORElTQ19ORUlHSEJPVVJfU09MSUNJ
+VEFUSU9OOg0KKwkJCWlpZiA9ICgoc3RydWN0IGluZXQ2X3NrYl9wYXJtICop
+c2tiLT5jYiktPmlpZjsNCisJCQlkZXYgPSBfX2Rldl9nZXRfYnlfaW5kZXgo
+aWlmKTsNCisJCQlpZiAoZGV2ICYmIHBuZWlnaF9sb29rdXAoJm5kX3RibCwg
+ZGFkZHIsIGRldiwgMCkpIHsNCisJCQkJaXA2X2lucHV0KHNrYik7DQorCQkJ
+CXJldHVybiBORl9TVE9MRU47DQorCQkJfQ0KKwkJfQ0KKwl9DQorCXJldHVy
+biBORl9BQ0NFUFQ7DQorfQ0KKw0KK3N0YXRpYyBzdHJ1Y3QgbmZfaG9va19v
+cHMgaXA2X3Byb3h5X25kX29wcyA9IHsNCisJLmhvb2sgPSBpcDZfcHJveHlf
+bmRfaG9vaywNCisJLm93bmVyID0gVEhJU19NT0RVTEUsDQorCS5wZiA9IFBG
+X0lORVQ2LA0KKwkuaG9va251bSA9IE5GX0lQNl9QUkVfUk9VVElORywNCisJ
+LnByaW9yaXR5ID0gTkZfSVA2X1BSSV9MQVNULA0KK307DQorDQorDQorc3Rh
+dGljIGludCBfX2luaXQgaXA2X3Byb3h5X25kX2luaXQodm9pZCkNCit7DQor
+CXJldHVybiBuZl9yZWdpc3Rlcl9ob29rKCZpcDZfcHJveHlfbmRfb3BzKTsN
+Cit9DQorDQorc3RhdGljIHZvaWQgX19leGl0IGlwNl9wcm94eV9uZF9leGl0
+KHZvaWQpDQorew0KKwluZl91bnJlZ2lzdGVyX2hvb2soJmlwNl9wcm94eV9u
+ZF9vcHMpOw0KK30NCisNCittb2R1bGVfaW5pdChpcDZfcHJveHlfbmRfaW5p
+dCk7DQorbW9kdWxlX2V4aXQoaXA2X3Byb3h5X25kX2V4aXQpOw0KKw0K
+
+---377318441-531813261-1074080056=:24125--
