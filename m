@@ -1,26 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] make netdevice.h more non-kernel friendly
-Date: Mon, 15 Mar 2004 13:38:41 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040315133841.44b4ccdd.davem@redhat.com>
-References: <20040312112442.3ba028a9@dell_ss3.pdx.osdl.net>
+Subject: Re: [PATCH} ARP auto-sizing for 2.4.24 - 2.4.26-pre3
+Date: Mon, 15 Mar 2004 13:44:12 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040315134412.314b5e23.davem@redhat.com>
+References: <200403141210.57266.timg@tpi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040312112442.3ba028a9@dell_ss3.pdx.osdl.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: anton@samba.org, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: timg@tpi.com
+In-Reply-To: <200403141210.57266.timg@tpi.com>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Mar 2004 11:24:42 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Discovered this trying to build iproute2 with 2.6.4.  The netdevice.h drags
-> in a lot of stuff that it doesn't need for the non-kernel interface.
-> Just moving the ifdef up a little got rid of the issues.
+Two problems:
 
-Ok, fine with me.
+1) Don't do the config option thing if we're going to auto-size.
 
-Applied.
+2) Your ram_mb calcs use PAGE_SIZE as a term, and therefore assume
+   it has a value of 4096 or somesuch.  Please remove this assumption.
+
+To be honest, while I'm not against making the tables a little bigger,
+for ARP "WHO THE FUCK CARES" if another 100 cycles or so are burnt on
+a lookup.  What setup do you have where ARP performance is a real issue?
+
+Your original email was nice in describing the fact that ARP does not
+scale, but you've made no foundation on which to erect a claim that
+scalability for ARP (and thus the added complexity/changes) is even
+necessary.
