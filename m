@@ -1,104 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
-Date: Sat, 2 Apr 2005 10:49:56 +1000
-Message-ID: <20050402004956.GA24339@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: PATCH: IPSEC xfrm events
+Date: 01 Apr 2005 20:04:05 -0500
+Message-ID: <1112403845.1088.14.camel@jzny.localdomain>
+References: <1112319441.1089.83.camel@jzny.localdomain>
+	 <20050401042106.GA27762@gondor.apana.org.au>
+	 <1112353398.1096.116.camel@jzny.localdomain>
+	 <20050401114258.GA2932@gondor.apana.org.au>
+	 <1112358278.1096.160.camel@jzny.localdomain>
+	 <20050401123554.GA3468@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YiEDa0DAkWCtVeE4"
-Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
-        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050331212325.5e996432.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050401123554.GA3468@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Herbert,
 
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Staring at the code, obversation:
 
-Hi Dave:
+-> PFKEY is going to be interesting to have it actually generate events
+as a result of some app using netlink such as ip x - the reverse is
+actually easier to deal with. This problem doesnt exist with current
+approach i am taking.
 
-On Thu, Mar 31, 2005 at 09:23:25PM -0800, David S. Miller wrote:
-> On Thu, 31 Mar 2005 10:46:58 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > > # This is a BitKeeper generated diff -Nru style patch.
-> > > #
-> > > # ChangeSet
-> > > #   2005/03/30 06:02:45+02:00 kaber@coreworks.de 
-> > > #   [IPSEC]: Check SPI in xfrm_state_find()
-> > > #   
-> > > #   Signed-off-by: Patrick McHardy <kaber@trash.net>
-> > 
-> > Looks good.
-> > 
-> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> To me too, both patches applied, thanks Patrick.
+The issue is that pfkey echoes back a few things from the original
+message - important ones being version, pid, seq, and msgtype (as a
+sample take a look at pfkey_add()). So these need to be remembered...
+Brings back the original behavior i had netlink doing which was similar
+(but innacurate now that i stare at this). At the time i carried the
+nlmsg header around in the cb. So we would have to do the same for
+netlink[1].
+The good news is all these fields happen to exist on netlink (except for
+the version - to which, for netlink created events, we could pass a
+hardcoded matching PFKEY2).
+In other words the structure i called km_cb will now have to have these
+fields i mentioned above. 
 
-Actually I only signed off on the first patch :)
 
-The second patch creates a dead lock since it does a nested read
-lock.  The solution is simply to get rid of xfrm_init_tempsel
-and call the afinfo version directly.
+Thoughts before i start ?
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+cheers,
+jamal
 
-BTW I'd like to start cleaning up the locking in net/xfrm.
-I don't want these changes to go into 2.6.12.  However, I'd
-like to have them sit in mm for a while so that they get some
-testing coverage.
-
-What's the best way to do this? Could you create a tree slated
-for 2.6.13?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/xfrm/xfrm_state.c 1.60 vs edited =====
---- 1.60/net/xfrm/xfrm_state.c	2005-04-01 15:19:54 +10:00
-+++ edited/net/xfrm/xfrm_state.c	2005-04-02 10:35:06 +10:00
-@@ -283,20 +283,6 @@
- }
- EXPORT_SYMBOL(xfrm_state_flush);
- 
--static int
--xfrm_init_tempsel(struct xfrm_state *x, struct flowi *fl,
--		  struct xfrm_tmpl *tmpl,
--		  xfrm_address_t *daddr, xfrm_address_t *saddr,
--		  unsigned short family)
--{
--	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
--	if (!afinfo)
--		return -1;
--	afinfo->init_tempsel(x, fl, tmpl, daddr, saddr);
--	xfrm_state_put_afinfo(afinfo);
--	return 0;
--}
--
- struct xfrm_state *
- xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
- 		struct flowi *fl, struct xfrm_tmpl *tmpl,
-@@ -370,7 +356,7 @@
- 		}
- 		/* Initialize temporary selector matching only
- 		 * to current session. */
--		xfrm_init_tempsel(x, fl, tmpl, daddr, saddr, family);
-+		afinfo->init_tempsel(x, fl, tmpl, daddr, saddr);
- 
- 		if (km_query(x, tmpl, pol) == 0) {
- 			x->km.state = XFRM_STATE_ACQ;
-
---YiEDa0DAkWCtVeE4--
+[1]I actually would have no problems using a pid/seq etc generated by
+pfkey on a netlink header and viceversa. It shouldnt be an issue.
