@@ -1,54 +1,42 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: TX performance of Intel 82546
-Date: Wed, 15 Sep 2004 16:02:22 +0200
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: TCP's reaction to soft errors
+Date: Wed, 15 Sep 2004 11:44:14 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915140222.GD1274@sunbeam.de.gnumonks.org>
-References: <20040915081439.GA27038@sunbeam.de.gnumonks.org> <414808F3.70104@draigBrady.com> <1095250706.1057.214.camel@jzny.localdomain>
+Message-ID: <4.3.2.7.2.20040915112853.00cf9980@mail.daleclick.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="4zI0WCX1RcnW9Hbu"
-Cc: P@draigBrady.com, Linux NICS <linux.nics@intel.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1095250706.1057.214.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Folks,
 
---4zI0WCX1RcnW9Hbu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+I'm the author of an IETF Internet Draft that discusses a problem arising 
+from the current TCP's reaction to soft errors. The problem has to do with 
+long delays in connection establishment attempts that may arise in a number 
+of scenarios.
+The draft proposes to change TCP's reaction to soft errors so that 
+connections that are in the SYN-SENT or SYN-RECEIVED states are aborted 
+upon receipt of an ICMP error message that indicates a soft error.
 
-On Wed, Sep 15, 2004 at 08:18:27AM -0400, jamal wrote:
+The draft can be found at: 
+http://www.ietf.org/internet-drafts/draft-gont-tcpm-tcp-soft-errors-00.txt .
 
-> Our friends in FreeBSD claim they can do 1Mpps _forwarding_ with=20
-> e1000 - forget about transmit only ;->
+I've also put online a "Discussion List" I had prepared for the last IETF 
+meeting, which has a somewhat expanded explanation of the rationale behind 
+the proposed fix. This document can be found at: 
+http://www.gont.com.ar/drafts/TCP-Soft-Errors-Discussion-List.doc .
 
-IMHO that was a 82547, attached to CSA and not PCI-X...=20
+I'd appreciate any comments on the draft. Thus, I'd be able to address your 
+comments in the next revision of the draft, and will also sum-up your 
+feedback and post it to the relevant IETF mailing list (that of the TCPM WG 
+mailing-list).
 
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+BTW, I've set up a page at 
+http://www.gont.com.ar/drafts/tcp-soft-errors.html so that you have all the 
+documents available from a single place.
 
---4zI0WCX1RcnW9Hbu
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBSEtuXaXGVTD0i/8RAjPDAKCntGlbr8zJGDsbWbUwE5IIktVdbQCcDKJw
-PxvIh2+2qWUzuo7B0/7PGOE=
-=bJYD
------END PGP SIGNATURE-----
-
---4zI0WCX1RcnW9Hbu--
+--
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@acm.org
