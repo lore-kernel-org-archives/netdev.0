@@ -1,61 +1,33 @@
-From: Paul Jakma <paul@clubi.ie>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 29 Nov 2004 20:27:57 +0000 (GMT)
-Message-ID: <Pine.LNX.4.61.0411292007080.18143@hibernia.jakma.org>
-References: <OF7E76C3BE.B1D182D3-ONC1256F5B.005B3E84-C1256F5B.005BB584@de.ibm.com>
+From: Anton Blanchard <anton@samba.org>
+Subject: KERNEL: assertion (!sk->sk_forward_alloc)
+Date: Tue, 30 Nov 2004 08:18:57 +1100
+Message-ID: <20041129211855.GC17540@krispykreme.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Spatzier <thomas.spatzier@de.ibm.com>
-In-Reply-To: <OF7E76C3BE.B1D182D3-ONC1256F5B.005B3E84-C1256F5B.005BB584@de.ibm.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Nov 2004, Thomas Spatzier wrote:
 
-> Yes, for the examples you mentioned the app should better be 
-> notified. However, AFAICS, there are no such notification 
-> mechanisms on a per-packet basis implemented in the kernel. And I 
-> doubt that they are going to be implemented.
+Hi,
 
-We do get notified. We get a netlink interface update with 
-unset IFF_RUNNING from the interface flags.
+I was running a network test on a machine with a number of e1000s in it
+(netperf TCP_RR). The test included a range of message sizes from 64B
+up to 64kB. The kernel is 2.6.10-rc2 BK from November 22.
 
-However, it can take time before zebra gets to read it, and further 
-time before zebra sends its own interface update to protocol daemons, 
-and further time before they might get to read and update their own 
-interface state. By which time those daemons may have sent packets 
-down those interfaces (which packets may become invalid before link 
-becomes back, but which still will be sent and hence which 
-potentially could disrupt routing).
+I set tcp_tso_win_divisor to 2:
 
-Ideally, we should be notified synchronously (EBUFS?) or if thats not 
-possible, packet should be dropped (see my below presumption though).
+# cat /proc/sys/net/ipv4/tcp_tso_win_divisor
+2
 
-The other solution is some means for a daemon to be able flush queues 
-for a specific interface. (but thats a bit ugly).
+After a while some network assertion errors appeared in the log:
 
-> Good suggestion, if anyone has an interesting and feasible solution 
-> I will be happy to integrate it. So far, however, it don't see one 
-> and I would point people being worried about lost packets to TCP.
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
+KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (180)
 
-Surely TCP already was able to take care of retransmits? I'm not 
-familiar with Linux internals, but how did TCP cope with the previous 
-driver behaviour? (I get the vague impression that we're talking 
-about a driver specific buffer here, rather than the applications 
-socket buffer - is that correct?).
+Note that this test was run using the send-to-self patch.
 
-Jeff, David, enlighten us please! :)
-
-> Regards,
-> Thomas.
-
-regards,
--- 
-Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
-Fortune:
-I can't understand why people are frightened of new ideas.  I'm frightened
-of the old ones.
- 		-- John Cage
+Anton
