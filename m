@@ -1,77 +1,77 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: [PATCH] performance problem with established hash
-Date: Sat, 28 Feb 2004 13:25:37 +1100
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [PATCH] performance problem with established hash
+Date: Fri, 27 Feb 2004 19:55:48 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040228022537.GR5801@krispykreme>
+Message-ID: <20040227195548.210f7204.akpm@osdl.org>
+References: <20040228022537.GR5801@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, davem@redhat.com, kenneth.w.chen@intel.com,
-        olof@austin.ibm.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, davem@redhat.com,
+        kenneth.w.chen@intel.com, olof@austin.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20040228022537.GR5801@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Anton Blanchard <anton@samba.org> wrote:
+>
+> -		goal = min(10UL, goal);
+>  +		goal = min(1UL << 10, goal);
 
-Hi,
+oops.  Better fix the route cache too.
 
-An HTTP stress test on latest 2.6 BK shows up a problem in tcp_r4_rcv:
+I'm not sure what went wrong in there, sorry for letting that slip through.
+Obviously, doing
 
-15.0125  tcp_v4_rcv
- 8.2719  e1000_xmit_frame
- 3.2153  qdisc_restart
- 3.1675  skb_release_data
+	if (a)
+		foo = bar;
+	else
+		foo = zot;
 
-15% in tcp_v4_rcv, ouch. It turns out almost all of this is walking the
-established hash looking for stuff in time wait:
+	if (b)
+		foo = rab;
+	else
+		foo = toz;
 
-        /* Must check for a TIME_WAIT'er before going to listener hash. */
-        sk_for_each(sk, node, &(head + tcp_ehash_size)->chain) {
-                if (TCP_IPV4_TW_MATCH(sk, acookie, saddr, daddr, ports, dif))
-                        goto hit;
-        }
+does not make a ton of sense.
 
-Looking at the logic for sizing the established hash, we clamp at 10
-pages. That doesnt sound right:
+This should fix it up.  We keep the table sizing identical to that which
+we had in 2.6.earlier, with a boot option override.
 
-        if (num_physpages >= (128 * 1024))
-                goal = num_physpages >> (21 - PAGE_SHIFT);
-        else
-                goal = num_physpages >> (23 - PAGE_SHIFT);
 
-        if (!thash_entries)
-                goal = min(10UL, goal);
-        else
-                goal = (thash_entries * sizeof(struct tcp_ehash_bucket)) >> PAGE_SHIFT;
+ net/ipv4/route.c |    4 +---
+ net/ipv4/tcp.c   |    4 +---
+ 2 files changed, 2 insertions(+), 6 deletions(-)
 
-Sure enough things arent happy:
-
-Older 2.6 kernel:
-	TCP: Hash tables configured (established 262144 bind 65536)
-
-Current 2.6 BK:
-	TCP: Hash tables configured (established 4096 bind 4096)
-
-It looks like the hash clamping patches wanted to clamp at 1 << 10, not
-10. Patch below.
-
-Anton
-
----
-
- foobar2-anton/net/ipv4/tcp.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-diff -puN net/ipv4/tcp.c~ehashfix net/ipv4/tcp.c
---- foobar2/net/ipv4/tcp.c~ehashfix	2004-02-28 13:10:48.151071100 +1100
-+++ foobar2-anton/net/ipv4/tcp.c	2004-02-28 13:11:41.434038779 +1100
-@@ -2622,7 +2622,7 @@ void __init tcp_init(void)
+diff -puN net/ipv4/route.c~ip_rt_init-sizing-fix net/ipv4/route.c
+--- 25/net/ipv4/route.c~ip_rt_init-sizing-fix	2004-02-27 19:43:01.000000000 -0800
++++ 25-akpm/net/ipv4/route.c	2004-02-27 19:51:02.000000000 -0800
+@@ -2753,9 +2753,7 @@ int __init ip_rt_init(void)
+ 		panic("IP: failed to allocate ip_dst_cache\n");
+ 
+ 	goal = num_physpages >> (26 - PAGE_SHIFT);
+-	if (!rhash_entries)
+-		goal = min(10, goal);
+-	else
++	if (rhash_entries)
+ 		goal = (rhash_entries * sizeof(struct rt_hash_bucket)) >> PAGE_SHIFT;
+ 	for (order = 0; (1UL << order) < goal; order++)
+ 		/* NOTHING */;
+diff -puN net/ipv4/tcp.c~ip_rt_init-sizing-fix net/ipv4/tcp.c
+--- 25/net/ipv4/tcp.c~ip_rt_init-sizing-fix	2004-02-27 19:51:40.000000000 -0800
++++ 25-akpm/net/ipv4/tcp.c	2004-02-27 19:52:27.000000000 -0800
+@@ -2621,9 +2621,7 @@ void __init tcp_init(void)
+ 	else
  		goal = num_physpages >> (23 - PAGE_SHIFT);
  
- 	if (!thash_entries)
+-	if (!thash_entries)
 -		goal = min(10UL, goal);
-+		goal = min(1UL << 10, goal);
- 	else
+-	else
++	if (thash_entries)
  		goal = (thash_entries * sizeof(struct tcp_ehash_bucket)) >> PAGE_SHIFT;
  	for (order = 0; (1UL << order) < goal; order++)
+ 		;
+
+_
