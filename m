@@ -1,43 +1,59 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: [PATCH 2.6.9-rc2 12/12] S2io: styling
-Date: Mon, 15 Nov 2004 12:21:26 -0800
-Message-ID: <000e01c4cb5b$20018710$9810100a@S2IOtech.com>
-References: <41904619.2020206@pobox.com>
-Reply-To: <ravinandan.arakali@s2io.com>
+From: =?ISO-8859-2?Q?Micha=B3_Margula?= <alchemyx@uznam.net.pl>
+Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Mon, 15 Nov 2004 22:57:50 +0100
+Message-ID: <4199265E.7030404@uznam.net.pl>
+References: <20041115122046.1413527e.akpm@osdl.org>	<200411152146.02851.bdschuym@pandora.be> <20041115124843.4c3dd72f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Bart De Schuymer <bdschuym@pandora.be>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>, <raghavendra.koushik@s2io.com>
-In-Reply-To: <41904619.2020206@pobox.com>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041115124843.4c3dd72f.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-We received couple of comments from Krishna Kumar. Other than that
-we are waiting for further comments. If there are no other, we can
-submit one final patch to address Krishna Kumar's comments.
+Andrew Morton napisa=B3(a):
 
-In one of your earlier mails(on 10/28), you mentioned "patches pass 
-review".
-Pls let us know.
+>Originator added to Cc..
+>
+>Bart De Schuymer <bdschuym@pandora.be> wrote:
+> =20
+>
+>>Can you do something similar with iptables rules to see if it's specifi=
+c to=20
+>>ebtables (which I doubt)?
+>>
+>>   =20
+>>
+OK. Done. I have tried to mimic ebtables rules as similar as possible.=20
+Only difference is that iptables module mac has only --mac-source=20
+option. Now I need to wait about 24 to 48 hours, to see if everything is=20
+OK. I will tell you as soon I have more information.
 
-Thanks,
-Ravi
+>>>The only weird thing I noticed is when I initalise my bridge, is somet=
+hing
+>>>about that it can't get speed of some interfaces (guessing it is about
+>>>e1000). I can't give you full error message at the moment, because tho=
+se
+>>>have been rotated by logrotate.
+>>>     =20
+>>>
+>>I don't know what that is about...
+>>
+>>   =20
+>>
 
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com]
-Sent: Monday, November 08, 2004 8:23 PM
-To: raghavendra.koushik@s2io.com
-Cc: romieu@fr.zoreil.com; netdev@oss.sgi.com;
-ravinandan.arakali@s2io.com
-Subject: Re: [PATCH 2.6.9-rc2 12/12] S2io: styling
+Found it in kernel sources, it was giving error from line 62 of=20
+net/bridge/br_if.c:
 
+pr_info("bridge: can't decode speed from %s: %d\n",
+                                dev->name, ecmd.speed);
 
-It is my pleasure to report that I successfully applied all 12 patches 
-from the most recent batch sent, to the netdev-2.6 queue.
+Thanks!
 
-	Jeff
+--=20
+
+Micha=B3 Margula, alchemyx@uznam.net.pl, http://alchemyx.uznam.net.pl/
+"W =BFyciu pi=EAkne s=B1 tylko chwile" [Ryszard Riedel]
