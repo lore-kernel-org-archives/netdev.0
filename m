@@ -1,72 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PROBLEM] r8169 deadlocks
-Date: Thu, 22 Jan 2004 00:59:40 +0100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] (2/4) support large number of network devices -- name
+ hash
+Date: Thu, 22 Jan 2004 11:10:54 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040122005940.A26438@electric-eye.fr.zoreil.com>
-References: <200401152039.00182.harisri@bigpond.com> <200401202150.12892.harisri@bigpond.com> <20040120215230.A8935@electric-eye.fr.zoreil.com> <200401212115.45027.harisri@bigpond.com>
+Message-ID: <20040122.111054.106114998.yoshfuji@linux-ipv6.org>
+References: <20040116154814.7c7f31ac.shemminger@osdl.org>
+	<20040117.112244.90941296.yoshfuji@linux-ipv6.org>
+	<20040119112850.3b3575a7.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Srihari Vijayaraghavan <harisri@bigpond.com>
-Content-Disposition: inline
-In-Reply-To: <200401212115.45027.harisri@bigpond.com>; from harisri@bigpond.com on Wed, Jan 21, 2004 at 09:15:44PM +1100
+To: shemminger@osdl.org
+In-Reply-To: <20040119112850.3b3575a7.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20040119112850.3b3575a7.shemminger@osdl.org> (at Mon, 19 Jan 2004 11:28:50 -0800), Stephen Hemminger <shemminger@osdl.org> says:
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> Use strnlen, great idea, thanks.
 
-Srihari Vijayaraghavan <harisri@bigpond.com> :
-[...]
-> I have a good news: I checked out things as usual under vanilla 
-> linux-2.6.2-rc1, and to my surprise Kernel does not hang anymore :-). 
-> (although Tx counter not incrementing is altogether another problem).
+> -	size_t len = min(strlen(name),(size_t)(IFNAMSIZ-1));
+> -	unsigned hash = full_name_hash(name, len);
+> +	unsigned hash = full_name_hash(name, 
+> +				       strnlen(name, IFNAMSIZ-1));
 
-r8169 did not evolve between 2.6.1 and 2.6.2-rc1. Change of behavior
-probably comes from some other part of the kernel. Joy.
+I prefer IFNAMSIZ over IFNAMSIZ-1 here
+bacause maximum length of valid name is IFNAMSIZ-1.
 
-> If you want me to I can test your r8169-tc-index-overflow.patch.
+strnlen(3):
+       size_t strnlen(const char *s, size_t maxlen);
+:
+       The strnlen function returns strlen(s), if that is less than maxlen, or
+       maxlen  if there is no '\0' character among the first maxlen characters
+       pointed to by s.
 
-See attachment. It applies against plain 2.6.2-rc1.
+If strnlen(name,IFNAMSIZ) returns IFNAMSIZ, name is not terminated.
+while strnlen(name,IFNAMSIZ-1) does not tell whether it is terminated or not.
 
---
-Ueimor
-
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="r8169.c-diff"
-
---- linux-2.6.2-rc1/drivers/net/r8169.c.orig	2004-01-22 00:41:03.000000000 +0100
-+++ linux-2.6.2-rc1/drivers/net/r8169.c	2004-01-22 00:46:46.000000000 +0100
-@@ -871,7 +871,6 @@ rtl8169_tx_interrupt(struct net_device *
- 		     void *ioaddr)
- {
- 	unsigned long dirty_tx, tx_left = 0;
--	int entry = tp->cur_tx % NUM_TX_DESC;
- 
- 	assert(dev != NULL);
- 	assert(tp != NULL);
-@@ -881,14 +880,14 @@ rtl8169_tx_interrupt(struct net_device *
- 	tx_left = tp->cur_tx - dirty_tx;
- 
- 	while (tx_left > 0) {
-+		int entry = dirty_tx % NUM_TX_DESC;
-+
- 		if ((tp->TxDescArray[entry].status & OWNbit) == 0) {
--			dev_kfree_skb_irq(tp->
--					  Tx_skbuff[dirty_tx % NUM_TX_DESC]);
--			tp->Tx_skbuff[dirty_tx % NUM_TX_DESC] = NULL;
-+			dev_kfree_skb_irq(tp->Tx_skbuff[entry]);
-+			tp->Tx_skbuff[entry] = NULL;
- 			tp->stats.tx_packets++;
- 			dirty_tx++;
- 			tx_left--;
--			entry++;
- 		}
- 	}
- 
-
---YZ5djTAD1cGYuMQK--
+--yoshfuji
