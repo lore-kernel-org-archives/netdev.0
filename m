@@ -1,88 +1,31 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: dummy as IMQ replacement
-Date: Tue, 01 Feb 2005 15:03:49 +0000
-Message-ID: <41FF9A55.4080005@dsl.pipex.com>
-References: <1107123123.8021.80.camel@jzny.localdomain> <20050131135810.GC31837@postel.suug.ch> <1107181169.7840.184.camel@jzny.localdomain> <20050131151532.GE31837@postel.suug.ch> <41FED514.7060702@dsl.pipex.com> <20050201133138.GM31837@postel.suug.ch>
+From: Scott Feldman <sfeldma@pobox.com>
+Subject: [PATCH 2.6] eepro100: remove ID for 82556
+Date: Tue, 01 Feb 2005 11:11:46 -0800
+Message-ID: <1107285106.3366.106.camel@sfeldma-mobl.dsl-verizon.net>
+Reply-To: sfeldma@pobox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050201133138.GM31837@postel.suug.ch>
+Cc: netdev@oss.sgi.com
+To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
->>>> X =  ----------------------------------------------------------
->>>>      R*sqrt(2*b*p/3) + (t_RTO * (3*sqrt(3*b*p/8) * p * (1+32*p^2)))
->>>>
->>>>Where:
->>>>
->>>>    X is the transmit rate in bytes/second.
->>>>    s is the packet size in bytes.
->>>>    R is the round trip time in seconds.
->>>>    p is the loss event rate, between 0 and 1.0, of the number of loss
->>>>      events as a fraction of the number of packets transmitted.
->>>>    t_RTO is the TCP retransmission timeout value in seconds.
->>>>    b is the number of packets acknowledged by a single TCP
->>>>      acknowledgement.
->>
->>WRT policers I never figured out where you would put the effects of 
->>playing with the burst size parameter and it's effects with few/many 
->>connections and any burstiness caused into an equasion like that.
-> 
-> 
-> A burst buffer has impact on R on later packets, it can "smooth" R
-> and X and thus results in more stable rates. Depending on the actual
-> burst, it can avoid retransmits which stabilizes the rate as well.
+82556 support doesn't work with eepro100, so this removes the ID
+(0x1228) for 82556.  See this thread for more info:
 
-But it's not a real rate limiting buffer in the policer case is it?
+http://marc.theaimsgroup.com/?l=linux-kernel&m=110726223221165&w=2
 
-> 
-> 
->>This sounds cool. For me in someways I think it could be nicer (in the 
->>case of shaping from the wrong end of a slow link) to delay the real 
->>packets - that way the tcps of the clients get to see the smoothed 
->>version of the traffic and you can delay udp aswell.
-> 
-> 
-> It's impossible to never drop anything, for udp we can either drop
-> it or use ECN and hope the other ip stack takes care of it or the
-> application implements its own cc algorithm. Basically you can already
-> do that with (G)RED. Most UDP users which provide a continous stream
-> such as video streams, implement some kind of key datagram which contains
-> the number of datagrams received since the last key datagram and the
-> application throttles down based on that so dropping is often the only
-> way to achieve a general working solution. Delaying UDP packets and
-> then drop them if the buffer is full is very dangerous, often the
-> protocols based on UDP rely on the assumption that datagrams get lost
-> randomly and not succcessive. We can think about precicse policing
-> for UDP again once the current poor application level cc algorithms
-> have failed and the industry accepted ECN as the right thing. For
-> now most of them still suffer from the NIH syndrom in this area.
+Signed-off-by: Scott Feldman <sfeldma@pobox.com>
 
-Interesting stuff. I was thinking of game udp where just dropping would 
-simulate what the user should have done anyway, but costing you 
-bandwidth. If alot of gamers share a slow link then if you lag them out 
-they know it's time to turn the rate down.
-
-> 
-> 
->>How intelligent and how much, if any, per connection state do you/could 
->>you keep?
-> 
-> 
-> I keep a rate estimator for every flow on ingress in a hash table and
-> lookup it up on egress with the flow parameters reversed. It gets
-> pretty expensive on huge amounts of connection usually one doesn't
-> want to do per connection policing on such boxes. ;->
-> 
-
-Nice - are you planning to add anything to tweak things for the wrong 
-end of the bottleneck problems?
-
-Andy.
+--- linux-2.4.28-rc1/drivers/net/eepro100.c.orig	2005-02-01 10:58:56.878906632 -0800
++++ linux-2.4.28-rc1/drivers/net/eepro100.c	2005-02-01 10:59:10.479838976 -0800
+@@ -2395,7 +2395,6 @@
+ 	{ PCI_VENDOR_ID_INTEL, 0x1050, PCI_ANY_ID, PCI_ANY_ID, },
+ 	{ PCI_VENDOR_ID_INTEL, 0x1059, PCI_ANY_ID, PCI_ANY_ID, },
+ 	{ PCI_VENDOR_ID_INTEL, 0x1227, PCI_ANY_ID, PCI_ANY_ID, },
+-	{ PCI_VENDOR_ID_INTEL, 0x1228, PCI_ANY_ID, PCI_ANY_ID, },
+ 	{ PCI_VENDOR_ID_INTEL, 0x2449, PCI_ANY_ID, PCI_ANY_ID, },
+ 	{ PCI_VENDOR_ID_INTEL, 0x2459, PCI_ANY_ID, PCI_ANY_ID, },
+ 	{ PCI_VENDOR_ID_INTEL, 0x245D, PCI_ANY_ID, PCI_ANY_ID, },
