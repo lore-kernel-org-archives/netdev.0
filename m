@@ -1,47 +1,58 @@
-From: Benjamin LaHaise <bcrl@redhat.com>
-Subject: [patch] bug prematurely setting nr_frags
-Date: Fri, 9 Aug 2002 16:14:39 -0400
+From: CIT/FOONET Admin <xerox@foonet.net>
+Subject: Serious weirdness w/ cbq and everything else
+Date: Sat, 10 Aug 2002 03:40:00 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020809161439.E10640@redhat.com>
+Message-ID: <Pine.LNX.4.44.0208100334110.10518-100000@foonix.foonet.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <owner-netdev@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Dave et al,
 
-The patch below fixes a case where nr_frags will be incorrectly set when an 
-allocation fails in sock_alloc_send_pskb.  This bug was found while trying 
-to track down a problem that shows up as an oops attempting to free a page 
-that comes from an uninitialized fragment entry in an skb, and this problem 
-looks like a possible causes.  Thanks goes to Stephen Tweedie for digging 
-through the crash dump to find several key bits of data.
+I just can't get this to shape right.. I'm using 2.4.19-rc1 but I tried 
+other versions..  what happens is it does not shape to the bandwidth I set 
+it at.. sometimes no where even near it.. I just don't get it.. i even 
+tried changing my HZ to 1000 and trying low latency patches, etc..  What's 
+the deal?
 
-		-ben
--- 
-"You will be reincarnated as a toad; and you will be much happier."
+My config is just something like this:
 
-:r ~/patches/v2.4/v2.4.20-pre1-nr_frags.diff
-diff -urN v2.4.20-pre1/net/core/sock.c net-2.4.20-pre1/net/core/sock.c
---- v2.4.20-pre1/net/core/sock.c	Fri Aug  9 13:50:46 2002
-+++ net-2.4.20-pre1/net/core/sock.c	Fri Aug  9 15:46:46 2002
-@@ -785,7 +785,6 @@
- 
- 				npages = (data_len + (PAGE_SIZE - 1)) >> PAGE_SHIFT;
- 				skb->truesize += data_len;
--				skb_shinfo(skb)->nr_frags = npages;
- 				for (i = 0; i < npages; i++) {
- 					struct page *page;
- 					skb_frag_t *frag;
-@@ -804,6 +803,9 @@
- 						      PAGE_SIZE :
- 						      data_len);
- 					data_len -= PAGE_SIZE;
-+
-+					/* frag[i] is now initialized */
-+					skb_shinfo(skb)->nr_frags = i + 1;
- 				}
- 
- 				/* Full success... */
+DEV=eth0
+
+tc qdisc del dev $DEV root    2> /dev/null > /dev/null
+
+tc qdisc add dev $DEV root handle 10:0 cbq bandwidth 100mbit avpkt 200 mpu 64
+
+tc class add dev $DEV parent 10:0  classid 10:1 est 1sec 8sec  cbq bandwidth 250Kbit rate 250Kbit \
+weight 25Kbit allot 1500 prio 3 minburst 64 maxburst 256 avpkt 128 cell 8 bounded
+
+tc qdisc add dev $DEV parent 10:1 sfq quantum 1514b perturb 5
+
+tc class add dev $DEV parent 10:0  classid 10:51 est 1sec 8sec  cbq 
+bandwidth 100mbit rate \
+   100Mbit allot 1514 prio 3 maxburst 10 cell 8 avpkt  500 bounded
+
+tc qdisc add dev $DEV parent 10:51 tbf rate 1mbit buffer 2kb latency 100ms 
+mtu 1514
+
+
+
+then filters........ pointing to that.. i even added the rate estimator 
+just recently and look what it shows:
+
+class cbq 10:1 parent 10: leaf 800d: rate 250000bps cell 8b (bounded) prio 
+3/3 weight 250bps allot 1514b
+level 0 ewma 5 avpkt 200b
+ Sent 6294040846 bytes 20138257 pkts (dropped 6644, overlimits 21092797)
+ rate 241446bps 555pps
+  borrowed 0 overactions 762540 avgidle 0 undertime -3
+
+
+that class is actually doing about 2Mbps not .241Mbps like the estimator 
+says.. i tried even setting the bandwidth to 2500000 bps as you see and it 
+still lets it go over 5Mbps for i have no idea why except that the 
+estimator shows 400000bps when it's doing 5Mbps for some odd reason.. that 
+doesn't add up at all!!  Any ideas?
+
+Paul
