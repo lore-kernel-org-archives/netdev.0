@@ -1,79 +1,104 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [1/2] CARP implementation. HA master's failover.
-Date: 15 Jul 2004 12:07:02 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089907622.1027.48.camel@jzny.localdomain>
-References: <1089898303.6114.859.camel@uganda>
-	 <1089898595.6114.866.camel@uganda>
-	 <1089902654.1029.23.camel@jzny.localdomain>
-	 <1089905244.6114.887.camel@uganda>
-Reply-To: hadi@cyberus.ca
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH Linux-2.6.8-rc1] pci.ids update for Prism GT
+	devices
+Date: Thu, 15 Jul 2004 17:19:08 +0200
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <200407151719.09061.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, netfilter-failover@lists.netfilter.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <1089905244.6114.887.camel@uganda>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_sBq9AFG0NM8Y7f4"
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: jgarzik@pobox.com
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-07-15 at 11:27, Evgeniy Polyakov wrote:
-> On Thu, 2004-07-15 at 18:44, jamal wrote:
-> > Evgeniy,
-> > 
-> > Why do you need to put this stuff in the kernel?
-> > This should be implemented just the same way as VRRP was - in user
-> > space.
-> 
-> Hmm...
-> Just because i think it works better being implemented in the kernel? :)
-> I don't think it is a good answer thought.
-> 
-> It is faster, it is more flexible, it has access to kernel space...
 
-Yeah, I know ;-> and probably thats what the opnebsd people did.
- 
-I still think it should live in user space.  This should apply to
-anything thats control related because such things tend to be
-continoulsy enrichned with features. ARP unfortunately is in there; one
-of my pet perpetual projects is to totaly rip it off. Theres already
-hooks to deliver to user space today and Alexey has a daemon for it, not
-sure how widely used it is.
+--Boundary-00=_sBq9AFG0NM8Y7f4
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> > BTW, is there a spec for this protocol or its one of those things where
-> > you have to follow Yodas advice?
-> 
-> Exactly :)
-> Here are all links I found:
+2004-07-15 Margit Schubert-While <margitsw@t-online.de>
 
-Thank you. 
-I think a better idea would be to implement a sync message
-within CARP instead of that pfsync app doing its own thing. Unless i
-misread, pfsync seems to be a separate app.
-This way more than one app can use it via the CARP daemon
-in user space to sync state of their choice (with whatever pfsync does
-being one of many). 
-This is an example of a rich application and further justification for
-it to live in user space.
+* Update pci.ids for known Prism54 GT devices.
 
-> I do want this to be in the mainline kernel, but actually I even don't
-> think anyone will apply it.
->
-> It is too special stuff for generic kernel, it has reserved 112 vrrp
-> protocol number and so on...
-> So if developers decide not to include or even not to discuss this cruft
-> I will not beat myself by my heels. :)
-> 
-> It just works as expected, it is reliable and simple.
-> And it does it's work, so HA people would like it.
+Jeff, this has been passed to the pci.ids project.
+I am not sure if this should go through you/netdev.
+(Loosely related)
+If not please pass on to LKML.
 
-It is valuable, just doesnt belong to the kernel.
-BTW, i saw some claim that this is patent-free as opposed to VRRP?
-I do hope it takes off.  What exactly is the patent issue that was at
-stake? I couldnt tell from the song lyrics ;->
-One valuable thing that could be done is while still avoiding any patent
-issues make it interop with VRRP.
+The one replacement of 17cf:0014 is correct; the
+devices originate with Z-Com; others are clones/repackages.
+(of which there are several)
 
-cheers,
-jamal
+Margit
+
+
+
+
+
+
+
+
+
+
+
+--Boundary-00=_sBq9AFG0NM8Y7f4
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="kernpciids.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="kernpciids.patch"
+
+diff -Naur linux-2.6.8-01/drivers/pci/pci.ids linux-2.6.8-02/drivers/pci/pci.ids
+--- linux-2.6.8-01/drivers/pci/pci.ids	2004-07-12 19:31:57.000000000 +0200
++++ linux-2.6.8-02/drivers/pci/pci.ids	2004-07-15 07:32:33.000000000 +0200
+@@ -4905,12 +4905,24 @@
+ 	3873  Prism 2.5 Wavelan chipset
+ 		1186 3501  DWL-520 Wireless PCI Adapter
+ 		1186 3700  DWL-520 Wireless PCI Adapter, Rev E1
++		1385 4105  MA311 802.11b wireless adapter
+ 		1668 0414  HWP01170-01 802.11b PCI Wireless Adapter
+ 		16a5 1601  AIR.mate PC-400 PCI Wireless LAN Adapter
+ 		1737 3874  WMP11 Wireless 802.11b PCI Adapter
+ 		8086 2513  Wireless 802.11b MiniPCI Adapter
++	3886  Intersil ISL3886 [Prism Javelin/Prism Xbow]
++		17cf 0037  Z-Com XG-901 and clones Wireless Adapter
+ 	3890  Intersil ISL3890 [Prism GT/Prism Duette]
+-		17cf 0014  Ovislink WL-5400PCM, Prism GT
++		10b8 2802  SMC2802W Wireless PCI Adapter
++		10b8 2835  SMC2835W Wireless Cardbus Adapter
++		10b8 a835  SMC2835W V2 Wireless Cardbus Adapter
++		1113 ee03  SMC2802W V2 Wireless PCI Adapter
++		1186 3202  D-Link DWL-G650 A1 Wireless Adapter
++		1259 c104  Corega CG-WLCB54GT Wireless Adapter
++		1385 4800  Netgear WG511 Wireless Adapter
++		16a5 1605  ALLNET ALL0271 Wireless PCI Adapter
++		17cf 0014  Z-Com XG-600 and clones Wireless Adapter
++		17cf 0020  Z-Com XG-900 and clones Wireless Adapter
+ 	8130  HMP8130 NTSC/PAL Video Decoder
+ 	8131  HMP8131 NTSC/PAL Video Decoder
+ 1261  Matsushita-Kotobuki Electronics Industries, Ltd.
+
+--Boundary-00=_sBq9AFG0NM8Y7f4
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--Boundary-00=_sBq9AFG0NM8Y7f4--
