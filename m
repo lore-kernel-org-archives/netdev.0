@@ -1,37 +1,54 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [RFC][PATCH 2/3] netlink check sender, audit
-Date: Mon, 14 Feb 2005 19:47:08 -0800
-Message-ID: <20050215034708.GG27645@shell0.pdx.osdl.net>
-References: <20050212010109.V24171@build.pdx.osdl.net> <20050212010243.W24171@build.pdx.osdl.net> <20050212010504.X24171@build.pdx.osdl.net> <420E334B.8060805@eurodev.net> <420E77FA.6080007@eurodev.net> <20050215001334.GB27645@shell0.pdx.osdl.net> <42115E7E.6050909@eurodev.net>
+From: Gary Spiess <Gary.Spiess@Intermec.com>
+Subject: Re: [PATCH] natsemi: long cable, short cable
+Date: Mon, 14 Feb 2005 22:35:34 -0600
+Message-ID: <42117C16.8010800@Intermec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com, davem@davemloft.net,
-        jmorris@redhat.com, sds@epoch.ncsc.mil, serue@us.ibm.com
-To: Pablo Neira <pablo@eurodev.net>
-Content-Disposition: inline
-In-Reply-To: <42115E7E.6050909@eurodev.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Pablo Neira (pablo@eurodev.net) wrote:
-> Thanks for the explanation. I don't still like so much the new 
-> netlink_kernel_create_check function. I think that we could get more 
-> variations of netlink_kernel_create in future just to add another 
-> feature/checking. So I prefer new function (netlink_kernel_set_check) 
+Jeff,
 
-I agree, had the same concern.  I breifly considered an ops struct that
-could be passed in during registration so that it could grow a little
-easier.
+I just read your message of Feb 10th, 2005 regarding the cable problems 
+of natsemi.c.  My investigation started late last week.  On Feb 14th, I 
+got serious and nailed it down.  I submitted a patch of my own without 
+realizing there was other work in progress on the same issue.  Please 
+consider replacing the patch you didn't like with mine.
 
-> that set check_sender if it's needed once the netlink socket is created. 
-> I've modified your patches to use this function.
+What was happening with my DP83815D was that the TSTDAT value being read 
+in the do_cable_magic function was near 0x1f, regardless of cable 
+length.  The code that fixes short cable problems actually works for 
+short cables, but messes up long ones.  The cable magic couldn't figure 
+out the length of the cable and always applied the fix.  I went looking 
+for the history of this patch on the Internet and found a DP83815 Linux 
+driver written and maintained by National Semiconductor.  I was struck 
+by the difference in the initialization sequences.  natsemi.c always 
+applies the sequence documented for the DP83815B.  dp83815.c applies 
+different sequences for chip revisions B, C, and D+.  I used the D 
+initialization for my D chip, and again watched the values being 
+returned from TSTDAT in do_cable magic.  A 1m cable returned something 
+like 0xF8 and a 90m cable return something like 0xB8.  Now the register 
+was returning a value like it must have done with previous revisions of 
+the chip. The magic is properly applied in the proper situation.
 
-Great, thanks.  This is technically racy.  It's possible (albeit small
-window) that something could be delivered before this is set.  Using a
-callback struct during registration would fix this.
+Since there is no public documentation on these PHY manipulations, I 
+minimized the 'fix' to the setting of the DSPCFG register.  If I only 
+turn on the bit that makes the coefficient readable, do_cable_magic now 
+appears to have the right information to decide the cable length 
+automatically.
 
-thanks,
--chris
+Ain't life great?
+
+Gary
+
+in reply to http://oss.sgi.com/archives/netdev/2005-02/msg00396.html
+
 -- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+ oooooooooooooooooooooooooooooooooooooooooooooooooo
+  Gary Spiess (Gary.Spiess@Intermec.com)
+  MobileLan Wireless Products Group, Intermec Technology Corp
+  voice: 319 369-3580  fax: 319 369-3804
