@@ -1,30 +1,31 @@
-From: Ben Collins <bcollins@debian.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 18:30:24 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030627223024.GT501@phunnypharm.org>
-References: <20030626.224739.88478624.davem@redhat.com> <21740000.1056724453@[10.10.2.4]> <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com> <20030627.143738.41641928.davem@redhat.com> <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com> <20030627213153.GR501@phunnypharm.org> <20030627162527.714091ce.akpm@digeo.com>
+Date: Fri, 27 Jun 2003 17:00:22 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030627.170022.74744550.davem@redhat.com>
+References: <3EFCC1EB.2070904@candelatech.com>
+	<20030627.151906.102571486.davem@redhat.com>
+	<3EFCC6EE.3020106@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davidel@xmailserver.org, davem@redhat.com, mbligh@aracnet.com,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Andrew Morton <akpm@digeo.com>
-Content-Disposition: inline
-In-Reply-To: <20030627162527.714091ce.akpm@digeo.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davidel@xmailserver.org, mbligh@aracnet.com, linux-kernel@vger.kernel.org,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: greearb@candelatech.com
+In-Reply-To: <3EFCC6EE.3020106@candelatech.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> - The bugs which are affecting people the most get reported the most.
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Fri, 27 Jun 2003 15:36:30 -0700
+   
+   So, you'd be happy so long as bugz sent mail to the netdev mailing
+   lists instead of to you?
 
-Not to mention the "breeding" affect. A bug that many people have seen
-only once, but can never pinpoint because they can't reproduce it. One
-of those people reports the problem to the mailing list, and suddenly
-half a dozen respond with "me too, but here's some extra info that I
-saw". You can't get that with a bug database.
+The best power I have to scale is the delete key in my email
+reader, when I delete an email it's gone and that's it.
 
--- 
-Debian     - http://www.debian.org/
-Linux 1394 - http://www.linux1394.org/
-Subversion - http://subversion.tigris.org/
-Deqo       - http://www.deqo.com/
+bugme bugs don't have this attribute, they are like emails that
+persist forever until someone does something about them, and this is
+the big problem I have with it.
