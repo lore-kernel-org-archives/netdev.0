@@ -1,49 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH][2.6] de4x5 cleanup
-Date: Sat, 30 Aug 2003 13:50:53 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3F50E3FD.1000703@pobox.com>
-References: <wrpad9r79g6.fsf@hina.wild-wind.fr.eu.org>
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: Re: [bonding][1/3] Synchronizing 2.4-2.6
+Date: Sat, 30 Aug 2003 22:01:08 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200308302201.09003.shmulik.hen@intel.com>
+References: <200308272000.39229.shmulik.hen@intel.com> <3F4D2355.8010803@pobox.com>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-net@vger.kernel.org,
-	Maillist netdev <netdev@oss.sgi.com>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: mzyngier@freesurf.fr
-In-Reply-To: <wrpad9r79g6.fsf@hina.wild-wind.fr.eu.org>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F4D2355.8010803@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Marc Zyngier wrote:
-> Jeff, Andrew,
-> 
-> The enclosed patch tries to clean the tulip de4x5 driver, and update
-> it to some of the 2.6 APIs :
-> 
-> - Use PCI and EISA probing APIs
-> - Use generic DMA API
-> - Fix DE425 init on the Jensen
-> - Remove de4x5 from Space.c
-> 
-> It's been tested on x86 and Alpha, with a DE425 (21040, EISA), a DE435
-> (21040, PCI) and a quad DLink (4*21143, PCI).
-> 
-> The major problem with this patch is that, because of the Space.c
-> removal, interfaces get potentially renumbered. This has been
-> discussed to death on lkml, without any obvious solution. IMHO, we'd
-> better remove as many drivers as we can from Space.c before
-> 2.6.0-final ships...
+On Thursday 28 August 2003 12:32 am, Jeff Garzik wrote:
+> Shmulik Hen wrote:
+>
+> > patch 6 - Update versions/contributions in header and bump
+> > version
+>
+> applied... even though a non-described ifenslave.c change snuck
+> into this patch.
+
+This patch was supposed to put some order into a bunch of bug fix 
+patches that went in without going through an official maintainer. I 
+was afraid they're going to get lost, so I stuck the above into a 
+patch. One of those patches fixed compilation problems on ia64 
+architecture, but caused problems in a Red Hat release instead.
+Since I didn't see a separate patch for that, I thought I'll put it 
+here too. Didn't think it'll cause problems as it was a one-liner.
+I'll learn eventually :). 
 
 
-It looks pretty good.  My big objection isn't the Space.c stuff but 
-de4x5 itself.  I had hoped it would be gone by now :)  Oh well, not your 
-fault.
-
-A quick review of the patch looks good, and this is work that has long 
-wanted doing (if de4x5 wasn't simply erased).  I'll apply after a more 
-thorough review.
-
-	Jeff
-
-
-
+	Shmulik.
