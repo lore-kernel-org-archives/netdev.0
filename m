@@ -1,36 +1,22 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH, TAKE 2] [IPV6] XFRM: extract xfrm_lookup() from
- ip6_dst_lookup() (is Re: [PATCH][IPv6] separation xfrm_lookup from
- ip6_dst_lookup)
-Date: Fri, 27 Aug 2004 17:02:32 -0700
+Subject: Re: [PATCH]: Remove duplicate declarations from netlink.h
+Date: Fri, 27 Aug 2004 17:30:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040827170232.590eebb6.davem@davemloft.net>
-References: <20040730171205.114f22ba.kazunori@miyazawa.org>
-	<20040801195135.16734846.davem@redhat.com>
-	<20040828.014935.131415609.yoshfuji@linux-ipv6.org>
+Message-ID: <20040827173039.2bb348cc.davem@davemloft.net>
+References: <412F304B.7080804@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org, kazunori@miyazawa.org,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040828.014935.131415609.yoshfuji@linux-ipv6.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <412F304B.7080804@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 28 Aug 2004 01:49:35 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Fri, 27 Aug 2004 14:59:55 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> > It is simple to fix, I think.
-> 
-> Here's the updated patch.
-> 
-> From: Kazunori Miyazawa <kazunori@miyazawa.org>
-> 
-> (Because Miyazawa-san is very busy now, 
-> I'm sending this patch as the proxy of him.)
-> 
-> Please pull from <bk://bk.skbuff.net:20609/linux-2.6-xfrm/>
+> This patch removes some duplicate delarations from netlink.h.
 
-Looks great, pulled.
+Applied, thanks Patrick.
