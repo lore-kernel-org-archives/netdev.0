@@ -1,47 +1,38 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: [PATCH] Make netif_rx_ni preempt-safe
-Date: Tue, 19 Oct 2004 19:55:33 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
+Date: Wed, 20 Oct 2004 10:00:09 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098230132.23628.28.camel@krustophenia.net>
+Message-ID: <20041020000009.GA17246@gondor.apana.org.au>
+References: <1098230132.23628.28.camel@krustophenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel <linux-kernel@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
-        vda@port.imtp.ilyichevsk.odessa.ua, linux-kernel@oss.sgi.com,
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel <linux-kernel@vger.kernel.org>,
+        "David S. Miller" <davem@davemloft.net>,
+        vda@port.imtp.ilyichevsk.odessa.ua, linux-kernel@gondor.apana.org.au,
         maxk@qualcomm.com, irda-users@lists.sourceforge.net,
         Linux Network Development <netdev@oss.sgi.com>,
         Alain Schroeder <alain@parkautomat.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: Lee Revell <rlrevell@joe-job.com>
+Content-Disposition: inline
+In-Reply-To: <1098230132.23628.28.camel@krustophenia.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch makes netif_rx_ni() preempt-safe.  The problem was reported
-by Alain Schroeder.  Here are the users:
+On Tue, Oct 19, 2004 at 07:55:33PM -0400, Lee Revell wrote:
+> 
+> --- include/linux/netdevice.h~	2004-10-19 18:50:18.000000000 -0400
+> +++ include/linux/netdevice.h	2004-10-19 18:51:01.000000000 -0400
+> @@ -696,9 +696,11 @@
+>   */
+>  static inline int netif_rx_ni(struct sk_buff *skb)
+>  {
+> +       preempt_disable();
+>         int err = netif_rx(skb);
 
-drivers/s390/net/ctcmain.c
-drivers/s390/net/netiucv.c
-drivers/net/irda/vlsi_ir.c
-drivers/net/tun.c
-
-As David S. Miller explained, the do_softirq (and therefore the preempt
-dis/enable) is required because there is no softirq check on the return
-path when netif_rx is called from non-interrupt context.
-
-Signed-Off-By: Lee Revell <rlrevell@joe-job.com>
-
---- include/linux/netdevice.h~	2004-10-19 18:50:18.000000000 -0400
-+++ include/linux/netdevice.h	2004-10-19 18:51:01.000000000 -0400
-@@ -696,9 +696,11 @@
-  */
- static inline int netif_rx_ni(struct sk_buff *skb)
- {
-+       preempt_disable();
-        int err = netif_rx(skb);
-        if (softirq_pending(smp_processor_id()))
-                do_softirq();
-+       preempt_enable();
-        return err;
- }
- 
+This is broken on older compilers.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
