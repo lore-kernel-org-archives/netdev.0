@@ -1,64 +1,82 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Updated WE-18 (WPA) proposal
-Date: Mon, 30 Aug 2004 13:55:52 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41336A28.9010608@pobox.com>
-References: <20040830045441.GA7415@jm.kir.nu> <20040830165026.GD29492@bougret.hpl.hp.com> <413363CB.7060807@pobox.com> <20040830174215.GA32132@bougret.hpl.hp.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
+Date: Mon, 30 Aug 2004 22:19:57 +0200
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkmaline@cc.hut.fi>, netdev@oss.sgi.com, hostap@shmoo.com,
-        Pedro Ramalhais <ramalhais@serrado.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20040830174215.GA32132@bougret.hpl.hp.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="I0oWFe1KborvVxk0"
+Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Content-Disposition: inline
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes wrote:
-> On Mon, Aug 30, 2004 at 01:28:43PM -0400, Jeff Garzik wrote:
-> 
->>Jean Tourrilhes wrote:
->>
->>>	Don't worry, I'll fix that. Anyway, WE-17 is pending in Jeff's
->>>tree, and I don't think he will make major changes to it.
->>
->>
->>hehe :)
->>
->>Yep, it's merged in netdev-2.6 (and thus -mm as well), and queued for 
->>upstream.
-> 
-> 
-> 	Thanks ;-)
-> 
-> 
->>FWIW any 'radical' wireless changes will go into wireless-2.6.  There is 
->>still the stable upstream branch, to which WE patches can continue to be 
->>applied...
-> 
-> 
-> 	If you don't mind, I would like a bit more understanding about
-> how much is "radical" and how much is not. I would personally put that
-> around "breaking backward compatibility", but you may have other
-> ideas.
 
-Yes, as discussed (er, argued :)) radical would include breaking 
-backwards compat.
+--I0oWFe1KborvVxk0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+Hi!
 
-> 	Also, I'm not clear how the stuff in wireless-2.6 is supposed
-> to trickle into the other trees (netdev-2.6, -mm and Linus's), and how
-> to better link it with the CVS of the various drivers involved.
+Apparently a lot of people still have issues when combining MASQUERADE
+and policy routing. =20
 
-Less of a trickle than a flood:  wireless-2.6 should be the target for 
-development of shared wireless stack code.  As several drivers are 
-currently using bits of HostAP, for example, wireless-2.6 should be a 
-focal point for patches that modify these drivers to instead share the 
-same code.
+In those cases, the error path from net/ipv4/netfilter/ipt_MASQUERADE.c:
 
-Once this generic work is done, it would get pushed all at once to 
-netdev-2.6, where it would receive testing in -mm.  Then, later, pushed 
-to mainline.
+		if (rt->u.dst.dev !=3D out) {
+			if (net_ratelimit())
+				printk("MASQUERADE:"
+				       " Route sent us somewhere else.\n");
+			ip_rt_put(rt);
+			return NF_DROP;
+		}
 
-	Jeff
+is taken.
+
+A couple of questions:
+
+1) Why do we have this check in the first place?  What would be wrong
+   with re-routing if the user requests us by configuration?
+
+2) Why don't we include 'oif' in the routing key?  If we wanted to make
+   sure that oif doesn't change, then we should tell the routing lookup
+   rather than complaining afterwards, shouldn't we ?
+
+I think the current code makes it hard (if not impossible?) for the
+system adminsitrator to get it right (for no apparent reason to me).
+
+Comments, anyone?
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--I0oWFe1KborvVxk0
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBM4vtXaXGVTD0i/8RAjdSAKCCUFOPkWulwqfJqMtVHE0w6zJ5PgCeIsZ8
+9YmgqQxEdALrQ9aH2g0poVg=
+=5HdN
+-----END PGP SIGNATURE-----
+
+--I0oWFe1KborvVxk0--
