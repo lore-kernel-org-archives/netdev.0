@@ -1,89 +1,63 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: Re: [PATCH] Add ssleep_interruptible()
-Date: Mon, 22 Nov 2004 09:19:22 -0800
-Message-ID: <20041122171922.GA7770@us.ibm.com>
-References: <E1CO1vc-00022t-N2@sputnik> <20041101200749.GF1730@us.ibm.com> <20041117013059.GA4218@us.ibm.com> <20041122024804.GD4146@verge.net.au>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (2/10) sk98: open error codes
+Date: Thu, 18 Nov 2004 14:40:38 -0800
+Message-ID: <20041118144038.259333bc@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Mirko Lindner <demon@pro-linux.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: janitor@sternwelten.at, netdev@oss.sgi.com, jgarzik@pobox.com,
-        linux-kernel@vger.kernel.org, kernel-janitors@lists.osdl.org
-Content-Disposition: inline
-In-Reply-To: <20041122024804.GD4146@verge.net.au>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 22, 2004 at 11:48:05AM +0900, Horms wrote:
-> On Tue, Nov 16, 2004 at 05:30:59PM -0800, Nishanth Aravamudan wrote:
-> > On Mon, Nov 01, 2004 at 12:07:49PM -0800, Nishanth Aravamudan wrote:
-> > > Description: Adds ssleep_interruptible() to allow longer delays to occur
-> > > in TASK_INTERRUPTIBLE, similarly to ssleep(). To be consistent with
-> > > msleep_interruptible(), ssleep_interruptible() returns the remaining time
-> > > left in the delay in terms of seconds. This required dividing the return
-> > > value of msleep_interruptible() by 1000, thus a cast to (unsigned long)
-> > > to prevent any floating point issues.
-> > > 
-> > > Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-> > > 
-> > > --- 2.6.10-rc1-vanilla/include/linux/delay.h	2004-10-30 
-> > > 15:34:03.000000000 -0700
-> > > +++ 2.6.10-rc1/include/linux/delay.h	2004-11-01 12:06:11.000000000 -0800
-> > > @@ -46,4 +46,9 @@ static inline void ssleep(unsigned int s
-> > > 	msleep(seconds * 1000);
-> > > }
-> > > 
-> > > +static inline unsigned long ssleep_interruptible(unsigned int seconds)
-> > > +{
-> > > +	return (unsigned long)(msleep_interruptible(seconds * 1000) / 1000);
-> > > +}
-> > > +
-> > > #endif /* defined(_LINUX_DELAY_H) */
-> > 
-> > After a discussion on IRC, I believe it is pretty clear that this
-> > function has serious issues. Mainly, that if I request a delay of 1
-> > second, but msleep_interruptible() returns after 1 millisecond, then
-> > ssleep_interruptible() will return 0, claiming the entire delay was
-> > used (due to rounding).
-> > 
-> > Perhaps we should just be satisfied with milliseconds being the grossest
-> > (in contrast to fine) measure of time, at least in terms of
-> > interruptible delays. ssleep() is unaffected by this problem, of course.
-> > 
-> > Please revert this patch, if applied, as well as any of the other
-> > patches I sent using ssleep_interruptible() [only a handful].
-> 
-> Would making sure that the time slept was always rounded up to
-> the nearest second resolve this problem. I believe that rounding
-> up is a common approach to resolving this type of problem when
-> changing clock resolution.
-> 
-> I am thinking of something like this.
-> 
-> ===== include/linux/delay.h 1.6 vs edited =====
-> --- 1.6/include/linux/delay.h	2004-09-03 18:08:32 +09:00
-> +++ edited/include/linux/delay.h	2004-11-22 11:47:03 +09:00
-> @@ -46,4 +46,10 @@ static inline void ssleep(unsigned int s
->  	msleep(seconds * 1000);
->  }
->  
-> +static inline unsigned long ssleep_interruptible(unsigned int seconds)
-> +{
-> +	return (unsigned long)((msleep_interruptible(seconds * 1000) + 999) / 
-> +			1000);
+Sk98lin open would return -1 in case of error instead of a useful
+errno value.
 
-This is a good idea, but I have two issues:
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-1) A major reason for having msecs_to_jiffies() and co. is to avoid
-having to do this type of conversion ourselves. A weak argument,
-admittedly, but just something to keep in mind.
-
-2) This still has a serious logical flaw: If I request 1 second of
-sleep, and I don't sleep the entire time, then it is now guaranteed that
-I will think I did not sleep at all (ie. ssleep_interruptible() will
-return 1). That's just another version of the original issue.
-
-I just don't think it's useful to have this coarse of granularity, at
-least in terms of interruptible sleep.
-
--Nish
+diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+--- a/drivers/net/sk98lin/skge.c	2004-11-17 09:22:56 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-17 09:22:56 -08:00
+@@ -1122,11 +1122,8 @@
+ 		("SkGeOpen: pAC=0x%lX:\n", (unsigned long)pAC));
+ 
+ #ifdef SK_DIAG_SUPPORT
+-	if (pAC->DiagModeActive) {
+-		if (pAC->Pnmi.DiagAttached == SK_DIAG_RUNNING) {
+-			return (-1);   /* still in use by diag; deny actions */
+-		} 
+-	}
++	if (pAC->DiagModeActive && pAC->Pnmi.DiagAttached == SK_DIAG_RUNNING)
++		return -EBUSY;
+ #endif
+ 
+ 	/* Set blink mode */
+@@ -1137,7 +1134,7 @@
+ 		/* level 1 init common modules here */
+ 		if (SkGeInit(pAC, pAC->IoBase, SK_INIT_IO) != 0) {
+ 			printk(KERN_ERR "%s: HWInit (1) failed.\n", pAC->dev[pNet->PortNr]->name);
+-			return (-1);
++			return -EIO;
+ 		}
+ 		SkI2cInit	(pAC, pAC->IoBase, SK_INIT_IO);
+ 		SkEventInit	(pAC, pAC->IoBase, SK_INIT_IO);
+@@ -1152,7 +1149,7 @@
+ 		/* tschilling: Level 2 init modules here, check return value. */
+ 		if (SkGeInit(pAC, pAC->IoBase, SK_INIT_RUN) != 0) {
+ 			printk(KERN_ERR "%s: HWInit (2) failed.\n", pAC->dev[pNet->PortNr]->name);
+-			return (-1);
++			return -EIO;
+ 		}
+ 		SkI2cInit	(pAC, pAC->IoBase, SK_INIT_RUN);
+ 		SkEventInit	(pAC, pAC->IoBase, SK_INIT_RUN);
+@@ -1204,7 +1201,7 @@
+ 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_ENTRY,
+ 		("SkGeOpen suceeded\n"));
+ 
+-	return (0);
++	return 0;
+ } /* SkGeOpen */
+ 
+ 
