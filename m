@@ -1,58 +1,83 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Fri, 07 Jan 2005 16:26:45 +0100
-Message-ID: <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
-	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
-	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
-	 <1105019912.2314.20.camel@jzny.localdomain>
-	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
-	 <1105104757.1046.63.camel@jzny.localdomain>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: Followup to netpoll issues
+Date: Fri, 7 Jan 2005 09:01:18 -0800
+Message-ID: <20050107170118.GU2940@waste.org>
+References: <1105045914.7687.3.camel@tigger> <20050106234610.GT2940@waste.org> <20050107011547.GE27896@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
+Content-Type: text/plain; charset=us-ascii
+Cc: Mark Broadbent <markb@wetlettuce.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1105104757.1046.63.camel@jzny.localdomain>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20050107011547.GE27896@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-01-07 at 14:32, jamal wrote:
-> On Thu, 2005-01-06 at 10:06, Tommy Christensen wrote:
+On Fri, Jan 07, 2005 at 02:15:47AM +0100, Francois Romieu wrote:
+> Matt Mackall <mpm@selenic.com> :
+> [...]
+> > I've tinkered with this idea as well, but I'm not convinced it's the
+> > right idea. All current netpoll users (netconsole, kgdb, netdump) are
+> > intrinsically concerned with timeliness of delivery. Queueing packets
+>                           ^^^^^^^^^^^^^^^
+> (as well as with reliability of the delivery maybe)
+
+> > for later delivery simply doesn't work with the latter two and might
+> > mislead with the former (eg netconsole message and other network
+> > traffic could be reordered).
 > 
-> > But qdisc_restart() isn't called any more after the queue is
-> > stopped. So how do we get to drain the packets?
+> If kernel/printk.c::vprintk can not take the console semaphore, I
+> would say that messages are reordered with regard to the order in
+> which xmit_lock has been taken even without Mark's patch.
 > 
-> We return -1; so qdisc restart will be called until theres no packets
-> left on the queue. Did i miss something in the state machine there?
+> So what do you exactly mean by "reordered" ?
 
-Yes, qdisc_run does this
-  while (!netif_queue_stopped(dev) && qdisc_restart(dev) < 0)
-    /* NOTHING */;
+printk("debug: at point A");
+do_something_that_sends_a_packet_B();
+printk("debug: at point C");
 
-> > Another approach could be to reset the qdisc (kind of what
-> > dev_deactivate does) if the driver stays in queue_stopped
-> > and carrier_off for some period of time.
-> > 
+Depending on locking and queueing, we might see on our network dump B,
+A, C, and wrongly conclude that whatever did B was not between A and C.
+That's a bad way for printk to work.
+
+> > Also note that there's a closely related class of deadlock that we
+> > can't detect: netconsole-induced recursion on driver-private locks. We
+> > haven't actually seen one of these yet and haven't attempted to audit
+> > for them, but my plan all along has been to treat it as a bug and
+> > hoist offending printks out of the locked regions. Note that this is
+> > really a netconsole-specific problem as the other netpoll clients are
+> > unlikely to have such usage patterns.
 > 
-> reseting qdisc could certainly be part of the device watchdog.
-> Note that once the packets are drained, the next thing that will happen
-> if device is stopped for a dev->timeout period is watchdog kicking in
-> and flushing the DMA. So you could reset your qdisc there though i am
-> not sure it will be needed with that patch.
+> Is is still a problem if Mark turns the spinlock in tx_retry_wq() into
+> an irq safe trylock ?
+> 
+> (driver-private bugs could/will be inherited but fixing these is not
+> netconsole's job).
 
-Unfortunately the watchdog won't do this when carrier is off, which
-is fair enough since the chip isn't hung as such.
+The bugs I'm talking about are identical to the xmit_lock deadlock
+except with locks we can't see outside the driver. In other words,
+this patch addresses the easy part of larger problem by adding a bunch
+of complexity that doesn't help in the larger problem. To me, that's a
+hint that it's the wrong fix.
 
-So, we would need another method to flush out stale packets from
-the DMA ring. Some drivers already do this themselves, and some won't
-need it because they keep on running even when link is down.
+> > Since the xmit_lock is so similar, it seems things that hit it ought
+> > to get the same treatment. So the rule becomes: no printk with network
+> > driver locks held (public or private). This is obviously broken in the
+> > face of oopsing in the driver, but netconsole can't be expected to
+> > work under such conditions anyway.
+> 
+> I am not convinced that people will be satisfied with a rule which
+> states that printk _from anywhere_ are lost as soon as a CPU enters
+> in the xmit_lock zone but, hey, it's just me.
 
--Tommy
+It should only be dropped on the CPU holding the lock, with a loud
+warning to follow shortly.
+
+> Objection against Ccing further messages to netdev ? It is better indexed
+> than our mailboxes.
+
+Nope.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
