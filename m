@@ -1,37 +1,27 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
-Date: Wed, 2 Mar 2005 14:14:15 -0800
-Message-ID: <20050302141415.517b6b08.akpm@osdl.org>
-References: <20050223014233.6710fd73.akpm@osdl.org>
-	<20050226113123.GJ3311@stusta.de>
-	<42256078.1040002@pobox.com>
-	<20050302140833.GD4608@stusta.de>
-	<42261004.4000501@pobox.com>
-	<20050302123829.51dbc44b.akpm@osdl.org>
-	<42262B08.2040401@pobox.com>
-	<20050302131817.2e61805f.akpm@osdl.org>
-	<20050302215607.GF4608@stusta.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] remove dead skb_iter code
+Date: Wed, 2 Mar 2005 14:25:42 -0800
+Message-ID: <20050302142542.2ae86040.davem@davemloft.net>
+References: <20050302101035.61786113@dxpl.pdx.osdl.net>
+	<20050302102025.23f479f9.davem@davemloft.net>
+	<20050302220735.GB25847@infradead.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050302215607.GF4608@stusta.de>
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20050302220735.GB25847@infradead.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk <bunk@stusta.de> wrote:
->
-> > Would be better to just do:
-> > 
-> > config CRYPTO_AES
-> > 	select CRYPTO_AES_586 if (X86 && !X86_64)
-> > 	select CRYPTO_AES_OTHER if !(X86 && !X86_64)
-> > 
-> > and hide CRYPTO_AES_586 and CRYPTO_AES_OTHER from the outside world.
-> 
-> 
->   http://www.ussg.iu.edu/hypermail/linux/kernel/0502.3/0518.html
+On Wed, 2 Mar 2005 22:07:35 +0000
+Christoph Hellwig <hch@infradead.org> wrote:
 
-Please resubmit.
+> Maybe because the removal is right.  This code is not dependent on
+> any networking internals so it can easily live in a netfilter support
+> module instead of bloating everyones kernels.
+
+Fine, I'll kill it for now.  (I also happen to know that it might
+be used for ipv4 fragmentation tricks too, but that's also in the
+future).
