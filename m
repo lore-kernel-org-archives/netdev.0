@@ -1,38 +1,49 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: CONFIG_IPV6_SUBTREES (was [patch]: CONFIG_IPV6_SUBTREES fix
- for MIPv6)
-Date: Fri, 06 Jun 2003 19:32:18 +0900 (JST)
+From: Henrik Petander <lpetande@tml.hut.fi>
+Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
+Date: Fri, 06 Jun 2003 14:14:35 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030606.193218.117654914.yoshfuji@linux-ipv6.org>
-References: <20030605.191224.68706097.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0306052009580.32033-100000@rhea.tcs.hut.fi>
+Message-ID: <3EE0779B.9080300@tml.hut.fi>
+References: <20030424132559.GA15894@morphine.tml.hut.fi>	<Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>	<20030531.000319.114704530.yoshfuji@linux-ipv6.org>	<20030605.191224.68706097.yoshfuji@linux-ipv6.org> <20030606143844.0604c306.nakam@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   ajtuomin@morphine.tml.hut.fi, lpetande@morphine.tml.hut.fi,
-   jagana@us.ibm.com, kumarkr@us.ibm.com, nakam@linux-ipv6.org,
+Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?=
+ <yoshfuji@linux-ipv6.org>,
+   vnuorval@tcs.hut.fi, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi,
+   lpetande@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com,
    usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <Pine.LNX.4.44.0306052009580.32033-100000@rhea.tcs.hut.fi>
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <20030606143844.0604c306.nakam@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0306052009580.32033-100000@rhea.tcs.hut.fi> (at Fri, 6 Jun 2003 11:48:36 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+Hello Nakamura,
 
-> Since the initial mode of communication between a mobile node (using its
-> home address) and any correspondent node is reverse tunneling we at least
-> need something like a default (i.e. a non-host) route through the tunnel
-> for the MN's home address.
+Masahide NAKAMURA wrote:
+> Hello,
+> I'm Nakamura, a member of USAGI.
+> 
+>
+> As you know, we've been planning the MIPv6 design to use XFRM.
+> If we use MIPv6, we need some fix and extension to XFRM and it results to make XFRM
+> more generic.
 
-Excuse me, please forget anything related to "Mobile IP" during this
-discussion; do not assume that Mobile IP is the only user of 
-CONFIG_IPV6_SUBTREES.  
+I like your idea, as it allows a high level of flexibility in use of
+mipv6  with flows through the definition of policies. This is the way I
+would also do mipv6 extension header addition with xfrm.
 
-Thank you.
+However, if you insert mipv6 policies into xfrm, you need to take care
+of the interactions between ipsec and mipv6 policies. The system needs
+to cope with data flows to which both ipsec and mipv6 should be applied.
+As a result of this the logic of the xfrm lookups probably needs some
+changes to return both the matching ipsec and mipv6 policies. How have
+you planned to solve this problem?
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+BTW, feel free to use relevant parts of my code for the output
+functionality to speed up the work. After your code is ready we can look
+at which approach is better suited for implementing the kernel support
+and get a working kernel infrastructure for mipv6 into 2.6 kernels.
+
+Henrik
