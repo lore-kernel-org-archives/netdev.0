@@ -1,325 +1,241 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (6/6) sk16 -- revised network probing
-Date: Thu, 25 Sep 2003 17:19:24 -0700
+Subject: [PATCH] (4/6) ni52 -- revised probing
+Date: Thu, 25 Sep 2003 17:16:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030925171924.43e317f3.shemminger@osdl.org>
+Message-ID: <20030925171624.76c8a5bb.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-from viro  NE17-sk16
-	* switched sk_g16 to dynamic allocation
-	* sk_g16: embedded ->priv
-	* sk_g16: fixed buggy check for signature (|| instead of &&, somebody
-	  forgot to replace it when inverting the test).
-	* sk_g16: fixed use after kfree()
-	* sk_g16: fixed init_etherdev() race
-	+ add free_netdev
+from NE15-ni52 by Al Viro, updated to 2.6.0-test5
+	* switched ni52 to dynamic allocation
+	* ni52: embedded ->priv
+	* ni52: fixed clobbering of everything on autoprobe
+	+ use free_netdev
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Thu Sep 25 16:30:45 2003
-+++ b/drivers/net/Space.c	Thu Sep 25 16:30:45 2003
-@@ -73,7 +73,7 @@
- extern struct net_device *ni52_probe(int unit);
+--- a/drivers/net/Space.c	Thu Sep 25 16:29:41 2003
++++ b/drivers/net/Space.c	Thu Sep 25 16:29:41 2003
+@@ -70,7 +70,7 @@
+ extern int ne3210_probe(struct net_device *);
+ extern int e2100_probe(struct net_device *);
+ extern int ni5010_probe(struct net_device *);
+-extern int ni52_probe(struct net_device *);
++extern struct net_device *ni52_probe(int unit);
  extern struct net_device *ni65_probe(int unit);
  extern int sonic_probe(struct net_device *);
--extern int SK_init(struct net_device *);
-+extern struct net_device *SK_init(int unit);
- extern int seeq8005_probe(struct net_device *);
- extern int smc_init( struct net_device * );
- extern int atarilance_probe(struct net_device *);
-@@ -281,13 +281,13 @@
- #ifdef CONFIG_ELPLUS		/* 3c505 */
- 	{elplus_probe, 0},
+ extern int SK_init(struct net_device *);
+@@ -287,13 +287,13 @@
+ #ifdef CONFIG_NI5010
+ 	{ni5010_probe, 0},
  #endif
--#ifdef CONFIG_SK_G16
--	{SK_init, 0},
+-#ifdef CONFIG_NI52
+-	{ni52_probe, 0},
 -#endif
  	{NULL, 0},
  };
  
  static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_SK_G16
-+	{SK_init, 0},
++#ifdef CONFIG_NI52
++	{ni52_probe, 0},
 +#endif
- #ifdef CONFIG_NI5010
- 	{ni5010_probe, 0},
+ #ifdef CONFIG_NI65
+ 	{ni65_probe, 0},
  #endif
-diff -Nru a/drivers/net/sk_g16.c b/drivers/net/sk_g16.c
---- a/drivers/net/sk_g16.c	Thu Sep 25 16:30:45 2003
-+++ b/drivers/net/sk_g16.c	Thu Sep 25 16:30:45 2003
-@@ -457,8 +457,6 @@
- /* static variables */
+diff -Nru a/drivers/net/ni52.c b/drivers/net/ni52.c
+--- a/drivers/net/ni52.c	Thu Sep 25 16:29:41 2003
++++ b/drivers/net/ni52.c	Thu Sep 25 16:29:41 2003
+@@ -354,50 +354,76 @@
+ 	memset((char *)p->scb,0,sizeof(struct scb_struct));
+ }
  
- static SK_RAM *board;  /* pointer to our memory mapped board components */
--static struct net_device *SK_dev;
--unsigned long SK_ioaddr;
- static spinlock_t SK_lock = SPIN_LOCK_UNLOCKED;
- 
- /* Macros */
-@@ -472,7 +470,6 @@
-  * See for short explanation of each function its definitions header.
-  */
- 
--int          SK_init(struct net_device *dev);
- static int   SK_probe(struct net_device *dev, short ioaddr);
- 
- static void  SK_timeout(struct net_device *dev);
-@@ -530,84 +527,71 @@
-  *     YY/MM/DD  uid  Description
- -*/
- 
-+static int io;	/* 0 == probe */
++/* set: io,irq,memstart,memend or set it when calling insmod */
++static int irq=9;
++static int io=0x300;
++static long memstart;	/* e.g 0xd0000 */
++static long memend;	/* e.g 0xd4000 */
 +
- /* 
-  * Check for a network adaptor of this type, and return '0' if one exists.
-  * If dev->base_addr == 0, probe all likely locations.
-  * If dev->base_addr == 1, always return failure.
+ /**********************************************
+  * probe the ni5210-card
   */
- 
--int __init SK_init(struct net_device *dev)
-+struct net_device * __init SK_init(int unit)
+-int __init ni52_probe(struct net_device *dev)
++struct net_device * __init ni52_probe(int unit)
  {
--	int ioaddr;			   /* I/O port address used for POS regs */
- 	int *port, ports[] = SK_IO_PORTS;  /* SK_G16 supported ports */
- 	static unsigned version_printed;
+-#ifndef MODULE
+-	int *port;
 +	struct net_device *dev = alloc_etherdev(sizeof(struct priv));
-+	int err = -ENODEV;
-+
+ 	static int ports[] = {0x300, 0x280, 0x360 , 0x320 , 0x340, 0};
+-#endif
+-	int base_addr = dev->base_addr;
+-
+-	SET_MODULE_OWNER(dev);
++	int *port;
++	int err = 0;
+ 
+-	if (base_addr > 0x1ff)		/* Check a single specified location. */
+-		return ni52_probe1(dev, base_addr);
+-	else if (base_addr > 0)		/* Don't probe at all. */
+-		return -ENXIO;
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
  
--	/* get preconfigured base_addr from dev which is done in Space.c */
--	int base_addr = dev->base_addr; 
+-#ifdef MODULE
+-	printk("%s: no autoprobing allowed for modules.\n",dev->name);
+-#else
+-	for (port = ports; *port; port++) {
+-		int ioaddr = *port;
+-		dev->base_addr = ioaddr;
+-		if (ni52_probe1(dev, ioaddr) == 0)
+-			return 0;
 +	if (unit >= 0) {
 +		sprintf(dev->name, "eth%d", unit);
 +		netdev_boot_setup_check(dev);
 +		io = dev->base_addr;
-+	}
++		irq = dev->irq;
++		memstart = dev->mem_start;
++		memend = dev->mem_end;
+ 	}
  
- 	if (version_printed++ == 0)
- 	        PRINTK(("%s: %s", SK_NAME, rcsid));
+-#ifdef FULL_IO_PROBE
+-	for(dev->base_addr=0x200; dev->base_addr<0x400; dev->base_addr+=8)
+-		if (ni52_probe1(dev, dev->base_addr) == 0)
+-			return 0;
+-#endif
++	SET_MODULE_OWNER(dev);
  
--	if (base_addr > 0x0ff)        /* Check a single specified address */
--	{
--	    int rc = -ENODEV;
--
--	    ioaddr = base_addr;
-+	if (io > 0xff) {        /* Check a single specified address */
-+		err = -EBUSY;
-+		/* Check if on specified address is a SK_G16 */
-+		if (request_region(io, ETHERCARD_TOTAL_SIZE, "sk_g16")) {
-+			err = SK_probe(dev, io);
-+			if (!err)
-+				goto got_it;
-+			release_region(io, ETHERCARD_TOTAL_SIZE);
-+		}
-+	} else if (io > 0) {       /* Don't probe at all */
++	if (io > 0x1ff)	{	/* Check a single specified location. */
++		err = ni52_probe1(dev, io);
++	} else if (io > 0) {		/* Don't probe at all. */
 +		err = -ENXIO;
 +	} else {
-+		/* Autoprobe base_addr */
-+		for (port = &ports[0]; *port; port++) {
-+			io = *port;
-+
-+			/* Check if I/O Port region is used by another board */
-+			if (!request_region(io, ETHERCARD_TOTAL_SIZE, "sk_g16"))
-+				continue;       /* Try next Port address */
-+
-+			/* Check if at ioaddr is a SK_G16 */
-+			if (SK_probe(dev, io) == 0)
-+				goto got_it;
- 
--	    /* Check if on specified address is a SK_G16 */
--	    if (!request_region(ioaddr, ETHERCARD_TOTAL_SIZE, "sk_g16"))
--	    	return -EBUSY;
++		for (port = ports; *port && ni52_probe1(dev, *port) ; port++)
++			;
++		if (*port)
++			goto got_it;
++#ifdef FULL_IO_PROBE
++		for (io = 0x200; io < 0x400 && ni52_probe1(dev, io); io += 8)
++			;
++		if (io < 0x400)
++			goto got_it;
+ #endif
 -
--	    if ( (inb(SK_POS0) == SK_IDLOW) ||
--		 (inb(SK_POS1) == SK_IDHIGH) )  
--	    {
--		rc = SK_probe(dev, ioaddr);
--	    }
--
--	    if (rc)
--	        release_region(ioaddr, ETHERCARD_TOTAL_SIZE);
--	    return rc;
-+			release_region(io, ETHERCARD_TOTAL_SIZE);
-+		}
- 	}
--	else if (base_addr > 0)       /* Don't probe at all */
--	{
--		return -ENXIO;
-+err_out:
-+	free_netdev(dev);
-+	return ERR_PTR(err);
-+
+-	dev->base_addr = base_addr;
+-	return -ENODEV;
++		err = -ENODEV;
++	}
++	if (err)
++		goto out;
 +got_it:
 +	err = register_netdev(dev);
-+	if (err) {
-+		release_region(dev->base_addr, ETHERCARD_TOTAL_SIZE);
-+		goto err_out;
- 	}
--
--	/* Autoprobe base_addr */
--
--	for (port = &ports[0]; *port; port++) 
--	{
--	    ioaddr = *port;           /* we need ioaddr for accessing POS regs */
--
--	    /* Check if I/O Port region is used by another board */
--
--	    if (!request_region(ioaddr, ETHERCARD_TOTAL_SIZE, "sk_g16"))
--	    {
--		continue;             /* Try next Port address */
--	    }
--
--	    /* Check if at ioaddr is a SK_G16 */
--
--	    if ( !(inb(SK_POS0) == SK_IDLOW) ||
--		 !(inb(SK_POS1) == SK_IDHIGH) )
--	    {
--	        release_region(ioaddr, ETHERCARD_TOTAL_SIZE);
--		continue;             /* Try next Port address */
--	    }
--
--	    dev->base_addr = ioaddr;  /* Set I/O Port Address */
--
--	    if (SK_probe(dev, ioaddr) == 0)  
--	    {
--		return 0; /* Card found and initialized */
--	    }
--
--	    release_region(ioaddr, ETHERCARD_TOTAL_SIZE);
--	}
--
--	dev->base_addr = base_addr;   /* Write back original base_addr */
--
--	return -ENODEV;                /* Failed to find or init driver */
++	if (err)
++		goto out1;
 +	return dev;
++out1:
++	release_region(dev->base_addr, NI52_TOTAL_SIZE);
++out:
++	free_netdev(dev);
++	return ERR_PTR(err);
+ }
  
- } /* End of SK_init */
+ static int __init ni52_probe1(struct net_device *dev,int ioaddr)
+ {
+ 	int i, size, retval;
  
-@@ -620,54 +604,22 @@
++	dev->base_addr = ioaddr;
++	dev->irq = irq;
++	dev->mem_start = memstart;
++	dev->mem_end = memend;
++
+ 	if (!request_region(ioaddr, NI52_TOTAL_SIZE, dev->name))
+ 		return -EBUSY;
  
+@@ -416,7 +442,7 @@
+ 		goto out;
+ 	}
+ 
+-	printk("%s: NI5210 found at %#3lx, ",dev->name,dev->base_addr);
++	printk(KERN_INFO "%s: NI5210 found at %#3lx, ",dev->name,dev->base_addr);
+ 
+ 	/*
+ 	 * check (or search) IO-Memory, 8K and 16K
+@@ -469,13 +495,6 @@
+ 	dev->mem_end = dev->mem_start + size; /* set mem_end showed by 'ifconfig' */
+ #endif
+ 
+-	dev->priv = (void *) kmalloc(sizeof(struct priv),GFP_KERNEL);
+-	if(dev->priv == NULL) {
+-		printk("%s: Ooops .. can't allocate private driver memory.\n",dev->name);
+-		retval = -ENOMEM;
+-		goto out;
+-	}
+-																	/* warning: we don't free it on errors */
+ 	memset((char *) dev->priv,0,sizeof(struct priv));
+ 
+ 	((struct priv *) (dev->priv))->memtop = isa_bus_to_virt(dev->mem_start) + size;
+@@ -503,8 +522,6 @@
+ 		if(!dev->irq)
+ 		{
+ 			printk("?autoirq, Failed to detect IRQ line!\n");
+-			kfree(dev->priv);
+-			dev->priv = NULL;
+ 			retval = -EAGAIN;
+ 			goto out;
+ 		}
+@@ -526,8 +543,6 @@
+ 
+ 	dev->if_port 		= 0;
+ 
+-	ether_setup(dev);
+-
+ 	return 0;
+ out:
+ 	release_region(ioaddr, NI52_TOTAL_SIZE);
+@@ -1295,13 +1310,7 @@
+ }
  
  #ifdef MODULE
--static int io;	/* 0 == probe */
+-static struct net_device dev_ni52;
 -
- static int __init SK_init_module (void)
- {
--	int rc;
--	
--	SK_dev = init_etherdev (NULL, 0);
--	if (!SK_dev)
--		return -ENOMEM;
--	
--	SK_dev->base_addr = io;
--
--	rc = SK_init (SK_dev);
--	if (rc) {
--		unregister_netdev (SK_dev);
--		kfree (SK_dev);
--		SK_dev = NULL;
--	}
--	
--	return rc;
-+ 	SK_dev = SK_init(-1);
-+ 	return IS_ERR(SK_dev) ? PTR_ERR(SK_dev) : 0;
- }
--#endif /* MODULE */
--
+-/* set: io,irq,memstart,memend or set it when calling insmod */
+-static int irq=9;
+-static int io=0x300;
+-static long memstart;	/* e.g 0xd0000 */
+-static long memend;	/* e.g 0xd4000 */
++static struct net_device *dev_ni52;
  
- static void __exit SK_cleanup_module (void)
- {
--	if (SK_dev) {
--		if (SK_dev->priv) {
--			kfree(SK_dev->priv);
--			SK_dev->priv = NULL;
--		}
--		unregister_netdev(SK_dev);
--		free_netdev(SK_dev);
--		SK_dev = NULL;
--	}
--	if (SK_ioaddr) {
--		release_region(SK_ioaddr, ETHERCARD_TOTAL_SIZE);
--		SK_ioaddr = 0;
--	}
--		
-+ 	unregister_netdev(SK_dev);
-+ 	release_region(SK_dev->base_addr, ETHERCARD_TOTAL_SIZE);
-+ 	free_netdev(SK_dev);
+ MODULE_PARM(io, "i");
+ MODULE_PARM(irq, "i");
+@@ -1318,22 +1327,17 @@
+ 		printk("ni52: Autoprobing not allowed for modules.\nni52: Set symbols 'io' 'irq' 'memstart' and 'memend'\n");
+ 		return -ENODEV;
+ 	}
+-	dev_ni52.init = ni52_probe;
+-	dev_ni52.irq = irq;
+-	dev_ni52.base_addr = io;
+-	dev_ni52.mem_end = memend;
+-	dev_ni52.mem_start = memstart;
+-	if (register_netdev(&dev_ni52) != 0)
+-		return -EIO;
++	dev_ni52 = ni52_probe(-1);
++	if (IS_ERR(dev_ni52))
++		return PTR_ERR(dev_ni52);
+ 	return 0;
  }
  
--
--#ifdef MODULE
- module_init(SK_init_module);
--#endif
- module_exit(SK_cleanup_module);
--
-+#endif
- 
- 
- /*-
-@@ -695,7 +647,11 @@
-     int sk_addr_flag = 0;   /* SK ADDR correct? 1 - no, 0 - yes */
-     unsigned int rom_addr;  /* used to store RAM address used for POS_ADDR */
- 
--    struct priv *p;         /* SK_G16 private structure */
-+    struct priv *p = dev->priv;         /* SK_G16 private structure */
-+
-+    if (inb(SK_POS0) != SK_IDLOW || inb(SK_POS1) != SK_IDHIGH)
-+	return -ENODEV;
-+    dev->base_addr = ioaddr;
- 
-     if (SK_ADDR & 0x3fff || SK_ADDR < 0xa0000)
-     {
-@@ -837,12 +793,6 @@
- 	    dev->dev_addr[4],
- 	    dev->dev_addr[5]);
- 
--    /* Allocate memory for private structure */
--    p = dev->priv = (void *) kmalloc(sizeof(struct priv), GFP_KERNEL);
--    if (p == NULL) {
--	   printk("%s: ERROR - no memory for driver data!\n", dev->name);
--	   return -ENOMEM;
--    }
-     memset((char *) dev->priv, 0, sizeof(struct priv)); /* clear memory */
- 
-     /* Assign our Device Driver functions */
-@@ -856,10 +806,6 @@
-     dev->watchdog_timeo		= HZ/7;
- 
- 
--    /* Set the generic fields of the device structure */
--
--    ether_setup(dev);
--    
-     dev->flags &= ~IFF_MULTICAST;
- 
-     /* Initialize private structure */
-@@ -884,12 +830,7 @@
-     SK_print_pos(dev, "End of SK_probe");
-     SK_print_ram(dev);
- #endif 
--
--    SK_dev = dev;
--    SK_ioaddr = ioaddr;
--
-     return 0;                            /* Initialization done */
--
- } /* End of SK_probe() */
- 
- 
-@@ -1280,7 +1221,7 @@
- 
- 	memcpy_toio((tmdp->u.buffer & 0x00ffffff), skb->data, skb->len);
- 	if (len != skb->len)
--		memcpy_toio((tmdp->u.buffer & 0x00ffffff) + sb->len, pad, len-skb->len);
-+		memcpy_toio((tmdp->u.buffer & 0x00ffffff) + skb->len, pad, len-skb->len);
- 
- 	writew(-len, &tmdp->blen);            /* set length to transmit */
+ void cleanup_module(void)
+ {
+-	release_region(dev_ni52.base_addr, NI52_TOTAL_SIZE);
+-	unregister_netdev(&dev_ni52);
+-	kfree(dev_ni52.priv);
+-	dev_ni52.priv = NULL;
++	unregister_netdev(dev_ni52);
++	release_region(dev_ni52->base_addr, NI52_TOTAL_SIZE);
++	free_netdev(dev_ni52);
+ }
+ #endif /* MODULE */
  
