@@ -1,52 +1,65 @@
 From: jamal <hadi@cyberus.ca>
-Subject: RE: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: 20 Mar 2005 08:40:11 -0500
-Message-ID: <1111326010.1093.32.camel@jzny.localdomain>
-References: <200503192219.j2JMJmDD014063@guinness.s2io.com>
+Subject: Re: dummy as IMQ replacement
+Date: 20 Mar 2005 08:55:13 -0500
+Message-ID: <1111326913.1093.37.camel@jzny.localdomain>
+References: <1107123123.8021.80.camel@jzny.localdomain>
+	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>
+	 <1107174142.8021.121.camel@jzny.localdomain>
+	 <00c301c524b4$938cd240$6e69690a@RIMAS>
+	 <1110379135.1091.143.camel@jzny.localdomain>
+	 <1110416767.1111.76.camel@jzny.localdomain>
+	 <025501c52552$2dbf87c0$6e69690a@RIMAS>
+	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>
+	 <1111196668.1146.114.camel@jzny.localdomain> <423BFD9F.50401@dsl.pipex.com>
+	 <1111324805.1094.11.camel@jzny.localdomain>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "'Andi Kleen'" <ak@muc.de>, netdev@oss.sgi.com, leonid@neterion.com,
-        jgarzik@pobox.com
-To: Leonid Grossman <leonid.grossman@neterion.com>
-In-Reply-To: <200503192219.j2JMJmDD014063@guinness.s2io.com>
+Cc: Thomas Graf <tgraf@suug.ch>, Remus <rmocius@auste.elnet.lt>,
+        netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
+        Damion de Soto <damion@snapgear.com>
+To: Andy Furniss <andy.furniss@dsl.pipex.com>
+In-Reply-To: <1111324805.1094.11.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-03-19 at 17:19, Leonid Grossman wrote:
+On Sun, 2005-03-20 at 08:20, jamal wrote:
 
-> Sure. I was not asking for a promise to merge the code, only for a rough
-> consensus that a HAL-based approach by itself is not a showstopper. 
-> Without such a consensus, it doesn't matter if we address other issues,
-> right?
+> On Sat, 2005-03-19 at 05:23, Andy Furniss wrote:
+> 
 
-Typically theres only one motivation for HALs - maintain the same code
-base for 20 OSes. Makes it easier for a small company (not sure if yours
-fits that category) to maintain. It doesnt matter how differently you
-position or spin it (no offense intended), that is the main if not only
-motivation. 
+> > [root@amd /home/andy/Qos]# tc -s filter ls dev eth0 parent ffff:
+> > 
+> > filter protocol ip pref 10 u32
+> > filter protocol ip pref 10 u32 fh 800: ht divisor 1
+> > filter protocol ip pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 
+> > flowid 1:1  (rule hit 12 success 12)
+> >    match 00000000/00000000 at 0 (success 12 )
+> >          action order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING
+> >          target MARK set 0x1
+> >          index 1 ref 1 bind 1 installed 251 sec expires 1 sec
+> >          Action statistics:
+> >          Sent 7630953 bytes 0 pkt
+> >          rate 3146Kbit 1095565348pps
+> > 
+> 
+> Ok, this seems to be a bug in the stats - I think it may have been
+> introduced during the new kernel stats code updates.
+> Ive cced Thomas who added that code, he may be able to figure it oput
+> before i get back
+> 
 
-OTOH, you shift the burden of the extra maintainance work to the people
-on the Linux side who know may have to understand what your layer does.
-This is why people hate it.
-I dont think it is sufficient to say your company will be updating the
-driver:
-- Years from now your company may not be around anymore but your
-hardware may still be. Who is going to fix the bugs then?  
-- APIs, mechanisms etc change on Linux as well. You become a bottleneck
-if nobody understands your HAL because they have to wait for you to make
-the changes.
-Traditionaly whoever makes the changes on dirver schemes ensures all
-drivers are updated. Think positively that this is now offloaded from
-you.
+OTOH, this may be a kernel issue. There have been some changes recently
+which updated some counters from 32 bit to 64 bit ;-> Clearly this
+will break the ABI and will give crap stats.
 
-My suggestion: have a dedicated resource just for Linux - it is big
-enough to justify; maintain HAL for other OSes that will never change, I
-bet you whatever works for NDIS probably will continue to work for
-vxworks for the next 10 years - not much innovation going on there;-> or
-you could claim (bah!) theres stability on those OSes.
+Try also if you can kernel 2.6.10.
+I think weve narrowed down iptables to be working if <= 1.2.11
+It will help me if you can narrow down the iproute2 version as well
+as the kernel version where things start breaking.
 
 cheers,
 jamal
