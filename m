@@ -1,47 +1,76 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: PATCH: sundance #5 (variable per-interface MTU support)
-Date: Thu, 19 Sep 2002 18:28:09 -0400 (EDT)
+From: "Cedric Edwards" <cedric@easynet.co.uk>
+Subject: Re: Translation services - Services de traduction
+Date: Fri, 20 Sep 2002 01:05:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209191821050.29420-100000@beohost.scyld.com>
-References: <20020919210348.GC17492@orr.falooley.org>
+Message-ID: <003e01c26039$7840a4e0$0600a8c0@speedy>
+References: <200209191254.g8JCsVtG021598@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@mandrakesoft.com>, <netdev@oss.sgi.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   Richard Gooch <rgooch@ras.ucalgary.ca>,
-   "Patrick R. McManus" <mcmanus@ducksong.com>, <edward_peng@dlink.com.tw>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <20020919210348.GC17492@orr.falooley.org>
+To: "Deborah CABESSA" <quotes@cabessatranslations.com>, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Sep 2002, Jason Lunz wrote:
+Hello,
 
-> This is a straightforward merge of variable mtu from donald's driver.
+I will be requiring English to Spanish translation. It will be single wor=
+d
+in context, small phrases and some complete paragraphs. The main intentio=
+n
+is for the translation of an English website to Spanish.
 
--	np->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 32);
-+	np->rx_buf_sz = (dev->mtu <= 1500 ? PKT_BUF_SZ : dev->mtu + 36);
+Can you offer such a service? I would be interested in you current pricin=
+g
+structure.
 
-Errrmm, not quite right.
+Thanking You
 
-Try
-	np->rx_buf_sz = (dev->mtu <= 1520 ? PKT_BUF_SZ : dev->mtu + 16);
+Cedric Edwards
 
-The idea is that all ethernet-like drivers always allocate skbuffs of
-the same size, PKT_BUF_SZ (1536=3*512), unless a jumbo MTU forces a
-larger size. 
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D
+Mobile: 0797 175 7247
+Home:  0034 963 360 181 (Spain) from Oct 1st
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D
+----- Original Message -----
+From: Deborah CABESSA <quotes@cabessatranslations.com>
+To: <netdev@oss.sgi.com>
+Sent: Thursday, September 19, 2002 2:59 PM
+Subject: Translation services - Services de traduction
 
-Specificially, using VLANs (+4 bytes on the frame size) on some interfaces
-should not result in a mix of allocation sizes.  Most VLAN-like
-encapsulation should add fewer than (1536-1518 = 18) 18 extra bytes.
 
-BTW, always leave a few extra bytes at the end of the data buffer.
-You never know when some chip might decide to dribble an extra word or
-two, or include the CRC because someone frobbed the driver.
+Hello,
 
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+As part of your operations, you perhaps sometimes require translation
+services.  We are a translation bureau offering services into a variety o=
+f
+languages.
+1) Do you ever need such services?
+2) Who in your organization is the person to contact?
+
+Best Regards,
+
+Deborah CABESSA
++33 (0)1 45 88 54 11
++33 (0)6 11 77 57 08
+
+Bonjour,
+
+Dans le cadre de vos activit=E9s, il vous arrive peut-=EAtre parfois de r=
+ecourir
+=E0 des services
+de traduction. Nous sommes un bureau de traduction et proposons des servi=
+ces
+dans
+diverses langues.
+1) Avez-vous besoin de services de ce type ?
+2) Dans votre entreprise, quelle est la personne =E0 contacter ?
+
+Cordialement,
+
+Deborah CABESSA
++33 (0)1 45 88 54 11
++33 (0)6 11 77 57 08
