@@ -1,26 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (2/4) delay scheduler - retry if requeue fails
-Date: Fri, 18 Jun 2004 13:44:46 -0700
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: [margitsw@t-online.de: Re: 2.6.7]
+Date: Fri, 18 Jun 2004 16:51:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618134446.668b20d4.davem@redhat.com>
-References: <20040617155559.5aeba553@dell_ss3.pdx.osdl.net>
+Message-ID: <20040618205156.GM6253@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lartc@mailman.ds9a.nl, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040617155559.5aeba553@dell_ss3.pdx.osdl.net>
+To: Netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Jun 2004 15:55:59 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+----- Forwarded message from Margit Schubert-While <margitsw@t-online.de> -----
 
-> If delay scheduler decides not to send the packet right away, it requeues
-> it.  If the requeue fails, it should go and look again rather than waking
-> up prematurely.
-> 
-> Same patch should apply to both 2.6 and 2.4
+To: Jeff Garzik <jgarzik@pobox.com>
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: Re: 2.6.7
+Cc: mcgrof@ruslug.rutgers.edu
+X-Seen: false
+X-ID: SOHkCBZQge5mHxVBfzhjSRRrfRiKverfv-Qojo2xc-ehNyTO6wxroP
 
-Applied.
+Forward to NETDEV
+Hi Jeff,
+2.6.7-bk1 does not include changes. Why ?
+
+Marfit
+
+
+----- End forwarded message -----
+
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
