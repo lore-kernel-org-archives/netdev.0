@@ -1,32 +1,32 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 09:43:58 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][IPV6] fixed authentication error with TCP
+Date: Mon, 18 Aug 2003 00:45:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818074358.GA15633@alpha.home.local>
-References: <1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk> <200308171759540391.00AA8CAB@192.168.128.16> <1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk> <200308171827130739.00C3905F@192.168.128.16> <1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk> <20030817224849.GB734@alpha.home.local> <20030817222258.257694b9.davem@redhat.com> <20030818065652.GA15098@alpha.home.local> <20030818000139.6964cd04.davem@redhat.com> <20030818072922.GB15098@alpha.home.local>
+Message-ID: <20030818004522.458a97b9.davem@redhat.com>
+References: <200308172329.DAA14889@dub.inr.ac.ru>
+	<Pine.LNX.4.44.0308181029560.18400-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Willy Tarreau <willy@w.ods.org>, alan@lxorguk.ukuu.org.uk,
-   carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, kazunori@miyazawa.org, netdev@oss.sgi.com,
+   usagi@linux-ipv6.org, latten@austin.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030818072922.GB15098@alpha.home.local>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308181029560.18400-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hmmm replying to myself !
+On Mon, 18 Aug 2003 10:45:41 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> So as a general rule of thumb, I would recommend people to systematically call
-> "ip arp append table output to [network] oif [NIC] src [local_ip]" after an
-> "ip address add [local_ip] dev [NIC]". And yes, I agree that these are
-> standard tools, but I maintain that the default behaviour should be cleaner.
+> The attached patch reverts to the old ip6_dst_lookup() interface and and
+> makes tcp_ipv6.c use that instead.
+> 
+> As an added bonus neither tcp_v6_connect() nor udpv6_connect() needs to do
+> source address selection anymore, since ip6_dst_lookup() already does this
+> for them.
 
-In fact, not standard. 'ip arp' was brought by Julian Anastasov's
-iproute2-iparp-3 patch on top of iproute2. But it seems to do wonderful things.
+Thanks a lot for doing this work, I'll review and apply
+your patch.
 
-Cheers,
-Willy
+I was about to code this up myself :)
