@@ -1,48 +1,41 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [RFC,PATCH] fastroute dead code...
-Date: 30 Jul 2004 17:05:02 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [RFC,PATCH] fastroute dead code...
+Date: Fri, 30 Jul 2004 17:08:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1091221502.1032.547.camel@jzny.localdomain>
-References: <9DFF23E1E33391449FDC324526D1F25902833769@sjc1exm02.pmc_nt.nt.pmc-sierra.bc.ca>
-Reply-To: hadi@cyberus.ca
+Message-ID: <410AB8E6.1010102@pobox.com>
+References: <20040730060348.GA22854@havoc.gtf.org> <ea86ce220407301229522be64f@mail.gmail.com> <20040730193515.GA11365@havoc.gtf.org> <ea86ce2204073013292c055a3@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, tmattox@gmail.com, netdev@oss.sgi.com,
-        Ralf Baechle <ralf@linux-mips.org>
+Cc: davem@redhat.com, hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Manish Lachwani <Manish_Lachwani@pmc-sierra.com>
-In-Reply-To: <9DFF23E1E33391449FDC324526D1F25902833769@sjc1exm02.pmc_nt.nt.pmc-sierra.bc.ca>
+To: Tim Mattox <tmattox@gmail.com>
+In-Reply-To: <ea86ce2204073013292c055a3@mail.gmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-07-30 at 16:31, Manish Lachwani wrote:
-> Is this a 2.6 issue or a 2.4 issue? This is because I am using 2.4.21 
-> kernel and so do the customers of the board. This board supports 1.0 
-> Ghz PMC-Sierra Rm9000 processor. With fast routing, the IP forwarding 
-> numbers are about 900 Kpps. While in the case where there is no fast 
-> routing, the numbers are about 450 Kpps (NAPI enabled)
-
-There could be many reasons why this is happening. Lets start with some
-simple experiment:
-
-- drop packets in netif_receive_skb(); this way they get counted
-by the driver stats but they dont get transfered. Count the rate at
-which you can receive packets.
-- On net/core/dev.c comment out do_gettimeofday() in netif_receive_skb()
-and do some measurement with regular routing.
-- repeat same tests with droping at netif_receive_skb().
-
-When you are forwarding, try to collect qdisc stats on egress as well
-so we could see if you are bus bound. I have a feeling this will never
-be a problem for you - those mups things normaly have some obscenely
-fast bus compared to say er PCI.
-
-> I still have not done any 2.6 benchmarking since the board support is 
-> not completely functional in 2.6 as yet. 
-
-You will see improvements in 2.6.x.
+Tim Mattox wrote:
+>>It is dead code, as-is, in the kernel.  It would require patches to
+>>actually work at all.
+>>
+>>It is impossible that fastrouting is being actively used, without patches.
+>>
+>>        Jeff
+> 
+> 
+> Some might consider dropping in a new network driver module a patch,
+> others wouldn't...  Anyway, as I said before, IMHO I agree its dead code
+> worthy of removal unless someone comes up with a GigE driver that
+> actually uses it.
 
 
-cheers,
-jamal
+Driver use is completely irrelevant :)
+
+Regardless of what any driver does, the IPv4 code in the kernel does not 
+make use of the RTCF_FAST flag, once set.  All the fastrouting driver 
+support API/code amounts to precisely nothing.
+
+Unless the --core net stack-- is patched again to support fastrouting, 
+all this is dead code.
+
+	Jeff
