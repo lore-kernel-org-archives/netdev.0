@@ -1,33 +1,25 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [Patch]: IPv6 Connection Tracking
-Date: Thu, 25 Sep 2003 22:14:28 +0300 (EEST)
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: Re: [PATCH][ATM]: [ioctl][1/8] move vcc_ioctl() to ioctl.c (from levon@movementarian.org)
+Date: Thu, 25 Sep 2003 15:28:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309252213440.11554-100000@netcore.fi>
-References: <1064516837.995.49.camel@localhost>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Netfilter Devel <netfilter-devel@lists.netfilter.org>,
-        Netdev <netdev@oss.sgi.com>, <usagi-core@linux-ipv6.org>
+Message-ID: <200309251928.h8PJSZkT011995@ginger.cmf.nrl.navy.mil>
+References: <levon@movementarian.org>
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andras Kis-Szabo <kisza@securityaudit.hu>
-In-Reply-To: <1064516837.995.49.camel@localhost>
+To: John Levon <levon@movementarian.org>
+In-Reply-To: Message from John Levon <levon@movementarian.org>
+   of "Thu, 25 Sep 2003 18:03:42 BST." <20030925170342.GA74937@compsoc.man.ac.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 25 Sep 2003, Andras Kis-Szabo wrote:
-[...]
-> > > Your FTP code uses EPSV and EPRT from rfc2428. What's about the FOOBAR
-> > > RFC (1639)? OK, it's a joke :)
-> > > Could we open an IPv4 data connection next to the IPv6 controll
-> > > connection?
-> > What about LPRT and LPSV?
->
-> This is the rfc1639/foobar :)
+In message <20030925170342.GA74937@compsoc.man.ac.uk>,John Levon writes:
+>atm-ioctl6.diff isn't applying properly now for some reason though.
 
-Too bad I've seen it implemented and used (AFAIR) ... so it definitely 
-isn't a joke...
+it applies to a bk pull from this morning w/o any trouble afaict.
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+>I guess it's fine to apply the old patchset anyway, it should be pretty
+>easy for Mitchell to add a diff before his stuff that represents the
+>changes between my two sets of patches.
+
+i redid your patch set a bit to just get from point a to b w/o
+the phantom ioctl.h and with the ATM_VF_IS_CLIP change discussed earlier.
