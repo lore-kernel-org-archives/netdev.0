@@ -1,59 +1,93 @@
-From: "James R. Leu" <jleu@mindspring.com>
-Subject: Re: Linux kernel updates and ip_crossover patch
-Date: Thu, 30 Oct 2003 12:17:30 -0600
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: IPv6 on-link assumption considered harmful
+Date: Thu, 30 Oct 2003 21:09:03 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031030181654.GA1474@mindspring.com>
-References: <OF5B9BCA99.0441857B-ON65256DCF.004761FF-65256DCF.004828A5@in.ibm.com> <20031030095312.6ef82ff7.davem@redhat.com>
-Reply-To: jleu@mindspring.com
+Message-ID: <Pine.LNX.4.44.0310302106000.22649-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mehulkumar J Patel <mehul.patel@in.ibm.com>, olh@suse.de,
-        aprasad@in.ibm.com, kaena@us.ibm.com, mfrueh@suse.de, olaf@suse.de,
-        davem@redhat.com
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20031030095312.6ef82ff7.davem@redhat.com>
+Content-ID: <Pine.LNX.4.44.0310302106002.22649@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I agree with David that this patch has a very narrow scope.  I think a
-more generic solution for a virtualized IP stack would be used by many more
-people, and still solve this specific problem.
+FYI,
 
-I have a patch for 'virtualizing' the IPv4 stack for the 2.4 kernel
-series.  I'm working on porting it to the 2.6 kernels and adding the
-same functionality for IPv6.
+IPv6 Neighbor Discovery installs default routes on every interface with a 
+high metric, i.e., if no other way to know how to treat the packet, it's 
+assumed to be "on-link".
 
-If you're interested in checking out the 2.4 kernel patch you can get
-the latest stable version from http://linux-vrf.sf.net/
+This causes a number of problems, especially if you have enabled IPv6 but 
+don't have IPv6 connectivity yet.
 
-That page also descibes howto get the most recent version from
-my development tree.
+This "feature" will likely be removed from Neighbor Discovery in its 
+revision.
+
+Just to give a heads-up before this is finalized, to give people ability 
+to prepare or comment prior to this process is formalized in the IETF.
 
 -- 
-James R. Leu
-jleu@mindspring.com
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+---------- Forwarded message ----------
+Date: Thu, 23 Oct 2003 09:30:54 -0400
+From: Internet-Drafts@ietf.org
+To: IETF-Announce:  ;
+Cc: v6ops@ops.ietf.org
+Subject: I-D ACTION:draft-ietf-v6ops-onlinkassumption-00.txt
 
-On Thu, Oct 30, 2003 at 09:53:12AM -0800, David S. Miller wrote:
-> On Thu, 30 Oct 2003 18:33:57 +0530
-> Mehulkumar J Patel <mehul.patel@in.ibm.com> wrote:
-> 
-> > Basically we need IP CROSSOVER patch to be part of pseries kernel.
-> 
-> This is not how the Linux community works.  You don't say "hey, we
-> _NEED_ this" and like magic it gets added to the Linux kernel.
-> 
-> Rather, it gets added because someone submits it and the community
-> sees a need for the feature.
-> 
-> As networking maintainer what I see is that this feature is needed by
-> and used by only a very small group of people for very specialized
-> purposes.  Therefore there is no urgency to add this to the kernel
-> sources any time soon.
-> 
-> You can continue whining, complaining about how much you personally
-> _NEED_ the ip_crossover patch, but that isn't going to help you
-> arrive at your goal.  Rather you should spend time explaining to
-> the community what value it gives to them and why it would be useful
-> to anything other than very specialized cases and uses.
+A New Internet-Draft is available from the on-line Internet-Drafts directories.
+This draft is a work item of the IPv6 Operations Working Group of the IETF.
+
+	Title		: IPv6 Neighbor Discovery On-Link Assumption 
+			  Considered Harmful
+	Author(s)	: S. Roy, et. al.
+	Filename	: draft-ietf-v6ops-onlinkassumption-00.txt
+	Pages		: 11
+	Date		: 2003-10-22
+	
+This document proposes a change to the IPv6 Neighbor Discovery
+conceptual host sending algorithm.  According to the algorithm, when
+a host's default router list is empty, the host assumes that all
+destinations are on-link.  This document describes how making this
+assumption causes problems, and describes how these problems outweigh
+the benefits of this part of the conceptual sending algorithm.
+
+A URL for this Internet-Draft is:
+http://www.ietf.org/internet-drafts/draft-ietf-v6ops-onlinkassumption-00.txt
+
+To remove yourself from the IETF Announcement list, send a message to 
+ietf-announce-request with the word unsubscribe in the body of the message.
+
+Internet-Drafts are also available by anonymous FTP. Login with the username
+"anonymous" and a password of your e-mail address. After logging in,
+type "cd internet-drafts" and then
+	"get draft-ietf-v6ops-onlinkassumption-00.txt".
+
+A list of Internet-Drafts directories can be found in
+http://www.ietf.org/shadow.html 
+or ftp://ftp.ietf.org/ietf/1shadow-sites.txt
+
+
+Internet-Drafts can also be obtained by e-mail.
+
+Send a message to:
+	mailserv@ietf.org.
+In the body type:
+	"FILE /internet-drafts/draft-ietf-v6ops-onlinkassumption-00.txt".
+	
+NOTE:	The mail server at ietf.org can return the document in
+	MIME-encoded form by using the "mpack" utility.  To use this
+	feature, insert the command "ENCODING mime" before the "FILE"
+	command.  To decode the response(s), you will need "munpack" or
+	a MIME-compliant mail reader.  Different MIME-compliant mail readers
+	exhibit different behavior, especially when dealing with
+	"multipart" MIME messages (i.e. documents which have been split
+	up into multiple messages), so check your local documentation on
+	how to manipulate these messages.
+		
+		
+Below is the data which will enable a MIME compliant mail reader
+implementation to automatically retrieve the ASCII version of the
+Internet-Draft.
