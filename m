@@ -1,38 +1,29 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH RESEND] memory leak in ndisc_router_discovery
-Date: Thu, 12 Dec 2002 11:05:43 -0800 (PST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: pci-skeleton duplex check
+Date: Thu, 12 Dec 2002 15:32:46 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212121905.gBCJ5hn18058@eng2.beaverton.ibm.com>
+Message-ID: <3DF8F26E.50306@pobox.com>
+References: <Pine.LNX.4.44.0212120857570.10674-100000@beohost.scyld.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: Roger Luethi <rl@hellgate.ch>, netdev@oss.sgi.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru, davem@redhat.com
+To: Donald Becker <becker@scyld.com>
+In-Reply-To: <Pine.LNX.4.44.0212120857570.10674-100000@beohost.scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Donald Becker wrote:
+> [[ I don't know why I bother. The people that now control what goes into
+> the kernel would rather put in random patches from other people than
+> accept a correct fix from me. ]]
 
-I had sent this earlier, there is a bug in router advertisement handling code,
-where the reference (and memory) to an inet6_dev pointer can get leaked (this
-leak can happen atmost once for each interface on a system which receives
-invalid RA's). Below is the patch against 2.5.51 to fix it.
 
-thanks,
+I'm very interested in applying fixes from you!  I am publicly begging 
+you to do so, and even CC'ing lkml on my request.
 
-- KK
+Please re-post any patches I or Andrew missed.
 
--------------------------------------------------------------------------------
-diff -ruN linux.org/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
---- linux.org/net/ipv6/ndisc.c	Fri Nov  7 10:02:11 2002
-+++ linux/net/ipv6/ndisc.c	Fri Nov  8 14:37:27 2002
-@@ -871,6 +871,7 @@
- 	}
- 
- 	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
-+		in6_dev_put(in6_dev);
- 		if (net_ratelimit())
- 			ND_PRINTK2(KERN_WARNING
- 				   "ICMP6 RA: invalid ND option, ignored.\n");
--------------------------------------------------------------------------------
+	Jeff
