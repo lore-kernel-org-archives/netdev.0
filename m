@@ -1,36 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: (usagi-core 15040) [PATCH] IPv6: Protect proxied addresses
- against DAD
-Date: Wed, 20 Aug 2003 20:43:04 +0900 (JST)
+From: Eran Mann <emann@mrv.com>
+Subject: Re: [patch 2.4] kernel oops on VLAN removal
+Date: Wed, 20 Aug 2003 15:51:51 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820.204304.07033882.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.44.0308201423500.541-200000@rhea.tcs.hut.fi>
+Message-ID: <3F436EE7.1030104@mrv.com>
+References: <3F424405.6020002@mrv.com> <20030819124154.75ec0383.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <Pine.LNX.4.44.0308201423500.541-200000@rhea.tcs.hut.fi>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030819124154.75ec0383.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0308201423500.541-200000@rhea.tcs.hut.fi> (at Wed, 20 Aug 2003 14:40:14 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+David S. Miller wrote:
+> On Tue, 19 Aug 2003 18:36:37 +0300
+> Eran Mann <emann@mrv.com> wrote:
+> 
+> 
+>>The current code attempts to add a proc entry for each vlan device,
+>>however there is no check whether this attempt succeeded. When a device
+>>is unregistered it tries to remove the proc entry, if none was added
+>>the oops follows...
+> 
+> 
+> Patch applied to my 2.4.x tree, scheduled for 2.4.23-preX
+> 
+> Can someone check out 2.6.x?
+> 
+It looks the same in 2.6.0-test3. The patch applies (with small offsets) 
+and works (the oops is much harder to trigger in 2.6.x since 
+PROC_NDYNAMIC is increased to 16384, I had to reduce it to 4096 to 
+trigger the oops).
 
-> --- linux-2.5.OLD/net/ipv6/ndisc.c	2003-08-20 14:10:16.000000000 +0300
-> +++ linux-2.5/net/ipv6/ndisc.c	2003-08-20 14:10:30.000000000 +0300
-> @@ -861,7 +861,8 @@
->  		struct inet6_dev *in6_dev = in6_dev_get(dev);
->  
->  		if (in6_dev && in6_dev->cnf.forwarding &&
-> -		    (addr_type & IPV6_ADDR_UNICAST) &&
-> +		    (addr_type & IPV6_ADDR_UNICAST ||
-> +		     addr_type == IPV6_ADDR_ANY) &&
->  		    pneigh_lookup(&nd_tbl, &msg->target, dev, 0)) {
->  			int inc = ipv6_addr_type(daddr)&IPV6_ADDR_MULTICAST;
->  
-
-I believe we don't need this chunk.
-
---ypshfuj 
+-- 
+Eran Mann
+Senior Software Engineer
+MRV International
+Tel: 972-4-9936297
+Fax: 972-4-9890430
+www.mrv.com
