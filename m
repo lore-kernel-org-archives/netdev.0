@@ -1,139 +1,58 @@
-From: Simone Piunno <pioppo@ferrara.linux.it>
-Subject: IPv6 duplicate address bugfix
-Date: Sun, 30 Mar 2003 14:27:05 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030330122705.GA18283@ferrara.linux.it>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: (usagi-users 02296) IPv6 duplicate address bugfix
+Date: Sun, 30 Mar 2003 22:08:29 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030330.220829.129728506.yoshfuji@linux-ipv6.org>
+References: <20030330122705.GA18283@ferrara.linux.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, ds6-devel@deepspace6.net
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: netdev@oss.sgi.com, usagi-users@linux-ipv6.org
-Content-Disposition: inline
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, ds6-devel@deepspace6.net
+Return-path: <netdev-bounce@oss.sgi.com>
+To: usagi-users@linux-ipv6.org, pioppo@ferrara.linux.it
+In-Reply-To: <20030330122705.GA18283@ferrara.linux.it>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20030330122705.GA18283@ferrara.linux.it> (at Sun, 30 Mar 2003 14:27:05 +0200), Simone Piunno <pioppo@ferrara.linux.it> says:
 
-Hi,
+> When adding an IPv6 address to a given interface, I'm allowed to
+> add that address multiple time, e.g.:
+> 
+> [root@abulafia root]# ip addr add 3ffe:4242:4242::1 dev eth0
+> [root@abulafia root]# ip addr add 3ffe:4242:4242::1 dev eth0
+> [root@abulafia root]# ip addr add 3ffe:4242:4242::1 dev eth0
+> [root@abulafia root]# ip addr show dev eth0
+> 2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 100
+>     link/ether 00:48:54:1b:25:30 brd ff:ff:ff:ff:ff:ff
+>     inet6 3ffe:4242:4242::1/128 scope global 
+>     inet6 3ffe:4242:4242::1/128 scope global 
+>     inet6 3ffe:4242:4242::1/128 scope global 
+>     inet6 fe80::248:54ff:fe1b:2530/10 scope link
+> 
+> Apparently, this is not a stability problem, because I'm allowed to 
+> delete 3 times that address before receving a "not found" error,
+> but there's no reason to allow multiple instances of the same address 
+> on the same interface, so this is a bug nonetheless.
+> 
+> Bug is confirmed on:
+>   - 2.4.20
+>   - 2.5.66
+>   - latest -usagi
 
-When adding an IPv6 address to a given interface, I'm allowed to
-add that address multiple time, e.g.:
+usagi code does not act like that.
 
-[root@abulafia root]# ip addr add 3ffe:4242:4242::1 dev eth0
-[root@abulafia root]# ip addr add 3ffe:4242:4242::1 dev eth0
-[root@abulafia root]# ip addr add 3ffe:4242:4242::1 dev eth0
-[root@abulafia root]# ip addr show dev eth0
-2: eth0: <BROADCAST,MULTICAST,UP> mtu 1500 qdisc pfifo_fast qlen 100
-    link/ether 00:48:54:1b:25:30 brd ff:ff:ff:ff:ff:ff
-    inet6 3ffe:4242:4242::1/128 scope global 
-    inet6 3ffe:4242:4242::1/128 scope global 
-    inet6 3ffe:4242:4242::1/128 scope global 
-    inet6 fe80::248:54ff:fe1b:2530/10 scope link
+In my environment,
 
-Apparently, this is not a stability problem, because I'm allowed to 
-delete 3 times that address before receving a "not found" error,
-but there's no reason to allow multiple instances of the same address 
-on the same interface, so this is a bug nonetheless.
+# ip addr add 3ffe:4242:4242::1 dev eth0
+# ip addr add 3ffe:4242:4242::1 dev eth0
+RTNETLINK answers: No buffer space available
+# ip addr add 3ffe:4242:4242::1 dev eth0
+RTNETLINK answers: No buffer space available
 
-Bug is confirmed on:
-  - 2.4.20
-  - 2.5.66
-  - latest -usagi
+And, patch does not seem optimal. I'd take a look at very soon.
 
-Following is a patch attempting to fix this bug.
-It's for 2.4.20 but sould apply cleanly on 2.5 too.
-
-Credits:
-  Chad N. Tindel  - discovered the bug and showed it to me
-  Peter Bieringer - confirmed it's a bug
-  Mauro Tortonesi - suggested sending a patch to this list.
-
-Regards,
-  Simone Piunno
-
-
---- net/ipv6/addrconf.c.orig	2003-03-25 21:33:55.000000000 +0100
-+++ net/ipv6/addrconf.c	2003-03-30 13:48:23.000000000 +0200
-@@ -89,6 +89,8 @@
- static struct inet6_ifaddr		*inet6_addr_lst[IN6_ADDR_HSIZE];
- static rwlock_t	addrconf_hash_lock = RW_LOCK_UNLOCKED;
- 
-+static spinlock_t addrconf_add_lock = SPIN_LOCK_UNLOCKED;
-+
- /* Protects inet6 devices */
- rwlock_t addrconf_lock = RW_LOCK_UNLOCKED;
- 
-@@ -621,6 +623,24 @@
- 	return ifp != NULL;
- }
- 
-+static struct inet6_ifaddr *
-+ipv6_addr_already_present(struct in6_addr *addr, struct net_device *dev)
-+{
-+	struct inet6_ifaddr *ifp;
-+	u8 hash = ipv6_addr_hash(addr);
-+	
-+	read_lock_bh(&addrconf_hash_lock);
-+	for (ifp = inet6_addr_lst[hash]; ifp; ifp = ifp->lst_next) {
-+		if (ipv6_addr_cmp(&ifp->addr, addr) == 0 && ifp->idev->dev == dev) {
-+			read_unlock_bh(&addrconf_hash_lock);
-+			return ifp;
-+		}
-+	}
-+	read_unlock_bh(&addrconf_hash_lock);
-+	return NULL;
-+}
-+
-+
- struct inet6_ifaddr * ipv6_get_ifaddr(struct in6_addr *addr, struct net_device *dev)
- {
- 	struct inet6_ifaddr * ifp;
-@@ -908,7 +928,7 @@
- 		return;
- 
- ok:
--
-+		spin_lock_bh(&addrconf_add_lock);
- 		ifp = ipv6_get_ifaddr(&addr, dev);
- 
- 		if (ifp == NULL && valid_lft) {
-@@ -920,12 +940,14 @@
- 						    addr_type&IPV6_ADDR_SCOPE_MASK, 0);
- 
- 			if (ifp == NULL) {
-+				spin_unlock_bh(&addrconf_add_lock);
- 				in6_dev_put(in6_dev);
- 				return;
- 			}
- 
- 			addrconf_dad_start(ifp);
- 		}
-+		spin_unlock_bh(&addrconf_add_lock);
- 
- 		if (ifp && valid_lft == 0) {
- 			ipv6_del_addr(ifp);
-@@ -1033,11 +1055,19 @@
- 
- 	scope = ipv6_addr_scope(pfx);
- 
-+	spin_lock_bh(&addrconf_add_lock);
-+	if (ipv6_addr_already_present(pfx, dev)) {
-+		spin_unlock_bh(&addrconf_add_lock);
-+		return -EEXIST;
-+	}
-+
- 	if ((ifp = ipv6_add_addr(idev, pfx, plen, scope, IFA_F_PERMANENT)) != NULL) {
-+		spin_unlock_bh(&addrconf_add_lock);
- 		addrconf_dad_start(ifp);
- 		in6_ifa_put(ifp);
- 		return 0;
- 	}
-+	spin_unlock_bh(&addrconf_add_lock);
- 
- 	return -ENOBUFS;
- }
 -- 
- Simone Piunno -- http://members.ferrara.linux.it/pioppo 
-.-------  Adde parvum parvo magnus acervus erit  -------.
- Ferrara Linux Users Group - http://www.ferrara.linux.it 
- Deep Space 6, IPv6 on Linux - http://www.deepspace6.net 
- GNU Mailman, Mailing List Manager - http://www.list.org 
-`-------------------------------------------------------'
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
