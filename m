@@ -1,44 +1,52 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH] [1/2] kernel error reporting (revised)
-Date: Fri, 18 Jul 2003 10:06:15 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: comx drivers in 2.6
+Date: Fri, 18 Jul 2003 12:36:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F182907.30EA5922@us.ibm.com>
-References: <Mutt.LNX.4.44.0307181148340.5813-100000@excalibur.intercode.com.au>
+Message-ID: <20030718123625.6f8ae9b9.shemminger@osdl.org>
+References: <20030717163337.78d123c0.shemminger@osdl.org>
+	<3F173458.6060405@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, davem@redhat.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-   alan@lxorguk.ukuu.org.uk, rddunlap@osdl.org, kuznet@ms2.inr.ac.ru
+Cc: Gergely Madarasz <gorgo@itc.hu>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F173458.6060405@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> 
-> On Thu, 17 Jul 2003, Jim Keniston wrote:
-> 
-> > 3. Given the above, what should the evlog.c caller do when
-> > kernel_error_event_iov() returns -EINPROGRESS?
-> > a. Nothing.  Figure the packet will probably get logged.
-> > b. Just to be safe, report it via printk, the same way we report dropped
-> > packets.
-> > We currently do (a).  (b) would mean that every event logged from IRQ
-> > context would be cc-ed to printk.
-> 
-> I don't think this irq detection logic should be added at all here, let
-> the caller reschedule its logging if running in irq context.
-> 
-> - James
-> --
-> James Morris
-> <jmorris@intercode.com.au>
+On Thu, 17 Jul 2003 19:42:16 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-Yes, this makes sense.  At the kerror.c level, just return -EDEADLK if in_irq().
-Delay packet delivery (via a tasklet, as before) at the evlog.c level instead.
-That way, we know at the evlog.c level (in the tasklet) whether the event packet
-was delivered to anybody, and can paraphrase it to printk if it wasn't.
+> Stephen Hemminger wrote:
+> > It looks like the comx drivers never got updated for 2.5/2.6.  Some
+> > obvious issues are:
+> > 	- lots of use of /proc files without setting the owner field.
+> > 	- still using cli/sti
+> > 	- no SMP locking on the linked list (which could be changed to list macros)
+> > 	  of hardware and protocols.
+> > 
+> > Just bumped into this while trying to inspect for all the last possible
+> > broken usage of net_device structure.  It is too far behind to address
+> > those issues.
+> 
+> 
+> Submit a patch to mark these CONFIG_OBSOLETE.  AFAIK nobody has cared 
+> for most of them since 2.2...  (munich is an exception)
+> 
 
-Is this the sort of thing you had in mind?
-Jim K
+diff -Nru a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
+--- a/drivers/net/wan/Kconfig	Fri Jul 18 11:55:47 2003
++++ b/drivers/net/wan/Kconfig	Fri Jul 18 11:55:47 2003
+@@ -60,9 +60,10 @@
+ #
+ # COMX drivers
+ #
++# Not updated to 2.6.
+ config COMX
+ 	tristate "MultiGate (COMX) synchronous serial boards support"
+-	depends on WAN && (ISA || PCI)
++	depends on WAN && (ISA || PCI) && OBSOLETE
+ 	---help---
+ 	  Say Y if you want to use any board from the MultiGate (COMX) family.
+ 	  These boards are synchronous serial adapters for the PC,
