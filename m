@@ -1,28 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH PKT_SCHED 0/6]: assorted fixes
-Date: Thu, 13 Jan 2005 20:49:57 -0800
-Message-ID: <20050113204957.0fd3a800.davem@davemloft.net>
-References: <41E44926.5010701@trash.net>
+Subject: Re: race in net/ipv4/ipip.c ?
+Date: Thu, 13 Jan 2005 20:54:07 -0800
+Message-ID: <20050113205407.13154ccd.davem@davemloft.net>
+References: <20050112125336.GH26856@postel.suug.ch>
+	<20050112.220816.56650893.yoshfuji@linux-ipv6.org>
+	<20050112132126.GI26856@postel.suug.ch>
+	<20050112.223600.09187852.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: tgraf@suug.ch, buytenh@wantstofly.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41E44926.5010701@trash.net>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050112.223600.09187852.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 11 Jan 2005 22:46:14 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Wed, 12 Jan 2005 22:36:00 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> following are a couple of assorted fixes: a mem leak, locking bugs in two
-> tc actions, your sch_api.c fix for holding the rtnl while loading modules
-> ported to act_api.c, and a bug in tcf_exts that prevents using 
-> actions/policers
-> without a rate estimator.
+> David, I think we need to fix sit.c, anyway.
 > 
-> You can pull all changes from bk://212.42.230.204/net-2.6-sched
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Pulled, thanks a lot Patrick.
+Good catch, I will apply this patch.
