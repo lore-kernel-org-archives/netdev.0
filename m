@@ -1,8 +1,7 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.4 11/13] e1000:  Applied eeprom fix where it was possible
- to read/write one more word than what should have been possible
-Date: Thu, 6 Jan 2005 17:20:24 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061512500.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.4 9/13] e1000: Sparse cleanup - shemminger@osdl.org
+Date: Thu, 6 Jan 2005 17:20:09 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061509250.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -13,28 +12,27 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-diff -up net-drivers-2.4/drivers/net/e1000/e1000_hw.c net-drivers-2.4/drivers/net/e1000.new/e1000_hw.c
---- net-drivers-2.4/drivers/net/e1000/e1000_hw.c	2004-12-06 08:43:11.629382832 -0800
-+++ net-drivers-2.4/drivers/net/e1000.new/e1000_hw.c	2004-12-06 08:43:12.460256520 -0800
-@@ -3507,7 +3507,7 @@ e1000_read_eeprom(struct e1000_hw *hw,
-     /* A check for invalid values:  offset too large, too many words, and not
-      * enough words.
-      */
--    if((offset > eeprom->word_size) || (words > eeprom->word_size - offset) ||
-+    if((offset >= eeprom->word_size) || (words > eeprom->word_size - offset) ||
-        (words == 0)) {
-         DEBUGOUT("\"words\" parameter out of bounds\n");
-         return -E1000_ERR_EEPROM;
-@@ -3653,11 +3653,10 @@ e1000_write_eeprom(struct e1000_hw *hw,
+diff -up net-drivers-2.4/drivers/net/e1000/e1000.h net-drivers-2.4/drivers/net/e1000.new/e1000.h
+--- net-drivers-2.4/drivers/net/e1000/e1000.h	2004-12-06 08:43:11.624383592 -0800
++++ net-drivers-2.4/drivers/net/e1000.new/e1000.h	2004-12-06 08:43:12.400265640 -0800
+@@ -86,7 +86,7 @@ struct e1000_adapter;
  
-     DEBUGFUNC("e1000_write_eeprom");
+ #include "e1000_hw.h"
  
--
-     /* A check for invalid values:  offset too large, too many words, and not
-      * enough words.
-      */
--    if((offset > eeprom->word_size) || (words > eeprom->word_size - offset) ||
-+    if((offset >= eeprom->word_size) || (words > eeprom->word_size - offset) ||
-        (words == 0)) {
-         DEBUGOUT("\"words\" parameter out of bounds\n");
-         return -E1000_ERR_EEPROM;
+-#if DBG
++#ifdef DBG
+ #define E1000_DBG(args...) printk(KERN_DEBUG "e1000: " args)
+ #else
+ #define E1000_DBG(args...)
+diff -up net-drivers-2.4/drivers/net/e1000/e1000_osdep.h net-drivers-2.4/drivers/net/e1000.new/e1000_osdep.h
+--- net-drivers-2.4/drivers/net/e1000/e1000_osdep.h	2004-12-06 08:43:11.635381920 -0800
++++ net-drivers-2.4/drivers/net/e1000.new/e1000_osdep.h	2004-12-06 08:43:12.576238888 -0800
+@@ -69,7 +69,7 @@ typedef enum {
+ 
+ #define MSGOUT(S, A, B)	printk(KERN_DEBUG S "\n", A, B)
+ 
+-#if DBG
++#ifdef DBG
+ #define DEBUGOUT(S)		printk(KERN_DEBUG S "\n")
+ #define DEBUGOUT1(S, A...)	printk(KERN_DEBUG S "\n", A)
+ #else
