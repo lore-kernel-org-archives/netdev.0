@@ -1,71 +1,53 @@
-From: jamal <hadi@cyberus.ca>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: 28 Feb 2005 07:10:58 -0500
-Message-ID: <1109592658.2188.924.camel@jzny.localdomain>
-References: <42168D9E.1010900@sgi.com>
-	 <20050218171610.757ba9c9.akpm@osdl.org> <421993A2.4020308@ak.jp.nec.com>
-	 <421B955A.9060000@sgi.com> <421C2B99.2040600@ak.jp.nec.com>
-	 <421CEC38.7010008@sgi.com> <421EB299.4010906@ak.jp.nec.com>
-	 <20050224212839.7953167c.akpm@osdl.org> <20050227094949.GA22439@logos.cnet>
-	 <4221E548.4000008@ak.jp.nec.com> <20050227140355.GA23055@logos.cnet>
-	 <42227AEA.6050002@ak.jp.nec.com>
-	 <1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	 <20050227233943.6cb89226.akpm@osdl.org>
-Reply-To: hadi@cyberus.ca
+Date: Mon, 28 Feb 2005 14:20:51 +0100
+Message-ID: <20050228132051.GO31837@postel.suug.ch>
+References: <421CEC38.7010008@sgi.com> <421EB299.4010906@ak.jp.nec.com> <20050224212839.7953167c.akpm@osdl.org> <20050227094949.GA22439@logos.cnet> <4221E548.4000008@ak.jp.nec.com> <20050227140355.GA23055@logos.cnet> <42227AEA.6050002@ak.jp.nec.com> <1109575236.8549.14.camel@frecb000711.frec.bull.fr> <20050227233943.6cb89226.akpm@osdl.org> <1109592658.2188.924.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Guillaume Thouvenin <guillaume.thouvenin@bull.net>, kaigai@ak.jp.nec.com,
-        marcelo.tosatti@cyclades.com, "David S. Miller" <davem@redhat.com>,
-        jlan@sgi.com, lse-tech@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        elsa-devel@lists.sourceforge.net
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050227233943.6cb89226.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>,
+        Guillaume Thouvenin <guillaume.thouvenin@bull.net>,
+        kaigai@ak.jp.nec.com, marcelo.tosatti@cyclades.com,
+        "David S. Miller" <davem@redhat.com>, jlan@sgi.com,
+        lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1109592658.2188.924.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> Havent seen the beginnings of this thread. But whatever you are trying
+> to do seems to suggest some complexity that you are trying to
+> workaround. What was wrong with just going ahead and just always
+> invoking your netlink_send()?
 
-Havent seen the beginnings of this thread. But whatever you are trying
-to do seems to suggest some complexity that you are trying to
-workaround. What was wrong with just going ahead and just always
-invoking your netlink_send()? If there are nobody in user space (or
-kernel) listening, it wont go anywhere.
+I guess parts of the wheel are broken and need to be reinvented ;->
 
-cheers,
-jamal
+> If there are nobody in user space (or kernel) listening, it wont go anywhere.
 
-On Mon, 2005-02-28 at 02:39, Andrew Morton wrote:
-> Guillaume Thouvenin <guillaume.thouvenin@bull.net> wrote:
-> >
-> >    Ok the protocol is maybe too "basic" but with this mechanism the user
-> >  space application that uses the fork connector can start and stop the
-> >  send of messages. This implementation needs somme improvements because
-> >  currently, if two application are using the fork connector one can
-> >  enable it and the other don't know if it is enable or not, but the idea
-> >  is here I think.
-> 
-> Yes.  But this problem can be solved in userspace, with a little library
-> function and a bit of locking.
-> 
-> IOW: use the library to enable/disable the fork connector rather than
-> directly doing syscalls.
-> 
-> It has the problem that if a client of that library crashes, the counter
-> gets out of whack, but really, it's not all _that_ important, and to handle
-> this properly in-kernel each client would need an open fd against some
-> object so we can do the close-on-exit thing properly.  You'd need to create
-> a separate netlink socket for the purpose.
-> 
-> 
-> -------------------------------------------------------
-> SF email is sponsored by - The IT Product Guide
-> Read honest & candid reviews on hundreds of IT Products from real users.
-> Discover which products truly live up to the hype. Start reading now.
-> http://ads.osdn.com/?ad_id=6595&alloc_id=14396&op=click
-> _______________________________________________
-> Lse-tech mailing list
-> Lse-tech@lists.sourceforge.net
-> https://lists.sourceforge.net/lists/listinfo/lse-tech
-> 
+Additional you may want to extend netlink a bit to check whether
+there is a listener before creating the messages. The method to do so
+depends on whether you use netlink_send() or netlink_brodacast(). The
+latter is more flexiable because you can add more groups later on
+and the userspace applications can decicde which ones they want to
+listen to. Both methods handle dying clients perfectly fine, the
+association to the netlink socket gets destroyed as soon as the socket
+is closed. Therefore you can simply check mc_list of the netlink
+protocol you use to see if there are any listeners registered:
+
+static inline int netlink_has_listeners(struct sock *sk)
+{
+	int ret;
+
+	read_lock(&nl_table_lock);
+	ret = list_empty(&nl_table[sk->sk_protocol].mc_list)
+	read_unlock(&nl_table_lock);
+
+	return !ret;
+}
+
+This is simplified and ignores the actual group assignments, i.e. you
+might want to extend it to have it check if there are listeners for
+a certain group.
