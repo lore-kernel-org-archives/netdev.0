@@ -1,22 +1,23 @@
-From: Christoph Lameter <christoph@lameter.com>
-Subject: Re: A new 10GB Ethernet Driver by Chelsio Communications
-Date: Fri, 11 Mar 2005 11:51:56 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0503111151190.24786@server.graphe.net>
-References: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
- <20050311112132.6a3a3b49.akpm@osdl.org>
+From: Chris Wright <chrisw@osdl.org>
+Subject: Re: [stable] [BK PATCHES] 2.6.x net driver oops fixes
+Date: Fri, 11 Mar 2005 11:36:06 -0800
+Message-ID: <20050311193606.GL5389@shell0.pdx.osdl.net>
+References: <422F59E8.2090707@pobox.com> <20050310202548.GV5389@shell0.pdx.osdl.net> <4230AE24.602@pobox.com> <20050310213917.GW5389@shell0.pdx.osdl.net> <c37a8fd17af92b648c6474904e0003c0@libero.it>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, mark@chelsio.com, netdev@oss.sgi.com,
-	Jeff Garzik <jgarzik@pobox.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050311112132.6a3a3b49.akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Chris Wright <chrisw@osdl.org>, stable@kernel.org,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+To: Daniele Venzano <webvenza@libero.it>
+Content-Disposition: inline
+In-Reply-To: <c37a8fd17af92b648c6474904e0003c0@libero.it>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Mar 2005, Andrew Morton wrote:
+* Daniele Venzano (webvenza@libero.it) wrote:
+> 
+> I have been acting maintainer for more than a year now, and I'm 
+> completely fine with the patch.
 
-> > It supports AMD64, EM64T and x86 systems.
->
-> Is it only supported on those systems?  If so, why is that?
-
-The driver was only tested on those architectures.
+Thanks.
+-chris
