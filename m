@@ -1,36 +1,36 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] anycast support for IPv6, updated to 2.5.44
-Date: Thu, 20 Mar 2003 00:34:41 -0700
+From: N N Ashok <nalkunda@cse.msu.edu>
+Subject: Keeping track of an interface
+Date: Thu, 20 Mar 2003 03:32:22 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF4D6C9027.2F431095-ON88256CEF.002804BF@us.ibm.com>
+Message-ID: <200303200332.22747.nalkunda@cse.msu.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: yoshfuji@wide.ad.jp, kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+    I have a situation where I want to record which interface (say eth2) was 
+used for a packet (say the current packet). Later I want to be able to send 
+other packets over the interface which I recorded if it is up and able to 
+send packets.
+    What would be the best way to keep track of an interface for the above 
+scenario? Could we use the "struct net_device" pointer to the interface? If 
+we kept track of "struct net_device" pointer, and later that interface 
+flapped, the pointer would no longer be valid (I assume so). Then how should 
+do we detect that?
+   One way I thought was that we keep track of the "oif" (in "struct fib_nh") 
+for the particular device. Is it guaranteed that the same device will always 
+have the same "oif" even if it flapped? If so, it would be a simple matter to 
+record the "oif" number of the device and later send the packets on that 
+interface after checking that the interface is up and able to send packets.
 
+   The broader aim is to route packets of a connection over the same 
+interface, like routing all packets of the same TCP session over the same 
+interface.
 
-
-
-Yoshifuji,
-      I created the multicast-like API because, aside from the in-kernel
-use, there was no way to use anycasting otherwise, and I believe for at
-least the high-availability case, it doesn't make any sense to treat it
-like a unicast address. An exited DNS server program with the server
-machine still up will in fact deny service to clients that might otherwise
-find a working server if the "permanent" address model were not there. With
-a multicast-like interface at least available, programs have the choice of
-tying the anycast address to whether or not the service that needs it is
-running.
-      That said, there's no reason why you can't have both, and that's
-straightforward with the code (but not implemented). I think it's too early
-to be concerned with compatibility since there is no alternative
-non-permanent anycast address API. If Linux has an API to do something that
-can't be done at all on other systems, there clearly isn't a portability
-issue.
-
-                        +-DLS
+Thanks,
+Ashok
