@@ -1,37 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH,RFC] [NET] ALIGN
-Date: Mon, 09 Feb 2004 13:45:28 +0900 (JST)
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Mon, 9 Feb 2004 08:08:30 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209.134528.28683257.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.44.0402090806040.11837-100000@netcore.fi>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-D: Use ALIGN() where appricable.
+On Sun, 8 Feb 2004, Julian Anastasov wrote:
+> 	Appended is a patch that modifies proxy_arp to check
+> the target's neighbour state before reporting any information
+> to requestors. The benefit is that the availability of the target
+> host is properly reported to the requestor, we prefer not to send
+> replies when target is unreachable. 
 
-BTW, 
- 1. do we really need this ALIGN?
- 2. should 16 be BYTES_PER_WORD (in mm/slab.c)?
+As this seems to make the proxy_arp more intelligent, maybe you should 
+take a look at:
 
-===== net/core/neighbour.c 1.24 vs edited =====
---- 1.24/net/core/neighbour.c	Tue Jan 20 14:31:23 2004
-+++ edited/net/core/neighbour.c	Mon Feb  9 13:13:37 2004
-@@ -1164,8 +1164,7 @@
- 
- 	if (!tbl->kmem_cachep)
- 		tbl->kmem_cachep = kmem_cache_create(tbl->id,
--						     (tbl->entry_size +
--						      15) & ~15,
-+						     ALIGN(tbl->entry_size, 16),
- 						     0, SLAB_HWCACHE_ALIGN,
- 						     NULL, NULL);
- 	tbl->lock	       = RW_LOCK_UNLOCKED;
+http://www.ietf.org/internet-drafts/draft-thaler-ipv6-ndproxy-01.txt
+
+(which, at the moment, specifies proxy arp/ND for both IPv4 and IPv6)
+
+and see how close our implementation is wrt. to that spec, whether the 
+above spec is better or worse, or whether there may be room for 
+improvement otherwise as well?
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
