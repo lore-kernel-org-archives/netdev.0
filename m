@@ -1,45 +1,102 @@
-From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: RE: Do you know the TCP stack? (127.x.x.x routing)
-Date: Thu, 10 Mar 2005 17:25:00 +0200 (EET)
-Message-ID: <Pine.LNX.4.62.0503101721170.15067@webhosting.rdsbv.ro>
-References: <B8561865DB141248943E2376D0E85215FFE3DC@DHOST001-17.DEX001.intermedia.net>
+From: nhorman@redhat.com
+Subject: Re: [Patch] sctp: add receive buffer accounting to sctp (fwd)
+Date: Thu, 10 Mar 2005 10:43:42 -0500
+Message-ID: <20050310154342.GG6341@hmsendeavour.rdu.redhat.com>
+References: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain> <20050309211632.6f70fe41.davem@davemloft.net> <20050310120803.GA6341@hmsendeavour.rdu.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: dtor_core@ameritech.net, hadi@cyberus.ca,
-	Henrik Nordstrom <hno@marasystems.com>,
-	Martin Mares <mj@ucw.cz>, Zdenek Radouch <zdenek@rcn.com>,
-	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
-	Andi Kleen <ak@muc.de>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-To: Steve Iribarne <steve.iribarne@dilithiumnetworks.com>
-In-Reply-To: <B8561865DB141248943E2376D0E85215FFE3DC@DHOST001-17.DEX001.intermedia.net>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ytoMbUMiTKPMT3hY"
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Sridhar Samudrala <sri@us.ibm.com>, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
+To: nhorman@redhat.com
+Content-Disposition: inline
+In-Reply-To: <20050310120803.GA6341@hmsendeavour.rdu.redhat.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> -> This assumes that the client did not apply the same hack you did.
 
-:) Exactly!
+--ytoMbUMiTKPMT3hY
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> They wouldn't do it on the same machine or system. I control my internal
-> system.  It's an embedded system which means I have complete control.
-> If they applied it somewhere else on the network, I wouldn't receive any
-> of those packets because the router would drop it and my patch drops the
-> 127.xxx rcv'd packets if not received on the proper VLAN and my system
-> doesn't accept tagged packets from the outside world.
->
-> I don't think I'm the only one who has done this.  As a matter of fact,
-> I KNOW I'm not.  When I worked on BSD years ago (10+), I worked for a
-> company who did the same sort of hack.
+Repost of my ealier rcvbuf patch.  No changes, but rediffed to apply cleanl=
+y to
+the head of the bitkeeper tree.  Passes all lksctp regression tests
 
-I think that the best way is to choose a 10.0.0.0/24|16|8 net and let the 
-client to configure other net if it has the same net somewhere.
+Signed-off-by: Neil Horman <nhorman@redhat.com>
 
-I agree that 127 is a lot less used that 10, but you never know.
+ input.c |   22 ++++++++++++++++++++++
+ 1 files changed, 22 insertions(+)
 
-Probably you will choose anyway 127, but I suggest to have a possibility 
-the user choose another class if he wants.
 
----
-Catalin(ux aka Dino) BOIE
-catab at deuroconsult.ro
-http://kernel.umbrella.ro/
+--- linux-2.6-sctp/net/sctp/input.c.orig	2005-03-10 07:11:46.000000000 -0500
++++ linux-2.6-sctp/net/sctp/input.c	2005-03-10 07:18:25.000000000 -0500
+@@ -100,6 +100,21 @@
+ 	return 0;
+ }
+=20
++/* The free routine for skbuffs that sctp receives */
++static void sctp_rfree(struct sk_buff *skb)
++{
++	atomic_sub(sizeof(struct sctp_chunk),&skb->sk->sk_rmem_alloc);
++	sock_rfree(skb);
++}
++
++/* The ownership wrapper routine to do receive buffer accounting */
++static void sctp_rcv_set_owner_r(struct sk_buff *skb, struct sock *sk)
++{
++	skb_set_owner_r(skb,sk);
++	skb->destructor =3D sctp_rfree;
++	atomic_add(sizeof(struct sctp_chunk),&sk->sk_rmem_alloc);
++}
++
+ /*
+  * This is the routine which IP calls when receiving an SCTP packet.
+  */
+@@ -183,6 +198,11 @@
+ 	rcvr =3D asoc ? &asoc->base : &ep->base;
+ 	sk =3D rcvr->sk;
+=20
++	if ((sk) && (atomic_read(&sk->sk_rmem_alloc) >=3D sk->sk_rcvbuf)) {
++		goto discard_release;
++	}
++
++
+ 	/* SCTP seems to always need a timestamp right now (FIXME) */
+ 	if (skb->stamp.tv_sec =3D=3D 0) {
+ 		do_gettimeofday(&skb->stamp);
+@@ -203,6 +223,8 @@
+ 		goto discard_release;
+ 	}
+=20
++	sctp_rcv_set_owner_r(skb,sk);
++
+ 	/* Remember what endpoint is to handle this packet. */
+ 	chunk->rcvr =3D rcvr;
+=20
+--=20
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *Red Hat, Inc.
+ *nhorman@redhat.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
+
+--ytoMbUMiTKPMT3hY
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQFCMGstM+bEoZKnT6ERAg+5AJ9ff0925s3t6tAfyjmH/A3/+Wo6NgCeLdNI
+cIt64C2uCN2DN+LgUDdix9w=
+=7M4K
+-----END PGP SIGNATURE-----
+
+--ytoMbUMiTKPMT3hY--
