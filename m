@@ -1,41 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (4/25) sk98: change #define to typedef
-Date: Thu, 18 Nov 2004 16:23:52 -0800
-Message-ID: <20041118162352.7dda3e4c@zqx3.pdx.osdl.net>
-References: <419A231F.4020104@syskonnect.de>
-	<20041117150133.GA8874@infradead.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
+	using SELinux and SOCK_SEQPACKET
+Date: Thu, 18 Nov 2004 23:39:32 +0000
+Message-ID: <1100821144.6005.40.camel@localhost.localdomain>
+References: <Xine.LNX.4.44.0411181328460.5555-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Mirko Lindner <mlindner@syskonnect.de>, Jeff Garzik <jgarzik@pobox.com>,
-        Mirko Lindner <demon@pro-linux.de>, netdev@oss.sgi.com,
-        Ralph Roesler
- <rroesler@syskonnect.de>
+Cc: Ross Kendall Axe <ross.axe@blueyonder.co.uk>, netdev@oss.sgi.com,
+        Stephen Smalley <sds@epoch.ncsc.mil>,
+        lkml <linux-kernel@vger.kernel.org>, Chris Wright <chrisw@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20041117150133.GA8874@infradead.org>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0411181328460.5555-100000@thoron.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Nov 2004 15:01:34 +0000
-Christoph Hellwig <hch@infradead.org> wrote:
+On Iau, 2004-11-18 at 18:40, James Morris wrote:
+> One thing that looks broken (unrelated to the patch I posted) is that
+> unix_dgram_sendmsg() already does not check sk->sk_shutdown &
+> SEND_SHUTDOWN for SOCK_SEQPACKET.
 
-> > Note that the kernel BSD sk driver was _not_ written by SysKonnect and 
-> > only supports Genesis and Yukon1; linux supports Genesis (single and 
-> > dual), Yukon1, Yukon Plus, Yukon EC, Yukon FE and Yukon2 (single and 
-> > dual).
-> 
-> They have Yukon2 support for while - unlike Linux.
-> 
-> > The BSD sk driver supports substantially less functionality than 
-> > the Linux driver. For example, there is no link failover capability in 
-> > the sk driver;
+Looks like a real bug yes.
 
-Is it even possible to do link failover with existing Open Source tools?
-
-Also the whole Remote Link Mangement (RLMT) stuff has no security so
-if it is used over a hostile network look out.
-
-I intrigued by the idea of  of porting FreeBSD driver to Linux. But this card
-is already taking more time than I want to spend.
+As to the other stuff I think the only change needed is to check the
+queued asynchronous error and report that before going on to the
+connected test
