@@ -1,32 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
-Date: Sun, 27 Mar 2005 20:01:47 +1000
-Message-ID: <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au>
-References: <20050327091524.GA23215@elte.hu>
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-To: mingo@elte.hu (Ingo Molnar)
-In-Reply-To: <20050327091524.GA23215@elte.hu>
-Sender: linux-net-owner@vger.kernel.org
+Subject: [Openswan dev] Re: IPv4 tunneled over IPv6-IPsec?
+Date: Sun, 27 Mar 2005 20:05:44 +1000
+Message-ID: <E1DFUeO-0001IS-00@gondolin.me.apana.org.au>
+References: <DD992FDA2A9E3512996A18A9@[192.168.17.4]>
+Cc: dev@openswan.org
+To: pb@bieringer.de (Peter Bieringer)
+In-Reply-To: <DD992FDA2A9E3512996A18A9@[192.168.17.4]>
+Cc: netdev@oss.sgi.com
+List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@openswan.org?subject=unsubscribe>
+List-Archive: <http://lists.openswan.org/pipermail/dev>
+List-Post: <mailto:dev@openswan.org>
+List-Help: <mailto:dev-request@openswan.org?subject=help>
+List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@openswan.org?subject=subscribe>
+Sender: dev-bounces@openswan.org
+Errors-To: dev-bounces@openswan.org
 List-Id: netdev.vger.kernel.org
 
-Ingo Molnar <mingo@elte.hu> wrote:
+Peter Bieringer <pb@bieringer.de> wrote:
 > 
-> i got one such message:
-> 
-> KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
-> net/netlink/af_netlink.c (126)
+> I retry to play tunneling IPv4 over IPv6-IPsec. Afair it is still not 
+> working (support is missing in 2.6.x kernel), but for startup, I have 
+> already a patch for ipsec.conf parsing (pluto already has an option to do 
+> this):
 
-Interesting.  I've seen one report about this assertion before yours.
-Unfortunately there was very little to go on there apart from the
-fact that vrrpd was involved.
-
-> this was on a box that is DSL connected and thus gets lots of trash 
-> packets over the wire. It is running -RT ontop of 2.6.12-rc1, and got 
-> this message after 2 days of uptime.
-
-This assertion can only be caused by netlink applications.  What
-netlink applications do you use on this machine? Examples include
-ip(8), the ULOG target of iptables, vrrpd, etc.
+The native IPsec stack doesn't support IPv4 over IPv6 or IPv6 over
+IPv4 SAs.  It won't be able to do so unless major surgery is done
+to the IPsec and IP stack.
 
 Cheers,
 -- 
