@@ -1,26 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 0/6] netpoll: recursion fixes, queueing, and cleanups
-Date: Tue, 22 Mar 2005 18:33:20 -0800
-Message-ID: <20050322183320.3ef997ef.davem@davemloft.net>
-References: <1.378217222@selenic.com>
+Subject: Re: [PATCH 7/7] netpoll: avoid kfree_skb on packets with destructo
+Date: Tue, 22 Mar 2005 18:35:21 -0800
+Message-ID: <20050322183521.359cd068.davem@davemloft.net>
+References: <7.454130102@selenic.com>
+	<8.454130102@selenic.com>
+	<20050303130031.066f0862.davem@davemloft.net>
+	<20050303213228.GU3120@waste.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jmoyer@redhat.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, jmoyer@redhat.com
 To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <1.378217222@selenic.com>
+In-Reply-To: <20050303213228.GU3120@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Feb 2005 23:25:18 -0600
+On Thu, 3 Mar 2005 13:32:28 -0800
 Matt Mackall <mpm@selenic.com> wrote:
 
-> This patch series against -rc4 fixes up some recursion deadlocks in
-> netpoll and adds support for fallback to queueing. Various cleanups
-> along the way.
+> Doh. Plain as day. How's this look?
 > 
-> Holds up under load testing via ipt_LOG on a dual Opteron with tg3.
+> Packets that have destructors should not be zapped here as that might
+> produce additional printk warnings via netconsole.
+> 
+> Signed-off-by: Matt Mackall <mpm@selenic.com>
 
-I've applied all 6 patches to my tree.  Sorry for taking so long
-Matt.
+Looks great Matt, applied.
+
+Thanks.
