@@ -1,59 +1,41 @@
-From: Marco Mellia <mellia@prezzemolo.polito.it>
-Subject: Re: [E1000-devel] Transmission limit
-Date: 29 Nov 2004 18:32:13 +0100
-Message-ID: <1101749533.17091.3.camel@verza.polito.it>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com>
-	 <20041127200030.GD27762@xi.wantstofly.org>
-	 <1101732267.14930.75.camel@verza.polito.it>
-	 <20041129151940.GA19184@xi.wantstofly.org>
-Reply-To: mellia@prezzemolo.polito.it
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] via-velocity: convert to module_param
+Date: Mon, 29 Nov 2004 09:40:32 -0800
+Message-ID: <20041129094032.3b9cb540@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Marco Mellia <mellia@prezzemolo.polito.it>,
-        e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041129151940.GA19184@xi.wantstofly.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Using the Agilent Router tester as receiver...
-:-(
+Convert via-velocity driver to module_param.
 
-> On Mon, Nov 29, 2004 at 01:44:27PM +0100, Marco Mellia wrote:
-> 
-> > This "resets" the registers and writes in the TDFPC that there are 10
-> > pkts in the TX queue.
-> > Now when we do:
-> > 
-> > ping -c 1 x.x.x.x
-> > 
-> > You will see that the NIC will transmit 11 pkts (10 we "preloaded" + the
-> > new one).
-> > If you try to measure the TX speed you will see that it is ~ the wire
-> > speed.
-> 
-> How are you measuring this?
-> 
-> 
-> cheers,
-> Lennert
--- 
-Ciao,                    /\/\/\rco
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-+-----------------------------------+  
-| Marco Mellia - Assistant Professor|
-| Tel: 39-011-2276-608              |
-| Tel: 39-011-564-4173              |
-| Cel: 39-340-9674888               |   /"\  .. . . . . . . . . . . . .
-| Politecnico di Torino             |   \ /  . ASCII Ribbon Campaign  .
-| Corso Duca degli Abruzzi 24       |    X   .- NO HTML/RTF in e-mail .
-| Torino - 10129 - Italy            |   / \  .- NO Word docs in e-mail.
-| http://www1.tlc.polito.it/mellia  |        .. . . . . . . . . . . . .
-+-----------------------------------+
-The box said "Requires Windows 95 or Better." So I installed Linux.
+diff -Nru a/drivers/net/via-velocity.c b/drivers/net/via-velocity.c
+--- a/drivers/net/via-velocity.c	2004-11-29 09:39:10 -08:00
++++ b/drivers/net/via-velocity.c	2004-11-29 09:39:10 -08:00
+@@ -100,8 +100,8 @@
+ MODULE_DESCRIPTION("VIA Networking Velocity Family Gigabit Ethernet Adapter Driver");
+ 
+ #define VELOCITY_PARAM(N,D) \
+-        static const int N[MAX_UNITS]=OPTION_DEFAULT;\
+-        MODULE_PARM(N, "1-" __MODULE_STRING(MAX_UNITS) "i");\
++        static int N[MAX_UNITS]=OPTION_DEFAULT;\
++	module_param_array(N, int, NULL, 0); \
+         MODULE_PARM_DESC(N, D);
+ 
+ #define RX_DESC_MIN     64
+@@ -229,7 +229,7 @@
+ VELOCITY_PARAM(int_works, "Number of packets per interrupt services");
+ 
+ static int rx_copybreak = 200;
+-MODULE_PARM(rx_copybreak, "i");
++module_param(rx_copybreak, int, 0644);
+ MODULE_PARM_DESC(rx_copybreak, "Copy breakpoint for copy-only-tiny-frames");
+ 
+ static void velocity_init_info(struct pci_dev *pdev, struct velocity_info *vptr, struct velocity_info_tbl *info);
