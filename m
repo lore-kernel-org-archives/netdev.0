@@ -1,38 +1,38 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] LSM networking: netlink hooks for 2.5.59 (6/8)
-Date: Thu, 30 Jan 2003 15:19:47 -0800 (PST)
+Subject: Re: [PATCH] LSM networking: tcp hooks for 2.5.59 (8/8)
+Date: Thu, 30 Jan 2003 15:25:58 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030130.151947.48545419.davem@redhat.com>
-References: <Pine.LNX.4.44.0301311001440.31382-100000@blackbird.intercode.com.au>
-	<Pine.LNX.4.44.0301311006230.31382-100000@blackbird.intercode.com.au>
+Message-ID: <20030130.152558.81554884.davem@redhat.com>
+References: <Pine.LNX.4.44.0301311010580.31382-100000@blackbird.intercode.com.au>
+	<Pine.LNX.4.44.0301311017140.31802-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-security-module@wirex.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jmorris@intercode.com.au
-In-Reply-To: <Pine.LNX.4.44.0301311006230.31382-100000@blackbird.intercode.com.au>
+In-Reply-To: <Pine.LNX.4.44.0301311017140.31802-100000@blackbird.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-This one is not acceptable, you're adding a function call to
-every netlink SKB receive even in the case where security
-is disabled.
+No, no, and no.
 
-Capability testing is a very simple bit test, there is no
-justification for calling these cap_netlink_{send,recv}() things
-externally for such a simple operation when security is disabled.
+This stuff will not pass.
 
-It is things like this that make me still totally hate the networking
-security changes.  It is like a virus that is spreading throughout the
-entire tree.  It is a bunch of strange tests that have to be
-maintained which do external calls to modules that are not even in the
-source tree so I can't even see how the callbacks are used (no, the
-fact that there is documentation of the callback doesn't change this
-issue, and no I'm not going to some site to download a bunch of
-security modules everytime I need to make changes in these areas).
+There is no way in hell we're going to insert this security crap into
+the actual protocol implementations.  I was right in seeing this as a
+virus that will eventually infect the whole tree.
 
-Frankly, while I'm very happy about the fixup of the security
-overhead, these changes are still way too invasive.  This stuff
-is garbage.
+None of these security modules should know jack anything about open
+requests and other TCP internals.
+
+This stuff is totally unmaintainable garbage.  And I do not want to
+hear "well how can we implement xxx which we need for yyy" because it
+isn't my problem that you can't figure out a clean way to do this
+stuff.
+
+Linus would similarly barf if he was given a patch that added
+hooks like "security_ext2_foo()".
+
+I totally reject this networking security stuff for 2.6.x
