@@ -1,27 +1,42 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
  <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV6: strategy hander for net.ipv6.conf.*.forwarding (is
- Re: problem setting net.ipvX.conf.all.forwarding via sysctl() system call)
-Date: Fri, 08 Aug 2003 17:50:30 +0900 (JST)
+Subject: Re: [PATCH] IPV6: strategy hander for net.ipv6.conf.*.forwarding
+ (is Re: problem setting net.ipvX.conf.all.forwarding via sysctl() system
+ call)
+Date: Fri, 08 Aug 2003 18:51:35 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030808.175030.19527061.yoshfuji@linux-ipv6.org>
+Message-ID: <20030808.185135.112441851.yoshfuji@linux-ipv6.org>
 References: <20030803154427.GA12926@wsx.ksp.sk>
+	<20030808.175030.19527061.yoshfuji@linux-ipv6.org>
+	<20030808093704.GA18131@wsx.ksp.sk>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, jan.oravec@6com.sk, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20030803154427.GA12926@wsx.ksp.sk>
+To: jan.oravec@6com.sk, davem@redhat.com, netdev@oss.sgi.com
+In-Reply-To: <20030808093704.GA18131@wsx.ksp.sk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030803154427.GA12926@wsx.ksp.sk> (at Sun, 3 Aug 2003 17:44:27 +0200), Jan Oravec <jan.oravec@6com.sk> says:
+In article <20030808093704.GA18131@wsx.ksp.sk> (at Fri, 8 Aug 2003 11:37:04 +0200), Jan Oravec <jan.oravec@6com.sk> says:
 
-> For IPv6, it is obviously because sysctl 'strategy' handler is not defined.
+> On Fri, Aug 08, 2003 at 05:50:30PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> 
+> > +	*valp = new;
+> > +	if (valp != &ipv6_devconf.forwarding &&
+> > +	    valp != &ipv6_devconf_dflt.forwarding) {
+> > +		struct inet6_dev *idev = (struct inet6_dev *)table->extra1;
+> > +		if (!idev)
+> > +			return -ENODEV;
+> > +		addrconf_forward_change(idev);
+> > +	}
+> > +	return 0;
+> > +}
+> 
+> Shouldn't we set ipv6_devconf_dflt.forwarding and call
+> addr_forward_change(NULL) in case that valp==&ipv6_devconf.forwarding?
 
-Here's tha patch to add strategy handler for 
-net.ipv6.conf.*.forwarding.  Thanks.
+Oh, You're right. Here's the revised one:
 
 Index: linux-2.6/net/ipv6/addrconf.c
 ===================================================================
@@ -29,8 +44,8 @@ RCS file: /home/cvs/linux-2.5/net/ipv6/addrconf.c,v
 retrieving revision 1.48
 diff -u -r1.48 addrconf.c
 --- linux-2.6/net/ipv6/addrconf.c	25 Jul 2003 23:58:59 -0000	1.48
-+++ linux-2.6/net/ipv6/addrconf.c	8 Aug 2003 07:12:13 -0000
-@@ -2593,6 +2593,48 @@
++++ linux-2.6/net/ipv6/addrconf.c	8 Aug 2003 08:21:56 -0000
+@@ -2593,6 +2593,51 @@
          return ret;
  }
  
@@ -66,11 +81,14 @@ diff -u -r1.48 addrconf.c
 +	}
 +
 +	*valp = new;
-+	if (valp != &ipv6_devconf.forwarding &&
-+	    valp != &ipv6_devconf_dflt.forwarding) {
-+		struct inet6_dev *idev = (struct inet6_dev *)table->extra1;
-+		if (!idev)
-+			return -ENODEV;
++	if (valp != &ipv6_devconf_dflt.forwarding) {
++		struct inet6_dev *idev;
++		if (valp != &ipv6_devconf.forwarding) {
++			idev = (struct inet6_dev *)table->extra1;
++			if (unlikely(idev == NULL))
++				return -ENODEV;
++		} else
++			idev = NULL;
 +		addrconf_forward_change(idev);
 +	}
 +	return 0;
@@ -79,7 +97,7 @@ diff -u -r1.48 addrconf.c
  static struct addrconf_sysctl_table
  {
  	struct ctl_table_header *sysctl_header;
-@@ -2611,6 +2653,7 @@
+@@ -2611,6 +2656,7 @@
  			.maxlen		=	sizeof(int),
  			.mode		=	0644,
           		.proc_handler	=	&addrconf_sysctl_forward,
@@ -87,7 +105,6 @@ diff -u -r1.48 addrconf.c
  		},
  		{
  			.ctl_name	=	NET_IPV6_HOP_LIMIT,
-
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
