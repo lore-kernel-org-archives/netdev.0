@@ -1,11 +1,8 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] prism54: use NULL for pointer
-Date: Sat, 22 Jan 2005 22:53:35 -0800
-Message-ID: <20050122225335.225f8042.rddunlap@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>, prism54-private@prism54.org
+From: Kevin Shiel <kevin.shiel@gmail.com>
+Subject: Donate to NarutoFan.com for Child Porn
+Date: Sun, 23 Jan 2005 02:34:57 -0500
+Message-ID: <E1CscGv-0006VL-5m@shmust2.zoneserv.net>
+Reply-To: kevin.shiel@gmail.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
@@ -13,28 +10,35 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Use NULL instead of 0 for pointer:
+Good Day Folks!
 
-drivers/net/wireless/prism54/isl_ioctl.c:1753:16: warning: Using plain integer as NULL pointer
-drivers/net/wireless/prism54/isl_ioctl.c:1753:26: warning: Using plain integer as NULL pointer
+My name is Kevin Shiel and I am the webmaster from narutofan.com
 
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+I am emailing you personaly to ask that you help support me in my time of need. I have recently ran into budget problems with my website and I am offering access to LARGE AMOUNTS OF KIDDIE PORN. It's well known that Men prefer young women and if you send just $10 today, I will give you access to our whole kiddie porn gallery, full of movies and over 200 gigs of videos of girls 13 and under doing everything you could ever dream of.
 
-diffstat:=
- drivers/net/wireless/prism54/isl_ioctl.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+Interested?
 
-diff -Naurp ./drivers/net/wireless/prism54/isl_ioctl.c~prism54_isl_null ./drivers/net/wireless/prism54/isl_ioctl.c
---- ./drivers/net/wireless/prism54/isl_ioctl.c~prism54_isl_null	2005-01-22 21:53:00.599920368 -0800
-+++ ./drivers/net/wireless/prism54/isl_ioctl.c	2005-01-22 21:53:58.223160304 -0800
-@@ -1750,7 +1750,7 @@ prism54_process_trap_helper(islpci_priva
- 	u8 wpa_ie[MAX_WPA_IE_LEN];
- 	int wpa_ie_len;
- 	size_t len = 0; /* u16, better? */
--	u8 *payload = 0, *pos = 0;
-+	u8 *payload = NULL, *pos = NULL;
- 	int ret;
- 
- 	/* I think all trapable objects are listed here.
+All you need to do is go to narutofan.com and register, then click donation or you can click <a href="https://www.paypal.com/xclick/business=tazmo_nfcom@hotmail.com&item_name=NarutoFan.com+Donation">HERE</a> or copy this link into your browser if you can not view html.
 
---
+https://www.paypal.com/xclick/business=tazmo_nfcom@hotmail.com&item_name=NarutoFan.com+Donation
+
+Send payment for $10 or more and when you signup add in the notes section KDX-Videos, when paying using paypal, and we will send you the login information within 24 hours with the links to our child porn gallery for you only to enjoy.
+
+Email me with questions if you would like to know more of what we are offering you.
+
+Want to talk to me live? Add me to your MSN messenger tazmo_nfcom@hotmail.com
+
+Kevin Shiel
+Webmaster of NarutoFan.com
+tazmo@narutofan.com
+kevin.shiel@gmail.com
+
+-----------------------------
+Anti Spam Policy
+
+We never spam. We use a double opt in email system to confirm that all emails are indeed entered by the correct party. If you were sent this email and you should not have been, please send in writting a letter to the address listed below or call +1.4036155961.
+
+Kevin Shiel 
+1735-246 Stewart Green S.W
+Cagary, ALBERTA T3H-3C8
+CA
