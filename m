@@ -1,32 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Steps for netdev-2.6 inclusion?
-Date: Tue, 21 Dec 2004 15:03:15 -0500
-Message-ID: <41C88183.3020906@pobox.com>
-References: <41AE7143.80505@linux.intel.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: Tue, 21 Dec 2004 21:48:53 +0100
+Message-ID: <20041221204853.GA20869@electric-eye.fr.zoreil.com>
+References: <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com> <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org> <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: James Ketrenos <jketreno@linux.intel.com>
-In-Reply-To: <41AE7143.80505@linux.intel.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: mpm@selenic.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261852AbULUUwv@vger.kernel.org>
+To: Mark Broadbent <markb@wetlettuce.com>
+Content-Disposition: inline
+In-Reply-To: <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Ketrenos wrote:
-> 
-> Ok, its been a long time coming, but it appears the ipw* wireless 
-> drivers are to the point where being more proactive at getting them into 
-> the kernel is appropriate (at least based on the frequency of emails I'm 
-> getting of 'why isn't this in mainline?')
-> 
-> So, what would be the set of steps required to get a version in the 
-> queue for inclusion?
+Mark Broadbent <markb@wetlettuce.com> :
+[...]
+> Using the patch supplied I get no hang, just the message 'netconsole
+> raced' output to the console and the packet capture proceeds as normal.
+> Thanks
 
-Any updates?  Where do we stand with this?
+The patch is more a bandaid for debugging than a real fix. The netconsole
+will drop some messages until its locking is fixed
 
-I would suggest sending a patch for each driver, diff'd against -mm 
-(which auto-includes my netdev-2.6 and wireless-2.6 queues).
+If you can issue one more test, I'd like to know if some messages appear
+on the VGA console around the time at which tcpdump is started (the test
+assumes that netconsole is not used/insmoded at all). Please check that
+the console log_level is set high enough as it will be really disappointing
+if nothing appears :o)
 
-	Jeff
+--
+Ueimor
