@@ -1,82 +1,86 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: RFC: Cisco HDLC bridging
-Date: Wed, 16 Jun 2004 13:13:44 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPsec and Path MTU
+Date: Wed, 16 Jun 2004 22:10:26 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3llinn4bb.fsf@defiant.pm.waw.pl>
-References: <C060DFCD9697A842B3189B458524FDC205D2C6@AIMAIL1.ai.aiinet.com>
+Message-ID: <20040616121026.GA1169@gondor.apana.org.au>
+References: <20040615124334.GA25164@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eble, Dan" <DanE@aiinet.com>
-In-Reply-To: <C060DFCD9697A842B3189B458524FDC205D2C6@AIMAIL1.ai.aiinet.com> (Dan
- Eble's message of "Mon, 14 Jun 2004 09:40:23 -0400")
+To: kuznet@ms2.inr.ac.ru, davem@redhat.com, jmorris@redhat.com,
+        netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040615124334.GA25164@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"Eble, Dan" <DanE@aiinet.com> writes:
+On Tue, Jun 15, 2004 at 10:43:34PM +1000, herbert wrote:
+> 
+> So unless I'm missing something, we should get rid of dst->path and
+> store the MTU in the xfrm dst's directly.
 
-> Krzysztof, I thought you had dropped off the face of the earth.  Good to
-> hear from you again.  Did you ever see my changes to make the HDLC generic
-> layer use the PPP generic layer instead of syncppp.c?
+Actually that's still broken for nested tunnels.  If we get an ICMP
+packet for a peer in the middle of the bundle, it is not easy to find
+the corresponding dst's to update.
 
-Not sure. Do you have a copy?
+So how about this solution:
 
-> I thought tcpdump/libpcap only looked at the device type, so that if we sent
-> non-eth packets up an eth interface, tcpdump would try to interpret them as
-> eth packets.
+MTU Barriers
+------------
+We divide each bundle into segments with the property that within
+each segment the local/remote addresses do not change.  For example,
+the following nested template will be divided into two segments:
 
-Sure. But we won't - with device type = Cisco HDLC tcpdump will be happy.
-I.e. will happily print SLARPs, regular IP frames, and Ethernet frames.
-Looks like it doesn't support it yet:
+ipcomp/tunnel/192.168.0.2-192.168.0.1/
+esp/transport//
+<-------------Check MTU-------------->
+esp/tunnel/10.0.0.2-10.0.0.1/
 
-        switch (proto) {
-        case ETHERTYPE_IP:
-        case ETHERTYPE_IPV6:
-        case CHDLC_TYPE_SLARP:
-        case CHDLC_TYPE_CDP:
-        case ETHERTYPE_MPLS:
-        case ETHERTYPE_MPLS_MULTI:
-        case ETHERTYPE_ISO:
+Between each pair of segments we will add an MTU-checking dst whose
+path is set to the route entry of the corresponding local/remote
+address.  For example, in the above scenario we'll add such a dst
+after the esp/transport// SA and set its path to the route entry
+for 192.168.0.2 to 192.168.0.1.
 
-but I can't see a problem with adding it, given the kernel code is
-confirmed working so I can test it.
+We will also store the computed MTU for each dst in itself at creation
+time.  This is modified subsequently through update_pmtu.
 
-Note it's irrelevant to single hdlcX vs hdlcX + hdlcXeth0 issue, it
-has to be done anyway.
+As an example, let's say that we receive an ICMP packet where the
+original header is from 192.168.0.2 to 192.168.0.1.  We will update
+the MTU in the corresponding route entry, which will then cause the
+dst_pmtu of the MTU-checking dst to be reduced.  If a subsequent large
+packet is transmitted through the bundle, it should fail at the
+MTU-checking dst and send back an ICMP error.  The error should then
+filter through the bundle by update_pmtu.
 
->  My primary reason for wanting a second device is to be sure
-> not to discard information that is helpful/necessary for troubleshooting;
-> so, if receiving packets with diverse header types is not going to mess
-> things up, I would definitely prefer using only one device, because it is
-> simpler to configure.
+This takes care of ICMP packets for IPsec peers in the middle of a bundle.
 
-Receive side is definitely not a problem. Transmit side is and I think
-we need two devices, at least for now.
+Flow Cache
+----------
+We will also modify the flow cache to store bundles instead of outgoing
+policies (Incoming/forward policies will stay as is).  The reason is
+that within each bundle, the MTU may still differ depending on the
+final destination address.
 
->  The case of using a Cisco HDLC link for bridged
-> ethernet *and* IP *and* other things at the same time does not seem very
-> useful.
+Thus we will add another MTU-checking dst at the front of each bundle.
+Its path will be set to the route entry that triggered the lookup.
 
-But it's more elegant solution I think (the same would apply to FR PVCs).
-It could be useful - with bridged Ethernet for MS Windows connectivity
-and with routed IP traffic.
+This dst will then be stored inside the flow cache.
 
->> The only problem I can see (a serious one, though) is the protocol
->> "routing" in Linux. If we "ip addr add" IP address to hdlcX, does
->> it mean we want native IP or IP/Ethernet? It would be nice to be able
->> to:
->>         ifconfig hdlc0 10.0.0.1/24 hw cisco-hdlc
->>         ifconfig hdlc0 10.0.1.1/24 hw ether
->
-> We could just use "sethdlc hdlc0 cisco-eth" and not worry about
-> distinguishing in ifconfig, right?
+This takes care of ICMP packets for destination hosts over IPsec.
 
-Sure, but that wouldn't be "at a time".
+Conclusion
+----------
+Now the problem with all this is that it looks pretty complicated.
+So I'd like to hear from you that this is all unnecessary and that
+one of you already has a solution for it all :)
 
-I'd go with "2 devices" path for now. Long-term I'm going to investigate
-"1 device" possibility. This depends on my future job = time I can
-find for it, as my current contract ends by Sep, 1 and I'll be seeking
-a new one (hope I'll have more time for Linux works than now).
+Seriously, I'd appreciate comments on this proposal or other proposals
+about the interaction between PMTU and IPsec.
+
+Cheers,
 -- 
-Krzysztof Halasa, B*FH
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
