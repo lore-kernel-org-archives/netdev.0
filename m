@@ -1,95 +1,136 @@
-From: =?ISO-2022-JP?B?GyRCJTglZSVdJTglZSVdJEhINCQtOjkkNxsoQg==?= <marina@yuri.m-blue.org>
-Subject: =?ISO-2022-JP?B?GyRCJTklbCVzJUAhPCRKM2QkSyRPJFckSyRlJEMkSCQ3JD8/SEJOGyhC?=
-Date: Fri, 18 Feb 2005 11:38:10 +0900 (KST)
-Message-ID: <20050218023810.D43DD521D5@rental3.fields-server.net>
-To: netdev@oss.sgi.com
-To: netdev@oss.sgi.com
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: [PATCH 2/3] r8169: code clean-up
+Date: Thu, 17 Feb 2005 22:00:39 -0600
+Message-ID: <200502172200.39423.jdmason@us.ibm.com>
+References: <200502161823.43562.jdmason@us.ibm.com> <20050217232804.GA4992@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050217232804.GA4992@electric-eye.fr.zoreil.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thursday 17 February 2005 05:28 pm, Francois Romieu wrote:
+> Jon Mason <jdmason@us.ibm.com> :
+> > This patch removes netif_poll_disable if NAPI is not enabled (otherwise
+> > adapter will hang while changing MTUs).
+>
+> I am currently running a non-napi r8169 on x86/sparc64 based on 2.6.11-rc4
+> + patches in Jeff's netdev and it apparently does not mind change of mtu.
+>
+> How am I supposed to make it hang ?
 
-■■A-MOTION■■■□■■■□■■■□■■■□■■■□■メールマガジン
-∴∵:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵∴
-　　 ◆              ☆□□□                                 □□□☆             ◆
-　◆■◆・・・・・・■■■　　　艶やかに濡れて光る　　　■■■・・・・・・◆■◆
-　　 ◆              ☆□□□　　　　　                      □□□☆             ◆
-☆*∵∴:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵
-■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
-                                          
-===========================================================
-　新┃着┃特┃集┃　http://stadium.puchiphoto.org/?onus9a3jha
-　━┛━┛━┛━┛・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-■■■第１弾
-■■■　【【【カラダが疼いて眠れないぃ～】】】。oO○Oo。oO○Oo。
-■■　　　　　                                                                      　　   │。　
-■　　　◆女の子だってＨは大好き☆............................................       　　＿ ＿人＿ ＿　　　　　　　　　　　　　　　　　　　　　
-■　　　　　　たっぷり濃厚な愛撫に、カラダがとろけそ～ぅ♪♪♪       ＊Ｙ
- 　   │。　                                                                          　　   │
-＿＿人＿＿　　　◆パックリ開いたキレイなアソコから滴る液体…。....................
-    ＊Ｙ　　　　　　　　蔵出し秘蔵ムービー一挙公開！！
-　    │
-　　　　　　◆禁断のチョーヤバ画像の数々...........................................................
-   　　　　　　　他では見ることの出来ないレアな画像や動画の宝庫
- 
-      http://stadium.puchiphoto.org/?onus9a3jha
-===========================================================
-　新┃着┃特┃集┃・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-　━┛━┛━┛━┛
-■■■第２弾
-■■■　　【【【究極のフェティッシュワールド】】】。oO○Oo。oO○Oo。
-■■　　　
-■　　　　 ◆美乳・爆乳大集合！！！...........................................
-■　　　　　　　手のひらからこぼれ落ちそうな爆乳・美乳大特集！
-　　　　　　　　　やわらかそうなフニフニのオッパイめしあがれっ♪
-　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
-　　　　　　◆むき栗くらべ..................................................          　　　　│。
-                         可愛い女の子たちの小さなつぼみを ＿ ＿人＿ ＿
-　　　　　　　　　　　アノ手コノ手でいじり倒します。　　　　　　　＊Ｙ
-　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　　│　
-　　　http://stadium.puchiphoto.org/?onus9a3jha
-・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-★その他見所満載！！！
-         
-　　　　　　　　　◆集団痴漢盗撮........................................................
-　　　　　　　　　　　　狭い空間でうごめく痴漢師たちの実態を盗撮。
-　　　　　　　　　　　　　　もみくちゃにされながら必死で抵抗するが、
-　　　　　　　　　　　　　なすすべもなくオモチャにされる女の子たち…。　　　　 
- 
-　　　　　　　◆野外露出パラダイス..................................................
-　　　　　　　　　　ゲームで負けた女の子がバツゲームとして
-　　　　　　　　　　ハダカでコンビニに行き買い物をさせられちゃう。
-　　　　　　　　　　今回は新人のサトミちゃんが挑戦
- 
-　　　http://stadium.puchiphoto.org/?onus9a3jha
- 
-★などなど大好評の特集以外にも、ヌキどころ満載 でお届けしまぁ～す★
- 
-┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓
-■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+I can't seem to make it hang anymore.  I guess I was wrong.  Please remove 
+this part of the patch.
 
-【会員の皆様へ】
-      
-    ・ 『A-MOTION』はメールマガジンの配信スタンドとなっており、無料でご登録会員様に
-　　　定期的にメールマガジンを配信しております。
+> > This patch also fixes a possible skb alignment overrun,
+>
+> Ok. Added some bits, see below.
 
-    ・当局のメールマガジンより配信される情報の利用に関しては、
-　　 ご購読者個人の責任においてご利用していただくことを
-　　目的としており情報の内容に関しては発行者におまかせしております。
- 
-　　・当局はご紹介先のサイトにおけるいかなるトラブルや損害に対しても
-　　 一切の責任を負いかねます。
-　　
-　　・掲載情報に関してのご質問には応じておりませんので
-　　　予めご了承下さい。
-　　　　
-　  ・当メールマガジンに掲載された記事の一部または全部を
-　　　許可なく転載することを禁止致します。
+Sorry for the oversight, but I had the 2nd part in the jumbo frames patch.
 
-  　・ 身に覚えのない配信はいたずらの可能性がございます
-　　　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
-　　　ご自身でお手続き下さい。
+> > and fixes the rx skb allocation error logging. It also
+>
+> Ok. I'd rather see it as shown below though (cuts some code and more
+> ppc-friendly unsigned ints).
 
-    http://yuri.m-blue.org/a-motion/
-■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
-┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛
+Actually, I think it should be something like:
+if (delta != count)
+
+> > removes an unnecessary define,
+>
+> Ok.
+>
+> > adds a link down notification, and cleans up
+>
+> Ok. I'll netif_msg it before someone else complains that the driver
+> is too verbose.
+
+ya, I was thinking about modifying most of the printks to dprintks (and 
+possibly moving to the e1000 dprintk model),  but I like the link down 
+notification.
+
+> ----------------------8<-----------------------------------------
+>
+> Fix rx skb allocation error logging
+>
+> Signed arithmetic is not required as rtl8169_rx_fill() return belongs
+> to the [0; NUM_RX_DESC] interval.
+>
+> Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>
+> diff -puN drivers/net/r8169.c~r8169-400 drivers/net/r8169.c
+> --- a/drivers/net/r8169.c~r8169-400 2005-02-17 21:50:09.820173216 +0100
+> +++ b/drivers/net/r8169.c 2005-02-17 22:00:00.210450784 +0100
+> @@ -2156,8 +2156,8 @@ static int
+>  rtl8169_rx_interrupt(struct net_device *dev, struct rtl8169_private *tp,
+>         void __iomem *ioaddr)
+>  {
+> - unsigned int cur_rx, rx_left, count;
+> - int delta;
+> + unsigned int cur_rx, rx_left;
+> + unsigned int delta, count;
+>
+>   assert(dev != NULL);
+>   assert(tp != NULL);
+> @@ -2225,10 +2225,8 @@ rtl8169_rx_interrupt(struct net_device *
+>   tp->cur_rx = cur_rx;
+>
+>   delta = rtl8169_rx_fill(tp, dev, tp->dirty_rx, tp->cur_rx);
+> - if (delta < 0) {
+> + if (!delta && count)
+>    printk(KERN_INFO "%s: no Rx buffer allocated\n", dev->name);
+> -  delta = 0;
+> - }
+>   tp->dirty_rx += delta;
+>
+>   /*
+>
+> _
+>
+> Nail an overrun in skb alignment and remove the relevant magic variable.
+>
+> Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+> Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+>
+> diff -puN drivers/net/r8169.c~r8169-410 drivers/net/r8169.c
+> --- a/drivers/net/r8169.c~r8169-410 2005-02-17 22:13:04.209897364 +0100
+> +++ b/drivers/net/r8169.c 2005-02-17 22:17:25.747969121 +0100
+> @@ -1697,11 +1697,11 @@ static int rtl8169_alloc_rx_skb(struct p
+>   dma_addr_t mapping;
+>   int ret = 0;
+>
+> - skb = dev_alloc_skb(rx_buf_sz);
+> + skb = dev_alloc_skb(rx_buf_sz + NET_IP_ALIGN);
+>   if (!skb)
+>    goto err_out;
+>
+> - skb_reserve(skb, 2);
+> + skb_reserve(skb, NET_IP_ALIGN);
+>   *sk_buff = skb;
+>
+>   mapping = pci_map_single(pdev, skb->tail, rx_buf_sz,
+> @@ -2140,9 +2140,9 @@ static inline int rtl8169_try_rx_copy(st
+>   if (pkt_size < rx_copybreak) {
+>    struct sk_buff *skb;
+>
+> -  skb = dev_alloc_skb(pkt_size + 2);
+> +  skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
+>    if (skb) {
+> -   skb_reserve(skb, 2);
+> +   skb_reserve(skb, NET_IP_ALIGN);
+>     eth_copy_and_sum(skb, sk_buff[0]->tail, pkt_size, 0);
+>     *sk_buff = skb;
+>     rtl8169_return_to_asic(desc, rx_buf_sz);
+>
+> _
+>
+>
+> --
+> Ueimor
