@@ -1,54 +1,39 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Updated WE-18 (WPA) proposal
-Date: Mon, 30 Aug 2004 18:20:01 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: Mon, 30 Aug 2004 15:44:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4133A811.1010009@pobox.com>
-References: <20040830045441.GA7415@jm.kir.nu> <20040830165026.GD29492@bougret.hpl.hp.com> <413363CB.7060807@pobox.com> <20040830174215.GA32132@bougret.hpl.hp.com> <41336A28.9010608@pobox.com> <20040830220105.GY22126@ruslug.rutgers.edu>
+Message-ID: <20040830154430.769d1d59.davem@redhat.com>
+References: <1093799632.1073.410.camel@jzny.localdomain>
+	<20040830144033.2265a6e6.davem@redhat.com>
+	<1093904088.1043.12.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, Jouni Malinen <jkmaline@cc.hut.fi>, netdev@oss.sgi.com,
-        hostap@shmoo.com, Pedro Ramalhais <ramalhais@serrado.net>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-In-Reply-To: <20040830220105.GY22126@ruslug.rutgers.edu>
+To: hadi@cyberus.ca
+In-Reply-To: <1093904088.1043.12.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez wrote:
-> On Mon, Aug 30, 2004 at 01:55:52PM -0400, Jeff Garzik wrote:
-> 
->>Jean Tourrilhes wrote:
-> 
-> 
-> <-- snip -->
-> 
->>>	Also, I'm not clear how the stuff in wireless-2.6 is supposed
->>>to trickle into the other trees (netdev-2.6, -mm and Linus's), and how
->>>to better link it with the CVS of the various drivers involved.
->>
->>Less of a trickle than a flood:  wireless-2.6 should be the target for 
->>development of shared wireless stack code.  As several drivers are 
->>currently using bits of HostAP, for example, wireless-2.6 should be a 
->>focal point for patches that modify these drivers to instead share the 
->>same code.
->>
->>Once this generic work is done, it would get pushed all at once to 
->>netdev-2.6, where it would receive testing in -mm.  Then, later, pushed 
->>to mainline.
->>
->>	Jeff
-> 
-> 
-> Beides wpa_supplicant from hostap code (which is actually going into
-> WE18) what other code re-use is on the roadmap as of yet for wireless-2.6?
+On 30 Aug 2004 18:14:48 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-Intel Centrino driver is re-using chunks of HostAP, and I'm looking at 
-doing so for the RealTek 8180 driver I am about to publish.
+> 4) old kernel +  new tc --> will bomb (sizeof check will fail)
+> 
+> Cant think of something smart to do with option #4. I have contemplated
+> playing with offsetoff() etc. The best thing i can think of right
+> now is to complain about it as in that fprintf()
+> 
+> Thoughts?
 
+Check the size, if it matches the older tc_stats size sans
+requeue stat addition, then don't try to reference that struct member.
 
-> Also who is coordinating this?
-
-The same person who coordinates the kernel at large... no one ;-)
-
-	Jeff
+	if (RTA_PAYLOAD(tb[TCA_STATS]) == sizeof(struct tc_stats_old)) {
+		/* report everything sans requeue */
+	} else if (RTA_PAYLOAD(tb[TCA_STATS]) == sizeof(struct tc_stats)) {
+		/* report all stats, including requeue */
+	} else {
+		/* report error, etc. */
+	}
