@@ -1,8 +1,8 @@
 From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: Re: [PATCH 1/2] Prefix List against 2.5.73
-Date: Wed, 16 Jul 2003 11:49:11 -0700 (PDT)
+Subject: [PATCH 2/2] Prefix List against 2.4.21
+Date: Wed, 16 Jul 2003 11:50:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307161146070.1972-100000@DYN318430.beaverton.ibm.com>
+Message-ID: <Pine.LNX.4.44.0307161149300.1972-100000@DYN318430.beaverton.ibm.com>
 References: <Pine.LNX.4.44.0307161128520.1972-100000@DYN318430.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -14,20 +14,16 @@ In-Reply-To: <Pine.LNX.4.44.0307161128520.1972-100000@DYN318430.beaverton.ibm.co
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Sorry, I had an extra structure in the previous patch which is not needed
-after taking alexey's changes. Now since the prefix list and the routing
-table are returned *identically*, the extra structure in6_prefix_mgs is
-removed. This is the correct patch for 2.5.73.
+This is the same patch against 2.4.21
 
 Thanks,
 
 - KK
 
-diff -ruN linux-2.5.73.org/include/linux/ipv6_route.h test/linux-2.5.73/include/linux/ipv6_route.h
---- linux-2.5.73.org/include/linux/ipv6_route.h	2003-06-22 11:32:36.000000000 -0700
-+++ test/linux-2.5.73/include/linux/ipv6_route.h	2003-07-15 10:38:31.000000000 -0700
-@@ -16,6 +16,7 @@
+diff -ruN linux-2.4.21.org/include/linux/ipv6_route.h test/linux.2.4.21/include/linux/ipv6_route.h
+--- linux-2.4.21.org/include/linux/ipv6_route.h	1998-08-27 19:33:08.000000000 -0700
++++ test/linux.2.4.21/include/linux/ipv6_route.h	2003-07-16 10:58:57.000000000 -0700
+@@ -25,6 +25,7 @@
  #define RTF_DEFAULT	0x00010000	/* default - learned via ND	*/
  #define RTF_ALLONLINK	0x00020000	/* fallback, no routers on link	*/
  #define RTF_ADDRCONF	0x00040000	/* addrconf route - RA		*/
@@ -35,10 +31,10 @@ diff -ruN linux-2.5.73.org/include/linux/ipv6_route.h test/linux-2.5.73/include/
 
  #define RTF_NONEXTHOP	0x00200000	/* route with no nexthop	*/
  #define RTF_EXPIRES	0x00400000
-diff -ruN linux-2.5.73.org/include/linux/rtnetlink.h test/linux-2.5.73/include/linux/rtnetlink.h
---- linux-2.5.73.org/include/linux/rtnetlink.h	2003-06-22 11:33:07.000000000 -0700
-+++ test/linux-2.5.73/include/linux/rtnetlink.h	2003-07-16 10:58:19.000000000 -0700
-@@ -168,6 +168,7 @@
+diff -ruN linux-2.4.21.org/include/linux/rtnetlink.h test/linux.2.4.21/include/linux/rtnetlink.h
+--- linux-2.4.21.org/include/linux/rtnetlink.h	2002-11-28 15:53:15.000000000 -0800
++++ test/linux.2.4.21/include/linux/rtnetlink.h	2003-07-16 10:57:58.000000000 -0700
+@@ -167,6 +167,7 @@
  #define RTM_F_NOTIFY		0x100	/* Notify user of route change	*/
  #define RTM_F_CLONED		0x200	/* This route is cloned		*/
  #define RTM_F_EQUALIZE		0x400	/* Multipath equalizer: NI	*/
@@ -46,12 +42,21 @@ diff -ruN linux-2.5.73.org/include/linux/rtnetlink.h test/linux-2.5.73/include/l
 
  /* Reserved table identifiers */
 
-diff -ruN linux-2.5.73.org/include/net/if_inet6.h test/linux-2.5.73/include/net/if_inet6.h
---- linux-2.5.73.org/include/net/if_inet6.h	2003-06-22 11:33:32.000000000 -0700
-+++ test/linux-2.5.73/include/net/if_inet6.h	2003-07-16 09:55:25.000000000 -0700
-@@ -17,7 +17,9 @@
+@@ -198,7 +199,7 @@
+ 	RTA_MULTIPATH,
+ 	RTA_PROTOINFO,
+ 	RTA_FLOW,
+-	RTA_CACHEINFO
++	RTA_CACHEINFO,
+ };
 
- #include <net/snmp.h>
+ #define RTA_MAX RTA_CACHEINFO
+diff -ruN linux-2.4.21.org/include/net/if_inet6.h test/linux.2.4.21/include/net/if_inet6.h
+--- linux-2.4.21.org/include/net/if_inet6.h	2003-06-13 07:51:39.000000000 -0700
++++ test/linux.2.4.21/include/net/if_inet6.h	2003-07-16 10:54:53.000000000 -0700
+@@ -15,7 +15,9 @@
+ #ifndef _NET_IF_INET6_H
+ #define _NET_IF_INET6_H
 
 -#define IF_RA_RCVD	0x20
 +#define IF_RA_OTHERCONF	0x02
@@ -60,10 +65,10 @@ diff -ruN linux-2.5.73.org/include/net/if_inet6.h test/linux-2.5.73/include/net/
  #define IF_RS_SENT	0x10
 
  #ifdef __KERNEL__
-diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrconf.c
---- linux-2.5.73.org/net/ipv6/addrconf.c	2003-06-22 11:33:17.000000000 -0700
-+++ test/linux-2.5.73/net/ipv6/addrconf.c	2003-07-16 11:01:10.000000000 -0700
-@@ -129,7 +129,7 @@
+diff -ruN linux-2.4.21.org/net/ipv6/addrconf.c test/linux.2.4.21/net/ipv6/addrconf.c
+--- linux-2.4.21.org/net/ipv6/addrconf.c	2003-06-13 07:51:39.000000000 -0700
++++ test/linux.2.4.21/net/ipv6/addrconf.c	2003-07-16 11:05:15.000000000 -0700
+@@ -101,7 +101,7 @@
 
  static int addrconf_ifdown(struct net_device *dev, int how);
 
@@ -72,25 +77,16 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  static void addrconf_dad_timer(unsigned long data);
  static void addrconf_dad_completed(struct inet6_ifaddr *ifp);
  static void addrconf_rs_timer(unsigned long data);
-@@ -715,7 +715,7 @@
- 	ift->prefered_lft = tmp_prefered_lft;
- 	ift->tstamp = ifp->tstamp;
- 	spin_unlock_bh(&ift->lock);
--	addrconf_dad_start(ift);
-+	addrconf_dad_start(ift, 0);
- 	in6_ifa_put(ift);
- 	in6_dev_put(idev);
- out:
-@@ -1211,7 +1211,7 @@
+@@ -889,7 +889,7 @@
  	rtmsg.rtmsg_dst_len = 8;
  	rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
  	rtmsg.rtmsg_ifindex = dev->ifindex;
 -	rtmsg.rtmsg_flags = RTF_UP|RTF_ADDRCONF;
 +	rtmsg.rtmsg_flags = RTF_UP;
  	rtmsg.rtmsg_type = RTMSG_NEWROUTE;
- 	ip6_route_add(&rtmsg, NULL, NULL);
+ 	ip6_route_add(&rtmsg, NULL);
  }
-@@ -1238,7 +1238,7 @@
+@@ -916,7 +916,7 @@
  	struct in6_addr addr;
 
  	ipv6_addr_set(&addr,  htonl(0xFE800000), 0, 0, 0);
@@ -99,7 +95,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  }
 
  static struct inet6_dev *addrconf_add_dev(struct net_device *dev)
-@@ -1330,7 +1330,8 @@
+@@ -1008,7 +1008,8 @@
  		}
  	} else if (pinfo->onlink && valid_lft) {
  		addrconf_prefix_route(&pinfo->prefix, pinfo->prefix_len,
@@ -109,16 +105,16 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  	}
  	if (rt)
  		dst_release(&rt->u.dst);
-@@ -1378,7 +1379,7 @@
+@@ -1054,7 +1055,7 @@
+ 				return;
  			}
 
- 			create = 1;
 -			addrconf_dad_start(ifp);
 +			addrconf_dad_start(ifp, RTF_ADDRCONF|RTF_PREFIX_RT);
  		}
 
  		if (ifp && valid_lft == 0) {
-@@ -1529,7 +1530,7 @@
+@@ -1166,7 +1167,7 @@
 
  	ifp = ipv6_add_addr(idev, pfx, plen, scope, IFA_F_PERMANENT);
  	if (!IS_ERR(ifp)) {
@@ -127,7 +123,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  		in6_ifa_put(ifp);
  		return 0;
  	}
-@@ -1704,7 +1705,7 @@
+@@ -1341,7 +1342,7 @@
 
  	ifp = ipv6_add_addr(idev, addr, 64, IFA_LINK, IFA_F_PERMANENT);
  	if (!IS_ERR(ifp)) {
@@ -136,7 +132,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  		in6_ifa_put(ifp);
  	}
  }
-@@ -1943,8 +1944,7 @@
+@@ -1578,8 +1579,7 @@
  		memset(&rtmsg, 0, sizeof(struct in6_rtmsg));
  		rtmsg.rtmsg_type = RTMSG_NEWROUTE;
  		rtmsg.rtmsg_metric = IP6_RT_PRIO_ADDRCONF;
@@ -146,7 +142,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
 
  		rtmsg.rtmsg_ifindex = ifp->idev->dev->ifindex;
 
-@@ -1958,7 +1958,7 @@
+@@ -1593,7 +1593,7 @@
  /*
   *	Duplicate Address Detection
   */
@@ -155,7 +151,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  {
  	struct net_device *dev;
  	unsigned long rand_num;
-@@ -1968,7 +1968,7 @@
+@@ -1603,7 +1603,7 @@
  	addrconf_join_solict(dev, &ifp->addr);
 
  	if (ifp->prefix_len != 128 && (ifp->flags&IFA_F_PERMANENT))
@@ -164,7 +160,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
 
  	net_srandom(ifp->addr.s6_addr32[3]);
  	rand_num = net_random() % (ifp->idev->cnf.rtr_solicit_delay ? : 1);
-@@ -2368,7 +2368,7 @@
+@@ -1888,7 +1888,7 @@
  	ifm = NLMSG_DATA(nlh);
  	ifm->ifa_family = AF_INET6;
  	ifm->ifa_prefixlen = ifa->prefix_len;
@@ -173,10 +169,10 @@ diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrco
  	ifm->ifa_scope = RT_SCOPE_UNIVERSE;
  	if (ifa->scope&IFA_HOST)
  		ifm->ifa_scope = RT_SCOPE_HOST;
-diff -ruN linux-2.5.73.org/net/ipv6/ndisc.c test/linux-2.5.73/net/ipv6/ndisc.c
---- linux-2.5.73.org/net/ipv6/ndisc.c	2003-06-22 11:32:56.000000000 -0700
-+++ test/linux-2.5.73/net/ipv6/ndisc.c	2003-07-14 15:06:14.000000000 -0700
-@@ -1036,6 +1036,16 @@
+diff -ruN linux-2.4.21.org/net/ipv6/ndisc.c test/linux.2.4.21/net/ipv6/ndisc.c
+--- linux-2.4.21.org/net/ipv6/ndisc.c	2003-06-13 07:51:39.000000000 -0700
++++ test/linux.2.4.21/net/ipv6/ndisc.c	2003-07-14 15:09:28.000000000 -0700
+@@ -940,6 +940,16 @@
  		 */
  		in6_dev->if_flags |= IF_RA_RCVD;
  	}
@@ -193,10 +189,10 @@ diff -ruN linux-2.5.73.org/net/ipv6/ndisc.c test/linux-2.5.73/net/ipv6/ndisc.c
 
  	lifetime = ntohs(ra_msg->icmph.icmp6_rt_lifetime);
 
-diff -ruN linux-2.5.73.org/net/ipv6/route.c test/linux-2.5.73/net/ipv6/route.c
---- linux-2.5.73.org/net/ipv6/route.c	2003-06-22 11:33:05.000000000 -0700
-+++ test/linux-2.5.73/net/ipv6/route.c	2003-07-16 10:42:01.000000000 -0700
-@@ -1400,13 +1400,20 @@
+diff -ruN linux-2.4.21.org/net/ipv6/route.c test/linux.2.4.21/net/ipv6/route.c
+--- linux-2.4.21.org/net/ipv6/route.c	2003-06-13 07:51:39.000000000 -0700
++++ test/linux.2.4.21/net/ipv6/route.c	2003-07-16 11:09:45.000000000 -0700
+@@ -1516,13 +1516,20 @@
  			 struct in6_addr *src,
  			 int iif,
  			 int type, u32 pid, u32 seq,
@@ -218,7 +214,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/route.c test/linux-2.5.73/net/ipv6/route.c
  	if (!pid && in_nlh) {
  		pid = in_nlh->nlmsg_pid;
  	}
-@@ -1487,10 +1494,16 @@
+@@ -1603,10 +1610,16 @@
  static int rt6_dump_route(struct rt6_info *rt, void *p_arg)
  {
  	struct rt6_rtnl_dump_arg *arg = (struct rt6_rtnl_dump_arg *) p_arg;
@@ -236,8 +232,8 @@ diff -ruN linux-2.5.73.org/net/ipv6/route.c test/linux-2.5.73/net/ipv6/route.c
  }
 
  static int fib6_dump_node(struct fib6_walker_t *w)
-@@ -1638,7 +1651,7 @@
- 			    &fl.fl6_dst, &fl.fl6_src,
+@@ -1757,7 +1770,7 @@
+ 			    fl.nl_u.ip6_u.saddr,
  			    iif,
  			    RTM_NEWROUTE, NETLINK_CB(in_skb).pid,
 -			    nlh->nlmsg_seq, nlh);
@@ -245,7 +241,7 @@ diff -ruN linux-2.5.73.org/net/ipv6/route.c test/linux-2.5.73/net/ipv6/route.c
  	if (err < 0) {
  		err = -EMSGSIZE;
  		goto out_free;
-@@ -1664,7 +1677,7 @@
+@@ -1783,7 +1796,7 @@
  		netlink_set_err(rtnl, 0, RTMGRP_IPV6_ROUTE, ENOBUFS);
  		return;
  	}
