@@ -1,54 +1,43 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
 Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Thu, 13 Jan 2005 01:18:37 +0100
-Message-ID: <20050113001837.GH14280@xi.wantstofly.org>
-References: <20050112222437.GC14280@xi.wantstofly.org> <41E5A7E9.4030101@candelatech.com> <20050112224810.GE14280@xi.wantstofly.org> <41E5AEAC.8060706@candelatech.com> <20050112231615.GF14280@xi.wantstofly.org> <20050112234344.GM26856@postel.suug.ch>
+Date: Thu, 13 Jan 2005 01:29:59 +0100
+Message-ID: <20050113002959.GI14280@xi.wantstofly.org>
+References: <20050112222437.GC14280@xi.wantstofly.org> <20050112160455.3b839b21@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com,
-        shemminger@osdl.org, shollenbeck@verisign.com
+Cc: netdev@oss.sgi.com, shollenbeck@verisign.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20050112234344.GM26856@postel.suug.ch>
+In-Reply-To: <20050112160455.3b839b21@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 13, 2005 at 12:43:44AM +0100, Thomas Graf wrote:
+On Wed, Jan 12, 2005 at 04:04:55PM -0800, Stephen Hemminger wrote:
 
-> > > >>Also, could you add an ioctl that allowed one to query whether or not
-> > > >>a particular device is an etherip device?  I had always wished I had added
-> > > >>this earlier to the VLAN code :)
-> > > >
-> > > >Hmmm.  Bridge devices don't have this either, do they?  Can you name
-> > > >an advantage of having this?
-> > > 
-> > > I got the request several times with regard to VLANs.  Lots of people
-> > > (and applications) will want to know the interface type for various
-> > > reasons.  If you don't give them a nice programatic thing like an
-> > > IOCTL to call, they will undoubtedly start making assumptions based
-> > > off of the device name...
+> > After struggling with various userland VPN solutions for a while (and
+> > failing to make IPSEC tunnel mode do what I want), I decided to just
+> > implement ethernet-in-IP tunneling in the kernel and let IPSEC transport
+> > mode handle the rest.
 > > 
-> > Makes sense..
+> > There appeared to be an RFC for ethernet-in-IP already, RFC 3378, so I
+> > just implemented that.  It's very simple -- slap a 16-bit header (0x3000,
+> > which is 4 bits of etherip version number and 12 bits of padding) onto
+> > the beginning of the ethernet packet, and then wrap it in an IP packet.
 > > 
-> > Unfortunately SIOCGETTUNNEL is (SIOCDEVPRIVATE + 3), otherwise we could
-> > just say something like "If an ARPHRD_ETHER device supports SIOCGETTUNNEL,
-> > it's an ether/ip tunnel."
-> > 
-> > Any better ideas?  I hate adding more ioctls.
+> > Below is what I came up with, against the latest Fedora Core 3 kernel,
+> > which is 2.6.10-something.  It survives some fairly basic testing between
+> > a number of different machines, UP and SMP.  (Corresponding iproute2
+> > patch is available from http://www.wantstofly.org/~buytenh/etherip/ )
 > 
-> I think it should go into ip_tunnel_param, unforunately there are no
-> unused fields.
+> Since it is an RFC, any chance of interoperability testing it with
+> something besides Linux on the other end?
 
-What's that?  I can't find it in my kernel tree nor on google.
+Some googling suggests that OpenBSD implements this as well.
 
-
-> Maybe schedule this for 2.7 together with a clean up
-> of all the tunnels so they share redundant code? Lots of gre related
-> code and comments spread over non-gre tunnels that should go away.
-
-Indeed, it would be good to have this cleaned up.
+Anyone here with an OpenBSD box on the 'net that's willing to do
+some tests?
 
 
 cheers,
