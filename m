@@ -1,41 +1,36 @@
-From: Ben Greear <greearb@candelatech.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Mon, 09 Feb 2004 13:39:51 -0800
+Date: Mon, 9 Feb 2004 13:45:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4027FE27.9020102@candelatech.com>
-References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli> <20040209121926.6f016ebf.davem@redhat.com>
+Message-ID: <20040209134551.3bd533a2.davem@redhat.com>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+	<20040209121926.6f016ebf.davem@redhat.com>
+	<4027FE27.9020102@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: ja@ssi.bg, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040209121926.6f016ebf.davem@redhat.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4027FE27.9020102@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Sun, 8 Feb 2004 22:44:05 +0200 (EET)
-> Julian Anastasov <ja@ssi.bg> wrote:
-> 
-> 
->>- the 'skb->pkt_type == PACKET_HOST' check has no semantic anymore,
->>the requestor should have same information no matter the packet
->>type. In all cases we add response delay for all requests, broadcast
->>or unicast, to help other authoritative hosts to reply before us.
-> 
-> 
-> Do we really want to reply to all the garbage tcpdump causes us
-> to capture?
-> 
-> That is what the pkt_type is dealing with.  If we're in promiscuous
-> mode, we'll hear ARP requests meant not for any of our devices, we
-> should not proxy for them right?
+On Mon, 09 Feb 2004 13:39:51 -0800
+Ben Greear <greearb@candelatech.com> wrote:
 
-Arp requests are always broadcasts, so promisc changes nothing,
-right?
+> Arp requests are always broadcasts, so promisc changes nothing,
+> right?
 
+Unicast probes are possible.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+If it is broadcast/multicast then pkt_type will be PACKET_{BROAD,MULTI}CAST.
+
+The existing ipv4 proxy-arp code is saying (as I read it) to not delay the
+response if this is a unicast probe.  This is one of the behaviors that
+Julian is modifying slightly.
+
+For everyone's edification, when looking at changes Julian is suggesting, realize
+that his interests lie in IPVS like applications, so consider the corner case
+situations that such setups might be interested in and you'll see clearly the
+impetus for all of his ARP change proposals :-)
