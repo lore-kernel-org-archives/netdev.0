@@ -1,44 +1,43 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NET] Check skb_header_cloned for TSO packets in ixgb
-Date: Thu, 24 Feb 2005 11:30:54 -0800
-Message-ID: <20050224113054.51a2020e.davem@davemloft.net>
-References: <20050126110043.GA29950@yakov.inr.ac.ru>
-	<20050126222522.GA21670@gondor.apana.org.au>
-	<20050127110946.GA20494@gondor.apana.org.au>
-	<20050127111201.GB20494@gondor.apana.org.au>
-	<20050128202542.GA23670@yakov.inr.ac.ru>
-	<20050129031740.GA6130@gondor.apana.org.au>
-	<20050129032210.GA7424@gondor.apana.org.au>
-	<20050215103312.6178385f.davem@davemloft.net>
-	<20050215202453.GA4355@gondor.apana.org.au>
-	<20050223195137.1e769c77.davem@davemloft.net>
-	<20050224102951.GA23562@gondor.apana.org.au>
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [-mm patch] net/ieee80211/Kconfig: don't describe what gets selected
+Date: Thu, 24 Feb 2005 22:42:24 +0100
+Message-ID: <20050224214223.GJ8651@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050224102951.GA23562@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Disposition: inline
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Feb 2005 21:29:51 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+The information what gets selected doesn't belong into the helh text 
+(and at least "make menuconfig" already displays this information).
 
-> On Wed, Feb 23, 2005 at 07:51:37PM -0800, David S. Miller wrote:
-> > 
-> > Also queued to 2.6.12, thanks.  Someone should cook up the versions
-> > for other drivers supporting TSO.
-> 
-> I only found one other TSO driver that touches the headers, ixgb.
-> Here is the patch which adds an skb_header_cloned check to it.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Applied, thanks.
-
-> Do you know of any others?
-
-I thought there was another that messed with the headers, but I
-can't spot it anymore :-)
+--- linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig.old	2005-02-24 22:31:07.000000000 +0100
++++ linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig	2005-02-24 22:32:02.000000000 +0100
+@@ -5,3 +5,3 @@
+ 	This option enables the hardware independent IEEE 802.11 
+-	networking stack.  This option will also select NET_RADIO.
++	networking stack.
+ 
+@@ -38,5 +38,3 @@
+ 	Include software based cipher suites in support of IEEE 
+-	802.11's WEP.  This is needed for WEP as well as 802.1x.  This 
+-	selects ARC4 under kernel crypto libraries, and CRC32 under 
+-	kernel libraries. 
++	802.11's WEP.  This is needed for WEP as well as 802.1x.
+ 
+@@ -52,4 +50,3 @@
+ 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
+-	networks.  This selects AES support under kernel crypto 
+-	libraries.
++	networks.
+ 
+@@ -65,4 +62,3 @@
+ 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled 
+-	networks.  This selects Michael Mic support under kernel crypto 
+-	libraries. 
++	networks.
+ 
