@@ -1,81 +1,30 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: [patch] tg3 ring buffer allocation error handling
-Date: Wed, 14 Apr 2004 13:46:42 -0500
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6.5] bridge - replace CLEAR_BITMAP with memset
+Date: Wed, 14 Apr 2004 12:04:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040414184642.GZ1175@waste.org>
+Message-ID: <20040414120434.2029b567@dell_ss3.pdx.osdl.net>
+References: <20040413151630.710042e3@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bridge@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040413151630.710042e3@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+It looks like a recent patch to 2.6.5 got rid of CLEAR_BITMAP.
 
-tg3 - handle ring buffer allocation failure
-
-Try to allocate rx ring buffer and properly clean up and exit on
-failure.
-
-
- tiny-mpm/drivers/net/tg3.c |   21 ++++++++++++++-------
- 1 files changed, 14 insertions(+), 7 deletions(-)
-
-diff -puN drivers/net/tg3.c~tg3-oops drivers/net/tg3.c
---- tiny/drivers/net/tg3.c~tg3-oops	2004-03-20 20:08:42.000000000 -0600
-+++ tiny-mpm/drivers/net/tg3.c	2004-03-20 20:08:42.000000000 -0600
-@@ -3092,7 +3092,7 @@ static void tg3_free_rings(struct tg3 *t
-  * end up in the driver.  tp->{tx,}lock are held and thus
-  * we may not sleep.
-  */
--static void tg3_init_rings(struct tg3 *tp)
-+static int tg3_init_rings(struct tg3 *tp)
- {
- 	unsigned long start, end;
- 	u32 i;
-@@ -3151,18 +3151,23 @@ static void tg3_init_rings(struct tg3 *t
+diff -Nru a/net/bridge/br_if.c b/net/bridge/br_if.c
+--- a/net/bridge/br_if.c	Wed Apr 14 12:01:21 2004
++++ b/net/bridge/br_if.c	Wed Apr 14 12:01:21 2004
+@@ -175,7 +175,7 @@
+ 	if (!inuse)
+ 		return -ENOMEM;
  
- 	/* Now allocate fresh SKBs for each rx ring. */
- 	for (i = 0; i < tp->rx_pending; i++) {
--		if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_STD,
--				     -1, i) < 0)
--			break;
-+		if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_STD, -1, i) < 0) {
-+			printk("tg3_alloc_rx_skb %d failed\n", i);
-+			return -ENOMEM;
-+		}
- 	}
- 
- 	if (tp->tg3_flags & TG3_FLAG_JUMBO_ENABLE) {
- 		for (i = 0; i < tp->rx_jumbo_pending; i++) {
- 			if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_JUMBO,
--					     -1, i) < 0)
--				break;
-+					     -1, i) < 0) {
-+				printk("tg3_alloc_rx_skb %d failed\n", i);
-+				return -ENOMEM;
-+			}
- 		}
- 	}
-+
-+	return 0;
- }
- 
- /*
-@@ -4557,7 +4562,9 @@ static int tg3_reset_hw(struct tg3 *tp)
- 	 * can only do this after the hardware has been
- 	 * successfully reset.
- 	 */
--	tg3_init_rings(tp);
-+	err = tg3_init_rings(tp);
-+	if (err)
-+		return err;
- 
- 	/* This value is determined during the probe time DMA
- 	 * engine test, tg3_test_dma.
-
-_
-
--- 
-Matt Mackall : http://www.selenic.com : Linux development and consulting
+-	CLEAR_BITMAP(inuse, BR_MAX_PORTS);
++	memset(inuse, 0, BITS_TO_LONGS(BR_MAX_PORTS)*sizeof(unsigned long));
+ 	set_bit(0, inuse);	/* zero is reserved */
+ 	list_for_each_entry(p, &br->port_list, list) {
+ 		set_bit(p->port_no, inuse);
