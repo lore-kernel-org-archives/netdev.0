@@ -1,8 +1,8 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [lanai] get rid of MOD_INC/MOD_DEC (from shemminger@osdl.org)
-Date: Sun, 21 Sep 2003 10:46:19 -0400
+Subject: [PATCH]  [ATM]: [uPD98402] convert to new-style module
+Date: Sun, 21 Sep 2003 10:47:02 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309211446.h8LEkJkT023754@ginger.cmf.nrl.navy.mil>
+Message-ID: <200309211447.h8LEl1kT023772@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,41 +16,42 @@ please apply to 2.6.  --thanks
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1436  -> 1.1437 
-#	 drivers/atm/lanai.c	1.27    -> 1.28   
+#	           ChangeSet	1.1443  -> 1.1444 
+#	drivers/atm/uPD98402.c	1.6     -> 1.7    
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/09/09	chas@relax.cmf.nrl.navy.mil	1.1437
-# [ATM]: [lanai] get rid of MOD_INC/MOD_DEC (from shemminger@osdl.org)
+# 03/09/21	chas@relax.cmf.nrl.navy.mil	1.1444
+# uPD98402.c:
+#   [ATM]: [uPD98402] convert to new-style module
 # --------------------------------------------
 #
-diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
---- a/drivers/atm/lanai.c	Sun Sep 21 09:36:46 2003
-+++ b/drivers/atm/lanai.c	Sun Sep 21 09:36:46 2003
-@@ -2242,7 +2242,6 @@
- 		printk(KERN_ERR DEV_LABEL ": can't allocate interrupt\n");
- 		goto error_vcctable;
- 	}
--	MOD_INC_USE_COUNT;		/* At this point we can't fail */
- 	mb();				/* Make sure that all that made it */
- 	intr_enable(lanai, INT_ALL & ~(INT_PING | INT_WAKE));
- 	/* 3.11: initialize loop mode (i.e. turn looping off) */
-@@ -2312,7 +2311,6 @@
- 	service_buffer_deallocate(lanai);
- 	iounmap((void *) lanai->base);
- 	kfree(lanai);
--	MOD_DEC_USE_COUNT;
+diff -Nru a/drivers/atm/uPD98402.c b/drivers/atm/uPD98402.c
+--- a/drivers/atm/uPD98402.c	Sun Sep 21 10:40:29 2003
++++ b/drivers/atm/uPD98402.c	Sun Sep 21 10:40:29 2003
+@@ -254,22 +254,13 @@
  }
  
- /* close a vcc */
-@@ -2686,7 +2684,8 @@
- 	.phy_put	= NULL,
- 	.phy_get	= NULL,
- 	.change_qos	= lanai_change_qos,
--	.proc_read	= lanai_proc_read
-+	.proc_read	= lanai_proc_read,
-+	.owner		= THIS_MODULE
- };
  
- /* initialize one probed card */
+-#ifdef MODULE
+ MODULE_LICENSE("GPL");
+ 
+ EXPORT_SYMBOL(uPD98402_init);
+ 
+- 
+-int init_module(void)
++static __init int uPD98402_module_init(void)
+ {
+-	MOD_INC_USE_COUNT;
+ 	return 0;
+ }
+-
+-
+-void cleanup_module(void)
+-{
+-	/* Nay */
+-}
+- 
+-#endif
++module_init(uPD98402_module_init);
++/* module_exit not defined so not unloadable */
