@@ -1,96 +1,74 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: net/sctp/sm_make_chunk.c alignment problems on parisc64
-Date: Fri, 19 Sep 2003 15:15:53 -0700 (PDT)
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Sat, 20 Sep 2003 07:50:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309191440320.4758-100000@localhost.localdomain>
-References: <20030918195525.28c17cb1.davem@redhat.com>
+Message-ID: <20030920055002.GC8398@sunbeam.de.gnumonks.org>
+References: <20030912085606.GC2350@obroa-skai.de.gnumonks.org> <1063371268.1031.96.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: acme@conectiva.com.br, <netdev@oss.sgi.com>,
-        <lksctp-developers@lists.sourceforge.net>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="JgQwtEuHJzHdouWu"
+Cc: "David S. Miller" <davem@redhat.com>,
+        Bart De Schuymer <bdschuym@pandora.be>, acme@conectiva.com.br,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030918195525.28c17cb1.davem@redhat.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1063371268.1031.96.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Sep 2003, David S. Miller wrote:
 
-> On Wed, 17 Sep 2003 16:06:18 -0700 (PDT)
-> Sridhar Samudrala <sri@us.ibm.com> wrote:
-> 
-> > I don't see this problem on i386, ia64 or ppc64. Can someone
-> > familiar with parisc64 provide more details or submit a a patch to
-> > fix this problem?
-> 
-> As an example, if you have an structure member of type "char":
-> 
-> struct foo {
-> 	char	a;
-> 	char	b[4];
-> };
-> 
-> And then try to do something like this:
-> 
-> 	struct foo *p;
-> 	unsigned int *v;
-> 
-> 	v = (unsigned int *) (&p->b[0]);
-> 	*v = 0;
-> 
-> The build is going to explode on parisc because this simply is not
-> allowed.  You cannot access a structure member as an object which
-> has larger alignment than is guarenteed for the type that member
-> has.
-> 
-> In the above example we're trying to access with 'unsigned int'
-> alignment a member which is only guarenteed to have the alignment
-> for a 'char'.
- 
+--JgQwtEuHJzHdouWu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thanks for explaining with an example. 
+On Fri, Sep 12, 2003 at 08:54:29AM -0400, jamal wrote:
+> On Fri, 2003-09-12 at 04:56, Harald Welte wrote:
+> > On Thu, Sep 11, 2003 at 09:40:46PM -0400, jamal wrote:
+> > > Harald,
+> > >=20
+> > > Could you not resolve all the ifindices of the said ppp+ interfaces
+> > > at rule installation time and do an integer compare instead?
+> >=20
+> > No, this is a different semantic.  Ifindexes change when an interface
+> > goes down and comes up again (let's say you have a PPTP tunnel server
+> > which terminates a couple of ppp* interfaces).
+> >=20
+>=20
+> If ifindices change for the same device name then that would be a bug.
+> The only time they should change is if a) you reboot or b) you unload a
+> module after ifconfiged down the device(s) and then reload it later.
+> In both cases if you have exactly the same setup, the chances of those
+> ifindices changing are very slim.
 
-But unfortunately i am not able see this problem with a parisc64 cross compiler 
-on i386. So it makes it hard to debug or fix it. Looks like this happens only
-when building natively on a parisc64 machine which i don't have access to.
+What about a ppp interface that is deleted because pppd terminated.
+Then you start a new pppd that uses the same ppp interface [i.e. ppp12].
+Would ifindex still be guaranteed to be the same in that case?
 
->From the following original note from Arnaldo
------------------------------------------ 
-CC [M]  net/sctp/sm_make_chunk.o
-{standard input}: Assembler messages:
-{standard input}:2386: Error: Field not properly aligned [8] (52).
-{standard input}:2386: Error: Invalid operands
-{standard input}:2398: Error: Field not properly aligned [8] (52).
-{standard input}:2398: Error: Invalid operands
-make[2]: *** [net/sctp/sm_make_chunk.o] Error 1
-make[1]: *** [net/sctp] Error 2
-make: *** [net] Error 2
+> cheers,
+> jamal
 
-it happens in the sctp_pack_cookie function.
------------------------------------------ 
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-I am not able to figure out the exact code which is causing this problem as
-the line numbers reported seem to correspond to the assembled file.
+--JgQwtEuHJzHdouWu
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-I am guessing that the following lines in sctp_pack_cookie() may be the
-suspects.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
 
-        /* Copy the peer's init packet.  */
-        memcpy(&cookie->c.peer_init[0], init_chunk->chunk_hdr,
-               ntohs(init_chunk->chunk_hdr->length));
+iD8DBQE/a+qKXaXGVTD0i/8RArmMAKCos2qq2K71Nv3preX0vv0jW7O2RQCdGigx
+Hc4OPCRUp2KxYSc2b8vx+uU=
+=dYwj
+-----END PGP SIGNATURE-----
 
-        /* Copy the raw local address list of the association. */
-        memcpy((__u8 *)&cookie->c.peer_init[0] +
-               ntohs(init_chunk->chunk_hdr->length), raw_addrs, addrs_len);
-
-
-Am i right? But here, i don't see any accesses to a member as an object which
-has larger alignment.
-If so, is there an easy way to fix these assembler errors on parisc64? 
-
-Also while reviewing the code in sctp_pack_cookie(), i noticed a structure
-copy. Are structure copies portable across all the archictectures? Should we
-replace it with a memcpy?
-
-Thanks
-Sridhar
+--JgQwtEuHJzHdouWu--
