@@ -1,54 +1,33 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same
- yes?
-Date: Thu, 27 Jan 2005 17:36:18 -0800
-Message-ID: <41F99712.2030201@hp.com>
-References: <41F1516D.5010101@hp.com> <200501211358.53783.jdmason@us.ibm.com>	<41F163AD.5070400@hp.com>	<20050121124441.76cbbfb9.davem@davemloft.net>	<41F17B7E.2020002@hp.com>	<20050121141820.7d59a2d1.davem@davemloft.net>	<41F186A8.9030805@hp.com>	<20050121204948.034b2510.davem@davemloft.net>	<41F55B93.6040603@hp.com>	<20050124124353.2f760e1a.davem@davemloft.net>	<41F98306.6070804@hp.com> <20050127165707.250ee514.davem@davemloft.net>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Thu, 27 Jan 2005 17:41:39 -0800
+Message-ID: <20050128014139.GA16371@linuxace.com>
+References: <20050123023248.263daca9.akpm@osdl.org> <20050123200315.A25351@flint.arm.linux.org.uk> <20050124114853.A16971@flint.arm.linux.org.uk> <20050125193207.B30094@flint.arm.linux.org.uk> <20050127082809.A20510@flint.arm.linux.org.uk> <20050127004732.5d8e3f62.akpm@osdl.org> <16888.58622.376497.380197@robur.slu.se> <20050127164918.C3036@flint.arm.linux.org.uk> <20050127123326.2eafab35.davem@davemloft.net> <20050128001701.D22695@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050127165707.250ee514.davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>, Robert.Olsson@data.slu.se,
+        akpm@osdl.org, torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050128001701.D22695@flint.arm.linux.org.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Thu, 27 Jan 2005 16:10:46 -0800
-> Rick Jones <rick.jones2@hp.com> wrote:
+On Fri, Jan 28, 2005 at 12:17:01AM +0000, Russell King wrote:
+> On Thu, Jan 27, 2005 at 12:33:26PM -0800, David S. Miller wrote:
+> > So they won't be listed in /proc/net/rt_cache (since they've been
+> > removed from the lookup table) but they will be accounted for in
+> > /proc/net/stat/rt_cache until the final release is done on the
+> > routing cache object and it can be completely freed up.
+> > 
+> > Do you happen to be using IPV6 in any way by chance?
 > 
-> 
-> 
->>The other relates to the business of disabling TSO on a connection upon packet loss.
-> 
-> 
-> There cannot possibly any compliance issues resulting from turning
-> off an optimization in the face of packet loss.
+> Yes.  Someone suggested this evening that there may have been a recent
+> change to do with some IPv6 refcounting which may have caused this
+> problem.  Is that something you can confirm?
 
-I was a bit vague - compliance with the benchmark run and report rules, not with 
-RFC's.
+FWIW, I do not use IPv6, and it is not compiled into the kernel.
 
->>Internet connected systems experience non-trivial packet loss rates and so if TSO 
->>disabled upon packet loss it means a given benchmark result using TSO deviates 
->>even more from reality than one without TSO.
-> 
-> 
-> And running the benchmark over a local gigabit subnet doesn't deviate
-> from what Internet connected systems can expect to achieve how-so?
-
-Benchmarking, not logic...
-
-> Oh you mean I really can get 60,000 web or database connections a second
-> when the users are over modems half-way across the planet?  Give me a
-> break...
-
-If there are enough users :)
-
-> Anyways, see my other posting, we'll be able to keep TSO enabled in
-> the face of packet loss, but that is an optimization not a correctness
-> fix.
-
-Cool.
-
-rick jones
+Phil
