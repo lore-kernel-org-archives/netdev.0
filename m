@@ -1,28 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] TCP burst control
-Date: Tue, 6 Jul 2004 17:29:13 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706172913.590710fe.davem@redhat.com>
-References: <20040706160447.3c2efffa.davem@redhat.com>
-	<200407070009.i6709wiA026673@ms-smtp-03-eri0.southeast.rr.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Tue, 6 Jul 2004 21:32:09 -0400 (EDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.NEB.4.33.0407062130190.13672-100000@dexter.psc.edu>
+References: <20040706155013.32af8e13.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, rhee@ncsu.edu, lxu2@ncsu.edu,
-        mathis@psc.edu
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Injong Rhee" <rhee@eos.ncsu.edu>
-In-Reply-To: <200407070009.i6709wiA026673@ms-smtp-03-eri0.southeast.rr.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>,
+	<linux-kernel@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040706155013.32af8e13.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jul 2004 20:09:41 -0400
-"Injong Rhee" <rhee@eos.ncsu.edu> wrote:
+On Tue, 6 Jul 2004, David S. Miller wrote:
 
-> Currently with rate having, current Linux tcp stack is full of hacks that in
-> fact, hurt the performance of linux tcp (sorry to say this).
+> On Tue, 6 Jul 2004 17:55:12 -0400 (EDT)
+> John Heffner <jheffner@psc.edu> wrote:
+>
+> > Another bit to addr to the firewall / window scale mess:  I remember from
+> > a while ago that the Cisco PIX firewalls would not allow a window scale of
+> > greater than 8.  I don't know if they've fixed this or not.  It seems
+> > like some sort of arbitrary limit.
+>
+> In what manner did it deal with > 8 window scales?  By rewriting the option
+> or deleting the option entirely from the SYN or SYN+ACK packets?
 
-If rate-halving is broken, have you taken this up with it's creator,
-Mr. Mathis?  What was his response?
+I don't recall.  It was not as ugly as changing the option value.  It may
+have just sent a RST.
 
-I've added him to the CC: list so this can be properly discussed.
+  -John
+
