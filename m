@@ -1,22 +1,50 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: Re: [PATCH][ATM][2.4] export try_atm_clip_ops not atm_clip_ops_mutex
-Date: Thu, 31 Jul 2003 10:24:34 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: multiple unicast mac address (was Re: netdev_ops retraction)
+Date: Thu, 31 Jul 2003 10:44:08 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307311427.h6VERHsG023837@ginger.cmf.nrl.navy.mil>
-References: <20030730155844.43ca22d9.davem@redhat.com>
-Reply-To: chas3@users.sourceforge.net
-Cc: hch@infradead.org, netdev@oss.sgi.com
+Message-ID: <3F292B38.4070508@pobox.com>
+References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk> <2147483647.1059659359@fozzy.rossfell.co.uk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-reply-to: Your message of "Wed, 30 Jul 2003 15:58:44 PDT."
-             <20030730155844.43ca22d9.davem@redhat.com>
+To: Rick Payne <rickp@rossfell.co.uk>
+In-Reply-To: <2147483647.1059659359@fozzy.rossfell.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20030730155844.43ca22d9.davem@redhat.com>,"David S. Miller" writes:
->I really don't consider this critical at all.  And itsy bitsy fixes
->like this continually pouring into Marcelo's tree in late stages are
->why his releases get delayed for so long, and I'm not going to
->contribute to that problem.
+Rick Payne wrote:
+> 
+> --On Wednesday, July 30, 2003 7:44 pm +0100 Matthew Wilcox 
+> <willy@debian.org> wrote:
+> 
+>> +       void    (*set_multicast_list)(struct net_device *dev);
+>> +       int     (*set_mac_address)(struct net_device *dev, void *addr);
+> 
+> 
+> Talking of which - is there any appetite for a patch that allows 
+> multiple unicast mac addresses to be set on an ethernet interface? Its 
+> certainly much neater for things like VRRP and HA stuff if an ethernet 
+> device is able to continue accepting packets for its original MAC 
+> address, as well as the 'virtual MAC address'.
+> 
+> Obviously I'm not talking about generated packets (they will still take 
+> the MAC address from dev->dev_addr) - I'm talking about the hardware 
+> filter on the ethernet cards themselves. (In some cases, the software 
+> concerned may want to set_mac_address - thus updating dev->dev_addr, and 
+> then also add the original mac address to the 'unicast accept list' for 
+> instance).
 
-fine with me.  like i said, i am not pressed about it.
+
+This feature request comes up about once a year.  Search the archives 
+for responses...
+
+Hardware that filters N MAC addresses (unicast filtering) doesn't have a 
+terribly standard interface, and the unicast filter must be adjusted at 
+different times on different hardware.  Also, chip bugs lead one to 
+think unicast filtering will work where it doesn't.  Also, chip limits 
+for some of the more popular chips are unknown.  Also, the need for this 
+feature is very uncommon, and can be achieved in other ways.
+
+	Jeff
