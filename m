@@ -1,47 +1,34 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: [PATCH] fix missing security_*() check in net/compat.c
-Date: Tue, 30 Nov 2004 06:54:44 -0800
-Message-ID: <20041130145444.GF63669@gaz.sfgoth.com>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: 2.6.9 tcp problems
+Date: Tue, 30 Nov 2004 10:44:43 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0411301038150.14716@dexter.psc.edu>
+References: <41AB6476.8060405@nea-fast.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: kernel <kernel@nea-fast.com>
+In-Reply-To: <41AB6476.8060405@nea-fast.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-While looking at the SCM passing code in net/core/scm.c I noticed that there's
-a 32-bit compat implementation of scm_detach_fds()'s called 
-scm_detach_fds_compat() living in net/compat.c.  While these two functions
-are mostly the same the latter does not include the call to the
-security_file_receive() hook which is almost certainly a bug.
+On Mon, 29 Nov 2004, kernel wrote:
 
-My sparc64 test box isn't set up currently so this is not tested.  Someone
-running a 64-bit kernel with CONFIG_COMPAT should verify that this at
-least compiles.
+> I've run into a problem with 2.6.(8.1,9) after installing a secondary
+> firewall. When I try to pull data through the original firewall (mail,
+> http, ssh), it stops after approx. 260k. Running ethereal tells me "A
+> segment before the frame was lost" followed by a bunch of  "This is a
+> TCP duplicate ack" when using ssh. All 2.4.x machines and windows
+> clients work fine. I built 2.4.28 and it works fine from my machine. I
+> also fiddled with tcp_ecn and that didn't fix it either. I don't have
+> any problems communicating to "local" machines. I've attached the
+> tcpdump output from an scp attempt. NIC is a 3Com Corporation 3c905B.
 
-Signed-off-by: Mitchell Blank Jr <mitch@sfgoth.com>
+Try `echo 0 > /proc/sys/net/ipv4/tcp_window_scaling'.  If this makes it
+work, it's almost certainly a buggy firewall.
 
--Mitch
+Also, tcpdumps are far more useful if they are binary (tcpdump -w) and
+capture the beginning of the connection.
 
---- linux-2.6.10-rc2-bk9-VIRGIN/net/compat.c	2004-10-18 14:54:37.000000000 -0700
-+++ linux-2.6.10-rc2-bk9/net/compat.c	2004-11-30 06:40:52.156434868 -0800
-@@ -22,6 +22,7 @@
- #include <linux/filter.h>
- #include <linux/compat.h>
- #include <linux/netfilter_ipv4/ip_tables.h>
-+#include <linux/security.h>
- 
- #include <net/scm.h>
- #include <net/sock.h>
-@@ -264,6 +265,9 @@
- 
- 	for (i = 0, cmfptr = (int __user *) CMSG_COMPAT_DATA(cm); i < fdmax; i++, cmfptr++) {
- 		int new_fd;
-+		err = security_file_receive(fp[i]);
-+		if (err)
-+			break;
- 		err = get_unused_fd();
- 		if (err < 0)
- 			break;
+  -John
