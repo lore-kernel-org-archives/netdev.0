@@ -1,41 +1,39 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become
- free. Usage count = 1
-Date: Thu, 17 Jun 2004 10:53:24 -0700
+Subject: Re: IPsec and Path MTU
+Date: Thu, 17 Jun 2004 10:58:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617105324.554c631b.davem@redhat.com>
-References: <20040614042216.GA28669@gondor.apana.org.au>
-	<20040614102858.GA12343@gondor.apana.org.au>
-	<20040614124402.GA28519@gondor.apana.org.au>
-	<20040616193731.GB29781@ms2.inr.ac.ru>
-	<20040616130950.6aadde3c.davem@redhat.com>
-	<20040616203748.GA30675@ms2.inr.ac.ru>
-	<20040616134711.499209c9.davem@redhat.com>
-	<20040617081722.GA8559@gondor.apana.org.au>
-	<20040617083303.GA8810@gondor.apana.org.au>
-	<20040617101016.44512cb1.davem@redhat.com>
-	<20040617172449.GA10303@ms2.inr.ac.ru>
+Message-ID: <20040617105843.314dfe30.davem@redhat.com>
+References: <20040616202341.GD29781@ms2.inr.ac.ru>
+	<E1BajZO-0001UK-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, schwab@suse.de, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Cc: kuznet@ms2.inr.ac.ru, herbert@gondor.apana.org.au, jmorris@redhat.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20040617172449.GA10303@ms2.inr.ac.ru>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1BajZO-0001UK-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Jun 2004 21:24:49 +0400
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+On Thu, 17 Jun 2004 09:11:50 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Actually, he noticed right thing. I forgot that this function
-> works in context when dev, which is argument is of the function,
-> is held, so dev_put() here can be safely replaced with __dev_put().
+> This is what prompted me to look at this two months ago.  The stack
+> assumes that the MTU for an xfrm dst is equal to
 > 
-> So, synchonize_kernel() can be moved somewhere to unregister_netdevice(),
-> (maybe, it is already present there under surface)
+> 	dst_pmtu(dst) - dst->header_len - dst->trailer_len
+> 
+> But this is not true for ESP due to block padding.  The trailer_len
+> is variable and the one we store in trailer_len is not the maximum.
+> 
+> There are two approaches to this problem.  We can either store the
+> maximum trailer_len, or make dst_pmtu(dst) return the correct MTU
+> directly.
+> 
+> The former is simple to do, but has the disadvantage of wasting
+> bandwidth up to a block.  The latter looks non-trivial, but is
+> pretty simple once we solve the following problems.
 
-It occurs, via synchronize_net(), but this happens before NETDEV_UNREGISTER
-event is sent out.  Is it sufficient?  I think not, and that we need to
-add another call in unregister_netdevice() right before final dev_put().
+Do you see what xfrm_get_mss() does?  It calls into x->type->get_max_size()
+and this is where ESP reports this kind of thing (re: block padding).
