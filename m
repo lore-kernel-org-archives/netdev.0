@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (5/7) ipmr.c - use alloc_netdev
-Date: Wed, 25 Jun 2003 11:41:25 -0700
+Subject: [PATCH] (7/7) Get rid of skb_linearize in ipmr.c
+Date: Wed, 25 Jun 2003 11:41:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030625114125.0fef55ca.shemminger@osdl.org>
+Message-ID: <20030625114141.76c11186.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,63 +12,58 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Rather than explicitly calling kmalloc, use the alloc_netdev infrastructure.
+Use explicit may_pull's instead of forcing skb to be linearized.
 
 diff -Nru a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
---- a/net/ipv4/ipmr.c	Wed Jun 25 11:30:19 2003
-+++ b/net/ipv4/ipmr.c	Wed Jun 25 11:30:19 2003
-@@ -186,34 +186,23 @@
- 	return (struct net_device_stats*)dev->priv;
- }
+--- a/net/ipv4/ipmr.c	Wed Jun 25 11:30:41 2003
++++ b/net/ipv4/ipmr.c	Wed Jun 25 11:30:41 2003
+@@ -1400,15 +1400,14 @@
  
--static void vif_dev_destructor(struct net_device *dev)
-+static void reg_vif_setup(struct net_device *dev)
+ int pim_rcv_v1(struct sk_buff * skb)
  {
--	kfree(dev);
--}
--
--static struct net_device *ipmr_reg_vif(struct vifctl *v)
--{
--	struct net_device  *dev;
--	struct in_device *in_dev;
--	int size;
--
--	size = sizeof(*dev) + sizeof(struct net_device_stats);
--	dev = kmalloc(size, GFP_KERNEL);
--	if (!dev)
--		return NULL;
--
--	memset(dev, 0, size);
--
--	dev->priv = dev + 1;
--
--	strcpy(dev->name, "pimreg");
--
- 	dev->type		= ARPHRD_PIMREG;
- 	dev->mtu		= 1500 - sizeof(struct iphdr) - 8;
- 	dev->flags		= IFF_NOARP;
- 	dev->hard_start_xmit	= reg_vif_xmit;
- 	dev->get_stats		= reg_vif_get_stats;
--	dev->destructor		= vif_dev_destructor;
-+	dev->destructor		= (void (*)(struct net_device *)) kfree;
-+}
-+
-+static struct net_device *ipmr_reg_vif(void)
-+{
-+	struct net_device *dev;
-+	struct in_device *in_dev;
-+
-+	dev = alloc_netdev(sizeof(struct net_device_stats), "pimreg",
-+			   reg_vif_setup);
+-	struct igmphdr *pim = (struct igmphdr*)skb->h.raw;
++	struct igmphdr *pim;
+ 	struct iphdr   *encap;
+ 	struct net_device  *reg_dev = NULL;
  
- 	if (register_netdevice(dev)) {
- 		kfree(dev);
-@@ -403,7 +392,7 @@
- 		 */
- 		if (reg_vif_num >= 0)
- 			return -EADDRINUSE;
--		dev = ipmr_reg_vif(vifc);
-+		dev = ipmr_reg_vif();
- 		if (!dev)
- 			return -ENOBUFS;
- 		break;
+-	if (skb_is_nonlinear(skb)) {
+-		if (skb_linearize(skb, GFP_ATOMIC) != 0) 
+-			goto drop;
+-		pim = (struct igmphdr*)skb->h.raw;
+-	}
++	if (!pskb_may_pull(skb, sizeof(*pim) + sizeof(*encap))) 
++		goto drop;
++
++	pim = (struct igmphdr*)skb->h.raw;
+ 
+         if (!mroute_do_pim ||
+ 	    skb->len < sizeof(*pim) + sizeof(*encap) ||
+@@ -1465,21 +1464,18 @@
+ #ifdef CONFIG_IP_PIMSM_V2
+ static int pim_rcv(struct sk_buff * skb)
+ {
+-	struct pimreghdr *pim = (struct pimreghdr*)skb->h.raw;
++	struct pimreghdr *pim;
+ 	struct iphdr   *encap;
+ 	struct net_device  *reg_dev = NULL;
+ 
+-	if (skb_is_nonlinear(skb)) {
+-		if (skb_linearize(skb, GFP_ATOMIC) != 0) 
+-			goto drop;
+-		pim = (struct pimreghdr*)skb->h.raw;
+-	}
++	if (!pskb_may_pull(skb, sizeof(*pim) + sizeof(*encap))) 
++		goto drop;
+ 
+-        if (skb->len < sizeof(*pim) + sizeof(*encap) ||
+-	    pim->type != ((PIM_VERSION<<4)|(PIM_REGISTER)) ||
++	pim = (struct pimreghdr*)skb->h.raw;
++        if (pim->type != ((PIM_VERSION<<4)|(PIM_REGISTER)) ||
+ 	    (pim->flags&PIM_NULL_REGISTER) ||
+-	    (ip_compute_csum((void *)pim, sizeof(*pim)) != 0 &&
+-	     ip_compute_csum((void *)pim, skb->len))) 
++	    (ip_compute_csum((void *)pim, sizeof(*pim)) != 0 && 
++	     (u16)csum_fold(skb_checksum(skb, 0, skb->len, 0)))) 
+ 		goto drop;
+ 
+ 	/* check if the inner packet is destined to mcast group */
