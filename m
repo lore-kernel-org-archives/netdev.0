@@ -1,103 +1,56 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Clean up fib_hash datastructures
-Date: 21 Sep 2004 23:30:09 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
+Date: Tue, 21 Sep 2004 20:31:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095823808.1045.40.camel@jzny.localdomain>
-References: <20040918203319.24004d6e.davem@davemloft.net>
-	 <1095645106.1048.190.camel@jzny.localdomain>
-	 <20040919195351.0b3560e6.davem@davemloft.net>
-	 <1095686672.1049.301.camel@jzny.localdomain>
-	 <20040920121123.70baf895.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040921203118.734a0a7e.davem@davemloft.net>
+References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040920121123.70baf895.davem@davemloft.net>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-09-20 at 15:11, David S. Miller wrote:
-> On 20 Sep 2004 09:24:32 -0400
-> jamal <hadi@cyberus.ca> wrote:
-> 
-> > On Sun, 2004-09-19 at 22:53, David S. Miller wrote:
 
-Sorry missed this (that what happens with reading email backwards).
+Ok Harald, I did some snooping around and here is what
+I've come up with.
 
-> Furthermore, once you have 1000 devices the algorithms in
-> net/ipv4/fib_semantics.c fall apart.
+1) We have 5 or 6 implementations of "walk neighbour hash
+   table in sequence", that's rediculious and is the only
+   reason that hashtable layout or number of entries is
+   even known by code outside of net/core/neighbour.c
 
-Yikes - I just looked.
-fib_sync_down and up are horrible. I think its at least 0(n^2). Yes, I
-can see what would happen when you suddenly bring down 1000 devices.
+   In fact, many cases get it wrong :(  For example, the
+   ARP seq_file stuff locks the normal hash table correctly
+   but does zero locking when traversing the pneigh hashes.
+   Oops.  Another reason to put this logic in a common spot.
 
-> The code in fib_semantics.c was written assuming that next
-> hop information composed of a small set of unique entries.
-> So even if your routing tables were huge, those routing
-> entries pointed to a small group of unique next-hop objects
-> (which is what fib_info represents).
-> 
+   So I think the first thing to do is to write table
+   walker functions generically inside of net/core/neighbour.c
 
-yep - i see it.
+   This is the first step.
 
-> So all of that code was using a singly linked list of all
-> fib_info's to do lookups.  Therefore once you have a couple
-> thousand entries, even the simplest event processing becomes
-> expensive.
+1.5) tbl->ops->hash() should return the raw hash, the caller
+     will do the necessary masking.
 
-Good cleanup in -bk7 with the hashes.
+     At this point, there is no reason to declare
+     {P,}NEIGH_HASHMASK in net/neighbour.h
 
-> > I like the idea except for when enforcing that scheme to be used
-> > by other algorithms[1]. 
-> 
-> It is the core issue.
-> 
-> I read from this statement that it is envisioned that some
-> fib_node lookup algorithm could, in a different way, find
-> all fib_nodes corresponding to a given fib_info.  I ask you
-> to provide what that mechanism might be before I am willing
-> to be concerned about this possibility :-)
+2) We should size these hash table dynamically, growing them
+   at neigh_create() time.
 
-The way i see it is any new alg will have a fib_info at the end of its
-lookup but not fib_node. fib_semantics only cares about fib_info.
-Hence my comment above (my worry being you are breaking this
-relationship - in particular now that you are thrwoing out TOS)
+   This makes the most sense, and the scheme is similar to how
+   net/ipv4/fib_hash.c works, for example.
 
-BTW, dont see the code in -bk7.
+3) If we have a sysctl for this stuff at all, it will be for
+   the limit of the hash table growth, but I don't think that
+   is necessary given #2
 
-> Jamal and others, while I have your brains active in this area
-> I have a question.
-> 
-> I tried very hard to preserve existing behavior wrt. TOS
-> handling wrt. the setting of CONFIG_IP_ROUTE_TOS.  Basically,
-> the r->rtm_tos is ignored when adding routes, and treated as
-> zero.
-> 
-> I believe I was successful in preserving existing behavior, but
-> I wonder if it makes sense any longer.  CONFIG_IP_ROUTE_TOS
-> changes not one data structure.  It does exactly:
-> 
-> 1) Controls the presence of a TOS comparison in
->    fib_rules.c:fib_lookup()
-> 
-> 2) Controls, in fib_hash.c:
-> 	a) TOS comparison in fn_hash_lookup()
-> 	b) whether TOS is paid attention to in fn_hash_insert
-> 	c) similarly in fn_hash_delete()
-> 
-> In the TOS comparison changes, the TOS test treats zero
-> TOS values as "any TOS".  Therefore unless the user explicitly
-> tried to add a non-zero TOS route, TOS makes no difference
-> in behavior both with and without CONFIG_IP_ROUTE_TOS set.
-> 
-> Therefore, I think it behooves us just kill off this config
-> value.  It saves a mere 6 or 7 lines of code and no data
-> space.
+I like the jenkins hash change and yes I think it should be applied
+elsewhere too.
 
-Still need comment on this after killing TOS?
-
-cheers,
-jamal
+I'll work on the set of patches implementing the above tomorrow
+and will send it to the list for review and commentary.
