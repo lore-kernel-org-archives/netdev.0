@@ -1,170 +1,206 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] allow setting mtu and txqlen via RTM_SETLINK and provide txqlen via RTM_GETLINK
-Date: Tue, 24 Aug 2004 20:08:25 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824180825.GJ21296@postel.suug.ch>
-References: <20040824094952.GF21073@postel.suug.ch> <E1BzYMJ-000208-00@gondolin.me.apana.org.au> <20040824162501.GI21296@postel.suug.ch> <20040824103252.1b593e68.davem@redhat.com>
+From: Dean Nelson <dcn@sgi.com>
+Subject: [PATCH 1/4] SGI Altix cross partition functionality (1st revision)
+Date: Tue, 24 Aug 2004 13:22:22 -0500
+Sender: linux-ia64-owner@vger.kernel.org
+Message-ID: <20040824182222.GA13961@sgi.com>
+References: <412B823E.mailxAMX1HROPJ@aqua.americas.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+Return-path: <linux-ia64-owner@vger.kernel.org>
+To: linux-ia64@vger.kernel.org, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040824103252.1b593e68.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <412B823E.mailxAMX1HROPJ@aqua.americas.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20040824103252.1b593e68.davem@redhat.com> 2004-08-24 10:32
-> On Tue, 24 Aug 2004 18:25:01 +0200
-> Thomas Graf <tgraf@suug.ch> wrote:
-> 
-> > * Herbert Xu <E1BzYMJ-000208-00@gondolin.me.apana.org.au> 2004-08-24 20:16
-> > > Please think about the meaning of the value.  Is anyone going to have a queue
-> > > bigger than 2^32?
-> > > 
-> > > And if the answer is yes, then please use u64.
-> > 
-> > Here's a new patch with all discussed changes integrated. I don't have enough
-> > cycles to split it all up again.
-> 
-> This patch only contained net/core/rtnetlink.c changes, where is
-> the rest?
+This patch exports the symbols needed by XP[C|NET].
 
-Sorry, the complete patch again:
+Signed-off-by: Dean Nelson <dcn@sgi.com>
 
---- 1.19/net/core/rtnetlink.c	Thu Apr 29 01:04:48 2004
-+++ 1.27/net/core/rtnetlink.c	Tue Aug 24 18:16:40 2004
-@@ -166,31 +166,53 @@
- 	r->ifi_family = AF_UNSPEC;
- 	r->ifi_type = dev->type;
- 	r->ifi_index = dev->ifindex;
--	r->ifi_flags = dev->flags;
-+	r->ifi_flags = dev_get_flags(dev);
- 	r->ifi_change = change;
+
+Index: bk-linux-2.6/arch/ia64/kernel/smpboot.c
+===================================================================
+--- bk-linux-2.6.orig/arch/ia64/kernel/smpboot.c	2004-08-23 14:38:36.000000000 -0500
++++ bk-linux-2.6/arch/ia64/kernel/smpboot.c	2004-08-24 07:29:11.000000000 -0500
+@@ -498,6 +498,7 @@
+ EXPORT_SYMBOL(cpu_to_node_map);
+ /* which logical CPUs are on which nodes */
+ cpumask_t node_to_cpu_mask[MAX_NUMNODES] __cacheline_aligned;
++EXPORT_SYMBOL(node_to_cpu_mask);
  
--	if (!netif_running(dev) || !netif_carrier_ok(dev))
--		r->ifi_flags &= ~IFF_RUNNING;
--	else
--		r->ifi_flags |= IFF_RUNNING;
--
- 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
-+
-+	if (1) {
-+		u32 txqlen = dev->tx_queue_len;
-+		RTA_PUT(skb, IFLA_TXQLEN, sizeof(txqlen), &txqlen);
-+	}
-+
-+	if (1) {
-+		struct ifmap map = {
-+			.mem_start   = dev->mem_start,
-+			.mem_end     = dev->mem_end,
-+			.base_addr   = dev->base_addr,
-+			.irq         = dev->irq,
-+			.dma         = dev->dma,
-+			.port        = dev->if_port,
-+		};
-+		RTA_PUT(skb, IFLA_MAP, sizeof(map), &map);
-+	}
-+
- 	if (dev->addr_len) {
- 		RTA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
- 		RTA_PUT(skb, IFLA_BROADCAST, dev->addr_len, dev->broadcast);
+ /*
+  * Build cpu to node mapping and initialize the per node cpu masks.
+Index: bk-linux-2.6/arch/ia64/sn/kernel/setup.c
+===================================================================
+--- bk-linux-2.6.orig/arch/ia64/sn/kernel/setup.c	2004-08-23 14:38:37.000000000 -0500
++++ bk-linux-2.6/arch/ia64/sn/kernel/setup.c	2004-08-24 07:29:11.000000000 -0500
+@@ -50,6 +50,7 @@
+ #include <asm/sn/sn2/shub.h>
+ 
+ DEFINE_PER_CPU(struct pda_s, pda_percpu);
++EXPORT_PER_CPU_SYMBOL(pda_percpu);
+ 
+ #define MAX_PHYS_MEMORY		(1UL << 49)     /* 1 TB */
+ 
+@@ -65,8 +66,11 @@
+ unsigned long sn_rtc_cycles_per_second;   
+ 
+ partid_t sn_partid = -1;
++EXPORT_SYMBOL(sn_partid);
+ char sn_system_serial_number_string[128];
++EXPORT_SYMBOL(sn_system_serial_number_string);
+ u64 sn_partition_serial_number;
++EXPORT_SYMBOL(sn_partition_serial_number);
+ 
+ short physical_node_map[MAX_PHYSNODE_ID];
+ 
+Index: bk-linux-2.6/kernel/sched.c
+===================================================================
+--- bk-linux-2.6.orig/kernel/sched.c	2004-08-23 14:39:35.000000000 -0500
++++ bk-linux-2.6/kernel/sched.c	2004-08-24 07:29:11.000000000 -0500
+@@ -2814,6 +2814,7 @@
+ {
+ 	return setscheduler(pid, policy, param);
+ }
++EXPORT_SYMBOL(sys_sched_setscheduler);
+ 
+ /**
+  * sys_sched_setparam - set/change the RT priority of a thread
+Index: bk-linux-2.6/mm/page_alloc.c
+===================================================================
+--- bk-linux-2.6.orig/mm/page_alloc.c	2004-08-23 14:38:16.000000000 -0500
++++ bk-linux-2.6/mm/page_alloc.c	2004-08-24 07:29:11.000000000 -0500
+@@ -40,6 +40,7 @@
+ unsigned long totalhigh_pages;
+ long nr_swap_pages;
+ int numnodes = 1;
++EXPORT_SYMBOL(numnodes);
+ int sysctl_lower_zone_protection = 0;
+ 
+ EXPORT_SYMBOL(totalram_pages);
+Index: bk-linux-2.6/include/asm-ia64/sn/sn_sal.h
+===================================================================
+--- bk-linux-2.6.orig/include/asm-ia64/sn/sn_sal.h	2004-08-23 14:40:00.000000000 -0500
++++ bk-linux-2.6/include/asm-ia64/sn/sn_sal.h	2004-08-24 07:29:11.000000000 -0500
+@@ -494,7 +494,8 @@
+ ia64_sn_partition_serial_get(void)
+ {
+ 	struct ia64_sal_retval ret_stuff;
+-	SAL_CALL(ret_stuff, SN_SAL_PARTITION_SERIAL_GET, 0, 0, 0, 0, 0, 0, 0);
++	ia64_sal_oemcall_reentrant(&ret_stuff, SN_SAL_PARTITION_SERIAL_GET, 0,
++				   0, 0, 0, 0, 0, 0);
+ 	if (ret_stuff.status != 0)
+ 	    return 0;
+ 	return ret_stuff.v0;
+@@ -502,11 +503,10 @@
+ 
+ static inline u64
+ sn_partition_serial_number_val(void) {
+-	if (sn_partition_serial_number) {
+-		return(sn_partition_serial_number);
+-	} else {
+-		return(sn_partition_serial_number = ia64_sn_partition_serial_get());
++	if (unlikely(sn_partition_serial_number == 0)) {
++		sn_partition_serial_number = ia64_sn_partition_serial_get();
  	}
-+
- 	if (1) {
--		unsigned mtu = dev->mtu;
-+		u32 mtu = dev->mtu;
- 		RTA_PUT(skb, IFLA_MTU, sizeof(mtu), &mtu);
++	return sn_partition_serial_number;
+ }
+ 
+ /*
+@@ -517,8 +517,8 @@
+ ia64_sn_sysctl_partition_get(nasid_t nasid)
+ {
+ 	struct ia64_sal_retval ret_stuff;
+-	SAL_CALL(ret_stuff, SN_SAL_SYSCTL_PARTITION_GET, nasid,
+-		 0, 0, 0, 0, 0, 0);
++	ia64_sal_oemcall_nolock(&ret_stuff, SN_SAL_SYSCTL_PARTITION_GET, nasid,
++				0, 0, 0, 0, 0, 0);
+ 	if (ret_stuff.status != 0)
+ 	    return INVALID_PARTID;
+ 	return ((partid_t)ret_stuff.v0);
+@@ -532,11 +532,38 @@
+ 
+ static inline partid_t
+ sn_local_partid(void) {
+-	if (sn_partid < 0) {
+-		return (sn_partid = ia64_sn_sysctl_partition_get(cpuid_to_nasid(smp_processor_id())));
+-	} else {
+-		return sn_partid;
++	if (unlikely(sn_partid < 0)) {
++		sn_partid = ia64_sn_sysctl_partition_get(cpuid_to_nasid(smp_processor_id()));
  	}
--	if (dev->ifindex != dev->iflink)
--		RTA_PUT(skb, IFLA_LINK, sizeof(int), &dev->iflink);
++	return sn_partid;
++}
 +
-+	if (dev->ifindex != dev->iflink) {
-+		u32 iflink = dev->iflink;
-+		RTA_PUT(skb, IFLA_LINK, sizeof(iflink), &iflink);
-+	}
-+
- 	if (dev->qdisc_sleeping)
- 		RTA_PUT(skb, IFLA_QDISC,
- 			strlen(dev->qdisc_sleeping->ops->id) + 1,
- 			dev->qdisc_sleeping->ops->id);
--	if (dev->master)
--		RTA_PUT(skb, IFLA_MASTER, sizeof(int), &dev->master->ifindex);
-+	
-+	if (dev->master) {
-+		u32 master = dev->master->ifindex;
-+		RTA_PUT(skb, IFLA_MASTER, sizeof(master), &master);
-+	}
-+
- 	if (dev->get_stats) {
- 		unsigned long *stats = (unsigned long*)dev->get_stats(dev);
- 		if (stats) {
-@@ -246,6 +268,30 @@
++/*
++ * Returns the physical address of the partition's reserved page through
++ * an iterative number of calls.
++ *
++ * On first call, 'cookie' and 'len' should be set to 0, and 'addr'
++ * set to the nasid of the partition whose reserved page's address is
++ * being sought.
++ * On subsequent calls, pass the values, that were passed back on the
++ * previous call.
++ *
++ * While the return status equals SALRET_MORE_PASSES, keep calling
++ * this function after first copying 'len' bytes starting at 'addr'
++ * into 'buf'. Once the return status equals SALRET_OK, 'addr' will
++ * be the physical address of the partition's reserved page. If the
++ * return status equals neither of these, an error as occurred.
++ */
++static inline s64
++sn_partition_reserved_page_pa(u64 buf, u64 *cookie, u64 *addr, u64 *len)
++{
++	struct ia64_sal_retval rv;
++	ia64_sal_oemcall_reentrant(&rv, SN_SAL_GET_PARTITION_ADDR, *cookie,
++				   *addr, buf, *len, 0, 0, 0);
++	*cookie = rv.v0;
++	*addr = rv.v1;
++	*len = rv.v2;
++	return rv.status;
+ }
  
- 	err = -EINVAL;
+ /*
+@@ -558,8 +585,8 @@
+ sn_register_xp_addr_region(u64 paddr, u64 len, int operation)
+ {
+ 	struct ia64_sal_retval ret_stuff;
+-	SAL_CALL(ret_stuff, SN_SAL_XP_ADDR_REGION, paddr, len, (u64)operation,
+-		 0, 0, 0, 0);
++	ia64_sal_oemcall(&ret_stuff, SN_SAL_XP_ADDR_REGION, paddr, len,
++			 (u64)operation, 0, 0, 0, 0);
+ 	return ret_stuff.status;
+ }
  
-+	if (ifm->ifi_flags)
-+		dev_change_flags(dev, ifm->ifi_flags);
-+
-+	if (ida[IFLA_MAP - 1]) {
-+		if (!dev->set_config) {
-+			err = -EOPNOTSUPP;
-+			goto out;
-+		}
-+
-+		if (!netif_device_present(dev)) {
-+			err = -ENODEV;
-+			goto out;
-+		}
-+		
-+		if (ida[IFLA_MAP - 1]->rta_len != RTA_LENGTH(sizeof(struct ifmap)))
-+			goto out;
-+		
-+		err = dev->set_config(dev, (struct ifmap *)
-+				RTA_DATA(ida[IFLA_MAP - 1]));
-+
-+		if (err)
-+			goto out;
-+	}
-+
- 	if (ida[IFLA_ADDRESS - 1]) {
- 		if (!dev->set_mac_address) {
- 			err = -EOPNOTSUPP;
-@@ -268,6 +314,23 @@
- 			goto out;
- 		memcpy(dev->broadcast, RTA_DATA(ida[IFLA_BROADCAST - 1]),
- 		       dev->addr_len);
-+	}
-+
-+	if (ida[IFLA_MTU - 1]) {
-+		if (ida[IFLA_MTU - 1]->rta_len != RTA_LENGTH(sizeof(u32)))
-+			goto out;
-+		err = dev_set_mtu(dev, *((u32 *) RTA_DATA(ida[IFLA_MTU - 1])));
-+
-+		if (err)
-+			goto out;
-+
-+	}
-+
-+	if (ida[IFLA_TXQLEN - 1]) {
-+		if (ida[IFLA_TXQLEN - 1]->rta_len != RTA_LENGTH(sizeof(u32)))
-+			goto out;
-+
-+		dev->tx_queue_len = *((u32 *) RTA_DATA(ida[IFLA_TXQLEN - 1]));
+@@ -583,8 +610,8 @@
+ 	} else {
+ 		call = SN_SAL_NO_FAULT_ZONE_PHYSICAL;
  	}
+-	SAL_CALL(ret_stuff, call, start_addr, end_addr, return_addr, (u64)1,
+-		 0, 0, 0);
++	ia64_sal_oemcall(&ret_stuff, call, start_addr, end_addr, return_addr,
++			 (u64)1, 0, 0, 0);
+ 	return ret_stuff.status;
+ }
  
- 	err = 0;
-
-
---- 1.33/include/linux/rtnetlink.h	Mon Apr  5 23:41:40 2004
-+++ 1.35/include/linux/rtnetlink.h	Tue Aug 24 20:06:53 2004
-@@ -540,6 +540,8 @@
- 	IFLA_QDISC,
- 	IFLA_STATS,
- 	IFLA_COST,
-+	IFLA_TXQLEN,
-+	IFLA_MAP,
- #define IFLA_COST IFLA_COST
- 	IFLA_PRIORITY,
- #define IFLA_PRIORITY IFLA_PRIORITY
+@@ -605,8 +632,8 @@
+ sn_change_coherence(u64 *new_domain, u64 *old_domain)
+ {
+ 	struct ia64_sal_retval ret_stuff;
+-	SAL_CALL(ret_stuff, SN_SAL_COHERENCE, new_domain, old_domain, 0, 0,
+-		 0, 0, 0);
++	ia64_sal_oemcall(&ret_stuff, SN_SAL_COHERENCE, (u64)new_domain,
++			 (u64)old_domain, 0, 0, 0, 0, 0);
+ 	return ret_stuff.status;
+ }
+ 
+@@ -625,8 +652,8 @@
+ 	cnodeid = nasid_to_cnodeid(get_node_number(paddr));
+ 	spin_lock(&NODEPDA(cnodeid)->bist_lock);
+ 	local_irq_save(irq_flags);
+-	SAL_CALL_NOLOCK(ret_stuff, SN_SAL_MEMPROTECT, paddr, len, nasid_array,
+-		 perms, 0, 0, 0);
++	ia64_sal_oemcall_nolock(&ret_stuff, SN_SAL_MEMPROTECT, paddr, len,
++				(u64)nasid_array, perms, 0, 0, 0);
+ 	local_irq_restore(irq_flags);
+ 	spin_unlock(&NODEPDA(cnodeid)->bist_lock);
+ 	return ret_stuff.status;
