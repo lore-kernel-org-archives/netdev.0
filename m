@@ -1,31 +1,26 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: some bluetooth fixes
-Date: Sat, 07 Feb 2004 00:46:05 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] [NET] split arp_send into arp_create and arp_xmit
+ (resend)
+Date: Fri, 6 Feb 2004 16:04:22 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1076111165.14418.62.camel@pegasus>
-References: <20040206050042.20a2b3b0.ak@suse.de>
-	 <1076110207.14418.53.camel@pegasus>
-	 <20040206153401.49238aa2.davem@redhat.com>
+Message-ID: <20040206160422.018955f3.davem@redhat.com>
+References: <200402051559.10075.shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, BlueZ Mailing List <bluez-devel@lists.sourceforge.net>,
-        netdev@oss.sgi.com, viro@zenII.linux.org.uk
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040206153401.49238aa2.davem@redhat.com>
+To: Shmuel Hen <shmulik.hen@intel.com>
+In-Reply-To: <200402051559.10075.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave,
+On Thu, 5 Feb 2004 15:58:56 +0200
+Shmuel Hen <shmulik.hen@intel.com> wrote:
 
-> Marcelo/Andi, I assume you guys will work things out and send
-> me a final patch?
+> Enable intermediate network drivers like bonding to create an ARP 
+> packet and modify it to their needs before sending it, while avoiding 
+> code duplication. It does not affect any other place in the kernel 
+> that uses arp_send.
 
-I already splitted Andi's patch into smaller parts and I wait for the
-answers to my questions. I also have some other fixes in the queue, so
-you will get a number of patches ;)
-
-Regards
-
-Marcel
+Applied, thanks Shmuel.
