@@ -1,59 +1,44 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: tunneling in linux (was: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling)
-Date: Sun, 16 Jan 2005 22:44:01 +0100
-Message-ID: <20050116214401.GG22165@xi.wantstofly.org>
-References: <20050112222437.GC14280@xi.wantstofly.org> <200501162237.33743.hasso@estpak.ee> <20050116212124.GF22165@xi.wantstofly.org> <200501162332.38798.hasso@estpak.ee>
+From: Nancy Milliner <njm@us.ibm.com>
+Subject: Re: [DEBUG]: sk_forward_alloc assertion failures
+Date: Sun, 16 Jan 2005 17:03:37 -0600
+Message-ID: <41EAF2C9.5010201@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com,
-        Pekka Savola <pekkas@netcore.fi>, shemminger@osdl.org,
-        shollenbeck@verisign.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-Content-Disposition: inline
-In-Reply-To: <200501162332.38798.hasso@estpak.ee>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 16, 2005 at 11:32:38PM +0200, Hasso Tepper wrote:
+Dave,
 
-> > > > > BTW, have you looked at any of the L2VPN stuff? browse the ietf web
-> > > > > page. Some interesting stuff there.
-> > > >
-> > > > The L2TP RFC (RFC 2661, is that the same thing?) is 170kB, which
-> > > > scared me off somewhat.
-> > >
-> > > If L2TP, then v3 probably - RFC3931.
-> >
-> > That RFC appears not to exist.
-> 
-> Hmmm. Yes, seems that there was decision for yet another draft before 3931 
-> was made official. Some sites contain info about it though. So official one 
-> at the moment:
-> 
-> http://www.ietf.org/internet-drafts/draft-ietf-l2tpext-l2tp-base-15.txt
+I've been running SPECweb99 with this patch all weekend and have not 
+been able to produce any kernel assertions at all.  I'm currently 
+running RH kernel 2.6.9-5.EL.root and have been able to reproduce at 
+will when setting /proc/net/ipv4/tcp_tso_win_divisor to 1, 2 or 4.
 
-Things like this make me shiver:
+Let me know when you have something else ready to test.
 
-<quote>
-Appendix A: Control Slow Start and Congestion Avoidance
+===== net/ipv4/tcp.c 1.88 vs edited =====
+--- 1.88/net/ipv4/tcp.c	2005-01-06 15:13:39 -08:00
++++ edited/net/ipv4/tcp.c	2005-01-13 19:44:36 -08:00
+@@ -664,7 +664,7 @@
+  			if (!sk_stream_memory_free(sk))
+  				goto wait_for_sndbuf;
 
-   Although each side has indicated the maximum size of its receive
-   window, it is recommended that a slow start and congestion avoidance
-   method be used to transmit control packets.  The methods described
-   here are based upon the TCP congestion avoidance algorithm as
-   described in Section 21.6 of TCP/IP Illustrated, Volume I, by W.
-   Richard Stevens [STEVENS] (this algorithm is also described in
-   [RFC2581]).
+-			skb = sk_stream_alloc_pskb(sk, 0, tp->mss_cache,
++			skb = sk_stream_alloc_pskb(sk, 0, 0,
+  						   sk->sk_allocation);
+  			if (!skb)
+  				goto wait_for_memory;
+@@ -689,6 +689,9 @@
 
-   [snip]
-</quote>
-
-For some reason, people really really like reinventing TCP.
-
-I'm definitely not going to implement this, all I wanted from the very
-beginning is a _simple_ way of tunneling ethernet packets.  :-)
-
-
---L
+  		skb->len += copy;
+  		skb->data_len += copy;
++		skb->truesize += copy;
++		sk->sk_wmem_queued += copy;
++		sk->sk_forward_alloc -= copy;
+  		skb->ip_summed = CHECKSUM_HW;
+  		tp->write_seq += copy;
+  		TCP_SKB_CB(skb)->end_seq += copy;
