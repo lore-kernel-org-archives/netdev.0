@@ -1,16 +1,17 @@
 From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: GUPD (Grand Unified Prism54 Driver) Open
-	discussion
-Date: Tue, 15 Jun 2004 20:11:11 -0400
+Subject: Re: [Prism54] CVS -> bk tree update
+Date: Tue, 15 Jun 2004 22:20:08 -0400
 Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040616001111.GK6253@ruslug.rutgers.edu>
-References: <5.1.0.14.2.20040615143603.02a40b48@pop.t-online.de>
+Message-ID: <20040616022008.GM6253@ruslug.rutgers.edu>
+References: <20040614191651.GC6253@ruslug.rutgers.edu>
+	<40CE2754.1020109@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1272162830=="
-Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
+Content-Type: multipart/mixed; boundary="===============0009971235=="
+Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
+	Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
 Return-path: <prism54-devel-bounces@prism54.org>
-To: Margit Schubert-While <margitsw@t-online.de>
-In-Reply-To: <5.1.0.14.2.20040615143603.02a40b48@pop.t-online.de>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <40CE2754.1020109@pobox.com>
 List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
 List-Archive: <http://prism54.org/pipermail/prism54-devel>
@@ -23,86 +24,64 @@ Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
 
---===============1272162830==
+--===============0009971235==
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="bKyqfOwhbdpXa4YI"
+	protocol="application/pgp-signature"; boundary="at6+YcpfzWZg/htY"
 Content-Disposition: inline
 
 
---bKyqfOwhbdpXa4YI
+--at6+YcpfzWZg/htY
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Tue, Jun 15, 2004 at 09:17:48PM +0200, Margit Schubert-While wrote:
-> As an experiment, I have just tried merging all source code for a
-> GUPD (Grand Unified Prism54 Driver)  :-)
-> prism54.h - 1063 lines
-> prism54.c - 5583 lines
-> With everything defined static (data and functions), it works and
-> saves a chunk of generated code.
+On Mon, Jun 14, 2004 at 06:31:48PM -0400, Jeff Garzik wrote:
+> Luis R. Rodriguez wrote:
+> >Hey Jeff,
+> >
+> >was wondering what the status of the latest prism54 patches is. Did all
+> >go through cleanly, are we in-sync now? Are there patches you're still
+> >reviewing?
 >=20
-> Is this something we should be looking at ?
 >=20
-> Some points :
-> With this setup, we can move the driver up into net/wireless.
-> We get rid of the horrible prism include dependencies.
-> (All structures/defs are available to all routines)
-> Everything gets defined static allowing the compiler to produce
-> compact code.  This, though, means that kernel stack traces are
-> less informative. (But, of course, we don't get oops'es in prism54
-> do we ? :-) )
+> Check Andrew's -mm tree and see if there's anything missing.
 >=20
-> OK Discuss.
+> 	Jeff
 
-I like the idea, I think we should just time the change appropriately to
-alllow current work out there to get included / branched in.
+Thanks Jeff. I did, and a diff of Andrew's -mm tree Vs our cvs tree
+2.6.7-prism54 gives a 1898 line diff. This is excluding spaces,
+newlines, and tabbing and all of Andew's .orig, .rej's.=20
 
----
-What's left / being worked on (near future)?=20
+This time it's going to be a *real* pain to provide a changelog and split t=
+he
+diffs.. so can I just send you that 1898 line diff and then another for
+space changes? Everything has already been reviewed on the lists here...
 
-* WPA - PSK - I'm working on this, hope to have a patch this week for cvs t=
-esting.
-
-* WDS - Umm someone on the list had mentioned they had used WDS
-  successfully and had some patches (?) Are you still alive? Are you
-  still working on this?
-
-* ethtool support - Basic ethtool support is easy althought this can
-  wait
-
-* Move verbose/debug printing to use netif_msg instead of our nasty ifdefs.
-  No one is working on this yet though so it can wait.
-
----
-
-Anyone else working on anything for prism54 and would like us to wait
-for you before merging all into the proposed GUPD?
-
-Anyone disagree with this approach? Comments?
-
-PS: please CC netdev
+I promise this will be our last big patch too. I'll ask our team
+to send patches from now on to netdev after each ChangeLog entry, for
+more public review and to not loose sync of our trees. Let us know if
+you think we should do otherwise.
 
 	Luis
 
 --=20
 GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
 
---bKyqfOwhbdpXa4YI
+--at6+YcpfzWZg/htY
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFAz5Afat1JN+IKUl4RAsSHAJsG/ZbrUzDUkEEF2FibxBnRLuyFgwCgocDL
-FKTVO+DTbGmVfVD26OgBM8w=
-=Gx5I
+iD8DBQFAz65Yat1JN+IKUl4RAsYhAJ9UkRve/oHwmnpoyNEytlqrRbm4CwCgo289
+0z2OySyPiczVe6y+IIE01Yg=
+=j48N
 -----END PGP SIGNATURE-----
 
---bKyqfOwhbdpXa4YI--
+--at6+YcpfzWZg/htY--
 
---===============1272162830==
+--===============0009971235==
 Content-Type: text/plain; charset="us-ascii"
 MIME-Version: 1.0
 Content-Transfer-Encoding: 7bit
@@ -113,4 +92,4 @@ Prism54-devel mailing list
 Prism54-devel@prism54.org
 http://prism54.org/mailman/listinfo/prism54-devel
 
---===============1272162830==--
+--===============0009971235==--
