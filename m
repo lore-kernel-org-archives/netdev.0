@@ -1,23 +1,41 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.4] PKT_SCHED: Rename TCQ_F_INGRES to TCQ_F_INGRESS
-Date: Mon, 25 Oct 2004 20:26:47 -0700
+Subject: Re: Allowing netlink_family to be any integer (was: [PATCH 2.6]
+ iptables CLUSTERIP target)
+Date: Mon, 25 Oct 2004 20:27:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041025202647.5f4d5163.davem@davemloft.net>
-References: <20041022230731.GL21977@postel.suug.ch>
+Message-ID: <20041025202724.6d834af5.davem@davemloft.net>
+References: <20041021142527.GG3551@sunbeam.de.gnumonks.org>
+	<E1CKkWZ-0005x5-00@gondolin.me.apana.org.au>
+	<20041022160559.28f9c540.davem@davemloft.net>
+	<20041022231607.GA14365@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: laforge@netfilter.org, lmb@suse.de, ahu@ds9a.nl, hch@infradead.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041022230731.GL21977@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041022231607.GA14365@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 23 Oct 2004 09:16:07 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Both 2.4.x and 2.6.x variants applied, thanks Thomas.
+> On Fri, Oct 22, 2004 at 04:05:59PM -0700, David S. Miller wrote:
+> > On Fri, 22 Oct 2004 07:31:07 +1000
+> > Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> > 
+> > > Initially I considered an interface where kernel users can register
+> > > themselves using a string as the key.  But I soon realised that we
+> > > could simply allow the netlink_family field to be an arbitrary integer
+> > > that is used as a key to a hash table.
+> > 
+> > (I assume you mean "nl_family" not "netlink_family" :-)
+> 
+> I'm no plans yet in taking over all address families :)
+> I'm only referring to the third argument in socket(2).
 
-Speaking of grep'ability, I will always apply patches that make
-structure members easier to grep for in the kernel sources.
-One great example is when Arnaldo added the "sk_*" prefix
-to the names of the members of struct sock.
+Color me confused about how your scheme might work.  If
+you cook up an example patch, I guarentee it will be worth
+your while. 8)
