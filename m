@@ -1,32 +1,24 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.9 failed assertion in tcp_timer.c
-Date: Thu, 21 Oct 2004 22:53:32 -0700
+Subject: Re: [PATCH] trivial speeling fix in net/sched/Kconfig
+Date: Thu, 21 Oct 2004 22:56:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021225332.7f6bcfaf.davem@davemloft.net>
-References: <20041019215054.GA17565@linuxace.com>
-	<E1CK3Az-0004P2-00@gondolin.me.apana.org.au>
-	<20041020164748.GA20905@linuxace.com>
-	<20041020212651.GA8534@gondor.apana.org.au>
-	<20041020225536.GA22179@linuxace.com>
-	<20041021130339.GA19345@gondor.apana.org.au>
-	<20041021165224.GA25399@linuxace.com>
-	<20041021215743.GA23062@gondor.apana.org.au>
+Message-ID: <20041021225606.0bb8358e.davem@davemloft.net>
+References: <20041021184320.K2357@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kernel@linuxace.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041021215743.GA23062@gondor.apana.org.au>
+To: Chris Wright <chrisw@osdl.org>
+In-Reply-To: <20041021184320.K2357@build.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Oct 2004 07:57:43 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Thu, 21 Oct 2004 18:43:20 -0700
+Chris Wright <chrisw@osdl.org> wrote:
 
-> Dave, we need to use the skb's MSS in trim_head as otherwise the
-> counters will be screwed up.
+> Trivial speeling fixes.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Signed-off-by: Chris Wright <chrisw@osdl.org>
 
-Excellent catch.  Patch applied, thanks Herbert.
+Applied, thanks Chris.
