@@ -1,33 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.5.69] wanrouter clean up MOD_*_USE_COUNT
-Date: Thu, 22 May 2003 00:59:31 -0700 (PDT)
+From: Andi Kleen <ak@suse.de>
+Subject: Re: comment about struct tcp_tw_bucket in struct sock
+Date: Thu, 22 May 2003 10:02:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030522.005931.68146729.davem@redhat.com>
-References: <20030521231801.GE10295@conectiva.com.br>
-	<20030521.162707.88487215.davem@redhat.com>
-	<20030522004718.GB13028@conectiva.com.br>
+Message-ID: <20030522080232.GE15275@wotan.suse.de>
+References: <20030513210541.GA4415@suse.de> <20030513.163150.28800008.davem@redhat.com> <20030514083236.GD8290@Wotan.suse.de> <20030514.121806.41651014.davem@redhat.com> <20030514192117.GA31303@Wotan.suse.de> <20030522005258.GC13028@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: daniel@osdl.org, ncorbic@sangoma.com, dm@sangoma.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@redhat.com>, olh@suse.de,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
-In-Reply-To: <20030522004718.GB13028@conectiva.com.br>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Content-Disposition: inline
+In-Reply-To: <20030522005258.GC13028@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-   Date: Wed, 21 May 2003 21:47:18 -0300
+> Ah if we could just use a unnamed struct... 8)
 
-   Em Wed, May 21, 2003 at 04:27:07PM -0700, David S. Miller escreveu:
-   > Note that, as I said in another email, these MOD_* calls can't just be
-   > deleted, the PROCFS registry etc. have to set ->owner fields correctly
-   > before this is valid.
-   
-   Yoshfuji-san has already done this in wanproc.c.
-   
-That's true.  But we need to check for other cases to make
-sure they are ok.  For example, wanrouter_router_devlist.
+Don't worry. Sometime someone will find a gcc 2.95 bug that prevents
+compilation of some new kernel code and is too hard to work around. Once
+that happens everybody will move to 3.2+ for the kernel (I don't think
+3.0 is used anymore) 
 
-If you really think it's fine, just resend the change and I'll
-install it.
+-Andi
