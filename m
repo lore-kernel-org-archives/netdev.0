@@ -1,33 +1,44 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Network buffer hang was Re: [PATCH] 2.6 workaround for
- Athlon/Opteron prefetch errata
-Date: Thu, 11 Sep 2003 18:41:03 -0700
+From: Ricardo C Gonzalez <ricardoz@us.ibm.com>
+Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Thu, 11 Sep 2003 21:20:18 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911184103.2646b189.davem@redhat.com>
-References: <uqD5.3BI.3@gated-at.bofh.it>
-	<m3iso0arlx.fsf@averell.firstfloor.org>
-	<0a5801c37821$54eb8180$890010ac@edumazet>
-	<20030911051121.GA7751@colin2.muc.de>
-	<0a7701c37829$c4bdef40$890010ac@edumazet>
-	<20030911120956.GB7751@colin2.muc.de>
-	<0b2901c37867$1db399a0$890010ac@edumazet>
-	<3F612570.1010303@candelatech.com>
+Message-ID: <OFF6DA8E51.7C3572D3-ON85256D9F.000B88F1-86256D9F.000CB34F@us.ibm.com>
+References: <1063330463.1028.8.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: dada1@cosmosbay.com, jun.nakajima@intel.com, ak@muc.de,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: greearb@candelatech.com, jgarzik@pobox.com, scott.feldman@intel.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F612570.1010303@candelatech.com>
+In-Reply-To: <1063330463.1028.8.camel@jzny.localdomain>
+To: hadi@cyberus.ca
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 11 Sep 2003 18:46:24 -0700
-Ben Greear <greearb@candelatech.com> wrote:
 
-> I was using kernel 2.4.21 or so, and had tcp buffers turned up
-> quite high.
 
-You seal your own fate by setting this too high.  It's meant
-to keep TCP from commiting too much system memory to itself.
+Jamal wrote:
+
+>* increase instead the txquelen (as suggested by Davem); user space
+>tools like ip or ifconfig could do it. The standard size has been around
+>100 for 100Mbps; i suppose it is fair to say that Gige can move data out
+>at 10x that; so set it to 1000. Maybe you can do this from the driver
+>based on what negotiated speed is detected?
+
+      This is also another way to do it. As long as we make it harder for
+users to drop packets and get up to date with Gigabit speeds. We would also
+have to think about the upcomming 10Gige adapters and their queue sizes,
+but that is a separate issue. Anyway, the driver can easly set the
+txqueuelen to 1000.
+
+      We should care about counting the packets being dropped on the
+transmit side. Would it be the responsability of the driver to account for
+this drops? Because each driver has a dedicated software queue and in my
+opinion, the driver should account for this packets.
+
+
+regards,
+
+
+----------------------------------------------------------------------------------
+
+***  ALWAYS THINK POSITIVE ***
