@@ -1,31 +1,40 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: [PATCH] remove bogus exports in ppp
-Date: Fri, 28 Jan 2005 10:32:03 +1100
-Message-ID: <16889.31219.724098.168789@cargo.ozlabs.ibm.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [ANN] removal of certain net drivers coming soon: eepro100,
+ xircom_tulip_cb, iph5526
+Date: Thu, 27 Jan 2005 15:31:14 -0800
+Message-ID: <20050127153114.72be03e2.davem@davemloft.net>
+References: <41F952F4.7040804@pobox.com>
+	<20050127225725.F3036@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        greg@kroah.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org, hch@lst.de
+To: Russell King <rmk+lkml@arm.linux.org.uk>
+In-Reply-To: <20050127225725.F3036@flint.arm.linux.org.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Remove unnecessary exports from ppp_generic.c.
+On Thu, 27 Jan 2005 22:57:25 +0000
+Russell King <rmk+lkml@arm.linux.org.uk> wrote:
 
-Signed-off-by: Christoph Hellwig <hch@lst.de>
-Signed-off-by: Paul Mackerras <paulus@samba.org>
+> Has e100 actually been fixed to use the PCI DMA API correctly yet?
 
-diff -urN linux-2.5/drivers/net/ppp_generic.c test/drivers/net/ppp_generic.c
---- linux-2.5/drivers/net/ppp_generic.c	2005-01-27 11:01:23.000000000 +1100
-+++ test/drivers/net/ppp_generic.c	2005-01-28 10:23:54.539929344 +1100
-@@ -2741,8 +2741,6 @@
- EXPORT_SYMBOL(ppp_output_wakeup);
- EXPORT_SYMBOL(ppp_register_compressor);
- EXPORT_SYMBOL(ppp_unregister_compressor);
--EXPORT_SYMBOL(all_ppp_units); /* for debugging */
--EXPORT_SYMBOL(all_channels); /* for debugging */
- MODULE_LICENSE("GPL");
- MODULE_ALIAS_CHARDEV_MAJOR(PPP_MAJOR);
- MODULE_ALIAS("/dev/ppp");
+It seems to be doing the right thing.  I see the DMA sync calls
+(properly using cpu vs. device syncing variants) at the right
+spots, and the only thing the chip really relies upon is ordering
+of visibility and this is achieved via a combination of cpu memory
+barriers and the correct DMA sync calls.
+
+For example, a pci_dma_sync_single_for_cpu() is always performed before
+peeking at the descriptors at RX interrupt time (see e100_rx_indicate).
+
+When new descriptors are written to, then linked into the chain it
+memory barriers the cpu writes then DMA syncs the previous descriptor
+to the device.  This is occuring in e100_alloc_skb().
+
+Therefore the only missing sync would be of the new RX descriptor
+when linking things in like that, ie. at the end of e100_rx_alloc_skb()
+if rx->prev->skb is non-NULL.
