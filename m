@@ -1,29 +1,38 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Fix erratic behavior in rt6_dump_route()
-Date: Mon, 17 Nov 2003 12:43:07 -0800
+Subject: Re: [RFC] moving the test for sockaddr->sa_family up
+Date: Mon, 17 Nov 2003 12:44:43 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031117124307.660df624.davem@redhat.com>
-References: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
+Message-ID: <20031117124443.7590c1d4.davem@redhat.com>
+References: <20031115212034.GA16326@conectiva.com.br>
+	<Xine.LNX.4.44.0311160855020.31201-100000@thoron.boston.redhat.com>
+	<20031116190757.GA18416@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20031116190757.GA18416@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Nov 2003 12:11:52 +0200 (EET)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+On Sun, 16 Nov 2003 17:07:58 -0200
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> Hi Dave!
+> Em Sun, Nov 16, 2003 at 08:56:04AM -0500, James Morris escreveu:
+> > On Sat, 15 Nov 2003, Arnaldo Carvalho de Melo wrote:
+> > 
+> > > Does anybody see any problem with this simplification? Not for 2.6.0, of
+> > > course...
+> > 
+> > No, looks like a good idea.  Might be able to push address length 
+> > verification up there too.
 > 
-> I noticed some erratic behavior when doing "ip -6 r". I traced the problem
-> to rt6_dump_route() where we typecast NLMSG_DATA() to a rtmsg without
-> checking the size of the netlink message first. Seems like ip only passes
-> a rtgenmsg to the kernel when it does a dump, so we end up reading pure
-> garbage when we interpret it as a rtmsg. Please apply the patch!
+> Not really, look at the ax25 code... :-\ They have to support two address types,
+> if we want to keep this flexibility we can't check it at the upper layer,
+> does anybody here knows if we want or if we can ditch that thing in ax25? this:
 
-Thanks a lot Ville, I will review your patch a bit more and
-most likely apply it later today.
+Right, this is the area where you need to be careful, where people
+need special semantics just like this ax25 case.
+
+I'm %100 fine with the original cleanup for 2.6.1 or later.
