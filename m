@@ -1,61 +1,110 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: UDP Lite Implementation
-Date: 11 Mar 2005 07:36:28 -0500
-Message-ID: <1110544588.1089.159.camel@jzny.localdomain>
-References: <5.1.0.14.2.20050311133309.00ab5f10@elemail.ele.vtt.fi>
-Reply-To: hadi@cyberus.ca
+From: nhorman@redhat.com
+Subject: Re: [Patch] sctp: add receive buffer accounting to sctp (fwd)
+Date: Fri, 11 Mar 2005 07:57:24 -0500
+Message-ID: <20050311125724.GB18122@hmsendeavour.rdu.redhat.com>
+References: <Pine.LNX.4.61.0503030027590.8076@localhost.localdomain> <20050309211632.6f70fe41.davem@davemloft.net> <20050310120803.GA6341@hmsendeavour.rdu.redhat.com> <20050310154342.GG6341@hmsendeavour.rdu.redhat.com> <20050310183856.08cb5f7b.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Petri Passila <Petri.Passila@vtt.fi>
-In-Reply-To: <5.1.0.14.2.20050311133309.00ab5f10@elemail.ele.vtt.fi>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="uZ3hkaAS1mZxFaxD"
+Cc: nhorman@redhat.com, sri@us.ibm.com, netdev@oss.sgi.com,
+        lksctp-developers@lists.sourceforge.net
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050310183856.08cb5f7b.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Start looking at udp code and go from there. 
-What do you see as an issue that will slow you down?
-You should probably be able to cutnpaste a lot of the code from UDP.
-Of course forget about other OSes - implement on Linux.
 
-cheers,
-jamal
+--uZ3hkaAS1mZxFaxD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-On Fri, 2005-03-11 at 06:34, Petri Passila wrote:
-> Hello !
-> 
-> I am doing my bachelors thesis here in Recearch center of Finland (VTT 
-> Electronics) in Oulu. The meaning of the thesis is to compare UDP and UDP 
-> Lite using multimedia streaming. The part of my job is to implement UDP 
-> Lite into the Linux protocol stack (or FreeBSDs). And I have encountered 
-> some difficulties during my way.
-> 
-> I am investigating the operation of the Linux protocol stack and the udp.c 
-> file tells that you are the athors for the UDP. And I am courious to know 
-> if you might know something about implementing the UDP Lite. So I wonder if 
-> you could possibly help me in my thesis. If you had some information about 
-> porting, which could help me, or the whole implementation I would be 
-> grateful to hear about it. Or, do you know someone who might know about the 
-> issue?
-> 
-> Our platform is constructed of a FreeBSD 5.1 and Linux RH9 (kernel 2.4.20) 
-> machine(s).
-> 
-> 
-> Sincerely yours
-> 
-> 
-> 
-> Petri Passila
-> VTT Electronics
-> Telecommunication Systems
-> Wireless Services group
-> 
-> Work Tel. 040-5425526
-> GSM +35840-731 0109
-> mail: petri.passila@vtt.fi
-> 
-> 
-> 
-> 
+On Thu, Mar 10, 2005 at 06:38:56PM -0800, David S. Miller wrote:
+> On Thu, 10 Mar 2005 10:43:42 -0500
+> nhorman@redhat.com wrote:
+>=20
+> > Repost of my ealier rcvbuf patch.  No changes, but rediffed to apply cl=
+eanly to
+> > the head of the bitkeeper tree.  Passes all lksctp regression tests
+>=20
+> Applied, thanks Neil.
+
+You're quite welcome.  Heres the 2.4 version of the same patch that you
+requested.  Applies clean against the bitkeeper head.
+
+Signed-off-by: Neil Horman <nhorman@redhat.com>
+
+[nhorman@hmsendeavour kernel]$ diffstat linux-2.4-sctp.rcvbuf.patch=20
+ input.c |   21 +++++++++++++++++++++
+ 1 files changed, 21 insertions(+)
+
+
+--- linux-2.4-sctp/net/sctp/input.c.orig	2005-03-10 13:36:49.000000000 -0500
++++ linux-2.4-sctp/net/sctp/input.c	2005-03-10 13:51:25.000000000 -0500
+@@ -100,6 +100,21 @@
+ 	return 0;
+ }
+=20
++/* The free routine for skbuffs that sctp receives */
++static void sctp_rfree(struct sk_buff *skb)
++{
++	atomic_sub(sizeof(struct sctp_chunk),&skb->sk->sk_rmem_alloc);
++	sock_rfree(skb);
++}
++
++/* The ownership wrapper routine to do receive buffer accounting */
++static void sctp_rcv_set_owner_r(struct sk_buff *skb, struct sock *sk)
++{
++	skb_set_owner_r(skb,sk);
++	skb->destructor =3D sctp_rfree;
++	atomic_add(sizeof(struct sctp_chunk),&sk->sk_rmem_alloc);
++}
++
+ /*
+  * This is the routine which IP calls when receiving an SCTP packet.
+  */
+@@ -183,6 +198,10 @@
+ 	rcvr =3D asoc ? &asoc->base : &ep->base;
+ 	sk =3D rcvr->sk;
+=20
++	if ((sk) && (atomic_read(&sk->sk_rmem_alloc) >=3D sk->sk_rcvbuf))=20
++		goto discard_release;
++=20
++
+ 	if (!ipsec_sk_policy(sk, skb))
+ 		goto discard_release;
+=20
+@@ -197,6 +216,8 @@
+ 		goto discard_release;
+ 	}
+=20
++	sctp_rcv_set_owner_r(skb,sk);
++
+ 	/* Remember what endpoint is to handle this packet. */
+ 	chunk->rcvr =3D rcvr;
+=20
+--=20
+/***************************************************
+ *Neil Horman
+ *Software Engineer
+ *Red Hat, Inc.
+ *nhorman@redhat.com
+ *gpg keyid: 1024D / 0x92A74FA1
+ *http://pgp.mit.edu
+ ***************************************************/
+
+--uZ3hkaAS1mZxFaxD
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+
+iD8DBQFCMZWzM+bEoZKnT6ERAru2AJ9N1Fle7qQoSZtcSXaXZJ0c9UOFnACghdoe
+BPoGpQWVuAI/Rimoo6zd/vo=
+=WO73
+-----END PGP SIGNATURE-----
+
+--uZ3hkaAS1mZxFaxD--
