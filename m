@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 6/22] xfrm offload v2: add a parameter to xfrm_prune_bundles()
-Date: Mon, 10 Jan 2005 10:37:00 -0500
-Message-ID: <20040110014300.15@ori.thedillows.org>
-References: <20040110014300.14@ori.thedillows.org>
+Subject: [RFC BK 19/22] xfrm offload v2: typhoon: add loading of xfrm_states to hardware
+Date: Mon, 10 Jan 2005 10:37:02 -0500
+Message-ID: <20040110014300.28@ori.thedillows.org>
+References: <20040110014300.27@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,109 +13,199 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:44:12-05:00 dave@thedillows.org 
-#   Add a parameter to the decision function(s) used by
-#   xfrm_prune_bundles(). This will allow us to have more
-#   fine grained selection of bundles pruned (like, say,
-#   per device.)
+#   2005/01/10 01:00:58-05:00 dave@thedillows.org 
+#   Teach the Typhoon driver how to add and remove xfrm_states to
+#   the 3XP for later packet processing.
+#   
+#   When the first xfrm_state is added, we turn on IPSEC offloads
+#   for the 3XP, and we turn it off when the last one is removed.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# net/xfrm/xfrm_policy.c
-#   2005/01/10 00:43:55-05:00 dave@thedillows.org +11 -10
-#   Add a parameter to the decision function(s) used by
-#   xfrm_prune_bundles(). This will allow us to have more
-#   fine grained selection of bundles pruned (like, say,
-#   per device.)
+# drivers/net/typhoon.c
+#   2005/01/10 01:00:40-05:00 dave@thedillows.org +167 -0
+#   Teach the Typhoon driver how to add and remove xfrm_states to
+#   the 3XP for later packet processing.
+#   
+#   When the first xfrm_state is added, we turn on IPSEC offloads
+#   for the 3XP, and we turn it off when the last one is removed.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
---- a/net/xfrm/xfrm_policy.c	2005-01-10 01:19:37 -05:00
-+++ b/net/xfrm/xfrm_policy.c	2005-01-10 01:19:37 -05:00
-@@ -724,7 +724,7 @@
- 	}
- }
+diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
+--- a/drivers/net/typhoon.c	2005-01-10 01:16:56 -05:00
++++ b/drivers/net/typhoon.c	2005-01-10 01:16:56 -05:00
+@@ -2419,6 +2419,173 @@
+ #undef REQUIRED
+ #undef UNSUPPORTED
  
--static int stale_bundle(struct dst_entry *dst);
-+static int stale_bundle(struct dst_entry *dst, void *unused);
- 
- static void xfrm_accel_task(void *data)
++static struct xfrm_offload *
++typhoon_offload_ipsec(struct typhoon *tp, struct xfrm_state *x)
++{
++	struct cmd_desc xp_cmd[5];
++	struct resp_desc xp_resp;
++	struct sa_descriptor *sa = (struct sa_descriptor *)xp_cmd;
++	struct xfrm_offload *xol;
++	struct typhoon_xfrm_offload *txo;
++	u16 *dir_sa_avail = &tp->rx_sa_avail;
++	u16 cookie;
++	int keylen, err;
++
++	if(!typhoon_validate_xfrm(tp, x))
++		goto error;
++
++	memset(xp_cmd, 0, 5 * sizeof(xp_cmd[0]));
++	INIT_COMMAND_WITH_RESPONSE(xp_cmd, TYPHOON_CMD_CREATE_SA);
++	sa->numDesc = 4;
++
++	sa->mode = TYPHOON_SA_MODE_AH;
++	if(x->type->proto == IPPROTO_ESP)
++		sa->mode = TYPHOON_SA_MODE_ESP;
++
++	if(x->dir == XFRM_STATE_DIR_OUT) {
++		sa->direction = TYPHOON_SA_DIR_TX;
++		dir_sa_avail = &tp->tx_sa_avail;
++	}
++
++	spin_lock_bh(&tp->offload_lock);
++	if(!*dir_sa_avail) {
++		spin_unlock_bh(&tp->offload_lock);
++		goto error;
++	}
++	*dir_sa_avail--;
++	if(!tp->sa_count++) {
++		tp->offload |= TYPHOON_OFFLOAD_IPSEC;
++		err = typhoon_set_offload(tp);
++		if(err < 0) {
++			spin_unlock_bh(&tp->offload_lock);
++			printk(KERN_ERR "%s: unable to enable IPSEC "
++					"offload (%d)\n", tp->name, -err);
++			goto error_counted;
++		}
++	}
++	spin_unlock_bh(&tp->offload_lock);
++
++	if(x->props.aalgo != SADB_X_AALG_NULL && x->aalg) {
++		keylen = (x->aalg->alg_key_len + 7) / 8;
++
++		sa->hashFlags = TYPHOON_SA_HASH_SHA1;
++		if(x->props.aalgo == SADB_AALG_MD5HMAC)
++			sa->hashFlags = TYPHOON_SA_HASH_MD5;
++		sa->hashFlags |= TYPHOON_SA_HASH_ENABLE;
++
++		memcpy(sa->integKey, x->aalg->alg_key, keylen);
++	}
++
++	if(x->props.ealgo != SADB_EALG_NULL && x->ealg) {
++		keylen = (x->ealg->alg_key_len + 7) / 8;
++
++		sa->encryptionFlags = TYPHOON_SA_ENCRYPT_ENABLE |
++						TYPHOON_SA_ENCRYPT_CBC;
++		if(x->props.ealgo == SADB_EALG_DESCBC)
++			sa->encryptionFlags |= TYPHOON_SA_ENCRYPT_DES;
++		else if(x->ealg->alg_key_len == 192)
++			sa->encryptionFlags |= TYPHOON_SA_ENCRYPT_3DES_3KEY;
++		else {
++			sa->encryptionFlags |= TYPHOON_SA_ENCRYPT_3DES_2KEY;
++			memcpy(&sa->confKey[16], x->ealg->alg_key, 8);
++		}
++
++		memcpy(sa->confKey, x->ealg->alg_key, keylen);
++	}
++
++	/* The 3XP expects the SPI to be in host order, litte endian.
++	 * It expects the address to be in network order.
++	 */
++	sa->SPI = cpu_to_le32(ntohl(x->id.spi));
++	sa->destAddr = x->id.daddr.a4;
++	sa->destMask = (u32) ~0UL;
++
++	err = typhoon_issue_command(tp, 5, xp_cmd, 1, &xp_resp);
++	cookie = le16_to_cpu(xp_resp.parm1);
++	if(err < 0 || !cookie || cookie == 0xffff)
++		goto error_counted;
++
++	xol = xfrm_offload_alloc(sizeof(*txo), tp->dev, GFP_KERNEL);
++	if(!xol)
++		goto error_cookie;
++
++	txo = xfrm_offload_priv(xol);
++	txo->sa_cookie = cookie;
++	txo->tunnel = !!x->props.mode;
++	txo->ah = (x->id.proto == IPPROTO_AH);
++	txo->inbound = (x->dir == XFRM_STATE_DIR_IN);
++
++	xfrm_state_offload_add(x, xol);
++
++	return xol;
++
++error_cookie:
++	INIT_COMMAND_NO_RESPONSE(xp_cmd, TYPHOON_CMD_DELETE_SA);
++	xp_cmd[0].parm1 = xp_resp.parm1;
++	typhoon_issue_command(tp, 1, xp_cmd, 0, NULL);
++
++error_counted:
++	spin_lock_bh(&tp->offload_lock);
++	*dir_sa_avail++;
++	tp->sa_count--;
++	if(!tp->sa_count) {
++		tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
++		err = typhoon_set_offload(tp);
++		if(err < 0)
++			printk(KERN_ERR "%s: unable to disable IPSEC "
++					"offload (%d)\n", tp->name, -err);
++	}
++	spin_unlock_bh(&tp->offload_lock);
++
++error:
++	return NULL;
++}
++
++static void
++typhoon_xfrm_state_add(struct net_device *dev, struct xfrm_state *x)
++{
++	struct typhoon *tp = netdev_priv(dev);
++
++	smp_rmb();
++	if(tp->card_state == Running)
++		typhoon_offload_ipsec(tp, x);
++}
++
++static void
++typhoon_xfrm_state_del(struct net_device *dev, struct xfrm_offload *xol)
++{
++	struct typhoon *tp = netdev_priv(dev);
++	struct typhoon_xfrm_offload *txo = xfrm_offload_priv(xol);
++	struct cmd_desc xp_cmd;
++	int err;
++
++	smp_rmb();
++	if(tp->card_state != Running)
++		return;
++
++	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_DELETE_SA);
++	xp_cmd.parm1 = cpu_to_le16(txo->sa_cookie);
++	if(typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL) < 0) {
++		printk(KERN_ERR "%s: unable to remove offloaded SA 0x%04x\n",
++				tp->name,  txo->sa_cookie);
++	}
++
++	spin_lock_bh(&tp->offload_lock);
++	if(txo->inbound)
++		tp->rx_sa_avail++;
++	else
++		tp->tx_sa_avail++;
++	tp->sa_count--;
++	if(!tp->sa_count) {
++		tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
++		err = typhoon_set_offload(tp);
++		if(err < 0)
++			printk(KERN_ERR "%s: unable to disable IPSEC "
++					"offload (%d)\n", tp->name, -err);
++	}
++	spin_unlock_bh(&tp->offload_lock);
++}
++
+ static void
+ typhoon_tx_timeout(struct net_device *dev)
  {
-@@ -744,7 +744,7 @@
- 		/* stale_bundle() validates that we have a dev, and that it
- 		* is currently running.
- 		*/
--		if (!stale_bundle(dst) && (dev->features & NETIF_F_IPSEC))
-+		if (!stale_bundle(dst, NULL) && (dev->features & NETIF_F_IPSEC))
- 			dev->xfrm_bundle_add(dev, dst);
- 
- 		dst_release(dst);
-@@ -861,7 +861,7 @@
- 		}
- 
- 		write_lock_bh(&policy->lock);
--		if (unlikely(policy->dead || stale_bundle(dst))) {
-+		if (unlikely(policy->dead || stale_bundle(dst, NULL))) {
- 			/* Wow! While we worked on resolving, this
- 			 * policy has gone. Retry. It is not paranoia,
- 			 * we just cannot enlist new bundle to dead object.
-@@ -1042,14 +1042,14 @@
- 
- static struct dst_entry *xfrm_dst_check(struct dst_entry *dst, u32 cookie)
- {
--	if (!stale_bundle(dst))
-+	if (!stale_bundle(dst, NULL))
- 		return dst;
- 
- 	dst_release(dst);
- 	return NULL;
- }
- 
--static int stale_bundle(struct dst_entry *dst)
-+static int stale_bundle(struct dst_entry *dst, void *unused)
- {
- 	struct dst_entry *child = dst;
- 
-@@ -1092,7 +1092,8 @@
- 	return dst;
- }
- 
--static void xfrm_prune_bundles(int (*func)(struct dst_entry *))
-+static void xfrm_prune_bundles(int (*func)(struct dst_entry *, void *),
-+					void *data)
- {
- 	int i;
- 	struct xfrm_policy *pol;
-@@ -1104,7 +1105,7 @@
- 			write_lock(&pol->lock);
- 			dstp = &pol->bundles;
- 			while ((dst=*dstp) != NULL) {
--				if (func(dst)) {
-+				if (func(dst, data)) {
- 					*dstp = dst->next;
- 					dst->next = gc_list;
- 					gc_list = dst;
-@@ -1124,19 +1125,19 @@
- 	}
- }
- 
--static int unused_bundle(struct dst_entry *dst)
-+static int unused_bundle(struct dst_entry *dst, void *unused)
- {
- 	return !atomic_read(&dst->__refcnt);
- }
- 
- static void __xfrm_garbage_collect(void)
- {
--	xfrm_prune_bundles(unused_bundle);
-+	xfrm_prune_bundles(unused_bundle, NULL);
- }
- 
- int xfrm_flush_bundles(void)
- {
--	xfrm_prune_bundles(stale_bundle);
-+	xfrm_prune_bundles(stale_bundle, NULL);
- 	return 0;
- }
- 
