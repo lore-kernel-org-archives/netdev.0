@@ -1,35 +1,22 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [10/*] [TCP] Get rid of dst_ptmu/ext2_header_len
-Date: Mon, 7 Mar 2005 09:33:12 -0800
-Message-ID: <20050307093312.68a2dd22.davem@davemloft.net>
-References: <20050214221006.GA18415@gondor.apana.org.au>
-	<20050214221200.GA18465@gondor.apana.org.au>
-	<20050214221433.GB18465@gondor.apana.org.au>
-	<20050214221607.GC18465@gondor.apana.org.au>
-	<20050216103744.GA476@gondor.apana.org.au>
-	<20050307114533.GA11190@gondor.apana.org.au>
+Subject: Re: [patch 1/1] atalk build fix
+Date: Mon, 7 Mar 2005 09:34:56 -0800
+Message-ID: <20050307093456.4aa0b4c6.davem@davemloft.net>
+References: <200503070950.j279oxDf000951@shell0.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, yoshfuji@linux-ipv6.org,
-        kaber@trash.net, netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050307114533.GA11190@gondor.apana.org.au>
+Cc: netdev@oss.sgi.com, akpm@osdl.org
+To: akpm@osdl.org
+In-Reply-To: <200503070950.j279oxDf000951@shell0.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Mar 2005 22:45:33 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 07 Mar 2005 01:50:35 -0800
+akpm@osdl.org wrote:
 
-> Here is a patch that replaces all occurrences of dst_pmtu in the TCP
-> stack.  As a result we no longer need ext2_header_len.
-> 
-> This has a nice synergetic effect with Arnaldo's latest change to
-> linux/tcp.h :)
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> I'll be removing other users of dst->path/dst_pmtu next.
+> In file included from drivers/net/appletalk/cops.c:70:
+> include/linux/atalk.h:67: field `sk' has incomplete type
 
-Also applied, thanks Herbert.
+Applied, thanks Andrew.
