@@ -1,38 +1,58 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [Bonding-devel] Re: [SET 2][PATCH 2/8][bonding] Propagating
-	master'ssettings toslaves
-Date: 11 Aug 2003 22:32:59 -0400
+Subject: Re: [SET 2][PATCH 2/8][bonding] Propagating master's settings to
+	slaves
+Date: 11 Aug 2003 22:36:08 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1060655579.1027.51.camel@jzny.localdomain>
-References: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com>
-	 <200308111720.38472.shmulik.hen@intel.com>
-	 <1060612481.1034.15.camel@jzny.localdomain>
-	 <200308111925.38278.shmulik.hen@intel.com> <3F37C7C3.7070807@pobox.com>
-	 <3F37D2ED.B4B9223C@thalesatm.com>
+Message-ID: <1060655768.1029.57.camel@jzny.localdomain>
+References: <200308112141.h7BLftpS015012@death.ibm.com>
+	 <200308120215.18234.shmulik.hen@intel.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, shmulik.hen@intel.com,
+Cc: Jay Vosburgh <fubar@us.ibm.com>, Jeff Garzik <jgarzik@pobox.com>,
+   Laurent DENIEL <laurent.deniel@thalesatm.com>,
    bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Laurent DENIEL <laurent.deniel@thalesatm.com>
-In-Reply-To: <3F37D2ED.B4B9223C@thalesatm.com>
+To: shmulik.hen@intel.com
+In-Reply-To: <200308120215.18234.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2003-08-11 at 13:31, Laurent DENIEL wrote:
 
-> But I agree that it is interesting to do some stuff at user land, and if 
-> the bonding had an option to disable the automatic failover policy, 
-> this could be implemented with trigger towards user land application that 
-> could use an ioctl call to switch to the appropriate NIC according to
+Shmulik, the only discussion as far as i know is the one that happened
+in this thread. I have not seen any discussion before. 
 
-You spoilt otherwise sane text by mentioning ioctl;-> 
-
-> But the fast and simple failover policy shall remain in kernel code.
-
-nod from here. Simple failover policies should stay in the kernel.
+Folks, I really didnt mean to start such a long thread ;->
 
 cheers,
 jamal
+
+On Mon, 2003-08-11 at 19:15, Shmulik Hen wrote:
+> May I remind you all that the original discussion was only about  
+> stuff that has to do with configuration time. There was no mention of 
+> any run time code. ifenslave only does three simple things - add a 
+> slave, remove a slave and set the current active slave, that's all. 
+> 
+> The drive was to try and make ifenslave slimmer regarding those three 
+> operations only in the way that any setting of the slave will be done 
+> by the kernel module instead of the configuration application. There 
+> is no real "brain" there anyway.
+> 
+> We had some experience with creating an configuration application that 
+> was incredibly smart and was always aware of what was going on in the 
+> driver and could make all possible decisions before even attempting 
+> to access the driver so it could fail the operation without  
+> "bothering" the driver. It's gigantic. It's extremely hard to install 
+> and configure. It's even harder to maintain. And all it was meant to 
+> do is configuration. Imagine what would happen if it was also 
+> supposed to handle run time issues.
+> 
+> I am not aware of anything like moving kernel code into applications. 
+> Was that something that was discussed in OLS ? Where can I find some 
+> more info about this trend ?
+> 
+> 
+> 	Shmulik.
+> 
+> 
