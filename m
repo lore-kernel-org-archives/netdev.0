@@ -1,163 +1,197 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (38/42) bionet
-Date: Wed, 12 Nov 2003 16:46:38 -0800
+Subject: [PATCH] (25/42) lne390
+Date: Wed, 12 Nov 2003 16:44:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130046.hAD0kcx31474@mail.osdl.org>
+Message-ID: <200311130044.hAD0iSG30954@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NE63-bionet
-	* switched to dynamic allocation
-	* fixed resource leaks on failure exits
+NE49-lne390
+	* switched lne390 to dynamic allocation
+	* lne390: fixed order of freeing bugs
+	* lne390: fixed clobbering on autoprobe
+	* lne390: fixed resource leaks on failure exits
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Wed Nov 12 14:59:06 2003
-+++ b/drivers/net/Space.c	Wed Nov 12 14:59:06 2003
-@@ -78,7 +78,7 @@
- extern int sun3lance_probe(struct net_device *);
- extern int sun3_82586_probe(struct net_device *);
- extern int apne_probe(struct net_device *);
--extern int bionet_probe(struct net_device *);
-+extern struct net_device *bionet_probe(int unit);
- extern struct net_device *pamsnet_probe(int unit);
- extern struct net_device *cs89x0_probe(int unit);
- extern struct net_device *hplance_probe(int unit);
-@@ -308,13 +308,13 @@
- #ifdef CONFIG_APNE		/* A1200 PCMCIA NE2000 */
- 	{apne_probe, 0},
+--- a/drivers/net/Space.c	Tue Nov 11 13:59:56 2003
++++ b/drivers/net/Space.c	Tue Nov 11 13:59:56 2003
+@@ -65,7 +65,7 @@
+ extern struct net_device *elplus_probe(int unit);
+ extern int ac3200_probe(struct net_device *);
+ extern int es_probe(struct net_device *);
+-extern int lne390_probe(struct net_device *);
++extern struct net_device *lne390_probe(int unit);
+ extern struct net_device *e2100_probe(int unit);
+ extern struct net_device *ni5010_probe(int unit);
+ extern struct net_device *ni52_probe(int unit);
+@@ -170,6 +170,10 @@
+ #ifdef CONFIG_ES3210
+ 	{es_probe, 0},
  #endif
--#ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
--	{bionet_probe, 0},
--#endif
- 	{NULL, 0},
- };
- 
- static struct devprobe2 m68k_probes2[] __initdata = {
-+#ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
-+	{bionet_probe, 0},
-+#endif
- #ifdef CONFIG_ATARI_PAMSNET	/* Atari PAMsNet Ethernet board */
- 	{pamsnet_probe, 0},
- #endif
-diff -Nru a/drivers/net/atari_bionet.c b/drivers/net/atari_bionet.c
---- a/drivers/net/atari_bionet.c	Wed Nov 12 14:59:06 2003
-+++ b/drivers/net/atari_bionet.c	Wed Nov 12 14:59:06 2003
-@@ -148,8 +148,6 @@
- 
- /* Index to functions, as function prototypes.
-  */
--extern int bionet_probe(struct net_device *dev);
--
- static int bionet_open(struct net_device *dev);
- static int bionet_send_packet(struct sk_buff *skb, struct net_device *dev);
- static void bionet_poll_rx(struct net_device *);
-@@ -321,15 +319,26 @@
- 
- /* Check for a network adaptor of this type, and return '0' if one exists.
-  */
--int __init 
--bionet_probe(struct net_device *dev){
-+struct net_device * __init bionet_probe(int unit)
-+{
-+	struct net_device *dev;
- 	unsigned char station_addr[6];
- 	static unsigned version_printed;
- 	static int no_more_found;	/* avoid "Probing for..." printed 4 times */
- 	int i;
-+	int err;
- 
- 	if (!MACH_IS_ATARI || no_more_found)
--		return -ENODEV;
-+		return ERR_PTR(-ENODEV);
++	{NULL, 0},
++};
 +
-+	dev = alloc_etherdev(sizeof(struct net_local));
++static struct devprobe2 eisa_probes2[] __initdata = {
+ #ifdef CONFIG_LNE390
+ 	{lne390_probe, 0},
+ #endif
+@@ -392,6 +396,7 @@
+ 	if (base_addr == 1)
+ 		return;
+ 
++	probe_list2(unit, eisa_probes2, base_addr == 0) &&
+ 	probe_list2(unit, mca_probes, base_addr == 0) &&
+ 	probe_list2(unit, isa_probes, base_addr == 0) &&
+ 	probe_list2(unit, parport_probes, base_addr == 0);
+diff -Nru a/drivers/net/lne390.c b/drivers/net/lne390.c
+--- a/drivers/net/lne390.c	Tue Nov 11 13:59:56 2003
++++ b/drivers/net/lne390.c	Tue Nov 11 13:59:56 2003
+@@ -49,7 +49,6 @@
+ 
+ #include "8390.h"
+ 
+-int lne390_probe(struct net_device *dev);
+ static int lne390_probe1(struct net_device *dev, int ioaddr);
+ 
+ static int lne390_open(struct net_device *dev);
+@@ -103,9 +102,11 @@
+  *	PROM for a match against the value assigned to Mylex.
+  */
+ 
+-int __init lne390_probe(struct net_device *dev)
++static int __init do_lne390_probe(struct net_device *dev)
+ {
+ 	unsigned short ioaddr = dev->base_addr;
++	int irq = dev->irq;
++	int mem_start = dev->mem_start;
+ 	int ret;
+ 
+ 	SET_MODULE_OWNER(dev);
+@@ -135,11 +136,49 @@
+ 		if (lne390_probe1(dev, ioaddr) == 0)
+ 			return 0;
+ 		release_region(ioaddr, LNE390_IO_EXTENT);
++		dev->irq = irq;
++		dev->mem_start = mem_start;
+ 	}
+ 
+ 	return -ENODEV;
+ }
+ 
++static void cleanup_card(struct net_device *dev)
++{
++	free_irq(dev->irq, dev);
++	release_region(dev->base_addr, LNE390_IO_EXTENT);
++	if (ei_status.reg0)
++		iounmap((void *)dev->mem_start);
++	kfree(dev->priv);
++}
++
++struct net_device * __init lne390_probe(int unit)
++{
++	struct net_device *dev = alloc_etherdev(0);
++	int err;
++
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
-+	if (unit >= 0) {
-+		sprintf(dev->name, "eth%d", unit);
-+		netdev_boot_setup_check(dev);
-+	}
-+	SET_MODULE_OWNER(dev);
- 
- 	printk("Probing for BioNet 100 Adapter...\n");
- 
-@@ -347,11 +356,10 @@
- 	||  station_addr[2] != 'O' ) {
- 		no_more_found = 1;
- 		printk( "No BioNet 100 found.\n" );
--		return -ENODEV;
-+		free_netdev(dev);
-+		return ERR_PTR(-ENODEV);
- 	}
- 
--	SET_MODULE_OWNER(dev);
--
- 	if (bionet_debug > 0 && version_printed++ == 0)
- 		printk(version);
- 
-@@ -369,12 +377,6 @@
- 			nic_packet, phys_nic_packet );
- 	}
- 
--	if (dev->priv == NULL)
--		dev->priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
--	if (!dev->priv)
--		return -ENOMEM;
--	memset(dev->priv, 0, sizeof(struct net_local));
--
- 	dev->open		= bionet_open;
- 	dev->stop		= bionet_close;
- 	dev->hard_start_xmit	= bionet_send_packet;
-@@ -390,8 +392,11 @@
- #endif
- 		dev->dev_addr[i]  = station_addr[i];
- 	}
--	ether_setup(dev);
--	return 0;
++
++	sprintf(dev->name, "eth%d", unit);
++	netdev_boot_setup_check(dev);
++
++	dev->priv = NULL;	/* until all 8390-based use alloc_etherdev() */
++
++	err = do_lne390_probe(dev);
++	if (err)
++		goto out;
 +	err = register_netdev(dev);
-+	if (!err)
-+		return dev;
++	if (err)
++		goto out1;
++	return dev;
++out1:
++	cleanup_card(dev);
++out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
- }
- 
- /* Open/initialize the board.  This is called (in the current kernel)
-@@ -640,25 +645,20 @@
++}
++
+ static int __init lne390_probe1(struct net_device *dev, int ioaddr)
+ {
+ 	int i, revision, ret;
+@@ -373,7 +412,7 @@
  
  #ifdef MODULE
+ #define MAX_LNE_CARDS	4	/* Max number of LNE390 cards per module */
+-static struct net_device dev_lne[MAX_LNE_CARDS];
++static struct net_device *dev_lne[MAX_LNE_CARDS];
+ static int io[MAX_LNE_CARDS];
+ static int irq[MAX_LNE_CARDS];
+ static int mem[MAX_LNE_CARDS];
+@@ -389,26 +428,33 @@
  
--static struct net_device bio_dev;
--
--int
--init_module(void) {
--	int err;
-+static struct net_device *bio_dev;
+ int init_module(void)
+ {
++	struct net_device *dev;
+ 	int this_dev, found = 0;
  
--	bio_dev.init = bionet_probe;
--	if ((err = register_netdev(&bio_dev))) {
--		if (err == -EEXIST)  {
--			printk("BIONET: devices already present. Module not loaded.\n");
--		}
--		return err;
+ 	for (this_dev = 0; this_dev < MAX_LNE_CARDS; this_dev++) {
+-		struct net_device *dev = &dev_lne[this_dev];
++		if (io[this_dev] == 0 && this_dev != 0)
++			break;
++		dev = alloc_etherdev(0);
++		if (!dev)
++			break;
++		dev->priv = NULL;
+ 		dev->irq = irq[this_dev];
+ 		dev->base_addr = io[this_dev];
+ 		dev->mem_start = mem[this_dev];
+-		dev->init = lne390_probe;
+-		/* Default is to only install one card. */
+-		if (io[this_dev] == 0 && this_dev != 0) break;
+-		if (register_netdev(dev) != 0) {
+-			printk(KERN_WARNING "lne390.c: No LNE390 card found (i/o = 0x%x).\n", io[this_dev]);
+-			if (found != 0) {	/* Got at least one. */
+-				return 0;
++		if (do_lne390_probe(dev) == 0) {
++			if (register_netdev(dev) == 0) {
++				dev_lne[found++] = dev;
++				continue;
+ 			}
+-			return -ENXIO;
++			cleanup_card(dev);
+ 		}
+-		found++;
 -	}
-+int init_module(void)
-+{
-+	bio_dev = bionet_probe(-1);
-+	if (IS_ERR(bio_dev))
-+		return PTR_ERR(bio_dev);
- 	return 0;
+-	return 0;
++		free_netdev(dev);
++		printk(KERN_WARNING "lne390.c: No LNE390 card found (i/o = 0x%x).\n", io[this_dev]);
++		break;
++	}
++	if (found)
++		return 0;
++	return -ENXIO;
  }
  
--void
--cleanup_module(void) {
--	unregister_netdev(&bio_dev);
-+void cleanup_module(void)
-+{
-+	unregister_netdev(bio_dev);
-+	free_netdev(bio_dev);
- }
+ void cleanup_module(void)
+@@ -416,15 +462,11 @@
+ 	int this_dev;
  
- #endif /* MODULE */
+ 	for (this_dev = 0; this_dev < MAX_LNE_CARDS; this_dev++) {
+-		struct net_device *dev = &dev_lne[this_dev];
+-		if (dev->priv != NULL) {
+-			void *priv = dev->priv;
+-			free_irq(dev->irq, dev);
+-			release_region(dev->base_addr, LNE390_IO_EXTENT);
+-			if (ei_status.reg0)
+-				iounmap((void *)dev->mem_start);
++		struct net_device *dev = dev_lne[this_dev];
++		if (dev) {
+ 			unregister_netdev(dev);
+-			kfree(priv);
++			cleanup_card(dev);
++			free_netdev(dev);
+ 		}
+ 	}
+ }
