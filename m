@@ -1,10 +1,10 @@
 From: Aristeu Sergio Rozanski Filho <aris@cathedrallabs.org>
-Subject: [PATCH] 3/5: eepro: basic ethtool support
-Date: Thu, 18 Nov 2004 21:40:53 -0200
-Message-ID: <20041118234053.GH24080@cathedrallabs.org>
+Subject: [PATCH] 1/5: eepro: cache EEPROM values
+Date: Thu, 18 Nov 2004 21:40:43 -0200
+Message-ID: <20041118234043.GF24080@cathedrallabs.org>
 Mime-Version: 1.0
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="mejza3ZMMA5Za1mX"
+	protocol="application/pgp-signature"; boundary="5VuzLDXibKSJvVYD"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
@@ -13,12 +13,12 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---mejza3ZMMA5Za1mX
-Content-Type: multipart/mixed; boundary="Iys0Un1O+0sigPHU"
+--5VuzLDXibKSJvVYD
+Content-Type: multipart/mixed; boundary="M0YLxmUXciMpOLPE"
 Content-Disposition: inline
 
 
---Iys0Un1O+0sigPHU
+--M0YLxmUXciMpOLPE
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -28,173 +28,155 @@ Content-Transfer-Encoding: quoted-printable
 Aristeu
 
 
---Iys0Un1O+0sigPHU
+--M0YLxmUXciMpOLPE
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="03-eepro-ethtool_basic.patch"
+Content-Disposition: attachment; filename="01-eepro-cache_eeprom_values.patch"
 Content-Transfer-Encoding: quoted-printable
 
-eepro: basic ethtool support
+eepro: cache EEPROM values
 
 Signed-off-by: Aristeu Sergio Rozanski Filho <aris@cathedrallabs.org>
 
---- 2.6-inc/drivers/net/eepro.c	2004-09-14 13:47:07.000000000 -0300
-+++ 2.6-work/drivers/net/eepro.c	2004-09-14 14:33:20.000000000 -0300
-@@ -23,6 +23,7 @@
- 	This is a compatibility hardware problem.
+--- 2.6-inc/drivers/net/eepro.c	2004-09-13 15:54:43.000000000 -0300
++++ 2.6-foo/drivers/net/eepro.c	2004-09-14 13:46:15.000000000 -0300
+@@ -214,6 +214,7 @@ struct eepro_local {
+ 	short rcv_lower_limit;
+ 	short rcv_upper_limit;
+ 	unsigned char eeprom_reg;
++	unsigned short word[8];
+ };
 =20
- 	Versions:
-+	0.13b	basic ethtool support (aris, 09/13/2004)
- 	0.13a   in memory shortage, drop packets also in board
- 		(Michael Westermann <mw@microdata-pos.de>, 07/30/2002)
- 	0.13    irq sharing, rewrote probe function, fixed a nasty bug in
-@@ -104,7 +105,7 @@
- */
-=20
- static const char version[] =3D
--	"eepro.c: v0.13 11/08/2001 aris@cathedrallabs.org\n";
-+	"eepro.c: v0.13b 09/13/2004 aris@cathedrallabs.org\n";
-=20
- #include <linux/module.h>
-=20
-@@ -145,6 +146,7 @@ static const char version[] =3D
- #include <linux/spinlock.h>
- #include <linux/init.h>
- #include <linux/delay.h>
-+#include <linux/ethtool.h>
-=20
- #include <asm/system.h>
- #include <asm/bitops.h>
-@@ -152,13 +154,14 @@ static const char version[] =3D
- #include <asm/dma.h>
-=20
- #define DRV_NAME "eepro"
-+#define DRV_VERSION "0.13b"
-=20
- #define compat_dev_kfree_skb( skb, mode ) dev_kfree_skb( (skb) )
- /* I had reports of looong delays with SLOW_DOWN defined as udelay(2) */
- #define SLOW_DOWN inb(0x80)
- /* udelay(2) */
- #define compat_init_data     __initdata
--
-+enum iftype { AUI=3D0, BNC=3D1, TPE=3D2 };
-=20
- /* First, a few definitions that the brave might change. */
- /* A zero-terminated list of I/O addresses to be probed. */
-@@ -743,16 +746,17 @@ static void __init eepro_print_info (str
- 		printEEPROMInfo(dev);
+ /* The station (ethernet) address prefix, used for IDing the board. */
+@@ -608,16 +609,22 @@ out:
  }
+ #endif
 =20
-+static struct ethtool_ops eepro_ethtool_ops;
-+
- /* This is the real probe routine.  Linux has a history of friendly device
-    probes on the ISA bus.  A good device probe avoids doing writes, and
-    verifies that the correct device exists and functions.  */
-=20
- static int __init eepro_probe1(struct net_device *dev, int autoprobe)
+-static void __init printEEPROMInfo(short ioaddr, struct net_device *dev)
++static void __init printEEPROMInfo(struct net_device *dev)
  {
--	unsigned short station_addr[6], id, counter;
-+	unsigned short station_addr[3], id, counter;
- 	int i;
- 	struct eepro_local *lp;
--	enum iftype { AUI=3D0, BNC=3D1, TPE=3D2 };
- 	int ioaddr =3D dev->base_addr;
++	struct eepro_local *lp =3D (struct eepro_local *)dev->priv;
++	int ioaddr =3D dev->base_addr;
+ 	unsigned short Word;
+ 	int i,j;
 =20
- 	/* Grab the region so we can find another board if autoIRQ fails. */
-@@ -862,6 +866,7 @@ static int __init eepro_probe1(struct ne
-  	dev->set_multicast_list =3D &set_multicast_list;
-  	dev->tx_timeout		=3D eepro_tx_timeout;
-  	dev->watchdog_timeo	=3D TX_TIMEOUT;
-+	dev->ethtool_ops	=3D &eepro_ethtool_ops;
- =20
- 	/* print boot time info */
- 	eepro_print_info(dev);
-@@ -1082,8 +1087,6 @@ static int eepro_open(struct net_device=20
- 		old9 =3D inb(ioaddr + 9);
+-	for (i=3D0, j=3Dee_Checksum; i<ee_SIZE; i++)
+-		j+=3Dread_eeprom(ioaddr,i,dev);
++	j =3D ee_Checksum;
++	for (i =3D 0; i < 8; i++)
++		j +=3D lp->word[i];
++	for ( ; i < ee_SIZE; i++)
++		j +=3D read_eeprom(ioaddr, i, dev);
++
+ 	printk(KERN_DEBUG "Checksum: %#x\n",j&0xffff);
 =20
- 		if (irqMask=3D=3Dee_FX_INT2IRQ) {
--			enum iftype { AUI=3D0, BNC=3D1, TPE=3D2 };
--
- 			if (net_debug > 3) {
- 				printk(KERN_DEBUG "IrqMask: %#x\n",irqMask);
- 				printk(KERN_DEBUG "i82595FX detected!\n");
-@@ -1713,6 +1716,64 @@ eepro_transmit_interrupt(struct net_devi
+-	Word=3Dread_eeprom(ioaddr, 0, dev);
++	Word =3D lp->word[0];
+ 	printk(KERN_DEBUG "Word0:\n");
+ 	printk(KERN_DEBUG " Plug 'n Pray: %d\n",GetBit(Word,ee_PnP));
+ 	printk(KERN_DEBUG " Buswidth: %d\n",(GetBit(Word,ee_BusWidth)+1)*8 );
+@@ -625,7 +632,7 @@ static void __init printEEPROMInfo(short
+ 	printk(KERN_DEBUG " IO Address: %#x\n", (Word>>ee_IO0)<<4);
+=20
+ 	if (net_debug>4)  {
+-		Word=3Dread_eeprom(ioaddr, 1, dev);
++		Word =3D lp->word[1];
+ 		printk(KERN_DEBUG "Word1:\n");
+ 		printk(KERN_DEBUG " INT: %d\n", Word & ee_IntMask);
+ 		printk(KERN_DEBUG " LI: %d\n", GetBit(Word,ee_LI));
+@@ -636,7 +643,7 @@ static void __init printEEPROMInfo(short
+ 		printk(KERN_DEBUG " Duplex: %d\n", GetBit(Word,ee_Duplex));
  	}
+=20
+-	Word=3Dread_eeprom(ioaddr, 5, dev);
++	Word =3D lp->word[5];
+ 	printk(KERN_DEBUG "Word5:\n");
+ 	printk(KERN_DEBUG " BNC: %d\n",GetBit(Word,ee_BNC_TPE));
+ 	printk(KERN_DEBUG " NumConnectors: %d\n",GetBit(Word,ee_NumConn));
+@@ -646,12 +653,12 @@ static void __init printEEPROMInfo(short
+ 	if (GetBit(Word,ee_PortAUI)) printk(KERN_DEBUG "AUI ");
+ 	printk(KERN_DEBUG "port(s) \n");
+=20
+-	Word=3Dread_eeprom(ioaddr, 6, dev);
++	Word =3D lp->word[6];
+ 	printk(KERN_DEBUG "Word6:\n");
+ 	printk(KERN_DEBUG " Stepping: %d\n",Word & ee_StepMask);
+ 	printk(KERN_DEBUG " BoardID: %d\n",Word>>ee_BoardID);
+=20
+-	Word=3Dread_eeprom(ioaddr, 7, dev);
++	Word =3D lp->word[7];
+ 	printk(KERN_DEBUG "Word7:\n");
+ 	printk(KERN_DEBUG " INT to IRQ:\n");
+=20
+@@ -725,7 +732,7 @@ static void __init eepro_print_info (str
+ 		printk(", %s.\n", ifmap[dev->if_port]);
+=20
+ 	if (net_debug > 3) {
+-		i =3D read_eeprom(dev->base_addr, 5, dev);
++		i =3D lp->word[5];
+ 		if (i & 0x2000) /* bit 13 of EEPROM word 5 */
+ 			printk(KERN_DEBUG "%s: Concurrent Processing is "
+ 				"enabled but not used!\n", dev->name);
+@@ -733,7 +740,7 @@ static void __init eepro_print_info (str
+=20
+ 	/* Check the station address for the manufacturer's code */
+ 	if (net_debug>3)
+-		printEEPROMInfo(dev->base_addr, dev);
++		printEEPROMInfo(dev);
  }
 =20
-+static int eepro_ethtool_get_settings(struct net_device *dev,
-+					struct ethtool_cmd *cmd)
-+{
-+	struct eepro_local	*lp =3D (struct eepro_local *)dev->priv;
+ /* This is the real probe routine.  Linux has a history of friendly device
+@@ -796,11 +803,16 @@ static int __init eepro_probe1(struct ne
+ 		lp->xmt_bar =3D XMT_BAR_10;
+ 		station_addr[0] =3D read_eeprom(ioaddr, 2, dev);
+ 	}
+-	station_addr[1] =3D read_eeprom(ioaddr, 3, dev);
+-	station_addr[2] =3D read_eeprom(ioaddr, 4, dev);
 +
-+	cmd->supported =3D 	SUPPORTED_10baseT_Half |=20
-+				SUPPORTED_10baseT_Full |
-+				SUPPORTED_Autoneg;
-+	cmd->advertising =3D	ADVERTISED_10baseT_Half |
-+				ADVERTISED_10baseT_Full |
-+				ADVERTISED_Autoneg;
-+
-+	if (GetBit(lp->word[5], ee_PortTPE)) {
-+		cmd->supported |=3D SUPPORTED_TP;
-+		cmd->advertising |=3D ADVERTISED_TP;
++	/* get all words at once. will be used here and for ethtool */
++	for (i =3D 0; i < 8; i++) {
++		lp->word[i] =3D read_eeprom(ioaddr, i, dev);
 +	}
-+	if (GetBit(lp->word[5], ee_PortBNC)) {
-+		cmd->supported |=3D SUPPORTED_BNC;
-+		cmd->advertising |=3D ADVERTISED_BNC;
-+	}
-+	if (GetBit(lp->word[5], ee_PortAUI)) {
-+		cmd->supported |=3D SUPPORTED_AUI;
-+		cmd->advertising |=3D ADVERTISED_AUI;
-+	}
-+
-+	cmd->speed =3D SPEED_10;
-+
-+	if (dev->if_port =3D=3D TPE && lp->word[1] & ee_Duplex) {
-+		cmd->duplex =3D DUPLEX_FULL;
-+	}
-+	else {
-+		cmd->duplex =3D DUPLEX_HALF;
-+	}
-+
-+	cmd->port =3D dev->if_port;
-+	cmd->phy_address =3D dev->base_addr;
-+	cmd->transceiver =3D XCVR_INTERNAL;
-+
-+	if (lp->word[0] & ee_AutoNeg) {
-+		cmd->autoneg =3D 1;
-+	}
-+
-+	return 0;
-+}
-+
-+static void eepro_ethtool_get_drvinfo(struct net_device *dev,
-+					struct ethtool_drvinfo *drvinfo)
-+{
-+	strcpy(drvinfo->driver, DRV_NAME);
-+	strcpy(drvinfo->version, DRV_VERSION);
-+	sprintf(drvinfo->bus_info, "ISA 0x%lx", dev->base_addr);
-+}
-+
-+static struct ethtool_ops eepro_ethtool_ops =3D {
-+	.get_settings	=3D eepro_ethtool_get_settings,
-+	.get_drvinfo 	=3D eepro_ethtool_get_drvinfo,
-+};
-+
- #ifdef MODULE
++	station_addr[1] =3D lp->word[3];
++	station_addr[2] =3D lp->word[4];
 =20
- #define MAX_EEPRO 8
-@@ -1728,7 +1789,7 @@ static int autodetect;
- static int n_eepro;
- /* For linux 2.1.xx */
+ 	if (!lp->eepro) {
+-		if (read_eeprom(ioaddr,7,dev)=3D=3D ee_FX_INT2IRQ)
++		if (lp->word[7] =3D=3D ee_FX_INT2IRQ)
+ 			lp->eepro =3D 2;
+ 		else if (station_addr[2] =3D=3D SA_ADDR1)
+ 			lp->eepro =3D 1;
+@@ -817,15 +829,15 @@ static int __init eepro_probe1(struct ne
+ 	/* calculate {xmt,rcv}_{lower,upper}_limit */
+ 	eepro_recalc(dev);
 =20
--MODULE_AUTHOR("Pascal Dupuis, and aris@cathedrallabs.org");
-+MODULE_AUTHOR("Pascal Dupuis and others");
- MODULE_DESCRIPTION("Intel i82595 ISA EtherExpressPro10/10+ driver");
- MODULE_LICENSE("GPL");
+-	if (GetBit( read_eeprom(ioaddr, 5, dev),ee_BNC_TPE))
++	if (GetBit(lp->word[5], ee_BNC_TPE))
+ 		dev->if_port =3D BNC;
+ 	else
+ 		dev->if_port =3D TPE;
 =20
+  	if (dev->irq < 2 && lp->eepro !=3D 0) {
+  		/* Mask off INT number */
+- 		int count =3D read_eeprom(ioaddr, 1, dev) & 7;
+- 		unsigned irqMask =3D read_eeprom(ioaddr, 7, dev);
++ 		int count =3D lp->word[1] & 7;
++ 		unsigned irqMask =3D lp->word[7];
+ =20
+  		while (count--)
+  			irqMask &=3D irqMask - 1;
+@@ -941,7 +953,7 @@ static int eepro_open(struct net_device=20
+ 	if (net_debug > 3)
+ 		printk(KERN_DEBUG "%s: entering eepro_open routine.\n", dev->name);
+=20
+-	irqMask =3D read_eeprom(ioaddr,7,dev);
++	irqMask =3D lp->word[7];
+=20
+ 	if (lp->eepro =3D=3D LAN595FX_10ISA) {
+ 		if (net_debug > 3) printk(KERN_DEBUG "p->eepro =3D 3;\n");
 
---Iys0Un1O+0sigPHU--
+--M0YLxmUXciMpOLPE--
 
---mejza3ZMMA5Za1mX
+--5VuzLDXibKSJvVYD
 Content-Type: application/pgp-signature; name="signature.asc"
 Content-Description: Digital signature
 Content-Disposition: inline
@@ -202,9 +184,9 @@ Content-Disposition: inline
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFBnTMFRRJOudsVYbMRAtI0AKCpQCJ7zTfnOGbrlKDFsCQwln4FGwCgx814
-7rwaoFnqL2VLevjKUtweYOI=
-=FbBi
+iD8DBQFBnTL7RRJOudsVYbMRAgumAKC90412zmACQmAz8snwXbVAbGfrvwCfUKRr
+gXg4AR8hsJj870jxJuK6FiQ=
+=c30U
 -----END PGP SIGNATURE-----
 
---mejza3ZMMA5Za1mX--
+--5VuzLDXibKSJvVYD--
