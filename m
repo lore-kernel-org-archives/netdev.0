@@ -1,14 +1,15 @@
 From: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
-Subject: [0/14] Orinoco driver updates
-Date: Thu, 24 Feb 2005 14:53:55 +1100
-Message-ID: <20050224035355.GA32001@localhost.localdomain>
+Subject: [8/14] Orinoco driver updates - PCMCIA initialization cleanups
+Date: Thu, 24 Feb 2005 15:00:52 +1100
+Message-ID: <20050224040052.GJ32001@localhost.localdomain>
+References: <20050224035355.GA32001@localhost.localdomain> <20050224035445.GB32001@localhost.localdomain> <20050224035524.GC32001@localhost.localdomain> <20050224035650.GD32001@localhost.localdomain> <20050224035718.GE32001@localhost.localdomain> <20050224035804.GF32001@localhost.localdomain> <20050224035957.GH32001@localhost.localdomain> <20050224040024.GI32001@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>, Pavel Roskin <proski-mXXj517/zsQ@public.gmane.org>,
 	Orinoco Development List <orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>,
 	netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org, linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
 Content-Disposition: inline
+In-Reply-To: <20050224040024.GI32001-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -20,66 +21,127 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Jeff, please apply:
+Cleanup the various bits of initialization code for PCMCIA / PC-Card
+orinoco devices.  This includes one important bugfix where we could
+fail to take the lock in some circumstances.
 
-Here's a big stack of patches that make a significant step forward on
-the long overdue orinoco driver merge.  Still quite a long way to go,
-but it's something.  This patch stack is againt Linus' vanilla +
-Viro's big iomap cleanup patch, as requested.
+Signed-off-by: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
 
-The first 9 patches make only trivial or cosmetic behavioural changes:
-	1/14		orinoco-carrier 
-		Use netif_carrier_*() macros instead of homegrown
-		'connected' variable.
-
-	2/14		orinoco-printks 
-		Update various printk()s and other cosmetic strings
-
-	3/14		orinoco-delays
-		Use mdelay() and ssleep() instead of outdated ways of
-		delaying.
-
-	4/14		orinoco-free-orinocodev
-		Introduce free_orinocodev() function, to reduce noise
-		in future diffs.
-
-	5/14		orinoco-cleanup-hermes
-		Assorted cleanups to low-level hardware access code
-
-	6/14		orinoco-pci-updates
-		Cleanup to initialization code for the PCI based
-		orinoco devices.
-
-	7/14		orinoco-modparm
-		Use modern module_parm macros for orinoco module.
-
-	8/14		orinoco-pccard-cleanups
-		Cleanup to PCMCIA initialization code
-
-	9/14		orinoco-void-ethersnap
-		Trivial change to is_ethersnap() function to reduce
-		future diff noise.
-
-The next 4 patches start to intoduce real new functionality and
-bug fixes:
-	10/14		orinoco-no-ibss-any
-		Disallow IBSS mode if no ESSID is set (too many
-		firmwares break, otherwise)
-
-	11/14		orinoco-late-tx-wake
-		Delay waking the Tx queue, fixes problems on a number
-		of firwmares
-
-	12/14		orinoco-wep-updates
-		Various updates to WEP setup code
-
-	13/14		orinoco-update-firmware-detection
-		Updates and bugfixes to firmware detection logic
-
-And the final one, is another trivial one:
-	14/14		orinoco-is-now-0.14alpha2
-		Update version and changelog to reflect the above
-		patches.
+Index: working-2.6/drivers/net/wireless/orinoco_cs.c
+===================================================================
+--- working-2.6.orig/drivers/net/wireless/orinoco_cs.c	2005-02-18 12:04:03.157157240 +1100
++++ working-2.6/drivers/net/wireless/orinoco_cs.c	2005-02-18 12:11:49.000000000 +1100
+@@ -57,8 +57,8 @@
+ /* Some D-Link cards have buggy CIS. They do work at 5v properly, but
+  * don't have any CIS entry for it. This workaround it... */
+ static int ignore_cis_vcc; /* = 0 */
+-
+ module_param(ignore_cis_vcc, int, 0);
++MODULE_PARM_DESC(ignore_cis_vcc, "Allow voltage mismatch between card and socket");
+ 
+ /********************************************************************/
+ /* Magic constants						    */
+@@ -128,6 +128,7 @@
+ 	if (err)
+ 		return err;
+ 
++	msleep(100);
+ 	clear_bit(0, &card->hard_reset_in_progress);
+ 
+ 	return 0;
+@@ -166,9 +167,10 @@
+ 	link->priv = dev;
+ 
+ 	/* Interrupt setup */
+-	link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
++	link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
+ 	link->irq.IRQInfo1 = IRQ_LEVEL_ID;
+-	link->irq.Handler = NULL;
++	link->irq.Handler = orinoco_interrupt;
++	link->irq.Instance = dev; 
+ 
+ 	/* General socket configuration defaults can go here.  In this
+ 	 * client, we assume very little, and rely on the CIS for
+@@ -184,6 +186,7 @@
+ 	dev_list = link;
+ 
+ 	client_reg.dev_info = &dev_info;
++	client_reg.Attributes = INFO_IO_CLIENT | INFO_CARD_SHARE;
+ 	client_reg.EventMask =
+ 		CS_EVENT_CARD_INSERTION | CS_EVENT_CARD_REMOVAL |
+ 		CS_EVENT_RESET_PHYSICAL | CS_EVENT_CARD_RESET |
+@@ -309,8 +312,8 @@
+ 		cistpl_cftable_entry_t *cfg = &(parse.cftable_entry);
+ 		cistpl_cftable_entry_t dflt = { .index = 0 };
+ 
+-		if (pcmcia_get_tuple_data(handle, &tuple) != 0 ||
+-				pcmcia_parse_tuple(handle, &tuple, &parse) != 0)
++		if ( (pcmcia_get_tuple_data(handle, &tuple) != 0)
++		    || (pcmcia_parse_tuple(handle, &tuple, &parse) != 0))
+ 			goto next_entry;
+ 
+ 		if (cfg->flags & CISTPL_CFTABLE_DEFAULT)
+@@ -349,8 +352,7 @@
+ 			    dflt.vpp1.param[CISTPL_POWER_VNOM] / 10000;
+ 		
+ 		/* Do we need to allocate an interrupt? */
+-		if (cfg->irq.IRQInfo1 || dflt.irq.IRQInfo1)
+-			link->conf.Attributes |= CONF_ENABLE_IRQ;
++		link->conf.Attributes |= CONF_ENABLE_IRQ;
+ 
+ 		/* IO window settings */
+ 		link->io.NumPorts1 = link->io.NumPorts2 = 0;
+@@ -402,14 +404,7 @@
+ 	 * a handler to the interrupt, unless the 'Handler' member of
+ 	 * the irq structure is initialized.
+ 	 */
+-	if (link->conf.Attributes & CONF_ENABLE_IRQ) {
+-		link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
+-		link->irq.IRQInfo1 = IRQ_LEVEL_ID;
+-  		link->irq.Handler = orinoco_interrupt; 
+-  		link->irq.Instance = dev; 
+-		
+-		CS_CHECK(RequestIRQ, pcmcia_request_irq(link->handle, &link->irq));
+-	}
++	CS_CHECK(RequestIRQ, pcmcia_request_irq(link->handle, &link->irq));
+ 
+ 	/* We initialize the hermes structure before completing PCMCIA
+ 	 * configuration just in case the interrupt handler gets
+@@ -434,8 +429,6 @@
+ 	SET_MODULE_OWNER(dev);
+ 	card->node.major = card->node.minor = 0;
+ 
+-	/* register_netdev will give us an ethX name */
+-	dev->name[0] = '\0';
+ 	SET_NETDEV_DEV(dev, &handle_to_dev(handle));
+ 	/* Tell the stack we exist */
+ 	if (register_netdev(dev) != 0) {
+@@ -458,8 +451,7 @@
+ 	if (link->conf.Vpp1)
+ 		printk(", Vpp %d.%d", link->conf.Vpp1 / 10,
+ 		       link->conf.Vpp1 % 10);
+-	if (link->conf.Attributes & CONF_ENABLE_IRQ)
+-		printk(", irq %d", link->irq.AssignedIRQ);
++	printk(", irq %d", link->irq.AssignedIRQ);
+ 	if (link->io.NumPorts1)
+ 		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
+ 		       link->io.BasePort1 + link->io.NumPorts1 - 1);
+@@ -525,12 +517,12 @@
+ 	case CS_EVENT_CARD_REMOVAL:
+ 		link->state &= ~DEV_PRESENT;
+ 		if (link->state & DEV_CONFIG) {
+-			orinoco_lock(priv, &flags);
++			unsigned long flags;
+ 
++			spin_lock_irqsave(&priv->lock, flags);
+ 			netif_device_detach(dev);
+ 			priv->hw_unavailable++;
+-
+-			orinoco_unlock(priv, &flags);
++			spin_unlock_irqrestore(&priv->lock, flags);
+ 		}
+ 		break;
+ 
 
 -- 
 David Gibson			| I'll have my music baroque, and my code
