@@ -1,26 +1,27 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Wrong UIDs reported in /proc/net/tcp
-Date: Thu, 18 Nov 2004 14:16:33 -0800
-Message-ID: <OFE512064F.DBA4A3CD-ON88256F50.007A2A62-88256F50.007A5E0F@us.ibm.com>
-References: <20041118220719.GA9890@gondor.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [patch netdev-2.6] vlan_dev: return 0 on vlan_dev_change_mtu
+ success
+Date: Thu, 18 Nov 2004 14:14:08 -0800
+Message-ID: <20041118141408.686e7b16.davem@davemloft.net>
+References: <20041118140436.A16007@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: "Chad N. Tindel" <chad@tindel.net>, linux-net@vger.kernel.org,
-        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
-        Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+        netdev@oss.sgi.com, greearb@candelatech.com, vlan@scry.wanfear.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20041118220719.GA9890@gondor.apana.org.au>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20041118140436.A16007@tuxdriver.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Isn't the read itself atomic?
+On Thu, 18 Nov 2004 14:04:36 -0500
+"John W. Linville" <linville@tuxdriver.com> wrote:
 
-Assuming so, another solution would be to stat/fstat the file, add some to 
-it to account
-for growth, allocate a buffer that big and read the whole thing in one 
-shot. Then the
-results should be self-consistent.
+> The VLAN net driver needs to return 0 from vlan_dev_change_mtu()
+> on success.
+> 
+> Signed-off-by: John W. Linville <linville@tuxdriver.com>
 
-                                                +-DLS
+Both 2.4.x and 2.6.x variants applied, thanks John.
