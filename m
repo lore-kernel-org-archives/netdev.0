@@ -1,34 +1,31 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: [2.6 patch] remove a superfluous #ifndef from net/ip.h
-Date: Sun, 27 Jun 2004 02:02:23 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040627000222.GQ18303@fs.tum.de>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S267237AbUF0AC2@vger.kernel.org>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: Re: CodingStyle: while ((a=b))
+Date: Sat, 26 Jun 2004 21:20:20 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200406270120.i5R1KJiN010390@ginger.cmf.nrl.navy.mil>
+References: <cw@f00f.org>
+Cc: "David S. Miller" <davem@redhat.com>, shemminger@osdl.org,
+        netdev@oss.sgi.com, Linus Torvalds <torvalds@osdl.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Chris Wedgwood <cw@f00f.org>
+In-Reply-To: Message from Chris Wedgwood <cw@f00f.org>
+   of "Sat, 26 Jun 2004 16:42:21 PDT." <20040626234221.GB12761@taniwha.stupidest.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below removes a superfluous #ifndef from net/ip.h (snmp.h is 
-guarded by the same #ifndef).
+In message <20040626234221.GB12761@taniwha.stupidest.org>,Chris Wedgwood writes
+:
+>    while ((a=b)) to while ((a=b) != 0)
 
-Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+adding the != does not make the conditional clearer to me.  in fact
+it just make it harder to read.  however, it probably not a good
+idea to do assignments in places where someone might not expect to
+see them.  the alternative something like this:
 
-Please apply
-Adrian
+	while (1) {
+		a = b;
+		if (a == 0)
+			break;
+	}
 
---- linux-2.6.7-mm2-full/include/net/ip.h.old	2004-06-26 16:28:13.000000000 +0200
-+++ linux-2.6.7-mm2-full/include/net/ip.h	2004-06-26 16:28:24.000000000 +0200
-@@ -32,10 +32,7 @@
- #include <linux/in_route.h>
- #include <net/route.h>
- #include <net/arp.h>
--
--#ifndef _SNMP_H
- #include <net/snmp.h>
--#endif
- 
- struct sock;
- 
+but its not very pretty either.
