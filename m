@@ -1,37 +1,41 @@
-From: "Xiaoliang (David) Wei" <weixl@cs.caltech.edu>
-Subject: The "retrans_out leaked."
-Date: Sat, 19 Oct 2002 21:28:48 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Ambiguities in TCP/IP - firewall bypassing (fwd)
+Date: Sun, 20 Oct 2002 06:35:35 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <002301c277f1$2f6afe80$f5f2010a@weixl>
+Message-ID: <20021020063535.A6016@wotan.suse.de>
+References: <Pine.LNX.4.44.0210191437230.12141-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: Pekka Savola <pekkas@netcore.fi>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0210191437230.12141-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Everyone,
-     I tried to change tcp with a tentative congestion control algorithm.
-But sometimes, I got "retrans_out leaked." message, followed by series of
-"KERNEL: assertion ((int)tcp_packets_in_flight(tp) >= 0) failed at
-tcp_input.c" (generated at the end of tcp_sacktag_write_queue, where there
-are serveral assertions:
-#if FASTRETRANS_DEBUG > 0
- BUG_TRAP((int)tp->sacked_out >= 0);
- BUG_TRAP((int)tp->lost_out >= 0);
- BUG_TRAP((int)tp->retrans_out >= 0);
- BUG_TRAP((int)tcp_packets_in_flight(tp) >= 0);
-#endif )
+On Sat, Oct 19, 2002 at 02:38:56PM +0300, Pekka Savola wrote:
+> See the thread on bugtraq.
+> 
+> Linux 2.4.19 initiates TCP handshake with SYN and RST bits set.  SYN with 
+> _RST_ seems like a total nonsense (SYN with FIN might even be useful for 
+> stuff like T/TCP) but I guess the spec didn't take any stance on that..
 
-     Then, after a long list of such assertion failure, the kernel crashed
-with some message saying intterupt handler error....
+Here is a patch to fix it for 2.4.19.
 
-     Can anyone tell me what's the possible problems? Also, how inaccurate
-is the packets_in_flight() calculation? Can it be negative?
-     Thank you very much.
 
-Xiaoliang (David) Wei             Graduate Student in CS@Caltech
-http://www.cs.caltech.edu/~weixl
-====================================================
+--- linux/net/ipv4/tcp_input.c-o	2002-10-15 17:24:53.000000000 +0200
++++ linux/net/ipv4/tcp_input.c	2002-10-20 06:34:05.000000000 +0200
+@@ -3664,6 +3664,9 @@
+ 		goto discard;
+ 
+ 	case TCP_LISTEN:
++		if(th->rst) 
++			goto discard;
++
+ 		if(th->ack)
+ 			return 1;
+ 
+
+
+-Andi
