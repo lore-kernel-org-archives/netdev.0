@@ -1,37 +1,93 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.6.4-rc2-bk1] netdevice.h add netif_msg_init helper
-Date: Fri, 5 Mar 2004 15:28:52 -0800 (PST)
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH] Fix IPv6 ECN marking in RED
+Date: Sat, 06 Mar 2004 01:30:20 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403052328.i25NSqZ02414@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <40491B9C.4040203@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------000205080405010300010805"
+Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com, netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch adds a helper function to initialize the debug bit mask
-for use with netif_msg_*.  When the debug_value is out of range
-it returns the default_msg_enable_bits.  Tested IA32.
+This is a multi-part message in MIME format.
+--------------000205080405010300010805
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
---- linux-2.6.4-rc2/include/linux/netdevice.h	Thu Mar  4 09:59:08 2004
-+++ linux-2.6.4-rc2-bk1/include/linux/netdevice.h	Fri Mar  5 14:50:00 2004
-@@ -774,6 +774,17 @@
- #define netif_msg_hw(p)		((p)->msg_enable & NETIF_MSG_HW)
- #define netif_msg_wol(p)	((p)->msg_enable & NETIF_MSG_WOL)
+Hi Dave,
+
+this patch fixes IPv6 ECN marking in RED and changes it to use the
+functions from net/inet_ecn.h. Currently a local variable is marked
+instead of the packet.
+
+Best regards
+Patrick
+
+--------------000205080405010300010805
+Content-Type: text/x-patch;
+ name="red-ecn-marking.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="red-ecn-marking.diff"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/03/06 01:06:26+01:00 kaber@trash.net 
+#   Fix IPv6 ECN marking in RED
+# 
+# net/sched/sch_red.c
+#   2004/03/06 01:03:45+01:00 kaber@trash.net +4 -19
+#   Fix IPv6 ECN marking in RED
+# 
+diff -Nru a/net/sched/sch_red.c b/net/sched/sch_red.c
+--- a/net/sched/sch_red.c	Sat Mar  6 01:07:33 2004
++++ b/net/sched/sch_red.c	Sat Mar  6 01:07:33 2004
+@@ -41,9 +41,6 @@
+ #include <net/pkt_sched.h>
+ #include <net/inet_ecn.h>
  
-+static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
-+{
-+	/* use default */
-+	if (debug_value < 0 || debug_value >= (sizeof(u32) * 8))
-+		return default_msg_enable_bits;
-+	if (debug_value == 0)	/* no output */
-+		return 0;
-+	/* set low N bits */
-+	return (1 << debug_value) - 1;
-+}
-+
- /* Schedule rx intr now? */
+-#define RED_ECN_ECT  0x02
+-#define RED_ECN_CE   0x01
+-
  
- static inline int netif_rx_schedule_prep(struct net_device *dev)
+ /*	Random Early Detection (RED) algorithm.
+ 	=======================================
+@@ -165,28 +162,16 @@
+ 
+ 	switch (skb->protocol) {
+ 	case __constant_htons(ETH_P_IP):
+-	{
+-		u8 tos = skb->nh.iph->tos;
+-
+-		if (!(tos & RED_ECN_ECT))
++		if (!INET_ECN_is_capable(skb->nh.iph->tos))
+ 			return 0;
+-
+-		if (!(tos & RED_ECN_CE))
++		if (INET_ECN_is_not_ce(skb->nh.iph->tos))
+ 			IP_ECN_set_ce(skb->nh.iph);
+-
+ 		return 1;
+-	}
+-
+ 	case __constant_htons(ETH_P_IPV6):
+-	{
+-		u32 label = *(u32*)skb->nh.raw;
+-
+-		if (!(label & __constant_htonl(RED_ECN_ECT<<20)))
++		if (!INET_ECN_is_capable(ip6_get_dsfield(skb->nh.ipv6h)))
+ 			return 0;
+-		label |= __constant_htonl(RED_ECN_CE<<20);
++		IP6_ECN_set_ce(skb->nh.ipv6h);
+ 		return 1;
+-	}
+-
+ 	default:
+ 		return 0;
+ 	}
+
+--------------000205080405010300010805--
