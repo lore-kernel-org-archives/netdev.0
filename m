@@ -1,40 +1,46 @@
-From: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
-Subject: Re: Netlink Connector / CBUS
-Date: Tue, 05 Apr 2005 10:11:23 +0200
-Message-ID: <1112688683.8456.10.camel@frecb000711.frec.bull.fr>
-References: <Xine.LNX.4.44.0504050108260.9383-100000@thoron.boston.redhat.com>
-	 <1112686480.28858.17.camel@uganda>
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Some sleeping function called from invalid context
+Date: Tue, 05 Apr 2005 11:35:44 +0200
+Message-ID: <1112693744.7960.2.camel@pegasus>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>, Netlink List <netdev@oss.sgi.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@redhat.com>, rml@novell.com,
-        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>,
-        Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <1112686480.28858.17.camel@uganda>
+To: Network Development Mailing List <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-04-05 at 11:34 +0400, Evgeniy Polyakov wrote:
-> On Tue, 2005-04-05 at 01:10 -0400, Herbert Xu wrote:
->
-> >In fact to this day I still don't understand what problems this thing is
-> >meant to solve.
-> 
-> Hmm, what else can I add to my words?
-> May be checking the size of the code needed to broadcast kobject changes
-> in kobject_uevent.c for example...
-> Netlink socket allocation + skb handling against call to cn_netlink_send().
+Hi,
 
-And It's the same for the fork connector. It allows to send a message to
-a user space application when a fork occurs by adding only one line (two
-with the #include) in the kernel/fork.c file. Thus, the netlink
-connector is a very simple and fast mechanism when you need to send a
-small amount of information from kernel space to user space.
+while testing the latest kernel from the Bitkeeper repository, I got
+some sleeping functions called from invalid context:
 
-Regards,
-Guillaume
+Freeing unused kernel memory: 180k freed
+Debug: sleeping function called from invalid context at mm/slab.c:2090
+in_atomic():1, irqs_disabled():0
+ [<c0119936>] __might_sleep+0xa6/0xb0
+ [<c014ab93>] kmem_cache_alloc+0x73/0x80
+ [<c0149c0e>] kmem_cache_create+0xfe/0x630
+ [<c026994d>] proto_register+0x9d/0xc0
+ [<f88c901c>] af_unix_init+0x1c/0x7a [unix]
+ [<c0139d62>] sys_init_module+0x1b2/0x290
+ [<c0103025>] syscall_call+0x7/0xb
+NET: Registered protocol family 1
+
+Debug: sleeping function called from invalid context at mm/slab.c:2090
+in_atomic():1, irqs_disabled():0
+ [<c0119936>] __might_sleep+0xa6/0xb0
+ [<c014ab93>] kmem_cache_alloc+0x73/0x80
+ [<c0149c0e>] kmem_cache_create+0xfe/0x630
+ [<c0115bed>] wake_up_process+0x1d/0x30
+ [<c0126a50>] free_uid+0x20/0x90
+ [<c026994d>] proto_register+0x9d/0xc0
+ [<f94a70b9>] inet6_init+0x19/0x200 [ipv6]
+ [<c0139d62>] sys_init_module+0x1b2/0x290
+ [<c0103025>] syscall_call+0x7/0xb
+NET: Registered protocol family 10
+
+Regards
+
+Marcel
