@@ -1,68 +1,43 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: IPsec xfrm resolution
-Date: Sat, 19 Feb 2005 21:26:02 +0100
-Message-ID: <4217A0DA.7050409@trash.net>
-References: <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au> <42173125.3040505@trash.net> <20050219183202.GA10773@gondor.apana.org.au> <421789AF.4020705@trash.net> <20050219190333.GA22166@gondor.apana.org.au> <4217993D.4070107@trash.net>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: Intel and TOE in the news
+Date: Sat, 19 Feb 2005 21:27:31 +0100
+Message-ID: <m1psywb8i4.fsf@muc.de>
+References: <4216B62D.6000502@pobox.com>
+	<20050219041007.GA17896@xi.wantstofly.org>
+	<20050219114624.373af63f.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010607080902030008090807"
-Cc: Maillist netdev <netdev@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <4217993D.4070107@trash.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050219114624.373af63f.davem@davemloft.net> (David S.
+ Miller's message of "Sat, 19 Feb 2005 11:46:24 -0800")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010607080902030008090807
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+"David S. Miller" <davem@davemloft.net> writes:
 
-Patrick McHardy wrote:
+> Read what they are doing.  The idea is not to have all of this network
+> protocol logic off-cpu, the idea is to "reduce some of the time
+> a processor typically spends waiting for memory to feed back information"
+>
+> Think about what part of the network I/O equation that is working on.
+> It's not protocol offload, that's for sure.
 
-> I've checked KAME, it also skips IPSEC_LEVEL_USE SAs if they aren't 
-> present.
-> IPCOMP in tunnel mode is a special case. It wants to express more than 
-> just
-> "optional". It means to say "use SA if present and some things wrt. 
-> size apply,
-> otherwise use a similar SA with proto=IPIP". One of both has to be 
-> used, and
-> this is what "optional" can't express. The current method is to use 
-> the IPIP
-> SA automatically created with the IPCOMP SA when the compressed size 
-> exceeds
-> the uncompressed size, but it doesn't handle a missing SA. This 
-> suggests we
-> need to special-case tunnel mode IPCOMP in xfrm_tmpl_resolve() and either
-> ignore "optional" for IPIP tunnel mode SAs or create them on demand.
+<speculating freely>
 
-How about this patch ? It ignores "optional" for missing tunnel mode 
-SAs, symetric
-to input.
+It would be nice if the NIC could asynchronously trigger prefetches in
+the CPU. Currently a lot of the packet processing cost goes
+to waiting for read cache misses.
 
-Regards
-Patrick
+E.g. 
 
+- NIC receives packet. 
+- Tells target CPU to prefetch RX descriptor and headers. 
+- CPU later looks at them and doesn't have to wait a for a cache miss.
 
---------------010607080902030008090807
-Content-Type: text/plain;
- name="x1"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x1"
+Drawback is that you would need to tell the NIC in advance
+on which CPU you want to process the packet, but with Linux
+IRQ affinity that's easy to figure out. 
 
-===== net/xfrm/xfrm_policy.c 1.66 vs edited =====
---- 1.66/net/xfrm/xfrm_policy.c	2005-02-16 00:16:04 +01:00
-+++ edited/net/xfrm/xfrm_policy.c	2005-02-19 21:12:38 +01:00
-@@ -656,7 +656,7 @@
- 			xfrm_state_put(x);
- 		}
- 
--		if (!tmpl->optional)
-+		if (!tmpl->optional || tmpl->mode)
- 			goto fail;
- 	}
- 	return nx;
-
---------------010607080902030008090807--
+-Andi
