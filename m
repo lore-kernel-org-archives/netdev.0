@@ -1,81 +1,84 @@
-From: emann@mrv.com (Eran Mann)
-Subject: [PATCH 2.6.11.6-bk2] e100: Use EEPROM config for Auto MDI/MDI-X
-Date: Wed, 30 Mar 2005 15:42:12 +0200
-Message-ID: <424AACB4.9040600@mrv.com>
-References: <4240E35C.2090203@pobox.com>
+From: Szymon Miotk <spam@crocom.com.pl>
+Subject: PROBLEM: Bad ARP requests make an entry in routing cache
+Date: Wed, 30 Mar 2005 16:45:48 +0200
+Message-ID: <424ABB9C.7070500@crocom.com.pl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040907020301060902010002"
-Cc: Netdev <netdev@oss.sgi.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	linux.nics@intel.com,
-	Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261891AbVC3Nk4@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4240E35C.2090203@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040907020301060902010002
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+[1.] One line summary of the problem:
+Bad ARP requests make an entry in routing cache
 
-Current e100.c doesn't follow the EEPROM configuration regarding Auto 
-MDI/MDI-X switching, instead it is enabled unconditionally for the 
-relevant chips.
-This is especially bad since according to Intel's errata this feature is 
-no-longer supported.
+[2.] Full description of the problem/report:
+When there is client/router netmask mismatch (client has wider mask than 
+the route), ARP request to non-existing local networks make an entry in 
+routing cache on the router.
+Example configuration in [6.]
 
-Signed-off-by: Eran Mann <emann@mrv.com>
+[3.] Keywords (i.e., modules, networking, kernel):
+networking, arp, routing
 
---------------040907020301060902010002
-Content-Type: text/x-patch;
- name="e100-mdix.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="e100-mdix.patch"
+[4.] Kernel version (from /proc/version):
+2.6.12-rc1
+work also on 2.6.10_rc1_bk17, 2.6.11.
+I have not tried earlier versions, because I need some bug-fixes 
+introduced in 2.6.10_rc1_bk17
 
---- linux-2.6.11.6-bk2/drivers/net/e100.c	2005-03-29 19:57:10.000000000 +0200
-+++ linux-2.6.11.6-bk2-patched/drivers/net/e100.c	2005-03-29 19:28:52.000000000 +0200
-@@ -1072,13 +1072,17 @@
- 		mdio_write(netdev, nic->mii.phy_id, MII_NSC_CONG, cong);
- 	}
- 
--	if((nic->mac >= mac_82550_D102) || ((nic->flags & ich) && 
--		(mdio_read(netdev, nic->mii.phy_id, MII_TPISTATUS) & 0x8000) && 
--		(nic->eeprom[eeprom_cnfg_mdix] & eeprom_mdix_enabled)))
--		/* enable/disable MDI/MDI-X auto-switching */
--		mdio_write(netdev, nic->mii.phy_id, MII_NCONFIG,
--			nic->mii.force_media ? 0 : NCONFIG_AUTO_SWITCH);
--
-+	if(((nic->mac >= mac_82550_D102) || ((nic->flags & ich) &&
-+		(mdio_read(netdev, nic->mii.phy_id, MII_TPISTATUS) &
-+			0x8000)))) {
-+		/* Enable/Disable Auto MDI/MDI-X Switching */
-+		if ((nic->eeprom[eeprom_cnfg_mdix] & eeprom_mdix_enabled) &&
-+		    !nic->mii.force_media)
-+			mdio_write(netdev, nic->mii.phy_id, MII_NCONFIG,
-+			   		NCONFIG_AUTO_SWITCH);
-+		else
-+                	mdio_write(netdev, nic->mii.phy_id, MII_NCONFIG, 0);
-+		}
- 	return 0;
- }
- 
-@@ -2245,11 +2249,11 @@
- 		goto err_out_iounmap;
- 	}
- 
--	e100_phy_init(nic);
--
- 	if((err = e100_eeprom_load(nic)))
- 		goto err_out_free;
- 
-+	e100_phy_init(nic);
-+
- 	memcpy(netdev->dev_addr, nic->eeprom, ETH_ALEN);
- 	if(!is_valid_ether_addr(netdev->dev_addr)) {
- 		DPRINTK(PROBE, ERR, "Invalid MAC address from "
+[5.] Output of Oops.. message (if applicable) with symbolic information
+      resolved (see Documentation/oops-tracing.txt)
+no oops here.
 
---------------040907020301060902010002--
+[6.] A small shell script or example program which triggers the
+      problem (if possible)
+Config:
+
+[CLIENT eth0]-----[eth0 ROUTER eth1]-----internet
+
+CLIENT eth0: 10.1.1.4/16
+SERVER eth0: 10.1.1.1/24 (note the different netmasks!)
+SERVER eth1: whatever
+/proc/sys/net/ipv4/ip_forward=1
+
+The session as follows:
+server # route -Cn | grep 44
+
+CLIENT # ping 10.1.44.44
+
+server #  route -Cn |grep 44
+10.1.1.4        10.1.44.44      153.19.190.40   i     0      0        2 eth1
+
+The only packet, that arrives to the server is (according to tcpdump)
+16:31:46.425917 arp who-has 10.1.44.44 tell 10.1.1.4
+
+[7.] Environment
+[7.1.] Software (add the output of the ver_linux script here)
+Fedora Core 3
+
+iproute-2.6.11-1 (the freshest I could get from 'developement' branch), 
+works with older versions too
+
+It's enough, when you leave
+Packet Socket
+Unix domain sockets
+TCP/IP networking (all sub-options off)
+in the 'networking options'.
+It must be somewhere in the core networking/routing.
+
+[X.] Other notes, patches, fixes, workarounds:
+I have recompiled the kernel serveral times with different options.
+No workaround.
+
+The bug is a big problem, when you have netmask mismatch (well, I have 
+few hundred clients with it and this cannot be fixed easily). A PC 
+infected with a aggresive virus causes hundreds ARP requests per 
+seconds, what in turns leads to routing cache overflows. This doesn't 
+kill the router, but slows it down and there is significant delay, when 
+making a new connection. I would call it 'soft DoS'.
+
+Szymon Miotk
