@@ -1,63 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPV4] Always set hoplimit
-Date: Thu, 13 Nov 2003 22:04:38 +1100
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Fw: issues with SO_PRIORITY and IP_TOS
+Date: Thu, 13 Nov 2003 14:08:00 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031113110438.GA29522@gondor.apana.org.au>
+Message-ID: <200311131108.OAA24780@yakov.inr.ac.ru>
+References: <3FAA5FF6.50509@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="RnlQjJ0d97Da+TV1"
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, jmorris@redhat.com, hadi@znyx.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com
-Content-Disposition: inline
+To: cfriesen@nortelnetworks.com (Chris Friesen)
+In-Reply-To: <3FAA5FF6.50509@nortelnetworks.com> from "Chris Friesen" at Ноя 06, 2003 09:51:34 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
---RnlQjJ0d97Da+TV1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> I would like to send a vlan tagged packet, with vlan priority of x and 
+> DSCP field of (x<<5).  What is the proper way to do this, if I should 
+> not be using skb->priority?
 
-Hi Dave:
+To set DSCP field you set the thing known as TOS with IP_TOS.
 
-Is there any reason why local/broadcast packets should have a ttl of zero?
-This is the result of the HOPLIMIT change as those packets doesn't get
-their HOPLIMIT set.  This patch sets it for them.
+To set VLAN priority, you tune VLAN f.e. to use DSCP bits in classifier
+to derive VLAN priority from those bits of DSCP, which you desire. DSCP>>5
+in your case.
 
-Am I missing something?
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---RnlQjJ0d97Da+TV1
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+And remember that if the box is DS aware, DS will rewrite your DSCP
+in the way consistent with sustem configuration.
 
-Index: kernel-source-2.4/net/ipv4/route.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.4/net/ipv4/route.c,v
-retrieving revision 1.6
-diff -u -r1.6 route.c
---- kernel-source-2.4/net/ipv4/route.c	3 Sep 2003 10:27:21 -0000	1.6
-+++ kernel-source-2.4/net/ipv4/route.c	13 Nov 2003 10:58:04 -0000
-@@ -1275,9 +1275,6 @@
- 			rt->rt_gateway = FIB_RES_GW(*res);
- 		memcpy(rt->u.dst.metrics, fi->fib_metrics,
- 		       sizeof(rt->u.dst.metrics));
--		if (rt->u.dst.metrics[RTAX_HOPLIMIT-1] == 0)
--			rt->u.dst.metrics[RTAX_HOPLIMIT-1] =
--				sysctl_ip_default_ttl;
- 		if (fi->fib_mtu == 0) {
- 			rt->u.dst.metrics[RTAX_MTU-1] = rt->u.dst.dev->mtu;
- 			if (rt->u.dst.metrics[RTAX_LOCK-1] & (1 << RTAX_MTU) &&
-@@ -1291,6 +1288,8 @@
- 	} else
- 		rt->u.dst.metrics[RTAX_MTU-1]= rt->u.dst.dev->mtu;
- 
-+	if (rt->u.dst.metrics[RTAX_HOPLIMIT-1] == 0)
-+		rt->u.dst.metrics[RTAX_HOPLIMIT-1] = sysctl_ip_default_ttl;
- 	if (rt->u.dst.metrics[RTAX_MTU-1] > IP_MAX_MTU)
- 		rt->u.dst.metrics[RTAX_MTU-1] = IP_MAX_MTU;
- 	if (rt->u.dst.metrics[RTAX_ADVMSS-1] == 0)
-
---RnlQjJ0d97Da+TV1--
+Alexey
