@@ -1,166 +1,517 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH] remove unused ethertap_mc support
-Date: Fri, 18 Mar 2005 11:10:53 -0800
-Message-ID: <20050318191053.GN5389@shell0.pdx.osdl.net>
+From: Alexander Nyberg <alexn@dsv.su.se>
+Subject: Reproducible panics with tulip
+Date: Fri, 18 Mar 2005 21:36:07 +0100
+Message-ID: <1111178167.1147.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 To: jgarzik@pobox.com
-Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-There is no Kconfig option to enable CONFIG_ETHERTAP_MC, and if you
-could the resulting source would not build.  That code uses the obsolete
-protinfo union, then further pokes into a privately defined netlink
-structure to setup the groups.  Remove this broken code altogether.
+Using latest bk I basically mount a share over NFS and run dbench 20,
+I get this very fast, changing the NIC to a rtl8139-driver based one 
+makes problems go away. I don't know how earlier kernels respond to 
+this as I haven't tried it before.
 
-Signed-off-by: Chris Wright <chrisw@osdl.org>
+tulip card is:
+0000:00:0f.0 Ethernet controller: Linksys NC100 Network Everywhere Fast Ethernet 10/100 (rev 11)
 
- drivers/net/ethertap.c |   84 -------------------------------------------------
- 1 files changed, 84 deletions(-)
 
-===== drivers/net/ethertap.c 1.16 vs edited =====
---- 1.16/drivers/net/ethertap.c	2005-02-16 06:40:17 -08:00
-+++ edited/drivers/net/ethertap.c	2005-03-18 11:00:38 -08:00
-@@ -38,9 +38,6 @@ static int  ethertap_start_xmit(struct s
- static int  ethertap_close(struct net_device *dev);
- static struct net_device_stats *ethertap_get_stats(struct net_device *dev);
- static void ethertap_rx(struct sock *sk, int len);
--#ifdef CONFIG_ETHERTAP_MC
--static void set_multicast_list(struct net_device *dev);
--#endif
- 
- static int ethertap_debug;
- 
-@@ -57,9 +54,6 @@ static struct net_device **tap_map;	/* R
- struct net_local
- {
- 	struct sock	*nl;
--#ifdef CONFIG_ETHERTAP_MC
--	__u32		groups;
--#endif
- 	struct net_device_stats stats;
- };
- 
-@@ -96,9 +90,6 @@ static int  __init ethertap_probe(int un
- 	dev->hard_start_xmit = ethertap_start_xmit;
- 	dev->stop = ethertap_close;
- 	dev->get_stats = ethertap_get_stats;
--#ifdef CONFIG_ETHERTAP_MC
--	dev->set_multicast_list = set_multicast_list;
--#endif
- 
- 	dev->tx_queue_len = 0;
- 	dev->flags|=IFF_NOARP;
-@@ -134,41 +125,6 @@ static int ethertap_open(struct net_devi
- 	return 0;
- }
- 
--#ifdef CONFIG_ETHERTAP_MC
--static unsigned ethertap_mc_hash(__u8 *dest)
--{
--	unsigned idx = 0;
--	idx ^= dest[0];
--	idx ^= dest[1];
--	idx ^= dest[2];
--	idx ^= dest[3];
--	idx ^= dest[4];
--	idx ^= dest[5];
--	return 1U << (idx&0x1F);
--}
--
--static void set_multicast_list(struct net_device *dev)
--{
--	unsigned groups = ~0;
--	struct net_local *lp = netdev_priv(dev);
--
--	if (!(dev->flags&(IFF_NOARP|IFF_PROMISC|IFF_ALLMULTI))) {
--		struct dev_mc_list *dmi;
--
--		groups = ethertap_mc_hash(dev->broadcast);
--
--		for (dmi=dev->mc_list; dmi; dmi=dmi->next) {
--			if (dmi->dmi_addrlen != 6)
--				continue;
--			groups |= ethertap_mc_hash(dmi->dmi_addr);
--		}
--	}
--	lp->groups = groups;
--	if (lp->nl)
--		lp->nl->protinfo.af_netlink.groups = groups;
--}
--#endif
--
- /*
-  *	We transmit by throwing the packet at netlink. We have to clone
-  *	it for 2.0 so that we dev_kfree_skb() the locked original.
-@@ -177,9 +133,6 @@ static void set_multicast_list(struct ne
- static int ethertap_start_xmit(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct net_local *lp = netdev_priv(dev);
--#ifdef CONFIG_ETHERTAP_MC
--	struct ethhdr *eth = (struct ethhdr*)skb->data;
--#endif
- 
- 	if (skb_headroom(skb) < 2) {
- 		static int once;
-@@ -213,31 +166,13 @@ static int ethertap_start_xmit(struct sk
- 	lp->stats.tx_bytes+=skb->len;
- 	lp->stats.tx_packets++;
- 
--#ifndef CONFIG_ETHERTAP_MC
- 	netlink_broadcast(lp->nl, skb, 0, ~0, GFP_ATOMIC);
--#else
--	if (dev->flags&IFF_NOARP) {
--		netlink_broadcast(lp->nl, skb, 0, ~0, GFP_ATOMIC);
--		return 0;
--	}
--
--	if (!(eth->h_dest[0]&1)) {
--		/* Unicast packet */
--		__u32 pid;
--		memcpy(&pid, eth->h_dest+2, 4);
--		netlink_unicast(lp->nl, skb, ntohl(pid), MSG_DONTWAIT);
--	} else
--		netlink_broadcast(lp->nl, skb, 0, ethertap_mc_hash(eth->h_dest), GFP_ATOMIC);
--#endif
- 	return 0;
- }
- 
- static __inline__ int ethertap_rx_skb(struct sk_buff *skb, struct net_device *dev)
- {
- 	struct net_local *lp = netdev_priv(dev);
--#ifdef CONFIG_ETHERTAP_MC
--	struct ethhdr *eth = (struct ethhdr*)(skb->data + 2);
--#endif
- 	int len = skb->len;
- 
- 	if (len < 16) {
-@@ -250,25 +185,6 @@ static __inline__ int ethertap_rx_skb(st
- 		kfree_skb(skb);
- 		return -EPERM;
- 	}
--
--#ifdef CONFIG_ETHERTAP_MC
--	if (!(dev->flags&(IFF_NOARP|IFF_PROMISC))) {
--		int drop = 0;
--
--		if (eth->h_dest[0]&1) {
--			if (!(ethertap_mc_hash(eth->h_dest)&lp->groups))
--				drop = 1;
--		} else if (memcmp(eth->h_dest, dev->dev_addr, 6) != 0)
--			drop = 1;
--
--		if (drop) {
--			if (ethertap_debug > 3)
--				printk(KERN_DEBUG "%s : not for us\n", dev->name);
--			kfree_skb(skb);
--			return -EINVAL;
--		}
--	}
--#endif
- 
- 	if (skb_shared(skb)) {
- 	  	struct sk_buff *skb2 = skb;
+
+Warning: kfree_skb on hard IRQ c46c3950
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+rpciod/0: page allocation failure. order:0, mode:0x20
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c0282ffa>] find_skb+0x2a/0x80
+ [<c02830fb>] netpoll_send_udp+0x2b/0x230
+ [<c024207a>] write_msg+0x3a/0x50
+ [<c01164a2>] __call_console_drivers+0x52/0x60
+ [<c011659f>] call_console_drivers+0x7f/0x100
+ [<c01169d6>] release_console_sem+0x36/0xa0
+ [<c0116881>] vprintk+0x171/0x200
+ [<c0116708>] printk+0x18/0x20
+ [<c013012c>] __alloc_pages+0x24c/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+ [<c0103437>] dump_stack+0x17/0x20
+ [<c0130131>] __alloc_pages+0x251/0x390
+ [<c013263f>] kmem_getpages+0x2f/0x90
+ [<c01339b0>] cache_grow+0x90/0x110
+ [<c0133f6d>] cache_alloc_refill+0x17d/0x250
+ [<c0134538>] __kmalloc+0x98/0xb0
+ [<c0274e19>] alloc_skb+0x39/0xd0
+ [<c023cafe>] tulip_rx+0x28e/0x3e0
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+Unable to handle kernel NULL pointer dereference at virtual address 00000064
+ printing eip:
+c023c9f7
+*pde = 00000000
+Oops: 0000 [#1]
+DEBUG_PAGEALLOC
+CPU:    0
+EIP:    0060:[<c023c9f7>]    Not tainted VLI
+EFLAGS: 00010246   (2.6.12-rc1)
+EIP is at tulip_rx+0x187/0x3e0
+eax: 00000000   ebx: c70a0220   ecx: 00000000   edx: 00000640
+esi: 00000040   edi: 00000000   ebp: c46c3ba8   esp: c46c3b64
+ds: 007b   es: 007b   ss: 0068
+Process rpciod/0 (pid: 595, threadinfo=c46c2000 task=c4673b10)
+Stack: c46c3e40 c07f5f60 c0c1f824 c46c3b90 c028ecb9 00000000 c46c3b80 00000000
+       0000003c 00000000 0000000f 00000070 00000031 c70a0000 c70a0220 00009fde
+       0000001e c46c3c00 c023d5a5 00000040 00000000 00000000 00000084 c4687e8c
+Call Trace:
+ [<c010340a>] show_stack+0x7a/0x90
+ [<c0103588>] show_registers+0x148/0x1b0
+ [<c010376a>] die+0xda/0x150
+ [<c010eb20>] do_page_fault+0x2f0/0x625
+ [<c01030a3>] error_code+0x2b/0x30
+ [<c023d5a5>] tulip_interrupt+0x955/0x970
+ [<c012afda>] handle_IRQ_event+0x2a/0x60
+ [<c012b0b4>] __do_IRQ+0xa4/0xf0
+ [<c010471c>] do_IRQ+0x1c/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c027507b>] kfree_skbmem+0xb/0x20
+ [<c02750e3>] __kfree_skb+0x53/0xc0
+ [<c02b8d6b>] packet_rcv_spkt+0x11b/0x200
+ [<c027a47b>] netif_receive_skb+0x12b/0x190
+ [<c027a55e>] process_backlog+0x7e/0x100
+ [<c027a645>] net_rx_action+0x65/0xe0
+ [<c011a4fa>] __do_softirq+0x7a/0x90
+ [<c011a53c>] do_softirq+0x2c/0x30
+ [<c0104721>] do_IRQ+0x21/0x30
+ [<c0102ffe>] common_interrupt+0x1a/0x20
+ [<c02afe64>] inet_sendpage+0x74/0xa0
+ [<c02c592e>] xdr_sendpages+0x13e/0x220
+ [<c02bdc2d>] xprt_transmit+0xcd/0x470
+ [<c02bbd1b>] call_transmit+0x4b/0xb0
+ [<c02bf44c>] __rpc_execute+0x5c/0x300
+ [<c0123680>] worker_thread+0x150/0x1e0
+ [<c0126c45>] kthread+0x95/0xa0
+ [<c0100b65>] kernel_thread_helper+0x5/0x10
+Code: 07 83 e8 04 66 3d ee 05 0f 8f f3 01 00 00 98 3b 05 90 d5 3f c0 89 45 dc 0f 8c 07 01 00 00 8b 4d ec 8b 8c cb 18 01 00 00 89 4d e0 <8b> 51 64 8b b1 90 00 00 00 85 d2 0f 85 dc 00 00 00 8b 55 dc 8b
+ <0>Kernel panic - not syncing: Fatal exception in interrupt
