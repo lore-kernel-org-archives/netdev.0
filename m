@@ -1,91 +1,83 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC] Use RCU for tcp_ehash lookup
-Date: Tue, 31 Aug 2004 15:54:20 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040831135419.GA17642@wotan.suse.de>
-References: <20040831125941.GA5534@in.ibm.com>
+From: Pedro Ramalhais <ramalhais@serrado.net>
+Subject: Re: Updated WE-18 (WPA) proposal
+Date: Tue, 31 Aug 2004 16:33:47 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1093966225.1464.9.camel@rootix>
+References: <20040830045441.GA7415@jm.kir.nu>
+	 <20040830165026.GD29492@bougret.hpl.hp.com> <413363CB.7060807@pobox.com>
+	 <20040830174215.GA32132@bougret.hpl.hp.com> <41336A28.9010608@pobox.com>
+	 <20040830220105.GY22126@ruslug.rutgers.edu> <4133A811.1010009@pobox.com>
+	 <20040831085458.GD31207@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	Dipankar <dipankar@in.ibm.com>, paulmck@us.ibm.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268525AbUHaNyb@vger.kernel.org>
-To: Srivatsa Vaddagiri <vatsa@in.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <20040831125941.GA5534@in.ibm.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>, jt@hpl.hp.com,
+        Jouni Malinen <jkmaline@cc.hut.fi>, netdev@oss.sgi.com,
+        hostap@shmoo.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
+In-Reply-To: <20040831085458.GD31207@ruslug.rutgers.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 31, 2004 at 06:29:41PM +0530, Srivatsa Vaddagiri wrote:
+On Tue, 2004-08-31 at 09:54, Luis R. Rodriguez wrote:
+> On Mon, Aug 30, 2004 at 06:20:01PM -0400, Jeff Garzik wrote:
+> > Luis R. Rodriguez wrote:
+> > >On Mon, Aug 30, 2004 at 01:55:52PM -0400, Jeff Garzik wrote:
+> > >
+> > >>Jean Tourrilhes wrote:
+> > >
+> > >
+> > ><-- snip -->
+> > >
+> > >>>	Also, I'm not clear how the stuff in wireless-2.6 is supposed
+> > >>>to trickle into the other trees (netdev-2.6, -mm and Linus's), and how
+> > >>>to better link it with the CVS of the various drivers involved.
+> > >>
+> > >>Less of a trickle than a flood:  wireless-2.6 should be the target for 
+> > >>development of shared wireless stack code.  As several drivers are 
+> > >>currently using bits of HostAP, for example, wireless-2.6 should be a 
+> > >>focal point for patches that modify these drivers to instead share the 
+> > >>same code.
+> > >>
+> > >>Once this generic work is done, it would get pushed all at once to 
+> > >>netdev-2.6, where it would receive testing in -mm.  Then, later, pushed 
+> > >>to mainline.
+> > >>
+> > >>	Jeff
+> > >
+> > >
+> > >Beides wpa_supplicant from hostap code (which is actually going into
+> > >WE18) what other code re-use is on the roadmap as of yet for wireless-2.6?
+> > 
+> > Intel Centrino driver is re-using chunks of HostAP, and I'm looking at 
+> > doing so for the RealTek 8180 driver I am about to publish.
 > 
->   I would be interested to know if anyone has seen high-rate of lock contention
->   for hash bucket lock. Such workloads would benefit from the lock-free lookup.
-
-I would suspect something that does IO from multiple threads over 
-a single connection. However there is also the socket lock, which
-may prevent too much parallelism.
+> Can someone elaborate on what "chunks" the centrino driver is using
+> from hostap?
 > 
->   In the absence of any workload which resulted in lock contention, I resorted
->   to disabling NAPI and irq balance (noirqbalance) to study the effect of cache
->   bouncing on the lookup routine. The result was that CPU usage of the stack
->   was halved in lock-free case, which IMHO, is a strong enough reason for us
->   to consider this seriously.
+> Jeff what aspects are you looking to re-use from hostap?
+> 
+> I guess we at prism54 should also see what we can re-use too then.
+> Our next driver (a softmac driver) will have a lot more code since the
+> MAC will need to be implemented on the driver side -- I'm not yet sure
+> of the exact details as I haven't grep'd through the available code yet
+> I'm wondering though -- are there any other softmac drivers out there,
+> or to come soon?
+> 
+> 	Luis
 
-Yes, sounds very nice.
+The ipw2100 driver and ipw2200 driver both use these parts of hostap
+code:
+RX code (i think now it's in file hostap_80211_rx.c)
+little parts of the TX code (hostap_80211_tx.c)
+the hostap_crypt* code for WEP.
+Some IEEE802.11 related parts of header files.
+The ipw2100 is beggining to use hostap_crypt_tkip and hostap_crypt_ccmp
+for WPA and WPA2.
 
-I bet also when you just do rdtsc timing for the TCP receive
-path the cycle numbers will be way down (excluding the copy).
-
-And it should also fix the performance problems with
-cat /proc/net/tcp on ppc64/ia64 for large hash tables because the rw locks 
-are gone.
-
->   
-> - I presume that one of the reasons for keeping the hash table so big is to
->   keep lock contention low (& to reduce the size of hash chains). If the lookup
->   is made lock-free, then could the size of the hash table be reduced (without
->   adversely impacting performance)?
-
-Definitely worth trying IMHO. The current hash tables are far
-too big. I would do that as followon patches though.
-
-I haven't studied it in detail (yet), just two minor style 
-comments: 
-
-
-> -		sk_free(sk);
-> +sp_loop:
-> +	if (atomic_dec_and_test(&sk->sk_refcnt)) {
-> +		/* Restore ref count and schedule callback.
-> +		 * If we don't restore ref count, then the callback can be
-> +		 * scheduled by more than one CPU.
-> +		 */
-> +		atomic_inc(&sk->sk_refcnt);
-> +
-> +		if (atomic_read(&sk->sk_refcnt) == 1)
-> +			call_rcu(&sk->sk_rcu, sk_free_rcu);
-> +		else
-> +			goto sp_loop;
-> +	}
-
-Can you rewrite that without goto? 
-> +tput_loop:
->  	if (atomic_dec_and_test(&tw->tw_refcnt)) {
-> -#ifdef INET_REFCNT_DEBUG
-> -		printk(KERN_DEBUG "tw_bucket %p released\n", tw);
-> -#endif
-> -		kmem_cache_free(tcp_timewait_cachep, tw);
-> +		/* Restore ref count and schedule callback.
-> +		 * If we don't restore ref count, then the callback can be
-> +		 * scheduled by more than one CPU.
-> +		 */
-> +
-> +		atomic_inc(&tw->tw_refcnt);
-> +
-> +		if (atomic_read(&tw->tw_refcnt) == 1)
-> +			call_rcu(&tw->tw_rcu, tcp_tw_free);
-> +		else
-> +			goto tput_loop;
-
-And that too.
-
-
--Andi
+I think that's it. Better ask James Ketrenos, he is one of the
+developers at intel.
+-- 
+Pedro Ramalhais <ramalhais@serrado.net>
