@@ -1,71 +1,80 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network card driver problem (znb.o/tulip)
-Date: 20 Mar 2005 14:38:23 -0500
-Message-ID: <1111347503.1095.101.camel@jzny.localdomain>
-References: <efe3b00605031021513b7268d1@mail.gmail.com>
-	 <200503182333.51470.jdmason@us.ibm.com>
-	 <efe3b0060503190229dff2a01@mail.gmail.com>
-	 <200503190757.27727.jdmason@us.ibm.com>
-	 <20050319152354.GA4946@electric-eye.fr.zoreil.com>
-	 <1111327546.1094.47.camel@jzny.localdomain>
-	 <efe3b006050320110226b2dba1@mail.gmail.com>
-	 <1111345791.1095.86.camel@jzny.localdomain>
-	 <efe3b006050320111879022bc2@mail.gmail.com>
-	 <1111346944.1094.91.camel@jzny.localdomain>
-	 <efe3b00605032011365dac3539@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: patch: introduce simple actions
+Date: Sun, 20 Mar 2005 20:44:08 +0100
+Message-ID: <20050320194408.GU3086@postel.suug.ch>
+References: <1111345551.1095.82.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, Jon Mason <jdmason@us.ibm.com>,
-        Ben Greear <greearb@candelatech.com>, jgarzik@pobox.com,
-        tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
-To: Kosta Todorovic <kostodo@gmail.com>
-In-Reply-To: <efe3b00605032011365dac3539@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        Patrick McHardy <kaber@trash.net>
+To: Jamal Hadi Salim <hadi@znyx.com>
+Content-Disposition: inline
+In-Reply-To: <1111345551.1095.82.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Your best is to get the tulip driver working. The card is EOLed;
-Also if you can (If Donald still does this) try out Donalds version of
-the driver.
-
-cheers,
-jamal
-
-On Sun, 2005-03-20 at 14:36, Kosta Todorovic wrote:
-> I'm not sure if the tulip driver works in 32bit mode. I know that the
-> znb driver works.
-> I will check the tulip driver in 32bit mode tomorrow and let you know.
+* Jamal Hadi Salim <1111345551.1095.82.camel@jzny.localdomain> 2005-03-20 14:05
 > 
-> 
-> On 20 Mar 2005 14:29:04 -0500, jamal <hadi@cyberus.ca> wrote:
-> > On Sun, 2005-03-20 at 14:18, Kosta Todorovic wrote:
-> > > > I dont think mii-tool will tell you the truth with these cards.
-> > > > Like i was saying earlier - they use SYM PHYs.
-> > >
-> > > Either way, no traffic moved across them when I tried.
-> > >
-> > 
-> > Probably the stats display is your best bet for debugging.
-> > 
-> > > > Does it work on 32 bit machines? I am assuming when you say "64 bit" you
-> > > > mean the architecture not PCI bus.
-> > >
-> > > Yes it does work on 32bit machines, but with the actual znb.o driver
-> > > thats supplied by ZNXY.
-> > > And yes i am refering to architecture and NOT pci bus.
-> > 
-> > It works just fine for me with 32 bit machine with the standard tulip
-> > driver(sorry dont have 64 bit - too poor); does it work for you?
-> > i.e i dont use the Znyx driver at all. I always have mine running
-> > 100Mbps FDX.
-> > 
-> > If it works on 32 bit, then it maybe an issue with the tulip driver.
-> > 
-> > cheers,
-> > jamal
-> > 
-> >
-> 
+> Ive posted this before - dont want it to sit here rotting. 
+> If theres nothing glaringly wrong with it (Thomas/Patrick?) then Dave
+> please apply so i can start shooting other patches based on it.
+
+Looks good to me, see two minor comments below.
+
+> +static inline int
+> +tcf_defact_init(struct rtattr *rta, struct rtattr *est,
+> +		struct tc_action *a, int ovr, int bind)
+> +{
+> +	struct rtattr *tb[TCA_DEF_MAX];
+> +	struct tc_defact *parm;
+> +	struct tcf_defact *p;
+> +	void *defdata;
+> +	u32 datalen = 0;
+> +	int ret = 0;
+> +
+> +	if (rta == NULL || rtattr_parse_nested(tb, TCA_DEF_MAX, rta) < 0)
+> +		return -EINVAL;
+> +
+> +	if (tb[TCA_DEF_PARMS - 1] == NULL)
+> +		return -EINVAL;
+> +	parm = RTA_DATA(tb[TCA_DEF_PARMS - 1]);
+> +	defdata = RTA_DATA(tb[TCA_DEF_DATA - 1]);
+
+Maybe do a size sanity check here for TCA_DEF_PARMS?
+
+> +	if (defdata == NULL)
+> +		return -EINVAL;
+> +
+> +	datalen = RTA_PAYLOAD(tb[TCA_DEF_DATA - 1]);
+> --- /dev/null	2004-01-29 13:33:32.773091056 -0500
+> +++ 2611-rc3+bk3/include/net/tc_act/tc_defact.h	2005-02-06 15:03:05.000000000 -0500
+> @@ -0,0 +1,13 @@
+> +#ifndef __NET_TC_DEF_H
+> +#define __NET_TC_DEF_H
+> +
+> +#include <net/act_api.h>
+> +
+> +struct tcf_defact
+> +{
+> +	tca_gen(defact);
+> +	u32     datalen;
+> +	void    *defdata;
+> +};
+> +
+> +#endif
+> --- /dev/null	2004-01-29 13:33:32.773091056 -0500
+> +++ 2611-rc3+bk3/include/linux/tc_act/tc_defact.h	2005-02-06 16:47:20.039209336 -0500
+> @@ -0,0 +1,21 @@
+> +#ifndef __LINUX_TC_DEF_H
+> +#define __LINUX_TC_DEF_H
+> +
+> +#include <linux/pkt_cls.h>
+> +
+> +struct tc_defact
+> +{
+> +	tc_gen;
+> +};
+
+tcf_defact, tc_defact, .. quite easy to get this wrong. Maybe
+it would a good idea to rename tcf_defact to tcf_defact_parm?
