@@ -1,31 +1,44 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6: fix an oops in rt6_device_match()
-Date: Mon, 13 Sep 2004 09:49:50 +0900 (JST)
+From: Fernando Gont <fernando@gont.com.ar>
+Subject: ICMP attacks against TCP
+Date: Sun, 12 Sep 2004 22:40:04 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040913.094950.47321151.yoshfuji@linux-ipv6.org>
-References: <20040911.201029.21582458.yoshfuji@linux-ipv6.org>
-	<20040912163216.7f49673a.davem@davemloft.net>
+Message-ID: <4.3.2.7.2.20040912223315.00df2890@mail.daleclick.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset="us-ascii"; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20040912163216.7f49673a.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040912163216.7f49673a.davem@davemloft.net> (at Sun, 12 Sep 2004 16:32:16 -0700), "David S. Miller" <davem@davemloft.net> says:
+Folks,
 
-> > Well, rt->rt6i_idev is always set if it is dynamically allocated.
-> > However, when we hit ip6_null_entry here, its rt6i_idev is NULL.
-> > This patch is minimum fix to avoid the oops for now.
-> > 
-> > Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> 
-> Ok, as long as we fix this more cleanly eventually.
+I'm the author of an IETF Internet Draft that discusses the use of ICMP to 
+perform a number of attacks against TCP and other similar protocols. The 
+draft can be found at: 
+http://www.ietf.org/internet-drafts/draft-gont-tcpm-icmp-attacks-01.txt
 
-Thanks.
-I'll revisit when we introduce more users (per-interface stats.).
+The draft proposes some work-arounds that eliminate or minimize the impact 
+of these attacks.
 
---yoshfuji
+For example, one of the proposed work-arounds is to check the TCP sequence 
+number that is included in the payload of ICMP error messages. While this 
+check has been implemented in a number of TCP/IP stack implementations 
+(including Linux), it has never been officially documented.
+
+There are some other work-arounds (for example, ignoring ICMP Source Quench 
+messages) are not implemented in Linux, though.
+
+I'd appreciate any comments on the draft. Both for those work-arounds 
+implemented by Linux, and for those that aren't. Thus, I'd be able to 
+address your comments in the next revision of the draft, and will also 
+sum-up your feedback and post it to the relevant IETF mailing list (that of 
+the TCPM WG mailing-list).
+In case there's consensus that the proposed fixes are the right way to go, 
+it will probably help to move the draft forward, and thus maybe the 
+proposed work-arounds will be adopted by other TCP/IP stack implementations.
+
+Thanks!
+
+--
+Fernando Gont
+e-mail: fernando@gont.com.ar || fgont@acm.org
