@@ -1,57 +1,47 @@
-From: Lawrence Walton <lawrence@the-penguin.otak.com>
-Subject: Re: SysKonnect sk98lin Gigabit lan missing in action from 2.6.10 on
-Date: Fri, 4 Feb 2005 14:28:26 -0800
-Message-ID: <20050204222825.GA8533@the-penguin.otak.com>
-References: <42038994.20401@xmission.com> <4203E3FE.2090806@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] ieee80211 subsystem
+Date: Fri, 04 Feb 2005 17:48:24 -0500
+Message-ID: <4203FBB8.7000507@pobox.com>
+References: <4203C32A.70402@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4203E3FE.2090806@pobox.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <4203C32A.70402@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik [jgarzik@pobox.com] wrote:
-> maxer wrote:
-> >What is the status of sk98lin? Do we have to wait until Syskonnect gets 
-> >their act together
-> >and write a new driver for 2.6.10?
-> >
-> >Their latest is Oct 2004 and not at all compatible with 2.6.10 and beyond.
+James Ketrenos wrote:
+> Attached is the patch against 2.6.11-rc3-mm1 that adds the ieee80211 
+> subsystem used by the ipw2100 and ipw2200 projects.
 > 
-> I've been telling SysKonnect for _years_ that they need to split up 
-> their patches, but they still keep sending ever-larger jumbo driver 
-> update patches.
+> I'll be sending out the patches for ipw2100-1.0.0 and ipw2200-1.0.0 that 
+> use thist stack to the list on Monday.
 > 
-> Stephen Hemminger split up their patch into a bunch of patches, and I 
-> applied several of those.
+> In terms of what the stack currently does:
 > 
-> Apparently, Stephen also got sick of trying to patch and clean sk98lin, 
-> so he went and wrote his own "skge" driver.  It's available in my 
-> netdev-2.6 queue, and should be in the latest -mm.
+> * HW independent -- it only knows about 802.11 data and structures
+> * Performs an 802.3 <-> 802.11 transform for data Tx/Rx
+> * Host based support for fragmentation, WEP, and WPA using the kernel's 
+> crypto functions
+> * Beacon and probe response collection and parsing
+> * Default implementation of some of the WE handlers that can be managed 
+> without hardware knowledge
 > 
-> 	Jeff
-> 
-> 
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+> We are working to merge in Dave Miller's p80211 code into the ieee80211 
+> subsystem so that it hooks into the kernel as a true network layer as 
+> opposed to a mutated offspring of ethernet.
+> Once that is done, hopefully the skb to txb code can be reworked and 
+> 802.11 fragments can be treated either as normal skbs, or skbs can be 
+> modified to directly support them (ideally so that encrypted 802.11 
+> frames in support of IP packets can be cached by the stack instead of 
+> having to be re-encrypted on TCP retries)
 
+All this sounds great.  I (and others) will be reviewing, and hope to 
+get this into netdev-2.6 very soon.
 
-I have a SysKonnect card, and tried the skge driver (it's in the mm tree), with nominal testing 
-I'd have to say it works well, if not better then the sk98lin driver.
+Thanks much,
 
-
-
--- 
-*--* Mail: lawrence@otak.com
-*--* Voice: 425.739.4247
-*--* Fax: 425.827.9577
-*--* HTTP://the-penguin.otak.com/~lawrence
---------------------------------------
-- - - - - - O t a k  i n c . - - - - - 
+	Jeff
