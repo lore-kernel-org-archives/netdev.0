@@ -1,59 +1,52 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] batched tc to improve change throughput
-Date: Tue, 15 Feb 2005 21:47:23 +0100
-Message-ID: <20050215204723.GM31837@postel.suug.ch>
-References: <1106576005.1652.1292.camel@jzny.localdomain> <20050124150634.GT23931@postel.suug.ch> <1106747313.1107.7.camel@jzny.localdomain> <1108134446.5523.22.camel@ganymede> <1108215923.1126.132.camel@jzny.localdomain> <1108246033.7554.18.camel@ganymede> <20050212223204.GG31837@postel.suug.ch> <1108340618.14978.66.camel@ganymede> <20050214142710.GI31837@postel.suug.ch> <1108499294.5465.22.camel@ganymede>
+From: Gary Spiess <Gary.Spiess@Intermec.com>
+Subject: Re: [PATCH] natsemi long cable fix
+Date: Tue, 15 Feb 2005 15:00:15 -0600
+Message-ID: <421262DF.9050503@Intermec.com>
+References: <421129DE.4070101@Intermec.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
-To: Dan Siemon <dan@coverfire.com>
-Content-Disposition: inline
-In-Reply-To: <1108499294.5465.22.camel@ganymede>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Manfred Spraul <manfred@colorfullife.com>, Jeff Garzik <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <421129DE.4070101@Intermec.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Perhaps we could agree on a single API for the low-level message parsing
-> and netlink message construction.  At least then we would not be
-> duplicating bug-fixes in our netlink code.
+This is a minor modification to the previous patch submission that does 
+not assume the default contents of the DSPCFG register are zero.
 
-Sure, I think they're quite similiar. I abstracted the netlink message
-and routing attributes building a bit and added some bits for
-simplification.
+When used with Revision D of the DP83815, the "Recommended Registers 
+Configuration" from page 78 of the DP83815 data sheet is not entirely 
+compatible with the driver's "short cable patch".  When the DSPCFG 
+register is written with the value suggested in the document, then 
+do_cable_magic() can't read the DSP coefficient and determines that all 
+cables attached to the DP83815D are 'short', regardless of actual 
+length.  Short cables (< 30m) cause do_cable_magic to enable additional 
+attenuation to reduce CRC and idle errors.  If the extra attenuation is 
+unintentionally enabled for long cables (> 50m?), they will not operate 
+properly.  The National Semiconductor driver, 'dp83815.c' from 
+http://www.national.com/appinfo/networks/files/linux_2_4.tar.gz was used 
+as a basis for this modification.  This patch applies to the driver 
+distributed in linux-2.6.10.
 
-http://people.suug.ch/~tgr/libnl/doc/group__msg.html
-http://people.suug.ch/~tgr/libnl/doc/group__rtattr.html
-
-I do not care what to use though as long as it is easy to use.
-
-> Whether or not this sharing would be useful probably depends on if you
-> would continue to maintain your own non-GObject APIs for the various
-> QDiscs and classifiers.  GObject makes the creation and maintenance of
-> the language bindings much easier so its basically necessary for my
-> goals.
-
-I see, well I can extend my objects, I'm even willing to change the
-architecture if needed. The only requirements from my side is to
-keep the generic caching header to allow putting these objects into
-generic caches and keep it simple to readd commit/rollback extesions
-later on.
-
-What is exactly required to make it GObject aware? I've never worked
-with GOBject so far. Basically a qdisc looks like this at the moment:
-
-struct rtnl_qdisc
-{
-	NLHDR_COMMON;		/* common fields required by cache */
-	NL_TCA_GENERIC(q);	/* generic tc fields (parent, handle, ifindex ...) */
-	void *opts;		/* qdisc specific options (e.g.  rtnl_sch_fifo) */
-};
-
-The NLHDR_COMMON must stay first, the ordering of the others doesn't
-matter.
-
-> I'm willing to switch the underlying implementation of LQL to use your
-> more featureful NL implementation if that means there won't be two
-> competing C APIs to the individual QDiscs etc.
-
-It would be nice if we find a way to integrate both without losing the
-features of any side.
+--- linux-2.6.10.orig/drivers/net/natsemi.c	2004-12-24 15:33:50.000000000 -0600
++++ linux-2.6.10/drivers/net/natsemi.c	2005-02-14 16:45:46.000000000 -0600
+@@ -441,6 +441,7 @@
+ #define DSPCFG_VAL	0x5040
+ #define SDCFG_VAL	0x008c	/* set voltage thresholds for Signal Detect */
+ #define DSPCFG_LOCK	0x20	/* coefficient lock bit in DSPCFG */
++#define DSPCFG_COEF	0x1000	/* see coefficient (in TSTDAT) bit in DSPCFG */
+ #define TSTDAT_FIXED	0xe8	/* magic number for bad coefficients */
+ 
+ /* misc PCI space registers */
+@@ -1243,7 +1244,8 @@
+ 		writew(1, ioaddr + PGSEL);
+ 		writew(PMDCSR_VAL, ioaddr + PMDCSR);
+ 		writew(TSTDAT_VAL, ioaddr + TSTDAT);
+-		np->dspcfg = DSPCFG_VAL;
++		np->dspcfg = (np->srr <= SRR_DP83815_C)?
++			DSPCFG_VAL : (DSPCFG_COEF | readw(ioaddr + DSPCFG));
+ 		writew(np->dspcfg, ioaddr + DSPCFG);
+ 		writew(SDCFG_VAL, ioaddr + SDCFG);
+ 		writew(0, ioaddr + PGSEL);
