@@ -1,37 +1,58 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: How can we bound one CPU to one Gigabit NIC?
-Date: Wed, 9 Oct 2002 22:24:06 -0400 (EDT)
+Subject: Re: PROBLEM: Interface address change netlink socket problem.(Patch
+Date: Wed, 9 Oct 2002 22:46:47 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210092223300.16149-100000@shell.cyberus.ca>
-References: <Pine.GSO.4.30.0210092218370.16149-100000@shell.cyberus.ca>
+Message-ID: <Pine.GSO.4.30.0210092235300.16149-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: <netdev@oss.sgi.com>, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <Pine.GSO.4.30.0210092218370.16149-100000@shell.cyberus.ca>
+To: Vividh Siddha <vividh@ipinfusion.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+Moved to netdev where it belongs. Vividh in the future please post
+to netdev or at least cross-post to it ... because the kernel list
+FAQ says so.
 
-On Wed, 9 Oct 2002, jamal wrote:
-
-B>
-> > hadi@cyberus.ca said:
-> > > Can you repeat these tests with NAPI and no binding and see if you get
-> > > any reordering?
-> >
-> > Wouldn't he need a NAPIfied SysKonnect driver? I wasn't aware anyone had
-> > converted it yet. Or is it enough for him to check the blog_dev path?
+In your posting you say:
+> Imagine a interface eth0 with address 10.10.10.10, netmask 0xffffff00
+> and broadcast 10.10.10.255.
 >
-> Duh. There is no NAPIfied SysKonnect driver ;->
-> Well he didnt bother responding, so he may have figured that out.
-> SysKonnect gige is a bad piece of hardware (bad csuming hware; we tried
-> to build a NIC out of it) so i wouldnt recommend for him to use it.
+>For eg: if the following command is issued:
+>ifconfig eth0 10.10.10.50 netmask 0xffffff00 broadcast 10.10.10.255
 >
+> The kernel sends the following three sets of messages on the netlink
+>socket:
+>
+>Interface address delete: (with address 10.10.10.10)
+>Interface address add   : (with address 10.10.10.50)
+>
+>Interface address delete: (with address 10.10.10.50)
+>Interface address add   : (with address 10.10.10.50)
+>
+>Interface address delete: (with address 10.10.10.50)
+>Interface address add   : (with address 10.10.10.50)
+>
+>Ideally as only the interface address is changed only one address
+>delete/add should be sent.
 
-I mean tried to use it ...
+State is not maintained in user space. You change that IP address,
+it actually gets deleted then a new one added. The bcast and netmask
+changeto defaults  as a result; you then change the netmask and
+broadcast with each requiring a call from user space. If you modify your
+netlink program to print both net and broadcast address you should see
+this. BTW, you MUST check for these.
+
+Example try just:
+ifconfig eth0 10.10.10.50
+
+and after you change it try:
+ifconfig eth0 10.10.10.50 netmask 0xffffff00
+
+and then
+ifconfig eth0 10.10.10.50 netmask 0xffffff00 broadcast 10.10.10.255
 
 cheers,
 jamal
