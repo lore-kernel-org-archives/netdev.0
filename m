@@ -1,49 +1,40 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] hp100: fix section references
-Date: Sun, 27 Feb 2005 22:13:11 -0800
-Message-ID: <20050227221311.4a163e80.rddunlap@osdl.org>
+Subject: [PATCH] rrunner: fix section references
+Date: Sun, 27 Feb 2005 22:14:25 -0800
+Message-ID: <20050227221425.38a12015.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, perex@suse.cz, torvalds <torvalds@osdl.org>
-To: netdev@oss.sgi.com
+Cc: jes@wildopensource.com, torvalds <torvalds@osdl.org>
+To: netdev@oss.sgi.com, jgarzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-hp100: references __init code that should be marked as __devinit;
+rrunner: references __initdata in a __devinit function; data should
+  be __devinitdata;
 
-Error: ./drivers/net/hp100.o .text refers to 0000000000000f7f R_X86_64_PC32     .init.text+0x00000000000000b8
+Error: ./drivers/net/rrunner.o .text refers to 00000000000002b2 R_X86_64_32S      .init.data
 
 Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 
 diffstat:=
- drivers/net/hp100.c |    6 +++---
- 1 files changed, 3 insertions(+), 3 deletions(-)
+ drivers/net/rrunner.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -Naurp ./drivers/net/hp100.c~hp100_sections ./drivers/net/hp100.c
---- ./drivers/net/hp100.c~hp100_sections	2005-02-27 12:54:05.731052192 -0800
-+++ ./drivers/net/hp100.c	2005-02-27 22:07:52.561806128 -0800
-@@ -306,7 +306,7 @@ static void wait(void)
-  * Read board id and convert to string.
-  * Effectively same code as decode_eisa_sig
-  */
--static __init const char *hp100_read_id(int ioaddr)
-+static __devinit const char *hp100_read_id(int ioaddr)
- {
- 	int i;
- 	static char str[HP100_SIG_LEN];
-@@ -429,8 +429,8 @@ struct net_device * __init hp100_probe(i
- }
- #endif
+diff -Naurp ./drivers/net/rrunner.c~rrunner_sections ./drivers/net/rrunner.c
+--- ./drivers/net/rrunner.c~rrunner_sections	2004-12-24 13:34:26.000000000 -0800
++++ ./drivers/net/rrunner.c	2005-02-27 22:14:12.303076680 -0800
+@@ -62,7 +62,7 @@ MODULE_AUTHOR("Jes Sorensen <jes@wildope
+ MODULE_DESCRIPTION("Essential RoadRunner HIPPI driver");
+ MODULE_LICENSE("GPL");
  
--static int __init hp100_probe1(struct net_device *dev, int ioaddr,
--			       u_char bus, struct pci_dev *pci_dev)
-+static int __devinit hp100_probe1(struct net_device *dev, int ioaddr,
-+				  u_char bus, struct pci_dev *pci_dev)
- {
- 	int i;
- 	int err = -ENODEV;
+-static char version[] __initdata = "rrunner.c: v0.50 11/11/2002  Jes Sorensen (jes@wildopensource.com)\n";
++static char version[] __devinitdata = "rrunner.c: v0.50 11/11/2002  Jes Sorensen (jes@wildopensource.com)\n";
+ 
+ /*
+  * Implementation notes:
+
 
 ---
