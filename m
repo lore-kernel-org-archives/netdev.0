@@ -1,73 +1,84 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: [Prism54] CVS -> bk tree update
-Date: Mon, 14 Jun 2004 15:16:51 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040614191651.GC6253@ruslug.rutgers.edu>
+From: Marc Herbert <marc.herbert@free.fr>
+Subject: Re: [RFC] ethtool semantics
+Date: Mon, 14 Jun 2004 21:32:42 +0200 (CEST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.58.0406142044060.1607@fcat>
+References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com>
+ <20040608210809.GA10542@k3.hellgate.ch> <40C77C70.5070409@tmr.com>
+ <20040609213850.GA17243@k3.hellgate.ch> <20040609151246.1c28c4d9.davem@redhat.com>
+ <Pine.LNX.4.58.0406141458270.16762@fcat> <20040614170138.GA32594@hockin.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1008992914=="
-Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Tim Hockin <thockin@hockin.org>
+In-Reply-To: <20040614170138.GA32594@hockin.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 14 Jun 2004, Tim Hockin wrote:
 
---===============1008992914==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="DKU6Jbt7q3WqK7+M"
-Content-Disposition: inline
+> > This is precisely the reason why I am concerned about having "rich"
+> > ethtool semantics. A unified, standard interface is great,... as long
+> > it does not leave behind some features, like setting the advertised
+> > values in autoneg. As a user of these features, I hope driver
+> > developers will NOT remove those module_param features that cannot
+> > migrated to ethtool.
+>
+> So propose a sane semantic that handles all three cases:
+> * autoneg on
+> * autoneg off
+> * autoneg on but limited
+
+Looking at the examples I mentioned earlier in the thread, one can
+draw the following two simple solutions:
+
+	  1. "Max speed advertised" solution
+
+		autoneg |         on            off
+	  speed         |
+	  --------------|-----------------------------
+			|
+	  <empty>       | advertise all      force  10
+	  10            | adv. 10            force  10
+	  100           | adv. 10|100        frc.  100
+	  1000          | adv. 10|100|1000   frc. 1000
 
 
---DKU6Jbt7q3WqK7+M
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+	  2.=A0"Fixed speed advertised" solution
+
+		autoneg |         on            off
+	  speed         |
+	  --------------|-----------------------------
+			|
+	  <empty>       | advertise all      force  10
+	  10            | adv.   10          force  10
+	  100           | adv.  100          frc.  100
+	  1000          | adv. 1000          frc. 1000
 
 
-Hey Jeff,
+You can easily figure out similar and shorter tables for half/full
+duplex (considering that duplex > half).
 
-was wondering what the status of the latest prism54 patches is. Did all
-go through cleanly, are we in-sync now? Are there patches you're still
-reviewing?
+A 3rd solution which kind of avoids the dilemma between 1. and 2. is
+to give the user full control on advertised bits, as does (did?) the
+e1000 driver and its "AutoNeg" module_param. This third solution is
+often less user friendly and probably not very useful. And it would
+require a new argument to ethtool, whereas the first two solutions do
+not.
 
-Thanks,
+If given the choice, I would vote for solution 1., but it probably
+does not make much difference with solution number 2 in practice.
 
-	Luis
+Auto negociation of flow control is unfortunately more complex, as you
+can see in this discussion with Rich Seifert in
+comp.dcom.lans.ethernet for those interested
+ http://groups.google.com/groups?threadm=3D87hdvnd0x3.fsf%40free.fr
+But I believe flow control issues do not have any influence on the
+above, so... first things first: no need to dive into this at this
+point.
 
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---DKU6Jbt7q3WqK7+M
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAzfmjat1JN+IKUl4RAnLMAJ0Yo3KXphresWxCUiqQbI3c8qdndQCgil5f
-LSKjIDAy09wbCqw3WvhkLbQ=
-=nzlM
------END PGP SIGNATURE-----
-
---DKU6Jbt7q3WqK7+M--
-
---===============1008992914==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============1008992914==--
+Obviously this message ignores legacy code, hardware bugs and others
+"small matters of implementation". I suspect Roger Luethi has both a
+knowledge of the related code and an opinion on this issue.
