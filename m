@@ -1,28 +1,40 @@
-From: Andi Kleen <ak@suse.de>
+From: James Morris <jmorris@intercode.com.au>
 Subject: Re: how to report network device errors to userspace?
-Date: Wed, 19 Jun 2002 23:54:06 +0200
+Date: Thu, 20 Jun 2002 12:44:49 +1000 (EST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020619235406.A11706@wotan.suse.de>
-References: <Pine.LNX.4.33.0206191616060.1669-100000@presario> <3D10F552.C05ADD53@nortelnetworks.com> <20020619233659.A7368@wotan.suse.de> <3D10FB25.667421CB@nortelnetworks.com>
+Message-ID: <Mutt.LNX.4.44.0206201238360.32372-100000@blackbird.intercode.com.au>
+References: <20020619235406.A11706@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, Donald Becker <becker@scyld.com>,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Chris Friesen <cfriesen@nortelnetworks.com>,
+   Donald Becker <becker@scyld.com>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Chris Friesen <cfriesen@nortelnetworks.com>
-Content-Disposition: inline
-In-Reply-To: <3D10FB25.667421CB@nortelnetworks.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20020619235406.A11706@wotan.suse.de>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 19, 2002 at 05:44:05PM -0400, Chris Friesen wrote:
-> Andi Kleen wrote:
-> 
-> > I would suggest sending a netlink message from the driver.  That's really
-> > what netlink was designed for.
-> 
-> Can you point me to a driver that's done this cleanly as an example to follow?
+On Wed, 19 Jun 2002, Andi Kleen wrote:
 
-Not exactly a driver, but you can e.g. look at the ip_queue netfilter 
-module.
+> On Wed, Jun 19, 2002 at 05:44:05PM -0400, Chris Friesen wrote:
+> > Andi Kleen wrote:
+> > 
+> > > I would suggest sending a netlink message from the driver.  That's really
+> > > what netlink was designed for.
+> > 
+> > Can you point me to a driver that's done this cleanly as an example to follow?
+> 
+> Not exactly a driver, but you can e.g. look at the ip_queue netfilter 
+> module.
+> 
 
--Andi
+It's not a very clean example at this stage, unfortunately, as it contains 
+some fairly ugly logic for maintaining unicast sessions.
+
+If you don't specifically need unicast Netlink (which I don't think you 
+do), try also looking at the tcpdiag & ctnetlink code.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
