@@ -1,36 +1,33 @@
-From: Mirko Lindner <demon@pro-linux.de>
-Subject: Re: [PATCH]sk98lin ethtool support
-Date: Wed, 31 Dec 2003 01:37:22 +0000
+From: Amir Noam <amir.noam@intel.com>
+Subject: [PATCH] [bonding 2.4] Fix compilation warning in bond_alb.c
+Date: Wed, 31 Dec 2003 11:21:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FF22852.3060101@pro-linux.de>
-References: <1072779867.3632.38.camel@l5ac210.l5.laser5.co.jp> <3FF16F18.7060303@pro-linux.de> <3FF19659.8030408@pobox.com> <3FF22333.2070004@pro-linux.de> <3FF2170D.5070302@pobox.com>
+Message-ID: <200312311121.48888.amir.noam@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: krishnakumar@naturesoft.net, mlindner@syskonnect.de, netdev@oss.sgi.com,
-        felix@allot.com
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3FF2170D.5070302@pobox.com>
+To: "Jeff Garzik" <jgarzik@pobox.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-
-> Well, understood, but we don't need vendor-specific, non-standard 
-> statistics when there is a standard method to export these statistics 
-> (ETHTOOl_GSTATS).
-
-I agree with you.
+The IPX_TYPE_* constants and ipxhdr.ipx_type are u8 values, so we
+shouldn't use __constant_htons().
 
 
-> Make sure you don't duplicate any ethtool functions.  We don't need a 
-> NIC-specific diag tool either ;-)  ethtool is the preferred method 
-> moving forward, as it's already shipping in most Linux distros.
-
-Yes, we need it ;) No kidding! This is not a tool for SW checks like 
-media, link or driver version checks, but a tool for HW checks like 
-register, PROM, MAC, PHY and some other chip and card checks. The 
-ethtool is a great tool, but the intention of this tool is not the same.
-
-Mirko
+diff -Nuarp a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+--- a/drivers/net/bonding/bond_alb.c	Tue Dec 30 19:24:00 2003
++++ b/drivers/net/bonding/bond_alb.c	Tue Dec 30 19:24:02 2003
+@@ -1229,8 +1229,7 @@ int bond_alb_xmit(struct sk_buff *skb, s
+ 			break;
+ 		}
+ 
+-		if (skb->nh.ipxh->ipx_type !=
+-		    __constant_htons(IPX_TYPE_NCP)) {
++		if (skb->nh.ipxh->ipx_type != IPX_TYPE_NCP) {
+ 			/* The only protocol worth balancing in
+ 			 * this family since it has an "ARP" like
+ 			 * mechanism
