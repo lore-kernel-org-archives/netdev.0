@@ -1,77 +1,80 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] neighbour tables configuration via rtnetlink
-Date: Mon, 7 Mar 2005 15:26:22 +0100
-Message-ID: <20050307142622.GT31837@postel.suug.ch>
-References: <20050305172257.GN31837@postel.suug.ch> <1110202499.1094.1371.camel@jzny.localdomain>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [patch 1/3] net/islpci_dev: replace schedule_timeout() with msleep()
+Date: Mon, 7 Mar 2005 12:13:04 -0500
+Message-ID: <20050307171304.GR3936@ruslug.rutgers.edu>
+References: <20050306222352.514491EC90@trashy.coderock.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: jamal <hadi@cyberus.ca>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="Er/3qITiDpnrteFh"
+Cc: prism54-private@prism54.org, netdev@oss.sgi.com, nacc@us.ibm.com,
+        janitor@sternwelten.at
+To: domen@coderock.org
 Content-Disposition: inline
-In-Reply-To: <1110202499.1094.1371.camel@jzny.localdomain>
+In-Reply-To: <20050306222352.514491EC90@trashy.coderock.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1110202499.1094.1371.camel@jzny.localdomain> 2005-03-07 08:34
-> On Sat, 2005-03-05 at 12:22, Thomas Graf wrote:
-> The patch overall looks ok although adventerous.
-> What is it that requires you to change multiple parameters atomically? I
-> cant seem to think of anything. I can see value in seeing some of these
-> parameters in user space. Maybe.
 
-Mainly because we have multiple applications that modify neighbour parameters
-and they really have need to finish changing all parameters before another
-application can look at them again. I solved this with a userspace lockfile
-so far but this only catches applications that are aware of the lockfile.
-The netlink method still leaves the gap open between fetching the data and
-then changing it but that isn't a problem in my case and can be solved with
-the netlink daemon for those who care.
+--Er/3qITiDpnrteFh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> Some of the parameters you are dumping maybe dangerous if they are also
-> allowed to be setable. As an example, changing a table name/id etc.
-> I think you should review closely again what needs to be exposed.
 
-Sure, not all dumpable parameters will be available for modification but
-having them all available in userspace is definitely a good thing.
+Patch applied to prism54 latest svn tree, thanks
 
-> I think this is reasonable. However - it is a lot of work. I will have
-> no issues with seeing nothing else but netlink (even for ethtool like
-> setups). There are certain things that would require more attention than
-> others.
+	Luis
 
-Yes, I think so as well but I really want to avoid putting effort into it
-and then see it replaced with something else. I think Herbert once thought
-about moving some of the rtnetlink stuff into a separate family and
-restructuring the whole thing. Still plans there Herbert?
+On Sun, Mar 06, 2005 at 11:23:51PM +0100, domen@coderock.org wrote:
+>=20
+>=20
+>=20
+>=20
+> Use msleep() instead of schedule_timeout()
+> to guarantee the task delays as expected. Also set_current_state() is
+> inserted before schedule_timeout().
+>=20
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+> Signed-off-by: Domen Puncer <domen@coderock.org>
+> ---
+>=20
+>=20
+>  kj-domen/drivers/net/wireless/prism54/islpci_dev.c |    3 +--
+>  1 files changed, 1 insertion(+), 2 deletions(-)
+>=20
+> diff -puN drivers/net/wireless/prism54/islpci_dev.c~msleep-drivers_net_wi=
+reless_prism54_islpci_dev drivers/net/wireless/prism54/islpci_dev.c
+> --- kj/drivers/net/wireless/prism54/islpci_dev.c~msleep-drivers_net_wirel=
+ess_prism54_islpci_dev	2005-03-05 16:09:30.000000000 +0100
+> +++ kj-domen/drivers/net/wireless/prism54/islpci_dev.c	2005-03-05 16:09:3=
+0.000000000 +0100
+> @@ -438,8 +438,7 @@ prism54_bring_down(islpci_private *priv)
+>  	wmb();
+> =20
+>  	/* wait a while for the device to reset */
+> -	set_current_state(TASK_UNINTERRUPTIBLE);
+> -	schedule_timeout(50*HZ/1000);
+> +	msleep(50);
+> =20
+>  	return 0;
+>  }
+> _
 
-> I was going to write a simple patch to allow setting of indev
-> parameters via netlink but havent had time. Started it but havent had
-> time to revisit it - if you want to take over that one as well i could
-> pass it on to you.
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
 
-Sure, but I won't have time to actually work on it until next week.
+--Er/3qITiDpnrteFh
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-> To achieve distributed configuration you dont need netlink. The main
-> advantage of netlink over say /proc is the ability to do async events.
-> [Yes, I know i have been shouting for taking netlink and and sending it
-> over the wire and mucking around with endianness flags - but after
-> practical considerations i am having second thoughts;] 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-Yes I went through severeal iterations of thoughts as well but it still
-seems reasonable to me. My current approach sounds quite silly but seems
-to work out pretty well. It gets down to having libnl providing a XML input
-and output interface and XSLT templates to convert every block into byte
-order independant form and vice versa. I'm still toying around but I
-already managed to convert my XML thingy into other protocols (given they
-are at least somehow compatible in architecture). It is also quite simple
-to convert these requests into a human readable form such as HTML and
-have it placed onto a website for a operator to accept the change or to
-simply keep a log of what has been changed when.
+iD8DBQFCLIufat1JN+IKUl4RAtQdAJ9bY5y7NUYwF7bVjmoQXndTSZTNnwCglaEk
+HBspnFcPstZax4SPtHZtg0I=
+=nGuK
+-----END PGP SIGNATURE-----
 
-I'm not yet sure if it works out in the end but the goal is to reduce the
-work needed to support a new rtnetlink object to the existance of a XSLT
-stylesheet published somewhere and if possible have the XSLT processor
-fetch it automatically from a local or global site. Other advantages?
-Operators could modify the XSLT and add conditions and automatically
-modify change requests to their needs.
+--Er/3qITiDpnrteFh--
