@@ -1,38 +1,36 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [15/*] [INET] Fix IPsec calculation in
- ip_append_data/ip6_append_data
-Date: Wed, 16 Mar 2005 14:02:54 -0800
-Message-ID: <20050316140254.76f5e693.davem@davemloft.net>
-References: <20050214221200.GA18465@gondor.apana.org.au>
-	<20050214221433.GB18465@gondor.apana.org.au>
-	<20050214221607.GC18465@gondor.apana.org.au>
-	<20050306213214.7d8a143d.davem@davemloft.net>
-	<20050307103536.GB7137@gondor.apana.org.au>
-	<20050308102741.GA23468@gondor.apana.org.au>
-	<20050314102614.GA9610@gondor.apana.org.au>
-	<20050314105313.GA21001@gondor.apana.org.au>
-	<20050314111002.GA29156@gondor.apana.org.au>
-	<20050315091904.GA6256@gondor.apana.org.au>
-	<20050316113149.GA10960@gondor.apana.org.au>
+Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
+Date: Wed, 16 Mar 2005 14:09:15 -0800
+Message-ID: <20050316140915.0f6b9528.davem@davemloft.net>
+References: <42370997.6010302@cosmosbay.com>
+	<20050315103253.590c8bfc.davem@davemloft.net>
+	<42380EC6.60100@cosmosbay.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, kaber@trash.net,
-        netdev@oss.sgi.com
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050316113149.GA10960@gondor.apana.org.au>
+Cc: netdev@oss.sgi.com
+To: Eric Dumazet <dada1@cosmosbay.com>
+In-Reply-To: <42380EC6.60100@cosmosbay.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Mar 2005 22:31:49 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Wed, 16 Mar 2005 11:47:34 +0100
+Eric Dumazet <dada1@cosmosbay.com> wrote:
 
-> This patch is wrong.  This is the *one* place where we do need to
-> use the path MTU.  The reason is that when the packet is fragmented
-> we only pay for the IPsec overhead once over all and not once for
-> each fragment.
+> The rt_check_expire() has a serious problem on machines with large
+> route caches, and a standard HZ value of 1000.
 > 
-> Please revert it for now.
+> With default values, ie ip_rt_gc_interval = 60*HZ = 60000 ;
+> 
+> the loop count :
+> 
+>      for (t = ip_rt_gc_interval << rt_hash_log; t >= 0;
+> 
+> 
+> overflows (t is a 31 bit value) as soon rt_hash_log is >= 16  (65536
+> slots in route cache hash table)
+ ...
+> I am experimenting some changes that I will share when ready.
 
-Ok, done.
+Good catch, let us know when you have a patch for review.
