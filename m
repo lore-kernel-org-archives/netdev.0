@@ -1,55 +1,32 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] netif_rx: receive path optimization
-Date: Thu, 31 Mar 2005 15:28:16 -0800
-Message-ID: <424C8790.6060203@hp.com>
-References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>	<20050331120410.7effa94d@dxpl.pdx.osdl.net>	<1112303431.1073.67.camel@jzny.localdomain>	<424C6A98.1070509@hp.com>	<1112305084.1073.94.camel@jzny.localdomain>	<424C7CDC.8050801@hp.com> <424C81B8.6090709@us.ibm.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Redirect-Device
+Date: Thu, 31 Mar 2005 15:35:22 -0800
+Message-ID: <424C893A.20601@candelatech.com>
+References: <424C6089.1080507@candelatech.com>	 <1112303627.1073.71.camel@jzny.localdomain>	 <424C6B10.6030200@candelatech.com>	 <1112306031.1073.109.camel@jzny.localdomain>	 <424C7813.4000101@candelatech.com> <1112311240.1096.13.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
-In-Reply-To: <424C81B8.6090709@us.ibm.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1112311240.1096.13.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->> I "never" see that because I always bind a NIC to a specific CPU :)  
->> Just about every networking-intensive benchmark report I've seen has 
->> done the same.
-> 
-> 
-> Just a reminder that the networking-benchmark world and
-> the real networking deployment world have a less than desirable
-> intersection (which I know you know only too well, Rick ;)).
+jamal wrote:
 
-Touche :)
+> One thing you probably havent understood is that all the action stuff
+> that happens on ingress happens before dev.c pkt receive.
 
-> How often do people use affinity? How often do they really tune
-> the system for their workloads? 
+Could you point me to where this is, or give me something to
+search for?  I'm curious how/where it does the hook, and if I
+understand that better, maybe I can start thinking about how
+to make use of it for future hacks...
 
-Not as often as they should.
+Thanks,
+Ben
 
- > How often do they turn off things like SACK etc?
-
-Well, I'm in an email discussion with someone who seems to bump their TCP 
-windows quite large, and disable timestamps...
-
-> Not very often in the real world. Designing OSs to
-> do better at benchmarks is a different proposition than designing
-> OSs to do well in the real world.
-
-BTW what is the real world purpose of having the multiple CPU affinity of NIC 
-interrupts?  I have to admit it seems rather alien to me.  (In the context of no 
-onboard NIC smarts being involved that is)
-
->>> Note Linux is quiet resilient to reordering compared to other OSes (as
->>> you may know) but avoiding this is a better approach - hence my
->>> suggestion to use NAPI when you want to do serious TCP.
-> 
-> 
-> The real killer for TCP is triggering fast retransmit
-> unnecessarily
-
-Agreed.  That is doubleplusungood.
-
-rick
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
