@@ -1,42 +1,36 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [PATCH] NETLINK: Use SKB_MAXORDER to calculate NLMSG_GOODSIZE
-Date: Sat, 29 Jan 2005 02:48:28 +0300
-Message-ID: <20050128234828.GA24868@yakov.inr.ac.ru>
-References: <20050128230327.GV31837@postel.suug.ch> <E1CufRB-0000zf-00@gondolin.me.apana.org.au>
+From: Daniele Orlandi <daniele@orlandi.com>
+Subject: Re: Possible race/deadlock in netdev_unregister
+Date: Sat, 29 Jan 2005 01:25:50 +0100
+Message-ID: <200501290125.51185.daniele@orlandi.com>
+References: <200501282313.30517.daniele@orlandi.com> <20050128153806.2c0fd337@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Thomas Graf <tgraf@suug.ch>, davem@davemloft.net, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050128153806.2c0fd337@dxpl.pdx.osdl.net>
 Content-Disposition: inline
-In-Reply-To: <E1CufRB-0000zf-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Saturday 29 January 2005 00:38, you wrote:
+>
+> You are probably self-deadlocking on the netlink mutex (rtnl).
+> Is your netdevice_notifier handler calling rtnl_lock?
 
-> > -#define NLMSG_GOODSIZE (PAGE_SIZE - ((sizeof(struct sk_buff)+0xF)&~0xF))
+No, I'm just setting an error on all sockets, and sk_state_change()ing them, 
+nothing that might sleep, AFAIK.
 
+Even in that case, that wouldn't explain the interaction with hotplug.
 
-... which reminded me about an old stale patchlet:
+I also forgot to say that if the application exists immediately after seeing 
+the error on the socket, the problem doesn't show.
 
+Thanks anyway,
+Bye!
 
-Comment: improper size calculation for collapsed skb size.
-         Noticed by Denis V. Lunev <den@asplinux.ru>
-
-===== net/ipv4/tcp_input.c 1.89 vs edited =====
---- 1.89/net/ipv4/tcp_input.c	Tue Jan 18 01:09:33 2005
-+++ edited/net/ipv4/tcp_input.c	Thu Jan 27 19:41:07 2005
-@@ -3760,8 +3760,8 @@
- 	while (before(start, end)) {
- 		struct sk_buff *nskb;
- 		int header = skb_headroom(skb);
--		int copy = (PAGE_SIZE - sizeof(struct sk_buff) -
--			    sizeof(struct skb_shared_info) - header - 31)&~15;
-+		int copy = (PAGE_SIZE - sizeof(struct skb_shared_info)
-+			    - header - 31)&~15;
- 
- 		/* Too big header? This can happen with IPv6. */
- 		if (copy < 0)
+-- 
+  Daniele Orlandi
