@@ -1,28 +1,28 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc2 1/12] S2io: cosmetic changes
-Date: Thu, 28 Oct 2004 19:33:45 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [2.6 patch] appletalk: remove an unused function
+Date: Thu, 28 Oct 2004 16:26:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <418181D9.5010603@pobox.com>
-References: <003c01c4bd40$76171f80$9810100a@S2IOtech.com>
+Message-ID: <20041028162643.2ee7e30e.davem@davemloft.net>
+References: <20041028221046.GI3207@stusta.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
-        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
-        rapuru.sriram@s2io.com, alicia.pena@s2io.com
+Cc: acme@conectiva.com.br, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@s2io.com
-In-Reply-To: <003c01c4bd40$76171f80$9810100a@S2IOtech.com>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20041028221046.GI3207@stusta.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-With this new resend, I tried with both my automated scripts, and 
-applying manually as well.
+On Fri, 29 Oct 2004 00:10:46 +0200
+Adrian Bunk <bunk@stusta.de> wrote:
 
-All attempts succeed on patches #1 and #2, but fail on #3 - #12.
+> - -static inline void atalk_insert_socket(struct sock *sk)
+> - -{
+> - -	write_lock_bh(&atalk_sockets_lock);
+> - -	__atalk_insert_socket(sk);
+> - -	write_unlock_bh(&atalk_sockets_lock);
+> - -}
+> - -
 
-If I manually add the "-l" argument to patch(1), then patch #3 succeeds. 
-  That implies that somewhere in your process, whitespace in your 
-patches is getting corrupted.
-
-	Jeff
+This is a patch of a patch, I doubt it will apply cleanly ;-)
