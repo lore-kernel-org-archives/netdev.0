@@ -1,34 +1,35 @@
-From: sakalra@hss.hns.com
-Subject: Help for GCOV in MVL 2.4.18 Prof. version
-Date: Tue, 17 Jun 2003 18:31:27 +0530
+From: "Mr. James W. Laferriere" <babydr@baby-dragons.com>
+Subject: Re: patch for common networking error messages
+Date: Tue, 17 Jun 2003 10:34:45 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF1DD18AC3.65DE1968-ON65256D48.00467BF8@hss.hns.com>
+Message-ID: <Pine.LNX.4.56.0306171033020.6807@filesrv1.baby-dragons.com>
+References: <OFDD16F58E.35149C65-ON85256D47.0081D564@us.ibm.com>
+ <20030616.181946.22044667.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Kernel Maillist <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030616.181946.22044667.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+	Hello Dave ,  I know your time is constrained .  BUT DAMN IT there
+	were other questions ask in the (partially quoted) email you are
+	replying to .  Some of those answers would be nice to know .
+		RSVP ,  JimL
 
+On Mon, 16 Jun 2003, David S. Miller wrote:
+>    From: Janice Girouard <girouard@us.ibm.com>
+>    Date: Mon, 16 Jun 2003 19:44:22 -0500
+>    It sounds like you are proposing a new family for the netlink
+>    subsystem.
 
+> Exactly, you have to create this.
 
-
-
-hi ,
-
-  I am trying with some profiling and coverage for my code on Montavista
-2.4.18 (linux2.4.18_mvl30) Professional edition. The GCOV patch for 2.4.18
-(I suppose its for RedHat kernel) fails. I tried applying it manually but
-then it was creating problems while profiling my driver. When i tried
-running gcov on file.c at path /proc/module/opt/hardhat/mydriver/file1.c,
-GCOV abrubtly ends saying "Aborted". There is a  file1.da  created at this
-location once i have loaded the gcov-proc.o..
-
-I want to know whether there is any seperate patch available for MVL or its
-the same patch.
-
-If someone has tried this then kindly help in this regards,
-
-tia,
--Sandeep kalra
+-- 
+       +------------------------------------------------------------------+
+       | James   W.   Laferriere | System    Techniques | Give me VMS     |
+       | Network        Engineer |     P.O. Box 854     |  Give me Linux  |
+       | babydr@baby-dragons.com | Coudersport PA 16915 |   only  on  AXP |
+       +------------------------------------------------------------------+
