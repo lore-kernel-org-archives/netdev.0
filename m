@@ -1,29 +1,24 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@wide.ad.jp>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: IPv6 went away?
-Date: Tue, 15 Mar 2005 08:03:25 +0900 (JST)
-Message-ID: <20050315.080325.14561230.yoshfuji@wide.ad.jp>
+Date: Mon, 14 Mar 2005 15:01:51 -0800
+Message-ID: <20050314150151.0a2abda6.davem@davemloft.net>
 References: <42361510.2080902@pobox.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
-To: jgarzik@pobox.com
+To: Jeff Garzik <jgarzik@pobox.com>
 In-Reply-To: <42361510.2080902@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <42361510.2080902@pobox.com> (at Mon, 14 Mar 2005 17:49:52 -0500), Jeff Garzik <jgarzik@pobox.com> says:
+On Mon, 14 Mar 2005 17:49:52 -0500
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
 > Has anything major been done to ipv6 recently?
 
-I don't think so.
-
-> I'm running BK-latest (-bk10), and my workstation cannot seem to ping6 
-> the router, much less the outside world.  My router can ping6 various 
-> Internet sites just fine, and it's running -bk9.
-
-Our daily tests report nothing strange.
-Maybe driver issue?
-
---yoshfuji
+Yes, it was changed with several updates from USAGI to
+make it pass the "ipv6 ready" requirements.  The
+experimental Kconfig tag was also removed, perhaps for this
+reason it was not included in your build?
