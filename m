@@ -1,154 +1,166 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [1/2] CARP implementation. HA master's failover.
-Date: Sat, 17 Jul 2004 16:59:42 +0400
+Date: 17 Jul 2004 08:47:34 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040717165942.1e7f847f@zanzibar.2ka.mipt.ru>
+Message-ID: <1090068454.1064.1258.camel@jzny.localdomain>
 References: <1089898303.6114.859.camel@uganda>
-	<1089898595.6114.866.camel@uganda>
-	<1089902654.1029.23.camel@jzny.localdomain>
-	<1089905244.6114.887.camel@uganda>
-	<1089906936.6114.904.camel@uganda>
-	<1089908900.1027.77.camel@jzny.localdomain>
-	<1089910757.6114.965.camel@uganda>
-	<1089912658.1029.101.camel@jzny.localdomain>
-	<20040715232035.37e016ef@zanzibar.2ka.mipt.ru>
-	<1089981282.1060.1293.camel@jzny.localdomain>
-	<1089990384.6114.2842.camel@uganda>
-	<1090065129.1066.1196.camel@jzny.localdomain>
-Reply-To: johnpol@2ka.mipt.ru
+	 <1089898595.6114.866.camel@uganda>
+	 <1089902654.1029.23.camel@jzny.localdomain>
+	 <1089905244.6114.887.camel@uganda>
+	 <1089907622.1027.48.camel@jzny.localdomain>
+	 <1089910760.6114.967.camel@uganda>
+	 <1089912285.1028.93.camel@jzny.localdomain>
+	 <20040715235313.69897131@zanzibar.2ka.mipt.ru>
+	 <1089983064.1060.1328.camel@jzny.localdomain>
+	 <1089990401.6114.2843.camel@uganda>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-Jg80ClHEA8W8IX24Rgxz"
 Cc: netdev@oss.sgi.com, netfilter-failover@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1090065129.1066.1196.camel@jzny.localdomain>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1089990401.6114.2843.camel@uganda>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 17 Jul 2004 07:52:09 -0400
-jamal <hadi@cyberus.ca> wrote:
 
-<arguments and contrarguments are skipped>
+--=-Jg80ClHEA8W8IX24Rgxz
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-> > Actually last example can't be used as argument in our discussion,
-> > but it illustrates that sometimes we need to touch kernel-_only_
-> > parts, and this decision is dictated from the outside of the
-> > touchable part.
+On Fri, 2004-07-16 at 11:06, Evgeniy Polyakov wrote:
+> On Fri, 2004-07-16 at 17:04, jamal wrote:
+> 
+
+[..]
+> They do strong signed digest, but it does not have any kind of counter
+> so i do not see replay attack prevention.
+
+Ok, you are right. I do think that there are people who have run this
+over IPSEC though. I could swear that the current linux based one does.
+I wish we could get Alexander to comment on this discussion.
+
+> 
+> > > Can it be used over IPv6? (CARP also can't but it is _very_ easy to
+> > > add, I just don't have IPv6 network setup to test).
 > > 
+> > Theres effort to have it do v6.
+> > http://www.ietf.org/internet-drafts/draft-ietf-vrrp-ipv6-spec-06.txt
+> > I agree its lame to have it as an after thought it seems
 > 
-> I can tell you one thing: I am totaly against this thing being part
-> of the kernel; not just because it adds noise but because it makes it
-> harder to keep adding more and more functionality or integrating its
-> capability into other apps.
-> BTW, theres a very nice paper being presented at OLS by someone from
-> .au who is trying infact to move drivers to user space ;-> 
+> * VRRP for IPv6 does not currently include any type of authentication. *
 
-I saw it...
-May I not comment it? I do not want to look like rude freak... :)
+Fine.
 
-> I dont mind adding some needed datapath mechanism in the kernel to
-> enable it to do interesting things; control of such mechanism and
-> policy decisions should be very clearly separated and sit in
-> userspace.
-> 
-> > > BTW, I like that ARP balancing feature that CARP has. Pretty neat.
-> > > Note that it could be easily done via a tc action with user space
-> > > control.
+> I will draw one too.
+
+ok, my resonse attached.
+
+> For those who cares they are already done.
+
+I was done 10 years ago. But theres a lot of fools around. 
+MS targets the fools. 
+
+> > > I have great confidence that Theo de Raadt will not include non
+> > > patent-free code in OpenBSD.
 > > 
-> > Anything may be done in userspace.
-> > For example routing decision.
-> > Yes, it _may_ be done in userspace. But it is slow.
+> > I hope he is a lawyer or has some good lawyer advising him;->
 > 
-> Big difference though with CARP. CARP shouldnt need to process
-> 100Kpps; but even if it did, CARP packet contain control information
-> that is valuable in policy settings. Control protocols tend to be
-> "rich" and evolve over much shorter periods of time.  
-> A better comparison what you are saying is to move OSPF to the kernel.
+> He is an OpenBSD creator, so he is just a bit more paranoidal than
+> others :)
 
-Only for now, since we can imagine only some examples now.
-When number of agents controlled/connected to CARP will became
-significant broadcasting and userspace arbiter's overhead may not
-satisfy HA needs.
+I see ;-> 
 
-> > SCSI over IP may be done as network block device.
-> > Or even copying packet to userspace through raw device and then send
-> > it using socket.
-> 
-> Again all that is datapath. CARP is control.
+cheers,
+jamal
 
-Control, but it must have possibility to control any dataflow element.
-If using all_flows_one_arbiter, then we must have near standing
-controller like in-kernel CARP.
-If using one_flow_one_arbiter(like tc) then we may use far outstanding
-control mechanism and near standing arbiter. 
-Like qdisk + tc + ucarp.
+--=-Jg80ClHEA8W8IX24Rgxz
+Content-Disposition: attachment; filename=carp.dig2
+Content-Type: text/plain; name=carp.dig2; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-The question is: "Do we need to create near standing ariters and far
-standing controller for scenatio A, while we may have near standing
-controller?".
-I do believe that for some situations we just need in-kernel controller
-without any overhead and simple in-kernel interface.
+No, your diagram should looks like this:
 
-> > QNX and Mach are even designed in this way.
-> 
-> We just have better architecture thats all ;-> 
+         User space
+                    +----------------------------------------------------------+
+		    |                                                          |
+                    |  +-------------------------------------+                 |
+		    |  |                                     |                 |
++-------+         +-------+         +---------+         +-------+          +-------+          
+| App#A | <-----> | CARPd | <-----> | ctsyncd | <-----> | App#B | <----->  | App#C | <-----> 
++---+---+         +---+---+         +---+-----+         +---+---+          +---+---+         
+                      |                 |                   |                  |              
+                      |                 |                   |                  |              
+   ------------------------------------------------------------------------------------------
+           Kernel
+        network I/O etc
 
-If we want to put as many as possible outside the kernel while it works
-better in kernel then we slowly go to meet microkernel and userspace
-thread for fs, for network, which will be controlled by broadcast
-messages for simplifying control protocol.
+Or only have one BUS(and it is actually implemented using netlink).
 
-But it is too far planes, so it is just "blah-blah" lyrics now... :)
+jamal> I relabeled the Apps. I suppose you see some apps using ctsyncd for something?
 
-> [BTW, A lot of people with experience in things like vxworks (one big
-> flat memory space) always want to move things into the kernel.
-> Typically after some fight they move certain things to user space with
-> "you will hear from me" threats. I never hear back from them because
-> it works fine. This after they wanted to shoot me because linux "wasnt
-> realtime"]
+You need to connect each application daemon to carpd, even using broadcast netlink.
+And for any in-kernel access you will need to create new App and new kernel part.
 
-BTW, I just reread OpenBSD's load balancing code...
-IT is different from that one which may be created with tc and it's
-extensions.
+jamal> App2app doesnt have to go across kernel unless it turns out it is the
+jamal> best way.
+jamal> Alternatives include: unix or local host sockets, IPCs such as pipes or
+jamal> just shared libraries.
+jamal> 
 
-They look into each packet and if it's "signature" is controlled by node
-and this node is master than process this packet.
-They have one arbiter for any dataflow, while Linux has many arbiters
-each of which may be controlled from userspace, that is the difference.
+If we will extrapolate it we can create following:
+userspace carp determines that it is a master, it will suspend all kernel memory or dump /proc/kmem
+and begins to advertise it. Remote node receives it and has pretty the same firewall settings, 
+flow controls and any in-kernel state.
 
-So their schema may not be implemented in userspace CARP, while in
-Linux it may be implemented using tc extensions with userspace CARP.
+jamal> I havent studied what Harald proposes in details. I think that the slave would
+jamal> continously be getting master updates.
+jamal> The interesting thing about CARP is the ARP balancing feature in which X nodes
+jamal> maybe masters of different IP flows all within the same subnet. 
+jamal> VRRP load balances by subnet. I am not sure how challenge this will present to
+jamal> to ctsyncd.
 
-I will rewrite my resume:
-With your approach any data flow MUST go through userspace arbiters with
-all overhead and complexity. With my approach any data flow _MAY_ go
-through userspace arbiters, but if you do_need/only_has in-kernel access
-than using in-kernel CARP is the only solution.
+No matter that it takes a long time.
 
-My main idea for in-kernel CARP was to implement invisible HA mechanism
-suitable for in-kernel use. You do not need to create netlink protocol
-parser, you do not need to create extra userspace overhead, you do not
-need to create suitable for userspace control hooks in kernel
-infrastructure. Just register callback.
-But even with such simple approach you have opportunity to collaborate
-with userspace. If you need.
+
+It make sence if App#X needs userspace access only.
+But here is other diagram:
+
+                                        userspace
+                 |
+-----------------+-------------------------------
+                CARP                  kernelspace
+                 |
+                 |
++----------+-----+-----+---------+-------
+|          |           |         |
+ct_sync  iSCSI       e1000      CPU
+
+
+My main idea for in-kernel CARP was to implement invisible HA mechanism suitable for in-kernel use.
+You do not need to create netlink protocol parser, you do not need to create extra userspace overhead,
+you do not need to create suitable for userspace control hooks in kernel infrastructure.
+Just register callback.
+But even with such simple approach you have opportunity to collaborate with userspace. If you need.
 
 Why creating all userspace cruft if/when you need only kernel one?
 
-> > It is not talk about current possibilities, it is kind of design :)
-> > Yes, probably our _current_ needs may be satisfied using existing
-> > userspace tools.
-> > But I absolutely sure that we will need in-kernel support.
-> > I'm reading you second e-mail with pretty diagrams and already see
-> > where in-kernel CARP will live there :)
-> 
-> Ok;-> I am looking forward to see your view on it.
-> 
-> cheers,
-> jamal
+jamal> 
+jamal> so we now move appA, B, C to the kernel too?
+jamal> There is absolutely no need to put this in kernel space.
+jamal> If you do this, your next step should be to put zebra in the kernel
+jamal> 
 
+Resume: 
+With your approach any data flow MUST go through userspace arbiters with all overhead and complexity.
+With my approach any data flow _MAY_ go through userspace arbiters, but if you do_need/only_has 
+in-kernel access than using in-kernel CARP is the only solution.
 
-	Evgeniy Polyakov ( s0mbre )
+jamal> 
+jamal> Yes, there is a cost. How much? Read the paper on user space drivers it actually does
+jamal> some cost analysis.
+jamal> If you prove that it is too expensive to put it in user space then prove it and lets
+jamal> have a re-discussion
+jamal>
 
-Only failure makes us experts. -- Theo de Raadt
+--=-Jg80ClHEA8W8IX24Rgxz--
