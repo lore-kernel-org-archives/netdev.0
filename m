@@ -1,32 +1,105 @@
 From: akpm@osdl.org
-Subject: [patch 09/13] bonding needs inet
-Date: Tue, 15 Mar 2005 14:22:46 -0800
-Message-ID: <200503152222.j2FMMfU6016817@shell0.pdx.osdl.net>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org
+Subject: [patch 02/13] ENI155P error handling fix
+Date: Tue, 15 Mar 2005 14:22:39 -0800
+Message-ID: <200503152222.j2FMMY7e016796@shell0.pdx.osdl.net>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org,
+        takis@lumumba.luc.ac.be
 To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+From: Panagiotis Issaris <takis@lumumba.luc.ac.be>
 
-The bonding driver needs CONFIG_INET, for arp_create(), arp_send(), arp_xmit().
+In the ENI155P device driver in six possible failure cases the requested
+irq is not being released.
+
+In three of the above possible failure cases additionally there seems to
+be a memory leak.
 
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/drivers/net/Kconfig |    1 +
- 1 files changed, 1 insertion(+)
+ 25-akpm/drivers/atm/eni.c |   27 ++++++++++++++++++---------
+ 1 files changed, 18 insertions(+), 9 deletions(-)
 
-diff -puN drivers/net/Kconfig~bonding-needs-inet drivers/net/Kconfig
---- 25/drivers/net/Kconfig~bonding-needs-inet	Tue Mar 15 14:19:54 2005
-+++ 25-akpm/drivers/net/Kconfig	Tue Mar 15 14:19:54 2005
-@@ -44,6 +44,7 @@ config DUMMY
- config BONDING
- 	tristate "Bonding driver support"
- 	depends on NETDEVICES
-+	depends on INET
- 	---help---
- 	  Say 'Y' or 'M' if you wish to be able to 'bond' multiple Ethernet
- 	  Channels together. This is called 'Etherchannel' by Cisco,
+diff -puN drivers/atm/eni.c~eni155p-error-handling-fix drivers/atm/eni.c
+--- 25/drivers/atm/eni.c~eni155p-error-handling-fix	Tue Mar 15 14:19:52 2005
++++ 25-akpm/drivers/atm/eni.c	Tue Mar 15 14:19:52 2005
+@@ -59,7 +59,6 @@
+  * - doesn't support OAM cells
+  * - eni_put_free may hang if not putting memory fragments that _complete_
+  *   2^n block (never happens in real life, though)
+- * - keeps IRQ even if initialization fails
+  */
+ 
+ 
+@@ -1802,22 +1801,22 @@ static int __devinit eni_start(struct at
+ 	if (request_irq(eni_dev->irq,&eni_int,SA_SHIRQ,DEV_LABEL,dev)) {
+ 		printk(KERN_ERR DEV_LABEL "(itf %d): IRQ%d is already in use\n",
+ 		    dev->number,eni_dev->irq);
+-		return -EAGAIN;
++		error = -EAGAIN;
++		goto out;
+ 	}
+-	/* @@@ should release IRQ on error */
+ 	pci_set_master(eni_dev->pci_dev);
+ 	if ((error = pci_write_config_word(eni_dev->pci_dev,PCI_COMMAND,
+ 	    PCI_COMMAND_MEMORY | PCI_COMMAND_MASTER |
+ 	    (eni_dev->asic ? PCI_COMMAND_PARITY | PCI_COMMAND_SERR : 0)))) {
+ 		printk(KERN_ERR DEV_LABEL "(itf %d): can't enable memory+"
+ 		    "master (0x%02x)\n",dev->number,error);
+-		return error;
++		goto free_irq;
+ 	}
+ 	if ((error = pci_write_config_byte(eni_dev->pci_dev,PCI_TONGA_CTRL,
+ 	    END_SWAP_DMA))) {
+ 		printk(KERN_ERR DEV_LABEL "(itf %d): can't set endian swap "
+ 		    "(0x%02x)\n",dev->number,error);
+-		return error;
++		goto free_irq;
+ 	}
+ 	/* determine addresses of internal tables */
+ 	eni_dev->vci = eni_dev->ram;
+@@ -1839,7 +1838,8 @@ static int __devinit eni_start(struct at
+ 	if (!eni_dev->free_list) {
+ 		printk(KERN_ERR DEV_LABEL "(itf %d): couldn't get free page\n",
+ 		    dev->number);
+-		return -ENOMEM;
++		error = -ENOMEM;
++		goto free_irq;
+ 	}
+ 	eni_dev->free_len = 0;
+ 	eni_put_free(eni_dev,buf,buffer_mem);
+@@ -1855,17 +1855,26 @@ static int __devinit eni_start(struct at
+ 	 */
+ 	eni_out(0xffffffff,MID_IE);
+ 	error = start_tx(dev);
+-	if (error) return error;
++	if (error) goto free_list;
+ 	error = start_rx(dev);
+-	if (error) return error;
++	if (error) goto free_list;
+ 	error = dev->phy->start(dev);
+-	if (error) return error;
++	if (error) goto free_list;
+ 	eni_out(eni_in(MID_MC_S) | (1 << MID_INT_SEL_SHIFT) |
+ 	    MID_TX_LOCK_MODE | MID_DMA_ENABLE | MID_TX_ENABLE | MID_RX_ENABLE,
+ 	    MID_MC_S);
+ 	    /* Tonga uses SBus INTReq1 */
+ 	(void) eni_in(MID_ISA); /* clear Midway interrupts */
+ 	return 0;
++
++free_list:
++	kfree(eni_dev->free_list);
++
++free_irq:
++	free_irq(eni_dev->irq, eni_dev);
++
++out:
++	return error;
+ }
+ 
+ 
 _
