@@ -1,9 +1,9 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH netdev-2.6 4/10] ixgb: Remove sub-device ids for non-existant
- hardware
-Date: Fri, 29 Oct 2004 05:09:46 -0700 (PDT)
+Subject: [PATCH netdev-2.6 5/10] ixgb: Limit Rx Address Filter Array entries
+ to 3
+Date: Fri, 29 Oct 2004 05:10:54 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0410290448590.26064-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0410290454500.26064-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -14,18 +14,17 @@ List-Id: netdev.vger.kernel.org
 
 Signed-off-by: ganesh venkatesan <ganesh.venkatesan@intel.com>
 
-diff -up netdev-2.6/drivers/net/ixgb/ixgb_ids.h netdev-2.6/drivers/net/ixgb.new/ixgb_ids.h
---- netdev-2.6/drivers/net/ixgb/ixgb_ids.h	2004-10-15 13:15:38.000000000 -0700
-+++ netdev-2.6/drivers/net/ixgb.new/ixgb_ids.h	2004-10-15 13:15:54.000000000 -0700
-@@ -42,11 +42,7 @@
- #define IXGB_SUBDEVICE_ID_A11F  0xA11F
- #define IXGB_SUBDEVICE_ID_A01F  0xA01F
+diff -up netdev-2.6/drivers/net/ixgb/ixgb_hw.h netdev-2.6/drivers/net/ixgb.new/ixgb_hw.h
+--- netdev-2.6/drivers/net/ixgb/ixgb_hw.h	2004-10-15 13:15:38.000000000 -0700
++++ netdev-2.6/drivers/net/ixgb.new/ixgb_hw.h	2004-10-15 13:15:53.000000000 -0700
+@@ -616,9 +616,9 @@ struct ixgb_context_desc {
+ #define IXGB_CONTEXT_DESC_STATUS_DD 0x01
  
--#define IXGB_SUBDEVICE_ID_A15F  0xA15F
--#define IXGB_SUBDEVICE_ID_A05F  0xA05F
+ /* Filters */
+-#define IXGB_RAR_ENTRIES          16	/* Number of entries in Rx Address array */
+ #define IXGB_MC_TBL_SIZE          128	/* Multicast Filter Table (4096 bits) */
+ #define IXGB_VLAN_FILTER_TBL_SIZE 128	/* VLAN Filter Table (4096 bits) */
++#define IXGB_RAR_ENTRIES	   3	/* Number of entries in Rx Address array */
  
--#define IXGB_SUBDEVICE_ID_A12F  0xA12F
--#define IXGB_SUBDEVICE_ID_A02F  0xA02F
- 
- #endif				/* #ifndef _IXGB_IDS_H_ */
- 
+ #define IXGB_MEMORY_REGISTER_BASE_ADDRESS   0
+ #define ENET_HEADER_SIZE            14
