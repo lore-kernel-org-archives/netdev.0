@@ -1,11 +1,10 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH PKT_SCHED 3/6]: tc actions: disable bhs while lock is held
- in init path
-Date: Tue, 11 Jan 2005 22:46:24 +0100
-Message-ID: <41E44930.5040106@trash.net>
+Subject: [PATCH PKT_SCHED 2/6]: Fix memory leaks in cls_u32.c error path
+Date: Tue, 11 Jan 2005 22:46:20 +0100
+Message-ID: <41E4492C.7050703@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------080901000200000400060803"
+ boundary="------------080407090209000003070504"
 Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
@@ -14,82 +13,74 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------080901000200000400060803
+--------------080407090209000003070504
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-The lock is also used in softirq context.
 
 
-
---------------080901000200000400060803
+--------------080407090209000003070504
 Content-Type: text/x-patch;
- name="03.diff"
+ name="02.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="03.diff"
+ filename="02.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/11 20:32:35+01:00 kaber@coreworks.de 
-#   [PKT_SCHED]: tc actions: disable bhs while lock is held in init path
+#   2005/01/11 20:25:26+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Fix memory leaks in cls_u32.c error path
+#   
+#   Also silence an unused-variable warning when CONFIG_CLS_U32_MARK is not set.
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/police.c
-#   2005/01/11 20:32:28+01:00 kaber@coreworks.de +2 -2
-#   [PKT_SCHED]: tc actions: disable bhs while lock is held in init path
+# net/sched/cls_u32.c
+#   2005/01/11 20:25:16+01:00 kaber@coreworks.de +11 -5
+#   [PKT_SCHED]: Fix memory leaks in cls_u32.c error path
+#   
+#   Also silence an unused-variable warning when CONFIG_CLS_U32_MARK is not set.
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/mirred.c
-#   2005/01/11 20:32:28+01:00 kaber@coreworks.de +2 -2
-#   [PKT_SCHED]: tc actions: disable bhs while lock is held in init path
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/sched/mirred.c b/net/sched/mirred.c
---- a/net/sched/mirred.c	2005-01-11 22:32:15 +01:00
-+++ b/net/sched/mirred.c	2005-01-11 22:32:15 +01:00
-@@ -126,7 +126,7 @@
- 		}
- 	}
+diff -Nru a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+--- a/net/sched/cls_u32.c	2005-01-11 22:32:10 +01:00
++++ b/net/sched/cls_u32.c	2005-01-11 22:32:10 +01:00
+@@ -549,7 +549,6 @@
+ 	struct tc_u_hnode *ht;
+ 	struct tc_u_knode *n;
+ 	struct tc_u32_sel *s;
+-	struct tc_u32_mark *mark;
+ 	struct rtattr *opt = tca[TCA_OPTIONS-1];
+ 	struct rtattr *tb[TCA_U32_MAX];
+ 	u32 htid;
+@@ -654,15 +653,22 @@
+ 	n->fshift = i;
+ }
  
--	spin_lock(&p->lock);
-+	spin_lock_bh(&p->lock);
- 	p->action = parm->action;
- 	p->eaction = parm->eaction;
- 	if (parm->ifindex) {
-@@ -137,7 +137,7 @@
- 		dev_hold(dev);
- 		p->ok_push = ok_push;
- 	}
--	spin_unlock(&p->lock);
-+	spin_unlock_bh(&p->lock);
- 	if (ret == ACT_P_CREATED)
- 		tcf_hash_insert(p);
+-#ifdef CONFIG_CLS_U32_MARK                                                                                                                                             
++#ifdef CONFIG_CLS_U32_MARK
+ 	if (tb[TCA_U32_MARK-1]) {
+-		if (RTA_PAYLOAD(tb[TCA_U32_MARK-1]) < sizeof(struct tc_u32_mark))
++		struct tc_u32_mark *mark;
++
++		if (RTA_PAYLOAD(tb[TCA_U32_MARK-1]) < sizeof(struct tc_u32_mark)) {
++#ifdef CONFIG_CLS_U32_PERF
++			kfree(n->pf);
++#endif
++			kfree(n);
+ 			return -EINVAL;
++		}
+ 		mark = RTA_DATA(tb[TCA_U32_MARK-1]);
+ 		memcpy(&n->mark, mark, sizeof(struct tc_u32_mark));
+ 		n->mark.success = 0;
+-	}                                                                                                                                                                
+-#endif                                                                                                                                                                 
++	}
++#endif
  
-diff -Nru a/net/sched/police.c b/net/sched/police.c
---- a/net/sched/police.c	2005-01-11 22:32:15 +01:00
-+++ b/net/sched/police.c	2005-01-11 22:32:15 +01:00
-@@ -224,7 +224,7 @@
- 		}
- 	}
- 	/* No failure allowed after this point */
--	spin_lock(&p->lock);
-+	spin_lock_bh(&p->lock);
- 	if (R_tab != NULL) {
- 		qdisc_put_rtab(p->R_tab);
- 		p->R_tab = R_tab;
-@@ -254,7 +254,7 @@
- 		gen_replace_estimator(&p->bstats, &p->rate_est, p->stats_lock, est);
- #endif
- 
--	spin_unlock(&p->lock);
-+	spin_unlock_bh(&p->lock);
- 	if (ret != ACT_P_CREATED)
- 		return ret;
- 
+ 	err = u32_set_parms(tp, base, ht, n, tb, tca[TCA_RATE-1]);
+ 	if (err == 0) {
 
---------------080901000200000400060803--
+--------------080407090209000003070504--
