@@ -1,54 +1,23 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] Use add_timer instead of mod_timer in find_acq
-Date: Tue, 25 May 2004 22:10:55 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix BUG in tg3_tx
+Date: Tue, 25 May 2004 10:52:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040525121055.GA15690@gondor.apana.org.au>
-References: <20040524115357.GA28827@gondor.apana.org.au>
+Message-ID: <20040525105204.76a2b649.davem@redhat.com>
+References: <20040524072657.GC27177@sgi.com>
+	<20040524004045.58b3eb44.davem@redhat.com>
+	<20040524080431.GD27177@sgi.com>
+	<20040524100634.1349295d.davem@redhat.com>
+	<20040525010434.GA31134@sgi.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="zYM0uCDKw75PZbzx"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, mchan@broadcom.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040524115357.GA28827@gondor.apana.org.au>
+To: Greg Banks <gnb@sgi.com>
+In-Reply-To: <20040525010434.GA31134@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Mon, May 24, 2004 at 09:53:57PM +1000, herbert wrote:
-> 
-> Here is a tiny optimisation to use add_timer instead of mod_timer
-> on the create path in find_acq.
-
-Here is the same optimisation for the creation path in xfrm_state_find.
-It also fixes the timer so that it actually expires :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---zYM0uCDKw75PZbzx
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/xfrm/xfrm_state.c 1.41 vs edited =====
---- 1.41/net/xfrm/xfrm_state.c	2004-05-25 22:01:18 +10:00
-+++ edited/net/xfrm/xfrm_state.c	2004-05-25 22:09:10 +10:00
-@@ -345,7 +345,8 @@
- 			}
- 			x->lft.hard_add_expires_seconds = XFRM_ACQ_EXPIRES;
- 			xfrm_state_hold(x);
--			mod_timer(&x->timer, XFRM_ACQ_EXPIRES*HZ);
-+			x->timer.expires = jiffies + XFRM_ACQ_EXPIRES*HZ;
-+			add_timer(&x->timer);
- 		} else {
- 			x->km.state = XFRM_STATE_DEAD;
- 			xfrm_state_put(x);
-
---zYM0uCDKw75PZbzx--
+So, BTW, I'm not putting in a workaround for the partial-TX-packet
+ACK in tg3_tx() until we figure out why this is happening for Greg.
