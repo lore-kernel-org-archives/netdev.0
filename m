@@ -1,61 +1,33 @@
-From: Bart Alewijnse <scarfboy@gmail.com>
-Subject: Re: gigabit trouble
-Date: Fri, 30 Jul 2004 00:41:03 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: Thu, 29 Jul 2004 15:54:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <b71082d80407291541f9d6f93@mail.gmail.com>
-References: <b71082d8040729094537e59a11@mail.gmail.com> <20040729210401.A32456@electric-eye.fr.zoreil.com>
+Message-ID: <20040729155433.07d11f23.davem@redhat.com>
+References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+	<20040722.200426.99255296.yoshfuji@linux-ipv6.org>
+	<1090593676.1128.25.camel@jzny.localdomain>
+	<20040723.110007.27520072.yoshfuji@linux-ipv6.org>
+	<1090612669.1218.47.camel@jzny.localdomain>
+	<20040723135945.7f50b02c.davem@redhat.com>
+	<1090630154.1134.6.camel@jzny.localdomain>
+	<1090675993.1161.11.camel@jzny.localdomain>
+	<20040724222853.752137d6.davem@redhat.com>
+	<1091100138.1044.549.camel@jzny.localdomain>
+	<1091100602.1043.557.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org
+Cc: yoshfuji@linux-ipv6.org, shemminger@osdl.org, arekm@pld-linux.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20040729210401.A32456@electric-eye.fr.zoreil.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1091100602.1043.557.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I was going to do an exhaustive test, but because my computer stopped
-running completely, I'll reply to the one or two bits I can now.
+On 29 Jul 2004 07:30:02 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-On Thu, 29 Jul 2004 21:04:01 +0200, Francois Romieu
-<romieu@fr.zoreil.com> wrote:
-> Bart Alewijnse <scarfboy@gmail.com> :
-> [...]
-> > I run gentoo on both, which until yesterday was 2.6.7-ck5 (on both),
-> > and currently run 2.6.7-mm6 (again, both), as I saw the suggestion
-> > somewhere it had better support for the card - something about a new
-> > net card inferface that's nicer to interrupts.
-> 
-> NAPI support for r8169 is available in recent -mm kernel and there is
-> a small (though noticeable) optimization wrt to interrupt disabling.
-Well, I noticed a max of 6500 interrupts/s on eth1 on both computers, with or
-without napi - and that 6500 is also the figure of packets per second.
-So I'm slightly dubious. (notice 6500 *1500 bytes is about 10MB/s)
+> Patch was against 2.6.8-rc2 not bk20.
 
-> [...]
-> > So, question one - how do I see the link speed under linux, and how,
-> > if at all, do I control it?
-> 
-> ethtool
-Thanks. That wasn't the problem - the line speed's a gbit.
-
-> [...]
-> > Disturbingly, in such a linux-to-linux speed test, my new computer
-> > froze.As in, in text mode, have the screen freeze and apparently be
-> > half written full of nonsense.
-> 
-> These messages would be welcome (pen/paper/serial line/image/log file
-> or whatever).
-
-No messages, no oops, no log messages that I noticed. 
-It was video memory corruption in text mode.
-
-As to the rest, I'll do it when I revive my computer. Right now, I'm
-thinking the power supply may be dodgy. I'll see if I can get
-a minimum to run off my even older 235Watt. But as a note,
-with two cards, two cdroms and a hard drive less, it was still
-making the noise. I think it still is now, but since no OS actually
-boots completely right now, I can't say for sure.
-I'll do a memtest, that makes sense.
-
---Bart
+Applied, thanks Jamal.
