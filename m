@@ -1,95 +1,64 @@
-From: =?ISO-2022-JP?B?GyRCJTglZSVdJTglZSVdJEhINCQtOjkkNxsoQg==?= <marina@yuri.m-blue.org>
-Subject: =?ISO-2022-JP?B?GyRCJTklbCVzJUAhPCRKM2QkSyRPJFckSyRlJEMkSCQ3JD8/SEJOGyhC?=
-Date: Sat, 26 Feb 2005 22:12:01 +0900 (KST)
-Message-ID: <20050226131201.08604520DE@rental3.fields-server.net>
-To: netdev@oss.sgi.com
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Zdenek Radouch <zdenek@rcn.com>
+Subject: need help with ip_output
+Date: Sat, 26 Feb 2005 09:12:42 -0500
+Message-ID: <3sp35g$62ejk@smtp04.mrf.mail.rcn.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset="us-ascii"
+To: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-■■A-MOTION■■■□■■■□■■■□■■■□■■■□■メールマガジン
-∴∵:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵∴
-　　 ◆              ☆□□□                                 □□□☆             ◆
-　◆■◆・・・・・・■■■　　　艶やかに濡れて光る　　　■■■・・・・・・◆■◆
-　　 ◆              ☆□□□　　　　　                      □□□☆             ◆
-☆*∵∴:*∵::☆∴;∴★∵;∵∴☆;:*∵∴∴★∵∵☆::*∵∴::★∵;∵∴☆*∵
-■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
-                                          
-===========================================================
-　新┃着┃特┃集┃　http://stadium.puchiphoto.org/?8djjtoaqj7
-　━┛━┛━┛━┛・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-■■■第１弾
-■■■　【【【カラダが疼いて眠れないぃ～】】】。oO○Oo。oO○Oo。
-■■　　　　　                                                                      　　   │。　
-■　　　◆女の子だってＨは大好き☆............................................       　　＿ ＿人＿ ＿　　　　　　　　　　　　　　　　　　　　　
-■　　　　　　たっぷり濃厚な愛撫に、カラダがとろけそ～ぅ♪♪♪       ＊Ｙ
- 　   │。　                                                                          　　   │
-＿＿人＿＿　　　◆パックリ開いたキレイなアソコから滴る液体…。....................
-    ＊Ｙ　　　　　　　　蔵出し秘蔵ムービー一挙公開！！
-　    │
-　　　　　　◆禁断のチョーヤバ画像の数々...........................................................
-   　　　　　　　他では見ることの出来ないレアな画像や動画の宝庫
- 
-      http://stadium.puchiphoto.org/?8djjtoaqj7
-===========================================================
-　新┃着┃特┃集┃・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-　━┛━┛━┛━┛
-■■■第２弾
-■■■　　【【【究極のフェティッシュワールド】】】。oO○Oo。oO○Oo。
-■■　　　
-■　　　　 ◆美乳・爆乳大集合！！！...........................................
-■　　　　　　　手のひらからこぼれ落ちそうな爆乳・美乳大特集！
-　　　　　　　　　やわらかそうなフニフニのオッパイめしあがれっ♪
-　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　
-　　　　　　◆むき栗くらべ..................................................          　　　　│。
-                         可愛い女の子たちの小さなつぼみを ＿ ＿人＿ ＿
-　　　　　　　　　　　アノ手コノ手でいじり倒します。　　　　　　　＊Ｙ
-　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　　   　　│　
-　　　http://stadium.puchiphoto.org/?8djjtoaqj7
-・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-★その他見所満載！！！
-         
-　　　　　　　　　◆集団痴漢盗撮........................................................
-　　　　　　　　　　　　狭い空間でうごめく痴漢師たちの実態を盗撮。
-　　　　　　　　　　　　　　もみくちゃにされながら必死で抵抗するが、
-　　　　　　　　　　　　　なすすべもなくオモチャにされる女の子たち…。　　　　 
- 
-　　　　　　　◆野外露出パラダイス..................................................
-　　　　　　　　　　ゲームで負けた女の子がバツゲームとして
-　　　　　　　　　　ハダカでコンビニに行き買い物をさせられちゃう。
-　　　　　　　　　　今回は新人のサトミちゃんが挑戦
- 
-　　　http://stadium.puchiphoto.org/?8djjtoaqj7
- 
-★などなど大好評の特集以外にも、ヌキどころ満載 でお届けしまぁ～す★
- 
-┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓┏┓
-■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
+I am stuck designing a net driver that sits on top of a module performing
+physical
+routing layer.  The lower layer must switch (route) the outgoing packet to
+the appropriate physical channel on the same interface. The physical layer
+does not
+use an address resolution protocol, the destination physical address is
+computed
+dynamically from the next hop IP address.
 
-【会員の皆様へ】
-      
-    ・ 『A-MOTION』はメールマガジンの配信スタンドとなっており、無料でご登録会員様に
-　　　定期的にメールマガジンを配信しております。
+I am coming from BSD-style stacks, where the ip output actually carries the
+next
+hop IP address.  So there, the code looks [simplified API] something like
+this:
 
-    ・当局のメールマガジンより配信される情報の利用に関しては、
-　　 ご購読者個人の責任においてご利用していただくことを
-　　目的としており情報の内容に関しては発行者におまかせしております。
- 
-　　・当局はご紹介先のサイトにおけるいかなるトラブルや損害に対しても
-　　 一切の責任を負いかねます。
-　　
-　　・掲載情報に関してのご質問には応じておりませんので
-　　　予めご了承下さい。
-　　　　
-　  ・当メールマガジンに掲載された記事の一部または全部を
-　　　許可なく転載することを禁止致します。
+stack code:
+	output(pkt, dst_ip_addr)
 
-  　・ 身に覚えのない配信はいたずらの可能性がございます
-　　　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
-　　　ご自身でお手続き下さい。
+net driver code:
+output(pkt, dst_ip_addr)
+{
+	dest_hw_addr = hw_rt_resolve(dst_ip_addr)  // dynamically compute phys
+dest addr
+	fill_hw_header(pkt, dst_hw_addr) // fill phys layer header
+	hw_tx(pkt)	// enqueue pkt for transmission in the lower phys layer module
+}
 
-    http://yuri.m-blue.org/a-motion/
-■■A-MOTION■□■■■□■■■□■■■□■■■□■■■メールマガジン
-┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛┗┛
+Now the problem.
+I can't figure out how to get hold of the destination IP address (next hop)
+during the output processing!
+
+None of the linux netif docs suggests how to do this, but maybe I am
+missing something.
+It appears to me that the Ethernet ARP paradigm drives the design of the
+stack, but
+I need to implement a general, non-protocol but dynamic address resolution
+mechanism.
+
+Conceptually, I need something like the hard_header() method, except it
+would have
+to pass down the IP address, rather than the phys address as it does now.
+Alternately, if the next hop IP address is somewhere in the skb (there's a
+undocumented
+"dst" field;could it be there?), I could fish it out of there.
+
+I'd appreciate any pointers to either what I've missed, or how this could
+be implemented.
+Thanks.
+
+-Zdenek
+
+
+
+
