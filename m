@@ -1,69 +1,147 @@
-From: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
-Subject: Re: Fw: hfsc and huge set of rules
-Date: Fri, 30 Jul 2004 13:08:15 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040730110815.GA7812@krezus.e-wro.net>
-References: <20040729211844.61e8d328.davem@redhat.com> <410A2449.3020701@trash.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [Openswan dev] Re: SPI generation by netlink_get_spi()
+Date: Fri, 30 Jul 2004 21:50:09 +1000
+Sender: dev-bounces@lists.openswan.org
+Message-ID: <20040730115009.GA5689@gondor.apana.org.au>
+References: <E1BpxdD-00036t-00@gondolin.me.apana.org.au>
+	<4108F5F5.4020001@strongsec.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="LZvS9be/3tNcYl/X"
-Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca, devik@cdi.cz,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+Content-Type: multipart/mixed; boundary="x+6KMIRAuhnl3hBn"
+Cc: dev@lists.openswan.org
+Return-path: <dev-bounces@lists.openswan.org>
+To: Andreas Steffen <andreas.steffen@strongsec.net>,
+	"David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <410A2449.3020701@trash.net>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <4108F5F5.4020001@strongsec.net>
+Cc: users@lists.strongswan.org
+Cc: netdev@oss.sgi.com
+List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
+List-Archive: <http://lists.openswan.org/pipermail/dev>
+List-Post: <mailto:dev@lists.openswan.org>
+List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
+List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.openswan.org?subject=subscribe>
+Errors-To: dev-bounces@lists.openswan.org
 List-Id: netdev.vger.kernel.org
 
 
---LZvS9be/3tNcYl/X
+--x+6KMIRAuhnl3hBn
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, Jul 30, 2004 at 12:34:49PM +0200, Patrick McHardy wrote:
-> David S. Miller wrote:
-> >Looks like qdisc destruction has some expensive algorithms.
-> >Any quick ideas about the root culprit at least in the hfsc
-> >case?  He says htb does it too.
->=20
-> hfsc_destroy_qdisc takes O(n) time wrt. the number of classes,
-> but 5-6 seconds is still long. If all these classes contain inner
-> qdiscs other than the default, I guess removing the classes from
-> dev->qdisc_list in qdisc_destroy takes up most of the time, with
-> n O(n) operations. The __qdisc_destroy rcu callback also calls
-> reset before destroy, I don't know any qdisc where this is really
-> neccessary. Without inner qdiscs, I need to see the script first to
-> judge what's going wrong. Tomasz ?
+On Thu, Jul 29, 2004 at 03:04:53PM +0200, Andreas Steffen wrote:
+>
+> : |    message ID:  65 7e 1a 0f
+> : | netlink_get_spi: allocated 0x9f4c9788 for esp.0@145.254.54.68
+> : | SPI  9f 4c 97 88
+> 
+> The netlink interface of the 2.6 kernel is used to request an SPI for
+> the IPsec SA.
+> 
+> Immediately after the first Quick Mode message the second pending Quick Mode
+> is inititated:
 
-http://www.e-wro.pl/~acid/tc.batch.gz. In my opinion it's not the case
-of expensive algorithms, but the number of classes. With this rule set load=
-ed
-(tc -b tc.batch) command:
+> : |    message ID:  a1 01 a2 b2
+> : | netlink_get_spi: allocated 0x9f4c9788 for esp.0@145.254.54.68
+> : | SPI  9f 4c 97 88
+> 
+> And here the error happens. The two Quick Mode negotiations have different
+> Message IDs (65 7e 1a 0f versus a1 01 a2 b2) which will cause two phase2
+> state objects to be created on the peer side but the generated SPI 9f 4c 97 
+> 88
+> is the same. This will trigger the assertion passert(0) in 
+> kernel_pfkey.c:finish_pfkey_msg() in freeswan-2.0x because twice the same 
+> SADB_ADD command is executed for the outbound esp. Removing the assertion
+> as in Openswan does not help - several retrials will not succeed in setting
+> up the IPsec SA.
 
-for i in 'e1.903 e0.930 e0.931 e0.932' ; do
-	tc qdisc del dev ${i} root
-done
-completly freezes machine for about 5-6 seconds.
+Yes this is a kernel bug.
 
-I was trying do modify the code od hfsc_qdisc_destroy scheduling another
-task using schedule_task (), but i don't have enough knowledge to do deal
-with proper locking of qdisc structures.
+The issue is that two successive calls to netlink_get_spi is returning
+the same SA.  Since netlink_get_spi is meant to be a creation operation
+this is incorrect.
 
---=20
-Tomasz Paszkowski
+The netlink_get_spi operation is modelled off the PFKEY SADB_GETSPI
+command which is specified in RFC 2367.  The purpose of SADB_GETSPI
+is to create a new larval SA that can then be filled in by SADB_UPDATE.
 
---LZvS9be/3tNcYl/X
-Content-Type: application/pgp-signature
+Its semantics does not allow two SADB_GETSPI calls to return the same
+SA, even if there is no SADB_UPDATE call in between.
+
+The reason the second netlink_get_spi is returning the same SA is
+because in find_acq(), the code is looking at all larval states as
+opposed to only larval states with an SPI of zero.
+
+Since the only other caller of find_acq() -- xfrm_state_add() intentionally
+ignores all return values with a non-zero SPI, it is safe to not look at
+SAs with non-zero SPIs at all in find_acq().
+
+The following patch does exactly that.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+In fact, the find_acq() call in xfrm_state_add() is a remnant from
+the days when we had xfrm_state_replace() instead of xfrm_state_add()
+and xfrm_state_update().  It can now be safely removed.
+
+I'll post a separate patch for that.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--x+6KMIRAuhnl3hBn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/xfrm4_state.c 1.10 vs edited =====
+--- 1.10/net/ipv4/xfrm4_state.c	2004-07-09 20:19:08 +10:00
++++ edited/net/ipv4/xfrm4_state.c	2004-07-30 21:26:21 +10:00
+@@ -74,11 +74,8 @@
+ 		    proto == x->id.proto &&
+ 		    saddr->a4 == x->props.saddr.a4 &&
+ 		    reqid == x->props.reqid &&
+-		    x->km.state == XFRM_STATE_ACQ) {
+-			    if (!x0)
+-				    x0 = x;
+-			    if (x->id.spi)
+-				    continue;
++		    x->km.state == XFRM_STATE_ACQ &&
++		    !x->id.spi) {
+ 			    x0 = x;
+ 			    break;
+ 		    }
+===== net/ipv6/xfrm6_state.c 1.11 vs edited =====
+--- 1.11/net/ipv6/xfrm6_state.c	2004-05-27 18:57:44 +10:00
++++ edited/net/ipv6/xfrm6_state.c	2004-07-30 21:27:07 +10:00
+@@ -81,11 +81,8 @@
+ 		    proto == x->id.proto &&
+ 		    !ipv6_addr_cmp((struct in6_addr *)saddr, (struct in6_addr *)x->props.saddr.a6) &&
+ 		    reqid == x->props.reqid &&
+-		    x->km.state == XFRM_STATE_ACQ) {
+-			    if (!x0)
+-				    x0 = x;
+-			    if (x->id.spi)
+-				    continue;
++		    x->km.state == XFRM_STATE_ACQ &&
++		    !x->id.spi) {
+ 			    x0 = x;
+ 			    break;
+ 		    }
+
+--x+6KMIRAuhnl3hBn
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
 Content-Disposition: inline
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
+_______________________________________________
+Dev mailing list
+Dev@lists.openswan.org
+http://lists.openswan.org/mailman/listinfo/dev
 
-iD8DBQFBCiwfcNXOL98XeysRAlSMAKCM7HYVMAYP6yDx2dSgaoM3eCIy8gCfRBbU
-+SbQkyCFUo5sjFRZ50ZkVrY=
-=+Wgu
------END PGP SIGNATURE-----
-
---LZvS9be/3tNcYl/X--
+--x+6KMIRAuhnl3hBn--
