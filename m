@@ -1,66 +1,28 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: [SUNGEM] LLTX support
-Date: Wed, 15 Sep 2004 08:45:21 +0200
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: What is max size return by alloc_skb?
+Date: Wed, 15 Sep 2004 00:53:56 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5cac192f04091423453ae3cb@mail.gmail.com>
-Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
+Message-ID: <20040915075356.49586.qmail@web52204.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_83_7502405.1095230721613"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-net@vger.linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-------=_Part_83_7502405.1095230721613
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hello,
+ i want to know what is the maximum size alloc_skb can
+return? I found it returns most of the time 128 bytes,
+does that mean on ethernet interface max size of
+transmitted packet is 128?
 
-The attached patch adds LLTX support to SunGEM NAPI. The tx_lock patch
-I just sent must be applied first.
+regards,
+linux_lover
 
-Thanks,
 
--- 
-Eric
-
-------=_Part_83_7502405.1095230721613
-Content-Type: application/octet-stream; name="patch-rset-sungem_lltx-2-6-9-rc1"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="patch-rset-sungem_lltx-2-6-9-rc1"
-
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBkaWZmIC1OcnUgc3R5bGUgcGF0Y2guCiMK
-IyBDaGFuZ2VTZXQKIyAgIDIwMDQvMDkvMTUgMDg6MzI6MjUrMDI6MDAgZXJpYy5sZW1vaW5lQGdt
-YWlsLmNvbSAKIyAgIFtTVU5HRU1dOiBhZGQgTExUWCBzdXBwb3J0IHRvIFN1bkdFTQojICAgCiMg
-ICBTaWduZWQtb2ZmLWJ5OiBFcmljIExlbW9pbmUgPGVyaWMubGVtb2luZUBnbWFpbC5jb20+CiMg
-CiMgZHJpdmVycy9uZXQvc3VuZ2VtLmMKIyAgIDIwMDQvMDkvMTUgMDg6MzI6MTcrMDI6MDAgZXJp
-Yy5sZW1vaW5lQGdtYWlsLmNvbSArMTAgLTQKIyAgIFtTVU5HRU1dOiBhZGQgTExUWCBzdXBwb3J0
-IHRvIFN1bkdFTQojICAgCiMgICBTaWduZWQtb2ZmLWJ5OiBFcmljIExlbW9pbmUgPGVyaWMubGVt
-b2luZUBnbWFpbC5jb20+CiMgCmRpZmYgLU5ydSBhL2RyaXZlcnMvbmV0L3N1bmdlbS5jIGIvZHJp
-dmVycy9uZXQvc3VuZ2VtLmMKLS0tIGEvZHJpdmVycy9uZXQvc3VuZ2VtLmMJMjAwNC0wOS0xNSAw
-ODozODoyMCArMDI6MDAKKysrIGIvZHJpdmVycy9uZXQvc3VuZ2VtLmMJMjAwNC0wOS0xNSAwODoz
-ODoyMCArMDI6MDAKQEAgLTk0Miw2ICs5NDIsNyBAQAogCXN0cnVjdCBnZW0gKmdwID0gZGV2LT5w
-cml2OwogCWludCBlbnRyeTsKIAl1NjQgY3RybDsKKwl1bnNpZ25lZCBsb25nIGZsYWdzOwogCiAJ
-Y3RybCA9IDA7CiAJaWYgKHNrYi0+aXBfc3VtbWVkID09IENIRUNLU1VNX0hXKSB7CkBAIC05NTUs
-MTIgKzk1NiwxNyBAQAogCQkJKGNzdW1fc3R1ZmZfb2ZmIDw8IDIxKSk7CiAJfQogCi0Jc3Bpbl9s
-b2NrX2lycSgmZ3AtPnR4X2xvY2spOworCWxvY2FsX2lycV9zYXZlKGZsYWdzKTsKKwlpZiAoIXNw
-aW5fdHJ5bG9jaygmZ3AtPnR4X2xvY2spKSB7CisJCS8qIFRlbGwgdXBwZXIgbGF5ZXIgdG8gcmVx
-dWV1ZSAqLworCQlsb2NhbF9pcnFfcmVzdG9yZShmbGFncyk7CisJCXJldHVybiAtMTsKKwl9CiAK
-IAkvKiBUaGlzIGlzIGEgaGFyZCBlcnJvciwgbG9nIGl0LiAqLwogCWlmIChUWF9CVUZGU19BVkFJ
-TChncCkgPD0gKHNrYl9zaGluZm8oc2tiKS0+bnJfZnJhZ3MgKyAxKSkgewogCQluZXRpZl9zdG9w
-X3F1ZXVlKGRldik7Ci0JCXNwaW5fdW5sb2NrX2lycSgmZ3AtPnR4X2xvY2spOworCQlzcGluX3Vu
-bG9ja19pcnFyZXN0b3JlKCZncC0+dHhfbG9jaywgZmxhZ3MpOwogCQlwcmludGsoS0VSTl9FUlIg
-UEZYICIlczogQlVHISBUeCBSaW5nIGZ1bGwgd2hlbiBxdWV1ZSBhd2FrZSFcbiIsCiAJCSAgICAg
-ICBkZXYtPm5hbWUpOwogCQlyZXR1cm4gMTsKQEAgLTEwNDcsNyArMTA1Myw3IEBACiAJCSAgICAg
-ICBkZXYtPm5hbWUsIGVudHJ5LCBza2ItPmxlbik7CiAJbWIoKTsKIAl3cml0ZWwoZ3AtPnR4X25l
-dywgZ3AtPnJlZ3MgKyBUWERNQV9LSUNLKTsKLQlzcGluX3VubG9ja19pcnEoJmdwLT50eF9sb2Nr
-KTsKKwlzcGluX3VubG9ja19pcnFyZXN0b3JlKCZncC0+dHhfbG9jaywgZmxhZ3MpOwogCiAJZGV2
-LT50cmFuc19zdGFydCA9IGppZmZpZXM7CiAKQEAgLTI5NjAsNyArMjk2Niw3IEBACiAJcGNpX3Nl
-dF9kcnZkYXRhKHBkZXYsIGRldik7CiAKIAkvKiBHRU0gY2FuIGRvIGl0IGFsbC4uLiAqLwotCWRl
-di0+ZmVhdHVyZXMgfD0gTkVUSUZfRl9TRyB8IE5FVElGX0ZfSFdfQ1NVTTsKKwlkZXYtPmZlYXR1
-cmVzIHw9IE5FVElGX0ZfU0cgfCBORVRJRl9GX0hXX0NTVU0gfCBORVRJRl9GX0xMVFg7CiAJaWYg
-KHBjaV91c2luZ19kYWMpCiAJCWRldi0+ZmVhdHVyZXMgfD0gTkVUSUZfRl9ISUdIRE1BOwogCg==
-
-------=_Part_83_7502405.1095230721613--
+		
+_______________________________
+Do you Yahoo!?
+Declare Yourself - Register online to vote today!
+http://vote.yahoo.com
