@@ -1,46 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Wed, 16 Jun 2004 15:49:26 -0400
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: MTU of related devices
+Date: Wed, 16 Jun 2004 15:53:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D0A446.8010607@pobox.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com>	 <40CF263E.70009@home.nl>	 <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net>	 <40D08769.3070106@home.nl> <1087412780.3351.34.camel@sfeldma-mobl2.dsl-verizon.net>
+Message-ID: <C060DFCD9697A842B3189B458524FDC205D2D4@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Gertjan van Wingerde <gwingerde@home.nl>, netdev@oss.sgi.com,
-        jkmaline@cc.hut.fi, jt@hpl.hp.com
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sfeldma@pobox.com
-In-Reply-To: <1087412780.3351.34.camel@sfeldma-mobl2.dsl-verizon.net>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I apologize for not responding earlier...
+I have two devices, where the traffic transmitted into one is encapsulated
+and sent out the other (ethernet frames bridged over Cisco HDLC in my case),
+and the MTU of the underlying device needs to be large enough to accommodate
+the MTU of the encapsulated device plus its link layer header.  What is the
+best way to handle this?  I have thought of a few things.
 
-ethtool is the wrong direction for a few reasons,
-* I really should have done ethtool via netlink
-* We want to move away from pretending that 802.3 == 802.11, and using 
-ethtool only serves to reinforce an association we don't want to make. 
-"everything is ethernet" isn't really true :)
+0. Have the encapsulated device change the underlying device's MTU when
+necessary.  I would like this if there were only one encapsulated device,
+but there could possibly be more.
 
+1. Make both change_mtu() functions examine the other device's current MTU
+and return -EINVAL when the requested value does not meet the constraints.
+This is nice because it provides immediate feedback at the time of the
+problem.  Its primary drawback is that it requires the MTUs to be changed in
+a certain order.
 
-About overall API design...
+2. Don't constrain the MTUs in change_mtu(), but drop all packets sent to
+the encapsulated device when the MTU of the underlying device is too small
+for the encapsulated device.  Dropping all packets is better than dropping
+only the ones that are too large, because it can not be overlooked by a
+lackadaisical admin who simply pings with a small packet to see if the link
+is working.  I could either log a message, controlled by net_ratelimit(), or
+I could simply declare that MTU is one of the things to check when a link
+does not work.
 
-When designing interfaces that the low-level drivers must implement, 
-keep two things in mind:
-
-* locking, security checks, and ioctl marshalling/thunking should be 
-done in common kernel code, not each hardware driver.
-* given that, each wireless hook (callback) should be purpose-specific 
--- which means each callback's arguments and return value vary, 
-depending on the callback's purpose.  iw_handler must be killed, because 
-that forces more code than necessary to be in each low-level driver.
-
-The example to look at here is struct ethtool_ops, and net/core/ethtool.c.
-
-
-Low-level drivers should be implementing small, fine-grained hooks NOT 
-raw ioctl handlers.  In addition to fostering smaller hardware drivers, 
-this insulates the driver interface from ABI changes to a certain degree.
-
-	Jeff
+Is any of these, or a variation, officially preferred over the others?
+Thank you,
+-- 
+Dan Eble <dane@aiinet.com>  _____  .
+Software Engineer          |  _  |/|
+Applied Innovation Inc.    | |_| | |
+http://www.aiinet.com/     |__/|_|_|
