@@ -1,59 +1,49 @@
-From: "" <babe4you@shinbiro.com>
-Subject: =?ISO-8859-1?Q?[=C7=D1=C1=A4=C6=C7=B8=C5]=C4=AB=B8=DE=B6=F3=BF=A1?=
-	=?ISO-8859-1?Q?=C2=EF=C8=F7=C1=F6=20=B8=B6=BC=BC=BF=E4.?=
-	=?ISO-8859-1?Q?=C2=F7=B7=AE=BF=EB?=
-	=?ISO-8859-1?Q?GPS=BC=D3=B5=B5=B0=A8=C1=F6=B1=E2=B0=A1?=
-	=?ISO-8859-1?Q?19=B8=B8=BF=F8=B4=EB!=20=BD=C3=C1=DF=B0=A1=BA=B8=B4=D9?=
-	=?ISO-8859-1?Q?16=B8=B8=BF=F8=C0=CC=BB=F3=20=C0=FA=B7=C5!!?= lpsnul bthnh
-Date: Sun, 27 Jun 04 15:36:57 GMT
+From: "経経" <PLHoqH416612565@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=C4=AB=B5=E5=B4=EB=B1=DD?=
+	=?ISO-8859-1?Q?=B0=C6=C1=A4=C7=CF=C1=F6=B8=B6=BC=BC=BF=E4!?=  wbkkkof soawuc ilpp
+Date: Sun, 27 Jun 04 19:36:35 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <we0-qen6x8akx7il-$7$aba--5@dd607.h.7s>
-Reply-To: "" <babe4you@shinbiro.com>
+Message-ID: <1-79whef3g-k-8i2384k0k$6y6-14@adu3hu.ywv>
+Reply-To: "経経" <PLHoqH416612565@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="B.6_.55.CDA"
+	boundary="D_EDB..A1F._A5"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---B.6_.55.CDA
+--D_EDB..A1F._A5
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<html>
+<HTML>
+<HEAD>
+<TITLE>http://www.loanloan.co.kr</TITLE>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
 
-<head>
-<meta http-equiv=3D"content-type" content=3D"text/html; charset=3Deuc-kr">=
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+<IMG SRC=3D"http://www.loanloan.co.kr/mail/loanloan15.jpg" WIDTH=3D628 HEI=
+GHT=3D889 BORDER=3D0 ALT=3D"" USEMAP=3D"#loanloan15_Map">
+<MAP NAME=3D"loanloan15_Map">
+<AREA SHAPE=3D"rect" ALT=3D"" COORDS=3D"238,850,381,864" HREF=3D"http://ww=
+w.loanloan.co.kr/reject/refuse.htm" TARGET=3D"_self">
+<!-- =FFFFFFBE=FFFFFFC6=FFFFFFB7=FFFFFFA1
+=FFFFFFB8=FFFFFFC7=FFFFFFB3=FFFFFFA1=FFFFFFBA=FFFFFFCE=FFFFFFBA=FFFFFFD0 loan13=FFFFFFC0=FFFFFFBB
+=FFFFFFBA=FFFFFFBB=FFFFFFC0=FFFFFFCE=FFFFFFC0=FFFFFFC7=
+ =FFFFFFBE=FFFFFFC6=FFFFFFB5=FFFFFFDA=FFFFFFB7=FFFFFFCE
+=FFFFFFB9=FFFFFFD9=FFFFFFB2=FFFFFFD9=FFFFFFBE=FFFFFFEE
+=FFFFFFC1=FFFFFFD6=FFFFFFBC=FFFFFFBC=FFFFFFBF=FFFFFFE4 -->
+<AREA SHAPE=3D"rect" ALT=3D"" COORDS=3D"1,1,627,774" HREF=3D"http://www.lo=
+anloan.co.kr/lending/lending.htm?spid=3Dloan15" TARGET=3D"_blank">
+</MAP>
+</BODY>
+</HTML>ttrszhcstp  niwufcicm
+ptcpmcal em b ol
+s
+b
 
-<title>GPS MASTER GOLD</title>
-<meta name=3D"generator" content=3D"Namo WebEditor v5.0">
-</head>
-
-<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
-k=3D"red">
-<p><img src=3D"http://dream21.ivyro.net/img/gps.gif" width=3D"652"
-height=3D=
-"1126" border=3D"0" usemap=3D"#ImageMap1">&nbsp;</p>
-<map name=3D"ImageMap1">
-<area shape=3D"rect" coords=3D"13, 570, 119, 593" href=3D"http://www.gpsgp=
-s.co.kr  ">
-<area shape=3D"rect" coords=3D"138, 570, 244, 594" href=3D"http://www.gpsn=
-ara.co.kr/home/pd12.asp">
-<area shape=3D"rect" coords=3D"269, 570, 376, 594" href=3D"http://www.fusi=
-onpia.co.kr/catalog/catalog2.asp?menu2=3D102 ">
-<area shape=3D"rect" coords=3D"395, 571, 501, 595" href=3D"http://www.pric=
-engo.com/prod/detail.jsp?prodid=3DHH04205561 ">
-<area shape=3D"rect" coords=3D"523, 570, 628, 594" href=3D"http://www.ktma=
-ll.com/ctg/front/item_detail.jsp?item_id=3D5152908&cid=3Dnaver">
-<area shape=3D"rect" coords=3D"2, 612, 649, 1050" href=3D"http://db.bluewe=
-b.co.kr/formmail/formmail.html?dataname=3Dredhair0">
-<area shape=3D"rect" coords=3D"440, 1055, 529, 1079" href=3D"mailto:gpsrej=
-ect@hanmail.net">
-<area shape=3D"rect" coords=3D"516, 1079, 572, 1101" href=3D"mailto:gpsrej=
-ect@hanmail.net">
-</map></body>
-</html>
-
---B.6_.55.CDA--
+--D_EDB..A1F._A5--
