@@ -1,51 +1,50 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge device
-Date: 02 Sep 2003 23:43:44 +0200
+From: Eran Mann <emann@mrv.com>
+Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge
+ device
+Date: Wed, 03 Sep 2003 01:05:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m38yp6uar3.fsf@defiant.pm.waw.pl>
-References: <200308301504.03241.bdschuym@pandora.be>
-	<200309021932.37224.bdschuym@pandora.be>
-	<m3ptijt5ek.fsf@defiant.pm.waw.pl>
-	<200309022202.52044.bdschuym@pandora.be>
+Message-ID: <3F552256.7000008@mrv.com>
+References: <200308301504.03241.bdschuym@pandora.be> <20030830203043.0eb1a660.davem@redhat.com> <20030902082807.0e18fe76.shemminger@osdl.org> <200309021932.37224.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-   "David S. Miller" <davem@redhat.com>, greearb@candelatech.com,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200309022202.52044.bdschuym@pandora.be>
+To: emann@opticalaccess.com
+In-Reply-To: <200309021932.37224.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bart De Schuymer <bdschuym@pandora.be> writes:
+Bart De Schuymer wrote:
 
-> Let me compare eth1.15 with br0.15, eth0 is a port of br0, eth1 is not, 
-> eth0.xx doesn't exist.
 > 
-> Vlan tagged packet arrives on eth1: the vlan code gets to deal with the
-> packet 
-> thanks to dev_add_pack(&vlan_packet_type). If the vlan tag differs from 15, 
-> the packet is dropped. To outsiders, the indev is eth0.15.
+> OK. But isn't br0.15 supposed to work like this: all vlan tagged traffic with 
+> tag different from 15 is discarded, all non-tagged traffic is given to br0. 
+> This is how it works with a vlan on top of physical devices like eth0 if I 
+> read the code correctly, but it doesn't currently work like that for vlan on 
+> top of a logical bridge device. The vlan code only sees tagged packets if the 
+> packets are destined for the bridge box itself, so bridged traffic is 
+> unaffected.
+> This is why I think a vlan device on top of br0 in Linux is currently useless.
+> 
+> cheers,
+> Bart
+> 
+Actually this behavior (bridge all VLANs for non-local traffic, allow 
+incoming traffic only from configured VLANs) is exactly what you 
+typicaly want in a bridged VLAN-aware LAN. Assume for instance that an 
+enterprise has N departments and a VLAN (or a few) for each dept. You 
+want only guys from the MIS or IT department to be able to manage the 
+bridges, not all the departments. being able to configure br0.x in such 
+a setup would save you a lot of configuration. Otherwise you'd have to
+- configure all the N VLANs on all the physical ports.
+- define ebtable rules on each non MIS VLAN, on each physical port, to 
+block access to the bridge management.
+- define bridging between all the devices.
 
-Right.
- 
-> Vlan tagged packet arrives on eth0: the bridge code gets to deal with the 
-> packet. So, to (most) outsiders the indev is br0. The bridge code happily 
-> forwards the packet, no matter what the vlan tag might be.
+Also if you want to run spanning-tree than you have a slight problem, 
+since the STP code is not VLAN aware, and would send BPDUs on the VLAN 
+devices as if they were normal ports, so you need to setup a br
 
-Right. The bridge just bridges the packet based on dest MAC.
-
-> I would find it logical if the indev would be br0.15 for vlan traffic over a 
-> bridge br0 when br0.15 exists, and that only vlan15 traffic gets forwarded.
-> So, basically, I'd expect br0.15 to act like a bridge, since br0 is a bridge.
-
-I would rather expect that br0 bridges all ethernet frames. br0.15 should
-behave like a "static VLAN" port on VLAN-aware switch. This is basically
-what VLAN-aware switches do with trunk and single VLAN ports (let alone
-VLAN filtering which isn't implemented here).
-
-If you have just one trunk port, don't add it (eth0) to the bridge.
-Add eth0.15 to the bridge instead.
--- 
-Krzysztof Halasa, B*FH
+Regards,
+	Eran.
