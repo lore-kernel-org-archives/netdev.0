@@ -1,56 +1,23 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] synclink -- incorrect check of register_netdev return val.
-Date: Fri, 10 Oct 2003 10:32:02 -0700
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: e1000 close (NAPI)
+Date: Fri, 10 Oct 2003 11:45:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010103202.1c6ef5f2.shemminger@osdl.org>
-References: <20031009112714.18742308.shemminger@osdl.org>
-	<20031010000158.2dc9ce78.davem@redhat.com>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229749@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031010000158.2dc9ce78.davem@redhat.com>
+content-class: urn:content-classes:message
+To: "Robert Olsson" <Robert.Olsson@data.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The synclink family of drivers all check for register_netdev returning
--1 when in fact it will return -EIO or -EEXIST.
+Robert Olsson wrote:
+> Other drivers may have the same issue. This was spotted 
+> while stress-testing tulip. Patch was sent here some days
+> ago. It's only seen if trying to close device under extreme
+> loads. See the syncing code in dev_close()
 
-diff -Nru a/drivers/char/pcmcia/synclink_cs.c b/drivers/char/pcmcia/synclink_cs.c
---- a/drivers/char/pcmcia/synclink_cs.c	Fri Oct 10 10:00:46 2003
-+++ b/drivers/char/pcmcia/synclink_cs.c	Fri Oct 10 10:00:46 2003
-@@ -4232,7 +4232,7 @@
- 	d->tx_timeout = mgslpc_sppp_tx_timeout;
- 	d->watchdog_timeo = 10*HZ;
- 
--	if (register_netdev(d) == -1) {
-+	if (register_netdev(d)) {
- 		printk(KERN_WARNING "%s: register_netdev failed.\n", d->name);
- 		sppp_detach(info->netdev);
- 		return;
-diff -Nru a/drivers/char/synclink.c b/drivers/char/synclink.c
---- a/drivers/char/synclink.c	Fri Oct 10 10:00:46 2003
-+++ b/drivers/char/synclink.c	Fri Oct 10 10:00:46 2003
-@@ -7847,7 +7847,7 @@
- 	d->tx_timeout = mgsl_sppp_tx_timeout;
- 	d->watchdog_timeo = 10*HZ;
- 
--	if (register_netdev(d) == -1) {
-+	if (register_netdev(d)) {
- 		printk(KERN_WARNING "%s: register_netdev failed.\n", d->name);
- 		sppp_detach(info->netdev);
- 		return;
-diff -Nru a/drivers/char/synclinkmp.c b/drivers/char/synclinkmp.c
---- a/drivers/char/synclinkmp.c	Fri Oct 10 10:00:46 2003
-+++ b/drivers/char/synclinkmp.c	Fri Oct 10 10:00:46 2003
-@@ -1653,7 +1653,7 @@
- 	d->tx_timeout = sppp_cb_tx_timeout;
- 	d->watchdog_timeo = 10*HZ;
- 
--	if (register_netdev(d) == -1) {
-+	if (register_netdev(d)) {
- 		printk(KERN_WARNING "%s: register_netdev failed.\n", d->name);
- 		sppp_detach(info->netdev);
- 		return;
+Got it, thanks.
