@@ -1,235 +1,139 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM] cleanup pppoatm and br2684 modules
-Date: Mon, 14 Jul 2003 17:06:14 -0400
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: [patch] e1000 TSO parameter
+Date: Mon, 14 Jul 2003 21:42:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307142108.h6EL8fsG021288@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229169@orsmsx402.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+content-class: urn:content-classes:message
+To: <davidm@hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-this should be applied to the latest 2.5 sources...
+[Moving over to netdev]
 
-[atm]: cleanup pppoatm_ioctl_hook
+> Hi Scott,
+> 
+> Would you mind applying the attached patch for the e1000 
+> driver?  The patch adds a "TSO" option which lets you disable 
+> TSO at boot-time/module-insertion time.  This is useful for 
+> experimentation and, on fast machines, you can actually get 
+> better netperf numbers with TSO disabled. ;-)
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1362  -> 1.1363 
-#	   net/atm/pppoatm.c	1.7     -> 1.8    
-#	    net/atm/common.h	1.13    -> 1.14   
-#	    net/atm/common.c	1.38    -> 1.39   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/06/21	chas@relax.cmf.nrl.navy.mil	1.1363
-# pppoatm.c, common.h, common.c:
-#   cleanup pppoatm_ioctl_hook
-# --------------------------------------------
-#
-diff -Nru a/net/atm/common.c b/net/atm/common.c
---- a/net/atm/common.c	Mon Jun 23 09:45:58 2003
-+++ b/net/atm/common.c	Mon Jun 23 09:45:58 2003
-@@ -129,8 +129,19 @@
- #endif
+This is interesting.  I assume you're trying to get the best throughput
+regardless of CPU utilization.  Why are we getting lower throughput
+rates?  It's an open question for netdev.  Do you have any data to
+share?
  
- #if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
--int (*pppoatm_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
--EXPORT_SYMBOL(pppoatm_ioctl_hook);
-+static DECLARE_MUTEX(pppoatm_ioctl_mutex);
-+
-+static int (*pppoatm_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
-+
-+void pppoatm_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long))
-+{
-+	down(&pppoatm_ioctl_mutex);
-+	pppoatm_ioctl_hook = hook;
-+	up(&pppoatm_ioctl_mutex);
-+}
-+#ifdef CONFIG_PPPOATM_MODULE
-+EXPORT_SYMBOL(pppoatm_ioctl_set);
-+#endif
- #endif
- 
- #if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
-@@ -865,12 +876,14 @@
- 		default:
- 			break;
- 	}
-+	error = -ENOIOCTLCMD;
- #if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
--	if (pppoatm_ioctl_hook) {
-+	down(&pppoatm_ioctl_mutex);
-+	if (pppoatm_ioctl_hook)
- 		error = pppoatm_ioctl_hook(vcc, cmd, arg);
--		if (error != -ENOIOCTLCMD)
--			goto done;
--	}
-+	up(&pppoatm_ioctl_mutex);
-+	if (error != -ENOIOCTLCMD)
-+		goto done;
- #endif
- #if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
- 	if (br2684_ioctl_hook) {
-diff -Nru a/net/atm/common.h b/net/atm/common.h
---- a/net/atm/common.h	Mon Jun 23 09:45:58 2003
-+++ b/net/atm/common.h	Mon Jun 23 09:45:58 2003
-@@ -26,6 +26,8 @@
- 
- void atm_shutdown_dev(struct atm_dev *dev);
- 
-+void pppoatm_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long));
-+
- int atmpvc_init(void);
- void atmpvc_exit(void);
- int atmsvc_init(void);
-diff -Nru a/net/atm/pppoatm.c b/net/atm/pppoatm.c
---- a/net/atm/pppoatm.c	Mon Jun 23 09:45:58 2003
-+++ b/net/atm/pppoatm.c	Mon Jun 23 09:45:58 2003
-@@ -44,6 +44,8 @@
- #include <linux/ppp_channel.h>
- #include <linux/atmppp.h>
- 
-+#include "common.h"
-+
- #if 0
- #define DPRINTK(format, args...) \
- 	printk(KERN_DEBUG "pppoatm: " format, ##args)
-@@ -344,17 +346,15 @@
- /* the following avoids some spurious warnings from the compiler */
- #define UNUSED __attribute__((unused))
- 
--extern int (*pppoatm_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
--
- static int __init UNUSED pppoatm_init(void)
- {
--	pppoatm_ioctl_hook = pppoatm_ioctl;
-+	pppoatm_ioctl_set(pppoatm_ioctl);
- 	return 0;
- }
- 
- static void __exit UNUSED pppoatm_exit(void)
- {
--	pppoatm_ioctl_hook = NULL;
-+	pppoatm_ioctl_set(NULL);
- }
- 
- module_init(pppoatm_init);
+> Note that I had to move the e1000_check_options() call to a 
+> slighly earlier place.  You may want to double-check that 
+> it's really OK.
 
+I'm not too keen on adding another module parameter.  Maybe a
+CONFIG_E1000_TSO option?
 
-
-[atm]: cleanup br2684_ioctl_hook
-
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1363  -> 1.1364 
-#	    net/atm/br2684.c	1.3     -> 1.4    
-#	    net/atm/common.h	1.14    -> 1.15   
-#	    net/atm/common.c	1.39    -> 1.40   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/06/21	chas@relax.cmf.nrl.navy.mil	1.1364
-# common.h, common.c, br2684.c:
-#   cleanup br2684_ioctl_hook
-# --------------------------------------------
-#
-diff -Nru a/net/atm/br2684.c b/net/atm/br2684.c
---- a/net/atm/br2684.c	Mon Jun 23 09:45:37 2003
-+++ b/net/atm/br2684.c	Mon Jun 23 09:45:37 2003
-@@ -16,9 +16,12 @@
- #include <linux/ip.h>
- #include <asm/uaccess.h>
- #include <net/arp.h>
-+#include <linux/atm.h>
-+#include <linux/atmdev.h>
- 
- #include <linux/atmbr2684.h>
- 
-+#include "common.h"
- #include "ipcommon.h"
- 
- /*
-@@ -768,8 +771,6 @@
- 
- extern struct proc_dir_entry *atm_proc_root;	/* from proc.c */
- 
--extern int (*br2684_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
--
- /* the following avoids some spurious warnings from the compiler */
- #define UNUSED __attribute__((unused))
- 
-@@ -779,14 +780,14 @@
- 	if ((p = create_proc_entry("br2684", 0, atm_proc_root)) == NULL)
- 		return -ENOMEM;
- 	p->proc_fops = &br2684_proc_operations;
--	br2684_ioctl_hook = br2684_ioctl;
-+	br2684_ioctl_set(br2684_ioctl);
- 	return 0;
- }
- 
- static void __exit UNUSED br2684_exit(void)
- {
- 	struct br2684_dev *brdev;
--	br2684_ioctl_hook = NULL;
-+	br2684_ioctl_set(NULL);
- 	remove_proc_entry("br2684", atm_proc_root);
- 	while (!list_empty(&br2684_devs)) {
- 		brdev = list_entry_brdev(br2684_devs.next);
-diff -Nru a/net/atm/common.c b/net/atm/common.c
---- a/net/atm/common.c	Mon Jun 23 09:45:37 2003
-+++ b/net/atm/common.c	Mon Jun 23 09:45:37 2003
-@@ -145,9 +145,18 @@
- #endif
- 
- #if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
--int (*br2684_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
-+static DECLARE_MUTEX(br2684_ioctl_mutex);
-+
-+static int (*br2684_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
-+
-+void br2684_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long))
-+{
-+	down(&br2684_ioctl_mutex);
-+	br2684_ioctl_hook = hook;
-+	up(&br2684_ioctl_mutex);
-+}
- #ifdef CONFIG_ATM_BR2684_MODULE
--EXPORT_SYMBOL(br2684_ioctl_hook);
-+EXPORT_SYMBOL(br2684_ioctl_set);
- #endif
- #endif
- 
-@@ -886,11 +895,12 @@
- 		goto done;
- #endif
- #if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
--	if (br2684_ioctl_hook) {
-+	down(&br2684_ioctl_mutex);
-+	if (br2684_ioctl_hook)
- 		error = br2684_ioctl_hook(vcc, cmd, arg);
--		if (error != -ENOIOCTLCMD)
--			goto done;
--	}
-+	up(&br2684_ioctl_mutex);
-+	if (error != -ENOIOCTLCMD)
-+		goto done;
- #endif
- 
- 	error = atm_dev_ioctl(cmd, arg);
-diff -Nru a/net/atm/common.h b/net/atm/common.h
---- a/net/atm/common.h	Mon Jun 23 09:45:37 2003
-+++ b/net/atm/common.h	Mon Jun 23 09:45:37 2003
-@@ -27,6 +27,7 @@
- void atm_shutdown_dev(struct atm_dev *dev);
- 
- void pppoatm_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long));
-+void br2684_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long));
- 
- int atmpvc_init(void);
- void atmpvc_exit(void);
+> The patch is relative to 2.5.75.
+> 
+> Thanks,
+> 
+> 	--david
+> 
+> # This is a BitKeeper generated patch for the following 
+> project: # Project Name: Linux kernel tree # This patch 
+> format is intended for GNU patch command version 2.5 or 
+> higher. # This patch includes the following deltas:
+> #	           ChangeSet	1.1379  -> 1.1380 
+> #	drivers/net/e1000/e1000.h	1.33    -> 1.34   
+> #	drivers/net/e1000/e1000_main.c	1.77    -> 1.78   
+> #	drivers/net/e1000/e1000_param.c	1.21    -> 1.22   
+> #
+> # The following is the BitKeeper ChangeSet Log
+> # --------------------------------------------
+> # 03/07/14	davidm@tiger.hpl.hp.com	1.1380
+> # Make it possible to disable TSO at module-load time (or 
+> boot-time). # This is controlled via the TSO parameter (e.g., 
+> modprobe e1000 TSO=0,0,0,0 # will disable TSO on the first 4 
+> e1000 NICs). # --------------------------------------------
+> #
+> diff -Nru a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
+> --- a/drivers/net/e1000/e1000.h	Mon Jul 14 17:29:30 2003
+> +++ b/drivers/net/e1000/e1000.h	Mon Jul 14 17:29:30 2003
+> @@ -194,6 +194,7 @@
+>  	uint32_t tx_head_addr;
+>  	uint32_t tx_fifo_size;
+>  	atomic_t tx_fifo_stall;
+> +	boolean_t tso;
+>  
+>  	/* RX */
+>  	struct e1000_desc_ring rx_ring;
+> diff -Nru a/drivers/net/e1000/e1000_main.c 
+> b/drivers/net/e1000/e1000_main.c
+> --- a/drivers/net/e1000/e1000_main.c	Mon Jul 14 17:29:30 2003
+> +++ b/drivers/net/e1000/e1000_main.c	Mon Jul 14 17:29:30 2003
+> @@ -417,9 +417,12 @@
+>  		netdev->features = NETIF_F_SG;
+>  	}
+>  
+> +	e1000_check_options(adapter);
+> +
+>  #ifdef NETIF_F_TSO
+>  	if((adapter->hw.mac_type >= e1000_82544) &&
+> -	   (adapter->hw.mac_type != e1000_82547))
+> +	   (adapter->hw.mac_type != e1000_82547) &&
+> +	   adapter->tso)
+>  		netdev->features |= NETIF_F_TSO;
+>  #endif
+>  
+> @@ -469,7 +472,6 @@
+>  
+>  	printk(KERN_INFO "%s: Intel(R) PRO/1000 Network Connection\n",
+>  	       netdev->name);
+> -	e1000_check_options(adapter);
+>  
+>  	/* Initial Wake on LAN setting
+>  	 * If APM wake is enabled in the EEPROM,
+> diff -Nru a/drivers/net/e1000/e1000_param.c 
+> b/drivers/net/e1000/e1000_param.c
+> --- a/drivers/net/e1000/e1000_param.c	Mon Jul 14 17:29:30 2003
+> +++ b/drivers/net/e1000/e1000_param.c	Mon Jul 14 17:29:30 2003
+> @@ -192,6 +192,16 @@
+>  
+>  E1000_PARAM(InterruptThrottleRate, "Interrupt Throttling Rate");
+>  
+> +/* Enable TSO - TCP Segmentation Offload Enable/Disable
+> + *
+> + * Valid Range: 0, 1
+> + *  - 0 - disables TSO
+> + *  - 1 - enables TSO on NICs that are TSO capable
+> + *
+> + * Default Value: 1
+> + */
+> +E1000_PARAM(TSO, "Disable or enable TSO");
+> +
+>  #define AUTONEG_ADV_DEFAULT  0x2F
+>  #define AUTONEG_ADV_MASK     0x2F
+>  #define FLOW_CONTROL_DEFAULT FLOW_CONTROL_FULL
+> @@ -454,6 +464,18 @@
+>  		} else {
+>  			e1000_validate_option(&adapter->itr, &opt);
+>  		}
+> +	}
+> +	{ /* TSO Enable/Disable */
+> +		struct e1000_option opt = {
+> +			.type = enable_option,
+> +			.name = "TSO",
+> +			.err  = "defaulting to Enabled",
+> +			.def  = OPTION_ENABLED
+> +		};
+> +
+> +		int tso = TSO[bd];
+> +		e1000_validate_option(&tso, &opt);
+> +		adapter->tso = tso;
+>  	}
+>  
+>  	switch(adapter->hw.media_type) {
+> 
