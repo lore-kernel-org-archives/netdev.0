@@ -1,31 +1,32 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [RFC BK 0/22] xfrm offload v2: Add hardware assist for IPSEC
- crypto
-Date: Mon, 17 Jan 2005 14:00:22 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0501171358170.20772-100000@thoron.boston.redhat.com>
-References: <20040110014300.01@ori.thedillows.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 2.6.10 ipv6/8021q lockup on vconfig on interface removal
+Date: Mon, 17 Jan 2005 11:16:59 -0800
+Message-ID: <41EC0F2B.7010002@candelatech.com>
+References: <41EA0A01.2020707@tomt.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Dillow <dave@thedillows.org>
-In-Reply-To: <20040110014300.01@ori.thedillows.org>
+To: Andre Tomt <andre@tomt.net>
+In-Reply-To: <41EA0A01.2020707@tomt.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 10 Jan 2005, David Dillow wrote:
+Andre Tomt wrote:
+> I sent this initially about a week ago, but nobody have said anything, 
+> not even a confirmation that its beeing looked into, or about me beeing 
+> silly - highly unusual on netdev! So I'm reposting (with slight 
+> modifications), boo, shame on me. Just a bit worried it slipped through 
+> the cracks.
 
-> * Only the 3Com 3CR990 family of NICs are supported. I don't have hardware
-> 	or documentation for the Intel cards.
+My take on this is that it is a bug in the IPv6 code.  If the IPv6 people
+think that the VLAN code might could be causing this, then I am open to
+suggestions as to how the VLAN code might be in error....
 
-Is documentation for the 3com card freely available?  Also, are the cards 
-still available on the market?  The 3com site says the 3CR990-TX-97 and 
--95 cards are discontinued.
+Ben
 
-
-
-- James
 -- 
-James Morris
-<jmorris@redhat.com>
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
