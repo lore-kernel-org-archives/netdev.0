@@ -1,80 +1,105 @@
-From: =?Big5?B?pua+UCAgILOhqvk=?= <ejwbhudfw@md.net.net.sgi.com>
-Subject: =?Big5?B?wuC1uX5+fqbmICC+UCCzoSCq+Q==?=
-Date: Mon, 8 Mar 2004 00:49:03 +0800
+From: "" <uri_2gds@hanmir.com>
+Subject: =?ISO-8859-1?Q?=A1=D8=20=BF=C0=BA=FC=20=BA=B8=B0=ED=BD=CD=BE=EE....?=
+	=?ISO-8859-1?Q?=A1=D8?=  jhbwvczvh wep
+Date: Mon, 08 Mar 04 01:57:16 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403072053.i27KrCKO027522@oss.sgi.com>
-Content-Type: text/html
+Message-ID: <7$o0o50t43th2evh8126@lvds.sel.w6>
+Reply-To: "" <uri_2gds@hanmir.com>
+Mime-Version: 1.0
+Content-Type: multipart/alternative;
+	boundary="EE7889_E3.FDB_0DFF5__0"
 Return-path: <netdev-bounce@oss.sgi.com>
+To: majordomo@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+
+--EE7889_E3.FDB_0DFF5__0
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
+
 <html>
+
 <head>
-<meta http-equiv="Content-Language" content="zh-tw">
-<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
-<meta name="ProgId" content="FrontPage.Editor.Document">
-<meta http-equiv="Content-Type" content="text/html; charset=big5">
-<title>您還在刊登傳統的廣告嗎</title>
+<meta http-equiv=3D"content-type" content=3D"text/html; charset=3Deuc-kr">=
+
+<title>=FFFFFFC1=FFFFFFA6=FFFFFFB8=FFFFFFF1
+=FFFFFFBE=FFFFFFF8=FFFFFFC0=FFFFFFBD</title>
+<meta name=3D"generator" content=3D"Namo WebEditor v5.0">
 </head>
-<body bgcolor="#99FFCC">
-<div style="position: absolute; left: 10; top: 15; width: 893; height: 651">
-<table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber1">
-  <tr>
-    <td width="100%">
-    <p align="center"><b><font color="#FF6699" size="7"><i>
-<marquee behavior="alternate" width="300">e世代的來臨</marquee></i></font></b></td>
-  </tr>
-</table>
-<table border="0" cellpadding="0" cellspacing="0" style="border-collapse: collapse" bordercolor="#111111" width="100%" id="AutoNumber2">
-  <tr>
-    <td width="100%" colspan="3">
-<div style="position: relative">
-<p align="center"><font color="#ff00ff" size="5">
-<span style="font-weight: 700; background-color: #99FFCC">您還在刊登傳統的廣告嗎?</span></font></p>
-<p align="center"><font color="#0000ff" size="5">
-<span style="font-weight: 700; background-color: #99FFCC">您知道台灣一天有多少人在上網看廣告嗎??</span></font></p>
-<p align="center"><span style="font-weight: 700; background-color: #99FFCC">
-<font color="#0000ff" size="5">花小錢就可賺大錢&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; </font>
-<font color="#ff0000" size="5">電子報的效果最理想</font></span></p>
-<p align="center"><font color="#0000ff" size="5">
-<span style="font-weight: 700; background-color: #99FFCC">發揮槓桿原理&nbsp; 、以小搏大的方式</span></font></p>
-<p align="center">每日上萬筆高流覽率，可提升貴公司網站的曝光率!!</p>
-<p align="center">幫助您創造嶄新的業務佳績~~~~提升商品銷售量~~</p>
-<p align="center">趕緊連絡我們專業網路廣告代發啦~~~!!</p>
-    </div>
-    <p>　</td>
-  </tr>
-  <tr>
-    <td width="25%"><font color="#9900cc">&nbsp;</font><b><font color="#9900cc">&nbsp;</font></b><p>　</td>
-    <td width="54%"><b><font color="#9900cc">&nbsp;&nbsp;&nbsp;  </font></b><font color="#9900cc">&nbsp;&nbsp;&nbsp;&nbsp; </font>
-    <form method="POST" action="http://f2m.idv.tw/f2m.php?F=1060249537">
-      <p><b><font color="#9900cc">公司名稱:<input size="17" name="公司名">&nbsp;&nbsp;&nbsp; 
-  行動電話 :<input size="20" name="行動電話"></font></b></p>
-      <p><b><font color="#9900cc">連絡人員:<input size="17" name="連絡人員">&nbsp;&nbsp;&nbsp; 公司電話 :<input size="20" name="OFFCE  TEL"></font></b></p>
-  <p><b><font color="#9900cc">居住所在位置:<input size="47" name="居住位置"></font></b></p>
-  <p><font color="#9900cc"><b>公司網址:<input value="http://" name="公司網址" size="23">E-MAIL:</b></font><b><font color="#9900cc"><input size="19" name="居住位置1">&nbsp;&nbsp;&nbsp;
-  </font></b></p>
-      <p align="center"><input type="submit" value="填妥送出" name="B1">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-      <input type="reset" value="重新填寫" name="B2"></p>
-      <input type="hidden" name="SOB" value="e世代電子報代發  chi  hello">
-    </form>
-    </td>
-    <td width="21%">　</td>
-  </tr>
-</table>
-<form action="http://f2m.idv.tw/f2m.php?F=1060249537" method="POST">
-  <p>&nbsp;&nbsp;</p>
-<p align="center"><b>連絡<font color="#ff0000">msn</font>&nbsp; <font color="#9900cc">
-<a href="mailto:gavin1868@hotmail.com">gavin1868</a></font><font color="#ff0000">&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; &nbsp;</font><font color="#0000FF">Yahoo:</font><font color="#ff0000"> 
-gavin18682002&nbsp;&nbsp; </font><font color="#0000FF">&nbsp;行動電話</font><font color="#ff0000">: 
-0920-125-555 </font><font color="#0000ff">程先生</font></b></p>
-  <div style="position: absolute; left: 10; top: 580; width: 866; height: 51">
-　</div>
-  <input type="hidden" value="e世代新回涵EBT" name="SOB">
-</form>
-<p>　</p>
-</div>
-</body>
-<script src="http://spacem.newspace.com.tw/usercounter/gcount.asp?MyCount=gavin1868&CountID=116"></script>
-<p align="center">　</p>
+
+<body bgcolor=3D"red" text=3D"black" link=3D"blue" vlink=3D"purple"
+alink=3D=
+"red">
+
+<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
+target=3D=
+_blank ><img src=3D"http://www.porno444.net/join/images3_1/title.gif" bord=
+er=3D"0"></a><br><br>
+<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
+target=3D=
+_blank ><img src=3D"http://yoohofilm.co.kr/banner/150300_01.gif" width=3D"=
+150" height=3D"300" border=3D"0">
+</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
+rget=3D'_blank'><img src=3D"http://pornoservice.co.kr/banner/150_300.gif" =
+width=3D"150" height=3D"300" border=3D"0"></a><a href=3D"http://www.free24=
+sex.com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
+
+
+<img src=3D"http://211.239.154.231/~partner/photo/upskirts/banner37.gif" w=
+idth=3D"150" height=3D"300" border=3D"0">
+</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
+rget=3D'_blank'><img src=3D"http://211.239.154.231/~partner/photo/upskirts=
+/banner45.gif" width=3D"150" height=3D"300" border=3D"0"></a> 
+<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
+target=3D=
+_blank ><img src=3D"http://sexualbozi.com/banner/1121/150-300.gif"
+width=3D=
+"150" height=3D"300" border=3D"0"></a><br><a href=3D'http://www.24freeporn=
+o.net/index.php?pid=3Dsony&did=3D1' target=3D'_blank'><img src=3D"http://x=
+x892girl.com/banner/20040131/150-300.gif" width=3D"150" height=3D"300" bor=
+der=3D"0"></a><a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=
+=3D1" target=3D_blank >
+
+<img src=3D"http://xx892girl.com/banner/1030/150-300.gif" width=3D"150" he=
+ight=3D"300" border=3D"0">
+</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
+rget=3D'_blank'><img src=3D"http://www.xfetish.jp/partner/login_after/bann=
+erimg/b7.gif" width=3D"150" height=3D"300" border=3D"0"></a><a href=3D"htt=
+p://www.free24sex.com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
+
+
+
+<img src=3D"http://www.xfetish.jp/partner/login_after/bannerimg/b14.gif" w=
+idth=3D"150" height=3D"300" border=3D"0">
+</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
+rget=3D'_blank'><img src=3D"http://www.588molcalive.com/imgs/banner/150_30=
+0_02.gif" width=3D"150" height=3D"300" border=3D"0"></a><a href=3D"http://=
+www.free24sex.com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
+</a><br><a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1" =
+target=3D_blank >
+
+<img src=3D"http://www.playbozi.co.kr/data/banner/185.gif" width=3D"150" h=
+eight=3D"300" border=3D"0">
+
+</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
+rget=3D'_blank'><img src=3D"http://www.xx10bozi.com/Upload/banner/10730237=
+05bn_04_150_300.gif" width=3D"150" height=3D"300" border=3D"0"></a>&nbsp;<=
+a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1" target=3D=
+_blank ><img src=3D"http://www.xx10bozi.com/Upload/banner/1057296288150_30=
+0_2.gif" width=3D"150" height=3D"300" border=3D"0">
+</a><a href=3D'http://www.24freeporno.net/index.php?pid=3Dsony&did=3D1' ta=
+rget=3D'_blank'><img src=3D"http://www.bogwa.com/data/banner/121.gif" widt=
+h=3D"150" height=3D"300" border=3D"0"></a><a href=3D"http://www.free24sex.=
+com/index.php?pid=3Dsony&did=3D1" target=3D_blank >
+<a href=3D"http://www.free24sex.com/index.php?pid=3Dsony&did=3D1"
+target=3D=
+_blank ><img src=3D"http://yoohofilm.co.kr/banner/150300_01.gif" width=3D"=
+150" height=3D"300" border=3D"0">
+</a>
+</a></body>
+
 </html>
+xqv wtjngymvm obefil dhn eil
+
+--EE7889_E3.FDB_0DFF5__0--
