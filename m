@@ -1,33 +1,90 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: ipw2100 wireless driver
-Date: Tue, 10 Aug 2004 11:34:39 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040810113439.A15100@infradead.org>
-References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz>
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH Linux-2.6.8-rcx] prism54 Fix supported rates
+	reporting
+Date: Tue, 10 Aug 2004 13:34:06 +0200
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <200408101334.07020.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Chua <jeffchua@silk.corp.fedex.com>,
-        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
-        kernel list <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Machek <pavel@suse.cz>
-Content-Disposition: inline
-In-Reply-To: <20040810101640.GF9034@atrey.karlin.mff.cuni.cz>; from pavel@suse.cz on Tue, Aug 10, 2004 at 12:16:40PM +0200
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_uKLGBVHJg8OD85r"
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: jgarzik@pobox.com
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 10, 2004 at 12:16:40PM +0200, Pavel Machek wrote:
-> I know very little about wireless-2.6 tree (where to get it without
-> bitkeeper?), but...
 
-http://gkernel.bkbits.net:8080/wireless-2.6 it the bkweb interface, that's
-the only thing I've looked at myself so far.
+--Boundary-00=_uKLGBVHJg8OD85r
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> task is to take ipw2100 driver, drop ieee80211_* files from it, and
-> make it work with ieee80211* files from wireless-2.6?
+2004-08-10 Margit Schubert-While <margitsw@t-online.de>
+* We are not correctly reporting supported bit rates.
+* Fix it.
 
-there's no ieee80211_* files in the wireless-2.6 tree, the code is part
-of hostap_*
+Margit
 
-and btw, I think hostap_* is the wrong name for the prism-specific files,
-too.  I'd rather call those prism2_* or something.
+
+
+
+
+
+
+
+
+
+
+
+
+--Boundary-00=_uKLGBVHJg8OD85r
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="supprates.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="supprates.patch"
+
+diff -Naur linux-2.6.8-01/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.8-04/drivers/net/wireless/prism54/isl_ioctl.c
+--- linux-2.6.8-01/drivers/net/wireless/prism54/isl_ioctl.c	2004-08-10 10:52:08.000000000 +0200
++++ linux-2.6.8-04/drivers/net/wireless/prism54/isl_ioctl.c	2004-08-10 13:21:03.000000000 +0200
+@@ -436,7 +436,7 @@
+ {
+ 	struct iw_range *range = (struct iw_range *) extra;
+ 	islpci_private *priv = netdev_priv(ndev);
+-	char *data;
++	u8 *data;
+ 	int i, m, rvalue;
+ 	struct obj_frequencies *freq;
+ 	union oid_res_t r;
+@@ -513,8 +513,7 @@
+ 	i = 0;
+ 	while ((i < IW_MAX_BITRATES) && (*data != 0)) {
+ 		/*       the result must be in bps. The card gives us 500Kbps */
+-		range->bitrate[i] = (__s32) (*data >> 1);
+-		range->bitrate[i] *= 1000000;
++		range->bitrate[i] = *data * 500000;
+ 		i++;
+ 		data++;
+ 	}
+
+--Boundary-00=_uKLGBVHJg8OD85r
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--Boundary-00=_uKLGBVHJg8OD85r--
