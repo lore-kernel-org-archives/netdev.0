@@ -1,112 +1,72 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 1/7] netpoll: shorten carrier detect timeout
-Date: Sun, 06 Mar 2005 02:01:01 +0100
-Message-ID: <422A564D.4080809@trash.net>
-References: <2.454130102@selenic.com> <422A4A38.4040303@trash.net> <20050306002015.GD3120@waste.org>
+From: Pedro Fortuna <pedro.fortuna@gmail.com>
+Subject: Re: filtering packtes before OS takes care about them
+Date: Sun, 6 Mar 2005 02:04:57 +0000
+Message-ID: <db95d40c05030518043b50adb4@mail.gmail.com>
+References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+	 <7bca1cb50502281209798e8a00@mail.gmail.com>
+	 <db95d40c0503050608e1e98d9@mail.gmail.com>
+	 <7bca1cb505030510586aeb96c1@mail.gmail.com>
+	 <db95d40c050305113668c3ff07@mail.gmail.com>
+	 <7bca1cb50503051729e3273d3@mail.gmail.com>
+Reply-To: Pedro Fortuna <pedro.fortuna@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000108030807050108000103"
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        Jeff Moyer <jmoyer@redhat.com>
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20050306002015.GD3120@waste.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: Asim Shankar <asimshankar@gmail.com>
+In-Reply-To: <7bca1cb50503051729e3273d3@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000108030807050108000103
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Thanks for you help Asim :)
 
-Matt Mackall wrote:
-> On Sun, Mar 06, 2005 at 01:09:28AM +0100, Patrick McHardy wrote:
->>
->>The carrier detection looks partially broken to me. The current logic
->>detects an instantly available carrier as flaky because
->>netif_carrier_ok() takes less than 1/10s. This patch does what
->>I assume is intended, make sure the carrier is stable for 1/10s.
+On Sat, 5 Mar 2005 19:29:34 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
+> Hi Pedro,
 > 
+> Yeah, it should be able to cover all outgoing packets as well.
+> Basically, all struct packet_type{}s with the type field set to
+> htons(ETH_P_ALL) are also called on outgoing packets (see
+> dev_queue_xmit_nit() called by dev_queue_xmit() in net/core/dev.c)
 > 
-> Looks ok, but I've been meaning to change the second loop to something
-> like msleep(). 
-
-How about this one ? I also removed oflags, reading it outside of
-the locked section was racy.
-
-> Did you try this with a card that otherwise goes into the wait?
-
-Yes, I tried with sk98lin. I don't have a card here that actually
-supports netpoll.
-
-Signed-off-by: Patrick McHardy <kaber@trash.net>
-
---------------000108030807050108000103
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-===== net/core/netpoll.c 1.27 vs edited =====
---- 1.27/net/core/netpoll.c	2005-01-26 06:32:56 +01:00
-+++ edited/net/core/netpoll.c	2005-03-06 01:58:48 +01:00
-@@ -18,6 +18,7 @@
- #include <linux/interrupt.h>
- #include <linux/netpoll.h>
- #include <linux/sched.h>
-+#include <linux/delay.h>
- #include <linux/rcupdate.h>
- #include <net/tcp.h>
- #include <net/udp.h>
-@@ -575,16 +576,14 @@
- 	}
- 
- 	if (!netif_running(ndev)) {
--		unsigned short oflags;
- 		unsigned long atmost, atleast;
-+		long left;
- 
- 		printk(KERN_INFO "%s: device %s not up yet, forcing it\n",
- 		       np->name, np->dev_name);
- 
--		oflags = ndev->flags;
--
- 		rtnl_shlock();
--		if (dev_change_flags(ndev, oflags | IFF_UP) < 0) {
-+		if (dev_change_flags(ndev, ndev->flags | IFF_UP) < 0) {
- 			printk(KERN_ERR "%s: failed to open %s\n",
- 			       np->name, np->dev_name);
- 			rtnl_shunlock();
-@@ -592,8 +591,7 @@
- 		}
- 		rtnl_shunlock();
- 
--		atleast = jiffies + HZ/10;
-- 		atmost = jiffies + 10*HZ;
-+ 		atmost = jiffies + 4*HZ;
- 		while (!netif_carrier_ok(ndev)) {
- 			if (time_after(jiffies, atmost)) {
- 				printk(KERN_NOTICE
-@@ -604,12 +602,16 @@
- 			cond_resched();
- 		}
- 
-+		atleast = jiffies + HZ/10;
-+		while (netif_carrier_ok(ndev) && time_before(jiffies, atleast))
-+			cond_resched();
- 		if (time_before(jiffies, atleast)) {
- 			printk(KERN_NOTICE "%s: carrier detect appears flaky,"
--			       " waiting 10 seconds\n",
-+			       " waiting 4 seconds\n",
- 			       np->name);
--			while (time_before(jiffies, atmost))
--				cond_resched();
-+			left = atmost - jiffies;
-+			if (left > 0)
-+				msleep(jiffies_to_msecs(left));
- 		}
- 	}
- 
-
---------------000108030807050108000103--
+> Though as I mentioned earlier, I'm not sure if this will *always*
+> happen (i.e., if outgoing packets *always* go through
+> dev_queue_xmit()). Someone more knowledgeable may have to answer that.
+> 
+> Best of luck and let me know if you have any trouble,
+> Regards,
+> 
+> -- Asim
+> 
+> On Sat, 5 Mar 2005 19:36:38 +0000, Pedro Fortuna
+> <pedro.fortuna@gmail.com> wrote:
+> > Hello Asim,
+> > I tried again but this time in Fedora Core 3 (kernel 2.6.10-1.760_FC3)
+> > and it went flawlessly.
+> > I have a look into your example and also into the Phrack article you
+> > mentioned and now I'm ready to begin some tests towards what I want to
+> > implement.
+> >
+> > It's absolutly clear you can fetch (and modify) packets before they
+> > are delivered to the TCP/IP stack with a custom packet_type function,
+> > but is it also possible to intercept just before they are passed to
+> > the network driver?
+> >
+> > Thanks,
+> > -Pedro Fortuna
+> >
+> >
+> > On Sat, 5 Mar 2005 12:58:23 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
+> > > > I wasnt able to compile your packet_type_test.c :
+> > > > all I got was a huge list of errors
+> > > > and warnings, and no .o compiled in the end.
+> > >
+> > > Can you send the specific errors you got?
+> > > And is the kernel sources present in
+> > > /lib/modules/`uname -r`/build?
+> > >
+> > > Regards,
+> > >
+> > > -- Asim
+> > >
+> >
+>
