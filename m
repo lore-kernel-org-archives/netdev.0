@@ -1,80 +1,34 @@
-From: Ingo Molnar <mingo@elte.hu>
-Subject: Re: [NET] Move local_bh_disable back in dev_queue_xmit
-Date: Wed, 3 Nov 2004 02:10:43 +0100
-Message-ID: <20041103011043.GA16771@elte.hu>
-References: <20041102225406.GA13760@gondor.apana.org.au>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [NET] Fix neighbour tbl->entries race
+Date: Wed, 03 Nov 2004 10:14:03 +0900 (JST)
+Message-ID: <20041103.101403.118617263.yoshfuji@linux-ipv6.org>
+References: <1099404823.1021.15.camel@jzny.localdomain>
+	<20041102203720.GA12108@gondor.apana.org.au>
+	<20041102210259.GA12642@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, davem@davemloft.net, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20041102225406.GA13760@gondor.apana.org.au>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20041102210259.GA12642@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20041102210259.GA12642@gondor.apana.org.au> (at Wed, 3 Nov 2004 08:02:59 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-sure - perfectly fine to me.
+> -	if (tbl->entries > tbl->gc_thresh3 ||
+> -	    (tbl->entries > tbl->gc_thresh2 &&
+> +	entries = atomic_inc_return(&tbl->entries) - 1;
+> +	if (entries >= tbl->gc_thresh3 ||
+> +	    (entries >= tbl->gc_thresh2 &&
 
-	Ingo
+Why don't you do something like this?
 
-* Herbert Xu <herbert@gondor.apana.org.au> wrote:
+        entries = atomic_inc_return(&tbl->entries);
+        if (entries > tbl->gc_thresh3 ||
+            (entries > tbl->gc_thresh2 &&
 
-> Hi Ingo:
-> 
-> Your recent fix to dev_queue_xmit moved the local_bh_disable to
-> include stuff like skb_linearize and skb_checksum_help.  These
-> are potentially expensive operations.  Since they don't need to
-> run with preempt off, we could simply move the local_bh_enable
-> up instead.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
-> -- 
-> Visit Openswan at http://www.openswan.org/
-> Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> Home Page: http://gondor.apana.org.au/~herbert/
-> PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
-> ===== net/core/dev.c 1.171 vs edited =====
-> --- 1.171/net/core/dev.c	2004-11-02 12:40:59 +11:00
-> +++ edited/net/core/dev.c	2004-11-03 09:31:09 +11:00
-> @@ -1261,11 +1261,6 @@
->  	struct Qdisc *q;
->  	int rc = -ENOMEM;
->  
-> -	/* Disable soft irqs for various locks below. Also 
-> -	 * stops preemption for RCU. 
-> -	 */
-> -	local_bh_disable(); 
-> -
->  	if (skb_shinfo(skb)->frag_list &&
->  	    !(dev->features & NETIF_F_FRAGLIST) &&
->  	    __skb_linearize(skb, GFP_ATOMIC))
-> @@ -1290,6 +1285,11 @@
->  	      	if (skb_checksum_help(skb, 0))
->  	      		goto out_kfree_skb;
->  
-> +	/* Disable soft irqs for various locks below. Also 
-> +	 * stops preemption for RCU. 
-> +	 */
-> +	local_bh_disable(); 
-> +
->  	/* Updates of qdisc are serialized by queue_lock. 
->  	 * The struct Qdisc which is pointed to by qdisc is now a 
->  	 * rcu structure - it may be accessed without acquiring 
-> @@ -1363,10 +1363,10 @@
->  	}
->  out_enetdown:
->  	rc = -ENETDOWN;
-> -out_kfree_skb:
-> -	kfree_skb(skb);
->  out:
->  	local_bh_enable();
-> +out_kfree_skb:
-> +	kfree_skb(skb);
->  	return rc;
->  }
->  
+--yoshfuji
