@@ -1,43 +1,101 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Fri, 5 Mar 2004 01:02:18 +0300 (MSK)
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [janitor] use netdev_priv() in NET/ROM and ROSE.
+Date: Thu, 4 Mar 2004 23:04:21 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403042202.BAA10586@yakov.inr.ac.ru>
-References: <Pine.LNX.4.58.0403042229210.1130@u.domain.uli>
+Message-ID: <20040304220421.GA16866@linux-mips.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, niv@us.ibm.com, ak@suse.de, ruddk@us.ibm.com,
-        netdev@oss.sgi.com, chester.f.johnson@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ja@ssi.bg (Julian Anastasov)
-In-Reply-To: <Pine.LNX.4.58.0403042229210.1130@u.domain.uli> from "Julian Anastasov" at Мар 04, 2004 10:56:26 
+To: netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+netdev_priv-ify two more drivers.
 
-> - do we need to walk all tos values for ip_rt_redirect in the same
-> way as for ip_rt_frag_needed,
-
-Well, it is just the same thing (except for one thing, that ignored
-redirects are harmless)
-
-
-> - from another thread: whether ICMP redirects modify only
-> routes via gateway when shared_media is ON:
-> 
-> http://marc.theaimsgroup.com/?l=linux-netdev&m=107109827516060&w=2
-
-"message but we are sure we hit the target IP directly"
-
-You cannot be sure, actually. This happens and resolves the situation
-when the things sort ip route add default dev eth0 are used i.e. host
-does not know real prefixes.
-
-If this is a security issue (I do not see actually, the things on link
-can be screwed via proxy arp et all in any case), make it a separate option
-or even better use IN_DEV_SEC_REDIRECTS(in_dev) like similar paranoid case
-for !shared_media case.
-
-Alexey
+Index: net/netrom/nr_dev.c
+===================================================================
+RCS file: /home/cvs/linux/net/netrom/nr_dev.c,v
+retrieving revision 1.16
+diff -u -r1.16 nr_dev.c
+--- net/netrom/nr_dev.c	10 Jan 2004 04:59:58 -0000	1.16
++++ net/netrom/nr_dev.c	4 Mar 2004 21:58:28 -0000
+@@ -46,7 +46,7 @@
+ 
+ int nr_rx_ip(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
+ 
+ 	if (!netif_running(dev)) {
+ 		stats->rx_errors++;
+@@ -73,7 +73,7 @@
+ static int nr_rebuild_header(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+-	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
+ 	struct sk_buff *skbn;
+ 	unsigned char *bp = skb->data;
+ 	int len;
+@@ -186,7 +186,7 @@
+ 
+ static int nr_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
+ 	dev_kfree_skb(skb);
+ 	stats->tx_errors++;
+ 	return 0;
+@@ -194,7 +194,7 @@
+ 
+ static struct net_device_stats *nr_get_stats(struct net_device *dev)
+ {
+-	return (struct net_device_stats *)dev->priv;
++	return netdev_priv(dev);
+ }
+ 
+ void nr_setup(struct net_device *dev)
+Index: net/rose/rose_dev.c
+===================================================================
+RCS file: /home/cvs/linux/net/rose/rose_dev.c,v
+retrieving revision 1.17
+diff -u -r1.17 rose_dev.c
+--- net/rose/rose_dev.c	15 Aug 2003 15:14:41 -0000	1.17
++++ net/rose/rose_dev.c	4 Mar 2004 21:58:28 -0000
+@@ -43,7 +43,7 @@
+ 
+ int rose_rx_ip(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
+ 
+ #ifdef CONFIG_INET
+ 	if (!netif_running(dev)) {
+@@ -89,7 +89,7 @@
+ static int rose_rebuild_header(struct sk_buff *skb)
+ {
+ 	struct net_device *dev = skb->dev;
+-	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
+ 	unsigned char *bp = (unsigned char *)skb->data;
+ 	struct sk_buff *skbn;
+ 
+@@ -149,7 +149,7 @@
+ 
+ static int rose_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+-	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
++	struct net_device_stats *stats = netdev_priv(dev);
+ 
+ 	if (!netif_running(dev)) {
+ 		printk(KERN_ERR "ROSE: rose_xmit - called when iface is down\n");
+@@ -162,7 +162,7 @@
+ 
+ static struct net_device_stats *rose_get_stats(struct net_device *dev)
+ {
+-	return (struct net_device_stats *)dev->priv;
++	return netdev_priv(dev);
+ }
+ 
+ void rose_setup(struct net_device *dev)
