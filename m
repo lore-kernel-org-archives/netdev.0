@@ -1,8 +1,8 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.4 9/10] e1000: Fixes related to Cable length
- estimation
-Date: Tue, 15 Feb 2005 13:36:05 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0502151148240.30336-100000@isotope.jf.intel.com>
+Subject: [PATCH net-drivers-2.4 8/10] e1000: Report failure code when loopback
+ test fails
+Date: Tue, 15 Feb 2005 13:35:49 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0502151147401.30336-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,138 +11,37 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-9 Fixes related to Cable length estimation
+8 Report failure code when loopback test fails
 Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.4/drivers/net/e1000/e1000_hw.c net-drivers-2.4/drivers/net/e1000.new/e1000_hw.c
---- net-drivers-2.4/drivers/net/e1000/e1000_hw.c	2005-02-01 23:21:49.121102008 -0800
-+++ net-drivers-2.4/drivers/net/e1000.new/e1000_hw.c	2005-02-01 23:21:50.444900760 -0800
-@@ -2504,7 +2504,7 @@ e1000_read_phy_reg(struct e1000_hw *hw,
-         }
-     }
+diff -up net-drivers-2.4/drivers/net/e1000/e1000_ethtool.c net-drivers-2.4/drivers/net/e1000.new/e1000_ethtool.c
+--- net-drivers-2.4/drivers/net/e1000/e1000_ethtool.c	2005-02-01 23:21:49.119102312 -0800
++++ net-drivers-2.4/drivers/net/e1000.new/e1000_ethtool.c	2005-02-01 23:21:50.368912312 -0800
+@@ -1309,7 +1309,7 @@ e1000_run_loopback_test(struct e1000_ada
+ 	struct e1000_desc_ring *txdr = &adapter->test_tx_ring;
+ 	struct e1000_desc_ring *rxdr = &adapter->test_rx_ring;
+ 	struct pci_dev *pdev = adapter->pdev;
+-	int i;
++	int i, ret_val;
  
--    ret_val = e1000_read_phy_reg_ex(hw, IGP01E1000_PHY_PAGE_SELECT & reg_addr,
-+    ret_val = e1000_read_phy_reg_ex(hw, MAX_PHY_REG_ADDRESS & reg_addr,
-                                     phy_data);
+ 	E1000_WRITE_REG(&adapter->hw, RDT, rxdr->count - 1);
  
-     return ret_val;
-@@ -2610,7 +2610,7 @@ e1000_write_phy_reg(struct e1000_hw *hw,
-         }
-     }
+@@ -1329,11 +1331,12 @@ e1000_run_loopback_test(struct e1000_ada
+ 					    rxdr->buffer_info[i].length,
+ 					    PCI_DMA_FROMDEVICE);
  
--    ret_val = e1000_write_phy_reg_ex(hw, IGP01E1000_PHY_PAGE_SELECT & reg_addr,
-+    ret_val = e1000_write_phy_reg_ex(hw, MAX_PHY_REG_ADDRESS & reg_addr,
-                                      phy_data);
+-		if (!e1000_check_lbtest_frame(rxdr->buffer_info[i++].skb, 1024))
+-			return 0;
+-	} while (i < 64);
++		ret_val = e1000_check_lbtest_frame(rxdr->buffer_info[i].skb,
++						   1024);
++		i++;
++	} while (ret_val != 0 && i < 64);
  
-     return ret_val;
-@@ -2967,9 +2967,9 @@ e1000_phy_m88_get_info(struct e1000_hw *
-     phy_info->mdix_mode = (phy_data & M88E1000_PSSR_MDIX) >>
-                           M88E1000_PSSR_MDIX_SHIFT;
- 
--    if(phy_data & M88E1000_PSSR_1000MBS) {
--        /* Cable Length Estimation and Local/Remote Receiver Informatoion
--         * are only valid at 1000 Mbps
-+    if ((phy_data & M88E1000_PSSR_SPEED) == M88E1000_PSSR_1000MBS) {
-+        /* Cable Length Estimation and Local/Remote Receiver Information
-+         * are only valid at 1000 Mbps.
-          */
-         phy_info->cable_length = ((phy_data & M88E1000_PSSR_CABLE_LENGTH) >>
-                                   M88E1000_PSSR_CABLE_LENGTH_SHIFT);
-@@ -4641,41 +4641,44 @@ e1000_get_bus_info(struct e1000_hw *hw)
- {
-     uint32_t status;
- 
--    if(hw->mac_type < e1000_82543) {
-+    switch (hw->mac_type) {
-+    case e1000_82542_rev2_0:
-+    case e1000_82542_rev2_1:
-         hw->bus_type = e1000_bus_type_unknown;
-         hw->bus_speed = e1000_bus_speed_unknown;
-         hw->bus_width = e1000_bus_width_unknown;
--        return;
--    }
--
--    status = E1000_READ_REG(hw, STATUS);
--    hw->bus_type = (status & E1000_STATUS_PCIX_MODE) ?
--                   e1000_bus_type_pcix : e1000_bus_type_pci;
-+        break;
-+    default:
-+        status = E1000_READ_REG(hw, STATUS);
-+        hw->bus_type = (status & E1000_STATUS_PCIX_MODE) ?
-+                       e1000_bus_type_pcix : e1000_bus_type_pci;
- 
--    if(hw->device_id == E1000_DEV_ID_82546EB_QUAD_COPPER) {
--        hw->bus_speed = (hw->bus_type == e1000_bus_type_pci) ?
--                        e1000_bus_speed_66 : e1000_bus_speed_120;
--    } else if(hw->bus_type == e1000_bus_type_pci) {
--        hw->bus_speed = (status & E1000_STATUS_PCI66) ?
--                        e1000_bus_speed_66 : e1000_bus_speed_33;
--    } else {
--        switch (status & E1000_STATUS_PCIX_SPEED) {
--        case E1000_STATUS_PCIX_SPEED_66:
--            hw->bus_speed = e1000_bus_speed_66;
--            break;
--        case E1000_STATUS_PCIX_SPEED_100:
--            hw->bus_speed = e1000_bus_speed_100;
--            break;
--        case E1000_STATUS_PCIX_SPEED_133:
--            hw->bus_speed = e1000_bus_speed_133;
--            break;
--        default:
--            hw->bus_speed = e1000_bus_speed_reserved;
--            break;
-+        if(hw->device_id == E1000_DEV_ID_82546EB_QUAD_COPPER) {
-+            hw->bus_speed = (hw->bus_type == e1000_bus_type_pci) ?
-+                            e1000_bus_speed_66 : e1000_bus_speed_120;
-+        } else if(hw->bus_type == e1000_bus_type_pci) {
-+            hw->bus_speed = (status & E1000_STATUS_PCI66) ?
-+                            e1000_bus_speed_66 : e1000_bus_speed_33;
-+        } else {
-+            switch (status & E1000_STATUS_PCIX_SPEED) {
-+            case E1000_STATUS_PCIX_SPEED_66:
-+                hw->bus_speed = e1000_bus_speed_66;
-+                break;
-+            case E1000_STATUS_PCIX_SPEED_100:
-+                hw->bus_speed = e1000_bus_speed_100;
-+                break;
-+            case E1000_STATUS_PCIX_SPEED_133:
-+                hw->bus_speed = e1000_bus_speed_133;
-+                break;
-+            default:
-+                hw->bus_speed = e1000_bus_speed_reserved;
-+                break;
-+            }
-         }
-+        hw->bus_width = (status & E1000_STATUS_BUS64) ?
-+                        e1000_bus_width_64 : e1000_bus_width_32;
-+        break;
-     }
--    hw->bus_width = (status & E1000_STATUS_BUS64) ?
--                    e1000_bus_width_64 : e1000_bus_width_32;
+-	return 13;
++	return ret_val;
  }
- /******************************************************************************
-  * Reads a value from one of the devices registers using port I/O (as opposed
-@@ -4740,6 +4743,7 @@ e1000_get_cable_length(struct e1000_hw *
-     uint16_t agc_value = 0;
-     uint16_t cur_agc, min_agc = IGP01E1000_AGC_LENGTH_TABLE_SIZE;
-     uint16_t i, phy_data;
-+    uint16_t cable_length;
  
-     DEBUGFUNC("e1000_get_cable_length");
- 
-@@ -4751,10 +4750,11 @@ e1000_get_cable_length(struct e1000_hw *
-                                      &phy_data);
-         if(ret_val)
-             return ret_val;
-+        cable_length = (phy_data & M88E1000_PSSR_CABLE_LENGTH) >>
-+                       M88E1000_PSSR_CABLE_LENGTH_SHIFT;
- 
-         /* Convert the enum value to ranged values */
--        switch((phy_data & M88E1000_PSSR_CABLE_LENGTH) >>
--               M88E1000_PSSR_CABLE_LENGTH_SHIFT) {
-+        switch (cable_length) {
-         case e1000_cable_length_50:
-             *min_length = 0;
-             *max_length = e1000_igp_cable_length_50;
+ static int
 	
