@@ -1,37 +1,62 @@
-From: Jes Sorensen <jes@wildopensource.com>
-Subject: Re: [PATCH] kill acient compat cruft from acenic
-Date: 29 Feb 2004 14:10:26 -0500
+From: =?iso-8859-2?Q?Pawe=B3_Soko=B3owski?= <falcon@muflon.linux.pl>
+Subject: 2.6.4-rc1 + hp100 EISA, not working
+Date: Sun, 29 Feb 2004 22:06:16 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <yq0u119g0rh.fsf@wildopensource.com>
-References: <20040227202510.GA19947@lst.de> <403FAECD.3090203@pobox.com>
-	<20040227205729.GB20398@lst.de> <yq01xofgiu5.fsf@wildopensource.com>
-	<20040228182907.GA2930@lst.de>
+Message-ID: <Pine.LNX.4.58.0402292149230.25624@don.falconne.eu.org>
+Reply-To: pawel.sokolowski@muflon.linux.pl
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=iso-8859-2
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20040228182907.GA2930@lst.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> "Christoph" == Christoph Hellwig <hch@lst.de> writes:
+Hi.
 
-Christoph> On Sat, Feb 28, 2004 at 01:27:46PM -0500, Jes Sorensen
-Christoph> wrote:
->> Yeah I am happy to kill support for < 2.4.18 in the driver. But
->> don't add that offset_in_page macro please, it's butt ugly.
+I have HP 10/100VG AnyLan EISA card. My machine is a HP Netserver
+4d/66LE. 486, EISA only.
 
-Christoph> I didn't add it - it's that way in 2.6, I just provided a
-Christoph> variant for 2.4 (which is indetical to what you open-code
-Christoph> in your 2.4 driver)
+After latest changes in hp100 driver, it stopped working for me.
 
-Grmbl,
+It oopsed as module on 2.6.2 (and I experienced kernel panic when hp100
+was build in) but after Oops I was able to get interface up and working:
 
-Gains us nothing and is butt ugly, but well ;-( Not going to blame you
-for that then, though I'd prefer a patch pulling out the macro use so
-one can see what the code does instead.
+hp100: eth0: HP J2577 at 0x2c38, IRQ 5, EISA bus, 128k SRAM (rx/tx 75%).
+hp100: eth0: Memory area at 0xd0000-0xd3fff (virtual base c00d0000).
+hp100: eth0: Adapter is attached to 10Mb/s network (10baseT).
 
-Anyway, bigger fish to fry.
 
-Jes
+On 2.6.3 it just Oopsed and didn't work. On 2.6.4-rc1 it does
+not oops but it doesn't work (neither as module nor as build in kernel).
+Module loads cleanly but does nothing - I can't get interface up,
+nothing in dmesg.
+
+If you need more details, logs etc., please tell me what you need to
+know.
+
+
+
+I don't know if it's related to this problem but at earlier stage of
+booting I'm getting following messages:
+
+EISA: Probing bus 0 at eisa0
+EISA: Mainboard HWPC061 detected.
+EISA: slot 2 : HWP1940 detected (disabled).
+EISA: Detected 1 card.
+
+Card works fine on 2.4.* (tested on 2.4.16, 2.4.24,25,26-pre1) :
+hp100: eth0: HP J2577 at 0x2c38, IRQ 5, EISA bus, 128k SRAM (rx/tx 75%%).
+hp100: eth0: Memory area at 0xd0000-0xd3fff (virtual base c00d0000).
+hp100: eth0: Adapter is attached to 10Mb/s network.
+
+
+--=20
+  ,d$$$$$P.d$$b     d$P  ,gd$$$$$,gd$$$$g. ,$$$b._$$P               RLU #=
+172534
+  ggggggggggggg.   ggs  ,gg     ,gg    ,gg ggp,ggggg           Pawe=B3 So=
+ko=B3owski
+ d$P""""'""""Y$$. d$P   d$P     d$P   ,d$Pd$P `Y$$P      falcon@muflon.li=
+nux.pl
+d$P           Y$$d$$$$$P`Y$$$$$'`Y$$$$$P'd$P   d$P    Replicant (M) Des: =
+Falcon
