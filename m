@@ -1,28 +1,32 @@
-From: Linus Torvalds <torvalds@osdl.org>
-Subject: Re: [PATCH] pci_get_slot()
-Date: Wed, 15 Oct 2003 12:13:37 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] trivial -- remove unused prototype from Space.c
+Date: Wed, 15 Oct 2003 12:21:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310151213050.1661-100000@home.osdl.org>
-References: <20031015184104.GA22373@kroah.com>
+Message-ID: <20031015122121.658d652e.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Matthew Wilcox <willy@debian.org>, "David S. Miller" <davem@redhat.com>,
-        Jeff Garzik <jgarzik@pobox.com>, <linux-pci@atrey.karlin.mff.cuni.cz>,
-        <netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg KH <greg@kroah.com>
-In-Reply-To: <20031015184104.GA22373@kroah.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The prototype for iph5526_probe is no longer used, it is a left over
+from when fiber channel probed in Space.c
 
-On Wed, 15 Oct 2003, Greg KH wrote:
-> 
-> The check of:
-> 	if (dev->bus->number == bus && dev->devfn == devfn)
-> in pci_find_slot() doesn't check for the domain?
+Jeff, you may just want to put this in net-2.5-exp
 
-No, and it doesn't even have anything to check _against_. We don't pass 
-the domain down to it.
-
-		Linus
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Wed Oct 15 12:19:11 2003
++++ b/drivers/net/Space.c	Wed Oct 15 12:19:11 2003
+@@ -98,9 +98,6 @@
+ /* Detachable devices ("pocket adaptors") */
+ extern int de620_probe(struct net_device *);
+ 
+-/* Fibre Channel adapters */
+-extern int iph5526_probe(struct net_device *dev);
+-
+ /* SBNI adapters */
+ extern int sbni_probe(int unit);
+ 
