@@ -1,49 +1,68 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Fri, 7 Jan 2005 22:30:17 +0100
-Message-ID: <16862.65385.9009.742742@robur.slu.se>
-References: <200501031455.26980.jeremy.guthrie@berbee.com>
-	<200501071414.05126.jeremy.guthrie@berbee.com>
-	<16862.62424.180929.680029@robur.slu.se>
-	<200501071506.57811.jeremy.guthrie@berbee.com>
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Subject: [KJ] Re: [PATCH 6/28] net/e1000_osdep: replace schedule_timeout()
+	with msleep()
+Date: Fri, 7 Jan 2005 13:37:44 -0800
+Message-ID: <20050107213744.GE2924@us.ibm.com>
+References: <20050107001931.GH3055@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
-        Stephen Hemminger <shemminger@osdl.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501071506.57811.jeremy.guthrie@berbee.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============94234515700612187=="
+Cc: linux-net@vger.kernel.org, kernel-janitors@lists.osdl.org,
+   netdev@oss.sgi.com
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: cramerj@intel.com, john.ronciak@intel.com, ganesh.venkatesan@intel.com
+In-Reply-To: <20050107001931.GH3055@us.ibm.com>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
+--===============94234515700612187==
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Jeremy M. Guthrie writes:
- > lnstat isn't giving me anything other than zeros.  
+On Thu, Jan 06, 2005 at 04:19:31PM -0800, Nishanth Aravamudan wrote:
+> Hi,
+> 
+> Description: Use msleep() instead of schedule_timeout() to guarantee the task
+> delays as expected.
+> 
+> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> 
+> 
+> --- 2.6.10-v/drivers/net/e1000/e1000_osdep.h	2004-12-24 13:34:26.000000000 -0800
+> +++ 2.6.10/drivers/net/e1000/e1000_osdep.h	2005-01-04 14:57:49.000000000 -0800
+> @@ -46,8 +46,7 @@
+>  				/* Don't mdelay in interrupt context! */ \
+>  	                	BUG(); \
+>  			} else { \
+> -				set_current_state(TASK_UNINTERRUPTIBLE); \
+> -				schedule_timeout((x * HZ)/1000 + 2); \
+> +				msleep(x);
+>  			} } while(0)
+>  /* Some workarounds require millisecond delays and are run during interrupt
+>   * context.  Most notably, when establishing link, the phy may need tweaking
 
- Crap.
+Please ignore this patch, as there is already a more correct one in the
+2.6.10-kj patchset. Sorry for the noise.
 
- > entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst in_martian_src  
- > out_hit out_slow_tot out_slow_mc  gc_total gc_ignored gc_goal_miss 
- > gc_dst_overflow in_hlist_search out_hlist_search
- 
- > 0000f91e  15b1ddab 0b69a32c 00000000 00000000 00001b0a 00001fbd 00000000  
- > 00066f65 0000b943 00000000 087b80a1 0878e81a 00000256 00000000 ca08c77d 
- > 0020e549
- 
- 
- > 0000fb3e  15ff4696 0b6bbb65 00000000 00000000 00001b10 00001fc1 00000000  
- > 00067111 0000b974 00000000 087d9903 087b0003 00000256 00000000 cb58b399 
- > 0020ee79
- 
- 85 kpps and 2287 lookups/sec as a 60 sec average. Pretty nice load yes. 
- Where did you get the load? 
- Try see if you fix lnstat :-) it would be nice to see the route dynamics. 
- Or use the try the rtstat I pointed to. 
+Thanks,
+Nish
 
- And apply the e1000 patch I sent and make a test run. 
+--===============94234515700612187==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
- I'll have a beer and give up for tonight...
+_______________________________________________
+Kernel-janitors mailing list
+Kernel-janitors@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/kernel-janitors
 
-		  				--ro
+--===============94234515700612187==--
