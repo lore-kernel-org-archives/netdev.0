@@ -1,41 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Fri, 1 Apr 2005 12:28:02 -0800
-Message-ID: <20050401122802.7c71afbc.davem@davemloft.net>
-References: <42370997.6010302@cosmosbay.com>
-	<20050315103253.590c8bfc.davem@davemloft.net>
-	<42380EC6.60100@cosmosbay.com>
-	<20050316140915.0f6b9528.davem@davemloft.net>
-	<4239E00C.4080309@cosmosbay.com>
-	<20050331221352.13695124.davem@davemloft.net>
-	<424D5D34.4030800@cosmosbay.com>
+Subject: Re: [PATCH] Fix SELinux for removal of i_sock
+Date: Fri, 1 Apr 2005 12:35:20 -0800
+Message-ID: <20050401123520.7532528b.davem@davemloft.net>
+References: <1112385997.14481.192.camel@moss-spartans.epoch.ncsc.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jmorris@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        matthew@wil.cx
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <424D5D34.4030800@cosmosbay.com>
+To: Stephen Smalley <sds@tycho.nsa.gov>
+In-Reply-To: <1112385997.14481.192.camel@moss-spartans.epoch.ncsc.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 01 Apr 2005 16:39:48 +0200
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Fri, 01 Apr 2005 15:06:37 -0500
+Stephen Smalley <sds@tycho.nsa.gov> wrote:
 
-> > If spinlock_t is a zero sized structure on UP, how can this save memory
-> > on UP? :-)
+> This patch against -bk eliminates the use of i_sock by SELinux as it
+> appears to have been removed recently, breaking the build of SELinux in
+> -bk.  Simply replacing the i_sock test with an S_ISSOCK test would be
+> unsafe in the SELinux code, as the latter will also return true for the
+> inodes of socket files in the filesystem, not just the actual socket
+> objects IIUC.  Hence this patch reworks the SELinux code to avoid the
+> need to apply such a test in the first place, part of which was
+> obsoleted anyway by earlier changes to SELinux.  Please apply.
 > 
-> Because I deleted the  __attribute__((__aligned__(8))) constraint on struct rt_hash_bucket.
+> Signed-off-by:  Stephen Smalley <sds@tycho.nsa.gov>
+> Signed-off-by:  James Morris <jmorris@redhat.com>
 
-Right.
-
-> > Anyways, I think perhaps you should dynamically allocate this lock table.
-> 
-> Maybe I should make a static sizing, (replace the 256 constant by something based on MAX_CPUS) ?
-
-Even for NR_CPUS, I think the table should be dynamically allocated.
-
-It is a goal to eliminate all of these huge arrays in the static
-kernel image, which has grown incredibly too much in recent times.
-I work often to eliminate such things, let's not add new ones :-)
+Applied, thanks Stephen.
