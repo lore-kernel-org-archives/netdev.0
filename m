@@ -1,60 +1,35 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: Netlink Connector / CBUS
-Date: Tue, 05 Apr 2005 11:08:04 +0400
-Message-ID: <1112684884.28858.10.camel@uganda>
-References: <Xine.LNX.4.44.0504050108260.9383-100000@thoron.boston.redhat.com>
-Reply-To: johnpol@2ka.mipt.ru
+Date: Tue, 5 Apr 2005 17:10:02 +1000
+Message-ID: <20050405071002.GA19186@gondor.apana.org.au>
+References: <Xine.LNX.4.44.0504050030230.9273-100000@thoron.boston.redhat.com> <1112684596.28858.4.camel@uganda>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-Q31YfxoFqrjCdpDRIKy3"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, rml@novell.com,
-        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: James Morris <jmorris@redhat.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+        rml@novell.com, Greg KH <greg@kroah.com>,
+        Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0504050108260.9383-100000@thoron.boston.redhat.com>
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Content-Disposition: inline
+In-Reply-To: <1112684596.28858.4.camel@uganda>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, Apr 05, 2005 at 11:03:16AM +0400, Evgeniy Polyakov wrote:
+> 
+> I received comments and feature requests from Herbert Xu and Jamal Hadi
+> Salim,
+> almost all were successfully resolved.
 
---=-Q31YfxoFqrjCdpDRIKy3
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Please do not construe my involvement in these threads as endorsement
+for this system.
 
-On Tue, 2005-04-05 at 01:10 -0400, James Morris wrote:
-> On Tue, 5 Apr 2005, James Morris wrote:
->=20
-> > A few questions:
->=20
-> Also, please allow cn_add_callback() allow it to be passed a NULL=20
-> callback function, so the caller doesn't pass in a dummy function and you=
-r=20
-> code doesn't waste time dealing with something which isn't real.
-
-Why can anyone want to add callback that will not supposed to be
-usefull?
-Callback is called when someone sends netlink message with appropriate
-idx/val inside, if there is no registered callback with such ID,=20
-nothing will be called and skb will be freed.
-
->=20
-> - James
---=20
-        Evgeniy Polyakov
-
-Crash is better than data corruption -- Arthur Grabowski
-
---=-Q31YfxoFqrjCdpDRIKy3
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCUjlUIKTPhE+8wY0RAv/qAJ4gmxfOafjdLprCQ4Ue0e7d6SxbrACfcJM7
-qFXZGBk8rY3rtFUCIyZgu3Q=
-=0Car
------END PGP SIGNATURE-----
-
---=-Q31YfxoFqrjCdpDRIKy3--
+In fact to this day I still don't understand what problems this thing is
+meant to solve.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
