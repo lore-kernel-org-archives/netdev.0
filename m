@@ -1,99 +1,39 @@
-From: David Greaves <david@dgreaves.com>
-Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out
-Date: Fri, 18 Jun 2004 22:28:53 +0100
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [RFC PATCH] Change "local" route table preference from 0 to 3fff, to permit send-to-self policy routing
+Date: Sat, 19 Jun 2004 00:45:29 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D35E95.50104@dgreaves.com>
-References: <40CDD68C.8070509@dgreaves.com>	<20040615155111.26d6b809@dell_ss3.pdx.osdl.net>	<40D0280B.2030308@dgreaves.com>	<Pine.LNX.4.60.0406180953240.1089@jlaas2.data.slu.se>	<20040618111124.3a2681b5@dell_ss3.pdx.osdl.net>	<40D337FA.1080404@dgreaves.com> <20040618141629.0edd9766@dell_ss3.pdx.osdl.net>
+Message-ID: <20040618204529.GA3106@ms2.inr.ac.ru>
+References: <20040618182505.195d76ba.random@72616e646f6d20323030342d30342d31360a.nosense.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jens Laas <jens.laas@data.slu.se>, "Glick, Kevin" <kevin.glick@intel.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-In-Reply-To: <20040618141629.0edd9766@dell_ss3.pdx.osdl.net>
+To: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
+Content-Disposition: inline
+In-Reply-To: <20040618182505.195d76ba.random@72616e646f6d20323030342d30342d31360a.nosense.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-OK
-Thanks for the pointers and time Stephen, much appreciated :)
+Hello!
 
-Ganesh and Jens - you said you'd like to keep this on-list so Stephen 
-let's ensure your reply is archived...
+> that problem. Something I'll look into further, unless somebody can tell me
+> that having a host reply its own ARP requests, even when received over a real
+> interface, isn't possible at all.
 
+Sigh, do not you think that making undelatable local rule with preference 0 was
+an easy decision. This kills most of coolness of policy making yet. :-)
 
-David
+Essentially, your patch becomes 100% legal after we kill the places
+where we ask "Is X.X.X.X our local address?". This thing with arp is one
+of many places when we have to do this to keep stack relatively coherent.
+We have several places where we do lookup directly in local table bypassing
+policy rules, because we just do not have enough information to look
+in right place.
 
+> kernel hacking, if there is a better way to change the "local" route table
+> preference, I'm all ears.
 
-Stephen Hemminger wrote:
+No, really. It is the best. Not made only as fool proof, because adding
+almost any rule before local one shuts down networking completely.
 
->It will be up to Intel (Genesh et al) to look at this.
->
->
->On Fri, 18 Jun 2004 19:44:10 +0100
->David Greaves <david@dgreaves.com> wrote:
->
->  
->
->>Stephen Hemminger wrote:
->>
->>    
->>
->>>To get to the root of these problems, could you:
->>>
->>>* Give full lspci -v output for the boards in question.
->>> 
->>>
->>>      
->>>
->>ash:
->>00:07.0 Ethernet controller: Intel Corp.: Unknown device 1076
->>        Subsystem: Intel Corp.: Unknown device 1176
->>        Flags: bus master, 66Mhz, medium devsel, latency 32, IRQ 11
->>        Memory at e3020000 (32-bit, non-prefetchable) [size=128K]
->>        Memory at e3000000 (32-bit, non-prefetchable) [size=128K]
->>        I/O ports at b400 [size=64]
->>        Expansion ROM at <unassigned> [disabled] [size=128K]
->>        Capabilities: [dc] Power Management version 2
->>        Capabilities: [e4] PCI-X non-bridge device.
->>        Capabilities: [f0] Message Signalled Interrupts: 64bit+ 
->>Queue=0/0 Enable-
->>
->>    
->>
->
->  
->
->>Jun 18 19:38:18 ash kernel: eth0: may be hung last tx was 2457 ticks
->>
->>    
->>
->
->
->This means the code that in the e1000 watchdog is seeing the stuck board.
->The driver then calls netif_stop_queue which seems odd.
->
->  
->
->>Jun 18 19:38:20 ash kernel: eth0: may be hung last tx was 4457 ticks
->>Jun 18 19:38:22 ash kernel: eth0: may be hung last tx was 6457 ticks
->>Jun 18 19:38:24 ash kernel: eth0: may be hung last tx was 8457 ticks
->>Jun 18 19:38:26 ash kernel: NETDEV WATCHDOG: eth0: transmit timed out 
->>after 5000 j
->>iffies
->>Jun 18 19:38:26 ash kernel: eth0: transmit timeout from queuing
->>Jun 18 19:38:26 ash kernel: eth0: may be hung last tx was 10457 ticks
->>Jun 18 19:38:26 ash kernel: eth0: state=0x7 transmit ring size=4096 
->>count=256 to_u
->>se=66 to_clean=59
->>    
->>
->
->The state bits show:
->	XOFF - stopped (but that was done in e1000_watchdog)
->	START - board is running
->	PRESENT - board is present.
->That looks okay, but what was the state in the e1000 watchdog??
->
->  
->
+Alexey
