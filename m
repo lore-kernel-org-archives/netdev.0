@@ -1,46 +1,40 @@
 From: Donald Becker <becker@scyld.com>
 Subject: Re: 3c59x 2.4.18 userspace seeing UDP packets with bad checksum?
-Date: Tue, 30 Jul 2002 09:57:12 -0400 (EDT)
+Date: Tue, 30 Jul 2002 10:09:13 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0207300947190.1266-100000@beohost.scyld.com>
-References: <200207301331.RAA03211@sex.inr.ac.ru>
+Message-ID: <Pine.LNX.4.44.0207301002370.1266-100000@beohost.scyld.com>
+References: <20020730134908.GA26100@outpost.ds9a.nl>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: bert hubert <ahu@ds9a.nl>, <netdev@oss.sgi.com>, <akpm@zip.com.au>,
+Cc: kuznet@ms2.inr.ac.ru, <netdev@oss.sgi.com>, <akpm@zip.com.au>,
    <jgarzik@mandrakesoft.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200207301331.RAA03211@sex.inr.ac.ru>
+To: bert hubert <ahu@ds9a.nl>
+In-Reply-To: <20020730134908.GA26100@outpost.ds9a.nl>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Jul 2002 kuznet@ms2.inr.ac.ru wrote:
-
-> Subject: Re: 3c59x 2.4.18 userspace seeing UDP packets with bad checksum?
+On Tue, 30 Jul 2002, bert hubert wrote:
+> On Tue, Jul 30, 2002 at 05:31:44PM +0400, kuznet@ms2.inr.ac.ru wrote:
 > 
-> > Regarding Andi's message, isn't it so that recvfrom() may return but in that
-> > case returns -1 and sets errno to EAGAIN?
+> > Well, try to prove that corrupted packet is really received by application.
+> > This is not useless work, in any case, you have to cure this place,
+> > it should not abort because of invalid data. :-)
 > 
-> It should if we calculated this checksum. But 3com pretends to do this
-> in hardware. :-)
+> We fixed the bug already :-) Signed/unsigned arithmetic problems.
 
-I've verified that (at least some) 3Com cards don't just fake the
-checksum test.  They pass on packets with invalid checksums, but don't
-indicate that the checksum is correct.  The driver code for this is
+Were the arithmetic problems in your code, or the kernels checksumming?
+(The latter seems unlikely.)
 
-	int csum_bits = rx_status & 0xee000000;
-	if (csum_bits &&
-		(csum_bits == (IPChksumValid | TCPChksumValid) ||
-		 csum_bits == (IPChksumValid | UDPChksumValid))) {
-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+> I have six examples in my log of PowerDNS exiting just after receiving a
+> packet with a broken checksum.
 
-Note that this relies on the kernel to make the final decision that the
-checksum is invalid.
+Wouldn't this have also happened with valid checksums and invalid data?
+This is a good time to fix your application data validity checking.
 
-[[ This is the correct semantics: the driver might indicate that a protocol
-   level checksum is correct, but it should not discard packets based
-   on its (necessarily limited) understanding of higher level protocols. 
-]]
-
+Note that some network equipment will re-write the IP checksums, just as
+some equipment regenerates the link-level frame CRC.  It's not
+semantically correct, but claiming that such devices don't exist doesn't
+make them go away.
 
 -- 
 Donald Becker				becker@scyld.com
