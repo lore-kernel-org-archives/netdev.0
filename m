@@ -1,94 +1,42 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [RFC] acx100 inclusion in mainline;
-	generic 802.11 stack
-Date: Tue, 28 Sep 2004 20:48:08 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040929004808.GN30131@ruslug.rutgers.edu>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
-	<413F70F0.6020709@atheros.com>
-	<20040928122028.GK30131@ruslug.rutgers.edu>
-	<200409282229.53349.vkondra@mail.ru>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6] generic network statistics (was Re: [6/6]: jenkins
+	hash for neigh / Statistics)
+Date: 28 Sep 2004 22:16:12 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1096424171.1041.87.camel@jzny.localdomain>
+References: <20040925005623.2faf8faf.davem@davemloft.net>
+	 <E1CBu70-00010X-00@gondolin.me.apana.org.au>
+	 <20040927121403.767e2308.davem@davemloft.net>
+	 <20040927222613.GE3236@sunbeam.de.gnumonks.org>
+	 <20040927160636.7741d973.davem@davemloft.net>
+	 <1096327658.1729.19.camel@localhost.localdomain>
+	 <16729.9326.93269.422940@robur.slu.se>
+	 <20040928111906.GB29961@sunbeam.de.gnumonks.org>
+	 <1096375700.8659.235.camel@jzny.localdomain>
+	 <16729.29634.992171.862677@robur.slu.se>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0399501844=="
-Cc: netdev@oss.sgi.com, jkmaline@cc.hut.fi,
-	"Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>, jgarzik@pobox.com,
-	hadi@cyberus.ca, prism54-devel@prism54.org,
-	acx100-devel@lists.sourceforge.net, sam@errno.com,
-	greg chesson <greg@atheros.com>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200409282229.53349.vkondra@mail.ru>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://mcgrof.com/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Harald Welte <laforge@gnumonks.org>,
+        Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16729.29634.992171.862677@robur.slu.se>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 2004-09-28 at 10:22, Robert Olsson wrote:
+>  OK it's EWMA calc in kernel. 
+[..]
+> As usual most code is honestly stolen from Alexey. :-)
 
---===============0399501844==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="OwXh6gFRjCd3qPCM"
-Content-Disposition: inline
+>From the maestro himself ;-> Why reinvent music my friend?
+You are probably using the same code. I just ripped it from netsched
+and made it available to the general masses.
+BTW, if you see any missing tricks there let me know
 
-
---OwXh6gFRjCd3qPCM
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Sep 28, 2004 at 10:29:48PM +0200, Vladimir Kondratiev wrote:
-> On Tuesday 28 September 2004 14:20, Luis R. Rodriguez wrote:
-> LR> RFC: what are the chances we can implement our own generic "softmac" =
-that may
-> LR> be usable by the different chipsets out there?
->=20
-> Coming days, I will submit "framework" consisting of stack based on Dave'=
-s=20
-> code and debug driver which will be able to imitate Rx. I have working ba=
-sic=20
-> Tx/Rx. Then, I'd like to concentrate on interfaces stack-driver and=20
-> stack-upper layers. It would be great if someone will do MAC algorithms. =
-I'll=20
-> appreciate this for sure.
-
-But would it be possible? Would it work, if we write our own softmac
-interface? Or are softmac interaces/libraries strictly dependent on a
-chipset being used?
-
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---OwXh6gFRjCd3qPCM
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFBWgZIat1JN+IKUl4RAn8AAKCDiw8wWMQF04IZBAlcEBhSvqGZuQCdEacr
-jGiIIsQzZ7YanJksfluH37Q=
-=hT92
------END PGP SIGNATURE-----
-
---OwXh6gFRjCd3qPCM--
-
---===============0399501844==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============0399501844==--
+cheers,
+jamal
