@@ -1,42 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] MLDV2: Use IANA icmpv6 type for MLDv2 Report
-Date: Thu, 15 Apr 2004 07:33:24 +0900 (JST)
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: non-NAPI mode question netif_rx_schedule()
+Date: Wed, 14 Apr 2004 21:44:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040415.073324.44957072.yoshfuji@linux-ipv6.org>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDF32@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Hi,
 
-IANA has finally assigned an ICMPv6 type for MLDv2 Report.
-(See: <http://www.iana.org/assignments/icmpv6-parameters>)
+[oh-oh, look out, driver dude venturing outside his comfort zone]
 
-Patch also applies to 2.4.
+I'm looking at the kernel Rx path for non-NAPI, and it looks like we
+could leave work to do on a CPU's backlog queue and not schedule
+RX_SOFTIRQ on that CPU.
 
-Thanks.
+Let's say we call netif_rx(skb) on CPU0.  This will put the skb on the
+backlog queue and then call netif_rx_schedule(netdev) which checks if
+__LINK_STATE_RX_SCHED is not already set for that netdev.  If it's not
+set, it'll set it and start RX_SOFTIRQ on CPU0.
 
-===== include/linux/icmpv6.h 1.3 vs edited =====
---- 1.3/include/linux/icmpv6.h	Wed Apr 16 17:45:42 2003
-+++ edited/include/linux/icmpv6.h	Thu Apr 15 07:30:09 2004
-@@ -95,8 +95,7 @@
- #define MLD2_ALLOW_NEW_SOURCES	5
- #define MLD2_BLOCK_OLD_SOURCES	6
- 
--/* this must be an IANA-assigned value; 206 for testing only */
--#define ICMPV6_MLD2_REPORT		206
-+#define ICMPV6_MLD2_REPORT		143
- #define MLD2_ALL_MCR_INIT { { { 0xff,0x02,0,0,0,0,0,0,0,0,0,0,0,0,0,0x16 } } }
- 
- /*
+No problem so far.
 
+Now, let's say while RX_SOFTIRQ is running on CPU0, we get another hard
+interrupt (same netdev) but this time handled on CPU1.  We call netif_rx
+to queue the skb on CPU1 backlog queue, then call netif_rx_schedule, but
+this time the check for __LINK_STATE_RX_SCHED fails because RX_SOFTIRQ
+is already running on CPU0.  This means we've put work on the CPU1's
+backlog queue, but we don't start the RX_SOFTIRQ on CPU1.  :-(
 
+So the work on CPU1's backlog queue is stuck.  It'll get started if 1)
+we get another hard interrupt on CPU1, and 2) no other CPUs are running
+their RX_SOFTIRQ.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+This could cause unnecessary Rx packet ordering issues as well as
+potentially leaving work pending on a CPU for some time.
+
+What am I missing?
+
+-scott
