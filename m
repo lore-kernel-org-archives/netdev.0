@@ -1,8 +1,8 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [ioctl][7/8] use new code for clip (from levon@movementarian.org)
-Date: Thu, 25 Sep 2003 12:11:39 -0400
+Subject: [PATCH][ATM]: move lane seq_file ops to lec.c [1/3]
+Date: Thu, 25 Sep 2003 12:13:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309251611.h8PGBbkT007001@ginger.cmf.nrl.navy.mil>
+Message-ID: <200309251613.h8PGDOkT007056@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,302 +16,593 @@ please apply to 2.6 -- thanks
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1453  -> 1.1454 
-#	     net/atm/ioctl.c	1.4     -> 1.5    
-#	 net/atm/protocols.h	1.1     -> 1.2    
-#	include/net/atmclip.h	1.3     -> 1.4    
-#	      net/atm/clip.c	1.28    -> 1.29   
+#	           ChangeSet	1.1455  -> 1.1456 
+#	      net/atm/proc.c	1.32    -> 1.33   
+#	       net/atm/lec.c	1.39    -> 1.40   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/09/23	chas@relax.cmf.nrl.navy.mil	1.1454
-#   [ATM]: [ioctl][7/8] use new code for clip (from levon@movementarian.org)
+# 03/09/23	chas@relax.cmf.nrl.navy.mil	1.1456
+# [ATM]: move lane seq_file ops to lec.c [1/3]
 # --------------------------------------------
 #
-diff -Nru a/include/net/atmclip.h b/include/net/atmclip.h
---- a/include/net/atmclip.h	Thu Sep 25 09:24:51 2003
-+++ b/include/net/atmclip.h	Thu Sep 25 09:24:51 2003
-@@ -56,29 +56,7 @@
+diff -Nru a/net/atm/lec.c b/net/atm/lec.c
+--- a/net/atm/lec.c	Thu Sep 25 09:25:33 2003
++++ b/net/atm/lec.c	Thu Sep 25 09:25:33 2003
+@@ -21,6 +21,8 @@
+ #include <net/dst.h>
+ #include <linux/proc_fs.h>
+ #include <linux/spinlock.h>
++#include <linux/proc_fs.h>
++#include <linux/seq_file.h>
  
- 
- #ifdef __KERNEL__
--struct atm_clip_ops {
--	int (*clip_create)(int number);
--	int (*clip_mkip)(struct atm_vcc *vcc,int timeout);
--	int (*clip_setentry)(struct atm_vcc *vcc,u32 ip);
--	int (*clip_encap)(struct atm_vcc *vcc,int mode);
--	void (*clip_push)(struct atm_vcc *vcc,struct sk_buff *skb);
--	int (*atm_init_atmarp)(struct atm_vcc *vcc);
--	struct module *owner;
--};
--
--void atm_clip_ops_set(struct atm_clip_ops *);
--#if defined(CONFIG_ATM_CLIP) || defined(CONFIG_ATM_CLIP_MODULE)
--int try_atm_clip_ops(void);
--#else
--static inline int try_atm_clip_ops(void)
--{
--	return 0;
--}
--#endif
--
--
- extern struct neigh_table *clip_tbl_hook;
--extern struct atm_clip_ops *atm_clip_ops;
- #endif
- 
- #endif
-diff -Nru a/net/atm/clip.c b/net/atm/clip.c
---- a/net/atm/clip.c	Thu Sep 25 09:24:51 2003
-+++ b/net/atm/clip.c	Thu Sep 25 09:24:51 2003
-@@ -762,14 +762,51 @@
- 	return 0;
- }
- 
--static struct atm_clip_ops __atm_clip_ops = {
--	.clip_create =		clip_create,
--	.clip_mkip =		clip_mkip,
--	.clip_setentry =	clip_setentry,
--	.clip_encap =		clip_encap,
--	.clip_push =		clip_push,
--	.atm_init_atmarp =	atm_init_atmarp,
--	.owner =		THIS_MODULE
-+static int clip_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
-+{
-+	struct atm_vcc *vcc = ATM_SD(sock);
-+	int err = 0;
-+
-+	switch (cmd) {
-+		case SIOCMKCLIP:
-+		case ATMARPD_CTRL:
-+		case ATMARP_MKIP:
-+		case ATMARP_SETENTRY:
-+		case ATMARP_ENCAP:
-+			if (!capable(CAP_NET_ADMIN))
-+				return -EPERM;
-+			break;
-+		default:
-+			return -ENOIOCTLCMD;
-+	}
-+
-+	switch (cmd) {
-+		case SIOCMKCLIP:
-+			err = clip_create(arg);
-+			break;
-+		case ATMARPD_CTRL:
-+			err = atm_init_atmarp(vcc);
-+			if (!err) {
-+				sock->state = SS_CONNECTED;
-+				__module_get(THIS_MODULE);
-+			}
-+			break;
-+		case ATMARP_MKIP:
-+			err = clip_mkip(vcc ,arg);
-+			break;
-+		case ATMARP_SETENTRY:
-+			err = clip_setentry(vcc, arg);
-+			break;
-+		case ATMARP_ENCAP:
-+			err = clip_encap(vcc, arg);
-+			break;
-+	}
-+	return err;
-+}
-+
-+static struct atm_ioctl clip_ioctl_ops = {
-+	.owner 	= THIS_MODULE,
-+	.ioctl	= clip_ioctl,
+ /* TokenRing if needed */
+ #ifdef CONFIG_TR
+@@ -842,8 +844,264 @@
+ 	.owner = 	THIS_MODULE
  };
  
- #ifdef CONFIG_PROC_FS
-@@ -942,13 +979,10 @@
- 	struct seq_file *seq;
- 	int rc = -EAGAIN;
- 
--	if (!try_atm_clip_ops())
--		goto out;
--
- 	state = kmalloc(sizeof(*state), GFP_KERNEL);
- 	if (!state) {
- 		rc = -ENOMEM;
--		goto out_put;
++
++#ifdef CONFIG_PROC_FS
++static char* lec_arp_get_status_string(unsigned char status)
++{
++	static char *lec_arp_status_string[] = {
++		"ESI_UNKNOWN       ",
++		"ESI_ARP_PENDING   ",
++		"ESI_VC_PENDING    ",
++		"<Undefined>       ",
++		"ESI_FLUSH_PENDING ",
++		"ESI_FORWARD_DIRECT"
++	};
++
++	if (status > ESI_FORWARD_DIRECT)
++		status = 3;	/* ESI_UNDEFINED */
++	return lec_arp_status_string[status];
++}
++
++static void lec_info(struct seq_file *seq, struct lec_arp_table *entry)
++{
++	int i;
++
++	for (i = 0; i < ETH_ALEN; i++)
++		seq_printf(seq, "%2.2x", entry->mac_addr[i] & 0xff);
++	seq_printf(seq, " ");
++	for (i = 0; i < ATM_ESA_LEN; i++)
++		seq_printf(seq, "%2.2x", entry->atm_addr[i] & 0xff);
++	seq_printf(seq, " %s %4.4x", lec_arp_get_status_string(entry->status),
++		   entry->flags & 0xffff);
++	if (entry->vcc)
++		seq_printf(seq, "%3d %3d ", entry->vcc->vpi, entry->vcc->vci);
++	else
++	        seq_printf(seq, "        ");
++	if (entry->recv_vcc) {
++		seq_printf(seq, "     %3d %3d", entry->recv_vcc->vpi,
++			   entry->recv_vcc->vci);
++        }
++        seq_putc(seq, '\n');
++}
++
++
++struct lec_state {
++	unsigned long flags;
++	struct lec_priv *locked;
++	struct lec_arp_table *entry;
++	struct net_device *dev;
++	int itf;
++	int arp_table;
++	int misc_table;
++};
++
++static void *lec_tbl_walk(struct lec_state *state, struct lec_arp_table *tbl,
++			  loff_t *l)
++{
++	struct lec_arp_table *e = state->entry;
++
++	if (!e)
++		e = tbl;
++	if (e == (void *)1) {
++		e = tbl;
++		--*l;
++	}
++	for (; e; e = e->next) {
++		if (--*l < 0)
++			break;
++	}
++	state->entry = e;
++	return (*l < 0) ? state : NULL;
++}
++
++static void *lec_arp_walk(struct lec_state *state, loff_t *l,
++			      struct lec_priv *priv)
++{
++	void *v = NULL;
++	int p;
++
++	for (p = state->arp_table; p < LEC_ARP_TABLE_SIZE; p++) {
++		v = lec_tbl_walk(state, priv->lec_arp_tables[p], l);
++		if (v)
++			break;
++	}
++	state->arp_table = p;
++	return v;
++}
++
++static void *lec_misc_walk(struct lec_state *state, loff_t *l,
++			   struct lec_priv *priv)
++{
++	struct lec_arp_table *lec_misc_tables[] = {
++		priv->lec_arp_empty_ones,
++		priv->lec_no_forward,
++		priv->mcast_fwds
++	};
++	void *v = NULL;
++	int q;
++
++	for (q = state->misc_table; q < ARRAY_SIZE(lec_misc_tables); q++) {
++		v = lec_tbl_walk(state, lec_misc_tables[q], l);
++		if (v)
++			break;
++	}
++	state->misc_table = q;
++	return v;
++}
++
++static void *lec_priv_walk(struct lec_state *state, loff_t *l,
++			   struct lec_priv *priv)
++{
++	if (!state->locked) {
++		state->locked = priv;
++		spin_lock_irqsave(&priv->lec_arp_lock, state->flags);
++	}
++	if (!lec_arp_walk(state, l, priv) &&
++	    !lec_misc_walk(state, l, priv)) {
++		spin_unlock_irqrestore(&priv->lec_arp_lock, state->flags);
++		state->locked = NULL;
++		/* Partial state reset for the next time we get called */
++		state->arp_table = state->misc_table = 0;
++	}
++	return state->locked;
++}
++
++static void *lec_itf_walk(struct lec_state *state, loff_t *l)
++{
++	struct net_device *dev;
++	void *v;
++
++	dev = state->dev ? state->dev : dev_lec[state->itf];
++	v = (dev && dev->priv) ? lec_priv_walk(state, l, dev->priv) : NULL;
++	if (!v && dev) {
++		dev_put(dev);
++		/* Partial state reset for the next time we get called */
++		dev = NULL;
++	}
++	state->dev = dev;
++	return v;
++}
++
++static void *lec_get_idx(struct lec_state *state, loff_t l)
++{
++	void *v = NULL;
++
++	for (; state->itf < MAX_LEC_ITF; state->itf++) {
++		v = lec_itf_walk(state, &l);
++		if (v)
++			break;
++	}
++	return v; 
++}
++
++static void *lec_seq_start(struct seq_file *seq, loff_t *pos)
++{
++	struct lec_state *state = seq->private;
++
++	state->itf = 0;
++	state->dev = NULL;
++	state->locked = NULL;
++	state->arp_table = 0;
++	state->misc_table = 0;
++	state->entry = (void *)1;
++
++	return *pos ? lec_get_idx(state, *pos) : (void*)1;
++}
++
++static void lec_seq_stop(struct seq_file *seq, void *v)
++{
++	struct lec_state *state = seq->private;
++
++	if (state->dev) {
++		spin_unlock_irqrestore(&state->locked->lec_arp_lock,
++				       state->flags);
++		dev_put(state->dev);
++	}
++}
++
++static void *lec_seq_next(struct seq_file *seq, void *v, loff_t *pos)
++{
++	struct lec_state *state = seq->private;
++
++	v = lec_get_idx(state, 1);
++	*pos += !!PTR_ERR(v);
++	return v;
++}
++
++static int lec_seq_show(struct seq_file *seq, void *v)
++{
++	static char lec_banner[] = "Itf  MAC          ATM destination" 
++		"                          Status            Flags "
++		"VPI/VCI Recv VPI/VCI\n";
++
++	if (v == (void *)1)
++		seq_puts(seq, lec_banner);
++	else {
++		struct lec_state *state = seq->private;
++		struct net_device *dev = state->dev; 
++
++		seq_printf(seq, "%s ", dev->name);
++		lec_info(seq, state->entry);
++	}
++	return 0;
++}
++
++static struct seq_operations lec_seq_ops = {
++	.start	= lec_seq_start,
++	.next	= lec_seq_next,
++	.stop	= lec_seq_stop,
++	.show	= lec_seq_show,
++};
++
++static int lec_seq_open(struct inode *inode, struct file *file)
++{
++	struct lec_state *state;
++	struct seq_file *seq;
++	int rc = -EAGAIN;
++
++	state = kmalloc(sizeof(*state), GFP_KERNEL);
++	if (!state) {
++		rc = -ENOMEM;
++		goto out;
++	}
++
++	rc = seq_open(file, &lec_seq_ops);
++	if (rc)
 +		goto out_kfree;
- 	}
- 
- 	rc = seq_open(file, &arp_seq_ops);
-@@ -960,8 +994,6 @@
- out:
- 	return rc;
- 
--out_put:
--	module_put(atm_clip_ops->owner);
- out_kfree:
- 	kfree(state);
- 	goto out;
-@@ -969,7 +1001,6 @@
- 
- static int arp_seq_release(struct inode *inode, struct file *file)
++	seq = file->private_data;
++	seq->private = state;
++out:
++	return rc;
++
++out_kfree:
++	kfree(state);
++	goto out;
++}
++
++static int lec_seq_release(struct inode *inode, struct file *file)
++{
++	return seq_release_private(inode, file);
++}
++
++static struct file_operations lec_seq_fops = {
++	.owner		= THIS_MODULE,
++	.open		= lec_seq_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= lec_seq_release,
++};
++#endif
++
+ static int __init lane_module_init(void)
  {
--	module_put(atm_clip_ops->owner);
- 	return seq_release_private(inode, file);
- }
++#ifdef CONFIG_PROC_FS
++	struct proc_dir_entry *p;
++
++	p = create_proc_entry("lec", S_IRUGO, atm_proc_root);
++	if (p)
++		p->proc_fops = &lec_seq_fops;
++#endif
++
+         atm_lane_ops_set(&__atm_lane_ops);
+         printk("lec.c: " __DATE__ " " __TIME__ " initialized\n");
+         return 0;
+@@ -853,6 +1111,8 @@
+ {
+         int i;
+         struct lec_priv *priv;
++
++	remove_proc_entry("lec", atm_proc_root);
  
-@@ -1004,7 +1035,7 @@
- 	skb_queue_head_init(&clip_tbl.proxy_queue);
+         atm_lane_ops_set(NULL);
  
- 	clip_tbl_hook = &clip_tbl;
--	atm_clip_ops_set(&__atm_clip_ops);
-+	register_atm_ioctl(&clip_ioctl_ops);
+diff -Nru a/net/atm/proc.c b/net/atm/proc.c
+--- a/net/atm/proc.c	Thu Sep 25 09:25:32 2003
++++ b/net/atm/proc.c	Thu Sep 25 09:25:32 2003
+@@ -31,11 +31,6 @@
+ #include "common.h" /* atm_proc_init prototype */
+ #include "signaling.h" /* to get sigd - ugly too */
  
- 	return 0;
- }
-@@ -1015,7 +1046,7 @@
- 
- 	remove_proc_entry("arp", atm_proc_root);
- 
--	atm_clip_ops_set(NULL);
-+	deregister_atm_ioctl(&clip_ioctl_ops);
- 
- 	neigh_ifdown(&clip_tbl, NULL);
- 	dev = clip_devs;
-diff -Nru a/net/atm/ioctl.c b/net/atm/ioctl.c
---- a/net/atm/ioctl.c	Thu Sep 25 09:24:51 2003
-+++ b/net/atm/ioctl.c	Thu Sep 25 09:24:51 2003
-@@ -15,11 +15,9 @@
- #include <linux/sonet.h>	/* for ioctls */
- #include <linux/atmsvc.h>
- #include <linux/atmmpc.h>
-+#include <net/atmclip.h>
- #include <asm/ioctls.h>
- 
--#ifdef CONFIG_ATM_CLIP
--#include <net/atmclip.h>	/* for clip_create */
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+-#include "lec.h"
+-#include "lec_arpc.h"
 -#endif
- #include "resources.h"
- #include "signaling.h"		/* for WAITING and sigd_attach */
- 
-@@ -63,36 +61,6 @@
- #endif
- #endif
- 
--#if defined(CONFIG_ATM_CLIP) || defined(CONFIG_ATM_CLIP_MODULE)
--#include <net/atmclip.h>
--struct atm_clip_ops *atm_clip_ops;
--static DECLARE_MUTEX(atm_clip_ops_mutex);
 -
--void atm_clip_ops_set(struct atm_clip_ops *hook)
+ static ssize_t proc_dev_atm_read(struct file *file,char *buf,size_t count,
+     loff_t *pos);
+ 
+@@ -237,49 +232,6 @@
+ 	seq_putc(seq, '\n');
+ }
+ 
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+-
+-static char* lec_arp_get_status_string(unsigned char status)
 -{
--	down(&atm_clip_ops_mutex);
--	atm_clip_ops = hook;
--	up(&atm_clip_ops_mutex);
+-	static char *lec_arp_status_string[] = {
+-		"ESI_UNKNOWN       ",
+-		"ESI_ARP_PENDING   ",
+-		"ESI_VC_PENDING    ",
+-		"<Unknown>         ",
+-		"ESI_FLUSH_PENDING ",
+-		"ESI_FORWARD_DIRECT",
+-		"<Undefined>"
+-	};
+-
+-	if (status > ESI_FORWARD_DIRECT)
+-		status = ESI_FORWARD_DIRECT + 1;
+-	return lec_arp_status_string[status];
 -}
 -
--int try_atm_clip_ops(void)
+-static void lec_info(struct seq_file *seq, struct lec_arp_table *entry)
 -{
--	down(&atm_clip_ops_mutex);
--	if (atm_clip_ops && try_module_get(atm_clip_ops->owner)) {
--		up(&atm_clip_ops_mutex);
--		return 1;
+-	int i;
+-
+-	for (i = 0; i < ETH_ALEN; i++)
+-		seq_printf(seq, "%2.2x", entry->mac_addr[i] & 0xff);
+-	seq_printf(seq, " ");
+-	for (i = 0; i < ATM_ESA_LEN; i++)
+-		seq_printf(seq, "%2.2x", entry->atm_addr[i] & 0xff);
+-	seq_printf(seq, " %s %4.4x", lec_arp_get_status_string(entry->status),
+-		   entry->flags & 0xffff);
+-	if (entry->vcc)
+-		seq_printf(seq, "%3d %3d ", entry->vcc->vpi, entry->vcc->vci);
+-	else
+-	        seq_printf(seq, "        ");
+-	if (entry->recv_vcc) {
+-		seq_printf(seq, "     %3d %3d", entry->recv_vcc->vpi,
+-			   entry->recv_vcc->vci);
+-        }
+-        seq_putc(seq, '\n');
+-}
+-
+-#endif /* CONFIG_ATM_LANE */
+-
+ static int atm_dev_seq_show(struct seq_file *seq, void *v)
+ {
+ 	static char atm_dev_banner[] =
+@@ -419,218 +371,6 @@
+ 	.release	= vcc_seq_release,
+ };
+ 
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+-
+-struct lec_state {
+-	unsigned long flags;
+-	struct lec_priv *locked;
+-	struct lec_arp_table *entry;
+-	struct net_device *dev;
+-	int itf;
+-	int arp_table;
+-	int misc_table;
+-};
+-
+-static void *lec_tbl_walk(struct lec_state *state, struct lec_arp_table *tbl,
+-			  loff_t *l)
+-{
+-	struct lec_arp_table *e = state->entry;
+-
+-	if (!e)
+-		e = tbl;
+-	if (e == (void *)1) {
+-		e = tbl;
+-		--*l;
 -	}
--	up(&atm_clip_ops_mutex);
+-	for (; e; e = e->next) {
+-		if (--*l < 0)
+-			break;
+-	}
+-	state->entry = e;
+-	return (*l < 0) ? state : NULL;
+-}
+-
+-static void *lec_arp_walk(struct lec_state *state, loff_t *l,
+-			      struct lec_priv *priv)
+-{
+-	void *v = NULL;
+-	int p;
+-
+-	for (p = state->arp_table; p < LEC_ARP_TABLE_SIZE; p++) {
+-		v = lec_tbl_walk(state, priv->lec_arp_tables[p], l);
+-		if (v)
+-			break;
+-	}
+-	state->arp_table = p;
+-	return v;
+-}
+-
+-static void *lec_misc_walk(struct lec_state *state, loff_t *l,
+-			   struct lec_priv *priv)
+-{
+-	struct lec_arp_table *lec_misc_tables[] = {
+-		priv->lec_arp_empty_ones,
+-		priv->lec_no_forward,
+-		priv->mcast_fwds
+-	};
+-	void *v = NULL;
+-	int q;
+-
+-	for (q = state->misc_table; q < ARRAY_SIZE(lec_misc_tables); q++) {
+-		v = lec_tbl_walk(state, lec_misc_tables[q], l);
+-		if (v)
+-			break;
+-	}
+-	state->misc_table = q;
+-	return v;
+-}
+-
+-static void *lec_priv_walk(struct lec_state *state, loff_t *l,
+-			   struct lec_priv *priv)
+-{
+-	if (!state->locked) {
+-		state->locked = priv;
+-		spin_lock_irqsave(&priv->lec_arp_lock, state->flags);
+-	}
+-	if (!lec_arp_walk(state, l, priv) &&
+-	    !lec_misc_walk(state, l, priv)) {
+-		spin_unlock_irqrestore(&priv->lec_arp_lock, state->flags);
+-		state->locked = NULL;
+-		/* Partial state reset for the next time we get called */
+-		state->arp_table = state->misc_table = 0;
+-	}
+-	return state->locked;
+-}
+-
+-static void *lec_itf_walk(struct lec_state *state, loff_t *l)
+-{
+-	struct net_device *dev;
+-	void *v;
+-
+-	dev = state->dev ? state->dev : atm_lane_ops->get_lec(state->itf);
+-	v = (dev && dev->priv) ? lec_priv_walk(state, l, dev->priv) : NULL;
+-	if (!v && dev) {
+-		dev_put(dev);
+-		/* Partial state reset for the next time we get called */
+-		dev = NULL;
+-	}
+-	state->dev = dev;
+-	return v;
+-}
+-
+-static void *lec_get_idx(struct lec_state *state, loff_t l)
+-{
+-	void *v = NULL;
+-
+-	for (; state->itf < MAX_LEC_ITF; state->itf++) {
+-		v = lec_itf_walk(state, &l);
+-		if (v)
+-			break;
+-	}
+-	return v; 
+-}
+-
+-static void *lec_seq_start(struct seq_file *seq, loff_t *pos)
+-{
+-	struct lec_state *state = seq->private;
+-
+-	state->itf = 0;
+-	state->dev = NULL;
+-	state->locked = NULL;
+-	state->arp_table = 0;
+-	state->misc_table = 0;
+-	state->entry = (void *)1;
+-
+-	return *pos ? lec_get_idx(state, *pos) : (void*)1;
+-}
+-
+-static void lec_seq_stop(struct seq_file *seq, void *v)
+-{
+-	struct lec_state *state = seq->private;
+-
+-	if (state->dev) {
+-		spin_unlock_irqrestore(&state->locked->lec_arp_lock,
+-				       state->flags);
+-		dev_put(state->dev);
+-	}
+-}
+-
+-static void *lec_seq_next(struct seq_file *seq, void *v, loff_t *pos)
+-{
+-	struct lec_state *state = seq->private;
+-
+-	v = lec_get_idx(state, 1);
+-	*pos += !!PTR_ERR(v);
+-	return v;
+-}
+-
+-static int lec_seq_show(struct seq_file *seq, void *v)
+-{
+-	static char lec_banner[] = "Itf  MAC          ATM destination" 
+-		"                          Status            Flags "
+-		"VPI/VCI Recv VPI/VCI\n";
+-
+-	if (v == (void *)1)
+-		seq_puts(seq, lec_banner);
+-	else {
+-		struct lec_state *state = seq->private;
+-		struct net_device *dev = state->dev; 
+-
+-		seq_printf(seq, "%s ", dev->name);
+-		lec_info(seq, state->entry);
+-	}
 -	return 0;
 -}
 -
--#ifdef CONFIG_ATM_CLIP_MODULE
--EXPORT_SYMBOL(atm_clip_ops);
--EXPORT_SYMBOL(try_atm_clip_ops);
--EXPORT_SYMBOL(atm_clip_ops_set);
--#endif
--#endif
+-static struct seq_operations lec_seq_ops = {
+-	.start	= lec_seq_start,
+-	.next	= lec_seq_next,
+-	.stop	= lec_seq_stop,
+-	.show	= lec_seq_show,
+-};
 -
- static DECLARE_MUTEX(ioctl_mutex);
- static LIST_HEAD(ioctl_list);
- 
-@@ -177,68 +145,6 @@
- 			if (!error)
- 				sock->state = SS_CONNECTED;
- 			goto done;
--#if defined(CONFIG_ATM_CLIP) || defined(CONFIG_ATM_CLIP_MODULE)
--		case SIOCMKCLIP:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			if (try_atm_clip_ops()) {
--				error = atm_clip_ops->clip_create(arg);
--				module_put(atm_clip_ops->owner);
--			} else
--				error = -ENOSYS;
--			goto done;
--		case ATMARPD_CTRL:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--#if defined(CONFIG_ATM_CLIP_MODULE)
--			if (!atm_clip_ops)
--				request_module("clip");
+-static int lec_seq_open(struct inode *inode, struct file *file)
+-{
+-	struct lec_state *state;
+-	struct seq_file *seq;
+-	int rc = -EAGAIN;
+-
+-	if (!try_atm_lane_ops())
+-		goto out;
+-
+-	state = kmalloc(sizeof(*state), GFP_KERNEL);
+-	if (!state) {
+-		rc = -ENOMEM;
+-		goto out;
+-	}
+-
+-	rc = seq_open(file, &lec_seq_ops);
+-	if (rc)
+-		goto out_kfree;
+-	seq = file->private_data;
+-	seq->private = state;
+-out:
+-	return rc;
+-out_kfree:
+-	kfree(state);
+-	goto out;
+-}
+-
+-static int lec_seq_release(struct inode *inode, struct file *file)
+-{
+-	module_put(atm_lane_ops->owner);
+-	return seq_release_private(inode, file);
+-}
+-
+-static struct file_operations lec_seq_fops = {
+-	.open		= lec_seq_open,
+-	.read		= seq_read,
+-	.llseek		= seq_lseek,
+-	.release	= lec_seq_release,
+-};
+-
+-#endif /* CONFIG_ATM_LANE */
+-
+ static ssize_t proc_dev_atm_read(struct file *file,char *buf,size_t count,
+     loff_t *pos)
+ {
+@@ -720,9 +460,6 @@
+ 	{ .name = "pvc",	.proc_fops = &pvc_seq_fops },
+ 	{ .name = "svc",	.proc_fops = &svc_seq_fops },
+ 	{ .name = "vc",		.proc_fops = &vcc_seq_fops },
+-#if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
+-	{ .name = "lec",	.proc_fops = &lec_seq_fops },
 -#endif
--			if (try_atm_clip_ops()) {
--				error = atm_clip_ops->atm_init_atmarp(vcc);
--				if (!error)
--					sock->state = SS_CONNECTED;
--			} else
--				error = -ENOSYS;
--			goto done;
--		case ATMARP_MKIP:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			if (try_atm_clip_ops()) {
--				error = atm_clip_ops->clip_mkip(vcc, arg);
--				module_put(atm_clip_ops->owner);
--			} else
--				error = -ENOSYS;
--			goto done;
--		case ATMARP_SETENTRY:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			if (try_atm_clip_ops()) {
--				error = atm_clip_ops->clip_setentry(vcc, arg);
--				module_put(atm_clip_ops->owner);
--			} else
--				error = -ENOSYS;
--			goto done;
--		case ATMARP_ENCAP:
--			if (!capable(CAP_NET_ADMIN)) {
--				error = -EPERM;
--				goto done;
--			}
--			if (try_atm_clip_ops()) {
--				error = atm_clip_ops->clip_encap(vcc, arg);
--				module_put(atm_clip_ops->owner);
--			} else
--				error = -ENOSYS;
--			goto done;
--#endif
- #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-                 case ATMLEC_CTRL:
-                         if (!capable(CAP_NET_ADMIN)) {
-@@ -329,6 +235,8 @@
+ 	{ .name = NULL,		.proc_fops = NULL }
+ };
  
- 	if (cmd == ATMMPC_CTRL || cmd == ATMMPC_DATA)
- 		request_module("mpoa");
-+	if (cmd == ATMARPD_CTRL)
-+		request_module("clip");
- 
- 	error = -ENOIOCTLCMD;
- 
-diff -Nru a/net/atm/protocols.h b/net/atm/protocols.h
---- a/net/atm/protocols.h	Thu Sep 25 09:24:51 2003
-+++ b/net/atm/protocols.h	Thu Sep 25 09:24:51 2003
-@@ -11,6 +11,5 @@
- int atm_init_aal0(struct atm_vcc *vcc);	/* "raw" AAL0 */
- int atm_init_aal34(struct atm_vcc *vcc);/* "raw" AAL3/4 transport */
- int atm_init_aal5(struct atm_vcc *vcc);	/* "raw" AAL5 transport */
--int atm_init_atmarp(struct atm_vcc *vcc);/* ATM ARP */
- 
- #endif
