@@ -1,70 +1,59 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: IPv6 MIB:ipv6PrefixTable implementation
-Date: Wed, 19 Nov 2003 16:21:38 -0800
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: [patches] 2.6.0-test9 - r8169 DMA API conversion
+Date: Thu, 20 Nov 2003 02:34:12 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311191621.38087.mashirle@us.ibm.com>
+Message-ID: <1069292052.3241.36.camel@slurv.pasop.tomt.net>
+References: <47973.68.105.173.45.1069042089.squirrel@mail.mainstreetsoftworks.com>
+	 <3FB9A277.70309@pobox.com>
+	 <20031118135848.A2451@electric-eye.fr.zoreil.com>
+	 <3FBBA76B.4070606@pobox.com>
+	 <20031120010056.A19444@electric-eye.fr.zoreil.com>
+	 <3FBC05FB.2020409@mcve.com>
+	 <20031120014550.A22377@electric-eye.fr.zoreil.com>
+	 <3FBC11F2.5080805@mcve.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: xma@us.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Francois Romieu <romieu@fr.zoreil.com>, Jeff Garzik <jgarzik@pobox.com>,
+        Brad House <brad_mssw@gentoo.org>, Brad House <brad@mcve.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: netdev@oss.sgi.com
+In-Reply-To: <3FBC11F2.5080805@mcve.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, Alexy,
+On Thu, 2003-11-20 at 01:59, Brad House wrote:
+> any reason why it's not against the v1.6 ?
 
-A while ago, we had a discussion about IPv6 Prefix Table implementation. 
-I agree with you it's not necessary to process offlink prefix.
+I think you misunderstood. If I intepret the list correctly, the 1.6
+changes are in that list (as "your changes (week-end)".)
 
-In each ipv6PrefixTable, there are 9 objects, which are Ifindex, Type, Prefix, 
-Length, Origin(addrconf, manually, dhcp, others), OnLinkFlag, AutonomoueFlag, 
-AdvPreferredLiftTime and ValidLifeTime. 
+> the current driver is missing support for the
+> 8110S chip (or at least it doesn't seem to work at all),
+> so you're cutting out all the chips on the mobos out there.
+> Haven't looked to see if it's just a PCI ID or other functionality,
+> but since the V1.2 is from realtek that's in the official
+> kernel, it would make sense to use the 1.6 patch....
 
-As we know, the routing table has all on-link prefix routes. But only Prefix,
-Length, Ifindex are saved in routing table, the rest objects info are not saved
-anywhere.
+IIRC, the realtek one got cleaned up a great deal before entering
+mainline, both bug-fixes and coding style cleanups. Your patch may
+revert a lot of that work (I havn't looked at it closely.) Also the
+changelog differs for the 1.2 entry between the two versions, indicating
+just this.
 
-One implementation detail question, do you think I need to save all the other 
-Prefix Objects: Type, Origin(addrconf, manually, dhcp, others), OnLinkFlag, 
-AutonomoueFlag, AdvPreferredLiftTime and ValidLifeTime in routing table also?
-If so, sounds like I add a big structure in each prefix route entry in the routing table.
+Lets take one step at a time ;-)
 
-Thanks
-Shirley Ma
+> > It is against the original r8169. Once finished, it should look like:
+> > - first cut at dma api conversion (today)
+> > - remaining bits of dma api conversion (tomorrow)
+> > - rx_copybreak (tomorrow)
+> > - your changes (week-end)
+> > - big-endian fixes (week-end)
+> >=20
+> > Each part divided in reasonably small patches to ease the test/review=
+ process.
 
-IBM Linux Technology Center
-=======================
-
-
-
-List:     linux-netdev
-Subject:  Re: [Issues] Implementation for IPv6 MIB:ipv6PrefixTable
-From:     kuznet () ms2 ! inr ! ac ! ru
-Date:     2003-10-24 17:59:27
-
-Hello!
-
-> First, do you think it's a good idea to save all prefix objects in routing
-> table?
-
-Those which are on-link, of course.
-
-
-> Second, where is the best location for the off-link prefix, on-link flag 0
-> prefix to be saved?
-
-Do you really think off-link prefixes are to be saved? Prefix in use is onlink
-by defintion, so just return 1 in these bit and ignore off-link prefixes
-completely, they are meaningless, are not they?
-
-
-> Third, do you think it's a good idea to implement a prefix table/per
-> interface in the kernel?
-
-Well, if SNMP is going to be used as a tool to snoop ndisc promiscuously
-(which seems to be the case if it shows inforrmation about offlink prefixes),
-then it is definitely not a kernel task.
-
-Alexey
+--=20
+Mvh,
+Andr=E9 Tomt
+andre@tomt.net
