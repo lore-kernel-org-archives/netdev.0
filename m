@@ -1,41 +1,35 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
-Date: Tue, 7 Dec 2004 23:40:22 +0100
-Message-ID: <16822.12630.275389.575326@robur.slu.se>
-References: <20041206205305.GA11970@soohrt.org>
-	<20041207211035.GA20286@quickstop.soohrt.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: inter-packet gap in pktgen
+Date: Tue, 07 Dec 2004 14:47:15 -0800
+Message-ID: <41B632F3.1090104@candelatech.com>
+References: <20041207222522.GA30266@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	"David S. Miller" <davem@davemloft.net>, jamal <hadi@cyberus.ca>,
-	Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261950AbULGWki@vger.kernel.org>
-To: Karsten Desler <kdesler@soohrt.org>
-In-Reply-To: <20041207211035.GA20286@quickstop.soohrt.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041207222522.GA30266@xi.wantstofly.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Lennert Buytenhek wrote:
 
-Karsten Desler writes:
+> By tweaking the 'ipg' parameter I can generate pretty much any packet rate
+> I want, as long as I set ipg=(1e9/rate)-496 instead of something possibly
+> more straightforward.
 
- > I totally forgot to mention: There are approximately 100k concurrent
- > flows.
+That 496 will also change with load on the system, at least on average.  I
+dealt with this by having a user-space app sample the rate and adjust the ipg
+to keep the average rate where I want it.
 
- > >From dmesg:
- > IP: routing cache hash table of 16384 buckets, 128Kbytes
+So, I'd suggest leaving the ipg as it is, and use external tools to get
+the exact pps that you are looking for.
 
- You can take a looks at stats w. rtstat. Hash spinning and how many new 
- entires create and how many warm you hit. 
+Ben
 
-
- > Maybe there is some contention on the rt_hash_table spinlocks?
- > Is the attached patch enough to increase the size?
-
- There is boot option for this now
-
-   rhash_entries=  [KNL,NET]
-                        Set number of hash buckets for route cache
-
-
-						   --ro
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
