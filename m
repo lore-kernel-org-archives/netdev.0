@@ -1,217 +1,159 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [PATCH 2.6] e100: remove reference to NAPI config option
-Date: Tue, 1 Feb 2005 09:25:33 -0500
-Message-ID: <20050201142533.GB15056@tuxdriver.com>
-References: <1107220952.3366.4.camel@sfeldma-mobl.dsl-verizon.net> <20050201014358.GD15786@krispykreme.ozlabs.ibm.com>
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: dummy as IMQ replacement
+Date: Tue, 01 Feb 2005 14:53:29 +0000
+Message-ID: <41FF97E9.7040501@dsl.pipex.com>
+References: <1107123123.8021.80.camel@jzny.localdomain>	 <41FEB3AE.3090400@dsl.pipex.com> <1107258578.1095.570.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Scott Feldman <sfeldma@pobox.com>, jgarzik@pobox.com, netdev@oss.sgi.com,
-        lunz@falooley.org
-To: Anton Blanchard <anton@samba.org>
-Content-Disposition: inline
-In-Reply-To: <20050201014358.GD15786@krispykreme.ozlabs.ibm.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1107258578.1095.570.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 01, 2005 at 12:43:58PM +1100, Anton Blanchard wrote:
+jamal wrote:
+> On Mon, 2005-01-31 at 17:39, Andy Furniss wrote:
 > 
-> Hi Scott,
+>>Jamal Hadi Salim wrote:
 > 
-> > e100 is NAPI all the time, so the Kconfig option is wasting space.
 > 
-> Speaking of NAPI...
+>>>2) Allows for queueing incoming traffic for shaping instead of
+>>>dropping. I am not aware of any study that shows policing is 
+>>>worse than shaping in achieving the end goal of rate control.
+>>
+>>I would say the end goal is shaping not just rate control. Shaping 
+>>meaning different things to different people and ingress shaping being 
+>>different from egress.
 > 
-> We have seen issues with NAPI on ppc64 on various cards in the past.
+> 
+> I know for a while the Bart howto was mislabeling the meaning of
+> policing - not sure about shaping. 
+> Shaping has a precise definition that involves a queue and a
+> non-working-conserving scheduler in order to rate control. This doesnt
+> matter where it happens (egress or ingress). Policing on the other hand
+> is work conserving etc.
 
-Just curious...wanna try this patch I got from Intel?  I think it
-may help...
+Ok, but shaping to LARTC posters means being able to classify traffic 
+and set up sharing/priorotising of classes. This is the reason most need 
+to be able to queue - they want to use htb/hfsc for complicated setups 
+and until now were not aware that it was even possible to replicate this 
+in policers and if it becomes feasable it will probably appear daunting 
+to do compared with HTB and all the existing docs/scripts.
 
-John
+For me, I think queuing and dropping is better than just dropping, you 
+can affect tcp by delaying eg. 1 ack per packet rather than delayed acks 
+and clocking out the packets helps smooth burstiness, which hurts 
+latency if you are doing traffic control from the wrong end of the 
+bottleneck.
 
---- linux-2.6.9/drivers/net/e100.c.napifix	2005-01-25 15:54:28.830937362 -0500
-+++ linux-2.6.9/drivers/net/e100.c	2005-01-25 15:54:56.350257693 -0500
-@@ -269,6 +269,12 @@ enum scb_status {
- 	rus_mask         = 0x3C,
- };
- 
-+enum ru_state  {
-+	RU_SUSPENDED = 0,
-+	RU_RUNNING	 = 1,
-+	RU_UNINITIALIZED = -1,
-+};
-+
- enum scb_stat_ack {
- 	stat_ack_not_ours    = 0x00,
- 	stat_ack_sw_gen      = 0x04,
-@@ -510,7 +516,7 @@ struct nic {
- 	struct rx *rx_to_use;
- 	struct rx *rx_to_clean;
- 	struct rfd blank_rfd;
--	int ru_running;
-+	enum ru_state ru_running;
- 
- 	spinlock_t cb_lock			____cacheline_aligned;
- 	spinlock_t cmd_lock;
-@@ -1417,12 +1423,18 @@ static int e100_alloc_cbs(struct nic *ni
- 	return 0;
- }
- 
--static inline void e100_start_receiver(struct nic *nic)
-+static inline void e100_start_receiver(struct nic *nic, struct rx *rx)
- {
-+	if(!nic->rxs) return;
-+	if(RU_SUSPENDED != nic->ru_running) return;
-+
-+	/* handle init time starts */
-+	if(!rx) rx = nic->rxs;
-+
- 	/* (Re)start RU if suspended or idle and RFA is non-NULL */
--	if(!nic->ru_running && nic->rx_to_clean->skb) {
--		e100_exec_cmd(nic, ruc_start, nic->rx_to_clean->dma_addr);
--		nic->ru_running = 1;
-+	if(rx->skb) {
-+		e100_exec_cmd(nic, ruc_start, rx->dma_addr);
-+		nic->ru_running = RU_RUNNING;
- 	}
- }
- 
-@@ -1473,7 +1485,7 @@ static inline int e100_rx_indicate(struc
- 
- 	/* If data isn't ready, nothing to indicate */
- 	if(unlikely(!(rfd_status & cb_complete)))
--		return -EAGAIN;
-+		return -ENODATA;
- 
- 	/* Get actual data size */
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
-@@ -1484,6 +1496,10 @@ static inline int e100_rx_indicate(struc
- 	pci_unmap_single(nic->pdev, rx->dma_addr,
- 		RFD_BUF_LEN, PCI_DMA_FROMDEVICE);
- 
-+	/* this allows for a fast restart without re-enabling interrupts */
-+	if(le16_to_cpu(rfd->command) & cb_el)
-+		nic->ru_running = RU_SUSPENDED;
-+
- 	/* Pull off the RFD and put the actual data (minus eth hdr) */
- 	skb_reserve(skb, sizeof(struct rfd));
- 	skb_put(skb, actual_size);
-@@ -1516,20 +1532,45 @@ static inline void e100_rx_clean(struct 
- 	unsigned int work_to_do)
- {
- 	struct rx *rx;
-+	int restart_required = 0;
-+	struct rx *rx_to_start = NULL;
-+
-+	/* are we already rnr? then pay attention!!! this ensures that
-+	 * the state machine progression never allows a start with a 
-+	 * partially cleaned list, avoiding a race between hardware
-+	 * and rx_to_clean when in NAPI mode */
-+	if(RU_SUSPENDED == nic->ru_running)
-+		restart_required = 1;
- 
- 	/* Indicate newly arrived packets */
- 	for(rx = nic->rx_to_clean; rx->skb; rx = nic->rx_to_clean = rx->next) {
--		if(e100_rx_indicate(nic, rx, work_done, work_to_do))
-+		int err = e100_rx_indicate(nic, rx, work_done, work_to_do);
-+		if(-EAGAIN == err) {
-+			/* hit quota so have more work to do, restart once
-+			 * cleanup is complete */
-+			restart_required = 0;
-+			break;
-+		} else if(-ENODATA == err)
- 			break; /* No more to clean */
- 	}
- 
-+	/* save our starting point as the place we'll restart the receiver */
-+	if(restart_required)
-+		rx_to_start = nic->rx_to_clean;
-+
- 	/* Alloc new skbs to refill list */
- 	for(rx = nic->rx_to_use; !rx->skb; rx = nic->rx_to_use = rx->next) {
- 		if(unlikely(e100_rx_alloc_skb(nic, rx)))
- 			break; /* Better luck next time (see watchdog) */
- 	}
- 
--	e100_start_receiver(nic);
-+	if(restart_required) {
-+		// ack the rnr?
-+		writeb(stat_ack_rnr, &nic->csr->scb.stat_ack);
-+		e100_start_receiver(nic, rx_to_start);
-+		if(work_done)
-+			(*work_done)++;
-+	}
- }
- 
- static void e100_rx_clean_list(struct nic *nic)
-@@ -1537,6 +1578,8 @@ static void e100_rx_clean_list(struct ni
- 	struct rx *rx;
- 	unsigned int i, count = nic->params.rfds.count;
- 
-+	nic->ru_running = RU_UNINITIALIZED;
-+
- 	if(nic->rxs) {
- 		for(rx = nic->rxs, i = 0; i < count; rx++, i++) {
- 			if(rx->skb) {
-@@ -1550,7 +1593,6 @@ static void e100_rx_clean_list(struct ni
- 	}
- 
- 	nic->rx_to_use = nic->rx_to_clean = NULL;
--	nic->ru_running = 0;
- }
- 
- static int e100_rx_alloc_list(struct nic *nic)
-@@ -1559,6 +1601,7 @@ static int e100_rx_alloc_list(struct nic
- 	unsigned int i, count = nic->params.rfds.count;
- 
- 	nic->rx_to_use = nic->rx_to_clean = NULL;
-+	nic->ru_running = RU_UNINITIALIZED;
- 
- 	if(!(nic->rxs = kmalloc(sizeof(struct rx) * count, GFP_ATOMIC)))
- 		return -ENOMEM;
-@@ -1574,6 +1617,7 @@ static int e100_rx_alloc_list(struct nic
- 	}
- 
- 	nic->rx_to_use = nic->rx_to_clean = nic->rxs;
-+	nic->ru_running = RU_SUSPENDED;
- 
- 	return 0;
- }
-@@ -1595,7 +1639,7 @@ static irqreturn_t e100_intr(int irq, vo
- 
- 	/* We hit Receive No Resource (RNR); restart RU after cleaning */
- 	if(stat_ack & stat_ack_rnr)
--		nic->ru_running = 0;
-+		nic->ru_running = RU_SUSPENDED;
- 
- 	e100_disable_irq(nic);
- 	netif_rx_schedule(netdev);
-@@ -1611,6 +1655,7 @@ static int e100_poll(struct net_device *
- 	int tx_cleaned;
- 
- 	e100_rx_clean(nic, &work_done, work_to_do);
-+	// should we be quota on tx?
- 	tx_cleaned = e100_tx_clean(nic);
- 
- 	/* If no Rx and Tx cleanup work was done, exit polling mode. */
-@@ -1684,7 +1729,7 @@ static int e100_up(struct nic *nic)
- 	if((err = e100_hw_init(nic)))
- 		goto err_clean_cbs;
- 	e100_set_multicast_list(nic->netdev);
--	e100_start_receiver(nic);
-+	e100_start_receiver(nic, 0);
- 	mod_timer(&nic->watchdog, jiffies);
- 	if((err = request_irq(nic->pdev->irq, e100_intr, SA_SHIRQ,
- 		nic->netdev->name, nic->netdev)))
-@@ -1759,7 +1804,7 @@ static int e100_loopback_test(struct nic
- 		mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR,
- 			BMCR_LOOPBACK);
- 
--	e100_start_receiver(nic);
-+	e100_start_receiver(nic, 0);
- 
- 	if(!(skb = dev_alloc_skb(ETH_DATA_LEN))) {
- 		err = -ENOMEM;
--- 
-John W. Linville
-linville@tuxdriver.com
+> 
+>>For me it's from the wrong end of a relativly narrow (512kbit) 
+>>bottleneck link that has a 600ms fifo at the other end. My aim to 
+>>sacrifice as little bandwidth as possible while not adding latency 
+>>bursts for gaming and per user bandwidth allocation (with sharing of 
+>>unused) and sfq within that for bulk tcp traffic.
+>>
+>>If I was shaping LAN traffic, then policers/drops would be OK for me - 
+>>but for a slow link I think queueing and dropping are better/give more 
+>>control eg. I get to use sfq which should not drop the one packet a 56k 
+>>user has managed to send me in the face of lots of incoming from low 
+>>latency high bandwidth servers.
+>>
+>>Even if it's possible I bet few can easily get policers to setup the 
+>>complex sharing/prioritisations that you can with HTB or HFSC.
+> 
+> 
+> sfq has a built in classifier that can efficiently separate those
+> flows so you can achieve semi-fairness; so its not the shaping perse
+> that helps, rather you ended up using a clever scheme that can isolate
+> flows and benefited from shaping as a result; the hashing function
+> should prove weak when a lot of flows start showing up.
+> You could write some interesting classifier (as an example steal the one
+> that sfq has) and achieve the same end results with policing. This would
+> be easier now with ematches .. 
+
+The idea of loosing the s from sfq and doing multilevel hash/mapping is 
+attractive - of course I would want to queue each flow and have the 
+queue be variable length for each flow depending on occupancy of other 
+flows. I suppose a per flow intelligent dropping scheme would be even 
+better. It would be nice to be able to set/control queuelength for link 
+bandwidth, nothing classful in linux tc does this.
+
+
+> 
+> 
+>>>But i wont go back to putting netfilter hooks in the device to satisfy
+>>>this.  I also dont think its worth it hacking dummy some more to be 
+>>>aware of say L3 info and play ip rule tricks to achieve this.
+>>>--> Instead the plan is to have a contrack related action. This action
+>>>will selectively either query/create contrack state on incoming packets.
+>>
+>>I don't understand exactly what you mean here - for my setup to work I 
+>>need to see denatted addresses and mark (connbytes - it helps me be 
+>>extra nasty to multiple simoultaneous connections in slowstart and 
+>>prioritise browsing over bulk) in prerouting mangle. Of course if I can 
+>>use netfilter to classify and save into contrack then I could do 
+>>evrything in netfilter and then use something like connmark to save it 
+>>per connection.
+>>
+> 
+> 
+> You may be refering to requirement #3 then? 
+> In other words what you are doing is best served by knowing the state?
+
+As long as I could use netfilter to mark/classify connections then I 
+think I can sort my setup, don't know about others.
+
+
+> Are pre/post routing sufficient as netfilter hooks for your case?
+
+Yes but depends on where in pre/postrouting. For me after/before nat, as 
+I say above though I could workaround if I classify connections with 
+netfilter. For others as long as they can filter on a mark/classify set 
+in forward, then I think it will be OK for them.
+
+> 
+> 
+>>>Packets could then be redirected to dummy based on what happens -> eg 
+>>>on incoming packets; if we find they are of known state we could send to
+>>>a different queue than one which didnt have existing state. This
+>>>all however is dependent on whatever rules the admin enters.
+>>
+>>
+>>How does the admin enter the rules - netfilter or other?
+>>
+>  
+> Just like i showed in that post (It was long - so dont wanna cutnpaste
+> here).
+> 
+
+I am not sure what exactly can can't be done in your example:
+
+
+
+ ># redirect all IP packets arriving in eth0 to dummy0
+ ># use mark 1 --> puts them onto class 1:1
+ >$TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
+ >match u32 0 0 flowid 1:1 \
+
+What I can do here depends where it hooks packets.
+
+ >action ipt -j MARK --set-mark 1 \
+
+I don't know what table I am using - may be OK as long as I can test for 
+a mark I made earlier in the egress dummy case or test connmark/state I 
+set for that connection in the ingress case.
+
+ >action mirred egress redirect dev dummy0
+
+Andy.
+
+
+> cheers,
+> jamal
+> 
+> 
