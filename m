@@ -1,104 +1,53 @@
-From: "MORANGE,DAMIEN (HP-France,ex1)" <damien.morange@hp.com>
-Subject: [PATCH] lksctp 0.6.9 backport on 2.4.23-pre3
-Date: Fri, 12 Sep 2003 15:45:40 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <B320F712053ED411869200D0B747A3CA0FE474E9@laplace.grenoble.hp.com>
+From: Oskar Andreasson <blueflux@koffein.net>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Fri, 12 Sep 2003 15:55:25 +0200 (CEST)
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <Pine.LNX.4.53.0309121552100.2544@oskar-lap.agatha>
+References: <200309022116.41697.bdschuym@pandora.be>  <20030903200426.59d0af4a.davem@redhat.com>
+  <20030905153152.GA3623@obroa-skai.de.gnumonks.org>
+ <1063330846.1028.11.camel@jzny.localdomain>  <20030912085606.GC2350@obroa-skai.de.gnumonks.org>
+  <Pine.LNX.4.53.0309121244400.2544@oskar-lap.agatha>
+ <1063371359.1027.99.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Cc: "'samudrala@us.ibm.com'" <samudrala@us.ibm.com>,
-   "'lksctp-developers@lists.sourceforge.net'" <lksctp-developers@lists.sourceforge.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "'linux-net@vger.kernel.org'" <linux-net@vger.kernel.org>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-   "'davem@redhat.com'" <davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Harald Welte <laforge@netfilter.org>,
+	"David S. Miller" <davem@redhat.com>,
+	Bart De Schuymer <bdschuym@pandora.be>, acme@conectiva.com.br,
+	netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <1063371359.1027.99.camel@jzny.localdomain>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, 12 Sep 2003, jamal wrote:
 
-Catching up on moving 2.4.20+ target, here is a set of patches to backport
-lksctp on top of 2.4.23-pre3[*], ready (IMHO) for integration into 2.4.x.
+>
+> How it is presented to the user - and how it is actually implemented are
+> two different things.
+> you could still enter it as ppp+
+>
 
-It consists in 3 patches, described in details (and referenced) below. They
-are uploaded in the "Patches" section of the lksctp project page on
-Sourceforge.
+Of course I am aware of that, I just wanted to push my view on it since I
+believe there must be many more than us doing the same thing (or more
+modems per machine for that matter). However, I was a little bit worried
+that someone might be pushing a solution that may be much slower in our
+way of looking at it ;).
 
-<http://sourceforge.net/tracker/?group_id=26529&atid=387572>
+> cheers,
+> jamal
+>
 
-Comments welcome. Please Cc: lksctp-developers in reply, as I am not
-currently subscribed to netdev.  TIA.
-
-Best regards,
-
-[*] it will not work on 2.4.20 & previous versions, as the required 
-upward packet distribution was integrated between 2.4.20 & 2.4.21 and
-onwards.
-<http://linux.bkbits.net:8080/linux-2.4/user=sri/cset@1.930.35.4?nav=!-|inde
-x.html|stats|!+|index.html|ChangeSet@-6M>
-
-
-
-[1/3]  LKSCTP 0.6.9 backport on kernel 2.4.23-pre3
-
-    This patch is the first of a bundle of 3.
-
-    It adds the necessary changes to the kernel IP stack so that SCTP
-    can perform PMTU discovery. No other SCTP-specific changes.
-
-    This patch only affects existing kernel files. The resulting kernel
-    is functionally unchanged.
-
-    [1/3] lksctp 0.6.9 on kernel 2.4.23-pre3
-
- 
-<http://sourceforge.net/tracker/index.php?func=detail&aid=805060&group_id=26
-529&atid=387572>
-
-
-[2/3]  LKSCTP 0.6.9 backport on kernel 2.4.23-pre3
-
-    This patch is the second of a bundle of 3.
-
-    This patch modifies the kernel existing files to add the SCTP
-    functionality. It cannot work without the 3rd patch of this serie,
-    but is issued to better highlight the required changes.
-
-    This patch requires the [1/3] patch. The kernel resulting from [2/3]
-    patching will not compile, until [3/3] is also applied.
-
-    [2/3] lksctp 0.6.9 on kernel 2.4.23-pre3
-
- 
-<http://sourceforge.net/tracker/index.php?func=detail&aid=805063&group_id=26
-529&atid=387572>
-
-
-[3/3]  LKSCTP 0.6.9 backport on kernel 2.4.23-pre3
-
-    This patch is the 3rd of a bundle of 3.
-
-    This patch consists only in new files, added for SCTP support. It
-    adds the SCTP protocol & sockets layers to the IP stack.
-
-    This patchs requires  patches [1/3] & [2/3] to be applied. A kernel
-    resulting from the patching using the whole set of patch is a
-2.4.23-pre3
-    with SCTP support.
-
-    [3/3] lksctp 0.6.9 on kernel 2.4.23-pre3
-
- 
-<http://sourceforge.net/tracker/index.php?func=detail&aid=805064&group_id=26
-529&atid=387572>
-
-PS:  This is the last version of a number of patchsets submitted to lksctp
-team. Compared to the last series of patches we have produced on top of
-2.4.22-rc2, there have been no functional changes but the
-single_open()/single_release() interface changes that have been moved from
-the compatibility header (include/net/sctp/compat.h) and exported in
-kernel/ksyms.c
-
-
--- 
-Damien Morange
+----
+Oskar Andreasson
+http://www.frozentux.net
+http://iptables-tutorial.frozentux.net
+http://ipsysctl-tutorial.frozentux.net
+mailto:blueflux@koffein.net
