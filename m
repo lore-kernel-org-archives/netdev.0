@@ -1,32 +1,36 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH/RFC] remove include/linux/netflinter_ipv6/ip6t_REJECT.h
-Date: Fri, 27 Aug 2004 16:59:02 -0700
+Subject: Re: [PATCH, TAKE 2] [IPV6] XFRM: extract xfrm_lookup() from
+ ip6_dst_lookup() (is Re: [PATCH][IPv6] separation xfrm_lookup from
+ ip6_dst_lookup)
+Date: Fri, 27 Aug 2004 17:02:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040827165902.352fd5df.davem@davemloft.net>
-References: <20040828.011451.79815651.yoshfuji@linux-ipv6.org>
+Message-ID: <20040827170232.590eebb6.davem@davemloft.net>
+References: <20040730171205.114f22ba.kazunori@miyazawa.org>
+	<20040801195135.16734846.davem@redhat.com>
+	<20040828.014935.131415609.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 8bit
-Cc: laforge@gnumonks.org, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org, kazunori@miyazawa.org,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040828.011451.79815651.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040828.014935.131415609.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 28 Aug 2004 01:14:51 +0900 (JST)
+On Sat, 28 Aug 2004 01:49:35 +0900 (JST)
 YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> There're no users of include/linux/netflinter_ipv6/ip6t_REJECT.h,
-> which contains wrong, useless definitions.
+> > It is simple to fix, I think.
 > 
-> Yes, I know ip6t_REJECT.c lives in patch-o-matic, but
-> it (almost) completely replaces ip6t_REJECT.h;
-> which implies that ip6t_REJECT.h is useless at all.
+> Here's the updated patch.
 > 
-> So, how about removing ip6t_REJECT.h for now?
-> Of course, introducing appropriate ip6t_REJECT.c and ip6t_REJECT.h is
-> the alternate option. :-)
+> From: Kazunori Miyazawa <kazunori@miyazawa.org>
+> 
+> (Because Miyazawa-san is very busy now, 
+> I'm sending this patch as the proxy of him.)
+> 
+> Please pull from <bk://bk.skbuff.net:20609/linux-2.6-xfrm/>
 
-I agree, patch applied.
+Looks great, pulled.
