@@ -1,86 +1,84 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/ipv4/inetpeer.c: make a struct static
-Date: Thu, 17 Mar 2005 02:08:21 +0100
-Message-ID: <20050317010821.GE3251@stusta.de>
-References: <20050315144408.GL3189@stusta.de> <20050316145343.6e31ba6a.davem@davemloft.net> <20050316145448.5a45dddc.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] net, ipv6: remove redundant NULL checks before kfree
+ in ip6_flowlabel.c
+Date: Thu, 17 Mar 2005 11:54:44 +0900 (JST)
+Message-ID: <20050317.115444.31670680.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050316145448.5a45dddc.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, davem@davemloft.net, pekkas@netcore.fi,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, juhl-lkml@dif.dk
+In-Reply-To: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2005 at 02:54:48PM -0800, David S. Miller wrote:
-> On Wed, 16 Mar 2005 14:53:43 -0800
-> "David S. Miller" <davem@davemloft.net> wrote:
-> 
-> > On Tue, 15 Mar 2005 15:44:08 +0100
-> > Adrian Bunk <bunk@stusta.de> wrote:
-> > 
-> > > This patch makes a needlessly global struct static.
-> > > 
-> > > Signed-off-by: Adrian Bunk <bunk@stusta.de>
-> > 
-> > You need to also kill the externs in net/inetpeer.h
-> > 
-> > Please fix this up and resubmit.
-> 
-> Actually, Adrian, net/inetpeer.h makes use of
-> inet_peer_unused_tailp in inline functions.
-> 
-> How did you get a successful build after marking
-> it static?
+In article <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost> (at Thu, 17 Mar 2005 00:36:35 +0100 (CET)), Jesper Juhl <juhl-lkml@dif.dk> says:
 
-I might be too dumb for reading the output of grep (inetpeer.h...), but 
-I'm testing all my patches with two .config's that are roughly 
-equivalent to allyesconfig and allmodconfig.
+> I considered also rewriting the 
+>         if (fl)
+>                 fl_free(fl);
+> bit as simply fl_free(fl) as well, but that if() potentially saves two 
+> calls to kfree() inside fl_free as well as the call to fl_free itself, so 
+> I guess that's worth the if().
 
-inet_peer_unused_tailp might be referenced from other files via 
-inetpeer.h, but inet_peer_unused_head isn't referenced directly from 
-other files.
+I don't mind calling kfree twice itself (because that function is not
+so performance critical), but fl_free(NULL) is out because
+if fl is NULL, kfree(fl->opt) is out.
 
-cu
-Adrian
+So, what do you think of checking fl inside fl_free like this?
 
+We can even make fl_free inline and check as following:
+  if (fl) {
+    kfree(fl->opt);
+    kfree(fl);
+  }
 
-<--  snip  -->
+Based on patch from Jesper Juhl <juhl-lkml@dif.dk>.
 
+David?
 
-This patch makes a needlessly global struct static.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
----
-
- net/ipv4/inetpeer.c    |    4 ++--
- include/net/inetpeer.h |    1 -
- 2 files changed, 2 insertions(+), 3 deletions(-)
-
---- linux-2.6.11-mm3-full/net/ipv4/inetpeer.c.old	2005-03-15 13:29:32.000000000 +0100
-+++ linux-2.6.11-mm3-full/net/ipv4/inetpeer.c	2005-03-15 13:30:13.000000000 +0100
-@@ -92,9 +92,9 @@
- int inet_peer_minttl = 120 * HZ;	/* TTL under high load: 120 sec */
- int inet_peer_maxttl = 10 * 60 * HZ;	/* usual time to live: 10 min */
+===== net/ipv6/ip6_flowlabel.c 1.18 vs edited =====
+--- 1.18/net/ipv6/ip6_flowlabel.c	2005-01-14 13:41:06 +09:00
++++ edited/net/ipv6/ip6_flowlabel.c	2005-03-17 11:23:32 +09:00
+@@ -87,7 +87,7 @@
  
-+static struct inet_peer *inet_peer_unused_head;
- /* Exported for inet_putpeer inline function.  */
--struct inet_peer *inet_peer_unused_head,
--		**inet_peer_unused_tailp = &inet_peer_unused_head;
-+struct inet_peer **inet_peer_unused_tailp = &inet_peer_unused_head;
- DEFINE_SPINLOCK(inet_peer_unused_lock);
- #define PEER_MAX_CLEANUP_WORK 30
+ static void fl_free(struct ip6_flowlabel *fl)
+ {
+-	if (fl->opt)
++	if (fl)
+ 		kfree(fl->opt);
+ 	kfree(fl);
+ }
+@@ -351,8 +351,7 @@
+ 	return fl;
+ 
+ done:
+-	if (fl)
+-		fl_free(fl);
++	fl_free(fl);
+ 	*err_p = err;
+ 	return NULL;
+ }
+@@ -551,10 +550,8 @@
+ 	}
+ 
+ done:
+-	if (fl)
+-		fl_free(fl);
+-	if (sfl1)
+-		kfree(sfl1);
++	fl_free(fl);
++	kfree(sfl1);
+ 	return err;
+ }
  
 
---- linux-2.6.11-mm4-full/include/net/inetpeer.h.old	2005-03-17 00:32:16.000000000 +0100
-+++ linux-2.6.11-mm4-full/include/net/inetpeer.h	2005-03-17 00:32:26.000000000 +0100
-@@ -35,7 +35,6 @@
- struct inet_peer	*inet_getpeer(__u32 daddr, int create);
- 
- extern spinlock_t inet_peer_unused_lock;
--extern struct inet_peer *inet_peer_unused_head;
- extern struct inet_peer **inet_peer_unused_tailp;
- /* can be called from BH context or outside */
- static inline void	inet_putpeer(struct inet_peer *p)
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
