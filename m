@@ -1,52 +1,49 @@
-From: Lars Marowsky-Bree <lmb@suse.de>
-Subject: Re: The ultimate TOE design
-Date: Thu, 16 Sep 2004 11:03:28 +0200
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [RTNETLINK] Tunnel config via netlink (Was Re: Convert RTM_* to
+ enum)
+Date: Thu, 16 Sep 2004 12:08:54 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040916090328.GO26852@marowsky-bree.de>
-References: <4148991B.9050200@pobox.com>
+Message-ID: <Pine.LNX.4.58.0409161129590.24531@rhea.tcs.hut.fi>
+References: <20040915020942.GA32721@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
-Content-Disposition: inline
-In-Reply-To: <4148991B.9050200@pobox.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040915020942.GA32721@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 2004-09-15T15:33:47,
-   Jeff Garzik <jgarzik@pobox.com> said:
+On Wed, 15 Sep 2004, Herbert Xu wrote:
 
-> Then, your host system OS will communicate with the Linux kernel runnin=
-g=20
-> on the card across the PCI bus, using IP packets (64K fixed MTU).
->=20
-> This effectively:
+> I decided to bite the bullet and use netlink for the tunnel operations.
 
-Actually, given that there's almost no reason to offload TCP/IP
-processing for speed (better spent the money on CPU / memory for the
-main system), I like the idea of this for security: Off-load the packet
-filtering to create an additional security barrier. (Different CPU
-architecture and all that.)
+It's great if you have the time and energy to do this! Let me know if I
+can be of any assistance with the ip6_tunnel.c modifications.
 
-(With two cards, one could even use the conntrack fail-over internally.
-- A Linux-running NIC with builtin firewalling, sell to all the windows
-weenies... ;)
+While designing the netlink interface it might perhaps be a good idea to
+take a look at draft-ietf-ipv6-inet-tunnel-mib-02.txt, which is currently
+in IESG processing. The IPv6 specific tunnel encapsulation limit (below)
+is still missing from the draft but will be included in the RFC.
 
-With dedicated processors, maybe a IP/Sec accelerator would also be
-cool, but I'd think a crypto accelerator for the main system would again
-be saner here (unless, of course, the argument of the security domain
-isolation is applied again).
+tunnelIfEncapsLimit OBJECT-TYPE
+    SYNTAX     Integer32 (-1 | 0..255)
+    MAX-ACCESS read-write
+    STATUS     current
+    DESCRIPTION
+            "The maximum number of additional encapsulations permitted
+            for packets undergoing encapsulation at this node.  A value
+            of -1 indicates that no limit is present (except as a result
+            of the packet size)."
+    REFERENCE  "RFC 2473, section 4.1.1"
+    ::= { tunnelIfEntry 11 }
 
-Admittedely, one can solve all these differently, but it still might be
-cool. ;-)
-
-
-Sincerely,
-    Lars Marowsky-Br=E9e <lmb@suse.de>
-
---=20
-High Availability & Clustering
-SUSE Labs, Research and Development
-SUSE LINUX AG - A Novell company
+Regards,
+Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
