@@ -1,36 +1,19 @@
-From: Hendrik Wiese <7.e.Q@syncro-community.de>
-Subject: driver ability to use iptables?
-Date: Mon, 15 Nov 2004 13:32:14 +0100
-Message-ID: <4198A1CE.7040905@syncro-community.de>
+From: Meelis Roos <mroos@linux.ee>
+Subject: 2.6.10-rc2: still no ipv6 link-local addresses
+Date: Mon, 15 Nov 2004 14:36:56 +0200 (EET)
+Message-ID: <Pine.SOC.4.61.0411151159230.3321@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello there,
+I tried 2.6.10-rc2 and it still does not give lipv6 link-local address 
+to Ethernet interfaces (I tried NICs with e100 and 8139too drivers).
 
-I hope I do right posting this here. So please don't be angry if I'm 
-wrong. I'm kind of newbie.
+This is broken since 2.6.9.
 
-We developed a driver which puts an IP-layer onto the VME-bus. So we are 
-able to do normal
-network traffic over the VME-bus, transfer files between active VME 
-modules and so on. But
-as soon as we want to use iptables to establish one of the modules as a 
-router to the outer world
-(tp network connected via front panel eth device) this doesn't work... 
-everything is configured
-correctly as it works for to eth devices. Is there any ability else a 
-network device driver must
-have to work with iptables?
-
-Thanks in advance
-
-kind regards
-Hendrik (Germany)
-
-PS: kernel is version 2.6.7, System is an LFS 5
+-- 
+Meelis Roos (mroos@linux.ee)
