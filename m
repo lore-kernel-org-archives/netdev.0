@@ -1,48 +1,37 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: net/sctp/sm_make_chunk.c alignment problems on parisc64
-Date: Thu, 18 Sep 2003 19:55:25 -0700
+Subject: Re: linux 2.4 routing algorithm?
+Date: Thu, 18 Sep 2003 19:57:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030918195525.28c17cb1.davem@redhat.com>
-References: <20030912164628.GF8713@conectiva.com.br>
-	<Pine.LNX.4.44.0309171559540.3831-100000@localhost.localdomain>
+Message-ID: <20030918195753.676e76c8.davem@redhat.com>
+References: <20030917234753.GB11250@sirius.cs.pdx.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netdev@oss.sgi.com,
-        lksctp-developers@lists.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0309171559540.3831-100000@localhost.localdomain>
+To: Kristen Carlson <kristenc@cs.pdx.edu>
+In-Reply-To: <20030917234753.GB11250@sirius.cs.pdx.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 17 Sep 2003 16:06:18 -0700 (PDT)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Wed, 17 Sep 2003 16:47:53 -0700
+Kristen Carlson <kristenc@cs.pdx.edu> wrote:
 
-> I don't see this problem on i386, ia64 or ppc64. Can someone
-> familiar with parisc64 provide more details or submit a a patch to
-> fix this problem?
+> I'm trying to understand the routing algorithm for linux 2.4.  I thought
+> it would use a longest prefix match due to some documentation I had googled,
+> but the code in route.c looks like a hash.  I probably just don't understand
+> how lpm would be coded in practice.  Am I looking in the right place?  Can
+> someone give me a clue about how this works?
 
-As an example, if you have an structure member of type "char":
+route.c is the routing cache, it caches prefix based lookup results
+so that a direct hash based lookup can be used for subsequent lookups
+on the same exact key.
 
-struct foo {
-	char	a;
-	char	b[4];
-};
+The prefix based lookup occurs in fib_hash.c, it uses 32+1 hash tables
+to implement the prefix based lookup, one for each bit in the IPV4 address
+plus an extra for "default" routes requiring matching of no bits.  The
+hash tables are lookup up from most specific to least specific so that
+we truly get a longest matching prefix lookup.
 
-And then try to do something like this:
-
-	struct foo *p;
-	unsigned int *v;
-
-	v = (unsigned int *) (&p->b[0]);
-	*v = 0;
-
-The build is going to explode on parisc because this simply is not
-allowed.  You cannot access a structure member as an object which
-has larger alignment than is guarenteed for the type that member
-has.
-
-In the above example we're trying to access with 'unsigned int'
-alignment a member which is only guarenteed to have the alignment
-for a 'char'.
+Any time the routing tables are changed, the routing cache in route.c
+is flushed completely.
