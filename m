@@ -1,34 +1,64 @@
-From: Andi Kleen <ak@suse.de>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: do_gettimeofday
-Date: Thu, 2 Oct 2003 21:29:42 +0200
+Date: Thu, 2 Oct 2003 12:56:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002192942.GB29673@wotan.suse.de>
+Message-ID: <20031002125625.72b8c0a7.shemminger@osdl.org>
 References: <3F7C6F3B.6070502@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Steve Modica <modica@sgi.com>
-Content-Disposition: inline
 In-Reply-To: <3F7C6F3B.6070502@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 02, 2003 at 01:32:27PM -0500, Steve Modica wrote:
-> We've been doing some experiments here with large numbers of adapters on a 
-> 64p Linux system. 
-> When running 8 threads and 8 cpus, the do_gettimeofday code starts to use a 
-> lot of time.
+On Thu, 02 Oct 2003 13:32:27 -0500
+Steve Modica <modica@sgi.com> wrote:
 
-That's a known problem. The funny thing is that the only users
-of this time stamp is SO_TIMESTAMP, which is rarely used (except tcpdump)
-and something in DECnet. IMHO the right fix is to add a global
-counter that counts all all sockets that use SO_TIMESTAMP and when it's
-zero never call it. Decnet could be probably fixed to just use jiffies
-like TCP does.
+> We've been doing some experiments here with large numbers of adapters on a 64p Linux system. 
+> 
+> When running 8 threads and 8 cpus, the do_gettimeofday code starts to use a lot of time.
+> 
+> It turns out that if a driver does not timestamp an incoming packet, the upper layer will stamp it for you in
+> PSCHED_GET_TIME(stamp).  What happens then is multiple cpus start fighting over the cacheline for the system clock and things get bad. 
+> 
+> One possible solution to this is to have the driver do the stamp using xtime. A number of ATM drivers do this now. In testing, it helps a lot.
+> 
+> Here's a sample diff for the tg3.c driver:
+> 
+> ===========================================================================
+> Index: linux/linux/drivers/net/tg3.c
+> ===========================================================================
+>  
+> --- /usr/tmp/TmpDir.8948-0/linux/linux/drivers/net/tg3.c_1.23   Thu Oct  2 13:30:21 2003
+> +++ linux/linux/drivers/net/tg3.c       Wed Oct  1 14:27:54 2003
+> @@ -2019,6 +2019,7 @@
+>                         skb->ip_summed = CHECKSUM_NONE;
+>   
+>                 skb->protocol = eth_type_trans(skb, tp->dev);
+> +               skb->stamp = xtime;
+>  #if TG3_VLAN_TAG_USED
+>                 if (tp->vlgrp != NULL &&
+>                     desc->type_flags & RXD_FLAG_VLAN) {
+> 
+> 
+> It's been suggested that we make this tuneable so it's easy to enable and disable. There was concern as to whether xtime would be accurate enough for all possible uses of ->stamp.  
+> 
+> Does anyone have any comments on this?
 
-Drawback is that when you enable SO_TIMESTAMP there is a small time window
-when the packets are not time stamped yet. The socket layer can just fill
-in the current time though.
+Two problems:
+	a. xtime is limited to HZ resolution which is insufficient for more advanced
+	   packet schedulers and rtt estimation.
+	b. unlocked access to xtime is unsafe because it is not atomic!
 
--Andi
+ATM is busted if it does this.
+
+gettimeofday on 2.6 should be cheap for many systems because of the lockless
+seqlock.  Unfortunately, some architectures (not sure about ia64) have problems
+with TSC synchronization which make life messy.   
+
+It might be possible to introduce a per-cpu monotonic clock that is lockless
+for use in network code, but that is a moderately painful undertaking which
+is beyond the scope of getting 2.6.0 out.
