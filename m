@@ -1,70 +1,34 @@
-From: Niranjan <niranjan_cs2905@yahoo.com>
-Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
-Date: Wed, 28 Jul 2004 08:55:57 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [Fwd: pcmcia ether drivers can't be unloaded]
+Date: Wed, 28 Jul 2004 08:54:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040728155557.38198.qmail@web53006.mail.yahoo.com>
-References: <Xine.LNX.4.44.0407271456220.7908-100000@dhcp83-76.boston.redhat.com>
+Message-ID: <20040728085419.773c4d94.davem@redhat.com>
+References: <41068BEF.7010200@pobox.com>
+	<20040727233614.B30782@flint.arm.linux.org.uk>
+	<20040727171929.17858c7b.davem@redhat.com>
+	<20040728165024.A8475@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>, Niranjan <niranjan_cs2905@yahoo.com>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, shemminger@osdl.org, netdev@oss.sgi.com, greg@kroah.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>, Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <Xine.LNX.4.44.0407271456220.7908-100000@dhcp83-76.boston.redhat.com>
+To: Russell King <rmk@arm.linux.org.uk>
+In-Reply-To: <20040728165024.A8475@flint.arm.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I got the code working by including the encrypt() and
-decrypt() function inside the WLAN driver. 
-Is there any better way to get the CrytoAPI code
-working from the driver or some other CryptoAPI
-implementation ?
+On Wed, 28 Jul 2004 16:50:24 +0100
+Russell King <rmk@arm.linux.org.uk> wrote:
 
-Warm Regards,
--Niranjan
+> On Tue, Jul 27, 2004 at 05:19:29PM -0700, David S. Miller wrote:
+> > I totally disagree.  This is a bogus argument for two reasons:
+> 
+> You may disagree, that is your option.  However, facts are facts -
+> this is how the PCMCIA layer currently works, and short of rewriting
+> the whole damned thing it isn't going to change.  Sorry.
 
-
---- James Morris <jmorris@redhat.com> wrote:
-
-> On Tue, 27 Jul 2004, Vladimir Kondratiev wrote:
-> 
-> > > The crypto functions should be safe to use in
-> softirq context.
-> > It should be, but:
-> > <crypto/api.c:121>
-> > struct crypto_tfm *crypto_alloc_tfm(const char
-> *name, u32 flags)
-> > {
-> >         struct crypto_tfm *tfm = NULL;
-> >         struct crypto_alg *alg;
-> > 
-> >         alg = crypto_alg_mod_lookup(name);
-> >         if (alg == NULL)
-> >                 goto out;
-> > 
-> >         tfm = kmalloc(sizeof(*tfm) +
-> alg->cra_ctxsize, GFP_KERNEL);
-> > 
-> 
-> By crypto functions I meant encrypt() decrypt() etc,
-> not the allocation.
-> 
-> 
-> - James
-> -- 
-> James Morris
-> <jmorris@redhat.com>
-> 
-> 
-> 
-> 
-
-
-
-	
-		
-__________________________________
-Do you Yahoo!?
-New and Improved Yahoo! Mail - 100MB free storage!
-http://promotions.yahoo.com/new_mail 
+Stephen offered a solution, moving this stray refcount into a toplevel
+pcmcia bus type object.  We are not constrained by how the PCMCIA layer
+currently works, just as we were not constrained a year ago by how the
+generic network device handling worked when it was totally broken in
+this area.  We just fixed it instead of whining.
