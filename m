@@ -1,23 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6 4/5]: remove unneccessary checks for qdisc->dev
-Date: Wed, 4 Aug 2004 09:44:38 -0700
+Subject: Re: [PATCH 2.6 5/5]: remove noop_qdisc assignments in destroy
+ functions
+Date: Wed, 4 Aug 2004 09:47:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804094438.687d4234.davem@redhat.com>
-References: <410FAE65.6010802@trash.net>
+Message-ID: <20040804094702.6aa191a4.davem@redhat.com>
+References: <410FAE82.7070604@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <410FAE65.6010802@trash.net>
+In-Reply-To: <410FAE82.7070604@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 03 Aug 2004 17:25:25 +0200
+On Tue, 03 Aug 2004 17:25:54 +0200
 Patrick McHardy <kaber@trash.net> wrote:
 
-> qdisc->dev is always valid, this patch removes a couple of unneccessary 
-> checks.
+> This patch removes useless noop_qdisc assignments in multiple qdiscs destroy
+> functions, the memory where the pointer is stored is freed directly 
+> after the destroy function.
 
-Looks good, applied.
+Applied.
