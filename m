@@ -1,45 +1,53 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [ANNOUNCE] NAPI patches for 2.4.19-rc1
-Date: Thu, 11 Jul 2002 18:00:10 +0200
+From: Donald Becker <becker@scyld.com>
+Subject: Re: [ANNOUNCE] NAPI patches for 2.4.19-rc1
+Date: Thu, 11 Jul 2002 12:50:56 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <15661.43914.786721.347779@robur.slu.se>
-References: <20020710223237.GA7995@orr.falooley.org>
+Message-ID: <Pine.LNX.4.44.0207111238570.2498-100000@beohost.scyld.com>
+References: <3D2D9CC8.5050200@mandrakesoft.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se, greearb@candelatech.com,
-   garzik@mandrakesoft.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jamal <hadi@cyberus.ca>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <20020710223237.GA7995@orr.falooley.org>
+To: Jeff Garzik <jgarzik@mandrakesoft.com>
+In-Reply-To: <3D2D9CC8.5050200@mandrakesoft.com>
 List-Id: netdev.vger.kernel.org
 
+On Thu, 11 Jul 2002, Jeff Garzik wrote:
+> Donald Becker wrote:
+> > The mdelay(300) is completely bogus.
+...
+> Ouch.  You are absolutely right, and I take the blame for not reviewing 
+> more closely.  That's what I get for trusting vendors too much ;-)
+> [D-Link has been the one patching sundance and dl2k for a while now]
 
-Jason Lunz writes:
- > 
- > I've backported the most recent napi sources I could find to 2.4.19-rc1.
- > The patches are available at http://orr.falooley.org/pub/linux/net/.
+Very, very few vendor patchs are worth applying.  They sometimes know of
+otherwise undocumented chip bugs, but a lot of the actual code is bad.
 
- Thanks!
- Yes but remember it's experimental branch and hopefully soon we can kill 
- most of it... 
+It's not "maintaining" a driver when you just take a vendor modification
+of a driver and assume it's OK.  You have to understand the changes and
+evaluate if they make sense.
 
- > Does anyone know of more recent NAPI conversions? Robert Olsson tells me
- > Jeff Garzik has a more recent tulip conversion, but there are _no_ napi
- > net drivers in 2.5.25 and I haven't found any others except for those
- > mentioned at the NAPI ftp site.
+> I've been meaning to go through several drivers and fix up the stupid 
+> assumptions they make about autonegotiation completion time.
 
- Current tulip seems fine but it is complex. Eventually it will be  better 
- if uses a simliar scheme as e1000 and tg3. Leaving all "interrupt work" to 
- dev->poll. And yes it was forked off linux-2.4.2 so Jeffs later work is
- not included.
+Putting broken changes into the kernel with a plan to go back later and
+clean them is a bad development methodology.
 
- 
- The e1000 4.2.4 is well tested. But for 4.2.17 I more or less moved the path 
- onto it.
+> > The driver also changes the transceiver settings to non-standard
+> > values.
+> Which lines of code are you referring to?
 
- I've put a reference to your work in README
+Removing "options" as a way to set the transceiver.
 
- Cheers.
+> This _might_ be a case where the docs are inaccurate, since the patch 
+> was done by D-Link with access to the chip designers.
 
-						--ro
+No, it's unrelated to specific chip.  It's a change that looks good when
+you see only that driver, but the change makes it inconsistent will all
+of the other drivers.  
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
+Annapolis MD 21403			410-990-9993
