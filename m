@@ -1,30 +1,42 @@
-From: conu8co@yahoo.com
-Subject: Septic system maintenance                   EXLGQHT
-Date: Wed, 22 May 2002 20:29:14 -1600
+From: Martin Devera <devik@cdi.cz>
+Subject: PSCHED_GET_TIME related bug: jiffies wraparound
+Date: Thu, 23 May 2002 11:08:41 +0200 (CEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <000049e32a24$000079e2$00002fa5@mx2.mail.yahoo.com>
+Message-ID: <Pine.LNX.4.44.0205231058220.788-100000@luxik.cdi.cz>
+References: <200205161708.VAA22517@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: <Undisclosed.Recipients@oss.sgi.com>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200205161708.VAA22517@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
+Hello Alexey,
 
-If your home is served by a septic system, you will be
-able to receive invaluable information on how to
-eliminate pump outs, maintain the system properly for FREE !!!
+I hope the 0xffffffff change will go into pre9. I've another
+potential bug for you ;)
+The clock watcher uses this code in psched_tick:
+    unsigned long now = jiffies;
+    psched_time_base = ((u64)now)<<PSCHED_JSCALE;
+    psched_time_mark = now;
+    psched_timer.expires = now + 60*60*HZ;
+    add_timer(&psched_timer);
 
-Our packetge will cure problems such as backups, wet spots, odor, etc.
+psched_time_base is then added to jiffies-psched_time_mark in
+PSCHED_GET_TIME.
+Because on 32bit archs jiffies wraps after 497 days the psched_time_base
+and thus PSCHED_GET_TIME's result will wrap too. And PSCHED_TIME_DIFF
+will again return huge negative number.
 
-You can start this FREE trial by checking out our SPC program at:
+I'd suggest to replace the second line by this one:
 
-   http://www.abc-holdings.info/spc/
+-psched_time_base = ((u64)now)<<PSCHED_JSCALE;
++psched_time_base += ((u64)(now-psched_time_mark))<<PSCHED_JSCALE;
 
-Please takes a mintuet to fill out the form, so we can send you the packetage.
+Because now-psched_time_mark is done in unsigned arithmetic it should
+be imune against jiffies wraparound.
+Do you think that the patch is ok ?
 
-
-
---------------------------------------------------------------------------------
-To be remove from furthe mailing submitt to our remove list here: http://www.abc-holdings.info/removeme.htm
+best regards,
+devik
