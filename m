@@ -1,28 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4 patch] NET_IPIP help: remove no longer available URL
-Date: Sun, 11 Jul 2004 17:50:29 -0700
+From: Kazunori Miyazawa <kazunori@miyazawa.org>
+Subject: Re: IPv6 and encapsulation headers
+Date: Mon, 12 Jul 2004 17:32:52 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040711175029.2a438085.davem@redhat.com>
-References: <20040710193407.GX28324@fs.tum.de>
+Message-ID: <200407121732.52542.kazunori@miyazawa.org>
+References: <20040710033209.GA14316@gondor.apana.org.au> <20040710.133641.132032007.yoshfuji@linux-ipv6.org> <20040710091630.GA16312@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, marcelo.tosatti@cyclades.com,
-        linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@fs.tum.de>
-In-Reply-To: <20040710193407.GX28324@fs.tum.de>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040710091630.GA16312@gondor.apana.org.au>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 10 Jul 2004 21:34:07 +0200
-Adrian Bunk <bunk@fs.tum.de> wrote:
+Hello Herbert,
 
-> This patch solves Bugzilla #2445 by removing a no longer available URL
-> from the help text for NET_IPIP.
-> 
-> Noted by Nils Hammar <m4341@bedug.com>.
-> 
-> Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+> On Sat, Jul 10, 2004 at 01:36:41PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ 
+wrote:
+> > Looks good.
+>
+> Thanks for reviewing it.
+>
+> I've got a couple of questions that you might be able to help me with.
+>
+> It appears that the value of hdr_len in ah6 for transport mode is broken.
+> It's setting hdr_len to be skb->h.raw - skb->nh.raw.  When AH is being
+> applied outside an ESP tunnel, skb->h.raw will be pointing somewhere
+> inside the tunnel.  The end result is that leading bytes of the payload
+> inside the tunnel gets moved before the AH header.
+>
 
-Both 2.4.x and 2.6.x versions applied, thanks Adrian.
+right, esp6 tunnel doesn't care about skb->h.raw. we need to fix it.
+
+> So should it be changed to ip6_find_1stfragopt() as is the case with
+> esp6 and ipcomp6?
+
+Do we need to skip esp or ipcomp payload?
+I thinks those are similar with transport layer protocol in outer esp process.
+Did I misunderstand your question?
+
+> A second problem is that ip6_find_1stfragopt() seems to be the wrong
+> thing to do for ah6/esp6/ipcomp6.  RFC 2402/2406/3173 all say that
+> fragment headers should be placed before the encapsulation header.
+> So should it be changed accordingly?
+>
+
+
+Because fragmentation takes place after IPsec processing,
+do we need to make ip6_find_1stfragopt care fragment header?
+I think there is no fragment header in skb at that point.
+
+--Kazunori Miyazawa
