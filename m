@@ -1,147 +1,37 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [PATCH,RFT] 8139cp TSO support
-Date: Sun, 29 Aug 2004 17:22:05 -0400
+Subject: Re: [PATCH 2.6.8.1-mm4 11/11] r8169: vlan support
+Date: Sun, 29 Aug 2004 17:23:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040829212205.GA2864@havoc.gtf.org>
-Reply-To: netdev@oss.sgi.com
+Message-ID: <4132496C.3060404@pobox.com>
+References: <20040823224706.GC20726@electric-eye.fr.zoreil.com> <20040823224813.GD20726@electric-eye.fr.zoreil.com> <20040823224927.GE20726@electric-eye.fr.zoreil.com> <20040823225120.GF20726@electric-eye.fr.zoreil.com> <20040823225335.GG20726@electric-eye.fr.zoreil.com> <20040823225505.GH20726@electric-eye.fr.zoreil.com> <20040823225620.GI20726@electric-eye.fr.zoreil.com> <20040823225713.GJ20726@electric-eye.fr.zoreil.com> <20040823225821.GK20726@electric-eye.fr.zoreil.com> <4131136E.9070702@pobox.com> <20040829210013.GA9693@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, romieu@fr.zoreil.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040829210013.GA9693@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu wrote:
+> Jeff Garzik <jgarzik@pobox.com> :
+> [...]
+> 
+>>does this series of patches imply that a librealtek kernel module is 
+>>coming soon?  There's an awful lot of code duplication (due to hardware 
+>>similarties) in r8169, 8139cp, and 8139too.
+> 
+> 
+> I have not really considered 8139too so far as its hardware is a bit
+> "different" but why not.
 
-Just added TSO support to the 8139cp driver, as it looked fairly
-straightforward.
+8139cp and 8139too both share the same phy code, and 8139cp and r8169 
+both share the same RX/TX code.
 
-Anyone willing to give this some testing?
 
-Also, the r8169 implementation should be similar, if someone (Francois?)
-wants to tackle it.
+> soon ? What have you done to the real Jeff ?
+
+hehe :)
 
 	Jeff
-
-
-
-
-# ChangeSet
-#   2004/08/29 17:19:44-04:00 jgarzik@pobox.com 
-#   [netdrvr 8139cp] TSO support
-# 
-diff -Nru a/drivers/net/8139cp.c b/drivers/net/8139cp.c
---- a/drivers/net/8139cp.c	2004-08-29 17:19:59 -04:00
-+++ b/drivers/net/8139cp.c	2004-08-29 17:19:59 -04:00
-@@ -185,6 +185,9 @@
- 	RingEnd		= (1 << 30), /* End of descriptor ring */
- 	FirstFrag	= (1 << 29), /* First segment of a packet */
- 	LastFrag	= (1 << 28), /* Final segment of a packet */
-+	LargeSend	= (1 << 27), /* TCP Large Send Offload (TSO) */
-+	MSSShift	= 16,	     /* MSS value position */
-+	MSSMask		= 0xfff,     /* MSS value: 11 bits */
- 	TxError		= (1 << 23), /* Tx error summary */
- 	RxError		= (1 << 20), /* Rx error summary */
- 	IPCS		= (1 << 18), /* Calculate IP checksum */
-@@ -747,10 +750,11 @@
- {
- 	struct cp_private *cp = netdev_priv(dev);
- 	unsigned entry;
--	u32 eor;
-+	u32 eor, flags;
- #if CP_VLAN_TAG_USED
- 	u32 vlan_tag = 0;
- #endif
-+	int mss = 0;
- 
- 	spin_lock_irq(&cp->lock);
- 
-@@ -770,6 +774,9 @@
- 
- 	entry = cp->tx_head;
- 	eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
-+	if (dev->features & NETIF_F_TSO)
-+		mss = skb_shinfo(skb)->tso_size;
-+
- 	if (skb_shinfo(skb)->nr_frags == 0) {
- 		struct cp_desc *txd = &cp->tx_ring[entry];
- 		u32 len;
-@@ -781,21 +788,21 @@
- 		txd->addr = cpu_to_le64(mapping);
- 		wmb();
- 
--		if (skb->ip_summed == CHECKSUM_HW) {
-+		flags = eor | len | DescOwn | FirstFrag | LastFrag;
-+
-+		if (mss)
-+			flags |= LargeSend | ((mss & MSSMask) << MSSShift);
-+		else if (skb->ip_summed == CHECKSUM_HW) {
- 			const struct iphdr *ip = skb->nh.iph;
- 			if (ip->protocol == IPPROTO_TCP)
--				txd->opts1 = cpu_to_le32(eor | len | DescOwn |
--							 FirstFrag | LastFrag |
--							 IPCS | TCPCS);
-+				flags |= IPCS | TCPCS;
- 			else if (ip->protocol == IPPROTO_UDP)
--				txd->opts1 = cpu_to_le32(eor | len | DescOwn |
--							 FirstFrag | LastFrag |
--							 IPCS | UDPCS);
-+				flags |= IPCS | UDPCS;
- 			else
- 				BUG();
--		} else
--			txd->opts1 = cpu_to_le32(eor | len | DescOwn |
--						 FirstFrag | LastFrag);
-+		}
-+
-+		txd->opts1 = cpu_to_le32(flags);
- 		wmb();
- 
- 		cp->tx_skb[entry].skb = skb;
-@@ -834,16 +841,19 @@
- 						 len, PCI_DMA_TODEVICE);
- 			eor = (entry == (CP_TX_RING_SIZE - 1)) ? RingEnd : 0;
- 
--			if (skb->ip_summed == CHECKSUM_HW) {
--				ctrl = eor | len | DescOwn | IPCS;
-+			ctrl = eor | len | DescOwn;
-+
-+			if (mss)
-+				ctrl |= LargeSend |
-+					((mss & MSSMask) << MSSShift);
-+			else if (skb->ip_summed == CHECKSUM_HW) {
- 				if (ip->protocol == IPPROTO_TCP)
--					ctrl |= TCPCS;
-+					ctrl |= IPCS | TCPCS;
- 				else if (ip->protocol == IPPROTO_UDP)
--					ctrl |= UDPCS;
-+					ctrl |= IPCS | UDPCS;
- 				else
- 					BUG();
--			} else
--				ctrl = eor | len | DescOwn;
-+			}
- 
- 			if (frag == skb_shinfo(skb)->nr_frags - 1)
- 				ctrl |= LastFrag;
-@@ -1536,6 +1546,8 @@
- 	.set_tx_csum		= ethtool_op_set_tx_csum, /* local! */
- 	.get_sg			= ethtool_op_get_sg,
- 	.set_sg			= ethtool_op_set_sg,
-+	.get_tso		= ethtool_op_get_tso,
-+	.set_tso		= ethtool_op_set_tso,
- 	.get_regs		= cp_get_regs,
- 	.get_wol		= cp_get_wol,
- 	.set_wol		= cp_set_wol,
-@@ -1765,6 +1777,10 @@
- 
- 	if (pci_using_dac)
- 		dev->features |= NETIF_F_HIGHDMA;
-+
-+#if 0 /* disabled by default until verified */
-+	dev->features |= NETIF_F_TSO;
-+#endif
- 
- 	dev->irq = pdev->irq;
- 
