@@ -1,67 +1,100 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: [PATCH] af_unix: Fix path of /proc/net/unix
-Date: Sat, 07 Feb 2004 16:03:48 +0900
+From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
+Date: Sat, 07 Feb 2004 10:40:40 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <878yjf2wx7.fsf@devron.myhome.or.jp>
+Message-ID: <4024A488.60203@kolumbus.fi>
+References: <200402070232.33771.kazunori@miyazawa.org>	<4023D6FB.9010909@kolumbus.fi> <20040207.131455.27570445.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: kazunori@miyazawa.org, davem@redhat.com, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
+ <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040207.131455.27570445.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-/proc/net/unix on 2.4,
-  c14e0580: 0000000C 00000000 00000000 0002 01   742 /dev/log
-  c06bfa80: 00000002 00000000 00000000 0002 01 1019617 @0123 ...
-
-/proc/net/unix on 2.6,
-  c7c85d1c: 0000000C 00000000 00000000 0002 01  1021 /dev/log^@
-  c551bd5c: 00000002 00000000 00000000 0002 01  5692 ^@0123 ... @
-
-We should overwrite the first "nul" by "@" in the case of abstract
-path, otherwise currently "netstat -x" can't print, at least.  And
-normal one, odd "nul" was added.
-
-This patch does behavior of 2.4. Please apply.
 
 
----
+YOSHIFUJI Hideaki / ???? wrote:
 
- net/unix/af_unix.c |   15 ++++++++++-----
- 1 files changed, 10 insertions(+), 5 deletions(-)
+>In article <4023D6FB.9010909@kolumbus.fi> (at Fri, 06 Feb 2004 20:03:39 =
++0200), Mika Penttil=E4 <mika.penttila@kolumbus.fi> says:
+>
+> =20
+>
+>>Kazunori Miyazawa wrote:
+>>   =20
+>>
+>:
+> =20
+>
+>>>Yoshifuji-san and I send the patch which unifies IPv6 output routine a=
+nd remove
+>>>RTF_NDISC again. It resolves an issue of IPv6 IPsec with neighbor disc=
+overy
+>>>without a flag.
+>>>     =20
+>>>
+>:
+> =20
+>
+>>You break multicast replies, see what ndisc_build_ll_hdr() does...
+>>   =20
+>>
+>
+>It doesn't "break."=20
+>The ip6_output2() resolves and inserts link-layer address appropriately.
+>If it did, we would have noticed (by conformance test or even by
+>usual operation). ;-)
+> =20
+>
+ip6_output2() doesn't resolve link-layer addresses. We don't even have a=20
+neighbour, in
 
-diff -puN net/unix/af_unix.c~af_unix-abstruct-fix net/unix/af_unix.c
---- linux-2.6.2/net/unix/af_unix.c~af_unix-abstruct-fix	2004-02-07 01:47:05.000000000 +0900
-+++ linux-2.6.2-hirofumi/net/unix/af_unix.c	2004-02-07 03:39:06.000000000 +0900
-@@ -1863,14 +1863,19 @@ static int unix_seq_show(struct seq_file
- 			sock_i_ino(s));
- 
- 		if (u->addr) {
--			int i;
-+			int i, len;
- 			seq_putc(seq, ' ');
--			
--			for (i = 0; i < u->addr->len-sizeof(short); i++)
--				seq_putc(seq, u->addr->name->sun_path[i]);
- 
--			if (UNIX_ABSTRACT(s))
-+			i = 0;
-+			len = u->addr->len - sizeof(short);
-+			if (!UNIX_ABSTRACT(s))
-+				len--;
-+			else {
- 				seq_putc(seq, '@');
-+				i++;
-+			}
-+			for ( ; i < len; i++)
-+				seq_putc(seq, u->addr->name->sun_path[i]);
- 		}
- 		unix_state_runlock(s);
- 		seq_putc(seq, '\n');
+ndisc_dst_alloc(dev, NULL, ip6_output2); case.
 
-_
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+
+>BTW, Miyazawa-san, we do not need ndisc_build_ll_hdr() anymore.
+>Compiler warns it. Please remove it. Thanks.
+>
+>
+>Here's the description:
+>
+>dst->neighbour owns the neighbour entry for the destination.=20
+>
+>For multicast, we know its link-layer address=20
+>(filled in ndisc_constructor()).
+>For unicast, the link-layer address may be unknown.
+>
+>ip6_output2() will call ip6_output_finish() and
+>it tries inserting the link-layer header.
+>
+>The destination link-layer address is used if it is known (*).
+>(Note: you remember that we know link-layer address for multicast.)
+>
+>If the link-layer address is not known or invalid,=20
+>we queue the packet and resolve the link-layer address for the destinati=
+on.
+>Here, since the neighbour entry is "invalid," *multicast* NS is sent.=20
+>The NS packet passes similar path.=20
+>We know the destination for the NS is multicast and=20
+>what the link-layer address is, and the packet is sent via (*).
+>We will send the queued packet when we got NA from that node.
+>
+>Real story:
+>A node may send NS without source link-layer address option=20
+>while we do not know the link-layer address for the source of the NS.
+>We need to send NA in reply to this NS.
+>Original code cannot handle this case.  The new code path can.
+> =20
+>
+
+You just described how the normal link layer address resolving goes. It=20
+doesn't apply here. Again, there is no dst->neighbour.
+
+
+
+--Mika
