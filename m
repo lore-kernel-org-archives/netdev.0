@@ -1,54 +1,39 @@
-From: "Teras Timo (EXT-YomiGroup/Helsinki)" <Ext-Timo.Teras@nokia.com>
-Subject: Re: [PATCH] Add ability to register class interfaces for network class
-Date: Wed, 27 Oct 2004 22:20:18 +0300
+From: Shawn Starr <shawn.starr@rogers.com>
+Subject: Re: [2.6.10-rc1-bk5] e1000 broken badly on IBM T42
+Date: Wed, 27 Oct 2004 17:41:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027192018.GA12845@two.research.nokia.com>
-References: <20041026183526.GA23535@two.research.nokia.com> <20041026184838.GB16621@infradead.org> <20041026205239.GA23825@two.research.nokia.com> <20041027111317.GA27240@infradead.org> <417F86F8.6020004@nokia.com> <20041027085906.665d0125@guest-251-240.pdx.osdl.net> <20041027183804.GA12585@two.research.nokia.com> <20041027115538.540de19e@guest-251-240.pdx.osdl.net>
+Message-ID: <200410271741.55039.shawn.starr@rogers.com>
+References: <200410270033.22804.shawn.starr@rogers.com> <200410270521.56816.shawn.starr@rogers.com> <1098892310.8313.1.camel@krustophenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ext ext Christoph Hellwig <hch@infradead.org>, davem@davemloft.net,
-        netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ext Stephen Hemminger <shemminger@osdl.org>
+To: Lee Revell <rlrevell@joe-job.com>, Pavel Machek <pavel@ucw.cz>
+In-Reply-To: <1098892310.8313.1.camel@krustophenia.net>
 Content-Disposition: inline
-In-Reply-To: <20041027115538.540de19e@guest-251-240.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 27, 2004 at 11:55:38AM -0700, ext Stephen Hemminger wrote:
-> On Wed, 27 Oct 2004 21:38:04 +0300
-> "Teras Timo (EXT-YomiGroup/Helsinki)" <Ext-Timo.Teras@nokia.com> wrote:
-> > This way the problem is that I have to know which devices I will
-> > add the attributes. But the point is to add attributes to
-> > all netdevs.
-> > 
-> > Using this approach I'd have to enumerate all the interfaces every
-> > now and then.
-> > 
-> > If I have my class interface I get a callback whenever an
-> > interface is created or deleted and I can automatically add the
-> > attribute to all netdevs.
-> > 
-> 
-> If you are doing something to all interfaces, then it probably should
-> either be part of the common net-sysfs layer, or you can dynamically
-> discover and do it by following device transitions with 
-> register_device_notifier.
 
-I'd like my code to be available as module also so common net-sysfs
-is not an option. Hmm... I could use device transitions hooks. 
+Actually, there is a bug, when suspending the laptop its not storing the 
+negotiated link status and resets to gigabit.
 
-But I'm still a bit puzzled why the interface registration should not
-be public?
+This looks to be a bug :-)
 
-After all it is only a mechanism to get callbacks whenever a class
-device is created or removed. Why to even implement a class interface
-system if you are not allowed to use it (except in one special place
-where it is considered to be an ugly hack by Christoph Hellwig)?
+Shawn.
 
-I understood that the whole point for interfaces is the ability to
-extend functionality without core (i.e. common net-sysfs) changes.
-Why to lose that modularity?
-
-Cheers,
-  Timo
+On October 27, 2004 11:51, Lee Revell wrote:
+> On Wed, 2004-10-27 at 05:21 -0400, Shawn Starr wrote:
+> > I should just answer it myself, restarting fixed the interface
+> > negotiation 'blip'. Perhaps the driver somehow did not reset and retry
+> > negotiation?
+> >
+> > That did look interesting though :)
+>
+> AIUI it's impossible to do 100% reliable autonegotiation with Ethernet.
+> The best you can do is try to detect when you might have gotten it wrong
+> and reset the interface.
+>
+> Lee
