@@ -1,132 +1,52 @@
-From: "Gennie Letty" <wrcvcr4oh@snowcrest.net>
-Subject: RE:
-Date: Mon, 05 Jul 2004 11:08:40 +0300
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6] fix flags for ndisc dst
+Date: Mon, 05 Jul 2004 16:28:38 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <gp4hgvl5vv1y8688xcikxxzg@twofall>
-Reply-To: "Gennie Letty" <wrcvcr4oh@snowcrest.net>
+Message-ID: <20040705.162838.67048785.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="--49521358913834991"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----49521358913834991
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Hello.
 
-being ways man kept separate alone sooner turned started during 
-is however people 
+Because RTF_LOCAL is for local unicast address, 
+it was wrong to set RTF_LOCAL to ndisc dst.
+This patch also adds some comment on other fields.
 
-----49521358913834991
-Content-Type: text/html; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-<html>
-<head>
-<meta http-equiv="Content-Type" content="text; charset=us-ascii">
-</head>
-<body><within cries they pray start your mine gym subject gray >
-<center>
-<table border=0 cellspacing=0 cellpadding=10 width=640>
-<tr><td>
-<font color=D90000 size=5 face=arial><b>Your needed soffttwares at Rock Bottom prri ce! </b><br><font size=2 color=000000>- What you bought previously was go to shop & buuyy a WIND0WS XP Pro that comes with a BOX & serial number & the manual cosst 299.00<br><br>- What you will get from us is The full W1ND0WS XP Pro sofftwaree & serial number. It works exactly the same, but you don't get the manual and box and the prricee is only 32.00 . That is a savviing of 254.00</font></font><br><br>
-<table border=1 cellspacing=1 cellpadding=2 width=550 bordercolor=8080C0>
-<tr><td width=400>
-<font size=2 face=arial color=FF80C0><b>
-So0ftware title
-</b></font>
-</td><td width=150>
-<font size=2 face=arial color=FF80C0><b>
-Our L0W Priicce
-</td></tr>
-</b></font>
-<tr><td width=400>
-<font size=2 face=arial>
-Adobbe Creative Suite (5 cds)<br>
-Adobbe PhotooShop CS 8.0 (1 cd)<br>
-3D Studio Max 6.0 (3 cds)<br>
-Adobbe Premiere Pro 7.0 (1 cd)<br>
-Alias Wavefront Maya 5.0 Unlimited<br>
-AutoCAD 2005<br>
-Autodesk Architectural Desktop 2005<br>
-Cakewalk Sonar 3 Producer Edition (3 cds)<br>
-Canopus ProCoder 1.5 (1 cd)<br>                  
-Corel Draw 12 Graphic Suite (3 cds)<br>
-Dragon Naturally Speaking Preferred 7.0<br><boys nephew rose interesting clear proper didnt thee circumstances dreadful >
-Macromedia Dreamweaver MX 2004 v7.0<br>
-Macromedia Fireworks MX 2004 v7.0<br>                                        
-Macromedia Flash MX 2004 v7.0 Professional<br>
-Macromedia Studio MX 2004 (1 cd)<br>
-Micros0ft Money 2004 Deluxe (1 cd)<br>
-Micros0ft Office 2003 System Professional (5 cds)<br>
-Micros0ft Office 2003 Multilingual User Interface Pack (2 cds)<br>
-Micros0ft Project 2002 Pro<br>
-Micros0ft Publisher XP 2002<br>
-Micros0ft Visio for Enterprise Architects 2003<br>
-Micros0ft Wind0ws XP Corporate Edition with SP1<br>
-Micros0ft Wind0ws XP Professional<br>                            
-Nort0n Antivirus 2004 Pro<br>
-Nort0n SystemWorks Pro 2004 (1 cd)<br>
-OmniPage 14 Office (1 cd)<br>
-Pinnacle Impression DVD Pro 2.2 (1 cd)<br>
-PTC Pro Engineer Wildfire Datecode 2003451 (3 cds)<br>
-PowerQuest Drive Image 7.01 Multilanguage (1 cd)<br>
-Ulead DVD Workshop 2.0<br><second three kind marry >
-Micros0ft Visual Studio .NET 2003 Enterprise Architect (8 cds)<br>
-Winfax PRO 10.03<br>
-<font color=BF0000>and MORE soft wares - have <b>850 soft ware titles</b> on our site for u</font>
-</b></font>
-</td><td width=150 align=center valign=top>
-<font size=2 face=arial><b>
-55.00<br>
-32.00<br>
-50.00<br>
-32.00<br>
-40.00<br>
-32.00<br>
-32.00<br>
-36.00<br>
-25.00<br>
-32.00<br>
-25.00<br>
-25.00<br>
-32.00<br>
-30.00<br>
-50.00<br>
-20.00<br>
-40.00<br>
-25.00<br>
-32.00<br>
-20.00<br>
-25.00<br>
-40.00<br>
-32.00<br>
-20.00<br>
-20.00<br>
-25.00<br>
-25.00<br>
-40.00<br>
-20.00<br>
-20.00<br>
-93.00<br>
-20.00<br>
-</td></tr>
-</b></font>
-</td></tr></table>
-<font color=000000 size=2 face=arial>
-Download your sofftwaares from our Superfast (100mbits connection) site & you will be given your own exclusive registration key to register the sofftwaares you bought from us, and now you have your own registered copy of sofftwaares (will never expired again)<br><br>
-It's <b>0EM version</b> of sofftwaares which is an <b>Original/Genuine sofftwaares</b>, strictly no piracy sofftwaares 
-</font>
-<center>
-<b><a href=http://rds.yahoo.com/might/chapterpurpose/*http://laidcompanion.nsdmn.biz/0/p/ target=_blank><font color=0000FF size=5 face=arial><u>Over 850 popular titles for you to choose from<br><br>Act quick now before all sold<br><br>Start using your needed sofftwaares now<br>== C  L I C K - H E  R E ==</b><br><font size=2>(Plz give 2-3 mins to complete the page loading bcos the page has 850 titles on it)</font><br><br></u></a>
-<a href=http://rds.yahoo.com/writtenperfectly/continuousspot/*http://than.nsdmn.biz/0/c.html target=_blank><font size=1>take me down</font></a>
-</font>
-</center>
-</td></tr></table>
-</center>
-</body>
-</html>
+===== net/ipv6/route.c 1.76 vs edited =====
+--- 1.76/net/ipv6/route.c	2004-06-13 02:51:53 +09:00
++++ edited/net/ipv6/route.c	2004-07-05 16:24:14 +09:00
+@@ -605,14 +605,19 @@
+ 	rt->rt6i_dev	  = dev;
+ 	rt->rt6i_idev     = in6_dev_get(dev);
+ 	rt->rt6i_nexthop  = neigh;
+-	rt->rt6i_expires  = 0;
+-	rt->rt6i_flags    = RTF_LOCAL;
+-	rt->rt6i_metric   = 0;
+ 	atomic_set(&rt->u.dst.__refcnt, 1);
+ 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = 255;
+ 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
+ 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
+ 	rt->u.dst.output  = output;
++
++#if 0	/* there's no chance to use these for ndisc */
++	rt->u.dst.flags   = ipv6_addr_type(addr) & IPV6_ADDR_UNICAST 
++				? DST_HOST 
++				: 0;
++	ipv6_addr_copy(&rt->rt6i_dst.addr, addr);
++	rt->rt6i_dst.plen = 128;
++#endif
+ 
+ 	write_lock_bh(&rt6_lock);
+ 	rt->u.dst.next = ndisc_dst_gc_list;
 
-----49521358913834991--
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
