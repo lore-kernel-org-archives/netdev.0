@@ -1,59 +1,55 @@
-From: Kazunori Miyazawa <kazunori@miyazawa.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATH] IPv6 IPsec support
-Date: Thu, 6 Mar 2003 09:32:19 +0900
+Date: Wed, 05 Mar 2003 20:43:48 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030306093219.1a702868.kazunori@miyazawa.org>
+Message-ID: <20030305.204348.130225511.davem@redhat.com>
 References: <20030305233025.784feb00.kazunori@miyazawa.org>
 	<20030305.152530.70806720.davem@redhat.com>
+	<20030306093219.1a702868.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
    usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030305.152530.70806720.davem@redhat.com>
+To: kazunori@miyazawa.org
+In-Reply-To: <20030306093219.1a702868.kazunori@miyazawa.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello David,
+   From: Kazunori Miyazawa <kazunori@miyazawa.org>
+   Date: Thu, 6 Mar 2003 09:32:19 +0900
 
-On Wed, 05 Mar 2003 15:25:30 -0800 (PST)
-"David S. Miller" <davem@redhat.com> wrote:
+   - Extension Header Processing on inbound:
+     As a result of IPv6 IPsec support, Extension Header processing is devided
+     into ipv6_parse_exthdrs and ipproto->handler. I think it is better to merge
+     other Extension Header handling into ipproto->handler.
+   
+Ok.
 
->    From: Kazunori Miyazawa <kazunori@miyazawa.org>
->    Date: Wed, 5 Mar 2003 23:30:25 +0900
-> 
-> Hello Miyazawa-san,
-> 
->    I submit the patch to let the kernel support ipv6 ipsec again.
->    It is able to comple ipv6 as module.
-> 
-> As promised I applied the patch.  I will push it to Linus later
-> this evening, or tomorrow.
-> 
-> In this initial checkin I made only 2 minor fixes, they
-> are attached below:
-> 
+   - Fragmentation support on outbound:
+     We should change ipv6_build_xmit like ip_append_data style to support
+     fragmentation with IPsec.
+   
+Please work together with Alexey on this.  There are known
+major problems on ipv4 side, and it must be resolved before
+ipv6 side may be done.
 
-Thank you very much.
+For example, right now a non-TCP packet can do the following.  If it
+is just slightly smaller than MTU, and when encapsulated in ESP/AH it
+becomes larger than MTU, we will not fragment it and too-large frame
+will be sent to device.
 
-My patch is the first step.
- I think there are these TODOs around IPv6 IPsec as far as I remember.
+In my last round of talks with Alexey I believe we were very close to
+a possible solution to this problem.  The idea was to have a "local
+dont-fragment" flag, and at the very last stage of IP output we check
+this and either 1) clear DF and fragment or 2) drop packet and send
+ICMP message back.
 
-- Extension Header Processing on inbound:
-  As a result of IPv6 IPsec support, Extension Header processing is devided
-  into ipv6_parse_exthdrs and ipproto->handler. I think it is better to merge
-  other Extension Header handling into ipproto->handler.
+Alexey, what is the current state?
 
-- Fragmentation support on outbound:
-  We should change ipv6_build_xmit like ip_append_data style to support
-  fragmentation with IPsec.
-
-- Removing duplicate codes, clean up and improveing performance.
-
-- Considering relation of IPv6 IPsec and Mobile IPv6. This is future stuff.
-
-Best regards,
-
---Kazunori Miyazawa (Yokogawa Electric Corporation)
+   - Removing duplicate codes, clean up and improveing performance.
+   
+   - Considering relation of IPv6 IPsec and Mobile IPv6. This is future stuff.
+   
+Ok.
