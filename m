@@ -1,28 +1,41 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] Virtual Routing and Forwarding
-Date: Tue, 22 Oct 2002 21:11:01 -0400 (EDT)
+Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
+Date: Tue, 22 Oct 2002 21:18:40 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210222107060.24323-100000@shell.cyberus.ca>
-References: <20021021223810.A23086@nero.doit.wisc.edu>
+Message-ID: <Pine.GSO.4.30.0210222113240.24323-100000@shell.cyberus.ca>
+References: <3DB5F605.1010507@candelatech.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "James R. Leu" <jleu@mindspring.com>
-In-Reply-To: <20021021223810.A23086@nero.doit.wisc.edu>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DB5F605.1010507@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-I think you are mucking with too many things. heres some thoughts:
-- use aliases
-- tag skbs based on which local aliases they arrived destined to and
-send them to the right VR
-- use multi routing table feature already available on linux
 
-Of course this is the easy part. Separation of VRs is going to be the
-challenge (talking about CPU and memory isolation - such that for example
-gated for VR1 doesnt talk to gated for VR2)
+On Tue, 22 Oct 2002, Ben Greear wrote:
+
+> Actually, with the changes the way they are, if you have a backlog value
+> of 300, and the first NAPI driver reads 300 packets, then all the rest of the
+> NAPI drivers will just throw away packets because the max-backlog has
+> already been hit (if I understand things correctly).
+>
+
+The 300 is shared amongst all the drivers which have something on their
+rx DMA. This is done on a roundrobin fashion.
+Also all the drivers which are non-napi are given the same quota.
+
+> If we make the backlog big enough to handle a large burst of incomming
+> traffic w/out dropping them, then the first NAPI driver can hog a very
+> large amount of CPU because its budget is now huge.  The rest of
+> the devices in the poll loop will not be serviced in time, and will
+> drop packets (I saw this when testing out the 4-port tulip driver with
+> the NAPI patch).
+>
+
+I think you misunderstood. Look at the dev->weight.
 
 cheers,
 jamal
