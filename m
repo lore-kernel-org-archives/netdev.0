@@ -1,38 +1,62 @@
-From: Horst von Brand <vonbrand@inf.utfsm.cl>
+From: Wesley Eddy <weddy@grc.nasa.gov>
 Subject: Re: TCP rto estimation patch
-Date: Fri, 23 Apr 2004 13:35:27 -0400
+Date: Fri, 23 Apr 2004 16:44:34 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404231735.i3NHZRp3012111@eeyore.valparaiso.cl>
-References: <weddy@grc.nasa.gov>
+Message-ID: <20040423204434.GA7492@grc.nasa.gov>
+References: <20040423142445.GC501@grc.nasa.gov> <200404231735.i3NHZRp3012111@eeyore.valparaiso.cl>
+Reply-To: weddy@grc.nasa.gov
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ZGiS0Q5IWpPtfppv"
 Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: weddy@grc.nasa.gov
-In-Reply-To: Message from Wesley Eddy <weddy@grc.nasa.gov>
-   of "Fri, 23 Apr 2004 10:24:45 -0400." <20040423142445.GC501@grc.nasa.gov>
+To: Horst von Brand <vonbrand@inf.utfsm.cl>
+Content-Disposition: inline
+In-Reply-To: <200404231735.i3NHZRp3012111@eeyore.valparaiso.cl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Wesley Eddy <weddy@grc.nasa.gov> said:
-> The TCP RTO estimation algorithm defined in RFC 2988 is followed properly
-> in the kernel, however the constants alpha and beta in the specification
-> are hardcoded as 3 and 2 everywhere they occur in the kernel.  Since these
-> constants crop up multiple times, this is poor programming practice.  This
-> patch binds the numeric values to symbols RTT_ALPHA and RTTVAR_BETA, and
-> uses those symbolic values throughout the code.  Since using 2 and 3 for
-> these values is not mandatory, this makes tweaking them much easier.
 
-Why RTT_ALPHA and RTTVAR_BETA, and not just RTT_BETA? Or even RTO_xxx?
+--ZGiS0Q5IWpPtfppv
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Is there any reason to change them, ever? What happens if you change them?
-Restrictions on values? All this should go with such a patch IMHO (at least
-pointers to relevant discussion).
+On Fri, Apr 23, 2004 at 01:35:27PM -0400, Horst von Brand wrote:
+>=20
+> Why RTT_ALPHA and RTTVAR_BETA, and not just RTT_BETA? Or even RTO_xxx?
+>
 
-Must go over it with a fine comb to make sure no unrelated 2 or 3 got
-replaced... out of my league, sorry.
+Per the spec, alpha is used to compute rtt and beta likewise for rttvar.
+=20
+> Is there any reason to change them, ever? What happens if you change them?
+> Restrictions on values? All this should go with such a patch IMHO (at lea=
+st
+> pointers to relevant discussion).
 
-Your patch is MIME-mangled, =3D, =20, =\n shows up all over the place here.
--- 
-Dr. Horst H. von Brand                   User #22616 counter.li.org
-Departamento de Informatica                     Fono: +56 32 654431
-Universidad Tecnica Federico Santa Maria              +56 32 654239
-Casilla 110-V, Valparaiso, Chile                Fax:  +56 32 797513
+The information isn't relevant since the patch didn't change them, and if
+you were interested in changing the values then simple google search
+would return a plethora of research on RTT estimation.
+
+> Must go over it with a fine comb to make sure no unrelated 2 or 3 got
+> replaced... out of my league, sorry.
+
+There are stray constants all over the place, which is something that
+even freshman computer science students are taught to avoid.  This patch
+represents a minor improvement to that situation.
+
+-Wes
+
+--ZGiS0Q5IWpPtfppv
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAiYAyzBuYqbnj3IwRAjhPAKCBRdDgGsALp9DTh5qFK+41cTEb6QCfUENV
+XM5O6g2f/gEt/3X2IoG5xAw=
+=Dfxq
+-----END PGP SIGNATURE-----
+
+--ZGiS0Q5IWpPtfppv--
