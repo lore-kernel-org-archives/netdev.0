@@ -1,25 +1,25 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: Re: ANK's PSCHED_TDIFF_SAFE change unmasked old bug (~0UL !=
- 0xFFFFFFFF)
-Date: Thu, 16 May 2002 16:35:31 +0200 (MET DST)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: ANK's PSCHED_TDIFF_SAFE change unmasked old bug (~0UL != 0xFFFFFFFF)
+Date: Thu, 16 May 2002 18:59:51 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10205161634030.10809-100000@mausmaki.cosy.sbg.ac.at>
+Message-ID: <200205161459.SAA22026@sex.inr.ac.ru>
 References: <Pine.LNX.4.44.0205161543400.12674-100000@luxik.cdi.cz>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
+Cc: davem@sex.inr.ac.ru (Dave Miller), netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Martin Devera <devik@cdi.cz>
-In-Reply-To: <Pine.LNX.4.44.0205161543400.12674-100000@luxik.cdi.cz>
+To: devik@cdi.cz (Martin Devera)
+In-Reply-To: <Pine.LNX.4.44.0205161543400.12674-100000@luxik.cdi.cz> from "Martin Devera" at May 16, 2 03:52:43 pm
 List-Id: netdev.vger.kernel.org
 
---snip/snip
-> Probably the test should be changed. I'm not sure how. How to detect
-> that long is 64 bit in cpp ?
+Hello!
 
-by using BITS_PER_LONG (which is defined in include/asm/types.h)
+> echo -e "#if ~0UL == 0xffffffff\nTST\n#endif"|gcc -E -
+> echo -e "#if ~0UL == 0xffffffffffffffff\nTST\n#endif"|gcc -E -
+> 
+> and the second line displays TST !!
 
-	tm
+With old good 2.7.2 this worked...
 
--- 
-in some way i do, and in some way i don't.
+Dave, do you know a theory explaining this change in gcc behavior?
+
+Alexey
