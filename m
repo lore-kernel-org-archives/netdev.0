@@ -1,9 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 10/10] EMAC: fix ibm_emac autonegotiation result parsing
-Date: Tue, 04 Jan 2005 21:59:36 -0800
-Message-ID: <200501050559.j055xj614727@mail.osdl.org>
-Cc: davem@davemloft.net, netdev@oss.sgi.com, akpm@osdl.org,
-        mporter@kernel.crashing.org, ebs@ebshome.net
+Subject: [patch 1/1] ixgb LR card support
+Date: Tue, 04 Jan 2005 22:01:34 -0800
+Message-ID: <200501050601.j0561h615068@mail.osdl.org>
+Cc: netdev@oss.sgi.com, akpm@osdl.org, aafes@psu.edu
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -11,47 +10,60 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Matt Porter <mporter@kernel.crashing.org>
+From: Phil Sorber <aafes@psu.edu>
 
-Fix aneg result parsing in ibm_emac driver.
+This enables the ixgb driver to be used for LR cards as well.
 
-Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
-Signed-off-by: Matt Porter <mporter@kernel.crashing.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/drivers/net/ibm_emac/ibm_emac_phy.c |   19 ++++++++++---------
- 1 files changed, 10 insertions(+), 9 deletions(-)
+ 25-akpm/drivers/net/ixgb/ixgb_hw.c   |    1 +
+ 25-akpm/drivers/net/ixgb/ixgb_ids.h  |    1 +
+ 25-akpm/drivers/net/ixgb/ixgb_main.c |    5 ++++-
+ 3 files changed, 6 insertions(+), 1 deletion(-)
 
-diff -puN drivers/net/ibm_emac/ibm_emac_phy.c~fix-ibm_emac-autonegotiation-result-parsing drivers/net/ibm_emac/ibm_emac_phy.c
---- 25/drivers/net/ibm_emac/ibm_emac_phy.c~fix-ibm_emac-autonegotiation-result-parsing	2005-01-04 21:57:36.578573496 -0800
-+++ 25-akpm/drivers/net/ibm_emac/ibm_emac_phy.c	2005-01-04 21:57:36.581573040 -0800
-@@ -191,17 +191,18 @@ static int genmii_read_link(struct mii_p
- 	u16 lpa;
+diff -puN drivers/net/ixgb/ixgb_hw.c~ixgb-lr-card-support drivers/net/ixgb/ixgb_hw.c
+--- 25/drivers/net/ixgb/ixgb_hw.c~ixgb-lr-card-support	2004-11-22 20:33:33.912389136 -0800
++++ 25-akpm/drivers/net/ixgb/ixgb_hw.c	2004-11-22 20:33:33.920387920 -0800
+@@ -198,6 +198,7 @@ static ixgb_phy_type ixgb_identify_phy(s
+ 		break;
  
- 	if (phy->autoneg) {
--		lpa = phy_read(phy, MII_LPA);
-+		lpa = phy_read(phy, MII_LPA) & phy_read(phy, MII_ADVERTISE);
+ 	case IXGB_DEVICE_ID_82597EX_SR:
++	case IXGB_DEVICE_ID_82597EX_LR:
+ 		/* The SR adapters carry two different types of XPAK optics
+ 		 * modules; read the vendor identifier to determine the exact
+ 		 * type of optics. */
+diff -puN drivers/net/ixgb/ixgb_ids.h~ixgb-lr-card-support drivers/net/ixgb/ixgb_ids.h
+--- 25/drivers/net/ixgb/ixgb_ids.h~ixgb-lr-card-support	2004-11-22 20:33:33.914388832 -0800
++++ 25-akpm/drivers/net/ixgb/ixgb_ids.h	2004-11-22 20:33:33.920387920 -0800
+@@ -38,6 +38,7 @@
  
--		if (lpa & (LPA_10FULL | LPA_100FULL))
--			phy->duplex = DUPLEX_FULL;
--		else
--			phy->duplex = DUPLEX_HALF;
--		if (lpa & (LPA_100FULL | LPA_100HALF))
--			phy->speed = SPEED_100;
--		else
--			phy->speed = SPEED_10;
-+		phy->speed = SPEED_10;
-+		phy->duplex = DUPLEX_HALF;
- 		phy->pause = 0;
-+
-+		if (lpa & (LPA_100FULL | LPA_100HALF)) {
-+			phy->speed = SPEED_100;
-+			if (lpa & LPA_100FULL)
-+				phy->duplex = DUPLEX_FULL;
-+		} else if (lpa & LPA_10FULL)
-+			phy->duplex = DUPLEX_FULL;
- 	}
- 	/* On non-aneg, we assume what we put in BMCR is the speed,
- 	 * though magic-aneg shouldn't prevent this case from occurring
+ #define IXGB_DEVICE_ID_82597EX      0x1048
+ #define IXGB_DEVICE_ID_82597EX_SR   0x1A48
++#define IXGB_DEVICE_ID_82597EX_LR   0x1B48
+ 
+ #define IXGB_SUBDEVICE_ID_A11F  0xA11F
+ #define IXGB_SUBDEVICE_ID_A01F  0xA01F
+diff -puN drivers/net/ixgb/ixgb_main.c~ixgb-lr-card-support drivers/net/ixgb/ixgb_main.c
+--- 25/drivers/net/ixgb/ixgb_main.c~ixgb-lr-card-support	2004-11-22 20:33:33.916388528 -0800
++++ 25-akpm/drivers/net/ixgb/ixgb_main.c	2004-11-22 20:33:33.922387616 -0800
+@@ -46,6 +46,8 @@ static struct pci_device_id ixgb_pci_tbl
+ 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+ 	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_SR,
+ 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
++	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_LR,
++	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
+ 
+ 	/* required last entry */
+ 	{0,}
+@@ -511,7 +513,8 @@ static int __devinit ixgb_sw_init(struct
+ 	hw->max_frame_size = netdev->mtu + ENET_HEADER_SIZE + ENET_FCS_LENGTH;
+ 
+ 	if ((hw->device_id == IXGB_DEVICE_ID_82597EX)
+-	    || (hw->device_id == IXGB_DEVICE_ID_82597EX_SR))
++	    || (hw->device_id == IXGB_DEVICE_ID_82597EX_SR)
++	    || (hw->device_id == IXGB_DEVICE_ID_82597EX_LR))
+ 		hw->mac_type = ixgb_82597;
+ 	else {
+ 		/* should never have loaded on this device */
 _
