@@ -1,45 +1,74 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: netpoll warning in tulip
-Date: Tue, 16 Mar 2004 13:23:48 -0600
+From: Russell King <rmk+lkml@arm.linux.org.uk>
+Subject: Re: [PATCH] Do not include linux/irq.h from linux/netpoll.h
+Date: Tue, 16 Mar 2004 19:22:47 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040316192347.GC11010@waste.org>
-References: <Pine.GSO.4.44.0403161235170.29946-100000@math.ut.ee>
+Message-ID: <20040316192247.A7886@flint.arm.linux.org.uk>
+References: <1079369568.19012.100.camel@icampbell-debian> <20040316001141.C29594@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Meelis Roos <mroos@linux.ee>
+To: Linus Torvalds <torvalds@osdl.org>, Ian Campbell <icampbell@arcom.com>,
+        netdev@oss.sgi.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.GSO.4.44.0403161235170.29946-100000@math.ut.ee>
+In-Reply-To: <20040316001141.C29594@flint.arm.linux.org.uk>; from rmk+lkml@arm.linux.org.uk on Tue, Mar 16, 2004 at 12:11:41AM +0000
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 16, 2004 at 12:36:02PM +0200, Meelis Roos wrote:
-> FYI: with netpoll configured out, I get
+On Tue, Mar 16, 2004 at 12:11:41AM +0000, Russell King wrote:
+> On Mon, Mar 15, 2004 at 04:52:50PM +0000, Ian Campbell wrote:
+> > The culprit would appear to be the addition of a 
+> > 	#include <linux/netpoll.h>
+> > to net/core/dev.c which in turn pulls in <linux/irq.h> which (as Russell
+> > King notes in a comment therein) should not be included from generic
+> > code.
 > 
->   CC [M]  drivers/net/tulip/tulip_core.o
-> drivers/net/tulip/tulip_core.c:256: warning: `poll_tulip' declared `static' but never defined
+> Linus - I haven't tested this patch myself yet, but I do think something
+> needs to happen with linux/irq.h.  It seems a comment in the file isn't
+> sufficient.
+> 
+> The file itself is misplaced and misleading sitting in the include/linux
+> subdirectory, which causes problems when people decide to include it into
+> architecture independent files, in the belief that it's a generic include
+> file.
+> 
+> I believe that linux/irq.h should at least become asm-generic/irq.h to
+> stop this happening.
+> 
+> What are your thoughts on this?
 
- 2.6.5-rc1-mpm/drivers/net/tulip/tulip_core.c |    3 ++-
- 1 files changed, 2 insertions(+), 1 deletion(-)
+So how do we solve this problem.  Should I just merge this change and
+ask you to pull it?  I think that's rather impolite though.
 
-diff -puN drivers/net/tulip/tulip_core.c~tulip-poll drivers/net/tulip/tulip_core.c
---- 2.6.5-rc1/drivers/net/tulip/tulip_core.c~tulip-poll	2004-03-16 13:21:38.000000000 -0600
-+++ 2.6.5-rc1-mpm/drivers/net/tulip/tulip_core.c	2004-03-16 13:22:30.000000000 -0600
-@@ -253,8 +253,9 @@ static void tulip_down(struct net_device
- static struct net_device_stats *tulip_get_stats(struct net_device *dev);
- static int private_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static void set_rx_mode(struct net_device *dev);
-+#ifdef CONFIG_NET_POLL_CONTROLLER
- static void poll_tulip(struct net_device *dev);
--
-+#endif
- 
- static void tulip_set_power_state (struct tulip_private *tp,
- 				   int sleep, int snooze)
+Or should I send a BK cset which removes include/linux/irq.h entirely,
+thereby fixing _my_ problem (though it'll break everyone elses build.) 8)
 
-_
-
+> Index: linux-2.6-bkpxa/include/linux/netpoll.h
+> ===================================================================
+> --- linux-2.6-bkpxa.orig/include/linux/netpoll.h        2004-03-15 15:03:30.000000000 +0000
+> +++ linux-2.6-bkpxa/include/linux/netpoll.h     2004-03-15 16:24:25.000000000 +0000
+> @@ -9,7 +9,6 @@
+>   
+>  #include <linux/netdevice.h>
+>  #include <linux/interrupt.h>
+> -#include <linux/irq.h>
+>  #include <linux/list.h>
+>   
+>  struct netpoll;
+> 
+> -- 
+> Russell King
+>  Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+>  maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+>                  2.6 Serial core
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
 -- 
-Matt Mackall : http://www.selenic.com : Linux development and consulting
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
