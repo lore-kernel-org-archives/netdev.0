@@ -1,37 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: neigh_create/inetdev_destroy race?
-Date: Fri, 3 Sep 2004 09:18:17 -0700
+From: josef Jeff Sipek <jeffpc@optonline.net>
+Subject: [PATCH/RFC 2.6] NET: 64-bit network statistics
+Date: Fri, 03 Sep 2004 13:06:55 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040903091817.7b97d090.davem@davemloft.net>
-References: <20040814050848.GA11874@gondor.apana.org.au>
-	<20040814062703.GA4806@gondor.apana.org.au>
-	<20040815191450.77532d5d.davem@redhat.com>
-	<20040816105131.GA11299@gondor.apana.org.au>
-	<20040828234201.79556f6e.davem@davemloft.net>
-	<20040829065031.GA786@gondor.apana.org.au>
-	<20040830230820.7514985d.davem@davemloft.net>
-	<20040831104139.GA2124@gondor.apana.org.au>
-	<20040901222118.0ce4bcc6.davem@davemloft.net>
-	<20040902130605.GA32570@gondor.apana.org.au>
-	<20040903133623.GA23179@gondor.apana.org.au>
+Message-ID: <200409031307.01240.jeffpc@optonline.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7BIT
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040903133623.GA23179@gondor.apana.org.au>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 3 Sep 2004 23:36:23 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Here is the patch.
+I've created a patch that monitors changes to the network statistics variables 
+and keeps internal 64-bit counter. I decided to split it into two parts 
+(patches are to follow in next emails):
+ 1) generic variable monitoring system (watch64)
 
-Looks great.  Yes, I see how the existing cases were racey
-pre-RCU, it is similar to the sysctl stuff and that area was
-truly horrible before Stephen and myself redid how generic
-device destruction works.
+The watch64 system allows the programmer to specify the approximate interval 
+at which he wants his variables checked. If he tries to specify shorter 
+interval than the minimum a default value of HZ/10 is used. To minimize 
+locking, RCU and seqlock are used. On 64-bit systems, all is optimized away. 
 
-Patch applied, thanks Herbert.
+ 2) network statistics specific patch (64network)
+
+Upon registration of a network device, all the statistics variables are 
+registered with watch64. Additionally, a new proc file is 
+created /proc/net/dev64 displays the 64-bit values as supposed 
+to /proc/net/dev which is left to display the original 32-bit variables for 
+backward compatibility. The sysfs interface 
+(/sys/class/net/<interface>/statistics/*) displays the 64-bit values only. On 
+64-bit systems, all is optimized away through watch64.
+
+Josef "Jeff" Sipek.
+
+- -- 
+*NOTE: This message is ROT-13 encrypted twice for extra protection*
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBOKSzwFP0+seVj/4RAkz7AJ0Ut21nPMkHGKv1dXK17yoA5hQ1+ACglpMq
+IHh+tYW3innmwjlA7EU2x78=
+=LnHg
+-----END PGP SIGNATURE-----
