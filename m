@@ -1,61 +1,151 @@
-From: "Hen, Shmulik" <shmulik.hen@intel.com>
-Subject: RE: Bonding driver makes bad use of ethtool
-Date: Fri, 12 Sep 2003 17:55:21 +0300
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6] pci.ids for e1000
+Date: Fri, 12 Sep 2003 12:08:57 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C9539@hasmsx403.iil.intel.com>
+Message-ID: <3F61EF99.8090200@pobox.com>
+References: <Pine.LNX.4.44.0309111808100.8763-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Matthew Wilcox" <willy@debian.org>, <bonding-devel@lists.sourceforge.net>,
-   "Noam, Amir" <amir.noam@intel.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <Pine.LNX.4.44.0309111808100.8763-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> -----Original Message-----
-> From: Matthew Wilcox [mailto:willy@debian.org]
-> Sent: Friday, September 12, 2003 5:28 PM
-> To: bonding-devel@lists.sourceforge.net; Noam, Amir
-> Cc: netdev@oss.sgi.com
-> Subject: Bonding driver makes bad use of ethtool
-> 
-> 
-> 
-> ethtool is being abused by the bonding driver.  ifenslave is passing
-> in which ABI version it wants to use via the ETHTOOL_GDRVINFO call.
-> This cannot continue in the ethtool_ops scheme, and it's my opinion this
-> shouldn't've been done in the first place.
-> 
-> I suggest a new ioctl to set your ABI version and delete this bad use
-> of ETHTOOL_GDRVINFO.
-> 
-> -- 
-> "It's not Hollywood.  War is real, war is primarily not about defeat or
-> victory, it is about death.  I've seen thousands and thousands of dead bodies.
-> Do you think I want to have an academic debate on this subject?" -- Robert Fisk
-> 
->
----------1---------2---------3---------4---------5---------6---------7---------8
+Feldman, Scott wrote:
+> * Add missing Device and Subdevice IDs for devices support by e1000.  I've 
+> updated pciids.sourceforge.net, but those changes don't seem to be getting 
+> approved/pushed out.
 
-For the next feature enhancement for bonding, which will enable
-hot operations, we're adding a new ioctl hook the same way other
-intermediate network drivers like VLAN and bridging drivers have.
-It will be able to take care of exactly that.
+How motivated are you?  ;-)
 
-In general, since bonding is an Ethernet like device, shouldn't
-it also be able to support ethtool calls ? We've noticed that the
-tool itself refuses to talk to bonding, probably since the device
-name isn't 'ethX', but it could be made to support all non-hardware
-specific ethtool options so management applications and network
-startup scripts would benefit from the enhanced support (e.g. add
-support for ethtool's get link status query so the ifup script would
-be able to configure bonding when DHCP is enabled, etc.).
+The general idea is to keep 2.4, 2.6, and pciids.sf.net in sync.
 
--- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+Could you be talked into comparing 2.4, 2.6, and pciids.sf.net, and 
+creating patches for 2.4 and 2.6 that add missing ids?  ;-)  Martin 
+Mares (pciids.sf.net maintainer) did a big sync-up less than 12 months 
+ago, so the job shouldn't be as big as it sounds.
+
+If not, no big deal.  Just say "no" and I'll apply the patch below, 
+instead of waiting for the larger patches...
+
+	Jeff
+
+
+
+
+> ----------------
+> 
+> --- linux-2.6.0-test5/drivers/pci/pci.ids	2003-09-08 12:50:06.000000000 -0700
+> +++ linux-2.6.0-test5/drivers/pci/pci.ids.new	2003-09-11 17:45:32.000000000 -0700
+> @@ -6228,28 +6228,73 @@
+>  		8086 1004  PRO/1000 T Server Adapter
+>  		8086 2004  PRO/1000 T Server Adapter
+>  	1008  82544EI Gigabit Ethernet Controller (Copper)
+> +		1014 0269  iSeries 1000/100/10 Ethernet Adapter
+> +		1028 011c  PRO/1000 XT Network Connection
+>  		8086 1107  PRO/1000 XT Server Adapter
+>  		8086 2107  PRO/1000 XT Server Adapter
+>  		8086 2110  PRO/1000 XT Server Adapter
+> +		8086 3108  PRO/1000 XT Network Connection
+>  	1009  82544EI Gigabit Ethernet Controller (Fiber)
+> +		1014 0268  iSeries Gigabit Ethernet Adapter
+>  		8086 1109  PRO/1000 XF Server Adapter
+>  		8086 2109  PRO/1000 XF Server Adapter
+>  	100c  82544GC Gigabit Ethernet Controller (Copper)
+>  		8086 1112  PRO/1000 T Desktop Adapter
+>  		8086 2112  PRO/1000 T Desktop Adapter
+>  	100d  82544GC Gigabit Ethernet Controller (LOM)
+> +		1028 0123  PRO/1000 XT Network Connection
+> +		107b 891f  82544GC Based Network Connection
+> +		8086 110d  82544GC Based Network Connection
+>  	100e  82540EM Gigabit Ethernet Controller
+> +		1014 0265  PRO/1000 MT Network Connection
+> +		1014 0267  PRO/1000 MT Network Connection
+> +		1014 026a  PRO/1000 MT Network Connection
+> +		107b 8920  PRO/1000 MT Desktop Adapter 
+>  		8086 001e  PRO/1000 MT Desktop Adapter
+>  		8086 002e  PRO/1000 MT Desktop Adapter
+>  	100f  82545EM Gigabit Ethernet Controller (Copper)
+> +		1014 0269  iSeries 1000/100/10 Ethernet Adapter
+> +		1014 028e  PRO/1000 MT Network Connection
+> +		8086 1000  PRO/1000 MT Network Connection
+>  		8086 1001  PRO/1000 MT Server Adapter
+>  	1010  82546EB Gigabit Ethernet Controller (Copper)
+> +		1014 027c  PRO/1000 MT Dual Port Network Adapter
+>  		8086 1011  PRO/1000 MT Dual Port Server Adapter
+> +		8086 101a  PRO/1000 MT Dual Port Network Adapter
+>  	1011  82545EM Gigabit Ethernet Controller (Fiber)
+> +		1014 0268  iSeries Gigabit Ethernet Adapter
+>  		8086 1002  PRO/1000 MF Server Adapter
+> +		8086 1003  PRO/1000 MF Server Adapter (LX)
+>  	1012  82546EB Gigabit Ethernet Controller (Fiber)
+>  		8086 1012  PRO/1000 MF Dual Port Server Adapter
+>  	1015  82540EM Gigabit Ethernet Controller (LOM)
+> +	1016  82540EP Gigabit Ethernet Controller
+> +		1014 052C  PRO/1000 MT Mobile Connection
+> +		1179 0001  PRO/1000 MT Mobile Connection
+> +		8086 1016  PRO/1000 MT Mobile Connection
+> +	1017  82540EP Gigabit Ethernet Controller
+> +		8086 1017  PR0/1000 MT Desktop Connection
+> +	1018  82541EP Gigabit Ethernet Controller
+> +		8086 1018  PRO/1000 MT Desktop Adapter
+> +	1019  82547EI Gigabit Ethernet Controller
+> +		8086 1019  PRO/1000 CT Desktop Adapter
+> +	101d  82546EB Gigabit Ethernet Controller
+> +		8086 1000  PRO/1000 MT Quad Port Server Adapter
+> +	101e  82540EP Gigabit Ethernet Controller
+> +		1014 0549  PRO/1000 MT Mobile Connection
+> +		8086 101e  PRO/1000 MT Mobile Connection
+> +	1026  82545GM Gigabit Ethernet Controller
+> +		8086 1000  PRO/1000 MT Server Connection
+> +		8086 1001  PRO/1000 MT Server Adapter
+> +		8086 1002  PRO/1000 MT Server Adapter
+> +		8086 1026  PRO/1000 MT Server Connection
+> +	1027  82545GM Gigabit Ethernet Controller
+> +		8086 1001  PRO/1000 MF Server Adapter(LX)
+> +		8086 1002  PRO/1000 MF Server Adapter(LX)
+> +		8086 1003  PRO/1000 MF Server Adapter(LX)
+> +		8086 1027  PRO/1000 MF Server Adapter
+> +	1028  82545GM Gigabit Ethernet Controller
+> +		8086 1028  PRO/1000 MB Server Adapter
+>  	1029  82559 Ethernet Controller
+>  	1030  82559 InBusiness 10/100
+>  	1031  82801CAM (ICH3) PRO/100 VE (LOM) Ethernet Controller
+> @@ -6279,6 +6324,31 @@
+>  		8086 a01f  PRO/10GbE LR Server Adapter
+>  		8086 a11f  PRO/10GbE LR Server Adapter
+>  	1059  82551QM Ethernet Controller
+> +	1075  82547EI Gigabit Ethernet Controller
+> +		8086 0075  PRO/1000 CT Network Connection
+> +		8086 1075  PRO/1000 CT Network Connection
+> +	1076  82541EI Gigabit Ethernet Controller
+> +		8086 0076  PRO/1000 MT Network Connection
+> +		8086 1076  PRO/1000 MT Network Connection
+> +		8086 1176  PRO/1000 MT Desktop Adapter
+> +		8086 1276  PRO/1000 MT Network Adapter
+> +	1077  82541EI Gigabit Ethernet Controller
+> +		1179 0001  PRO/1000 MT Mobile Connection
+> +		8086 0077  PRO/1000 MT Mobile Connection
+> +		8086 1077  PRO/1000 MT Mobile Connection
+> +	1078  82541EI Gigabit Ethernet Controller
+> +		8086 1078  PRO/1000 MT Network Connection
+> +	1079  82546EB Gigabit Ethernet Controller
+> +		8086 0079  PRO/1000 MT Dual Port Network Connection
+> +		8086 1079  PRO/1000 MT Dual Port Network Connection
+> +		8086 1179  PRO/1000 MT Dual Port Server Adapter
+> +		8086 117a  PRO/1000 MT Dual Port Server Adapter
+> +	107a  82546EB Gigabit Ethernet Controller
+> +		8086 107a  PRO/1000 MF Dual Port Server Adapter
+> +		8086 127a  PRO/1000 MF Dual Port Server Adapter
+> +	107b  82546EB Gigabit Ethernet Controller
+> +		8086 007b  PRO/1000 MB Dual Port Server Connection
+> +		8086 107b  PRO/1000 MB Dual Port Server Connection
+>  	1130  82815 815 Chipset Host Bridge and Memory Controller Hub
+>  		1025 1016  Travelmate 612 TX
+>  		1043 8027  TUSL2-C Mainboard
+> 
+> 
+> 
