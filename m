@@ -1,58 +1,32 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Network card driver problem (znb.o/tulip)
-Date: 22 Mar 2005 09:56:52 -0500
-Message-ID: <1111503412.1081.49.camel@jzny.localdomain>
-References: <efe3b00605031021513b7268d1@mail.gmail.com>
-	 <efe3b006050320111879022bc2@mail.gmail.com>
-	 <1111346944.1094.91.camel@jzny.localdomain>
-	 <200503211959.36089.jdmason@us.ibm.com>
-	 <efe3b0060503212318529cb823@mail.gmail.com>
-Reply-To: hadi@cyberus.ca
+From: Johannes Stezenbach <js@linuxtv.org>
+Subject: Re: 2.6.11: USB broken on nforce4, ipv6 still broken, centrino speedstep even more broken than in 2.6.10
+Date: Tue, 22 Mar 2005 17:22:03 +0100
+Message-ID: <20050322162203.GB19668@linuxtv.org>
+References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org> <20050321163358.1b4968a0.akpm@osdl.org> <20050322021857.GA17972@linuxtv.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jon Mason <jdmason@us.ibm.com>, Francois Romieu <romieu@fr.zoreil.com>,
-        Ben Greear <greearb@candelatech.com>, jgarzik@pobox.com,
-        tulip-users@lists.sourceforge.net, netdev@oss.sgi.com
-To: Kosta Todorovic <kostodo@gmail.com>
-In-Reply-To: <efe3b0060503212318529cb823@mail.gmail.com>
+Content-Type: text/plain; charset=us-ascii
+To: Andrew Morton <akpm@osdl.org>, felix-linuxkernel@fefe.de,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20050322021857.GA17972@linuxtv.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kosta,
-
-As i told you earlier: You can NOT use mii-tool. This board uses SYM
-PHY. 
-Try finding out what the other side reports instead in terms of speed
-and duplexity.
-
-When you say switching back/forth between 10/100 - how can you tell
-that? I think this may be your problem. Dont try to force speeds;
-just let it AN.
-
-Find something on the other side that is capable of reporting 
-correctly like e1000 and test.
-
-All i can tell you is this works on 32 bit machines - I cant validate 64
-bit machines because i dont have one.
-
-cheers,
-jamal
-
-On Tue, 2005-03-22 at 02:18, Kosta Todorovic wrote:
-> > Kosta, Can you confrim that the tulip driver works for you on a 32bit system?
+Johannes Stezenbach wrote:
+> Grab the ncp package from http://www.fefe.de/ncp/, or more specifically
+> ftp://ftp.fu-berlin.de/unix/network/ncp/ncp-1.2.3.tar.bz2.
 > 
-> Just tried on 32bit mode and exactly the SAME thing happens with the
-> tulip driver as in 64bit mode.
-> 
-> Its very strange thought, for a few seconds there was traffic passing
-> through the card (icmp echo reply). The it stopped and would answer
-> anymore. I tried restarting the interface a few times but no joy.
-> 
-> When i checked with 'mii-tool -w' i keep showing the NIC trying to
-> autonegotiate and saying it Failed. Also i can see the card switching
-> back and forth from 10mbps to 100mbps.
-> 
-> I'm slightly confused ;)
-> 
+> It's a very useful and handy tool for pushing around data within
+> a LAN of a small workgroup, one guy does "npush foo" and yells
+> at the intended recepient "do npoll". The first one to do
+> it wins and gets foo ;-)
+
+In case that description sounded too silly: The essential feature
+of ncp is that it requires no configuration or installation of a
+server daemon, and you don't even need to worry about host names or the
+IP address of the source or destination machine. Just hook two computers
+to the same network and you're ready to npush/npoll. Similar to
+netcat + tar, but way more convenient.
+
+Johannes
