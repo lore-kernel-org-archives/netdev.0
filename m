@@ -1,51 +1,57 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: A bug in the Kernel?
-Date: Sun, 27 Feb 2005 17:26:36 +0100
-Message-ID: <4221F4BC.1080409@trash.net>
-References: <1125.80.249.146.137.1109520029.squirrel@mx.imec.msu.ru>
+From: Quantum Scientific <Info@Quantum-Sci.com>
+Subject: Re: Kernel 2.6 IPV6 Busted
+Date: Sun, 27 Feb 2005 10:29:02 -0600
+Message-ID: <200502271029.02532.Info@Quantum-Sci.com>
+References: <200502270928.44402.Info@Quantum-Sci.com> <20050228.011038.129063054.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: itkes@fat.imec.msu.ru
-In-Reply-To: <1125.80.249.146.137.1109520029.squirrel@mx.imec.msu.ru>
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+To: netdev@oss.sgi.com
+In-Reply-To: <20050228.011038.129063054.yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-itkes@fat.imec.msu.ru wrote:
-> Let us suppose the application to request the routing tabled dump. I heve
-> found that in some conditions, this application may not receive some
-> unchanged routes, if some other routes was deleted.
+On Sunday 27 February 2005 10:10, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=
+=8B=B1=E6=98=8E wrote:
+> > usagi.snap.split-tool-s20050214.tar.bz2
+> > ... however this has no kernel patch within.
+> >=20
+> > So I DLed=20
+> > usagi.snap.kit-linux26-s20050214.tar.bz2
+> > ... and no kernel patch here either.  Only the kernel and tools.  I w=
+ould=20
+have=20
+> > to run a USAGI-specific kernel, in order to have proper IPV6 support.=
+  I=20
+must=20
+> > stay with the Debian kernel.
+>=20
+> I believe you should cry at debian-ipv6 list.
+>=20
+> And, you can find usagi kernel patch in split directory, and
+> you can even find (unsupported) daily kernel snapshot (diff).
 
-Could you describe this condition in more detail ? In your patch you
-change the type of "args" to void *, which results in a bigger patch
-and it shouldn't be done anyway. If you need to store a pointer simply
-cast it to long. Please send a plain (not gzipped) patch without this
-change and without the EXTRAVERSION change.
+I have 'cried' to the Debian list, and no response. (except viruses)
 
-> P.S. After I have finished the patch, I found another bug in the Routing
-> Tables Dump. In function fn_hash_dump_bucket in fib_hash.c there is a
-> construction:
-> if (i<s_i)
-> 	continue;
-> ...
-> i++;
-> If the first "if" is true in first moment, "i" will never be increased and
-> some routes will be lost. My patch fixes this bug, too.
+And I have looked at every single file in the Split directory, and there =
+are=20
+absolutely no .diff files.  .diff files are how patch files are identifie=
+d in=20
+*nix, of course.  I thought, maybe I should copy the kernel files into my=
+=20
+kernel tree by hand, for building.  But this doesn't make sense because t=
+he=20
+only file under usagi-split/kernel/usagi/net/ipv6 is utils.c .  This is n=
+ot=20
+an IPV6 stack, nor ip6tables.  I see lots of apps, which likely have the=20
+USAGI improvements, but no kernel stack, patch, ipv6filters, etc.  And no=
+=20
+mention of patching a non-USAGI kernel.  Split 20050214 appears to be=20
+utilities only.
 
-Good catch, this bug was introduced when switching to
-hlist_for_each_entry().
+Please show where could I be going wrong?
 
--	for (i=0; f; i++, f=f->fn_next) {
--		if (i < s_i) continue;
-+	i = 0;
-+	hlist_for_each_entry(f, node, head, fn_hash) {
-+		struct fib_alias *fa;
-+
-+		list_for_each_entry(fa, &f->fn_alias, fa_list) {
-+			if (i < s_i)
-+				continue;
-
-Regards
-Patrick
+Carl Cook
