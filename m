@@ -1,62 +1,40 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH wireless-2.6 12/12] Host AP: Fix netif_carrier_off() in non-client modes
-Date: Sun, 7 Nov 2004 23:17:53 -0800
-Message-ID: <20041108071753.GM1076@jm.kir.nu>
-References: <20041108070156.GA1076@jm.kir.nu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Bug in ipv6_ifa_notify?
+Date: Mon, 8 Nov 2004 18:34:42 +1100
+Message-ID: <20041108073441.GA2200@gondor.apana.org.au>
+References: <20041108061529.GA1774@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20041108070156.GA1076@jm.kir.nu>
+In-Reply-To: <20041108061529.GA1774@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Connection status is reported properly only in client modes, so do not
-try to set netif_carrier_off() in non-client modes. Previously, Master
-mode may end up being in state where netif_carrier was left off and
-this may break things like bridging.
+On Mon, Nov 08, 2004 at 05:15:29PM +1100, herbert wrote:
+> 
+> Now the question is is it possible to get dupliate RTM_NEWADDR
+> notifications?
 
-Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
+Actually, it's easier than that.
 
+RTM_DELADDR will call ip6_del_rt which will free the rt using
+dst_free.  Since it is still referenced it gets put on the gc
+list.  The next RTM_NEWADDR will put it back in the table.
+>From this point onwards anything that gets linked after it will
+be on the gc list!
 
-diff -Nru a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
---- a/drivers/net/wireless/hostap/hostap_hw.c	2004-11-07 22:39:25 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_hw.c	2004-11-07 22:39:25 -08:00
-@@ -3399,8 +3399,11 @@
- 					   "", dev_template);
- 
- 	if (local->ddev) {
--		netif_carrier_off(local->dev);
--		netif_carrier_off(local->ddev);
-+		if (local->iw_mode == IW_MODE_INFRA ||
-+		    local->iw_mode == IW_MODE_ADHOC) {
-+			netif_carrier_off(local->dev);
-+			netif_carrier_off(local->ddev);
-+		}
- 		hostap_init_proc(local);
- 		hostap_init_ap_proc(local);
- 		return 0;
-diff -Nru a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
---- a/drivers/net/wireless/hostap/hostap_ioctl.c	2004-11-07 22:39:25 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_ioctl.c	2004-11-07 22:39:25 -08:00
-@@ -1108,6 +1108,13 @@
- 	if (double_reset && local->func->reset_port(dev))
- 		return -EINVAL;
- 
-+	if (local->iw_mode != IW_MODE_INFRA && local->iw_mode != IW_MODE_ADHOC)
-+	{
-+		/* netif_carrier is used only in client modes for now, so make
-+		 * sure carrier is on when moving to non-client modes. */
-+		netif_carrier_on(local->dev);
-+		netif_carrier_on(local->ddev);
-+	}
- 	return 0;
- }
- 
+Jeff/Arnaldo, could you please try shutting down an interface with
+IPv6 addresses and bringing it back up a few times? This might be
+the trigger we are looking for.
 
-
+Cheers,
 -- 
-Jouni Malinen                                            PGP id EFC895FA
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
