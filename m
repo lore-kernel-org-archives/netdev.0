@@ -1,36 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [BUG] can't unload network device's if IPV6 is loaded
-Date: Fri, 12 Dec 2003 22:59:36 +1100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1AUlxI-00060F-00@gondolin.me.apana.org.au>
-References: <20031211153334.0c59214b.shemminger@osdl.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org (Stephen Hemminger), netdev@oss.sgi.com
-In-Reply-To: <20031211153334.0c59214b.shemminger@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [RFC] SO_PEERSEC - security credentials for Unix stream sockets
+Date: Fri, 12 Dec 2003 09:25:45 -0500 (EST)
+Sender: linux-security-module-bounces@wirex.com
+Message-ID: <Xine.LNX.4.44.0312120924410.2843-100000@thoron.boston.redhat.com>
+References: <20031210145652.66bda4c2.davem@redhat.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kuznet@ms2.inr.ac.ru, linux-security-module@wirex.com,
+	sds@epoch.ncsc.mil, netdev@oss.sgi.com
+Return-path: <linux-security-module-bounces@wirex.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031210145652.66bda4c2.davem@redhat.com>
+List-Unsubscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=unsubscribe>
+List-Archive: <http://mail.immunix.com/pipermail/linux-security-module>
+List-Post: <mailto:linux-security-module@mail.wirex.com>
+List-Help: <mailto:linux-security-module-request@mail.wirex.com?subject=help>
+List-Subscribe: <http://mail.wirex.com/mailman/listinfo/linux-security-module>,
+	<mailto:linux-security-module-request@mail.wirex.com?subject=subscribe>
+Errors-To: linux-security-module-bounces@wirex.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
-> In 2.6.0-test11, IPV6 is not correctly cleaning up the network device reference's
-> (ie missing dev_put).  So if I do:
->        rmmod e100
-> it hangs forever and complains about that not all references have been cleaned up.
-> 
-> This happens even if no IPV6 addresses have been set up. Just having ipv6 available
-> to be loaded at boot up.  The vendor startup scripts (SuSe 9) may be setting something.
+On Wed, 10 Dec 2003, David S. Miller wrote:
 
-I can't reproduce this here.  I've done
+> I'm fine with this conceptually, although the earliest I could put
+> this into the tree is 2.6.1 although I have a hunch that I'll be
+> asked to defer something like this to 2.6.2, but who knows.
 
-modprobe dummy
-ifconfig dummy0 up
-modprobe ipv6
-ifconfig dummy0 down
-rmmod dummy
+No problem, it will hopefully get more testing and feedback in the 
+meantime.  I'll resubmit it sometime after 2.6.0.
 
-It does complain that there are 3 remaining references to dummy0, but
-they go away after a few seconds and the module unloads.
+> The one thing I don't like is the ifdef conditionalized member of
+> the sock struct.  We should move away from config variables changing
+> structure layouts.  Even a "void *sk_security;" would be better.
+
+Ok.
+
+
+- James
 -- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+James Morris
+<jmorris@redhat.com>
