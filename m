@@ -1,44 +1,46 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Open hardware wireless cards
-Date: Wed, 5 Jan 2005 15:14:34 -0500
-Message-ID: <20050105201434.GB30311@csclub.uwaterloo.ca>
-References: <20050105192447.GJ5159@ruslug.rutgers.edu> <20050105200526.GL5159@ruslug.rutgers.edu>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Wed, 5 Jan 2005 21:22:55 +0100
+Message-ID: <16860.19615.251360.169722@robur.slu.se>
+References: <200501031455.26980.jeremy.guthrie@berbee.com>
+	<16860.5674.612383.986202@robur.slu.se>
+	<200501051135.03493.jeremy.guthrie@berbee.com>
+	<200501051325.40616.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262629AbVAEUPO@vger.kernel.org>
-To: prism54-devel@prism54.org, prism54-users@prism54.org,
-	Netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Content-Disposition: inline
-In-Reply-To: <20050105200526.GL5159@ruslug.rutgers.edu>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501051325.40616.jeremy.guthrie@berbee.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 05, 2005 at 03:05:26PM -0500, Luis R. Rodriguez wrote:
-> I'd also like to add...
-> 
-> For those of you frustrated about our current wireless driver situation
-> in open platforms --
-> 
-> I think we probably will have this trouble with most modern hardware for a while
-> (graphics cards, wireless driver, etc). A lot of has to do with patent
-> infringement issues, "intellectual property" protection, and other
-> business-oriented excuses.
->
-> What I think we probably will have to do is just work torwards seeing if
-> we can come up with our own open wireless hardware. I know there was
-> a recent thread on lkml about an open video card -- anyone know where
-> that ended up?
-> 
-> If we can't come up with our own project to work on open hardware we can
-> also just see if its feasible to purchase hardware companies on the
-> verge of going backrupt and buy them out and release the specs/etc (a la
-> blender). Can someone do the math here? I'm lazy.
 
-Being open doesn't mean you aren't violating some stupid patent.
-Software patents really are an incredibly stupid idea.  Algorithms are
-pushing it.  After all what does the algorithm do on it's own?  Can you
-show it working and doing something?
+Jeremy M. Guthrie writes:
+ > After smp_affinity adjustments and turning off IRQ balancing.
+ > 
+ > eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
 
-Len Sorensen
+ >           RX packets:537271635 errors:2377048 dropped:2377048 overruns:1849169 
+
+ Worse?
+
+ Yes. I'll remember Hararld moved rt_cache_stat /proc/net/stats/ and wrote a 
+ new utility for it. Should be in iproute2 package.  Stephen knows the
+ details. Otherwise change path in rtstat. You need this to relate and 
+ verify the load.
+
+ Check throughtput and how packet load is used with 2.4. /proc/net/softnet_stat
+ and rtstat. Also meditate how the comparison can be fair wrt taffic patterns.
+ Do smame with 2.6.
+
+ Prepare for a oprofile. I'm lazy and compile the stuff I use into kernel if 
+ you can get the same result w. nodules it's ok.
+
+
+						  --ro
+
+ 
