@@ -1,32 +1,38 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] gc_min_interval in milleseconds via /proc (fwd)
-Date: Wed, 2 Feb 2005 13:09:36 -0800
-Message-ID: <20050202130936.4b3b8895.davem@davemloft.net>
-References: <16888.56016.608929.340640@robur.slu.se>
-	<20050130225627.4feecd2e.davem@davemloft.net>
-	<16894.29281.293401.832567@robur.slu.se>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: where is the proper place for r8169 bug reports?
+Date: Wed, 2 Feb 2005 23:13:33 +0100
+Message-ID: <20050202221333.GA24020@electric-eye.fr.zoreil.com>
+References: <20050131181508.GA15908@gerbil.toadis.porkis> <20050131214951.GA13217@electric-eye.fr.zoreil.com> <20050131215948.GA23289@gerbil.toadis.porkis> <20050131222342.GB13217@electric-eye.fr.zoreil.com> <20050201215607.GA8530@gerbil.toadis.porkis> <20050201223109.GA2957@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16894.29281.293401.832567@robur.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+To: "Dale E. Martin" <dale@the-martins.org>
+Content-Disposition: inline
+In-Reply-To: <20050201223109.GA2957@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jan 2005 19:01:05 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+Re,
 
-> David S. Miller writes:
-> 
->  > We must pick a new sysctl number too, for sysctl() system call.
->  > If the only access possible were through /proc then yes your
->  > change would be valid, but due to sysctl() system call the
->  > .ctl_name defines that dimension of the sysctl namespace.
-> 
->  Ok!
->  NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS was added last in list to avoid
->  renumbering. Feel free to change.
+- the 2.4.x backport has been rediffed against 2.4.29 (mostly harmless
+  conflict in drivers/net/Config.in);
+- the driver compiles again when RTL8169_DEBUG is defined;
+- endianness fix in the Rx checksumming path.
 
-Applied, thanks Robert.
+A test report with your 2.95.3 compiler would be welcome. If it breaks,
+the r8169.o file and an estimate of the transmitted/received packets count
+will help. If none is available, the number of interrupts processed can
+help too.
+
+Patch against 2.4.29 (md5: 444748e3c6c56382cb02adea4d16b5cf)
+http://www.fr.zoreil.com/~romieu/misc/20050202-2.4.29-r8169.c-test.patch
+
+Same thing a la patch-script:
+http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.29/r8169/
+
+Patch-script in a single file:
+http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.29/r8169-blob.tar.bz2
+
+--
+Ueimor
