@@ -1,39 +1,54 @@
-From: "David S. Miller" <davem@redhat.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 06 Sep 2002 00:22:53 -0700 (PDT)
+Date: Fri, 6 Sep 2002 05:54:09 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020906.002253.32989079.davem@redhat.com>
-References: <18563262.1031269721@[10.10.2.3]>
-	<20020905.235159.128049953.davem@redhat.com>
-	<3D785AE4.A7E3DF2D@zip.com.au>
+Message-ID: <Pine.GSO.4.30.0209060528390.21835-100000@shell.cyberus.ca>
+References: <20020906.002253.32989079.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Martin.Bligh@us.ibm.com, hadi@cyberus.ca, tcw@tempest.prismnet.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com,
-   Robert.Olsson@data.slu.se
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <akpm@zip.com.au>, <Martin.Bligh@us.ibm.com>, <tcw@tempest.prismnet.com>,
+   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>, <niv@us.ibm.com>,
+   Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@zip.com.au
-In-Reply-To: <3D785AE4.A7E3DF2D@zip.com.au>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020906.002253.32989079.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andrew Morton <akpm@zip.com.au>
-   Date: Fri, 06 Sep 2002 00:36:04 -0700
 
-   "David S. Miller" wrote:
-   > NAPI is also not the panacea to all problems in the world.
-   
-   Mala did some testing on this a couple of weeks back.  It appears that
-   NAPI damaged performance significantly.
 
-   http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/results/july_02/netperf2.5.25results.htm
+On Fri, 6 Sep 2002, David S. Miller wrote:
 
-Unfortunately it is not listed what e1000 and core NAPI
-patch was used.  Also, not listed, are the RX/TX mitigation
-and ring sizes given to the kernel module upon loading.
+>    Mala did some testing on this a couple of weeks back.  It appears that
+>    NAPI damaged performance significantly.
+>
+>    http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/results/july_02/netperf2.5.25results.htm
+>
+> Unfortunately it is not listed what e1000 and core NAPI
+> patch was used.  Also, not listed, are the RX/TX mitigation
+> and ring sizes given to the kernel module upon loading.
+>
+> Robert can comment on optimal settings
+>
+> Robert and Jamal can make a more detailed analysis of Mala's
+> graphs than I.
 
-Robert can comment on optimal settings
 
-Robert and Jamal can make a more detailed analysis of Mala's
-graphs than I.
+I looked at those graphs, but the lack of information makes them useless.
+For example there are too many variables to the tests --  what is the
+effect the message size? and then look at the socket buffer size, would
+you set it to 64K if you are trying to show perfomance numbers? What
+other tcp settings are there?
+Manfred Spraul about a year back complained about some performance issues
+in low load setups (which is what this IBM setup seems to be if you count
+the pps to the server); its one of those things that have been low in
+the TODO deck.
+The issue maybe legit not because NAPI is bad but because it is too good.
+I dont have the e1000, but i have some Dlinks giges still in boxes and i
+have a two-CPU SMP machine; I'll setup the testing this weekend.
+In the case of Manfred, we couldnt reproduce the tests because he had this
+odd weird NIC; in this case at least access to the e1000 doesnt require
+a visit to the museum.
+
+cheers,
+jamal
