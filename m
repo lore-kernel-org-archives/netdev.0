@@ -1,31 +1,29 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Sun, 15 Sep 2002 21:23:21 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020915.212321.64867280.davem@redhat.com>
-References: <20020913.150439.27187393.davem@redhat.com>
-	<Pine.GSO.4.30.0209151053530.22001-100000@shell.cyberus.ca>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: Re: bonding vs 802.3ad/Cisco EtherChannel link agregation
+Date: Mon, 16 Sep 2002 09:23:09 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3D85DB3D.DC65A80B@nortelnetworks.com>
+References: <20020913222213.69396.qmail@web14006.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, todd-lkml@osogrande.com,
-   tcw@tempest.prismnet.com, netdev@oss.sgi.com, pfeather@cs.unm.edu
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <Pine.GSO.4.30.0209151053530.22001-100000@shell.cyberus.ca>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Cacophonix <cacophonix@yahoo.com>
 List-Id: netdev.vger.kernel.org
 
-   From: jamal <hadi@cyberus.ca>
-   Date: Sun, 15 Sep 2002 16:16:13 -0400 (EDT)
+Cacophonix wrote:
+> 
+> --- Chris Friesen <cfriesen@nortelnetworks.com> wrote:
 
-   Your proposal does make sense although compute power would still be
-   a player. I think the key would be parallelization;
+> > This has always confused me.  Why doesn't the bonding driver try and spread
+> > all the traffic over all the links?
+> 
+> Because then you risk heavy packet reordering within an individual flow,
+> which can be detrimental in some cases.
+> --karthik
 
-Oh I forgot to mention that some of these cards also compute a cookie
-for you on receive packets, and your meant to point the input
-processing for that packet to a cpu whose number is derived from that
-cookie it gives you.
+I can see how it could make the receiving host work more on reassembly, but if throughput is key,
+wouldn't you still end up better if you can push twice as many packets through the pipe?
 
-Lockless per-cpu packet input queues make this sort of hard for us
-to implement currently.
+Chris
