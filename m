@@ -1,43 +1,31 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Tue, 21 Sep 2004 18:58:05 +0300 (EEST)
+Date: Wed, 22 Sep 2004 00:59:45 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409211856260.9906-100000@netcore.fi>
-References: <20040922.001448.73843048.yoshfuji@linux-ipv6.org>
+Message-ID: <20040922.005945.93612032.yoshfuji@linux-ipv6.org>
+References: <20040921134918.GK1307@sunbeam.de.gnumonks.org>
+	<20040922.001448.73843048.yoshfuji@linux-ipv6.org>
+	<16720.19049.100640.24977@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: laforge@gnumonks.org, <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: laforge@gnumonks.org, pekkas@netcore.fi, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040922.001448.73843048.yoshfuji@linux-ipv6.org>
+To: Robert.Olsson@data.slu.se
+In-Reply-To: <16720.19049.100640.24977@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> > > It's worse in the sense that there is more space in each subnet for
-> > > doing aggressive probing -- but this may not be a big issue with a
-> > > good algorithm and a threshold.
-> > 
-> > So what is that 'good algorithm'.  The current Linux algorithm is from
-> > my point of view (only tested with ipv4) not very good when it comes to
-> > high numbers of neighbours.
-> 
-> Well, of course, we should limit number of total entries.
-> 
-> If we have enough memory for usual use,
-> we should not purge the "probably reachable" routes
-> (REACHABLE, STALE, DELAY, and PROBE) neighbours.
-> Probably, we should split neighbour entries to two parts.
->  - INCOMPLETE
->  - REACHABLE, STALE, DELAY and PROBE
-> Which means, we should NOT purge "known" entries by unknown entries.
+In article <16720.19049.100640.24977@robur.slu.se> (at Tue, 21 Sep 2004 17:36:09 +0200), Robert Olsson <Robert.Olsson@data.slu.se> says:
 
-This still doesn't take a stance on rate-limiting the ND/ARP packets,
-in case that there still is enough memory, but some kind of attack is
-clearly underway.  Should it still be done?  Consider 100Kpps of
-router-generated ARP/ND probes -- not good!
+>  Remember we discussed this with at OLS? Asking for my solution.I said 
+>  ask at IETF as you were going there. I guess it was not discussed?
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Yes, I remember.
+
+I talked with KAME (*BSD) developers.
+I don't think that the BSD's behavior is good enough against the threats.
+So, I think we should find by ourselves.
+
+--yoshfuji
