@@ -1,35 +1,51 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Mon, 09 Jun 2003 03:40:39 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609.034039.26980950.davem@redhat.com>
-References: <20030609101302.GA9643@wotan.suse.de>
-	<20030609.031341.77044985.davem@redhat.com>
-	<20030609.194046.29425359.yoshfuji@wide.ad.jp>
+From: Jamal Hadi <hadi@shell.cyberus.ca>
+Subject: RE: Route cache performance under stress
+Date: Mon, 9 Jun 2003 07:38:44 -0400 (EDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030609072227.R34462@shell.cyberus.ca>
+References: <000401c32e5e$a707b6d0$4a00000a@badass>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, sim@netnation.com, xerox@foonet.net, fw@deneb.enyo.de,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, kuznet@ms2.inr.ac.ru,
-   Robert.Olsson@data.slu.se
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@wide.ad.jp
-In-Reply-To: <20030609.194046.29425359.yoshfuji@wide.ad.jp>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: 'Simon Kirby' <sim@netnation.com>,
+	"'David S. Miller'" <davem@redhat.com>, fw@deneb.enyo.de,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: CIT/Paul <xerox@foonet.net>
+In-Reply-To: <000401c32e5e$a707b6d0$4a00000a@badass>
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@wide.ad.jp>
-   Date: Mon, 09 Jun 2003 19:40:46 +0900 (JST)
-   
-   Ok, how about this?
 
-The memset_tail thing is unnecessary, and better to put the
-non-zero objects at the beginning then you can go.
 
-	 memset(dst->${FIRST_ZERO_MEMBER}, 0,
-	        ops->entry_size -
-		offsetof(struct dst_entry, ${FIRST_ZERO_MEMBER}));
+On Mon, 9 Jun 2003, CIT/Paul wrote:
 
-But even _THIS_ is stupid.  All this initialization really should
-move to caller.  We can provide a "dst_init()" helper for protocols
-that don't want to bother optimizing this.
+> I've got juno-z.101f.c to send 500,000 pps at 300+mbit on our dual p3
+> 1.26 ghz routers.. I can't even send 50mbit of this though one of my
+> routers
+> Without it using 100% of both cpus because of the route cache.. It goes
+> up to 500,000 entries if I let it and it adds 80,000 new entries per
+> second and they are all cache misses.. I'd be glad to show you the setup
+> sometime :) I showed it to jamal and we tested some stuff.
+>
+
+Yes, you have a nice setup and thats why you should test all the patches
+DaveM is posting. Dave, Paul is running in a real ISP environment i think
+he is very valuable in helping to test these patches and collect
+any says that might be needed. Now watch him disapear ;->
+
+BTW, re: BGP, someone should fix zebra to do batching if it doesnt do it
+already (i saw that in one emails). In addition arp all
+the nexthops right before installing the entries in the FIB. Repeat the
+arp every X timeout. nexthops failinjg ARPs should be removed.
+That should give you something close to what i think CEF was designed for
+i.e when the packets get to us, part of the route is resolved already.
+
+Additional thought Dave: i think prefetching the rth would help in 2.5
+at least when you have lotsa collisions.
+call prefetch(nextrth) right after smp_read_barrier_depends() everywhere
+in route.c
+
+cheers,
+jamal
+
+PS:- this is one of those fun times i wish i had a setup and time ;->
+
