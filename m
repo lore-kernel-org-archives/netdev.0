@@ -1,122 +1,57 @@
-From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: mv643xx(20/20): Fix promiscuous mode handling
-Date: Mon, 28 Mar 2005 17:01:00 -0700
-Message-ID: <20050329000100.GT29098@xyzzy>
-References: <20050328233807.GA28423@xyzzy>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: oops when bringing up loopback device
+Date: Mon, 28 Mar 2005 16:02:48 -0800
+Message-ID: <20050328160248.595615a1@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ralf Baechle <ralf@linux-mips.org>, Manish Lachwani <mlachwani@mvista.com>,
-        Brian Waite <brian@waitefamily.us>,
-        "Steven J. Hill" <sjhill@realitydiluted.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        James Chapman <jchapman@katalix.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20050328233807.GA28423@xyzzy>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-mv643xx_eth_get_config_reg() was reading the wrong register.
-mv643xx_eth_set_config_reg() was or'ing instead of setting the
-register.  These functions are trivial and both are called only from
-mv643xx_eth_set_rx_mode() when changing the promiscuous mode.  Remove both
-functions and do the operations directly in mv643xx_eth_set_rx_mode().
+I am seeing this on one of my boxes with current net-2.6 tree.
 
-Also, maintain promiscuous mode setting across port resets.
-
-Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-
-Index: linux-2.5-enet/drivers/net/mv643xx_eth.h
-===================================================================
---- linux-2.5-enet.orig/drivers/net/mv643xx_eth.h
-+++ linux-2.5-enet/drivers/net/mv643xx_eth.h
-@@ -474,6 +474,7 @@
- 	int port_num;			/* User Ethernet port number	*/
- 	u8 port_mac_addr[6];		/* User defined port MAC address.*/
- 	u32 port_serial_control;	/* Port serial control value */
-+	u32 port_config;		/* Port config register value */
- 	struct ethtool_cmd ethtool_cmd;	/* ethtool_cmd used at open */
- 	u32 port_tx_queue_command;	/* Port active Tx queues summary*/
- 	u32 port_rx_queue_command;	/* Port active Rx queues summary*/
-Index: linux-2.5-enet/drivers/net/mv643xx_eth.c
-===================================================================
---- linux-2.5-enet.orig/drivers/net/mv643xx_eth.c
-+++ linux-2.5-enet/drivers/net/mv643xx_eth.c
-@@ -390,7 +390,7 @@
- 
- 	/* Assign port configuration and command. */
- 	mv643xx_eth_write(MV643XX_ETH_PORT_CONFIG_REG(port_num),
--			  MV643XX_ETH_PORT_CONFIG_DEFAULT_VALUE);
-+			  mp->port_config);
- 
- 	mv643xx_eth_write(MV643XX_ETH_PORT_CONFIG_EXTEND_REG(port_num),
- 			  MV643XX_ETH_PORT_CONFIG_EXTEND_DEFAULT_VALUE);
-@@ -683,38 +683,6 @@
- 	return 0;
- }
- 
--/*
-- * This function sets specified bits in the given ethernet
-- * configuration register.
-- */
--static void mv643xx_eth_set_config_reg(struct net_device *dev,
--				       unsigned int value)
--{
--	struct mv643xx_private *mp = netdev_priv(dev);
--	unsigned int eth_port_num = mp->port_num;
--	unsigned int eth_config_reg;
--
--	eth_config_reg =
--		mv643xx_eth_read(MV643XX_ETH_PORT_CONFIG_REG(eth_port_num));
--	eth_config_reg |= value;
--	mv643xx_eth_write(MV643XX_ETH_PORT_CONFIG_REG(eth_port_num),
--			  eth_config_reg);
--}
--
--/*
-- * This function returns the configuration register value of the given
-- * ethernet port.
-- */
--static unsigned int mv643xx_eth_get_config_reg(struct net_device *dev)
--{
--	struct mv643xx_private *mp = netdev_priv(dev);
--	unsigned int eth_config_reg;
--
--	eth_config_reg =
--	    mv643xx_eth_read(MV643XX_ETH_PORT_CONFIG_EXTEND_REG(mp->port_num));
--	return eth_config_reg;
--}
--
- /*****************************************************************************
-  * Device init and shutdown
-  *****************************************************************************/
-@@ -2027,14 +1995,14 @@
- 
- static void mv643xx_eth_set_rx_mode(struct net_device *dev)
- {
--	u32 config_reg;
-+	struct mv643xx_private *mp = netdev_priv(dev);
- 
--	config_reg = mv643xx_eth_get_config_reg(dev);
- 	if (dev->flags & IFF_PROMISC)
--		config_reg |= (u32) MV643XX_ETH_UNICAST_PROMISCUOUS_MODE;
-+		mp->port_config |= MV643XX_ETH_UNICAST_PROMISCUOUS_MODE;
- 	else
--		config_reg &= ~(u32) MV643XX_ETH_UNICAST_PROMISCUOUS_MODE;
--	mv643xx_eth_set_config_reg(dev, config_reg);
-+		mp->port_config &= ~MV643XX_ETH_UNICAST_PROMISCUOUS_MODE;
-+	mv643xx_eth_write(MV643XX_ETH_PORT_CONFIG_REG(mp->port_num),
-+			  mp->port_config);
- }
- 
- /*
-@@ -2562,6 +2530,7 @@
- 	mp->port_serial_control |= MV643XX_ETH_DISABLE_AUTO_NEG_FOR_FLOW_CTRL |
- 				   MV643XX_ETH_SERIAL_PORT_CONTROL_RESERVED   |
- 				   MV643XX_ETH_DO_NOT_FORCE_LINK_FAIL;
-+	mp->port_config = MV643XX_ETH_PORT_CONFIG_DEFAULT_VALUE;
- 	mp->rx_ring_size = MV643XX_ETH_PORT_DEFAULT_RECEIVE_QUEUE_SIZE;
- 	mp->tx_ring_size = MV643XX_ETH_PORT_DEFAULT_TRANSMIT_QUEUE_SIZE;
- 
+Unable to handle kernel NULL pointer dereference at virtual address 00000000
+ printing eip:
+00000000
+*pde = 00000000
+Oops: 0000 [#1]
+SMP
+Modules linked in: evdev e100 skge mii
+CPU:    1
+EIP:    0060:[<00000000>]    Not tainted VLI
+EFLAGS: 00010286   (2.6.12-rc1-tcp)
+EIP is at 0x0
+eax: c0413b6c   ebx: 00000001   ecx: 0000000f   edx: f6aa9000
+esi: 000007d0   edi: fffc727d   ebp: f6aa9d14   esp: f6aa9d00
+ds: 007b   es: 007b   ss: 0068
+Process ip (pid: 1597, threadinfo=f6aa9000 task=f64d3020)
+Stack: c02fb6ce 00000001 f60022d0 f5fdd740 f6fc1300 f6aa9d70 c0331765 f6aa9d5c
+       c0000000 fffffff0 00000000 000000d0 f6aa9d44 00000246 0100007f 00aa9d88
+       00000002 00000020 f7f7da80 00000000 f6fc1300 f6aa9dd8 f7f7d780 ffffff97
+Call Trace:
+ [<c0103ec6>] show_stack+0xa6/0xb0
+ [<c0104042>] show_registers+0x152/0x1c0
+ [<c010424d>] die+0xed/0x170
+ [<c011593d>] do_page_fault+0x4fd/0x685
+ [<c0103b33>] error_code+0x2b/0x30
+ [<c0331765>] fn_hash_insert+0x205/0x420
+ [<c032e9e6>] fib_magic+0x106/0x120
+ [<c032ea66>] fib_add_ifaddr+0x66/0x160
+ [<c032ed7c>] fib_inetaddr_event+0x1c/0x60
+ [<c0129fa8>] notifier_call_chain+0x28/0x50
+ [<c0326eb9>] inet_insert_ifa+0xd9/0x170
+ [<c03280ec>] inetdev_event+0x1dc/0x1f0
+ [<c0129fa8>] notifier_call_chain+0x28/0x50
+ [<c02e7ecf>] dev_open+0x5f/0x90
+ [<c02e94d2>] dev_change_flags+0x52/0x120
+ [<c03279d0>] devinet_ioctl+0x520/0x5d0
+ [<c0329968>] inet_ioctl+0x98/0xe0
+ [<c02df470>] sock_ioctl+0x1a0/0x250
+ [<c016dc36>] do_ioctl+0x76/0x90
+ [<c016ddcd>] vfs_ioctl+0x5d/0x1e0
+ [<c016df89>] sys_ioctl+0x39/0x60
+ [<c0103033>] sysenter_past_esp+0x54/0x75
