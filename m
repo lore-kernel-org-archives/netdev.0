@@ -1,46 +1,37 @@
-From: James Chapman <jchapman@katalix.com>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Thu, 30 Sep 2004 10:50:09 +0100
+From: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+Subject: [PATCH]: fixed typo of reassembly.c
+Date: Thu, 30 Sep 2004 19:23:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096537809.415bd6d13f7b3@www.katalix.com>
+Message-ID: <200409301023.i8UANRGp002783@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: hadi@cyberus.ca, pablo@eurodev.net, davem@davemloft.net,
-        netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> On Wed, Sep 29, 2004 at 10:53:43AM +0100, James Chapman wrote:
-> >
-> > - Have the kernel keep a list of async messages sent towards each
-> >   socket rather than trying to deliver each message to the app
-> >   immediately.  Have the kernel send a netlink event message (say,
-> >   NETLINK_EVENT_WAKEUP) to the app when this queue first goes
-> >   non-empty. No new NETLINK_EVENT_WAKEUP messages are sent until the
-> >   event queue goes empty again.
-> >
-> > - On receipt of NETLINK_EVENT_WAKEUP, a process issues a netlink
-> >   GET (or DUMP?) on its netlink socket to read its queued events.
-> >
-> > - If the socket event queue overruns, discard new events and flag the
-> >   event queue as having lost messages. When the userspace app reads
-> >   the event queue, it will discover that messages have been lost and
-> >   can then re-read state from the kernel.
-> >
-> > - Use a setsockopt on the netlink socket to have the socket configured
-> >   in this polled-event mode.
->
-> That's basically how it works now.
 
-Looks like I was proposing something similar to Jamal's intermediate
-queue. With the above scheme, there would be no need for userspace to
-periodically poll for events since that would be kicked off by the
-wakeup message. Also, while events are held in the kernel, they
-wouldn't be charged to the netlink socket -- instead they'd be limited
-by a system-wide count, sharing the event resource across all netlink
-sockets.
+Hi,
 
-/james
+This patch fixes byte ordering. Please apply this.
+
+Signed-off-by: Yasuyuki KOZAKAI <yasuyuki.kozakai@toshiba.co.jp>
+
+Regards,
+
+diff -X dontdiff -Nurp linux-2.6.9-rc3/net/ipv6/reassembly.c linux-2.6.9-rc3-fixed/net/ipv6/reassembly.c
+--- linux-2.6.9-rc3/net/ipv6/reassembly.c	2004-09-30 18:45:24.014851224 +0900
++++ linux-2.6.9-rc3-fixed/net/ipv6/reassembly.c	2004-09-30 18:51:58.019953344 +0900
+@@ -665,7 +665,7 @@ static int ip6_frag_reasm(struct frag_qu
+ 	head->next = NULL;
+ 	head->dev = dev;
+ 	head->stamp = fq->stamp;
+-	head->nh.ipv6h->payload_len = ntohs(payload_len);
++	head->nh.ipv6h->payload_len = htons(payload_len);
+ 
+ 	*skb_in = head;
+ 
+-----------------------------------------------------------------
+Yasuyuki KOZAKAI @ USAGI Project <yasuyuki.kozakai@toshiba.co.jp>
