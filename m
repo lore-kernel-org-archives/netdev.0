@@ -1,252 +1,27 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: [e100 2.6] update e100.txt
-Date: Mon, 15 Mar 2004 12:52:08 -0800 (PST)
+From: "J. Bruce Fields" <bfields@fieldses.org>
+Subject: Re: 2.6.4 sunrpc oops.
+Date: Mon, 15 Mar 2004 15:38:53 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0403151221100.9305-100000@localhost.localdomain>
-Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
+Message-ID: <20040315203853.GF3114@fieldses.org>
+References: <20040315194642.GB19555@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>,
-        <calum.mackay@cdmnet.org>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Dave Jones <davej@redhat.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040315194642.GB19555@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Mar 15, 2004 at 07:46:42PM +0000, Dave Jones wrote:
+> modprobe auth_rpcgss
+> rmmod auth_rpcgss
+> rmmod sunrpc
+> *bang*
+> 
+> Seems to survive rmmod sunrpc usually, so it's the auth_rpcgcc
+> module leaving something around long after its dead perhaps?
 
-* e100.txt needs to refer to the v3 driver and its settings.
-  Spotted by Calum Mackay [calum.mackay@cdmnet.org]
-
------------
-
---- linux-2.5/Documentation/networking/e100.txt.orig	2004-03-15 11:11:30.000000000 -0800
-+++ linux-2.5/Documentation/networking/e100.txt	2004-03-15 11:19:29.000000000 -0800
-@@ -1,7 +1,7 @@
- Linux* Base Driver for the Intel(R) PRO/100 Family of Adapters
- ==============================================================
- 
--November 19, 2002
-+March 15, 2004
- 
- 
- Contents
-@@ -9,9 +9,6 @@
- 
- - In This Release
- - Supported Adapters
--- Command Line Parameters
--- CPU Cycle Saver
--- Additional Configurations
- - Support
- 
- 
-@@ -19,64 +16,13 @@
- ===============
- 
- This file describes the Linux* Base Driver for the Intel(R) PRO/100 Family of
--Adapters, version 2.2.x.  This driver includes support for Itanium(TM)-based 
-+Adapters, version 3.x.x.  This driver includes support for Itanium(TM)-based 
- systems.
- 
- 
- Supported Adapters
- ==================
- 
--The following Intel network adapters are compatible with the drivers 
--in this release:
--
--Controller  Adapter Name                            Board IDs
------------  ------------                            ---------
--
--82558       PRO/100+ PCI Adapter                    668081-xxx, 689661-xxx
--
--82558       PRO/100+ Management Adapter             691334-xxx, 701738-xxx,
--                                                    721383-xxx
--
--82558       PRO/100+ Dual Port Server Adapter       714303-xxx, 711269-xxx, 
--                                                    A28276-xxx
--
--82558       PRO/100+ PCI Server Adapter             710550-xxx
--
--82550       PRO/100 S Server Adapter                752438-xxx (82550)
--82559                                               A56831-xxx, A10563-xxx,
--                                                    A12171-xxx, A12321-xxx, 
--                                                    A12320-xxx, A12170-xxx
--                                                    748568-xxx (82559)
--                                                    748565-xxx (82559)
--
--
--82550       PRO/100 S Desktop Adapter               751767-xxx (82550)
--82559                                               748592-xxx, A12167-xxx, 
--                                                    A12318-xxx, A12317-xxx, 
--                                                    A12165-xxx
--                                                    748569-xxx (82559)
--
--
--
--82559       PRO/100+ Server Adapter                 729757-xxx
--
--82559       PRO/100 S Management Adapter            748566-xxx, 748564-xxx
--
--82550       PRO/100 S Dual Port Server Adapter      A56831-xxx
--
--82551       PRO/100 M Desktop Adapter               A80897-xxx
--
--            PRO/100 S Advanced Management Adapter   747842-xxx, 745171-xxx
--
--CNR         PRO/100 VE Desktop Adapter              A10386-xxx, A10725-xxx, 
--                                                    A23801-xxx, A19716-xxx
--
--
--            PRO/100 VM Desktop Adapter              A14323-xxx, A19725-xxx, 
--                                                    A23801-xxx, A22220-xxx, 
--                                                    A23796-xxx
--   
--
- To verify that your adapter is supported, find the board ID number on the 
- adapter. Look for a label that has a barcode and a number in the format 
- A12345-001. Match this to the list of numbers above.
-@@ -91,143 +37,6 @@
-   http://downloadfinder.intel.com/scripts-df/support_intel.asp
- 
- 
--Command Line Parameters
--=======================
--
--If the driver is built as a module, the  following optional parameters are 
--used by entering them on the command line with the modprobe or insmod command
--using this syntax:
--
--     modprobe e100 [<option>=<VAL1>,<VAL2>,...]
--
--     insmod e100 [<option>=<VAL1>,<VAL2>,...] 
--
--For example, with two Intel PRO/100 PCI adapters, entering:
--	
--     modprobe e100 TxDescriptors=32,128
--
--loads the e100 driver with 32 TX resources for the first adapter and 128 TX 
--resources for the second adapter. This configuration favors the second 
--adapter. The driver supports up to 16 network adapters concurrently.
--
--The default value for each parameter is generally the recommended setting,
--unless otherwise noted.
--
--NOTE: Giving any command line option the value "-1" causes the driver to use 
--      the appropriate default value for that option, as if no value was 
--      specified.
--
--
--BundleMax
--Valid Range: 1-65535
--Default Value: 6
--   This parameter holds the maximum number of small packets (less than 128
--   bytes) in a bundle. Suggested values range from 2 to 10. See "CPU Cycle 
--   Saver."
--
--BundleSmallFr
--Valid Range: 0-1 (0=off, 1=on)
--Default Value: 0
--   The value 1 (on) causes small packets (less than 128 bytes) to be bundled. 
--   See "CPU Cycle Saver."
--
--e100_speed_duplex
--Valid Range: 0-4 (1=10half;2=10full;3=100half;4=100full)
--Default Value: 0
--   The default value of 0 sets the adapter to auto-negotiate. Other values
--   set the adapter to forced speed and duplex. 
--   Example usage: insmod e100.o e100_speed_duplex=4,4 (for two adapters)
--
--flow_control
--Valid Range: 0-1 (0=off, 1=on)
--Default Value: 0
--   This parameter controls the automatic generation(Tx) and response(Rx) to 
--   Ethernet PAUSE frames. flow_control should NOT be set to 1 when the 
--   adapter is connected to an interface that does not support Ethernet PAUSE 
--   frames and when the e100_speed_duplex parameter is NOT set to zero. 
--
--IntDelay
--Valid Range: 0-65535 (0=off)
--Default Value: 1536
--   This parameter holds the number of time units (in adapter terminology)
--   until the adapter generates an interrupt. The recommended value for 
--   IntDelay is 1536 (upon initialization). Suggested values range from 
--   512 to 2048. See "CPU Cycle Saver."
--
--IFS
--Valid Range: 0-1 (0=off, 1=on)
--Default Value: 1
--  Inter Frame Spacing (IFS) aims to reduce the number of Ethernet frame
--  collisions by altering the time between frame transmissions. When IFS is 
--  enabled the driver tries to find an optimal IFS value. It is used only at 
--  half duplex.
--
--RxDescriptors
--Valid Range: 8-1024
--Default Value: 64
--   This parameter defines the number of receive descriptors allocated by 
--   the driver. Increasing this value allows the driver to buffer more 
--   incoming packets before the driver is required to service an interrupt. 
--   The maximum value for Itanium-based systems is 64.
--
--TxDescriptors
--Valid Range: 19-1024
--Default Value: 64
--   This value is the number of transmit descriptors allocated by the driver. 
--   Increasing this value allows the protocol stack to queue more transmits at
--   the driver level. The maximum value for Itanium-based systems is 64.
--
--ucode
--Valid Range: 0-1 (0=off, 1=on)
--Default Value: 0 for 82558-based adapters
--               1 for 82559, 82550, and 82551-based adapters
--   On uploads the micro code to the adapter, which enables CPU Cycle Saver. 
--   See the section "CPU Cycle Saver" below.
--   Example usage: insmod e100.o ucode=1
--
--   Not available on 82557-based adapters.
--
--XsumRX
--Valid Range: 0-1 (0=off, 1=on)
--Default Value: 1
--   On allows Rx checksum offloading for TCP/UDP packets. Requires that the 
--   hardware support this feature.
--
--   Not available on 82557 and 82558-based adapters.
--
--
--CPU Cycle Saver
--================
--
--CPU Cycle Saver reduces CPU utilization by reducing the number of interrupts 
--that the adapter generates.
--
--When CPU Cycle Saver is turned off, the adapter generates one interrupt for 
--every frame that is received. This means that the operating system stops what
--it is doing and switches to the network driver in order to process the 
--receive.
--
--When CPU Cycle Saver is on, the adapter does not generate an interrupt for 
--every frame it receives. Instead, it waits until it receives several frames 
--before generating an interrupt. This reduces the amount of time spent 
--switching to and from the driver. 
--
--CPU Cycle Saver consists of these arguments: IntDelay, BundleMax and 
--BundleSmallFr. When IntDelay is increased, the adapter waits longer for 
--frames to arrive before generating the interrupt. By increasing BundleMax, 
--the network adapter waits for the number of small frames (less than 128 bytes)
--specified to arrive before generating the interrupt. When BundleSmallFr is 
--disabled, the adapter does not bundle small packets. Such small packets are 
--often, but not always, control packets that are better served immediately;
--therefore, BundleSmallFr is disabled by default.
--
--For most users, it is recommended that CPU Cycle Saver be used with the 
--default values specified in the Command Line Parameters section. However, in 
--some cases, performance problems may occur with CPU Cycle Saver. If such 
--problems are observed, we recommend turning off this feature by setting 
--ucode=0.
--
--
- Support
- =======
- 
+Yes, this is my fault, apologies.  I'll follow up with a patch as soon
+as I've made one....--Bruce Fields
