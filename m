@@ -1,47 +1,37 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPCOMP6] Fix ICMP type check
-Date: Thu, 22 Jul 2004 21:34:29 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [IPCOMP6] Fix ICMP type check
+Date: Thu, 22 Jul 2004 12:19:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040722113429.GA15083@gondor.apana.org.au>
+Message-ID: <20040722121952.407cc9c2.davem@redhat.com>
+References: <20040722113429.GA15083@gondor.apana.org.au>
+	<Pine.LNX.4.58.0407221025010.7557@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="lrZ03NoBR/3+SXJZ"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Pine.LNX.4.58.0407221025010.7557@devserv.devel.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 22 Jul 2004 10:25:24 -0400 (EDT)
+James Morris <jmorris@redhat.com> wrote:
 
---lrZ03NoBR/3+SXJZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> On Thu, 22 Jul 2004, Herbert Xu wrote:
+> 
+> > It looks like IPCOMP was missed when the same problem was fixed in
+> > AH/ESP.
+> 
+> What about esp4/ah4/ipcomp?  They look wrong too.
 
-Hi Dave:
+Those are testing something else, and I believe their tests
+are correct.  They are saying:
 
-It looks like IPCOMP was missed when the same problem was fixed in AH/ESP.
+	if (type != X || code != Y)
+		return;
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+in these cases Herbert is mentioning it is testing against multiple
+possible settings of just "type".
 
---lrZ03NoBR/3+SXJZ
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="1.1806"
-
-diff -Nru a/net/ipv6/ipcomp6.c b/net/ipv6/ipcomp6.c
---- a/net/ipv6/ipcomp6.c	2004-07-16 20:46:17 +10:00
-+++ b/net/ipv6/ipcomp6.c	2004-07-16 20:46:17 +10:00
-@@ -240,7 +240,7 @@
- 	struct ipv6_comp_hdr *ipcomph = (struct ipv6_comp_hdr*)(skb->data+offset);
- 	struct xfrm_state *x;
- 
--	if (type != ICMPV6_DEST_UNREACH || type != ICMPV6_PKT_TOOBIG)
-+	if (type != ICMPV6_DEST_UNREACH && type != ICMPV6_PKT_TOOBIG)
- 		return;
- 
- 	spi = ntohl(ntohs(ipcomph->cpi));
-
---lrZ03NoBR/3+SXJZ--
+Herbert, I'll apply your patch, thanks.
