@@ -1,31 +1,37 @@
-From: Petr Vandrovec <vandrove@vc.cvut.cz>
-Subject: Re: Known problems with TCP window size on 2.6.7?
-Date: Thu, 28 Oct 2004 01:19:07 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH]  802.1Q VLAN
+Date: Wed, 27 Oct 2004 16:49:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027231907.GA9093@vana.vc.cvut.cz>
-References: <20041027110617.GA28757@vana.vc.cvut.cz> <E1CMml4-0001Cm-00@gondolin.me.apana.org.au> <20041027145356.6c22959e.davem@davemloft.net>
+Message-ID: <20041027164912.09cc63f8.davem@davemloft.net>
+References: <41797696.9070905@candelatech.com>
+	<20041022214611.GA4948@electric-eye.fr.zoreil.com>
+	<41798506.1030909@candelatech.com>
+	<417D675F.3000909@candelatech.com>
+	<417D929A.2090809@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041027145356.6c22959e.davem@davemloft.net>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <417D929A.2090809@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 27, 2004 at 02:53:56PM -0700, David S. Miller wrote:
-> On Wed, 27 Oct 2004 22:18:30 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
-> > >   are there some known problems with 2.6.7 and TCP window growing up over limits?  
-> > 
-> > No.
-> 
-> Actually Herbert, we did have a window 16-bit overflow problem in 2.6.7
-> which I believe was first fixed in 2.6.8 or so.  It was fixed by this
-> patch:
+On Mon, 25 Oct 2004 16:56:10 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-Thanks a lot.  Time to upgrade, then.
-								Petr
+> DaveM, please consider accepting this patch (it's in a previous email to netdev,
+> just ask if you want it re-sent.)
+
+Applied, but I had to apply it by hand.  It gave a large reject.
+For some reason, patch barfed at the end of the vlan_dev.c parts
+and refused to interpreter the parts of the diffs for the other
+files.
+
+Did you try to apply that patch to a tree before sending it off?
+
+Anyways, I put it in by hand nevertheless.
+
+Also, what is up with the magic "23" constant in the get realdev
+name function strncpy() call?
