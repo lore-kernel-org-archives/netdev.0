@@ -1,79 +1,79 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH] more DECLARE_MUTEX() in headers crap
-Date: Mon, 5 Jul 2004 12:53:17 +0200
+From: Marcus Meissner <meissner@suse.de>
+Subject: [patch] do not readlock all buckets in /proc/net/tcp
+Date: Mon, 5 Jul 2004 13:09:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705105317.GA30269@lst.de>
-References: <20040620112328.GB13691@lst.de>
+Message-ID: <20040705110949.GA1092@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040620112328.GB13691@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 20, 2004 at 01:23:28PM +0200, Christoph Hellwig wrote:
-> okay, the gunk we had in arp_tables is in ip6_tables and ip6_tables,
-> too.  In fact those three files seem to be 80% copy & paste of each
-> other..
 
-ping
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+Hi,
 
---- 1.8/include/linux/netfilter_ipv4/ip_tables.h	2004-06-19 20:55:10 +02:00
-+++ edited/include/linux/netfilter_ipv4/ip_tables.h	2004-06-20 10:25:40 +02:00
-@@ -284,8 +284,6 @@
- 	struct ipt_entry entrytable[0];
- };
- 
--extern struct semaphore ipt_mutex;
--
- /* Standard return verdict, or do jump. */
- #define IPT_STANDARD_TARGET ""
- /* Error verdict. */
-@@ -338,7 +336,6 @@
-  *	Main firewall chains definitions and global var's definitions.
-  */
- #ifdef __KERNEL__
--static DECLARE_MUTEX(ipt_mutex);
- 
- #include <linux/init.h>
- extern void ipt_init(void) __init;
-===== include/linux/netfilter_ipv6/ip6_tables.h 1.7 vs edited =====
---- 1.7/include/linux/netfilter_ipv6/ip6_tables.h	2004-06-19 20:55:10 +02:00
-+++ edited/include/linux/netfilter_ipv6/ip6_tables.h	2004-06-20 10:26:32 +02:00
-@@ -107,10 +107,6 @@
- 	u_int64_t pcnt, bcnt;			/* Packet and byte counters */
- };
- 
--#ifdef __KERNEL__
--static DECLARE_MUTEX(ip6t_mutex);
--#endif
--
- /* Values for "flag" field in struct ip6t_ip6 (general ip6 structure). */
- #define IP6T_F_PROTO		0x01	/* Set if rule cares about upper 
- 					   protocols */
-===== net/ipv4/netfilter/ip_tables.c 1.24 vs edited =====
---- 1.24/net/ipv4/netfilter/ip_tables.c	2004-06-07 05:15:04 +02:00
-+++ edited/net/ipv4/netfilter/ip_tables.c	2004-06-20 12:29:17 +02:00
-@@ -61,6 +61,8 @@
- #endif
- #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
- 
-+static DECLARE_MUTEX(ipt_mutex);
+This patch makes the files /proc/net/tcp and /proc/net/tcp6 not acquire
+the readlock for every bucket.
+
+On ppc64 and ia64 the readlocks are so expensive, that reading /proc/net/tcp
+takes 0.25 seconds on a usual p670 LPAR.
+
+And it locks 65536 buckets where just 20 chains are used at all in a normal
+non-netserver setup.
+
+Ciao, Marcus
+
+Changelog:
+	Readlock only non-empty hash chains to avoid 65536 readlocks.
+
+	Signed-Off-By: Marcus Meissner <meissner@suse.de>
+
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=tcp-proc-walk
+
+--- linux-2.6.5/net/ipv4/tcp_ipv4.c.xx	2004-07-04 13:39:51.000000000 +0200
++++ linux-2.6.5/net/ipv4/tcp_ipv4.c	2004-07-04 13:51:57.000000000 +0200
+@@ -2255,6 +2255,12 @@
+ 		struct hlist_node *node;
+ 		struct tcp_tw_bucket *tw;
+ 	       
++		/* Avoid taking the readlock cost if we know the chain is empty,
++		 * we have a lot of buckets.
++		 */
++		if (hlist_empty(&tcp_ehash[st->bucket].chain) &&
++		    hlist_empty(&tcp_ehash[st->bucket+tcp_ehash_size].chain))
++			continue;
+ 		read_lock(&tcp_ehash[st->bucket].lock);
+ 		sk_for_each(sk, node, &tcp_ehash[st->bucket].chain) {
+ 			if (sk->sk_family != st->family) {
+@@ -2301,13 +2307,17 @@
+ 		}
+ 		read_unlock(&tcp_ehash[st->bucket].lock);
+ 		st->state = TCP_SEQ_STATE_ESTABLISHED;
+-		if (++st->bucket < tcp_ehash_size) {
+-			read_lock(&tcp_ehash[st->bucket].lock);
+-			sk = sk_head(&tcp_ehash[st->bucket].chain);
+-		} else {
 +
- /* Must have mutex */
- #define ASSERT_READ_LOCK(x) IP_NF_ASSERT(down_trylock(&ipt_mutex) != 0)
- #define ASSERT_WRITE_LOCK(x) IP_NF_ASSERT(down_trylock(&ipt_mutex) != 0)
-===== net/ipv6/netfilter/ip6_tables.c 1.29 vs edited =====
---- 1.29/net/ipv6/netfilter/ip6_tables.c	2004-06-07 05:15:04 +02:00
-+++ edited/net/ipv6/netfilter/ip6_tables.c	2004-06-20 12:29:29 +02:00
-@@ -66,6 +66,7 @@
- #endif
- #define SMP_ALIGN(x) (((x) + SMP_CACHE_BYTES-1) & ~(SMP_CACHE_BYTES-1))
++		while ((++st->bucket < tcp_ehash_size) &&
++		       hlist_empty(&tcp_ehash[st->bucket].chain) &&
++		       hlist_empty(&tcp_ehash[st->bucket+tcp_ehash_size].chain))
++			/*empty*/;
++		if (st->bucket >= tcp_ehash_size) {
+ 			cur = NULL;
+ 			goto out;
+ 		}
++		read_lock(&tcp_ehash[st->bucket].lock);
++		sk = sk_head(&tcp_ehash[st->bucket].chain);
+ 	} else
+ 		sk = sk_next(sk);
  
-+static DECLARE_MUTEX(ip6t_mutex);
- 
- /* Must have mutex */
- #define ASSERT_READ_LOCK(x) IP_NF_ASSERT(down_trylock(&ip6t_mutex) != 0)
+
+--ew6BAiZeqk4r7MaW--
