@@ -1,450 +1,187 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [BK PATCH] 2.6 and 2.4 SCTP updates.
-Date: Fri, 4 Jun 2004 11:44:12 -0700 (PDT)
+From: "Gary N Spiess" <Gary.Spiess@Intermec.com>
+Subject: [PATCH] natsemi update 2/4 Ethtool ioctl fixes & enhancements
+Date: Fri, 04 Jun 2004 14:53:03 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0406041104520.2786@localhost.localdomain>
+Message-ID: <200406041453030734.0BC334E5@136.179.85.112>
+References: <200405280142110234.0D95EB69@136.179.85.112>
+ <40B786A5.80506@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: multipart/mixed; boundary="=====_1086378783491=_"
+Cc: manfred@colorfullife.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+In-Reply-To: <40B786A5.80506@colorfullife.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+--=====_1086378783491=_
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Please do a
-        bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work &
-        bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
-to get the following bugfix csets to 2.6 and 2.4 SCTP.
+Jeff,
 
-Thanks
-Sridhar
+This is the second of a series of patches needed to support our product=
+ using the DP83815.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/06/03 17:46:29-07:00 sri@us.ibm.com
-#   [SCTP] Fix poll() on a 1-1 style socket so that it returns when the
-#   association is aborted by peer.
-#
-# net/sctp/sm_sideeffect.c
-#
-# ChangeSet
-#   2004/06/03 17:40:49-07:00 sri@us.ibm.com
-#   [SCTP] Fix to wakeup blocking connect() after max INIT retries failed.
-#
-# net/sctp/socket.c
-# net/sctp/sm_sideeffect.c
-#
-# ChangeSet
-#   2004/06/03 17:33:41-07:00 sri@us.ibm.com
-#   [SCTP] Fix missing VTAG validation on certain incoming packets.
-#
-# net/sctp/sm_statefuns.c
-# include/net/sctp/sm.h
-#
-# ChangeSet
-#   2004/06/03 17:26:13-07:00 sri@us.ibm.com
-#   [SCTP] Fix the use of cached non-zero vtag in an INIT that is resent
-#   after a stale cookie error.
-#
-# net/sctp/sm_statefuns.c
-# net/sctp/sm_sideeffect.c
-# include/net/sctp/command.h
-#
-# ChangeSet
-#   2004/06/03 17:19:57-07:00 jhh@lucent.com
-#   [SCTP] Fix to not start a new association on a 1-many style sendmsg()
-#   with MSG_EOF/MSG_ABORT flag and no data.
-#
-# net/sctp/socket.c
-#
-# ChangeSet
-#   2004/06/03 17:16:07-07:00 jhh@lucent.com
-#   [SCTP] Fix to not setup a new association if the endpoint is in
-#   SHUTDOWN_ACK_SENT state and recognizes that the peer has restarted.
-#
-# net/sctp/sm_statefuns.c
-#
-diff -Nru a/include/net/sctp/command.h b/include/net/sctp/command.h
---- a/include/net/sctp/command.h	Fri Jun  4 11:08:18 2004
-+++ b/include/net/sctp/command.h	Fri Jun  4 11:08:18 2004
-@@ -93,6 +93,7 @@
- 	SCTP_CMD_PROCESS_OPERR,  /* Process an ERROR chunk. */
- 	SCTP_CMD_REPORT_FWDTSN,	 /* Report new cumulative TSN Ack. */
- 	SCTP_CMD_PROCESS_FWDTSN, /* Skips were reported, so process further. */
-+	SCTP_CMD_CLEAR_INIT_TAG, /* Clears association peer's inittag. */
- 	SCTP_CMD_LAST
- } sctp_verb_t;
+This patch fixes some of the ethtool ioctl support.  It does a better job=
+ of switching autonegotiation/speed/duplex parameters.  It no longer=
+ reports failure to complete negotiation when auto negotiation was=
+ disabled.  Attempts to return the MII registers from the MII interface,=
+ rather than always using the internal registers.  Formally set PORT_MII as=
+ XCVR_EXTERNAL and PORT_TP as XCVR_INTERNAL.
 
-diff -Nru a/include/net/sctp/sm.h b/include/net/sctp/sm.h
---- a/include/net/sctp/sm.h	Fri Jun  4 11:08:18 2004
-+++ b/include/net/sctp/sm.h	Fri Jun  4 11:08:18 2004
-@@ -440,6 +440,23 @@
- 		BUG();
- }
+Gary
+ oooooooooooooooooooooooooooooooooooooooooooooooooo
+ Gary Spiess (Gary.Spiess@Intermec.com)
+ MobileLan Wireless Products Group, Intermec Technology Corp
+ voice: 319 369-3580  fax: 319 369-3804
 
-+/* Check VTAG of the packet matches the sender's own tag. */
-+static inline int
-+sctp_vtag_verify(const struct sctp_chunk *chunk,
-+		 const struct sctp_association *asoc)
-+{
-+	/* RFC 2960 Sec 8.5 When receiving an SCTP packet, the endpoint
-+	 * MUST ensure that the value in the Verification Tag field of
-+	 * the received SCTP packet matches its own Tag. If the received
-+	 * Verification Tag value does not match the receiver's own
-+	 * tag value, the receiver shall silently discard the packet...
-+	 */
-+        if (ntohl(chunk->sctp_hdr->vtag) == asoc->c.my_vtag)
-+                return 1;
-+
-+	return 0;
-+}
-+
- /* Check VTAG of the packet matches the sender's own tag OR its peer's
-  * tag and the T bit is set in the Chunk Flags.
-  */
-diff -Nru a/net/sctp/sm_sideeffect.c b/net/sctp/sm_sideeffect.c
---- a/net/sctp/sm_sideeffect.c	Fri Jun  4 11:08:18 2004
-+++ b/net/sctp/sm_sideeffect.c	Fri Jun  4 11:08:18 2004
-@@ -429,6 +429,9 @@
- 		sctp_add_cmd_sf(commands, SCTP_CMD_EVENT_ULP,
- 				SCTP_ULPEVENT(event));
+--=====_1086378783491=_
+Content-Type: application/octet-stream; name="natsemi-2.6.6-2.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="natsemi-2.6.6-2.patch"
 
-+	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
-+			SCTP_STATE(SCTP_STATE_CLOSED));
-+
- 	/* SEND_FAILED sent later when cleaning up the association. */
- 	asoc->outqueue.error = error;
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
-@@ -457,6 +460,10 @@
- 	sctp_add_cmd_sf(commands, SCTP_CMD_NEW_STATE,
- 			SCTP_STATE(SCTP_STATE_CLOSED));
+LS0tIGxpbnV4LTIuNi42L2RyaXZlcnMvbmV0L25hdHNlbWkuYwkyMDA0LTA2
+LTAzIDE0OjIwOjI4LjAwMDAwMDAwMCAtMDUwMAorKysgbGludXgvZHJpdmVy
+cy9uZXQvbmF0c2VtaS5jCTIwMDQtMDYtMDMgMTQ6MjY6MzkuMDAwMDAwMDAw
+IC0wNTAwCkBAIC01OTksNyArNTk5LDcgQEAKIH07CiAKIGVudW0gUGh5Q3Ry
+bF9iaXRzIHsKLQlQaHlBZGRyTWFzawkJPSAweGYsCisJUGh5QWRkck1hc2sJ
+CT0gMHgxZiwKIH07CiAKIC8qIHZhbHVlcyB3ZSBtaWdodCBmaW5kIGluIHRo
+ZSBzaWxpY29uIHJldmlzaW9uIHJlZ2lzdGVyICovCkBAIC02NjIsNiArNjYy
+LDcgQEAKIAkvKiBEbyBub3QgdG91Y2ggdGhlIG5pYyByZWdpc3RlcnMgKi8K
+IAlpbnQgaGFuZHNfb2ZmOwogCS8qIFRoZXNlIHZhbHVlcyBhcmUga2VlcCB0
+cmFjayBvZiB0aGUgdHJhbnNjZWl2ZXIvbWVkaWEgaW4gdXNlICovCisJaW50
+IHBoeV9hZGRyX2V4dGVybmFsOwogCXVuc2lnbmVkIGludCBmdWxsX2R1cGxl
+eDsKIAkvKiBSeCBmaWx0ZXIgKi8KIAl1MzIgY3VyX3J4X21vZGU7CkBAIC0x
+MjQ5LDE1ICsxMjUwLDE3IEBACiAJbG9uZyBpb2FkZHIgPSBkZXYtPmJhc2Vf
+YWRkcjsKIAlpbnQgaTsKIAotCWZvciAoaT0wO2k8TkFUU0VNSV9IV19USU1F
+T1VUO2krKykgewotCQlpZiAocmVhZGwoZGV2LT5iYXNlX2FkZHIgKyBDaGlw
+Q29uZmlnKSAmIENmZ0FuZWdEb25lKQotCQkJYnJlYWs7Ci0JCXVkZWxheSgx
+MCk7Ci0JfQotCWlmIChpPT1OQVRTRU1JX0hXX1RJTUVPVVQgJiYgbmV0aWZf
+bXNnX2xpbmsobnApKSB7Ci0JCXByaW50ayhLRVJOX0lORk8KLQkJCSIlczog
+YXV0b25lZ290aWF0aW9uIGRpZCBub3QgY29tcGxldGUgaW4gJWQgdXNlYy5c
+biIsCi0JCQlkZXYtPm5hbWUsIGkqMTApOworCWlmIChtZGlvX3JlYWQoZGV2
+LCAxLCBNSUlfQk1DUikgJiBCTUNSX0FORU5BQkxFKSB7CisJCWZvciAoaT0w
+O2k8TkFUU0VNSV9IV19USU1FT1VUO2krKykgeworCQkJaWYgKG1kaW9fcmVh
+ZChkZXYsIDEsIE1JSV9CTVNSKSAmIEJNU1JfQU5FR0NPTVBMRVRFKQorCQkJ
+CWJyZWFrOworCQkJdWRlbGF5KDEwKTsKKwkJfQorCQlpZiAoaT09TkFUU0VN
+SV9IV19USU1FT1VUICYmIG5ldGlmX21zZ19saW5rKG5wKSkgeworCQkJcHJp
+bnRrKEtFUk5fSU5GTworCQkJCSIlczogYXV0b25lZ290aWF0aW9uIGRpZCBu
+b3QgY29tcGxldGUgaW4gJWQgdXNlYy5cbiIsCisJCQkJZGV2LT5uYW1lLCBp
+KjEwKTsKKwkJfQogCX0KIAogCS8qIE9uIHBhZ2UgNzggb2YgdGhlIHNwZWMs
+IHRoZXkgcmVjb21tZW5kIHNvbWUgc2V0dGluZ3MgZm9yICJvcHRpbXVtCkBA
+IC0yMjcxLDYgKzIyNzQsNyBAQAogCiBzdGF0aWMgaW50IG5ldGRldl9nZXRf
+ZWNtZChzdHJ1Y3QgbmV0X2RldmljZSAqZGV2LCBzdHJ1Y3QgZXRodG9vbF9j
+bWQgKmVjbWQpCiB7CisJc3RydWN0IG5ldGRldl9wcml2YXRlICpucCA9IGRl
+di0+cHJpdjsKIAl1MzIgdG1wOwogCiAJZWNtZC0+c3VwcG9ydGVkID0KQEAg
+LTIyNzgsMjAgKzIyODIsMjEgQEAKIAkJU1VQUE9SVEVEXzEwMGJhc2VUX0hh
+bGYgfCBTVVBQT1JURURfMTAwYmFzZVRfRnVsbCB8CiAJCVNVUFBPUlRFRF9B
+dXRvbmVnIHwgU1VQUE9SVEVEX1RQIHwgU1VQUE9SVEVEX01JSSk7CiAKLQkv
+KiBvbmx5IHN1cHBvcnRzIHR3aXN0ZWQtcGFpciBvciBNSUkgKi8KLQl0bXAg
+PSByZWFkbChkZXYtPmJhc2VfYWRkciArIENoaXBDb25maWcpOwotCWlmICh0
+bXAgJiBDZmdFeHRQaHkpCi0JCWVjbWQtPnBvcnQgPSBQT1JUX01JSTsKLQll
+bHNlCi0JCWVjbWQtPnBvcnQgPSBQT1JUX1RQOwotCi0JLyogb25seSBzdXBw
+b3J0cyBpbnRlcm5hbCB0cmFuc2NlaXZlciAqLwotCWVjbWQtPnRyYW5zY2Vp
+dmVyID0gWENWUl9JTlRFUk5BTDsKLQotCS8qIG5vdCBzdXJlIHdoYXQgdGhp
+cyBpcyBmb3IgKi8KLQllY21kLT5waHlfYWRkcmVzcyA9IHJlYWR3KGRldi0+
+YmFzZV9hZGRyICsgUGh5Q3RybCkgJiBQaHlBZGRyTWFzazsKKwkvKiBSZXR1
+cm4gdGhlIHRyYW5zY2VpdmVyIHR5cGUgKi8KKwlzd2l0Y2ggKGRldi0+aWZf
+cG9ydCkgeworCWRlZmF1bHQ6CisJY2FzZSBQT1JUX1RQOgorCQllY21kLT5h
+ZHZlcnRpc2luZyA9IEFEVkVSVElTRURfVFA7CisJCWVjbWQtPnRyYW5zY2Vp
+dmVyID0gWENWUl9JTlRFUk5BTDsKKwkJYnJlYWs7CisJY2FzZSBQT1JUX01J
+SToKKwkJZWNtZC0+YWR2ZXJ0aXNpbmcgPSBBRFZFUlRJU0VEX01JSTsKKwkJ
+ZWNtZC0+dHJhbnNjZWl2ZXIgPSBYQ1ZSX0VYVEVSTkFMOworCQlicmVhazsK
+Kwl9CisJZWNtZC0+cG9ydCA9IGRldi0+aWZfcG9ydDsKKwllY21kLT5waHlf
+YWRkcmVzcyA9IG5wLT5waHlfYWRkcl9leHRlcm5hbDsKIAotCWVjbWQtPmFk
+dmVydGlzaW5nID0gQURWRVJUSVNFRF9UUCB8IEFEVkVSVElTRURfTUlJOwog
+CXRtcCA9IG1kaW9fcmVhZChkZXYsIDEsIE1JSV9BRFZFUlRJU0UpOwogCWlm
+ICh0bXAgJiBBRFZFUlRJU0VfMTBIQUxGKQogCQllY21kLT5hZHZlcnRpc2lu
+ZyB8PSBBRFZFUlRJU0VEXzEwYmFzZVRfSGFsZjsKQEAgLTIzMDYsMjEgKzIz
+MDksMjEgQEAKIAlpZiAodG1wICYgQk1DUl9BTkVOQUJMRSkgewogCQllY21k
+LT5hZHZlcnRpc2luZyB8PSBBRFZFUlRJU0VEX0F1dG9uZWc7CiAJCWVjbWQt
+PmF1dG9uZWcgPSBBVVRPTkVHX0VOQUJMRTsKKwkJCisJCXRtcCA9IG1paV9u
+d2F5X3Jlc3VsdCgKKwkJCW5wLT5hZHZlcnRpc2luZyAmIG1kaW9fcmVhZChk
+ZXYsIDEsIE1JSV9MUEEpKTsKKwkJaWYgKHRtcCA9PSBMUEFfMTAwRlVMTCB8
+fCB0bXAgPT0gTFBBXzEwMEhBTEYpCisJCQllY21kLT5zcGVlZCAgPSBTUEVF
+RF8xMDA7CisJCWVsc2UKKwkJCWVjbWQtPnNwZWVkICA9IFNQRUVEXzEwOwor
+CQlpZiAodG1wID09IExQQV8xMDBGVUxMIHx8IHRtcCA9PSBMUEFfMTBGVUxM
+KQorCQkJZWNtZC0+ZHVwbGV4ID0gRFVQTEVYX0ZVTEw7CisJCWVsc2UKKwkJ
+CWVjbWQtPmR1cGxleCA9IERVUExFWF9IQUxGOwogCX0gZWxzZSB7CiAJCWVj
+bWQtPmF1dG9uZWcgPSBBVVRPTkVHX0RJU0FCTEU7Ci0JfQotCi0JdG1wID0g
+cmVhZGwoZGV2LT5iYXNlX2FkZHIgKyBDaGlwQ29uZmlnKTsKLQlpZiAodG1w
+ICYgQ2ZnU3BlZWQxMDApIHsKLQkJZWNtZC0+c3BlZWQgPSBTUEVFRF8xMDA7
+Ci0JfSBlbHNlIHsKLQkJZWNtZC0+c3BlZWQgPSBTUEVFRF8xMDsKLQl9Ci0K
+LQlpZiAodG1wICYgQ2ZnRnVsbER1cGxleCkgewotCQllY21kLT5kdXBsZXgg
+PSBEVVBMRVhfRlVMTDsKLQl9IGVsc2UgewotCQllY21kLT5kdXBsZXggPSBE
+VVBMRVhfSEFMRjsKKwkJZWNtZC0+c3BlZWQgICA9ICh0bXAgJiBCTUNSX1NQ
+RUVEMTAwKSA/IFNQRUVEXzEwMCAgIDogU1BFRURfMTA7CisJCWVjbWQtPmR1
+cGxleCAgPSAodG1wICYgQk1DUl9GVUxMRFBMWCkgPyBEVVBMRVhfRlVMTCA6
+IERVUExFWF9IQUxGOwogCX0KIAogCS8qIGlnbm9yZSBtYXh0eHBrdCwgbWF4
+cnhwa3QgZm9yIG5vdyAqLwpAQCAtMjMzNywyMSArMjM0MCw2NCBAQAogCQly
+ZXR1cm4gLUVJTlZBTDsKIAlpZiAoZWNtZC0+ZHVwbGV4ICE9IERVUExFWF9I
+QUxGICYmIGVjbWQtPmR1cGxleCAhPSBEVVBMRVhfRlVMTCkKIAkJcmV0dXJu
+IC1FSU5WQUw7Ci0JaWYgKGVjbWQtPnBvcnQgIT0gUE9SVF9UUCAmJiBlY21k
+LT5wb3J0ICE9IFBPUlRfTUlJKQorCXN3aXRjaCAoZWNtZC0+cG9ydCkgewor
+CWNhc2UgUE9SVF9UUDoKKwkJaWYgKGRldi0+aWZfcG9ydCAhPSBQT1JUX1RQ
+KQorCQkJZWNtZC0+dHJhbnNjZWl2ZXIgPSBYQ1ZSX0lOVEVSTkFMOworCQll
+bHNlIGlmIChlY21kLT50cmFuc2NlaXZlciA9PSBYQ1ZSX0VYVEVSTkFMKQor
+CQkJZWNtZC0+cG9ydCA9IFBPUlRfTUlJOworCQlicmVhazsKKwljYXNlIFBP
+UlRfTUlJOgorCQlpZiAoZGV2LT5pZl9wb3J0ID09IFBPUlRfVFApCisJCQll
+Y21kLT50cmFuc2NlaXZlciA9IFhDVlJfRVhURVJOQUw7CisJCWVsc2UgaWYg
+KGVjbWQtPnRyYW5zY2VpdmVyID09IFhDVlJfSU5URVJOQUwpCisJCQllY21k
+LT5wb3J0ID0gUE9SVF9UUDsKKwkJYnJlYWs7CisJZGVmYXVsdDoKIAkJcmV0
+dXJuIC1FSU5WQUw7Ci0JaWYgKGVjbWQtPnRyYW5zY2VpdmVyICE9IFhDVlJf
+SU5URVJOQUwpCisJfQorCXRtcCA9IHJlYWRsKGRldi0+YmFzZV9hZGRyICsg
+Q2hpcENvbmZpZyk7CisJc3dpdGNoIChlY21kLT50cmFuc2NlaXZlcikgewor
+CWNhc2UgWENWUl9JTlRFUk5BTDoKKwkJdG1wICY9IH4oQ2ZnRXh0UGh5IHwg
+Q2ZnUGh5RGlzKTsKKwkJYnJlYWs7CisJY2FzZSBYQ1ZSX0VYVEVSTkFMOgor
+CQl0bXAgfD0gKENmZ0V4dFBoeSB8IENmZ1BoeURpcyk7CisJCWJyZWFrOwor
+CWRlZmF1bHQ6CiAJCXJldHVybiAtRUlOVkFMOworCX0KIAlpZiAoZWNtZC0+
+YXV0b25lZyAhPSBBVVRPTkVHX0RJU0FCTEUgJiYgZWNtZC0+YXV0b25lZyAh
+PSBBVVRPTkVHX0VOQUJMRSkKIAkJcmV0dXJuIC1FSU5WQUw7Ci0JLyogaWdu
+b3JlIHBoeV9hZGRyZXNzLCBtYXh0eHBrdCwgbWF4cnhwa3QgZm9yIG5vdyAq
+LworCS8qIGlnbm9yZSBtYXh0eHBrdCwgbWF4cnhwa3QgZm9yIG5vdyAqLwog
+CiAJLyogV0hFVyEgbm93IGxldHMgYmFuZyBzb21lIGJpdHMgKi8KIAorCXdy
+aXRlbCh0bXAsIGRldi0+YmFzZV9hZGRyICsgQ2hpcENvbmZpZyk7CisJbnAt
+PnBoeV9hZGRyX2V4dGVybmFsID0gZWNtZC0+cGh5X2FkZHJlc3MgJiBQaHlB
+ZGRyTWFzazsKKwlkZXYtPmlmX3BvcnQgPSBlY21kLT5wb3J0OworCiAJdG1w
+ID0gbWRpb19yZWFkKGRldiwgMSwgTUlJX0JNQ1IpOwogCWlmIChlY21kLT5h
+dXRvbmVnID09IEFVVE9ORUdfRU5BQkxFKSB7Ci0JCS8qIHR1cm4gb24gYXV0
+b25lZ290aWF0aW9uICovCi0JCXRtcCB8PSBCTUNSX0FORU5BQkxFOworCQkv
+KiB0dXJuIG9uIGF1dG9uZWdvdGlhdGlvbiwgYW5kIGZvcmNlIGEgcmVuZWdv
+dGlhdGUgKi8KKwkJdG1wIHw9IChCTUNSX0FORU5BQkxFIHwgQk1DUl9BTlJF
+U1RBUlQpOworCQlpZiAoKGVjbWQtPmFkdmVydGlzaW5nICYgKEFEVkVSVElT
+RURfMTBiYXNlVF9IYWxmIHwKKwkJCQkJICBBRFZFUlRJU0VEXzEwYmFzZVRf
+RnVsbCB8CisJCQkJCSAgQURWRVJUSVNFRF8xMDBiYXNlVF9IYWxmIHwKKwkJ
+CQkJICBBRFZFUlRJU0VEXzEwMGJhc2VUX0Z1bGwpKSA9PSAwKQorCQkJcmV0
+dXJuIC1FSU5WQUw7CisJCS8qIGFkdmVydGlzZSBvbmx5IHdoYXQgaGFzIGJl
+ZW4gcmVxdWVzdGVkICovCiAJCW5wLT5hZHZlcnRpc2luZyA9IG1kaW9fcmVh
+ZChkZXYsIDEsIE1JSV9BRFZFUlRJU0UpOworCQlucC0+YWR2ZXJ0aXNpbmcg
+Jj0gfihBRFZFUlRJU0VfQUxMIHwgQURWRVJUSVNFXzEwMEJBU0U0KTsKKwkJ
+aWYgKGVjbWQtPmFkdmVydGlzaW5nICYgQURWRVJUSVNFRF8xMGJhc2VUX0hh
+bGYpCisJCQlucC0+YWR2ZXJ0aXNpbmcgfD0gQURWRVJUSVNFXzEwSEFMRjsK
+KwkJaWYgKGVjbWQtPmFkdmVydGlzaW5nICYgQURWRVJUSVNFRF8xMGJhc2VU
+X0Z1bGwpCisJCQlucC0+YWR2ZXJ0aXNpbmcgfD0gQURWRVJUSVNFXzEwRlVM
+TDsKKwkJaWYgKGVjbWQtPmFkdmVydGlzaW5nICYgQURWRVJUSVNFRF8xMDBi
+YXNlVF9IYWxmKQorCQkJbnAtPmFkdmVydGlzaW5nIHw9IEFEVkVSVElTRV8x
+MDBIQUxGOworCQlpZiAoZWNtZC0+YWR2ZXJ0aXNpbmcgJiBBRFZFUlRJU0VE
+XzEwMGJhc2VUX0Z1bGwpCisJCQlucC0+YWR2ZXJ0aXNpbmcgfD0gQURWRVJU
+SVNFXzEwMEZVTEw7CisJCW1kaW9fd3JpdGUoZGV2LCAxLCBNSUlfQURWRVJU
+SVNFLCBucC0+YWR2ZXJ0aXNpbmcpOwogCX0gZWxzZSB7CiAJCS8qIHR1cm4g
+b2ZmIGF1dG8gbmVnb3RpYXRpb24sIHNldCBzcGVlZCBhbmQgZHVwbGV4aXR5
+ICovCiAJCXRtcCAmPSB+KEJNQ1JfQU5FTkFCTEUgfCBCTUNSX1NQRUVEMTAw
+IHwgQk1DUl9GVUxMRFBMWCk7CkBAIC0yMzczLDExICsyNDE4LDE1IEBACiAJ
+dTMyIHJmY3I7CiAJdTMyICpyYnVmID0gKHUzMiAqKWJ1ZjsKIAotCS8qIHJl
+YWQgYWxsIG9mIHBhZ2UgMCBvZiByZWdpc3RlcnMgKi8KLQlmb3IgKGkgPSAw
+OyBpIDwgTkFUU0VNSV9QRzBfTlJFR1M7IGkrKykgeworCS8qIHJlYWQgbm9u
+LW1paSBwYWdlIDAgb2YgcmVnaXN0ZXJzICovCisJZm9yIChpID0gMDsgaSA8
+IE5BVFNFTUlfUEcwX05SRUdTLzI7IGkrKykgewogCQlyYnVmW2ldID0gcmVh
+ZGwoZGV2LT5iYXNlX2FkZHIgKyBpKjQpOwogCX0KIAorCS8qIHJlYWQgY3Vy
+cmVudCBtaWkgcmVnaXN0ZXJzICovCisJZm9yIChpID0gTkFUU0VNSV9QRzBf
+TlJFR1MvMjsgaSA8IE5BVFNFTUlfUEcwX05SRUdTOyBpKyspCisJCXJidWZb
+aV0gPSBtZGlvX3JlYWQoZGV2LCAxLCBpICYgMHgxZik7CisKIAkvKiByZWFk
+IG9ubHkgdGhlICdtYWdpYycgcmVnaXN0ZXJzIGZyb20gcGFnZSAxICovCiAJ
+d3JpdGV3KDEsIGRldi0+YmFzZV9hZGRyICsgUEdTRUwpOwogCXJidWZbaSsr
+XSA9IHJlYWR3KGRldi0+YmFzZV9hZGRyICsgUE1EQ1NSKTsK
 
-+	/* Set sk_err to ECONNRESET on a 1-1 style socket. */
-+	if (!sctp_style(asoc->base.sk, UDP))
-+		asoc->base.sk->sk_err = ECONNRESET;
-+
- 	/* SEND_FAILED sent later when cleaning up the association. */
- 	asoc->outqueue.error = error;
- 	sctp_add_cmd_sf(commands, SCTP_CMD_DELETE_TCB, SCTP_NULL());
-@@ -1271,6 +1278,9 @@
-
- 		case SCTP_CMD_PROCESS_OPERR:
- 			sctp_cmd_process_operr(commands, asoc, chunk);
-+			break;
-+		case SCTP_CMD_CLEAR_INIT_TAG:
-+			asoc->peer.i.init_tag = 0;
- 			break;
- 		default:
- 			printk(KERN_WARNING "Impossible command: %u, %p\n",
-diff -Nru a/net/sctp/sm_statefuns.c b/net/sctp/sm_statefuns.c
---- a/net/sctp/sm_statefuns.c	Fri Jun  4 11:08:18 2004
-+++ b/net/sctp/sm_statefuns.c	Fri Jun  4 11:08:18 2004
-@@ -171,7 +171,7 @@
-  *    Verification Tag field to Tag_A, and also provide its own
-  *    Verification Tag (Tag_Z) in the Initiate Tag field.
-  *
-- * Verification Tag: No checking.
-+ * Verification Tag: Must be 0.
-  *
-  * Inputs
-  * (endpoint, asoc, chunk)
-@@ -219,6 +219,12 @@
- 	     (sk->sk_ack_backlog >= sk->sk_max_ack_backlog)))
- 		return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-
-+	/* 3.1 A packet containing an INIT chunk MUST have a zero Verification
-+	 * Tag.
-+	 */
-+	if (chunk->sctp_hdr->vtag != 0)
-+		return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-+
- 	/* Verify the INIT chunk before processing it. */
- 	err_chunk = NULL;
- 	if (!sctp_verify_init(asoc, chunk->chunk_hdr->type,
-@@ -377,6 +383,9 @@
- 	if (!chunk->singleton)
- 		return SCTP_DISPOSITION_VIOLATION;
-
-+	if (!sctp_vtag_verify(chunk, asoc))
-+		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-+
- 	/* Grab the INIT header.  */
- 	chunk->subh.init_hdr = (sctp_inithdr_t *) chunk->skb->data;
-
-@@ -659,8 +668,12 @@
- 				      const sctp_subtype_t type, void *arg,
- 				      sctp_cmd_seq_t *commands)
- {
-+	struct sctp_chunk *chunk = arg;
- 	struct sctp_ulpevent *ev;
-
-+	if (!sctp_vtag_verify(chunk, asoc))
-+		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-+
- 	/* RFC 2960 5.1 Normal Establishment of an Association
- 	 *
- 	 * E) Upon reception of the COOKIE ACK, endpoint "A" will move
-@@ -807,13 +820,7 @@
- 	struct sctp_chunk *reply;
- 	size_t paylen = 0;
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag. If the received
--	 * Verification Tag value does not match the receiver's own
--	 * tag value, the receiver shall silently discard the packet...
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	/* 8.3 The receiver of the HEARTBEAT should immediately
-@@ -876,11 +883,7 @@
- 	sctp_sender_hb_info_t *hbinfo;
- 	unsigned long max_interval;
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag. ...
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	hbinfo = (sctp_sender_hb_info_t *) chunk->skb->data;
-@@ -1130,6 +1133,12 @@
- 	if (!chunk->singleton)
- 		return SCTP_DISPOSITION_VIOLATION;
-
-+	/* 3.1 A packet containing an INIT chunk MUST have a zero Verification
-+	 * Tag.
-+	 */
-+	if (chunk->sctp_hdr->vtag != 0)
-+		return sctp_sf_tabort_8_4_8(ep, asoc, type, arg, commands);
-+
- 	/* Grab the INIT header.  */
- 	chunk->subh.init_hdr = (sctp_inithdr_t *) chunk->skb->data;
-
-@@ -1386,6 +1395,8 @@
- 	sctp_init_chunk_t *peer_init;
- 	struct sctp_ulpevent *ev;
- 	struct sctp_chunk *repl;
-+	struct sctp_chunk *err;
-+	sctp_disposition_t disposition;
-
- 	/* new_asoc is a brand-new association, so these are not yet
- 	 * side effects--it is safe to run them here.
-@@ -1405,6 +1416,29 @@
- 		return SCTP_DISPOSITION_CONSUME;
- 	}
-
-+	/* If the endpoint is in the SHUTDOWN-ACK-SENT state and recognizes
-+	 * the peer has restarted (Action A), it MUST NOT setup a new
-+	 * association but instead resend the SHUTDOWN ACK and send an ERROR
-+	 * chunk with a "Cookie Received while Shutting Down" error cause to
-+	 * its peer.
-+	*/
-+	if (sctp_state(asoc, SHUTDOWN_ACK_SENT)) {
-+		disposition = sctp_sf_do_9_2_reshutack(ep, asoc,
-+				SCTP_ST_CHUNK(chunk->chunk_hdr->type),
-+				chunk, commands);
-+		if (SCTP_DISPOSITION_NOMEM == disposition)
-+			goto nomem;
-+
-+		err = sctp_make_op_error(asoc, chunk,
-+					 SCTP_ERROR_COOKIE_IN_SHUTDOWN,
-+					 NULL, 0);
-+		if (err)
-+			sctp_add_cmd_sf(commands, SCTP_CMD_REPLY,
-+					SCTP_CHUNK(err));
-+
-+		return SCTP_DISPOSITION_CONSUME;
-+	}
-+
- 	/* For now, fail any unsent/unacked data.  Consider the optional
- 	 * choice of resending of this data.
- 	 */
-@@ -1883,6 +1917,9 @@
-
- 	sctp_addto_chunk(reply, sizeof(bht), &bht);
-
-+	/* Clear peer's init_tag cached in assoc as we are sending a new INIT */
-+	sctp_add_cmd_sf(commands, SCTP_CMD_CLEAR_INIT_TAG, SCTP_NULL());
-+
- 	/* Cast away the const modifier, as we want to just
- 	 * rerun it through as a sideffect.
- 	 */
-@@ -2071,13 +2108,7 @@
- 	skb_pull(chunk->skb, sizeof(sctp_shutdownhdr_t));
- 	chunk->subh.shutdown_hdr = sdh;
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag. If the received
--	 * Verification Tag value does not match the receiver's own
--	 * tag value, the receiver shall silently discard the packet...
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	/* Upon the reception of the SHUTDOWN, the peer endpoint shall
-@@ -2190,13 +2221,7 @@
- 	sctp_cwrhdr_t *cwr;
- 	struct sctp_chunk *chunk = arg;
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag. If the received
--	 * Verification Tag value does not match the receiver's own
--	 * tag value, the receiver shall silently discard the packet...
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	cwr = (sctp_cwrhdr_t *) chunk->skb->data;
-@@ -2246,13 +2271,7 @@
- 	sctp_ecnehdr_t *ecne;
- 	struct sctp_chunk *chunk = arg;
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag. If the received
--	 * Verification Tag value does not match the receiver's own
--	 * tag value, the receiver shall silently discard the packet...
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	ecne = (sctp_ecnehdr_t *) chunk->skb->data;
-@@ -2309,13 +2328,7 @@
- 	int tmp;
- 	__u32 tsn;
-
--	/* RFC 2960 8.5 Verification Tag
--	 *
--	 * When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag.
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag) {
-+	if (!sctp_vtag_verify(chunk, asoc)) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
- 				SCTP_NULL());
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-@@ -2569,13 +2582,7 @@
- 	int tmp;
- 	__u32 tsn;
-
--	/* RFC 2960 8.5 Verification Tag
--	 *
--	 * When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag.
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag) {
-+	if (!sctp_vtag_verify(chunk, asoc)) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
- 				SCTP_NULL());
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-@@ -2745,11 +2752,7 @@
- 	sctp_sackhdr_t *sackh;
- 	__u32 ctsn;
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag. ...
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	/* Pull the SACK chunk from the data buffer */
-@@ -2895,6 +2898,9 @@
- 	struct sctp_chunk *reply;
- 	struct sctp_ulpevent *ev;
-
-+	if (!sctp_vtag_verify(chunk, asoc))
-+		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-+
- 	/* 10.2 H) SHUTDOWN COMPLETE notification
- 	 *
- 	 * When SCTP completes the shutdown procedures (section 9.2) this
-@@ -3229,13 +3235,7 @@
- 	__u16 len;
- 	__u32 tsn;
-
--	/* RFC 2960 8.5 Verification Tag
--	 *
--	 * When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag.
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag) {
-+	if (!sctp_vtag_verify(chunk, asoc)) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
- 				SCTP_NULL());
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-@@ -3293,13 +3293,7 @@
- 	__u16 len;
- 	__u32 tsn;
-
--	/* RFC 2960 8.5 Verification Tag
--	 *
--	 * When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag.
--	 */
--	if (ntohl(chunk->sctp_hdr->vtag) != asoc->c.my_vtag) {
-+	if (!sctp_vtag_verify(chunk, asoc)) {
- 		sctp_add_cmd_sf(commands, SCTP_CMD_REPORT_BAD_TAG,
- 				SCTP_NULL());
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-@@ -3376,13 +3370,7 @@
-
- 	SCTP_DEBUG_PRINTK("Processing the unknown chunk id %d.\n", type.chunk);
-
--	/* 8.5 When receiving an SCTP packet, the endpoint MUST ensure
--	 * that the value in the Verification Tag field of the
--	 * received SCTP packet matches its own Tag.  If the received
--	 * Verification Tag value does not match the receiver's own
--	 * tag value, the receiver shall silently discard the packet.
--	 */
--	if (ntohl(unk_chunk->sctp_hdr->vtag) != asoc->c.my_vtag)
-+	if (!sctp_vtag_verify(unk_chunk, asoc))
- 		return sctp_sf_pdiscard(ep, asoc, type, arg, commands);
-
- 	switch (type.chunk & SCTP_CID_ACTION_MASK) {
-diff -Nru a/net/sctp/socket.c b/net/sctp/socket.c
---- a/net/sctp/socket.c	Fri Jun  4 11:08:18 2004
-+++ b/net/sctp/socket.c	Fri Jun  4 11:08:18 2004
-@@ -1164,6 +1164,11 @@
- 	if (!asoc) {
- 		SCTP_DEBUG_PRINTK("There is no association yet.\n");
-
-+		if (sinfo_flags & (MSG_EOF | MSG_ABORT)) {
-+			err = -EINVAL;
-+			goto out_unlock;
-+		}
-+
- 		/* Check for invalid stream against the stream counts,
- 		 * either the default or the user specified stream counts.
- 		 */
-@@ -4388,7 +4393,11 @@
- 	return err;
-
- do_error:
--	err = -ECONNREFUSED;
-+	if (asoc->counters[SCTP_COUNTER_INIT_ERROR] + 1 >=
-+					 	asoc->max_init_attempts)
-+		err = -ETIMEDOUT;
-+	else
-+		err = -ECONNREFUSED;
- 	goto out;
-
- do_interrupted:
+--=====_1086378783491=_--
