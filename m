@@ -1,50 +1,50 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: 21 Sep 2004 07:35:54 -0400
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: 21 Sep 2004 07:47:45 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095766554.1049.49.camel@jzny.localdomain>
-References: <52fz5esxx6.fsf@topspin.com>
-	 <20040919140133.60ea3fb3.davem@davemloft.net>
-	 <1095628759.1049.22.camel@jzny.localdomain>  <52y8j5r1d6.fsf@topspin.com>
+Message-ID: <1095767265.1049.58.camel@jzny.localdomain>
+References: <E1C8way-0000aH-00@gondolin.me.apana.org.au>
+	 <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net>
+	 <20040919215915.GB9573@gondor.apana.org.au>
+	 <1095633569.1047.107.camel@jzny.localdomain>
+	 <20040919231734.GA10124@gondor.apana.org.au>
+	 <1095647944.1046.206.camel@jzny.localdomain>
+	 <20040920025802.GA11567@gondor.apana.org.au>
+	 <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net>
+	 <20040920215906.GA26266@gondor.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roland Dreier <roland@topspin.com>
-In-Reply-To: <52y8j5r1d6.fsf@topspin.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040920215906.GA26266@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-09-20 at 00:49, Roland Dreier wrote:
->     jamal> Probably just easier to have his own private tables holding
->     jamal> reference to neighbor entries instead of polluting the
->     jamal> neighbor tables.  Listens to ARP events - on state
->     jamal> transition to/from reachable state he queries his remote
->     jamal> manager.
+On Mon, 2004-09-20 at 17:59, Herbert Xu wrote:
+
+> > jamal wrote:
+> >
+> > >Agreed.
+> > >For a test i typically have something adding say 10K items (actions in
+> > >my case, but could be ipsec policies) and then try to dump them. On my
+> > >xeon i get an overrun after about 6K items are dumped.
 > 
-> This does seem neater, but I don't know how to implement it.  How does
-> one hook into ARP events?
+> Good.  That's something we can look at easily.  Dumping is meant to
+> be self-controlling as each packet naturally stops the next one from
+> being sent until the user has done a recvmsg.
 
-Are you doing the path manager from user space or kernel?
-Its easy to generate netlink events to user space; you could then
-have the manager create path from user space. 
-
->     jamal> Curious though if ARP still works even when that "path"
->     jamal> thing hasnt been resolved.
-> 
-> ARP works because we can send broadcasts even without a path to a
-> specific destination.  (I'm leaving out the details of how IP
-> broadcast gets mapped to InfiniBand multicast)  When the system with
-> the IP we're looking for receives a broadcast ARP, it can use the HW
-> address in the ARP request to look up a path, so it can send an ARP
-> reply.
-
-So the sending broadcast path is essentially existent already.
-
-Like i said above, depending on how you do this remote manager; in
-kernel would be a little more involved.
+A get which results in a huge response (cant think of anything that
+fits there - I have some stuff i havent released yet which applies) will
+also have the same. Note by "large" implies it will overflow socket
+buffer (and a setsock to increase the size will delay the problem from
+happening).
+Note, that an overrun in a dump results in lost messages. Maybe we can
+detect that and reset the cb pointers appropriately? Have to look at the
+code.
 
 cheers,
 jamal
