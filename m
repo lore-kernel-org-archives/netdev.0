@@ -1,35 +1,92 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Privacy Extensions for Stateless Address
- Autoconfiguration in IPv6
-Date: Thu, 31 Oct 2002 18:17:55 +0900 (JST)
+From: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>
+Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
+Date: Thu, 31 Oct 2002 12:41:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021031.181755.739870345.yoshfuji@linux-ipv6.org>
-References: <20021031.124459.66300488.yoshfuji@linux-ipv6.org>
-	<13640000.1036050643@localhost>
+Message-ID: <20021031104146.GA18786@morphine.tml.hut.fi>
+References: <20021017162624.GC16370@morphine.tml.hut.fi> <20021031.174442.846937513.takamiya@po.ntts.co.jp>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org, yoshfuji@wide.ad.jp, pekkas@netcore.fi,
+   torvalds@transmeta.com, jagana@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pb@bieringer.de
-In-Reply-To: <13640000.1036050643@localhost>
+To: Noriaki Takamiya <takamiya@po.ntts.co.jp>
+Content-Disposition: inline
+In-Reply-To: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <13640000.1036050643@localhost> (at Thu, 31 Oct 2002 08:50:43 +0100), Peter Bieringer <pb@bieringer.de> says:
+On Thu, Oct 31, 2002 at 05:44:42PM +0900, Noriaki Takamiya wrote:
+> Hi,
 
-> > This patch is against linux-2.5.44+bk2 snapshot.
+Hello Takamiya,
+
+>   Please note that we're preparing for checking to what extent this
+>   patch is compliant to the Internet draft of MIPv6.  
+
+May I ask with what?  We ran all the TAHI tests last month at ETSI
+IPv6 Plugtest, and know pretty much were we stand.  And with all due
+respect to TAHI, who checks that the test suites conform to the spec?
+
+> (1) About MIPV6CALLFUNC and MIPV6CALLPROC
+> 	It is reasonable to use these macros for modularized
+> 	functions. But the current your implementation needs to select
+> 	HA or MN when compiling the kernel. So, it doesn't seems to be
+> 	needed this macros, and the real function may be called
+> 	directly. How about this?
+
+If MIPv6 is compiled as module, and is not loaded, those macros
+protect against calling non-existant code.  HA and MN do not need to
+be compiled statically, if that is what you are implying.  You must
+first select CN support, which decides module or static.
+
+> 	Rather, how about using sysctl and so on to switch the
+> 	functionality?
+
+No.  Users want to be able to have only one of the capabilities loaded
+at one time (i.e. CN, CN+MN or CN+HA).  When you compile e.g. CN,
+there is no HA or MN support compiled in, so the sysctl makes no sense.
+
+> (4) Processing Mobility Header
+> 	How about using ip6_txoptions and hdrproc_lst?
+> 	Because Mobility header is an extension header, we think it is
+> 	reasonable way to handle it in ipv6_parse_exthdrs().
+
+No.  We did this back in Draft 15, when all the mobility stuff was
+destination options.  Mobility Header is not an extension header, but
+rather a final protocol.  Only Home Address Option is an extension
+header and is handled in ipv6/exthdrs.c.  What is the problem with
+this?
+
+> (5) How about using CryptoAPI?
+> 	CryptoAPI is merged to mainline.
+> 	We believe we can use the CryptoAPI for caluculating cookies 
+> 	of RR.  How do you think about this?
+
+Yes, this will be done.  But that was merged yesterday, and we are
+only humans :)
+
+> (6) Order of HAO and Routing header
+> 	When MN acts also as CN, the order doesn't seems to be
+> 	compliant to ID-18 in the implementation. The order will be
+> 	the following:
 > 
-> Do you plan also to release a patch for 2.4.20+?
+> 	[IPv6][HAO][RT2]
+> 
+> 	I-D says:
+> 
+> 	[IPv6][RT2][HAO]
 
-<http://www.linux-ipv6.org/cvsweb/~checkout~/usagi-backport/linux24-FIX_2_4_20_pre11_ADDRCONF_PRIVACY-20021026.patch>
+Right.  We haven't changed the IPv6 code to support the third
+destination option header placement (after RH, before frag/AH/ESP),
+and since it introduces no compatibility problems with any other
+implementation we've tested with, it has not been a priority.
 
-You need to apply the following patch too.
-<http://www2.linux-ipv6.org/cvsweb/~checkout~/usagi-backport/linux24-FIX_2_4_20_pre11_ADDRCONF_TIMER-20021027.patch>
+Regards,
 
-Thanks.
+Antti
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Antti J. Tuominen, Gyldenintie 8A 11, 00200 Helsinki, Finland.
+Research assistant, Institute of Digital Communications at HUT
+work: ajtuomin@tml.hut.fi; home: tuominen@iki.fi
