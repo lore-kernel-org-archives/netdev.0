@@ -1,36 +1,19 @@
-From: Amit Kucheria <amitk@ittc.ku.edu>
-Subject: working of tcpdump
-Date: Tue, 23 Apr 2002 23:54:29 -0500 (CDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0204232352370.15912-100000@havoc.ittc.ku.edu>
+From: James Morris <jmorris@intercode.com.au>
+Subject: Tigon 3 driver & Netgear GA302T
+Date: Thu, 25 Apr 2002 01:15:06 +1000 (EST)
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0204250109340.11191-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org
+Return-path: <owner-netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Does the tg3 driver support the Netgear GA302T card (which I think uses 
+the Altima AC1000 chip) ?
 
-I am trying to understand how tcpdump works. More precisely, from where 
-exactly does tcpdump pick up packets?
 
-e.g If I execute the following:
-    sudo tcpdump -i eth0
-
-  then does tcpdump get the packets from the device queues?
-
-TIA.
-
-ciao,
-Amit
-
+- James
 -- 
-I'm an angel!!! Honest!
-The horns are just there to hold the halo up straight.
-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^
-                  Amit Kucheria
-          EECS Grad. Research Assistant
-         University of Kansas @ Lawrence
-   (R)+1-(785)-830 8521 ||| (O)+1-(785)-864 7774
-____________________________________________________
-
+James Morris
+<jmorris@intercode.com.au>
