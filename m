@@ -1,73 +1,62 @@
-From: David Hollis <dhollis@davehollis.com>
-Subject: [PATCH] tg3.h & b44.h ifndef ADVERTISE_PAUSE typo
-Date: Tue, 11 Jan 2005 09:42:33 -0500
-Message-ID: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Tue, 11 Jan 2005 09:11:57 -0600
+Message-ID: <200501110912.00258.jeremy.guthrie@berbee.com>
+References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501071506.57811.jeremy.guthrie@berbee.com> <16862.65385.9009.742742@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-o4RiUs3lCqkUr5oeoFjS"
+Content-Type: multipart/signed;
+  boundary="nextPart3699945.KmXMg9Morr";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <16862.65385.9009.742742@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-o4RiUs3lCqkUr5oeoFjS
-Content-Type: multipart/mixed; boundary="=-PkaztbHcB1OMnKtuQu/D"
-
-
---=-PkaztbHcB1OMnKtuQu/D
-Content-Type: text/plain
+--nextPart3699945.KmXMg9Morr
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-tg3.h and b44.h define ADVERTISE_PAUSE_CAP if ADVERTISE_PAUSE
-is not defined.  Both include a notation that these values should
-be added to mii.h.  If ADVERTISE_PAUSE_CAP was added to mii.h,
-these defines would break since they are checking for ADVERTISE_PAUSE
-instead of ADVERTISE_PAUSE_CAP.
+On Friday 07 January 2005 03:30 pm, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  85 kpps and 2287 lookups/sec as a 60 sec average. Pretty nice load yes.
+>  Where did you get the load?
+>  Try see if you fix lnstat :-) it would be nice to see the route dynamics.
+>  Or use the try the rtstat I pointed to.
+>
+>  And apply the e1000 patch I sent and make a test run.
+The code Jesse Brandeburg had me download has the patch in it.
 
---=20
-David Hollis <dhollis@davehollis.com>
+>  I'll have a beer and give up for tonight...
+>
+>         --ro
 
---=-PkaztbHcB1OMnKtuQu/D
-Content-Disposition: attachment; filename=b44_tg3_advertise_define.patch
-Content-Type: text/x-patch; name=b44_tg3_advertise_define.patch; charset=UTF-8
-Content-Transfer-Encoding: base64
+=2D-=20
 
-dGczLmggYW5kIGI0NC5oIGRlZmluZSBBRFZFUlRJU0VfUEFVU0VfQ0FQIGlmIEFEVkVSVElTRV9Q
-QVVTRQ0KaXMgbm90IGRlZmluZWQuICBCb3RoIGluY2x1ZGUgYSBub3RhdGlvbiB0aGF0IHRoZXNl
-IHZhbHVlcyBzaG91bGQNCmJlIGFkZGVkIHRvIG1paS5oLiAgSWYgQURWRVJUSVNFX1BBVVNFX0NB
-UCB3YXMgYWRkZWQgdG8gbWlpLmgsDQp0aGVzZSBkZWZpbmVzIHdvdWxkIGJyZWFrIHNpbmNlIHRo
-ZXkgYXJlIGNoZWNraW5nIGZvciBBRFZFUlRJU0VfUEFVU0UNCmluc3RlYWQgb2YgQURWRVJUSVNF
-X1BBVVNFX0NBUC4NCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgSG9sbGlzIDxkaG9sbGlzQGRhdmVo
-b2xsaXMuY29tPg0KDQogZHJpdmVycy9uZXQvYjQ0LmggfCAgICAyICstDQogZHJpdmVycy9uZXQv
-dGczLmggfCAgICAyICstDQogMiBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVs
-ZXRpb25zKC0pDQoNCi0tLSBhL2RyaXZlcnMvbmV0L2I0NC5oCTIwMDUtMDEtMTEgMDk6MzQ6Mzku
-MTc4NzM5NzI4IC0wNTAwDQorKysgYi9kcml2ZXJzL25ldC9iNDQuaAkyMDA1LTAxLTExIDA5OjM0
-OjU0LjIxNTQ1MzgwMCAtMDUwMA0KQEAgLTMwMyw3ICszMDMsNyBAQA0KICNkZWZpbmUgIE1JSV9U
-TEVEQ1RSTF9FTkFCTEUJMHgwMDQwDQogDQogLyogWFhYIEFkZCB0aGlzIHRvIG1paS5oICovDQot
-I2lmbmRlZiBBRFZFUlRJU0VfUEFVU0UNCisjaWZuZGVmIEFEVkVSVElTRV9QQVVTRV9DQVANCiAj
-ZGVmaW5lIEFEVkVSVElTRV9QQVVTRV9DQVAJCTB4MDQwMA0KICNlbmRpZg0KICNpZm5kZWYgQURW
-RVJUSVNFX1BBVVNFX0FTWU0NCi0tLSBhL2RyaXZlcnMvbmV0L3RnMy5oCTIwMDUtMDEtMTEgMDk6
-MzQ6NDMuNTYyMDczMzYwIC0wNTAwDQorKysgYi9kcml2ZXJzL25ldC90ZzMuaAkyMDA1LTAxLTEx
-IDA5OjM1OjAwLjc4NjQ1NDg1NiAtMDUwMA0KQEAgLTE1MzIsNyArMTUzMiw3IEBADQogI2RlZmlu
-ZSBNSUlfVEczX0lOVF9BTkVHX1BBR0VfUlgJMHgwNDAwDQogDQogLyogWFhYIEFkZCB0aGlzIHRv
-IG1paS5oICovDQotI2lmbmRlZiBBRFZFUlRJU0VfUEFVU0UNCisjaWZuZGVmIEFEVkVSVElTRV9Q
-QVVTRV9DQVANCiAjZGVmaW5lIEFEVkVSVElTRV9QQVVTRV9DQVAJCTB4MDQwMA0KICNlbmRpZg0K
-ICNpZm5kZWYgQURWRVJUSVNFX1BBVVNFX0FTWU0NCg==
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
 
-
---=-PkaztbHcB1OMnKtuQu/D--
-
---=-o4RiUs3lCqkUr5oeoFjS
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+--nextPart3699945.KmXMg9Morr
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQBB4+XYxasLqOyGHncRAp0jAJwKAqDdD6FwkI6RYY4xrzHVy1uV7wCfT3Xs
-isuZI5Zj6U+5ljhqqPb/RB8=
-=y/OI
+iD8DBQBB4+zAqtjaBHGZBeURAhH1AJ9oU0ebkBC77YW5p6Sf7gx6niOzkQCffqtY
+0UA//hnquC7n/03upE/nPdg=
+=7XRY
 -----END PGP SIGNATURE-----
 
---=-o4RiUs3lCqkUr5oeoFjS--
+--nextPart3699945.KmXMg9Morr--
