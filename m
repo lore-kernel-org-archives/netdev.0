@@ -1,38 +1,55 @@
-From: John Heffner <jheffner@psc.edu>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: A case AGAINST checksum offload
-Date: Fri, 12 Nov 2004 18:56:24 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0411121854220.8989@dexter.psc.edu>
+Date: Fri, 12 Nov 2004 15:49:45 -0800
+Message-ID: <20041112154945.63da5103.davem@davemloft.net>
 References: <Pine.LNX.4.58.0411121644150.8989@dexter.psc.edu>
- <1100303625.14465.631.camel@localhost>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dave Hansen <haveblue@us.ibm.com>
-In-Reply-To: <1100303625.14465.631.camel@localhost>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.LNX.4.58.0411121644150.8989@dexter.psc.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Nov 2004, Dave Hansen wrote:
+On Fri, 12 Nov 2004 18:46:11 -0500 (EST)
+John Heffner <jheffner@psc.edu> wrote:
 
-> On Fri, 2004-11-12 at 15:46, John Heffner wrote:
-> > Currently with many common Ethernet devices in Linux, hardware TCP
-> > checksumming is enabled by default.  This seems fairly dangerous to me.
-> > Most link layer checksums are much stronger than the TCP/UDP checksum;
-> > most bit errors are caught by these.  However, one of the primary purposes
-> > of the TCP/UDP checksum is to detect errors occurring outside the
-> > protection of the link layer checksums -- errors when data is reassembled
-> > or copied across busses inside hosts and routers.
->
-> If you're getting errors copying things on buses inside of the machine,
-> don't you have bigger problems than corrupt packets?  For instance, why
-> doesn't your disk controller have the same problem?
->
-> Just curious.
+> Though I don't have any definitive references, I've heard stories that Sun
+> turned off UDP checksums on LANs to increase NFS performance, only to
+> re-enable checksumming by default after problems similar to mine caused
+> corruptions of some critical databases.
 
-It's a probem with the NIC.  It did the same thing in a different machine.
-The point is that I think it's a good idea to mitigate the effects of
-faulty hardware, especially if you can do so nearly for free.
+That story about Sun is true.  But it is an entirely different matter
+to disable checksums altogether vs. disabling HW assisted checksumming.
 
-  -John
+> Since TCP checksum offload should only really helps the zero-copy case in
+> terms of performance, it seems safer to turn off hardware checksumming by
+> default, or perhaps only enable it if an application is doing a zero-copy
+> send.
+
+I disagree.
+
+What is the difference between the CPU (a bus agent with computational
+abilities), and a networking card (again, a bus agent with computational
+abilities) computing the checksums?
+
+In your listed case you found a bug, and it appears that what happened
+is that the DMA transfer got corrupted to the networking card yet a
+properly checksummed packet went out because the card computed the
+checksum.
+
+What would happen if this happened on a block device?  Your filesystem
+would get corrupted, perhaps irreparably.
+
+How is this any different?  It's a hard error for the DMA data to be
+corrupted.
+
+The data could just as easily be corrupted on the way to the CPU when
+doing a copy+checksum operation.  It's the same problem you say exists
+with your networking card case except the path of the corruption is
+RAM-->CPU instead of RAM-->PCI Controller-->Networking Card
+
+I really don't buy this. :-)
