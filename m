@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] skbuff more likely/unlikely
-Date: Thu, 2 Oct 2003 10:24:20 -0700
+Subject: [PATCH] consolidate skb delivery
+Date: Thu, 2 Oct 2003 10:21:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002102420.6e1cece9.shemminger@osdl.org>
+Message-ID: <20031002102133.7285b5ee.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,39 +12,98 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A couple more places where we can help by hinting the compiler
-for 2.6.0-test6.  If we are pulling off header, is is likely there;
-and skb alloc's succeed in the normal case.
+Several places all have the same code for delivering skb's to protocols.
+Consolidate into one inline function and give preference to new protocols.
 
-Thought I saw an earlier similar patch, but here is my take on it.
-
-diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
---- a/include/linux/skbuff.h	Thu Oct  2 10:01:36 2003
-+++ b/include/linux/skbuff.h	Thu Oct  2 10:01:36 2003
-@@ -885,7 +885,7 @@
-  */
- static inline unsigned char *skb_pull(struct sk_buff *skb, unsigned int len)
- {
--	return (len > skb->len) ? NULL : __skb_pull(skb, len);
-+	return unlikely(len > skb->len) ? NULL : __skb_pull(skb, len);
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Thu Oct  2 10:01:13 2003
++++ b/net/core/dev.c	Thu Oct  2 10:01:13 2003
+@@ -1489,6 +1489,18 @@
+ 	}
  }
  
- extern unsigned char *__pskb_pull_tail(struct sk_buff *skb, int delta);
-@@ -901,7 +901,7 @@
++static __inline__ int deliver_skb(struct sk_buff *skb,
++				  struct packet_type *pt_prev, int last)
++{
++	if (unlikely(!pt_prev->data))
++		return deliver_to_old_ones(pt_prev, skb, last);
++	else {
++		atomic_inc(&skb->users);
++		return pt_prev->func(skb, skb->dev, pt_prev);
++	}
++}
++
++
+ #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
+ int (*br_handle_frame_hook)(struct sk_buff *skb);
  
- static inline unsigned char *pskb_pull(struct sk_buff *skb, unsigned int len)
+@@ -1496,15 +1508,8 @@
+ 				     struct packet_type *pt_prev)
  {
--	return (len > skb->len) ? NULL : __pskb_pull(skb, len);
-+	return unlikely(len > skb->len) ? NULL : __pskb_pull(skb, len);
- }
+ 	int ret = NET_RX_DROP;
+-
+-	if (pt_prev) {
+-		if (!pt_prev->data)
+-			ret = deliver_to_old_ones(pt_prev, skb, 0);
+-		else {
+-			atomic_inc(&skb->users);
+-			ret = pt_prev->func(skb, skb->dev, pt_prev);
+-		}
+-	}
++	if (pt_prev)
++		ret = deliver_skb(skb, pt_prev, 0);
  
- static inline int pskb_may_pull(struct sk_buff *skb, unsigned int len)
-@@ -1052,7 +1052,7 @@
- 					      int gfp_mask)
- {
- 	struct sk_buff *skb = alloc_skb(length + 16, gfp_mask);
--	if (skb)
-+	if (likely(skb))
- 		skb_reserve(skb, 16);
- 	return skb;
+ 	return ret;
  }
+@@ -1552,16 +1557,8 @@
+ 	rcu_read_lock();
+ 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
+ 		if (!ptype->dev || ptype->dev == skb->dev) {
+-			if (pt_prev) {
+-				if (!pt_prev->data) {
+-					ret = deliver_to_old_ones(pt_prev,
+-								  skb, 0);
+-				} else {
+-					atomic_inc(&skb->users);
+-					ret = pt_prev->func(skb, skb->dev,
+-							    pt_prev);
+-				}
+-			}
++			if (pt_prev) 
++				ret = deliver_skb(skb, pt_prev, 0);
+ 			pt_prev = ptype;
+ 		}
+ 	}
+@@ -1574,27 +1571,15 @@
+ 	list_for_each_entry_rcu(ptype, &ptype_base[ntohs(type)&15], list) {
+ 		if (ptype->type == type &&
+ 		    (!ptype->dev || ptype->dev == skb->dev)) {
+-			if (pt_prev) {
+-				if (!pt_prev->data) {
+-					ret = deliver_to_old_ones(pt_prev,
+-								  skb, 0);
+-				} else {
+-					atomic_inc(&skb->users);
+-					ret = pt_prev->func(skb, skb->dev,
+-							    pt_prev);
+-				}
+-			}
++			if (pt_prev) 
++				ret = deliver_skb(skb, pt_prev, 0);
+ 			pt_prev = ptype;
+ 		}
+ 	}
+ 
+-	if (pt_prev) {
+-		if (!pt_prev->data) {
+-			ret = deliver_to_old_ones(pt_prev, skb, 1);
+-		} else {
+-			ret = pt_prev->func(skb, skb->dev, pt_prev);
+-		}
+-	} else {
++	if (pt_prev)
++		ret = deliver_skb(skb, pt_prev, 1);
++	else {
+ 		kfree_skb(skb);
+ 		/* Jamal, now you will not able to escape explaining
+ 		 * me how you were going to use this. :-)
