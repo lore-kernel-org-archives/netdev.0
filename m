@@ -1,63 +1,50 @@
-From: Stephen Frost <sfrost@snowman.net>
-Subject: [IPSEC] Too many SADs!
-Date: Mon, 21 Mar 2005 09:52:23 -0500
-Message-ID: <20050321145223.GA5834@ns.snowman.net>
+From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: [15/*] [INET] Fix IPsec calculation in ip_append_data/ip6_append_data
+Date: Mon, 21 Mar 2005 18:14:07 +0200
+Message-ID: <423EF2CF.7020403@kolumbus.fi>
+References: <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <20050306213214.7d8a143d.davem@davemloft.net> <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au> <20050314105313.GA21001@gondor.apana.org.au> <20050314111002.GA29156@gondor.apana.org.au> <20050315091904.GA6256@gondor.apana.org.au> <20050316113149.GA10960@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8bit
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050316113149.GA10960@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Greetings,
+Herbert Xu wrote:
 
-  This seems to be the right place for Linux 2.6 ipsec issues:
+>Hi Dave:
+>
+>On Tue, Mar 15, 2005 at 08:19:04PM +1100, herbert wrote:
+>  
+>
+>>This patch fixes the IPsec overhead handling in ip_append_data and
+>>ip6_append_data.  As it is they assume that the IPsec overhead is
+>>constant.  This is not true as with ESP the IPsec overhead will vary
+>>as the MTU varies.
+>>    
+>>
+>
+>This patch is wrong.  This is the *one* place where we do need to
+>use the path MTU.  The reason is that when the packet is fragmented
+>we only pay for the IPsec overhead once over all and not once for
+>each fragment.
+>
+>Please revert it for now.
+>
+>The trailer_len in ip_append_data is not quite right as the trailer's
+>length depends on the length of the entire packet.  However, it should
+>be harmless since ESP knows how to extend the packet when necessary.
+>
+>Thanks,
+>  
+>
+Shouldn't ip_output also use the path variant, dst_mtu(skb->dst->path), 
+it's surely after ipsec- processing?
 
-  Linux 2.6.10 + Virtual Server 1.9.4 + Patrick's IPSEC Netfilter patches
-  i386 & amd64 (same source for both)
-  Debian Racoon & ipsec-tools 0.5-4
-  Setting policies using setkey (not using racoon-tool)
-  Using both transport and tunnels
-
-  Problem:
-
-  ===# setkey -D | grep '^[0-9]' | wc -l
-  recv: Resource temporarily unavailable
-  443
-  ===# setkey -D | grep mature | wc -l     
-  recv: Resource temporarily unavailable
-  443
-  ===# setkey -D | grep tunnel | wc -l     
-  recv: Resource temporarily unavailable
-  18
-  ===# setkey -D | grep transport | wc -l
-  recv: Resource temporarily unavailable
-  425
-  ===# ps auwx | grep racoon
-  root     17722  3.8  2.0 178268 168252 ?       Ss   Mar20  28:39 /usr/sbin/racoon
-  ===# setkey -D -P | grep '^[0-9]' | wc -l
-  34
-  ===# setkey -D -P | grep transport | wc -l
-  20
-  ===# setkey -D -P | grep tunnel | wc -l   
-  14
-
-  I've seen the number of tunnel SADs go up a bunch too on another
-  machine.  I see that there's been some changes in 2.6.11.3 (or so?)
-  wrt IPSEC and __xfrm_state_find_acq_byseq(), would that likely fix
-  this problem?  I don't tend to use /unique:x but rather /require; in
-  my policies, would changing that fix this?  I had originally been
-  using a /24 for my transport policy and thought changing that to be a
-  bunch of /32 policies for the specific machines I'm talking to would
-  help- it didn't.
-
-  Occationally (generally when I first get ipsec going between a couple
-  machines) I see pmtu problems which kill that ssh, but after that it
-  works.  Not a big deal but I see alot of MTU discussion and patches,
-  is that expected to be in 2.6.12?
-
-  	Thanks for any help,
-
-		Stephen
+--Mika
