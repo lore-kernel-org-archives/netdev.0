@@ -1,71 +1,98 @@
-From: Herbert Poetzl <herbert@13thfloor.at>
-Subject: Re: Patch: add loglevel to printk's in net/ipv4/route.c
-Date: Thu, 30 Dec 2004 03:12:39 +0100
-Message-ID: <20041230021239.GA31474@mail.13thfloor.at>
-References: <Pine.LNX.4.61.0412290256000.3528@dragon.hygekrogen.localhost> <41D2104D.3010406@conectiva.com.br> <Pine.LNX.4.61.0412290312540.3528@dragon.hygekrogen.localhost> <41D2120E.8030008@conectiva.com.br> <20041229021256.GD29323@wohnheim.fh-wedel.de> <41D2152F.8080501@conectiva.com.br> <Pine.LNX.4.61.0412290344340.28589@dragon.hygekrogen.localhost> <Pine.LNX.4.61.0412300037310.3495@dragon.hygekrogen.localhost>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH PKT_SCHED 4/17]: Check TCA_ACT_KIND payload size _before_
+ copying it
+Date: Thu, 30 Dec 2004 04:39:33 +0100
+Message-ID: <41D37875.5020103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>,
-        Networking Team <netdev@oss.sgi.com>,
-        linux-net <linux-net@vger.kernel.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        linux-kernel <linux-kernel@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------070503010905070807000800"
+Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jesper Juhl <juhl-lkml@dif.dk>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0412300037310.3495@dragon.hygekrogen.localhost>
+To: jamal <hadi@cyberus.ca>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Dec 30, 2004 at 12:39:10AM +0100, Jesper Juhl wrote:
-> On Wed, 29 Dec 2004, Jesper Juhl wrote:
->=20
-> > On Wed, 29 Dec 2004, Arnaldo Carvalho de Melo wrote:
-> >=20
-> > >=20
-> > >=20
-> > > J=F6rn Engel wrote:
-> > > > On Wed, 29 December 2004 00:10:22 -0200, Arnaldo Carvalho de Melo=
- wrote:
-> > > >=20
-> > > > > > It doesn't make much difference, it's mostly for
-> > > > > > completeness/correctness.
-> > > > >=20
-> > > > > No, it does a helluva difference, give it a try :-)
-> > > >=20
-> > > >=20
-> > > > hint: look for "\n"
-> > >=20
-> > > hint2: Or the _lack_ of "\n" 8)
-> > >=20
-> >=20
-> > Ok, obviously something's wrong, but it's currently 03:44 here, so I'=
-ll=20
-> > take a look at it tomorrow (or quite possibly the day after since I h=
-ave=20
-> > things to do).
-> > Thank you for commenting, I'll dig into it at the first oppotunity I =
-have.
-> >=20
-> >=20
-> Ok, this is a bit embarresing. Looking at the patch now after getting s=
-ome=20
-> sleep it's quite obvious that it is wrong. I should have slept on it=20
-> before sending it - sorry for the noise people.
+This is a multi-part message in MIME format.
+--------------070503010905070807000800
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-nothing to be sorry about, and thanks for all
-the work you are doing for the linux kernel ...
+Fix payload size checks like this one:
 
-best,
-Herbert
+-                       sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+-                       if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+-                               printk("Action %s bad\n", 
+(char*)RTA_DATA(kind))
 
-> --=20
-> Jesper Juhl
->=20
->=20
->=20
->=20
+
+--------------070503010905070807000800
+Content-Type: text/x-patch;
+ name="04.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="04.diff"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/12/30 01:45:41+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Check TCA_ACT_KIND payload size _before_ copying it
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/act_api.c
+#   2004/12/30 01:45:35+01:00 kaber@coreworks.de +6 -14
+#   [PKT_SCHED]: Check TCA_ACT_KIND payload size _before_ copying it
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/sched/act_api.c b/net/sched/act_api.c
+--- a/net/sched/act_api.c	2004-12-30 04:01:10 +01:00
++++ b/net/sched/act_api.c	2004-12-30 04:01:10 +01:00
+@@ -288,11 +288,9 @@
+ 			goto err_out;
+ 		kind = tb[TCA_ACT_KIND-1];
+ 		if (kind != NULL) {
+-			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+-			if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+-				printk("Action %s bad\n", (char*)RTA_DATA(kind));
++			if (RTA_PAYLOAD(kind) >= IFNAMSIZ)
+ 				goto err_out;
+-			}
++			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+ 		} else {
+ 			printk("Action bad kind\n");
+ 			goto err_out;
+@@ -503,12 +501,9 @@
+ 		goto err_out;
+ 	kind = tb[TCA_ACT_KIND-1];
+ 	if (kind != NULL) {
+-		sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+-		if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+-			printk("tcf_action_get_1: action %s bad\n",
+-			       (char*)RTA_DATA(kind));
++		if (RTA_PAYLOAD(kind) >= IFNAMSIZ)
+ 			goto err_out;
+-		}
++		sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+ 	} else {
+ 		printk("tcf_action_get_1: action bad kind\n");
+ 		goto err_out;
+@@ -567,12 +562,9 @@
+ 	struct tc_action_ops *a_o = NULL;
+ 
+ 	if (kind != NULL) {
+-		sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+-		if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+-			printk("get_ao: action %s bad\n",
+-			       (char*)RTA_DATA(kind));
++		if (RTA_PAYLOAD(kind) >= IFNAMSIZ)
+ 			return NULL;
+-		}
++		sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+ 	} else {
+ 		printk("get_ao: action bad kind\n");
+ 		return NULL;
+
+--------------070503010905070807000800--
