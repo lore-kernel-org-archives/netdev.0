@@ -1,8 +1,8 @@
-From: James Bottomley <James.Bottomley@HansenPartnership.com>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
 Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
 	Topics
-Date: Mon, 28 Mar 2005 10:28:04 -0600
-Message-ID: <1112027284.5531.27.camel@mulgrave>
+Date: Mon, 28 Mar 2005 08:37:40 -0800
+Message-ID: <1112027860.19299.13.camel@mylaptop>
 References: <4241D106.8050302@cs.wisc.edu>
 	 <20050324101622S.fujita.tomonori@lab.ntt.co.jp>
 	 <1111628393.1548.307.camel@beastie>
@@ -17,18 +17,24 @@ References: <4241D106.8050302@cs.wisc.edu>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Rik van Riel <riel@redhat.com>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
-        mpm@selenic.com, andrea@suse.de, michaelc@cs.wisc.edu,
-        open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com
+Cc: Rik van Riel <riel@redhat.com>, mpm@selenic.com, andrea@suse.de,
+        michaelc@cs.wisc.edu, James.Bottomley@HansenPartnership.com,
+        ksummit-2005-discuss@thunk.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
+To: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>
 In-Reply-To: <m1zmwn21hk.fsf@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On Mon, 2005-03-28 at 18:12 +0200, Andi Kleen wrote:
+> Rik van Riel <riel@redhat.com> writes:
+> >    one for sending and one for receiving
+> > 2) have a global emergency mempool available to receive network
+> >    packets when GFP_ATOMIC fails - this is useful since we don't
+> >    know who a packet is for when we get the NIC interrupt, and
+> >    it's easy to have just one pool to check
+> 
 > This does not work because mempools assume you can sleep,
 > and in most NIC drivers you cant while doing RX refill.
 > The NIC drivers can be rewritten to do this refilling in
@@ -36,11 +42,7 @@ On Mon, 2005-03-28 at 18:12 +0200, Andi Kleen wrote:
 > Linux failing to allocate a buffer is no different from
 > the network overflowing the hardware queue of the network
 > device, which Linux cannot do anything about. 
-
-Actually, not in 2.6 ... we had the same issue in SCSI using mempools
-for sglist allocation.  All of the mempool alocation paths now take gfp_
-flags, so you can specify GFP_ATOMIC for interrupt context.
-
+> 
 > Basically a network consists of lots of interconnected
 > queues, and even if you try to make the Linux specific
 > side of the queue reliable there are lots of other queues
@@ -50,16 +52,27 @@ flags, so you can specify GFP_ATOMIC for interrupt context.
 > a packet loss the packet is just retransmitted. 
 > 
 > So in short using mempools on receiving is not needed.
+> 
+> Now memory allocation for writing is a different chapter.
+> You cannot recover from a lost writing.
+> The kernel currently goes even in endless loops in this
+> case (e.g. on TCP FIN allocation)
+> 
+> With the exception of routing the allocation fortunately 
+> usually happens there in:
+> - socket context: great you can use a per socket mempool
+> - thread context: you can sleep
+> 
+> With routing that is not the case, but it does not matter
+> because it typically does not allocate new packets, but
+> just sends out existing ones.
+> 
+> In short you need mempool only for TX. With some luck you even only
+> need them for the skbuff head and a small header buffer, since I would
+> expect iscsi TX to be typically zero copy for data and just passing
+> struct page *s around.
 
-The object isn't to make the queues *reliable* it's to ensure the system
-can make forward progress.  So all we're trying to ensure is that the
-sockets used to service storage have some probability of being able to
-send and receive packets during low memory.
-
-In your scenario, if we're out of memory and the system needs several
-ACK's to the swap device for pages to be released to the system, I don't
-see how we make forward progress since without a reserved resource to
-allocate from how does the ack make it up the stack to the storage
-driver layer?
-
-James
+that's always true for Open-iSCSI and for sfnet in FFP(rcf3720) but not
+for other implementations. moreover, if NIC does not support
+checksumming on Tx than sendpage() interface will fail to sendmsg()
+which will allocate new skb each time.
