@@ -1,84 +1,72 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: [PATCH 2.6] fix zombie netlink socket in user space
-Date: Sun, 19 Sep 2004 07:28:15 +0200
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: 2.6.8.1 IPv6 Routing Problem
+Date: Sun, 19 Sep 2004 09:46:05 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414D18EF.3080207@eurodev.net>
+Message-ID: <20040919074605.GJ6005@sunbeam.de.gnumonks.org>
+References: <20040918.084304.75142669.yoshfuji@linux-ipv6.org> <20040918220211.GI6005@sunbeam.de.gnumonks.org> <20040918180647.6be57884.davem@davemloft.net> <20040919.111141.42341294.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000100000407020505030203"
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="fUvfsPTz/SzOZDdw"
+Cc: davem@davemloft.net, netdev@oss.sgi.com, usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>, jamal <hadi@cyberus.ca>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040919.111141.42341294.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000100000407020505030203
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi Davem,
+--fUvfsPTz/SzOZDdw
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-If you try to bind/connect to a non existant netlink socket, client 
-socket gets succesfully inserted as head in the socket list. The problem 
-is that the head can't be delete, so that socket stays in the list 
-forever (see sk_del_node_init).
+On Sun, Sep 19, 2004 at 11:11:41AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ w=
+rote:
+=20
+> > On Sun, 19 Sep 2004 00:02:11 +0200
+> > Harald Welte <laforge@gnumonks.org> wrote:
+> >=20
+> > > Now I'm stuck with another issue:  The interfaces suddenly no logner
+> > > get any link-local addresses:
 
-If I'm missing something, please let me know. I'll submit a 2.4 version
+> I've run TAHI test on post-rc2 kernel,=20
+> and the result is as I expected.
+> I haven't met such issues...  hmm...
 
-regards,
-Pablo
+Apparently this happens when you=20
 
---------------000100000407020505030203
-Content-Type: text/x-patch;
- name="netlink-fix-zombie.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netlink-fix-zombie.patch"
+1) insmod ipv6
+2) ifconfig your interfaces up
+3) only now ifconfig 'lo' up.
 
-diff -u -r1.2 af_netlink.c
---- a/net/netlink/af_netlink.c	19 Sep 2004 04:41:12 -0000	1.2
-+++ b/net/netlink/af_netlink.c	19 Sep 2004 05:20:51 -0000
-@@ -306,6 +306,19 @@
- 	return 0;
- }
- 
-+static inline int netlink_socket_exist(int protocol)
-+{
-+	/* Wanna bind to an non-existant netlink socket? */
-+	netlink_table_grab();
-+	if (!sk_head(&nl_table[protocol])) {
-+		netlink_table_ungrab();
-+		return 0;
-+	}
-+	netlink_table_ungrab();
-+
-+	return 1;
-+}
-+
- static int netlink_autobind(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
-@@ -351,6 +364,9 @@
- 	if (nladdr->nl_family != AF_NETLINK)
- 		return -EINVAL;
- 
-+        if (!netlink_socket_exist(sk->sk_protocol))
-+		return -ENOENT;
-+
- 	/* Only superuser is allowed to listen multicasts */
- 	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_RECV))
- 		return -EPERM;
-@@ -392,6 +408,9 @@
- 	if (addr->sa_family != AF_NETLINK)
- 		return -EINVAL;
- 
-+        if (!netlink_socket_exist(sk->sk_protocol))
-+		return -ENOENT;
-+
- 	/* Only superuser is allowed to send multicasts */
- 	if (nladdr->nl_groups && !netlink_capable(sock, NL_NONROOT_SEND))
- 		return -EPERM;
+This happened due to a typo in my script :(  If 'lo' exists prior to the
+other interfaces, everything seems to work as usual.
 
---------------000100000407020505030203--
+Is this desired or accidential and/or documented behaviour?
+
+> --yoshfuji
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--fUvfsPTz/SzOZDdw
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBTTk9XaXGVTD0i/8RAvyPAKCqMWPz0lZgNAqmFPrJ+sfaBzZ/AwCcCix/
+o57zySwH07my7VMrCrOdNJg=
+=VIZ1
+-----END PGP SIGNATURE-----
+
+--fUvfsPTz/SzOZDdw--
