@@ -1,178 +1,39 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Restrict local IP announcements in ARP requests
-Date: Sat, 14 Feb 2004 14:03:06 +0200 (EET)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.58.0402141358550.1132@u.domain.uli>
-References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
- <20040209140853.69ab8bea.davem@redhat.com> <Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
- <20040209151053.1f63937a.davem@redhat.com> <Pine.LNX.4.58.0402100251380.1251@u.domain.uli>
- <20040211201656.4e4f708e.davem@redhat.com> <Pine.LNX.4.58.0402130138540.1149@u.domain.uli>
- <20040213232400.007a7436.davem@redhat.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: 2.6: QoS scheduling not working with IP-over-IP
+Date: 14 Feb 2004 07:45:58 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1076762757.1060.4.camel@jzny.localdomain>
+References: <Pine.LNX.4.44.0402101324350.810-100000@atlantis.knm.org.pl>
+	 <20040211200549.736fa8b3.davem@redhat.com>
+	 <1076561489.1032.65.camel@jzny.localdomain>
+	 <1076561998.1035.72.camel@jzny.localdomain>
+	 <1076562282.1033.76.camel@jzny.localdomain>
+	 <20040211211536.23e97997.davem@redhat.com>
+	 <1076563502.1031.85.camel@jzny.localdomain>
+	 <1076564638.1033.91.camel@jzny.localdomain>
+	 <20040211215142.7f817513.davem@redhat.com>
+	 <1076566176.1033.94.camel@jzny.localdomain>
+	 <20040211222259.776ad818.davem@redhat.com> <402D54D6.5070708@trash.net>
+	 <20040213213606.5a13cc76.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-104341899-1076760186=:1132"
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, qnex@atlantis.knm.org.pl,
+        netdev@oss.sgi.com, shemminger@osdl.org
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040213232400.007a7436.davem@redhat.com>
+In-Reply-To: <20040213213606.5a13cc76.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+On Sat, 2004-02-14 at 00:36, David S. Miller wrote:
 
---1607745702-104341899-1076760186=:1132
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+> However, I do agree with you, and we should not promote this kind of crap.
+> I'm going to revert the changeset that set tx_queue_len to 1 in the tunnels.
 
+I concur. But you gotta admit if that was a bug, it was the fastest
+fixed bug of the week ;->
 
-	Hello,
-
-On Fri, 13 Feb 2004, David S. Miller wrote:
-
-> > http://www.ssi.bg/~ja/arp_announce-2.6.2-4.diff
->
-> Ok, I eat this, please make a 2.4.x version against Marcelo's current tree.
-
-	Attached, against rc2 which looks enough.
-
-> The 2.6.x variant will go into 2.6.4-pre1 and the 2.4.x will go into 2.4.26-pre1
-
-	very good
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
---1607745702-104341899-1076760186=:1132
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.58.0402141403060.1132@u.domain.uli>
-Content-Description: arp_announce for 2.4.25-rc2
-Content-Disposition: attachment; filename="1.diff"
-
-ZGlmZiAtdXIgdjIuNC4yNS1yYzIvbGludXgvRG9jdW1lbnRhdGlvbi9uZXR3
-b3JraW5nL2lwLXN5c2N0bC50eHQgbGludXgvRG9jdW1lbnRhdGlvbi9uZXR3
-b3JraW5nL2lwLXN5c2N0bC50eHQNCi0tLSB2Mi40LjI1LXJjMi9saW51eC9E
-b2N1bWVudGF0aW9uL25ldHdvcmtpbmcvaXAtc3lzY3RsLnR4dAkyMDAzLTA2
-LTE0IDA4OjQxOjU5LjAwMDAwMDAwMCArMDMwMA0KKysrIGxpbnV4L0RvY3Vt
-ZW50YXRpb24vbmV0d29ya2luZy9pcC1zeXNjdGwudHh0CTIwMDQtMDItMTQg
-MTE6MDA6MzEuNTI4Nzk4MDg4ICswMjAwDQpAQCAtNDgxLDYgKzQ4MSwzNyBA
-QA0KIAljb25mL3thbGwsaW50ZXJmYWNlfS9hcnBfZmlsdGVyIGlzIHNldCB0
-byBUUlVFLA0KIAlpdCB3aWxsIGJlIGRpc2FibGVkIG90aGVyd2lzZQ0KIA0K
-K2FycF9hbm5vdW5jZSAtIElOVEVHRVINCisJRGVmaW5lIGRpZmZlcmVudCBy
-ZXN0cmljdGlvbiBsZXZlbHMgZm9yIGFubm91bmNpbmcgdGhlIGxvY2FsDQor
-CXNvdXJjZSBJUCBhZGRyZXNzIGZyb20gSVAgcGFja2V0cyBpbiBBUlAgcmVx
-dWVzdHMgc2VudCBvbg0KKwlpbnRlcmZhY2U6DQorCTAgLSAoZGVmYXVsdCkg
-VXNlIGFueSBsb2NhbCBhZGRyZXNzLCBjb25maWd1cmVkIG9uIGFueSBpbnRl
-cmZhY2UNCisJMSAtIFRyeSB0byBhdm9pZCBsb2NhbCBhZGRyZXNzZXMgdGhh
-dCBhcmUgbm90IGluIHRoZSB0YXJnZXQncw0KKwlzdWJuZXQgZm9yIHRoaXMg
-aW50ZXJmYWNlLiBUaGlzIG1vZGUgaXMgdXNlZnVsIHdoZW4gdGFyZ2V0DQor
-CWhvc3RzIHJlYWNoYWJsZSB2aWEgdGhpcyBpbnRlcmZhY2UgcmVxdWlyZSB0
-aGUgc291cmNlIElQDQorCWFkZHJlc3MgaW4gQVJQIHJlcXVlc3RzIHRvIGJl
-IHBhcnQgb2YgdGhlaXIgbG9naWNhbCBuZXR3b3JrDQorCWNvbmZpZ3VyZWQg
-b24gdGhlIHJlY2VpdmluZyBpbnRlcmZhY2UuIFdoZW4gd2UgZ2VuZXJhdGUg
-dGhlDQorCXJlcXVlc3Qgd2Ugd2lsbCBjaGVjayBhbGwgb3VyIHN1Ym5ldHMg
-dGhhdCBpbmNsdWRlIHRoZQ0KKwl0YXJnZXQgSVAgYW5kIHdpbGwgcHJlc2Vy
-dmUgdGhlIHNvdXJjZSBhZGRyZXNzIGlmIGl0IGlzIGZyb20NCisJc3VjaCBz
-dWJuZXQuIElmIHRoZXJlIGlzIG5vIHN1Y2ggc3VibmV0IHdlIHNlbGVjdCBz
-b3VyY2UNCisJYWRkcmVzcyBhY2NvcmRpbmcgdG8gdGhlIHJ1bGVzIGZvciBs
-ZXZlbCAyLg0KKwkyIC0gQWx3YXlzIHVzZSB0aGUgYmVzdCBsb2NhbCBhZGRy
-ZXNzIGZvciB0aGlzIHRhcmdldC4NCisJSW4gdGhpcyBtb2RlIHdlIGlnbm9y
-ZSB0aGUgc291cmNlIGFkZHJlc3MgaW4gdGhlIElQIHBhY2tldA0KKwlhbmQg
-dHJ5IHRvIHNlbGVjdCBsb2NhbCBhZGRyZXNzIHRoYXQgd2UgcHJlZmVyIGZv
-ciB0YWxrcyB3aXRoDQorCXRoZSB0YXJnZXQgaG9zdC4gU3VjaCBsb2NhbCBh
-ZGRyZXNzIGlzIHNlbGVjdGVkIGJ5IGxvb2tpbmcNCisJZm9yIHByaW1hcnkg
-SVAgYWRkcmVzc2VzIG9uIGFsbCBvdXIgc3VibmV0cyBvbiB0aGUgb3V0Z29p
-bmcNCisJaW50ZXJmYWNlIHRoYXQgaW5jbHVkZSB0aGUgdGFyZ2V0IElQIGFk
-ZHJlc3MuIElmIG5vIHN1aXRhYmxlDQorCWxvY2FsIGFkZHJlc3MgaXMgZm91
-bmQgd2Ugc2VsZWN0IHRoZSBmaXJzdCBsb2NhbCBhZGRyZXNzDQorCXdlIGhh
-dmUgb24gdGhlIG91dGdvaW5nIGludGVyZmFjZSBvciBvbiBhbGwgb3RoZXIg
-aW50ZXJmYWNlcywNCisJd2l0aCB0aGUgaG9wZSB3ZSB3aWxsIHJlY2VpdmUg
-cmVwbHkgZm9yIG91ciByZXF1ZXN0IGFuZA0KKwlldmVuIHNvbWV0aW1lcyBu
-byBtYXR0ZXIgdGhlIHNvdXJjZSBJUCBhZGRyZXNzIHdlIGFubm91bmNlLg0K
-Kw0KKwlUaGUgbWF4IHZhbHVlIGZyb20gY29uZi97YWxsLGludGVyZmFjZX0v
-YXJwX2Fubm91bmNlIGlzIHVzZWQuDQorDQorCUluY3JlYXNpbmcgdGhlIHJl
-c3RyaWN0aW9uIGxldmVsIGdpdmVzIG1vcmUgY2hhbmNlIGZvcg0KKwlyZWNl
-aXZpbmcgYW5zd2VyIGZyb20gdGhlIHJlc29sdmVkIHRhcmdldCB3aGlsZSBk
-ZWNyZWFzaW5nDQorCXRoZSBsZXZlbCBhbm5vdW5jZXMgbW9yZSB2YWxpZCBz
-ZW5kZXIncyBpbmZvcm1hdGlvbi4NCisNCiB0YWcgLSBJTlRFR0VSDQogCUFs
-bG93cyB5b3UgdG8gd3JpdGUgYSBudW1iZXIsIHdoaWNoIGNhbiBiZSB1c2Vk
-IGFzIHJlcXVpcmVkLg0KIAlEZWZhdWx0IHZhbHVlIGlzIDAuDQpkaWZmIC11
-ciB2Mi40LjI1LXJjMi9saW51eC9pbmNsdWRlL2xpbnV4L2luZXRkZXZpY2Uu
-aCBsaW51eC9pbmNsdWRlL2xpbnV4L2luZXRkZXZpY2UuaA0KLS0tIHYyLjQu
-MjUtcmMyL2xpbnV4L2luY2x1ZGUvbGludXgvaW5ldGRldmljZS5oCTIwMDQt
-MDItMTQgMTA6Mzc6MDYuMDAwMDAwMDAwICswMjAwDQorKysgbGludXgvaW5j
-bHVkZS9saW51eC9pbmV0ZGV2aWNlLmgJMjAwNC0wMi0xNCAxMTowMDozMS41
-NDk3OTQ4OTYgKzAyMDANCkBAIC0xOCw2ICsxOCw3IEBADQogCWludAltY19m
-b3J3YXJkaW5nOw0KIAlpbnQJdGFnOw0KIAlpbnQgICAgIGFycF9maWx0ZXI7
-DQorCWludAlhcnBfYW5ub3VuY2U7DQogCWludAltZWRpdW1faWQ7DQogCWlu
-dAlmb3JjZV9pZ21wX3ZlcnNpb247DQogCXZvaWQJKnN5c2N0bDsNCkBAIC02
-OSw2ICs3MCw3IEBADQogCSAgKGlwdjRfZGV2Y29uZi5hY2NlcHRfcmVkaXJl
-Y3RzIHx8IChpbl9kZXYpLT5jbmYuYWNjZXB0X3JlZGlyZWN0cykpKQ0KIA0K
-ICNkZWZpbmUgSU5fREVWX0FSUEZJTFRFUihpbl9kZXYpCShpcHY0X2RldmNv
-bmYuYXJwX2ZpbHRlciB8fCAoaW5fZGV2KS0+Y25mLmFycF9maWx0ZXIpDQor
-I2RlZmluZSBJTl9ERVZfQVJQX0FOTk9VTkNFKGluX2RldikJKG1heChpcHY0
-X2RldmNvbmYuYXJwX2Fubm91bmNlLCAoaW5fZGV2KS0+Y25mLmFycF9hbm5v
-dW5jZSkpDQogDQogc3RydWN0IGluX2lmYWRkcg0KIHsNCmRpZmYgLXVyIHYy
-LjQuMjUtcmMyL2xpbnV4L2luY2x1ZGUvbGludXgvc3lzY3RsLmggbGludXgv
-aW5jbHVkZS9saW51eC9zeXNjdGwuaA0KLS0tIHYyLjQuMjUtcmMyL2xpbnV4
-L2luY2x1ZGUvbGludXgvc3lzY3RsLmgJMjAwNC0wMi0xNCAxMDozNzowNi4w
-MDAwMDAwMDAgKzAyMDANCisrKyBsaW51eC9pbmNsdWRlL2xpbnV4L3N5c2N0
-bC5oCTIwMDQtMDItMTQgMTE6MDA6MzEuNTUwNzk0NzQ0ICswMjAwDQpAQCAt
-MzYwLDYgKzM2MCw3IEBADQogCU5FVF9JUFY0X0NPTkZfQVJQRklMVEVSPTEz
-LA0KIAlORVRfSVBWNF9DT05GX01FRElVTV9JRD0xNCwNCiAJTkVUX0lQVjRf
-Q09ORl9GT1JDRV9JR01QX1ZFUlNJT049MTcsDQorCU5FVF9JUFY0X0NPTkZf
-QVJQX0FOTk9VTkNFPTE4LA0KIH07DQogDQogLyogL3Byb2Mvc3lzL25ldC9p
-cHY0L25ldGZpbHRlciAqLw0KZGlmZiAtdXIgdjIuNC4yNS1yYzIvbGludXgv
-bmV0L2lwdjQvYXJwLmMgbGludXgvbmV0L2lwdjQvYXJwLmMNCi0tLSB2Mi40
-LjI1LXJjMi9saW51eC9uZXQvaXB2NC9hcnAuYwkyMDAzLTExLTI4IDIyOjA0
-OjE0LjAwMDAwMDAwMCArMDIwMA0KKysrIGxpbnV4L25ldC9pcHY0L2FycC5j
-CTIwMDQtMDItMTQgMTE6MDA6MzEuNTUxNzk0NTkyICswMjAwDQpAQCAtMzE3
-LDE1ICszMTcsNDAgQEANCiANCiBzdGF0aWMgdm9pZCBhcnBfc29saWNpdChz
-dHJ1Y3QgbmVpZ2hib3VyICpuZWlnaCwgc3RydWN0IHNrX2J1ZmYgKnNrYikN
-CiB7DQotCXUzMiBzYWRkcjsNCisJdTMyIHNhZGRyID0gMDsNCiAJdTggICpk
-c3RfaGEgPSBOVUxMOw0KIAlzdHJ1Y3QgbmV0X2RldmljZSAqZGV2ID0gbmVp
-Z2gtPmRldjsNCiAJdTMyIHRhcmdldCA9ICoodTMyKiluZWlnaC0+cHJpbWFy
-eV9rZXk7DQogCWludCBwcm9iZXMgPSBhdG9taWNfcmVhZCgmbmVpZ2gtPnBy
-b2Jlcyk7DQorCXN0cnVjdCBpbl9kZXZpY2UgKmluX2RldiA9IGluX2Rldl9n
-ZXQoZGV2KTsNCisNCisJaWYgKCFpbl9kZXYpDQorCQlyZXR1cm47DQogDQot
-CWlmIChza2IgJiYgaW5ldF9hZGRyX3R5cGUoc2tiLT5uaC5pcGgtPnNhZGRy
-KSA9PSBSVE5fTE9DQUwpDQorCXN3aXRjaCAoSU5fREVWX0FSUF9BTk5PVU5D
-RShpbl9kZXYpKSB7DQorCWRlZmF1bHQ6DQorCWNhc2UgMDoJCS8qIEJ5IGRl
-ZmF1bHQgYW5ub3VuY2UgYW55IGxvY2FsIElQICovDQorCQlpZiAoc2tiICYm
-IGluZXRfYWRkcl90eXBlKHNrYi0+bmguaXBoLT5zYWRkcikgPT0gUlROX0xP
-Q0FMKQ0KKwkJCXNhZGRyID0gc2tiLT5uaC5pcGgtPnNhZGRyOw0KKwkJYnJl
-YWs7DQorCWNhc2UgMToJCS8qIFJlc3RyaWN0IGFubm91bmNlbWVudHMgb2Yg
-c2FkZHIgaW4gc2FtZSBzdWJuZXQgKi8NCisJCWlmICghc2tiKQ0KKwkJCWJy
-ZWFrOw0KIAkJc2FkZHIgPSBza2ItPm5oLmlwaC0+c2FkZHI7DQotCWVsc2UN
-CisJCWlmIChpbmV0X2FkZHJfdHlwZShzYWRkcikgPT0gUlROX0xPQ0FMKSB7
-DQorCQkJLyogc2FkZHIgc2hvdWxkIGJlIGtub3duIHRvIHRhcmdldCAqLw0K
-KwkJCWlmIChpbmV0X2FkZHJfb25saW5rKGluX2RldiwgdGFyZ2V0LCBzYWRk
-cikpDQorCQkJCWJyZWFrOw0KKwkJfQ0KKwkJc2FkZHIgPSAwOw0KKwkJYnJl
-YWs7DQorCWNhc2UgMjoJCS8qIEF2b2lkIHNlY29uZGFyeSBJUHMsIGdldCBh
-IHByaW1hcnkvcHJlZmVycmVkIG9uZSAqLw0KKwkJYnJlYWs7DQorCX0NCisN
-CisJaWYgKGluX2RldikNCisJCWluX2Rldl9wdXQoaW5fZGV2KTsNCisJaWYg
-KCFzYWRkcikNCiAJCXNhZGRyID0gaW5ldF9zZWxlY3RfYWRkcihkZXYsIHRh
-cmdldCwgUlRfU0NPUEVfTElOSyk7DQogDQogCWlmICgocHJvYmVzIC09IG5l
-aWdoLT5wYXJtcy0+dWNhc3RfcHJvYmVzKSA8IDApIHsNCmRpZmYgLXVyIHYy
-LjQuMjUtcmMyL2xpbnV4L25ldC9pcHY0L2RldmluZXQuYyBsaW51eC9uZXQv
-aXB2NC9kZXZpbmV0LmMNCi0tLSB2Mi40LjI1LXJjMi9saW51eC9uZXQvaXB2
-NC9kZXZpbmV0LmMJMjAwNC0wMi0xNCAxMDozNzowNi4wMDAwMDAwMDAgKzAy
-MDANCisrKyBsaW51eC9uZXQvaXB2NC9kZXZpbmV0LmMJMjAwNC0wMi0xNCAx
-MTowMTozNy44NDU3MTYzODQgKzAyMDANCkBAIC0xMDU3LDcgKzEwNTcsNyBA
-QA0KIHN0YXRpYyBzdHJ1Y3QgZGV2aW5ldF9zeXNjdGxfdGFibGUNCiB7DQog
-CXN0cnVjdCBjdGxfdGFibGVfaGVhZGVyICpzeXNjdGxfaGVhZGVyOw0KLQlj
-dGxfdGFibGUgZGV2aW5ldF92YXJzWzE4XTsNCisJY3RsX3RhYmxlIGRldmlu
-ZXRfdmFyc1sxOV07DQogCWN0bF90YWJsZSBkZXZpbmV0X2RldlsyXTsNCiAJ
-Y3RsX3RhYmxlIGRldmluZXRfY29uZl9kaXJbMl07DQogCWN0bF90YWJsZSBk
-ZXZpbmV0X3Byb3RvX2RpclsyXTsNCkBAIC0xMTA2LDYgKzExMDYsOSBAQA0K
-IAl7TkVUX0lQVjRfQ09ORl9BUlBGSUxURVIsICJhcnBfZmlsdGVyIiwNCiAJ
-ICZpcHY0X2RldmNvbmYuYXJwX2ZpbHRlciwgc2l6ZW9mKGludCksIDA2NDQs
-IE5VTEwsDQogCSAmcHJvY19kb2ludHZlY30sDQorCXtORVRfSVBWNF9DT05G
-X0FSUF9BTk5PVU5DRSwgImFycF9hbm5vdW5jZSIsDQorCSAmaXB2NF9kZXZj
-b25mLmFycF9hbm5vdW5jZSwgc2l6ZW9mKGludCksIDA2NDQsIE5VTEwsDQor
-CSAmcHJvY19kb2ludHZlY30sDQogCXtORVRfSVBWNF9DT05GX0ZPUkNFX0lH
-TVBfVkVSU0lPTiwgImZvcmNlX2lnbXBfdmVyc2lvbiIsDQogCSAmaXB2NF9k
-ZXZjb25mLmZvcmNlX2lnbXBfdmVyc2lvbiwgc2l6ZW9mKGludCksIDA2NDQs
-IE5VTEwsDQogCSAmcHJvY19kb2ludHZlY30sDQo=
-
---1607745702-104341899-1076760186=:1132--
+cheers,
+jamal
