@@ -1,28 +1,33 @@
-From: Roland Dreier <roland@topspin.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [PATCH - RFC] [1/5] 64-bit network statistics - generic net
-Date: 05 Jul 2003 15:54:15 -0700
+Date: Sun, 6 Jul 2003 01:44:23 +0200
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <52r85437qg.fsf@topspin.com>
-References: <E19YtAq-0006Xf-00@calista.inka.de>
-	<200307051637.52252.jeffpc@optonline.net> <3F0737D1.5090109@pobox.com>
-	<200307051700.32533.jeffpc@optonline.net>
-	<20030705235131.A10511@electric-eye.fr.zoreil.com>
+Message-ID: <20030706014423.A11165@electric-eye.fr.zoreil.com>
+References: <E19YtAq-0006Xf-00@calista.inka.de> <200307051700.32533.jeffpc@optonline.net> <20030705235131.A10511@electric-eye.fr.zoreil.com> <200307051839.50327.jeffpc@optonline.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Sipek <jeffpc@optonline.net>, Jeff Garzik <jgarzik@pobox.com>,
+Cc: Jeff Garzik <jgarzik@pobox.com>,
 	Bernd Eckenfels <ecki@calista.eckenfels.6bone.ka-ip.net>,
 	linux-kernel@vger.kernel.org, Andrew Morton <akpm@digeo.com>,
 	Dave Jones <davej@codemonkey.org.uk>,
 	Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20030705235131.A10511@electric-eye.fr.zoreil.com>
+To: Jeff Sipek <jeffpc@optonline.net>
+Content-Disposition: inline
+In-Reply-To: <200307051839.50327.jeffpc@optonline.net>; from jeffpc@optonline.net on Sat, Jul 05, 2003 at 06:39:41PM -0400
 List-Id: netdev.vger.kernel.org
 
-    Francois> - the PCI bus don't/won't/can't handle multiple 10 Gb/s adapters
+Jeff Sipek <jeffpc@optonline.net> :
+[...]
+> P.S. I just looked up the cheapest gigabit copper I could find in 10 seconds, 
+> and I found: D-Link DGE-500T for $36.27 this is just 4 times the price of the 
+> cheapest fast ethernet I found on the same site (cdw.com - they are not the 
+> cheapest, but I like them)
 
-In a year, there will be 32-bit x86 systems with multiple 8X PCI
-Express slots (16 Gb/sec full duplex to each slot).  In five years,
-those systems will sell for $10 on Ebay.
+Please google around on the topic "nanog/gigabit/routing/linux" and read
+netdev archive again.
 
- - Roland
+It isn't _that_ simple.
+
+--
+Ueimor
