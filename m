@@ -1,55 +1,88 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Sean Hunter <sean@uncarved.com>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Tue, 11 Jun 2002 23:49:23 -0700
+Date: Wed, 12 Jun 2002 10:18:25 +0100
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae6r2o$n1j$2@main.gmane.org>
-References: <Pine.LNX.4.44.0206120930160.29780-100000@netcore.fi>
+Message-ID: <ae73ri$ndr$2@main.gmane.org>
+References: <20020609.213440.04716391.davem@redhat.com> <Pine.LNX.3.96.1020611183218.29598A-100000@gatekeeper.tmr.com> <20020611.204119.58650447.davem@redhat.com> <20020611235726.P25193@grendel.conscoop.ottawa.on.ca> <20020612012004.A15773@mark.mielke.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark Mielke <mark@mark.mielke.cc>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Richard Guy Briggs <rgb@conscoop.ottawa.on.ca>,
+   "David S. Miller" <davem@redhat.com>, davidsen@tmr.com,
+   greearb@candelatech.com, cfriesen@nortelnetworks.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
+To: Mark Mielke <mark@mark.mielke.cc>
+Content-Disposition: inline
+In-Reply-To: <20020612012004.A15773@mark.mielke.cc>; from mark@mark.mielke.cc on Wed, Jun 12, 2002 at 01:20:04AM -0400
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 12, 2002 at 01:20:04AM -0400, Mark Mielke wrote:
+> On Tue, Jun 11, 2002 at 11:57:26PM -0400, Richard Guy Briggs wrote:
+> > Basically Bill, if you don't like this policy, fork the code. That
+> > is one of the strengths (and weaknesses) of open source. If your
+> > tree works better and gets wider use, then something about it must
+> > be better. If not, then maybe it wasn't. This community works on
+> > reputation capital (and some diplomacy).
+>
+> To some degree (i.e. I know it is not intentional), this comes across
+> as blackmail.
+>
+> Sorta like "if you want to play ball with me, you play by my rules,
+> otherwise you can go find your own diamond and your own friends to
+> play with."
+>
+> I would still like to see David's logic as to why the approach is bad.
+
+Perhaps the reason David Miller is the network stack maintainer is that
+he can see things that you can't see? The onus is on you (as proposer)
+to show _him_ that a change is worthwhile, not the other way round.
+Don't be confused into thinking this is some sort of democracy.
+
+> So far it amounts to 1) David doesn't like it, 2) David doesn't see a
+> need for it, or can see other less adequate methods of approximating
+> the same effect, and 3) David suspects that it will effect the
+> performance of all users to provide a limited gain for some
+> applications.
+
+Yup. What you've left out is:
+
+4)David has demonstrated that he knows his stuff by high-quality work
+  over a long period of time
+5)You haven't.
+6)Because he is the network maintainer you need to convince him and you
+  haven't done so.
+
+> 'Reputation capital' is earned. I would like to see it 'earned' in
+> practice given a real requirement from a real developer on a real
+> world class application.
+>
+> Statements such as 'the most important thing I do is say no', don't
+> convince me that a reputation is deserved. The extreme of this is that
+> an automaton could say no to everything.
+
+Bollocks. Its plainly ridiculous to impugne David Miller and imply his
+reputation isn't earned. You or I or your straw automaton could say
+"no", but it doesn't mean anyone will listen.
+
+Furthermore, I would propose that the Linux TCP/IP networking stack is "world
+class" and has earned David Miller (and others) a fair bit of "reputation
+capital", and that's why he (and not you or I) is where he is.
+
+> Yes, I might be testing David... is it fair? Well, the requirement was
+> fair, so how could it not be fair?
+>
+> I (and Bill) are just asking for some logic to show us where we are
+> wrong. Linus can pull the "I'm god, and that's that" gig. Fine. How
+> far does the godhead extend? Who else can pull this gig?
+
+Show why it should be in the main tree and not just a debugging patch.
+
+> I am waiting in anticipation to be shown the error of my ways using
+> proper logic and iron clad reasoning... :-)
+
+I think its more like Dave M et al are waiting for someone to show the
+slightest bit of evidence to say this isn't better off as just a
+debugging patch rather than just waving hands and talking bollocks.
 
 
-Pekka Savola wrote:
-
-> On Tue, 11 Jun 2002, Ben Greear wrote:
-> 
->>If they are useful to some people, and have zero performance affect on others
->>(due to being a configurable kernel feature), then what is your
->>complaint?
->>
-> 
-> 3) Added features and complexity makes it more difficult to maintain the 
-> kernel (you could say this is a variant of 1)
-
-
-Adding counters to structures generally is not going to increase
-complexity (especially when you comment the code).  It would increase
-the code size slightly.
-
-The code to bump the counters should also be extremely simple
-(surely we don't drop packets in more than just a few places).
-
-So, in this case, the increase in complexity seems pretty minimal.
-
-
-> 4) Patches that have only a little debugging/etc. value are probably 
-> useful, but mainly for a specific set of people, and this would seem to be 
-> best handled by external patches.
-
-
-External-only patches almost always rot, and are extremely hard to really
-share across organizations.  Still, point taken.
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Sean
