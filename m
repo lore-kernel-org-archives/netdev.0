@@ -1,32 +1,30 @@
 From: Ralph Doncaster <ralph@istop.com>
-Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 09:18:37 -0400 (EDT)
+Subject: Re: Route cache performance tests
+Date: Tue, 10 Jun 2003 09:34:15 -0400 (EDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.51.0306100916330.26498@ns.istop.com>
-References: <008001c32eda$56760830$4a00000a@badass> <20030609195652.E35696@shell.cyberus.ca>
- <Pine.LNX.4.51.0306092006420.12038@ns.istop.com> <20030609204257.L35799@shell.cyberus.ca>
- <Pine.LNX.4.51.0306092200150.28167@ns.istop.com> <20030610043453.GC23009@netnation.com>
- <20030610072444.Q37105@shell.cyberus.ca>
+Message-ID: <Pine.LNX.4.51.0306100928070.26498@ns.istop.com>
+References: <20030610075732.GD23009@netnation.com>
 Reply-To: ralph+d@istop.com
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Simon Kirby <sim@netnation.com>,
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>, CIT/Paul <xerox@foonet.net>,
+	"'David S. Miller'" <davem@redhat.com>,
+	"fw@deneb.enyo.de" <fw@deneb.enyo.de>,
 	"netdev@oss.sgi.com" <netdev@oss.sgi.com>,
 	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030610072444.Q37105@shell.cyberus.ca>
+To: Simon Kirby <sim@netnation.com>
+In-Reply-To: <20030610075732.GD23009@netnation.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2003, Jamal Hadi wrote:
+On Tue, 10 Jun 2003, Simon Kirby wrote:
 
-> As a side note, note that stateless forwarding like BSD patricie tries
-> is no longer sufficient. Its no longer just looking up a nexthop, dec ttl,
-> recompute csum that we are optimizing for.
+> Running with vanilla 2.4.21-rc7 (for now), the kernel manages to forward
+> an amazing 39,000 packets per second.  Woohoo!
 
-It would certainly be sufficient for core routing.  If I can have flow
-manipulation at no extra cost, I'll take it.  If it's going to double the
-horsepower requirements, I don't want it.
+I hope that's sarcasm.  I know if you posted to NANOG saying it took a
+dual 1.4Ghz Opteron to route 39kpps under linux you'd be laughed off the
+list.  Maybe I should be bragging about my 3-minute lap times on the
+Shannonville track in my M5!
 
 -Ralph
-
