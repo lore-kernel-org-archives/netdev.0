@@ -1,95 +1,74 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: some bluetooth fixes
-Date: Sat, 07 Feb 2004 12:13:31 +0100
+From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
+Date: Sat, 07 Feb 2004 12:45:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1076152411.14418.73.camel@pegasus>
-References: <20040206050042.20a2b3b0.ak@suse.de>
-	 <1076079512.2806.40.camel@pegasus>  <20040207032428.56ffbebc.ak@suse.de>
+Message-ID: <4024C1D5.5030906@kolumbus.fi>
+References: <4023D6FB.9010909@kolumbus.fi>	<20040207.131455.27570445.yoshfuji@linux-ipv6.org>	<4024A488.60203@kolumbus.fi> <20040207.192804.29120956.yoshfuji@linux-ipv6.org> <4024C0EA.1010904@kolumbus.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-        viro@zenII.linux.org.uk
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: YOSHIFUJI Hideaki / ???? <yoshfuji@linux-ipv6.org>, kazunori@miyazawa.org,
+        davem@redhat.com, netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040207032428.56ffbebc.ak@suse.de>
+To: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+In-Reply-To: <4024C0EA.1010904@kolumbus.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Andi,
 
-> > > diff -u linux-2.6.2-work32/net/bluetooth/hci_sock.c-o linux-2.6.2-work32/net/bluetooth/hci_sock.c
-> > > --- linux-2.6.2-work32/net/bluetooth/hci_sock.c-o	2004-02-05 08:09:54.000000000 +0100
-> > > +++ linux-2.6.2-work32/net/bluetooth/hci_sock.c	2004-02-05 14:57:59.000000000 +0100
-> > > @@ -392,6 +392,8 @@
-> > >  
-> > >  	skb->pkt_type = *((unsigned char *) skb->data);
-> > >  	skb_pull(skb, 1);
-> > > +	/* AK: looks broken. Who guarantees that hdev doesn't go away while
-> > > +	   the skb is queued ? */
-> > >  	skb->dev = (void *) hdev;
-> > >  
-> > >  	if (skb->pkt_type == HCI_COMMAND_PKT) {
-> > 
-> > Why should hdev go away?
-> 
-> Because the skbuff is queued, but there is no reference count to keep the device around.
-> I wasn't 100% sure on that, so I just commented it. Feel free to remove if you think
-> it's correct.
 
-The queue itself is part of the hdev structure and the only call that
-let hdev go away is hci_unregister_dev and this clears the queue. So I
-don't see a problem here.
+Mika Penttil=E4 wrote:
 
-> > > diff -u linux-2.6.2-work32/net/bluetooth/hci_conn.c-o linux-2.6.2-work32/net/bluetooth/hci_conn.c
-> > > --- linux-2.6.2-work32/net/bluetooth/hci_conn.c-o	2004-02-05 08:09:54.000000000 +0100
-> > > +++ linux-2.6.2-work32/net/bluetooth/hci_conn.c	2004-02-05 15:06:10.000000000 +0100
-> > > @@ -353,21 +353,24 @@
-> > >  	struct hci_conn_info *ci;
-> > >  	struct hci_dev *hdev;
-> > >  	struct list_head *p;
-> > > -	int n = 0, size;
-> > > +	int n = 0, size, err;
-> > >  
-> > >  	if (copy_from_user(&req, (void *) arg, sizeof(req)))
-> > >  		return -EFAULT;
-> > >  
-> > > -	if (!(hdev = hci_dev_get(req.dev_id)))
-> > > -		return -ENODEV;
-> > > +	if (req.conn_num >= (2*PAGE_SIZE)/sizeof(struct hci_conn_info))
-> > > +		return -EINVAL; 
-> > >  
-> > >  	size = req.conn_num * sizeof(struct hci_conn_info) + sizeof(req);
-> > >  
-> > > -	if (verify_area(VERIFY_WRITE, (void *)arg, size))
-> > > -		return -EFAULT;
-> > > -
-> > >  	if (!(cl = (void *) kmalloc(size, GFP_KERNEL)))
-> > >  		return -ENOMEM;
-> > > +
-> > > +	if (!(hdev = hci_dev_get(req.dev_id))) { 
-> > > +		kfree(cl);
-> > > +		return -ENODEV;
-> > > +	}
-> > > +
-> > >  	ci = cl->conn_info;
-> > >  
-> > >  	hci_dev_lock_bh(hdev);
-> > 
-> > Why 2*PAGE_SIZE in this case? What is different?
-> 
-> It's just an arbitary number. Mainly to stop overflow attacks on 
-> user controlled values. e.g. user can pass UINT_MAX for conn_num.
-> The kmalloc would overflow and succeed. But a later loop running
-> through the values could do wrong things on the too small buffer.
-> The code seems to not be vunerable to this, but only by luck.
-> 
-> Also in general it's good practice to stop user controlled kmalloc
-> at a reasonable size.
+>
+>
+> YOSHIFUJI Hideaki / ???? wrote:
+>
+>> In article <4024A488.60203@kolumbus.fi> (at Sat, 07 Feb 2004 10:40:40=20
+>> +0200), Mika Penttil=E4 <mika.penttila@kolumbus.fi> says:
+>>
+>> =20
+>>
+>>>> The ip6_output2() resolves and inserts link-layer address=20
+>>>> appropriately.
+>>>> If it did, we would have noticed (by conformance test or even by
+>>>> usual operation). ;-)
+>>>>
+>>>>
+>>>>    =20
+>>>
+>>> ip6_output2() doesn't resolve link-layer addresses. We don't even=20
+>>> have a neighbour, in
+>>> ndisc_dst_alloc(dev, NULL, ip6_output2); case.
+>>>  =20
+>>
+>>
+>> ip6_output2() calls ip6_output_flinish().
+>> ip6_output_finish() calls dst->hh->hh_output() if hh is already built.
+>> Otherwise, dst->neighbour->output() is called and it resolves=20
+>> link-layer address of neighbor.
+>>
+>> I think you missed our ndsic_dst_alloc() change.
+>> ndisc_dst_alloc() takes 4 argument:
+>>   struct dst_entry *ndisc_dst_alloc(struct net_device *dev,=20
+>>                                     struct neighbour *neigh,
+>>                                     struct in6_addr *addr,
+>>                                     int (*output)(struct sk_buff *));
+>> If neigh is NULL, we do ndisc_get_neigh(dev, addr) to get one.
+>>
+>> =20
+>>
+> hmm. where is this ndisc_dst_alloc() change? In the patch it's called=20
+> with three params, only the output routine is changed :
+>
+> - dst =3D ndisc_dst_alloc(dev, NULL, ndisc_output);
+> + dst =3D ndisc_dst_alloc(dev, NULL, ip6_output2);
+>
+>
+> --Mika
+>
+I see, it was in a follow-up patch. Ok, I was just looking at the=20
+original patch, which didn't work. But with this ndisc_dst_alloc()=20
+change it's ok.
 
-I check this. Maybe we have more of them. What do you propose as max
-size value for kmalloc? 2*PAGE_SIZE or 4*PAGE_SIZE?
-
-Regards
-
-Marcel
+Thanks,
+--Mika
