@@ -1,34 +1,26 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Sun, 6 Feb 2005 18:00:50 +1100
-Message-ID: <20050206070050.GF16057@gondor.apana.org.au>
-References: <20050206.133723.124822665.yoshfuji@linux-ipv6.org> <20050205210411.7e18b8e6.davem@davemloft.net> <20050206.143107.39728239.yoshfuji@linux-ipv6.org> <20050206.145007.34543324.yoshfuji@linux-ipv6.org>
+Subject: Re: [NET] Add barriers for dst refcnt
+Date: Sun, 6 Feb 2005 18:04:03 +1100
+Message-ID: <20050206070403.GA5996@gondor.apana.org.au>
+References: <20050204073311.GA11716@gondor.apana.org.au> <20050205172101.7874e1dd.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, mirko.parthey@informatik.tu-chemnitz.de,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shemminger@osdl.org
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Cc: netdev@oss.sgi.com, anton@samba.org
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050206.145007.34543324.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20050205172101.7874e1dd.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Feb 06, 2005 at 02:50:07PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+On Sat, Feb 05, 2005 at 05:21:01PM -0800, David S. Miller wrote:
 > 
-> Which means in addrconf_notiry(), if the dev == &loopback_dev,
-> call addrconf_ifdown for every device like this:
+> I "think" the dst_release() case is theoretical.  dst_release()
+> runs in a locked context for the thing referencing 'dst'.  Be it
+> the route hash, a socket, whatever.
 
-This should fix the reported issue.  However, I'm not sure if it's
-a good idea to stop all IP traffic when lo goes down.  We don't do
-that for IPv4.
-
-Besides, we'll still need to fix the rt6i_idev GC issue since the
-same bug can occur when eth0 goes down and some appliation is holding
-a dst to a local address route.  It can become a dead-lock if the
-said application then invokes a syscall that takes the RTNL.
-
-Cheers,
+Unless dst_run_gc takes the same lock as the context doing the
+dst_release you'll still be in trouble :)
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
