@@ -1,282 +1,185 @@
-From: Yee-Ting Li <Yee-Ting.Li@nuim.ie>
-Subject: Re: [RFT] BIC TCP delayed ack compensation
-Date: Wed, 23 Feb 2005 15:28:11 +0000
-Message-ID: <30e5e2bfd9abecff57302b43f46d0aef@may.ie>
-References: <050QTJA12@server5.heliogroup.fr>
- <20050209105909.17da40a9@dxpl.pdx.osdl.net>
- <20050222135046.23f7ec7d@dxpl.pdx.osdl.net> <421BC278.90400@ev-en.org>
- <aba19f09a13718465b3e72debe0c406e@may.ie>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Frequent Oops on Shutdown 2.6.10
+Date: Thu, 24 Feb 2005 01:41:48 +0900 (JST)
+Message-ID: <20050224.014148.47626020.yoshfuji@linux-ipv6.org>
+References: <20050222101526.GA5814@gondor.apana.org.au>
+	<20050223.183555.80618945.yoshfuji@linux-ipv6.org>
+	<20050223095144.GB16820@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Stephen Hemminger <shemminger@osdl.org>,
-        Yee-Ting Li <Yee-Ting.Li@nuim.ie>, Baruch Even <baruch@ev-en.org>,
-        Doug Leith <doug.leith@nuim.ie>
-In-reply-to: <aba19f09a13718465b3e72debe0c406e@may.ie>
-To: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, akpm@osdl.org, herbert@gondor.apana.org.au,
+        yoshfuji@linux-ipv6.org
+To: davem@davemloft.net, AndyLiebman@aol.com, terryg@axian.com
+In-Reply-To: <20050223095144.GB16820@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Opps! checking through the code, i've realised that i forgot to 
-increment the incrs_applied counter to account for burst moderation. 
-Please find enclosed the correct (full) implementation of RFC3465 (the 
-only change from the previous is the addition of incrs_applied++ in the 
-while loop).
+In article <20050223095144.GB16820@gondor.apana.org.au> (at Wed, 23 Feb 2005 20:51:44 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
- From our tests with Linux receivers, this burst moderation will make a 
-difference at very high speeds (>200Mbit/sec) as they do not always 
-acknowledge for every other packet.
+> You need to check whether icmpv6[0] is NULL either here or in
+> snmp6_mib_free.  Otherwise when snmp6_alloc_dev fails we'll
+> wind up here and then call free_percpu on a pair of NULL pointers.
 
-Apologies for any inconvenience.
+Ok, right...
 
-Yee.
+Here's the (hopefuly) final one.
 
 
-On Feb 23, 2005, at 01:04, Yee-Ting Li wrote:
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-> On Feb 22, 2005, at 23:38, Baruch Even wrote:
->> We have a version of ABC (Appropriate Byte Counting) implementation 
->> of RFC 3465, which we hope to submit soon for inclusion in the kernel 
->> which should be a more appropriate solution for this. The RFC is a 
->> well defined standard whereas this patch has not received any 
->> reviewing by the networking community.
->
-> Please find enclosed a version of our implementation of RFC3465 ABC 
-> for Linux 2.6.11-rc4.
->
-> There is in-built protection, as defined by the RFC, to prevent large 
-> bursts of packets should acks arrive acknowledging more than abc_L 
-> packets (sysctl_tcp_abc_L). The entire abc patch can be switched on or 
-> off using sysctl_tcp_abc={1|0} respectively. As this is also a RFT, it 
-> is switched ON by default and has the abc_L value of 2 which MAY be 
-> used (according to the RFC).
->
-> Note that an abc_L of 1 will be more conservative than what is 
-> available with normal clocking of delayed acks. Note that there is 
-> currently no built in mechanism to prevent abc_L being set to over 2; 
-> the RFC defines that abc_L MUST NOT be greater than 2.
->
-> This patch also has the advantage of working for all protocols 
-> currently in the kernel (except vegas which doesn't require it).
->
-
-
-Signed-off-by: Yee-Ting Li <Yee-Ting.Li@may.ie>
-
-Index: linux-2.6.11-rc4/include/linux/sysctl.h
-===================================================================
---- linux-2.6.11-rc4.orig/include/linux/sysctl.h	Sun Feb 13 03:06:53 
-2005
-+++ linux-2.6.11-rc4/include/linux/sysctl.h	Tue Feb 22 23:48:30 2005
-@@ -344,6 +344,8 @@
-  	NET_TCP_DEFAULT_WIN_SCALE=105,
-  	NET_TCP_MODERATE_RCVBUF=106,
-  	NET_TCP_TSO_WIN_DIVISOR=107,
-+	NET_TCP_ABC=108,
-+	NET_TCP_ABC_L=109,
-  };
-
-  enum {
-Index: linux-2.6.11-rc4/include/linux/tcp.h
-===================================================================
---- linux-2.6.11-rc4.orig/include/linux/tcp.h	Sun Feb 13 03:06:23 2005
-+++ linux-2.6.11-rc4/include/linux/tcp.h	Tue Feb 22 23:39:41 2005
-@@ -366,6 +366,8 @@
-
-  	__u32	total_retrans;	/* Total retransmits for entire connection */
-
-+	__u32	bytes_acked;	/* Appropiate Byte Counting - RFC3465 */
-+	
-  	/* The syn_wait_lock is necessary only to avoid proc interface having
-  	 * to grab the main lock sock while browsing the listening hash
-  	 * (otherwise it's deadlock prone).
-Index: linux-2.6.11-rc4/include/net/tcp.h
-===================================================================
---- linux-2.6.11-rc4.orig/include/net/tcp.h	Sun Feb 13 03:05:28 2005
-+++ linux-2.6.11-rc4/include/net/tcp.h	Tue Feb 22 23:47:59 2005
-@@ -609,6 +609,10 @@
-  extern int sysctl_tcp_moderate_rcvbuf;
-  extern int sysctl_tcp_tso_win_divisor;
-
-+/* RFC3465 - ABC */
-+extern int sysctl_tcp_abc;
-+extern int sysctl_tcp_abc_L;
-+
-  extern atomic_t tcp_memory_allocated;
-  extern atomic_t tcp_sockets_allocated;
-  extern int tcp_memory_pressure;
-@@ -1366,6 +1370,7 @@
-  static inline void tcp_enter_cwr(struct tcp_sock *tp)
-  {
-  	tp->prior_ssthresh = 0;
-+	tp->bytes_acked=0;
-  	if (tp->ca_state < TCP_CA_CWR) {
-  		__tcp_enter_cwr(tp);
-  		tcp_set_ca_state(tp, TCP_CA_CWR);
-Index: linux-2.6.11-rc4/net/ipv4/sysctl_net_ipv4.c
-===================================================================
---- linux-2.6.11-rc4.orig/net/ipv4/sysctl_net_ipv4.c	Sun Feb 13 
-03:07:01 2005
-+++ linux-2.6.11-rc4/net/ipv4/sysctl_net_ipv4.c	Tue Feb 22 23:46:18 2005
-@@ -682,6 +682,22 @@
-  		.mode		= 0644,
-  		.proc_handler	= &proc_dointvec,
-  	},
-+    	{
-+		.ctl_name	= NET_TCP_ABC,
-+		.procname	= "tcp_abc",
-+		.data		= &sysctl_tcp_abc,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
-+    	{
-+		.ctl_name	= NET_TCP_ABC_L,
-+		.procname	= "tcp_abc_L",
-+		.data		= &sysctl_tcp_abc_L,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
-  	{ .ctl_name = 0 }
-  };
-
-Index: linux-2.6.11-rc4/net/ipv4/tcp.c
-===================================================================
---- linux-2.6.11-rc4.orig/net/ipv4/tcp.c	Sun Feb 13 03:05:50 2005
-+++ linux-2.6.11-rc4/net/ipv4/tcp.c	Tue Feb 22 23:28:28 2005
-@@ -1825,6 +1825,7 @@
-  	tp->packets_out = 0;
-  	tp->snd_ssthresh = 0x7fffffff;
-  	tp->snd_cwnd_cnt = 0;
-+	tp->bytes_acked = 0;
-  	tcp_set_ca_state(tp, TCP_CA_Open);
-  	tcp_clear_retrans(tp);
-  	tcp_delack_init(tp);
-Index: linux-2.6.11-rc4/net/ipv4/tcp_input.c
-===================================================================
---- linux-2.6.11-rc4.orig/net/ipv4/tcp_input.c	Tue Feb 22 23:27:44 2005
-+++ linux-2.6.11-rc4/net/ipv4/tcp_input.c	Wed Feb 23 15:18:57 2005
-@@ -92,6 +92,11 @@
-
-  int sysctl_tcp_moderate_rcvbuf = 1;
-
-+/* RFC 3465 - ABC */
-+int sysctl_tcp_abc = 1;
-+int sysctl_tcp_abc_L = 2;   /* The RFC definess 1 as being a more 
-conservative value */
-+			    /* that SHOULD be used, however, we use 2 as it MAY be used */
-+
-  /* Default values of the Vegas variables, in fixed-point representation
-   * with V_PARAM_SHIFT bits to the right of the binary point.
-   */
-@@ -1287,6 +1292,7 @@
-  	tp->snd_cwnd_cnt   = 0;
-  	tp->snd_cwnd_stamp = tcp_time_stamp;
-
-+	tp->bytes_acked = 0;
-  	tcp_clear_retrans(tp);
-
-  	/* Push undo marker, if it was plain RTO and nothing
-@@ -1945,6 +1951,8 @@
-  			TCP_ECN_queue_cwr(tp);
-  		}
-
-+		tp->bytes_acked = 0;
-+			
-  		tp->snd_cwnd_cnt = 0;
-  		tcp_set_ca_state(tp, TCP_CA_Recovery);
-  	}
-@@ -2100,6 +2108,25 @@
-  	tp->snd_cwnd_stamp = tcp_time_stamp;
-  }
-
-+/* This is a wrapper function to handle RFC3465 - ABC. As per the RFC, 
-the abc_L
-+ * value defines a burst moderation to prevent sending large bursts of 
-packets
-+ * should an ack acknowledge many packets. abc_L MUST NOT be larger 
-than 2. */
-+static __inline__ void reno_cong_avoid_abc( struct tcp_sock *tp, int 
-mss_now )
-+{
-+	int incrs_applied = 0;
-+	
-+	if (sysctl_tcp_abc && !tp->nonagle)
-+	{
-+		while (tp->bytes_acked > mss_now && incrs_applied < 
-sysctl_tcp_abc_L) {
-+			tp->bytes_acked -= mss_now;
-+			reno_cong_avoid( tp );
-+			incrs_applied++;
+===== include/net/ipv6.h 1.42 vs edited =====
+--- 1.42/include/net/ipv6.h	2005-01-15 06:30:07 +09:00
++++ edited/include/net/ipv6.h	2005-02-23 17:10:38 +09:00
+@@ -149,6 +149,8 @@
+ 
+ int snmp6_register_dev(struct inet6_dev *idev);
+ int snmp6_unregister_dev(struct inet6_dev *idev);
++int snmp6_alloc_dev(struct inet6_dev *idev);
++int snmp6_free_dev(struct inet6_dev *idev);
+ int snmp6_mib_init(void *ptr[2], size_t mibsize, size_t mibalign);
+ void snmp6_mib_free(void *ptr[2]);
+ 
+===== net/ipv6/addrconf.c 1.129 vs edited =====
+--- 1.129/net/ipv6/addrconf.c	2005-01-18 06:13:31 +09:00
++++ edited/net/ipv6/addrconf.c	2005-02-23 17:59:56 +09:00
+@@ -308,7 +308,7 @@
+ 		printk("Freeing alive inet6 device %p\n", idev);
+ 		return;
+ 	}
+-	snmp6_unregister_dev(idev);
++	snmp6_free_dev(idev);
+ 	kfree(idev);
+ }
+ 
+@@ -339,6 +339,16 @@
+ 		/* We refer to the device */
+ 		dev_hold(dev);
+ 
++		if (snmp6_alloc_dev(ndev) < 0) {
++			ADBG((KERN_WARNING
++				"%s(): cannot allocate memory for statistics; dev=%s.\n",
++				__FUNCTION__, dev->name));
++			neigh_parms_release(&nd_tbl, ndev->nd_parms);
++			ndev->dead = 1;
++			in6_dev_finish_destroy(ndev);
++			return NULL;
 +		}
-+	} else
-+		reno_cong_avoid( tp );
++
+ 		if (snmp6_register_dev(ndev) < 0) {
+ 			ADBG((KERN_WARNING
+ 				"%s(): cannot create /proc/net/dev_snmp6/%s\n",
+@@ -2013,6 +2023,10 @@
+ 		dev->ip6_ptr = NULL;
+ 		idev->dead = 1;
+ 		write_unlock_bh(&addrconf_lock);
++
++		/* Step 1.5: remove snmp6 entry */
++		snmp6_unregister_dev(idev);
++
+ 	}
+ 
+ 	/* Step 2: clear hash table */
+===== net/ipv6/af_inet6.c 1.88 vs edited =====
+--- 1.88/net/ipv6/af_inet6.c	2005-01-14 13:41:05 +09:00
++++ edited/net/ipv6/af_inet6.c	2005-02-24 00:58:11 +09:00
+@@ -652,8 +652,10 @@
+ {
+ 	if (ptr == NULL)
+ 		return;
+-	free_percpu(ptr[0]);
+-	free_percpu(ptr[1]);
++	if (ptr[0])
++		free_percpu(ptr[0]);
++	if (ptr[1])
++		free_percpu(ptr[1]);
+ 	ptr[0] = ptr[1] = NULL;
+ }
+ 
+===== net/ipv6/proc.c 1.25 vs edited =====
+--- 1.25/net/ipv6/proc.c	2004-07-08 07:17:29 +09:00
++++ edited/net/ipv6/proc.c	2005-02-24 01:00:44 +09:00
+@@ -201,33 +201,23 @@
+ 
+ int snmp6_register_dev(struct inet6_dev *idev)
+ {
+-	int err = -ENOMEM;
+ 	struct proc_dir_entry *p;
+ 
+ 	if (!idev || !idev->dev)
+ 		return -EINVAL;
+ 
+-	if (snmp6_mib_init((void **)idev->stats.icmpv6, sizeof(struct icmpv6_mib),
+-			   __alignof__(struct icmpv6_mib)) < 0)
+-		goto err_icmp;
++	if (!proc_net_devsnmp6)
++		return -ENOENT;
+ 
+-	if (!proc_net_devsnmp6) {
+-		err = -ENOENT;
+-		goto err_proc;
+-	}
+ 	p = create_proc_entry(idev->dev->name, S_IRUGO, proc_net_devsnmp6);
+ 	if (!p)
+-		goto err_proc;
++		return -ENOMEM;
++
+ 	p->data = idev;
+ 	p->proc_fops = &snmp6_seq_fops;
+ 
+ 	idev->stats.proc_dir_entry = p;
+ 	return 0;
+-
+-err_proc:
+-	snmp6_mib_free((void **)idev->stats.icmpv6);
+-err_icmp:
+-	return err;
+ }
+ 
+ int snmp6_unregister_dev(struct inet6_dev *idev)
+@@ -238,8 +228,6 @@
+ 		return -EINVAL;
+ 	remove_proc_entry(idev->stats.proc_dir_entry->name,
+ 			  proc_net_devsnmp6);
+-	snmp6_mib_free((void **)idev->stats.icmpv6);
+-
+ 	return 0;
+ }
+ 
+@@ -280,6 +268,17 @@
+ 
+ int snmp6_register_dev(struct inet6_dev *idev)
+ {
++	return 0;
 +}
 +
++int snmp6_unregister_dev(struct inet6_dev *idev)
++{
++	return 0;
++}
++#endif	/* CONFIG_PROC_FS */
 +
-  /* This is based on the congestion detection/avoidance scheme 
-described in
-   *    Lawrence S. Brakmo and Larry L. Peterson.
-   *    "TCP Vegas: End to end congestion avoidance on a global 
-internet."
-@@ -2322,12 +2349,15 @@
-  	tp->snd_cwnd_stamp = tcp_time_stamp;
-  }
++int snmp6_alloc_dev(struct inet6_dev *idev)
++{
+ 	int err = -ENOMEM;
+ 
+ 	if (!idev || !idev->dev)
+@@ -295,11 +294,10 @@
+ 	return err;
+ }
+ 
+-int snmp6_unregister_dev(struct inet6_dev *idev)
++int snmp6_free_dev(struct inet6_dev *idev)
+ {
+ 	snmp6_mib_free((void **)idev->stats.icmpv6);
+ 	return 0;
+ }
+ 
+-#endif
+ 
 
--static inline void tcp_cong_avoid(struct tcp_sock *tp, u32 ack, u32 
-seq_rtt)
-+static inline void tcp_cong_avoid(struct sock *sk, u32 ack, u32 
-seq_rtt)
-  {
-+    	struct tcp_sock *tp = tcp_sk(sk);
-+	int mss_now = tcp_current_mss(sk,1);
-+
-  	if (tcp_vegas_enabled(tp))
-  		vegas_cong_avoid(tp, ack, seq_rtt);
-  	else
--		reno_cong_avoid(tp);
-+		reno_cong_avoid_abc(tp, mss_now);
-  }
 
-  /* Restart timer after forward progress on connection.
-@@ -2890,6 +2920,9 @@
-  	if (before(ack, prior_snd_una))
-  		goto old_ack;
-
-+	if ( sysctl_tcp_abc && tp->ca_state < TCP_CA_CWR )
-+	    tp->bytes_acked += ack - prior_snd_una;	
-+	
-  	if (!(flag&FLAG_SLOWPATH) && after(ack, prior_snd_una)) {
-  		/* Window is constant, pure forward advance.
-  		 * No more checks are required.
-@@ -2940,12 +2973,12 @@
-  		if ((flag & FLAG_DATA_ACKED) &&
-  		    (tcp_vegas_enabled(tp) || prior_in_flight >= tp->snd_cwnd) &&
-  		    tcp_may_raise_cwnd(tp, flag))
--			tcp_cong_avoid(tp, ack, seq_rtt);
-+			tcp_cong_avoid(sk, ack, seq_rtt);
-  		tcp_fastretrans_alert(sk, prior_snd_una, prior_packets, flag);
-  	} else {
-  		if ((flag & FLAG_DATA_ACKED) &&
-  		    (tcp_vegas_enabled(tp) || prior_in_flight >= tp->snd_cwnd))
--			tcp_cong_avoid(tp, ack, seq_rtt);
-+			tcp_cong_avoid(sk, ack, seq_rtt);
-  	}
-
-  	if ((flag & FLAG_FORWARD_PROGRESS) || !(flag&FLAG_NOT_DUP))
-Index: linux-2.6.11-rc4/net/ipv4/tcp_minisocks.c
-===================================================================
---- linux-2.6.11-rc4.orig/net/ipv4/tcp_minisocks.c	Sun Feb 13 03:07:01 
-2005
-+++ linux-2.6.11-rc4/net/ipv4/tcp_minisocks.c	Tue Feb 22 23:28:28 2005
-@@ -769,6 +769,8 @@
-  		newtp->snd_cwnd = 2;
-  		newtp->snd_cwnd_cnt = 0;
-
-+		newtp->bytes_acked = 0;
-+
-  		newtp->frto_counter = 0;
-  		newtp->frto_highmark = 0;
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
