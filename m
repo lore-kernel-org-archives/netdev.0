@@ -1,29 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPSec Oops when deleting an ip address
-Date: Tue, 25 May 2004 11:01:18 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040525110118.13ef9d88.davem@redhat.com>
-References: <20040510134958.13691.qmail@mason.oriente.labs.it>
-	<20040521131950.GA20040@gondor.apana.org.au>
-	<20040521144346.7887dbf0.davem@redhat.com>
-	<20040524114751.GA28571@gondor.apana.org.au>
-	<20040525115220.GA15236@gondor.apana.org.au>
+Subject: Re: [IPSEC] Use add_timer instead of mod_timer in find_acq
+Date: Tue, 25 May 2004 11:02:44 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040525110244.6284b806.davem@redhat.com>
+References: <20040524115357.GA28827@gondor.apana.org.au>
+	<20040525121055.GA15690@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040525115220.GA15236@gondor.apana.org.au>
+In-Reply-To: <20040525121055.GA15690@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 May 2004 21:52:20 +1000
+On Tue, 25 May 2004 22:10:55 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> The same bug exists in xfrm_state_find.  This is actually used by
-> Openswan.  However, the larval state never actually matures with
-> Openswan so it only ever gets deleted by the timer which means that
-> the timer crash can't happen :) It becomes a (possible) memory leak
-> instead.
+> On Mon, May 24, 2004 at 09:53:57PM +1000, herbert wrote:
+> > 
+> > Here is a tiny optimisation to use add_timer instead of mod_timer
+> > on the create path in find_acq.
+> 
+> Here is the same optimisation for the creation path in xfrm_state_find.
+> It also fixes the timer so that it actually expires :)
 
-Looks good, applied.
+Also applied, thanks.
