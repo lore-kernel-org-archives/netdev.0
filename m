@@ -1,48 +1,26 @@
-From: Richard Hobbs <r.w.hobbs@durham.ac.uk>
-Subject: [PATCH 4 2.4.27] pcnet32: Add HomePNA parameter for 79C978.
-Date: Fri, 4 Feb 2005 00:42:07 +0000 (UTC)
-Message-ID: <loom.20050204T011847-673@post.gmane.org>
-References: <d50018af05020314451010c5eb@mail.gmail.com>
+From: Olaf Kirch <okir@suse.de>
+Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
+Date: Fri, 4 Feb 2005 12:16:49 +0100
+Message-ID: <20050204111649.GB32678@suse.de>
+References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050203142705.GA11318@krispykreme.ozlabs.ibm.com> <20050203203010.GA7081@gondor.apana.org.au> <20050203141901.5ce04c92.davem@davemloft.net> <20050203235044.GA8422@gondor.apana.org.au> <20050203164922.2627a112.davem@davemloft.net> <20050204012053.GA8949@gondor.apana.org.au> <20050203172357.670c3402.davem@davemloft.net> <20050204015539.GA9727@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, anton@samba.org,
+	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <20050204015539.GA9727@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Feb 04, 2005 at 12:55:39PM +1100, Herbert Xu wrote:
+> OK, here is the patch to do that.  Let's get rid of kfree_skb_fast
+> while we're at it since it's no longer used.
 
-I am trying to set up a hybrid network, part wired, part wireless and part
-homePNA (the building has some very thick walls and remote computers that can be
-reached by existing telephone wires). I am using Fedora core 3 with the 2.6.10
-kernel.  I have  checked the pcnet32.c code and the patch 4 2.4.27 appears to be
-there. 
+Thanks, I'll give that to the PPC folks and ask the to run with it.
 
-I load the pcnet32 module using:
-modprobe -v pcnet32 homepna=1
-
-I get reply:
-insmod /lib/modules/2.6.10-1.741_FC3/kernel/drivers/net/pcnet32.ko homepna=1
-
-Looks good.
-
-I then try to configure the network through the systems settings interface:
-eth0 is a e100 ethernet to my router/modem that is OK.
-Disconnecting eth0 to avoid any conflicts.
-
-eth1 should be the AMD79c978 card. Connecting with the telephone wire
-
-I set eth1 as an ethernet (I don't see an option for phoneline network)
-I have tried DHCP get the response on activating the network:
-Determining IP information for eth1 failed; no link present. Check cable.
-
-I have tried a static IP address, card activates but no device is detected at
-the modem/router.
-
-If I unload the module and reload without the homepna option, the card works
-fine with a standard ethernet cable.
-
-Any suggestions please.
-
-Thanks
-Richard Hobbs
+Regards,
+Olaf
+-- 
+Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
+okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
