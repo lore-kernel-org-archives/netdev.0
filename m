@@ -1,37 +1,31 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: no_arp
-Date: Fri, 26 Apr 2002 20:11:45 +0200 (MET DST)
-Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10204262005360.25945-100000@mausmaki.cosy.sbg.ac.at>
+From: Jim Castleberry <cjn@cypress.com>
+Subject: macsonic.c SONIC driver
+Date: Fri, 26 Apr 2002 14:08:43 -0600
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3CC9B3CB.83C7753E@cypress.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Thomas Bogendoerfer <tsbogend@alpha.franken.de>
 List-Id: netdev.vger.kernel.org
 
-hi list,
+I have a need for the macsonic.c driver on an old Mac PPC machine but
+it looks like the code has been broken for a long time.  I'm trying to
+figure out how it got broken and who might know more about it.
 
-is there a way to disable dynamic ARP on a specific interface
-during runtime. (i looked around the kernel sources, but must
-have missed it)
+Poking around in the CVS logs it looks like the damage happened around
+January, 2000.  About 400 of the 600 lines of macsonic.c changed,
+including a change from including "macsonic.h" to including "sonic.h".
+But the new code references a structure member sonic_local.sonic_desc,
+and as far as I can tell the struct sonic_local defined in sonic.h has
+never contained such a thing.  And macsonic.h doesn't exist any more.
+So to make a long story short, macsonic.c won't compile.
 
-'ifconfig eth? noarp' disables dynamic ARPing, but it also
-	seems to prevent writing to the ARP table itself
-	(and don't consult the ARP table at all)
-	- which is fine and the behaviour i would expect.
+Who knows more about this driver, how it got broken, and/or the easiest
+way to fix it?
 
-why i would like to have this feature nevertheless?
+Thanks,
 
-well, i would consider having a static ARP table better for
-certain networks (networks which are heavily frequented by
-people who want to "experiment") - this makes our host
-resistent to ARP poisoning (ok, we won't be standard conform,
-that's why i'd like to be able to control the behaviour 
-on runtime :)
-
-thanks for your help,
-
-	++dent
-
--- 
-in some way i do, and in some way i don't.
+Jim
