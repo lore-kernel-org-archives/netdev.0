@@ -1,35 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] allow setting mtu and txqlen via RTM_SETLINK and provide txqlen via RTM_GETLINK
-Date: Tue, 24 Aug 2004 14:04:42 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] add SCTP to xfrm_flowi_{sport,dport}()
+Date: Tue, 24 Aug 2004 23:04:09 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824120442.GA21296@postel.suug.ch>
-References: <20040824094952.GF21073@postel.suug.ch> <E1BzYMJ-000208-00@gondolin.me.apana.org.au>
+Message-ID: <20040824.230409.21312009.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
-        netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1BzYMJ-000208-00@gondolin.me.apana.org.au>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Herbert Xu <E1BzYMJ-000208-00@gondolin.me.apana.org.au> 2004-08-24 20:16
-> Please think about the meaning of the value.  Is anyone going to have a queue
-> bigger than 2^32?
-> 
-> And if the answer is yes, then please use u64.
+Hello.
 
-Can you please explain the actual reason for using a fixed width
-type when all existing numeric attributes use arch depedent types?
+(I'm not sure if ipsec is fully supported for sctp, but anyway,)
+I should not have made regression here.
 
-I agree with you, if it happens to be the reason, that it is easier for a
-userspace application to use fixed width types but we should change
-it for all attributes if the decision is made for this one.
+Thanks.
 
-I have more patches in my queue which would throw up the same question
-again. Therefore I'd like to see it discussed now and a decision to be
-made whether to use fixed width types or not.
+--yoshfuji
 
-   Thomas
+===== include/net/xfrm.h 1.66 vs edited =====
+--- 1.66/include/net/xfrm.h	2004-08-22 14:00:07 +09:00
++++ edited/include/net/xfrm.h	2004-08-24 22:55:30 +09:00
+@@ -428,6 +428,7 @@
+ 	switch(fl->proto) {
+ 	case IPPROTO_TCP:
+ 	case IPPROTO_UDP:
++	case IPPROTO_SCTP:
+ 		port = fl->fl_ip_sport;
+ 		break;
+ 	case IPPROTO_ICMP:
+@@ -447,6 +448,7 @@
+ 	switch(fl->proto) {
+ 	case IPPROTO_TCP:
+ 	case IPPROTO_UDP:
++	case IPPROTO_SCTP:
+ 		port = fl->fl_ip_dport;
+ 		break;
+ 	case IPPROTO_ICMP:
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
