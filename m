@@ -1,78 +1,33 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3278] New: Missing include statements
-Date: Thu, 26 Aug 2004 13:45:43 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040826134543.344f5c9d.akpm@osdl.org>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Kernel oops in ip6t_LOG.c:ip6_nexthdr
+Date: Thu, 26 Aug 2004 14:10:03 -0700
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040826141003.40229433.davem@redhat.com>
+References: <20040826113538.GE15409@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20040826113538.GE15409@suse.de>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+On Thu, 26 Aug 2004 13:35:39 +0200
+Olaf Kirch <okir@suse.de> wrote:
 
+> hdrptr is a u_int8_t **. What you really want to do here is
+> look at (*hdrptr)[1], but what the expression does is look at
+> *(hdrptr[1]). Unfortunately, hdrptr[1] is usually random garbage.
 
-Begin forwarded message:
+Good catch, patch applied (to 2.4.x too).
 
-Date: Thu, 26 Aug 2004 05:55:52 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3278] New: Missing include statements
-
-
-http://bugme.osdl.org/show_bug.cgi?id=3278
-
-           Summary: Missing include statements
-    Kernel Version: 2.6.9-rc1
-            Status: NEW
-          Severity: normal
-             Owner: laforge@gnumonks.org
-         Submitter: brix@gimp.org
-
-
-Distribution: Gentoo Linux
-
-Hardware Environment: IBM ThinkPad X31
-
-Software Environment:
-Linux sponge 2.6.8.1 #7 Wed Aug 25 22:37:20 CEST 2004 i686 Intel(R) Pentium(R) M
-processor 1300MHz GenuineIntel GNU/Linux
-
-Gnu C                  3.3.3
-Gnu make               3.80
-binutils               2.14.90.0.8
-util-linux             2.12
-mount                  2.12
-module-init-tools      3.0
-e2fsprogs              1.35
-pcmcia-cs              3.2.5
-PPP                    2.4.1
-nfs-utils              1.0.6
-Linux C Library        2.3.3
-Dynamic linker (ldd)   2.3.3
-Procps                 3.1.15
-Net-tools              1.60
-Kbd                    1.12
-Sh-utils               5.2.1
-Modules Loaded         arc4 ieee80211_crypt_wep crc32 usbhid eth1394 ds ipw2100
-firmware_class ieee80211 ieee80211_crypt ohci1394 ieee1394 yenta_socket
-pcmcia_core snd_intel8x0m snd_intel8x0 snd_ac97_codec snd_mpu401_uart
-snd_rawmidi snd_pcm_oss snd_pcm snd_page_alloc snd_timer snd_mixer_oss snd
-soundcore ibm_acpi
-
-Problem Description:
-
-The following files, perhaps more, should #include <linux/netfilter_ipv4.h> or
-symbols like NF_IP_PRE_ROUTING will be unknown.
-
-  net/ipv4/netfilter/ip_conntrack_proto_tcp.c
-  net/ipv4/netfilter/ip_conntrack_proto_udp.c
-  net/ipv4/netfilter/ip_conntrack_proto_icmp.c
-
-
-Steps to reproduce: Enable netfilter connection tracking and compile.
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+Thanks Olaf.
