@@ -1,44 +1,58 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Fri, 23 Jul 2004 10:53:24 -0700
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: 23 Jul 2004 15:57:49 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040723105324.458aa878@dell_ss3.pdx.osdl.net>
-References: <40F34740.5040100@trash.net>
-	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
-	<20040712205037.573411c0.davem@redhat.com>
-	<40F4862D.3070802@trash.net>
-	<40F4AC8B.40706@trash.net>
-	<20040721143110.4ab944bf.davem@redhat.com>
-	<41004F76.1080807@trash.net>
-	<20040722171752.341d2476.davem@redhat.com>
-	<41006150.9000702@trash.net>
-	<41014788.4070301@trash.net>
+Message-ID: <1090612669.1218.47.camel@jzny.localdomain>
+References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+	 <20040722.200426.99255296.yoshfuji@linux-ipv6.org>
+	 <1090593676.1128.25.camel@jzny.localdomain>
+	 <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com, devik@cdi.cz
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: shemminger@osdl.org, "David S. Miller" <davem@redhat.com>,
+        arekm@pld-linux.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41014788.4070301@trash.net>
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 23 Jul 2004 19:14:48 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Fri, 2004-07-23 at 11:00, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
 
-> Patrick McHardy wrote:
-> > I'm pretty sure x86, x86_64, alpha, sparc64, ppc64 and ia64 can
-> > be used. I'm not sure if the frequency of all ppcs is high enough,
-> > so I won't add support for them.
-> 
-> This is the patch for configurable clock source. I've double-checked
-> the arches, I think all mentioned above work fine. I've taken some text
-> from Stephen's patch for the help text .. thanks ;)
-> 
-> Dave, do you want me to provide patches for 2.4 as well ?
-> 
-> Regards
-> Patrick
-> 
+>=20
+> BTW, what's for rcnt etc.? I don't see the point.=20
+>=20
+> They're not (effectively) used in kernel.
 
-Looks great, glad to see this cleaned up.
+It is transported to user space for analysis of how to reorganize
+hash table optimally.
+
+> I'd suggest to remove these things and to maintain the original ABI.
+>=20
+> If rcnt etc. are for other purposes, such as statistics for userspace,
+> please allocate another structure / interface for it.
+
+I could send a separate TLV, i dont think this will resolve the problem
+of ABI breakage but it will be more of a cleans. Part of the counters i n=
+eed for analysis is in the
+key structure.
+
+> (And... cheking size is too strict;
+> we need to relax it to accept old binaries if we add something
+> at the tail of structure.)
+
+A lot of size checks for every structure at both kernel/userspace is
+needed. Not much is done today as is - which means old binaries may
+break when modified structures are transported to user space.
+I think one of the main challenges with the u32 structures is the keys[]
+table. In the future if we could make that a TLV it would help.=20
+We need not just be backward compatible but also forward compatible.
+
+I will do some testing when i get back next week to see if current patch
+breaks anything.
+
+cheers,
+jamal
