@@ -1,88 +1,51 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] e1000 - get rid of tx_lock
-Date: Wed, 9 Jun 2004 14:41:20 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040609144120.1655eee0@dell_ss3.pdx.osdl.net>
-References: <20040608102729.620dd1fc@dell_ss3.pdx.osdl.net>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [RFC] ethtool semantics
+Date: Wed, 9 Jun 2004 23:38:50 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040609213850.GA17243@k3.hellgate.ch>
+References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com> <20040608210809.GA10542@k3.hellgate.ch> <40C77C70.5070409@tmr.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeb Cramer <cramerj@intel.com>, John Ronciak <john.ronciak@intel.com>,
-        Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-In-Reply-To: <20040608102729.620dd1fc@dell_ss3.pdx.osdl.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, jgarzik@pobox.com,
+	netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265974AbUFIWPj@vger.kernel.org>
+To: Bill Davidsen <davidsen@tmr.com>
+Content-Disposition: inline
+In-Reply-To: <40C77C70.5070409@tmr.com>
 List-Id: netdev.vger.kernel.org
 
-The e1000 driver has an tx_lock which unneeded.  It is only used to protect
-the start/stop queue flags which are already handled by doing atomic bit operations.
-Also netif_wake_queue uses test_and_clear_bit so testing for stopped before
-calling it is unnecessary.
+On Wed, 09 Jun 2004 17:09:04 -0400, Bill Davidsen wrote:
+> cases forcing on both ends or just the NIC end results in a fully 
+> functional connection.
+> 
+> We usually do this with module parameters, but do use ethtool (or 
+> mii-tool) on occasion.
 
-Surprisingly, without this change the additional overhead causes my system
-to transmit timeout and never recover when using NAPI.  With the tx_lock removed,
-the ring doesn't fill and lockup. 
+<sigh> I just killed the module parameters in my via-rhine development
+tree. I suppose you don't use via-rhine!? :-) Nobody complained when
+the code was broken for the longest time, and the current design has
+all kinds of issues, not the least of which is a distinct lack of sane
+semantics for stuff like hotplug, interface renaming, etc.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+I'd prefer not to spend my time writing a clean implementation (or fixing
+up the current one) of a mechanism that is conceptually obsolete.
 
-diff -Nru a/drivers/net/e1000/e1000.h b/drivers/net/e1000/e1000.h
---- a/drivers/net/e1000/e1000.h	2004-06-09 14:35:23 -07:00
-+++ b/drivers/net/e1000/e1000.h	2004-06-09 14:35:23 -07:00
-@@ -208,7 +208,6 @@
- 
- 	/* TX */
- 	struct e1000_desc_ring tx_ring;
--	spinlock_t tx_lock;
- 	uint32_t txd_cmd;
- 	uint32_t tx_int_delay;
- 	uint32_t tx_abs_int_delay;
-diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
---- a/drivers/net/e1000/e1000_main.c	2004-06-09 14:35:23 -07:00
-+++ b/drivers/net/e1000/e1000_main.c	2004-06-09 14:35:23 -07:00
-@@ -691,7 +691,6 @@
- 
- 	atomic_set(&adapter->irq_sem, 1);
- 	spin_lock_init(&adapter->stats_lock);
--	spin_lock_init(&adapter->tx_lock);
- 
- 	return 0;
- }
-@@ -1733,7 +1732,6 @@
- 	unsigned int first, max_per_txd = E1000_MAX_DATA_PER_TXD;
- 	unsigned int max_txd_pwr = E1000_MAX_TXD_PWR;
- 	unsigned int tx_flags = 0;
--	unsigned long flags;
- 	unsigned int len = skb->len;
- 	int count = 0;
- 	unsigned int mss = 0;
-@@ -1777,15 +1775,12 @@
- 	if(adapter->pcix_82544)
- 		count += nr_frags;
- 	
--	spin_lock_irqsave(&adapter->tx_lock, flags);
- 	/* need: count +  2 desc gap to keep tail from touching 
- 	 * head, otherwise try next time */
- 	if(E1000_DESC_UNUSED(&adapter->tx_ring) < count + 2 ) {
- 		netif_stop_queue(netdev);
--		spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 		return 1;
- 	}
--	spin_unlock_irqrestore(&adapter->tx_lock, flags);
- 
- 	if(adapter->hw.mac_type == e1000_82547) {
- 		if(e1000_82547_fifo_workaround(adapter, skb)) {
-@@ -2208,12 +2203,8 @@
- 
- 	tx_ring->next_to_clean = i;
- 
--	spin_lock(&adapter->tx_lock);
--
--	if(cleaned && netif_queue_stopped(netdev) && netif_carrier_ok(netdev))
-+	if(cleaned)
- 		netif_wake_queue(netdev);
--
--	spin_unlock(&adapter->tx_lock);
- 
- 	return cleaned;
- }
+> >However, "silently ignoring" strikes me as a very poor choice, in
+> >stark contrast to Unix/Linux tradition. A user issues a command which
+> >cannot be executed and gets the same response that is used to indicate
+> >success!? What school of user interface design is that? How is that
+> >not confusing users? </rant>
+> 
+> Yah.
+> 
+> Seeing this happen while autonegotiation is in progress is a small and 
+> unlikely window of course!
+
+Hmm? It's not about autoneg being in progress, and it's not a race
+of any kind. If your NIC comes up with nway autoneg enabled, you must
+use ethtool to explicitly turn autoneg off before you can use ethtool
+duplex/speed options to force a media mode. However, if you try to force
+media with autoneg still enabled, your command will be silently ignored.
+It's up to the user to find out that the command failed and why.
+
+Roger
