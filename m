@@ -1,47 +1,72 @@
 From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: [e1000 2.6 9/11] Add PHY master/slave #define override
-Date: Mon, 8 Sep 2003 20:14:52 -0700 (PDT)
+Subject: [e1000 2.6 10/11] TxDescriptors -> 1024 default
+Date: Mon, 8 Sep 2003 20:14:57 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309081951150.1261-100000@localhost.localdomain>
+Message-ID: <Pine.LNX.4.44.0309081953510.1261-100000@localhost.localdomain>
 Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, <ricardoz@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-* Add PHY master/slave #define override to address link issues
-  with 82541/7 (rev2) against some low-end switches.  Forcing
-  master will improve the time-to-link against these switches.
+* Change the default number of Tx descriptors from 256 to 1024.
+  Data from [ricardoz@us.ibm.com] shows it's easy to overrun
+  the Tx desc queue.
 
-----------------
+-------------
 
-diff -Nuarp linux-2.6.0-test4/drivers/net/e1000/e1000.h linux-2.6.0-test4/drivers/net/e1000.new/e1000.h
---- linux-2.6.0-test4/drivers/net/e1000/e1000.h	2003-08-22 16:50:56.000000000 -0700
-+++ linux-2.6.0-test4/drivers/net/e1000.new/e1000.h	2003-09-08 09:13:16.000000000 -0700
-@@ -123,6 +123,11 @@ struct e1000_adapter;
+diff -Nuarp linux-2.6.0-test4/drivers/net/e1000/e1000_param.c linux-2.6.0-test4/drivers/net/e1000.new/e1000_param.c
+--- linux-2.6.0-test4/drivers/net/e1000/e1000_param.c	2003-08-22 16:57:59.000000000 -0700
++++ linux-2.6.0-test4/drivers/net/e1000.new/e1000_param.c	2003-09-08 09:13:12.000000000 -0700
+@@ -63,9 +63,10 @@ MODULE_PARM_DESC(X, S);
+ /* Transmit Descriptor Count
+  *
+  * Valid Range: 80-256 for 82542 and 82543 gigabit ethernet controllers
+- * Valid Range: 80-4096 for 82544
++ * Valid Range: 80-4096 for 82544 and newer
+  *
+- * Default Value: 256
++ * Default Value: 256 for 82542 and 82543 gigabit ethernet controllers
++ * Default Value: 1024 for 82544 and newer
+  */
  
- #define AUTO_ALL_MODES       0
- #define E1000_EEPROM_APME    0x0400
-+
-+#ifndef E1000_MASTER_SLAVE
-+/* Switch to override PHY master/slave setting */
-+#define E1000_MASTER_SLAVE	e1000_ms_hw_default
-+#endif
+ E1000_PARAM(TxDescriptors, "Number of transmit descriptors");
+@@ -73,7 +74,7 @@ E1000_PARAM(TxDescriptors, "Number of tr
+ /* Receive Descriptor Count
+  *
+  * Valid Range: 80-256 for 82542 and 82543 gigabit ethernet controllers
+- * Valid Range: 80-4096 for 82544
++ * Valid Range: 80-4096 for 82544 and newer
+  *
+  * Default Value: 256
+  */
+@@ -200,6 +201,7 @@ E1000_PARAM(InterruptThrottleRate, "Inte
+ #define MAX_TXD                      256
+ #define MIN_TXD                       80
+ #define MAX_82544_TXD               4096
++#define DEFAULT_82544_TXD           1024
  
- /* only works for sizes that are powers of 2 */
- #define E1000_ROUNDUP(i, size) ((i) = (((i) + (size) - 1) & ~((size) - 1)))
-diff -Nuarp linux-2.6.0-test4/drivers/net/e1000/e1000_main.c linux-2.6.0-test4/drivers/net/e1000.new/e1000_main.c
---- linux-2.6.0-test4/drivers/net/e1000/e1000_main.c	2003-08-22 16:54:23.000000000 -0700
-+++ linux-2.6.0-test4/drivers/net/e1000.new/e1000_main.c	2003-09-08 09:13:11.000000000 -0700
-@@ -641,6 +641,7 @@ e1000_sw_init(struct e1000_adapter *adap
- 	if(hw->media_type == e1000_media_type_copper) {
- 		hw->mdix = AUTO_ALL_MODES;
- 		hw->disable_polarity_correction = FALSE;
-+		hw->master_slave = E1000_MASTER_SLAVE;
- 	}
+ #define DEFAULT_RXD                  256
+ #define MAX_RXD                      256
+@@ -320,12 +322,15 @@ e1000_check_options(struct e1000_adapter
+ 		struct e1000_option opt = {
+ 			.type = range_option,
+ 			.name = "Transmit Descriptors",
+-			.err  = "using default of " __MODULE_STRING(DEFAULT_TXD),
+-			.def  = DEFAULT_TXD,
+ 			.arg  = { .r = { .min = MIN_TXD }}
+ 		};
+ 		struct e1000_desc_ring *tx_ring = &adapter->tx_ring;
+ 		e1000_mac_type mac_type = adapter->hw.mac_type;
++		opt.err = mac_type < e1000_82544 ?
++			"using default of " __MODULE_STRING(DEFAULT_TXD) :
++			"using default of " __MODULE_STRING(DEFAULT_82544_TXD);
++		opt.def = mac_type < e1000_82544 ?
++			DEFAULT_TXD : DEFAULT_82544_TXD;
+ 		opt.arg.r.max = mac_type < e1000_82544 ?
+ 			MAX_TXD : MAX_82544_TXD;
  
- 	atomic_set(&adapter->irq_sem, 1);
