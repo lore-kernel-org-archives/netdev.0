@@ -1,8 +1,8 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/5] PKT_SCHED: Introduce gen_replace_estimator
-Date: Thu, 7 Oct 2004 03:05:41 +0200
+Subject: [PATCH 4/5] PKT_SCHED: Use generic rate estimator
+Date: Thu, 7 Oct 2004 03:07:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041007010541.GD18621@postel.suug.ch>
+Message-ID: <20041007010709.GE18621@postel.suug.ch>
 References: <20041007010146.GA18621@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,39 +14,48 @@ In-Reply-To: <20041007010146.GA18621@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Introduces gen_replace_estimator.
+Adapts qdiscs to use generic estimator.
 
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-diff -Nru linux-2.6.9-rc3-bk6.orig/include/net/gen_stats.h linux-2.6.9-rc3-bk6/include/net/gen_stats.h
---- linux-2.6.9-rc3-bk6.orig/include/net/gen_stats.h	2004-10-06 14:19:13.000000000 +0200
-+++ linux-2.6.9-rc3-bk6/include/net/gen_stats.h	2004-10-06 20:34:13.000000000 +0200
-@@ -41,5 +41,8 @@
- 			     spinlock_t *stats_lock, struct rtattr *opt);
- extern void gen_kill_estimator(struct gnet_stats_basic *bstats,
- 			       struct gnet_stats_rate_est *rate_est);
-+extern int gen_replace_estimator(struct gnet_stats_basic *bstats,
-+				 struct gnet_stats_rate_est *rate_est,
-+				 spinlock_t *stats_lock, struct rtattr *opt);
+diff -Nru linux-2.6.9-rc3-bk6.orig/net/sched/sch_api.c linux-2.6.9-rc3-bk6/net/sched/sch_api.c
+--- linux-2.6.9-rc3-bk6.orig/net/sched/sch_api.c	2004-10-07 00:48:10.000000000 +0200
++++ linux-2.6.9-rc3-bk6/net/sched/sch_api.c	2004-10-07 00:46:34.000000000 +0200
+@@ -461,8 +461,8 @@
  
+ #ifdef CONFIG_NET_ESTIMATOR
+ 		if (tca[TCA_RATE-1])
+-			qdisc_new_estimator(&sch->stats, sch->stats_lock,
+-					    tca[TCA_RATE-1]);
++			gen_new_estimator(&sch->bstats, &sch->rate_est,
++				sch->stats_lock, tca[TCA_RATE-1]);
  #endif
-diff -Nru linux-2.6.9-rc3-bk6.orig/net/core/gen_estimator.c linux-2.6.9-rc3-bk6/net/core/gen_estimator.c
---- linux-2.6.9-rc3-bk6.orig/net/core/gen_estimator.c	2004-10-06 14:19:46.000000000 +0200
-+++ linux-2.6.9-rc3-bk6/net/core/gen_estimator.c	2004-10-06 20:33:43.000000000 +0200
-@@ -200,5 +200,16 @@
+ 		return sch;
  	}
+@@ -489,11 +489,9 @@
+ 			return err;
+ 	}
+ #ifdef CONFIG_NET_ESTIMATOR
+-	if (tca[TCA_RATE-1]) {
+-		qdisc_kill_estimator(&sch->stats);
+-		qdisc_new_estimator(&sch->stats, sch->stats_lock,
+-				    tca[TCA_RATE-1]);
+-	}
++	if (tca[TCA_RATE-1])
++		gen_replace_estimator(&sch->bstats, &sch->rate_est,
++			sch->stats_lock, tca[TCA_RATE-1]);
+ #endif
+ 	return 0;
  }
+diff -Nru linux-2.6.9-rc3-bk6.orig/net/sched/sch_generic.c linux-2.6.9-rc3-bk6/net/sched/sch_generic.c
+--- linux-2.6.9-rc3-bk6.orig/net/sched/sch_generic.c	2004-10-07 00:32:25.000000000 +0200
++++ linux-2.6.9-rc3-bk6/net/sched/sch_generic.c	2004-10-07 00:46:57.000000000 +0200
+@@ -465,7 +465,7 @@
+ 	struct Qdisc_ops  *ops = qdisc->ops;
  
-+int
-+gen_replace_estimator(struct gnet_stats_basic *bstats,
-+	struct gnet_stats_rate_est *rate_est, spinlock_t *stats_lock,
-+	struct rtattr *opt)
-+{
-+    gen_kill_estimator(bstats, rate_est);
-+    return gen_new_estimator(bstats, rate_est, stats_lock, opt);
-+}
-+    
-+
- EXPORT_SYMBOL(gen_kill_estimator);
- EXPORT_SYMBOL(gen_new_estimator);
-+EXPORT_SYMBOL(gen_replace_estimator);
+ #ifdef CONFIG_NET_ESTIMATOR
+-	qdisc_kill_estimator(&qdisc->stats);
++	gen_kill_estimator(&qdisc->bstats, &qdisc->rate_est);
+ #endif
+ 	write_lock(&qdisc_tree_lock);
+ 	if (ops->reset)
