@@ -1,69 +1,73 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [Bonding-devel] Re: [bonding] Add basic support for dynamic configuration of bond interfaces
-Date: Mon, 12 Jan 2004 17:44:14 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: netdev3 posted...
+Date: Mon, 12 Jan 2004 20:58:45 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDDCC@orsmsx402.jf.intel.com>
+Message-ID: <400350D5.2060707@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Jay Vosburgh" <fubar@us.ibm.com>, <bonding-devel@lists.sourceforge.net>,
-        <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+ boundary="------------040802030002030207090206"
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-Class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>, "Noam, Amir" <amir.noam@intel.com>
+To: Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I don't disagree with the overall goal of these patches, but 
-> I think we might need to pause a bit, and consider how best to 
-> configure, add, and remove bonding interfaces, if we are coming
-> up with a new interface.
+This is a multi-part message in MIME format.
+--------------040802030002030207090206
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Could sysfs be used for the bonding UI?  Seems like a natural fit.
-Something like:
 
-1) load bonding.o
+With a couple fixes (another bad one in r8169) and a couple little 
+things.  Changelog delta versus netdev2 attached.
 
-/sys/class/net/
-			eth0/
-			eth1/
-			add_bond		<< write-only file added
+The ppp header removal was Paul M's idea, but I took it farther, so it 
+still needs ack'ing from him (as ppp maintainer).
 
-2) Create a bond:
+Patch:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.1-bk1-netdev3.patch.bz2
 
-# echo "some params" >/sys/class/net/add_bond
+Full changelog:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.1-bk1-netdev3.log
 
-/sys/class/net/
-			eth0/
-			eth1/
-			bond0/
-				del_bond
-				add_if
-				del_if
-			add_bond
+Broken-out patches:
+http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/broken-out/
 
-3) Hook up the bond:
 
-# echo "eth0" >/sys/class/net/bond0/add_if
-# echo "eth1" >/sys/class/net/bond0/add_if
 
-/sys/class/net/
-			eth0/
-			eth1/
-			bond0/
-				-->eth0/
-				-->eth1/
-				del_bond
-				add_if
-				del_if
-			new_bond
+--------------040802030002030207090206
+Content-Type: text/plain;
+ name="changelog.txt"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="changelog.txt"
 
-4) Delete the bond:
+ChangeSet@1.1510.3.6, 2004-01-12 19:41:02-05:00, ak@muc.de
+  [PATCH] variable number of dummy devices
+  
+  Uses the new module_params that nobody else uses now.
 
-# echo "byebye" >/sys/class/net/bond0/del_bond
+ChangeSet@1.1510.15.54, 2004-01-12 17:27:00-05:00, jgarzik@redhat.com
+  Eliminate ancient and unused include/linux/{if_pppvar,ppp}.h.
+  
+  Well, unused except for one silly constant in isdn_ppp.c.
 
-Etc.  The whole kobject API is so clean, this should be trivial to code
-up.  Seems like VLAN and bridge modules could follow.
+ChangeSet@1.1510.6.21, 2004-01-12 17:21:23-05:00, akpm@osdl.org
+  [PATCH] fix netpoll printk bug
 
--scott
+ChangeSet@1.1510.9.18, 2004-01-12 17:19:54-05:00, romieu@fr.zoreil.com
+  [netdrvr r8169] fix rx counter masking bug
+
+ChangeSet@1.1510.15.53, 2004-01-11 01:19:14-05:00, viro@parcelfarce.linux.theplanet.co.uk
+  Remove unused and invalid 'struct ppp' definition from if_pppvar.h.
+
+ChangeSet@1.1510.10.3, 2004-01-11 01:09:34-05:00, viro@parcelfarce.linux.theplanet.co.uk
+  [netdrvr forcedeth] kfree -> free_netdev
+
+ChangeSet@1.1510.3.5, 2004-01-11 01:08:18-05:00, viro@parcelfarce.linux.theplanet.co.uk
+  [NET] fix leak in sch_teql
+  
+  Also note the fact that we're calling functions that may block,
+  while holding a local spinlock.
+
+
+--------------040802030002030207090206--
