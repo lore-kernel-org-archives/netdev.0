@@ -1,56 +1,54 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (5/11) ep7211_ir dongle -- module owner
-Date: Thu, 2 Oct 2003 15:28:12 -0700
+Subject: [PATCH] (6/11) esi dongle - module owner
+Date: Thu, 2 Oct 2003 15:25:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002152812.2bddb04d.shemminger@osdl.org>
+Message-ID: <20031002152557.59dec7ce.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: irda-users@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jean Tourrilhes <jt@bougret.hpl.hp.com>,
-        "David S. Miller"
- <davem@redhat.com>
+        "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert ep7211_ir dongle to use module owner.
+Convert ESI dongle to use module owner
 
-diff -Nru a/drivers/net/irda/ep7211_ir.c b/drivers/net/irda/ep7211_ir.c
---- a/drivers/net/irda/ep7211_ir.c	Thu Oct  2 15:10:34 2003
-+++ b/drivers/net/irda/ep7211_ir.c	Thu Oct  2 15:10:34 2003
-@@ -24,12 +24,12 @@
- static int  ep7211_ir_reset(struct irda_task *task);
+diff -Nru a/drivers/net/irda/esi.c b/drivers/net/irda/esi.c
+--- a/drivers/net/irda/esi.c	Thu Oct  2 15:10:36 2003
++++ b/drivers/net/irda/esi.c	Thu Oct  2 15:10:36 2003
+@@ -44,12 +44,12 @@
+ static int  esi_reset(struct irda_task *task);
  
  static struct dongle_reg dongle = {
 -	Q_NULL,
--	IRDA_EP7211_IR,
--	ep7211_ir_open,
--	ep7211_ir_close,
--	ep7211_ir_reset,
--	ep7211_ir_change_speed,
-+	.type = IRDA_EP7211_IR,
-+	.open = ep7211_ir_open,
-+	.close = ep7211_ir_close,
-+	.reset = ep7211_ir_reset,
-+	.change_speed = ep7211_ir_change_speed,
+-	IRDA_ESI_DONGLE,
+-	esi_open,
+-	esi_close,
+-	esi_reset,
+-	esi_change_speed,
++	.type = IRDA_ESI_DONGLE,
++	.open = esi_open,
++	.close = esi_close,
++	.reset = esi_reset,
++	.change_speed = esi_change_speed,
 +	.owner = THIS_MODULE,
  };
  
- static void ep7211_ir_open(dongle_t *self, struct qos_info *qos)
-@@ -47,8 +47,6 @@
- 		UART (interrupt #14). */
- 
- 	restore_flags(flags);
+ int __init esi_init(void)
+@@ -66,16 +66,12 @@
+ {
+ 	qos->baud_rate.bits &= IR_9600|IR_19200|IR_115200;
+ 	qos->min_turn_time.bits = 0x01; /* Needs at least 10 ms */
 -
 -	MOD_INC_USE_COUNT;
  }
  
- static void ep7211_ir_close(dongle_t *self)
-@@ -66,8 +64,6 @@
- 		reset them back to their original state. */
- 
- 	restore_flags(flags);
+ static void esi_close(dongle_t *dongle)
+ {		
+ 	/* Power off dongle */
+ 	dongle->set_dtr_rts(dongle->dev, FALSE, FALSE);
 -
 -	MOD_DEC_USE_COUNT;
  }
