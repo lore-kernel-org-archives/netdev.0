@@ -1,103 +1,128 @@
-From: Wichert Akkerman <wichert@wiggy.net>
-Subject: ipv6 tunnel stops accepting input
-Date: Tue, 11 Jan 2005 13:58:26 +0100
-Message-ID: <20050111125826.GA25169@wiggy.net>
+From: Christian Benvenuti <christian.benvenuti@libero.it>
+Subject: Default route selection and dead GW detection
+Date: Tue, 11 Jan 2005 14:03:50 -0800
+Message-ID: <1105481030.2809.4160.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have an interesting problem with an ipv6 tunnel, which has been
-present for some time now (at least 2.6.6 had the same problem, possibly
-older kernels as well).
+Hello,
+  I am looking at how Linux selects a default route (when
+multipath is not configured), and in particular I am looking at:
 
-When I connect to my machine through a tunnel a icmp port unreachable
-is returned:
+        fn_hash_select_default / fib_detect_death (kernel 2.6.9)
 
-13:39:39.320316 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: S 3800196387:3800196387(0) win 5760 <mss[|tcp]>
-13:39:39.320539 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 108: home.wiggy.net protocol 41 port 0 unreachable
+It seems to me this is the logic used:
 
-but once I do a ping6 from my machine to the outside world:
+  a) If there is only one default route defined (which would be the one
+     previously selected by <fn_hash_lookup> and saved in "res->fi"),
+     that one would be used.
 
-13:39:53.264393 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 1
-13:39:53.299071 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 1
+  b) If there is more than one route available, then:
 
-the tunnel suddenly accepts incoming traffic:
+     b1) the first default route whose next-hop is NUD_REACHABLE
+         is selected.
 
-13:40:00.324220 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: S 3800196387:3800196387(0) win 5760 <mss[|tcp]>
-13:40:00.325950 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: S 4249094159:4249094159(0) ack 3800196388 win 5712 <mss[|tcp]>
+     b2) if there is no NUD_REACHABLE GW, then
 
-If I do not generate any ipv6 for a while (I have not timed how long)
-things revert to the original state again and no incoming traffic is
-accepted until I generate some outgoing traffic.
+         b3) all eligible default routes are checked and the
+             last one with a NUD_VALID GW is selected
+             (if != fn_hash_last_dflt)
 
-More complete tcpdump is below.
+             b4) if there is no NUD_VALID GW, all default routes
+                 will be tried by <fn_hash_select_default>, one by
+                 one, from first one to last one.
 
-Wichert.
+Did I get the logic right? Supposing I did, I have a couple of
+questions about b3):
+
+1) why does b3) check for (!=fn_hash_last_dflt) ?
+   In other words, if you do not use the "fn_hash_last_dflt"
+   GW for sometime, and therefore its NUD states goes to
+   NUD_STALE, why would you select another NUD_VALID (but
+   not NUD_REACHABLE) GW?
+
+2) please see my second question below
+
+static int fib_detect_death(struct fib_info *fi, int order,
+			    struct fib_info **last_resort,
+                            int *last_idx)
+{
+	struct neighbour *n;
+	int state = NUD_NONE;
+
+	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
+	if (n) {
+		state = n->nud_state;
+		neigh_release(n);
+	}
+	if (state==NUD_REACHABLE)
+		return 0;
+	if ((state&NUD_VALID) && order != fn_hash_last_dflt)
+		return 0;
+
+/* Why does the block below keep updating <last_resort> and 
+ * <last_idx> even when they are already initialized?
+ * (e.g. from a previous invocation by <fn_hash_select_default>)
+ * Is it just to make code simpler?
+ */
+	if ((state&NUD_VALID) ||
+	    (*last_idx<0 && order > fn_hash_last_dflt)) {
+		*last_resort = fi;
+		*last_idx = order;
+	}
+	return 1;
+}
+
+I also have a doubt about how the "classic" configuration
+of multiple default routes coexists with a multipath default
+route.
+
+Since multiple default GW are configurable both with multiple
+
+  "route add default ..."
+
+commands, or with a single default multipath route like 
+
+  "ip route add default ..."
+
+am I correct if I say that those two forms are exclusive?
+
+You can configure default routes with both commands, the
+kernel does not complain, but it seems the routing routines 
+<ip_route_{input, output}_slow> do not take this possibility
+into account. 
+
+For example:
+
+- <ip_route_output_slow> selects the default route either
+  with <fib_select_multipath> or <fib_select_default>:
+
+  ...
+  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+	if (res.fi->fib_nhs > 1 && fl.oif == 0)
+		fib_select_multipath(&fl, &res);
+	else
+  #endif
+	if (!res.prefixlen && res.type == RTN_UNICAST && !fl.oif)
+		fib_select_default(&fl, &res);
+  ...
+
+- <ip_route_input_slow> does not call <fib_select_default>
+  at all:
+
+  ...
+  #ifdef CONFIG_IP_ROUTE_MULTIPATH
+	if (res.fi->fib_nhs > 1 && fl.oif == 0)
+		fib_select_multipath(&fl, &res);
+  #endif
+  ... 
 
 
-
-tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
-listening on eth1, link-type EN10MB (Ethernet), capture size 96 bytes
-13:39:39.320316 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: S 3800196387:3800196387(0) win 5760 <mss[|tcp]>
-13:39:39.320539 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 108: home.wiggy.net protocol 41 port 0 unreachable
-13:39:42.319721 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: S 3800196387:3800196387(0) win 5760 <mss[|tcp]>
-13:39:42.319917 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 108: home.wiggy.net protocol 41 port 0 unreachable
-13:39:44.374037 IP ipv6-tb.xs4all.net > home.wiggy.net: xs4all29.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: [|icmp6]
-13:39:44.374194 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 92: home.wiggy.net protocol 41 port 0 unreachable
-13:39:45.371013 IP ipv6-tb.xs4all.net > home.wiggy.net: xs4all29.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: [|icmp6]
-13:39:45.371164 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 92: home.wiggy.net protocol 41 port 0 unreachable
-13:39:46.371279 IP ipv6-tb.xs4all.net > home.wiggy.net: xs4all29.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: [|icmp6]
-13:39:46.371396 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 92: home.wiggy.net protocol 41 port 0 unreachable
-13:39:48.318920 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: S 3800196387:3800196387(0) win 5760 <mss[|tcp]>
-13:39:48.319037 IP home.wiggy.net > ipv6-tb.xs4all.net: icmp 108: home.wiggy.net protocol 41 port 0 unreachable
-13:39:53.264393 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 1
-13:39:53.299071 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 1
-13:39:53.372094 IP ipv6-tb.xs4all.net > home.wiggy.net: xs4all29.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: [|icmp6]
-13:39:53.372284 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > xs4all29.ipv6.xs4all.nl: [|icmp6]
-13:39:54.265389 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 2
-13:39:54.278987 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 2
-13:39:55.267149 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 3
-13:39:55.282790 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 3
-13:39:56.267934 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 4
-13:39:56.282112 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 4
-13:39:57.268716 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 5
-13:39:57.285870 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 5
-13:39:58.269504 IP home.wiggy.net > ipv6-tb.xs4all.net: tunnel29.ipv6.xs4all.nl > irc.ipv6.xs4all.nl: icmp6: echo request seq 6
-13:39:58.286670 IP ipv6-tb.xs4all.net > home.wiggy.net: irc.ipv6.xs4all.nl > tunnel29.ipv6.xs4all.nl: icmp6: echo reply seq 6
-13:40:00.324220 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: S 3800196387:3800196387(0) win 5760 <mss[|tcp]>
-13:40:00.325950 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: S 4249094159:4249094159(0) ack 3800196388 win 5712 <mss[|tcp]>
-13:40:00.346751 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: . ack 1 win 5760 <nop,nop,[|tcp]>
-13:40:00.398508 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 1:40(39) ack 1 win 45 <nop,nop,[|tcp]>
-13:40:00.438006 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: . ack 40 win 5760 <nop,nop,[|tcp]>
-13:40:00.438560 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 1:42(41) ack 40 win 5760 <nop,nop,[|tcp]>
-13:40:00.438904 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: . ack 42 win 45 <nop,nop,[|tcp]>
-13:40:00.469593 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 42:650(608) ack 40 win 5760 <nop,nop,[|tcp]>
-13:40:00.498866 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 40:584(544) ack 42 win 45 <nop,nop,[|tcp]>
-13:40:00.539856 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: . ack 650 win 55 <nop,nop,[|tcp]>
-13:40:00.571197 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 650:674(24) ack 584 win 6528 <nop,nop,[|tcp]>
-13:40:00.571858 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: . ack 674 win 55 <nop,nop,[|tcp]>
-13:40:00.595850 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 584:736(152) ack 674 win 55 <nop,nop,[|tcp]>
-13:40:00.627863 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 674:818(144) ack 736 win 7616 <nop,nop,[|tcp]>
-13:40:00.667764 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: . ack 818 win 55 <nop,nop,[|tcp]>
-13:40:00.680831 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 736:1200(464) ack 818 win 55 <nop,nop,[|tcp]>
-13:40:00.756581 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: . ack 1200 win 8704 <nop,nop,[|tcp]>
-13:40:00.762006 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 818:834(16) ack 1200 win 8704 <nop,nop,[|tcp]>
-13:40:00.762355 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: . ack 834 win 55 <nop,nop,[|tcp]>
-13:40:00.785322 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 834:882(48) ack 1200 win 8704 <nop,nop,[|tcp]>
-13:40:00.788806 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: . ack 882 win 55 <nop,nop,[|tcp]>
-13:40:00.793799 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 1200:1248(48) ack 882 win 55 <nop,nop,[|tcp]>
-13:40:00.821611 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: . ack 1248 win 8704 <nop,nop,[|tcp]>
-13:40:00.828011 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 882:946(64) ack 1248 win 8704 <nop,nop,[|tcp]>
-13:40:00.860787 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 1248:1328(80) ack 946 win 55 <nop,nop,[|tcp]>
-13:40:00.885253 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: P 946:1042(96) ack 1328 win 8704 <nop,nop,[|tcp]>
-13:40:00.885878 IP home.wiggy.net > ipv6-tb.xs4all.net: tornado.wiggy.net.ssh > 2001:960:6a6:1:240:caff:fe85:d77e.37399: P 1328:1408(80) ack 1042 win 55 <nop,nop,[|tcp]>
-13:40:00.952432 IP ipv6-tb.xs4all.net > home.wiggy.net: 2001:960:6a6:1:240:caff:fe85:d77e.37399 > tornado.wiggy.net.ssh: . ack 1408 win 8704 <nop,nop,[|tcp]>]
-
--- 
-Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
-http://www.wiggy.net/                   It is hard to make things simple.
+Thanks in advance
+-Christian
