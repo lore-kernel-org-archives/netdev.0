@@ -1,29 +1,38 @@
-From: Keith Owens <kaos@ocs.com.au>
-Subject: Re: [2.4.20] Frustrating DNS / UDP Socket flakeyness
-Date: Mon, 21 Apr 2003 10:33:23 +1000
+From: Steven Whitehouse <steve@gw.chygwyn.com>
+Subject: ip_gre.c:ipgre_tunnel_xmit() duplicated code ?
+Date: Mon, 21 Apr 2003 11:21:59 +0100 (BST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <17626.1050885203@ocs3.intra.ocs.com.au>
-References: <1050856532.1816.22.camel@dupy>
+Message-ID: <200304211021.LAA21942@gw.chygwyn.com>
+References: <20030418.034241.38698733.davem@redhat.com>
+Reply-To: Steve Whitehouse <Steve@ChyGwyn.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mark Smith <markzzzsmith@ozemail.com.au>
-In-reply-to: Your message of "21 Apr 2003 02:05:32 +0930."
-             <1050856532.1816.22.camel@dupy>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20030418.034241.38698733.davem@redhat.com> from "David S. Miller" at Apr 18, 2003 03:42:41 AM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 21 Apr 2003 02:05:32 +0930, 
-Mark Smith <markzzzsmith@ozemail.com.au> wrote:
->While a TCP download is running, the UDP / DNS queries are sent, a
->response comes back from the DNS server, but for some reason, in the
->kernel appears to have closed the UDP socket, and therefore generates an
->ICMP destination unreachable, port unreachable message back to the DNS
->server.
+Hi,
 
-The response takes too long so the resolver is timing out the request
-and trying another server.  When the delayed response arrives, the
-resolver has closed the socket so the icmp reject is correct.  The
-default timeout is 5 seconds, try adding 'options timeout:10' to
-/etc/resolv.conf.
+I found some code in ip_gre.c which looks to be duplicated. Is the attached
+the right fix or did I miss something? 
+
+Steve.
+-----------------------------------------------------------------------------
+
+diff -Nru linux-2.5.68/net/ipv4/ip_gre.c linux/net/ipv4/ip_gre.c
+--- linux-2.5.68/net/ipv4/ip_gre.c	Sun Apr 20 03:28:01 2003
++++ linux/net/ipv4/ip_gre.c	Mon Apr 21 03:05:23 2003
+@@ -777,9 +777,6 @@
+ 		skb->dst->ops->update_pmtu(skb->dst, mtu);
+ 
+ 	if (skb->protocol == htons(ETH_P_IP)) {
+-		if (skb->dst)
+-			skb->dst->ops->update_pmtu(skb->dst, mtu);
+-
+ 		df |= (old_iph->frag_off&htons(IP_DF));
+ 
+ 		if ((old_iph->frag_off&htons(IP_DF)) &&
