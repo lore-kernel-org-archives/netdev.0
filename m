@@ -1,33 +1,27 @@
 From: Matt Porter <mporter@kernel.crashing.org>
 Subject: Re: TCP IP Offloading Interface
-Date: Tue, 15 Jul 2003 19:37:58 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030715193758.C8616@home.com>
-References: <ODEIIOAOPGGCDIKEOPILCEMBCMAA.alan@storlinksemi.com> <20030713004818.4f1895be.davem@redhat.com>
+Date: Tue, 15 Jul 2003 19:46:49 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030715194649.D8616@home.com>
+References: <ODEIIOAOPGGCDIKEOPILCEMBCMAA.alan@storlinksemi.com> <20030713004818.4f1895be.davem@redhat.com> <52u19qwg53.fsf@topspin.com> <20030713160200.571716cf.davem@redhat.com> <20030713233503.GA31793@work.bitmover.com> <20030713164003.21839eb4.davem@redhat.com> <20030713235424.GB31793@work.bitmover.com> <20030713165323.3fc2601f.davem@redhat.com> <200307140046.h6E0kcMQ021180@turing-police.cc.vt.edu> <20030713174242.3ceb8213.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Alan Shih <alan@storlinksemi.com>, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: Valdis.Kletnieks@vt.edu, linux-kernel@vger.kernel.org,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20030713004818.4f1895be.davem@redhat.com>; from davem@redhat.com on Sun, Jul 13, 2003 at 12:48:18AM -0700
+In-Reply-To: <20030713174242.3ceb8213.davem@redhat.com>; from davem@redhat.com on Sun, Jul 13, 2003 at 05:42:42PM -0700
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 13, 2003 at 12:48:18AM -0700, David S. Miller wrote:
-> On receive side, clever RX buffer flipping tricks are the way
-> to go and require no protocol changes and nothing gross like
-> TOE or weird buffer ownership protocols like RDMA requires.
-> 
-> I've made postings showing how such a scheme can work using a limited
-> flow cache on the networking card.  I don't have a reference handy,
-> but I suppose someone else does.
-
-The following reference should be useful for those following along
-at home and wondering what the hell this hardware flow cache scheme
-is:
-
-http://www.ussg.iu.edu/hypermail/linux/kernel/0306.2/0429.html
+On Sun, Jul 13, 2003 at 05:42:42PM -0700, David S. Miller wrote:
+> There are cards, both existing and in development, that have
+> very simple header parsing engines you can program to do stuff
+> like this, it isn't hard at all.
+ 
+Do you have a reference to an existing card that implements
+a header parsing engine like this (and has obtainable docs)?
 
 Regards,
 -- 
