@@ -1,8 +1,8 @@
 From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: [SET 1][PATCH 3/6][bonding] backport 2.6 changes to 2.4
-Date: Fri, 8 Aug 2003 17:44:26 +0300
+Subject: [SET 1][PATCH 5/6][bonding] backport 2.6 changes to 2.4
+Date: Fri, 8 Aug 2003 17:44:38 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308081744.26500.shmulik.hen@intel.com>
+Message-ID: <200308081744.38315.shmulik.hen@intel.com>
 Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -13,290 +13,332 @@ To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix /proc read function
+Use a linked list to handle numerous bond devices instead of a static
+array.
 
-Each /proc/net/bondX/info file used to print the data of all the bond
-devices. Use a proc read entry instead of a get info entry so we can
-pass the relevant bond device as an argument.
-
-Patch looks messier than it really is since the entire function 
-has one less indentation level now.
+Also, fix handling of errors in bonding_init(): gracefully unregister
+and deallocate all previously created bond devices.
 
 diff -Nuarp linux-2.4.22-rc1/drivers/net/bonding/bond_main.c linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c
---- linux-2.4.22-rc1/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:29 2003
-+++ linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:30 2003
-@@ -564,14 +564,6 @@ static int bond_release(struct net_devic
- static int bond_release_all(struct net_device *master);
- static int bond_sethwaddr(struct net_device *master, struct net_device *slave);
+--- linux-2.4.22-rc1/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:33 2003
++++ linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:34 2003
+@@ -388,6 +388,12 @@
+  *
+  * 2003/06/30 - Amir Noam <amir.noam at intel dot com>
+  * 	- Fixed bond_change_active() for ALB/TLB modes.
++ *
++ * 2003/08/06 - Amir Noam <amir.noam at intel dot com>
++ * 	- Back port from 2.6: use alloc_netdev(); fix /proc handling;
++ *	  made stats a part of bond struct so no need to allocate
++ *	  and free it separately; use standard list operations instead
++ *	  of pre-allocated array of bonds.
+  */
  
--/*
-- * bond_get_info is the interface into the /proc filesystem.  This is
-- * a different interface than the BOND_INFO_QUERY ioctl.  That is done
-- * through the generic networking ioctl interface, and bond_info_query
-- * is the internal function which provides that information.
-- */
--static int bond_get_info(char *buf, char **start, off_t offset, int length);
--
- /* Caller must hold bond->ptrlock for write */
- static inline struct slave*
- bond_assign_current_slave(struct bonding *bond,struct slave *newslave)
-@@ -3372,131 +3364,136 @@ static struct net_device_stats *bond_get
- 	return stats;
- }
+ #include <linux/config.h>
+@@ -515,9 +521,7 @@ static struct bond_parm_tbl bond_lacp_tb
+ {	NULL,		-1},
+ };
  
--static int bond_get_info(char *buf, char **start, off_t offset, int length)
-+#ifdef CONFIG_PROC_FS
-+static int bond_read_proc(char *buf, char **start, off_t off, int count, int *eof, void *data)
- {
--	bonding_t *bond = these_bonds;
-+	struct bonding *bond = (struct bonding *) data;
- 	int len = 0;
--	off_t begin = 0;
- 	u16 link;
- 	slave_t *slave = NULL;
+-static int first_pass	= 1;
+-static struct bonding *these_bonds =  NULL;
+-static struct net_device *dev_bonds = NULL;
++static LIST_HEAD(bond_dev_list);
  
-+	/* make sure the bond won't be taken away */
-+	read_lock(&dev_base_lock);
-+
- 	len += sprintf(buf + len, "%s\n", version);
- 
--	while (bond != NULL) {
--		/*
--		 * This function locks the mutex, so we can't lock it until 
--		 * afterwards
--		 */
--		link = bond_check_mii_link(bond);
-+	/*
-+	 * This function locks the mutex, so we can't lock it until
-+	 * afterwards
-+	 */
-+	link = bond_check_mii_link(bond);
- 
--		len += sprintf(buf + len, "Bonding Mode: %s\n",
--			       bond_mode_name());
-+	len += sprintf(buf + len, "Bonding Mode: %s\n",
-+		       bond_mode_name());
- 
--		if ((bond_mode == BOND_MODE_ACTIVEBACKUP) ||
--		    (bond_mode == BOND_MODE_TLB) ||
--		    (bond_mode == BOND_MODE_ALB)) {
--			read_lock_bh(&bond->lock);
--			read_lock(&bond->ptrlock);
--			if (bond->current_slave != NULL) {
--				len += sprintf(buf + len, 
--					"Currently Active Slave: %s\n", 
--					bond->current_slave->dev->name);
--			}
--			read_unlock(&bond->ptrlock);
--			read_unlock_bh(&bond->lock);
-+	if ((bond_mode == BOND_MODE_ACTIVEBACKUP) ||
-+	    (bond_mode == BOND_MODE_TLB) ||
-+	    (bond_mode == BOND_MODE_ALB)) {
-+		read_lock_bh(&bond->lock);
-+		read_lock(&bond->ptrlock);
-+		if (bond->current_slave != NULL) {
-+			len += sprintf(buf + len,
-+				"Currently Active Slave: %s\n",
-+				bond->current_slave->dev->name);
- 		}
-+		read_unlock(&bond->ptrlock);
-+		read_unlock_bh(&bond->lock);
-+	}
- 
--		len += sprintf(buf + len, "MII Status: ");
--		len += sprintf(buf + len, 
--				link == BMSR_LSTATUS ? "up\n" : "down\n");
--		len += sprintf(buf + len, "MII Polling Interval (ms): %d\n", 
--				miimon);
--		len += sprintf(buf + len, "Up Delay (ms): %d\n", 
--				updelay * miimon);
--		len += sprintf(buf + len, "Down Delay (ms): %d\n", 
--				downdelay * miimon);
--		len += sprintf(buf + len, "Multicast Mode: %s\n",
--			       multicast_mode_name());
-+	len += sprintf(buf + len, "MII Status: ");
-+	len += sprintf(buf + len,
-+			link == BMSR_LSTATUS ? "up\n" : "down\n");
-+	len += sprintf(buf + len, "MII Polling Interval (ms): %d\n",
-+			miimon);
-+	len += sprintf(buf + len, "Up Delay (ms): %d\n",
-+			updelay * miimon);
-+	len += sprintf(buf + len, "Down Delay (ms): %d\n",
-+			downdelay * miimon);
-+	len += sprintf(buf + len, "Multicast Mode: %s\n",
-+		       multicast_mode_name());
- 
--		read_lock_bh(&bond->lock);
-+	read_lock_bh(&bond->lock);
- 
--		if (bond_mode == BOND_MODE_8023AD) {
--			struct ad_info ad_info;
-+	if (bond_mode == BOND_MODE_8023AD) {
-+		struct ad_info ad_info;
- 
--			len += sprintf(buf + len, "\n802.3ad info\n");
-+		len += sprintf(buf + len, "\n802.3ad info\n");
- 
--			if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
--				len += sprintf(buf + len, "bond %s has no active aggregator\n", bond->device->name);
--			} else {
--				len += sprintf(buf + len, "Active Aggregator Info:\n");
-+		if (bond_3ad_get_active_agg_info(bond, &ad_info)) {
-+			len += sprintf(buf + len, "bond %s has no active aggregator\n", bond->device->name);
-+		} else {
-+			len += sprintf(buf + len, "Active Aggregator Info:\n");
- 
--				len += sprintf(buf + len, "\tAggregator ID: %d\n", ad_info.aggregator_id);
--				len += sprintf(buf + len, "\tNumber of ports: %d\n", ad_info.ports);
--				len += sprintf(buf + len, "\tActor Key: %d\n", ad_info.actor_key);
--				len += sprintf(buf + len, "\tPartner Key: %d\n", ad_info.partner_key);
--				len += sprintf(buf + len, "\tPartner Mac Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
--					       ad_info.partner_system[0],
--					       ad_info.partner_system[1],
--					       ad_info.partner_system[2],
--					       ad_info.partner_system[3],
--					       ad_info.partner_system[4],
--					       ad_info.partner_system[5]);
--			}
-+			len += sprintf(buf + len, "\tAggregator ID: %d\n", ad_info.aggregator_id);
-+			len += sprintf(buf + len, "\tNumber of ports: %d\n", ad_info.ports);
-+			len += sprintf(buf + len, "\tActor Key: %d\n", ad_info.actor_key);
-+			len += sprintf(buf + len, "\tPartner Key: %d\n", ad_info.partner_key);
-+			len += sprintf(buf + len, "\tPartner Mac Address: %02x:%02x:%02x:%02x:%02x:%02x\n",
-+				       ad_info.partner_system[0],
-+				       ad_info.partner_system[1],
-+				       ad_info.partner_system[2],
-+				       ad_info.partner_system[3],
-+				       ad_info.partner_system[4],
-+				       ad_info.partner_system[5]);
- 		}
-+	}
- 
--		for (slave = bond->prev; slave != (slave_t *)bond; 
--		     slave = slave->prev) {
--			len += sprintf(buf + len, "\nSlave Interface: %s\n", slave->dev->name);
--
--			len += sprintf(buf + len, "MII Status: ");
--
--			len += sprintf(buf + len, 
--				slave->link == BOND_LINK_UP ? 
--				"up\n" : "down\n");
--			len += sprintf(buf + len, "Link Failure Count: %d\n", 
--				slave->link_failure_count);
--
--			if (app_abi_ver >= 1) {
--				len += sprintf(buf + len,
--					       "Permanent HW addr: %02x:%02x:%02x:%02x:%02x:%02x\n",
--					       slave->perm_hwaddr[0],
--					       slave->perm_hwaddr[1],
--					       slave->perm_hwaddr[2],
--					       slave->perm_hwaddr[3],
--					       slave->perm_hwaddr[4],
--					       slave->perm_hwaddr[5]);
--			}
-+	for (slave = bond->prev; slave != (slave_t *)bond;
-+	     slave = slave->prev) {
-+		len += sprintf(buf + len, "\nSlave Interface: %s\n", slave->dev->name);
- 
--			if (bond_mode == BOND_MODE_8023AD) {
--				struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
-+		len += sprintf(buf + len, "MII Status: ");
- 
--				if (agg) {
--					len += sprintf(buf + len, "Aggregator ID: %d\n",
--						       agg->aggregator_identifier);
--				} else {
--					len += sprintf(buf + len, "Aggregator ID: N/A\n");
--				}
--			}
--		}
--		read_unlock_bh(&bond->lock);
-+		len += sprintf(buf + len,
-+			slave->link == BOND_LINK_UP ?
-+			"up\n" : "down\n");
-+		len += sprintf(buf + len, "Link Failure Count: %d\n",
-+			slave->link_failure_count);
- 
--		/*
--		 * Figure out the calcs for the /proc/net interface
--		 */
--		*start = buf + (offset - begin);
--		len -= (offset - begin);
--		if (len > length) {
--			len = length;
--		}
--		if (len < 0) {
--			len = 0;
-+		if (app_abi_ver >= 1) {
-+			len += sprintf(buf + len,
-+				       "Permanent HW addr: %02x:%02x:%02x:%02x:%02x:%02x\n",
-+				       slave->perm_hwaddr[0],
-+				       slave->perm_hwaddr[1],
-+				       slave->perm_hwaddr[2],
-+				       slave->perm_hwaddr[3],
-+				       slave->perm_hwaddr[4],
-+				       slave->perm_hwaddr[5]);
- 		}
- 
-+		if (bond_mode == BOND_MODE_8023AD) {
-+			struct aggregator *agg = SLAVE_AD_INFO(slave).port.aggregator;
- 
--		bond = bond->next_bond;
-+			if (agg) {
-+				len += sprintf(buf + len, "Aggregator ID: %d\n",
-+					       agg->aggregator_identifier);
-+			} else {
-+				len += sprintf(buf + len, "Aggregator ID: N/A\n");
-+			}
-+		}
- 	}
-+	read_unlock_bh(&bond->lock);
-+
-+	/*
-+	 * Figure out the calcs for the /proc/net interface
-+	 */
-+	if (len <= off + count) {
-+		*eof = 1;
-+	}
-+	*start = buf + off;
-+	len -= off;
-+	if (len > count) {
-+		len = count;
-+	}
-+	if (len < 0) {
-+		len = 0;
-+	}
-+
-+	read_unlock(&dev_base_lock);
-+
- 	return len;
- }
-+#endif /* CONFIG_PROC_FS */
- 
+ MODULE_PARM(max_bonds, "i");
+ MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
+@@ -3498,47 +3502,13 @@ static int bond_read_proc(char *buf, cha
  static int bond_event(struct notifier_block *this, unsigned long event, 
  			void *ptr)
-@@ -3658,9 +3655,11 @@ static int __init bond_init(struct net_d
- 		kfree(bond);
+ {
+-	struct bonding *this_bond = (struct bonding *)these_bonds;
+-	struct bonding *last_bond;
+ 	struct net_device *event_dev = (struct net_device *)ptr;
++	struct net_device *master = event_dev->master;
+ 
+-	/* while there are bonds configured */
+-	while (this_bond != NULL) {
+-		if (this_bond == event_dev->priv ) {
+-			switch (event) {
+-			case NETDEV_UNREGISTER:
+-				/* 
+-				 * remove this bond from a linked list of 
+-				 * bonds 
+-				 */
+-				if (this_bond == these_bonds) {
+-					these_bonds = this_bond->next_bond;
+-				} else {
+-					for (last_bond = these_bonds; 
+-					     last_bond != NULL; 
+-					     last_bond = last_bond->next_bond) {
+-						if (last_bond->next_bond == 
+-						    this_bond) {
+-							last_bond->next_bond = 
+-							this_bond->next_bond;
+-						}
+-					}
+-				}
+-				return NOTIFY_DONE;
+-
+-			default:
+-				return NOTIFY_DONE;
+-			}
+-		} else if (this_bond->device == event_dev->master) {
+-			switch (event) {
+-			case NETDEV_UNREGISTER:
+-				bond_release(this_bond->device, event_dev);
+-				break;
+-			}
+-			return NOTIFY_DONE;
+-		}
+-		this_bond = this_bond->next_bond;
++	if ((event == NETDEV_UNREGISTER) && (master != NULL)) {
++		bond_release(master, event_dev);
+ 	}
++
+ 	return NOTIFY_DONE;
+ }
+ 
+@@ -3546,19 +3516,40 @@ static struct notifier_block bond_netdev
+ 	notifier_call: bond_event,
+ };
+ 
++static void bond_deinit(struct net_device *dev)
++{
++	struct bonding *bond = dev->priv;
++
++	list_del(&bond->bond_list);
++
++#ifdef CONFIG_PROC_FS
++	remove_proc_entry("info", bond->bond_proc_dir);
++	remove_proc_entry(dev->name, proc_net);
++#endif
++}
++
++static void bond_free_all(void)
++{
++	struct bonding *bond, *nxt;
++
++	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
++		struct net_device *dev = bond->device;
++
++		unregister_netdev(dev);
++		bond_deinit(dev);
++		kfree(dev);
++	}
++}
++
+ static int __init bond_init(struct net_device *dev)
+ {
+-	bonding_t *bond, *this_bond, *last_bond;
++	struct bonding *bond;
+ 	int count;
+ 
+ #ifdef BONDING_DEBUG
+ 	printk (KERN_INFO "Begin bond_init for %s\n", dev->name);
+ #endif
+-	bond = kmalloc(sizeof(struct bonding), GFP_KERNEL);
+-	if (bond == NULL) {
+-		return -ENOMEM;
+-	}
+-	memset(bond, 0, sizeof(struct bonding));
++	bond = dev->priv;
+ 
+ 	/* initialize rwlocks */
+ 	rwlock_init(&bond->lock);
+@@ -3568,7 +3559,6 @@ static int __init bond_init(struct net_d
+ 	bond->current_slave = NULL;
+ 	bond->current_arp_slave = NULL;
+ 	bond->device = dev;
+-	dev->priv = bond;
+ 
+ 	/* Initialize the device structure. */
+ 	switch (bond_mode) {
+@@ -3593,7 +3583,6 @@ static int __init bond_init(struct net_d
+ 		break;
+ 	default:
+ 		printk(KERN_ERR "Unknown bonding mode %d\n", bond_mode);
+-		kfree(bond);
+ 		return -EINVAL;
+ 	}
+ 
+@@ -3602,14 +3591,6 @@ static int __init bond_init(struct net_d
+ 	dev->stop = bond_close;
+ 	dev->set_multicast_list = set_multicast_list;
+ 	dev->do_ioctl = bond_ioctl;
+-
+-	/* 
+-	 * Fill in the fields of the device structure with ethernet-generic 
+-	 * values. 
+-	 */
+-
+-	ether_setup(dev);
+-
+ 	dev->set_mac_address = bond_set_mac_address;
+ 	dev->tx_queue_len = 0;
+ 	dev->flags |= IFF_MASTER|IFF_MULTICAST;
+@@ -3643,7 +3624,6 @@ static int __init bond_init(struct net_d
+ 	if (bond->bond_proc_dir == NULL) {
+ 		printk(KERN_ERR "%s: Cannot init /proc/net/%s/\n", 
+ 			dev->name, dev->name);
+-		kfree(bond);
  		return -ENOMEM;
  	}
-+	bond->bond_proc_dir->owner = THIS_MODULE;
-+
- 	bond->bond_proc_info_file = 
--		create_proc_info_entry("info", 0, bond->bond_proc_dir, 
--					bond_get_info);
-+		create_proc_read_entry("info", 0, bond->bond_proc_dir,
-+					bond_read_proc, bond);
- 	if (bond->bond_proc_info_file == NULL) {
+ 	bond->bond_proc_dir->owner = THIS_MODULE;
+@@ -3655,25 +3635,12 @@ static int __init bond_init(struct net_d
  		printk(KERN_ERR "%s: Cannot init /proc/net/%s/info\n", 
  			dev->name, dev->name);
-@@ -3669,6 +3668,7 @@ static int __init bond_init(struct net_d
- 		kfree(bond);
+ 		remove_proc_entry(dev->name, proc_net);
+-		kfree(bond);
  		return -ENOMEM;
  	}
-+	bond->bond_proc_info_file->owner = THIS_MODULE;
+ 	bond->bond_proc_info_file->owner = THIS_MODULE;
  #endif /* CONFIG_PROC_FS */
  
- 	if (first_pass == 1) {
+-	if (first_pass == 1) {
+-		these_bonds = bond;
+-		register_netdevice_notifier(&bond_netdev_notifier);
+-		first_pass = 0;
+-	} else {
+-		last_bond = these_bonds;
+-		this_bond = these_bonds->next_bond;
+-		while (this_bond != NULL) {
+-			last_bond = this_bond;
+-			this_bond = this_bond->next_bond;
+-		}
+-		last_bond->next_bond = bond;
+-	} 
++	list_add_tail(&bond->bond_list, &bond_dev_list);
+ 
+ 	return 0;
+ }
+@@ -3713,9 +3680,6 @@ static int __init bonding_init(void)
+ 	int no;
+ 	int err;
+ 
+-	/* Find a name for this unit */
+-	static struct net_device *dev_bond = NULL;
+-
+ 	printk(KERN_INFO "%s", version);
+ 
+ 	/*
+@@ -3766,12 +3730,6 @@ static int __init bonding_init(void)
+ 		       max_bonds, 1, INT_MAX, BOND_DEFAULT_MAX_BONDS);
+ 		max_bonds = BOND_DEFAULT_MAX_BONDS;
+ 	}
+-	dev_bond = dev_bonds = kmalloc(max_bonds*sizeof(struct net_device), 
+-					GFP_KERNEL);
+-	if (dev_bond == NULL) {
+-		return -ENOMEM;
+-	}
+-	memset(dev_bonds, 0, max_bonds*sizeof(struct net_device));
+ 
+ 	if (miimon < 0) {
+ 		printk(KERN_WARNING 
+@@ -3962,47 +3920,62 @@ static int __init bonding_init(void)
+ 		primary = NULL;
+ 	}
+ 
++	rtnl_lock();
+ 
++	err = 0;
+ 	for (no = 0; no < max_bonds; no++) {
+-		dev_bond->init = bond_init;
+-	
+-		err = dev_alloc_name(dev_bond,"bond%d");
++		struct net_device *dev;
++
++		dev = alloc_netdev(sizeof(struct bonding), "", ether_setup);
++		if (!dev) {
++			err = -ENOMEM;
++			goto out_err;
++		}
++
++		err = dev_alloc_name(dev, "bond%d");
++		if (err < 0) {
++			kfree(dev);
++			goto out_err;
++		}
++
++		/* bond_init() must be called after dev_alloc_name() (for the
++		 * /proc files), but before register_netdevice(), because we
++		 * need to set function pointers.
++		 */
++		err = bond_init(dev);
++		if (err < 0) {
++			kfree(dev);
++			goto out_err;
++		}
++
++		SET_MODULE_OWNER(dev);
++
++		err = register_netdevice(dev);
+ 		if (err < 0) {
+-			kfree(dev_bonds);
+-			return err;
++			bond_deinit(dev);
++			kfree(dev);
++			goto out_err;
+ 		}
+-		SET_MODULE_OWNER(dev_bond);
+-		if (register_netdev(dev_bond) != 0) {
+-			kfree(dev_bonds);
+-			return -EIO;
+-		}	
+-		dev_bond++;
+ 	}
++
++	rtnl_unlock();
++	register_netdevice_notifier(&bond_netdev_notifier);
++
+ 	return 0;
++
++out_err:
++	rtnl_unlock();
++
++	/* free and unregister all bonds that were successfully added */
++	bond_free_all();
++
++	return err;
+ }
+ 
+ static void __exit bonding_exit(void)
+ {
+-	struct net_device *dev_bond = dev_bonds;
+-	struct bonding *bond;
+-	int no;
+-
+ 	unregister_netdevice_notifier(&bond_netdev_notifier);
+-		 
+-	for (no = 0; no < max_bonds; no++) {
+-
+-#ifdef CONFIG_PROC_FS
+-		bond = (struct bonding *) dev_bond->priv;
+-		remove_proc_entry("info", bond->bond_proc_dir);
+-		remove_proc_entry(dev_bond->name, proc_net);
+-#endif
+-		unregister_netdev(dev_bond);
+-		kfree(dev_bond->priv);
+-
+-		dev_bond->priv = NULL;
+-		dev_bond++;
+-	}
+-	kfree(dev_bonds);
++	bond_free_all();
+ }
+ 
+ module_init(bonding_init);
+diff -Nuarp linux-2.4.22-rc1/drivers/net/bonding/bonding.h linux-2.4.22-rc1-devel/drivers/net/bonding/bonding.h
+--- linux-2.4.22-rc1/drivers/net/bonding/bonding.h	Fri Aug  8 14:02:33 2003
++++ linux-2.4.22-rc1-devel/drivers/net/bonding/bonding.h	Fri Aug  8 14:02:34 2003
+@@ -104,7 +104,7 @@ typedef struct bonding {
+ 	struct proc_dir_entry *bond_proc_dir;
+ 	struct proc_dir_entry *bond_proc_info_file;
+ #endif /* CONFIG_PROC_FS */
+-	struct bonding *next_bond;
++	struct list_head bond_list;
+ 	struct net_device *device;
+ 	struct dev_mc_list *mc_list;
+ 	unsigned short flags;
 
 -- 
 | Shmulik Hen   Advanced Network Services  |
