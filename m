@@ -1,145 +1,45 @@
-From: "Steven J. Hill" <Steve.Hill@timesys.com>
-Subject: Re: [PATCH] fix natsemi PCI mapping
-Date: Tue, 16 Mar 2004 14:15:42 -0500
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: netpoll warning in tulip
+Date: Tue, 16 Mar 2004 13:23:48 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4057525E.6020205@timesys.com>
-References: <40574227.8020302@pobox.com>
+Message-ID: <20040316192347.GC11010@waste.org>
+References: <Pine.GSO.4.44.0403161235170.29946-100000@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------060301070001030109080002"
-Cc: Netdev <netdev@oss.sgi.com>, Tim Hockin <thockin@sun.com>,
-        Linux Kernel <linux-kernel@vger.kernel.org>, ralf@linux-mips.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <40574227.8020302@pobox.com>
+To: Meelis Roos <mroos@linux.ee>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.44.0403161235170.29946-100000@math.ut.ee>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------060301070001030109080002
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-
-Jeff Garzik wrote:
+On Tue, Mar 16, 2004 at 12:36:02PM +0200, Meelis Roos wrote:
+> FYI: with netpoll configured out, I get
 > 
-> Somebody wanna review and/or test?
->
-Hey Jeff.
+>   CC [M]  drivers/net/tulip/tulip_core.o
+> drivers/net/tulip/tulip_core.c:256: warning: `poll_tulip' declared `static' but never defined
 
-I have tested this on 2.4 and it works great on MIPS with one
-minor change below. Remove the 16 byte alignment of the IP
-header. I discovered this when trying to do a BOOTP and mount
-my NFS root filesystem. The BOOTP never succeeds. Patch against
-latest 2.4.25 attached.
+ 2.6.5-rc1-mpm/drivers/net/tulip/tulip_core.c |    3 ++-
+ 1 files changed, 2 insertions(+), 1 deletion(-)
 
--Steve
-
-@@ -1467,13 +1469,16 @@
-  		struct sk_buff *skb;
-  		int entry = np->dirty_rx % RX_RING_SIZE;
-  		if (np->rx_skbuff[entry] == NULL) {
--			skb = dev_alloc_skb(np->rx_buf_sz);
-+			unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
-+			skb = dev_alloc_skb(buflen);
-  			np->rx_skbuff[entry] = skb;
-  			if (skb == NULL)
-  				break; /* Better luck next round. */
-  			skb->dev = dev; /* Mark as being used by this device. */
-+			/* 16 byte align the IP header */
-+			skb_reserve(skb, RX_OFFSET);
-  			np->rx_dma[entry] = pci_map_single(np->pci_dev,
--				skb->data, skb->len, PCI_DMA_FROMDEVICE);
-+				skb->tail, buflen, PCI_DMA_FROMDEVICE);
-  			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
-  		}
-
---------------060301070001030109080002
-Content-Type: text/x-patch;
- name="natsemi-pci-mapping.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="natsemi-pci-mapping.patch"
-
-diff -urN -X /home/sjhill/diff-exc linux-2.4.25/drivers/net/natsemi.c linux-2.4.25-patched/drivers/net/natsemi.c
---- linux-2.4.25/drivers/net/natsemi.c	Tue Mar 16 14:05:21 2004
-+++ linux-2.4.25-patched/drivers/net/natsemi.c	Tue Mar 16 13:58:15 2004
-@@ -175,6 +175,8 @@
- #define DRV_VERSION	"1.07+LK1.0.17"
- #define DRV_RELDATE	"Sep 27, 2002"
+diff -puN drivers/net/tulip/tulip_core.c~tulip-poll drivers/net/tulip/tulip_core.c
+--- 2.6.5-rc1/drivers/net/tulip/tulip_core.c~tulip-poll	2004-03-16 13:21:38.000000000 -0600
++++ 2.6.5-rc1-mpm/drivers/net/tulip/tulip_core.c	2004-03-16 13:22:30.000000000 -0600
+@@ -253,8 +253,9 @@ static void tulip_down(struct net_device
+ static struct net_device_stats *tulip_get_stats(struct net_device *dev);
+ static int private_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
+ static void set_rx_mode(struct net_device *dev);
++#ifdef CONFIG_NET_POLL_CONTROLLER
+ static void poll_tulip(struct net_device *dev);
+-
++#endif
  
-+#define RX_OFFSET	2
-+
- /* Updated to recommendations in pci-skeleton v2.03. */
- 
- /* The user-configurable values.
-@@ -1466,13 +1467,14 @@
- 		struct sk_buff *skb;
- 		int entry = np->dirty_rx % RX_RING_SIZE;
- 		if (np->rx_skbuff[entry] == NULL) {
--			skb = dev_alloc_skb(np->rx_buf_sz);
-+			unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
-+			skb = dev_alloc_skb(buflen);
- 			np->rx_skbuff[entry] = skb;
- 			if (skb == NULL)
- 				break; /* Better luck next round. */
- 			skb->dev = dev; /* Mark as being used by this device. */
- 			np->rx_dma[entry] = pci_map_single(np->pci_dev,
--				skb->data, skb->len, PCI_DMA_FROMDEVICE);
-+				skb->tail, buflen, PCI_DMA_FROMDEVICE);
- 			np->rx_ring[entry].addr = cpu_to_le32(np->rx_dma[entry]);
- 		}
- 		np->rx_ring[entry].cmd_status = cpu_to_le32(np->rx_buf_sz);
-@@ -1542,6 +1544,7 @@
- static void drain_ring(struct net_device *dev)
- {
- 	struct netdev_private *np = dev->priv;
-+	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
- 	int i;
- 
- 	/* Free all the skbuffs in the Rx queue. */
-@@ -1550,7 +1553,7 @@
- 		np->rx_ring[i].addr = 0xBADF00D0; /* An invalid address. */
- 		if (np->rx_skbuff[i]) {
- 			pci_unmap_single(np->pci_dev,
--				np->rx_dma[i], np->rx_skbuff[i]->len,
-+				np->rx_dma[i], buflen,
- 				PCI_DMA_FROMDEVICE);
- 			dev_kfree_skb(np->rx_skbuff[i]);
- 		}
-@@ -1746,6 +1745,7 @@
- 	int entry = np->cur_rx % RX_RING_SIZE;
- 	int boguscnt = np->dirty_rx + RX_RING_SIZE - np->cur_rx;
- 	s32 desc_status = le32_to_cpu(np->rx_head_desc->cmd_status);
-+	unsigned int buflen = np->rx_buf_sz + RX_OFFSET;
- 
- 	/* If the driver owns the next entry it's a new packet. Send it up. */
- 	while (desc_status < 0) { /* e.g. & DescOwn */
-@@ -1784,13 +1784,13 @@
- 			/* Check if the packet is long enough to accept
- 			 * without copying to a minimally-sized skbuff. */
- 			if (pkt_len < rx_copybreak
--			    && (skb = dev_alloc_skb(pkt_len + 2)) != NULL) {
-+			    && (skb = dev_alloc_skb(pkt_len + RX_OFFSET)) != NULL) {
- 				skb->dev = dev;
- 				/* 16 byte align the IP header */
--				skb_reserve(skb, 2);
-+				skb_reserve(skb, RX_OFFSET);
- 				pci_dma_sync_single(np->pci_dev,
- 					np->rx_dma[entry],
--					np->rx_skbuff[entry]->len,
-+					buflen,
- 					PCI_DMA_FROMDEVICE);
- #if HAS_IP_COPYSUM
- 				eth_copy_and_sum(skb,
-@@ -1802,8 +1802,7 @@
- #endif
- 			} else {
- 				pci_unmap_single(np->pci_dev, np->rx_dma[entry],
--					np->rx_skbuff[entry]->len,
--					PCI_DMA_FROMDEVICE);
-+					buflen, PCI_DMA_FROMDEVICE);
- 				skb_put(skb = np->rx_skbuff[entry], pkt_len);
- 				np->rx_skbuff[entry] = NULL;
- 			}
+ static void tulip_set_power_state (struct tulip_private *tp,
+ 				   int sleep, int snooze)
 
---------------060301070001030109080002--
+_
+
+
+-- 
+Matt Mackall : http://www.selenic.com : Linux development and consulting
