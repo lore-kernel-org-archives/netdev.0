@@ -1,40 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Andrew Morton <akpm@osdl.org>
 Subject: Re: [PATCH] s390: claw network device driver
-Date: Tue, 29 Mar 2005 02:12:10 -0500
-Message-ID: <20050329071210.GA16409@havoc.gtf.org>
-References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org>
+Date: Mon, 28 Mar 2005 23:23:59 -0800
+Message-ID: <20050328232359.4f1e04b9.akpm@osdl.org>
+References: <200503290533.j2T5XEYT028850@hera.kernel.org>
+	<4248FBFD.5000809@pobox.com>
+	<20050328230830.5e90396f.akpm@osdl.org>
+	<20050329071210.GA16409@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050328230830.5e90396f.akpm@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20050329071210.GA16409@havoc.gtf.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2005 at 11:08:30PM -0800, Andrew Morton wrote:
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> >
-> > Linux Kernel Mailing List wrote:
-> >  > ChangeSet 1.2231.1.122, 2005/03/28 19:50:29-08:00, richtera@us.ibm.com
-> >  > 
-> >  > 	[PATCH] s390: claw network device driver
-> >  > 	
-> >  > 	Add support for claw network devices.
-> >  > 	
-> >  > 	Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
-> >  > 	Signed-off-by: Andrew Morton <akpm@osdl.org>
-> >  > 	Signed-off-by: Linus Torvalds <torvalds@osdl.org>
-> > 
-> >  Grumpity grump grump grump.  How tough is it to send new net drivers to 
-> >  netdev and me for review?
+Jeff Garzik <jgarzik@pobox.com> wrote:
+>
+>  > Was cc'ed to linux-net last Thursday, but it looks like the messages was
+>  > too large and the vger server munched it.
 > 
-> Was cc'ed to linux-net last Thursday, but it looks like the messages was
-> too large and the vger server munched it.
+>  This also brings up a larger question... why was a completely unreviewed
+>  net driver merged?
 
-This also brings up a larger question... why was a completely unreviewed
-net driver merged?
-
-	Jeff
+Because nobody noticed that it didn't make it to the mailing list,
+obviously.
