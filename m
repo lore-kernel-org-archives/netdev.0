@@ -1,60 +1,94 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: Janice Girouard <girouard@us.ibm.com>
 Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 17:07:04 -0700
+Date: Mon, 16 Jun 2003 19:44:22 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EEE5BA8.8000601@us.ibm.com>
-References: <OFF1F6B3DC.30C0E5DE-ON85256D47.007AEFAF@us.ibm.com>	<20030616.152745.124055059.davem@redhat.com>	<3EEE4880.3080505@us.ibm.com> <20030616.155251.25131382.davem@redhat.com>
+Message-ID: <OFDD16F58E.35149C65-ON85256D47.0081D564@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: girouard@us.ibm.com, stekloff@us.ibm.com, janiceg@us.ibm.com,
-   jgarzik@pobox.com, lkessler@us.ibm.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Cc: Daniel Stekloff <stekloff@us.ibm.com>, janiceg@us.ibm.com,
+   jgarzik@pobox.com, Larry Kessler <lkessler@us.ibm.com>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030616.155251.25131382.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
 
-> There would be absolutely ZERO disruption if you guys would use you
-> brains and implement what you're actually trying to achieve, a system
-> event logging mechanism.
+From: David S. Miller" <davem@redhat.com>
+   Date: Mon, 16 Jun 2003 17:50:08 -0500
 
-> We have a message queueing mechanism using sockets, called netlink,
-> and you can make whatever actions in the kernel you think should be
-> monitored go and stuff messages into this system event netlink socket.
+   If you want events, standardize events and push them over
+   a queueing based communications channel to userspace, namely
+   using netlink sockets.
 
-I should clarify here that I was speaking strictly for my lonesome sorry
-self :), and have no knowledge of what the state of the various
-RAS projects currently are, and the approaches they are trying..
-For all I know, they may be currently trying precisely that..
 
-Janice's patch is the first I've seen in this area (Luckily,
-most of the time they keep me in a cave :) :)), and I do
-appreciate *something* being done in this area, it seemed a
-good start and really, I dont care how its implemented, I'll
-leave that to the folks who have spent longer than the
-8 mins I currently have on it..
+It sounds like you are proposing a new family for the netlink
+subsystem.  I've included a list of the families I see in 2.5.70
+the end of this note.   I'm trying to understand which family handles
+events such as link state changes or device initialization failure?
+It sounds like you're proposing somethink equivalent to
+NETLINK_TCP_DIAG.  Is that right?
 
-> Then, you don't have to standardize a bunch of absolutely silly
-> strings (I mean, the concept is so incredibly stupid), you get events
-> that are in a precisely defined format going over this netlink socket.
+There seems to be some overlap between netlink and netdev notifier
+events.  Netdev notifier reports many key events.  One event I don't
+see reported is any indication that device initialization failed.
+#define NETDEV_UP               0x0001
+#define NETDEV_DOWN             0x0002
+#define NETDEV_REBOOT           0x0003
+#define NETDEV_CHANGE           0x0004
+#define NETDEV_REGISTER         0x0005
+#define NETDEV_UNREGISTER       0x0006
+#define NETDEV_CHANGEMTU        0x0007
+#define NETDEV_CHANGEADDR       0x0008
+#define NETDEV_GOING_DOWN       0x0009
+#define NETDEV_CHANGENAME       0x000A
 
-Well, right now, thats all we have, right? Silly strings? But
-thats not really my position, which is more like:
-Whatever! Whatever! Somebody! Make it so! :) :).
+One issue with netdev, is that it doesn't seem to allow
+for the flexibility of the information passed that netlink has.
+For example, when you issue a NETDEV_CHANGE, it's not clear
+from the event what the specific change was.
 
-> Then whoever in userspace reads out the messages can interpret them
-> however the fuck it wants to.  It is then trivial to parse the
-> messages and filter them.  Furthermore, you could even transmit such
-> messages over a network connection to a remote logging server as-is.
-> 
-> And hey, look, for network links going up and down we have the hooks
-> already.  Funny that...
 
-OK, that is a good idea.. :)
+==============================
+NETLINK 2.5.70
 
-thanks,
-Nivedita
+netlink.h
+
+#define NETLINK_ROUTE           0       /* Routing/device hook                          */
+#define NETLINK_SKIP            1       /* Reserved for ENskip                          */
+#define NETLINK_USERSOCK        2       /* Reserved for user mode socket protocols      */
+#define NETLINK_FIREWALL        3       /* Firewalling hook                             */
+#define NETLINK_TCPDIAG         4       /* TCP socket monitoring                        */
+#define NETLINK_NFLOG           5       /* netfilter/iptables ULOG */
+#define NETLINK_XFRM            6       /* ipsec */
+#define NETLINK_ARPD            8
+#define NETLINK_ROUTE6          11      /* af_inet6 route comm channel */
+#define NETLINK_IP6_FW          13
+#define NETLINK_DNRTMSG         14      /* DECnet routing messages */
+#define NETLINK_TAPBASE         16      /* 16 to 31 are ethertap */
+
+Descriptions for many of these events can be found at
+http://www.europe.redhat.com/documentation/man-pages/man7/netlink.7.php3
+
+                                                                            
+ NETLINK_ROUTE                                                              
+       Receives routing updates and may be used                             
+       to modify the IPv4 routing table (see                                
+ NETLINK_FIREWALL                                                           
+       Receives packets sent by the IPv4 firewall code.                     
+ NETLINK_ARPD                                                               
+       For managing the arp table in user space.                            
+ NETLINK_ROUTE6                                                             
+       Receives and sends IPv6 routing table updates.                       
+ NETLINK_IP6_FW                                                             
+       to receive packets that failed the IPv6 firewall                     
+       checks (currently not implemented).                                  
+ NETLINK_TAPBASE...NETLINK_TAPBASE+15                                       
+       are the instances of the ethertap device. Ethertap                   
+       is a pseudo network tunnel device that allows an                     
+       ethernet driver to be simulated from user space.                     
+ NETLINK_SKIP                                                               
+       Reserved for ENskip.                                                 
+ NETLINK_USERSOCK                                                           
+       is reserved for future user space protocols.                         
+                                                                            
