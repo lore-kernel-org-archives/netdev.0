@@ -1,108 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPV{4,6}: fixed /proc/net/raw{,6} seq_file support
-Date: Mon, 30 Jun 2003 23:09:55 +0900 (JST)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH] IPV6: convert /proc/net/ip6_flowlabel to seq_file
+Date: Tue, 1 Jul 2003 00:49:52 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030630.230955.65202856.yoshfuji@linux-ipv6.org>
+Message-ID: <Mutt.LNX.4.44.0307010048540.24506-100000@excalibur.intercode.com.au>
+References: <20030630.230115.84925092.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030630.230115.84925092.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, 30 Jun 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
 
-There were bugs in /proc/net/raw{,6} seq_file support.
-Sorry, my fault.  This patch fixes the problem.
+> In article <20030629.015723.75141662.yoshfuji@linux-ipv6.org> (at Sun, 29 Jun 2003 01:57:23 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+> 
+> > This converts /proc/net/ip6_flowlabel to seq_file{}.
+> > Thanks.
+> 
+> Oops, this was buggy.  Here's fixed one...
+> 
 
-Thanks in advance.
+This has already been pushed to Dave's tree.  Could you please generate a 
+diff against bk://kernel.bkbits.net/jmorris/net-2.5?
 
-Index: linux-2.5/net/ipv4/raw.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/raw.c,v
-retrieving revision 1.31
-diff -u -r1.31 raw.c
---- linux-2.5/net/ipv4/raw.c	21 Jun 2003 16:20:28 -0000	1.31
-+++ linux-2.5/net/ipv4/raw.c	30 Jun 2003 12:48:00 -0000
-@@ -801,7 +801,24 @@
- 
- static int raw_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open(file, &raw_seq_ops);
-+	struct seq_file *seq;
-+	int rc = -ENOMEM;
-+	struct raw_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+
-+	if (!s)
-+		goto out;
-+	rc = seq_open(file, &raw_seq_ops);
-+	if (rc)
-+		goto out_kfree;
-+
-+	seq = file->private_data;
-+	seq->private = s;
-+	memset(s, 0, sizeof(*s));
-+out:
-+	return rc;
-+out_kfree:
-+	kfree(s);
-+	goto out;
- }
- 
- static struct file_operations raw_seq_fops = {
-@@ -809,7 +826,7 @@
- 	.open	 = raw_seq_open,
- 	.read	 = seq_read,
- 	.llseek	 = seq_lseek,
--	.release = seq_release,
-+	.release = seq_release_private,
- };
- 
- int __init raw_proc_init(void)
-Index: linux-2.5/net/ipv6/raw.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv6/raw.c,v
-retrieving revision 1.30
-diff -u -r1.30 raw.c
---- linux-2.5/net/ipv6/raw.c	21 Jun 2003 16:20:28 -0000	1.30
-+++ linux-2.5/net/ipv6/raw.c	30 Jun 2003 12:48:00 -0000
-@@ -1029,7 +1029,22 @@
- 
- static int raw6_seq_open(struct inode *inode, struct file *file)
- {
--	return seq_open(file, &raw6_seq_ops);
-+	struct seq_file *seq;
-+	int rc = -ENOMEM;
-+	struct raw6_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+	if (!s)
-+		goto out;
-+	rc = seq_open(file, &raw6_seq_ops);
-+	if (rc)
-+		goto out_kfree;
-+	seq = file->private_data;
-+	seq->private = s;
-+	memset(s, 0, sizeof(*s));
-+out:
-+	return rc;
-+out_kfree:
-+	kfree(s);
-+	goto out;
- }
- 
- static struct file_operations raw6_seq_fops = {
-@@ -1037,7 +1052,7 @@
- 	.open =		raw6_seq_open,
- 	.read =		seq_read,
- 	.llseek =	seq_lseek,
--	.release =	seq_release,
-+	.release =	seq_release_private,
- };
- 
- int __init raw6_proc_init(void)
+(Not sure what state Dave's tree is in, but it may work against that).
 
+
+- James
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+James Morris
+<jmorris@intercode.com.au>
