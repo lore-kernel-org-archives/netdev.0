@@ -1,35 +1,80 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (10/11) netrom - convert /proc interface to seq_file
-Date: Thu, 14 Aug 2003 11:30:25 -0700
+From: Mark Huth <mhuth@mvista.com>
+Subject: Fix to have sysfs track rename of network devices
+Date: Thu, 14 Aug 2003 12:03:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030814113025.2b40be14.shemminger@osdl.org>
-References: <20030813154635.376df59b.shemminger@osdl.org>
-	<20030814172539.GD1785@conectiva.com.br>
+Message-ID: <3F3BDCF3.5050708@mvista.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, Jeroen Vreeken <pe1rxq@amsat.org>,
-   linux-hams@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------070309000706020401080306"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20030814172539.GD1785@conectiva.com.br>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 14 Aug 2003 14:25:39 -0300
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+This is a multi-part message in MIME format.
+--------------070309000706020401080306
+Content-Type: multipart/alternative;
+ boundary="------------090404000602010207080904"
 
-> Em Wed, Aug 13, 2003 at 03:46:35PM -0700, Stephen Hemminger escreveu:
-> > Convert netrom /proc interface to seq_file.
-> > 
-> > diff -Nru a/include/net/netrom.h b/include/net/netrom.h
-> > --- a/include/net/netrom.h	Wed Aug 13 13:54:19 2003
-> > +++ b/include/net/netrom.h	Wed Aug 13 13:54:19 2003
-> > +		seq_printf(seq, "%-9s ", ax2asc(&nr->user_addr));
-> > +		seq_printf(seq, "%-9s ", ax2asc(&nr->dest_addr));
-> > +		seq_printf(seq, 
-> > +"%-9s %-3s  %02X/%02X %02X/%02X %2d %3d %3d %3d %3lu/%03lu %2lu/%02lu %3lu/%03lu %3lu/%03lu %2d/%02d %3d %5d %5d %ld\n",
-> 
-> <nitpick> why not just one seq_printf call? </nitpick>
 
-ax2asc() returns a pointer to static buffer.
+--------------090404000602010207080904
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Description:
+
+When an Ethernet interface is renamed in the kernel via the ioctl SIOCSIFNAME, the sysfs directories /sys/class/net/ethX are not changed to the new name.  This patch ensures sysfs is updated to the new name  specified by the rename ioctl.
+
+Thanks,
+Mark Huth
+
+
+
+--------------090404000602010207080904
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+
+<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html>
+<head>
+  <meta http-equiv="Content-Type" content="text/html;charset=ISO-8859-1">
+  <title></title>
+</head>
+<body>
+<div class="moz-text-plain" wrap="true" graphical-quote="true"
+ style="font-size: 16px;" lang="x-western">
+<pre wrap="">Description:
+
+When an Ethernet interface is renamed in the kernel via the ioctl SIOCSIFNAME, the sysfs directories /sys/class/net/ethX are not changed to the new name.  This patch ensures sysfs is updated to the new name  specified by the rename ioctl.
+
+Thanks,
+Mark Huth
+
+</pre>
+</div>
+</body>
+</html>
+
+--------------090404000602010207080904--
+
+--------------070309000706020401080306
+Content-Type: application/octet-stream;
+ name="2.6.0-test3-fixifrename.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="2.6.0-test3-fixifrename.patch"
+
+ZGlmZiAtdU5yIGxpbnV4LTIuNi4wLXRlc3QzL25ldC9jb3JlL2Rldi5jIGxpbnV4LTIuNi4w
+LXRlc3QzLWZpeGlmcmVuYW1lL25ldC9jb3JlL2Rldi5jDQotLS0gbGludXgtMi42LjAtdGVz
+dDMvbmV0L2NvcmUvZGV2LmMJMjAwMy0wOC0wOCAyMTozNjo1MC4wMDAwMDAwMDAgLTA3MDAN
+CisrKyBsaW51eC0yLjYuMC10ZXN0My1maXhpZnJlbmFtZS9uZXQvY29yZS9kZXYuYwkyMDAz
+LTA4LTEzIDE2OjExOjAzLjAwMDAwMDAwMCAtMDcwMA0KQEAgLTIzNDUsOSArMjM0NSwxMSBA
+QA0KIAkJCQlyZXR1cm4gLUVCVVNZOw0KIAkJCWlmIChfX2Rldl9nZXRfYnlfbmFtZShpZnIt
+Pmlmcl9uZXduYW1lKSkNCiAJCQkJcmV0dXJuIC1FRVhJU1Q7DQorCQkJbmV0ZGV2X3VucmVn
+aXN0ZXJfc3lzZnMoZGV2KTsNCiAJCQltZW1jcHkoZGV2LT5uYW1lLCBpZnItPmlmcl9uZXdu
+YW1lLCBJRk5BTVNJWik7DQogCQkJZGV2LT5uYW1lW0lGTkFNU0laIC0gMV0gPSAwOw0KIAkJ
+CXN0cmxjcHkoZGV2LT5jbGFzc19kZXYuY2xhc3NfaWQsIGRldi0+bmFtZSwgQlVTX0lEX1NJ
+WkUpOw0KKwkJCW5ldGRldl9yZWdpc3Rlcl9zeXNmcyhkZXYpOw0KIAkJCW5vdGlmaWVyX2Nh
+bGxfY2hhaW4oJm5ldGRldl9jaGFpbiwNCiAJCQkJCSAgICBORVRERVZfQ0hBTkdFTkFNRSwg
+ZGV2KTsNCiAJCQlyZXR1cm4gMDsNCg==
+--------------070309000706020401080306--
