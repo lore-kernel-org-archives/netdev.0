@@ -1,70 +1,91 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Thu, 11 Dec 2003 02:34:51 +0200 (EET)
+From: Andi Kleen <ak@muc.de>
+Subject: [patch] variable number of dummy devices
+Date: Thu, 11 Dec 2003 09:36:21 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312110219210.1519-100000@u.domain.uli>
-References: <20031210160946.4110c611.davem@redhat.com>
+Message-ID: <20031211083621.GA2455@averell>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: niv@us.ibm.com, <ak@suse.de>, <ruddk@us.ibm.com>, <kuznet@ms2.inr.ac.ru>,
-        <netdev@oss.sgi.com>, <chester.f.johnson@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031210160946.4110c611.davem@redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
+Uses the new module_params that nobody else uses now.
 
-On Wed, 10 Dec 2003, David S. Miller wrote:
-
-> On Thu, 11 Dec 2003 02:06:09 +0200 (EET)
-> Julian Anastasov <ja@ssi.bg> wrote:
->
-> > But the common average chain length for full table is 16 and the
-> > different TOS values are usually 1 or 2 per path. We do not talk
-> > about intentional DoS.
->
-> Your system has not configured it's rthash table size properly, see
-> recent discussions Robert has been making here.  You should have
-> rthash sized somewhere near the number of entries a full system
-> will have.
->
-> But regardless, let us say that your system has complexity O(16)
-> lookups as you mention, your proposal changes this to O(16+8).
-
-	It is ~16 :)
-
-	ip_rt_max_size = (rt_hash_mask + 1) * 16;
-
-	This is what happens on full table, of course. OK,
-some simple numbers for an ideal table:
-
-- full table with 1024 chains, 16384 (max_size) entries equally
-distributed in these 1024 chains, 16 per chain.
-
-- there are 2048 paths with same saddr->daddr, each has 8 TOS values
-
-2 cases depending on whether TOS is a hash key (path=saddr->daddr):
-
-1. TOS is a hash key:
-
-	- in each chain we have 16 paths, 1 TOS value per path
-	- all 8 TOS values for a path are in 8 different chains
-
-2. TOS is not a hash key:
-
-	2 paths per chain (2 paths x 8 TOS values => 16 entries)
-
-if all saddr->daddr->tos streams have same packet rate I think
-the CPU time to lookup them will be same.
-This is because 8 (number of TOS values) < 16 (chain length).
-
-	And I hope the users always can tune the proposed TOS
-settings if they see DoS and if they do not need TOS as a rt key.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+diff -u linux-2.6.0test11-amd64/drivers/net/dummy.c-DUMMY linux-2.6.0test11-amd64/drivers/net/dummy.c
+--- linux-2.6.0test11-amd64/drivers/net/dummy.c-DUMMY	2003-11-29 16:34:26.000000000 +0100
++++ linux-2.6.0test11-amd64/drivers/net/dummy.c	2003-12-11 09:34:17.000000000 +0100
+@@ -33,6 +33,9 @@
+ #include <linux/kernel.h>
+ #include <linux/netdevice.h>
+ #include <linux/init.h>
++#include <linux/moduleparam.h>
++
++static int numdummies = 1;
+ 
+ static int dummy_xmit(struct sk_buff *skb, struct net_device *dev);
+ static struct net_device_stats *dummy_get_stats(struct net_device *dev);
+@@ -83,10 +86,14 @@
+ 	return dev->priv;
+ }
+ 
+-static struct net_device *dev_dummy;
++static struct net_device **dummies;
+ 
+-static int __init dummy_init_module(void)
++/* Number of dummy devices to be set up by this module. */
++module_param(numdummies, int, 0);
++
++static int __init dummy_init_one(int index)
+ {
++	struct net_device *dev_dummy;
+ 	int err;
+ 
+ 	dev_dummy = alloc_netdev(sizeof(struct net_device_stats),
+@@ -98,15 +105,40 @@
+ 	if ((err = register_netdev(dev_dummy))) {
+ 		kfree(dev_dummy);
+ 		dev_dummy = NULL;
++	} else {
++		dummies[index] = dev_dummy; 
+ 	}
++
+ 	return err;
+ }
+ 
++static void __exit dummy_free_one(int index) 
++{
++	unregister_netdev(dummies[index]);
++	free_netdev(dummies[index]);
++} 
++
++static int __init dummy_init_module(void)
++{ 
++	int i, err = 0;
++	dummies = kmalloc(numdummies * sizeof(void *), GFP_KERNEL); 
++	if (!dummies)
++		return -ENOMEM; 
++	for (i = 0; i < numdummies && !err; i++)
++		err = dummy_init_one(i); 
++	if (err) { 
++		while (--i >= 0)
++			dummy_free_one(i);
++	}
++	return err;
++} 
++
+ static void __exit dummy_cleanup_module(void)
+ {
+-	unregister_netdev(dev_dummy);
+-	free_netdev(dev_dummy);
+-	dev_dummy = NULL;
++	int i;
++	for (i = 0; i < numdummies; i++) 
++		dummy_free_one(i); 
++	kfree(dummies);	
+ }
+ 
+ module_init(dummy_init_module);
