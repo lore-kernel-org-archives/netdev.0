@@ -1,49 +1,53 @@
-From: David T Hollis <dhollis@davehollis.com>
-Subject: Re: [ANNOUNCE] netplug, a daemon that handles network cables getting
- plugged in and out
-Date: Thu, 28 Aug 2003 22:11:13 -0400
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: 100 network limit
+Date: Thu, 28 Aug 2003 20:45:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4EB641.3040107@davehollis.com>
-References: <1062105712.12285.78.camel@serpentine.internal.keyresearch.com> <20030829003426.GF12249@vitelus.com>
+Message-ID: <3F4ECC52.5000406@candelatech.com>
+References: <20030828180019.GH12541@krispykreme>	<20030828210855.58759b69.ak@suse.de>	<3F4E783F.6080707@candelatech.com> <20030828164143.536d8d8a.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Bryan O'Sullivan" <bos@keyresearch.com>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Cc: ak@suse.de, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Aaron Lehmann <aaronl@vitelus.com>
-In-Reply-To: <20030829003426.GF12249@vitelus.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030828164143.536d8d8a.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Aaron Lehmann wrote:
+David S. Miller wrote:
+> On Thu, 28 Aug 2003 14:46:39 -0700
+> Ben Greear <greearb@candelatech.com> wrote:
+> 
+> 
+>>Since you can rename devices, that might not work.  A long time ago
+>>I hashed the devices, both by name and by index...that gives good
+>>lookup performance, at least.  As for create-time issues, that is
+>>definately slow path, and even searching linearly 4 or 8k devices is
+>>not a big deal (in my opinion).  So, why not make the hard-coded 100
+>>limit be more like 8196 or something really large?  (It could still
+>>be adjustable if needed.)
+> 
+> 
+> Right, it's also not going to fix the locking problems.
+> 
+> I would suggest two things:
+> 
+> 1) Ben's hashing patch for lookups.
+> 
+> 2) RCU'ing read access to the device list.
+> 
 
->On Thu, Aug 28, 2003 at 02:21:52PM -0700, Bryan O'Sullivan wrote:
->  
->
->>Netplug is a daemon that responds to network cables being plugged in or
->>out by bringing a network interface up or down.  This is extremely
->>useful for DHCP-managed systems that move around a lot, such as laptops
->>and systems in cluster environments.
->>
->>For more details and download instructions, see the netplug homepage:
->>http://www.red-bean.com/~bos/
->>    
->>
->
->Thank you, thank you, thank you. I was just thinking today how
->annoying it is that whenever I boot up my laptop, dhclient runs and tries
->to get an IP address on the ethernet interface until it's ^C'd. Since
->I often use the Ethernet interface this is not a bad default, but dhclient
->can't even realize on its own that there's no cable plugged in.
->-
->To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->Please read the FAQ at  http://www.tux.org/lkml/
->  
->
-Hmm, that seems to raise the question - why doesn't dhclient just handle 
-that?  On a DHCP interface, it's running anyway.  if it paid attention 
-to link status, it would know when to re-request an IP.  If you are 
-statically assigned, you don't really care anyway.
+I'm at least mostly on vacation for a week or so...  Here is a pointer
+to the old patch I did..but it's ~2.5 years old.  If anyone wants
+to get it working with recent code, please be my guest.
+
+Otherwise, I'll try to get something together in a few weeks.
+
+http://www.cs.helsinki.fi/linux/linux-kernel/2001-00/1227.html
+
+Take it easy,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
