@@ -1,37 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
-Date: Fri, 16 Jan 2004 04:45:22 +0900 (JST)
+Date: Thu, 15 Jan 2004 11:38:40 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116.044522.45452827.yoshfuji@linux-ipv6.org>
+Message-ID: <20040115113840.4b7eb5d8.davem@redhat.com>
 References: <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mashirle@us.ibm.com, davem@redhat.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: yoshfuji@linux-ipv6.org, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: xma@us.ibm.com
+To: Shirley Ma <xma@us.ibm.com>
 In-Reply-To: <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com> (at Thu, 15 Jan 2004 11:30:25 -0800), Shirley Ma <xma@us.ibm.com> says:
+On Thu, 15 Jan 2004 11:30:25 -0800
+Shirley Ma <xma@us.ibm.com> wrote:
 
-> This rule would mean that any new kernel development *could* break
-> something somewhere else? ;-)
+> I don't see any application uses these values for now, so I change them.
+> It's good for kernel to provide the real MIBs information. If later on,
+> some applications start to use these values, they can get the correct
+> numbers without converting. Unless you can give me an broken example. :-)
 
-Please try to avoid changing the interface as long as you can.
-Please add something rather change it.
+Format and layout of procfs files have to stay as they are, this is just the
+nature of the game.
 
-In these case, we can avoid changing the interface,
-so let's avoid breaking interface.
-
-For ipv6inetNetToMeiaTable case, it is ok to add "jiffies," 
-but it wrong to change the value's context.
-If you really want to "change" that, please change the name.
-
-Thanks.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+We can create new files to present information in new ways and formats,
+but I totally prefer using netlink based information gathering over making
+new procfs files.
