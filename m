@@ -1,161 +1,76 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: tunneling in linux (was: Re: [PATCH][RFC] etherip:
-	Ethernet-in-IPv4 tunneling)
-Date: 16 Jan 2005 18:09:05 -0500
-Message-ID: <1105916945.1091.1039.camel@jzny.localdomain>
-References: <20050112222437.GC14280@xi.wantstofly.org>
-	 <Pine.LNX.4.61.0501130944270.19573@netcore.fi>
-	 <20050113092351.GA23170@xi.wantstofly.org>
-	 <1105897020.1091.736.camel@jzny.localdomain>
-	 <20050116185553.GA21739@xi.wantstofly.org>
-	 <1105905745.1097.858.camel@jzny.localdomain>
-	 <20050116202041.GC22165@xi.wantstofly.org>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 16 Jan 2005 18:10:38 -0500
+Message-ID: <1105917038.1091.1041.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
+	 <1105019912.2314.20.camel@jzny.localdomain>
+	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
+	 <1105104757.1046.63.camel@jzny.localdomain>
+	 <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
+	 <1105363092.1041.146.camel@jzny.localdomain>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Pekka Savola <pekkas@netcore.fi>, shemminger@osdl.org,
-        shollenbeck@verisign.com
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050116202041.GC22165@xi.wantstofly.org>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1105363092.1041.146.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2005-01-16 at 15:20, Lennert Buytenhek wrote:
-> On Sun, Jan 16, 2005 at 03:02:26PM -0500, jamal wrote:
 
-> Sure, but, the argument in favor of etherip would be interoperability
-> with existing implementations.  If at least OpenBSD gets it wrong (and
-> the proposed patch for NetBSD seems to also use the wrong value) then
-> this argument isn't all that strong anymore.
-> 
-
-Is 0x300 owned by anything? Maybe thats what it should be from now on
-and an update to be issued agains the RFC ;->
-
-> > BTW, in one of your emails i
-> > noticed you cced the authors of that RFC - did they respond? Whats their
-> > deployment experiences?
-> 
-> The @rsa.. address bounces, the other address is still in the CC list
-> and I didn't hear from him yet :-)
-
-Hopefully we'll hear from them
- 
-> > the dev->type is intended precisely for that. So if this needs a new
-> > type then you should introduce a new ARPHRD type for it and set it at
-> > device creation time.
-> 
-> Bridges present themselves as ARPHRD_ETHER, even though they are not
-> 'real' ethernet devices as such.  Should they have their own type?
-
-some devices are "ethernet like" - meaning they operate on ethernet
-headers, so its fine to use that. I would think bridges would fall under
-that category.
-
-> What about ethertap devices?
-
-They are ethernet like as well. OTOH, if you look at tuntap you may find
-one of the modes is not ethernet-like. Infact it doesnt have a header at
-all;-> (ARPHRD_NONE). rule of thumb: Whats the header like?
-
-> If we create ARPHRD_ETHERTUNNEL for ethernet tunnels instead of using
-> ARPHRD_ETHER, we'd have to make modifications all over the place to
-> teach other code that ARPHRD_ETHERTUNNEL is basically just another type
-> of ethernet device.  
-
-IANA actually keeps track of these iftype numbers - they dont seem to
-match with Linux - I wonder why we havent heard some SNMP weenie
-bitching about this:
-http://www.iana.org/assignments/ianaiftype-mib
-So, yes, should be able to add ARPHRD_ETHERTUNNEL in some free number
-and i am pretty sure youd hear from them someday;->
-If i have time i will sneak a look at net-snmp
-
-> For example, we'd have to modify net/bridge/*
-> because it will only enslave devices which are ARPHRD_ETHER.  But even
-> more modifications would be needed in userland -- we'd have to adapt
-> ifconfig, ip route, etc.
-
-You probably want net/bridge to enslave _only_ ethernet like type
-netdevices. Otherwise it gets confused trying to see where the fsck dst
-MAC is to be found.
-
-> The issue is "We can not blindly issue SIOCGETTUNNEL to ARPHRD_ETHER
-> devices like we do for ARPHRD_{TUNNEL,IPGRE,SIT} because on _ETHER, it
-> might alias with another ioctl (SIOCDEVPRIVATE)."
-
-I dont think it will be an issue with proper dev->type.
-
-You know theres another way to do this:
-Write this as a simple action. If all you are doing is slapping headers
-back and forth then you want:
-
-ingress:
-	match protocol 0x3000
-		action: etherip decap, format, --> netif_rx
-egress:
-	
-outgoing: 
-	match someIP
-		action: etherip encap, format --> out we go
-
-All very simple to control with netlink. And would be an excuse to
-finaly get you to look at this stuff ;->
- 
-
-> > Introducing the new type should help. Also the iflink is typically set
-> > to the mother netdevice. So that should go a long way to give you
-> > details.
-> 
-> There is no 'mother' device for a tunnel -- there might be no route to
-> the remote host at creation time, and that route might change over time
-> due to routing changes too.
-> 
-
-I thought you should be able to specify _exactly_ what the physical
-device is ("ip tunnel ... dev eth0" or something along those lines) . I
-could be wrong. 
-
-
-> > Why is this first instance needed? Its not like theres a bus that is
-> > scanned at boot time and we need to create at that discovery time.
-> 
-> This first instance is used for sending ioctls to to create subsequent
-> tunnel devices.  Doing something netlink-based would be fine with me.
-> 
-
-Yes, that would kill need for those devices.. 2.6.x is now fine and
-should handle all that fine with no need for ioctls - backward comapt
-maybe an issue.
-
-> 
-> > > - Tunneling over IPv6 should be implemented.
-> > 
-> > sit? or v6-v6?
-> 
-> Basically, 'ip tunnel' should accept v6 addresses for 'local' and
-> 'remote'.  Having GRE-over-v6 would then imply v6-over-v6, v4-over-v6,
-> ethernet-over-v6, etc.
-> 
-
-At the moment you specify the mode - is that the only painful thing?
-Didnt quiet follow
-
-> 
-> > BTW, have you looked at any of the L2VPN stuff? browse the ietf web
-> > page. Some interesting stuff there.
-> 
-> The L2TP RFC (RFC 2661, is that the same thing?) is 170kB, which scared
-> me off somewhat.
-> 
-> At least the GRE RFC fits in 16kB.
-
-No meant L2VPNs - purely layer 2 and then somewhere along the path
-carried by MPLS. 
-start here: http://www.ietf.org/html.charters/l2vpn-charter.html
+Didnt see anymore discussion on this - have we given up on it?
 
 cheers,
 jamal
+
+On Mon, 2005-01-10 at 08:18, jamal wrote:
+> On Fri, 2005-01-07 at 10:26, Tommy Christensen wrote:
+> > On Fri, 2005-01-07 at 14:32, jamal wrote:
+> > > On Thu, 2005-01-06 at 10:06, Tommy Christensen wrote:
+> 
+> [..]
+> 
+> > > reseting qdisc could certainly be part of the device watchdog.
+> > > Note that once the packets are drained, the next thing that will happen
+> > > if device is stopped for a dev->timeout period is watchdog kicking in
+> > > and flushing the DMA. So you could reset your qdisc there though i am
+> > > not sure it will be needed with that patch.
+> > 
+> > Unfortunately the watchdog won't do this when carrier is off, which
+> > is fair enough since the chip isn't hung as such.
+> 
+> We may have to kick the dog in that path as well then.
+> 
+> > So, we would need another method to flush out stale packets from
+> > the DMA ring. Some drivers already do this themselves, and some won't
+> > need it because they keep on running even when link is down.
+> 
+> kicking tx_timeout seems like the right thing to do until i looked at
+> the drivers. Sigh. I just stared at a few drivers and it is not pleasant
+> - and they mostly have the same theme (so you cant say they are
+> inconsistent).
+> Looking at e1000 for example is quiet interesting - it actually brings
+> down then up the device ;-> This will both flash the dma and reset qdisc
+> but also loose any static routes. It will also reschedule the device;-<
+> So i am not so sure that the dog kicking in a minute later is a good
+> thing at all. We may need a lot of janitorial work to cleanse the
+> drivers - something jgarzik is against. 
+> 
+> A qdisc_reset, as you suggest, will probably not cure the problem but
+> provide some cosmetics. Thoughts?
+> 
+> cheers,
+> jamal
+> 
+> 
+> 
