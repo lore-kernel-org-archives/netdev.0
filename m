@@ -1,43 +1,62 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: b44: timeout on initialization
-Date: Fri, 14 Jan 2005 11:22:04 +0100
-Message-ID: <20050114102204.GB3626@xi.wantstofly.org>
-References: <20050113183147.0772941c.shemminger@osdl.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [DEBUG]: sk_forward_alloc assertion failures
+Date: Fri, 14 Jan 2005 22:16:48 +1100
+Message-ID: <20050114111648.GA27964@gondor.apana.org.au>
+References: <20050113171234.3fde0925.davem@davemloft.net> <20050114012504.GF6309@krispykreme.ozlabs.ibm.com> <20050113201914.46b7c4a2.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="gBBFr7Ir9EOA20Yy"
+Cc: Anton Blanchard <anton@samba.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Florian Schirmer <jolt@tuxbox.org>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050113183147.0772941c.shemminger@osdl.org>
+In-Reply-To: <20050113201914.46b7c4a2.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 13, 2005 at 06:31:47PM -0800, Stephen Hemminger wrote:
 
-> I get this all the time on my laptop (2.6.8 - 2.6.10) even
-> when connected to the router
-> b44: eth0: BUG!  Timeout waiting for bit 00000001 of register 41c to set.
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I get a similar-looking message on my Dell Inspiron 8500 on 2.6.9:
+On Thu, Jan 13, 2005 at 08:19:14PM -0800, David S. Miller wrote:
+> 
+> The easiest way to fix this is to simply make do_tcp_sendpages()
+> account just like tcp_sendmsg() does.  This is implemented below
+> and should be the real fix for the sk_forward_alloc assertion
+> failures.
 
-	b44: eth0: BUG!  Timeout waiting for bit 80000000 of register 428 to clear.
+Sorry, but this may bypass the memory checks if sk_forward_alloc
+is less than mss_now.
 
-This happens when UP'ing the device, both when at-the-time-of-UP'ing
-already connected to some Cisco Catalyst that's configured to do only
-10Mbps and no autonegotiation, as well as when not connected to anything
-at all.  Not sure whether it also happens on 100Mbps or when using
-autonegotiation -- can't check right now.
+Since the packet is bounded by mss_now, and most of the time it
+will be exactly mss_now bytes long, how about if we simply
+replace tp->mss_cache by mss_now?
 
-02:00.0 Ethernet controller: Broadcom Corporation BCM4401 100Base-T (rev 01)
-	Subsystem: Dell: Unknown device 8127
-	Flags: bus master, fast devsel, latency 32, IRQ 11
-	Memory at faffe000 (32-bit, non-prefetchable) [size=8K]
-	Capabilities: [40] Power Management version 2
+Could you guys please give this patch a go?
 
-Hope this helps.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
+--gBBFr7Ir9EOA20Yy
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
---L
+===== net/ipv4/tcp.c 1.88 vs edited =====
+--- 1.88/net/ipv4/tcp.c	2005-01-07 10:13:39 +11:00
++++ edited/net/ipv4/tcp.c	2005-01-14 22:14:41 +11:00
+@@ -664,7 +664,7 @@
+ 			if (!sk_stream_memory_free(sk))
+ 				goto wait_for_sndbuf;
+ 
+-			skb = sk_stream_alloc_pskb(sk, 0, tp->mss_cache,
++			skb = sk_stream_alloc_pskb(sk, 0, mss_now,
+ 						   sk->sk_allocation);
+ 			if (!skb)
+ 				goto wait_for_memory;
+
+--gBBFr7Ir9EOA20Yy--
