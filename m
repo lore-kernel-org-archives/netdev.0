@@ -1,117 +1,23 @@
-From: Roberto Nibali <ratz@drugphish.ch>
-Subject: Re: [ANNOUNCE] NF-HIPAC: High Performance Packet Classification
-Date: Wed, 02 Oct 2002 19:37:00 +0200
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] IPv6: Default Router Selection Round-robin
+Date: Wed, 2 Oct 2002 23:22:41 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D9B2EBC.4010102@drugphish.ch>
-References: <Pine.LNX.3.96.1020930133306.20863A-100000@gatekeeper.tmr.com>
+Message-ID: <200210021922.XAA26368@sex.inr.ac.ru>
+References: <20021003.015057.14743018.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, davem@redhat.com (Dave Miller)
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bill Davidsen <davidsen@tmr.com>
+To: yoshfuji@linux-ipv6.ORG (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
+In-Reply-To: <20021003.015057.14743018.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Oct 2, 2 09:15:04 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hello!
 
->>I will do a new round of testing this weekend for a speech I'll be 
->>giving. This time I will include ipchains, iptables (of course I am 
->>willing to apply every interesting patch regarding hash table 
->>optimisation and whatnot you want me to test), nf-hipac, the OpenBSD pf 
->>and of course the work done by Jamal.
->  
-> Look forward to any info you can provide.
+> Linux changes default router even while it is probably reachable.
+> Once it becomes "non-REACHABLE," Linux trys to select one in round-robin
+> fashion, but once it reached end of list, it would be stuck there.
 
-Unfortunately (as always) there were tons of delays that didn't allow me 
-to finish the complete test suite as I hoped I could but I sent some 
-information off this list to Jamal and the nf-hipac guys about previous 
-test result. See below. I hope I can do more tests this weekend ...
+The patch looks perfect.
 
-> I particularly like that nf-hipac can be put in and tried in one-to-one
-> comparison, that leaves an easy route to testing and getting confidence in
-> the code.
-
-Yes and it was very convincing after the first few tests Some prelimiary 
-test with raw TCP throughput have given me following really cool results:
-
-TCP RAW throughput 100Mbit/s max MTU:
--------------------------------------
-ratz@laphish:~/netperf-2.2pl2 > ./netperf -H 192.168.1.141 -p 6666 -l 60
-TCP STREAM TEST to 192.168.1.141
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/s
-
-  87380  16384  16384    60.01      88.03 <------
-ratz@laphish:~/netperf-2.2pl2 >
-
-
-TCP RAW throughput 100Mbit/s max MTU with 10000 non-matching rules + 1 
-last matching rule at the end of the FORWARD chain [iptables]:
-----------------------------------------------------------------------
-ratz@laphish:~/netperf-2.2pl2 > ./netperf -H 192.168.1.141 -p 6666 -l 60
-TCP STREAM TEST to 192.168.1.141
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
-  87380  16384  16384    60.12       3.28 <------
-ratz@laphish:~/netperf-2.2pl2 >
-
-
-TCP RAW throughput 100Mbit/s max MTU with 10000 non-matching rules + 1 
-last matching rule at the end of the FORWARD chain [nf-hipac]:
-----------------------------------------------------------------------
-ratz@laphish:~/netperf-2.2pl2 > ./netperf -H 192.168.1.141 -p 6666 -l 60
-TCP STREAM TEST to 192.168.1.141
-Recv   Send    Send
-Socket Socket  Message  Elapsed
-Size   Size    Size     Time     Throughput
-bytes  bytes   bytes    secs.    10^6bits/sec
-
-  87380  16384  16384    60.03      85.78 <------
-ratz@laphish:~/netperf-2.2pl2 >
-
-
-For nf-hipac I also have some statistics:
------------------------------------------
-bloodyhell:/var/FWTEST/nf-hipac # cat /proc/net/nf-hipac
-nf-hipac statistics
--------------------
-
-Maximum available memory:          65308672 bytes
-
-Currently used memory:             1764160 bytes
-
-INPUT:
-   - INPUT chain is empty
-
-FORWARD:
-   - Number of rules:                 10002
-   - Total size:                    1033010 bytes
-   - Total size (allocated):        1764160 bytes
-   - Termrule size:                   80016 bytes
-   - Termrule size (allocated):      320064 bytes
-   - Number of btrees:                30007
-     * number of u32 btrees:          10003
-       + distribution of u32 btrees:
-                                     [     2,      4]:   10002
-                                     [ 16384,  32768]:       1
-     * number of u16 btrees:          10002
-       + distribution of u16 btrees:
-                                     [    1,     2]:   10002
-     * number of u8 btrees:           10002
-       + distribution of u8 btrees:
-                                     [  2,   4]:      18
-
-OUTPUT:
-   - OUTPUT chain is empty
-
-bloodyhell:/var/FWTEST/nf-hipac #
-
-Roberto Nibali, ratz
--- 
-echo '[q]sa[ln0=aln256%Pln256/snlbx]sb3135071790101768542287578439snlbxq'|dc
+Alexey
