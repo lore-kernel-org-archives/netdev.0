@@ -1,67 +1,86 @@
-From: Arjan van de Ven <arjanv@redhat.com>
-Subject: Re: [PATCH 5/14 linux-2.6.7-rc1] prism54: new prism54 kernel
-	compatibility
-Date: Mon, 24 May 2004 10:53:50 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1085388830.2780.9.camel@laptop.fenrus.com>
-References: <20040524083220.GF3330@ruslug.rutgers.edu>
-Reply-To: arjanv@redhat.com
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [PATCH 0/14] prism54: bring up to sync with prism54.org cvs rep
+Date: Mon, 24 May 2004 04:57:27 -0400
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040524085727.GR3330@ruslug.rutgers.edu>
+References: <20040524083003.GA3330@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0laYfChQ5D1aekppT8aD"
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        prism54-devel@prism54.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-In-Reply-To: <20040524083220.GF3330@ruslug.rutgers.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="NfRCDefLLAVdwZEC"
+Return-path: <prism54-devel-admin@prism54.org>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	prism54-devel@prism54.org
+Content-Disposition: inline
+In-Reply-To: <20040524083003.GA3330@ruslug.rutgers.edu>
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
 
---=-0laYfChQ5D1aekppT8aD
-Content-Type: text/plain
+--NfRCDefLLAVdwZEC
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
 
-On Mon, 2004-05-24 at 10:32, Luis R. Rodriguez wrote:
-> 2004-03-20      Margit Schubert-While <margitsw@t-online.de>
+
+BTW we can supply a 2.4 prism54 patch (as new driver). Would that be
+wanted?
+
+	Luis
+
+On Mon, May 24, 2004 at 04:30:03AM -0400, Luis R. Rodriguez wrote:
 >=20
-> * isl_38xx.[ch], isl_ioctl.c, islpci_dev.[ch], islpci_eth.c
->   islpci_hotplug.c, islpci_mgt.[ch], oid_mgt.c: Adopt new
->   prism54 kernel compatibility.
+> Jeff,
 >=20
-> * prismcompat.h, prismcompat24.h: New compatibility work
+> Please apply the following patches to linux-2.6.7-rc1. These patches
+> bring the kernel tree up to sync with prism54.org's 1.2's release.
+>=20
+> [PATCH 1/14 linux-2.6.7-rc1] prism54: add new private ioctls
+> [PATCH 2/14 linux-2.6.7-rc1] prism54: reset card on tx_timeout
+> [PATCH 3/14 linux-2.6.7-rc1] prism54: add iwspy support
+> [PATCH 4/14 linux-2.6.7-rc1] prism54: add support for avs header in monit=
+or mode
+> [PATCH 5/14 linux-2.6.7-rc1] prism54: new prism54 kernel compatibility
+> [PATCH 6/14 linux-2.6.7-rc1] prism54: Fix prism54.org bugs 74, 75
+> [PATCH 7/14 linux-2.6.7-rc1] prism54: Fix 2.4 build
+> [PATCH 8/14 linux-2.6.7-rc1] prism54: Fix prism54.org bugs 39, 73
+> [PATCH 9/14 linux-2.6.7-rc1] prism54: Fix prism54.org bug 77; strengthene=
+d oid transaction
+> [PATCH 10/14 linux-2.6.7-rc1] prism54: Don't allow mib reads while unconf=
+igured
+> [PATCH 11/14 linux-2.6.7-rc1] prism54: Touched up kernel compatibility
+> [PATCH 12/14 linux-2.6.7-rc1] prism54: Start using likely/unlikely
+> [PATCH 13/14 linux-2.6.7-rc1] prism54: Fix 2.4 SMP build
+> [PATCH 14/14 linux-2.6.7-rc1] prism54: Fix channel stats; bump to 1.2
+>=20
+> 	Luis
+> =09
+> --=20
+> GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 5=
+25E
 
 
-ewwww this makes the driver quite a bit less readable!
 
-for example
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
 
--#if LINUX_VERSION_CODE >=3D KERNEL_VERSION(2,6,0)
--       /* This is 2.6 specific, nicer, shorter, but not in 2.4 yet */
--       DEFINE_WAIT(wait);
--       prepare_to_wait(&priv->reset_done, &wait, TASK_UNINTERRUPTIBLE);
--#else
--       DECLARE_WAITQUEUE(wait, current);
--       set_current_state(TASK_UNINTERRUPTIBLE);
--       add_wait_queue(&priv->reset_done, &wait);
--#endif
-+       PRISM_DEFWAITQ(priv->reset_done, wait)
-
-why not just make a DEFINE_WAIT() and prepare_to_wait() macro for 2.4
-instead ?? so that you can just have the 2.6 version in the code and do
-2.4 compat in a clean header, as opposed to fouling up the entire driver
-with it.
-
---=-0laYfChQ5D1aekppT8aD
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+--NfRCDefLLAVdwZEC
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQBAsbgexULwo51rQBIRAnv7AKCQgWMFXIuEr8/uf/0l1eNFzWrBIQCdGnSm
-d0fnurotkHis/i4dBYZMppc=
-=/pHk
+iD8DBQFAsbj3at1JN+IKUl4RAuuGAKCwQiOtqIxYMo+rXbmoLlb+ijsJ0ACeOCAH
+RZ24iXAXvJ8ch413We2BgJg=
+=MN82
 -----END PGP SIGNATURE-----
 
---=-0laYfChQ5D1aekppT8aD--
+--NfRCDefLLAVdwZEC--
