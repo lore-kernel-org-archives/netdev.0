@@ -1,46 +1,42 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
-Subject: Re: snd_cwnd drawn and quartered
-Date: Mon, 13 Jan 2003 17:20:06 -0800 (PST)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: SCTP path mtu support needs some ip layer support.
+Date: Tue, 14 Jan 2003 04:22:52 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33L0.0301131658430.26396-100000@orchestra.cs.caltech.edu>
-References: <200301140012.DAA09790@sex.inr.ac.ru>
+Message-ID: <200301140122.EAA10371@sex.inr.ac.ru>
+References: <Pine.LNX.4.33.0301131609290.1861-100000@dyn9-47-18-98.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Werner Almesberger <wa@almesberger.net>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Cc: sri@us.ibm.com, jgrimm2@us.ibm.com, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <200301140012.DAA09790@sex.inr.ac.ru>
+To: sri@us.ibm.com (Sridhar Samudrala)
+In-Reply-To: <Pine.LNX.4.33.0301131609290.1861-100000@dyn9-47-18-98.beaverton.ibm.com> from "Sridhar Samudrala" at Jan 13, 3 04:49:33 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-> I see. Not quite understand the reason though. :-) You said something
-> about lost retransmissions... How much of retransmits were lost
-> in the simulation? Are you aware that each lost retransmission,
-> if we behaved honestly, would collapse cwnd to 1? :-)
+> Is this more agreeable?
 
-Yes, I am aware of this, and when this happens, cwnd will sit @ 1 until
-TCP gets out of recovery (1 retransmits per rtt).  It's debatable whether
-cwnd should remain 1 for the rest of the recovery period even if really
-sever congestion brings cwnd down to 1.  For example, if there are 100
-pkts to be rexmitted when cwnd gets to 1, it will take at least 100 RTTs to
-leave recovery.  By then, whatever network condition that causes congestion
-in the first place might be long gone already, but one wouldn't know the
-true state of the network with such a small cwnd.  Maybe cwnd could be
-clamped at some minimum value (greater than 1) depending on ssthresh?
+I did not disagree with the first one, actually. :-)
+It was cleaner, to be honest.
 
->From what I have observed, cwnd gets reduced to 1 mainly because of lost
-retransmits.  I think the tcp_rs can show that. Linux TCP deals with a
-lost retransmit by reducing retrans_out by one so in_flight ends up
-becoming one less.  In tcp_cwnd_down, cwnd is always clamped at in_flight
-so if many rexmits are lost (over many RTTs), cwnd gets reduced quite
-often.  However, when cwnd is small, loss retransmits are not  reliable
-signals for the severity of congestion, for example, when cwnd is 10,
-does losing one pkt mean 10% pkts loss in the network?  Again, I am not
-saying right or wrong about how cwnd changes, but it is something that
-we could think about.
+In any case, after reading mail by Jon Grimm, the things
+became cleaner. BTW what is "chunk" size in current implementation?
 
-THanks,
+Essentially, to make a compromise between usability and sanity,
+it is enough to make the thing which we make with UDP: to prevent
+sending bogus fragmented packets when IP_MTUDISC_DO is set by user
+and set chunk size to a value < min(512,current mtu) in this case,
+so no fragments will be generated. In that case I will be happy
+(done all that possible, all the flaws are directed to SCTP designers. :-))
+and default behaviour (it is IP_MTUDISC_WANT) still will be rfc compliant.
 
-Cheng
+
+> If not, do you prefer SCTP having its own ip_xmit
+
+Hey, only not this. :-)
+
+BTW what did you make with IPv6? We even not have any analogue
+to ip_fragment there at the moment. Do not worry, we have to do this
+in any case, not depending on SCTP demands. :-)
+
+Alexey
