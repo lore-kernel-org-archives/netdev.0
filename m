@@ -1,49 +1,25 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: dev->type oddities
-Date: Fri, 21 Jun 2002 18:55:44 +0200 (MET DST)
+From: Andi Kleen <ak@muc.de>
+Subject: Re: Network oops
+Date: Sat, 22 Jun 2002 02:55:51 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10206211840080.16167-100000@mausmaki.cosy.sbg.ac.at>
+Message-ID: <af0inl$uun$2@main.gmane.org>
+References: <20020609.213150.32126725.davem@redhat.com> <3D042F8F.72764243@mvista.com> <3D120EAE.5A0D365E@mvista.com> <20020620.173805.55219901.davem@redhat.com> <3D133538.60B6810C@mvista.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, ak@muc.de, pekkas@netcore.fi,
+   andrew.r.cress@intel.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: george anzinger <george@mvista.com>
+Content-Disposition: inline
+In-Reply-To: <3D133538.60B6810C@mvista.com>
 List-Id: netdev.vger.kernel.org
 
-hi list,
+> > It requires a full audit of the networking in the new preemption
+> > environment.
+> 
+> Any pointers on what to look for would be welcome.
 
-can someone please send a comment the stuff below?
+I would look at the driver, especially races in its skb handling.
 
-net_device->type:
-	o holds the interface hardware type (according to netdevice.h)
-	o is set to ARPHRD_* (which should be ARP hardware identifiers)
-	o in the arp code there are a couple of places where the type
-		gets mapped to the correct ARP hardware header type
-
-hmm, so the type doesn't specify the arp hardware type, it specifies
-the mac/datalink type.
-
-wouldn't it be cleaner to split dev->type into
-
-	dev->datalink_type (or dev->mac_type)
-and
-	dev->arp_type
-?
-
-plus defining DLT_* or whatever defines for the mac/datalink type.
-
-this would cost an int per device, but would improve readability? and
-helps getting rid of the type to arp type mappings in the arp code.
-(plus userspace apps could also benefit - using datalink_type as we do
- right now, will keep libpcap and friends happy, and dhcp apps could
- use the arp type (so they can support new datalink types, which use
- an already known arp_type) without the need to add a switch for the
- new datalink type - 802.11 for example)
-
-any comments?
-
-thanks,
-
-	tm
-
--- 
-in some way i do, and in some way i don't.
+-Andi
