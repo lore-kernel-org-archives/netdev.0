@@ -1,68 +1,45 @@
-From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
-Subject: RE: Changes in source?
-Date: Thu, 24 Oct 2002 09:49:53 -0400
+From: Jean-Luc Cooke <jlcooke@certainkey.com>
+Subject: Re: [CryptoAPI-devel] Re: [Design] [PATCH] USAGI IPsec
+Date: Thu, 24 Oct 2002 10:50:26 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7BFCE5F1EF28D64198522688F5449D5AC63248@xchangeserver2.storigen.com>
+Message-ID: <20021024105026.C1170@certainkey.com>
+References: <m3k7kpjt7c.wl@karaba.org> <3DB41338.3070502@storm.ca> <1035168066.4817.1.camel@rth.ninka.net> <1035185654.21824.11.camel@janus.txd.hvrlab.org> <3DB4DBC8.8647E32E@pp.inet.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Valerio Riedel <hvr@hvrlab.org>,
+   "David S. Miller" <davem@rth.ninka.net>, Sandy Harris <sandy@storm.ca>,
+   Mitsuru KANDA <mk@linux-ipv6.org>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, cryptoapi-devel@kerneli.org, design@lists.freeswan.org,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Sreedharamurthy K" <sree_mu@yahoo.com>, <netdev@oss.sgi.com>
+To: Jari Ruusu <jari.ruusu@pp.inet.fi>
+Content-Disposition: inline
+In-Reply-To: <3DB4DBC8.8647E32E@pp.inet.fi>; from jari.ruusu@pp.inet.fi on Tue, Oct 22, 2002 at 08:02:00AM +0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-oops forgot one thing... Redhat adds patches to the "stock"
-linux kernel. You may have to get the RedHat kernel source
-rpm and look at the patch files against 2.4.18.
+On Tue, Oct 22, 2002 at 08:02:00AM +0300, Jari Ruusu wrote:
+> kerneli.org/cryptoapi _is_ useless joke for many needs. Fortunately other
+> people are able to see the limitations/sillyness of kerneli.org/cryptoapi:
+> 
+> 1)  You are trying to replace link/insmod time overhead with runtime
+>     overhead + unnecessary bloat.
+> 2)  No direct link access to low level cipher functions or higher level
+>     functions.
+> 3)  No clean way to replace cipher code with processor type optimized
+>     assembler implementations.
 
------Original Message-----
-From: Larry Sendlosky 
-Sent: Thursday, October 24, 2002 9:46 AM
-To: Sreedharamurthy K; netdev@oss.sgi.com
-Subject: RE: Changes in source?
+Jari has a few points here.  But the "killer" functionalities are all there
+IMHO.  Low-level assembler implementations are over-rated, again IMHO.  The
+performance difference between C and ASM is at most 50%.  1ms vs 1.5 ms.
+Even if you've got a large payload on the rare occation (>5MB) block ciphers
+are quite fast for 95% of applications
 
+JLC
 
-http://linux.bkbits.net
-
-the linux-2.4 tree will show all the changes and then some....
-
------Original Message-----
-From: Sreedharamurthy K [mailto:sree_mu@yahoo.com]
-Sent: Thursday, October 24, 2002 3:03 AM
-To: netdev@oss.sgi.com
-Subject: Changes in source?
-
-
-Hi Techies,
-
-I am experimenting some of the networking things with
-different versions namely 2.4.7 and 2.4.18 (Red Hat
-distribution). Found some good improvements in the
-later kernel over the former.
-
-Since I'm not member of the linux.kernel or netdev
-mailing lists finding the changes in these networking
-source is difficult. Was curious to know what changes
-have gone in the code, if any, specific in the
-networking code. Of course, the change not necessarily
-be in the networking part, if so, what has made this
-improvement in the 2.4.18 kernel?
-
-Tried looking in the 'changelog', not much information
-on know 'what' changes have gone in there.
-
-Please let me know the changes or pointers where to
-look at.
-
-Thanks in Advance.
-
-Regards,
--- Sree
-PS: please cc to my id, not a member of the list yet.
-
-__________________________________________________
-Do you Yahoo!?
-Y! Web Hosting - Let the expert host your web site
-http://webhosting.yahoo.com/
+-- 
+http://www.certainkey.com
+Suite 4560 CTTC
+1125 Colonel By Dr.
+Ottawa ON, K1S 5B6
+C: 613.263.2983
