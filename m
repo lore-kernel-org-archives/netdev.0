@@ -1,50 +1,45 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [FYI PATCH] Ethernet over Cisco HDLC
-Date: Thu, 24 Jun 2004 00:18:21 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3oen9yl3m.fsf@defiant.pm.waw.pl>
-References: <Pine.LNX.4.44.0406231625490.7776-100000@dane-linux.aiinet.priv>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: BUG: kernel panic at startup, 2.6.7 on x86
+Date: Wed, 23 Jun 2004 19:16:18 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <40DA0F42.9060802@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: dane@aiinet.com
-In-Reply-To: <Pine.LNX.4.44.0406231625490.7776-100000@dane-linux.aiinet.priv> (Dan
- Eble's message of "Wed, 23 Jun 2004 16:37:06 -0400 (EDT)")
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262114AbUFWXQX@vger.kernel.org>
+To: Linux kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dan Eble <dane@aiinet.com> writes:
+I tried syncing with 2.6.7 bk version, compiled with my 2.6.5 config, installed, 
+and rebooted.  Everything was okay up to the point where it runs a script to set 
+up my dsl connection.  At that point I got the following on the console:
 
-> I don't expect this patch to apply to any recent versions of the kernel.  
-> I'm posting it in case there is someone interested in porting it.  If
-> someone has the time to comment on the locking during dev destruction, I
-> would appreciate receiving pointers.  Any other comments are welcome too.
->
-> [To Krzysztof Halasa: All my mail to your pm.waw address bounces.  Is
-> there an alternate address I can use to contact you?]
+"Starting adsl: Kernel panic: Aiee, killing interrupt handler!  In interrupt 
+handler -- not syncing."
 
-No (t yet).
-It should now work (looks like HELO name of your mail server isn't
-registered in DNS).
+Unfortunately, that was all I got.
 
-> --- Old/include/linux/if.h	2004-06-23 13:59:58.000000000 -0400
-> +++ New/include/linux/if.h	2004-06-23 16:19:07.000000000 -0400
-> @@ -69,20 +69,22 @@
->  #define IF_PROTO_CISCO	0x2002		/* Cisco HDLC protocol		*/
->  #define IF_PROTO_FR	0x2003		/* Frame Relay protocol		*/
->  #define IF_PROTO_FR_ADD_PVC 0x2004	/*    Create FR PVC		*/
->  #define IF_PROTO_FR_DEL_PVC 0x2005	/*    Delete FR PVC		*/
->  #define IF_PROTO_X25	0x2006		/* X.25				*/
->  #define IF_PROTO_HDLC_ETH 0x2007	/* raw HDLC, Ethernet emulation	*/
->  #define IF_PROTO_FR_ADD_ETH_PVC 0x2008	/*  Create FR Ethernet-bridged PVC */
->  #define IF_PROTO_FR_DEL_ETH_PVC 0x2009	/*  Delete FR Ethernet-bridged PVC */
->  #define IF_PROTO_FR_PVC	0x200A		/* for reading PVC status	*/
->  #define IF_PROTO_FR_ETH_PVC 0x200B
-> +#define IF_PROTO_CISCO_ENABLE_PROTO 0x200C  /* enable an encapsulated proto  */
-> +#define IF_PROTO_CISCO_DISABLE_PROTO 0x200D /* disable an encapsulated proto */
+Here's the output of lspci.  Note, the linksys cards use the tulip driver.
 
-I wonder if we could merge IF_PROTO_FR_(ADD|DEL)_* and IF_PROTO_CISCO_*?
-It would get us the same sethdlc syntax and similar add/del code.
--- 
-Krzysztof Halasa, B*FH
+00:00.0 Host bridge: VIA Technologies, Inc. VT8363/8365 [KT133/KM133] (rev 03)
+00:01.0 PCI bridge: VIA Technologies, Inc. VT8363/8365 [KT133/KM133 AGP]
+00:07.0 ISA bridge: VIA Technologies, Inc. VT82C686 [Apollo Super South] (rev 40)
+00:07.1 IDE interface: VIA Technologies, Inc. VT82C586/B/686A/B PIPC Bus Master 
+IDE (rev 06)
+00:07.2 USB Controller: VIA Technologies, Inc. USB (rev 16)
+00:07.3 USB Controller: VIA Technologies, Inc. USB (rev 16)
+00:07.4 Bridge: VIA Technologies, Inc. VT82C686 [Apollo Super ACPI] (rev 40)
+00:08.0 Ethernet controller: Linksys Network Everywhere Fast Ethernet 10/100 
+model NC100 (rev 11)
+00:09.0 SCSI storage controller: Advanced System Products, Inc ABP940-U / 
+ABP960-U (rev 03)
+00:0b.0 Ethernet controller: Linksys Network Everywhere Fast Ethernet 10/100 
+model NC100 (rev 11)
+00:0d.0 Multimedia audio controller: Cirrus Logic CS 4614/22/24 [CrystalClear 
+SoundFusion Audio Accelerator] (rev 01)
+01:00.0 VGA compatible controller: nVidia Corporation NV11 [GeForce2 MX/MX 400] 
+(rev a1)
+
+If you need any more information, just let me know and I'll see what I can do.
+
+Chris
