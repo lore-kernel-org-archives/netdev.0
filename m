@@ -1,44 +1,48 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 17 Aug 2003 22:29:43 -0700
+Date: Sun, 17 Aug 2003 22:31:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817222943.2fdf9765.davem@redhat.com>
-References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com>
-	<20030728213933.F81299@coredump.scriptkiddie.org>
+Message-ID: <20030817223118.3cbc497c.davem@redhat.com>
+References: <20030728213933.F81299@coredump.scriptkiddie.org>
 	<200308171509570955.003E4FEC@192.168.128.16>
 	<200308171516090038.0043F977@192.168.128.16>
 	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
 	<200308171555280781.0067FB36@192.168.128.16>
+	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
+	<200308171759540391.00AA8CAB@192.168.128.16>
+	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
+	<200308171827130739.00C3905F@192.168.128.16>
+	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
+	<20030817224849.GB734@alpha.home.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: alan@lxorguk.ukuu.org.uk, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Cc: alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com, lamont@scriptkiddie.org,
+   davidsen@tmr.com, bloemsaa@xs4all.nl, marcelo@conectiva.com.br,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
+   torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Carlos Velasco" <carlosev@newipnet.com>
-In-Reply-To: <200308171555280781.0067FB36@192.168.128.16>
+To: Willy Tarreau <willy@w.ods.org>
+In-Reply-To: <20030817224849.GB734@alpha.home.local>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 17 Aug 2003 15:55:28 +0200
-"Carlos Velasco" <carlosev@newipnet.com> wrote:
+On Mon, 18 Aug 2003 00:48:49 +0200
+Willy Tarreau <willy@w.ods.org> wrote:
 
-> And you can just use other OS and solve the problem
+> On Sun, Aug 17, 2003 at 06:24:06PM +0100, Alan Cox wrote:
+>  
+> > So stick the address on eth0 not on lo since its not a loopback but an eth0
+> > address, then use arpfilter so you don't arp for the invalid magic shared IP
+> > address, or NAT it, or it may work to do
+> > 
+> >          ip route add nexthop-addr src my-virtual-addr dev eth0 scope local onlink
+> >          ip route add default src my-virtual-addr via nexthop-addr dev eth0 scope global
+>  
+> I have a case where this doesn't work
 
-Nobody hacking on Linux feels threatened by this.
+Replying again... Alan does mention in the paragraph you've quoted
+to use arpfilter, which works for every case imaginable.
 
-And if anything, it's the last thing that would make us change Linux
-to behave one way or another.  That would be a stupid reason to make a
-change to the kernel, just because someone is shitting their pants on
-some mailing list endlessly about it.
-
-So please, go ahead, go use another OS if that suits your needs
-better, it certainly has no bearing on how we'll make Linux's ARP
-behave.
-
-But the one thing you can't do is accuse us of not providing the
-facility you need.  Your only valid complaint is that the facility
-doesn't get configured in the way that you would like it to, and
-frankly my answer to that is "tough".
+The facilities to solve these problems are there, people simply
+don't want to use them.
