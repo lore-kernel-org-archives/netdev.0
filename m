@@ -1,36 +1,55 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 29 Sep 2004 14:17:31 -0700
+From: Steven Blake <slblake@petri-meat.com>
+Subject: Re: Move fib_alias out of fib_hash.c
+Date: Wed, 29 Sep 2004 17:20:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929141731.2685e561.davem@davemloft.net>
-References: <20040928223344.GC2975@wotan.suse.de>
-	<Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu>
-	<20040929090103.GB18671@wotan.suse.de>
-	<20040929125644.40358b42.davem@davemloft.net>
-	<20040929225635.061f2405.ak@suse.de>
+Message-ID: <1096492842.2344.57.camel@localhost.localdomain>
+References: <20040928214722.11aef8e0.davem@davemloft.net>
+	 <16730.53965.503605.943263@robur.slu.se>
+	 <20040929125359.12a00ba7.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jheffner@psc.edu, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040929225635.061f2405.ak@suse.de>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040929125359.12a00ba7.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Sep 2004 22:56:35 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Wed, 2004-09-29 at 15:53, David S. Miller wrote:
 
-> Also the test that John wanted to diable has been in Linux practically
-> forever (irc dates back to Eric Schenk's work in 2.0) 
+> On Wed, 29 Sep 2004 17:20:45 +0200
+> Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+> 
+> >   we can interface new lookups cleanly. For a trie something like:
+> 
+> You are already making a critical logic error.
+> 
+> You cannot find the longest matching prefix and just use that.
+> 
+> Rather, you must iterate through all matching prefixes in the
+> table from longest to shortest, trying fib_semantic_match() on
+> each one until it says OK.
+> 
+> If you don't do that, then you're not providing the same behavior
+> of the current code.  If next hops go down, you have to try the
+> next longest matching prefix and so on and so forth.
 
-Yes, but it could prove something about either the sender
-or the receiver, namely that the receive window is not openning
-up fast enough for some reason, thus delaying the ACKs.
+I'm not criticizing the current design, but it is very typical of
+routers to put the burden of fixing up the FIB in the event of a
+next-hop state change on the routing daemon, and not the dataplane.
+Which is one reason why having a FIB datastructure that can be updated
+very efficiently is important.
 
-> Part of the trace. It looks like the new kernel has really
-> bad problems with acking.
+> It can also
+> be the case that the longest matching prefix entry has no matching
+> TOS key, whereas a shorter prefix does.
 
-It looks, again, like the receiver's window is not openning
-up fast enough, which controls ACK response decisions, and
-that is what jheffner's patch is supposed to verify.
+No routing protocols are distributing TOS-specific routes, and there is
+no prospect of that feature ever coming back.  Why pay the cost of
+matching TOS on every packet forwarded?
+
+
+Regards,
+
+// Steve
