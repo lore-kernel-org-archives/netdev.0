@@ -1,31 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch] Make rt_cache_stat use kmalloc_percpu
-Date: Fri, 20 Dec 2002 23:29:09 -0800 (PST)
+From: Werner Almesberger <wa@almesberger.net>
+Subject: TCP connection passing, version 5
+Date: Sat, 21 Dec 2002 03:48:09 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021220.232909.88324816.davem@redhat.com>
-References: <20021216192212.C26076@in.ibm.com>
-	<20021220.230528.106417474.davem@redhat.com>
-	<3E0418EC.B55941EE@digeo.com>
+Message-ID: <20021221034809.A17934@almesberger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kiran@in.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   dipankar@in.ibm.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@digeo.com
-In-Reply-To: <3E0418EC.B55941EE@digeo.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andrew Morton <akpm@digeo.com>
-   Date: Fri, 20 Dec 2002 23:31:56 -0800
+A very minor update:
 
-   "David S. Miller" wrote:
-   > I can't consider this seriously until the kmalloc_percpu stuff
-   > actually makes it into Linus's tree.  Last I checked, Andrew had
-   > a lot of legitimate gripes with the ideas.
-   
-   Kiran's latest (vastly simpler) version looks fine to my eye.
-   
-Ok, so once that is in, he can feel free to resubmit the
-rt_cache_state patch.
+http://www.almesberger.net/tcpcp/tcpcp-5.tar.gz
+md5sum d30310aec5e5c22e5fbc178274cd7c46
+
+This one mainly flushes lots of extensions for a testing framework
+I've made over the last few weeks. The testing framework isn't
+there yet, and the extensions aren't particularly pretty either.
+
+The patch is now relative to 2.5.49, and there's also a patch for
+UML as of 2.5.47. tcpcp on UML is fun for demos :-)
+
+- Werner
+
+----------------------------------- CHANGES -----------------------------------
+
+Version 5 (21-DEC-2002)
+-----------------------
+
+- upgraded to the 2.5.49 kernel
+- make "upload" now runs md5sum after uploading
+- tentatively added -b ("background") option to cpshd
+- added UML build process in uml/
+- added framework for running programs under UML in umlrun/
+- mkpatch now exits with non-zero exit status on error
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
