@@ -1,564 +1,1006 @@
-From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-Subject: Re: Kernel connector - userspace <-> kernelspace "linker".
-Date: Fri, 17 Sep 2004 11:13:25 +0400
+From: Zilvinas Valinskas <zilvinas@gemtek.lt>
+Subject: Re: Crypto tests via tcrypt.o modules failes
+Date: Fri, 17 Sep 2004 10:43:41 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040917071325.GA6502@uganda.factory.vocord.ru>
-References: <20040916200304.4fad9b6d@zanzibar.2ka.mipt.ru>
+Message-ID: <1095407021.4174.1.camel@swoop.gemtek.lt>
+References: <Xine.LNX.4.44.0409161528250.4676-100000@thoron.boston.redhat.com>
+Reply-To: zilvinas@gemtek.lt
 Mime-Version: 1.0
-Content-Type: text/plain; charset=koi8-r
-Cc: netdev@oss.sgi.com, Evgeniy Polyakov <s0mbre@tservice.net.ru>
+Content-Type: multipart/mixed; boundary="=-tv8yCFiSNkVdaGMy0ck1"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <20040916200304.4fad9b6d@zanzibar.2ka.mipt.ru>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0409161528250.4676-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 16, 2004 at 08:03:04PM +0400, Evgeniy Polyakov wrote:
-> Sorry for thread destruction, but I have not received you mail, 
-> but see it in archive. I do beleive it is due to permanent glitch of 
-> 2ka.mipt.ru SMTP server.
+
+--=-tv8yCFiSNkVdaGMy0ck1
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+Attached .config for Xscale.
+
+On Thu, 2004-09-16 at 22:29, James Morris wrote:
+> On Thu, 16 Sep 2004, Zilvinas Valinskas wrote:
 > 
-> > I dont have time to evaluate the code right now - but will at the end of
-> > day. Just trying to understand your concepts:
-> >
-> > Essentially you are building a unified messaging for
-> > userspace-userpace(i.e IPC), userspace-kernel, kernel-kernel with each
-> > component residing in whatever spot (kernel or userland)having a unique
-> > name and Id. Is this correct?
+> > I would say Xscale IXP425 has a rather interesting 32, 16 bits
+> > read/write results if address is not aligned properly.
 > 
-> Actually name and ID should be transformed to ID0 and ID1(they are callled
-> idx and val and are u32 values, since I strongly object against any ASCII 
-> based identificators( sigh, I am cunning - superio has such ids)).
-> Since userspace can not register callback function, then it is not quite 
-> fair to call it generic, but the idea is right.
+> Odd, no other algorithms seem to be having any problems.  Can you post 
+> your .config?
 > 
-> > Clearly there could be name/Id conflicts etc. Are you addressing those? 
-> 
-> Hmm, u32+u32 - I do not beleive that it can conflict, but if they do, then
-> first registered with given idx+val will pay the pipper and call the tune.
-> Second call with the same parameters for register_callback() fill fail.
-> 
-> > Any event and filtering capability already in or planned? Example event
-> > I want to be notified when module with name "sean paul" comes online and
-> > filter will be "it has to have ID in the range of 0x200-0x400".
-> 
-> Such information does exist in connector driver and it _can_ be easily 
-> obtained. I will call it feature request that fits the design 
-> and will implement this today/tomorrow. :)
-> 
-> > I am still trying to wakeup but it does sound like a good idea to have a
-> > generic messaging subsystem.
-> 
-> Good afternoon :).
+> - James
 
-kind of dmesg:
+--=-tv8yCFiSNkVdaGMy0ck1
+Content-Disposition: attachment; filename=.config
+Content-Type: text/plain; name=.config; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 
-Notify group 1 for idx: 291-300
-Notify group 1 for val: 1110-1119 1130-1139
-Request was sent. Group=0x1.
-+ + <6>Notifying group 1 with event 0 about 123.456.
-+ + <6>Notifying group 1 with event 0 about 123.457.
-+ + <6>Notifying group 1 with event 1 about 123.457.
-+ + <6>Notifying group 1 with event 1 about 123.456.
+#
+# Automatically generated make config: don't edit
+#
+CONFIG_ARM=y
+# CONFIG_EISA is not set
+# CONFIG_SBUS is not set
+# CONFIG_MCA is not set
+CONFIG_UID16=y
+CONFIG_RWSEM_GENERIC_SPINLOCK=y
+# CONFIG_RWSEM_XCHGADD_ALGORITHM is not set
+# CONFIG_GENERIC_BUST_SPINLOCK is not set
+# CONFIG_GENERIC_ISA_DMA is not set
 
-0 - device added
-1 - removed
+#
+# Code maturity level options
+#
+CONFIG_EXPERIMENTAL=y
+# CONFIG_ADVANCED_OPTIONS is not set
+# CONFIG_OBSOLETE is not set
 
+#
+# Loadable module support
+#
+CONFIG_MODULES=y
+# CONFIG_MODVERSIONS is not set
+# CONFIG_KMOD is not set
 
-Kind of patch...
+#
+# System Type
+#
+# CONFIG_ARCH_ADIFCC is not set
+# CONFIG_ARCH_ANAKIN is not set
+# CONFIG_ARCH_ARCA5K is not set
+# CONFIG_ARCH_CLPS7500 is not set
+# CONFIG_ARCH_CLPS711X is not set
+# CONFIG_ARCH_CO285 is not set
+# CONFIG_ARCH_EBSA110 is not set
+# CONFIG_ARCH_CAMELOT is not set
+# CONFIG_ARCH_FOOTBRIDGE is not set
+# CONFIG_ARCH_INTEGRATOR is not set
+# CONFIG_ARCH_IOP3XX is not set
+# CONFIG_ARCH_IXP1200 is not set
+# CONFIG_ARCH_IXP2000 is not set
+CONFIG_ARCH_IXP425=y
+# CONFIG_ARCH_OMAHA is not set
+# CONFIG_ARCH_L7200 is not set
+# CONFIG_ARCH_MX1ADS is not set
+# CONFIG_ARCH_RPC is not set
+# CONFIG_ARCH_RISCSTATION is not set
+# CONFIG_ARCH_SA1100 is not set
+# CONFIG_ARCH_SHARK is not set
+# CONFIG_ARCH_AT91RM9200 is not set
 
-* looking for johnpol@2ka.mipt.ru-2004/connector--main--0--patch-10 to compare with
-* comparing to johnpol@2ka.mipt.ru-2004/connector--main--0--patch-10
-M  cn_test.c
-M  connector.c
-M  connector.h
-M  ucon.c
+#
+# Archimedes/A5000 Implementations
+#
 
-* modified files
+#
+# Archimedes/A5000 Implementations (select only ONE)
+#
+# CONFIG_ARCH_ARC is not set
+# CONFIG_ARCH_A5K is not set
 
---- orig/cn_test.c
-+++ mod/cn_test.c
-@@ -22,11 +22,13 @@
- #include <linux/kernel.h>
- #include <linux/module.h>
- #include <linux/moduleparam.h>
-+#include <linux/skbuff.h>
- 
- #include "connector.h"
- 
- static struct cb_id cn_test_id = { 0x123, 0x456 };
- static char cn_test_name[] = "cn_test";
-+static struct sock *nls;
- 
- void cn_test_callback(void *data)
- {
-@@ -36,21 +38,112 @@
- 	       __func__, msg->id.idx, msg->id.val, msg->len);
- }
- 
-+static int cn_test_want_notify(void)
-+{
-+	struct cn_ctl_msg *ctl;
-+	struct cn_notify_req *req;
-+	struct cn_msg *msg = NULL;
-+	int size, size0;
-+	struct sk_buff *skb;
-+	struct nlmsghdr *nlh;
-+	u32 group = 1;
-+
-+	size0 = sizeof(*msg) + sizeof(*ctl) + 3*sizeof(*req);
-+	
-+	size = NLMSG_SPACE(size0);
-+
-+	skb = alloc_skb(size, GFP_ATOMIC);
-+	if (!skb) {
-+		printk(KERN_ERR "Failed to allocate new skb with size=%u.\n", size);
-+
-+		return -ENOMEM;
-+	}
-+
-+	nlh = NLMSG_PUT(skb, 0, 0x123, NLMSG_DONE, size - sizeof(*nlh));
-+
-+	msg = (struct cn_msg *)NLMSG_DATA(nlh);
-+
-+	memset(msg, 0, size0);
-+
-+	msg->id.idx 	= -1;
-+	msg->id.val 	= -1;
-+	msg->seq 	= 0x123;
-+	msg->ack 	= 0x345;
-+	msg->len 	= size0 - sizeof(*msg);
-+
-+	ctl = (struct cn_ctl_msg *)(msg + 1);
-+
-+	ctl->idx_notify_num 	= 1;
-+	ctl->val_notify_num 	= 2;
-+	ctl->group		= group;
-+
-+	req = (struct cn_notify_req *)(ctl + 1);
-+
-+	/*
-+	 * Idx.
-+	 */
-+	req->first = cn_test_id.idx;
-+	req->range = 10;
-+
-+	/*
-+	 * Val 0.
-+	 */
-+	req++;
-+	req->first = cn_test_id.val;
-+	req->range = 10;
-+	
-+	/*
-+	 * Val 1.
-+	 */
-+	req++;
-+	req->first = cn_test_id.val + 20;
-+	req->range = 10;
-+	
-+	NETLINK_CB(skb).dst_groups = ctl->group;
-+	//netlink_broadcast(nls, skb, 0, ctl->group, GFP_ATOMIC);
-+	netlink_unicast(nls, skb, 0, 0);
-+
-+	printk(KERN_INFO "Request was sent. Group=0x%x.\n", group);
-+		
-+	return 0;
-+
-+nlmsg_failure:
-+	printk(KERN_ERR "Failed to send %u.%u\n", msg->seq, msg->ack);
-+	kfree_skb(skb);
-+	return -EINVAL;
-+}
-+
- static int cn_test_init(void)
- {
- 	int err;
-+	
-+	nls = netlink_kernel_create(NETLINK_NFLOG, NULL);
-+	if (!nls) {
-+		printk(KERN_ERR "Failed to create new netlink socket(%u).\n", NETLINK_NFLOG);
-+		return -EIO;
-+	}
-+
-+	err = cn_test_want_notify();
-+	if (err)
-+		goto err_out;
- 
- 	err = cn_add_callback(&cn_test_id, cn_test_name, cn_test_callback);
- 	if (err)
--		return err;
-+		goto err_out;
- 	cn_test_id.val++;
- 	err = cn_add_callback(&cn_test_id, cn_test_name, cn_test_callback);
- 	if (err) {
- 		cn_del_callback(&cn_test_id);
--		return err;
-+		goto err_out;
- 	}
- 
- 	return 0;
-+
-+err_out:
-+	if (nls->sk_socket)
-+		sock_release(nls->sk_socket);
-+
-+	return err;
- }
- 
- static void cn_test_fini(void)
-@@ -58,6 +151,8 @@
- 	cn_del_callback(&cn_test_id);
- 	cn_test_id.val--;
- 	cn_del_callback(&cn_test_id);
-+	if (nls->sk_socket)
-+		sock_release(nls->sk_socket);
- }
- 
- module_init(cn_test_init);
+#
+# Footbridge Implementations
+#
+# CONFIG_ARCH_CATS is not set
+# CONFIG_ARCH_PERSONAL_SERVER is not set
+# CONFIG_ARCH_EBSA285_ADDIN is not set
+# CONFIG_ARCH_EBSA285_HOST is not set
+# CONFIG_ARCH_NETWINDER is not set
 
+#
+# SA11x0 Implementations
+#
+# CONFIG_SA1100_ACCELENT is not set
+# CONFIG_SA1100_ASSABET is not set
+# CONFIG_ASSABET_NEPONSET is not set
+# CONFIG_SA1100_ADSAGC is not set
+# CONFIG_SA1100_ADSBITSY is not set
+# CONFIG_SA1100_ADSBITSYPLUS is not set
+# CONFIG_SA1100_BRUTUS is not set
+# CONFIG_SA1100_CEP is not set
+# CONFIG_SA1100_CERF is not set
+# CONFIG_SA1100_H3100 is not set
+# CONFIG_SA1100_H3600 is not set
+# CONFIG_SA1100_H3800 is not set
+# CONFIG_SA1100_H3XXX is not set
+# CONFIG_H3600_SLEEVE is not set
+# CONFIG_SA1100_EXTENEX1 is not set
+# CONFIG_SA1100_FLEXANET is not set
+# CONFIG_SA1100_FREEBIRD is not set
+# CONFIG_SA1100_FRODO is not set
+# CONFIG_SA1100_GRAPHICSCLIENT is not set
+# CONFIG_SA1100_GRAPHICSMASTER is not set
+# CONFIG_SA1100_HACKKIT is not set
+# CONFIG_SA1100_BADGE4 is not set
+# CONFIG_SA1100_JORNADA720 is not set
+# CONFIG_SA1100_HUW_WEBPANEL is not set
+# CONFIG_SA1100_ITSY is not set
+# CONFIG_SA1100_LART is not set
+# CONFIG_SA1100_NANOENGINE is not set
+# CONFIG_SA1100_OMNIMETER is not set
+# CONFIG_SA1100_PANGOLIN is not set
+# CONFIG_SA1100_PLEB is not set
+# CONFIG_SA1100_PT_SYSTEM3 is not set
+# CONFIG_SA1100_SHANNON is not set
+# CONFIG_SA1100_SHERMAN is not set
+# CONFIG_SA1100_SIMPAD is not set
+# CONFIG_SA1100_SIMPUTER is not set
+# CONFIG_SA1100_PFS168 is not set
+# CONFIG_SA1100_VICTOR is not set
+# CONFIG_SA1100_XP860 is not set
+# CONFIG_SA1100_YOPY is not set
+# CONFIG_SA1100_USB is not set
+# CONFIG_SA1100_USB_NETLINK is not set
+# CONFIG_SA1100_USB_CHAR is not set
+# CONFIG_SA1100_SSP is not set
 
---- orig/connector.c
-+++ mod/connector.c
-@@ -36,9 +36,17 @@
- MODULE_DESCRIPTION("Generic userspace <-> kernelspace connector.");
- 
- static int unit = NETLINK_NFLOG;
-+static u32 cn_idx = -1;
-+static u32 cn_val = -1;
-+
- module_param(unit, int, 0);
-+module_param(cn_idx, uint, 0);
-+module_param(cn_val, uint, 0);
-+
-+spinlock_t notify_lock = SPIN_LOCK_UNLOCKED;
-+static LIST_HEAD(notify_list);
- 
--struct cn_dev cdev;
-+static struct cn_dev cdev;
- 
- /*
-  * msg->seq and msg->ack are used to determine message genealogy.
-@@ -59,7 +67,7 @@
-  * then it is new message.
-  *
-  */
--void cn_netlink_send(struct cn_msg *msg)
-+void cn_netlink_send(struct cn_msg *msg, u32 __groups)
- {
- 	struct cn_callback_entry *n, *__cbq;
- 	unsigned int size;
-@@ -70,20 +78,25 @@
- 	u32 groups = 0;
- 	int found = 0;
- 
--	spin_lock(&dev->cbdev->queue_lock);
--	list_for_each_entry_safe(__cbq, n, &dev->cbdev->queue_list, callback_entry) {
--		if (cn_cb_equal(&__cbq->cb->id, &msg->id)) {
--			found = 1;
--			groups = __cbq->group;
-+	if (!__groups)
-+	{
-+		spin_lock(&dev->cbdev->queue_lock);
-+		list_for_each_entry_safe(__cbq, n, &dev->cbdev->queue_list, callback_entry) {
-+			if (cn_cb_equal(&__cbq->cb->id, &msg->id)) {
-+				found = 1;
-+				groups = __cbq->group;
-+			}
- 		}
--	}
--	spin_unlock(&dev->cbdev->queue_lock);
-+		spin_unlock(&dev->cbdev->queue_lock);
- 
--	if (!found) {
--		printk(KERN_ERR "Failed to find multicast netlink group for callback[0x%x.0x%x]. seq=%u\n",
--		       msg->id.idx, msg->id.val, msg->seq);
--		return;
-+		if (!found) {
-+			printk(KERN_ERR "Failed to find multicast netlink group for callback[0x%x.0x%x]. seq=%u\n",
-+			       msg->id.idx, msg->id.val, msg->seq);
-+			return;
-+		}
- 	}
-+	else
-+		groups = __groups;
- 
- 	size = NLMSG_SPACE(sizeof(*msg) + msg->len);
- 
-@@ -147,6 +160,15 @@
- 	seq = nlh->nlmsg_seq;
- 	group = NETLINK_CB((skb)).groups;
- 	msg = (struct cn_msg *)NLMSG_DATA(nlh);
-+
-+	if (msg->len != nlh->nlmsg_len - sizeof(*msg) - sizeof(*nlh))
-+	{
-+		printk(KERN_ERR "skb does not have enough length: requested msg->len=%u[%u], nlh->nlmsg_len=%u[%u], skb->len=%u[must be %u].\n", 
-+				msg->len, NLMSG_SPACE(msg->len), 
-+				nlh->nlmsg_len, nlh->nlmsg_len - sizeof(*nlh),
-+				skb->len, msg->len + sizeof(*msg));
-+		return -EINVAL;
-+	}
- #if 0
- 	printk(KERN_INFO "pid=%u, uid=%u, seq=%u, group=%u.\n",
- 	       pid, uid, seq, group);
-@@ -188,7 +210,7 @@
- 
- 		err = __cn_rx_skb(skb, nlh);
- 		if (err) {
--			if (err < 0)
-+			if (err < 0 && (nlh->nlmsg_flags & NLM_F_ACK))
- 				netlink_ack(skb, nlh, -err);
- 			kfree_skb(skb);
- 			break;
-@@ -210,6 +232,59 @@
- 		cn_rx_skb(skb);
- }
- 
-+static void cn_notify(struct cb_id *id, u32 notify_event)
-+{
-+	struct cn_ctl_entry *ent;
-+
-+	spin_lock(&notify_lock);
-+	list_for_each_entry(ent, &notify_list, notify_entry)
-+	{
-+		int i;
-+		struct cn_notify_req *req;
-+		struct cn_ctl_msg *ctl = ent->msg;
-+		int a, b;
-+
-+		a = b = 0;
-+		
-+		req = (struct cn_notify_req *)ctl->data;
-+		for (i=0; i<ctl->idx_notify_num; ++i, ++req)
-+		{
-+			if (id->idx >= req->first && id->idx < req->first + req->range)
-+			{
-+				printk("+ ");
-+				a = 1;
-+				break;
-+			}
-+		}
-+		
-+		for (i=0; i<ctl->val_notify_num; ++i, ++req)
-+		{
-+			if (id->val >= req->first && id->val < req->first + req->range)
-+			{
-+				printk("+ ");
-+				b = 1;
-+				break;
-+			}
-+		}
-+
-+		if (a && b)
-+		{
-+			struct cn_msg m;
-+			
-+			printk(KERN_INFO "Notifying group %x with event %u about %x.%x.\n", 
-+					ctl->group, notify_event, 
-+					id->idx, id->val);
-+
-+			memset(&m, 0, sizeof(m));
-+			m.ack = notify_event;
-+
-+			memcpy(&m.id, id, sizeof(m.id));
-+			cn_netlink_send(&m, ctl->group);
-+		}
-+	}
-+	spin_unlock(&notify_lock);
-+}
-+
- int cn_add_callback(struct cb_id *id, char *name, void (*callback) (void *))
- {
- 	int err;
-@@ -237,6 +312,8 @@
- 		kfree(cb);
- 		return err;
- 	}
-+			
-+	cn_notify(id, 0);
- 
- 	return 0;
- }
-@@ -249,16 +326,85 @@
- 	list_for_each_entry_safe(__cbq, n, &dev->cbdev->queue_list, callback_entry) {
- 		if (cn_cb_equal(&__cbq->cb->id, id)) {
- 			cn_queue_del_callback(dev->cbdev, __cbq->cb);
-+			cn_notify(id, 1);
- 			break;
- 		}
- 	}
- }
- 
-+static void cn_callback(void * data)
-+{
-+	struct cn_msg *msg = (struct cn_msg *)data;
-+	struct cn_ctl_msg *ctl;
-+	struct cn_ctl_entry *ent;
-+	u32 size;
-+ 
-+	if (msg->len < sizeof(*ctl))
-+	{
-+		printk(KERN_ERR "Wrong connector request size %u, must be >= %u.\n", 
-+				msg->len, sizeof(*ctl));
-+		return;
-+	}
-+	
-+	ctl = (struct cn_ctl_msg *)msg->data;
-+
-+	size = sizeof(*ctl) + (ctl->idx_notify_num + ctl->val_notify_num)*sizeof(struct cn_notify_req);
-+
-+	if (msg->len != size)
-+	{
-+		printk(KERN_ERR "Wrong connector request size %u, must be == %u.\n", 
-+				msg->len, size);
-+		return;
-+	}
-+
-+	size += sizeof(*ent);
-+
-+	ent = kmalloc(size, GFP_ATOMIC);
-+	if (!ent)
-+	{
-+		printk(KERN_ERR "Failed to allocate %d bytes for new notify entry.\n", size);
-+		return;
-+	}
-+
-+	memset(ent, 0, size);
-+
-+	ent->msg = (struct cn_ctl_msg *)(ent + 1);
-+
-+	memcpy(ent->msg, ctl, size - sizeof(*ent));
-+
-+	spin_lock(&notify_lock);
-+	list_add(&ent->notify_entry, &notify_list);
-+	spin_unlock(&notify_lock);
-+
-+	{
-+		int i;
-+		struct cn_notify_req *req;
-+	
-+		printk("Notify group %x for idx: ", ctl->group);
-+
-+		req = (struct cn_notify_req *)ctl->data;
-+		for (i=0; i<ctl->idx_notify_num; ++i, ++req)
-+		{
-+			printk("%u-%u ", req->first, req->first+req->range-1);
-+		}
-+		
-+		printk("\nNotify group %x for val: ", ctl->group);
-+
-+		for (i=0; i<ctl->val_notify_num; ++i, ++req)
-+		{
-+			printk("%u-%u ", req->first, req->first+req->range-1);
-+		}
-+		printk("\n");
-+	}
-+}
-+
- static int cn_init(void)
- {
- 	struct cn_dev *dev = &cdev;
- 
- 	dev->input = cn_input;
-+	dev->id.idx = cn_idx;
-+	dev->id.val = cn_val;
- 
- 	dev->nls = netlink_kernel_create(unit, dev->input);
- 	if (!dev->nls) {
-@@ -274,13 +420,14 @@
- 		return -EINVAL;
- 	}
- 
--	return 0;
-+	return cn_add_callback(&dev->id, "connector", &cn_callback);
- }
- 
- static void cn_fini(void)
- {
- 	struct cn_dev *dev = &cdev;
- 
-+	cn_del_callback(&dev->id);
- 	cn_queue_free_dev(dev->cbdev);
- 	if (dev->nls->sk_socket)
- 		sock_release(dev->nls->sk_socket);
+#
+# IXP425 Implementation Options
+#
+# CONFIG_ARCH_IXDP425 is not set
+# CONFIG_ARCH_IXCDP1100 is not set
+# CONFIG_ARCH_PRPMC1100 is not set
+CONFIG_ARCH_IXP425_COYOTE=y
+# CONFIG_ARCH_SE4000 is not set
 
+#
+# IXP425 Options
+#
+CONFIG_IXP425_SDRAM_SIZE=64
+# CONFIG_IXP425_LARGE_SDRAM is not set
+CONFIG_IXP425_PCI_ERRATA=y
+# CONFIG_IXP425_OS_TIMER1 is not set
+# CONFIG_XSCALE_PMU_TIMER is not set
 
---- orig/connector.h
-+++ mod/connector.h
-@@ -37,12 +37,34 @@
- 	__u8			data[0];
- };
- 
-+struct cn_notify_req
-+{
-+	__u32			first;
-+	__u32			range;
-+};
-+
-+struct cn_ctl_msg
-+{
-+	__u32			idx_notify_num;
-+	__u32			val_notify_num;
-+	__u32			group;
-+	__u8			data[0];
-+};
-+
- #ifdef __KERNEL__
- 
- #include <net/sock.h>
- 
-+struct cn_ctl_entry
-+{
-+	struct list_head	notify_entry;
-+	struct cn_ctl_msg	*msg;
-+};
-+
- struct cn_dev
- {
-+	struct cb_id 		id;
-+
- 	u32			seq, groups;
- 	struct sock 		*nls;
- 	void 			(*input)(struct sock *sk, int len);
-@@ -52,7 +74,7 @@
- 
- int cn_add_callback(struct cb_id *, char *, void (* callback)(void *));
- void cn_del_callback(struct cb_id *);
--void cn_netlink_send(struct cn_msg *);
-+void cn_netlink_send(struct cn_msg *, u32);
- 
- #endif /* __KERNEL__ */
- #endif /* __CONNECTOR_H */
+#
+# AT91RM9200 Implementations
+#
+# CONFIG_ARCH_AT91RM9200DK is not set
 
+#
+# CLPS711X/EP721X Implementations
+#
+# CONFIG_ARCH_AUTCPU12 is not set
+# CONFIG_ARCH_CDB89712 is not set
+# CONFIG_ARCH_CLEP7312 is not set
+# CONFIG_ARCH_EDB7211 is not set
+# CONFIG_ARCH_FORTUNET is not set
+# CONFIG_ARCH_GUIDEA07 is not set
+# CONFIG_ARCH_P720T is not set
+# CONFIG_ARCH_EP7211 is not set
+# CONFIG_ARCH_EP7212 is not set
+# CONFIG_ARCH_ACORN is not set
+# CONFIG_FOOTBRIDGE is not set
+# CONFIG_FOOTBRIDGE_HOST is not set
+# CONFIG_FOOTBRIDGE_ADDIN is not set
 
---- orig/ucon.c
-+++ mod/ucon.c
-@@ -118,8 +118,7 @@
- 	l_local.nl_groups = 1;
- 	l_local.nl_pid = getpid();
- 
--	if (bind(s, (struct sockaddr *)&l_local, sizeof(struct sockaddr_nl)) ==
--	    -1) {
-+	if (bind(s, (struct sockaddr *)&l_local, sizeof(struct sockaddr_nl)) == -1) {
- 		perror("bind");
- 		close(s);
- 		return -1;
+#
+# Processor Type
+#
+CONFIG_CPU_32=y
+# CONFIG_CPU_26 is not set
+# CONFIG_CPU_ARM610 is not set
+# CONFIG_CPU_ARM710 is not set
+# CONFIG_CPU_ARM720T is not set
+# CONFIG_CPU_ARM920T is not set
+# CONFIG_CPU_ARM922T is not set
+# CONFIG_PLD is not set
+# CONFIG_CPU_ARM926T is not set
+# CONFIG_CPU_ARM1020 is not set
+# CONFIG_CPU_ARM1026 is not set
+# CONFIG_CPU_SA110 is not set
+# CONFIG_CPU_SA1100 is not set
+# CONFIG_CPU_32v3 is not set
+# CONFIG_CPU_32v4 is not set
+CONFIG_CPU_32v5=y
+CONFIG_CPU_XSCALE=y
+CONFIG_ARM_THUMB=y
 
+#
+# Processor Features
+#
+# CONFIG_XSCALE_PMU_TIMER is not set
+CONFIG_XSCALE_CACHE_ERRATA=y
+# CONFIG_XSCALE_BDI2000 is not set
+# CONFIG_DISCONTIGMEM is not set
+CONFIG_CPU_BIG_ENDIAN=y
 
+#
+# General setup
+#
+CONFIG_PCI=y
+CONFIG_PCI_AUTOCONFIG=y
+# CONFIG_ISA is not set
+# CONFIG_ISA_DMA is not set
+CONFIG_KERNEL_START=0xc0000000
+# CONFIG_ZBOOT_ROM is not set
+CONFIG_ZBOOT_ROM_TEXT=0
+CONFIG_ZBOOT_ROM_BSS=0
+CONFIG_PCI_NAMES=y
+# CONFIG_HOTPLUG is not set
+# CONFIG_PCMCIA is not set
+CONFIG_NET=y
+CONFIG_SYSVIPC=y
+# CONFIG_BSD_PROCESS_ACCT is not set
+CONFIG_SYSCTL=y
 
+#
+# At least one math emulation must be selected
+#
+CONFIG_FPE_NWFPE=y
+# CONFIG_FPE_NWFPE_XP is not set
+# CONFIG_FPE_FASTFPE is not set
+CONFIG_KCORE_ELF=y
+# CONFIG_KCORE_AOUT is not set
+# CONFIG_BINFMT_AOUT is not set
+CONFIG_BINFMT_ELF=y
+# CONFIG_BINFMT_MISC is not set
+# CONFIG_PM is not set
+# CONFIG_ARTHUR is not set
+CONFIG_CMDLINE="console=ttyS0,115200 root=/dev/mtdblock2 init=/linuxrc mem=64M@0x0 reboot=h"
+CONFIG_ALIGNMENT_TRAP=y
 
-> 
-> cheers,
-> jamal 
-> 
-> 	Evgeniy Polyakov
-> 
-> Only failure makes us experts. -- Theo de Raadt
+#
+# Parallel port support
+#
+# CONFIG_PARPORT is not set
 
--- 
-Signed-off-by: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
---
-	Evgeniy Polyakov ( s0mbre )
+#
+# Memory Technology Devices (MTD)
+#
+CONFIG_MTD=y
+# CONFIG_MTD_DEBUG is not set
+CONFIG_MTD_PARTITIONS=y
+CONFIG_MTD_CONCAT=y
+CONFIG_MTD_REDBOOT_PARTS=y
+# CONFIG_MTD_CMDLINE_PARTS is not set
+# CONFIG_MTD_AFS_PARTS is not set
 
-Crash is better than data corruption. -- Artur Grabowski
+#
+# User Modules And Translation Layers
+#
+CONFIG_MTD_CHAR=y
+CONFIG_MTD_BLOCK=y
+# CONFIG_FTL is not set
+# CONFIG_NFTL is not set
+
+#
+# RAM/ROM/Flash chip drivers
+#
+CONFIG_MTD_CFI=y
+# CONFIG_MTD_JEDECPROBE is not set
+CONFIG_MTD_GEN_PROBE=y
+# CONFIG_MTD_CFI_ADV_OPTIONS is not set
+CONFIG_MTD_CFI_INTELEXT=y
+# CONFIG_MTD_CFI_AMDSTD is not set
+# CONFIG_MTD_CFI_STAA is not set
+# CONFIG_MTD_RAM is not set
+# CONFIG_MTD_ROM is not set
+# CONFIG_MTD_ABSENT is not set
+# CONFIG_MTD_OBSOLETE_CHIPS is not set
+# CONFIG_MTD_AMDSTD is not set
+# CONFIG_MTD_SHARP is not set
+# CONFIG_MTD_JEDEC is not set
+
+#
+# Mapping drivers for chip access
+#
+# CONFIG_MTD_PHYSMAP is not set
+# CONFIG_MTD_NORA is not set
+# CONFIG_MTD_ARM_INTEGRATOR is not set
+# CONFIG_MTD_CDB89712 is not set
+# CONFIG_MTD_SA1100 is not set
+# CONFIG_MTD_DC21285 is not set
+# CONFIG_MTD_IQ80310 is not set
+# CONFIG_MTD_EPXA10DB is not set
+# CONFIG_MTD_FORTUNET is not set
+# CONFIG_MTD_AUTCPU12 is not set
+CONFIG_MTD_IXP425=y
+# CONFIG_MTD_EDB7312 is not set
+# CONFIG_MTD_IMPA7 is not set
+# CONFIG_MTD_CEIVA is not set
+# CONFIG_MTD_PCI is not set
+# CONFIG_MTD_PCMCIA is not set
+
+#
+# Self-contained MTD device drivers
+#
+# CONFIG_MTD_PMC551 is not set
+# CONFIG_MTD_SLRAM is not set
+# CONFIG_MTD_MTDRAM is not set
+# CONFIG_MTD_BLKMTD is not set
+
+#
+# Disk-On-Chip Device Drivers
+#
+# CONFIG_MTD_DOC1000 is not set
+# CONFIG_MTD_DOC2000 is not set
+# CONFIG_MTD_DOC2001 is not set
+# CONFIG_MTD_DOCPROBE is not set
+
+#
+# NAND Flash Device Drivers
+#
+# CONFIG_MTD_NAND is not set
+
+#
+# Plug and Play configuration
+#
+# CONFIG_PNP is not set
+# CONFIG_ISAPNP is not set
+
+#
+# Block devices
+#
+# CONFIG_BLK_DEV_FD is not set
+# CONFIG_BLK_DEV_XD is not set
+# CONFIG_PARIDE is not set
+# CONFIG_BLK_CPQ_DA is not set
+# CONFIG_BLK_CPQ_CISS_DA is not set
+# CONFIG_CISS_SCSI_TAPE is not set
+# CONFIG_CISS_MONITOR_THREAD is not set
+# CONFIG_BLK_DEV_DAC960 is not set
+# CONFIG_BLK_DEV_UMEM is not set
+# CONFIG_BLK_DEV_SX8 is not set
+# CONFIG_BLK_DEV_LOOP is not set
+# CONFIG_BLK_DEV_NBD is not set
+# CONFIG_BLK_DEV_RAM is not set
+# CONFIG_BLK_DEV_INITRD is not set
+# CONFIG_BLK_STATS is not set
+
+#
+# Multi-device support (RAID and LVM)
+#
+# CONFIG_MD is not set
+# CONFIG_BLK_DEV_MD is not set
+# CONFIG_MD_LINEAR is not set
+# CONFIG_MD_RAID0 is not set
+# CONFIG_MD_RAID1 is not set
+# CONFIG_MD_RAID5 is not set
+# CONFIG_MD_MULTIPATH is not set
+# CONFIG_BLK_DEV_LVM is not set
+
+#
+# Networking options
+#
+CONFIG_PACKET=y
+# CONFIG_PACKET_MMAP is not set
+CONFIG_NETLINK_DEV=m
+CONFIG_NETFILTER=y
+# CONFIG_NETFILTER_DEBUG is not set
+CONFIG_FILTER=y
+CONFIG_UNIX=y
+CONFIG_NET_KEY=y
+CONFIG_INET=y
+CONFIG_IP_MULTICAST=y
+CONFIG_IP_ADVANCED_ROUTER=y
+CONFIG_IP_MULTIPLE_TABLES=y
+# CONFIG_IP_ROUTE_FWMARK is not set
+CONFIG_IP_ROUTE_NAT=y
+# CONFIG_IP_ROUTE_MULTIPATH is not set
+# CONFIG_IP_ROUTE_TOS is not set
+# CONFIG_IP_ROUTE_VERBOSE is not set
+# CONFIG_IP_PNP is not set
+CONFIG_NET_IPIP=y
+CONFIG_NET_IPGRE=y
+# CONFIG_NET_IPGRE_BROADCAST is not set
+# CONFIG_IP_MROUTE is not set
+# CONFIG_ARPD is not set
+# CONFIG_INET_ECN is not set
+# CONFIG_SYN_COOKIES is not set
+CONFIG_INET_AH=y
+CONFIG_INET_ESP=y
+CONFIG_INET_IPCOMP=y
+
+#
+#   IP: Netfilter Configuration
+#
+CONFIG_IP_NF_CONNTRACK=y
+CONFIG_IP_NF_FTP=y
+CONFIG_IP_NF_AMANDA=y
+CONFIG_IP_NF_TFTP=y
+CONFIG_IP_NF_IRC=y
+CONFIG_IP_NF_QUEUE=y
+CONFIG_IP_NF_IPTABLES=y
+CONFIG_IP_NF_MATCH_LIMIT=y
+CONFIG_IP_NF_MATCH_MAC=y
+# CONFIG_IP_NF_MATCH_PKTTYPE is not set
+CONFIG_IP_NF_MATCH_MARK=y
+CONFIG_IP_NF_MATCH_MULTIPORT=y
+CONFIG_IP_NF_MATCH_TOS=y
+# CONFIG_IP_NF_MATCH_RECENT is not set
+# CONFIG_IP_NF_MATCH_ECN is not set
+# CONFIG_IP_NF_MATCH_DSCP is not set
+CONFIG_IP_NF_MATCH_AH_ESP=y
+# CONFIG_IP_NF_MATCH_LENGTH is not set
+# CONFIG_IP_NF_MATCH_TTL is not set
+CONFIG_IP_NF_MATCH_TCPMSS=y
+# CONFIG_IP_NF_MATCH_HELPER is not set
+CONFIG_IP_NF_MATCH_STATE=y
+CONFIG_IP_NF_MATCH_CONNTRACK=y
+CONFIG_IP_NF_MATCH_UNCLEAN=y
+# CONFIG_IP_NF_MATCH_OWNER is not set
+# CONFIG_IP_NF_MATCH_PHYSDEV is not set
+CONFIG_IP_NF_FILTER=y
+CONFIG_IP_NF_TARGET_REJECT=y
+# CONFIG_IP_NF_TARGET_MIRROR is not set
+CONFIG_IP_NF_NAT=y
+CONFIG_IP_NF_NAT_NEEDED=y
+CONFIG_IP_NF_TARGET_MASQUERADE=y
+CONFIG_IP_NF_TARGET_REDIRECT=y
+CONFIG_IP_NF_NAT_AMANDA=y
+# CONFIG_IP_NF_NAT_LOCAL is not set
+# CONFIG_IP_NF_NAT_SNMP_BASIC is not set
+CONFIG_IP_NF_NAT_IRC=y
+CONFIG_IP_NF_NAT_FTP=y
+CONFIG_IP_NF_NAT_TFTP=y
+CONFIG_IP_NF_MANGLE=y
+CONFIG_IP_NF_TARGET_TOS=y
+# CONFIG_IP_NF_TARGET_ECN is not set
+# CONFIG_IP_NF_TARGET_DSCP is not set
+CONFIG_IP_NF_TARGET_MARK=y
+# CONFIG_IP_NF_TARGET_LOG is not set
+CONFIG_IP_NF_TARGET_ULOG=y
+CONFIG_IP_NF_TARGET_TCPMSS=y
+# CONFIG_IP_NF_ARPTABLES is not set
+
+#
+#   IP: Virtual Server Configuration
+#
+# CONFIG_IP_VS is not set
+# CONFIG_IPV6 is not set
+CONFIG_XFRM=y
+CONFIG_XFRM_USER=y
+# CONFIG_KHTTPD is not set
+
+#
+#    SCTP Configuration (EXPERIMENTAL)
+#
+# CONFIG_IP_SCTP is not set
+# CONFIG_ATM is not set
+CONFIG_VLAN_8021Q=y
+
+#
+#  
+#
+# CONFIG_IPX is not set
+# CONFIG_ATALK is not set
+
+#
+# Appletalk devices
+#
+# CONFIG_DEV_APPLETALK is not set
+# CONFIG_DECNET is not set
+CONFIG_BRIDGE=y
+CONFIG_BRIDGE_NF_EBTABLES=y
+CONFIG_BRIDGE_EBT_T_FILTER=y
+CONFIG_BRIDGE_EBT_T_NAT=y
+CONFIG_BRIDGE_EBT_BROUTE=y
+CONFIG_BRIDGE_EBT_LOG=y
+CONFIG_BRIDGE_EBT_IPF=y
+CONFIG_BRIDGE_EBT_ARPF=y
+# CONFIG_BRIDGE_EBT_AMONG is not set
+# CONFIG_BRIDGE_EBT_LIMIT is not set
+CONFIG_BRIDGE_EBT_VLANF=y
+# CONFIG_BRIDGE_EBT_802_3 is not set
+# CONFIG_BRIDGE_EBT_PKTTYPE is not set
+# CONFIG_BRIDGE_EBT_STP is not set
+CONFIG_BRIDGE_EBT_MARKF=y
+# CONFIG_BRIDGE_EBT_ARPREPLY is not set
+CONFIG_BRIDGE_EBT_SNAT=y
+CONFIG_BRIDGE_EBT_DNAT=y
+CONFIG_BRIDGE_EBT_REDIRECT=y
+CONFIG_BRIDGE_EBT_MARK_T=y
+# CONFIG_X25 is not set
+# CONFIG_LAPB is not set
+# CONFIG_LLC is not set
+# CONFIG_NET_DIVERT is not set
+# CONFIG_ECONET is not set
+# CONFIG_WAN_ROUTER is not set
+# CONFIG_NET_FASTROUTE is not set
+# CONFIG_NET_HW_FLOWCONTROL is not set
+
+#
+# QoS and/or fair queueing
+#
+CONFIG_NET_SCHED=y
+CONFIG_NET_SCH_CBQ=y
+# CONFIG_NET_SCH_HTB is not set
+# CONFIG_NET_SCH_CSZ is not set
+# CONFIG_NET_SCH_HFSC is not set
+# CONFIG_NET_SCH_PRIO is not set
+CONFIG_NET_SCH_RED=y
+# CONFIG_NET_SCH_SFQ is not set
+# CONFIG_NET_SCH_TEQL is not set
+CONFIG_NET_SCH_TBF=y
+# CONFIG_NET_SCH_GRED is not set
+# CONFIG_NET_SCH_NETEM is not set
+# CONFIG_NET_SCH_DSMARK is not set
+# CONFIG_NET_SCH_INGRESS is not set
+# CONFIG_NET_QOS is not set
+CONFIG_NET_CLS=y
+# CONFIG_NET_CLS_TCINDEX is not set
+# CONFIG_NET_CLS_ROUTE4 is not set
+CONFIG_NET_CLS_FW=y
+CONFIG_NET_CLS_U32=y
+
+#
+# Network testing
+#
+# CONFIG_NET_PKTGEN is not set
+
+#
+# Network device support
+#
+CONFIG_NETDEVICES=y
+
+#
+# ARCnet devices
+#
+# CONFIG_ARCNET is not set
+# CONFIG_DUMMY is not set
+# CONFIG_BONDING is not set
+# CONFIG_EQUALIZER is not set
+# CONFIG_TUN is not set
+# CONFIG_ETHERTAP is not set
+
+#
+# Ethernet (10 or 100Mbit)
+#
+CONFIG_NET_ETHERNET=y
+# CONFIG_ARM_AM79C961A is not set
+# CONFIG_ARM_CIRRUS is not set
+# CONFIG_SUNLANCE is not set
+# CONFIG_HAPPYMEAL is not set
+# CONFIG_SUNBMAC is not set
+# CONFIG_SUNQE is not set
+# CONFIG_SUNGEM is not set
+# CONFIG_NET_VENDOR_3COM is not set
+# CONFIG_LANCE is not set
+# CONFIG_NET_VENDOR_SMC is not set
+# CONFIG_NET_VENDOR_RACAL is not set
+# CONFIG_HP100 is not set
+# CONFIG_NET_ISA is not set
+CONFIG_NET_PCI=y
+# CONFIG_PCNET32 is not set
+# CONFIG_AMD8111_ETH is not set
+# CONFIG_ADAPTEC_STARFIRE is not set
+# CONFIG_APRICOT is not set
+# CONFIG_B44 is not set
+# CONFIG_CS89x0 is not set
+# CONFIG_TULIP is not set
+# CONFIG_DE4X5 is not set
+# CONFIG_DGRS is not set
+# CONFIG_DM9102 is not set
+CONFIG_EEPRO100=m
+# CONFIG_EEPRO100_PIO is not set
+# CONFIG_E100 is not set
+# CONFIG_LNE390 is not set
+# CONFIG_FEALNX is not set
+# CONFIG_NATSEMI is not set
+# CONFIG_NE2K_PCI is not set
+# CONFIG_FORCEDETH is not set
+# CONFIG_NE3210 is not set
+# CONFIG_ES3210 is not set
+# CONFIG_8139CP is not set
+# CONFIG_8139TOO is not set
+# CONFIG_8139TOO_PIO is not set
+# CONFIG_8139TOO_TUNE_TWISTER is not set
+# CONFIG_8139TOO_8129 is not set
+# CONFIG_8139_OLD_RX_RESET is not set
+# CONFIG_SIS900 is not set
+# CONFIG_EPIC100 is not set
+# CONFIG_SUNDANCE is not set
+# CONFIG_SUNDANCE_MMIO is not set
+# CONFIG_TLAN is not set
+# CONFIG_VIA_RHINE is not set
+# CONFIG_VIA_RHINE_MMIO is not set
+# CONFIG_WINBOND_840 is not set
+# CONFIG_NET_POCKET is not set
+CONFIG_IXP425_ETH=m
+
+#
+# Ethernet (1000 Mbit)
+#
+# CONFIG_ACENIC is not set
+# CONFIG_DL2K is not set
+# CONFIG_E1000 is not set
+# CONFIG_MYRI_SBUS is not set
+# CONFIG_NS83820 is not set
+# CONFIG_HAMACHI is not set
+# CONFIG_YELLOWFIN is not set
+# CONFIG_R8169 is not set
+# CONFIG_SK98LIN is not set
+# CONFIG_TIGON3 is not set
+# CONFIG_FDDI is not set
+# CONFIG_HIPPI is not set
+# CONFIG_PLIP is not set
+CONFIG_PPP=y
+CONFIG_PPP_MULTILINK=y
+# CONFIG_PPP_FILTER is not set
+CONFIG_PPP_ASYNC=y
+CONFIG_PPP_SYNC_TTY=y
+CONFIG_PPP_DEFLATE=y
+# CONFIG_PPP_BSDCOMP is not set
+CONFIG_PPPOE=y
+# CONFIG_SLIP is not set
+
+#
+# Wireless LAN (non-hamradio)
+#
+CONFIG_NET_RADIO=y
+# CONFIG_STRIP is not set
+# CONFIG_WAVELAN is not set
+# CONFIG_ARLAN is not set
+# CONFIG_AIRONET4500 is not set
+# CONFIG_AIRONET4500_NONCS is not set
+# CONFIG_AIRONET4500_PROC is not set
+# CONFIG_AIRO is not set
+# CONFIG_HERMES is not set
+# CONFIG_PLX_HERMES is not set
+# CONFIG_TMD_HERMES is not set
+# CONFIG_PCI_HERMES is not set
+CONFIG_NET_WIRELESS=y
+
+#
+# Token Ring devices
+#
+# CONFIG_TR is not set
+# CONFIG_NET_FC is not set
+# CONFIG_RCPCI is not set
+# CONFIG_SHAPER is not set
+
+#
+# Wan interfaces
+#
+# CONFIG_WAN is not set
+
+#
+# Amateur Radio support
+#
+# CONFIG_HAMRADIO is not set
+
+#
+# IrDA (infrared) support
+#
+# CONFIG_IRDA is not set
+
+#
+# ATA/ATAPI/MFM/RLL support
+#
+# CONFIG_IDE is not set
+# CONFIG_BLK_DEV_IDE_MODES is not set
+# CONFIG_BLK_DEV_HD is not set
+
+#
+# SCSI support
+#
+# CONFIG_SCSI is not set
+
+#
+# IEEE 1394 (FireWire) support (EXPERIMENTAL)
+#
+# CONFIG_IEEE1394 is not set
+
+#
+# I2O device support
+#
+# CONFIG_I2O is not set
+# CONFIG_I2O_PCI is not set
+# CONFIG_I2O_BLOCK is not set
+# CONFIG_I2O_LAN is not set
+# CONFIG_I2O_SCSI is not set
+# CONFIG_I2O_PROC is not set
+
+#
+# ISDN subsystem
+#
+# CONFIG_ISDN is not set
+
+#
+# Input core support
+#
+# CONFIG_INPUT is not set
+# CONFIG_INPUT_KEYBDEV is not set
+# CONFIG_INPUT_MOUSEDEV is not set
+# CONFIG_INPUT_JOYDEV is not set
+# CONFIG_INPUT_EVDEV is not set
+# CONFIG_INPUT_UINPUT is not set
+
+#
+# Character devices
+#
+# CONFIG_VT is not set
+CONFIG_SERIAL=y
+CONFIG_SERIAL_CONSOLE=y
+# CONFIG_SERIAL_EXTENDED is not set
+# CONFIG_SERIAL_NONSTANDARD is not set
+CONFIG_UNIX98_PTYS=y
+CONFIG_UNIX98_PTY_COUNT=256
+
+#
+# I2C support
+#
+# CONFIG_I2C is not set
+
+#
+# Mice
+#
+# CONFIG_BUSMOUSE is not set
+CONFIG_MOUSE=y
+CONFIG_PSMOUSE=y
+# CONFIG_82C710_MOUSE is not set
+# CONFIG_PC110_PAD is not set
+# CONFIG_MK712_MOUSE is not set
+
+#
+# Joysticks
+#
+# CONFIG_INPUT_GAMEPORT is not set
+
+#
+# Input core support is needed for gameports
+#
+
+#
+# Input core support is needed for joysticks
+#
+# CONFIG_QIC02_TAPE is not set
+CONFIG_IPMI_HANDLER=m
+# CONFIG_IPMI_PANIC_EVENT is not set
+# CONFIG_IPMI_DEVICE_INTERFACE is not set
+# CONFIG_IPMI_KCS is not set
+CONFIG_IPMI_WATCHDOG=m
+
+#
+# Watchdog Cards
+#
+CONFIG_WATCHDOG=y
+# CONFIG_WATCHDOG_NOWAYOUT is not set
+# CONFIG_ACQUIRE_WDT is not set
+# CONFIG_ADVANTECH_WDT is not set
+# CONFIG_ALIM1535_WDT is not set
+# CONFIG_ALIM7101_WDT is not set
+# CONFIG_SC520_WDT is not set
+# CONFIG_PCWATCHDOG is not set
+# CONFIG_EUROTECH_WDT is not set
+# CONFIG_IB700_WDT is not set
+# CONFIG_WAFER_WDT is not set
+# CONFIG_I810_TCO is not set
+# CONFIG_MIXCOMWD is not set
+# CONFIG_60XX_WDT is not set
+# CONFIG_SC1200_WDT is not set
+# CONFIG_SCx200_WDT is not set
+# CONFIG_SOFT_WATCHDOG is not set
+# CONFIG_W83877F_WDT is not set
+# CONFIG_WDT is not set
+# CONFIG_WDTPCI is not set
+# CONFIG_MACHZ_WDT is not set
+# CONFIG_SCx200 is not set
+# CONFIG_SCx200_GPIO is not set
+# CONFIG_AMD_PM768 is not set
+# CONFIG_NVRAM is not set
+CONFIG_RTC=y
+# CONFIG_DTLK is not set
+# CONFIG_R3964 is not set
+# CONFIG_APPLICOM is not set
+
+#
+# Ftape, the floppy tape device driver
+#
+# CONFIG_FTAPE is not set
+# CONFIG_AGP is not set
+
+#
+# Direct Rendering Manager (XFree86 DRI support)
+#
+# CONFIG_DRM is not set
+
+#
+# Multimedia devices
+#
+# CONFIG_VIDEO_DEV is not set
+
+#
+# File systems
+#
+# CONFIG_QUOTA is not set
+# CONFIG_QFMT_V2 is not set
+# CONFIG_AUTOFS_FS is not set
+# CONFIG_AUTOFS4_FS is not set
+# CONFIG_REISERFS_FS is not set
+# CONFIG_REISERFS_CHECK is not set
+# CONFIG_REISERFS_PROC_INFO is not set
+# CONFIG_ADFS_FS is not set
+# CONFIG_ADFS_FS_RW is not set
+# CONFIG_AFFS_FS is not set
+# CONFIG_HFS_FS is not set
+# CONFIG_HFSPLUS_FS is not set
+# CONFIG_BEFS_FS is not set
+# CONFIG_BEFS_DEBUG is not set
+# CONFIG_BFS_FS is not set
+# CONFIG_EXT3_FS is not set
+# CONFIG_JBD is not set
+# CONFIG_JBD_DEBUG is not set
+# CONFIG_FAT_FS is not set
+# CONFIG_MSDOS_FS is not set
+# CONFIG_UMSDOS_FS is not set
+# CONFIG_VFAT_FS is not set
+# CONFIG_EFS_FS is not set
+# CONFIG_JFFS_FS is not set
+CONFIG_JFFS2_FS=y
+CONFIG_JFFS2_FS_DEBUG=0
+CONFIG_CRAMFS=y
+CONFIG_TMPFS=y
+CONFIG_RAMFS=y
+# CONFIG_ISO9660_FS is not set
+# CONFIG_JOLIET is not set
+# CONFIG_ZISOFS is not set
+# CONFIG_JFS_FS is not set
+# CONFIG_JFS_DEBUG is not set
+# CONFIG_JFS_STATISTICS is not set
+CONFIG_MINIX_FS=y
+# CONFIG_VXFS_FS is not set
+# CONFIG_NTFS_FS is not set
+# CONFIG_NTFS_RW is not set
+# CONFIG_HPFS_FS is not set
+CONFIG_PROC_FS=y
+# CONFIG_DEVFS_FS is not set
+# CONFIG_DEVFS_MOUNT is not set
+# CONFIG_DEVFS_DEBUG is not set
+CONFIG_DEVPTS_FS=y
+# CONFIG_QNX4FS_FS is not set
+# CONFIG_QNX4FS_RW is not set
+# CONFIG_ROMFS_FS is not set
+# CONFIG_EXT2_FS is not set
+# CONFIG_SYSV_FS is not set
+# CONFIG_UDF_FS is not set
+# CONFIG_UDF_RW is not set
+# CONFIG_UFS_FS is not set
+# CONFIG_UFS_FS_WRITE is not set
+# CONFIG_XFS_FS is not set
+# CONFIG_XFS_QUOTA is not set
+# CONFIG_XFS_RT is not set
+# CONFIG_XFS_TRACE is not set
+# CONFIG_XFS_DEBUG is not set
+
+#
+# Network File Systems
+#
+# CONFIG_CODA_FS is not set
+# CONFIG_INTERMEZZO_FS is not set
+CONFIG_NFS_FS=m
+# CONFIG_NFS_V3 is not set
+# CONFIG_NFS_DIRECTIO is not set
+# CONFIG_ROOT_NFS is not set
+# CONFIG_NFSD is not set
+# CONFIG_NFSD_V3 is not set
+# CONFIG_NFSD_TCP is not set
+CONFIG_SUNRPC=m
+CONFIG_LOCKD=m
+# CONFIG_SMB_FS is not set
+# CONFIG_NCP_FS is not set
+# CONFIG_NCPFS_PACKET_SIGNING is not set
+# CONFIG_NCPFS_IOCTL_LOCKING is not set
+# CONFIG_NCPFS_STRONG is not set
+# CONFIG_NCPFS_NFS_NS is not set
+# CONFIG_NCPFS_OS2_NS is not set
+# CONFIG_NCPFS_SMALLDOS is not set
+# CONFIG_NCPFS_NLS is not set
+# CONFIG_NCPFS_EXTRAS is not set
+# CONFIG_ZISOFS_FS is not set
+
+#
+# Partition Types
+#
+CONFIG_PARTITION_ADVANCED=y
+# CONFIG_ACORN_PARTITION is not set
+# CONFIG_OSF_PARTITION is not set
+# CONFIG_AMIGA_PARTITION is not set
+# CONFIG_ATARI_PARTITION is not set
+# CONFIG_MAC_PARTITION is not set
+# CONFIG_MSDOS_PARTITION is not set
+# CONFIG_LDM_PARTITION is not set
+# CONFIG_SGI_PARTITION is not set
+# CONFIG_ULTRIX_PARTITION is not set
+# CONFIG_SUN_PARTITION is not set
+# CONFIG_EFI_PARTITION is not set
+# CONFIG_SMB_NLS is not set
+# CONFIG_NLS is not set
+
+#
+# Sound
+#
+# CONFIG_SOUND is not set
+
+#
+# Misc devices
+#
+
+#
+# USB support
+#
+# CONFIG_USB is not set
+
+#
+# Support for USB gadgets
+#
+# CONFIG_USB_GADGET is not set
+
+#
+# Bluetooth support
+#
+# CONFIG_BLUEZ is not set
+
+#
+# Kernel hacking
+#
+CONFIG_FRAME_POINTER=y
+# CONFIG_DEBUG_USER is not set
+# CONFIG_DEBUG_INFO is not set
+# CONFIG_NO_PGT_CACHE is not set
+CONFIG_DEBUG_KERNEL=y
+# CONFIG_DEBUG_SLAB is not set
+CONFIG_MAGIC_SYSRQ=y
+# CONFIG_DEBUG_SPINLOCK is not set
+# CONFIG_DEBUG_WAITQ is not set
+CONFIG_DEBUG_BUGVERBOSE=y
+CONFIG_DEBUG_ERRORS=y
+CONFIG_DEBUG_LL=y
+# CONFIG_DEBUG_DC21285_PORT is not set
+# CONFIG_DEBUG_CLPS711X_UART2 is not set
+
+#
+# Cryptographic options
+#
+CONFIG_CRYPTO=y
+CONFIG_CRYPTO_HMAC=y
+CONFIG_CRYPTO_NULL=y
+CONFIG_CRYPTO_MD4=y
+CONFIG_CRYPTO_MD5=y
+CONFIG_CRYPTO_SHA1=y
+CONFIG_CRYPTO_SHA256=y
+CONFIG_CRYPTO_SHA512=y
+CONFIG_CRYPTO_DES=y
+CONFIG_CRYPTO_BLOWFISH=y
+CONFIG_CRYPTO_TWOFISH=y
+CONFIG_CRYPTO_SERPENT=y
+CONFIG_CRYPTO_AES=m
+CONFIG_CRYPTO_CAST5=y
+CONFIG_CRYPTO_CAST6=y
+CONFIG_CRYPTO_TEA=y
+CONFIG_CRYPTO_ARC4=y
+CONFIG_CRYPTO_DEFLATE=y
+CONFIG_CRYPTO_MICHAEL_MIC=y
+CONFIG_CRYPTO_TEST=m
+
+#
+# Library routines
+#
+CONFIG_CRC32=y
+CONFIG_ZLIB_INFLATE=y
+CONFIG_ZLIB_DEFLATE=y
+
+--=-tv8yCFiSNkVdaGMy0ck1--
