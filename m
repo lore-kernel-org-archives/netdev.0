@@ -1,29 +1,47 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: Re: [PATCH 2.6 PKT_SCHED]: Clean up tcf_action_init memory handling
-Date: 09 Nov 2004 07:29:41 -0500
-Message-ID: <1100003381.1118.53.camel@jzny.localdomain>
-References: <4190874E.7040202@trash.net>
-Reply-To: hadi@znyx.com
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] [TRY2] Use nfmark as a key in u32 classifier
+Date: 09 Nov 2004 07:36:34 -0500
+Message-ID: <1100003794.1114.61.camel@jzny.localdomain>
+References: <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4190874E.7040202@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "Catalin(ux aka Dino)  " BOIE <util@deuroconsult.ro>
+In-Reply-To: <Pine.LNX.4.61.0411091406570.20094@webhosting.rdsbv.ro>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dave, 
 
-the first patch from Patrick on u64 times is fine to apply.
-
-This one i need to review and i am too occupied at the moment to spend
-more than a minute on it. So dont apply it.
-Patrick: I would prefer such patches be sent to me first for approval
-before going to Dave. Not that i question your skills (based on history
-of your previous patches), it just makes me less nervous ;->
+Looks quiet palatable. You didnt CC Dave for inclusion
 
 cheers,
 jamal
+
+On Tue, 2004-11-09 at 07:27, Catalin(ux aka Dino) BOIE wrote:
+> Hello!
+> 
+> This is the try number two.
+> What was changed:
+> - Added selectable choice in Kconfig file (thanks Jamal!)
+> - Don't abuse tc_u32_sel to not break backward compatibility (thanks 
+> Patrick!).
+> 
+> Stephen, do you have any comments on iproute2 part? I know it's not 
+> perfect but this is the best way, I think. "u32 match mark vvvv mmmm" it's 
+> intuitive but breaks a little the levels, "u32 mark vvvv mmmm" it's ok 
+> but not intuitive....
+> If you want I can rewrite it if you want.
+> 
+> Thank you for your time.
+> 
+> Signed-off-by: Catalin(ux aka Dino) <catab at umbrella.ro>
+> 
+> ---
+> Catalin(ux aka Dino) BOIE
+> catab at deuroconsult.ro
+> http://kernel.umbrella.ro/
+
