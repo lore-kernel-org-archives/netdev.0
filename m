@@ -1,55 +1,65 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (23/25) sk98: eliminate Pnmi scratchpad
-Date: Fri, 19 Nov 2004 11:41:27 -0800
-Message-ID: <20041119114127.3858355b@zqx3.pdx.osdl.net>
-References: <20041115155832.264aa86f@zqx3.pdx.osdl.net>
-	<20041119104331.70a45312@zqx3.pdx.osdl.net>
-	<20041119191117.GA13556@electric-eye.fr.zoreil.com>
+Subject: [PATCH] (addendum) sk98: elimnate AllocFlag
+Date: Fri, 19 Nov 2004 11:52:33 -0800
+Message-ID: <20041119115233.0a41354f@zqx3.pdx.osdl.net>
+References: <20041115163616.17dfe933@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Mirko Lindner <demon@pro-linux.de>,
-        netdev@oss.sgi.com
+Cc: Mirko Lindner <demon@pro-linux.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041119191117.GA13556@electric-eye.fr.zoreil.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20041115163616.17dfe933@zqx3.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This fixes the leak in the ethtool statistics code from the last patch.
+Don't need AllocFlag in device structure since FreeResources only
+called in case where allocation was done.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/sk98lin/skethtool.c b/drivers/net/sk98lin/skethtool.c
---- a/drivers/net/sk98lin/skethtool.c	2004-11-19 11:40:14 -08:00
-+++ b/drivers/net/sk98lin/skethtool.c	2004-11-19 11:40:14 -08:00
-@@ -268,7 +268,6 @@
- 	int err;
- 	SK_PNMI_STRUCT_DATA *pPnmiStruct;
- 
+diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
+--- a/drivers/net/sk98lin/skge.c	2004-11-19 11:49:15 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-19 11:49:15 -08:00
+@@ -316,25 +316,13 @@
+  */
+ static void FreeResources(struct net_device *dev)
+ {
+-SK_U32 AllocFlag;
+-DEV_NET		*pNet;
+-SK_AC		*pAC;
 -
- 	pPnmiStruct = kmalloc(sizeof(*pPnmiStruct), GFP_KERNEL);
- 	if (!pPnmiStruct)
- 		return;
-@@ -279,8 +278,8 @@
- 	err = SkPnmiGetStruct(pAC, pAC->IoBase, pPnmiStruct, &size, pNet->NetNr);
- 	spin_unlock_irqrestore(&pAC->SlowPathLock, flags);
- 
--	if (err)
--		return;
-+	if (err) 
-+		goto out;
- 
- 	*data++ = pPnmiStruct->Stat[0].StatRxOkCts;
- 	*data++ = pPnmiStruct->Stat[0].StatTxOkCts;
-@@ -309,6 +308,9 @@
- 	*data++ = pPnmiStruct->Stat[0].StatTxFifoUnderrunCts;
- 	*data++ = pPnmiStruct->Stat[0].StatTxCarrierCts;
- 	*data++ = pAC->stats.tx_window_errors;
+-	pNet = netdev_priv(dev);
+-	pAC = pNet->pAC;
+-	AllocFlag = pAC->AllocFlag;
+-	if (pAC->PciDev) {
+-		pci_release_regions(pAC->PciDev);
+-	}
+-	if (AllocFlag & SK_ALLOC_IRQ) {
+-		free_irq(dev->irq, dev);
+-	}
+-	if (pAC->IoBase) {
+-		iounmap(pAC->IoBase);
+-	}
+-	if (pAC->pDescrMem) {
+-		BoardFreeMem(pAC);
+-	}
++	DEV_NET		*pNet = netdev_priv(dev);
++	SK_AC		*pAC = pNet->pAC;
 +
-+ out:
-+	kfree(pPnmiStruct);
- }
++	pci_release_regions(pAC->PciDev);
++	free_irq(dev->irq, dev);
++	iounmap(pAC->IoBase);
++	BoardFreeMem(pAC);
+ 	
+ } /* FreeResources */
  
+@@ -559,7 +547,6 @@
+ 		       dev->irq);
+ 		return -EAGAIN;
+ 	}
+-	pAC->AllocFlag |= SK_ALLOC_IRQ;
  
+ 	/* Alloc memory for this board (Mem for RxD/TxD) : */
+ 	if(!BoardAllocMem(pAC)) {
