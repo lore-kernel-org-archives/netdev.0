@@ -1,50 +1,37 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: 2.6.4 e100 NAPI - dst cache overflow and network unavailability
-Date: Tue, 13 Apr 2004 15:06:28 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16507.58836.330646.613359@robur.slu.se>
-References: <4075F218.90804@outblaze.com>
+From: James Morris <jmorris@redhat.com>
+Subject: Re: your mail
+Date: Tue, 13 Apr 2004 09:46:11 -0400 (EDT)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Xine.LNX.4.44.0404130945460.14102-100000@thoron.boston.redhat.com>
+References: <200404121623.42558.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Christopher Chan <cchan@outblaze.com>
-In-Reply-To: <4075F218.90804@outblaze.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
+	=?iso-2022-jp?Q?YOSHIFUJI_Hideaki_=2F_=1B$B5HF#1QL=40=1B=28B?=
+	<yoshfuji@linux-ipv6.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200404121623.42558.vda@port.imtp.ilyichevsk.odessa.ua>
 List-Id: netdev.vger.kernel.org
 
+On Mon, 12 Apr 2004, Denis Vlasenko wrote:
+
+> According to my measurements,
+>=20
+> ip_vs_control_add() (from include/net/ip_vs.h) is called twice
+> and
+> sock_queue_rcv_skb() (from=A0include/net/sock.h) is called 19 times
+> from various kernel .c files.
+>=20
+> Both these includes generate more than 500 bytes of code on x86.
+>=20
+> These patches uninline them. Please apply.
+
+What kind of performance impact (if any) does this patch have?
 
 
-Christopher Chan writes:
-
- > However, I had NAPI enabled in the e100 driver then.
- > 
- > Turning NAPI off for the e100 driver has meant that the box has now been 
- > up several days without any problems under heavy network load.
- > 
- > I have not tried out 2.6.5 with NAPI enabled but 2.6.5 without NAPI 
- > enabled is stable.
-
-
- dst cache overflows when garbage collection cannot keep up dst entries
- freed so we exceed max_size. GC is run after gc_min_interval and eventually 
- a RCU delay which we have discussed here and are looking into now.
-
- So if you increase your network performance/load for any reason so more 
- dst entries are freed you can reach the overflow threshold. This is probably 
- what happens for you with NAPI driver.
-
- You can try to decrease gc_min_interval a bit but if you are unlucky you 
- have run into RCU problem as well. There is one experimental patch that 
- seems help.
-
- Tuning just to avoid dst cache overflows can mean you sacrifice a lot of
- network performance. Anyway monitor your route cache to start with. There 
- is interesting stats in /proc/net/rt_cache_stat. The rtstat utility can
- be handy parsing it.
-
- Cheers.
-						--ro
- 
- 
+- James
+--=20
+James Morris
+<jmorris@redhat.com>
