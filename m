@@ -1,28 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Problems with e1000 in 2.4.23
-Date: Mon, 1 Dec 2003 00:06:16 -0800
+From: Ramon Casellas <casellas@infres.enst.fr>
+Subject: Request: Allocate a Netlink Family Number for MPLS
+Date: Mon, 1 Dec 2003 15:36:26 +0100 (MET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031201000616.1db7b6f4.davem@redhat.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDD05@orsmsx402.jf.intel.com>
-	<3FCAACAD.7090609@candelatech.com>
+Message-ID: <Pine.SOL.4.40.0312011518440.25991-100000@gervaise.enst.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: scott.feldman@intel.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3FCAACAD.7090609@candelatech.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Nov 2003 18:51:25 -0800
-Ben Greear <greearb@candelatech.com> wrote:
 
-> Also, I am seeing bogus things on this machine regardless of which
-> kernel and which e1000 driver I use, so it's quite possible that either
-> the NIC hardware or the MB/RAM/CPU/Whatever is just plain not quite
-> right.
+Jamal/Dave/all,
 
-Ben, I don't want to beat an old dead horse, but is this
-the same system where you were having all of those
-overheating problems a long time ago?
+We're working in porting mpls for linux to 2.6 and one of the planned
+features is to move from an IOCTL based approach to a Netlink based one
+for updating/querying the MPLS FTN/ILM/Label Mapping/... tables from
+userspace. Since netlink families are public, I would
+like to know if it is possible to reserve a family for MPLS, even though
+the MPLS patch is not part of the official kernel.
+
+Please let me know who I should contact/forward my request (Dave Miller
+is listed as the main mantainer of the net core) or if, on the contrary,
+there are valid reasons to reject our request.
+
+Thanks in advance,
+Ramon
+
+
+Something like this:
+
+diff -urN linux-2.6.0-test11/include/linux/netlink.h
+linux-2.6.0-test11-mpls/include/linux/netlink.h
+--- linux-2.6.0-test11/include/linux/netlink.h  2003-11-27
+14:24:00.000000000 +0100
++++ linux-2.6.0-test11-mpls/include/linux/netlink.h     2003-11-30
+13:47:45.000000000 +0100
+@@ -12,6 +12,11 @@
+ #define NETLINK_NFLOG          5       /* netfilter/iptables ULOG */
+ #define NETLINK_XFRM           6       /* ipsec */
+ #define NETLINK_ARPD           8
++
++##if defined(CONFIG_MPLS) || defined(CONFIG_MPLS_MODULE)
++#define NETLINK_MPLS           9
++#endif
++
+ #define NETLINK_ROUTE6         11      /* af_inet6 route comm channel */
+ #define NETLINK_IP6_FW         13
+ #define NETLINK_DNRTMSG                14      /* DECnet routing messages
+*/
+
+
+
+// -------------------------------------------------------------------
+// Ramon Casellas - GET/ENST/INFRES/RHD/A508 - casellas@infres.enst.fr
