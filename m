@@ -1,34 +1,75 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Limit skb to be less than 64K with TSO
-Date: Wed, 23 Jul 2003 11:50:32 -0700
+From: Christoph Hellwig <hch@infradead.org>
+Subject: [bernie@develer.com: Kernel 2.6 size increase]
+Date: Wed, 23 Jul 2003 19:53:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723115032.3f8a95ed.davem@redhat.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E01022291F4@orsmsx402.jf.intel.com>
+Message-ID: <20030723195355.A27597@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: alan@storlinksemi.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E01022291F4@orsmsx402.jf.intel.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Jul 2003 11:44:46 -0700
-"Feldman, Scott" <scott.feldman@intel.com> wrote:
+I think this is not only of interest fir the uClinux folks..
 
-> > I am writing driver + smart NIC's firmware.  The smart NIC 
-> > has limited memory. It can do checksum and TSO but with 32K max.
-> 
-> Do we need a netdev->tso_max so the driver can advertise the maximum TSO
-> send support by h/w?
+----- Forwarded message from Bernardo Innocenti <bernie@develer.com> -----
 
-Maybe, it's easy to implement.
+Date:	Wed, 23 Jul 2003 20:46:46 +0200
+From:	Bernardo Innocenti <bernie@develer.com>
+Subject: Kernel 2.6 size increase
+To:	uClinux development list <uclinux-dev@uclinux.org>
+Cc:	linux-kernel@vger.kernel.org
 
-Add netdev->tso_max
-Add sk->sk_tso_max right after sk->sk_route_caps
-When sk->sk_route_caps is set, fetch netdev->tso_max via route
-and put into sk->sk_tso_max.
-Replace "65535" constant in tcp_sync_mss with sk->sk_tso_max.
+Hello,
 
-That shoule be it.
+code bloat can be very harmful on embedded targets, but it's
+generally inconvenient for any platform. I've measured the
+code increase between 2.4.21 and 2.6.0-test1 on a small
+kernel configuration for ColdFire:
+
+   text    data     bss     dec     hex filename
+ 640564   39152  134260  813976   c6b98 linux-2.4.x/linux
+ 845924   51204   78896  976024   ee498 linux-2.5.x/vmlinux
+
+I could provide the exact .config file for both kernels to
+anybody interested. They are almost the same: no filesystems
+except JFFS2, IPv4 and a bunch of small drivers. I have no
+SMP, security, futexes, modules and anything else not
+strictly needed to execute processes.
+
+I've made a linker map file and compared the size of single
+subsystems. These are the the major contributors to the
+size increase:
+
+  kernel/   +27KB
+  mm/       +14KB
+  fs/       +47KB
+  drivers/  +35KB
+  net/      +64KB
+
+I've digged into net/ with nm -S --size-sort. It seems that
+the major increase is caused by net/xfrm/. Could this module
+be made optional?
+
+In fs/, almost all modules have got 30-40% bigger, therefore
+bloat is probably caused by inlines and macros getting more
+complex.
+
+Block drivers and MTD have generally become smaller. Character
+devices are responsable for most of the size increase in drivers/.
+
+-- 
+  // Bernardo Innocenti - Develer S.r.l., R&D dept.
+\X/  http://www.develer.com/
+
+Please don't send Word attachments - http://www.gnu.org/philosophy/no-word-attachments.html
+
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
+Please read the FAQ at  http://www.tux.org/lkml/
+
+----- End forwarded message -----
