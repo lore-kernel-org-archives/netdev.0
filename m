@@ -1,102 +1,44 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
-Date: Fri, 16 Jan 2004 10:38:49 -0800
+From: Mike Fedyk <mfedyk@matchmail.com>
+Subject: Re: [2.6] nfs_rename: target $file busy, d_count=2
+Date: Fri, 16 Jan 2004 10:40:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFDFE3736C.20FD7F98-ON87256E1D.00662F80@us.ibm.com>
+Message-ID: <20040116184031.GM1748@srv-lnx2600.matchmail.com>
+References: <20040116050642.GF1748@srv-lnx2600.matchmail.com> <20040116130336.GA5220@oscar.prima.de>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=08BBE48EDFF5A9108f9e8a93df938690918c08BBE48EDFF5A910"
-Cc: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-        mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Patrick Mau <mau@oscar.ping.de>
 Content-Disposition: inline
+In-Reply-To: <20040116130336.GA5220@oscar.prima.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=08BBE48EDFF5A9108f9e8a93df938690918c08BBE48EDFF5A910
-Content-type: text/plain; charset=US-ASCII
+On Fri, Jan 16, 2004 at 02:03:36PM +0100, Patrick Mau wrote:
+> On Thu, Jan 15, 2004 at 09:06:42PM -0800, Mike Fedyk wrote:
+> > Can anyone reproduce?
+> 
+> Hi,
+> 
+> I was able to reproduce stale handles a long time ago.
+> A workable solution for me was to export using 'no_subtree_check'
+> on the server. Like this:
+> 
+> /data \
+>   tony.local.net(rw,sync,no_root_squash,no_subtree_check) \
+> 
+> Could you please try and reply to my address if t works ?
 
+I'll have to give it a try next time I get a chance to reboot this server.
 
+I only had a few nfs clients doing light load, (kde home directories, and
+such) and was able to reproduce stale nfs file handles just by running "find
+> /dev/null" on the nfs share.
 
+Have you tried the -mm tree recently?  2.6.1-mm4 even has some new nfsd
+patches in there (maybe you should wait until -mm5 though, there are a few
+build problems and such), as well as over 20 nfs client patches.  Haven't
+checked what they all do, but some of them are RPC_GSS support mixed in with
+the bug fixes.
 
-
-Thank Yoshfuji to point out.
-
-But the patch is still needed for the Router, so it should be put in
-ndisc_router_discovery() when it's determined as a router. Are you OK with
-that?
-
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
-
-
-
-"David S. Miller" <davem@redhat.com> on 01/16/2004 02:01:34 AM
-
-To:    "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-cc:    Shirley Ma/Beaverton/IBM@IBMUS, mashirle@us.ltcfwd.linux.ibm.com,
-       kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Subject:    Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
-
-
-On Fri, 16 Jan 2004 10:37:10 +0900 (JST)
-YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
-
-> In article <OFB4F51C5A.FC479F2C-ON87256E1C.007B64B8@us.ibm.com> (at Thu,
-15 Jan 2004 14:31:47 -0800), Shirley Ma <xma@us.ibm.com> says:
->
-> > This patch is going to be used by SNMP for ipv6RouterAdvert Table. I
-will
-> > remove this Micro, and resubmit the patch.
->
-> This patch is conceptually wrong.
-
-Ok, since this is controversial I'll back it out of my tree.
-
-
---0__=08BBE48EDFF5A9108f9e8a93df938690918c08BBE48EDFF5A910
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
-
-<html><body>
-<p>Thank Yoshfuji to point out. <br>
-<br>
-But the patch is still needed for the Router, so it should be put in ndisc_router_discovery() when it's determined as a router. Are you OK with that?<br>
-<br>
-Thanks<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone: (503) 578-7638<br>
-FAX:      (503) 578-3228<br>
-<br>
-<br>
-
-<p><font size="2" color="#800080">To:	</font><font size="2">&quot;YOSHIFUJI Hideaki / _$B5HF#1QL@&quot; &lt;yoshfuji@linux-ipv6.org&gt;</font><br>
-<font size="2" color="#800080">cc:	</font><font size="2">Shirley Ma/Beaverton/IBM@IBMUS, mashirle@us.ltcfwd.linux.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org</font><font size="2" color="#800080"> </font><br>
-<font size="2" color="#800080">Subject:	</font><font size="2">Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification</font><br>
-<br>
-<br>
-<font face="Courier New">On Fri, 16 Jan 2004 10:37:10 +0900 (JST)<br>
-YOSHIFUJI Hideaki / _$B5HF#1QL@ &lt;yoshfuji@linux-ipv6.org&gt; wrote:<br>
-<br>
-&gt; In article &lt;OFB4F51C5A.FC479F2C-ON87256E1C.007B64B8@us.ibm.com&gt; (at Thu, 15 Jan 2004 14:31:47 -0800), Shirley Ma &lt;xma@us.ibm.com&gt; says:<br>
-&gt; <br>
-&gt; &gt; This patch is going to be used by SNMP for ipv6RouterAdvert Table. I will<br>
-&gt; &gt; remove this Micro, and resubmit the patch.<br>
-&gt; <br>
-&gt; This patch is conceptually wrong.<br>
-<br>
-Ok, since this is controversial I'll back it out of my tree.<br>
-</font><br>
-<br>
-</body></html>
---0__=08BBE48EDFF5A9108f9e8a93df938690918c08BBE48EDFF5A910--
+Mike
