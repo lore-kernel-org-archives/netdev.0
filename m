@@ -1,232 +1,313 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.6.x net driver updates
-Date: Sat, 27 Sep 2003 07:55:25 -0400
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCHES] IPVS - use list_for_each_entry_continue, fix NQ
+Date: Sat, 27 Sep 2003 15:02:57 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030927115525.GA26903@gtf.org>
+Message-ID: <Pine.LNX.4.44.0309271447470.2845-500000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-1126575391-1064664177=:2845"
+Cc: Wensong Zhang <wensong@linux-vs.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torvalds@osdl.org
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This should fix the build.  Only thing left not building is g_ncr5380...
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
+
+--1607745702-1126575391-1064664177=:2845
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
 
+	Hello,
 
-Linus, please do a
+	The attached patches against today's 2.6 BK tree introduce 
+list_for_each_entry_continue and use it for some IPVS schedulers. There is 
+also a NQ scheduler fix. Please consider for inclusion.
 
-	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.5
+Regards
 
-This will update the following files:
+--
+Julian Anastasov <ja@ssi.bg>
 
- drivers/usb/net/Makefile.mii      |    6 
- drivers/net/Kconfig               |   11 
- drivers/net/Makefile              |   28 --
- drivers/net/e100/e100.h           |    1 
- drivers/net/e100/e100_config.c    |    2 
- drivers/net/e100/e100_config.h    |    1 
- drivers/net/e100/e100_main.c      |   49 +---
- drivers/net/e1000/e1000.h         |    8 
- drivers/net/e1000/e1000_ethtool.c |   14 -
- drivers/net/e1000/e1000_hw.c      |   39 +--
- drivers/net/e1000/e1000_hw.h      |    2 
- drivers/net/e1000/e1000_main.c    |   90 ++++---
- drivers/net/e1000/e1000_osdep.h   |    2 
- drivers/net/hamradio/baycom_epp.c |    4 
- drivers/net/pcmcia/Kconfig        |    1 
- drivers/net/pcmcia/smc91c92_cs.c  |    8 
- drivers/net/sk98lin/skdim.c       |    5 
- drivers/net/sk98lin/skge.c        |  103 +++-----
- drivers/net/sk98lin/skproc.c      |  463 ++++++++++++++++----------------------
- drivers/net/tulip/Kconfig         |    1 
- drivers/net/wan/sealevel.c        |   36 +-
- drivers/net/wan/z85230.c          |   58 ++--
- drivers/net/wireless/orinoco.c    |    4 
- drivers/usb/net/Kconfig           |    2 
- 24 files changed, 447 insertions(+), 491 deletions(-)
+--1607745702-1126575391-1064664177=:2845
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="00_list_cont-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0309271502570.2845@u.domain.uli>
+Content-Description: Introduce list_for_each_entry_continue
+Content-Disposition: attachment; filename="00_list_cont-1.diff"
 
-through these ChangeSets:
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1MiAgLT4gMS4xMzUzIA0KIwlp
+bmNsdWRlL2xpbnV4L2xpc3QuaAkxLjM0ICAgIC0+IDEuMzUgICANCiMNCiMg
+VGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNldCBMb2cN
+CiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0NCiMgMDMvMDkvMjcJamFAc3NpLmJnCTEuMTM1Mw0KIyBJbnRyb2R1Y2Ug
+bGlzdF9mb3JfZWFjaF9lbnRyeV9jb250aW51ZQ0KIyAtLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLQ0KIw0KZGlmZiAtTnJ1
+IGEvaW5jbHVkZS9saW51eC9saXN0LmggYi9pbmNsdWRlL2xpbnV4L2xpc3Qu
+aA0KLS0tIGEvaW5jbHVkZS9saW51eC9saXN0LmgJU2F0IFNlcCAyNyAxMDo0
+Mzo1OCAyMDAzDQorKysgYi9pbmNsdWRlL2xpbnV4L2xpc3QuaAlTYXQgU2Vw
+IDI3IDEwOjQzOjU4IDIwMDMNCkBAIC0zMjUsNiArMzI1LDE5IEBADQogCSAg
+ICAgcG9zID0gbGlzdF9lbnRyeShwb3MtPm1lbWJlci5wcmV2LCB0eXBlb2Yo
+KnBvcyksIG1lbWJlciksCVwNCiAJCSAgICAgcHJlZmV0Y2gocG9zLT5tZW1i
+ZXIucHJldikpDQogDQorLyoqDQorICogbGlzdF9mb3JfZWFjaF9lbnRyeV9j
+b250aW51ZSAtCWl0ZXJhdGUgb3ZlciBsaXN0IG9mIGdpdmVuIHR5cGUNCisg
+KgkJCWNvbnRpbnVpbmcgYWZ0ZXIgZXhpc3RpbmcgcG9pbnQNCisgKiBAcG9z
+Ogl0aGUgdHlwZSAqIHRvIHVzZSBhcyBhIGxvb3AgY291bnRlci4NCisgKiBA
+aGVhZDoJdGhlIGhlYWQgZm9yIHlvdXIgbGlzdC4NCisgKiBAbWVtYmVyOgl0
+aGUgbmFtZSBvZiB0aGUgbGlzdF9zdHJ1Y3Qgd2l0aGluIHRoZSBzdHJ1Y3Qu
+DQorICovDQorI2RlZmluZSBsaXN0X2Zvcl9lYWNoX2VudHJ5X2NvbnRpbnVl
+KHBvcywgaGVhZCwgbWVtYmVyKSAJCVwNCisJZm9yIChwb3MgPSBsaXN0X2Vu
+dHJ5KHBvcy0+bWVtYmVyLm5leHQsIHR5cGVvZigqcG9zKSwgbWVtYmVyKSwJ
+XA0KKwkJICAgICBwcmVmZXRjaChwb3MtPm1lbWJlci5uZXh0KTsJCQlcDQor
+CSAgICAgJnBvcy0+bWVtYmVyICE9IChoZWFkKTsJCQkJCVwNCisJICAgICBw
+b3MgPSBsaXN0X2VudHJ5KHBvcy0+bWVtYmVyLm5leHQsIHR5cGVvZigqcG9z
+KSwgbWVtYmVyKSwJXA0KKwkJICAgICBwcmVmZXRjaChwb3MtPm1lbWJlci5u
+ZXh0KSkNCiANCiAvKioNCiAgKiBsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUg
+LSBpdGVyYXRlIG92ZXIgbGlzdCBvZiBnaXZlbiB0eXBlIHNhZmUgYWdhaW5z
+dCByZW1vdmFsIG9mIGxpc3QgZW50cnkNCg==
+--1607745702-1126575391-1064664177=:2845
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="00_gcd-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0309271502571.2845@u.domain.uli>
+Content-Description: [IPV4/IPVS] Simplify ip_vs_wrr_gcd_weight
+Content-Disposition: attachment; filename="00_gcd-1.diff"
 
-<bunk@fs.tum.de> (03/09/27 1.1371)
-   [PATCH] select MII
-   
-   The patch below switches MII to be select'ed instead of including it in
-   the Makefile.
-   
-   Note that this patch requires a recent Linus' tree with the select CRC32
-   patch included.
-   
-   diffstat output:
-   
-    drivers/net/Kconfig          |   11 +++++++++++
-    drivers/net/Makefile         |   28 +++++++++++-----------------
-    drivers/net/pcmcia/Kconfig   |    1 +
-    drivers/net/tulip/Kconfig    |    1 +
-    drivers/usb/net/Kconfig      |    2 ++
-    drivers/usb/net/Makefile.mii |    6 ------
-    6 files changed, 26 insertions(+), 23 deletions(-)
-   
-   
-   Tangential to the patch I observed a small problem (not fixed in the patch):
-   MII depends on NET_ETHERNET, but USB_PEGASUS and USB_USBNET depend
-   only on NET.
-   
-   cu
-   Adrian
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1MyAgLT4gMS4xMzU0IA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX3dyci5jCTEuMiAgICAgLT4gMS4zICAgIA0K
+Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
+IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KIyAwMy8wOS8yNwlqYUBzc2kuYmcJMS4xMzU0DQojIFtJUFY0
+L0lQVlNdIFNpbXBsaWZ5IGlwX3ZzX3dycl9nY2Rfd2VpZ2h0DQojIC0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojDQpk
+aWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX3dyci5jIGIvbmV0L2lw
+djQvaXB2cy9pcF92c193cnIuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9pcF92
+c193cnIuYwlTYXQgU2VwIDI3IDExOjA2OjI5IDIwMDMNCisrKyBiL25ldC9p
+cHY0L2lwdnMvaXBfdnNfd3JyLmMJU2F0IFNlcCAyNyAxMTowNjoyOSAyMDAz
+DQpAQCAtNTgsMjYgKzU4LDE4IEBADQogew0KIAlzdHJ1Y3QgaXBfdnNfZGVz
+dCAqZGVzdDsNCiAJaW50IHdlaWdodDsNCi0JaW50IGcgPSAxOw0KKwlpbnQg
+ZyA9IDA7DQogDQogCWxpc3RfZm9yX2VhY2hfZW50cnkoZGVzdCwgJnN2Yy0+
+ZGVzdGluYXRpb25zLCBuX2xpc3QpIHsNCiAJCXdlaWdodCA9IGF0b21pY19y
+ZWFkKCZkZXN0LT53ZWlnaHQpOw0KIAkJaWYgKHdlaWdodCA+IDApIHsNCi0J
+CQlnID0gd2VpZ2h0Ow0KLQkJCWdvdG8gc2VhcmNoX2djZDsNCisJCQlpZiAo
+ZyA+IDApDQorCQkJCWcgPSBnY2Qod2VpZ2h0LCBnKTsNCisJCQllbHNlDQor
+CQkJCWcgPSB3ZWlnaHQ7DQogCQl9DQogCX0NCi0NCi0JcmV0dXJuIGc7DQot
+DQotIHNlYXJjaF9nY2Q6DQotCWxpc3RfZm9yX2VhY2hfZW50cnkoZGVzdCwg
+JnN2Yy0+ZGVzdGluYXRpb25zLCBuX2xpc3QpIHsNCi0JCXdlaWdodCA9IGF0
+b21pY19yZWFkKCZkZXN0LT53ZWlnaHQpOw0KLQkJaWYgKHdlaWdodCA+IDAp
+DQotCQkJZyA9IGdjZCh3ZWlnaHQsIGcpOw0KLQl9DQotDQotCXJldHVybiBn
+Ow0KKwlyZXR1cm4gZyA/IGcgOiAxOw0KIH0NCiANCiANCg==
+--1607745702-1126575391-1064664177=:2845
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="00_nq_weight-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0309271502572.2845@u.domain.uli>
+Content-Description: [IPV4/IPVS] NQ scheduler fix
+Content-Disposition: attachment; filename="00_nq_weight-1.diff"
 
-<shemminger@osdl.org> (03/09/27 1.1370)
-   [PATCH] wan/z8530 deadlocks
-   
-   Existing code for drivers/net/wan/z8530 is riddled with self-deadlocks
-   and irq flag confusion.  For example:
-   	z8530_init -> do_z8530_init -> write_zsreg
-   self deadlocks on the channel lock.
-   
-   Several places acquire both the channel and dma lock and then
-   reuse the same irq flags variable - ouch.
-   
-   This code at least, correctly probes (for no device case) on SMP.
-   Other paths verified by inspection.
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1NCAgLT4gMS4xMzU1IA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX25xLmMJMS4yICAgICAtPiAxLjMgICAgDQoj
+DQojIFRoZSBmb2xsb3dpbmcgaXMgdGhlIEJpdEtlZXBlciBDaGFuZ2VTZXQg
+TG9nDQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tDQojIDAzLzA5LzI3CWphQHNzaS5iZwkxLjEzNTUNCiMgW0lQVjQv
+SVBWU10gVGhlIE5RIHNjaGVkdWxlciBtdXN0IG5vdCByZXR1cm4gc2VydmVy
+cyB3aXRoIHdlaWdodCAwDQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tDQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9p
+cHZzL2lwX3ZzX25xLmMgYi9uZXQvaXB2NC9pcHZzL2lwX3ZzX25xLmMNCi0t
+LSBhL25ldC9pcHY0L2lwdnMvaXBfdnNfbnEuYwlTYXQgU2VwIDI3IDEzOjQ3
+OjE4IDIwMDMNCisrKyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfbnEuYwlTYXQg
+U2VwIDI3IDEzOjQ3OjE4IDIwMDMNCkBAIC04MSw4ICs4MSw4IEBADQogc3Rh
+dGljIHN0cnVjdCBpcF92c19kZXN0ICoNCiBpcF92c19ucV9zY2hlZHVsZShz
+dHJ1Y3QgaXBfdnNfc2VydmljZSAqc3ZjLCBzdHJ1Y3QgaXBoZHIgKmlwaCkN
+CiB7DQotCXN0cnVjdCBpcF92c19kZXN0ICpkZXN0LCAqbGVhc3Q7DQotCXVu
+c2lnbmVkIGludCBsb2gsIGRvaDsNCisJc3RydWN0IGlwX3ZzX2Rlc3QgKmRl
+c3QsICpsZWFzdCA9IE5VTEw7DQorCXVuc2lnbmVkIGludCBsb2ggPSAwLCBk
+b2g7DQogDQogCUlQX1ZTX0RCRyg2LCAiaXBfdnNfbnFfc2NoZWR1bGUoKTog
+U2NoZWR1bGluZy4uLlxuIik7DQogDQpAQCAtOTksMjcgKzk5LDEwIEBADQog
+CSAqIG5ldyBjb25uZWN0aW9ucy4NCiAJICovDQogDQotCWxpc3RfZm9yX2Vh
+Y2hfZW50cnkobGVhc3QsICZzdmMtPmRlc3RpbmF0aW9ucywgbl9saXN0KSB7
+DQotCQlpZiAoIShsZWFzdC0+ZmxhZ3MgJiBJUF9WU19ERVNUX0ZfT1ZFUkxP
+QUQpICYmDQotCQkgICAgYXRvbWljX3JlYWQoJmxlYXN0LT53ZWlnaHQpID4g
+MCkgew0KLQkJCWxvaCA9IGlwX3ZzX25xX2Rlc3Rfb3ZlcmhlYWQobGVhc3Qp
+Ow0KLQ0KLQkJCS8qIHJldHVybiB0aGUgc2VydmVyIGRpcmVjdGx5IGlmIGl0
+IGlzIGlkbGUgKi8NCi0JCQlpZiAoYXRvbWljX3JlYWQoJmxlYXN0LT5hY3Rp
+dmVjb25ucykgPT0gMCkNCi0JCQkJZ290byBvdXQ7DQotDQotCQkJZ290byBu
+ZXh0c3RhZ2U7DQotCQl9DQotCX0NCi0JcmV0dXJuIE5VTEw7DQotDQotCS8q
+DQotCSAqICAgIEZpbmQgdGhlIGRlc3RpbmF0aW9uIHdpdGggdGhlIGxlYXN0
+IGxvYWQuDQotCSAqLw0KLSAgbmV4dHN0YWdlOg0KIAlsaXN0X2Zvcl9lYWNo
+X2VudHJ5KGRlc3QsICZzdmMtPmRlc3RpbmF0aW9ucywgbl9saXN0KSB7DQog
+DQotCQlpZiAoZGVzdC0+ZmxhZ3MgJiBJUF9WU19ERVNUX0ZfT1ZFUkxPQUQp
+DQorCQlpZiAoZGVzdC0+ZmxhZ3MgJiBJUF9WU19ERVNUX0ZfT1ZFUkxPQUQg
+fHwNCisJCSAgICAhYXRvbWljX3JlYWQoJmRlc3QtPndlaWdodCkpDQogCQkJ
+Y29udGludWU7DQogDQogCQlkb2ggPSBpcF92c19ucV9kZXN0X292ZXJoZWFk
+KGRlc3QpOw0KQEAgLTEyNywxNSArMTEwLDIwIEBADQogCQkvKiByZXR1cm4g
+dGhlIHNlcnZlciBkaXJlY3RseSBpZiBpdCBpcyBpZGxlICovDQogCQlpZiAo
+YXRvbWljX3JlYWQoJmRlc3QtPmFjdGl2ZWNvbm5zKSA9PSAwKSB7DQogCQkJ
+bGVhc3QgPSBkZXN0Ow0KKwkJCWxvaCA9IGRvaDsNCiAJCQlnb3RvIG91dDsN
+CiAJCX0NCiANCi0JCWlmIChsb2ggKiBhdG9taWNfcmVhZCgmZGVzdC0+d2Vp
+Z2h0KSA+DQotCQkgICAgZG9oICogYXRvbWljX3JlYWQoJmxlYXN0LT53ZWln
+aHQpKSB7DQorCQlpZiAoIWxlYXN0IHx8DQorCQkgICAgKGxvaCAqIGF0b21p
+Y19yZWFkKCZkZXN0LT53ZWlnaHQpID4NCisJCSAgICAgZG9oICogYXRvbWlj
+X3JlYWQoJmxlYXN0LT53ZWlnaHQpKSkgew0KIAkJCWxlYXN0ID0gZGVzdDsN
+CiAJCQlsb2ggPSBkb2g7DQogCQl9DQogCX0NCisNCisJaWYgKCFsZWFzdCkN
+CisJCXJldHVybiBOVUxMOw0KIA0KICAgb3V0Og0KIAlJUF9WU19EQkcoNiwg
+Ik5ROiBzZXJ2ZXIgJXUuJXUuJXUuJXU6JXUgIg0K
+--1607745702-1126575391-1064664177=:2845
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="01_sched_list_cont.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0309271502573.2845@u.domain.uli>
+Content-Description: [IPV4/IPVS] Use list_for_each_entry_continue
+Content-Disposition: attachment; filename="01_sched_list_cont.diff"
 
-<shemminger@osdl.org> (03/09/27 1.1369)
-   [PATCH] sealevel -- syncppp startup fix
-   
-   The sealevel driver called sppp_attach before checking that board existed
-   and never called detach in the error path.
-   
-   My change is to call sppp_attach from the netdev->init hook which happens
-   later in the process, and call detach from the uninit hook.
-   
-   Also, changed the structure element 'netdev' to 'pppdev' to avoid confusion.
-   
-   Here is the fix against 2.6.0-test5 latest
-
-<komujun@nifty.com> (03/09/27 1.1368)
-   [netdrvr smc91c92_cs] select proper bank for MII registers
-
-<komujun@nifty.com> (03/09/27 1.1367)
-   [netdrvr] build fixes
-   
-   For e1000 and baycom_epp.
-   
-   Contributed by Jeff Garzik.
-
-<rddunlap@osdl.org> (03/09/27 1.1366)
-   [PATCH] janitor: e100: cleanup #includes
-   
-   Hi,
-   Please apply to 2.6.0-test5-current.
-   
-   Thanks,
-   --
-   ~Randy
-   
-   
-   From: Randy Hron <rwhron@earthlink.net>
-   
-   
-   Remove unneeded include of version.h.
-   Test compiled against 2.6.0-test5-bk9.
-   
-   
-    linux-260-t5bk12-kj-rddunlap/drivers/net/e100/e100.h |    1 -
-    1 files changed, 1 deletion(-)
-
-<rddunlap@osdl.org> (03/09/27 1.1365)
-   [PATCH] janitor: hermes: delete verify_area call
-   
-   Hi,
-   Please apply to 2.6.0-test5-current.
-   
-   Thanks,
-   --
-   ~Randy
-   
-   
-   From: Domen Puncer <domen@coderock.org>
-   
-   IMO, that verify_area wasn't needed.
-   
-   
-   
-    linux-260-t5bk12-kj-rddunlap/drivers/net/wireless/orinoco.c |    4 ----
-    1 files changed, 4 deletions(-)
-
-<scott.feldman@intel.com> (03/09/27 1.1364)
-   [e100] trying to pci_alloc before pci_enable
-   
-   * Some archs don't like calling pci_alloc_consistent before calling
-   pci_enable_device.  (Imagine that).  This corrects that.
-
-<scott.feldman@intel.com> (03/09/27 1.1363)
-   [e100] h/w can't do IPv6 checksum offloading
-   
-   * Driver was advertising HW_CSUM, but hardware is only capable of IP_CSUM.
-
-<scott.feldman@intel.com> (03/09/27 1.1362)
-   [e100] PRO/10+ not configured properly
-   
-   * PRO/10+ (10 Mbps-only card) was not configured properly so it didn't
-   pass traffic.
-
-<scott.feldman@intel.com> (03/09/27 1.1361)
-   [e1000] misc
-   
-   * removed unused var, ASSERT macro
-   * missed a free_netdev() in probe cleanup undo.
-
-<scott.feldman@intel.com> (03/09/27 1.1360)
-   [e1000] better propagation of error codes
-   
-   * Better propagation of error codes during probe/open paths.
-     {Janice Girouard (janiceg@us.ibm.com)]
-
-<scott.feldman@intel.com> (03/09/27 1.1359)
-   [e1000] force 1000/full on SERDES connected to back-plane
-   
-   * Bug fix: SERDES devices might be connected to back-plan switch that
-     doesn't support auto-neg, so add the capability to force 1000/full.
-
-<scott.feldman@intel.com> (03/09/27 1.1358)
-   [e1000] flow control updates
-   
-   * handle ethtool force flow control
-   * correctly set flow control hi/low watermarks based on size of Rx FIFO
-     area.  The size can change if doing Jumbo Frames or, in the case of
-     82547, is smaller to start with.
-   * was not properly forcing flow control settings to fc_none if using
-     strict IEEE flow control override.
-
-<shemminger@osdl.org> (03/09/27 1.1357)
-   [netdrvr sk98lin] use seq_file for /proc
-   
-   Replace proc_read with seq_file interface which is much cleaner.
-   
-   Also, instead of searching the list of devices looking for the
-   name which is slow and would break if interface name changes;
-   store a pointer to device in the proc entry, and retrieve
-   it from the information saved by single_open.
-   
-   Formatting and other behaviours are retained.
-
-<shemminger@osdl.org> (03/09/27 1.1356)
-   [netdrvr skge] handle proc_fs errors.
-   
-   Existing code does not
-   	- check if proc_fs functions return error.
-   	- use proc_mkdir to make the directory.
-   
-   Note pSkRootDir defined twice.
-
-<shemminger@osdl.org> (03/09/27 1.1355)
-   [netdrvr sk98lin] build on smp fix
-   
-   There is no exported variable called smp_num_cpus! so this driver
-   won't build on SMP.  Since the local variable is never used anyway
-   just get rid of it.
-   
-   This applies against 2.6.0-test5-bk13 which has the last vendor
-   driver update.
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1NSAgLT4gMS4xMzU2IA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX3dsYy5jCTEuMiAgICAgLT4gMS4zICAgIA0K
+IwluZXQvaXB2NC9pcHZzL2lwX3ZzX2xibGNyLmMJMS41ICAgICAtPiAxLjYg
+ICAgDQojCW5ldC9pcHY0L2lwdnMvaXBfdnNfbGJsYy5jCTEuNCAgICAgLT4g
+MS41ICAgIA0KIwluZXQvaXB2NC9pcHZzL2lwX3ZzX2xjLmMJMS4yICAgICAt
+PiAxLjMgICAgDQojCW5ldC9pcHY0L2lwdnMvaXBfdnNfc2VkLmMJMS4yICAg
+ICAtPiAxLjMgICAgDQojDQojIFRoZSBmb2xsb3dpbmcgaXMgdGhlIEJpdEtl
+ZXBlciBDaGFuZ2VTZXQgTG9nDQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojIDAzLzA5LzI3CWphQHNzaS5iZwkx
+LjEzNTYNCiMgW0lQVjQvSVBWU10gVXNlIGxpc3RfZm9yX2VhY2hfZW50cnlf
+Y29udGludWUgaW4gc29tZSBzY2hlZHVsZXJzDQojIC0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQojDQpkaWZmIC1OcnUg
+YS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2xibGMuYyBiL25ldC9pcHY0L2lwdnMv
+aXBfdnNfbGJsYy5jDQotLS0gYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2xibGMu
+YwlTYXQgU2VwIDI3IDEzOjUxOjE1IDIwMDMNCisrKyBiL25ldC9pcHY0L2lw
+dnMvaXBfdnNfbGJsYy5jCVNhdCBTZXAgMjcgMTM6NTE6MTUgMjAwMw0KQEAg
+LTQ1OCwxMCArNDU4LDExIEBADQogCSAqIFRoZSBzZXJ2ZXIgd2l0aCB3ZWln
+aHQ9MCBpcyBxdWllc2NlZCBhbmQgd2lsbCBub3QgcmVjZWl2ZSBhbnkNCiAJ
+ICogbmV3IGNvbm5lY3Rpb24uDQogCSAqLw0KLQlsaXN0X2Zvcl9lYWNoX2Vu
+dHJ5KGxlYXN0LCAmc3ZjLT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkgew0KLQkJ
+aWYgKGxlYXN0LT5mbGFncyAmIElQX1ZTX0RFU1RfRl9PVkVSTE9BRCkNCisJ
+bGlzdF9mb3JfZWFjaF9lbnRyeShkZXN0LCAmc3ZjLT5kZXN0aW5hdGlvbnMs
+IG5fbGlzdCkgew0KKwkJaWYgKGRlc3QtPmZsYWdzICYgSVBfVlNfREVTVF9G
+X09WRVJMT0FEKQ0KIAkJCWNvbnRpbnVlOw0KLQkJaWYgKGF0b21pY19yZWFk
+KCZsZWFzdC0+d2VpZ2h0KSA+IDApIHsNCisJCWlmIChhdG9taWNfcmVhZCgm
+ZGVzdC0+d2VpZ2h0KSA+IDApIHsNCisJCQlsZWFzdCA9IGRlc3Q7DQogCQkJ
+bG9oID0gYXRvbWljX3JlYWQoJmxlYXN0LT5hY3RpdmVjb25ucykgKiA1MA0K
+IAkJCQkrIGF0b21pY19yZWFkKCZsZWFzdC0+aW5hY3Rjb25ucyk7DQogCQkJ
+Z290byBuZXh0c3RhZ2U7DQpAQCAtNDczLDcgKzQ3NCw3IEBADQogCSAqICAg
+IEZpbmQgdGhlIGRlc3RpbmF0aW9uIHdpdGggdGhlIGxlYXN0IGxvYWQuDQog
+CSAqLw0KICAgbmV4dHN0YWdlOg0KLQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGRl
+c3QsICZzdmMtPmRlc3RpbmF0aW9ucywgbl9saXN0KSB7DQorCWxpc3RfZm9y
+X2VhY2hfZW50cnlfY29udGludWUoZGVzdCwgJnN2Yy0+ZGVzdGluYXRpb25z
+LCBuX2xpc3QpIHsNCiAJCWlmIChkZXN0LT5mbGFncyAmIElQX1ZTX0RFU1Rf
+Rl9PVkVSTE9BRCkNCiAJCQljb250aW51ZTsNCiANCmRpZmYgLU5ydSBhL25l
+dC9pcHY0L2lwdnMvaXBfdnNfbGJsY3IuYyBiL25ldC9pcHY0L2lwdnMvaXBf
+dnNfbGJsY3IuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9pcF92c19sYmxjci5j
+CVNhdCBTZXAgMjcgMTM6NTE6MTUgMjAwMw0KKysrIGIvbmV0L2lwdjQvaXB2
+cy9pcF92c19sYmxjci5jCVNhdCBTZXAgMjcgMTM6NTE6MTUgMjAwMw0KQEAg
+LTcxMSwxMSArNzExLDEyIEBADQogCSAqIFRoZSBzZXJ2ZXIgd2l0aCB3ZWln
+aHQ9MCBpcyBxdWllc2NlZCBhbmQgd2lsbCBub3QgcmVjZWl2ZSBhbnkNCiAJ
+ICogbmV3IGNvbm5lY3Rpb24uDQogCSAqLw0KLQlsaXN0X2Zvcl9lYWNoX2Vu
+dHJ5KGxlYXN0LCAmc3ZjLT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkgew0KLQkJ
+aWYgKGxlYXN0LT5mbGFncyAmIElQX1ZTX0RFU1RfRl9PVkVSTE9BRCkNCisJ
+bGlzdF9mb3JfZWFjaF9lbnRyeShkZXN0LCAmc3ZjLT5kZXN0aW5hdGlvbnMs
+IG5fbGlzdCkgew0KKwkJaWYgKGRlc3QtPmZsYWdzICYgSVBfVlNfREVTVF9G
+X09WRVJMT0FEKQ0KIAkJCWNvbnRpbnVlOw0KIA0KLQkJaWYgKGF0b21pY19y
+ZWFkKCZsZWFzdC0+d2VpZ2h0KSA+IDApIHsNCisJCWlmIChhdG9taWNfcmVh
+ZCgmZGVzdC0+d2VpZ2h0KSA+IDApIHsNCisJCQlsZWFzdCA9IGRlc3Q7DQog
+CQkJbG9oID0gYXRvbWljX3JlYWQoJmxlYXN0LT5hY3RpdmVjb25ucykgKiA1
+MA0KIAkJCQkrIGF0b21pY19yZWFkKCZsZWFzdC0+aW5hY3Rjb25ucyk7DQog
+CQkJZ290byBuZXh0c3RhZ2U7DQpAQCAtNzI3LDcgKzcyOCw3IEBADQogCSAq
+ICAgIEZpbmQgdGhlIGRlc3RpbmF0aW9uIHdpdGggdGhlIGxlYXN0IGxvYWQu
+DQogCSAqLw0KICAgbmV4dHN0YWdlOg0KLQlsaXN0X2Zvcl9lYWNoX2VudHJ5
+KGRlc3QsICZzdmMtPmRlc3RpbmF0aW9ucywgbl9saXN0KSB7DQorCWxpc3Rf
+Zm9yX2VhY2hfZW50cnlfY29udGludWUoZGVzdCwgJnN2Yy0+ZGVzdGluYXRp
+b25zLCBuX2xpc3QpIHsNCiAJCWlmIChkZXN0LT5mbGFncyAmIElQX1ZTX0RF
+U1RfRl9PVkVSTE9BRCkNCiAJCQljb250aW51ZTsNCiANCmRpZmYgLU5ydSBh
+L25ldC9pcHY0L2lwdnMvaXBfdnNfbGMuYyBiL25ldC9pcHY0L2lwdnMvaXBf
+dnNfbGMuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9pcF92c19sYy5jCVNhdCBT
+ZXAgMjcgMTM6NTE6MTUgMjAwMw0KKysrIGIvbmV0L2lwdjQvaXB2cy9pcF92
+c19sYy5jCVNhdCBTZXAgMjcgMTM6NTE6MTUgMjAwMw0KQEAgLTY1LDggKzY1
+LDggQEANCiBzdGF0aWMgc3RydWN0IGlwX3ZzX2Rlc3QgKg0KIGlwX3ZzX2xj
+X3NjaGVkdWxlKHN0cnVjdCBpcF92c19zZXJ2aWNlICpzdmMsIHN0cnVjdCBp
+cGhkciAqaXBoKQ0KIHsNCi0Jc3RydWN0IGlwX3ZzX2Rlc3QgKmRlc3QsICps
+ZWFzdDsNCi0JdW5zaWduZWQgaW50IGxvaCwgZG9oOw0KKwlzdHJ1Y3QgaXBf
+dnNfZGVzdCAqZGVzdCwgKmxlYXN0ID0gTlVMTDsNCisJdW5zaWduZWQgaW50
+IGxvaCA9IDAsIGRvaDsNCiANCiAJSVBfVlNfREJHKDYsICJpcF92c19sY19z
+Y2hlZHVsZSgpOiBTY2hlZHVsaW5nLi4uXG4iKTsNCiANCkBAIC03OSwzMSAr
+NzksMTggQEANCiAJICogc2VydmVkLCBidXQgbm8gbmV3IGNvbm5lY3Rpb24g
+aXMgYXNzaWduZWQgdG8gdGhlIHNlcnZlci4NCiAJICovDQogDQotCWxpc3Rf
+Zm9yX2VhY2hfZW50cnkobGVhc3QsICZzdmMtPmRlc3RpbmF0aW9ucywgbl9s
+aXN0KSB7DQotCQlpZiAobGVhc3QtPmZsYWdzICYgSVBfVlNfREVTVF9GX09W
+RVJMT0FEKQ0KLQkJCWNvbnRpbnVlOw0KLQkJaWYgKGF0b21pY19yZWFkKCZs
+ZWFzdC0+d2VpZ2h0KSA+IDApIHsNCi0JCQlsb2ggPSBpcF92c19sY19kZXN0
+X292ZXJoZWFkKGxlYXN0KTsNCi0JCQlnb3RvIG5leHRzdGFnZTsNCi0JCX0N
+Ci0JfQ0KLQlyZXR1cm4gTlVMTDsNCi0NCi0JLyoNCi0JICogICAgRmluZCB0
+aGUgZGVzdGluYXRpb24gd2l0aCB0aGUgbGVhc3QgbG9hZC4NCi0JICovDQot
+ICBuZXh0c3RhZ2U6DQogCWxpc3RfZm9yX2VhY2hfZW50cnkoZGVzdCwgJnN2
+Yy0+ZGVzdGluYXRpb25zLCBuX2xpc3QpIHsNCiAJCWlmICgoZGVzdC0+Zmxh
+Z3MgJiBJUF9WU19ERVNUX0ZfT1ZFUkxPQUQpIHx8DQogCQkgICAgYXRvbWlj
+X3JlYWQoJmRlc3QtPndlaWdodCkgPT0gMCkNCiAJCQljb250aW51ZTsNCiAJ
+CWRvaCA9IGlwX3ZzX2xjX2Rlc3Rfb3ZlcmhlYWQoZGVzdCk7DQotCQlpZiAo
+ZG9oIDwgbG9oKSB7DQorCQlpZiAoIWxlYXN0IHx8IGRvaCA8IGxvaCkgew0K
+IAkJCWxlYXN0ID0gZGVzdDsNCiAJCQlsb2ggPSBkb2g7DQogCQl9DQogCX0N
+CiANCisJaWYgKGxlYXN0KQ0KIAlJUF9WU19EQkcoNiwgIkxDOiBzZXJ2ZXIg
+JXUuJXUuJXUuJXU6JXUgYWN0aXZlY29ubnMgJWQgaW5hY3Rjb25ucyAlZFxu
+IiwNCiAJCSAgTklQUVVBRChsZWFzdC0+YWRkciksIG50b2hzKGxlYXN0LT5w
+b3J0KSwNCiAJCSAgYXRvbWljX3JlYWQoJmxlYXN0LT5hY3RpdmVjb25ucyks
+DQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX3NlZC5jIGIvbmV0
+L2lwdjQvaXB2cy9pcF92c19zZWQuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9p
+cF92c19zZWQuYwlTYXQgU2VwIDI3IDEzOjUxOjE1IDIwMDMNCisrKyBiL25l
+dC9pcHY0L2lwdnMvaXBfdnNfc2VkLmMJU2F0IFNlcCAyNyAxMzo1MToxNSAy
+MDAzDQpAQCAtMTAzLDkgKzEwMywxMCBAQA0KIAkgKiBuZXcgY29ubmVjdGlv
+bnMuDQogCSAqLw0KIA0KLQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGxlYXN0LCAm
+c3ZjLT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkgew0KLQkJaWYgKCEobGVhc3Qt
+PmZsYWdzICYgSVBfVlNfREVTVF9GX09WRVJMT0FEKSAmJg0KLQkJICAgIGF0
+b21pY19yZWFkKCZsZWFzdC0+d2VpZ2h0KSA+IDApIHsNCisJbGlzdF9mb3Jf
+ZWFjaF9lbnRyeShkZXN0LCAmc3ZjLT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkg
+ew0KKwkJaWYgKCEoZGVzdC0+ZmxhZ3MgJiBJUF9WU19ERVNUX0ZfT1ZFUkxP
+QUQpICYmDQorCQkgICAgYXRvbWljX3JlYWQoJmRlc3QtPndlaWdodCkgPiAw
+KSB7DQorCQkJbGVhc3QgPSBkZXN0Ow0KIAkJCWxvaCA9IGlwX3ZzX3NlZF9k
+ZXN0X292ZXJoZWFkKGxlYXN0KTsNCiAJCQlnb3RvIG5leHRzdGFnZTsNCiAJ
+CX0NCkBAIC0xMTYsNyArMTE3LDcgQEANCiAJICogICAgRmluZCB0aGUgZGVz
+dGluYXRpb24gd2l0aCB0aGUgbGVhc3QgbG9hZC4NCiAJICovDQogICBuZXh0
+c3RhZ2U6DQotCWxpc3RfZm9yX2VhY2hfZW50cnkoZGVzdCwgJnN2Yy0+ZGVz
+dGluYXRpb25zLCBuX2xpc3QpIHsNCisJbGlzdF9mb3JfZWFjaF9lbnRyeV9j
+b250aW51ZShkZXN0LCAmc3ZjLT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkgew0K
+IAkJaWYgKGRlc3QtPmZsYWdzICYgSVBfVlNfREVTVF9GX09WRVJMT0FEKQ0K
+IAkJCWNvbnRpbnVlOw0KIAkJZG9oID0gaXBfdnNfc2VkX2Rlc3Rfb3Zlcmhl
+YWQoZGVzdCk7DQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX3ds
+Yy5jIGIvbmV0L2lwdjQvaXB2cy9pcF92c193bGMuYw0KLS0tIGEvbmV0L2lw
+djQvaXB2cy9pcF92c193bGMuYwlTYXQgU2VwIDI3IDEzOjUxOjE1IDIwMDMN
+CisrKyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfd2xjLmMJU2F0IFNlcCAyNyAx
+Mzo1MToxNSAyMDAzDQpAQCAtOTEsOSArOTEsMTAgQEANCiAJICogbmV3IGNv
+bm5lY3Rpb25zLg0KIAkgKi8NCiANCi0JbGlzdF9mb3JfZWFjaF9lbnRyeShs
+ZWFzdCwgJnN2Yy0+ZGVzdGluYXRpb25zLCBuX2xpc3QpIHsNCi0JCWlmICgh
+KGxlYXN0LT5mbGFncyAmIElQX1ZTX0RFU1RfRl9PVkVSTE9BRCkgJiYNCi0J
+CSAgICBhdG9taWNfcmVhZCgmbGVhc3QtPndlaWdodCkgPiAwKSB7DQorCWxp
+c3RfZm9yX2VhY2hfZW50cnkoZGVzdCwgJnN2Yy0+ZGVzdGluYXRpb25zLCBu
+X2xpc3QpIHsNCisJCWlmICghKGRlc3QtPmZsYWdzICYgSVBfVlNfREVTVF9G
+X09WRVJMT0FEKSAmJg0KKwkJICAgIGF0b21pY19yZWFkKCZkZXN0LT53ZWln
+aHQpID4gMCkgew0KKwkJCWxlYXN0ID0gZGVzdDsNCiAJCQlsb2ggPSBpcF92
+c193bGNfZGVzdF9vdmVyaGVhZChsZWFzdCk7DQogCQkJZ290byBuZXh0c3Rh
+Z2U7DQogCQl9DQpAQCAtMTA0LDcgKzEwNSw3IEBADQogCSAqICAgIEZpbmQg
+dGhlIGRlc3RpbmF0aW9uIHdpdGggdGhlIGxlYXN0IGxvYWQuDQogCSAqLw0K
+ICAgbmV4dHN0YWdlOg0KLQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGRlc3QsICZz
+dmMtPmRlc3RpbmF0aW9ucywgbl9saXN0KSB7DQorCWxpc3RfZm9yX2VhY2hf
+ZW50cnlfY29udGludWUoZGVzdCwgJnN2Yy0+ZGVzdGluYXRpb25zLCBuX2xp
+c3QpIHsNCiAJCWlmIChkZXN0LT5mbGFncyAmIElQX1ZTX0RFU1RfRl9PVkVS
+TE9BRCkNCiAJCQljb250aW51ZTsNCiAJCWRvaCA9IGlwX3ZzX3dsY19kZXN0
+X292ZXJoZWFkKGRlc3QpOw0K
+--1607745702-1126575391-1064664177=:2845--
