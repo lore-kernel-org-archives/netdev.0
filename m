@@ -1,26 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] LSM networking: skb hooks for 2.5.42 (2/7)
-Date: Tue, 15 Oct 2002 13:24:14 -0700 (PDT)
+From: Jason Lunz <lunz@falooley.org>
+Subject: cheap 4-port tulip-based cards available
+Date: Tue, 15 Oct 2002 23:52:30 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021015.132414.43181324.davem@redhat.com>
-References: <20021015201209.GE15864@kroah.com>
-	<20021015.131037.96602290.davem@redhat.com>
-	<20021015202828.GG15864@kroah.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: becker@scyld.com, jmorris@intercode.com.au, kuznet@ms2.inr.ac.ru,
-   netdev@oss.sgi.com, linux-security-module@wirex.com
+Message-ID: <slrnaqpajf.2ph.lunz@stoli.localnet>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greg@kroah.com
-In-Reply-To: <20021015202828.GG15864@kroah.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Greg KH <greg@kroah.com>
-   Date: Tue, 15 Oct 2002 13:28:28 -0700
+I figure a few people on this list will be interested in this:
 
-   Good enough reason for me, I'll start working on this.  Help from the
-   other LSM developers is appreciated :)
-   
-Thank you. :-)
+http://www.softwareandstuff.com/h_comp_inet4.html
+
+The site says almost nothing about the cards, but on a tip from a
+coworker I bought one the last time this site had them for sale, and
+have been extremely happy with it. lspci shows:
+
+02:04.0 Ethernet controller: Digital Equipment Corporation DECchip 21142/43 (rev 41)
+02:05.0 Ethernet controller: Digital Equipment Corporation DECchip 21142/43 (rev 41)
+02:06.0 Ethernet controller: Digital Equipment Corporation DECchip 21142/43 (rev 41)
+02:07.0 Ethernet controller: Digital Equipment Corporation DECchip 21142/43 (rev 41)
+
+This card is similar to the d-link 570-TX, though it actually seems to
+be of higher quality when you have it in hand. Rumor has it that a bunch
+of these cards were made for a dot-bomb company and they're now just
+surplus.
+
+anyway, knowing the problems people are having with the sundance 580-TX
+and the unavailability of other cheap 4-port nic options, i though I'd
+let folks here know. A good 4-port tulip card for $30 is a nice deal.
+
+sorry for the spam.
+
+Jason
