@@ -1,24 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix NAPI race
-Date: Tue, 29 Jul 2003 22:22:42 -0700
+Subject: Re: [atmdrvr zatm] Remove obsolete EXACT_TS support
+Date: Tue, 29 Jul 2003 22:30:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030729222242.4ba89d51.davem@redhat.com>
-References: <20030729060509.GB13227@krispykreme>
+Message-ID: <20030729223039.15ee3896.davem@redhat.com>
+References: <20030728071323.GT32831@gaz.sfgoth.com>
+	<200307291717.h6THHosG027846@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, miltonm@bga.com
+Cc: chas@cmf.nrl.navy.mil, mitch@sfgoth.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20030729060509.GB13227@krispykreme>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200307291717.h6THHosG027846@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Jul 2003 16:05:09 +1000
-Anton Blanchard <anton@samba.org> wrote:
+On Tue, 29 Jul 2003 13:15:09 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> Milton and I debugged an oops where we did list_del on a poisoned list
-> entry. It turns out there is nothing to order between list_del on
-> poll_list and the clear_bit that serialises list_add.
+> dave, please apply the following patch (hopefully one will arrive
+> shortly that removes cli() et al from zatm as well):
 
-Applied, thanks Anton.
+Applied to 2.6.x, thanks.
