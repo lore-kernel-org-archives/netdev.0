@@ -1,60 +1,112 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RFC] tcf_bind_filter failure handling
-Date: Mon, 13 Dec 2004 17:53:02 +0100
-Message-ID: <20041213165302.GE8493@postel.suug.ch>
-References: <E1CQDcP-0003ff-00@gondolin.me.apana.org.au> <20041109161126.376f755c.davem@davemloft.net> <20041110010113.GJ31969@postel.suug.ch> <41916A91.3080107@trash.net> <20041110012251.GK31969@postel.suug.ch> <41916F0B.5010809@trash.net> <20041110013941.GL31969@postel.suug.ch> <41917330.6090002@trash.net> <20041212175736.GA8493@postel.suug.ch> <41BC8819.7040501@trash.net>
+From: Roland Dreier <roland@topspin.com>
+Subject: [PATCH][v3][15/21] IPoIB IPv4 multicast
+Date: Mon, 13 Dec 2004 10:09:45 -0800
+Message-ID: <20041213109.5NKezuGE9PMejMSM@topspin.com>
+References: <20041213109.m8TyDSPRhM2X6Nst@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: openib-general@openib.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <41BC8819.7040501@trash.net>
+In-Reply-To: <20041213109.m8TyDSPRhM2X6Nst@topspin.com>
+To: linux-kernel@vger.kernel.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The handling of a failure in tcf_bind_filter is inconsistent.
+Add ip_ib_mc_map() to convert IPv4 multicast addresses to IPoIB
+hardware addresses.  Also add <linux/if_infiniband.h> so INFINIBAND_ALEN
+has a home.
 
-u32: ignore
-fw: ignore
-route: ignore
-rsvp: ignore
-tcindex: error
+The mapping for multicast addresses is described in
+  http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-07.txt
 
-It might be a good idea to make this consistent. So in order to validate
-the classid before making any changes we could simply lock it via get
-(see patch below), return an error if it fails  and put it back in case
-of an error further in the path or after binding the filter.
+Signed-off-by: Roland Dreier <roland@topspin.com>
 
-Bindings not only locks the class from removal while a filter is
-pointing to it. It speeds up classyfing by saving a lookup for every
-tc_classify call. It's not really a problem if the class is not locked,
-the qdisc will look it up and falls back to a default class if it
-doesn't exists so it's rather a cosmetic/policy thing.
 
-Note: The patch below is not intented for inclusion yet and will not
-apply since I made local changes to pkt_cls.h.
-
---- linux-2.6.10-rc3-bk6.orig/include/net/pkt_cls.h	2004-12-12 21:54:03.000000000 +0100
-+++ linux-2.6.10-rc3-bk6/include/net/pkt_cls.h	2004-12-13 16:40:06.000000000 +0100
-@@ -62,6 +62,18 @@
- 		tp->q->ops->cl_ops->unbind_tcf(tp->q, cl);
+--- /dev/null	1970-01-01 00:00:00.000000000 +0000
++++ linux-bk/include/linux/if_infiniband.h	2004-12-13 09:44:47.613711020 -0800
+@@ -0,0 +1,29 @@
++/*
++ * This software is available to you under a choice of one of two
++ * licenses.  You may choose to be licensed under the terms of the GNU
++ * General Public License (GPL) Version 2, available at
++ * <http://www.fsf.org/copyleft/gpl.html>, or the OpenIB.org BSD
++ * license, available in the LICENSE.TXT file accompanying this
++ * software.  These details are also available at
++ * <http://openib.org/license.html>.
++ *
++ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
++ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
++ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
++ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
++ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
++ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
++ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
++ * SOFTWARE.
++ *
++ * Copyright (c) 2004 Topspin Communications.  All rights reserved.
++ *
++ * $Id$
++ */
++
++#ifndef _LINUX_IF_INFINIBAND_H
++#define _LINUX_IF_INFINIBAND_H
++
++#define INFINIBAND_ALEN		20	/* Octets in IPoIB HW addr	*/
++
++#endif /* _LINUX_IF_INFINIBAND_H */
+--- linux-bk.orig/include/net/ip.h	2004-12-11 15:16:19.000000000 -0800
++++ linux-bk/include/net/ip.h	2004-12-13 09:44:47.641706896 -0800
+@@ -229,6 +229,39 @@
+ 	buf[3]=addr&0x7F;
  }
  
-+static inline unsigned long
-+tcf_class_get(struct tcf_proto *tp, u32 classid)
++/*
++ *	Map a multicast IP onto multicast MAC for type IP-over-InfiniBand.
++ *	Leave P_Key as 0 to be filled in by driver.
++ */
++
++static inline void ip_ib_mc_map(u32 addr, char *buf)
 +{
-+	return tp->q->ops->cl_ops->get(tp->q, classid);
++	buf[0]  = 0;		/* Reserved */
++	buf[1]  = 0xff;		/* Multicast QPN */
++	buf[2]  = 0xff;
++	buf[3]  = 0xff;
++	addr    = ntohl(addr);
++	buf[4]  = 0xff;
++	buf[5]  = 0x12;		/* link local scope */
++	buf[6]  = 0x40;		/* IPv4 signature */
++	buf[7]  = 0x1b;
++	buf[8]  = 0;		/* P_Key */
++	buf[9]  = 0;
++	buf[10] = 0;
++	buf[11] = 0;
++	buf[12] = 0;
++	buf[13] = 0;
++	buf[14] = 0;
++	buf[15] = 0;
++	buf[19] = addr & 0xff;
++	addr  >>= 8;
++	buf[18] = addr & 0xff;
++	addr  >>= 8;
++	buf[17] = addr & 0xff;
++	addr  >>= 8;
++	buf[16] = addr & 0x0f;
 +}
 +
-+static inline void
-+tcf_class_put(struct tcf_proto *tp, unsigned long cl)
-+{
-+	tp->q->ops->cl_ops->put(tp->q, cl);
-+}
-+
- #ifdef CONFIG_NET_CLS_ACT
- static inline int
- tcf_validate_act_police(struct rtattr *act_police_tlv, struct rtattr *rate_tlv,
+ #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+ #include <linux/ipv6.h>
+ #endif
+--- linux-bk.orig/net/ipv4/arp.c	2004-12-11 15:16:28.000000000 -0800
++++ linux-bk/net/ipv4/arp.c	2004-12-13 09:44:47.650705570 -0800
+@@ -213,6 +213,9 @@
+ 	case ARPHRD_IEEE802_TR:
+ 		ip_tr_mc_map(addr, haddr);
+ 		return 0;
++	case ARPHRD_INFINIBAND:
++		ip_ib_mc_map(addr, haddr);
++		return 0;
+ 	default:
+ 		if (dir) {
+ 			memcpy(haddr, dev->broadcast, dev->addr_len);
