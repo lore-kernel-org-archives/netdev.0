@@ -1,46 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: anyone ever done multicast AF_UNIX sockets?
-Date: Mon, 3 Mar 2003 21:38:17 -0500 (EST)
+From: Shmulik Hen <hshmulik@intel.com>
+Subject: [PATCH][bonding] division by zero bug
+Date: Tue, 4 Mar 2003 19:11:42 +0200 (IST)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030303212628.M67734@shell.cyberus.ca>
-References: <3E5E7081.6020704@nortelnetworks.com> <1046695876.7731.78.camel@pc-16.office
- .scali.no>  <3E638C51.2000904@nortelnetworks.com> <1046720360.28127.209.camel@eggis1>
-  <3E63D73A.2000402@nortelnetworks.com> <1046734165.27924.263.camel@eggis1>
+Message-ID: <Pine.LNX.4.44.0303041902400.13312-100000@jrslxjul4.npdj.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>,
-	linux-kernel <linux-kernel@vger.kernel.org>,
-	"" <netdev@oss.sgi.com>, "" <linux-net@vger.kernel.org>,
-	"" <davem@redhat.com>
+Cc: jgarzik@pobox.com
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Terje Eggestad <terje.eggestad@scali.com>
-In-Reply-To: <1046734165.27924.263.camel@eggis1>
+To: bonding-devel@lists.sourceforge.net, <linux-net@vger.kernel.org>,
+	<netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-
-Hi Terje,
-
-On Mon, 4 Mar 2003, Terje Eggestad wrote:
-
-> How do you design a protocol that uses multicast to send a request to do
-> work?
->
-> All uses I can think of right now of multicast/broadcast is:
-> * Discovery, like in NIS.
-> * Announcements like in OSPF.
-> * update like in NTP broadcast
->
-
-I know we are digressing away from main discussion ...
-
-The concept of reliable multicast is known to be useful.
-Look at(for some sample apps):
-http://www.ietf.org/html.charters/rmt-charter.html
-
-But we are talking about a distributed system in that context.
-
-Agreed, reliability and multicast do not always make sense.
+The following patch fixes a division by zero bug in the bonding module 
+that happens when transmitting through a bond with no slaves, in the XOR 
+bonding mode.
+The patch is against bonding-2.4.20-20030207 in sorceforge 
+(http://sourceforge.net/projects/bonding/).
 
 
-cheers,
-jamal
+diff -urN linux-2.4.20-20030207/drivers/net/bonding.c linux-2.4.20-devel/drivers/net/bonding.c
+--- linux-2.4.20-20030207/drivers/net/bonding.c	2003-03-02 14:01:46.000000000 +0200
++++ linux-2.4.20-devel/drivers/net/bonding.c	2003-03-02 14:35:04.000000000 +0200
+@@ -2597,6 +2597,13 @@
+ 		return 0;
+ 	}
+ 
++	if (bond->slave_cnt == 0) {
++		/* no slaves in the bond, frame not sent */
++		dev_kfree_skb(skb);
++		read_unlock_irqrestore(&bond->lock, flags);
++		return 0;
++	}
++	
+ 	slave_no = (data->h_dest[5]^slave->dev->dev_addr[5]) % bond->slave_cnt;
+ 
+ 	while ( (slave_no > 0) && (slave != (slave_t *)bond) ) {
+
+
+-- 
+| Shmulik Hen                                 |
+| Israel Design Center (Jerusalem)            |
+| LAN Access Division                         |
+| Intel Communications Group, Intel corp.     |
+|                                             |
+| Anti-Spam: shmulik dot hen at intel dot com |
+
