@@ -1,45 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: PCI interrupt problem: e1000 & Super-Micro X6DVA motherboard
-Date: Thu, 24 Mar 2005 11:38:28 -0800
-Message-ID: <42431734.3030905@candelatech.com>
-References: <42421FF2.7050501@candelatech.com> <20050324081003.GA23453@xi.wantstofly.org>
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: iptables versioning feature causes ABI breakage
+Date: Thu, 24 Mar 2005 22:17:05 +0100
+Message-ID: <42432E51.1080309@eurodev.net>
+References: <1111666300.1037.40.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>,
-        Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050324081003.GA23453@xi.wantstofly.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	Patrick McHardy <kaber@trash.net>, Harald Welte <laforge@gnumonks.org>
+To: hadi@znyx.com
+In-Reply-To: <1111666300.1037.40.camel@jzny.localdomain>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Lennert Buytenhek wrote:
-> On Wed, Mar 23, 2005 at 06:03:30PM -0800, Ben Greear wrote:
+Jamal,
+
+Jamal Hadi Salim wrote:
+> Folks,
 > 
-> 
->>I have two 4-port e1000 NICs in the system, on a riser card.
-> 
-> 
-> How is the riser card wired?  F.e. does it have a single edge
-> connector, and provides two PCI slots, or does it have a tiny
-> additional edge connector that routes REQ#/GNT#/INTx from a
-> nearby PCI slot, etc.?
+> Could whoever that made the versioning changes in iptables please
+> contact me?
 
-I was able to reproduce the problem even when the 4-port e1000 NIC
-is plugged directly into the motherboard, so it's not the
-riser...
+I was also involved in that change together with Rusty around january. 
+It's a new infrastructure to extend matches/targets without breaking 
+backward compatibility with previous releases of target/matches/iptables.
 
-I also tried with a 4-port VIA-Rhine NIC (router-board 44).  It also
-fails it's third interface, with the same problem.  So, it is not
-the e1000 NIC nor the e1000 driver that is the problem.
+I must confess that I didn't have a look at your ipt_action stuff before 
+, now I did. As Patrick pointed out, we'll keep in mind your ipt thing 
+in future.
 
-I do notice that it is the same interrupt (26) that is always assigned
-to the broken port.  I have the lspci and dmesg output for the via-rhine
-boot if anyone wants it...
+Your patch for tc to fix the problem looks fine. BTW, you can now use 
+extended MARK features like --and-mark and --or-mark ;->
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+--
+Pablo
