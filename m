@@ -1,41 +1,27 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.0-test4-mm6: locking imbalance with rtnl_lock/unlock?
-Date: Sat, 6 Sep 2003 18:47:15 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030906184715.38bf70d9.akpm@osdl.org>
-References: <1062885603.24475.7.camel@ixodes.goop.org>
-	<20030906222436.GB15327@krispykreme>
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: sunhme stopped working somewhere in 2.6.0-test4
+Date: Sat, 6 Sep 2003 21:31:51 -0700
+Sender: sparclinux-owner@vger.kernel.org
+Message-ID: <20030907043151.GB33595@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jeremy@goop.org, linux-kernel@vger.kernel.org, bos@serpentine.com,
-   netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Anton Blanchard <anton@samba.org>
-In-Reply-To: <20030906222436.GB15327@krispykreme>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <sparclinux-owner@vger.kernel.org>
+To: sparclinux@vger.kernel.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Anton Blanchard <anton@samba.org> wrote:
->
-> 
-> > which is SIOCGIFADDR.  It seems to me the down() is actually the
-> > rtnl_lock() called at net/ipv4/devinet.c:536 in devinet_ioctl.  This
-> > happens even when netplugd is no longer running.  It looks like someone
-> > isn't releasing the lock.
-> > 
-> > I'm going over all the uses of rtnl_lock() to see if I can find a
-> > problem, but no sign yet.  I wonder if someone might have broken this
-> > recently: I'm running 2.6.0-test4-mm6, but I think Bryan is running an
-> > older kernel (2.6.0-test4?), and hasn't seen any problems.
-> 
-> Yep I saw this too when updating from test2 to BK from a few days ago.
-> >From memory the cpu that had the rtnl_lock was stuck in dev_close,
-> probably netif_poll_disable. I got side tracked and wasnt able to look
-> into it.
+I had been running 2.6.0-test4 on my Ultra 10 for the last week without
+problems.  Tonight I tried upgrading it to 2.6.0-test4-bk8 (which works
+fine on my i386 test box) and the builtin sunhme card no longer functions.
+When you try to do a "ifconfig eth0 up" I get the following on this console...
 
-If the caller of netif_poll_disable() has a signal pending,
-netif_poll_disable() becomes a busy loop, which might be causing a
-lockup.  Probably not, but it needs to use TASK_UNINTERRUPTIBLE.
+  happy meal: Aieee, transceiver MIF write bolixed
+  happy meal: Aieee, transceiver MIF read bolixed
 
-I doubt if that explains Jeremy's deadlock though...
+...and the operation fails.  It looks like there's been a number of changes
+to sunhme in the last week (ethtool stuff, maybe some other things).... does
+anyone have a hunch what I should try to change (or has this already been
+fixed in BK perhaps?)
+
+-Mitch
