@@ -1,24 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Anycast usage, final diagnosis? (was: IPv6: Fix broken anycast
-Date: Fri, 18 Jul 2003 23:41:10 -0700
+Subject: Re: [PATCH 2/2] Prefix List and O/M flags against 2.5.73
+Date: Fri, 18 Jul 2003 23:47:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030718234110.75ead085.davem@redhat.com>
-References: <Pine.LNX.4.44.0307171340160.4378-100000@netcore.fi>
-	<200307172052.AAA15032@dub.inr.ac.ru>
+Message-ID: <20030718234730.2043bc1f.davem@redhat.com>
+References: <20030718.004701.11546819.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.44.0307171716160.9419-100000@DYN318430.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, mika.liljeberg@welho.com, jmorris@redhat.com,
-   netdev@oss.sgi.com, dlstevens@us.ibm.com
+Cc: yoshfuji@linux-ipv6.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, krkumar@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307172052.AAA15032@dub.inr.ac.ru>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0307171716160.9419-100000@DYN318430.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Jul 2003 00:52:03 +0400 (MSD)
-kuznet@ms2.inr.ac.ru wrote:
+On Thu, 17 Jul 2003 17:37:18 -0700 (PDT)
+Krishna Kumar <krkumar@us.ibm.com> wrote:
 
-> Done, the patch enclosed.
+> > Yes, please split up the patch.
+> 
+> Following is the split patch for prefix list and O/M flags.
 
-Applied, thanks everyone.
+Alexey, others, please tell me if I should apply these
+two patches.
+
+Thanks.
