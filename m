@@ -1,33 +1,21 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Linux IP stack on kernel 2.4.18
-Date: Mon, 3 Jun 2002 17:25:27 +0200
+From: "Ky Srinivasan" <KSRINIVASAN@volera.com>
+Subject: neighbor table overflow
+Date: Tue, 04 Jun 2002 09:44:00 -0600
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <15611.35431.116599.261523@robur.slu.se>
-References: <3CF9DDD0.3080809@galileo.co.il>
+Message-ID: <scfc8bb4.069@prv-mail20.provo.novell.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Rabeeh Khoury <rabeeh@galileo.co.il>
-In-Reply-To: <3CF9DDD0.3080809@galileo.co.il>
+To: <netdev@oss.sgi.com>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
+ While running  Web Polygraph benchmark against a proxy hosted on a
+ Linux system 
+ (kernel version: 2.4.18-0.22), we are overflowing the neighbor table
+-
+ line number 661 in route.c.  Is this a known problem. Any help here
+ would be greatly appreciated. 
 
-Rabeeh Khoury writes:
- > 
- > 1.. How can I adjust the throttling parameter of the IP stack not to drop any packet ? Meantime the IP stack routes 55k packets/sec and all the other it just drops (I can see them by the result of netif_rx).
-
- Hello!
-
- There are no "throttling parameter" you have probably hit some of your 
- machine limits, bandwidth, CPU etc and 55 kpps can be decent. You didn't 
- mention your input rate, paket size or hardware.
-
- http://www.cyberus.ca/~hadi/usenix-paper.tgz
-
- Discusses related issues..
-
-
- Cheers.
-						--ro
+K. Y
