@@ -1,8 +1,8 @@
 From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: [PATCH 2.6.9-rc2 10/12] S2io: 2 buffer mode with copy
-Date: Thu, 28 Oct 2004 15:51:06 -0700
+Subject: [PATCH 2.6.9-rc2 12/12] S2io: styling
+Date: Thu, 28 Oct 2004 15:51:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <004501c4bd40$ae5529f0$9810100a@S2IOtech.com>
+Message-ID: <004701c4bd40$b92c47a0$9810100a@S2IOtech.com>
 Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -18,134 +18,136 @@ In-reply-to:
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi All,
-This patch addresses the comments by Chris Leech about skb->mac.ethernet
-resulting in NULL dereference with the old method of implementing 2 buffer
-mode. The new method performs a copy of the MAC header to the head of
-the payload. This is a stop-gap measure till the fragmented skb receive
-feature in the kernel is made functional.
-Also, using GFP_KERNEL flag for buffer0, buffer1 memory allocation instead 
-of GFP_ATOMIC.
+Hi,
+Attached is the patch to implement comments about styling
+and few other changes.
+Following is list of changes.
+1. Incorporated Randy's comment about C99 format for s2io_driver
+   structure initialization.
+2. Driver version displayed at load time.
+3. If initialization failed in s2io_init_nic(), appropriate error
+   codes are returned.
+4. #ifdef SET_ETHTOOL_OPS removed in couple of places.
 
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
 Signed-off-by: Ravinandan Arakali <ravinandan.arakali@s2io.com>
 ---
 diff -urN vanilla-linux/drivers/net/s2io.c linux-2.6.8.1/drivers/net/s2io.c
---- vanilla-linux/drivers/net/s2io.c	2004-10-26 16:40:58.271982080 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-26 16:40:42.944312240 -0700
-@@ -497,7 +497,7 @@
- 				ba = &nic->ba[i][j][k];
+--- vanilla-linux/drivers/net/s2io.c	2004-10-26 16:45:59.090250752 -0700
++++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-26 16:45:47.840960904 -0700
+@@ -250,10 +250,10 @@
+ MODULE_DEVICE_TABLE(pci, s2io_tbl);
  
- 				ba->ba_0_org = (void *) kmalloc
--				    (BUF0_LEN + ALIGN_SIZE, GFP_ATOMIC);
-+				    (BUF0_LEN + ALIGN_SIZE, GFP_KERNEL);
- 				if (!ba->ba_0_org)
- 					return -ENOMEM;
- 				tmp = (u64) ba->ba_0_org;
-@@ -506,7 +506,7 @@
- 				ba->ba_0 = (void *) tmp;
+ static struct pci_driver s2io_driver = {
+-      name:"S2IO",
+-      id_table:s2io_tbl,
+-      probe:s2io_init_nic,
+-      remove:__devexit_p(s2io_rem_nic),
++      .name = "S2IO",
++      .id_table = s2io_tbl,
++      .probe = s2io_init_nic,
++      .remove = __devexit_p(s2io_rem_nic),
+ };
  
- 				ba->ba_1_org = (void *) kmalloc
--				    (BUF1_LEN + ALIGN_SIZE, GFP_ATOMIC);
-+				    (BUF1_LEN + ALIGN_SIZE, GFP_KERNEL);
- 				if (!ba->ba_1_org)
- 					return -ENOMEM;
- 				tmp = (u64) ba->ba_1_org;
-@@ -1791,8 +1791,7 @@
- #ifndef	CONFIG_2BUFF_MODE
- 		skb = dev_alloc_skb(size + NET_IP_ALIGN);
- #else
--		skb = dev_alloc_skb(dev->mtu + ALIGN_SIZE +
--				    /*BUF0_LEN + */ 22);
-+		skb = dev_alloc_skb(dev->mtu + ALIGN_SIZE + BUF0_LEN + 4);
- #endif
- 		if (!skb) {
- 			DBG_PRINT(ERR_DBG, "%s: Out of ", dev->name);
-@@ -1813,14 +1812,16 @@
- 		mac_control->rx_curr_put_info[ring_no].offset = off;
- #else
- 		ba = &nic->ba[ring_no][block_no][off];
-+		skb_reserve(skb, BUF0_LEN);
- 		tmp = (u64) skb->data;
- 		tmp += ALIGN_SIZE;
- 		tmp &= ~ALIGN_SIZE;
- 		skb->data = (void *) tmp;
-+		skb->tail = (void *) tmp;
+ /* A simplifier macro used both by init and free shared_mem Fns(). */
+@@ -4603,6 +4603,9 @@
+ 	struct config_param *config;
  
- 		memset(rxdp, 0, sizeof(RxD_t));
- 		rxdp->Buffer2_ptr = pci_map_single
--		    (nic->pdev, skb->data, dev->mtu + 22,
-+		    (nic->pdev, skb->data, dev->mtu + BUF0_LEN + 4,
- 		     PCI_DMA_FROMDEVICE);
- 		rxdp->Buffer0_ptr =
- 		    pci_map_single(nic->pdev, ba->ba_0, BUF0_LEN,
-@@ -1829,7 +1830,7 @@
- 		    pci_map_single(nic->pdev, ba->ba_1, BUF1_LEN,
- 				   PCI_DMA_FROMDEVICE);
  
--		rxdp->Control_2 = SET_BUFFER2_SIZE(dev->mtu + 22);
-+		rxdp->Control_2 = SET_BUFFER2_SIZE(dev->mtu + 4);
- 		rxdp->Control_2 |= SET_BUFFER0_SIZE(BUF0_LEN);
- 		rxdp->Control_2 |= SET_BUFFER1_SIZE(1);	/* dummy. */
- 		rxdp->Control_2 |= BIT(0);	/* Set Buffer_Empty bit. */
-@@ -1919,7 +1920,7 @@
- 						 PCI_DMA_FROMDEVICE);
- 				pci_unmap_single(sp->pdev, (dma_addr_t)
- 						 rxdp->Buffer2_ptr,
--						 dev->mtu + 22,
-+						 dev->mtu + BUF0_LEN + 4,
- 						 PCI_DMA_FROMDEVICE);
- #endif
- 				dev_kfree_skb(skb);
-@@ -2073,7 +2074,7 @@
- 					 BUF1_LEN, PCI_DMA_FROMDEVICE);
- 			pci_unmap_single(nic->pdev, (dma_addr_t)
- 					 rxdp->Buffer2_ptr,
--					 dev->mtu + 22,
-+					 dev->mtu + BUF0_LEN + 4,
- 					 PCI_DMA_FROMDEVICE);
- 			ba = &nic->ba[i][get_block][get_info.offset];
++	DBG_PRINT(ERR_DBG, "Loading S2IO driver with %s\n",
++		s2io_driver_version);
++
+ 	if ((ret = pci_enable_device(pdev))) {
+ 		DBG_PRINT(ERR_DBG,
+ 			  "s2io_init_nic: pci_enable_device failed\n");
+@@ -4720,6 +4723,7 @@
+ 	if (init_shared_mem(sp)) {
+ 		DBG_PRINT(ERR_DBG, "%s: Memory allocation failed\n",
+ 			  dev->name);
++		ret = -ENOMEM;
+ 		goto mem_alloc_failed;
+ 	}
  
-@@ -2270,7 +2271,7 @@
- 					 BUF1_LEN, PCI_DMA_FROMDEVICE);
- 			pci_unmap_single(nic->pdev, (dma_addr_t)
- 					 rxdp->Buffer2_ptr,
--					 dev->mtu + 22,
-+					 dev->mtu + BUF0_LEN + 4,
- 					 PCI_DMA_FROMDEVICE);
- 			ba = &nic->ba[i][get_block][get_info.offset];
+@@ -4728,6 +4732,7 @@
+ 	if (!sp->bar0) {
+ 		DBG_PRINT(ERR_DBG, "%s: S2IO: cannot remap io mem1\n",
+ 			  dev->name);
++		ret = -ENOMEM;
+ 		goto bar0_remap_failed;
+ 	}
  
-@@ -4471,7 +4472,7 @@
- 	u16 l3_csum, l4_csum;
- #ifdef CONFIG_2BUFF_MODE
- 	int buf0_len, buf2_len;
--	struct ethhdr *eth = (struct ethhdr *) ba->ba_0;
-+	unsigned char *buff;
- #endif
+@@ -4736,6 +4741,7 @@
+ 	if (!sp->bar1) {
+ 		DBG_PRINT(ERR_DBG, "%s: S2IO: cannot remap io mem2\n",
+ 			  dev->name);
++		ret = -ENOMEM;
+ 		goto bar1_remap_failed;
+ 	}
  
- 	l3_csum = RXD_GET_L3_CKSUM(rxdp->Control_1);
-@@ -4510,21 +4511,10 @@
- 	skb_put(skb, len);
- 	skb->protocol = eth_type_trans(skb, dev);
- #else
-+	buff = skb_push(skb, buf0_len);
-+	memcpy(buff, ba->ba_0, buf0_len);
- 	skb_put(skb, buf2_len);
--	/* 
--	 * Reproducing eth_type_trans functionality and running
--	 * on the ethernet header 'eth' stripped and given to us
--	 * by the hardware in 2Buff mode.
--	 */
--	if (*eth->h_dest & 1) {
--		if (!memcmp(eth->h_dest, dev->broadcast, ETH_ALEN))
--			skb->pkt_type = PACKET_BROADCAST;
--		else
--			skb->pkt_type = PACKET_MULTICAST;
--	} else if (memcmp(eth->h_dest, dev->dev_addr, ETH_ALEN)) {
--		skb->pkt_type = PACKET_OTHERHOST;
--	}
--	skb->protocol = eth->h_proto;
-+	skb->protocol = eth_type_trans(skb, dev);
- #endif
+@@ -4756,9 +4762,7 @@
+ 	dev->set_multicast_list = &s2io_set_multicast;
+ 	dev->do_ioctl = &s2io_ioctl;
+ 	dev->change_mtu = &s2io_change_mtu;
+-#ifdef SET_ETHTOOL_OPS
+ 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
+-#endif
+ 	/*
+ 	 * will use eth_mac_addr() for  dev->set_mac_address
+ 	 * mac address will be set every time dev->open() is called
+@@ -4788,6 +4792,7 @@
+ 	if (s2io_set_swapper(sp)) {
+ 		DBG_PRINT(ERR_DBG, "%s:swapper settings are wrong\n",
+ 			  dev->name);
++		ret = -EAGAIN;
+ 		goto set_swap_failed;
+ 	}
  
- #ifdef CONFIG_S2IO_NAPI
+@@ -4802,6 +4807,7 @@
+ 		DBG_PRINT(ERR_DBG,
+ 			  "%s: S2IO: swapper settings are wrong\n",
+ 			  dev->name);
++		ret = -EAGAIN;
+ 		goto set_swap_failed;
+ 	}
+ 
+@@ -4874,6 +4880,7 @@
+ 
+ 	if (register_netdev(dev)) {
+ 		DBG_PRINT(ERR_DBG, "Device registration failed\n");
++		ret = -ENODEV;
+ 		goto register_failed;
+ 	}
+ 
+@@ -4900,7 +4907,7 @@
+ 	pci_set_drvdata(pdev, NULL);
+ 	free_netdev(dev);
+ 
+-	return -ENODEV;
++	return ret;
+ }
+ 
+ /**
+diff -urN vanilla-linux/drivers/net/s2io.h linux-2.6.8.1/drivers/net/s2io.h
+--- vanilla-linux/drivers/net/s2io.h	2004-10-26 16:45:59.329214424 -0700
++++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-26 16:45:48.079924576 -0700
+@@ -50,10 +50,6 @@
+ #define ALIGN_SIZE  			127
+ #define	PCIX_COMMAND_REGISTER	0x62
+ 
+-#ifndef SET_ETHTOOL_OPS
+-#define SUPPORTED_10000baseT_Full (1 << 12)
+-#endif
+-
+ /*
+  * Debug related variables.
+  */
+@@ -873,9 +869,7 @@
+ int s2io_set_mac_addr(struct net_device *dev, u8 * addr);
+ static irqreturn_t s2io_isr(int irq, void *dev_id, struct pt_regs *regs);
+ static int verify_xena_quiescence(u64 val64, int flag);
+-#ifdef SET_ETHTOOL_OPS
+ static struct ethtool_ops netdev_ethtool_ops;
+-#endif
+ static void s2io_set_link(unsigned long data);
+ static void s2io_card_down(nic_t * nic);
+ static int s2io_card_up(nic_t * nic);
