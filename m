@@ -1,27 +1,38 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance tests
-Date: Tue, 17 Jun 2003 15:08:49 -0700 (PDT)
+From: "J.A. Magallon" <jamagallon@able.es>
+Subject: Re: [PATCHES] 2.4.x net driver updates
+Date: Wed, 18 Jun 2003 00:27:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030617.150849.132446622.davem@redhat.com>
-References: <16111.18107.699689.704597@robur.slu.se>
-	<20030617200721.GA25773@netnation.com>
-	<Pine.LNX.4.51.0306171753170.13782@ns.istop.com>
+Message-ID: <20030617222750.GE13990@werewolf.able.es>
+References: <20030612194926.GA7653@gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sim@netnation.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralph+d@istop.com, ralph@istop.com
-In-Reply-To: <Pine.LNX.4.51.0306171753170.13782@ns.istop.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20030612194926.GA7653@gtf.org>; from jgarzik@pobox.com on Thu, Jun 12, 2003 at 21:49:26 +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Ralph Doncaster <ralph@istop.com>
-   Date: Tue, 17 Jun 2003 18:11:00 -0400 (EDT)
-   
-   My (obviously incorrect) assumption would
-   be that fib_validate_source is responsible for rp_filter, and turning it
-   off would lead to only a 5% performance increase.
 
-fib_validate_source() with rp_filter enabled causes an extra
-fib_lookup() to occur for each packet.
+On 06.12, Jeff Garzik wrote:
+> 
+> BK users may issue a
+> 
+> 	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.4
+> 
+> Others may download the patch from
+> 
+> ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.4/2.4.21-rc8-netdrvr2.patch.bz2
+> 
+
+Any info about the RX_POLLING (NAPI) option for e1000 ?
+What is that for ?
+
+-- 
+J.A. Magallon <jamagallon@able.es>      \                 Software is like sex:
+werewolf.able.es                         \           It's better when it's free
+Mandrake Linux release 9.2 (Cooker) for i586
+Linux 2.4.21-jam1 (gcc 3.3 (Mandrake Linux 9.2 3.3-1mdk))
