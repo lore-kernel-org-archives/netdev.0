@@ -1,101 +1,162 @@
-From: "Ronciak, John" <john.ronciak@intel.com>
-Subject: RE: [PATCH] abysmal e1000 performance (DITR)
-Date: Fri, 27 Aug 2004 14:49:25 -0700
+From: Dave Hansen <haveblue@us.ibm.com>
+Subject: [patch] af_packet: use void* for virtual addresses
+Date: Fri, 27 Aug 2004 15:22:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <468F3FDA28AA87429AD807992E22D07EAF76C0@orsmsx408>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <hadi@cyberus.ca>, "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>,
-        <netdev@oss.sgi.com>, "Feldman, Scott" <scott.feldman@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Message-ID: <E1C0p77-0004Ik-00@kernel.beaverton.ibm.com>
+Cc: netdev@oss.sgi.com, Dave Hansen <haveblue@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: <tharbaugh@lnxi.com>, "Jeff Garzik" <jgarzik@pobox.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal, Thayne,
 
-I've asked Jeff to go ahead and apply this patch as a way around this
-for now.  We would liketo see the DITR stay but now have this
-performacne problem so we don't want to rip it out.  We do however need
-a test case to replicate this as we have not been seeing it in our
-testing.  Please get us those case that break things.  We'll have a
-better solution longer term based on the test cases (as well as the ones
-we normally use of course).
+I've been auditing code, cleaning up warning where code passes
+"unsigned long"s to functions and macros that really take pointers.
 
-Thanks.
+Here's some explanation as to why I think these types were coded up
+this way originally:
+http://marc.theaimsgroup.com/?l=linux-mm&m=109155379124628&w=2
 
-Cheers,
-John
+The attached patch make packet_opt->pg_vec a pointer to an array of
+char*'s instead of a pointer to an array of "unsigned longs" that 
+stored virtual addresses.  It also creates the inline function 
+pg_vec_endpage(), which hides the virt_to_page() call along with a
+little address arithmetic.
 
+One slight oddity in the current code is this:
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com 
-> [mailto:netdev-bounce@oss.sgi.com] On Behalf Of Thayne Harbaugh
-> Sent: Thursday, August 26, 2004 2:29 PM
-> To: Jeff Garzik
-> Cc: hadi@cyberus.ca; Venkatesan, Ganesh; netdev@oss.sgi.com; 
-> Feldman, Scott; Brandeburg, Jesse
-> Subject: Re: [PATCH] abysmal e1000 performance (DITR)
-> 
-> 
-> On Thu, 2004-08-26 at 16:26 -0400, Jeff Garzik wrote:
-> > Thayne Harbaugh wrote:
-> > > On Thu, 2004-08-26 at 13:55 -0400, jamal wrote:
-> > > 
-> > >>Ganesh,
-> > >>
-> > >>Can you please make this feature off by default and perhaps
-> > >>accesible via ethtool for peopel who want to turn it on.
-> > >>I just wasted a few hours and was bitten by this performance-wise.
-> > >>Please consider disabling it.
-> > > 
-> > > 
-> > > This is a *horrible* problem.  Even though it's fixable 
-> by passing a
-> > > module parameter, the default bites those that *know* 
-> about it.  We have
-> > > had customers bitten by this and customers that have insisted in
-> > > swapping all the NICs in a cluster to Broadcom TG3 NICs.
-> > > 
-> > > It's a black eye for Intel and a loss of business - 
-> that's the opinion
-> > > of our customers.
-> > 
-> > 
-> > If it's so bad we should disable it by default, either via 
-> the module 
-> > parameter or via a kernel CONFIG_xxx option.
-> 
-> Yes, it is so bad.  The dynamic interrupt setting should be deprecated
-> by the use of NAPI.
-> 
-> This is a simple way to disable it, yet still keep the code so that
-> someone can enable it if they really wanted it.  I, however, 
-> would just
-> as soon see all of the DITR code ripped out.
-> 
-> There are other ways that might be better for dealing with 
-> it, yet still
-> keeping the DITR code viable.
-> 
-> --- drivers/net/e1000/e1000_param.c.broken_ditr 2004-08-26 
-> 15:40:34.436456736 -0600
-> +++ drivers/net/e1000/e1000_param.c     2004-08-26 
-> 15:49:07.186506880 -0600
-> @@ -212,7 +212,7 @@
->  #define MAX_TXABSDELAY            0xFFFF
->  #define MIN_TXABSDELAY                 0
->   
-> -#define DEFAULT_ITR                    1
-> +#define DEFAULT_ITR                 8000
->  #define MAX_ITR                   100000
->  #define MIN_ITR                      100
->   
-> 
-> 
-> 
-> 
+	pg_vec = kmalloc(req->tp_block_nr*sizeof(unsigned long*), GFP_KERNEL);
+	
+Since the previous code was storing virtual addresses in unsigned
+longs, it was actually trying to allocate an array of *them*, not
+of pointers to them.  Not that it matters in the end, but I _think_
+that type is technically incorrect.
+
+I replaced it with this line:
+
+	pg_vec = kmalloc(req->tp_block_nr*sizeof(char *), GFP_KERNEL);
+	
+because I actually want an array of pointers.  
+
+This shouldn't have any functional effect on the code.  I've been
+running with it for a few weeks with no problems.
+
+The alternative to reworking the types is to simply cast the argument
+to a void* before calling virt_to_page().
+
+Patched against 2.6.9-rc1-mm1 (but should apply to Linus's tree)
+
+Signed-off-by: Dave Hansen <haveblue@us.ibm.com>
+---
+
+ memhotplug-dave/net/packet/af_packet.c |   32 +++++++++++++++++++-------------
+ 1 files changed, 19 insertions(+), 13 deletions(-)
+
+diff -puN net/packet/af_packet.c~A0-af_packet_to_voidstar net/packet/af_packet.c
+--- memhotplug/net/packet/af_packet.c~A0-af_packet_to_voidstar	2004-08-27 14:06:54.000000000 -0700
++++ memhotplug-dave/net/packet/af_packet.c	2004-08-27 14:06:54.000000000 -0700
+@@ -66,6 +66,7 @@
+ #include <asm/uaccess.h>
+ #include <asm/ioctls.h>
+ #include <asm/page.h>
++#include <asm/io.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+ #include <linux/poll.h>
+@@ -173,7 +174,7 @@ struct packet_opt
+ {
+ 	struct tpacket_stats	stats;
+ #ifdef CONFIG_PACKET_MMAP
+-	unsigned long		*pg_vec;
++	char *			*pg_vec;
+ 	unsigned int		head;
+ 	unsigned int            frames_per_block;
+ 	unsigned int		frame_size;
+@@ -198,15 +199,15 @@ struct packet_opt
+ 
+ #ifdef CONFIG_PACKET_MMAP
+ 
+-static inline unsigned long packet_lookup_frame(struct packet_opt *po, unsigned int position)
++static inline char *packet_lookup_frame(struct packet_opt *po, unsigned int position)
+ {
+ 	unsigned int pg_vec_pos, frame_offset;
+-	unsigned long frame;
++	char *frame;
+ 
+ 	pg_vec_pos = position / po->frames_per_block;
+ 	frame_offset = position % po->frames_per_block;
+ 
+-	frame = (unsigned long) (po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size));
++	frame = po->pg_vec[pg_vec_pos] + (frame_offset * po->frame_size);
+ 	
+ 	return frame;
+ }
+@@ -1549,7 +1550,12 @@ static struct vm_operations_struct packe
+ 	.close =packet_mm_close,
+ };
+ 
+-static void free_pg_vec(unsigned long *pg_vec, unsigned order, unsigned len)
++static inline struct page *pg_vec_endpage(char *one_pg_vec, unsigned int order)
++{
++	return virt_to_page(one_pg_vec + (PAGE_SIZE << order) - 1);
++}
++
++static void free_pg_vec(char **pg_vec, unsigned order, unsigned len)
+ {
+ 	int i;
+ 
+@@ -1557,10 +1563,10 @@ static void free_pg_vec(unsigned long *p
+ 		if (pg_vec[i]) {
+ 			struct page *page, *pend;
+ 
+-			pend = virt_to_page(pg_vec[i] + (PAGE_SIZE << order) - 1);
++			pend = pg_vec_endpage(pg_vec[i], order);
+ 			for (page = virt_to_page(pg_vec[i]); page <= pend; page++)
+ 				ClearPageReserved(page);
+-			free_pages(pg_vec[i], order);
++			free_pages((unsigned long)pg_vec[i], order);
+ 		}
+ 	}
+ 	kfree(pg_vec);
+@@ -1569,7 +1575,7 @@ static void free_pg_vec(unsigned long *p
+ 
+ static int packet_set_ring(struct sock *sk, struct tpacket_req *req, int closing)
+ {
+-	unsigned long *pg_vec = NULL;
++	char **pg_vec = NULL;
+ 	struct packet_opt *po = pkt_sk(sk);
+ 	int was_running, num, order = 0;
+ 	int err = 0;
+@@ -1604,18 +1610,18 @@ static int packet_set_ring(struct sock *
+ 
+ 		err = -ENOMEM;
+ 
+-		pg_vec = kmalloc(req->tp_block_nr*sizeof(unsigned long*), GFP_KERNEL);
++		pg_vec = kmalloc(req->tp_block_nr*sizeof(char *), GFP_KERNEL);
+ 		if (pg_vec == NULL)
+ 			goto out;
+-		memset(pg_vec, 0, req->tp_block_nr*sizeof(unsigned long*));
++		memset(pg_vec, 0, req->tp_block_nr*sizeof(char **));
+ 
+ 		for (i=0; i<req->tp_block_nr; i++) {
+ 			struct page *page, *pend;
+-			pg_vec[i] = __get_free_pages(GFP_KERNEL, order);
++			pg_vec[i] = (char *)__get_free_pages(GFP_KERNEL, order);
+ 			if (!pg_vec[i])
+ 				goto out_free_pgvec;
+ 
+-			pend = virt_to_page(pg_vec[i] + (PAGE_SIZE << order) - 1);
++			pend = pg_vec_endpage(pg_vec[i], order);
+ 			for (page = virt_to_page(pg_vec[i]); page <= pend; page++)
+ 				SetPageReserved(page);
+ 		}
+@@ -1623,7 +1629,7 @@ static int packet_set_ring(struct sock *
+ 
+ 		l = 0;
+ 		for (i=0; i<req->tp_block_nr; i++) {
+-			unsigned long ptr = pg_vec[i];
++			char *ptr = pg_vec[i];
+ 			struct tpacket_hdr *header;
+ 			int k;
+ 
+_
