@@ -1,26 +1,50 @@
-From: Christoph Hellwig <hch@infradead.org>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: Zero copy transmit
-Date: Tue, 29 Apr 2003 21:17:37 +0100
+Date: Tue, 29 Apr 2003 22:39:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030429211737.A9926@infradead.org>
-References: <3EAEC7FF.4040504@sgi.com> <20030429192041.GC17413@Wotan.suse.de> <3EAED567.2090006@sgi.com>
+Message-ID: <20030429203945.GD349@Wotan.suse.de>
+References: <3EAEC7FF.4040504@sgi.com> <20030429192041.GC17413@Wotan.suse.de> <3EAED567.2090006@sgi.com> <20030429195924.GC349@Wotan.suse.de> <3EAEDBE9.1060405@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: modica@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Modica <modica@sgi.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <3EAED567.2090006@sgi.com>; from modica@sgi.com on Tue, Apr 29, 2003 at 02:41:27PM -0500
+In-Reply-To: <3EAEDBE9.1060405@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Apr 29, 2003 at 02:41:27PM -0500, Steve Modica wrote:
-> At issue is really application capture and customer adoption.  There are
-> tons of apps and lots of engineers that know socket operations and 
-> write/writev.  Asking all ISVs to recode for linux would leave them with 
-> two separate APIs to deal with. They would have send/sendto or 
-> write/writev on Solaris, HPUX and whatever else, and linux would have 
-> sendfile.
+> Don't get me wrong, we would certainly drop any notions of this if we 
+> found that it was slower and I will be glad to post any results. The 
+> goal is to take advantage of the hardware to make things faster.
 
-Solaris and HPUX have sendfile, the HPUX one has a slightly different
-API, the Solaris one is modelled after Linux.
+You have no hardware to make the remote TLB flushes fast ;)
+
+I'm sure you can show it being an advantage with a single threaded process.
+But when you run it on a multithreaded application just with two threads
+it may look very different.
+
+> Going back to your example above, don't solaris and hpux also do COW for 
+> write and send? (I don't have their sources)  If so, why would they do 
+> it if it's slower?
+
+I don't know if they do. The only Unix I'm aware of that has zero copy
+sendmsg() is NetBSD and their focus does not seem to be SMP scalability.
+
+I observed the problem recently just with swapping a big (10GB) process
+whose working set slightly exceeded the available memory.
+kswapd was running on one CPU; the process on another. kswapd 
+was aging the pages of the memory hog all the time, which requires an unmapping
+and a remote TLB flush in the process' page tables. The result 
+was that two CPUs were 100% tied up in the kernel, just spinning on the 
+page_table_lock of the mm and processing TLB IPIs (spinlock was ~50%; IPI 
+overhead 40% or so). I predict that your proposed TLB flushing write will
+cause the same problem with lots of writes. It's more or less the same thing,
+except that kswapd has a builtin rate limit and runs only on a single CPU 
+and write() has not.
+
+Also last time I checked most Linux ports still used an single global
+spinlock for the TLB flush IPI. You would add a nice new hot lock
+to the network path.
+
+-Andi
