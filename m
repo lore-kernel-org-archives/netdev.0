@@ -1,62 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: ip_route_me_harder -> xfrm_lookup
-Date: Mon, 08 Mar 2004 15:46:37 +0100
+From: P@draigBrady.com
+Subject: Re: Xeon smp performance
+Date: Mon, 08 Mar 2004 15:15:30 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404C874D.4000907@trash.net>
-References: <20040308110331.GA20719@gondor.apana.org.au>
+Message-ID: <404C8E12.4060403@draigBrady.com>
+References: <20040308132354.77437.qmail@web21101.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040308110331.GA20719@gondor.apana.org.au>
+To: satya srikanth <satyasrikanth2001@yahoo.com>
+In-Reply-To: <20040308132354.77437.qmail@web21101.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+satya srikanth wrote:
+> Hi,
+>    I am writing a simple sniffer program that will
+> sniff packets in a gigabit network. I am using a dual
+> processor 2 GHz Xeon processor with one Intel Pro-1000
+> desktop adapter, running 2.4.20-8smp linux.=20
+>    I found that for all packet sizes and network
+> bandwidth, 2.4.20-8 uniprocessor version that uses
+> only one processor is performing better than
+> 2.4.20-8smp using two processors in terms of packet
+> drops and CPU utilization. Each processor in smp is
+> utilizing more CPU than one processor in uni-processor
+> case. What is the reason for this peculiar behaviour?
+> Is it possible for me to use the power of second
+> processor without adding more NICs. Will I face
+> similar problems with 2.6 also? Anybody familiar with
+> these please help me out.
 
-Herbert Xu wrote:
-> Hi:
-> 
-> I've received a number of reports that the any packets that are modified
-> by the PREROUTING mangle table will not be protected by IPsec.
-> 
-> The reason is that ip_route_me_harder which is called upon the exit
-> of the mangle table does not set the proto field.  This means that
-> xfrm_lookup is never called.
-> 
-> The following patch sets the proto field so that the packet can be
-> protected by IPsec.
+That matches my experience. My chipset was Intel E7501
+with 2 intel pro-1000 adapters. I used the base 2.4.20 kernel
+with latest intel drivers.
 
-I have been working on a set of patches for IPsec+Netfilter, the
-latest set has been posted to netfilter-devel last week. They will
-go in patch-o-matic for testing soon, but I will post them
-to netdev later today, so we won't waste time testing patches
-before Dave is fine with them.
+I had 2 processes capturing packets and noticed that
+2 CPUs is 7% slower than one CPU. Note I was using a non SMP
+kernel for the one CPU case.
 
-Regards,
-Patrick
+I'm going to have to look into improving this soon.
+First I'm going to look at IRQ and process affinity.
 
-> 
-> Cheers,
-> 
-> 
-> ------------------------------------------------------------------------
-> 
-> Index: kernel-2.5/net/core/netfilter.c
-> ===================================================================
-> RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/core/netfilter.c,v
-> retrieving revision 1.1.1.10
-> diff -u -r1.1.1.10 netfilter.c
-> --- kernel-2.5/net/core/netfilter.c	8 Oct 2003 19:24:04 -0000	1.1.1.10
-> +++ kernel-2.5/net/core/netfilter.c	8 Mar 2004 10:52:39 -0000
-> @@ -639,6 +639,7 @@
->  #ifdef CONFIG_IP_ROUTE_FWMARK
->  		fl.nl_u.ip4_u.fwmark = (*pskb)->nfmark;
->  #endif
-> +		fl.proto = iph->protocol;
->  		if (ip_route_output_key(&rt, &fl) != 0)
->  			return -1;
->  
+P=E1draig.
