@@ -1,28 +1,29 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 13 Jan 2005 15:13:44 -0800
-Message-ID: <20050113151344.32f7833f.davem@davemloft.net>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
-	<200501131328.34449.jeremy.guthrie@berbee.com>
-	<20050113120050.0c734df5.davem@davemloft.net>
-	<200501131443.34174.jeremy.guthrie@berbee.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch 2.6.10-rc1 0/5] dscc4: short summary for the serie of patches
+Date: Fri, 14 Jan 2005 01:07:32 +0100
+Message-ID: <20050114000732.GA28864@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501131443.34174.jeremy.guthrie@berbee.com>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Jan 2005 14:43:30 -0600
-"Jeremy M. Guthrie" <jeremy.guthrie@berbee.com> wrote:
+The dscc4 driver has inherited a missing initialization bug since the
+internals of the struct hdlc_dev was reworked (!). Now it kills the
+driver at startup. The first patch of the incoming serie fixes it.
 
-> I don't show that proc file being there.  I see it in 'iproute.c' but not in 
-> proc.
+I would appreciate if it could be included in mainline for the next
+release. The remaining patches are not critical.
 
-Sorry, my bad, it's
+Patches are archived as:
+o patch-script
+  http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.11-rc1/dscc4
+o tar-ball
+  http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.11-rc1/dscc4-blob.tar.bz2
 
-/proc/sys/net/ipv4/route/secret_interval
+--
+Ueimor
