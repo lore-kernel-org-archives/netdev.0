@@ -1,21 +1,31 @@
-From: Sasch-x114 <xxx@yahoo.ru>
-Subject: Das ist die Rache...
-Date: Wed, 12 Jun 2002 02:19:57 +0200
+From: Donald Becker <becker@scyld.com>
+Subject: Re: Network oops
+Date: Tue, 11 Jun 2002 21:35:23 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200206120017.g5C0HDnC023192@oss.sgi.com>
+Message-ID: <ae68ng$ofp$2@main.gmane.org>
+References: <OFFF217683.8ACE4FCF-ON85256BD4.004D1229@raleigh.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <linux-net@vger.kernel.org>, <linux-net-owner@vger.kernel.org>,
+   <netdev@oss.sgi.com>, <pekkas@netcore.fi>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Undisclosed.Recipients@oss.sgi.com
+To: Mala Anand <manand@us.ibm.com>
+In-Reply-To: <OFFF217683.8ACE4FCF-ON85256BD4.004D1229@raleigh.ibm.com>
 List-Id: netdev.vger.kernel.org
 
-http://claudi.6x.to
+On Mon, 10 Jun 2002, Mala Anand wrote:
 
-das sie mich so hintergangen hat.
-Ich hoffe das ich Sie damit so richtig 
-fertig machen kann. Bitte gib die
-Adresse nicht weiter,ich rufe Dich 
-nachher noch an.
-http://claudi.6x.to/
+>  I have see this problem with this NIC.  You need to increase
+> the number of buffers in the RX and TX ring in eepro100.c file.
+> Right now it is set to 32, change it to 256 or 128 this error
+> will go away.
 
-Sasch
+Changing the Tx queue size or number of Rx skbuffs waiting to be filled
+will not fix a problem.  It might mask some problem e.g. a temporary
+shortage of skbuffs, but it doesn't fix anything.
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
+Annapolis MD 21403			410-990-9993
