@@ -1,28 +1,29 @@
 From: kuznet@ms2.inr.ac.ru
-Subject: Re: raw ipv6 broken in 2.4.19
-Date: Wed, 14 Aug 2002 17:13:21 +0400 (MSD)
+Subject: Re: [PATCH] connect() return value.
+Date: Wed, 14 Aug 2002 21:25:39 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208141313.RAA23897@sex.inr.ac.ru>
-References: <Pine.LNX.4.44.0208140812570.3936-100000@beohost.scyld.com>
+Message-ID: <200208141725.VAA24463@sex.inr.ac.ru>
+References: <20020814045755.GB32315@anakin.wychk.org>
 Mime-Version: 1.0
-Cc: gandalf@wlug.westbo.se, netdev@oss.sgi.com
+Cc: davem@redhat.com (Dave Miller), netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: becker@scyld.com (Donald Becker)
-In-Reply-To: <Pine.LNX.4.44.0208140812570.3936-100000@beohost.scyld.com> from "Donald Becker" at Aug 14, 2 08:15:47 am
+To: glee@gnupilgrims.org (Geoffrey Lee)
+In-Reply-To: <20020814045755.GB32315@anakin.wychk.org> from "Geoffrey Lee" at Aug 14, 2 02:57:55 pm
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> I'm not certain what you mean by this: there are many NIC chips that have
-> alignment requirements similar to the Tulip design.
+> So, in the near future, we can expect Linux to not return 0 for
+> non-blocking connects (i.e. the change you mentioned)?
 
-Comparing to _his_ ones.
+I wanted, but I changed my opinion about this. It is pretty strange to mimic
+behavior of solaris/tru64 and Co, which is really stinking.
 
+So, despite of our current behavior is not perfect and even not
+quite self-consistent, it is the best one. Well, and it does not
+contradict to sus/posix.
 
-> Note that the Tulip is no more likely than other cards to trigger
-> motherboard PCI implementation bugs.
-
-Donald, it was brain attack. When speaking about alignment we have
-already switched to investigation of our checksumming routines.
+So, connect() remains restartable, and it will return 0 on success
+instead of EISCONN crap.
 
 Alexey
