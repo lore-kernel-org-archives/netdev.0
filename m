@@ -1,31 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] New Patch Implementation for IPv6
- MIB:ipv6InterfaceTable
-Date: Thu, 15 Jan 2004 00:55:03 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
+Date: Thu, 15 Jan 2004 18:03:15 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115005503.63f4cbc7.davem@redhat.com>
-References: <200310141032.23998.mashirle@us.ibm.com>
-	<200310201600.10016.mashirle@us.ibm.com>
-	<20031020210433.27e25240.davem@redhat.com>
-	<200401141448.55531.mashirle@us.ibm.com>
+Message-ID: <20040115.180315.31012058.yoshfuji@linux-ipv6.org>
+References: <200312051351.47962.mashirle@us.ibm.com>
+	<20031205145700.120e9e68.davem@redhat.com>
+	<200401141622.09299.mashirle@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200401141448.55531.mashirle@us.ibm.com>
+To: mashirle@us.ibm.com
+In-Reply-To: <200401141622.09299.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jan 2004 14:48:55 -0800
-Shirley Ma <mashirle@us.ibm.com> wrote:
+In article <200401141622.09299.mashirle@us.ibm.com> (at Wed, 14 Jan 2004 16:22:09 -0800), Shirley Ma <mashirle@us.ibm.com> says:
 
-> > It looks fine but I cannot merge it at this time.  Linus wants
-> > only critical bug fixes for nowin 2.6.x
-> >
-> > Maybe in 2.6.1, 2.6.2 or later we can merge this in.
-> 
-> This patch is against 2.6.1 kernel.
+> This patch is agaist 2.6.1 kernel.
 
-Applied, thanks.
+Wrong. Do not change user interface.
+
+--yoshfuji
