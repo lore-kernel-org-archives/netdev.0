@@ -1,49 +1,78 @@
-From: Matt Mathis <mathis@psc.edu>
-Subject: Web100
-Date: Mon, 4 Aug 2003 12:20:47 -0400 (EDT)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: TOE brain dump
+Date: 04 Aug 2003 12:45:18 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308041205181.27601-100000@zippy.psc.edu>
-References: <20030803222554.7027a160.davem@redhat.com>
+Message-ID: <1060015518.1103.399.camel@jzny.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, John Heffner <jheffner@psc.edu>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "Ihar 'Philips' Filipau" <filia@softhome.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030803222554.7027a160.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 3 Aug 2003, David S. Miller wrote:
-> The web100 patches aren't in the kernel because 1) they've
-> never even been submitted and 2) they need a large cleanup.
 
-Furthermore 1 is due to 2....  We know our code is not ready for kernel
-inclusion, and are having a little trouble seeing the path through to doing so
-ourselves.  A big part of the problem is that I an not a kernel guy - my focus
-in on the protocol and measurement issues and not on the implementation
-details.  Although John could probably get it together by himself, he is split
-between several projects and it isn't clear that incrementally submitting
-substandard patches is a cost effective strategy to getting it done.
+Can you please post to netdev? Posting networking related issues to
+linux kernel alone is considered rude. Posting them to netdev only
+is acceptable.
 
-It would be a lot easier if we 1) had a mentor who was experienced at kernel
-inclusion, 2) specific guidance on some of the non-network components, such as
-the API (currently using /proc) and 3) a laundry list of things that we need to
-fix.
+>  Ihar 'Philips' Filipau wrote:
+>
+> >Werner Almesberger wrote:
+> > Ihar 'Philips' Filipau wrote:
+> >
+> >| | |  Modern NPUs generally do this.
+> >
+> >
+> > Unfortunately, they don't - they run *some* code, but that
+> > is rarely a Linux kernel, or a substantial part of it.
+> >
+>
+>    Embedded CPU we are using is based MIPS, and has a lot of specialized
+> instructions.
+>    It makes not that much sense to run kernel (especially Linux) on CPU
+> which is optimized for handling of network packets. (And has actually
+> several co-processors to help in this task).
 
-> I sort of get the impression that the web100 folks actually like that
-> their changes are not in the main sources, it keeps their work
-> "special".
+The coprocessors are useful, but that has nothing to do with the value 
+of the NPU. You can add those within a general processor system.
+I am also in the camp that to be really useful these things need to run
+a real OS - Linux.
 
-Nope, not at all.  Actually I find kernel inclusion rather daunting.  One of
-our collaborators was asked some very pointed questions about the TCP ESTATS
-MIB by somebody at M$.  I would hate to have the first general release be in
-anything but Linux.
+>    How much sense it makes to run general purpose OS (optimized for PCs
+> and servers) on devices which can make only couple of functions? (and no
+> MMU btw)
+>
+>    It is a whole idea behind this kind of CPUs - to do a few of
+> functions - but to do them good.
+>
+>    If you will start stretching CPUs like this to fit Linux kernel - it
+> will generally just increase price. Probably there are some markets
+> which can afford this.
+>
 
-Any takers on helping us?
+Actually i believe it will lower the prices.I am waiting for intel to get 
+hyperthreading right - then we'll see these things disapear.
+The only thing useful about NPUs is their ability to management the
+discrepency between memory latency and CPU speeds. Trust me i used to
+be in the same camp as you.If you note, a lot of these things appeared
+around the height of the .com days. VCs were looking for something
+new and exciting.
 
-Thanks,
---MM--
--------------------------------------------
-Matt Mathis      http://www.psc.edu/~mathis
-Work:412.268.3319    Home/Cell:412.654.7529
--------------------------------------------
+>    Remeber - "Small is beatiful" (c) - and linux kernel far from it.
+>    Our routing code which handles two GE interfaces (actually not pure
+> GE, but up to 2.5GB) fits into 3k. 3k of code - and that's it. not 650kb
+> of bzip compressed bloat. And it handles two interfaces, handles fast
+> data path from siblign interfaces, handles up to 1E6 routes. 3k of code.
+> not 650k of bzip.
+
+If all you wanted was to do L3 - why not just buy a $5 chip that can do this 
+for a lot more interfaces? Why sweat over optimizing L3 routing in a 
+3K space? 
+to nit: Its no longer about routing or bridging, friend. Thats like getting 
+fries at mcdonalds.
+
+cheers,
+jamal 
