@@ -1,22 +1,33 @@
-From: n.srinivasan@vsnl.net
-Subject: Regarding Concurrent accept() in Linux
-Date: Mon, 07 Jun 2004 21:20:56 +0500
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Bonding-devel] Re: [PATCH 2.6] e100: use NAPI mode all the
+	time
+Date: 07 Jun 2004 07:17:58 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <f389943f38a35b.f38a35bf389943@vsnl.net>
+Message-ID: <1086607077.1590.267.camel@jzny.localdomain>
+References: <200406070639.i576drvF026556@death.nxdomain.ibm.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Tim Mattox <tmattox@engr.uky.edu>,
+        sfeldma@pobox.com, netdev@oss.sgi.com,
+        bonding-devel@lists.sourceforge.net,
+        Scott Feldman <scott.feldman@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-language: en
-Content-Disposition: inline
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200406070639.i576drvF026556@death.nxdomain.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Hi, 
 
-I read on the net that Linux supports concurrent accept(). Does this mean that two threads can call accept() on the same socket and dequeue a connection almost in parallel? Having looked at the code (2.6.6), I guess tcp_accept() routine grabs a lock before dequeueing the eager connection. I guess this is the point it gets serialised. If this is the case, there isnt much difference from the BSD code. Or is concurrent accept() a different feature altogether.
+dont have time to go through all that thread, but lets understand your
+problem and setup. Lets start with the setup:
+You have 4 ethx ports on PC1 x-connected to 4 on PC2. You have bonding
+on PC1 but not on PC2. You have NAPI on both PC1 and PC2. Is any of them
+multiprocessor?
 
-Cheers,
+Lets get the setup then we can continue the discussion.
 
-Cheenu.
+cheers,
+jamal
