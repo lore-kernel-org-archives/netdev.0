@@ -1,53 +1,60 @@
-From: Glynn Clements <glynn.clements@virgin.net>
-Subject: Re: Obtaining the ip address of an interface dynamically
-Date: Tue, 30 Apr 2002 19:36:43 +0100
+From: Vinod <geekvinod@yahoo.com>
+Subject: RE: making routes permanent
+Date: Tue, 30 Apr 2002 12:25:05 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <15566.58427.21642.630573@cerise.nosuchdomain.co.uk>
-References: <001401c1f066$cce6c210$0300a8c0@yellow>
+Message-ID: <20020430192505.44334.qmail@web21108.mail.yahoo.com>
+References: <A00147B07D14F240825D27196B05DD53069A10@zms.staff.zeelandnet.nl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: <linux-net@vger.kernel.org>
+Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "Glover George" <dime@gulfsales.com>
-In-Reply-To: <001401c1f066$cce6c210$0300a8c0@yellow>
+To: Serge Maandag <serge.maandag@staff.zeelandnet.nl>
+In-Reply-To: <A00147B07D14F240825D27196B05DD53069A10@zms.staff.zeelandnet.nl>
 List-Id: netdev.vger.kernel.org
 
-
-Glover George wrote:
-
-> Hi, I'm working on a little module here and was wondering what the BEST
-> way to get an interface's current ip address by using it's name (i.e.,
-> eth0) is.  I was trying one way using sockets and it just doesn't seem
-> to reliably give it to me every time.  I was using these two functions
-> below, but I it would return NULL some of the time from
-> IPCon_GetIpAddrByStr sometimes, so I'm not sure.  I need a way to be
-> able to reliably obtain this ip at any give time (due to dhcp, etc). Any
-> pointers?  TIA.
+i had tried this also.but no luck.stuck with manually
+configuring the route everytime as of now.
+Thanks anyway.appreciate it.
+Vinod
+--- Serge Maandag <serge.maandag@staff.zeelandnet.nl>
+wrote:
+> >         device args
+> > 
+> >    When a network interface is brought up, each
+> line
+> > for that interface
+> >     is passed to route as:
+> > 
+> >         route add -args device
 > 
-> struct in_addr * IPCon::IPCon_GetIpAddr(void)
-> {
->         struct ifreq ifr;
->         struct sockaddr_in *saddr;
->         int fd;
->         fd = get_sockfd();
->         if (fd >= 0 )
->         {
->                 strcpy(ifr.ifr_name, m_ifname);
->                 ifr.ifr_addr.sa_family = AF_INET;
->                 if (ioctl(fd, SIOCGIFADDR, &ifr) == 0)
->                 {
->                         saddr = (sockaddr_in *)&ifr.ifr_addr;
->                         return &saddr->sin_addr;
+> If I read this correctly, you should try the line:
+> 
+> -net 10.0.3.0 netmask 255.255.255.0 gw 10.0.0.10 dev
+> 
+> 
+> or
+> 
+> -net 10.0.3.0/24 gw 10.0.0.10 dev 
+> 
+> in your static-routes file. Have you tried that?
+> 
+> Serge.
+> 
+> b.t.w., a quick search in Google gives this page:
+> http://www.physiology.wisc.edu/~cai/linux/a21p/
+> 
+> Which uses this form:
+> 
+> eth0-cln net 192.168.2.0 netmask 255.255.255.0 gw
+> 192.168.2.99
+> 
+> which would be in your case:
+> 
+> eth1 net 10.0.3.0 netmask 255.255.255.0 gw 10.0.0.10
+> 
 
-You are returning a pointer to data which is on the stack, and which
-ceases to be valid once you've returned from the function.
 
-You should either have the caller supply the buffer, e.g.
-
-	bool IPCon::IPCon_GetIpAddr(struct in_addr *result)
-
-or allocate the memory dynamically, with malloc() or new.
-
--- 
-Glynn Clements <glynn.clements@virgin.net>
+__________________________________________________
+Do You Yahoo!?
+Yahoo! Health - your guide to health and wellness
+http://health.yahoo.com
