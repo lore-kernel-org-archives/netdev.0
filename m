@@ -1,42 +1,29 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 17:15:50 -0700
+Date: Fri, 27 Jun 2003 17:32:50 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <34180000.1056759349@[10.10.2.4]>
-References: <3EFCC1EB.2070904@candelatech.com><20030627.151906.102571486.davem@redhat.com><3EFCC6EE.3020106@candelatech.com> <20030627.170022.74744550.davem@redhat.com>
+Message-ID: <20030627.173250.85405799.davem@redhat.com>
+References: <3EFCC6EE.3020106@candelatech.com>
+	<20030627.170022.74744550.davem@redhat.com>
+	<34180000.1056759349@[10.10.2.4]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davidel@xmailserver.org, linux-kernel@vger.kernel.org,
-   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: greearb@candelatech.com, davidel@xmailserver.org,
+   linux-kernel@vger.kernel.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, greearb@candelatech.com
-In-Reply-To: <20030627.170022.74744550.davem@redhat.com>
-Content-Disposition: inline
+To: mbligh@aracnet.com
+In-Reply-To: <34180000.1056759349@[10.10.2.4]>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---"David S. Miller" <davem@redhat.com> wrote (on Friday, June 27, 2003 17:00:22 -0700):
+   From: "Martin J. Bligh" <mbligh@aracnet.com>
+   Date: Fri, 27 Jun 2003 17:15:50 -0700
+   
+   So presumably that'd work out OK?
 
->    From: Ben Greear <greearb@candelatech.com>
->    Date: Fri, 27 Jun 2003 15:36:30 -0700
->    
->    So, you'd be happy so long as bugz sent mail to the netdev mailing
->    lists instead of to you?
-> 
-> The best power I have to scale is the delete key in my email
-> reader, when I delete an email it's gone and that's it.
-> 
-> bugme bugs don't have this attribute, they are like emails that
-> persist forever until someone does something about them, and this is
-> the big problem I have with it.
+Yes, people can go live in their own bugme world if they want to, I
+can't force people not to use it.
 
-Right ... but if bugs were sent to netdev or whatever, you'd get 
-something similar to what you have today, as long as *you* don't
-go looking in bugme (which you've made it clear you won't). Other
-people seem to find this useful, and they can still go use it if 
-they like.
-
-So presumably that'd work out OK?
-
-M.
+But a bug database that the actual maintainers refuse to use seems
+quite pointless to me.
