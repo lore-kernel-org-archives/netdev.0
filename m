@@ -1,8 +1,8 @@
 From: Prasanna S Panchamukhi <prasanna@in.ibm.com>
-Subject: [1/4]pollcontroller patch for 2.6.0-test10-bk25-netdrvr-exp1
-Date: Wed, 3 Dec 2003 19:22:16 +0530
+Subject: [2/4] pollcontroller patch for 2.6.0-test10-bk25-netdrvr-exp1
+Date: Wed, 3 Dec 2003 19:27:28 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031203135216.GA13465@in.ibm.com>
+Message-ID: <20031203135728.GA13585@in.ibm.com>
 Reply-To: prasanna@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -15,45 +15,38 @@ List-Id: netdev.vger.kernel.org
 
 Hi Jeff,
 
-Below is the pollcontroller patch for e100. 
+Below is the pollcontroller patch for e1000.
 This patch can be applied over 2.6.0-test9-bk25-netdrvr-exp1.patch
 
-diff -urNp linux.orig/drivers/net/e100/e100_main.c linux-2.6.0-test10/drivers/net/e100/e100_main.c
---- linux.orig/drivers/net/e100/e100_main.c	2003-11-26 03:57:38.000000000 +0530
-+++ linux-2.6.0-test10/drivers/net/e100/e100_main.c	2003-11-26 03:59:15.554978648 +0530
-@@ -544,6 +544,22 @@ e100_trigger_SWI(struct e100_private *bd
- 	readw(&(bdp->scb->scb_status));	/* flushes last write, read-safe */
+diff -urNp linux-netdrvr/drivers/net/e1000/e1000_main.c linux-2.6.0-test10/drivers/net/e1000/e1000_main.c
+--- linux-netdrvr/drivers/net/e1000/e1000_main.c	2003-12-04 11:18:03.000000000 +0530
++++ linux-2.6.0-test10/drivers/net/e1000/e1000_main.c	2003-12-04 11:43:35.412199928 +0530
+@@ -338,6 +338,15 @@ e1000_reset(struct e1000_adapter *adapte
+ 	e1000_phy_get_info(&adapter->hw, &adapter->phy_info);
  }
  
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+
-+/*
-+ * Polling 'interrupt' - used by things like netconsole to send skbs
-+ * without having to re-enable interrupts. It's not called while
-+ * the interrupt routine is executing.
-+ */
-+static void
-+e100_poll(struct net_device *dev)
++static void e1000_poll(struct net_device *dev)
 +{
 +	disable_irq(dev->irq);
-+	e100intr(dev->irq, dev, NULL);
++	e1000_intr(dev->irq, dev, NULL);
 +	enable_irq(dev->irq);
 +}
 +#endif
 +
- static int __devinit
- e100_found1(struct pci_dev *pcid, const struct pci_device_id *ent)
- {
-@@ -562,6 +578,9 @@ e100_found1(struct pci_dev *pcid, const 
+ /**
+  * e1000_probe - Device Initialization Routine
+  * @pdev: PCI device information struct
+@@ -439,6 +448,9 @@ e1000_probe(struct pci_dev *pdev,
  
- 	SET_MODULE_OWNER(dev);
+ 	adapter->bd_number = cards_found;
  
 +#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = &e100_poll;
++	netdev->poll_controller = &e1000_poll;
 +#endif
- 	if (first_time) {
- 		first_time = false;
-         	printk(KERN_NOTICE "%s - version %s\n",
+ 	/* setup the private structure */
+ 
+ 	if((err = e1000_sw_init(adapter)))
 -- 
 Thanks & Regards
 Prasanna S Panchamukhi
