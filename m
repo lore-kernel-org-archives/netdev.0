@@ -1,49 +1,37 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: design for TSO performance fix
-Date: Fri, 28 Jan 2005 02:57:51 +0100
-Message-ID: <20050128015751.GT31837@postel.suug.ch>
-References: <20050127163146.33b01e95.davem@davemloft.net>
+From: Andy Isaacson <adi@hexapodia.org>
+Subject: Re: netdev-2.6 queue updated
+Date: Thu, 27 Jan 2005 18:15:30 -0800
+Message-ID: <20050128021530.GB19150@hexapodia.org>
+References: <41F980A0.8020905@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@osdl.org>, Jouni Malinen <jkmaline@cc.hut.fi>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050127163146.33b01e95.davem@davemloft.net>
+In-Reply-To: <41F980A0.8020905@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20050127163146.33b01e95.davem@davemloft.net> 2005-01-27 16:31
-> The basic idea is that we stop trying to build TSO frames
-> in the actual transmit queue.  Instead, TSO packets are
-> built impromptu when we actually output packets on the
-> transmit queue.
+On Thu, Jan 27, 2005 at 07:00:32PM -0500, Jeff Garzik wrote:
+> The attached changelog describes what I just pushed out to BitKeeper 
+> (and what should be appearing in the next -mm release from Andrew).
+> 
+> Note to BK users:  please re-clone netdev-2.6, don't just 'bk pull'.
 
-Sound great.
+It's much more efficient to do
+% bk undo -a`bk repogca`
+(which deletes everything in the local repo that's not in the parent)
+rather than pulling the entire repo over the wire again. [1]
 
-> static inline int tcp_skb_data_all_paged(struct sk_buff *skb)
-> {
-> 	return (skb->len == skb->data_len);
-> }
+You can check what would be deleted by this command with "bk changes -L"
+similar to how you can "bk changes -R" to figure out what would be
+pulled.
 
-You could also define this as (skb_headlen(skb) == 0)
+[1] Well, actually, it isn't *quite* that simple; in certain cases,
+    repogca will delete more than it needs to.  But it's still more
+    efficient than a re-pull.
 
-> The logic is simple because if TSO is being done we know
-> that all of the SKB data is paged (since SG+CSUM is a
-> requirement for TSO).  The one case where that
-> invariant might fail is due to a routing change (previous
-> device cannot do SG+CSUM, new device has full TSO capability)
-> and that is handled via the tcp_skb_data_all_paged() checks.
-
-I assume the case when reroute changes oif to a device no
-longer capable of SG+CSUM stays the same and the skb remains
-paged until dev_queue_xmit?
-
-> My thinking is that whatever added expensive this new scheme
-> has, is offset by the simplifications the rest of the TCP
-> stack will have since it will no longer need to know anything
-> about multiple MSS values and packet counts.
-
-I think the overhead is really worth the complexity that can
-be removed with these changes.
+-andy
