@@ -1,32 +1,40 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: some bluetooth fixes
-Date: Sat, 7 Feb 2004 12:57:23 +0100
+From: Andreas Schwab <schwab@suse.de>
+Subject: Bad UDP checksum with 82540EM
+Date: Sat, 07 Feb 2004 14:35:45 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040207125723.391a1fcd.ak@suse.de>
-References: <20040206050042.20a2b3b0.ak@suse.de>
-	<1076079512.2806.40.camel@pegasus>
-	<20040207032428.56ffbebc.ak@suse.de>
-	<1076152411.14418.73.camel@pegasus>
+Message-ID: <je65ejvwpa.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-        viro@zenII.linux.org.uk
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcel Holtmann <marcel@holtmann.org>
-In-Reply-To: <1076152411.14418.73.camel@pegasus>
+To: cramerj@intel.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 07 Feb 2004 12:13:31 +0100
-Marcel Holtmann <marcel@holtmann.org> wrote:
+I'm getting bad UPD checksums in outgoing packets with the e1000 driver
+(version 5.2.16) in 2.6.1 when using HW checksumming on a HP branded
+82540EM on ia64 (TCP works fine).  The same driver works fine with an
+Intel branded chip.  The two devices are identified as follows:
 
-> I check this. Maybe we have more of them. What do you propose as max
-> size value for kmalloc? 2*PAGE_SIZE or 4*PAGE_SIZE?
+  Model: "Hewlett-Packard Company 82540EM Gigabit Ethernet Controller"
+  Vendor: pci 0x8086 "Intel Corporation"
+  Device: pci 0x100e "82540EM Gigabit Ethernet Controller"
+  SubVendor: pci 0x103c "Hewlett-Packard Company"
+  SubDevice: pci 0x1274=20
 
-What better fits the intended use case. I don't know how many objects are expected
-here. Smaller is better probably.
+  Model: "Intel 82540EM Gigabit Ethernet Controller"
+  Vendor: pci 0x8086 "Intel Corporation"
+  Device: pci 0x100e "82540EM Gigabit Ethernet Controller"
+  SubVendor: pci 0x8086 "Intel Corporation"
+  SubDevice: pci 0x3402=20
 
-If you want to handle more objects this way you should use seq_file instead.
+After disabling tx-checksumming UDP is working again.
 
--Andi
+Andreas.
+
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
