@@ -1,46 +1,45 @@
 From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: Re: Route cache performance under stress
-Date: Tue, 20 May 2003 08:04:00 -0400 (EDT)
+Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
+Date: Tue, 20 May 2003 08:14:44 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030520074848.U40843@shell.cyberus.ca>
-References: <20030519212209.P39592@shell.cyberus.ca> <20030519.182410.10302536.davem@redhat.com>
- <20030519220409.V39658@shell.cyberus.ca> <20030519.234624.123976229.davem@redhat.com>
+Message-ID: <20030520080940.E40885@shell.cyberus.ca>
+References: <1053313298.3909.5.camel@rth.ninka.net> <20030519202756.I39498@shell.cyberus.ca>
+ <3EC9B815.4000504@ethanet.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: sim@netnation.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: "David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030519.234624.123976229.davem@redhat.com>
+To: Ethan Sommer <sommere@ethanet.com>
+In-Reply-To: <3EC9B815.4000504@ethanet.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-On Mon, 19 May 2003, David S. Miller wrote:
+On Tue, 20 May 2003, Ethan Sommer wrote:
 
-> I found a description of this thing on Cisco's web site.  Amusingly it
-> seems to contradict itself, it says that the CEF FIB is fully
-> populated and has a 1-to-1 correspondance to the routing table yet it
-> says that the first access to some destination is what creates
-> CEF entries.
+> I picked Spencer's mainly because it was a pain to port the glibc
+> version into kernel space. They are both basically the posix regexp
+> interface, so if someone wants to get another version working in kernel
+> space we can test and see which one performs better with real load
+> pretty easily.
 >
 
-It seems to be done at interupt level sort of like Linux fast switching
-(not to be confused with CISCO fast switching); however, unlike Linux fast
-switching which looks up based on dst cache, they do lookups on a
-FIB with already nexthop entries (sort of like the hh cache we have).
-Theres something akin to a user land process which makes sure the
-neighbors are resolved all the time - most routing protocols stacks
-already do this today with BGP. I dont think Zebra does.
-What i am wondering is what if they have to do more than routing? Dont
-they end up with same (if not worse) effect?
+Take a look at snorts implementation. I think snort is GPL so you may
+just be able to borrow it.
 
-Having said all the above, i think it would be worth seeing what the
-effect of improving the slow path is (make it a multi-way trie).
-Actually before that someone needs to prove slow path is slow ;->
-Note: It may make sense that we have options to totaly remove
-the cache lookups if necessary - noone has proved a need for it at this
-point.
+>
+> Yep. We haven't spent a lot of time on optimizations. Obviously that
+> example can be fixed pretty quickly... except I'm not sure we can avoid
+> it and stay thread safe? (linux can route multiple packets at the same
+> time on an smp box right? so we can't just use a staically defined
+> buffer...)
+>
+
+Your problem seesm to be the regexp scheme used. You dont need a static
+buffer i think. You should be able to operate on an incoming packet
+itself.
 
 cheers,
 jamal
