@@ -1,29 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Flow cache flush oops
-Date: Thu, 19 Jun 2003 12:11:08 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] missing owner field entry on pppoe /proc
+Date: Thu, 19 Jun 2003 12:20:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030619.121108.21920417.davem@redhat.com>
-References: <OFF5CE2037.3D4C9104-ON86256D49.007EAEAD-86256D49.007F5519@pok.ibm.com>
-	<20030619000704.GA25135@gondor.apana.org.au>
-	<20030619093518.GA27025@gondor.apana.org.au>
+Message-ID: <20030619122024.3d21c0ec.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: toml@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20030619093518.GA27025@gondor.apana.org.au>
+To: "David S. Miller" <davem@redhat.com>,
+   Michal Ostrowski
+ <mostrows@styx.uwaterloo.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Herbert Xu <herbert@gondor.apana.org.au>
-   Date: Thu, 19 Jun 2003 19:35:18 +1000
+The /proc file operations for PPPOE is missing an owner entry.   This means that
+if someone has /proc file open, it is still possible to unload the module.
 
-   Here is the patch.
+Patch against 2.5.72 
 
-Applied, thanks Herbert.
-
-Reviewing this made me notice that we don't check the
-__get_free_pages() return value.  I'll fix that.
-
-Thanks again.
+diff -Nru a/drivers/net/pppoe.c b/drivers/net/pppoe.c
+--- a/drivers/net/pppoe.c	Thu Jun 19 12:17:27 2003
++++ b/drivers/net/pppoe.c	Thu Jun 19 12:17:28 2003
+@@ -1061,6 +1061,7 @@
+ }
+ 
+ static struct file_operations pppoe_seq_fops = {
++	.owner		= THIS_MODULE,
+ 	.open		= pppoe_seq_open,
+ 	.read		= seq_read,
+ 	.llseek		= seq_lseek,
