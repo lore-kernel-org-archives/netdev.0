@@ -1,9 +1,9 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Fri, 24 Sep 2004 13:20:02 +1000
+Date: Fri, 24 Sep 2004 13:24:40 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924032002.GA6384@gondor.apana.org.au>
-References: <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net> <1095821624.1045.6.camel@jzny.localdomain> <20040922034634.GA14928@gondor.apana.org.au> <1095852956.1048.47.camel@jzny.localdomain> <20040923120520.GA32624@gondor.apana.org.au> <1095994597.1045.26.camel@jzny.localdomain>
+Message-ID: <20040924032440.GB6384@gondor.apana.org.au>
+References: <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net> <20040922045239.GA19573@gondor.apana.org.au> <1095854920.1047.64.camel@jzny.localdomain> <20040923120707.GB32624@gondor.apana.org.au> <1095995042.1044.34.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
@@ -11,49 +11,47 @@ Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1095994597.1045.26.camel@jzny.localdomain>
+In-Reply-To: <1095995042.1044.34.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 23, 2004 at 10:56:37PM -0400, jamal wrote:
->
-> > What's wrong with the default sizes? If you decrease it far enough
-> > of course it's going to overflow.
+On Thu, Sep 23, 2004 at 11:04:02PM -0400, jamal wrote:
 > 
-> The idea is to reproduce the overun ;->
-
-OK, I've just tried 4096 and nothing:
-
-21619 socket(PF_NETLINK, SOCK_RAW, 0)   = 3
-21619 setsockopt(3, SOL_SOCKET, SO_SNDBUF, [32768], 4) = 0
-21619 setsockopt(3, SOL_SOCKET, SO_RCVBUF, [4096], 4) = 0
-...
-21619 recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, sa_data="\0\0\0\0\0\0\0\0\
-0\0\0\0\0\0"}, msg_iov(1)=[{"\30\16\0\0002\0\2\0\366@SAsT\0\0\0 00\4\16\1\0p\0\0
-\0\24"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 3608
-21619 write(1, "\n\taction order 0: gact action dr"..., 4096) = 4096
-21619 recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, sa_data="\0\0\0\0\0\0\0\0\
-0\0\0\0\0\0"}, msg_iov(1)=[{"\30\16\0\0002\0\2\0\366@SAsT\0\0\0 00\4\16\1\0p\0\0
-\0\24"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 3608
-21619 write(1, "0\n\t index 19312 ref 1 bind 0\n \n\t"..., 4096) = 4096
-21619 recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, sa_data="\0\0\0\0\0\0\0\0\
-0\0\0\0\0\0"}, msg_iov(1)=[{"\30\16\0\0002\0\2\0\366@SAsT\0\0\0 00\4\16\1\0p\0\0
-\0\24"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 3608
-21619 recvmsg(3, {msg_name(12)={sa_family=AF_NETLINK, sa_data="\0\0\0\0\0\0\0\0\
-0\0\0\0\0\0"}, msg_iov(1)=[{"\30\16\0\0002\0\2\0\366@SAsT\0\0\0 00\4\16\1\0p\0\0
-\0\24"..., 16384}], msg_controllen=0, msg_flags=0}, 0) = 3608
-21619 write(1, "action drop\n\t random type none p"..., 4096) = 4096
-
-> $TC actions add \
->  action drop index 1
->  action drop index 2 
->  action drop index 3 ...
+> So lets start by using the following logic:
+> 1) If you made the socket buffers small enough compared to message
+> size/arrival rate, then an overrun will happen
+> corrollary:
+> 2) If you made the message size/arrival fast enough relative to socket
+> size, an overrun will happen
 > 
-> Do 10 a time in the for loop and should be roughly 10 times as fast
+> If you agree that #1 is equivalent to #2, then you can experiment by #1
+> to see the issue.
 
-Cool, didn't know that.
+There are three possible netlink usages:
 
-Thanks,
+1) Request/response:
+
+No overruns should occur.
+
+2) Dump:
+
+No overruns should occur because of dump only fills in the next one when
+the previous one is taken off the queue by the user.
+
+3) Async messages:
+
+Overruns may occur if the arrival rate exceeds the application's
+processing capacity or if the queue is too small for a burst.
+
+Now we were discussing about how we can do congestion control for 3).
+But to do that we need to know exactly what these messages are.  For
+example if they're coming from an external source as is the case in
+ip_queue then you can't congestion control it at all.
+
+Oh and never use the same socket for 1+2) and 3) together.  You can
+use the socket for 1) and 2), but 3) must be in its own socket.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
