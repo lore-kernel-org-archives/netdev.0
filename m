@@ -1,59 +1,27 @@
-From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [KJ] [PATCH 6/28] net/e1000_osdep: replace schedule_timeout() with
-	msleep()
-Date: Thu, 6 Jan 2005 16:19:31 -0800
-Message-ID: <20050107001931.GH3055@us.ibm.com>
+From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
+Subject: [PATCH 2.6 3/3] e100: Update driver version number
+Date: Thu, 6 Jan 2005 17:01:55 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061411180.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============11017806919943185=="
-Cc: linux-net@vger.kernel.org, kernel-janitors@lists.osdl.org,
-   netdev@oss.sgi.com
-Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: cramerj@intel.com, john.ronciak@intel.com, ganesh.venkatesan@intel.com
-List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
-List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
-List-Post: <mailto:kernel-janitors@lists.osdl.org>
-List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
-List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
-	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
-Sender: kernel-janitors-bounces@lists.osdl.org
-Errors-To: kernel-janitors-bounces@lists.osdl.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "jgarzik@pobox.com" <jgarzik@pobox.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---===============11017806919943185==
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 
-Hi,
-
-Description: Use msleep() instead of schedule_timeout() to guarantee the task
-delays as expected.
-
-Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-
-
---- 2.6.10-v/drivers/net/e1000/e1000_osdep.h	2004-12-24 13:34:26.000000000 -0800
-+++ 2.6.10/drivers/net/e1000/e1000_osdep.h	2005-01-04 14:57:49.000000000 -0800
-@@ -46,8 +46,7 @@
- 				/* Don't mdelay in interrupt context! */ \
- 	                	BUG(); \
- 			} else { \
--				set_current_state(TASK_UNINTERRUPTIBLE); \
--				schedule_timeout((x * HZ)/1000 + 2); \
-+				msleep(x);
- 			} } while(0)
- /* Some workarounds require millisecond delays and are run during interrupt
-  * context.  Most notably, when establishing link, the phy may need tweaking
-
---===============11017806919943185==
-Content-Type: text/plain; charset="iso-8859-1"
-MIME-Version: 1.0
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-_______________________________________________
-Kernel-janitors mailing list
-Kernel-janitors@lists.osdl.org
-http://lists.osdl.org/mailman/listinfo/kernel-janitors
-
---===============11017806919943185==--
+diff -up net-drivers-2.6/drivers/net/e100.c net-drivers-2.6/drivers/net/e100.c.new
+--- net-drivers-2.6/drivers/net/e100.c	2004-12-02 10:09:34.000000000 -0800
++++ net-drivers-2.6/drivers/net/e100.c.new	2004-12-02 10:09:36.000000000 -0800
+@@ -155,7 +155,7 @@
+ 
+ #define DRV_NAME		"e100"
+ #define DRV_EXT		"-NAPI"
+-#define DRV_VERSION		"3.2.3-k2"DRV_EXT
++#define DRV_VERSION		"3.3.6-k2"DRV_EXT
+ #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
+ #define DRV_COPYRIGHT		"Copyright(c) 1999-2004 Intel Corporation"
+ #define PFX			DRV_NAME ": "
