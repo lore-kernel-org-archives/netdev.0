@@ -1,40 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Wed, 21 Apr 2004 13:20:47 -0700
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: ping6 error
+Date: Wed, 21 Apr 2004 15:05:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040421132047.026ab7f2.davem@redhat.com>
-References: <40869267.30408@nortelnetworks.com>
-	<Pine.LNX.4.53.0404211153550.1169@chaos>
-	<4086A077.2000705@nortelnetworks.com>
-	<20040421170340.GB24201@wohnheim.fh-wedel.de>
+Message-ID: <OFBD219784.C2049213-ON88256E7D.0078B0F7-88256E7D.00796149@us.ibm.com>
+References: <20040421150832.1f1dcde9%hibi665@oki.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: cfriesen@nortelnetworks.com, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-In-Reply-To: <20040421170340.GB24201@wohnheim.fh-wedel.de>
+In-Reply-To: <20040421150832.1f1dcde9%hibi665@oki.com>
+To: Takashi Hibi <hibi665@oki.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 21 Apr 2004 19:03:40 +0200
-J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
+Takashi Hibi wrote on 04/20/2004 11:08:32 PM:
 
-> Heise.de made it appear, as if the only news was that with tcp
-> windows, the propability of guessing the right sequence number is not
-> 1:2^32 but something smaller.  They said that 64k packets would be
-> enough, so guess what the window will be.
+> There are IPv6 addresses for which ping6 doesn't work.
+> The host has a global IPv6 address.
 
-Yes, that is their major discovery.  You need to guess the ports
-and source/destination addresses as well, which is why I don't
-consider this such a serious issue personally.
+> $ ping6 ff05::1    (site-local multicast address)
+> connect: Cannot assign requested address
 
-It is mitigated if timestamps are enabled, because that becomes
-another number you have to guess.
+This makes less sense (but doesn't fail for me on 2.6.x kernels).
+Multicast memberships are per-interface, so a multi-homed host or
+router may not have a route for that address to the interface you
+actually wanted. It's almost always best to specify "-I" in ping6
+to get what you want.
 
-It is mitigated also by randomized ephemeral port selection, which
-OpenBSD implements and we could easily implement as well.
+> $ ping6 fec0::1    (site-local address)
+> connect: Cannot assign requested address
 
-I'm very happy that OpenBSD checked in a fix for this a week or so
-ago and took some of the thunder out of this bogusly hyped announcement.
+This works fine on my 2.6.1 system talking to my 2.6.5 system,
+when I have an address with an fec0 prefix on both. If you don't,
+it's probably a routing table issue-- try "netstat -A inet6 -rn"
+and see if you have routing table entries on each so that they
+can talk to each other.
+
+                                                +-DLS
