@@ -1,41 +1,111 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 31 Jan 2005 01:31:43 +0100
-Message-ID: <41FD7C6F.3010005@tpack.net>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>	 <1105019912.2314.20.camel@jzny.localdomain>	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>	 <1105104757.1046.63.camel@jzny.localdomain>	 <1105111605.3462.101.camel@tsc-6.cph.tpack.net>	 <1105363092.1041.146.camel@jzny.localdomain>	 <1105917038.1091.1041.camel@jzny.localdomain> <41EC3067.6050104@tpack.net>	 <41FD702D.2060403@tpack.net> <1107130177.7847.96.camel@jzny.localdomain>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] sb1000: reduce ioctl stack usage
+Date: Sun, 30 Jan 2005 18:12:00 -0800
+Message-ID: <41FD93F0.2040601@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
+Content-Type: multipart/mixed;
+ boundary="------------030703040901060907040202"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1107130177.7847.96.camel@jzny.localdomain>
+To: jgarzik <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>,
+        fventuri@mediaone.net, shirsch@adelphia.net
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Tommy,
-> 
-> I wasnt sure why you did:
-> 
-> dev->qdisc = &noop_qdisc;
-> 
-> You should probably save the old qdisc in qdisc_sleeping instead
-> and restore it on wakeup - otherwise you always end with default qdisc.
+This is a multi-part message in MIME format.
+--------------030703040901060907040202
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I think normally we will have qdisc == qdisc_sleeping. At least this
-is how I read the code in dev_graft_qdisc(). When can they differ?
 
-> check_carrier should probably just call dev_activate which does all you
-> wanted, no?
+sb1000_dev_ioctl() (on i386) uses 824 bytes of stack space,
+all due to overuse of inline functions.
+By changing a few infrequently used functions to non-inline,
+the stack usage is reduced to only 60 bytes.
+Nothing in a fast path is changed.
 
-I copied the logic from dev_deactivate(), but I didn't want to include
-the waiting parts, since this is not in process context. OK?
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
 
--Tommy
+diffstat:=
+  drivers/net/sb1000.c |   20 ++++++++++----------
+  1 files changed, 10 insertions(+), 10 deletions(-)
+
+--------------030703040901060907040202
+Content-Type: text/x-patch;
+ name="sb1000_stack.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sb1000_stack.patch"
+
+
+diff -Naurp ./drivers/net/sb1000.c~sb1000_stack ./drivers/net/sb1000.c
+--- ./drivers/net/sb1000.c~sb1000_stack	2004-12-24 13:33:51.000000000 -0800
++++ ./drivers/net/sb1000.c	2005-01-30 17:49:27.409413904 -0800
+@@ -116,15 +116,15 @@ static inline int sb1000_start_get_set_c
+ static inline int sb1000_end_get_set_command(const int ioaddr[],
+ 	const char* name);
+ static inline int sb1000_activate(const int ioaddr[], const char* name);
+-static inline int sb1000_get_firmware_version(const int ioaddr[],
++static int sb1000_get_firmware_version(const int ioaddr[],
+ 	const char* name, unsigned char version[], int do_end);
+-static inline int sb1000_get_frequency(const int ioaddr[], const char* name,
++static int sb1000_get_frequency(const int ioaddr[], const char* name,
+ 	int* frequency);
+-static inline int sb1000_set_frequency(const int ioaddr[], const char* name,
++static int sb1000_set_frequency(const int ioaddr[], const char* name,
+ 	int frequency);
+-static inline int sb1000_get_PIDs(const int ioaddr[], const char* name,
++static int sb1000_get_PIDs(const int ioaddr[], const char* name,
+ 	short PID[]);
+-static inline int sb1000_set_PIDs(const int ioaddr[], const char* name,
++static int sb1000_set_PIDs(const int ioaddr[], const char* name,
+ 	const short PID[]);
+ 
+ /* SB1000 commands for frame rx interrupt */
+@@ -552,7 +552,7 @@ sb1000_activate(const int ioaddr[], cons
+ }
+ 
+ /* get SB1000 firmware version */
+-static inline int
++static int
+ sb1000_get_firmware_version(const int ioaddr[], const char* name,
+ 	unsigned char version[], int do_end)
+ {
+@@ -575,7 +575,7 @@ sb1000_get_firmware_version(const int io
+ }
+ 
+ /* get SB1000 frequency */
+-static inline int
++static int
+ sb1000_get_frequency(const int ioaddr[], const char* name, int* frequency)
+ {
+ 	unsigned char st[7];
+@@ -592,7 +592,7 @@ sb1000_get_frequency(const int ioaddr[],
+ }
+ 
+ /* set SB1000 frequency */
+-static inline int
++static int
+ sb1000_set_frequency(const int ioaddr[], const char* name, int frequency)
+ {
+ 	unsigned char st[7];
+@@ -622,7 +622,7 @@ sb1000_set_frequency(const int ioaddr[],
+ }
+ 
+ /* get SB1000 PIDs */
+-static inline int
++static int
+ sb1000_get_PIDs(const int ioaddr[], const char* name, short PID[])
+ {
+ 	unsigned char st[7];
+@@ -656,7 +656,7 @@ sb1000_get_PIDs(const int ioaddr[], cons
+ }
+ 
+ /* set SB1000 PIDs */
+-static inline int
++static int
+ sb1000_set_PIDs(const int ioaddr[], const char* name, const short PID[])
+ {
+ 	unsigned char st[7];
+
+--------------030703040901060907040202--
