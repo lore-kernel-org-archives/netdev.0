@@ -1,103 +1,45 @@
-From: Christopher Slater <olyar@yahoo.com>
-Subject: RE: amd or autofos?
-Date: Tue, 16 Apr 2002 15:09:45 -0700 (PDT)
+From: Casey Carter <Casey@Carter.net>
+Subject: Re: injecting packets
+Date: Tue, 16 Apr 2002 17:27:50 -0500
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <a9i7fc$ark$2@main.gmane.org>
-References: <MDEDIKPCLCIKDGEMDJGMKEMLCIAA.jamesk@everbase.net>
+Message-ID: <3CBCA566.4000504@Carter.net>
+References: <Pine.LNX.4.30.0204161203210.15280-100000@brahmi.ee.iitb.ac.in>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-net <linux-net@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: James Kelty <jamesk@everbase.net>, linux-net@vger.kernel.org,
-	linux-admin@vger.kernel.org
-In-Reply-To: <MDEDIKPCLCIKDGEMDJGMKEMLCIAA.jamesk@everbase.net>
+To: Vasu <vasu@ee.iitb.ac.in>
 List-Id: netdev.vger.kernel.org
 
-However, by hard mounting the NFS mount you will get stale mounts if
-the server goes down.  
+It sounds like you want the Universal Tunnel/Tap driver, that lives in 
+drivers/net/tun.c
 
-I've had good luck with AMD, but I think you're right that autofs
-seemed easier to configure.  
+Vasu wrote:
 
-I would guess that you should be able to fix the problem you're
-currently seeing using *either* package.  Could be unrelated to the
-package, or a bug in the older version that might be installed.
-
-Chris
-
---- James Kelty <jamesk@everbase.net> wrote:
-> If you just want to mount the NFS shares at boot and keep them there,
-> you
-> can
-> just edit the /etc/fstab file to reflect that.
-> 
-> -James
-> 
-> -----Original Message-----
-> From: linux-admin-owner@vger.kernel.org
-> [mailto:linux-admin-owner@vger.kernel.org]On Behalf Of Paul Furness
-> Sent: Tuesday, April 16, 2002 5:59 AM
-> To: linux-net@vger.kernel.org; linux-admin@vger.kernel.org
-> Subject: amd or autofos?
-> 
-> 
-> Hi, all.
-> 
-> Is there someone around with lots of experience of auto mounting nfs
-> shares on RedHat?
-> 
-> Here's the setup:
-> I have just taken over running the network and servers for this nice
-> company, and we currently have a number of servers (all running
-> RedHat
-> 6.2) that variously run NIS, apache, various databases, and lots of
-> disk
-> space. The disks are shared using nfs shared, and then mounted using
-> AMD
-> on whichever machine the user logs in to. This includes not only
-> shared
-> volumes of data, but also the home directories of the users.
-> 
-> There is an ongoing problem where AMD on a random machine dies at a
-> random time, and has to be restarted so people can access files
-> again.
-> 
-> It is my intention to upgrade all the servers to RH7.2 (I could
-> update
-> the individual packages and the build a kernel, but a full upgrade
-> seems
-> a whole lot simpler to manage!) and I also have the chance to update
-> how
-> some of it works.
-> 
-> So given an unrestricted choice between ams and autofs, which would
-> you
-> go for? Is autofs more stable than amd? It certainly looks to be
-> slightly better documented and slightly easier to configure.
-> 
-> Any thoughts would be appreciated.
-> 
-> Thanks.
-> 
-> BUNgle
-> 
-> "One of these days I'll figure how the damn thing works..."
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe
-> linux-admin" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe
-> linux-admin" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> 
-> 
+>Hi.
+>
+>I am trying to write a module that takes Ethernet packets from the user
+>domain, and injects it into the proper place ( which I think is the
+>sk_buffers ), so that to the IP, TCP layer, the packets look as if coming
+>from the Ethernet device. Can someone please suggest me which files to
+>look into, and which structs to handle, for getting this done. Also, I
+>want to do the reverse task, i.e. take some particular packets ( say which
+>come from a specific port ) from sk_buffers and send it to user space.
+>
+>Please assume that this silly looking Rx/Tx has some importance :)
+>
+>Regards.
+>
+>Vasu.
+>III yr EE student.
+>
+>
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-net" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
 
 
-__________________________________________________
-Do You Yahoo!?
-Yahoo! Tax Center - online filing with TurboTax
-http://taxes.yahoo.com/
+
