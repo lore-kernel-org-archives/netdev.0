@@ -1,33 +1,29 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Sat, 14 Jun 2003 10:55:34 +1000
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030614005534.GF32097@krispykreme>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D93A@orsmsx402.jf.intel.com> <20030613.165250.41635765.davem@redhat.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [patch] IPV6: Refcount leaks in udpv6_connect()
+Date: Sat, 14 Jun 2003 10:26:45 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030614.102645.87315007.yoshfuji@linux-ipv6.org>
+References: <20030604.093944.84705841.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.44.0306132149290.4922-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: scott.feldman@intel.com, haveblue@us.ibm.com, hdierks@us.ibm.com,
-	dwg@au1.ibm.com, linux-kernel@vger.kernel.org, milliner@us.ibm.com,
-	ricardoz@us.ibm.com, twichell@us.ibm.com, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030613.165250.41635765.davem@redhat.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: vnuorval@tcs.hut.fi, davem@redhat.com
+In-Reply-To: <Pine.LNX.4.44.0306132149290.4922-100000@rhea.tcs.hut.fi>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
-> So Anton, when the PCI controller gets a set of sub-cacheline word
-> reads from the device, it reads the value from memory once for every
-> one of those words?  ROFL, if so...  I can't believe they wouldn't
-> put caches on the PCI controller for this, at least a one-behind that
-> snoops the bus :(
+In article <Pine.LNX.4.44.0306132149290.4922-100000@rhea.tcs.hut.fi> (at Sat, 14 Jun 2003 00:07:25 +0300 (EEST)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 
-There is a cache in the host bridge and the PCI-PCI bridge. I dont
-think we go back to memory for sub cacheline reads.
+> A dst refcount leak had unfortunately crept into my original
+> CONFIG_IPV6_SUBTREES patch and your derived udpv6_connect() patch
+> (changeset 1.1215.68.12).
 
-What I think is happening is that we arent tripping the prefetch logic.
-We should take a latency hit for only the first cacheline at which point
-the host bridge decides to start prefetching for us. If not then we take
-take the latency hit on each transaction.
+patch looks fine to me.
 
-Anton
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
