@@ -1,43 +1,60 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
-Date: Mon, 27 Sep 2004 08:43:51 -0700
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: recommendations for NIC HW(/SW) design?
+Date: Mon, 27 Sep 2004 17:51:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41583537.2090906@us.ibm.com>
-References: <20040927080828.GA12056@gondor.apana.org.au>
+Message-ID: <20040927155144.GU3236@sunbeam.de.gnumonks.org>
+References: <20040926152955.GD17043@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="399d5c/rwW6QrXB5"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040927080828.GA12056@gondor.apana.org.au>
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+Content-Disposition: inline
+In-Reply-To: <20040926152955.GD17043@xi.wantstofly.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
 
-> ===== net/ipv4/tcp_input.c 1.73 vs edited =====
-> --- 1.73/net/ipv4/tcp_input.c	2004-09-13 10:30:58 +10:00
-> +++ edited/net/ipv4/tcp_input.c	2004-09-27 17:00:32 +10:00
-> @@ -799,10 +799,10 @@
->  	__u32 cwnd = (dst ? dst_metric(dst, RTAX_INITCWND) : 0);
->  
->  	if (!cwnd) {
-> -		if (tp->mss_cache > 1460)
-> +		if (tp->mss_cache_std > 1460)
->  			cwnd = 2;
->  		else
-> -			cwnd = (tp->mss_cache > 1095) ? 3 : 4;
-> +			cwnd = (tp->mss_cache_std > 1095) ? 3 : 4;
->  	}
->  	return min_t(__u32, cwnd, tp->snd_cwnd_clamp);
->  }
+--399d5c/rwW6QrXB5
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Helps to send after finishing commenting..
+On Sun, Sep 26, 2004 at 05:29:55PM +0200, Lennert Buytenhek wrote:
 
-I fixed this locally but was still seeing poor throughput,
-though it does correct how many we initially/on restart send out.
-Thought this was fixed in the bk tree?
+> (Since the Intel IXP processor is just an ARM processor with a network
+> interface grafted onto the chip, a bunch of things that apply to PCI
+> NIC design might not apply here.)
 
-thanks,
-Nivedita
+I think this IXP is only a UP architecture, is it?  For SMP scalability
+it would be nice to specify the Tx Interrupt in every descriptor, so you
+can cause Tx interrupts go to the cpu that actually sent the packet
+(cache locality).
+
+> thanks,
+> Lennert
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--399d5c/rwW6QrXB5
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBWDcQXaXGVTD0i/8RAkPwAJ40onleObLszderlWAjhfgfIa8axACgrMe3
+deBeIUaHHFpUtQrRMxLdEYo=
+=hAgD
+-----END PGP SIGNATURE-----
+
+--399d5c/rwW6QrXB5--
