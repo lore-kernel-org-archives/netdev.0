@@ -1,98 +1,53 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: [PATCH 2.6.9-rc2 1/1] S2io: fixes in free_shared_mem function
-Date: Thu, 2 Dec 2004 16:39:28 -0800
-Message-ID: <003901c4d8d0$8cb11830$3a10100a@S2IOtech.com>
-References: <20041118213506.1081C32887@linux.site>
-Reply-To: <ravinandan.arakali@s2io.com>
+From: Scott Feldman <sfeldma@pobox.com>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Thu, 02 Dec 2004 21:23:30 -0800
+Message-ID: <1102051410.3546.45.camel@localhost.localdomain>
+References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
+	 <41A73826.3000109@draigBrady.com> <16807.20052.569125.686158@robur.slu.se>
+	 <1101484740.24742.213.camel@mellia.lipar.polito.it>
+	 <41A76085.7000105@draigBrady.com>
+	 <1101499285.1079.45.camel@jzny.localdomain>
+	 <16811.8052.678955.795327@robur.slu.se>
+	 <1101821501.1043.43.camel@jzny.localdomain>
+	 <20041130134600.GA31515@xi.wantstofly.org>
+	 <1101824754.1044.126.camel@jzny.localdomain>
+	 <20041201001107.GE4203@xi.wantstofly.org>
+	 <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net>
+	 <16813.58484.343629.570703@robur.slu.se>
+	 <1101919791.5198.15.camel@localhost.localdomain>
+	 <16815.23964.93437.411404@robur.slu.se>
+Reply-To: sfeldma@pobox.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: <rapuru.sriram@s2io.com>, <leonid.grossman@s2io.com>,
-        <alicia.pena@s2io.com>
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, jamal <hadi@cyberus.ca>,
+        P@draigBrady.com, mellia@prezzemolo.polito.it,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Koushik'" <raghavendra.koushik@s2io.com>, <jgarzik@pobox.com>,
-        <netdev@oss.sgi.com>, <kumarkr@us.ibm.com>
-In-Reply-To: <20041118213506.1081C32887@linux.site>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16815.23964.93437.411404@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi KK,
-Does this patch look okay ? Does it address your earlier comments ?
+On Thu, 2004-12-02 at 10:23, Robert Olsson wrote: 
+> It can increase TX performance from 800 kpps to
+>   1125128pps 576Mb/sec (576065536bps) errors: 0
+>   1124946pps 575Mb/sec (575972352bps) errors: 0
 
-Thanks,
-Ravi
+These are the best numbers reported so far, right?
 
------Original Message-----
-From: Koushik [mailto:raghavendra.koushik@s2io.com]
-Sent: Thursday, November 18, 2004 1:35 PM
-To: jgarzik@pobox.com; netdev@oss.sgi.com; kumarkr@us.ibm.com
-Cc: rapuru.sriram@s2io.com; leonid.grossman@s2io.com;
-alicia.pena@s2io.com; ravinandan.arakali@s2io.com;
-raghavendra.koushik@s2io.com
-Subject: [PATCH 2.6.9-rc2 1/1] S2io: fixes in free_shared_mem function
+> And some of Scotts may still be used. 
 
+Did you try combining the two?
 
-Hello All,
-	As per KK's review comment received on Nov 8 about the free_shared_mem function, Iam sending the following patch.
+> +
+> +	if( adapter->tx_ring.next_to_use - adapter->tx_ring.next_to_clean > 80 )
+> +		e1000_clean_tx_ring(adapter);
+> +
 
-The change log includes:
+You want to use E1000_DESC_UNUSED here because of the ring wrap. ;-)
 
-1. Break from the main 'for loop' if ba[i] is NULL.
-
-2. In the second level 'for loop', if ba[i][j] is NULL, instead of 
-continuing as was done previously, we now free the ba[i] pointer and 
-break from the main 'for loop'.
-
-3. In the 'while loop' inside the second tier 'for loop', if any of the 
-three pointers (ba or ba->ba_0_org or ba->ba_1_org) is found to be NULL, 
-then ba[i], ba[i][j] and the non NULL buffer pointer if any 
-(ba_0_org or ba_1_org) is freed and break from the main 'for loop'.
-
-Signed-off-by: Koushik <raghavendra.koushik@s2io.com>
-Signed-off-by: Ravi <ravinandan.arakali@s2io.com>
----
-diff -urN vanilla_linux/drivers/net/s2io.c linux-2.6.8.1/drivers/net/s2io.c
---- vanilla_linux/drivers/net/s2io.c	2004-11-16 16:42:16.429560736 -0800
-+++ linux-2.6.8.1/drivers/net/s2io.c	2004-11-18 10:07:47.553183896 -0800
-@@ -560,21 +560,35 @@
- 	for (i = 0; i < config->rx_ring_num; i++) {
- 		blk_cnt =
- 		    config->rx_cfg[i].num_rxd / (MAX_RXDS_PER_BLOCK + 1);
-+		if (!nic->ba[i])
-+			goto end_free;
- 		for (j = 0; j < blk_cnt; j++) {
- 			int k = 0;
--			if (!nic->ba[i][j])
--				continue;
-+			if (!nic->ba[i][j]) {
-+				kfree(nic->ba[i]);
-+				goto end_free;
-+			}
- 			while (k != MAX_RXDS_PER_BLOCK) {
- 				buffAdd_t *ba = &nic->ba[i][j][k];
-+				if (!ba || !ba->ba_0_org || !ba->ba_1_org)
-+				{
-+					kfree(nic->ba[i]);
-+					kfree(nic->ba[i][j]);
-+					if(ba->ba_0_org)
-+						kfree(ba->ba_0_org);
-+					if(ba->ba_1_org)
-+						kfree(ba->ba_1_org);
-+					goto end_free;
-+				}
- 				kfree(ba->ba_0_org);
- 				kfree(ba->ba_1_org);
- 				k++;
- 			}
- 			kfree(nic->ba[i][j]);
- 		}
--		if (nic->ba[i])
--			kfree(nic->ba[i]);
-+		kfree(nic->ba[i]);
- 	}
-+end_free:
- #endif
- 
- 	if (mac_control->stats_mem) {
+-scott
