@@ -1,49 +1,49 @@
 From: Paul Jackson <pj@sgi.com>
-Subject: Re: [Lse-tech] Re: A common layer for Accounting packages
-Date: Wed, 2 Mar 2005 07:30:45 -0800
-Message-ID: <20050302073045.4dfefa11.pj@sgi.com>
-References: <4221E548.4000008@ak.jp.nec.com>
-	<20050227140355.GA23055@logos.cnet>
-	<42227AEA.6050002@ak.jp.nec.com>
-	<1109575236.8549.14.camel@frecb000711.frec.bull.fr>
-	<20050227233943.6cb89226.akpm@osdl.org>
-	<1109592658.2188.924.camel@jzny.localdomain>
-	<20050228132051.GO31837@postel.suug.ch>
-	<1109598010.2188.994.camel@jzny.localdomain>
-	<20050228135307.GP31837@postel.suug.ch>
-	<1109599803.2188.1014.camel@jzny.localdomain>
-	<20050228142551.GQ31837@postel.suug.ch>
-	<1109604693.1072.8.camel@jzny.localdomain>
-	<20050228191759.6f7b656e@zanzibar.2ka.mipt.ru>
-	<1109665299.8594.55.camel@frecb000711.frec.bull.fr>
-	<42247051.7070303@ak.jp.nec.com>
-	<1109753893.8422.127.camel@frecb000711.frec.bull.fr>
-	<20050302010614.2a8bb483.akpm@osdl.org>
+Subject: Re: [PATCH 2.6.11-rc4-mm1] connector: Add a fork connector
+Date: Wed, 2 Mar 2005 07:50:55 -0800
+Message-ID: <20050302075055.53207b1b.pj@sgi.com>
+References: <1109240677.1738.196.camel@frecb000711.frec.bull.fr>
+	<1109753292.8422.117.camel@frecb000711.frec.bull.fr>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: guillaume.thouvenin@bull.net, kaigai@ak.jp.nec.com,
-	johnpol@2ka.mipt.ru, hadi@cyberus.ca, tgraf@suug.ch,
-	marcelo.tosatti@cyclades.com, davem@redhat.com, jlan@sgi.com,
-	lse-tech@lists.sourceforge.net, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, elsa-devel@lists.sourceforge.net
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20050302010614.2a8bb483.akpm@osdl.org>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, johnpol@2ka.mipt.ru,
+        elsa-devel@lists.sourceforge.net, jlan@engr.sgi.com, gh@us.ibm.com,
+        efocht@hpce.nec.com, netdev@oss.sgi.com, kaigai@ak.jp.nec.com
+To: Guillaume Thouvenin <guillaume.thouvenin@bull.net>
+In-Reply-To: <1109753292.8422.117.camel@frecb000711.frec.bull.fr>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew wrote:
-> 5-10% slowdown on fork is expected, but
-> why was exec slower?
+In addition to worrying about performance and scaling, with accounting
+enabled or disabled, one should also try to minimize code clutter in key
+kernel files, such as fork.c
 
-Thanks for the summary, Andrew.
+For example, one might, instead of adding 40 lines os fork_connector()
+code to kernel/fork.c, instead add something like just the #include
+<linux/connector.h> and the "fork_connector(current->pid, p->pid)" call
+to kernel/fork.c, where include/linux/connector.h had something like:
 
-Guillaume (or anyone else tempted to do this) - it's a good idea, when
-posting 100 lines of data, to summarize with a line or two of words, as
-Andrew did here.  It is far more efficient for one writer to do this,
-than each of a thousand readers.
+	#ifdef CONFIG_FORK_CONNECTOR
+	static inline void fork_connector(pid_t parent, pid_t child)
+	{
+		if (cn_fork_enable)
+			__fork_connector(parent, child);
+	}
+	#else
+	static inline void fork_connector(pid_t parent, pid_t child) {}
+	#endif
 
-Hmmm ... so why was exec slower?
+Then bury the interesting code in the implementation of __fork_connector(),
+in drivers/connector/cn_fork.c or some such place.
+
+This adds a real function call in the case that cn_fork_enable is set.
+That code path requires more than that anyway (and it makes kernel stack
+backtraces more transparent).
+
+But it removes 40 lines of fork_connector detail from fork.c.  And it
+avoids marking a 40 line routine as inline ...
 
 -- 
                   I won't rest till it's the best ...
