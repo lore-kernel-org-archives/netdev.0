@@ -1,38 +1,28 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: Kernel crash in 2.6.0-test9-mm3
-Date: Wed, 19 Nov 2003 18:40:04 -0800
+From: viro@parcelfarce.linux.theplanet.co.uk
+Subject: Re: [CFT] 2.6.x experimental net driver updates
+Date: Thu, 20 Nov 2003 02:54:23 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDCE3@orsmsx402.jf.intel.com>
+Message-ID: <20031120025423.GB24159@parcelfarce.linux.theplanet.co.uk>
+References: <3FBBA954.6000601@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <reuben-linux@reub.net>, <akpm@osdl.org>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "David S. Miller" <davem@redhat.com>, "Krishna Kumar" <kumarkr@us.ibm.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <3FBBA954.6000601@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> However, with things like IOAPIC and such, it might be 
-> possible for two cpus to enter e100intr() simultaneously, 
-> both read the same status, both see that the interrupt is 
-> pending, and both thus process the interrupt and race with each other.
-> 
-> Scott, what prevents the above from happening?
+On Wed, Nov 19, 2003 at 12:33:08PM -0500, Jeff Garzik wrote:
+> Ok, Al Viro's net driver refcounting work is pretty much complete, and 
 
-Whoa, this question is freaking me out just a little bit: my assumption
-is that the device's interrupt line has been masked off at the CPU/PIC
-before e100intr() is ever called, so 1) there really isn't any need to
-disable device's interrupts from the driver (see eepro100.c), 2) or even
-hold a lock unless we shared something critical on the queuing side (see
-e1000), and 3) only one e100intr is running.  [public spanking in
-order?]
+The hell it is.  We are through with legacy probes, we are through with
+init_etherdev(), we are practically through with static struct net_device.
 
-I'm not sure what's behind the rest of the bug report, but if you're
-saying e100intr() can be running simultaneously on two different CPUs,
-then there is a problem because the test for device interrupt and the
-acking of device interrupt are two steps that need to be protected with
-a lock.
+However, we still have weird allocators (I've got almost all of them
+done by now, will submit in the next batch) and we still have struct
+net_device embedded as a field of other structures in several drivers.
 
--scott
+It's nowhere near as massive as legacy probes series, but it's going to
+be 10--20 patches.  At least.
