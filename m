@@ -1,39 +1,26 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: remove unused kernel_stat fields
-Date: Tue, 9 Apr 2002 14:02:30 -0700 (PDT)
-Sender: owner-netdev@oss.sgi.com
-Message-ID: <a8vp5i$c62$2@main.gmane.org>
+From: "Lee Chin" <leechin@mail.com>
+Subject: finding out what NIC a socket connection came in on
+Date: Tue, 09 Apr 2002 19:18:30 -0500
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20020410001830.64699.qmail@mail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
-Return-path: <owner-netdev@oss.sgi.com>
-To: <davem@redhat.com>
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+Content-Disposition: inline
+To: hahn@physics.mcmaster.ca
 List-Id: netdev.vger.kernel.org
 
+Hi,
+I have a box with 2 NICs.  I have a server that does a socket accept.  I would like to know which NIC a new socket connection originated from.  How can I do this?
 
-Dave, anyone-
-
-I can't find any references to these fields in struct kernel_stat.
-Can they be removed...or is there non-kernel code that needs to
-have them in the kernel?
-
-
-Patch against 2.5.8-pre2.  Please apply.
-
-
---- linux-258-pre2/include/linux/kernel_stat.h.STAT	Tue Apr  9 12:43:14 2002
-+++ linux-258-pre2/include/linux/kernel_stat.h	Tue Apr  9 13:40:51 2002
-@@ -29,9 +29,6 @@
- #if !defined(CONFIG_ARCH_S390)
- 	unsigned int irqs[NR_CPUS][NR_IRQS];
- #endif
--	unsigned int ipackets, opackets;
--	unsigned int ierrors, oerrors;
--	unsigned int collisions;
- };
-
- extern struct kernel_stat kstat;
-
-
+Thanks
+Lee
 -- 
-~Randy
+
+_______________________________________________
+Sign-up for your own FREE Personalized E-mail at Mail.com
+http://www.mail.com/?sr=signup
+
+
