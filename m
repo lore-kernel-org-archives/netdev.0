@@ -1,39 +1,45 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: [RFC PATCH] Change "local" route table preference from 0 to 3fff, to permit send-to-self policy routing
-Date: Sat, 19 Jun 2004 00:45:29 +0400
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2.6.7-rc3-mm2 2/5] via-velocity: uniformize use of OWNED_BY_NIC
+Date: Fri, 18 Jun 2004 23:42:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618204529.GA3106@ms2.inr.ac.ru>
-References: <20040618182505.195d76ba.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+Message-ID: <20040618234241.A21510@electric-eye.fr.zoreil.com>
+References: <20040618221014.A15640@electric-eye.fr.zoreil.com> <20040618221142.A20210@electric-eye.fr.zoreil.com> <40D3584A.9010009@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, alan@redhat.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040618182505.195d76ba.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+In-Reply-To: <40D3584A.9010009@pobox.com>; from jgarzik@pobox.com on Fri, Jun 18, 2004 at 05:02:02PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Jeff Garzik <jgarzik@pobox.com> :
+> Francois Romieu wrote:
+[...]
+> > +static inline void velocity_give_rx_desc(struct rx_desc *rd)
+> > +{
+> > +	*(u32 *)&rd->rdesc0 = 0;
+> > +	rd->rdesc0.owner = cpu_to_le32(OWNED_BY_NIC);
+> > +}
+> 
+> The patch itself is OK, and I will merge, but I wonder:
+> 
+> isn't a wmb() needed perhaps?
 
-> that problem. Something I'll look into further, unless somebody can tell me
-> that having a host reply its own ARP requests, even when received over a real
-> interface, isn't possible at all.
+/me scratches head...
 
-Sigh, do not you think that making undelatable local rule with preference 0 was
-an easy decision. This kills most of coolness of policy making yet. :-)
+Ok, everything should be fine with a change in velocity_give_many_rx_descs():
+[...]
+        if (vptr->rd_filled < 4)
+                return;
 
-Essentially, your patch becomes 100% legal after we kill the places
-where we ask "Is X.X.X.X our local address?". This thing with arp is one
-of many places when we have to do this to keep stack relatively coherent.
-We have several places where we do lookup directly in local table bypassing
-policy rules, because we just do not have enough information to look
-in right place.
+<insert a wmb() here>
 
-> kernel hacking, if there is a better way to change the "local" route table
-> preference, I'm all ears.
+        unusable = vptr->rd_filled | 0x0003;
 
-No, really. It is the best. Not made only as fool proof, because adding
-almost any rule before local one shuts down networking completely.
 
-Alexey
+I'll queue that for the next serie.
+
+--
+Ueimor
