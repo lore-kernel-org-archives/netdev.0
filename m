@@ -1,30 +1,40 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: Frequent Oops on Shutdown 2.6.10
-Date: Mon, 21 Feb 2005 16:22:41 +0900 (JST)
-Message-ID: <20050221.162241.24618885.yoshfuji@linux-ipv6.org>
+Date: Mon, 21 Feb 2005 16:29:49 +0900 (JST)
+Message-ID: <20050221.162949.65179228.yoshfuji@linux-ipv6.org>
 References: <20050220220304.1f2bd42f.akpm@osdl.org>
+	<20050221.162241.24618885.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, davem@davemloft.net, akpm@osdl.org,
         yoshfuji@linux-ipv6.org
 To: AndyLiebman@aol.com, terryg@axian.com
-In-Reply-To: <20050220220304.1f2bd42f.akpm@osdl.org>
+In-Reply-To: <20050221.162241.24618885.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+In article <20050221.162241.24618885.yoshfuji@linux-ipv6.org> (at Mon, 21 Feb 2005 16:22:41 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-In article <20050220220304.1f2bd42f.akpm@osdl.org> (at Sun, 20 Feb 2005 22:03:04 -0800), Andrew Morton <akpm@osdl.org> says:
-
-> EIP is at remove_proc_entry+0x2a/0x166
+> [IPV6] Don't remove dev_snmp6 procfs entry until all users gone.
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+> 
+> ===== net/ipv6/proc.c 1.25 vs edited =====
+> --- 1.25/net/ipv6/proc.c	2004-07-08 07:17:29 +09:00
+> +++ edited/net/ipv6/proc.c	2005-02-21 16:05:49 +09:00
 :
-> [<f8c4f051>] snmp6_unregister_dev+0x41/0x57  [ipv6]
-> [<f8c2cc7b>] in6_dev_finish_destroy+0x35/0xb6  [ipv6]
-> [<c0289967>] dst_destroy+0xa2/0xcd
+> -	if (!p)
+> +	if (!p) {
+> +		if (!proc_net_devsnmp6_users)
+> +			proc_net_remove("dev_snmp6");
+>  		goto err_proc;
+> +	}
 
-Would you test this patch, please?
+Oops, sorry, I made a mistake here.
+Please try this instead.
+
 Thanks.
 
 ------
@@ -34,7 +44,7 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
 ===== net/ipv6/proc.c 1.25 vs edited =====
 --- 1.25/net/ipv6/proc.c	2004-07-08 07:17:29 +09:00
-+++ edited/net/ipv6/proc.c	2005-02-21 16:05:49 +09:00
++++ edited/net/ipv6/proc.c	2005-02-21 16:23:57 +09:00
 @@ -31,7 +31,9 @@
  #include <net/ipv6.h>
  
@@ -46,7 +56,7 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  
  static int fold_prot_inuse(struct proto *proto)
  {
-@@ -211,13 +213,26 @@
+@@ -211,13 +213,28 @@
  			   __alignof__(struct icmpv6_mib)) < 0)
  		goto err_icmp;
  
@@ -66,8 +76,10 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  	p = create_proc_entry(idev->dev->name, S_IRUGO, proc_net_devsnmp6);
 -	if (!p)
 +	if (!p) {
-+		if (!proc_net_devsnmp6_users)
++		if (!proc_net_devsnmp6_users) {
 +			proc_net_remove("dev_snmp6");
++			proc_net_devsnmp6 = NULL;
++		}
  		goto err_proc;
 +	}
 +
@@ -77,7 +89,7 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  	p->data = idev;
  	p->proc_fops = &snmp6_seq_fops;
  
-@@ -225,6 +240,7 @@
+@@ -225,6 +242,7 @@
  	return 0;
  
  err_proc:
@@ -85,7 +97,7 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  	snmp6_mib_free((void **)idev->stats.icmpv6);
  err_icmp:
  	return err;
-@@ -232,12 +248,23 @@
+@@ -232,12 +250,23 @@
  
  int snmp6_unregister_dev(struct inet6_dev *idev)
  {
@@ -111,7 +123,7 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  	snmp6_mib_free((void **)idev->stats.icmpv6);
  
  	return 0;
-@@ -250,18 +277,12 @@
+@@ -250,18 +279,12 @@
  	if (!proc_net_fops_create("snmp6", S_IRUGO, &snmp6_seq_fops))
  		goto proc_snmp6_fail;
  
@@ -130,7 +142,7 @@ Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
  	proc_net_remove("snmp6");
  proc_snmp6_fail:
  	rc = -ENOMEM;
-@@ -271,7 +292,6 @@
+@@ -271,7 +294,6 @@
  void ipv6_misc_proc_exit(void)
  {
  	proc_net_remove("sockstat6");
