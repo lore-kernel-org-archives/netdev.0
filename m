@@ -1,213 +1,244 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 15/22] typhoon: add outbound offload processing
-Date: Thu, 30 Dec 2004 03:48:36 -0500
-Message-ID: <20041230035000.24@ori.thedillows.org>
-References: <20041230035000.23@ori.thedillows.org>
-Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261588AbUL3JXT@vger.kernel.org>
-To: netdev@oss.sgi.com
-Sender: linux-kernel-owner@vger.kernel.org
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 7/9] PKT_SCHED: rsvp: use tcf_exts API
+Date: Thu, 30 Dec 2004 13:34:58 +0100
+Message-ID: <20041230123458.GT32419@postel.suug.ch>
+References: <20041230122652.GM32419@postel.suug.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041230122652.GM32419@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/12/30 00:55:05-05:00 dave@thedillows.org 
-#   Add outbound xfrm crypto offload processing to the packet path.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# drivers/net/typhoon.c
-#   2004/12/30 00:54:46-05:00 dave@thedillows.org +130 -0
-#   Add outbound xfrm crypto offload processing to the packet path.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2004-12-30 01:09:10 -05:00
-+++ b/drivers/net/typhoon.c	2004-12-30 01:09:10 -05:00
-@@ -352,6 +352,15 @@
- #define TSO_OFFLOAD_ON		0
- #endif
+Transforms tcindex to use tcf_exts API and thus adds support for
+actions. Needs more work to allow changing parameters for
+existing filters.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+--- linux-2.6.10-bk1.orig/include/linux/pkt_cls.h	2004-12-27 22:38:14.000000000 +0100
++++ linux-2.6.10-bk1/include/linux/pkt_cls.h	2004-12-27 22:39:29.000000000 +0100
+@@ -249,6 +249,7 @@
+ 	TCA_RSVP_SRC,
+ 	TCA_RSVP_PINFO,
+ 	TCA_RSVP_POLICE,
++	TCA_RSVP_ACT,
+ 	__TCA_RSVP_MAX
+ };
  
-+#define IPSEC_NUM_DESCRIPTORS	1
-+
-+struct typhoon_xfrm_offload {
-+	u16	sa_cookie;
-+	u16	tunnel:1,
-+		ah:1,
-+		inbound:1;
-+};
-+
- static inline void
- typhoon_inc_index(u32 *index, const int count, const int num_entries)
- {
-@@ -779,12 +788,115 @@
- 	tcpd->status = 0;
+--- linux-2.6.10-bk2.orig/net/sched/cls_rsvp.h	2004-12-29 20:16:24.000000000 +0100
++++ linux-2.6.10-bk2/net/sched/cls_rsvp.h	2004-12-29 20:24:09.000000000 +0100
+@@ -95,9 +95,7 @@
+ 	u8			tunnelhdr;
+ 
+ 	struct tcf_result	res;
+-#ifdef CONFIG_NET_CLS_POLICE
+-	struct tcf_police	*police;
+-#endif
++	struct tcf_exts		exts;
+ 
+ 	u32			handle;
+ 	struct rsvp_session	*sess;
+@@ -120,18 +118,20 @@
+ 	return h & 0xF;
  }
  
-+static inline int
-+typhoon_ipsec_fill(struct typhoon *tp, struct sk_buff *skb,
-+				struct transmit_ring *txRing)
+-#ifdef CONFIG_NET_CLS_POLICE
+-#define RSVP_POLICE() \
+-if (f->police) { \
+-	int pol_res = tcf_police(skb, f->police); \
+-	if (pol_res < 0) continue; \
+-	if (pol_res) return pol_res; \
+-}
+-#else
+-#define RSVP_POLICE()
+-#endif
+-
++static struct tcf_ext_map rsvp_ext_map = {
++	.police = TCA_RSVP_POLICE,
++	.action = TCA_RSVP_ACT
++};
+ 
++#define RSVP_APPLY_RESULT()					\
++	do {							\
++		int r = tcf_exts_exec(skb, &f->exts, res);	\
++		if (r < 0)					\
++			continue;				\
++		else if (r > 0)					\
++			return r;				\
++	} while(0)
++	
+ static int rsvp_classify(struct sk_buff *skb, struct tcf_proto *tp,
+ 			 struct tcf_result *res)
+ {
+@@ -189,8 +189,7 @@
+ #endif
+ 				    ) {
+ 					*res = f->res;
+-
+-					RSVP_POLICE();
++					RSVP_APPLY_RESULT();
+ 
+ matched:
+ 					if (f->tunnelhdr == 0)
+@@ -205,7 +204,7 @@
+ 			/* And wildcard bucket... */
+ 			for (f = s->ht[16]; f; f = f->next) {
+ 				*res = f->res;
+-				RSVP_POLICE();
++				RSVP_APPLY_RESULT();
+ 				goto matched;
+ 			}
+ 			return -1;
+@@ -251,6 +250,14 @@
+ 	return -ENOBUFS;
+ }
+ 
++static inline void
++rsvp_delete_filter(struct tcf_proto *tp, struct rsvp_filter *f)
 +{
-+	struct xfrm_offload *xol;
-+	struct typhoon_xfrm_offload *txo;
-+	struct ipsec_desc *ipsec;
-+	int last_was_esp = 0;
-+	int i, entry;
-+	u32 sa[3];
-+
-+	ipsec = (struct ipsec_desc *) (txRing->ringBase + txRing->lastWrite);
-+	typhoon_inc_tx_index(&txRing->lastWrite, 1);
-+
-+	ipsec->flags = TYPHOON_OPT_DESC | TYPHOON_OPT_IPSEC;
-+	ipsec->numDesc = 1;
-+	ipsec->ipsecFlags = TYPHOON_IPSEC_USE_IV;
-+	ipsec->reserved = 0;
-+	sa[0] = sa[1] = sa[2] = 0;
-+
-+	/* Fill the offload descriptor with the cookies to indicate
-+	 * which key set to use when. While we're looping through the
-+	 * offloaded xfrms, if the last xfrm was ESP, and we're doing
-+	 * AH now, * then we can move the ESP part to the top of the
-+	 * descriptor. Otherwise, we'll need to move to the next one.
-+	 * We overrun into sa[2] to prevent needing to check the entry
-+	 * limit in the middile of things.
-+	 */
-+	entry = i = 0;
-+	xol = skb_get_xfrm_offload(skb, i++);
-+	while(xol && entry < 2) {
-+		xfrm_offload_hold(xol);
-+		txo = xfrm_offload_priv(xol);
-+		if(sa[entry] && txo->tunnel)
-+			entry++;
-+		if(sa[entry] & 0xffff) {
-+			if(last_was_esp && txo->ah)
-+				sa[entry] <<= 16;
-+			else
-+				entry++;
-+		}
-+
-+		sa[entry] |= txo->sa_cookie;
-+		last_was_esp = !txo->ah;
-+
-+		xol = skb_get_xfrm_offload(skb, i++);
-+	}
-+
-+	/* Make sure we used all of the xfrms that were offloaded.
-+	 */
-+	if(unlikely(entry == 2 && xol)) {
-+		if(net_ratelimit())
-+			printk(KERN_ERR "%s: failing to offload IPSEC packet "
-+					"with too many xfrms!\n", tp->name);
-+		goto bad_packet;
-+	}
-+
-+	ipsec->sa[0] = cpu_to_le16(sa[0] & 0xffff);
-+	ipsec->sa[1] = cpu_to_le16(sa[0] >> 16);
-+	ipsec->sa[2] = cpu_to_le16(sa[1] & 0xffff);
-+	ipsec->sa[3] = cpu_to_le16(sa[1] >> 16);
-+
-+	/* The current 3XP firmware seems to hang if we try to feed it
-+	 * the same (non-zero) SA twice on the same packet. So, detect
-+	 * and drop those packets as it is likely a stack bug, or
-+	 * misconfiguration of policy.
-+	 *
-+	 * I.e., we should never hit this.
-+	 */
-+	if(unlikely(ipsec->sa[2])) {
-+		if(unlikely(ipsec->sa[2] == ipsec->sa[3]))
-+			goto avoiding_sa_hang;
-+		if(unlikely(ipsec->sa[2] == ipsec->sa[0] ||
-+					ipsec->sa[2] == ipsec->sa[1]))
-+			goto avoiding_sa_hang;
-+		if(unlikely(ipsec->sa[3] && (ipsec->sa[3] == ipsec->sa[0] ||
-+					ipsec->sa[3] == ipsec->sa[1])))
-+			goto avoiding_sa_hang;
-+	}
-+
-+	if(unlikely(ipsec->sa[1] && ipsec->sa[0] == ipsec->sa[1]))
-+		goto avoiding_sa_hang;
-+
-+	return 0;
-+
-+avoiding_sa_hang:
-+	if(net_ratelimit())
-+		printk(KERN_ERR "%s: failing attempted IPSEC offload with "
-+				"duplicate SAs %08x %08x\n", tp->name,
-+				sa[0], sa[1]);
-+
-+bad_packet:
-+	/* Any xfrm_offloads we've attached to this skb will be
-+	 * released for us when typhoon_start_tx() calls dev_kfree_skb_any()
-+	 * on it.
-+	 *
-+	 * Return an error to indicate this packet cannot be offloaded as
-+	 * specified and should never make it to the wire.
-+	 */
-+	return -EINVAL;
++	tcf_unbind_filter(tp, &f->res);
++	tcf_exts_destroy(tp, &f->exts);
++	kfree(f);
 +}
 +
- static int
- typhoon_start_tx(struct sk_buff *skb, struct net_device *dev)
+ static void rsvp_destroy(struct tcf_proto *tp)
  {
- 	struct typhoon *tp = netdev_priv(dev);
- 	struct transmit_ring *txRing;
- 	struct tx_desc *txd, *first_txd;
-+	u32 origLastWrite;
- 	dma_addr_t skb_dma;
- 	int numDesc;
+ 	struct rsvp_head *data = xchg(&tp->root, NULL);
+@@ -273,11 +280,7 @@
  
-@@ -811,6 +923,9 @@
- 	if(skb_tso_size(skb))
- 		numDesc++;
+ 				while ((f = s->ht[h2]) != NULL) {
+ 					s->ht[h2] = f->next;
+-					tcf_unbind_filter(tp, &f->res);
+-#ifdef CONFIG_NET_CLS_POLICE
+-					tcf_police_release(f->police,TCA_ACT_UNBIND);
+-#endif
+-					kfree(f);
++					rsvp_delete_filter(tp, f);
+ 				}
+ 			}
+ 			kfree(s);
+@@ -299,12 +302,7 @@
+ 			tcf_tree_lock(tp);
+ 			*fp = f->next;
+ 			tcf_tree_unlock(tp);
+-			tcf_unbind_filter(tp, &f->res);
+-#ifdef CONFIG_NET_CLS_POLICE
+-			tcf_police_release(f->police,TCA_ACT_UNBIND);
+-#endif
+-
+-			kfree(f);
++			rsvp_delete_filter(tp, f);
  
-+	if(skb_has_xfrm_offload(skb))
-+		numDesc++;
+ 			/* Strip tree */
+ 
+@@ -412,6 +410,7 @@
+ 	struct tc_rsvp_pinfo *pinfo = NULL;
+ 	struct rtattr *opt = tca[TCA_OPTIONS-1];
+ 	struct rtattr *tb[TCA_RSVP_MAX];
++	struct tcf_exts e;
+ 	unsigned h1, h2;
+ 	u32 *dst;
+ 	int err;
+@@ -419,38 +418,38 @@
+ 	if (opt == NULL)
+ 		return handle ? -EINVAL : 0;
+ 
+-	if (rtattr_parse(tb, TCA_RSVP_MAX, RTA_DATA(opt), RTA_PAYLOAD(opt)) < 0)
++	if (rtattr_parse_nested(tb, TCA_RSVP_MAX, opt) < 0)
+ 		return -EINVAL;
+ 
++	err = tcf_exts_validate(tp, tb, tca[TCA_RATE-1], &e, &rsvp_ext_map);
++	if (err < 0)
++		return err;
 +
- 	/* When checking for free space in the ring, we need to also
- 	 * account for the initial Tx descriptor, and we always must leave
- 	 * at least one descriptor unused in the ring so that it doesn't
-@@ -823,6 +938,7 @@
- 	while(unlikely(typhoon_num_free_tx(txRing) < (numDesc + 2)))
- 		smp_rmb();
+ 	if ((f = (struct rsvp_filter*)*arg) != NULL) {
+ 		/* Node exists: adjust only classid */
  
-+	origLastWrite = txRing->lastWrite;
- 	first_txd = (struct tx_desc *) (txRing->ringBase + txRing->lastWrite);
- 	typhoon_inc_tx_index(&txRing->lastWrite, 1);
- 
-@@ -855,6 +971,14 @@
- 		typhoon_tso_fill(skb, txRing, tp->txlo_dma_addr);
+ 		if (f->handle != handle && handle)
+-			return -EINVAL;
++			goto errout2;
+ 		if (tb[TCA_RSVP_CLASSID-1]) {
+ 			f->res.classid = *(u32*)RTA_DATA(tb[TCA_RSVP_CLASSID-1]);
+ 			tcf_bind_filter(tp, &f->res, base);
+ 		}
+-#ifdef CONFIG_NET_CLS_POLICE
+-		if (tb[TCA_RSVP_POLICE-1]) {
+-			err = tcf_change_police(tp, &f->police,
+-				tb[TCA_RSVP_POLICE-1], tca[TCA_RATE-1]);
+-			if (err < 0)
+-				return err;
+-		}
+-#endif
++
++		tcf_exts_change(tp, &f->exts, &e);
+ 		return 0;
  	}
  
-+	if(skb_has_xfrm_offload(skb)) {
-+		first_txd->processFlags |= TYPHOON_TX_PF_IPSEC;
-+		first_txd->numDesc++;
-+
-+		if(typhoon_ipsec_fill(tp, skb, txRing))
-+			goto error;
-+	}
-+
- 	txd = (struct tx_desc *) (txRing->ringBase + txRing->lastWrite);
- 	typhoon_inc_tx_index(&txRing->lastWrite, 1);
+ 	/* Now more serious part... */
++	err = -EINVAL;
+ 	if (handle)
+-		return -EINVAL;
++		goto errout2;
+ 	if (tb[TCA_RSVP_DST-1] == NULL)
+-		return -EINVAL;
++		goto errout2;
  
-@@ -915,6 +1039,7 @@
- 	 * Tx header.
- 	 */
- 	numDesc = MAX_SKB_FRAGS + TSO_NUM_DESCRIPTORS + 1;
-+	numDesc += IPSEC_NUM_DESCRIPTORS;
++	err = -ENOBUFS;
+ 	f = kmalloc(sizeof(struct rsvp_filter), GFP_KERNEL);
+ 	if (f == NULL)
+-		return -ENOBUFS;
++		goto errout2;
  
- 	if(typhoon_num_free_tx(txRing) < (numDesc + 2)) {
- 		netif_stop_queue(dev);
-@@ -927,6 +1052,11 @@
- 			netif_wake_queue(dev);
- 	}
- 
-+	return 0;
+ 	memset(f, 0, sizeof(*f));
+ 	h2 = 16;
+@@ -516,10 +515,8 @@
+ 			f->sess = s;
+ 			if (f->tunnelhdr == 0)
+ 				tcf_bind_filter(tp, &f->res, base);
+-#ifdef CONFIG_NET_CLS_POLICE
+-			if (tb[TCA_RSVP_POLICE-1])
+-				tcf_change_police(tp, &f->police, tb[TCA_RSVP_POLICE-1], tca[TCA_RATE-1]);
+-#endif
 +
-+error:
-+	txRing->lastWrite = origLastWrite;
-+	dev_kfree_skb_any(skb);
- 	return 0;
++			tcf_exts_change(tp, &f->exts, &e);
+ 
+ 			for (fp = &s->ht[h2]; *fp; fp = &(*fp)->next)
+ 				if (((*fp)->spi.mask&f->spi.mask) != f->spi.mask)
+@@ -560,6 +557,8 @@
+ errout:
+ 	if (f)
+ 		kfree(f);
++errout2:
++	tcf_exts_destroy(tp, &e);
+ 	return err;
  }
  
+@@ -624,17 +623,14 @@
+ 		RTA_PUT(skb, TCA_RSVP_CLASSID, 4, &f->res.classid);
+ 	if (((f->handle>>8)&0xFF) != 16)
+ 		RTA_PUT(skb, TCA_RSVP_SRC, sizeof(f->src), f->src);
+-#ifdef CONFIG_NET_CLS_POLICE
+-	if (tcf_dump_police(skb, f->police, TCA_RSVP_POLICE) < 0)
++
++	if (tcf_exts_dump(skb, &f->exts, &rsvp_ext_map) < 0)
+ 		goto rtattr_failure;
+-#endif
+ 
+ 	rta->rta_len = skb->tail - b;
+-#ifdef CONFIG_NET_CLS_POLICE
+-	if (f->police)
+-		if (tcf_police_dump_stats(skb, f->police) < 0)
+-			goto rtattr_failure;
+-#endif
++
++	if (tcf_exts_dump_stats(skb, &f->exts, &rsvp_ext_map) < 0)
++		goto rtattr_failure;
+ 	return skb->len;
+ 
+ rtattr_failure:
