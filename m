@@ -1,34 +1,57 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [IPv4] Kill remnant of ip_nat_dumb
-Date: 22 Sep 2004 08:10:39 -0400
+Subject: Re: [PATCH] Clean up fib_hash datastructures
+Date: 22 Sep 2004 08:12:34 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095855039.1045.67.camel@jzny.localdomain>
-References: <20040922040155.GA19302@gondor.apana.org.au>
+Message-ID: <1095855154.1047.70.camel@jzny.localdomain>
+References: <20040918203319.24004d6e.davem@davemloft.net>
+	 <1095645106.1048.190.camel@jzny.localdomain>
+	 <20040919195351.0b3560e6.davem@davemloft.net>
+	 <1095686672.1049.301.camel@jzny.localdomain>
+	 <20040920121123.70baf895.davem@davemloft.net>
+	 <20040921034212.GA28462@gondor.apana.org.au>
+	 <20040920231805.3f18479c.davem@davemloft.net>
+	 <20040921090423.GE8058@wotan.suse.de>
+	 <20040921093252.GA32545@gondor.apana.org.au>
+	 <1095764621.1049.14.camel@jzny.localdomain>
+	 <1095809938.2340.19.camel@localhost.localdomain>
+	 <1095822637.1048.23.camel@jzny.localdomain>
+	 <1095854181.2342.2.camel@localhost.localdomain>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040922040155.GA19302@gondor.apana.org.au>
+To: Steve Blake <slblake@petri-meat.com>
+In-Reply-To: <1095854181.2342.2.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2004-09-22 at 07:56, Steven Blake wrote:
+> On Tue, 2004-09-21 at 23:10, jamal wrote:
+> 
+> > On Tue, 2004-09-21 at 19:38, Steven Blake wrote:
+> > 
+> > > RFC 1812 was written before TOS routes were pulled out of OSPFv2 (due to
+> > > too fee independent implementations).  No one implements FIB lookup as
+> > > described in RFC 1812 in the core.  What people do implement is PBR, as
+> > > well as DSCP-based nexthop selection for MPLS DIFF-TE (RFC 3564).
+> > 
+> > What about edge?
+> 
+> I've seen no evidence that any HW-based router is doing this.
 
-Geez, I missed that we killed static NAT too. Whats wrong with it?
-I know at least two users of this - did we ask or 
-is posting on netdev == ask?
+None of the chips i have come across had it - what about NPF, are they
+putting this in their specs?
+
+> > The PBR nh selection is a post routing policy though. Do you see it 
+> > valuable to have DSCP replace TOS for lookup? 
+> 
+> No.  No protocol is distributing DSCP-based routes.
+> 
+
+Ok, sounds like we can write an obituary for TOS based routing.
+RIP.
 
 cheers,
 jamal
-
-On Wed, 2004-09-22 at 00:01, Herbert Xu wrote:
-> Hi Dave:
-> 
-> This line in net/ipv4/Makefile was left behind when the rest of the
-> dumb NAT option was taken out.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Cheers,
