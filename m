@@ -1,29 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Privacy Extensions for Stateless Address
- Autoconfiguration in IPv6
-Date: Thu, 31 Oct 2002 16:49:40 +0900 (JST)
+From: Werner Almesberger <wa@almesberger.net>
+Subject: TCP connection passing, version 1
+Date: Thu, 31 Oct 2002 04:59:09 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021031.164940.672083668.yoshfuji@linux-ipv6.org>
-References: <20021031.163209.595697847.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0210310942030.19356-100000@netcore.fi>
+Message-ID: <20021031045909.A15756@almesberger.net>
+References: <20021031000249.A20233@almesberger.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com,
-   kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0210310942030.19356-100000@netcore.fi>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20021031000249.A20233@almesberger.net>; from wa@almesberger.net on Thu, Oct 31, 2002 at 12:02:49AM -0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0210310942030.19356-100000@netcore.fi> (at Thu, 31 Oct 2002 09:43:40 +0200 (EET)), Pekka Savola <pekkas@netcore.fi> says:
+A little update:
 
-> Generating and re-generating new temporary addresses seems to be a useless 
-> work and just new addresses unless they're being used at least by some 
-> applications.
+http://www.almesberger.net/tcpcp/tcpcp-1.tar.gz
 
-set default to 0 (don't use it) for now is ok?
+This one gets timestamps right, but needs to change a few things
+in the rest of TCP. I've also added a Web server demo application.
 
---yoshfuji
+- Werner
+
+----------------------------------- CHANGES -----------------------------------
+
+Version 1 (31-OCT-2002)
+-----------------------
+
+- tcpcp_hooks now try to load the tcpcp module
+- added ts_offset to struct tcp_opt and related structures, so that tcpcp can
+  adjust local timestamps on a per-socket basis
+- added app/sendcp, a simple Web server with connection passing
+- /proc/sys/net/ipv4/sysctl_privileged was not created when using tcpcp as a
+  module
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
