@@ -1,51 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH: 2.6.12-rc1] mii: Add test for GigE support
-Date: Tue, 22 Mar 2005 18:27:47 -0500
-Message-ID: <4240A9F3.5040704@pobox.com>
-References: <20050322231746.GA27770@xyzzy>
+From: "Alex Aizman" <alex@neterion.com>
+Subject: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
+Date: Tue, 22 Mar 2005 15:29:34 -0800
+Message-ID: <200503222330.j2MNU2DD028953@guinness.s2io.com>
+Reply-To: <alex@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, James Chapman <jchapman@katalix.com>
-To: Dale Farnsworth <dale@farnsworth.org>
-In-Reply-To: <20050322231746.GA27770@xyzzy>
+Cc: <davem@davemloft.net>, <ak@muc.de>, <jgarzik@pobox.com>
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dale Farnsworth wrote:
-> This patch adds the ability to test a PHY for GigE support
-> 
-> Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
-> 
-> Index: linux-2.5-enet/drivers/net/mii.c
-> ===================================================================
-> --- linux-2.5-enet.orig/drivers/net/mii.c
-> +++ linux-2.5-enet/drivers/net/mii.c
-> @@ -207,6 +207,21 @@
->  	return 0;
->  }
->  
-> +int mii_check_gmii_support(struct mii_if_info *mii)
-> +{
-> +	int reg;
-> +
-> +	reg = mii->mdio_read(mii->dev, mii->phy_id, MII_BMSR);
-> +	if (reg & BMSR_HAS_EXTSTAT1000) {
-> +		reg = mii->mdio_read(mii->dev, mii->phy_id, MII_EXTSTAT1000);
-> +		if (reg & (ESR_1000_BASE_X_FD | ESR_1000_BASE_T_FD |
-> +			   ESR_1000_BASE_X_HD | ESR_1000_BASE_T_HD))
-> +			return 1;
-> +	}
-> +
-> +	return 0;
+This is our 2nd attempt to submit "xge", the experimental driver for
+Neterion, Inc (formerly S2io, Inc) family of 10GbE adapters. 
 
-Two comments:
+The "first attempt", along with the still relevant description of features
+and motivations, can be looked up at
+http://oss.sgi.com/archives/netdev/2005-03/msg00854.html. Note that the xge
+driver supports the new 10GbE PCI-X 266MHz adapter.
 
-1) you need to add EXPORT_SYMBOL() when adding new API functions (see 
-the bottom of the file).
+Changes
+======
 
-2) Reading a non-existent register will return all 1's in most cases, so 
-I am not sure if this is the best test.
+Removed HAL layering, worked on the coding style to make it compliant with
+the kernel style, re-organized the code to accommodate community feedback.
 
-	Jeff
+Download
+======
+
+A single gzipped patch (filename xge-v.1.1.2870-2.6.11.patch.gz, cksum
+2732698831) can be downloaded from: ftp://linuxsrc:opensource@ns1.s2io.com
+
+Signed-off-by: Dmitry Yusupov <dima@neterion.com>
+Signed-off-by: Raghavendra Koushik <raghavendra.koushik@neterion.com>
+Signed-off-by: Alex Aizman <alex@neterion.com>
