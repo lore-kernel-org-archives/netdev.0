@@ -1,74 +1,33 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] kill rtnl_exlock stubs
-Date: Tue, 27 Jul 2004 20:38:42 +0200
+From: James Morris <jmorris@redhat.com>
+Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
+Date: Tue, 27 Jul 2004 14:39:25 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4106A132.8040207@trash.net>
-References: <20040727095057.78c7419c@dell_ss3.pdx.osdl.net>
+Message-ID: <Xine.LNX.4.44.0407271439001.7805-100000@dhcp83-76.boston.redhat.com>
+References: <200407272102.58638.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050300050105030606070004"
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        Jamal Hadi Salim <hadi@znyx.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Matt Mackall <mpm@selenic.com>, Niranjan <niranjan_cs2905@yahoo.com>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040727095057.78c7419c@dell_ss3.pdx.osdl.net>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200407272102.58638.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050300050105030606070004
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Tue, 27 Jul 2004, Vladimir Kondratiev wrote:
 
-Stephen Hemminger wrote:
-> Rtnetlink has some macro's that are relics from earlier locking.
-> They are only used a couple of places so are easy to kill.
+> We also saw the same (crypto modules goes to sleep).
+> Due to this, we decided to not use cryptoapi for our wireless driver, but 
+> compile the same crypto functions into the driver. I know this is code 
+> duplication, but Tx and Rx paths work in BH context (I reschedule it on IRQ 
+> Rx to use cheaper time).
+> 
+> Do cryptoapi maintainers aware of this issue?
 
-The variable "exclusive" in rtnetlink_rcv_msg becomes useless with
-this patch. This patch (on top of Stephen's patch) removes it.
+The crypto functions should be safe to use in softirq context.
 
-Regards
-Patrick
 
---------------050300050105030606070004
-Content-Type: text/x-patch;
- name="useless-var.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="useless-var.diff"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/07/27 20:32:23+02:00 kaber@trash.net 
-#   [NET]: Remove useless variable in rtnetlink_rcv_msg
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/core/rtnetlink.c
-#   2004/07/27 20:32:10+02:00 kaber@trash.net +0 -4
-#   [NET]: Remove useless variable in rtnetlink_rcv_msg
-# 
-diff -Nru a/net/core/rtnetlink.c b/net/core/rtnetlink.c
---- a/net/core/rtnetlink.c	2004-07-27 20:33:47 +02:00
-+++ b/net/core/rtnetlink.c	2004-07-27 20:33:47 +02:00
-@@ -335,7 +335,6 @@
- 	struct rtnetlink_link *link_tab;
- 	struct rtattr	*rta[RTATTR_MAX];
- 
--	int exclusive = 0;
- 	int sz_idx, kind;
- 	int min_len;
- 	int family;
-@@ -401,9 +400,6 @@
- 		skb_pull(skb, rlen);
- 		return -1;
- 	}
--
--	if (kind != 2) 
--		exclusive = 1;
- 
- 	memset(&rta, 0, sizeof(rta));
- 
-
---------------050300050105030606070004--
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
