@@ -1,35 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: IPv6 dead in -bk11
-Date: Wed, 3 Nov 2004 12:08:48 -0800
-Message-ID: <20041103120848.632e8fee.davem@davemloft.net>
-References: <20041102.225343.06193184.yoshfuji@linux-ipv6.org>
-	<4187A4E3.8010600@pobox.com>
-	<20041103.012923.102810732.yoshfuji@linux-ipv6.org>
-	<20041104.012128.51410945.yoshfuji@linux-ipv6.org>
+Subject: Re: [TCP] Modular IPv6 support in tcpdiag
+Date: Wed, 3 Nov 2004 12:20:50 -0800
+Message-ID: <20041103122050.50f6f556.davem@davemloft.net>
+References: <20041103094451.GA20220@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        akpm@osdl.org, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20041104.012128.51410945.yoshfuji@linux-ipv6.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041103094451.GA20220@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 04 Nov 2004 01:21:28 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Wed, 3 Nov 2004 20:44:51 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> In article <20041103.012923.102810732.yoshfuji@linux-ipv6.org> (at Wed, 03 Nov 2004 01:29:23 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-> 
-> > So... I guess that kernel failed to add "default route" on receipt of RA.
-> > Right?
-> :
-> 
-> Sorry, this bug was introduced by my changeset:
-> <http://linux.bkbits.net:8080/linux-2.5/cset@417dca81tJ4RRAxhWTbn0p6hI-1XIQ>.
-> 
-> David, this should fix the issue.
+> This patch allows tcpdiag to support ipv6 work as a module when itself
+> is also a module.
 
-Patch applied, thanks for tracking down and fixing this bug.
+Any particular reason you didn't use the same config ifdef
+tests we use for structure layouts?  Ie.
+
+#if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
+
+I don't see the need for the special new config option.
