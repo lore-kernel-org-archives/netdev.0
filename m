@@ -1,58 +1,49 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: 19 Dec 2004 18:05:17 -0500
-Message-ID: <1103497516.1046.231.camel@jzny.localdomain>
-References: <OF28701C56.81E1D26E-ONC1256F6B.00513EDD-C1256F6B.0052AF84@de.ibm.com>
-	 <1103484552.1046.155.camel@jzny.localdomain>  <41C600D7.70005@tpack.net>
-Reply-To: hadi@cyberus.ca
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: LLTX and netif_stop_queue
+Date: Sun, 19 Dec 2004 15:16:58 -0800
+Message-ID: <527jndnaj9.fsf@topspin.com>
+References: <52llbwoaej.fsf@topspin.com>
+	<20041217214432.07b7b21e.davem@davemloft.net>
+	<1103484675.1050.158.camel@jzny.localdomain>
+	<52fz21ncgh.fsf@topspin.com>
+	<1103497592.1046.235.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, jgarzik@pobox.com,
-        netdev@oss.sgi.com, Paul Jakma <paul@clubi.ie>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <41C600D7.70005@tpack.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1103497592.1046.235.camel@jzny.localdomain> (jamal's message
+	of "19 Dec 2004 18:06:32 -0500")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2004-12-19 at 17:29, Tommy Christensen wrote:
+    Roland> This seems a little risky.  I can't point to a specific
+    Roland> deadlock but it doesn't seem right on general principles
+    Roland> to unlock in a different order than you nested the locks
+    Roland> when acquiring them -- if I understand correctly, you're
+    Roland> suggesting lock(queue_lock), lock(tx_lock),
+    Roland> unlock(queue_lock), unlock(tx_lock).
 
-> I haven't tried this myself, but surely it can happen when the
-> socket send-buffer is smaller than what can be queued up for
-> transmission: i.e. in the qdisc queue and device DMA ring.
+    jamal> There is no deadlock. Thats exactly how things work. Try
+    jamal> the patches i posted.
 
-Shouldnt this have to do with socket options? If you wish to block while
-waiting for send, then you should be allowed.
-For a routing protocol that actually is notified that the link went
-down, it should probably flush those socket buffer at that point.
+Thinking about it more, I guess it's OK.  I was just think about the
+basic general rule that locks need to be acquired/released in LIFO
+order to avoid deadlock (eg lock(A), lock(B), unlock(B), unlock(A)).
 
-> And even more so, when sending to multiple devices from one socket.
+However in this case unlocking queue_lock after acquiring the driver's
+tx_lock seems to be OK because the driver does a trylock on tx_lock in
+the xmit path, so it can't deadlock.  At worst the trylock will just
+fail to get the lock.
 
-Yes, this looks more within reason. I dont know what the answer to this
-is. But would be helpful for someone to create a setup that reproduces
-this.
-
-> > Look at e1000 they do it right there. 
-> > 
-> > On link up:
-> > 	netif_carrier_on(netdev);
-> > 	netif_wake_queue(netdev);
-> > On Link Down:
-> > 	netif_carrier_off(netdev); // wonder if these need swapping
-> > 	netif_stop_queue(netdev);
-> > 
-> 
-> Well, this is the same as what started this whole thread.
-> I believe that stopping the queue on link-down events is simply
-> bad behavior of the driver.
-
->From what Thomas was saying, this is not what he was doing. Read his
-email.
-
-cheers,
-jamal
+Thanks,
+  Roland
