@@ -1,93 +1,36 @@
-From: Jan Oravec <jan.oravec@6com.sk>
-Subject: Re: [patch 6/18] gcc-3.5: ipv6/ndisc.c fixes
-Date: Mon, 26 Jan 2004 23:44:10 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040126224410.GA8133@wsx.ksp.sk>
-References: <200401251107.i0PB7Go25072@mail.osdl.org>
-Reply-To: Jan Oravec <jan.oravec@6com.sk>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH]: altq HFSC port
+Date: Mon, 26 Jan 2004 23:27:06 +0100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <4015943A.8020104@trash.net>
+References: <Pine.GSO.4.42.0401261228290.22399-200000@stinky.trash.net>	<1075128375.1746.392.camel@jzny.localdomain> <20040126.102429.55841404.davem@redhat.com> <401560A6.7030803@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
-Content-Disposition: inline
-In-Reply-To: <200401251107.i0PB7Go25072@mail.osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <401560A6.7030803@trash.net>
 List-Id: netdev.vger.kernel.org
 
-Isn't syntax like:
+Patrick McHardy wrote:
 
-> -	skb->h.raw = (unsigned char*) msg = (struct nd_msg *) skb_put(skb, len);
-> +	skb->h.raw = (unsigned char*) (msg = (struct nd_msg *) skb_put(skb, len));
+>
+> This mail from Alan states that BSD without advertising clause linked
+> with GPL ends up as GPL anyways, so I'm not sure if there is a problem.
+> http://www.ussg.iu.edu/hypermail/linux/kernel/0110.2/0924.html
+> I'm going to look for some more information before bothering the
+> authors with License stuff again.
+>
+I've tried to get some more information and clear up my misconceptions, I can
+of course not just relicense the existing code. Since mixing GPL and BSD without
+advertising clause is not a problem if the resulting code _as a whole_ is GPL, I
+think I only have to mark the pre-existing code being subject to the original
+license. The code as a whole is not dual-licensed, so MODULE_LICENSE stays GPL.
 
-accepted in gcc-3.5 ?
+Does that sound reasonable ?
 
-The warning was about casting msg to unsigned char* and then assigning right
-side into that expression with casts.
-
-I wonder the old code did not produce warnings in gcc-3.3; it assigned to
-unsigned char* variable a struct nd_msg* variable.
+Best regards,
+Patrick
 
 
-Jan
-
-
-On Sun, Jan 25, 2004 at 03:07:16AM -0800, akpm@osdl.org wrote:
-> 
-> 
-> net/ipv6/ndisc.c: In function `ndisc_send_na':
-> net/ipv6/ndisc.c:478: warning: use of cast expressions as lvalues is deprecated
-> 
-> 
-> 
-> ---
-> 
->  net/ipv6/ndisc.c |   12 ++++++++----
->  1 files changed, 8 insertions(+), 4 deletions(-)
-> 
-> diff -puN net/ipv6/ndisc.c~gcc-35-ip6-ndisc-fix net/ipv6/ndisc.c
-> --- 25/net/ipv6/ndisc.c~gcc-35-ip6-ndisc-fix	2004-01-19 13:36:19.000000000 -0800
-> +++ 25-akpm/net/ipv6/ndisc.c	2004-01-19 13:36:19.000000000 -0800
-> @@ -475,7 +475,8 @@ static void ndisc_send_na(struct net_dev
->  	skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
->  	ip6_nd_hdr(sk, skb, dev, src_addr, daddr, IPPROTO_ICMPV6, len);
->  
-> -	skb->h.raw = (unsigned char*) msg = (struct nd_msg *) skb_put(skb, len);
-> +	msg = (struct nd_msg *)skb_put(skb, len);
-> +	skb->h.raw = (unsigned char*)msg;
->  
->          msg->icmph.icmp6_type = NDISC_NEIGHBOUR_ADVERTISEMENT;
->          msg->icmph.icmp6_code = 0;
-> @@ -559,7 +560,8 @@ void ndisc_send_ns(struct net_device *de
->  	skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
->  	ip6_nd_hdr(sk, skb, dev, saddr, daddr, IPPROTO_ICMPV6, len);
->  
-> -	skb->h.raw = (unsigned char*) msg = (struct nd_msg *)skb_put(skb, len);
-> +	msg = (struct nd_msg *)skb_put(skb, len);
-> +	skb->h.raw = (unsigned char*)msg;
->  	msg->icmph.icmp6_type = NDISC_NEIGHBOUR_SOLICITATION;
->  	msg->icmph.icmp6_code = 0;
->  	msg->icmph.icmp6_cksum = 0;
-> @@ -630,7 +632,8 @@ void ndisc_send_rs(struct net_device *de
->  	skb_reserve(skb, (dev->hard_header_len + 15) & ~15);
->  	ip6_nd_hdr(sk, skb, dev, saddr, daddr, IPPROTO_ICMPV6, len);
->  
-> -        skb->h.raw = (unsigned char*) hdr = (struct icmp6hdr *) skb_put(skb, len);
-> +        hdr = (struct icmp6hdr *)skb_put(skb, len);
-> +        skb->h.raw = (unsigned char*)hdr;
->          hdr->icmp6_type = NDISC_ROUTER_SOLICITATION;
->          hdr->icmp6_code = 0;
->          hdr->icmp6_cksum = 0;
-> @@ -1374,7 +1377,8 @@ void ndisc_send_redirect(struct sk_buff 
->  	ip6_nd_hdr(sk, buff, dev, &saddr_buf, &skb->nh.ipv6h->saddr,
->  		   IPPROTO_ICMPV6, len);
->  
-> -	buff->h.raw = (unsigned char*) icmph = (struct icmp6hdr *) skb_put(buff, len);
-> +	icmph = (struct icmp6hdr *)skb_put(buff, len);
-> +	buff->h.raw = (unsigned char*)icmph;
->  
->  	memset(icmph, 0, sizeof(struct icmp6hdr));
->  	icmph->icmp6_type = NDISC_REDIRECT;
-> 
-> _
-> 
