@@ -1,29 +1,33 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
-Date: Tue, 7 Dec 2004 21:30:53 -0800
-Message-ID: <20041207213053.6bb602c1.davem@davemloft.net>
-References: <1102380430.6103.6.camel@buffy>
-	<20041206224441.628e7885.akpm@osdl.org>
-	<1102422544.1088.98.camel@jzny.localdomain>
-	<41B5E188.5050800@trash.net>
-	<20041207170748.GF1371@postel.suug.ch>
-	<41B5E722.2080600@trash.net>
+Subject: Re: [PATCH] PKT_SCHED: validate policer configuration TLVs
+Date: Tue, 7 Dec 2004 21:32:34 -0800
+Message-ID: <20041207213234.257fd0d9.davem@davemloft.net>
+References: <20041207172349.GG1371@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tgraf@suug.ch, hadi@cyberus.ca, akpm@osdl.org, tomc@compaqnet.fr,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41B5E722.2080600@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041207172349.GG1371@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Dec 2004 18:23:46 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, 7 Dec 2004 18:23:49 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> Either one is fine with me, although I would prefer to see
-> the number of ifdefs in this area going down, not up :)
+> Adds TLV size sanity checks for policer configuration. 
 
-I agree, therefore I applied Patrick's patch.
+Hmmm...
+
+> -	if (tb[TCA_POLICE_RESULT-1])
+> +	if (tb[TCA_POLICE_RESULT-1]) {
+> +		if (RTA_PAYLOAD(tb[TCA_POLICE_RESULT-1]) != sizeof(u32))
+> +			goto failure;
+>  		p->result = *(int*)RTA_DATA(tb[TCA_POLICE_RESULT-1]);
+> +	}
+
+Either these things are int's or u32's, they cannot be both :-)
+I know that size wise it's identical, but at least make the code
+look consistent.
