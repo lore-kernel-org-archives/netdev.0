@@ -1,26 +1,29 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Bug in ipv6_ifa_notify?
-Date: Tue, 09 Nov 2004 16:04:26 -0500 (EST)
-Message-ID: <20041109.160426.65371988.yoshfuji@linux-ipv6.org>
-References: <20041109114839.GA1942@gondor.apana.org.au>
-	<20041109.095759.109272072.yoshfuji@linux-ipv6.org>
-	<20041109203509.GA5109@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, acme@conectiva.com.br, netdev@oss.sgi.com,
-        jgarzik@pobox.com, buytenh@wantstofly.org, yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20041109203509.GA5109@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Wrong UIDs reported in /proc/net/tcp
+Date: Wed, 10 Nov 2004 08:06:11 +1100
+Message-ID: <E1CRdBr-0001P2-00@gondolin.me.apana.org.au>
+References: <20041109205358.GA64015@calma.pair.com>
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: chad@tindel.net (Chad N. Tindel)
+In-Reply-To: <20041109205358.GA64015@calma.pair.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-In article <20041109203509.GA5109@gondor.apana.org.au> (at Wed, 10 Nov 2004 07:35:09 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+Chad N. Tindel <chad@tindel.net> wrote:
+> 
+> In our testing we've found some occurrences of identd reporting back the
+> wrong username for the owner of a socket.  We added some instrumentation
 
-> BTW, couldn't we move stuff like DAD to user-space?
+/proc/net/tcp is an obsolete interface.  It is inherently unreliable
+in that a record may be read using two read(2) calls.  Those two calls
+may end up looking at two different records.
 
-I don't think it is the right way.
+So please use the netlink interface or ss(8) from the iproute package.
 
---yoshfuji
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
