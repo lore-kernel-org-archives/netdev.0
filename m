@@ -1,40 +1,71 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH 6/9] irda: use sock slab cache
-Date: Thu, 20 Jan 2005 19:08:06 -0200
-Message-ID: <41F01DB6.3070605@conectiva.com.br>
-References: <41EF11AF.70203@conectiva.com.br> <20050120021607.GA11216@bougret.hpl.hp.com> <41EF29BE.2020807@conectiva.com.br> <20050120085454.GA31160@infradead.org> <41EFC671.6000706@conectiva.com.br> <41EFCC51.8030700@conectiva.com.br> <20050120172522.GF6839@bougret.hpl.hp.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
+Date: Thu, 20 Jan 2005 13:34:20 -0800
+Message-ID: <20050120133420.317bea31.davem@davemloft.net>
+References: <5cac192f0412230110628749e3@mail.gmail.com>
+	<41CAF444.3000305@trash.net>
+	<5cac192f04122408102129af43@mail.gmail.com>
+	<1104240717.1100.66.camel@jzny.localdomain>
+	<5cac192f0501021530672a908a@mail.gmail.com>
+	<1104764660.1048.578.camel@jzny.localdomain>
+	<52brc68q05.fsf@topspin.com>
+	<5cac192f05010308414a25b548@mail.gmail.com>
+	<527jmu8nbw.fsf@topspin.com>
+	<5cac192f0501030907c755135@mail.gmail.com>
+	<20050103171227.GD7370@esmail.cup.hp.com>
+	<1104812294.1085.53.camel@jzny.localdomain>
+	<20050119144711.3fdd3d93.davem@davemloft.net>
+	<20050119151853.259de49a@dxpl.pdx.osdl.net>
+	<20050119164640.6c67bdfa.davem@davemloft.net>
+	<52r7kgu5n5.fsf@topspin.com>
+	<20050119230526.393a5184.davem@davemloft.net>
+	<1106229084.5812.40.camel@tsc-6.cph.tpack.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-        "David S. Miller" <davem@davemloft.net>,
-        irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
-        Stephen Hemminger <shemminger@osdl.org>
+Cc: roland@topspin.com, shemminger@osdl.org, hadi@cyberus.ca, iod00d@hp.com,
+        eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
+        openib-general@openib.org, kaber@trash.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20050120172522.GF6839@bougret.hpl.hp.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1106229084.5812.40.camel@tsc-6.cph.tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes escreveu:
-> On Thu, Jan 20, 2005 at 01:20:49PM -0200, Arnaldo Carvalho de Melo wrote:
-  >>Take a look at this patch, it shows how I think the transitional
->>stage should be, the protocols will just use (IRDA for the example):
-> 
-> 
-> 	Can't we just transition IrDA sockets to "future", rather than
-> "transitional". This way we are done, and no longer need to worry
-> about it. I mean, you already did the patch, so what's the reason of
-> holding back ?
+On Thu, 20 Jan 2005 14:51:25 +0100
+Tommy Christensen <tommy.christensen@tpack.net> wrote:
 
-No, no reason, this latest scheme is good to balance the needs of
-performance protocols critical protocols (tcp, etc) and the ones
-where the overhead of a private slabcache is too much, the transitional
-solution is just to keep the "old protocols", i.e. the ones not
-converted yet, working for the time being. IRDA, from what we
-discussed, will be converted today to its final form, that is,
-without an slab cache, aggregate kmalloc at sk_alloc time, not using
-anymore the generic "sock" slab.
+> A lot more serious is the fact that ->tx_timeout() and
+> ->hard_start_xmit() are no longer allowed to do this:
+> 
+>   spin_lock_irq()
+>   ...
+>   spin_unlock_irq()
+> 
+> since that would leave us with irq's enabled while still
+> holding the xmit_lock.
+> This would have to be fixed for non-LLTX drivers as well.
 
-- Arnaldo
+Even worse is that this breaks the acenic driver too because
+it does this:
+
+	unsigned long maxjiff = jiffies + 3*HZ;
+
+	if (time_before(jiffies, maxjiff)) {
+		barrier();
+		cpu_relax();
+		goto restart;
+	}
+
+in it's ->hard_start_xmit() routine.
+
+I was auditing spin_lock_irq() usage in ->hard_start_xmit()
+routines when I caught this.
+
+This one isn't impossible to fix though.  We can replace the
+jiffies games with a udelay/mdelay and a "maxloop" variable.
+Any takers?
+
+I'll keep working on the spin_lock_irq() audit then work on
+the other problems Tommy found.
