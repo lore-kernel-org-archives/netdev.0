@@ -1,28 +1,29 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH 3/12 2.4] e1000 - use vmalloc for data structures not shared with h/w
-Date: Wed, 4 Aug 2004 17:48:56 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6] cache align qdisc data
+Date: Wed, 4 Aug 2004 09:51:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804174856.B24545@infradead.org>
-References: <20040729192519.A6235@infradead.org> <E1BqoRX-0004DH-00@gondolin.me.apana.org.au>
+Message-ID: <20040804095153.3bd696a3.davem@redhat.com>
+References: <410FAE42.2050909@trash.net>
+	<20040803083820.711c917c@dell_ss3.pdx.osdl.net>
+	<410FE4DD.5000306@trash.net>
+	<20040803133139.43107fd3@dell_ss3.pdx.osdl.net>
+	<410FF8C4.7010705@trash.net>
+	<20040803140538.7c40f961@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>, ganesh.venkatesan@intel.com,
-        jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1BqoRX-0004DH-00@gondolin.me.apana.org.au>; from herbert@gondor.apana.org.au on Sat, Jul 31, 2004 at 05:38:11PM +1000
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040803140538.7c40f961@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jul 31, 2004 at 05:38:11PM +1000, Herbert Xu wrote:
-> > No, it's not.  vmalloc needs virtual space that's rather limited (e.g. 64MB
-> > on PAE x86) in addition to physical memory.  Unless you do really big
-> > allocations stay away from vmalloc.
-> 
-> How big is really big? 64K? 256K? 1M?
+On Tue, 3 Aug 2004 14:05:38 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Well, the VM deals with big-order (aka bigger than page size) allocations
-rather bad, so for allocation during any I/O I'd stick to allocation smaller
-than that (and certainly no vmalloc!), for init-time allocations order 1 is
-fine, maybe even order 2 or three.
+> Ugh, here it is without the hfsc messup.
+
+Stephen, I'll apply this after Patrick's qdisc_list
+patch 'q_idx' issue is better understood so I can
+apply that first.
