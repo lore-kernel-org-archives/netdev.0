@@ -1,39 +1,40 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] Stop using dst->xfrm
-Date: Wed, 26 Jan 2005 21:21:16 +1100
-Message-ID: <20050126102116.GA17413@gondor.apana.org.au>
-References: <1106373513.3691.49.camel@ori.thedillows.org> <E1CthU8-0001Uo-00@gondolin.me.apana.org.au>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [PATCH]: was Re: LLTX and netif_stop_queue
+Date: Wed, 26 Jan 2005 14:25:12 +0100
+Message-ID: <20050126132512.GA18220@xi.wantstofly.org>
+References: <20050103171227.GD7370@esmail.cup.hp.com> <1104812294.1085.53.camel@jzny.localdomain> <20050119144711.3fdd3d93.davem@davemloft.net> <20050119151853.259de49a@dxpl.pdx.osdl.net> <20050119164640.6c67bdfa.davem@davemloft.net> <52r7kgu5n5.fsf@topspin.com> <20050119230526.393a5184.davem@davemloft.net> <20050120085611.33f9485e@dxpl.pdx.osdl.net> <20050121105452.GA12988@xi.wantstofly.org> <20050125222705.1ee878fd.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, roland@topspin.com, hadi@cyberus.ca, iod00d@hp.com,
+        eric.lemoine@gmail.com, netdev@oss.sgi.com, ak@suse.de,
+        openib-general@openib.org, kaber@trash.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Dillow <dave@thedillows.org>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <E1CthU8-0001Uo-00@gondolin.me.apana.org.au>
+In-Reply-To: <20050125222705.1ee878fd.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 26, 2005 at 06:21:04PM +1100, Herbert Xu wrote:
+On Tue, Jan 25, 2005 at 10:27:05PM -0800, David S. Miller wrote:
+
+> > If multiple CPUs can call into the tunneling drivers without taking
+> > any locks, we'd need some extra locking in there, or just do what
+> > Alexey describes and keep track of recursion in the skb.
 > 
-> > I'd like to see where you're going, so I can meet you there. The xfrm
-> > offload patches currently add dst->xfrm_offload to cache the info needed
-> > to offload the crypto operations. It'll be slower, but I could lookup
-> > that up each time if need be.
-> 
-> I'll take a look at your work first and get back to you.
+> Another idea is that, just like how loopback made it's statistics
+> per-cpu for LLTX support, this recursion variable could be per-cpu
+> as well.
 
-I've had a look at some of your patches with the xfrm dst stuff in mind.
-It seems that you have nothing to worry about as far as dst consolidation
-goes.
+I've thought about this a bit, and the only sane way of doing recursion
+detection that doesn't involve 'struct net_device' would be to keep track
+of the recursion depth (perhaps per-CPU as you suggest) and tossing the
+packet when it exceeds some random value, right?
 
-In fact, your current implementation of xfrm_accel_bundle() would benefit
-from such a move as it would have access to all the transforms in a single
-dst entry.
+To reproduce the current behaviour more closely you'd have to keep a
+small per-CPU array of 'struct net_device *' pointers as a kind of
+recursion stack, and toss the packet when you hit a net_device that's
+already on the list.  But that seems like slight overkill.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--L
