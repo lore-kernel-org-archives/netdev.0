@@ -1,25 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] horizon: make reset function not __init
-Date: Wed, 25 Feb 2004 00:23:28 -0800
+Subject: Re: [ATM]: use clip_tbl instead of clp_tbl_hook (from Francois
+ Romieu <romieu@fr.zoreil.com>)
+Date: Wed, 25 Feb 2004 00:24:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040225002328.26f12500.davem@redhat.com>
-References: <20040219154941.0d0f5a7a.rddunlap@osdl.org>
-	<200402240119.i1O1JCg5028269@ginger.cmf.nrl.navy.mil>
+Message-ID: <20040225002409.01dfcb88.davem@redhat.com>
+References: <20040206231309.A26646@electric-eye.fr.zoreil.com>
+	<200402240122.i1O1M8g5028294@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, rddunlap@osdl.org, netdev@oss.sgi.com
+Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200402240119.i1O1JCg5028269@ginger.cmf.nrl.navy.mil>
+To: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200402240122.i1O1M8g5028294@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Feb 2004 20:19:13 -0500
+On Mon, 23 Feb 2004 20:22:09 -0500
 "chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> please apply to 2.6.  --thanks
+> please apply to 2.6 --thanks
  ...
-> # [ATM]: horizon: make reset function not __init (from Randy Dunlap <rddunlap@osdl.org>)
+> # [ATM]: use clip_tbl instead of clp_tbl_hook (from Francois Romieu <romieu@fr.zoreil.com>)
 
 Applied, thanks.
