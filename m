@@ -1,46 +1,35 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [Fwd: [Bug 3397] New: Network connections hang going through an
- OpenBSD firewall]
-Date: Tue, 14 Sep 2004 14:45:49 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [INET] Add flags field to ip_tunnel_parm
+Date: Wed, 15 Sep 2004 07:28:43 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040914144549.1e3a3162@dell_ss3.pdx.osdl.net>
-References: <41475BEA.2030803@us.ibm.com>
-	<41475E1E.7010200@veus.hr>
-	<414760E5.4010703@us.ibm.com>
+Message-ID: <20040914212843.GA8925@gondor.apana.org.au>
+References: <20040914121617.GA5652@gondor.apana.org.au> <20040914.215205.110659321.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Vladimir <vlists@veus.hr>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <414760E5.4010703@us.ibm.com>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040914.215205.110659321.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Sep 2004 14:21:41 -0700
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+On Tue, Sep 14, 2004 at 09:52:05PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> 
+> Kernel will get garbage from old binaries,
+> and kernel will break user space if it tries 
+> to get params into old structure.
 
-> Vladimir wrote:
-> 
-> > It doesn't work with it. Should I download 2.6.8-1 from kernel.org and 
-> > compile it by hand ?
-> 
-> If you can, download the latest (linux-2.6.9-rc2). You can
-> get the patch against linux-2.6.8.1 vanilla from
-> kernel.org.
-> 
-> > It is certainly possible but everything works fine with all other OSes 
-> > and kernels 2.6.5 and below which leads me to believe something was 
-> > changed in 2.6.6 that broke it.
-> > 
-> > Are you able to reproduce it ?
-> 
-> Unfortunately, I have zero cycles right now (and in the near
-> future) to address any issues, I'm afraid. Someone on netdev
-> will likely be able to help you or have run into it already.
-> See Stephen's post from a few minutes ago..
+The only application that I know of does a memset on the structure
+so it'll be fine.  Are you aware of any user-space applications that
+initialises every field explicitly instead of using memset?
 
-Since the latest kernel chooses window scaling factor automatically, the 
-value chosen by default is small enough that OpenBSD
-busted pf will just make performance suck. If you want test it, you have to
-increase tcp_rmem[2] or tcp_rmem_max to force a window scale > 2.
+There are two in-kernel users as well (ipmr/addrconf) and they both
+initialise it with memset too.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
