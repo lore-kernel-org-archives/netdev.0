@@ -1,25 +1,47 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 3/6][8021q][2.6] Use VLAN tag set functionality in
- 8021q module
-Date: Thu, 22 Jan 2004 19:56:59 -0800 (PST)
+From: Capture All <capture_all@yahoo.com>
+Subject: forthdeth
+Date: Thu, 22 Jan 2004 21:56:12 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040122.195659.78718937.davem@redhat.com>
-References: <200401221800.14862.shmulik.hen@intel.com>
+Message-ID: <20040123055612.78211.qmail@web80809.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
+Content-Type: multipart/alternative; boundary="0-1344611789-1074837372=:77856"
+Cc: c-d.hailfinger.kernel.2003@gmx.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: <200401221800.14862.shmulik.hen@intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--0-1344611789-1074837372=:77856
+Content-Type: text/plain; charset=us-ascii
 
-Shmuel, please stop sending all of this VLAN and ARP stuff the
-bonding code wants.
+Hello Sir,
+I am going to port the nvnet driver to windows ce version.
+Could I got a copy of the src from you? Also, you mentioned there is a specification about the reverse engineering. Could you send it to me also?
+ 
+I looked into this page, found there are some patches. Does any of the patch includes all the source I need? For example forcedeth_2_6_patch_v20.txt ?
+ 
+http://www.hailfinger.org/carldani/linux/patches/forcedeth/
+ 
+Thanks!
+Blues
 
-I told you yesterday that at best I will put this stuff into
-the next 2.6.x release, so please send it at that time.
 
-Thanks.
+---------------------------------
+Do you Yahoo!?
+New Yahoo! Photos - easier uploading and sharing
+--0-1344611789-1074837372=:77856
+Content-Type: text/html; charset=us-ascii
+
+<DIV>Hello Sir,</DIV>
+<DIV>I am going to port the nvnet driver to windows ce version.</DIV>
+<DIV>Could I got a copy of the src from you? Also, you mentioned there is a specification about the reverse engineering. Could you&nbsp;send it to me also?</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>I looked into this page, found there are some patches. Does any of the patch includes all the source I need? For example <A href="http://www.hailfinger.org/carldani/linux/patches/forcedeth/forcedeth_2_6_patch_v20.txt">forcedeth_2_6_patch_v20.txt</A> ?</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><A href="http://www.hailfinger.org/carldani/linux/patches/forcedeth/">http://www.hailfinger.org/carldani/linux/patches/forcedeth/</A></DIV>
+<DIV>&nbsp;</DIV>
+<DIV>Thanks!</DIV>
+<DIV>Blues</DIV><p><hr SIZE=1>
+Do you Yahoo!?<br>
+<a href="http://pa.yahoo.com/*http://us.rd.yahoo.com/evt=21260/*http://photos.yahoo.com">New Yahoo! Photos - easier uploading and sharing</a>
+--0-1344611789-1074837372=:77856--
