@@ -1,74 +1,368 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH] natsemi: long cable, short cable
-Date: Tue, 8 Feb 2005 15:18:49 +0100
-Message-ID: <20050208141849.GC23971@suse.de>
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: [PATCH] ieee80211 subsystem
+Date: Tue, 08 Feb 2005 02:24:49 -0600
+Message-ID: <42087751.3040806@linux.intel.com>
+References: <4203C32A.70402@linux.intel.com> <420828A9.7060306@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: multipart/mixed;
+ boundary="------------010107000504060601000604"
+Cc: netdev@oss.sgi.com
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <420828A9.7060306@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The current version of the natsemi driver comes with a workaround
-for a hardware problem that causes link failures on short cables.
-Unfortunately, this workaround causes massive link failures on _long_
-cables (270-300ft). This patch adds a module parameter to disable
-the workaround if required.
+This is a multi-part message in MIME format.
+--------------010107000504060601000604
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Signed-off-by: Olaf Kirch <okir@suse.de>
+Randy.Dunlap wrote:
 
-Index: linux-2.6.10/drivers/net/natsemi.c
-===================================================================
---- linux-2.6.10.orig/drivers/net/natsemi.c
-+++ linux-2.6.10/drivers/net/natsemi.c
-@@ -186,6 +186,7 @@ static int debug = -1;
- /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
- static int max_interrupt_work = 20;
- static int mtu;
-+static int no_cable_magic = 0;
- 
- /* Maximum number of multicast addresses to filter (vs. rx-all-multicast).
-    This chip uses a 512 element hash table based on the Ethernet CRC.  */
-@@ -257,6 +258,7 @@ module_param(debug, int, 0);
- module_param(rx_copybreak, int, 0);
- module_param_array(options, int, NULL, 0);
- module_param_array(full_duplex, int, NULL, 0);
-+module_param(no_cable_magic, int, 0);
- MODULE_PARM_DESC(max_interrupt_work, 
- 	"DP8381x maximum events handled per interrupt");
- MODULE_PARM_DESC(mtu, "DP8381x MTU (all boards)");
-@@ -266,6 +268,9 @@ MODULE_PARM_DESC(rx_copybreak, 
- MODULE_PARM_DESC(options, 
- 	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
- MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
-+MODULE_PARM_DESC(no_cable_magic,
-+	"DP8381x: set no_cable_magic=1 to disable magic workaround for short cables "
-+	"(may help with long cables:-)");
- 
- /*
- 				Theory of Operation
-@@ -1578,6 +1583,9 @@ static void do_cable_magic(struct net_de
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem *ioaddr = ns_ioaddr(dev);
- 
-+	if (no_cable_magic)
-+		return;
-+
- 	if (dev->if_port != PORT_TP)
- 		return;
- 
-@@ -1623,6 +1631,9 @@ static void undo_cable_magic(struct net_
- 	struct netdev_private *np = netdev_priv(dev);
- 	void __iomem * ioaddr = ns_ioaddr(dev);
- 
-+	if (no_cable_magic)
-+		return;
-+
- 	if (dev->if_port != PORT_TP)
- 		return;
- 
+> James Ketrenos wrote:
+>
+>> Attached is the patch against 2.6.11-rc3-mm1 that adds the ieee80211 
+>> subsystem used by the ipw2100 and ipw2200 projects.
+>>
+>> I'll be sending out the patches for ipw2100-1.0.0 and ipw2200-1.0.0 
+>> that use thist stack to the list on Monday.
+>>
+>> In terms of what the stack currently does:
+>>
+>> * HW independent -- it only knows about 802.11 data and structures
+>> * Performs an 802.3 <-> 802.11 transform for data Tx/Rx
+>> * Host based support for fragmentation, WEP, and WPA using the 
+>> kernel's crypto functions
+>> * Beacon and probe response collection and parsing
+>> * Default implementation of some of the WE handlers that can be 
+>> managed without hardware knowledge
+>>
+>> We are working to merge in Dave Miller's p80211 code into the 
+>> ieee80211 subsystem so that it hooks into the kernel as a true 
+>> network layer as opposed to a mutated offspring of ethernet.
+>> Once that is done, hopefully the skb to txb code can be reworked and 
+>> 802.11 fragments can be treated either as normal skbs, or skbs can be 
+>> modified to directly support them (ideally so that encrypted 802.11 
+>> frames in support of IP packets can be cached by the stack instead of 
+>> having to be re-encrypted on TCP retries)
+>>
+>> Support for HW/FW crypto and fragmentation offload, in a HW 
+>> independent fashion, is also on the short-term list.
+>>
+>> When you look through the patch you'll likely notice the #ifdef 
+>> NOTYET/#endif sequences surrounding portions of code from the hostap 
+>> project.  Portions of this subsystem were based on an earlier version 
+>> of the hostap project.  Those areas that weren't directly supported 
+>> by the ipw* projects weren't ported to be completely hardware 
+>> independent (since I don't have the hardware to test it), and so are 
+>> still wrapped in the ifdefs.  These sections mainly cover support for 
+>> MASTER and WDS modes.
+>>
+>> Anyway, please let me know what you think.  Hopefully I built the 
+>> patch right...
+>
+>
+> James,
+> Can you post a patch that will build?  or did you just want
+> feedback on the current state of the patch?
 
--- 
-Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
-okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
+Ah; I see my tree that I did the diff on was missing the 
+wireless/Makefile and the ieee80211/ieee80211_module.c to create the 
+patch against... sigh.  Attached is ieee80211_module.c; you have the 
+change for the Makefile to include ieee80211. 
+
+Later {hopefully today} I'll send a full patch that includes several of 
+the corrections you called out in your prior patch.
+
+Thanks,
+James
+
+>
+> Thanks,
+
+
+
+--------------010107000504060601000604
+Content-Type: text/x-csrc;
+ name="ieee80211_module.c"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ieee80211_module.c"
+
+/*******************************************************************************
+
+  Copyright(c) 2004 Intel Corporation. All rights reserved.
+
+  Portions of this file are based on the WEP enablement code provided by the
+  Host AP project hostap-drivers v0.1.3
+  Copyright (c) 2001-2002, SSH Communications Security Corp and Jouni Malinen
+  <jkmaline@cc.hut.fi>
+  Copyright (c) 2002-2003, Jouni Malinen <jkmaline@cc.hut.fi>
+
+  This program is free software; you can redistribute it and/or modify it
+  under the terms of version 2 of the GNU General Public License as
+  published by the Free Software Foundation.
+
+  This program is distributed in the hope that it will be useful, but WITHOUT
+  ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
+  FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for
+  more details.
+
+  You should have received a copy of the GNU General Public License along with
+  this program; if not, write to the Free Software Foundation, Inc., 59
+  Temple Place - Suite 330, Boston, MA  02111-1307, USA.
+
+  The full GNU General Public License is included in this distribution in the
+  file called LICENSE.
+
+  Contact Information:
+  James P. Ketrenos <ipw2100-admin@linux.intel.com>
+  Intel Corporation, 5200 N.E. Elam Young Parkway, Hillsboro, OR 97124-6497
+
+*******************************************************************************/
+
+#include <linux/compiler.h>
+#include <linux/config.h>
+#include <linux/errno.h>
+#include <linux/if_arp.h>
+#include <linux/in6.h>
+#include <linux/in.h>
+#include <linux/ip.h>
+#include <linux/kernel.h>
+#include <linux/module.h>
+#include <linux/netdevice.h>
+#include <linux/pci.h>
+#include <linux/proc_fs.h>
+#include <linux/skbuff.h>
+#include <linux/slab.h>
+#include <linux/tcp.h>
+#include <linux/types.h>
+#include <linux/version.h>
+#include <linux/wireless.h>
+#include <linux/etherdevice.h>
+#include <asm/uaccess.h>
+#include <net/arp.h>
+
+#include "ieee80211.h"
+
+MODULE_DESCRIPTION("802.11 data/management/control stack");
+MODULE_AUTHOR("Copyright (C) 2004 Intel Corporation <jketreno@linux.intel.com>");
+MODULE_LICENSE("GPL");
+
+#define DRV_NAME "ieee80211"
+
+static inline int ieee80211_networks_allocate(struct ieee80211_device *ieee)
+{
+	if (ieee->networks)
+		return 0;
+
+	ieee->networks = kmalloc(
+		MAX_NETWORK_COUNT * sizeof(struct ieee80211_network),
+		GFP_KERNEL);
+	if (!ieee->networks) {
+		printk(KERN_WARNING "%s: Out of memory allocating beacons\n",
+		       ieee->dev->name);
+		return -ENOMEM;
+	}
+
+	memset(ieee->networks, 0,
+	       MAX_NETWORK_COUNT * sizeof(struct ieee80211_network));
+
+	return 0;
+}
+
+static inline void ieee80211_networks_free(struct ieee80211_device *ieee)
+{
+	if (!ieee->networks)
+		return;
+	kfree(ieee->networks);
+	ieee->networks = NULL;
+}
+
+static inline void ieee80211_networks_initialize(struct ieee80211_device *ieee)
+{
+	int i;
+
+	INIT_LIST_HEAD(&ieee->network_free_list);
+	INIT_LIST_HEAD(&ieee->network_list);
+	for (i = 0; i < MAX_NETWORK_COUNT; i++)
+		list_add_tail(&ieee->networks[i].list, &ieee->network_free_list);
+}
+
+
+struct net_device *alloc_ieee80211(int sizeof_priv)
+{
+	struct ieee80211_device *ieee;
+	struct net_device *dev;
+	int err;
+
+	IEEE80211_DEBUG_INFO("Initializing...\n");
+
+	dev = alloc_etherdev(sizeof(struct ieee80211_device) + sizeof_priv);
+	if (!dev) {
+		IEEE80211_ERROR("Unable to network device.\n");
+		goto failed;
+	}
+	ieee = netdev_priv(dev);
+	dev->hard_start_xmit = ieee80211_xmit;
+
+	ieee->dev = dev;
+
+	err = ieee80211_networks_allocate(ieee);
+	if (err) {
+		IEEE80211_ERROR("Unable to allocate beacon storage: %d\n",
+				err);
+		goto failed;
+	}
+	ieee80211_networks_initialize(ieee);
+
+	/* Default fragmentation threshold is maximum payload size */
+	ieee->fts = DEFAULT_FTS;
+	ieee->scan_age = DEFAULT_MAX_SCAN_AGE;
+	ieee->open_wep = 1;
+
+#ifdef CONFIG_IEEE80211_CRYPT
+	/* Default to enabling full open WEP with host based encrypt/decrypt */
+	ieee->host_encrypt = 1;
+	ieee->host_decrypt = 1;
+	ieee->ieee802_1x = 1; /* Default to supporting 802.1x */
+
+	INIT_LIST_HEAD(&ieee->crypt_deinit_list);
+	init_timer(&ieee->crypt_deinit_timer);
+	ieee->crypt_deinit_timer.data = (unsigned long)ieee;
+	ieee->crypt_deinit_timer.function = ieee80211_crypt_deinit_handler;
+#endif
+
+	spin_lock_init(&ieee->lock);
+
+#ifdef CONFIG_IEEE80211_WPA
+ 	ieee->wpa_enabled = 0;
+ 	ieee->tkip_countermeasures = 0;
+ 	ieee->drop_unencrypted = 0;
+ 	ieee->privacy_invoked = 0;
+ 	ieee->ieee802_1x = 1;
+#endif /* CONFIG_IEEE80211_WPA */
+
+	return dev;
+
+ failed:
+	if (dev)
+		free_netdev(dev);
+	return NULL;
+}
+
+
+void free_ieee80211(struct net_device *dev)
+{
+	struct ieee80211_device *ieee = netdev_priv(dev);
+
+#ifdef CONFIG_IEEE80211_CRYPT
+	int i;
+
+	del_timer_sync(&ieee->crypt_deinit_timer);
+	ieee80211_crypt_deinit_entries(ieee, 1);
+
+	for (i = 0; i < WEP_KEYS; i++) {
+		struct ieee80211_crypt_data *crypt = ieee->crypt[i];
+		if (crypt) {
+			if (crypt->ops) {
+				crypt->ops->deinit(crypt->priv);
+				module_put(crypt->ops->owner);
+			}
+			kfree(crypt);
+			ieee->crypt[i] = NULL;
+		}
+	}
+#endif
+
+	ieee80211_networks_free(ieee);
+	free_netdev(dev);
+}
+
+#ifdef CONFIG_IEEE80211_DEBUG
+
+static int debug = 0;
+u32 ieee80211_debug_level = 0;
+struct proc_dir_entry *ieee80211_proc = NULL;
+
+static int show_debug_level(char *page, char **start, off_t offset,
+			    int count, int *eof, void *data)
+{
+	return snprintf(page, count, "0x%08X\n", ieee80211_debug_level);
+}
+
+static int store_debug_level(struct file *file, const char *buffer,
+			     unsigned long count, void *data)
+{
+	char buf[] = "0x00000000";
+	unsigned long len = min(sizeof(buf) - 1, (u32)count);
+	char *p = (char *)buf;
+	unsigned long val;
+
+	if (copy_from_user(buf, buffer, len))
+		return count;
+	buf[len] = 0;
+	if (p[1] == 'x' || p[1] == 'X' || p[0] == 'x' || p[0] == 'X') {
+		p++;
+		if (p[0] == 'x' || p[0] == 'X')
+			p++;
+		val = simple_strtoul(p, &p, 16);
+	} else
+		val = simple_strtoul(p, &p, 10);
+	if (p == buf)
+		printk(KERN_INFO DRV_NAME
+		       ": %s is not in hex or decimal form.\n", buf);
+	else
+		ieee80211_debug_level = val;
+
+	return strnlen(buf, count);
+}
+
+static int __init ieee80211_init(void)
+{
+	struct proc_dir_entry *e;
+
+	ieee80211_debug_level = debug;
+	ieee80211_proc = create_proc_entry(DRV_NAME, S_IFDIR, proc_net);
+	if (ieee80211_proc == NULL) {
+		IEEE80211_ERROR("Unable to create " DRV_NAME
+				" proc directory\n");
+		return -EIO;
+	}
+	e = create_proc_entry("debug_level", S_IFREG | S_IRUGO | S_IWUSR,
+			      ieee80211_proc);
+	if (!e) {
+		remove_proc_entry(DRV_NAME, proc_net);
+		ieee80211_proc = NULL;
+		return -EIO;
+	}
+	e->read_proc = show_debug_level;
+	e->write_proc = store_debug_level;
+	e->data = NULL;
+
+	return 0;
+}
+
+static void __exit ieee80211_exit(void)
+{
+	if (ieee80211_proc) {
+		remove_proc_entry("debug_level", ieee80211_proc);
+		remove_proc_entry(DRV_NAME, proc_net);
+		ieee80211_proc = NULL;
+	}
+}
+
+#include <linux/moduleparam.h>
+module_param(debug, int, 0444);
+MODULE_PARM_DESC(debug, "debug output mask");
+
+
+module_exit(ieee80211_exit);
+module_init(ieee80211_init);
+#endif
+
+EXPORT_SYMBOL(alloc_ieee80211);
+EXPORT_SYMBOL(free_ieee80211);
+
+--------------010107000504060601000604--
