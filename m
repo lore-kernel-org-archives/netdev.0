@@ -1,25 +1,31 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: ip6_route_output() does not fill in the src. addr.
-Date: Wed, 18 Dec 2002 15:12:56 -0800 (PST)
+From: "Aravind Ceyardass" <aravind1001@speedpost.net>
+Subject: IPv6 Programming
+Date: Thu, 19 Dec 2002 00:36:28 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0212181454260.9875-100000@dyn9-47-18-86.beaverton.ibm.com>
+Message-ID: <20021219043628.876C33EDEC@server2.fastmail.fm>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The ipv6 version of the 'get route entry' function ip6_route_output() does not
-fill in the source address of the route even when a valid appropriate source 
-address is passed. 
-Is this the expected behavior or a bug which is going to be fixed in the future 
-releases of 2.5?   
 
-The ipv4 version 'ip_route_output_key()' works as expected.
+Hi,
 
-SCTP calls these routines to get and cache a route entry and uses the cached
-entry to fill in skb->dst before passing the skb to ip. 
+New to IPv6 on Linux. I would like to know which version of Linux has got
+the header files for
+IPv6 programming?
 
-Thanks
-Sridhar
+Thanks in advance.
+
+
+Aravind
+
+
+
+-- 
+http://fastmail.fm - Accessible with your email software
+                      or over the web
