@@ -1,54 +1,92 @@
-From: Julian Anastasov <ja@ssi.bg>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: SIOCADDMULTI for unicast broken
-Date: Sat, 4 Jan 2003 20:36:38 +0200 (EET)
+Date: Sat, 4 Jan 2003 13:55:32 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0301042016020.863-100000@u.domain.uli>
-References: <20030104122619.R48869@shell.cyberus.ca>
+Message-ID: <20030104134308.G48869@shell.cyberus.ca>
+References: <Pine.LNX.4.44.0301041307320.29812-100000@beohost.scyld.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Donald Becker <becker@scyld.com>, Ben Greear <greearb@candelatech.com>,
-   Jeff Garzik <jgarzik@pobox.com>,
-   Alexandre Cassen <Alexandre.Cassen@wanadoo.fr>, <netdev@oss.sgi.com>
+Cc: Ben Greear <greearb@candelatech.com>, Jeff Garzik <jgarzik@pobox.com>,
+   "" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <20030104122619.R48869@shell.cyberus.ca>
+To: Donald Becker <becker@scyld.com>
+In-Reply-To: <Pine.LNX.4.44.0301041307320.29812-100000@beohost.scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-	Hello,
 
-On Sat, 4 Jan 2003, jamal wrote:
+On Sat, 4 Jan 2003, Donald Becker wrote:
 
-> > > And btw, i didnt even open up the whole can of worms - we also need to
-> > > respond back with proper MAC addresses to ARPs and packets sourced with
-> > > specific virtual router IPs. This is a seprate problem.
-> >
-> > Yup, a whole can of worms if you want it to be a general feature handled
-> > by the kernel...
-> >
+> > > On Fri, 3 Jan 2003, jamal wrote:
+> > > > Q: Is this a hack?
+> > > > A: Yes, indeed it is. wrong API is the main culprit.
 >
-> I think hacking the ARP code to do this would be horrible - one way to do
-> it is write a tc module that mungles outgoing ARPs to substitute the src
-> MAC address based on src IP.
+> I disagree: it's a hack usable by the very few people that need it.
+> Defining an API would add little-used complexity.
 
-	You can do it with arptables (still not sure how) or with 
-arprules+iparp:
+Somehow i (and people using VRRP or trying to write HSRP like  apps)
+need to have multiple MAC addresses accepted by a single NIC. It is
+not really a science project reqnmt, rather needed by real-world apps
+which are becoming more common. The way i see it is:"
+a) Introduce new API
+b) reuse an API - considered a hack really
+c) maintain it as a separate patch; needs to be cleaned a little for
+optimization (example not all NICS may need this extra per packet check).
 
-# send all our requests from VRIP with VMAC
-ip arp add table output from 1.2.3.4 llsrc 00:00:5E:00:01:10
+Which one do you see as being reasonable?
+You cant say none of the above because people need this feature ;->
+You have to present an alternative at least.
 
-http://www.ssi.bg/~ja/#iparp
+>
+> > Side, unrelated question:
+> > for h/ware multicast filtered multicast addresses: What is the common
+> > practise to handle the corner case where a hardware multicast address
+> > is filled up.
+>
+> This is good example of why an API is a bad idea: there is no general
+> case.  The Tulip has 16 filter addresses, but...
+>   Oh, not all chips handled by the Tulip driver.  Macronix does.  Asix
+>     doesn't. ADMtek doesn't.  PNIC chips do.
 
-	But this is not enough for VRRP. For Linux we need a
-way to bind VRIPs to source VMACs or sort of this. I'm cc-ing to Alexandre
-Cassen as he is working on VRRP (http://keepalived.sourceforge.net/).
-I hope he can shed some light on the VRRP needs.
+ok.
 
-> cheers,
-> jamal
+>   You need one slot for the broadcast address on a few chip versions
+>     with a bug.  (I do this unconditionally.)
 
-Regards
+Make sense.
 
---
-Julian Anastasov <ja@ssi.bg>
+>   You cannot use the multicast hash filter.
+
+Why not?
+
+>
+> "Only in the month after the full moon falls on a Tuesday."
+>
+> > Take an example of the tulip using perfect hashing when
+> > all the 16 entries are exhausted and the host still wants to subscribe
+> > to 100 other multicast groups... should we put the nic into promisc
+> > multicast?
+>
+> Yes.  This is the DECnet case.
+
+I dont think this is what we do today in general; does the tulip do this
+really?
+
+>
+> > didnt know that. I guess i was lucky not to have used the tulip when i
+> > got bitten by this. So, Donald, other than tulip what other NICs can do
+> > this?
+>
+> Mostly gigabit Ethernet chips.  There are a few FE chips that allow
+> setting the multicast hash address to also filter physical addresses,
+> but imperfect filters result in the same extra cdoe as using promiscuous
+> mode.
+>
+
+OK, i guess this explains the imperfect filters; so since Giges are
+becoming such a commodity item, are you suggesting that since to do VRRP
+get yourself a Gige card or appropriate FE card?
+
+cheers,
+jamal
