@@ -1,279 +1,308 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] [RFT] yellowfin: get rid of __iomem warnings
-Date: Mon, 18 Oct 2004 12:19:53 -0700
+Subject: [PATCH 2.6.9] hp100: use module_param and netdev_priv
+Date: Mon, 18 Oct 2004 12:15:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041018121953.77d87e8f@zqx3.pdx.osdl.net>
+Message-ID: <20041018121527.053b3309@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>, Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch converts driver to use module_param and gets rid of warnings 
-because now we type check for io memory.
-Patch against the 2.6.9 version in jeff's netdev tree.
-Compiled, but not tested.  Could someone with this board make sure it doesn't
-break everything?
+Convert hp100 to use module_param and netdev_priv.
+Compiled only, not tested.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-
-diff -Nru a/drivers/net/yellowfin.c b/drivers/net/yellowfin.c
---- a/drivers/net/yellowfin.c	2004-10-18 12:18:27 -07:00
-+++ b/drivers/net/yellowfin.c	2004-10-18 12:18:27 -07:00
-@@ -53,13 +53,6 @@
  
- #define PFX DRV_NAME ": "
+diff -Nru a/drivers/net/hp100.c b/drivers/net/hp100.c
+--- a/drivers/net/hp100.c	2004-10-18 12:13:23 -07:00
++++ b/drivers/net/hp100.c	2004-10-18 12:13:24 -07:00
+@@ -98,6 +98,7 @@
  
--/* The user-configurable values.
--   These may be modified when a driver module is loaded.*/
--
--static int debug = 1;			/* 1 normal messages, 0 quiet .. 7 verbose. */
--/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
--static int max_interrupt_work = 20;
--static int mtu;
- #ifdef YF_PROTOTYPE			/* Support for prototype hardware errata. */
- /* System-wide count of bogus-rx frames. */
- static int bogus_rx;
-@@ -73,9 +66,6 @@
- static int fifo_cfg = 0x0020;				/* Bypass external Tx FIFO. */
- #endif
- 
--/* Set the copy breakpoint for the copy-only-tiny-frames scheme.
--   Setting to > 1514 effectively disables this feature. */
--static int rx_copybreak;
- 
- /* Used to pass the media type, etc.
-    No media types are currently defined.  These exist for driver
-@@ -109,6 +99,7 @@
- #define yellowfin_debug debug
- 
+ #include <linux/version.h>
  #include <linux/module.h>
 +#include <linux/moduleparam.h>
  #include <linux/kernel.h>
  #include <linux/string.h>
- #include <linux/timer.h>
-@@ -154,13 +145,26 @@
- MODULE_DESCRIPTION("Packet Engines Yellowfin G-NIC Gigabit Ethernet driver");
- MODULE_LICENSE("GPL");
+ #include <linux/errno.h>
+@@ -224,9 +225,9 @@
+ static int hp100_priority_tx = HP100_DEFAULT_PRIORITY_TX;
+ static int hp100_mode = 1;
  
--MODULE_PARM(max_interrupt_work, "i");
--MODULE_PARM(mtu, "i");
--MODULE_PARM(debug, "i");
--MODULE_PARM(rx_copybreak, "i");
--MODULE_PARM(options, "1-" __MODULE_STRING(MAX_UNITS) "i");
--MODULE_PARM(full_duplex, "1-" __MODULE_STRING(MAX_UNITS) "i");
--MODULE_PARM(gx_fix, "i");
-+/* The user-configurable values.
-+   These may be modified when a driver module is loaded.*/
-+static int debug = 1;			/* 1 normal messages, 0 quiet .. 7 verbose. */
-+/* Maximum events (Rx packets, etc.) to handle at each interrupt. */
-+static int max_interrupt_work = 20;
-+static int mtu;
-+/* Set the copy breakpoint for the copy-only-tiny-frames scheme.
-+   Setting to > 1514 effectively disables this feature. */
-+static int rx_copybreak;
-+
-+module_param(max_interrupt_work, int, 0);
-+module_param(mtu, int, 0);
-+module_param(debug, int, 0);
-+module_param(rx_copybreak, int, 0);
-+module_param(gx_fix, int, 0);
-+
-+static int num_units;
-+module_param_array(options, int, num_units, 0);
-+module_param_array(full_duplex, int, num_units, 0);
-+
- MODULE_PARM_DESC(max_interrupt_work, "G-NIC maximum events handled per interrupt");
- MODULE_PARM_DESC(mtu, "G-NIC MTU (all boards)");
- MODULE_PARM_DESC(debug, "G-NIC debug level (0-7)");
-@@ -391,9 +395,9 @@
- 	spinlock_t lock;
- };
+-MODULE_PARM(hp100_rx_ratio, "1i");
+-MODULE_PARM(hp100_priority_tx, "1i");
+-MODULE_PARM(hp100_mode, "1i");
++module_param(hp100_rx_ratio, int, 0);
++module_param(hp100_priority_tx, int, 0);
++module_param(hp100_mode, int, 0);
  
--static int read_eeprom(long ioaddr, int location);
--static int mdio_read(long ioaddr, int phy_id, int location);
--static void mdio_write(long ioaddr, int phy_id, int location, int value);
-+static int read_eeprom(void __iomem *ioaddr, int location);
-+static int mdio_read(void __iomem *ioaddr, int phy_id, int location);
-+static void mdio_write(void __iomem *ioaddr, int phy_id, int location, int value);
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
- static int yellowfin_open(struct net_device *dev);
- static void yellowfin_timer(unsigned long data);
-@@ -417,7 +421,7 @@
- 	int irq;
- 	int chip_idx = ent->driver_data;
- 	static int find_cnt;
--	long ioaddr, real_ioaddr;
-+	void __iomem *ioaddr;
- 	int i, option = find_cnt < MAX_UNITS ? options[find_cnt] : 0;
- 	int drv_flags = pci_id_tbl[chip_idx].drv_flags;
-         void *ring_space;
-@@ -449,10 +453,9 @@
- 	pci_set_master (pdev);
- 
- #ifdef USE_IO_OPS
--	real_ioaddr = ioaddr = pci_resource_start (pdev, 0);
-+	ioaddr = (void __iomem *) pci_resource_start (pdev, 0);
- #else
--	real_ioaddr = ioaddr = pci_resource_start (pdev, 1);
--	ioaddr = (long) ioremap(ioaddr, YELLOWFIN_SIZE);
-+	ioaddr = ioremap(pci_resource_start (pdev, 1), YELLOWFIN_SIZE);
- 	if (!ioaddr)
- 		goto err_out_free_res;
- #endif
-@@ -470,7 +473,7 @@
- 	/* Reset the chip. */
- 	outl(0x80000000, ioaddr + DMACtrl);
- 
--	dev->base_addr = ioaddr;
-+	dev->base_addr = (unsigned long) ioaddr;
- 	dev->irq = irq;
- 
- 	pci_set_drvdata(pdev, dev);
-@@ -533,7 +536,7 @@
- 	if (i)
- 		goto err_out_unmap_status;
- 
--	printk(KERN_INFO "%s: %s type %8x at 0x%lx, ",
-+	printk(KERN_INFO "%s: %s type %8x at 0x%p, ",
- 		   dev->name, pci_id_tbl[chip_idx].name, inl(ioaddr + ChipRev), ioaddr);
- 	for (i = 0; i < 5; i++)
- 			printk("%2.2x:", dev->dev_addr[i]);
-@@ -577,7 +580,7 @@
- 	return -ENODEV;
+ /*
+  *  prototypes
+@@ -280,8 +281,8 @@
+  * address - Jean II */
+ static inline dma_addr_t virt_to_whatever(struct net_device *dev, u32 * ptr)
+ {
+-	return ((u_long) ptr) +
+-		((struct hp100_private *) (dev->priv))->whatever_offset;
++	return ((u_long) ptr) + 
++		((struct hp100_private *) netdev_priv)->whatever_offset;
  }
  
--static int __devinit read_eeprom(long ioaddr, int location)
-+static int read_eeprom(void __iomem *ioaddr, int location)
- {
- 	int bogus_cnt = 10000;		/* Typical 33Mhz: 1050 ticks */
- 
-@@ -592,7 +595,7 @@
-    These routines assume the MDIO controller is idle, and do not exit until
-    the command is finished. */
- 
--static int mdio_read(long ioaddr, int phy_id, int location)
-+static int mdio_read(void __iomem *ioaddr, int phy_id, int location)
- {
- 	int i;
- 
-@@ -604,7 +607,7 @@
- 	return inw(ioaddr + MII_Rd_Data);
- }
- 
--static void mdio_write(long ioaddr, int phy_id, int location, int value)
-+static void mdio_write(void __iomem *ioaddr, int phy_id, int location, int value)
- {
- 	int i;
- 
-@@ -619,10 +622,15 @@
- }
- 
- 
-+static inline void __iomem *dev_ioaddr(struct net_device *dev)
-+{
-+	return (void __iomem *) dev->base_addr;
-+}
-+
- static int yellowfin_open(struct net_device *dev)
- {
- 	struct yellowfin_private *yp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = dev_ioaddr(dev);
- 	int i;
- 
- 	/* Reset the chip. */
-@@ -704,7 +712,7 @@
- {
- 	struct net_device *dev = (struct net_device *)data;
- 	struct yellowfin_private *yp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = dev_ioaddr(dev);
- 	int next_tick = 60*HZ;
- 
- 	if (yellowfin_debug > 3) {
-@@ -738,7 +746,7 @@
- static void yellowfin_tx_timeout(struct net_device *dev)
- {
- 	struct yellowfin_private *yp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = dev_ioaddr(dev);
- 
- 	printk(KERN_WARNING "%s: Yellowfin transmit timed out at %d/%d Tx "
- 		   "status %4.4x, Rx status %4.4x, resetting...\n",
-@@ -763,7 +771,7 @@
- 	dev->if_port = 0;
- 
- 	/* Wake the potentially-idle transmit channel. */
--	outl(0x10001000, dev->base_addr + TxCtrl);
-+	outl(0x10001000, dev_ioaddr(dev) + TxCtrl);
- 	if (yp->cur_tx - yp->dirty_tx < TX_QUEUE_SIZE)
- 		netif_wake_queue (dev);		/* Typical path */
- 
-@@ -922,7 +930,7 @@
- 	/* Non-x86 Todo: explicitly flush cache lines here. */
- 
- 	/* Wake the potentially-idle transmit channel. */
--	outl(0x10001000, dev->base_addr + TxCtrl);
-+	outl(0x10001000, dev_ioaddr(dev) + TxCtrl);
- 
- 	if (yp->cur_tx - yp->dirty_tx < TX_QUEUE_SIZE)
- 		netif_start_queue (dev);		/* Typical path */
-@@ -943,7 +951,7 @@
- {
- 	struct net_device *dev = dev_instance;
- 	struct yellowfin_private *yp;
--	long ioaddr;
-+	void __iomem *ioaddr;
- 	int boguscnt = max_interrupt_work;
- 	unsigned int handled = 0;
- 
-@@ -954,8 +962,8 @@
+ /* TODO: This function should not really be needed in a good design... */
+@@ -631,7 +632,7 @@
  	}
- #endif
  
--	ioaddr = dev->base_addr;
- 	yp = netdev_priv(dev);
-+	ioaddr = dev_ioaddr(dev);
- 	
- 	spin_lock (&yp->lock);
+ 	/* Initialise the "private" data structure for this card. */
+-	lp = (struct hp100_private *) dev->priv;
++	lp = netdev_priv(dev);
  
-@@ -1254,7 +1262,7 @@
- 
- static int yellowfin_close(struct net_device *dev)
+ 	spin_lock_init(&lp->lock);
+ 	strlcpy(lp->id, eid, HP100_SIG_LEN);
+@@ -781,7 +782,7 @@
+ static void hp100_hwinit(struct net_device *dev)
  {
--	long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = dev_ioaddr(dev);
- 	struct yellowfin_private *yp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4202, TRACE);
+@@ -875,7 +876,7 @@
+ static void hp100_mmuinit(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
  	int i;
  
-@@ -1351,7 +1359,7 @@
- static void set_rx_mode(struct net_device *dev)
+ #ifdef HP100_DEBUG_B
+@@ -1053,7 +1054,7 @@
+ 
+ static int hp100_open(struct net_device *dev)
  {
- 	struct yellowfin_private *yp = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = dev_ioaddr(dev);
- 	u16 cfg_value = inw(ioaddr + Cnfg);
- 
- 	/* Stop the Rx process to change any value. */
-@@ -1411,7 +1419,7 @@
- static int netdev_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct yellowfin_private *np = netdev_priv(dev);
--	long ioaddr = dev->base_addr;
-+	void __iomem *ioaddr = dev_ioaddr(dev);
- 	struct mii_ioctl_data *data = if_mii(rq);
- 
- 	switch(cmd) {
-@@ -1465,7 +1473,7 @@
- 	pci_release_regions (pdev);
- 
- #ifndef USE_IO_OPS
--	iounmap ((void *) dev->base_addr);
-+	iounmap (dev_ioaddr(dev));
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ #ifdef HP100_DEBUG_B
+ 	int ioaddr = dev->base_addr;
  #endif
+@@ -1093,7 +1094,7 @@
+ static int hp100_close(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
  
- 	free_netdev (dev);
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4205, TRACE);
+@@ -1126,7 +1127,7 @@
+  */
+ static void hp100_init_pdls(struct net_device *dev)
+ {
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	hp100_ring_t *ringptr;
+ 	u_int *pageptr;		/* Warning : increment by 4 - Jean II */
+ 	int i;
+@@ -1227,6 +1228,7 @@
+ static int hp100_build_rx_pdl(hp100_ring_t * ringptr,
+ 			      struct net_device *dev)
+ {
++	struct hp100_private *lp = netdev_priv(dev);
+ #ifdef HP100_DEBUG_B
+ 	int ioaddr = dev->base_addr;
+ #endif
+@@ -1273,7 +1275,10 @@
+ 		/* Conversion to new PCI API : map skbuf data to PCI bus.
+ 		 * Doc says it's OK for EISA as well - Jean II */
+ 		ringptr->pdl[0] = 0x00020000;	/* Write PDH */
+-		ringptr->pdl[3] = ((u_int) pci_map_single(((struct hp100_private *) (dev->priv))->pci_dev, ringptr->skb->data, MAX_ETHER_SIZE, PCI_DMA_FROMDEVICE));
++		ringptr->pdl[3] = (u_int) pci_map_single(lp->pci_dev,
++							  ringptr->skb->data, 
++							  MAX_ETHER_SIZE, 
++							  PCI_DMA_FROMDEVICE);
+ 		ringptr->pdl[4] = MAX_ETHER_SIZE;	/* Length of Data */
+ 
+ #ifdef HP100_DEBUG_BM
+@@ -1310,7 +1315,7 @@
+ {
+ 	int ioaddr = dev->base_addr;
+ 
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	hp100_ring_t *ringptr;
+ 
+ #ifdef HP100_DEBUG_B
+@@ -1351,7 +1356,7 @@
+ static void hp100_BM_shutdown(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	unsigned long time;
+ 
+ #ifdef HP100_DEBUG_B
+@@ -1432,7 +1437,7 @@
+ 
+ static int hp100_check_lan(struct net_device *dev)
+ {
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ 	if (lp->lan_type < 0) {	/* no LAN type detected yet? */
+ 		hp100_stop_interface(dev);
+@@ -1458,7 +1463,7 @@
+ 	unsigned long flags;
+ 	int i, ok_flag;
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	hp100_ring_t *ringptr;
+ 
+ #ifdef HP100_DEBUG_B
+@@ -1576,7 +1581,7 @@
+  */
+ static void hp100_clean_txring(struct net_device *dev)
+ {
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	int donecount;
+ 
+@@ -1615,7 +1620,7 @@
+ 	int i, ok_flag;
+ 	int ioaddr = dev->base_addr;
+ 	u_short val;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4212, TRACE);
+@@ -1755,7 +1760,7 @@
+ {
+ 	int packets, pkt_len;
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	u_int header;
+ 	struct sk_buff *skb;
+ 
+@@ -1864,7 +1869,7 @@
+ static void hp100_rx_bm(struct net_device *dev)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	hp100_ring_t *ptr;
+ 	u_int header;
+ 	int pkt_len;
+@@ -1973,7 +1978,7 @@
+ {
+ 	unsigned long flags;
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4215, TRACE);
+@@ -1991,7 +1996,7 @@
+ {
+ 	int ioaddr = dev->base_addr;
+ 	u_short val;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4216, TRACE);
+@@ -2017,7 +2022,7 @@
+ #ifdef HP100_DEBUG_B
+ 	int ioaddr = dev->base_addr;
+ #endif
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	int ioaddr = dev->base_addr;
+@@ -2061,7 +2066,7 @@
+ {
+ 	unsigned long flags;
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4218, TRACE);
+@@ -2191,7 +2196,7 @@
+ static irqreturn_t hp100_interrupt(int irq, void *dev_id, struct pt_regs *regs)
+ {
+ 	struct net_device *dev = (struct net_device *) dev_id;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ 	int ioaddr;
+ 	u_int val;
+@@ -2322,7 +2327,7 @@
+ {
+ 	unsigned long flags;
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4220, TRACE);
+@@ -2381,7 +2386,7 @@
+ 
+ static void hp100_stop_interface(struct net_device *dev)
+ {
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	u_int val;
+ 
+@@ -2442,7 +2447,7 @@
+ {
+ 	int ioaddr = dev->base_addr;
+ 	u_short val_VG, val_10;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4223, TRACE);
+@@ -2488,7 +2493,7 @@
+ 
+ static int hp100_down_vg_link(struct net_device *dev)
+ {
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	int ioaddr = dev->base_addr;
+ 	unsigned long time;
+ 	long savelan, newlan;
+@@ -2604,7 +2609,7 @@
+ static int hp100_login_to_vg_hub(struct net_device *dev, u_short force_relogin)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 	u_short val = 0;
+ 	unsigned long time;
+ 	int startst;
+@@ -2775,7 +2780,7 @@
+ static void hp100_cascade_reset(struct net_device *dev, u_short enable)
+ {
+ 	int ioaddr = dev->base_addr;
+-	struct hp100_private *lp = (struct hp100_private *) dev->priv;
++	struct hp100_private *lp = netdev_priv(dev);
+ 
+ #ifdef HP100_DEBUG_B
+ 	hp100_outw(0x4226, TRACE);
+@@ -2836,7 +2841,7 @@
+ 
+ static void cleanup_dev(struct net_device *d)
+ {
+-	struct hp100_private *p = (struct hp100_private *) d->priv;
++	struct hp100_private *p = netdev_priv(d);
+ 
+ 	unregister_netdev(d);
+ 	release_region(d->base_addr, HP100_REGION_SIZE);
