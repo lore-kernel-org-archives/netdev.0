@@ -1,60 +1,32 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (1/4) remove hashbin from irlan
-Date: Mon, 18 Aug 2003 12:34:21 -0700
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] (2/4) convert irlan to use alloc_netdev
+Date: Mon, 18 Aug 2003 12:58:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818123421.64ee3ff2.shemminger@osdl.org>
-References: <20030818113936.205b5632.shemminger@osdl.org>
-	<20030818190046.GA6577@bougret.hpl.hp.com>
+Message-ID: <20030818195836.GB6577@bougret.hpl.hp.com>
+References: <20030818114930.4ca873cf.shemminger@osdl.org> <20030818115333.35fe5f6d.davem@redhat.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jt@bougret.hpl.hp.com, "David S. Miller" <davem@redhat.com>,
-   irda-users@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, irda-users@lists.sourceforge.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20030818190046.GA6577@bougret.hpl.hp.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030818115333.35fe5f6d.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 12:00:46 -0700
-Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
-
-> On Mon, Aug 18, 2003 at 11:39:36AM -0700, Stephen Hemminger wrote:
-> > The locking in hashbin_delete is a problem since unregister_netdevice
-> > can't be called with locks held in 2.6.0-test3.
-> > 
-> > Replace it with simpler list macros.
-> > Insertion/deletion protected with RTNL semaphore, and read
-> > uses RCU.
-> > 
-> > Don't have client hardware to test, but load/unload works on SMP.
+On Mon, Aug 18, 2003 at 11:53:33AM -0700, David S. Miller wrote:
 > 
-> 	Why don't you try the much simpler version :
-> ----------------------------------------------
-> --- irlan_common.h1.c   Mon Aug 18 11:57:39 2003
-> +++ irlan_common.c      Mon Aug 18 11:58:25 2003
-> @@ -125,7 +125,7 @@ int __init irlan_init(void)
->  
->         IRDA_DEBUG(0, "%s()\n", __FUNCTION__ );
->         /* Allocate master structure */
-> -       irlan = hashbin_new(HB_LOCK);   /* protect from /proc */
-> +       irlan = hashbin_new(HB_NOLOCK); /* network layer will protect us */
->         if (irlan == NULL) {
->                 printk(KERN_WARNING "IrLAN: Can't allocate hashbin!\n");
->                 return -ENOMEM;
-> ----------------------------------------------
-> 	We would still need the RCU, but the overall patch would be
-> much simpler and safer IMHO. But it's up to you ;-)
-> 
-> 	Have fun...
-> 
-> 	Jean
+> Jean, I'd like to merge Stephen's work as I review
+> it unless you have some hard reason why I shouldn't.
 
-It really is a personal choice; there is no "right and wrong", but
-I felt more secure using the same locking and list model as other network
-drivers.  You probably feel more secure using the hashbin stuff that the
-rest of the IRDA stack does.
+	Well, I already told you that I don't maintain IrLAN, so you
+are free to do as you wish with IrLAN. It's up to Stephen to see if he
+likes my suggestion or not.
+	By the way, that's why I try to read Stephen patches as fast
+as they come, even though I've got a pile of other work to do.
 
-Also, RCU is well tested and if something comes up, it would get fixed
-in list.h.  I wouldn't trust hashbin's with RCU without explicit testing
-and review by Paul or Dipankar.
+	Thanks...
+
+	Jean
