@@ -1,107 +1,118 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [Fwd: [RFT] NAPI for 8139too]
-Date: Mon, 20 Oct 2003 08:41:47 -0700
+From: rdbrown@mira.net
+Subject: Suggested patch to include attribution for faster CRC algorithm
+Date: Tue, 21 Oct 2003 00:32:08 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031020084147.3bb5b25c.shemminger@osdl.org>
-References: <3F9070B6.9090306@pobox.com>
-	<873cdqbt6z.fsf@devron.myhome.or.jp>
+Message-ID: <20031020143208.GA576@urtur>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: rbrown64@csc.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-In-Reply-To: <873cdqbt6z.fsf@devron.myhome.or.jp>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 18 Oct 2003 21:56:20 +0900
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> wrote:
+Patch to include attribution for the faster CRC algorithm used in
+lib/crc32.c . As I read it Richard Black implied a BSD style license as
+long as the Copyright was included. The source was based on his code.
+I think http://research.microsoft.com/users/rjblack/ may be the right
+person if he should be contacted. I don't like the long line for the URL
+- I guess you could lose the section part if preferred.
+Source modified from 2.6.0-test4, untested as a comment change.
 
-> Hi,
-> 
-> I also working for it (patches attached). So I have several comment.
-> 
-> Jeff Garzik <jgarzik@pobox.com> writes:
-> 
-> > +	dev->weight = 16;
-> 
-> just question: Is there basis for believing that this value is
-> rightness?  Although I use 64, I don't have a reason for having chosen
-> it at all.
+--- lib/crc32.c	Sat Aug 23 09:50:53 2003
++++ lib/crc32.c	Sun Oct 19 23:40:32 2003
+@@ -1,6 +1,9 @@
+ /* 
+  * Oct 15, 2000 Matt Domsch <Matt_Domsch@dell.com>
+  * Nicer crc32 functions/docs submitted by linux@horizon.com.  Thanks!
++ * CRC_?E_BITS == 8 forms based on Algorithm 4 from
++ * http://www.cl.cam.ac.uk/Research/SRG/bluebook/21/crc/node6.html#SECTION00064000000000000000
++ * which is Copyright 1993 Richard Black, All rights reserved.
+  *
+  * Oct 12, 2000 Matt Domsch <Matt_Domsch@dell.com>
+  * Same crc32 function was used in 5 other places in the kernel.
+
 
-I chose 16 only because that was in the sample NAPI documentation,
-but it probably doesn't matter a lot unless you have multiple NIC's using
-NAPI in the same machine, which is not common since this chipset seems to be used
-mostly in cheap boxes.
+The statement from the web page (tex source) was
+\subsection{Algorithm four}
 
-> 
-> >  	dev->stop = rtl8139_close;
-> >  	dev->get_stats = rtl8139_get_stats;
-> >  	dev->set_multicast_list = rtl8139_set_rx_mode;
-> > @@ -1879,24 +1877,28 @@
-> >  #endif
-> >  }
-> >  
-> > -static void rtl8139_rx_interrupt (struct net_device *dev,
-> > -				  struct rtl8139_private *tp, void *ioaddr)
-> > +/*
-> > + * NAPI poll routine.
-> > + */
-> > +static int rtl8139_poll(struct net_device *dev, int *budget)
-> >  {
-> > +	struct rtl8139_private *tp = dev->priv;
-> > +	void *ioaddr = tp->mmio_addr;
-> >  	unsigned char *rx_ring;
-> >  	u16 cur_rx;
-> > +	int rx, status;
-> > +	unsigned long flags;
-> >  
-> > -	assert (dev != NULL);
-> > -	assert (tp != NULL);
-> > -	assert (ioaddr != NULL);
-> > -
-> > +	spin_lock_irqsave(&tp->lock, flags);
-> 
-> I don't think lock of interrupt related path needed here. And this
-> thinks that it has a bad influence on TX path.
-> 
-> Instead of it, I think we need synchronize with ->tx_timeout because
-> ->tx_timeout touch IntrMask.
+This code is copyright~\copyright~1993 Richard Black. All rights are
+reserved. You may use this code only if it includes a statement to
+that effect.
 
-Locking in this version is more conservative than necessary, will think about
-how to do it better.
+
+Following are excerpts from the mailing lists showing the history of
+the code.
 
+Following includes first use of Algorithm 4
+http://www.ussg.iu.edu/hypermail/linux/kernel/0211.2/1895.html
+Re: [PATCH 2.5] crc32 static initialization
+From: Brian Murphy (brian@murphy.dk)
+Date: Fri Nov 22 2002 - 15:25:22 EST
 
-> > + rescan:
-> >  	rx_ring = tp->rx_ring;
-> >  	cur_rx = tp->cur_rx;
-> > -
-> [...]
-> >  			RTL_W16_F (IntrStatus, RxAckBits);
-> > +
-> > +		if (++rx >= dev->quota)
-> 
-> Shouldn't we use "min(dev->quota, *budget)" for this limit? Users can
-> change "budget" via sysctl.
+Joakim Tjernlund wrote:
 
-Once again, this not what the documentation, or some other drivers do.
+>Hi Brian
+>
+>Would you please also add the CRC32 patch I sent you earlier?
+>It is much faster.
+>
+>
+>
+Can you test the attached patch - especially on a big endian system. It
+should
+do the required thing, i.e. what you want and what I want :-)
+simultaneously.
 
-> 
-> > +	/* If received interrupt, then disable furthur interrupts
-> > +	 * and enable NAPI polling.
-> > +	 */
-> > +	if (netif_running (dev) && (status & RxAckBits)) {
-> > +		/* disable more receive interrupts */
-> > +		RTL_W16 (IntrMask, rtl8139_intr_mask & ~RxAckBits);
-> > +		netif_rx_schedule(dev);
-> > +	}
-> 
-> This style have problem on shutdowning interface path. Please see
-> 8139too-napi-stop-fix.patch.
-> 
-> Thanks.
-> -- 
-> OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-> 
-> 
+/Brian 
+
+
+Earlier Algorithm 4
+http://www.ussg.iu.edu/hypermail/linux/kernel/0211.2/1525.html
+Early crc32 initialization
+From: Joakim Tjernlund (joakim.tjernlund@lumentis.se)
+Date: Thu Nov 21 2002 - 05:16:48 EST
+Brian Murphy posted this on 8-Oct with no response. Quoting:
+
+Here is a patch to the crc32 library routine to allow explicit
+initialization of the tables used by the routines.
+
+I need this to be able to use the crc routines in the early
+start up code for my platform which saves crc protected
+information (clock speed, machine type) in an eeprom.
+
+The option CONFIG_CRC32_EXPLICIT is defined for the platforms
+which need it in the config.in file.
+
+I have removed dynamic allocation of memory because the
+memory subsystem is also not initialised at the stage where I
+need the crc functions.
+
+/Brian
+
+Hi Matt and Brian
+
+I have doen an optimiztion that improves scan time in JFFS2 with more that 25% for
+my PPC custom board. This patch needs to use __cpu_to_be32()/__cpu_to_le32() on the
+tables. That may cause problems if a static table is to be used. See below:
+
+ Jocke 
+
+
+Explicit reference to algorithm 4
+http://lists.infradead.org/pipermail/linux-mtd/2002-November/006422.html
+crc32() optimization
+Joakim Tjernlund Joakim.Tjernlund at lumentis.se
+Sun Nov 10 21:04:11 GMT 2002
+
+    * Previous message: crc32() optimization
+    * Next message: Building mkfs.jffs2
+    * Messages sorted by: [ date ] [ thread ] [ subject ] [ author ]
+
+hmm , maybe. I tried 16, 8 & 4 also, but 6 was a little faster for me.
+What would be great if someone that understands CRC better than me could
+take a look at Algorithm 4 at http://www.cl.cam.ac.uk/Research/SRG/bluebook/21/crc/node6.html#SECTION00060000000000000000
+and apply that on linux CRC32 code.  I tried but failed to get it correct.
+
+        Jocke
