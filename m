@@ -1,33 +1,26 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: net-AIO and real-time TCP (blue sky research)
-Date: Thu, 12 Aug 2004 14:11:10 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0408121402090.5007-100000@dexter.psc.edu>
-References: <20040811214044.U28020@almesberger.net>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] enhanced version of net_random()
+Date: Thu, 12 Aug 2004 12:48:54 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040812124854.646f1936.davem@redhat.com>
+References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sridhar Samudrala <sri@us.ibm.com>,
-        Suparna Bhattacharya <suparna@in.ibm.com>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-In-Reply-To: <20040811214044.U28020@almesberger.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alan@lxorguk.ukuu.org.uk, tytso@mit.edu, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268680AbUHLTuG@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Aug 2004, Werner Almesberger wrote:
+On Thu, 12 Aug 2004 10:48:35 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Sridhar Samudrala wrote:
-> > Your AIO-TCP looks pretty similar to the partial reliablity extension to
-> > SCTP that allows an SCTP endpoint to signal to its peer that it is no longer
-> > going to retransmit certain messages and should skip past those messages.
->
-> Damn, so it's not such a crazy idea after all :-)
+> Here is a proposed alternative to use a longer period PRNG for net_random().
+> The choice of TT800 was because it was freely available, had a long period,
+> was fast and relatively small footprint. The existing net_random() was not
+> really thread safe, but was immune to thread corruption. 
 
-Perhaps not for SCTP.  I'd love to see a good AIO API for TCP, but if what
-you are describing is implemented, the resulting protocol would be
-something other than TCP.  There are some RDDP people talking about
-similar things, and it is quite controversial within the IETF.
-
-It might be easier to focus on SCTP.  This is what it was designed for.
-
-  -John
+Any chance of a version that doesn't grab a global lock and
+disable interrupts every call? :(
