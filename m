@@ -1,85 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: dummy as IMQ replacement
-Date: 31 Jan 2005 11:40:25 -0500
-Message-ID: <1107189625.1076.77.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <20050131135810.GC31837@postel.suug.ch>
-	 <1107181169.7840.184.camel@jzny.localdomain>
-	 <20050131151532.GE31837@postel.suug.ch>
-	 <1107186044.1076.11.camel@jzny.localdomain>
-	 <20050131155929.GF31837@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Adrian Bunk <bunk@stusta.de>
+Subject: Re: [PATCH] OpenBSD Networking-related randomization port
+Date: Mon, 31 Jan 2005 17:50:25 +0100
+Message-ID: <20050131165025.GN18316@stusta.de>
+References: <1106932637.3778.92.camel@localhost.localdomain> <20050128100229.5c0e4ea1@dxpl.pdx.osdl.net> <1106937110.3864.5.camel@localhost.localdomain> <20050128105217.1dc5ef42@dxpl.pdx.osdl.net> <1106944492.3864.30.camel@localhost.localdomain> <1106945266.7776.41.camel@laptopd505.fenrus.org> <200501290915.j0T9FkVY012948@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050131155929.GF31837@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Arjan van de Ven <arjan@infradead.org>,
+	Lorenzo =?iso-8859-1?Q?Hern=E1ndez_Garc=EDa-Hierro?=
+	<lorenzo@gnu.org>, Stephen Hemminger <shemminger@osdl.org>,
+	"linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+	Chris Wright <chrisw@osdl.org>, netdev@oss.sgi.com,
+	Hank Leininger <hlein@progressive-comp.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261246AbVAaQuf@vger.kernel.org>
+To: Valdis.Kletnieks@vt.edu
+Content-Disposition: inline
+In-Reply-To: <200501290915.j0T9FkVY012948@turing-police.cc.vt.edu>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-31 at 10:59, Thomas Graf wrote:
-> > My experience is that you end up dropping no more than a packet in a
-> > burst with policing before TCP adjusts. Also depending on the gap
-> > between bursts, that may be the only packet you drop altogether.
-> > In long flows such as file transfers, avergae of one packet ever gets
-> > dropped.
+On Sat, Jan 29, 2005 at 04:15:43AM -0500, Valdis.Kletnieks@vt.edu wrote:
+> On Fri, 28 Jan 2005 21:47:45 +0100, Arjan van de Ven said:
 > 
-> I mostly agree but not completely. It's definitely true that most of
-> the problems I'm fighting today are causes by the attempt to be too
-> perfect in calculating. Going a step backwards solves most of the
-> problems and probably works just fine for most cases. One of the main
-> problem I'm facing here are big file transfers on low latency links with
-> modified ip stacks to allow for a "faster" slow start (those are the
-> reason why I'm trying to do this). An attempt to drop only a few
-> packets results in a stronger incremenal growth. I'm not quite sure
-> why that happens yet but a more aggresive policing stategy helped a
-> lot. I agree that if we plan to put something like this into mainline
-> those problem domains should be separated to not overcomlicate the
-> whole thing.
+> > as for obsd_get_random_long().. would it be possible to use the
+> > get_random_int() function from the patches I posted the other day? They
+> > use the existing random.c infrastructure instead of making a copy...
+> > 
+> > I still don't understand why you need a obsd_rand.c and can't use the
+> > normal random.c
 > 
+> Note that obsd_rand.c started off life as a BSD-licensed file - I was told
+> that was a show-stopper when I submitted basically the same patch a while back.
+>...
 
-Would be interesting to combine policing and random dropping to see 
-what happens. 
-I think this is something you should be able to find a student to abuse
-so they can write a paper ;-> Probably Linux may not even be the right
-place to do it to start with - rather simulations until you get it right
-then code it into Linux.
+At least the three clause BSD license is GPL compatible.
 
-> Sounds good. We'll need to address this anyway, the classifiers rely
-> on the ip header being valid which is no longer assured.
+cu
+Adrian
 
-true - i was thinking of restoring stateless NAT at this level as well.
-So csum would be needed. The csum could be programmed to either
-validate only or recompute; those are the only two arguements to it that
-i could think of. I suppose first thing is to put out the eaction patch
-then add this action. I will try to sneak in some time this week and
-write the eaction.
+-- 
 
-> > Ok, I think both approaches are correct. ematch does the check/get
-> > essentially; and action will create the set/tracking if needed.
-> > For the example i gave, you are absolutely correct, ematch is
-> > sufficient.
-> 
-> Right, so we can do something like the meta ematch/action split. What
-> attributes to you intend to be modifieable? 
-
-Essentially on ingress create state; i have to find my notes to give you
-precise answer. But one of the parameters was to select the level of
-state tracking (such as "track IP only" - not sure how doable that is
-with contrack)
- 
-> A neat thing would be
-> to overwrite the state and thus assign a packet to another connection
-> which could be used to reimplement fast nat together with pedit.
-
-Stateless NAT doesnt really need contracking. pedit (taught to speak
-english) + eaction csum should do it.
-
-cheers,
-jamal
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
