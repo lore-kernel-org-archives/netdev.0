@@ -1,51 +1,126 @@
-From: Takashi Hibi <hibi665@oki.com>
-Subject: About MLDv2 specification
-Date: Mon, 21 Jun 2004 18:11:46 +0900
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [NET]: Lockless loopback patch (version 2).
+Date: Mon, 21 Jun 2004 03:57:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040621181146.20bde98%hibi665@oki.com>
+Message-ID: <20040621035702.6114bdbe.akpm@osdl.org>
+References: <200406210510.i5L5A340018849@hera.kernel.org>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, akepner@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+In-Reply-To: <200406210510.i5L5A340018849@hera.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+Linux Kernel Mailing List <linux-kernel@vger.kernel.org> wrote:
+>
+> 	[NET]: Lockless loopback patch (version 2).
 
-MLDv2 was now issued as RFC3810.
-We found a small problem in the current implementation.
-In 5.2.12 of RFC3810, there is a following statement.
+The loopback_stats handling looks wrong:
 
-      Value  Name and Meaning
-      -----  ----------------
-        1    MODE_IS_INCLUDE - indicates that the interface has a filter
-             mode of INCLUDE for the specified multicast address.  The
-             Source Address [i] fields in this Multicast Address Record
-             contain the interface's source list for the specified
-             multicast address.  A MODE_IS_INCLUDE Record is never sent
-             with an empty source list.
++	if (likely(loopback_stats)) {
++		get_cpu_ptr(loopback_stats)->rx_bytes += skb->len;
++		get_cpu_ptr(loopback_stats)->tx_bytes += skb->len;
++		get_cpu_ptr(loopback_stats)->rx_packets++;
++		get_cpu_ptr(loopback_stats)->tx_packets++;
++		put_cpu_ptr(loopback_stats);
 
-The last part (A MODE_IS_INCLUDE Record is ...) causes a problem.
-This restriction is added since draft 7 of MLDv2.
+each get_cpu_ptr() does get_cpu(), which increments preempt_count().  But
+there is only a single put_cpu_ptr() in there.
 
-The current implementation of MLDv2 sends MODE_IS_INCLUDE record with
-an empty list after leaving multicast group.
 
-I think that it can be fixed easily by:
+Still, I don't see why we need to use alloc_percpu() - why not
+statically allocate it?
 
---- linux-2.6.7/net/ipv6/mcast.c.orig   2004-05-10 11:33:13.000000000 +0900
-+++ linux-2.6.7/net/ipv6/mcast.c        2004-06-16 19:43:35.000000000 +0900
-@@ -1388,7 +1388,8 @@
-
-        if (!*psf_list) {
-                if (type == MLD2_ALLOW_NEW_SOURCES ||
--                   type == MLD2_BLOCK_OLD_SOURCES)
-+                   type == MLD2_BLOCK_OLD_SOURCES ||
-+                   type == MLD2_MODE_IS_INCLUDE)
-                        return skb;
-                if (pmc->mca_crcount || isquery) {
-                        /* make sure we have room for group header and at
+This compiles, but does need runtime testing.
 
 
 
-Regards,
-Takashi Hibi
+
+Signed-off-by: Andrew Morton <akpm@osdl.org>
+---
+
+ 25-akpm/drivers/net/loopback.c |   35 ++++++++++++++++++-----------------
+ 1 files changed, 18 insertions(+), 17 deletions(-)
+
+diff -puN drivers/net/loopback.c~loopback-percpu-fix drivers/net/loopback.c
+--- 25/drivers/net/loopback.c~loopback-percpu-fix	2004-06-21 03:39:33.265306016 -0700
++++ 25-akpm/drivers/net/loopback.c	2004-06-21 03:50:58.327160784 -0700
+@@ -55,8 +55,9 @@
+ #include <linux/if_arp.h>	/* For ARPHRD_ETHER */
+ #include <linux/ip.h>
+ #include <linux/tcp.h>
++#include <linux/percpu.h>
+ 
+-static struct net_device_stats *loopback_stats;
++static DEFINE_PER_CPU(struct net_device_stats, loopback_stats);
+ 
+ #define LOOPBACK_OVERHEAD (128 + MAX_HEADER + 16 + 16)
+ 
+@@ -124,6 +125,7 @@ static void emulate_large_send_offload(s
+  */
+ static int loopback_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
++	struct net_device_stats *lb_stats;
+ 
+ 	skb_orphan(skb);
+ 
+@@ -142,13 +144,13 @@ static int loopback_xmit(struct sk_buff 
+ 	}
+ 
+ 	dev->last_rx = jiffies;
+-	if (likely(loopback_stats)) {
+-		get_cpu_ptr(loopback_stats)->rx_bytes += skb->len;
+-		get_cpu_ptr(loopback_stats)->tx_bytes += skb->len;
+-		get_cpu_ptr(loopback_stats)->rx_packets++;
+-		get_cpu_ptr(loopback_stats)->tx_packets++;
+-		put_cpu_ptr(loopback_stats);
+-	}
++
++	lb_stats = &per_cpu(loopback_stats, get_cpu());
++	lb_stats->rx_bytes += skb->len;
++	lb_stats->tx_bytes += skb->len;
++	lb_stats->rx_packets++;
++	lb_stats->tx_packets++;
++	put_cpu();
+ 
+ 	netif_rx(skb);
+ 
+@@ -165,17 +167,18 @@ static struct net_device_stats *get_stat
+ 	}
+ 
+ 	memset(stats, 0, sizeof(struct net_device_stats));
+-	if (!loopback_stats) {
+-		return stats;
+-	}
+ 
+ 	for (i=0; i < NR_CPUS; i++) {
++		struct net_device_stats *lb_stats;
++
+ 		if (!cpu_possible(i)) 
+ 			continue;
+-		stats->rx_bytes   += per_cpu_ptr(loopback_stats, i)->rx_bytes;
+-		stats->tx_bytes   += per_cpu_ptr(loopback_stats, i)->tx_bytes;
+-		stats->rx_packets += per_cpu_ptr(loopback_stats, i)->rx_packets;
+-		stats->tx_packets += per_cpu_ptr(loopback_stats, i)->tx_packets;
++		lb_stats = &per_cpu(loopback_stats, get_cpu());
++		stats->rx_bytes   += lb_stats->rx_bytes;
++		stats->tx_bytes   += lb_stats->tx_bytes;
++		stats->rx_packets += lb_stats->rx_packets;
++		stats->tx_packets += lb_stats->tx_packets;
++		put_cpu();
+ 	}
+ 				
+ 	return stats;
+@@ -211,8 +214,6 @@ int __init loopback_init(void)
+ 		loopback_dev.priv = stats;
+ 		loopback_dev.get_stats = &get_stats;
+ 	}
+-
+-	loopback_stats = alloc_percpu(struct net_device_stats);
+ 	
+ 	return register_netdev(&loopback_dev);
+ };
+_
