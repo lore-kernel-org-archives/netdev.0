@@ -1,36 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [UDP] Check encap_type at config time
-Date: Fri, 25 Jun 2004 22:11:47 +1000
+Subject: [IPSEC] Check encap_type at config time
+Date: Fri, 25 Jun 2004 22:35:27 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040625121147.GA11231@gondor.apana.org.au>
+Message-ID: <20040625123527.GA11685@gondor.apana.org.au>
+References: <20040625121147.GA11231@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="PNTmBPCT7hxwcZjr"
+Content-Type: multipart/mixed; boundary="7AUc2qLy4jB3hD7Z"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <20040625121147.GA11231@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---PNTmBPCT7hxwcZjr
+--7AUc2qLy4jB3hD7Z
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi Dave:
+On Fri, Jun 25, 2004 at 10:11:47PM +1000, herbert wrote:
+> 
+> PS I will be doing a similar patch for the encap_type in xfrm.
 
-My foray into the TTL stuff is turning into an all-out assault on NAT-T :)
+Here is the patch to check encap_type at the earliest possible
+opportunity in xfrm_user/af_key.
 
-The following patch moves the udp->encap_type check from the per-packet
-hot-path into udp_setsockopt().
-
-As a consequence, this allows user space to detect whether the kernel
-actually supports the encap type that they're requesting.  Pity no one
-did this before the NON-IKE patch was applied.  As it is there is no
-easy way to detect whether NON-IKE support is present.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-PS I will be doing a similar patch for the encap_type in xfrm.
+This will allow us to assume in esp4 that the encap_type from x->encap
+is always valid.
 
 Cheers,
 -- 
@@ -39,70 +35,47 @@ Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---PNTmBPCT7hxwcZjr
+--7AUc2qLy4jB3hD7Z
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-===== net/ipv4/udp.c 1.61 vs edited =====
---- 1.61/net/ipv4/udp.c	2004-06-05 06:59:36 +10:00
-+++ edited/net/ipv4/udp.c	2004-06-25 21:56:34 +10:00
-@@ -964,6 +964,7 @@
- 	len = skb->tail - udpdata;
+===== net/key/af_key.c 1.61 vs edited =====
+--- 1.61/net/key/af_key.c	2004-06-06 18:27:42 +10:00
++++ edited/net/key/af_key.c	2004-06-25 19:33:51 +10:00
+@@ -1075,6 +1075,15 @@
+ 		n_type = ext_hdrs[SADB_X_EXT_NAT_T_TYPE-1];
+ 		natt->encap_type = n_type->sadb_x_nat_t_type_type;
  
- 	switch (encap_type) {
-+	default:
- 	case UDP_ENCAP_ESPINUDP:
- 		/* Check if this is a keepalive packet.  If so, eat it. */
- 		if (len == 1 && udpdata[0] == 0xff) {
-@@ -1016,12 +1017,6 @@
- 		} else
- 			/* Must be an IKE packet.. pass it through */
- 			return 1;
--
--	default:
--		if (net_ratelimit())
--			printk(KERN_INFO "udp_encap_rcv(): Unhandled UDP encap type: %u\n",
--			       encap_type);
--		return 1;
- 	}
- #endif
- }
-@@ -1297,7 +1292,16 @@
- 		break;
- 		
- 	case UDP_ENCAP:
--		up->encap_type = val;
-+		switch (val) {
-+		case 0:
++		switch (natt->encap_type) {
 +		case UDP_ENCAP_ESPINUDP:
 +		case UDP_ENCAP_ESPINUDP_NON_IKE:
-+			up->encap_type = val;
 +			break;
 +		default:
 +			err = -ENOPROTOOPT;
-+			break;
++			goto out;
 +		}
- 		break;
++
+ 		if (ext_hdrs[SADB_X_EXT_NAT_T_SPORT-1]) {
+ 			struct sadb_x_nat_t_port* n_port =
+ 				ext_hdrs[SADB_X_EXT_NAT_T_SPORT-1];
+===== net/xfrm/xfrm_user.c 1.42 vs edited =====
+--- 1.42/net/xfrm/xfrm_user.c	2004-03-25 09:18:34 +11:00
++++ edited/net/xfrm/xfrm_user.c	2004-06-25 19:33:51 +10:00
+@@ -78,6 +78,15 @@
+ 	if ((rt->rta_len - sizeof(*rt)) < sizeof(*encap))
+ 		return -EINVAL;
  
- 	default:
-===== net/ipv6/udp.c 1.67 vs edited =====
---- 1.67/net/ipv6/udp.c	2004-06-21 09:37:54 +10:00
-+++ edited/net/ipv6/udp.c	2004-06-25 20:13:50 +10:00
-@@ -1044,7 +1044,14 @@
- 		break;
- 		
- 	case UDP_ENCAP:
--		up->encap_type = val;
-+		switch (val) {
-+		case 0:
-+			up->encap_type = val;
-+			break;
-+		default:
-+			err = -ENOPROTOOPT;
-+			break;
-+		}
- 		break;
++	encap = RTA_DATA(rt);
++	switch (encap->encap_type) {
++	case UDP_ENCAP_ESPINUDP:
++	case UDP_ENCAP_ESPINUDP_NON_IKE:
++		break;
++	default:
++		return -ENOPROTOOPT;
++	}
++
+ 	return 0;
+ }
  
- 	default:
 
---PNTmBPCT7hxwcZjr--
+--7AUc2qLy4jB3hD7Z--
