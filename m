@@ -1,41 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] Add nl_open to libnetlink
-Date: Tue, 6 Jul 2004 14:05:50 -0700
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: analysis of TCP window size issues still around - several reports / SACK involved?
+Date: Tue, 6 Jul 2004 22:27:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706140550.2d483dc8@dell_ss3.pdx.osdl.net>
-References: <20040703094632.GA14235@gondor.apana.org.au>
-	<20040705160500.208591b5@localhost>
+Message-ID: <20040706202708.GA1385@outpost.ds9a.nl>
+References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org> <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706131955.3a3c6c8b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: acme@conectiva.com.br, shemminger@osdl.org, netdev@oss.sgi.com,
+        alessandro.suardi@oracle.com, phyprabab@yahoo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Masahide NAKAMURA <nakam@linux-ipv6.org>
-In-Reply-To: <20040705160500.208591b5@localhost>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040706131955.3a3c6c8b.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Jul 2004 16:05:00 +0900
-Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
+On Tue, Jul 06, 2004 at 01:19:55PM -0700, David S. Miller wrote:
 
-> Hello,
-> 
-> On Sat, 3 Jul 2004 19:46:32 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > I'm in the process of writing two new modules fo ip(8), ippolicy and
-> > ipstate which will be a NETLINK based replacement for setkey.
-> > 
-> > In order to do so, I need to get libnetlink to speak the XFRM protocol.
-> > Thus I've added a new nl_open function which allows the protocol to
-> > be specified.
-> 
-> I agree with it.
-> 
-> Anyway, I have code for ip(8) for similar reason.
-> The patch is below:
-> http://www.linux-ipv6.org/~nakam/ipxfrm-20040705.diff
+> rather it do this, so that diagnosing dumps are easier.  If tcpdump
+> tries to be too clever, scaling the window, then I might end up
+> chasing down a tcpdump bug rather than a TCP one :-)
 
-This code won't build with current kernel headers. There is no xfrmsel_icmp_type
-in current 2.6 definition of struct xfrm_selector.
-	
+True - it might want to print '43 (*128=5706)' or something like that.
+
+> What would be more interesting is to get the tcpdump trace from the
+> other side of this connection.  This is crucial, as it will show how
+> and in what way exactly the window scale options and/or window fields
+> are being edited by a firewall or other device and thus causing
+> the problems.
+
+I have an appointment with Alessandro tomorrow evening at 11PM CEST to do
+just that.
+
+It sounds like window scaling may become yet another ECN...
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
