@@ -1,8 +1,8 @@
 From: Andi Kleen <ak@suse.de>
 Subject: Re: some bluetooth fixes
-Date: Wed, 11 Feb 2004 19:33:10 +0000 (UTC)
-Sender: bluez-devel-admin@lists.sourceforge.net
-Message-ID: <20040215002513.7c6fc532.ak@suse.de>
+Date: Wed, 11 Feb 2004 19:55:01 +0000 (UTC)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040215002513.7c6fc532.ak__13208.5964819$1076529301@suse.de>
 References: <20040206050042.20a2b3b0.ak@suse.de>
 	<1076079512.2806.40.camel@pegasus>
 	<20040207032428.56ffbebc.ak@suse.de>
@@ -15,19 +15,12 @@ Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-	viro@zenII.linux.org.uk
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
+        viro@zenII.linux.org.uk
+Return-path: <netdev-bounce@oss.sgi.com>
+Date: Sun, 15 Feb 2004 00:25:13 +0100
 To: Marcel Holtmann <marcel@holtmann.org>
 In-Reply-To: <1076525743.2792.1.camel@pegasus>
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
-Date: Sun, 15 Feb 2004 00:25:13 +0100
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On Wed, 11 Feb 2004 19:55:43 +0100
@@ -50,10 +43,3 @@ This can still overflow. It should be
 		return -EINVAL
 
 -Andi
-
-
--------------------------------------------------------
-SF.Net is sponsored by: Speed Start Your Linux Apps Now.
-Build and deploy apps & Web services for Linux with
-a free DVD software kit from IBM. Click Now!
-http://ads.osdn.com/?ad_id=1356&alloc_id=3438&op=click
