@@ -1,83 +1,122 @@
-From: CaT <cat@zip.com.au>
-Subject: strange network slowness in 2.6 unless pingflooding
-Date: Mon, 27 Sep 2004 19:03:43 +1000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040927090342.GA1794@zip.com.au>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 2.6] natsemi.c NAPI
+Date: Mon, 27 Sep 2004 11:11:48 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040927091148.GF3236@sunbeam.de.gnumonks.org>
+References: <20040919163642.GC1307@sunbeam.de.gnumonks.org> <4155D781.8050700@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, jgarzik@pobox.com, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="QMcAIMJS2LNMCtSQ"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <4155D781.8050700@colorfullife.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-This is still happening. I ran the same set of tests on a totally
-different network, with my xircom  realport ethernet card (tulip
-driver - 16bit) and from linux to linux and windows to linux. Scrolling
-through a message in mutt eventually slows down and if I lift my finger
-off the enter key whilst it's slow the scrolling keeps going, as if it
-was all bufferd. If I do a pingflood (ping -f) from a machine to my
-laptop it's all fine.
+--QMcAIMJS2LNMCtSQ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-I am also now running 2.6.9-rc1-mm4.
+[resend, went to wrong list address]
 
-Help? :/
+Manfred, thanks for your comments.
 
------ Forwarded message from CaT <cat@zip.com.au> -----
+[explicit Cc to jamal becuase of NAPI-related stuff below]
 
-Date: 	Thu, 19 Aug 2004 12:03:40 +1000
-From: CaT <cat@zip.com.au>
-To: linux-kernel@vger.kernel.org
-Subject: Whacky 2.6 network behaviour
-Organisation: Furball Inc.
-X-Mailing-List: 	linux-kernel@vger.kernel.org
+On Sat, Sep 25, 2004 at 10:39:29PM +0200, Manfred Spraul wrote:
+> >+config NATSEMI_NAPI
+> >+	bool "Use Rx Polling (NAPI) (EXPERIMENTAL)"
+> >=20
+> I'm not a big fan on config options for drivers. I'd prefer a runtime=20
+> option.
 
-I have an SSH session across a 100mb network from my desktop to my
-laptop. It's mostly ok but when I scroll line-by-line on a message
-with mutt it can fo really fast for a bit and then slows down to
-almost a line per second and keeps going after I take my finger off
-the enter key. 
+I see.
 
-If I pingflood the laptop from the desktop things improve drastically
-and I only get a few freezes here and there. If I pingflood with 60000
-byte packets things get a little better but then a severe loss of
-pings occurs. Each time the pings are lost my SSH connection also
-freezes.
+> >	TODO:
+> >	* big endian support with CFG:BEM instead of cpu_to_le32
+> >	* support for an external PHY
+> >-	* NAPI
+> >=20
+> >
+> Hmm. Actually all TODO points are done: CFG:BEM is unusable because it=20
+> swaps data words.
+> External PHYs are supported. You are closing the last point.
 
-If I ping a different host from my desktop (like my gateway) I get no
-pingloss with 60000 byte packets (though this doesn't help with the
-scrolling issues. :)
+Ok, I'll remove all three with my next patch
 
-If I ping my desktop from my laptop with 60000 byte packets, the freezes
-are totally gone and I get no pingloss. If I ping my gateway from my
-laptop with 60000 byte packets I also get no pingloss and the freezes
-are also gone.
+> Additional registers. You didn't mention that in the changelog.=20
+> Changelogs should mention every change, please do not piggypack=20
+> unrelated changes.
 
-My desktop is using kernel 2.6.7, my laptop 2.6.8.1 and the gw 2.4.27.
-Cards in use are: desktop: 3com 3c59x; laptop: e100 (intels); gw:
- e100 (intels). CPUs are: desktop: P3 600; laptop: P3 700; gw: p3 500.
+ack.
 
-(Hmm. Spoke too soon. There is still SOME packet loss but it's more a
-freak thing rather then a repeated occurance - I've only seen it once
-for the last two cases and I've been flood pinging for the laptop for
-the majority of this message).
+> >+	long ioaddr =3D dev->base_addr;
+> >+	int boguscnt =3D max_interrupt_work;
+> >+
+> This doesn't compile: you've removed max_interrupt_work.
 
-I'll be more then happy to do any debugging/diag but I need to know
-what is needed and, if need be, how to get it so if any help is requried
-please shout and I'll get on it ASAP.
+mh, apparently I've sent an outdated patch then.  I'll repost an updated
+version once I know what the solution for IntrStatus is
 
--- 
-    Red herrings strewn hither and yon.
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
+> >+	/* We cannot read IntrStatus since this would acknowledge
+> >+	 * all interrupt sources. Thus we just blindly assume that
+> >+	 * the interrupt really was for us -HW! */
 
------ End forwarded message -----
+> Huge problem - this is not acceptable. It means the driver is unusable=20
+> for shared interrupts. We must find a solution.
 
--- 
-    Red herrings strewn hither and yon.
+yes, I know :(  Luckily on my embedded boards, there are no shared
+interrupts - but this is obviously a special case.
+
+I think this overall problem can be solved if there was some per-device
+variable that saves the IntrStatus until the NAPI callback gets
+scheduled. What do you think?  This wouldn't even need some locking,
+since interrupts would be disabled before the field is updated, and not
+re-enabled before the field is read by the NAPI callback?
+
+I was surprised that this solution is not suggested in the NAPI-HOWTO.txt, =
+so I though there must be an error in my proposal...
+
+By using such a scheme, isn't it also possible to only offload RX into
+the NAPI callback with clear-on-read devices?
+
+> IRQ_NONE would be definitively wrong: The kernel disables interrupt=20
+> sources if it can't find a handler. If our handler returns IRQ_NONE and=
+=20
+> the irq is not shared, then the kernel will disable the irq after a=20
+> short while.
+
+ok.
+
+> Also missing in the changelog.
+
+is related to the register definitions above.
+
+>    Manfred
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--QMcAIMJS2LNMCtSQ
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBV9lUXaXGVTD0i/8RAt9CAJsHefOfhWgj96DYYeX5A1kbjR5Y0QCeP/eT
+/I4V9bIhKQ+k5bZ3yuMo7/U=
+=jA+9
+-----END PGP SIGNATURE-----
+
+--QMcAIMJS2LNMCtSQ--
