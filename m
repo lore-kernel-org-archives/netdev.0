@@ -1,33 +1,27 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]: r8169: Expose hardware stats via ethtool
-Date: Sun, 27 Feb 2005 20:16:22 -0800
-Message-ID: <42229B16.6000006@candelatech.com>
-References: <42208D83.80803@phekda.gotadsl.co.uk> <20050226181213.GA13230@electric-eye.fr.zoreil.com> <42224F76.9000602@phekda.gotadsl.co.uk> <200502272031.12291.jdmason@us.ibm.com> <422288EC.9010502@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: pppoe and receive checksum offload
+Date: Sun, 27 Feb 2005 20:20:11 -0800
+Message-ID: <20050227202011.5ccefb22.davem@davemloft.net>
+References: <20050224155906.73890361@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Jon Mason <jdmason@us.ibm.com>, Richard Dawe <rich@phekda.gotadsl.co.uk>,
-        Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <422288EC.9010502@pobox.com>
+Cc: mostrows@speakeasy.net, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050224155906.73890361@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Jon Mason wrote:
-> 
->> I think I've found a (very hackish) way around the bad stats error. 
->> Tested on amd64, and "solves" the problem.
-> 
-> 
-> Seems to me, we should instead find a way to avoid calling the stats 
-> function if !netif_running()
+On Thu, 24 Feb 2005 15:59:06 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Are the stats valid in the hardware if you start it, stop it, and then read them?
+> Someone reported a problem with skge hardware receive checksumming and PPPOE
+> but it looks like a generic problem.  Since PPPOE adds additional header
+> bytes the hardware computed checksum will be wrong.  
+> 
+> Not sure if this is correct, but shouldn't pppoe be doing the following:
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Changing or expanding the link level headers should only mess
+up the hw checksum if you are using CHECKSUM_HW, is that what
+your skge driver is using?
