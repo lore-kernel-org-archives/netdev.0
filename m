@@ -1,25 +1,25 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.10-rc1 14/15] wireless/orinoco: add minimal ethtool
- support
-Date: Tue, 26 Oct 2004 15:46:04 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [TCP] Move tcp_get_info out of tcp_diag
+Date: Tue, 26 Oct 2004 12:42:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417EA97C.3070303@pobox.com>
-References: <1098814320.3663.24.camel@dcbw.boston.redhat.com> <1098818684.9874.1.camel@dcbw.boston.redhat.com>
+Message-ID: <20041026124243.6dd71e9f.davem@davemloft.net>
+References: <20041026045701.GA10365@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@redhat.com, hermes@gibson.dropbear.id.au
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1098818684.9874.1.camel@dcbw.boston.redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041026045701.GA10365@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dan Williams wrote:
-> Update in-kernel orinoco wireless drivers to upstream CVS.
-> None of this is original code by Dan Williams, simply a
-> broken down patch set split-out from upstream orinoco CVS.
-> 
-> o Add minimal ethtool support (Pavel Roskin)
+On Tue, 26 Oct 2004 14:57:01 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-should use ethtool_ops rather than manually handling the ioctl
+> This patch move tcp_get_info from tcp_diag.c into
+> the site of the other caller, tcp.c.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Applied, thanks Herbert.
