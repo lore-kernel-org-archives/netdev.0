@@ -1,27 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Trivial fix for wrong error message from icmp.c (2.6.0-test4)
-Date: Thu, 11 Sep 2003 16:51:03 -0700
+From: "DAVIS YOGA PAUL" <davispaul@shuf.com>
+Subject: BANK
+Date: Fri, 12 Sep 2003 01:08:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911165103.71b16f1a.davem@redhat.com>
-References: <20030905024736.4acefe68.davem@redhat.com>
-	<Pine.LNX.4.33L0.0309061426200.2651-100000@carlsberg.kampsax.dtu.dk>
+Message-ID: <200309120007.h8C070Ya004740@oss.sgi.com>
+Reply-To: davispaul@shuf.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dennis =?ISO-8859-1?Q?J=F8rgensen?= <q@kampsax.dtu.dk>
-In-Reply-To: <Pine.LNX.4.33L0.0309061426200.2651-100000@carlsberg.kampsax.dtu.dk>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 6 Sep 2003 14:30:27 +0200 (CEST)
-Dennis J=F8rgensen <q@kampsax.dtu.dk> wrote:
-
-> On Fri, 5 Sep 2003, David S. Miller wrote:
->=20
-> > I can't apply this patch until you fix that up.
->=20
-> It should be better now.
-
-Applied, thank you.
+HEADQUARTERSPLOT 84
+ AJOSE ADEOGUN STREET
+ VICTORIA ISLAND LAGOS
+ ATTN:Sir/Ma,
+ STRICTLY A PRIVATE BUSINESS PROPOSAL
+ I am Dr.Davis.Yoga.Paul,a manager in the Bills and Exchange at the Foreign Remittance Department of the ZENITH INTERNATIONAL BANK I am writing this letter to ask for your support and cooperation to carry out this business opportunity in my department. We discovered an abandoned sum of$15,000,000.00 (Fifteen million United States Dollars only) in an account that belongs to one of our foreign customers who died along with his entire family of a wife and two children in November 1997 in a Plane crash.Since we heard of his death, we have been expecting his next-of-kin to come over and put claims for his money as the heir, because we cannot release the fund from his account unless someone applies for claim as the next-of-kin to the deceased as indicated in our banking guidelines.Unfortunately, neither their family member nor distant relative has everappeared to claim the said fund. Upon this discovery, I and other officials in my department have agreed to make business with you !
+ 
+ and release the total amount into your account as the heir of the fund since no one came for it ordiscovered he maintained account with our bank, otherwise the fund will be returned to the banks treasury as unclaimed fund.We have agreed that our ratio of sharing will be as stated thus;20 % for you as foreign partner,75 % for us the officials in my department and 5 % for the settlement of all local and foreign expences incurred by us and you during the course of this business.Upon the successful completion of this transfer, I and one of my colleagues will come to your country and mind our share. It is from our 75 % we intend to import Agricultural Machineries into my country as a way of recycling the fund. To commence this transaction, we require you to immediately indicate your interest by a return e-mail and enclose your private contact telephone number, fax number full name and address and your designated bank coordinates to enable us file letter of claim to the appropria!
+ 
+ te departments for necessary approvals before the transfer can be made
+.Note also, this transaction must be kept STRICTLY CONFIDENTIAL because of its nature. I look forward to receiving your prompt response. Alternative / Email Addres :davispaul@shuf.com
+ DR.Davis.Yoga.Paul 
