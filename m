@@ -1,65 +1,58 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Sun, 13 Jul 2003 19:23:05 +0300 (EEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307131922411.23508-100000@netcore.fi>
-References: <berrfo$mo3$1@main.gmane.org>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: TCP IP Offloading Interface
+Date: 13 Jul 2003 17:31:35 +0100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1058113895.554.7.camel@dhcp22.swansea.linux.org.uk>
+References: <ODEIIOAOPGGCDIKEOPILCEMBCMAA.alan@storlinksemi.com>
+	 <20030713004818.4f1895be.davem@redhat.com>  <52u19qwg53.fsf@topspin.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Anand Kumria <wildfire@progsoc.org>
-In-Reply-To: <berrfo$mo3$1@main.gmane.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>,
+	Alan Shih <alan@storlinksemi.com>,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Roland Dreier <roland@topspin.com>
+In-Reply-To: <52u19qwg53.fsf@topspin.com>
 List-Id: netdev.vger.kernel.org
 
-See 
-http://www.ietf.org/internet-drafts/draft-savola-ipv6-127-prefixlen-04.txt 
-it should answer your questions.
+On Sul, 2003-07-13 at 17:22, Roland Dreier wrote:
+> Your ideas are certainly very interesting, and I would be happy to see
+> hardware that supports flow identification.  But the Usenix paper
+> you're citing completely disagrees with you!  For example, Mogul writes:
 
-On Mon, 14 Jul 2003, Anand Kumria wrote:
-> On Fri, 11 Jul 2003 02:08:20 +1000, Pekka Savola wrote:
-> 
-> > On Fri, 11 Jul 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明
-> > wrote:
-> >> In article <20030710154302.GE1722@zip.com.au> (at Fri, 11 Jul 2003
-> >> 01:43:03 +1000), CaT <cat@zip.com.au> says:
-> >> 
-> >> > With 2.4.21-pre2 I can get a nice tunnel going over my ppp connection
-> >> > and as such get ipv6 connectivity. I think went to 2.4.21 and then to
-> >> > 2.4.22-pre4 and bringing up the tunnel fails as follows:
-> >> :
-> >> > ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
-> >> >  ip route add ::/0 via 3ffe:8001:000c:ffff::36
-> >> > RTNETLINK answers: Invalid argument
-> >> 
-> >> This is not bug, but rather misconfiguration; you cannot use prefix::,
-> >> which is mandatory subnet routers anycast address, as unicast address.
-> 
-> I'm the other end of this link, so I'm wondering how this is a
-> misconfiguration. RFC3513 2.6.1 suggests to me that
-> 3ffe:8001:c:ffff::36/127 is the router address (my end) and the other
-> side should be 3ffe:8001:c:ffff::37/127.
-> 
-> > While technically correct, I'm still not sure if this is (pragmatically)
-> > the correct approach.  It's OK to set a default route to go to the
-> > subnet routers anycast address (so, setting a route to prefix:: should
-> > not give you EINVAL).
-> > 
-> 
-> Both Yoshifuji and yourself suggested that /127 isn't the way to go and
-> that this is something v6ops ought to take up. I had a quick look at the
-> v6ops IETF group and nothing struck me.
-> 
-> What would you recommend I look at to see why /127 is a bad idea or /64
-> is a better idea than /127?
-> 
-> Thanks,
-> Anand
-> 
-> 
+Take a look at who holds the official internet land speed record. Its
+not a TOE using system. 
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+>  "Nevertheless, copy-avoidance designs have not been widely adopted,
+>   due to significant limitations. For example, when network maximum
+>   segment size (MSS) values are smaller than VM page sizes, which is
+>   often the case, page-remapping techniques are insufficient (and
+>   page-remapping often imposes overheads of its own.)"
+
+Page remapping is adequate for send of data when the MSS is below the
+VM page size since you don't have to send all of the page you pinned
+or set COW/SOW (sleep on write)
+
+For receive if your hardware can do demux from the tcp headers and
+expecting sequence then page remapping isn't needed either.
+
+Finally if you are streaming objects by non mapped references (eg
+sendfile or see LM's paper from long ago on splice()) then the problem
+goes away.
+
+
+
+> In fact, his conclusion is:
+> 
+>  "However, as hardware trends change the feasibility and economics of
+>   network-based storage connections, RDMA will become a significant
+>   and appropriate justification for TOEs."
+> 
+>  - Roland
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
