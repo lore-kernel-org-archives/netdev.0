@@ -1,93 +1,60 @@
-From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: RE: Route cache performance under stress
-Date: Mon, 9 Jun 2003 21:15:18 -0400 (EDT)
+From: Simon Kirby <sim@netnation.com>
+Subject: Re: Route cache performance under stress
+Date: Mon, 9 Jun 2003 18:53:12 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030609204257.L35799@shell.cyberus.ca>
-References: <008001c32eda$56760830$4a00000a@badass> <20030609195652.E35696@shell.cyberus.ca>
- <Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
+Message-ID: <20030610015311.GB23009@netnation.com>
+References: <008001c32eda$56760830$4a00000a@badass> <20030609195652.E35696@shell.cyberus.ca> <Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: CIT/Paul <xerox@foonet.net>, 'Simon Kirby' <sim@netnation.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>, CIT/Paul <xerox@foonet.net>,
 	"'David S. Miller'" <davem@redhat.com>,
 	"fw@deneb.enyo.de" <fw@deneb.enyo.de>,
 	"netdev@oss.sgi.com" <netdev@oss.sgi.com>,
 	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
 To: ralph+d@istop.com
+Content-Disposition: inline
 In-Reply-To: <Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
 List-Id: netdev.vger.kernel.org
 
-
-
-On Mon, 9 Jun 2003, Ralph Doncaster wrote:
-
-> From personal experience, after trying numerous things for over a year one
-> can get very frustrated.  Although your contribution has been useful, you
-> are also guilty of wildly waving your hands around too.  Many moons ago
-> when I lamented that my 2.2.19 kernel, 750Mhz duron, 3c59x core router
-> performance sucked you told me NAPI would solve the performance problems.
-> It didn't.  And Rob's latest numbers seem to show that even with the
-> latest and greatest patches 148kpps is still a dream.  It's good to see
-> that people are finally doing tests to simulate real-world routing
-> (instead of just pretending the problem doesn't exist because they were
-> able to get 148kpps in some contrived test).
->
-
-I am not sure that foos tests are not contrived ;->
-The man just hammers away at his routers with DOS tools;->
-I feel like a shrink calming him down to stop doing that. hehe.
-
-I am actually  not against using the DOS tools because they test the worst
-case.
-However, to solve a problem you need first to isolate it and
-methodically squash the coakroches. For example, In 2.2.x you
-wouldnt even see the problems that we have today because we had bigger
-problems namely interupt issues. NAPI resolves that. When i told you
-that i was basing it on facts.
-We are now exposed to dst cache problems. Daves patches isolate and
-resolve whats causing all this noise. First it was the cache distribution
-which is now resolved. Next it is garbage collection which it seems to
-me is being resolved. When someone working so hard like Dave is putting
-out these fires we need to help him. If he tells foo to run a specific
-test then thats what he should run ... I dont think we should just add
-CISCOs CEF just because someone thinks it works better. We need to
-systematically isolate and fix.
-For example just turning on netfilter is poluting the results.
-
-Problem is people disappear real quick when asked to run tests that
-could validate certain concepts. I wish everyone would emulate S Kirby
-he actually gives good info.
+On Mon, Jun 09, 2003 at 08:32:48PM -0400, Ralph Doncaster wrote:
 
 > Here's my CPU graphs for the box; it's only doing routing and firewalling
 > isn't even built into the kernel (2.4.20 with 3c59x NAPI patches)
 > http://66.11.168.198/mrtg/tbgp/tbgp_usrsys.html
->
+> 
 > eth1 and eth2 are both sending and receiving ~30mbps of traffic (at
 > 8-10kpps in and out on each interface).
->
 
-Is this still the duron 750Mhz? Are you running zebra? Did you
-check out some of the ideas i talked about earlier?
+Interesting!  Your CPU use is quite a bit higher than ours.  It looks
+like we have fairly similar network configurations.  We're advertising a
+/24 and a /20 of which about 60% of the IPs are in use.  Each router
+forwards about 60 Mbit/second (16 kpps) during the day, and the CPU load
+is usually around 18-25%.  This is with a single CPU, though I
+accidentally compiled the kernel SMP.
 
-> The other variable that I haven't seen people discuss but have anecdotal
-> evidence will measurably impact performance is the motherboard used
-> (chipset and chipset configuration/timing).
->
-
-Robert has a good collection for what is good hardware. I am so outdated
-i dont keep track anymore. My fastest machine is still an ASuse dual
-450Mhz.
+I had forgotten to add CPU utilization to the cricket graphs, so I'll
+have a better idea from now on, but I've never seen it above 30% (from
+"vmstat 1") except in attack cases.  The difference is probably just the
+fact that this is running on slightly faster hardware (single Athlon
+1800MP, Tyan Tiger MPX board).
 
 > Lastly from the software side Linux doesn't seem to have anything like
 > BSD's parameter to control user/system CPU sharing.  Once my CPU load
 > reaches 70-80%, I'd rather have some dropped packets than let the CPU hit
 > 100% and end up with my BGP sessions drop.
->
 
-Well, heres a good example: With NAPI, have your sessions been dropped?
-Have you tried a different NIC? Not sure how well the 3com is maintained
-for example.
-Try a tulip or tg3 or e1000 or the dlink gige.
+Hmm.  I found that once NAPI was happening, userspace seemed to get a
+fairly decent amount of time.  I'm not exactly sure what the settings
+are, but I was able to run things through SSH quite easily (not without
+noticeable slowness, though).  Actually, the slowness appeared to be
+mostly the result of incoming packet drops ("vmstat 1" output where it
+was _sending_ data and getting the ACKs some time later was perfectly
+smooth).
 
-cheers,
-jamal
+We just set up a dual Opertron box today with dual onboard Tigon3s, so
+I'll see if I can do some profiling.  I hooked it via crossover to
+a Xeon 2.4 GHz box with onboard e1000, so I should be able to do some
+remote profiling tonight.
+
+Simon-
