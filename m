@@ -1,31 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] TCP acts like it is always out of memory.
-Date: Thu, 1 Jul 2004 14:04:06 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 2.6.7-mm3 1/1] via-velocity: use common crc16 code for WOL
+Date: Thu, 1 Jul 2004 23:47:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040701140406.62dfbc2a.davem@redhat.com>
-References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org>
-	<20040629222751.392f0a82.davem@redhat.com>
-	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
-	<20040630153049.3ca25b76.davem@redhat.com>
-	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
+Message-ID: <20040701234750.A7109@electric-eye.fr.zoreil.com>
+References: <20040630223346.A23520@electric-eye.fr.zoreil.com> <40E384F9.7090108@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, alan@redhat.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40E384F9.7090108@pobox.com>; from jgarzik@pobox.com on Wed, Jun 30, 2004 at 11:28:57PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 1 Jul 2004 13:37:38 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Jeff Garzik <jgarzik@pobox.com> :
+> patch OK but rejected against mainline
 
-> Current 2.6.7 tree acts as if it is alway under memory pressure because
-> a recent change did a s/tcp_memory_pressure/tcp_prot.memory_pressure/.
-> The problem is tcp_prot.memory_pressure is a pointer, so it is always non-zero!
-> 
-> Rather than using *tcp_prot.memory_pressure, just go back to looking at
-> tcp_memory_pressure.
+I assume mainline means bk-linus here.
 
-Hehe, applied thanks Stephen.
+I have checked and the patch applies fine to 2.6.7-mm5 which includes both
+bk-linus and bk-netdev from yesterday (aka:
+bk://gkernel.bkbits.net/netdev-2.6
+jgarzik@pobox.com|ChangeSet|20040622043820|36094 jgarzik)
+
+--
+Ueimor
