@@ -1,42 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6 NET] Fix ifmap alignment issues over rtnetlink
-Date: Tue, 21 Sep 2004 17:21:26 -0700
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Wed, 22 Sep 2004 02:24:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921172126.02e0006e.davem@davemloft.net>
-References: <20040921224127.GM566@postel.suug.ch>
-	<20040921165733.3e0d31d8.davem@davemloft.net>
-	<20040922000325.GN566@postel.suug.ch>
+Message-ID: <4150C64E.80900@eurodev.net>
+References: <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net> <20040919215915.GB9573@gondor.apana.org.au> <1095633569.1047.107.camel@jzny.localdomain> <20040919231734.GA10124@gondor.apana.org.au> <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20040922000325.GN566@postel.suug.ch>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040922000503.GA13218@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 02:03:25 +0200
-Thomas Graf <tgraf@suug.ch> wrote:
+Hi Herbert,
 
-> * David S. Miller <20040921165733.3e0d31d8.davem@davemloft.net> 2004-09-21 16:57
-> > On Wed, 22 Sep 2004 00:41:27 +0200
-> > Thomas Graf <tgraf@suug.ch> wrote:
-> > 
-> > > +		k_map.mem_start = (unsigned long) u_map->mem_start;
-> > > +		k_map.mem_end = (unsigned long) u_map->mem_end;
-> > > +		k_map.base_addr = (unsigned short) u_map->base_addr;
-> > > +		k_map.irq = (unsigned char) u_map->irq;
-> > > +		k_map.dma = (unsigned char) u_map->dma;
-> > > +		k_map.port = (unsigned char) u_map->port;
-> > 
-> > Please cast to the actual types that struct ifmap uses,
-> > otherwise the change is OK.
-> 
-> It is or am I missing something?
+Herbert Xu wrote:
 
-I'm retarded and I was looking at the wrong structure
-definition, sorry.
+>On Mon, Sep 20, 2004 at 08:14:42PM +0200, Pablo Neira wrote:
+>  
+>
+>>Here a link to the tool that I use to stress netlink sockets.
+>>
+>>http://eurodev.net/~pablo/netlinkbench-unicast-1.0.tar.gz
+>>    
+>>
+>
+>Thanks for the link.  I'm afraid that your kernel module is simply
+>buggy.
+>
+>First of all as I explained before the kernel must never wait.  It has
+>exactly the same effect as extending the receive queue length.
+>
+>Secondly each of your user-space messages is producing a number of
+>replies.  This should be done as a dump operation.  If you do it as
+>a dump operation, then you will never get overruns because the kernel
+>never sends more than the user can handle.
+>  
+>
 
-Please resend your patch to me via private email and I'll
-add it to my tree, thanks Thomas.
+I'll adapt the module to use dump, I still think that I can reproduce 
+the problem.
+
+thanks for the review, please stay tuned.
+
+regards,
+Pablo
