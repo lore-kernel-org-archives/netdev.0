@@ -1,50 +1,24 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: iproute2 and 2.6.9 kernel headers (was Re: [ANNOUNCE] iproute2
-	2.6.9-041019)
-Date: Wed, 20 Oct 2004 13:19:48 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1098274788.3872.90.camel@baythorne.infradead.org>
-References: <41758014.4080502@osdl.org>
-	 <Pine.LNX.4.61.0410200805110.8475@boston.corp.fedex.com>
-	 <20041020070017.GA19899@sunbeam.de.gnumonks.org>
-	 <20041020094123.GF19899@sunbeam.de.gnumonks.org>
-	 <1098268885.3872.81.camel@baythorne.infradead.org>
-	 <4176517C.4090504@arcom.com>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: way of figuring out total number of retransmitted packets on a TCP socket?
+Date: Wed, 20 Oct 2004 15:01:34 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20041020130134.GC24757@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@gnumonks.org>,
-	Jeff Chua <jeffchua@silk.corp.fedex.com>,
-	Stephen Hemminger <shemminger@osdl.org>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	LARTC@mailman.ds9a.nl
-Return-path: <linux-net-owner@vger.kernel.org>
-To: David Vrabel <dvrabel@arcom.com>
-In-Reply-To: <4176517C.4090504@arcom.com>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-10-20 at 12:52 +0100, David Vrabel wrote:
-> David Woodhouse wrote:
-> > 
-> > The time has come to fix it properly instead. Anything which these tools
-> > actually need from the kernel headers should be moved into a separate
-> > header file (still in the kernel source) which is usable from _both_
-> > kernel and userspace.
-> 
-> Isn't this what linux-libc-headers is for?
+Hi,
 
-The separate linux-libc-headers is a hack, which will be able to die
-once we properly clean up the kernel headers into those which are
-'exported' and those which are private.
+I'm looking for a way of counting the total number of retransmitted packets
+sent on a TCP connection.  I tried querying TCP_INFO:tcpi_retransmits, but
+that seems to be not the metric I'm looking for.
 
-> > It should use standard types (like uint16_t etc)
-> 
-> Why doesn't the kernel use these standard types also?
-
-Archaic personal preference. Inside the kernel that's fair enough.
-
--- 
-dwmw2
+Anyone got any ideas?  (Apart from using tcpdump+tcptrace.)
 
 
+cheers,
+Lennert
