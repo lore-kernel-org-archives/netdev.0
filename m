@@ -1,22 +1,41 @@
 From: Catalin BOIE <util@deuroconsult.ro>
 Subject: Re: [PATCH] qdisc oops fix
-Date: Thu, 17 Apr 2003 08:25:38 +0300 (EEST)
+Date: Thu, 17 Apr 2003 09:06:39 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0304170825070.23586@hosting.rdsbv.ro>
+Message-ID: <Pine.LNX.4.53.0304170844410.23586@hosting.rdsbv.ro>
 References: <20030415084706.O1131@shell.cyberus.ca>
  <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca>
- <3E9D755A.8060601@colorfullife.com> <20030416160606.GA32575@louise.pinerecords.com>
+ <3E9D755A.8060601@colorfullife.com> <20030416142802.E5912@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Manfred Spraul <manfred@colorfullife.com>, jamal <hadi@cyberus.ca>,
-   Catalin BOIE <util@deuroconsult.ro>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: Manfred Spraul <manfred@colorfullife.com>,
+   Catalin BOIE <util@deuroconsult.ro>, Tomas Szepe <szepe@pinerecords.com>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tomas Szepe <szepe@pinerecords.com>
-In-Reply-To: <20030416160606.GA32575@louise.pinerecords.com>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <20030416142802.E5912@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> Catalin, Can you what kernel that is?
+
+2.4.20pre10 works ok but 2.4.20 crash.
+With traffic -> no crash with 2.4.20. Without traffic, on other machine,
+no crash.
+
+
+> > It's triggered, because someone does something like
+> >     spin_lock_bh(&my_lock);
+> >     p = kmalloc(,GFP_KERNEL);
+> >
+> > I don't like the proposed fix: usually code that calls
+> > kmalloc(,GFP_KERNEL) assumes that it runs at process space, e.g. uses
+> > semaphores, or non-bh spinlocks, etc.
+> > slab just happens to contain a test that complains about illegal calls.
+>
+> ok. Nice.
+>
+> >
 > > >>Trace; c0127e0f <kmalloc+eb/110>
 > > >>Trace; c01d3cac <qdisc_create_dflt+20/bc>
 > > >>Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
@@ -31,18 +50,27 @@ List-Id: netdev.vger.kernel.org
 > > >>Trace; c01c8b48 <sys_sendmsg+18c/1e8>
 > > >>Trace; c0120010 <map_user_kiobuf+8/f8>
 > > >>
+> > >>
+> > >>
+> > >>
 > > I don't understand the backtrace. Were any modules loaded? Perhaps
 > > 0xd081ecc7 is a module.
-
-Yes, is htb module. I don't know why it didn't resolved.
-
-> The original backtrace as provided by Martin Volf does not contain
-> any weird addresses such as 0xd081ecc7 above:
+> >
 >
-> http://marc.theaimsgroup.com/?l=linux-kernel&m=105013596721774&w=2
+> Probably a module. Again Catalin, run no modules.
+It's a production machine. I cannot test this. We plan to replace the
+machine, so I can test then.
+
+> > I'd add a
+> >     if(in_interrupt()) show_stack(NULL);
+> > into qdisc_create_dflt(), and try to reproduce the bug without modules.
+> >
 >
-> --
-> Tomas Szepe <szepe@pinerecords.com>
+> Catalin - again instead of your fix can you please add this call?
+See above. I cannot test now. I'm very sorry!
+
+> cheers,
+> jamal
 >
 
 ---
