@@ -1,51 +1,53 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Wed, 27 Oct 2004 18:28:21 -0700
+From: David Gibson <hermes@gibson.dropbear.id.au>
+Subject: Re: [PATCH 2.6.10-rc1 1/15] wireless/orinoco: Use msleep() instead of hardcoded schedule_timeout()s
+Date: Thu, 28 Oct 2004 11:42:25 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41804B35.1080306@candelatech.com>
-References: <41797696.9070905@candelatech.com>	<20041022214611.GA4948@electric-eye.fr.zoreil.com>	<41798506.1030909@candelatech.com>	<417D675F.3000909@candelatech.com>	<417D929A.2090809@candelatech.com> <20041027164912.09cc63f8.davem@davemloft.net>
+Message-ID: <20041028014225.GD2216@zax>
+References: <1098814320.3663.24.camel@dcbw.boston.redhat.com> <1098815604.3663.35.camel@dcbw.boston.redhat.com> <20041026184749.GA16621@infradead.org> <1098819336.9874.11.camel@dcbw.boston.redhat.com> <20041026194219.GA17343@infradead.org> <1098820512.9874.13.camel@dcbw.boston.redhat.com> <20041027031305.GG7925@zax> <1098882671.13459.2.camel@dcbw.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>, netdev@oss.sgi.com,
+        jgarzik@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041027164912.09cc63f8.davem@davemloft.net>
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <1098882671.13459.2.camel@dcbw.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Mon, 25 Oct 2004 16:56:10 -0700
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>DaveM, please consider accepting this patch (it's in a previous email to netdev,
->>just ask if you want it re-sent.)
-> 
-> 
-> Applied, but I had to apply it by hand.  It gave a large reject.
-> For some reason, patch barfed at the end of the vlan_dev.c parts
-> and refused to interpreter the parts of the diffs for the other
-> files.
-> 
-> Did you try to apply that patch to a tree before sending it off?
-> 
-> Anyways, I put it in by hand nevertheless.
+On Wed, Oct 27, 2004 at 09:11:11AM -0400, Dan Williams wrote:
+> Ok, so in my zeal to get the kernel orinoco drivers to _not_ _suck_,
+> what branch is the most up-to-date?  Have you been commiting the stuff
+> here that you say is "committed to CVS" to _both_ HEAD and for_linus?
 
-I appreciate it.  I had edited the original patch, removing some
-diffs of files that were not vlan related.  I guess that doesn't
-work so well.  Will be more careful next time.
+They are all equally up-to-date, more or less.  The difference between
+the three branches is:
+	HEAD - Has backwards compatibility code and experimental code
+notready for merging (at preset, just USB support)
+	standalone - Has backwards compatibility code, but not the
+experimental code (so no USB support)
+	for_linus - Has neither backwards compatibility code nor
+experimental code.
 
+Apart from the differences noted, the branches are kept merged.
+
+I'm well aware that this merge with mainline is long, long overdue,
+and frankly I've been a completely slack-arse maintainer.
+Unfortunately, I really don't have the time or energy to spend on
+this, and there doesn't seem to be anyone else eager to take over
+maintainership.
+
+> The things I care about (to bring orinoco drivers up to par with others
+> like prism54 & aironet):
 > 
-> Also, what is up with the magic "23" constant in the get realdev
-> name function strncpy() call?
+> 1) Scanning support
+> 2) monitor mode
+> 3) the better firmware handling
 
-Well, the fields are 24-bytes long, as defined in the include/linux/if_vlan.h
-file.  I could change it to a #define and/or use sizeof if you prefer.
-
-Thanks,
-Ben
+All these are in all 3 branches.
 
 -- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+David Gibson			| For every complex problem there is a
+david AT gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
