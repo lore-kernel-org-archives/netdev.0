@@ -1,13 +1,13 @@
 From: Bart De Schuymer <bdschuym@pandora.be>
-Subject: [PATCH/RESEND] fix bridge-nf fragment memory leak
-Date: Wed, 31 Dec 2003 11:48:14 +0100
+Subject: [PATCH] Always copy and save the vlan header in bridge-nf (do it right now)
+Date: Wed, 31 Dec 2003 11:56:11 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200312311148.14226.bdschuym@pandora.be>
+Message-ID: <200312311156.11241.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+Cc: netdev <netdev@oss.sgi.com>, Tomas Szepe <szepe@pinerecords.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S.Miller" <davem@redhat.com>
 Content-Disposition: inline
@@ -16,101 +16,22 @@ List-Id: netdev.vger.kernel.org
 
 Hi Dave,
 
-I don't see this patch in Linus' tree, so here's a resend...
-
-This patch fixes IP defragmentation for bridged packets.
-nf_bridge_info.hh is renamed to nf_bridge_info.data,
-the bridge-nf IP code no longer uses the control buffer and a very
-necessary call of nf_bridge_put is added to ip_output.c (and ip6_output.c).
+I forgot to get rid of another ifdef in netfilter_bridge.h when I removed
+the dependency upon vlan being compiled. This patch fixes it.
 
 cheers,
 Bart
 
-
---- linux-2.6.0/include/linux/skbuff.h.old	2003-12-21 12:42:56.000000000 +0100
-+++ linux-2.6.0/include/linux/skbuff.h	2003-12-21 12:43:35.000000000 +0100
-@@ -107,7 +107,7 @@ struct nf_bridge_info {
- 	struct net_device *netoutdev;
+--- linux-2.6.0-bk3/include/linux/netfilter_bridge.h.earlier	2003-12-31 11:54:25.000000000 +0100
++++ linux-2.6.0-bk3/include/linux/netfilter_bridge.h	2003-12-31 11:54:47.000000000 +0100
+@@ -8,10 +8,8 @@
+ #include <linux/netfilter.h>
+ #if defined(__KERNEL__) && defined(CONFIG_BRIDGE_NETFILTER)
+ #include <asm/atomic.h>
+-#if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ #include <linux/if_ether.h>
  #endif
- 	unsigned int mask;
--	unsigned long hh[32 / sizeof(unsigned long)];
-+	unsigned long data[32 / sizeof(unsigned long)];
- };
- #endif
+-#endif
  
---- linux-2.6.0/include/linux/netfilter_bridge.h.old	2003-12-21 12:43:22.000000000 +0100
-+++ linux-2.6.0/include/linux/netfilter_bridge.h	2003-12-21 12:43:35.000000000 +0100
-@@ -73,11 +73,11 @@ void nf_bridge_maybe_copy_header(struct 
- 	if (skb->nf_bridge) {
- #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
- 		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
--			memcpy(skb->data - 18, skb->nf_bridge->hh, 18);
-+			memcpy(skb->data - 18, skb->nf_bridge->data, 18);
- 			skb_push(skb, 4);
- 		} else
- #endif
--			memcpy(skb->data - 16, skb->nf_bridge->hh, 16);
-+			memcpy(skb->data - 16, skb->nf_bridge->data, 16);
- 	}
- }
- 
-@@ -90,7 +90,7 @@ void nf_bridge_save_header(struct sk_buf
- 	if (skb->protocol == __constant_htons(ETH_P_8021Q))
- 		header_size = 18;
- #endif
--	memcpy(skb->nf_bridge->hh, skb->data - header_size, header_size);
-+	memcpy(skb->nf_bridge->data, skb->data - header_size, header_size);
- }
- 
- struct bridge_skb_cb {
---- linux-2.6.0/net/bridge/br_netfilter.c.old	2003-12-21 12:43:11.000000000 +0100
-+++ linux-2.6.0/net/bridge/br_netfilter.c	2003-12-21 12:43:35.000000000 +0100
-@@ -38,11 +38,9 @@
- 
- 
- #define skb_origaddr(skb)	 (((struct bridge_skb_cb *) \
--				 (skb->cb))->daddr.ipv4)
-+				 (skb->nf_bridge->data))->daddr.ipv4)
- #define store_orig_dstaddr(skb)	 (skb_origaddr(skb) = (skb)->nh.iph->daddr)
- #define dnat_took_place(skb)	 (skb_origaddr(skb) != (skb)->nh.iph->daddr)
--#define clear_cb(skb)		 (memset(&skb_origaddr(skb), 0, \
--				 sizeof(struct bridge_skb_cb)))
- 
- #define has_bridge_parent(device)	((device)->br_port != NULL)
- #define bridge_parent(device)		((device)->br_port->br->dev)
-@@ -203,7 +201,6 @@ bridged_dnat:
- 				 */
- 				nf_bridge->mask |= BRNF_BRIDGED_DNAT;
- 				skb->dev = nf_bridge->physindev;
--				clear_cb(skb);
- 				if (skb->protocol ==
- 				    __constant_htons(ETH_P_8021Q)) {
- 					skb_push(skb, VLAN_HLEN);
-@@ -224,7 +221,6 @@ bridged_dnat:
- 		dst_hold(skb->dst);
- 	}
- 
--	clear_cb(skb);
- 	skb->dev = nf_bridge->physindev;
- 	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
- 		skb_push(skb, VLAN_HLEN);
---- linux-2.6.0/net/ipv4/ip_output.c.old	2003-12-21 12:43:32.000000000 +0100
-+++ linux-2.6.0/net/ipv4/ip_output.c	2003-12-21 12:43:35.000000000 +0100
-@@ -417,6 +417,7 @@ static void ip_copy_metadata(struct sk_b
- 	to->nfct = from->nfct;
- 	nf_conntrack_get(to->nfct);
- #ifdef CONFIG_BRIDGE_NETFILTER
-+	nf_bridge_put(to->nf_bridge);
- 	to->nf_bridge = from->nf_bridge;
- 	nf_bridge_get(to->nf_bridge);
- #endif
---- linux-2.6.0/net/ipv6/ip6_output.c.old	2003-12-21 12:52:26.000000000 +0100
-+++ linux-2.6.0/net/ipv6/ip6_output.c	2003-12-21 12:52:38.000000000 +0100
-@@ -877,6 +877,7 @@ static void ip6_copy_metadata(struct sk_
- 	to->nfct = from->nfct;
- 	nf_conntrack_get(to->nfct);
- #ifdef CONFIG_BRIDGE_NETFILTER
-+	nf_bridge_put(to->nf_bridge);
- 	to->nf_bridge = from->nf_bridge;
- 	nf_bridge_get(to->nf_bridge);
- #endif
+ /* Bridge Hooks */
+ /* After promisc drops, checksum checks. */
