@@ -1,14 +1,12 @@
-From: Lee Revell <rlrevell@joe-job.com>
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
 Subject: Re: [PATCH] Make netif_rx_ni preempt-safe
-Date: Wed, 20 Oct 2004 15:53:21 -0400
+Date: Wed, 20 Oct 2004 22:56:56 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098302001.2268.5.camel@krustophenia.net>
-References: <1098230132.23628.28.camel@krustophenia.net>
-	 <200410201811.44419.vda@port.imtp.ilyichevsk.odessa.ua>
-	 <1098290858.1429.70.camel@krustophenia.net>
-	 <200410202214.31791.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <200410202256.56636.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <1098230132.23628.28.camel@krustophenia.net> <200410202214.31791.vda@port.imtp.ilyichevsk.odessa.ua> <1098302001.2268.5.camel@krustophenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="koi8-r"
 Content-Transfer-Encoding: 7bit
 Cc: Herbert Xu <herbert@gondor.apana.org.au>, Andrew Morton <akpm@osdl.org>,
         linux-kernel <linux-kernel@vger.kernel.org>,
@@ -18,47 +16,25 @@ Cc: Herbert Xu <herbert@gondor.apana.org.au>, Andrew Morton <akpm@osdl.org>,
         Linux Network Development <netdev@oss.sgi.com>,
         Alain Schroeder <alain@parkautomat.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-In-Reply-To: <200410202214.31791.vda@port.imtp.ilyichevsk.odessa.ua>
+To: Lee Revell <rlrevell@joe-job.com>
+In-Reply-To: <1098302001.2268.5.camel@krustophenia.net>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-10-20 at 15:14, Denis Vlasenko wrote:
-> On Wednesday 20 October 2004 19:47, Lee Revell wrote:
-> > On Wed, 2004-10-20 at 11:11, Denis Vlasenko wrote:
-> > > 0x57 == 87 bytes is too big for inline.
-> > 
-> > Ugh.  So the only fix is not to inline it?
+> OK, third try.
 > 
-> Yes.
+> Signed-Off-By: Lee Revell <rlrevell@joe-job.com>
 > 
-> You can make it conditionally inline/non-inline
-> depending on SMP/preempt if you feel masochistic today :),
-> but last time I asked davem thought that it is over the top.
+> --- include/linux/netdevice.h~	2004-10-20 15:51:00.000000000 -0400
+> +++ include/linux/netdevice.h	2004-10-20 15:51:54.000000000 -0400
+> @@ -694,11 +694,14 @@
+>  /* Post buffer to the network code from _non interrupt_ context.
+>   * see net/core/dev.c for netif_rx description.
+>   */
+> -static inline int netif_rx_ni(struct sk_buff *skb)
+> +static int netif_rx_ni(struct sk_buff *skb)
 
-I agree, not worth the trouble.  This would actually depend only on
-PREEMPT and not SMP.
-
-OK, third try.
-
-Signed-Off-By: Lee Revell <rlrevell@joe-job.com>
-
---- include/linux/netdevice.h~	2004-10-20 15:51:00.000000000 -0400
-+++ include/linux/netdevice.h	2004-10-20 15:51:54.000000000 -0400
-@@ -694,11 +694,14 @@
- /* Post buffer to the network code from _non interrupt_ context.
-  * see net/core/dev.c for netif_rx description.
-  */
--static inline int netif_rx_ni(struct sk_buff *skb)
-+static int netif_rx_ni(struct sk_buff *skb)
- {
--       int err = netif_rx(skb);
-+       int err;
-+       preempt_disable();
-+       err = netif_rx(skb);
-        if (softirq_pending(smp_processor_id()))
-                do_softirq();
-+       preempt_enable();
-        return err;
- }
- 
+non-inline functions must not live in .h files
+--
+vda
