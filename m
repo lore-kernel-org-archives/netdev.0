@@ -1,8 +1,8 @@
 From: "peter lawson" <plawson@applelinks.net>
 Subject: GOOD   NEWS
-Date: Mon, 14 Jul 2003 09:56:37 -0400
+Date: Mon, 14 Jul 2003 10:01:33 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <web-305519726@mail.maclaunch.com>
+Message-ID: <web-305519843@mail.maclaunch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 8bit
