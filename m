@@ -1,33 +1,103 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Re: IPSec: setkey -DP freezes machine
-Date: Mon, 03 Mar 2003 04:19:50 -0800 (PST)
+From: Terje Eggestad <terje.eggestad@scali.com>
+Subject: Re: anyone ever done multicast AF_UNIX sockets?
+Date: 03 Mar 2003 13:51:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030303.041950.14411363.davem@redhat.com>
-References: <20030303.013451.20307573.davem@redhat.com>
-	<Pine.LNX.4.44.0303032238240.10142-100000@blackbird.intercode.com.au>
+Message-ID: <1046695876.7731.78.camel@pc-16.office.scali.no>
+References: <3E5E7081.6020704@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Pine.LNX.4.44.0303032238240.10142-100000@blackbird.intercode.com.au>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+In-Reply-To: <3E5E7081.6020704@nortelnetworks.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: James Morris <jmorris@intercode.com.au>
-   Date: Mon, 3 Mar 2003 23:13:55 +1100 (EST)
 
-   On Mon, 3 Mar 2003, David S. Miller wrote:
-   
-   >    Alternatively, a family parameter could be added to the compile_policy() 
-   >    operation, but this duplicates data already present in our native 
-   >    xfrm_userpolicy_info format.
-   > 
-   > I like this solution, it seems the cleanest.
-   
-   Ok, here's a patch which does this.
-   
-Looks good, I'll apply this.
+On a single box you would use a shared memory segment to do this. It has
+the following advantages:
+- no syscalls at all
+- whenever the recipients need to use the info, they access the shm
+directly (you may need to use a semaphore to enforce consistency, or if
+you're really pressed on time, spin lock a shm location) There is no
+need for the recipients to copy the info to private data structs. 
+- there is no need for the recipients to waste cycles on processing an
+update
+- you KNOW that all the recipients has "updated" at the same time.
 
-If more problems are found, we can patch on top of this.
+
+
+That aside, you idea of being notified when the listener (peer) is not
+there is pretty hopless when it comes to multicasts. 
+
+Why does it help you to know that there are no recipients contra the
+wrong number recipients ???? OR asked differently, if you don't have a
+notion of who the recipients are/should be, why would you care if there
+are none??????
+There are practically no real applications for this feature. 
+
+
+If you really want to get to know that a recipient disappeared,  use 
+a stream socket to each recipients, and to keep the # of syscalls down,
+get the aio patch, and do the send to all with a single lio_listio()
+call. 
+
+
+Also: Keep in mind that either you do multicast, or explisit send to
+all, the data you're sending are copied from you buffer to the dest
+sockets recv buffers anyway. If you're sending 1k you need somewhere
+between 250 to 1000 cycles to do the copy, depending on alignment. I've
+measured the syscall overhead for a write(len=0) to be about 800 cycles
+on a P3 or athlon, and about 2000 on P4. If you really have enough
+possible recipients, you should use a shm segment instead. If you have
+only a few (~10) the overhead is worst case 20000 cycles, or on a 2G P4,
+10 microsecs to do a syscall for each. Who cares... 
+
+
+TJ
+
+
+On Thu, 2003-02-27 at 21:09, Chris Friesen wrote:
+> It is fairly common to want to distribute information between a single 
+> sender and multiple receivers on a single box.
+> 
+> Multicast IP sockets are one possibility, but then you have additional 
+> overhead in the IP stack.
+> 
+> Unix sockets are more efficient and give notification if the listener is 
+> not present, but the problem then becomes that you must do one syscall 
+> for each listener.
+> 
+> So, here's my main point--has anyone ever considered the concept of 
+> multicast AF_UNIX sockets?
+> 
+> The main features would be:
+> --ability to associate/disassociate a socket with a multicast address
+> --ability to associate/disassociate with all multicast addresses 
+> (possibly through some kind of raw socket thing, or maybe a simple 
+> wildcard multicast address)
+> --on process death all sockets owned by that process are disassociated 
+> from any multicast addresses that they were associated with
+> --on sending a packet to a multicast address and there are no sockets 
+> associated with it, return -1 with errno=ECONNREFUSED
+> 
+> The association/disassociation could be done using the setsockopt() 
+> calls the same as with udp sockets, everything else would be the same 
+> from a userspace perspective.
+> 
+> Any thoughts?  How hard would this be to put in?
+> 
+> Chris
+-- 
+_________________________________________________________________________
+
+Terje Eggestad                  mailto:terje.eggestad@scali.no
+Scali Scalable Linux Systems    http://www.scali.com
+
+Olaf Helsets Vei 6              tel:    +47 22 62 89 61 (OFFICE)
+P.O.Box 150, Oppsal                     +47 975 31 574  (MOBILE)
+N-0619 Oslo                     fax:    +47 22 62 89 51
+NORWAY            
+_________________________________________________________________________
