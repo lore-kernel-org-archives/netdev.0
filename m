@@ -1,261 +1,86 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: netdev-2.6 queue updated
-Date: Fri, 5 Nov 2004 05:02:00 -0500
-Message-ID: <20041105100200.GA31755@havoc.gtf.org>
-Reply-To: netdev@oss.sgi.com
+From: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
+Subject: Re: [PATCH] tcp: efficient port randomisation
+Date: Fri, 5 Nov 2004 12:03:58 +0200
+Message-ID: <200411051103.59032.michael.vittrup.larsen@ericsson.com>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net> <200411020854.44745.michael.vittrup.larsen@ericsson.com> <20041104100104.570e67cd@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041104100104.570e67cd@dxpl.pdx.osdl.net>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thursday 04 November 2004 19:01, Stephen Hemminger wrote:
+> But because of the hashing most ports will be scattered all over the po=
+rt
+> space, because they come from different hosts.
+>
+> Also, Linux TCP will reuse ports if (saddr, daddr, sport) are different.
+> Look at __tcp_v4_check_established. =A0This means that the ports actual=
+ly
+> have to be in use with real connections to the same host.
 
-NOTE:  you will need to re-clone the netdev-2.6 tree.
+__tcp_v4_check_established is the linux version of the uniqueness test fr=
+om=20
+the draft, and of course ports ports can be reused when at least one of t=
+he=20
+other parameters (saddr, daddr, sport) are different.
 
-BK users:
+I focus on the situation where (saddr, daddr, sport) is constant since th=
+is is=20
+where we get collisions and need to try another port.  Not storing the po=
+rt=20
+found to be unused will result in situations like:
 
-	bk pull bk://gkernel.bkbits.net/netdev-2.6
+tcp_rover_next is say 2000
 
-Patch:
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.1=
-0-rc1-bk14-netdev1.patch.bz2
+Ports 2000-2010 are already used because you are browsing www.osdl.org
 
-This will update the following files:
+Your search will find 2011 to be unused after 10 retries and tcp_rover_ne=
+xt=20
+will be 2001.
 
- drivers/net/3c505.c                           |   10=20
- drivers/net/3c507.c                           |  148 ++--
- drivers/net/3c59x.c                           |    1=20
- drivers/net/8139cp.c                          |  102 ++-
- drivers/net/8139too.c                         |   98 +-
- drivers/net/8390.c                            |    1=20
- drivers/net/8390.h                            |    1=20
- drivers/net/Kconfig                           |   62 -
- drivers/net/ac3200.c                          |   64 -
- drivers/net/atp.c                             |    2=20
- drivers/net/bonding/bond_3ad.c                |   10=20
- drivers/net/depca.c                           |   24=20
- drivers/net/e100.c                            |    1=20
- drivers/net/e2100.c                           |   18=20
- drivers/net/eepro100.c                        |  293 +++-----
- drivers/net/fealnx.c                          |  275 +++-----
- drivers/net/hp100.c                           |   65 +
- drivers/net/ixgb/ixgb_main.c                  |   33 -
- drivers/net/lne390.c                          |   64 -
- drivers/net/mace.c                            |   66 --
- drivers/net/ne3210.c                          |   34 -
- drivers/net/pcmcia/fmvj18x_cs.c               |    4=20
- drivers/net/pcmcia/ibmtr_cs.c                 |    7=20
- drivers/net/pcmcia/pcnet_cs.c                 |   39 -
- drivers/net/pcmcia/smc91c92_cs.c              |    2=20
- drivers/net/pcmcia/xirc2ps_cs.c               |    2=20
- drivers/net/r8169.c                           |  855 +++++++++++++++++++=
--------
- drivers/net/sb1000.c                          |   14=20
- drivers/net/sis900.c                          |    1=20
- drivers/net/skfp/h/fplustm.h                  |    6=20
- drivers/net/skfp/h/targethw.h                 |    6=20
- drivers/net/skfp/h/targetos.h                 |    2=20
- drivers/net/skfp/h/types.h                    |   21=20
- drivers/net/skfp/skfddi.c                     |   25=20
- drivers/net/skfp/smt.c                        |    7=20
- drivers/net/starfire.c                        |   79 +-
- drivers/net/sundance.c                        |  259 +++----
- drivers/net/tlan.c                            |   72 +-
- drivers/net/tlan.h                            |   88 --
- drivers/net/tokenring/3c359.c                 |   36 -
- drivers/net/tokenring/3c359.h                 |    2=20
- drivers/net/tokenring/ibmtr.c                 |  158 ++--
- drivers/net/tokenring/lanstreamer.c           |   24=20
- drivers/net/tokenring/lanstreamer.h           |    2=20
- drivers/net/tokenring/olympic.c               |   94 +-
- drivers/net/tulip/de2104x.c                   |    1=20
- drivers/net/tulip/dmfe.c                      |    1=20
- drivers/net/tulip/tulip_core.c                |    3=20
- drivers/net/tulip/winbond-840.c               |    3=20
- drivers/net/tulip/xircom_tulip_cb.c           |   16=20
- drivers/net/typhoon.c                         |    3=20
- drivers/net/via-rhine.c                       |  276 ++++----
- drivers/net/via-velocity.h                    |    4=20
- drivers/net/wan/c101.c                        |    3=20
- drivers/net/wan/cycx_drv.c                    |   22=20
- drivers/net/wan/n2.c                          |    5=20
- drivers/net/wireless/airo.c                   |   69 --
- drivers/net/wireless/airport.c                |    5=20
- drivers/net/wireless/arlan-main.c             |   90 +-
- drivers/net/wireless/arlan-proc.c             |   15=20
- drivers/net/wireless/arlan.h                  |   26=20
- drivers/net/wireless/hermes.c                 |   43 -
- drivers/net/wireless/hermes.h                 |   62 -
- drivers/net/wireless/netwave_cs.c             |   75 +-
- drivers/net/wireless/orinoco_cs.c             |   10=20
- drivers/net/wireless/orinoco_pci.c            |    7=20
- drivers/net/wireless/orinoco_plx.c            |   82 +-
- drivers/net/wireless/orinoco_tmd.c            |   51 -
- drivers/net/wireless/prism54/isl_ioctl.c      |   24=20
- drivers/net/wireless/prism54/islpci_hotplug.c |    2=20
- drivers/net/wireless/prism54/prismcompat.h    |    4=20
- drivers/net/wireless/ray_cs.c                 |    4=20
- drivers/net/wireless/wavelan_cs.c             |   25=20
- drivers/net/wireless/wavelan_cs.p.h           |    1=20
- include/linux/delay.h                         |    5=20
- include/linux/ibmtr.h                         |   15=20
- include/linux/pci_ids.h                       |    3=20
- include/pcmcia/mem_op.h                       |   89 +-
- 78 files changed, 2239 insertions(+), 1982 deletions(-)
+Your next search (you continue to browse www.osdl.org) will result in 201=
+2 -=20
+again after 10 retries.
 
-through these ChangeSets:
+In a simple browsing scenario like this, you will usually not have holes=20
+because of TCP TIME-WAIT and your rover will continue to lag behind and y=
+ou=20
+will continue to make 10 retries on ports.
 
-<philipp.gortan:tttech.com>:
-  o [netdrvr 8139cp] add PCI ID
+The question is then, when do the rover begin to lack behind?
 
-Adrian Bunk:
-  o net/skfp/smt.c: remove an unused function
-  o net/3c505.c: remove unused functions
-  o bonding: remove an unused function
-  o net/wan/n2.c: remove an unused function
+Everytime you meet a long-lived connection in the port space your rover w=
+ill=20
+lag one port behind the real 'unused' rover.  Using wget and browsing=20
+www.osdl.org may easily produce this problem.
 
-Alexander Viro:
-  o mace iomem annotations - trivial part
-  o airo iomem annotations
-  o wavelan_cs iomem annotations
-  o lne390 iomem annotations and fixes
-  o fealnx iomem annotations, switch to io{read,write}
-  o wireless iomem annotations and fixes, switch to io{read,write}
-  o ibmtr annotations - the rest
-  o skfp iomem annotations, switch to io{read,write}
-  o olympic_open() cleanup and fixes
-  o sundance iomem annotations, switch to io{read,write}
-  o via-rhine iomem annotations, switch to io{read,write}
-  o net/pcmcia iomem annotations
-  o netwave iomem annotations
-  o arlan iomem annotations and cleanups
-  o netdev_priv() in netwave_cs
-  o netdev_priv() in arlan
-  o (25/32) lanstreamer iomem annotations
-  o beginning of ibmtr iomem annotations
-  o e2100 iomem annotations and fixes
-  o 3c359 iomem annotations
-  o depca iomem annotations
-  o killed isa_... in 3c507
-  o starfire iomem annotations
-  o ne3210 iomem annotations
-  o ac3200 iomem annotations and fixes
-  o iomem annotations in r8169
+I understand your argument for not holding the lock, and maybe the follow=
+ing=20
+algorithm is a compromise:
 
-Andrew Morton:
-  o r8169 module_param build fix
+1. Use the current algorithm that does not hold the lock
 
-Arjan van de Ven:
-  o ray_cs export cleanup
+2. If a port was found in first try, then exit (you have already
+   incremented tcp_rover_next by 1 so this is up to date as per
+   the old algorithm).
 
-Christoph Hellwig:
-  o unexport ei_tx_timeout
+3. If more than one port try was necessary, compute the difference betwee=
+n
+   the initial rover to the current unused port, and atomic_add() this to
+   tcp_rover_next.
 
-Daniele Venzano:
-  o Add Altimata PHY to sis900 driver
-
-David Dillow:
-  o net/typhoon.c: use previously-unused function
-
-David S. Miller:
-  o eepro100.c iomap conversion
-
-Felipe Damasio:
-  o 8139cp net driver: add MODULE_VERSION
-
-Fran=E7ois Romieu:
-  o r8169: netconsole support
-  o r8169: unneeded synchronize_irq()
-  o r8169: always clean Tx desc
-  o r8169: cleanup
-  o r8169: rtl8169_close() races
-  o r8169: automatic pci dac step down
-  o r8169: wrong advertisement of VLAN features
-  o r8169: Tx timeout rework
-  o r8169: default on disabling PCIDAC
-  o r8169: Mac identifier extracted from Realtek's driver v2.2
-  o r8169: TSO support
-  o r8169: hint for Tx flow control
-  o r8169: miscalculation of available Tx descriptors
-  o 8139cp: SG support fixes
-  o r8169: vlan support
-  o r8169: Rx checksum support
-  o r8169: advertise DMA to high memory
-  o r8169: Tx checksum offload
-  o r8169: comment a gcc 2.95.x bug
-  o r8169: sync the names of a few bits with the 8139cp driver
-  o r8169: bump version number
-  o r8169: enable MWI
-  o r8169: code cleanup
-  o r8169: per device receive buffer size
-  o r8169: add ethtool_ops.{get_regs_len/get_regs}
-
-Ganesh Venkatesan:
-  o ixgb: Condition that determines when to quit polling
-  o ixgb: Fix memory leak in NAPI mode. Avoid unnecessary
-  o ixgb: Fix VLAN filter setup errors (while running
-
-Jeff Garzik:
-  o [netdrvr eepro100] fix pci_iomap() args and info msg that follows
-  o [netdrvr 8139cp] TSO support
-
-John W. Linville:
-  o tulip: Add MODULE_VERSION
-  o e100: Add MODULE_VERSION
-  o r8169: Add MODULE_VERSION
-  o 8139too: Add MODULE_VERSION
-  o 3c59x: Add MODULE_VERSION
-  o r8169: simplify trick if() expression
-  o r8169: fix RxVlan bit manipulation
-  o r8169: endian-swap return of rtl8169_tx_vlan_tag()
-
-Krzysztof Halasa:
-  o net/wan/n2.c: remove an unused function
-
-Margit Schubert-While:
-  o prism54 sparse fixes
-  o prism54 fix resume processing
-
-Nishanth Aravamudan:
-  o net/sb1000: replace nicedelay() with ssleep_interruptible()
-  o net/cycx_drv: replace delay_cycx() with ssleep_interruptible()
-  o net/airo: replace schedule_timeout() with *sleep() variants
-  o Add ssleep_interruptible()
-
-Rene Herman:
-  o 8139too Interframe Gap Time
-
-Roger Luethi:
-  o mc_filter on big-endian arch
-
-Steffen Klassert:
-  o 8139cp - add netpoll support
-
-Stephen Hemminger:
-  o xircom_tulip_cb: convert to using module_param
-  o tlan: enable faster hash function
-  o tlan: make inline's static (rev2)
-  o tlan: get rid of unneeded global vars (rev 2)
-  o tlan: use netdev_priv (rev 2)
-  o hp100: use inline for comple usage of dev->priv
-  o hp100: use netdev_priv (rev 2)
-  o via-velocity: get rid of unused global
-  o via-rhine: free_ring should be static
-  o via-rhine: use module_param
-  o 8139too: use netdev_priv
-  o r8169: use netdev_priv
-  o r8169: use module_param
-  o 8139cp - module_param
-
-Thomas Gleixner:
-  o rtl8139too.c: Fix missing pci_disable_dev
-  o rtl8139too.c: Fix missing pci_disable_dev
-
-Tom Rini:
-  o IBM EMAC Kconfig changes: Add 'select CRC32'
-  o IBM EMAC Kconfig changes
+The only drawback of this is, that tcp_rover_next may 'run' a little too =
+fast=20
+in contention cases, which only has theoretical impact on performance. Al=
+so,=20
+this only happens when we meet a long-lived connection, which we usually =
+do=20
+not have many of.
