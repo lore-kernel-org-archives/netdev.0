@@ -1,52 +1,41 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] string matching ematch
-Date: Thu, 27 Jan 2005 15:20:29 +0100
-Message-ID: <20050127142029.GR31837@postel.suug.ch>
-References: <20050126150714.GL31837@postel.suug.ch> <20050126130323.2dc10187.davem@davemloft.net> <20050126214119.GP31837@postel.suug.ch> <20050126152609.59e1a15e.davem@davemloft.net>
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: remove excess initializer
+Date: Thu, 27 Jan 2005 10:28:23 -0500
+Message-ID: <20050127152823.GA6420@kvack.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, kaber@trash.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: davem@davemloft.net
 Content-Disposition: inline
-In-Reply-To: <20050126152609.59e1a15e.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20050126152609.59e1a15e.davem@davemloft.net> 2005-01-26 15:26
-> On Wed, 26 Jan 2005 22:41:19 +0100
-> Thomas Graf <tgraf@suug.ch> wrote:
-> 
-> > I'm not sure if mixing stateful with stateless stuff is such of a good
-> > idea. I think it should be separated and have stateful filters only be
-> > executed when the flow matters, not packets.
-> 
-> I think keeping things totally stateless would be the best
-> idea.
+Hello,
 
-Yes, I think so too.
+The patch below removes some useless code bloat that is left over from 
+who knows when.
 
-I'm still thinking about pskbs in the background and the problem gets
-more serious with this. So far, even with the multi byte ematch, all
-filters were focusing on header content even if they were able to read
-from any offset. 
+		-ben
+-- 
+"Time is what keeps everything from happening all at once." -- John Wheeler
 
-Our goal must of course be to to avoid lineraization for as many cases
-as possible, therefore I think it would be worth making all matchers
-aware of pskbs without linearization. In case the packet goes though
-the pedit or ipt action later on then we definitely need to take further
-actions but these should be special cases.
 
-For the string matching it is fairly easy, we can check for partial
-matches at the end and begin of every fragment. The multi byte
-ematch could be splitted into two paths, a fast path using memcmp
-directly on the skb data for linear skbs and a "slow" path for
-non-linear skbs fetching the needed byte sequence from the relevant
-fragments first. The cmp ematch and u32 ematch and classifier could
-fetch the needed bucket via a function tcf_read_at_offset taking
-an offset and the length of the bucket {8|16|32} which iterates
-over the fragments as needed. I know, for most cases it is not needed
-but it shouldn't cost us too much.
-
-Thoughts?
+diff -purN linux-2.6.11-rc2/net/socket.c linux-2.6.11-rc2.bcrl/net/socket.c
+--- linux-2.6.11-rc2/net/socket.c	2005-01-24 10:19:24.000000000 -0500
++++ linux-2.6.11-rc2.bcrl/net/socket.c	2005-01-27 10:25:18.296037875 -0500
+@@ -2029,13 +2029,6 @@ void __init sock_init(void)
+ 	int i;
+ 
+ 	/*
+-	 *	Initialize all address (protocol) families. 
+-	 */
+-	 
+-	for (i = 0; i < NPROTO; i++) 
+-		net_families[i] = NULL;
+-
+-	/*
+ 	 *	Initialize sock SLAB cache.
+ 	 */
+ 	 
