@@ -1,23 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [Patch 2.5 0/3] e100/e1000/ixgb: Configuration and user guide
- updates
-Date: Wed, 20 Oct 2004 00:47:40 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: patch: Mirred action
+Date: Tue, 19 Oct 2004 22:02:13 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4175EDEC.2070000@pobox.com>
-References: <Pine.LNX.4.44.0410180256530.20965-100000@isotope.jf.intel.com>
+Message-ID: <20041019220213.0eeee916.davem@davemloft.net>
+References: <1097498972.15075.7.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0410180256530.20965-100000@isotope.jf.intel.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1097498972.15075.7.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ganesh Venkatesan wrote:
-> 1. Configuration and user guide for e1000
-> 2. Configuration and user guide for e100
-> 3. Configuration and user guide for ixgb
+On 11 Oct 2004 08:49:32 -0400
+jamal <hadi@cyberus.ca> wrote:
 
-applied all 3 patches
+> I am gonna start trickling these actions/driver patches to you.
+> 
+> signed off by me
+
+Applied, thanks Jamal.
