@@ -1,73 +1,85 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3320] New: 2.6 kernel trigger happy to load
- ipv6 module
-Date: Tue, 31 Aug 2004 11:52:41 -0700
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
+Date: Tue, 31 Aug 2004 22:14:38 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040831115241.1cc516d3.akpm@osdl.org>
+Message-ID: <200408312214.44701.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <4134C1A7.50600@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart2369908.xRTpSoHTD6";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+        Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+        Jouni Malinen <jkmaline@cc.hut.fi>, acx100-devel@lists.sourceforge.net,
+        prism54-devel@prism54.org, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+In-Reply-To: <4134C1A7.50600@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--nextPart2369908.xRTpSoHTD6
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
+On Tuesday 31 August 2004 21:21, Jeff Garzik wrote:
+JG> Denis Vlasenko wrote:
+JG> > I think 'senior' network guys are in position to decide upon which
+JG> > of currently available 802.11 stacks we should continue to work.
+JG> > (Atheros has one, said to be derived from BSD, is there any others?)
+JG>
+JG>
+JG> Already have.  Start with the code in wireless-2.6 -- HostAP -- and use
+JG> DaveM's 802.11 stack template as a model for actually integrating 802.11
+JG> very tightly with the rest of the net stack.
+JG>
+JG>
+ http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/davem-=
+p8
+0211.tar.bz2 JG>
+JG>  Jeff
 
-Begin forwarded message:
+This stack raises many questions.
 
-Date: Tue, 31 Aug 2004 09:07:28 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3320] New: 2.6 kernel trigger happy to load ipv6 module
+The very idea to implement generic softmac is pretty good.
 
+So, first questions:
 
-http://bugme.osdl.org/show_bug.cgi?id=3320
+=2D it defines structures that was present in Jean's wireless extensions. S=
+o,=20
+will it replace Jean's wireless extensions, merge with it, or some other=20
+relationship? Partually, I don't like to see definitions for .11 header and=
+=20
+field constants in 2 includes.
 
-           Summary: 2.6 kernel trigger happy to load ipv6 module
-    Kernel Version: 2.6.8.1
-            Status: NEW
-          Severity: normal
-             Owner: other_modules@kernel-bugs.osdl.org
-         Submitter: alex@milivojevic.org
+=2D QoS stuff is not defined. I suppose recent cards will all support WME a=
+nd/or=20
+TGe. It is easy to add "QoS control" field to header and new frame types, b=
+ut=20
+it is harder to formally define how PHY should handle it. And, TGe is big=20
+story on itself, with all its HCCA, block ack, etc. I also think that QoS, =
+as=20
+it is defined in TGe, required driver to have several tx queues and=20
+start/stop them separately. Is anyone working on it? I'll be glad to join.
 
+=2D Security is not up-to date either. We need .1x, EAS, TKIP etc. This nee=
+d to=20
+be done for modern cards to use this infrastructure.
 
-Distribution: Fedora Core 2
-Hardware Environment: i386
-Software Environment: kernel-2.6.8.1 modutils-2.4.26-16
-Problem Description:
-Seems that triggering of automatic module loading has changed since 2.4 kernels.
- ipv6 module gets automatically loaded even in situations when it isn't really
-needed.  It seems that ipv6 module will get loaded as soon as IPv6 aware
-application binds a port (most of standard daemons with standard configurations
-in most (all? some?) distributions).  I haven't checked if IPv6 aware client
-application will trigger autoloading of ipv6 module.  This is very different
-behaviour than in 2.4 that never autoloads ipv6 module (scripts in
-/etc/sysconfig/network-scripts were supposed to load it manually if IPv6 was to
-be configured on the box).  Because of this, all network interfaces get
-autoconfigured IPv6 addresses even when user doesn't want/need them (link local
-for Ethernet interfaces, and loopback gets ::1).  I've noticed this first on
-Fedora Core 1 after I upgraded kernel from 2.4 series to 2.6 series (I believe
-it was either one of 2.6.0-rc or maybe final 2.6.0, not sure).  At first I
-tought it was a problem with network initialization scripts in
-/etc/sysconfig/network-scripts.  However, after I reinvestigated the problem
-(now in Fedora Core 2 with 2.6.5 up to 2.6.8.1), I found that it is triggered by
-2.6 kernel.  For some people this might present security issue.  Most firewall
-configurations are not written with IPv6 in mind.  Depending of
-firewall/services configuration on particular host this can open new vector of
-attack for malicious user.  An example would be if firewall rules prevent IPv4
-access to (potentially with security flaw and still unpatched) service on WAN
-and loopback interfaces, but allow access from LAN.  If attacker gains "regular"
-user access to the machine, he can exploit flaw in the service by connecting to
-it using IPv6 over loopback.  Somebody with more imagination than me could
-probably find more dangeraous vector.  I don't know much about IPv6, so I don't
-know if and how automatically assigned link local addresses could be used to
-bypass IPv4-only firewall from WAN/LAN.
+--nextPart2369908.xRTpSoHTD6
+Content-Type: application/pgp-signature
 
-Steps to reproduce:
-No steps needed (at least on Fedora Core with 2.6 kernel).  Just run lsmod or
-ifconfig, and you'll see that ipv6 is loaded, and IPv6 addresses automatically
-assigned to interfaces.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
 
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+iD8DBQBBNM4kqxdj7mhC6o0RAhaSAKCcJg6ZuVykVSGI2fEtL2dha4wiqwCeLMML
+QneOrlNbTTtnHwlMW0XBAOo=
+=nHag
+-----END PGP SIGNATURE-----
+
+--nextPart2369908.xRTpSoHTD6--
