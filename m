@@ -1,57 +1,55 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [e1000] print bus type/speed/width on probe
-Date: Wed, 24 Nov 2004 16:15:17 +0100
-Message-ID: <20041124151517.GA17448@xi.wantstofly.org>
+From: Nicolas Pitre <nico@cam.org>
+Subject: Re: "deadlock" between smc91x driver and link_watch
+Date: Wed, 24 Nov 2004 10:21:06 -0500 (EST)
+Message-ID: <Pine.LNX.4.61.0411241014160.8946@xanadu.home>
+References: <1101230194.14370.12.camel@icampbell-debian>
+ <20041123153158.6f20a7d7.akpm@osdl.org>  <1101289309.10841.9.camel@icampbell-debian>
+  <20041124014650.47af8ae4.akpm@osdl.org> <1101290297.10841.15.camel@icampbell-debian>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca
-Return-path: <netdev-bounce@oss.sgi.com>
-To: ganesh.venkatesan@intel.com, netdev@oss.sgi.com
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262746AbUKXPZk@vger.kernel.org>
+To: Ian Campbell <icampbell@arcom.com>
+In-Reply-To: <1101290297.10841.15.camel@icampbell-debian>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 24 Nov 2004, Ian Campbell wrote:
 
-The attached patch (based on a patch by Robert Olsson) makes e1000
-display bus type/speed/width on probe.  All this info is already
-determined by e1000_hw.  Output is as such (a la tg3):
+> Quite right. Fixed patch included.
 
-eth1: e1000 (PCI:33MHz:32-bit) 00:0e:0c:64:cc:a1
-eth2: e1000 (PCI:66MHz:32-bit) 00:04:23:46:e2:50
+Small question:
 
-I've found it useful -- please consider applying.
+> + * smc_phy_configure_wq
+> + *
+> + * The net_device is referenced when the work was scheduled to avoid
+> + * the need for a flush_scheduled_work() in smc_close(). Drop the
+> + * reference and then do the configuration.
+
+You probably want to invert the comment here too.
+
+> +static void smc_phy_configure_wq(void *data)
+> +{
+> +	struct net_device *dev = data;
+> +	smc_phy_configure(data);
+> +	dev_put(dev);
+> +}
+
+[...]
+
+> @@ -1536,10 +1553,8 @@
+>  	/* clear everything */
+>  	smc_shutdown(dev);
+>  
+> -	if (lp->phy_type != 0) {
+> -		flush_scheduled_work();
+> +	if (lp->phy_type != 0)
+>  		smc_phy_powerdown(dev, lp->mii.phy_id);
 
 
-cheers,
-Lennert
+How do you ensure that smc_phy_configure() can't end up being called 
+after smc_phy_powerdown() here?
 
 
-Signed-off-by: Lennert Buytenhek <buytenh@wantstofly.org>
-
-diff -urN e1000.orig/e1000_main.c e1000/e1000_main.c
---- e1000.orig/e1000_main.c	2004-11-24 15:35:23.000000000 +0100
-+++ e1000/e1000_main.c	2004-11-24 16:04:30.000000000 +0100
-@@ -585,6 +585,21 @@
- 	if(eeprom_data & E1000_EEPROM_APME)
- 		adapter->wol |= E1000_WUFC_MAG;
- 
-+	/* print bus type/speed/width info */
-+	printk(KERN_INFO "%s: e1000 (PCI%s:%s:%s) ", netdev->name,
-+		((adapter->hw.bus_type == e1000_bus_type_pcix) ? "X" : ""),
-+		((adapter->hw.bus_speed == e1000_bus_speed_133) ? "133MHz" :
-+		 (adapter->hw.bus_speed == e1000_bus_speed_120) ? "120MHz" :
-+		 (adapter->hw.bus_speed == e1000_bus_speed_100) ? "100MHz" :
-+		 (adapter->hw.bus_speed == e1000_bus_speed_66) ? "66MHz" :
-+		  "33MHz"),
-+		((adapter->hw.bus_width == e1000_bus_width_64) ? "64-bit" :
-+		  "32-bit"));
-+
-+	for (i = 0; i < 6; i++)
-+		printk("%2.2x%c", netdev->dev_addr[i],
-+			i == 5 ? '\n' : ':');
-+
- 	/* reset the hardware with the new settings */
- 	e1000_reset(adapter);
- 
+Nicolas
