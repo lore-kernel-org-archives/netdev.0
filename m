@@ -1,70 +1,47 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: hard_start_xmit and Linux bridging
-Date: Mon, 13 Sep 2004 11:14:22 -0700
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Fix locking bug in lltx path
+Date: Mon, 13 Sep 2004 20:11:00 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4145E37E.40706@candelatech.com>
-References: <FD52892BD296D71183B400065BFCB6900EE98AA3@il02exm12>
+Message-ID: <m3vfei9gzv.fsf@averell.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, arjanv@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
-In-Reply-To: <FD52892BD296D71183B400065BFCB6900EE98AA3@il02exm12>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lewis Adam-CAL022 wrote:
-> Hi Ben,
-> 
-> 
->>-----Original Message-----
->>From: Ben Greear [mailto:greearb@candelatech.com] 
->>Sent: Thursday, September 09, 2004 6:30 PM
->>To: Lewis Adam-CAL022
->>Cc: netdev@oss.sgi.com
->>Subject: Re: hard_start_xmit and Linux bridging
->>
->>I added some ioctls to allow one to turn on the ability to 
->>receive the CRC, but I don't know of any drivers that include 
->>it by default.
-> 
-> 
-> Right, this is what I would have expected since no other driver account for it.
-> 
-> 
->>What driver/hardware is your eth0 device?
-> 
-> 
-> It is a custom board but a Xilinx PCORE and using a Montavista driver.  Based on what you said above, it seems that I might want to pursue this with them.
-> 
-> 
->>How are you determining the size, by the skb->len ?
-> 
-> 
-> Exactly.  And not only does it include the FCS/CRC, but in the case of an ARP, there are an extra 14 trailing 0's.  I thought this was a bridging issue, now I'm thinking it's a xilinx/mvista issue.
-> 
-> 
->>Does tcpdump/ethereal show the extra 4 bytes if you sniff 
->>eth0 w/out bridging?
-> 
-> 
-> Yeah.  And in the case of ARP it is even weirder, and extra 18 bytes, mostly zeros.  So case in point, it sounds like this is not proper operation?  I want to confirm before I bring it up with Xilinx and Montavista.
 
-Sounds to me like they are not zeroing out the padded bytes, and that
-they are also counting the padded bytes (and CRC) as valid data in
-the driver.
+Thanks to Arjan's spinlock debug kernel for finding it.
 
-My vote is definately an ethernet driver bug (or bugs).
+This fixes a silly missing spin lock in the relock path. For some 
+reason it seems to still work when you don't have spinlock debugging
+enabled.
 
-Ben
+Please apply.
 
-> 
-> Thanks!
-> Adam
-> 
+-Andi
 
+--------------------------------------------------------------------
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Fix missing spin lock in lltx path.
+
+Thanks to Arjan's spinlock debug kernel for finding it.
+
+Signed-off-by: Andi Kleen <ak@muc.de>
+
+diff -u linux-2.6.9rc1-bk19/net/sched/sch_generic.c-X linux-2.6.9rc1-bk19/net/sched/sch_generic.c
+--- linux-2.6.9rc1-bk19/net/sched/sch_generic.c-X	2004-09-13 08:51:46.000000000 +0200
++++ linux-2.6.9rc1-bk19/net/sched/sch_generic.c	2004-09-13 19:22:50.000000000 +0200
+@@ -153,8 +153,10 @@
+ 					spin_lock(&dev->queue_lock);
+ 					return -1;
+ 				}
+-				if (ret == -1 && nolock)
++				if (ret == -1 && nolock) {
++					spin_lock(&dev->queue_lock);
+ 					goto collision; 
++				}
+ 			}
+ 
+ 			/* Release the driver */
