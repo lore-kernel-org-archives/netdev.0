@@ -1,29 +1,24 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH 2.6.9] address family not supported for sendmsg()
-Date: Thu, 21 Oct 2004 22:58:20 -0700
+Date: Fri, 22 Oct 2004 15:31:37 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021225820.72d278c7.davem@davemloft.net>
+Message-ID: <20041022.153137.99739029.yoshfuji@linux-ipv6.org>
 References: <21A5F45EFF209A44B3057E35CE1FE6E403981824-100000@eammlex037.lmc.ericsson.se>
+	<20041021225820.72d278c7.davem@davemloft.net>
+	<20041022.153056.57690221.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: suresh.krishnan@ericsson.ca, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Suresh Krishnan <suresh.krishnan@ericsson.ca>
-In-Reply-To: <21A5F45EFF209A44B3057E35CE1FE6E403981824-100000@eammlex037.lmc.ericsson.se>
+To: davem@davemloft.net
+In-Reply-To: <20041022.153056.57690221.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Oct 2004 00:27:14 -0400 (EDT)
-Suresh Krishnan <suresh.krishnan@ericsson.ca> wrote:
+In article <20041022.153056.57690221.yoshfuji@linux-ipv6.org> (at Fri, 22 Oct 2004 15:30:56 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
-> --- linux-2.6.9/net/ipv6/udp.c  2004-10-18 17:54:55.000000000 -0400
-> +++ linux-2.6.9-patched/net/ipv6/udp.c  2004-10-21 16:37:52.000000000 -0400
-> @@ -699,7 +699,7 @@
->                 if (likely(up->pending)) {
->                         if (unlikely(up->pending != AF_INET6)) {
->                                 release_sock(sk);
-> -                               return -EINVAL;
-> +                               return -EAFNOSUPPORT;
+> This may be convered by EAFNOSUPPORT.
+              covered
 
-I think this case should remain -EINVAL.
+--yoshfuji
