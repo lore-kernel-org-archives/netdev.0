@@ -1,49 +1,71 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
-Date: Wed, 10 Mar 2004 12:58:28 -0500
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: linux-wireless mailing list
+Date: Wed, 10 Mar 2004 10:06:02 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404F5744.1040201@pobox.com>
-References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com> <404F5097.4040406@pobox.com> <20040310175200.GA9531@bougret.hpl.hp.com>
+Message-ID: <20040310180602.GB9531@bougret.hpl.hp.com>
+References: <Pine.LNX.4.58.0403031656090.22365@marabou.research.att.com> <40469DA1.9090502@pobox.com> <20040305040352.GA16669@bougret.hpl.hp.com> <404F5461.80000@pobox.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Pavel Roskin <proski@gnu.org>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20040310175200.GA9531@bougret.hpl.hp.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <404F5461.80000@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes wrote:
-> 	You misunderstood. The HostAP driver has a pretty much
-> complete generic 802.11 stack. However, other driver can't depend on
-> that code until it's in the kernel.
-> 	By "big 802.11 reorg", I meant "make the other driver depend
-> on HostAP 802.11 code".
-> 	Of course, I'm quite partial to the HostAP code because I'm
-> more familiar with it and I believe it's the most advanced (host WEP,
-> 802.1x, WPA, AP...). Other candidated are linux-wlan-ng or the *BSD
-> stack (by the way of the MadWifi driver).
+On Wed, Mar 10, 2004 at 12:46:09PM -0500, Jeff Garzik wrote:
+> Jean Tourrilhes wrote:
+> >+static inline int rtnetlink_standard_call(struct net_device *	dev,
+> >+					  struct iw_event *	request,
+> >+					  int			request_len,
+> >+					  iw_handler		handler)
+> >+{
+> >+	const struct iw_ioctl_description *	descr = NULL;
+> >+	unsigned int				cmd;
+> >+	union iwreq_data *			wrqu;
+> >+	int					hdr_len;
+> >+	struct iw_request_info			info;
+> >+	int					ret = -EINVAL;
+> >+
+> >+	/* Get the description of the IOCTL */
+> >+	cmd = request->cmd;
+> >+	if((cmd - SIOCIWFIRST) >= standard_ioctl_num)
+> >+		return -EOPNOTSUPP;
+> >+	descr = &(standard_ioctl[cmd - SIOCIWFIRST]);
+> 
+> 
+> OK, this patch looks good to me.
 
-Ah!  I did indeed misunderstand.
+	Thanks. I'll try to work on the missing parts.
 
-Yes, it would be good to end the cycle of re-implementing 802.11 over 
-and over again ;-)
+> There is one piece we need to change though, that will cause the size of 
+> this patch to increase a bit.
+> 
+> Look at ethtool_ops, and net/core/ethtool.c, in the current upstream 2.4 
+> and 2.6 trees.
+> 
+> A key goal of mine is to completely eliminate the union and the 
+> iw_handler type.  To increase type-safety, and to decrease the pain of 
+> going through 32<->64-bit translation layers, each wireless hook needs 
+> to have a specific (not generic) interface (a la ethtool_ops).
 
-So here is my suggested plan:
-* I merge prism54 upstream
-* I create wireless-2.6 queue
-* somebody (you, Jouni(sp?)) submits HostAP to me
-* I merge HostAP
-* submit rtnetlink patches to me
-* start working on generic 802.11 stack in wireless-2.6 queue
-* at the same time, migrate away from iw_handler to "wireless_ops" (i.e. 
-something like ethtool_ops)
-* once things have stabilized again, merge upstream
+	The current API is already completely 32<->64-bit
+safe. Wireless Tools have been used on Alpha since the end of the
+90's. The code to support 32 bit user space on 64 bit kernel was
+trivial and concern only a single pointer, and such pointer would not
+exist when using RtNetlink. So, I claim that when using RtNetlink, the
+API would be entirely 32<->64-bit safe.
 
-I'm not sure about the order of the last few steps, you know better than 
-I what dependencies exist.
+	You point about type safety is perfectly valid.
+	I believe that this is a tradeoff. The design reason to have a
+single type of handler, apart from the space saving, was to allow a
+driver to hook a common handler to multiple commands. I've used that
+in a few cases, because it made the driver code simpler.
+	So far, we never had any problem with regards to type
+safety. Maybe it's because wireless driver authors are very clever ;-)
 
-	Jeff
+> 	Jeff
+
+	Jean
