@@ -1,95 +1,32 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Fw: PROBLEM: Memory leak in -test9?
-Date: Tue, 11 Nov 2003 13:06:15 -0800
+From: John Partridge <johnip@sgi.com>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Tue, 11 Nov 2003 15:26:09 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031111130615.23006c98.akpm@osdl.org>
-References: <20031111130513.67caea63.akpm@osdl.org>
+Message-ID: <3FB153F1.8040708@sgi.com>
+References: <3F844578.40306@sgi.com>	<20031008101046.376abc3b.davem@redhat.com>	<3F8455BE.8080300@sgi.com>	<20031008183742.GA24822@wotan.suse.de>	<20031008122223.1ba5ac79.davem@redhat.com>	<20031008202248.GA15611@oldwotan.suse.de>	<3F8702FF.70500@sgi.com>	<20031010192036.GA31727@wotan.suse.de>	<3F8802E6.5030601@sgi.com>	<20031011131921.GC21763@wotan.suse.de>	<20031011105054.0e16a607.davem@redhat.com>	<3F8C290A.3010508@sgi.com>	<20031014095323.71c8b9fe.davem@redhat.com>	<3FB03A56.7000709@sgi.com>	<20031110182911.2c5a121b.davem@redhat.com>	<3FB140E2.1070007@sgi.com> <20031111122403.2d7bcf28.davem@redhat.com>
+Reply-To: johnip@sgi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ak@suse.de, netdev@oss.sgi.com, jgarzik@pobox.com, jes@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, thomas@habets.pp.se
-In-Reply-To: <20031111130513.67caea63.akpm@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031111122403.2d7bcf28.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
->
->=20
-> A memory leak in the tcp6_sock slab.
->=20
+David S. Miller wrote:
+> On Tue, 11 Nov 2003 14:04:50 -0600
+> Why are you depending upon MCKINLEY?  Don't all ia64 cpus
+> give traps for unaligned memory accesses?
 
+I have no evidence of a problem with Itanium1, only on Itanium2 (MCKINLEY)
+I have seen it on HP and SGI MCKINLEY
 
+-- 
+John Partridge
 
-Begin forwarded message:
-
-Date: Tue, 11 Nov 2003 18:27:12 +0100
-From: Thomas Habets <thomas@habets.pp.se>
-To: J=F6rn Engel <joern@wohnheim.fh-wedel.de>
-Cc: Henrik Storner <henrik@hswn.dk>, linux-kernel@vger.kernel.org
-Subject: Re: PROBLEM: Memory leak in -test9?
-
-
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
-
-On Tuesday 11 November 2003 17:27, J=F6rn Engel wrote:
-> Looks familiar.  Can you recreate and send the output from
-> /proc/slabinfo?
-
-Oh, I didn't notice that file. :-)
-Recreating is just booting and waiting for a week, but the box is still u=
-p.
-
-This is the line that stands out (complete file attached, 137 lines).
-
-tcp6_sock         111663 111664    960    4    1 : tunables   54   27    =
-0 :=20
-slabdata  27916  27916      0
-
-I seem to remember a changelog mentioning a leak being fixed in ipv6 code=
-,=20
-but it looks like there may be another one? The only ipv6 service running=
- is=20
-sshd, and the mrtg-sshs that go off every 5 minutes are NOT over ipv6.=20
-netstat -na shows nothing interesting. Only the ssh I connect with uses a=
- bit=20
-of ipv6 (ffff:1.2.3.4). So, one listening socket, and one established.
-
-$ cat /proc/net/sockstat6
-TCP6: inuse 2
-UDP6: inuse 0
-RAW6: inuse 0
-FRAG6: inuse 0 memory 0
-
-$ cat /proc/net/rt6_stats=20
-0000 0006 0000 0008 0000 0008 0003
-
-nothing over 6 in /proc/net/dev_snmp6/*
-
-$ cat /proc/net/snmp6
-Ip6InReceives                           223315
-... just 0 ...
-Ip6InDelivers                           223312
-... just 0 ...
-Ip6OutRequests                          223312
-.. nothing that looks interesting ...
-
-
-- ---------
-typedef struct me_s {
-  char name[]      =3D { "Thomas Habets" };
-  char email[]     =3D { "thomas@habets.pp.se" };
-  char kernel[]    =3D { "Linux 2.4" };
-  char *pgpKey[]   =3D { "http://www.habets.pp.se/pubkey.txt" };
-  char pgp[] =3D { "A8A3 D1DD 4AE0 8467 7FDE  0945 286A E90A AD48 E854" }=
-;
-  char coolcmd[]   =3D { "echo '. ./_&. ./_'>_;. ./_" };
-} me_t;
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQE/sRvwKGrpCq1I6FQRAqw1AKDVu+ZEvqwdoFPD18g6Ps1+UG62cACfTatK
-pHUgMxWIGHke3USjtUEsKZU=3D
-=3D/5YW
------END PGP SIGNATURE-----
+Silicon Graphics Inc
+Tel:  651-683-3428
+Vnet: 233-3428
+E-Mail: johnip@sgi.com
