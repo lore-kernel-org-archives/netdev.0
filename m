@@ -1,54 +1,43 @@
-From: Jon Grimm <jgrimm2@us.ibm.com>
-Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Mon, 13 Jan 2003 17:34:12 -0600
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: snd_cwnd drawn and quartered
+Date: Tue, 14 Jan 2003 03:12:37 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E234CF4.70309@us.ibm.com>
-References: <200301132125.AAA09366@sex.inr.ac.ru>
+Message-ID: <200301140012.DAA09790@sex.inr.ac.ru>
+References: <20030102030858.E1363@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, davem@redhat.com, sri@us.ibm.com,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, chengjin@cs.caltech.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: wa@almesberger.net (Werner Almesberger)
+In-Reply-To: <20030102030858.E1363@almesberger.net> from "Werner Almesberger" at Jan 2, 3 03:08:58 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
+> I searched around but didn't spot anything. A pointer would be
+> welcome, thanks !
 
-kuznet@ms2.inr.ac.ru wrote:
-> Hello!
-> 
-> 
->>So in short clearing DF is near always a bug these days.
-> 
-> 
-> Exactly. And it is exactly why I said that this compromises all the pmtu
-> discvoery and why I would like people consulted SCTP designers before
-> doing this step. I cannot believe that new protocol was designed in this way.
-> 
-> Alexey
-> 
+I bring apologies for silence. I see you have already found it.
 
-It is indeed designed this way.  http://www.ietf.org/rfc/rfc2960.txt 
-section 7.3 discusses the differences in SCTP PMTU discovery versus RFC 
-1191.
+> Yes, but rate-halving is what causes in-flight to drop in the first
+> place (assuming we have enough fresh data to send, of course), no ?
 
-SCTP packets are filled with "chunks".  Data records can be broken into 
-multiple chunks.  Chunks are then "bundled" into the packet.
+Of course. But draining happens when you received more ACKs than
+you sent packets. When such pathalogy happens we just have to do something,
+at least to understand when it happens under normal conditions.
 
-Once a TSN (Transmission Sequence Number) is assigned to a data fragment 
-(chunk) of a record, it can not be further fragmented.  This should be a 
-rare occurance, but can happen when PMTU shrinks.
+Probably, the reason of confusion is that original rh seems to include
+some bits of "lost-sensitive recovery", so cnwd really is supposed to shrink
+to cwnd/2 - lost there. See? We do not make this, and the check for 1/4 really
+look as an alien.
 
-Now, that being said, there is an alternative that I originally alluded 
-to.  That is, pre-fragment chunks down to the smallest possible MTU's 
-needs and then bundle the chunks up together to satisfy the current 
-PMTU.   If the current PMTU shrinks, bundle in fewer chunks, down to the 
-smallest packet containing a single chunk.   There is a little extra 
-processing at each end and each chunk within the packet eats up a chunk 
-header of 4 bytes.
+> I've put graphs of a simulation run (with and without the change) at
+> http://www.almesberger.net/misc/half.eps
+> http://www.almesberger.net/misc/quarter.eps
 
+I see. Not quite understand the reason though. :-) You said something
+about lost retransmissions... How much of retransmits were lost
+in the simulation? Are you aware that each lost retransmission,
+if we behaved honestly, would collapse cwnd to 1? :-)
 
-Best Regards,
-Jon
+Alexey
