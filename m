@@ -1,35 +1,34 @@
-From: <pdtf@intel.com>
-Subject: =?ISO-8859-1?Q?=BCx?= 20 =?ISO-8859-1?Q?=A6W=C5=D6=AC=FC=ADp=B9=BA=A5N=A8=A5=A4H?=
-Date: Wed, 09 Jun 2004 01:31:39 +0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406081731.i58HVNgi003552@oss.sgi.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: PATCH: ethtool power manglement hooks
+Date: Tue, 08 Jun 2004 14:02:43 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <40C5FF43.1090805@pobox.com>
+References: <20040607155018.GA5810@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-    boundary="--=_NextPart_001_0018_01C39816.2C871AA0"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>, <majordomo@oss.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, akpm@osdl.org,
+	Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265276AbUFHSDa@vger.kernel.org>
+To: Alan Cox <alan@redhat.com>
+In-Reply-To: <20040607155018.GA5810@devserv.devel.redhat.com>
 List-Id: netdev.vger.kernel.org
 
-----=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/plain;
-    charset="big5"
-Content-Transfer-Encoding: base64
+Alan Cox wrote:
+> Several ethernet drivers have been broken by the ethtool support because
+> the ioctl code used to power the interface up and down as needed. Rather
 
-vdCkwbSrtlek5aW7oV1IVE1MoV6u5qah
 
-----=_NextPart_001_0018_01C39816.2C871AA0
-Content-Type: text/html;
-    charset="big5"
-Content-Transfer-Encoding: base64
+To be more specific, the new ethtool_ops feature bypasses code in net 
+drivers which did one of two things:
+* power up the hardware, perform the ioctl, and power down the hardware
+	or
+* fail if netif_running() is false, indicating the driver's requirement 
+that MII and ethtool operations only occur when the interface is up 
+(thereby ignoring the power management issues)
 
-PGh0bWw+DQoNCjxoZWFkPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1UeXBlIiBjb250ZW50
-PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9YmlnNSI+DQo8bWV0YSBuYW1lPSJHRU5FUkFUT1IiIGNvbnRl
-bnQ9Ik1pY3Jvc29mdCBGcm9udFBhZ2UgNC4wIj4NCjxtZXRhIG5hbWU9IlByb2dJZCIgY29udGVu
-dD0iRnJvbnRQYWdlLkVkaXRvci5Eb2N1bWVudCI+DQo8dGl0bGU+t3O69K22NDwvdGl0bGU+DQo8
-L2hlYWQ+DQoNCjxib2R5Pg0KDQo8cD48YSBocmVmPSJodHRwOi8vaG9tZS5wY2hvbWUuY29tLnR3
-L3NvaG8vaG9tZXNvaG8xNjgvSGVsZW4wMi5odG0iPjxpbWcgYm9yZGVyPSIwIiBzcmM9Imh0dHA6
-Ly9ob21lLnBjaG9tZS5jb20udHcvc29oby9ob21lc29obzE2OC9oZWxlbjAxLmJtcCIgd2lkdGg9
-IjQ4MyIgaGVpZ2h0PSI1MzEiPjwvYT48L3A+DQoNCjwvYm9keT4NCg0KPC9odG1sPg0K
 
-----=_NextPart_001_0018_01C39816.2C871AA0--
+Also, CC net driver patches to me and netdev, pretty please with sugar 
+on it.
+
+	Jeff
