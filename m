@@ -1,48 +1,59 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Sun, 09 Jun 2002 23:08:09 -0700
+From: george anzinger <george@mvista.com>
+Subject: Re: Network oops
+Date: Mon, 10 Jun 2002 01:11:01 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae1ftc$j0j$2@main.gmane.org>
-References: <3D029DAF.5040006@candelatech.com>	<20020608.175108.84748597.davem@redhat.com>	<3D039D22.2010805@candelatech.com> <20020609.213440.04716391.davem@redhat.com>
+Message-ID: <ae1nag$ekb$2@main.gmane.org>
+References: <200205202125.BAA03545@sex.inr.ac.ru>
+		<3D0390E2.1B80ADEE@mvista.com> <20020609.213224.01016187.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mark@mark.mielke.cc, cfriesen@nortelnetworks.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   ak@muc.de, pekkas@netcore.fi
 Return-path: <owner-netdev@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-
-
-David S. Miller wrote:
-
->    From: Ben Greear <greearb@candelatech.com>
->    Date: Sun, 09 Jun 2002 11:23:30 -0700
->    
->    I need to account for packets on a per-session basis, where a
->    session endpoint is a UDP port.  So, knowing global protocol numbers is
->    good, but it is not very useful for the detailed accounting I
->    need.
+"David S. Miller" wrote:
 > 
-> Why can't you just disable the other UDP services, and then there is
-> no question which UDP server/client is causing the drops.
+> Also we need to know what network driver, if preemption is being
+> used (being from mvista I assume you are using preemption, and if
+> so make sure you have the preemption networking patches applied).
 
+Uh, are you saying there is a set of network patches?  If
+so, where might they be found?  And yes, we are testing
+preemption, trying to wring out the "last" bug :)  (Could
+you be referring to the patches we are developing?)
 
-I run multiple connections at once, so this is not a useful alternative.
-My application is fairly unique, though people doing stuff like RTP and
-other streaming UDP sessions may be interested in similar counters.
+The driver (from the system log):
+    <4>eepro100.c:v1.09j-t 9/29/99 Donald Becker
+http://cesdis.gsfc.nasa.gov/linux/drivers/eepro100.html
+    <4>eepro100.c: $Revision: 1.36 $ 2000/11/17 Modified by
+Andrey V. Savochkin <saw@saw.sw.com.sg> and others
+    <6>eth0: OEM i82557/i82558 10/100 Ethernet,
+00:03:47:BD:60:86, IRQ 21.
+    <6>  Board assembly fab600-000, Physical connectors
+present: RJ45
+    <6>  Primary interface chip i82555 PHY #1.
+    <6>  General self-test: passed.
+    <6>  Serial sub-system self-test: passed.
+    <6>  Internal registers self-test: passed.
+    <6>  ROM checksum self-test: passed (0xb874c1d3).
+    <6>eth1: OEM i82557/i82558 10/100 Ethernet,
+00:03:47:BD:60:87, IRQ 20.
+    <6>  Board assembly fab600-000, Physical connectors
+present: RJ45
+    <6>  Primary interface chip i82555 PHY #1.
+    <6>  General self-test: passed.
+    <6>  Serial sub-system self-test: passed.
+    <6>  Internal registers self-test: passed.
+    <6>  ROM checksum self-test: passed (0xb874c1d3).
 
-
-> Every argument I hear is one out of lazyness.  And that is not a
-
-
-Well, that pretty much finishes this discussion I guess.
-
-Thanks,
-Ben
-
+Looks like two NICs.
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+George Anzinger   george@mvista.com
+High-res-timers: 
+http://sourceforge.net/projects/high-res-timers/
+Real time sched:  http://sourceforge.net/projects/rtsched/
+Preemption patch:
+http://www.kernel.org/pub/linux/kernel/people/rml
