@@ -1,47 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: resend [PATCH 2.6.4-rc2] netdevice.h add netif_msg_init helper
-Date: Fri, 05 Mar 2004 14:25:09 -0500
+From: satya srikanth <satyasrikanth2001@yahoo.com>
+Subject: Xeon smp performance
+Date: Mon, 8 Mar 2004 05:23:54 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4048D415.4060701@pobox.com>
-References: <200403051743.i25Hh5B02111@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040308132354.77437.qmail@web21101.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <200403051743.i25Hh5B02111@DYN318364BLD.beaverton.ibm.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Don Fry wrote:
-> This patch adds a helper function to initialize the debug bit mask
-> for use with netif_msg_*.  When the debug_value is out of range
-> it returns the default_msg_enable_bits.
-> 
-> --- linux-2.6.4-rc2/include/linux/orig.netdevice.h	Thu Mar  4 09:59:08 2004
-> +++ linux-2.6.4-rc2/include/linux/netdevice.h	Thu Mar  4 10:56:19 2004
-> @@ -774,6 +774,17 @@
->  #define netif_msg_hw(p)		((p)->msg_enable & NETIF_MSG_HW)
->  #define netif_msg_wol(p)	((p)->msg_enable & NETIF_MSG_WOL)
->  
-> +static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
-> +{
-> +	/* use default */
-> +	if (debug_value < 0 || debug_value > (sizeof(u32) * 8))
-> +		return default_msg_enable_bits;
-> +	if (debug_value == 0)	/* no output */
-> +		return 0;
-> +	/* set low N bits */
-> +	return(((debug_value == (sizeof(u32)*8)) ? 0 : (1 << debug_value)) - 1);
-> +}
-> +
+Hi,
+   I am writing a simple sniffer program that will
+sniff packets in a gigabit network. I am using a dual
+processor 2 GHz Xeon processor with one Intel Pro-1000
+desktop adapter, running 2.4.20-8smp linux.=20
+   I found that for all packet sizes and network
+bandwidth, 2.4.20-8 uniprocessor version that uses
+only one processor is performing better than
+2.4.20-8smp using two processors in terms of packet
+drops and CPU utilization. Each processor in smp is
+utilizing more CPU than one processor in uni-processor
+case. What is the reason for this peculiar behaviour?
+Is it possible for me to use the power of second
+processor without adding more NICs. Will I face
+similar problems with 2.6 also? Anybody familiar with
+these please help me out.
 
-Oh, my apologies.  I didn't see you had made the additional change I 
-requested.
+TIA
+Satya Srikanth
 
-This version looks better, but we still have an out of range value (32) 
-resulting in no-messages, rather than the default value.  I would change 
-the first ">" to ">=", and simply eliminate the final test.
-
-	Jeff
+__________________________________
+Do you Yahoo!?
+Yahoo! Search - Find what you=92re looking for faster
+http://search.yahoo.com
