@@ -1,44 +1,87 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
-Date: 05 Apr 2005 12:11:35 -0400
-Message-ID: <1112717495.1076.22.camel@jzny.localdomain>
-References: <20050405202039.0250.LARK@linux.net.cn>
-	 <1112705689.1088.209.camel@jzny.localdomain>
-	 <20050405213023.0256.LARK@linux.net.cn>
-Reply-To: hadi@cyberus.ca
+From: Greg KH <gregkh@suse.de>
+Subject: [05/08] [IPSEC]: Do not hold state lock while checking size
+Date: Tue, 5 Apr 2005 09:47:27 -0700
+Message-ID: <20050405164726.GF17299@kroah.com>
+References: <20050405164539.GA17299@kroah.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kaber@trash.net, davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wang Jian <lark@linux.net.cn>
-In-Reply-To: <20050405213023.0256.LARK@linux.net.cn>
+To: linux-kernel@vger.kernel.org, stable@kernel.org
+Content-Disposition: inline
+In-Reply-To: <20050405164539.GA17299@kroah.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Wang,
+-stable review patch.  If anyone has any objections, please let us know.
 
-On Tue, 2005-04-05 at 10:18, Wang Jian wrote:
+------------------
 
-> I am not saying that we must use jenkins. We may use a less expensive
-> hash function than jenkins, but better than & 0xFF.
-> 
+This patch from Herbert Xu fixes a deadlock with IPsec.
+When an ICMP frag. required is sent and the ICMP message
+needs the same SA as the packet that caused it the state
+will be locked twice.
 
-Sure; point is as long as it doesnt destroy the common use in place.
+[IPSEC]: Do not hold state lock while checking size.
 
->Anyway, I have done userspace test for jhash. The following test 
-> is done in a AMD Athlon 800MHz without other CPU load.
-> 
+This can elicit ICMP message output and thus result in a
+deadlock.
 
-No, the test i was asking for is to show distribution of the
-hash not how long it took (which is also an ok test).
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Signed-off-by: David S. Miller <davem@davemloft.net>
+Signed-off-by: Chris Wright <chrisw@osdl.org>
+Signed-off-by: Greg Kroah-Hartman <gregkh@suse.de>
 
-i.e if you fed the jenkins hash with 256 buckets - lets pick the number 1024 
-samples of the data you showed earlier for how fwmark looks like,
-how well would the result look like. 
-And what if you fed it with something like 1024 incremental fwmark from 
-say 1..1024?
-
-cheers,
-jamal
+diff -Nru a/net/ipv4/xfrm4_output.c b/net/ipv4/xfrm4_output.c
+--- a/net/ipv4/xfrm4_output.c	2005-03-20 16:53:05 +01:00
++++ b/net/ipv4/xfrm4_output.c	2005-03-20 16:53:05 +01:00
+@@ -103,16 +103,16 @@
+ 			goto error_nolock;
+ 	}
+ 
+-	spin_lock_bh(&x->lock);
+-	err = xfrm_state_check(x, skb);
+-	if (err)
+-		goto error;
+-
+ 	if (x->props.mode) {
+ 		err = xfrm4_tunnel_check_size(skb);
+ 		if (err)
+-			goto error;
++			goto error_nolock;
+ 	}
++
++	spin_lock_bh(&x->lock);
++	err = xfrm_state_check(x, skb);
++	if (err)
++		goto error;
+ 
+ 	xfrm4_encap(skb);
+ 
+diff -Nru a/net/ipv6/xfrm6_output.c b/net/ipv6/xfrm6_output.c
+--- a/net/ipv6/xfrm6_output.c	2005-03-20 16:53:05 +01:00
++++ b/net/ipv6/xfrm6_output.c	2005-03-20 16:53:05 +01:00
+@@ -103,16 +103,16 @@
+ 			goto error_nolock;
+ 	}
+ 
+-	spin_lock_bh(&x->lock);
+-	err = xfrm_state_check(x, skb);
+-	if (err)
+-		goto error;
+-
+ 	if (x->props.mode) {
+ 		err = xfrm6_tunnel_check_size(skb);
+ 		if (err)
+-			goto error;
++			goto error_nolock;
+ 	}
++
++	spin_lock_bh(&x->lock);
++	err = xfrm_state_check(x, skb);
++	if (err)
++		goto error;
+ 
+ 	xfrm6_encap(skb);
+ 
