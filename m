@@ -1,353 +1,161 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/8) n2 and c101 hdlc dis-embedding
-Date: Tue, 2 Dec 2003 15:32:46 -0800
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [ROUTE] PMTU only works on half the time
+Date: Wed, 3 Dec 2003 01:40:06 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202153246.57ef7c43.shemminger@osdl.org>
+Message-ID: <Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
+References: <20031201155005.1c515793.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: herbert@gondor.apana.org.au, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krzysztof Halas <khc@pm.waw.pl>, Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031201155005.1c515793.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Change the n2 and c101 drivers to allocate the hdlc device structure
-and use hdlc->dev_data for their private data.
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1492  -> 1.1493 
-#	drivers/net/wan/hd6457x.c	1.8     -> 1.9    
-#	drivers/net/wan/n2.c	1.13    -> 1.14   
-#	drivers/net/wan/c101.c	1.12    -> 1.13   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/11/26	shemminger@osdl.org	1.1493
-# Change to work with hdlc_device without embedded net_device.
-# --------------------------------------------
-#
-diff -Nru a/drivers/net/wan/c101.c b/drivers/net/wan/c101.c
---- a/drivers/net/wan/c101.c	Wed Nov 26 12:28:38 2003
-+++ b/drivers/net/wan/c101.c	Wed Nov 26 12:28:38 2003
-@@ -54,7 +54,7 @@
+	Hello,
+
+	I'm appending new version that handles all missing cases for 
+hashed values on icmp error:
+
+- ip_rt_frag_needed now provides interface index
+- ip_rt_redirect checks for tos|RTO_ONLINK too
+- ip_rt_frag_needed checks also for tos|RTO_ONLINK and oif!=0
+- __ip_route_output_key now ignores illegal bits (bit 1) from tos
+
+	Please review and edit if needed.
+
+diff -Nru a/include/net/route.h b/include/net/route.h
+--- a/include/net/route.h	Tue Dec  2 23:37:17 2003
++++ b/include/net/route.h	Tue Dec  2 23:37:17 2003
+@@ -122,7 +122,7 @@
+ extern int		ip_route_output_key(struct rtable **, struct flowi *flp);
+ extern int		ip_route_output_flow(struct rtable **rp, struct flowi *flp, struct sock *sk, int flags);
+ extern int		ip_route_input(struct sk_buff*, u32 dst, u32 src, u8 tos, struct net_device *devin);
+-extern unsigned short	ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu);
++extern unsigned short	ip_rt_frag_needed(int iif, struct iphdr *iph, unsigned short new_mtu);
+ extern void		ip_rt_send_redirect(struct sk_buff *skb);
  
- 
- typedef struct card_s {
--	hdlc_device hdlc;	/* HDLC device struct - must be first */
-+	hdlc_device *hdlc;	/* HDLC device struct - must be first */
- 	spinlock_t lock;	/* TX lock */
- 	u8 *win0base;		/* ISA window base address */
- 	u32 phy_winbase;	/* ISA physical base address */
-@@ -128,8 +128,8 @@
- 	sca_out(stat & ST1_UDRN, MSCI0_OFFSET + ST1, card);
- 
- 	if (stat & ST1_UDRN) {
--		port->hdlc.stats.tx_errors++; /* TX Underrun error detected */
--		port->hdlc.stats.tx_fifo_errors++;
-+		port->hdlc->stats.tx_errors++; /* TX Underrun error detected */
-+		port->hdlc->stats.tx_fifo_errors++;
- 	}
- 
- 	/* Reset MSCI CDCD status bit - uses ch#2 DCD input */
-@@ -137,7 +137,7 @@
- 
- 	if (stat & ST1_CDCD)
- 		hdlc_set_carrier(!(sca_in(MSCI1_OFFSET + ST3, card) & ST3_DCD),
--				 &port->hdlc);
-+				 port->hdlc);
- }
- 
- 
-@@ -288,13 +288,14 @@
- 		release_mem_region(card->phy_winbase, C101_MAPPED_RAM_SIZE);
- 	}
- 
--	kfree(card);
-+	free_hdlc_device(card->hdlc);
- }
- 
- 
- 
- static int __init c101_run(unsigned long irq, unsigned long winbase)
+ extern unsigned		inet_addr_type(u32 addr);
+diff -Nru a/net/ipv4/icmp.c b/net/ipv4/icmp.c
+--- a/net/ipv4/icmp.c	Tue Dec  2 23:37:17 2003
++++ b/net/ipv4/icmp.c	Tue Dec  2 23:37:17 2003
+@@ -626,7 +626,7 @@
+ 							 "and DF set.\n",
+ 					       NIPQUAD(iph->daddr));
+ 			} else {
+-				info = ip_rt_frag_needed(iph,
++				info = ip_rt_frag_needed(skb->dev->ifindex, iph,
+ 						     ntohs(icmph->un.frag.mtu));
+ 				if (!info)
+ 					goto out;
+diff -Nru a/net/ipv4/route.c b/net/ipv4/route.c
+--- a/net/ipv4/route.c	Tue Dec  2 23:37:17 2003
++++ b/net/ipv4/route.c	Tue Dec  2 23:37:17 2003
+@@ -967,11 +967,12 @@
+ void ip_rt_redirect(u32 old_gw, u32 daddr, u32 new_gw,
+ 		    u32 saddr, u8 tos, struct net_device *dev)
  {
-+	hdlc_device *hdlc;
- 	struct net_device *dev;
- 	card_t *card;
- 	int result;
-@@ -309,12 +310,13 @@
- 		return -ENODEV;
+-	int i, k;
++	int i, j, k;
+ 	struct in_device *in_dev = in_dev_get(dev);
+ 	struct rtable *rth, **rthp;
+ 	u32  skeys[2] = { saddr, 0 };
+ 	int  ikeys[2] = { dev->ifindex, 0 };
++	u8 toskeys[2];
+ 
+ 	tos &= IPTOS_RT_MASK;
+ 
+@@ -992,11 +993,15 @@
+ 			goto reject_redirect;
  	}
  
--	card = kmalloc(sizeof(card_t), GFP_KERNEL);
--	if (card == NULL) {
-+	hdlc = alloc_hdlc_device(sizeof(card_t));
-+	if (!hdlc) {
- 		printk(KERN_ERR "c101: unable to allocate memory\n");
- 		return -ENOBUFS;
- 	}
--	memset(card, 0, sizeof(card_t));
-+	card = hdlc->dev_data;
-+	card->hdlc = hdlc;
++	toskeys[0] = tos;
++	toskeys[1] = tos | RTO_ONLINK;
++	if (saddr && daddr)
++	for (j = 0; j < 2; j++)
+ 	for (i = 0; i < 2; i++) {
+ 		for (k = 0; k < 2; k++) {
+ 			unsigned hash = rt_hash_code(daddr,
+ 						     skeys[i] ^ (ikeys[k] << 5),
+-						     tos);
++						     toskeys[j]);
  
- 	if (request_irq(irq, sca_intr, 0, devname, card)) {
- 		printk(KERN_ERR "c101: could not allocate IRQ\n");
-@@ -347,7 +349,7 @@
+ 			rthp=&rt_hash_table[hash].chain;
  
- 	sca_init(card, 0);
- 
--	dev = hdlc_to_dev(&card->hdlc);
-+	dev = hdlc_to_dev(hdlc);
- 
- 	spin_lock_init(&card->lock);
- 	SET_MODULE_OWNER(dev);
-@@ -358,11 +360,11 @@
- 	dev->do_ioctl = c101_ioctl;
- 	dev->open = c101_open;
- 	dev->stop = c101_close;
--	card->hdlc.attach = sca_attach;
--	card->hdlc.xmit = sca_xmit;
-+	hdlc->attach = sca_attach;
-+	hdlc->xmit = sca_xmit;
- 	card->settings.clock_type = CLOCK_EXT;
- 
--	result = register_hdlc_device(&card->hdlc);
-+	result = register_hdlc_device(hdlc);
- 	if (result) {
- 		printk(KERN_WARNING "c101: unable to register hdlc device\n");
- 		c101_destroy_card(card);
-@@ -371,11 +373,11 @@
- 
- 	sca_init_sync_port(card); /* Set up C101 memory */
- 	hdlc_set_carrier(!(sca_in(MSCI1_OFFSET + ST3, card) & ST3_DCD),
--			 &card->hdlc);
-+			 card->hdlc);
- 
- 	printk(KERN_INFO "%s: Moxa C101 on IRQ%u,"
- 	       " using %u TX + %u RX packets rings\n",
--	       hdlc_to_name(&card->hdlc), card->irq,
-+	       hdlc_to_name(card->hdlc), card->irq,
- 	       card->tx_ring_buffers, card->rx_ring_buffers);
- 
- 	*new_card = card;
-@@ -424,7 +426,7 @@
- 	while (card) {
- 		card_t *ptr = card;
- 		card = card->next_card;
--		unregister_hdlc_device(&ptr->hdlc);
-+		unregister_hdlc_device(ptr->hdlc);
- 		c101_destroy_card(ptr);
- 	}
+@@ -1007,7 +1012,7 @@
+ 				smp_read_barrier_depends();
+ 				if (rth->fl.fl4_dst != daddr ||
+ 				    rth->fl.fl4_src != skeys[i] ||
+-				    rth->fl.fl4_tos != tos ||
++				    rth->fl.fl4_tos != toskeys[j] ||
+ 				    rth->fl.oif != ikeys[k] ||
+ 				    rth->fl.iif != 0) {
+ 					rthp = &rth->u.rt_next;
+@@ -1237,21 +1242,26 @@
+ 	return 68;
  }
-diff -Nru a/drivers/net/wan/hd6457x.c b/drivers/net/wan/hd6457x.c
---- a/drivers/net/wan/hd6457x.c	Wed Nov 26 12:28:38 2003
-+++ b/drivers/net/wan/hd6457x.c	Wed Nov 26 12:28:38 2003
-@@ -114,7 +114,7 @@
  
- static inline port_t* hdlc_to_port(hdlc_device *hdlc)
+-unsigned short ip_rt_frag_needed(struct iphdr *iph, unsigned short new_mtu)
++unsigned short ip_rt_frag_needed(int iif, struct iphdr *iph, unsigned short new_mtu)
  {
--	return (port_t*)hdlc;
-+	return hdlc->dev_data;
- }
+-	int i;
++	int i, j, k;
+ 	unsigned short old_mtu = ntohs(iph->tot_len);
+ 	struct rtable *rth;
+ 	u32  skeys[2] = { iph->saddr, 0, };
+ 	u32  daddr = iph->daddr;
+ 	u8   tos = iph->tos & IPTOS_RT_MASK;
+ 	unsigned short est_mtu = 0;
++	u8 toskeys[2] = { tos, tos | RTO_ONLINK };
++	int  ikeys[2] = { iif, 0 };
  
+ 	if (ipv4_config.no_pmtu_disc)
+ 		return 0;
  
-@@ -245,7 +245,7 @@
- 	}
++	for (k = 0; k < (iif ? 2 : 1); k++)
++	for (j = 0; j < 2; j++)
+ 	for (i = 0; i < 2; i++) {
+-		unsigned hash = rt_hash_code(daddr, skeys[i], tos);
++		unsigned hash = rt_hash_code(daddr, skeys[i] ^ (ikeys[k] << 5),
++					     toskeys[j]);
  
- 	hdlc_set_carrier(!(sca_in(get_msci(port) + ST3, card) & ST3_DCD),
--			 &port->hdlc);
-+			 port->hdlc);
- }
+ 		rcu_read_lock();
+ 		for (rth = rt_hash_table[hash].chain; rth;
+@@ -1261,7 +1271,8 @@
+ 			    rth->fl.fl4_src == skeys[i] &&
+ 			    rth->rt_dst  == daddr &&
+ 			    rth->rt_src  == iph->saddr &&
+-			    rth->fl.fl4_tos == tos &&
++			    rth->fl.fl4_tos == toskeys[j] &&
++			    rth->fl.oif == ikeys[k] &&
+ 			    rth->fl.iif == 0 &&
+ 			    !(dst_metric_locked(&rth->u.dst, RTAX_MTU))) {
+ 				unsigned short mtu = new_mtu;
+@@ -2213,8 +2224,9 @@
+ {
+ 	unsigned hash;
+ 	struct rtable *rth;
++	u8 tos = flp->fl4_tos & (IPTOS_RT_MASK | RTO_ONLINK);
  
+-	hash = rt_hash_code(flp->fl4_dst, flp->fl4_src ^ (flp->oif << 5), flp->fl4_tos);
++	hash = rt_hash_code(flp->fl4_dst, flp->fl4_src ^ (flp->oif << 5), tos);
  
-@@ -262,13 +262,13 @@
- 	sca_out(stat & (ST1_UDRN | ST1_CDCD), msci + ST1, card);
- 
- 	if (stat & ST1_UDRN) {
--		port->hdlc.stats.tx_errors++; /* TX Underrun error detected */
--		port->hdlc.stats.tx_fifo_errors++;
-+		port->hdlc->stats.tx_errors++; /* TX Underrun error detected */
-+		port->hdlc->stats.tx_fifo_errors++;
- 	}
- 
- 	if (stat & ST1_CDCD)
- 		hdlc_set_carrier(!(sca_in(msci + ST3, card) & ST3_DCD),
--				 &port->hdlc);
-+				 port->hdlc);
- }
+ 	rcu_read_lock();
+ 	for (rth = rt_hash_table[hash].chain; rth; rth = rth->u.rt_next) {
+@@ -2226,8 +2238,7 @@
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+ 		    rth->fl.fl4_fwmark == flp->fl4_fwmark &&
  #endif
- 
-@@ -287,7 +287,7 @@
- 	len = readw(&desc->len);
- 	skb = dev_alloc_skb(len);
- 	if (!skb) {
--		port->hdlc.stats.rx_dropped++;
-+		port->hdlc->stats.rx_dropped++;
- 		return;
- 	}
- 
-@@ -316,12 +316,12 @@
- 	printk(KERN_DEBUG "%s RX(%i):", hdlc_to_name(&port->hdlc), skb->len);
- 	debug_frame(skb);
- #endif
--	port->hdlc.stats.rx_packets++;
--	port->hdlc.stats.rx_bytes += skb->len;
-+	port->hdlc->stats.rx_packets++;
-+	port->hdlc->stats.rx_bytes += skb->len;
- 	skb->mac.raw = skb->data;
--	skb->dev = hdlc_to_dev(&port->hdlc);
-+	skb->dev = hdlc_to_dev(port->hdlc);
- 	skb->dev->last_rx = jiffies;
--	skb->protocol = hdlc_type_trans(skb, hdlc_to_dev(&port->hdlc));
-+	skb->protocol = hdlc_type_trans(skb, hdlc_to_dev(port->hdlc));
- 	netif_rx(skb);
- }
- 
-@@ -333,7 +333,7 @@
- 	u16 dmac = get_dmac_rx(port);
- 	card_t *card = port_to_card(port);
- 	u8 stat = sca_in(DSR_RX(phy_node(port)), card); /* read DMA Status */
--	struct net_device_stats *stats = &port->hdlc.stats;
-+	struct net_device_stats *stats = &port->hdlc->stats;
- 
- 	/* Reset DSR status bits */
- 	sca_out((stat & (DSR_EOT | DSR_EOM | DSR_BOF | DSR_COF)) | DSR_DWE,
-@@ -401,13 +401,13 @@
- 			break;	/* Transmitter is/will_be sending this frame */
- 
- 		desc = desc_address(port, port->txlast, 1);
--		port->hdlc.stats.tx_packets++;
--		port->hdlc.stats.tx_bytes += readw(&desc->len);
-+		port->hdlc->stats.tx_packets++;
-+		port->hdlc->stats.tx_bytes += readw(&desc->len);
- 		writeb(0, &desc->stat);	/* Free descriptor */
- 		port->txlast = next_desc(port, port->txlast, 1);
- 	}
- 
--	netif_wake_queue(hdlc_to_dev(&port->hdlc));
-+	netif_wake_queue(hdlc_to_dev(port->hdlc));
- 	spin_unlock(&port->lock);
- }
- 
-@@ -790,7 +790,7 @@
- 
- 	desc = desc_address(port, port->txin + 1, 1);
- 	if (readb(&desc->stat)) /* allow 1 packet gap */
--		netif_stop_queue(hdlc_to_dev(&port->hdlc));
-+		netif_stop_queue(hdlc_to_dev(port->hdlc));
- 
- 	spin_unlock_irq(&port->lock);
- 
-diff -Nru a/drivers/net/wan/n2.c b/drivers/net/wan/n2.c
---- a/drivers/net/wan/n2.c	Wed Nov 26 12:28:38 2003
-+++ b/drivers/net/wan/n2.c	Wed Nov 26 12:28:38 2003
-@@ -92,11 +92,10 @@
- 
- 
- typedef struct port_s {
--	hdlc_device hdlc;	/* HDLC device struct - must be first */
-+	hdlc_device *hdlc;	/* HDLC device struct */
- 	struct card_s *card;
- 	spinlock_t lock;	/* TX lock */
- 	sync_serial_settings settings;
--	int valid;		/* port enabled */
- 	int rxpart;		/* partial frame received, next frame invalid*/
- 	unsigned short encoding;
- 	unsigned short parity;
-@@ -120,7 +119,7 @@
- 	u16 tx_ring_buffers;
- 	u8 irq;			/* IRQ (3-15) */
- 
--	port_t ports[2];
-+	port_t *ports[2];
- 	struct card_s *next_card;
- }card_t;
- 
-@@ -141,8 +140,7 @@
- #define phy_node(port)			((port)->phy_node)
- #define winsize(card)			(USE_WINDOWSIZE)
- #define winbase(card)      	     	((card)->winbase)
--#define get_port(card, port)		((card)->ports[port].valid ? \
--					 &(card)->ports[port] : NULL)
-+#define get_port(card, port)		((card)->ports[port])
- 
- 
- 
-@@ -311,9 +309,13 @@
- {
- 	int cnt;
- 
--	for (cnt = 0; cnt < 2; cnt++)
--		if (card->ports[cnt].card)
--			unregister_hdlc_device(&card->ports[cnt].hdlc);
-+	for (cnt = 0; cnt < 2; cnt++) {
-+		port_t *port = card->ports[cnt];
-+		if (port) {
-+			unregister_hdlc_device(port->hdlc);
-+			free_hdlc_device(port->hdlc);
-+		}
-+	}
- 
- 	if (card->irq)
- 		free_irq(card->irq, card);
-@@ -434,14 +436,25 @@
- 
- 	sca_init(card, 0);
- 	for (cnt = 0; cnt < 2; cnt++) {
--		port_t *port = &card->ports[cnt];
--		struct net_device *dev = hdlc_to_dev(&port->hdlc);
-+		hdlc_device *hdlc;
-+		port_t *port;
-+		struct net_device *dev;
-+		int err;
- 
- 		if ((cnt == 0 && !valid0) || (cnt == 1 && !valid1))
- 			continue;
- 
-+		hdlc = alloc_hdlc_device(sizeof(*port));
-+		if (!hdlc) {
-+			printk(KERN_WARNING "n2: unable to allocate hdlc device\n");
-+			n2_destroy_card(card);
-+			return -ENOMEM;
-+		}
-+
-+		dev = hdlc_to_dev(hdlc);
-+		port = hdlc->dev_data;
-+		port->hdlc = hdlc;
- 		port->phy_node = cnt;
--		port->valid = 1;
- 
- 		if ((cnt == 1) && valid0)
- 			port->log_node = 1;
-@@ -455,21 +468,23 @@
- 		dev->do_ioctl = n2_ioctl;
- 		dev->open = n2_open;
- 		dev->stop = n2_close;
--		port->hdlc.attach = sca_attach;
--		port->hdlc.xmit = sca_xmit;
-+		hdlc->attach = sca_attach;
-+		hdlc->xmit = sca_xmit;
- 		port->settings.clock_type = CLOCK_EXT;
- 
--		if (register_hdlc_device(&port->hdlc)) {
-+		err = register_hdlc_device(hdlc);
-+		if (err) {
- 			printk(KERN_WARNING "n2: unable to register hdlc "
- 			       "device\n");
- 			n2_destroy_card(card);
--			return -ENOBUFS;
-+			return err;
- 		}
- 		port->card = card;
- 		sca_init_sync_port(port); /* Set up SCA memory */
-+		card->ports[i] = port;
- 
- 		printk(KERN_INFO "%s: RISCom/N2 node %d\n",
--		       hdlc_to_name(&port->hdlc), port->phy_node);
-+		       hdlc_to_name(hdlc), port->phy_node);
- 	}
- 
- 	*new_card = card;
+-		    !((rth->fl.fl4_tos ^ flp->fl4_tos) &
+-			    (IPTOS_RT_MASK | RTO_ONLINK))) {
++		    rth->fl.fl4_tos == tos) {
+ 			rth->u.dst.lastuse = jiffies;
+ 			dst_hold(&rth->u.dst);
+ 			rth->u.dst.__use++;
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
