@@ -1,31 +1,64 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6_V6ONLY Support, v2 (is Re: [PATCH] IPv6: Allow
- Both IPv6 and IPv4 Sockets on the Same Port)
-Date: Wed, 23 Oct 2002 19:01:31 +0900 (JST)
+From: Roy Sigurd Karlsbakk <roy@karlsbakk.net>
+Subject: tuning linux for high network performance?
+Date: Wed, 23 Oct 2002 12:18:18 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021023.190131.67057125.yoshfuji@linux-ipv6.org>
-References: <20021023.162439.114324450.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0210231031540.26788-100000@netcore.fi>
+Message-ID: <200210231218.18733.roy@karlsbakk.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: Kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi
-In-Reply-To: <Pine.LNX.4.44.0210231031540.26788-100000@netcore.fi>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0210231031540.26788-100000@netcore.fi> (at Wed, 23 Oct 2002 10:36:19 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+hi
 
-> Does Bind 9.2.1 work this so that it can receive packets, when IPv6 is
-> also enabled, from IPv4 addresses using TCP without
-> 'match-mapped-addresses yes', or is that a separate problem?
+I've got this video server serving video for VoD. problem is the P4 1.8 seems 
+to be maxed out by a few system calls. The below output is for ~50 clients 
+streaming at ~4.5Mbps. if trying to increase this to ~70, the CPU maxes out.
 
-Bind9 trys to bind :: and all ipv4 addresses on the node.
+Does anyone have an idea?
 
+bash-2.05# readprofile | sort -rn +2 | head -30
+154203 default_idle                             2409.4219
+212723 csum_partial_copy_generic                916.9095
+100164 handle_IRQ_event                         695.5833
+ 24979 system_call                              390.2969
+ 37300 e1000_intr                               388.5417
+119699 ide_intr                                 340.0540
+ 30598 skb_release_data                         273.1964
+ 40740 do_softirq                               195.8654
+131818 do_wp_page                               164.7725
+  9935 fget                                     155.2344
+ 24747 kfree                                    154.6687
+ 10911 del_timer                                113.6562
+ 11683 ip_conntrack_find_get                     91.2734
+  4120 sock_poll                                 85.8333
+  9357 ip_ct_find_proto                          83.5446
+  5194 sock_wfree                                81.1562
+  4929 add_wait_queue                            77.0156
+  8361 flush_tlb_page                            74.6518
+  4571 remove_wait_queue                         71.4219
+  2191 __brelse                                  68.4688
+ 29477 skb_clone                                 68.2338
+  8562 do_gettimeofday                           59.4583
+  5673 process_timeout                           59.0938
+ 11097 tcp_v4_send_check                         57.7969
+  6124 kfree_skbmem                              54.6786
+ 17115 tcp_poll                                  53.4844
+ 21130 nf_hook_slow                              52.8250
+  8299 ip_ct_refresh                             51.8687
+ 15429 __kfree_skb                               50.7533
+  1059 lru_cache_del                             46.0435
+
+
+roy
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Roy Sigurd Karlsbakk, Datavaktmester
+ProntoTV AS - http://www.pronto.tv/
+Tel: +47 9801 3356
+
+Computers are like air conditioners.
+They stop working when you open Windows.
