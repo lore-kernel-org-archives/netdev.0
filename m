@@ -1,24 +1,169 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: Re: asymmetry with MSG_DONTWAIT in sendmsg() and recvmsg()
-Date: Thu, 08 Jul 2004 12:21:35 -0400
+From: Zachariah Vera <ctnzehygbdkqg@ciaoweb.it>
+Subject: aliphatic,JVGI - Huge news and st0ck will explode on Thursday
+Date: Thu, 08 Jul 2004 13:47:40 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40ED748F.8000700@nortelnetworks.com>
-References: <1525.1089275651@www62.gmx.net>
+Message-ID: <TUF687JT3-1727288-23237182603952996950795@whistleable8>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="--04520899911632714404"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael T Kerrisk <mtk-lists@gmx.net>
-In-Reply-To: <1525.1089275651@www62.gmx.net>
+To: ltp@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael T Kerrisk wrote:
+----04520899911632714404
+Content-Type: text/plain;
+Content-Transfer-Encoding: quoted-printable
+X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i68GTugi002105
 
-> MSG_DONTWAIT should also work with recvmsg().
+=20
+Nora Fernandez,{
 
-Hmm...  Just tried it with a DGRAM socket, and it seems to work.  Any ideas why 
-its not in the man pages?
 
-Chris
+ Breaking News for JVGI:  Acquires Stake in World Boxing League
+
+Thats just PHENOMENAL NEWS - We belive JVGI will just explode on Thursday
+
+                      MUST READ - URGENT STOCK ALERT
+Symbol: JVGI
+Current Price: $0.085
+Rating: Undervalued
+
+Recommendation: STRONG BUY
+
+SPECULATIVE NEAR TERM TARGET PRICE - $0.45
+SPECULATIVE LONG TERM TARGET PRICE - $0.57
+
+
+*************************************************************************
+BEFORE WE CONTINUE - VERY IMPORTANT - it is Expected that JVGI will have
+VERY large PR campaign in the next 10 days and some very positive news ar=
+e
+expected - starting with Acquisition of Stake in World Boxing League
+
+*************************************************************************
+
+
+    STRONG BUY! =93JVGI=94 currently trading at $0.085 is headed to $0.45
+       =20
+
+                    JVGI***JVGI***JVGI
+
+        ---------->NEWS ABOVE IS JUST EXPLODING<------------------
+
+++ Trading Alert ++
+
+Company Profile:
+
+Java Group Inc
+
+Symbol: JVGI
+Current Price: $0.085
+Rating: Undervalued
+
+Recommendation: STRONG BUY
+
+SPECULATIVE NEAR TERM TARGET PRICE - $0.45
+SPECULATIVE LONG TERM TARGET PRICE - $0.57
+
+We Believe this is our best stock pick since August 2003!!
+
+
+ --------->>> NEWS  <<<-------------------
+Java Group Acquires Stake in World Boxing League
+Java Group Acquires Stake in World Boxing League
+Java Group Acquires Stake in World Boxing League
+
+
+=20
+JAVA GROUP INC. (JVGI) acquires a stake in the World Boxing League which =
+is the preeminent professional team boxing sports league in the world. Th=
+e focus of the WBL will be highly competitive matches between boxers, cit=
+ies and countries, which will re-energize the sport.=20
+
+The WBL will launch with 10 teams in North America in its inaugural seaso=
+n, with 10 teams each in Europe, Asia and Africa to follow.=20
+
+The WBL will answer the following fundamental questions:=20
+
+1) Who is the best team in my country?=20
+
+2) Who is the best team in the world?=20
+
+3) Who are the best boxer and world champion in each of the six weight di=
+visions?=20
+
+Additionally, the company proudly announces today that Mr. Philip A. Pens=
+ton, III, the World Boxing League's founder and commissioner, joins JAVA =
+GROUP INC. as its new appointed President. Mr. Penston brings to Java a l=
+ong and fruitful experience in the sports world as well as in other venue=
+s. Under his leadership, Mr. Penston will guide JAVA GROUP INC. into the =
+exciting world of professional sports promotion and management.=20
+
+
+ =20
+---------------
+Disclaimer
+---------------
+Information within this email contains "forward looking statements" withi=
+n the meaning of Section 27A of the Securities Act of 1933 and Section 21=
+B of the Securities Exchange Act of 1934. Any statements that express or =
+involve discussions with respect to predictions, goals, expectations, bel=
+iefs, plans, projections, objectives, assumptions or future events or per=
+formance are not statements of historical fact and may be "forward lookin=
+g statements."
+=20
+Forward looking statements are based on expectations, estimates and proje=
+ctions at the time the statements are made that involve a number of risks=
+ and uncertainties which could cause actual results or events to differ m=
+aterially from those presently anticipated. Forward looking statements in=
+ this action may be identified through the use of words such as: "project=
+s", "foresee", "expects", "estimates," "believes," "understands" "will," =
+"part of: "anticipates," or that by statements indicating certain actions=
+ "may," "could," or "might" occur. All information provided within this e=
+mail pertaining to investing, stocks, securities must be understood as in=
+formation provided and not investment advice. we advise all readers and s=
+ubscribers to seek advice from a registered professional securities repre=
+sentative before deciding to trade in stocks featured within this email. =
+None of the material within this report shall be construed as any kind of=
+ investment advice. Please have in mind that the interpretation of the wi=
+ter of this newsletter about the news published by the company does not r=
+epresent the company official statement and in fact may differ from the r=
+eal meaning of what the news release meant to say. Please read the news r=
+elease by yourself and judge by yourself about the details in it.
+=20
+In compliance with Section 17(b), we disclose the holding of JVGI shares =
+prior to the publication of this report. Be aware of an inherent conflict=
+ of interest resulting from such holdings due to our intent to profit fro=
+m the liquidation of these shares. Shares may be sold at any time, even a=
+fter positive statements have been made regarding the above company. Sinc=
+e we own shares, there is an inherent conflict of interest in our stateme=
+nts and opinions. Readers of this publication are cautioned not to place =
+undue reliance on forward-looking statements, which are based on certain =
+assumptions and expectations involving various risks and uncertainties, t=
+hat could cause results to differ materially from those set forth in the =
+forward- looking statements.=20
+
+Please be advised that nothing within this email shall constitute a solic=
+itation or an offer to buy or sell any security mentioned herein. This ne=
+wsletter is neither a registered investment advisor nor affiliated with a=
+ny broker or dealer. All statements made are our express opinion only and=
+ should be treated as such. We may own, buy and sell any securities menti=
+oned at any time. This report includes forward-looking statements within =
+the meaning of The Private Securities Litigation Reform Act of 1995. Thes=
+e statements may include terms as "expect", "believe", "may", "will", "mo=
+ve","undervalued" and "intend" or similar terms. This newsletter was paid=
+ $16500 from third party to send this report. PLEASE DO YOUR OWN DUE DILI=
+GENCE BEFORE INVESTING IN ANY PROFILED COMPANY. You may lose money from i=
+nvesting in Penny Stocks.=20
+
+---------------------
+
+---------------------
+boxwood ,platte=20
+,arpa ,vertebra .
+
+anarchy ,acropolis=20
+,wrought ,lantern .
+
+----04520899911632714404--
