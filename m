@@ -1,42 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [bonding] Add basic support for dynamic configuration of bond
- interfaces
-Date: Sun, 11 Jan 2004 16:59:10 -0500
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
+Subject: Re: forcedeth 0.20 eth0: received interrupt report
+Date: Mon, 12 Jan 2004 00:04:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4001C72E.8030108@pobox.com>
-References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com> <200401111628.07930.amir.noam@intel.com> <4001A667.2020904@pobox.com> <4001C158.6040103@candelatech.com>
+Message-ID: <4001D671.6030008@gmx.net>
+References: <200401112134.05375.berk@upnet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Amir Noam <amir.noam@intel.com>, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com, hadi@cyberus.ca
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4001C158.6040103@candelatech.com>
+To: Stanislav Karchebny <berk@upnet.ru>
+In-Reply-To: <200401112134.05375.berk@upnet.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> I would also be open to moving the VLAN ioctls over into the
-> ethtool ioctl space, but that just exchanges one magic ioctl for
-> another...
+Stanislav Karchebny wrote:
+> "eth0: received irq with unknown events 0x21. Please report"
+> 
+> This happens when i enable software CPU cooling on nForce2 chipset using 
+> FVcool - this causes all nforce-net connections to fail miserably and these 
+> events are generated in dmesg log.
+> 
+> The very moment i disable softcooling using fvcool -d the network resumes 
+> normal operations.
+> 
+> Linux Kernel 2.6.0 final
+> forcedeth 0.20
+> ASUS A7N8X Deluxe mobo
+
+Great! You're the first one finding out why this unknown event 0x01
+happens. (0x20 is timer event)
+
+Since another user saw the same message but wasn't able to get the network
+running at all, I was stuck. Enabling normal receive doesn't help to get
+rid of the error.
+
+I know that nvnet is proprietary software and also not that stable
+according to user reports, but could you perhaps try nvnet instead of
+forcedeth?
+If nvnet still works when you enable softcooling, I can try to add a
+workaround to forcedeth so that it works, too.
+If nvnet fails, I still can try a few tricks but I'd have to know more
+than the nvnet driver writers about the nforce chipset and they are inside
+nvidia and I don't even have any docs.
 
 
-The key question is what is the best interface for userland to configure 
-in-kernel information -that is unrelated to a specific interface-. 
-ethtool ioctl space doesn't apply, because that's a per-interface API.
-
-Opening a socket and just ioctl'ing away isn't terribly scalable in the 
-long run, either.  Consider all the applications that could legitimately 
-claim they need a SIOCxxx ioctl assignment, just for their little slice 
-of the networking world.  Further, consider that all an ioctl is is a 
-message sent to the kernel driver, perhaps sending and/or receiving some 
-data.  :)
-
-ioctls are a pain for 32/64-bit emulation layers too.  It seems much 
-easier to define a netlink protocol family of some sort and communicate 
-that way.
-
-I'll poke around and see what I can come up with.
-
-	Jeff
+Thanks for your coperation,
+Carl-Daniel
