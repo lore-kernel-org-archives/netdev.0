@@ -1,89 +1,114 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
-Date: Fri, 31 Dec 2004 12:08:36 +0100
-Message-ID: <20041231110836.GD32419@postel.suug.ch>
-References: <20041228231916.GG32419@postel.suug.ch> <1104277165.1100.291.camel@jzny.localdomain> <20041229000928.GH32419@postel.suug.ch> <1104282811.1090.314.camel@jzny.localdomain> <20041229124842.GI32419@postel.suug.ch> <1104330054.1089.329.camel@jzny.localdomain> <20041229150140.GJ32419@postel.suug.ch> <1104335620.1025.22.camel@jzny.localdomain> <20041230174313.GB32419@postel.suug.ch> <1104469111.1049.219.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: ing_filter debug messages
+Date: 31 Dec 2004 06:11:51 -0500
+Message-ID: <1104491510.1047.234.camel@jzny.localdomain>
+References: <20041230160643.GD24603@wiggy.net>
+	 <1104469666.1049.231.camel@jzny.localdomain>
+	 <20041231093827.GG24603@wiggy.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-x0GzCbij3ytyMxBNNDtZ"
+Cc: netdev@oss.sgi.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1104469111.1049.219.camel@jzny.localdomain>
+To: Wichert Akkerman <wichert@wiggy.net>
+In-Reply-To: <20041231093827.GG24603@wiggy.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1104469111.1049.219.camel@jzny.localdomain> 2004-12-30 23:58
-> On Thu, 2004-12-30 at 12:43, Thomas Graf wrote:
-> > * jamal <1104335620.1025.22.camel@jzny.localdomain> 2004-12-29 10:53
+
+--=-x0GzCbij3ytyMxBNNDtZ
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+The sit tunnel is on top of eth1?
+Does attached patch fix it?
+
+cheers,
+jamal
+
+On Fri, 2004-12-31 at 04:38, Wichert Akkerman wrote:
+> Previously jamal wrote:
+> > The emssage is useful but debug (mostly). 
+> > Whats your ifconfig look like? Have some tunnels in there maybe?
 > 
-> > > If i store some ID that would tell me "IP" when i dump then i can pretty
-> > > print it in english in user space using ip_print().
-> > 
-> > Understood, we could store a map in userspace mapping those IDs to
-> > pretty english match descriptions. I think avoiding to hardcode those
-> > ids but rather just hold it for userspace is the best thing. 
+> three ethernet interfaces and a ipv6/ip tunnel. Here is the ifconfig
+> output:
 > 
-> We may be in sync:
-> I was thinking of just teaching tc to stash something there that it
-> understands on how to translate. Thinking about it now, this may not
-> be sufficient: perhaps we need a few bits in the selector to identify
-> the owner who installed the rule to begin with. Then it would be safe to
-> interpret the meaning of the ID (by the same app). Did you say there
-> were some unused bits in the selector?
+> eth0      Link encap:Ethernet  HWaddr 00:50:04:0B:DD:79
+>           inet addr:192.168.10.1  Bcast:192.168.10.255  Mask:255.255.255.0
+>           inet6 addr: fe80::250:4ff:fe0b:dd79/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:673540 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:668357 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:229549898 (218.9 MiB)  TX bytes:465650601 (444.0 MiB)
+>           Interrupt:11 Base address:0xec00
+> 
+> eth1      Link encap:Ethernet  HWaddr 00:90:27:BE:60:55
+>           inet addr:194.109.254.66  Bcast:255.255.255.255  Mask:255.255.255.0
+>           inet6 addr: fe80::290:27ff:febe:6055/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:1276385 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:1172898 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:1128 txqueuelen:1000
+>           RX bytes:1332651102 (1.2 GiB)  TX bytes:293617934 (280.0 MiB)
+> 
+> eth2      Link encap:Ethernet  HWaddr 00:90:27:BE:4B:EC
+>           inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+>           inet6 addr: 2001:888:101d::1/64 Scope:Global
+>           inet6 addr: fe80::290:27ff:febe:4bec/64 Scope:Link
+>           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+>           RX packets:713928 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:752929 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:1000
+>           RX bytes:111560554 (106.3 MiB)  TX bytes:860040830 (820.1 MiB)
+> 
+> lo        Link encap:Local Loopback
+>           inet addr:127.0.0.1  Mask:255.0.0.0
+>           inet6 addr: ::1/128 Scope:Host
+>           UP LOOPBACK RUNNING  MTU:16436  Metric:1
+>           RX packets:33261 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:33261 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:0
+>           RX bytes:3401641 (3.2 MiB)  TX bytes:3401641 (3.2 MiB)
+> 
+> xs4all    Link encap:IPv6-in-IPv4
+>           inet6 addr: 2001:888:10:1d::2/64 Scope:Global
+>           inet6 addr: fe80::c26d:fe42/64 Scope:Link
+>           inet6 addr: fe80::c0a8:a01/64 Scope:Link
+>           inet6 addr: fe80::c0a8:102/64 Scope:Link
+>           inet6 addr: fe80::c0a8:101/64 Scope:Link
+>           UP POINTOPOINT RUNNING NOARP  MTU:1480  Metric:1
+>           RX packets:128 errors:0 dropped:0 overruns:0 frame:0
+>           TX packets:116 errors:0 dropped:0 overruns:0 carrier:0
+>           collisions:0 txqueuelen:0
+>           RX bytes:95545 (93.3 KiB)  TX bytes:19613 (19.1 KiB)
+> 
+> there is also a secondary address on eth2 which ifconfig does not show.
+> 
+> > Whats your netfilter setup? 
+> 
+> One chain attached to the FORWARD chain and two to the OUTPUT chain,
+> all pretty simple.
+> 
+> Wichert.
 
-Right, but why not do this in userspace by having a global map
-somewhere in a file? A u32 config could have been modified by
-multiple pids and it would get really messy to store a pid for
-every possible changeable item.
+--=-x0GzCbij3ytyMxBNNDtZ
+Content-Disposition: attachment; filename=sit-p
+Content-Type: text/plain; name=sit-p; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-> I think all you need really is to say "this match starts at IP" i.e such
-> a definition is global.
-> handles per rule already exist - and you can actually specify them when
-> installing a rule. Are those insufficient?
+--- a/net/ipv6/sit.c	2004/12/31 11:03:32	1.1
++++ b/net/ipv6/sit.c	2004/12/31 11:06:50
+@@ -385,7 +385,7 @@
+ 		skb->pkt_type = PACKET_HOST;
+ 		tunnel->stat.rx_packets++;
+ 		tunnel->stat.rx_bytes += skb->len;
+-		skb->dev = tunnel->dev;
++		skb->input_dev = skb->dev = tunnel->dev;
+ 		dst_release(skb->dst);
+ 		skb->dst = NULL;
+ 		nf_reset(skb);
 
-Those are absolutely sufficient. I was thinking of giving a match a
-16bit ID which can be used for both, identifying and mapping, i.e:
-
-__u8 kind; /* match type, for lookup in matchers table */
-__u8 flags; /* Invert Flag + Relations */
-__u16 handle; /* must be unique per selector, may be autogenerated */
-
-I want to have those matches be as small as possible, so no nested
-TLVs but rather this u32 + matcher specific data form a TLV together.
-
-A selector consists of a TLV array of such matches. The first TLV,
-type=1 becomes a header with the possibility to transfer classifier
-specific options (such as hash table configuration for u32).
-
-> Why not make the always-true to be an extended match? actually a u32
-> match of 0 0 is always true. Those hashes are quiet tricky/flexible;
-> i would rather we clone u32 and call it something else then speacilize
-> it.
-
-Agreed, I don't want to change u32 but I want to introduce ematches
-in u32 as well so we can benefit from the hashing but for those who
-don't need hashing u32 is already bloat so we can do a simple
-always-true classifier which does nothing more than evaluating the
-ematches. I want to have the u32 match be a ematch as well so the
-always-true classifier would become a u32 alternative but without
-the hashing overhead.
-
-> Both sound very appealing. You plan to do them as extended matches,
-> correct?
-
-Excatly.
-
-> KMP can be used for something like virus scanning? does it
-> maintain state?
-
-It requires the following parameters:
- - start offset
- - end offset
- - pattern
- - prefix table
-
-and then will simply start at `start` and scans until `end` looking
-for pattern with the help of the prefix table. Again, I'm not sure what
-you mean by state ;->
+--=-x0GzCbij3ytyMxBNNDtZ--
