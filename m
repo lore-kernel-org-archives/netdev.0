@@ -1,47 +1,65 @@
-From: Harsh <hanemade@gmail.com>
-Subject: Re: loopback packet processing.
-Date: Wed, 15 Dec 2004 14:38:54 +0530
-Message-ID: <cfc95936041215010821f2c22a@mail.gmail.com>
-References: <cfc9593604121402424f2a9ba5@mail.gmail.com>
-	 <Pine.BSF.4.58.0412141649050.71544@ece.iisc.ernet.in>
-Reply-To: Harsh <hanemade@gmail.com>
+From: jchapman@katalix.com
+Subject: Re: Re: [PATCH] e1000 poll behavior
+Date: Wed, 15 Dec 2004 04:01:57 -0600
+Message-ID: <1103104917.41c00b9533464@www.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: MANJUNATH <manjunath@ece.iisc.ernet.in>
-In-Reply-To: <Pine.BSF.4.58.0412141649050.71544@ece.iisc.ernet.in>
+To: gandalf@wlug.westbo.se, robert.olsson@data.slu.se
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi MANJUNATH,
-         I actually did a lot work on kernel packet processing and 
-found that ping packet creation enters in ethernet.c.
-           Also can you tell me what happens in ip_finish_output2 when
-ping ICMP packet is created by kernel? what header is added there.
-            Also in receving end control enters in ethernet.c to check
-eth->h_proto field which is ETH_P_IP. How & where it is added by
-kernel in case of PING packet?
+Is there any advantage in exiting NAPI polled state as soon as
+possible with the work_done < work_to_do test? Why not stay in
+polled mode until no rx or tx work is done, i.e. only exit polled
+state if work_done is zero? When the system is congested, it is common
+for work_done < work_to_do to be true, which keeps interrupts enabled
+and just makes the situation worse.
 
-regards,
-Harsh.
+When working on e100 a while ago, I found better and more consistent
+pps numbers by staying in polled mode until the interface went idle.
+See current e100 code. Unfortunately I don't have e1000 hardware to
+test if the same is true for e1000.
 
-On Tue, 14 Dec 2004 16:53:33 +0530 (IST), MANJUNATH
-<manjunath@ece.iisc.ernet.in> wrote:
-> 
-> 
-> Hi,
-> 
->   When u send data to the loopback address, control never
->   Enters "ethernet" modules.(Data link layer)
-> 
->   Since ping inturn uses program interface to ICMP which is a part
->   of IPV4 s/w, for loopback ping IP modules themselves replies. Ethernet
->   does not come into picture.
-> 
-> cheers,
-> Manjunath
-> 
+/james
+
+Robert Olsson writes:
+
+> Martin Josefsson writes:
 >
+>  > What about the case where tx_cleaned is true but (work_done < >
+>  > work_to_do) is true. Then the statement is false and we continue,
+>  > later we return (work_done >= work_to_do) which equals 0 (not
+>  > seen in patch).  We are not allowed to return 0 when still on
+>  > poll_list. That will sort of continue polling in a degraded way
+>  > (no increase in quota) but will screw up device refcounting
+>  > badly.
+>  >
+>  > That final return must be changed into "return 1;"
+>
+>  Ohoh thanks yes...
+>
+> --- drivers/net/e1000/e1000_main.c.orig	2004-12-09 17:49:56.000000000 +0100
+> +++ drivers/net/e1000/e1000_main.c	2004-12-10 20:13:57.000000000 +0100
+> @@ -2179,15 +2179,15 @@
+>  	*budget -= work_done;
+>  	netdev->quota -= work_done;
+>
+> -	/* if no Rx and Tx cleanup work was done, exit the polling mode */
+> -	if(!tx_cleaned || (work_done < work_to_do) ||
+> +	/* if no Tx and not enough Rx work done, exit the polling mode */
+> +	if((!tx_cleaned && (work_done < work_to_do)) ||
+>  				!netif_running(netdev)) {
+>  		netif_rx_complete(netdev);
+>  		e1000_irq_enable(adapter);
+>  		return 0;
+>  	}
+>
+> -	return (work_done >= work_to_do);
+> +	return 1;
+>  }
+>
+>  #endif
