@@ -1,41 +1,32 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPV4] Make loopback idev stick around
-Date: Sat, 5 Feb 2005 16:30:30 +1100
-Message-ID: <20050205053030.GA17412@gondor.apana.org.au>
+Subject: Re: [IPV4] Make loopback idev stick around
+Date: Sat, 5 Feb 2005 16:35:32 +1100
+Message-ID: <20050205053532.GA17474@gondor.apana.org.au>
+References: <20050205053030.GA17412@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="AhhlLboLdkugWU4S"
+Content-Type: multipart/mixed; boundary="wRRV7LY7NUeQGEoC"
 To: "David S. Miller" <davem@davemloft.net>,
         YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <20050205053030.GA17412@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---AhhlLboLdkugWU4S
+--wRRV7LY7NUeQGEoC
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi:
+On Sat, Feb 05, 2005 at 04:30:30PM +1100, herbert wrote:
+> 
+> As it is when loopback_dev loses all of its IPv4 addresses its
+> corresponding idev will be destroyed.  Unfortunately as of last
+> August route.c relies on the loopback idev to kill references
+> to other idev objects.
 
-As it is when loopback_dev loses all of its IPv4 addresses its
-corresponding idev will be destroyed.  Unfortunately as of last
-August route.c relies on the loopback idev to kill references
-to other idev objects.
-
-The end result is that when you do ip a f dev lo, unregistering
-other devices will hang until those dst objects referring to
-their idev objects die of natural causes.  Of course this may
-never happen if the processes holding those references get
-dead-locked by invoking an operation that takes the RTNL.
-
-A simple solution is to make sure that loopback's idev sticks
-around all the time.
-
-Incidentally this also fixes the setting of some flags on the
-loopback idev object as currently the code that does it won't
-be called if you add the addresses to lo after bring it up.
-
+The same problem exists for IPv6.
+ 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Cheers,
@@ -45,58 +36,43 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---AhhlLboLdkugWU4S
+--wRRV7LY7NUeQGEoC
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=idev-1
+Content-Disposition: attachment; filename=idev-2
 
-===== net/ipv4/devinet.c 1.42 vs edited =====
---- 1.42/net/ipv4/devinet.c	2005-01-11 08:43:25 +11:00
-+++ edited/net/ipv4/devinet.c	2005-02-05 14:25:56 +11:00
-@@ -187,6 +187,10 @@
+===== net/ipv6/addrconf.c 1.129 vs edited =====
+--- 1.129/net/ipv6/addrconf.c	2005-01-18 08:13:31 +11:00
++++ edited/net/ipv6/addrconf.c	2005-02-05 16:32:34 +11:00
+@@ -1914,6 +1914,11 @@
+ 	struct inet6_dev *idev = __in6_dev_get(dev);
  
- 	ASSERT_RTNL();
- 
-+	dev = in_dev->dev;
-+	if (dev == &loopback_dev)
-+		return;
+ 	switch(event) {
++	case NETDEV_REGISTER:
++		if (dev == &loopback_dev && !ipv6_find_idev(dev))
++			panic("addrconf: Failed to create loopback\n");
++		break;
 +
- 	in_dev->dead = 1;
- 
- 	ip_mc_destroy_dev(in_dev);
-@@ -200,7 +204,6 @@
- 	devinet_sysctl_unregister(&in_dev->cnf);
- #endif
- 
--	dev = in_dev->dev;
- 	dev->ip_ptr = NULL;
- 
- #ifdef CONFIG_SYSCTL
-@@ -943,8 +946,16 @@
+ 	case NETDEV_UP:
+ 		switch(dev->type) {
+ 		case ARPHRD_SIT:
+@@ -1998,6 +2003,9 @@
  
  	ASSERT_RTNL();
  
--	if (!in_dev)
-+	if (!in_dev) {
-+		if (event == NETDEV_REGISTER && dev == &loopback_dev) {
-+			in_dev = inetdev_init(dev);
-+			if (!in_dev)
-+				panic("devinet: Failed to create loopback\n");
-+			in_dev->cnf.no_xfrm = 1;
-+			in_dev->cnf.no_policy = 1;
-+		}
- 		goto out;
-+	}
++	if (dev == &loopback_dev)
++		how = 0;
++
+ 	rt6_ifdown(dev);
+ 	neigh_ifdown(&nd_tbl, dev);
  
- 	switch (event) {
- 	case NETDEV_REGISTER:
-@@ -967,8 +978,6 @@
- 				memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
- 				inet_insert_ifa(ifa);
- 			}
--			in_dev->cnf.no_xfrm = 1;
--			in_dev->cnf.no_policy = 1;
- 		}
- 		ip_mc_up(in_dev);
- 		break;
+@@ -3445,8 +3453,6 @@
+ 	 */
+ 	rtnl_lock();
+ 	addrconf_notify(&ipv6_dev_notf, NETDEV_REGISTER, &loopback_dev);
+-	if (loopback_dev.flags & IFF_UP)
+-		addrconf_notify(&ipv6_dev_notf, NETDEV_UP, &loopback_dev);
+ 	rtnl_unlock();
+ 
+ 	register_netdevice_notifier(&ipv6_dev_notf);
 
---AhhlLboLdkugWU4S--
+--wRRV7LY7NUeQGEoC--
