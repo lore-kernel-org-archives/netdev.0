@@ -1,32 +1,111 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
- Topics
-Date: Tue, 29 Mar 2005 16:30:52 -0800
-Message-ID: <4249F33C.5030407@zytor.com>
-References: <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave> <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie> <1112130512.1077.107.camel@jzny.localdomain> <Pine.LNX.4.61.0503291659290.15625@chimarrao.boston.redhat.com> <1112137210.1088.17.camel@jzny.localdomain> <20050329232545.GL15453@waste.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: RFC: IPSEC patch 0 for netlink events
+Date: Wed, 30 Mar 2005 10:49:03 +1000
+Message-ID: <20050330004903.GA3399@gondor.apana.org.au>
+References: <1111864971.1092.904.camel@jzny.localdomain> <20050326194707.GA9872@gondor.apana.org.au> <1111867875.1089.915.camel@jzny.localdomain> <20050327081848.GA13428@gondor.apana.org.au> <1111950449.1089.938.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Rik van Riel <riel@redhat.com>,
-        Dmitry Yusupov <dmitry_yus@yahoo.com>, Andi Kleen <ak@muc.de>,
-        James Bottomley <James.Bottomley@HansenPartnership.com>,
-        andrea@suse.de, michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
-        ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20050329232545.GL15453@waste.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1111950449.1089.938.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matt Mackall wrote:
-> 
-> I think we first need a software solution that makes no special
-> assumptions about hardware capabilities.
+Hi Jamal:
+
+On Sun, Mar 27, 2005 at 02:07:29PM -0500, jamal wrote:
+>
+> to user space). Sample patch, still under construction, attached.
+> pfkey already does adverts on its own after a response from the generic
+> code. 
+
+This looks good over all.  Just a few minor things.
+
+> --- 26115/include/net/xfrm.h	2005-03-19 01:35:02.000000000 -0500
+> +++ 26115-mod/include/net/xfrm.h	2005-03-27 09:00:03.000000000 -0500
+> @@ -157,6 +157,36 @@
+>  	XFRM_STATE_DEAD
+>  };
 >  
+> +/* events that could be sent by kernel */
+> +enum {
+> +	XFRM_SA_INVALID,
+> +	XFRM_SA_EXPIRED,
+> +	XFRM_SA_ADDED,
+> +	XFRM_SA_UPDATED,
+> +	XFRM_SA_DELETED,
+> +	XFRM_SA_FLUSHED,
 
-Absolutely; having hardware assist will typically reduce, not increase, 
-the memory requirements, so the "dumb hardware" solution is likely to be 
-the most generic.
+What's the difference between DELETED and FLUSHED and why do we
+need that distinction?
 
-	-hpa
+> +/* callback structure passed from either netlink or pfkey */
+> +struct xfrm_sa_cb
+> +{
+> +	u32	type; /* the type of caller netlink/pfkey/other */
+> +	u32	data; /* callee to caller */
+> +	void *hdr;
+> +	struct sk_buff *skb;
+
+I don't think we need to carry the original hdr and skb around.
+I see below that you're using it to fill in the pid/seq when
+sending netlink messages.  Since these are multicast messages
+resent by the kernel they should not inherit those values from
+the original skb.
+
+> +/* the types used in sa_cb */
+> +enum {
+> +	KM_SA_INVALID,
+> +	KM_SA_NETLINK,
+> +	KM_SA_PFKEY,
+> +	__KM_SA_MAX
+> +};
+> +#define KM_SA_MAX (__KM_SA_MAX - 1)
+
+If we got rid if hdr/skb above then we don't need this either.
+
+This would reduce xfrm_sa_cb to just one u32.
+
+> --- 26115/net/xfrm/xfrm_state.c	2005-03-19 01:35:00.000000000 -0500
+> +++ 26115-mod/net/xfrm/xfrm_state.c	2005-03-27 09:14:09.000000000 -0500
+> @@ -402,7 +402,19 @@
+>  
+>  static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
+>  
+> -int xfrm_state_add(struct xfrm_state *x)
+> +static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
+> +static DEFINE_RWLOCK(xfrm_km_lock);
+> +
+> +void xfrm_sa_notify(struct xfrm_state *x, struct xfrm_sa_cb *c, int event)
+> +{
+> +	struct xfrm_mgr *km;
+> +	read_lock(&xfrm_km_lock);
+> +	list_for_each_entry(km, &xfrm_km_list, list)
+> +		km->notify(x, event, c);
+> +	read_unlock(&xfrm_km_lock);
+> +}
+
+It would be more consistent to call this km_state_notify and put it
+next to the other km functions below.
+
+> +int xfrm_state_add(struct xfrm_state *x, struct xfrm_sa_cb *c)
+
+We wouldn't need the cb argument here once you get rid of
+everything there apart from data.
+  
+> -int xfrm_state_update(struct xfrm_state *x)
+> +int xfrm_state_update(struct xfrm_state *x, struct xfrm_sa_cb *c)
+
+Ditto.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
