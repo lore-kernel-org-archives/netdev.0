@@ -1,47 +1,45 @@
-From: Andi Kleen <ak@suse.de>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [RFC] Extend netlink error codes
-Date: Sat, 11 Sep 2004 18:50:56 +0200
+Date: Sat, 11 Sep 2004 19:57:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040911165056.GQ4431@wotan.suse.de>
-References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de> <20040911162433.GC21181@postel.suug.ch>
+Message-ID: <20040911175752.GE21181@postel.suug.ch>
+References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de> <20040911162433.GC21181@postel.suug.ch> <20040911165056.GQ4431@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
+To: Andi Kleen <ak@suse.de>
 Content-Disposition: inline
-In-Reply-To: <20040911162433.GC21181@postel.suug.ch>
+In-Reply-To: <20040911165056.GQ4431@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Sep 11, 2004 at 06:24:33PM +0200, Thomas Graf wrote:
-> * Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
-> > IMHO it would be far better to just pass text errors
-> > in a variable length packet back.  It's a bit plan9ish,
-> > but it would work nicely here and be a bit improvement
-> > (especially for the qdiscs) 
-> 
-> I had the same idea and the only good way to do so would
-> be to add a char * errbuf or alike to struct netlink_opt
-> and access it via skb.sk.sk_protinfo.
+* Andi Kleen <20040911165056.GQ4431@wotan.suse.de> 2004-09-11 18:50
+> I was thinking about a variable length netlink packet
+> that contains it and that is sent back to the application.  
 
-I was thinking about a variable length netlink packet
-that contains it and that is sent back to the application.  
-No need to store it anywhere else.
-> 
-> The bad side is that the for example cls and sch api don't
-> provide the skb to the implementing modules and therefore
-> they can't access the error buffer. I don't want to change
-> all netlink users because of this.
+All solutions discussed so far are based on sending a netlink
+message back to the application. Changing the existing
+nlmsgerr.error or adding a TLV with an error message doesn't
+make much difference from an implementors view.
 
-Indeed, that's an issue. Even with the retry packet you need
-the sequence number. On the other hand there are not 
-that many sched/cls modules and some minor changes to them
-are probably ok.
+> No need to store it anywhere else.
 
-In the worst case you can define new entry points and
-keep the old ones for compatibility, but it is probably
-not worth it to be that compatible because there are not
-enough different users.
+Not storing it would mean to call netlink_ack from everywhere
+which requires knowledge of the original netlink skb and the
+original netlink message in order to get the pid and sequence
+number right. (We can't use the pid assigned to the peer's
+sock.) It would also mean to set a bit to avoid sending out
+the ack again. Wrong?
 
--Andi
+> On the other hand there are not 
+> that many sched/cls modules and some minor changes to them
+> are probably ok.
+
+True, but also think of xfrm, tcp_diag, netfilter, dnrmg. I haven't
+checked how much work it would actually be to improve better
+error messages for them but I plan to at least extend all
+error codes related to the data passed via a netlink socket.
+
+Will wait for some comments. I guess I would be swamped with
+something like discussed above.
