@@ -1,81 +1,78 @@
-From: Michael Bussmann <bus@mb-net.net>
-Subject: IPV6_LEAVE_GROUP with ipv6mr_interface=0
-Date: Mon, 9 Sep 2002 17:36:58 +0200
+From: "Mala Anand" <manand@us.ibm.com>
+Subject: (unknown)
+Date: Mon, 9 Sep 2002 12:50:24 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020909153658.GA14597@ruf098.fkie.fgan.de>
+Message-ID: <OF02167993.9AD389D1-ON87256C2F.00516FAC@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: "Bill Hartner" <bhartner@us.ibm.com>, davem@redhat.com,
+   Robert Olsson <Robert.Olsson@data.slu.se>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, pekkas@netcore.fi
-Content-Disposition: inline
+Subject: 
+To: inux-net@vger.kernel.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi there,
+=A0>=A0"David S. Miller" wrote:
+>> NAPI is also not the panacea to all problems in the world.
 
-I've had some problems with leaving IPv6 multicast groups when specifing
-ipv6mr_interface=0:
+=A0=A0=A0>Mala did some testing on this a couple of weeks back. It appear=
+s that
+=A0=A0=A0>NAPI damaged performance significantly.
 
-I joined a group with
 
-| imr.ipv6mr_multiaddr=FF1E::123
-| imr.ipv6mr_interface=0
-| setsockopt(.., IPV6_JOIN_GROUP, &imr, ...)
 
-This works perfectly so far.  Leaving this group, however, with
+>http://www-124.ibm.com/developerworks/opensource/linuxperf/netperf/resul=
+ts/july_02/netperf2.5.25results.htm
 
-| imr.ipv6mr_multiaddr=FF1E::123
-| imr.ipv6mr_interface=0
-| setsockopt(.., IPV6_LEAVE_GROUP, &imr, ...)
 
-always resulted in a ENOENT.
 
-Is ipv6mr_interface=0 not appropiate for leaving a multicast group (it
-works under Solaris 2.8)?
+>Unfortunately it is not listed what e1000 and core NAPI
+>patch was used. Also, not listed, are the RX/TX mitigation
+>and ring sizes given to the kernel module upon loading.
+The default driver that is included in 2.5.25 kernel for Intel
+gigabit adapter was used for the baseline test and the NAPI driver
+was downloaded from Robert Olsson's website. I have updated my web
+page to include Robert's patch. However it is given there for reference
+purpose only. Except for the ones mentioned explicitly the rest of
+the configurable values used are default. The default for RX/TX mitigatio=
+n
+is 64 microseconds and the default ring size is 80.
 
-The following patch (for 2.4.18, but it should work with 2.5.33) makes
-the interface=0 stuff work.  Maybe it breaks everything else...
+I have added statistics collected during the test to my web site. I do
+want to analyze and understand how NAPI can be improved in my tcp_stream
+test. Last year around November, when I first tested NAPI, I did find NAP=
+I
+results better than the baseline using udp_stream. However I am
+concentrating on tcp_stream since that is where NAPI can be improved in
+my setup. I will update the website as I do more work on this.
 
-Best regards,
-MB
 
--- 
-Michael Bussmann <bus@mb-net.net>
-Who will take the coal from the mine? Who will take the salt from the earth?
-Who'll take a leaf and grow it to a tree?  Don't Look Now, it ain't you or me.
-	-- CCR, 'Dont Look Now', 1969
+>Robert can comment on optimal settings
+I saw Robert's postings. Looks like he may have a more recent version of
+NAPI
+driver than the one I used. I also see 2.5.33 has NAPI, I will move to
+2.5.33
+and continue my work on that.
 
-Patch for linux/net/ipv6/mcast.c:
 
---- mcast.c.orig	Mon Sep  9 16:40:07 2002
-+++ mcast.c	Mon Sep  9 16:40:10 2002
-@@ -140,15 +140,26 @@
- 	struct ipv6_mc_socklist *mc_lst, **lnk;
- 
- 	write_lock_bh(&ipv6_sk_mc_lock);
-+
- 	for (lnk = &np->ipv6_mc_list; (mc_lst = *lnk) !=NULL ; lnk = &mc_lst->next) {
--		if (mc_lst->ifindex == ifindex &&
-+		if ((ifindex==0) || (mc_lst->ifindex == ifindex) &&
- 		    ipv6_addr_cmp(&mc_lst->addr, addr) == 0) {
- 			struct net_device *dev;
- 
- 			*lnk = mc_lst->next;
- 			write_unlock_bh(&ipv6_sk_mc_lock);
-+			if (ifindex == 0) {
-+				struct rt6_info *rt;
-+				rt = rt6_lookup(addr, NULL, 0, 0);
-+				if (rt) {
-+					dev = rt->rt6i_dev;
-+					dev_hold(dev);
-+					dst_release(&rt->u.dst);
-+				}
-+			} else
-+				dev = dev_get_by_index(ifindex);
- 
--			if ((dev = dev_get_by_index(ifindex)) != NULL) {
-+			if (dev!= NULL) {
- 				ipv6_dev_mc_dec(dev, &mc_lst->addr);
- 				dev_put(dev);
- 			}
+>Robert and Jamal can make a more detailed analysis of Mala's
+>graphs than I.
+Jamal has questioned about socket buffer size that I used, I have tried
+132k
+socket buffer size in the past and I didn't see much difference in my
+tests.
+I will add that to my list again.
+
+
+Regards,
+    Mala
+
+
+   Mala Anand
+   IBM Linux Technology Center - Kernel Performance
+   E-mail:manand@us.ibm.com
+   http://www-124.ibm.com/developerworks/opensource/linuxperf
+   http://www-124.ibm.com/developerworks/projects/linuxperf
+   Phone:838-8088; Tie-line:678-8088
