@@ -1,32 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Mon, 29 Sep 2003 22:17:12 -0700
+Subject: Re: [PATCH] ipv4 tcp autobind problem
+Date: Mon, 29 Sep 2003 22:22:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030929221712.51e6c27b.davem@redhat.com>
-References: <20030928225941.GW15338@fs.tum.de>
-	<20030928231842.GE1039@conectiva.com.br>
-	<20030928232403.GX15338@fs.tum.de>
-	<20030928233909.GG1039@conectiva.com.br>
-	<20030929001439.GY15338@fs.tum.de>
-	<20030929003229.GM1039@conectiva.com.br>
-	<1064826174.29569.13.camel@hades.cambridge.redhat.com>
+Message-ID: <20030929222209.4d02c542.davem@redhat.com>
+References: <3F782E1F.4030500@balabit.hu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, bunk@fs.tum.de, netdev@oss.sgi.com,
-        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
-        linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1064826174.29569.13.camel@hades.cambridge.redhat.com>
+To: Kovacs Krisztian <hidden@balabit.hu>
+In-Reply-To: <3F782E1F.4030500@balabit.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 29 Sep 2003 10:02:55 +0100
-David Woodhouse <dwmw2@infradead.org> wrote:
 
-> The underlying point being that your static kernel should not change if
-> you change an option from 'n' to 'm'. It should only affect the kernel
-> image if you change options to/from 'y'.
+Once connect() has been called on a socket, you may not ever again
+perform any action that would try to connect that socket.
 
-I totally disagree, what ipv6 is doing is perfectly fine.
+Said another way, a socket that has failed to connect() is a socket
+that you may not use in any usable way ever again except to close
+that file descriptor.
