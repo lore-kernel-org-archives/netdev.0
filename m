@@ -1,40 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [RFC PATCH] Fix double dereference
-Date: Fri, 07 Jan 2005 18:30:39 +0900 (JST)
-Message-ID: <20050107.183039.59264047.yoshfuji@linux-ipv6.org>
-References: <41DA3A60.8050102@pobox.com>
-	<20050107.111806.27181187.yoshfuji@linux-ipv6.org>
-	<20050106195333.2a90f6cb.davem@davemloft.net>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: [PATCH] Check for SOL_SOCKET in compat_sys_getsockopt
+Date: Fri, 07 Jan 2005 10:35:29 +0000
+Message-ID: <1105094129.5547.98.camel@baythorne.infradead.org>
+References: <20050103143306.GG25446@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, herbert@gondor.apana.org.au,
-        yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20050106195333.2a90f6cb.davem@davemloft.net>
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20050103143306.GG25446@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050106195333.2a90f6cb.davem@davemloft.net> (at Thu, 6 Jan 2005 19:53:33 -0800), "David S. Miller" <davem@davemloft.net> says:
+On Mon, 2005-01-03 at 15:33 +0100, Olaf Kirch wrote:
+> compat_sys_getsockopt checks for SO_RCVTIMEO/SO_SNDTIMEO without
+> making sure that the level is actually SOL_SOCKET. This can break
+> getsockopt() requests for other protocols.
 
-> On Fri, 07 Jan 2005 11:18:06 +0900 (JST)
-> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
-> 
-> > Am I miss something?
-> 
-> Does every path which destroys an ipv6 socket do the
-> sk_dst_reset()?  If so, your patch should be valid.
+It's a band-aid, not a fix. Trying to do the conversion in
+compat_sys_getsockopt() for _all_ possible sockopts is broken.
 
-Currently, inet6_destroy_sock() in net/ipv6/af_inet6.c, which is
-called from udpv6_destory_sock() etc., takes care of this.
-In that means, yes.
+I think we need to let each protocol offer compat [gs]etsockopt()
+methods of its own, or at least have the existing [gs]etsockopt()
+methods check whether the current process is 32-bit or 64-bit and do the
+right thing.
 
-However, one for ipv4 doesn't do this.
+Have you started looking at netfilter with 32-bit userspace yet? :)
 
-I'll come up with new changesets.
-
-Thanks.
-
---yoshfuji
+-- 
+dwmw2
