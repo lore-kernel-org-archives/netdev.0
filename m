@@ -1,16 +1,16 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] replace sppp_of macro with inline
-Date: Sat, 20 Sep 2003 13:57:54 -0400
+Subject: Re: [PATCH][2.6] depca update
+Date: Sat, 20 Sep 2003 13:57:27 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F6C9522.2060206@pobox.com>
-References: <20030916165537.310229e6.shemminger@osdl.org>
+Message-ID: <3F6C9507.4050307@pobox.com>
+References: <wrpad94r1j3.fsf@hina.wild-wind.fr.eu.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030916165537.310229e6.shemminger@osdl.org>
+To: mzyngier@freesurf.fr
+In-Reply-To: <wrpad94r1j3.fsf@hina.wild-wind.fr.eu.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
