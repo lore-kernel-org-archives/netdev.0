@@ -1,54 +1,522 @@
-From: Michal Ludvig <michal@logix.cz>
-Subject: Re: Asynchronous crypto layer.
-Date: Fri, 29 Oct 2004 16:53:30 +0200 (CEST)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 7/6] cls_fw: CONFIG_NET_CLS_IND is not dependant on
+	CONFIG_NET_CLS_ACT
+Date: 29 Oct 2004 10:53:58 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0410291636020.25667@maxipes.logix.cz>
-References: <1099030958.4944.148.camel@uganda> <1099053738.1024.104.camel@jzny.localdomain>
- <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru> <41824D9A.3070407@logix.cz>
- <20041029183606.0b1a0538@zanzibar.2ka.mipt.ru>
+Message-ID: <1099061638.1024.7.camel@jzny.localdomain>
+References: <20041029002113.GY12289@postel.suug.ch>
+	 <20041029102620.GH12289@postel.suug.ch>
+	 <1099049980.1024.21.camel@jzny.localdomain>
+	 <20041029115333.GK12289@postel.suug.ch>
+	 <1099053306.1025.95.camel@jzny.localdomain>
+	 <20041029125356.GM12289@postel.suug.ch>
+	 <1099055561.1028.133.camel@jzny.localdomain>
+	 <20041029142411.GT12289@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz
+Content-Type: multipart/mixed; boundary="=-d+hrhb7AStBo9QI1Zo2m"
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <20041029183606.0b1a0538@zanzibar.2ka.mipt.ru>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041029142411.GT12289@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004, Evgeniy Polyakov wrote:
 
-> > I have a very preliminary driver for FastCrypt PCI board for 3DES at
-> > http://www.logix.cz/michal/devel/fcrypt/
-> > For now it works with some very ugly hacks in the current cryptoapi, but
-> > I can give it a try with your acrypto and report the results.
+--=-d+hrhb7AStBo9QI1Zo2m
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+On Fri, 2004-10-29 at 10:24, Thomas Graf wrote:
+> > no need for backward compat here. We have an opportunity since its not
+> > widely deployed. I wont feel sorry for any apps that somehow depend on
+> > old stats.
 > 
-> It would be very appreciated>
-
-Re Hifn - you may be interested in this Linux driver:
-http://kernel.ebshome.net/hifn7955-2.6-4.diff
-
-> > I admit I haven't read your sources too deeply yet so excuse me a dumb
-> > question - does acrypto replace or extend cryptoapi? Once I get it
-> > running will it take over e.g. encryption for IPsec?
+> My thoughts as well.
 > 
-> They are both an addendum to each other, 
-> any crypto layer can be "tunrned into compatibility mode" - 
-> i.e. anyone can write bridges like attached sha1_provider.c (it is bridge
-> from async into sync mode). So I can not answer - but in _current_ 
-> implementation without any kind of bridges it is an extension.
+> > PS:- iproute2 patch needed.
 > 
-> If you compile this sources then you will still have old sync behaviour, 
-> IPsec and any other old-style application should be rewritten(like 
-> attached consumer.c) to use new asynchronous crypto layer features.
+> Should be straight forward if my last patch made it in. Stephen?
+>
+> > PPS:- I hope all the actions i queued to Dave are in ;->
+> 
+> So far gact, mirred and pedit, any more I need to take care of?
 
-This could be a bit of problem, because AFAIK the IPsec code doesn't allow 
-sleeping while processing the packet. It will likely need a bigger 
-rewrite.
+ipt  - You could wait for Dave to push the one he has in
+or use the attached one - Depends on Dave but should be fair to update
+attached one before he wakes up ;->
 
-Anyway, have you got any tool to measure the cipher throughput without 
-IPsec/dm-crypt being updated for acrypto?
+cheers,
+jamal
 
-Michal Ludvig
--- 
-* A mouse is a device used to point at the xterm you want to type in.
-* Personal homepage - http://www.logix.cz/michal
+
+--=-d+hrhb7AStBo9QI1Zo2m
+Content-Disposition: attachment; filename=ipt-2610-patch-0
+Content-Type: text/plain; name=ipt-2610-patch-0; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- /dev/null	2003-09-15 09:40:47.000000000 -0400
++++ b/include/linux/tc_act/tc_ipt.h	2004-10-24 12:31:13.000000000 -0400
+@@ -0,0 +1,21 @@
++#ifndef __LINUX_TC_IPT_H
++#define __LINUX_TC_IPT_H
++
++#include <linux/pkt_cls.h>
++
++#define TCA_ACT_IPT 6
++
++enum
++{
++	TCA_IPT_UNSPEC,
++	TCA_IPT_TABLE,
++	TCA_IPT_HOOK,
++	TCA_IPT_INDEX,
++	TCA_IPT_CNT,
++	TCA_IPT_TM,
++	TCA_IPT_TARG,
++	__TCA_IPT_MAX
++};
++#define TCA_IPT_MAX (__TCA_IPT_MAX - 1)
++                                                                                
++#endif
+--- /dev/null	2003-09-15 09:40:47.000000000 -0400
++++ b/include/net/tc_act/tc_ipt.h	2004-10-24 12:31:13.000000000 -0400
+@@ -0,0 +1,16 @@
++#ifndef __NET_TC_IPT_H
++#define __NET_TC_IPT_H
++
++#include <net/pkt_sched.h>
++
++struct ipt_entry_target;
++
++struct tcf_ipt
++{
++	tca_gen(ipt);
++	u32 hook;
++	char *tname;
++	struct ipt_entry_target *t;
++};
++
++#endif
+
+--- /dev/null	2003-09-15 09:40:47.000000000 -0400
++++ b/net/sched/ipt.c	2004-10-24 12:53:41.000000000 -0400
+@@ -0,0 +1,392 @@
++/*
++ * net/sched/ipt.c	iptables target interface
++ *
++ *TODO: Add other tables. For now we only support the ipv4 table targets
++ *
++ *		This program is free software; you can redistribute it and/or
++ *		modify it under the terms of the GNU General Public License
++ *		as published by the Free Software Foundation; either version
++ *		2 of the License, or (at your option) any later version.
++ *
++ * Copyright:	Jamal Hadi Salim (2002-4)
++ */
++
++#include <asm/uaccess.h>
++#include <asm/system.h>
++#include <asm/bitops.h>
++#include <linux/config.h>
++#include <linux/types.h>
++#include <linux/kernel.h>
++#include <linux/sched.h>
++#include <linux/string.h>
++#include <linux/mm.h>
++#include <linux/socket.h>
++#include <linux/sockios.h>
++#include <linux/in.h>
++#include <linux/errno.h>
++#include <linux/interrupt.h>
++#include <linux/netdevice.h>
++#include <linux/skbuff.h>
++#include <linux/rtnetlink.h>
++#include <linux/module.h>
++#include <linux/init.h>
++#include <linux/proc_fs.h>
++#include <net/sock.h>
++#include <net/pkt_sched.h>
++#include <linux/tc_act/tc_ipt.h>
++#include <net/tc_act/tc_ipt.h>
++
++#include <linux/netfilter_ipv4/ip_tables.h>
++
++/* use generic hash table */
++#define MY_TAB_SIZE     16
++#define MY_TAB_MASK     15
++
++u32 idx_gen;
++static struct tcf_ipt *tcf_ipt_ht[MY_TAB_SIZE];
++/* ipt hash table lock */
++static rwlock_t ipt_lock = RW_LOCK_UNLOCKED;
++
++/* ovewrride the defaults */
++#define tcf_st  tcf_ipt
++#define tcf_t_lock   ipt_lock
++#define tcf_ht tcf_ipt_ht
++
++#include <net/pkt_act.h>
++
++static inline int
++init_targ(struct tcf_ipt *p)
++{
++	struct ipt_target *target;
++	int ret = 0;
++	struct ipt_entry_target *t = p->t;
++	target = __ipt_find_target_lock(t->u.user.name, &ret);
++
++	if (!target) {
++		printk("init_targ: Failed to find %s\n",
++		       t->u.kernel.target->name);
++		return -1;
++	}
++
++	DPRINTK("init_targ: found %s\n", target->name);
++	/* we really need proper ref counting
++	 seems to be only needed for modules?? Talk to laforge */
++/*      if (target->me)
++              __MOD_INC_USE_COUNT(target->me);
++*/
++	t->u.kernel.target = target;
++
++	__ipt_mutex_up();
++
++	if (t->u.kernel.target->checkentry
++	    && !t->u.kernel.target->checkentry(p->tname, NULL, t->data,
++					       t->u.target_size
++					       - sizeof (*t), p->hook)) {
++/*              if (t->u.kernel.target->me)
++	      __MOD_DEC_USE_COUNT(t->u.kernel.target->me);
++*/
++		DPRINTK("ip_tables: check failed for `%s'.\n",
++			t->u.kernel.target->name);
++		ret = -EINVAL;
++	}
++
++	return ret;
++}
++
++int
++tcf_ipt_init(struct rtattr *rta, struct rtattr *est, struct tc_action *a, int ovr, int bind)
++{
++	struct ipt_entry_target *t;
++	unsigned h;
++	struct rtattr *tb[TCA_IPT_MAX];
++	struct tcf_ipt *p;
++	int ret = 0;
++	u32 index = 0;
++	u32 hook = 0;
++
++	if (NULL == a || NULL == rta ||
++	    (rtattr_parse(tb, TCA_IPT_MAX, RTA_DATA(rta), RTA_PAYLOAD(rta)) <
++	     0)) {
++		return -1;
++	}
++
++
++	if (tb[TCA_IPT_INDEX - 1]) {
++		index = *(u32 *) RTA_DATA(tb[TCA_IPT_INDEX - 1]);
++		DPRINTK("ipt index %d\n", index);
++	}
++
++	if (index && (p = tcf_hash_lookup(index)) != NULL) {
++		a->priv = (void *) p;
++		spin_lock(&p->lock);
++		if (bind) {
++			p->bindcnt += 1;
++			p->refcnt += 1;
++		}
++		if (ovr) {
++			goto override;
++		}
++		spin_unlock(&p->lock);
++		return ret;
++	}
++
++	if (NULL == tb[TCA_IPT_TARG - 1] || NULL == tb[TCA_IPT_HOOK - 1]) {
++		return -1;
++	}
++
++	p = kmalloc(sizeof (*p), GFP_KERNEL);
++	if (p == NULL)
++		return -1;
++
++	memset(p, 0, sizeof (*p));
++	p->refcnt = 1;
++	ret = 1;
++	spin_lock_init(&p->lock);
++	p->stats_lock = &p->lock;
++	if (bind)
++		p->bindcnt = 1;
++
++override:
++	hook = *(u32 *) RTA_DATA(tb[TCA_IPT_HOOK - 1]);
++
++	t = (struct ipt_entry_target *) RTA_DATA(tb[TCA_IPT_TARG - 1]);
++
++	p->t = kmalloc(t->u.target_size, GFP_KERNEL);
++	if (p->t == NULL) {
++		if (ovr) {
++			printk("ipt policy messed up \n");
++			spin_unlock(&p->lock);
++			return -1;
++		}
++		kfree(p);
++		return -1;
++	}
++
++	memcpy(p->t, RTA_DATA(tb[TCA_IPT_TARG - 1]), t->u.target_size);
++	DPRINTK(" target NAME %s size %d data[0] %x data[1] %x\n",
++		t->u.user.name, t->u.target_size, t->data[0], t->data[1]);
++
++	p->tname = kmalloc(IFNAMSIZ, GFP_KERNEL);
++
++	if (p->tname == NULL) {
++		if (ovr) {
++			printk("ipt policy messed up 2 \n");
++			spin_unlock(&p->lock);
++			return -1;
++		}
++		kfree(p->t);
++		kfree(p);
++		return -1;
++	} else {
++		int csize = IFNAMSIZ - 1;
++
++		memset(p->tname, 0, IFNAMSIZ);
++		if (tb[TCA_IPT_TABLE - 1]) {
++			if (strlen((char *) RTA_DATA(tb[TCA_IPT_TABLE - 1])) <
++			    csize)
++				csize = strlen(RTA_DATA(tb[TCA_IPT_TABLE - 1]));
++			strncpy(p->tname, RTA_DATA(tb[TCA_IPT_TABLE - 1]),
++				csize);
++			DPRINTK("table name %s\n", p->tname);
++		} else {
++			strncpy(p->tname, "mangle", 1 + strlen("mangle"));
++		}
++	}
++
++	if (0 > init_targ(p)) {
++		if (ovr) {
++			printk("ipt policy messed up 2 \n");
++			spin_unlock(&p->lock);
++			return -1;
++		}
++		kfree(p->tname);
++		kfree(p->t);
++		kfree(p);
++		return -1;
++	}
++
++	if (ovr) {
++		spin_unlock(&p->lock);
++		return -1;
++	}
++
++	p->index = index ? : tcf_hash_new_index();
++
++	p->tm.lastuse = jiffies;
++	/*
++	p->tm.expires = jiffies;
++	*/
++	p->tm.install = jiffies;
++#ifdef CONFIG_NET_ESTIMATOR
++	if (est) {
++		qdisc_new_estimator(&p->stats, p->stats_lock, est);
++	}
++#endif
++	h = tcf_hash(p->index);
++	write_lock_bh(&ipt_lock);
++	p->next = tcf_ipt_ht[h];
++	tcf_ipt_ht[h] = p;
++	write_unlock_bh(&ipt_lock);
++	a->priv = (void *) p;
++	return ret;
++
++}
++
++int
++tcf_ipt_cleanup(struct tc_action *a, int bind)
++{
++	struct tcf_ipt *p;
++	p = PRIV(a,ipt);
++	if (NULL != p)
++		return tcf_hash_release(p, bind);
++	return 0;
++}
++
++int
++tcf_ipt(struct sk_buff **pskb, struct tc_action *a)
++{
++	int ret = 0, result = 0;
++	struct tcf_ipt *p;
++	struct sk_buff *skb = *pskb;
++
++	p = PRIV(a,ipt);
++
++	if (NULL == p || NULL == skb) {
++		return -1;
++	}
++
++	spin_lock(&p->lock);
++
++	p->tm.lastuse = jiffies;
++	p->stats.bytes += skb->len;
++	p->stats.packets++;
++
++	if (skb_cloned(skb) ) {
++		if (pskb_expand_head(skb, 0, 0, GFP_ATOMIC)) {
++			return -1;
++		}
++	}
++	/* yes, we have to worry about both in and out dev
++	 worry later - danger - this API seems to have changed
++	 from earlier kernels */
++
++	ret = p->t->u.kernel.target->target(&skb, skb->dev, NULL,
++					    p->hook, p->t->data, (void *)NULL);
++	switch (ret) {
++	case NF_ACCEPT:
++		result = TC_ACT_OK;
++		break;
++	case NF_DROP:
++		result = TC_ACT_SHOT;
++		p->stats.drops++;
++		break;
++	case IPT_CONTINUE:
++		result = TC_ACT_PIPE;
++		break;
++	default:
++		if (net_ratelimit())
++			printk("Bogus netfilter code %d assume ACCEPT\n", ret);
++		result = TC_POLICE_OK;
++		break;
++	}
++	spin_unlock(&p->lock);
++	return result;
++
++}
++
++int
++tcf_ipt_dump(struct sk_buff *skb, struct tc_action *a, int bind, int ref)
++{
++	struct ipt_entry_target *t;
++	struct tcf_t tm;
++	struct tc_cnt c;
++	unsigned char *b = skb->tail;
++
++	struct tcf_ipt *p;
++
++	p = PRIV(a,ipt);
++	if (NULL == p) {
++		printk("BUG: tcf_ipt_dump called with NULL params\n");
++		goto rtattr_failure;
++	}
++	/* for simple targets kernel size == user size
++	** user name = target name
++	** for foolproof you need to not assume this
++	*/
++
++	t = kmalloc(p->t->u.user.target_size, GFP_ATOMIC);
++
++	if (NULL == t)
++		goto rtattr_failure;
++
++	c.bindcnt = p->bindcnt - bind;
++	c.refcnt = p->refcnt - ref;
++	memcpy(t, p->t, p->t->u.user.target_size);
++	strcpy(t->u.user.name, p->t->u.kernel.target->name);
++
++	DPRINTK("\ttcf_ipt_dump tablename %s length %d\n", p->tname,
++		strlen(p->tname));
++	DPRINTK
++	    ("\tdump target name %s size %d size user %d data[0] %x data[1] %x\n",
++	     p->t->u.kernel.target->name, p->t->u.target_size, p->t->u.user.target_size,
++	     p->t->data[0], p->t->data[1]);
++	RTA_PUT(skb, TCA_IPT_TARG, p->t->u.user.target_size, t);
++	RTA_PUT(skb, TCA_IPT_INDEX, 4, &p->index);
++	RTA_PUT(skb, TCA_IPT_HOOK, 4, &p->hook);
++	RTA_PUT(skb, TCA_IPT_CNT, sizeof(struct tc_cnt), &c);
++	RTA_PUT(skb, TCA_IPT_TABLE, IFNAMSIZ, p->tname);
++	tm.install = jiffies - p->tm.install;
++	tm.lastuse = jiffies - p->tm.lastuse;
++	tm.expires = p->tm.expires;
++	RTA_PUT(skb, TCA_IPT_TM, sizeof (tm), &tm);
++	return skb->len;
++
++      rtattr_failure:
++	skb_trim(skb, b - skb->data);
++	return -1;
++}
++
++int
++tcf_ipt_stats(struct sk_buff *skb, struct tc_action *a)
++{
++	struct tcf_ipt *p;
++	p = PRIV(a,ipt);
++	if (NULL != p)
++		return qdisc_copy_stats(skb, &p->stats, p->stats_lock);
++
++	return 1;
++}
++
++struct tc_action_ops act_ipt_ops = {
++	.next		=	NULL,
++	.kind		=	"ipt",
++	.type		=	TCA_ACT_IPT,
++	.capab		=	TCA_CAP_NONE,
++	.owner		=	THIS_MODULE,
++	.act		=	tcf_ipt,
++	.get_stats	=	tcf_ipt_stats,
++	.dump		=	tcf_ipt_dump,
++	.cleanup	=	tcf_ipt_cleanup,
++	.lookup		=	tcf_hash_search,
++	.init		=	tcf_ipt_init,
++	.walk		=	tcf_generic_walker
++};
++
++MODULE_AUTHOR("Jamal Hadi Salim(2002-4)");
++MODULE_DESCRIPTION("Iptables target actions");
++MODULE_LICENSE("GPL");
++
++static int __init
++ipt_init_module(void)
++{
++	return tcf_register_action(&act_ipt_ops);
++}
++
++static void __exit
++ipt_cleanup_module(void)
++{
++	tcf_unregister_action(&act_ipt_ops);
++}
++
++module_init(ipt_init_module);
++module_exit(ipt_cleanup_module);
+--- a/net/sched/Makefile	2004-10-24 06:10:45.000000000 -0400
++++ b/net/sched/Makefile	2004-10-24 12:34:16.000000000 -0400
+@@ -12,6 +12,7 @@
+ obj-$(CONFIG_NET_CLS_POLICE)	+= police.o
+ obj-$(CONFIG_NET_ACT_GACT)      += gact.o
+ obj-$(CONFIG_NET_ACT_MIRRED)    += mirred.o
++obj-$(CONFIG_NET_ACT_IPT)       += ipt.o
+ obj-$(CONFIG_NET_SCH_CBQ)	+= sch_cbq.o
+ obj-$(CONFIG_NET_SCH_HTB)	+= sch_htb.o
+ obj-$(CONFIG_NET_SCH_HPFQ)	+= sch_hpfq.o
+--- a/net/sched/Kconfig	2004-10-24 06:10:45.000000000 -0400
++++ b/net/sched/Kconfig	2004-10-24 12:33:31.000000000 -0400
+@@ -406,3 +406,11 @@
+         ---help---
+         requires new iproute2
+         This allows packets to be mirrored or redirected to netdevices
++
++config NET_ACT_IPT
++        tristate '      iptables Actions'
++        depends on NET_CLS_ACT && NETFILTER && IP_NF_IPTABLES
++        ---help---
++        requires new iproute2
++        This allows iptables targets to be used by tc filters
++                                                                                 
+
+--=-d+hrhb7AStBo9QI1Zo2m--
