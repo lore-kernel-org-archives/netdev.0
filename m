@@ -1,43 +1,68 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Tue, 28 Sep 2004 16:20:31 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 29 Sep 2004 01:27:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928162031.1ec28e32.davem@davemloft.net>
-References: <1096289189.1075.37.camel@jzny.localdomain>
-	<20040927213607.GD7243@gondor.apana.org.au>
-	<1096339407.8660.33.camel@jzny.localdomain>
-	<20040928024614.GA9911@gondor.apana.org.au>
-	<1096340772.8659.51.camel@jzny.localdomain>
-	<20040928032321.GB10116@gondor.apana.org.au>
-	<1096343125.8661.96.camel@jzny.localdomain>
-	<20040928035921.GA10675@gondor.apana.org.au>
-	<1096367787.8662.146.camel@jzny.localdomain>
-	<4159D278.4060809@eurodev.net>
-	<20040928231906.GA25293@gondor.apana.org.au>
+Message-ID: <20040929012757.5d0dff61.ak@suse.de>
+References: <20040923164149.5368d291.davem@davemloft.net>
+	<E1CBkIW-0001dF-00@gondolin.me.apana.org.au>
+	<20040927025048.GA6723@gondor.apana.org.au>
+	<20040926210029.22750d47.davem@davemloft.net>
+	<20040927054541.GA8858@gondor.apana.org.au>
+	<20040927120154.09fdcadf.davem@davemloft.net>
+	<20040927213233.GC7243@gondor.apana.org.au>
+	<20040928141002.164c60af.davem@davemloft.net>
+	<20040928213415.GA4646@wotan.suse.de>
+	<20040928145345.2530d30e.davem@davemloft.net>
+	<20040928223344.GC2975@wotan.suse.de>
+	<20040928155706.65405e88.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, niv@us.ibm.com, andy.grover@gmail.com,
+        anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040928231906.GA25293@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040928155706.65405e88.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Sep 2004 09:19:06 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 28 Sep 2004 15:57:06 -0700
+"David S. Miller" <davem@davemloft.net> wrote:
 
-> > ===== net/netlink/af_netlink.c 1.58 vs edited =====
-> > --- 1.58/net/netlink/af_netlink.c	Sat Sep 25 17:43:43 2004
-> > +++ edited/net/netlink/af_netlink.c	Tue Sep 28 22:23:44 2004
-> > @@ -475,7 +475,7 @@
-> >  	if (nlk->handler)
-> >  		return 0;
-> >  #endif
-> > -	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
-> > +	if (atomic_read(&sk->sk_rmem_alloc) + skb->len > sk->sk_rcvbuf ||
+> On Wed, 29 Sep 2004 00:33:44 +0200
+> Andi Kleen <ak@suse.de> wrote:
 > 
-> I don't see the point of this patch.  All it does is make the overrun
-> happen one packet earlier.
+> > Looking at my tcpdumps and comparing TSO on/off I see a quite
+> > strange effect. It only acks on every ~25th packet with TSO off
+> > but every ~16th packet with TSO on.
+> > 
+> > Receiver is a 2.6.5 kernel, it's weird that it violates the
+> > ack every two MSS rule.
+> 
+> Your system is SMP and packet reordering is occuring?
 
-That's my sentiment as well.
+The sender is SMP, but the receiver is UP.
+I tcpdumped at the receiver.
+
+> If so, you can lock the interrupts of the card
+> to a specific cpu to see if that makes the problem go
+> away.
+> 
+> Another possibility is tcpdump dropping some of the ACKs
+
+Possible, unfortunately there are no counters for this
+(anyone on netdev motivated to add them to each packet drop
+in PF_PACKET and dev.c?) 
+
+> or some bug in the TCP code of your "interesting experiment
+> based upon 2.6.5" kernel :-)
+
+Possible. 
+
+I tried to re-test it but I didn't get very far because the kernel
+with your patch crashes regularly during netperf. No serial console,
+but the backtrace is {tcp_ack+877} {tcp_rcv_established+350} ... 
+Before that there are a few "retrans out leaked" messages.
+
+
+-Andi
