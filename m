@@ -1,8 +1,9 @@
 From: domen@coderock.org
-Subject: [patch 02/19] list_for_each: drivers-net-tulip-de4x5.c
-Date: Wed, 12 Jan 2005 00:10:11 +0100
-Message-ID: <20050111231011.DB77A1F225@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, janitor@sternwelten.at
+Subject: [patch 03/19] net/act2001-sir: replace schedule_timeout() with msleep()
+Date: Wed, 12 Jan 2005 00:10:14 +0100
+Message-ID: <20050111231015.44F491F225@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
+        janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -12,33 +13,31 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Hi.
+Any comments would be appreciated.
 
-s/for/list_for_each/
-Compile tested.
+Description: Use msleep() instead of schedule_timeout()
+to guarantee the task delays as expected.
 
-Signed-off-by: Domen Puncer <domen@coderock.org>
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/tulip/de4x5.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ kj-domen/drivers/net/irda/act200l-sir.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN drivers/net/tulip/de4x5.c~list-for-each-drivers_net_tulip_de4x5 drivers/net/tulip/de4x5.c
---- kj/drivers/net/tulip/de4x5.c~list-for-each-drivers_net_tulip_de4x5	2005-01-10 17:59:48.000000000 +0100
-+++ kj-domen/drivers/net/tulip/de4x5.c	2005-01-10 17:59:48.000000000 +0100
-@@ -2143,9 +2143,9 @@ srom_search(struct net_device *dev, stru
-     u_long iobase = 0;                     /* Clear upper 32 bits in Alphas */
-     int i, j, cfrv;
-     struct de4x5_private *lp = netdev_priv(dev);
--    struct list_head *walk = &pdev->bus_list;
-+    struct list_head *walk;
+diff -puN drivers/net/irda/act200l-sir.c~msleep-drivers_net_irda_act200l-sir drivers/net/irda/act200l-sir.c
+--- kj/drivers/net/irda/act200l-sir.c~msleep-drivers_net_irda_act200l-sir	2005-01-10 17:59:59.000000000 +0100
++++ kj-domen/drivers/net/irda/act200l-sir.c	2005-01-10 17:59:59.000000000 +0100
+@@ -177,8 +177,7 @@ static int act200l_change_speed(struct s
  
--    for (walk = walk->next; walk != &pdev->bus_list; walk = walk->next) {
-+    list_for_each(walk, &pdev->bus_list) {
- 	struct pci_dev *this_dev = pci_dev_b(walk);
+ 	/* Write control bytes */
+ 	sirdev_raw_write(dev, control, 3);
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(msecs_to_jiffies(5));
++	msleep(5);
  
- 	/* Skip the pci_bus list entry */
+ 	/* Go back to normal mode */
+ 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
 _
