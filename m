@@ -1,35 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: old NLMSG_OK fix
-Date: Mon, 28 Jun 2004 11:22:58 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040628112258.31ed64f1.davem@redhat.com>
-References: <20040627205133.11d37f0c.davem@redhat.com>
-	<E1Besfp-0004hd-00@gondolin.me.apana.org.au>
+Subject: Re: kiocb->private is too large for kiocb's on-stack
+Date: Mon, 28 Jun 2004 11:25:10 -0700
+Sender: linux-fsdevel-owner@vger.kernel.org
+Message-ID: <20040628112510.509d08f7.davem@redhat.com>
+References: <20040628080801.GO21066@holomorphy.com>
+	<20040628011232.43acd3b8.akpm@osdl.org>
+	<20040628082016.GP21066@holomorphy.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: hch@lst.de, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1Besfp-0004hd-00@gondolin.me.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: akpm@osdl.org, linux-kernel@vger.kernel.org,
+	linux-fsdevel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-fsdevel-owner@vger.kernel.org>
+To: William Lee Irwin III <wli@holomorphy.com>
+In-Reply-To: <20040628082016.GP21066@holomorphy.com>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Jun 2004 19:43:37 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 28 Jun 2004 01:20:16 -0700
+William Lee Irwin III <wli@holomorphy.com> wrote:
 
-> David S. Miller <davem@redhat.com> wrote:
-> > On Sun, 27 Jun 2004 19:15:52 +0200
-> > Christoph Hellwig <hch@lst.de> wrote:
-> > 
-> >> http://oss.sgi.com/projects/netdev/archive/2000-09/msg00001.html
-> > 
-> > It works because there is always 16 bytes of scratch at the end of an
-> > SKB more than was allocated for the actual data.  So blindly deref'ing
-> > the nlmsg_len value is fine here.
+> On Mon, Jun 28, 2004 at 01:12:32AM -0700, Andrew Morton wrote:
+> > That's so much better than what we had before it ain't funny.
+> > Was this runtime tested?
 > 
-> Yes but this is also used by user-space appliations where this scratch
-> space may not exist.  NETLINK messages can travel from one application
-> to another so exploits are possible.
+> Yes. Oracle exercises this, and it survives OAST.
+> 
+> I'll write a dedicated userspace testcase for the aio operations and
+> follow up with that.
 
-You're right, thanks for pointing this out.  I'll add it to my tree.
+This all looks fine to me.  Andrew, would you like me to push this
+patch along or did you already plan to take care of it.
+
+Nice work William.
