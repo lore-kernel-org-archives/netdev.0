@@ -1,43 +1,30 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [-mm patch] net/ieee80211/Kconfig: don't describe what gets selected
-Date: Thu, 24 Feb 2005 22:42:24 +0100
-Message-ID: <20050224214223.GJ8651@stusta.de>
+From: Alex Deucher <alexdeucher@gmail.com>
+Subject: Marvell 88W8310 and 88E8050 PCI Express support
+Date: Thu, 24 Feb 2005 16:46:34 -0500
+Message-ID: <a728f9f905022413465b96acd4@mail.gmail.com>
+Reply-To: Alex Deucher <alexdeucher@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org
-To: netdev@oss.sgi.com, jgarzik@pobox.com
-Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The information what gets selected doesn't belong into the helh text 
-(and at least "make menuconfig" already displays this information).
+I've noticed most of the new AMD64 chipsets now include integrated
+marvell GigE and wifi chips onboard.  I haven't been able to find much
+on the status of linux support for these chips.  Apparently the PCIE
+GigE chip only works with sk98lin and not skge:
+http://www.ussg.iu.edu/hypermail/linux/kernel/0502.1/0010.html
+Does anyone know if support for the chip is being added to skge?  The
+88W8310 doesn't seem to be supported at all, at least not that I can
+see.  Does anyone know the status of the 88W8310?  Are there any
+experimental drivers?  Is Marvell friendly to opensource?  Are the
+databooks available?
 
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
+Thanks,
 
---- linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig.old	2005-02-24 22:31:07.000000000 +0100
-+++ linux-2.6.11-rc4-mm1-full/net/ieee80211/Kconfig	2005-02-24 22:32:02.000000000 +0100
-@@ -5,3 +5,3 @@
- 	This option enables the hardware independent IEEE 802.11 
--	networking stack.  This option will also select NET_RADIO.
-+	networking stack.
- 
-@@ -38,5 +38,3 @@
- 	Include software based cipher suites in support of IEEE 
--	802.11's WEP.  This is needed for WEP as well as 802.1x.  This 
--	selects ARC4 under kernel crypto libraries, and CRC32 under 
--	kernel libraries. 
-+	802.11's WEP.  This is needed for WEP as well as 802.1x.
- 
-@@ -52,4 +50,3 @@
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
--	networks.  This selects AES support under kernel crypto 
--	libraries.
-+	networks.
- 
-@@ -65,4 +62,3 @@
- 	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with TKIP enabled 
--	networks.  This selects Michael Mic support under kernel crypto 
--	libraries. 
-+	networks.
- 
+Alex
+
+PS, please CC: me as I'm not subscribed.
