@@ -1,33 +1,71 @@
-From: Stefan Schmidt <zaphodb@zaphods.net>
-Subject: Re: 2.6.10-rc1-mm4 -1 EAGAIN after allocation failure was: Re: Kernel 2.6.9 Multiple Page Allocation Failures
-Date: Wed, 10 Nov 2004 13:48:11 +0100
-Message-ID: <20041110124810.GG28163@zaphods.net>
-References: <20041109223558.GR1309@mail.muni.cz> <20041109144607.2950a41a.akpm@osdl.org> <20041109235201.GC20754@zaphods.net> <20041110012733.GD20754@zaphods.net> <20041109173920.08746dbd.akpm@osdl.org> <20041110020327.GE20754@zaphods.net> <419197EA.9090809@cyberone.com.au> <20041110102854.GI20754@zaphods.net> <20041110120624.GF28163@zaphods.net> <20041110085831.GB10740@logos.cnet>
+From: Mark Borst <mark@borst.org>
+Subject: Re: node-local multicast issues
+Date: Wed, 10 Nov 2004 16:17:31 +0200
+Message-ID: <1100096251.22964.7.camel@mn-2>
+References: <OF18E2258F.5E2E252A-ON88256F47.007FA9FD-88256F47.0080590C@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Nick Piggin <piggin@cyberone.com.au>,
-	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261797AbUKJMsg@vger.kernel.org>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-Content-Disposition: inline
-In-Reply-To: <20041110085831.GB10740@logos.cnet>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: hessu@cs.tut.fi, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF18E2258F.5E2E252A-ON88256F47.007FA9FD-88256F47.0080590C@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 10, 2004 at 06:58:31AM -0200, Marcelo Tosatti wrote:
-> > > > Can you try the following patch, please? It is diffed against 2.6.10-rc1,
-> > I did. No apparent change with mm4 and vm.min_free_kbytes = 8192. I will try
-> > latest bk next.
+On Tue, 2004-11-09 at 15:21 -0800, David Stevens wrote:
+>         The loopback device doesn't have IFF_MULTICAST set, so technically
+> it is not a multicast-capable device, and you shouldn't be able to join a 
+> group on it. 
 
-> > > I set it back to CONFIG_PACKET_MMAP=y and if the application does not freeze
-> > > for some hours at this load we can blame at least this issue (-1 EAGAIN) on
-> > > that parameter.
-> > Nope, that didn't change anything, still getting EAGAIN, checked two times.
-> Its not clear to me - do you have Nick's watermark patch in? 
-Yes i have vm.min_free_kbytes=8192 and Nick's patch in mm4. I'll try
-rc1-bk19 with his restore-atomic-buffer patch in a few minutes.
+That is Linux-specific, right? At least KAME's 'lo' does support
+multicast, and their README says: 
 
-	Stefan
+Each interface joins the solicited multicast address and the
+link-local all-nodes multicast addresses (e.g.  fe80::1:ff01:6317
+and ff02::1, respectively, on the link the interface is attached).
+In addition to a link-local address, the loopback address (::1) will be
+assigned to the loopback interface.  Also, ::1/128 and ff01::/32 are
+automatically added to routing table, and loopback interface joins
+node-local multicast group ff01::1.
+
+On Windows I don't see 'lo' joining ff01::1.
+
+RFC 3513 tells me:
+
+2.7.1 Pre-Defined Multicast Addresses
+
+    All Nodes Addresses:    FF01:0:0:0:0:0:0:1
+                              FF02:0:0:0:0:0:0:1
+
+   The above multicast addresses identify the group of all IPv6 nodes,
+   within scope 1 (interface-local) or 2 (link-local).
+
+Does that imply that the linux stack doesn't conform to RFC 3513?
+
+> I think the way it ought to work is that you join the group on any device, 
+> with IPV6_MULTICAST_LOOP set and local guys should hear the node-local 
+> multicasts, but it shouldn't be sent on the wire. Multicasting could be supported on 
+> loopback, too, but it doesn't matter all that much unless there are no multicast-capable 
+> real devices.
+
+>         However, it appears that node-local multicasts are being sent out 
+> the device, at least on an early 2.6 kernel I did a quick test with. There probably 
+> isn't anything enforcing the node-locality in the send path, which I would consider a 
+> bug. :-)
+
+Even more interesting: an other node responded to 'ping6 ff01::1' so
+there is some bug somewhere ;)
+
+On another note: 'ping6 ff02::1' gives "connect: Invalid argument" on
+linux. On KAME it says "ping6: UDP connect: Network is unreachable". The
+only implementation that gives me replies is Solaris. This also sounds
+like a bug to me.
+
+Regards,
 -- 
-The reason computer chips are so small is computers don't eat much.
+Mark Borst
+Researcher
+Network and Protocols Group
+Tampere University of Technology, Finland
