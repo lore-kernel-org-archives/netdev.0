@@ -1,101 +1,87 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Billing 3-1: WAS(Re: [PATCH 2/4] deferred drop,
-	__parent	workaround, reshape_fail , netdev@oss.sgi.com ,
-Date: 23 Aug 2004 08:31:11 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093264271.1040.813.camel@jzny.localdomain>
-References: <411C0FCE.9060906@crocetta.org>
-	 <1092401484.1043.30.camel@jzny.localdomain>
-	 <20040816072032.GH15418@sunbeam2>
-	 <1092661235.2874.71.camel@jzny.localdomain> <4120D068.2040608@crocetta.org>
-	 <1092743526.1038.47.camel@jzny.localdomain>  <41220AEA.20409@crocetta.org>
-	 <1093191124.1043.206.camel@jzny.localdomain>
-	 <4129BB3A.9000007@crocetta.org>
-	 <1093261128.1044.759.camel@jzny.localdomain>
-	 <4129DD47.5030807@crocetta.org>
-Reply-To: hadi@cyberus.ca
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] enhanced version of net_random()
+Date: Mon, 23 Aug 2004 10:05:47 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040823100547.33b7a448@dell_ss3.pdx.osdl.net>
+References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
+	<20040820175952.GI5806@certainkey.com>
+	<20040820185956.GV8967@schnapps.adilger.int>
+	<Pine.LNX.4.53.0408201518250.25319@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@netfilter.org>, devik@cdi.cz, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: sandr8 <sandr8_NOSPAM_@crocetta.org>
-In-Reply-To: <4129DD47.5030807@crocetta.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Andreas Dilger <adilger@clusterfs.com>,
+	Jean-Luc Cooke <jlcooke@certainkey.com>,
+	"David S. Miller" <davem@redhat.com>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	"Theodore Ts'o" <tytso@mit.edu>, netdev@oss.sgi.com,
+	Linux kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265973AbUHWRHI@vger.kernel.org>
+To: root@chaos.analogic.com
+In-Reply-To: <Pine.LNX.4.53.0408201518250.25319@chaos>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-08-23 at 08:04, sandr8 wrote:
-> jamal wrote:
+
+> The attached code will certainly work on Intel machines. It is
+> in the public domain, having been modified by myself to produce
+> a very long sequence...
+> 
+> I wouldn't suggest converting it to 'C' because the rotation
+> takes many CPU instructions when one tries to do the test, shift,
+> and OR in 'C',
+> 
+> Cheers,
+> Dick Johnson
+> Penguin : Linux version 2.4.26 on an i686 machine (5570.56 BogoMips).
+>             Note 96.31% of all statistics are fiction.
+> 
 > 
 
-> so, maybe we are saying the same thing but in different words :)
+My choice of PRNG was not random. I am not a mathematician (IANAM),
+but what I was looking for was:
 
-Probably ;->
++ well researched
++ fast
++ good distribution
++ small seed (since per cpu)
++ Free and open
 
-> if we blindly look at layer 3 and unbill when a packet is dropped,
-> then the retransmission is already unbilled :)
-> it will be billed when it takes place, but the first transmission that
-> underwent a drop has been unbilled and hence we are square.
-> this without looking at layer 4.
+The second version uses tausworthe because it was the fastest in the GNU scientific
+library and had good properties.
 
-Agreed.
+See:
 
-> what i was thinking about was mimicking the conntracking at
-> a device level, having per each device a singleton object that
-> has the same buckets as the connection tracking. it could
-> store a lot of interesting information that would augment queuing
-> disciplines to better share the pain of drops and also to perform
-> per-connection head drops instead of connection-unaware
-> tail-drop.
+http://www1.physik.tu-muenchen.de/~gammel/matpack/html/LibDoc/Numbers/Random.html
+----------
+Returns integer pseudorandom numbers uniformly distributed within [0,4294967295].
+The period length is approximately 288 (which is 3*1026).
 
-This connection exists today in the form of marking. Let conmtracking
-mark then use fw classifier at the qdisc. If i am not mistaken theres
-something more powerful these days called conmarking.
-Now if you did it like that then you dont need Haralds code and it will
-be much easier to maintain (refer to my earlier email).
+This is Pierre L'Ecuyer's 1996 three-component Tausworthe generator "taus88"
 
-> this would improve fairness and shorten the time tcp sources
-> need to get the feedback, in a better way than random early
-> drop does.
+This generator is very fast and passes all standard statistical tests.
 
-Contracking is a horrible performance pig. I dont even turn it on. Dont
-make it a requirement to turn it on.
+P. L'Ecuyer, Maximally equidistributed combined Tausworthe generators, Mathematics of Computation 65, 203-213 (1996), see Figure 4.
+P. L'Ecuyer, Random number generation, chapter 4 of the Handbook on Simulation, Ed. Jerry Banks, Wiley, 1997.
+--------
+http://www.gnu.org/software/gsl/manual/gsl-ref_17.html
 
-> having this structure at a device level would be an answer
-> for the issue of packets cloned to multiple interfaces, as we
-> would be augmented to perform a separate accounting for
-> each interface (which seems, afaik, reasonable... in most
-> cases we would account on a single interface, and we also
-> should likely get less hash collisions... no more than in the
-> centralized conntrack).
+Performance
+The following table shows the relative performance of a selection the available random number generators. The fastest simulation quality generators are taus, gfsr4 and mt19937. The generators which offer the best mathematically-proven quality are those based on the RANLUX algorithm.
 
-Heres a thought:
-Make it a tc action.
---> netfilter: contrack --> conmark
---> qdisc: classify via fw -> billing action bill
--------->                      attach table index + lock to skb 
--------->   deal with any unfairness on enqueue by using index
--------->   and fine grained lock found in skb
+1754 k ints/sec,    870 k doubles/sec, taus
+1613 k ints/sec,    855 k doubles/sec, gfsr4
+1370 k ints/sec,    769 k doubles/sec, mt19937
+ 565 k ints/sec,    571 k doubles/sec, ranlxs0
+ 400 k ints/sec,    405 k doubles/sec, ranlxs1
+ 490 k ints/sec,    389 k doubles/sec, mrg
+ 407 k ints/sec,    297 k doubles/sec, ranlux
+ 243 k ints/sec,    254 k doubles/sec, ranlxd1
+ 251 k ints/sec,    253 k doubles/sec, ranlxs2
+ 238 k ints/sec,    215 k doubles/sec, cmrg
+ 247 k ints/sec,    198 k doubles/sec, ranlux389
+ 141 k ints/sec,    140 k doubles/sec, ranlxd2
 
-on skb freeing make sure you delete the index and lock.
-On cloning, what to do?
-
-Note i do plan to have a contracking action at the qdisc level.
-Let me know if that is useful to you then i can prioritize.
-
-> furthermore, the per-bucket lock you suggested, that should
-> be a good compromise, would also not "interfere" from one
-> interface to the other one. well... maybe as soon as enqueues
-> and dequeues on the same device stay serialized (thanks to
-> dev->queue_lock) we should not need that further lock
-> either.
-
-Possibly yes.
-
-> does it make sense?
-
-I think it does. Make sure you double check the rules i posted earlier.
-
-cheers,
-jamal
+1852 k ints/sec,    935 k doubles/sec, ran3
+ 813 k ints/sec,    575 k doubles/sec, ran0
+ 787 k ints/sec,    476 k doubles/sec, ran1
+ 379 k ints/sec,    292 k doubles/sec, ran2
