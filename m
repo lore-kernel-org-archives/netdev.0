@@ -1,32 +1,32 @@
-From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: Re: [patch 1/2] net/orinoco_plx: replace schedule_timeout() with ssleep()
-Date: Mon, 7 Mar 2005 11:57:36 +1100
-Message-ID: <20050307005736.GA19547@localhost.localdomain>
-References: <20050306222140.6ACE51EC90@trashy.coderock.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
+Date: Mon, 7 Mar 2005 12:24:58 +1100
+Message-ID: <20050307012458.GA4335@gondor.apana.org.au>
+References: <E1D7t0w-0008Qa-00@gondolin.me.apana.org.au> <422AF8D0.3010905@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: proski@gnu.org, netdev@oss.sgi.com, nacc@us.ibm.com,
-        janitor@sternwelten.at
-To: domen@coderock.org
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <20050306222140.6ACE51EC90@trashy.coderock.org>
+In-Reply-To: <422AF8D0.3010905@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 06, 2005 at 11:21:40PM +0100, domen@coderock.org wrote:
+On Sun, Mar 06, 2005 at 01:34:24PM +0100, Patrick McHardy wrote:
 > 
-> Use ssleep() instead of schedule_timeout()
-> to guarantee the task delays as expected.
-> 
-> Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
-> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-> Signed-off-by: Domen Puncer <domen@coderock.org>
+> How about this one ? It keeps the DST_XFRM_TUNNEL flag and sets it on
+> the first xfrm_dst in a bundle. I know it doesn't really belong there,
 
-Already in CVS, patch already sent to Jeff.  Likewise for orinoco_tmd.
+Actually, why do we need to treat tunnel mode differently here?
+In other words, why not just do the mark/tos checks unconditionally.
 
+Forwarded packets don't get a proper tos/mark setting for IPsec
+but that's a bug in itself.
+
+Cheers,
 -- 
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist.  NOT _the_ _other_ _way_
-				| _around_!
-http://www.ozlabs.org/people/dgibson
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
