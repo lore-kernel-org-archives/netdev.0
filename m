@@ -1,35 +1,50 @@
-From: "Mr. James W. Laferriere" <babydr@baby-dragons.com>
-Subject: Re: patch for common networking error messages
-Date: Tue, 17 Jun 2003 10:34:45 -0400 (EDT)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: kill 2 warnings in net/ipv6/ip6_tunnel.c
+Date: Wed, 18 Jun 2003 00:07:28 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.56.0306171033020.6807@filesrv1.baby-dragons.com>
-References: <OFDD16F58E.35149C65-ON85256D47.0081D564@us.ibm.com>
- <20030616.181946.22044667.davem@redhat.com>
+Message-ID: <20030618.000728.77526626.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Kernel Maillist <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: vnuorval@tcs.hut.fi, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030616.181946.22044667.davem@redhat.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hello Dave ,  I know your time is constrained .  BUT DAMN IT there
-	were other questions ask in the (partially quoted) email you are
-	replying to .  Some of those answers would be nice to know .
-		RSVP ,  JimL
+Hello.
 
-On Mon, 16 Jun 2003, David S. Miller wrote:
->    From: Janice Girouard <girouard@us.ibm.com>
->    Date: Mon, 16 Jun 2003 19:44:22 -0500
->    It sounds like you are proposing a new family for the netlink
->    subsystem.
+This patch kills 2 warnings in net/ipv6/ip6_tunnel.c.
 
-> Exactly, you have to create this.
+Thanks.
+
+Index: linux25-LINUS/net/ipv6/ip6_tunnel.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux25/net/ipv6/ip6_tunnel.c,v
+retrieving revision 1.1.1.1
+diff -u -r1.1.1.1 ip6_tunnel.c
+--- linux25-LINUS/net/ipv6/ip6_tunnel.c	10 Jun 2003 13:21:55 -0000	1.1.1.1
++++ linux25-LINUS/net/ipv6/ip6_tunnel.c	17 Jun 2003 14:47:00 -0000
+@@ -230,8 +230,6 @@
+ 	dev->init = ip6ip6_tnl_dev_init;
+ 	memcpy(&t->parms, p, sizeof (*p));
+ 	t->parms.name[IFNAMSIZ - 1] = '\0';
+-	if (t->parms.hop_limit > 255)
+-		t->parms.hop_limit = -1;
+ 	strcpy(dev->name, t->parms.name);
+ 	if (!dev->name[0]) {
+ 		int i = 0;
+@@ -952,7 +950,7 @@
+ 	ipv6_addr_copy(&t->parms.laddr, &p->laddr);
+ 	ipv6_addr_copy(&t->parms.raddr, &p->raddr);
+ 	t->parms.flags = p->flags;
+-	t->parms.hop_limit = (p->hop_limit <= 255 ? p->hop_limit : -1);
++	t->parms.hop_limit = p->hop_limit;
+ 	t->parms.encap_limit = p->encap_limit;
+ 	t->parms.flowinfo = p->flowinfo;
+ 	ip6ip6_tnl_link_config(t);
 
 -- 
-       +------------------------------------------------------------------+
-       | James   W.   Laferriere | System    Techniques | Give me VMS     |
-       | Network        Engineer |     P.O. Box 854     |  Give me Linux  |
-       | babydr@baby-dragons.com | Coudersport PA 16915 |   only  on  AXP |
-       +------------------------------------------------------------------+
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
