@@ -1,198 +1,84 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 2/3] r8169: code clean-up
-Date: Sun, 20 Feb 2005 22:54:23 -0600
-Message-ID: <200502202254.23511.jdmason@us.ibm.com>
-References: <200502161823.43562.jdmason@us.ibm.com> <200502201204.23468.jdmason@us.ibm.com> <20050220233405.GA14268@electric-eye.fr.zoreil.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: Frequent Oops on Shutdown 2.6.10
+Date: Sun, 20 Feb 2005 22:03:04 -0800
+Message-ID: <20050220220304.1f2bd42f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050220233405.GA14268@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: AndyLiebman@aol.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 20 February 2005 05:34 pm, Francois Romieu wrote:
-[...]
-> > True, but this problem existed before I made the jumbo frames changes.  The 
-> 
-> AFAIKS, if the rx_copybreak fails, be it because the packet is too big or
-> because the allocation failed, the current skb is sent to the upper layers.
-
-You are correct, I misunderstood the error path of the previous rx_copy routine.  
-
-> > static inline int rtl8169_rx_copy(struct sk_buff **sk_buff, int pkt_size,
-> >                               struct RxDesc *desc, struct rtl8169_private *tp)
-> > {
-> >         u32 status = le32_to_cpu(desc->opts1);
-> > 
-> >         if ((pkt_size > rx_copybreak) &&
-> >                         ((status & FirstFrag) && (status & LastFrag)))
-> >                 return -1;
-> > 
-> >         if (status & FirstFrag) {
-> >                 struct sk_buff *skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
-> >                 u32 len = (pkt_size > rx_copybreak) ? tp->desc_part : pkt_size;
-> > 
-> >                 if (skb) {
-> >                         skb_reserve(skb, NET_IP_ALIGN);
-> >                         memcpy(skb->data, sk_buff[0]->tail, len);
-> >                         skb_put(skb, len);
-> >                 } else {
-> >                         printk(KERN_INFO "no rx skb allocated\n");
-> >                         if (pkt_size <= rx_copybreak) 
-> >                                 return -1;
-> >                 }
-> > 
-> >                 tp->new_skb = skb;
-> >         }
-> > 
-> > Is this acceptable?
-> 
-> I'll think more until I can figure I got the whole picture (only copy the
-> first frament ?). I would have expected something like the mess below:
-> 
-> static int rtl8169_rx_copy(struct sk_buff **sk_buff, int pkt_size,
->       struct RxDesc *desc, struct rtl8169_private *tp)
-> {
->  u32 status = le32_to_cpu(desc->opts1);
->  struct sk_buff *skb;
->  int ret = -1;
-> 
->  if ((pkt_size > rx_copybreak) && (status & FirstFrag) &&
->      (status & LastFrag)) {
->   goto out;
->  }
-> 
->  if (pkt_size < rx_copybreak) {
->   skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
->   if (!skb)
->    goto out;
->   skb_reserve(skb, NET_IP_ALIGN);
->  } else if (status & FirstFrag)
->   skb = tp->new_skb = sk_buff[0];
-> 
->  if ((pkt_size < rx_copybreak) || !(status & FirstFrag)) {
->   memcpy(skb->data, sk_buff[0]->tail, pkt_size);
->   rtl8169_return_to_asic(desc, tp->rx_buf_sz);
->   *sk_buff = skb;
->   ret = 0;
->  }
-> 
->  skb_put(skb, pkt_size);
-> 
-> out:
->  return ret;
-> }
-> 
-> At this point I'd expect "How do you handle rtl8169_rx_copy() return ?" 
-> (or "yuck").
-
-My main problem with the above patch is that is assumes that there will be a maximum of 2 descriptors per jumbo frame (which isn't the case).  This might have been caused by my incomplete patch given above.  This is what I currently have:
-static inline int rtl8169_rx_copy(struct sk_buff **sk_buff, int pkt_size,
-                                struct RxDesc *desc, struct rtl8169_private *tp)
-{
-        u32 status = le32_to_cpu(desc->opts1);
-
-        if ((pkt_size > rx_copybreak) &&
-                        ((status & FirstFrag) && (status & LastFrag)))
-                return -1;
-
-        if (status & FirstFrag) {
-                u32 len = (pkt_size > rx_copybreak) ? tp->desc_part : pkt_size;
-                struct sk_buff *skb = dev_alloc_skb(pkt_size + NET_IP_ALIGN);
-                if (skb) {
-                        skb_reserve(skb, NET_IP_ALIGN);
-                        memcpy(skb->data, sk_buff[0]->tail, len);
-                        skb_put(skb, len);
-                } else {
-                        printk(KERN_INFO "no rx skb allocated\n");
-                        if (pkt_size <= rx_copybreak)
-                                return -1;
-                }
-
-                tp->new_skb = skb;
-        }
-
-        if (!(status & FirstFrag) && !(status & LastFrag) && tp->new_skb) {
-                memcpy(tp->new_skb->tail, sk_buff[0]->tail, tp->desc_part);
-                skb_put(tp->new_skb, tp->desc_part);
-        }
-
-        if (status & LastFrag) {
-                if (pkt_size > rx_copybreak && tp->new_skb) {
-                        memcpy(tp->new_skb->tail, sk_buff[0]->tail,
-                                        pkt_size - tp->new_skb->len);
-
-                        skb_put(tp->new_skb, pkt_size - tp->new_skb->len);
-                }
-
-                *sk_buff = tp->new_skb;
-        }
-
-        rtl8169_return_to_asic(desc, tp->rx_buf_sz);
-
-        return 0;
-}
 
 
+Begin forwarded message:
 
-> [...]
-> > If I am still not making sense, I can be more verbose.
-> 
-> Enlight me with the code, just to be sure.
-
-Working (but still hackish) patch:
---- drivers/net/r8169.c.0220    2005-02-20 22:45:07.000000000 -0600
-+++ drivers/net/r8169.c 2005-02-20 22:43:27.000000000 -0600
-@@ -1663,7 +1663,8 @@ static void rtl8169_free_rx_skb(struct r
- {
-        struct pci_dev *pdev = tp->pci_dev;
-
--       pci_unmap_single(pdev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
-+       //pci_unmap_single(pdev, le64_to_cpu(desc->addr), tp->rx_buf_sz,
-+       pci_unmap_single(pdev, le64_to_cpu(desc->addr), tp->desc_part+ETH_HLEN,
-                         PCI_DMA_FROMDEVICE);
-        dev_kfree_skb(*sk_buff);
-        *sk_buff = NULL;
-@@ -1694,14 +1695,14 @@ static int rtl8169_alloc_rx_skb(struct r
-        dma_addr_t mapping;
-        int ret = 0;
-
--       skb = dev_alloc_skb(rx_buf_sz + NET_IP_ALIGN);
-+       skb = dev_alloc_skb(tp->desc_part + ETH_HLEN + NET_IP_ALIGN);
-        if (!skb)
-                goto err_out;
-
-        skb_reserve(skb, NET_IP_ALIGN);
-        *sk_buff = skb;
-
--       mapping = pci_map_single(tp->pci_dev, skb->tail, rx_buf_sz,
-+       mapping = pci_map_single(tp->pci_dev, skb->tail, tp->desc_part+ETH_HLEN,
-                                 PCI_DMA_FROMDEVICE);
-
-        rtl8169_give_to_asic(desc, mapping, rx_buf_sz);
-@@ -2225,7 +2226,7 @@ rtl8169_rx_interrupt(struct net_device *
-                        rtl8169_rx_csum(skb, desc);
-
-                        pci_dma_sync_single_for_cpu(tp->pci_dev,
--                               le64_to_cpu(desc->addr), tp->rx_buf_sz,
-+                               le64_to_cpu(desc->addr), tp->desc_part+ETH_HLEN,
-                                PCI_DMA_FROMDEVICE);
-
-                        if (rtl8169_rx_copy(&skb, pkt_size, desc, tp)) {
-@@ -2235,7 +2236,7 @@ rtl8169_rx_interrupt(struct net_device *
-                        }
-
-                        pci_action(tp->pci_dev, le64_to_cpu(desc->addr),
--                                  tp->rx_buf_sz, PCI_DMA_FROMDEVICE);
-+                                  tp->desc_part+ETH_HLEN, PCI_DMA_FROMDEVICE);
-
-                        if (skb && (status & LastFrag)) {
-                                skb->dev = dev;
+Date: Sun, 20 Feb 2005 09:56:04 EST
+From: AndyLiebman@aol.com
+To: linux-kernel@vger.kernel.org
+Subject: Frequent Oops on Shutdown 2.6.10
 
 
-A more complete patch to follow shortly (as I want to try and fix my tabs problem).
+Hi, 
+I compiled the 2.6.10 kernel with HyperThreading optimization (I'm  running a 
+3.06 Ghz single Xeon processor with HT enabled). More or less, I'm  running 
+Mandrake 10 Official, but with my own kernel. Can anybody help explain  why I'm 
+getting this Oops on shutdown? It doesn't happen all the time -- about  50 
+percent of the time. Never happens with the 2.6.6 kernel. I configured the  
+2.6.10 kernel with mostly the same settings -- saying "no" to everything new,  
+except optimizing for P4/Xeon processor, enabling HT optimization, and NOT  
+enabling lots of "ham radio" and "ISDN" stuff that seemed to be enabled in the  
+Mandrake kernel. 
+ 
+Some relevant things about the machine: 
+Single Xeon 3.06 processor
+2 GB ECC RAM
+2x 3ware 9500S-8 SATA RAID Cards
+16 SATA drives
+2 built-in GigE ports on motherboard
+2 Intel 1000 MT Server Adapters on each of the two 133 Mhz  PCI-X slots
+ 
+Here's the output from the Oops
+
+
+*pde = 00000000
+Oops:  0000 [#1]
+SMP
+Modules linked in: raid) appletalk xfs sd_mod sg sr_mod  3w_9xxx scsi_mod 
+nfsd exportfs ipv6 af_packet raw ide_floppy ide_tape ide_cd  cdrom e1000 uhci_hcd 
+usbcore rtc ext3 jbd
+CPU: 1
+EIP:  0060:[<c018b600>] Not tainted VLI
+EFLAGS: 00010246  (2.6.10es-feb06)
+EIP is at remove_proc_entry+0x2a/0x166
+eax: 00000000 ebx:  f66a4e00 ecx: ffffffff edx: f6da1300
+esi: f7cfb000 edi: 00000005 ebp:  c2183eb4 esp: c2183e94
+ds: 007b es: 007b ss: 0068
+Process swapper (pid: 0,  threadinfo=c2182000 task=c214e520)
+Stack: c043402c c043402c 00000000 c2024980  00000005 f66a4e00 f7cfb000 
+00000000 c2183ec8 f8c4f051 00000005 f6da1300 f66a4e00  c2183ee8 f8c2cc7b f66a4e00 
+c2024980 00000002 00000000 f6da7e80 f6da6080 c2183f04  c0289967 f66a4e00
+Call Trace: 
+[<c0103352>]  show_stack+0xaf/0xb7
+[<c01034d9>]  show_registers+0x15f/0x1d2
+[<c01036dd>]  die+0xfa/0x180
+[<c011365e>]  do_page_fault+0x464/0x646
+[<c0102fbf>]  error_code+0x2b/0x30
+[<f8c4f051>] snmp6_unregister_dev+0x41/0x57  [ipv6]
+[<f8c2cc7b>] in6_dev_finish_destroy+0x35/0xb6  [ipv6]
+[<c0289967>] dst_destroy+0xa2/0xcd
+[<c028969a>]  dst_run_gc+0x72/0xfb
+[<c0123584>]  run_timer_softirq+0xc4/0x185
+[<c011f631>]  __do_softirq+0x65/0xd3
+[<c011f6d0>]  do_softirq+0x31/0x33
+[<c0102f18>]  apic_timer_interrupt+0x1c/0x24
+[<c0100747>]  cpu_idle+0x31/0x3f
+[<00000000>] 0x0
+[<c2183fbc>]  0xc2183fbc
+Code: e2 55 89 ef 83 ec 20 8b 55 0c 8b 4d 08 89 5d f4 85 d2 89 75  f8 89 7d 
+fc 89 4d f0 0f 84 b0 00 00 00 8b 7d f0 31 c0 b9 ff ff ff ff <f2>  ae f7 d1 49 
+8b 42 34 8d 5a 34 85 c0 89 ce 0f 84 84 00 00 00 
+<0>Kernel  panic ___ not syncing: Fatal exception in interrupt
+ 
