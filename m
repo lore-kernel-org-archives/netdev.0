@@ -1,43 +1,44 @@
-From: Andi Kleen <ak@suse.de>
+From: Dave Hansen <haveblue@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 6 Sep 2002 20:26:46 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20020906202646.A2185@wotan.suse.de>
-References: <3D78C9BD.5080905@us.ibm.com> <53430559.1031304588@[10.10.2.3]> <3D78E7A5.7050306@us.ibm.com>
+Date: Fri, 06 Sep 2002 11:33:10 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3D78F4E6.3020101@us.ibm.com>
+References: <3D78C9BD.5080905@us.ibm.com> <53430559.1031304588@[10.10.2.3]> <3D78E7A5.7050306@us.ibm.com> <20020906202646.A2185@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>,
-	"David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
-	tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, Nivedita Singhvi <niv@us.ibm.com>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Dave Hansen <haveblue@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <3D78E7A5.7050306@us.ibm.com>
+   "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
+   tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   Nivedita Singhvi <niv@us.ibm.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Andi Kleen <ak@suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> c0106e59 42693    1.89176     restore_all
-> c01dfe68 42787    1.89592     sys_socketcall
-> c01df39c 54185    2.40097     sys_bind
-> c01de698 62740    2.78005     sockfd_lookup
-> c01372c8 97886    4.3374      fput
-> c022c110 125306   5.55239     __generic_copy_to_user
-> c01373b0 181922   8.06109     fget
-> c020958c 199054   8.82022     tcp_v4_get_port
-> c0106e10 199934   8.85921     system_call
-> c022c158 214014   9.48311     __generic_copy_from_user
-> c0216ecc 257768   11.4219     inet_bind
+Andi Kleen wrote:
+>>c0106e59 42693    1.89176     restore_all
+>>c01dfe68 42787    1.89592     sys_socketcall
+>>c01df39c 54185    2.40097     sys_bind
+>>c01de698 62740    2.78005     sockfd_lookup
+>>c01372c8 97886    4.3374      fput
+>>c022c110 125306   5.55239     __generic_copy_to_user
+>>c01373b0 181922   8.06109     fget
+>>c020958c 199054   8.82022     tcp_v4_get_port
+>>c0106e10 199934   8.85921     system_call
+>>c022c158 214014   9.48311     __generic_copy_from_user
+>>c0216ecc 257768   11.4219     inet_bind
+> 
+> The profile looks bogus. The NIC driver is nowhere in sight. Normally
+> its mmap IO for interrupts and device registers should show. I would
+> double check it (e.g. with normal profile) 
 
-The profile looks bogus. The NIC driver is nowhere in sight. Normally
-its mmap IO for interrupts and device registers should show. I would
-double check it (e.g. with normal profile) 
+Actually, oprofile separated out the acenic module from the rest of the 
+kernel.  I should have included that breakout as well. but it was only 1.3 
+of CPU:
+1.3801 0.0000 /lib/modules/2.4.18+O1/kernel/drivers/net/acenic.o
 
-In case it is no bogus: 
-Most of these are either atomic_inc/dec of reference counters or some
-form of lock. The system_call could be the int 0x80 (using the SYSENTER
-patches would help), which also does atomic operations implicitely.
-restore_all is IRET, could also likely be speed up by using SYSEXIT.
 
-If NAPI hurts here then it surely not because of eating CPU time.
-
--Andi
+-- 
+Dave Hansen
+haveblue@us.ibm.com
