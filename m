@@ -1,54 +1,41 @@
-From: Peter Buckingham <peter@pantasys.com>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 17 Jan 2005 14:13:40 -0800
-Message-ID: <41EC3894.9090304@pantasys.com>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1105363092.1041.146.camel@jzny.localdomain> <1105917038.1091.1041.camel@jzny.localdomain> <200501171404.19451.hasso@estpak.ee> <41EC3680.7060108@tpack.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Iproute2: update
+Date: Mon, 17 Jan 2005 14:24:13 -0800
+Message-ID: <20050117142413.3ef1fb63@dxpl.pdx.osdl.net>
+References: <20050112125903.64d42737@dxpl.pdx.osdl.net>
+	<1105895352.1091.705.camel@jzny.localdomain>
+	<1105897532.1097.749.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>, hadi@cyberus.ca,
-        Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <41EC3680.7060108@tpack.net>
+To: hadi@znyx.com
+In-Reply-To: <1105897532.1097.749.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On 16 Jan 2005 12:45:32 -0500
+Jamal Hadi Salim <hadi@znyx.com> wrote:
 
-Tommy Christensen wrote:
-> A proper solution would take care of both these issues: "stale packets"
-> and "socket blocking". They are pretty much related.
+> On Sun, 2005-01-16 at 12:09, jamal wrote:
+> > Here's one fix
+> > 
 > 
-> Using a socket for each interface *ought* not be needed.
-> Carrier detection sounds like a good thing in its own right.
+> And another one from before that is missing from the current version.
+> Also something for the makefile - You may be unhappy with the way the
+> IPT_INCL is defined in the makefile.
 
-I came across this same problem with multicast/unicast with an e1000. 
-For a quick hack we just check to see whether the carrier is ok, if it's 
-not we just drop the packet. this might do some nasty things with tcp 
-and it may be better to check to see wither the socket buffer is full, 
-but this works for me here... (this is against a 2.6.9ish kernel)
+Yup, I am not going to let the in. I put the iptables headers
+needed in include.
 
-peter
+> Feel free to move it to configure etc or even kill it if it works
+> without it.
+> 
+> cheers,
+> jamal
 
-Index: net/core/dev.c
-===================================================================
---- net/core/dev.c
-+++ net/core/dev.c
-@@ -1379,6 +1379,11 @@
-  #ifdef CONFIG_NET_CLS_ACT
-  	skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
-  #endif
-+	if (!netif_carrier_ok(dev)) {
-+		rc = NET_XMIT_DROP;
-+		goto out_kfree_skb;
-+	}
-+
-  	if (q->enqueue) {
-  		/* Grab device queue */
-  		spin_lock(&dev->queue_lock);
+
+-- 
+Stephen Hemminger	<shemminger@osdl.org>
