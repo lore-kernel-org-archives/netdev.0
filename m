@@ -1,32 +1,71 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
-Date: Wed, 20 Oct 2004 07:54:01 +1000
+From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+Subject: [PATCH 2.6.9] skge: netpoll support
+Date: Tue, 19 Oct 2004 23:58:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041019215401.GA16427@gondor.apana.org.au>
-References: <E1CK1e6-0004F3-00@gondolin.me.apana.org.au> <1098222676.23367.18.camel@krustophenia.net>
+Message-ID: <41758E11.2040402@stud.feec.vutbr.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: vda@port.imtp.ilyichevsk.odessa.ua,
-        Linux Network Development <netdev@oss.sgi.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>
+Content-Type: multipart/mixed;
+ boundary="------------010106020101040906010301"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lee Revell <rlrevell@joe-job.com>
-Content-Disposition: inline
-In-Reply-To: <1098222676.23367.18.camel@krustophenia.net>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 19, 2004 at 05:51:17PM -0400, Lee Revell wrote:
-> 
-> Ok, here is the correct patch.  If this is really just a matter of
-> performance, and not required for correctness, disabling preemption is
-> broken, right?
+This is a multi-part message in MIME format.
+--------------010106020101040906010301
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-No if you're doing this then you should get rid of netif_rx_ni()
-altogether.  But before you do that please ask all the people who
-call it.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hi,
+The attached patch adds netconsole support for sk98lin.
+
+Signed-off-by: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+
+--------------010106020101040906010301
+Content-Type: text/plain;
+ name="sk98lin-netpoll.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sk98lin-netpoll.diff"
+
+diff -Nurp linux-2.6.9/drivers/net/sk98lin/skge.c linux-2.6.9-mich/drivers/net/sk98lin/skge.c
+--- linux-2.6.9/drivers/net/sk98lin/skge.c	2004-10-18 23:53:22.000000000 +0200
++++ linux-2.6.9-mich/drivers/net/sk98lin/skge.c	2004-10-19 23:53:39.621533536 +0200
+@@ -1126,6 +1126,24 @@ SK_U32		IntSrc;		/* interrupts source re
+ 		return SkIsrRetHandled;
+ } /* SkGeIsrOnePort */
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/****************************************************************************
++ *
++ * 	SkGePollController - polling receive, for netconsole
++ *
++ * Description:
++ *	Polling receive - used by netconsole and other diagnostic tools
++ *	to allow network i/o with interrupts disabled.
++ *
++ * Returns: N/A
++ */
++static void SkGePollController(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	SkGeIsr(dev->irq, dev, NULL);
++	enable_irq(dev->irq);
++}
++#endif
+ 
+ /****************************************************************************
+  *
+@@ -4960,6 +4978,9 @@ static int __devinit skge_probe_one(stru
+ 	dev->set_mac_address =	&SkGeSetMacAddr;
+ 	dev->do_ioctl =		&SkGeIoctl;
+ 	dev->change_mtu =	&SkGeChangeMtu;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller =	&SkGePollController;
++#endif
+ 	dev->flags &= 		~IFF_RUNNING;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+
+--------------010106020101040906010301--
