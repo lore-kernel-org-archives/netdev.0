@@ -1,28 +1,40 @@
-From: Patattenboerken <potatoehead@fusionphp.net>
-Subject: Visit FusionPHP.net TODAY, We are back for good !!!
-Date: Mon, 28 Feb 2005 21:24:55 -0500
-Message-ID: <E1D5x4B-0004de-3o@sh60.surpasshosting.com>
-Reply-To: patattenboerken@gmail.com
-To: netdev@oss.sgi.com
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2/2] r8169: RTL8169_registers clean-up
+Date: Mon, 28 Feb 2005 21:30:17 -0500
+Message-ID: <4223D3B9.8010604@pobox.com>
+References: <20050228190444.GA13415@us.ibm.com> <20050228195958.GB8186@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050228195958.GB8186@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu wrote:
+> Jon Mason <jdmason@us.ibm.com> :
+> 
+>>An attempt to clean-up RTL8169_registers and  RTL8169_register_content.
+>>Adjusted tab alignment and converted decimal values to hex.
+>>
+>>Applies cleanly to linux-2.6.11-rc4-mm1 and tested on amd64
+> 
+> 
+> 1 - It does not use bitwise shifts where possible (suggested by Jeff);
+> 2 - It is not consistent (see TxDesc...);
+> 3 - Please write a script to reduce the patch and prove that a typo does
+>     not hide somewhere (yep, I'm lazy). It would take too much testing
+>     to get a complete coverage.
 
-Visit FusionPHP.NET today, fullfilling your PHP needs!!!
+You can do a "diff -b" (ignore whitespaces changes) to check this sort 
+of stuff.
 
-Great news everyone, our proud host http://www.priorweb.be/ will never disconnect our server again for "spamming", since the mail is not being sent from our server with them. They can't trace it back to us, so we are building huge lists and very soon FusionPhp.net will be the absolute largest php scripting site on this planet. If you need a bulletproof host, come to our great webhosting service http://www.priorweb.be/ .
 
-http://www.fusionphp.net/
+> Jeff, how am I supposed to handle cleanups now ? Just say no ? :o)
 
-We have the BEST free php news script in the world. Please click on the GOOGLE AdSense ads at the top of the page ONCE per day, Every day to keep our site online and pay for our hosting!!!
+Ideally keep a stack of patches such that, the fixes can be applied 
+underneath the cleanups...
 
-Please spread the word about our website and our scripts!!! Forward this email to 250 people and we'll pay you $10.00 US dollars via paypal. We just upp'ed the payout to $10.00 per 250 users you send this message to due to our overwhelming success.
-
-Thank you,
-Patattenboerken
-http://www.fusionphp.net/
-patattenboerken@gmail.com
-webmaster@fusionphp.net
-
-Remember to Click on the Google AdSense ads ONCE per day at least, multiple clicks per day don't matter as much as ONCE per day. Thank you very much.
+	Jeff
