@@ -1,75 +1,61 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/4) add loss option to network delay scheduler
-Date: Thu, 17 Jun 2004 15:56:06 -0700
+Subject: [PATCH] (2/4) delay scheduler - retry if requeue fails
+Date: Thu, 17 Jun 2004 15:55:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617155606.558d8eb3@dell_ss3.pdx.osdl.net>
+Message-ID: <20040617155559.5aeba553@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Cc: lartc@mailman.ds9a.nl, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This enhances the network simulation scheduler to do simple random loss.
+If delay scheduler decides not to send the packet right away, it requeues
+it.  If the requeue fails, it should go and look again rather than waking
+up prematurely.
 
-The loss parameter is a simple 32 bit value such that 0 means no loss, and
-0xffffffff is always drop.  I have a new version of the tc command which takes
-care of conversion from percent to this value.
-
-Same patch for 2.4 and 2.6
+Same patch should apply to both 2.6 and 2.4
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
---- a/include/linux/pkt_sched.h	2004-06-17 15:26:51 -07:00
-+++ b/include/linux/pkt_sched.h	2004-06-17 15:26:51 -07:00
-@@ -437,5 +437,6 @@
- {
- 	__u32	latency;
- 	__u32   limit;
--};	
-+	__u32	loss;
-+};
- #endif
 diff -Nru a/net/sched/sch_delay.c b/net/sched/sch_delay.c
---- a/net/sched/sch_delay.c	2004-06-17 15:26:51 -07:00
-+++ b/net/sched/sch_delay.c	2004-06-17 15:26:51 -07:00
-@@ -40,6 +40,7 @@
- struct dly_sched_data {
- 	u32	latency;
- 	u32	limit;
-+	u32	loss;
- 	struct timer_list timer;
- 	struct Qdisc *qdisc;
- };
-@@ -58,6 +59,12 @@
- 	struct dly_skb_cb *cb = (struct dly_skb_cb *)skb->cb;
- 	int ret;
+--- a/net/sched/sch_delay.c	2004-06-17 15:19:07 -07:00
++++ b/net/sched/sch_delay.c	2004-06-17 15:19:07 -07:00
+@@ -104,8 +104,10 @@
+ static struct sk_buff *dly_dequeue(struct Qdisc *sch)
+ {
+ 	struct dly_sched_data *q = (struct dly_sched_data *)sch->data;
+-	struct sk_buff *skb = q->qdisc->dequeue(q->qdisc);
++	struct sk_buff *skb;
  
-+	/* Random packet drop 0 => none, ~0 => all */
-+	if (q->loss >= net_random()) {
-+		sch->stats.drops++;
-+		return 0;	/* lie about loss so TCP doesn't know */
-+	}
++ retry:
++	skb = q->qdisc->dequeue(q->qdisc);
+ 	if (skb) {
+ 		struct dly_skb_cb *cb = (struct dly_skb_cb *)skb->cb;
+ 		psched_time_t now;
+@@ -120,6 +122,12 @@
+ 			return skb;
+ 		}
+ 
++		if (q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS) {
++			sch->q.qlen--;
++			sch->stats.drops++;
++			goto retry;
++		}
 +
- 	PSCHED_GET_TIME(cb->queuetime);
+ 		if (!netif_queue_stopped(sch->dev)) {
+ 			long delay = PSCHED_US2JIFFIE(diff);
+ 			if (delay <= 0)
+@@ -127,10 +135,6 @@
+ 			mod_timer(&q->timer, jiffies+delay);
+ 		}
  
- 	/* Queue to underlying scheduler */
-@@ -196,6 +203,7 @@
- 	} else {
- 		q->latency = qopt->latency;
- 		q->limit = qopt->limit;
-+		q->loss = qopt->loss;
+-		if (q->qdisc->ops->requeue(skb, q->qdisc) != NET_XMIT_SUCCESS) {
+-			sch->q.qlen--;
+-			sch->stats.drops++;
+-		}
+ 		sch->flags |= TCQ_F_THROTTLED;
  	}
- 	return err;
- }
-@@ -232,6 +240,7 @@
- 
- 	qopt.latency = q->latency;
- 	qopt.limit = q->limit;
-+	qopt.loss = q->loss;
- 
- 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
- 
+ 	return NULL;
