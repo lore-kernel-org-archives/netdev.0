@@ -1,30 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2.6.0-test3-bk8][ATM] fix ambassador.c
-Date: Thu, 21 Aug 2003 19:31:49 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030821193149.A18920@electric-eye.fr.zoreil.com>
-References: <1061478906.1069.23.camel@lima.royalchallenge.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] ax25 changes
+Date: Thu, 21 Aug 2003 12:18:10 -0700
+Sender: linux-hams-owner@vger.kernel.org
+Message-ID: <20030821121810.308f90cc.davem@redhat.com>
+References: <20030812194653.A28977@jeroen.pe1rxq.ampr.org>
+	<20030812135655.7334887b.shemminger@osdl.org>
+	<20030812230951.E28977@jeroen.pe1rxq.ampr.org>
+	<20030812153901.6e700dcb.shemminger@osdl.org>
+	<20030813010301.K28977@jeroen.pe1rxq.ampr.org>
+	<20030812172151.7de0c950.shemminger@osdl.org>
+	<20030813031159.6c6c9629.davem@redhat.com>
+	<20030813173446.A2604@jeroen.pe1rxq.ampr.org>
+	<20030813084252.7b667fb8.davem@redhat.com>
+	<20030820204518.C5568@jeroen.pe1rxq.ampr.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com,
-   Kernel List <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Vinay K Nallamothu <vinay-rc@naturesoft.net>
-Content-Disposition: inline
-In-Reply-To: <1061478906.1069.23.camel@lima.royalchallenge.com>; from vinay-rc@naturesoft.net on Thu, Aug 21, 2003 at 08:45:05PM +0530
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, linux-hams@vger.kernel.org,
+	ralf@linux-mips.org, netdev@oss.sgi.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Jeroen Vreeken <pe1rxq@amsat.org>
+In-Reply-To: <20030820204518.C5568@jeroen.pe1rxq.ampr.org>
 List-Id: netdev.vger.kernel.org
 
-Vinay K Nallamothu <vinay-rc@naturesoft.net> :
-[...]
-> drivers/atm/ambassador.c: 
-> This patch cleans up sti/cli usage as well as minor timer cleanups.
-[...]
+On Wed, 20 Aug 2003 20:45:18 +0200
+Jeroen Vreeken <pe1rxq@amsat.org> wrote:
 
-The "dont_panic" function which uses cli/sti is only called from code
-belonging to a "#if 0" section since revision 1.1 according to bk.
+> Fortunatly Stephen already reduced the amount of work by doing the netrom
+> stuff.
+> The next four patches are the remaining ax25 (and a litle netrom) patches:
 
-Remove it, everybody should feel better.
-
---
-Ueimor
+Applied, thanks Jeroen.
