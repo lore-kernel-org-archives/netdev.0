@@ -1,35 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Thu, 23 Sep 2004 22:39:09 -0700
+Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
+Date: Thu, 23 Sep 2004 22:47:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923223909.6f4da27f.davem@davemloft.net>
-References: <20040920025802.GA11567@gondor.apana.org.au>
-	<1095683660.1047.254.camel@jzny.localdomain>
-	<414F1E12.6010808@eurodev.net>
-	<20040922000503.GA13218@gondor.apana.org.au>
-	<4150E7E5.2000001@eurodev.net>
-	<20040922045239.GA19573@gondor.apana.org.au>
-	<1095854920.1047.64.camel@jzny.localdomain>
-	<20040922105221.59a67d4b.davem@davemloft.net>
-	<4152EE68.4030803@eurodev.net>
-	<20040923121651.51a58cf2.davem@davemloft.net>
-	<20040924032830.GC6384@gondor.apana.org.au>
+Message-ID: <20040923224723.743da8c8.davem@davemloft.net>
+References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+	<20040921203118.734a0a7e.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: pablo@eurodev.net, hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040924032830.GC6384@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040921203118.734a0a7e.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004 13:28:30 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 21 Sep 2004 20:31:18 -0700
+"David S. Miller" <davem@davemloft.net> wrote:
 
-> Can someone please tell me why we need to do this at all?
-> 
-> Most of the dump messages should be close to PAGE_SIZE anyway, no?
+> I'll work on the set of patches implementing the above tomorrow
+> and will send it to the list for review and commentary.
 
-It's moreso for the "give me a single entry" requests
-than for dumps.  NLMSG_GOODSIZE is used for all cases.
+Ok, coming in followup emails.
+
+The hardest was abstracting the generic neigh seq_file stuff
+such that net/atm/clip.c could still fit in.
