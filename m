@@ -1,24 +1,25 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Subject: Last night Linus bk - netfilter busted?
-Date: Fri, 11 Mar 2005 02:23:34 -0500
-Message-ID: <200503110223.34461.dtor_core@ameritech.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: ethtool -d no longer works for e1000
+Date: Fri, 11 Mar 2005 09:55:39 +0100
+Message-ID: <20050311085539.GB3253@xi.wantstofly.org>
+References: <422F6C37.8090202@candelatech.com> <5fc59ff3050309140910f3e492@mail.gmail.com> <422F822D.9010707@candelatech.com> <200503091713.55454.jdmason@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: LKML <linux-kernel@vger.kernel.org>
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>,
+        Ganesh Venkatesan <ganesh.venkatesan@gmail.com>,
+        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: Jon Mason <jdmason@us.ibm.com>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <200503091713.55454.jdmason@us.ibm.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, Mar 09, 2005 at 05:13:55PM -0600, Jon Mason wrote:
 
-My box gets stuck while booting (actually starting ntpd) whith tonight
-pull from Linus. It looks like it is spinning in ipt_do_table when I do
-SysRq-P. No call trace though.
+>       Cononical form indicator:          disabled
 
-Anyone else seeing it? Any ideas?
+Shouldn't this be 'Canonical' ?
 
--- 
-Dmitry
+
+--L
