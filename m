@@ -1,36 +1,32 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH 2.6] natsemi.c NAPI
-Date: Mon, 27 Sep 2004 12:30:17 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [5/6]: Dynamic neigh hash table growth
+Date: Mon, 27 Sep 2004 21:33:34 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16727.60345.857450.162620@robur.slu.se>
-References: <20040919163642.GC1307@sunbeam.de.gnumonks.org>
-	<4155D781.8050700@colorfullife.com>
-	<20040927091148.GF3236@sunbeam.de.gnumonks.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <E1CBtl8-0000w8-00@gondolin.me.apana.org.au>
+References: <20040923225127.10b0ef68.davem@davemloft.net>
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20040927091148.GF3236@sunbeam.de.gnumonks.org>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20040923225127.10b0ef68.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller <davem@davemloft.net> wrote:
+>
+> +static void neigh_hash_grow(struct neigh_table *tbl, unsigned long new_entries)
+> +{
+> +       struct neighbour **new_hash, **old_hash;
+> +       unsigned int i, new_hash_mask, old_entries;
+> +
+> +       BUG_ON(new_entries & (new_entries - 1));
+> +       new_hash = neigh_hash_alloc(new_entries);
 
- > I think this overall problem can be solved if there was some per-device
- > variable that saves the IntrStatus until the NAPI callback gets
- > scheduled. What do you think?  This wouldn't even need some locking,
- > since interrupts would be disabled before the field is updated, and not
- > re-enabled before the field is read by the NAPI callback?
- > 
- > I was surprised that this solution is not suggested in the NAPI-HOWTO.txt, so I though there must be an error in my proposal...
- > 
- > By using such a scheme, isn't it also possible to only offload RX into
- > the NAPI callback with clear-on-read devices?
- > 
+Perhaps it'd be better to bound it based on MAX_ORDER rather than waiting
+for neigh_hash_alloc() to fail?
 
- e1000 used such technique before.If a remember correctly IntrStatus was
- saved in device priv struct.
-
- Cheers.
-						--ro
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
