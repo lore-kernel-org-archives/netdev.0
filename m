@@ -1,265 +1,97 @@
 From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: Re: [PATCH 2.6]: IPv4: strcpy -> strlcpy
-Date: Fri, 28 Nov 2003 10:52:04 +0100
+Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
+Date: Fri, 28 Nov 2003 10:54:33 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1070013124.2144.0.camel@teapot.felipe-alfaro.com>
-References: <20031127142125.GG8276@jdj5.mit.edu>
-	 <3FC67128.14704.30155D53@localhost>
-	 <1069970946.2138.13.camel@teapot.felipe-alfaro.com>
-	 <20031128.110525.113293143.yoshfuji@linux-ipv6.org>
+Message-ID: <1070013272.2144.4.camel@teapot.felipe-alfaro.com>
+References: <1069974209.5349.7.camel@teapot.felipe-alfaro.com>
+	 <20031128.092326.39861126.yoshfuji@linux-ipv6.org>
+	 <20031128.092642.47232575.yoshfuji@linux-ipv6.org>
+	 <20031128.094022.106776635.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-YRJqItfl9E4mCW150N5n"
-Cc: timo@kamph.org, Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: rmk+lkml@arm.linux.org.uk, davem@redhat.com,
+        Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20031128.110525.113293143.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031128.094022.106776635.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-YRJqItfl9E4mCW150N5n
-Content-Type: text/plain; charset=UTF-8
-Content-Transfer-Encoding: quoted-printable
-
-On Fri, 2003-11-28 at 03:05, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+On Fri, 2003-11-28 at 01:40, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
 =B1=E6=98=8E wrote:
-> In article <1069970946.2138.13.camel@teapot.felipe-alfaro.com> (at Thu,=
- 27 Nov 2003 23:09:06 +0100), Felipe Alfaro Solana <felipe_alfaro@linuxma=
-il.org> says:
+> In article <20031128.092642.47232575.yoshfuji@linux-ipv6.org> (at Fri, =
+28 Nov 2003 09:26:42 +0900 (JST)), YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=
+=E8=8B=B1=E6=98=8E <yoshfuji@linux-ipv6.org> says:
 >=20
-> > diff -uNr linux-2.6.0-test11.orig/net/ipv4/ipconfig.c linux-2.6.0-tes=
-t11/net/ipv4/ipconfig.c
-> > --- linux-2.6.0-test11.orig/net/ipv4/ipconfig.c	2003-11-26 21:42:55.0=
-00000000 +0100
-> > +++ linux-2.6.0-test11/net/ipv4/ipconfig.c	2003-11-27 13:32:06.904650=
-818 +0100
-> > @@ -299,7 +299,7 @@
-> >  	int err;
-> > =20
-> >  	memset(&ir, 0, sizeof(ir));
-> > -	strcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name);
-> > +	strlcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name, sizeof(ir.ifr_ifrn.ifr=
-n_name));
+> > >  3)   if (len)
+> > >          strncpy(dst, src, len - 1);
+> > >       dst[len] =3D 0;
 >=20
-> please use
-> 	strlcpy(ir.ifr_name, ic_dev->name, sizeof(ir.ifr_name));
-> instead.
+> grr, another mistake...:
+>=20
+>           if (len) {
+>              strncpy(dst, src, len - 1);
+>              dst[len - 1];
+>           }
+>=20
+> ----------------
+> 1) use strlcpy0(dst, src, len)
+>=20
+> size_t strlcpy0(char *dst, const char *src, size_t maxlen)
+> {
+>   size_t len =3D strlcpy(dst, src, maxlen);
+>   if (likely(maxlen !=3D 0) && len < maxlen - 1)
+>     memset(dst + len + 1, 0, maxlen - len - 1);
+> }
+>=20
+> 2a) use strncpy0(dst, src, len)
+>=20
+> char *strncpy0(char *dst, const char *src, size_t maxlen)
+> {
+>   memset(dst, 0, maxlen);
+>   if (likely(maxlen !=3D 0))
+>     strncpy(dst, src, maxlen - 1);
+> }
+>=20
+> 2b) fix strncpy() to zero-out rest of destination buffer=20
+>     and use strncpy0(dst, src, len)
+>=20
+> char *strncpy0(char *dst, const char *src, size_t maxlen)
+> {
+>   if (likely(maxlen !=3D 0)) {
+>     strncpy(dst, src, maxlen - 1);
+>     dst[maxlen - 1] =3D 0;
+>   }
+> }
+>=20
+>=20
+> I prefer 1 > 2b >> 2a.
 
-Done!
+What about coding a new function str0cpy()?
 
---=-YRJqItfl9E4mCW150N5n
-Content-Disposition: attachment; filename=strlcpy-ipv4.patch
-Content-Type: text/x-patch; name=strlcpy-ipv4.patch; charset=UTF-8
-Content-Transfer-Encoding: 7bit
+/**
+ * str0cpy - Copy a length-limited, %NUL-terminated string
+ * @dest: Where to copy the string to
+ * @src: Where to copy the string from
+ * @count: The maximum number of bytes to copy
+ */
+char * str0cpy(char * dest,const char *src,size_t count)
+{
+        if (count) {
+                char *tmp =3D dest;
 
-diff -uNr linux-2.6.0-test11.orig/net/core/dev.c linux-2.6.0-test11/net/core/dev.c
---- linux-2.6.0-test11.orig/net/core/dev.c	2003-11-26 21:44:11.000000000 +0100
-+++ linux-2.6.0-test11/net/core/dev.c	2003-11-27 13:21:12.791315993 +0100
-@@ -335,7 +335,7 @@
- 	for (i = 0; i < NETDEV_BOOT_SETUP_MAX; i++) {
- 		if (s[i].name[0] == '\0' || s[i].name[0] == ' ') {
- 			memset(s[i].name, 0, sizeof(s[i].name));
--			strcpy(s[i].name, name);
-+			strlcpy(s[i].name, name, sizeof(s[i].name));
- 			memcpy(&s[i].map, map, sizeof(s[i].map));
- 			break;
- 		}
-@@ -653,7 +653,7 @@
- 	for (i = 0; i < 100; i++) {
- 		snprintf(buf, sizeof(buf), name, i);
- 		if (!__dev_get_by_name(buf)) {
--			strcpy(dev->name, buf);
-+			strlcpy(dev->name, buf, sizeof(dev->name));
- 			return i;
- 		}
- 	}
-@@ -1773,7 +1773,7 @@
- 		return -ENODEV;
- 	}
- 
--	strcpy(ifr.ifr_name, dev->name);
-+	strlcpy(ifr.ifr_name, dev->name, sizeof(ifr.ifr_name));
- 	read_unlock(&dev_base_lock);
- 
- 	if (copy_to_user(arg, &ifr, sizeof(struct ifreq)))
-diff -uNr linux-2.6.0-test11.orig/net/core/sock.c linux-2.6.0-test11/net/core/sock.c
---- linux-2.6.0-test11.orig/net/core/sock.c	2003-11-26 21:44:57.000000000 +0100
-+++ linux-2.6.0-test11/net/core/sock.c	2003-11-27 13:22:22.150223793 +0100
-@@ -157,7 +157,7 @@
- 	static int warned;
- 	static char warncomm[16];
- 	if (strcmp(warncomm, current->comm) && warned < 5) { 
--		strcpy(warncomm,  current->comm); 
-+		strlcpy(warncomm,  current->comm, sizeof(warncomm)); 
- 		printk(KERN_WARNING "process `%s' is using obsolete "
- 		       "%s SO_BSDCOMPAT\n", warncomm, name);
- 		warned++;
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/devinet.c linux-2.6.0-test11/net/ipv4/devinet.c
---- linux-2.6.0-test11.orig/net/ipv4/devinet.c	2003-11-26 21:43:25.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/devinet.c	2003-11-27 13:31:43.971262502 +0100
-@@ -731,9 +731,9 @@
- 			break;
- 		memset(&ifr, 0, sizeof(struct ifreq));
- 		if (ifa->ifa_label)
--			strcpy(ifr.ifr_name, ifa->ifa_label);
-+			strlcpy(ifr.ifr_name, ifa->ifa_label, sizeof(ifr.ifr_name));
- 		else
--			strcpy(ifr.ifr_name, dev->name);
-+			strlcpy(ifr.ifr_name, dev->name, sizeof(ifr.ifr_name));
- 
- 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_family = AF_INET;
- 		(*(struct sockaddr_in *)&ifr.ifr_addr).sin_addr.s_addr =
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/ipconfig.c linux-2.6.0-test11/net/ipv4/ipconfig.c
---- linux-2.6.0-test11.orig/net/ipv4/ipconfig.c	2003-11-26 21:42:55.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/ipconfig.c	2003-11-27 13:32:06.904650818 +0100
-@@ -299,7 +299,7 @@
- 	int err;
- 
- 	memset(&ir, 0, sizeof(ir));
--	strcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name);
-+	strlcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name, sizeof(ir.ifr_name));
- 	set_sockaddr(sin, ic_myaddr, 0);
- 	if ((err = ic_dev_ioctl(SIOCSIFADDR, &ir)) < 0) {
- 		printk(KERN_ERR "IP-Config: Unable to set interface address (%d).\n", err);
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/ip_gre.c linux-2.6.0-test11/net/ipv4/ip_gre.c
---- linux-2.6.0-test11.orig/net/ipv4/ip_gre.c	2003-11-26 21:44:59.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/ip_gre.c	2003-11-27 13:30:13.342198122 +0100
-@@ -1163,7 +1163,7 @@
- 	iph = &tunnel->parms.iph;
- 
- 	tunnel->dev = dev;
--	strcpy(tunnel->parms.name, dev->name);
-+	strlcpy(tunnel->parms.name, dev->name, sizeof(tunnel->parms.name));
- 
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
-@@ -1227,7 +1227,7 @@
- 	struct iphdr *iph = &tunnel->parms.iph;
- 
- 	tunnel->dev = dev;
--	strcpy(tunnel->parms.name, dev->name);
-+	strlcpy(tunnel->parms.name, dev->name, sizeof(tunnel->parms.name));
- 
- 	iph->version		= 4;
- 	iph->protocol		= IPPROTO_GRE;
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/ipip.c linux-2.6.0-test11/net/ipv4/ipip.c
---- linux-2.6.0-test11.orig/net/ipv4/ipip.c	2003-11-26 21:46:10.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/ipip.c	2003-11-27 13:30:42.476717090 +0100
-@@ -815,7 +815,7 @@
- 	iph = &tunnel->parms.iph;
- 
- 	tunnel->dev = dev;
--	strcpy(tunnel->parms.name, dev->name);
-+	strlcpy(tunnel->parms.name, dev->name, sizeof(tunnel->parms.name));
- 
- 	memcpy(dev->dev_addr, &tunnel->parms.iph.saddr, 4);
- 	memcpy(dev->broadcast, &tunnel->parms.iph.daddr, 4);
-@@ -853,7 +853,7 @@
- 	struct iphdr *iph = &tunnel->parms.iph;
- 
- 	tunnel->dev = dev;
--	strcpy(tunnel->parms.name, dev->name);
-+	strlcpy(tunnel->parms.name, dev->name, sizeof(tunnel->parms.name));
- 
- 	iph->version		= 4;
- 	iph->protocol		= IPPROTO_IPIP;
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/ipvs/ip_vs_ctl.c linux-2.6.0-test11/net/ipv4/ipvs/ip_vs_ctl.c
---- linux-2.6.0-test11.orig/net/ipv4/ipvs/ip_vs_ctl.c	2003-11-26 21:45:33.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/ipvs/ip_vs_ctl.c	2003-11-27 13:36:43.776537082 +0100
-@@ -1918,7 +1918,7 @@
- 	dst->addr = src->addr;
- 	dst->port = src->port;
- 	dst->fwmark = src->fwmark;
--	strcpy(dst->sched_name, src->scheduler->name);
-+	strlcpy(dst->sched_name, src->scheduler->name, sizeof(dst->sched_name));
- 	dst->flags = src->flags;
- 	dst->timeout = src->timeout / HZ;
- 	dst->netmask = src->netmask;
-@@ -2163,12 +2163,12 @@
- 		memset(&d, 0, sizeof(d));
- 		if (ip_vs_sync_state & IP_VS_STATE_MASTER) {
- 			d[0].state = IP_VS_STATE_MASTER;
--			strcpy(d[0].mcast_ifn, ip_vs_master_mcast_ifn);
-+			strlcpy(d[0].mcast_ifn, ip_vs_master_mcast_ifn, sizeof(d[0].mcast_ifn));
- 			d[0].syncid = ip_vs_master_syncid;
- 		}
- 		if (ip_vs_sync_state & IP_VS_STATE_BACKUP) {
- 			d[1].state = IP_VS_STATE_BACKUP;
--			strcpy(d[1].mcast_ifn, ip_vs_backup_mcast_ifn);
-+			strlcpy(d[1].mcast_ifn, ip_vs_backup_mcast_ifn, sizeof(d[1].mcast_ifn));
- 			d[1].syncid = ip_vs_backup_syncid;
- 		}
- 		if (copy_to_user(user, &d, sizeof(d)) != 0)
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/ipvs/ip_vs_sync.c linux-2.6.0-test11/net/ipv4/ipvs/ip_vs_sync.c
---- linux-2.6.0-test11.orig/net/ipv4/ipvs/ip_vs_sync.c	2003-11-26 21:42:47.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/ipvs/ip_vs_sync.c	2003-11-27 13:34:51.218619748 +0100
-@@ -854,10 +854,10 @@
- 
- 	ip_vs_sync_state |= state;
- 	if (state == IP_VS_STATE_MASTER) {
--		strcpy(ip_vs_master_mcast_ifn, mcast_ifn);
-+		strlcpy(ip_vs_master_mcast_ifn, mcast_ifn, sizeof(ip_vs_master_mcast_ifn));
- 		ip_vs_master_syncid = syncid;
- 	} else {
--		strcpy(ip_vs_backup_mcast_ifn, mcast_ifn);
-+		strlcpy(ip_vs_backup_mcast_ifn, mcast_ifn, sizeof(ip_vs_backup_mcast_ifn));
- 		ip_vs_backup_syncid = syncid;
- 	}
- 
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/netfilter/arp_tables.c linux-2.6.0-test11/net/ipv4/netfilter/arp_tables.c
---- linux-2.6.0-test11.orig/net/ipv4/netfilter/arp_tables.c	2003-11-26 21:45:10.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/netfilter/arp_tables.c	2003-11-27 13:23:24.284474101 +0100
-@@ -1086,7 +1086,7 @@
- 			       sizeof(info.underflow));
- 			info.num_entries = t->private->number;
- 			info.size = t->private->size;
--			strcpy(info.name, name);
-+			strlcpy(info.name, name, sizeof(info.name));
- 
- 			if (copy_to_user(user, &info, *len) != 0)
- 				ret = -EFAULT;
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/netfilter/ipchains_core.c linux-2.6.0-test11/net/ipv4/netfilter/ipchains_core.c
---- linux-2.6.0-test11.orig/net/ipv4/netfilter/ipchains_core.c	2003-11-26 21:45:26.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/netfilter/ipchains_core.c	2003-11-27 13:28:39.884442527 +0100
-@@ -1173,7 +1173,7 @@
- 		= kmalloc(SIZEOF_STRUCT_IP_CHAIN, GFP_KERNEL);
- 	if (label == NULL)
- 		panic("Can't kmalloc for firewall chains.\n");
--	strcpy(label->label,name);
-+	strlcpy(label->label, name, sizeof(label->label));
- 	label->next = NULL;
- 	label->chain = NULL;
- 	label->refcount = ref;
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/netfilter/ip_queue.c linux-2.6.0-test11/net/ipv4/netfilter/ip_queue.c
---- linux-2.6.0-test11.orig/net/ipv4/netfilter/ip_queue.c	2003-11-26 21:46:12.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/netfilter/ip_queue.c	2003-11-27 13:29:19.651041898 +0100
-@@ -235,12 +235,12 @@
- 	pmsg->hw_protocol     = entry->skb->protocol;
- 	
- 	if (entry->info->indev)
--		strcpy(pmsg->indev_name, entry->info->indev->name);
-+		strlcpy(pmsg->indev_name, entry->info->indev->name, sizeof(pmsg->indev_name));
- 	else
- 		pmsg->indev_name[0] = '\0';
- 	
- 	if (entry->info->outdev)
--		strcpy(pmsg->outdev_name, entry->info->outdev->name);
-+		strlcpy(pmsg->outdev_name, entry->info->outdev->name, sizeof(pmsg->outdev_name));
- 	else
- 		pmsg->outdev_name[0] = '\0';
- 	
-diff -uNr linux-2.6.0-test11.orig/net/ipv4/netfilter/ip_tables.c linux-2.6.0-test11/net/ipv4/netfilter/ip_tables.c
---- linux-2.6.0-test11.orig/net/ipv4/netfilter/ip_tables.c	2003-11-26 21:43:25.000000000 +0100
-+++ linux-2.6.0-test11/net/ipv4/netfilter/ip_tables.c	2003-11-27 13:23:11.366451326 +0100
-@@ -1277,7 +1277,7 @@
- 			       sizeof(info.underflow));
- 			info.num_entries = t->private->number;
- 			info.size = t->private->size;
--			strcpy(info.name, name);
-+			strlcpy(info.name, name, sizeof(info.name));
- 
- 			if (copy_to_user(user, &info, *len) != 0)
- 				ret = -EFAULT;
+                count--;
+                while (count) {
+                        if ((*tmp =3D *src) !=3D 0) src++;
+                        tmp++;
+                        count--;
+                }
+                *tmp =3D 0;
+        }
+        return dest;
+}
 
---=-YRJqItfl9E4mCW150N5n--
+It behaves like strncpy() but correctly null-terminates the string in
+every case.
