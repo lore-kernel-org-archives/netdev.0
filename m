@@ -1,71 +1,90 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPv6 and encapsulation headers
-Date: Mon, 12 Jul 2004 20:47:10 +1000
+From: jamal <hadi@cyberus.ca>
+Subject: Re: ethernet QoS support?
+Date: 12 Jul 2004 08:18:22 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040712104710.GC965@gondor.apana.org.au>
-References: <20040710033209.GA14316@gondor.apana.org.au> <20040710.133641.132032007.yoshfuji@linux-ipv6.org> <20040710091630.GA16312@gondor.apana.org.au> <200407121732.52542.kazunori@miyazawa.org>
+Message-ID: <1089634701.1055.260.camel@jzny.localdomain>
+References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com>
+	 <200407091641.35651.vkondra@mail.ru>
+	 <1089383622.1030.21.camel@jzny.localdomain>
+	 <200407092126.43021.vkondra@mail.ru>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+        Kumar Gala <kumar.gala@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kazunori Miyazawa <kazunori@miyazawa.org>
-Content-Disposition: inline
-In-Reply-To: <200407121732.52542.kazunori@miyazawa.org>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200407092126.43021.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 12, 2004 at 05:32:52PM +0900, Kazunori Miyazawa wrote:
+On Fri, 2004-07-09 at 14:26, Vladimir Kondratiev wrote:
+
+> > Who marks the skb->priority? Is that the default mark as per TOS?
+> > I think the VLAN code marks it as well.
+> I don't care. It should not be driver's business. Actually, it is TOS. AFAIK, 
+> application supposed to do setsockoption(SO_PRIORITY) on its socket so set 
+> priority.
+
+That or if routed from another host, then TOS does get extracted and set
+to skb->priority
+
+
+> Agree about intelligence. Driver should serve link and MAC layer. But exactly 
+> because link layer have different priorities, driver need several Tx queues. 
+> It is stack's business to route packet to the proper queue. Driver should 
+> deliver it using appropriate MAC layer priority.
+
+So far you have said there are two schedulers h/ware understands: strict
+priority(3 band strict priority is the deafult in Linux) and WRR. 
+The qdisc level is already taken care of today.
+
+
+> Waiting. If no support will exist, it simply means we will be unable to use 
+> QoS provided by modern 802.11. 
+
+I think someone with motivation and hardware (such as you 
+Vladimir ;->)should take the lead. I have offered to consult and review
+code.
+
+> Depending on market development, impact may 
+> range from being slightly slower relating to Windows clients, to being almost 
+> completely unable to communicate for traffic like VOIP. Later will be the 
+> case if most access points will implement QoS as in TGE.
 > 
-> right, esp6 tunnel doesn't care about skb->h.raw. we need to fix it.
+> I can now deliver packets accordingly to skb->priority, but if stack have 
+> different idea for what is proper proportion between different sorts of 
+> traffic, driver's Tx path will be flooded with low priority frames.
 
-The same needs to be done to the other tunnels as well.  But please
-consider the issue in the next paragraph first before doing this.
+I dont think so - as long as you map to a specific qdisc things should
+work fine. i.e the scheduling semantics will be taken good care of by
+the qdisc level.
+So lets separate the two levels, driver and qdisc level.
+I dont think they should be synchronized. In my opinion, the
+synchronization point is the configurator/operator/management s/ware of
+the box.
 
-> > So should it be changed to ip6_find_1stfragopt() as is the case with
-> > esp6 and ipcomp6?
-> 
-> Do we need to skip esp or ipcomp payload?
-> I thinks those are similar with transport layer protocol in outer esp process.
-> Did I misunderstand your question?
+> Situation is much worser for streams with admission control. I have no 
+> mechanism to communicate with stack for such traffic establishment and tear 
+> down.
 
-I don't know because I didn't understand your question :)
+Let me make an interim suggestion:
+To illustrate i will assume 3 priorities with priority 1 higher than
+priority 3. Substitute with whatever driver does. Assuming the
+priorities will be reflected in the skb->priority.
 
-Let me state a few things and please tell me whether you agree or
-disagree:
+- Shut down device only when highest(1) priority ring is full.
+- if packets received for priority 2 and 3 and their respective rings
+are full, drop the packet in the driver and return a 0 i.e dont shut
+device.
 
-1. AH's position should be determined by the bundle.  So if the
-bundle says AH+ESP then AH goes on the outside, if the bundle says
-ESP+AH or just AH then AH goes on the inside.
+You can also do the following in the case of strict priority(caveat is
+reordering may happen):
+for each prio X try to stash on DMA ring of prio X. If full, try X+1, if
+full try X+2 etc.
 
-2. If AH is the inner-most xfrm then it should be applied before
-the second destination options header.
+Thoughts?
 
-It seems to me that skb->h is not actually set to the spot pointed
-to ip6_find_1stfragopt() by anything apart from the xfrm output
-functions.
-
-Therefore if AH is the inner-most xfrm, then skb->h will also point
-to the wrong spot.  It would appear to be safest to call
-ip6_find_1stfragopt() in AH instead of relying on the value of skb->h.
-
-Regardless of whether we use skb->h or ip6_find_1stfragopt() though,
-ah6/esp6/ipcomp6 should all use the same logic to find their spot for
-encapsulation.  The reason is that the specification in 2402/2406/3173
-is identical so we shouldn't have special-case code in AH.
- 
-> Because fragmentation takes place after IPsec processing,
-> do we need to make ip6_find_1stfragopt care fragment header?
-> I think there is no fragment header in skb at that point.
-
-Good point.
-
-Hmm, what about address spoofing? Is there code in IPv6 to prevent
-another machine from relaying a packet through us with our source
-address?
-
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+cheers,
+jamal
