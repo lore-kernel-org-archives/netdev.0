@@ -1,35 +1,33 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: OSDL Bugzilla #2399: A user can remotely route a packet through eth0 on
- a Li
-Date: Thu, 13 May 2004 12:10:41 -0600
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: PATCH: bonding might sleep with lock held
+Date: Thu, 13 May 2004 11:44:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF9B67E38F.0A5372A0-ON88256E93.00625F59-88256E93.0063D1A2@us.ibm.com>
-References: <20040513103139.08ebc779@dell_ss3.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@oss.sgi.com, niv@us.ibm.com, "J. M." <snortwiz@hotmail.com>
+Message-ID: <200405131844.i4DIijD3018359@death.nxdomain.ibm.com>
+References: <ak@suse.de>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040513103139.08ebc779@dell_ss3.pdx.osdl.net>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: Message from Andi Kleen <ak@suse.de>
+   of "Thu, 13 May 2004 10:20:53 +0200." <20040513082053.GC27682@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote on 05/13/2004 10:31:39 AM:
+Andi Kleen <ak@suse.de> wrote:
+[...]
+>> 	This patch replaces dev_remove_pack() with __dev_remove_pack()
+>> and adds a synchronize_net() call outside the lock.  The patch is
+>> against 2.6.5, but applied to 2.6.6 for me.
+>
+>I would rather fix bond_close to not call this with the lock hold.
+>You can just move the call a few lines up. dev->close has own
+>synchronization anyways and dev_remove_pack has a lock too, so this
+>should be safe.
 
-> The security model is correct, and well defined, just different than BSD
-> derived systems.  It does conform to the standards (RFC's).
+	It will race against the timers, although I don't see anything
+in there offhand that would conflict.  It just feels somehow unclean to
+do it without the lock.
 
-Stephen,
-        This is not different from BSD behavior. IP has always used the
-weak end-system model. The question for delivery is "is the destination
-address a local address" (not just on the receiving interface). See WRS
-"TCP/IP Illustrated" for relevant BSD code.
+	-J
 
-Re: security, Jared. If you want to restrict it, you can use netfilter
-rules to drop packets targeted to the back-side interface of the one
-you're receiving them on. bind() selects packets whose destination address
-matches-- doesn't matter what interface they come in on. So, bind()
-simply isn't the mechanism you want if you want it to be restricted to a
-particular interface.
-
-                                                +-DLS
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
