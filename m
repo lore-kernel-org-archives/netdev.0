@@ -1,36 +1,43 @@
-From: "Carlos Velasco" <carlosev@newipnet.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 28 Jul 2003 01:58:25 +0200
+Date: Sun, 27 Jul 2003 16:58:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307280158250677.10891156@192.168.128.16>
+Message-ID: <20030727165831.05904792.davem@redhat.com>
 References: <Pine.LNX.4.53.0307272239570.2743@vialle.bloemsaat.com>
- <200307280140470646.1078EC67@192.168.128.16>
- <20030727164649.517b2b88.davem@redhat.com>
+	<200307280140470646.1078EC67@192.168.128.16>
+	<20030727164649.517b2b88.davem@redhat.com>
+	<200307280158250677.10891156@192.168.128.16>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
    linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
    linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20030727164649.517b2b88.davem@redhat.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "Carlos Velasco" <carlosev@newipnet.com>
+In-Reply-To: <200307280158250677.10891156@192.168.128.16>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 27/07/2003 at 16:46 David S. Miller wrote:
+On Mon, 28 Jul 2003 01:58:25 +0200
+"Carlos Velasco" <carlosev@newipnet.com> wrote:
 
->No, your problem was completely different.
+> On 27/07/2003 at 16:46 David S. Miller wrote:
+> >Bas's problem can be solved by him giving a "preferred source"
+> >to each of his IPV4 routes and setting the "arpfilter" sysctl
+> >variable for his devices to "1".
+> 
+> Yes, it's another approach to solve his problem. But he must play with routing.
 
-The setting who show up the problem was different. The problem is the same.
+Precisely he must, because he has misconfigured routes for the
+behavior he desires.
 
->Bas's problem can be solved by him giving a "preferred source"
->to each of his IPV4 routes and setting the "arpfilter" sysctl
->variable for his devices to "1".
+His problem is about source address selection when trying to
+contact a given destination.
 
-Yes, it's another approach to solve his problem. But he must play with routing.
+If there is no specific source address specified, the kernel may
+legally use any source address, and this decision extends to ARP
+handling as well.
 
-With the "hidden patch" the only thing he needs is to switch the feature on.
-
-Regards,
-Carlos Velasco
+It's totally illogical to say that it's easier for him to patch his
+kernel and reboot it than fix his route configuration.
