@@ -1,22 +1,25 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] NETLINK: Use SKB_MAXORDER to calculate NLMSG_GOODSIZE
-Date: Sat, 29 Jan 2005 13:47:21 +0100
-Message-ID: <20050129124720.GZ31837@postel.suug.ch>
-References: <20050128230327.GV31837@postel.suug.ch>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [IPSEC] Merge xfrm4_bundle_ok/xfrm6_bundle_ok/stale_bundle
+Date: Sat, 29 Jan 2005 22:47:21 +0900 (JST)
+Message-ID: <20050129.224721.131964551.yoshfuji@linux-ipv6.org>
+References: <20050129123803.GA17390@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Content-Disposition: inline
-In-Reply-To: <20050128230327.GV31837@postel.suug.ch>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050129123803.GA17390@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Thomas Graf <20050128230327.GV31837@postel.suug.ch> 2005-01-29 00:03
-> --- linux-2.6.11-rc2-bk4.orig/include/linux/netlink.h	2005-01-26 18:19:27.000000000 +0100
-> +++ linux-2.6.11-rc2-bk4/include/linux/netlink.h	2005-01-28 23:06:02.000000000 +0100
+In article <20050129123803.GA17390@gondor.apana.org.au> (at Sat, 29 Jan 2005 23:38:03 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-It is also needed for 2.4 and applies with some fuzz.
+> This patch merges __xfrm4_bundle_ok/__xfrm6_bundle_ok/stale_bundle
+> so that when I add MTU verification code I don't have to put it in
+> three places.
+
+Ok, I agree.
+
+--yoshfuji
