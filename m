@@ -1,53 +1,29 @@
-From: "Richard B. Johnson" <root@chaos.analogic.com>
-Subject: Re: [RESEND] tuning linux for high network performance?
-Date: Wed, 23 Oct 2002 14:30:22 -0400 (EDT)
+From: "RGPO INFORMATICA LTDA" <rgpo1@spils.com>
+Subject: =?iso-8859-1?Q?Autoriza=E7ao?=
+Date: Mon, 21 Oct 2002 17:30:01 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.3.95.1021023141949.15292A-100000@chaos.analogic.com>
-References: <3DB6E56D.8D930A1D@us.ibm.com>
-Reply-To: root@chaos.analogic.com
+Message-ID: <200210231855.g9NIteuR027945@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: bert hubert <ahu@ds9a.nl>, Roy Sigurd Karlsbakk <roy@karlsbakk.net>,
-   "David S. Miller" <davem@rth.ninka.net>, netdev@oss.sgi.com,
-   Kernel mailing list <linux-kernel@vger.kernel.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3DB6E56D.8D930A1D@us.ibm.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Oct 2002, Nivedita Singhvi wrote:
+Somos uma empresa que revedemos produtos de Informatica, e gostariamos de e=
+nviar nossa Tabela de Pre=E7os, para isso precisamos de sua AUTORIZA=C7AO, =
+nos envie caso tenha interesse para o e-mail rgpo1@spils.com com o assunto =
+AUTORIZA=C7AO ou REMOVER se nao interessar
 
-> "Richard B. Johnson" wrote:
-> 
-> > No. It's done over each word (short int) and the actual summation
-> > takes place during the address calculation of the next word. This
-> > gets you a checksum that is practically free.
-> 
-> Yep, sorry, word, not byte. My bad. The cost is in the fact 
-> that this whole process involves loading each word of the data
-> stream into a register. Which is why I also used to consider
-> the checksum cost as negligible. 
-> 
-> > A 400 MHz ix86 CPU will checksum/copy at 685 megabytes per second.
-> > It will copy at 1,549 megabytes per second. Those are megaBYTES!
-> 
-> But then why the difference in the checksum/copy and copy?
-> Are you saying the checksum is not costing you 864 megabytes
-> a second??
 
-Costing you 864 megabytes per second?
-Lets say the checksum was free. You are then able to INF bytes/per/sec.
-So it's costing you INF bytes/per/sec?  No, it's costing you nothing.
-If we were not dealing with INF, then 'Cost' is approximately 1/N, not
-N. Cost is work_done_without_checksum - work_done_with_checksum. Because
-of the low-pass filter pole, these numbers are practically the same.
-But, you can get a measurable difference between any two large numbers.
-This makes the 'cost' seem high. You need to make it relative to make
-any sense, so a 'goodness' can be expressed as a ratio of the cost and
-the work having been done.
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.4.18 on an i686 machine (797.90 BogoMips).
-   Bush : The Fourth Reich of America
+
+R.G.P.OLIVEIRA
+RGPO INFORMATICA LTDA.
+Tel/Fax. (11) 6239-8517/5003
+e-mail rgpo1@spils.com
+
+
+
+[[HTML alternate version deleted]]
