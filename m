@@ -1,70 +1,170 @@
 From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] NET: spelling correction
-Date: Wed, 11 Feb 2004 03:28:34 +0900 (JST)
+Subject: [PATCH] IPV4: spelling correction
+Date: Wed, 11 Feb 2004 03:28:31 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040211.032834.11028832.yoshfuji@linux-ipv6.org>
+Message-ID: <20040211.032831.67897970.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-D: spelling correction for net/core
+D: spelling correction for net/ipv4
 
-===== net/core/dev.c 1.129 vs edited =====
---- 1.129/net/core/dev.c	Sat Feb  7 10:56:41 2004
-+++ edited/net/core/dev.c	Wed Feb 11 02:46:09 2004
-@@ -134,7 +134,7 @@
-  *             sure which should go first, but I bet it won't make much
-  *             difference if we are running VLANs.  The good news is that
-  *             this protocol won't be in the list unless compiled in, so
-- *             the average user (w/out VLANs) will not be adversly affected.
-+ *             the average user (w/out VLANs) will not be adversely affected.
-  *             --BLG
-  *
-  *		0800	IP
-@@ -892,7 +892,7 @@
- /*
-  * Some old buggy device drivers change get_stats after registering
-  * the device.  Try and trap them here.
-- * This can be elimnated when all devices are known fixed.
-+ * This can be eliminated when all devices are known fixed.
-  */
- static inline int get_stats_changed(struct net_device *dev)
- {
-@@ -1375,7 +1375,7 @@
+===== net/ipv4/ip_gre.c 1.34 vs edited =====
+--- 1.34/net/ipv4/ip_gre.c	Tue Oct 28 18:13:14 2003
++++ edited/net/ipv4/ip_gre.c	Wed Feb 11 02:57:54 2004
+@@ -316,8 +316,8 @@
+    GRE tunnels with enabled checksum. Tell them "thank you".
  
- 		if (dev->xmit_lock_owner != cpu) {
- 			/*
--			 * The spin_lock effectivly does a preempt lock, but 
-+			 * The spin_lock effectively does a preempt lock, but 
- 			 * we are about to drop that...
- 			 */
- 			preempt_disable();
-@@ -1426,7 +1426,7 @@
- int netdev_max_backlog = 300;
- int weight_p = 64;            /* old backlog weight */
- /* These numbers are selected based on intuition and some
-- * experimentatiom, if you have more scientific way of doing this
-+ * experimentation, if you have more scientific way of doing this
-  * please go ahead and fix things.
+    Well, I wonder, rfc1812 was written by Cisco employee,
+-   what the hell these idiots break standrads established
+-   by themself???
++   what the hell these idiots break standrards established
++   by themselves???
   */
- int no_cong_thresh = 10;
-===== net/core/wireless.c 1.15 vs edited =====
---- 1.15/net/core/wireless.c	Mon Sep 29 07:29:53 2003
-+++ edited/net/core/wireless.c	Wed Feb 11 02:52:12 2004
-@@ -378,7 +378,7 @@
+ 
+ 	struct iphdr *iph = (struct iphdr*)skb->data;
+===== net/ipv4/ip_output.c 1.49 vs edited =====
+--- 1.49/net/ipv4/ip_output.c	Wed Feb  4 03:24:11 2004
++++ edited/net/ipv4/ip_output.c	Wed Feb 11 02:58:42 2004
+@@ -35,7 +35,7 @@
+  *		Andi Kleen	: 	Replace ip_reply with ip_send_reply.
+  *		Andi Kleen	:	Split fast and slow ip_build_xmit path 
+  *					for decreased register pressure on x86 
+- *					and more readibility. 
++ *					and more readability. 
+  *		Marc Boucher	:	When call_out_firewall returns FW_QUEUE,
+  *					silently drop skb instead of failing with -EPERM.
+  *		Detlev Wengorz	:	Copy protocol for fragments.
+===== net/ipv4/proc.c 1.15 vs edited =====
+--- 1.15/net/ipv4/proc.c	Fri Sep 12 10:08:45 2003
++++ edited/net/ipv4/proc.c	Wed Feb 11 02:59:47 2004
+@@ -24,7 +24,7 @@
+  *	Gerhard Koerting	:	Show both timers
+  *		Alan Cox	:	Allow inode to be NULL (kernel socket)
+  *	Andi Kleen		:	Add support for open_requests and
+- *					split functions for more readibility.
++ *					split functions for more readability.
+  *	Andi Kleen		:	Add support for /proc/net/netstat
+  *	Arnaldo C. Melo		:	Convert to seq_file
   *
-  * Note : our current commit strategy is currently pretty dumb,
-  * but we will be able to improve on that...
-- * The goal is to try to agreagate as many changes as possible
-+ * The goal is to try to aggregate as many changes as possible
-  * before doing the commit. Drivers that will define a commit handler
-  * are usually those that need a reset after changing parameters, so
-  * we want to minimise the number of reset.
+===== net/ipv4/tcp_input.c 1.49 vs edited =====
+--- 1.49/net/ipv4/tcp_input.c	Mon Feb  2 04:22:45 2004
++++ edited/net/ipv4/tcp_input.c	Wed Feb 11 03:10:02 2004
+@@ -42,7 +42,7 @@
+  *		Andi Kleen	:	Moved open_request checking here
+  *					and process RSTs for open_requests.
+  *		Andi Kleen	:	Better prune_queue, and other fixes.
+- *		Andrey Savochkin:	Fix RTT measurements in the presnce of
++ *		Andrey Savochkin:	Fix RTT measurements in the presence of
+  *					timestamps.
+  *		Andrey Savochkin:	Check sequence numbers correctly when
+  *					removing SACKs due to in sequence incoming
+@@ -283,7 +283,7 @@
+ 		sk->sk_rcvbuf = min(4 * rcvmem, sysctl_tcp_rmem[2]);
+ }
+ 
+-/* 4. Try to fixup all. It is made iimediately after connection enters
++/* 4. Try to fixup all. It is made immediately after connection enters
+  *    established state.
+  */
+ static void tcp_init_buffer_space(struct sock *sk)
+@@ -392,7 +392,7 @@
+ 			if (tp->ack.ato > tp->rto)
+ 				tp->ack.ato = tp->rto;
+ 		} else if (m > tp->rto) {
+-			/* Too long gap. Apparently sender falled to
++			/* Too long gap. Apparently sender fellen to
+ 			 * restart window, so that we send ACKs quickly.
+ 			 */
+ 			tcp_incr_quickack(tp);
+@@ -431,7 +431,7 @@
+ 	 *
+ 	 * Funny. This algorithm seems to be very broken.
+ 	 * These formulae increase RTO, when it should be decreased, increase
+-	 * too slowly, when it should be incresed fastly, decrease too fastly
++	 * too slowly, when it should be increased fastly, decrease too fastly
+ 	 * etc. I guess in BSD RTO takes ONE value, so that it is absolutely
+ 	 * does not matter how to _calculate_ it. Seems, it was trap
+ 	 * that VJ failed to avoid. 8)
+@@ -493,14 +493,14 @@
+ 	 *    at least by solaris and freebsd. "Erratic ACKs" has _nothing_
+ 	 *    to do with delayed acks, because at cwnd>2 true delack timeout
+ 	 *    is invisible. Actually, Linux-2.4 also generates erratic
+-	 *    ACKs in some curcumstances.
++	 *    ACKs in some circumstances.
+ 	 */
+ 	tp->rto = (tp->srtt >> 3) + tp->rttvar;
+ 
+ 	/* 2. Fixups made earlier cannot be right.
+ 	 *    If we do not estimate RTO correctly without them,
+ 	 *    all the algo is pure shit and should be replaced
+-	 *    with correct one. It is exaclty, which we pretend to do.
++	 *    with correct one. It is exactly, which we pretend to do.
+ 	 */
+ }
+ 
+@@ -654,7 +654,7 @@
+ 	 * to make it more realistic.
+ 	 *
+ 	 * A bit of theory. RTT is time passed after "normal" sized packet
+-	 * is sent until it is ACKed. In normal curcumstances sending small
++	 * is sent until it is ACKed. In normal circumstances sending small
+ 	 * packets force peer to delay ACKs and calculation is correct too.
+ 	 * The algorithm is adaptive and, provided we follow specs, it
+ 	 * NEVER underestimate RTT. BUT! If peer tries to make some clever
+@@ -728,7 +728,7 @@
+  * L|R	1		- orig is lost, retransmit is in flight.
+  * S|R  1		- orig reached receiver, retrans is still in flight.
+  * (L|S|R is logically valid, it could occur when L|R is sacked,
+- *  but it is equivalent to plain S and code short-curcuits it to S.
++ *  but it is equivalent to plain S and code short-circuits it to S.
+  *  L|S is logically invalid, it would mean -1 packet in flight 8))
+  *
+  * These 6 states form finite state machine, controlled by the following events:
+@@ -2194,7 +2194,7 @@
+ /*
+  * @__westwood_fast_bw
+  * It is called when we are in fast path. In particular it is called when
+- * header prediction is successfull. In such case infact update is
++ * header prediction is successfull. In such case in fact update is
+  * straight forward and doesn't need any particular care.
+  */
+ void __tcp_westwood_fast_bw(struct sock *sk, struct sk_buff *skb)
+@@ -3494,7 +3494,7 @@
+ 	 * urgent. To do this requires some care. We cannot just ignore
+ 	 * tp->copied_seq since we would read the last urgent byte again
+ 	 * as data, nor can we alter copied_seq until this data arrives
+-	 * or we break the sematics of SIOCATMARK (and thus sockatmark())
++	 * or we break the semantics of SIOCATMARK (and thus sockatmark())
+ 	 *
+ 	 * NOTE. Double Dutch. Rendering to plain English: author of comment
+ 	 * above did something sort of 	send("A", MSG_OOB); send("B", MSG_OOB);
+@@ -3638,7 +3638,7 @@
+ 	tp->saw_tstamp = 0;
+ 
+ 	/*	pred_flags is 0xS?10 << 16 + snd_wnd
+-	 *	if header_predition is to be made
++	 *	if header_prediction is to be made
+ 	 *	'S' will always be tp->tcp_header_len >> 2
+ 	 *	'?' will be 0 for the fast path, otherwise pred_flags is 0 to
+ 	 *  turn it off	(when there are holes in the receive 
+===== net/ipv4/tcp_minisocks.c 1.43 vs edited =====
+--- 1.43/net/ipv4/tcp_minisocks.c	Tue Oct 28 20:10:47 2003
++++ edited/net/ipv4/tcp_minisocks.c	Wed Feb 11 03:11:01 2004
+@@ -216,7 +216,7 @@
+ 		/* In window segment, it may be only reset or bare ack. */
+ 
+ 		if (th->rst) {
+-			/* This is TIME_WAIT assasination, in two flavors.
++			/* This is TIME_WAIT assassination, in two flavors.
+ 			 * Oh well... nobody has a sufficient solution to this
+ 			 * protocol bug yet.
+ 			 */
 
 -- 
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
