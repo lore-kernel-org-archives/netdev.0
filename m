@@ -1,33 +1,21 @@
-From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Mark lanstreamer driver as not 64bit clean
-Date: Wed, 17 Mar 2004 12:01:17 +0100
+From: Jerry Natowitz <j.natowitz@rcn.com>
+Subject: Possible overwrite in tulip driver >= 2.6.4-mm2
+Date: Wed, 17 Mar 2004 06:33:01 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040317120117.79cb7b78.ak@suse.de>
+Message-ID: <4058376D.2060409@rcn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mikep@linuxtr.net, linux-tr@linuxtr.net, netdev@oss.sgi.com
+To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-It does extremly unsafe things with the PCI DMA API and spews some nasty
-warnings on a 64bit compile.
-
-Disable the lanstreamer driver for 64bit hosts for now.
-
--Andi
-
-diff -u linux/drivers/net/tokenring/Kconfig-o linux/drivers/net/tokenring/Kconfig
---- linux/drivers/net/tokenring/Kconfig-o	1970-01-01 01:12:51.000000000 +0100
-+++ linux/drivers/net/tokenring/Kconfig	2004-03-17 11:59:40.000000000 +0100
-@@ -54,7 +54,7 @@
- 
- config IBMLS
- 	tristate "IBM Lanstreamer chipset PCI adapter support"
--	depends on TR && PCI
-+	depends on TR && PCI && !64BIT
- 	help
- 	  This is support for IBM Lanstreamer PCI Token Ring Cards.
- 
+I'm not experienced in debugging kernels, so all I can do is report that
+starting in 2.6.4-mm2, I get debugging information from the tulip driver
+that I never saw before.  I've confirmed that tulip_debug *should* be 1,
+but the presence of debug messages indicate that it is being over-written.
+-- 
+	Jerry Natowitz
+	j.natowitz@rcn.com
