@@ -1,34 +1,47 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Thu, 30 Sep 2004 13:25:46 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0409301320510.13549-100000@dexter.psc.edu>
-References: <Pine.NEB.4.33.0409292008110.3434-100000@dexter.psc.edu>
+From: Roland Dreier <roland@topspin.com>
+Subject: Re: Advice needed on IP-over-InfiniBand driver
+Date: Thu, 30 Sep 2004 11:41:07 -0700
+Sender: openib-general-bounces@openib.org
+Message-ID: <521xgj1tx8.fsf@topspin.com>
+References: <52fz5esxx6.fsf@topspin.com>
+	<20040919140133.60ea3fb3.davem@davemloft.net>
+	<52r7onc8ev.fsf@topspin.com>
+	<20040927215244.697aaa02.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andi Kleen <ak@suse.de>, <niv@us.ibm.com>, <herbert@gondor.apana.org.au>,
-        <andy.grover@gmail.com>, <anton@samba.org>, <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <Pine.NEB.4.33.0409292008110.3434-100000@dexter.psc.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040927215244.697aaa02.davem@davemloft.net> (David S.
+	Miller's message of "Mon, 27 Sep 2004 21:52:44 -0700")
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Sep 2004, John Heffner wrote:
+    David> I think you might learn something by having a look at what
+    David> net/atm/clip.c is doing, it creates it's own neighbour
+    David> layer for CLIP ATM neighbours.  It is in a similar boat to
+    David> your IPoIB stuff.
 
-> On Wed, 29 Sep 2004, John Heffner wrote:
->
-> > Using iperf, I'm getting ~ the same speed to a slow p3 receiver (680
-> > Mbits) with TSO on or off right now.  Haven't tried netperf.
->
-> Netperf does not work well for me (350 Mbits).  Something to investigate.
+Thanks, this suggestion was very helpful.  I think I'm making
+progress.  Now I know my next question :)
 
-I tried again, and it does not even work this well.  The connection hangs
-at the end in state FIN_WAIT1 with 101361 bytes in the Send-Q.  It seems
-that the whole interface dies.  (Maybe it's sending something invalid to
-the TSO engine?)  When I bring the interface down then back up again, the
-connection terminates normally.
+CLIP ATM is a little different from IPoIB in that it completely
+replaces the ARP layer with its own ARP daemon.  For IPoIB I don't
+want to reinvent the ARP and ND code -- I just want to add a secondary
+lookup after the response comes back.  I think I have an idea of how
+to do that and then stash the information in the struct neighbour, so
+that my hard_start_xmit method can get it from skb->dst (ala clip.c).
 
-Don't have this problem with iperf, strange.
+However, it seems that broadcast ARP packets have skb->dst == NULL.
+Is it safe for me to assume that packets with skb->dst == NULL are
+broadcast packets?  Will multicast packets have a non-NULL dst?
 
-  -John
+Thanks,
+  Roland
