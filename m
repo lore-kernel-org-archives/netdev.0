@@ -1,29 +1,60 @@
-From: James Morris <jmorris@intercode.com.au>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] xfrm ip6ip6
-Date: Sun, 1 Jun 2003 02:06:07 +1000 (EST)
+Date: Sun, 01 Jun 2003 01:30:40 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0306010204260.7298-100000@excalibur.intercode.com.au>
+Message-ID: <20030601.013040.116362760.davem@redhat.com>
 References: <87fzmv5ejc.wl@karaba.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>,
-   <usagi@linux-ipv6.org>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@intercode.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitsuru KANDA / =?ISO-2022-JP?B?GyRCP0BFRBsoQiAbJEI9PBsoQg==?= <mk@linux-ipv6.org>
+To: mk@linux-ipv6.org
 In-Reply-To: <87fzmv5ejc.wl@karaba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 1 Jun 2003, Mitsuru KANDA / [ISO-2022-JP] 神田 充 wrote:
+   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
+   Date: Sun, 01 Jun 2003 00:20:07 +0900
 
-> I honestly have to say it is not tested well.
+Hello Mitsuru-san!
 
-Btw, one simple way to test the xfrm tunneling is to set up a plain ipcomp 
-tunnel and run ssh or https over it, which should cause non-compressed 
-packets to be sent (they will fail the compressability test).
+   +	t->id.spi = xfrm6_tunnel_addr_hash((xfrm_address_t *)&x->props.saddr);
 
+You misunderstood what I tried to explain to you.
 
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Consider, how do you guarentee that this t->id.spi value is unique
+across all xfrm6_tunnel tunnels using the same t->id.daddr and
+t->id.prot?  The answer is that you cannot.
+
+You must generate fake "spi" values, they have no meaning outside of
+xfrm6_tunnel.c They serve purpose only to map 128-bit ipv6 address to
+32-bit "xfrm6_tunnel" SPI value.
+
+I would suggest following implementation:
+
+1) Implement something similar to xfrm_alloc_spi(t, 1, ~(u32)0)
+
+   It just needs to allocate unique SPI numbers local to
+   xfrm6_tunnel.c   We mark "SPI" value zero as reserved and
+   to indicate failed lookup.
+
+2) Create hash table, it is keyed by ipv6 address and hash table
+   entries give SPI values.
+
+So on input you would say something like:
+
+	u32 spi;
+
+	spi = spihash_lookup(&iph->saddr);
+	if (!spi)
+		goto drop;
+	x = xfrm_state_lookup((xfrm_address_t *)&iph->daddr, spi,
+			      IPPROTO_IPV6, AF_INET6);
+
+Is the idea more clear now?
+
+Once you fix this up I'll apply your xfrm6_tunnel.c work.
+
+Thank you.
