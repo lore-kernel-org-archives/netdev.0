@@ -1,50 +1,62 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: patch: annoying u32 double listing
-Date: Sun, 6 Feb 2005 23:24:50 +0100
-Message-ID: <20050206222450.GX31837@postel.suug.ch>
-References: <1107719343.1055.22.camel@jzny.localdomain> <20050206212928.GV31837@postel.suug.ch> <1107726133.1055.34.camel@jzny.localdomain>
+Subject: Re: instead of eaction
+Date: Mon, 7 Feb 2005 00:08:59 +0100
+Message-ID: <20050206230859.GY31837@postel.suug.ch>
+References: <1107728020.1055.50.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1107726133.1055.34.camel@jzny.localdomain>
+In-Reply-To: <1107728020.1055.50.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1107726133.1055.34.camel@jzny.localdomain> 2005-02-06 16:42
-> On Sun, 2005-02-06 at 16:29, Thomas Graf wrote:
+* jamal <1107728020.1055.50.camel@jzny.localdomain> 2005-02-06 17:13
 > 
-> > assign filters attached to it, i.e. listing filters based on
-> > parent == XX: && dev == %DEV will result in the filters being listed
-> > for both the qdisc and the class. I haven't found a fix that wouldn't
-> > break many scripts so if you have a good idea, go ahead. ;->
+> I think i am going to throw out the idea of eaction; instead
+> just provide some defaults.
+> First patch adds some defaults and second a quick simple example.
 > 
-> I cant say ive run into this one - mostly i attach filters to root.
-> Example script?
+> I have to take off; but maybe i will get time to work on meta action as
+> well as csum action when i get back.
+> 
+> Comments welcome
+> 
+> cheers,
+> jamal
 
-See the post as reply to Patick's comment. You won't notice it in
-tc because it doesn't output complete trees.
+> --- /dev/null	2004-01-29 13:33:32.773091056 -0500
+> +++ 2611-rc3+bk3/include/net/act_generic.h	2005-02-06 15:55:36.000000000 -0500
+> +	if (rta == NULL || rtattr_parse_nested(tb, TCA_DEF_MAX, rta) < 0)
+> +		return -EINVAL;
+> +
+> +	if (tb[TCA_DEF_PARMS - 1] == NULL)
+> +		return -EINVAL;
 
-> BTW, cycles allow me to work on the eaction stuff today. So far
-> ive come to the conclusion that whats really needed to simplify
-> writting some actions is to just provide generic methods they
-> can use without them necessarily knowing details. I hope to test
-> later on, maybe write a simple action and its user apce piece, and post
-> patch.
+Maybe check for tb[TCA_DEF_DATA - 1] == NULL here as well?
 
-Sounds good, I've been mostly occupied by writing a API documentation
-to libnl and clean it up which almost doubled its usefulnes. There
-is still some effort to go into the core to make it easier to use for
-applications needing non blocking sockets or weird multiplexing. 
+> +	parm = RTA_DATA(tb[TCA_DEF_PARMS - 1]);
 
-The traffic control part is slowly evoling but it take some more time
-to implement all the remaining qdiscs and classifiers. A bit of luck
-allowed me to provide a XML based external interface to other
-applications. It should be easy to extend it to make it bidirectional
-and get distributed configuration via some kind of existing or
-new protocol. The most problematic issue remaining is byte ordering.
-I guess I will end up having all the modules define their part of
-the grammar specifying the required byte order of every field and
-have a generic parser to do transformations as necessary.
+RTA_PAYLOAD check for TCA_DEF_PARMS?
+
+> --- /dev/null	2004-01-29 13:33:32.773091056 -0500
+> +++ 2611-rc3+bk3/net/sched/simple.c	2005-02-06 15:55:57.000000000 -0500
+> @@ -0,0 +1,107 @@
+
+> +#include <linux/tc_act/tc_defact.h>
+> +#include <net/tc_act/tc_defact.h>
+> +
+> +/* use generic hash table with 8 buckets */
+> +#define MY_TAB_SIZE     8
+> +#define MY_TAB_MASK     (MY_TAB_SIZE - 1)
+> +static u32 idx_gen;
+> +static struct tcf_defact *tcf_simp_ht[MY_TAB_SIZE];
+> +static DEFINE_RWLOCK(simp_lock);
+
+I guess this is supposed to be tca_use_default_defines
+and move MY_TAB_SIZE before the includes?
+
+It looks pretty simple to use and makes up ematches quite well. Any
+userspace code alreay written?
