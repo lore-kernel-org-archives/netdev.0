@@ -1,48 +1,53 @@
-From: Hasso Tepper <hasso@estpak.ee>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: Link detection
-Date: Mon, 14 Mar 2005 16:41:33 +0200
-Message-ID: <200503141641.33510.hasso@estpak.ee>
-References: <200503141435.38227.hasso@estpak.ee> <20050314133216.GM31837@postel.suug.ch>
+Date: Mon, 14 Mar 2005 15:57:10 +0100
+Message-ID: <20050314145710.GO31837@postel.suug.ch>
+References: <200503141435.38227.hasso@estpak.ee> <20050314133216.GM31837@postel.suug.ch> <200503141605.02959.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050314133216.GM31837@postel.suug.ch>
+To: Hasso Tepper <hasso@estpak.ee>
 Content-Disposition: inline
+In-Reply-To: <200503141605.02959.hasso@estpak.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * Hasso Tepper <200503141435.38227.hasso@estpak.ee> 2005-03-14 14:35
->
-> > 1) What's the proper way to detect carrier in Linux for user space
-> > application like Quagga?
-> >
-> > True, IFF_RUNNING is from BSD, but as long as the code in
-> > net/core/dev.c:dev_get_flags() is there, it gives nice clean way to get
-> > carrier status from user space (AFAIK it's used in same way in
-> > Solaris). Especially for applications using rtnetlink - ie. without it
-> > there is no all info in the netlink message any more. If these
-> > applications will receive RTM_NEWLINK, they have to poll kernel "look,
-> > maybe carrier status is changed" every time?
->
-> You should open a rtnetlink socket and register to the RTMGRP_LINK
-> multicast group and filter for RTM_NEWLINK with ifi_change & IFF_UP and
-> then look at ifi_flags & IFF_UP to see whether the interface is now
-> up or down. You'll receive such a rtnetlink message everytime the
-> carrier status changes.
+* Hasso Tepper <200503141605.02959.hasso@estpak.ee> 2005-03-14 16:05
+> > The routes must stay if the interface isn't shut down completely. A loss
+> > of the carrier can be temporarly for just a very short period of time.
+> > What we can do is, like in the neighbour tables, differ between a
+> > adimistrative shutdown and a loss of the carrier with a new flag, would
+> > that help you?
+> 
+> In theory yes, if this info is carried over netlink. 
 
-Forgot to answer this part. We already do all this. IFF_UP doesn't show 
-carrier status, but administrative status. IFF_RUNNING shows carrier 
-status.
+It is carried but not in the way I mentioned. I was wrong with IFF_UP, it
+isn't modified. An event is sent upon carrier off and again when the carrier
+is found again so you must toggle. Alternatively we can alter a flag in
+netif_carrier_(on|off) which is probably a good idea anyway. I'll prepare
+a patch for this. Polling sysfs is definitely not the way to go.
 
+> > Problem #1: Differ between a temporary loss of carrier and a permanent
+> >             failure. Relatively easy from userspace because userspace
+> >      knows about the strategy.
+> 
+> Is there need for that? There should be knob of course to tune behaviour 
+> IMHO. Sure there are applications which expect current behaviour. 
 
-with my best wishes,
+Now that I know you're only taking about implicite routes the problem
+is less serious, still a timeout value would be a good thing, one can
+always set it to 0 to remove routes immediately or disable it completely.
 
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+> I think that you misunderstood. I don't talk about any routes created by any 
+> user space applications or by user. These _must_ be untouched of course. 
+> I'm talking about routes _kernel_ creates if address is added to the 
+> interface. All other routes are not problem anyway. Even if their next hop 
+> points to network behind down interface, their next hop is unreachable and 
+> route shouldn't be used, no?
+
+Makes a lot more sense now. Yes, the nexthops should be marked unreachable
+since the routing cache flushed upon a NETDEV_CHANGE.
+
+What about setting RFT_REJECT/RTN_UNREACHABLE on those routes for the time
+the carrier is gone?
