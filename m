@@ -1,35 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: Do you know the TCP stack? (127.x.x.x routing)
-Date: 09 Mar 2005 19:11:30 -0500
-Message-ID: <1110413490.1110.42.camel@jzny.localdomain>
-References: <B8561865DB141248943E2376D0E85215FFE2AF@DHOST001-17.DEX001.intermedia.net>
-Reply-To: hadi@cyberus.ca
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Wed, 9 Mar 2005 19:23:51 -0500
+Message-ID: <20050310002351.GE16930@knob.localnet>
+References: <20050309235122.7541.qmail@orange.bonev.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Henrik Nordstrom <hno@marasystems.com>, Martin Mares <mj@ucw.cz>,
-        Zdenek Radouch <zdenek@rcn.com>, Eran Mann <emann@mrv.com>,
-        Thomas Graf <tgraf@suug.ch>, Andi Kleen <ak@muc.de>,
-        netdev@oss.sgi.com, linux-net@vger.kernel.org
-To: Steve Iribarne <steve.iribarne@dilithiumnetworks.com>
-In-Reply-To: <B8561865DB141248943E2376D0E85215FFE2AF@DHOST001-17.DEX001.intermedia.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Boian Bonev <boian@bonev.com>
+Content-Disposition: inline
+In-Reply-To: <20050309235122.7541.qmail@orange.bonev.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-03-09 at 16:57, Steve Iribarne wrote:
+On Thu, Mar 10, 2005 at  1:51AM +0200, Boian Bonev wrote:
+> you can do that but you omit the interface addresses - suppose ext net
+> is 10.20.10.1/24, internal is 10.10.10.1/24, no matter what routing
+> policies and rules you put, both interface ips will be visible from
+> both interfaces.
 
-> There it is.  I'm not going to spend anymore time on this, and neither
-> should you.  Like I said, I've been doing this for a darn long time, and
-> I have, as yet, to see anyone who can make this problem just work.
-> Other than the way I did it.  (I along with many others)
-> 
+What do you mean by "visible"? If you're referring to arp, the arp
+sysctls are probably adequate, and there's arpfilter if not.
 
-Lets end this thread - we are clearly never gonna get to a consensus.
+> now imagine you have another external net 10.30.10.1/24 and customer
+> wants to route e.g. 10.10.0.0/16 from 10.20.10.1/24 via 10.30.10.5...
+> at least host 10.10.10.1 will not route but arrive locally to your
+> blade host
 
-Whoever asked the question on how to expose loopback got their answer
-and you say you are not pushing the patch - so we are all one big happy
-family.
+Not if you take 10.10.10.1 out of the "local" routing table, and policy
+route that traffic only through tables that don't consider 10.10.10.1
+local. I'm not saying it's trivial, but if you set your rules up right,
+you can make some packets be routed by *completely different routing
+tables* than others.
 
-cheers,
-jamal
+Jason
