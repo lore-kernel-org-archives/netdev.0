@@ -1,35 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Mon, 09 Jun 2003 09:37:55 -0700 (PDT)
+Subject: Re: [PATCH] switch skfp over to initcalls
+Date: Mon, 09 Jun 2003 09:51:06 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609.093755.51688774.davem@redhat.com>
-References: <001801c32e50$57ef0750$4a00000a@badass>
-	<20030608.232827.88487519.davem@redhat.com>
-	<20030609092327.41899cb5.shemminger@osdl.org>
+Message-ID: <20030609.095106.22030084.davem@redhat.com>
+References: <20030609120603.GA31393@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: xerox@foonet.net, hadi@shell.cyberus.ca, sim@netnation.com,
-   fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   Robert.Olsson@data.slu.se
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030609092327.41899cb5.shemminger@osdl.org>
+To: hch@lst.de
+In-Reply-To: <20030609120603.GA31393@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Stephen Hemminger <shemminger@osdl.org>
-   Date: Mon, 9 Jun 2003 09:23:27 -0700
+   From: Christoph Hellwig <hch@lst.de>
+   Date: Mon, 9 Jun 2003 14:06:03 +0200
 
-   Has anyone looked into using Judy array's to speedup the route
-   cache.   HP has opened it up (see
-   http://sourceforge.net/projects/judy ) and it should have better
-   scaling for these type of attacks.
+   This is a PCI driver and has no business in Space.c.  Also
+   allows to kill all the fddi code in there (and the stale
+   reference to the long gone apfddi driver)
    
-Like all such seemingly promising schemes, insert/retrieve are
-optimized at the expense of delete.
-
-I normally don't even look at such algorithms anymore, they all
-are amazing if you only build tables and look for things in them
-but are unusable when O(1) insert/delete/lookup are absolutely
-required.
+Applied, thanks.
