@@ -1,90 +1,231 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: Updated WE-18 (WPA) proposal
-Date: Tue, 31 Aug 2004 18:48:48 +0300
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Tue, 31 Aug 2004 18:37:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408311848.55628.vkondra@mail.ru>
-References: <20040830045441.GA7415@jm.kir.nu> <20040831085458.GD31207@ruslug.rutgers.edu> <1093966225.1464.9.camel@rootix>
+Message-ID: <4134A961.20808@eurodev.net>
+References: <412DF807.2040703@eurodev.net>	<20040826141407.38b56729.davem@redhat.com>	<412EB40A.6010100@eurodev.net>	<20040826214710.5e322f1a.davem@redhat.com>	<412F1269.8090303@eurodev.net>	<20040827172736.543dbd54.davem@redhat.com>	<413276D9.9080303@eurodev.net> <20040830172029.164fcf9c.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1097049.0dEAopxo3L";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Pedro Ramalhais <ramalhais@serrado.net>,
-        "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Jeff Garzik <jgarzik@pobox.com>, jt@hpl.hp.com,
-        Jouni Malinen <jkmaline@cc.hut.fi>, hostap@shmoo.com
+Content-Type: multipart/mixed;
+ boundary="------------040606080103020605090003"
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <1093966225.1464.9.camel@rootix>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040830172029.164fcf9c.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart1097049.0dEAopxo3L
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+This is a multi-part message in MIME format.
+--------------040606080103020605090003
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-On Tuesday 31 August 2004 18:33, Pedro Ramalhais wrote:
-PR> > > Intel Centrino driver is re-using chunks of HostAP, and I'm looking
- at PR> > > doing so for the RealTek 8180 driver I am about to publish.
-PR> >
-PR> > Can someone elaborate on what "chunks" the centrino driver is using
-PR> > from hostap?
-PR> >
-PR> > Jeff what aspects are you looking to re-use from hostap?
-PR> >
-PR> > I guess we at prism54 should also see what we can re-use too then.
-PR> > Our next driver (a softmac driver) will have a lot more code since the
-PR> > MAC will need to be implemented on the driver side -- I'm not yet sure
-PR> > of the exact details as I haven't grep'd through the available code y=
-et
-PR> > I'm wondering though -- are there any other softmac drivers out there,
-PR> > or to come soon?
-PR> >
-PR> >  Luis
-PR>
-PR> The ipw2100 driver and ipw2200 driver both use these parts of hostap
-PR> code:
-PR> RX code (i think now it's in file hostap_80211_rx.c)
-PR> little parts of the TX code (hostap_80211_tx.c)
-PR> the hostap_crypt* code for WEP.
-PR> Some IEEE802.11 related parts of header files.
-PR> The ipw2100 is beggining to use hostap_crypt_tkip and hostap_crypt_ccmp
-PR> for WPA and WPA2.
-PR>
-PR> I think that's it. Better ask James Ketrenos, he is one of the
-PR> developers at intel.
+Hi Davem,
 
-Luis,
-please correct me if I'm wrong. It seems to me that softmac drivers will ne=
-ed=20
-significant changes relative to the model that HostAP employ. Also, many=20
-changes dictated by QoS (TGe), if one want to really implement it. Will you=
-r=20
-product support TGe?
-May be, we need to do design for generic "softmac" that will be then used w=
-ith=20
-different PHY's. Question is, whether we can formally describe boundary=20
-between softmac and PHY.
-I am interesting in joining this "softmac" development, as I will do some=20
-other .11 card which is "softmac". Can't reveal details yet, but we may=20
-discuss softmac issues without disclosing private info (I don't want to los=
-e=20
-my job).
+David S. Miller wrote:
 
-Vladimir.
+>On Mon, 30 Aug 2004 02:37:45 +0200
+>Pablo Neira <pablo@eurodev.net> wrote:
+>
+>  
+>
+>>Attached the 2.4.x version. It just spawns one kernel thread called 
+>>netlink, is it ok?
+>>    
+>>
+>
+>It's fine, I'm going to make 2 minor fixes:
+>
+>1) Mark netlink_thread() function static.
+>2) Name the thread "knetlinkd" to be consistent with
+>   other kernel thread names.
+>  
+>
 
---nextPart1097049.0dEAopxo3L
-Content-Type: application/pgp-signature
+Attached the version which correct these issues.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
+regards,
+Pablo
 
-iD8DBQBBNJ3nqxdj7mhC6o0RAvDDAKCRVT+zjNIJ8HNXu0ki/3OyLYke7gCePtm3
-iffIl4s2WbJkiqD/jKTZSC4=
-=df+R
------END PGP SIGNATURE-----
+--------------040606080103020605090003
+Content-Type: text/x-patch;
+ name="netlink-tqueue.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="netlink-tqueue.patch"
 
---nextPart1097049.0dEAopxo3L--
+--- a/net/netlink/af_netlink.c	2004-08-28 05:35:35.000000000 +0200
++++ b/net/netlink/af_netlink.c	2004-08-29 16:00:46.000000000 +0200
+@@ -42,6 +42,7 @@
+ #include <linux/notifier.h>
+ #include <net/sock.h>
+ #include <net/scm.h>
++#include <linux/tqueue.h>
+ 
+ #define Nprintk(a...)
+ 
+@@ -63,6 +64,15 @@
+ 	void			(*data_ready)(struct sock *sk, int bytes);
+ };
+ 
++struct netlink_work
++{
++	struct sock 		*sk;
++	int 			len;
++	struct tq_struct	work;
++};
++
++static DECLARE_TASK_QUEUE(tq_netlink);
++static DECLARE_WAIT_QUEUE_HEAD(netlink_thread_wait);
+ static struct sock *nl_table[MAX_LINKS];
+ static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
+ static unsigned nl_nonroot[MAX_LINKS];
+@@ -81,6 +91,15 @@
+ 
+ static struct notifier_block *netlink_chain;
+ 
++static void netlink_tq_handler(void *data)
++{
++	struct netlink_work *work = data;
++	
++	work->sk->data_ready(work->sk, work->len);
++	sock_put(work->sk);
++	kfree(work);
++}
++
+ static void netlink_sock_destruct(struct sock *sk)
+ {
+ 	skb_queue_purge(&sk->receive_queue);
+@@ -437,6 +456,8 @@
+ 
+ 	if (atomic_read(&sk->rmem_alloc) > sk->rcvbuf ||
+ 	    test_bit(0, &sk->protinfo.af_netlink->state)) {
++		struct task_struct *client;
++		
+ 		if (!timeo) {
+ 			if (ssk->protinfo.af_netlink->pid == 0)
+ 				netlink_overrun(sk);
+@@ -445,6 +466,19 @@
+ 			return -EAGAIN;
+ 		}
+ 
++		if (!sk->protinfo.af_netlink->pid) {
++			/* Kernel is sending information to user space
++			 * and socket buffer is full: Wake up user */
++			
++			client = find_task_by_pid(sk->protinfo.af_netlink->pid);
++			if (!client) {
++				sock_put(sk);
++				kfree_skb(skb);
++				return -EAGAIN;
++			}
++			wake_up_process(client);
++		}
++
+ 		__set_current_state(TASK_INTERRUPTIBLE);
+ 		add_wait_queue(&sk->protinfo.af_netlink->wait, &wait);
+ 
+@@ -467,8 +501,26 @@
+ 	skb_orphan(skb);
+ 	skb_set_owner_r(skb, sk);
+ 	skb_queue_tail(&sk->receive_queue, skb);
+-	sk->data_ready(sk, len);
+-	sock_put(sk);
++
++	if (!sk->protinfo.af_netlink->pid) {
++		struct netlink_work *nlwork = 
++			kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
++		
++		if  (!nlwork) {
++			sock_put(sk);
++			return -EAGAIN;
++		}
++		
++		INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
++		nlwork->sk = sk;
++		nlwork->len = len;
++		queue_task(&nlwork->work, &tq_netlink);
++		wake_up(&netlink_thread_wait);
++	} else {
++		sk->data_ready(sk, len);
++		sock_put(sk);
++	}
++	
+ 	return len;
+ 
+ no_dst:
+@@ -490,7 +542,22 @@
+                 skb_orphan(skb);
+ 		skb_set_owner_r(skb, sk);
+ 		skb_queue_tail(&sk->receive_queue, skb);
+-		sk->data_ready(sk, skb->len);
++
++		if (!sk->protinfo.af_netlink->pid) {
++			struct netlink_work *nlwork = 
++				kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
++		
++			if  (!nlwork) 
++				return -EAGAIN;
++		
++			INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
++			nlwork->sk = sk;
++			nlwork->len = skb->len;
++			queue_task(&nlwork->work, &tq_netlink);
++			wake_up(&netlink_thread_wait);
++		} else 
++			sk->data_ready(sk, skb->len);
++
+ 		return 0;
+ 	}
+ 	return -1;
+@@ -534,11 +601,12 @@
+ 			netlink_overrun(sk);
+ 			/* Clone failed. Notify ALL listeners. */
+ 			failure = 1;
++			sock_put(sk);
+ 		} else if (netlink_broadcast_deliver(sk, skb2)) {
+ 			netlink_overrun(sk);
++			sock_put(sk);
+ 		} else
+ 			skb2 = NULL;
+-		sock_put(sk);
+ 	}
+ 
+ 	netlink_unlock_table();
+@@ -868,6 +936,26 @@
+ 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).pid, MSG_DONTWAIT);
+ }
+ 
++static int netlink_thread(void *unused)
++{
++	struct task_struct *tsk = current;
++	DECLARE_WAITQUEUE(wait, tsk);
++
++	daemonize();
++	strcpy(tsk->comm, "knetlinkd");
++	sigfillset(&tsk->blocked);
++	mb();
++
++	for (;;) {
++		run_task_queue(&tq_netlink);
++		
++		__set_current_state(TASK_INTERRUPTIBLE);
++		add_wait_queue(&netlink_thread_wait, &wait);
++		schedule();
++		__set_current_state(TASK_RUNNING);
++		remove_wait_queue(&netlink_thread_wait, &wait);
++	}
++}
+ 
+ #ifdef NL_EMULATE_DEV
+ 
+@@ -1027,6 +1115,8 @@
+ #ifdef CONFIG_PROC_FS
+ 	create_proc_read_entry("net/netlink", 0, 0, netlink_read_proc, NULL);
+ #endif
++	kernel_thread(netlink_thread, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGNAL);
++	
+ 	return 0;
+ }
+ 
+
+--------------040606080103020605090003--
