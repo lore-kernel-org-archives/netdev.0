@@ -1,379 +1,742 @@
 From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH] New Patch Implementation for IPv6 MIB:ipv6InterfaceTable
-Date: Wed, 14 Jan 2004 14:48:55 -0800
+Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
+Date: Wed, 14 Jan 2004 14:52:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401141448.55531.mashirle@us.ibm.com>
-References: <200310141032.23998.mashirle@us.ibm.com> <200310201600.10016.mashirle@us.ibm.com> <20031020210433.27e25240.davem@redhat.com>
+Message-ID: <200401141450.43806.mashirle@us.ibm.com>
+References: <200312021240.PAA01536@yakov.inr.ac.ru> <200312051214.48076.mashirle@us.ibm.com> <20031205123133.3743fe39.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: Multipart/Mixed;
-  boundary="------------Boundary-00=_JP4IC6JIGMLAEM9J54WO"
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+  boundary="------------Boundary-00=_3W4IHK7H5IB4D0GPKYUU"
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031020210433.27e25240.davem@redhat.com>
+In-Reply-To: <20031205123133.3743fe39.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---------------Boundary-00=_JP4IC6JIGMLAEM9J54WO
+--------------Boundary-00=_3W4IHK7H5IB4D0GPKYUU
 Content-Type: text/plain;
   charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
 
-
-> It looks fine but I cannot merge it at this time.  Linus wants
-> only critical bug fixes for nowin 2.6.x
+> "sizeof(unsigned long)" evaluates to 8 on 64-bit systems,
+> yet you assume it always evaluated to 4 as on 32-bit systems.
 >
-> Maybe in 2.6.1, 2.6.2 or later we can merge this in.
+> Maybe it would be wiser to explicitly use 'u32' and 'u64' for
+> the types of the snmp counters?
+>
+> This has always been a sore area.
 
-This patch is against 2.6.1 kernel.
+This is the new patch against 2.6.1 kernel.
 
 Thanks
 Shirley Ma
 IBM Linux Technology Center
-
---------------Boundary-00=_JP4IC6JIGMLAEM9J54WO
+--------------Boundary-00=_3W4IHK7H5IB4D0GPKYUU
 Content-Type: text/x-diff;
   charset="iso-8859-1";
-  name="linux-2.6.1-ipv6mib1.patch"
+  name="linux-2.6.1-ipv6mib2-64.patch"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="linux-2.6.1-ipv6mib1.patch"
+Content-Disposition: attachment; filename="linux-2.6.1-ipv6mib2-64.patch"
 
-diff -urN linux-2.6.1/include/linux/rtnetlink.h linux-2.6.1-ipv6mib1/include/linux/rtnetlink.h
---- linux-2.6.1/include/linux/rtnetlink.h	2004-01-08 22:59:55.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/include/linux/rtnetlink.h	2004-01-12 13:40:09.000000000 -0800
-@@ -558,9 +558,18 @@
- 	IFLA_INET6_CONF,	/* sysctl parameters		*/
- 	IFLA_INET6_STATS,	/* statistics			*/
- 	IFLA_INET6_MCAST,	/* MC things. What of them?	*/
-+	IFLA_INET6_CACHEINFO,	/* time values and max reasm size */
- };
- 
--#define IFLA_INET6_MAX	IFLA_INET6_MCAST
-+struct ifla_cacheinfo
-+{
-+	__u32	max_reasm_len;
-+	__u32	tstamp;		/* ipv6InterfaceTable updated timestamp */
-+	__u32	reachable_time;
-+	__u32	retrans_time;
-+};
-+
-+#define IFLA_INET6_MAX	IFLA_INET6_CACHEINFO
- 
- /*****************************************************************
-  *		Traffic control messages.
-@@ -611,6 +620,7 @@
- #define RTMGRP_IPV6_IFADDR	0x100
- #define RTMGRP_IPV6_MROUTE	0x200
- #define RTMGRP_IPV6_ROUTE	0x400
-+#define RTMGRP_IPV6_IFINFO	0x800
- 
- #define RTMGRP_DECnet_IFADDR    0x1000
- #define RTMGRP_DECnet_ROUTE     0x4000
-diff -urN linux-2.6.1/include/net/if_inet6.h linux-2.6.1-ipv6mib1/include/net/if_inet6.h
---- linux-2.6.1/include/net/if_inet6.h	2004-01-08 23:00:04.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/include/net/if_inet6.h	2004-01-12 13:40:09.000000000 -0800
-@@ -183,6 +183,7 @@
- 	struct inet6_dev	*next;
- 	struct ipv6_devconf	cnf;
- 	struct ipv6_devstat	stats;
-+	unsigned long		tstamp; /* ipv6InterfaceTable update timestamp */
- };
- 
- extern struct ipv6_devconf ipv6_devconf;
-diff -urN linux-2.6.1/include/net/ndisc.h linux-2.6.1-ipv6mib1/include/net/ndisc.h
---- linux-2.6.1/include/net/ndisc.h	2004-01-08 22:59:55.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/include/net/ndisc.h	2004-01-12 13:40:09.000000000 -0800
-@@ -98,6 +98,17 @@
- 
- extern void			igmp6_cleanup(void);
- 
-+#ifdef CONFIG_SYSCTL
-+extern int 			ndisc_ifinfo_sysctl_change(ctl_table *ctl,
-+							   int write,
-+							   struct file * filp,
-+							   void __user *buffer,
-+							   size_t *lenp);
-+#endif
-+
-+extern void 			inet6_ifinfo_notify(int event,
-+						    struct inet6_dev *idev);
-+
- static inline struct neighbour * ndisc_get_neigh(struct net_device *dev, struct in6_addr *addr)
+diff -urN linux-2.6.1/include/net/snmp.h linux-2.6.1-ipv6mib2-64/include/net/snmp.h
+--- linux-2.6.1/include/net/snmp.h	2004-01-08 22:59:26.000000000 -0800
++++ linux-2.6.1-ipv6mib2-64/include/net/snmp.h	2004-01-13 13:45:23.000000000 -0800
+@@ -49,24 +49,24 @@
+  */
+ struct ip_mib
  {
- 
-diff -urN linux-2.6.1/include/net/neighbour.h linux-2.6.1-ipv6mib1/include/net/neighbour.h
---- linux-2.6.1/include/net/neighbour.h	2004-01-08 23:00:04.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/include/net/neighbour.h	2004-01-12 13:40:09.000000000 -0800
-@@ -47,6 +47,9 @@
- #include <linux/skbuff.h>
- 
- #include <linux/err.h>
-+#ifdef CONFIG_SYSCTL
-+#include <linux/sysctl.h>
-+#endif
- 
- #define NUD_IN_TIMER	(NUD_INCOMPLETE|NUD_DELAY|NUD_PROBE)
- #define NUD_VALID	(NUD_PERMANENT|NUD_NOARP|NUD_REACHABLE|NUD_PROBE|NUD_STALE|NUD_DELAY)
-@@ -206,8 +209,11 @@
- extern int neigh_delete(struct sk_buff *skb, struct nlmsghdr *nlh, void *arg);
- extern void neigh_app_ns(struct neighbour *n);
- 
--extern int			neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--						      int p_id, int pdev_id, char *p_name);
-+extern int			neigh_sysctl_register(struct net_device *dev, 
-+						      struct neigh_parms *p,
-+						      int p_id, int pdev_id,
-+						      char *p_name,
-+						      proc_handler *proc_handler);
- extern void			neigh_sysctl_unregister(struct neigh_parms *p);
+- 	unsigned long	IpInReceives;
+- 	unsigned long	IpInHdrErrors;
+- 	unsigned long	IpInAddrErrors;
+- 	unsigned long	IpForwDatagrams;
+- 	unsigned long	IpInUnknownProtos;
+- 	unsigned long	IpInDiscards;
+- 	unsigned long	IpInDelivers;
+- 	unsigned long	IpOutRequests;
+- 	unsigned long	IpOutDiscards;
+- 	unsigned long	IpOutNoRoutes;
+- 	unsigned long	IpReasmTimeout;
+- 	unsigned long	IpReasmReqds;
+- 	unsigned long	IpReasmOKs;
+- 	unsigned long	IpReasmFails;
+- 	unsigned long	IpFragOKs;
+- 	unsigned long	IpFragFails;
+- 	unsigned long	IpFragCreates;
+-	unsigned long   __pad[0]; 
++ 	__u64	IpInReceives;
++ 	__u64	IpInHdrErrors;
++ 	__u64	IpInAddrErrors;
++ 	__u64	IpForwDatagrams;
++ 	__u64	IpInUnknownProtos;
++ 	__u64	IpInDiscards;
++ 	__u64	IpInDelivers;
++ 	__u64	IpOutRequests;
++ 	__u64	IpOutDiscards;
++ 	__u64	IpOutNoRoutes;
++ 	__u64	IpReasmTimeout;
++ 	__u64	IpReasmReqds;
++ 	__u64	IpReasmOKs;
++ 	__u64	IpReasmFails;
++ 	__u64	IpFragOKs;
++ 	__u64	IpFragFails;
++ 	__u64	IpFragCreates;
++	__u64   __pad[0]; 
+ };
+  
+ /*
+@@ -74,29 +74,29 @@
+  */
+ struct ipv6_mib
+ {
+-	unsigned long	Ip6InReceives;
+- 	unsigned long	Ip6InHdrErrors;
+- 	unsigned long	Ip6InTooBigErrors;
+- 	unsigned long	Ip6InNoRoutes;
+- 	unsigned long	Ip6InAddrErrors;
+- 	unsigned long	Ip6InUnknownProtos;
+- 	unsigned long	Ip6InTruncatedPkts;
+- 	unsigned long	Ip6InDiscards;
+- 	unsigned long	Ip6InDelivers;
+- 	unsigned long	Ip6OutForwDatagrams;
+- 	unsigned long	Ip6OutRequests;
+- 	unsigned long	Ip6OutDiscards;
+- 	unsigned long	Ip6OutNoRoutes;
+- 	unsigned long	Ip6ReasmTimeout;
+- 	unsigned long	Ip6ReasmReqds;
+- 	unsigned long	Ip6ReasmOKs;
+- 	unsigned long	Ip6ReasmFails;
+- 	unsigned long	Ip6FragOKs;
+- 	unsigned long	Ip6FragFails;
+- 	unsigned long	Ip6FragCreates;
+- 	unsigned long	Ip6InMcastPkts;
+- 	unsigned long	Ip6OutMcastPkts;
+-	unsigned long   __pad[0]; 
++	__u64	Ip6InReceives;
++ 	__u64	Ip6InHdrErrors;
++ 	__u64	Ip6InTooBigErrors;
++ 	__u64	Ip6InNoRoutes;
++ 	__u64	Ip6InAddrErrors;
++ 	__u64	Ip6InUnknownProtos;
++ 	__u64	Ip6InTruncatedPkts;
++ 	__u64	Ip6InDiscards;
++ 	__u64	Ip6InDelivers;
++ 	__u64	Ip6OutForwDatagrams;
++ 	__u64	Ip6OutRequests;
++ 	__u64	Ip6OutDiscards;
++ 	__u64	Ip6OutNoRoutes;
++ 	__u64	Ip6ReasmTimeout;
++ 	__u64	Ip6ReasmReqds;
++ 	__u64	Ip6ReasmOKs;
++ 	__u64	Ip6ReasmFails;
++ 	__u64	Ip6FragOKs;
++ 	__u64	Ip6FragFails;
++ 	__u64	Ip6FragCreates;
++ 	__u64	Ip6InMcastPkts;
++ 	__u64	Ip6OutMcastPkts;
++	__u64   __pad[0]; 
+ };
+  
+ /*
+@@ -105,34 +105,34 @@
+  */
+ struct icmp_mib
+ {
+- 	unsigned long	IcmpInMsgs;
+- 	unsigned long	IcmpInErrors;
+-  	unsigned long	IcmpInDestUnreachs;
+- 	unsigned long	IcmpInTimeExcds;
+- 	unsigned long	IcmpInParmProbs;
+- 	unsigned long	IcmpInSrcQuenchs;
+- 	unsigned long	IcmpInRedirects;
+- 	unsigned long	IcmpInEchos;
+- 	unsigned long	IcmpInEchoReps;
+- 	unsigned long	IcmpInTimestamps;
+- 	unsigned long	IcmpInTimestampReps;
+- 	unsigned long	IcmpInAddrMasks;
+- 	unsigned long	IcmpInAddrMaskReps;
+- 	unsigned long	IcmpOutMsgs;
+- 	unsigned long	IcmpOutErrors;
+- 	unsigned long	IcmpOutDestUnreachs;
+- 	unsigned long	IcmpOutTimeExcds;
+- 	unsigned long	IcmpOutParmProbs;
+- 	unsigned long	IcmpOutSrcQuenchs;
+- 	unsigned long	IcmpOutRedirects;
+- 	unsigned long	IcmpOutEchos;
+- 	unsigned long	IcmpOutEchoReps;
+- 	unsigned long	IcmpOutTimestamps;
+- 	unsigned long	IcmpOutTimestampReps;
+- 	unsigned long	IcmpOutAddrMasks;
+- 	unsigned long	IcmpOutAddrMaskReps;
+-	unsigned long	dummy;
+-	unsigned long   __pad[0]; 
++ 	__u64	IcmpInMsgs;
++ 	__u64	IcmpInErrors;
++  	__u64	IcmpInDestUnreachs;
++ 	__u64	IcmpInTimeExcds;
++ 	__u64	IcmpInParmProbs;
++ 	__u64	IcmpInSrcQuenchs;
++ 	__u64	IcmpInRedirects;
++ 	__u64	IcmpInEchos;
++ 	__u64	IcmpInEchoReps;
++ 	__u64	IcmpInTimestamps;
++ 	__u64	IcmpInTimestampReps;
++ 	__u64	IcmpInAddrMasks;
++ 	__u64	IcmpInAddrMaskReps;
++ 	__u64	IcmpOutMsgs;
++ 	__u64	IcmpOutErrors;
++ 	__u64	IcmpOutDestUnreachs;
++ 	__u64	IcmpOutTimeExcds;
++ 	__u64	IcmpOutParmProbs;
++ 	__u64	IcmpOutSrcQuenchs;
++ 	__u64	IcmpOutRedirects;
++ 	__u64	IcmpOutEchos;
++ 	__u64	IcmpOutEchoReps;
++ 	__u64	IcmpOutTimestamps;
++ 	__u64	IcmpOutTimestampReps;
++ 	__u64	IcmpOutAddrMasks;
++ 	__u64	IcmpOutAddrMaskReps;
++	__u64	dummy;
++	__u64	__pad[0]; 
+ };
  
  /*
-diff -urN linux-2.6.1/net/core/neighbour.c linux-2.6.1-ipv6mib1/net/core/neighbour.c
---- linux-2.6.1/net/core/neighbour.c	2004-01-08 22:59:06.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/net/core/neighbour.c	2004-01-12 13:40:09.000000000 -0800
-@@ -1629,7 +1629,8 @@
- };
- 
- int neigh_sysctl_register(struct net_device *dev, struct neigh_parms *p,
--			  int p_id, int pdev_id, char *p_name)
-+			  int p_id, int pdev_id, char *p_name, 
-+			  proc_handler *handler)
+@@ -140,40 +140,35 @@
+  */
+ struct icmpv6_mib
  {
- 	struct neigh_sysctl_table *t = kmalloc(sizeof(*t), GFP_KERNEL);
- 	const char *dev_name_source = NULL;
-@@ -1643,6 +1644,10 @@
- 	t->neigh_vars[1].data  = &p->ucast_probes;
- 	t->neigh_vars[2].data  = &p->app_probes;
- 	t->neigh_vars[3].data  = &p->retrans_time;
-+	if (handler) {
-+		t->neigh_vars[3].proc_handler = handler;
-+		t->neigh_vars[3].extra1 = dev;
-+	}
- 	t->neigh_vars[4].data  = &p->base_reachable_time;
- 	t->neigh_vars[5].data  = &p->delay_probe_time;
- 	t->neigh_vars[6].data  = &p->gc_staletime;
-diff -urN linux-2.6.1/net/ipv4/arp.c linux-2.6.1-ipv6mib1/net/ipv4/arp.c
---- linux-2.6.1/net/ipv4/arp.c	2004-01-08 22:59:56.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/net/ipv4/arp.c	2004-01-12 13:40:09.000000000 -0800
-@@ -1122,7 +1122,7 @@
- 	arp_proc_init();
- #ifdef CONFIG_SYSCTL
- 	neigh_sysctl_register(NULL, &arp_tbl.parms, NET_IPV4,
--			      NET_IPV4_NEIGH, "ipv4");
-+			      NET_IPV4_NEIGH, "ipv4", NULL);
- #endif
- 	register_netdevice_notifier(&arp_netdev_notifier);
- }
-diff -urN linux-2.6.1/net/ipv4/devinet.c linux-2.6.1-ipv6mib1/net/ipv4/devinet.c
---- linux-2.6.1/net/ipv4/devinet.c	2004-01-08 22:59:19.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/net/ipv4/devinet.c	2004-01-12 13:40:09.000000000 -0800
-@@ -155,7 +155,7 @@
- 	dev_hold(dev);
- #ifdef CONFIG_SYSCTL
- 	neigh_sysctl_register(dev, in_dev->arp_parms, NET_IPV4,
--			      NET_IPV4_NEIGH, "ipv4");
-+			      NET_IPV4_NEIGH, "ipv4", NULL);
- #endif
- 	write_lock_bh(&inetdev_lock);
- 	dev->ip_ptr = in_dev;
-@@ -910,7 +910,7 @@
- 		devinet_sysctl_unregister(&in_dev->cnf);
- 		neigh_sysctl_unregister(in_dev->arp_parms);
- 		neigh_sysctl_register(dev, in_dev->arp_parms, NET_IPV4,
--				      NET_IPV4_NEIGH, "ipv4");
-+				      NET_IPV4_NEIGH, "ipv4", NULL);
- 		devinet_sysctl_register(in_dev, &in_dev->cnf);
- #endif
- 		break;
-diff -urN linux-2.6.1/net/ipv6/addrconf.c linux-2.6.1-ipv6mib1/net/ipv6/addrconf.c
---- linux-2.6.1/net/ipv6/addrconf.c	2004-01-08 23:00:03.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/net/ipv6/addrconf.c	2004-01-14 14:22:59.000000000 -0800
-@@ -373,9 +373,10 @@
- 		write_unlock_bh(&addrconf_lock);
- 
- 		ipv6_mc_init_dev(ndev);
+-	unsigned long	Icmp6InMsgs;
+-	unsigned long	Icmp6InErrors;
 -
-+		ndev->tstamp = jiffies;
- #ifdef CONFIG_SYSCTL
--		neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6, NET_IPV6_NEIGH, "ipv6");
-+		neigh_sysctl_register(dev, ndev->nd_parms, NET_IPV6, 
-+			NET_IPV6_NEIGH, "ipv6", &ndisc_ifinfo_sysctl_change);
- 		addrconf_sysctl_register(ndev, &ndev->cnf);
- #endif
- 	}
-@@ -1890,6 +1891,8 @@
- 				rt6_mtu_change(dev, dev->mtu);
- 				idev->cnf.mtu6 = dev->mtu;
- 			}
-+			idev->tstamp = jiffies;
-+			inet6_ifinfo_notify(RTM_NEWLINK, idev);
- 			/* If the changed mtu during down is lower than IPV6_MIN_MTU
- 			   stop IPv6 on this interface.
- 			 */
-@@ -1921,7 +1924,7 @@
- 		if (idev) {
- 			addrconf_sysctl_unregister(&idev->cnf);
- 			neigh_sysctl_unregister(idev->nd_parms);
--			neigh_sysctl_register(dev, idev->nd_parms, NET_IPV6, NET_IPV6_NEIGH, "ipv6");
-+			neigh_sysctl_register(dev, idev->nd_parms, NET_IPV6, NET_IPV6_NEIGH, "ipv6", &ndisc_ifinfo_sysctl_change);
- 			addrconf_sysctl_register(idev, &idev->cnf);
- 		}
- #endif
-@@ -2023,6 +2026,10 @@
- 	else
- 		ipv6_mc_down(idev);
- 
-+	/* Step 5: netlink notification of this interface */
-+	idev->tstamp = jiffies;
-+	inet6_ifinfo_notify(RTM_NEWLINK, idev);
-+	
- 	/* Shot the device (if unregistered) */
- 
- 	if (how == 1) {
-@@ -2724,17 +2731,19 @@
- #endif
- }
- 
--static int inet6_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
--			    struct inet6_dev *idev,
--			    int type, u32 pid, u32 seq)
-+static int inet6_fill_ifinfo(struct sk_buff *skb, struct inet6_dev *idev, 
-+			     u32 pid, u32 seq, int event)
+-	unsigned long	Icmp6InDestUnreachs;
+-	unsigned long	Icmp6InPktTooBigs;
+-	unsigned long	Icmp6InTimeExcds;
+-	unsigned long	Icmp6InParmProblems;
+-
+-	unsigned long	Icmp6InEchos;
+-	unsigned long	Icmp6InEchoReplies;
+-	unsigned long	Icmp6InGroupMembQueries;
+-	unsigned long	Icmp6InGroupMembResponses;
+-	unsigned long	Icmp6InGroupMembReductions;
+-	unsigned long	Icmp6InRouterSolicits;
+-	unsigned long	Icmp6InRouterAdvertisements;
+-	unsigned long	Icmp6InNeighborSolicits;
+-	unsigned long	Icmp6InNeighborAdvertisements;
+-	unsigned long	Icmp6InRedirects;
+-
+-	unsigned long	Icmp6OutMsgs;
+-
+-	unsigned long	Icmp6OutDestUnreachs;
+-	unsigned long	Icmp6OutPktTooBigs;
+-	unsigned long	Icmp6OutTimeExcds;
+-	unsigned long	Icmp6OutParmProblems;
+-
+-	unsigned long	Icmp6OutEchoReplies;
+-	unsigned long	Icmp6OutRouterSolicits;
+-	unsigned long	Icmp6OutNeighborSolicits;
+-	unsigned long	Icmp6OutNeighborAdvertisements;
+-	unsigned long	Icmp6OutRedirects;
+-	unsigned long	Icmp6OutGroupMembResponses;
+-	unsigned long	Icmp6OutGroupMembReductions;
+-	unsigned long   __pad[0]; 
++	__u64	Icmp6InMsgs;
++	__u64	Icmp6InErrors;
++	__u64	Icmp6InDestUnreachs;
++	__u64	Icmp6InPktTooBigs;
++	__u64	Icmp6InTimeExcds;
++	__u64	Icmp6InParmProblems;
++	__u64	Icmp6InEchos;
++	__u64	Icmp6InEchoReplies;
++	__u64	Icmp6InGroupMembQueries;
++	__u64	Icmp6InGroupMembResponses;
++	__u64	Icmp6InGroupMembReductions;
++	__u64	Icmp6InRouterSolicits;
++	__u64	Icmp6InRouterAdvertisements;
++	__u64	Icmp6InNeighborSolicits;
++	__u64	Icmp6InNeighborAdvertisements;
++	__u64	Icmp6InRedirects;
++	__u64	Icmp6OutMsgs;
++	__u64	Icmp6OutDestUnreachs;
++	__u64	Icmp6OutPktTooBigs;
++	__u64	Icmp6OutTimeExcds;
++	__u64	Icmp6OutParmProblems;
++	__u64	Icmp6OutEchoReplies;
++	__u64	Icmp6OutRouterSolicits;
++	__u64	Icmp6OutNeighborSolicits;
++	__u64	Icmp6OutNeighborAdvertisements;
++	__u64	Icmp6OutRedirects;
++	__u64	Icmp6OutGroupMembResponses;
++	__u64	Icmp6OutGroupMembReductions;
++	__u64   __pad[0]; 
+ };
+  
+ /*
+@@ -182,21 +177,21 @@
+  */
+ struct tcp_mib
  {
-+	struct net_device	*dev = idev->dev;
- 	__s32			*array = NULL;
- 	struct ifinfomsg	*r;
- 	struct nlmsghdr 	*nlh;
- 	unsigned char		*b = skb->tail;
- 	struct rtattr		*subattr;
-+	__u32			mtu = dev->mtu;
-+	struct ifla_cacheinfo	ci;
+- 	unsigned long	TcpRtoAlgorithm;
+- 	unsigned long	TcpRtoMin;
+- 	unsigned long	TcpRtoMax;
+- 	unsigned long	TcpMaxConn;
+- 	unsigned long	TcpActiveOpens;
+- 	unsigned long	TcpPassiveOpens;
+- 	unsigned long	TcpAttemptFails;
+- 	unsigned long	TcpEstabResets;
+- 	unsigned long	TcpCurrEstab;
+- 	unsigned long	TcpInSegs;
+- 	unsigned long	TcpOutSegs;
+- 	unsigned long	TcpRetransSegs;
+- 	unsigned long	TcpInErrs;
+- 	unsigned long	TcpOutRsts;
+-	unsigned long   __pad[0]; 
++ 	__u64	TcpRtoAlgorithm;
++ 	__u64	TcpRtoMin;
++ 	__u64	TcpRtoMax;
++ 	__u64	TcpMaxConn;
++ 	__u64	TcpActiveOpens;
++ 	__u64	TcpPassiveOpens;
++ 	__u64	TcpAttemptFails;
++ 	__u64	TcpEstabResets;
++ 	__u64	TcpCurrEstab;
++ 	__u64	TcpInSegs;
++ 	__u64	TcpOutSegs;
++ 	__u64	TcpRetransSegs;
++ 	__u64	TcpInErrs;
++ 	__u64	TcpOutRsts;
++	__u64   __pad[0]; 
+ };
+  
+ /*
+@@ -205,110 +200,110 @@
+  */
+ struct udp_mib
+ {
+- 	unsigned long	UdpInDatagrams;
+- 	unsigned long	UdpNoPorts;
+- 	unsigned long	UdpInErrors;
+- 	unsigned long	UdpOutDatagrams;
+-	unsigned long   __pad[0];
++ 	__u64	UdpInDatagrams;
++ 	__u64	UdpNoPorts;
++ 	__u64	UdpInErrors;
++ 	__u64	UdpOutDatagrams;
++	__u64   __pad[0];
+ }; 
  
--	nlh = NLMSG_PUT(skb, pid, seq, type, sizeof(*r));
-+	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*r));
- 	if (pid) nlh->nlmsg_flags |= NLM_F_MULTI;
- 	r = NLMSG_DATA(nlh);
- 	r->ifi_family = AF_INET6;
-@@ -2749,6 +2758,13 @@
- 
- 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
- 
-+	if (dev->addr_len)
-+		RTA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
-+
-+	RTA_PUT(skb, IFLA_MTU, sizeof(mtu), &mtu);
-+	if (dev->ifindex != dev->iflink)
-+		RTA_PUT(skb, IFLA_LINK, sizeof(int), &dev->iflink);
-+			
- 	subattr = (struct rtattr*)skb->tail;
- 
- 	RTA_PUT(skb, IFLA_PROTINFO, 0, NULL);
-@@ -2756,6 +2772,14 @@
- 	/* return the device flags */
- 	RTA_PUT(skb, IFLA_INET6_FLAGS, sizeof(__u32), &idev->if_flags);
- 
-+	/* return interface cacheinfo */
-+	ci.max_reasm_len = IPV6_MAXPLEN;
-+	ci.tstamp = (__u32)(TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) / HZ * 100
-+		    + TIME_DELTA(idev->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
-+	ci.reachable_time = idev->nd_parms->reachable_time;
-+	ci.retrans_time = idev->nd_parms->retrans_time;
-+	RTA_PUT(skb, IFLA_INET6_CACHEINFO, sizeof(ci), &ci);
-+	
- 	/* return the device sysctl params */
- 	if ((array = kmalloc(DEVCONF_MAX * sizeof(*array), GFP_ATOMIC)) == NULL)
- 		goto rtattr_failure;
-@@ -2790,8 +2814,8 @@
- 			continue;
- 		if ((idev = in6_dev_get(dev)) == NULL)
- 			continue;
--		err = inet6_fill_ifinfo(skb, dev, idev, RTM_NEWLINK,
--				NETLINK_CB(cb->skb).pid, cb->nlh->nlmsg_seq);
-+		err = inet6_fill_ifinfo(skb, idev, NETLINK_CB(cb->skb).pid, 
-+				cb->nlh->nlmsg_seq, RTM_NEWLINK);
- 		in6_dev_put(idev);
- 		if (err <= 0)
- 			break;
-@@ -2802,6 +2826,26 @@
- 	return skb->len;
- }
- 
-+void inet6_ifinfo_notify(int event, struct inet6_dev *idev)
-+{
-+	struct sk_buff *skb;
-+	/* 128 bytes ?? */
-+	int size = NLMSG_SPACE(sizeof(struct ifinfomsg)+128);
-+	
-+	skb = alloc_skb(size, GFP_ATOMIC);
-+	if (!skb) {
-+		netlink_set_err(rtnl, 0, RTMGRP_IPV6_IFINFO, ENOBUFS);
-+		return;
-+	}
-+	if (inet6_fill_ifinfo(skb, idev, 0, 0, event) < 0) {
-+		kfree_skb(skb);
-+		netlink_set_err(rtnl, 0, RTMGRP_IPV6_IFINFO, EINVAL);
-+		return;
-+	}
-+	NETLINK_CB(skb).dst_groups = RTMGRP_IPV6_IFINFO;
-+	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_IFINFO, GFP_ATOMIC);
-+}
-+
- static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX - RTM_BASE + 1] = {
- 	[RTM_GETLINK - RTM_BASE] = { .dumpit	= inet6_dump_ifinfo, },
- 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
-diff -urN linux-2.6.1/net/ipv6/ndisc.c linux-2.6.1-ipv6mib1/net/ipv6/ndisc.c
---- linux-2.6.1/net/ipv6/ndisc.c	2004-01-08 22:59:44.000000000 -0800
-+++ linux-2.6.1-ipv6mib1/net/ipv6/ndisc.c	2004-01-12 16:18:02.000000000 -0800
-@@ -1115,6 +1115,8 @@
- 			if (rtime < HZ/10)
- 				rtime = HZ/10;
- 			in6_dev->nd_parms->retrans_time = rtime;
-+			in6_dev->tstamp = jiffies;
-+			inet6_ifinfo_notify(RTM_NEWLINK, in6_dev);
- 		}
- 
- 		rtime = ntohl(ra_msg->reachable_time);
-@@ -1128,6 +1130,8 @@
- 				in6_dev->nd_parms->base_reachable_time = rtime;
- 				in6_dev->nd_parms->gc_staletime = 3 * rtime;
- 				in6_dev->nd_parms->reachable_time = neigh_rand_reach_time(rtime);
-+				in6_dev->tstamp = jiffies;
-+				inet6_ifinfo_notify(RTM_NEWLINK, in6_dev);
- 			}
- 		}
- 	}
-@@ -1492,6 +1496,21 @@
- 	.notifier_call = ndisc_netdev_event,
+ /* draft-ietf-sigtran-sctp-mib-07.txt */
+ struct sctp_mib
+ {
+-	unsigned long   SctpCurrEstab;
+-	unsigned long   SctpActiveEstabs;
+-	unsigned long   SctpPassiveEstabs;
+-	unsigned long   SctpAborteds;
+-	unsigned long   SctpShutdowns;
+-	unsigned long   SctpOutOfBlues;
+-	unsigned long   SctpChecksumErrors;
+-	unsigned long   SctpOutCtrlChunks;
+-	unsigned long   SctpOutOrderChunks;
+-	unsigned long   SctpOutUnorderChunks;
+-	unsigned long   SctpInCtrlChunks;
+-	unsigned long   SctpInOrderChunks;
+-	unsigned long   SctpInUnorderChunks;
+-	unsigned long   SctpFragUsrMsgs;
+-	unsigned long   SctpReasmUsrMsgs;
+-	unsigned long   SctpOutSCTPPacks;
+-	unsigned long   SctpInSCTPPacks;
+-	unsigned long   SctpRtoAlgorithm;
+-	unsigned long   SctpRtoMin;
+-	unsigned long   SctpRtoMax;
+-	unsigned long   SctpRtoInitial;
+-	unsigned long   SctpValCookieLife;
+-	unsigned long   SctpMaxInitRetr;
+-	unsigned long   __pad[0];
++	__u64   SctpCurrEstab;
++	__u64   SctpActiveEstabs;
++	__u64   SctpPassiveEstabs;
++	__u64   SctpAborteds;
++	__u64   SctpShutdowns;
++	__u64   SctpOutOfBlues;
++	__u64   SctpChecksumErrors;
++	__u64   SctpOutCtrlChunks;
++	__u64   SctpOutOrderChunks;
++	__u64   SctpOutUnorderChunks;
++	__u64   SctpInCtrlChunks;
++	__u64   SctpInOrderChunks;
++	__u64   SctpInUnorderChunks;
++	__u64   SctpFragUsrMsgs;
++	__u64   SctpReasmUsrMsgs;
++	__u64   SctpOutSCTPPacks;
++	__u64   SctpInSCTPPacks;
++	__u64   SctpRtoAlgorithm;
++	__u64   SctpRtoMin;
++	__u64   SctpRtoMax;
++	__u64   SctpRtoInitial;
++	__u64   SctpValCookieLife;
++	__u64   SctpMaxInitRetr;
++	__u64   __pad[0];
  };
  
-+#ifdef CONFIG_SYSCTL
-+int ndisc_ifinfo_sysctl_change(struct ctl_table *ctl, int write, struct file * filp, void __user *buffer, size_t *lenp)
-+{
-+	struct net_device *dev = ctl->extra1;
-+	struct inet6_dev *idev;
-+
-+	if (write && dev && (idev = in6_dev_get(dev)) != NULL) {
-+		idev->tstamp = jiffies;
-+		inet6_ifinfo_notify(RTM_NEWLINK, idev);
-+		in6_dev_put(idev);
-+	}
-+	return proc_dointvec(ctl, write, filp, buffer, lenp);
-+}
-+#endif
-+
- int __init ndisc_init(struct net_proto_family *ops)
+ struct linux_mib 
  {
- 	struct ipv6_pinfo *np;
-@@ -1522,7 +1541,8 @@
- 	neigh_table_init(&nd_tbl);
+-	unsigned long	SyncookiesSent;
+-	unsigned long	SyncookiesRecv;
+-	unsigned long	SyncookiesFailed;
+-	unsigned long	EmbryonicRsts;
+-	unsigned long	PruneCalled; 
+-	unsigned long	RcvPruned;
+-	unsigned long	OfoPruned;
+-	unsigned long	OutOfWindowIcmps; 
+-	unsigned long	LockDroppedIcmps; 
+-        unsigned long   ArpFilter;
+-	unsigned long	TimeWaited; 
+-	unsigned long	TimeWaitRecycled; 
+-	unsigned long	TimeWaitKilled; 
+-	unsigned long	PAWSPassiveRejected; 
+-	unsigned long	PAWSActiveRejected; 
+-	unsigned long	PAWSEstabRejected; 
+-	unsigned long	DelayedACKs;
+-	unsigned long	DelayedACKLocked;
+-	unsigned long	DelayedACKLost;
+-	unsigned long	ListenOverflows;
+-	unsigned long	ListenDrops;
+-	unsigned long	TCPPrequeued;
+-	unsigned long	TCPDirectCopyFromBacklog;
+-	unsigned long	TCPDirectCopyFromPrequeue;
+-	unsigned long	TCPPrequeueDropped;
+-	unsigned long	TCPHPHits;
+-	unsigned long	TCPHPHitsToUser;
+-	unsigned long	TCPPureAcks;
+-	unsigned long	TCPHPAcks;
+-	unsigned long	TCPRenoRecovery;
+-	unsigned long	TCPSackRecovery;
+-	unsigned long	TCPSACKReneging;
+-	unsigned long	TCPFACKReorder;
+-	unsigned long	TCPSACKReorder;
+-	unsigned long	TCPRenoReorder;
+-	unsigned long	TCPTSReorder;
+-	unsigned long	TCPFullUndo;
+-	unsigned long	TCPPartialUndo;
+-	unsigned long	TCPDSACKUndo;
+-	unsigned long	TCPLossUndo;
+-	unsigned long	TCPLoss;
+-	unsigned long	TCPLostRetransmit;
+-	unsigned long	TCPRenoFailures;
+-	unsigned long	TCPSackFailures;
+-	unsigned long	TCPLossFailures;
+-	unsigned long	TCPFastRetrans;
+-	unsigned long	TCPForwardRetrans;
+-	unsigned long	TCPSlowStartRetrans;
+-	unsigned long	TCPTimeouts;
+-	unsigned long	TCPRenoRecoveryFail;
+-	unsigned long	TCPSackRecoveryFail;
+-	unsigned long	TCPSchedulerFailed;
+-	unsigned long	TCPRcvCollapsed;
+-	unsigned long	TCPDSACKOldSent;
+-	unsigned long	TCPDSACKOfoSent;
+-	unsigned long	TCPDSACKRecv;
+-	unsigned long	TCPDSACKOfoRecv;
+-	unsigned long	TCPAbortOnSyn;
+-	unsigned long	TCPAbortOnData;
+-	unsigned long	TCPAbortOnClose;
+-	unsigned long	TCPAbortOnMemory;
+-	unsigned long	TCPAbortOnTimeout;
+-	unsigned long	TCPAbortOnLinger;
+-	unsigned long	TCPAbortFailed;
+-	unsigned long	TCPMemoryPressures;
+-	unsigned long   __pad[0];
++	__u64	SyncookiesSent;
++	__u64	SyncookiesRecv;
++	__u64	SyncookiesFailed;
++	__u64	EmbryonicRsts;
++	__u64	PruneCalled; 
++	__u64	RcvPruned;
++	__u64	OfoPruned;
++	__u64	OutOfWindowIcmps; 
++	__u64	LockDroppedIcmps; 
++	__u64   ArpFilter;
++	__u64	TimeWaited; 
++	__u64	TimeWaitRecycled; 
++	__u64	TimeWaitKilled; 
++	__u64	PAWSPassiveRejected; 
++	__u64	PAWSActiveRejected; 
++	__u64	PAWSEstabRejected; 
++	__u64	DelayedACKs;
++	__u64	DelayedACKLocked;
++	__u64	DelayedACKLost;
++	__u64	ListenOverflows;
++	__u64	ListenDrops;
++	__u64	TCPPrequeued;
++	__u64	TCPDirectCopyFromBacklog;
++	__u64	TCPDirectCopyFromPrequeue;
++	__u64	TCPPrequeueDropped;
++	__u64	TCPHPHits;
++	__u64	TCPHPHitsToUser;
++	__u64	TCPPureAcks;
++	__u64	TCPHPAcks;
++	__u64	TCPRenoRecovery;
++	__u64	TCPSackRecovery;
++	__u64	TCPSACKReneging;
++	__u64	TCPFACKReorder;
++	__u64	TCPSACKReorder;
++	__u64	TCPRenoReorder;
++	__u64	TCPTSReorder;
++	__u64	TCPFullUndo;
++	__u64	TCPPartialUndo;
++	__u64	TCPDSACKUndo;
++	__u64	TCPLossUndo;
++	__u64	TCPLoss;
++	__u64	TCPLostRetransmit;
++	__u64	TCPRenoFailures;
++	__u64	TCPSackFailures;
++	__u64	TCPLossFailures;
++	__u64	TCPFastRetrans;
++	__u64	TCPForwardRetrans;
++	__u64	TCPSlowStartRetrans;
++	__u64	TCPTimeouts;
++	__u64	TCPRenoRecoveryFail;
++	__u64	TCPSackRecoveryFail;
++	__u64	TCPSchedulerFailed;
++	__u64	TCPRcvCollapsed;
++	__u64	TCPDSACKOldSent;
++	__u64	TCPDSACKOfoSent;
++	__u64	TCPDSACKRecv;
++	__u64	TCPDSACKOfoRecv;
++	__u64	TCPAbortOnSyn;
++	__u64	TCPAbortOnData;
++	__u64	TCPAbortOnClose;
++	__u64	TCPAbortOnMemory;
++	__u64	TCPAbortOnTimeout;
++	__u64	TCPAbortOnLinger;
++	__u64	TCPAbortFailed;
++	__u64	TCPMemoryPressures;
++	__u64   __pad[0];
+ };
  
- #ifdef CONFIG_SYSCTL
--	neigh_sysctl_register(NULL, &nd_tbl.parms, NET_IPV6, NET_IPV6_NEIGH, "ipv6");
-+	neigh_sysctl_register(NULL, &nd_tbl.parms, NET_IPV6, NET_IPV6_NEIGH, 
-+			      "ipv6", &ndisc_ifinfo_sysctl_change);
- #endif
  
- 	register_netdevice_notifier(&ndisc_netdev_notifier);
+diff -urN linux-2.6.1/net/ipv4/proc.c linux-2.6.1-ipv6mib2-64/net/ipv4/proc.c
+--- linux-2.6.1/net/ipv4/proc.c	2004-01-08 22:59:05.000000000 -0800
++++ linux-2.6.1-ipv6mib2-64/net/ipv4/proc.c	2004-01-13 14:06:51.000000000 -0800
+@@ -87,21 +87,21 @@
+ 	.release = single_release,
+ };
+ 
+-static unsigned long
++static __u64 
+ fold_field(void *mib[], int nr)
+ {
+-	unsigned long res = 0;
++	__u64 res = 0;
+ 	int i;
+ 
+ 	for (i = 0; i < NR_CPUS; i++) {
+ 		if (!cpu_possible(i))
+ 			continue;
+ 		res +=
+-		    *((unsigned long *) (((void *) per_cpu_ptr(mib[0], i)) +
+-					 sizeof (unsigned long) * nr));
++		    *((__u64 *) (((void *) per_cpu_ptr(mib[0], i)) +
++					 sizeof (__u64) * nr));
+ 		res +=
+-		    *((unsigned long *) (((void *) per_cpu_ptr(mib[1], i)) +
+-					 sizeof (unsigned long) * nr));
++		    *((__u64 *) (((void *) per_cpu_ptr(mib[1], i)) +
++					 sizeof (__u64) * nr));
+ 	}
+ 	return res;
+ }
+@@ -121,8 +121,8 @@
+ 			ipv4_devconf.forwarding ? 1 : 2, sysctl_ip_default_ttl);
+ 
+ 	for (i = 0;
+-	     i < offsetof(struct ip_mib, __pad) / sizeof(unsigned long); i++)
+-		seq_printf(seq, " %lu",
++	     i < offsetof(struct ip_mib, __pad) / sizeof(__u64); i++)
++		seq_printf(seq, " %llu",
+ 			   fold_field((void **) ip_statistics, i));
+ 
+ 	seq_printf(seq, "\nIcmp: InMsgs InErrors InDestUnreachs InTimeExcds "
+@@ -134,8 +134,8 @@
+ 			"OutAddrMasks OutAddrMaskReps\nIcmp:");
+ 
+ 	for (i = 0;
+-	     i < offsetof(struct icmp_mib, dummy) / sizeof(unsigned long); i++)
+-		seq_printf(seq, " %lu",
++	     i < offsetof(struct icmp_mib, dummy) / sizeof(__u64); i++)
++		seq_printf(seq, " %llu",
+ 			   fold_field((void **) icmp_statistics, i)); 
+ 
+ 	seq_printf(seq, "\nTcp: RtoAlgorithm RtoMin RtoMax MaxConn ActiveOpens "
+@@ -143,13 +143,13 @@
+ 			"InSegs OutSegs RetransSegs InErrs OutRsts\nTcp:");
+ 
+ 	for (i = 0;
+-	     i < offsetof(struct tcp_mib, __pad) / sizeof(unsigned long); i++) {
+-		if (i == (offsetof(struct tcp_mib, TcpMaxConn) / sizeof(unsigned long)))
++	     i < offsetof(struct tcp_mib, __pad) / sizeof(__u64); i++) {
++		if (i == (offsetof(struct tcp_mib, TcpMaxConn) / sizeof(__u64)))
+ 			/* MaxConn field is negative, RFC 2012 */
+ 			seq_printf(seq, " %ld", 
+-				   fold_field((void **) tcp_statistics, i));
++				  (long int)fold_field((void **) tcp_statistics, i));
+ 		else
+-			seq_printf(seq, " %lu", 
++			seq_printf(seq, " %llu", 
+ 				   fold_field((void **) tcp_statistics, i));
+ 	}
+ 
+@@ -157,8 +157,8 @@
+ 			"Udp:");
+ 
+ 	for (i = 0;
+-	     i < offsetof(struct udp_mib, __pad) / sizeof(unsigned long); i++)
+-		seq_printf(seq, " %lu", 
++	     i < offsetof(struct udp_mib, __pad) / sizeof(__u64); i++)
++		seq_printf(seq, " %llu", 
+ 				fold_field((void **) udp_statistics, i));
+ 
+ 	seq_putc(seq, '\n');
+@@ -214,9 +214,9 @@
+ 		      " TCPAbortFailed TCPMemoryPressures\n"
+ 		      "TcpExt:");
+ 	for (i = 0;
+-	     i < offsetof(struct linux_mib, __pad) / sizeof(unsigned long); 
++	     i < offsetof(struct linux_mib, __pad) / sizeof(__u64); 
+ 	     i++)
+-		seq_printf(seq, " %lu", 
++		seq_printf(seq, " %llu", 
+ 		 	   fold_field((void **) net_statistics, i)); 
+ 	seq_putc(seq, '\n');
+ 	return 0;
+diff -urN linux-2.6.1/net/ipv6/proc.c linux-2.6.1-ipv6mib2-64/net/ipv6/proc.c
+--- linux-2.6.1/net/ipv6/proc.c	2004-01-08 22:59:26.000000000 -0800
++++ linux-2.6.1-ipv6mib2-64/net/ipv6/proc.c	2004-01-12 16:21:43.000000000 -0800
+@@ -60,13 +60,14 @@
+ struct snmp6_item
+ {
+ 	char *name;
++	int   size;
+ 	int   offset;
+ };
+-#define SNMP6_SENTINEL	{ .name = NULL, .offset = 0 }
++#define SNMP6_SENTINEL	{ .name = NULL, .size = 0, .offset = 0 }
+ 
+ static struct snmp6_item snmp6_ipv6_list[] = {
+ /* ipv6 mib according to RFC 2465 */
+-#define SNMP6_GEN(x) { .name = #x , .offset = offsetof(struct ipv6_mib, x) }
++#define SNMP6_GEN(x) { .name = #x , .size = sizeof(((struct ipv6_mib *)0)->x), .offset = offsetof(struct ipv6_mib, x) }
+ 	SNMP6_GEN(Ip6InReceives),
+ 	SNMP6_GEN(Ip6InHdrErrors),
+ 	SNMP6_GEN(Ip6InTooBigErrors),
+@@ -104,7 +105,7 @@
+ 		OutRouterAdvertisements too.
+ 		OutGroupMembQueries too.
+  */
+-#define SNMP6_GEN(x) { .name = #x , .offset = offsetof(struct icmpv6_mib, x) }
++#define SNMP6_GEN(x) { .name = #x , .size = sizeof(((struct icmpv6_mib *)0)->x), .offset = offsetof(struct icmpv6_mib, x) }
+ 	SNMP6_GEN(Icmp6InMsgs),
+ 	SNMP6_GEN(Icmp6InErrors),
+ 	SNMP6_GEN(Icmp6InDestUnreachs),
+@@ -138,7 +139,7 @@
+ };
+ 
+ static struct snmp6_item snmp6_udp6_list[] = {
+-#define SNMP6_GEN(x) { .name = "Udp6" #x , .offset = offsetof(struct udp_mib, Udp##x) }
++#define SNMP6_GEN(x) { .name = "Udp6" #x , .size = sizeof(((struct udp_mib *)0)->Udp##x), .offset = offsetof(struct udp_mib, Udp##x) }
+ 	SNMP6_GEN(InDatagrams),
+ 	SNMP6_GEN(NoPorts),
+ 	SNMP6_GEN(InErrors),
+@@ -147,22 +148,27 @@
+ 	SNMP6_SENTINEL
+ };
+ 
+-static unsigned long
+-fold_field(void *mib[], int offt)
++static __u64 
++fold_field(void *mib[], int size, int offt)
+ {
+-        unsigned long res = 0;
++        __u64 res = 0;
+         int i;
+  
+         for (i = 0; i < NR_CPUS; i++) {
+                 if (!cpu_possible(i))
+                         continue;
+-                res +=
+-                    *((unsigned long *) (((void *)per_cpu_ptr(mib[0], i)) +
+-                                         offt));
+-                res +=
+-                    *((unsigned long *) (((void *)per_cpu_ptr(mib[1], i)) +
+-                                         offt));
+-        }
++		if (size == 4) {
++			res += *((__u32 *) 
++				(((void *)per_cpu_ptr(mib[0], i)) + offt));
++			res += *((__u32 *)
++				(((void *)per_cpu_ptr(mib[1], i)) + offt));
++		} else if (size == 8) {
++			res += *((__u64 *) 
++				(((void *)per_cpu_ptr(mib[0], i)) + offt));
++			res += *((__u32 *)
++				(((void *)per_cpu_ptr(mib[1], i)) + offt));
++		}
++	}
+         return res;
+ }
+ 
+@@ -170,9 +176,9 @@
+ snmp6_seq_show_item(struct seq_file *seq, void **mib, struct snmp6_item *itemlist)
+ {
+ 	int i;
+-	for (i=0; itemlist[i].name; i++)
+-		seq_printf(seq, "%-32s\t%lu\n", itemlist[i].name, 
+-				fold_field(mib, itemlist[i].offset));
++	for (i=0; itemlist[i].name; i++) 
++		seq_printf(seq, "%-32s\t%llu\n", itemlist[i].name, 
++			fold_field(mib, itemlist[i].size, itemlist[i].offset));
+ }
+ 
+ static int snmp6_seq_show(struct seq_file *seq, void *v)
+diff -urN linux-2.6.1/net/sctp/proc.c linux-2.6.1-ipv6mib2-64/net/sctp/proc.c
+--- linux-2.6.1/net/sctp/proc.c	2004-01-08 22:59:26.000000000 -0800
++++ linux-2.6.1-ipv6mib2-64/net/sctp/proc.c	2004-01-13 13:57:12.000000000 -0800
+@@ -64,21 +64,21 @@
+ /* Return the current value of a particular entry in the mib by adding its
+  * per cpu counters.
+  */ 
+-static unsigned long
++static __u64
+ fold_field(void *mib[], int nr)
+ {
+-	unsigned long res = 0;
++	__u64 res = 0;
+ 	int i;
+ 
+ 	for (i = 0; i < NR_CPUS; i++) {
+ 		if (!cpu_possible(i))
+ 			continue;
+ 		res +=
+-		    *((unsigned long *) (((void *) per_cpu_ptr(mib[0], i)) +
+-					 sizeof (unsigned long) * nr));
++		    *((__u64 *) (((void *) per_cpu_ptr(mib[0], i)) +
++					 sizeof (__u64) * nr));
+ 		res +=
+-		    *((unsigned long *) (((void *) per_cpu_ptr(mib[1], i)) +
+-					 sizeof (unsigned long) * nr));
++		    *((__u64 *) (((void *) per_cpu_ptr(mib[1], i)) +
++					 sizeof (__u64) * nr));
+ 	}
+ 	return res;
+ }
+@@ -89,7 +89,7 @@
+ 	int i;
+ 
+ 	for (i = 0; i < sizeof(sctp_snmp_list) / sizeof(char *); i++)
+-		seq_printf(seq, "%-32s\t%ld\n", sctp_snmp_list[i],
++		seq_printf(seq, "%-32s\t%llu\n", sctp_snmp_list[i],
+ 			   fold_field((void **)sctp_statistics, i));
+ 
+ 	return 0;
 
---------------Boundary-00=_JP4IC6JIGMLAEM9J54WO--
+--------------Boundary-00=_3W4IHK7H5IB4D0GPKYUU--
