@@ -1,38 +1,25 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: "Loopback" route through two cards?
-Date: Tue, 3 Sep 2002 16:54:44 +0400 (MSD)
+From: System Attendant <HRTADES2-SA@siemens.atea.be>
+Subject: ScanMail Message: To Recipient virus found and action taken.
+Date: Wed, 4 Sep 2002 07:38:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209031254.QAA02008@sex.inr.ac.ru>
-References: <20020903050441.4052F2C414@lists.samba.org>
+Message-ID: <6B546A602AD2D211BFF00008C7A42889070EDDE0@hrtades2.atea.be>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com, anton@samba.org
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: rusty@rustcorp.com.au (Rusty Russell)
-In-Reply-To: <20020903050441.4052F2C414@lists.samba.org> from "Rusty Russell" at Sep 3, 2 03:04:47 pm
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+ScanMail for Microsoft Exchange has detected virus-infected attachment(s).
 
-> 	I know this is an FAQ, but I never saw an answer I liked.
+Sender = itc@oltchim.ro
+Recipient(s) = netdev@oss.sgi.com
+Subject = Vendor opinions at 
+Scanning Time = 09/04/2002 07:38:26
 
-And what kind of answers do you like? :-)
+Action on virus found:
+The attachment Mgzd.exe matched file blocking settings. ScanMail has Moved
+it.  The attachment was moved to C:\Program
+Files\Trend\Smex\Alert\Mgzd3d759c52344.exe_.
 
-> still impossible
-
-It depends on sense which you put to "impossible".
-
-There are two problems with this:
-
-1. You cannot send to local address via any device but loopback.
-
-   The only way to override this is to use explicit SO_BINDTODEVICE
-   on sending socket. Hence, it is "impossible" not changing application. 
-
-2. You cannot receive packets with local address from any device
-   but loopback.
-
-   This is impossible, but wthis time without not editing kernel,
-   removing the check for local addresses in fib_validate_source().
-
-Alexey
+Warning to recipient. ScanMail has detected a virus.
