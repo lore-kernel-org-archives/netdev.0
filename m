@@ -1,29 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC, PATCH 3/5]: netfilter+ipsec - input hooks
-Date: Sat, 20 Mar 2004 08:05:55 +1100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] packet delay scheduler
+Date: Fri, 19 Mar 2004 14:21:12 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040319210555.GB479@gondor.apana.org.au>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF0E.3050708@trash.net> <20040318221523.07298f03.davem@redhat.com> <405B1D1A.6050700@trash.net>
+Message-ID: <20040319142112.0ad562fe.davem@redhat.com>
+References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
+	<20040316174134.2f1da12a.davem@redhat.com>
+	<20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
+	<1079707927.1032.42.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <405B1D1A.6050700@trash.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1079707927.1032.42.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Mar 19, 2004 at 05:17:30PM +0100, Patrick McHardy wrote:
-> 
-> I can't imagine how. Best would be to avoid the xfrm_prot flag
-> completely. Maybe we can add a flag to xfrm_state which indicates
-> that this is the last xfrm specified in the policy ?
+On 19 Mar 2004 09:52:07 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-The same state can be terminal in one policy but not another.
--- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> The better alternative is to use the tc extension patches i have
+> because then you could write little modules which do different things
+> and cascade them. 
+
+I agree that this chaining idea of tc actions is the end-all-be-all
+way to do this kind of stuff.
+
+But for now we can put Stephen's delay scheduler in the tree, and I
+don't see any real problem with that until your tc action changes
+are ready for integration.
