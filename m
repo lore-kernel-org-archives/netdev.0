@@ -1,76 +1,88 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [ESP] Only one algorithm is required
-Date: Sat, 14 Aug 2004 20:52:45 +1000
+From: Jurriaan <thunder7@xs4all.nl>
+Subject: Re: strange network performance degradation 2.6.8-rc3-mm1 -> 2.6.8-rc4-mm1
+Date: Sat, 14 Aug 2004 15:56:06 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040814105245.GA20646@gondor.apana.org.au>
-References: <20040814104807.GA20572@gondor.apana.org.au>
+Message-ID: <20040814135606.GA6001@middle.of.nowhere>
+References: <20040814060948.GA7842@middle.of.nowhere> <20040814121533.GB18754@electric-eye.fr.zoreil.com>
+Reply-To: Jurriaan <thunder7@xs4all.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="DocE+STaALJfprDB"
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <20040814104807.GA20572@gondor.apana.org.au>
+In-Reply-To: <20040814121533.GB18754@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+From: Francois Romieu <romieu@fr.zoreil.com>
+Date: Sat, Aug 14, 2004 at 02:15:33PM +0200
+> > What could be the problem here?
+> 
+> The transition from 2.6.8-rc3-mm1 to 2.6.8-rc4-mm1 changes both the
+> point outlined above and the 8139too driver.
+> 
+> You may:
+> 1 - try the "pci=routeirq" argument at startup on your 2.6.8-rc4-mm1 if you
+>     have not done so;
 
---DocE+STaALJfprDB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+that didn't help
 
-Hi Dave:
+> 2 - apply to your 2.6.8-rc4-mm1 tree:
+>     http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-mm-revert.patch
 
-I wrote the wrong subject for the last patch.  It was really
-meant for this one :)
+I don't get it.
 
-Both encryption and authentication are optional for ESP.  However, at
-least one of them must be present.  The following patch changes init_state
-to match that specification.  It also changes the IPv6 ESP check to allow
-zero-length authentication keys as is the case with the IPv4 version.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+INTEL :patch -p1 -R --dry-run < ../268rc4mm1_8139too-mm-revert.patch 
+patching file drivers/net/8139too.c
+Hunk #1 FAILED at 593.
+Hunk #2 FAILED at 1935.
+Hunk #3 FAILED at 1951.
+Hunk #4 FAILED at 1979.
+Hunk #5 FAILED at 2006.
+Hunk #6 FAILED at 2042.
+Hunk #7 FAILED at 2062.
+7 out of 7 hunks FAILED -- saving rejects to file drivers/net/8139too.c.rej
+INTEL :patch -p1 --dry-run < ../268rc4mm1_8139too-mm-revert.patch
+patching file drivers/net/8139too.c
+Hunk #1 FAILED at 593.
+Hunk #2 FAILED at 1934.
+Hunk #3 FAILED at 1947.
+Hunk #4 FAILED at 1976.
+Hunk #5 FAILED at 1989.
+Hunk #6 FAILED at 2024.
+Hunk #7 FAILED at 2047.
+7 out of 7 hunks FAILED -- saving rejects to file drivers/net/8139too.c.rej
 
-Cheers,
+This patch fails both with and without -R - how am I supposed to apply
+it?
+
+> 3 - apply to your 2.6.8-rc4-mm1 tree:
+>     http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-mm-revert.patch
+>     http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-10.patch
+>     http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.8-rc4-mm1/8139too-20.patch
+> 
+I can get the -20 patch to apply with -R (with offsets), but after that
+-10 with -R fails. 
+
+Since it's the network card, here's some extra info:
+
+0000:02:07.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8139/8139C/8139C+ (rev 10)
+	Subsystem: Unex Technology Corp. ND010
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 32 (8000ns min, 16000ns max)
+	Interrupt: pin A routed to IRQ 23
+	Region 0: I/O ports at a800
+	Region 1: Memory at f3051000 (32-bit, non-prefetchable) [size=256]
+	Capabilities: [50] Power Management version 2
+		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1+,D2+,D3hot+,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+
+Thanks,
+Jurriaan [ please cc me: I'm not on netdev ]
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---DocE+STaALJfprDB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=esp-alg-check
-
-===== net/ipv4/esp4.c 1.55 vs edited =====
---- 1.55/net/ipv4/esp4.c	2004-08-12 19:59:52 +10:00
-+++ edited/net/ipv4/esp4.c	2004-08-14 09:33:05 +10:00
-@@ -372,8 +372,7 @@
- 	if (x->aalg) {
- 		if (x->aalg->alg_key_len > 512)
- 			goto error;
--	}
--	if (x->ealg == NULL)
-+	} else if (x->ealg == NULL)
- 		goto error;
- 
- 	esp = kmalloc(sizeof(*esp), GFP_KERNEL);
-===== net/ipv6/esp6.c 1.36 vs edited =====
---- 1.36/net/ipv6/esp6.c	2004-08-12 19:59:52 +10:00
-+++ edited/net/ipv6/esp6.c	2004-08-14 09:33:25 +10:00
-@@ -302,11 +302,11 @@
- {
- 	struct esp_data *esp = NULL;
- 
-+	/* null auth and encryption can have zero length keys */
- 	if (x->aalg) {
--		if (x->aalg->alg_key_len == 0 || x->aalg->alg_key_len > 512)
-+		if (x->aalg->alg_key_len > 512)
- 			goto error;
--	}
--	if (x->ealg == NULL)
-+	} else if (x->ealg == NULL)
- 		goto error;
- 
- 	if (x->encap)
-
---DocE+STaALJfprDB--
+No, no my lord. What I mean is we could get a mad wild killer bull
+and disguise it as a bird.
+	Baldrik in Blackadder II
+Debian (Unstable) GNU/Linux 2.6.8-rc4-mm1 2x6078 bogomips load 0.31
