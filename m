@@ -1,40 +1,75 @@
-From: Andreas Dilger <adilger@clusterfs.com>
-Subject: Re: CVS tags (was  Re: [Prism54-devel] Re: [PATCH 4/14 linux-2.6.7-rc1] prism54: add support for avs header in
-Date: Thu, 27 May 2004 14:01:59 -0600
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040527200159.GP2603@schnapps.adilger.int>
-References: <20040524083146.GE3330@ruslug.rutgers.edu> <40B631B3.4000902@pobox.com> <20040527191649.GT3330@ruslug.rutgers.edu> <200405271931.i4RJVjYB002642@turing-police.cc.vt.edu>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Re: [PATCH 0/14] prism54: bring up to sync with prism54.org cvs rep
+Date: Thu, 27 May 2004 16:04:14 -0400
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040527200414.GY3330@ruslug.rutgers.edu>
+References: <20040524083003.GA3330@ruslug.rutgers.edu> <20040524085727.GR3330@ruslug.rutgers.edu> <40B62F29.6090101@pobox.com> <20040527192733.GB14186@logos.cnet> <40B6424D.7030203@pobox.com> <20040527194513.GV3330@ruslug.rutgers.edu> <40B647DB.4090109@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-        Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        prism54-devel@prism54.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Valdis.Kletnieks@vt.edu
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="P8euesIFFZ8+3pAQ"
+Return-path: <prism54-devel-admin@prism54.org>
+To: netdev@oss.sgi.com, prism54-devel@prism54.org
 Content-Disposition: inline
-In-Reply-To: <200405271931.i4RJVjYB002642@turing-police.cc.vt.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <40B647DB.4090109@pobox.com>
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
-On May 27, 2004  15:31 -0400, Valdis.Kletnieks@vt.edu wrote:
-> On Thu, 27 May 2004 15:16:49 EDT, Luis R. Rodriguez said:
-> > --- ksrc/islpci_eth.c
-> > +++ ksrc-new/islpci_eth.c
-> 
-> I think this was what he referred to:
-> 
-> >-/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_eth.c,v 1.31 2004/03 15:27:44 ajfa Exp $
-> >+/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_eth.c,v 1.33 2004/03/19 23:03:58 ajfa Exp $
-> 
-> as this will almost surely cause rejects (sooner or later) unless 100% of your
-> patches are applied and in the right order.
 
-This also causes grief if this file is ever imported again into a CVS-based
-SCM, unless you remember to do so with -ko.
+--P8euesIFFZ8+3pAQ
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Cheers, Andreas
---
-Andreas Dilger
-http://sourceforge.net/projects/ext2resize/
-http://www-mddsp.enel.ucalgary.ca/People/adilger/
+On Thu, May 27, 2004 at 03:56:11PM -0400, Jeff Garzik wrote:
+> Luis R. Rodriguez wrote:
+> >Great. I'll fix all those patches up again for you and Marcelo. For futu=
+re
+> >development I've asked other prism54 developers to first send patches to
+>=20
+> For what it's worth, you may send a "one big patch" to add the driver to=
+=20
+> 2.4, since the individual changes to that point will be in 2.6.x=20
+> BitKeeper changelog.
+
+Will do. My plan was for us to get the pathes for 2.6 all set. Once we
+were all happy and our trees in sync we'd send a large 2.4 patch for
+inclusion in 2.4
+
+> Once the driver is merged, I do request split-up patches just like 2.6.x.
+
+OK. Sure thing.
+
+> >netdev for review/approval. Maybe we *should* do away with prism54-devel=
+=20
+> >mailing list and just use netdev as was once suggested by someone...
+>=20
+> Up to you :)
+
+I think we should. Anyone against this? Please reply or else we'll just
+move to netdev.
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--P8euesIFFZ8+3pAQ
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAtkm+at1JN+IKUl4RAvaGAKCCwbWsyuCDOdqf4DtF//PzfMFwzQCgjjZf
+pv8IAspFW86MdsmXVXBAHTI=
+=H3Sj
+-----END PGP SIGNATURE-----
+
+--P8euesIFFZ8+3pAQ--
