@@ -1,24 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: gcc-3.5 patches
-Date: Sun, 25 Jan 2004 03:06:24 -0800
+From: akpm@osdl.org
+Subject: [patch 14/18] gcc-3.5: pppoe
+Date: Sun, 25 Jan 2004 03:08:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040125030624.54abfacf.akpm@osdl.org>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Message-ID: <200401251108.i0PB83o25125@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Dave, let me unload a bunch of patches which fix compilation errors and
-warnings with gcc-3.5.  Most or all of these are applicable to gcc-3.4 as
-well.
 
-The most common problem is using a typecasted expression as an lvalue. 
-This is actually a fatal error in gcc-3.5.
+drivers/net/pppoe.c: In function `pppoe_create':
+drivers/net/pppoe.c:519: error: invalid lvalue in assignment                    
 
-The sctp fix is interesting - sctp.h is using attribute((packed)) on all
-its structures and as far as I can tell, it never did anything.
+
+---
+
+ drivers/net/pppoe.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN drivers/net/pppoe.c~gcc-35-pppoe drivers/net/pppoe.c
+--- 25/drivers/net/pppoe.c~gcc-35-pppoe	2004-01-25 03:01:42.000000000 -0800
++++ 25-akpm/drivers/net/pppoe.c	2004-01-25 03:01:42.000000000 -0800
+@@ -517,7 +517,7 @@ static int pppoe_create(struct socket *s
+ 	sk->sk_protocol	   = PX_PROTO_OE;
+ 	sk->sk_destruct	   = pppoe_sk_free;
+ 
+-	po = pppox_sk(sk) = kmalloc(sizeof(*po), GFP_KERNEL);
++	po = sk->sk_protinfo = kmalloc(sizeof(*po), GFP_KERNEL);
+ 	if (!po)
+ 		goto frees;
+ 	memset(po, 0, sizeof(*po));
+
+_
