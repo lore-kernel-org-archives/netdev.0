@@ -1,36 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Fix erratic behavior in rt6_dump_route()
-Date: Mon, 17 Nov 2003 18:50:50 -0800
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
+Subject: Re: forcedeth: version 0.17 available
+Date: Tue, 18 Nov 2003 04:03:52 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031117185050.1cd10877.davem@redhat.com>
-References: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
+Message-ID: <3FB98C18.8090305@gmx.net>
+References: <3FB807A3.8010207@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Brad House <brad_mssw@gentoo.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+In-Reply-To: <3FB807A3.8010207@gmx.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Nov 2003 12:11:52 +0200 (EET)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+Carl-Daniel Hailfinger wrote:
+>
+> version 0.17 of forcedeth for Linux 2.4 and 2.6 is available at
+> http://www.hailfinger.org/carldani/linux/patches/forcedeth/
 
-> I noticed some erratic behavior when doing "ip -6 r". I traced the problem
-> to rt6_dump_route() where we typecast NLMSG_DATA() to a rtmsg without
-> checking the size of the netlink message first. Seems like ip only passes
-> a rtgenmsg to the kernel when it does a dump, so we end up reading pure
-> garbage when we interpret it as a rtmsg. Please apply the patch!
+The patches for Linux 2.4 were malformed. Corrected versions have been
+uploaded a few hours ago.
+Thanks to Brad House for spotting this.
 
-Let's discuss this a little bit. :)
 
-I believed that these lengths are supposed to be verified at one level
-higher, in net/core/rtnetlink.c, see "rtm_min[]".
-
-Well, it doesn't do this length verification on dumps.
-I can only assume this is intentional.  Ok, I see, cases
-like ipv4 check the length properly so it is clear that
-this is required.
-
-I will apply your patch.
+Regards,
+Carl-Daniel
