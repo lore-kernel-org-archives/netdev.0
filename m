@@ -1,59 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: ing_filter debug messages
-Date: 31 Dec 2004 10:10:38 -0500
-Message-ID: <1104505838.1048.273.camel@jzny.localdomain>
-References: <20041230160643.GD24603@wiggy.net>
-	 <1104469666.1049.231.camel@jzny.localdomain>
-	 <20041231093827.GG24603@wiggy.net>
-	 <1104491510.1047.234.camel@jzny.localdomain>
-	 <20041231131553.GA7460@wiggy.net>
-Reply-To: hadi@cyberus.ca
+From: Park Lee <parklee_sel@yahoo.com>
+Subject: Issue on ip_route_output_key() and ip_route_output_flow()
+Date: Fri, 31 Dec 2004 07:23:19 -0800 (PST)
+Message-ID: <20041231152319.46687.qmail@web51507.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-XcQdU1SCo9jgv+Y8JYL7"
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Wichert Akkerman <wichert@wiggy.net>
-In-Reply-To: <20041231131553.GA7460@wiggy.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, Linus.Torvalds@helsinki.fi,
+	gw4pts@gw4pts.ampr.org, bir7@leland.Stanford.Edu,
+	kuznet@ms2.inr.ac.ru, waltje@uWalt.NL.Mugnet.ORG
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262107AbULaPXX@vger.kernel.org>
+To: netdev@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
+  In /usr/src/linux/net/ipv4/route.c, there are two
+functions, one is ip_route_output_key(), the other is
+ip_route_output_flow(). Would you please tell me what
+circumstances those two function are used for? and
+What the difference between the two functions is? 
+  As for ip_route_output_key() here, what is the
+meaning of the "_key" in its name?
 
---=-XcQdU1SCo9jgv+Y8JYL7
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+  Thank you.
 
-Wichert,
-Try also the attached patch with netfilter on and your rules installed.
 
-cheers,
-jamal
+=====
+Best Regards,
+Park Lee
 
---=-XcQdU1SCo9jgv+Y8JYL7
-Content-Disposition: attachment; filename=indev2-p
-Content-Type: text/plain; name=indev2-p; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
 
---- a/net/ipv4/ip_output.c	2004/12/31 14:26:08	1.1
-+++ b/net/ipv4/ip_output.c	2004/12/31 14:27:53
-@@ -111,6 +111,7 @@
- #ifdef CONFIG_NETFILTER_DEBUG
- 	nf_debug_ip_loopback_xmit(newskb);
- #endif
-+	newskb->input_dev = newskb->dev;
- 	netif_rx(newskb);
- 	return 0;
- }
---- a/net/ipv6/ip6_output.c	2004-12-24 16:33:51.000000000 -0500
-+++ b/net/ipv6/ip6_output.c	2004-12-31 10:29:47.505392096 -0500
-@@ -102,7 +102,7 @@
- 	newskb->pkt_type = PACKET_LOOPBACK;
- 	newskb->ip_summed = CHECKSUM_UNNECESSARY;
- 	BUG_TRAP(newskb->dst);
--
-+	newskb->input_dev = newskb->dev;
- 	netif_rx(newskb);
- 	return 0;
- }
-
---=-XcQdU1SCo9jgv+Y8JYL7--
+		
+__________________________________ 
+Do you Yahoo!? 
+All your favorites on one personal page – Try My Yahoo!
+http://my.yahoo.com 
