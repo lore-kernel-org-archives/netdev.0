@@ -1,45 +1,46 @@
-From: Dan Aloni <da-x@gmx.net>
-Subject: [PATCH] network device renaming sysfs fix
-Date: Fri, 15 Aug 2003 14:15:14 +0300
+From: "Hen, Shmulik" <shmulik.hen@intel.com>
+Subject: RE: [PATCH] network device renaming sysfs fix
+Date: Fri, 15 Aug 2003 14:36:27 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815111514.GA5228@callisto.yi.org>
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C949E@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, Mark Huth <mhuth@mvista.com>
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@redhat.com>, "Mark Huth" <mhuth@mvista.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux Net-Dev <netdev@oss.sgi.com>
-Content-Disposition: inline
+content-class: urn:content-classes:message
+To: "Dan Aloni" <da-x@gmx.net>, "Linux Net-Dev" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(repost, now will hopefully reach the mailing list)
+> -----Original Message-----
+> From: Dan Aloni [mailto:da-x@gmx.net]
+> Sent: Friday, August 15, 2003 2:15 PM
+> To: Linux Net-Dev
+> Cc: David S. Miller; Mark Huth
+> Subject: [PATCH] network device renaming sysfs fix
+> 
+> 
+> (repost, now will hopefully reach the mailing list)
+> 
+> I believe this is a better approach for fixing the sysfs renaming
+> discrepancy. Later I'll also look into fixing the same issue 
+> with sysctl.
+> 
+> 
+> -- 
+> Dan Aloni
+> da-x@gmx.net
+> 
+> 
 
-I believe this is a better approach for fixing the sysfs renaming
-discrepancy. Later I'll also look into fixing the same issue 
-with sysctl.
-
---- linux/net/core/dev.c	2003-08-15 12:47:50.000000000 +0300
-+++ linux/net/core/dev.c	2003-08-15 12:47:59.000000000 +0300
-@@ -2347,10 +2347,14 @@
- 				return -EEXIST;
- 			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
- 			dev->name[IFNAMSIZ - 1] = 0;
--			strlcpy(dev->class_dev.class_id, dev->name, BUS_ID_SIZE);
-+
-+			err = class_device_rename(&dev->class_dev, dev->name);
-+			if (err) 
-+				printk(KERN_DEBUG "SIOCSIFNAME: error renaming class_device (%d)\n", err);
-+
- 			notifier_call_chain(&netdev_chain,
- 					    NETDEV_CHANGENAME, dev);
--			return 0;
-+			return err;
- 
- 		/*
- 		 *	Unknown or private ioctl
-
-
+In general, it a similar thing applicable for proc fs too ?
+We just had to fix something like that in bonding, and
+it sounds odd each driver should handle this on it's own.
 
 -- 
-Dan Aloni
-da-x@gmx.net
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
