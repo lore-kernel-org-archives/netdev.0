@@ -1,33 +1,58 @@
-From: Andrea Arcangeli <andrea@suse.de>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: Sun, 27 Mar 2005 08:04:03 +0200
-Message-ID: <20050327060403.GE4053@g5.random>
-References: <20050324101622S.fujita.tomonori@lab.ntt.co.jp> <1111628393.1548.307.camel@beastie> <20050324113312W.fujita.tomonori@lab.ntt.co.jp> <1111633846.1548.318.camel@beastie> <20050324215922.GT14202@opteron.random> <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org>
+From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
+	Topics
+Date: Sat, 26 Mar 2005 22:33:01 -0800
+Message-ID: <1111905181.4753.15.camel@mylaptop>
+References: <4241D106.8050302@cs.wisc.edu>
+	 <20050324101622S.fujita.tomonori@lab.ntt.co.jp>
+	 <1111628393.1548.307.camel@beastie>
+	 <20050324113312W.fujita.tomonori@lab.ntt.co.jp>
+	 <1111633846.1548.318.camel@beastie> <20050324215922.GT14202@opteron.random>
+	 <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random>
+	 <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random>
+	 <20050327054831.GA15453@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mike Christie <michaelc@cs.wisc.edu>,
-        Dmitry Yusupov <dmitry_yus@yahoo.com>, open-iscsi@googlegroups.com,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Andrea Arcangeli <andrea@suse.de>, Mike Christie <michaelc@cs.wisc.edu>,
+        "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
         James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
         netdev@oss.sgi.com
 To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
 In-Reply-To: <20050327054831.GA15453@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 26, 2005 at 09:48:31PM -0800, Matt Mackall wrote:
+On Sat, 2005-03-26 at 21:48 -0800, Matt Mackall wrote:
+> I'm cc:ing this to netdev, where this discussion really ought to be.
+> There's a separate networking summit and I suspect most of the
+> networking heavies aren't reading ksummit-discuss or open-iscsi.
+> It's getting rather far afield for ksummit-discuss so people should
+> trim that from follow-ups.
+> 
+> On Sun, Mar 27, 2005 at 05:51:49AM +0200, Andrea Arcangeli wrote:
+> > On Thu, Mar 24, 2005 at 07:43:41PM -0800, Matt Mackall wrote:
+> > > There may be network multipath. But I think we can have a single
+> > > socket mempool per logical device and a single skbuff mempool shared
+> > > among those sockets.
+> > 
+> > If we'll have to reserve more than 1 packet per each socket context,
+> > then the mempool probably can't be shared.
+> 
 > I believe the mempool can be shared among all sockets that represent
 > the same storage device. Packets out any socket represent progress.
-
-What's the point to have more than one socket connected to each storage
-device anyway?
-
+> 
+> > I wonder if somebody has ever reproduced deadlocks
+> > by swapping on software-tcp-iscsi.
+> 
 > Yes, done before it was even called iSCSI.
-
-Ok, theoretical deadlock conditions aren't nice anyway, but knowing this
-is a real life problem too makes it more interesting ;).
-
+> 
+> > > And that still leaves us with the lack of buffers to receive ACKs
+> > > problem, which is perhaps worse.
+> > 
+> > The mempooling should take care of the acks too.
+> 
 > The receive buffer is allocated at the time we DMA it from the card.
 > We have no idea of its contents and we won't know what socket mempool
 > to pull the receive skbuff from until much higher in the network
@@ -44,14 +69,12 @@ is a real life problem too makes it more interesting ;).
 > alloc_skb that fails most of the time on OOM but sometimes pulls from
 > a special reserve.
 
-One algo to handle this is: after we get the gfp_atomic failure, we
-look at all the mempools are registered for a certain NIC, and we pick
-a random mempools that isn't empty. We use the non-empty mempool to
-receive the packet, and we let the netif_rx process the packet. Then if
-going up the stack we find that the packet doesn't belong to the
-socket-mempool, we discard the packet and we release the ram back into
-the mempool. This should make progress since eventually the right packet
-will go in the right mempool.
+nope. this will not solve the problem on receive or will just solve it
+partially. The right way to solve it would be to provide special API
+which will help to re-use link-layer's ring SKBs. i.e. TCP stack should
+call NIC driver's callback after all SKB data been successfully copied
+to the user space. At that point NIC driver will safely replenish HW
+ring. This way we could avoid most of memory allocations on receive.
 
 > > Perhaps the mempooling overhead will be too huge to pay for it even when
 > > it's not necessary, in such case the iscsid will have to pass a new
@@ -59,7 +82,5 @@ will go in the right mempool.
 > > with the remote disk.
 > 
 > I think we probably attach a mempool to a socket after the fact. And
-
-I guess you meant before the fact (i.e. before the connection to the
-server), anything attached after the fact (whatever the fact is ;) isn't
-going to help.
+> no, we can't have a mempool attached to every socket.
+> 
