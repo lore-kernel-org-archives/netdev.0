@@ -1,41 +1,34 @@
-From: Martin Diehl <lists@mdiehl.de>
-Subject: Re: [irda-users] Re: [PATCH] (0/16) intro to IRDA patches for
- 2.6.0-test6
-Date: Wed, 1 Oct 2003 01:25:34 +0200 (CEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Tue, 30 Sep 2003 23:39:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310010122110.1388-100000@notebook.home.mdiehl.de>
-References: <20030930230049.GA22339@bougret.hpl.hp.com>
+Message-ID: <20030930233925.022f3194.davem@redhat.com>
+References: <20030928225941.GW15338@fs.tum.de>
+	<20030928231842.GE1039@conectiva.com.br>
+	<20030928232403.GX15338@fs.tum.de>
+	<20030928233909.GG1039@conectiva.com.br>
+	<20030929001439.GY15338@fs.tum.de>
+	<20030929003229.GM1039@conectiva.com.br>
+	<20030929221129.7689e088.davem@redhat.com>
+	<20030930133729.GJ295@fs.tum.de>
+	<20030930150430.GA2996@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-        "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
-        <irda-users@lists.sourceforge.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bunk@fs.tum.de, netdev@oss.sgi.com, pekkas@netcore.fi,
+        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-In-Reply-To: <20030930230049.GA22339@bougret.hpl.hp.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030930150430.GA2996@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Sep 2003, Jean Tourrilhes wrote:
+On Tue, 30 Sep 2003 12:04:31 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> On Tue, Sep 30, 2003 at 03:25:30PM -0700, Stephen Hemminger wrote:
-> > These patches are a replacement for the moderate one chunk I sent out yesterday.
-> > They continue in the same vein of revising how IRDA devices are allocated.
-> > The new thing is the introduction of alloc_irdadev and changing over the places
-> > I used alloc_netdev to that.
-> > 
-> > Mostly they are trivial, but smsc-ircc2 got changed to get rid of check_region
-> > usage as well.
-> > 
-> > David, please apply after Jean gives his approval.
-> 
-> 	The self destruct patch is absolutely needed, and I like very
-> much the alloc_irdadev work.
-> 	Please go ahead, I'll test them in parallel.
-> 	Thanks !
+> And just for the record, as a matter of taste I'd like to see all #ifdefs in
+> structs to disappear, look at what I did to struct sock in 2.5 and look at
+> struct sock (include/net/sock.h) in 2.4: no #ifdefs where there was a ton,
 
-I hadn't yet time for testing but since you were asking: I do also like 
-the alloc_irdadev/free_netdev approach and the sir_dev part looks good to 
-me, i.e. no leaking there. Thanks Stephen!
-
-Martin
+I totally agree with this.  It would make the structs that actually
+get used smaller in fact.
