@@ -1,41 +1,42 @@
-From: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Sun, 06 Feb 2005 10:54:59 +0000
-Message-ID: <4205F783.1020702@phekda.gotadsl.co.uk>
-References: <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41F250D1.8000207@phekda.gotadsl.co.uk> <41F26FD1.2060407@phekda.gotadsl.co.uk> <20050122230156.GC24461@electric-eye.fr.zoreil.com> <41F3F632.3060800@phekda.gotadsl.co.uk> <20050125214725.GA6093@electric-eye.fr.zoreil.com> <4204C981.6050102@phekda.gotadsl.co.uk> <20050205204135.GA13986@electric-eye.fr.zoreil.com>
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Sun, 06 Feb 2005 11:55:19 +0100
+Message-ID: <4205F797.8080804@tomt.net>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Me <rich@phekda.gotadsl.co.uk>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20050205204135.GA13986@electric-eye.fr.zoreil.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050205061110.GA18275@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
-
-Francois Romieu wrote:
-> Richard Dawe <rich@phekda.gotadsl.co.uk> :
-> [...]
-[snip]
->>It works fine setting the speed & duplex using "ethtool -s eth0 autoneg 
->>off speed <speed> duplex <duplex>".
+Herbert Xu wrote:
+> On Fri, Feb 04, 2005 at 09:38:13PM -0800, David S. Miller wrote:
+> 
+>>It is just the first such thing I found, scanning rt6i_idev uses
+>>will easily find several others.
 > 
 > 
-> Nice.
-> Does it stand an 'ethtool -s eth0 autoneg on' after this point ?
-[snip]
+> You're right of course.  I thought they were all harmless but I was
+> obviously wrong about this one.
+> 
+> So here is a patch that essentially reverts the split devices
+> semantics introduced by these two changesets:
+> 
+>   [IPV6] addrconf_dst_alloc() to allocate new route for local address.
+>   [IPV6] take rt6i_idev into account when looking up routes.
+> 
+> Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 
-Yes, that works fine.
+Now that this fix have been written off as probably wrong; how much does 
+it break? As far as I've understood it "just" reverts to old semantics, 
+probably not correct semantics, but still not unexpected semantics 
+(like, say, hang on device unregistration ;) )
 
-I'll have to get back to you about the other things tomorrow night. I'm 
-busy today.
-
-Thanks, bye, Rich =]
-
--- 
-Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
-
-"You can't evaluate a man by logic alone."
-   -- McCoy, "I, Mudd", Star Trek
+I'm contemplating just using it as a quick-fix until 2.6.11 to get this 
+problem under control.
