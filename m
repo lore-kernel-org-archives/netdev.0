@@ -1,78 +1,96 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: ethernet QoS support?
-Date: Mon, 12 Jul 2004 21:17:38 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407122117.44069.vkondra@mail.ru>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <1089621532.3063.8.camel@andromache> <1089635216.1054.271.camel@jzny.localdomain>
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: [PATCH Linux-2.6.8-rc1] prism54 Fix wrong type for
+	BSSID
+Date: Mon, 12 Jul 2004 21:08:16 +0200
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <200407122108.16380.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: Glen Turner <glen.turner@aarnet.edu.au>, Sam Leffler <sam@errno.com>,
-        Jeff Garzik <jgarzik@pobox.com>, Kumar Gala <kumar.gala@freescale.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, hadi@cyberus.ca
-In-Reply-To: <1089635216.1054.271.camel@jzny.localdomain>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_gGu8Ak2HayVVLag"
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: jgarzik@pobox.com
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
-Hash: SHA1
 
-On Monday 12 July 2004 15:26, jamal wrote:
-> On Mon, 2004-07-12 at 04:38, Glen Turner wrote:
-> > On Sat, 2004-07-10 at 18:28, Vladimir Kondratiev wrote:
-> > > I continue to insist that for true MAC layer QoS, we need several Tx
-> > > queues.
-> >
-> > If you have several MAC-layer queues, then do you have
-> > another set of MAC-layer scheduling?  If so, how do you
-> > select the algorithm?
->
-> A mapping is being suggested. Qdiscs handle the queueing. Send it to
-> the driver/MAC layer with instructions of which queue it goes on.
-Problem is, I don't know how driver can dictate what qdiscs should be attached 
-to it. AFAIK, it is under 'tc' control. What I suggest, is to provide some 
-API for driver to configure its qdiscs.
->
-> > I suggest this can of worms requires further thought
-> > before we end up with two layers of QoS queuing and
-> > scheduling.
->
-> Refer to the thread earlier; i think the mapping is pretty much
-> sufficient.
-There is a bit more complex then just diffserv.
-Glen touched very good point: it should be no 2 QoS policies. Since in case of 
-802.11, policy dictated from link layer, driver should be able to configure 
-upper layers accordingly.
+--Boundary-00=_gGu8Ak2HayVVLag
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-And most complex item: I don't know how to support intserv type of streams, 
-i.e. streams with admission control. let's say it is like RSVP with support 
-on link layer.
+2004-07-12 Margit Schubert-While <margitsw@t-online.de>
 
-Should I try to summarize QoS facilities defined in TGE (new standard for QoS 
-in 802.11)? I tried to do it once, but I don't feel I expressed it clearly.
->
-> > PS: Can we *please* deprecate use of the ToS bits. We had
-> >     almost killed them and Linux is again encouraging their
-> >     use, much to the despair of network operators (who want
-> >     DiffServ, or at least DiffServ-compatible use of IP
-> >     Precedence)
-One more reason why I prefer to use skb->priority over TOS: driver should be 
-protocol agnostic. It may be non-IP, and TOS may be missing.
->
-> I know you are refering to the default linux behavior, but
-> do you use any of the diffserv enablers like dsmark to set DSCPs?
-> I think 2.6.7+ we should change that default behavior. What exactly
-> are the network operators complaining about?
->
-> cheers,
-> jamal
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+* The OID type for BSSID was incorrectly set to type SSID.
+  It should be type RAW. This lead to interesting reporting
+  by "iwpriv ethX g_bssid". 
+  (Which caused garbage output and possibly an out of bound)
 
-iD8DBQFA8tXIqxdj7mhC6o0RAsICAKCBBsGH5fXO3z/muggJ0K/z7o5cMwCcDaFm
-qNV8hhHZRpoPHbcSSv1QHac=
-=AVLn
------END PGP SIGNATURE-----
+* Be ultra-cautious in reporting SSID by changing the "%s"
+  to "%.*s" and passing the length. (Prompted by the false
+  type above, whereby length = 0 and a %s on a garbage field)
+
+Jeff, this is on top of the previous patch (chanfreq.patch)
+from 2004/07/06 (which isn't in 2.6.8-rc1).
+
+Margit
+
+
+
+
+
+
+
+--Boundary-00=_gGu8Ak2HayVVLag
+Content-Type: text/x-diff;
+  charset="us-ascii";
+  name="bssid.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="bssid.patch"
+
+diff -Naur linux-2.6.8-01/drivers/net/wireless/prism54/oid_mgt.c linux-2.6.8-02/drivers/net/wireless/prism54/oid_mgt.c
+--- linux-2.6.8-01/drivers/net/wireless/prism54/oid_mgt.c	2004-07-06 17:26:44.000000000 +0200
++++ linux-2.6.8-02/drivers/net/wireless/prism54/oid_mgt.c	2004-07-12 21:05:22.000000000 +0200
+@@ -62,7 +62,7 @@
+ 
+ 	/* 802.11 */
+ 	OID_U32_C(DOT11_OID_BSSTYPE, 0x10000000),
+-	OID_STRUCT_C(DOT11_OID_BSSID, 0x10000001, u8[6], OID_TYPE_SSID),
++	OID_STRUCT_C(DOT11_OID_BSSID, 0x10000001, u8[6], OID_TYPE_RAW),
+ 	OID_STRUCT_C(DOT11_OID_SSID, 0x10000002, struct obj_ssid,
+ 		     OID_TYPE_SSID),
+ 	OID_U32(DOT11_OID_STATE, 0x10000003),
+@@ -770,8 +770,9 @@
+ 	case OID_TYPE_SSID:{
+ 			struct obj_ssid *ssid = r->ptr;
+ 			return snprintf(str, PRIV_STR_SIZE,
+-					"length=%u\noctets=%s\n",
+-					ssid->length, ssid->octets);
++					"length=%u\noctets=%.*s\n",
++					ssid->length, ssid->length,
++					ssid->octets);
+ 		}
+ 		break;
+ 	case OID_TYPE_KEY:{
+
+--Boundary-00=_gGu8Ak2HayVVLag
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--Boundary-00=_gGu8Ak2HayVVLag--
