@@ -1,914 +1,470 @@
-From: Zhang Haitao <zhanght@netpower.com.cn>
-Subject: Re: Re: Hi, this is my patch for broadcom sb1250-mac.c
-Date: Fri, 30 May 2003 15:55:01 +0800
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
+Date: Fri, 30 May 2003 17:34:40 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3ED70E55.3020202@netpower.com.cn>
-Reply-To: zhanght@netpower.com.cn
+Message-ID: <Pine.LNX.4.44.0305301712300.3584-200000@rhea.tcs.hut.fi>
+References: <20030424132559.GA15894@morphine.tml.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=GB2312
-Content-Transfer-Encoding: 7bit
+Content-Type: MULTIPART/MIXED; BOUNDARY="-377318441-732465963-1054304123=:3584"
+Cc: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>,
+   Lars Henrik Petander <lpetande@morphine.tml.hut.fi>, <jagana@us.ibm.com>,
+   <kumarkr@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>,
+   <yoshfuji@linux-ipv6.org>, <netdev@oss.sgi.com>
+In-Reply-To: <20030424132559.GA15894@morphine.tml.hut.fi>
+Content-ID: <Pine.LNX.4.44.0305301715590.3584@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi all!
-
-and Dear YOSHIFUJI Hideaki
-
-i've corrected some bugs in my last broken driver,
-
-now the driver work properly both under copper mode and fiber mode.
-
-so this time i resend it in a more clear style :-)
-
-and hope you all will glad to review it.
-
-(you can turn off/on the NAPI options to do some contrast test
-for both original mode and NAPI mode, even the parameters for original mode
-have been modified for better performance)
-
-Thanks
-
-Zhang Haitao
-
-----------------------
---- ./sb1250-broadcom.c	2003-05-30 00:48:36.000000000 +0800
-+++ ./sb1250-mac.debug.c	2003-05-30 00:48:36.000000000 +0800
-@@ -44,8 +44,8 @@
- static int full_duplex[MAX_UNITS] = {-1, -1, -1};
- #endif
-
--static int int_pktcnt = 0;
--static int int_timeout = 0;
-+static int int_pktcnt = 32;
-+static int int_timeout = 1024;
-
- /* Operational parameters that usually are not changed. */
-
-@@ -91,7 +91,8 @@
- static char version1[] __devinitdata =
- "sb1250-mac.c:1.00 1/11/2001 Written by Mitch Lichtenberg
-(mpl@broadcom.com)\n";
- #endif
--
-+#define CONFIG_SB1250_NAPI
-+#define NAPI_LOP_MAX 10
-
-
- MODULE_AUTHOR("Mitch Lichtenberg (mpl@broadcom.com)");
-@@ -154,8 +155,8 @@
-
- #define PKSEG1(x) ((sbmac_port_t) KSEG1ADDR(x))
-
--#define SBMAC_MAX_TXDESCR	32
--#define SBMAC_MAX_RXDESCR	32
-+#define SBMAC_MAX_TXDESCR	128
-+#define SBMAC_MAX_RXDESCR	128
-
- #define ETHER_ALIGN	2
- #define ETHER_ADDR_LEN	6
-@@ -190,8 +191,8 @@
- 	int
-	 sbdma_txdir;       /* direction (1=transmit) */
- 	int
-	 sbdma_maxdescr;
-/* total # of descriptors in ring */
- #ifdef CONFIG_SBMAC_COALESCE
--        int              sbdma_int_pktcnt;  /* # descriptors rx/tx
-before interrupt*/
--        int              sbdma_int_timeout; /* # usec rx/tx interrupt */
-+        int              sbdma_int_pktcnt;  /* # descriptors rx before
-interrupt*/
-+        int              sbdma_int_timeout; /* # usec rx interrupt */
- #endif
-
- 	sbmac_port_t     sbdma_config0;	/* DMA config register 0 */
-@@ -262,11 +263,13 @@
- 	
- 	u_char           sbm_hwaddr[ETHER_ADDR_LEN];
- 	
--
-sbmacdma_t       sbm_txdma;		/* for now, only use channel 0 */
-+
-sbmacdma_t       sbm_txdma;		/* for now, use channel 0 */
- 	sbmacdma_t       sbm_rxdma;
- 	int              rx_hw_checksum;
- 	int 		 sbe_idx;
- 	
-+
-int              sbm_fibermode;
-+
-int 		 sbm_phy_oldsignaldetect;
- };
-
-
-@@ -288,7 +291,6 @@
- static int sbdma_add_txbuffer(sbmacdma_t *d,struct sk_buff *m);
- static void sbdma_emptyring(sbmacdma_t *d);
- static void sbdma_fillring(sbmacdma_t *d);
--static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d);
- static void sbdma_tx_process(struct sbmac_softc *sc,sbmacdma_t *d);
- static int sbmac_initctx(struct sbmac_softc *s);
- static void sbmac_channel_start(struct sbmac_softc *s);
-@@ -299,6 +301,13 @@
- static uint64_t sbmac_addr2reg(unsigned char *ptr);
- static void sbmac_intr(int irq,void *dev_instance,struct pt_regs *rgs);
- static int sbmac_start_tx(struct sk_buff *skb, struct net_device *dev);
-+#ifdef CONFIG_SB1250_NAPI
-+static int sbmac_poll(struct net_device *dev_instance, int *budget);
-+static inline void sbmac_irq_disable(struct sbmac_softc *s);
-+static inline void sbmac_irq_enable(struct sbmac_softc *s);
-+#else
-+static void sbdma_rx_process(struct sbmac_softc *sc,sbmacdma_t *d);
-+#endif
- static void sbmac_setmulti(struct sbmac_softc *sc);
- static int sbmac_init(struct net_device *dev);
- static int sbmac_set_speed(struct sbmac_softc *s,sbmac_speed_t speed);
-@@ -448,6 +457,15 @@
- #define PHYSUP_LINKUP	 0x04
- #define PHYSUP_FDX       0x02
-
-+/* Added for Fiber mode detection
-+just read Signal Detect alternation */
-+
-+#define MII_AUXCTL      0x18   /* Auxiliary Control Register */
-+
-+#define MII_SGMIISR     0x0C    /* SGMII/100-X Status Register */
-+
-+#define SGMIISR_FIBERSDS	0x2000
-+
- #define	MII_BMCR
-0x00 	/* Basic mode control register (rw) */
- #define	MII_BMSR
-0x01
-/* Basic mode status register (ro) */
- #define MII_K1STSR	0x0A	/* 1K Status Register (ro) */
-@@ -459,6 +477,17 @@
- #define ENABLE 		1
- #define DISABLE		0
-
-+#ifdef CONFIG_SB1250_NAPI
-+static inline void sbmac_irq_disable(struct sbmac_softc *s){
-+         SBMAC_WRITECSR(s->sbm_imr,
-+
-	       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0));
-+}
-+static inline void sbmac_irq_enable(struct sbmac_softc *s){
-+
-SBMAC_WRITECSR(s->sbm_imr,
-+
-	       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0) |
-+
-	       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_RX_CH0));
-+}
-+#endif
- /**********************************************************************
-  *  SBMAC_MII_SYNC(s)
-  *
-@@ -759,7 +788,7 @@
- 	
- #ifdef CONFIG_SBMAC_COALESCE
-         /*
--         * Setup Rx/Tx DMA coalescing defaults
-+         * Setup RxTx DMA coalescing defaults
-          */
-
-
-	if ( int_pktcnt ) {
-@@ -944,7 +973,7 @@
-
-	sb_new = sb;
-
-	/*
-
-	 * nothing special to reinit buffer, it's already aligned
--
-	 * and sb->data already points to a good place.
-+
-	 * and sb->tail already points to a good place.
-
-	 */
- 	}
- 	
-@@ -956,11 +985,11 @@
-         /*
-          * Do not interrupt per DMA transfer.
-          */
--        dsc->dscr_a = KVTOPHYS(sb_new->data) |
-+        dsc->dscr_a = KVTOPHYS(sb_new->tail) |
-                 V_DMA_DSCRA_A_SIZE(NUMCACHEBLKS(pktsize+ETHER_ALIGN)) |
-                 0;
- #else
--
-dsc->dscr_a = KVTOPHYS(sb_new->data) |
-+
-dsc->dscr_a = KVTOPHYS(sb_new->tail) |
-
-	V_DMA_DSCRA_A_SIZE(NUMCACHEBLKS(pktsize+ETHER_ALIGN)) |
-
-	M_DMA_DSCRA_INTERRUPT;
- #endif
-@@ -1045,16 +1074,17 @@
- 	
- 	phys = KVTOPHYS(sb->data);
- 	ncb = NUMCACHEBLKS(length+(phys & (CACHELINESIZE-1)));
--
-
-+#ifdef CONFIG_SBMAC_COALESCE
-+
-/* do not interript per DMA transfer*/
- 	dsc->dscr_a = phys |
-
-	V_DMA_DSCRA_A_SIZE(ncb) |
--#ifdef CONFIG_SBMAC_COALESCE
--                0 |
-+
-	M_DMA_ETHTX_SOP;
- #else
-+
-dsc->dscr_a = phys |
-+
-	V_DMA_DSCRA_A_SIZE(ncb) |
-
-	M_DMA_DSCRA_INTERRUPT |
--#endif
-
-	M_DMA_ETHTX_SOP;
--
-
-+#endif
-
- 	/* transmitting: set outbound options and length */
-
- 	dsc->dscr_b = V_DMA_DSCRB_OPTIONS(K_DMA_ETHTX_APPENDCRC_APPENDPAD) |
-@@ -1133,7 +1163,7 @@
- 	}
- }
-
--
-+#ifndef CONFIG_SB1250_NAPI
- /**********************************************************************
-  *  SBDMA_RX_PROCESS(sc,d)
-  *
-@@ -1181,6 +1211,14 @@
-
-	 */
-
-	
-
-	if (curidx == hwidx) break;
-+
-	/*{
-+
-		int i;
-+
-		for (i=0;;i++) {
-+
-		if ((dsc->dscr_a & M_DMA_ETHRX_SOP) != 0)
-+
-			break;
-+
-		if (i >= NAPI_LOP_MAX) goto ret;
-+
-		}
-+
-	}*/
-
-	
-
-	/*
-
-	 * Otherwise, get the packet's sk_buff ptr back
-@@ -1236,7 +1274,6 @@
-
-			 sb->ip_summed = CHECKSUM_UNNECESSARY;
-
-		       }
-
-		    } /*rx_hw_checksum */
--
-
-		    netif_rx(sb);
-
-		    }
-
-	}
-@@ -1258,7 +1295,7 @@
-
-	
- 	}
- }
--
-+#endif
-
-
- /**********************************************************************
-@@ -1352,6 +1389,7 @@
-
-	 */
-
-	
-
-	dev_kfree_skb_irq(sb);
-+
-	//__kfree_skb(sb); //try free fast
-
-	
-
-	/*
-
-	 * .. and advance to the next buffer.
-@@ -1393,6 +1431,7 @@
- static int sbmac_initctx(struct sbmac_softc *s)
- {
- 	
-+
-int auxctl;	
- 	/*
- 	 * figure out the addresses of some ports
- 	 */
-@@ -1414,6 +1453,8 @@
- 	s->sbm_phy_oldk1stsr = 0;
- 	s->sbm_phy_oldlinkstat = 0;
- 	
-+
-s->sbm_phy_oldsignaldetect =0;
-+
-
- 	/*
- 	 * Initialize the DMA channels.  Right now, only one per MAC is used
- 	 * Note: Only do this _once_, as it allocates memory from the kernel!
-@@ -1421,7 +1462,6 @@
- 	
- 	sbdma_initctx(&(s->sbm_txdma),s,0,DMA_TX,SBMAC_MAX_TXDESCR);
- 	sbdma_initctx(&(s->sbm_rxdma),s,0,DMA_RX,SBMAC_MAX_RXDESCR);
--
-
- 	/*
- 	 * initial state is OFF
- 	 */
-@@ -1436,6 +1476,17 @@
- 	s->sbm_duplex = sbmac_duplex_half;
- 	s->sbm_fc = sbmac_fc_disabled;
- 	
-+
-/*
-+
- * Fiber/Copper Mode AutoDetection
-+
- */
-+
-
-+
-sbmac_mii_write(s,1,MII_AUXCTL,0x2007);
-+
-auxctl = sbmac_mii_read(s,1,MII_AUXCTL);
-+
-if(auxctl)
-+
-	{
-+
-		s->sbm_fibermode=1;
-+
-	}
-+
-else s->sbm_fibermode=0;
- 	return 0;
- }
-
-@@ -1632,6 +1683,8 @@
- 	SBMAC_WRITECSR(s->sbm_macenable,
-
-	       M_MAC_RXDMA_EN0 |
-
-	       M_MAC_TXDMA_EN0 |
-+
-	       M_MAC_RXDMA_EN1 |
-+
-	       M_MAC_TXDMA_EN1 |
-
-	       M_MAC_RX_ENABLE |
-
-	       M_MAC_TX_ENABLE);
- 	
-@@ -1645,6 +1698,7 @@
- 	SBMAC_WRITECSR(s->sbm_imr,
-
-	       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_TX_CH0) |
-
-	       ((M_MAC_INT_EOP_COUNT | M_MAC_INT_EOP_TIMER) << S_MAC_RX_CH0));
-+
-	
- #else
- 	/*
- 	 * Accept any kind of interrupt on TX and RX DMA channel 0
-@@ -1967,7 +2021,7 @@
-
-		V_MAC_IFG_TX_1000 |
-
-		V_MAC_IFG_THRSH_1000 |
-
-		V_MAC_SLOT_SIZE_1000;
--
-	cfg |= V_MAC_SPEED_SEL_1000MBPS | M_MAC_BURST_EN;
-+cfg |= V_MAC_SPEED_SEL_1000MBPS | M_MAC_BURST_EN;
-
-	break;
-
-	
- 	case sbmac_speed_auto:		/* XXX not implemented */
-@@ -2102,6 +2156,7 @@
- {
- 	struct net_device *dev = (struct net_device *) dev_instance;
- 	struct sbmac_softc *sc = (struct sbmac_softc *) (dev->priv);
-+
- 	uint64_t isr;
- 	
- 	for (;;) {
-@@ -2124,7 +2179,7 @@
-
-	}
-
-	
-
-	/*
--
-	 * Receives on channel 0
-+
-	 * Receives on channel 0,1
-
-	 */
-
-
-	/*
-@@ -2145,40 +2200,43 @@
-
-	
-
-	
-
-	if (isr & (M_MAC_INT_CHANNEL << S_MAC_RX_CH0)) {
--
-		sbdma_rx_process(sc,&(sc->sbm_rxdma));
-+#ifdef CONFIG_SB1250_NAPI
-+
-	if (netif_rx_schedule_prep(dev)) {
-+
-		sbmac_irq_disable(sc);
-+
-		__netif_rx_schedule(dev);
-
-	}
-+#else
-+
-	sbdma_rx_process(sc,&(sc->sbm_rxdma));
-+#endif
-
- 	}
--
-
-+}
- }
-
- static int sbmac_start_tx(struct sk_buff *skb, struct net_device *dev)
- {
--
-struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
--
-
--
-/* lock eth irq */
--
-spin_lock_irq (&sc->sbm_lock);
--
-
--
-/*
-+struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
-+spin_lock_irq (&sc->sbm_lock);
-+/*
- 	 * Put the buffer on the transmit ring.  If we
- 	 * don't have room, stop the queue.
- 	 */
- 	
--
-if (sbdma_add_txbuffer(&(sc->sbm_txdma),skb)) {
--
-	/* XXX save skb that we could not send */
-+if (sbdma_add_txbuffer(&(sc->sbm_txdma),skb)) {
-+
-	/* XXX save skb that we could not send, then test 1 channel */
-
-	netif_stop_queue(dev);
-
-	spin_unlock_irq(&sc->sbm_lock);
-
-@@ -2186,12 +2244,142 @@
- 	}
- 	
- 	dev->trans_start = jiffies;
--
-
- 	spin_unlock_irq (&sc->sbm_lock);
- 	
- 	return 0;
- }
-+#ifdef CONFIG_SB1250_NAPI
-+//#define NAPI_POL_MAX 100
-+static int sbmac_poll(struct net_device *dev_instance, int *budget) {
-+
-struct net_device *dev = (struct net_device *) dev_instance;
-+    struct sbmac_softc *sc = (struct sbmac_softc *) (dev_instance->priv);
-+    sbmacdma_t *d = &(sc->sbm_rxdma);
-+    int rx_work_limit = *budget;
-+
-unsigned long flags;
-+
-long int receive=0;
-+
-int curidx;
-+
-int hwidx;
-+
-
-+
-sbdmadscr_t *dsc;
-+
-struct sk_buff *sb;
-+
-int len;
-+
-
-+    if(rx_work_limit > dev->quota)
-+          rx_work_limit = dev->quota;
-+
-+    for (;;) {
-+
-	/*
-+
-	 * figure out where we are (as an index) and where
-+
-	 * the hardware is (also as an index)
-+
-	 *
-+
-	 * This could be done faster if (for example) the
-+
-	 * descriptor table was page-aligned and contiguous in
-+
-	 * both virtual and physical memory -- you could then
-+
-	 * just compare the low-order bits of the virtual address
-+
-	 * (sbdma_remptr) and the physical address (sbdma_curdscr CSR)
-+
-	 */
-+
-	if(--rx_work_limit < 0) goto not_done;
-+
-	curidx = d->sbdma_remptr - d->sbdma_dscrtable;
-+
-	hwidx = (int) (((SBMAC_READCSR(d->sbdma_curdscr) & M_DMA_CURDSCR_ADDR) -
-+
-			d->sbdma_dscrtable_phys) / sizeof(sbdmadscr_t));
-+
-	
-+
-	/*
-+
-	 * If they're the same, that means we've processed all
-+
-	 * of the descriptors up to (but not including) the one that
-+
-	 * the hardware is working on right now.
-+
-	 */
-+
-	
-+
-	if (curidx == hwidx) break;
-+
-			
-+
-	/*
-+
-	 * Otherwise, get the packet's sk_buff ptr back
-+
-	 */
-+
-	
-+
-	dsc = &(d->sbdma_dscrtable[curidx]);
-+
-	sb = d->sbdma_ctxtable[curidx];
-+
-	d->sbdma_ctxtable[curidx] = NULL;
-+
-	
-+
-	len = (int)G_DMA_DSCRB_PKT_SIZE(dsc->dscr_b) - 4;
-
-+
-	/*
-+
-	 * Check packet status.  If good, process it.
-+
-	 * If not, silently drop it and put it back on the
-+
-	 * receive ring.
-+
-	 */
-+
-	
-+
-	if (!(dsc->dscr_a & M_DMA_ETHRX_BAD)) {
-+
-		
-+       			/*
-+
-		 * Add a new buffer to replace the old one.  If we fail
-+
-		 * to allocate a buffer, we're going to drop this
-+
-		 * packet and put it right back on the receive ring.
-+
-		 */
-+
-		
-+
-		if (sbdma_add_rcvbuffer(d,NULL) == -ENOBUFS) {
-+
-		    sc->sbm_stats.rx_dropped++;
-+
-		    sbdma_add_rcvbuffer(d,sb);	/* re-add old buffer */
-+
-		    }
-+
-		else {
-+
-		    /*
-+
-		     * Set length into the packet
-+
-		     */
-+
-		    skb_put(sb,len);
-+
-+
-		    /*
-+
-		     * Buffer has been replaced on the receive ring.
-+
-		     * Pass the buffer to the kernel
-+
-		     */
-+
-		    sc->sbm_stats.rx_bytes += len;
-+
-		    sc->sbm_stats.rx_packets++;receive++;
-+
-		    sb->protocol = eth_type_trans(sb,d->sbdma_eth->sbm_dev);
-+                            if (sc->rx_hw_checksum == ENABLE) {
-+
-		    /* if the ip checksum is good indicate in skb.
-+
-	                else set CHECKSUM_NONE as device failed to
-+
-				checksum the packet */
-+
-+
-		       if (((dsc->dscr_b) |M_DMA_ETHRX_BADTCPCS) ||
-+
-		     	  ((dsc->dscr_a)| M_DMA_ETHRX_BADIP4CS)){
-+
-			  sb->ip_summed = CHECKSUM_NONE;
-+
-		       } else {
-+
-			 printk(KERN_DEBUG "hw checksum fail .\n");
-+
-			 sb->ip_summed = CHECKSUM_UNNECESSARY;
-+
-		       }
-+
-		    } /*rx_hw_checksum */
-+                            netif_receive_skb(sb);
-+
-		    }
-+
-	}
-+
-	else {
-+
-		/*
-+
-		 * Packet was mangled somehow.  Just drop it and
-+
-		 * put it back on the receive ring.
-+
-		 */
-+
-		sc->sbm_stats.rx_errors++;
-+
-		sbdma_add_rcvbuffer(d,sb);
-+
-	}
-+
-	
-+
-	
-+
-	/*
-+
-	 * .. and advance to the next buffer.
-+
-	 */
-+
-	
-+
-	d->sbdma_remptr = SBDMA_NEXTBUF(d,sbdma_remptr);
-+
-
-+
-}
-+
-if (!receive) receive = 1;
-+
-dev->quota -= receive;
-+
-*budget -= receive;
-+
-
-+
-spin_lock_irqsave(&sc->sbm_lock,flags);
-+
-netif_rx_complete(dev);
-+        sbmac_irq_enable(sc);
-+
-spin_unlock_irqrestore(&sc->sbm_lock,flags);
-+
-return 0;
-+not_done:
-+
-dev->quota -= receive;
-+
-*budget -= receive;
-+
-return 1;
-+}
-+#endif
- /**********************************************************************
-  *  SBMAC_SETMULTI(sc)
-  *
-@@ -2448,6 +2636,10 @@
- 	dev->do_ioctl           = sbmac_mii_ioctl;
- 	dev->tx_timeout         = sbmac_tx_timeout;
- 	dev->watchdog_timeo     = TX_TIMEOUT;
-+#ifdef CONFIG_SB1250_NAPI
-+        dev->poll       = sbmac_poll;
-+        dev->weight     =dev->quota = 80;
-+#endif
-
- 	dev->change_mtu         = sb1250_change_mtu;
-
-@@ -2525,6 +2717,10 @@
-     char buffer[100];
-     char *p = buffer;
-
-+
-int signaldetect;
-+
-+
-if(s->sbm_fibermode == 0)
-+
-	{
-     /* Read the mode status and mode control registers. */
-     bmsr = sbmac_mii_read(s,s->sbm_phys[0],MII_BMSR);
-     bmcr = sbmac_mii_read(s,s->sbm_phys[0],MII_BMCR);
-@@ -2539,7 +2735,6 @@
-     else {
- 	k1stsr = 0;
- 	}
--
-     chg = 0;
-
-     if ((bmsr & BMSR_LINKSTAT) == 0) {
-@@ -2620,6 +2815,41 @@
- 	    printk(KERN_INFO "s: s\n",s->sbm_dev->name,buffer);
- 	    }
-
-+   }
-+   else
-+   	{ //fiber mode
-+
-+ 	chg=0;
-+ 	printk("sbm_phy_oldsignaldetect:d\n",s->sbm_phy_oldsignaldetect);
-+ 	
-+
-signaldetect = (SGMIISR_FIBERSDS &
-sbmac_mii_read(s,s->sbm_phys[0],MII_SGMIISR));
-+
-+    printk("current signaldetect:d\n",signaldetect);
-+
-+   	if (signaldetect == 0)
-+   		{
-+   		printk("link state is DOWN!\n");
-+
-	s->sbm_phy_oldsignaldetect = 0;
-+
-	return 0;
-+
-	}
-+   	else
-+
-	{
-+
-	if(s->sbm_phy_oldsignaldetect != signaldetect)
-+   		{
-+   		s->sbm_phy_oldsignaldetect = signaldetect;
-+   		chg = 1;
-+   		printk("link state has been changed\n");
-+   		}
-+
-	}
-+   	if (chg==0) return 0;
-+   		printk("Link is up\n");
-+   		s->sbm_speed = sbmac_speed_1000;
-+   		s->sbm_duplex = sbmac_duplex_full;
-+   		s->sbm_fc = sbmac_fc_frame;
-+   		s->sbm_state = sbmac_state_on;
-+
-noisy =0;
-+       printk("fiber mode.\t");
-+ 	}
-     return 1;
- }
-
-@@ -2632,9 +2862,12 @@
- 	struct sbmac_softc *sc = (struct sbmac_softc *)dev->priv;
- 	int next_tick = HZ;
- 	int mii_status;
-+
-int signaldetect;
-
- 	spin_lock_irq (&sc->sbm_lock);
- 	
-+    if(sc->sbm_fibermode == 0)
-+    {	
- 	/* make IFF_RUNNING follow the MII status bit "Link established" */
- 	mii_status = sbmac_mii_read(sc, sc->sbm_phys[0], MII_BMSR);
- 	
-@@ -2647,6 +2880,23 @@
-
-		netif_carrier_off(dev);	
-
-	}
- 	}
-+    }
-+    else
-+    {
-+
-signaldetect = (SGMIISR_FIBERSDS &
-sbmac_mii_read(sc,sc->sbm_phys[0],MII_SGMIISR));
-+              if(sc->sbm_phy_oldsignaldetect != signaldetect)
-+              {
-+                sc->sbm_phy_oldsignaldetect = signaldetect;
-+
-	if (signaldetect) {
-+                 printk("netif_carrier_on. \n");
-+
-	 netif_carrier_on(dev);
-+ 		}
-+ 		else {
-+
-	 netif_carrier_off(dev);
-+ 		}
-+                printk("link state has been changed\n");
-+              }
-+    }
- 	
- 	/*
- 	 * Poll the PHY to see what speed we should be running at
-
-
-	
-
-----------------------
-
->In article <3ED58DBA.6000506@netpower.com.cn> (at Thu, 29 May 2003
-12:34:02 +0800), Zhang Haitao <zhanght@netpower.com.cn> says:
->
->> i'm very glad to let all of you to review this patch
->> or give me some advice from the oops message!
->
->Please don't try to make cosmetic changes
->including indentation, and/or new lines etc.
->
->Thank you.
->
->--
->Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
->GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
----------------------------
-			
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
+
+---377318441-732465963-1054304123=:3584
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
+Content-ID: <Pine.LNX.4.44.0305301715591.3584@rhea.tcs.hut.fi>
+
+Hi guys,
+
+here is a patch that fixes CONFIG_IPV6_SUBTREES and allows overriding
+normal routes with source address specific ones. This is for example
+needed in MIPv6 for handling the traffic to and from a mobile node's home
+address correctly.
+
+The patch is sent as an attachment to this mail but is also available at:
+
+http://www.mipl.mediapoli.com/patches/source-routing.patch
+
+Regards,
+Ville Nuorvala
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+
+---377318441-732465963-1054304123=:3584
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="source-routing.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0305301715230.3584@rhea.tcs.hut.fi>
+Content-Description: 
+Content-Disposition: ATTACHMENT; FILENAME="source-routing.patch"
+
+ZGlmZiAtTnVyIC0tZXhjbHVkZT1TQ0NTIC0tZXhjbHVkZT1CaXRLZWVwZXIg
+LS1leGNsdWRlPUNoYW5nZVNldCBsaW51eC0yLjUvaW5jbHVkZS9saW51eC9p
+cHY2LmggbWVyZ2UtMi41L2luY2x1ZGUvbGludXgvaXB2Ni5oDQotLS0gbGlu
+dXgtMi41L2luY2x1ZGUvbGludXgvaXB2Ni5oCVdlZCBNYXkgMjggMjA6MDc6
+MjIgMjAwMw0KKysrIG1lcmdlLTIuNS9pbmNsdWRlL2xpbnV4L2lwdjYuaAlX
+ZWQgTWF5IDI4IDE5OjUxOjE4IDIwMDMNCkBAIC0xNTAsNyArMTUwLDkgQEAN
+CiAJc3RydWN0IGluNl9hZGRyIAlyY3Zfc2FkZHI7DQogCXN0cnVjdCBpbjZf
+YWRkcgkJZGFkZHI7DQogCXN0cnVjdCBpbjZfYWRkcgkJKmRhZGRyX2NhY2hl
+Ow0KLQ0KKyNpZmRlZiBDT05GSUdfSVBWNl9TVUJUUkVFUw0KKwlzdHJ1Y3Qg
+aW42X2FkZHIJCSpzYWRkcl9jYWNoZTsNCisjZW5kaWYNCiAJX191MzIJCQlm
+bG93X2xhYmVsOw0KIAlfX3UzMgkJCWZyYWdfc2l6ZTsNCiAJaW50CQkJaG9w
+X2xpbWl0Ow0KZGlmZiAtTnVyIC0tZXhjbHVkZT1TQ0NTIC0tZXhjbHVkZT1C
+aXRLZWVwZXIgLS1leGNsdWRlPUNoYW5nZVNldCBsaW51eC0yLjUvaW5jbHVk
+ZS9uZXQvaXA2X3JvdXRlLmggbWVyZ2UtMi41L2luY2x1ZGUvbmV0L2lwNl9y
+b3V0ZS5oDQotLS0gbGludXgtMi41L2luY2x1ZGUvbmV0L2lwNl9yb3V0ZS5o
+CVdlZCBNYXkgMjggMjA6MDc6MjkgMjAwMw0KKysrIG1lcmdlLTIuNS9pbmNs
+dWRlL25ldC9pcDZfcm91dGUuaAlXZWQgTWF5IDI4IDE5OjUxOjE5IDIwMDMN
+CkBAIC0xMDIsNyArMTAyLDggQEANCiAgKi8NCiANCiBzdGF0aWMgaW5saW5l
+IHZvaWQgaXA2X2RzdF9zdG9yZShzdHJ1Y3Qgc29jayAqc2ssIHN0cnVjdCBk
+c3RfZW50cnkgKmRzdCwNCi0JCQkJICAgICBzdHJ1Y3QgaW42X2FkZHIgKmRh
+ZGRyKQ0KKwkJCQkgc3RydWN0IGluNl9hZGRyICpkYWRkciwNCisJCQkJIHN0
+cnVjdCBpbjZfYWRkciAqc2FkZHIpDQogew0KIAlzdHJ1Y3QgaXB2Nl9waW5m
+byAqbnAgPSBpbmV0Nl9zayhzayk7DQogCXN0cnVjdCBydDZfaW5mbyAqcnQg
+PSAoc3RydWN0IHJ0Nl9pbmZvICopIGRzdDsNCkBAIC0xMTAsNiArMTExLDkg
+QEANCiAJd3JpdGVfbG9jaygmc2stPmRzdF9sb2NrKTsNCiAJX19za19kc3Rf
+c2V0KHNrLCBkc3QpOw0KIAlucC0+ZGFkZHJfY2FjaGUgPSBkYWRkcjsNCisj
+aWZkZWYgQ09ORklHX0lQVjZfU1VCVFJFRVMNCisJbnAtPnNhZGRyX2NhY2hl
+ID0gc2FkZHI7DQorI2VuZGlmDQogCW5wLT5kc3RfY29va2llID0gcnQtPnJ0
+Nmlfbm9kZSA/IHJ0LT5ydDZpX25vZGUtPmZuX3Nlcm51bSA6IDA7DQogCXdy
+aXRlX3VubG9jaygmc2stPmRzdF9sb2NrKTsNCiB9DQpkaWZmIC1OdXIgLS1l
+eGNsdWRlPVNDQ1MgLS1leGNsdWRlPUJpdEtlZXBlciAtLWV4Y2x1ZGU9Q2hh
+bmdlU2V0IGxpbnV4LTIuNS9uZXQvaXB2Ni9LY29uZmlnIG1lcmdlLTIuNS9u
+ZXQvaXB2Ni9LY29uZmlnDQotLS0gbGludXgtMi41L25ldC9pcHY2L0tjb25m
+aWcJV2VkIE1heSAyOCAyMDowNzo0MSAyMDAzDQorKysgbWVyZ2UtMi41L25l
+dC9pcHY2L0tjb25maWcJV2VkIE1heSAyOCAxOTo1MToyMCAyMDAzDQpAQCAt
+NDIsNCArNDIsMTIgQEANCiANCiAJICBJZiB1bnN1cmUsIHNheSBZLg0KIA0K
+K2NvbmZpZyBJUFY2X1NVQlRSRUVTDQorCWJvb2wgIklQdjY6IFNvdXJjZSBh
+ZGRyZXNzIHJvdXRpbmciDQorCWRlcGVuZHMgb24gSVBWNg0KKwktLS1oZWxw
+LS0tDQorCSAgU3VwcG9ydCBmb3IgYWR2YW5jZWQgcm91dGluZyBieSBib3Ro
+IHNvdXJjZSBhbmQgZGVzdGluYXRpb24gYWRkcmVzcy4NCisNCisJICBJZiB1
+bnN1cmUsIHNheSBOLg0KKw0KIHNvdXJjZSAibmV0L2lwdjYvbmV0ZmlsdGVy
+L0tjb25maWciDQpkaWZmIC1OdXIgLS1leGNsdWRlPVNDQ1MgLS1leGNsdWRl
+PUJpdEtlZXBlciAtLWV4Y2x1ZGU9Q2hhbmdlU2V0IGxpbnV4LTIuNS9uZXQv
+aXB2Ni9pcDZfZmliLmMgbWVyZ2UtMi41L25ldC9pcHY2L2lwNl9maWIuYw0K
+LS0tIGxpbnV4LTIuNS9uZXQvaXB2Ni9pcDZfZmliLmMJV2VkIE1heSAyOCAy
+MDowNzo0MSAyMDAzDQorKysgbWVyZ2UtMi41L25ldC9pcHY2L2lwNl9maWIu
+YwlXZWQgTWF5IDI4IDE5OjUxOjIyIDIwMDMNCkBAIC0xOCw2ICsxOCw3IEBA
+DQogICogCVl1amkgU0VLSVlBIEBVU0FHSToJU3VwcG9ydCBkZWZhdWx0IHJv
+dXRlIG9uIHJvdXRlciBub2RlOw0KICAqIAkJCQlyZW1vdmUgaXA2X251bGxf
+ZW50cnkgZnJvbSB0aGUgdG9wIG9mDQogICogCQkJCXJvdXRpbmcgdGFibGUu
+DQorICogCVZpbGxlIE51b3J2YWxhOgkJRml4ZXMgdG8gc291cmNlIGFkZHJl
+c3MgYmFzZWQgcm91dGluZw0KICAqLw0KICNpbmNsdWRlIDxsaW51eC9jb25m
+aWcuaD4NCiAjaW5jbHVkZSA8bGludXgvZXJybm8uaD4NCkBAIC00MCw3ICs0
+MSw2IEBADQogI2luY2x1ZGUgPG5ldC9pcDZfcm91dGUuaD4NCiANCiAjZGVm
+aW5lIFJUNl9ERUJVRyAyDQotI3VuZGVmIENPTkZJR19JUFY2X1NVQlRSRUVT
+DQogDQogI2lmIFJUNl9ERUJVRyA+PSAzDQogI2RlZmluZSBSVDZfVFJBQ0Uo
+eC4uLikgcHJpbnRrKEtFUk5fREVCVUcgeCkNCkBAIC04NCw2ICs4NCwxMCBA
+QA0KIHN0YXRpYyB2b2lkIGZpYjZfcHJ1bmVfY2xvbmVzKHN0cnVjdCBmaWI2
+X25vZGUgKmZuLCBzdHJ1Y3QgcnQ2X2luZm8gKnJ0KTsNCiBzdGF0aWMgc3Ry
+dWN0IGZpYjZfbm9kZSAqIGZpYjZfcmVwYWlyX3RyZWUoc3RydWN0IGZpYjZf
+bm9kZSAqZm4pOw0KIA0KKyNpZmRlZiBDT05GSUdfSVBWNl9TVUJUUkVFUw0K
+K3N0YXRpYyBzdHJ1Y3QgaW42X2FkZHIgZmliNl9hZGRyX2FueSA9IElONkFE
+RFJfQU5ZX0lOSVQ7DQorI2VuZGlmDQorDQogLyoNCiAgKglBIHJvdXRpbmcg
+dXBkYXRlIGNhdXNlcyBhbiBpbmNyZWFzZSBvZiB0aGUgc2VyaWFsIG51bWJl
+ciBvbiB0aGUNCiAgKglhZmVjdGVkIHN1YnRyZWUuIFRoaXMgYWxsb3dzIGZv
+ciBjYWNoZWQgcm91dGVzIHRvIGJlIGFzeW5jaHJvbm91c2x5DQpAQCAtNDk3
+LDYgKzUwMSw4IEBADQogCQltb2RfdGltZXIoJmlwNl9maWJfdGltZXIsIGpp
+ZmZpZXMgKyBpcDZfcnRfZ2NfaW50ZXJ2YWwpOw0KIH0NCiANCitzdGF0aWMg
+c3RydWN0IHJ0Nl9pbmZvICogZmliNl9maW5kX3ByZWZpeChzdHJ1Y3QgZmli
+Nl9ub2RlICpmbik7DQorDQogLyoNCiAgKglBZGQgcm91dGluZyBpbmZvcm1h
+dGlvbiB0byB0aGUgcm91dGluZyB0cmVlLg0KICAqCTxkZXN0aW5hdGlvbiBh
+ZGRyPi88c291cmNlIGFkZHI+DQpAQCAtNTA4LDE0ICs1MTQsMTYgQEANCiAJ
+c3RydWN0IGZpYjZfbm9kZSAqZm47DQogCWludCBlcnIgPSAtRU5PTUVNOw0K
+IA0KLQlmbiA9IGZpYjZfYWRkXzEocm9vdCwgJnJ0LT5ydDZpX2RzdC5hZGRy
+LCBzaXplb2Yoc3RydWN0IGluNl9hZGRyKSwNCi0JCQlydC0+cnQ2aV9kc3Qu
+cGxlbiwgKHU4KikgJnJ0LT5ydDZpX2RzdCAtICh1OCopIHJ0KTsNCisjaWZk
+ZWYgQ09ORklHX0lQVjZfU1VCVFJFRVMNCisJc3RydWN0IGZpYjZfbm9kZSAq
+cG4gPSBOVUxMOw0KIA0KKwlmbiA9IGZpYjZfYWRkXzEocm9vdCwgJnJ0LT5y
+dDZpX3NyYy5hZGRyLCBzaXplb2Yoc3RydWN0IGluNl9hZGRyKSwNCisJCQly
+dC0+cnQ2aV9zcmMucGxlbiwgKHU4KikgJnJ0LT5ydDZpX3NyYyAtICh1OCop
+IHJ0KTsNCisJDQogCWlmIChmbiA9PSBOVUxMKQ0KIAkJZ290byBvdXQ7DQog
+DQotI2lmZGVmIENPTkZJR19JUFY2X1NVQlRSRUVTDQotCWlmIChydC0+cnQ2
+aV9zcmMucGxlbikgew0KKwlpZiAocnQtPnJ0NmlfZHN0LnBsZW4pIHsNCiAJ
+CXN0cnVjdCBmaWI2X25vZGUgKnNuOw0KIA0KIAkJaWYgKGZuLT5zdWJ0cmVl
+ID09IE5VTEwpIHsNCkBAIC01NDMsOSArNTUxLDkgQEANCiANCiAJCQkvKiBO
+b3cgYWRkIHRoZSBmaXJzdCBsZWFmIG5vZGUgdG8gbmV3IHN1YnRyZWUgKi8N
+CiANCi0JCQlzbiA9IGZpYjZfYWRkXzEoc2ZuLCAmcnQtPnJ0Nmlfc3JjLmFk
+ZHIsDQotCQkJCQlzaXplb2Yoc3RydWN0IGluNl9hZGRyKSwgcnQtPnJ0Nmlf
+c3JjLnBsZW4sDQotCQkJCQkodTgqKSAmcnQtPnJ0Nmlfc3JjIC0gKHU4Kikg
+cnQpOw0KKwkJCXNuID0gZmliNl9hZGRfMShzZm4sICZydC0+cnQ2aV9kc3Qu
+YWRkciwNCisJCQkJCXNpemVvZihzdHJ1Y3QgaW42X2FkZHIpLCBydC0+cnQ2
+aV9kc3QucGxlbiwNCisJCQkJCSh1OCopICZydC0+cnQ2aV9kc3QgLSAodTgq
+KSBydCk7DQogDQogCQkJaWYgKHNuID09IE5VTEwpIHsNCiAJCQkJLyogSWYg
+aXQgaXMgZmFpbGVkLCBkaXNjYXJkIGp1c3QgYWxsb2NhdGVkDQpAQCAtNTU5
+LDIxICs1NjcsMzAgQEANCiAJCQkvKiBOb3cgbGluayBuZXcgc3VidHJlZSB0
+byBtYWluIHRyZWUgKi8NCiAJCQlzZm4tPnBhcmVudCA9IGZuOw0KIAkJCWZu
+LT5zdWJ0cmVlID0gc2ZuOw0KLQkJCWlmIChmbi0+bGVhZiA9PSBOVUxMKSB7
+DQotCQkJCWZuLT5sZWFmID0gcnQ7DQotCQkJCWF0b21pY19pbmMoJnJ0LT5y
+dDZpX3JlZik7DQotCQkJfQ0KIAkJfSBlbHNlIHsNCi0JCQlzbiA9IGZpYjZf
+YWRkXzEoZm4tPnN1YnRyZWUsICZydC0+cnQ2aV9zcmMuYWRkciwNCi0JCQkJ
+CXNpemVvZihzdHJ1Y3QgaW42X2FkZHIpLCBydC0+cnQ2aV9zcmMucGxlbiwN
+Ci0JCQkJCSh1OCopICZydC0+cnQ2aV9zcmMgLSAodTgqKSBydCk7DQorCQkJ
+c24gPSBmaWI2X2FkZF8xKGZuLT5zdWJ0cmVlLCAmcnQtPnJ0NmlfZHN0LmFk
+ZHIsDQorCQkJCQlzaXplb2Yoc3RydWN0IGluNl9hZGRyKSwgcnQtPnJ0Nmlf
+ZHN0LnBsZW4sDQorCQkJCQkodTgqKSAmcnQtPnJ0NmlfZHN0IC0gKHU4Kikg
+cnQpOw0KIA0KIAkJCWlmIChzbiA9PSBOVUxMKQ0KIAkJCQlnb3RvIHN0X2Zh
+aWx1cmU7DQogCQl9DQogDQorCQkvKiBmaWI2X2FkZF8xIG1pZ2h0IGhhdmUg
+Y2xlYXJlZCB0aGUgb2xkIGxlYWYgcG9pbnRlciAqLw0KKwkJaWYgKGZuLT5s
+ZWFmID09IE5VTEwpIHsNCisJCQlmbi0+bGVhZiA9IHJ0Ow0KKwkJCWF0b21p
+Y19pbmMoJnJ0LT5ydDZpX3JlZik7DQorCQl9DQorDQorCQlwbiA9IGZuOw0K
+IAkJZm4gPSBzbjsNCiAJfQ0KKyNlbHNlIA0KKwlmbiA9IGZpYjZfYWRkXzEo
+cm9vdCwgJnJ0LT5ydDZpX2RzdC5hZGRyLCBzaXplb2Yoc3RydWN0IGluNl9h
+ZGRyKSwNCisJCQlydC0+cnQ2aV9kc3QucGxlbiwgKHU4KikgJnJ0LT5ydDZp
+X2RzdCAtICh1OCopIHJ0KTsNCisNCisJaWYgKGZuID09IE5VTEwpDQorCQln
+b3RvIG91dDsNCiAjZW5kaWYNCiANCiAJZXJyID0gZmliNl9hZGRfcnQybm9k
+ZShmbiwgcnQsIG5saCk7DQpAQCAtNTg1LDggKzYwMiwyNSBAQA0KIAl9DQog
+DQogb3V0Og0KLQlpZiAoZXJyKQ0KKwlpZiAoZXJyKSB7DQorI2lmZGVmIENP
+TkZJR19JUFY2X1NVQlRSRUVTDQorDQorCQkvKiBJZiBmaWI2X2FkZF8xIGhh
+cyBjbGVhcmVkIHRoZSBvbGQgbGVhZiBwb2ludGVyIGluIHRoZSANCisJCSAg
+IHN1cGVyLXRyZWUgbGVhZiBub2RlIHdlIGhhdmUgdG8gZmluZCBhIG5ldyBv
+bmUgZm9yIGl0LiAqLw0KKw0KKwkJaWYgKHBuICYmICEocG4tPmZuX2ZsYWdz
+ICYgUlROX1JUSU5GTykpIHsNCisJCQlwbi0+bGVhZiA9IGZpYjZfZmluZF9w
+cmVmaXgocG4pOw0KKyNpZiBSVDZfREVCVUcgPj0gMg0KKwkJCWlmICghcG4t
+PmxlYWYpIHsNCisJCQkJQlVHX1RSQVAocG4tPmxlYWYpOw0KKwkJCQlwbi0+
+bGVhZiA9ICZpcDZfbnVsbF9lbnRyeTsNCisJCQl9DQorI2VuZGlmDQorCQkJ
+YXRvbWljX2luYygmcG4tPmxlYWYtPnJ0NmlfcmVmKTsNCisJCX0NCisjZW5k
+aWYNCiAJCWRzdF9mcmVlKCZydC0+dS5kc3QpOw0KKwl9DQogCXJldHVybiBl
+cnI7DQogDQogI2lmZGVmIENPTkZJR19JUFY2X1NVQlRSRUVTDQpAQCAtNTk0
+LDggKzYyOCw4IEBADQogCSAgIGlzIG9ycGhhbi4gSWYgaXQgaXMsIHNob290
+IGl0Lg0KIAkgKi8NCiBzdF9mYWlsdXJlOg0KLQlpZiAoZm4gJiYgIShmbi0+
+Zm5fZmxhZ3MmUlROX1JUSU5GT3xSVE5fUk9PVCkpDQotCQlmaWJfcmVwYWly
+X3RyZWUoZm4pOw0KKwlpZiAoZm4gJiYgIShmbi0+Zm5fZmxhZ3MgJihSVE5f
+UlRJTkZPfFJUTl9ST09UKSkpDQorCQlmaWI2X3JlcGFpcl90cmVlKGZuKTsN
+CiAJZHN0X2ZyZWUoJnJ0LT51LmRzdCk7DQogCXJldHVybiBlcnI7DQogI2Vu
+ZGlmDQpAQCAtNjM4LDIyICs2NzIsMjggQEANCiAJCWJyZWFrOw0KIAl9DQog
+DQotCXdoaWxlICgoZm4tPmZuX2ZsYWdzICYgUlROX1JPT1QpID09IDApIHsN
+CisJZm9yICg7Oykgew0KICNpZmRlZiBDT05GSUdfSVBWNl9TVUJUUkVFUw0K
+IAkJaWYgKGZuLT5zdWJ0cmVlKSB7DQotCQkJc3RydWN0IGZpYjZfbm9kZSAq
+c3Q7DQotCQkJc3RydWN0IGxvb2t1cF9hcmdzICpuYXJnOw0KLQ0KLQkJCW5h
+cmcgPSBhcmdzICsgMTsNCi0NCi0JCQlpZiAobmFyZy0+YWRkcikgew0KLQkJ
+CQlzdCA9IGZpYjZfbG9va3VwXzEoZm4tPnN1YnRyZWUsIG5hcmcpOw0KKwkJ
+CXN0cnVjdCBydDZrZXkgKmtleTsNCiANCi0JCQkJaWYgKHN0ICYmICEoc3Qt
+PmZuX2ZsYWdzICYgUlROX1JPT1QpKQ0KLQkJCQkJcmV0dXJuIHN0Ow0KKwkJ
+CWtleSA9IChzdHJ1Y3QgcnQ2a2V5ICopICgodTggKikgZm4tPmxlYWYgKw0K
+KwkJCQkJCSBhcmdzLT5vZmZzZXQpOw0KKwkJCQ0KKwkJCWlmIChhZGRyX21h
+dGNoKCZrZXktPmFkZHIsIGFyZ3MtPmFkZHIsIGtleS0+cGxlbikpIHsNCisJ
+CQkJc3RydWN0IGZpYjZfbm9kZSAqc3Q7DQorCQkJCXN0cnVjdCBsb29rdXBf
+YXJncyAqbmFyZyA9IGFyZ3MgKyAxOw0KKwkJCQlpZiAoIWlwdjZfYWRkcl9h
+bnkobmFyZy0+YWRkcikpIHsNCisJCQkJCXN0ID0gZmliNl9sb29rdXBfMShm
+bi0+c3VidHJlZSwgbmFyZyk7DQorCQkJCQkNCisJCQkJCWlmIChzdCAmJiAh
+KHN0LT5mbl9mbGFncyAmIFJUTl9ST09UKSkNCisJCQkJCQlyZXR1cm4gc3Q7
+DQorCQkJCX0gDQogCQkJfQ0KIAkJfQ0KICNlbmRpZg0KKwkJaWYgKGZuLT5m
+bl9mbGFncyAmIFJUTl9ST09UKQ0KKwkJCWJyZWFrOw0KIA0KIAkJaWYgKGZu
+LT5mbl9mbGFncyAmIFJUTl9SVElORk8pIHsNCiAJCQlzdHJ1Y3QgcnQ2a2V5
+ICprZXk7DQpAQCAtNjc3LDEzICs3MTcsMTcgQEANCiAJc3RydWN0IGxvb2t1
+cF9hcmdzIGFyZ3NbMl07DQogCXN0cnVjdCBydDZfaW5mbyAqcnQgPSBOVUxM
+Ow0KIAlzdHJ1Y3QgZmliNl9ub2RlICpmbjsNCisjaWZkZWYgQ09ORklHX0lQ
+VjZfU1VCVFJFRVMNCisJaWYgKHNhZGRyID09IE5VTEwpDQorCQlzYWRkciA9
+ICZmaWI2X2FkZHJfYW55Ow0KIA0KKwlhcmdzWzBdLm9mZnNldCA9ICh1OCop
+ICZydC0+cnQ2aV9zcmMgLSAodTgqKSBydDsNCisJYXJnc1swXS5hZGRyID0g
+c2FkZHI7DQorCWFyZ3NbMV0ub2Zmc2V0ID0gKHU4KikgJnJ0LT5ydDZpX2Rz
+dCAtICh1OCopIHJ0Ow0KKwlhcmdzWzFdLmFkZHIgPSBkYWRkcjsNCisjZWxz
+ZSANCiAJYXJnc1swXS5vZmZzZXQgPSAodTgqKSAmcnQtPnJ0NmlfZHN0IC0g
+KHU4KikgcnQ7DQogCWFyZ3NbMF0uYWRkciA9IGRhZGRyOw0KLQ0KLSNpZmRl
+ZiBDT05GSUdfSVBWNl9TVUJUUkVFUw0KLQlhcmdzWzFdLm9mZnNldCA9ICh1
+OCopICZydC0+cnQ2aV9zcmMgLSAodTgqKSBydDsNCi0JYXJnc1sxXS5hZGRy
+ID0gc2FkZHI7DQogI2VuZGlmDQogDQogCWZuID0gZmliNl9sb29rdXBfMShy
+b290LCBhcmdzKTsNCkBAIC03MzYsMTkgKzc4MCwyMiBAQA0KIHsNCiAJc3Ry
+dWN0IHJ0Nl9pbmZvICpydCA9IE5VTEw7DQogCXN0cnVjdCBmaWI2X25vZGUg
+KmZuOw0KLQ0KLQlmbiA9IGZpYjZfbG9jYXRlXzEocm9vdCwgZGFkZHIsIGRz
+dF9sZW4sDQotCQkJICAgKHU4KikgJnJ0LT5ydDZpX2RzdCAtICh1OCopIHJ0
+KTsNCi0NCiAjaWZkZWYgQ09ORklHX0lQVjZfU1VCVFJFRVMNCi0JaWYgKHNy
+Y19sZW4pIHsNCi0JCUJVR19UUkFQKHNhZGRyIT1OVUxMKTsNCi0JCWlmIChm
+biA9PSBOVUxMKQ0KLQkJCWZuID0gZm4tPnN1YnRyZWU7DQorCWlmIChzYWRk
+ciA9PSBOVUxMKQ0KKwkJc2FkZHIgPSAmZmliNl9hZGRyX2FueTsNCisNCisJ
+Zm4gPSBmaWI2X2xvY2F0ZV8xKHJvb3QsIHNhZGRyLCBzcmNfbGVuLCANCisJ
+CQkgICAodTgqKSAmcnQtPnJ0Nmlfc3JjIC0gKHU4KikgcnQpOw0KKwlpZiAo
+ZHN0X2xlbikgew0KIAkJaWYgKGZuKQ0KLQkJCWZuID0gZmliNl9sb2NhdGVf
+MShmbiwgc2FkZHIsIHNyY19sZW4sDQotCQkJCQkgICAodTgqKSAmcnQtPnJ0
+Nmlfc3JjIC0gKHU4KikgcnQpOw0KKwkJCWZuID0gZmliNl9sb2NhdGVfMShm
+bi0+c3VidHJlZSwgZGFkZHIsIGRzdF9sZW4sDQorCQkJCQkgICAodTgqKSAm
+cnQtPnJ0NmlfZHN0IC0gKHU4KikgcnQpOw0KKwkJZWxzZSANCisJCQlyZXR1
+cm4gTlVMTDsNCiAJfQ0KKyNlbHNlDQorCWZuID0gZmliNl9sb2NhdGVfMShy
+b290LCBkYWRkciwgZHN0X2xlbiwNCisJCQkgICAodTgqKSAmcnQtPnJ0Nmlf
+ZHN0IC0gKHU4KikgcnQpOw0KICNlbmRpZg0KIA0KIAlpZiAoZm4gJiYgZm4t
+PmZuX2ZsYWdzJlJUTl9SVElORk8pDQpkaWZmIC1OdXIgLS1leGNsdWRlPVND
+Q1MgLS1leGNsdWRlPUJpdEtlZXBlciAtLWV4Y2x1ZGU9Q2hhbmdlU2V0IGxp
+bnV4LTIuNS9uZXQvaXB2Ni9pcDZfb3V0cHV0LmMgbWVyZ2UtMi41L25ldC9p
+cHY2L2lwNl9vdXRwdXQuYw0KLS0tIGxpbnV4LTIuNS9uZXQvaXB2Ni9pcDZf
+b3V0cHV0LmMJV2VkIE1heSAyOCAyMDowNzo0MSAyMDAzDQorKysgbWVyZ2Ut
+Mi41L25ldC9pcHY2L2lwNl9vdXRwdXQuYwlXZWQgTWF5IDI4IDE5OjUxOjIz
+IDIwMDMNCkBAIC01MjcsNiArNTI3LDcgQEANCiAJc3RydWN0IGlwdjZfcGlu
+Zm8gKm5wID0gaW5ldDZfc2soc2spOw0KIAlzdHJ1Y3QgaW42X2FkZHIgZmlu
+YWxfZHN0X2J1ZiwgKmZpbmFsX2RzdCA9IE5VTEw7DQogCXN0cnVjdCBkc3Rf
+ZW50cnkgKmRzdDsNCisJc3RydWN0IHJ0Nl9pbmZvICpydDsNCiAJaW50IGVy
+ciA9IDA7DQogCXVuc2lnbmVkIGludCBwa3RsZW5ndGgsIGp1bWJvbGVuLCBt
+dHU7DQogDQpAQCAtNTQyLDExICs1NDMsMTEgQEANCiANCiAJZHN0ID0gX19z
+a19kc3RfY2hlY2soc2ssIG5wLT5kc3RfY29va2llKTsNCiAJaWYgKGRzdCkg
+ew0KLQkJc3RydWN0IHJ0Nl9pbmZvICpydCA9IChzdHJ1Y3QgcnQ2X2luZm8q
+KWRzdDsNCisJCXJ0ID0gKHN0cnVjdCBydDZfaW5mbyopZHN0Ow0KIA0KIAkJ
+CS8qIFllcywgY2hlY2tpbmcgcm91dGUgdmFsaWRpdHkgaW4gbm90IGNvbm5l
+Y3RlZA0KIAkJCSAgIGNhc2UgaXMgbm90IHZlcnkgc2ltcGxlLiBUYWtlIGlu
+dG8gYWNjb3VudCwNCi0JCQkgICB0aGF0IHdlIGRvIG5vdCBzdXBwb3J0IHJv
+dXRpbmcgYnkgc291cmNlLCBUT1MsDQorCQkJICAgdGhhdCB3ZSBkbyBub3Qg
+c3VwcG9ydCByb3V0aW5nIGJ5IFRPUywNCiAJCQkgICBhbmQgTVNHX0RPTlRS
+T1VURSAJCS0tQU5LICg5ODA3MjYpDQogDQogCQkJICAgMS4gSWYgcm91dGUg
+d2FzIGhvc3Qgcm91dGUsIGNoZWNrIHRoYXQNCkBAIC01NjYsNiArNTY3LDEz
+IEBADQogCQkgICAgICBpcHY2X2FkZHJfY21wKCZmbC0+Zmw2X2RzdCwgJnJ0
+LT5ydDZpX2RzdC5hZGRyKSkNCiAJCSAgICAgJiYgKG5wLT5kYWRkcl9jYWNo
+ZSA9PSBOVUxMIHx8DQogCQkJIGlwdjZfYWRkcl9jbXAoJmZsLT5mbDZfZHN0
+LCBucC0+ZGFkZHJfY2FjaGUpKSkNCisjaWZkZWYgQ09ORklHX0lQVjZfU1VC
+VFJFRVMNCisJCSAgICB8fCAoIWlwdjZfYWRkcl9hbnkoJmZsLT5mbDZfc3Jj
+KQ0KKwkJCSYmIChydC0+cnQ2aV9zcmMucGxlbiAhPSAxMjggfHwNCisJCQkg
+ICAgaXB2Nl9hZGRyX2NtcCgmZmwtPmZsNl9zcmMsICZydC0+cnQ2aV9zcmMu
+YWRkcikpDQorCQkJJiYgKG5wLT5zYWRkcl9jYWNoZSA9PSBOVUxMIHx8DQor
+CQkJICAgIGlwdjZfYWRkcl9jbXAoJmZsLT5mbDZfc3JjLCBucC0+c2FkZHJf
+Y2FjaGUpKSkNCisjZW5kaWYNCiAJCSAgICB8fCAoZmwtPm9pZiAmJiBmbC0+
+b2lmICE9IGRzdC0+ZGV2LT5pZmluZGV4KSkgew0KIAkJCWRzdCA9IE5VTEw7
+DQogCQl9IGVsc2UNCkBAIC01OTIsNiArNjAwLDIwIEBADQogCQkJZ290byBv
+dXQ7DQogCQl9DQogCX0NCisjaWZkZWYgQ09ORklHX0lQVjZfU1VCVFJFRVMN
+CisJcnQgPSAoc3RydWN0IHJ0Nl9pbmZvKilkc3Q7DQorCWlmIChpcHY2X2Fk
+ZHJfY21wKCZmbC0+Zmw2X3NyYywgJm5wLT5zYWRkcikgJiYgDQorCSAgICAo
+cnQtPnJ0Nmlfc3JjLnBsZW4gIT0gMTI4IHx8IA0KKwkgICAgIGlwdjZfYWRk
+cl9jbXAoJmZsLT5mbDZfc3JjLCAmcnQtPnJ0Nmlfc3JjLmFkZHIpKSkgew0K
+KwkJZHN0X3JlbGVhc2UoZHN0KTsNCisJCWRzdCA9IGlwNl9yb3V0ZV9vdXRw
+dXQoc2ssIGZsKTsNCisJCWlmIChkc3QtPmVycm9yKSB7DQorCQkJSVA2X0lO
+Q19TVEFUUyhJcDZPdXROb1JvdXRlcyk7DQorCQkJZHN0X3JlbGVhc2UoZHN0
+KTsNCisJCQlyZXR1cm4gLUVORVRVTlJFQUNIOw0KKwkJfQ0KKwl9DQorI2Vu
+ZGlmDQogCXBrdGxlbmd0aCA9IGxlbmd0aDsNCiANCiAgICAgICAgIGlmIChk
+c3QpIHsNCkBAIC03MTUsNyArNzM3LDkgQEANCiBvdXQ6DQogCWlwNl9kc3Rf
+c3RvcmUoc2ssIGRzdCwNCiAJCSAgICAgICFpcHY2X2FkZHJfY21wKCZmbC0+
+Zmw2X2RzdCwgJm5wLT5kYWRkcikgPw0KLQkJICAgICAgJm5wLT5kYWRkciA6
+IE5VTEwpOw0KKwkJICAgICAgJm5wLT5kYWRkciA6IE5VTEwsDQorCQkgICAg
+ICAhaXB2Nl9hZGRyX2NtcCgmZmwtPmZsNl9zcmMsICZucC0+c2FkZHIpID8N
+CisJCSAgICAgICZucC0+c2FkZHIgOiBOVUxMKTsNCiAJaWYgKGVyciA+IDAp
+DQogCQllcnIgPSBucC0+cmVjdmVyciA/IG5ldF94bWl0X2Vycm5vKGVycikg
+OiAwOw0KIAlyZXR1cm4gZXJyOw0KQEAgLTExMzgsMTUgKzExNjIsMTYgQEAN
+CiBpbnQgaXA2X2RzdF9sb29rdXAoc3RydWN0IHNvY2sgKnNrLCBzdHJ1Y3Qg
+ZHN0X2VudHJ5ICoqZHN0LCBzdHJ1Y3QgZmxvd2kgKmZsKQ0KIHsNCiAJc3Ry
+dWN0IGlwdjZfcGluZm8gKm5wID0gaW5ldDZfc2soc2spOw0KKwlzdHJ1Y3Qg
+cnQ2X2luZm8gKnJ0Ow0KIAlpbnQgZXJyID0gMDsNCiANCiAJKmRzdCA9IF9f
+c2tfZHN0X2NoZWNrKHNrLCBucC0+ZHN0X2Nvb2tpZSk7DQogCWlmICgqZHN0
+KSB7DQotCQlzdHJ1Y3QgcnQ2X2luZm8gKnJ0ID0gKHN0cnVjdCBydDZfaW5m
+byopKmRzdDsNCisJCXJ0ID0gKHN0cnVjdCBydDZfaW5mbyopKmRzdDsNCiAN
+CiAJCQkvKiBZZXMsIGNoZWNraW5nIHJvdXRlIHZhbGlkaXR5IGluIG5vdCBj
+b25uZWN0ZWQNCiAJCQkgICBjYXNlIGlzIG5vdCB2ZXJ5IHNpbXBsZS4gVGFr
+ZSBpbnRvIGFjY291bnQsDQotCQkJICAgdGhhdCB3ZSBkbyBub3Qgc3VwcG9y
+dCByb3V0aW5nIGJ5IHNvdXJjZSwgVE9TLA0KKwkJCSAgIHRoYXQgd2UgZG8g
+bm90IHN1cHBvcnQgcm91dGluZyBieSBUT1MsDQogCQkJICAgYW5kIE1TR19E
+T05UUk9VVEUgCQktLUFOSyAoOTgwNzI2KQ0KIA0KIAkJCSAgIDEuIElmIHJv
+dXRlIHdhcyBob3N0IHJvdXRlLCBjaGVjayB0aGF0DQpAQCAtMTE2Niw2ICsx
+MTkxLDEzIEBADQogCQkgICAgICBpcHY2X2FkZHJfY21wKCZmbC0+Zmw2X2Rz
+dCwgJnJ0LT5ydDZpX2RzdC5hZGRyKSkNCiAJCSAgICAgJiYgKG5wLT5kYWRk
+cl9jYWNoZSA9PSBOVUxMIHx8DQogCQkJIGlwdjZfYWRkcl9jbXAoJmZsLT5m
+bDZfZHN0LCBucC0+ZGFkZHJfY2FjaGUpKSkNCisjaWZkZWYgQ09ORklHX0lQ
+VjZfU1VCVFJFRVMNCisJCSAgICB8fCAoIWlwdjZfYWRkcl9hbnkoJmZsLT5m
+bDZfc3JjKQ0KKwkJCSYmIChydC0+cnQ2aV9zcmMucGxlbiAhPSAxMjggfHwN
+CisJCQkgICAgaXB2Nl9hZGRyX2NtcCgmZmwtPmZsNl9zcmMsICZydC0+cnQ2
+aV9zcmMuYWRkcikpDQorCQkJJiYgKG5wLT5zYWRkcl9jYWNoZSA9PSBOVUxM
+IHx8DQorCQkJICAgIGlwdjZfYWRkcl9jbXAoJmZsLT5mbDZfc3JjLCBucC0+
+c2FkZHJfY2FjaGUpKSkNCisjZW5kaWYNCiAJCSAgICB8fCAoZmwtPm9pZiAm
+JiBmbC0+b2lmICE9ICgqZHN0KS0+ZGV2LT5pZmluZGV4KSkgew0KIAkJCSpk
+c3QgPSBOVUxMOw0KIAkJfSBlbHNlDQpAQCAtMTE5Miw3ICsxMjI0LDIwIEBA
+DQogCQkJcmV0dXJuIGVycjsNCiAJCX0NCiAJfQ0KLQ0KKyNpZmRlZiBDT05G
+SUdfSVBWNl9TVUJUUkVFUw0KKwlydCA9IChzdHJ1Y3QgcnQ2X2luZm8qKSpk
+c3Q7DQorCWlmIChpcHY2X2FkZHJfY21wKCZmbC0+Zmw2X3NyYywgJm5wLT5z
+YWRkcikgJiYgDQorCSAgICAocnQtPnJ0Nmlfc3JjLnBsZW4gIT0gMTI4IHx8
+IA0KKwkgICAgIGlwdjZfYWRkcl9jbXAoJmZsLT5mbDZfc3JjLCAmcnQtPnJ0
+Nmlfc3JjLmFkZHIpKSkgew0KKwkJZHN0X3JlbGVhc2UoKmRzdCk7DQorCQkq
+ZHN0ID0gaXA2X3JvdXRlX291dHB1dChzaywgZmwpOw0KKwkJaWYgKCgqZHN0
+KS0+ZXJyb3IpIHsNCisJCQlJUDZfSU5DX1NUQVRTKElwNk91dE5vUm91dGVz
+KTsNCisJCQlkc3RfcmVsZWFzZSgqZHN0KTsNCisJCQlyZXR1cm4gLUVORVRV
+TlJFQUNIOw0KKwkJfQ0KKwl9DQorI2VuZGlmDQogICAgICAgICBpZiAoKmRz
+dCkgew0KIAkJaWYgKChlcnIgPSB4ZnJtX2xvb2t1cChkc3QsIGZsLCBzaywg
+MCkpIDwgMCkgew0KIAkJCWRzdF9yZWxlYXNlKCpkc3QpOwkNCmRpZmYgLU51
+ciAtLWV4Y2x1ZGU9U0NDUyAtLWV4Y2x1ZGU9Qml0S2VlcGVyIC0tZXhjbHVk
+ZT1DaGFuZ2VTZXQgbGludXgtMi41L25ldC9pcHY2L3Jhdy5jIG1lcmdlLTIu
+NS9uZXQvaXB2Ni9yYXcuYw0KLS0tIGxpbnV4LTIuNS9uZXQvaXB2Ni9yYXcu
+YwlXZWQgTWF5IDI4IDIwOjA3OjQyIDIwMDMNCisrKyBtZXJnZS0yLjUvbmV0
+L2lwdjYvcmF3LmMJV2VkIE1heSAyOCAxOTo1MToyNCAyMDAzDQpAQCAtNzAw
+LDcgKzcwMCw5IEBADQogZG9uZToNCiAJaXA2X2RzdF9zdG9yZShzaywgZHN0
+LA0KIAkJICAgICAgIWlwdjZfYWRkcl9jbXAoJmZsLmZsNl9kc3QsICZucC0+
+ZGFkZHIpID8NCi0JCSAgICAgICZucC0+ZGFkZHIgOiBOVUxMKTsNCisJCSAg
+ICAgICZucC0+ZGFkZHIgOiBOVUxMLA0KKwkJICAgICAgIWlwdjZfYWRkcl9j
+bXAoJmZsLmZsNl9zcmMsICZucC0+c2FkZHIpID8NCisJCSAgICAgICZucC0+
+c2FkZHIgOiBOVUxMKTsNCiAJaWYgKGVyciA+IDApDQogCQllcnIgPSBucC0+
+cmVjdmVyciA/IG5ldF94bWl0X2Vycm5vKGVycikgOiAwOw0KIA0KZGlmZiAt
+TnVyIC0tZXhjbHVkZT1TQ0NTIC0tZXhjbHVkZT1CaXRLZWVwZXIgLS1leGNs
+dWRlPUNoYW5nZVNldCBsaW51eC0yLjUvbmV0L2lwdjYvcm91dGUuYyBtZXJn
+ZS0yLjUvbmV0L2lwdjYvcm91dGUuYw0KLS0tIGxpbnV4LTIuNS9uZXQvaXB2
+Ni9yb3V0ZS5jCVdlZCBNYXkgMjggMjA6MDc6NDIgMjAwMw0KKysrIG1lcmdl
+LTIuNS9uZXQvaXB2Ni9yb3V0ZS5jCVdlZCBNYXkgMjggMTk6NTE6MjUgMjAw
+Mw0KQEAgLTM2MSwxMiArMzYxLDggQEANCiAJCXJ0LT51LmRzdC5mbGFncyB8
+PSBEU1RfSE9TVDsNCiANCiAjaWZkZWYgQ09ORklHX0lQVjZfU1VCVFJFRVMN
+Ci0JCWlmIChydC0+cnQ2aV9zcmMucGxlbiAmJiBzYWRkcikgew0KLQkJCWlw
+djZfYWRkcl9jb3B5KCZydC0+cnQ2aV9zcmMuYWRkciwgc2FkZHIpOw0KLQkJ
+CXJ0LT5ydDZpX3NyYy5wbGVuID0gMTI4Ow0KLQkJfQ0KKwkJcnQtPnJ0Nmlf
+c3JjLnBsZW4gPSBvcnQtPnJ0Nmlfc3JjLnBsZW47DQogI2VuZGlmDQotDQog
+CQlydC0+cnQ2aV9uZXh0aG9wID0gbmRpc2NfZ2V0X25laWdoKHJ0LT5ydDZp
+X2RldiwgJnJ0LT5ydDZpX2dhdGV3YXkpOw0KIA0KIAkJZHN0X2hvbGQoJnJ0
+LT51LmRzdCk7DQpAQCAtODgzLDcgKzg3OSw3IEBADQogCXN0cnVjdCBydDZf
+aW5mbyAqcnQsICpucnQ7DQogDQogCS8qIExvY2F0ZSBvbGQgcm91dGUgdG8g
+dGhpcyBkZXN0aW5hdGlvbi4gKi8NCi0JcnQgPSBydDZfbG9va3VwKGRlc3Qs
+IE5VTEwsIG5laWdoLT5kZXYtPmlmaW5kZXgsIDEpOw0KKwlydCA9IHJ0Nl9s
+b29rdXAoZGVzdCwgc2FkZHIsIG5laWdoLT5kZXYtPmlmaW5kZXgsIDEpOw0K
+IA0KIAlpZiAocnQgPT0gTlVMTCkNCiAJCXJldHVybjsNCkBAIC0xMDUwLDYg
+KzEwNDYsOSBAQA0KIAkJbnJ0ID0gaXA2X3J0X2NvcHkocnQpOw0KIAkJaWYg
+KG5ydCA9PSBOVUxMKQ0KIAkJCWdvdG8gb3V0Ow0KKyNpZmRlZiBDT05GSUdf
+SVBWNl9TVUJUUkVFUw0KKwkJbnJ0LT5ydDZpX3NyYy5wbGVuID0gcnQtPnJ0
+Nmlfc3JjLnBsZW47DQorI2VuZGlmDQogCQlpcHY2X2FkZHJfY29weSgmbnJ0
+LT5ydDZpX2RzdC5hZGRyLCBkYWRkcik7DQogCQlucnQtPnJ0NmlfZHN0LnBs
+ZW4gPSAxMjg7DQogCQlucnQtPnUuZHN0LmZsYWdzIHw9IERTVF9IT1NUOw0K
+ZGlmZiAtTnVyIC0tZXhjbHVkZT1TQ0NTIC0tZXhjbHVkZT1CaXRLZWVwZXIg
+LS1leGNsdWRlPUNoYW5nZVNldCBsaW51eC0yLjUvbmV0L2lwdjYvdGNwX2lw
+djYuYyBtZXJnZS0yLjUvbmV0L2lwdjYvdGNwX2lwdjYuYw0KLS0tIGxpbnV4
+LTIuNS9uZXQvaXB2Ni90Y3BfaXB2Ni5jCVdlZCBNYXkgMjggMjA6MDc6NDIg
+MjAwMw0KKysrIG1lcmdlLTIuNS9uZXQvaXB2Ni90Y3BfaXB2Ni5jCVdlZCBN
+YXkgMjggMTk6NTE6MjUgMjAwMw0KQEAgLTU2MywxMCArNTYzLDEwIEBADQog
+CXN0cnVjdCBpcHY2X3BpbmZvICpucCA9IGluZXQ2X3NrKHNrKTsNCiAJc3Ry
+dWN0IHRjcF9vcHQgKnRwID0gdGNwX3NrKHNrKTsNCiAJc3RydWN0IGluNl9h
+ZGRyICpzYWRkciA9IE5VTEw7DQotCXN0cnVjdCBpbjZfYWRkciBzYWRkcl9i
+dWY7DQogCXN0cnVjdCBmbG93aSBmbDsNCiAJc3RydWN0IGRzdF9lbnRyeSAq
+ZHN0Ow0KIAlpbnQgYWRkcl90eXBlOw0KKwlpbnQgcmVyb3V0ZSA9IDA7DQog
+CWludCBlcnI7DQogDQogCWlmIChhZGRyX2xlbiA8IFNJTjZfTEVOX1JGQzIx
+MzMpIA0KQEAgLTY4NSwyNCArNjg1LDQwIEBADQogDQogCWRzdCA9IGlwNl9y
+b3V0ZV9vdXRwdXQoc2ssICZmbCk7DQogDQorI2lmZGVmIENPTkZJR19JUFY2
+X1NVQlRSRUVTDQorCXJlcm91dGUgPSAoc2FkZHIgPT0gTlVMTCk7DQorI2Vu
+ZGlmDQogCWlmICgoZXJyID0gZHN0LT5lcnJvcikgIT0gMCkgew0KIAkJZHN0
+X3JlbGVhc2UoZHN0KTsNCiAJCWdvdG8gZmFpbHVyZTsNCiAJfQ0KLQ0KLQlp
+cDZfZHN0X3N0b3JlKHNrLCBkc3QsIE5VTEwpOw0KLQlzay0+cm91dGVfY2Fw
+cyA9IGRzdC0+ZGV2LT5mZWF0dXJlcyZ+KE5FVElGX0ZfSVBfQ1NVTXxORVRJ
+Rl9GX1RTTyk7DQotDQorCWlmICghcmVyb3V0ZSkgew0KKwkJaXA2X2RzdF9z
+dG9yZShzaywgZHN0LCBOVUxMLCBOVUxMKTsNCisJCXNrLT5yb3V0ZV9jYXBz
+ID0gZHN0LT5kZXYtPmZlYXR1cmVzJn4oTkVUSUZfRl9JUF9DU1VNfE5FVElG
+X0ZfVFNPKTsNCisJfQ0KIAlpZiAoc2FkZHIgPT0gTlVMTCkgew0KLQkJZXJy
+ID0gaXB2Nl9nZXRfc2FkZHIoZHN0LCAmbnAtPmRhZGRyLCAmc2FkZHJfYnVm
+KTsNCisJCWVyciA9IGlwdjZfZ2V0X3NhZGRyKGRzdCwgJm5wLT5kYWRkciwg
+JmZsLmZsNl9zcmMpOw0KKw0KKwkJaWYgKHJlcm91dGUpDQorCQkJZHN0X3Jl
+bGVhc2UoZHN0KTsNCiAJCWlmIChlcnIpDQogCQkJZ290byBmYWlsdXJlOw0K
+IA0KLQkJc2FkZHIgPSAmc2FkZHJfYnVmOw0KKyNpZmRlZiBDT05GSUdfSVBW
+Nl9TVUJUUkVFUw0KKwkJZHN0ID0gaXA2X3JvdXRlX291dHB1dChzaywgJmZs
+KTsNCisNCisJCWlmICgoZXJyID0gZHN0LT5lcnJvcikgIT0gMCkgew0KKwkJ
+CWRzdF9yZWxlYXNlKGRzdCk7DQorCQkJZ290byBmYWlsdXJlOw0KKwkJfQ0K
+KwkJaXA2X2RzdF9zdG9yZShzaywgZHN0LCBOVUxMLCBOVUxMKTsNCisJCXNr
+LT5yb3V0ZV9jYXBzID0gZHN0LT5kZXYtPmZlYXR1cmVzJn4oTkVUSUZfRl9J
+UF9DU1VNfE5FVElGX0ZfVFNPKTsNCisjZW5kaWYNCisJCXNhZGRyID0gJmZs
+LmZsNl9zcmM7DQorCQlpcHY2X2FkZHJfY29weSgmbnAtPnJjdl9zYWRkciwg
+c2FkZHIpOw0KIAl9DQogDQogCS8qIHNldCB0aGUgc291cmNlIGFkZHJlc3Mg
+Ki8NCi0JaXB2Nl9hZGRyX2NvcHkoJm5wLT5yY3Zfc2FkZHIsIHNhZGRyKTsN
+CiAJaXB2Nl9hZGRyX2NvcHkoJm5wLT5zYWRkciwgc2FkZHIpOw0KIAlpbmV0
+LT5yY3Zfc2FkZHIgPSBMT09QQkFDSzRfSVBWNjsNCiANCkBAIC0xMzYzLDcg
+KzEzNzksNyBAQA0KIAlhdG9taWNfaW5jKCZpbmV0Nl9zb2NrX25yKTsNCiAj
+ZW5kaWYNCiANCi0JaXA2X2RzdF9zdG9yZShuZXdzaywgZHN0LCBOVUxMKTsN
+CisJaXA2X2RzdF9zdG9yZShuZXdzaywgZHN0LCBOVUxMLCBOVUxMKTsNCiAJ
+c2stPnJvdXRlX2NhcHMgPSBkc3QtPmRldi0+ZmVhdHVyZXMmfihORVRJRl9G
+X0lQX0NTVU18TkVUSUZfRl9UU08pOw0KIA0KIAluZXd0Y3A2c2sgPSAoc3Ry
+dWN0IHRjcDZfc29jayAqKW5ld3NrOw0KQEAgLTE3NTQsNyArMTc3MCw3IEBA
+DQogCQkJcmV0dXJuIGVycjsNCiAJCX0NCiANCi0JCWlwNl9kc3Rfc3RvcmUo
+c2ssIGRzdCwgTlVMTCk7DQorCQlpcDZfZHN0X3N0b3JlKHNrLCBkc3QsIE5V
+TEwsIE5VTEwpOw0KIAkJc2stPnJvdXRlX2NhcHMgPSBkc3QtPmRldi0+ZmVh
+dHVyZXMmfihORVRJRl9GX0lQX0NTVU18TkVUSUZfRl9UU08pOw0KIAl9DQog
+DQpAQCAtMTc5NSw3ICsxODExLDcgQEANCiAJCQlyZXR1cm4gLXNrLT5lcnJf
+c29mdDsNCiAJCX0NCiANCi0JCWlwNl9kc3Rfc3RvcmUoc2ssIGRzdCwgTlVM
+TCk7DQorCQlpcDZfZHN0X3N0b3JlKHNrLCBkc3QsIE5VTEwsIE5VTEwpOw0K
+IAl9DQogDQogCXNrYi0+ZHN0ID0gZHN0X2Nsb25lKGRzdCk7DQpkaWZmIC1O
+dXIgLS1leGNsdWRlPVNDQ1MgLS1leGNsdWRlPUJpdEtlZXBlciAtLWV4Y2x1
+ZGU9Q2hhbmdlU2V0IGxpbnV4LTIuNS9uZXQvaXB2Ni91ZHAuYyBtZXJnZS0y
+LjUvbmV0L2lwdjYvdWRwLmMNCi0tLSBsaW51eC0yLjUvbmV0L2lwdjYvdWRw
+LmMJV2VkIE1heSAyOCAyMDowNzo0MiAyMDAzDQorKysgbWVyZ2UtMi41L25l
+dC9pcHY2L3VkcC5jCVdlZCBNYXkgMjggMTk6NTQ6MDkgMjAwMw0KQEAgLTI1
+NCwxMiArMjU0LDEyIEBADQogCXN0cnVjdCBpbmV0X29wdCAgICAgIAkqaW5l
+dCA9IGluZXRfc2soc2spOw0KIAlzdHJ1Y3QgaXB2Nl9waW5mbyAgICAgIAkq
+bnAgPSBpbmV0Nl9zayhzayk7DQogCXN0cnVjdCBpbjZfYWRkcgkJKmRhZGRy
+Ow0KLQlzdHJ1Y3QgaW42X2FkZHIJCXNhZGRyOw0KIAlzdHJ1Y3QgZHN0X2Vu
+dHJ5CSpkc3Q7DQogCXN0cnVjdCBmbG93aQkJZmw7DQogCXN0cnVjdCBpcDZf
+Zmxvd2xhYmVsCSpmbG93bGFiZWwgPSBOVUxMOw0KIAlpbnQJCQlhZGRyX3R5
+cGU7DQogCWludAkJCWVycjsNCisJaW50CQkJcmVyb3V0ZSA9IDA7DQogDQog
+CWlmICh1c2luLT5zaW42X2ZhbWlseSA9PSBBRl9JTkVUKSB7DQogCQlpZiAo
+X19pcHY2X29ubHlfc29jayhzaykpDQpAQCAtMzU1LDcgKzM1NSw2IEBADQog
+DQogCWZsLnByb3RvID0gSVBQUk9UT19VRFA7DQogCWlwdjZfYWRkcl9jb3B5
+KCZmbC5mbDZfZHN0LCAmbnAtPmRhZGRyKTsNCi0JaXB2Nl9hZGRyX2NvcHko
+JmZsLmZsNl9zcmMsICZzYWRkcik7DQogCWZsLm9pZiA9IHNrLT5ib3VuZF9k
+ZXZfaWY7DQogCWZsLmZsX2lwX2Rwb3J0ID0gaW5ldC0+ZHBvcnQ7DQogCWZs
+LmZsX2lwX3Nwb3J0ID0gaW5ldC0+c3BvcnQ7DQpAQCAtMzgwLDIxICszNzks
+MzcgQEANCiAJCWZsNl9zb2NrX3JlbGVhc2UoZmxvd2xhYmVsKTsNCiAJCXJl
+dHVybiBlcnI7DQogCX0NCi0NCi0JaXA2X2RzdF9zdG9yZShzaywgZHN0LCAm
+ZmwuZmw2X2RzdCk7DQotDQorI2lmIENPTkZJR19JUFY2X1NVQlRSRUVTDQor
+CXJlcm91dGUgPSAxOw0KKyNlbmRpZg0KIAkvKiBnZXQgdGhlIHNvdXJjZSBh
+ZGRyZXNzIHVzZWQgaW4gdGhlIGFwcHJvcHJpYXRlIGRldmljZSAqLw0KIA0K
+LQllcnIgPSBpcHY2X2dldF9zYWRkcihkc3QsIGRhZGRyLCAmc2FkZHIpOw0K
+KwllcnIgPSBpcHY2X2dldF9zYWRkcihkc3QsIGRhZGRyLCAmZmwuZmw2X3Ny
+Yyk7DQorDQorCWlmIChyZXJvdXRlKQ0KKwkJZHN0X3JlbGVhc2UoZHN0KTsN
+CiANCiAJaWYgKGVyciA9PSAwKSB7DQorI2lmZGVmIENPTkZJR19JUFY2X1NV
+QlRSRUVTDQorCQlpZiAocmVyb3V0ZSkgew0KKwkJCWRzdCA9IGlwNl9yb3V0
+ZV9vdXRwdXQoc2ssICZmbCk7DQorCQkJaWYgKChlcnIgPSBkc3QtPmVycm9y
+KSAhPSAwKSB7DQorCQkJCWRzdF9yZWxlYXNlKGRzdCk7DQorCQkJCWZsNl9z
+b2NrX3JlbGVhc2UoZmxvd2xhYmVsKTsNCisJCQkJcmV0dXJuIGVycjsgDQor
+CQkJfSANCisJCX0NCisjZW5kaWYNCiAJCWlmIChpcHY2X2FkZHJfYW55KCZu
+cC0+c2FkZHIpKQ0KLQkJCWlwdjZfYWRkcl9jb3B5KCZucC0+c2FkZHIsICZz
+YWRkcik7DQorCQkJaXB2Nl9hZGRyX2NvcHkoJm5wLT5zYWRkciwgJmZsLmZs
+Nl9zcmMpOw0KIA0KIAkJaWYgKGlwdjZfYWRkcl9hbnkoJm5wLT5yY3Zfc2Fk
+ZHIpKSB7DQotCQkJaXB2Nl9hZGRyX2NvcHkoJm5wLT5yY3Zfc2FkZHIsICZz
+YWRkcik7DQorCQkJaXB2Nl9hZGRyX2NvcHkoJm5wLT5yY3Zfc2FkZHIsICZm
+bC5mbDZfc3JjKTsNCiAJCQlpbmV0LT5yY3Zfc2FkZHIgPSBMT09QQkFDSzRf
+SVBWNjsNCiAJCX0NCisJCWlwNl9kc3Rfc3RvcmUoc2ssIGRzdCwgJm5wLT5k
+YWRkciwgDQorCQkJICAgICAgIWlwdjZfYWRkcl9jbXAoJmZsLmZsNl9zcmMs
+ICZucC0+c2FkZHIpID8NCisJCQkgICAgICAmbnAtPnNhZGRyIDogTlVMTCk7
+DQogCQlzay0+c3RhdGUgPSBUQ1BfRVNUQUJMSVNIRUQ7DQogCX0NCiAJZmw2
+X3NvY2tfcmVsZWFzZShmbG93bGFiZWwpOw0KQEAgLTEwMDMsNyArMTAxOCw5
+IEBADQogDQogCWlwNl9kc3Rfc3RvcmUoc2ssIGRzdCwNCiAJCSAgICAgICFp
+cHY2X2FkZHJfY21wKCZmbC5mbDZfZHN0LCAmbnAtPmRhZGRyKSA/DQotCQkg
+ICAgICAmbnAtPmRhZGRyIDogTlVMTCk7DQorCQkgICAgICAmbnAtPmRhZGRy
+IDogTlVMTCwNCisJCSAgICAgICFpcHY2X2FkZHJfY21wKCZmbC5mbDZfc3Jj
+LCAmbnAtPnNhZGRyKSA/DQorCQkgICAgICAmbnAtPnNhZGRyIDogTlVMTCk7
+DQogCWlmIChlcnIgPiAwKQ0KIAkJZXJyID0gbnAtPnJlY3ZlcnIgPyBuZXRf
+eG1pdF9lcnJubyhlcnIpIDogMDsNCiAJcmVsZWFzZV9zb2NrKHNrKTsNCg==
+---377318441-732465963-1054304123=:3584--
