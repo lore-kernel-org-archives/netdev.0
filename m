@@ -1,71 +1,68 @@
-From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
-Subject: [PATCH 2.6.9] skge: netpoll support
-Date: Tue, 19 Oct 2004 23:58:41 +0200
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 2.6.9]: Fix inet6_dev reference leak in ndisc_dst_alloc error
+ path
+Date: Wed, 20 Oct 2004 00:02:31 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41758E11.2040402@stud.feec.vutbr.cz>
+Message-ID: <41758EF7.6010906@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010106020101040906010301"
+ boundary="------------050200080904090303050100"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010106020101040906010301
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+--------------050200080904090303050100
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-Hi,
-The attached patch adds netconsole support for sk98lin.
+ndisc_dst_alloc leaks a inet6_dev reference when ip6_dst_alloc
+returns NULL. The bug was introduced somewhere between 2.6.8
+and 2.6.9.
 
-Signed-off-by: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+Regards
+Patrick
 
---------------010106020101040906010301
+
+
+
+--------------050200080904090303050100
 Content-Type: text/plain;
- name="sk98lin-netpoll.diff"
+ name="p1"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="sk98lin-netpoll.diff"
+ filename="p1"
 
-diff -Nurp linux-2.6.9/drivers/net/sk98lin/skge.c linux-2.6.9-mich/drivers/net/sk98lin/skge.c
---- linux-2.6.9/drivers/net/sk98lin/skge.c	2004-10-18 23:53:22.000000000 +0200
-+++ linux-2.6.9-mich/drivers/net/sk98lin/skge.c	2004-10-19 23:53:39.621533536 +0200
-@@ -1126,6 +1126,24 @@ SK_U32		IntSrc;		/* interrupts source re
- 		return SkIsrRetHandled;
- } /* SkGeIsrOnePort */
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/19 23:13:24+02:00 kaber@coreworks.de 
+#   [IPV6]: Fix inet6_dev reference leak in ndisc_dst_alloc error path
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv6/route.c
+#   2004/10/19 23:12:48+02:00 kaber@coreworks.de +3 -1
+#   [IPV6]: Fix inet6_dev reference leak in ndisc_dst_alloc error path
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c	2004-10-19 23:51:11 +02:00
++++ b/net/ipv6/route.c	2004-10-19 23:51:11 +02:00
+@@ -647,8 +647,10 @@
+ 		return NULL;
  
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+/****************************************************************************
-+ *
-+ * 	SkGePollController - polling receive, for netconsole
-+ *
-+ * Description:
-+ *	Polling receive - used by netconsole and other diagnostic tools
-+ *	to allow network i/o with interrupts disabled.
-+ *
-+ * Returns: N/A
-+ */
-+static void SkGePollController(struct net_device *dev)
-+{
-+	disable_irq(dev->irq);
-+	SkGeIsr(dev->irq, dev, NULL);
-+	enable_irq(dev->irq);
-+}
-+#endif
+ 	rt = ip6_dst_alloc();
+-	if (unlikely(rt == NULL))
++	if (unlikely(rt == NULL)) {
++		in6_dev_put(idev);
+ 		goto out;
++	}
  
- /****************************************************************************
-  *
-@@ -4960,6 +4978,9 @@ static int __devinit skge_probe_one(stru
- 	dev->set_mac_address =	&SkGeSetMacAddr;
- 	dev->do_ioctl =		&SkGeIoctl;
- 	dev->change_mtu =	&SkGeChangeMtu;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller =	&SkGePollController;
-+#endif
- 	dev->flags &= 		~IFF_RUNNING;
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
+ 	dev_hold(dev);
+ 	if (neigh)
 
---------------010106020101040906010301--
+--------------050200080904090303050100--
