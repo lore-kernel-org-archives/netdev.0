@@ -1,155 +1,73 @@
-From: Per Cederqvist <ceder@ingate.com>
-Subject: PROBLEM: ICMP redirect that violates RFC 1812 is sent
-Date: 22 Jul 2004 17:00:42 +0200
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [PATCH Linux-2.6.8-rc1] prism54 Fix initialization with older firmware
+Date: Thu, 22 Jul 2004 06:42:49 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <x3u0w0xf1h.fsf@plebeian.ingate.se>
+Message-ID: <20040722104249.GD9141__6074.08823348141$1090515511$gmane$org@ruslug.rutgers.edu>
+References: <200407221027.33023.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="t0UkRYy7tHLRMCai"
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Margit Schubert-While <margitsw@t-online.de>
+Content-Disposition: inline
+In-Reply-To: <200407221027.33023.margitsw@t-online.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[1.] One line summary of the problem:    
 
-ICMP redirect that violates RFC 1812 is sent
+--t0UkRYy7tHLRMCai
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-[2.] Full description of the problem/report:
+On Thu, Jul 22, 2004 at 10:27:32AM +0200, Margit Schubert-While wrote:
+> 2004-07-22 Margit Schubert-While <margitsw@t-online.de>
+>=20
+> * In the card initialization routine, we try to set the
+>   output power. For firmware < 1.0.4.3, this leads to a
+>   worrying "mgt_commit has failed .." in the log although
+>   the device continues to react normally.
+>   Fix is simple, do not try to configure output power.
+>   (which I believe we should not be doing anyway as it is=20
+>    probably against local country regulations)
+>=20
+> Margit
 
-RFC 1812, "Requirements for IP Version 4 Routers", states when ICMP
-redirects should be sent (quoted from "5.2.7.2 Redirect"):
+Margit, I think we should rather detect the version of the firmware and
+depending on this decide what to do.
 
->    Routers MUST NOT generate a Redirect Message unless all the following
->    conditions are met:
-> 
->    o The packet is being forwarded out the same physical interface that
->       it was received from,
-> 
->    o The IP source address in the packet is on the same Logical IP
->       (sub)network as the next-hop IP address, and
-> 
->    o The packet does not contain an IP source route option.
+A quick test proves you can obtain firmware verion from
 
-Linux 2.4.27 fails to check the middle condition.  I've looked at the
-source code of Linux 2.6.7, and the problem seems to still be there.
+[OID_INL_VERSION] =3D {0xFF020005, 0, 8, OID_TYPE_RAW},
 
-There are two problems:
+Then somewhere,
 
-Problem 1 (less important): bad default value of shared_media
+union oid_res_t r;
+char *ver;
 
-The default value of /proc/sys/net/ipv4/conf/*/shared_media is TRUE.
-It should be FALSE for RFC 1812 compliance.  When it is TRUE, the
-middle condition is intentionally not checked.
+mgt_get_request(priv, OID_INL_VERSION, 0, NULL, &r);
+ver =3D (char *) r.ptr;
+printk(KERN_DEBUG "Version: %s\n", ver);
 
-There may be later standards work that I'm not aware of that makes
-this a valid default.  I've tried to locate such work, but failed.
-RFC 1620 ("Internet Architecture Extensions for Shared Media")
-suggests that this change could be made, but it is just an
-informational RFC.
+This will either be 1.0.4.3.arm or 1.0.3.0.arm. You can then strcmp and
+do the right thing. I'd finish this work up but I'm busy with WPA.
 
-Problem 2 (more important): bug in route.c
+	Luis
 
-Even when shared_media is FALSE, the middle condition fails, due to a
-bug in route.c.  Consider this code:
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
 
-	if (out_dev == in_dev && err && !(flags & (RTCF_NAT | RTCF_MASQ)) &&
-	    (IN_DEV_SHARED_MEDIA(out_dev) ||
-	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(res))))
-		flags |= RTCF_DOREDIRECT;
+--t0UkRYy7tHLRMCai
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-If the next-hop IP address is on a different logical IP network, but
-it still is on a network that is directly connected to the Linux box,
-FIB_RES_GW(res) will return 0.  inet_addr_onlink() will always return
-true in that case.  This means that RTFC_DOREDIRECT will be set, and
-a standards-violating ICMP Redirect will be sent.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-The enclosed patch changes the final argument of inet_addr_onlink()
-to:
+iD8DBQFA/5opat1JN+IKUl4RAoDPAJ9Et3OLSiiOrqAbS1fEYietbCFNXwCfd4PY
+eWfJM2DRTu2H2lCJBNe0qdQ=
+=6EcK
+-----END PGP SIGNATURE-----
 
-    FIB_RES_GW(res) ? FIB_RES_GW(res) : daddr
-
-[3.] Keywords (i.e., modules, networking, kernel):
-
-networking, icmp, redirect, non-compliant, RFC 1812
-
-[4.] Kernel version (from /proc/version):
-
-2.4.27.  Problem initially found on 2.4.26.
-http://seclists.org/lists/linux-kernel/2000/Oct/0923.html indicates
-that this bug was present in 2.2.17 as well.  Inspection of the 2.6.7
-kernel indicates that it isn't fixed there either.
-
-[5.] Output of Oops.. message (if applicable) with symbolic information 
-     resolved (see Documentation/oops-tracing.txt)
-[6.] A small shell script or example program which triggers the
-     problem (if possible)
-
-To trigger this, you need two linux boxes.  On the box acting as
-router (it only needs one ethernet interface), do:
-
-    ifconfig eth0 down
-    ifconfig eth0 192.168.10.1 netmask 255.255.255.0
-    ifconfig eth0:1 192.168.99.1 netmask 255.255.255.0
-    echo 1 > /proc/sys/net/ipv4/ip_forward
-    for f in /proc/sys/net/ipv4/conf/*/shared_media
-    do
-        echo 0 > $f
-    done
-
-On the other box, start a sniffer such as ethereal, and do:
-
-    ifconfig eth0 down
-    ifconfig eth0 192.168.10.2 netmask 255.255.255.0
-    ping 192.168.99.2
-
-You will see ICMP redirect packets similar to these:
-
-> Frame 257 (242 bytes on wire, 242 bytes captured)
-> Ethernet II, Src: 00:20:fc:1e:cc:c4, Dst: 00:03:e3:11:f4:31
-> Internet Protocol, Src Addr: 192.168.10.1 (192.168.10.1), Dst Addr: 192.168.10.2 (192.168.10.2)
-> Internet Control Message Protocol
->     Type: 5 (Redirect)
->     Code: 1 (Redirect for host)
->     Checksum: 0x252b (correct)
->     Gateway address: 192.168.99.2 (192.168.99.2)
->     [...]
-
-[X.] Other notes, patches, fixes, workarounds:
-
-Acknowledgement: Mario Lorenz (ml_at_vdazone.org) reported this
-problem back in 2000, with a patch.  However, unfortunately apparently
-nobody believed him.  See
-http://seclists.org/lists/linux-kernel/2000/Oct/0923.html.
-
-I've taken his patch, updated it for 2.4.17, and tested it.  As far as
-I can tell, it works.  Here is the patch:
-
-# This patch fixes a bug that caused Linux to send ICMP redirect
-# when hosts on two directly connected networks attempted to talk
-# to each other.  In that case, FIB_RES_GW(res) will be 0.0.0.0, and
-# inet_addr_onlink will always return true.
-#
-# The patch was originally found on
-# http://seclists.org/lists/linux-kernel/2000/Oct/0923.html and is
-# written by Mario Lorenz (ml_at_vdazone.org) for Linux 2.2.17.  It
-# was updated for Linux 2.4.27 by ceder@ingate.com on 2004-07-21.
-#
---- linux-2.4.27/net/ipv4/route.c.orig	Fri Oct  6 13:41:50 2000
-+++ linux-2.4.27/net/ipv4/route.c	Fri Oct  6 15:12:25 2000
-@@ -1524,7 +1524,8 @@
- 
- 	if (out_dev == in_dev && err && !(flags & (RTCF_NAT | RTCF_MASQ)) &&
- 	    (IN_DEV_SHARED_MEDIA(out_dev) ||
--	     inet_addr_onlink(out_dev, saddr, FIB_RES_GW(res))))
-+	     inet_addr_onlink(out_dev, saddr, 
-+				 FIB_RES_GW(res) ? FIB_RES_GW(res) : daddr)))
- 		flags |= RTCF_DOREDIRECT;
- 
- 	if (skb->protocol != htons(ETH_P_IP)) {
-
-
-
-Yours,
-    /ceder
--- 
-Per Cederqvist <ceder@ingate.com>, Chief Architect, Ingate Systems AB
+--t0UkRYy7tHLRMCai--
