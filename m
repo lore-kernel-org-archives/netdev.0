@@ -1,37 +1,27 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: Andrew Morton <akpm@digeo.com>
 Subject: Re: 2.5.70-bk+ broken networking
-Date: Wed, 4 Jun 2003 16:25:28 -0700
+Date: Wed, 04 Jun 2003 16:25:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030604162528.637ae1ff.shemminger@osdl.org>
+Message-ID: <3EDE7FEB.2C7FAEC7@digeo.com>
 References: <20030604161437.2b4d3a79.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, davem@redhat.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Cc: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>,
+   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030604161437.2b4d3a79.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Jun 2003 16:14:37 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
-
+Stephen Hemminger wrote:
+> 
 > Test machine running 2.5.70-bk latest can't boot because eth2 won't
 > come up.  The same machine and configuration successfully brings up
 > all the devices and runs on 2.5.70.
-> 
-> Starting ip6tables:  [  OK  ]
-> Starting iptables:  [  OK  ]
-> Setting network parameters:  [  OK  ]
-> Bringing up loopback interface:  [  OK  ]
-> Bringing up interface eth0:  [  OK  ]
-> Bringing up interface eth1:  [  OK  ]
-> Bringing up interface eth2:  sender address length == 0
-> e1000 device does not seem to be present, delaying eth2 initialization.
-> [FAILED]
 
-One more piece of info:
-eth0 and eth1 are e100
-eth2 is e1000
+kjournald is stuck waiting for IO to complete against some buffer
+during transaction commit.
+
+I'd be suspecting block layer or device drivers.  What device driver
+is handling your /var/log?
