@@ -1,69 +1,87 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: MV643xx Ethernet 2.6 driver update
-Date: Thu, 27 Jan 2005 04:56:26 -0500
-Message-ID: <41F8BACA.1020302@pobox.com>
-References: <20050117184019.GA24655@xyzzy>
+From: Alessandro Suardi <alessandro.suardi@gmail.com>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Thu, 27 Jan 2005 11:19:20 +0100
+Message-ID: <5a4c581d0501270219173ee10d@mail.gmail.com>
+References: <20050121161959.GO3922@fi.muni.cz> <20050123091154.GC16648@suse.de>
+	 <20050123011918.295db8e8.akpm@osdl.org>
+	 <20050123095608.GD16648@suse.de>
+	 <20050123023248.263daca9.akpm@osdl.org>
+	 <20050123200315.A25351@flint.arm.linux.org.uk>
+	 <20050124114853.A16971@flint.arm.linux.org.uk>
+	 <20050125193207.B30094@flint.arm.linux.org.uk>
+	 <20050127082809.A20510@flint.arm.linux.org.uk>
+	 <20050127004732.5d8e3f62.akpm@osdl.org>
+Reply-To: Alessandro Suardi <alessandro.suardi@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Ralf Baechle <ralf@linux-mips.org>,
-        Manish Lachwani <mlachwani@mvista.com>,
-        Brian Waite <brian@waitefamily.us>,
-        "Steven J. Hill" <sjhill@realitydiluted.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Dale Farnsworth <dale@farnsworth.org>
-In-Reply-To: <20050117184019.GA24655@xyzzy>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Russell King <rmk+lkml@arm.linux.org.uk>, torvalds@osdl.org,
+	alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262560AbVA0Kjp@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050127004732.5d8e3f62.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Dale Farnsworth wrote:
-> While porting the mv643xx ethernet driver to 2.6 and for use on PPC, I
-> modified it to use the device driver model, fixed the hardware checksum
-> support, and did some miscellaneous bug fixes and cleanups.
+On Thu, 27 Jan 2005 00:47:32 -0800, Andrew Morton <akpm@osdl.org> wrote:
+> Russell King <rmk+lkml@arm.linux.org.uk> wrote:
+> >
+> > This mornings magic numbers are:
+> >
+> >  3
+> >  ip_dst_cache        1292   1485    256   15    1
 > 
-> The following changes are included:
-> 	
->  A. Remove redundant or unneeded code.
->  B. Replace fixed count spins with udelay/msleep waits on hardware status bits
->  C. Fix code to enable hardware checksum generation for TX packets
->  D. Convert from pci_map_* to dma_map_* interface
->  E. Add device driver model support.
->  F. Add support for several configurable parameters via platform_device
->  G. Make use of MV64340_RX_QUEUE_FILL_ON_TASK macro consistent.
->  H. Simplify mv64340_eth_set_rx_mode()
->  I. Clean up receive buffer sizing
->  J. Call netif_carrier_off/netif_carrier_on on a link down/up condition
->  K. Add support for PHYs/boards that don't support autonegotiation.
+> I just did a q-n-d test here: send one UDP frame to 1.1.1.1 up to
+> 1.1.255.255.  The ip_dst_cache grew to ~15k entries and grew no further.
+> It's now gradually shrinking.  So there doesn't appear to be a trivial
+> bug..
 > 
-> Change E is the only one that modifies the driver interface.
+> >  Is no one interested in the fact that the DST cache is leaking and
+> >  eventually takes out machines?  I've had virtually zero interest in
+> >  this problem so far.
 > 
-> Change G was sent to me by Steven J Hill <sjhill1@rockwellcollins.com>.
-> Change K was sent to me by Brian Waite <brian@waitefamily.us>.
+> I guess we should find a way to make it happen faster.
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 > 
-> The first 6 changes were submitted to LKLM on Dec. 13 2004.  Comments
-> were received only from Christoph Hellwig <hch@infradead.org> and have
-> been addressed.  Changes G-K have been added since then.
-> 
-> I have some additional (mostly cosmetic, but still significant) cleanups,
-> but I'd like to get these in the queue first.
-> 
-> Thanks,
-> Dale Farnsworth
-> 
-> Please do a
-> 
-> 	bk pull bk://dfarnsworth.bkbits.net/netdev-2.6-mv643xx-enet
+
+Data point... on my box, used as ed2k/bittorrent
+ machine, the ip_dst_cache grows and shrinks quite
+ fast; these two samples were ~3 minutes apart:
 
 
-Ouch:
+[root@donkey ~]# grep ip_dst /proc/slabinfo
+ip_dst_cache         998   1005    256   15    1 : tunables  120   60 
+  0 : slabdata     67     67      0
+[root@donkey ~]# wc -l /proc/net/rt_cache
+926 /proc/net/rt_cache
 
-When using BitKeeper, you need to make sure your changes are the only 
-ones in the tree.  It doesn't work for me to pull:
+[root@donkey ~]# grep ip_dst /proc/slabinfo
+ip_dst_cache         466    795    256   15    1 : tunables  120   60 
+  0 : slabdata     53     53      0
+[root@donkey ~]# wc -l /proc/net/rt_cache
+443 /proc/net/rt_cache
 
-mv643xx-enet -> jgarzik-mv643xx-enet -> net-drivers-2.6 -> linus
+ and these were 2 seconds apart
 
-because that would require pulling the entire netdev-2.6 tree up through 
-that chain.
+[root@donkey ~]# wc -l /proc/net/rt_cache
+737 /proc/net/rt_cache
+[root@donkey ~]# grep ip_dst /proc/slabinfo
+ip_dst_cache         795    795    256   15    1 : tunables  120   60 
+  0 : slabdata     53     53      0
 
-	Jeff
+[root@donkey ~]# wc -l /proc/net/rt_cache
+1023 /proc/net/rt_cache
+[root@donkey ~]# grep ip_dst /proc/slabinfo
+ip_dst_cache        1035   1035    256   15    1 : tunables  120   60 
+  0 : slabdata     69     69      0
+
+--alessandro
+ 
+  "And every dream, every, is just a dream after all"
+ 
+     (Heather Nova, "Paper Cup")
