@@ -1,13 +1,12 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/rose/: misc possible cleanups
-Date: Wed, 15 Dec 2004 02:23:47 +0100
-Message-ID: <20041215012347.GF12937@stusta.de>
+Subject: [2.6 patch] net/rxrpc/: misc possible cleanups
+Date: Wed, 15 Dec 2004 02:26:12 +0100
+Message-ID: <20041215012612.GG12937@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralf@linux-mips.org
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -15,240 +14,199 @@ List-Id: netdev.vger.kernel.org
 
 The patch below contains the following possible cleanups:
 - make some needlessly global code static
-- remove the followingunused global functions:
-  - rose_dev.c: rose_rx_ip
-  - rose_link.c: rose_transmit_diagnostic
+- remove the following unused global function:
+  - transport.c: rxrpc_clear_transport
+- remove the following unneeded EXPORT_SYMBOL:
+  - rxrpc_syms.c: rxrpc_call_flush
 
 Please comment on which of these changes are correct and which conflict
 with pending patches.
 
 
 diffstat output:
- include/net/rose.h    |    8 --------
- net/rose/af_rose.c    |    2 +-
- net/rose/rose_dev.c   |   32 --------------------------------
- net/rose/rose_link.c  |   39 +++++++--------------------------------
- net/rose/rose_route.c |    4 ++--
- net/rose/rose_subr.c  |    4 +++-
- 6 files changed, 13 insertions(+), 76 deletions(-)
+ include/rxrpc/call.h      |    5 -----
+ include/rxrpc/packet.h    |    2 --
+ include/rxrpc/transport.h |    2 --
+ net/rxrpc/call.c          |   15 +++++++++------
+ net/rxrpc/connection.c    |    4 +++-
+ net/rxrpc/internal.h      |    3 ---
+ net/rxrpc/peer.c          |    4 +++-
+ net/rxrpc/rxrpc_syms.c    |    1 -
+ net/rxrpc/transport.c     |   10 ----------
+ 9 files changed, 15 insertions(+), 31 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/include/net/rose.h.old	2004-12-14 21:51:28.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/rose.h	2004-12-14 21:55:21.000000000 +0100
-@@ -162,7 +162,6 @@
- extern void rose_destroy_socket(struct sock *);
+--- linux-2.6.10-rc3-mm1-full/include/rxrpc/packet.h.old	2004-12-14 22:24:02.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/rxrpc/packet.h	2004-12-14 22:24:10.000000000 +0100
+@@ -124,6 +124,4 @@
  
- /* rose_dev.c */
--extern int  rose_rx_ip(struct sk_buff *, struct net_device *);
- extern void  rose_setup(struct net_device *);
+ } __attribute__((packed));
  
- /* rose_in.c */
-@@ -170,15 +169,10 @@
- 
- /* rose_link.c */
- extern void rose_start_ftimer(struct rose_neigh *);
--extern void rose_start_t0timer(struct rose_neigh *);
- extern void rose_stop_ftimer(struct rose_neigh *);
- extern void rose_stop_t0timer(struct rose_neigh *);
- extern int  rose_ftimer_running(struct rose_neigh *);
--extern int  rose_t0timer_running(struct rose_neigh *);
- extern void rose_link_rx_restart(struct sk_buff *, struct rose_neigh *, unsigned short);
--extern void rose_transmit_restart_request(struct rose_neigh *);
--extern void rose_transmit_restart_confirmation(struct rose_neigh *);
--extern void rose_transmit_diagnostic(struct rose_neigh *, unsigned char);
- extern void rose_transmit_clear_request(struct rose_neigh *, unsigned int, unsigned char, unsigned char);
- extern void rose_transmit_link(struct sk_buff *, struct rose_neigh *);
- 
-@@ -205,7 +199,6 @@
- extern struct net_device *rose_dev_first(void);
- extern struct net_device *rose_dev_get(rose_address *);
- extern struct rose_route *rose_route_free_lci(unsigned int, struct rose_neigh *);
--extern struct net_device *rose_ax25_dev_get(char *);
- extern struct rose_neigh *rose_get_neigh(rose_address *, unsigned char *, unsigned char *);
- extern int  rose_rt_ioctl(unsigned int, void __user *);
- extern void rose_link_failed(ax25_cb *, int);
-@@ -220,7 +213,6 @@
- extern void rose_write_internal(struct sock *, int);
- extern int  rose_decode(struct sk_buff *, int *, int *, int *, int *, int *);
- extern int  rose_parse_facilities(unsigned char *, struct rose_facilities_struct *);
--extern int  rose_create_facilities(unsigned char *, rose_cb *);
- extern void rose_disconnect(struct sock *, int, int, int);
- 
- /* rose_timer.c */
---- linux-2.6.10-rc3-mm1-full/net/rose/af_rose.c.old	2004-12-14 21:51:01.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rose/af_rose.c	2004-12-14 21:51:09.000000000 +0100
-@@ -59,7 +59,7 @@
- int sysctl_rose_window_size             = ROSE_DEFAULT_WINDOW_SIZE;
- 
- static HLIST_HEAD(rose_list);
--spinlock_t rose_list_lock = SPIN_LOCK_UNLOCKED;
-+static spinlock_t rose_list_lock = SPIN_LOCK_UNLOCKED;
- 
- static struct proto_ops rose_proto_ops;
- 
---- linux-2.6.10-rc3-mm1-full/net/rose/rose_dev.c.old	2004-12-14 21:51:42.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rose/rose_dev.c	2004-12-14 21:52:08.000000000 +0100
-@@ -37,38 +37,6 @@
- #include <net/ax25.h>
- #include <net/rose.h>
- 
--/*
-- *	Only allow IP over ROSE frames through if the netrom device is up.
-- */
+-extern const char *rxrpc_acks[];
 -
--int rose_rx_ip(struct sk_buff *skb, struct net_device *dev)
--{
--	struct net_device_stats *stats = (struct net_device_stats *)dev->priv;
--
--#ifdef CONFIG_INET
--	if (!netif_running(dev)) {
--		stats->rx_errors++;
--		return 0;
--	}
--
--	stats->rx_packets++;
--	stats->rx_bytes += skb->len;
--
--	skb->protocol = htons(ETH_P_IP);
--
--	/* Spoof incoming device */
--	skb->dev      = dev;
--	skb->h.raw    = skb->data;
--	skb->nh.raw   = skb->data;
--	skb->pkt_type = PACKET_HOST;
--
--	ip_rcv(skb, skb->dev, NULL);
--#else
--	kfree_skb(skb);
--#endif
--	return 1;
--}
--
- static int rose_header(struct sk_buff *skb, struct net_device *dev, unsigned short type,
- 	void *daddr, void *saddr, unsigned len)
- {
---- linux-2.6.10-rc3-mm1-full/net/rose/rose_link.c.old	2004-12-14 21:52:37.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rose/rose_link.c	2004-12-14 21:54:23.000000000 +0100
-@@ -31,6 +31,9 @@
- static void rose_ftimer_expiry(unsigned long);
- static void rose_t0timer_expiry(unsigned long);
+ #endif /* _LINUX_RXRPC_PACKET_H */
+--- linux-2.6.10-rc3-mm1-full/include/rxrpc/call.h.old	2004-12-14 22:25:08.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/rxrpc/call.h	2004-12-14 22:28:41.000000000 +0100
+@@ -20,9 +20,6 @@
+ #define RXRPC_CALL_ACK_WINDOW_SIZE	16
  
-+static void rose_transmit_restart_confirmation(struct rose_neigh *neigh);
-+static void rose_transmit_restart_request(struct rose_neigh *neigh);
+ extern unsigned rxrpc_call_rcv_timeout;		/* receive activity timeout (secs) */
+-extern unsigned rxrpc_call_acks_timeout;	/* pending ACK (retransmit) timeout (secs) */
+-extern unsigned rxrpc_call_dfr_ack_timeout;	/* deferred ACK timeout (secs) */
+-extern unsigned short rxrpc_call_max_resend;		/* maximum consecutive resend count */
+ 
+ /* application call state
+  * - only state 0 and ffff are reserved, the state is set to 1 after an opid is received
+@@ -210,8 +207,6 @@
+ 				 int dup_data,
+ 				 size_t *size_sent);
+ 
+-extern int rxrpc_call_flush(struct rxrpc_call *call);
+-
+ extern void rxrpc_call_handle_error(struct rxrpc_call *conn, int local, int errno);
+ 
+ #endif /* _LINUX_RXRPC_CALL_H */
+--- linux-2.6.10-rc3-mm1-full/net/rxrpc/call.c.old	2004-12-14 22:24:20.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/rxrpc/call.c	2004-12-14 22:28:53.000000000 +0100
+@@ -26,10 +26,10 @@
+ LIST_HEAD(rxrpc_calls);
+ DECLARE_RWSEM(rxrpc_calls_sem);
+ 
+-unsigned rxrpc_call_rcv_timeout		= HZ/3;
+-unsigned rxrpc_call_acks_timeout	= HZ/3;
+-unsigned rxrpc_call_dfr_ack_timeout	= HZ/20;
+-unsigned short rxrpc_call_max_resend	= HZ/10;
++unsigned rxrpc_call_rcv_timeout			= HZ/3;
++static unsigned rxrpc_call_acks_timeout		= HZ/3;
++static unsigned rxrpc_call_dfr_ack_timeout	= HZ/20;
++static unsigned short rxrpc_call_max_resend	= HZ/10;
+ 
+ const char *rxrpc_call_states[] = {
+ 	"COMPLETE",
+@@ -58,7 +58,7 @@
+ 	"?09", "?10", "?11", "?12", "?13", "?14", "?15"
+ };
+ 
+-const char *rxrpc_acks[] = {
++static const char *rxrpc_acks[] = {
+ 	"---", "REQ", "DUP", "SEQ", "WIN", "MEM", "PNG", "PNR", "DLY", "IDL",
+ 	"-?-"
+ };
+@@ -79,6 +79,9 @@
+ 				 struct rxrpc_message *msg,
+ 				 rxrpc_seq_t seq,
+ 				 size_t count);
 +
- void rose_start_ftimer(struct rose_neigh *neigh)
- {
- 	del_timer(&neigh->ftimer);
-@@ -42,7 +45,7 @@
- 	add_timer(&neigh->ftimer);
- }
- 
--void rose_start_t0timer(struct rose_neigh *neigh)
-+static void rose_start_t0timer(struct rose_neigh *neigh)
- {
- 	del_timer(&neigh->t0timer);
- 
-@@ -68,7 +71,7 @@
- 	return timer_pending(&neigh->ftimer);
- }
- 
--int rose_t0timer_running(struct rose_neigh *neigh)
-+static int rose_t0timer_running(struct rose_neigh *neigh)
- {
- 	return timer_pending(&neigh->t0timer);
- }
-@@ -165,7 +168,7 @@
- /*
-  *	This routine is called when a Restart Request is needed
-  */
--void rose_transmit_restart_request(struct rose_neigh *neigh)
-+static void rose_transmit_restart_request(struct rose_neigh *neigh)
- {
- 	struct sk_buff *skb;
- 	unsigned char *dptr;
-@@ -194,7 +197,7 @@
- /*
-  * This routine is called when a Restart Confirmation is needed
-  */
--void rose_transmit_restart_confirmation(struct rose_neigh *neigh)
-+static void rose_transmit_restart_confirmation(struct rose_neigh *neigh)
- {
- 	struct sk_buff *skb;
- 	unsigned char *dptr;
-@@ -219,34 +222,6 @@
- }
- 
- /*
-- * This routine is called when a Diagnostic is required.
-- */
--void rose_transmit_diagnostic(struct rose_neigh *neigh, unsigned char diag)
--{
--	struct sk_buff *skb;
--	unsigned char *dptr;
--	int len;
--
--	len = AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN + ROSE_MIN_LEN + 2;
--
--	if ((skb = alloc_skb(len, GFP_ATOMIC)) == NULL)
--		return;
--
--	skb_reserve(skb, AX25_BPQ_HEADER_LEN + AX25_MAX_HEADER_LEN);
--
--	dptr = skb_put(skb, ROSE_MIN_LEN + 2);
--
--	*dptr++ = AX25_P_ROSE;
--	*dptr++ = ROSE_GFI;
--	*dptr++ = 0x00;
--	*dptr++ = ROSE_DIAGNOSTIC;
--	*dptr++ = diag;
--
--	if (!rose_send_frame(skb, neigh))
--		kfree_skb(skb);
--}
--
--/*
-  * This routine is called when a Clear Request is needed outside of the context
-  * of a connected socket.
-  */
---- linux-2.6.10-rc3-mm1-full/net/rose/rose_route.c.old	2004-12-14 21:54:45.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rose/rose_route.c	2004-12-14 21:55:09.000000000 +0100
-@@ -41,7 +41,7 @@
- 
- static struct rose_node  *rose_node_list;
- static spinlock_t rose_node_list_lock = SPIN_LOCK_UNLOCKED;
--struct rose_neigh *rose_neigh_list;
-+static struct rose_neigh *rose_neigh_list;
- static spinlock_t rose_neigh_list_lock = SPIN_LOCK_UNLOCKED;
- static struct rose_route *rose_route_list;
- static spinlock_t rose_route_list_lock = SPIN_LOCK_UNLOCKED;
-@@ -587,7 +587,7 @@
- /*
-  *	Check that the device given is a valid AX.25 interface that is "up".
-  */
--struct net_device *rose_ax25_dev_get(char *devname)
-+static struct net_device *rose_ax25_dev_get(char *devname)
- {
- 	struct net_device *dev;
- 
---- linux-2.6.10-rc3-mm1-full/net/rose/rose_subr.c.old	2004-12-14 21:55:28.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/rose/rose_subr.c	2004-12-14 21:55:42.000000000 +0100
-@@ -28,6 +28,8 @@
- #include <linux/interrupt.h>
- #include <net/rose.h>
- 
-+static int rose_create_facilities(unsigned char *buffer, rose_cb *rose);
++static int rxrpc_call_flush(struct rxrpc_call *call);
 +
- /*
-  *	This routine purges all of the queues of frames.
-  */
-@@ -394,7 +396,7 @@
- 	return 1;
- }
+ #define _state(call) \
+ 	_debug("[[[ state %s ]]]", rxrpc_call_states[call->app_call_state]);
  
--int rose_create_facilities(unsigned char *buffer, rose_cb *rose)
-+static int rose_create_facilities(unsigned char *buffer, rose_cb *rose)
+@@ -2079,7 +2082,7 @@
+ /*
+  * flush outstanding packets to the network
+  */
+-int rxrpc_call_flush(struct rxrpc_call *call)
++static int rxrpc_call_flush(struct rxrpc_call *call)
  {
- 	unsigned char *p = buffer + 1;
- 	char *callsign;
+ 	struct rxrpc_message *msg;
+ 	int ret = 0;
+--- linux-2.6.10-rc3-mm1-full/net/rxrpc/rxrpc_syms.c.old	2004-12-14 22:28:26.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/rxrpc/rxrpc_syms.c	2004-12-14 22:28:29.000000000 +0100
+@@ -23,7 +23,6 @@
+ EXPORT_SYMBOL(rxrpc_call_abort);
+ EXPORT_SYMBOL(rxrpc_call_read_data);
+ EXPORT_SYMBOL(rxrpc_call_write_data);
+-EXPORT_SYMBOL(rxrpc_call_flush);
+ 
+ /* connection.c */
+ EXPORT_SYMBOL(rxrpc_create_connection);
+--- linux-2.6.10-rc3-mm1-full/net/rxrpc/internal.h.old	2004-12-14 22:29:18.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/rxrpc/internal.h	2004-12-14 22:30:16.000000000 +0100
+@@ -73,7 +73,6 @@
+ extern struct rw_semaphore rxrpc_conns_sem;
+ extern unsigned long rxrpc_conn_timeout;
+ 
+-extern void rxrpc_conn_do_timeout(struct rxrpc_connection *conn);
+ extern void rxrpc_conn_clearall(struct rxrpc_peer *peer);
+ 
+ /*
+@@ -89,8 +88,6 @@
+ 
+ extern void rxrpc_peer_clearall(struct rxrpc_transport *trans);
+ 
+-extern void rxrpc_peer_do_timeout(struct rxrpc_peer *peer);
+-
+ 
+ /*
+  * proc.c
+--- linux-2.6.10-rc3-mm1-full/net/rxrpc/connection.c.old	2004-12-14 22:29:36.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/rxrpc/connection.c	2004-12-14 22:30:00.000000000 +0100
+@@ -30,6 +30,8 @@
+ DECLARE_RWSEM(rxrpc_conns_sem);
+ unsigned long rxrpc_conn_timeout = 60 * 60;
+ 
++static void rxrpc_conn_do_timeout(struct rxrpc_connection *conn);
++
+ static void __rxrpc_conn_timeout(rxrpc_timer_t *timer)
+ {
+ 	struct rxrpc_connection *conn =
+@@ -415,7 +417,7 @@
+ /*
+  * free a connection record
+  */
+-void rxrpc_conn_do_timeout(struct rxrpc_connection *conn)
++static void rxrpc_conn_do_timeout(struct rxrpc_connection *conn)
+ {
+ 	struct rxrpc_peer *peer;
+ 
+--- linux-2.6.10-rc3-mm1-full/net/rxrpc/peer.c.old	2004-12-14 22:30:23.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/rxrpc/peer.c	2004-12-14 22:30:41.000000000 +0100
+@@ -30,6 +30,8 @@
+ DECLARE_RWSEM(rxrpc_peers_sem);
+ unsigned long rxrpc_peer_timeout = 12 * 60 * 60;
+ 
++static void rxrpc_peer_do_timeout(struct rxrpc_peer *peer);
++
+ static void __rxrpc_peer_timeout(rxrpc_timer_t *timer)
+ {
+ 	struct rxrpc_peer *peer =
+@@ -259,7 +261,7 @@
+  * handle a peer timing out in the graveyard
+  * - called from krxtimod
+  */
+-void rxrpc_peer_do_timeout(struct rxrpc_peer *peer)
++static void rxrpc_peer_do_timeout(struct rxrpc_peer *peer)
+ {
+ 	struct rxrpc_transport *trans = peer->trans;
+ 
+--- linux-2.6.10-rc3-mm1-full/include/rxrpc/transport.h.old	2004-12-14 22:30:56.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/rxrpc/transport.h	2004-12-14 22:31:03.000000000 +0100
+@@ -103,6 +103,4 @@
+ 				       struct rxrpc_message *msg,
+ 				       int error);
+ 
+-extern void rxrpc_clear_transport(struct rxrpc_transport *trans);
+-
+ #endif /* _LINUX_RXRPC_TRANSPORT_H */
+--- linux-2.6.10-rc3-mm1-full/net/rxrpc/transport.c.old	2004-12-14 22:31:11.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/rxrpc/transport.c	2004-12-14 22:31:20.000000000 +0100
+@@ -150,16 +150,6 @@
+ 
+ /*****************************************************************************/
+ /*
+- * clear the connections on a transport endpoint
+- */
+-void rxrpc_clear_transport(struct rxrpc_transport *trans)
+-{
+-	//struct rxrpc_connection *conn;
+-
+-} /* end rxrpc_clear_transport() */
+-
+-/*****************************************************************************/
+-/*
+  * destroy a transport endpoint
+  */
+ void rxrpc_put_transport(struct rxrpc_transport *trans)
