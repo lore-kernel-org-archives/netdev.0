@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 5/10] [bonding 2.6] fix change active command
-Date: Thu, 4 Sep 2003 20:44:55 +0300
+Subject: [PATCH 7/10] [bonding 2.6] embed stats struct inside bonding private struct
+Date: Thu, 4 Sep 2003 20:45:17 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309042044.55232.amir.noam@intel.com>
+Message-ID: <200309042045.17273.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -13,40 +13,51 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:02 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:03 2003
-@@ -1720,20 +1720,29 @@ static int bond_change_active(struct net
- 		}
- 	}
+--- a/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:08 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Sep  4 20:18:09 2003
+@@ -3295,10 +3295,10 @@ static int bond_xmit_activebackup(struct
+ static struct net_device_stats *bond_get_stats(struct net_device *dev)
+ {
+ 	bonding_t *bond = dev->priv;
+-	struct net_device_stats *stats = bond->stats, *sstats;
++	struct net_device_stats *stats = &(bond->stats), *sstats;
+ 	slave_t *slave;
  
-+	/*
-+	 * Changing to the current active: do nothing; return success.
-+	 */
-+	if (newactive && (newactive == oldactive)) {
-+		write_unlock_bh(&bond->lock);
-+		return 0;
-+	}
+-	memset(bond->stats, 0, sizeof(struct net_device_stats));
++	memset(stats, 0, sizeof(struct net_device_stats));
+ 
+ 	read_lock_bh(&bond->lock);
+ 
+@@ -3493,9 +3493,7 @@ static int __init bond_init(struct net_d
+ 	/* initialize rwlocks */
+ 	rwlock_init(&bond->lock);
+ 	rwlock_init(&bond->ptrlock);
+-	
+-	/* space is reserved for stats in alloc_netdev call. */
+-	bond->stats = (struct net_device_stats *)(bond + 1);
 +
- 	if ((newactive != NULL)&&
- 	    (oldactive != NULL)&&
--	    (newactive != oldactive)&&
- 	    (newactive->link == BOND_LINK_UP)&&
- 	    IS_UP(newactive->dev)) {
--		bond_set_slave_inactive_flags(oldactive);
--		bond_set_slave_active_flags(newactive);
-+		if (bond_mode == BOND_MODE_ACTIVEBACKUP) {
-+			bond_set_slave_inactive_flags(oldactive);
-+			bond_set_slave_active_flags(newactive);
-+		}
-+
- 		bond_mc_update(bond, newactive, oldactive);
- 		bond_assign_current_slave(bond, newactive);
- 		printk("%s : activate %s(old : %s)\n",
- 			master_dev->name, newactive->dev->name, 
- 			oldactive->dev->name);
--	}
--	else {
-+	} else {
- 		ret = -EINVAL;
- 	}
- 	write_unlock_bh(&bond->lock);
+ 	bond->next = bond->prev = (slave_t *)bond;
+ 	bond->current_slave = NULL;
+ 	bond->current_arp_slave = NULL;
+@@ -3868,8 +3866,7 @@ static int __init bonding_init(void)
+ 
+ 		snprintf(name, IFNAMSIZ, "bond%d", no);
+ 
+-		dev = alloc_netdev(sizeof(bonding_t) 
+-				   + sizeof(struct net_device_stats),
++		dev = alloc_netdev(sizeof(struct bonding),
+ 				   name, ether_setup);
+ 		if (!dev)
+ 			return -ENOMEM;
+diff -Nuarp a/drivers/net/bonding/bonding.h b/drivers/net/bonding/bonding.h
+--- a/drivers/net/bonding/bonding.h	Thu Sep  4 20:18:08 2003
++++ b/drivers/net/bonding/bonding.h	Thu Sep  4 20:18:09 2003
+@@ -99,7 +99,7 @@ typedef struct bonding {
+ 	rwlock_t ptrlock;
+ 	struct timer_list mii_timer;
+ 	struct timer_list arp_timer;
+-	struct net_device_stats *stats;
++	struct net_device_stats stats;
+ #ifdef CONFIG_PROC_FS
+ 	struct proc_dir_entry *bond_proc_dir;
+ 	struct proc_dir_entry *bond_proc_info_file;
