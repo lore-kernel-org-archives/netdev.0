@@ -1,44 +1,53 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: possible bug in tcp_input.c
-Date: Tue, 18 Nov 2003 15:01:22 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20031118150122.08d117f9.ak@suse.de>
-References: <20031024162959.GB11154@louise.pinerecords.com.suse.lists.linux.kernel>
-	<p73ptgma58b.fsf@oldwotan.suse.de>
-	<20031118135805.GA9705@louise.pinerecords.com>
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
+Subject: Re: forcedeth: version 0.17 available
+Date: Tue, 18 Nov 2003 15:44:54 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3FBA3066.80508@gmx.net>
+References: <3FB807A3.8010207@gmx.net> <3FB98C18.8090305@gmx.net> <3FB9A261.7080500@mcve.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, grof@dragon.cz,
-	davem@redhat.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Tomas Szepe <szepe@pinerecords.com>
-In-Reply-To: <20031118135805.GA9705@louise.pinerecords.com>
+Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com, Brad House <brad_mssw@gentoo.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Brad House <brad@mcve.com>
+In-Reply-To: <3FB9A261.7080500@mcve.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Nov 2003 14:58:05 +0100
-Tomas Szepe <szepe@pinerecords.com> wrote:
-
-> On Oct-24 2003, Fri, 19:57 +0200
-> Andi Kleen <ak@suse.de> wrote:
+Brad House wrote:
+> Well, the problem I saw was with the 2.6 patch.
 > 
-> > > /* tcp_input.c, line 1138 */
-> > > static inline int tcp_head_timedout(struct sock *sk, struct tcp_opt *tp)
-> > > {
-> > >   return tp->packets_out && tcp_skb_timedout(tp, skb_peek(&sk->write_queue));
-> > > }
-> > 
-> > tp->packets_out > 0 implies that there is at least one packet in the write 
-> > queue (it counts the number of unacked packets in flight, which are kept
-> > in the write queue). When that's not the case something else is wrong.
+> These lines:
 > 
-> Yes, that's exactly what davem said.  The corruption is happening somewhere
-> in netsched/imq code that's not even part of the official kernel tree (and
-> I'm told there's nobody to maintain the patch at present).
+> +++ build-2.6/drivers/net/forcedeth.c    2003-11-15 23:00:30.000000000
+> +0100
+> @@ -0,0 +1,1416 @@
+> 
+> Should be
+> 
+> +++ build-2.6/drivers/net/forcedeth.c    2003-11-15 23:00:30.000000000
+> +0100
+> @@ -0,0 +1,1418 @@
 
-Ignore the mail. It was some machine flushing out an old mail queue
-(with some very old mails from me that never made it out) 
+Aaah! The files were corrupted during upload. That's why I didn't find the
+problem you described in my local version.
+The problem is fixed now and MD5 sums have been uploaded to avoid this in
+the future.
 
-I actually wrote it before DaveM if you check the dates ;-)
+Thanks again,
+Carl-Daniel
 
--Andi
+
+> Carl-Daniel Hailfinger wrote:
+> 
+>> Carl-Daniel Hailfinger wrote:
+>>
+>>> version 0.17 of forcedeth for Linux 2.4 and 2.6 is available at
+>>> http://www.hailfinger.org/carldani/linux/patches/forcedeth/
+>>
+>>
+>>
+>> The patches for Linux 2.4 were malformed. Corrected versions have been
+>> uploaded a few hours ago.
+>> Thanks to Brad House for spotting this.
