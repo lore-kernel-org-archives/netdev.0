@@ -1,8 +1,7 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Post Network dev questions to netdev Please WAS(Re: [patch 4/10]
-	s390: network driver.
-Date: 06 Dec 2004 06:01:18 -0500
-Message-ID: <1102330877.1042.2187.camel@jzny.localdomain>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 06 Dec 2004 06:27:59 -0500
+Message-ID: <1102332479.1048.2243.camel@jzny.localdomain>
 References: <OFAF17275D.316533A1-ONC1256F5C.0026AFAD-C1256F5C.002877C1@de.ibm.com>
 	 <Pine.LNX.4.61.0412050605550.21671@hibernia.jakma.org>
 Reply-To: hadi@cyberus.ca
@@ -19,23 +18,45 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On Sun, 2004-12-05 at 01:25, Paul Jakma wrote:
-
+[..]
+> Anyway, we do, I think, need some way to deal with the 
+> sending-stale-packet-on-link-back problem. Either a way to flush this 
+> driver queue or else a guarantee that writes to sockets whose 
+> protocol makes no reliability guarantee will either return ENOBUFS or 
+> drop the packet.
 > 
-> This has always been (AFAIK) the behaviour yes. We started getting 
-> reports of the new queuing behaviour with, iirc, a version of Intel's 
-> e100 driver for 2.4.2x, which was later changed back to the old 
-> behaviour. However now that the queue behaviour is apparently the 
-> mandated behaviour we really need to work out what to do about the 
-> sending-long-stale packets problem.
+> Otherwise we will start getting reports of "Quagga on Linux sent an 
+> ancient {RIP,IRDP,RA} packet when we fixed a switch problem, and it 
+> caused an outage for a section of our network due to bad routes", I 
+> think.
 > 
+> Some comment or advice would be useful. (Am I kill-filed by all of 
+> netdev? feels like it).
 
-I missed the beginings of this thread. Seems some patch was posted
-on lkml which started this discussion. I am pretty sure what the lkml
-FAQ says is to post on netdev. Ok, If you insist posting on lkml
-(because that the way to glory, good fortune and fame), then please have
-the courtesy to post to netdev.  
+Dont post networking related patches on other lists. I havent seen said
+patch, but it seems someone is complaining about some behavior changing?
 
-Now lets see if we can help. Followups only on netdev.
+In regards to link down and packets being queued.
+Agreed this is a little problematic for some apps/transports. TCP is
+definetely not one of them. TCP in Linux actually is told if the drop is
+local. This way it can make better judgement (and not unnecesarily
+adjust windows for example).
+SCTP AFAIK is the only transport that provides its apps opportunity to
+obsolete messages already sent. I am not sure how well implemented or
+whtether it is implemented at all. Someone working on SCTP could
+comment.
+
+In the case the netdevice is administratively downed both the qdisc and
+DMA ring packets are flushed. Newer packets will never be queued and
+you should quickly be able to find from your app that the device is
+down.
+In the case of netdevice being operationally down - I am hoping this is
+what the discussion is, having jumped on it - both queues stay intact.
+What you can do is certainly from user space admin down/up the device
+when you receive a netlink carrier off notification.
+I am struggling to see whether dropping the packet inside the tx path
+once it is operationaly down is so blasphemous ... need to get caffeine
+first.
 
 cheers,
 jamal
