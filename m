@@ -1,29 +1,56 @@
-From: "austin_obi@africamail.com " <austin_obi@africamail.com>
-Subject: As a Sole representative
-Date: Sat, 24 Aug 2002 00:43:39
+From: helina adu <adu.helina@caramail.com>
+Subject: Investment Contact
+Date: Sat, 24 Aug 2002 12:26:05 GMT+1
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200208232345.g7NNjn9D002905@oss.sgi.com>
+Message-ID: <1030184765018998@caramail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Content-Type: text/plain
 Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: adu.helina@caramail.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Dear Sir,
+ATTN: President,
 
-I am a lagos based independent marketer and public relations exparct specailized in marketing of goods and  ervices to cooperate outfits as well as private individuals. I am 38 years of age graduate of the Nigerian College of Administration and I also hold a professional chartered certificate from the  chartered insitute of Adiministration Lagos as a chartered Administrator.
+From: Mrs.Helina karimu
 
-My ultimate objective in this regards is to intimate you of my professional capacity to promote the sales and distribution of your products or services in Nigeria and West African sub-region.
+REPLY TO: karimuh@post.com
 
-It may intrest you to know that I have the required knowledge and comprehensive strategy to promote and market your products or service in different parts of Nigeria and west african sub-region in general.
+I am an Angolian investor currently on exile in Benin 
+Republic because of the civil war in my country.I wish to 
+invest in a country with political stability, 
+reliable,dependable infrastructure and security of life and 
+property.
 
-I would be greatful therefore if I am given an opportunity to be your sloe representative here in Nigeria. Please send me the details of your products or service  for my study.
+I was given your contact address by a foriegner who was on 
+a working visit in Cotonou. She said that your company can 
+assist me on my investment plans, if I am lucky that your 
+company may be willing to assist.
 
+It may interest you to know that I am having $30.5 Million 
+US Dollars ready for investment,this amount was left behind 
+for us by my late husband.I am willing to invest in a 
+company with potentials for growth and stability including 
+your company if your bye- laws allows for foreign investors 
+or any other good and profitable business that you may 
+suggest. 
 
-Thank you and God bless.
+I will be very happy if this enquiry receive urgent 
+attention.You should mail your acceptance by sending to me 
+your personal and company profile as I will also send to 
+you all required information about myself and the help that 
+I need from you about my investment plans.
 
+You can also reach me at:hk1960@flashmail.com.Hoping for a 
+very successful business relationship with you.
 
-Mr. Austin Obi
+Yours Truly,
+
+Mrs.Helina Karimu.
+(Investor)
+_________________________________________________________
+_________________________________________________________ 
+Envoyez des messages musicaux sur le portable de vos amis 
+ http://mobile.lycos.fr/mobile/local/sms_musicaux/
