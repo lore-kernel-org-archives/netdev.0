@@ -1,8 +1,8 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.9 7/11] 8139too: Add MODULE_VERSION
-Date: Wed, 20 Oct 2004 14:23:57 -0400
+Subject: [patch 2.6.9 8/11] ns83820: Add MODULE_VERSION
+Date: Wed, 20 Oct 2004 14:27:56 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020142357.J8775@tuxdriver.com>
+Message-ID: <20041020142756.K8775@tuxdriver.com>
 References: <20041020141146.C8775@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -13,21 +13,21 @@ In-Reply-To: <20041020141146.C8775@tuxdriver.com>; from linville@tuxdriver.com o
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add MODULE_VERSION to 8139too driver.
+Add MODULE_VERSION to ns83820 driver.
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/8139too.c |    1 +
+ drivers/net/ns83820.c |    1 +
  1 files changed, 1 insertion(+)
 
---- linux-2.6.9/drivers/net/8139too.c.8139too
-+++ linux-2.6.9/drivers/net/8139too.c
-@@ -598,6 +598,7 @@ struct rtl8139_private {
- MODULE_AUTHOR ("Jeff Garzik <jgarzik@pobox.com>");
- MODULE_DESCRIPTION ("RealTek RTL-8139 Fast Ethernet driver");
+--- linux-2.6.9/drivers/net/ns83820.c.ns83820
++++ linux-2.6.9/drivers/net/ns83820.c
+@@ -2106,6 +2106,7 @@ static void __exit ns83820_exit(void)
+ MODULE_AUTHOR("Benjamin LaHaise <bcrl@redhat.com>");
+ MODULE_DESCRIPTION("National Semiconductor DP83820 10/100/1000 driver");
  MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
++MODULE_VERSION(VERSION);
  
- MODULE_PARM (multicast_filter_limit, "i");
- MODULE_PARM (media, "1-" __MODULE_STRING(MAX_UNITS) "i");
+ MODULE_DEVICE_TABLE(pci, ns83820_pci_tbl);
+ 
