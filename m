@@ -1,55 +1,32 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: (usagi-core 17380) Re: [PATCH][IPV6][NDISC] unify ipv6 output
- routine
-Date: Sat, 07 Feb 2004 20:29:56 +0900 (JST)
+From: Andi Kleen <ak@suse.de>
+Subject: Re: some bluetooth fixes
+Date: Sat, 7 Feb 2004 12:57:23 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040207.202956.74336171.yoshfuji@linux-ipv6.org>
-References: <20040207.192804.29120956.yoshfuji@linux-ipv6.org>
-	<4024C0EA.1010904@kolumbus.fi>
-	<4024C1D5.5030906@kolumbus.fi>
+Message-ID: <20040207125723.391a1fcd.ak@suse.de>
+References: <20040206050042.20a2b3b0.ak@suse.de>
+	<1076079512.2806.40.camel@pegasus>
+	<20040207032428.56ffbebc.ak@suse.de>
+	<1076152411.14418.73.camel@pegasus>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: kazunori@miyazawa.org, davem@redhat.com, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        viro@zenII.linux.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mika.penttila@kolumbus.fi
-In-Reply-To: <4024C1D5.5030906@kolumbus.fi>
+To: Marcel Holtmann <marcel@holtmann.org>
+In-Reply-To: <1076152411.14418.73.camel@pegasus>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <4024C1D5.5030906@kolumbus.fi> (at Sat, 07 Feb 2004 12:45:41 +=
-0200), Mika Penttil=E4 <mika.penttila@kolumbus.fi> says:
+On Sat, 07 Feb 2004 12:13:31 +0100
+Marcel Holtmann <marcel@holtmann.org> wrote:
 
-> >> I think you missed our ndsic_dst_alloc() change.
-> >> ndisc_dst_alloc() takes 4 argument:
-> >>   struct dst_entry *ndisc_dst_alloc(struct net_device *dev,=20
-> >>                                     struct neighbour *neigh,
-> >>                                     struct in6_addr *addr,
-> >>                                     int (*output)(struct sk_buff *))=
-;
-> >> If neigh is NULL, we do ndisc_get_neigh(dev, addr) to get one.
-> >>
-> >> =20
-> >>
-> > hmm. where is this ndisc_dst_alloc() change? In the patch it's called=
-=20
-> > with three params, only the output routine is changed :
-> >
-> > - dst =3D ndisc_dst_alloc(dev, NULL, ndisc_output);
-> > + dst =3D ndisc_dst_alloc(dev, NULL, ip6_output2);
-:
-> I see, it was in a follow-up patch. Ok, I was just looking at the=20
-> original patch, which didn't work. But with this ndisc_dst_alloc()=20
-> change it's ok.
+> I check this. Maybe we have more of them. What do you propose as max
+> size value for kmalloc? 2*PAGE_SIZE or 4*PAGE_SIZE?
 
-Oh my god!!
+What better fits the intended use case. I don't know how many objects are expected
+here. Smaller is better probably.
 
-Miyazawa-san failed to export our "correct" code in original patch.
-I didn't noticed that.
+If you want to handle more objects this way you should use seq_file instead.
 
-We're sorry about it. Thank you for spotting the bug.
-
---=20
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+-Andi
