@@ -1,36 +1,42 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Bonding][patch] Adding Transmit load balancing mode to bondi
- ng
-Date: Tue, 01 Apr 2003 08:58:17 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030401.085817.56963537.davem@redhat.com>
-References: <E791C176A6139242A988ABA8B3D9B38A014C92C4@hasmsx403.iil.intel.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Is a driver allowed to modify dev->flags?
+Date: Tue, 01 Apr 2003 08:58:06 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <3E89C51E.1060700@candelatech.com>
+References: <3e89c32348ce76.94538914@not right>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net,
-   bonding-announce@lists.sourceforge.net, linux-net@vger.kernel.org,
-   netdev@oss.sgi.com, jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C92C4@hasmsx403.iil.intel.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: rask@sygehus.dk
+In-Reply-To: <3e89c32348ce76.94538914@not right>
 List-Id: netdev.vger.kernel.org
 
-   From: "Hen, Shmulik" <shmulik.hen@intel.com>
-   Date: Tue, 1 Apr 2003 19:09:09 +0300 
+Rask Ingemann Lambertsen wrote:
+> Hi.
+> 
+> Is a network device driver allowed to modify dev->flags? For example:
+> 
+> if (dev->flags & IFF_ALLMULTI)
+>         dev->flags |= IFF_PROMISC;
+> 
+> I've found it to cause the IFF_PROMISC flag to stick when using "tcpdump -p", which to my surprice sets the IFF_ALLMULTI flag.
+> 
+> Regards,
+> Rask Ingemann Lambertsen
+> 
+> 
 
-   We haven't experimented with layer 4 load balancing in the past. I guess
-   this is because of the big overhead of parsing the skb for the necessary
-   data, but also because of the risk of dealing with IP fragmentation, large
-   send issues, encryption and all kinds of off-loadings.
-   
-In the modern internet, a fragmented TCP packet is nearly a bug.  And
-if it's encrypted, you will never see the TCP headers to begin with.
-Finally, there are no "large send" issues, the TCP port information
-will always be in the front of the packet.
+You are supposed to increment the promisc requestors.  I think something like this:
 
-I brought this up because it is very clear to me that various
-load-balancing daemons distributed by other gigabit card vendors are
-keying on the connection information in TCP packets.  So someone
-thinks it is worthwhile :-)
+dev_set_promiscuity(dev, 1);
+
+
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+
+
