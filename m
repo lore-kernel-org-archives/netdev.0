@@ -1,34 +1,25 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] DECNET: Compaq => HP
-Date: Wed, 29 Oct 2003 00:46:59 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV6: CONFIG_IPV6 Documentation update
+Date: Tue, 28 Oct 2003 07:41:11 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031029.004659.91579816.yoshfuji@linux-ipv6.org>
+Message-ID: <20031028074111.6423a8a9.davem@redhat.com>
+References: <20031029.003536.91692593.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031029.003536.91692593.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 29 Oct 2003 00:35:36 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-More document update: Compaq was bought by HP...
+> CONFIG_IPV6 Documentation update.
+> 
+> Specifically, there are no descriptions on net-tools in 
+> Documentation/Changes.
 
-===== net/Kconfig 1.26 vs edited =====
---- 1.26/net/Kconfig	Sun Oct  5 15:50:47 2003
-+++ edited/net/Kconfig	Wed Oct 29 00:39:36 2003
-@@ -145,7 +145,7 @@
- 	tristate "DECnet Support"
- 	---help---
- 	  The DECnet networking protocol was used in many products made by
--	  Digital (now Compaq).  It provides reliable stream and sequenced
-+	  Digital (now HP).  It provides reliable stream and sequenced
- 	  packet communications over which run a variety of services similar
- 	  to those which run over TCP/IP.
- 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Applied, thank you.
