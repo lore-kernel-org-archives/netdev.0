@@ -1,38 +1,126 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH 1/5] tun check error on memcpy_fromiovec
-Date: Thu, 22 Jan 2004 18:13:53 -0800
+From: Shmuel Hen <shmulik.hen@intel.com>
+Subject: [PATCH 3/6][8021q][2.6] Use VLAN tag set functionality in 8021q module
+Date: Thu, 22 Jan 2004 18:00:13 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040122181353.J2962@osdlab.pdx.osdl.net>
-References: <20031208202302.C30587@build.pdx.osdl.net> <20031219103457.GD1213@mail.sternwelten.at> <20040116164512.C19034@osdlab.pdx.osdl.net> <1074718162.1707.194.camel@localhost>
+Message-ID: <200401221800.14862.shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@osdl.org>, maximilian attems <janitor@sternwelten.at>,
-        netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Max Krasnyansky <maxk@qualcomm.com>
+To: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
 Content-Disposition: inline
-In-Reply-To: <1074718162.1707.194.camel@localhost>; from maxk@qualcomm.com on Wed, Jan 21, 2004 at 12:49:23PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Max Krasnyansky (maxk@qualcomm.com) wrote:
-> On Fri, 2004-01-16 at 16:45, Chris Wright wrote:
-> > I specifically left those alone.  They have a semi-bogus verify_area()
-> > call that is trying to insure the memcpy_fromiovec won't EFAULT.  I'd
-> > prefer to remove them and simply do memcpy checking.
-> 
-> Please don't add extra unneeded checks or fix stuff that does not need
-> to be fixed. Verify area is not bogus. We need to know total length of
-> the iovec so we might as well check it in the same loop and not bother
-> with checking later. 
+Make the regular/HW accelerated xmit functions in the 8021q module
+use the new set VLAN tag functionality to reduce code duplication.
 
-Yes, I realize it's used to collect total length.  But it does not protect
-from userspace controlled buffer whose contents can change.  Continuing
-when a fault is possible means the skb->data could be zero'd.  However,
-since this is intended to be 0700 root owned device, and the user could
-supply same such data directly, it's of fairly low priority to patch.
 
-thanks,
--chris
--- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+diff -Nuarp a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c	Wed Jan 21 16:56:13 2004
++++ b/net/8021q/vlan_dev.c	Wed Jan 21 16:56:15 2004
+@@ -445,6 +445,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	 */
+ 
+ 	if (veth->h_vlan_proto != __constant_htons(ETH_P_8021Q)) {
++		int orig_headroom = skb_headroom(skb);
+ 		unsigned short veth_TCI;
+ 
+ 		/* This is not a VLAN frame...but we can fix that! */
+@@ -454,33 +455,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 		printk(VLAN_DBG "%s: proto to encap: 0x%hx (hbo)\n",
+ 			__FUNCTION__, htons(veth->h_vlan_proto));
+ #endif
+-
+-		if (skb_headroom(skb) < VLAN_HLEN) {
+-			struct sk_buff *sk_tmp = skb;
+-			skb = skb_realloc_headroom(sk_tmp, VLAN_HLEN);
+-			kfree_skb(sk_tmp);
+-			if (skb == NULL) {
+-				stats->tx_dropped++;
+-				return 0;
+-			}
+-			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
+-		} else {
+-			if (!(skb = skb_unshare(skb, GFP_ATOMIC))) {
+-				printk(KERN_ERR "vlan: failed to unshare skbuff\n");
+-				stats->tx_dropped++;
+-				return 0;
+-			}
+-		}
+-		veth = (struct vlan_ethhdr *)skb_push(skb, VLAN_HLEN);
+-
+-		/* Move the mac addresses to the beginning of the new header. */
+-		memmove(skb->data, skb->data + VLAN_HLEN, 12);
+-
+-		/* first, the ethernet type */
+-		/* put_unaligned(__constant_htons(ETH_P_8021Q), &veth->h_vlan_proto); */
+-		veth->h_vlan_proto = __constant_htons(ETH_P_8021Q);
+-
+-		/* Now, construct the second two bytes. This field looks something
++		/* Construct the second two bytes. This field looks something
+ 		 * like:
+ 		 * usr_priority: 3 bits	 (high bits)
+ 		 * CFI		 1 bit
+@@ -489,10 +464,16 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 		veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
+ 		veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
+ 
+-		veth->h_vlan_TCI = htons(veth_TCI);
+-	}
++		skb = __vlan_put_tag(skb, veth_TCI);
++		if (!skb) {
++			stats->tx_dropped++;
++			return 0;
++		}
+ 
+-	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
++		if (orig_headroom < VLAN_HLEN) {
++			VLAN_DEV_INFO(dev)->cnt_inc_headroom_on_tx++;
++		}
++	}
+ 
+ #ifdef VLAN_DEBUG
+ 	printk(VLAN_DBG "%s: about to send skb: %p to dev: %s\n",
+@@ -506,10 +487,7 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ 	stats->tx_packets++; /* for statics only */
+ 	stats->tx_bytes += skb->len;
+ 
+-	skb->protocol = __constant_htons(ETH_P_8021Q);
+-	skb->mac.raw -= VLAN_HLEN;
+-	skb->nh.raw -= VLAN_HLEN;
+-
++	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
+@@ -518,17 +496,22 @@ int vlan_dev_hard_start_xmit(struct sk_b
+ int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+ {
+ 	struct net_device_stats *stats = vlan_dev_get_stats(dev);
+-	struct vlan_skb_tx_cookie *cookie;
++	unsigned short veth_TCI;
++
++	/* Construct the second two bytes. This field looks something
++	 * like:
++	 * usr_priority: 3 bits	 (high bits)
++	 * CFI		 1 bit
++	 * VLAN ID	 12 bits (low bits)
++	 */
++	veth_TCI = VLAN_DEV_INFO(dev)->vlan_id;
++	veth_TCI |= vlan_dev_get_egress_qos_mask(dev, skb);
++	skb = __vlan_hwaccel_put_tag(skb, veth_TCI);
+ 
+ 	stats->tx_packets++;
+ 	stats->tx_bytes += skb->len;
+ 
+ 	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+-	cookie = VLAN_TX_SKB_CB(skb);
+-	cookie->magic = VLAN_TX_COOKIE_MAGIC;
+-	cookie->vlan_tag = (VLAN_DEV_INFO(dev)->vlan_id |
+-			    vlan_dev_get_egress_qos_mask(dev, skb));
+-
+ 	dev_queue_xmit(skb);
+ 
+ 	return 0;
