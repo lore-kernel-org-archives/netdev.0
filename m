@@ -1,8 +1,8 @@
 From: Shmulik Hen <hshmulik@intel.com>
-Subject: [patch] (2/8) Add 802.3ad support to bonding
-Date: Thu, 20 Mar 2003 17:15:36 +0200 (IST)
+Subject: [patch] (3/8) Add 802.3ad support to bonding
+Date: Thu, 20 Mar 2003 17:16:01 +0200 (IST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0303201613570.10351-100000@jrslxjul4.npdj.intel.com>
+Message-ID: <Pine.LNX.4.44.0303201627280.10351-100000@jrslxjul4.npdj.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -14,186 +14,97 @@ To: Bonding Developement list <bonding-devel@lists.sourceforge.net>,
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch complements the latest drop of bonding from source-forge 
-(2.4.20-20030317) by incorporating the changes to bond_release_all() too.
-It also fixes a hang when releasing a slave while outgoing traffic is 
-running, that looks like a deadlock between the BR_NETPROTO_LOCK, 
-dev->xmit_lock and the bond lock (happens on quad processor machines, 
+This patch fixes a hang when enslaving a new slave while incoming traffic 
+is running, that looks like a deadlock between the BR_NETPROTO_LOCK,
+dev->xmit_lock and the bond lock (happens on quad processor machines,
 but KDB back trace wasn't clear enough).
 
 This patch is against bonding 2.4.20-20030317.
 
 diff -Nuarp linux-2.4.20-bonding-20030317/drivers/net/bonding.c linux-2.4.20-bonding-20030317-devel/drivers/net/bonding.c
---- linux-2.4.20-bonding-20030317/drivers/net/bonding.c	2003-03-18 17:03:24.000000000 +0200
-+++ linux-2.4.20-bonding-20030317-devel/drivers/net/bonding.c	2003-03-18 17:03:24.000000000 +0200
-@@ -286,6 +286,15 @@
-  *	  checking slave and slave->dev (which only worked by accident).
-  *	- Misc code cleanup: get arp_send() prototype from header file,
-  *	  add max_bonds to bonding.txt.
-+ *
+--- linux-2.4.20-bonding-20030317/drivers/net/bonding.c	2003-03-18 17:03:25.000000000 +0200
++++ linux-2.4.20-bonding-20030317-devel/drivers/net/bonding.c	2003-03-18 17:03:26.000000000 +0200
+@@ -295,6 +295,10 @@
+  *	- Fixed hang in bond_release() while traffic is running.		
+  *	  netdev_set_master() must not be called from within the bond lock.
+  *
 + * 2003/03/18 - Tsippy Mendelson <tsippy.mendelson at intel dot com> and
 + *		Shmulik Hen <shmulik.hen at intel dot com>
-+ *	- Make sure only bond_attach_slave() and bond_detach_slave() can
-+ *	  manipulate the slave list, including slave_cnt, even when in
-+ *	  bond_release_all().
-+ *	- Fixed hang in bond_release() while traffic is running.		
-+ *	  netdev_set_master() must not be called from within the bond lock.
-+ *
++ *	- Fixed hang in bond_enslave(): netdev_set_master() must not be
++ *	  called from within the bond lock while traffic is running.
   */
  
  #include <linux/config.h>
-@@ -326,8 +335,8 @@
- #include <linux/mii.h>
- #include <linux/ethtool.h>
- 
--#define DRV_VERSION		"2.4.20-20030207"
--#define DRV_RELDATE		"February 7, 2003"
-+#define DRV_VERSION		"2.4.20-20030317"
-+#define DRV_RELDATE		"March 17, 2003"
- #define DRV_NAME		"bonding"
- #define DRV_DESCRIPTION		"Ethernet Channel Bonding Driver"
- 
-@@ -1469,16 +1478,14 @@ static int bond_release(struct net_devic
- 
- 	bond = (struct bonding *) master->priv;
- 
+@@ -1066,14 +1070,12 @@ static int bond_enslave(struct net_devic
+ 			"Warning : no link monitoring support for %s\n",
+ 			slave_dev->name);
+ 	}
 -	write_lock_irqsave(&bond->lock, flags);
--
- 	/* master already enslaved, or slave not enslaved,
- 	   or no slave for this master */
- 	if ((master->flags & IFF_SLAVE) || !(slave->flags & IFF_SLAVE)) {
- 		printk (KERN_DEBUG "%s: cannot release %s.\n", master->name, slave->name);
+ 
+ 	/* not running. */
+ 	if ((slave_dev->flags & IFF_UP) != IFF_UP) {
+ #ifdef BONDING_DEBUG
+ 		printk(KERN_CRIT "Error, slave_dev is not running\n");
+ #endif
 -		write_unlock_irqrestore(&bond->lock, flags);
  		return -EINVAL;
  	}
  
+@@ -1082,12 +1084,10 @@ static int bond_enslave(struct net_devic
+ #ifdef BONDING_DEBUG
+ 		printk(KERN_CRIT "Error, Device was already enslaved\n");
+ #endif
+-		write_unlock_irqrestore(&bond->lock, flags);
+ 		return -EBUSY;
+ 	}
+ 		   
+ 	if ((new_slave = kmalloc(sizeof(slave_t), GFP_ATOMIC)) == NULL) {
+-		write_unlock_irqrestore(&bond->lock, flags);
+ 		return -ENOMEM;
+ 	}
+ 	memset(new_slave, 0, sizeof(slave_t));
+@@ -1100,9 +1100,7 @@ static int bond_enslave(struct net_devic
+ #ifdef BONDING_DEBUG
+ 		printk(KERN_CRIT "Error %d calling netdev_set_master\n", err);
+ #endif
+-		kfree(new_slave);
+-		write_unlock_irqrestore(&bond->lock, flags);
+-		return err;      
++		goto err_free;
+ 	}
+ 
+ 	new_slave->dev = slave_dev;
+@@ -1121,6 +1119,8 @@ static int bond_enslave(struct net_devic
+ 			dev_mc_add (slave_dev, dmi->dmi_addr, dmi->dmi_addrlen, 0);
+ 	}
+ 
 +	write_lock_irqsave(&bond->lock, flags);
- 	bond->current_arp_slave = NULL;
- 	our_slave = (slave_t *)bond;
- 	old_current = bond->current_slave;
-@@ -1497,38 +1504,7 @@ static int bond_release(struct net_devic
- 			} else {
- 				printk(".\n");
- 			}
--
--			/* release the slave from its bond */
--
--			if (multicast_mode == BOND_MULTICAST_ALL) {
--				/* flush master's mc_list from slave */ 
--				bond_mc_list_flush (slave, master); 
--				
--				/* unset promiscuity level from slave */
--				if (master->flags & IFF_PROMISC) 
--					dev_set_promiscuity(slave, -1); 
--       
--				/* unset allmulti level from slave */ 
--				if (master->flags & IFF_ALLMULTI)
--					dev_set_allmulti(slave, -1); 
--			}
--
--			netdev_set_master(slave, NULL);
--
--			/* only restore its RUNNING flag if monitoring set it down */
--			if (slave->flags & IFF_UP) {
--				slave->flags |= IFF_RUNNING;
--			}
--
--			if (slave->flags & IFF_NOARP || 
--				bond->current_slave != NULL) {
--					dev_close(slave);
--					our_slave->original_flags &= ~IFF_UP;
--			}
--
--			bond_restore_slave_flags(our_slave);
--			kfree(our_slave);
--
-+			
- 			if (bond->current_slave == NULL) {
- 				printk(KERN_INFO
- 					"%s: now running without any active interface !\n",
-@@ -1539,16 +1515,51 @@ static int bond_release(struct net_devic
- 				bond->primary_slave = NULL;
- 			}
- 
--			write_unlock_irqrestore(&bond->lock, flags);
--			return 0;  /* deletion OK */
-+			break;
- 		}
--	}
- 
--	/* if we get here, it's because the device was not found */
-+	}
- 	write_unlock_irqrestore(&bond->lock, flags);
 +	
-+	if (our_slave == (slave_t *)bond) {
-+		/* if we get here, it's because the device was not found */
-+		printk (KERN_INFO "%s: %s not enslaved\n", master->name, slave->name);
-+		return -EINVAL;
-+	}
-+
-+	/* undo settings and restore original values */
-+	
-+	if (multicast_mode == BOND_MULTICAST_ALL) {
-+		/* flush master's mc_list from slave */ 
-+		bond_mc_list_flush (slave, master); 
+ 	bond_attach_slave(bond, new_slave);
+ 	new_slave->delay = 0;
+ 	new_slave->link_failure_count = 0;
+@@ -1259,7 +1259,11 @@ static int bond_enslave(struct net_devic
+ 		new_slave->state == BOND_STATE_ACTIVE ? "n active" : " backup",
+ 		new_slave->link == BOND_LINK_UP ? "n up" : " down");
  
--	printk (KERN_INFO "%s: %s not enslaved\n", master->name, slave->name);
--	return -EINVAL;
-+		/* unset promiscuity level from slave */
-+		if (master->flags & IFF_PROMISC) 
-+			dev_set_promiscuity(slave, -1); 
-+
-+		/* unset allmulti level from slave */ 
-+		if (master->flags & IFF_ALLMULTI)
-+			dev_set_allmulti(slave, -1); 
-+	}
-+
-+	netdev_set_master(slave, NULL);
-+
-+	/* only restore its RUNNING flag if monitoring set it down */
-+	if (slave->flags & IFF_UP) {
-+		slave->flags |= IFF_RUNNING;
-+	}
-+
-+	if (slave->flags & IFF_NOARP || 
-+		bond->current_slave != NULL) {
-+			dev_close(slave);
-+			our_slave->original_flags &= ~IFF_UP;
-+	}
-+
-+	bond_restore_slave_flags(our_slave);
-+	
-+	kfree(our_slave);
-+
-+	return 0;  /* deletion OK */
++	//enslave is successfull
+ 	return 0;
++err_free:
++	kfree(new_slave);
++	return err;
  }
  
  /* 
-@@ -1571,10 +1582,12 @@ static int bond_release_all(struct net_d
+@@ -1607,6 +1611,9 @@ static int bond_release_all(struct net_d
  
- 	bond = (struct bonding *) master->priv;
- 	bond->current_arp_slave = NULL;
-+	bond->current_slave = NULL;
-+	bond->primary_slave = NULL;
+ 		kfree(our_slave);
  
- 	while ((our_slave = bond->prev) != (slave_t *)bond) {
- 		slave_dev = our_slave->dev;
--		bond->prev = our_slave->prev;
-+		bond_detach_slave(bond, our_slave);
++		/* Can be safely called from inside the bond lock
++		   since traffic and timers have already stopped
++		*/
+ 		netdev_set_master(slave_dev, NULL);
  
- 		if (multicast_mode == BOND_MULTICAST_ALL 
- 		    || (multicast_mode == BOND_MULTICAST_ACTIVE 
-@@ -1604,10 +1617,6 @@ static int bond_release_all(struct net_d
- 			dev_close(slave_dev);
- 	}
- 
--	bond->current_slave = NULL;
--	bond->next = (slave_t *)bond;
--	bond->slave_cnt = 0;
--	bond->primary_slave = NULL;
- 	printk (KERN_INFO "%s: released all slaves\n", master->name);
- 
- 	return 0;
+ 		/* only restore its RUNNING flag if monitoring set it down */
 
 -- 
 | Shmulik Hen                                    |
