@@ -1,46 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: request_module while holding rtnl semaphore
-Date: Sat, 06 Nov 2004 10:35:45 +1100
-Message-ID: <E1CQDcP-0003ff-00@gondolin.me.apana.org.au>
-References: <41899DCF.3050804@trash.net>
-Cc: netdev@oss.sgi.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 2.4]: Don't try to destroy builtin qdiscs
+Date: Fri, 05 Nov 2004 20:46:31 +0100
+Message-ID: <418BD897.5000409@trash.net>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030606070008030700090802"
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kaber@trash.net (Patrick McHardy)
-In-Reply-To: <41899DCF.3050804@trash.net>
+To: "David S. Miller" <davem@redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy <kaber@trash.net> wrote:
-> There are several instances of request_module beeing called while
-> holding the rtnl semaphore in net/sched. A pratical problem with
-> this is the teql scheduler which deadlocks when calling register_netdev
-> from its init function. A more far-fetched problem would be some crazy
-> person with their modules in a nfs-mounted directory on a server
-> reachable over a dial-on-demand link. I couldn't come up with a
-> solution except for refusing to autoload teql, maybe someone else has
-> an idea.
+This is a multi-part message in MIME format.
+--------------030606070008030700090802
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-There are a couple of causes for this problem:
+Backported from Thomas's patch, we also need this for 2.4.
 
-1) Abuse of the rtnl.  It's being used for too many things.  It's
-basically the networking system's BKL.  If the locking were more
-granular then this shouldn't occur.
 
-2) Hooking random net/sched requests into rtnetlink.  By being an
-rtnetlink user you pay the price of taking the rtnl.  Most of the
-net/sched stuff has nothing to do with rtnetlink.  You know it
-because they all live in AF_UNSPEC :)
 
-Tackling either problem would lead to a solution to the dead-lock.
-However, neither is trivial to solve.
 
-On a related note, I'm working on making it easier to add new netlink
-families which could lead to a solution to 2.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------030606070008030700090802
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/11/05 20:44:30+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Don't try to destroy builtin qdiscs
+#   
+#   Backported from Thomas Graf's fix for 2.6.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/sch_generic.c
+#   2004/11/05 20:44:28+01:00 kaber@coreworks.de +3 -3
+#   [PKT_SCHED]: Don't try to destroy builtin qdiscs
+#   
+#   Backported from Thomas Graf's fix for 2.6.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c	2004-11-05 20:44:43 +01:00
++++ b/net/sched/sch_generic.c	2004-11-05 20:44:43 +01:00
+@@ -423,7 +423,8 @@
+ {
+ 	struct Qdisc_ops *ops = qdisc->ops;
+ 
+-	if (!atomic_dec_and_test(&qdisc->refcnt))
++	if (qdisc->flags&TCQ_F_BUILTIN ||
++	    !atomic_dec_and_test(&qdisc->refcnt))
+ 		return;
+ 	list_del(&qdisc->list);
+ #ifdef CONFIG_NET_ESTIMATOR
+@@ -433,8 +434,7 @@
+ 		ops->reset(qdisc);
+ 	if (ops->destroy)
+ 		ops->destroy(qdisc);
+-	if (!(qdisc->flags&TCQ_F_BUILTIN))
+-		kfree(qdisc);
++	kfree(qdisc);
+ }
+ 
+ 
+
+--------------030606070008030700090802--
