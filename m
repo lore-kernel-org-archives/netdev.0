@@ -1,39 +1,32 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
-Date: Tue, 28 Sep 2004 09:09:38 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927230938.GA8022@gondor.apana.org.au>
-References: <20040927080828.GA12056@gondor.apana.org.au> <20040927120031.55fb4a49.davem@davemloft.net> <20040927220240.GA7633@gondor.apana.org.au> <20040927160454.67cd1e11.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: strange network slowness in 2.6 unless pingflooding
+Date: Mon, 27 Sep 2004 16:18:45 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040927161845.1442bb4a.davem@davemloft.net>
+References: <20040927090342.GA1794@zip.com.au>
+	<41587A26.6020606@conectiva.com.br>
+	<20040927224957.GA1043@zip.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040927160454.67cd1e11.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, linux-kernel@vger.kernel.org,
+	jgarzik@pobox.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: CaT <cat@zip.com.au>
+In-Reply-To: <20040927224957.GA1043@zip.com.au>
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 27, 2004 at 04:04:54PM -0700, David S. Miller wrote:
->
-> > IMHO we should still fix it though at least for consistency.
-> 
-> That early on in the connection, it should be setting both
-> values, right?  If so your patch still needs a tweak. :)
+On Tue, 28 Sep 2004 08:49:57 +1000
+CaT <cat@zip.com.au> wrote:
 
-I'm not saying that this patch makes any difference in terms of
-run-time results.  At that point both mss_cache and mss_cache_std
-should contain the same values.
+> It does not help. Same problem as before.
 
-However, since the value that's intended here is the physical MSS,
-we should use mss_cache_std for the sake of consistency.
+Please give us some exact specifics about your network setup
+so that someone can possibly reproduce your problem locally.
+In particular, if there are hubs or switches involved on
+your local network that might be getting the duplex wrong,
+or some NAT or firewall machines in the path in question,
+please specify their setup precisely.
 
-The only reason I spotted this at all is because I grepped -w for
-mss_cache and found this function as one of the very few users.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Otherwise there is zero chance of this problem ever being
+fixes.
