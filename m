@@ -1,31 +1,48 @@
-From: john stultz <johnstul@us.ibm.com>
-Subject: Re: [PATCH] tg3: capacitive coupling detection fix
-Date: Fri, 11 Feb 2005 13:19:37 -0800
-Message-ID: <1108156778.11683.212.camel@cog.beaverton.ibm.com>
-References: <B1508D50A0692F42B217C22C02D84972020F3D93@NT-IRVA-0741.brcm.ad.broadcom.com>
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH 2/4] [NETLINK] introduce netlink_check_skb function
+Date: Fri, 11 Feb 2005 22:31:40 +0100
+Message-ID: <420D243C.4090507@eurodev.net>
+References: <420BF8CB.6080005@eurodev.net> <20050211032448.GD31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        lkml <linux-kernel@vger.kernel.org>, Chris McDermott <lcm@us.ibm.com>,
-        keith maanthey <kmannth@us.ibm.com>
-To: Michael Chan <mchan@broadcom.com>
-In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3D93@NT-IRVA-0741.brcm.ad.broadcom.com>
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050211032448.GD31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-02-11 at 12:44 -0800, Michael Chan wrote:
-> This patch fixes the problem reported in:
-> 
-> http://marc.theaimsgroup.com/?l=linux-kernel&m=110798711911645&w=2
-> 
-> 
-> The 5700 link problem was caused by reading uninitialized values in sram and
-> causing capacitive coupling mode to be enabled by mistake. This patch fixes
-> the problem by properly validating the sram contents.
+Thomas Graf wrote:
 
-Verified as working on the x440 I was seeing the trouble with.
+>>+/* 
+>>+ * Process one packet of messages.
+>>+ * Malformed skbs with wrong lengths of messages are discarded silently.
+>>+ */
+>>+int netlink_process_skb(struct sk_buff *skb, 
+>>+			int (*process_msg)(struct sk_buff *skb,
+>>+					   struct nlmsghdr *nlh,
+>>+					   int *err))
+>>+{
+>>+	int err;
+>>+	struct nlmsghdr * nlh;
+>>+
+>>+	while (skb->len >= NLMSG_SPACE(0)) {
+>>    
+>>
+>
+>While you're at it, change that to NLMSG_LENGTH(0) or even to
+>NLMSG_ALIGN(sizeof(*nlh)) to make it more readable. NLMSG_SPACE()
+>represents the total size of a netlink message in the byte stream
+>including the padding to payload in order to enforce proper
+>alignement for successive netlink message header.
+>  
+>
 
-Thanks!
--john
+They are all the same thing. They all return 16 bytes which is the size 
+of a netlink header. If you and someone else think that those are more 
+readable, I'm ok with it, whatever. I just stole that piece of code as 
+is from current checkings done in xfrm and rtnetlink.
+
+--
+Pablo
