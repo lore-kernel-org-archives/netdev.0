@@ -1,171 +1,91 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [Fwd: [Bug 3003] New: might_sleep warning when setting up IPSec
- with IPCOMP]
-Date: Fri, 9 Jul 2004 00:20:56 -0400 (EDT)
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: [PATCH Linux-2.6.7-bk19] prism54 freq to channel incorrect for 5GHz
+Date: Fri, 9 Jul 2004 09:58:01 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0407090018500.2381-100000@thoron.boston.redhat.com>
-References: <20040702143949.21a50b74.akpm@osdl.org>
+Message-ID: <200407090958.09739.vkondra@mail.ru>
+References: <200407070831.47896.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Nivedita Singhvi <niv@us.ibm.com>, <jmorris@intercode.com.au>,
-        <netdev@oss.sgi.com>, <christophe@saout.de>, <mjbligh@us.ibm.com>
+Content-Type: Text/Plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: margitsw@t-online.de (Margit Schubert-While), jgarzik@pobox.com,
+        prism54-devel@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040702143949.21a50b74.akpm@osdl.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <200407070831.47896.margitsw@t-online.de>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2 Jul 2004, Andrew Morton wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Well no.  Those games with deflate_gfp() really need to go away. 
-> in_atomic() works OK if CONFIG_PREEMPT is enabled.  But with
-> CONFIG_PREEMPT=n, in_atomic() returns false inside spinlock.  And
-> in_atomic()'s return value is unaffected by local_irq_disable().
-> 
-> This all needs to be redesigned, sorry.
+On Wednesday 07 July 2004 09:31, Margit Schubert-While wrote:
+[code skipped]
+> Note that AFAIK, the 5GHz WLAN channels start at 34 (5.17 GHz)
+> (but I am not sure) and I don't know the top limit (except that
+> it is <= 6GHz). Maybe somebody can shed light on this.
+> If there is a clear definition, that should be reflected int the code.
+> And something similar for channel_to_freq.
+> Apparently Japan is doing something in the 10GHz band -
+> will have to look for details.
+It is not 10 GHz band. They use the same 5 GHz band, exactly same frequencies,
+but channel is twice narrower - 10Mhz instead of 20Mhz as usual 802.11.
 
-Ok, fixed.  Lazy allocation is gone.
+In 10Mhz channels, they use 1/2 data rates as well. I.e.
+(6,9,12,18,24,36,48,54) rates replaced by (3,4.5,6,9,12,18,24,27)
 
-Please apply.
+For frequencies, there are several documents. I'll try to summarize:
 
-Signed-off-by: James Morris <jmorris@redhat.com>
+2.4Ghz band (as in code):
+in 802.11b standard, 14 channels defined:
+freq=channel*5 + 2407, channel=1..13
+freq=2484, channel=14
 
+Those "unofficial" frequencies are not defined. BTW, do anyone know document
+desctibing them?
 
-diff -urN -X dontdiff linux-2.6.7-bk20.o/crypto/deflate.c linux-2.6.7-bk20.w/crypto/deflate.c
---- linux-2.6.7-bk20.o/crypto/deflate.c	2004-06-16 01:20:04.000000000 -0400
-+++ linux-2.6.7-bk20.w/crypto/deflate.c	2004-07-09 00:38:43.137189624 -0400
-@@ -39,44 +39,16 @@
- #define DEFLATE_DEF_MEMLEVEL		MAX_MEM_LEVEL
- 
- struct deflate_ctx {
--	int comp_initialized;
--	int decomp_initialized;
- 	struct z_stream_s comp_stream;
- 	struct z_stream_s decomp_stream;
- };
- 
--static inline int deflate_gfp(void)
--{
--	return in_softirq() ? GFP_ATOMIC : GFP_KERNEL;
--}
--
--static int deflate_init(void *ctx)
--{
--	return 0;
--}
--
--static void deflate_exit(void *ctx)
--{
--	struct deflate_ctx *dctx = ctx;
--
--	if (dctx->comp_initialized)
--		vfree(dctx->comp_stream.workspace);
--	if (dctx->decomp_initialized)
--		kfree(dctx->decomp_stream.workspace);
--}
--
--/*
-- * Lazy initialization to make interface simple without allocating
-- * un-needed workspaces.  Thus can be called in softirq context.
-- */
- static int deflate_comp_init(struct deflate_ctx *ctx)
- {
- 	int ret = 0;
- 	struct z_stream_s *stream = &ctx->comp_stream;
- 
--	stream->workspace = __vmalloc(zlib_deflate_workspacesize(),
--	                              deflate_gfp()|__GFP_HIGHMEM,
--	                              PAGE_KERNEL);
-+	stream->workspace = vmalloc(zlib_deflate_workspacesize());
- 	if (!stream->workspace ) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -89,7 +61,6 @@
- 		ret = -EINVAL;
- 		goto out_free;
- 	}
--	ctx->comp_initialized = 1;
- out:	
- 	return ret;
- out_free:
-@@ -102,8 +73,7 @@
- 	int ret = 0;
- 	struct z_stream_s *stream = &ctx->decomp_stream;
- 
--	stream->workspace = kmalloc(zlib_inflate_workspacesize(),
--	                            deflate_gfp());
-+	stream->workspace = kmalloc(zlib_inflate_workspacesize(), GFP_KERNEL);
- 	if (!stream->workspace ) {
- 		ret = -ENOMEM;
- 		goto out;
-@@ -114,7 +84,6 @@
- 		ret = -EINVAL;
- 		goto out_free;
- 	}
--	ctx->decomp_initialized = 1;
- out:
- 	return ret;
- out_free:
-@@ -122,6 +91,36 @@
- 	goto out;
- }
- 
-+static void deflate_comp_exit(struct deflate_ctx *ctx)
-+{
-+	vfree(ctx->comp_stream.workspace);
-+}
-+
-+static void deflate_decomp_exit(struct deflate_ctx *ctx)
-+{
-+	kfree(ctx->decomp_stream.workspace);
-+}
-+
-+static int deflate_init(void *ctx)
-+{
-+	int ret;
-+	
-+	ret = deflate_comp_init(ctx);
-+	if (ret)
-+		goto out;
-+	ret = deflate_decomp_init(ctx);
-+	if (ret)
-+		deflate_comp_exit(ctx);
-+out:
-+	return ret;
-+}
-+
-+static void deflate_exit(void *ctx)
-+{
-+	deflate_comp_exit(ctx);
-+	deflate_decomp_exit(ctx);
-+}
-+
- static int deflate_compress(void *ctx, const u8 *src, unsigned int slen,
- 	                    u8 *dst, unsigned int *dlen)
- {
-@@ -129,12 +128,6 @@
- 	struct deflate_ctx *dctx = ctx;
- 	struct z_stream_s *stream = &dctx->comp_stream;
- 
--	if (!dctx->comp_initialized) {
--		ret = deflate_comp_init(dctx);
--		if (ret)
--			goto out;
--	}
--
- 	ret = zlib_deflateReset(stream);
- 	if (ret != Z_OK) {
- 		ret = -EINVAL;
-@@ -165,12 +158,6 @@
- 	struct deflate_ctx *dctx = ctx;
- 	struct z_stream_s *stream = &dctx->decomp_stream;
- 
--	if (!dctx->decomp_initialized) {
--		ret = deflate_decomp_init(dctx);
--		if (ret)
--			goto out;
--	}
--
- 	ret = zlib_inflateReset(stream);
- 	if (ret != Z_OK) {
- 		ret = -EINVAL;
+5Ghz band (as in code):
+
+freq=channel*5 + 5000, channel=0..200 (from standard)
+
+For valid channels, 802.11a standard says there are 3 bands (all in US):
+1: 36,40,44,48
+2: 52,56,60,64
+3: 149,153,157,161
+
+TGh (regulation in Europe) adds channels
+100..140 with interval 4
+
+Tgj (japan) spec adds new rules: 10Mhz channels I mentioned above, and channel
+formula:
+freq=channel*5+dot11ChannelStartingFrequency; where
+dot11ChannelStartingFrequency may be 4000 or 5000 (as for .11a)
+For channels 183 and above, it is 4000, for others - 5000
+
+Valid channels for Japan (note some channels may have both 10 and 20 Mhz
+width, some - only one of them):
+
+20Mhz channels: 184,188,192,196;8,12,16,34,38,42,46
+10Mhz channels: 183,184,185,187,188,189;7,8,11
+
+For TGn (high throughput) standard expected to finalize around 2006, wide
+40Mhz channels expected, with maybe some additional attributes.
+
+After describing this whole mess, some points to pay attention:
+
+- - channel number is not enough to determine frequency - there are same numbers
+in 2.4 and 5Ghz bands.
+- - to properly init hardware, channel witdh should be provided as well.
+
+Thus, we probable need to use (channel,band,width) triples or (channel,domain)
+tuples, where (band,width) mapped into domain.
+
+Vladimir
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFA7kIAqxdj7mhC6o0RAgdvAJ9KaF5ciW+EjJP8ITc6nbVQGYV4NgCfYkS/
+KnSqVGQxal52x5cPPePphYM=
+=CHNv
+-----END PGP SIGNATURE-----
