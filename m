@@ -1,43 +1,30 @@
-From: Sam Leffler <sam@errno.com>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Mon, 6 Sep 2004 16:04:13 -0700
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <200409061604.13045.sam@errno.com>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <44D53E64-003B-11D9-B426-000A95AD0668@errno.com> <200409062309.26113.vkondra@mail.ru>
-Reply-To: acx100-devel@lists.sourceforge.net
+Date: Mon, 6 Sep 2004 18:23:28 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040906182328.08faf843.davem@davemloft.net>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
+	<757AB580-0030-11D9-9224-000A95AD0668@errno.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-   acx100-devel@lists.sourceforge.net, jgarzik@pobox.com,
-   Jean Tourrilhes <jt@bougret.hpl.hp.com>, Jouni Malinen <jkmaline@cc.hut.fi>,
-   prism54-devel@prism54.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200409062309.26113.vkondra@mail.ru>
-Content-Disposition: inline
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Cc: vda@port.imtp.ilyichevsk.odessa.ua, jgarzik@pobox.com, netdev@oss.sgi.com,
+        acx100-devel@lists.sourceforge.net, jt@bougret.hpl.hp.com,
+        jkmaline@cc.hut.fi, prism54-devel@prism54.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Sam Leffler <sam@errno.com>
+In-Reply-To: <757AB580-0030-11D9-9224-000A95AD0668@errno.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 06 September 2004 01:09 pm, Vladimir Kondratiev wrote:
-> I know about madwifi. I wondering whether there is URL for net80211, or it
-> exist only as part of madwifi.
+On Mon, 6 Sep 2004 11:13:31 -0700
+Sam Leffler <sam@errno.com> wrote:
 
-It only exists as part of other systems (madwifi, netbsd, freebsd, etc.)
+> I've suggested this code as a good starting point for a "generic 802.11 
+> stack" but received only misinformed responses.
 
-	Sam
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by BEA Weblogic Workshop
-FREE Java Enterprise J2EE developer tools!
-Get your free copy of BEA WebLogic Workshop 8.1 today.
-http://ads.osdn.com/?ad_id=5047&alloc_id=10808&op=click
+Sam, I've told you multiple times why your stack isn't a good
+starting point.  It isn't implemented as a true network stack,
+like IPV4, Appletalk, etc.  Instead it's a gross input packet
+hooked packet eater thing that's an ugly wart bolted onto the
+side of the driver API.
