@@ -1,51 +1,28 @@
-From: Ronnie Vaisman <Ronnie_vaisman@radwin.com>
-Subject: GUI linux kerne/driver modulel debugger.
-Date: Tue, 2 Sep 2003 13:21:20 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: (5/5+1) Autoconfig link-local addr to IPv6
+ tunnels
+Date: Tue, 2 Sep 2003 04:35:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <116CA223EAAED2119F050090272E3D7F063F88BC@EXCHANGE>
+Message-ID: <20030902043534.05fc6586.davem@redhat.com>
+References: <20030901035134.2585aa79.davem@redhat.com>
+	<Pine.LNX.4.44.0309011709370.29198-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0309011709370.29198-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 1 Sep 2003 17:24:42 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-Hi all,
+> Ok, this incremental patch to my previous addrconf.c patch generates a
+> link-local address to the IPv6 tunnel device. It first tries to inherit
+> the EUI64 identifier of some other device and if this fails, uses a
+> random interface id.
 
-I  am starting to work with Linux.
-I would like to debug some device driver module of linux. 
-My questions are 
-Which free GUI debuggers may be used?
-Can I use DDD for debug module in linux?
-Is only remote debug mode should be used?
-I will happy to get any aditional information about this issues.
-
-
-Thanks in advance.
-Regards,
-Ronnie Vaisman
-
-
-Regards,
-
-Ronnie Vaisman
-RadWin LTD. 
-34 Habarzel st., Tel Aviv 69710 Israel 
-+972-3-645-5403 (Direct) 
-+972-3-765-7535(Fax)
-email Ronnie_Vaisman@radwin.com
-web <http://radwin.com/> 
-
-**************************************************************************************************
-Privacy Notice: The information contained in this transmittal, including any
-attachments hereto, are confidential and privileged, and intended solely for the
-specified addressee(s).  If you are not the intended addressee, or if you receive this
-message by error, please notify the sender and delete this information from your
-computer.
-Moreover, the recipient(s) may not disclose, forward, or copy this e-mail or 
-attachments, or any portion thereof, or permit the use of this  information, by anyone
-not entitled to it, or in a way that may be damaging to the sender.
-
-**************************************************************************************************
+Yoshfuji, do you mind if I apply his patch 5 and "5/5+1"?
