@@ -1,34 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
-Date: Tue, 31 Aug 2004 12:20:53 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1C1yGT-000859-00@gondolin.me.apana.org.au>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+ else")
+Date: Mon, 30 Aug 2004 19:24:58 -0700
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040830192458.1476df60.davem@davemloft.net>
 References: <20040831013841.GA5824@sunbeam.de.gnumonks.org>
-Cc: davem@davemloft.net, netfilter-devel@lists.netfilter.org,
-        rusty@rustcorp.com.au, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-bounce@oss.sgi.com>
-To: laforge@netfilter.org (Harald Welte)
-In-Reply-To: <20040831013841.GA5824@sunbeam.de.gnumonks.org>
-Errors-to: netdev-bounce@oss.sgi.com
+	<E1C1yGT-000859-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: laforge@netfilter.org, netdev@oss.sgi.com, rusty@rustcorp.com.au,
+	netfilter-devel@lists.netfilter.org, kuznet@ms2.inr.ac.ru
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1C1yGT-000859-00@gondolin.me.apana.org.au>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Harald Welte <laforge@netfilter.org> wrote:
-> 
-> I've seen a number of users commenting out that check or even starting
-> to use the iptables ROUTE target (ugly) to get it working in their
-> setup.  Or they start to use SNAT with scripts in PPP if-up to update
-> the ruleset with the new dynamic IP :(
+On Tue, 31 Aug 2004 12:20:53 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-Yes I had to convert all my MASQUERADE rules over to SNAT due to this
-problem.  Unfortunately I had to convert them back again because SNAT
-doesn't do an automatic flush which MASQUERADE does.  Without the flush
-it's pretty useless when your interface address changes often.
+> So it would be good to know why the oif key is a bad idea.
 
-So it would be good to know why the oif key is a bad idea.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I'm OK with removing the oif check, but I'm not OK with the
+idea of specifying a specific output interface in the
+route lookup flow key here.
