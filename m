@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (2/7) ipmr.c - make local stuff static
-Date: Wed, 25 Jun 2003 11:40:51 -0700
+Subject: [PATCH] (6/7) ipmr.c fix dst underflow on dropped packets
+Date: Wed, 25 Jun 2003 11:41:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030625114051.7a5cc652.shemminger@osdl.org>
+Message-ID: <20030625114137.4c4c2377.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,109 +12,133 @@ To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Make things static where possible in ipmr.c.
+If ipmr rejected a packet, then it would cause a socket buffer to be reprocessed
+after freed leading to "dst underflow" and slow death.  The IP handler expects a negative
+return value to be the protocol to resubmit to, not an error code.
 
-diff -Nru a/include/linux/mroute.h b/include/linux/mroute.h
---- a/include/linux/mroute.h	Wed Jun 25 11:15:02 2003
-+++ b/include/linux/mroute.h	Wed Jun 25 11:15:02 2003
-@@ -217,7 +217,6 @@
- 	__u32	flags;
- };
- 
--extern int pim_rcv(struct sk_buff *);
- extern int pim_rcv_v1(struct sk_buff *);
- 
- struct rtmsg;
 diff -Nru a/net/ipv4/ipmr.c b/net/ipv4/ipmr.c
---- a/net/ipv4/ipmr.c	Wed Jun 25 11:15:02 2003
-+++ b/net/ipv4/ipmr.c	Wed Jun 25 11:15:02 2003
-@@ -83,13 +83,13 @@
+--- a/net/ipv4/ipmr.c	Wed Jun 25 11:30:29 2003
++++ b/net/ipv4/ipmr.c	Wed Jun 25 11:30:29 2003
+@@ -1405,19 +1405,15 @@
+ 	struct net_device  *reg_dev = NULL;
  
- #define VIF_EXISTS(idx) (vif_table[idx].dev != NULL)
+ 	if (skb_is_nonlinear(skb)) {
+-		if (skb_linearize(skb, GFP_ATOMIC) != 0) {
+-			kfree_skb(skb);
+-			return -ENOMEM;
+-		}
++		if (skb_linearize(skb, GFP_ATOMIC) != 0) 
++			goto drop;
+ 		pim = (struct igmphdr*)skb->h.raw;
+ 	}
  
--int mroute_do_assert;					/* Set in PIM assert	*/
--int mroute_do_pim;
-+static int mroute_do_assert;				/* Set in PIM assert	*/
-+static int mroute_do_pim;
+         if (!mroute_do_pim ||
+ 	    skb->len < sizeof(*pim) + sizeof(*encap) ||
+-	    pim->group != PIM_V1_VERSION || pim->code != PIM_V1_REGISTER) {
+-		kfree_skb(skb);
+-                return -EINVAL;
+-        }
++	    pim->group != PIM_V1_VERSION || pim->code != PIM_V1_REGISTER) 
++		goto drop;
  
- static struct mfc_cache *mfc_cache_array[MFC_LINES];	/* Forwarding cache	*/
+ 	encap = (struct iphdr*)(skb->h.raw + sizeof(struct igmphdr));
+ 	/*
+@@ -1427,11 +1423,9 @@
+ 	   c. packet is not truncated
+ 	 */
+ 	if (!MULTICAST(encap->daddr) ||
+-	    ntohs(encap->tot_len) == 0 ||
+-	    ntohs(encap->tot_len) + sizeof(*pim) > skb->len) {
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
++	    encap->tot_len == 0 ||
++	    ntohs(encap->tot_len) + sizeof(*pim) > skb->len) 
++		goto drop;
  
- static struct mfc_cache *mfc_unres_queue;		/* Queue of unresolved entries */
--atomic_t cache_resolve_queue_len;			/* Size of unresolved	*/
-+static atomic_t cache_resolve_queue_len;		/* Size of unresolved	*/
+ 	read_lock(&mrt_lock);
+ 	if (reg_vif_num >= 0)
+@@ -1440,10 +1434,8 @@
+ 		dev_hold(reg_dev);
+ 	read_unlock(&mrt_lock);
  
- /* Special spinlock for queue of unresolved entries */
- static spinlock_t mfc_unres_lock = SPIN_LOCK_UNLOCKED;
-@@ -102,7 +102,7 @@
-    In this case data path is free of exclusive locks at all.
-  */
+-	if (reg_dev == NULL) {
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
++	if (reg_dev == NULL) 
++		goto drop;
  
--kmem_cache_t *mrt_cachep;
-+static kmem_cache_t *mrt_cachep;
- 
- static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local);
- static int ipmr_cache_report(struct sk_buff *pkt, vifi_t vifi, int assert);
-@@ -187,8 +187,7 @@
- 	kfree(dev);
+ 	skb->mac.raw = skb->nh.raw;
+ 	skb_pull(skb, (u8*)encap - skb->data);
+@@ -1464,6 +1456,9 @@
+ 	netif_rx(skb);
+ 	dev_put(reg_dev);
+ 	return 0;
++ drop:
++	kfree_skb(skb);
++	return 0;
  }
- 
--static
--struct net_device *ipmr_reg_vif(struct vifctl *v)
-+static struct net_device *ipmr_reg_vif(struct vifctl *v)
- {
- 	struct net_device  *dev;
- 	struct in_device *in_dev;
-@@ -316,7 +315,7 @@
- 
- /* Single timer process for all the unresolved queue. */
- 
--void ipmr_expire_process(unsigned long dummy)
-+static void ipmr_expire_process(unsigned long dummy)
- {
- 	unsigned long now;
- 	unsigned long expires;
-@@ -683,7 +682,7 @@
-  *	MFC cache manipulation by user space mroute daemon
-  */
- 
--int ipmr_mfc_delete(struct mfcctl *mfc)
-+static int ipmr_mfc_delete(struct mfcctl *mfc)
- {
- 	int line;
- 	struct mfc_cache *c, **cp;
-@@ -704,7 +703,7 @@
- 	return -ENOENT;
- }
- 
--int ipmr_mfc_add(struct mfcctl *mfc, int mrtsock)
-+static int ipmr_mfc_add(struct mfcctl *mfc, int mrtsock)
- {
- 	int line;
- 	struct mfc_cache *uc, *c, **cp;
-@@ -1232,7 +1231,7 @@
- 		ipmr_forward_finish);
- }
- 
--int ipmr_find_vif(struct net_device *dev)
-+static int ipmr_find_vif(struct net_device *dev)
- {
- 	int ct;
- 	for (ct=maxvif-1; ct>=0; ct--) {
-@@ -1244,7 +1243,7 @@
- 
- /* "local" means that we should preserve one skb (for local delivery) */
- 
--int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local)
-+static int ip_mr_forward(struct sk_buff *skb, struct mfc_cache *cache, int local)
- {
- 	int psend = -1;
- 	int vif, ct;
-@@ -1472,7 +1471,7 @@
  #endif
  
- #ifdef CONFIG_IP_PIMSM_V2
--int pim_rcv(struct sk_buff * skb)
-+static int pim_rcv(struct sk_buff * skb)
- {
- 	struct pimreghdr *pim = (struct pimreghdr*)skb->h.raw;
- 	struct iphdr   *encap;
+@@ -1475,10 +1470,8 @@
+ 	struct net_device  *reg_dev = NULL;
+ 
+ 	if (skb_is_nonlinear(skb)) {
+-		if (skb_linearize(skb, GFP_ATOMIC) != 0) {
+-			kfree_skb(skb);
+-			return -ENOMEM;
+-		}
++		if (skb_linearize(skb, GFP_ATOMIC) != 0) 
++			goto drop;
+ 		pim = (struct pimreghdr*)skb->h.raw;
+ 	}
+ 
+@@ -1486,19 +1479,15 @@
+ 	    pim->type != ((PIM_VERSION<<4)|(PIM_REGISTER)) ||
+ 	    (pim->flags&PIM_NULL_REGISTER) ||
+ 	    (ip_compute_csum((void *)pim, sizeof(*pim)) != 0 &&
+-	     ip_compute_csum((void *)pim, skb->len))) {
+-		kfree_skb(skb);
+-                return -EINVAL;
+-        }
++	     ip_compute_csum((void *)pim, skb->len))) 
++		goto drop;
+ 
+ 	/* check if the inner packet is destined to mcast group */
+ 	encap = (struct iphdr*)(skb->h.raw + sizeof(struct pimreghdr));
+ 	if (!MULTICAST(encap->daddr) ||
+-	    ntohs(encap->tot_len) == 0 ||
+-	    ntohs(encap->tot_len) + sizeof(*pim) > skb->len) {
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
++	    encap->tot_len == 0 ||
++	    ntohs(encap->tot_len) + sizeof(*pim) > skb->len) 
++		goto drop;
+ 
+ 	read_lock(&mrt_lock);
+ 	if (reg_vif_num >= 0)
+@@ -1507,10 +1496,8 @@
+ 		dev_hold(reg_dev);
+ 	read_unlock(&mrt_lock);
+ 
+-	if (reg_dev == NULL) {
+-		kfree_skb(skb);
+-		return -EINVAL;
+-	}
++	if (reg_dev == NULL) 
++		goto drop;
+ 
+ 	skb->mac.raw = skb->nh.raw;
+ 	skb_pull(skb, (u8*)encap - skb->data);
+@@ -1530,6 +1517,9 @@
+ #endif
+ 	netif_rx(skb);
+ 	dev_put(reg_dev);
++	return 0;
++ drop:
++	kfree_skb(skb);
+ 	return 0;
+ }
+ #endif
