@@ -1,90 +1,128 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [bk patches] 2.6.x net driver queue
-Date: Wed, 27 Aug 2003 18:27:55 -0400
+Subject: [patch] 2.4.x net driver queue
+Date: Wed, 27 Aug 2003 18:43:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827222755.GA10445@gtf.org>
+Message-ID: <20030827224304.GA11863@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Here's the pile waiting for Linus, so far.
+So that I may synchronize with a few folks, here is the current net
+driver queue for 2.4.x.  A fair chunk of the older commits have been
+submitted to Marcelo.
+
 
 BK users:
 
-	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.6
-		or
-	bk pull http://gkernel.bkbits.net/net-drivers-2.6
+	Outta luck until M pulls previous batch :)
 
 Patch users:
 
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test4-bk2-netdrvr2.patch.bz2
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.4/2.4.23-pre1-netdrvr1.patch.bz2
 
 This will update the following files:
 
- drivers/net/3c501.c             |   91 ----
- drivers/net/3c501.h             |    2 
- drivers/net/3c503.c             |   71 ---
- drivers/net/3c505.c             |   96 +---
- drivers/net/3c507.c             |   97 +----
- drivers/net/3c515.c             |   94 ----
- drivers/net/3c523.c             |   73 ---
- drivers/net/3c527.c             |   94 ----
- drivers/net/3c59x.c             |   47 --
- drivers/net/8139cp.c            |  444 +++++++++--------------
- drivers/net/8139too.c           |  391 +++++++-------------
- drivers/net/Kconfig             |    4 
- drivers/net/pcmcia/3c574_cs.c   |   28 -
- drivers/net/pcmcia/3c589_cs.c   |   81 +---
- drivers/net/pcmcia/axnet_cs.c   |   28 -
- drivers/net/pcmcia/fmvj18x_cs.c |   75 +--
- drivers/net/pcmcia/ibmtr_cs.c   |   35 -
- drivers/net/pcmcia/nmclan_cs.c  |   77 +--
- drivers/net/pcmcia/pcnet_cs.c   |   41 --
- drivers/net/pcmcia/xirc2ps_cs.c |   28 -
- drivers/net/sis190.c            |  221 ++++++-----
- drivers/net/sis900.c            |   62 +--
- drivers/net/tulip/dmfe.c        |   62 ---
- drivers/net/tulip/xircom_cb.c   |   38 -
- drivers/net/wireless/airo.c     |  772 +++++++++++++++++++++++++++++++++-------
- drivers/net/wireless/ray_cs.c   |   32 -
- net/core/ethtool.c              |   12 
- 27 files changed, 1398 insertions(+), 1698 deletions(-)
+ Documentation/networking/ifenslave.c |    1 
+ drivers/net/3c501.c                  |   93 --
+ drivers/net/3c503.c                  |   71 -
+ drivers/net/3c505.c                  |   92 --
+ drivers/net/3c507.c                  |   97 --
+ drivers/net/3c515.c                  |   94 --
+ drivers/net/3c523.c                  |   73 -
+ drivers/net/3c527.c                  |   94 --
+ drivers/net/3c59x.c                  |   50 -
+ drivers/net/8139cp.c                 |  472 ++++-------
+ drivers/net/8139too.c                |  424 ++++------
+ drivers/net/bonding/bond_alb.c       |  144 +++
+ drivers/net/bonding/bond_alb.h       |    8 
+ drivers/net/bonding/bond_main.c      | 1416 ++++++++++++++++++++---------------
+ drivers/net/bonding/bonding.h        |    3 
+ drivers/net/dmfe.c                   |   61 -
+ drivers/net/pcmcia/3c574_cs.c        |   30 
+ drivers/net/pcmcia/3c589_cs.c        |   83 --
+ drivers/net/pcmcia/aironet4500_cs.c  |   76 -
+ drivers/net/pcmcia/axnet_cs.c        |   31 
+ drivers/net/pcmcia/fmvj18x_cs.c      |   75 -
+ drivers/net/pcmcia/ibmtr_cs.c        |   35 
+ drivers/net/pcmcia/netwave_cs.c      |   69 -
+ drivers/net/pcmcia/nmclan_cs.c       |   77 -
+ drivers/net/pcmcia/pcnet_cs.c        |   43 -
+ drivers/net/pcmcia/ray_cs.c          |   32 
+ drivers/net/pcmcia/wavelan_cs.c      |   30 
+ drivers/net/pcmcia/xirc2ps_cs.c      |   28 
+ drivers/net/pcmcia/xircom_cb.c       |   38 
+ drivers/net/sis900.c                 |   72 -
+ drivers/net/wireless/airo.c          |  753 +++++++++++++++---
+ include/linux/list.h                 |   13 
+ include/linux/netdevice.h            |    4 
+ net/core/ethtool.c                   |   12 
+ 34 files changed, 2346 insertions(+), 2348 deletions(-)
 
 through these ChangeSets:
 
-<romieu@fr.zoreil.com> (03/08/27 1.1316)
-   [netdrvr sis190] use PCI DMA API for RX buffers
-   
-   Missing pieces for DMA-API on the Rx side:
-   - SiS190_init_ring: the global area for the received data is mapped.
-     This area is persistent during the whole driver's life.
-     It only needs to be unmapped in SiS190_close() as no other exit/error
-     path exists.
-   - SiS190_rx_interrupt: no map/unmap for received data buffer. A single
-     sync operation is done. Btw, there is no need to store the same value
-     in RxDescArray[cur_rx].buf_addr over and over again.
-   - Remove driver dependancy on CONFIG_BROKEN.
-
-<willy@debian.org> (03/08/27 1.1315)
+<willy@debian.org> (03/08/27 1.1107)
    [netdrvr 8139too] ethtool_ops support
 
-<willy@debian.org> (03/08/27 1.1314)
+<willy@debian.org> (03/08/27 1.1106)
    [ethtool] fix ethtool_get_strings counting bug
 
-<jgarzik@redhat.com> (03/08/26 1.1313)
-   [netdrvr sis190] small bug fixes
+<shmulik.hen@intel.com> (03/08/27 1.1105)
+   [netdrvr bonding] Enhance netdev notification handling.
    
-   * call pci_set_dma_mask
-   * remove erroneous call to unregister_netdev in _init_board()
+   Also, add comment block and bump version.
 
-<javier@tudela.mad.ttd.net> (03/08/26 1.1312)
+<shmulik.hen@intel.com> (03/08/27 1.1104)
+   [netdrvr bonding] Consolidate /proc code, add CHANGENAME handler
+
+<shmulik.hen@intel.com> (03/08/27 1.1103)
+   [netdrvr bonding] support for changing MAC addr, MTU in ALB/TLB modes
+
+<shmulik.hen@intel.com> (03/08/27 1.1102)
+   [netdrvr bonding] support for changing HW address and MTU
+
+<shmulik.hen@intel.com> (03/08/27 1.1101)
+   [netdrvr bonding] Decouple promiscuous handling from the multicast mode setting.
+
+<shmulik.hen@intel.com> (03/08/27 1.1100)
+   [netdrvr bonding] Modes that don't use primary don't use the new prop. code
+
+<shmulik.hen@intel.com> (03/08/27 1.1099)
+   [netdrvr bonding] Change monitoring function to use new slave setting propagation
+
+<shmulik.hen@intel.com> (03/08/27 1.1098)
+   [netdrvr bonding] update slave setting propagation
+   
+   Distinguish between modes that use a primary slave from
+   those that don't, and propagate settings accordingly; Consolidate
+   change_active opeartions and add reselect_active and find_best
+   opeartions.
+
+<shmulik.hen@intel.com> (03/08/27 1.1097)
+   [netdrvr bonding] add another ifenslave.c include
+
+<shmulik.hen@intel.com> (03/08/27 1.1096)
+   [netdrvr bonding] update credits/version
+
+<shmulik.hen@intel.com> (03/08/27 1.1095)
+   [netdrvr bonding] use linked list to handle multiple bond devices
+
+<shmulik.hen@intel.com> (03/08/27 1.1094)
+   [netdrvr bonding] fix /proc read function
+
+<shmulik.hen@intel.com> (03/08/27 1.1093)
+   [list] backport list_for_each_entry_safe macro from 2.6
+
+<jgarzik@redhat.com> (03/08/26 1.1091)
+   [wireless airo] build fixes
+
+<javier@tudela.mad.ttd.net> (03/08/26 1.1090)
    [wireless airo] add support for MIC and latest firmwares
 
-<greg@kroah.com> (03/08/26 1.1311)
+<greg@kroah.com> (03/08/26 1.1089)
    [netdrvr sis900] don't call pci_find_device from irq context
    
    I realized that I've had this patch in my tree for a while, and forgot
@@ -96,92 +134,64 @@ through these ChangeSets:
    It's been tested by a few people with this device, and they say it works
    just fine for them.  Please forward it on up the food chain.
 
-<hirofumi@mail.parknet.co.jp> (03/08/26 1.1310)
+<hirofumi@mail.parknet.co.jp> (03/08/26 1.1088)
    [netdrvr 8139too] add more h/w revision ids
 
-<hirofumi@mail.parknet.co.jp> (03/08/26 1.1309)
+<hirofumi@mail.parknet.co.jp> (03/08/26 1.1087)
    [netdrvr 8139too] remove unused RxConfigMask
 
-<hirofumi@mail.parknet.co.jp> (03/08/26 1.1308)
+<hirofumi@mail.parknet.co.jp> (03/08/26 1.1086)
    [netdrvr 8139too] lwake unlock fix
 
-<srompf@isg.de> (03/08/26 1.1307)
+<srompf@isg.de> (03/08/26 1.1085)
    [netdrvr 8139too] use mii_check_media lib function,
    instead of homebrew MII bitbanging.
 
-<romieu@fr.zoreil.com> (03/08/26 1.1306)
-   [netdrvr sis190] remove unneeded alignment code, other small fixes
+<jgarzik@redhat.com> (03/08/26 1.1076.1.14)
+   [netdrvr 8139too] minor bits from 2.6
    
-   Driver does not need to enforce 256 byte alignment for data returned
-   from pci_alloc_consistent().
-   - {rx/tx}_dma_aligned and {rx/td}_dma_raw are both replaced by {rx/tx}_dma;
-   - {rx/tx}_desc_raw is replaced by direct use of {Rx/Tx}DescArray;
-   - SiS190_open()
-     + fixup for a lack of kmalloc() failure handling;
-     + (return status) there is no need for both retval/rc: merge them;
-     + anonymous printk() fixup: the name of the guilty device is printed;
-   - define {RX/TX}_DESC_TOTAL_SIZE because I am too lazy to read twice the
-     same lengthy arithmetic expression.
+   Keeping the driver in sync to ease maintenance headaches.
+
+<jgarzik@redhat.com> (03/08/26 1.1076.1.13)
+   [netdrvr pcmcia] ethtool_ops support for several more pcmcia drivers
    
-   
+   Drivers updated: fmvj18x_cs, ibmtr_cs, netwave_cs, nmclan_cs,
+   pcnet_cs, ray_cs, wavelan_cs, xirc2ps_cs, xircom_cb.
 
-<jgarzik@redhat.com> (03/08/26 1.1305)
-   [wireless ray_cs] ethtool_ops support
+<jgarzik@redhat.com> (03/08/26 1.1076.1.12)
+   [netdrvr pcmcia] use SET_ETHTOOL_OPS in 3c574, 3c589, aironet4500, and axnet
 
-<jgarzik@redhat.com> (03/08/26 1.1304)
-   [netdrvr xircom_cb] ethtool_ops support
-   
-   Also, export PCI bus id via ETHTOOL_GDRVINFO.
+<jgarzik@redhat.com> (03/08/26 1.1076.1.11)
+   [NET] add SET_ETHTOOL_OPS back-compat hook
 
-<jgarzik@redhat.com> (03/08/26 1.1303)
-   [netdrvr pcmcia] convert several drivers to ethtool_ops
-   
-   Drivers updated: fmvj18x_cs, ibmtr_cs, nmclan_cs, pcnet_cs,
-   xirc2ps_cs.
+<jgarzik@redhat.com> (03/08/26 1.1076.1.10)
+   [netdrvr pcmcia] ethtool_ops for 3c574, 3c589, aironet4500, axnet
 
-<jgarzik@redhat.com> (03/08/26 1.1302)
-   [netdrvr pcmcia] ethtool_ops for 3c574, 3c589, axnet
-
-<jgarzik@redhat.com> (03/08/26 1.1301)
+<jgarzik@redhat.com> (03/08/26 1.1076.1.9)
    [netdrvr] ethtool_ops support for 3c515, 3c523, 3c527, and dmfe
 
-<jgarzik@redhat.com> (03/08/26 1.1300)
+<jgarzik@redhat.com> (03/08/26 1.1076.1.8)
    [netdrvr] ethtool_ops support in 3c503, 3c505, 3c507
 
-<jgarzik@redhat.com> (03/08/26 1.1299)
+<jgarzik@redhat.com> (03/08/26 1.1076.1.7)
    [netdrvr 3c501] ethtool_ops support
 
-<jgarzik@redhat.com> (03/08/26 1.1298)
-   [netdrvr sis190] make driver depend on CONFIG_BROKEN
+<jgarzik@redhat.com> (03/08/26 1.1076.1.6)
+   [netdrvr 3c59x] add a piece missed in previous ethtool_ops patch
    
-   Until RX path is cleaned up to use PCI DMA API and
-   not virt_to_bus.
+   Contributed by Matthew Wilcox.
 
-<jgarzik@redhat.com> (03/08/26 1.1297)
-   [netdrvr sis190] convert TX path to use PCI DMA API
-   
-   Also, minor changes:
-   * mark ->hard_start_xmit ETH_ZLEN test as unlikely()
-   * use cpu_to_le32() and le32_to_cpu() in TX path
-   * fix two leak in error path, in ->hard_start_xmit
-   * don't test netif_queue_stopped() in TX completion path,
-     netif_wake_queue() already does that.
-
-<jgarzik@redhat.com> (03/08/26 1.1296)
+<jgarzik@redhat.com> (03/08/26 1.1076.1.5)
    [netdrvr 8139cp] ethtool_ops support
 
-<jgarzik@redhat.com> (03/08/26 1.1295)
+<jgarzik@redhat.com> (03/08/26 1.1076.1.4)
+   [netdrvr 8139cp] minor bits from 2.6
+
+<jgarzik@redhat.com> (03/08/26 1.1076.1.3)
+   [netdrvr sis900] minor bits from 2.6
+
+<jgarzik@redhat.com> (03/08/26 1.1076.1.2)
    [netdrvr sis900] ethtool_ops support
 
-<willy@debian.org> (03/08/26 1.1294)
+<willy@debian.org> (03/08/26 1.1076.1.1)
    [netdrvr 3c59x] ethtool_ops support
-
-<romieu@fr.zoreil.com> (03/08/26 1.1293)
-   [netdrvr sis190] pass irq argument to synchronize_irq()
-   
-   Looks like this driver wasn't tested on SMP :)
-
-<bunk@fs.tum.de> (03/08/26 1.1292)
-   [netdrvr sis190] fix build with older gcc
-   
-   older gcc's do not support C99/C++ style of variable declarations.
