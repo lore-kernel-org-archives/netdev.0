@@ -1,34 +1,44 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][v3][17/21] Add IPoIB
-	(IP-over-InfiniBand) driver
-Date: Mon, 13 Dec 2004 11:00:48 -0800
-Message-ID: <52ekhu58gv.fsf@topspin.com>
-References: <20041213109.JT1ejUdkRIUXbWOm@topspin.com>
-	<1102963464.9258.11.camel@duffman> <52mzwi58zj.fsf@topspin.com>
-	<1102964069.9258.20.camel@duffman>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] netem: restart device after inserting packets
+Date: Mon, 13 Dec 2004 11:08:28 -0800
+Message-ID: <20041213110828.2af5d0e1@dxpl.pdx.osdl.net>
+References: <20041208123103.4cc6b005@dxpl.pdx.osdl.net>
+	<20041208210031.63f0963f.davem@davemloft.net>
+	<41B91901.3070304@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Tom Duffy <tduffy@sun.com>
-In-Reply-To: <1102964069.9258.20.camel@duffman> (Tom Duffy's message of
-	"Mon, 13 Dec 2004 10:54:29 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netem@osdl.org,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41B91901.3070304@trash.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    Tom> Speaking of nits, there are also some formatting issues with
-    Tom> the Makefiles that changes in the later patches...
+On Fri, 10 Dec 2004 04:33:21 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Thanks, I've fixed those intermediate versions as well.
+> David S. Miller wrote:
+> 
+> >On Wed, 8 Dec 2004 12:31:03 -0800
+> >Stephen Hemminger <shemminger@osdl.org> wrote:
+> >  
+> >
+> >>The version of netem in 2.6.10 moves packets from the delayed queue
+> >>to the qdisc in a timer interrupt. But it forgot to force the device to
+> >>pick them up.
+> >>
+> >>Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> >>
+> >
+> >Good spotting.  Applied, thanks Stephen.
+> >
+> The patch is incomplete, netem may dequeue multiple packets from
+> the delayed queue at once and feed them to the inner queue, but
+> qdisc_restart will only dequeue one packet from the inner queue.
+> This patch moves qdisc_run back to include/net/pkt_sched.h and
+> replaces qdisc_restart by qdisc_run in netem_watchdog.
 
- - R.
+Yes, I wasn't running big enough delays to notice.
