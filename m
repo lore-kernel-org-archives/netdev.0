@@ -1,78 +1,46 @@
-From: Eric Lemoine <eric.lemoine@gmail.com>
-Subject: Re: LLTX and netif_stop_queue
-Date: Wed, 22 Dec 2004 19:49:48 +0100
-Message-ID: <5cac192f04122210491d64d4b6@mail.gmail.com>
-References: <52llbwoaej.fsf@topspin.com>
-	<20041217214432.07b7b21e.davem@davemloft.net>
-	<1103484675.1050.158.camel@jzny.localdomain>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: RE: TG3 fix for slow switches (Was: TG3 driver failure on HP
+ 16-way)
+Date: Wed, 22 Dec 2004 16:02:44 -0800
+Message-ID: <B1508D50A0692F42B217C22C02D84972020F3CED@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_Part_911_15124942.1103741388450"
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: hadi@cyberus.ca
-In-Reply-To: <1103484675.1050.158.camel@jzny.localdomain>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8bit
+Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+Content-class: urn:content-classes:message
+To: "David S. Miller" <davem@davemloft.net>,
+        "Peter Chubb" <peterc@gelato.unsw.edu.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-------=_Part_911_15124942.1103741388450
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-On 19 Dec 2004 14:31:15 -0500, jamal <hadi@cyberus.ca> wrote:
-> On Sat, 2004-12-18 at 00:44, David S. Miller wrote:
+> Because callers are not supposed to depend upon the value 
+> being set to anything valid if tg3_readphy() returns an error.
 > 
-> > Perhaps one way to fix this is to add a pointer to a spinlock to
-> > the netdev struct, and have hold that the upper level grab that
-> > when NETIF_F_LLTX when doing queue state checks.  Actually, that
-> > could end up being racy too.
+> I thought it should never be returning an error at this spot. 
+>  The PHY should always return a valid value within 
+> PHY_BUSY_LOOPS.  If MI_COM_BUSY is staying set for such a 
+> long time that's a pretty serious problem.
 > 
-> How about releasing the qlock only when the LLTX transmit lock is
-> grabbed? That should bring it to par with what it was originally.
+> Taking a peek at the bcm5700 driver by Broadcom, they handle 
+> all PHY read timeouts the way your patch does in this one 
+> spot, by setting the returned value to zero.  So it seems the 
+> device can time out like that in these situations, and your 
+> patch is something close to the correct fix.
+> 
+> Good catch Peter, I'll think some more about this and 
+> probably end up using something similar to your second patch.
+> 
+> Thanks.
+> 
 
-I dont like the idea of releasing inside the driver a lock taken
-outside. That might be just me...
+David, While the 2nd patch or something similar should be applied, I
+think the underlying cause of tg3_readphy() returning error should be
+further investigated.
 
-Instead, I would suggest to have LLTX drivers check whether queue is
-stopped after they grab their private tx lock and before they check tx
-ring fullness. That way we close the race window but keep the driver
-bug check around.
+Peter, if you provide more information, such as registers MAC_MI_MODE
+(0x454) and MAC_MI_COM (0x44c) after the failure, I can look into it.
 
-See attached sungem patch.
-
--- 
-Eric
-
-------=_Part_911_15124942.1103741388450
-Content-Type: application/octet-stream; name="sungem-lltx.patch"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment; filename="sungem-lltx.patch"
-
-PT09PT0gZHJpdmVycy9uZXQvc3VuZ2VtLmMgMS43MSB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuNzEv
-ZHJpdmVycy9uZXQvc3VuZ2VtLmMJMjAwNC0xMS0xNCAxMDo0NTozNiArMDE6MDAKKysrIGVkaXRl
-ZC9kcml2ZXJzL25ldC9zdW5nZW0uYwkyMDA0LTEyLTIyIDE5OjM0OjA3ICswMTowMApAQCAtOTc2
-LDYgKzk3NiwxMiBAQAogCQlyZXR1cm4gTkVUREVWX1RYX0xPQ0tFRDsKIAl9CiAKKwkvKiBUaGlz
-IGhhbmRsZXMgYSBMTFRYLXJlbGF0ZWQgcmFjZSBjb25kaXRpb24gKi8KKwlpZiAobmV0aWZfcXVl
-dWVfc3RvcHBlZChkZXYpKSB7CisJCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmdwLT50eF9sb2Nr
-LCBmbGFncyk7CisJCXJldHVybiBORVRERVZfVFhfQlVTWTsKKwl9CisKIAkvKiBUaGlzIGlzIGEg
-aGFyZCBlcnJvciwgbG9nIGl0LiAqLwogCWlmIChUWF9CVUZGU19BVkFJTChncCkgPD0gKHNrYl9z
-aGluZm8oc2tiKS0+bnJfZnJhZ3MgKyAxKSkgewogCQluZXRpZl9zdG9wX3F1ZXVlKGRldik7Cg==
-
-------=_Part_911_15124942.1103741388450
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-
-------=_Part_911_15124942.1103741388450--
+Michael
