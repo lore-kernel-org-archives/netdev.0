@@ -1,42 +1,45 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: tulip NAPI patch that works with 2.4.20-pre9 or so?
-Date: Tue, 22 Oct 2002 15:55:20 +0200
+From: x¾ç <freezoneplus@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=BF=E4=C1=F2=20=C8=AD=B2=F6=C7=D1?=
+	=?ISO-8859-1?Q?=BC=BA=C0=CE=B5=BF=BF=B5=BB=F3=B8=B8=20=B8=F0=C0=BA?=
+	=?ISO-8859-1?Q?=C0=DA=B7=E1=BD=C7=B0=F8=B0=B3[=BC=BA=C0=CE=B1=A4=B0=ED]?=
+Date: Tue, 22 Oct 2002 23:58:18 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15797.22728.683363.412344@robur.slu.se>
-References: <Pine.GSO.4.30.0210210826440.17911-100000@shell.cyberus.ca>
-	<3DB4EB25.5050706@candelatech.com>
+Message-ID: <200210221457.g9MEvNuR008362@oss.sgi.com>
+Reply-To: freezoneplus@yahoo.co.kr
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: jamal <hadi@cyberus.ca>, Robert Olsson <Robert.Olsson@data.slu.se>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/html; charset="ks_c_5601-1987"
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DB4EB25.5050706@candelatech.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-Ben Greear writes:
-
-
-   In the help file, you suggest this at close:
-            for (i=0; i<NR_CPUS; i++) {
- -                  if(adapter->cnt[i]) {
-.
-   I think the second if should probably be while, ie like this:
-            for (i=0; i<NR_CPUS; i++) {
- +                  while(adapter->cnt[i]) {
- 
- Thanks!
-
- Your postings about driver for p430 Phobos 4-port NIC was very confusing. 
- I assume that tulip in 2.4.20-pre9 works even without the tulip-020922.pat.  
- Right?
-
- Does the board have separate MII-transceivers or is the tulip chips used
- for MII?
-
- Cheers.
-
-						--ro
+PCFET0NUWVBFIEhUTUwgUFVCTElDICItLy9XM0MvL0RURCBIVE1MIDQuMCBUcmFuc2l0aW9u
+YWwvL0VOIj4NCjxIVE1MPjxIRUFEPg0KPE1FVEEgaHR0cC1lcXVpdj1Db250ZW50LVR5cGUg
+Y29udGVudD0idGV4dC9odG1sOyBjaGFyc2V0PWV1Yy1rciI+DQo8TUVUQSBjb250ZW50PSJN
+U0hUTUwgNi4wMC4yNzE5LjIyMDAiIG5hbWU9R0VORVJBVE9SPjwvSEVBRD4NCjxCT0RZPjxQ
+PjxGT05UIHNpemU9Mz48U1RST05HPmO+5yx5vucsbL7nPC9TVFJPTkc+ILXute4gv+TB8iDI
+rcGmwNsgtb+/tbvzsPosPC9GT05UPjwvUD4NCjxQPjxTVFJPTkc+PEZPTlQgc2l6ZT0zPr/c
+sbm8usDOtb+/tbvzK8DPuru1v7+1u/MrPEZPTlQgY29sb3I9I2ZmMDAwMD6xubO7wabA27W/
+v7W78zwvRk9OVD7AuzwvRk9OVD48L1NUUk9ORz48L1A+DQo8UD48Rk9OVCBzaXplPTM+wPrI
+8SA8U1RST05HPsDat+G9xzwvU1RST05HPr+hIL/Dt8Gz9b7SvcC0z7TZLjwvRk9OVD4gPC9Q
+Pg0KPFA+PEZPTlQgc2l6ZT0zPsH2sd252bfOIMiuwM7H2CC6uLy8v+QhPC9GT05UPiAgPC9Q
+Pg0KPFA+PFNUUk9ORz48Rk9OVCBjb2xvcj0jZmYwMDAwIHNpemU9Mz65q8G2sMcgvLrAzri4
+IMDUwOXHz7y8v+R+PC9GT05UPjwvU1RST05HPjwvUD4NCjxQPjxBIGhyZWY9Imh0dHA6Ly9z
+ZXhzZXhvay5jb20iIHRhcmdldD0iYmxhbmsiPjxGT05UIHNpemU9NT5odHRwOi8vc2V4c2V4
+b2suY29tPC9GT05UPjwvQT48L1A+DQo8UD48Rk9OVCBzaXplPTE+vK2/773DILW/tOu5rrG4
+IL3FvLO1vyAyMzAtNTO5+MH2IDPD/iC8vb26vL29ur/AxMnAzLTlxMQ8QlI+waS6uMXrvcW6
+ziCxx7DtILvnx9e/oSDAx7DFIMGmuPG/oSBbvLrAzrGksO1dtvOw7SDHpbHix9EgvLrAzrGk
+sO0guN7Az8DUtM+02S48QlI+vPa9xcC7IL/4xKEgvsrAuL3DuOkgvPa9xbDFus64piC0rbev
+wda8vL/kPC9GT05UPjwvUD4NCjxQPjxGT05UIHNpemU9MT4mbmJzcDsgLSA8Rk9OVCBzaXpl
+PTI+PEEgaHJlZj0ibWFpbHRvOmZyZWV6b25lcGx1c0B5YWhvby5jby5rciI+vPa9xbDFus48
+L0E+PC9GT05UPi08L0ZPTlQ+PC9QPjwvRk9OVD48L0JPRFk+PC9IVE1MPg0KwaS6uMXrvcW4
+wSDAzL/rw8vB+Ln9ILHUwaTAuyDB2Lz2x8+/qSCxpLDtuN7Az8DTwLsgx6W9w8fPv7S9wLTP
+tNkuDQqxzcfPwMcgwPzA2r/sxu3B1rzStMIgwM7FzbPdu/PAxyCw+LCztcggwOW80r+hvK0g
+DQq43sDPw9/D4sfBt86x17elwLi3ziC9wLXmx8+/tMC4uOcswPrI8bTCILHNx8/AxyDA/MDa
+v+zG7cHWvNK/3A0Kvu62sMfRILCzwM7BpLq4tbUgsKHB9rDtIMDWwfa+ysC4uce3ziC+yL3J
+x8+9w7HiILnZtvi0z7TZLiANCrz2vcXAuyC/+MfPwfYgvsrAuL3DuOkgssAgW7z2vcWwxbrO
+KHJlZnVzZSlduKYgtK23r8HWvLy/5A0KvPa9xbDFus63ziDAx7vnx6W9w7imIL7Ix8+9w7jp
+IMHfurnAuLfOIMDMuN7Az8DMILnfvNu1ySC89rW1IMDWvcC0z7TZLg0KKElmIHlvdSBkb24n
+dCB3YW50IHRoaXMgdHlwZSBvZiBpbmZvcm1hdGlvbiBvciBlLW1haWwsIHBsZWFzZSBjbGlj
+ayB0aGUgJ3JlZnVzZScgYnV0dG9uKQ0KDQoNCg==
