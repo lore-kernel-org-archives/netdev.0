@@ -1,42 +1,35 @@
-From: Willy Tarreau <willy@w.ods.org>
-Subject: Re: Deadlock problem with dev->refcnt somewhere in netlink/multicast... [PATCH]
-Date: Tue, 3 Feb 2004 07:00:48 +0100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: fix a possible dst leakage in ndisc_send_redirect()
+Date: Tue, 03 Feb 2004 16:27:54 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040203060048.GA3531@alpha.home.local>
-References: <OFDBAB37F5.227951E9-ON88256E2E.0080F5BF@us.ibm.com>
+Message-ID: <20040203.162754.96958174.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        jgarzik@pobox.com, Alexandre.Cassen@wanadoo.fr
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OFDBAB37F5.227951E9-ON88256E2E.0080F5BF@us.ibm.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi David,
+Hello.
 
-On Mon, Feb 02, 2004 at 04:41:11PM -0700, David Stevens wrote:
-> Below is a patch for the reference count problem you ran into.
-> 
-> The problem is that the IGMP code was using "IFF_UP" to determine
-> if a report should be sent or a timer should be started. But it is not
-> necessarily cleared during a destroy_dev.
-> 
-> The IPv4 code was also missing an ip_mc_down() call added in the
-> IPv6 code for a similar case by Jan Oravec.
+D: fix a dst leakage in error path in ndisc_send_redirect().
 
-I would never have found this myself !
+Thanks.
 
-> The patch is for 2.4.x but also applies to 2.6.x. In-line for
-> whitespace-mangled
-> viewing and attached for applying.
-> 
-> Thanks for reporting the problem, Willy, and let me know if you have any
-> problems with the patch.
+===== net/ipv6/ndisc.c 1.64 vs edited =====
+--- 1.64/net/ipv6/ndisc.c	Thu Jan 22 15:38:40 2004
++++ edited/net/ipv6/ndisc.c	Tue Feb  3 16:18:36 2004
+@@ -1365,6 +1365,7 @@
+ 				   1, &err);
+ 	if (buff == NULL) {
+ 		ND_PRINTK1("ndisc_send_redirect: alloc_skb failed\n");
++		dst_release(dst);
+ 		return;
+ 	}
+ 
 
-Thanks a lot, I will try ASAP and will report if I still can break it.
-
-Cheers,
-Willy
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
