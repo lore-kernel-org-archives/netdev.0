@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: [RFC] batched tc to improve change throughput
-Date: Mon, 17 Jan 2005 10:00:04 -0800
-Message-ID: <20050117100004.1353fdef@dxpl.pdx.osdl.net>
+Date: Mon, 17 Jan 2005 10:02:16 -0800
+Message-ID: <20050117100216.22767083@dxpl.pdx.osdl.net>
 References: <20050117152312.GC26856@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -55,9 +55,9 @@ Thomas Graf <tgraf@suug.ch> wrote:
 > 
 > Thoughts?
 
-
-I have no problem with -f input, but don't turn it into a full blown
-interpreter. There are enuf messy scripting languages already.
+The tc command line processing might leak memory now, or suffer
+from expected variable initialization issues.  You may want to run it
+with valgrind or other tools to check for that.
 
 -- 
 Stephen Hemminger	<shemminger@osdl.org>
