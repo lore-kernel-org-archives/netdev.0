@@ -1,84 +1,63 @@
-From: Andre Correa <andre.correa@pobox.com>
-Subject: nf_unregister_hook crashing kernel
-Date: Thu, 22 Apr 2004 17:51:06 -0300
+From: Willy Tarreau <w@w.ods.org>
+Subject: Re: tcp vulnerability?  haven't seen anything on it here...
+Date: Thu, 22 Apr 2004 23:08:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4088303A.2080208@pobox.com>
+Message-ID: <20040422210839.GA8142@alpha.home.local>
+References: <XFMail.20040422102359.pochini@shiny.it> <Pine.LNX.4.53.0404220734330.8039@chaos> <20040422131704.GA6839@alpha.home.local> <Pine.LNX.4.53.0404220929500.8745@chaos> <20040422141848.GA6986@alpha.home.local> <Pine.LNX.4.53.0404221621130.610@chaos>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Richard B. Johnson" <root@chaos.analogic.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.53.0404221621130.610@chaos>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Apr 22, 2004 at 04:25:19PM -0400, Richard B. Johnson wrote:
+> On Thu, 22 Apr 2004, Willy Tarreau wrote:
+> 
+> > Richard,
+> >
+> > you are confusing several thinks, stateful vs stateless protocols. A ping
+> > doesn't need a session on the remote host to be interpreted. A TCP segment
+> > whose flags don't show a SYN need a session to be interpreted. Please note
+> > that I'm not arguing that you won't crash a linux box with an RST addressed
+> > to a broadcast address, I'm saying that there's absolutely no reason why
+> > this should reset all connections, as you proposed it. Someone would have
+> > had to code this explicitly, it cannot be a simple side effect.
+> >
+> > Imagine that each packet which enters the system is presented to a hash
+> > table containing the sessions, and that its session is looked for into
+> > this hash table. You agree that in such code, there's no reason to find
+> > anything that runs through all sessions and kill everyone, since this
+> > code has no use there, and has no reason to be implemented on purpose !
+> >
+> > Look at functions such as tcp_v4_lookup() in net/ipv4/tcp_ipv4.c for
+> > example. When it reaches tcp_v4_lookup_established(), you find this :
+> >
+> >         for(sk = head->chain; sk; sk = sk->next) {
+> >                 if(TCP_IPV4_MATCH(sk, acookie, saddr, daddr, ports, dif))
+> >                         goto hit; /* You sunk my battleship! */
+> >         }
+> >
+> > You cannot match more than once.
+> 
+> [SNIPPED...]
+> 
+> So you are sure an attacker will fire only one bullet?
 
-Hi list, I'm playing with a module that uses netfilter hooks. It 
-register using nf_register_hook without problems, but when I try 
-nf_unregister_hook in my "cleanup" function the kernel crashs. I've 
-found that it crashs calling nf_unregister_hook, but have no idea how to 
-debug it further...
+I don't see where you want to go. An attacker will have to fire at least
+one "bullet" per port, per sequence number block and per timestamp if any.
+That's the basis of the protocol. You were asking if *one* packet sent
+to a broadcast address could reset *every* TCP connections, David showed
+you that broadcasts were dropped, and I showed you that you need as many
+packets as possible combinations to shoot all connections. That's all.
 
-Here goes some snips from my code. Nothing new. I've searched other 
-modules and found that everybody makes the same.
+And BTW, do you think that such a "serious" vulnerability wouldn't have
+been demonstrated on live sites if it was so obvious ? Don't worry, we
+still have a few years in front of us before home networks are fast enough
+to scan such large ranges in a matter of days.
 
-
-...<snip>...
-
-static nf_hookfn my_nf_hook;
- 
-
-static struct nf_hook_ops my_ingress_ipv4 = {
-        .hook           = my_nf_hook,
-        .owner          = THIS_MODULE,
-        .pf             = PF_INET,
-        .hooknum        = NF_IP_PRE_ROUTING,
-        .priority       = NF_IP_PRI_MANGLE + 1
-};
-
-...<snip>...
-
-static unsigned int my_nf_hook(unsigned int hook, struct sk_buff **pskb,
-                   const struct net_device *indev,
-                   const struct net_device *outdev,
-                   int (*okfn)(struct sk_buff *))
-{
-        if ((*pskb)->my_flags & MY_F_ENQUEUE)
-                return NF_QUEUE;
- 
-
-        return NF_ACCEPT;
-}
-
-...<snip>...
-
-static int __init my_init_hooks(void)
-{
-        int err;
- 
-
-        if ((err = nf_register_queue_handler(PF_INET, my_nf_queue, NULL)))
-                return err;
-}
-
-...<snip>....
-
-static void __exit my_unhook(void)
-{
-
-       nf_unregister_hook(&my_ingress_ipv4);
-}
-
-...<snip>...
-
-module_init(my_init_module);
-module_exit(my_cleanup_module);
-MODULE_LICENSE("GPL");
-
-
-Like I said, nothing new. Is there anybody who can give me some info on 
-how/when can nf_unregister_hook crash the kernel? How can I debug some 
-more?!
-
-Tks in advance for any help.
-
-Andre
+Cheers,
+Willy
