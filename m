@@ -1,34 +1,73 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: SIOCETHTOOL ioctl() and a corrupted cmd argument
-Date: Wed, 5 Mar 2003 16:41:55 -0500
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: Chaotic structure of the net headers?
+Date: Wed, 5 Mar 2003 23:54:41 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030305214155.GM13420@gtf.org>
-References: <20030305210047.GA10824@ducksong.com> <20030305213205.GA1227@ducksong.com>
+Message-ID: <20030305225441.GO20423@fs.tum.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Patrick R. McManus" <mcmanus@ducksong.com>
+To: davem@redhat.com, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20030305213205.GA1227@ducksong.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 05, 2003 at 04:32:05PM -0500, Patrick R. McManus wrote:
-> but SIOCETHTOOL shouldn't need perms, right? it has some functionality
-> that needs it and some that doesn't, and the driver sorts it
-> out.. there isn't a GIOCETHTOOL at all..
-> 
-> #define ETHTOOL_GSET        0x00000001 /* Get settings. */
-> #define ETHTOOL_SSET        0x00000002 /* Set settings, privileged. */
+Hi,
 
+if all I'm describing is completely logical and I'm only too dumb to see 
+the logic please forgive me.  ;-)
 
-You are correct that comment is misleading... all ethtool does current
-requiring CAP_NET_ADMIN.  This is one of the costs of lumping things
-under one ioctl, rather than constantly using new ioctls.
+In 2.5.64 there are networking headers both under include/linux/ and 
+include/net/. I don't understand whether there's a deeper logic why e.g. 
+the netfilter headers are under include/linux/.
 
-It is certainly possible (and reasonable) that a future kernel peeks at
-the ioctl and then conditionally checks privs, but this is not currently
-the case.
+There's some duplication, e.g. include/linux/in6.h contains
 
-	Jeff
+<--   snip  -->
+
+/*
+ *      IPV6 extension headers
+ */
+#define IPPROTO_HOPOPTS         0       /* IPv6 hop-by-hop options      */
+#define IPPROTO_ROUTING         43      /* IPv6 routing header          */
+#define IPPROTO_FRAGMENT        44      /* IPv6 fragmentation header    */
+#define IPPROTO_ICMPV6          58      /* ICMPv6                       */
+#define IPPROTO_NONE            59      /* IPv6 no next header          */
+#define IPPROTO_DSTOPTS         60      /* IPv6 destination options     */
+
+<--  snip  -->
+
+and include/net/ipv6.h contains:
+
+<--  snip  -->
+
+/*
+ *      NextHeader field of IPv6 header
+ */
+
+#define NEXTHDR_HOP             0       /* Hop-by-hop option header. */
+#define NEXTHDR_TCP             6       /* TCP segment. */
+#define NEXTHDR_UDP             17      /* UDP message. */
+#define NEXTHDR_IPV6            41      /* IPv6 in IPv6 */
+#define NEXTHDR_ROUTING         43      /* Routing header. */
+#define NEXTHDR_FRAGMENT        44      /* Fragmentation/reassembly header. */
+#define NEXTHDR_ESP             50      /* Encapsulating security payload. */
+#define NEXTHDR_AUTH            51      /* Authentication header. */
+#define NEXTHDR_ICMP            58      /* ICMP for IPv6. */
+#define NEXTHDR_NONE            59      /* No next header */
+#define NEXTHDR_DEST            60      /* Destination options header. */
+
+<--  snip  -->
+
+Two different #define's for the same thing doesn't sound like a good 
+idea?
+
+cu
+Adrian
+
+-- 
+
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
