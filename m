@@ -1,43 +1,24 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: [PATCH|RFC] IPv6: Equal behavior in addrconf_sysctl_forward() and
- addrconf_sysctl_forward_strategy()
-Date: Thu, 22 Jan 2004 12:59:07 +0200 (EET)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH|RFC] IPv6: Equal behavior in addrconf_sysctl_forward()
+ and addrconf_sysctl_forward_strategy()
+Date: Thu, 22 Jan 2004 20:03:08 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0401221253040.1098@rhea.tcs.hut.fi>
+Message-ID: <20040122.200308.71158042.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.58.0401221253040.1098@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, yoshfuji@linux-ipv6.org
+To: vnuorval@tcs.hut.fi, davem@redhat.com
+In-Reply-To: <Pine.LNX.4.58.0401221253040.1098@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi guys,
+In article <Pine.LNX.4.58.0401221253040.1098@rhea.tcs.hut.fi> (at Thu, 22 Jan 2004 12:59:07 +0200 (EET)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
 
-is there any reason for _forward() to call rt6_purge_dflt_routers(), but
-_forward_strategy() not do the same?
+> If no, the patch below should fix this.
 
-If no, the patch below should fix this.
+Agreed. Please apply, David.
 
-Thanks,
-Ville
-
-===== net/ipv6/addrconf.c 1.86 vs edited =====
---- 1.86/net/ipv6/addrconf.c	Tue Jan 20 06:59:54 2004
-+++ edited/net/ipv6/addrconf.c	Thu Jan 22 12:22:21 2004
-@@ -3030,6 +3030,9 @@
- 			idev = NULL;
- 		*valp = new;
- 		addrconf_forward_change(idev);
-+
-+		if (*valp)
-+			rt6_purge_dflt_routers(0);
- 	} else
- 		*valp = new;
-
-
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+--yoshfuji
