@@ -1,27 +1,33 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: FreeSWAN's pfkey_v2.c
-Date: Wed, 16 Oct 2002 23:53:47 -0300
+From: Daniel Phillips <phillips@arcor.de>
+Subject: Re: [RFC] change format of LSM hooks
+Date: Thu, 17 Oct 2002 05:33:23 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021017025347.GF7541@conectiva.com.br>
-References: <200210170248.g9H2m6bf011892@marajade.sandelman.ottawa.on.ca> <20021017045054.A405@wotan.suse.de>
+Message-ID: <E1821PX-0004Ob-00@starship>
+References: <20021015194545.GC15864@kroah.com> <20021016000706.GI16966@kroah.com> <20021017114127.759e0e81.rusty@rustcorp.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Michael Richardson <mcr@sandelman.ottawa.on.ca>, design@lists.freeswan.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: davem@redhat.com, becker@scyld.com, jmorris@intercode.com.au,
+   kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-security-module@wirex.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20021017045054.A405@wotan.suse.de>
+To: Rusty Russell <rusty@rustcorp.com.au>, Greg KH <greg@kroah.com>
+In-Reply-To: <20021017114127.759e0e81.rusty@rustcorp.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Oct 17, 2002 at 04:50:54AM +0200, Andi Kleen escreveu:
-> > I am looking for confirmation from network stack people that my conclusions
-> > from reading of the macros in linux/net.h is correct.
+On Thursday 17 October 2002 03:41, Rusty Russell wrote:
+> This also allows someone in the future to do:
 > 
-> What you should actually do is to add explicit proper SMP locking.
-> Then you don't need any SOCKOPS_WRAP hacks.
+> 	#define security_call(func, default_ret, ...) \
+> 		({ if (try_inc_mod_count(security_ops->owner))
+> 			(security_ops->func(__VA_ARGS__));
+> 		   else
+> 			(default_ret);
+> 		})
 
-yup, so that eventually we can kill this hackish bandaid.
+Hopefully, dec_mod_count as well.
 
-- Arnaldo
+-- 
+Daniel
