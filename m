@@ -1,69 +1,75 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.70] sysfs cleanup and bugfix
-Date: Thu, 29 May 2003 10:30:11 -0700
+Subject: [PATCH 2.5.70] e100 initialize fields prior to register_netdevice
+Date: Thu, 29 May 2003 10:36:50 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529103011.3f038db7.shemminger@osdl.org>
+Message-ID: <20030529103650.64d61340.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>,
+   Scott Feldman
+ <scott.feldman@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A couple of bugs in netdev_unregister_sysfs; still working on the harder
-refcount issues.
-	- if driver sets get_stats after register then unregister 
-	  will attempt to delete kobject that has not be initialized.
-	- unregister should call kobject_unregister not kobject_del.
+The e100 driver sets many of the fields in the netdevice structure after
+calling the register function.  This confuses the sysfs setup, because
+it uses the presence of the get_stats function pointer to decide whether
+to setup a statistics directory or not.  The earlier patch to net-sysfs
+keeps this from causing a crash.
 
-cleanup's:
-	- use strlcpy instead of snprintf
-	- don't need to memset the stats kobject
+This patch moves the initialization earlier before registration.  It probably
+closes other races as well, where some program could access the e100 driver
+before the pointers were setup.
 
-diff -Nru a/net/core/net-sysfs.c b/net/core/net-sysfs.c
---- a/net/core/net-sysfs.c	Thu May 29 10:25:04 2003
-+++ b/net/core/net-sysfs.c	Thu May 29 10:25:04 2003
-@@ -294,7 +294,7 @@
- 	class_dev->class = &net_class;
- 	class_dev->class_data = net;
- 
--	snprintf(class_dev->class_id, BUS_ID_SIZE, net->name);
-+	strlcpy(class_dev->class_id, net->name, BUS_ID_SIZE);
- 	if ((ret = class_device_register(class_dev)))
- 		goto out;
- 
-@@ -303,17 +303,18 @@
- 		    goto out_unreg;
+--- linux-2.5/drivers/net/e100/e100_main.c	2003-05-27 11:04:34.000000000 -0700
++++ linux-2.5-sysfs/drivers/net/e100/e100_main.c	2003-05-29 08:56:47.000000000 -0700
+@@ -614,6 +614,22 @@
+ 		goto err_dealloc;
  	}
  
-+	
-+	net->stats_kobj.parent = NULL;
- 	if (net->get_stats) {
- 		struct kobject *k = &net->stats_kobj;
- 
--		memset(k, 0, sizeof(*k));
- 		k->parent = kobject_get(&class_dev->kobj);
- 		if (!k->parent) {
- 			ret = -EBUSY;
- 			goto out_unreg;
- 		}
- 
--		snprintf(k->name, KOBJ_NAME_LEN, "%s", "statistics");
-+		strlcpy(k->name, "statistics", KOBJ_NAME_LEN);
- 		k->ktype = &netstat_ktype;
- 
- 		if((ret = kobject_register(k))) 
-@@ -331,8 +332,9 @@
- 
- void netdev_unregister_sysfs(struct net_device *net)
- {
--	if (net->get_stats)
--		kobject_del(&net->stats_kobj);
-+	if (net->stats_kobj.parent) 
-+		kobject_unregister(&net->stats_kobj);
++	dev->vlan_rx_register = e100_vlan_rx_register;
++	dev->vlan_rx_add_vid = e100_vlan_rx_add_vid;
++	dev->vlan_rx_kill_vid = e100_vlan_rx_kill_vid;
++	dev->irq = pcid->irq;
++	dev->open = &e100_open;
++	dev->hard_start_xmit = &e100_xmit_frame;
++	dev->stop = &e100_close;
++	dev->change_mtu = &e100_change_mtu;
++	dev->get_stats = &e100_get_stats;
++	dev->set_multicast_list = &e100_set_multi;
++	dev->set_mac_address = &e100_set_mac;
++	dev->do_ioctl = &e100_ioctl;
++	if (bdp->flags & USE_IPCB)
++		dev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
++				NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
 +
- 	class_device_unregister(&net->class_dev);
- }
+ 	if ((rc = register_netdev(dev)) != 0) {
+ 		goto err_pci;
+ 	}
+@@ -660,23 +676,6 @@
+                 goto err_unregister_netdev;
+ 	}
+ 	
+-	dev->vlan_rx_register = e100_vlan_rx_register;
+-	dev->vlan_rx_add_vid = e100_vlan_rx_add_vid;
+-	dev->vlan_rx_kill_vid = e100_vlan_rx_kill_vid;
+-	dev->irq = pcid->irq;
+-	dev->open = &e100_open;
+-	dev->hard_start_xmit = &e100_xmit_frame;
+-	dev->stop = &e100_close;
+-	dev->change_mtu = &e100_change_mtu;
+-	dev->get_stats = &e100_get_stats;
+-	dev->set_multicast_list = &e100_set_multi;
+-	dev->set_mac_address = &e100_set_mac;
+-	dev->do_ioctl = &e100_ioctl;
+-
+-	if (bdp->flags & USE_IPCB)
+-	dev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
+-			NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+-		
+ 	e100nics++;
  
+ 	e100_get_speed_duplex_caps(bdp);
