@@ -1,48 +1,132 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: UDP counter doesn't increase
-Date: Thu, 19 Feb 2004 11:25:57 +0900 (JST)
+From: "Art Haas" <ahaas@airmail.net>
+Subject: [PATCH] Add C99 initializers to ethtool.c
+Date: Wed, 18 Feb 2004 18:16:33 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040219.112557.102901782.yoshfuji@linux-ipv6.org>
-References: <20040219110035.2e1c15b4%hibi665@oki.com>
+Message-ID: <20040219001633.GC9704@artsapartment.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, hibi665@oki.com
-In-Reply-To: <20040219110035.2e1c15b4%hibi665@oki.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040219110035.2e1c15b4%hibi665@oki.com> (at Thu, 19 Feb 2004 11:00:35 +0900), Takashi Hibi <hibi665@oki.com> says:
+Hi.
 
-> UdpInDatagram in /proc/net/snmp6 doen't increase when IPv6 multicast 
-> UDP packets are received.
-> sock_queue_rcv_skb() is called directly in udpv6_mcast_deliver. I think that
-> udpv6_queue_rcv_skb() should be called instead of sock_queue_rcv_skb()
-> as IPv4.
+Here's a little patch adding C99 initializers to ethtool.c. The patch is
+against the current BK, and the file has been recompiled with the
+changes successfully.
 
-Okay, here's the patch.
+This patch and the one I just sent for the netfilter file were changed
+to make the code easier to read and to remove warnings if a '-W' flag is
+added to the compile command.
 
-===== net/ipv6/udp.c 1.58 vs edited =====
---- 1.58/net/ipv6/udp.c	Thu Jan 29 09:06:25 2004
-+++ edited/net/ipv6/udp.c	Thu Feb 19 11:22:46 2004
-@@ -591,12 +591,12 @@
- 			if (!buff)
- 				continue;
- 		}
--		if (sock_queue_rcv_skb(sk2, buff) >= 0)
-+		if (udpv6_queue_rcv_skb(sk2, buff) >= 0)
- 			buff = NULL;
- 	}
- 	if (buff)
- 		kfree_skb(buff);
--	if (sock_queue_rcv_skb(sk, skb) < 0) {
-+	if (udpv6_queue_rcv_skb(sk, skb) < 0) {
- free_skb:
- 		kfree_skb(skb);
- 	}
+Art Haas
 
+===== net/core/ethtool.c 1.9 vs edited =====
+--- 1.9/net/core/ethtool.c	Sun Oct 12 06:18:38 2003
++++ edited/net/core/ethtool.c	Wed Feb 18 17:22:52 2004
+@@ -76,7 +76,7 @@
+ 
+ static int ethtool_get_settings(struct net_device *dev, void *useraddr)
+ {
+-	struct ethtool_cmd cmd = { ETHTOOL_GSET };
++	struct ethtool_cmd cmd = { .cmd = ETHTOOL_GSET };
+ 	int err;
+ 
+ 	if (!dev->ethtool_ops->get_settings)
+@@ -168,7 +168,7 @@
+ 
+ static int ethtool_get_wol(struct net_device *dev, char *useraddr)
+ {
+-	struct ethtool_wolinfo wol = { ETHTOOL_GWOL };
++	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
+ 
+ 	if (!dev->ethtool_ops->get_wol)
+ 		return -EOPNOTSUPP;
+@@ -195,7 +195,7 @@
+ 
+ static int ethtool_get_msglevel(struct net_device *dev, char *useraddr)
+ {
+-	struct ethtool_value edata = { ETHTOOL_GMSGLVL };
++	struct ethtool_value edata = { .cmd = ETHTOOL_GMSGLVL };
+ 
+ 	if (!dev->ethtool_ops->get_msglevel)
+ 		return -EOPNOTSUPP;
+@@ -231,7 +231,7 @@
+ 
+ static int ethtool_get_link(struct net_device *dev, void *useraddr)
+ {
+-	struct ethtool_value edata = { ETHTOOL_GLINK };
++	struct ethtool_value edata = { .cmd = ETHTOOL_GLINK };
+ 
+ 	if (!dev->ethtool_ops->get_link)
+ 		return -EOPNOTSUPP;
+@@ -331,7 +331,7 @@
+ 
+ static int ethtool_get_coalesce(struct net_device *dev, void *useraddr)
+ {
+-	struct ethtool_coalesce coalesce = { ETHTOOL_GCOALESCE };
++	struct ethtool_coalesce coalesce = { .cmd = ETHTOOL_GCOALESCE };
+ 
+ 	if (!dev->ethtool_ops->get_coalesce)
+ 		return -EOPNOTSUPP;
+@@ -358,7 +358,7 @@
+ 
+ static int ethtool_get_ringparam(struct net_device *dev, void *useraddr)
+ {
+-	struct ethtool_ringparam ringparam = { ETHTOOL_GRINGPARAM };
++	struct ethtool_ringparam ringparam = { .cmd = ETHTOOL_GRINGPARAM };
+ 
+ 	if (!dev->ethtool_ops->get_ringparam)
+ 		return -EOPNOTSUPP;
+@@ -385,7 +385,7 @@
+ 
+ static int ethtool_get_pauseparam(struct net_device *dev, void *useraddr)
+ {
+-	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
++	struct ethtool_pauseparam pauseparam = { .cmd = ETHTOOL_GPAUSEPARAM };
+ 
+ 	if (!dev->ethtool_ops->get_pauseparam)
+ 		return -EOPNOTSUPP;
+@@ -412,7 +412,7 @@
+ 
+ static int ethtool_get_rx_csum(struct net_device *dev, char *useraddr)
+ {
+-	struct ethtool_value edata = { ETHTOOL_GRXCSUM };
++	struct ethtool_value edata = { .cmd = ETHTOOL_GRXCSUM };
+ 
+ 	if (!dev->ethtool_ops->get_rx_csum)
+ 		return -EOPNOTSUPP;
+@@ -440,7 +440,7 @@
+ 
+ static int ethtool_get_tx_csum(struct net_device *dev, char *useraddr)
+ {
+-	struct ethtool_value edata = { ETHTOOL_GTXCSUM };
++	struct ethtool_value edata = { .cmd = ETHTOOL_GTXCSUM };
+ 
+ 	if (!dev->ethtool_ops->get_tx_csum)
+ 		return -EOPNOTSUPP;
+@@ -467,7 +467,7 @@
+ 
+ static int ethtool_get_sg(struct net_device *dev, char *useraddr)
+ {
+-	struct ethtool_value edata = { ETHTOOL_GSG };
++	struct ethtool_value edata = { .cmd = ETHTOOL_GSG };
+ 
+ 	if (!dev->ethtool_ops->get_sg)
+ 		return -EOPNOTSUPP;
+@@ -494,7 +494,7 @@
+ 
+ static int ethtool_get_tso(struct net_device *dev, char *useraddr)
+ {
+-	struct ethtool_value edata = { ETHTOOL_GTSO };
++	struct ethtool_value edata = { .cmd = ETHTOOL_GTSO };
+ 
+ 	if (!dev->ethtool_ops->get_tso)
+ 		return -EOPNOTSUPP;
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Man once surrendering his reason, has no remaining guard against absurdities
+the most monstrous, and like a ship without rudder, is the sport of every wind.
+
+-Thomas Jefferson to James Smith, 1822
