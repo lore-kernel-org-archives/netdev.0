@@ -1,32 +1,43 @@
 From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] (2/4) convert irlan to use alloc_netdev
-Date: Mon, 18 Aug 2003 12:58:36 -0700
+Subject: Re: [PATCH] convert ircomm to seq_file interface
+Date: Mon, 18 Aug 2003 13:09:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818195836.GB6577@bougret.hpl.hp.com>
-References: <20030818114930.4ca873cf.shemminger@osdl.org> <20030818115333.35fe5f6d.davem@redhat.com>
+Message-ID: <20030818200923.GC6577@bougret.hpl.hp.com>
+References: <20030818123142.6369fbff.shemminger@osdl.org>
 Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, irda-users@lists.sourceforge.net,
+Cc: "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20030818115333.35fe5f6d.davem@redhat.com>
+In-Reply-To: <20030818123142.6369fbff.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 18, 2003 at 11:53:33AM -0700, David S. Miller wrote:
+On Mon, Aug 18, 2003 at 12:31:42PM -0700, Stephen Hemminger wrote:
+> Convert ircomm /proc interface to seq_file.
 > 
-> Jean, I'd like to merge Stephen's work as I review
-> it unless you have some hard reason why I shouldn't.
+> Note: don't need spin_lock_irq because list is not ever locked
+> from inside interrupt context.
 
-	Well, I already told you that I don't maintain IrLAN, so you
-are free to do as you wish with IrLAN. It's up to Stephen to see if he
-likes my suggestion or not.
-	By the way, that's why I try to read Stephen patches as fast
-as they come, even though I've got a pile of other work to do.
+	I don't agree with this change.
+	If you look in ircomm_lmp.c ; ircomm_lmp_flow_control(), you
+will see that the hashbin is accessed from BH context. So, at minimum
+it should be a spin_lock_bh().
+	Currently, all the IrDA stack uses spin_lock_irqsave(), where
+is fact a only spin_lock_bh() is needed. But, this is something that I
+kept for 2.7.X, because I would rather make sure previous locking
+changes are safe, before going to the next step. So, for consistency
+with the rest of the IrDA stack and the code in hashbin, I would keep
+the spin_lock_irqsave().
+	What do you think ?
 
-	Thanks...
+	On the other hand, the conversion to seq_file is badly needed,
+because the current /proc code was known to be very buggy. Thanks for
+doing that.
+
+	Have fun...
 
 	Jean
