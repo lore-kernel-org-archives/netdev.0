@@ -1,58 +1,80 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] nfmark modify extension to classifiers
-Date: 06 Oct 2003 18:39:47 -0400
+From: Casey Carter <Casey@Carter.net>
+Subject: Re: Strange UDP binding behavior (SO_BINDTODEVICE)
+Date: Mon, 06 Oct 2003 17:50:53 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1065479986.1102.3.camel@jzny.localdomain>
-References: <20031006002619.GC11250@rei.reeler.org>
-Reply-To: hadi@cyberus.ca
+Message-ID: <3F81F1CD.8050803@Carter.net>
+References: <20031005130154.5bd9d182.kevin@pheared.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, Alexey <kuznet@ms2.inr.ac.ru>,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-ha@lists.linux-ha.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20031006002619.GC11250@rei.reeler.org>
+To: Kevin Dwyer <kevin@pheared.net>
+In-Reply-To: <20031005130154.5bd9d182.kevin@pheared.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Kevin Dwyer wrote:
 
-Hi there,
+>Hello,
+>
+>We have come across something that may be a bug, unless this behavior
+>was intentional.
+>
+>The problem can be simulated by creating a socket, setting
+>SO_BINDTODEVICE, and binding to a port.  Then, in a separate process we
+>attempt to bind to the same port but without the SO_BINDTODEVICE option.
+>The expected behavior is to get EINVAL because the port is already
+>bound by a prior call.  However, it succeeds, and the second process
+>steals the first process' packets.
+>
+>The likely code in question resides in net/ipv4/udp.c:
+>
+>        for (sk2 = udp_hash[snum & (UDP_HTABLE_SIZE - 1)];
+>             sk2 != NULL;
+>             sk2 = sk2->next) {
+>                if (sk2->num == snum &&
+>                    sk2 != sk &&
+>                    sk2->bound_dev_if == sk->bound_dev_if &&
+>                    (!sk2->rcv_saddr ||
+>                     !sk->rcv_saddr ||
+>                     sk2->rcv_saddr == sk->rcv_saddr) &&
+>                    (!sk2->reuse || !sk->reuse))
+>                        goto fail;
+>        }
+>
+>The condition (sk2->bound_dev_if == sk->bound_dev_if) will fail because
+>sk2->bound_dev_if will be the ifindex of the interface we bound to, and
+>sk->bound_dev_if will be 0, since we didn't bind to a specific
+>interface.
+>
+>Lars Ellenberg suggests something like:
+>|       (!sk2->bound_dev_if ||
+>|        !sk->bound_dev_if ||
+>|        sk2->bound_dev_if == sk->bound_dev_if) &&
+>
+>Which on its face appears to clear the bug.  I don't see any obvious
+>downsides to it either, but this is why I'm here.
+>
+>So, is this intentional or a bug?
+>
+>Thanks.
+>
+>  
+>
+This is not a bug, it's a feature!  It is possible to use multiple 
+sockets with the same port number bound to different interfaces (where 
+"no interface" is one possible choice).  The UDP packet delivery code 
+favors the socket that is bound to the interface through which packets 
+are received. So, if I am only interested in packets for port 6666 on 
+eth1, then I am prioritized ahead of the socket bound to "no interface" 
+port 6666.  The only way you can "steal" packets is to create sockets 
+and SO_BINDTODEVICE them "below" another process's non-interface-bound 
+socket.  This is a clear security issue, and is the main reason for 
+restricting SO_BINDEVICE to users with CAP_NET_ADMIN.
 
-This is a bad idea.
-Please consider using the tc action extensions. 
-I was going to write a generic metadata modifier action
-(classid, tcindex, nfmark etc). Maybe you can beat me to it.
-
-cheers,
-jamal
-
-On Sun, 2003-10-05 at 20:26, Thomas Graf wrote:
-> Hello
-> 
-> The netfilter mark field is heavly used nowadays to communicate
-> between tc, netfilter and ip rule.  Classifiers are not yet
-> capable of modifying the nfmark field. However it would make
-> sense, especially in ingress context.
-> 
-> Example:
-> $TC filter add dev $DEV parent 10:0 protocol ip prio 10 u32
-> match ip protocol 6 0xff nfmark 0x10 flowid 10:12
->                          ^^^^^^^^^^^
-> Would set nfmark=0x10 for all icmp packets.
-> 
-> Applications (examples):
->  - Differentiate source classifier if multiple classifiers
->    classify into a single class (match again with cls_fw.c).
->  - Mark packets in ingress and reuse nfmark in ip rules if
->    netfilter is too slow.
->  - Use rsvp(6)/route/tcindex capabilities in netfilter/ip rule.
-> 
-> Below is a patch to the u32 classifier adding this extension.
-> It would be easy to do the same for other classifiers.
-> (I also have a patch against tc if someone is interested.)
-> 
-> The ifdef mess cannot be avoided unless nfmark in skbuff is
-> freed from its ifdefs.
-> 
-> Regards
+-- 
+Casey Carter
+Casey@Carter.net
+ccarter@cs.uiuc.edu
+AIM: cartec69
