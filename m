@@ -1,8 +1,8 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 3/5] r8169: Large Send enablement
-Date: Tue, 7 Dec 2004 01:16:21 +0100
-Message-ID: <20041207001621.GB18672@electric-eye.fr.zoreil.com>
-References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041205235519.GA21885@lilah.hetzel.org> <20041205233756.GB29236@electric-eye.fr.zoreil.com> <20041207001419.GB12838@electric-eye.fr.zoreil.com> <20041207001535.GA18672@electric-eye.fr.zoreil.com>
+Subject: [patch 4/5] r8169: reduce max MTU for large frames
+Date: Tue, 7 Dec 2004 01:17:22 +0100
+Message-ID: <20041207001722.GC18672@electric-eye.fr.zoreil.com>
+References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041205235519.GA21885@lilah.hetzel.org> <20041205233756.GB29236@electric-eye.fr.zoreil.com> <20041207001419.GB12838@electric-eye.fr.zoreil.com> <20041207001535.GA18672@electric-eye.fr.zoreil.com> <20041207001621.GB18672@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, jgarzik@pobox.com,
@@ -10,180 +10,41 @@ Cc: netdev@oss.sgi.com, jgarzik@pobox.com,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: akpm@osdl.org
 Content-Disposition: inline
-In-Reply-To: <20041207001535.GA18672@electric-eye.fr.zoreil.com>
+In-Reply-To: <20041207001621.GB18672@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Large Send enablement.
+The device does not support the whole mtu range it claims. Experimenting
+with the Tx threshold and/or the PCI burst size does not seem to improve
+the behavior.
 
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/r8169.c~r8169-260 drivers/net/r8169.c
---- linux-2.6.10-rc2/drivers/net/r8169.c~r8169-260	2004-12-05 22:36:22.079621298 +0100
-+++ linux-2.6.10-rc2-fr/drivers/net/r8169.c	2004-12-05 22:36:22.084620482 +0100
-@@ -112,7 +112,7 @@ static int multicast_filter_limit = 32;
+diff -puN drivers/net/r8169.c~r8169-265 drivers/net/r8169.c
+--- linux-2.6.10-rc2/drivers/net/r8169.c~r8169-265	2004-12-05 22:36:25.000000000 +0100
++++ linux-2.6.10-rc2-fr/drivers/net/r8169.c	2004-12-07 00:54:48.313082500 +0100
+@@ -112,7 +112,8 @@ static int multicast_filter_limit = 32;
  #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
  #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
  #define EarlyTxThld 	0x3F	/* 0x3F means NO early transmit */
--#define RxPacketMaxSize	0x0800	/* Maximum size supported is 16K-1 */
-+#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC */
+-#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC */
++#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC... */
++#define SafeMtu		0x1c20	/* ... actually life sucks beyond ~7k */
  #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
  
  #define R8169_REGS_SIZE		256
-@@ -426,6 +426,9 @@ static void rtl8169_tx_timeout(struct ne
- static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
- static int rtl8169_rx_interrupt(struct net_device *, struct rtl8169_private *,
- 				void __iomem *);
-+static int rtl8169_change_mtu(struct net_device *netdev, int new_mtu);
-+static void rtl8169_down(struct net_device *dev);
-+
- #ifdef CONFIG_R8169_NAPI
- static int rtl8169_poll(struct net_device *dev, int *budget);
- #endif
-@@ -1237,8 +1240,6 @@ rtl8169_init_board(struct pci_dev *pdev,
- 	}
- 	tp->chipset = i;
- 
--	tp->rx_buf_sz = RX_BUF_SIZE;
--
- 	*ioaddr_out = ioaddr;
- 	*dev_out = dev;
- out:
-@@ -1320,6 +1321,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
- 	dev->irq = pdev->irq;
- 	dev->base_addr = (unsigned long) ioaddr;
-+	dev->change_mtu = rtl8169_change_mtu;
- 
- #ifdef CONFIG_R8169_NAPI
- 	dev->poll = rtl8169_poll;
-@@ -1448,13 +1450,22 @@ static int rtl8169_resume(struct pci_dev
-                                                                                 
- #endif /* CONFIG_PM */
- 
--static int
--rtl8169_open(struct net_device *dev)
-+static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
-+				  struct net_device *dev)
-+{
-+	unsigned int mtu = dev->mtu;
-+
-+	tp->rx_buf_sz = (mtu > RX_BUF_SIZE) ? mtu + ETH_HLEN + 8 : RX_BUF_SIZE;
-+}
-+
-+static int rtl8169_open(struct net_device *dev)
- {
+@@ -1592,9 +1593,9 @@ static int rtl8169_change_mtu(struct net
  	struct rtl8169_private *tp = netdev_priv(dev);
- 	struct pci_dev *pdev = tp->pci_dev;
- 	int retval;
+ 	int ret = 0;
  
-+	rtl8169_set_rxbufsize(tp, dev);
+-	if (new_mtu < ETH_ZLEN || new_mtu > RxPacketMaxSize)
++	if (new_mtu < ETH_ZLEN || new_mtu > SafeMtu)
+ 		return -EINVAL;
+-	
 +
- 	retval =
- 	    request_irq(dev->irq, rtl8169_interrupt, SA_SHIRQ, dev->name, dev);
- 	if (retval < 0)
-@@ -1534,8 +1545,8 @@ rtl8169_hw_start(struct net_device *dev)
- 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 	dev->mtu = new_mtu;
  
--	// For gigabit rtl8169
--	RTL_W16(RxMaxSize, RxPacketMaxSize);
-+	// For gigabit rtl8169, MTU + header + CRC + VLAN
-+	RTL_W16(RxMaxSize, tp->rx_buf_sz);
- 
- 	// Set Rx Config register
- 	i = rtl8169_rx_config |
-@@ -1576,6 +1587,37 @@ rtl8169_hw_start(struct net_device *dev)
- 	netif_start_queue(dev);
- }
- 
-+static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	int ret = 0;
-+
-+	if (new_mtu < ETH_ZLEN || new_mtu > RxPacketMaxSize)
-+		return -EINVAL;
-+	
-+	dev->mtu = new_mtu;
-+
-+	if (!netif_running(dev)) 
-+		goto out;
-+
-+	rtl8169_down(dev);
-+	
-+	rtl8169_set_rxbufsize(tp, dev);
-+	
-+	ret = rtl8169_init_ring(dev);
-+	if (ret < 0)
-+		goto out;
-+
-+	rtl8169_hw_start(dev);
-+	
-+	netif_poll_enable(dev);
-+
-+	rtl8169_request_timer(dev);
-+
-+out:
-+	return ret;
-+}
-+
- static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
- {
- 	desc->addr = 0x0badbadbadbadbadull;
-@@ -2264,19 +2306,17 @@ static int rtl8169_poll(struct net_devic
- }
- #endif
- 
--static int
--rtl8169_close(struct net_device *dev)
-+static void rtl8169_down(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	struct pci_dev *pdev = tp->pci_dev;
- 	void __iomem *ioaddr = tp->mmio_addr;
- 
-+	rtl8169_delete_timer(dev);
-+
- 	netif_stop_queue(dev);
- 
- 	flush_scheduled_work();
- 
--	rtl8169_delete_timer(dev);
--
- 	spin_lock_irq(&tp->lock);
- 
- 	/* Stop the chip's Tx and Rx DMA processes. */
-@@ -2291,13 +2331,27 @@ rtl8169_close(struct net_device *dev)
- 
- 	spin_unlock_irq(&tp->lock);
- 
--	free_irq(dev->irq, dev);
-+	synchronize_irq(dev->irq);
- 
- 	netif_poll_disable(dev);
- 
-+	/* Give a racing hard_start_xmit a few cycles to complete. */
-+	set_current_state(TASK_UNINTERRUPTIBLE);
-+	schedule_timeout(1);
-+
- 	rtl8169_tx_clear(tp);
- 
- 	rtl8169_rx_clear(tp);
-+}
-+
-+static int rtl8169_close(struct net_device *dev)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct pci_dev *pdev = tp->pci_dev;
-+
-+	rtl8169_down(dev);
-+	
-+	free_irq(dev->irq, dev);
- 
- 	pci_free_consistent(pdev, R8169_RX_RING_BYTES, tp->RxDescArray,
- 			    tp->RxPhyAddr);
+ 	if (!netif_running(dev)) 
 
 _
