@@ -1,132 +1,110 @@
-From: Jeb Cramer <jeb.j.cramer@intel.com>
-Subject: [PATCH 1/1 2.6] e1000 management reset fix
-Date: 15 Jun 2004 21:43:33 -0700
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 3 2.6.7] pcnet32: cleanup IRQ limitation.
+Date: Thu, 17 Jun 2004 14:21:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1087361013.12233.14.camel@mini>
+Message-ID: <20040617142148.A6607@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com, netdev@oss.sgi.com
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Resetting the adapter blew away management settings.  So we save the
-important bits before performing a reset.
+Cleanup pcnet32 IRQ handling based on suggestions from Ralf Baechle
+<ralf@linux-mips.org>, and Brian Murphy <brian@murphy.dk>
 
--------------------------------------------------------
+Tested by myself and Brian Murphy.
 
+Please also apply to 2.4.27-pre6.
 
-diff -Nuarp
---- A/drivers/net/e1000/e1000.h
-+++ B/drivers/net/e1000/e1000.h
-@@ -196,6 +196,7 @@ struct e1000_adapter {
- 	uint32_t part_num;
- 	uint32_t wol;
- 	uint32_t smartspeed;
-+	uint32_t en_mng_pt;
- 	uint16_t link_speed;
- 	uint16_t link_duplex;
- 	spinlock_t stats_lock;
-diff -Nuarp
---- A/drivers/net/e1000/e1000_hw.c
-+++ B/drivers/net/e1000/e1000_hw.c
-@@ -265,6 +265,17 @@ e1000_set_mac_type(struct e1000_hw *hw)
-         return -E1000_ERR_MAC_TYPE;
+Signed-off-by: Don Fry <brazilnut@us.ibm.com>
+
+--- linux-2.6.7/drivers/net/hung.pcnet32.c	Wed Jun 16 10:31:44 2004
++++ linux-2.6.7/drivers/net/pcnet32.c	Thu Jun 17 13:14:53 2004
+@@ -22,8 +22,8 @@
+  *************************************************************************/
+ 
+ #define DRV_NAME	"pcnet32"
+-#define DRV_VERSION	"1.30e"
+-#define DRV_RELDATE	"06.11.2004"
++#define DRV_VERSION	"1.30f"
++#define DRV_RELDATE	"06.16.2004"
+ #define PFX		DRV_NAME ": "
+ 
+ static const char *version =
+@@ -247,6 +247,9 @@ static int full_duplex[MAX_UNITS];
+  * v1.30c  25 May 2004 Don Fry added netif_wake_queue after pcnet32_restart.
+  * v1.30d  01 Jun 2004 Don Fry discard oversize rx packets.
+  * v1.30e  11 Jun 2004 Don Fry recover after fifo error and rx hang.
++ * v1.30f  16 Jun 2004 Don Fry cleanup IRQ to allow 0 and 1 for PCI,
++ * 	   expanding on suggestions from Ralf Baechle <ralf@linux-mips.org>,
++ * 	   and Brian Murphy <brian@murphy.dk>.
+  */
+ 
+ 
+@@ -362,7 +365,7 @@ struct pcnet32_private {
+ 
+ static void pcnet32_probe_vlbus(void);
+ static int  pcnet32_probe_pci(struct pci_dev *, const struct pci_device_id *);
+-static int  pcnet32_probe1(unsigned long, unsigned int, int, struct pci_dev *);
++static int  pcnet32_probe1(unsigned long, int, struct pci_dev *);
+ static int  pcnet32_open(struct net_device *);
+ static int  pcnet32_init_ring(struct net_device *);
+ static int  pcnet32_start_xmit(struct sk_buff *, struct net_device *);
+@@ -960,7 +963,7 @@ pcnet32_probe_vlbus(void)
+ 	if (request_region(ioaddr, PCNET32_TOTAL_SIZE, "pcnet32_probe_vlbus")) {
+ 	    /* check if there is really a pcnet chip on that ioaddr */
+ 	    if ((inb(ioaddr + 14) == 0x57) && (inb(ioaddr + 15) == 0x57)) {
+-		pcnet32_probe1(ioaddr, 0, 0, NULL);
++		pcnet32_probe1(ioaddr, 0, NULL);
+ 	    } else {
+ 		release_region(ioaddr, PCNET32_TOTAL_SIZE);
+ 	    }
+@@ -1001,7 +1004,7 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
+ 	return -EBUSY;
      }
  
-+    switch(hw->mac_type) {
-+    case e1000_82541:
-+    case e1000_82547:
-+    case e1000_82541_rev_2:
-+    case e1000_82547_rev_2:
-+        hw->asf_firmware_present = TRUE;
-+        break;
-+    default:
-+        break;
-+    }
-+
-     return E1000_SUCCESS;
+-    return pcnet32_probe1(ioaddr, pdev->irq, 1, pdev);
++    return pcnet32_probe1(ioaddr, 1, pdev);
  }
  
-@@ -5189,3 +5200,27 @@ e1000_set_vco_speed(struct e1000_hw *hw)
-     return E1000_SUCCESS;
- }
  
-+/******************************************************************************
-+ * Verifies the hardware needs to allow ARPs to be processed by the host
-+ *
-+ * hw - Struct containing variables accessed by shared code
-+ *
-+ * returns: - TRUE/FALSE
-+ *
-+ *****************************************************************************/
-+uint32_t
-+e1000_enable_mng_pass_thru(struct e1000_hw *hw)
-+{
-+    uint32_t manc;
-+
-+    if (hw->asf_firmware_present) {
-+        manc = E1000_READ_REG(hw, MANC);
-+
-+        if (!(manc & E1000_MANC_RCV_TCO_EN) ||
-+            !(manc & E1000_MANC_EN_MAC_ADDR_FILTER))
-+            return FALSE;
-+        if ((manc & E1000_MANC_SMBUS_EN) && !(manc & E1000_MANC_ASF_EN))
-+            return TRUE;
-+    }
-+    return FALSE;
-+}
-diff -Nuarp
---- A/drivers/net/e1000/e1000_hw.h
-+++ B/drivers/net/e1000/e1000_hw.h
-@@ -307,6 +307,7 @@ int32_t e1000_led_off(struct e1000_hw *h
- /* Adaptive IFS Functions */
- 
- /* Everything else */
-+uint32_t e1000_enable_mng_pass_thru(struct e1000_hw *hw);
- void e1000_clear_hw_cntrs(struct e1000_hw *hw);
- void e1000_reset_adaptive(struct e1000_hw *hw);
- void e1000_update_adaptive(struct e1000_hw *hw);
-@@ -983,6 +984,7 @@ struct e1000_hw {
-     e1000_ms_type master_slave;
-     e1000_ms_type original_master_slave;
-     e1000_ffe_config ffe_config_state;
-+    uint32_t asf_firmware_present;
-     unsigned long io_base;
-     uint32_t phy_id;
-     uint32_t phy_revision;
-diff -Nuarp
---- A/drivers/net/e1000/e1000_main.c
-+++ B/drivers/net/e1000/e1000_main.c
-@@ -299,7 +299,7 @@ e1000_down(struct e1000_adapter *adapter
- void
- e1000_reset(struct e1000_adapter *adapter)
+@@ -1010,8 +1013,7 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
+  *  pdev will be NULL when called from pcnet32_probe_vlbus.
+  */
+ static int __devinit
+-pcnet32_probe1(unsigned long ioaddr, unsigned int irq_line, int shared,
+-		struct pci_dev *pdev)
++pcnet32_probe1(unsigned long ioaddr, int shared, struct pci_dev *pdev)
  {
--	uint32_t pba;
-+	uint32_t pba, manc;
- 	/* Repartition Pba for greater than 9k mtu
- 	 * To take effect CTRL.RST is required.
- 	 */
-@@ -341,6 +341,12 @@ e1000_reset(struct e1000_adapter *adapte
+     struct pcnet32_private *lp;
+     dma_addr_t lp_dma_addr;
+@@ -1272,11 +1274,8 @@ pcnet32_probe1(unsigned long ioaddr, uns
+     a->write_csr(ioaddr, 2, (lp->dma_addr + offsetof(struct pcnet32_private,
+ 		    init_block)) >> 16);
  
- 	e1000_reset_adaptive(&adapter->hw);
- 	e1000_phy_get_info(&adapter->hw, &adapter->phy_info);
-+
-+	if(adapter->en_mng_pt) {
-+		manc = E1000_READ_REG(&adapter->hw, MANC);
-+		manc |= (E1000_MANC_ARP_EN | E1000_MANC_EN_MNG2HOST);
-+		E1000_WRITE_REG(&adapter->hw, MANC, manc);
-+	}
- }
+-    if (irq_line) {
+-	dev->irq = irq_line;
+-    }
+-
+-    if (dev->irq >= 2) {
++    if (pdev) {		/* use the IRQ provided by PCI */
++	dev->irq = pdev->irq;
+ 	if (pcnet32_debug & NETIF_MSG_PROBE)
+ 	    printk(" assigned IRQ %d.\n", dev->irq);
+     } else {
+@@ -1364,8 +1363,7 @@ pcnet32_open(struct net_device *dev)
+     int rc;
+     unsigned long flags;
  
- /**
-@@ -483,6 +489,8 @@ e1000_probe(struct pci_dev *pdev,
- 	if(pci_using_dac)
- 		netdev->features |= NETIF_F_HIGHDMA;
- 
-+	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
-+
- 	/* before reading the EEPROM, reset the controller to 
- 	 * put the device in a known good starting state */
- 	
+-    if (dev->irq == 0 ||
+-	request_irq(dev->irq, &pcnet32_interrupt,
++    if (request_irq(dev->irq, &pcnet32_interrupt,
+ 		    lp->shared_irq ? SA_SHIRQ : 0, dev->name, (void *)dev)) {
+ 	return -EAGAIN;
+     }
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
