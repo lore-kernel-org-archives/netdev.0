@@ -1,44 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 4/x: [NETDRV] Merge register_netdev calls
-Date: Fri, 11 Jun 2004 12:08:55 +1000
+From: Andi Kleen <ak@suse.de>
+Subject: Re: Allow IP header alignment to be overriden
+Date: Fri, 11 Jun 2004 03:35:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040611020855.GA5480@gondor.apana.org.au>
-References: <20040313025859.GA8186@gondor.apana.org.au> <405C294D.5040508@pobox.com> <20040520111937.GA21804@gondor.apana.org.au> <20040522074435.GA9628@gondor.apana.org.au> <20040529084109.GA13032@gondor.apana.org.au> <40BE3778.1020404@pobox.com> <20040605052737.GA27406@gondor.apana.org.au> <40C8F824.50904@pobox.com>
+Message-ID: <20040611013522.GA9809@wotan.suse.de>
+References: <20040611012727.GA27672@krispykreme>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Anton Blanchard <anton@samba.org>
 Content-Disposition: inline
-In-Reply-To: <40C8F824.50904@pobox.com>
+In-Reply-To: <20040611012727.GA27672@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jun 10, 2004 at 08:09:08PM -0400, Jeff Garzik wrote:
-> 
-> Unfortunately this and patch #5 are moving in the opposition direction 
-> from what we want to be doing, I think.
-> 
-> AFAICS these patches move register_netdev() to points in each driver 
-> earlier in the probe phase, when the driver is not fully set up and 
-> ready to receive packets.
-> 
-> Am I missing something?
+> The following patch creates skb_align and allows an architecture to
+> override it. Thoughts?
 
-The only change made by these two patches is moving the call to
-register_netdev() from the outer probe() function to the inner
-probe() function where the the printk's are.
+I like it. While we haven't seen specific networking performance issues
+on Opteron yet it's certainly one architectures that doesn't care much
+about misalignment. The Intel EM64T CPUs have a bit more penalty, but
+also not much. It's certainly one optimization worth trying.
 
-There is absolutely no code in between the two locations.  That is,
-the driver would've immediately called register_netdev after the inner
-probe() has succeeded.
+> + *	skb_align - align a buffer
+> + *	@skb: buffer to alter
+> + *	@len: bytes required to align
+> + *
+> + * 	Shift a buffer by len bytes for the purposes of alignment. On
+> + * 	some architectures that handle unaligned accesses in hardware
+> + * 	the effects of unaligned DMA is more costly so we allow it to
+> + * 	be overridden. This is only allowed for an empty buffer.
+> + */
+> +#ifndef ARCH_HAS_SKB_ALIGN
+> +#define skb_align(SKB, LEN)	skb_reserve((SKB), (LEN))
+> +#endif
 
-In fact it's really making these ISA/MCA probe() functions more
-like the ones we have for PCI.
+But where does this come from? There's no clear asm/ include in skbuff.h
+matching it, and relying on indirect ones is probably not a good idea.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+-Andi
