@@ -1,39 +1,51 @@
-From: Steve Hill <steve@navaho.co.uk>
-Subject: Re: [PATCH] fix netfilter refcounting [was Re: Conntrack leak
- (2.6.2rc2)]
-Date: Wed, 4 Feb 2004 10:19:45 +0000 (GMT)
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <Pine.LNX.4.58.0402041018120.15629@sorbus2.navaho>
-References: <Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: note on shared socket options
+Date: Wed, 04 Feb 2004 20:37:39 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040204.203739.16838230.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Miller <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-In-Reply-To: <Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Feb 2004, Jozsef Kadlecsik wrote:
+Hello.
 
-> Steve Hill reported a conntrack leakage in 2.6.2-rc2 when nat is enabled
-> and the system forwards fragmented packets. It turned out that an
-> nf_conntrack_put was missing from ip_copy_metadata:
+There're several socket options for multicast
+shared between IPv4 and IPv6.
+Add a note that some range is already used for them.
 
-I noticed this fix made it into the 2.6.2 release last night, so I have 
-tested with a vanilla 2.6.2 kernel this morning and can confirm it's fixed 
-the problem.  Thank you.
+(Alternatevely, we could define other names like this:
+ #define IPV6_MCAST_JOIN_GROUP   MCAST_JOIN_GROUP
+ #define IPV6_MCAST_BLOCK_SOURCE MCAST_BLOCK_SOURCE
+ /* bla, bla ... */
+)
 
-- Steve Hill
-Senior Software Developer                        Email: steve@navaho.co.uk
-Navaho Technologies Ltd.                           Tel: +44-870-7034015
+===== include/linux/in6.h 1.5 vs edited =====
+--- 1.5/include/linux/in6.h	Fri Mar 21 14:23:30 2003
++++ edited/include/linux/in6.h	Wed Feb  4 20:30:47 2004
+@@ -183,5 +183,17 @@
+ #define IPV6_IPSEC_POLICY	34
+ #define IPV6_XFRM_POLICY	35
+ 
++/*
++ * Multicast:
++ * Following socket options are shared between IPv4 and IPv6.
++ *
++ * MCAST_JOIN_GROUP		42
++ * MCAST_BLOCK_SOURCE		43
++ * MCAST_UNBLOCK_SOURCE		44
++ * MCAST_LEAVE_GROUP		45
++ * MCAST_JOIN_SOURCE_GROUP	46
++ * MCAST_LEAVE_SOURCE_GROUP	47
++ * MCAST_MSFILTER		48
++ */
+ 
+ #endif
 
-        ... Alcohol and calculus don't mix - Don't drink and derive! ...
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
