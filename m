@@ -1,27 +1,54 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Pedro Fortuna <pedro.fortuna@gmail.com>
 Subject: Re: filtering packtes before OS takes care about them
-Date: Tue, 1 Mar 2005 01:26:26 +0100
-Message-ID: <20050301002626.GR31837@postel.suug.ch>
-References: <09766A6E64A068419B362367800D50C0B58A18@moritz.faps.uni-erlangen.de>
+Date: Tue, 1 Mar 2005 00:30:51 +0000
+Message-ID: <db95d40c05022816301520b0a6@mail.gmail.com>
+References: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+	 <7bca1cb50502281209798e8a00@mail.gmail.com>
+Reply-To: Pedro Fortuna <pedro.fortuna@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: bert hubert <ahu@ds9a.nl>, netdev@oss.sgi.com
-To: Weber Matthias <weber@faps.uni-erlangen.de>
-Content-Disposition: inline
-In-Reply-To: <09766A6E64A068419B362367800D50C0B58A18@moritz.faps.uni-erlangen.de>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@oss.sgi.com
+In-Reply-To: <7bca1cb50502281209798e8a00@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I need to develop a special gateway. It shall map exernal ips to internal ports and external ports to internal ips (kind of NAT but connections have to be established from external to internal network and vice versa!), so the sender,receveiver addresses and ports have to be changed off each package received. Afterwards these packets shall be resent via one (out of more) interfaces. Therefore kernel's IP stuff disturbs me, but because i want to use TCP/IP at the gateway itself too (the computer runs applications using IP), i still need it.
+Hello,
+I was searching for something like this also. 
+In my case, I'll need to intercept all outgoing IP packets and change
+them (including L2 frame) before they are passed to the network
+interface driver.
+The changes are: 
+-modify the ethertype number in the L2 frame (e.g. DIX frames) to a
+private not used one
+-complety modify the IP packet header and payload
+After this, the packets are sent on their way (passed to the network driver)
 
-I won't comment on the way you are about to solve your problem even if I
-do think that it could be solved in a simpler way. In recent 2.6 kernels
-the earliest filtering possibility is via the ingress qdisc right after
-the skb has been received, see the ing_filter() call in netif_receive_skb(),
-given you enable tc actions. Earlier kernels or if tc actions is not
-enabled, the netfilter prerouting hook is used which gets invoked in the
-ip code after some very basic sanity checks.
+The reverse operation is applied to incoming IP Packets in the destination host.
 
-You can use the pedit action to modify the packet although the checksum
-correction action is still missing which might bother you.
+I didnt investigate the packet_type example you provided but I hope I
+will be able to used for the purposes I explained.
+
+Best Regards,
+Pedro Fortuna
+
+
+On Mon, 28 Feb 2005 14:09:56 -0600, Asim Shankar <asimshankar@gmail.com> wrote:
+> > i need a possibility to catch IP4 packets (from ethernet devices) before OS' netmodules (IP, UDP, TCP, ICMP, ARP, ROUTE, NETFILTER ...) takes care about them and
+> > * to delete them from input buffer such that OS' netmodules can't receive them
+> > * to modify packet headers and move packets to interface related output buffers
+> > * to keep them in input buffers such that OS' netmodules can take care about them.
+> 
+> You can process packets even before ip_rcv() gets them by registering
+> your own packet handler (struct packet_type) using dev_add_pack().  I
+> have a small sample at:
+> http://limnos.csrd.uiuc.edu/notes/code-samples/samples/kernel/packet_type/packet_type_test.c
+> This may not be the cleanest way, but it isn't that dirty either.
+> 
+> Also see:
+> http://www.phrack.org/show.php?p=55&a=12
+> 
+> -- Asim
+> 
+>
