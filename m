@@ -1,81 +1,34 @@
-From: Matthias-Christian Ott <matthias.christian@tiscali.de>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [PATCH] /driver/net/wan/sbs520
-Date: Mon, 10 Jan 2005 18:26:03 +0100
-Message-ID: <41E2BAAB.3070805@tiscali.de>
-References: <200501101947.33917.adobriyan@mail.ru>
+Date: Mon, 10 Jan 2005 19:00:52 +0100
+Message-ID: <20050110180052.GA27528@electric-eye.fr.zoreil.com>
+References: <4F23E557A0317D45864097982DE907941A32B1@pilotmail.sbscorp.sbs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Adam Anthony <aanthony@sbs.com>, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Dobriyan <adobriyan@mail.ru>
-In-Reply-To: <200501101947.33917.adobriyan@mail.ru>
+To: Adam Anthony <AAnthony@sbs.com>
+Content-Disposition: inline
+In-Reply-To: <4F23E557A0317D45864097982DE907941A32B1@pilotmail.sbscorp.sbs.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alexey Dobriyan wrote:
+Adam Anthony <AAnthony@sbs.com> :
+[...]
+>        It would be great to receive some feedback on our work, and we hope
+> that this driver will eventually be added to the kernel.
 
->On Mon, 10 Jan 2005 07:46:52 -0700, Adam Anthony wrote:
->
->  
->
->>With the permission of my employer, SBS Technologies, Inc., I have
->>released a patch for 2.4 kernels that supports the 520 Series of WAN
->>adapters.
->>    
->>
->
->My editor shows ^M at the end of every line of new Documentation/Configure.help,
->MAINTAINERS (add ~63400 bogus lines!). Please, look at the patch _after_
->generating it.
->
->  
->
->>+obj-$(CONFIG_LANMEDIA)		+=		syncppp.o^M
->>    
->>
->
->  
->
->>+subdir-$(CONFIG_LANMEDIA) += lmc^M
->>    
->>
->
->Also random ^M's.
-> 
->--- linux-2.4.28-virgin/drivers/net/wan/sbs520/lnxosl.c
->+++ /usr/src/linux-2.4.28/drivers/net/wan/sbs520/lnxosl.c
->
->  
->
->>+// Programming Language:	C^M
->>+// Target Processor:		Any^M
->>+// Target Operating System: Linux^M
->>    
->>
->
->Well, this is pretty obvious to everyone here. :-)
->
->  
->
->>+// This software may be used and distributed according to the terms^M
->>+// of the GNU General Public License, incorporated herein by reference.^M
->>    
->>
->
->Stupid question: do you mean GPL version 2 or something else?
->
->	Alexey
->-
->To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
->the body of a message to majordomo@vger.kernel.org
->More majordomo info at  http://vger.kernel.org/majordomo-info.html
->Please read the FAQ at  http://www.tux.org/lkml/
->
->  
->
-That's ugly, that are Microsoft line endings.
+It will probably require a few extra steps:
+- read Documentation/CodingStyle (mixed case, typedef from hell, ugly #ifdef);
+- grep ^static
+  -> no static functions ? Uh ?
+- use non-obsolete API (pci_find_device in 2005 ?);
+- convert the os independant wrappers.
 
-Matthias-Christian Ott
+Btw it would probably make sense 1) to figure out what can be merged with
+the in-tree DSCC4 driver and 2) to integrate the driver with the existing
+hdlc stack. Imho there is some duplicated work/code.
+
+--
+Ueimor
