@@ -1,43 +1,30 @@
-From: cip m <cip_tech@yahoo.com>
-Subject: Beginner
-Date: Thu, 10 Jul 2003 22:29:26 -0700 (PDT)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Fri, 11 Jul 2003 14:39:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030711052926.10588.qmail@web14511.mail.yahoo.com>
+Message-ID: <20030711.143926.599349332.yoshfuji@linux-ipv6.org>
+References: <1057900800.3588.50.camel@hades>
+	<Pine.LNX.4.44.0307110821110.24981-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="0-551772643-1057901366=:9880"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: mika.liljeberg@welho.com, andre@tomt.net, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: pekkas@netcore.fi
+In-Reply-To: <Pine.LNX.4.44.0307110821110.24981-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0-551772643-1057901366=:9880
-Content-Type: text/plain; charset=us-ascii
+In article <Pine.LNX.4.44.0307110821110.24981-100000@netcore.fi> (at Fri, 11 Jul 2003 08:22:39 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
 
+> (It might be nice to have configurable /proc option on whether to enable 
+> the subnet router anycast address at all, but that's also a different 
+> story..)
 
+I don't like this
+while I would be ok to have configuration option
+not to support anycast.
 
-Hi,
-
-Can somebody please help me ?
-
-I want to become a linux developer and I ned few tips about what languages I need to know and what other knowledge do I need ?
-
-Thank's
-
-CIPRIAN
-
-
----------------------------------
-Do you Yahoo!?
-SBC Yahoo! DSL - Now only $29.95 per month!
---0-551772643-1057901366=:9880
-Content-Type: text/html; charset=us-ascii
-
-<DIV></DIV>
-<P>Hi,</P>
-<P>Can somebody please help me ?</P>
-<P>I want to become a linux developer and I ned few tips about what languages I need to know and what other knowledge do I need ?</P>
-<P>Thank's</P>
-<P>CIPRIAN</P><p><hr SIZE=1>
-Do you Yahoo!?<br>
-<a href="http://pa.yahoo.com/*http://rd.yahoo.com/evt=1207/*http://promo.yahoo.com/sbc/">SBC Yahoo! DSL</a> - Now only $29.95 per month!
---0-551772643-1057901366=:9880--
+--yoshfuji
