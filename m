@@ -1,54 +1,78 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC] Wireless extensions rethink
-Date: Thu, 17 Jun 2004 15:52:39 -0400
+Date: Thu, 17 Jun 2004 16:06:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D1F687.6030307@pobox.com>
-References: <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com> <20040617174717.GA30460@bougret.hpl.hp.com> <40D1E185.2010201@pobox.com> <20040617185605.GA32216@bougret.hpl.hp.com> <40D1EC54.8000904@pobox.com> <20040617193154.GE32216@bougret.hpl.hp.com>
+Message-ID: <40D1F9C1.1040907@pobox.com>
+References: <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com> <20040617174717.GA30460@bougret.hpl.hp.com> <40D1E185.2010201@pobox.com> <40D1E24C.8090802@pobox.com> <20040617185815.GB32216@bougret.hpl.hp.com> <40D1EAD9.6090403@pobox.com> <20040617191338.GD32216@bougret.hpl.hp.com> <40D1F23E.9090307@pobox.com> <20040617194448.GC31763@bougret.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Gertjan van Wingerde <gwingerde@home.nl>, sfeldma@pobox.com,
-        netdev@oss.sgi.com, jkmaline@cc.hut.fi
+Cc: netdev@oss.sgi.com, Gertjan van Wingerde <gwingerde@home.nl>,
+        sfeldma@pobox.com, jkmaline@cc.hut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jt@hpl.hp.com
-In-Reply-To: <20040617193154.GE32216@bougret.hpl.hp.com>
+In-Reply-To: <20040617194448.GC31763@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Jean Tourrilhes wrote:
-> 	And guess what, I'm helping you in the process. Look back at
-> all the e-mail I sent to the various thread on the subject, and you
-> will clearly see that I'm constructive and giving suggestion on how to
-> do best in this process. I even provide patches.
-> 	I don't understand why you are so opposed to my suggestions,
-> and what more you expect from me.
-[...]
-> 	Converging wireless into Linux since 1996. Welcome to the club ;-)
+> On Thu, Jun 17, 2004 at 03:34:22PM -0400, Jeff Garzik wrote:
+> 
+>>Your patch is half the job -- it allows development of a type-specific 
+>>interface...
+> 
+> 
+> 	Which is exactly what you want. Good.
 
-hehe  :)
+The patch doesn't kill the type-opaque interface, so only 50% of what I 
+want.
 
-I'm _not_ blaming you for anything.  You have certainly contributed a 
-lot.  I've enjoyed working with you in the past, today, and hopefully 
-into the future as well.  I _am_ listening.  But I think we have a 
-fundamental disagreement:
 
-I feel strongly (as you see :)) that the type-opaque interface has got 
-to go, and that means breaking backwards compatibility in the driver API.
+>>So while this patch may be useful in early development, it does not 
+>>allow the direct exposure of core wireless code to the type-specific 
+>>interfaces
+> 
+> 
+> 	What is the core wireless code ?
 
-The iw_handler interface breaks rules of C that we shouldn't be 
-breaking.  Today's kernel includes boatloads of reference-counted 
-kobjects, with strict definitions of lifetime rules.  This has exposed 
-endless bugs and caused a lot of pain, but overall it's a good thing to 
-clean all that up.  Interfaces that store offsets into driver-local 
-structures (iw_handler_def) violate these lifetime rules by simply 
-assuming you always have access to the structure of choice.
+At the moment, "the stuff that calls the driver-local iw_handlers", but 
+hopefully more generic wireless core soon with the merge of HostAP.
 
-We want to design driver interfaces that make it tough for the driver 
-writer to screw up.  Excluding yourself, myself, and others on this 
-list, I think we all know that driver writers can't code their way out 
-of a paper bag.  A properly designed interface lets the compiler flag 
-incorrect code at the first possible opportunity.  Current WE __does__ 
-get the job done (kudos), but it simply doesn't afford that kind of 
-protection.
+
+>>and as such, it can paper over problems that would be 
+>>immediately obviously if the type-specific interface were the only one 
+>>to exist.
+> 
+> 
+> 	Any new code in the kernel is free to use only the new
+> API. That's a big enoug incentive to migrate drivers over to the new
+> API.
+
+With the type-opaque interface gone (key design goal), drivers not using 
+the new API will not function...
+
+
+>>>>Also there is a fourth -- WE doesn't work 100% when you have 
+>>>>a 32-bit userland and a 64-bit kernel.
+>>>
+>>>
+>>>	Since when ? What made you change your mind ?
+>>>	Please check :
+>>>http://marc.theaimsgroup.com/?l=linux-netdev&m=107894322418086&w=2
+>>
+>>The general API, yes.  But most driver-private interfaces will fail 
+>>miserably through 32/64-bit translation.
+> 
+> 
+> 	That's fixable, and easy to fix, if needed. You have all the
+> data you need in the kernel.
+
+Not really -- it's the same problem as SIOCDEVPRIVATE.  Driver-private 
+interfaces by definition change for each driver.  Translation of the 
+same ioctl differs on a per-driver basis.  Consider what happens when 
+passing pointers from userland, for example...
+
+It was for this reason that we created the MII ioctls, which were 
+previously SIOCDEVPRIVATE.
 
 	Jeff
