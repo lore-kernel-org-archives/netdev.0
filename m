@@ -1,30 +1,69 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PATCH: IPSEC xfrm events
-Date: Sat, 2 Apr 2005 11:46:19 +1000
-Message-ID: <20050402014619.GB24861@gondor.apana.org.au>
-References: <1112319441.1089.83.camel@jzny.localdomain> <20050401042106.GA27762@gondor.apana.org.au> <1112353398.1096.116.camel@jzny.localdomain> <20050401114258.GA2932@gondor.apana.org.au> <1112358278.1096.160.camel@jzny.localdomain> <20050401123554.GA3468@gondor.apana.org.au> <1112403845.1088.14.camel@jzny.localdomain> <20050402012813.GA24575@gondor.apana.org.au> <1112406164.1088.54.camel@jzny.localdomain>
+From: jaganav@us.ibm.com
+Subject: RE: Linux support for RDMA
+Date: Fri,  1 Apr 2005 20:59:46 -0500
+Message-ID: <1112407186.424dfc92dc37a@imap.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Asgeir Eiriksson <asgeir@chelsio.com>, "H. Peter Anvin" <hpa@zytor.com>,
+        Roland Dreier <roland@topspin.com>, open-iscsi@googlegroups.com,
+        "David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+        andrea@suse.de, michaelc@cs.wisc.edu,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com, Benjamin LaHaise <bcrl@kvack.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1112406164.1088.54.camel@jzny.localdomain>
+To: Dmitry Yusupov <dima@neterion.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Apr 01, 2005 at 08:42:45PM -0500, jamal wrote:
+Quoting Dmitry Yusupov <dima@neterion.com>:
+
+> On Fri, 2005-04-01 at 15:50 -0800, Asgeir Eiriksson wrote:
+> > Venkat
+> > 
+> > Your assessment of the IB vs. Ethernet latencies isn't necessarily
+> > correct.
+> > - you already have available low latency 10GE switches (< 1us
+> > port-to-port)
+> > - you already have available low latency (cut-through processing) 10GE
+> > TOE engines
+> > 
+> > The Veritest verified 10GE TOE end-to-end latency is < 10us today
+> > (end-to-end being from a Linux user-space-process to a Linux
+> > user-space-process through a switch; full report with detail of the
+> > setup is available at
+> > http://www.chelsio.com/technology/Chelsio10GbE_Fujitsu.pdf)
+> > 
+> > For comparison: the published IB latency numbers are around 5us today
+> > and those use a polling receiver, and those don't include a context
+> > switch(es) as does the Ethernet number quoted above.
 > 
-> So always go v2?
+> yep. I should agree in here. On 10Gbps network latencies numbers are
+> around 5-15us. Even with non-TOE card, I managed to get 13us latency
+> with regular TCP/IP stack.
+> 
+> [root@localhost root]# ./nptcp -a -t -l 256 -u 98304 -i 256 -p 5100 -P - h
+> 17.1.1.227
+> Latency: 0.000013
+> Now starting main loop
+>   0:       256 bytes    7 times -->  131.37 Mbps in 0.000015 sec
+>   1:       512 bytes   65 times -->  239.75 Mbps in 0.000016 sec
+> 
+> Dima
 
-Yes since that's the only version that the kernel knows how to generate.
+When I mentioned about latency, the measurement is from
+end-to-end (i.e. from app to app) but not just the
+switching or port to port latencies.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+With IB, I have seen the best numbers ranging from
+5 to 7 us and which is far better than ethernet today 
+(15 to 35us) with the network we have. I am not
+denyig the fact that ethernet is trying to close the 
+gap here but IB has got a relative advantage now.
+
+Good to see you have got 5us in one case but what were
+the switch and adapter latencies in this case.
+
+Thanks
+Venkat
