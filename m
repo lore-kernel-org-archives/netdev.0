@@ -1,86 +1,28 @@
-From: Bas Bloemsaat <bloemsaa@xs4all.nl>
-Subject: [2.6 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 27 Jul 2003 23:12:30 +0200 (CEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Sun, 27 Jul 2003 15:12:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0307272306310.6754@vialle.bloemsaat.com>
+Message-ID: <20030727151234.6e2aa57e.davem@redhat.com>
+References: <Pine.LNX.4.53.0307272239570.2743@vialle.bloemsaat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, layes@loran.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-net@vger.kernel.org, torvalds@osdl.org
+To: Bas Bloemsaat <bloemsaa@xs4all.nl>
+In-Reply-To: <Pine.LNX.4.53.0307272239570.2743@vialle.bloemsaat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is the samefix as the 2.4 patch. I do not have a machine on which I
-can test 2.6, but visual examination of the files suggested the same
-mechanism. In fact, I was surprised that the 2.4 patch wouldn't patch 2.6
-so I made this one.
+On Sun, 27 Jul 2003 22:52:48 +0200 (CEST)
+Bas Bloemsaat <bloemsaa@xs4all.nl> wrote:
 
-It was made with 2.6.0-test1, and compiles.
+> I think this is unwanted behaviour.
 
-Can someone confirm that 2.6 has the same bug, and that this patch fixes
-it? I suspect it has, and suspect this fixes it, but can't test for lack
-of an available machine.
+Not a bug.  This behavior is on purpose.
 
-Regards,
-Bas Bloemsaat
+Use source based routes if you want to control how ARP
+responses behave in this way.
 
-diff -urN linux-2.6.0-test1.orig/include/linux/inetdevice.h linux-2.6.0-test1/include/linux/inetdevice.h
---- linux-2.6.0-test1.orig/include/linux/inetdevice.h	2003-07-14 05:35:56.000000000 +0200
-+++ linux-2.6.0-test1/include/linux/inetdevice.h	2003-07-27 21:33:02.000000000 +0200
-@@ -98,6 +98,7 @@
- extern u32		inet_select_addr(const struct net_device *dev, u32 dst, int scope);
- extern struct in_ifaddr *inet_ifa_byprefix(struct in_device *in_dev, u32 prefix, u32 mask);
- extern void		inet_forward_change(void);
-+extern int             inet_addr_local_dev(struct in_device *in_dev, u32 addr);
-
- static __inline__ int inet_ifa_match(u32 addr, struct in_ifaddr *ifa)
- {
-diff -urN linux-2.6.0-test1.orig/net/ipv4/arp.c linux-2.6.0-test1/net/ipv4/arp.c
---- linux-2.6.0-test1.orig/net/ipv4/arp.c	2003-07-14 05:37:28.000000000 +0200
-+++ linux-2.6.0-test1/net/ipv4/arp.c	2003-07-27 21:37:31.000000000 +0200
-@@ -67,6 +67,7 @@
-  *					now it is in net/core/neighbour.c.
-  *		Krzysztof Halasa:	Added Frame Relay ARP support.
-  *		Arnaldo C. Melo :	convert /proc/net/arp to seq_file
-+ *		Bas Bloemsaat   :       (20030727) Fixed respond on all devices bug
-  */
-
- #include <linux/types.h>
-@@ -750,7 +751,8 @@
- 		rt = (struct rtable*)skb->dst;
- 		addr_type = rt->rt_type;
-
--		if (addr_type == RTN_LOCAL) {
-+               /* check if arp is for this device */
-+               if (inet_addr_local_dev(in_dev,tip)) {
- 			n = neigh_event_ns(&arp_tbl, sha, &sip, dev);
- 			if (n) {
- 				int dont_send = 0;
-@@ -762,6 +764,7 @@
- 				neigh_release(n);
- 			}
- 			goto out;
-+                /* check if we can and have to proxy it */
- 		} else if (IN_DEV_FORWARD(in_dev)) {
- 			if ((rt->rt_flags&RTCF_DNAT) ||
- 			    (addr_type == RTN_UNICAST  && rt->u.dst.dev != dev &&
-diff -urN linux-2.6.0-test1.orig/net/ipv4/devinet.c linux-2.6.0-test1/net/ipv4/devinet.c
---- linux-2.6.0-test1.orig/net/ipv4/devinet.c	2003-07-14 05:31:57.000000000 +0200
-+++ linux-2.6.0-test1/net/ipv4/devinet.c	2003-07-27 21:34:46.000000000 +0200
-@@ -219,6 +219,15 @@
- 	return 0;
- }
-
-+int inet_addr_local_dev(struct in_device *in_dev, u32 addr)
-+{
-+       for_ifa(in_dev) {
-+               if (!(addr^ifa->ifa_address))
-+                       return -1;
-+       } endfor_ifa(in_dev);
-+       return 0;
-+}
-+
- static void inet_del_ifa(struct in_device *in_dev, struct in_ifaddr **ifap,
- 			 int destroy)
- {
+This is becomming a FAQ.
