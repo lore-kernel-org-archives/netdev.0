@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: Hang when testing with AMD64 with Tg3
-Date: Mon, 04 Oct 2004 18:00:36 -0700
+Date: Mon, 04 Oct 2004 18:05:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096938036.22947.1.camel@localhost.localdomain>
+Message-ID: <1096938308.22947.3.camel@localhost.localdomain>
 References: <1096935071.22155.6.camel@localhost.localdomain>
 	 <20041005001527.GB13106@wotan.suse.de>
 Mime-Version: 1.0
@@ -26,12 +26,6 @@ On Tue, 2004-10-05 at 02:15 +0200, Andi Kleen wrote:
 > > 
 > > Both machines are directly connected with a netgear 100mbit switch.
 > 
-> 
-> I don't see things like this on my boxes with rc3, also with tg3s.
-> 
-> Of what nature is the hang? Does the machine crash?
 
-The sender just doesn't send any more data??? I can reproduce it every
-time and it even happens with stock Suse 9.1 kernel (2.6.4-XX)
-
-Will try a different ether card tommorrow to see if it is there.
+IT ISN'T A NETWORK PROBLEM.  The problem is that iperf uses posix
+pthread mutex's to sychronize and it looks like a futex bug.
