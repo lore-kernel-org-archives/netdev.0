@@ -1,50 +1,40 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [BK PATCH] Misc IPv6 Updates
-Date: Wed, 10 Nov 2004 16:25:06 -0500 (EST)
-Message-ID: <20041110.162506.124979704.yoshfuji@linux-ipv6.org>
-References: <20041110.030026.29809367.yoshfuji@linux-ipv6.org>
-	<OF8CA84FB0.6990A5CD-ON88256F48.0063D0E6-88256F48.0064C53C@us.ibm.com>
+From: Mark Borst <mark@borst.org>
+Subject: Re: node-local multicast issues
+Date: Thu, 11 Nov 2004 12:18:24 +0200
+Message-ID: <1100168304.24452.5.camel@mn-2>
+References: <OF18E2258F.5E2E252A-ON88256F47.007FA9FD-88256F47.0080590C@us.ibm.com>
+	 <1100096251.22964.7.camel@mn-2>  <4192701A.3090908@hp.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kumarkr@us.ibm.com
-In-Reply-To: <OF8CA84FB0.6990A5CD-ON88256F48.0063D0E6-88256F48.0064C53C@us.ibm.com>
+To: Brian Haley <Brian.Haley@hp.com>
+In-Reply-To: <4192701A.3090908@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF8CA84FB0.6990A5CD-ON88256F48.0063D0E6-88256F48.0064C53C@us.ibm.com> (at Wed, 10 Nov 2004 10:20:40 -0800), Krishna Kumar <kumarkr@us.ibm.com> says:
-
-> Is it faster to do :
+On Wed, 2004-11-10 at 14:46 -0500, Brian Haley wrote:
+> Mark Borst wrote:
 > 
-> +static inline int ipv6_addr_equal(const struct in6_addr *a1,
-> +                                                  const struct in6_addr
-> *a2)
-> +{
-> +            return (a1->s6_addr32[3] == a2->s6_addr32[3] &&
-> +                        a1->s6_addr32[2] == a2->s6_addr32[2] &&
-> +                        a1->s6_addr32[1] == a2->s6_addr32[1] &&
-> +                        a1->s6_addr32[0] == a2->s6_addr32[0]);
-> +}
-> +
+> > On another note: 'ping6 ff02::1' gives "connect: Invalid argument" on
+> > linux.
 > 
-> instead ?It should be faster for typical addresses, say 2000:a:b:c::1 and
-> 2000:a:b:c::2. The device EUI-64 is
-> normally going to be different for all devices while prefix can be same
-> (atleast on a link/local site) completely
-> or to some prefix len portion.
+> You've got to use -I with that, maybe ping6 could give a hint.
 
-It depends on context and situation.
-But, the difference is almost within the error range
-compare to the this improvements to avoid using memcmp.
+I found that too. With -I it works fine.
 
-Anyway, the reason why the order is MSB->LSB is
- 1. if you have multiple addresses with multiple prefixes + 
-    same interface identifier, MSB->LSB is better.
- 2. from the point of view of cache, MSB->LSB is better.
+> 
+> > The only implementation that gives me replies is Solaris.
+> 
+> My trusty Tru64 UNIX box works as well :)
+
+Good ;) My testing wasn't anything near exhaustive, just a short test ;)
+
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Mark Borst
+Researcher
+Network and Protocols Group
+Tampere University of Technology, Finland
