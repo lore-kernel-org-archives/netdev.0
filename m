@@ -1,73 +1,103 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (1/5) replay netdev notifier events on registration
-Date: Thu, 15 Jan 2004 11:51:58 -0800
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
+Date: Thu, 15 Jan 2004 11:59:49 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115115158.4c78e2ae.davem@redhat.com>
-References: <20040113105843.0d1351cb.shemminger@osdl.org>
-	<20040113163631.1a9c1a59.davem@redhat.com>
-	<20040114164416.753a62fc.shemminger@osdl.org>
-	<20040115004255.62dc8b95.davem@redhat.com>
-	<20040115101617.0782fcca.shemminger@osdl.org>
+Message-ID: <OF0184DFA4.569DFD66-ON87256E1C.006DBAE8@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, chas@cmf.nrl.navy.mil
+Content-Type: multipart/alternative;
+	Boundary="0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78"
+Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040115101617.0782fcca.shemminger@osdl.org>
+To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jan 2004 10:16:17 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+--0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78
+Content-type: text/plain; charset=ISO-2022-JP
 
-> On Thu, 15 Jan 2004 00:42:55 -0800
-> "David S. Miller" <davem@redhat.com> wrote:
-> 
-> > Ok, I have an idea, consider this.  We add a netdev->notifier()
-> > method.  We create a new routine to net/core/dev.c:
-> > 
-> > static void run_netdev_notifiers(int event, struct net_device *dev)
-> > {
-> > 	notifier_call_chain(&netdev_chain, event, dev);
-> > 
-> > 	if (dev->notifier)
-> > 		dev->notifier(dev, event);
-> > }
-> > 
-> > Then replace all the notifier_call_chain(&netdev_chain, ...) calls
-> > in net/core/dev.c with invocations of run_netdev_notifiers().
-> > 
-> > I believe we can (and thus should) add an ASSERT_RTNL() to this new
-> > run_netdev_notifiers() functions, although I'm not %100 sure.
-> > 
-> > What do you think Stephen?
-> 
-> Feeling stupid this morning, how wold this help?  Would device set
-> dev->notifier and not register for other notifications?
 
-That's correct.  This eliminates the "am I a type FOO device", because
-this netdev->notifier() call would be implication only run on the correct
-device types.
 
-> Rather than a single notifier why not add a dev->notify_chain and
-> do:
-> 	notifier_call_chain(&netdev_chain, event, dev);
-> 	notifier_call_chain(dev->notify_chain, event, dev);
-> 
-> But the whole programming model of responding to callbacks seems bassackwards
-> in these cases, because the device can process the same events (up/down)
-> on the front side (open/close) rather than getting callbacks.  At least in the
-> qeth case it seems like a messed up design.  
 
-qeth is a mess period, it tries to be overly clever because of the things it is
-trying to achieve and as a result it's an abominable piece of complexity.
 
-I don't see how a "dev->notify_chain" like scheme could work...
-Oh I see, this way the driver can register multiple private device-type specific
-notifiers.  Yes, this looks like a fine way to do this too.
+OK, I agree with both of you. Then this patch is not needed. Yoshifuji, you
+can sleep in peace. ;-)
 
-But really, the driver too could do all of it's "notifiers" in the one dev->notifier()
-method.
+Thank you all!
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
 
-I'm not overly picky about using one scheme over another.
+
+
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>@oss.sgi.com on
+01/15/2004 11:53:41 AM
+
+Sent by:    netdev-bounce@oss.sgi.com
+
+
+To:    davem@redhat.com
+cc:    Shirley Ma/Beaverton/IBM@IBMUS, mashirle@us.ltcfwd.linux.ibm.com,
+       kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Subject:    Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
+
+
+In article <20040115113840.4b7eb5d8.davem@redhat.com> (at Thu, 15 Jan 2004
+11:38:40 -0800), "David S. Miller" <davem@redhat.com> says:
+
+> We can create new files to present information in new ways and formats,
+> but I totally prefer using netlink based information gathering over
+making
+> new procfs files.
+
+Although this discussion is about rtnetlink message,
+problem will be solved if we provide jiffies for neigbours
+IMHO.
+
+--yoshfuji @ let me sleep...
+
+
+
+--0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78
+Content-type: text/html; charset=ISO-2022-JP
+Content-Disposition: inline
+
+<html><body>
+<p>OK, I agree with both of you. Then this patch is not needed. Yoshifuji, you can sleep in peace. ;-)<br>
+<br>
+Thank you all!<br>
+Shirley Ma<br>
+IBM Linux Technology Center<br>
+15300 SW Koll Parkway<br>
+Beaverton, OR 97006-6063<br>
+Phone: (503) 578-7638<br>
+FAX:      (503) 578-3228<br>
+<br>
+<br>
+
+<p><font size="2" color="#800080">Sent by:	netdev-bounce@oss.sgi.com</font>
+<p><font size="2" color="#800080">To:	</font><font size="2">davem@redhat.com</font><br>
+<font size="2" color="#800080">cc:	</font><font size="2">Shirley Ma/Beaverton/IBM@IBMUS, mashirle@us.ltcfwd.linux.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org</font><font size="2" color="#800080"> </font><br>
+<font size="2" color="#800080">Subject:	</font><font size="2">Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable</font><br>
+<br>
+<br>
+<font face="Courier New">In article &lt;20040115113840.4b7eb5d8.davem@redhat.com&gt; (at Thu, 15 Jan 2004 11:38:40 -0800), &quot;David S. Miller&quot; &lt;davem@redhat.com&gt; says:<br>
+<br>
+&gt; We can create new files to present information in new ways and formats,<br>
+&gt; but I totally prefer using netlink based information gathering over making<br>
+&gt; new procfs files.<br>
+<br>
+Although this discussion is about rtnetlink message,<br>
+problem will be solved if we provide jiffies for neigbours <br>
+IMHO.<br>
+<br>
+--yoshfuji @ let me sleep...<br>
+<br>
+</font><br>
+<br>
+</body></html>
+--0__=08BBE48FDFFE3C788f9e8a93df938690918c08BBE48FDFFE3C78--
