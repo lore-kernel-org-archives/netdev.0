@@ -1,55 +1,42 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: route cache DoS testing and softirqs
-Date: Thu, 8 Apr 2004 16:07:31 +0200
+From: Andi Kleen <ak@muc.de>
+Subject: Re: IPv4 and IPv6 stack multi-FIB, scalable in the million of
+ entries.
+Date: Thu, 08 Apr 2004 19:18:41 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16501.23715.401825.10935@robur.slu.se>
-References: <16498.43191.733850.18276@robur.slu.se>
-	<200404081329.RAA16178@yakov.inr.ac.ru>
+Message-ID: <m3ptaiwfpq.fsf@averell.firstfloor.org>
+References: <1IJuR-8qH-39@gated-at.bofh.it>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se (Robert Olsson), dipankar@in.ibm.com,
-        andrea@suse.de (Andrea Arcangeli), davem@redhat.com (David S. Miller),
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, paulmck@us.ibm.com,
-        akpm@osdl.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200404081329.RAA16178@yakov.inr.ac.ru>
+To: "Mathieu Giguere" <Mathieu.Giguere@ericsson.ca>
+In-Reply-To: <1IJuR-8qH-39@gated-at.bofh.it> (Mathieu Giguere's message of
+ "Thu, 08 Apr 2004 17:21:01 +0200")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+"Mathieu Giguere" <Mathieu.Giguere@ericsson.ca> writes:
 
-kuznet@ms2.inr.ac.ru writes:
+[you should probably discuss that on netdev@oss.sgi.com instead, cc'ed]
 
- > BTW what's about performance in this extremal situation?
+>     We currently looking for a multi-FIB, scalable routing table in the
+> million of entries, no routing cache for IPv4 and IPv6.  We want a IP stack
 
- First I used the patch to defer all softirq's to ksoftirq with call_rcu_bh()
- patch. Sofar this has been the best combination giving both pure sofirq 
- performance and also good response from the userland apps.
+No routing cache? Doesn't sound like a good idea.
 
- I also tried other TCP apps netperf and could note any performance 
- degradation which I was expecting.
- 
- > Also, Robert, let's count the numbers again. With this change you should
- > have latency much less 100msec when priority of ksoftirqd is high.
- > So, rcu problem must be solved at current flow rates.
- > This enforces me to suspect we have another source of overflows.
+> that can have a log(n) (or better) insertion/deletion and lookup
+> performance.  Predictable performance, even in the million of entries.
 
- Certainly. I said to Dipankar we should not expect all overflows to disappear
- the setup I use now. But the call_rcu_bh() patch improved things so it cured 
- some latency caused by RCU. But I don't think we can do much better now in 
- terms dst overflow. 
+And even more vast overkill for most linux users than the existing
+routing code already is.  Linux has at least the beginnings of a pluggable
+FIB interface (fib_table), which has slightly bit rotted, but probably
+not too bad. I would suggest you clean that up, make the existing
+hash table really optional and then you can just plug in anything you want.
 
- > F.e. one silly place could be that you set gc_min_interval via sysctl,
+>     I join a patch with the fib_hash in IPv4 replace with a patricia tree
+> ready for multi-FIB base on a 2.4.22 kernel.  This is the beginning of a
+> long cleanup.
 
- I should not...
+What do you consider dirty in the current stack? 
 
- > which uses second resolution (yup :-(). With one second you get maximal
- > ip_rt_max_size/1 second flow rate, it is _not_ a lot.
-
- From /proc
- gc_min_interval = 0
- max_size = 262144
-
- Cheers.
-						--ro
+-Andi
