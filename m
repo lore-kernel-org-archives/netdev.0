@@ -1,61 +1,29 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: Re: [PATCH] Updated 8139too with NAPI
-Date: Thu, 13 Nov 2003 00:41:34 +0900
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Wed, 12 Nov 2003 15:43:51 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <87d6bx4ms1.fsf@devron.myhome.or.jp>
-References: <3F9070B6.9090306@pobox.com> <873cdqbt6z.fsf@devron.myhome.or.jp>
-	<20031020131106.6862e951.shemminger@osdl.org>
-	<877k2ysohc.fsf@devron.myhome.or.jp>
-	<20031028114707.1d234da6.shemminger@osdl.org>
-	<3FA01629.2080202@pobox.com> <873cdaabue.fsf@devron.myhome.or.jp>
-	<20031030104943.20b61af0.shemminger@osdl.org>
-	<87ekwu9tn4.fsf@devron.myhome.or.jp>
-	<20031111143143.794909e8.shemminger@osdl.org>
+Message-ID: <20031112154351.A2415@infradead.org>
+References: <3FB03A56.7000709@sgi.com> <20031110182911.2c5a121b.davem@redhat.com> <3FB140E2.1070007@sgi.com> <20031111122403.2d7bcf28.davem@redhat.com> <3FB15725.4050705@sgi.com> <20031111235330.GA25553@wotan.suse.de> <3FB190FE.20005@sgi.com> <20031112061958.GA12065@wotan.suse.de> <3FB1DBBF.1010403@pobox.com> <3FB2528E.9020605@sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andi Kleen <ak@suse.de>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com, jes@sgi.com,
+        David Mosberger <davidm@hpl.hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031111143143.794909e8.shemminger@osdl.org>
+To: John Partridge <johnip@sgi.com>
+Content-Disposition: inline
+In-Reply-To: <3FB2528E.9020605@sgi.com>; from johnip@sgi.com on Wed, Nov 12, 2003 at 09:32:30AM -0600
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> writes:
+> --- linux/arch/ia64/Kconfig     2003-10-25 13:44:46.000000000 -0500
+> +++ patch/arch/ia64/Kconfig     2003-11-12 09:31:14.000000000 -0600
+> @@ -468,6 +468,10 @@
+>            agent" (/sbin/hotplug) to load modules and set up software needed
+>            to use devices as you hotplug them.
+> 
+> +config UNALIGNED_EXPENSIVE
 
-> @@ -1663,6 +1678,8 @@
->  	/* Disable interrupts by clearing the interrupt mask. */
->  	RTL_W16 (IntrMask, 0x0000);
->  
-> +	__netif_poll_disable(dev);
+> +       depends on IA64
 
-Rx-poll can enable interrupt. However, because it can happen on SMP
-only, then reset of chips should be done sooner or later, so I don't
-care so much.
-
-> +		/*
-> +		 * This order is important
-> +		 * (see Documentation/networking/NAPI_HOWTO.txt)
-> +		 */
-> +		netif_rx_complete(dev);
-> +		RTL_W16_F(IntrMask, rtl8139_intr_mask);
-
-    netif_rx_complete(dev);
-    -- interrupted --
-	in rtl8139_interrupt(),
-		if (netif_rx_schedule_prep(dev)) {
-			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
-			__netif_rx_schedule (dev);
-		}
-    -- resume --
-    /* enable interrupt, but rx-poll is already scheduling */
-    RTL_W16_F(IntrMask, rtl8139_intr_mask);
-
-So doesn't disable interrupt. Umm... this problem was things that my
-patch fixed. Any objections?
-
-		local_irq_disable();
-		__netif_rx_complete(dev);
-		RTL_W16_F(IntrMask, rtl8139_intr_mask);
-		local_irq_enable();
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+this line is not needed - if you're in the ia64 Kconfig it's always set.
