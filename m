@@ -1,27 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] remove net/README
-Date: Fri, 5 Sep 2003 02:26:19 -0700
+Subject: Re: [PATCH][ATM] a few patches from John Levon
+Date: Fri, 5 Sep 2003 02:35:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905022619.1283a64e.davem@redhat.com>
-References: <20030904145204.GA27953@compsoc.man.ac.uk>
-	<20030904074520.5dceff3e.davem@redhat.com>
-	<20030905010725.5ee10cbf.ak@suse.de>
-	<20030904225823.68a7b7cd.davem@redhat.com>
-	<20030905112242.2ad1a358.ak@suse.de>
+Message-ID: <20030905023536.68e808e7.davem@redhat.com>
+References: <200309041917.h84JHrSa020864@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, levon@movementarian.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20030905112242.2ad1a358.ak@suse.de>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200309041917.h84JHrSa020864@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Sep 2003 11:22:42 +0200
-Andi Kleen <ak@suse.de> wrote:
+On Thu, 04 Sep 2003 15:17:55 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> Are you doing it or should I send a patch?
+All applied, although:
 
-I'll take care of this and add a /proc/net/protocols or
-somesuch.
+> # [ATM]: fix atm_dev module refcount bug (from levon@movementarian.org)
+
+You included this patch twice :-)
+
+Thanks.
