@@ -1,27 +1,35 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] proc_net macro's for non-proc-fs case
-Date: Fri, 12 Sep 2003 17:13:41 -0700
+Subject: Re: O/M flags for 2.4.22 (was "Re: O/M flags against 2.6.0-test1")
+Date: Fri, 12 Sep 2003 17:19:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912171341.60157cbc.davem@redhat.com>
-References: <20030911154357.6b31891c.shemminger@osdl.org>
-	<20030911235405.GA74116@compsoc.man.ac.uk>
-	<20030912112120.23300a99.shemminger@osdl.org>
+Message-ID: <20030912171921.37cab171.davem@redhat.com>
+References: <20030911192507.0b3f2633.davem@redhat.com>
+	<Pine.LNX.4.44.0309121537430.1445-100000@linux-udp12861866uds>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: levon@movementarian.org, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
+   krkumar@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030912112120.23300a99.shemminger@osdl.org>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0309121537430.1445-100000@linux-udp12861866uds>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2003 11:21:20 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Fri, 12 Sep 2003 15:45:15 -0700 (PDT)
+Krishna Kumar <krkumar@us.ibm.com> wrote:
 
-> The following should work better. They have the desired properties that:
-> 	- return value makes sense for those that might check
-> 	- arguments fops and info don't have to be defined (ie can be #ifdef'd out)
-> 	- generate no warnings for null effect.
+> > I'm happy to apply a 2.4.x version as well.
+> 
+> Patch against 2.4.22 follows.
 
-Looks good, applied thanks.
+I applied the 2.6.x version, but this 2.4.x version does
+not apply cleanly, there are a bunch of rejects.
+
+That's not surprising since there's been, as there always is, several
+networking updates in 2.4.x since 2.4.22 already which cause conflicts
+with your patch.
+
+Please always, and I mean always, create patches against the most
+recent possible version of 2.4.x or 2.6.x.  We'll never have
+to go back and forth like this if you do that.
