@@ -1,33 +1,29 @@
 From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: Re: RFC:  Enabling ethernet drivers to return FCS in the skb?
-Date: Wed, 19 Nov 2003 12:35:57 +0100
+Subject: Re: suggested forcedeth updates....
+Date: Wed, 19 Nov 2003 12:48:45 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031119123556.A7622@sygehus.dk>
-References: <3FB94311.10004@candelatech.com>
+Message-ID: <20031119124845.B7622@sygehus.dk>
+References: <BAY2-F101QTmReozTIA0001027c@hotmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Alexander Zapatka <alexzapatka@hotmail.com>
 Content-Disposition: inline
-In-Reply-To: <3FB94311.10004@candelatech.com>; from greearb@candelatech.com on Mon, Nov 17, 2003 at 01:52:17PM -0800
+In-Reply-To: <BAY2-F101QTmReozTIA0001027c@hotmail.com>; from alexzapatka@hotmail.com on Mon, Nov 17, 2003 at 11:07:15PM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 17, 2003 at 01:52:17PM -0800, Ben Greear wrote:
-> Is there any interest in adding an Ethtool command to tell the driver to
-> push the extra 4 bytes of CSUM into the skb?
-> 
-> When enabling this feature, I'd also like to allow drivers to receive
-> frames with bad FCS as well.
-[cut]
-> At least some hardware appears
-> to support receiving bad FCS frames (e1000, evidently), but I am not sure
-> how wide-spread this feature is...
+On Mon, Nov 17, 2003 at 11:07:15PM -0500, Alexander Zapatka wrote:
 
-The Intel i82586 and i82596 and can be told to receive frames with a bad FCS.
-They can also be told to send a precomputed FCS rather than computing it on
-the fly. The i82596 and tulip can also transfer the FCS to memory when
-receiving frames. I guess all of this is also supported on the i82557/8/9.
+> that way you can modprobe/insmod with debug=1 and debuging works... or you 
+> can just load it, or load it with debug=0 and no debuging info is printed.
+> 
+> just thought it might be a nice addition.
+
+Even better would be to use the NETIF_MSG_* flags defined in
+linux/netdevice.c and to be able to use ethtool to change the setting at
+runtime.
 
 -- 
 Regards,
