@@ -1,39 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 17 Aug 2003 22:11:55 -0700
+Subject: Re: [PATCH] (1/5) get rid of useless hashbin in irtty
+Date: Sun, 17 Aug 2003 22:18:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817221155.2013e6a9.davem@redhat.com>
-References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com>
-	<200308171845560303.00D4B163@192.168.128.16>
-	<1061140404.29559.0.camel@laptop.fenrus.com>
-	<200308172246.12835.insecure@mail.od.ua>
+Message-ID: <20030817221804.27e2f07d.davem@redhat.com>
+References: <20030816175851.58a2c179.davem@redhat.com>
+	<Pine.LNX.4.44.0308171335050.1409-100000@notebook.home.mdiehl.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: arjanv@redhat.com, carlosev@newipnet.com, dhollis@davehollis.com,
-   alan@lxorguk.ukuu.org.uk, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, linux-kernel@vger.kernel.org
+Cc: jt@hpl.hp.com, shemminger@osdl.org, irda-users@lists.sourceforge.net,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: insecure@mail.od.ua
-In-Reply-To: <200308172246.12835.insecure@mail.od.ua>
+To: Martin Diehl <lists@mdiehl.de>
+In-Reply-To: <Pine.LNX.4.44.0308171335050.1409-100000@notebook.home.mdiehl.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 17 Aug 2003 22:46:12 +0300
-insecure <insecure@mail.od.ua> wrote:
+On Sun, 17 Aug 2003 19:42:40 +0200 (CEST)
+Martin Diehl <lists@mdiehl.de> wrote:
 
-> On Sunday 17 August 2003 20:13, Arjan van de Ven wrote:
-> > > 1. hidden patch is not in the main linuk kernel stream.... why?
-> >
-> > because arpfilter is a more generic way of doing things like this, and
-> > that IS in the main linux kernel
-> 
-> I am interested in that but last time I googled for it,
-> neither userspace utils nor any documentation turned up.
-> I only see some kernel parts of it.
+> try_module_get(netdev->owner)
 
-The bridging netfilter (ie. "ebtables") maintainer has
-tools available up on his site.
-
-	http://ebtables.sourceforge.net/
+netdev->owner does not exist any more and we don't use module
+refcounts to manage unload of network devices, it simply
+is not needed.
