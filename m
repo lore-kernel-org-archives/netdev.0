@@ -1,34 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Fwd: pcmcia ether drivers can't be unloaded]
-Date: Wed, 28 Jul 2004 08:54:19 -0700
+From: James Morris <jmorris@redhat.com>
+Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
+Date: Wed, 28 Jul 2004 12:10:43 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040728085419.773c4d94.davem@redhat.com>
-References: <41068BEF.7010200@pobox.com>
-	<20040727233614.B30782@flint.arm.linux.org.uk>
-	<20040727171929.17858c7b.davem@redhat.com>
-	<20040728165024.A8475@flint.arm.linux.org.uk>
+Message-ID: <Xine.LNX.4.44.0407281210270.11261-100000@dhcp83-76.boston.redhat.com>
+References: <20040728155557.38198.qmail@web53006.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, shemminger@osdl.org, netdev@oss.sgi.com, greg@kroah.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Vladimir Kondratiev <vkondra@mail.ru>, Matt Mackall <mpm@selenic.com>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Russell King <rmk@arm.linux.org.uk>
-In-Reply-To: <20040728165024.A8475@flint.arm.linux.org.uk>
+To: Niranjan <niranjan_cs2905@yahoo.com>
+In-Reply-To: <20040728155557.38198.qmail@web53006.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jul 2004 16:50:24 +0100
-Russell King <rmk@arm.linux.org.uk> wrote:
+On Wed, 28 Jul 2004, Niranjan wrote:
 
-> On Tue, Jul 27, 2004 at 05:19:29PM -0700, David S. Miller wrote:
-> > I totally disagree.  This is a bogus argument for two reasons:
-> 
-> You may disagree, that is your option.  However, facts are facts -
-> this is how the PCMCIA layer currently works, and short of rewriting
-> the whole damned thing it isn't going to change.  Sorry.
+> Hi,
+> I got the code working by including the encrypt() and
+> decrypt() function inside the WLAN driver. 
+> Is there any better way to get the CrytoAPI code
+> working from the driver or some other CryptoAPI
+> implementation ?
 
-Stephen offered a solution, moving this stray refcount into a toplevel
-pcmcia bus type object.  We are not constrained by how the PCMCIA layer
-currently works, just as we were not constrained a year ago by how the
-generic network device handling worked when it was totally broken in
-this area.  We just fixed it instead of whining.
+Where is the driver code?
+
+
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
