@@ -1,46 +1,38 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Davide Libenzi <davidel@xmailserver.org>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 14:54:56 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030627.145456.115915594.davem@redhat.com>
-References: <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com>
-	<20030627.143738.41641928.davem@redhat.com>
-	<3EFCBD12.3070101@candelatech.com>
+Date: Fri, 27 Jun 2003 15:02:00 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com>
+References: <20030626.224739.88478624.davem@redhat.com> <21740000.1056724453@[10.10.2.4]>
+ <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com>
+ <20030627.143738.41641928.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davidel@xmailserver.org, mbligh@aracnet.com,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: greearb@candelatech.com
-In-Reply-To: <3EFCBD12.3070101@candelatech.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: mbligh@aracnet.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030627.143738.41641928.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Ben Greear <greearb@candelatech.com>
-   Date: Fri, 27 Jun 2003 14:54:26 -0700
-   
-   I think you are putting too much work on the bug reporter(s).
+On Fri, 27 Jun 2003, David S. Miller wrote:
 
-Don't even talk to me about too much work.
+> No, this is the _BAD_ part, shit accumulates equally with
+> useful reports.
+>
+> Useful reports in non-bugtracking system environments get
+> retransmitted and eventually looked at.
 
-Someone wants me to spend hours groveling through some pieces of code
-to track down some tricky bug, for free, and all I ask is that they
-retransmit the bug every once in a while if they don't see any
-response?
+David, your method is the dream of every software developer. Having Q/A
+repeatedly pushing the same issue. Having a track is good and flagging a
+report as not-a-bug or need-more-info takes almost the same time (if the
+system is sanely designed) it takes you to flag your message a shit. In
+this way though you do not lose things meaningful that you overlooked at
+first sight. And this comes from someone that wanted to quit his job when
+they forced for the first time to use a tracking system ;)
 
-Give me a frigging break.
 
-If they're not willing to do this, they DON'T care about the bug.
-Just like if people aren't willing to retransmit patches they want
-installed, they DON'T care about the patch.  And just like I don't
-want to apply patches people don't care about, I don't want any of my
-contributors looking at bugs that the bug reporter doesn't care about.
 
-Just like with patches, I want to know that people are going to stick
-around and be responsive if I need to get information from them when
-a bug is reported.  If they're not willing to retransmit the report
-every one in a while, why should I believe they will?
-
-Ben, you absolutely don't understand how all of this development works
-and what it relies upon to function properly.
+- Davide
