@@ -1,39 +1,77 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2/2] Modularise xfrm_tunnel
-Date: Fri, 20 Aug 2004 08:03:42 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040819220342.GA19894@gondor.apana.org.au>
-References: <20040819113841.GA13872@gondor.apana.org.au> <20040819114050.GA16049@gondor.apana.org.au> <20040819114359.GA16189@gondor.apana.org.au> <20040819072525.430f00bd.davem@redhat.com> <20040819213117.GA19625@gondor.apana.org.au>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: [PATCH 0/3] prism54: remove some module_params,
+	WE17 and initial WPA work
+Date: Thu, 19 Aug 2004 18:54:24 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <20040819225424.GY6044@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040819213117.GA19625@gondor.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============1553318368=="
+Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 20, 2004 at 07:31:17AM +1000, herbert wrote:
-> On Thu, Aug 19, 2004 at 07:25:25AM -0700, David S. Miller wrote:
-> > 
-> > I suppose you're making your way towards proper TOS tunnel handling
-> > and the other fixes we spoke of?
-> 
-> The TTL fixes? Yes.
 
-I'm also working on a couple of other small things:
+--===============1553318368==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="R6sEYoIZpp9JErk7"
+Content-Disposition: inline
 
-* ECN updates
-* IPComp per-cpu scratch/tfm
-* Check sequence number in ADD_SA/ALLOC_SPI
-* pskb rollback
 
-After that I'd like to look at the MTU stuff.
+--R6sEYoIZpp9JErk7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+Jeff,
+
+The following patches go ontop of Margit's recent patches which have not
+yet been integrated by you. These patches add remove some unncessary
+module_params, adds WE17 support and adds our initial WPA work --
+striving to get prism54 wpa_supplicant to work with prism54.
+
+Please note that these patches are for *both* 2.6 and 2.4.
+
+Thanks,
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--R6sEYoIZpp9JErk7
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBJS+gat1JN+IKUl4RAhJwAJ9SCtvXveHFVVizhdVe38pe5s3KlQCgi+9/
+sPytIakTScWq0ginITGNeQ4=
+=7ZfL
+-----END PGP SIGNATURE-----
+
+--R6sEYoIZpp9JErk7--
+
+--===============1553318368==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============1553318368==--
