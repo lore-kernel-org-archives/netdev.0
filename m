@@ -1,36 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]Implementation for IPv6 MIB:ipv6InterfaceTable
-Date: Tue, 14 Oct 2003 15:24:41 -0700
+Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
+Date: Tue, 14 Oct 2003 15:25:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031014152441.1be6b336.davem@redhat.com>
-References: <200310141032.23998.mashirle@us.ibm.com>
+Message-ID: <20031014152519.612e9f12.davem@redhat.com>
+References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com>
+	<20031008130016.559b8047.davem@redhat.com>
+	<200310081706.09485.mashirle@us.ibm.com>
+	<200310141038.04322.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200310141032.23998.mashirle@us.ibm.com>
+In-Reply-To: <200310141038.04322.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 14 Oct 2003 10:32:23 -0700
+On Tue, 14 Oct 2003 10:38:04 -0700
 Shirley Ma <mashirle@us.ibm.com> wrote:
 
-> +#ifdef CONFIG_SYSCTL
-> +#include <linux/sysctl.h>
-> +#endif
+> This is the modified new patch for IPv6 MIB: ipv6AddressTable.
+> This patch has been tested against linux-2.6.0-test6-bk8 kernel.
 
-Please don't add ifdefs around header includes like this if
-you can avoid it.
-
-> +void inet6_ifinfo_notify(int event, struct inet6_dev *idev);
- ...
-> +extern int ndisc_ifinfo_sysctl_change(ctl_table *ctl, int write, struct file 
- ...
-> +extern void inet6_ifinfo_notify(int event, struct inet6_dev *idev);
- ...
-
-These belong in header files, not scattered around in *.c files.
-
-Thanks.
+This patch looks great, I think I'll add it to my 2.6.x tree
+tomorrow.
