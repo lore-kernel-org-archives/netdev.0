@@ -1,26 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] packet delay scheduler
-Date: Mon, 22 Mar 2004 18:50:55 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: New ARPHRD type
+Date: Tue, 23 Mar 2004 12:49:48 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040322185055.306f52f2.davem@redhat.com>
-References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
-	<20040316174134.2f1da12a.davem@redhat.com>
-	<20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
-	<20040318205346.3fd7829d.davem@redhat.com>
-	<20040319104705.3e99522c@dell_ss3.pdx.osdl.net>
+Message-ID: <20040323.124948.50721347.yoshfuji@linux-ipv6.org>
+References: <629E717C12A8694A88FAA6BEF9FFCD440550CACB@brigadoon.spirentcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040319104705.3e99522c@dell_ss3.pdx.osdl.net>
+To: John.Pinkney@spirentcom.com
+In-Reply-To: <629E717C12A8694A88FAA6BEF9FFCD440550CACB@brigadoon.spirentcom.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Mar 2004 10:47:05 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+In article <629E717C12A8694A88FAA6BEF9FFCD440550CACB@brigadoon.spirentcom.com> (at Mon, 22 Mar 2004 19:41:38 -0800), "Pinkney, John" <John.Pinkney@spirentcom.com> says:
 
-> Okay, here is a 2.4 version.
+> Can anyone tell me how I would go about getting a new ARPHRD type defined?
 
-Applied, thanks Stephen.
+Please send a patch (with its users) to <netdev@oss.sgi.com>.
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
