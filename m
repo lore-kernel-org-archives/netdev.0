@@ -1,108 +1,45 @@
-From: margitsw@t-online.de (Margit Schubert-While)
-Subject: [PATCH Linux-2.6.8-rc1] prism54 Fix null pointer
-	reference (Bug 100)
-Date: Mon, 26 Jul 2004 15:10:45 +0200
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <200407261510.45615.margitsw@t-online.de>
+From: James Hubbard <jameshubbard@gmail.com>
+Subject: Re: Broadcom 4400 driver bm44
+Date: Mon, 26 Jul 2004 09:49:55 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <f3ddc6d304072606495bf35e6a@mail.gmail.com>
+References: <f3ddc6d3040707112141b20720@mail.gmail.com> <20040708133853.GA20254@ee.oulu.fi> <f3ddc6d304070807002a19d340@mail.gmail.com> <20040708204346.GA28693@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_VLQBB+T1w2GWG9d"
-Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: jgarzik@pobox.com
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Pekka Pietikainen <pp@ee.oulu.fi>
+In-Reply-To: <20040708204346.GA28693@ee.oulu.fi>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 8 Jul 2004 23:43:46 +0300, Pekka Pietikainen <pp@ee.oulu.fi> wrote:
+> Ok, after some digging around ALLMULTI breaking is not a bug, the
+> vendor-provided driver seems to break in similar ways, at least on 2.6,
+> so that's a feature unless they fix it in theirs so I can copy the fix :-)
+> 
+> I put a lots'o'debugging + some bit-flipping reordering to look
+> more like bcm4400 version at http://www.ee.oulu.fi/~pp/b44-test.tgz.
+> Probably won't fix the problem, but it's worth a shot I suppose.
+> 
+> Should compile with
+> 
+> make -C /lib/modules/<version>/build modules SUBDIRS=$PWD
+> 
+> As a workaround I suppose ifconfig eth1 promisc might do the trick too.
+> 
 
---Boundary-00=_VLQBB+T1w2GWG9d
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hello,
 
-2004-07-22 Margit Schubert-While <margitsw@t-online.de>
+Just to let you know, I've not forgotten about this problem.  I've got
+another Dell laptop  that I can reproduce it on.  I'm going to try to
+get the stock 2.6.7 kernel on it and try it out.  Hopefully I can get
+you some more information by the end of the week.
 
-* prism54_get/set_debug_oid are missing checks for a null pointer.
-  Reported in Bugzilla number 100.
-
-Margit
+James
 
 
-
-
-
---Boundary-00=_VLQBB+T1w2GWG9d
-Content-Type: text/x-diff;
-  charset="us-ascii";
-  name="bugptr.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment;
-	filename="bugptr.patch"
-
-diff -Naur linux-2.6.8-01/drivers/net/wireless/prism54/isl_ioctl.c linux-2.6.8-04/drivers/net/wireless/prism54/isl_ioctl.c
---- linux-2.6.8-01/drivers/net/wireless/prism54/isl_ioctl.c	2004-07-01 07:23:52.000000000 +0200
-+++ linux-2.6.8-04/drivers/net/wireless/prism54/isl_ioctl.c	2004-07-26 10:35:17.000000000 +0200
-@@ -1942,7 +1942,7 @@
- {
- 	islpci_private *priv = netdev_priv(ndev);
- 	struct islpci_mgmtframe *response = NULL;
--	int ret = -EIO, response_op = PIMFOR_OP_ERROR;
-+	int ret = -EIO;
- 
- 	printk("%s: get_oid 0x%08X\n", ndev->name, priv->priv_oid);
- 	data->length = 0;
-@@ -1952,9 +1952,7 @@
- 		    islpci_mgt_transaction(priv->ndev, PIMFOR_OP_GET,
- 					   priv->priv_oid, extra, 256,
- 					   &response);
--		response_op = response->header->operation;
- 		printk("%s: ret: %i\n", ndev->name, ret);
--		printk("%s: response_op: %i\n", ndev->name, response_op);
- 		if (ret || !response
- 		    || response->header->operation == PIMFOR_OP_ERROR) {
- 			if (response) {
-@@ -1991,16 +1989,20 @@
- 					   priv->priv_oid, extra, data->length,
- 					   &response);
- 		printk("%s: ret: %i\n", ndev->name, ret);
-+		if (ret || !response
-+		    || response->header->operation == PIMFOR_OP_ERROR) {
-+			if (response) {
-+				islpci_mgt_release(response);
-+			}
-+			printk("%s: EIO\n", ndev->name);
-+			ret = -EIO;
-+		}
- 		if (!ret) {
- 			response_op = response->header->operation;
- 			printk("%s: response_op: %i\n", ndev->name,
- 			       response_op);
- 			islpci_mgt_release(response);
- 		}
--		if (ret || response_op == PIMFOR_OP_ERROR) {
--			printk("%s: EIO\n", ndev->name);
--			ret = -EIO;
--		}
- 	}
- 
- 	return (ret ? ret : -EINPROGRESS);
-
---Boundary-00=_VLQBB+T1w2GWG9d
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---Boundary-00=_VLQBB+T1w2GWG9d--
+-- 
+James Hubbard
+http://www.mcs.uvawise.edu/~jhubbard
