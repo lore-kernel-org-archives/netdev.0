@@ -1,27 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Deadlock in sungem/ip_auto_config/linkwatch
-Date: Mon, 5 Jan 2004 11:02:48 -0800
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] multiple eth0 mixed PCI/ISA init
+Date: Mon, 5 Jan 2004 11:10:59 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040105110248.04ed06b7.davem@redhat.com>
-References: <1073307882.2041.98320.camel@brick.watson.ibm.com>
-	<200401051550.51063.srompf@isg.de>
+Message-ID: <20040105111059.4a451146.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mostrows@watson.ibm.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <200401051550.51063.srompf@isg.de>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 5 Jan 2004 15:50:50 +0100
-Stefan Rompf <srompf@isg.de> wrote:
+This patch for 2.6 fixes the problem found by Zoltan Farkas 
+with mixed PCI/ISA and a non-modular config.  The problem is the old_netdev
+ISA probing isn't skipping "eth0" which already got assigned by the PCI
+initialization.
 
-> Btw, what is the planned difference between rtnl_shlock() and rtnl_exlock()? 
-> Even though the later is a null operation right now, I don't want to hold 
-> more locks than needed in the linkwatch code.
 
-The idea was originally to make the RTNL semaphore a read-write one,
-but I doubt we'll ever make that happen and the shlock bits will just
-disappear entirely.
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
++++ b/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
+@@ -350,7 +350,7 @@
+ 	 * Backwards compatibility - historically an I/O base of 1 was 
+ 	 * used to indicate not to probe for this ethN interface 
+ 	 */
+-	if (dev->base_addr == 1) {
++	if (__dev_get_by_name(dev->name) || dev->base_addr == 1) {
+ 		free_netdev(dev);
+ 		return -ENXIO;
+ 	}
