@@ -1,45 +1,58 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] net/wan/sbni: fix section usage
-Date: Wed, 2 Mar 2005 10:12:44 -0800
-Message-ID: <20050302101244.4499d97c.rddunlap@osdl.org>
+From: Valdis.Kletnieks@vt.edu
+Subject: Re: (usagi-users 03234) Re: support of IPv6 by NFS
+Date: Wed, 02 Mar 2005 13:14:47 -0500
+Message-ID: <200503021814.j22IEl9S021789@turing-police.cc.vt.edu>
+References: <200503020721.j227Ldir012381@m5p.com>
+            <200503020713.33133.Info@Quantum-Sci.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed; boundary="==_Exmh_1109787286_6557P";
+	 micalg=pgp-sha1; protocol="application/pgp-signature"
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>, torvalds <torvalds@osdl.org>,
-        akpm
- <akpm@osdl.org>
-To: timofeev@granch.ru, jgarzik <jgarzik@pobox.com>
+Cc: netdev@oss.sgi.com
+To: usagi-users@linux-ipv6.org
+In-Reply-To: Your message of "Wed, 02 Mar 2005 07:13:32 CST."
+             <200503020713.33133.Info@Quantum-Sci.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--==_Exmh_1109787286_6557P
+Content-Type: text/plain; charset=us-ascii
 
-net/wan/sbni data reference can be initdata:
+On Wed, 02 Mar 2005 07:13:32 CST, Quantum Scientific said:
 
-Error: ./drivers/net/wan/sbni.o .data refers to 0000000000000000 R_X86_64_64       .init.data+0x0000000000000060
-Error: ./drivers/net/wan/sbni.o .data refers to 0000000000000008 R_X86_64_64       .init.data+0x0000000000000140
-Error: ./drivers/net/wan/sbni.o .data refers to 0000000000000010 R_X86_64_64       .init.data+0x0000000000000180
-Error: ./drivers/net/wan/sbni.o .data refers to 0000000000000018 R_X86_64_64       .init.data+0x0000000000000020
-Error: ./drivers/net/wan/sbni.o .data refers to 0000000000000020 R_X86_64_64       .init.data+0x00000000000001c0
+> It goes without saying that one should not rely entirely on a firewall.  To 
+> assert that I say this is a canard.  But the *reason* one should not rely 
+> entirely on a firewall is, in case you accidentally open a hole, not because 
+> ip6tables is 'weak'!  
 
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+Hey, the reason you're taking all the flames here is because *YOU* are the one
+who said that the IPv6 stuff was "unusable" because it didn't have a firewall
+that did connection tracking.
 
-diffstat:=
- drivers/net/wan/sbni.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+If it's something you shouldn't be relying on, the lack of it doesn't render
+something (in your own words):
 
-diff -Naurp ./drivers/net/wan/sbni.c~wan_sbni_sections ./drivers/net/wan/sbni.c
---- ./drivers/net/wan/sbni.c~wan_sbni_sections	2005-02-27 12:54:05.851033952 -0800
-+++ ./drivers/net/wan/sbni.c	2005-03-02 09:45:09.156084080 -0800
-@@ -176,7 +176,7 @@ static u32	mac[  SBNI_MAX_NUM_CARDS ] __
- 
- #ifndef MODULE
- typedef u32  iarr[];
--static iarr  *dest[5] = { &io, &irq, &baud, &rxl, &mac };
-+static iarr __initdata *dest[5] = { &io, &irq, &baud, &rxl, &mac };
- #endif
- 
- /* A zero-terminated list of I/O addresses to be probed on ISA bus */
+> After a week of intensive research and full-time study, it's become clear that 
+> IPV6 support, as it comes in standard Linux 2.6 kernels, is effectively 
+> non-functional.
+
+So the lack of something you "should not rely on entirely" makes it "effectively
+non-functional".
+
+Right.
 
 
----
+--==_Exmh_1109787286_6557P
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.4.0 (GNU/Linux)
+Comment: Exmh version 2.5 07/13/2001
+
+iD8DBQFCJgKWcC3lWbTT17ARAllKAKCY10726EyirK1MbEjEErl5VAAApQCg2iJ9
+U6OqOEPvNCUp4Ygy4DR89Fc=
+=3mu3
+-----END PGP SIGNATURE-----
+
+--==_Exmh_1109787286_6557P--
