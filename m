@@ -1,47 +1,37 @@
-From: Bill Davidsen <davidsen@tmr.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 17:32:49 -0400 (EDT)
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] ircomm - set owner get rid of MOD_INC/MOD_DEC
+Date: Mon, 18 Aug 2003 11:40:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.3.96.1030818171100.2101C-100000@gatekeeper.tmr.com>
-References: <20030817223118.3cbc497c.davem@redhat.com>
+Message-ID: <20030818184059.GA6457@bougret.hpl.hp.com>
+References: <20030818111746.34b9e52b.shemminger@osdl.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Willy Tarreau <willy@w.ods.org>, alan@lxorguk.ukuu.org.uk,
-   carlosev@newipnet.com, lamont@scriptkiddie.org, bloemsaa@xs4all.nl,
-   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: irda-users@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030817223118.3cbc497c.davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030818111746.34b9e52b.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 17 Aug 2003, David S. Miller wrote:
+On Mon, Aug 18, 2003 at 11:17:46AM -0700, Stephen Hemminger wrote:
+> Ircomm in 2.6.0-test3 can just set the owner field in the tty structure
+> like other drivers, and not mess with MOD_INC/MOD_DEC.
 
-> On Mon, 18 Aug 2003 00:48:49 +0200
-> Willy Tarreau <willy@w.ods.org> wrote:
-> 
-> > On Sun, Aug 17, 2003 at 06:24:06PM +0100, Alan Cox wrote:
-> >  
-> > > So stick the address on eth0 not on lo since its not a loopback but an eth0
-> > > address, then use arpfilter so you don't arp for the invalid magic shared IP
-> > > address, or NAT it, or it may work to do
-> > > 
-> > >          ip route add nexthop-addr src my-virtual-addr dev eth0 scope local onlink
-> > >          ip route add default src my-virtual-addr via nexthop-addr dev eth0 scope global
-> >  
-> > I have a case where this doesn't work
-> 
-> Replying again... Alan does mention in the paragraph you've quoted
-> to use arpfilter, which works for every case imaginable.
+	You missed a couple of comments. I sent the more complete
+version of the exact same patch a few weeks ago to Jeff Garzik, you
+may want to check with Jeff what the status on this.
+	Of course, I would prefer the "more complete" version to go
+in.
 
-Okay, I'll show my ignorance and ask... the Documentation for arp_filter
-says source routing must be used. Is there some flag I'm missing, or a way
-to avoid having a rule per address, or is the 8 bit rule number larger in
-2.6, or ??? Or is having a lot of IPs on one machine not an imaginable
-case?
+	By the way, because of Jeff's turnaround, we are going to have
+this problem a lot. All my pending IrDA patches are listed on my web
+page, you may want to check it :
+	http://www.hpl.hp.com/personal/Jean_Tourrilhes/IrDA/IrDA.html
 
--- 
-bill davidsen <davidsen@tmr.com>
-  CTO, TMR Associates, Inc
-Doing interesting things with little computers since 1979.
+	Thanks for the good work !
+
+	Jean
+
+P.S. : Did you manage to set-up the crossover serial cable ?
