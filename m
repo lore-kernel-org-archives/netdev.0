@@ -1,54 +1,91 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH 1/2] IPV6: use ipv6_addr_any()
-Date: Wed, 28 Jan 2004 12:57:27 +0200 (EET)
+From: Postmaster@videotron.com
+Subject: DELIVERY FAILURE: Recipient user name steve (steve@videotron.com) not
+ unique.  Several matches found in Name & Address Book.
+Date: Wed, 28 Jan 2004 06:24:20 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0401281256260.21205-100000@netcore.fi>
-References: <20040128.163043.120256112.yoshfuji@linux-ipv6.org>
+Message-ID: <OF610F8160.63F8585D-ON85256E29.003EC978@videotron.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <netdev@oss.sgi.com>
+Content-Type: multipart/report; report-type=delivery-status; boundary="==IFJRGLKFGIR57213UHRUHIHD"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040128.163043.120256112.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jan 2004, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> Use simple ipv6_addr_any()
-> where ipv6_addr_type() is called only to check for unspecified address.
+--==IFJRGLKFGIR57213UHRUHIHD
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 
-Speakign of which, should it be better to change this to _unspecified
-if we're changing this as one could be led to believe that "any"  
-refers to "any IPv6 address" which is obviously not the case.
+Your message
 
-> ===== net/ipv6/af_inet6.c 1.60 vs edited =====
-> --- 1.60/net/ipv6/af_inet6.c	Thu Jan 22 15:38:40 2004
-> +++ edited/net/ipv6/af_inet6.c	Wed Jan 28 16:11:31 2004
-> @@ -464,7 +464,7 @@
->  		if (np->sndflow)
->  			sin->sin6_flowinfo = np->flow_label;
->  	} else {
-> -		if (ipv6_addr_type(&np->rcv_saddr) == IPV6_ADDR_ANY)
-> +		if (ipv6_addr_any(&np->rcv_saddr))
->  			ipv6_addr_copy(&sin->sin6_addr, &np->saddr);
->  		else
->  			ipv6_addr_copy(&sin->sin6_addr, &np->rcv_saddr);
-> ===== net/ipv6/ndisc.c 1.64 vs edited =====
-> --- 1.64/net/ipv6/ndisc.c	Thu Jan 22 15:38:40 2004
-> +++ edited/net/ipv6/ndisc.c	Wed Jan 28 16:13:21 2004
-> @@ -544,7 +544,7 @@
->  	}
->  
->  	len = sizeof(struct icmp6hdr) + sizeof(struct in6_addr);
-> -	send_llinfo = dev->addr_len && ipv6_addr_type(saddr) != IPV6_ADDR_ANY;
-> +	send_llinfo = dev->addr_len && !ipv6_addr_any(saddr);
->  	if (send_llinfo)
->  		len += NDISC_OPT_SPACE(dev->addr_len);
->  
-> 
-> 
+  Subject: Mail Delivery System
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+was not delivered to:
+
+  steve@videotron.com
+
+because:
+
+  Recipient user name steve (steve@videotron.com) not unique.  Several matches found in Name & Address Book.
+
+
+--==IFJRGLKFGIR57213UHRUHIHD
+Content-Type: message/delivery-status
+
+Reporting-MTA: dns;smtp.videotron.com
+
+Final-Recipient: rfc822;steve@videotron.com
+Action: failed
+Status: 5.0.0
+Diagnostic-Code: X-Notes; Recipient user name steve (steve@videotron.com) not unique.  Several matches found in Name & Address Book.
+
+--==IFJRGLKFGIR57213UHRUHIHD
+Content-Type: message/rfc822
+
+Received: from popmtl11.vsi.videotron.com ([10.150.1.4])
+          by smtp.videotron.com (Lotus Domino Release 5.0.11)
+          with SMTP id 2004012806254807:343169 ;
+          Wed, 28 Jan 2004 06:25:48 -0500
+Received: from oss.sgi.com ([216.208.79.2])
+ by popmtl11.vsi.videotron.com (SAVSMTP 3.1.1.32) with SMTP id M2004012806254722143
+ for <steve@videotron.com>; Wed, 28 Jan 2004 06:25:47 -0500
+From: netdev@oss.sgi.com
+To: steve@videotron.com
+Subject: Mail Delivery System
+Date: Wed, 28 Jan 2004 06:24:20 -0500
+MIME-Version: 1.0
+X-Priority: 3 (Normal)
+X-MSMail-Priority: Normal
+X-MIMETrack: Itemize by SMTP Server on POPMTL11/Videotron(Release 5.0.11  |July 24, 2002) at
+ 01/28/2004 06:25:48 AM,
+	Serialize by Router on POPMTL11/Videotron(Release 5.0.11  |July 24, 2002) at
+ 01/28/2004 06:25:49 AM
+Message-ID: <OF610F8160.63F8585D-ON85256E29.003EC978@videotron.com>
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0006_6BA6CB33.28C9ABB5"
+
+
+------=_NextPart_000_0006_6BA6CB33.28C9ABB5
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="Windows-1252"
+
+Mail transaction failed. Partial message is available.
+
+
+------=_NextPart_000_0006_6BA6CB33.28C9ABB5
+Content-Type: text/plain;
+	name="DELETED0.TXT"
+Content-Disposition: attachment;
+	filename="DELETED0.TXT"
+Content-Transfer-Encoding: base64
+
+RmlsZSBhdHRhY2htZW50OiByZWFkbWUuemlwCkEgZmlsZSBhdHRhY2hlZCB0byB0aGlzIGVtYWls
+IHdhcyByZW1vdmVkDQpiZWNhdXNlIGl0IHdhcyBpbmZlY3RlZCB3aXRoIGEgdmlydXMuDQoNClJl
+c3VsdDogVmlydXMgRGV0ZWN0ZWQNClZpcnVzIE5hbWU6IFczMi5Ob3ZhcmcuQUBtbQ0KRmlsZSBB
+dHRhY2htZW50OiByZWFkbWUuemlwDQpBdHRhY2htZW50IFN0YXR1czogZGVsZXRlZA0K
+
+------=_NextPart_000_0006_6BA6CB33.28C9ABB5--
+
+
+
+--==IFJRGLKFGIR57213UHRUHIHD--
