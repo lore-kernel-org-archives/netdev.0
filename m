@@ -1,24 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] switch arcnet over to initcalls
-Date: Wed, 21 May 2003 16:20:52 -0700 (PDT)
+Subject: Re: [PATCH 2.5.69] wanrouter clean up MOD_*_USE_COUNT
+Date: Wed, 21 May 2003 16:22:16 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030521.162052.08332261.davem@redhat.com>
-References: <20030521221638.A7575@lst.de>
+Message-ID: <20030521.162216.21916460.davem@redhat.com>
+References: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: ncorbic@sangoma.com, dm@sangoma.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hch@lst.de
-In-Reply-To: <20030521221638.A7575@lst.de>
+To: daniel@osdl.org
+In-Reply-To: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Christoph Hellwig <hch@lst.de>
-   Date: Wed, 21 May 2003 22:16:38 +0200
+   From: Daniel McNeil <daniel@osdl.org>
+   Date: 21 May 2003 13:48:32 -0700
 
-   Link order already equals the old init order.  arcnet init/registration
-   code still is more than fishy, maybe I'll look into that later.
+   Here is simple patch to remove MOD_INC_USE_COUNT and
+   MOD_DEC_USE_COUNT.  The wanrouter module will get a reference
+   when another module uses its exported symbols.
    
-ISA device init ordering again Christoph, com90xx is an ISA
-driver...
+What if that other module doesn't get loaded?
+The things registered in procfs need to have their
+->owner field set.
