@@ -1,359 +1,268 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (10/12) Probe2 -- wavelan
+Subject: [PATCH] (07/12) Probe2 -- 3c505
 Date: Tue, 14 Oct 2003 15:34:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310142234.h9EMYAG30175@mail.osdl.org>
+Message-ID: <200310142234.h9EMYAg30167@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Original by Al Viro (NE21-wavelan)
-	* switched wavelan to dynamic allocation
-	* wavelan: embedded ->priv
-	* wavelan: fixed clobbering on autoprobe
-	* wavelan: fixed IO before request_region()
-	* wavelan: fixed resource leaks on failure exits
-	* wavelan: fixed order of freeing bugs
-Updated to apply agains jgarzik/net-drivers-2.5-exp
+from viro NE18-3c505
+	* switched 3c505 to dynamic allocation
+	* 3c505: embedded ->priv
+	* 3c505: fixed use of uninitialized variable
+	* 3c505: fixed resource leaks on failure exits
+Additional:
+	* add free_netdev
 
-
-diff -urN 08-arlan/drivers/net/Space.c 09-wavelan/drivers/net/Space.c
---- 08-arlan/drivers/net/Space.c	2003-09-29 16:23:44.000000000 -0700
-+++ 09-wavelan/drivers/net/Space.c	2003-09-29 16:30:02.000000000 -0700
-@@ -58,7 +58,7 @@
- extern int i82596_probe(struct net_device *);
- extern int ewrk3_probe(struct net_device *);
- extern int el1_probe(struct net_device *);
--extern int wavelan_probe(struct net_device *);
-+extern struct net_device *wavelan_probe(int unit);
- extern struct net_device *arlan_probe(int unit);
- extern struct net_device *el16_probe(int unit);
- extern int elmc_probe(struct net_device *);
-@@ -269,13 +269,13 @@
- #ifdef CONFIG_EL1		/* 3c501 */
- 	{el1_probe, 0},
- #endif
--#ifdef CONFIG_WAVELAN		/* WaveLAN */
--	{wavelan_probe, 0},
--#endif
- 	{NULL, 0},
- };
- 
- static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_WAVELAN		/* WaveLAN */
-+	{wavelan_probe, 0},
-+#endif
- #ifdef CONFIG_ARLAN		/* Aironet */
- 	{arlan_probe, 0},
- #endif
-diff -urN 08-arlan/drivers/net/wireless/wavelan.c 09-wavelan/drivers/net/wireless/wavelan.c
---- 08-arlan/drivers/net/wireless/wavelan.c	2003-09-27 17:50:59.000000000 -0700
-+++ 09-wavelan/drivers/net/wireless/wavelan.c	2003-09-29 16:30:09.000000000 -0700
-@@ -4091,12 +4091,24 @@
-  * device structure
-  * (called by wavelan_probe() and via init_module()).
-  */
--static int __init wavelan_config(device * dev)
-+static int __init wavelan_config(device *dev, unsigned short ioaddr)
- {
--	unsigned long ioaddr = dev->base_addr;
- 	u8 irq_mask;
- 	int irq;
- 	net_local *lp;
-+	mac_addr mac;
-+	int err;
-+
-+	if (!request_region(ioaddr, sizeof(ha_t), "wavelan"))
-+		return -EADDRINUSE;
-+
-+	err = wv_check_ioaddr(ioaddr, mac);
-+	if (err)
-+		goto out;
-+
-+	memcpy(dev->dev_addr, mac, 6);
-+
-+	dev->base_addr = ioaddr;
- 
- #ifdef DEBUG_CALLBACK_TRACE
- 	printk(KERN_DEBUG "%s: ->wavelan_config(dev=0x%x, ioaddr=0x%lx)\n",
-@@ -4136,25 +4148,18 @@
- 		       "%s: wavelan_config(): could not wavelan_map_irq(%d).\n",
- 		       dev->name, irq_mask);
- #endif
--		return -EAGAIN;
-+		err = -EAGAIN;
-+		goto out;
+diff -Nru a/drivers/net/3c505.c b/drivers/net/3c505.c
+--- a/drivers/net/3c505.c	Mon Sep 29 09:45:12 2003
++++ b/drivers/net/3c505.c	Mon Sep 29 09:45:12 2003
+@@ -1293,42 +1293,6 @@
  	}
- 
- 	dev->irq = irq;
- 
--	if (!request_region(ioaddr, sizeof(ha_t), "wavelan"))
--		return -EBUSY;
--
- 	dev->mem_start = 0x0000;
- 	dev->mem_end = 0x0000;
- 	dev->if_port = 0;
- 
- 	/* Initialize device structures */
--	dev->priv = kmalloc(sizeof(net_local), GFP_KERNEL);
--	if (dev->priv == NULL) {
--		release_region(ioaddr, sizeof(ha_t));
--		return -ENOMEM;
--	}
--	memset(dev->priv, 0x00, sizeof(net_local));
-+	memset(dev->priv, 0, sizeof(net_local));
- 	lp = (net_local *) dev->priv;
- 
- 	/* Back link to the device structure. */
-@@ -4172,12 +4177,6 @@
- 	/* Init spinlock */
- 	spin_lock_init(&lp->spinlock);
- 
--	/*
--	 * Fill in the fields of the device structure
--	 * with generic Ethernet values.
--	 */
--	ether_setup(dev);
--
- 	SET_MODULE_OWNER(dev);
- 	dev->open = wavelan_open;
- 	dev->stop = wavelan_close;
-@@ -4204,6 +4203,9 @@
- 	printk(KERN_DEBUG "%s: <-wavelan_config()\n", dev->name);
- #endif
- 	return 0;
-+out:
-+	release_region(ioaddr, sizeof(ha_t));
-+	return err;
  }
  
- /*------------------------------------------------------------------*/
-@@ -4214,19 +4216,13 @@
-  * We follow the example in drivers/net/ne.c.
-  * (called in "Space.c")
-  */
--int __init wavelan_probe(device * dev)
-+struct net_device * __init wavelan_probe(int unit)
- {
-+	struct net_device *dev;
- 	short base_addr;
--	mac_addr mac;		/* MAC address (check existence of WaveLAN) */
-+	int def_irq;
- 	int i;
--	int r;
+-/******************************************************
+- *
+- * initialise Etherlink Plus board
+- *
+- ******************************************************/
 -
--#ifdef DEBUG_CALLBACK_TRACE
--	printk(KERN_DEBUG
--	       "%s: ->wavelan_probe(dev=0x%x (base_addr=0x%x))\n",
--	       dev->name, (unsigned int) dev,
--	       (unsigned int) dev->base_addr);
--#endif
-+	int r = 0;
+-static inline void elp_init(struct net_device *dev)
+-{
+-	elp_device *adapter = dev->priv;
+-
+-	/*
+-	 * set ptrs to various functions
+-	 */
+-	dev->open = elp_open;				/* local */
+-	dev->stop = elp_close;				/* local */
+-	dev->get_stats = elp_get_stats;			/* local */
+-	dev->hard_start_xmit = elp_start_xmit;		/* local */
+-	dev->tx_timeout = elp_timeout;			/* local */
+-	dev->watchdog_timeo = 10*HZ;
+-	dev->set_multicast_list = elp_set_mc_list;	/* local */
+-	dev->ethtool_ops = &netdev_ethtool_ops;		/* local */
+-
+-	/* Setup the generic properties */
+-	ether_setup(dev);
+-
+-	/*
+-	 * setup ptr to adapter specific information
+-	 */
+-	memset(&(adapter->stats), 0, sizeof(struct net_device_stats));
+-
+-	/*
+-	 * memory information
+-	 */
+-	dev->mem_start = dev->mem_end = 0;
+-}
+-
+ /************************************************************
+  *
+  * A couple of tests to see if there's 3C505 or not
+@@ -1442,12 +1406,13 @@
+  * work at all if it was in a weird state).
+  */
  
- #ifdef	STRUCT_CHECK
- 	if (wv_struct_check() != (char *) NULL) {
-@@ -4237,8 +4233,20 @@
+-int __init elplus_probe(struct net_device *dev)
++static int __init elplus_setup(struct net_device *dev)
+ {
+-	elp_device *adapter;
++	elp_device *adapter = dev->priv;
+ 	int i, tries, tries1, okay;
+ 	unsigned long timeout;
+ 	unsigned long cookie = 0;
++	int err = -ENODEV;
+ 
+ 	SET_MODULE_OWNER(dev);
+ 
+@@ -1456,17 +1421,8 @@
+ 	 */
+ 
+ 	dev->base_addr = elp_autodetect(dev);
+-	if (!(dev->base_addr))
+-		return -ENODEV;
+-
+-	/*
+-	 * setup ptr to adapter specific information
+-	 */
+-	adapter = (elp_device *) (dev->priv = kmalloc(sizeof(elp_device), GFP_KERNEL));
+-	if (adapter == NULL) {
+-		printk(KERN_ERR "%s: out of memory\n", dev->name);
++	if (!dev->base_addr)
+ 		return -ENODEV;
+-	}
+ 
+ 	adapter->send_pcb_semaphore = 0;
+ 
+@@ -1544,8 +1500,7 @@
+ 		outb_control(adapter->hcr_val & ~(FLSH | ATTN), dev);
  	}
- #endif				/* STRUCT_CHECK */
+ 	printk(KERN_ERR "%s: failed to initialise 3c505\n", dev->name);
+-	release_region(dev->base_addr, ELP_IO_EXTENT);
+-	return -ENODEV;
++	goto out;
  
--	/* Check the value of the command line parameter for base address. */
-+	dev = alloc_etherdev(sizeof(net_local));
+       okay:
+ 	if (dev->irq) {		/* Is there a preset IRQ? */
+@@ -1560,14 +1515,14 @@
+ 	case 0:
+ 		printk(KERN_ERR "%s: IRQ probe failed: check 3c505 jumpers.\n",
+ 		       dev->name);
+-		return -ENODEV;
++		goto out;
+ 	case 1:
+ 	case 6:
+ 	case 8:
+ 	case 13:
+ 		printk(KERN_ERR "%s: Impossible IRQ %d reported by probe_irq_off().\n",
+ 		       dev->name, dev->irq);
+-		return -ENODEV;
++		       goto out;
+ 	}
+ 	/*
+ 	 *  Now we have the IRQ number so we can disable the interrupts from
+@@ -1636,16 +1591,48 @@
+ 		printk(KERN_ERR "%s: adapter configuration failed\n", dev->name);
+ 	}
+ 
+-	/*
+-	 * initialise the device
+-	 */
+-	elp_init(dev);
++	dev->open = elp_open;				/* local */
++	dev->stop = elp_close;				/* local */
++	dev->get_stats = elp_get_stats;			/* local */
++	dev->hard_start_xmit = elp_start_xmit;		/* local */
++	dev->tx_timeout = elp_timeout;			/* local */
++	dev->watchdog_timeo = 10*HZ;
++	dev->set_multicast_list = elp_set_mc_list;	/* local */
++	dev->ethtool_ops = &netdev_ethtool_ops;		/* local */
++
++	memset(&(adapter->stats), 0, sizeof(struct net_device_stats));
++	dev->mem_start = dev->mem_end = 0;
++
++	err = register_netdev(dev);
++	if (err)
++		goto out;
+ 
+ 	return 0;
++out:
++	release_region(dev->base_addr, ELP_IO_EXTENT);
++	return err;
++}
++
++struct net_device * __init elplus_probe(int unit)
++{
++	struct net_device *dev = alloc_etherdev(sizeof(elp_device));
++	int err;
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
 +
 +	sprintf(dev->name, "eth%d", unit);
 +	netdev_boot_setup_check(dev);
- 	base_addr = dev->base_addr;
-+	def_irq = dev->irq;
 +
-+#ifdef DEBUG_CALLBACK_TRACE
-+	printk(KERN_DEBUG
-+	       "%s: ->wavelan_probe(dev=%p (base_addr=0x%x))\n",
-+	       dev->name, dev, (unsigned int) dev->base_addr);
-+#endif
- 
- 	/* Don't probe at all. */
- 	if (base_addr < 0) {
-@@ -4247,16 +4255,9 @@
- 		       "%s: wavelan_probe(): invalid base address\n",
- 		       dev->name);
- #endif
--		return -ENXIO;
--	}
--
--	/* Check a single specified location. */
--	if (base_addr > 0x100) {
--		/* Check if there is something at this base address */
--		if ((r = wv_check_ioaddr(base_addr, mac)) == 0) {
--			memcpy(dev->dev_addr, mac, 6);	/* Copy MAC address. */
--			r = wavelan_config(dev);
--		}
-+		r = -ENXIO;
-+	} else if (base_addr > 0x100) { /* Check a single specified location. */
-+		r = wavelan_config(dev, base_addr);
- #ifdef DEBUG_CONFIG_INFO
- 		if (r != 0)
- 			printk(KERN_DEBUG
-@@ -4267,35 +4268,33 @@
- #ifdef DEBUG_CALLBACK_TRACE
- 		printk(KERN_DEBUG "%s: <-wavelan_probe()\n", dev->name);
- #endif
--		return r;
--	}
--
--	/* Scan all possible addresses of the WaveLAN hardware. */
--	for (i = 0; i < NELS(iobase); i++) {
--		/* Check whether there is something at this base address. */
--		if (wv_check_ioaddr(iobase[i], mac) == 0) {
--			dev->base_addr = iobase[i];	/* Copy base address. */
--			memcpy(dev->dev_addr, mac, 6);	/* Copy MAC address. */
--			if (wavelan_config(dev) == 0) {
-+	} else { /* Scan all possible addresses of the WaveLAN hardware. */
-+		for (i = 0; i < NELS(iobase); i++) {
-+			dev->irq = def_irq;
-+			if (wavelan_config(dev, iobase[i]) == 0) {
- #ifdef DEBUG_CALLBACK_TRACE
- 				printk(KERN_DEBUG
- 				       "%s: <-wavelan_probe()\n",
- 				       dev->name);
- #endif
--				return 0;
-+				break;
- 			}
- 		}
-+		if (i == NELS(iobase))
-+			r = -ENODEV;
- 	}
--
--	/* We may have touched base_addr.  Another driver may not like it. */
--	dev->base_addr = base_addr;
--
--#ifdef DEBUG_CONFIG_INFO
--	printk(KERN_DEBUG "%s: wavelan_probe(): no device found\n",
--	       dev->name);
--#endif
--
--	return -ENODEV;
-+	if (r) 
-+		goto out;
-+	r = register_netdev(dev);
-+	if (r)
-+		goto out1;
++	err = elplus_setup(dev);
++	if (err) {
++		free_netdev(dev);
++		return ERR_PTR(err);
++	}
 +	return dev;
-+out1:
-+	release_region(dev->base_addr, sizeof(ha_t));
-+	wavelan_list = wavelan_list->next;
-+out:
-+	kfree(dev);
-+	return ERR_PTR(r);
  }
  
- /****************************** MODULE ******************************/
-@@ -4311,7 +4310,6 @@
-  */
- int init_module(void)
- {
--	mac_addr mac;		/* MAC address (check WaveLAN existence) */
- 	int ret = -EIO;		/* Return error if no cards found */
- 	int i;
+ #ifdef MODULE
+-static struct net_device dev_3c505[ELP_MAX_CARDS];
++static struct net_device *dev_3c505[ELP_MAX_CARDS];
+ static int io[ELP_MAX_CARDS];
+ static int irq[ELP_MAX_CARDS];
+ static int dma[ELP_MAX_CARDS];
+@@ -1661,10 +1648,12 @@
+ 	int this_dev, found = 0;
  
-@@ -4337,38 +4335,28 @@
- 	/* Loop on all possible base addresses. */
- 	i = -1;
- 	while ((io[++i] != 0) && (i < NELS(io))) {
--		/* Check if there is something at this base address. */
--		if (wv_check_ioaddr(io[i], mac) == 0) {
--			device *dev;
-+		struct net_device *dev = alloc_etherdev(sizeof(net_local));
+ 	for (this_dev = 0; this_dev < ELP_MAX_CARDS; this_dev++) {
+-		struct net_device *dev = &dev_3c505[this_dev];
++		struct net_device *dev = alloc_etherdev(sizeof(elp_device));
 +		if (!dev)
 +			break;
-+		memcpy(dev->name, name[i], IFNAMSIZ);	/* Copy name */
-+		dev->base_addr = io[i];
-+		dev->irq = irq[i];
- 
--			/* Create device and set basic arguments. */
--			dev =
--			    kmalloc(sizeof(struct net_device), GFP_KERNEL);
--			if (dev == NULL) {
--				ret = -ENOMEM;
--				break;
--			}
--			memset(dev, 0x00, sizeof(struct net_device));
--			memcpy(dev->name, name[i], IFNAMSIZ);	/* Copy name */
--			dev->base_addr = io[i];
--			dev->irq = irq[i];
--			dev->init = &wavelan_config;
--			memcpy(dev->dev_addr, mac, 6);	/* Copy MAC address. */
--
--			/* Try to create the device. */
-+		/* Check if there is something at this base address. */
-+		if (wavelan_config(dev, io[i]) == 0) {
- 			if (register_netdev(dev) != 0) {
--				/* Deallocate everything. */
--				/* Note: if dev->priv is mallocated, there is no way to fail. */
--				kfree(dev);
-+				release_region(dev->base_addr, sizeof(ha_t));
-+				wavelan_list = wavelan_list->next;
- 			} else {
--				/* If at least one device OK, we do not fail */
- 				ret = 0;
-+				continue;
- 			}
--		}		/* if there is something at the address */
--	}			/* Loop on all addresses. */
-+		}
-+		kfree(dev);
-+	}
- 
- #ifdef DEBUG_CONFIG_ERROR
--	if (wavelan_list == (net_local *) NULL)
-+	if (!wavelan_list)
- 		printk(KERN_WARNING
- 		       "WaveLAN init_module(): no device found\n");
- #endif
-@@ -4390,7 +4378,7 @@
- #endif
- 
- 	/* Loop on all devices and release them. */
--	while (wavelan_list != (net_local *) NULL) {
-+	while (wavelan_list) {
- 		device *dev = wavelan_list->dev;
- 
- #ifdef DEBUG_CONFIG_INFO
-@@ -4398,18 +4386,11 @@
- 		       "%s: cleanup_module(): removing device at 0x%x\n",
- 		       dev->name, (unsigned int) dev);
- #endif
--
--		/* Release the ioport region. */
--		release_region(dev->base_addr, sizeof(ha_t));
--
--		/* Definitely remove the device. */
- 		unregister_netdev(dev);
- 
--		/* Unlink the device. */
-+		release_region(dev->base_addr, sizeof(ha_t));
- 		wavelan_list = wavelan_list->next;
- 
--		/* Free pieces. */
--		kfree(dev->priv);
- 		free_netdev(dev);
++
+ 		dev->irq = irq[this_dev];
+ 		dev->base_addr = io[this_dev];
+-		dev->init = elplus_probe;
+ 		if (dma[this_dev]) {
+ 			dev->dma = dma[this_dev];
+ 		} else {
+@@ -1672,16 +1661,22 @@
+ 			printk(KERN_WARNING "3c505.c: warning, using default DMA channel,\n");
+ 		}
+ 		if (io[this_dev] == 0) {
+-			if (this_dev) break;
++			if (this_dev) {
++				free_netdev(dev);
++				break;
++			}
+ 			printk(KERN_NOTICE "3c505.c: module autoprobe not recommended, give io=xx.\n");
+ 		}
+-		if (register_netdev(dev) != 0) {
++		if (elplus_setup(dev) != 0) {
+ 			printk(KERN_WARNING "3c505.c: Failed to register card at 0x%x.\n", io[this_dev]);
+-			if (found != 0) return 0;
+-			return -ENXIO;
++			free_netdev(dev);
++			break;
+ 		}
++		dev_3c505[this_dev] = dev;
+ 		found++;
  	}
++	if (!found)
++		return -ENODEV;
+ 	return 0;
+ }
  
-diff -urN 08-arlan/drivers/net/wireless/wavelan.p.h 09-wavelan/drivers/net/wireless/wavelan.p.h
---- 08-arlan/drivers/net/wireless/wavelan.p.h	2003-09-27 17:50:38.000000000 -0700
-+++ 09-wavelan/drivers/net/wireless/wavelan.p.h	2003-09-29 16:30:09.000000000 -0700
-@@ -656,9 +656,8 @@
- static int
- 	wavelan_open(device *),		/* Open the device. */
- 	wavelan_close(device *),	/* Close the device. */
--	wavelan_config(device *);	/* Configure one device. */
--extern int
--	wavelan_probe(device *);	/* See Space.c. */
-+	wavelan_config(device *, unsigned short);/* Configure one device. */
-+extern struct net_device *wavelan_probe(int unit);	/* See Space.c. */
+@@ -1690,12 +1685,11 @@
+ 	int this_dev;
  
- /**************************** VARIABLES ****************************/
+ 	for (this_dev = 0; this_dev < ELP_MAX_CARDS; this_dev++) {
+-		struct net_device *dev = &dev_3c505[this_dev];
+-		if (dev->priv != NULL) {
++		struct net_device *dev = dev_3c505[this_dev];
++		if (dev) {
+ 			unregister_netdev(dev);
+-			kfree(dev->priv);
+-			dev->priv = NULL;
+ 			release_region(dev->base_addr, ELP_IO_EXTENT);
++			free_netdev(dev);
+ 		}
+ 	}
+ }
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Mon Sep 29 09:45:12 2003
++++ b/drivers/net/Space.c	Mon Sep 29 09:45:12 2003
+@@ -63,7 +63,7 @@
+ extern int el16_probe(struct net_device *);
+ extern int elmc_probe(struct net_device *);
+ extern int skmca_probe(struct net_device *);
+-extern int elplus_probe(struct net_device *);
++extern struct net_device *elplus_probe(int unit);
+ extern int ac3200_probe(struct net_device *);
+ extern int es_probe(struct net_device *);
+ extern int lne390_probe(struct net_device *);
+@@ -274,13 +274,13 @@
+ #ifdef CONFIG_EL16		/* 3c507 */
+ 	{el16_probe, 0},
+ #endif
+-#ifdef CONFIG_ELPLUS		/* 3c505 */
+-	{elplus_probe, 0},
+-#endif
+ 	{NULL, 0},
+ };
  
+ static struct devprobe2 isa_probes2[] __initdata = {
++#ifdef CONFIG_ELPLUS		/* 3c505 */
++	{elplus_probe, 0},
++#endif
+ #ifdef CONFIG_SK_G16
+ 	{SK_init, 0},
+ #endif
