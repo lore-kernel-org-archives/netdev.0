@@ -1,51 +1,63 @@
-From: Felipe W Damasio <felipewd@terra.com.br>
-Subject: [PATCH] Kill unneeded linux/version.h include in net/ipv6
-Date: Wed, 03 Sep 2003 11:04:13 -0300
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Fw: [PATCH] Kill unneeded version.h from net/sched
+Date: Wed, 3 Sep 2003 08:30:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F55F4DD.9070301@terra.com.br>
+Message-ID: <20030903083005.5a35c59f.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------020308040205020607070106"
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
+ boundary="Multipart_Wed__3_Sep_2003_08:30:05_-0700_09378280"
+Cc: felipewd@terra.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pekkas@netcore.fi, davem@redhat.com, yoshfuji@linux-ipv6.org
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------020308040205020607070106
-Content-Type: text/plain; charset=us-ascii; format=flowed
+
+--Multipart_Wed__3_Sep_2003_08:30:05_-0700_09378280
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+
+
+Another net/ patch.
+~Randy
+
+
+Begin forwarded message:
+
+Date: Wed, 03 Sep 2003 11:29:44 -0300
+From: Felipe W Damasio <felipewd@terra.com.br>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Subject: [PATCH] Kill unneeded version.h from net/sched
+
 
 	Hi,
 
-	Patch against 2.6-test4.
+	Last patch, removing all references that checkversion gave me on net/
 
-	Removes an unneeded linux/version.h include from af_inet6..
+	Against 2.6-test4, please apply.
 
-	Please consider applying.
-
-	Cheers,
+	Cheers
 
 Felipe
 
---------------020308040205020607070106
+--Multipart_Wed__3_Sep_2003_08:30:05_-0700_09378280
 Content-Type: text/plain;
- name="ipv6-checkversion.patch"
+ name="net_sched-checkversion.patch"
+Content-Disposition: attachment;
+ filename="net_sched-checkversion.patch"
 Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="ipv6-checkversion.patch"
 
---- linux-2.6.0-test4/net/ipv6/af_inet6.c	Fri Aug 22 20:56:34 2003
-+++ linux-2.6.0-test4-fwd/net/ipv6/af_inet6.c	Wed Sep  3 10:58:48 2003
-@@ -40,7 +40,6 @@
- #include <linux/proc_fs.h>
- #include <linux/stat.h>
- #include <linux/init.h>
+--- linux-2.6.0-test4/net/sched/sch_htb.c	Fri Aug 22 20:57:14 2003
++++ linux-2.6.0-test4-fwd/net/sched/sch_htb.c	Wed Sep  3 11:27:06 2003
+@@ -32,7 +32,6 @@
+ #include <asm/bitops.h>
+ #include <linux/types.h>
+ #include <linux/kernel.h>
 -#include <linux/version.h>
- 
- #include <linux/inet.h>
- #include <linux/netdevice.h>
+ #include <linux/sched.h>
+ #include <linux/string.h>
+ #include <linux/mm.h>
 
---------------020308040205020607070106--
+
+--Multipart_Wed__3_Sep_2003_08:30:05_-0700_09378280--
