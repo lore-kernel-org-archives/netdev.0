@@ -1,62 +1,73 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [13/*] [IPV4] Fix room calculation in icmp_send
-Date: Mon, 14 Mar 2005 21:53:13 +1100
-Message-ID: <20050314105313.GA21001@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <20050306213214.7d8a143d.davem@davemloft.net> <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au>
+From: Pekka Enberg <penberg@gmail.com>
+Subject: Re: A new 10GB Ethernet Driver by Chelsio Communications
+Date: Mon, 14 Mar 2005 13:10:46 +0200
+Message-ID: <84144f0205031403105351abf5@mail.gmail.com>
+References: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
+	 <20050311112132.6a3a3b49.akpm@osdl.org>
+Reply-To: Pekka Enberg <penberg@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="+QahgC5+KEYLbs62"
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050314102614.GA9610@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <christoph@graphe.net>,
+	linux-kernel@vger.kernel.org, mark@chelsio.com, netdev@oss.sgi.com,
+	Jeff Garzik <jgarzik@pobox.com>, penberg@cs.helsinki.fi
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050311112132.6a3a3b49.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Some of my usual coding style comments...
 
---+QahgC5+KEYLbs62
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+On Fri, 11 Mar 2005 11:21:32 -0800, Andrew Morton <akpm@osdl.org> wrote:
+> diff -puN /dev/null drivers/net/chelsio/osdep.h
+> --- /dev/null	2003-09-15 06:40:47.000000000 -0700
+> +++ 25-akpm/drivers/net/chelsio/osdep.h	2005-03-11 11:13:06.000000000 -0800
+> +static inline void *t1_malloc(size_t len)
+> +{
+> +	void *m = kmalloc(len, GFP_KERNEL);
+> +	if (m)
+> +		memset(m, 0, len);
+> +	return m;
+> +}
+> +
+> +static inline void t1_free(void *v, size_t len)
+> +{
+> +	kfree(v);
+> +}
 
-Hi Dave:
+Please do not introduce subsystem specific wrappers to kmalloc and kfree.
 
-I'm now cleaning up all users of dst_pmtu with the aim of replacing
-dst_pmtu with dst_mtu.  I'm going to start with the ones that actually
-fix bugs.
+> +/*
+> + * Allocates basic RX resources, consisting of memory mapped freelist Qs and a
+> + * response Q.
+> + */
+> +static int alloc_rx_resources(struct sge *sge, struct sge_params *p)
+> +{
+> +	struct pci_dev *pdev = sge->adapter->pdev;
+> +	unsigned int size, i;
+> +
+> +	for (i = 0; i < SGE_FREELQ_N; i++) {
+> +		struct freelQ *Q = &sge->freelQ[i];
+> +
+> +		Q->genbit = 1;
+> +		Q->entries_n = p->freelQ_size[i];
+> +		Q->dma_offset = SGE_RX_OFFSET - sge->rx_pkt_pad;
+> +		size = sizeof(struct freelQ_e) * Q->entries_n;
+> +		Q->entries = (struct freelQ_e *)
+> +			      pci_alloc_consistent(pdev, size, &Q->dma_addr);
+> +		if (!Q->entries)
+> +			goto err_no_mem;
+> +		memset(Q->entries, 0, size);
+> +		size = sizeof(struct freelQ_ce) * Q->entries_n;
+> +		Q->centries = (struct freelQ_ce *) kmalloc(size, GFP_KERNEL);
+> +		if (!Q->centries)
+> +			goto err_no_mem;
+> +		memset(Q->centries, 0, size);
 
-This patch fixes the length calculation in icmp_send.  As it is
-we're overestimating the space available by including the space
-that would be used up by IPsec encapsulation.
+Please drop the redundant casts and use kcalloc() here and in various
+other places as
+well.
 
-IPv6 doesn't have this problem since its calculation is based
-on 1280 instead of the PMTU.
+Also, the patch has some whitespace damage (spaces instead of tabs).
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---+QahgC5+KEYLbs62
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-13
-
-===== net/ipv4/icmp.c 1.49 vs edited =====
---- 1.49/net/ipv4/icmp.c	2004-12-28 16:30:43 +11:00
-+++ edited/net/ipv4/icmp.c	2005-03-14 21:34:20 +11:00
-@@ -560,7 +560,7 @@
- 
- 	/* RFC says return as much as we can without exceeding 576 bytes. */
- 
--	room = dst_pmtu(&rt->u.dst);
-+	room = dst_mtu(&rt->u.dst);
- 	if (room > 576)
- 		room = 576;
- 	room -= sizeof(struct iphdr) + icmp_param.replyopts.optlen;
-
---+QahgC5+KEYLbs62--
+				Pekka
