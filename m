@@ -1,167 +1,79 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: 10 Feb 2004 05:48:10 -0500
+From: trond.myklebust@fys.uio.no
+Subject: Re: [NFS] [PATCH][RFC] use completions instead of sleep_on
+     forrpciod
+Date: Tue, 10 Feb 2004 12:47:29 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1076410090.1039.578.camel@jzny.localdomain>
-References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
-	 <1076338874.1026.36.camel@jzny.localdomain>
-	 <Pine.LNX.4.58.0402100008580.1251@u.domain.uli>
-	 <1076367038.1037.15.camel@jzny.localdomain>
-	 <Pine.LNX.4.58.0402100114020.1251@u.domain.uli>
-	 <1076376094.1039.102.camel@jzny.localdomain>
-	 <Pine.LNX.4.58.0402101028400.1158@u.domain.uli>
-Reply-To: hadi@cyberus.ca
+Message-ID: <33285.80.213.3.64.1076413649.squirrel@webmail.uio.no>
+References: <20040207144405.GA19416@lst.de> <20040209102801.GC21364@suse.de>
+    <35059.80.213.3.64.1076359739.squirrel@webmail.uio.no>
+    <20040210091520.GD20932@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: "Christoph Hellwig" <hch@lst.de>, netdev@oss.sgi.com,
+        nfs@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.58.0402101028400.1158@u.domain.uli>
+To: "Olaf Kirch" <okir@suse.de>
+In-Reply-To: <20040210091520.GD20932@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-02-10 at 04:44, Julian Anastasov wrote:
-> 	Hello,
-> 
-> On Tue, 9 Feb 2004, jamal wrote:
-> 
-> > Is this always guaranteed? Example "ip route get" will always create
-> > a cache entry but not a neighbor.
-> 
-> 	rt_intern_hash shows that it is created and I also checked
-> it by using printk, the entry is freed some time after the routing
-> cache entry is deleted, later may be when dst is deleted and
-> neigh_periodic_timer removes it.
-> 
+P=E5 ty , 10/02/2004 klokka 10:15, skreiv Olaf Kirch:
+> It wasn't in 2.4.19 or whenever I ran into this. And a per-transport
+lock isn't enough to protect a global variable shared by all transports.
+Trust me: I spent several weeks debugging this particular problem :)
+(See the PS for a somewhat lengthy description of what I remember)
 
-I believe it would work even if there is no neighbor resolved yet.
-i.e it depends only on a route being resolvable not necessarily
-having the next hop existing already in arp cache. Try get on some host
-that doesnt exist in cache yet - try on some fake address on a directly
-connected subnet (make sure you pick a host that doesnt exist and
-therefore will never be reached).
+Duh... I forgot that the XID was still global...
 
-> > This is true, but not in my setup where i guarantee there will be
-> > no other authoritative response.
-> > I think authoritative answer is the main reason for the race;
-> > the fact that you can set proxy_delay to 0 when you need to (such as in
-> > my case) is needed flexibility.
-> 
-> 	So, a device flag seems as the only alternative to say
-> that you really want immediate answer no matter what the target
-> state is.
+Does anybody see any problems with moving the XID counter into the struct
+xprt? Please bear in mind that the replay caches on modern NFS servers
+look at XID+client IP address+port number, so 2 sockets that play the sam=
+e
+XID to the server should not normally conflict.
 
-nod.
+> I think that BKL removal at this point is probably not a good idea. Sus=
+e
+had a BKL removal patch in their SLES8 kernel, and I spent a total of
+4-5
+> weeks hunting down all sorts of bugs related to SMP races. And I don't
+think we've seen all of these bugs yet. It might be better to postpone
+this for the 2.7 branch.
 
-> >
-> > again back to my earlier question (and talking about ARP only):
-> > A host would only send us a unicast probe to begin with if it is
-> > NUD_PROBE state (iirc); which means given the exchanges the cache entry
-> > we have would more than likely be valid still i.e if you want to
-> > optimize this portion you will be mostly doing a useless call. Agreed?
-> 
-> 	Yes, requestor can be in PROBE state sending unicasts
-> but for us the target can be already unreachable.
+I totally agree with this...
 
-This is true; what i am saying is for this to happen more than likely
-something odd must have happened ex: the cable towards the target may
-have been pulled.i.e the chances of this happening just because the
-arp cache expired are low. The arp cache would exist because the
-initial states would have created it.
+No extra work has been done on BKL removal in the 2.6 branch, and I know
+that the old patch that was up for testing in the 2.4 tree was buggy in
+several ways...
 
-> > I suppose you are trying to shortcut this by not waiting until the arp
-> > state machine takes effect - which is fine but i claim needs to be
-> > configurable over current behavior.
-> 
-> 	Sometimes when delay is not 0 the immediate neigh_event_send
-> has chance to learn the target's state before the request is
-> dequeued for answer. But if delay is configured to 0 we have to
-> drop the first request because we do not have real answer, we
-> have to wait for 2nd request. The goal is not to give false answers
-> even for unicast requests. 
+> > The code in unlink.c is only called from dentry_iput() or from
+sillyrename(). In either case, there is no possibility for SMP races.
+>
+> Are you sure? nfs_dentry_iput explicitly does a lock_kernel before
+calling
+> nfs_complete_unlink. I think that's because dentry_iput explicitly drop=
+s
+the dcache_lock before calling dentry->d_op->d_iput. I wouldn't remove
+that BKL :)
 
-But the above assumes there are false alarms in all cases ;->
+Yep, but there is only one inode per dentry, and the VFS rules forbids yo=
+u
+to convert a negative dentry into a positive one (the contrary is allowed=
+,
+but only under certain restricted situations).
 
-> To avoid such one-second delay we can
-> walk the proxy_queue when target answers and to propagate the
-> answer to all queued requests but it will take too many CPU cycles,
-> I think. So, we have three options when delay is set to 0:
-> 
-> 1. the first request is dropped if there is no valid entry for target
-> 
-> 2. we lie and send false answers to unicast probes, for long time
-> after target becomes unreachable
+> And even if you leave that BKL and just remove the one in rpciod, you
+may
+> still have a race between rpciod and dput. One CPU may be adding entrie=
+s
+inside nfs_async_unlink (called from dentry_iput()), and at the same
+time rpciod can run on another CPU, calling nfs_async_unlink_release,
+removing stuff from the nfs_deletes list. The reference counting on
+nfs_unlinkdata isn't atomic either.
 
-This is current behavior; i wouldnt say we lie rather we send educated
-response back. 
+Sure... The unlink.c global lists definitely depend on the BKL for
+protection. The latter would need to be replaced by a new global
+spinlock.
 
-> 
-> 3. we introduce intentional delay (the configured delay is 0),
-> we queue this request and later probably reply to it
-> 
-> I can agree with you (for case 2) only if the requestor is
-> not going to send unicast probes forever. 
-
-Thats why i asked if you are trying to catch insane implementation.
-In my case everything is Linux. Ok, theres some pollution with
-a CISCO upstream, but that seems to have a sane arp too.
-Leave #2 with a flag to ask for for neigh_event_send() to be used
-when needed.
-
-> But looking at the
-> end of arp_process if Linux is the requestor it will enter
-> NUD_REACHABLE state after receiving unicast reply. So, may
-> be this is going to live forever? It seems the periodic timer
-> is going to loop between
-> NUD_REACHABLE -> NUD_STALE -> NUD_DELAY -> NUD_PROBE (sending
-> unicasts) -> and then we receive false unicast reply -> loop
-
-Well, yeah - an insane implementation will cause a lot of grief;
-
-[..]
-
-> > > 	You mean the delay? I add it for other purposes, even
-> > > if target is valid in the cache.
-> >
-> > Just the extra call to check state before responding adds a little to
-> > the overhead for no good reason.
-> 
-> 	The good news is that it is cached during the reachable_time :)
-> 
-> > If the arp cache is invalid when you respond, the principle of
-> > conservation of work says that work will be done later, you just defered
-> > it to route lookup time when an IP packet is sent.
-> 
-> 	The main thing is that I do not want the requestor to add
-> routing cache entry for this dead path because such entries are going
-> to flood us with IP [re]transmissions which is not needed. The best way
-> is the requestor to avoid the failed target IP as gateway and to cache
-> another (probably) reachable target. No other benefits, I think.
-> For this, the requestor should switch from PROBE to FAILED.
-> 
-
-I dont question the validity of this portion of your patch.
-i.e it is an improvement in certain cases - the cost is only an extra
-neigh_event_send(). But because it is not needed 100% of the time given
-the educated assumption being made right now, i think the behavior
-should be configurable. For me #2 breaks only if the target dissapeares
-(cable gone or target removed). 
-
-> > > 	True, if the administrator is sure that our box is the
-> > > only responder for such targets he can set the delay to 0 to
-> > > speedup the answers.
-> > >
-> >
-> > Exactly my setup. So in this case i think this feature should stay.
-> 
-> 	So, how are we going to support it? Additional flag?
-> If we do not support it we are going to drop the first request
-> and to answer the next one. Or may be we can introduce delay?
-
-We should support it. It should just be turned off by default.
-It seems to me it should be per device flag with ability to turn it off
-for all devices too, no?
-
-cheers,
-jamal
+Cheers,
+  Trond
