@@ -1,52 +1,34 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] ip multicast, kernel 2.4.2*, 2.6.*
-Date: Wed, 14 Apr 2004 02:06:17 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF0F96BFF9.CF0962DF-ON88256E76.0030A322-88256E76.003206F4@us.ibm.com>
-References: <20040414041731.GA2010@safenet-inc.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [NET] net driver updates
+Date: Wed, 14 Apr 2004 12:13:04 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040414121304.A20405@electric-eye.fr.zoreil.com>
+References: <4072CD01.6070408@pobox.com> <FE87A41F-8809-11D8-8F2A-000A9597297C@fhm.edu> <407C31F4.9070800@pobox.com> <E90D8BA8-8D8E-11D8-BAEB-000A9597297C@fhm.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040414041731.GA2010@safenet-inc.com>
-To: Lauri Tarkkala <ltarkkala@safenet-inc.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Daniel Egger <degger@fhm.edu>
+Content-Disposition: inline
+In-Reply-To: <E90D8BA8-8D8E-11D8-BAEB-000A9597297C@fhm.edu>; from degger@fhm.edu on Tue, Apr 13, 2004 at 11:09:54PM +0200
 List-Id: netdev.vger.kernel.org
 
-Lauri Tarkkala wrote on 04/13/2004 09:17:31 PM:
+Daniel Egger <degger@fhm.edu> :
+> On 13.04.2004, at 20:31, Jeff Garzik wrote:
+> 
+> > RTL8169 is a nice chipset, though.  Robert Ollsson had some nice 
+> > pktgen numbers for it, IIRC.
+> 
+> You gotta be kidding. I've not seen a single OS where
+> this cheapass chipset was fast. It's always the last in
+> line but maybe that's just because Realtek wrote the
+> drivers themselves. :)
 
-> The reason for this processing (my guess), is that the inbound
-> (duplicate) packet will not be sent, unless the original
-> passes the netfilter hooks. This has the side-effect that netfilter
-> hooks have no way of detecting whether packets are intended to or are
-> going to be looped back. The looped-back packet will of course still go
-> through the inbound hooks.
+http://oss.sgi.com/projects/netdev/archive/2003-11/msg00399.html
 
-If a packet doesn't pass the outbound hooks, won't your patch still
-deliver it locally? Isn't that wrong?
+Coming soon :o)
 
-I think the reason it creates a duplicate is because there are two
-cases-- one to be sent to the interface and one to be delivered
-locally. The one going out the interface should pass the outbound
-checks (only) and the one delivered locally should pass (I think)
-first the outbound filter and then the inbound filter. Right?
-
-Whether a particular multicast packet should be looped back or not
-is not static-- it's determined by the sender (and different senders
-may have different IP_MULTICAST_LOOP settings for the same group on
-the same machine). So, there is no answer for netfilter that applies
-to all multicast packets or even for all for a particular <group,intf>.
-
-Under what circumstances does netfilter need to "detect whether packets
-are intended to or are going to be looped back?"
-
-> This is quite error-prone, both in terms of configuring policy for
-> netfilter modules, not to mention optimization and implementation. There
-> are also some cases that just can not be handled correctly.
-
-What does it break? Can you give an example?
-
-I'm not saying I disagree (or agree) with your patch yet-- haven't looked
-at it enough. Just trying to understand what it fixes.
-
-                                                +-DLS
+--
+Ueimor
