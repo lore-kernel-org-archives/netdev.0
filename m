@@ -1,28 +1,25 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: netdev_ops retraction
-Date: Wed, 30 Jul 2003 14:50:03 -0400
+From: "Jason Lunz" <lunz@reflexsecurity.com>
+Subject: Re: e1000 typo?
+Date: Wed, 30 Jul 2003 14:29:06 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030730185003.GA9253@gtf.org>
-References: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <20030730182906.GA14121@reflexsecurity.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229242@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew Wilcox <willy@debian.org>
+To: "Feldman, Scott" <scott.feldman@intel.com>
 Content-Disposition: inline
-In-Reply-To: <20030730184416.GI22222@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0102229242@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 30, 2003 at 07:44:16PM +0100, Matthew Wilcox wrote:
-> Never mind the additional pointer dereference in the code, this is just
-> a horribly large data structure.  Unless someone convinces me otherwise,
-> I'm going to drop this idea and revert to doing ethtool_ops as a separate
-> data structure.  I think there's still scope for a netdev_ops patch,
-> but it's of dubious value and more of a 2.7 project.
+On Wed, Jul 30, 2003 at 11:24AM -0700, Feldman, Scott wrote:
+> It's intentional because && stops evaluating if left op is false which
+> means we would leave Tx cleanup work when there was no Rx work.  
 
-Definitely OK with me.
+ah. subtle yet obvious. :P
 
-And I think this is probably the best route for the moment, especially.
-
-	Jeff
+-- 
+Jason Lunz			Reflex Security
+lunz@reflexsecurity.com		http://www.reflexsecurity.com/
