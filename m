@@ -1,56 +1,43 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: [Patch] net: fix build break when CONFIG_NET_CLS_ACT is not set
-Date: Tue, 29 Mar 2005 16:17:41 -0500
-Message-ID: <20050329211741.GL22447@hmsendeavour.rdu.redhat.com>
-References: <20050329202506.GI22447@hmsendeavour.rdu.redhat.com> <1112130720.1076.112.camel@jzny.localdomain>
+From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+Subject: Re: [PATCH] s390: claw network device driver
+Date: Tue, 29 Mar 2005 23:25:43 +0200
+Message-ID: <20050329212543.GA432@wohnheim.fh-wedel.de>
+References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org> <20050329071002.GA16204@havoc.gtf.org> <20050329152057.GA27840@wohnheim.fh-wedel.de> <4249B52C.2000300@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Neil Horman <nhorman@redhat.com>, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+        schwidefsky@de.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <1112130720.1076.112.camel@jzny.localdomain>
+In-Reply-To: <4249B52C.2000300@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 29, 2005 at 04:12:01PM -0500, jamal wrote:
-> 
-> This is being discussed on netdev at the moment. Thomas Graf is working
-> on a patch.
-> Thanks for the effort though.
-> 
-> cheers,
-> jamal
-> 
-No worries.  What exactly is the point of contention on netdev? (I'm not
-currently following that list).  My patch seems to follow the common practice
-for CONFIG_NET_CLS_ACT, in that all references to the action member of the
-appropriate struct are themselves ifdef-ed.
-Regards,
-Neil
+On Tue, 29 March 2005 15:06:04 -0500, Jeff Garzik wrote:
+> J=F6rn Engel wrote:
+> >
+> >Just out of curiosity: why are there two mailing lists?  Especially if
+> >one of them is the Wrong One.
+>=20
+> <shrug>
+>=20
+> linux-net is mostly dead.  I get the impression it is occasionally used=
+=20
+> by users.
+>=20
+> netdev (as, perhaps, the name implies) is where the network developers=20
+> hang out.
 
-> On Tue, 2005-03-29 at 15:25, Neil Horman wrote:
-> > Patch to fix build break that occurs when CONFIG_NET_CLS_ACT is not set.
-> > 
-> > Signed-off-by: Neil Horman <nhorman@redhat.com>
-> > 
-> >  cls_fw.c      |    3 ++-
-> >  cls_route.c   |    3 ++-
-> >  cls_tcindex.c |    3 ++-
-> >  cls_u32.c     |    2 ++
-> >  4 files changed, 8 insertions(+), 3 deletions(-)
-> > 
-> 
-> 
+Ok, I figured as much.  But then, why is linux-net not just deleted?
+Bouncing mails would be an indication that noone will read them,
+right?
 
--- 
-/***************************************************
- *Neil Horman
- *Software Engineer
- *Red Hat, Inc.
- *nhorman@redhat.com
- *gpg keyid: 1024D / 0x92A74FA1
- *http://pgp.mit.edu
- ***************************************************/
+J=F6rn
+
+--=20
+There's nothing better for promoting creativity in a medium than
+making an audience feel "Hmm =AD I could do better than that!"
+-- Douglas Adams in a slashdot interview
