@@ -1,60 +1,67 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
-	else")
-Date: Wed, 1 Sep 2004 07:33:18 +1000
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20040831213318.GA7262@gondor.apana.org.au>
-References: <20040831111508.GA2327@gondor.apana.org.au>
-	<Pine.LNX.4.44.0408311446240.4022-100000@l>
-	<20040831212802.GB7058@gondor.apana.org.au>
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
+Date: Tue, 31 Aug 2004 17:37:19 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040831213719.GH31207@ruslug.rutgers.edu>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <4134C1A7.50600@pobox.com> <200408312214.44701.vkondra@mail.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-	laforge@netfilter.org, rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Julian Anastasov <ja@ssi.bg>
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+        Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+        Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+        Jouni Malinen <jkmaline@cc.hut.fi>, acx100-devel@lists.sourceforge.net,
+        prism54-devel@prism54.org, davem@redhat.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Vladimir Kondratiev <vkondra@mail.ru>
 Content-Disposition: inline
-In-Reply-To: <20040831212802.GB7058@gondor.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+In-Reply-To: <200408312214.44701.vkondra@mail.ru>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 01, 2004 at 07:28:02AM +1000, herbert wrote:
-> On Tue, Aug 31, 2004 at 03:33:22PM +0300, Julian Anastasov wrote:
-> > 
-> > 	I do not see where the public IP is, what you mean? As the
-> > mpath route does not have preferred src IP (usually when many ISPs
-> > are used) the kernel uses inet_select_addr to select one, in similar
-> > way as you are trying to do. But the difference is that it is now
-> > cached and by using nfmark we have more options not to reach this
-> > mpath route on next lookups.
+On Tue, Aug 31, 2004 at 10:14:38PM +0300, Vladimir Kondratiev wrote:
+> On Tuesday 31 August 2004 21:21, Jeff Garzik wrote:
+> JG> Denis Vlasenko wrote:
+> JG> > I think 'senior' network guys are in position to decide upon which
+> JG> > of currently available 802.11 stacks we should continue to work.
+> JG> > (Atheros has one, said to be derived from BSD, is there any others?)
+> JG>
+> JG>
+> JG> Already have.  Start with the code in wireless-2.6 -- HostAP -- and use
+> JG> DaveM's 802.11 stack template as a model for actually integrating 802.11
+> JG> very tightly with the rest of the net stack.
+> JG>
+> JG>
+>  http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/davem-p8
+> 0211.tar.bz2 JG>
+> JG>  Jeff
 > 
-> I was mistaken.  In the mpath case there is no source address per
-> nexthop.
+> This stack raises many questions.
+> 
+> The very idea to implement generic softmac is pretty good.
+> 
+> So, first questions:
+> 
+> - it defines structures that was present in Jean's wireless extensions. So, 
+> will it replace Jean's wireless extensions, merge with it, or some other 
+> relationship? Partually, I don't like to see definitions for .11 header and 
+> field constants in 2 includes.
+> 
+> - QoS stuff is not defined. I suppose recent cards will all support WME and/or 
+> TGe. It is easy to add "QoS control" field to header and new frame types, but 
+> it is harder to formally define how PHY should handle it. And, TGe is big 
+> story on itself, with all its HCCA, block ack, etc. I also think that QoS, as 
+> it is defined in TGe, required driver to have several tx queues and 
+> start/stop them separately. Is anyone working on it? I'll be glad to join.
+> 
+> - Security is not up-to date either. We need .1x, EAS, TKIP etc. This need to 
+> be done for modern cards to use this infrastructure.
 
-Actually, that should still work.
+This is handled by hostap wpa_supplicant now, which is going to be part
+of WE18. The question I think is whether somoene plans on re-doing it on
+wireless-2.6, since as you mentioned it seems WE are being redone on
+davem's patch.
 
-For example, if you're like me and the nexthops all go to different
-devices then it's obviously OK as inet_select_addr will pick the
-right one for the device.  If they're going through the same device
-but to different gateways then it'll still pick the right one for
-the given gateway.
+	Luis
 
-It only breaks when all your nexthops go to the same gateway (can't
-happen) or if somehow the gateway addresses don't match up with your
-desired source address.
-
-In that case I really think that you should use SNAT :)
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
