@@ -1,34 +1,24 @@
-From: Alex Davis <alex14641@yahoo.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: link error building kernel with gcc-3.3
-Date: Thu, 15 May 2003 07:56:33 -0700 (PDT)
+Date: Thu, 15 May 2003 13:11:01 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030515145633.37071.qmail@web40506.mail.yahoo.com>
+Message-ID: <20030515.131101.78728190.davem@redhat.com>
 References: <20030514.224214.42791773.davem@redhat.com>
+	<20030515145633.37071.qmail@web40506.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alex14641@yahoo.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@intercode.com.au, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, jmorris@intercode.com.au
-In-Reply-To: <20030514.224214.42791773.davem@redhat.com>
+To: alex14641@yahoo.com
+In-Reply-To: <20030515145633.37071.qmail@web40506.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Can you push it to 2.4.x as well?
+   From: Alex Davis <alex14641@yahoo.com>
+   Date: Thu, 15 May 2003 07:56:33 -0700 (PDT)
 
--Alex
-
---- "David S. Miller" <davem@redhat.com> wrote:
->    From: James Morris <jmorris@intercode.com.au>
->    Date: Thu, 15 May 2003 15:38:15 +1000 (EST)
->    
->    I wonder, does this mean that the compiler failed to inline the function?
->    
->    Removing __inline__ is not the correct solution.
->    
-> I already posted what the correct fix is :-)  And this is already
-> pushed to 2.5.x
-
-__________________________________
-Do you Yahoo!?
-The New Yahoo! Search - Faster. Easier. Bingo.
-http://search.yahoo.com
+   Can you push it to 2.4.x as well?
+   
+I did, but it won't go in until 2.4.22-pre1, this isn't
+critical at all.
