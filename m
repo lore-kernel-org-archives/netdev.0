@@ -1,207 +1,46 @@
-From: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
-Subject: [6/8] orinoco: Cleanup PCMCIA/PC-Card code
-Date: Wed, 12 Jan 2005 16:28:14 +1100
-Message-ID: <20050112052814.GG30426@localhost.localdomain>
-References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain> <20050112052543.GC30426@localhost.localdomain> <20050112052630.GD30426@localhost.localdomain> <20050112052711.GE30426@localhost.localdomain> <20050112052741.GF30426@localhost.localdomain>
+From: David Gibson <david@gibson.dropbear.id.au>
+Subject: [0/8] orinoco driver updates
+Date: Wed, 12 Jan 2005 16:23:52 +1100
+Message-ID: <20050112052352.GA30426@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
-	orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Cc: orinoco-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263021AbVALF3s@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050112052741.GF30426-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
-Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
-List-Post: <mailto:orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-List-Help: <mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
-	<mailto:orinoco-devel-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Cleanup the various bits of initialization code for PCMCIA / PC-Card
-orinoco devices.  This includes one important bugfix where we could
-fail to take the lock in some circumstances.
+Following are a bunch of patches which make a few more steps towards
+the long overdue merge of the CVS orinoco driver into mainline.  These
+do make behavioural changes to the driver, but they should all be
+trivial and largely cosmetic.
 
-Signed-off-by: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
+Jeff, please apply.  Patches are against the netdev BK tree.
 
-Index: working-2.6/drivers/net/wireless/orinoco_cs.c
-===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco_cs.c	2005-01-12 15:34:50.847655792 +1100
-+++ working-2.6/drivers/net/wireless/orinoco_cs.c	2004-11-05 14:31:07.000000000 +1100
-@@ -54,19 +54,11 @@
- 
- /* Module parameters */
- 
--/* The old way: bit map of interrupts to choose from */
--/* This means pick from 15, 14, 12, 11, 10, 9, 7, 5, 4, and 3 */
--static uint irq_mask = 0xdeb8;
--/* Newer, simpler way of listing specific interrupts */
--static int irq_list[4] = { -1 };
--
- /* Some D-Link cards have buggy CIS. They do work at 5v properly, but
-  * don't have any CIS entry for it. This workaround it... */
- static int ignore_cis_vcc; /* = 0 */
--
--MODULE_PARM(irq_mask, "i");
--MODULE_PARM(irq_list, "1-4i");
--MODULE_PARM(ignore_cis_vcc, "i");
-+module_param(ignore_cis_vcc, int, 0644);
-+MODULE_PARM_DESC(ignore_cis_vcc, "Allow voltage mismatch between card and socket");
- 
- /********************************************************************/
- /* Magic constants						    */
-@@ -136,6 +128,7 @@
- 	if (err)
- 		return err;
- 
-+	msleep(100);
- 	clear_bit(0, &card->hard_reset_in_progress);
- 
- 	return 0;
-@@ -161,7 +154,7 @@
- 	struct orinoco_pccard *card;
- 	dev_link_t *link;
- 	client_reg_t client_reg;
--	int ret, i;
-+	int ret;
- 
- 	dev = alloc_orinocodev(sizeof(*card), orinoco_cs_hard_reset);
- 	if (! dev)
-@@ -174,14 +167,11 @@
- 	link->priv = dev;
- 
- 	/* Interrupt setup */
--	link->irq.Attributes = IRQ_TYPE_EXCLUSIVE;
-+	link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
- 	link->irq.IRQInfo1 = IRQ_INFO2_VALID | IRQ_LEVEL_ID;
--	if (irq_list[0] == -1)
--		link->irq.IRQInfo2 = irq_mask;
--	else
--		for (i = 0; i < 4; i++)
--			link->irq.IRQInfo2 |= 1 << irq_list[i];
--	link->irq.Handler = NULL;
-+	link->irq.IRQInfo2 = 0xffffffff;	/* Any ISA IRQ */
-+	link->irq.Handler = orinoco_interrupt;
-+	link->irq.Instance = dev; 
- 
- 	/* General socket configuration defaults can go here.  In this
- 	 * client, we assume very little, and rely on the CIS for
-@@ -262,6 +252,9 @@
- 		last_fn = (fn); if ((last_ret = (ret)) != 0) goto cs_failed; \
- 	} while (0)
- 
-+#define CFG_CHECK(fn, ret) \
-+	if (ret != 0) goto next_entry
-+
- static void
- orinoco_cs_config(dev_link_t *link)
- {
-@@ -323,9 +316,8 @@
- 		cistpl_cftable_entry_t *cfg = &(parse.cftable_entry);
- 		cistpl_cftable_entry_t dflt = { .index = 0 };
- 
--		if (pcmcia_get_tuple_data(handle, &tuple) != 0 ||
--				pcmcia_parse_tuple(handle, &tuple, &parse) != 0)
--			goto next_entry;
-+		CFG_CHECK(GetTupleData, pcmcia_get_tuple_data(handle, &tuple));
-+		CFG_CHECK(ParseTuple, pcmcia_parse_tuple(handle, &tuple, &parse));
- 
- 		if (cfg->flags & CISTPL_CFTABLE_DEFAULT)
- 			dflt = *cfg;
-@@ -363,8 +355,7 @@
- 			    dflt.vpp1.param[CISTPL_POWER_VNOM] / 10000;
- 		
- 		/* Do we need to allocate an interrupt? */
--		if (cfg->irq.IRQInfo1 || dflt.irq.IRQInfo1)
--			link->conf.Attributes |= CONF_ENABLE_IRQ;
-+		link->conf.Attributes |= CONF_ENABLE_IRQ;
- 
- 		/* IO window settings */
- 		link->io.NumPorts1 = link->io.NumPorts2 = 0;
-@@ -390,8 +381,8 @@
- 			}
- 
- 			/* This reserves IO space but doesn't actually enable it */
--			if (pcmcia_request_io(link->handle, &link->io) != 0)
--				goto next_entry;
-+			CFG_CHECK(RequestIO,
-+				  pcmcia_request_io(link->handle, &link->io));
- 		}
- 
- 
-@@ -416,22 +407,7 @@
- 	 * a handler to the interrupt, unless the 'Handler' member of
- 	 * the irq structure is initialized.
- 	 */
--	if (link->conf.Attributes & CONF_ENABLE_IRQ) {
--		int i;
--
--		link->irq.Attributes = IRQ_TYPE_EXCLUSIVE | IRQ_HANDLE_PRESENT;
--		link->irq.IRQInfo1 = IRQ_INFO2_VALID | IRQ_LEVEL_ID;
--		if (irq_list[0] == -1)
--			link->irq.IRQInfo2 = irq_mask;
--		else
--			for (i=0; i<4; i++)
--				link->irq.IRQInfo2 |= 1 << irq_list[i];
--		
--  		link->irq.Handler = orinoco_interrupt; 
--  		link->irq.Instance = dev; 
--		
--		CS_CHECK(RequestIRQ, pcmcia_request_irq(link->handle, &link->irq));
--	}
-+	CS_CHECK(RequestIRQ, pcmcia_request_irq(link->handle, &link->irq));
- 
- 	/* We initialize the hermes structure before completing PCMCIA
- 	 * configuration just in case the interrupt handler gets
-@@ -456,8 +432,6 @@
- 	SET_MODULE_OWNER(dev);
- 	card->node.major = card->node.minor = 0;
- 
--	/* register_netdev will give us an ethX name */
--	dev->name[0] = '\0';
- 	/* Tell the stack we exist */
- 	if (register_netdev(dev) != 0) {
- 		printk(KERN_ERR PFX "register_netdev() failed\n");
-@@ -479,8 +453,7 @@
- 	if (link->conf.Vpp1)
- 		printk(", Vpp %d.%d", link->conf.Vpp1 / 10,
- 		       link->conf.Vpp1 % 10);
--	if (link->conf.Attributes & CONF_ENABLE_IRQ)
--		printk(", irq %d", link->irq.AssignedIRQ);
-+	printk(", irq %d", link->irq.AssignedIRQ);
- 	if (link->io.NumPorts1)
- 		printk(", io 0x%04x-0x%04x", link->io.BasePort1,
- 		       link->io.BasePort1 + link->io.NumPorts1 - 1);
-@@ -546,12 +519,12 @@
- 	case CS_EVENT_CARD_REMOVAL:
- 		link->state &= ~DEV_PRESENT;
- 		if (link->state & DEV_CONFIG) {
--			orinoco_lock(priv, &flags);
-+			unsigned long flags;
- 
-+			spin_lock_irqsave(&priv->lock, flags);
- 			netif_device_detach(dev);
- 			priv->hw_unavailable++;
--
--			orinoco_unlock(priv, &flags);
-+			spin_unlock_irqrestore(&priv->lock, flags);
- 		}
- 		break;
- 
-
+orinoco-printks
+	Update printk()s and other cosmetic strings
+orinoco-carrier
+	Use netif_carrier_() functions instead of homegrown connected
+	flag
+orinoco-delays
+	Use mdelay() and ssleep() instead of schedule_timeout() and
+	other more complicated idioms.
+orinoco-free-orinocodev
+	Introduce free_orinocodev() function as a wrapper around
+	free_netdev()
+orinoco-cleanup-hermes
+	Make cleanups to low-level driver code
+orinoco-pccard-cleanups
+	Cleanup initialization for PCMCIA/PC-Card devices.
+orinoco-modparm
+	Replace obsolete MODULE_PARM() constructions from orinoco.c
+orinoco-pci-updates
+	Cleanup initialization for PCI/PLX/TMD devices.
 
 -- 
 David Gibson			| I'll have my music baroque, and my code
 david AT gibson.dropbear.id.au	| minimalist.  NOT _the_ _other_ _way_
 				| _around_!
 http://www.ozlabs.org/people/dgibson
-
-
--------------------------------------------------------
-The SF.Net email is sponsored by: Beat the post-holiday blues
-Get a FREE limited edition SourceForge.net t-shirt from ThinkGeek.
-It's fun and FREE -- well, almost....http://www.thinkgeek.com/sfshirt
