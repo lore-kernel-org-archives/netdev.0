@@ -1,66 +1,29 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: Problem using fwmarks as routing key: "MASQUERADE: Route sent us somewhere else."
-Date: Tue, 27 Jan 2004 02:51:52 +0100
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: FIX
+Date: Tue, 27 Jan 2004 00:57:38 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040127015152.GP19250@sunbeam.de.gnumonks.org>
-References: <001c01c3e043$93583cd0$1684188d@Kiste>
+Message-ID: <20040127025737.GG28005@conectiva.com.br>
+References: <20040124131307.GB2666@bender.home.hensema.net> <20040126.123042.104046496.davem@redhat.com> <20040127.070142.93371828.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="FcSpk3Icpd/Pbul4"
-Cc: netfilter@lists.netfilter.org, netdev@oss.sgi.com,
-        Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, erik@hensema.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thhoep <thhoep@gmx.de>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
 Content-Disposition: inline
-In-Reply-To: <001c01c3e043$93583cd0$1684188d@Kiste>
+In-Reply-To: <20040127.070142.93371828.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Em Tue, Jan 27, 2004 at 07:01:42AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
+> In article <20040126.123042.104046496.davem@redhat.com> (at Mon, 26 Jan 2004 12:30:42 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
+> 
+> > 
+> > Ok, I've figured out the bug.  Arnaldo only fixed one of the
+> > two incorrect calls to sk_add_node() which should both be
+> > __sk_add_node().
+> 
+> Thanks you!
 
---FcSpk3Icpd/Pbul4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Great! Thanks!
 
-On Wed, Jan 21, 2004 at 06:25:22PM +0100, Thhoep wrote:
-> hi,
->=20
-> my aim: to divide 100 hosts upon 6 masqueraded adsl connections to the
-> internet using a linux router runnig a debian woody.
->=20
-> the problem: really strange behaviour of the routing/masquerading combo,
-> that changes with every tried kernel version. (described below)
->=20
-> presumption: some version mismatch or a bug in the kernel routing code,
-> which needs a bugfix that till now is unknown to me
-
-Please read the recent archives of the netdev list with regard to
-"Rusty's brain broke".  Also see=20
-https://bugzilla.netfilter.org/cgi-bin/bugzilla/show_bug.cgi?id=3D144
-
-Alexey heavily argued against us reverting that change, however :(
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---FcSpk3Icpd/Pbul4
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQFAFcQ4XaXGVTD0i/8RAsKqAJ0Q9QW37doao1sqR2PoEhUH+fVqyQCgp0vM
-jwRf5NBu0ZGXvns9H02A6f4=
-=/1Gy
------END PGP SIGNATURE-----
-
---FcSpk3Icpd/Pbul4--
+- Arnaldo
