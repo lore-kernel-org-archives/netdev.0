@@ -1,131 +1,45 @@
-From: Felix Radensky <felix@allot.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: Ethernet bridge performance
-Date: Thu, 07 Aug 2003 19:05:31 +0300
+Date: Thu, 07 Aug 2003 09:57:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F3278CB.5070505@allot.com>
+Message-ID: <3F3284EA.5050406@candelatech.com>
 References: <3F3217E7.2080903@allot.com>
- <20030807085930.032b0602.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
- boundary="Boundary_(ID_5fAUGaz5oHMtphX6UtIryg)"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: Felix Radensky <felix@allot.com>
+In-Reply-To: <3F3217E7.2080903@allot.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Felix Radensky wrote:
+> Hi,
+> 
+> I'm evaluating a performance of a dual port ethernet bridge, and the
+> results are a bit disappointing. I would appreciate any hints on improving
+> the results.
 
---Boundary_(ID_5fAUGaz5oHMtphX6UtIryg)
-Content-type: text/plain; charset=us-ascii; format=flowed
-Content-transfer-encoding: 7BIT
+> c01a13ac 7983     12.5065     eth_type_trans
+> c01a1590 7629     11.9519     qdisc_restart
+> c0197720 7365     11.5383     skb_release_data
+> c010c170 5962      9.3403     do_gettimeofday
 
-It's 2.4.22-pre8. I have to work with 2.4, 2.6 is not an option
-at this point.
+If that do_gettimeofday is happening in the skb rx code, then
+you could gain ~10% by disabling it somehow..as it should not
+matter for a bridge.  I bet Robert's skb-recycle patch would
+help here too, especially if you allowed the NICs to save up a large
+number of skbs so that alloc was less likely to fail.
 
-Felix.
+Btw, I've considered saving, say, 10k skbs on a list in my module,
+allocated by GFP_KERNEL at module load time, and using them when
+GFP_ATOMIC skb_alloc fails in the IRQ handling portion of the code....
 
-Stephen Hemminger wrote:
+Anyone think that's a good idea? :)
 
->What kernel version?  2.6 should be faster.
->
->On Thu, 07 Aug 2003 12:12:07 +0300
->Felix Radensky <felix@allot.com> wrote:
->
->  
->
->>Hi,
->>
->>I'm evaluating a performance of a dual port ethernet bridge, and the
->>results are a bit disappointing. I would appreciate any hints on improving
->>the results.
->>
->>I'm using a Dual Xeon 2.66 GHz box based on Intel  5701 chipset with  1G
->>of RAM. NICs are e1000 82546 connected to PCIX bus. Kernel is 2.4.22-pre8,
->>e1000  driver version 5.1.13-k1 with NAPI support. NICs' interrupts are 
->>bound
->>to CPU0.
->>
->>The test consists of sending 200 byte UDP packets from 2 ports of Gigabit
->>IXIA traffic generator to 2 bridge ports. The bridge is capable to sustain
->>the rate of ~170000 pps from each IXIA port without drops. I was
->>expecting it to be able to do at least 250000 pps (our own bridge code 
->> based
->>on 2.2.x kernel sustains ~266000 pps on the same hardware).
->>e1000 driver drops 0 packets, all drops occur at higher level.
->>
->>The output of oprofile attached. I'd be happy to provide any info you may
->>need.
->>
->>Thanks in advance for your help.
->>
->>Felix.
->>
->>    
->>
->
->  
->
+Ben
 
-
---Boundary_(ID_5fAUGaz5oHMtphX6UtIryg)
-Content-type: text/html; charset=us-ascii
-Content-transfer-encoding: 7BIT
-
-<!DOCTYPE html PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
-<html>
-<head>
-  <title></title>
-</head>
-<body>
-It's 2.4.22-pre8. I have to work with 2.4, 2.6 is not an option<br>
-at this point.<br>
-<br>
-Felix.<br>
-<br>
-Stephen Hemminger wrote:<br>
-<blockquote type="cite"
- cite="mid20030807085930.032b0602.shemminger@osdl.org">
-  <pre wrap="">What kernel version?  2.6 should be faster.
-
-On Thu, 07 Aug 2003 12:12:07 +0300
-Felix Radensky <a class="moz-txt-link-rfc2396E" href="mailto:felix@allot.com">&lt;felix@allot.com&gt;</a> wrote:
-
-  </pre>
-  <blockquote type="cite">
-    <pre wrap="">Hi,
-
-I'm evaluating a performance of a dual port ethernet bridge, and the
-results are a bit disappointing. I would appreciate any hints on improving
-the results.
-
-I'm using a Dual Xeon 2.66 GHz box based on Intel  5701 chipset with  1G
-of RAM. NICs are e1000 82546 connected to PCIX bus. Kernel is 2.4.22-pre8,
-e1000  driver version 5.1.13-k1 with NAPI support. NICs' interrupts are 
-bound
-to CPU0.
-
-The test consists of sending 200 byte UDP packets from 2 ports of Gigabit
-IXIA traffic generator to 2 bridge ports. The bridge is capable to sustain
-the rate of ~170000 pps from each IXIA port without drops. I was
-expecting it to be able to do at least 250000 pps (our own bridge code 
- based
-on 2.2.x kernel sustains ~266000 pps on the same hardware).
-e1000 driver drops 0 packets, all drops occur at higher level.
-
-The output of oprofile attached. I'd be happy to provide any info you may
-need.
-
-Thanks in advance for your help.
-
-Felix.
-
-    </pre>
-  </blockquote>
-  <pre wrap=""><!---->
-  </pre>
-</blockquote>
-<br>
-</body>
-</html>
-
---Boundary_(ID_5fAUGaz5oHMtphX6UtIryg)--
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
