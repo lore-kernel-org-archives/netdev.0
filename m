@@ -1,62 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: Mon, 20 Dec 2004 09:27:27 +0100
-Message-ID: <41C68CEF.3030803@trash.net>
-References: <20041219203050.GK17998@postel.suug.ch>
+From: Michael Renzmann <mrenzmann@web.de>
+Subject: Re: Required resources on network driver programming
+Date: Mon, 20 Dec 2004 10:06:09 +0100
+Message-ID: <41C69601.7000202@web.de>
+References: <20041220074535.64217.qmail@web52208.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041219203050.GK17998@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux lover <linux_lover2004@yahoo.com>
+In-Reply-To: <20041220074535.64217.qmail@web52208.mail.yahoo.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> Dave,
-> 
-> This patch is actually part of a patchset for 2.6.11 inclusion
-> but the memory corruption possibility might make it worth
-> for 2.6.10. It's not really dangerous since it requires
-> admin capabilities though.
+Hi.
 
-There are lots of places where this is possible, just look
-at all the silly checks in the action code:
+linux lover wrote:
+>                  I require help about where can i get
+> resources or any book for writing virtual network
+> driver with SAMPLE EXAMPLES?
 
-    sprintf(act_name, "%s", (char*)RTA_DATA(kind));
-    if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+I think the following resources might be useful for your task - also 
+there might be alternatives for the implementation 
+(tcpdump/tethereal-like programs that capture the information you need 
+from a packet socket):
 
-> Puts the indev validation into its own function to allow
-> parameter validation before any changes are made. Changes
-> the sanity check from >= IFNAMSIZ to > IFNAMSIZ to correctly
-> handle 0 terminated strings and replaces the dangerous sprintf
-> with a memcpy bound to the TLV size. Providing a indev TLV
-> for kernels without CONFIG_NET_CLS_IND support will now lead
-> to EOPPNOTSUPP.
+Linux Device Drivers, 2nd Edition
+http://www.xml.com/ldd/chapter/book/index.html
 
-Why special-case indev ? Neither u32 nor fw make any attempt
-to clean up after errors in their init functions, so instead
-of fixing a single attribute they need to do proper cleanup,
-than we can just continue to validate indev when changing it.
-Returning EOPNOTSUPP makes sense, of course.
+The Linux Kernel Module Programming Guide
+http://en.tldp.org/LDP/lkmpg/
 
-I'm also against keeping all those printks when touching the
-code. Its ok when writing new code, but I don't see why this
-code, unlike everything else, needs to report errors in the
-ringbuffer instead of returning meaningful error codes.
+Virtual Network Interfaces
+http://www.linux.it/~rubini/docs/vinter/vinter.html
 
-> +static inline void
-> +tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *id_tlv)
-> +{
-> +	memset(indev, 0, IFNAMSIZ);
-> +	memcpy(indev, RTA_DATA(id_tlv), RTA_PAYLOAD(id_tlv));
-> +	indev[IFNAMSIZ - 1] = '\0';
-> +}
+Linux Kernel Module Programming Guide
+http://oopweb.com/OS/Documents/LKMPG/VolumeFrames.html?/OS/Documents/LKMPG/Volume/node11.html
 
-And this should just use strlcpy.
+The Linux Kernel API
+http://kernelnewbies.org/documents/kdoc/kernel-api/linuxkernelapi.html
 
-Regards
-Patrick
+
+Generally it's also a good idea to have a look at 
+http://www.kernelnewbies.org/ and visit the IRC-channel #kernelnewbies 
+at oftc.net.
+
+Bye, Mike
