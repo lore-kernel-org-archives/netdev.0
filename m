@@ -1,36 +1,50 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: patch for common networking error messages
-Date: 23 Jun 2003 12:54:12 +0100
+From: "Udo A. Steinberg" <us15@os.inf.tu-dresden.de>
+Subject: Re: e100-3.0.0_dev8 "Minneapolis Moline" release
+Date: Mon, 23 Jun 2003 19:45:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1056369251.13529.17.camel@dhcp22.swansea.linux.org.uk>
-References: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
-	 <20030616.155533.63022973.davem@redhat.com>
-	 <1056199013.25974.27.camel@dhcp22.swansea.linux.org.uk>
-	 <20030622.174641.74727201.davem@redhat.com>
+Message-ID: <20030623194557.2f7e4e9c.us15@os.inf.tu-dresden.de>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D977@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: girouard@us.ibm.com, stekloff@us.ibm.com, janiceg@us.ibm.com,
-   jgarzik@pobox.com, kenistonj@us.ibm.com, lkessler@us.ibm.com,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com, niv@us.ibm.com
+Content-Type: multipart/signed; protocol="application/pgp-signature";
+ micalg="pgp-sha1"; boundary="=.qBXK2lmbRfaluS"
+Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030622.174641.74727201.davem@redhat.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010107D977@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Llu, 2003-06-23 at 01:46, David S. Miller wrote:
->    From: Alan Cox <alan@lxorguk.ukuu.org.uk>
->    Date: 21 Jun 2003 13:36:54 +0100
->    
->    Standardising strings is a real help for end users,
-> 
-> I agree.  But my objections are in the context of doing this
-> inside the kernel, where such things do not belong.
+--=.qBXK2lmbRfaluS
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
-Standardising strings for end users in the kernel is also good
-because it both saves space and makes things more consistent for
-the poor human wondering what blew up.
+On Tue, 17 Jun 2003 19:48:02 -0700 Feldman, Scott (FS) wrote:
 
-Standardising them for programs to parse is not a good idea
+FS> http://sf.net/projects/e1000, download e100-3.0.0_dev8 (tar file or
+FS> kernel patches).
+FS> 
+FS> Your help in testing would be greatly appreciated.  There are many 8255x
+FS> devices supported by e100, so hopefully we'll get good coverage from the
+FS> community.
+
+Hi Scott,
+
+Good work! I've been using the driver non-stop for about a week now and
+there have been exactly zero problems. I think, if possible, the driver
+should be merged into the mainstream kernels to get even wider testing.
+It certainly seems stable enough to me.
+
+-Udo.
+
+--=.qBXK2lmbRfaluS
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.3.1 (GNU/Linux)
+
+iD8DBQE+9zzanhRzXSM7nSkRAsLEAJ9C8e9r6JgegR4HG9bsFXV4gpQItQCeM769
+bFUSz2LgSc5Falb4N2/9tRM=
+=TG4Z
+-----END PGP SIGNATURE-----
+
+--=.qBXK2lmbRfaluS--
