@@ -1,63 +1,85 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: [PATCH] IPV6: added sysctl for maximum number of addresses
-Date: Sun, 18 Jan 2004 22:15:59 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <59590000.1074460559@worker.muc.bieringer.de>
-References: <20040115.213014.133549139.yoshfuji@linux-ipv6.org>
- 	<Pine.LNX.4.44.0401151721380.16629-100000@netcore.fi>
- 	<20040116.003433.120676843.yoshfuji@linux-ipv6.org>
- <20040115141016.15277a53.davem@redhat.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] Re: [2.6.0, pktgen] divide-by-zero
+Date: Mon, 19 Jan 2004 00:15:41 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <16395.5021.616055.384516@robur.slu.se>
+References: <20031231111316.GA10218@gnu.org>
+	<20040118154802.GE10397@wohnheim.fh-wedel.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20040115141016.15277a53.davem@redhat.com>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Cc: Lennert Buytenhek <buytenh@gnu.org>, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
+In-Reply-To: <20040118154802.GE10397@wohnheim.fh-wedel.de>
 List-Id: netdev.vger.kernel.org
 
 
 
---On Thursday, January 15, 2004 02:10:16 PM -0800 "David S. Miller"
-<davem@redhat.com> wrote:
+Hello!
 
-> On Fri, 16 Jan 2004 00:34:33 +0900 (JST)
-> YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
-> 
->> My point is the value becomes configurable.
->> "16" is consistent with current behavior.
->> I do not change the default value with this patch.
->> 
->> If you think it is too small, feel free to submit a patch to increase 
->> the default value.
-> 
-> I agree with Yoshfuji-san, making it configurable and changing the default
-> are two different decisions to make and thus two different changes to
-> make.
-> 
-> I will apply Yoshfuji's patch to make it configurable, and someone can
-> submit the change to make the default different and we can discuss that.
+J=F6rn Engel writes:
+ > On Wed, 31 December 2003 06:13:16 -0500, Lennert Buytenhek wrote:
+ > >=20
+ > > When generating packets with pktgen with count=3D10, I get a divid=
+e-by-zero
+ > > oops in inject().
+ > >=20
+ > > Line 273 in net/core/pktgen.c seems unsafe:
+ > > 	__u64 pps =3D (__u32)(info->sofar * 1000) / ((__u32)(total) / 100=
+0);
+ > >=20
+ > > What if total < 1000 ?
+ >=20
+ > Since noone else seemed to care, try this patch.  Against -test11,
+ > yeah, I'm lazy again.
 
-Hmm, since when this limit exists?
 
-Looks like it was introduced after 2.4.20-28.9 (RHL9 kernel)
+ Sorry I missed Lennerts original posting...=20
 
-One of my newer public servers (running upper shown kernel version) have
-already 23 IPv6 addresses:
+ I suggest the patch below to get integer precision at very short time=20
+ intervals too.
 
-# ip addr show dev eth0|grep 2001 |wc -l
-     23
 
-Mostly used for one IPv6 address per "on-IPv6-no-longer-virtual-IP-less"
-Apache2 webserver.
+--- linux-2.6.1/net/core/pktgen.c.orig	Sun Jan 18 21:56:56 2004
++++ linux-2.6.1/net/core/pktgen.c	Sun Jan 18 23:15:03 2004
+@@ -88,7 +88,7 @@
+ #define cycles()	((u32)get_cycles())
+=20
+=20
+-#define VERSION "pktgen version 1.3"
++#define VERSION "pktgen version 1.31"
+ static char version[] __initdata =3D=20
+   "pktgen.c: v1.3: Packet Generator for packet performance testing.\n"=
+;
+=20
+@@ -720,8 +720,18 @@
+=20
+ 	{
+ 		char *p =3D info->result;
+-		__u64 pps =3D (__u32)(info->sofar * 1000) / ((__u32)(total) / 1000);
+-		__u64 bps =3D pps * 8 * (info->pkt_size + 4); /* take 32bit ethernet=
+ CRC into account */
++		__u64 bps, pps =3D 0;
++
++		if (total > 1000)
++			pps =3D (__u32)(info->sofar * 1000) / ((__u32)(total) / 1000);
++		else if(total > 100)
++			pps =3D (__u32)(info->sofar * 10000) / ((__u32)(total) / 100);
++		else if(total > 10)
++			pps =3D (__u32)(info->sofar * 100000) / ((__u32)(total) / 10);
++		else if(total > 1)
++			pps =3D (__u32)(info->sofar * 1000000) / (__u32)total;
++
++		bps =3D pps * 8 * (info->pkt_size + 4); /* take 32bit ethernet CRC i=
+nto account */
+ 		p +=3D sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags)=
+ %llupps %lluMb/sec (%llubps)  errors: %llu",
+ 			     (unsigned long long) total,
+ 			     (unsigned long long) (total - idle),
 
-So I have the same opinion like Pekka, 16 would be a little bit to view, 64
-would be a good default value for the limit.
 
-Just my 2 cents,
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+
+Cheers.
+						--ro
