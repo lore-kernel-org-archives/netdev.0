@@ -1,29 +1,24 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: of 2.6.2-rc2-mm2 and r8169
-Date: Sat, 7 Feb 2004 00:17:56 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 1/3] IPV6: clean-up DAD vs tentative address
+Date: Fri, 6 Feb 2004 15:30:14 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040207001756.A26645@electric-eye.fr.zoreil.com>
-References: <20040130014108.09c964fd.akpm@osdl.org> <20040201100340.GA12436@neuffer.info>
+Message-ID: <20040206153014.61b5286d.davem@redhat.com>
+References: <20040206.181003.68972716.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shuchen@realtek.com.tw
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Neuffer <neuffer@neuffer.info>
-Content-Disposition: inline
-In-Reply-To: <20040201100340.GA12436@neuffer.info>; from neuffer@neuffer.info on Sun, Feb 01, 2004 at 11:03:40AM +0100
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040206.181003.68972716.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Neuffer <neuffer@neuffer.info> :
-[...]
-> After many tests I was finally able to capture an Oops:
-> Oops: 0000 [#1]
-> PREEMPT
+On Fri, 06 Feb 2004 18:10:03 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-If you need to see it work better, I would suggest to disable PREEMPT/SMP.
+> [PATCH 1/3] IPV6: clean-up DAD vs tentative address
+> 
+> D: clean-up NS (including DAD) vs tentative address
 
-Could you send me the faulty r8169.o module off-list as well as an lsmod, an
-output of the /proc/interrupts and a dmesg from boot ?
-
---
-Ueimor
+Applied, thanks Yoshfuji.
