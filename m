@@ -1,91 +1,125 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Sun, 16 Jan 2005 10:22:27 -0600
-Message-ID: <200501161022.30600.jeremy.guthrie@berbee.com>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501141326.29575.jeremy.guthrie@berbee.com> <16874.24305.461492.48668@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] meta ematch
+Date: Sun, 16 Jan 2005 17:32:12 +0100
+Message-ID: <20050116163212.GW26856@postel.suug.ch>
+References: <20050108145457.GZ26856@postel.suug.ch> <1105363582.1041.162.camel@jzny.localdomain> <20050110211747.GA26856@postel.suug.ch> <1105394738.1085.63.camel@jzny.localdomain> <20050113174111.GP26856@postel.suug.ch> <41E6C3E5.2020908@trash.net> <20050113192047.GQ26856@postel.suug.ch> <41E71CC4.3020102@trash.net> <20050114151407.GR26856@postel.suug.ch> <1105891871.1097.647.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2097987.pIz7SLg2Ap";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16874.24305.461492.48668@robur.slu.se>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1105891871.1097.647.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart2097987.pIz7SLg2Ap
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+* jamal <1105891871.1097.647.camel@jzny.localdomain> 2005-01-16 11:11
+> On Fri, 2005-01-14 at 10:14, Thomas Graf wrote:
+>  
+> > diff -Nru linux-2.6.10-bk14.orig/include/linux/tc_ematch/tc_em_meta.h linux-2.6.10-bk14/include/linux/tc_ematch/tc_em_meta.h
+> [..]
+> > +struct tcf_meta_val
+> > +{
+> > +	__u16			kind;
+> > +	__u8			shift;
+> > +	__u8			op;
+> > +};
+> > +
+> > +#define TCF_META_TYPE_MASK	(0xf << 12)
+> > +#define TCF_META_TYPE(kind)	(((kind) & TCF_META_TYPE_MASK) >> 12)
+> > +#define TCF_META_ID_MASK	0x7ff
+> > +#define TCF_META_ID(kind)	((kind) & TCF_META_ID_MASK)
+> 
+> Does it smell like there may be endianess issues? Probably not.
 
-On Sunday 16 January 2005 06:32 am, Robert Olsson wrote:
-> Jeremy M. Guthrie writes:
->  > I actually upped the buffer count to 8192 buffers instead of 10k.
->  > Of the 74 samples I have thus far, 57 have been clean of errors.
->  > Most of the sample errors appear to be shortly after the cache flush.
->
->  I don't really believe in increasing RX buffers to this extent. We
-> verified that you have CPU available and the drops occur when the timer
-> based GC happens. Increasing buffers decreases overall performance and ad=
-ds
-> jitter.
-I just took a look at my logs, the increase to the max on the card of 4K RX=
-=20
-buffers has stopped packet drops except during GC.  I agree, it isn't prett=
-y=20
-and it is not the solution I would like.  In the mean time, it has at least=
-=20
-stopped the 0.3% round-the-clock packet loss which I was seeing even at rat=
-es=20
-as low as 25K pps.
+Not really as long as iproute2 uses the same byte ordering. It has the
+same issues as all other rtnetlink users.
 
->  We saw also the timed based GC were taking the dst-entries from about
->  600k to 40k in one shot. I think this what we should look into. Just
->  GC is "work" also after GC a lot flows has to be recreated doing fib
->  lookup and creating new entries. We want to smoothen the GC process so
->  happen more frequent and does less work.
-Agreed.  I went to the extreme because I can really see the % idle CPU.  If=
- I=20
-am constantly setting up new flows then the % of free CPU shoots way down. =
-=20
-Minus the effects of GC, a larger flow table equates into free CPU. =20
+> > +	TCF_META_ID_DEV,
+> 
+> Since filters are attached to devices - is TCF_META_ID_DEV of any value?
 
->  Some time ago an "in-flow" GC (as opposed to timer based) was added to
->  the routing code look for cand in route.c. In setup like yours (and ours)
->  it would be better to relay on this process to a higher extent. Anyway
->  in /proc/sys/net/ipv4/route/ you have the files.
->  gc_elasticity, gc_interval, gc_thresh etc I would avoid gc_min_interval.
->  And you can play with your running system and for drops without causing
->  your users to much pain.
->  We save the patch for routing without route hash and GC until later,
-Okay.  I will bring my interval down from an hour down to ten minutes and d=
-o=20
-further tuning.
+Yes, to compare against realdev and indev.
 
-=2D-=20
+> > +struct meta_value
+> > +{
+> > +	struct tcf_meta_val	hdr;
+> > +	unsigned long		val;
+> > +	unsigned int		len;
+> 
+> Those last two look like meta_obj you defined above
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
+Yes, they once were but the code is more readable this way
+because one cannot mistake meta_obj (temporary data) with
+the data/len in meta_value (persistent).
 
---nextPart2097987.pIz7SLg2Ap
-Content-Type: application/pgp-signature
+> > +	return (v + (FIXED_1/200)) >> FSHIFT;
+> 
+> 200 has some magic connotation to it - a define somewhere perhaps?
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+I coped this from the code for procfs ;->
 
-iD8DBQBB6pTGqtjaBHGZBeURAolHAJ9v4xanafdTJ+Yq0YttRukYnwZKhwCfZpJA
-xpmyP+BZdnankW3uBsExbKo=
-=6h2g
------END PGP SIGNATURE-----
+> Theres a lot of parameters not used at all in these calls .get calls. So
+> far i have seen dst->value and some of the skb fields used. I apologize,
+> I normally dont pick on these things - so if you have future plans for
+> why you are passing those, keep them and ignore the comment.
 
---nextPart2097987.pIz7SLg2Ap--
+I do have plans but for more complicated meta matches and they will
+take some time and will get pushed in a second iteration.
+
+> > +static inline int var_dev(struct net_device *dev, struct meta_obj *dst)
+> > +{
+> > +	if (unlikely(dev == NULL))
+> > +		return -1;
+> > +
+> > +	dst->value = (unsigned long) dev->name;
+> > +	dst->len = strlen(dev->name);
+> 
+> So if device dissapears ... what happens to the pointer?
+
+Not possible, the pointer is only legal to use while classifying,
+dst is on the stack of meta_match and the device cannot
+disappear while classyfing.
+
+> > +static void meta_var_apply_extras(struct meta_value *v,
+> > +				  struct meta_obj *dst)
+> > +{
+> > +	int shift = v->hdr.shift;
+> > +
+> > +	if (shift && shift < dst->len)
+> > +		dst->len -= shift;
+> > +}
+> 
+> whats the purpose to the extras?
+
+"eth0" shift 1 gets "eth" so we can emulate eth%. It will
+also get useful for ipv6 routing bits to implement the
+prefix.
+
+> > +static int em_meta_match(struct sk_buff *skb, struct tcf_ematch *m,
+> > +			 struct tcf_pkt_info *info)
+> > +{
+> > +	int r;
+> > +	struct meta_match *meta = (struct meta_match *) m->data;
+> > +	struct meta_obj l_value, r_value;
+> > +
+> > +	if (meta_get(skb, info, &meta->lvalue, &l_value) < 0 ||
+> > +	    meta_get(skb, info, &meta->rvalue, &r_value) < 0)
+> > +		return 0;
+> 
+> This is one part that confused me in my earlier email
+
+It transforms the meta data info in (l|r)value into 2 temporary
+meta objects for comparing. mgiht help if i  find a better
+name.
+
+> Ok, I have to admit I am not a friend of too-friendly, which is one of
+> the faults IMO with netfilter; however, this would have
+> joenetfilterfireman sweat a little too profusely.
+> I think you could add a new metafield in 31 seconds. I could probably do
+> it in 95 seconds. Would be ideal to get average
+> janeorjoenetfilterfireman to do it in 30 minutes - I dont think you are
+> there.
+
+ideas? a step-by-step guide in Documentation/? ;->
