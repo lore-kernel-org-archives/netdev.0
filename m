@@ -1,48 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: TAHI Conformance Test
-Date: Mon, 07 Feb 2005 19:41:36 +0900 (JST)
-Message-ID: <20050207.194136.130656563.yoshfuji@linux-ipv6.org>
-References: <20050207102553.28a46fcd.didier@barvaux.org>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] NETLINK: Use SKB_MAXORDER to calculate NLMSG_GOODSIZE
+Date: Mon, 7 Feb 2005 14:28:30 +0100
+Message-ID: <20050207132830.GZ31837@postel.suug.ch>
+References: <20050128230327.GV31837@postel.suug.ch> <E1CufRB-0000zf-00@gondolin.me.apana.org.au> <20050128234828.GA24868@yakov.inr.ac.ru> <20050129002128.GX31837@postel.suug.ch> <20050129002701.GY31837@postel.suug.ch> <20050206223239.5dc4e325.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
-	usagi-users@linux-ipv6.org
-To: didier@barvaux.org
-In-Reply-To: <20050207102553.28a46fcd.didier@barvaux.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: kuznet@ms2.inr.ac.ru, herbert@gondor.apana.org.au, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050206223239.5dc4e325.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please do not multipost...
-
-In article <20050207102553.28a46fcd.didier@barvaux.org> (at Mon, 7 Feb 2005 10:25:53 +0100), Didier Barvaux <didier@barvaux.org> says:
-
-> I'm searching for information about the current status of IPv6 in the Linux 2.6/2.4 vanilla kernels. Unfortunately, I have not found up-to-date data.
+> > >  		struct sk_buff *nskb;
+> > >  		int header = skb_headroom(skb);
+> > > -		int copy = (PAGE_SIZE - sizeof(struct sk_buff) -
+> > > -			    sizeof(struct skb_shared_info) - header - 31)&~15;
+> > > +		int copy = SKB_MAX_ORDER(header + 31, 0);
+> > >  
+> > >  		/* Too big header? This can happen with IPv6. */
+> > >  		if (copy < 0)
+> > 
+> > Sorry, this is incomplete, we should refetch copy via (skb->end - skb->head) after
+> > allocating it.  I have to think some more about this first. ;-)
 > 
-> I have found Peter Bieringer's 'IPv6 & Linux' page [1] and some quite old TAHI Conformance Test's results on kernel 2.6.1 [2] from the USAGI project. As you can see, information I have found are quite outdated.
-> 
-> So, have someone more up-to-date data ?
+> I don't understand, if we alloc_skb(copy) we are guarenteed to have
+> "copy" bytes available in the SKB data area.
 
-Well, we haven't tested vanilla linux-2.4.x recently.
-However, linux-2.6.11-rc2 w/ usagi-tools (userspace daemon etc.),
-acting as host and/or router, passed IPv6 Ready Logo [1]
-Phase 1 Self-Test, which is similar to CT.
-(Note: usagi-linux24 and usagi-linux26 passed it, too.)
+Yes but don't we waste space in the headroom of the new skb iff the
+headroom of the original skb is no aligned to SKB_DATA_ALIGN?
 
-And, we are trying passing Phase 2 Self-Test as well.
-My private tree already passed it, and patches will soon be available
-(in linux-2.6.12 timeframe).
-
-I think linux-2.6.11-rc2 w/ usagi-tools can pass TAHI CT;
-we will test later.
-
-We may try to backport changes to 2.4.x.
-
-I hope this helps.  Thanks.
-
-[1] http://www.ipv6ready.org
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+I'll post a new patch without the anyway though.
