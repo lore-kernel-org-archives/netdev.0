@@ -1,42 +1,27 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH 1/5] tun check error on memcpy_fromiovec
-Date: Wed, 21 Jan 2004 12:49:23 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
+Date: Wed, 21 Jan 2004 14:05:35 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1074718162.1707.194.camel@localhost>
-References: <20031208202302.C30587@build.pdx.osdl.net>
-	 <20031219103457.GD1213@mail.sternwelten.at>
-	 <20040116164512.C19034@osdlab.pdx.osdl.net>
+Message-ID: <20040121140535.518571cd.davem@redhat.com>
+References: <OF1837C6DA.A9CB8829-ON87256E22.006C142B@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: maximilian attems <janitor@sternwelten.at>, netdev@oss.sgi.com
+Cc: mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Chris Wright <chrisw@osdl.org>
-In-Reply-To: <20040116164512.C19034@osdlab.pdx.osdl.net>
+To: Shirley Ma <xma@us.ibm.com>
+In-Reply-To: <OF1837C6DA.A9CB8829-ON87256E22.006C142B@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-01-16 at 16:45, Chris Wright wrote:
-> * maximilian attems (janitor@sternwelten.at) wrote:
-> > hey chris,
-> > 
-> > after applying your 4 patches on top of linux-2.6.0 
-> > + experimental net, 
-> > found 2 last unchecked memcpy_fromiovec in tun.c
-> > patch bellow fixes the second call, 
-> > the first is beyond me, please complete this patch :)
-> > compile tested
-> 
-> I specifically left those alone.  They have a semi-bogus verify_area()
-> call that is trying to insure the memcpy_fromiovec won't EFAULT.  I'd
-> prefer to remove them and simply do memcpy checking.
+On Wed, 21 Jan 2004 11:45:30 -0800
+Shirley Ma <xma@us.ibm.com> wrote:
 
-Folks,
+> Did you hear different voices? If not could you please check in this patch?
+> I am going to submit another patch about new IPv6 MIBs system & interface
+> statistics counters for your review, which depends on this one.
 
-Please don't add extra unneeded checks or fix stuff that does not need
-to be fixed. Verify area is not bogus. We need to know total length of
-the iovec so we might as well check it in the same loop and not bother
-with checking later. 
+No objections, and I am fine with the change as well.
 
-Thanks
-Max
+However, I think I will defer it as 2.6.x has a lot of changes in it already.
+Definitely next release.
