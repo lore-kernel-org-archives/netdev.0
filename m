@@ -1,83 +1,80 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: Wed, 22 Dec 2004 15:57:57 +0100
-Message-ID: <41C98B75.9020802@trash.net>
-References: <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com> <20041221204853.GA20869@electric-eye.fr.zoreil.com> <20041221212737.GK5974@waste.org> <20041221225831.GA20910@electric-eye.fr.zoreil.com> <41C93FAB.9090708@trash.net> <41C9525F.4070805@trash.net> <20041222123940.GA4241@electric-eye.fr.zoreil.com>
+From: Martijn van Oosterhout <kleptog@svana.org>
+Subject: Re: Very slow change of IP in kernel (slow socket?).
+Date: Wed, 22 Dec 2004 17:26:32 +0100
+Message-ID: <20041222162632.GC29278@svana.org>
+References: <41C895D6.2040001@cs.columbia.edu>
+Reply-To: Martijn van Oosterhout <kleptog@svana.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Matt Mackall <mpm@selenic.com>,
-	Mark Broadbent <markb@wetlettuce.com>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261835AbULVO7G@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041222123940.GA4241@electric-eye.fr.zoreil.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="ghzN8eJ9Qlbqn3iT"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andrea G Forte <andreaf@cs.columbia.edu>
+Content-Disposition: inline
+In-Reply-To: <41C895D6.2040001@cs.columbia.edu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu wrote:
-> Patrick McHardy <kaber@trash.net> :
-> [...]
-> 
->>at least the queued messages ordered. But you need to grab
->>dev->queue_lock, otherwise you risk corrupting qdisc internal data.
->>You should probably also deal with the noqueue-qdisc, which doesn't
->>have an enqueue function. So it should look something like this:
-> 
-> 
-> If I am not mistaken, a failure on spin_trylock + the test on
-> xmit_lock_owner imply that it is safe to directly handle the
-> queue. It means that qdisc_run() has been interrupted on the
-> current cpu and the other paths seem fine as well. Counter-example
-> is welcome (no joke).
 
-enqueue is only protected by dev->queue_lock, and dev->queue_lock
-is dropped as soon as dev->xmit_lock is grabbed, so any other CPU
-might call enqueue at the same time.
+--ghzN8eJ9Qlbqn3iT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Example:
+Seems long, but have you condered other possible delays, like ARP,
+routing daemons, etc. BTW, I don't quite understand what you mean by
+changing IPs, because "ip route add" adds routes, not IPs. Presumably
+you're using an unbound UDP socket. You need to be a bit clearer about
+what you're actually trying to do...
 
-CPU1					CPU2
+On Tue, Dec 21, 2004 at 04:29:58PM -0500, Andrea G Forte wrote:
+> Hi all,
+>=20
+> after some talking I decided to try again and post a specific thread for=
+=20
+> this problem.
+> I noticed that when I change IP address for the same wireless card=20
+> (since I am moving to a different subnet I need a new IP), the actual=20
+> change in the kernel happens between 300 to 500 ms later. In particular,=
+=20
+> after changing the IP (ip route add...) and updating route table and=20
+> default gw, the actual data packets are sent using the new IP only after=
+=20
+> 300 to 500 ms after setting all the above.
+> Does anyone of you know what this could be related to? Or, does anyone=20
+> of you know where in the kernel code I could start looking for some answe=
+rs?
+> I have already had some feedback with suggestions to look into the=20
+> route_cache, however this does not seem to me as a route problem but=20
+> more as a socket problem and perhaps some kind of timer that is set to=20
+> refresh the socket info in the kernel.
+>=20
+> Any help would be really appreciated.
+>=20
+> Thanks all,
+> Andrea
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-net" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
-dev_queue_xmit				dev_queue_xmit
-  lock(dev->queue_lock)			 lock(dev->queue_lock)
-q->enqueue
-qdisc_run
-qdisc_restart
-  trylock(dev->xmit_lock), ok
-  unlock(dev->queue_lock)
-...
-printk("something")
-...
-netpoll_send_skb
-  trylock(dev->xmit_lock), fails
-q->enqueue				q->enqueue
+--=20
+Martijn van Oosterhout   <kleptog@svana.org>   http://svana.org/kleptog/
+> Patent. n. Genius is 5% inspiration and 95% perspiration. A patent is a
+> tool for doing 5% of the work and then sitting around waiting for someone
+> else to do the other 95% so you can sue them.
 
-> Of course the patch is completely ugly and violates any layering
-> principle one could think of. It was not submitted for inclusion :o)
+--ghzN8eJ9Qlbqn3iT
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
-Sure, but I think we should have a short-term workaround until
-a better solution has been invented. Maybe dropping the packets
-would be best for now, it only affects printks issued in paths
-starting at qdisc_restart (-> hard_start_xmit -> ...). Queueing
-the packets might also cause reordering since not all packets
-are queued.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
 
->>while (!spin_trylock(&np->dev->xmit_lock)) {
->>	if (np->dev->xmit_lock_owner == smp_processor_id()) {
->>		struct Qdisc *q;
->>
->>		rcu_read_lock();
->>		q = rcu_dereference(dev->qdisc);
->>		if (q->enqueue) {
->>			spin_lock(&dev->queue_lock);
-> 
-> 
-> I'd expect it to deadlock if dev_queue_xmit -> qdisc_run is interrupted
-> on the current cpu and a printk is issued as dev->queue_lock will have
-> been taken elsewhere.
+iD8DBQFByaA4Y5Twig3Ge+YRAkZDAJkBSeRFUdN25wAQY0muOxwjlKI8IgCfYB2B
+Y0GJbUUjhs7bD9kVMwmF5cg=
+=wlKq
+-----END PGP SIGNATURE-----
 
-Hmm this is complicated, let me think some more about it.
-
-Regards
-Patrick
+--ghzN8eJ9Qlbqn3iT--
