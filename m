@@ -1,196 +1,91 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+From: Stephen Hemminger <shemminger@osdl.org>
 Subject: Re: cannot up iface in 2.6.9, was working in 2.6.9-rc3
-Date: Fri, 22 Oct 2004 23:42:31 +0300
+Date: Fri, 22 Oct 2004 14:01:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410222342.31973.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200410222159.26369.vda@port.imtp.ilyichevsk.odessa.ua> <20041022121741.32d6732f@zqx3.pdx.osdl.net>
+Message-ID: <20041022140102.034e8368@zqx3.pdx.osdl.net>
+References: <200410222159.26369.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="Boundary-00=_3CXeB13N96mH1fs"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        Jeff Garzik <jgarzik@pobox.com>
+        Jeff Garzik
+ <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041022121741.32d6732f@zqx3.pdx.osdl.net>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200410222159.26369.vda@port.imtp.ilyichevsk.odessa.ua>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 22 Oct 2004 21:59:26 +0300
+Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> wrote:
 
---Boundary-00=_3CXeB13N96mH1fs
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+> I have an onboard VIA eth:
+> 
+> # lspci
+> 00:00.0 Host bridge: VIA Technologies, Inc. VT8366/A/7 [Apollo KT266/A/333]
+> 00:01.0 PCI bridge: VIA Technologies, Inc. VT8366/A/7 [Apollo KT266/A/333 AGP]
+> 00:0a.0 Network controller: Texas Instruments ACX 111 54Mbps Wireless Interface
+> 00:0c.0 Network controller: Harris Semiconductor D-Links DWL-g650 A1 (rev 01)
+> 00:10.0 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 80)
+> 00:10.1 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 80)
+> 00:10.2 USB Controller: VIA Technologies, Inc. VT6202 [USB 2.0 controller] (rev 80)
+> 00:10.3 USB Controller: VIA Technologies, Inc. USB 2.0 (rev 82)
+> 00:11.0 ISA bridge: VIA Technologies, Inc. VT8235 ISA Bridge
+> 00:11.1 IDE interface: VIA Technologies, Inc. VT82C586A/B/VT82C686/A/B/VT823x/A/C/VT8235 PIPC Bus Master IDE (rev 06)
+> 00:11.5 Multimedia audio controller: VIA Technologies, Inc. VT8233/A/8235/8237 AC97 Audio Controller (rev 50)
+> 00:12.0 Ethernet controller: VIA Technologies, Inc. VT6102 [Rhine-II] (rev 74)
+> 01:00.0 VGA compatible controller: nVidia Corporation NV11 [GeForce2 MX/MX 400] (rev a1)
+> 
+> It cannot be upped:
+> 
+> # ip l set dev if up
+> SIOCSIFFLAGS: Function not implemented
+> # ifconfig if up
+> SIOCSIFFLAGS: Function not implemented
+> # busybox ip l set dev if up
+> SIOCSIFFLAGS: Function not implemented
+> 
+> Strace (busybox one is smallest):
+> 
+> execve("/usr/bin/busybox", ["busybox", "ip", "l", "set", "dev", "if", "up"], [/* 28 vars */]) = 0
+> fcntl64(0, F_GETFD)                     = 0
+> fcntl64(1, F_GETFD)                     = 0
+> fcntl64(2, F_GETFD)                     = 0
+> uname({sys="Linux", node="shadow", ...}) = 0
+> geteuid32()                             = 0
+> getuid32()                              = 0
+> getegid32()                             = 0
+> getgid32()                              = 0
+> brk(0)                                  = 0x81ab000
+> brk(0x81ac000)                          = 0x81ac000
+> socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 4
+> ioctl(4, 0x8913, 0xbffff9e0)            = 0
+> ioctl(4, 0x8914, 0xbffff9e0)            = -1 ENOSYS (Function not implemented)
+> dup(2)                                  = 5
+> fcntl64(5, F_GETFL)                     = 0x2 (flags O_RDWR)
+> fstat64(5, {st_mode=S_IFCHR|0600, st_rdev=makedev(136, 2), ...}) = 0
+> old_mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) = 0x40000000
+> _llseek(5, 0, 0xbffff830, SEEK_CUR)     = -1 ESPIPE (Illegal seek)
+> write(5, "SIOCSIFFLAGS: Function not imple"..., 39) = 39
+> close(5)                                = 0
+> munmap(0x40000000, 4096)                = 0
+> close(4)                                = 0
+> write(2, "BusyBox v1.00-pre8 (2004.03.31-2"..., 295) = 295
+> _exit(1)
+> 
+> It was working in 2.6.9-rc3.
+> 
+> drivers/net/via-rhine.c did not change between rc3 and "official" 2.6.9
+> --
+> vda
 
-On Friday 22 October 2004 22:17, Stephen Hemminger wrote:
-> On Fri, 22 Oct 2004 21:59:26 +0300
-> > It cannot be upped:
-> > 
-> > # ip l set dev if up
-> > SIOCSIFFLAGS: Function not implemented
-> > # ifconfig if up
-> > SIOCSIFFLAGS: Function not implemented
-> > # busybox ip l set dev if up
-> > SIOCSIFFLAGS: Function not implemented
->
-> It probably isn't the via driver at all, but something in the ioctl layer.
-> Try it without using the busybox version of ifconfig and ip.
+Is your ethernet device really named "if" not "eth0". You must be
+using nameif or something to rename it.
 
-As shown above, I did it. All three utilities fail.
+Perhaps the name isn't what you expect.  Look at things like: 
+	ifconfig -a
+and
+	ls /sys/class/net
 
-I rechecked that rc3 works and found out that rc4 does not.
-
-I also booted with init=/bin/sh and ran 'ip l set dev eth0 up'
-- it fails under rc4, but works under rc3. This rules out
-my userspace setup being somehow involved.
-
-Config for rc4 is attached.
---
-vda
-
---Boundary-00=_3CXeB13N96mH1fs
-Content-Type: application/x-bzip2;
-  name=".config.bz2"
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename=".config.bz2"
-
-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
-LA9cs+hAv/xdyRThQkPT+noI
-
---Boundary-00=_3CXeB13N96mH1fs--
+What ever you are using to assign the name "if" to the device is (which defaults to eth0)
+probably got confused
