@@ -1,8 +1,8 @@
 From: Bergs <flygong@yahoo.com>
 Subject: serious packet loss in 25Mbps load,frame size 64byte,duration 60 second. tested with smartbits
-Date: Sun, 25 Aug 2002 19:16:11 -0700 (PDT)
+Date: Sun, 25 Aug 2002 19:17:09 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020826021611.64023.qmail@web14502.mail.yahoo.com>
+Message-ID: <20020826021709.63092.qmail@web14503.mail.yahoo.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8bit
