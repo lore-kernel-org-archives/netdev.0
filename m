@@ -1,23 +1,70 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [ANN] removal of certain net drivers coming soon: eepro100, xircom_tulip_cb, iph5526
-Date: Thu, 27 Jan 2005 21:07:31 +0000
-Message-ID: <20050127210731.GA2953@infradead.org>
-References: <41F952F4.7040804@pobox.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: [PATCH/RFC] Reduce call chain length in netfilter
+Date: Thu, 27 Jan 2005 22:16:04 +0100
+Message-ID: <1106860564.3389.4.camel@localhost.localdomain>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+	 <p73zn0ccaee.fsf@verdi.suse.de>
+	 <1105117559.11753.34.camel@baythorne.infradead.org>
+	 <20050107100017.454ddadc@dxpl.pdx.osdl.net>
+	 <1105133241.3375.16.camel@localhost.localdomain>
+	 <20050118135735.4b77d38d.davem@davemloft.net>
+	 <1106433059.4486.11.camel@localhost.localdomain>
+	 <1106436153.20995.42.camel@tux.rsn.bth.se>
+	 <1106484019.3376.5.camel@localhost.localdomain>
+	 <1106496509.1085.1.camel@tux.rsn.bth.se>
+	 <20050125220558.6e824f8a.davem@davemloft.net>
+	 <1106730510.4041.4.camel@localhost.localdomain>
+	 <41F82C6D.7020006@trash.net> <20050126231801.7bf90338.davem@davemloft.net>
+	 <41F929FA.3050800@trash.net>  <20050127114726.2205b4ed.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Netdev <netdev@oss.sgi.com>,
-        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, snort2004@mail.ru,
+        rusty@rustcorp.com.au, ak@suse.de, bridge@osdl.org,
+        gandalf@wlug.westbo.se, dwmw2@infradead.org, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <41F952F4.7040804@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050127114726.2205b4ed.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 27, 2005 at 03:45:40PM -0500, Jeff Garzik wrote:
-> 1) iphase (iph5526 a.k.a. drivers/net/fc/*)
+Op do, 27-01-2005 te 11:47 -0800, schreef David S. Miller:
+> On Thu, 27 Jan 2005 18:50:50 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> Been broken since 2.3 or 2.4.  Only janitors have kept it compiling.
+> >  From what I can see it doesn't generate tail-calls currently:
+> 
+> Indeed... It even doesn't do this on Sparc64 either, even for
+> the okfn(skb) call which I was sure it would.
+> 
+> It won't tail-call for function pointers for some strance reason
+> as exhibited by this simple test:
+> 
+> struct sk_buff {
+> 	int foo;
+> };
+> 
+> int invoke(struct sk_buff *skb, int (*okfn)(struct sk_buff *))
+> {
+> 	return okfn(skb);
+> }
+> 
+> extern int test_func(struct sk_buff *);
+> 
+> int invoke2(struct sk_buff *skb)
+> {
+> 	return test_func(skb);
+> }
+> 
+> In the generated asm on sparc64, invoke2() gets a tail-call
+> whereas invoke() does not.  Hmmm...
 
-No, it doesn't even compile, and didn't so for more than two years.
+Pasha (<snort2004@mail.ru>) is currently using a bridge-nf patch vs
+2.4.29 with the changes I sent to you. After two days he sent me
+(yesterday) a message that all is well. Without the patch he was getting
+the stack overflow oopses.
+
+cheers,
+Bart
