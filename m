@@ -1,34 +1,49 @@
-From: Scott Feldman <sfeldma@pobox.com>
-Subject: Re: netif_rx_schedule_prep() returning false?
-Date: Wed, 02 Feb 2005 11:16:32 -0800
-Message-ID: <1107371791.3366.126.camel@sfeldma-mobl.dsl-verizon.net>
-References: <7bca1cb5050202100475279073@mail.gmail.com>
-Reply-To: sfeldma@pobox.com
+From: Benjamin Reed <breed@almaden.ibm.com>
+Subject: Re: [PATCH] Dynamic airo.c patch for 2.6.10
+Date: Wed, 02 Feb 2005 11:16:11 -0800
+Message-ID: <420126FB.3000007@almaden.ibm.com>
+References: <20050202183525.GA13881@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Asim Shankar <asimshankar@gmail.com>
-In-Reply-To: <7bca1cb5050202100475279073@mail.gmail.com>
+Cc: Javier Achirica <achirica@ttd.net>, netdev@oss.sgi.com
+To: jt@hpl.hp.com
+In-Reply-To: <20050202183525.GA13881@bougret.hpl.hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-02-02 at 10:04, Asim Shankar wrote:
-> Specifically, in e1000 driver, when loaded with TxIntDelay=0,
-> RxIntDelay=0, InterruptThrottleRate=0 (i.e., no hardware
-> interrupt-coalescing), I've observed that the call to
-> netif_rx_schedule_prep() in the interrupt handler (e1000_intr())
-> ocassionally returns false. Further investigation shows that this is
-> because the __LINK_STATE_RX_SCHED bit of the struct net_device's state
-> is already set (netif_running(dev) is always true). I also checked the
-> interrupt cause register (ICR) in the interrupt handler and it seems
-> the interrupts were caused by packet receives (ICR == E1000_ICR_RXT0,
-> no other bits in the ICR register were set), which by my understanding
-> should have not been possible.
+I'm wondering if it would be possible to change IW_ENCODE_TEMP to 
+IW_ENCODE_PERM. I realize that would not be backward compatible, but as 
+you point out, the default assumption is that the keys are volatile.
 
-I'm running the same setup with delays turned off and I'm not seeing
-what you're seeing.  What e1000 controller are you using?  Send lspci
--n.
+ben
 
--scott
+Jean Tourrilhes wrote:
+
+>Benjamin Reed wrote :
+>  
+>
+>>Here is a patch for the 2.6.10 aironet driver that
+>>will enable dynamic wep keying without resetting the
+>>MAC. It allows us to use xsupplicant with the driver.
+>>
+>>There are two lines of ugliness (the ones with the 0
+>>&&) where I ignore the flag that says wether we are
+>>setting a permanent or a temporary key since
+>>xsupplicant doesn't use the IW_ENCODE_TEMP flag.
+>>    
+>>
+>
+>	The IW_ENCODE_TEMP flag only make sense for the Aironet
+>driver, as for all other hardware the WEP keys are volatile. So, don't
+>expect this flag to be widespread.
+>	I would suggest you send a nice little patch to the maintainer
+>of xsupplicant (and wpa_supplicant as well) explaining the
+>situation. Enabling this flag should not affect other drivers, and
+>might actually be a good idea in general.
+>	Have fun...
+>
+>	Jean
+>  
+>
