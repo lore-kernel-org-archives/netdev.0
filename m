@@ -1,44 +1,55 @@
-From: Greg KH <greg@kroah.com>
-Subject: Re: [RFC] change format of LSM hooks
-Date: Thu, 17 Oct 2002 09:55:41 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
+Date: Fri, 18 Oct 2002 02:18:02 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021017165541.GC31464@kroah.com>
-References: <20021015194545.GC15864@kroah.com> <20021015.124502.130514745.davem@redhat.com> <20021015201209.GE15864@kroah.com> <20021015.131037.96602290.davem@redhat.com> <20021015202828.GG15864@kroah.com> <20021016000706.GI16966@kroah.com> <20021017142149.A23181@infradead.org>
+Message-ID: <20021018.021802.87011078.yoshfuji@linux-ipv6.org>
+References: <20021017162624.GC16370@morphine.tml.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org, pekkas@netcore.fi, torvalds@transmeta.com,
+   jagana@us.ibm.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>, netdev@oss.sgi.com,
-   linux-security-module@wirex.com, linux-kernel@vger.kernel.org
-Content-Disposition: inline
-In-Reply-To: <20021017142149.A23181@infradead.org>
+To: ajtuomin@morphine.tml.hut.fi
+In-Reply-To: <20021017162624.GC16370@morphine.tml.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 17, 2002 at 02:21:49PM +0100, Christoph Hellwig wrote:
-> On Tue, Oct 15, 2002 at 05:07:06PM -0700, Greg KH wrote:
-> > On Tue, Oct 15, 2002 at 01:28:28PM -0700, Greg KH wrote:
-> > > On Tue, Oct 15, 2002 at 01:10:37PM -0700, David S. Miller wrote:
-> > > > 
-> > > > I will not even look at the networking LSM bits until
-> > > > CONFIG_SECURITY=n is available.
+In article <20021017162624.GC16370@morphine.tml.hut.fi> (at Thu, 17 Oct 2002 19:26:25 +0300), Antti Tuominen <ajtuomin@morphine.tml.hut.fi> says:
+
+> The patch has been split for easier reading as follows:
 > 
-> BTW, there's another big issues with LSM:  so far all those hook
-> have no user in a mergeable shape.  For all other additions
-> there is a strong need to present something mergable but LSM
-> doesn't.  IMHO we should require a pointer to a module in mergaable
-> shape (i.e. certainly not selinux) for each new hook addition.
+> ipv6_tunnel.patch	6over6 tunneling
+> network_mods.patch	Modifications to network code and hooks
 
-Heh, require this, and oops, all of the hooks disappear :)
+Several comments.
 
-Seriously, no, I don't agree with this.  SELinux is currently being
-audited by a number of different companies (include some Linux distros),
-and after that happens, and the code is cleaned up, I think they will
-probably want their module merged (but I don't speak for them at all.)
+[ipv6_tunnel]
 
-As for the other modules, I think the OWL-based one is good enough right
-now, and I have a very simple module that is in the November issue of
-Linux Journal that is probably clean enough to merge.
+I think this is almost ok.
 
-thanks,
+  1. I believe s/ARPHRD_IPV6_IPV6_TUNNEL/ARPHRD_TUNNEL6/.
+  2. Please put outer address to hardware address in dev.
+     Note: you need to modify SIOxxx ioctls too not to overrun!
 
-greg k-h
+[network_mods etc.]
+
+  1. Too many hooks,
+     and many duplicate codes in ipv6 stack and mipv6 stack.
+     (prefix handler, header parser, ndisc handler etc...)
+
+more comment will come later...
+
+
+> http://www.mipl.mediapoli.com/patches/mipv6_cn_support.patch
+> http://www.mipl.mediapoli.com/patches/mipv6_mn_support.patch
+> http://www.mipl.mediapoli.com/patches/mipv6_ha_support.patch
+
+Well, I can't find them. I hope they'll be available when I wake up
+tomorrow...
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
