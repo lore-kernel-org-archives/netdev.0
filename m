@@ -1,88 +1,88 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] Report vegas connection info
-Date: Fri, 23 Apr 2004 15:20:17 -0700
+From: Jon D Mason <jonmason@us.ibm.com>
+Subject: Re: [PATCH] r8169 NAPI addition
+Date: Fri, 23 Apr 2004 17:27:17 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040423152017.556fbbb3@dell_ss3.pdx.osdl.net>
+Message-ID: <OF8334CD5C.3FE962A9-ON87256E7F.0052C6D7-86256E7F.007AED3E@us.ibm.com>
+References: <20040423011834.A3232@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040423011834.A3232@electric-eye.fr.zoreil.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Simple extension of tcp_diag to send out vegas information.
-Have simple addition to 'ss' command to print:
+Jon D Mason <jonmason@us.ibm.com> :
+[...]
+--- r8169.c              2004-04-18 22:51:33.000000000 -0500
++++ r8169.c              2004-04-22 08:08:57.526577048 -0500
+[...]
+@@ -1692,6 +1737,31 @@ static struct net_device_stats *rtl8169_
+                 return &tp->stats;
+ }
+ 
++#ifdef CONFIG_R8169_NAPI
++static int rtl8169_poll(struct net_device *dev, int *budget)
++{
++                u32 status, work_done = 0, work_to_do = min(*budget, 
+dev->quota);
++                struct rtl8169_private *tp = dev->priv;
++                void *ioaddr = tp->mmio_addr;
++ 
++                work_done = rtl8169_rx_interrupt(dev, tp, ioaddr);
++ 
++                *budget -= work_done;
++                dev->quota -= work_done;
++ 
++                if ((work_done < work_to_do) || !netif_running(dev)) {
 
-$ ss -i
-State      Recv-Q Send-Q      Local Address:Port          Peer Address:Port
-ESTAB      0      0             172.20.1.73:32775          172.20.1.60:iperf  
-	rto:201 rtt:1.875/0.75 cwnd:8 ssthresh:3 vegas bw:9.2672e+10
+> Packets are received here.
+> Tx interrupt is issued.
+> --> Interrupts status register is completely cleared by the irq handler 
+<--
+> There are pending Rx packets.
+> r8169_poll() is not activated by the irq handler.
+>
+> --> Pending Rx packets may wait long.
 
-diff -Nru a/include/linux/tcp_diag.h b/include/linux/tcp_diag.h
---- a/include/linux/tcp_diag.h	Fri Apr 23 14:56:53 2004
-+++ b/include/linux/tcp_diag.h	Fri Apr 23 14:56:53 2004
-@@ -98,9 +98,10 @@
- 	TCPDIAG_NONE,
- 	TCPDIAG_MEMINFO,
- 	TCPDIAG_INFO,
-+	TCPDIAG_VEGASINFO,
- };
- 
--#define TCPDIAG_MAX TCPDIAG_INFO
-+#define TCPDIAG_MAX TCPDIAG_VEGASINFO
- 
- 
- /* TCPDIAG_MEM */
-@@ -112,5 +113,15 @@
- 	__u32	tcpdiag_fmem;
- 	__u32	tcpdiag_tmem;
- };
-+
-+/* TCPDIAG_VEGASINFO */
-+
-+struct tcpvegas_info {
-+	__u32	tcpv_enabled;
-+	__u32	tcpv_rttcnt;
-+	__u32	tcpv_rtt;
-+	__u32	tcpv_minrtt;
-+};
-+
- 
- #endif /* _TCP_DIAG_H_ */
-diff -Nru a/net/ipv4/tcp_diag.c b/net/ipv4/tcp_diag.c
---- a/net/ipv4/tcp_diag.c	Fri Apr 23 14:56:53 2004
-+++ b/net/ipv4/tcp_diag.c	Fri Apr 23 14:56:53 2004
-@@ -50,6 +50,7 @@
- 	struct nlmsghdr  *nlh;
- 	struct tcp_info  *info = NULL;
- 	struct tcpdiag_meminfo  *minfo = NULL;
-+	struct tcpvegas_info *vinfo = NULL;
- 	unsigned char	 *b = skb->tail;
- 
- 	nlh = NLMSG_PUT(skb, pid, seq, TCPDIAG_GETSOCK, sizeof(*r));
-@@ -59,6 +60,9 @@
- 			minfo = TCPDIAG_PUT(skb, TCPDIAG_MEMINFO, sizeof(*minfo));
- 		if (ext & (1<<(TCPDIAG_INFO-1)))
- 			info = TCPDIAG_PUT(skb, TCPDIAG_INFO, sizeof(*info));
-+		
-+		if (tcp_is_vegas(tp) && (ext & (1<<(TCPDIAG_VEGASINFO-1))))
-+			vinfo = TCPDIAG_PUT(skb, TCPDIAG_VEGASINFO, sizeof(*vinfo));
- 	}
- 	r->tcpdiag_family = sk->sk_family;
- 	r->tcpdiag_state = sk->sk_state;
-@@ -194,6 +198,13 @@
- 		info->tcpi_snd_cwnd = tp->snd_cwnd;
- 		info->tcpi_advmss = tp->advmss;
- 		info->tcpi_reordering = tp->reordering;
-+	}
-+
-+	if (vinfo) {
-+		vinfo->tcpv_enabled = tp->vegas.doing_vegas_now;
-+		vinfo->tcpv_rttcnt = tp->vegas.cntRTT;
-+		vinfo->tcpv_rtt = tp->vegas.baseRTT;
-+		vinfo->tcpv_minrtt = tp->vegas.minRTT;
- 	}
- 
- 	nlh->nlmsg_len = skb->tail - b;
++                                netif_rx_complete(dev);
++                                status = RTL_R16(IntrStatus);
++                                if (!status) {
++                                                RTL_W16(IntrMask, 
+rtl8169_intr_mask);
++                                                status = 
+RTL_R16(IntrMask);
++                                } 
+
+> The previous lines imply that if, according to IntrStatus, there is 
+pending
+> Rx work but no pending Tx work, the Rx interrupts are kept disabled.
+
+The above was a poor attempt to solve what I thought was the problem you 
+were describing before.  The Interrupt Mask should be fully restored 
+regardless of pending interrupts.  Will do.
+
+> If I am not mistaken (1:55 AM here), either 1) you do not clear the RX
+> related bits of IntrStatus in r8169_interrupt() but you clear it in
+> rtl8169_poll() and you add local_irq_{en/dis}able() to rtl8169_poll()
+> (ala 8139cp.c) or 2) you modify r8169_interrupt() so that it can signal
+> to rtl8169_poll() that it cleared itself the Rx bits of IntrStatus 
+whereas
+> rtl8169_poll() was running (ala epic100-netdev).
+>
+>If you hesitate, go for 1). 2) works but I have not benchmarketed it yet 
+:o)
+
+I have a few different ideas that I think will solve the problem, but I 
+need to think them out first.  I will let you know.  Also, thanks for all 
+of your help, hopefully I can get this working properly soon.
+
+>
+>If you have doubts regarding your Tx part, feel free to send any code.
+
+I can send you my code, but it might be better to do off the list (as not 
+to spam everyone). :-)
+
+Thanks,
+Jon
