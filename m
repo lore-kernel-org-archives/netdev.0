@@ -1,35 +1,66 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Tue, 7 Sep 2004 11:16:10 -0700
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: generic 802.11 stack
+Date: Tue, 7 Sep 2004 21:41:54 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907111610.7441377e.davem@davemloft.net>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
-	<757AB580-0030-11D9-9224-000A95AD0668@errno.com>
-	<20040906182328.08faf843.davem@davemloft.net>
-	<200409062132.49356.sam@errno.com>
-	<413DE9ED.30300@atheros.com>
-	<20040907101027.7547e591.davem@davemloft.net>
-	<413DFA79.501@atheros.com>
+Message-ID: <200409072141.58893.vkondra@mail.ru>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409072106.28334.vkondra@mail.ru> <20040907110813.6b463f3a.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: multipart/signed;
+  boundary="nextPart6771719.9nFv9mMZL8";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: sam@errno.com, vda@port.imtp.ilyichevsk.odessa.ua, jgarzik@pobox.com,
-        netdev@oss.sgi.com, acx100-devel@lists.sourceforge.net,
-        jt@bougret.hpl.hp.com, jkmaline@cc.hut.fi, prism54-devel@prism54.org
+Cc: "David S. Miller" <davem@davemloft.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: greg chesson <greg@atheros.com>
-In-Reply-To: <413DFA79.501@atheros.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040907110813.6b463f3a.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Sep 2004 11:14:17 -0700
-greg chesson <greg@atheros.com> wrote:
+--nextPart6771719.9nFv9mMZL8
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-> I certainly agree with you about getting the base design right.
-> Where are these bits you refer to?
+On Tuesday 07 September 2004 21:08, David S. Miller wrote:
+DS> On Tue, 7 Sep 2004 21:06:24 +0300
+DS> Vladimir Kondratiev <vkondra@mail.ru> wrote:
+DS>
+DS> > May be I did not stated the question clearly. This information need to
+ be DS> > specified per packet. So question ramains: how to specify PHY info
+ per skb. DS>
+DS> Use the skb->cb[] area, create:
+DS>
+DS> struct p80211_skb_cb {
+DS>  int rate;
+DS>  int channel;
+DS>  /* whatever... */
+DS> };
+DS>
+DS> #define P80211_SKB_CB(skb)  ((struct p80211_skb_cb *)((skb)->cb))
 
-See earlier in this very thread you are replying to:
+This should be done in generic way. This information used to communicate=20
+berween particular driver and generic stack. For example, Rx PHY info and T=
+x=20
+status info should be used for in-stack generic rate scaling algorithm.
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=109415745726088&w=2
+To complicate it a bit, cb[] is only 48 bytes long. PHY info may easily exc=
+eed=20
+this size, so it's better to allocate something and free it in destructor.
 
-:-)
+But again, point is this structure should be generic since it is used by=20
+stack.
+
+--nextPart6771719.9nFv9mMZL8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBBPgD2qxdj7mhC6o0RAibiAJ0TQONrdNoltPzdbwE/ALFg9SCmegCglgwM
+hlrmFHhTK5SQ/pGISBiqHIY=
+=a5zw
+-----END PGP SIGNATURE-----
+
+--nextPart6771719.9nFv9mMZL8--
