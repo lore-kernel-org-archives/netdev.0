@@ -1,45 +1,70 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] batched tc to improve change throughput
-Date: Mon, 14 Feb 2005 15:27:10 +0100
-Message-ID: <20050214142710.GI31837@postel.suug.ch>
-References: <1106232168.1041.125.camel@jzny.localdomain> <20050120153559.GG26856@postel.suug.ch> <1106576005.1652.1292.camel@jzny.localdomain> <20050124150634.GT23931@postel.suug.ch> <1106747313.1107.7.camel@jzny.localdomain> <1108134446.5523.22.camel@ganymede> <1108215923.1126.132.camel@jzny.localdomain> <1108246033.7554.18.camel@ganymede> <20050212223204.GG31837@postel.suug.ch> <1108340618.14978.66.camel@ganymede>
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: [PATCH] [IPVS] Fixed that the WRR scheduler works correctly when
+ server is updated or overloaded
+Date: Tue, 15 Feb 2005 01:00:38 +0800 (CST)
+Message-ID: <Pine.LNX.4.61.0502150054180.2895@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
-To: Dan Siemon <dan@coverfire.com>
-Content-Disposition: inline
-In-Reply-To: <1108340618.14978.66.camel@ganymede>
+Content-Type: MULTIPART/Mixed; BOUNDARY="-1463811584-572891765-1097000265=:2451"
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-ID: <Pine.LNX.4.44.0410060217580.2451@penguin.linux-vs.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> >  - The whole interface must take care of the byte order issues. This is
-> >    the most tricky part.
-> 
-> I don't see how byte order issues are a problem when using SOAP.
-> Example?
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
 
-It depends on wehther your outline every qdisc/filter in the protocol.
-If you do so it's not a problem but you have to extend your protocol
-every time a new qdisc is introduced or an existing one changes. A
-generic partly binary based protocol will have byte order issues.
+---1463811584-572891765-1097000265=:2451
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; FORMAT=flowed
+Content-ID: <Pine.LNX.4.44.0410060217581.2451@penguin.linux-vs.org>
 
-My current idea, given I can't find an existing protocol, is to let
-every netlink user describe its own format with a generic grammar so
-the protocol can stay stable. One of the candidates is the netconf
-specification which basically does what we need but is still in early
-development.
 
-> I'm curious exactly what your needs are.
 
-Basically I need to be able to change the beavhiour of the message
-parser to for example overwrite the sequence number checking in order
-to do message multiplexing. It's not like I would be represenative
-though.
+Hi Dave,
 
-> It does appear you are aiming for a somewhat more low level library than
-> I am.  Whether or not that precludes some kind of merger I don't know.
+Here is the patch to make the WRR scheduler work correctly when server is 
+updated with new weight or marked overloaded. Please check and apply it to 
+kernel 2.6.
 
-Yes, it seems so. It's a pitty that we waste effort by doing the same
-nearly work but I really need the low level API and the possibility to
-customize the parsing and sending code.
+Thanks,
+
+Wensong
+---1463811584-572891765-1097000265=:2451
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.6-ipvs-wrr.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.61.0502150100380.2895@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: attachment; filename="linux-2.6-ipvs-wrr.patch"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBkaWZmIC1OcnUgc3R5
+bGUgcGF0Y2guDQojDQojIENoYW5nZVNldA0KIyAgIDIwMDUvMDIvMTUgMDA6
+NDQ6MTcrMDg6MDAgd2Vuc29uZ0BsaW51eC12cy5vcmcgDQojICAgW0lQVlNd
+IEZpeGVkIHRoYXQgdGhlIFdSUiBzY2hlZHVsZXIgd29ya3MgY29ycmVjdGx5
+IHdoZW4gc2VydmVyIGlzIHVwZGF0ZWQgb3Igb3ZlcmxvYWRlZC4NCiMgICAN
+CiMgICBUaGFua3MgbXVzdCBnbyB0byBLZWVzIEhvZWt6ZW1hIDxrZWVzQHR3
+ZWFrZXJzLm5ldD4gZm9yIGRpc292ZXJpbmcgdGhlDQojICAgcHJvYmxlbSBh
+bmQgcHJvdmlkaW5nIGEgcGF0Y2guIFRoYW5rcyBnbyB0byBKdWxpYW4gYW5k
+IEhvcm1zIGZvciBkaXNjdXNzaW9uDQojICAgYW5kIG1ha2luZyB0aGlzIHBh
+dGNoLg0KIyANCiMgbmV0L2lwdjQvaXB2cy9pcF92c193cnIuYw0KIyAgIDIw
+MDUvMDIvMTUgMDA6NDM6NTArMDg6MDAgd2Vuc29uZ0BsaW51eC12cy5vcmcg
+KzMgLTENCiMgICBmaXhlZCB0byByZXNldCBtYXJrLT5jdyBpZiBtYXJrLT5j
+dyBpcyBncmVhdGVyIHRoYW4gbWF4aW11bSB3ZWlnaHQgd2hpbGUgdXBkYXRp
+bmcgc2VydmljZTsNCiMgICBmaXhlZCB0byByZXR1cm4gTlVMTCBvbmx5IHdo
+ZW4gYWxsIHRoZSBzZXJ2ZXJzIGFyZSBub3QgYXZhaWxhYmxlIGF0IGFueSB3
+ZWlnaHQuDQojICAgDQojIA0KZGlmZiAtTnJ1IGEvbmV0L2lwdjQvaXB2cy9p
+cF92c193cnIuYyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfd3JyLmMNCi0tLSBh
+L25ldC9pcHY0L2lwdnMvaXBfdnNfd3JyLmMJMjAwNS0wMi0xNSAwMDo0Njow
+NSArMDg6MDANCisrKyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfd3JyLmMJMjAw
+NS0wMi0xNSAwMDo0NjowNSArMDg6MDANCkBAIC0xMjYsNiArMTI2LDggQEAN
+CiAJbWFyay0+Y2wgPSAmc3ZjLT5kZXN0aW5hdGlvbnM7DQogCW1hcmstPm13
+ID0gaXBfdnNfd3JyX21heF93ZWlnaHQoc3ZjKTsNCiAJbWFyay0+ZGkgPSBp
+cF92c193cnJfZ2NkX3dlaWdodChzdmMpOw0KKwlpZiAobWFyay0+Y3cgPiBt
+YXJrLT5tdykNCisJCW1hcmstPmN3ID0gMDsNCiAJcmV0dXJuIDA7DQogfQ0K
+IA0KQEAgLTE4Niw3ICsxODgsNyBAQA0KIAkJCX0NCiAJCX0NCiANCi0JCWlm
+IChtYXJrLT5jbCA9PSBwKSB7DQorCQlpZiAobWFyay0+Y2wgPT0gcCAmJiBt
+YXJrLT5jdyA9PSBtYXJrLT5kaSkgew0KIAkJCS8qIGJhY2sgdG8gdGhlIHN0
+YXJ0LCBhbmQgbm8gZGVzdCBpcyBmb3VuZC4NCiAJCQkgICBJdCBpcyBvbmx5
+IHBvc3NpYmxlIHdoZW4gYWxsIGRlc3RzIGFyZSBPVkVSTE9BREVEICovDQog
+CQkJZGVzdCA9IE5VTEw7DQo=
+
+---1463811584-572891765-1097000265=:2451--
