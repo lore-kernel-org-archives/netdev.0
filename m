@@ -1,30 +1,18 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Consolidate multiple implementations of jiffies-msecs
- conversions.
-Date: Thu, 25 Mar 2004 12:32:06 -0800
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: Re: Accessing time
+Date: Thu, 25 Mar 2004 15:35:10 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040325123206.00b2dd1a.davem@redhat.com>
-References: <Pine.LNX.4.58.0403251142110.3037@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <200403252035.i2PKZ8EC012261@ginger.cmf.nrl.navy.mil>
+References: <gupta@cpsc.ucalgary.ca>
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0403251142110.3037@localhost.localdomain>
+To: gupta@cpsc.ucalgary.ca
+In-Reply-To: Message from Abhinav Gupta <gupta@cpsc.ucalgary.ca>
+   of "Thu, 25 Mar 2004 12:41:04 MST." <406335D0.2090308@cs.ucalgary.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 25 Mar 2004 12:17:41 -0800 (PST)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+In message <406335D0.2090308@cs.ucalgary.ca>,Abhinav Gupta writes:
+>Can anyone please give me pointers to accessing system time? I need to 
 
-> The following patch to 2.6.5-rc2 consolidates 6 different implementations
-> of msecs to jiffies and 3 different implementation of jiffies to msecs.
-> All of them now use the generic msecs_to_jiffies() and jiffies_to_msecs()
-> that are added to include/linux/time.h
-
-This looks fine to me.
-
-Jeff, I'll merge this upstream.
-
-Thanks.
+do_gettimeofday()?
