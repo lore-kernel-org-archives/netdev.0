@@ -1,43 +1,35 @@
-From: "Thuds A. Prognostication" <rougeaux@movemail.com>
-Subject: =?windows-1251?B?UmU6TWJiYVp3Y1ZiakRNY0pqb3ZPT1U=?=
-Date: Sun, 07 Mar 2004 16:50:07 -0500
+From: =?Big5?B?sk2ocajOpEguLg==?= <sexhkhk@yahoo.com.tw>
+Subject: =?Big5?B?taWr3S4uLi4u?=
+Date: Mon, 8 Mar 2004 04:25:18 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <011101c4048e$ccdcaf0f$6fb60d0d@movemail.com>
-Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	charset=windows-1251;
-	boundary="----=_NextPart_000_0003_550AEAA7.26C6EBA7"
+Message-ID: <200403072229.i27MTAKO002091@oss.sgi.com>
+Content-Type: text/html
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
-
-------=_NextPart_000_0003_550AEAA7.26C6EBA7
-Content-Type: text/plain;
-	charset=windows-1251
-Content-Transfer-Encoding: base64
-
-YmRKWERtZ0VUYkdCWFRHV0ZMZmcgR3BySlFaRGhCa3dEbmdCUXVIdm0g
-
-
-------=_NextPart_000_0003_550AEAA7.26C6EBA7
-Content-Type: text/html;
-	charset=windows-1251
-Content-Transfer-Encoding: quoted-printable
-
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4=2e01 Transitional//EN">
 <html>
+
 <head>
-<meta http-equiv=3d"Content-Type" content=3d"text/html; charset=3dwindows=
--1251">
+<meta http-equiv="Content-Language" content="zh-tw">
+<meta name="GENERATOR" content="Microsoft FrontPage 5.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<meta http-equiv="Content-Type" content="text/html; charset=big5">
+<title>此信如造成打擾</title>
 </head>
 
-<body bgcolor=3d"#FFFFFF">
-<DIV>IcOGJwDptTxNYOyPOcYqnvVDCwvWdQiLTZtDvXUD</DIV>
+<body>
+
+<p>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 
+若無法正常開啟此信(<a target="_blank" href="http://www.csbelle.com/index.php?V=0308">請按此處</a>)</p>
+
+<p>
+<a target="_blank" href="http://www.csbelle.com/index.php?V=0308">
+<img border="0" src="http://web.my8d.net/csbelle/1.11-3.jpg" width="550" height="545"></a></p>
+<p>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<a href="mailto:cbhk220002@yahoo.com.hk">此信如造成打擾.實感抱歉.請按此處
+回函告知我們.謝謝</a></p>
+
 </body>
+
 </html>
-
-
-------=_NextPart_000_0003_550AEAA7.26C6EBA7--
