@@ -1,58 +1,188 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Tue, 28 Sep 2004 23:07:04 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Tue, 28 Sep 2004 14:10:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4159D278.4060809@eurodev.net>
-References: <20040923120707.GB32624@gondor.apana.org.au>	 <1095995042.1044.34.camel@jzny.localdomain>	 <20040924032440.GB6384@gondor.apana.org.au>	 <1096289189.1075.37.camel@jzny.localdomain>	 <20040927213607.GD7243@gondor.apana.org.au>	 <1096339407.8660.33.camel@jzny.localdomain>	 <20040928024614.GA9911@gondor.apana.org.au>	 <1096340772.8659.51.camel@jzny.localdomain>	 <20040928032321.GB10116@gondor.apana.org.au>	 <1096343125.8661.96.camel@jzny.localdomain>	 <20040928035921.GA10675@gondor.apana.org.au> <1096367787.8662.146.camel@jzny.localdomain>
+Message-ID: <20040928141002.164c60af.davem@davemloft.net>
+References: <20040923164149.5368d291.davem@davemloft.net>
+	<E1CBkIW-0001dF-00@gondolin.me.apana.org.au>
+	<20040927025048.GA6723@gondor.apana.org.au>
+	<20040926210029.22750d47.davem@davemloft.net>
+	<20040927054541.GA8858@gondor.apana.org.au>
+	<20040927120154.09fdcadf.davem@davemloft.net>
+	<20040927213233.GC7243@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------000001000007080107080702"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+ boundary="Multipart=_Tue__28_Sep_2004_14_10_02_-0700_PMi3HGoCMW+xeS.N"
+Cc: ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com, anton@samba.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1096367787.8662.146.camel@jzny.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040927213233.GC7243@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------000001000007080107080702
-Content-Type: text/plain; charset=us-ascii; format=flowed
+
+--Multipart=_Tue__28_Sep_2004_14_10_02_-0700_PMi3HGoCMW+xeS.N
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 
-Hi,
+On Tue, 28 Sep 2004 07:32:33 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-If buffer overruns we lost all the messages which are enqueued, so 
-before enqueing the packet, we can check if there's space available in 
-the buffer. I think that this way we can save these messages at least.
+> On Mon, Sep 27, 2004 at 12:01:54PM -0700, David S. Miller wrote:
+> >
+> > > tcp_current_mss() doesn't call tcp_sync_mss() unless the PMTU changes.
+> > 
+> > Good catch, probably we should make it do so when sk_route_caps
+> > indicates we are doing TSO.
+> 
+> Alternatively we could move the TSO code out of tcp_sync_mss() and
+> put it in tcp_current_mss() instead.  It seems to be the only one
+> using the factor anyway.
 
-I'm also thinking in doing something with netlink_ack's since they can 
-be drop if buffer is full. We could give more priority to error messages 
-in some way, for example, check if there's space for an error message in 
-the buffer, if there's not, drop as many packets in buffer as we get 
-space to enqueue the error message.
+Ok, here are 2 patches incorporating all of the things
+we discussed in this area:
 
-regards,
-Pablo
+1) Uninline tcp_current_mss(), fix tcp_sync_mss() return
+   value to match tcp_current_mss()'s
 
---------------000001000007080107080702
-Content-Type: text/x-patch;
- name="unicast-dont-overrun.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="unicast-dont-overrun.patch"
+2) Fix the do_large calculation bug in tcp_current_mss() as
+   per Herbert's original patch.
 
-===== net/netlink/af_netlink.c 1.58 vs edited =====
---- 1.58/net/netlink/af_netlink.c	Sat Sep 25 17:43:43 2004
-+++ edited/net/netlink/af_netlink.c	Tue Sep 28 22:23:44 2004
-@@ -475,7 +475,7 @@
- 	if (nlk->handler)
- 		return 0;
- #endif
--	if (atomic_read(&sk->sk_rmem_alloc) > sk->sk_rcvbuf ||
-+	if (atomic_read(&sk->sk_rmem_alloc) + skb->len > sk->sk_rcvbuf ||
- 	    test_bit(0, &nlk->state)) {
- 		DECLARE_WAITQUEUE(wait, current);
- 		if (!timeo) {
+3) Move TSO mss calculation work to tcp_current_mss().  We have
+   to do something like this since tcp_sync_mss() is only invoked
+   when the PMTU changes whereas the TSO MTU is dependant upon
+   both the path and the current congestion window.
 
---------------000001000007080107080702--
+So, this patch should wrap up these issues.
+
+
+--Multipart=_Tue__28_Sep_2004_14_10_02_-0700_PMi3HGoCMW+xeS.N
+Content-Type: application/octet-stream;
+ name="diff1"
+Content-Disposition: attachment;
+ filename="diff1"
+Content-Transfer-Encoding: base64
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBkaWZmIC1OcnUgc3R5bGUgcGF0Y2guCiMK
+IyBDaGFuZ2VTZXQKIyAgIDIwMDQvMDkvMjggMTM6MjY6NTQtMDc6MDAgZGF2ZW1AbnV0cy5kYXZl
+bWxvZnQubmV0IAojICAgW1RDUF06IFVuaW5saW5lIHRjcF9jdXJyZW50X21zcygpLgojICAgCiMg
+ICBBbHNvIGZpeCB0aGUgcmV0dXJuIHZhbHVlIG9mIHRjcF9zeW5jX21zcygpIHRvCiMgICBiZSB1
+bnNpZ25lZC4KIyAgIAojICAgU2lnbmVkLW9mZi1ieTogRGF2aWQgUy4gTWlsbGVyIDxkYXZlbUBk
+YXZlbWxvZnQubmV0PgojIAojIG5ldC9pcHY0L3RjcF9vdXRwdXQuYwojICAgMjAwNC8wOS8yOCAx
+MzoyNjowMS0wNzowMCBkYXZlbUBudXRzLmRhdmVtbG9mdC5uZXQgKzMxIC0xCiMgICBbVENQXTog
+VW5pbmxpbmUgdGNwX2N1cnJlbnRfbXNzKCkuCiMgCiMgaW5jbHVkZS9uZXQvdGNwLmgKIyAgIDIw
+MDQvMDkvMjggMTM6MjY6MDAtMDc6MDAgZGF2ZW1AbnV0cy5kYXZlbWxvZnQubmV0ICsyIC0zMgoj
+ICAgW1RDUF06IFVuaW5saW5lIHRjcF9jdXJyZW50X21zcygpLgojIApkaWZmIC1OcnUgYS9pbmNs
+dWRlL25ldC90Y3AuaCBiL2luY2x1ZGUvbmV0L3RjcC5oCi0tLSBhL2luY2x1ZGUvbmV0L3RjcC5o
+CTIwMDQtMDktMjggMTM6NDk6MjIgLTA3OjAwCisrKyBiL2luY2x1ZGUvbmV0L3RjcC5oCTIwMDQt
+MDktMjggMTM6NDk6MjIgLTA3OjAwCkBAIC05NjEsNyArOTYxLDggQEAKIAogZXh0ZXJuIHZvaWQg
+dGNwX2RlbGV0ZV9rZWVwYWxpdmVfdGltZXIgKHN0cnVjdCBzb2NrICopOwogZXh0ZXJuIHZvaWQg
+dGNwX3Jlc2V0X2tlZXBhbGl2ZV90aW1lciAoc3RydWN0IHNvY2sgKiwgdW5zaWduZWQgbG9uZyk7
+Ci1leHRlcm4gaW50IHRjcF9zeW5jX21zcyhzdHJ1Y3Qgc29jayAqc2ssIHUzMiBwbXR1KTsKK2V4
+dGVybiB1bnNpZ25lZCBpbnQgdGNwX3N5bmNfbXNzKHN0cnVjdCBzb2NrICpzaywgdTMyIHBtdHUp
+OworZXh0ZXJuIHVuc2lnbmVkIGludCB0Y3BfY3VycmVudF9tc3Moc3RydWN0IHNvY2sgKnNrLCBp
+bnQgbGFyZ2UpOwogCiBleHRlcm4gY29uc3QgY2hhciB0aW1lcl9idWdfbXNnW107CiAKQEAgLTEw
+MzMsMzcgKzEwMzQsNiBAQAogCWRlZmF1bHQ6CiAJCXByaW50ayh0aW1lcl9idWdfbXNnKTsKIAl9
+OwotfQotCi0vKiBDb21wdXRlIHRoZSBjdXJyZW50IGVmZmVjdGl2ZSBNU1MsIHRha2luZyBTQUNL
+cyBhbmQgSVAgb3B0aW9ucywKLSAqIGFuZCBldmVuIFBNVFUgZGlzY292ZXJ5IGV2ZW50cyBpbnRv
+IGFjY291bnQuCi0gKgotICogTEFSR0VTRU5EIG5vdGU6ICF1cmdfbW9kZSBpcyBvdmVya2lsbCwg
+b25seSBmcmFtZXMgdXAgdG8gc25kX3VwCi0gKiBjYW5ub3QgYmUgbGFyZ2UuIEhvd2V2ZXIsIHRh
+a2luZyBpbnRvIGFjY291bnQgcmFyZSB1c2Ugb2YgVVJHLCB0aGlzCi0gKiBpcyBub3QgYSBiaWcg
+Zmxhdy4KLSAqLwotCi1zdGF0aWMgaW5saW5lIHVuc2lnbmVkIGludCB0Y3BfY3VycmVudF9tc3Mo
+c3RydWN0IHNvY2sgKnNrLCBpbnQgbGFyZ2UpCi17Ci0Jc3RydWN0IHRjcF9vcHQgKnRwID0gdGNw
+X3NrKHNrKTsKLQlzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QgPSBfX3NrX2RzdF9nZXQoc2spOwotCWlu
+dCBkb19sYXJnZSwgbXNzX25vdzsKLQotCWRvX2xhcmdlID0gKGxhcmdlICYmCi0JCSAgICAoc2st
+PnNrX3JvdXRlX2NhcHMgJiBORVRJRl9GX1RTTykgJiYKLQkJICAgICF0cC0+dXJnX21vZGUpOwot
+CW1zc19ub3cgPSBkb19sYXJnZSA/IHRwLT5tc3NfY2FjaGUgOiB0cC0+bXNzX2NhY2hlX3N0ZDsK
+LQotCWlmIChkc3QpIHsKLQkJdTMyIG10dSA9IGRzdF9wbXR1KGRzdCk7Ci0JCWlmIChtdHUgIT0g
+dHAtPnBtdHVfY29va2llIHx8Ci0JCSAgICB0cC0+ZXh0Ml9oZWFkZXJfbGVuICE9IGRzdC0+aGVh
+ZGVyX2xlbikKLQkJCW1zc19ub3cgPSB0Y3Bfc3luY19tc3Moc2ssIG10dSk7Ci0JfQotCWlmICh0
+cC0+ZWZmX3NhY2tzKQotCQltc3Nfbm93IC09IChUQ1BPTEVOX1NBQ0tfQkFTRV9BTElHTkVEICsK
+LQkJCSAgICAodHAtPmVmZl9zYWNrcyAqIFRDUE9MRU5fU0FDS19QRVJCTE9DSykpOwotCXJldHVy
+biBtc3Nfbm93OwogfQogCiAvKiBJbml0aWFsaXplIFJDVl9NU1MgdmFsdWUuCmRpZmYgLU5ydSBh
+L25ldC9pcHY0L3RjcF9vdXRwdXQuYyBiL25ldC9pcHY0L3RjcF9vdXRwdXQuYwotLS0gYS9uZXQv
+aXB2NC90Y3Bfb3V0cHV0LmMJMjAwNC0wOS0yOCAxMzo0OToyMiAtMDc6MDAKKysrIGIvbmV0L2lw
+djQvdGNwX291dHB1dC5jCTIwMDQtMDktMjggMTM6NDk6MjIgLTA3OjAwCkBAIC02MDMsNyArNjAz
+LDcgQEAKICAgIHRoaXMgZnVuY3Rpb24uCQkJLS1BTksgKDk4MDczMSkKICAqLwogCi1pbnQgdGNw
+X3N5bmNfbXNzKHN0cnVjdCBzb2NrICpzaywgdTMyIHBtdHUpCit1bnNpZ25lZCBpbnQgdGNwX3N5
+bmNfbXNzKHN0cnVjdCBzb2NrICpzaywgdTMyIHBtdHUpCiB7CiAJc3RydWN0IHRjcF9vcHQgKnRw
+ID0gdGNwX3NrKHNrKTsKIAlzdHJ1Y3QgZHN0X2VudHJ5ICpkc3QgPSBfX3NrX2RzdF9nZXQoc2sp
+OwpAQCAtNjYxLDYgKzY2MSwzNiBAQAogCXJldHVybiBtc3Nfbm93OwogfQogCisvKiBDb21wdXRl
+IHRoZSBjdXJyZW50IGVmZmVjdGl2ZSBNU1MsIHRha2luZyBTQUNLcyBhbmQgSVAgb3B0aW9ucywK
+KyAqIGFuZCBldmVuIFBNVFUgZGlzY292ZXJ5IGV2ZW50cyBpbnRvIGFjY291bnQuCisgKgorICog
+TEFSR0VTRU5EIG5vdGU6ICF1cmdfbW9kZSBpcyBvdmVya2lsbCwgb25seSBmcmFtZXMgdXAgdG8g
+c25kX3VwCisgKiBjYW5ub3QgYmUgbGFyZ2UuIEhvd2V2ZXIsIHRha2luZyBpbnRvIGFjY291bnQg
+cmFyZSB1c2Ugb2YgVVJHLCB0aGlzCisgKiBpcyBub3QgYSBiaWcgZmxhdy4KKyAqLworCit1bnNp
+Z25lZCBpbnQgdGNwX2N1cnJlbnRfbXNzKHN0cnVjdCBzb2NrICpzaywgaW50IGxhcmdlKQorewor
+CXN0cnVjdCB0Y3Bfb3B0ICp0cCA9IHRjcF9zayhzayk7CisJc3RydWN0IGRzdF9lbnRyeSAqZHN0
+ID0gX19za19kc3RfZ2V0KHNrKTsKKwlpbnQgZG9fbGFyZ2UsIG1zc19ub3c7CisKKwlkb19sYXJn
+ZSA9IChsYXJnZSAmJgorCQkgICAgKHNrLT5za19yb3V0ZV9jYXBzICYgTkVUSUZfRl9UU08pICYm
+CisJCSAgICAhdHAtPnVyZ19tb2RlKTsKKwltc3Nfbm93ID0gZG9fbGFyZ2UgPyB0cC0+bXNzX2Nh
+Y2hlIDogdHAtPm1zc19jYWNoZV9zdGQ7CisKKwlpZiAoZHN0KSB7CisJCXUzMiBtdHUgPSBkc3Rf
+cG10dShkc3QpOworCQlpZiAobXR1ICE9IHRwLT5wbXR1X2Nvb2tpZSB8fAorCQkgICAgdHAtPmV4
+dDJfaGVhZGVyX2xlbiAhPSBkc3QtPmhlYWRlcl9sZW4pCisJCQltc3Nfbm93ID0gdGNwX3N5bmNf
+bXNzKHNrLCBtdHUpOworCX0KKwlpZiAodHAtPmVmZl9zYWNrcykKKwkJbXNzX25vdyAtPSAoVENQ
+T0xFTl9TQUNLX0JBU0VfQUxJR05FRCArCisJCQkgICAgKHRwLT5lZmZfc2Fja3MgKiBUQ1BPTEVO
+X1NBQ0tfUEVSQkxPQ0spKTsKKwlyZXR1cm4gbXNzX25vdzsKK30KIAogLyogVGhpcyByb3V0aW5l
+IHdyaXRlcyBwYWNrZXRzIHRvIHRoZSBuZXR3b3JrLiAgSXQgYWR2YW5jZXMgdGhlCiAgKiBzZW5k
+X2hlYWQuICBUaGlzIGhhcHBlbnMgYXMgaW5jb21pbmcgYWNrcyBvcGVuIHVwIHRoZSByZW1vdGUK
+
+--Multipart=_Tue__28_Sep_2004_14_10_02_-0700_PMi3HGoCMW+xeS.N
+Content-Type: application/octet-stream;
+ name="diff2"
+Content-Disposition: attachment;
+ filename="diff2"
+Content-Transfer-Encoding: base64
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBkaWZmIC1OcnUgc3R5bGUgcGF0Y2guCiMK
+IyBDaGFuZ2VTZXQKIyAgIDIwMDQvMDkvMjggMTM6NDY6NTgtMDc6MDAgZGF2ZW1AbnV0cy5kYXZl
+bWxvZnQubmV0IAojICAgW1RDUF06IE1vdmUgVFNPIG1zcyBjYWxjcyB0byB0Y3BfY3VycmVudF9t
+c3MoKQojICAgCiMgICBCYXNlZCB1cG9uIGEgYnVnIGZpeCBwYXRjaCBhbmQgc3VnZ2VzdGlvbnMg
+ZnJvbQojICAgSGVyYmVydCBYdSA8aGVyYmVydEBnb25kb3IuYXBhbmEub3JnLmF1PgojICAgCiMg
+ICBTaWduZWQtb2ZmLWJ5OiBEYXZpZCBTLiBNaWxsZXIgPGRhdmVtQGRhdmVtbG9mdC5uZXQ+CiMg
+CiMgbmV0L2lwdjQvdGNwX291dHB1dC5jCiMgICAyMDA0LzA5LzI4IDEzOjQ2OjI4LTA3OjAwIGRh
+dmVtQG51dHMuZGF2ZW1sb2Z0Lm5ldCArMjkgLTI0CiMgICBbVENQXTogTW92ZSBUU08gbXNzIGNh
+bGNzIHRvIHRjcF9jdXJyZW50X21zcygpCiMgICAKIyAgIEJhc2VkIHVwb24gYSBidWcgZml4IHBh
+dGNoIGFuZCBzdWdnZXN0aW9ucyBmcm9tCiMgICBIZXJiZXJ0IFh1IDxoZXJiZXJ0QGdvbmRvci5h
+cGFuYS5vcmcuYXU+CiMgICAKIyAgIFNpZ25lZC1vZmYtYnk6IERhdmlkIFMuIE1pbGxlciA8ZGF2
+ZW1AZGF2ZW1sb2Z0Lm5ldD4KIyAKZGlmZiAtTnJ1IGEvbmV0L2lwdjQvdGNwX291dHB1dC5jIGIv
+bmV0L2lwdjQvdGNwX291dHB1dC5jCi0tLSBhL25ldC9pcHY0L3RjcF9vdXRwdXQuYwkyMDA0LTA5
+LTI4IDEzOjQ5OjM3IC0wNzowMAorKysgYi9uZXQvaXB2NC90Y3Bfb3V0cHV0LmMJMjAwNC0wOS0y
+OCAxMzo0OTozNyAtMDc6MDAKQEAgLTYzOSwyNSArNjM5LDYgQEAKIAl0cC0+cG10dV9jb29raWUg
+PSBwbXR1OwogCXRwLT5tc3NfY2FjaGUgPSB0cC0+bXNzX2NhY2hlX3N0ZCA9IG1zc19ub3c7CiAK
+LQlpZiAoc2stPnNrX3JvdXRlX2NhcHMgJiBORVRJRl9GX1RTTykgewotCQlpbnQgbGFyZ2VfbXNz
+LCBmYWN0b3I7Ci0KLQkJbGFyZ2VfbXNzID0gNjU1MzUgLSB0cC0+YWZfc3BlY2lmaWMtPm5ldF9o
+ZWFkZXJfbGVuIC0KLQkJCXRwLT5leHRfaGVhZGVyX2xlbiAtIHRwLT5leHQyX2hlYWRlcl9sZW4g
+LSB0cC0+dGNwX2hlYWRlcl9sZW47Ci0KLQkJaWYgKHRwLT5tYXhfd2luZG93ICYmIGxhcmdlX21z
+cyA+ICh0cC0+bWF4X3dpbmRvdz4+MSkpCi0JCQlsYXJnZV9tc3MgPSBtYXgoKHRwLT5tYXhfd2lu
+ZG93Pj4xKSwgNjhVIC0gdHAtPnRjcF9oZWFkZXJfbGVuKTsKLQotCQkvKiBBbHdheXMga2VlcCBs
+YXJnZSBtc3MgbXVsdGlwbGUgb2YgcmVhbCBtc3MsIGJ1dAotCQkgKiBkbyBub3QgZXhjZWVkIGNv
+bmdlc3Rpb24gd2luZG93LgotCQkgKi8KLQkJZmFjdG9yID0gbGFyZ2VfbXNzIC8gbXNzX25vdzsK
+LQkJaWYgKGZhY3RvciA+IHRwLT5zbmRfY3duZCkKLQkJCWZhY3RvciA9IHRwLT5zbmRfY3duZDsK
+LQotCQl0cC0+bXNzX2NhY2hlID0gbXNzX25vdyAqIGZhY3RvcjsKLQl9Ci0KIAlyZXR1cm4gbXNz
+X25vdzsKIH0KIApAQCAtNjc1LDE3ICs2NTYsNDEgQEAKIAlzdHJ1Y3QgZHN0X2VudHJ5ICpkc3Qg
+PSBfX3NrX2RzdF9nZXQoc2spOwogCWludCBkb19sYXJnZSwgbXNzX25vdzsKIAotCWRvX2xhcmdl
+ID0gKGxhcmdlICYmCi0JCSAgICAoc2stPnNrX3JvdXRlX2NhcHMgJiBORVRJRl9GX1RTTykgJiYK
+LQkJICAgICF0cC0+dXJnX21vZGUpOwotCW1zc19ub3cgPSBkb19sYXJnZSA/IHRwLT5tc3NfY2Fj
+aGUgOiB0cC0+bXNzX2NhY2hlX3N0ZDsKLQorCW1zc19ub3cgPSB0cC0+bXNzX2NhY2hlX3N0ZDsK
+IAlpZiAoZHN0KSB7CiAJCXUzMiBtdHUgPSBkc3RfcG10dShkc3QpOwogCQlpZiAobXR1ICE9IHRw
+LT5wbXR1X2Nvb2tpZSB8fAogCQkgICAgdHAtPmV4dDJfaGVhZGVyX2xlbiAhPSBkc3QtPmhlYWRl
+cl9sZW4pCiAJCQltc3Nfbm93ID0gdGNwX3N5bmNfbXNzKHNrLCBtdHUpOwogCX0KKworCWRvX2xh
+cmdlID0gKGxhcmdlICYmCisJCSAgICAoc2stPnNrX3JvdXRlX2NhcHMgJiBORVRJRl9GX1RTTykg
+JiYKKwkJICAgICF0cC0+dXJnX21vZGUpOworCisJaWYgKGRvX2xhcmdlKSB7CisJCWludCBsYXJn
+ZV9tc3MsIGZhY3RvcjsKKworCQlsYXJnZV9tc3MgPSA2NTUzNSAtIHRwLT5hZl9zcGVjaWZpYy0+
+bmV0X2hlYWRlcl9sZW4gLQorCQkJdHAtPmV4dF9oZWFkZXJfbGVuIC0gdHAtPmV4dDJfaGVhZGVy
+X2xlbiAtCisJCQl0cC0+dGNwX2hlYWRlcl9sZW47CisKKwkJaWYgKHRwLT5tYXhfd2luZG93ICYm
+IGxhcmdlX21zcyA+ICh0cC0+bWF4X3dpbmRvdz4+MSkpCisJCQlsYXJnZV9tc3MgPSBtYXgoKHRw
+LT5tYXhfd2luZG93Pj4xKSwKKwkJCQkJNjhVIC0gdHAtPnRjcF9oZWFkZXJfbGVuKTsKKworCQkv
+KiBBbHdheXMga2VlcCBsYXJnZSBtc3MgbXVsdGlwbGUgb2YgcmVhbCBtc3MsIGJ1dAorCQkgKiBk
+byBub3QgZXhjZWVkIGNvbmdlc3Rpb24gd2luZG93LgorCQkgKi8KKwkJZmFjdG9yID0gbGFyZ2Vf
+bXNzIC8gbXNzX25vdzsKKwkJaWYgKGZhY3RvciA+IHRwLT5zbmRfY3duZCkKKwkJCWZhY3RvciA9
+IHRwLT5zbmRfY3duZDsKKworCQl0cC0+bXNzX2NhY2hlID0gbXNzX25vdyAqIGZhY3RvcjsKKwor
+CQltc3Nfbm93ID0gdHAtPm1zc19jYWNoZTsKKwl9CisKIAlpZiAodHAtPmVmZl9zYWNrcykKIAkJ
+bXNzX25vdyAtPSAoVENQT0xFTl9TQUNLX0JBU0VfQUxJR05FRCArCiAJCQkgICAgKHRwLT5lZmZf
+c2Fja3MgKiBUQ1BPTEVOX1NBQ0tfUEVSQkxPQ0spKTsK
+
+--Multipart=_Tue__28_Sep_2004_14_10_02_-0700_PMi3HGoCMW+xeS.N--
