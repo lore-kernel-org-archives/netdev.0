@@ -1,60 +1,141 @@
-From: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Subject: Re: IPsec and Path MTU
-Date: Wed, 16 Jun 2004 10:43:19 -0400
+From: Roger Luethi <rl@hellgate.ch>
+Subject: [5/9][PATCH 2.6] Remove options, full_duplex parameters
+Date: Tue, 15 Jun 2004 19:49:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <28318.1087396999@marajade.sandelman.ottawa.on.ca>
-References: <20040615124334.GA25164@gondor.apana.org.au> <32703.1087311037@marajade.sandelman.ottawa.on.ca>  <20040616114345.GA1559@gondor.apana.org.au>
-Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, jmorris@redhat.com,
-        netdev@oss.sgi.com
+Message-ID: <20040615174921.GA11270@k3.hellgate.ch>
+References: <20040615174732.GA10241@k3.hellgate.ch>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: Message from Herbert Xu <herbert@gondor.apana.org.au>
-   of "Wed, 16 Jun 2004 21:43:45 +1000." <20040616114345.GA1559@gondor.apana.org.au>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040615174732.GA10241@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
+Nobody complained although media locking parameters were broken
+forever. They were sort of fixed recently, but the code is still in a
+bad shape.
 
+More seriously, the options/full_duplex stuff has fundamental design
+problems that have been discussed in-depth on the list (e.g. effect of
+hotplugging, nameif, suspend/resume).
 
->>>>> "Herbert" == Herbert Xu <herbert@gondor.apana.org.au> writes:
-    >> The pmtu WG is considering changing how PMTU is done. You may
-    >> want to look at draft-richardson-ipsec-fragment-XX.txt. This has
-    >> not yet been adopted as a WG draft, because nobody is sure which
-    >> WG should adopt it:-)
+For those needing media locking with Linux 2.6+ via-rhine, ethtool(8)
+is the replacement.
 
-    Herbert> I'd say that we should get the stack to work with the hosts
-    Herbert> that do send ICMP replies first, and then worry about those
-    Herbert> that don't :) 
+Signed-off-by: Roger Luethi <rl@hellgate.ch>
 
-  The proposal there is a compromise between what RFC1191 says, and what
-people in the field (and most IPsec implementations, because we get
-blamed) have done - it continues to send ICMP replies at all times that
-the old logic would usefully do, while not causing huge headaches that
-having ICMPs disappear causes. 
-
-  My opinion is that any solution which does not address the problem of
-ICMP blackholes is actually a step back because it causes things to
-intermittently fail. Right now, things just fail for big packets,
-period. That provides much large clue that there is a problem, which can
-be worked around. 
-
-  So, I'm agreeing with your :) -- we can tune the algorithm later, but
-let's make sure that we do it ASAP.
-
-- --
-]     "Elmo went to the wrong fundraiser" - The Simpson         |  firewalls  [
-]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
-] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
-] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
-
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Finger me for keys
-
-iQCVAwUBQNBchIqHRg3pndX9AQFQWwQApGSYmkgs/4nogHYipee21MEannapT54m
-sAle7/fBIxUqIKZev8/RlrnVI+n8+e//AQBooeRF1ubmrd0LfajVd1TwwKvdE40S
-47ysQrgSm3BHGet1xn+QLxYc3l9WumP7Ey+EkUKi22azcnjEvJ35r5crkMy2kVcg
-nALPB7hDwj0=
-=+nu7
------END PGP SIGNATURE-----
+--- orig/drivers/net/via-rhine.c
++++ mod/drivers/net/via-rhine.c
+@@ -145,19 +145,10 @@
+ /* Select a backoff algorithm (Ethernet capture effect) */
+ static int backoff;
+ 
+-/* Used to pass the media type, etc.
+-   Both 'options[]' and 'full_duplex[]' should exist for driver
+-   interoperability.
+-   The media type is usually passed in 'options[]'.
+-   The default is autonegotiation for speed and duplex.
+-     This should rarely be overridden.
+-   Use option values 0x10/0x20 for 10Mbps, 0x100,0x200 for 100Mbps.
+-   Use option values 0x10 and 0x100 for forcing half duplex fixed speed.
+-   Use option values 0x20 and 0x200 for forcing full duplex operation.
+-*/
+-#define MAX_UNITS	8	/* More are supported, limit only on options */
+-static int options[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
+-static int full_duplex[MAX_UNITS] = {-1, -1, -1, -1, -1, -1, -1, -1};
++/*
++ * In case you are looking for 'options[]' or 'full_duplex[]', they
++ * are gone. Use ethtool(8) instead.
++ */
+ 
+ /* Maximum number of multicast addresses to filter (vs. rx-all-multicast).
+    The Rhine has a 64 element 8390-like hash table. */
+@@ -246,14 +237,10 @@
+ MODULE_PARM(debug, "i");
+ MODULE_PARM(rx_copybreak, "i");
+ MODULE_PARM(backoff, "i");
+-MODULE_PARM(options, "1-" __MODULE_STRING(MAX_UNITS) "i");
+-MODULE_PARM(full_duplex, "1-" __MODULE_STRING(MAX_UNITS) "i");
+ MODULE_PARM_DESC(max_interrupt_work, "VIA Rhine maximum events handled per interrupt");
+ MODULE_PARM_DESC(debug, "VIA Rhine debug level (0-7)");
+ MODULE_PARM_DESC(rx_copybreak, "VIA Rhine copy breakpoint for copy-only-tiny-frames");
+ MODULE_PARM_DESC(backoff, "VIA Rhine: Bits 0-3: backoff algorithm");
+-MODULE_PARM_DESC(options, "VIA Rhine: Bits 0-3: media type, bit 17: full duplex");
+-MODULE_PARM_DESC(full_duplex, "VIA Rhine full duplex setting(s) (1)");
+ 
+ /*
+ 		Theory of Operation
+@@ -671,7 +658,7 @@
+ {
+ 	struct net_device *dev;
+ 	struct rhine_private *rp;
+-	int i, option, rc;
++	int i, rc;
+ 	u8 pci_rev;
+ 	u32 quirks;
+ 	static int card_idx = -1;
+@@ -688,8 +675,6 @@
+ 		printk(version);
+ #endif
+ 
+-	card_idx++;
+-	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
+ 	pci_read_config_byte(pdev, PCI_REVISION_ID, &pci_rev);
+ 
+ 	io_size = 256;
+@@ -817,9 +802,6 @@
+ 	rp->mii_if.phy_id_mask = 0x1f;
+ 	rp->mii_if.reg_num_mask = 0x1f;
+ 
+-	if (dev->mem_start)
+-		option = dev->mem_start;
+-
+ 	/* The chip-specific entries in the device structure. */
+ 	dev->open = rhine_open;
+ 	dev->hard_start_xmit = rhine_start_tx;
+@@ -841,20 +823,6 @@
+ 	if (rc)
+ 		goto err_out_unmap;
+ 
+-	/* The lower four bits are the media type. */
+-	if (option > 0) {
+-		if (option & 0x220)
+-			rp->mii_if.full_duplex = 1;
+-	}
+-	if (card_idx < MAX_UNITS && full_duplex[card_idx] > 0)
+-		rp->mii_if.full_duplex = 1;
+-
+-	if (rp->mii_if.full_duplex) {
+-		printk(KERN_INFO "%s: Set to forced full duplex, "
+-		       "autonegotiation disabled.\n", dev->name);
+-		rp->mii_if.force_media = 1;
+-	}
+-
+ 	printk(KERN_INFO "%s: VIA %s at 0x%lx, ",
+ 	       dev->name, name,
+ #ifdef USE_MMIO
+@@ -890,21 +858,6 @@
+ 	}
+ 	rp->mii_if.phy_id = phy_id;
+ 
+-	/* Allow forcing the media type. */
+-	if (option > 0) {
+-		if (option & 0x220)
+-			rp->mii_if.full_duplex = 1;
+-		if (option & 0x330) {
+-			printk(KERN_INFO " Forcing %dMbs %s-duplex "
+-				"operation.\n",
+-			       (option & 0x300 ? 100 : 10),
+-			       (option & 0x220 ? "full" : "half"));
+-			mdio_write(dev, phy_id, MII_BMCR,
+-				   ((option & 0x300) ? 0x2000 : 0) | /* 100mbps? */
+-				   ((option & 0x220) ? 0x0100 : 0)); /* Full duplex? */
+-		}
+-	}
+-
+ 	return 0;
+ 
+ err_out_unmap:
