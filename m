@@ -1,11 +1,11 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.6 4/4]: O(1) children vtoff adjustment
-Date: Sat, 14 Aug 2004 22:00:51 +0200
+Subject: [PATCH 2.4 1/4]: Add rb_first/rb_last/rb_prev/rb_next
+Date: Sat, 14 Aug 2004 22:01:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <411E6F73.2010107@trash.net>
+Message-ID: <411E6FA3.9010102@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070602050008090103010707"
+ boundary="------------020100060703010000030607"
 Cc: netdev@oss.sgi.com, devik <devik@cdi.cz>, jamal <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
@@ -13,99 +13,129 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------070602050008090103010707
+--------------020100060703010000030607
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
-This patches replaces the O(n) algorithm for children vtoff adjustment by
-a O(1) variant.
+This patch adds some useful rbtree functions from 2.6 to 2.4.
 
 
---------------070602050008090103010707
+--------------020100060703010000030607
 Content-Type: text/x-patch;
- name="04-hfsc-2.6.diff"
+ name="01-hfsc-2.4.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="04-hfsc-2.6.diff"
+ filename="01-hfsc-2.4.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/08/11 23:24:31+02:00 kaber@coreworks.de 
-#   [NET_SCHED]: O(1) children vtoff adjustment in HFSC scheduler
+#   2004/08/11 23:11:30+02:00 kaber@coreworks.de 
+#   [RBTREE]: Add rb_first/rb_last/rb_prev/rb_next
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/sched/sch_hfsc.c
-#   2004/08/11 23:24:14+02:00 kaber@coreworks.de +15 -8
-#   [NET_SCHED]: O(1) children vtoff adjustment in HFSC scheduler
+# lib/rbtree.c
+#   2004/08/11 23:11:25+02:00 kaber@coreworks.de +71 -0
+#   [RBTREE]: Add rb_first/rb_last/rb_prev/rb_next
 # 
-diff -Nru a/net/sched/sch_hfsc.c b/net/sched/sch_hfsc.c
---- a/net/sched/sch_hfsc.c	2004-08-12 23:25:53 +02:00
-+++ b/net/sched/sch_hfsc.c	2004-08-12 23:25:53 +02:00
-@@ -164,6 +164,9 @@
- 					   adjustment */
- 	u64	cl_vtoff;		/* inter-period cumulative vt offset */
- 	u64	cl_cvtmax;		/* max child's vt in the last period */
-+	u64	cl_cvtoff;		/* cumulative cvtmax of all periods */
-+	u64	cl_pcvtoff;		/* parent's cvtoff at initalization
-+					   time */
+# include/linux/rbtree.h
+#   2004/08/11 23:11:25+02:00 kaber@coreworks.de +6 -0
+#   [RBTREE]: Add rb_first/rb_last/rb_prev/rb_next
+# 
+diff -Nru a/include/linux/rbtree.h b/include/linux/rbtree.h
+--- a/include/linux/rbtree.h	2004-08-12 23:23:07 +02:00
++++ b/include/linux/rbtree.h	2004-08-12 23:23:07 +02:00
+@@ -121,6 +121,12 @@
+ extern void rb_insert_color(rb_node_t *, rb_root_t *);
+ extern void rb_erase(rb_node_t *, rb_root_t *);
  
- 	struct internal_sc cl_rsc;	/* internal real-time service curve */
- 	struct internal_sc cl_fsc;	/* internal fair service curve */
-@@ -720,7 +723,7 @@
- static void
- init_vf(struct hfsc_class *cl, unsigned int len)
- {
--	struct hfsc_class *max_cl, *p;
-+	struct hfsc_class *max_cl;
- 	struct rb_node *n;
- 	u64 vt, f, cur_time;
- 	int go_active;
-@@ -752,19 +755,20 @@
- 			} else {
- 				/*
- 				 * first child for a new parent backlog period.
--				 * add parent's cvtmax to vtoff of children
--				 * to make a new vt (vtoff + vt) larger than
--				 * the vt in the last period for all children.
-+				 * add parent's cvtmax to cvtoff to make a new
-+				 * vt (vtoff + vt) larger than the vt in the
-+				 * last period for all children.
- 				 */
- 				vt = cl->cl_parent->cl_cvtmax;
--				list_for_each_entry(p, &cl->cl_parent->children,
--				                                       siblings)
--					p->cl_vtoff += vt;
--				cl->cl_vt = 0;
-+				cl->cl_parent->cl_cvtoff += vt;
- 				cl->cl_parent->cl_cvtmax = 0;
- 				cl->cl_parent->cl_cvtmin = 0;
-+				cl->cl_vt = 0;
- 			}
- 
-+			cl->cl_vtoff = cl->cl_parent->cl_cvtoff -
-+							cl->cl_pcvtoff;
++/* Find logical next and previous nodes in a tree */
++extern rb_node_t *rb_next(rb_node_t *);
++extern rb_node_t *rb_prev(rb_node_t *);
++extern rb_node_t *rb_first(rb_root_t *);
++extern rb_node_t *rb_last(rb_root_t *);
 +
- 			/* update the virtual curve */
- 			vt = cl->cl_vt + cl->cl_vtoff;
- 			rtsc_min(&cl->cl_virtual, &cl->cl_fsc, vt,
-@@ -1151,6 +1155,7 @@
- 	if (parent->level == 0)
- 		hfsc_purge_queue(sch, parent);
- 	hfsc_adjust_levels(parent);
-+	cl->cl_pcvtoff = parent->cl_cvtoff;
- 	sch_tree_unlock(sch);
- 
- #ifdef CONFIG_NET_ESTIMATOR
-@@ -1584,6 +1589,8 @@
- 	cl->cl_vtoff        = 0;
- 	cl->cl_cvtmin       = 0;
- 	cl->cl_cvtmax       = 0;
-+	cl->cl_cvtoff       = 0;
-+	cl->cl_pcvtoff      = 0;
- 	cl->cl_vtperiod     = 0;
- 	cl->cl_parentperiod = 0;
- 	cl->cl_f            = 0;
+ static inline void rb_link_node(rb_node_t * node, rb_node_t * parent, rb_node_t ** rb_link)
+ {
+ 	node->rb_parent = parent;
+diff -Nru a/lib/rbtree.c b/lib/rbtree.c
+--- a/lib/rbtree.c	2004-08-12 23:23:07 +02:00
++++ b/lib/rbtree.c	2004-08-12 23:23:07 +02:00
+@@ -294,3 +294,74 @@
+ 		__rb_erase_color(child, parent, root);
+ }
+ EXPORT_SYMBOL(rb_erase);
++
++/*
++ * This function returns the first node (in sort order) of the tree.
++ */
++rb_node_t *rb_first(rb_root_t *root)
++{
++	rb_node_t *n;
++
++	n = root->rb_node;
++	if (!n)
++		return NULL;
++	while (n->rb_left)
++		n = n->rb_left;
++	return n;
++}
++EXPORT_SYMBOL(rb_first);
++
++rb_node_t *rb_last(rb_root_t *root)
++{
++	rb_node_t *n;
++
++	n = root->rb_node;
++	if (!n)
++		return NULL;
++	while (n->rb_right)
++		n = n->rb_right;
++	return n;
++}
++EXPORT_SYMBOL(rb_last);
++
++rb_node_t *rb_next(rb_node_t *node)
++{
++	/* If we have a right-hand child, go down and then left as far
++	   as we can. */
++	if (node->rb_right) {
++		node = node->rb_right;
++		while (node->rb_left)
++			node = node->rb_left;
++	}
++
++	/* No right-hand children.  Everything down and left is
++	   smaller than us, so any 'next' node must be in the general
++	   direction of our parent. Go up the tree; any time the
++	   ancestor is a right-hand child of its parent, keep going
++	   up. First time it's a left-hand child of its parent, said
++	   parent is our 'next' node. */
++	while (node->rb_parent && node == node->rb_parent->rb_right)
++		node = node->rb_parent;
++
++	return node->rb_parent;
++}
++EXPORT_SYMBOL(rb_next);
++
++rb_node_t *rb_prev(rb_node_t *node)
++{
++	/* If we have a left-hand child, go down and then right as far
++	   as we can. */
++	if (node->rb_left) {
++		node = node->rb_left;
++		while (node->rb_right)
++			node = node->rb_right;	 
++	}
++
++	/* No left-hand children. Go up till we find an ancestor which
++	   is a right-hand child of its parent */
++	while (node->rb_parent && node == node->rb_parent->rb_left)
++		node = node->rb_parent;
++
++	return node->rb_parent;
++}
++EXPORT_SYMBOL(rb_prev);
 
---------------070602050008090103010707--
+--------------020100060703010000030607--
