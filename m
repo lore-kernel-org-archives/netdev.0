@@ -1,55 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATH] IPv6 IPsec support
-Date: Wed, 05 Mar 2003 20:43:48 -0800 (PST)
+From: "Raghurama 'REDDY'" <rreddy@psc.edu>
+Subject: Output on raw sockets ignores IP_DF when packet is bigger than pmtu
+Date: Thu, 6 Mar 2003 11:01:45 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030305.204348.130225511.davem@redhat.com>
-References: <20030305233025.784feb00.kazunori@miyazawa.org>
-	<20030305.152530.70806720.davem@redhat.com>
-	<20030306093219.1a702868.kazunori@miyazawa.org>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   usagi-core@linux-ipv6.org
+Message-ID: <03030611014533.2221238e.7643064@psc.edu>
+Reply-To: rreddy@psc.edu
+Cc: RREDDY@vms.psc.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kazunori@miyazawa.org
-In-Reply-To: <20030306093219.1a702868.kazunori@miyazawa.org>
+To: NETDEV@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori Miyazawa <kazunori@miyazawa.org>
-   Date: Thu, 6 Mar 2003 09:32:19 +0900
+Hello!
 
-   - Extension Header Processing on inbound:
-     As a result of IPv6 IPsec support, Extension Header processing is devided
-     into ipv6_parse_exthdrs and ipproto->handler. I think it is better to merge
-     other Extension Header handling into ipproto->handler.
-   
-Ok.
+We are looking at the "traceroute" code, in particular the behavior of
+the "-M" option (path MTU discovery) on a 2.4.20 kernel.
 
-   - Fragmentation support on outbound:
-     We should change ipv6_build_xmit like ip_append_data style to support
-     fragmentation with IPsec.
-   
-Please work together with Alexey on this.  There are known
-major problems on ipv4 side, and it must be resolved before
-ipv6 side may be done.
+In attempting to get a "Framentation required message" from an
+intermediate router, the code does the following:
 
-For example, right now a non-TCP packet can do the following.  If it
-is just slightly smaller than MTU, and when encapsulated in ESP/AH it
-becomes larger than MTU, we will not fragment it and too-large frame
-will be sent to device.
+    - Open a raw socket
+    - Send a packet that is smaller than interface MTU but
+      bigger than the MTU of an intermediate router with IP_DF set 
+      (the NIC has an MTU of 4400, and pmtu is 1500).
 
-In my last round of talks with Alexey I believe we were very close to
-a possible solution to this problem.  The idea was to have a "local
-dont-fragment" flag, and at the very last stage of IP output we check
-this and either 1) clear DF and fragment or 2) drop packet and send
-ICMP message back.
+What is observed is that when route cache is flushed, it works as
+expected.  We get a "Framentation Required" message from the
+intermediate router.
 
-Alexey, what is the current state?
+But when the cache is *not* flushed, the packets are fragmented based on
+pmtu before sending the packets out on the net, inspite of the fact that
+IP_DF is set (based on the tcpdump observations).  Is this the right
+behavior?
 
-   - Removing duplicate codes, clean up and improveing performance.
-   
-   - Considering relation of IPv6 IPsec and Mobile IPv6. This is future stuff.
-   
-Ok.
+But looking at 2.4.20 kernel code in "include/net/ip.h":
+
+Not sure if "ip_send" is the in the call tree or not;  I am *not*
+intimately familiar with the code ...   :-(                   
+
+------------------
+static inline int ip_send(struct sk_buff *skb)
+{
+        if (skb->len > skb->dst->pmtu)
+                return ip_fragment(skb, ip_finish_output);
+        else
+                return ip_finish_output(skb);
+}
+------------------
+
+This seems to indicate that it would fragment the packet if the packet
+is bigger than path MTU irrespetive of the IP_DF flag.
+
+Is there a way to get the host to not fragment when IP_DF is set,
+iresspective what the pmtu is?
+
+Thanks!
+
+--rr
