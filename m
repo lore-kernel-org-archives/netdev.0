@@ -1,70 +1,51 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] Fix use after free in AX.25
-Date: Tue, 5 Aug 2003 14:56:58 -0700
+Subject: [PATCH] Fix X.25 use after free.
+Date: Tue, 5 Aug 2003 15:01:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030805145658.1b3f194b.shemminger@osdl.org>
+Message-ID: <20030805150110.0e2753ab.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-x25@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ralf Baechle <ralf@linux-mips.org>, "David S. Miller" <davem@redhat.com>
+To: Henner Eisen <eis@baty.hanse.de>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch is against 2.6.0-test2.  The problem is that the ax25_destroy_socket
-function frees the socket buffer, but then ax25_release dereferences this causing
-an OOPS.  To reproduce:
-	modprobe ax25; ifconfig -a
+The conversion from cli/sti to locking in X.25 must not have been tested
+on a real SMP with memory debugging enabled.  It OOPS right away if
+I do:
+	modprobe x25; ifconfig -a
 
-Replaced sk_free with sock_put which will free if this is the last reference.
+The problem is that it dereferences the socket after it has already been
+freed.  The fix for this is to make the call to sock_put, later in
+x25_destroy_socket do the free.  Also, need a go to avoid references
+in x25_release.
 
-diff -urNp -X dontdiff net-2.5/net/ax25/af_ax25.c linux-2.5-net/net/ax25/af_ax25.c
---- net-2.5/net/ax25/af_ax25.c	2003-08-04 09:32:21.000000000 -0700
-+++ linux-2.5-net/net/ax25/af_ax25.c	2003-08-05 14:34:21.000000000 -0700
-@@ -349,7 +349,7 @@ void ax25_destroy_socket(ax25_cb *ax25)
- 			ax25->timer.data     = (unsigned long)ax25;
- 			add_timer(&ax25->timer);
- 		} else {
--			sk_free(ax25->sk);
-+			sock_put(ax25->sk);
- 		}
- 	} else {
- 		ax25_free_cb(ax25);
-@@ -944,15 +944,13 @@ static int ax25_release(struct socket *s
- 		switch (ax25->state) {
- 		case AX25_STATE_0:
- 			ax25_disconnect(ax25, 0);
--			ax25_destroy_socket(ax25);
--			break;
-+			goto drop;
- 
- 		case AX25_STATE_1:
- 		case AX25_STATE_2:
- 			ax25_send_control(ax25, AX25_DISC, AX25_POLLON, AX25_COMMAND);
- 			ax25_disconnect(ax25, 0);
--			ax25_destroy_socket(ax25);
--			break;
-+			goto drop;
- 
- 		case AX25_STATE_3:
- 		case AX25_STATE_4:
-@@ -995,13 +993,16 @@ static int ax25_release(struct socket *s
- 		sk->sk_shutdown |= SEND_SHUTDOWN;
- 		sk->sk_state_change(sk);
- 		sock_set_flag(sk, SOCK_DEAD);
--		ax25_destroy_socket(ax25);
-+		goto drop;
- 	}
- 
- 	sock->sk   = NULL;
- 	sk->sk_socket = NULL;	/* Not used, but we should do this */
+This patch is against 2.6.0-test2.
+diff -urNp -X dontdiff net-2.5/net/x25/af_x25.c linux-2.5-net/net/x25/af_x25.c
+--- net-2.5/net/x25/af_x25.c	2003-08-01 11:12:02.000000000 -0700
++++ linux-2.5-net/net/x25/af_x25.c	2003-08-05 12:14:42.000000000 -0700
+@@ -350,8 +350,11 @@ void x25_destroy_socket(struct sock *sk)
+ 		sk->sk_timer.function = x25_destroy_timer;
+ 		sk->sk_timer.data     = (unsigned long)sk;
+ 		add_timer(&sk->sk_timer);
+-	} else
+-		sk_free(sk);
++	} else {
++		/* drop last reference so sock_put will free */
++		__sock_put(sk);
++	}
++
  	release_sock(sk);
--
-+	return 0;
-+ drop:
-+	release_sock(sk);
-+	ax25_destroy_socket(ax25);
- 	return 0;
+ 	sock_put(sk);
  }
+@@ -553,7 +556,7 @@ static int x25_release(struct socket *so
+ 		case X25_STATE_2:
+ 			x25_disconnect(sk, 0, 0, 0);
+ 			x25_destroy_socket(sk);
+-			break;
++			goto out;
  
+ 		case X25_STATE_1:
+ 		case X25_STATE_3:
