@@ -1,40 +1,40 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] remove unused netlink NL_EMULATE_DEV code
-Date: Tue, 22 Mar 2005 19:22:35 -0800
-Message-ID: <20050322192235.03627a5f.davem@davemloft.net>
-References: <20050318233637.GS5389@shell0.pdx.osdl.net>
-	<423B6DAE.9050803@qualcomm.com>
-	<20050319010253.GU5389@shell0.pdx.osdl.net>
-	<1111196899.1264.118.camel@jzny.localdomain>
-	<423F11C3.2020803@qualcomm.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Resend: [NETDRV] Merge register_netdev calls
+Date: Tue, 22 Mar 2005 22:30:22 -0500
+Message-ID: <4240E2CE.4080400@pobox.com>
+References: <20040701111914.GA11120@gondor.apana.org.au> <414F2997.9030901@pobox.com> <20040925083208.GA27592@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, chrisw@osdl.org, netdev@oss.sgi.com
-To: Max Krasnyansky <maxk@qualcomm.com>
-In-Reply-To: <423F11C3.2020803@qualcomm.com>
+Cc: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040925083208.GA27592@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 21 Mar 2005 10:26:11 -0800
-Max Krasnyansky <maxk@qualcomm.com> wrote:
-
-> jamal wrote:
-> > 1
-> > On Fri, 2005-03-18 at 20:02, Chris Wright wrote:
-> > 
-> > 
-> >>I'd prefer that too.  What about the netlink_dev implementation itself?
-> >>Should it be marked obsolete?
-> >>
-> > 
-> > It should die - pieces of it have already been slowly disapearing.
+Herbert Xu wrote:
+> On Mon, Sep 20, 2004 at 03:03:51PM -0400, Jeff Garzik wrote:
 > 
-> Totally agree. Even for Ethertap it was easy to use Netlink sockets directly.
+>>Herbert Xu wrote:
+>>
+>>>On Fri, Jun 11, 2004 at 12:08:55PM +1000, herbert wrote:
+>>>
+>>>
+>>>>In fact it's really making these ISA/MCA probe() functions more
+>>>>like the ones we have for PCI.
+>>
+>>there was a lot of churn and I held off on this patch.
+>>
+>>could you be convinced to rediff and resend (again)?
+> 
+> 
+> Thanks for reminding me.  Here it is diffed against net-drivers-2.6.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-I've applied Chris's original patch, then killed ethertap and
-netlink_dev from my tree.
+applied. finally.  :)
 
-It's very telling that CONFIG_ETHERTAP was still marked EXPERIMENTAL
-:-)
+Thanks,
+
+	Jeff
