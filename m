@@ -1,39 +1,45 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
-Date: Tue, 27 Aug 2002 06:17:42 -0400 (EDT)
+Subject: Re: packet re-ordering on SMP machines.
+Date: Tue, 27 Aug 2002 06:59:33 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0208270605480.6895-100000@shell.cyberus.ca>
-References: <OFFFA46B92.252E5659-ON87256C21.000BB73B@boulder.ibm.com>
+Message-ID: <Pine.GSO.4.30.0208270633130.6895-100000@shell.cyberus.ca>
+References: <009701c24d54$d27304a0$f1fa010a@weixl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
-Cc: <davem@redhat.com>, <netdev@oss.sgi.com>,
-   Robert Olsson <Robert.Olsson@data.slu.se>,
-   Bill Hartner <bhartner@us.ibm.com>, <linux-kernel@vger.kernel.org>
+Cc: Ben Greear <greearb@candelatech.com>, Cheng Jin <chengjin@cs.caltech.edu>,
+   Cheng Hu <chenghu@cs.caltech.edu>, Steven Low <slow@cs.caltech.edu>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mala Anand <manand@us.ibm.com>
-In-Reply-To: <OFFFA46B92.252E5659-ON87256C21.000BB73B@boulder.ibm.com>
+To: "Xiaoliang (David) Wei" <weixl@caltech.edu>
+In-Reply-To: <009701c24d54$d27304a0$f1fa010a@weixl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
 
-On Mon, 26 Aug 2002, Mala Anand wrote:
+On Mon, 26 Aug 2002, Xiaoliang (David) Wei wrote:
 
-> Troy Wilson (who works with me) posted SPECweb99 results using my
-> skbinit patch to lkml on Friday:
->  http://www.uwsg.iu.edu/hypermail/linux/kernel/0208.2/1470.html
-> I know you don't subscribe to lkml. Have you seen these results?
-> On Numa machine it showed around 3% improvement using SPECweb99.
->
+> Hi Ben and Jamal,
+>        Are you guys sure that getdayoftime per packet is a big overhead on
+> Gbps connection?
 
-The posting you pointed to says 1% - not that it matters. It becomes more
-insignificant when skb recycling comes in play mostly because the alloc
-and freeing of skbs doesnt really show up as hotlist item within
-the profile.
-I am not saying it is totaly useless -- anything that will save a few
-cycles is good;
+We may be talking about different things;
+I am talking about do_gettimeofday -- which is very expensive.
+Anyone who has time could look at improving that. It is run per incoming
+packet.
+
+>        Do you compare the performance with getdayoftime per packet and
+> without?
+
+I think it would be pretty noticeable if you got rid of the
+per-incoming-packet calls to do_gettimeofday
+
+> I guess RFC 1323 specifies that each packet should have a timestamp
+> (although not from getdayoftime).
+
+In Linux, this is cleverly based on the system clock (jiffies).
 
 cheers,
 jamal
