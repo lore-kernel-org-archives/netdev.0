@@ -1,72 +1,62 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: 2.6.8.1 IPv6 Routing Problem
-Date: Sun, 19 Sep 2004 09:46:05 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Sun, 19 Sep 2004 17:58:52 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919074605.GJ6005@sunbeam.de.gnumonks.org>
-References: <20040918.084304.75142669.yoshfuji@linux-ipv6.org> <20040918220211.GI6005@sunbeam.de.gnumonks.org> <20040918180647.6be57884.davem@davemloft.net> <20040919.111141.42341294.yoshfuji@linux-ipv6.org>
-Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="fUvfsPTz/SzOZDdw"
-Cc: davem@davemloft.net, netdev@oss.sgi.com, usagi-users@linux-ipv6.org
+Message-ID: <E1C8way-0000aH-00@gondolin.me.apana.org.au>
+References: <414D0CCD.90209@eurodev.net>
+Cc: herbert@gondor.apana.org.au, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20040919.111141.42341294.yoshfuji@linux-ipv6.org>
+To: pablo@eurodev.net (Pablo Neira)
+In-Reply-To: <414D0CCD.90209@eurodev.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Pablo Neira <pablo@eurodev.net> wrote:
+> 
+> you are right, I missed that, but I prefer the patches attached to this 
+> email. Now if netlink_broadcast_deliver function delivers correctly the 
+> packet, you decrease sock refcount and function returns 1. I think that 
+> I got confused because netlink_broadcast_deliver returns 0/-1.
 
---fUvfsPTz/SzOZDdw
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Unfortunately it is still wrong.  You missed the exit path at the
+very top.
 
-On Sun, Sep 19, 2004 at 11:11:41AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ w=
-rote:
-=20
-> > On Sun, 19 Sep 2004 00:02:11 +0200
-> > Harald Welte <laforge@gnumonks.org> wrote:
-> >=20
-> > > Now I'm stuck with another issue:  The interfaces suddenly no logner
-> > > get any link-local addresses:
+And I think rather than adding all these new sock_put's, it's much
+better to do what you mean and add a sock_hold on the new path that
+you introduced.
 
-> I've run TAHI test on post-rc2 kernel,=20
-> and the result is as I expected.
-> I haven't met such issues...  hmm...
+>>Secondly, I'm dubious about the patch as a whole.  For instance, what
+>>exactly is the wake_up_process() bit trying to do? Surely that process
+>>would've been woken up multiple times already if its queue is full.
+> 
+> This is what I theorically expected, but in practice if you stress a 
+> netlink socket sending a big bunch of information in a short period of 
+> time from kernel space to user space, socket overruns easily. That's why 
+> I wake up the user process to make it process information stored in the 
+> queue. Socket doesn't overrun anymore with my patch.
 
-Apparently this happens when you=20
+Yes but your patch does a lot more than that wake_up_process.  Have you
+reverted just the wake_up_process and seen a difference?
 
-1) insmod ipv6
-2) ifconfig your interfaces up
-3) only now ifconfig 'lo' up.
+>>And what is it going to do with thread groups?
+> 
+> currently broadcast sockets can still overrun. I have a set of patches 
+> that I'll submit as soon as I test them and I finish my boring exams.
 
-This happened due to a typo in my script :(  If 'lo' exists prior to the
-other interfaces, everything seems to work as usual.
+That's not what I meant.  If you have a thread group where everybody's
+got the same pid, your code will probably wake up the wrong thread.
 
-Is this desired or accidential and/or documented behaviour?
+Besides, for any netlink socket but the first for a process, they'll
+all have negative pid's which have nothing to do with the real pid.
+So I really think that the wake_up_process hunk is bogus.
 
-> --yoshfuji
+BTW I apologise for the few bounces that you got from my mail server.
+It should be fixed now.  If you're still getting bounces, please let
+me know via the list.
 
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---fUvfsPTz/SzOZDdw
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBTTk9XaXGVTD0i/8RAvyPAKCqMWPz0lZgNAqmFPrJ+sfaBzZ/AwCcCix/
-o57zySwH07my7VMrCrOdNJg=
-=VIZ1
------END PGP SIGNATURE-----
-
---fUvfsPTz/SzOZDdw--
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
