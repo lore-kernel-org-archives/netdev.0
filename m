@@ -1,46 +1,59 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: Sun, 12 Sep 2004 12:16:05 -0400
+From: Eric Lemoine <eric.lemoine@gmail.com>
+Subject: Re: [PATCH] LLTX for tg3
+Date: Sun, 12 Sep 2004 19:06:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040912161604.GA23366@havoc.gtf.org>
-References: <E1C4wYe-0005qT-00@gondolin.me.apana.org.au> <20040908072408.GI27886@wotan.suse.de> <1094629677.1089.155.camel@jzny.localdomain> <20040908134713.1bcd46d3.davem@davemloft.net> <1094823215.1121.129.camel@jzny.localdomain> <20040911142116.GL4431@wotan.suse.de> <1094933731.2343.109.camel@jzny.localdomain> <20040911174535.2acbb957.davem@davemloft.net> <20040912100114.GB11484@havoc.gtf.org> <20040912102529.GA27096@wotan.suse.de>
+Message-ID: <5cac192f040912100616feb28a@mail.gmail.com>
+References: <20040907121841.GA4398@wotan.suse.de>
+Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, hadi@cyberus.ca,
-        herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040912102529.GA27096@wotan.suse.de>
+In-Reply-To: <20040907121841.GA4398@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 12, 2004 at 12:25:29PM +0200, Andi Kleen wrote:
-> On Sun, Sep 12, 2004 at 06:01:14AM -0400, Jeff Garzik wrote:
-> > 
-> > Oh and update Documentation/networking/netdevice.txt.
-> > 
-> > If people are going to screw with the TX path, at least do it right and
-> > make it non-mysterious for everyone else.
-> > 
-> > See Al Viro's Documentation/filesystem/directory-locking doc for a
-> > proper way to document a locking change that potentially affects every
-> > net driver in the kernel.
+> Add LLTX suppor to tg3.  Locking was already safe for it, so only
+> trivial changes.
+
+tg3_set_rx_mode() (dev->set_multicast_list()) and tg3_start_xmit()
+used to synchronise thanks to dev->lock_xmit. With your LLTX patches
+they don't synchronise anymore (I don't think tg3_set_rx_mode() grabs
+tp->tx_lock) ; isn't it an issue?
+
+PS: your LLTX patch to e1000 seems to have the needed extra locking in
+e1000_set_multi() though.
+
+> Depends on the LLTX patch sent earlier.
 > 
-> <broken record mode>
-> No it doesn't. It only affects every driver who sets NETIF_F_LLTX.
-> For drivers that don't set this flag there is no change at all. 
-> </record>
+> diff -u linux-2.6.8/drivers/net/tg3.c-o linux-2.6.8/drivers/net/tg3.c
+> --- linux-2.6.8/drivers/net/tg3.c-o     2004-09-04 13:10:46.000000000 +0000
+> +++ linux-2.6.8/drivers/net/tg3.c       2004-09-07 08:17:36.000000000 +0000
+> @@ -3036,7 +3036,11 @@
+>          * So we really do need to disable interrupts when taking
+>          * tx_lock here.
+>          */
+> -       spin_lock_irqsave(&tp->tx_lock, flags);
+> +       local_irq_save(flags);
+> +       if (!spin_trylock(&tp->tx_lock)) {
+> +               local_irq_restore(flags);
+> +               return -1;
+> +       }
+> 
+>         /* This is a hard error, log it. */
+>         if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+> @@ -8255,6 +8259,7 @@
+> 
+>         if (pci_using_dac)
+>                 dev->features |= NETIF_F_HIGHDMA;
+> +       dev->features |= NETIF_F_LLTX;
+>  #if TG3_VLAN_TAG_USED
+>         dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
+>         dev->vlan_rx_register = tg3_vlan_rx_register;
+> 
+> 
 
-Incorrect, you are changing the callsites, which -does- affect every
-driver.
-
-
-> I wasn't aware of Documentation/netdevices.txt, but I agree it 
-> would be a good idea to update it. Patch for that attached.
-> DaveM, please apply.
-
-Thanks, but still need a patch for return value constants, otherwise you
-are compounding rather than addressing a current problem.
-
-	Jeff
+-- 
+Eric
