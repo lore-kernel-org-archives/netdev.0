@@ -1,59 +1,104 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: RFC 3484 support
-Date: Thu, 13 Nov 2003 15:26:20 +0200 (EET)
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: Adjust qlen when grafting in multiple qdiscs
+Date: Thu, 13 Nov 2003 15:47:06 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0311131517110.3196-100000@netcore.fi>
-References: <200311131007.NAA23770@yakov.inr.ac.ru>
+Message-ID: <3FB3996A.6080008@trash.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ulrich Drepper <drepper@redhat.com>, <netdev@oss.sgi.com>,
-        <yoshfuji@linux-ipv6.org>
+Content-Type: multipart/mixed;
+ boundary="------------020408050900080401010701"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200311131007.NAA23770@yakov.inr.ac.ru>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Nov 2003 kuznet@ms2.inr.ac.ru wrote:
-> Do you really need this?
-> 
-> Right now the kernel is able to to determine a valid source address
-> derived from some known destination address and nothing more. It is
-> just connect().
-> 
-> I do not understand rfc3484, actually. Does it involve some policies made
-> inside libc, which could contradict to policies used by kernel? If so,
-> it is definitely unimplementable without surgery in the kernel.
+This is a multi-part message in MIME format.
+--------------020408050900080401010701
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I'm not sure what you refer by policies.  The policies of "matching label"
-and "higher precedence" could include manually configured policies which
-might subsequently be different in kernel and in libc (at least).
+Hi Dave,
 
-But, I think you what you're really asking is whether we need destination 
-address selection at all, because we already have policy control in the 
-kernel for source address.  The short answer is "yes", the longer answer 
-is below.
+multiple qdiscs fail to adjust sch->q.qlen after grafting when the
+old qdisc is non-empty. This permanently damages the counter.
+TBF additionally needs to adjust stats.backlog.
 
-The destination address selection as specified by RFC 3484 is pretty 
-much necessary for the "proper" address selection.  Just having source 
-address selection is not enough, because if we get multiple inputs as 
-destination addresses, there has to be some way of selecting the best of 
-them (combined with a best source address), as a trivial example:
+Best regards,
+Patrick
 
-DNS lookup gives you 2002::1 and 2001::1 addresses (6to4 and native).
 
-The node has 2002:f00::1 address configured, but no "native" address.
 
-Currently getaddrinfo picks the destination address in a round-robin 
-fashion.  However, the best (s,d) -pair is (2002:f00::1, 2002::1), and you 
-currently get that only one half of the time.
+--------------020408050900080401010701
+Content-Type: text/plain;
+ name="01-graft-qlen.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01-graft-qlen.diff"
 
-This is a very simplistic example, but there are actually real failure 
-modes and problems if the destination address selection is missing.
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1427  -> 1.1428 
+#	 net/sched/sch_tbf.c	1.10    -> 1.11   
+#	 net/sched/sch_cbq.c	1.13    -> 1.14   
+#	net/sched/sch_dsmark.c	1.10    -> 1.11   
+#	net/sched/sch_prio.c	1.9     -> 1.10   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/11/12	kaber@trash.net	1.1428
+# Adjust qlen when grafting in multiple qdiscs
+# --------------------------------------------
+#
+diff -Nru a/net/sched/sch_cbq.c b/net/sched/sch_cbq.c
+--- a/net/sched/sch_cbq.c	Thu Nov 13 14:57:07 2003
++++ b/net/sched/sch_cbq.c	Thu Nov 13 14:57:07 2003
+@@ -1670,6 +1670,7 @@
+ 		sch_tree_lock(sch);
+ 		*old = cl->q;
+ 		cl->q = new;
++		sch->q.qlen -= (*old)->q.qlen;
+ 		qdisc_reset(*old);
+ 		sch_tree_unlock(sch);
+ 
+diff -Nru a/net/sched/sch_dsmark.c b/net/sched/sch_dsmark.c
+--- a/net/sched/sch_dsmark.c	Thu Nov 13 14:57:07 2003
++++ b/net/sched/sch_dsmark.c	Thu Nov 13 14:57:07 2003
+@@ -75,8 +75,10 @@
+ 		new = &noop_qdisc;
+ 	sch_tree_lock(sch);
+ 	*old = xchg(&p->q,new);
+-	if (*old)
++	if (*old) {
++		sch->q.qlen -= (*old)->q.qlen;
+ 		qdisc_reset(*old);
++	}
+ 	sch_tree_unlock(sch); /* @@@ move up ? */
+         return 0;
+ }
+diff -Nru a/net/sched/sch_prio.c b/net/sched/sch_prio.c
+--- a/net/sched/sch_prio.c	Thu Nov 13 14:57:07 2003
++++ b/net/sched/sch_prio.c	Thu Nov 13 14:57:07 2003
+@@ -266,6 +266,7 @@
+ 	sch_tree_lock(sch);
+ 	*old = q->queues[band];
+ 	q->queues[band] = new;
++	sch->q.qlen -= (*old)->q.qlen;
+ 	qdisc_reset(*old);
+ 	sch_tree_unlock(sch);
+ 
+diff -Nru a/net/sched/sch_tbf.c b/net/sched/sch_tbf.c
+--- a/net/sched/sch_tbf.c	Thu Nov 13 14:57:07 2003
++++ b/net/sched/sch_tbf.c	Thu Nov 13 14:57:07 2003
+@@ -455,6 +455,8 @@
+ 	sch_tree_lock(sch);	
+ 	*old = xchg(&q->qdisc, new);
+ 	qdisc_reset(*old);
++	sch->q.qlen = 0;
++	sch->stats.backlog = 0;
+ 	sch_tree_unlock(sch);
+ 	
+ 	return 0;
 
-HTH
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+--------------020408050900080401010701--
