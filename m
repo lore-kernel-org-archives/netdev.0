@@ -1,57 +1,37 @@
-From: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-Subject: Re: IPsec and Path MTU
-Date: Tue, 15 Jun 2004 10:50:37 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [IPV6] UDPv6: checksum
+Date: Wed, 16 Jun 2004 00:00:10 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <32703.1087311037@marajade.sandelman.ottawa.on.ca>
-References: <20040615124334.GA25164@gondor.apana.org.au>
-Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, jmorris@redhat.com,
-        netdev@oss.sgi.com
+Message-ID: <20040616.000010.111901629.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: Message from Herbert Xu <herbert@gondor.apana.org.au>
-   of "Tue, 15 Jun 2004 22:43:34 +1000." <20040615124334.GA25164@gondor.apana.org.au>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------BEGIN PGP SIGNED MESSAGE-----
+Hello.
+
+We always need to check UDPv6 checksum because it is mandatory.
+
+Thanks.
+
+===== net/ipv6/udp.c 1.64 vs edited =====
+--- 1.64/net/ipv6/udp.c	2004-06-10 05:39:26 +09:00
++++ edited/net/ipv6/udp.c	2004-06-15 23:43:42 +09:00
+@@ -507,7 +507,7 @@
+ 		return -1;
+ 	}
+ 
+-	if (sk->sk_filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
++	if (skb->ip_summed != CHECKSUM_UNNECESSARY) {
+ 		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
+ 			UDP6_INC_STATS_BH(UdpInErrors);
+ 			kfree_skb(skb);
 
 
->>>>> "Herbert" == Herbert Xu <herbert@gondor.apana.org.au> writes:
-    Herbert> Can someone explain the rationale behind dst->path and
-    Herbert> dst_pmtu to me?
-
-    Herbert> As far as I can see it was introduced specifically for
-    Herbert> IPsec.  However, it seems to me that it makes no sense
-    Herbert> whatsoever in that case.
-
-    Herbert> As it is, the MTU for any peer with an IPsec policy is
-    Herbert> determined by the MTU of its dst->path.  But this is wrong
-    Herbert> because it assigns a single MTU to all hosts behind an
-    Herbert> IPsec gateway, even though their paths may well diverge
-    Herbert> beyond the gateway.
-
-    Herbert> So unless I'm missing something, we should get rid of
-    Herbert> dst->path and store the MTU in the xfrm dst's directly.
-
-  Not being too familiar with the code, but being very familiar with
-pmtu, what you say sounds perfect to me.
-
-  The pmtu WG is considering changing how PMTU is done. You may want to 
-look at draft-richardson-ipsec-fragment-XX.txt. This has not yet been
-adopted as a WG draft, because nobody is sure which WG should adopt it:-)
-
-- --
-]     "Elmo went to the wrong fundraiser" - The Simpson         |  firewalls  [
-]   Michael Richardson,    Xelerance Corporation, Ottawa, ON    |net architect[
-] mcr@xelerance.com      http://www.sandelman.ottawa.on.ca/mcr/ |device driver[
-] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Finger me for keys
-
-iQCVAwUBQM8Mt4qHRg3pndX9AQFocwP+JLy04UB9HaNUGBLvmhW4Nf1+TDtdXZyY
-nWJVb1Jl96G3NUDn8nEwe0jfrFpUI8GmY9zPK+l7qonZzHaAym3fP7GWEKz1VKJu
-Ckzt76C+qjGVfwgPuYbKyGWDIaUiCIE1AEnJKbYTQMei12im6iGswPYvsOJNy/k/
-LU2ABZZnWls=
-=bher
------END PGP SIGNATURE-----
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
