@@ -1,60 +1,50 @@
-From: Stefan Rompf <srompf@isg.de>
-Subject: Re: Patch resubmission: RFC2863 operstatus for 2.5.50
-Date: Tue, 10 Dec 2002 00:10:58 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Patch: link state detection for 8139too against 2.4.20rc2 / 2.5
+Date: Mon, 9 Dec 2002 18:25:59 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DF52302.D0DBE637@isg.de>
-References: <Pine.GSO.4.30.0212090810520.19181-100000@shell.cyberus.ca>
+Message-ID: <20021209232559.GA9473@gtf.org>
+References: <Pine.LNX.4.44.0210120013500.1159-100000@beohost.scyld.com> <3DA96BCC.B2589AC0@isg.de> <3DE0CA4C.730699FC@isg.de> <3DF51ADB.47E83F81@isg.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Jeff Garzik <jgarzik@pobox.com>,
-   "David S. Miller" <davem@redhat.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stefan Rompf <srompf@isg.de>
+Content-Disposition: inline
+In-Reply-To: <3DF51ADB.47E83F81@isg.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-> > My argument is, _after_ Stefan's link state patch is applied, why do we
-> > need the additional patch?  [this question is meant to be delivered in
-> > an honest, not snide way...]
-> >
+On Mon, Dec 09, 2002 at 11:36:11PM +0100, Stefan Rompf wrote:
+> Hi,
 > 
-> I somehow deleted the original email he sent with the patches. What two
-> patches? I thought he had one which was a backport and another which
-> was for 2.5.x
+> Jeff Garzik wrote:
+> 
+> > > ...that was some days ago. I've seen that Jeff is enhancing the MII
+> > > interface library, so I used the functions provided there. Patch is
+> > > against 2.4.20rc2 and 2.5 with some offset. Please apply if it looks
+> > > good.
+> 
+> [...]
+> 
+> > close -- you don't want to unconditionally "initialize" the media 
+> > (mii_check_media second arg).
+> 
+> I've just seen the reason: No need to read the MII_ADVERTISE register
+> once the structure has been initialized. Expect another patch the next
+> days.
 
-I've splitted the patch into userspace notification and RFC2863 part to
-separate the features clearly and get the discussion running again. That
-seem to have worked ;-)
+Thanks.
 
-> (sorry, i actually have seen those patches a few times so i
-> didnt bother reviewing anything); In any case, when you look at this stuff
-> think as well of devices that are software netddevices example VLANs or
-> PPP or some of the USB, Irda etc and you want the status properly
-> reflected (and some of that status may not make sense to ethernet for
-> example).
 
-As an example, how do we flag a sleeping dial on demand device with the
-current Linux semantics? Is it oper up, because it may be able to
-transmit packets and should be considered, or is it oper down, simply as
-no protocol has been negotiated. RFC2863 can provice a clear state:
-Dormant.
+> > the phy code is gonna be pretty darned similar.  Eventually the phy code 
+> > needs to move to a common 8139lib.c, because both old-8139 line and 
+> 
+> May be. However, I cannot help there. I just have one card of the 8139
+> family, and all I could produce is some compiles for me stuff -
+> something that I would not consider helpful.
 
-Beside this, we currently have the situation that we can put a device
-into admin up and not present, simply by calling netdev_carrier_on() and
-netdev_detach(). I consider that broken, a device cannot be both removed
-and ready.
+<shrug>  I would consider it helpful.  If you are willing to do the
+coding and worksforme testing, I can review and do further testing.
+Part of the power of open source :)
 
-I'm aware that I did not provide updates to drivers to use the new
-states, but that's just the nature of infrastructure creating patches.
-Also, I cannot forwarding the RFC2863 state to userspace as long as
-Alexey refuses space in the netlink message for it.
-
-Ok, IMHO the pro and contra arguments are said. So let's decide: Do we
-want RFC2863 semantics (of course yes ;-) and David either accepts the
-second part of the patch or I continue working on it, or do we just drop
-that part?
-
-Stefan
+	Jeff
