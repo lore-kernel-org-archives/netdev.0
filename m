@@ -1,42 +1,40 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] string matching based packet classification/filtering
-Date: Thu, 17 Feb 2005 14:31:14 +0100
-Message-ID: <20050217133114.GU31837@postel.suug.ch>
-References: <20050215203211.GL31837@postel.suug.ch>
-	<42126C9B.5060406@eurodev.net>
-	<20050216223038.GQ31837@postel.suug.ch>
-	<4213ECC9.30502@eurodev.net>
+From: "junk" <junk@toutatis.be>
+Subject: Re: skb_clone
+Date: Thu, 17 Feb 2005 14:53:11 +0100
+Message-ID: <20050217134407.M46105@toutatis.be>
+References: <20050217101331.M38167@toutatis.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	Harald Welte <laforge@gnumonks.org>
-To: Pablo Neira <pablo@eurodev.net>
-Content-Disposition: inline
-In-Reply-To: <4213ECC9.30502@eurodev.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain;
+	charset=iso-8859-1
+To: netdev@oss.sgi.com
+In-Reply-To: <20050217101331.M38167@toutatis.be>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> >The matching algorithm would parse the array as a finite automation
-> >eating up byte by byte in the text.
-> >
-> 
-> Looks good but Boyer-Moore algorithm doesn't need this at all. BM 
-> doesn't support wildcards like '*' because of the shiftings that it uses 
-> to look for matches. This issue together with memory consumption are two 
-> limitations that we have to live with if we want to use BM. Anyway I 
-> think it's worth it because we can perform search in O(n/m).
 
-This would be _additional_ to BM/KMP/naive/finite automata/you name it.
-The benefit of libqsearch is hide various algorithms behind a single
-interface, isn't it? It's argueable whether it would make sense to try
-and rule out bad shifts while parsing a chain of non-wildcard regular
-expression tokens but I guess that would be over the top.
+
+>Hello,
+>
+>i made a clone of a skb i catched with a netfilter hook.
+>
+>Now i want to send that cloned skb on the wire.. what should i do? I tried
+>with dev_queue_xmit without success..
+
+
+I've been able to transmit my packet.. no more kernel oops but it seems i'm
+having an alignment problem. Tcpdump tells me "ethertype unknown" on each
+packet that has been altered by my module. That packet originally comes from
+"ping", I do not generate it myself, so i guess the ethernet header, IP
+header, data are correct. It just seems I missed a point before
+dev_queue_xmit() my skb.
+
+I'm having the same problem if I skb_copy() instead of skb_clone() the
+original skb.
+
+Here is a summary of my code:
+
+hook_interrupt -> cloning skb to new_skb -> changing new_skb->dev to another
+interface -> dev_queue_xmit(new_skb); -> return NF_STOLEN for the original skb
+
+What am I missing?
