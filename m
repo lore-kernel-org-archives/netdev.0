@@ -1,132 +1,96 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] netem - distribution table fixes.
-Date: Mon, 30 Aug 2004 13:57:17 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040830135717.1f4a3af0@dell_ss3.pdx.osdl.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+ else")
+Date: Mon, 30 Aug 2004 14:07:29 -0700
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <20040830140729.7309ecc0.davem@davemloft.net>
+References: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, rusty@rustcorp.com.au,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Fix some issues with netem. 
- * fix memory link in q_destroy where distribution table not freed
- * fix math error in tabledist that made it work for only small values
- * change API for distribution table so scaling factor is constant and
-   table size is determined by looking at the rtnetlink payload size.
-   this is faster and simpler. Since haven't actually released the tools to load
-   the table yet, this is the chance to get it right ;-)
+On Mon, 30 Aug 2004 22:19:57 +0200
+Harald Welte <laforge@netfilter.org> wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> In those cases, the error path from net/ipv4/netfilter/ipt_MASQUERADE.c:
+ ...
+> is taken.
+> 
+> A couple of questions:
+> 
+> 1) Why do we have this check in the first place?  What would be wrong
+>    with re-routing if the user requests us by configuration?
+> 
+> 2) Why don't we include 'oif' in the routing key?  If we wanted to make
+>    sure that oif doesn't change, then we should tell the routing lookup
+>    rather than complaining afterwards, shouldn't we ?
 
-diff -Nru a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
---- a/include/linux/pkt_sched.h	2004-08-30 13:55:55 -07:00
-+++ b/include/linux/pkt_sched.h	2004-08-30 13:55:55 -07:00
-@@ -429,11 +429,6 @@
- 	__u32	dup_corr;	/* duplicate correlation  */
- };
- 
--struct tc_netem_dist
--{
--	__u32	size;		/* table size */
--	__u32	factor;		/* table scaling factor */
--	__s16	data[0];	/* distribution table values */
--};
-+#define NETEM_DIST_SCALE	8192
- 
+The original idea was that if the input route relookup sends us
+to a different device, something is very strange.
+
+Input routing looks up using daddr/saddr/tos as the key.  The change
+here is that we're now using the fwmark, so you're right that only
+policy routing can cause this thing to trigger.
+
+Where did this check some from?  From this change below, and the
+changelog explains why we do things this way.
+
+I know you don't use BK Harald, but things like this are why you should
+at least use the web based interface to look at file change history.
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2003/08/11 22:47:11-07:00 rusty@rustcorp.com.au 
+#   [NETFILTER]: Fix masquerade routing check.
+#   
+#   Alexey says:
+#    Unrelated: giving out->ifindex is a bug, by the way. It can screw up
+#    the things a lot. In this context, if you want to be sure that packet
+#    will go out expected interface you do plain lookup and drop packet
+#    if it gave you some strange route.
+# 
+# net/ipv4/netfilter/ipt_MASQUERADE.c
+#   2003/08/11 22:46:31-07:00 rusty@rustcorp.com.au +11 -4
+#   [NETFILTER]: Fix masquerade routing check.
+# 
+diff -Nru a/net/ipv4/netfilter/ipt_MASQUERADE.c b/net/ipv4/netfilter/ipt_MASQUERADE.c
+--- a/net/ipv4/netfilter/ipt_MASQUERADE.c	2004-08-30 13:51:03 -07:00
++++ b/net/ipv4/netfilter/ipt_MASQUERADE.c	2004-08-30 13:51:03 -07:00
+@@ -91,11 +91,18 @@
+ #ifdef CONFIG_IP_ROUTE_FWMARK
+ 						.fwmark = (*pskb)->nfmark
  #endif
-diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
---- a/net/sched/sch_netem.c	2004-08-30 13:55:55 -07:00
-+++ b/net/sched/sch_netem.c	2004-08-30 13:55:55 -07:00
-@@ -71,7 +71,6 @@
- 
- 	struct disttable {
- 		u32  size;
--		u32  factor;
- 		s16 table[0];
- 	} *delay_dist;
- };
-@@ -113,11 +112,10 @@
-  * std deviation sigma.  Uses table lookup to approximate the desired
-  * distribution, and a uniformly-distributed pseudo-random source.
-  */
--static unsigned long tabledist(int mu, int sigma, 
--			       struct crndstate *state,
--			       const struct disttable *dist)
-+static long tabledist(unsigned long mu, long sigma, 
-+		      struct crndstate *state, const struct disttable *dist)
- {
--	int t, x, factor;
-+	long t, x;
- 	unsigned long rnd;
- 
- 	if (sigma == 0)
-@@ -129,16 +127,14 @@
- 	if (dist == NULL) 
- 		return (rnd % (2*sigma)) - sigma + mu;
- 
--	factor = dist->factor;
- 	t = dist->table[rnd % dist->size];
--
--	x = (sigma % factor) * t;
-+	x = (sigma % NETEM_DIST_SCALE) * t;
- 	if (x >= 0)
--		x += factor/2;
-+		x += NETEM_DIST_SCALE/2;
- 	else
--		x -= factor/2;
-+		x -= NETEM_DIST_SCALE/2;
- 
--	return (x + (sigma / factor) * t) / factor + mu;
-+	return  x / NETEM_DIST_SCALE + (sigma / NETEM_DIST_SCALE) * t + mu;
- }
- 
- /* Put skb in the private delayed queue. */
-@@ -305,25 +301,28 @@
- 	return ret;
- }
- 
-+/*
-+ * Distribution data is a variable size payload containing
-+ * signed 16 bit values.
-+ */
- static int get_dist_table(struct Qdisc *sch, const struct rtattr *attr)
- {
- 	struct netem_sched_data *q = qdisc_priv(sch);
--	const struct tc_netem_dist *dist = RTA_DATA(attr);
-+	unsigned long n = RTA_PAYLOAD(attr)/sizeof(__s16);
-+	const __s16 *data = RTA_DATA(attr);
- 	struct disttable *d;
- 	int i;
- 
--	if (RTA_PAYLOAD(attr) < sizeof(*dist) ||
--	    dist->factor < 2 || dist->factor > 1<<16 || dist->size > 65536)
-+	if (n > 65536)
- 		return -EINVAL;
- 
--	d = kmalloc(sizeof(*d) + dist->size*sizeof(d->table[0]), GFP_KERNEL);
-+	d = kmalloc(sizeof(*d) + n*sizeof(d->table[0]), GFP_KERNEL);
- 	if (!d)
- 		return -ENOMEM;
- 
--	d->size = dist->size;
--	d->factor = dist->factor;
--	for (i = 0; i < dist->size; i++)
--		d->table[i] = dist->data[i];
-+	d->size = n;
-+	for (i = 0; i < n; i++)
-+		d->table[i] = data[i];
- 	
- 	spin_lock_bh(&sch->dev->queue_lock);
- 	d = xchg(&q->delay_dist, d);
-@@ -431,6 +430,7 @@
- 
- 	del_timer_sync(&q->timer);
- 	qdisc_destroy(q->qdisc);
-+	kfree(q->delay_dist);
- }
- 
- static int netem_dump(struct Qdisc *sch, struct sk_buff *skb)
+-					      } },
+-				    .oif = out->ifindex };
++					      } } };
+ 		if (ip_route_output_key(&rt, &fl) != 0) {
+-			/* Shouldn't happen */
+-			printk("MASQUERADE: No route: Rusty's brain broke!\n");
++			/* Funky routing can do this. */
++			if (net_ratelimit())
++				printk("MASQUERADE:"
++				       " No route: Rusty's brain broke!\n");
++			return NF_DROP;
++		}
++		if (rt->u.dst.dev != out) {
++			if (net_ratelimit())
++				printk("MASQUERADE:"
++				       " Route sent us somewhere else.\n");
+ 			return NF_DROP;
+ 		}
+ 	}
