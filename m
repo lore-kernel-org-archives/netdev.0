@@ -1,36 +1,36 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: Netlink Connector / CBUS
-Date: Tue, 5 Apr 2005 12:54:05 -0400 (EDT)
-Message-ID: <Xine.LNX.4.44.0504051252480.12117-100000@thoron.boston.redhat.com>
-References: <1112684596.28858.4.camel@uganda>
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] network configs: disconnect network options from drivers
+Date: Tue, 5 Apr 2005 10:42:25 -0700 (PDT)
+Message-ID: <Pine.LNX.4.61.0504051033310.5053@localhost.localdomain>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net>
+ <20050331185226.GA8146@mars.ravnborg.org> <424C5745.7020501@osdl.org>
+ <20050331203010.GA8034@mars.ravnborg.org> <4250B4C5.2000200@osdl.org>
+ <20050404195051.GA12364@mars.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, <rml@novell.com>,
-        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, ioe-lkml@axxeo.de, matthew@wil.cx,
+        lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        hadi@cyberus.ca, cfriesen@nortel.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
-In-Reply-To: <1112684596.28858.4.camel@uganda>
+To: Sam Ravnborg <sam@ravnborg.org>
+In-Reply-To: <20050404195051.GA12364@mars.ravnborg.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Apr 2005, Evgeniy Polyakov wrote:
+On Mon, 4 Apr 2005, Sam Ravnborg wrote:
 
-> On Tue, 2005-04-05 at 01:05 -0400, James Morris wrote: 
-> > Evgeniy,
-> > 
-> > Please send networking patches to netdev@oss.sgi.com.
-> 
-> It was sent there two times.
+>
+> Only bit that I am worried about is the statement in SCTP:
+> 	depends on IPV6 || IPV6=n
+>
+> That looked like a noop to me. It had the sideeffect that SCTP
+> menu entries where idented an extra level which was not desireable
+> with currect layout.
+>
 
-I googled around quite a lot to track the origin of the patches down but
-didn't do the obvious and look in the netdev archives, sorry.
+No. This is not a noop. This is required to restrict SCTP configured as
+static when IPV6 is configured as module.
 
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+Thanks
+Sridhar
