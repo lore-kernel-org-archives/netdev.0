@@ -1,66 +1,66 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Wed, 10 Dec 2003 23:18:05 +0200 (EET)
+From: "Johnson, Chester F" <chester.f.johnson@intel.com>
+Subject: RE: PMTU issues due to TOS field manipulation (for DSCP)
+Date: Wed, 10 Dec 2003 13:35:07 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0312102301550.1285-100000@u.domain.uli>
-References: <3FD7832B.3010709@us.ibm.com>
+Message-ID: <7E713DB94F47914DB5AAB80DE8EEA87501539903@fmsmsx410.fm.intel.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andi Kleen <ak@suse.de>, "Kevin W. Rudd" <ruddk@us.ibm.com>,
-        <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>,
-        <chester.f.johnson@intel.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <ruddk@us.ibm.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3FD7832B.3010709@us.ibm.com>
+content-class: urn:content-classes:message
+To: "Andi Kleen" <ak@suse.de>, "Nivedita Singhvi" <niv@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+>From a corporate network perspective there are a couple of options that
+can temporarily work around the problem. As an example, support for
+jumbo frames on Ethernet IP-Sec interfaces. This would require some
+hardware replacement, but GigE generally supports this. On the other
+hand, I'm not sure I want to comprehend IP-Sec at GigE line rates.
 
-	Hello,
+We are pretty early in deploying diff-serv compliant QoS at this scale.
+We are also one of few companies that mandate encrypted private WAN
+links (Only the paranoid survive). As we look forward, we would expect
+more frequent appearance of this behavior at other companies. 
 
-On Wed, 10 Dec 2003, Nivedita Singhvi wrote:
+All that said, an evolutionary roll-out is OK. Knowing that there is a
+target release that would resolve the issue gives us something to look
+forward to. It may also be a good idea to submit some clarification in
+the relevant RFCs.
 
-> Julian Anastasov wrote:
->
-> > 	It can be an option: pmtu_promisc or whatever (default 0).
-> > We should avoid using TOS as hash key and if the var is 1 we should
-> > ignore matching the tos keys in ip_rt_frag_needed and ip_rt_redirect.
-> > By this way, all cache entries between saddr and daddr will be updated, no
-> > matter the TOS or even OIF keys. Comments?
->
-> This is what I was going to suggest too, but one of the drawbacks
-> would be needing the user to recompile the distro kernel just
-> for this..could we keep any fix to this dynamically tunable?
+chet
 
-	Yes, I mean sysctl var in /proc. For now, there are two
-needs:
 
-1. update PMTU info ignoring TOS and OIF
 
-2. Reduce the number of hash entries by ignoring the TOS, may be
-depending on CONFIG_IP_ROUTE_TOS, it would be preferred to be
-sysctl var but the real benefits depend on the TOS usage.
 
-	I see three cases:
+-----Original Message-----
+From: Andi Kleen [mailto:ak@suse.de] 
+Sent: Wednesday, December 10, 2003 12:55 PM
+To: Nivedita Singhvi
+Cc: ruddk@us.ibm.com; netdev@oss.sgi.com; Johnson, Chester F
+Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
 
-1. we do not route by TOS => we want to ignore TOS everywhere, if
-possible, sysctl var variant for IPTOS_RT_MASK=0
 
-2. we route by TOS (IPTOS_RT_MASK!=0) but we like the idea to
-ignore TOS for PMTUD and ICMP redirects.
+On Wed, 10 Dec 2003 12:30:39 -0800
+Nivedita Singhvi <niv@us.ibm.com> wrote:
+ 
+> > I don't think the network users will be very happy if you require 
+> > changing all end hosts this way. How about the following hack? For 
+> > DF=1 packets the ipid field is useless. When you rewrite the TOS to 
+> > DSCP save the old TOS in the ipid field.  When you see an ICMP 
+> > fragment required message with the right DSCP on the router restore 
+> > the old TOS from the ipid field.
+> 
+> Wouldnt this require changes at the both ends, router and host? How 
+> would we sync?
 
-3. the current behavior, PMTUD does not work if TOS is changed,
-the routing cache keeps many entries with different TOS
+Only the router would need to change (and rewrite ICMP messages, which
+is a 
+bit nasty, but then compatibility is not always fun) 
 
-	The question is how many proc entries are needed for these
-cases. It seems, we can cover all cases with one proc entry: to
-make IPTOS_RT_MASK a sysctl var. But there is still difference
-between cases 1 and 2, may be the var will have more than 2 values?
+-Andi
 
-> thanks,
-> Nivedita
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+P.S.: I am not opposed to fixing linux for this, just I have my doubts
+that fixing all end hosts is a practical solution for the problem.
