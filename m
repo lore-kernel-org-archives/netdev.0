@@ -1,98 +1,60 @@
-From: "Kevin Curtis" <kevin.curtis@farsite.co.uk>
-Subject: RE: Update FarSync WAN driver in 2.6
-Date: Fri, 19 Mar 2004 09:26:28 -0000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [RFC, PATCH 2/5]: netfilter+ipsec - output hooks
+Date: Fri, 19 Mar 2004 21:59:39 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7C078C66B7752B438B88E11E5E20E72E25CC84@general.hq.farsitecommunications.com>
+Message-ID: <20040319105939.GA29066@gondor.apana.org.au>
+References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CEEC.7070009@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>, <davem@redhat.com>, <Kevin.curtis4@btopenworld.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <4059CEEC.7070009@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Jeff,
-	the FarSync driver updates in the 2.4 and 2.6 Kernels is
-becoming a little more critical.  Please can you make your best efforts
-to incorporate it into the next release of each.
+On Thu, Mar 18, 2004 at 05:31:40PM +0100, Patrick McHardy wrote:
+> This patch adds new output-hooks. Packets with dst->xfrm != NULL
+> traverse the POST_ROUTING hook before dst_output is called. The
+> transformers mark the packets in the control buffer with a new flag
+> IPSKB_XFRM_TRANSFORMED, these packets then traverse the LOCAL_OUT
+> hook when they hit ip_output.
 
+Thank you very much for your patches.  This is definitely the biggest
+show stopper with the current IPsec stack.
 
-Kind Regards
+I've just got a minor point about this one:
 
-Kevin Curtis
-Linux Development
-FarSite Communications Ltd
-http://www.farsite.co.uk
-tel:  +44 1256 330461
-fax:  +44 1256 854931
+> @@ -119,12 +119,14 @@
+>  /* This is gross, but inline doesn't cut it for avoiding the function
+>     call in fast path: gcc doesn't inline (needs value tracking?). --RR */
+>  #ifdef CONFIG_NETFILTER_DEBUG
+> -#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
+> - nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN)
+> +#define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond)		\
+> +(!(cond)									\
+> + ? (okfn)(skb) 								\
+> + : nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN))
 
------Original Message-----
-From: Kevin Curtis 
-Sent: 12 March 2004 16:57
-To: Kevin Curtis; 'Jeff Garzik'
-Cc: 'netdev@oss.sgi.com'; 'davem@redhat.com'
-Subject: RE: Update FarSync WAN driver in 2.6
+Any reason why this is written with a negated cond? I get confused by
+double negations :)
 
+>  #define NF_HOOK_THRESH nf_hook_slow
+>  #else
+> -#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
+> -(list_empty(&nf_hooks[(pf)][(hook)])					\
+> +#define NF_HOOK_COND(pf, hook, skb, indev, outdev, okfn, cond)		\
+> +(!(cond) || list_empty(&nf_hooks[(pf)][(hook)])				\
 
-Any progress on getting the farsync patches into the 2.4 and 2.6
-Kernels?
+Ditto, what about
 
-
-Kevin
-
------Original Message-----
-From: Kevin Curtis 
-Sent: 01 March 2004 13:56
-To: Kevin Curtis; 'Jeff Garzik'
-Cc: 'netdev@oss.sgi.com'; 'davem@redhat.com'
-Subject: RE: Update FarSync WAN driver in 2.6
-
-
-Here is the modified patch.
-It installs against 2.6.4-pre1
-
-Best get it in quick before net_device is given back to the hdlc layer
-again :->
-
-
-Kevin
-
------Original Message-----
-From: Kevin Curtis 
-Sent: 01 March 2004 09:15
-To: 'Jeff Garzik'; Kevin Curtis
-Cc: netdev@oss.sgi.com; davem@redhat.com
-Subject: RE: Update FarSync WAN driver in 2.6
-
-
-Hi,
-	looks as though the 2.6.4-pre1 patch has changed farsync.c,
-which is probably why the patch will not apply.  I would re-work the
-patch against this release.
-
-	What is the status of the 2.4.x patch that I sent a while back?
-I still need to make one more change to it.  I need to know if to resend
-the whole patch, or a n additional patch with the change?
-
-
-Kevin
-
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com] 
-Sent: 29 February 2004 18:53
-To: Kevin Curtis
-Cc: netdev@oss.sgi.com; davem@redhat.com
-Subject: Re: Update FarSync WAN driver in 2.6
-
-
-hum...  Patch looks OK to appy, but does not apply against the latest 
-2.6.x kernel.
-
-Also, it is possible to split your patch into two pieces:  one patch 
-with nothing but indentation/whitespace cleanups, and the other patch 
-with functional changes?
-
-	Jeff
+((cond) && !list_empty(&nf_hooks[(pf)][(hook)) \
+ ? nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN) \
+ : (okfn)(skb))
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
