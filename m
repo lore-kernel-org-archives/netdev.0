@@ -1,32 +1,23 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] rtnetlink: link attribute modification by interface
- name
-Date: Tue, 30 Nov 2004 22:28:13 -0800
-Message-ID: <20041130222813.0cc61616.davem@davemloft.net>
-References: <20041130220659.GK31969@postel.suug.ch>
+From: "=?iso-2022-jp?B?c2pkazE0QHlhaG9vLmNvLmpw?=" <alkjd@yahoo.co.jp>
+Subject: =?iso-2022-jp?B?GyRCISE0KCQkJEckOSQrISkbKEI=?=
+Date: Wed, 1 Dec 2004 02:01:58 -0800
+Message-ID: <200412011001.iB1A1wn1011500@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="iso-2022-jp"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041130220659.GK31969@postel.suug.ch>
+To: "netdev@oss.sgi.com"@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Nov 2004 23:06:59 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+いいね〜今週も最高です！
+http://iidote.info/kinjyo
 
-> This patch allows modification of link attributes by the interface name,
-> avoids the requirement of translating a name to an ifindex first, and
-> provides better atomicity to userspace.  It works by setting the ifindex
-> to a negative number and provide the interface name via the IFLA_IFNAME
-> TLV and let the kernel lookup the device by name instead of ifindex. Changing
-> the interface name will not work using this method because IFLA_IFNAME also
-> transports the new interface name.  The patch also fixes a possible source for
-> bugs if IFNAMSIZ is ever changed to a number not aligned to RTA_ALIGNTO.
+ 
 
-Looks good, applied to my 2.6.11 pending tree.
-
-Thanks.
+****メルマガ解除/問い合わせ****
+広東省　藩　浩
+yotsuba_kouyou@yahoo.co.jp
+*******************************
