@@ -1,66 +1,35 @@
-From: "Mendelson, Tsippy" <tsippy.mendelson@intel.com>
-Subject: RE: Problems using bonding with vlan
-Date: Mon, 15 Sep 2003 17:18:37 +0300
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: Re: firewalling PPPOE stream without terminating it
+Date: Mon, 15 Sep 2003 10:22:40 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2C83850C013A2540861D03054B478C0602012044@hasmsx403.iil.intel.com>
+Message-ID: <3F65CB30.9040003@nortelnetworks.com>
+References: <3F61D8E4.6020309@nortelnetworks.com> <20030915101826.GH777@obroa-skai.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: "Noam, Amir" <amir.noam@intel.com>, <naom.marom@intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Hen, Shmulik" <shmulik.hen@intel.com>,
-   <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
+To: Harald Welte <laforge@gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Another option would be that the bond be vlan challenged until the first slave is added to the team.
+Harald Welte wrote:
 
-I do not like the idea of the vlan module listening to netdev events and updating its mac address accordingly since in my opinion the proper way is to have the settings of the slave change according to the master's and not the opposite i.e. once a user configures a vlan interface over a device he should not be changing the device settings but rather propagating the settings down from the vlan interface (as we do for bond masters and slaves).
+> So how is this question related to either 
+> 1) network development (netdev@oss.sgi.com)
+> 2) linux-kernel development (linux-kernel@vger.kernel.org)
+> 
+> I would like to ask you this question at an apropriate mailinglist
+> (netfilter@lists.netfilter.org, or the lartc mailinglist
 
-As for the boot problem, we would have to find a way to get the vlans to come up only after the slaves (but not lexicographically dependant)
+Sorry, my bad.
 
-Tsippy
+Thread continued on other list as suggested.
 
------Original Message-----
-From: Hen, Shmulik 
-Sent: Monday, September 15, 2003 4:42 PM
-To: bonding-devel@lists.sourceforge.net; netdev@oss.sgi.com
-Cc: Noam, Amir; Hen, Shmulik; Mendelson, Tsippy; naom.marom@intel.com
-Subject: Problems using bonding with vlan
-
-
-Hi,
-
-Consider the following scenario:
-# insmod <some-base-driver>
-# insmod 8021q
-# insmod bonding mode=X miimon=Y
-# vconfig add bond0 10
-# ifenslave bond0 eth0 eth1 ...
-# ifconfig bond0.10 a.b.c.d
-
-Now try to run ping - no traffic. Arp tables on all clients show that 
-the server has hardware address 00:00:00:00:00:00 !
-
-The only way for it to work is:
-# ifenslave bond0 eth0 eth1 ...
-# vconfig add bond0 10
-# ifconfig bond0.10 a.b.c.d
-
-But that's probably not the way things happen during boot via the 
-network scripts.
-
-I think we should add to the 8021q module the ability to listen to 
-netdev events and to set it's hardware address whenever the 
-underlying device changes it own, instead of just during the VLAN 
-interface creation.
-
-Comments ?
+Chris
 
 -- 
-| Shmulik Hen   Advanced Network Services  |
-| Israel Design Center, Jerusalem          |
-| LAN Access Division, Platform Networking |
-| Intel Communications Group, Intel corp.  |
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
