@@ -1,41 +1,55 @@
-From: "Xiaoliang \(David\) Wei" <weixl@caltech.edu>
-Subject: Re: A question on RTT estimation of SACKed packet.
-Date: Thu, 29 Aug 2002 15:19:08 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH] anycast support for IPv6, linux-2.5.31
+Date: Fri, 30 Aug 2002 09:37:38 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <028501c24faa$18693d60$f1fa010a@weixl>
-References: <200208291901.XAA27022@sex.inr.ac.ru>
+Message-ID: <25083.3144564696$1030689459@news.gmane.org>
+References: <OFA5382C90.D39B906F-ON88256C23.00771A5C@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=gb2312
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
+Cc: linux-kernel@vger.kernel.org, <linux-net@vger.kernel.org>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <kuznet@ms2.inr.ac.ru>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFA5382C90.D39B906F-ON88256C23.00771A5C@boulder.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Thanks, Alexey.
-> >     2. When a packet was SACKed but not retransmitted, the linux also
-> > calculate the seq_rtt from it when there is no unSACKed packet in the
-queue.
->
-> It is not used. When a segment fills a hole, tcp uses skb->when of the
-segment
-> which _filled_ the hole. See?
+On Wed, 28 Aug 2002, David Stevens wrote:
+> 1) The API
+>       Although the RFC's liken anycasting to ordinary unicasting, I think
+> it's more appropriate to tie it closely to particular applications, so I've
+> chosen an API similar to multicasting. So, rather than having a permanent
+> anycast address associated with the machine, particular applications
+> that use anycasting can join or leave "anycast groups," and the machine will
+> recognize the anycast addresses as its own when one or more applications have
+> joined the group.
+>       So, for example, someone using anycasting for DNS high availability
+> can add a join to the anycast group in the server and as long as the DNS server
+> is running, the machine will answer to that anycast address. But the machine
+> will not respond to anycasts when the service that's using it isn't available,
+> so a broken server application that has exited won't deny that service if
+> there are other working members of the anycast group on other hosts.
+>       I don't know if that's controversial or not-- the RFC's are written
+> more from the external context, but seem to imply a model along the lines of
+> using "ifconfig" to add anycast addresses. I think that model doesn't fit the
+> best uses of anycasting, but I'd like to hear your thoughts on it.
+>       The application interface for joining and leaving anycast groups is 2
+> new setsockopt() calls: IPV6_JOIN_ANYCAST and IPV6_LEAVE_ANYCAST. The arguments
+> are the same as the corresponding multicast operations. The kernel keeps a
+> reference count of members; when that goes to zero, the anycast address is not
+> recognized as a local address. While nonzero, the host listens on the solicited
+> node for that address, sends advertisements in response to solicitations (with
+> override=0) and delivers packets sent to the anycast address to upper layers.
+>       There's also an in-kernel interface described below, which is used by
+> IPv6 mobility, for example.
 
-Yes, this is exactly my question: When this segment fills a hole, it may be
-SACKed before.
-If it's SACKed before, that means its "round trip" had already finished
-before this ACK came-- Now it's filling the hole just because some strange
-things (such as ack loss) happened. So, I don't think we should use its
-skb->when to estimate RTT. But in Linux, such a packet (SACKed) may still
-provide RTT estimation.
+Before going too much down this path, I think one should write an Internet
+Draft about the proposed API (should be quite short & simple) and see what
+kind of response it has in the relevant working groups.
 
->
-> What's about using SACKs to give additional feed to rtt estimator,
-> even when ACK is duplicate, it is intersting idea, I even read about
-> this somewhere. But we do not use this.
-Actually, I am going to do that: Can I get a safe RTT estimation from SACK,
-when the SACKed packet (in rtx queue) is never SACKed or Retransmitted?
-
--David
+-- 
+Pekka Savola                 "Tell me of difficulties surmounted,
+Netcore Oy                   not those you stumble over and fall"
+Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
