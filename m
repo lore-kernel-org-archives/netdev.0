@@ -1,51 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [patch] do not readlock all buckets in /proc/net/tcp
-Date: Mon, 05 Jul 2004 22:25:13 +0900 (JST)
+From: "Lance Mcdonald" <lliswshgy@overture.com>
+Subject: have you tried cia_lis
+Date: Mon, 05 Jul 2004 07:22:30 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705.222513.81999836.yoshfuji@linux-ipv6.org>
-References: <20040705120610.GA5728@gondor.apana.org.au>
-	<20040705.212522.126409437.yoshfuji@linux-ipv6.org>
-	<20040705124511.GA17193@suse.de>
+Message-ID: <200407051338.i65DcTgi013727@oss.sgi.com>
+Reply-To: "Lance Mcdonald" <lliswshgy@overture.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: multipart/alternative;
+	boundary="--62526244936283956"
+Cc: linux-xfs@oss.sgi.com, ftp@oss.sgi.com, hawkes@oss.sgi.com,
+        mail@oss.sgi.com, majordomo@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: meissner@suse.de
-In-Reply-To: <20040705124511.GA17193@suse.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040705124511.GA17193@suse.de> (at Mon, 5 Jul 2004 14:45:11 +0200), Marcus Meissner <meissner@suse.de> says:
+----62526244936283956
+Content-Type: text/html;
+	charset="iso-7604-1"
+Content-Transfer-Encoding: 7Bit
 
-> The second hlist_empty is bad, you should be checking &tcp_ehash[i +
-> tcp_ehash_size].chain ((head+tcp_ehash_size) I think).
+<html>
+<body bgcolor="#000000">wassup Netdev <br><br> I heard someone tried the monkeys-on-typewriters bit trying for the plays of W. Shakespeare but all they got was the collected works of Francis Bacon. - Bill Hirst
+<a href="http://Williams.mnvbrfc.com/c">
+<img src="http://Ohb77q7kqgmj.qasfcfmed.com/c/FBS">
+</a><br>
+If a man does his best; what else is there? - General George S. Patton (1885-1945) <br> Distrust any enterprise that requires new clothes. - Henry David Thoreau (1817-1862) <br><br> Learning is what most adults will do for a living in the 21st century. - Perelman
+</body>
+</html>
 
-Oops...
-
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-
-===== net/ipv4/tcp_diag.c 1.15 vs edited =====
---- 1.15/net/ipv4/tcp_diag.c	2004-06-08 07:27:58 +09:00
-+++ edited/net/ipv4/tcp_diag.c	2004-07-05 22:21:06 +09:00
-@@ -522,9 +522,14 @@
- 		if (i > s_i)
- 			s_num = 0;
- 
--		read_lock_bh(&head->lock);
--
- 		num = 0;
-+
-+		if (hlist_empty(&head->chain) &&
-+		    (!(r->tcpdiag_states&TCPF_TIME_WAIT) || 
-+		       hlist_empty(&(head + tcp_ehash_size)->chain)))
-+			continue;
-+
-+		read_lock_bh(&head->lock);
- 		sk_for_each(sk, node, &head->chain) {
- 			struct inet_opt *inet = inet_sk(sk);
- 
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+----62526244936283956--
