@@ -1,26 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATH] atm/clip device discovery on init not needed
-Date: Thu, 15 Jan 2004 15:00:23 -0800
+Subject: Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
+Date: Thu, 15 Jan 2004 15:04:41 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115150023.2d80b6da.davem@redhat.com>
-References: <20040113105843.0d1351cb.shemminger@osdl.org>
-	<20040113163631.1a9c1a59.davem@redhat.com>
-	<20040114164338.1f0d15e4.shemminger@osdl.org>
-	<20040115145925.54eaf01a.shemminger@osdl.org>
+Message-ID: <20040115150441.4ff6eabc.davem@redhat.com>
+References: <OFB4F51C5A.FC479F2C-ON87256E1C.007B64B8@us.ibm.com>
+	<200401151504.26610.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, chas@cmf.nrl.navy.mil,
-        linux-atm-general@lists.sourceforge.net
+Cc: xma@us.ibm.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040115145925.54eaf01a.shemminger@osdl.org>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200401151504.26610.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jan 2004 14:59:25 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 15 Jan 2004 15:04:26 -0800
+Shirley Ma <mashirle@us.ibm.com> wrote:
 
-> Forgot to resulting unused declaration.
+> > So please either show where RTM_GETRA is used or regenerate the patch with
+> > that macro definition removed.
+> 
+> This is the new patch for 2.6.1. 
 
-Applied, thanks Stephen.
+Thanks Shirley, I'm applying this.
