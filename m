@@ -1,26 +1,55 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: Mon, 20 Dec 2004 13:14:19 -0800
-Message-ID: <20041220211419.GC5974@waste.org>
-References: <59719.192.102.214.6.1103214002.squirrel@webmail.wetlettuce.com> <20041216211024.GK2767@waste.org> <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com> <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com>
+From: "Rudolf Ladyzhenskii" <Rudolf.ladyzhenskii@opennw.com>
+Subject: RE: Required resources on network driver programming
+Date: Tue, 21 Dec 2004 08:34:10 +1100
+Message-ID: <a351964842ab19a53c7f27f1346884b341c74577@opennw.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: romieu@fr.zoreil.com, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261645AbULTVPF@vger.kernel.org>
-To: Mark Broadbent <markb@wetlettuce.com>
-Content-Disposition: inline
-In-Reply-To: <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "linux lover" <linux_lover2004@yahoo.com>, <linux-net@vger.kernel.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Dec 20, 2004 at 09:42:08AM -0000, Mark Broadbent wrote:
-> 
-> Exactly the same happens, I still get a 'NMI Watchdog detected LOCKUP'
-> with the r8169 device using the above patch on top of 2.6.10-rc3-bk10.
+Hi,
 
-Ok, that suggests a problem localized to netpoll itself. Do you have
-spinlock debugging turned on by any chance? 
+Firstly, there is a software package called ETHEREAL that will do that for you. 
 
--- 
-Mathematics is the supreme nostalgia of our time.
+If you really want to do it yourself, search the web on how to interface with NETFILTER.
+
+Rudolf
+
+-----Original Message-----
+From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com]On
+Behalf Of linux lover
+Sent: Monday, December 20, 2004 6:46 PM
+To: linux-net@vger.kernel.org
+Cc: netdev@oss.sgi.com
+Subject: Required resources on network driver programming
+
+
+ 
+Hi all,
+                  I am newbie to Linux kernel
+programming. I want to write my own virtual network
+device driver that take every packets from IP layer
+just print the contents of packet(header part with its
+starting addresses only) and send it to actual device
+driver for packet transmission and at receiving end
+receive packet from NIC card again print the header
+addresses and send it to upper layer for normal packet
+processing.
+                 I require help about where can i get
+resources or any book for writing virtual network
+driver with SAMPLE EXAMPLES?
+regards,
+linux_lover
+
+
+		
+__________________________________ 
+Do you Yahoo!? 
+Send holiday email and support a worthy cause. Do good. 
+http://celebrity.mail.yahoo.com
