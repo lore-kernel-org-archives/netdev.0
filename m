@@ -1,31 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 20:33:25 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610.203325.41658167.davem@redhat.com>
-References: <3EE682B8.8060708@candelatech.com>
-	<20030610.182234.74725315.davem@redhat.com>
-	<3EE68B15.60802@candelatech.com>
+Date: Wed, 11 Jun 2003 09:25:19 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030611072519.GB27144@wotan.suse.de>
+References: <20030610.152020.59678979.davem@redhat.com> <Pine.LNX.4.51.0306101956520.7801@ns.istop.com> <3EE67D2D.80608@candelatech.com> <20030610.180120.71112140.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: greearb@candelatech.com
-In-Reply-To: <3EE68B15.60802@candelatech.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: greearb@candelatech.com, ralph+d@istop.com,
+	Robert.Olsson@data.slu.se, hadi@shell.cyberus.ca, xerox@foonet.net,
+	sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030610.180120.71112140.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Ben Greear <greearb@candelatech.com>
-   
-   Yes, I understand why we want a time-stamp very early...but if
-   we can get _some_ sort of time stamp very cheap (TSC, for example)
-   then we can potentially defer the more expensive conversion of
-   this stamp into the equivalent of whatever do_gettimeofday will
-   give us.
+> I have a strange feeling that Ralph's system isn't using
+> TSC and that's why it shows up so high on the profiles :-)
+> TSC do_gettimeofday() is REALLY cheap (TSC read plus a multiply which
+> x86 does in like 5 cycles).
 
-I fully understand your idea, I've talked about it with Alexey many
-times.  Someone just has to implement it.
+On a P4 rdtsc takes 90+ cycles (probably because it's flushing the complete
+pipeline). Of course it's still relatively fast if you run that at 3Ghz,
+but on slower P4s it may hurt.
 
-pkt_sched.h is probably the place to play, maybe make an
-asm/pkt_sched.h header.
+On Athlons/Hammers it is quite fast, but at least on Hammer it needs
+a pipeline flush again for accuracy (otherwise the CPU can speculate
+it around)
+
+One bigger cost is normally the rw lock or the two memory barriers for
+the seqlock (on 2.5). On a UP compiled kernel it should not be a problem
+though.
+
+-Andi
