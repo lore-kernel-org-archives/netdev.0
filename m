@@ -1,61 +1,48 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.6.x net driver fixes
-Date: Sun, 7 Nov 2004 21:32:36 -0500
-Message-ID: <20041108023236.GA13437@havoc.gtf.org>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: Prism54 AP WPA using Hostap and WDS
+Date: Sun, 7 Nov 2004 18:33:08 -0800
+Message-ID: <20041108023308.GA7425@jm.kir.nu>
+References: <20041104032219.GU388@ruslug.rutgers.edu>
+	<20041105162037.GN388@ruslug.rutgers.edu>
+	<20041105162507.GO388@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
 Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20041105162507.GO388@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, Nov 05, 2004 at 11:25:07AM -0500, Luis R. Rodriguez wrote:
 
-Please do a
+> Jouni, Bell Kin sent you some prism54 hostapd patches. I believe you
+> actually wrote the work. How are they looking ?
 
-	bk pull bk://gkernel.bkbits.net/net-drivers-2.6
+I did not write that code; the copyright notice in driver_prism54.c is
+not correct. The code seems to be for older version of hostapd driver
+interface API and as such does not work with the current development
+snapshot. driver_prism54.c seems to be implemented in a way that would
+remove support for Host AP driver, i.e., it does not follow the driver
+interface design to allow multiple interfaces and instead just overrides
+functions used for Host AP driver. In addition, I did not receive any
+patch file for integrating the driver interface code for Prism54.
 
-This will update the following files:
+Someone, ideally the original author, would need to go through these and
+submit a proper patch to integrate this into the current development
+version of hostapd without breaking other driver interfaces. I'm not
+likely to have time to do this myself in the near future, but I'm
+willing to comment complete patches and answer questions to get this
+into suitable form..
 
- drivers/net/Kconfig            |    2 +-
- drivers/net/hamradio/hdlcdrv.c |    2 --
- 2 files changed, 1 insertion(+), 3 deletions(-)
-
-through these ChangeSets:
-
-<miltonm@realtime.net> (04/11/06 1.2473)
-   [PATCH] hamradio/hdlcdrv: undo duplicat patch application
-   
-   Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
-
-<miltonm@realtime.net> (04/11/06 1.2472)
-   [PATCH] net/Kconfig: undo duplicate patch application
-   
-   Signed-off-by: Jeff Garzik <jgarzik@pobox.com>
-
-diff -Nru a/drivers/net/Kconfig b/drivers/net/Kconfig
---- a/drivers/net/Kconfig	2004-11-07 21:31:54 -05:00
-+++ b/drivers/net/Kconfig	2004-11-07 21:31:54 -05:00
-@@ -1681,7 +1681,7 @@
- 	  (e.g. VT8235).
- 
- 	  To compile this driver as a module, choose M here. The module
--	  will be called via-velocity.
-+	  will be called via-rhine.
- 
- config VIA_RHINE_MMIO
- 	bool "Use MMIO instead of PIO"
-diff -Nru a/drivers/net/hamradio/hdlcdrv.c b/drivers/net/hamradio/hdlcdrv.c
---- a/drivers/net/hamradio/hdlcdrv.c	2004-11-07 21:31:54 -05:00
-+++ b/drivers/net/hamradio/hdlcdrv.c	2004-11-07 21:31:54 -05:00
-@@ -549,8 +549,6 @@
- 
- 	netif_stop_queue(dev);
- 
--	netif_stop_queue(dev);
--
- 	if (s->ops && s->ops->close)
- 		i = s->ops->close(dev);
- 	if (s->skb)
+-- 
+Jouni Malinen                                            PGP id EFC895FA
