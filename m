@@ -1,41 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: [PATCH] Fix 64bit warnings in donauboe driver
-Date: Wed, 17 Mar 2004 11:58:50 +0100
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: network delay simulation
+Date: Wed, 17 Mar 2004 10:37:59 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040317115850.216e6d1b.ak@suse.de>
+Message-ID: <Pine.NEB.4.33.0403171000060.13117-100000@dexter.psc.edu>
+References: <20040316174134.2f1da12a.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stephen Hemminger <shemminger@osdl.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, irda-users@lists.sourceforge.net
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040316174134.2f1da12a.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 16 Mar 2004, David S. Miller wrote:
 
-Fix a few 64bit warnings in the Donauboe driver. Untested.
+> On Tue, 16 Mar 2004 15:10:58 -0800
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+>
+> > Probably "the cowboy way" would be to right a new net/scheduler to just
+> > do FIFO delay.
+> >
+> > Any ideas/comments? Somebody have some code sitting in a drawer?
+>
+> Probably a packet scheduler would be my first choice, you could then even
+> tag packets using classification and therefore delay differently for different
+> flows.
 
--Andi
+One insight I had a while ago is that packet pacing and artificial delay
+require a very similar mechanism.  I hacked something a while ago that did
+this in a general way, though it had some problems and I never really
+followed up on it.  Given the recent discussion of pacing on linux-net,
+this might be something to think about.
 
-diff -u linux/drivers/net/irda/donauboe.c-o linux/drivers/net/irda/donauboe.c
---- linux/drivers/net/irda/donauboe.c-o	1970-01-01 01:12:51.000000000 +0100
-+++ linux/drivers/net/irda/donauboe.c	2004-03-17 11:56:57.000000000 +0100
-@@ -1669,16 +1669,15 @@
- 
-   /*We need to align the taskfile on a taskfile size boundary */
-   {
--    __u32 addr;
-+    unsigned long addr;
- 
--    addr = (__u32) self->ringbuf;
--    addr &= ~(OBOE_RING_LEN - 1);
-+    addr = (unsigned long) self->ringbuf;
-+    addr &= ~((unsigned long)OBOE_RING_LEN - 1);
-     addr += OBOE_RING_LEN;
-     self->ring = (struct OboeRing *) addr;
-   }
- 
-   memset (self->ring, 0, OBOE_RING_LEN);
--  self->io.mem_base = (__u32) self->ring;
- 
-   ok = 1;
-   for (i = 0; i < TX_SLOTS; ++i)
+  -John
