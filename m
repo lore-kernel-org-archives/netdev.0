@@ -1,120 +1,94 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Open hardware wireless cards
-Date: Wed, 5 Jan 2005 15:36:45 -0500
-Message-ID: <20050105203645.GO5159@ruslug.rutgers.edu>
-References: <20050105200526.GL5159@ruslug.rutgers.edu>
-	<Pine.LNX.4.61.0501052017380.5818@rivendell.nexusuk.org>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Wed, 5 Jan 2005 14:52:57 -0600
+Message-ID: <200501051453.03022.jeremy.guthrie@berbee.com>
+References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501051325.40616.jeremy.guthrie@berbee.com> <16860.19615.251360.169722@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1055570283=="
-Cc: Netdev <netdev@oss.sgi.com>,
-	Jean Tourrilhes <jt@bougret.hpl.hp.com>,
-	"Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-	Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
-	prism54-users@prism54.org, prism54-devel@prism54.org
-Return-path: <prism54-users-bounces@prism54.org>
-To: Steve Hill <steve@nexusuk.org>
-In-Reply-To: <Pine.LNX.4.61.0501052017380.5818@rivendell.nexusuk.org>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-users>,
-	<mailto:prism54-users-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-users>
-List-Post: <mailto:prism54-users@prism54.org>
-List-Help: <mailto:prism54-users-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-users>,
-	<mailto:prism54-users-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Sender: prism54-users-bounces@prism54.org
-Errors-To: prism54-users-bounces@prism54.org
+Content-Type: multipart/signed;
+  boundary="nextPart2053757.ArktrbUOaq";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <16860.19615.251360.169722@robur.slu.se>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---===============1055570283==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Il7n/DHsA0sMLmDu"
-Content-Disposition: inline
-
-
---Il7n/DHsA0sMLmDu
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--nextPart2053757.ArktrbUOaq
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
-
-On Wed, Jan 05, 2005 at 08:22:10PM +0000, Steve Hill wrote:
-> -----BEGIN PGP SIGNED MESSAGE-----
-> Hash: SHA1
->=20
-> On Wed, 5 Jan 2005, Luis R. Rodriguez wrote:
->=20
-> >What I think we probably will have to do is just work torwards seeing if
-> >we can come up with our own open wireless hardware. I know there was
-> >a recent thread on lkml about an open video card -- anyone know where
-> >that ended up?
->=20
-> This may be a silly point, but there *was* good 802.11g hardware availabl=
-e=20
-> which worked well with the fully open drivers.=20
-
-Yes, that would be the Full MAC prism chipsets with the linux prism54 drive=
-r,
-which I help maintain.
-
-> I presume the=20
-> manufacturers are moving to the "softmac" design instead because (for=20
-> them) it is cheaper.
-
-That is correct. They have already moved to the Softmac design and
-you're lucky if you can buy FullMAC chipsets in stores now.
-
-> However, the point is that the working designs are=20
-> already there and it may be that buying the existing design which is bein=
-g=20
-> phased out is cheaper for the FOSS community than developing a whole new=
-=20
-> open device.
-
-Definitely, I agree. Anyone have an idea of how much buying a wireless
-chipset design may cost?
-
-> Maybe it would be possible to convince one of the manufacturers that it's=
-=20
-> worth their while producing the older design hardware - if there is a=20
-> single manufacturer who is making more or less the only hardware that is=
-=20
-> guaranteed to work under Linux there is probably quite a market for them.
-
-I think they made the move because of economics as you mentioned
-earlier. Under the current circumstances, I find it hard to be able to
-Convince Conexant, for example, to start selling FullMAC chipsets again.
-
-AFAICT the FullMAC chipsets have reached the END OF LIFE period.
-
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---Il7n/DHsA0sMLmDu
-Content-Type: application/pgp-signature
 Content-Disposition: inline
+
+On Wednesday 05 January 2005 02:22 pm, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  > After smp_affinity adjustments and turning off IRQ balancing.
+>  >
+>  > eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
+>  >
+>  >           RX packets:537271635 errors:2377048 dropped:2377048
+>  > overruns:1849169
+>
+>  Worse?
+>
+>  Yes. I'll remember Hararld moved rt_cache_stat /proc/net/stats/ and wrote
+> a new utility for it. Should be in iproute2 package.  Stephen knows the
+> details. Otherwise change path in rtstat. You need this to relate and
+> verify the load.
+Hm...
+ls -la /proc/net/stat/
+total 0
+dr-xr-xr-x  2 root root 0 Jan  5 14:47 .
+dr-xr-xr-x  5 root root 0 Jan  5 11:50 ..
+=2Dr--r--r--  1 root root 0 Jan  5 14:47 arp_cache
+=2Dr--r--r--  1 root root 0 Jan  5 14:47 clip_arp_cache
+=2Dr--r--r--  1 root root 0 Jan  5 14:47 ndisc_cache
+=2Dr--r--r--  1 root root 0 Jan  5 14:47 rt_cache
+
+
+>  Check throughtput and how packet load is used with 2.4.
+> /proc/net/softnet_stat and rtstat.=20
+Will do.
+
+> Also meditate how the comparison can be=20
+> fair wrt taffic patterns. Do smame with 2.6.
+Not sure I follow.  I can see higher pps/byte through puts on switch port=20
+counters when I run with 2.4 vs 2.6.  I'll double check though.  I am the=20
+'dev' state so I can swap between V2.4 and V2.6 as necessary to compare=20
+during roughly equivalent times.  The only delay is the time between reboot=
+s.
+
+>  Prepare for a oprofile. I'm lazy and compile the stuff I use into kernel
+> if you can get the same result w. nodules it's ok.
+Okay.
+
+>
+>
+>         --ro
+
+=2D-=20
+
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart2053757.ArktrbUOaq
+Content-Type: application/pgp-signature
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFB3E/dat1JN+IKUl4RAn+zAJ9Nqm7B2/Z/4ouMrwSdYqjNQlSLRQCfdWtT
-Zum49MFe0zuSx+3O2yHHpKE=
-=uXsP
+iD8DBQBB3FOuqtjaBHGZBeURArx5AJoD1hHvaB93tJpQtWF6wrOGpNfBugCfTtEj
+L/NGCQWMNHjI4Au8pD6LJNc=
+=4LXK
 -----END PGP SIGNATURE-----
 
---Il7n/DHsA0sMLmDu--
-
---===============1055570283==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-users mailing list
-Prism54-users@prism54.org
-http://prism54.org/mailman/listinfo/prism54-users
-
---===============1055570283==--
+--nextPart2053757.ArktrbUOaq--
