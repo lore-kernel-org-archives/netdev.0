@@ -1,145 +1,86 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: design for TSO performance fix
-Date: Thu, 27 Jan 2005 16:31:46 -0800
-Message-ID: <20050127163146.33b01e95.davem@davemloft.net>
+Subject: Re: Memory leak in 2.6.11-rc1?
+Date: Thu, 27 Jan 2005 16:34:44 -0800
+Message-ID: <20050127163444.1bfb673b.davem@davemloft.net>
+References: <20050123095608.GD16648@suse.de>
+	<20050123023248.263daca9.akpm@osdl.org>
+	<20050123200315.A25351@flint.arm.linux.org.uk>
+	<20050124114853.A16971@flint.arm.linux.org.uk>
+	<20050125193207.B30094@flint.arm.linux.org.uk>
+	<20050127082809.A20510@flint.arm.linux.org.uk>
+	<20050127004732.5d8e3f62.akpm@osdl.org>
+	<16888.58622.376497.380197@robur.slu.se>
+	<20050127164918.C3036@flint.arm.linux.org.uk>
+	<20050127123326.2eafab35.davem@davemloft.net>
+	<20050128001701.D22695@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: Robert.Olsson@data.slu.se, akpm@osdl.org, torvalds@osdl.org,
+        alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Russell King <rmk+lkml@arm.linux.org.uk>
+In-Reply-To: <20050128001701.D22695@flint.arm.linux.org.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 28 Jan 2005 00:17:01 +0000
+Russell King <rmk+lkml@arm.linux.org.uk> wrote:
 
-Ok, here is the best idea I've been able to come up with
-so far.
+> Yes.  Someone suggested this evening that there may have been a recent
+> change to do with some IPv6 refcounting which may have caused this
+> problem.  Is that something you can confirm?
 
-The basic idea is that we stop trying to build TSO frames
-in the actual transmit queue.  Instead, TSO packets are
-built impromptu when we actually output packets on the
-transmit queue.
+Yep, it would be this change below.  Try backing it out and see
+if that makes your leak go away.
 
-Advantages:
-
-1) No knowledge of TSO frames need exist anywhere besides
-   tcp_write_xmit(), tcp_transmit_skb(), and
-   tcp_xmit_retransmit_queue()
-
-2) As a result of #1, all the pcount crap goes away.
-   The need for two MSS state variables (mss_cache,
-   and mss_cache_std) and assosciated complexity is
-   eliminated as well.
-
-3) Keeping TSO enabled after packet loss "just works".
-
-4) CWND sampled at the correct moment when deciding
-   the TSO packet arity.
-
-The one disadvantage is that it might be a tiny bit more
-expensive to build TSO frames.  But I am sure we can find
-ways to optimize that quite well.
-
-The main element of the TSO output logic is a function
-that is schemed as follows:
-
-static inline int tcp_skb_data_all_paged(struct sk_buff *skb)
-{
-	return (skb->len == skb->data_len);
-}
-
-/* If possible, append paged data of SRC_SKB onto the
- * tail of DST_SKB.
- */
-static int skb_append_pages(struct sk_buff *dst_skb, struct sk_buff *src_skb)
-{
-	int i;
-
-	if (!tcp_skb_data_all_paged(src_skb))
-		return -EINVAL;
-
-	for (i = 0; i < skb_shinfo(src_skb)->nr_frags; i++) {
-		skb_frag_t *src_frag = &skb_shinfo(src_skb)->frags[i];
-		skb_frag_t *dst_frag;
-		int dst_frag_idx;
-
-		dst_frag_idx = skb_shinfo(dst_skb)->nr_frags;
-
-		if (skb_can_coalesce(dst_skb, dst_frag_idx,
-				     src_frag->page, src_frag->page_offset)) {
-			dst_frag = &skb_shinfo(dst_skb)->frags[dst_frag_idx-1];
-			dst_frag->size += src_frag->size;
-		} else {
-			if (dst_frag_idx >= MAX_SKB_FRAGS)
-				return -EMSGSIZE;
-
-			dst_frag = &skb_shinfo(dst_skb)->frags[dst_frag_idx];
-			skb_shinfo(dst_skb)->nr_frags = dst_frag_idx + 1;
-
-			dst_frag->page = src_frag->page;
-			get_page(src_frag->page);
-
-			dst_frag->page_offset = src_frag->page_offset;
-			dst_frag->size = src_frag->size;
-		}
-		skb->data_len += src_frag->size;
-	}
-
-	return 0;
-}
-
-static struct sk_buff *tcp_tso_build(struct sk_buff *head, int mss, int num)
-{
-	struct sk_buff *skb;
-	struct sock *sk;
-	int err;
-
-	sk = head->sk;
-	skb = alloc_skb(sk->sk_prot->max_header, GFP_ATOMIC);
-	err = -ENOMEM;
-	if (!skb)
-		goto fail;
-
-	err = 0;
-	skb_shinfo(skb)->tso_size = mss;
-	skb_shinfo(skb)->tso_segs = num;
-	while (num--) {
-		err = skb_append_pages(skb, head, &dst_frag_idx);
-		if (err)
-			goto fail;
-
-		head = head->next;
-	}
-	return skb;
-
-fail:
-	if (skb) {
-		int i;
-
-		for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-
-			put_page(frag->page);
-		}
-
-		kfree_skb(skb);
-	}
-	return NULL;
-}
-
-If tcp_tso_build() fails, the caller just falls back to the
-normal path of sending the frames non-TSO one-by-one.
-
-The logic is simple because if TSO is being done we know
-that all of the SKB data is paged (since SG+CSUM is a
-requirement for TSO).  The one case where that
-invariant might fail is due to a routing change (previous
-device cannot do SG+CSUM, new device has full TSO capability)
-and that is handled via the tcp_skb_data_all_paged() checks.
-
-My thinking is that whatever added expensive this new scheme
-has, is offset by the simplifications the rest of the TCP
-stack will have since it will no longer need to know anything
-about multiple MSS values and packet counts.
-
-Comments?
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/01/14 20:41:55-08:00 herbert@gondor.apana.org.au 
+#   [IPV6]: Fix locking in ip6_dst_lookup().
+#   
+#   The caller does not necessarily have the socket locked
+#   (udpv6sendmsg() is one such case) so we have to use
+#   sk_dst_check() instead of __sk_dst_check().
+#   
+#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# net/ipv6/ip6_output.c
+#   2005/01/14 20:41:34-08:00 herbert@gondor.apana.org.au +3 -3
+#   [IPV6]: Fix locking in ip6_dst_lookup().
+#   
+#   The caller does not necessarily have the socket locked
+#   (udpv6sendmsg() is one such case) so we have to use
+#   sk_dst_check() instead of __sk_dst_check().
+#   
+#   Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+diff -Nru a/net/ipv6/ip6_output.c b/net/ipv6/ip6_output.c
+--- a/net/ipv6/ip6_output.c	2005-01-27 16:07:21 -08:00
++++ b/net/ipv6/ip6_output.c	2005-01-27 16:07:21 -08:00
+@@ -745,7 +745,7 @@
+ 	if (sk) {
+ 		struct ipv6_pinfo *np = inet6_sk(sk);
+ 	
+-		*dst = __sk_dst_check(sk, np->dst_cookie);
++		*dst = sk_dst_check(sk, np->dst_cookie);
+ 		if (*dst) {
+ 			struct rt6_info *rt = (struct rt6_info*)*dst;
+ 	
+@@ -772,9 +772,9 @@
+ 			     && (np->daddr_cache == NULL ||
+ 				 !ipv6_addr_equal(&fl->fl6_dst, np->daddr_cache)))
+ 			    || (fl->oif && fl->oif != (*dst)->dev->ifindex)) {
++				dst_release(*dst);
+ 				*dst = NULL;
+-			} else
+-				dst_hold(*dst);
++			}
+ 		}
+ 	}
+ 
