@@ -1,28 +1,26 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: "new style" netdevice allocation patch for TUN driver (2.4.18 kernel)
-Date: Thu, 1 Aug 2002 22:01:37 +0400 (MSD)
+From: "??" <seong@etri.re.kr>
+Subject: two net_device ?
+Date: Fri, 2 Aug 2002 09:27:46 +0900
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208011801.WAA07242@sex.inr.ac.ru>
-References: <20020801175204.GC17308@nic.nigdzie>
+Message-ID: <004501c239bb$6ca70d30$21abfe81@seong>
+References: <20020801133506.GA22073@serwus.bnet.pl> <200208011743.VAA07150@sex.inr.ac.ru> <20020801175204.GC17308@nic.nigdzie>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: jajcus@bnet.pl (Jacek Konieczny)
-In-Reply-To: <20020801175204.GC17308@nic.nigdzie> from "Jacek Konieczny" at Aug 1, 2 07:52:06 pm
+To: <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi, there.
 
-> but finally it is finished. On system shutdown, when all routes are
-> removed, all interfaces downed and all processes killed the device will
-> not be used any more and the device is freed.
+I implemented 32 pseudo interface(eth1 ~ eth32) using a module.
+When I up the interfaces using "ifconfig eth1 xx.xx.xx.xx" command,
+there are two "eth1" interface. Before I up the interfaces, there is a "eth1" interface.
+I can't find what thing goes wrong.
 
-I do not understand this. It is leak and we have to find who continues
-to use the device.
+For test, I made just 2 pseudo interface using same mechanizm. then
+above problem doesn't occur.
 
-
-> And even if there is a bug
-
-Nope. The bug is the first, the cleanup is the second.
-
-Alexey
+any suggestion, thanks..
+I use 2.4.17 kernel.
