@@ -1,39 +1,83 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH] linux 2.6.x.x  - include/net/neighbour.h spell-check
-Date: Wed, 15 Sep 2004 16:17:50 -0700
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: The ultimate TOE design
+Date: Wed, 15 Sep 2004 16:29:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040915161750.69016175.rddunlap@osdl.org>
-References: <20040913174842.96183.qmail@web90003.mail.scd.yahoo.com>
-	<20040913162724.7a6f2213.davem@davemloft.net>
+Message-ID: <200409152329.i8FNTsqG025184@guinness.s2io.com>
+References: <20040915142926.7bc456a4.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: speattle@yahoo.com, netdev@oss.sgi.com
+Cc: <alan@lxorguk.ukuu.org.uk>, <paul@clubi.ie>, <netdev@oss.sgi.com>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040913162724.7a6f2213.davem@davemloft.net>
+To: "'David S. Miller'" <davem@davemloft.net>,
+        "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: <20040915142926.7bc456a4.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 13 Sep 2004 16:27:24 -0700 David S. Miller wrote:
+I think Jeff's "ultimate TOE card" based upon generic embedded CPU is doable
+at GbE, but we may not see such a product because it's too late for it to
+succeed.
 
-| On Mon, 13 Sep 2004 10:48:39 -0700 (PDT)
-| S P <speattle@yahoo.com> wrote:
-| 
-| > in linux 2.6.x.x kernel's include/net/neighbour.h
-| > 'Neighbour' and 'Neighbor' are used interchangeably.
-| > 
-| > neighbour is british variation of neighbor, so i'd say
-| > neighbor is more appropriate.  but then the header's
-| > named neighbour.  
-| 
-| Does anyone remember what happened on linux-kernel when
-| the similar case of American English "color" vs. British
-| English "colour" was being debated?
-| 
-| In any event, whatever we decide we should do tree-wide.
+TOE is a pretty questionable product in itself; one of the main reasons
+people build TOE cards is to put RDMA on top of it and end up with an RNIC
+(NIC+TOE+RDMA) Ethernet card.
+The hope is to eventually run all three types of server traffic (network,
+storage, IPC) over an RNIC, and get rid of two other HBAs in a system.
 
-I don't recall any mass changes from -our to -or.
+For this "fabric conversion" over Ethernet to happen it has to be at 10GbE
+not GbE, since storage (FiberChannel) is already at 4Gb.
+And at 10GbE, embedded CPUs just don't cut it - it has to be custom ASIC
+(granted, with some means to simplify debugging and reduce the risk of hw
+bugs and TCP changes).
 
---
-~Randy
+On some other points on the thread:
+
+WRT the TOE price, I suspect that when RNICs come out they will command
+little premium over conventional NICs - it will be just a technology
+upgrade.
+
+WRT larger MTU - going to bigger MTUs helps a lot, but it will be years
+before the infrastructure moves beyond 9600 byte MTU. Even right now, usage
+of 9600 byte Jumbos is not universal.
+
+WRT TSO, for applications that don't require RDMA TSO indeed helps a lot on
+the transmit side for 1500 MTU - 10GbE cards are innevitably CPU bound, and
+we are seeing ~3x throughput improvement with normal frames.
+
+This leaves receive offload schemes in Linux as a biggest improvement (short
+of supporting TOE) to make.
+It will be great to see such receive schemes defined and implemented, as I
+stated in an earlier thread we will be willing to participate in such work
+and put the support in S2io 10GbE ASIC and drivers.
+
+
+
+
+> -----Original Message-----
+> From: David S. Miller [mailto:davem@davemloft.net] 
+> Sent: Wednesday, September 15, 2004 2:29 PM
+> To: Jeff Garzik
+> Cc: alan@lxorguk.ukuu.org.uk; paul@clubi.ie; 
+> netdev@oss.sgi.com; leonid.grossman@s2io.com; 
+> linux-kernel@vger.kernel.org
+> Subject: Re: The ultimate TOE design
+> 
+> On Wed, 15 Sep 2004 17:23:49 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> 
+> > The typical definition of TOE is "offload 90+% of the net 
+> stack", as 
+> > opposed to "TCP assist", which is stuff like TSO.
+> 
+> I think a better goal is "offload 90+% of the net stack cost" 
+> which is effectively what TSO does on the send side.
+> 
+> This is why these discussions are so circular.
+> 
+> If we want to discuss something specific, like receive 
+> offload schemes, that is a very different matter.  And I'm 
+> sure folks like Rusty have a lot to contribute in this area :-)
+> 
