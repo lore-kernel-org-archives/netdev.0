@@ -1,70 +1,74 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Mon, 22 Nov 2004 22:30:09 +0100
-Message-ID: <20041122213008.GA9618@electric-eye.fr.zoreil.com>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk>
+Date: Mon, 22 Nov 2004 22:07:27 +0000
+Message-ID: <41A2631F.5020804@phekda.gotadsl.co.uk>
+References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Content-Disposition: inline
-In-Reply-To: <41A24F35.5080106@phekda.gotadsl.co.uk>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041122213008.GA9618@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Richard Dawe <rich@phekda.gotadsl.co.uk> :
-[...]
-> I didn't see any crashes or hangs with use_dac enabled (or rather, not 
-> disabled).
+Hello.
 
-It defaults to 0. Set it to 1 if you dare (once the current issues are
-fixed, ok ? :o) ).
-
-> I haven't tried use_dac=1 with media=0x2, though. Maybe that would give 
-> enough traffic to crash or hang my box.
-
-media=... ought to be obsolete.
-
-I'll check if there is something relevant for ethtool on RH bugzilla.
-It should not segfault.
-
-[...]
-> No, that suffers from the same problems.
-
-Thanks anyway.
-
-> How do these patches differ from those in 2.6.10-rc2-mm2?
-
-The Tx timeout recovery sequence suggested by Jon Mason works for me.
-
-[...]
-> Sadly my box won't boot, if I disable ACPI.
-
-Can you give a look at:
-http://forums.gentoo.org/viewtopic.php?t=122145%22%22
-
-Ac*r, laptop, acpi and x64 are making me paranoid.
-
-> >It takes ages to negotiate here (Netgear switch + 8169 PCI adapter).
-> [snip]
+Francois Romieu wrote:
+> Richard Dawe <rich@phekda.gotadsl.co.uk> :
+> [...]
 > 
-> It seems to negotiate pretty quickly with my DSL router. Less than a 
-> second, I'd say. I can time it a bit more exactly, if it would help.
+>>I didn't see any crashes or hangs with use_dac enabled (or rather, not 
+>>disabled).
+> 
+> 
+> It defaults to 0. Set it to 1 if you dare (once the current issues are
+> fixed, ok ? :o) ).
 
-It is not necessary.
+Yeah. ;)
 
-> From your ethtool patch, it looks like I have a 8110. I did search 
-> their specs for version registers, etc., but I could not see them. Where 
-> did you get your datasheet from for the 8110?
+[snip]
+ > I'll check if there is something relevant for ethtool on RH bugzilla.
+ > It should not segfault.
 
-I got my rtl8169spec-121.pdf from Realtek's website when their search
-engine was still working. Now you'd better use Google.
+OK. I will try debugging it using gdb later (probably not today), to see 
+where it segfaults.
 
-There are some typos in the datasheet as some parts seems to have been
-copy/pasted from the 8139C+ manual. Some registers are missing (0xe2,
-0x48 ?).
+[snip]
+>>Sadly my box won't boot, if I disable ACPI.
+> 
+> 
+> Can you give a look at:
+> http://forums.gentoo.org/viewtopic.php?t=122145%22%22
+> 
+> Ac*r, laptop, acpi and x64 are making me paranoid.
 
---
-Ueimor
+Sure. It will take me a while to digest all that stuff! I probably won't 
+be able to do that for a couple of days. There is a fixed-up ACPI file 
+for the Acer Aspire 1523LMi. I probably need to do some work. Earlier 
+versions of the 1520 series came with Broadcom GigE.
+
+[snip]
+>>From your ethtool patch, it looks like I have a 8110. I did search 
+>>their specs for version registers, etc., but I could not see them. Where 
+>>did you get your datasheet from for the 8110?
+> 
+> 
+> I got my rtl8169spec-121.pdf from Realtek's website when their search
+> engine was still working. Now you'd better use Google.
+[snip]
+
+Thanks, I've got a copy now. Googling for that exact filename gives a 
+site containing specifications for various network chips.
+
+Thanks for your help!
+
+Thanks, bye, Rich =]
+
+-- 
+Richard Dawe [ http://homepages.nildram.co.uk/~phekda/richdawe/ ]
+
+"You can't evaluate a man by logic alone."
+   -- McCoy, "I, Mudd", Star Trek
