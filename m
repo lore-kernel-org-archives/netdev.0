@@ -1,27 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [TCP] Modularise tcpdiag
-Date: Mon, 1 Nov 2004 17:01:45 -0800
-Message-ID: <20041101170145.52185904.davem@davemloft.net>
-References: <20041029043858.GA27907@gondor.apana.org.au>
+Subject: Re: [PATCHSET 0/4] PKT_SCHED: More classifier cleanups
+Date: Mon, 1 Nov 2004 17:06:16 -0800
+Message-ID: <20041101170616.588da57d.davem@davemloft.net>
+References: <20041029140612.GO12289@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041029043858.GA27907@gondor.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041029140612.GO12289@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 14:38:58 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 29 Oct 2004 16:06:12 +0200
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> This is the first step in fixing the tcpdiag/modular ipv6 issue.
-> We modularise tcpdiag in the obvious way.
+> Cleans up route,rsvp,tcindex, and u32 classifier to
+> use the generic classifier routines.
 > 
-> Next we can move out the IPv6-specific stuff.
+> All trivial changes not changing any behaviour.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Relative to patchset "Generic classifier routines / cls_fw cleanup"
 
-Applied, thanks Herbert.
+All applied, thanks a lot Thomas.
