@@ -1,39 +1,40 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] gc_min_interval in milleseconds via /proc
-Date: Wed, 26 Jan 2005 16:20:42 +0100
-Message-ID: <16887.46410.873506.298630@robur.slu.se>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH 4 of 5][ATM]: get accounting right when we remove skb
+Date: Wed, 26 Jan 2005 11:57:53 -0500
+Message-ID: <200501261657.j0QGvqll018872@ginger.cmf.nrl.navy.mil>
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+please apply to 2.6
 
+thanks!
 
-Hello!
-The second resolution is very inconvenient. Milleseconds would be nicer.
-
- cat /proc/sys/net/ipv4/route/gc_min_interval 
-500
-
-
---- net/ipv4/route.c.orig	2005-01-25 13:58:29.210846472 +0100
-+++ net/ipv4/route.c	2005-01-25 14:25:52.116086912 +0100
-@@ -2532,9 +2532,9 @@
- 		.ctl_name	= NET_IPV4_ROUTE_GC_MIN_INTERVAL,
- 		.procname	= "gc_min_interval",
- 		.data		= &ip_rt_gc_min_interval,
--		.maxlen		= sizeof(int),
-+		.maxlen		= sizeof(unsigned long),
- 		.mode		= 0644,
--		.proc_handler	= &proc_dointvec_jiffies,
-+		.proc_handler	= &proc_doulongvec_ms_jiffies_minmax,
- 		.strategy	= &sysctl_jiffies,
- 	},
-
-
-						--ro
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/01/24 13:25:27-05:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: get accounting right when we remove skb
+#   
+#     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+# 
+# net/atm/svc.c
+#   2005/01/24 13:25:10-05:00 chas@relax.cmf.nrl.navy.mil +1 -0
+#   [ATM]: get accounting right when we remove skb
+#   
+#     Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
+# 
+diff -Nru a/net/atm/svc.c b/net/atm/svc.c
+--- a/net/atm/svc.c	2005-01-25 09:36:57 -05:00
++++ b/net/atm/svc.c	2005-01-25 09:36:57 -05:00
+@@ -67,6 +67,7 @@
+ 	/* beware - socket is still in use by atmsigd until the last
+ 	   as_indicate has been answered */
+ 	while ((skb = skb_dequeue(&vcc->sk->sk_receive_queue)) != NULL) {
++		atm_return(vcc, skb->truesize);
+ 		DPRINTK("LISTEN REL\n");
+ 		sigd_enq2(NULL,as_reject,vcc,NULL,NULL,&vcc->qos,0);
+ 		dev_kfree_skb(skb);
