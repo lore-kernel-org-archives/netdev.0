@@ -1,31 +1,56 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: IPSEC MIB instrumentatoin ??
-Date: Wed, 8 Dec 2004 11:56:03 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0412081155020.6759-100000@thoron.boston.redhat.com>
-References: <s1b6950e.096@lucius.provo.novell.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
+Date: Wed, 8 Dec 2004 18:30:28 +0100
+Message-ID: <20041208173028.GN1371@postel.suug.ch>
+References: <1102422544.1088.98.camel@jzny.localdomain> <41B5E188.5050800@trash.net> <20041207170748.GF1371@postel.suug.ch> <41B5E722.2080600@trash.net> <1102480044.1050.9.camel@jzny.localdomain> <1102480913.1049.24.camel@jzny.localdomain> <41B68E5D.2080009@trash.net> <1102509111.1051.54.camel@jzny.localdomain> <20041208143212.GL1371@postel.suug.ch> <1102518304.1023.6.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Umasankar Mukkara <mumasankar@novell.com>
-In-Reply-To: <s1b6950e.096@lucius.provo.novell.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Patrick McHardy <kaber@trash.net>, Andrew Morton <akpm@osdl.org>,
+	Thomas Cataldo <tomc@compaqnet.fr>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261274AbULHRaS@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1102518304.1023.6.camel@jzny.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Dec 2004, Umasankar Mukkara wrote:
-
-> Or something closer to "draft-ietf-ipsec-monitor-mib-06.txt " which is
-> an expired draft and can be found at 
+* jamal <1102518304.1023.6.camel@jzny.localdomain> 2004-12-08 10:05
+> On Wed, 2004-12-08 at 09:32, Thomas Graf wrote:
 > 
-> http://www.tatsuyababa.com/internet-drafts/draft-ietf-ipsec-monitor-mib-06.txt
+> > I've put together a small testsuite allowing to easly run tests for
+> > multiple versions of iproute2. It can be found at:
+> > 	http://people.suug.ch/~tgr/iproute2/tc-testsuite.tar.gz
+> > 
 > 
+> Good stuff. Hopefully we can run these tests everytime we make changes
+> going forward. We cant compromise quality by handwaving on instinct.
+> Famous last words: "that couldnt have possibly caused a bug down there".
+> I will take a look at what you have and integrate my 20-30 testcases if
+> they are not covered over time - or may be adpat what you have to follow
+> how i do things or maybe i can send them to you and you can integrate
+> them.
 
-Any idea what happened to the draft process?  Is it likely to be re-issued 
-and turned into an RFC?
+I've only put a small cbq test case and the policer test in there for
+now. I'd be happy to integrate your test cases if you send them to me.
+I wil add more tests in the next days given time.
 
+Our sysadmin had some cycles and set up a UML capable of booting
+any kernel image by script so we can easly test all changes to iproute2
+or the kernel on as many branches as we want. I've put in the latest
+2.4/2.6 main releases, the latest bk snapshots of both and earlier releases
+of both to ensure we keep some backward compatibility. All 2.6 branches
+have 2 configs, one with action code and the other with the old policer.
+I'm not quite sure which versions of iproute2 are being used by the
+distributions so I've put the latest bk version and the ones of red hat,
+suse and debian into it.
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+That's 36 kernel<->iproute2 combinations per test, given we add a few
+dozen tests makes it hard to tell if something went wrong. I'll
+probably need to add some more logic to it besides just checking if
+the test script has written anything to stderr.
+
+I'll be happy to put patches into the test cycle once they're posted
+to netdev or alternatively add dave's bk tree to the list of branches
+whichever is more reasonable.
