@@ -1,12 +1,14 @@
 From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [KJ] [PATCH 19/39] net/dev: replace schedule_timeout() with msleep()
-Date: Thu, 20 Jan 2005 15:53:52 -0800
-Message-ID: <20050120235352.GH2600@us.ibm.com>
+Subject: [KJ] [PATCH 21/39] net/ipconfig: replace schedule_timeout() with
+	msleep()
+Date: Thu, 20 Jan 2005 15:57:49 -0800
+Message-ID: <20050120235749.GJ2600@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============3314243549875473=="
-Cc: linux-net@vger.kernel.org, kernel-janitors@lists.osdl.org
+Content-Type: multipart/mixed; boundary="===============31961530475141875=="
+Cc: netdev@oss.sgi.com, kernel-janitors@lists.osdl.org
 Return-path: <kernel-janitors-bounces@lists.osdl.org>
-To: netdev@oss.sgi.com
+To: davem@davemloft.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
+   yoshfuji@linux-ipv6.org, kaber@coreworks.de
 List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
 	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
 List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
@@ -18,7 +20,7 @@ Sender: kernel-janitors-bounces@lists.osdl.org
 Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
---===============3314243549875473==
+--===============31961530475141875==
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
@@ -27,33 +29,53 @@ Hi,
 Please consider applying.
 
 Description: Use msleep() instead of schedule_timeout() to guarantee the task
-delays as expected. The current code uses TASK_INTERRUPTIBLE, but does not
-respond to signals, so msleep() should be ok.
+delays as expected. Change the units of the two constants to be msecs and secs
+respectively.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 
---- 2.6.11-rc1-kj-v/net/core/dev.c	2005-01-15 16:55:44.000000000 -0800
-+++ 2.6.11-rc1-kj/net/core/dev.c	2005-01-18 12:59:16.000000000 -0800
-@@ -108,6 +108,7 @@
- #include <linux/kallsyms.h>
- #include <linux/netpoll.h>
- #include <linux/rcupdate.h>
+--- 2.6.11-rc1-kj-v/net/ipv4/ipconfig.c	2005-01-15 16:55:44.000000000 -0800
++++ 2.6.11-rc1-kj/net/ipv4/ipconfig.c	2005-01-18 13:01:44.000000000 -0800
+@@ -53,6 +53,7 @@
+ #include <linux/seq_file.h>
+ #include <linux/major.h>
+ #include <linux/root_dev.h>
 +#include <linux/delay.h>
- #ifdef CONFIG_NET_RADIO
- #include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
- #include <net/iw_handler.h>
-@@ -2899,8 +2900,7 @@ static void netdev_wait_allrefs(struct n
- 			rebroadcast_time = jiffies;
- 		}
+ #include <net/arp.h>
+ #include <net/ip.h>
+ #include <net/ipconfig.h>
+@@ -84,8 +85,8 @@
+ #endif
  
--		current->state = TASK_INTERRUPTIBLE;
--		schedule_timeout(HZ / 4);
-+		msleep(250);
+ /* Define the friendly delay before and after opening net devices */
+-#define CONF_PRE_OPEN		(HZ/2)	/* Before opening: 1/2 second */
+-#define CONF_POST_OPEN		(1*HZ)	/* After opening: 1 second */
++#define CONF_PRE_OPEN		500	/* Before opening: 1/2 second */
++#define CONF_POST_OPEN		1	/* After opening: 1 second */
  
- 		if (time_after(jiffies, warning_time + 10 * HZ)) {
- 			printk(KERN_EMERG "unregister_netdevice: "
+ /* Define the timeout for waiting for a DHCP/BOOTP/RARP reply */
+ #define CONF_OPEN_RETRIES 	2	/* (Re)open devices twice */
+@@ -1259,16 +1260,14 @@ static int __init ip_auto_config(void)
+  try_try_again:
+ #endif
+ 	/* Give hardware a chance to settle */
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(CONF_PRE_OPEN);
++	msleep(CONF_PRE_OPEN);
+ 
+ 	/* Setup all network devices */
+ 	if (ic_open_devs() < 0)
+ 		return -1;
+ 
+ 	/* Give drivers a chance to settle */
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(CONF_POST_OPEN);
++	ssleep(CONF_POST_OPEN);
+ 
+ 	/*
+ 	 * If the config information is insufficient (e.g., our IP address or
 
---===============3314243549875473==
+--===============31961530475141875==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
@@ -64,4 +86,4 @@ Kernel-janitors mailing list
 Kernel-janitors@lists.osdl.org
 http://lists.osdl.org/mailman/listinfo/kernel-janitors
 
---===============3314243549875473==--
+--===============31961530475141875==--
