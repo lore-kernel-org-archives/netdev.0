@@ -1,39 +1,81 @@
-From: greear@candelatech.com
-Subject: Re: NAPI-ized tulip patch against 2.4.20-rc1
-Date: Thu, 7 Nov 2002 10:16:51 -0800 (PST)
+From: "Eseimoku K.Anderson(Chief)" <kennyus5@consultant.com>
+Subject: Seeking Your Partnership
+Date: Thu, 7 Nov 2002 20:43:11 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211071013150.31376-100000@grok.yi.org>
-References: <Pine.GSO.4.30.0211070823590.11358-100000@shell.cyberus.ca>
+Message-ID: <200211071938.gA7JcHuR011269@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Ben Greear <greearb@candelatech.com>, Donald Becker <becker@scyld.com>,
-   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0211070823590.11358-100000@shell.cyberus.ca>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Nov 2002, jamal wrote:
-> Trash the machines harder. Try using smaller packets;
+Dear Partner to be,
 
-They are already dropping packets, I thought I'd try to get a slower run 
-to work cleanly before trying something faster.  Precision is more
-important to me than absolute throughput at this point.
+First, I must apologise to you for using this medium to communicate to you
+about this project and It is my great pleasure in writing you this letter
+on behalf of my colleagues and myself.
 
-Initial run with 256 sized rx-ring (and skb-recycle) shows better
-performance (than with 1024 rx-ring)
+I am a highly placed official of  Government of Nigeria and also a
+founding member of the ruling party in Power now,the Peoples Democratic
+Party(PDP).
 
-Sent 6-mil packets (same setup as before), dropped 750 or so.  One NIC has 
-dropped 2000 in one direction and 1325 in the other though...
+DESCRIPTION OF PROJECT:My committee - The Niger Delta Development
+Corporation(NDDC)-which is in charge of managing and supervising  the
+disbursement of oil sales revenues for the Nigerian government which
+covers payment to foreign and local contractors,who had executed contracts
+for our country.The revenues  under our control runs into several hundred
+of millions of dollars and using my position as Executive Director in
+charge of projects,I and other colleagues in the NDDC are currently in
+need of a foreign partner with whose bank account we shall transfer the
+sum of Forty Nine Million Five Hundred Thosand United States
+Dollars($49.5m).
+To do this, we will need your cooperation as a foreigner who
+could front to receive the fund on our behalf.
 
-An over-night run with 1024 rx-ring passed 152mil packets, dropped 75k or 
-so.
+SOURCE OF FUND: The amount represents a percentage of the total 
+contract value executed on behalf of my ministry by a foreign contracting
+firm which we over-invoiced. Though the actual contract value has been
+paid to the original contractor, leaving a balance to the tune of the
+amount aforementioned, which we have in principle secured approval to
+remit by telegraphic transfer (T.T) to any bank account, you will provide.
+
+PROCEDURE: Since the present government of Nigeria is determined to pay
+every foreign contractor all debts owed so as to maintain good 
+relationship with foreign governments and non-governmental financial
+agencies,however,by virtue of our  position as civil servants and members
+of the NDDC, we cannot acquire this funds in our name. This is because as
+top civil servants, we are not allowed by law of the land to own or
+operate bank accounts outside our country for now.
+We have decided to include our bills for approval with the cooperation of
+some officials from the relevant government establishments.
+We are seeking your assistance in providing a good company's account or
+any other offshore bank account into which we can remit this money by
+acting as our main partner and trustee or acting as a sub contractor. This
+will involve the swapping of account; changing of beneficiary name;and
+other forms of documentation.
+
+I have the authority of my partners to propose that should you be 
+willing to assist us in the transaction, your share of the sum will be 10%
+of the U$49.5million,80% for us while the balance will be set aside for
+refund of all expenses incurred during the process of the transaction.
+
+The transaction, although discrete, is legitimate and there
+is no risk or legal disadvantages either to ourselves or yourself now or
+in the future as we have put in place perfect mchineries that will ensure
+a hitch free transfer into your account upon acceptance.
+
+The transfer will be effected to your account within ten-fourteen
+(10-14) working days as soon as we reach an agreement and you furnish
+me with a  suitable bank account and company name and address with all
+your contact numbers including fax number.
 
 
-Ben
+Expecting your response and thank you for your cooperation.
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear 
+Sincerely,
+
+
+Anderson K. Eseimoku
+ 
