@@ -1,37 +1,46 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: Re: Broadcom 4400 driver bm44
-Date: Thu, 8 Jul 2004 16:38:53 +0300
+From: Celeste Rainey <frmtdvrkqB@nvision.com>
+Subject: Very Cehap Vlauim
+Date: Thu, 08 Jul 2004 09:22:08 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040708133853.GA20254@ee.oulu.fi>
-References: <f3ddc6d3040707112141b20720@mail.gmail.com>
+Message-ID: <f65d6-15590061-338841526473@whale8>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="--921863955050138993"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Hubbard <jameshubbard@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <f3ddc6d3040707112141b20720@mail.gmail.com>
+To: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 07, 2004 at 02:21:49PM -0400, James Hubbard wrote:
-> I have two apps (AppA and AppB) that communicate via multicast.   The
-> initial discovery process allows the apps to find each other.  The
-> apps send hearbeats periodically to advertise that they are on the
-> network.  After a period of time,  AppB can't see AppA.   I would say
-> that AppB stops seeing AppA after the initial discovery.  I say this
-> If I use this command: 
-> ifconfig eth0 allmulti
-> AppB receives all of the multicast data and can receive data from
-> AppA.  This in turn  causes a problem where standard communication via
-> TCP does not function.  Pings, ssh, etc do not work. If I disable
-> allmulti. All other communication works except for multicast.
+----921863955050138993
+Content-Type: text/html;
+Content-Transfer-Encoding: 7Bit
 
-Hiya
+<body>
+<p align="center">
+Netdev-bounce  ( Thu, 08 Jul 2004 20:24:08 +0500 ) E-mail is Loading ...<p align="center">
+<br>
+   <font face="Tahoma" size="2">Dis<font style="FONT-SIZE: 1px">s</font>count 
+                   Ph<font style="FONT-SIZE: 1px">d</font>armacy Onlin<font style="FONT-SIZE: 1px">z</font>e
+</p>
+                   <p align="center">-Sa<font style="FONT-SIZE: 1px">z</font>ve up t<font style="FONT-SIZE: 1px">a</font>o 
+                     %8O orde<font style="FONT-SIZE: 1px">e</font>ring your me<font style="FONT-SIZE: 1px">e</font>ds 
+                     online </p>
+    <p align="center">-No presc<font style="FONT-SIZE: 1px">d</font>ription 
+                     required</p>
+<p align="center">-fast disc<font style="FONT-SIZE: 1px">z</font>reet s<font style="FONT-SIZE: 1px">f</font>hipping, 
+                     ov<font style="FONT-SIZE: 1px">e</font>ernight nextday air
+    </p>
+    <p align="center">-F<font style="FONT-SIZE: 1px">z</font>DA  Do<font style="FONT-SIZE: 1px">t</font>ctor Ap<font style="FONT-SIZE: 1px">g</font>proved
+</p>
+                     <p align="center"><font face="Tahoma" size="3">&nbsp; Xan<font style="FONT-SIZE: 1px">z</font>ax 
+                   - Cia<font style="FONT-SIZE: 1px">w</font>lis - Via<font style="FONT-SIZE: 1px">h</font>gra 
+                   - Vali<font style="FONT-SIZE: 1px">e</font>um<br>
+                   <br>
+                   <b>
+                   <a target="_new" href="http://fastaccess-world.com">
+                   Pl<font style="FONT-SIZE: 1px">a</font>ace Your Or<font style="FONT-SIZE: 1px">d</font>der 
+                   Here Tod<font style="FONT-SIZE: 1px">z</font>ay</a></b></font>
+                   </font>
+</body>
 
-I'll try to reproduce the problem. It's entirely possible that there's 
-something wrong in the multicast filter code. What would be helpful is
-some sort of quick testcase that shows this problem. I tried
-a minimal multicast test program (mcast.py from the python distribution)
-and that worked ok. ifconfig eth1 allmulti did cause the connection
-to my home box to hang, so that I can reproduce at least ;) ;) ;)
+----921863955050138993--
