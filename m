@@ -1,26 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]  [ATM]: [fore200e] rewrite to eliminate
- pci_find_device() but preserve sbus support
-Date: Thu, 10 Mar 2005 19:40:55 -0800
-Message-ID: <20050310194055.3b5baac6.davem@davemloft.net>
-References: <200502231417.j1NEHIZ2012625@ginger.cmf.nrl.navy.mil>
+Subject: Re: tg3 kernel oops when setting flow control while interface is
+ down (2.6.10)
+Date: Thu, 10 Mar 2005 19:45:21 -0800
+Message-ID: <20050310194521.317474c7.davem@davemloft.net>
+References: <B1508D50A0692F42B217C22C02D84972020F3DCE@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-In-Reply-To: <200502231417.j1NEHIZ2012625@ginger.cmf.nrl.navy.mil>
+Cc: d.willmann@tu-bs.de, netdev@oss.sgi.com, jluebbe@lasnet.de,
+        davem@redhat.com
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3DCE@NT-IRVA-0741.brcm.ad.broadcom.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Feb 2005 09:17:18 -0500
-"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
+On Mon, 28 Feb 2005 09:26:25 -0800
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-> this patch correctly removes the pci_find_device() used by the fore200e
-> driver.  the __init/__exit remains a bit clunky since we need to preserve
-> sbus support.
-> 
-> please apply to 2.6.
+> I think it is better to just set the PAUSE flags and return 0 if
+> !netif_running(). This way, the settings will take effect when the device is
+> subsequently brought up.
 
-Applied, thanks Chas.
+Then arguably we should do the same for link settings too.
+His patch exactly makes pause parameter setting behave
+the same as we currently do for link settings, if the device
+is down or in low power PHY mode, we -EAGAIN error out.
+
+We have to decide driver-wide how we're going to handle this
+situation.
