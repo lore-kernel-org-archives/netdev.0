@@ -1,47 +1,25 @@
-From: Baruch Even <baruch@ev-en.org>
-Subject: Re: many outgoing tcp sockets are slower than a few
-Date: Mon, 21 Feb 2005 13:59:19 +0000
-Message-ID: <4219E937.6030108@ev-en.org>
-References: <421925DB.2060602@rapidforum.com> <42192AAF.8020609@us.ibm.com> <42192CD5.5090401@rapidforum.com> <20050221090121.GA7478@outpost.ds9a.nl> <4219B99E.1000603@rapidforum.com>
+From: P@draigBrady.com
+Subject: Re: Intel and TOE in the news
+Date: Mon, 21 Feb 2005 13:59:12 +0000
+Message-ID: <4219E930.9080802@draigBrady.com>
+References: <4216B62D.6000502@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bert hubert <ahu@ds9a.nl>, Nivedita Singhvi <niv@us.ibm.com>,
-        netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
-In-Reply-To: <4219B99E.1000603@rapidforum.com>
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Netdev <netdev@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4216B62D.6000502@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christian Schmid wrote:
-> bert hubert wrote:
-> 
->> On Mon, Feb 21, 2005 at 01:35:33AM +0100, Christian Schmid wrote:
-> Outgoing data. I am using sendfile() to send the file on a non-blocking 
-> socket but the call blocks for 100 ms per socket if I get over 3000 
-> sockets. Thats causing the massive slowdown in sum. I first thought its 
-> a disk-issue but I tried with pure-cache data as well and it still blocks.
-> 
->>> 3000 sockets = no slowdown at all (500 MBit in use)
->>> 3300 sockets = 10% slowdown
->>> 3600 sockets = 30% slowdown
->>> 4000 sockets = 60% slowdown (i aborted here, as it only uses 200 MBit 
->>> for sending... catastrophy!)
->>>
-[snip]
->> I'm a bit confused, it is a download service so you are probably 
->> *sending*
->> data? 
-> 
-> Only sending. Receiving ACKs of course.
+Jeff Garzik wrote:
+>=20
+> http://www.theregister.co.uk/2005/02/18/intel_tcpip_attack/
 
-I've been doing some work to improve ACK performance, you can find some 
-patches for Linux 2.6.6 at http://hamilton.ie/net/
+I wonder is this ETA in conjunction with multicore CPUs?
+http://www.hoti.org/archive/Hoti11_program/papers/hoti11_11_regnier_g.pdf
 
-I've only tested these patches for a single (or few) very fast 
-connections, but I'd expect the problem might manifest itself for a very 
-large number of connections as well. Though then you might hit other 
-bottlenecks (memory access for different structures).
-
-Baruch
+--=20
+P=C3=A1draig Brady - http://www.pixelbeat.org
+--
