@@ -1,41 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [netfilter-core] [NETFILTER] Apply IPsec to ipt_REJECT packets
-Date: Wed, 24 Nov 2004 00:32:11 -0800
-Message-ID: <20041124003211.54807ff8.davem@davemloft.net>
-References: <20041123084225.GA3514@gondor.apana.org.au>
-	<41A37EC0.8010901@trash.net>
-	<20041123211630.GA9805@gondor.apana.org.au>
-	<41A3AF41.4010700@trash.net>
-	<20041123221900.GA10099@gondor.apana.org.au>
-	<41A3E9D6.9060904@trash.net>
-	<20041124062747.GA13522@gondor.apana.org.au>
+Subject: Re: [patch 05/13] M68k Ethernet drivers depend on NET_ETHERNET
+Date: Wed, 24 Nov 2004 00:24:42 -0800
+Message-ID: <20041124002442.555512a9.davem@davemloft.net>
+References: <200411220644.iAM6i4900638@mail.osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@oss.sgi.com, coreteam@netfilter.org
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, geert@linux-m68k.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041124062747.GA13522@gondor.apana.org.au>
+To: akpm@osdl.org
+In-Reply-To: <200411220644.iAM6i4900638@mail.osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 24 Nov 2004 17:27:47 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Sun, 21 Nov 2004 22:43:52 -0800
+akpm@osdl.org wrote:
 
-> On Wed, Nov 24, 2004 at 02:54:30AM +0100, Patrick McHardy wrote:
-> >
-> > >	if (rt->u.dst.error) {
-> > >@@ -82,6 +88,15 @@
-> > >		rt = NULL;
-> > >
-> > ^ you should return here so xfrm_lookup isn't called without a dst_entry 
-> > below.
+> From: Geert Uytterhoeven <geert@linux-m68k.org>
 > 
-> Good point.  Fixed in the following patch.
+> M68k Ethernet drivers depend on NET_ETHERNET instead of NETDEVICES
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Thanks for all your help, Patrick.
+> Signed-off-by: Geert Uytterhoeven <geert@linux-m68k.org>
+> Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-Applied for 2.6.10, thanks everyone.
+drivers/net, so looks like something in Jeff's territory.
