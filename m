@@ -1,8 +1,8 @@
 From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [5/5] Orinoco merge updates, part the fourth: consolidate allocation code
-Date: Wed, 30 Mar 2005 13:45:59 +1000
-Message-ID: <20050330034559.GK6478@localhost.localdomain>
-References: <20050330034238.GF6478@localhost.localdomain> <20050330034316.GG6478@localhost.localdomain> <20050330034403.GH6478@localhost.localdomain> <20050330034429.GI6478@localhost.localdomain> <20050330034449.GJ6478@localhost.localdomain>
+Subject: [1/5] Orinoco merge updates, part the fourth: wireless stats updates
+Date: Wed, 30 Mar 2005 13:43:16 +1000
+Message-ID: <20050330034316.GG6478@localhost.localdomain>
+References: <20050330034238.GF6478@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -10,66 +10,86 @@ To: Jeff Garzik <jgarzik@pobox.com>, Pavel Roskin <proski@gnu.org>,
         Orinoco Development List <orinoco-devel@lists.sourceforge.net>,
         netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20050330034449.GJ6478@localhost.localdomain>
+In-Reply-To: <20050330034238.GF6478@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Consolidate allocation of firmware buffers.  In the process, remove
-duplication of a workaround for an old symbol firmware bug, and fix a
-bug where we could retry the workaround, even if it already failed to
-help.
+Minor updates/bugfixes to the handling of wireless statistics.
 
 Signed-off-by: David Gibson <hermes@gibson.dropbear.id.au>
 
 Index: working-2.6/drivers/net/wireless/orinoco.c
 ===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco.c	2005-03-11 16:13:31.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco.c	2005-03-11 16:21:55.000000000 +1100
-@@ -1418,7 +1418,7 @@
- 		return err;
+--- working-2.6.orig/drivers/net/wireless/orinoco.c	2005-02-25 15:47:53.314373136 +1100
++++ working-2.6/drivers/net/wireless/orinoco.c	2005-02-25 16:20:13.951351472 +1100
+@@ -686,7 +686,7 @@
+ 	struct orinoco_private *priv = netdev_priv(dev);
+ 	hermes_t *hw = &priv->hw;
+ 	struct iw_statistics *wstats = &priv->wstats;
+-	int err = 0;
++	int err;
+ 	unsigned long flags;
  
- 	err = hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
--	if (err == -EIO) {
-+	if (err == -EIO && priv->nicbuf_size > TX_NICBUF_SIZE_BUG) {
- 		/* Try workaround for old Symbol firmware bug */
- 		printk(KERN_WARNING "%s: firmware ALLOC bug detected "
- 		       "(old Symbol firmware?). Trying to work around... ",
-@@ -2270,7 +2270,7 @@
- 	priv->nicbuf_size = IEEE802_11_FRAME_LEN + ETH_HLEN;
+ 	if (! netif_device_present(dev)) {
+@@ -695,9 +695,21 @@
+ 		return NULL; /* FIXME: Can we do better than this? */
+ 	}
  
- 	/* Initialize the firmware */
--	err = hermes_init(hw);
-+	err = orinoco_reinit_firmware(dev);
- 	if (err != 0) {
- 		printk(KERN_ERR "%s: failed to initialize firmware (err = %d)\n",
- 		       dev->name, err);
-@@ -2409,25 +2409,6 @@
- 	priv->wep_on = 0;
- 	priv->tx_key = 0;
++	/* If busy, return the old stats.  Returning NULL may cause
++	 * the interface to disappear from /proc/net/wireless */
+ 	if (orinoco_lock(priv, &flags) != 0)
+-		return NULL;  /* FIXME: Erg, we've been signalled, how
+-			       * do we propagate this back up? */
++		return wstats;
++
++	/* We can't really wait for the tallies inquiry command to
++	 * complete, so we just use the previous results and trigger
++	 * a new tallies inquiry command for next time - Jean II */
++	/* FIXME: Really we should wait for the inquiry to come back -
++	 * as it is the stats we give don't make a whole lot of sense.
++	 * Unfortunately, it's not clear how to do that within the
++	 * wireless extensions framework: I think we're in user
++	 * context, but a lock seems to be held by the time we get in
++	 * here so we're not safe to sleep here. */
++	hermes_inquire(hw, HERMES_INQ_TALLIES);
  
--	err = hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
--	if (err == -EIO) {
--		/* Try workaround for old Symbol firmware bug */
--		printk(KERN_WARNING "%s: firmware ALLOC bug detected "
--		       "(old Symbol firmware?). Trying to work around... ",
--		       dev->name);
+ 	if (priv->iw_mode == IW_MODE_ADHOC) {
+ 		memset(&wstats->qual, 0, sizeof(wstats->qual));
+@@ -716,25 +728,16 @@
+ 
+ 		err = HERMES_READ_RECORD(hw, USER_BAP,
+ 					 HERMES_RID_COMMSQUALITY, &cq);
 -		
--		priv->nicbuf_size = TX_NICBUF_SIZE_BUG;
--		err = hermes_allocate(hw, priv->nicbuf_size, &priv->txfid);
--		if (err)
--			printk("failed!\n");
--		else
--			printk("ok.\n");
--	}
--	if (err) {
--		printk("%s: Error %d allocating Tx buffer\n", dev->name, err);
--		goto out;
--	}
+-		wstats->qual.qual = (int)le16_to_cpu(cq.qual);
+-		wstats->qual.level = (int)le16_to_cpu(cq.signal) - 0x95;
+-		wstats->qual.noise = (int)le16_to_cpu(cq.noise) - 0x95;
+-		wstats->qual.updated = 7;
++
++		if (!err) {
++			wstats->qual.qual = (int)le16_to_cpu(cq.qual);
++			wstats->qual.level = (int)le16_to_cpu(cq.signal) - 0x95;
++			wstats->qual.noise = (int)le16_to_cpu(cq.noise) - 0x95;
++			wstats->qual.updated = 7;
++		}
+ 	}
+ 
+-	/* We can't really wait for the tallies inquiry command to
+-	 * complete, so we just use the previous results and trigger
+-	 * a new tallies inquiry command for next time - Jean II */
+-	/* FIXME: We're in user context (I think?), so we should just
+-           wait for the tallies to come through */
+-	err = hermes_inquire(hw, HERMES_INQ_TALLIES);
+-               
+ 	orinoco_unlock(priv, &flags);
 -
- 	/* Make the hardware available, as long as it hasn't been
- 	 * removed elsewhere (e.g. by PCMCIA hot unplug) */
- 	spin_lock_irq(&priv->lock);
+-	if (err)
+-		return NULL;
+-		
+ 	return wstats;
+ }
+ 
+
 
 -- 
 David Gibson			| I'll have my music baroque, and my code
