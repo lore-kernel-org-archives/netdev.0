@@ -1,28 +1,32 @@
-From: "Richard B. Johnson" <root@chaos.analogic.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: Kernel connector - userspace <-> kernelspace "linker".
-Date: Tue, 21 Sep 2004 08:54:54 -0400 (EDT)
+Date: Tue, 21 Sep 2004 13:22:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0409210850460.3314@chaos.analogic.com>
-References: <1095331899.18219.58.camel@uganda> <20040921124623.GA6942@uganda.factory.vocord.ru>
-Reply-To: root@chaos.analogic.com
+Message-ID: <1095769354.30743.64.camel@localhost.localdomain>
+References: <1095331899.18219.58.camel@uganda>
+	 <20040921124623.GA6942@uganda.factory.vocord.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
 In-Reply-To: <20040921124623.GA6942@uganda.factory.vocord.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Maw, 2004-09-21 at 13:46, Evgeniy Polyakov wrote:
+> Connector driver adds possibility to connect various agents using
+> netlink based network.
+> One must register callback and identificator. When driver receives
+> special netlink message with appropriate identificator, appropriate
+> callback will be called.
 
-Hello,
-This looks like a thinly veiled attempt to provide kernel
-hooks so that non-GPL user-mode code can execute within
-the kernel and trash it. I think the kernel developers
-are smart enough so they won't allow any priviliged
-kernel-mode 'callback' to user code.
+Looks sane enough to me - and it seems to fit the mentality d-bus and
+HAL want to have. 
 
-Cheers,
-Dick Johnson
-Penguin : Linux version 2.4.26 on an i686 machine (5570.56 BogoMips).
-            Note 96.31% of all statistics are fiction.
+Alan
+
+ps: only trivial item (and really trivial) is that the printk messages
+should be "waiting for %s".
