@@ -1,46 +1,35 @@
-From: Tommy Christensen <tommy.christensen@tpack.net>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Thu, 06 Jan 2005 16:06:13 +0100
-Message-ID: <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
-	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
-	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
-	 <1105019912.2314.20.camel@jzny.localdomain>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: [Prism54-devel] Re: [Prism54-users] Open hardware wireless cards
+Date: Thu, 6 Jan 2005 10:16:16 -0500
+Message-ID: <20050106151616.GC30311@csclub.uwaterloo.ca>
+References: <60E856FD577CC04BA3727AF4122D3F161134B8@3bit.vector.com.pl>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Hasso Tepper <hasso@estpak.ee>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
+Content-Type: text/plain; charset=us-ascii
+Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
+        Steve Hill <steve@nexusuk.org>, Netdev <netdev@oss.sgi.com>,
+        Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+        "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
+        Jeff Garzik <jgarzik@pobox.com>, linux-kernel@vger.kernel.org,
+        prism54-users@prism54.org, prism54-devel@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1105019912.2314.20.camel@jzny.localdomain>
+To: Andriy Korud <a.korud@vector.com.pl>
+Content-Disposition: inline
+In-Reply-To: <60E856FD577CC04BA3727AF4122D3F161134B8@3bit.vector.com.pl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-01-06 at 14:58, jamal wrote:
-> On Wed, 2005-01-05 at 10:35, Tommy Christensen wrote:
-> > jamal wrote:
+On Wed, Jan 05, 2005 at 11:34:02PM +0100, Andriy Korud wrote:
+> Sorry, as I know (no more details - NDA, sorry) some manufacturers are developing (and planning to continue) FullMAC 802.11g (and further) chipsets and also they are offering Linux drivers (however had no chance to test yet).
 > 
-> > 
-> > Except for the drivers that call netif_stop_queue() on link-down. These
-> > calls (and the corresponding netif_wake_queue) would have to be removed.
+> But from my point of view, SoftMAC cards are better sometimes - you have more control from drivers and can implement some interesting features (for example, madwifi Linux driver with MAC layer ported from xBSD). 
 > 
-> If we assume all drivers do:
-> netif_stop then carrier_off then you dont need that extra check.
-> Thats the working assumption i had - maybe a comment is deserving or
-> we could say we dont think that all drivers are going to follow that 
-> sequence.
+> Any thoughts why we should prefer FullMAC cards over SoftMAC (except CPU usage, of course)?
 
-But qdisc_restart() isn't called any more after the queue is
-stopped. So how do we get to drain the packets?
+Embedded systems with low end cpus (to make less heat and use less
+power) would prefer anything that uses less cpu and can be done in
+dedicated (and usually simpler than the cpu) hardware.  Of course the
+windows laptop and desktop market probably far outsells the embedded
+market, for now at least.
 
-Another approach could be to reset the qdisc (kind of what
-dev_deactivate does) if the driver stays in queue_stopped
-and carrier_off for some period of time.
-
--Tommy
+Len Sorensen
