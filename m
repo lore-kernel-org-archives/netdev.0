@@ -1,75 +1,75 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Tue, 4 Jan 2005 09:07:03 -0600
-Message-ID: <200501040907.07466.jeremy.guthrie@berbee.com>
-References: <200501031455.26980.jeremy.guthrie@berbee.com> <20050103145115.4bdb2cd6@dxpl.pdx.osdl.net>
-Reply-To: jeremy.guthrie@berbee.com
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] Problem with recent CMSG_COMPAT_OK fix
+Date: Tue, 4 Jan 2005 17:59:34 +0100
+Message-ID: <20050104165934.GJ7761@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2323836.npItmXt88H";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="T4sUOijqQbZv57TR"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050103145115.4bdb2cd6@dxpl.pdx.osdl.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart2323836.npItmXt88H
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+
+--T4sUOijqQbZv57TR
+Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-On Monday 03 January 2005 04:51 pm, Stephen Hemminger wrote:
-> How many flows are going through the router? The neighbour cache
-> can get to be a bottleneck. Perhaps Robert "the Router Man" Olssen can
-> give some hints.
-Tue Jan  4 08:59:12 CST 2005
-58406 rt_cache
-Tue Jan  4 08:59:48 CST 2005
-60636 rt_cache
-Tue Jan  4 09:00:34 CST 2005
-63891 rt_cache
-Tue Jan  4 09:01:02 CST 2005
-64635 rt_cache
-Tue Jan  4 09:01:29 CST 2005
-65689 rt_cache
-Tue Jan  4 09:01:58 CST 2005
-63426 rt_cache
-Tue Jan  4 09:02:25 CST 2005
-64139 rt_cache
-Tue Jan  4 09:02:53 CST 2005
-63860 rt_cache
-Tue Jan  4 09:03:20 CST 2005
-65719 rt_cache
-Tue Jan  4 09:03:48 CST 2005
-62465 rt_cache
-Tue Jan  4 09:04:15 CST 2005
-39339 rt_cache
+Hi,
 
+The recent fixes for cmsg_len handling seem to break 32bit compatibility
+at least on x86_64. The new CMSG_COMPAT_OK macro requires that cmsg_len
+is greater or equal the size of struct cmsghdr, which is the 64bit
+version of the struct.  The code should really check against the size
+of struct compat_cmsghdr.
 
+Signed-off-by: Olaf Kirch <okir@suse.de>
 
-=2D-=20
+--- linux-2.6.10/net/compat.c.orig	2005-01-04 13:51:49.000000000 +0100
++++ linux-2.6.10/net/compat.c	2005-01-04 16:53:38.000000000 +0100
+@@ -125,7 +125,7 @@
+ 	 (struct compat_cmsghdr __user *)NULL)
+ 
+ #define CMSG_COMPAT_OK(ucmlen, ucmsg, mhdr) \
+-	((ucmlen) >= sizeof(struct cmsghdr) && \
++	((ucmlen) >= sizeof(struct compat_cmsghdr) && \
+ 	 (ucmlen) <= (unsigned long) \
+ 	 ((mhdr)->msg_controllen - \
+ 	  ((char *)(ucmsg) - (char *)(mhdr)->msg_control)))
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
+-- 
+Olaf Kirch     | Things that make Monday morning interesting, #2:
+okir@suse.de   |        "We have 8,000 NFS mount points, why do we keep
+---------------+ 	 running out of privileged ports?"
 
---nextPart2323836.npItmXt88H
-Content-Type: application/pgp-signature
+--T4sUOijqQbZv57TR
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=cmsg-compat-signedness-fix-fix
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+From: Olaf Kirch <okir@suse.de>
+Subject: Fix cmsg_len checks in 32bit compat mode
+References: 49517 - LTC13227
 
-iD8DBQBB2rEbqtjaBHGZBeURAqWAAJ9KZYqLRuAig+bKL6/MT9R9/hWuigCeOip1
-XyXwql9OqQ4OWxV5aRYM06g=
-=HPlF
------END PGP SIGNATURE-----
+The recent fixes for cmsg_len handling seem to break 32bit compatibility
+at least on x86_64. The new CMSG_COMPAT_OK macro requires that cmsg_len
+is greater or equal the size of struct cmsghdr, which is the 64bit
+version of the struct.  The code should really check against the size
+of struct compat_cmsghdr.
 
---nextPart2323836.npItmXt88H--
+Signed-off-by: Olaf Kirch <okir@suse.de>
+
+--- linux-2.6.10/net/compat.c.orig	2005-01-04 13:51:49.000000000 +0100
++++ linux-2.6.10/net/compat.c	2005-01-04 16:53:38.000000000 +0100
+@@ -125,7 +125,7 @@
+ 	 (struct compat_cmsghdr __user *)NULL)
+ 
+ #define CMSG_COMPAT_OK(ucmlen, ucmsg, mhdr) \
+-	((ucmlen) >= sizeof(struct cmsghdr) && \
++	((ucmlen) >= sizeof(struct compat_cmsghdr) && \
+ 	 (ucmlen) <= (unsigned long) \
+ 	 ((mhdr)->msg_controllen - \
+ 	  ((char *)(ucmsg) - (char *)(mhdr)->msg_control)))
+
+--T4sUOijqQbZv57TR--
