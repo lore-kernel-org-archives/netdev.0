@@ -1,17 +1,14 @@
 From: sandr8 <sandr8_NOSPAM_@crocetta.org>
 Subject: Re: [PATCH 2/4] deferred drop, __parent workaround, reshape_fail
- , netdev@oss.sgi.com ,
-Date: Tue, 17 Aug 2004 15:40:58 +0200
+Date: Tue, 17 Aug 2004 15:49:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41220AEA.20409@crocetta.org>
+Message-ID: <41220CE4.2000308@crocetta.org>
 References: <411C0FCE.9060906@crocetta.org>	 <1092401484.1043.30.camel@jzny.localdomain>	 <20040816072032.GH15418@sunbeam2>	 <1092661235.2874.71.camel@jzny.localdomain> <4120D068.2040608@crocetta.org> <1092743526.1038.47.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, devik@cdi.cz, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
 In-Reply-To: <1092743526.1038.47.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -36,7 +33,7 @@ sorry, i meant the two new inline functions
 >  
 >
 something like enqueue(dev) that will indirectly call dev->qdisc->enqueue
-and handle in that single place that stuff that does not fit well in 
+and handle in that single place that stuff that does not fit well in
 net/core/dev.c
 
 >Dropping packets at the policer is policy definition. Dropping packets
@@ -77,7 +74,7 @@ would there be any magic to have some conntrack data per device
 without having to execute the actual tracking twice but without locking
 the whole conntrack either? what could be the "magic" to let the
 conntrack do the hard work just once and handle the additional traffic
-policing information separately, in an other data structure that is 
+policing information separately, in an other data structure that is
 mantained
 on a device basis? that could also be the place where to count how much
 a given flow is backlogged on a given interface... which could help in
@@ -87,7 +84,7 @@ choosing the dropping action... sorry, am i going too much further?
 >attempted.
 >  
 >
-so, after (maybe better to say while :) qdisc is run and dequeues the 
+so, after (maybe better to say while :) qdisc is run and dequeues the
 packet.
 
 well, your approach seems to be the most coherent one...
@@ -109,12 +106,12 @@ you mean having a fine grained lock just for the stats?
 >qdisc?
 >  
 >
-it is not ready, but to say it shortly, i'm trying to serve first who 
+it is not ready, but to say it shortly, i'm trying to serve first who
 has been
 _served_ the less.
 
 from the first experiments i have made this behaves pretty well and smootly,
-but i've noticed that _not_ unbilling can be pretty unfair towards udp 
+but i've noticed that _not_ unbilling can be pretty unfair towards udp
 flows,
 since they always keep sending.
 
@@ -128,11 +125,11 @@ since they always keep sending.
 >Explain what your qdisc is doing.
 >  
 >
-it simply has a priority dequeue that is manained ordered on the 
+it simply has a priority dequeue that is manained ordered on the
 attained service.
-if no drop occours, then accounting before enqueueing simply forecasts 
+if no drop occours, then accounting before enqueueing simply forecasts
 the service
-that will have been attained up to the packet currenlty being enqueued 
+that will have been attained up to the packet currenlty being enqueued
 when it will
 be dequeued.  [ much easier to code than to say... ]
 
