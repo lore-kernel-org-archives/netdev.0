@@ -1,49 +1,44 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [6/6]: jenkins hash for neigh / Statistics
-Date: Tue, 28 Sep 2004 10:44:30 +0200
+From: Zilvinas Valinskas <zilvinas@gemtek.lt>
+Subject: Re: Crypto tests via tcrypt.o modules failes
+Date: Tue, 28 Sep 2004 12:37:09 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16729.9326.93269.422940@robur.slu.se>
-References: <20040925005623.2faf8faf.davem@davemloft.net>
-	<E1CBu70-00010X-00@gondolin.me.apana.org.au>
-	<20040927121403.767e2308.davem@davemloft.net>
-	<20040927222613.GE3236@sunbeam.de.gnumonks.org>
-	<20040927160636.7741d973.davem@davemloft.net>
-	<1096327658.1729.19.camel@localhost.localdomain>
+Message-ID: <1096364229.5548.6.camel@swoop.gemtek.lt>
+References: <Xine.LNX.4.44.0409171209190.8510-100000@thoron.boston.redhat.com>
+Reply-To: zilvinas@gemtek.lt
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Harald Welte <laforge@gnumonks.org>, herbert@gondor.apana.org.au,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <1096327658.1729.19.camel@localhost.localdomain>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0409171209190.8510-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello, 
 
-Stephen Hemminger writes:
+apparently IPsec and crypto algorithms are ok on IXP 425 (big endian)
+system. Not sure what exactly went wrong - I've rm -rf / whole tree , 
+applied patches and result - it works .. (I could suspect dependencies
+somehow had been broken and not all files were compiled - as a result
+miscompilation ? ...)
 
- > > Harald Welte <laforge@gnumonks.org> wrote:
- > > 
- > > > As stated before, I would like to change rt_stat and ct_stat in order to
- > > > include a first 'template' line, too.  This way it is easier to write a
- > > > generic foo_stat program, that could deal with any of those statistics
- > > > files, even with new ones...  but this of course would break existing
- > > > rtstat binaries.  I personally  don't care, since it's a little-known
- > > > and little-used feature, which to my knowledge is in a lot of
- > > > distributions either non-existant [Debian] or incompatible [SuSE]. What
- > > > do you think?
- > > 
- > > I agree.  And while we're add it let's get a fixed rtstat into
- > > iproute2 and make sure that binary gets installed by default
- > > so maybe the dists will start shipping it properly.
- > 
- > I have the old one in the repository.
+Anyway, linux 2.4.27 + ipsec (from Herbert) + IXP 425 bits (from
+ucLinux) seems is working fine (all crypto modules, not sure only about
+cast5 and cast6 algos - as I am not using them here ...)
 
- I sent you the latest rtstat (Martin sent ctstat) during netfilter workshop. 
- Remember? Having a common foo_stat sounds like a good idea.
+Zilvinas Valinskas
+  
 
- Cheers.
-						--ro
- 
+On Fri, 2004-09-17 at 12:09 -0400, James Morris wrote:
+> On Fri, 17 Sep 2004, Zilvinas Valinskas wrote:
+> 
+> > > I've had a report that all is well on an Xscale PXA (SoC) system, with a 
+> > > 2.6.7-rc2 kernel.  Are there any significant differences between that and 
+> > > what you have?
+> > 2.4.27 and 2.6.7-rc2 I think quite different - can you tell me which
+> > parts to check for differencies ?
+> 
+> It should work on either kernel (btw, the PXA is little endian, so they 
+> are different).
+> 
