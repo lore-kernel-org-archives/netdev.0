@@ -1,43 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Wed, 21 Jul 2004 14:31:10 -0700
+Subject: Re: [CRYPTO] Fix stack overrun in crypt()
+Date: Wed, 21 Jul 2004 14:58:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040721143110.4ab944bf.davem@redhat.com>
-References: <40F34740.5040100@trash.net>
-	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
-	<20040712205037.573411c0.davem@redhat.com>
-	<40F4862D.3070802@trash.net>
-	<40F4AC8B.40706@trash.net>
+Message-ID: <20040721145815.307c5e39.davem@redhat.com>
+References: <20040715114840.GA1325@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
+Cc: jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <40F4AC8B.40706@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040715114840.GA1325@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jul 2004 05:46:19 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+On Thu, 15 Jul 2004 21:48:40 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> This one actually compiles ;). The assembler of PSCHED_GET_TIME is
-> exactly the same on x86. There are 10 architectures that return
-> something non-zero for get_cycles(), but I have no idea if it is
-> suitable on all of them. Patch applies on top of the dead-code
-> removal patch.
+> The stack allocation in crypt() is bogus as whether tmp_src/tmp_dst
+> is used is determined by factors unrelated to nbytes and
+> src->length/dst->length.
+> 
+> Since the condition for whether tmp_src/tmp_dst are used is very
+> complex, let's allocate them always instead of guessing.
+> 
+> This fixes a number of weird crashes including those AES crashes
+> that people have been seeing with the 2.4 backport + ipt_conntrack.
 
-This looks great.
+Applied, thanks Herbert.
 
-As you mention some platforms return zero, for example sparc32,
-for get_cycles().
+> PS I think someone should double-check the logic in the scatterwalk
+> stuff, especially the whichbuf bits.
 
-I suggest we just expand the dependency list for NET_SCH_CLK_TSC
-to include SPARC64 PPC64 and perhaps some other easy to verify
-as having a working get_cycles() implementation.  I believe that
-as long as it increments at some rate >= jiffies, the psched
-calibration will get things into a working state.
-
-A lot of patches have been posted in this area and I'm losing
-track of what to apply first etc.  Can you repost your work
-one change at a time?  Thanks.
+I've looked at this before, when it went in, but I'll double-
+check it now.
