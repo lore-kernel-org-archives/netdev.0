@@ -1,67 +1,37 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] janitor: remove unneeded includes (tokenring)
-Date: Wed, 17 Sep 2003 15:27:24 -0700
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: net/sctp/sm_make_chunk.c alignment problems on parisc64
+Date: Wed, 17 Sep 2003 16:06:18 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030917152724.342327e9.rddunlap@osdl.org>
+Message-ID: <Pine.LNX.4.44.0309171559540.3831-100000@localhost.localdomain>
+References: <20030912164628.GF8713@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, mikep@linuxtr.net, linux-tr@linuxtr.net
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>,
+        <lksctp-developers@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20030912164628.GF8713@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 12 Sep 2003, Arnaldo Carvalho de Melo wrote:
 
-Hi,
+> Latest 2.6 bk tree, but I think this is hanging there for quite a while.
+> 
+> CC [M]  net/sctp/sm_make_chunk.o
+> {standard input}: Assembler messages:
+> {standard input}:2386: Error: Field not properly aligned [8] (52).
+> {standard input}:2386: Error: Invalid operands
+> {standard input}:2398: Error: Field not properly aligned [8] (52).
+> {standard input}:2398: Error: Invalid operands
+> make[2]: *** [net/sctp/sm_make_chunk.o] Error 1
+> make[1]: *** [net/sctp] Error 2
+> make: *** [net] Error 2
+> 
+> it happens in the sctp_pack_cookie function.
 
-Please apply to 2.6.0-test5-current.
+I don't see this problem on i386, ia64 or ppc64. Can someone familiar with parisc64
+provide more details or submit a a patch to fix this problem?
 
-Thanks,
---
-~Randy
-
-
-From: Randy Hron <rwhron@earthlink.net>
-
- linux-260-test5-kj-rddunlap/drivers/net/tokenring/lanstreamer.h |    2 ++
- linux-260-test5-kj-rddunlap/drivers/net/tokenring/smctr.c       |    1 -
- linux-260-test5-kj-rddunlap/drivers/net/tokenring/tms380tr.c    |    1 -
- 3 files changed, 2 insertions(+), 2 deletions(-)
-
-diff -puN drivers/net/tokenring/lanstreamer.h~drivers_net_tokenring drivers/net/tokenring/lanstreamer.h
---- linux-260-test5-kj/drivers/net/tokenring/lanstreamer.h~drivers_net_tokenring	2003-09-11 10:42:06.000000000 -0700
-+++ linux-260-test5-kj-rddunlap/drivers/net/tokenring/lanstreamer.h	2003-09-11 10:42:06.000000000 -0700
-@@ -60,6 +60,8 @@
-  *
-  */
- 
-+#include <linux/version.h>
-+
- #if STREAMER_IOCTL && (LINUX_VERSION_CODE < KERNEL_VERSION(2,5,0))
- #include <asm/ioctl.h>
- #define IOCTL_PRINT_RX_BUFS   SIOCDEVPRIVATE
-diff -puN drivers/net/tokenring/smctr.c~drivers_net_tokenring drivers/net/tokenring/smctr.c
---- linux-260-test5-kj/drivers/net/tokenring/smctr.c~drivers_net_tokenring	2003-09-11 10:42:06.000000000 -0700
-+++ linux-260-test5-kj-rddunlap/drivers/net/tokenring/smctr.c	2003-09-11 10:42:06.000000000 -0700
-@@ -29,7 +29,6 @@
-  */
- 
- #include <linux/module.h>
--#include <linux/version.h>
- #include <linux/config.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
-diff -puN drivers/net/tokenring/tms380tr.c~drivers_net_tokenring drivers/net/tokenring/tms380tr.c
---- linux-260-test5-kj/drivers/net/tokenring/tms380tr.c~drivers_net_tokenring	2003-09-11 10:42:06.000000000 -0700
-+++ linux-260-test5-kj-rddunlap/drivers/net/tokenring/tms380tr.c	2003-09-11 10:42:06.000000000 -0700
-@@ -77,7 +77,6 @@ static const char version[] = "tms380tr.
- #endif
- 
- #include <linux/module.h>
--#include <linux/version.h>
- #include <linux/kernel.h>
- #include <linux/types.h>
- #include <linux/fcntl.h>
-
-_
+Thanks
+Sridhar
