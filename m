@@ -1,36 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 09:33:49 -0700 (PDT)
+Date: Tue, 10 Jun 2003 09:38:11 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030610.093349.48511220.davem@redhat.com>
-References: <Pine.LNX.4.44.0306101432530.21247-100000@netcore.fi>
-	<3EE5C7E9.6090401@monmouth.com>
-	<20030610080901.M37190@shell.cyberus.ca>
+Message-ID: <20030610.093811.08342771.davem@redhat.com>
+References: <Pine.LNX.4.51.0306092200150.28167@ns.istop.com>
+	<20030610061010.Y36963@shell.cyberus.ca>
+	<Pine.LNX.4.51.0306100828220.26498@ns.istop.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jsd@monmouth.com, pekkas@netcore.fi, ralph+d@istop.com, xerox@foonet.net,
-   sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org
+Cc: hadi@shell.cyberus.ca, xerox@foonet.net, sim@netnation.com,
+   fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@shell.cyberus.ca
-In-Reply-To: <20030610080901.M37190@shell.cyberus.ca>
+To: ralph+d@istop.com, ralph@istop.com
+In-Reply-To: <Pine.LNX.4.51.0306100828220.26498@ns.istop.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Jamal Hadi <hadi@shell.cyberus.ca>
-   Date: Tue, 10 Jun 2003 08:12:58 -0400 (EDT)
+   From: Ralph Doncaster <ralph@istop.com>
+   Date: Tue, 10 Jun 2003 09:10:43 -0400 (EDT)
 
-   Theres another dimension actually: mostly driven by BSD mbuff style
-   packet allocation; some tests show that some vendors are optimized
-   for certain packet sizes, Linux skbuffs dont have this problem.
+   No, as I said I'm moving ~30mbps and ~10kpps in and out of 2 3c905cx
+   cards.
 
-Well, the most amusing part for me is that if you read all the
-papers on TCP congestion algorithms you'd think that routers
-dropped based upon packet sizes since the majority work on
-multiple of MSS this and multiple of MSS that. :)
-
-Routers drop packets, period.  They do so using a variety of selection
-schemes (RED, CBQ, actually just egrep net/sched/sch_*.c :) but you're
-contribution to the router's work is measured in terms of packets and
-time when you come right down to it.
+This is because the driver still uses PIO, I am rather sure of
+this.
