@@ -1,86 +1,56 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPCOMP6] Exclude IPCOMP header from props.header_len
-Date: Sat, 10 Jul 2004 13:32:09 +1000
+From: Liza Brown <ISCADJPQZWEJPC@excite.com>
+Subject: Pump Up Your Love Muscle
+Date: Sat, 10 Jul 2004 08:35:32 -0100 EST
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040710033209.GA14316@gondor.apana.org.au>
+Message-ID: <99351921186117.56271.29826697@david-c53.aol.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="C7zPtVaVf+AK4Oqc"
+Content-Type: multipart/alternative;
+	boundary="--85549701370290154"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, yoshfuji@linux-ipv6.org,
-        netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+----85549701370290154
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
---C7zPtVaVf+AK4Oqc
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+<html>
+<head>
+<META http-equiv=3DContent-Type content=3D"text/html; charset=3Diso-8859-1=
+">
+</head>
+<body bgcolor=3Dwhite>
+<table width=3D"100%" height=3D100% border=3D"0" cellspacing=3D"5" cellpad=
+ding=3D"5">
+<tr><td width=3D"700" valign=3D"top">
+<a href=3D"http://fastaffordablehosting.com/igf2/?xp52701l&10">Make Your C=
+=F6ck Monster Sized</a><br>
+IGF has been featured in mens magazines and television<br>
+The secret is out - you can increase your size and go all night long<br>
+Grow your d=EEck 1-3 inches fast and naturally while also increasing thick=
+ness<p>
 
-Hi:
+Due to the high demand of this product its only available online<br>
+Be As Big As You Want - Select from the packages below:<br>
+<a href=3D"http://fastaffordablehosting.com/igf2/?xp52701l&10">6 Month Sup=
+ply</a> For a Monster Sized C=F6ck<br>
+<a href=3D"http://fastaffordablehosting.com/igf2/?xp52701l&10">5 Month Sup=
+ply</a> Super size your member and save money<br>
+<a href=3D"http://fastaffordablehosting.com/igf2/?xp52701l&10">4 Month Sup=
+ply</a> gain a few inches and increase your loads<br>
+<a href=3D"http://fastaffordablehosting.com/igf2/?xp52701l&10">2 Month Sup=
+ply</a> ideal for sampling the results you can get
+<P>
+To unsubscribe from this newsletter, please go here: <a href=3D"http://fas=
+taffordablehosting.com/marie.php">no more</a><P>
 
-Now that the IPv4 encap stuff is out of the way, I'll be sending you
-the IPv6 versions.
+ pinsky=20 texas=20 goldstein=20 anisotropic=20 caesar=20 vendetta=20 wolv=
+es=20  cockleshell=20 acropolis=20 coroutine=20 transite=20 horowitz=20 pa=
+perwork=20 harry=20  perspicacious=20 squalid=20 cherubim=20 bike=20 turno=
+ut=20 problematic=20 congressional=20 
+</td></tr></table>
+</body>
+</html>
 
-Here is the one to remove the unnecessary extra space reserved for
-IPCOMP.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---C7zPtVaVf+AK4Oqc
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv6/ipcomp6.c 1.11 vs edited =====
---- 1.11/net/ipv6/ipcomp6.c	2004-06-18 16:20:58 +10:00
-+++ edited/net/ipv6/ipcomp6.c	2004-07-10 13:26:45 +10:00
-@@ -123,7 +123,7 @@
- 	int err;
- 	struct dst_entry *dst = (*pskb)->dst;
- 	struct xfrm_state *x = dst->xfrm;
--	struct ipv6hdr *tmp_iph = NULL, *iph, *top_iph;
-+	struct ipv6hdr *iph, *top_iph;
- 	int hdr_len = 0;
- 	struct ipv6_comp_hdr *ipch;
- 	struct ipcomp_data *ipcd = x->data;
-@@ -193,19 +193,11 @@
- 	if ((dlen + sizeof(struct ipv6_comp_hdr)) >= plen) {
- 		goto out_ok;
- 	}
--	memcpy(start, scratch, dlen);
--	pskb_trim(*pskb, hdr_len+dlen);
-+	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
-+	pskb_trim(*pskb, hdr_len + dlen + sizeof(struct ip_comp_hdr));
- 
- 	/* insert ipcomp header and replace datagram */
--	tmp_iph = kmalloc(hdr_len, GFP_ATOMIC);
--	if (!tmp_iph) {
--		err = -ENOMEM;
--		goto error;
--	}
--	memcpy(tmp_iph, (*pskb)->nh.raw, hdr_len);
--	top_iph = (struct ipv6hdr*)skb_push(*pskb, sizeof(struct ipv6_comp_hdr));
--	memcpy(top_iph, tmp_iph, hdr_len);
--	kfree(tmp_iph);
-+	top_iph = (*pskb)->nh.ipv6h;
- 
- 	if (x->props.mode && (x->props.flags & XFRM_STATE_NOECN))
- 		IP6_ECN_clear(top_iph);
-@@ -358,7 +350,7 @@
- 		goto error;
- 
- 	memset(ipcd, 0, sizeof(*ipcd));
--	x->props.header_len = sizeof(struct ipv6_comp_hdr);
-+	x->props.header_len = 0;
- 	if (x->props.mode)
- 		x->props.header_len += sizeof(struct ipv6hdr);
- 	
-
---C7zPtVaVf+AK4Oqc--
+----85549701370290154--
