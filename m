@@ -1,64 +1,75 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (3/4) delay scheduler race with device stopped
-Date: Thu, 17 Jun 2004 15:56:03 -0700
+Subject: [PATCH] (4/4) add loss option to network delay scheduler
+Date: Thu, 17 Jun 2004 15:56:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617155603.0651081c@dell_ss3.pdx.osdl.net>
-References: <58D550446979A646A05649BF9EAF113AA2E995@orsmsx407>
+Message-ID: <20040617155606.558d8eb3@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "Dabney, Nathanx T" <nathanx.t.dabney@intel.com>,
-        "Venkatesan, Ganesh"
- <ganesh.venkatesan@intel.com>,
-        "Glick, Kevin" <kevin.glick@intel.com>, netdev@oss.sgi.com,
-        lartc@mailman.ds9a.nl
+Cc: netdev@oss.sgi.com, lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <58D550446979A646A05649BF9EAF113AA2E995@orsmsx407>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The delay scheduler dequeue routine has some code cut&pasted from the TBF scheduler
-that caused a race with E1000 when ring got full.
+This enhances the network simulation scheduler to do simple random loss.
 
-It looks like net schedulers should never be calling netif_queue_stopped because
-the queue may get unstopped by interrrupt or receive soft irq (NAPI) which races
-with the dequeue in the transmit scheduler. 
+The loss parameter is a simple 32 bit value such that 0 means no loss, and
+0xffffffff is always drop.  I have a new version of the tc command which takes
+care of conversion from percent to this value.
 
-Also, if requeuing the packet fails, it is probably because the queue became full
-by a racing enqueue.  So the right thing to do is to go back and try again.
-
-Same patch should apply to both 2.6 and 2.4
+Same patch for 2.4 and 2.6
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
+diff -Nru a/include/linux/pkt_sched.h b/include/linux/pkt_sched.h
+--- a/include/linux/pkt_sched.h	2004-06-17 15:26:51 -07:00
++++ b/include/linux/pkt_sched.h	2004-06-17 15:26:51 -07:00
+@@ -437,5 +437,6 @@
+ {
+ 	__u32	latency;
+ 	__u32   limit;
+-};	
++	__u32	loss;
++};
+ #endif
 diff -Nru a/net/sched/sch_delay.c b/net/sched/sch_delay.c
---- a/net/sched/sch_delay.c	2004-06-17 15:21:49 -07:00
-+++ b/net/sched/sch_delay.c	2004-06-17 15:21:49 -07:00
-@@ -111,7 +111,7 @@
- 	if (skb) {
- 		struct dly_skb_cb *cb = (struct dly_skb_cb *)skb->cb;
- 		psched_time_t now;
--		long diff;
-+		long diff, delay;
+--- a/net/sched/sch_delay.c	2004-06-17 15:26:51 -07:00
++++ b/net/sched/sch_delay.c	2004-06-17 15:26:51 -07:00
+@@ -40,6 +40,7 @@
+ struct dly_sched_data {
+ 	u32	latency;
+ 	u32	limit;
++	u32	loss;
+ 	struct timer_list timer;
+ 	struct Qdisc *qdisc;
+ };
+@@ -58,6 +59,12 @@
+ 	struct dly_skb_cb *cb = (struct dly_skb_cb *)skb->cb;
+ 	int ret;
  
- 		PSCHED_GET_TIME(now);
- 		diff = q->latency - PSCHED_TDIFF(now, cb->queuetime);
-@@ -128,13 +128,10 @@
- 			goto retry;
- 		}
++	/* Random packet drop 0 => none, ~0 => all */
++	if (q->loss >= net_random()) {
++		sch->stats.drops++;
++		return 0;	/* lie about loss so TCP doesn't know */
++	}
++
+ 	PSCHED_GET_TIME(cb->queuetime);
  
--		if (!netif_queue_stopped(sch->dev)) {
--			long delay = PSCHED_US2JIFFIE(diff);
--			if (delay <= 0)
--				delay = 1;
--			mod_timer(&q->timer, jiffies+delay);
--		}
--
-+		delay = PSCHED_US2JIFFIE(diff);
-+		if (delay <= 0) 
-+			delay = 1;
-+		mod_timer(&q->timer, jiffies+delay);
- 		sch->flags |= TCQ_F_THROTTLED;
+ 	/* Queue to underlying scheduler */
+@@ -196,6 +203,7 @@
+ 	} else {
+ 		q->latency = qopt->latency;
+ 		q->limit = qopt->limit;
++		q->loss = qopt->loss;
  	}
- 	return NULL;
+ 	return err;
+ }
+@@ -232,6 +240,7 @@
+ 
+ 	qopt.latency = q->latency;
+ 	qopt.limit = q->limit;
++	qopt.loss = q->loss;
+ 
+ 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
+ 
