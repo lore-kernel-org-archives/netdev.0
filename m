@@ -1,36 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (8/8) loopback device simplification
-Date: Thu, 4 Sep 2003 12:07:43 -0700
+Subject: Re: [RFT] covert br2684 to seq_file
+Date: Thu, 4 Sep 2003 11:00:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030904120743.3b96e738.davem@redhat.com>
-References: <20030903164921.7d923008.shemminger@osdl.org>
-	<3F568AC0.5090601@pobox.com>
-	<20030903204105.0f01f131.davem@redhat.com>
-	<20030904121421.51b2f993.shemminger@osdl.org>
+Message-ID: <20030904110027.3e800760.davem@redhat.com>
+References: <20030902104308.08ce3fa4.shemminger@osdl.org>
+	<200309041636.h84GaoSa017129@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030904121421.51b2f993.shemminger@osdl.org>
+To: chas williams <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200309041636.h84GaoSa017129@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003 12:14:21 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 04 Sep 2003 12:36:51 -0400
+chas williams <chas@cmf.nrl.navy.mil> wrote:
 
-> On Wed, 3 Sep 2003 20:41:05 -0700
-> "David S. Miller" <davem@redhat.com> wrote:
-> 
-> > The fact that we export the list and it's locking makes it
-> > really hard to change things.
-> 
-> my current idea is to switch dev_base_lock over to RCU and
-> change dev_base to a list macro.
-> 
-> #define for_each_netdev(_d)   list_for_each_entry_rcu(_d, &netdev_base, dev_list)
+> dave, please apply to 2.6 -- thanks
 
-Also see other threads where we were discussing making
-it into a hash table in order to speed up search and
-name allocation.
+Applied.
+
+Chas, please do me a favor, start using a consistent changelog message
+format.  I fix up every one of your commit messages so that it is of
+the form:
+
+[ATM]: Blab blah blah.
+
+So if you could do the same in your patches I'd appreciate it.
+
+Thanks a lot.
