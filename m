@@ -1,30 +1,31 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: oops in tcp_v4_rcv.
-Date: Wed, 28 May 2003 23:00:35 -0300
+Date: Wed, 28 May 2003 20:06:23 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529020034.GT12434@conectiva.com.br>
-References: <3ED55F4D.1070306@colorfullife.com> <20030528.184054.78710412.davem@redhat.com> <20030529015020.GS12434@conectiva.com.br> <20030528.185142.85410989.davem@redhat.com>
+Message-ID: <20030528.200623.28791498.davem@redhat.com>
+References: <20030529015020.GS12434@conectiva.com.br>
+	<20030528.185142.85410989.davem@redhat.com>
+	<20030529020034.GT12434@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: manfred@colorfullife.com, netdev@oss.sgi.com, akpm@digeo.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030528.185142.85410989.davem@redhat.com>
+To: acme@conectiva.com.br
+In-Reply-To: <20030529020034.GT12434@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, May 28, 2003 at 06:51:42PM -0700, David S. Miller escreveu:
->    From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
->    Date: Wed, 28 May 2003 22:50:20 -0300
-> 
->    Em Wed, May 28, 2003 at 06:40:54PM -0700, David S. Miller escreveu:
->    > I'll try to fix this.
->    
->    I'm as well looking at this, longstanding bug :-\
-> 
-> Here's a patch, should work:
+   From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+   Date: Wed, 28 May 2003 23:00:35 -0300
 
-At first look, agreed. Thanks David for fixing this.
+   Em Wed, May 28, 2003 at 06:51:42PM -0700, David S. Miller escreveu:
+   > Here's a patch, should work:
+   
+   At first look, agreed. Thanks David for fixing this.
 
-- Arnaldo
+No problem.
+
+And a big double-thanks for Mandred for tracking this down.
+I wish him luck in tracking down the task struct use-after-free that
+he's also seeing. :-)
