@@ -1,80 +1,58 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: ethernet QoS support?
-Date: 12 Jul 2004 22:26:07 -0400
+Date: 12 Jul 2004 22:33:26 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1089685567.1046.9.camel@jzny.localdomain>
+Message-ID: <1089686006.1046.17.camel@jzny.localdomain>
 References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com>
-	 <200407092126.43021.vkondra@mail.ru>
-	 <1089634701.1055.260.camel@jzny.localdomain>
-	 <200407122107.29389.vkondra@mail.ru>
+	 <1089621532.3063.8.camel@andromache>
+	 <1089635216.1054.271.camel@jzny.localdomain>
+	 <200407122117.44069.vkondra@mail.ru>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+Cc: netdev@oss.sgi.com, Glen Turner <glen.turner@aarnet.edu.au>,
+        Sam Leffler <sam@errno.com>, Jeff Garzik <jgarzik@pobox.com>,
         Kumar Gala <kumar.gala@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200407122107.29389.vkondra@mail.ru>
+In-Reply-To: <200407122117.44069.vkondra@mail.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-07-12 at 14:07, Vladimir Kondratiev wrote:
 
-> > That or if routed from another host, then TOS does get extracted and set
-> > to skb->priority
-> this is not very important. From one side, it seems like bug in routing code. 
-> - From another side, 802.11 was supposed for link ends only. It is not supposed 
-> to appear in the middle of routers chain.
+> > A mapping is being suggested. Qdiscs handle the queueing. Send it to
+> > the driver/MAC layer with instructions of which queue it goes on.
+>
+> Problem is, I don't know how driver can dictate what qdiscs should be attached 
+> to it. AFAIK, it is under 'tc' control. What I suggest, is to provide some 
+> API for driver to configure its qdiscs.
 
-I dont see the bug - this is pretty standard.
-Actually there is one issue, now that i think of it. The way IEEE
-maps priority is the opposite of the way IETF does it ;->
-If you have 8 priorities then priority 7 would be the highest in 
-IEEE speak (i.e most important) but priority 0 would be the one
-considered most important for IEEE. so a strict TOS -> skb->priority
-wont work ;->
+I think driver doing this is the wrong abstraction layer..
 
+How about this: Write a user space daemon that receives those 
+L2 policy frames from the driver. Daemon then uses netlink to configure
+the qdiscs appropriately. This replaces the human opertaor who would do
+this in the case of a static setup.
 
-> > I dont think so - as long as you map to a specific qdisc things should
-> > work fine. i.e the scheduling semantics will be taken good care of by
-> > the qdisc level.
-> > So lets separate the two levels, driver and qdisc level.
-> > I dont think they should be synchronized. In my opinion, the
-> > synchronization point is the configurator/operator/management s/ware of
-> > the box.
-> QoS policies are dictated by access point, they are coming to the driver from 
-> the link side. And I see no way to let upper layers to know these policies.
+> And most complex item: I don't know how to support intserv type of streams, 
+> i.e. streams with admission control. let's say it is like RSVP with support 
+> on link layer.
 
-Huh? Are these speacial L2 level frames which carry the policy?
-Sounds like the people doing this were on some cheap crack.
-Can you describe these frames a little more?
+OK, so it is RSVP being used for policy config then?
+You seem to indicate it RSVP-like? 
 
-> > - Shut down device only when highest(1) priority ring is full.
-> > - if packets received for priority 2 and 3 and their respective rings
-> > are full, drop the packet in the driver and return a 0 i.e dont shut
-> > device.
-> Real situation:
-> - - highest priority is VOIP (200 bytes each 20ms). With decent link, it will 
-> always pass.
-> - - low priority is ftp bulk transfer. stack pushes more then driver can tx. I 
-> will silently drop 9 out of 10 packets. Not a good behavior.
+> Should I try to summarize QoS facilities defined in TGE (new standard for QoS 
+> in 802.11)? I tried to do it once, but I don't feel I expressed it clearly.
 
-Thats the definition of strict priority.
-In other words if theres VOIP packet you always send VOIP untuil theres
-no more VOIP. Only then you send ftp packets.
-On the case of WRR, you do give some break to ftp at some point. But
-this is not something you have to worry about once the qdiscs are
-configured properly.
+I think so.
 
-> >
-> > You can also do the following in the case of strict priority(caveat is
-> > reordering may happen):
-> > for each prio X try to stash on DMA ring of prio X. If full, try X+1, if
-> > full try X+2 etc.
-> forbidden by spec. I will be disconnected immediately.
+> One more reason why I prefer to use skb->priority over TOS: driver should be 
+> protocol agnostic. It may be non-IP, and TOS may be missing.
 
-Ok.
+The TOS was being used as an example. The VLAN code for example
+sets skb->priority at L2 as well. So nothing protcol specific about 
+skb->priority.
 
 cheers,
 jamal
