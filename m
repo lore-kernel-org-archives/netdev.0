@@ -1,64 +1,56 @@
-From: "ÀÌ¹Î¿µ" <song9@korea.com>
-Subject: =?ISO-8859-1?Q?=C1=F6=C1=B8=C0=CC=20=BE=C6=B4=CF=B8=E9?=
-	=?ISO-8859-1?Q?=B0=C7=B5=E9=C1=F6=20=B8=B6=B6=F3=20=C7=F6=B1=DD=C0=CC?=
-	=?ISO-8859-1?Q?=BF=C0=B0=ED=B0=A1=B4=C2=20=B0=ED=BD=BA=C5=E9?=
-	=?ISO-8859-1?Q?=C6=F7=C4=BF?=
-Date: Tue, 14 Mar 2000 07:08:15 +0200
-Message-ID: <HQZCIZYKHKMLHOYFUOKANMOL@yahoo.com>
-Reply-To: "ÀÌ¹Î¿µ" <song9@korea.com>
+From: "Evan Garrison" <jnt7ko@naver.com>
+Subject: =?ISO-8859-1?Q?=B4=DC=C7=D1=B9=F8=C0=C7=20=B4=EB=C3=E2?=
+	=?ISO-8859-1?Q?=BD=C5=C3=BB=C0=B8=B7=CE?= 100% =?ISO-8859-1?Q?=B4=EB=C3=E2=20=BA=B8=C0=E5?=
+	=?ISO-8859-1?Q?=B9=DE=C0=B8=BC=BC=BF=E4!spade?= cmnxwixhe jmlymhf
+Date: Sat, 18 May 2002 22:20:20 +0100
+Message-ID: <55gjh3-zuym$vl$ga@a1j076uwkr>
+Reply-To: "Evan Garrison" <jnt7ko@naver.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="--221692760337017767"
+	boundary="C_7ADBF_A0F3.E9"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-xfs@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----221692760337017767
+
+--C_7ADBF_A0F3.E9
 Content-Type: text/html;
-Content-Transfer-Encoding: base64
+Content-Transfer-Encoding: quoted-printable
 
-PGh0bWw+DQogIDxoZWFkPg0KICA8bWV0YSBodHRwLWVxdWl2PSJDb250ZW50LXR5cGUiIGNv
-bnRlbnQ9InRleHQvaHRtbDsgY2hhcnNldD1ldWMta3IiPg0KICAgICAgPHRpdGxlPjwvdGl0
-bGU+DQogIDwvaGVhZD4NCiAgPEJPRFk+DQo8RElWPg0KPERJVj48U1RST05HPjxGT05UIHNp
-emU9Nz48QSANCmhyZWY9Imh0dHA6Ly9oZWxsb2dvc3RvcC5jb20iIHRhcmdldD1fYmxhbms+
-aHR0cDovL2hlbGxvZ29zdG9wLmNvbTwvQT48L0ZPTlQ+PC9TVFJPTkc+PC9ESVY+DQo8RElW
-PiZuYnNwOzwvRElWPg0KPERJVj4mbmJzcDs8L0RJVj4NCjxESVY+PEEgaHJlZj0iaHR0cDov
-L2hlbGxvZ29zdG9wLmNvbSIgdGFyZ2V0PV9ibGFuaz48SU1HIA0Kc3JjPSJodHRwOi8vaW1n
-LjIwMDUwNi50b3Aud3d3LmNvbS5uZS5rcjo4MDgwL2ltZ191cGxvYWQvWTIwMDUvTTA2L0Qy
-My9pbWdfcGN0NDIwXzExMTk1MDIyMzlfZ29nby5KUEciIA0Kd2lkdGg9OTAxIG5hbWU9bWFp
-bkltZz48L0E+PC9ESVY+DQo8RElWPjxGT05UIGNvbG9yPSNmZjAwMDA+PC9GT05UPiZuYnNw
-OzwvRElWPg0KPERJVj48Rk9OVCBjb2xvcj0jZmYwMDAwIHNpemU9Nz48L0ZPTlQ+Jm5ic3A7
-PC9ESVY+DQo8RElWPjxGT05UIGNvbG9yPSNmZjAwMDAgc2l6ZT03PjxTVFJPTkc+PEEgaHJl
-Zj0iaHR0cDovL2hlbGxvZ29zdG9wLmNvbSIgDQp0YXJnZXQ9X2JsYW5rPmh0dHA6Ly9oZWxs
-b2dvc3RvcC5jb208L0E+PC9TVFJPTkc+PC9GT05UPjwvRElWPg0KPERJVj48Rk9OVCBjb2xv
-cj0jZmYwMDAwPjwvRk9OVD4mbmJzcDs8L0RJVj4NCjxESVY+PEZPTlQgDQpjb2xvcj0jZmYw
-MDAwPj09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PEJSPjwvRk9OVD48Rk9OVCANCmNvbG9yPSMwMDAwZmY+orogw7kguau3
-4SDIuL/4ILChwNS9wyC9x8D8uNO0zyAzMDAwxKjAuyC15biztM+02S48QlI+orogNbi4v/jA
-zLvzILXHuOkgvvDBprXnwfYgx/ax3cC4t84gw+Kx3cDMIA0Ktcu0z7TZLjwvRk9OVD48L0RJ
-Vj4NCjxESVY+PEZPTlQgY29sb3I9IzAwMDBmZj6iuiC+8MGmIMXNwfrB9iC48LijtMIgwOjG
-zCC067nav7mwqCAhITxCUj6iuiC9ybiutOvA/CC9x8D8ILiuvvMgxvfEvyCw1MDTIA0KISE8
-L0ZPTlQ+PC9ESVY+DQo8RElWPjxGT05UIGNvbG9yPSMwMDAwZmY+orogvcm4rrTrwPwgvcfA
-/CC4rr7zJm5ic3A7sO29usXpILDUwNMgISE8L0ZPTlQ+PC9ESVY+DQo8RElWPjxGT05UIA0K
-Y29sb3I9I2ZmMDAwMD4mbmJzcDs9PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PTxCUj48Rk9OVCANCmNvbG9yPSMwMDAwZmY+
-oeUgvsa3oSDAzLnMwfa6uLHiIKHlILimILSpuKO46SC+8MGmILXnwfYmbmJzcDu9x8D8ILDt
-vbrF6SDG98S/uKYmbmJzcDsuLi4hPC9GT05UPiANCjxCUj49PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PTxCUj48QlI+Jm5i
-c3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7osYgDQo8QlI+
-Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7osYgDQo8
-QlI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7osYg
-DQo8QlI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
-osYgDQo8QlI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
-c3A7osYgDQo8QlI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
-Jm5ic3A7osYgDQo8QlI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5i
-c3A7Jm5ic3A7osYgDQo8QlI+Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7
-Jm5ic3A7Jm5ic3A7osYgPEJSPqLGIA0KJm5ic3A7Jm5ic3A7Jm5ic3A7Jm5ic3A7osYgDQom
-bmJzcDsmbmJzcDsmbmJzcDsmbmJzcDuixjxCUj4mbmJzcDsmbmJzcDsmbmJzcDsmbmJzcDui
-xiZuYnNwO6LGJm5ic3A7osYgDQo8L0ZPTlQ+PC9ESVY+PC9ESVY+DQogIDwvQk9EWT4NCjwv
-aHRtbD4NCg==
+<html>
+<head>
+<meta http-equiv=3DContent-Type content=3Dtext/html; charset=3Deuc-kr>
+<title>365=C0=CF =C7=E0=BA=B9=C7=D1~ 365=B7=D0</title>
+</head>
+<body topmargin=3D0 leftmargin=3D0 marginheight=3D0 marginwidth=3D0>
+<table width=3D100%  border=3D0 cellspacing=3D0 cellpadding=3D0>
+  <tr>
+    <td align=3Dcenter valign=3Dtop>
+      <table width=3D600 border=3D0 cellspacing=3D0 cellpadding=3D0>
+        <tr>
+          <td><a href=3D"http://365-loan.com/365lon_input.asp?id=3Dmelrong=
+1"  target=3D"_blank"><img src=3D"http://365-loan.com/img/01.jpg" width=3D=
+600 height=3D315 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://365-loan.com/365lon_input.asp?id=3Dmelrong=
+1"  target=3D"_blank"><img src=3D"http://365-loan.com/img/02.gif" width=3D=
+600 height=3D335 border=3D0></a></td>
+        </tr>
+        <tr>
+          <td><a href=3D"http://365-loan.com/dany.asp"><img src=3D"http://=
+365-loan.com/img/bottom.gif" width=3D600 height=3D85 border=3D0></a></td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>
+zs izdzksh p usp opuptyjxcn q ofyzprwc  xsq
+lyqx tveacvvrbgyrp
+zt 
 
-
-----221692760337017767--
+--C_7ADBF_A0F3.E9--
