@@ -1,49 +1,35 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Wed, 22 Sep 2004 02:24:46 +0200
+From: Benjamin LaHaise <bcrl@kvack.org>
+Subject: Re: PPP-over-L2TP kernel support, new patch for review
+Date: Tue, 21 Sep 2004 21:14:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4150C64E.80900@eurodev.net>
-References: <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net> <20040919215915.GB9573@gondor.apana.org.au> <1095633569.1047.107.camel@jzny.localdomain> <20040919231734.GA10124@gondor.apana.org.au> <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au>
+Message-ID: <20040922011421.GE19575@kvack.org>
+References: <20040921210427.GB19575@kvack.org> <E1C9tj0-0003KE-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jchapman@katalix.com, davem@davemloft.net, netdev@oss.sgi.com,
+        kleptog@svana.org, mostrows@styx.uwaterloo.ca
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040922000503.GA13218@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1C9tj0-0003KE-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+On Wed, Sep 22, 2004 at 09:07:06AM +1000, Herbert Xu wrote:
+> Benjamin LaHaise <bcrl@kvack.org> wrote:
+> >
+> >> - Unlikely to integrate with the new native IPSEC stuff.
+> > 
+> > L2TP over IPSEC?  Are you insane?  You'd not be able to terminate more than 
+> > a couple of dozen connections over it. =-)
+> 
+> Why not? L2TP over IPsec is the only reason I'm looking at L2TP at all.
 
-Herbert Xu wrote:
+CPU load.  The main reason I was forced to revisit L2TP (imo, it's a 
+horrible protocol that suffers from too many bad decisions) was in its 
+role for terminating DSL.  In this case one expects to be able to have 
+tens of thousands of connections terminated by a single box, which 
+means pushing hundreds of megabits of traffic.  The overhead of crypto 
+operations in such a scenario makes it a far too costly choice.
 
->On Mon, Sep 20, 2004 at 08:14:42PM +0200, Pablo Neira wrote:
->  
->
->>Here a link to the tool that I use to stress netlink sockets.
->>
->>http://eurodev.net/~pablo/netlinkbench-unicast-1.0.tar.gz
->>    
->>
->
->Thanks for the link.  I'm afraid that your kernel module is simply
->buggy.
->
->First of all as I explained before the kernel must never wait.  It has
->exactly the same effect as extending the receive queue length.
->
->Secondly each of your user-space messages is producing a number of
->replies.  This should be done as a dump operation.  If you do it as
->a dump operation, then you will never get overruns because the kernel
->never sends more than the user can handle.
->  
->
-
-I'll adapt the module to use dump, I still think that I can reproduce 
-the problem.
-
-thanks for the review, please stay tuned.
-
-regards,
-Pablo
+		-ben
