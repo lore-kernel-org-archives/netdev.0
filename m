@@ -1,9 +1,9 @@
 From: domen@coderock.org
-Subject: [patch 06/26] net/pcnet32: replace schedule_timeout() with msleep_interruptible()
-Date: Sun, 06 Mar 2005 11:32:54 +0100
-Message-ID: <20050306103254.E5EDD1F1F0@trashy.coderock.org>
+Subject: [patch 07/26] net/cycx_drv: replace delay_cycx() with msleep_interruptible()
+Date: Sun, 06 Mar 2005 11:32:57 +0100
+Message-ID: <20050306103258.6FC481E46E@trashy.coderock.org>
 Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
-        janitor@sternwelten.at
+        acme@conectiva.com.br, janitor@sternwelten.at
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -13,28 +13,104 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Use msleep_interruptible() instead of schedule_timeout() to
-guarantee the task delays as expected.
+Use msleep_interruptible() instead of delay_cycx()
+to guarantee the task delays as expected. Remove the prototype and
+definition of delay_cycx().
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Acked-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/pcnet32.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ kj-domen/drivers/net/wan/cycx_drv.c |   24 ++++++++----------------
+ 1 files changed, 8 insertions(+), 16 deletions(-)
 
-diff -puN drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32 drivers/net/pcnet32.c
---- kj/drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32	2005-03-05 16:09:33.000000000 +0100
-+++ kj-domen/drivers/net/pcnet32.c	2005-03-05 16:09:33.000000000 +0100
-@@ -847,7 +847,7 @@ static int pcnet32_phys_id(struct net_de
-     if ((!data) || (data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ)))
-     data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
+diff -puN drivers/net/wan/cycx_drv.c~msleep_interruptible-drivers_net_wan_cycx_drv drivers/net/wan/cycx_drv.c
+--- kj/drivers/net/wan/cycx_drv.c~msleep_interruptible-drivers_net_wan_cycx_drv	2005-03-05 16:09:34.000000000 +0100
++++ kj-domen/drivers/net/wan/cycx_drv.c	2005-03-05 16:09:34.000000000 +0100
+@@ -56,7 +56,7 @@
+ #include <linux/sched.h>	/* for jiffies, HZ, etc. */
+ #include <linux/cycx_drv.h>	/* API definitions */
+ #include <linux/cycx_cfm.h>	/* CYCX firmware module definitions */
+-#include <linux/delay.h>	/* udelay */
++#include <linux/delay.h>	/* udelay, msleep */
+ #include <asm/io.h>		/* read[wl], write[wl], ioremap, iounmap */
  
--    schedule_timeout(data * HZ);
-+    msleep_interruptible(data * 1000);
-     del_timer_sync(&lp->blink_timer);
+ #define	MOD_VERSION	0
+@@ -74,7 +74,6 @@ static int reset_cyc2x(void __iomem *add
+ static int detect_cyc2x(void __iomem *addr);
  
-     /* Restore the original value of the bcrs */
+ /* Miscellaneous functions */
+-static void delay_cycx(int sec);
+ static int get_option_index(long *optlist, long optval);
+ static u16 checksum(u8 *buf, u32 len);
+ 
+@@ -259,7 +258,7 @@ static int memory_exists(void __iomem *a
+ 			if (readw(addr + 0x10) == TEST_PATTERN)
+ 				return 1;
+ 
+-		delay_cycx(1);
++		msleep_interruptible(1000);
+ 	}
+ 
+ 	return 0;
+@@ -316,7 +315,7 @@ static void cycx_reset_boot(void __iomem
+ 
+ 	/* 80186 was in hold, go */
+ 	writeb(0, addr + START_CPU);
+-	delay_cycx(1);
++	msleep_interruptible(1000);
+ }
+ 
+ /* Load data.bin file through boot (reset) interface. */
+@@ -462,13 +461,13 @@ static int load_cyc2x(struct cycx_hw *hw
+ 		cycx_reset_boot(hw->dpmbase, reset_image, img_hdr->reset_size);
+ 		/* reset is waiting for boot */
+ 		writew(GEN_POWER_ON, pt_cycld);
+-		delay_cycx(1);
++		msleep_interruptible(1000);
+ 
+ 		for (j = 0 ; j < 3 ; j++)
+ 			if (!readw(pt_cycld))
+ 				goto reset_loaded;
+ 			else
+-				delay_cycx(1);
++				msleep_interruptible(1000);
+ 	}
+ 
+ 	printk(KERN_ERR "%s: reset not started.\n", modname);
+@@ -495,7 +494,7 @@ reset_loaded:
+ 
+ 	/* Arthur Ganzert's tip: wait a while after the firmware loading...
+ 	   seg abr 26 17:17:12 EST 1999 - acme */
+-	delay_cycx(7);
++	msleep_interruptible(7000);
+ 	printk(KERN_INFO "%s: firmware loaded!\n", modname);
+ 
+ 	/* enable interrupts */
+@@ -547,20 +546,13 @@ static int get_option_index(long *optlis
+ static int reset_cyc2x(void __iomem *addr)
+ {
+ 	writeb(0, addr + RST_ENABLE);
+-	delay_cycx(2);
++	msleep_interruptible(2000);
+ 	writeb(0, addr + RST_DISABLE);
+-	delay_cycx(2);
++	msleep_interruptible(2000);
+ 
+ 	return memory_exists(addr);
+ }
+ 
+-/* Delay */
+-static void delay_cycx(int sec)
+-{
+-	set_current_state(TASK_INTERRUPTIBLE);
+-	schedule_timeout(sec * HZ);
+-}
+-
+ /* Calculate 16-bit CRC using CCITT polynomial. */
+ static u16 checksum(u8 *buf, u32 len)
+ {
 _
