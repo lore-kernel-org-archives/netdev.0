@@ -1,48 +1,30 @@
 From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: [PATCH] tun driver use private linked list.
-Date: Tue, 12 Aug 2003 09:48:50 -0700
+Subject: Re: [RFT][PATCH] Convert bluetooth to dynamic net_device.
+Date: Tue, 12 Aug 2003 09:49:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5.1.0.14.2.20030812092213.08dc6ea0@unixmail.qualcomm.com>
-References: <20030808113404.0e9e1e6d.shemminger@osdl.org>
- <200308051630.28552.bellucda@tiscali.it>
- <20030805090647.691daa7e.shemminger@osdl.org>
- <200308051910.55823.bellucda@tiscali.it>
- <20030807154524.4794ad45.shemminger@osdl.org>
- <20030807155901.49f1a424.davem@redhat.com>
- <20030808113404.0e9e1e6d.shemminger@osdl.org>
+Message-ID: <5.1.0.14.2.20030812094908.08cca600@unixmail.qualcomm.com>
+References: <20030811115334.4bd4521a.shemminger@osdl.org>
+ <20030811115334.4bd4521a.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="us-ascii"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>,
    Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030809011801.3258f7af.davem@redhat.com>
+In-Reply-To: <20030811224851.18d41430.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-At 01:18 AM 8/9/2003, David S. Miller wrote:
->On Fri, 8 Aug 2003 11:34:04 -0700
+At 10:48 PM 8/11/2003, David S. Miller wrote:
+>On Mon, 11 Aug 2003 11:53:34 -0700
 >Stephen Hemminger <shemminger@osdl.org> wrote:
 >
->> Less grotty version, applies over earlier patch.
->>       - keep a private list.  
->>       - fix debug format strings.
->>       - drop the name entry in the private data structure since it already
->>         has a pointer to netdev that has name.
+>> Since the initialization code changed slightly, I would like to have
+>> someone do a basic sanity test before it is merged.
 >
->Applied, thanks for following up on this Stephen.
+>Ok, ping me when you believe this has occurred :-)
 
-Folks,
+I'll test this patch and let you guys know. So far it looks ok to me.
 
-Sorry for jumping in late. 
-I didn't implement cleanup logic in module_exit() because TUN module is not supposed 
-to be unloaded if it has network devices, _even if those devices are down_.
-TUN registers net device only when user application asks for it.
-        fd = open("/dev/net/tun") -> ioctl(fd, CREATE_TUN_DEV) -> read(fd)/write(fd);
-Net device must not be destroyed while fd is open.
-
-So instead of cleaning up in tun_module_exit() we should fix misc driver to do refcounting 
-for misc devices so that we could bump ref count for tun driver when application creates
-net device.
-
+Thanks
 Max
