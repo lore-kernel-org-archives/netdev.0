@@ -1,132 +1,93 @@
-From: "Raghavendra Koushik" <raghavendra.koushik@s2io.com>
-Subject: RE: [PATCH 2.6.9-rc2 2/8] S2io: sw bug fixes
-Date: Thu, 14 Oct 2004 10:35:14 -0700
+From: Alexander Gran <alex@zodiac.dnsalias.org>
+Subject: Re: pppoe broken in 2.6.9-rc2-mm1, working in 2.6.7-mm1 and 2.6.7-rc3
+Date: Thu, 14 Oct 2004 19:38:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410141735.i9EHZJ39006121@guinness.s2io.com>
-References: <416E90C5.2090307@pobox.com>
+Message-ID: <200410141938.47666@zodiac.zodiac.dnsalias.org>
+References: <200410081736.05976@zodiac.zodiac.dnsalias.org> <20041008121713.12f888c5.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>,
-        <leonid.grossman@s2io.com>, <rapuru.sriram@s2io.com>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>, <ravinandan.arakali@s2io.com>
-In-Reply-To: <416E90C5.2090307@pobox.com>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041008121713.12f888c5.akpm@osdl.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jgarzik@pobox.com]
-> Sent: Thursday, October 14, 2004 7:44 AM
-> To: ravinandan.arakali@s2io.com
-> Cc: 'Francois Romieu'; netdev@oss.sgi.com; leonid.grossman@s2io.com;
-> raghavendra.koushik@s2io.com; rapuru.sriram@s2io.com
-> Subject: Re: [PATCH 2.6.9-rc2 2/8] S2io: sw bug fixes
-> 
-> Ravinandan Arakali wrote:
+Am Freitag, 8. Oktober 2004 21:17 schrieb Andrew Morton:
+> Alexander Gran <alex@zodiac.dnsalias.org> wrote:
 > > Hi,
-> > Attached is the second patch in this submission. It contains the
-> following
-> > software bug fixes.
 > >
-> > 1. In free_rx_buffers clearing out RxDs not owned by Xena.
-> >
-> > 2. In alarm_intr_handler, when a serr error occurs, schedule a task to
-> reset
-> > the card rather than stopping Tx queue.
-> >
-> > 3. In s2io_close freeing IRQ before calling s2io_reset also added a new
-> call
-> > to flush queued tasks. This is not done if the s2io_close itself is
-> called
-> > from a queued task like s2io_restart_nic.
-> >
-> > 4. read_eeprom function has been changed such that data to be returned
-> is
-> > sent as an input argument and the return value represents a pass/fail.
-> The
-> > previous implementation as Randy had pointed out was error prone as on
-> > failure it returned -1 which can be interpreted as all ff's, so any data
-> > area which contained ff's in the eeprom was likely to be treated as an
-> > error.
-> >
-> > 5. Added a flag "task_flag" to track if the call to s2io_close is coming
-> > from the s2io_restart_nic function or from the ifconfig <I/F> down
-> called by
-> > user.
-> >
-> > 6. Moved register_netdev call from just after setting entry points to
-> the
-> > end of the s2io_init_nic function.
-> >
-> > 7. In s2io.h field added a new member into the s2io_nic structure called
-> > "task_flag".
-> >
-> >
-> > Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
-> 
-> 
-> Comments:
-> 
-> 1) the following code looks wrong:
-> 
-> >                 DBG_PRINT(ERR_DBG, "%s: Device indicates ", dev->name);
-> >                 DBG_PRINT(ERR_DBG, "serious error!!\n");
-> > -               netif_stop_queue(dev);
-> > +               schedule_work(&nic->rst_timer_task);
-> 
-> Typically you want to stop the queue _and_ schedule_work().  Otherwise,
-> the net stack will continually call your ->hard_start_xmit() hook with
-> new skbs, _during_ your rst_timer_task.
-
-The reset task (s2io_restart_nic) actually calls s2io_close first, which in
-turn stops the queue to begin with. Hence I got rid of netif_stop_queue.
- 
-> 
-> 2) can this 'if' test be removed?  there is no harm in unconditionally
-> calling flush_scheduled_work()
-> 
-> > +       /* Flush all scheduled tasks */
-> > +       if (sp->task_flag == 1) {
-> > +               DBG_PRINT(INFO_DBG, "%s: Calling close from a task\n",
-> > +                         dev->name);
-> > +       } else {
-> > +               flush_scheduled_work();
-> > +       }
-> 
-
-As I said the s2io_close can be called from stack or by the reset task. If
-called from the task (or work) is it still Ok to flush all scheduled works?
+> > pppoe doesnot work for me on 2.6.9-rc2-mm1. It works with  2.6.7-mm1 and
+> > 2.6.7-rc3.
+>
+> I think I saw one similar report.  Networking was a bit wobbly around
+> 2.6.9-rc3.  Could you try 2.6.9-rc3-mm3?
 
 
-> 3) I do not think that s2io_close should be called from anywhere except
-> the net stack...
-> 
-> The following code should not be needed, unless I am missing something:
-> >
-> >         nic_t *sp = dev->priv;
-> >
-> > +       sp->task_flag = 1;
-> >         s2io_close(dev);
-> > +       sp->task_flag = 0;
-> >         sp->device_close_flag = TRUE;
-> 
+2.6.9-rc4-mm1 works like a charm. Thanks..
 
-I believe the best way to restart the NIC is to call s2io_close and
-s2io_open sequentially.
+Alex
 
-> 
-> 4) the following code is correct, but should additional propagate the
-> register_netdev() error code back to its caller, upon failure:
-> 
-> >         sp->rx_csum = 1;        /* Rx chksum verify enabled by default
-> */
+> > The problem seems to be that one package is missing:
+> > 2.6.7 does this:
+> > 17:31:09.042999 PPPoE PADI
+> > 17:31:09.358382 PPPoE PADO [AC-Name "AACX11-erx"] [Service-Name]
+> > [AC-Cookie 0xC18B5C6E2ECF4E0C6CFBB17EE5777E82]
+> > 17:31:09.358466 PPPoE PADR [Service-Name] [AC-Cookie
+> > 0xC18B5C6E2ECF4E0C6CFBB17EE5777E82]
+> > 17:31:09.651898 PPPoE PADS [ses 0x107d] [Service-Name] [AC-Name
+> > "AACX11-erx"] [AC-Cookie 0xC18B5C6E2ECF4E0C6CFBB17EE5777E82]
+> > 17:31:10.037167 PPPoE  [ses 0x107d] LCP, Conf-Request (0x01), id 1,
+> > Magic-Num 0x0024067c, PFC , length 12
+> >         0x0000:  c021 0101 000c 0506 0024 067c 0702
+> > 17:31:10.145315 PPPoE  [ses 0x107d] LCP, Conf-Request (0x01), id 96, MRU
+> > 1492, Auth-Prot  PAP, Magic-Num  0x718234ae, length 18
+> >         0x0000:  c021 0160 0012 0104 05d4 0304 c023 0506
+> >         0x0010:  7182 34ae
+> > 17:31:10.145766 PPPoE  [ses 0x107d] LCP, Conf-Ack (0x02), id 96, MRU 
+> > 1492, Auth-Prot  PAP, Magic-Num  0x718234ae, length 18
+> >         0x0000:  c021 0260 0012 0104 05d4 0304 c023 0506
+> >         0x0010:  7182 34ae
+> > 17:31:10.147435 PPPoE  [ses 0x107d] LCP, Conf-Ack (0x02), id 1, Magic-Num
+> > 0x0024067c, PFC , length 12
+> >         0x0000:  c021 0201 000c 0506 0024 067c 0702
+> > 17:31:10.148875 PPPoE  [ses 0x107d] LCP, Echo-Request (0x09), id 0,
+> > Magic-Num 0x0024067c, length 8
+> >         0x0000:  c021 0900 0008 0024 067c
+> > 17:31:10.148878 PPPoE  [ses 0x107d] Auth-Req(1), Peer
+> > 0002567923935200490773370001@t-online.de, Name 09856472
+> > 17:31:10.260645 PPPoE  [ses 0x107d] LCP, Echo-Reply (0x0a), id 0,
+> > Magic-Num 0x718234ae, length 8
+> >         0x0000:  c021 0a00 0008 7182 34ae
+> > 17:31:10.535034 PPPoE  [ses 0x107d] Auth-Ack(1), Msg
+> > 17:31:10.535561 PPPoE  [ses 0x107d] unknown, Conf-Request (0x01), id 1,
+> > Deflate, MVRCA, BSD-Comp, length 15
+> >         0x0000:  80fd 0101 000f 1a04 7800 1804 7800 1503
+> >         0x0010:  2f
 > >
-> > +       if (register_netdev(dev)) {
-> > +               DBG_PRINT(ERR_DBG, "Device registration failed\n");
-> > +               goto register_failed;
-> > +       }
-> > +
+> > 2.6.9 does not send
+> > 17:31:10.037167 PPPoE  [ses 0x107d] LCP, Conf-Request (0x01), id 1,
+> > Magic-Num 0x0024067c, PFC , length 12
+> >         0x0000:  c021 0101 000c 0506 0024 067c 0702
+> > and than the AC does not respond to the follwoing packages.
+> >
+> > regards
+> > Alex
+> >
+> > --
+> > Encrypted Mails welcome.
+> > PGP-Key at http://zodiac.dnsalias.org/misc/pgpkey.asc | Key-ID:
+> > 0x6D7DD291
+> >
+> > -
+> > To unsubscribe from this list: send the line "unsubscribe linux-kernel"
+> > in the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
+
+-- 
+Encrypted Mails welcome.
+PGP-Key at http://zodiac.dnsalias.org/misc/pgpkey.asc | Key-ID: 0x6D7DD291
