@@ -1,41 +1,43 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: remove c99ism
-Date: Mon, 17 Jan 2005 12:56:37 +0100
-Message-ID: <20050117115637.GB26856@postel.suug.ch>
-References: <20050115144010.33182075.akpm@osdl.org> <20050115232554.GS26856@postel.suug.ch> <20050115153202.2f7f81c6.akpm@osdl.org> <20050115234056.GT26856@postel.suug.ch> <20050117090912.GB30371@mail.13thfloor.at>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 17 Jan 2005 14:04:19 +0200
+Message-ID: <200501171404.19451.hasso@estpak.ee>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1105363092.1041.146.camel@jzny.localdomain> <1105917038.1091.1041.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Tommy Christensen <tommy.christensen@tpack.net>,
+        Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Poetzl <herbert@13thfloor.at>
+To: hadi@cyberus.ca
+In-Reply-To: <1105917038.1091.1041.camel@jzny.localdomain>
 Content-Disposition: inline
-In-Reply-To: <20050117090912.GB30371@mail.13thfloor.at>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Herbert Poetzl <20050117090912.GB30371@mail.13thfloor.at> 2005-01-17 10:09
-> On Sun, Jan 16, 2005 at 12:40:56AM +0100, Thomas Graf wrote:
-> > * Andrew Morton <20050115153202.2f7f81c6.akpm@osdl.org> 2005-01-15 15:32
-> > > An uglier but more efficient approach is to whack braces around the whole
-> > > thing.
-> > 
-> > Fine with me as well. The code isn't used that often and not deep in the
-> > calling stack which is why I preferred the cleaner way first.
-> 
-> hmm, please remind me why putting some
-> 
-> #ifdef CONFIG_NET_CLS_ACT
-> 	int err;
-> 	struct tc_action *act;
-> #endif
-> 
-> at the _beginning_ of that procedure would
-> be a bad choice?
+jamal wrote:
+> Didnt see anymore discussion on this - have we given up on it?
 
-I personally don't think it's a bad choice but the less ifdefs the
-better. 2 out of 3 of my latest bugs were related to such ifdefs because
-testing gets more error prone. Personally I think the cleanest way
-would be to create inlined functions together with a nop macro but
-it would hide the mutual exclusiveness of NET_CLS_ACT and NET_CLS_POLICE
-in this case which is even worse.
+I'm not competent enough about kernel internals to decide how this should be 
+done in kernel. But I would like to clarify situation for me as Quagga 
+developer.
+
+All this work is done to avoid sending stale packets to the network? Ie. 
+there will be no change regarding socket blocking issue? Detecting carrier 
+on/off and/or socket per interface is must be for us in user space to avoid 
+socket blocking? I'm just trying to have full picture so I can put my 
+priorities in place for next release.
+
+
+Thanks for your support,
+
+-- 
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
