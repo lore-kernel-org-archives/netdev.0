@@ -1,32 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: pskb change in dst->output
-Date: Fri, 9 Jul 2004 18:14:43 +1000
+Subject: IPCOMP scratch buffer (was: [Openswan dev] IPComp)
+Date: Fri, 9 Jul 2004 20:02:13 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709081443.GA11101@gondor.apana.org.au>
-References: <20040708011100.GA31600@gondor.apana.org.au> <Xine.LNX.4.44.0407072327390.29365-100000@thoron.boston.redhat.com> <20040708040235.GA32678@gondor.apana.org.au>
+Message-ID: <20040709100213.GA12215@gondor.apana.org.au>
+References: <20040706213135.GA21477@gondor.apana.org.au> <Xine.LNX.4.44.0407061846470.24263-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: James Morris <jmorris@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040708040235.GA32678@gondor.apana.org.au>
+In-Reply-To: <Xine.LNX.4.44.0407061846470.24263-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 08, 2004 at 02:02:35PM +1000, herbert wrote:
+On Tue, Jul 06, 2004 at 06:50:44PM -0400, James Morris wrote:
 > 
-> That's only because the dst->output() functions are calling
-> skb_checksum_help().  Since those same functions assume the
-> skb to be "uncloned" anyway (they modify it directly by adding
-> headers etc.), they only need to call a version of
-> skb_checksum_help() that does not do a copy of the skb.
+> I think it would be better to go with your original idea of allocating a
+> scratch buffer for each packet, based on the size of the packet.  IPComp
+> is very slow path, and allocating 64k for each SA is optimizing for an
+> uncommon worst case in a way which will potentially eat up a lot of memory
+> (e.g. > 6MB for 100 tunnels).
 
-If there are no objections, I'd like to create a version of
-skb_checksum_help() that doesn't copy the packet, and call
-that version from ah_output()/esp_output()/ipcomp_output().
-
-Cheers,
+What about a shared per-cpu buffer?
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
