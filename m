@@ -1,31 +1,51 @@
 From: kuznet@ms2.inr.ac.ru
 Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Sat, 28 Sep 2002 09:26:57 +0400 (MSD)
+Date: Sat, 28 Sep 2002 09:37:33 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209280526.JAA03028@sex.inr.ac.ru>
-References: <20020928.141407.110833680.yoshfuji@linux-ipv6.org>
+Message-ID: <200209280537.JAA03046@sex.inr.ac.ru>
+References: <Pine.LNX.4.44.0209280813030.8846-100000@netcore.fi>
 Mime-Version: 1.0
-Cc: usagi@linux-ipv6.org, davem@redhat.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Cc: davem@redhat.com, yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
-In-Reply-To: <20020928.141407.110833680.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Sep 28, 2 02:14:07 pm
+To: pekkas@netcore.fi (Pekka Savola)
+In-Reply-To: <Pine.LNX.4.44.0209280813030.8846-100000@netcore.fi> from "Pekka Savola" at Sep 28, 2 08:24:58 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> we need per application (per socket) interface
-> for privacy extension (public address vs temporary address) and 
-> mobile ip (home address vs care-of address).
+> Or would you have an already-sorted list of possible candidate addresses 
+> for each route in the order of preference?
 
-OK. It is natural user-friendly generalization of bind(). I do not see
-problems.
+I am not mad yet. :-)
 
-Though, please, explain, to avoid misunderstanding. Let's take the second
-case for simplicity. Is that true that it is supposed to add
-to each application a switch "home or care-of"? This sound strange enough,
-taking into account that only a few of applications have switch sort of -b
-in openssh despite of age of plain bind() is equal to age of internet. :-)
+What preference? You must select _one_ address, you do not need lost
+candidates.
+
+
+> And recalculate always when address changes?
+
+What address? Interface address? Routing tables used to be synchronized
+to this.
+
+
+> This is IMO a wrong approach from user's perspective.  Perhaps not if the 
+> algorithm was run and e.g. additional, temporary "address selection" 
+> routes were created by kernel.
+>  
+> > > (stuff that's network prefix -independent
+> > 
+> > I am sorry, I feel I do not understand what you mean.
+> 
+> Hmm.. this depends on the interpretation of the concept above.  If the
+> list is refreshed always when addresses change or change state, this could
+> perhaps work..
+
+I am afraid I do not understand what "address", "state", "temporary" routes
+etc you mean. It remained in your brains. :-)
+
+Pekka, are you not going to sleep? (I am.) I bet when you reread this tomorrow,
+you will not blame that my brains eventually falled to "parse error" loop. :-)
 
 Alexey
