@@ -1,28 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Realtek 8169 Lock-ups
-Date: Sun, 11 Jan 2004 03:23:41 -0500
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: experimental net driver queue updated
+Date: Sun, 11 Jan 2004 00:45:40 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4001080D.3090401@pobox.com>
-References: <1073507006.5151.61.camel@localhost>	 <20040107232034.A22930@electric-eye.fr.zoreil.com> <1073596694.6378.6.camel@localhost>
+Message-ID: <20040111004540.403ca854.akpm@osdl.org>
+References: <4000C5A3.5070101@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dpollock@acm.org
-In-Reply-To: <1073596694.6378.6.camel@localhost>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4000C5A3.5070101@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hum... where are we on this?
+Jeff Garzik <jgarzik@pobox.com> wrote:
+>
+> Patch:
+>  http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.1-bk1-netdev2.patch.bz2
 
-Francois made a few key fixes before he left, which I've included in the 
-latest netdev patch...
+net/core/netpoll.c: In function `netpoll_setup':
+net/core/netpoll.c:572: warning: too many arguments for format
+net/core/netpoll.c:572: warning: too many arguments for format
 
-http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.1-bk1-netdev2.patch.bz2
+--- 25/net/core/netpoll.c~netpoll-warning-fix	2004-01-11 00:43:24.000000000 -0800
++++ 25-akpm/net/core/netpoll.c	2004-01-11 00:43:50.000000000 -0800
+@@ -569,7 +569,7 @@ int netpoll_setup(struct netpoll *np)
+ 		if (time_before(jiffies, atleast)) {
+ 			printk(KERN_NOTICE "%s: carrier detect appears flaky,"
+ 			       " waiting 10 seconds\n",
+-			       np->name, np->dev_name);
++			       np->name);
+ 			while (time_before(jiffies, atmost))
+ 				cond_resched();
+ 		}
 
-Have those already been tested?
-
-Thanks,
-
-	Jeff
+_
