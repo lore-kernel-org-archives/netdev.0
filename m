@@ -1,37 +1,34 @@
-From: Quantum Scientific <Info@Quantum-Sci.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Sun, 27 Feb 2005 12:08:52 -0600
-Message-ID: <200502271208.52936.Info@Quantum-Sci.com>
-References: <200502270928.44402.Info@Quantum-Sci.com> <200502271029.02532.Info@Quantum-Sci.com> <20050228.022828.120983354.yoshfuji@linux-ipv6.org>
+Date: Sun, 27 Feb 2005 13:12:14 -0500
+Message-ID: <42220D7E.3000104@pobox.com>
+References: <200502270928.44402.Info@Quantum-Sci.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-To: netdev@oss.sgi.com
-In-Reply-To: <20050228.022828.120983354.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Quantum Scientific <Info@Quantum-Sci.com>
+In-Reply-To: <200502270928.44402.Info@Quantum-Sci.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 27 February 2005 11:28, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=
-=8B=B1=E6=98=8E wrote:
-> Don't you find diff files?! e.g:
->  =20
-ftp://ftp.linux-ipv6.org/pub/usagi/snap/split/usagi-linux26-s20050214-2.6=
-.11-rc3.diff.bz2
-> is patch against linux-2.6.11-rc3.
+Quantum Scientific wrote:
+> After a week of intensive research and full-time study, it's become clear that 
+> IPV6 support, as it comes in standard Linux 2.6 kernels, is effectively 
+> non-functional.
 
-I see.  I was talking about the downloadable split and kit archives, and =
-you=20
-were talking about what's on FTP, which I didn't expect to be different.
+Strange how I use this non-functional support every day.
 
-I'm hoping some of my vociferous effort to make this go, will help improv=
-e=20
-things down the line.  IPV6 is extremely difficult to implement at the=20
-moment.
 
-Here's hoping the USAGI linux-2.6.10-rc3 diff fits in Debian=20
-kernel-source-2.6.10-5.  Back to work...
+> I have a properly working firewall, but it appears there is no stateful 
+> filtering nor connection  tracking in the IPV6 stack.  I send out an 
 
-Carl Cook
+> So is there something I'm missing?  Am I completely fscked-up when I say that 
+> it doesn't work in practice, because there is no stateful packet filtering 
+> nor connection tracking?
+
+Yes.  IPv6 does not need NAT'ing.  Everyone should have a global 
+address.  Connection tracking is not needed.
+
+	Jeff
