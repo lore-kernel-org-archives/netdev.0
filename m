@@ -1,49 +1,55 @@
-From: Donald Becker <becker@scyld.com>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: NAPI-ized tulip patch against 2.4.20-rc1
-Date: Wed, 6 Nov 2002 15:47:43 -0500 (EST)
+Date: Wed, 06 Nov 2002 13:30:56 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211061458310.13934-100000@beohost.scyld.com>
-References: <3DC96301.7070602@candelatech.com>
+Message-ID: <3DC98A10.5030407@candelatech.com>
+References: <3DC8B85B.5050805@candelatech.com>	<15817.21170.173913.829498@robur.slu.se>	<3DC95631.6030001@candelatech.com> <15817.29109.859144.565330@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DC96301.7070602@candelatech.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Nov 2002, Ben Greear wrote:
+Robert Olsson wrote:
+> Ben Greear writes:
 
-> > The trivial case is a module option that sets a variable replacing
-> > RX_RING_SIZE / TX_RING_SIZE..
-> > The passed-in value shouldn't be used directly:
-> >  - many drivers have upper and lower bounds
-> >  - the size can only be changed when the rings are initialized,
-> >    which occurs when the interface starts.
+>  I still doubt ;-) 
 > 
-> So, adjusting the ring size would require stopping and starting the
-> NIC?  Is that a full bounce (including auto-negotiation)?
-
-Most chips do not require bouncing the link when the interface is cycled
-down/up.  That's not to say that some drivers don't reset the link --
-it's easier for the driver writer to write the code that way, and doing
-the link reset can mask other problems.
-
-> >  - users thinking "if 32 is good, 32000 is better"
+>  With e1000 I played with various settings for RX-buffers rather recently 
+>  when the 82544 increased the number of available buffers from 256 to 4096.
 > 
-> The sad truth is, most NICs/drivers do not perform at high
-> speeds w/out hacking them in various ways.  Where to lay the
-> blame (VM, shitty hardware, etc) is debatable, but it doesn't
-> change the results.  I do know that 1024 is better than 32 for
-> high speeds on muliple ports, on my NICs.
+>  And I guess my test looks a bit like yours... Injecting an "overload" of 
+>  packets. I found was 256 buffers was the optimum. Approximative of course.
 
-I can see that changing the parameters is a quick, ad hoc solution.
-This list should focus on identifying the problems, rather than just
-patching in work-arounds.
+It's possible that it is a particular issue with my NICs (Old Phobos 4-port).
+Phobos folks said the bridge chipset has errata that make it un-suitable for
+high speeds.  And something about a memory divide-by-four error.  It may be
+that the extra buffers help hide the hardware defects in some manner.
+I was, for instance, seeing cases where packets just dissappeared...and no
+error counters were being bumped.
+
+With the latest kernel drivers, the 570tx NIC seems to have
+trouble autonegotiating full-duplex again, so I have not been testing
+with it lately (I think it uses the same bridge chipset anyway.)
+
+I will try changing around those numbers again now that I have a baseline
+to work from.
+
+>  And as you saw for SMP with recycle it is easy to feed the recycled skb 
+>  back to CPU were it was created/processed.
+
+Yes, I can see how that would be useful on SMP, so there may be less gain
+for single-proc systems.  I actually am pretty fuzzy on cache-line optimizations
+and the like...
+
+
+Thanks,
+Ben
 
 -- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
