@@ -1,33 +1,35 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 patch kernel 2.4.25
-Date: Wed, 10 Mar 2004 21:56:20 +0100
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.6.4-rc3] pcnet32.c oops
+Date: Wed, 10 Mar 2004 13:08:17 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040310215620.A31831@electric-eye.fr.zoreil.com>
-References: <20040308231303.C936@electric-eye.fr.zoreil.com> <404CF41C.2060807@netsite.com.br> <20040308235558.D936@electric-eye.fr.zoreil.com> <404D0363.9030407@netsite.com.br> <20040309010841.F936@electric-eye.fr.zoreil.com> <404D12C3.4000702@netsite.com.br> <20040309090747.A9256@electric-eye.fr.zoreil.com> <404DDB88.2080000@netsite.com.br> <20040310011358.A16937@electric-eye.fr.zoreil.com> <1078927570.1812.6.camel@territory>
+Message-ID: <200403102108.i2AL8Is04491@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marco Sinhoreli <msinhore@netsite.com.br>
-Content-Disposition: inline
-In-Reply-To: <1078927570.1812.6.camel@territory>; from msinhore@netsite.com.br on Wed, Mar 10, 2004 at 11:06:10AM -0300
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Marco Sinhoreli <msinhore@netsite.com.br> :
-[...]
-> I will be waiting the code of backport to drive r8169 for I test with
-> the rsync. 
+Please apply the following fix to 2.6.3-rc4.
 
-Try that:
-http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.26-pre2/r8169-mammoth-attack.patch
+When adding an additional device, a variable which has been removed
+is accessed.  Adding the first device or a 4-port card works.
+Adding a second device was not done in PCI hot plug testing.  Now
+tested on IA32.
 
-It should turn your 2.4.26-pre2 into a decently up-to-date/patched 2.6.x r8169
-driver (it does not include the misbehaving addr-high code). Please keep
-netdev Cced an provide a summary of your experiences.
+--- linux-2.6.4-rc3/drivers/net/orig.pcnet32.c	Wed Mar 10 08:55:40 2004
++++ linux-2.6.4-rc3/drivers/net/pcnet32.c	Wed Mar 10 11:35:41 2004
+@@ -69,7 +69,7 @@
+ 
+ MODULE_DEVICE_TABLE (pci, pcnet32_pci_tbl);
+ 
+-int cards_found __initdata;
++static int cards_found;
+ 
+ /*
+  * VLB I/O addresses
 
-For the curious, the parts of the patch are in the same directory (not really
-different from the 2.6.x version actually).
-
---
-Ueimor
+-- 
+Don Fry
+brazilnut@us.ibm.com
