@@ -1,68 +1,28 @@
-From: Petr Konecny <pekon@fi.muni.cz>
-Subject: PATCH: netpoll with xircom_cb
-Date: Thu, 14 Oct 2004 04:41:10 +0200
+From: shemminger@osdl.org
+Subject: Re: Unknown qdisc "netem"
+Date: Wed, 13 Oct 2004 20:39:26 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <qww8yaarph5.fsf@decibel.fi.muni.cz>
+Message-ID: <60664.63.170.215.71.1097725166.squirrel@www.osdl.org>
+References: <41538C5B0002BF06@ims6b.cp.tin.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+In-Reply-To: <41538C5B0002BF06@ims6b.cp.tin.it>
+To: carlo.altarelli@virgilio.it
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> i'm tring to use netem under a 2.6.8.1 kernel,
+> the error report is : "Unknown qdisc netem",
+> I've just rebuild the kernel with these options about QoS:
+>
 
-I have a headless computer with xircom pcmcia card and needed netconsole
-on it. After looking around in other drivers I concocted this patch.  It
-survived light testing. I have no documentation for the hw, so it maybe
-totally bogus. What do you think ?
-
-                                                        Petr
-
-lspci -v of the card is:
-0000:02:00.1 Serial controller: Xircom Cardbus Ethernet + 56k Modem (rev 03) (prog-if 02 [16550])
-        Subsystem: Xircom CBEM56G-100 Ethernet + 56k Modem
-        Flags: medium devsel, IRQ 11
-        I/O ports at 4080 [size=8]
-        Memory at 10801000 (32-bit, non-prefetchable) [size=2K]
-        Memory at 10801800 (32-bit, non-prefetchable) [size=2K]
-        Expansion ROM at 10404000 [disabled] [size=16K]
-        Capabilities: [dc] Power Management version 1
-
---- linux-2.6.8.1/drivers/net/tulip/xircom_cb.c	2004-08-13 22:37:38.000000000 -0700
-+++ work/drivers/net/tulip/xircom_cb.c	2004-10-13 18:54:34.000000000 -0700
-@@ -117,6 +117,9 @@
- static int xircom_close(struct net_device *dev);
- static void xircom_up(struct xircom_private *card);
- static struct net_device_stats *xircom_get_stats(struct net_device *dev);
-+#if CONFIG_NET_POLL_CONTROLLER
-+static void xircom_poll_controller(struct net_device *dev);
-+#endif
- 
- static void investigate_read_descriptor(struct net_device *dev,struct xircom_private *card, int descnr, unsigned int bufferoffset);
- static void investigate_write_descriptor(struct net_device *dev, struct xircom_private *card, int descnr, unsigned int bufferoffset);
-@@ -269,6 +272,9 @@
- 	dev->stop = &xircom_close;
- 	dev->get_stats = &xircom_get_stats;
- 	dev->priv = private;
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+	dev->poll_controller = &xircom_poll_controller;
-+#endif
- 	SET_ETHTOOL_OPS(dev, &netdev_ethtool_ops);
- 	pci_set_drvdata(pdev, dev);
- 
-@@ -500,6 +506,14 @@
- } 
-                                                  
- 
-+#ifdef CONFIG_NET_POLL_CONTROLLER
-+static void xircom_poll_controller(struct net_device *dev)
-+{
-+	disable_irq(dev->irq);
-+	xircom_interrupt(dev->irq, dev, NULL);
-+	enable_irq(dev->irq);
-+}
-+#endif
- 
- 
- static void initialize_card(struct xircom_private *card)
+More likely the problem is out of date versions of tc or picking up
+the wrong version of tc from the PATH. Some distro's put tc in /sbin
+but the current iproute2 'make install' puts it in /usr/sbin.  With
+the latest iproute2 the netem support is in the shared library
+/usr/lib/tc/q_netem.so. I could have built it into tc but wanted to
+use netem as test case for the extensiblity with shared libraries,
+and it solves build/link issues with older kernels.
