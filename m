@@ -1,34 +1,36 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 2/2] ipvs deadlock fix
-Date: Mon, 31 Jan 2005 01:47:22 -0800
-Message-ID: <20050131014722.77d732c4.akpm@osdl.org>
-References: <200501310633.j0V6X1l01385@mail.osdl.org>
-	<20050131093609.GA3804@verge.net.au>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: PROBLEM: nd_tbl not a public symbol in net/ipv6/ndisc.c
+Date: Mon, 31 Jan 2005 19:01:57 +0900 (JST)
+Message-ID: <20050131.190157.42878368.yoshfuji@linux-ipv6.org>
+References: <Pine.OSF.4.58.0501310903220.211@igor.urz.unibas.ch>
+	<20050131.172022.93845025.yoshfuji@linux-ipv6.org>
+	<Pine.OSF.4.58.0501310922130.2054@igor.urz.unibas.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Horms <horms@verge.net.au>
-In-Reply-To: <20050131093609.GA3804@verge.net.au>
+To: Christian.Tschudin@unibas.ch
+In-Reply-To: <Pine.OSF.4.58.0501310922130.2054@igor.urz.unibas.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Horms <horms@verge.net.au> wrote:
->
-> On Sun, Jan 30, 2005 at 10:33:02PM -0800, akpm@osdl.org wrote:
->  > 
->  > 
->  > update_defense_level() is calling si_meminfo() from timer context.  But
->  > si_meminfo takes non-irq-safe locks.
->  > 
->  > Move it all to keventd context.  
-> 
->  Would I be right in thinking that the offending lock is bdev_lock which
->  is grabbed in nr_blockdev_pages() and thus that this is not an issue
->  for 2.4 whose si_meminfo() does not have such a call?
+In article <Pine.OSF.4.58.0501310922130.2054@igor.urz.unibas.ch> (at Mon, 31 Jan 2005 10:16:29 +0100 (MET)), Christian Tschudin <Christian.Tschudin@unibas.ch> says:
 
-Yes, 2.4's si_meminfo() seems to be OK from interrupt context.
+> We have implemented an underlay network layer protocol.
+> This means that we present to the IP stack a subnet illusion
+> while doing wireless multihop forwarding underneath.
+> To this end we need to set and unset entries in the neighbor
+> table, because we are actively managing neighbors.
 
-On x86 - I didn't check the other architectures.
+Ok, but basically, we do not export it unless it is really used.
+We may do if it is necessary when you merge it.
+
+BTW, for your purpose, we may export
+ ndisc_lookup()
+or something instead of nd_tbl itself.
+
+Anyway, I'd like to know the usage (code).
+
+--yoshfuji
