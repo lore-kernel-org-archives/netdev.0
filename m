@@ -2,7 +2,7 @@ From: Yan-Fa Li <yan@intruvert.com>
 Subject: RE: RFC: per-socket statistics on received/dropped packets
 Date: Wed, 12 Jun 2002 13:30:32 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <D71BEAC27500D51199DF0002B328BA8D4FBC4D@ivexs1.intruvert.com>
+Message-ID: <aee13v$15a$2@main.gmane.org>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
 	boundary="----_=_NextPart_001_01C21250.003397A0"
