@@ -1,37 +1,37 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: netdev ioctl & dev_base_lock : bad idea ?
-Date: Wed, 8 Dec 2004 23:13:31 -0800
-Message-ID: <20041208231331.40cd98ad.davem@davemloft.net>
-References: <1101458929.28048.9.camel@gaston>
-	<20041208220642.6984519f.davem@davemloft.net>
-	<1102573333.16495.2.camel@gaston>
+Subject: Re: [PATCH] tcp: efficient port randomisation (rev 3)
+Date: Wed, 8 Dec 2004 23:55:24 -0800
+Message-ID: <20041208235524.202ff3a1.davem@davemloft.net>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
+	<20041202135252.04e64f51.davem@davemloft.net>
+	<41B14E57.5080803@osdl.org>
+	<200412060918.04441.michael.vittrup.larsen@ericsson.com>
+	<20041206094234.34861c78@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: michael.vittrup.larsen@ericsson.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
-In-Reply-To: <1102573333.16495.2.camel@gaston>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041206094234.34861c78@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 09 Dec 2004 17:22:13 +1100
-Benjamin Herrenschmidt <benh@kernel.crashing.org> wrote:
+On Mon, 6 Dec 2004 09:42:34 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Right, and I missed the fact that we did indeed take the semaphore and
-> not the lock in the _set_ functions which is just fine, we can actually
-> schedule.... except in set_multicast...
-> 
-> Is there any reason we actually _need_ to get the xmit lock in this one
-> specifically ?
+> Third revision of the TCP port randomization patch. It randomizes
+> TCP ephemeral ports of incoming connections using variation of existing
+> sequence number hash. This one avoids the MD4 for the loopback case since 
+> there is no reason to bother over loopback and it improves benchmark numbers.
 
-Since we implement NETIF_F_LLTX, the core packet transmit routines do
-no locking, the driver does it all.
+I don't think the loopback optimization is really necessary.
+And in any event, RTCF_LOCAL doesn't necessarily mean that
+the connection doesn't go "on the wire" especially when using
+Julian's "send to self" patch which I might add at some point.
 
-So if we don't hold the tx lock in the set multicast routine, any other
-cpu can come into our hard_start_xmit function and poke at the hardware.
+Anyways, please resend to me the version without the loopback
+hack and I'll add it to my 2.6.11 queue.
 
-Upon further consideration, it seems that it may be OK to drop that tx
-lock right after we do the netif_stop_queue().  But we should regrab
-the tx lock when we do the subsequent netif_wake_queue().
+Thanks Stephen and Michael.
