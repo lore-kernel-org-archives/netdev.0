@@ -1,8 +1,7 @@
 From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.6 8/10] e1000: Report failure code when loopback
- test fails
-Date: Tue, 15 Feb 2005 13:31:06 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0502151117470.30336-100000@isotope.jf.intel.com>
+Subject: [PATCH net-drivers-2.4 0/10] e1000: driver update
+Date: Tue, 15 Feb 2005 13:32:26 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0502151126401.30336-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -11,37 +10,17 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-8 Report failure code when loopback test fails
 Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
 Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.6/drivers/net/e1000/e1000_ethtool.c net-drivers-2.6/drivers/net/e1000.new/e1000_ethtool.c
---- net-drivers-2.6/drivers/net/e1000/e1000_ethtool.c	2005-02-01 23:10:24.985106488 -0800
-+++ net-drivers-2.6/drivers/net/e1000.new/e1000_ethtool.c	2005-02-01 23:10:26.421888064 -0800
-@@ -1310,7 +1310,7 @@ e1000_run_loopback_test(struct e1000_ada
- 	struct e1000_desc_ring *txdr = &adapter->test_tx_ring;
- 	struct e1000_desc_ring *rxdr = &adapter->test_rx_ring;
- 	struct pci_dev *pdev = adapter->pdev;
--	int i;
-+	int i, ret_val;
- 
- 	E1000_WRITE_REG(&adapter->hw, RDT, rxdr->count - 1);
- 
-@@ -1330,11 +1330,12 @@ e1000_run_loopback_test(struct e1000_ada
- 					    rxdr->buffer_info[i].length,
- 					    PCI_DMA_FROMDEVICE);
- 
--		if (!e1000_check_lbtest_frame(rxdr->buffer_info[i++].skb, 1024))
--			return 0;
--	} while (i < 64);
-+		ret_val = e1000_check_lbtest_frame(rxdr->buffer_info[i].skb,
-+						   1024);
-+		i++;
-+	} while (ret_val != 0 && i < 64);
- 
--	return 13;
-+	return ret_val;
- }
- 
- static int
+1 Robert Olsson's fix and refinement to the poll routine
+2 use netif_poll_{enable|disable}
+3 Avoid race between e1000_watchdog and e1000_clean_tx_irq
+4 Delay clean-up of last Tx buffer
+5 Fix WOL settings in 82544 based adapters
+6 Patch from Peter Kjellstroem -- fix lockup with 82547
+7 Checks for desc ring/rx data bufs spanning 64k boundary
+8 Report failure code when loopback test fails
+9 Fixes related to Cable length estimation
+10 Driver version white space, device id, comments & other
 	
