@@ -1,29 +1,25 @@
-From: Ralf Baechle <ralf@linux-mips.org>
-Subject: [PATCH] Fix ROSE security hole
-Date: Wed, 2 Mar 2005 09:06:58 +0000
-Message-ID: <20050302090658.GA6873@linux-mips.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: spin_trylock in qdisc_restart, OOPS, IMQ problem ?
+Date: Wed, 02 Mar 2005 13:34:12 +0100
+Message-ID: <4225B2C4.70902@trash.net>
+References: <42258DC6.9030109@cdi.cz> <4225955E.7030306@trash.net> <42259D08.1060509@cdi.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Martin Devera <devik@cdi.cz>
+In-Reply-To: <42259D08.1060509@cdi.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-ROSE wasn't verifying the ndigis argument of a new route resulting in a
-minor security hole.
+Martin Devera wrote:
+> Thanks, it seems so, I'll test it. By the way, have you an idea what is
+> going with that spinlocking errors I described in the last mail ?
 
-Index: bk-afu/net/rose/rose_route.c
-===================================================================
---- bk-afu.orig/net/rose/rose_route.c	2005-02-05 22:16:25.582983368 +0000
-+++ bk-afu/net/rose/rose_route.c	2005-02-05 22:16:25.585982912 +0000
-@@ -727,7 +727,8 @@
- 		}
- 		if (rose_route.mask > 10) /* Mask can't be more than 10 digits */
- 			return -EINVAL;
--
-+		if (rose_route.ndigis > 8) /* No more than 8 digipeats */
-+			return -EINVAL;
- 		err = rose_add_node(&rose_route, dev);
- 		dev_put(dev);
- 		return err;
+netpoll had some locking bugs with printks issued in paths where
+dev->xmit_lock is already held. IIRC patches to fix this were
+posted recently.
+
+Regards
+Patrick
