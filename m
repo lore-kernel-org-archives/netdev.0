@@ -1,68 +1,99 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: Remote DoS vulnerability in Linux kernel 2.6.x (fwd)
-Date: Thu, 1 Jul 2004 11:10:48 +0200
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20040701091048.GR1410@sunbeam.de.gnumonks.org>
-References: <Xine.LNX.4.44.0406301423320.32212-100000@thoron.boston.redhat.com> <Xine.LNX.4.44.0406301507320.32316-100000@thoron.boston.redhat.com> <20040630144230.1d52864b.davem@redhat.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Resend: [NETDRV] Fix successive calls to spin_lock_irqsave in sk98lin
+Date: Thu, 1 Jul 2004 21:04:18 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040701110418.GA10797@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="pWJxWxNlJUNgDlXi"
-Cc: James Morris <jmorris@redhat.com>, netfilter-devel@lists.netfilter.org,
-	netdev@oss.sgi.com, arjanv@redhat.com, kuznet@ms2.inr.ac.ru
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: "David S. Miller" <davem@redhat.com>
+Content-Type: multipart/mixed; boundary="Nq2Wo0NMKNjxTN9z"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040630144230.1d52864b.davem@redhat.com>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---pWJxWxNlJUNgDlXi
+--Nq2Wo0NMKNjxTN9z
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Wed, Jun 30, 2004 at 02:42:30PM -0700, David S. Miller wrote:
-=20
-> This bug only came up because up the huge change Rusty and Harald did
-> to make these modules not access the SKB header data directly, and
-> instead to use local on-stack copies and skb_copy_bits().
+Hi Jeff:
 
-A change we had to make in order not to assume fully linearized packet
-including the tcp header.
+This patch fixes the few places in sk98lin where it calls
+spin_lock_saveirq on the same flags variable thus causing
+interrupts to be disabled upon leaving the driver.
 
-I suppose the trivial fix has already been pushed upstream...
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Very unfortunate that vendors weren't informed in advance :(
+--Nq2Wo0NMKNjxTN9z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+Index: drivers/net/sk98lin/skge.c
+===================================================================
+RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/drivers/net/sk98lin/skge.c,v
+retrieving revision 1.1.1.17
+diff -u -r1.1.1.17 skge.c
+--- drivers/net/sk98lin/skge.c	10 May 2004 09:47:55 -0000	1.1.1.17
++++ drivers/net/sk98lin/skge.c	22 Jun 2004 10:45:23 -0000
+@@ -3093,8 +3093,7 @@
+ 	SkEventDispatcher(pAC, pAC->IoBase);
+ 
+ 	for (i=0; i<pAC->GIni.GIMacsFound; i++) {
+-		spin_lock_irqsave(
+-			&pAC->TxPort[i][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_lock(&pAC->TxPort[i][TX_PRIO_LOW].TxDesRingLock);
+ 		netif_stop_queue(pAC->dev[i]);
+ 
+ 	}
+@@ -4773,12 +4772,10 @@
+ 		spin_lock_irqsave(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+-		spin_lock_irqsave(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_lock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		SkGeStopPort(pAC, IoC, FromPort, SK_STOP_ALL, SK_SOFT_RST);
+ 		SkGeStopPort(pAC, IoC, ToPort, SK_STOP_ALL, SK_SOFT_RST);
+-		spin_unlock_irqrestore(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_unlock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		spin_unlock_irqrestore(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+@@ -4791,8 +4788,7 @@
+ 		spin_lock_irqsave(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
+-		spin_lock_irqsave(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_lock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		pAC->ActivePort = ToPort;
+ #if 0
+ 		SetQueueSizes(pAC);
+@@ -4807,8 +4803,7 @@
+ 			pAC,
+ 			pAC->ActivePort,
+ 			DualNet)) {
+-			spin_unlock_irqrestore(
+-				&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++			spin_unlock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 			spin_unlock_irqrestore(
+ 				&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 				Flags);
+@@ -4834,8 +4829,7 @@
+ 		SkGePollTxD(pAC, IoC, ToPort, SK_TRUE);
+ 		ClearAndStartRx(pAC, FromPort);
+ 		ClearAndStartRx(pAC, ToPort);
+-		spin_unlock_irqrestore(
+-			&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock, Flags);
++		spin_unlock(&pAC->TxPort[ToPort][TX_PRIO_LOW].TxDesRingLock);
+ 		spin_unlock_irqrestore(
+ 			&pAC->TxPort[FromPort][TX_PRIO_LOW].TxDesRingLock,
+ 			Flags);
 
---pWJxWxNlJUNgDlXi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFA49UYXaXGVTD0i/8RAq4sAJ9GVk5gzRKJAiGgtIWalh/ydPTYtACeP6gt
-vNB5hX9KKHHjwltrbeQalVo=
-=skaj
------END PGP SIGNATURE-----
-
---pWJxWxNlJUNgDlXi--
+--Nq2Wo0NMKNjxTN9z--
