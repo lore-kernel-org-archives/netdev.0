@@ -1,143 +1,45 @@
-From: Jon D Mason <jonmason@us.ibm.com>
-Subject: Re: [PATCH] r8169 NAPI addition
-Date: Thu, 22 Apr 2004 10:20:58 -0600
+From: Horst von Brand <vonbrand@inf.utfsm.cl>
+Subject: Re: tcp vulnerability? haven't seen anything on it here...
+Date: Thu, 22 Apr 2004 13:38:42 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF877F55DF.2DDFA7D4-ON87256E7E.005842ED-86256E7E.005967E0@us.ibm.com>
-References: <20040420234524.A1374@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_mixed 005967D286256E7E_="
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Message-ID: <200404221738.i3MHcg7J005234@eeyore.valparaiso.cl>
+References: <Pine.LNX.4.44.0404221121230.2738-100000@paix.pilosoft.com>
+Cc: jamal <hadi@cyberus.ca>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040420234524.A1374@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: alex@pilosoft.com
+In-Reply-To: Your message of "Thu, 22 Apr 2004 11:27:05 -0400."
+             <Pine.LNX.4.44.0404221121230.2738-100000@paix.pilosoft.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---=_mixed 005967D286256E7E_=
-Content-Type: text/plain; charset="US-ASCII"
+alex@pilosoft.com said:
+> > > > Unless i misunderstood: You need someone/thing to see about 64K
+> > > > packets within a single flow to make the predicition so the attack
+> > > > is succesful. Sure to have access to such capability is to be in a
+> > > > hostile path, no? ;->
+> > > No, you do not need to see any packet.
 
-Hey Francois,
-Attached is the NAPI diff with all of the requested changes.  I think I 
-have it ready for you t accept, let me know any questions/comments.
+> > Ok, so i misunderstood then. How do you predict the sequences without
+> > seeing any packet? Is there any URL to mentioned paper?
 
-Also, I attempted to add Tx to NAPI, but the performance was severely 
-degraded.  A simple ping flood avg rtt went from <0.5ms to >12ms.  It is 
-probably poor implementation on my part.  I will attempt to add that 
-functionality at a later date (if that's cool with you).  There are a few 
-other things in this driver I would like to look into first.
+> You don't - just brute-force the tcp 4-tuple and sequence number. The
+> attack relies on the fact that you don't have to match sequence number
+> exactly, which cuts down on the search-space. (If total search space is
+> 2^32, rwin is 16k, effective attack search space is 2^32/16k). Multiplied 
+> by number of ephemeral ports, it becomes *feasible* but still not very 
+> likely.
 
-Thanks,
-Jon
+If everybody (or at least the bigger knots) filters spoofed traffic, this
+ceases to be a problem. And that solves a shipload of other problems, so...
 
-
---=_mixed 005967D286256E7E_=
-Content-Type: application/octet-stream; name="r8169.diff"
-Content-Disposition: attachment; filename="r8169.diff"
-Content-Transfer-Encoding: base64
-
-LS0tIHI4MTY5LmMub3JpZwkyMDA0LTA0LTE4IDIyOjUxOjMzLjAwMDAwMDAwMCAtMDUwMAorKysg
-cjgxNjkuYwkyMDA0LTA0LTIyIDA4OjA4OjU3LjUyNjU3NzA0OCAtMDUwMApAQCAtOTMsOCArOTMs
-MTUgQEAgc3RhdGljIGludCBtdWx0aWNhc3RfZmlsdGVyX2xpbWl0ID0gMzI7CiAjZGVmaW5lIFJ4
-UGFja2V0TWF4U2l6ZQkweDA4MDAJLyogTWF4aW11bSBzaXplIHN1cHBvcnRlZCBpcyAxNkstMSAq
-LwogI2RlZmluZSBJbnRlckZyYW1lR2FwCTB4MDMJLyogMyBtZWFucyBJbnRlckZyYW1lR2FwID0g
-dGhlIHNob3J0ZXN0IG9uZSAqLwogCi0jZGVmaW5lIE5VTV9UWF9ERVNDCTY0CS8qIE51bWJlciBv
-ZiBUeCBkZXNjcmlwdG9yIHJlZ2lzdGVycyAqLworI2lmZGVmIENPTkZJR19SODE2OV9OQVBJCisv
-KiBUaGUgbnVtYmVyIG9mIFJ4IGl0ZXJhdGlvbnMgcHJvY2Vzc2VkIChpZiBOQVBJIGVuYWJsZWQp
-ICovCisjZGVmaW5lIFI4MTY5X05BUElfV0VJR0hUCTY0CisKKyNkZWZpbmUgTlVNX1JYX0RFU0MJ
-MjU2CS8qIE51bWJlciBvZiBSeCBkZXNjcmlwdG9yIHJlZ2lzdGVycyAqLworI2Vsc2UKICNkZWZp
-bmUgTlVNX1JYX0RFU0MJNjQJLyogTnVtYmVyIG9mIFJ4IGRlc2NyaXB0b3IgcmVnaXN0ZXJzICov
-CisjZW5kaWYKKyNkZWZpbmUgTlVNX1RYX0RFU0MJNjQJLyogTnVtYmVyIG9mIFR4IGRlc2NyaXB0
-b3IgcmVnaXN0ZXJzICovCiAjZGVmaW5lIFJYX0JVRl9TSVpFCTE1MzYJLyogUnggQnVmZmVyIHNp
-emUgKi8KICNkZWZpbmUgUjgxNjlfVFhfUklOR19CWVRFUwkoTlVNX1RYX0RFU0MgKiBzaXplb2Yo
-c3RydWN0IFR4RGVzYykpCiAjZGVmaW5lIFI4MTY5X1JYX1JJTkdfQllURVMJKE5VTV9SWF9ERVND
-ICogc2l6ZW9mKHN0cnVjdCBSeERlc2MpKQpAQCAtMzQ3LDYgKzM1NCw5IEBAIHN0YXRpYyBpbnQg
-cnRsODE2OV9jbG9zZShzdHJ1Y3QgbmV0X2RldmkKIHN0YXRpYyB2b2lkIHJ0bDgxNjlfc2V0X3J4
-X21vZGUoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7CiBzdGF0aWMgdm9pZCBydGw4MTY5X3R4X3Rp
-bWVvdXQoc3RydWN0IG5ldF9kZXZpY2UgKmRldik7CiBzdGF0aWMgc3RydWN0IG5ldF9kZXZpY2Vf
-c3RhdHMgKnJ0bDgxNjlfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNlICpuZXRkZXYpOworI2lm
-ZGVmIENPTkZJR19SODE2OV9OQVBJCitzdGF0aWMgaW50IHJ0bDgxNjlfcG9sbChzdHJ1Y3QgbmV0
-X2RldmljZSAqZGV2LCBpbnQgKmJ1ZGdldCk7CisjZW5kaWYKIAogc3RhdGljIGNvbnN0IHUxNiBy
-dGw4MTY5X2ludHJfbWFzayA9CiAgICAgUnhVbmRlcnJ1biB8IFJ4T3ZlcmZsb3cgfCBSeEZJRk9P
-dmVyIHwgVHhFcnIgfCBUeE9LIHwgUnhFcnIgfCBSeE9LOwpAQCAtODQwLDYgKzg1MCwxMSBAQCBy
-dGw4MTY5X2luaXRfb25lKHN0cnVjdCBwY2lfZGV2ICpwZGV2LCBjCiAJZGV2LT5pcnEgPSBwZGV2
-LT5pcnE7CiAJZGV2LT5iYXNlX2FkZHIgPSAodW5zaWduZWQgbG9uZykgaW9hZGRyOwogLy8gICAg
-ICBkZXYtPmRvX2lvY3RsICAgICAgICAgICA9IG1paV9pb2N0bDsKKyNpZmRlZiBDT05GSUdfUjgx
-NjlfTkFQSQorCWRldi0+cG9sbCA9IHJ0bDgxNjlfcG9sbDsKKwlkZXYtPndlaWdodCA9IFI4MTY5
-X05BUElfV0VJR0hUOworCXByaW50ayhLRVJOX0lORk8gInI4MTY5IE5BUEkgZW5hYmxlZFxuIik7
-CisjZW5kaWYKIAogCXRwID0gZGV2LT5wcml2OwkJLy8gcHJpdmF0ZSBkYXRhIC8vCiAJdHAtPnBj
-aV9kZXYgPSBwZGV2OwpAQCAtMTMwOSw2ICsxMzI0LDcgQEAgcnRsODE2OV90eF90aW1lb3V0KHN0
-cnVjdCBuZXRfZGV2aWNlICpkZQogCXZvaWQgKmlvYWRkciA9IHRwLT5tbWlvX2FkZHI7CiAJdTgg
-dG1wODsKIAorCXByaW50ayhLRVJOX0lORk8gIiVzOiBUWCBUaW1lb3V0XG4iLCBkZXYtPm5hbWUp
-OwogCS8qIGRpc2FibGUgVHgsIGlmIG5vdCBhbHJlYWR5ICovCiAJdG1wOCA9IFJUTF9SOChDaGlw
-Q21kKTsKIAlpZiAodG1wOCAmIENtZFR4RW5iKQpAQCAtMTQ0NSwxMiArMTQ2MSwyMiBAQCBzdGF0
-aWMgaW5saW5lIGludCBydGw4MTY5X3RyeV9yeF9jb3B5KHN0CiAJcmV0dXJuIHJldDsKIH0KIAot
-c3RhdGljIHZvaWQKK3N0YXRpYyBpbmxpbmUgdm9pZCBydGw4MTY5X3J4X3NrYihzdHJ1Y3Qgc2tf
-YnVmZiAqc2tiKQoreworI2lmZGVmIENPTkZJR19SODE2OV9OQVBJCisJbmV0aWZfcmVjZWl2ZV9z
-a2Ioc2tiKTsJCQkKKyNlbHNlCisJbmV0aWZfcngoc2tiKTsKKyNlbmRpZgorfQorCitzdGF0aWMg
-aW50IAogcnRsODE2OV9yeF9pbnRlcnJ1cHQoc3RydWN0IG5ldF9kZXZpY2UgKmRldiwgc3RydWN0
-IHJ0bDgxNjlfcHJpdmF0ZSAqdHAsCiAJCSAgICAgdm9pZCAqaW9hZGRyKQogewogCXVuc2lnbmVk
-IGxvbmcgY3VyX3J4LCByeF9sZWZ0OwogCWludCBkZWx0YTsKKwl1MzIgY291bnQgPSAwOwogCiAJ
-YXNzZXJ0KGRldiAhPSBOVUxMKTsKIAlhc3NlcnQodHAgIT0gTlVMTCk7CkBAIC0xNDU4LDYgKzE0
-ODQsOSBAQCBydGw4MTY5X3J4X2ludGVycnVwdChzdHJ1Y3QgbmV0X2RldmljZSAqCiAKIAljdXJf
-cnggPSB0cC0+Y3VyX3J4OwogCXJ4X2xlZnQgPSBOVU1fUlhfREVTQyArIHRwLT5kaXJ0eV9yeCAt
-IGN1cl9yeDsKKyNpZmRlZiBDT05GSUdfUjgxNjlfTkFQSQorCXJ4X2xlZnQgPSBtaW4ocnhfbGVm
-dCwgKHVuc2lnbmVkIGxvbmcpIGRldi0+cXVvdGEpOworI2VuZGlmCiAKIAl3aGlsZSAocnhfbGVm
-dCA+IDApIHsKIAkJaW50IGVudHJ5ID0gY3VyX3J4ICUgTlVNX1JYX0RFU0M7CkBAIC0xNDk3LDcg
-KzE1MjYsNyBAQCBydGw4MTY5X3J4X2ludGVycnVwdChzdHJ1Y3QgbmV0X2RldmljZSAqCiAKIAkJ
-CXNrYl9wdXQoc2tiLCBwa3Rfc2l6ZSk7CiAJCQlza2ItPnByb3RvY29sID0gZXRoX3R5cGVfdHJh
-bnMoc2tiLCBkZXYpOwotCQkJbmV0aWZfcngoc2tiKTsKKwkJCXJ0bDgxNjlfcnhfc2tiKHNrYik7
-CiAKIAkJCWRldi0+bGFzdF9yeCA9IGppZmZpZXM7CiAJCQl0cC0+c3RhdHMucnhfYnl0ZXMgKz0g
-cGt0X3NpemU7CkBAIC0xNTA2LDE1ICsxNTM1LDE3IEBAIHJ0bDgxNjlfcnhfaW50ZXJydXB0KHN0
-cnVjdCBuZXRfZGV2aWNlICoKIAkJCiAJCWN1cl9yeCsrOyAKIAkJcnhfbGVmdC0tOworCQljb3Vu
-dCsrOwogCX0KIAogCXRwLT5jdXJfcnggPSBjdXJfcng7CiAKIAlkZWx0YSA9IHJ0bDgxNjlfcnhf
-ZmlsbCh0cCwgZGV2LCB0cC0+ZGlydHlfcngsIHRwLT5jdXJfcngpOwotCWlmIChkZWx0YSA+IDAp
-Ci0JCXRwLT5kaXJ0eV9yeCArPSBkZWx0YTsKLQllbHNlIGlmIChkZWx0YSA8IDApCisJaWYgKGRl
-bHRhIDwgMCkgewogCQlwcmludGsoS0VSTl9JTkZPICIlczogbm8gUnggYnVmZmVyIGFsbG9jYXRl
-ZFxuIiwgZGV2LT5uYW1lKTsKKwkJZGVsdGEgPSAwOworCX0KKwl0cC0+ZGlydHlfcnggKz0gZGVs
-dGE7CiAKIAkvKgogCSAqIEZJWE1FOiB1bnRpbCB0aGVyZSBpcyBwZXJpb2RpYyB0aW1lciB0byB0
-cnkgYW5kIHJlZmlsbCB0aGUgcmluZywKQEAgLTE1MjUsNiArMTU1Niw4IEBAIHJ0bDgxNjlfcnhf
-aW50ZXJydXB0KHN0cnVjdCBuZXRfZGV2aWNlICoKIAkgKi8KIAlpZiAodHAtPmRpcnR5X3J4ICsg
-TlVNX1JYX0RFU0MgPT0gdHAtPmN1cl9yeCkKIAkJcHJpbnRrKEtFUk5fRU1FUkcgIiVzOiBSeCBi
-dWZmZXJzIGV4aGF1c3RlZFxuIiwgZGV2LT5uYW1lKTsKKworCXJldHVybiBjb3VudDsKIH0KIAog
-LyogVGhlIGludGVycnVwdCBoYW5kbGVyIGRvZXMgYWxsIG9mIHRoZSBSeCB0aHJlYWQgd29yayBh
-bmQgY2xlYW5zIHVwIGFmdGVyIHRoZSBUeCB0aHJlYWQuICovCkBAIC0xNTU4LDcgKzE1OTEsMTkg
-QEAgcnRsODE2OV9pbnRlcnJ1cHQoaW50IGlycSwgdm9pZCAqZGV2X2lucwogCiAJCS8vIFJ4IGlu
-dGVycnVwdCAKIAkJaWYgKHN0YXR1cyAmIChSeE9LIHwgUnhVbmRlcnJ1biB8IFJ4T3ZlcmZsb3cg
-fCBSeEZJRk9PdmVyKSkgeworI2lmZGVmIENPTkZJR19SODE2OV9OQVBJCisJCQlpZiAobmV0aWZf
-cnhfc2NoZWR1bGVfcHJlcChkZXYpKSB7CisJCQkJUlRMX1cxNihJbnRyTWFzaywgcnRsODE2OV9p
-bnRyX21hc2sgfCAKKwkJCQkJfihSeE9LIHwgUnhVbmRlcnJ1biB8IFJ4T3ZlcmZsb3cgfCBSeEZJ
-Rk9PdmVyKSk7CisJCQkJX19uZXRpZl9yeF9zY2hlZHVsZShkZXYpOworCQkJfSBlbHNlIHsKKwkJ
-CQlwcmludGsoS0VSTl9JTkZPICJkcml2ZXIgYnVnISBpbnRlcnJ1cHQgd2hpbGUgaW4gcG9sbFxu
-Iik7CQorCQkJCVJUTF9XMTYoSW50ck1hc2ssIHJ0bDgxNjlfaW50cl9tYXNrIHwgCisJCQkJCX4o
-UnhPSyB8IFJ4VW5kZXJydW4gfCBSeE92ZXJmbG93IHwgUnhGSUZPT3ZlcikpOworCQkJfQorI2Vs
-c2UKIAkJCXJ0bDgxNjlfcnhfaW50ZXJydXB0KGRldiwgdHAsIGlvYWRkcik7CisjZW5kaWYKIAkJ
-fQogCQkvLyBUeCBpbnRlcnJ1cHQKIAkJaWYgKHN0YXR1cyAmIChUeE9LIHwgVHhFcnIpKSB7CkBA
-IC0xNjkyLDYgKzE3MzcsMzEgQEAgc3RhdGljIHN0cnVjdCBuZXRfZGV2aWNlX3N0YXRzICpydGw4
-MTY5XwogCXJldHVybiAmdHAtPnN0YXRzOwogfQogCisjaWZkZWYgQ09ORklHX1I4MTY5X05BUEkK
-K3N0YXRpYyBpbnQgcnRsODE2OV9wb2xsKHN0cnVjdCBuZXRfZGV2aWNlICpkZXYsIGludCAqYnVk
-Z2V0KQoreworCXUzMiBzdGF0dXMsIHdvcmtfZG9uZSA9IDAsIHdvcmtfdG9fZG8gPSBtaW4oKmJ1
-ZGdldCwgZGV2LT5xdW90YSk7CisJc3RydWN0IHJ0bDgxNjlfcHJpdmF0ZSAqdHAgPSBkZXYtPnBy
-aXY7CisJdm9pZCAqaW9hZGRyID0gdHAtPm1taW9fYWRkcjsKKwkKKwl3b3JrX2RvbmUgPSBydGw4
-MTY5X3J4X2ludGVycnVwdChkZXYsIHRwLCBpb2FkZHIpOworCQorCSpidWRnZXQgLT0gd29ya19k
-b25lOworCWRldi0+cXVvdGEgLT0gd29ya19kb25lOworCQorCWlmICgod29ya19kb25lIDwgd29y
-a190b19kbykgfHwgIW5ldGlmX3J1bm5pbmcoZGV2KSkgeworCQluZXRpZl9yeF9jb21wbGV0ZShk
-ZXYpOworCQlzdGF0dXMgPSBSVExfUjE2KEludHJTdGF0dXMpOworCQlpZiAoIXN0YXR1cykgewor
-CQkJUlRMX1cxNihJbnRyTWFzaywgcnRsODE2OV9pbnRyX21hc2spOworCQkJc3RhdHVzID0gUlRM
-X1IxNihJbnRyTWFzayk7CisJCX0JCisJfQorCisJcmV0dXJuICh3b3JrX2RvbmUgPj0gd29ya190
-b19kbyk7Cit9CisjZW5kaWYKKwogc3RhdGljIHN0cnVjdCBwY2lfZHJpdmVyIHJ0bDgxNjlfcGNp
-X2RyaXZlciA9IHsKIAkubmFtZQkJPSBNT0RVTEVOQU1FLAogCS5pZF90YWJsZQk9IHJ0bDgxNjlf
-cGNpX3RibCwK
---=_mixed 005967D286256E7E_=
-Content-Type: application/octet-stream; name="Kconfig.diff"
-Content-Disposition: attachment; filename="Kconfig.diff"
-Content-Transfer-Encoding: base64
-
-LS0tIEtjb25maWcub3JpZwkyMDA0LTA0LTIwIDEwOjMxOjE4LjY1MzQzMTkyMCAtMDUwMAorKysg
-S2NvbmZpZwkyMDA0LTA0LTIwIDEwOjMwOjA0Ljg4MTY0NjkzNiAtMDUwMApAQCAtMTk2Miw2ICsx
-OTYyLDEwIEBAIGNvbmZpZyBSODE2OQogCSAgVG8gY29tcGlsZSB0aGlzIGRyaXZlciBhcyBhIG1v
-ZHVsZSwgY2hvb3NlIE0gaGVyZTogdGhlIG1vZHVsZQogCSAgd2lsbCBiZSBjYWxsZWQgcjgxNjku
-ICBUaGlzIGlzIHJlY29tbWVuZGVkLgogCitjb25maWcgUjgxNjlfTkFQSQorCWJvb2wgIlVzZSBS
-eCBQb2xsaW5nIChOQVBJKSAoRVhQRVJJTUVOVEFMKSIKKwlkZXBlbmRzIG9uIFI4MTY5ICYmIEVY
-UEVSSU1FTlRBTCAKKwkKIGNvbmZpZyBTSzk4TElOCiAJdHJpc3RhdGUgIk1hcnZlbGwgWXVrb24g
-Q2hpcHNldCAvIFN5c0tvbm5lY3QgU0stOTh4eCBTdXBwb3J0IgogCWRlcGVuZHMgb24gUENJCg==
---=_mixed 005967D286256E7E_=--
+If the cracker has access to the connection between routers (quite unlikely
+for BGP), there is other, lower-hanging, fun to be had... and in that case
+they can just read the exact data from the stream, no guessing needed at
+all. And no protection possible either AFAICS.
+-- 
+Dr. Horst H. von Brand                   User #22616 counter.li.org
+Departamento de Informatica                     Fono: +56 32 654431
+Universidad Tecnica Federico Santa Maria              +56 32 654239
+Casilla 110-V, Valparaiso, Chile                Fax:  +56 32 797513
