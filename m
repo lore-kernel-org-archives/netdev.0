@@ -1,33 +1,34 @@
-From: Pavel Machek <pavel@ucw.cz>
-Subject: Re: ipw2100 wireless driver
-Date: Wed, 11 Aug 2004 14:17:35 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040811121735.GA31171@elf.ucw.cz>
-References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <20040810113439.A15100@infradead.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: strange e1000 interface freeze
+Date: Wed, 11 Aug 2004 16:26:24 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <16666.11408.446131.763707@robur.slu.se>
+References: <411757CA.4010401@draigBrady.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268035AbUHKMRy@vger.kernel.org>
-To: Christoph Hellwig <hch@infradead.org>,
-	Jeff Chua <jeffchua@silk.corp.fedex.com>,
-	Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
-	kernel list <linux-kernel@vger.kernel.org>
-Content-Disposition: inline
-In-Reply-To: <20040810113439.A15100@infradead.org>
+Content-Transfer-Encoding: 7bit
+Cc: e1000-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: P@draigBrady.com
+In-Reply-To: <411757CA.4010401@draigBrady.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
 
-> > I know very little about wireless-2.6 tree (where to get it without
-> > bitkeeper?), but...
-> 
-> http://gkernel.bkbits.net:8080/wireless-2.6 it the bkweb interface, that's
-> the only thing I've looked at myself so far.
+P@draigBrady.com writes:
+ > I've been able to reproduce an situation here
+ > where the interface freezes on a platform
+ > where a continuous stream of about 8000 packets
+ > per second are being received. It usually takes
 
-Hmm, strange, one merge in last 8 weeks. That's not too active
-project. Are you sure this is the right tree to work against?
+ > By lock up I mean that the interface records all packets
+ > as fifo errors, and it receives only 1 interrupt every 2 seconds.
+ > Note the other NAPI interface works fine (at about 7.5K interrupts/s).
 
-Are there plain diffs somewhere?
-								Pavel
--- 
-People were complaining that M$ turns users into beta-testers...
-...jr ghea gurz vagb qrirybcref, naq gurl frrz gb yvxr vg gung jnl!
+ Weird. We had a problem with a e1000 in one particular PCI-slot were the 
+ NIC was dropping packets no other clues. Decreasing PCI-bus speed from 133 
+ to 100 MHz solved this problem. There are two chip revs. Anvik I and II.
+ Anvik I had problems in some architectures from what I understood.
+
+ Cheers.
+						--ro
