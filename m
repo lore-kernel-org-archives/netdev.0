@@ -1,43 +1,91 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH] qdisc oops fix
-Date: Wed, 16 Apr 2003 14:18:10 -0400 (EDT)
+Date: Wed, 16 Apr 2003 14:39:17 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030416140440.O5912@shell.cyberus.ca>
+Message-ID: <20030416142802.E5912@shell.cyberus.ca>
 References: <20030415084706.O1131@shell.cyberus.ca>
- <20030416160606.GA32575@louise.pinerecords.com> <3E9D8A68.5050207@colorfullife.com>
- <200304162003.06600.m.c.p@wolk-project.de>
+ <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca>
+ <3E9D755A.8060601@colorfullife.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-   Tomas Szepe <szepe@pinerecords.com>, Catalin BOIE <util@deuroconsult.ro>,
+Cc: Catalin BOIE <util@deuroconsult.ro>, Tomas Szepe <szepe@pinerecords.com>,
    "" <linux-kernel@vger.kernel.org>, "" <netdev@oss.sgi.com>,
    "" <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marc-Christian Petersen <m.c.p@wolk-project.de>
-In-Reply-To: <200304162003.06600.m.c.p@wolk-project.de>
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <3E9D755A.8060601@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+On Wed, 16 Apr 2003, Manfred Spraul wrote:
 
-On Wed, 16 Apr 2003, Marc-Christian Petersen wrote:
+> jamal wrote:
+>
+> >This is a different problem from previous one posted.
+> >
+> >Theres a small window (exposed given that you are provisioning a lot
+> >of qdiscs  and running traffic at the same time) that an incoming packet
+> >interupt will cause the BUG().
+> >
+> >GFP_ATOMIC will fix it, but i wonder if it appropriate.
+> >
+> >
+> This is a 2.4 kernel, correct?
+>
 
-> On Wednesday 16 April 2003 18:52, Manfred Spraul wrote:
+Catalin, Can you what kernel that is?
+
+> >>With many rules (~5000 classes and ~3500 qdiscs and ~50000 filters)
+> >>the kernel oopses in slab.c:1128.
+> >>
+> This check?
+>        if (in_interrupt() && (flags & SLAB_LEVEL_MASK) != SLAB_ATOMIC)
+>                 BUG();
+
+thats the one i meant.
+
+> It's triggered, because someone does something like
+>     spin_lock_bh(&my_lock);
+>     p = kmalloc(,GFP_KERNEL);
 >
-> Hi Manfred,
+> I don't like the proposed fix: usually code that calls
+> kmalloc(,GFP_KERNEL) assumes that it runs at process space, e.g. uses
+> semaphores, or non-bh spinlocks, etc.
+> slab just happens to contain a test that complains about illegal calls.
+
+ok. Nice.
+
 >
-> > >The original backtrace as provided by Martin Volf does not contain
-> > >any weird addresses such as 0xd081ecc7 above:
-> > >http://marc.theaimsgroup.com/?l=linux-kernel&m=105013596721774&w=2
-> > Thanks.
-> > The bug was caused by sch_tree_lock() in htb_change_class().
-> > 2.4.21-pre7 contains a fix.
-> am I just blind or isn't there a fix in -pre7|current-BK?
+> >>Trace; c0127e0f <kmalloc+eb/110>
+> >>Trace; c01d3cac <qdisc_create_dflt+20/bc>
+> >>Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
+> >>Trace; c01d5265 <tc_ctl_tclass+1cd/214>
+> >>Trace; d0820600 <END_OF_CODE+10551848/????>
+> >>Trace; c01d27e4 <rtnetlink_rcv+298/3bc>
+> >>Trace; c01d0605 <__neigh_event_send+89/1b4>
+> >>Trace; c01d7cd4 <netlink_data_ready+1c/60>
+> >>Trace; c01d7730 <netlink_unicast+230/278>
+> >>Trace; c01d7b73 <netlink_sendmsg+1fb/20c>
+> >>Trace; c01c79d5 <sock_sendmsg+69/88>
+> >>Trace; c01c8b48 <sys_sendmsg+18c/1e8>
+> >>Trace; c0120010 <map_user_kiobuf+8/f8>
+> >>
+> >>
+> >>
+> >>
+> I don't understand the backtrace. Were any modules loaded? Perhaps
+> 0xd081ecc7 is a module.
 >
 
-No you are not ;-> Yes, the fix for that specific problem is in
-2.4.21-pre7. I think Tomas might have missed that we moved on to the
-next problem.
+Probably a module. Again Catalin, run no modules.
+
+> I'd add a
+>     if(in_interrupt()) show_stack(NULL);
+> into qdisc_create_dflt(), and try to reproduce the bug without modules.
+>
+
+Catalin - again instead of your fix can you please add this call?
 
 cheers,
 jamal
