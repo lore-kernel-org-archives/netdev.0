@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 0/10] [bonding 2.6] port 2.4 bug fixes to 2.6
-Date: Thu, 4 Sep 2003 20:43:25 +0300
+Subject: [PATCH 3/10] [bonding 2.6] fix ARP monitoring bug
+Date: Thu, 4 Sep 2003 20:44:25 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309042043.25567.amir.noam@intel.com>
+Message-ID: <200309042044.25278.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -12,19 +12,24 @@ To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The following set ports to 2.6 numerous bug fixes that went into
-2.4 recently. Patches apply on 2.6.0-test4. Compile tested only.
-
-patch1:  fix 802.3ad long fail over with high UDP Tx stress
-patch2:  fix load balance problem with high UDP Tx stress
-patch3:  fix ARP monitoring bug
-patch4:  fix kernel panic when optional feature used
-patch5:  fix change active command
-patch6:  fix OOPS in bonding driver, when removing primary
-patch7:  embed stats struct inside bonding private struct
-patch8:  fix error handling in init code
-patch9:  make each bond device use its own /proc entry
-patch10: misc fixes: missing include, typos, comments
-
--- 
-Amir
+diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
+--- a/drivers/net/bonding/bond_main.c	Thu Sep  4 20:17:57 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Sep  4 20:17:58 2003
+@@ -443,7 +443,7 @@ struct bond_parm_tbl {
+ 
+ static int arp_interval = BOND_LINK_ARP_INTERV;
+ static char *arp_ip_target[MAX_ARP_IP_TARGETS] = { NULL, };
+-static unsigned long arp_target[MAX_ARP_IP_TARGETS] = { 0, } ;
++static u32 arp_target[MAX_ARP_IP_TARGETS] = { 0, } ;
+ static int arp_ip_count = 0;
+ static u32 my_ip = 0;
+ char *arp_target_hw_addr = NULL;
+@@ -3811,7 +3811,7 @@ static int __init bonding_init(void)
+                         arp_interval = 0;
+ 		} else { 
+ 			u32 ip = in_aton(arp_ip_target[arp_ip_count]); 
+-			*(u32 *)(arp_ip_target[arp_ip_count]) = ip;
++			arp_target[arp_ip_count] = ip;
+ 		}
+         }
+ 
