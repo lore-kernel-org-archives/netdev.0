@@ -1,44 +1,62 @@
-From: John Heffner <jheffner@psc.edu>
+From: Joel Jaeggli <joelja@darkwing.uoregon.edu>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 17:36:18 -0400 (EDT)
+Date: Wed, 15 Sep 2004 14:41:05 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0409151704200.5383-100000@dexter.psc.edu>
-References: <4148991B.9050200@pobox.com>
+Message-ID: <Pine.LNX.4.61.0409151427010.20267@twin.uoregon.edu>
+References: <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <leonid.grossman@s2io.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Netdev <netdev@oss.sgi.com>, leonid.grossman@s2io.com,
+        Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
-In-Reply-To: <4148991B.9050200@pobox.com>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-My view on TOE is that it is brought up in response to the fact that when
-leading edge network technologies are brought out (GigE a few years ago,
-10 GigE now), hosts can't keep up.  Specifically, these people usually
-don't care about wasting their man CPU cycles, but rather the fact they
-can't get the full rate out of their expensive new NIC.
+On Wed, 15 Sep 2004, David Stevens wrote:
 
-The reason hosts can't keep up are
+> I've never understood why people are so interested in off-loading
+> networking. Isn't that just a multi-processor system where you can't
+> use any of the network processor cycles for anything else? And, of
+> course, to be cheap, the network processor will be slower, and much
+> harder to debug and update software.
 
-  (a) host bus speeds, or (not exclusive)
-  (b) the CPU can't handle per-packet processing
+I's like to amplify this, adding more general purpose cpu to a machine 
+strikes me as the right design choice since they're simply more generally 
+useful than dedicated cpu's. look at linux software raid compared to the 
+alternatives, frankly I haven't seen a hardware controller that can touch 
+it for performance given a similar number of disks and interfaces... 
+Currently graphcas card have substantionaly more memory bandwidth and 
+pipelines than most general purpose cpu's but eventually that won't be the 
+case. as it is gpus still represent the biggest chunk of independat 
+computational power in a and at least on the server side we don't even 
+use them.
 
-In the case of (a), TOE doesn't really help.  In the case of (b), Jeff's
-proposed general-purpose offload doesn't help -- you really need a custom
-ASIC or maybe FPGA if you hope to beat the host CPU.  Thus I think Jeff's
-idea is not likely to fly with this crowd of TOE proponents.
+> If the PCI bus is too slow, or MTU's too small, wouldn't
+> it be better to fix those directly and use a fast host processor that can
+> also do other things when not needed for networking? And why have
+> memory on a NIC that can't be used by other things?
 
-The other (much nicer) solution to case (b) is to just USE A BIGGER MTU.
-1500 bytes is ridiculously small.  Even with a 9k MTU, the benefits of TOE
-or TSO are nearly vanishing.  Those who say they require high performance,
-but are unwilling to buy or produce networking gear with an MTU larger
-than 1500 bytes probably deserve what they get.
+Between hyper-transport tunnels, pci-x, pci-express and infinband, the 
+bottlnecks between the cpu core and the perhiperals and memory are falling 
+away at a rapid clip even as cpu's get faster. we're in a much better 
+position to build balanced systems then we were 2 years ago.
 
-There are other possible justifications for TOE (with other
-counter-arguments) -- basically to reduce load on the main CPU -- but I
-think these are for the most part NOT what is driving the market (let me
-know if I'm being myopic here).  This issue is also largely or completely
-solved by using a bigger MTU.
+> Why don't we off-load filesystems to disks instead?  Or a graphics
+> card that implements X ? :-) I'd rather have shared system resources--
+> more flexible. :-)
+>
+>                                        +-DLS
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
 
-  -John
+-- 
+-------------------------------------------------------------------------- 
+Joel Jaeggli  	       Unix Consulting 	       joelja@darkwing.uoregon.edu 
+GPG Key Fingerprint:     5C6E 0104 BAF0 40B0 5BD3 C38B F000 35AB B67F 56B2
