@@ -1,24 +1,24 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][ATM]: point to multipoint signalling (from
- ekinzie@cmf.nrl.navy.mil)
-Date: Wed, 20 Oct 2004 22:08:16 -0700
+Subject: Re: [PATCH] dst: use const in accessors
+Date: Wed, 20 Oct 2004 22:14:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020220816.620df3bd.davem@davemloft.net>
-References: <200410182121.i9ILLfxC022524@ginger.cmf.nrl.navy.mil>
+Message-ID: <20041020221420.4f21dd84.davem@davemloft.net>
+References: <20041018155909.13e9f3ad@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, davem@redhat.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200410182121.i9ILLfxC022524@ginger.cmf.nrl.navy.mil>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041018155909.13e9f3ad@zqx3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Oct 2004 17:21:42 -0400
-"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
+On Mon, 18 Oct 2004 15:59:09 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> this patch adds the kernel support necessary for point to
-> multipoint signalling.  please apply to 2.6.
+> Trivial, dst cache inline's can use const.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Also applied, thanks Chas.
+Applied, thanks Stephen.
