@@ -1,29 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patches] invalid nh.raw use after free
-Date: Wed, 16 Jul 2003 00:17:24 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 1/4] Prefix List against 2.5.73
+Date: Wed, 16 Jul 2003 17:39:26 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030716001724.7874a51a.davem@redhat.com>
-References: <20030715191709.1e0c6427.davem@redhat.com>
-	<Pine.LNX.4.44.0307161007070.1921-100000@l>
+Message-ID: <20030716.173926.81875946.yoshfuji@linux-ipv6.org>
+References: <3F14492C.30708@us.ibm.com>
+	<200307160021.EAA10195@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: krkumar@us.ibm.com, davem@redhat.com, netdev@oss.sgi.com,
+   yoshfuji@linux-ipv6.org, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0307161007070.1921-100000@l>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307160021.EAA10195@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Jul 2003 10:09:02 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+Hello.
 
-> On Tue, 15 Jul 2003, David S. Miller wrote:
-> 
-> > Good catch, I'll apply this.
-> 
-> 	Please, apply also to 2.2
+In article <200307160021.EAA10195@dub.inr.ac.ru> (at Wed, 16 Jul 2003 04:21:33 +0400 (MSD)), kuznet@ms2.inr.ac.ru says:
 
-Please forward to Alan for that, I don't have the
-resources to maintain 2.2.x along with all the other
-stuff.
+> Select yourself: either IFA_IFFLAGS or translated flags in ifa_flags.
+> I prefer the second way just because it is too unpleasant to add
+> a new attribute for sake of two bits with no visible candidates
+> to use remaining ones.
+
+Well, I dislike ifa_flags because 
+ - it is conceptually wrong to combine them.
+   e.g. even if all autoconf addresses expired, flags lasts and 
+   we should report it to userspace.
+ - ifa_flags is extremely expensive resource.
+   There are only 8 bits. Use it only for addresses.
+
+My suggestion is:
+ - create L3 per-interface RTM, say, RTM_xxxIFACE.
+ - provide inet_device / inet6_dev things via this RTM.
+    e.g. per-interface statistics, flags etc.
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
