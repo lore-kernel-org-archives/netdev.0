@@ -1,35 +1,27 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] Move generic encap code into xfrm6_output
-Date: Mon, 26 Jul 2004 07:31:22 +1000
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Sun, 25 Jul 2004 23:56:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040725213122.GA30819@gondor.apana.org.au>
-References: <20040725104028.GA24547@gondor.apana.org.au> <20040725.093617.15482200.yoshfuji@linux-ipv6.org>
+Message-ID: <41042CA3.2050702@trash.net>
+References: <40F34740.5040100@trash.net>	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>	<20040712205037.573411c0.davem@redhat.com>	<40F4862D.3070802@trash.net>	<40F4AC8B.40706@trash.net>	<20040721143110.4ab944bf.davem@redhat.com>	<41004F76.1080807@trash.net>	<20040722171752.341d2476.davem@redhat.com>	<41006150.9000702@trash.net>	<41014788.4070301@trash.net>	<20040723135459.2ee5c42c.davem@redhat.com>	<41019CDA.9050401@trash.net> <20040724232705.237396b4.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, jmorris@redhat.com,
-        netdev@oss.sgi.com, kazunori@miyazawa.org, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20040725.093617.15482200.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040724232705.237396b4.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jul 25, 2004 at 09:36:17AM -0400, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+David S. Miller wrote:
+> Let me know if you get feedback or not.
 > 
-> Well, since we're on the way back to home from OLS,
-> we'll review when we're back to Japan.
+> For now I'm pushing to Linus with Alpha removed from the
+> list.
 
-Thanks.
+According to Richard Henderson it should work fine. The fastest
+Alpha cycle counter (1.2 GHz) takes 3.57 seconds to overflow.
 
-> One thing: please retain our credit in net/ipv6/xfrm6_output.c.
-
-Sure.  But can you please send in a follow-up patch on that since
-I'm not sure what I should be putting there.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards
+Patrick
