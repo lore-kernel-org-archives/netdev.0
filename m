@@ -1,46 +1,67 @@
-From: Cacophonix <cacophonix@yahoo.com>
-Subject: Re: [PATCH] hp100 -- fixes for new probing.
-Date: Mon, 23 Feb 2004 00:48:14 -0800 (PST)
+From: "Samofatov, Nickolay" <Nickolay@BroadViewSoftware.com>
+Subject: 2.6.2 issues (IPSec+NAT, RFC2684 bridge)
+Date: Mon, 23 Feb 2004 04:06:36 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040223084814.80312.qmail@web14002.mail.yahoo.com>
+Message-ID: <66187D861C1747499BE1365B74E036917B5F82__43569.4093852819$1077528216@mdant.atkin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8BIT
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org, jt@bougret.hpl.hp.com
+Resent-Message-Id: <20040223.182328.17646092.yoshfuji@linux-ipv6.org>
+Content-class: urn:content-classes:message
+To: <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(resending, copying netdev) 
+Hi!
 
-Hi,
-Any idea if any of these patches may have broken hp100 when statically built into the 
-kernel (i.e, not as a module)?
+Here is a list of minor issues I encountered when migrated my AMD64
+machine to 2.6.2 kernel (64-bit).
 
-Upgrading from 2.6.0-test6 to 2.6.3-mm2 (which does include the latest patchsets for
-hp100 from Stephen), the kernel locks up at boot at the point where hp100 
-detection/initialization normally occurs (the driver is compiled into the kernel). 
-However, changing hp100 to a module, and loading it dynamically works.
+1) Attempts to combine IPSec and NAT result in various kinds of
+failures. The easiest to reproduce is reliable hard system lock-up when
+IKE session needs to be initiated because of request from masqueraded
+machine.
+(workaround is to run cron job keeping IPSec connection active)
 
-Any clues about which of the recent patches between 2.6.0-test6 and 2.6.3-mm2 might
-be causing the lockup? Thanks for any pointers.
+2) I had to add following line to my routing rules to get IPSec working
+locally:
+--
+route add -m 172.20.0.0 netmask 255.255.0.0 gw 172.21.113.1
+--
+172.20.0.0 here is VPN subnet I'm interested in. 172.21.113.1 is the
+address assigned to eth0 interface which is also IP address of this
+machine in VPN.
+Before I added this rule TCP connections from localhost failed with no
+route to host. The result works for most applications, but not all. For
+example, SSH fails.
+(my workaround is to use SOCKS5 proxy running locally for local SSH
+connections over IPSec tunnels)
 
-cheers,
-karthik
+3) RFC2684 bridge oopses when I try to run it with my ATM device
+(SpeedTouch USB) not plugged.
+(workaround is to check if device is really plugged and initialized in
+usbfs before attempting to start bridge)
+BTW, if you build SpeedTouch driver as module and build ATM bridge into
+kernel you get oopses during bridge initialization.
+(AFAIU, they work fine only if both built into kernel)
 
-The /proc/pci data for my hp100 nic:
-  Bus  0, device  14, function  0:
-    Ethernet controller: Hewlett-Packard Comp J2585B HP 10/100VG P (rev 0).
-      IRQ 11.
-      Master Capable.  Latency=248.  Min Gnt=8.Max Lat=32.
-      I/O at 0xec00 [0xecff].
-      Non-prefetchable 32 bit memory at 0xfffac000 [0xfffadfff].
+4) My attempts to use preemptable kernel failed miserably. Kernel
+produces lots of warnings during boot and usually oopses before system
+init finishes. If I disable RFC2684 bridge it successfully boots more
+often, but attempts to do any big work, for example to start X fail in
+any case.
+(workaround is to build non-preeptable kernel, bad for multimedia
+applications, but tolerable)
+
+If there is interest, I may provide as much information as required to
+resolve the problems.
+
+But in general, 2.6.2 kernel works great. When I find a way to work
+around hard system lockups when NPTL is used in combination with NVIDIA
+XFree drivers I'll be totally happy.
 
 
+Nickolay Samofatov
 
-
-
-__________________________________
-Do you Yahoo!?
-Yahoo! Mail SpamGuard - Read only the mail you want.
-http://antispam.yahoo.com/tools
