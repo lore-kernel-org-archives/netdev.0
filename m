@@ -1,26 +1,81 @@
-From: Jaume Catarineu <jaume.catarineu@upf.edu>
-Subject: Re: Kernel BUG: Qos seg. fault (part II)
-Date: Tue, 25 May 2004 13:09:52 +0000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40B345A0.8080801@upf.edu>
-References: <20040524215346.73109.qmail@web80501.mail.yahoo.com><1085436571.	1041.69.camel@jzny.localdomain>  <40B2BD99.4000500@upf.edu> <1085450901.1043.4.camel@jzny.localdomain>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPSec Oops when deleting an ip address
+Date: Tue, 25 May 2004 21:52:20 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040525115220.GA15236@gondor.apana.org.au>
+References: <20040510134958.13691.qmail@mason.oriente.labs.it> <20040521131950.GA20040@gondor.apana.org.au> <20040521144346.7887dbf0.davem@redhat.com> <20040524114751.GA28571@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Dmitry Torokhov <dtor_core@ameritech.net>,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        Francois Romieu <romieu@fr.zoreil.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1085450901.1043.4.camel@jzny.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="a8Wt8u1KmwUX3Y2C"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040524114751.GA28571@gondor.apana.org.au>
 List-Id: netdev.vger.kernel.org
 
-> Use Dmitry's patch. I believe it would fix the above too.
-> You should get an EINVAL error unless you specify the correct
-> child id (such as tc filter show dev lo parent 20: )
 
-The patch works with kernel 2.6.4 (also for 2.4.25), and solves the two 
-segmentations faults. :)
+--a8Wt8u1KmwUX3Y2C
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Jaume,
+On Mon, May 24, 2004 at 09:47:51PM +1000, herbert wrote:
+> 
+> Hence the problem is still a bug in the ref counting.  I think I've found
+> the real culprit now.  __xfrm?_find_acq() is missing an xfrm_state_hold
+> on the create path.  This also explains why I never see it myself since
+> Openswan never creates states through that code-path.
+
+The same bug exists in xfrm_state_find.  This is actually used by
+Openswan.  However, the larval state never actually matures with
+Openswan so it only ever gets deleted by the timer which means that
+the timer crash can't happen :) It becomes a (possible) memory leak
+instead.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--a8Wt8u1KmwUX3Y2C
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/xfrm/xfrm_state.c 1.39 vs edited =====
+--- 1.39/net/xfrm/xfrm_state.c	2004-05-22 17:32:10 +10:00
++++ edited/net/xfrm/xfrm_state.c	2004-05-25 21:42:43 +10:00
+@@ -331,14 +331,8 @@
+ 		}
+ 	}
+ 
+-	if (best) {
+-		xfrm_state_hold(best);
+-		spin_unlock_bh(&xfrm_state_lock);
+-		return best;
+-	}
+-
+-	x = NULL;
+-	if (!error && !acquire_in_progress &&
++	x = best;
++	if (!x && !error && !acquire_in_progress &&
+ 	    ((x = xfrm_state_alloc()) != NULL)) {
+ 		/* Initialize temporary selector matching only
+ 		 * to current session. */
+@@ -363,10 +357,12 @@
+ 			error = 1;
+ 		}
+ 	}
+-	spin_unlock_bh(&xfrm_state_lock);
+-	if (!x)
++	if (x)
++		xfrm_state_hold(x);
++	else
+ 		*err = acquire_in_progress ? -EAGAIN :
+ 			(error ? -ESRCH : -ENOMEM);
++	spin_unlock_bh(&xfrm_state_lock);
+ 	return x;
+ }
+ 
+
+--a8Wt8u1KmwUX3Y2C--
