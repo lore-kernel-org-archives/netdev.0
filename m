@@ -1,36 +1,29 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: TCP receiver's window calculation problem
-Date: Thu, 24 Jun 2004 15:26:27 -0400 (EDT)
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [FYI PATCH] Ethernet over Cisco HDLC
+Date: Thu, 24 Jun 2004 17:32:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0406241519430.28506-100000@dexter.psc.edu>
-References: <Pine.LNX.4.44.0406241209280.1272-100000@orchestra.cs.caltech.edu>
+Message-ID: <m3r7s57z07.fsf@defiant.pm.waw.pl>
+References: <C060DFCD9697A842B3189B458524FDC205D2DE@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-        "fast-support@cs.caltech.edu" <fast-support@cs.caltech.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-In-Reply-To: <Pine.LNX.4.44.0406241209280.1272-100000@orchestra.cs.caltech.edu>
+To: "Eble, Dan" <DanE@aiinet.com>
+In-Reply-To: <C060DFCD9697A842B3189B458524FDC205D2DE@AIMAIL1.ai.aiinet.com> (Dan
+ Eble's message of "Thu, 24 Jun 2004 10:24:26 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Jun 2004, Cheng Jin wrote:
+"Eble, Dan" <DanE@aiinet.com> writes:
 
-> I think having a default limit on tcp memory is acceptable to prevent DoS,
-> but when a user increases the memory limit by explicitly setting tcp_rmem,
-> that should take effect.  The code itself shouldnt pose any limit like it
-> does now.
+> Are you sure that is a good idea?  Using separate numbers for Cisco and FR
+> is a safeguard against unwittingly creating an FR PVC with "sethdlc cisco
+> proto ether ... ".  Or are you suggesting to merge the sethdlc syntax too?
 
-The core of the problem is that you are describing a truesize of each skb
-at about 16k, but each of those only contains < 1500 bytes of payload.
-You are wasting 90% of your socket memory.  Announcing a 3 MB window with
-a 30 MB socket buffer is the right thing to do, from a certain point of
-view.  OTOH, it kills performance.
+Almost. FR has DLCI, Cisco HDLC doesn't. This would result in small
+syntax and code differences.
 
-
-> Actually, I am not clear what that window-calculation algorithm is.  Is it
-> recommended by some RFC?
-
-No, it's not standard.  I'm not sure who wrote this code.
-
-  -John
+I have to investigate this a little further. For 2.6 I'd go with ~ your
+patch.
+-- 
+Krzysztof Halasa, B*FH
