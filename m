@@ -1,77 +1,138 @@
-From: Bernd Schubert <bernd-schubert@web.de>
-Subject: 2.6.7 oops, sk98lin related?
-Date: Thu, 22 Jul 2004 11:01:14 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [INET] Create enum of ECN bits
+Date: Thu, 22 Jul 2004 22:00:21 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407221101.16388.bernd-schubert@web.de>
+Message-ID: <20040722120021.GA18293@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="2fHTh5uZTiUOsy+g"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Christoph and all others,
 
-is this an sk98lin oops, maybe related to your patches or is it a complet=
-ely=20
-different problem?
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
+Hi Dave:
 
+This patch is a preparation for an update of the ECN encap/decap
+code with respect to RFC3168.
 
-dsmc: page allocation failure. order:2, mode:0x20
- [<c010706e>] dump_stack+0x1e/0x20
- [<c01419cb>] __alloc_pages+0x2bb/0x330
- [<c0141a67>] __get_free_pages+0x27/0x40
- [<c01453c0>] kmem_getpages+0x20/0xd0
- [<c0146123>] cache_grow+0xd3/0x290
- [<c0146480>] cache_alloc_refill+0x1a0/0x270
- [<c0146ac3>] __kmalloc+0x83/0x90
- [<c0342668>] alloc_skb+0x48/0xf0
- [<f8aa0acb>] FillRxDescriptor+0x2b/0xc0 [sk98lin]
- [<f8aa0a8c>] FillRxRing+0x6c/0x80 [sk98lin]
- [<f8aa4882>] SkDrvEvent+0xb12/0xb70 [sk98lin]
- [<f8ab42e5>] SkEventDispatcher+0xc5/0x160 [sk98lin]
- [<f8a9f918>] SkGeIsrOnePort+0x118/0x1f0 [sk98lin]
- [<c010835b>] handle_IRQ_event+0x3b/0x70
- [<c010873b>] do_IRQ+0xbb/0x1a0
- [<c0106b64>] common_interrupt+0x18/0x20
- [<c014a3e5>] shrink_zone+0xa5/0xe0
- [<c014a48c>] shrink_caches+0x6c/0x70
- [<c014a532>] try_to_free_pages+0xa2/0x170
- [<c01418c4>] __alloc_pages+0x1b4/0x330
- [<c0141a67>] __get_free_pages+0x27/0x40
- [<c0171526>] __pollwait+0x76/0xb0
- [<c0362946>] tcp_poll+0x36/0x180
- [<c033f209>] sock_poll+0x29/0x30
- [<c0171877>] do_select+0x237/0x2b0
- [<c0171bb0>] sys_select+0x290/0x480
- [<c010617f>] syscall_call+0x7/0xb
+It creates an enum of the four code-points defined by RFC3168
+and uses them throughout the inet_ecn.h file.
 
+The only non-trivial bit is in IP_ECN_set_ce/IP6_ECN_set_ce where
+the patch uses INET_ECN_CE instead of 1.  This is OK as those
+functions assume that the ECT bit is already set.
 
-I have another 190KB of traces uploaded=20
-(http://www.pci.uni-heidelberg.de/tc/usr/bernd/downloads/oopses/minicom.l=
-og).=20
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-All kernel bootup messages are at the end this file as well.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-Yesterday Marvell Yukon announced a new sk98lin driver, should I try this=
-=20
-version?
+diff -Nru a/include/net/inet_ecn.h b/include/net/inet_ecn.h
+--- a/include/net/inet_ecn.h	2004-07-22 21:35:12 +10:00
++++ b/include/net/inet_ecn.h	2004-07-22 21:35:12 +10:00
+@@ -3,39 +3,48 @@
+ 
+ #include <linux/ip.h>
+ 
++enum {
++	INET_ECN_NOT_ECT = 0,
++	INET_ECN_ECT_1 = 1,
++	INET_ECN_ECT_0 = 2,
++	INET_ECN_CE = 3,
++	INET_ECN_MASK = 3,
++};
++
+ static inline int INET_ECN_is_ce(__u8 dsfield)
+ {
+-	return (dsfield&3) == 3;
++	return (dsfield & INET_ECN_MASK) == INET_ECN_CE;
+ }
+ 
+ static inline int INET_ECN_is_not_ce(__u8 dsfield)
+ {
+-	return (dsfield&3) == 2;
++	return (dsfield & INET_ECN_MASK) == INET_ECN_ECT_0;
+ }
+ 
+ static inline int INET_ECN_is_capable(__u8 dsfield)
+ {
+-	return (dsfield&2);
++	return (dsfield & INET_ECN_ECT_0);
+ }
+ 
+ static inline __u8 INET_ECN_encapsulate(__u8 outer, __u8 inner)
+ {
+-	outer &= ~3;
++	outer &= ~INET_ECN_MASK;
+ 	if (INET_ECN_is_capable(inner))
+-		outer |= (inner & 3);
++		outer |= (inner & INET_ECN_MASK);
+ 	return outer;
+ }
+ 
+-#define	INET_ECN_xmit(sk) do { inet_sk(sk)->tos |= 2; } while (0)
+-#define	INET_ECN_dontxmit(sk) do { inet_sk(sk)->tos &= ~3; } while (0)
++#define	INET_ECN_xmit(sk) do { inet_sk(sk)->tos |= INET_ECN_ECT_0; } while (0)
++#define	INET_ECN_dontxmit(sk) \
++	do { inet_sk(sk)->tos &= ~INET_ECN_MASK; } while (0)
+ 
+-#define IP6_ECN_flow_init(label) do {	\
+-      (label) &= ~htonl(3<<20);		\
++#define IP6_ECN_flow_init(label) do {		\
++      (label) &= ~htonl(INET_ECN_MASK << 20);	\
+     } while (0)
+ 
+-#define	IP6_ECN_flow_xmit(sk, label) do {			\
+-	if (INET_ECN_is_capable(inet_sk(sk)->tos))		\
+-		(label) |= __constant_htons(2 << 4);		\
++#define	IP6_ECN_flow_xmit(sk, label) do {				\
++	if (INET_ECN_is_capable(inet_sk(sk)->tos))			\
++		(label) |= __constant_htons(INET_ECN_ECT_0 << 4);	\
+     } while (0)
+ 
+ static inline void IP_ECN_set_ce(struct iphdr *iph)
+@@ -43,24 +52,24 @@
+ 	u32 check = iph->check;
+ 	check += __constant_htons(0xFFFE);
+ 	iph->check = check + (check>=0xFFFF);
+-	iph->tos |= 1;
++	iph->tos |= INET_ECN_CE;
+ }
+ 
+ static inline void IP_ECN_clear(struct iphdr *iph)
+ {
+-	iph->tos &= ~3;
++	iph->tos &= ~INET_ECN_MASK;
+ }
+ 
+ struct ipv6hdr;
+ 
+ static inline void IP6_ECN_set_ce(struct ipv6hdr *iph)
+ {
+-	*(u32*)iph |= htonl(1<<20);
++	*(u32*)iph |= htonl(INET_ECN_CE << 20);
+ }
+ 
+ static inline void IP6_ECN_clear(struct ipv6hdr *iph)
+ {
+-	*(u32*)iph &= ~htonl(3<<20);
++	*(u32*)iph &= ~htonl(INET_ECN_MASK << 20);
+ }
+ 
+ #define ip6_get_dsfield(iph) ((ntohs(*(u16*)(iph)) >> 4) & 0xFF)
 
-
-Thanks a lot in advance,
-	Bernd
-
-
---=20
-Bernd Schubert
-Physikalisch Chemisches Institut / Theoretische Chemie
-Universit=E4t Heidelberg
-INF 229
-69120 Heidelberg
-e-mail: bernd.schubert@pci.uni-heidelberg.de
+--2fHTh5uZTiUOsy+g--
