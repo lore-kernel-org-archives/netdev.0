@@ -1,107 +1,144 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: e100-3.0.0_dev8 "Minneapolis Moline" release
-Date: Wed, 18 Jun 2003 15:33:25 +0000 (UTC)
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Remove copied inet_aton code in bond_main.c
+Date: Wed, 18 Jun 2003 13:09:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <slrnbf11i5.kck.lunz@stoli.localnet>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D977@orsmsx402.jf.intel.com>
+Message-ID: <20030618110946.GA6851@averell>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-scott.feldman@intel.com said:
-> Also, any feedback on the code correctness, maintainability, credits,
-> etc. would help.
 
-Is the anonymous union in struct cb some kind of gcc3-only thing? It
-doesn't compile for my debian woody gcc 2.95 unless I name the union
-member.
+According to a report the my_inet_aton code in bond_main.c is copied
+from 4.4BSD, but it doesn't carry a BSD copyright license. In addition
+it is somewhat redundant with the standard in_aton.  Convert it 
+to use the linux function.
 
--- 
-Jason Lunz			Reflex Security
-lunz@reflexsecurity.com		http://www.reflexsecurity.com/
+Error handling is a bit worse than before, but not much.
 
+Patch for 2.5 bonding. The 2.4 version has the same problem, but afaik
+it is scheduled to be replaced by the 2.5 codebase anyways.
 
---- e100.c	Tue Jun 17 08:51:45 2003
-+++ e100.c.union	Wed Jun 18 11:27:45 2003
-@@ -434,7 +434,7 @@
- 				u16 eol;
- 			} tbd;
- 		} tcb;
--	};
-+	} data;
- 	struct cb *next, *prev;
- 	dma_addr_t dma_addr;
- 	struct sk_buff *skb;
-@@ -867,7 +867,7 @@
+-Andi
+
+--- linux/drivers/net/bonding/bond_main.c-o	2003-06-14 23:42:51.000000000 +0200
++++ linux/drivers/net/bonding/bond_main.c	2003-06-18 13:03:04.000000000 +0200
+@@ -390,6 +390,7 @@
+ #include <linux/timer.h>
+ #include <linux/socket.h>
+ #include <linux/ctype.h>
++#include <linux/inet.h>
+ #include <asm/system.h>
+ #include <asm/bitops.h>
+ #include <asm/io.h>
+@@ -2797,84 +2798,6 @@
+ 	mod_timer(&bond->arp_timer, next_timer);
+ }
  
- static void e100_configure(struct nic *nic, struct cb *cb, struct sk_buff *skb)
+-typedef uint32_t in_addr_t;
+-
+-int
+-my_inet_aton(char *cp, unsigned long *the_addr) {
+-	static const in_addr_t max[4] = { 0xffffffff, 0xffffff, 0xffff, 0xff };
+-	in_addr_t val;
+-	char c;
+-	union iaddr {
+-	  uint8_t bytes[4];
+-	  uint32_t word;
+-	} res;
+-	uint8_t *pp = res.bytes;
+-	int digit,base;
+-
+-	res.word = 0;
+-
+-	c = *cp;
+-	for (;;) {
+-		/*
+-		 * Collect number up to ``.''.
+-		 * Values are specified as for C:
+-		 * 0x=hex, 0=octal, isdigit=decimal.
+-		 */
+-		if (!isdigit(c)) goto ret_0;
+-		val = 0; base = 10; digit = 0;
+-		for (;;) {
+-			if (isdigit(c)) {
+-				val = (val * base) + (c - '0');
+-				c = *++cp;
+-				digit = 1;
+-			} else {
+-				break;
+-			}
+-		}
+-		if (c == '.') {
+-			/*
+-			 * Internet format:
+-			 *	a.b.c.d
+-			 *	a.b.c	(with c treated as 16 bits)
+-			 *	a.b	(with b treated as 24 bits)
+-			 */
+-			if (pp > res.bytes + 2 || val > 0xff) {
+-				goto ret_0;
+-			}
+-			*pp++ = val;
+-			c = *++cp;
+-		} else
+-			break;
+-	}
+-	/*
+-	 * Check for trailing characters.
+-	 */
+-	if (c != '\0' && (!isascii(c) || !isspace(c))) {
+-		goto ret_0;
+-	}
+-	/*
+-	 * Did we get a valid digit?
+-	 */
+-	if (!digit) {
+-		goto ret_0;
+-	}
+-
+-	/* Check whether the last part is in its limits depending on
+-	   the number of parts in total.  */
+-	if (val > max[pp - res.bytes]) {
+-		goto ret_0;
+-	}
+-
+-	if (the_addr != NULL) {
+-		*the_addr = res.word | htonl (val);
+-	}
+-
+-	return (1);
+-
+-ret_0:
+-	return (0);
+-}
+-
+ static int bond_sethwaddr(struct net_device *master, struct net_device *slave)
  {
--	struct config *config = &cb->config;
-+	struct config *config = &cb->data.config;
- 	u8 *c = (u8 *)config;
+ #ifdef BONDING_DEBUG
+@@ -3958,15 +3881,18 @@
+         for (arp_ip_count=0 ;
+              (arp_ip_count < MAX_ARP_IP_TARGETS) && arp_ip_target[arp_ip_count];
+               arp_ip_count++ ) {
+-                /* TODO: check and log bad ip address */
+-                if (my_inet_aton(arp_ip_target[arp_ip_count],
+-                                 &arp_target[arp_ip_count]) == 0) {
++		/* not complete check, but should be good enough to
++		   catch mistakes */
++		if (!isdigit(arp_ip_target[arp_ip_count][0])) { 
+                         printk(KERN_WARNING
+                                "bonding_init(): bad arp_ip_target module "
+                                "parameter (%s), ARP monitoring will not be "
+                                "performed\n",
+                                arp_ip_target[arp_ip_count]);
+                         arp_interval = 0;
++		} else { 
++			u32 ip = in_aton(arp_ip_target[arp_ip_count]); 
++			*(u32 *)(arp_ip_target[arp_ip_count]) = ip;
+ 		}
+         }
  
- 	cb->command = cpu_to_le16(cb_config);
-@@ -942,7 +942,7 @@
- 		dev_addr[3], dev_addr[4], dev_addr[5]);
- 	
- 	cb->command = cpu_to_le16(cb_iaaddr);
--	memcpy(cb->iaaddr, dev_addr, ETH_ALEN);
-+	memcpy(cb->data.iaaddr, dev_addr, ETH_ALEN);
- }
- 
- #define NCONFIG_AUTO_SWITCH	0x0080
-@@ -1051,9 +1051,9 @@
- 	u16 i, count = min(netdev->mc_count, E100_MAX_MULTICAST_ADDRS);
- 
- 	cb->command = cpu_to_le16(cb_multi);
--	cb->multi.count = cpu_to_le16(count * ETH_ALEN);
-+	cb->data.multi.count = cpu_to_le16(count * ETH_ALEN);
- 	for(i = 0; list && i < count; i++, list = list->next)
--		memcpy(&cb->multi.addr[i*ETH_ALEN], &list->dmi_addr, ETH_ALEN);
-+		memcpy(&cb->data.multi.addr[i*ETH_ALEN], &list->dmi_addr, ETH_ALEN);
- }
- 
- static void e100_set_multicast_list(struct net_device *netdev)
-@@ -1175,13 +1175,13 @@
- 	struct sk_buff *skb)
- {
- 	cb->command = nic->tx_command;
--	cb->tcb.tbd_array = cb->dma_addr + offsetof(struct cb, tcb.tbd);
--	cb->tcb.tcb_byte_count = 0;
--	cb->tcb.threshold = nic->tx_threshold;
--	cb->tcb.tbd_count = 1;
--	cb->tcb.tbd.buf_addr = cpu_to_le32(pci_map_single(nic->pdev,
-+	cb->data.tcb.tbd_array = cb->dma_addr + offsetof(struct cb, data.tcb.tbd);
-+	cb->data.tcb.tcb_byte_count = 0;
-+	cb->data.tcb.threshold = nic->tx_threshold;
-+	cb->data.tcb.tbd_count = 1;
-+	cb->data.tcb.tbd.buf_addr = cpu_to_le32(pci_map_single(nic->pdev,
- 		skb->data, skb->len, PCI_DMA_TODEVICE));
--	cb->tcb.tbd.size = cpu_to_le16(skb->len);
-+	cb->data.tcb.tbd.size = cpu_to_le16(skb->len);
- }
- 
- static int e100_xmit_frame(struct sk_buff *skb, struct net_device *netdev)
-@@ -1217,8 +1217,8 @@
- 			nic->net_stats.tx_bytes += cb->skb->len;
- 
- 			pci_unmap_single(nic->pdev,
--				le32_to_cpu(cb->tcb.tbd.buf_addr),
--				le16_to_cpu(cb->tcb.tbd.size),
-+				le32_to_cpu(cb->data.tcb.tbd.buf_addr),
-+				le16_to_cpu(cb->data.tcb.tbd.size),
- 				PCI_DMA_TODEVICE);
- 			dev_kfree_skb_irq(cb->skb);
- 			tx_cleaned = 1;
-@@ -1241,8 +1241,8 @@
- 			struct cb *cb = nic->cb_to_clean;
- 			if(cb->skb) {
- 				pci_unmap_single(nic->pdev,
--					le32_to_cpu(cb->tcb.tbd.buf_addr),
--					le16_to_cpu(cb->tcb.tbd.size),
-+					le32_to_cpu(cb->data.tcb.tbd.buf_addr),
-+					le16_to_cpu(cb->data.tcb.tbd.size),
- 					PCI_DMA_TODEVICE);
- 				dev_kfree_skb_irq(cb->skb);
- 			}
