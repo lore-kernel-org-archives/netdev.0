@@ -1,67 +1,38 @@
-From: Bukie Mabayoje <bukiemab@gte.net>
-Subject: Re: 2.4.29, e100 and a WOL packet causes keventd going mad
-Date: Mon, 31 Jan 2005 13:13:35 -0800
-Message-ID: <41FE9F7F.5F9E5F93@gte.net>
-References: <20050130171849.GA3354@hardeman.nu> <1107143255.18167.428.camel@localhost.localdomain> <41FDB2D3.5CBD6F7D@gte.net> <20050131152431.GA14176@logos.cnet>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4138] New: ipsec with racoon in transport mode with esp and ah hangs (problem is in xfrm_state_add)
+Date: Tue, 1 Feb 2005 08:11:02 +1100
+Message-ID: <20050131211102.GA20323@gondor.apana.org.au>
+References: <E1CvZCT-00017g-00@gondolin.me.apana.org.au> <200501311640.16118.au@unterluggauer.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: sfeldma@pobox.com, "David =?iso-8859-1?Q?H=E4rdeman?=" <david@2gen.com>,
-        Michael Gernoth <simigern@stud.uni-erlangen.de>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+To: Andreas Unterluggauer <au@unterluggauer.org>
+Content-Disposition: inline
+In-Reply-To: <200501311640.16118.au@unterluggauer.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Andreas:
 
-
-Marcelo Tosatti wrote:
-
-> On Sun, Jan 30, 2005 at 08:23:47PM -0800, Bukie Mabayoje wrote:
-> >
-> > Scott Feldman wrote:
-> >
-> > > On Sun, 2005-01-30 at 09:18, David H=C3=A4rdeman wrote:
-> > > > I experience the same problems as reported by Michael Gernoth whe=
-n
-> > > > sending a WOL-packet to computer with a e100 NIC which is already
-> > > > powered on.
-> > >
-> > > I didn't look at the 2.4 case, but for 2.6, it seems e100 was enabl=
-ing
-> > > PME wakeup during probe.  PME shouldn't be enabled while the system=
- is
-> > > up.  I suspect the assertion of PME while the system is up is what'=
-s
-> > > causing problems.  This patch moves PME wakeup enabling to either
-> > > suspend or shutdown.
-> > >
-> > > David, would you give this patch a try?  Make sure the system still
-> > > wakes from a magic packet if suspended or shut down, and doesn't ca=
-use
-> > > kacpid to go crazy if system is running.  If it helps for 2.6, perh=
-aps
-> > > someone can look into 2.4 to see if there is something similar goin=
-g on
-> >
-> > This issue was reported on 2.4.
+On Mon, Jan 31, 2005 at 03:40:16PM +0000, Andreas Unterluggauer wrote:
 >
-> Can any of you guys test v2.6, please?
+> 2005-01-31 16:29:58: DEBUG: ===
+> 2005-01-31 16:29:58: DEBUG: get pfkey ADD message
+> andi: libipsec/pfkey.c, pfkey_check: start (msg->sadb_msg_satype: 3)
+> 2005-01-31 16:29:58: DEBUG: andi: in pfkey.c, pk_recvadd: msg->sadb_msg_seq 2, msg->sadb_msg_type: ADD
+> 2005-01-31 16:29:58: INFO: IPsec-SA established: ESP/Transport 192.168.2.5->192.168.2.3 spi=103868257(0x630e761)
+> 2005-01-31 16:29:58: DEBUG: ===
 
-I will be glad to test it now but I can't, I am currently doing some work=
- on 2.4. If no one has tested it in the next few days I will validate it =
-then.
+Does the machine hang at this point in time? If not, then this is
+simply a racoon bug.  Although the acquire message carries a policy
+with it, it's really only acquiring a single SA.  Therefore, only
+the SA being acquired should be added with that sequence number.
 
-By the way,  do anyone have an idea how to get this functionality into 2.=
-4 eepro100. The problem is that eepro100 code works on a non WOL cards.
-
->
->
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel"=
- in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
