@@ -1,91 +1,61 @@
-From: "Bill Rugolsky Jr." <brugolsky@telemetry-investments.com>
-Subject: no netlink message for neighbor route deletion if proto != kernel
-Date: Mon, 17 May 2004 12:42:06 -0400
+From: vdb128@picaros.org
+Subject: [prop 2.4.23] tracepath to other iface + traversing SNAT
+Date: Mon, 17 May 2004 19:04:48 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040517164206.GC24080@ti64.telemetry-investments.com>
+Message-ID: <200405171704.i4HH4m13027519@picaros.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I've come across the following issue caused by Red Hat's /sbin/ifup.
-The ifup script does the following:
+Dear ipv4 maintainers,
 
-   ip route replace ${NETWORK}/${PREFIX} ${SRC} ${WINDOW:+window $WINDOW} \
-	dev ${REALDEVICE}
+The patch below allows to tracepath from an internal interface, via a 
+remote source NAT, to a public interface.  A disadvantage is however 
+that it opens a possibility for IP spoofing.  Nevertheless, it might
+be useful in some circumstances.  Perhaps add an additional setting
+in /proc/sys/net/ipv4/ to enable ?
 
-This has the side-effect of removing "proto kernel" from the neighbor route.
-When the address is later removed in ifdown with "ip addr flush dev $REALDEVICE",
-netlink does not generate a deletion message for the aforementioned route.
+Yours sincerely,
+Servaas Vandenberghe
 
-This unfortunately confuses Quagga, which expects matching add/delete
-Netlink messages.  I can work around this by specifying "proto kernel"
-in /sbin/ifup, but I'm wondering whether this is intended behavior. [I'm
-mindful of Alexey's comments regarding routing daemons and netlink,
-but that's not really the point of my question.]
+-------------------------------------------------------------------------
+Setup: eth1=195.162.202.41 eth2=10.67.56.137.  Without the proposed patch 
+reply packets 195.->NAT->10. are dropped (martian source):
 
-In linux/net/ipv4/fib_frontend.c, fib_del_ifaddr() calls fib_magic(),
-which sets
+stargate:~$ ip route get 10.67.56.137 from 195.162.202.41 iif eth2
+RTNETLINK answers: Invalid argument
 
-	req.rtm.rtm_protocol = RTPROT_KERNEL;
+With the patch:
 
-before calling fib_hash_delete():
+stargate:~$ ip route get 10.67.56.137 from 195.162.202.41 iif eth2
+local 10.67.56.137 from 195.162.202.41 dev lo  src 10.67.56.137 
+    cache <local>  iif eth2
 
-        if (cmd == RTM_NEWROUTE)
-                tb->tb_insert(tb, &req.rtm, &rta, &req.nlh, NULL);
-        else
-                tb->tb_delete(tb, &req.rtm, &rta, &req.nlh, NULL);
+stargate:~# tracepath -I eth2 195.162.202.41
+ 1?: [LOCALHOST]     pmtu 1500
+ 1:  10.66.254.198 (10.66.254.198)                          6.167ms (0) 
+ 2:  scotty2-int.kuleuven.net (134.58.253.188)             65.267ms 
+ 3:  134.58.253.254 (134.58.253.254)                        7.394ms (0) 
+ 4:  be-bru02a-ra1-vl-402.aorta.net (195.162.203.233)      31.534ms (0) 
+ 5:  be-bru02a-ra2-vl-3.aorta.net (195.162.196.188)        23.540ms asym  4 (0) 
+ 6:  ns1.picaros.org (195.162.202.41)                      27.901ms asym  5 reached
+     Resume: pmtu 1500 hops 6 back 5 
 
+http://picaros.org/ftp/key/tracepath.diff (diff to ss020927)
 
-The route is not matched by fib_hash_delete(), but appears to be flushed
-at the end if fib_delete_ifaddr(),
-
-                if (inet_addr_type(ifa->ifa_local) != RTN_LOCAL) {
-                        /* And the last, but not the least thing.
-                           We must flush stray FIB entries.
-
-                           First of all, we scan fib_info list searching
-                           for stray nexthop entries, then ignite fib_flush.
-                        */
-                        if (fib_sync_down(ifa->ifa_local, NULL, 0))
-                                fib_flush();
-
-and rtmsg_fib(RTM_DELROUTE,...) is never called.
-
-Is my analysis correct, and is this the intended behavior?
-Or should fib_magic() look like:
-
-
---- linux/net/ipv4/fib_frontend.c	2004-04-03 22:38:24.000000000 -0500
-+++ linux/net/ipv4/fib_frontend.c	2004-05-17 12:35:37.470324232 -0400
-@@ -394,7 +394,6 @@
+--- linux-2.4.23/net/ipv4/fib_frontend-dist.c   Mon Aug 25 13:44:44 2003
++++ linux-2.4.23/net/ipv4/fib_frontend.c        Mon Mar 22 22:56:10 2004
+@@ -233,7 +233,8 @@ int fib_validate_source(u32 src, u32 dst
  
- 	req.rtm.rtm_dst_len = dst_len;
- 	req.rtm.rtm_table = tb->tb_id;
--	req.rtm.rtm_protocol = RTPROT_KERNEL;
- 	req.rtm.rtm_scope = (type != RTN_LOCAL ? RT_SCOPE_LINK : RT_SCOPE_HOST);
- 	req.rtm.rtm_type = type;
- 
-@@ -402,10 +401,13 @@
- 	rta.rta_prefsrc = &ifa->ifa_local;
- 	rta.rta_oif = &ifa->ifa_dev->dev->ifindex;
- 
--	if (cmd == RTM_NEWROUTE)
-+	if (cmd == RTM_NEWROUTE) {
-+		req.rtm.rtm_protocol = RTPROT_KERNEL;
- 		tb->tb_insert(tb, &req.rtm, &rta, &req.nlh, NULL);
--	else
-+	} else {
-+		req.rtm.rtm_protocol = RTPROT_UNSPEC;
- 		tb->tb_delete(tb, &req.rtm, &rta, &req.nlh, NULL);
-+	}
- }
- 
- static void fib_add_ifaddr(struct in_ifaddr *ifa)
-
-Regards,
-
-	Bill Rugolsky
+        if (fib_lookup(&key, &res))
+                goto last_resort;
+-       if (res.type != RTN_UNICAST)
++       if (res.type != RTN_UNICAST 
++           && !(res.type == RTN_LOCAL && oif == loopback_dev.ifindex))
+                goto e_inval_res;
+        *spec_dst = FIB_RES_PREFSRC(res);
+        fib_combine_itag(itag, &res);
