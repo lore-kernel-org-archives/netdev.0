@@ -1,62 +1,33 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6] Re: xfrm_user.c doesn't use NLMSG_F_MULTI
-Date: Sat, 16 Oct 2004 19:45:53 +1000
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: profile path bug again (was Re: mm kernel oops with r8169 & named, PREEMPT)
+Date: Sat, 16 Oct 2004 12:01:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041016094553.GA6546@gondor.apana.org.au>
-References: <20041013080705.GB3387@obroa-skai.de.gnumonks.org> <E1CI2I2-0001sI-00@gondolin.me.apana.org.au> <20041014105757.GB12694@obroa-skai.de.gnumonks.org> <20041014110742.GA7910@gondor.apana.org.au> <20041015191444.GM17516@obroa-skai.de.gnumonks.org>
+Message-ID: <20041016100125.GA15833@electric-eye.fr.zoreil.com>
+References: <9625752b041013091772e26739@mail.gmail.com> <9625752b04101309182a96fbd2@mail.gmail.com> <200410131129.05657.jdmason@us.ltcfwd.linux.ibm.com> <20041013181840.GA30852@electric-eye.fr.zoreil.com> <9625752b04101313417be4cf90@mail.gmail.com> <20041013205433.GC30761@electric-eye.fr.zoreil.com> <9625752b04101314595f72f84a@mail.gmail.com> <9625752b04101415043a078b93@mail.gmail.com> <20041015161818.GA2577@electric-eye.fr.zoreil.com> <9625752b04101514073f6dab24@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
+To: Danny <dannydaemonic@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20041015191444.GM17516@obroa-skai.de.gnumonks.org>
+In-Reply-To: <9625752b04101514073f6dab24@mail.gmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 15, 2004 at 09:14:44PM +0200, Harald Welte wrote:
-> 
-> Pleae find a proposed patch attached to this email.  I didn't have the
-> means to test it at this point, though.. but it's pretty
-> straightforward.  Please consider applying it...
+Danny <dannydaemonic@gmail.com> :
+[profile path bug hits hard]
+> Also posting the oops directly instead of linking to it probably
+> allows people passing by to look at the oops, increasing the total
+> number of eyes.
 
-Thanks for the patch.
- 
-> --- linux-2.6.9-rc3-bk9-test/net/ipv4/tcp_diag.c	2004-10-10 14:01:47.000000000 +0200
-> +++ linux-2.6.9-rc3-bk9-test-xfrm_netlink/net/ipv4/tcp_diag.c	2004-10-15 21:02:19.000000000 +0200
-> @@ -97,7 +97,7 @@
->  }
->  
->  static int tcpdiag_fill(struct sk_buff *skb, struct sock *sk,
-> -			int ext, u32 pid, u32 seq)
-> +			int ext, u32 pid, u32 seq, u16 nlmsg_flags)
+Yes.
 
-The patch looks OK.  But I have some pending patches in this area (see
-http://oss.sgi.com/projects/netdev/archive/2004-10/msg00456.html).
-Could you please hold off on it for a while?
-  				}
-> diff -Nru linux-2.6.9-rc3-bk9-test/net/xfrm/xfrm_user.c linux-2.6.9-rc3-bk9-test-xfrm_netlink/net/xfrm/xfrm_user.c
-> --- linux-2.6.9-rc3-bk9-test/net/xfrm/xfrm_user.c	2004-10-10 14:01:03.000000000 +0200
-> +++ linux-2.6.9-rc3-bk9-test-xfrm_netlink/net/xfrm/xfrm_user.c	2004-10-15 20:55:58.000000000 +0200
-> @@ -351,7 +351,10 @@
->  	nlh = NLMSG_PUT(skb, NETLINK_CB(in_skb).pid,
->  			sp->nlmsg_seq,
->  			XFRM_MSG_NEWSA, sizeof(*p));
-> -	nlh->nlmsg_flags = 0;
-> +	if (count != 0)
-> +		nlh->nlmsg_flags = NLM_F_MULTI;
-> +	else
-> +		nlh->nlmsg_flags = 0;
->  
->  	p = NLMSG_DATA(nlh);
->  	copy_to_user_state(x, p);
+Oops posting is still on-topic in l-k.
 
-I think count can be zero when you're dumping as well.  You probably
-want to change dump_one_policy while you're at it.
+> I have a quick question though, if I'm using the kernel with all the
+> debug features turned on, should I still run it through ksymoops?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Your file named "oops-raw" contained the relevant information.
+
+--
+Ueimor
