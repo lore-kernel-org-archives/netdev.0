@@ -1,23 +1,45 @@
-From: Joshua Stewart <joshua.stewart@comcast.net>
-Subject: Pushing a stray sk_buff to the NIC
-Date: Thu, 09 Jan 2003 20:10:53 -0500
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <1042161058.6107.18.camel@localhost.localdomain>
+From: Andrew McGregor <andrew@indranet.co.nz>
+Subject: Re: ipv6 stack seems to forget to send ACKs
+Date: Fri, 10 Jan 2003 14:17:52 +1300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1291230000.1042161472@localhost.localdomain>
+References: <20030108130850.GQ22951@wiggy.net>
+ <20030109123857.A15625@bitwizard.nl> <20030109155214.GX22951@wiggy.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7BIT
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	Linux network development <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Wichert Akkerman <wichert@wiggy.net>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
+In-Reply-To: <20030109155214.GX22951@wiggy.net>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'm trying to take "hand-built" sk_buffs with little more than some data
-and a dev member and push them to the NIC for transmission.  I would
-like to simply give them to dev_queue_xmit.  Does anybody know what
-state I should have them in before handing them to dev_queue_xmit? 
-Should skb->data point to the start of a MAC header or an IP header?
 
-Also, given an IP address in skb->nh.iph->daddr, what's the easiest way
-to get the appropriate MAC address?
 
-J
+--On Thursday, January 09, 2003 16:52:14 +0100 Wichert Akkerman 
+<wichert@wiggy.net> wrote:
+
+> Previously Rogier Wolff wrote:
+>> Can you check the stats counters, to see if they are indeed dropped?
+>
+> It seems no packets are dropped:
+>
+
+...
+
+> Tcp:
+>     666 active connections openings
+>     0 passive connection openings
+>     0 failed connection attempts
+>     0 connection resets received
+>     2 connections established
+>     58949 segments received
+>     65043 segments send out
+>     0 segments retransmited
+>     18 bad segments received.
+
+Is this it?  My counters show zero, in vastly more packets.
+
+Andrew
