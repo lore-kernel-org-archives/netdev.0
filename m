@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/12) skge: suspend/resume related state management
-Date: Thu, 3 Mar 2005 11:35:43 -0800
-Message-ID: <20050303113543.72ba7dbf@dxpl.pdx.osdl.net>
+Subject: [PATCH] (5/12) skge: simplify definition of wake on lan support
+Date: Thu, 3 Mar 2005 11:36:46 -0800
+Message-ID: <20050303113646.0872b57a@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,47 +11,46 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix suspend/resume logic.  On suspend, shutdown board if it is already
-up, and on resume only bring it up if it was up before the suspend
+Add a simple encapsulation of wake on lan support predicate.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- skge-2.6.11/drivers/net/skge.c.orig	2005-03-02 17:17:25.000000000 -0800
-+++ skge-2.6.11/drivers/net/skge.c	2005-03-02 17:21:40.000000000 -0800
-@@ -3268,11 +3268,12 @@
- 	for(i = 0; i < 2; i++) {
- 		struct net_device *dev = hw->dev[i];
- 
--		if (dev && netif_running(dev)) {
-+		if (dev) {
- 			struct skge_port *skge = netdev_priv(dev);
--
--			netif_carrier_off(dev);
--			skge_down(dev);
-+			if (netif_running(dev)) {
-+				netif_carrier_off(dev);
-+				skge_down(dev);
-+			}
- 			netif_device_detach(dev);
- 			wol |= skge->wol;
- 		}
-@@ -3293,13 +3294,17 @@
- 
- 	pci_set_power_state(pdev, PCI_D0);
- 	pci_restore_state(pdev);
-+	pci_enable_wake(pdev, PCI_D0, 0);
- 
- 	skge_reset(hw);
- 
- 	for(i = 0; i < 2; i++) {
- 		struct net_device *dev = hw->dev[i];
--		if (dev && netif_running(dev))
--			skge_up(dev);
-+		if (dev) {
-+			netif_device_attach(dev);
-+			if(netif_running(dev))
-+				skge_up(dev);
-+		}
+
+--- skge-2.6.11/drivers/net/skge.c.orig	2005-03-02 17:22:30.000000000 -0800
++++ skge-2.6.11/drivers/net/skge.c	2005-03-02 17:24:23.000000000 -0800
+@@ -147,17 +147,18 @@
  	}
- 	return 0;
  }
+ 
++/* Wake on Lan only supported on Yukon chps with rev 1 or above */
++static int wol_supported(const struct skge_hw *hw)
++{
++	return !((hw->chip_id == CHIP_ID_GENESIS ||
++		  (hw->chip_id == CHIP_ID_YUKON && chip_rev(hw) == 0)));
++}
+ 
+ static void skge_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
+ {
+ 	struct skge_port *skge = netdev_priv(dev);
+-	struct skge_hw *hw = skge->hw;
+ 
+-	if (hw->chip_id == CHIP_ID_GENESIS ||
+-	    (hw->chip_id == CHIP_ID_YUKON && chip_rev(hw) == 0))
+-		wol->supported = 0;
+-	else
+-		wol->supported = WAKE_MAGIC;
++	wol->supported = wol_supported(skge->hw) ? WAKE_MAGIC : 0;
+ 	wol->wolopts = skge->wol ? WAKE_MAGIC : 0;
+ }
+ 
+@@ -169,9 +170,7 @@
+ 	if(wol->wolopts != WAKE_MAGIC && wol->wolopts != 0)
+ 		return -EOPNOTSUPP;
+ 
+-	if (wol->wolopts == WAKE_MAGIC &&
+-	    ((hw->chip_id == CHIP_ID_GENESIS ||
+-	      (hw->chip_id == CHIP_ID_YUKON && chip_rev(hw) == 0))))
++	if (wol->wolopts == WAKE_MAGIC && !wol_supported(hw))
+ 		return -EOPNOTSUPP;
+ 
+ 	skge->wol = wol->wolopts == WAKE_MAGIC;
