@@ -1,98 +1,49 @@
-From: "Michael T Kerrisk" <mtk-lists@gmx.net>
-Subject: Re: Strangeness when write()-ing zero-length datagrams
-Date: Mon, 9 Aug 2004 17:59:00 +0200 (MEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <10578.1092067140@www39.gmx.net>
-References: <20040809154057.GA30659@outpost.ds9a.nl>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: Wireless Extensions WE-18 questions
+Date: Mon, 9 Aug 2004 09:41:36 -0700
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <20040809164136.GA17028@bougret.hpl.hp.com>
+References: <1091444633.2767.8.camel@rootix> <20040803070843.GB7153@jm.kir.nu>
+	<1091929000.2800.12.camel@rootix>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Jouni Malinen <jkmaline@cc.hut.fi>,
+	hostap@shmoo.com
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Pedro Ramalhais <ramalhais@serrado.net>
+Content-Disposition: inline
+In-Reply-To: <1091929000.2800.12.camel@rootix>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-Bert,
+On Sun, Aug 08, 2004 at 02:36:40AM +0100, Pedro Ramalhais wrote:
+> 
+> This one is more oriented to the design of the wireless extensions and
+> should probably go to Jean Tourrilhes:
+> - the switch/case logic (for set_auth/get_auth at least) should really
+> be in the wireless extensions.
 
-> > On Linux 2.4.26 and 2.6.7, if we connect a datagram socket and=20
-> > then use write() to send 0 bytes, a datagram is NOT generated=20
-> > (this happens in both the Unix and Internet domains). =20
-> > Datagrams are generated in this case for send() and sendto()=20
-> > though.
->=20
-> Some postings were made about this some time ago,=20
+	Not everybody is using a wireless card, and of those using
+wireless cards, not all of them are using WPA. Therefore, my goal is
+to minimise kernel bloat.
+	If you don't like the current situation, there are two avenues :
+		o use different ioctls
+		o use a separate common module to demultiplex the ioctl
 
-I didn't find anything with google or archive seach -- do
-you have any more specific reference on this thread?
+> PS: I was hoping someone had already answer my e-mail about the creation
+> of a linux wireless mailing list, and this message would be sent to the
+> new list... oh well
 
-> it appears SUS has an
-> opinion on zero byte writes:
->=20
-> If nbyte is 0, write() will return 0 and have no other results if the=20
-> file is a regular file; otherwise, the results are unspecified.
-> http://www.opengroup.org/onlinepubs/007908799/xsh/write.html
->=20
-> The send(2) manpage states:
->=20
-> The send() function is identical to sendto() with a null pointer dest_l=
-en
-> argument, and to write() if no flags are used.
->=20
-> Which means that a zero byte send() without flags is unspecified.
+	Check the archive of netdev mailing list a few months back.
 
-Yes, but on Linux write(fd, buf, 0) !=3D send(fd, buf, 0, 0), which
-does seem inconsistent.  And as I noted, all the other implementations
-I tested behave differently from Linux.
+	Have fun...
 
-(Just so I'm sure we have our scenarios clear, I'm referring to=20
-the following:
-
-HOST-A                     HOST-B
-
-create datagram socket
-
-bind socket to=20
-INADDR_ANY:port-x
-
-                            create datagram socket
-
-                            connect socket to=20
-                            HOST-B:port-x
-
-                            Now the following behave=20
-                            differently:
-                                write(fd, buf, 0);
-                                send(fd, buf, 0, 0);
-
-)
-
-> Also note that it is hard if impossible to usefully inform userspace of
-> the reception of a zery byte packet - returning 0 from recvfrom may=20
-> also mean an 'orderly shutdown'.
-
-Am I missing something?  There isn't the notion of a true=20
-connection with datagram sockets, and so no notion of an orderly=20
-shutdown (I am assuming you are meaning some scenario where the=20
-peer calls shutdown() or close()).
-
-It is straightforward to detect a zero-length datagram: recvfrom()
-returns 0.
-
-> Do you actually have a need for zero byte packets?
-
-No, but I discovered this difference during some testing that I=20
-was doing, and then observed that it seems different from=20
-most (all?) other implementations.  It seemed worth documenting=20
-this fact.
-
-Cheers,
-
-Michael
-
---=20
-Michael Kerrisk
-mtk-lists@gmx.net
-
-NEU: WLAN-Router f=FCr 0,- EUR* - auch f=FCr DSL-Wechsler!
-GMX DSL =3D superg=FCnstig & kabellos http://www.gmx.net/de/go/dsl
+	Jean
