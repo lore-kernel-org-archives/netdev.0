@@ -1,38 +1,106 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: Some sleeping function called from invalid context
-Date: Tue, 5 Apr 2005 08:13:51 -0300
-Message-ID: <39e6f6c70504050413666ea29d@mail.gmail.com>
-References: <1112693744.7960.2.camel@pegasus>
-Reply-To: acme@conectiva.com.br
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Netlink Connector / CBUS
+Date: Tue, 05 Apr 2005 15:25:22 +0400
+Message-ID: <1112700322.28858.42.camel@uganda>
+References: <Xine.LNX.4.44.0504050108260.9383-100000@thoron.boston.redhat.com>
+	 <1112686480.28858.17.camel@uganda>
+	 <1112697888.1089.44.camel@jzny.localdomain>
+	 <1112698800.1088.50.camel@jzny.localdomain>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Cc: Network Development Mailing List <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Marcel Holtmann <marcel@holtmann.org>
-In-Reply-To: <1112693744.7960.2.camel@pegasus>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-sSnCz6Q18Ygv+8vLJ7Uc"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+	linux-kernel@vger.kernel.org, netdev <netdev@oss.sgi.com>,
+	"David S. Miller" <davem@davemloft.net>,
+	James Morris <jmorris@redhat.com>, rml@novell.com,
+	Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261693AbVDELUk@vger.kernel.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1112698800.1088.50.camel@jzny.localdomain>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Apr 5, 2005 6:35 AM, Marcel Holtmann <marcel@holtmann.org> wrote:
-> Hi,
-> 
-> while testing the latest kernel from the Bitkeeper repository, I got
-> some sleeping functions called from invalid context:
-> 
-> Freeing unused kernel memory: 180k freed
-> Debug: sleeping function called from invalid context at mm/slab.c:2090
-> in_atomic():1, irqs_disabled():0
->  [<c0119936>] __might_sleep+0xa6/0xb0
->  [<c014ab93>] kmem_cache_alloc+0x73/0x80
->  [<c0149c0e>] kmem_cache_create+0xfe/0x630
->  [<c026994d>] proto_register+0x9d/0xc0
->  [<f88c901c>] af_unix_init+0x1c/0x7a [unix]
->  [<c0139d62>] sys_init_module+0x1b2/0x290
->  [<c0103025>] syscall_call+0x7/0xb
-> NET: Registered protocol family 1
 
-Damn, thanks for reporting, looking at it now.
+--=-sSnCz6Q18Ygv+8vLJ7Uc
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-- Arnaldo
+On Tue, 2005-04-05 at 07:00 -0400, jamal wrote:
+> and, oh yeah - wheres the documentation Evgeniy? ;->
+
+In the tree :)
+Documentation/connector/connector.txt - some notes, API.
+Documentation/connector/cn_test.c - kernel example.
+Uses cn_netlink_send(), notification feature.
+
+I will send today a pathc that adds in-source documentation
+bits with some code cleanups.
+
+> cheers,
+> jamal
+>=20
+> On Tue, 2005-04-05 at 06:44, jamal wrote:
+> > To be fair to Evgeniy I am not against the Konnector idea. I think that
+> > it is a useful feature to have an easy to use messaging between
+> > kernel-kernel and kernel-userspace. The fact that he leveraged netlink
+> > instead of inventing things is a bonus. Having said that i have not
+> > seriously scrutinized the code - and i think the idea of this new thing
+> > hes tossing around called CBUS maybe pushing it.
+> >=20
+> > cheers,
+> > jamal
+> >=20
+> > On Tue, 2005-04-05 at 03:34, Evgeniy Polyakov wrote:
+> > > On Tue, 2005-04-05 at 01:10 -0400, Herbert Xu wrote:
+> > > >On Tue, Apr 05, 2005 at 11:03:16AM +0400, Evgeniy Polyakov wrote:
+> > > >>=20
+> > > >> I received comments and feature requests from Herbert Xu and Jamal=
+ Hadi
+> > > >> Salim,
+> > > >> almost all were successfully resolved.
+> > > >
+> > > >Please do not construe my involvement in these threads as endorsemen=
+t
+> > > >for this system.
+> > >=20
+> > > Sure.
+> > > I remember you are against it :).
+> > >=20
+> > > >In fact to this day I still don't understand what problems this thin=
+g is
+> > > >meant to solve.
+> > >=20
+> > > Hmm, what else can I add to my words?
+> > > May be checking the size of the code needed to broadcast kobject chan=
+ges
+> > > in kobject_uevent.c for example...
+> > > Netlink socket allocation + skb handling against call to cn_netlink_s=
+end().
+> > >=20
+> > > >--=20
+> > > >Visit Openswan at http://www.openswan.org/
+> > > >Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+> > > >Home Page: http://gondor.apana.org.au/~herbert/
+> > > >PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> > >=20
+> >=20
+> >=20
+> >=20
+--=20
+        Evgeniy Polyakov
+
+Crash is better than data corruption -- Arthur Grabowski
+
+--=-sSnCz6Q18Ygv+8vLJ7Uc
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBCUnWiIKTPhE+8wY0RAlXXAJ9cqMiWKTv+jyUGIgqYjppnwYvvlACfYXx7
+uJSA7Zm+fMplyqvjC2bt38w=
+=f8I/
+-----END PGP SIGNATURE-----
+
+--=-sSnCz6Q18Ygv+8vLJ7Uc--
