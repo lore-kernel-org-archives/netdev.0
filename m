@@ -1,65 +1,40 @@
-From: ilya@theIlya.com
-Subject: Re: Re: (no subject)
-Date: Mon, 24 Feb 2003 10:34:29 -0800
-Sender: linux-mips-bounce@linux-mips.org
-Message-ID: <20030224183429.GA26310@gateway.total-knowledge.com>
-References: <20030224040647.611.qmail@webmail17.rediffmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC: promote netfilter MARK value from IPv6 packets to sit
+ packets
+Date: Mon, 24 Feb 2003 21:30:11 -0500 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030224212312.Y44654@shell.cyberus.ca>
+References: <20030217145727.GA3413@hensema.net> <20030223193339.GD15385@sunbeam.de.gnumonks.org>
+ <20030223234225.GA23556@hensema.net> <20030224083946.H34066@shell.cyberus.ca>
+ <20030224144116.GN24960@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="nFreZHaLTZJo0R7j"
-Cc: "Maciej W.Rozycki" <macro@ds2.pg.gda.pl>, netdev@oss.sgi.com,
-	linux-mips@linux-mips.org
-Return-path: <linux-mips-bounce@linux-mips.org>
-To: santosh kumar gowda <ipv6_san@rediffmail.com>
-Content-Disposition: inline
-In-Reply-To: <20030224040647.611.qmail@webmail17.rediffmail.com>
-Errors-to: linux-mips-bounce@linux-mips.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Erik Hensema <erik@hensema.net>, "" <netdev@oss.sgi.com>,
+   Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20030224144116.GN24960@sunbeam.de.gnumonks.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---nFreZHaLTZJo0R7j
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-RTFM
-(Hint $LINUX_SOURCE_TREE/Documentation/)
+On Mon, 24 Feb 2003, Harald Welte wrote:
 
-On Mon, Feb 24, 2003 at 04:06:47AM -0000, santosh kumar gowda wrote:
->=20
->=20
-> On Sat, 22 Feb 2003 Maciej W. Rozycki wrote :
-> >On 21 Feb 2003, santosh kumar gowda wrote:
-> >
-> >> Following message is produced at the IAD terminal.....
-> >>
-> >> # Unable to handle kernel paging request at virtual address
-> >> 00000000, epc =3D=3D 802
-> >> 4ce74, ra =3D=3D 802592a8
-> >> Oops in fault.c:do_page_fault, line 172:
-> >[...]
-> >> Suggestions/Tips are welcome.
-> >
-> > Decode the oops first or nobody will be able to give any=20
-> >help.
->=20
-> how do i decode the oops ??? help pls.
->=20
-> -San
-> --------------------------------------
->=20
->=20
+> On Mon, Feb 24, 2003 at 08:41:10AM -0500, jamal wrote:
+> > If this is to be a config option, it should not be restricted to
+> > netfilter specifics but rather skb specifics. Example the tcindex
+> > (maybe even the cb) etc.
+>
+> No problem with me.  I do understand the usefulness of tcindex, but what
+> would a totally different protcol (or the user) do with the cb of a
+> different protocol?
+>
 
---nFreZHaLTZJo0R7j
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+cb is a maybe - it could be useful i think since the inner and outer
+headers may be closely related and so share the same state.
+I gacve tcindex as an example; others are: priority and some of the
+other netfilter stuff (is nfcache still used?) etc.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.7 (GNU/Linux)
-
-iD8DBQE+WmW17sVBmHZT8w8RAhPLAJ9DuvnHC0LwOkknMd3oJHBnL/LqnACdHOrP
-aGFaW7cg9ZlQaZO2A9djftQ=
-=zmNV
------END PGP SIGNATURE-----
-
---nFreZHaLTZJo0R7j--
+cheers,
+jamal
