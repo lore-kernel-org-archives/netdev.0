@@ -1,31 +1,49 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH?] Fix sniffing of ARP replies
-Date: Wed, 15 Oct 2003 20:47:04 -0700
+Subject: Re: 6to4/SIT and IP DF
+Date: Wed, 15 Oct 2003 21:38:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015204704.06637fbe.davem@redhat.com>
-References: <20031015171112.GA2469@vana.vc.cvut.cz>
+Message-ID: <20031015213840.4f1f809e.davem@redhat.com>
+References: <OFBD470C6E.206063CD-ON88256DC0.0025444B@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: pekkas@netcore.fi, r.venning@telstra.com, nate@thebog.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Petr Vandrovec <vandrove@vc.cvut.cz>
-In-Reply-To: <20031015171112.GA2469@vana.vc.cvut.cz>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFBD470C6E.206063CD-ON88256DC0.0025444B@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Oct 2003 19:11:12 +0200
-Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
+On Wed, 15 Oct 2003 00:15:21 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
->   after recent changes in packet_type interface I stopped setting
-> af_packet_priv - as you told that it is only for AF_PACKET, for nobody
-> else. And - things stopped working.
+> I'm concerned that with DF set, as it is now, every packet in that
+> range would be dropped, if the IPv4 Frag-Needed-But-DF-Set (FNBDFS :-))
+> does not include enough v6 header & payload  to identify the v6 sender.
 
-"Where" did you stop doing this?
+Who cares?  The PMTU as seen by the SIT tunnel is apsect of the IPV4
+path not the IPV6 one.  IPV6 is merely communicating over a device
+having a particular MTU.
 
-Nothing in the current kernel should be broken at all by said
-changes I did to 2.6.x
+When the ipv4 ICMP arrives, the IPV4 route to the other end of the SIT
+tunnel is updated as appropriate.  (this is what the comment in sit.c
+saying "Soft state for pmtu is maintained by IP core."  is talking
+about)
 
-If it has broken something you are working on external to the tree
-you have to say what it is.  I can only guess that it's making
-assumptions that never truly existed.
+After this, the next time something is attempted to be sent over the
+SIT tunnel, we'll see the updated PMTU for the ipv4 route to the
+SIT tunnel destination and act accordingly.
+
+If the IPV6 packet is too big for this new IPV4 PMTU, the SIT driver
+will emit an ICMPV6_PKT_TOOBIG icmp6 message back to the ipv6 packet's
+origin.  It's this piece of code in sit.c:ipip6_tunnel_xmit():
+
+        if (skb->len > mtu) {
+                icmpv6_send(skb, ICMPV6_PKT_TOOBIG, 0, mtu, dev);
+                ip_rt_put(rt);
+                goto tx_error;
+        }
+
+In short I think all of the cases you're mentioning are taken care
+of just fine.
