@@ -1,35 +1,52 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Tcp port selection for IPV6.
-Date: Tue, 25 Jan 2005 22:25:08 -0800
-Message-ID: <20050125222508.09f49c72.davem@davemloft.net>
-References: <20050120164529.6d6a5f0b@dxpl.pdx.osdl.net>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] atalk: remove gcc warning when PROC_FS=n
+Date: Tue, 25 Jan 2005 22:21:26 -0800
+Message-ID: <41F736E6.6000901@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------030706060002050505060002"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050120164529.6d6a5f0b@dxpl.pdx.osdl.net>
+To: acme@conectiva.com.br, davem@davemloft.net, netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2005 16:45:29 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+This is a multi-part message in MIME format.
+--------------030706060002050505060002
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> This patch makes TCP over IPV6 select ports the same way the current
-> TCPv4 code does. It uses a hash function to provide a starting offset
-> and a free running counter to provide seed.
-> 
-> This changes the port selection semantics to match TCPv4 as well.
-> If the port is in use but to a different remote address, it will get
-> reused. It looks like the TCPv6 code was not updated when the TCPv4
-> code changed. Now the code in ipv4/tcp_ipv4.c and ipv6/tcp_ipv6.c are
-> almost identical for tcp_hash_connect.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Looks good, sorry for taking so long to review.
+appletalk: Fix gcc warning.
 
-I think I'll push this into my 2.6.12 pending queue since 2.6.11
-is very much in a bug-fix-only type mode.
+with CONFIG_PROC_FS=n, gcc complains:
+net/appletalk/ddp.c:1893: warning: statement with no effect
+
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+
+diffstat:=
+  include/linux/atalk.h |    2 +-
+  1 files changed, 1 insertion(+), 1 deletion(-)
+
+--------------030706060002050505060002
+Content-Type: text/x-patch;
+ name="atalk_procfs.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="atalk_procfs.patch"
+
+
+diff -Naurp ./include/linux/atalk.h~atalk_procfs ./include/linux/atalk.h
+--- ./include/linux/atalk.h~atalk_procfs	2005-01-24 13:00:23.000000000 -0800
++++ ./include/linux/atalk.h	2005-01-25 19:43:22.647935760 -0800
+@@ -229,7 +229,7 @@ extern void atalk_unregister_sysctl(void
+ extern int atalk_proc_init(void);
+ extern void atalk_proc_exit(void);
+ #else
+-#define atalk_proc_init()	0
++#define atalk_proc_init()	({ 0; })
+ #define atalk_proc_exit()	do { } while(0)
+ #endif /* CONFIG_PROC_FS */
+ 
+
+--------------030706060002050505060002--
