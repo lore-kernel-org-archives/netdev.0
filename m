@@ -1,36 +1,45 @@
-From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: [IPSec] connect: Resource temporarily unavailable
-Date: Tue, 24 Feb 2004 14:48:41 +0100
+From: "Ethy H. Brito" <ethy@inexo.com.br>
+Subject: Re: shaper.c (fwd)
+Date: Tue, 24 Feb 2004 12:18:41 -0300 (BRT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1077630520.799.7.camel@teapot.felipe-alfaro.com>
+Message-ID: <Pine.LNX.4.58.0402241214110.566@node1.inexo.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When using Racoon to manage SAs between two IPv4/IPSec hosts running 2.6
-kernels and IPSec in transport mode with mandatory ESP/AH support, the
-first packet exchange between both hosts triggers IKE Phase 1 but,
-instead of queueing the userspace packet that triggered the IKE exchange
-until IKE Phase 2 has ended and the SA has been established, userspace
-receives the following errpr:
 
-connect: Resource temporarily unavailable
+Hello
 
-Any further attempt to exchange packets between both hosts succeeds
-after a while, (once the IKE Phase 2 ends and the SA has been correctly
-established).
+Is anybody in here? I was directed to this email by Mr. Allan Cox.
+Is this a maillist (i'm not a subscriber - directions please if so) or it is
+a human driven mailbox?
+I need to "talk" about a problem in the kernel shaper.c module.
 
-Is this a bug? Shouldn't the kernel queue (hold) userspace packets until
-IKE Phase 2 has completed (either successfully or with error)? Why am I
-receiving "connect: Resource temporarily unavailable" error when there
-is no SA set up?
+Regards
 
-This is reproducible by either pinging or telnetting the other peer or
-the IPSec link. Both hosts are running 2.6.3 kernels and ipsec-tools
-0.2.2. Once IKE Phase 2 ends, ping and telnet work with no error and
-tcpdump reveals that AH/ESP protocols are being used.
+
+Ethy H. Brito         /"\
+InterNexo Ltda.       \ /  CAMPANHA DA FITA ASCII - CONTRA MAIL HTML
++55 (12) 3941-6860     X   ASCII RIBBON CAMPAIGN - AGAINST HTML MAIL
+S.J.Campos - Brasil   / \
+
+---------- Forwarded message ----------
+Date: Sat, 21 Feb 2004 17:48:03 -0500
+From: Alan Cox <alan@redhat.com>
+To: Ethy H. Brito <ethy@inexo.com.br>
+Cc: Alan Cox <alan@redhat.com>
+Subject: Re: shaper.c
+
+On Fri, Feb 20, 2004 at 07:21:29PM -0300, Ethy H. Brito wrote:
+> The listing stays several minutes (up to one hour or so) without any drops and
+> then drops a few packets. I couldn't spot why.
+>
+> Does this ring any bell to you?
+> SHAPERCB(skb)->shapeclock been zero smells bad?
+
+It certainly shouldnt be, but I've not dealt with the code since 2.2 so Im
+not sure how it has changed to break this. Asking netdev@oss.sgi.com may be
+better
