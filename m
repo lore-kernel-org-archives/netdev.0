@@ -1,55 +1,33 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
-Date: Wed, 10 Mar 2004 18:31:41 -0800
+Date: Wed, 10 Mar 2004 21:43:08 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040311023141.GB3738@jm.kir.nu>
-References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com> <404F5097.4040406@pobox.com> <20040310175200.GA9531@bougret.hpl.hp.com> <404F5744.1040201@pobox.com> <404FA6AC.7040009@linux.co.intel.com>
+Message-ID: <404FD23C.4020205@pobox.com>
+References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com> <404F5097.4040406@pobox.com> <20040310175200.GA9531@bougret.hpl.hp.com> <404F5744.1040201@pobox.com> <404FA6AC.7040009@linux.co.intel.com> <20040311023141.GB3738@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, jt@hpl.hp.com,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: James Ketrenos <jketreno@linux.co.intel.com>, jt@hpl.hp.com,
         Christoph Hellwig <hch@infradead.org>,
         "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
         Linux kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Ketrenos <jketreno@linux.co.intel.com>
-Content-Disposition: inline
-In-Reply-To: <404FA6AC.7040009@linux.co.intel.com>
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20040311023141.GB3738@jm.kir.nu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 10, 2004 at 05:37:16PM -0600, James Ketrenos wrote:
+Jouni Malinen wrote:
+> done, I would hope to get the code merged into the kernel tree either
+> with full Host AP driver or separately. One option would be to first add
+> Host AP driver in its current structure (i.e., everything in
+> drivers/net/wireless) and then create a new directory (net/ieee80211 ?)
+> for generic IEEE 802.11 functionality and start moving things like the
+> IEEE 802.11 encryption into the new location.
 
-> I'd like to get WEP into IPW2100 as soon as possible, and would like to do 
-> so in a way that would make transitioning to a common 802.11 layer seamless 
-> (or at least reasonably isolated).  Any suggestions on how to best do this, 
-> or where we might be able to help, would be much appreciated.
+Given the discussion today, I think my preference is to merge all of 
+HostAP into the wireless-2.6 tree I just created, then submit patches to 
+that which create and populate net/802_11.  Once the work on that is 
+mostly done, it can get merged back into the main upstream tree.
 
-Host AP driver (http://hostap.epitest.fi/) has generic (i.e., hardware
-independent) implementation of IEEE 802.11 encryption for WEP, TKIP, and
-CCMP. These functions take in skb's with IEEE 802.11 headers and
-encrypt/decrypt the frames. I haven't yet taken a look at your IPW2100
-driver, but if you are including IEEE 802.11 headers in the skb's at
-some point, I would assume that the WEP implementation from Host AP
-driver would work fine with that driver, too.
-
-The current implementation has hardware independent module (hostap.ko)
-that exports the crypto functions for IEEE 802.11 skb's. Both client
-station and AP is supported. (To be honest, there is probably still
-couple of small Prism2-specific parts in hostap.ko, but not in the
-crypto parts and I'm in the process of getting rid of the remaining
-wlan hardware dependent parts).
-
-I'm in the process of replacing the algorithm parts (RC4, Michael MIC,
-AES-CCM) with crypto API versions so that only the IEEE 802.11 specific
-parts (like format of the IV/packet number, replay protection,
-pseudo-header for authentication) remain in the implementation and
-low-level crypto algorithms can share code with other uses. Once this is
-done, I would hope to get the code merged into the kernel tree either
-with full Host AP driver or separately. One option would be to first add
-Host AP driver in its current structure (i.e., everything in
-drivers/net/wireless) and then create a new directory (net/ieee80211 ?)
-for generic IEEE 802.11 functionality and start moving things like the
-IEEE 802.11 encryption into the new location.
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+	Jeff
