@@ -1,51 +1,25 @@
-From: Krishna Kumar <kumarkr@us.ibm.com>
-Subject: Re: [PATCH]snmp6 64-bit counter support in proc.c
-Date: Thu, 22 Jan 2004 18:57:16 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 3/6][8021q][2.6] Use VLAN tag set functionality in
+ 8021q module
+Date: Thu, 22 Jan 2004 19:56:59 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF78A2837F.3473B2A7-ON88256E24.000F815A@us.ibm.com>
+Message-ID: <20040122.195659.78718937.davem@redhat.com>
+References: <200401221800.14862.shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=07BBE4B7DF9C07CA8f9e8a93df938690918c07BBE4B7DF9C07CA"
-Cc: kuznet@ms2.inr.ac.ru, mashirle@us.ibm.com, netdev@oss.sgi.com,
-        Shirley Ma <xma@us.ibm.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+To: shmulik.hen@intel.com
+In-Reply-To: <200401221800.14862.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE4B7DF9C07CA8f9e8a93df938690918c07BBE4B7DF9C07CA
-Content-type: text/plain; charset=US-ASCII
 
+Shmuel, please stop sending all of this VLAN and ARP stuff the
+bonding code wants.
 
+I told you yesterday that at best I will put this stuff into
+the next 2.6.x release, so please send it at that time.
 
-
-
-
-> correctness > performance
-
-I agree with this statement, if every bug is explained as a "very tiny
-race"
-leads to one large defective product :-)
-
-and performance also need not be hit much if writers are not penalized as I
-had suggested earlier...
-
-- KK
---0__=07BBE4B7DF9C07CA8f9e8a93df938690918c07BBE4B7DF9C07CA
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
-
-<html><body>
-<p><font face="Courier New"><br>
-&gt; correctness &gt; performance</font><br>
-<br>
-<font face="Courier New">I agree with this statement, if every bug is explained as a &quot;very tiny race&quot; </font><br>
-<font face="Courier New">leads to one large defective product :-)</font><br>
-<br>
-<font face="Courier New">and performance also need not be hit much if writers are not penalized as I</font><br>
-<font face="Courier New">had suggested earlier...</font><br>
-<br>
-<font face="Courier New">- KK</font><br>
-</body></html>
---0__=07BBE4B7DF9C07CA8f9e8a93df938690918c07BBE4B7DF9C07CA--
+Thanks.
