@@ -1,31 +1,22 @@
-From: Jan Oravec <jan.oravec@6com.sk>
-Subject: Re: [PATCH] IPv6, sit: set prefix length 64 for link-local addresses
-Date: Sun, 5 Oct 2003 14:35:36 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [2.6 PATCH] ipvs - two additional minor patches
+Date: Sun, 5 Oct 2003 07:39:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031005123536.GA24311@wsx.ksp.sk>
-References: <20030926175405.GA31498@wsx.ksp.sk> <20030926201953.3dfc67bf.davem@redhat.com> <20031005091844.GA23676@wsx.ksp.sk> <20031005.212846.50858920.yoshfuji@linux-ipv6.org>
-Reply-To: Jan Oravec <jan.oravec@6com.sk>
+Message-ID: <20031005073931.783bf673.davem@redhat.com>
+References: <Pine.LNX.4.44.0310052040210.1942-300000@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: rusty@rustcorp.com.au, ja@ssi.bg, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20031005.212846.50858920.yoshfuji@linux-ipv6.org>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0310052040210.1942-300000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 05, 2003 at 09:28:46PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> In article <20031005091844.GA23676@wsx.ksp.sk> (at Sun, 5 Oct 2003 11:18:45 +0200), Jan Oravec <jan.oravec@6com.sk> says:
-> 
-> > The function sit_add_v4_addrs() calls ipv6_add_addr() with plen 64 if local
-> > endpoint of tunnel is not configured, so I do not see a reason to set plen
-> > to 128 if local endpoint is configured.
-> 
-> This patch seems logically wrong.
+On Sun, 5 Oct 2003 20:41:34 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
-You mean the text above (current kernel implementation) or the patch which
-sets it to 64 in both cases? If the patch is wrong, can you explain why?
+> Here are two additional minor patches for IPVS in the kernel 2.6.
 
-
-Jan
+I'll apply these, thanks.
