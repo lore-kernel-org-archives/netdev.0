@@ -1,29 +1,35 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
+From: "Paul Albrecht" <palbrecht@qwest.net>
 Subject: Re: question about linux tcp request queue handling
-Date: Sun, 06 Jul 2003 13:24:46 -0700
+Date: Sun, 6 Jul 2003 17:12:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F08858E.8000907@us.ibm.com>
+Message-ID: <001a01c3441c$6fe111a0$6801a8c0@oemcomputer>
+References: <3F08858E.8000907@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev <netdev@oss.sgi.com>
+Cc: linux-kernel@vger.kernel.org, "netdev" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: palbrecht@qwest.net
+To: "Nivedita Singhvi" <niv@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Nivedita writes:
 
-> Linux (2.4.18) places incoming connection requests into the syn_recd state
-> when the server's backlog queue is full.  I thought they were supposed to be
-> discarded if the server's backlog is full, forcing the client to
-> subsequently retransmit the request after it times out.  Why does linux put
-> the server side into the syn_recd state when its backlog is full?
+>
+> Do you have tcp_syncookies on?
+>
 
-Do you have tcp_syncookies on? And are you exceeding
-the len as configured by tcp_max_syn_backlog?
+syncookies = 0.
 
-thanks,
-Nivedita
+>
+>And are you exceeding the len as configured by tcp_max_syn_backlog?
+>
 
-[Please cc or post to netdev, like most networking folk,
-  dont subscribe to lkml]
+max_syn_backlog = 256.
+
+My server program sets its backlog to one and pauses ninety seconds before
+accepting connections.  Within that ninety second interval, I start three
+client programs that do an active open to my server.  I expect one of
+connections to get discarded when the server's connection backlog limit is
+exceeded.
