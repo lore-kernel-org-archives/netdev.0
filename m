@@ -1,54 +1,33 @@
-From: Linus Torvalds <torvalds@osdl.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH-2.6.0-tiny] "uninline" {lock,release}_sock
-Date: Sun, 28 Dec 2003 00:23:07 -0800 (PST)
+Date: Sun, 28 Dec 2003 01:23:29 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0312280017060.2274@home.osdl.org>
+Message-ID: <20031228012329.43003de5.davem@redhat.com>
 References: <20031228075426.GB24351@conectiva.com.br>
+	<Pine.LNX.4.58.0312280017060.2274@home.osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Matt Mackall <mpm@selenic.com>,
-        Linux Networking Development Mailing List <netdev@oss.sgi.com>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, mpm@selenic.com, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20031228075426.GB24351@conectiva.com.br>
+To: Linus Torvalds <torvalds@osdl.org>
+In-Reply-To: <Pine.LNX.4.58.0312280017060.2274@home.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sun, 28 Dec 2003 00:23:07 -0800 (PST)
+Linus Torvalds <torvalds@osdl.org> wrote:
 
-
-On Sun, 28 Dec 2003, Arnaldo Carvalho de Melo wrote:
+> Function calls aren't all that expensive, especially with FASTCALL() etc 
+> to show that you don't have to follow the common calling conventions. 
+> Right now I think FASTCALL() only matters on x86, but some other 
+> architectures could make it mean "smaller call clobbered list" or similar.
 > 
-> 	Please apply on top of your 2.6.0-tiny1 tree, CC to netdev for
-> eventual comments.
+> Have you benchmarked with the smaller kernel? 
 
-Please don't do it this way.
+To be honest I think {lock,release}_sock() should both be uninlined
+always.
 
-This is quite possibly faster even _normally_, so it might make more sense 
-to just do it globally instead of having a CONFIG_NEX_SMALL.
-
-Basically, inline functions tend to win only when inlining them is smaller
-and simpler than actually calling a function. The most common cause of
-that is that some argument is commonly constant (and thus gets simplified
-away by inlining), or the function itself literally expands to just a few 
-instructions (the list functions, the inline asms for things like "cli" 
-etc).
-
-We use a lot too many inline functions for other reasons: one reason to 
-use them is that they are sometimes more convenient than it is to find a 
-good place for the non-inline version. Another common reason is that the 
-thing started out smaller than it eventually became - and the inline just 
-stuck around.
-
-But if you do things like this for a CONFIG_SMALL, then the convenience 
-argument obviously isn't true any more, and you'd be a lot better off just 
-unconditionally making it a real function call.
-
-Function calls aren't all that expensive, especially with FASTCALL() etc 
-to show that you don't have to follow the common calling conventions. 
-Right now I think FASTCALL() only matters on x86, but some other 
-architectures could make it mean "smaller call clobbered list" or similar.
-
-Have you benchmarked with the smaller kernel? 
-
-		Linus
+It almost made sense to inline these things before the might_sleep()
+was added, now it definitely makes no sense.
