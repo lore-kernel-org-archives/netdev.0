@@ -1,182 +1,49 @@
-From: Wang Jian <lark@linux.net.cn>
-Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
-Date: Wed, 06 Apr 2005 14:45:37 +0800
-Message-ID: <20050406143842.026B.LARK@linux.net.cn>
-References: <20050405213023.0256.LARK@linux.net.cn> <1112717495.1076.22.camel@jzny.localdomain>
+From: Didier Barvaux <didier@barvaux.org>
+Subject: [IPv6] policy routing ?
+Date: Wed, 6 Apr 2005 10:04:01 +0200
+Message-ID: <20050406100401.0eab9374.didier@barvaux.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="------_425383F105F906134008_MULTIPART_MIXED_"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1112717495.1076.22.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---------_425383F105F906134008_MULTIPART_MIXED_
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-
-Hi jamal,
+Hello,
 
 
-On 05 Apr 2005 12:11:35 -0400, jamal <hadi@cyberus.ca> wrote:
-
-> Hi Wang,
-> 
-> On Tue, 2005-04-05 at 10:18, Wang Jian wrote:
-> 
-> > I am not saying that we must use jenkins. We may use a less expensive
-> > hash function than jenkins, but better than & 0xFF.
-> > 
-> 
-> Sure; point is as long as it doesnt destroy the common use in place.
-> 
-> >Anyway, I have done userspace test for jhash. The following test 
-> > is done in a AMD Athlon 800MHz without other CPU load.
-> > 
-> 
-> No, the test i was asking for is to show distribution of the
-> hash not how long it took (which is also an ok test).
-
-Sorry, the test is not on the AMD Athlon 800MHz, but a 2.4G Pentium4! I
-didn't notice that. So the jhash's performance is not fast enough.
-
-On AMD 800Mhz
-
-line speed @ 1000Mbps
-
-[root@home ~]# time ./a.out 
-0.31user 0.00system 0:00.32elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+0outputs (0major+83minor)pagefaults 0swaps
-
-line speed @ 100Mbps
-
-[root@home ~]# time ./a.out 
-0.03user 0.00system 0:00.03elapsed 97%CPU (0avgtext+0avgdata 0maxresident)k
-0inputs+0outputs (0major+83minor)pagefaults 0swaps
+I'm trying to do policy routing with IPv6 (source routing) on a 2.6.11 kernel. It works perfectly well with IPv4 using iproute2 (iproute2-2.6.11-050330), but it doesn't seem to work with IPv6.
 
 
-> 
-> i.e if you fed the jenkins hash with 256 buckets - lets pick the number 1024 
-> samples of the data you showed earlier for how fwmark looks like,
-> how well would the result look like. 
-> And what if you fed it with something like 1024 incremental fwmark from 
-> say 1..1024?
-> 
+# ip -6 rule add from fec0:6::/64 priority 2000 table 100
+RTNETLINK answers: Invalid argument
+# echo $?
+2
+# ip -6 route add fec0:7::/64 via fec0:2::1 table 100
+# echo $?
+0
+# ip -6 route show table 100
+(no output)
+# ip -6 route show table main
+(snip)
+fec0:7::/64 via fec0:2::1 dev eth1 metric 1024 mtu 1500 advmss 1440 metric10 64
+(snip)
 
-The test result looks not good. See attached file.
-
-So let's find a better way.
+To add an IPv6 routing rule fails. To add an IPv6 route succeeds, but route is not added to the desired table ('main' instead of '100').
 
 
+My kernel configuration contains:
+CONFIG_IP_ADVANCED_ROUTER=y
+CONFIG_IP_MULTIPLE_TABLES=y
+CONFIG_IP_ROUTE_FWMARK=y
 
--- 
-  lark
+I searched on the web and in the netdev archives without great success (I found some messages of guys with the same problem, but no solution/answer).
 
---------_425383F105F906134008_MULTIPART_MIXED_
-Content-Type: application/octet-stream;
- name="jhash-dist.txt"
-Content-Disposition: attachment;
- filename="jhash-dist.txt"
-Content-Transfer-Encoding: base64
+Did I make a mistake ? Doesn't iproute2 manage IPv6 policy routing yet ? Or, is it a problem related to my 2.6 kernel configuration ? Could libnl be the solution ?
 
-JFZBUjEgPSB7CiAgICAgICAgICAnMzInID0+IDEsCiAgICAgICAgICAnMTI3JyA9PiAzLAogICAg
-ICAgICAgJzkwJyA9PiA2LAogICAgICAgICAgJzExOCcgPT4gMywKICAgICAgICAgICcyMDYnID0+
-IDIsCiAgICAgICAgICAnNzEnID0+IDIsCiAgICAgICAgICAnMTAyJyA9PiA3LAogICAgICAgICAg
-JzIwMCcgPT4gNCwKICAgICAgICAgICcxOCcgPT4gNywKICAgICAgICAgICcxMjUnID0+IDQsCiAg
-ICAgICAgICAnMTYnID0+IDgsCiAgICAgICAgICAnNDQnID0+IDIsCiAgICAgICAgICAnNTUnID0+
-IDQsCiAgICAgICAgICAnODQnID0+IDYsCiAgICAgICAgICAnMjcnID0+IDQsCiAgICAgICAgICAn
-MTkwJyA9PiA1LAogICAgICAgICAgJzIzMycgPT4gNCwKICAgICAgICAgICcxNjEnID0+IDksCiAg
-ICAgICAgICAnNTcnID0+IDIsCiAgICAgICAgICAnMTk0JyA9PiAzLAogICAgICAgICAgJzk1JyA9
-PiA1LAogICAgICAgICAgJzIyMCcgPT4gMiwKICAgICAgICAgICcyMCcgPT4gMiwKICAgICAgICAg
-ICcxNjMnID0+IDIsCiAgICAgICAgICAnMjMxJyA9PiAxLAogICAgICAgICAgJzEwOScgPT4gNCwK
-ICAgICAgICAgICcyNDMnID0+IDMsCiAgICAgICAgICAnMTUxJyA9PiAzLAogICAgICAgICAgJzg5
-JyA9PiAzLAogICAgICAgICAgJzE3NScgPT4gMywKICAgICAgICAgICcxNDgnID0+IDcsCiAgICAg
-ICAgICAnMzEnID0+IDIsCiAgICAgICAgICAnMzUnID0+IDIsCiAgICAgICAgICAnMTEnID0+IDUs
-CiAgICAgICAgICAnMjA4JyA9PiA1LAogICAgICAgICAgJzc4JyA9PiA0LAogICAgICAgICAgJzkz
-JyA9PiAyLAogICAgICAgICAgJzEwNicgPT4gMSwKICAgICAgICAgICcxNTcnID0+IDUsCiAgICAg
-ICAgICAnNjUnID0+IDMsCiAgICAgICAgICAnMjknID0+IDUsCiAgICAgICAgICAnMTk3JyA9PiA3
-LAogICAgICAgICAgJzIwMycgPT4gMiwKICAgICAgICAgICcxMzgnID0+IDEsCiAgICAgICAgICAn
-MTE0JyA9PiA0LAogICAgICAgICAgJzE5OScgPT4gNiwKICAgICAgICAgICcyMjYnID0+IDIsCiAg
-ICAgICAgICAnNTgnID0+IDcsCiAgICAgICAgICAnMTUnID0+IDMsCiAgICAgICAgICAnMTUzJyA9
-PiAxLAogICAgICAgICAgJzIxMScgPT4gNSwKICAgICAgICAgICcxMzcnID0+IDEsCiAgICAgICAg
-ICAnODEnID0+IDUsCiAgICAgICAgICAnNjAnID0+IDMsCiAgICAgICAgICAnNzMnID0+IDIsCiAg
-ICAgICAgICAnMTAxJyA9PiA1LAogICAgICAgICAgJzc2JyA9PiA1LAogICAgICAgICAgJzg2JyA9
-PiA2LAogICAgICAgICAgJzYyJyA9PiA2LAogICAgICAgICAgJzI0NycgPT4gMiwKICAgICAgICAg
-ICc2NycgPT4gNCwKICAgICAgICAgICcyMDQnID0+IDMsCiAgICAgICAgICAnMjQxJyA9PiAzLAog
-ICAgICAgICAgJzE2NScgPT4gNywKICAgICAgICAgICcxMzknID0+IDYsCiAgICAgICAgICAnMTk4
-JyA9PiA2LAogICAgICAgICAgJzEyOScgPT4gNywKICAgICAgICAgICcyJyA9PiAzLAogICAgICAg
-ICAgJzE3JyA9PiA1LAogICAgICAgICAgJzE4NicgPT4gNCwKICAgICAgICAgICc4MicgPT4gNiwK
-ICAgICAgICAgICcxMTAnID0+IDIsCiAgICAgICAgICAnMTQ3JyA9PiA5LAogICAgICAgICAgJzIy
-OCcgPT4gMiwKICAgICAgICAgICcyMzYnID0+IDQsCiAgICAgICAgICAnMjQ5JyA9PiAzLAogICAg
-ICAgICAgJzIwMicgPT4gNiwKICAgICAgICAgICcxNjgnID0+IDMsCiAgICAgICAgICAnMjE4JyA9
-PiAxLAogICAgICAgICAgJzE0JyA9PiAxLAogICAgICAgICAgJzEzNScgPT4gMywKICAgICAgICAg
-ICcxODQnID0+IDUsCiAgICAgICAgICAnNjknID0+IDUsCiAgICAgICAgICAnMTEyJyA9PiA3LAog
-ICAgICAgICAgJzE3MicgPT4gMywKICAgICAgICAgICcxNDUnID0+IDQsCiAgICAgICAgICAnNDkn
-ID0+IDQsCiAgICAgICAgICAnMTc4JyA9PiAzLAogICAgICAgICAgJzI0JyA9PiA1LAogICAgICAg
-ICAgJzIyNCcgPT4gMywKICAgICAgICAgICcxNDAnID0+IDcsCiAgICAgICAgICAnMTg3JyA9PiA0
-LAogICAgICAgICAgJzIyMycgPT4gNSwKICAgICAgICAgICcxMjQnID0+IDEsCiAgICAgICAgICAn
-MTA0JyA9PiAzLAogICAgICAgICAgJzEzMScgPT4gNSwKICAgICAgICAgICcxODEnID0+IDIsCiAg
-ICAgICAgICAnMjM0JyA9PiA0LAogICAgICAgICAgJzc5JyA9PiAzLAogICAgICAgICAgJzEyMScg
-PT4gNCwKICAgICAgICAgICcyMTInID0+IDMsCiAgICAgICAgICAnMTU0JyA9PiA2LAogICAgICAg
-ICAgJzAnID0+IDUsCiAgICAgICAgICAnMjMnID0+IDEsCiAgICAgICAgICAnOTYnID0+IDcsCiAg
-ICAgICAgICAnMTI2JyA9PiAzLAogICAgICAgICAgJzIzOCcgPT4gMywKICAgICAgICAgICcxNTkn
-ID0+IDYsCiAgICAgICAgICAnMjUxJyA9PiAzLAogICAgICAgICAgJzI1MycgPT4gMiwKICAgICAg
-ICAgICcxNjAnID0+IDYsCiAgICAgICAgICAnMTc2JyA9PiAyLAogICAgICAgICAgJzQ3JyA9PiA3
-LAogICAgICAgICAgJzgnID0+IDYsCiAgICAgICAgICAnOTgnID0+IDQsCiAgICAgICAgICAnMjA5
-JyA9PiA0LAogICAgICAgICAgJzIxNicgPT4gNCwKICAgICAgICAgICczNycgPT4gNCwKICAgICAg
-ICAgICcxMTcnID0+IDIsCiAgICAgICAgICAnNDMnID0+IDQsCiAgICAgICAgICAnMTk1JyA9PiA3
-LAogICAgICAgICAgJzUnID0+IDQsCiAgICAgICAgICAnMTcwJyA9PiA0LAogICAgICAgICAgJzMz
-JyA9PiA1LAogICAgICAgICAgJzYzJyA9PiA1LAogICAgICAgICAgJzIxJyA9PiA2LAogICAgICAg
-ICAgJzcnID0+IDUsCiAgICAgICAgICAnMjI3JyA9PiAzLAogICAgICAgICAgJzgwJyA9PiA0LAog
-ICAgICAgICAgJzI2JyA9PiA0LAogICAgICAgICAgJzE5MycgPT4gMSwKICAgICAgICAgICcxMTkn
-ID0+IDMsCiAgICAgICAgICAnOTknID0+IDEsCiAgICAgICAgICAnMTgwJyA9PiAzLAogICAgICAg
-ICAgJzI0NCcgPT4gNCwKICAgICAgICAgICcxNjInID0+IDIsCiAgICAgICAgICAnNzInID0+IDQs
-CiAgICAgICAgICAnMTc5JyA9PiAzLAogICAgICAgICAgJzI1NScgPT4gMywKICAgICAgICAgICcy
-NDYnID0+IDMsCiAgICAgICAgICAnNzQnID0+IDQsCiAgICAgICAgICAnMjQwJyA9PiA1LAogICAg
-ICAgICAgJzE4MicgPT4gMiwKICAgICAgICAgICc2MScgPT4gNSwKICAgICAgICAgICcyMzAnID0+
-IDQsCiAgICAgICAgICAnMTA4JyA9PiAyLAogICAgICAgICAgJzExNScgPT4gNiwKICAgICAgICAg
-ICc5MicgPT4gNSwKICAgICAgICAgICcxMDMnID0+IDUsCiAgICAgICAgICAnMjAxJyA9PiAyLAog
-ICAgICAgICAgJzIzMicgPT4gNCwKICAgICAgICAgICcxMCcgPT4gMywKICAgICAgICAgICcxMTMn
-ID0+IDYsCiAgICAgICAgICAnMTUyJyA9PiAyLAogICAgICAgICAgJzE4OScgPT4gNiwKICAgICAg
-ICAgICcyMjUnID0+IDMsCiAgICAgICAgICAnMjA3JyA9PiAyLAogICAgICAgICAgJzE0MicgPT4g
-NSwKICAgICAgICAgICc5MScgPT4gMSwKICAgICAgICAgICcxNjcnID0+IDUsCiAgICAgICAgICAn
-NDgnID0+IDYsCiAgICAgICAgICAnMTA3JyA9PiA0LAogICAgICAgICAgJzg3JyA9PiAzLAogICAg
-ICAgICAgJzc3JyA9PiAyLAogICAgICAgICAgJzE3NCcgPT4gNiwKICAgICAgICAgICcyMTQnID0+
-IDQsCiAgICAgICAgICAnMTMzJyA9PiA0LAogICAgICAgICAgJzE0OScgPT4gMywKICAgICAgICAg
-ICcxMjMnID0+IDQsCiAgICAgICAgICAnMjIxJyA9PiAyLAogICAgICAgICAgJzUwJyA9PiA3LAog
-ICAgICAgICAgJzM5JyA9PiAxLAogICAgICAgICAgJzIxMCcgPT4gMiwKICAgICAgICAgICc2NCcg
-PT4gMiwKICAgICAgICAgICc5NycgPT4gNSwKICAgICAgICAgICc0MScgPT4gNCwKICAgICAgICAg
-ICcxMicgPT4gNCwKICAgICAgICAgICc1MicgPT4gNCwKICAgICAgICAgICcxNzMnID0+IDEsCiAg
-ICAgICAgICAnNTYnID0+IDMsCiAgICAgICAgICAnMjI5JyA9PiAyLAogICAgICAgICAgJzY2JyA9
-PiA0LAogICAgICAgICAgJzQ1JyA9PiA2LAogICAgICAgICAgJzE5JyA9PiA0LAogICAgICAgICAg
-JzU0JyA9PiA0LAogICAgICAgICAgJzIzNycgPT4gMiwKICAgICAgICAgICc3MCcgPT4gNCwKICAg
-ICAgICAgICcxODgnID0+IDQsCiAgICAgICAgICAnNjgnID0+IDQsCiAgICAgICAgICAnMTY2JyA9
-PiAyLAogICAgICAgICAgJzEnID0+IDIsCiAgICAgICAgICAnMTM2JyA9PiA2LAogICAgICAgICAg
-JzExNicgPT4gOCwKICAgICAgICAgICc4OCcgPT4gMiwKICAgICAgICAgICczMCcgPT4gMiwKICAg
-ICAgICAgICcxNDEnID0+IDQsCiAgICAgICAgICAnMTQ0JyA9PiA1LAogICAgICAgICAgJzEwMCcg
-PT4gNCwKICAgICAgICAgICcyMjInID0+IDYsCiAgICAgICAgICAnMTI4JyA9PiAzLAogICAgICAg
-ICAgJzI1JyA9PiA1LAogICAgICAgICAgJzI1MicgPT4gMywKICAgICAgICAgICcyOCcgPT4gNSwK
-ICAgICAgICAgICcxMjAnID0+IDIsCiAgICAgICAgICAnNzUnID0+IDIsCiAgICAgICAgICAnODMn
-ID0+IDUsCiAgICAgICAgICAnNDAnID0+IDIsCiAgICAgICAgICAnMTM0JyA9PiA1LAogICAgICAg
-ICAgJzE1NicgPT4gNSwKICAgICAgICAgICcxOTInID0+IDYsCiAgICAgICAgICAnMjUwJyA9PiA4
-LAogICAgICAgICAgJzU5JyA9PiA3LAogICAgICAgICAgJzIxNScgPT4gNCwKICAgICAgICAgICcy
-NTQnID0+IDMsCiAgICAgICAgICAnMTc3JyA9PiAyLAogICAgICAgICAgJzE1MCcgPT4gMywKICAg
-ICAgICAgICcxMzAnID0+IDMsCiAgICAgICAgICAnMTU1JyA9PiA0LAogICAgICAgICAgJzUzJyA9
-PiA0LAogICAgICAgICAgJzIxNycgPT4gNiwKICAgICAgICAgICcyNDUnID0+IDQsCiAgICAgICAg
-ICAnMjM5JyA9PiA0LAogICAgICAgICAgJzEyMicgPT4gMSwKICAgICAgICAgICcxNDMnID0+IDYs
-CiAgICAgICAgICAnMjA1JyA9PiAyLAogICAgICAgICAgJzQyJyA9PiAzLAogICAgICAgICAgJzE1
-OCcgPT4gNSwKICAgICAgICAgICcyMicgPT4gNCwKICAgICAgICAgICc0NicgPT4gOSwKICAgICAg
-ICAgICcyMTknID0+IDUsCiAgICAgICAgICAnMTMnID0+IDIsCiAgICAgICAgICAnMTA1JyA9PiAz
-LAogICAgICAgICAgJzIzNScgPT4gOSwKICAgICAgICAgICc2JyA9PiAxLAogICAgICAgICAgJzg1
-JyA9PiA0LAogICAgICAgICAgJzE4NScgPT4gNSwKICAgICAgICAgICczJyA9PiA1LAogICAgICAg
-ICAgJzM2JyA9PiA1LAogICAgICAgICAgJzE4MycgPT4gNiwKICAgICAgICAgICc5NCcgPT4gNywK
-ICAgICAgICAgICcyMTMnID0+IDUsCiAgICAgICAgICAnMjQ4JyA9PiA1LAogICAgICAgICAgJzE0
-NicgPT4gNCwKICAgICAgICAgICcxMTEnID0+IDUsCiAgICAgICAgICAnOScgPT4gNiwKICAgICAg
-ICAgICczOCcgPT4gNSwKICAgICAgICAgICc0JyA9PiA2LAogICAgICAgICAgJzM0JyA9PiA5LAog
-ICAgICAgICAgJzEzMicgPT4gMywKICAgICAgICAgICcxNjknID0+IDcsCiAgICAgICAgICAnMTY0
-JyA9PiA2LAogICAgICAgICAgJzE5NicgPT4gNSwKICAgICAgICAgICcxNzEnID0+IDQsCiAgICAg
-ICAgICAnMjQyJyA9PiA1CiAgICAgICAgfTsK
---------_425383F105F906134008_MULTIPART_MIXED_--
+
+Regards,
+
+Didier Barvaux
