@@ -1,31 +1,44 @@
-From: Tomas Carnecky <tom@dbservice.com>
+From: Pavel Machek <pavel@ucw.cz>
 Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 14:18:52 +0100
-Message-ID: <41C2DCBC.1080302@dbservice.com>
-References: <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com>
+Date: Fri, 17 Dec 2004 16:10:31 +0100
+Message-ID: <20041217151031.GA27170@atrey.karlin.mff.cuni.cz>
+References: <1103247211.3071.74.camel@localhost.localdomain> <Xine.LNX.4.44.0412170012040.12382-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-	Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262801AbULQNQp@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Bryan Fulton <bryan@coverity.com>, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261230AbULQPKh@vger.kernel.org>
 To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0412170012040.12382-100000@thoron.boston.redhat.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-James Morris wrote:
-> That's what I meant, you need the capability to do anything bad :-)
-> 
+Hi!
 
-But.. even if you have the 'permission' to do bad things, it shouldn't 
-be possible.
+> This at least needs CAP_NET_ADMIN.
 
-It's a bug, and only because you can't exploit it if you haven't the 
-right capabilities doesn't make the bug disappear.
+Hmm, but that means that CAP_NET_ADMIN implies all other capabilities,
+unless you fix this.
 
-IMHO such things (passing values between user/kernel space) should 
-always be checked.
+								Pavel
 
-tom
+> > TAINTED variable "((tmp).num_counters * 16)" was passed to a tainted
+> > sink.
+> > 
+> > 1161            counters = vmalloc(tmp.num_counters * sizeof(struct
+> > ip6t_counters));
+> > 1162            if (!counters) {
+> > 1163                    ret = -ENOMEM;
+> > 1164                    goto free_newinfo;
+> > 1165            }
+> > 
+> > TAINTED variable "((tmp).num_counters * 16)" was passed to a tainted
+> > sink.
+> > 
+> > 1166            memset(counters, 0, tmp.num_counters * sizeof(struct
+> > ip6t_counters));
+
+
+-- 
+Boycott Kodak -- for their patent abuse against Java.
