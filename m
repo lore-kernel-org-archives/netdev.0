@@ -1,78 +1,40 @@
-From: Andy Furniss <andy.furniss@dsl.pipex.com>
-Subject: Re: dummy as IMQ replacement
-Date: Mon, 21 Mar 2005 22:08:28 +0000
-Message-ID: <423F45DC.6090803@dsl.pipex.com>
-References: <1107123123.8021.80.camel@jzny.localdomain>	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>	 <1107174142.8021.121.camel@jzny.localdomain>	 <00c301c524b4$938cd240$6e69690a@RIMAS>	 <1110379135.1091.143.camel@jzny.localdomain>	 <1110416767.1111.76.camel@jzny.localdomain>	 <025501c52552$2dbf87c0$6e69690a@RIMAS>	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>	 <1111196668.1146.114.camel@jzny.localdomain> <423BFD9F.50401@dsl.pipex.com> <1111324805.1094.11.camel@jzny.localdomain>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: Mon, 21 Mar 2005 22:30:03 +0000
+Message-ID: <423F4AEB.9040100@ev-en.org>
+References: <421CF5E5.1060606@ev-en.org>	<20050223135732.39e62c6c.davem@davemloft.net>	<421D1E66.5090301@osdl.org>	<421D30FA.1060900@ev-en.org>	<20050225120814.5fa77b13@dxpl.pdx.osdl.net>	<20050309210442.3e9786a6.davem@davemloft.net>	<4230288F.1030202@ev-en.org>	<20050310182629.1eab09ec.davem@davemloft.net>	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>	<20050311201011.360c00da.davem@davemloft.net>	<20050314151726.532af90d@dxpl.pdx.osdl.net>	<m13bur5qyo.fsf@muc.de>	<Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu> <20050321135154.0bbeae85.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Remus <rmocius@auste.elnet.lt>,
-        netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Andre Tomt <andre@tomt.net>, syrius.ml@no-log.org,
-        Damion de Soto <damion@snapgear.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1111324805.1094.11.camel@jzny.localdomain>
+Cc: John Heffner <jheffner@psc.edu>, ak@muc.de, shemminger@osdl.org,
+        netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050321135154.0bbeae85.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Hi Andy,
-> Apologies again - I wont be able to get access to my test machine until
-> tuesday.
-> 
-> On Sat, 2005-03-19 at 05:23, Andy Furniss wrote:
+David S. Miller wrote:
+> On Mon, 21 Mar 2005 16:25:56 -0500 (EST)
+> John Heffner <jheffner@psc.edu> wrote:
 > 
 > 
->>$TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
->>match u32 0 0 flowid 1:1 \
->>action ipt -j MARK --set-mark 1
->>
->>It still gives memory error with 1.3.1 , with 1.2.11 it parses OK but I 
->>get bogus stats - hit count is OK
->>
->>[root@amd /home/andy/Qos]# tc -s filter ls dev eth0 parent ffff:
->>
->>filter protocol ip pref 10 u32
->>filter protocol ip pref 10 u32 fh 800: ht divisor 1
->>filter protocol ip pref 10 u32 fh 800::800 order 2048 key ht 800 bkt 0 
->>flowid 1:1  (rule hit 12 success 12)
->>   match 00000000/00000000 at 0 (success 12 )
->>         action order 1: tablename: mangle  hook: NF_IP_PRE_ROUTING
->>         target MARK set 0x1
->>         index 1 ref 1 bind 1 installed 251 sec expires 1 sec
->>         Action statistics:
->>         Sent 7630953 bytes 0 pkt
->>         rate 3146Kbit 1095565348pps
->>
+>>Would you really expect a single extra indirect call per ack to have a
+>>significant performance impact?  This is surprising to me.  Where does the
+>>cost come from?  Replacing instruction cache lines?
 > 
-> 
-> Ok, this seems to be a bug in the stats - I think it may have been
-> introduced during the new kernel stats code updates.
-> Ive cced Thomas who added that code, he may be able to figure it oput
-> before i get back
-> 
-> 
->>If I try with the lines below added
->>
->>action egress redirect dev dummy0 or
->>action redirect dev dummy0
->>
->>I just get errors on whatever is after action - or memory errors with 1.3.1.
->>
->>Using tc iproute2-ss050112 + patch for these tests.
->>
-> 
-> 
-> So if i have understood you correctly, with this version of tc and
-> version of iproute2, you have no problems other than stats being messed
-> up? i.e action ipt .. action mirred .. looks/works fine?
+> Maybe not for ACK processing (that's very thick already) but
+> perhaps for a lighter fast path definitely so.
 
-No, I haven't got anything to work with action mirred the stats was just 
-using
+According to my tests (wrapping tcp_ack with rdtsc's) it takes about 
+3000 clocks to do tcp_ack() even for fast path, slow path is not much 
+slower in most cases and anyway most of the time is spent either 
+handling SACKs or remove packets from the transmit queue (clean_rtx).
 
-$TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-match u32 0 0 flowid 1:1 \
-action ipt -j MARK --set-mark 1
+I doubt if the extra calls by function are going to be that much of an 
+issue.
 
-Andy.
+Now, if I knew how to improve performance of the clean_rtx case that 
+would give a boost to ack performance.
+
+Baruch
