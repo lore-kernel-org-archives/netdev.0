@@ -1,59 +1,39 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH]dump interface IPv6 multicast/anycast addresses through netlink
-Date: Wed, 31 Mar 2004 21:18:57 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF8F6A9EBE.82E160C6-ON87256E69.001BB337-88256E69.001D33A3@us.ibm.com>
-References: <20040401.135048.45446611.yoshfuji@linux-ipv6.org>
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: route cache DoS testing and softirqs
+Date: Thu, 1 Apr 2004 10:00:36 +0400 (MSD)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200404010600.KAA08004@yakov.inr.ac.ru>
+References: <20040330202820.GA3956@in.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	Boundary="0__=08BBE4FADF8835A78f9e8a93df938690918c08BBE4FADF8835A7"
-Cc: davem@redhat.com, mashirle@us.ibm.com, netdev@oss.sgi.com,
-        "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp>,
-        yoshfuji@linux-ipv6.org
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040401.135048.45446611.yoshfuji@linux-ipv6.org>
-To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: andrea@suse.de (Andrea Arcangeli), linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
+	paulmck@us.ibm.com (Paul E. McKenney),
+	davem@redhat.com (Dave Miller), akpm@osdl.org (Andrew Morton)
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: dipankar@in.ibm.com
+In-Reply-To: <20040330202820.GA3956@in.ibm.com> from "Dipankar Sarma" at Mar 31, 2004 01:58:21 AM
 List-Id: netdev.vger.kernel.org
 
---0__=08BBE4FADF8835A78f9e8a93df938690918c08BBE4FADF8835A7
-Content-type: text/plain; charset=US-ASCII
+Hello!
 
+> > We had one full solution for this issue not changing anything
+> > in scheduler/softirq relationship: to run rcu task for the things
+> > sort of dst cache not from process context, but essentially as part
+> > of do_softirq(). Simple, stupid and apparently solves new problems
+> > which rcu created.
+> 
+> Can you be a little bit more specific about this solution ?
 
+It is about that your suggestion, which you outlined below :-)
 
+> as indicated by my earlier experiments. We have potential fixes
+> for RCU through a call_rcu_bh() interface where completion of a
+> softirq handler is a quiescent state. I am working on forward porting
+> that old patch from our discussion last year and testing in my
+> environment. That should increase the number of quiescent state
+> points significantly and hopefully reduce the grace period significantly.
+> But this does nothing to help userland starvation.
 
-
-The reason to add these flags was for rtnetlink MATCH request through
-RTM_GETADDRESS. Since here we use RTM_GETMULTICAST,
-RTM_GETANYCAST for getting multicast/anycast addresses, it's not
-necessary to have these flags. I will remove them.
-
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
-
---0__=08BBE4FADF8835A78f9e8a93df938690918c08BBE4FADF8835A7
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
-
-<html><body>
-<p>The reason to add these flags was for rtnetlink MATCH request through <br>
-RTM_GETADDRESS. Since here we use RTM_GETMULTICAST, <br>
-RTM_GETANYCAST for getting multicast/anycast addresses, it's not <br>
-necessary to have these flags. I will remove them.<br>
-<br>
-Thanks<br>
-Shirley Ma<br>
-IBM Linux Technology Center<br>
-15300 SW Koll Parkway<br>
-Beaverton, OR 97006-6063<br>
-Phone: (503) 578-7638<br>
-FAX:      (503) 578-3228<br>
-<br>
-</body></html>
---0__=08BBE4FADF8835A78f9e8a93df938690918c08BBE4FADF8835A7--
+Alexey
