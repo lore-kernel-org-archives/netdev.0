@@ -1,45 +1,21 @@
-From: Andrew McGregor <andrew@indranet.co.nz>
-Subject: Re: ipv6 stack seems to forget to send ACKs
-Date: Fri, 10 Jan 2003 14:17:52 +1300
+From: Yan-Fa Li <yan@intruvert.com>
+Subject: FYI: Etherleak
+Date: Thu, 9 Jan 2003 17:49:47 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1291230000.1042161472@localhost.localdomain>
-References: <20030108130850.GQ22951@wiggy.net>
- <20030109123857.A15625@bitwizard.nl> <20030109155214.GX22951@wiggy.net>
+Message-ID: <D71BEAC27500D51199DF0002B328BA8D4FBF2B@ivexs1.intruvert.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wichert Akkerman <wichert@wiggy.net>, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
-In-Reply-To: <20030109155214.GX22951@wiggy.net>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+An interesting report into frame-padding information leakage violations in
+ethernet drivers.  The authors use linux drivers in their examples.
+
+http://www.atstake.com/research/advisories/2003/atstake_etherleak_report.pdf
 
 
---On Thursday, January 09, 2003 16:52:14 +0100 Wichert Akkerman 
-<wichert@wiggy.net> wrote:
-
-> Previously Rogier Wolff wrote:
->> Can you check the stats counters, to see if they are indeed dropped?
->
-> It seems no packets are dropped:
->
-
-...
-
-> Tcp:
->     666 active connections openings
->     0 passive connection openings
->     0 failed connection attempts
->     0 connection resets received
->     2 connections established
->     58949 segments received
->     65043 segments send out
->     0 segments retransmited
->     18 bad segments received.
-
-Is this it?  My counters show zero, in vastly more packets.
-
-Andrew
+[[HTML alternate version deleted]]
