@@ -1,104 +1,74 @@
-From: Paolo Pumilia <paolo.pumilia@acm.org>
-Subject: ioport.h fixed in 2.2.22
-Date: Sun, 10 Nov 2002 14:07:23 +0100
+From: Bill Leckey <bleckey@tpg.com.au>
+Subject: Net device queries.
+Date: Mon, 11 Nov 2002 02:30:09 +1100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021110130723.GA15090@wigner.cstc.lan>
-Reply-To: paolo.pumilia@inwind.it
+Message-ID: <3DCE7B81.4070604@tpg.com.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="oyUTqETQ0mS9luUI"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-laptop@vger.kernel.org, linux-config@vger.kernel.org,
-   netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---oyUTqETQ0mS9luUI
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I've been coding an ethernet driver for some new hardware we're
+developing and while it's working, there are a few issues I'm still
+unsure of.  I couldn't find any archives for this list, so I'm
+suspecting I'm going to cover a lot of 'old ground'.  Most of my info 
+for coding ethernet drivers comes out of Rubini and Corbet's LInux 
+Device Drivers, and what I've gleaned from kernel sources
 
-In order to compile 3.1.28 pcmcia modules (package pcmcia-cs-3.1.28), 
-commenting out lines referring to compatibility to kernel 2.4
-in file: include/linux/ioport.h, in kernel-source 2.2.22 has been
-required, 
-Here enclosed is my fixed file. 
+Firstly some background.  With these cards I can have up to 25 point to
+point connections (to the same destination machine, or 25 destination
+machines).  I have almost total control of what goes out on the wire, so
+I've chosen a minimal header that contains the type (passed in to
+hard_header) and a 16 bit field that contains misc other information.
+So, 32 bits, plus the data.  The hardware provides things like length,
+and CRC checking.
 
-Being just a newbie, i hope it has been the right action to take. 
+Currently I'm setting dev->hard_header_len to 4.
 
-Thank you 
+The part that concerns me is what I set dev->type, dev->addr_len and
+dev->flags to.
 
---
-Paolo Pumilia
-AICA- OpenSource workgroup 
-AICA OpenSource WorkGroup Coordinator 
-Website: http//www.linfe.it/AICA-OpenSource
+We don't technically have a hardware address so I set dev->addr_len to 0.
+
+I set dev->type to ARPHRD_VOID, simply because I'm not sure what the
+consequences of setting it to anything else are.
+
+I set dev->flags to IFF_POINTOPOINT | IFF_NOARP
+
+This appears to all work correctly, however both ifconfig and tcpdump
+aren't really happy.
+
+TCPDUMP doesn't know what to do with the ARPHRD_VOID and drops to 'raw'
+mode, so it still does what I need, even if it prints an annoying
+message for each packet.
+
+ifconfig isn't sure what to do about the HWaddr.  For instance, this is
+the ifconfig for one of the links:
 
 
+hssl0     Link encap:UNSPEC  HWaddr
+00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00
+            inet addr:192.168.2.1  P-t-P:192.168.2.2  Mask:255.255.255.255
+            UP POINTOPOINT RUNNING NOARP  MTU:1500  Metric:1
+            RX packets:3509748 errors:459 dropped:0 overruns:0 frame:363
+            TX packets:3013210 errors:0 dropped:0 overruns:0 carrier:0
+            collisions:0 txqueuelen:100
+            RX bytes:368907445 (351.8 Mb)  TX bytes:266074976 (253.7 Mb)
 
---oyUTqETQ0mS9luUI
-Content-Type: text/x-chdr; charset=us-ascii
-Content-Disposition: attachment; filename="v2.2.22-fixed-ioport.h"
+Any thoughts, comments or otherwise on what I've done, or what I
+/should/ be doing would be appreciated as I'm still not fully across how
+the networking stuff works.
 
-/* file:  /home/src/kernel-source-2.2.22/include/linux/ioport.h
- * modified in order to allow pcmcia modules compilation 
- * Paolo Pumilia, nov 10, 2002 - paolo.pumilia@acm.org
- */ 
+Bill
 
-/*
- * portio.h	Definitions of routines for detecting, reserving and
- *		allocating system resources.
- *
- * Version:	0.01	8/30/93
- *
- * Author:	Donald Becker (becker@super.org)
- */
+-- 
+Bill Leckey - Senior Software Design Engineer
+TPG Research and Development
+Ph: +61 2 62851711
+Fax: +61 2 62853939
 
-#ifndef _LINUX_PORTIO_H
-#define _LINUX_PORTIO_H
 
-#define HAVE_PORTRESERVE
-/*
- * Call check_region() before probing for your hardware.
- * Once you have found you hardware, register it with request_region().
- * If you unload the driver, use release_region to free ports.
- */
-extern void reserve_setup(char *str, int *ints);
-extern int check_region(unsigned long from, unsigned long extent);
-extern void request_region(unsigned long from, unsigned long extent,const char *name);
-extern void release_region(unsigned long from, unsigned long extent);
-extern int get_ioport_list(char *);
-
-#ifdef __sparc__
-extern unsigned long occupy_region(unsigned long base, unsigned long end,
-				   unsigned long num, unsigned int align,
-				   const char *name);
-#endif
-
-#define HAVE_AUTOIRQ
-extern void autoirq_setup(int waittime);
-extern int autoirq_report(int waittime);
-
-/*
- * for compatibility with 2.4
- */
-
-/* commented out, in order to allow pcmcia modules compilation 
- * Paolo Pumilia, nov 10, 2002 - paolo.pumilia@acm.org
- *
- * extern inline int check_mem_region(unsigned long from, unsigned long extent)
- * {
- * 	return 0;
- * }
- * 
- * extern inline void request_mem_region(unsigned long from, unsigned long extent,const char *name)
- * {
- * }
- * 
- * extern inline void release_mem_region(unsigned long from, unsigned long extent)
- * {
- * }
- */ 
-
-#endif	/* _LINUX_PORTIO_H */
-
---oyUTqETQ0mS9luUI--
+.
