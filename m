@@ -1,9 +1,8 @@
-From: "Adauto" <abcd@e-mail.nwx.com.br>
-Subject: Mailing Canada
-Date: Thu, 19 Dec 2002 10:04:57 -0200
+From: "Rock Shows Produções Artísticas" <rockshows@rockshows.com.br>
+Subject: =?ISO-8859-1?Q?Lan=E7amento?= do CD da Fator Cinco
+Date: Fri, 20 Dec 2002 01:59:44 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212191200.gBJC0V3v008830@oss.sgi.com>
-Reply-To: "Adauto" <abcd@e-mail.nwx.com.br>
+Message-ID: <200212200354.gBK3sO3v009519@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/html; charset="ISO-8859-1"
 Content-Transfer-Encoding: quoted-printable
@@ -12,26 +11,44 @@ To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ol=E1,
+<html>
 
-Voc=EA conhece algu=E9m que vende cadastro de e-mails da Argentina ou M=E9=
-xico
-ou Canad=E1 ou outras partes do mundo para fazer mala direta?<br>Caso n=E3=
-o
-conhece n=E3o =E9 necess=E1rio responder essa mensagem.<br><br>
+<head>
+<title></title>
+</head>
 
-Obrigado Adauto<br><br>
+<body bgcolor=3D"#000000"
+<p align=3D"center" topmargin=3D"0">
+<p align=3D"center"><img border=3D"0"
+src=3D"http://www.rockshows.com.br/IMAGES/animacao_mala_direta.gif" width=
+=3D"560"
+height=3D"255">
+<div align=3D"center">
+  <font face=3D"Arial" color=3D"#C0C0C0" size=3D"2">Grande show de lan=E7=
+amento do CD
+  da banda Fator Cinco no DirecTV - Music Hall em Fevereiro de 2003,</fon=
+t>
+</div>
+<div align=3D"center">
+  <font face=3D"Arial" color=3D"#C0C0C0" size=3D"2">clique <a
+href=3D"http://www.rockshows.com.br/fatorcinco.htm">aqui</a>
+  e saiba como adquirir o seu ingresso gratuitamente e conhecer esta nova
+  revela=E7=E3o do rock nacional.</font>
+</div>
+<p align=3D"center">&nbsp;</p>
+<p align=3D"center"><font color=3D"#FFFF00" size=3D"1" face=3D"Arial" <p>=
+Caso n=E3o
+queira mais receber nossos informativos,
+<a
+href=3D"mailto:remover@rockshows.com.br?Subject=3D::REMOVER::&amp;
+Body=3Dnetdev@oss.sgi.com" style=3D"text-decoration: blink; color: #FFFFF=
+F">Click
+aqui !</a></p><br>
 
-e-mail  e-mail@e-mail.nwx.com.br <br><br>
+
+</font>
 
 
-Hi,
+</body>
 
-Do you know who sells a mailing list to direct marketing from
-Argentina,Mexico and canada? Or from others parts os the world?<br> If yo=
-u
-do not know,is not necessary to answer this message.<br><br>
-
-Thank you Adauto<br><br>
-
-e-mail  e-mail@e-mail.nwx.com.br
+</html>
