@@ -1,16 +1,16 @@
 From: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
-Subject: [2/8] orinoco: Use netif_carrier functions instead of homegrown flag
-Date: Wed, 12 Jan 2005 16:25:43 +1100
-Message-ID: <20050112052543.GC30426@localhost.localdomain>
-References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain>
+Subject: [5/8] orinoco: Cleanup low-level hermes code
+Date: Wed, 12 Jan 2005 16:27:41 +1100
+Message-ID: <20050112052741.GF30426@localhost.localdomain>
+References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain> <20050112052543.GC30426@localhost.localdomain> <20050112052630.GD30426@localhost.localdomain> <20050112052711.GE30426@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
-	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Return-path: <orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
-To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>
+To: Jeff Garzik <jgarzik-e+AXbWqSrlAAvxtiuMwx3w@public.gmane.org>,
+	orinoco-devel-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
 Content-Disposition: inline
-In-Reply-To: <20050112052434.GB30426-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
+In-Reply-To: <20050112052711.GE30426-bi+AKbBUZKY6gyzm1THtWbp2dZbC/Bob@public.gmane.org>
 Sender: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Errors-To: orinoco-devel-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
@@ -22,98 +22,66 @@ List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/orinoco-devel>,
 List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=orinoco-devel>
 List-Id: netdev.vger.kernel.org
 
-Removes the orinoco driver's custom and dodgy "connected" variable
-used to track whether or not we're associated with an AP.  Replaces it
-instead with netif_carrier_ok() settings.
+Apply some cleanups to the low-level orinoco handling code in
+hermes.[ch].  This cleans up some error handling code, corrects an
+error code to something more accurate, and also increases a timeout
+value.  This last can (when the hardware plays up) cause long delays
+with spinlocks held, which is bad, but is rather less prone to
+prematurely giving up, which has the unfortunate habit of fatally
+confusing the hardware in other ways :-/.
 
 Signed-off-by: David Gibson <hermes-xT8FGy+AXnRB3Ne2BGzF6laj5H9X9Tb+@public.gmane.org>
 
-Index: working-2.6/drivers/net/wireless/orinoco.c
+Index: working-2.6/drivers/net/wireless/hermes.c
 ===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco.c	2004-11-03 14:32:15.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco.c	2004-11-03 16:16:57.000000000 +1100
-@@ -784,7 +784,7 @@
- 		return 1;
+--- working-2.6.orig/drivers/net/wireless/hermes.c	2005-01-12 15:22:34.263633584 +1100
++++ working-2.6/drivers/net/wireless/hermes.c	2004-11-05 13:59:07.000000000 +1100
+@@ -383,12 +383,17 @@
+ 		reg = hermes_read_reg(hw, oreg);
  	}
  
--	if (! priv->connected) {
-+	if (! netif_carrier_ok(dev)) {
- 		/* Oops, the firmware hasn't established a connection,
-                    silently drop the packet (this seems to be the
-                    safest approach). */
-@@ -1271,6 +1271,7 @@
- 	case HERMES_INQ_LINKSTATUS: {
- 		struct hermes_linkstatus linkstatus;
- 		u16 newstatus;
-+		int connected;
- 
- 		if (len != sizeof(linkstatus)) {
- 			printk(KERN_WARNING "%s: Unexpected size for linkstatus frame (%d bytes)\n",
-@@ -1282,15 +1283,14 @@
- 				  len / 2);
- 		newstatus = le16_to_cpu(linkstatus.linkstatus);
- 
--		if ( (newstatus == HERMES_LINKSTATUS_CONNECTED)
--		     || (newstatus == HERMES_LINKSTATUS_AP_CHANGE)
--		     || (newstatus == HERMES_LINKSTATUS_AP_IN_RANGE) )
--			priv->connected = 1;
--		else if ( (newstatus == HERMES_LINKSTATUS_NOT_CONNECTED)
--			  || (newstatus == HERMES_LINKSTATUS_DISCONNECTED)
--			  || (newstatus == HERMES_LINKSTATUS_AP_OUT_OF_RANGE)
--			  || (newstatus == HERMES_LINKSTATUS_ASSOC_FAILED) )
--			priv->connected = 0;
-+		connected = (newstatus == HERMES_LINKSTATUS_CONNECTED)
-+			|| (newstatus == HERMES_LINKSTATUS_AP_CHANGE)
-+			|| (newstatus == HERMES_LINKSTATUS_AP_IN_RANGE);
+-	if (reg & HERMES_OFFSET_BUSY) {
+-		return -ETIMEDOUT;
+-	}
++	if (reg != offset) {
++		printk(KERN_ERR "hermes @ %p: BAP%d offset %s: "
++		       "reg=0x%x id=0x%x offset=0x%x\n", hw->iobase, bap,
++		       (reg & HERMES_OFFSET_BUSY) ? "timeout" : "error",
++		       reg, id, offset);
 +
-+		if (connected)
-+			netif_carrier_on(dev);
-+		else
-+			netif_carrier_off(dev);
++		if (reg & HERMES_OFFSET_BUSY) {
++			return -ETIMEDOUT;
++		}
  
- 		if (newstatus != priv->last_linkstatus)
- 			print_linkstatus(dev, newstatus);
-@@ -1368,8 +1368,8 @@
+-	if (reg & HERMES_OFFSET_ERR) {
+-		return -EIO;
++		return -EIO;		/* error or wrong offset */
  	}
- 	
- 	/* firmware will have to reassociate */
-+	netif_carrier_off(dev);
- 	priv->last_linkstatus = 0xffff;
--	priv->connected = 0;
  
  	return 0;
- }
-@@ -1881,7 +1881,7 @@
+@@ -476,7 +481,7 @@
+ 	rlength = hermes_read_reg(hw, dreg);
  
- 	priv->hw_unavailable++;
- 	priv->last_linkstatus = 0xffff; /* firmware will have to reassociate */
--	priv->connected = 0;
-+	netif_carrier_off(dev);
+ 	if (! rlength)
+-		return -ENOENT;
++		return -ENODATA;
  
- 	orinoco_unlock(priv, &flags);
+ 	rtype = hermes_read_reg(hw, dreg);
  
-@@ -2391,8 +2391,8 @@
- 				   * hardware */
- 	INIT_WORK(&priv->reset_work, (void (*)(void *))orinoco_reset, dev);
- 
-+	netif_carrier_off(dev);
- 	priv->last_linkstatus = 0xffff;
--	priv->connected = 0;
- 
- 	return dev;
- 
-Index: working-2.6/drivers/net/wireless/orinoco.h
+Index: working-2.6/drivers/net/wireless/hermes.h
 ===================================================================
---- working-2.6.orig/drivers/net/wireless/orinoco.h	2004-11-03 14:32:15.000000000 +1100
-+++ working-2.6/drivers/net/wireless/orinoco.h	2004-11-03 16:12:40.000000000 +1100
-@@ -42,7 +42,6 @@
- 	/* driver state */
- 	int open;
- 	u16 last_linkstatus;
--	int connected;
+--- working-2.6.orig/drivers/net/wireless/hermes.h	2005-01-12 11:13:41.000000000 +1100
++++ working-2.6/drivers/net/wireless/hermes.h	2004-11-05 13:53:55.000000000 +1100
+@@ -340,7 +340,7 @@
+ #ifdef __KERNEL__
  
- 	/* Net device stuff */
- 	struct net_device *ndev;
+ /* Timeouts */
+-#define HERMES_BAP_BUSY_TIMEOUT (500) /* In iterations of ~1us */
++#define HERMES_BAP_BUSY_TIMEOUT (10000) /* In iterations of ~1us */
+ 
+ /* Basic control structure */
+ typedef struct hermes {
+
 
 -- 
 David Gibson			| I'll have my music baroque, and my code
