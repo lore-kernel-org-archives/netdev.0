@@ -1,27 +1,31 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: packet re-ordering on SMP machines.
-Date: Mon, 16 Sep 2002 01:55:43 +0400 (MSD)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
+Date: Sun, 15 Sep 2002 21:23:21 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209152155.BAA00855@mops.inr.ac.ru>
-References: <20020915104201.D3810@sunbeam.de.gnumonks.org>
+Message-ID: <20020915.212321.64867280.davem@redhat.com>
+References: <20020913.150439.27187393.davem@redhat.com>
+	<Pine.GSO.4.30.0209151053530.22001-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Cc: ak@suse.de, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, todd-lkml@osogrande.com,
+   tcw@tempest.prismnet.com, netdev@oss.sgi.com, pfeather@cs.unm.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: laforge@gnumonks.org (Harald Welte)
-In-Reply-To: <20020915104201.D3810@sunbeam.de.gnumonks.org> from "Harald Welte" at Sep 15, 2 10:42:01 am
+To: hadi@cyberus.ca
+In-Reply-To: <Pine.GSO.4.30.0209151053530.22001-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+   From: jamal <hadi@cyberus.ca>
+   Date: Sun, 15 Sep 2002 16:16:13 -0400 (EDT)
 
-> The iptables ULOG target passes the skb receive timestamp to userspace,
+   Your proposal does make sense although compute power would still be
+   a player. I think the key would be parallelization;
 
-No differences of packet socket.
+Oh I forgot to mention that some of these cards also compute a cookie
+for you on receive packets, and your meant to point the input
+processing for that packet to a cpu whose number is derived from that
+cookie it gives you.
 
-> one netlink message sent to userspace.  If userspace would make a timestamp,
-
-Nobody proposed to do this in userspace. This would be even not "inaccuracy",
-the userspace time of read() is not correlated to real one at all
-f.e. if userspace is going to do some dns, times will differ inpredictably.
-
-Alexey
+Lockless per-cpu packet input queues make this sort of hard for us
+to implement currently.
