@@ -1,80 +1,39 @@
-From: Cacophonix <cacophonix@yahoo.com>
-Subject: Fwd: Re: Replace the Nagle Algorithm
-Date: Mon, 20 Oct 2003 17:36:05 -0700 (PDT)
+From: Mike_Phillips@URSCorp.com
+Subject: Re: [PATCH] (5/6) ibmtr -- probe2
+Date: Mon, 20 Oct 2003 21:50:38 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031021003605.41403.qmail@web14002.mail.yahoo.com>
+Message-ID: <OF4E189CBC.0F8473E2-ON84256DC6.0002006F-84256DC6.0004A2F2@urscorp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: JCONLIN@novell.com, cacophonix@yahoo.com
+Cc: netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+>The problem with the structures was a BUG in the existing code!
+>The PCMCIA code was setting dev->priv to a structure:
 
-Thanks for the pointer, interesting idea. Some comments below.
-cheers,
-karthik
+<snip>
 
+AAARRRGGH, it got screwed up somewhere in the past, during 2.5 or 2.6
+somewhere. Take a look at 2.4.22, dev-priv gets set to &info->ti. *sigh*,
+apologies, it doesn't help when the code you're looking at in the main tree
+isn't the same as my dev tree and what I remember. (Wonder if it works at
+all in 2.6, if it doesn't that shows just how many people are actually
+testing it ;)
 
-> --- "Joseph Conlin" <JCONLIN@n...> wrote:
-> I see in the archives and the code that I have looked at (2.4.22,
-> 2.6.0-test8) that the Minshall algorithm is being used to reduce the
-> effects of Nagle/delayed ACK interaction.  I haven't seen any mention of
-> the following solution, proposed as an IETF draft RFC by Joe Doupnik
-> (jrd@c...).
-> 
-> http://netlab1.usu.edu/pub/misc/draft-doupnik-tcpimpl-nagle-mode-00.txt
-> 
-> 
-> If anyone is interested, I have an Excel spreadsheet that shows some
-> testing I did with FreeBSD using Nagle-off, Nagle-on, and Doupnik using
-> HTTP requests.  It shows that Doupnik gets the same packet-size
-> efficiency as Nagle-on while getting better throughput than having
-> Nagle-off.  Let me know if you would like a copy.
+I *can* see what you're trying to do with the rest of the patch, although I
+need to grab net-2.5-exp to fully see how this all works. There's parts of
+the patch where I can see where the code was grabbed from but doesn't make
+total sense yet (like testing for #ifndef PCMCIA in ibmtr_probe when
+another part of the patch removed the call to ibmtr_probe from the pcmcia
+driver.)
 
-Yes please, but only if you have some comparisons with Linux 2.4+ which implements
-the Nagle+Minshall extensions, which should not have the perf problem reported in
-the draft (which measures Linux 2.2).
+Bear with me, I think there's probably a cleaner solution.
 
-Reading through the draft, the tradeoff the new proposal makes is in allowing greater
-control to the transmitter to send packets at it's (application's) whim, at the risk
-of larger number of small packets in transit at any point in time within the network.
+pcmcia allocating its own dev structures is a right pain, would be nice if
+this could go away too and it could all be done from the probe2 api.
 
-For example, as quoted within the draft:
-
-  "In an extreme case the application may perform
-  single octet writes in massive succession before reading a response.
-  If the network can drain data faster than the application can create
-  data (a classical queueing problem) then massive quantities of tiny
-  segments will appear on the network. That imposes a very heavy load
-  on both hosts and network communications"
-
-The current Linux Nagle+Minshall combo can have at most one "small" unacked packet
-in transit in the network at any given time, while in the new approach, if the tcp
-stack guesses application behavior incorrectly, it's possible that there could be
-numerous small packets flooding the network. (For example, think someone typing fast
-in a ssh/telnet session).
-
-In addition, more packets means potentially increased interrupt processing on the
-host (modulo napi or interrupt mitigation), thereby making me question the benefit
-to the transmitter.
-
-And IIRC, the whole point of Nagle was to conserve network bandwidth by not having
-applications flood the network with small packets. If I read this draft correctly, it
-tries to get the tcp stack to guess application behavior to accomplish the same result,
-but is liable to get it wrong.
-
-I'd love to see any perf numbers you have with linux 2.4. The intent of implementing
-the Minshall extensions was to eliminate the kind of Nagle problems described in the
-draft, and thus far, I haven't seen any reports of problems on linux-netdev (while
-still being a good network citizen).
-
-
-
-
-__________________________________
-Do you Yahoo!?
-The New Yahoo! Shopping - with improved product search
-http://shopping.yahoo.com
+Mike
