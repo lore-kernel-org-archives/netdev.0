@@ -1,53 +1,61 @@
-From: Ralf Baechle DL5RB <ralf@linux-mips.org>
-Subject: [PATCH] Fix ax25_get_socket locking
-Date: Mon, 14 Mar 2005 08:37:44 +0000
-Message-ID: <20050314083744.GA12765@linux-mips.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [12/*] [IPSEC] Handle local_df in IPv4
+Date: Mon, 14 Mar 2005 21:26:14 +1100
+Message-ID: <20050314102614.GA9610@gondor.apana.org.au>
+References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <20050306213214.7d8a143d.davem@davemloft.net> <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>
-To: netdev@oss.sgi.com, linux-hams@vger.kernel.org
+Content-Type: multipart/mixed; boundary="5vNYLRcllDrimb99"
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-Sender: linux-hams-owner@vger.kernel.org
+In-Reply-To: <20050308102741.GA23468@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In an attempt to return a locked socket ax25_get_socket() was calling
-lock_sock() with a spinlock held, bad idea.  Making matters worse it's
-only user is running in bottom half context resulting in a potencial
-attempt to sleep in bottom half context, so fix the locking there as well.
 
-Index: bk-afu/net/ax25/ax25_in.c
-===================================================================
---- bk-afu.orig/net/ax25/ax25_in.c	2005-03-14 00:20:42.153164936 +0000
-+++ bk-afu/net/ax25/ax25_in.c	2005-03-14 00:21:07.469316296 +0000
-@@ -275,6 +275,7 @@
- 			/* Now find a suitable dgram socket */
- 			sk = ax25_get_socket(&dest, &src, SOCK_DGRAM);
- 			if (sk != NULL) {
-+				bh_lock_sock(sk);
- 				if (atomic_read(&sk->sk_rmem_alloc) >=
- 				    sk->sk_rcvbuf) {
- 					kfree_skb(skb);
-@@ -286,7 +287,8 @@
- 					if (sock_queue_rcv_skb(sk, skb) != 0)
- 						kfree_skb(skb);
- 				}
--				release_sock(sk);
-+				bh_unlock_sock(sk);
-+				sock_put(sk);
- 			} else {
- 				kfree_skb(skb);
- 			}
-Index: bk-afu/net/ax25/af_ax25.c
-===================================================================
---- bk-afu.orig/net/ax25/af_ax25.c	2005-03-14 00:21:03.757880520 +0000
-+++ bk-afu/net/ax25/af_ax25.c	2005-03-14 00:21:07.471315992 +0000
-@@ -180,8 +180,7 @@
- 		    !ax25cmp(&s->dest_addr, dest_addr) &&
- 		    s->sk->sk_type == type) {
- 			sk = s->sk;
--			/* XXX Sleeps with spinlock held, use refcounts instead. XXX */
--			lock_sock(sk);
-+			sock_hold(sk);
- 			break;
- 		}
- 	}
+--5vNYLRcllDrimb99
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave:
+
+When cleaning up the remaining users of dst_pmtu I noticed that
+local_df wasn't being treated correctly in IPsec.  In fact, if
+you socket's dst went over IPsec, local_df is essentailly ignored.
+
+This patch fixes that.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+I was going to do the same thing to IPv6.  Unfortunately it seems
+that we don't have any local_df support over there.  That is, we
+always fragment outbound UDP/raw packets.  Did I miss something?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--5vNYLRcllDrimb99
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=xfrm-12
+
+===== net/ipv4/xfrm4_output.c 1.7 vs edited =====
+--- 1.7/net/ipv4/xfrm4_output.c	2005-03-07 16:33:59 +11:00
++++ edited/net/ipv4/xfrm4_output.c	2005-03-14 13:55:35 +11:00
+@@ -78,7 +78,7 @@
+ 
+ 	IPCB(skb)->flags |= IPSKB_XFRM_TUNNEL_SIZE;
+ 	
+-	if (!(iph->frag_off & htons(IP_DF)))
++	if (!(iph->frag_off & htons(IP_DF)) || skb->local_df)
+ 		goto out;
+ 
+ 	dst = skb->dst;
+
+--5vNYLRcllDrimb99--
