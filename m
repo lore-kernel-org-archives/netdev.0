@@ -1,64 +1,49 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] IPSEC failover and replay detection sequence numbers
-Date: 29 Oct 2004 11:01:35 -0400
+Subject: Re: Asynchronous crypto layer.
+Date: 29 Oct 2004 11:08:03 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1099062095.1023.14.camel@jzny.localdomain>
-References: <1099045435.2888.47.camel@nienna.balabit>
-	 <1099054721.1027.118.camel@jzny.localdomain>
-	 <1099056277.2888.71.camel@nienna.balabit>
+Message-ID: <1099062483.1023.21.camel@jzny.localdomain>
+References: <1099030958.4944.148.camel@uganda>
+	 <1099053738.1024.104.camel@jzny.localdomain>
+	 <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, ipsec-tools-devel@lists.sourceforge.net,
-        vpn-failover@lists.balabit.hu
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: KOVACS Krisztian <hidden@balabit.hu>
-In-Reply-To: <1099056277.2888.71.camel@nienna.balabit>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-10-29 at 09:24, KOVACS Krisztian wrote:
->   Hi,
->=20
-> 2004-10-29, p keltez=E9ssel 14:58-kor jamal ezt =EDrta:
-> > To take a rough estimate of 5K users, how often do you think
-> > these replay messages will be generated?
-> >=20
-> > Is there a (clever) way to avoid transporting them and still achieve
-> > an accurate failover?
->=20
->   There is, provided that you do not want replay detection to work afte=
-r
-> a failover. The more often you would send sequence number updates the
-> smaller the possible replay window will be. If you sacrifice scalabilit=
-y
-> you get more accurate replay detection.
->=20
+On Fri, 2004-10-29 at 10:06, Evgeniy Polyakov wrote:
 
-ok. It should still get better in a short period of time though.
-Moral in my point is i hope you make it an optional feature.
 
->   To play with numbers: say that you have 5K users, so let's suppose
-> there are at most 20K IPSEC SAs. If you decide to send an update per
-> second, that would mean 20K updates/second. If each update message is 2=
-0
-> bytes long, that means that on Ethernet you can transmit all of them in
-> about 280 packets.=20
+> If we have a hardware accelerator chip, than we _already_ have improvements 
+> with even the worst async crypto layer, since software and hardware 
+> will work in parrallel.
 
-Are you batching?=20
-In my count: Assuming 20bytes is in a packet of its own - your numbers
-translate to 20Kpps which is > 10Mbps ;->=20
-I suppose SAs will be much lower rate. So you need probably a dedicated
-100Mbps just for the syncing. I would also say SA updates should be
-prioritized over replay messages.
+Thats what i am hoping - and theory points to it. Numbers, numbers
+please ;->
 
-> That's not too much. (I suppose the 20K pfkey
-> messages would be much more of a problem, though...)
+> I agree that multigigahertz box will beat my HIFN card, 
+> but I doubt it can beat 1gghz VIA.
 
-Why not use the netlink events (you mention pfkey).
+The VIA is an interesting one; but it would still be interesting to see 
+comparisons.
+Actually I should say a good comparison will be with a dual opteron
+>= 2Ghz which i have no doubt will smoke a xeon - all in s/ware.
 
-Batching them with a timeout should help.
+> And what about random numbers, async crypto, TPM?
+> They all requires some kind of generalization.
+> 
+
+Similar deferal approach should do it.
+If you are brave, you should probably experiment as well with
+non-crypto stuff to defer things like gettimeofday computes.
+(i.e ask the hardware for time, defer response and then call netif_rx
+with a tag saying time has been computed).
 
 cheers,
 jamal
