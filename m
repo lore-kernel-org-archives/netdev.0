@@ -1,30 +1,27 @@
-From: Tomasz Torcz <zdzichu@irc.pl>
-Subject: Re: iproute2 and kernel headers
-Date: Tue, 3 Aug 2004 02:14:59 +0200
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [PATCH 2.6] ixgb - fix bug in transmit cleanup for ppc64
+Date: Mon, 2 Aug 2004 18:51:21 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040803001459.GA8637@irc.pl>
-References: <20040802153805.487f832f@dell_ss3.pdx.osdl.net>
+Message-ID: <Pine.LNX.4.44.0408021847070.9894-100000@westville2.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-2
-Content-Transfer-Encoding: quoted-printable
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20040802153805.487f832f@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 02, 2004 at 03:38:05PM -0700, Stephen Hemminger wrote:
-> I am willing to put some headers (not all) in with the user level
-> code, provided they are copies since they I can easily update. I don't =
-want
-> to get into keeping an edited set of headers in sync.
+This fixes an endianness error when on PPC64 arch.
+Signed off by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
- Aren't linux-libc-headers (*) sufficient?
-
-* - http://ep09.pld-linux.org/~mmazur/linux-libc-headers/
-
---=20
-Tomasz Torcz                        To co nierealne - tutaj jest normalne.
-zdzichu@irc.-nie.spam-.pl          Ziomale na =BFycie maj=B1 tu patenty s=
-pecjalne.
+diff -Nurp --exclude=CVS linux-2.6.7/drivers/net/ixgb/ixgb_main.c linux-2.6.7_mod/drivers/net/ixgb/ixgb_main.c
+--- linux-2.6.7/drivers/net/ixgb/ixgb_main.c	2004-06-16 05:19:01.000000000 +0000
++++ linux-2.6.7_mod/drivers/net/ixgb/ixgb_main.c	2004-08-03 01:34:52.000000000 +0000
+@@ -1677,7 +1677,7 @@ static boolean_t ixgb_clean_tx_irq(struc
+ 	eop = tx_ring->buffer_info[i].next_to_watch;
+ 	eop_desc = IXGB_TX_DESC(*tx_ring, eop);
+ 
+-	while (eop_desc->status & cpu_to_le32(IXGB_TX_DESC_STATUS_DD)) {
++	while (eop_desc->status & IXGB_TX_DESC_STATUS_DD) {
+ 
+ 		for (cleaned = FALSE; !cleaned;) {
+ 			tx_desc = IXGB_TX_DESC(*tx_ring, i);
