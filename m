@@ -1,71 +1,140 @@
-From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-Subject: Re: 8390.c workaround for interrupt storm
-Date: Fri, 13 Aug 2004 17:07:37 -0300
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Move inetdev/ifa over to RCU
+Date: Sat, 14 Aug 2004 07:56:02 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040813200737.GC29875@logos.cnet>
-References: <20040813153047.GC28640@logos.cnet> <411D21DE.2050804@pobox.com>
+Message-ID: <20040813215602.GA15870@gondor.apana.org.au>
+References: <20040812165954.00429e65.davem@redhat.com> <20040813090314.448c971d@dell_ss3.pdx.osdl.net> <20040813093838.6961c0d4.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="LZvS9be/3tNcYl/X"
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <411D21DE.2050804@pobox.com>
+In-Reply-To: <20040813093838.6961c0d4.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Aug 13, 2004 at 04:17:34PM -0400, Jeff Garzik wrote:
-> Marcelo Tosatti wrote:
-> >Hi netdev, 
-> >
-> >We've been seeing an interrupt storm on our 
-> >embedded PowerPC systems with Linksys PCMLM56 (network+modem) 
-> >PCMCIA cards (network part of it driven by pcnet_cs.c) as soon as the 
-> >network cable is  pluged/unpluged and after some activity on the serial
-> >line. 
-> >
-> >The card goes nuts, and doesnt stop sending interrupts. 
-> >
-> >So I hacked up this patch which resets the 8390 chip
-> >as soon as 256 empty interrupts are triggered. Works fine,
-> >the card comes back to sanity after resetting.
-> >
-> >Not sure if its specific to our boards, but I believe
-> >it might happen on other archs also, so I'm posting it 
-> >here in the hope it might be useful for someone with the
-> >same problem.
-> >
-> >Not likely to be included in mainline driver, but hey, why not,
-> >its protection against hardware insanity.
 
-Hi Jeff!
+--LZvS9be/3tNcYl/X
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> You have stumbled on a common class of problems, I think.
+On Fri, Aug 13, 2004 at 09:38:38AM -0700, David S. Miller wrote:
 > 
-> IMO interrupt storms are almost always caused by the platform or bus.  I 
-> see tons of bug reports for ethernet drivers which turn out to be 
-> interrupt routing, interrupt handling, or interrupt storms unrelated to 
-> the ethernet driver itself.
-> 
-> Yes, you can sometimes work around this in the driver, but that tends to 
-> wind up hiding the problem.
+> Herbert, if we check inetdev->dead when trying to grab
+> a reference it fixes the RCU destroy race you mentioned.
 
-I see. So, following your thoughts, what is causing the interrupt storm 
-here is not the card itself, but the bus/platform/irq controller? That is,
-those interrupts are not coming from the card.
+Sorry Dave but that just makes the window smaller.  A new
+inetdev_destroy() can still start after the in_dev->dead
+check and before the inc of the refcnt.
 
-Or that something on the bus/platform/irq controller triggers the card
-into insanity, and the card really is sending those interrupts? 
+> I really don't want to put that ref drop into the
+> RCU callback as that would kill performance.
 
-Since resetting the 8390 stops it from madness, its likely that 
-the card itself is sending the interrupts, no?
+Maybe I wasn't clear enough about the solution.  I've attached
+an untested patch below.  Hopefully that should make it clearer.
 
-Interesting...
+> diff -Nru a/include/linux/inetdevice.h b/include/linux/inetdevice.h
+> --- a/include/linux/inetdevice.h	2004-08-13 09:20:01 -07:00
+> +++ b/include/linux/inetdevice.h	2004-08-13 09:20:01 -07:00
+> @@ -143,9 +143,14 @@
+>  	struct in_device *in_dev;
+>  
+>  	rcu_read_lock();
+> +	smp_read_barrier_depends();
 
-> PCMCIA debugging isn't fun, to be sure, maybe RMK has some ideas?
+This isn't quite right either.  It rarely makes sense to have
+smp_read_barrier_depends() immediately after an rcu_read_lock()
+since it can't be reordered.
 
-This is a MontaVista v2.4.17 kernel patched up, so I doubt he will care much.
+Now had you put this barrier between the reading of ip_ptr and
+the checking of in_dev->dead, then the race would've been closed.
 
-I'll ask him anyway.
+But I still prefer to move the work into inetdev_destroy.
 
-Thanks for answering!!
+>  	in_dev = dev->ip_ptr;
+> -	if (in_dev)
+> -		atomic_inc(&in_dev->refcnt);
+> +	if (in_dev) {
+> +		if (in_dev->dead)
+> +			in_dev = NULL;
+> +		else
+> +			atomic_inc(&in_dev->refcnt);
+> +	}
+>  	rcu_read_unlock();
+>  	return in_dev;
+>  }
+
+> diff -Nru a/net/ipv4/devinet.c b/net/ipv4/devinet.c
+> --- a/net/ipv4/devinet.c	2004-08-13 09:20:01 -07:00
+> +++ b/net/ipv4/devinet.c	2004-08-13 09:20:01 -07:00
+> @@ -210,6 +210,7 @@
+>  int inet_addr_onlink(struct in_device *in_dev, u32 a, u32 b)
+>  {
+>  	rcu_read_lock();
+> +	smp_read_barrier_depends();
+>  	for_primary_ifa(in_dev) {
+>  		if (inet_ifa_match(a, ifa)) {
+>  			if (!b || inet_ifa_match(b, ifa)) {
+
+Ditto.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--LZvS9be/3tNcYl/X
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== include/linux/inetdevice.h 1.14 vs edited =====
+--- 1.14/include/linux/inetdevice.h	2004-08-14 07:43:21 +10:00
++++ edited/include/linux/inetdevice.h	2004-08-14 07:48:59 +10:00
+@@ -163,16 +163,10 @@
+ 
+ extern void in_dev_finish_destroy(struct in_device *idev);
+ 
+-static inline void in_dev_rcu_destroy(struct rcu_head *head)
+-{
+-	struct in_device *idev = container_of(head, struct in_device, rcu_head);
+-	in_dev_finish_destroy(idev);
+-}
+-
+ static inline void in_dev_put(struct in_device *idev)
+ {
+ 	if (atomic_dec_and_test(&idev->refcnt))
+-		call_rcu(&idev->rcu_head, in_dev_rcu_destroy);
++		in_dev_finish_destroy(idev);
+ }
+ 
+ #define __in_dev_put(idev)  atomic_dec(&(idev)->refcnt)
+===== net/ipv4/devinet.c 1.33 vs edited =====
+--- 1.33/net/ipv4/devinet.c	2004-08-14 07:43:21 +10:00
++++ edited/net/ipv4/devinet.c	2004-08-14 07:49:51 +10:00
+@@ -177,6 +177,12 @@
+ 	goto out;
+ }
+ 
++static void in_dev_rcu_put(struct rcu_head *head)
++{
++	struct in_device *idev = container_of(head, struct in_device, rcu_head);
++	in_dev_put(idev);
++}
++
+ static void inetdev_destroy(struct in_device *in_dev)
+ {
+ 	struct in_ifaddr *ifa;
+@@ -204,7 +210,7 @@
+ 	neigh_sysctl_unregister(in_dev->arp_parms);
+ #endif
+ 	neigh_parms_release(&arp_tbl, in_dev->arp_parms);
+-	in_dev_put(in_dev);
++	call_rcu(&idev->rcu_head, in_dev_rcu_put);
+ }
+ 
+ int inet_addr_onlink(struct in_device *in_dev, u32 a, u32 b)
+
+--LZvS9be/3tNcYl/X--
