@@ -1,31 +1,30 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: [PATCH] fix uninitialized proto_list_lock
-Date: Mon, 4 Apr 2005 13:30:10 -0400
-Message-ID: <20050404173010.GA19451@kvack.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [IPSEC]: Protect against BHs in xfrm_user_policy()
+Date: Mon, 4 Apr 2005 10:35:09 -0700
+Message-ID: <20050404103509.06ca48a4.davem@davemloft.net>
+References: <4250160D.2040405@trash.net>
+	<20050404012040.GA16960@gondor.apana.org.au>
+	<20050404115508.GA12171@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-Content-Disposition: inline
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050404115508.GA12171@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please apply the following patch which fixes a BUG() on boot when the 
-kernel is compiled with spinlock debugging in bk head.  Cheers,
+On Mon, 4 Apr 2005 21:55:08 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-		-ben
+> The read_lock()'s only need to be protected from the write_lock()'s.
+> 
+> Since all the write_lock()'s are made in process context, we don't
+> need to disable BH on the read_lock()'s.
 
-===== net/core/sock.c 1.67 vs edited =====
---- 1.67/net/core/sock.c	2005-03-26 18:04:35 -05:00
-+++ edited/net/core/sock.c	2005-04-04 12:46:26 -04:00
-@@ -1352,7 +1352,7 @@
- 
- EXPORT_SYMBOL(sk_common_release);
- 
--static rwlock_t proto_list_lock;
-+static rwlock_t proto_list_lock = RW_LOCK_UNLOCKED;
- static LIST_HEAD(proto_list);
- 
- int proto_register(struct proto *prot, int alloc_slab)
+This is correct.
+
+It's actually a common technique, only disable IRQ or BH in
+the write_locks.
