@@ -1,23 +1,32 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [stable] [BK PATCHES] 2.6.x net driver oops fixes
-Date: Fri, 11 Mar 2005 11:36:06 -0800
-Message-ID: <20050311193606.GL5389@shell0.pdx.osdl.net>
-References: <422F59E8.2090707@pobox.com> <20050310202548.GV5389@shell0.pdx.osdl.net> <4230AE24.602@pobox.com> <20050310213917.GW5389@shell0.pdx.osdl.net> <c37a8fd17af92b648c6474904e0003c0@libero.it>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: A new 10GB Ethernet Driver by Chelsio Communications
+Date: Fri, 11 Mar 2005 11:21:32 -0800
+Message-ID: <20050311112132.6a3a3b49.akpm@osdl.org>
+References: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@osdl.org>, stable@kernel.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
-To: Daniele Venzano <webvenza@libero.it>
-Content-Disposition: inline
-In-Reply-To: <c37a8fd17af92b648c6474904e0003c0@libero.it>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, mark@chelsio.com, netdev@oss.sgi.com,
+	Jeff Garzik <jgarzik@pobox.com>
+To: Christoph Lameter <christoph@graphe.net>
+In-Reply-To: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* Daniele Venzano (webvenza@libero.it) wrote:
-> 
-> I have been acting maintainer for more than a year now, and I'm 
-> completely fine with the patch.
+Christoph Lameter <christoph@graphe.net> wrote:
+>
+> A Linux driver for the Chelsio 10Gb Ethernet Network Controller by
+>  Chelsio (http://www.chelsio.com). This driver supports the Chelsio N210
+>  NIC and is backward compatible with the Chelsio N110 model 10Gb NICs.
 
-Thanks.
--chris
+Thanks, Christoph.
+
+The 400k patch was too large for the vger email server so I have uploaded it to
+
+ http://www.zip.com.au/~akpm/linux/patches/stuff/a-new-10gb-ethernet-driver-by-chelsio-communications.patch
+
+for reviewers.
+
+> It supports AMD64, EM64T and x86 systems.
+
+Is it only supported on those systems?  If so, why is that?
