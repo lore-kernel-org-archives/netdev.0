@@ -1,42 +1,23 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 8/5 2.4.27-pre3] pcnet32: correct printk for big-endian arch
-Date: Wed, 26 May 2004 13:42:29 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH]Add new IPv6 MIBs counters support through netlink
+Date: Wed, 26 May 2004 13:44:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405262042.i4QKgUV27910@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040526134415.483a6384.davem@redhat.com>
+References: <20040526132215.06e0bc12.davem@redhat.com>
+	<OFD49A843C.7EDA1DE2-ON87256EA0.0071A2A0-07256EA0.0071C18B@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: mashirle@us.ibm.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Shirley Ma <xma@us.ibm.com>
+In-Reply-To: <OFD49A843C.7EDA1DE2-ON87256EA0.0071A2A0-07256EA0.0071C18B@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch corrects a printk when executed on a big-endian system.
+On Wed, 26 May 2004 13:42:23 -0700
+Shirley Ma <xma@us.ibm.com> wrote:
 
---- linux-2.4.27-pre3/drivers/net/anr.pcnet32.c	Mon May 24 11:35:41 2004
-+++ linux-2.4.27-pre3/drivers/net/pcnet32.c	Wed May 26 12:30:23 2004
-@@ -1632,12 +1632,16 @@
- 	   lp->cur_rx);
- 	for (i = 0 ; i < RX_RING_SIZE; i++)
- 	printk("%s %08x %04x %08x %04x", i & 1 ? "" : "\n ",
--	       lp->rx_ring[i].base, -lp->rx_ring[i].buf_length,
--	       lp->rx_ring[i].msg_length, (unsigned)lp->rx_ring[i].status);
-+	       le32_to_cpu(lp->rx_ring[i].base),
-+	       le16_to_cpu(-lp->rx_ring[i].buf_length),
-+	       le32_to_cpu(lp->rx_ring[i].msg_length),
-+	       le16_to_cpu((unsigned)lp->rx_ring[i].status));
- 	for (i = 0 ; i < TX_RING_SIZE; i++)
- 	printk("%s %08x %04x %08x %04x", i & 1 ? "" : "\n ",
--	       lp->tx_ring[i].base, -lp->tx_ring[i].length,
--	       lp->tx_ring[i].misc, (unsigned)lp->tx_ring[i].status);
-+	       le32_to_cpu(lp->tx_ring[i].base),
-+	       le16_to_cpu(-lp->tx_ring[i].length),
-+	       le32_to_cpu(lp->tx_ring[i].misc),
-+	       le16_to_cpu((unsigned)lp->tx_ring[i].status));
- 	printk("\n");
-     }
-     pcnet32_restart(dev, 0x0042);
+> Yes, same structure ip_stats applys to IPv4 as well.
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+Great, patch applied.
