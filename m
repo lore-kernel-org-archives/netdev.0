@@ -1,7 +1,7 @@
 From: deliver_photo_sup@yahoo.co.jp
 Subject: =?iso-2022-jp?B?g2aDioNvg4qBW1BIT1RPIJP8ie+Krpe5?=
-Date: Mon,  1 Nov 2004 16:36:20 +0900 (JST)
-Message-ID: <20041101073620.D1507588042@mail.zl8.jp>
+Date: Mon,  1 Nov 2004 17:37:30 +0900 (JST)
+Message-ID: <20041101083730.28C41588041@mail.zl8.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
