@@ -1,26 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [ATM] Fix flags type in lec_arp_expire_vcc
-Date: Wed, 26 Jan 2005 22:20:35 -0800
-Message-ID: <20050126222035.715ec67e.davem@davemloft.net>
-References: <20050126233820.GA24422@gondor.apana.org.au>
+Subject: Re: [PATCH 2.6]: keep fragment queues private to each user
+Date: Wed, 26 Jan 2005 22:29:55 -0800
+Message-ID: <20050126222955.729c390b.davem@davemloft.net>
+References: <41F5D1CB.9050804@trash.net>
+	<20050125214158.4be3798c.davem@davemloft.net>
+	<41F82830.9010009@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050126233820.GA24422@gondor.apana.org.au>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41F82830.9010009@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Jan 2005 10:38:20 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Thu, 27 Jan 2005 00:30:56 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> The variable flags in lec_arp_expire_vcc should be of type
-> unsigned long and not unsigned.  The following patch fixes
-> that typo.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Sorry, new patch attached. I'll send the 2.4 patch later tonight.
 
-Applied, thanks Herbert.
+Thanks.  I'll apply this and the 2.4.x variant.
+
+Although I have a theoretical objection to this thing.  It is
+extending a namespace we have no such control over.  The namespace
+is saddr/daddr/ID.  But perhaps I'm being overly anal.
