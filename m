@@ -1,73 +1,41 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] prism54: small prismcompat cleanup (fwd)
-Date: Wed, 8 Dec 2004 04:33:26 +0100
-Message-ID: <20041208033326.GQ5496@stusta.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
+Date: 07 Dec 2004 23:27:25 -0500
+Message-ID: <1102480044.1050.9.camel@jzny.localdomain>
+References: <1102380430.6103.6.camel@buffy>
+	 <20041206224441.628e7885.akpm@osdl.org>
+	 <1102422544.1088.98.camel@jzny.localdomain> <41B5E188.5050800@trash.net>
+	 <20041207170748.GF1371@postel.suug.ch>  <41B5E722.2080600@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: prism54-private@prism54.org, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, Andrew Morton <akpm@osdl.org>,
+	Thomas Cataldo <tomc@compaqnet.fr>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261787AbULHE1f@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41B5E722.2080600@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-The patch forwarded below (slightly adopted for 2.6.10-rc2-mm4) still 
-applies.
+On Tue, 2004-12-07 at 12:23, Patrick McHardy wrote:
 
-Please apply.
+> Either one is fine with me, although I would prefer to see
+> the number of ifdefs in this area going down, not up :)
 
+You guys pick one or other or a mix. I run 4 base testcases for the
+policer typically:
 
------ Forwarded message from Adrian Bunk <bunk@stusta.de> -----
+1) Old kernel, uptodate TC - MUST pass
+2) old kernel, old tc (trivial - expected to pass).
+3) New Kernel, uptodate TC - MUST pass
+4) New Kernel, uptodate TC - MUST pass (although trivial)
 
-Date: Sat, 30 Oct 2004 07:38:00 +0200
-From: Adrian Bunk <bunk@stusta.de>
-To: Margit Schubert-While <margitsw@t-online.de>
-Cc: prism54-private@prism54.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-	linux-net@vger.kernel.org
-Subject: [2.6 patch] prism54: small prismcompat cleanup
+Try both setting, dumping then deleting policies.
 
+If these tests pass, please push patch to Dave. 
 
-- the FW_LOADER is already guaranteed through the Kconfig file
-- prism54_synchronize_irq is also #define'd to synchronize_irq
-  in prismcompat24.h, so there's no need for it
-
-
-diffstat output:
- drivers/net/wireless/prism54/islpci_dev.c  |    2 +-
- drivers/net/wireless/prism54/prismcompat.h |    6 ------
- 2 files changed, 1 insertion(+), 7 deletions(-)
-
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.10-rc1-mm2-full/drivers/net/wireless/prism54/islpci_dev.c.old2	2004-10-30 07:23:07.000000000 +0200
-+++ linux-2.6.10-rc1-mm2-full/drivers/net/wireless/prism54/islpci_dev.c	2004-10-30 07:23:19.000000000 +0200
-@@ -420,7 +420,7 @@
- 	 * currently in progress by emptying the TX and RX queues. */
- 
- 	/* wait until interrupts have finished executing on other CPUs */
--	prism54_synchronize_irq(priv->pdev->irq);
-+	synchronize_irq(priv->pdev->irq);
- 
- 	reg = readl(device_base + ISL38XX_CTRL_STAT_REG);
- 	reg &= ~(ISL38XX_CTRL_STAT_RESET | ISL38XX_CTRL_STAT_RAMBOOT);
-
---- linux-2.6.10-rc2-mm4-full/drivers/net/wireless/prism54/prismcompat.h.old	2004-12-08 04:06:13.000000000 +0100
-+++ linux-2.6.10-rc2-mm4-full/drivers/net/wireless/prism54/prismcompat.h	2004-12-08 04:06:25.000000000 +0100
-@@ -34,16 +34,10 @@
- #include <linux/workqueue.h>
- #include <linux/compiler.h>
- 
--#if !defined(CONFIG_FW_LOADER) && !defined(CONFIG_FW_LOADER_MODULE)
--#error Firmware Loading is not configured in the kernel !
--#endif
--
- #ifndef __iomem
- #define __iomem
- #endif
- 
--#define prism54_synchronize_irq(irq) synchronize_irq(irq)
--
- #define PRISM_FW_PDEV		&priv->pdev->dev
- 
- #endif				/* _PRISM_COMPAT_H */
+cheers,
+jamal
