@@ -1,41 +1,41 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFT] Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
-Date: Sat, 11 Oct 2003 12:56:56 -0700
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: patches for PROC_FS=n (2.6.0-test7)
+Date: Sat, 11 Oct 2003 20:24:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011125656.322bd0ab.davem@redhat.com>
-References: <20031008133345.49f71991.davem@redhat.com>
-	<20031010023644.GA8365@conectiva.com.br>
-	<20031010032244.GB8365@conectiva.com.br>
-	<20031009211437.2cf87a4f.davem@redhat.com>
-	<20031010154052.GA11366@conectiva.com.br>
+Message-ID: <20031011202433.72fcbd38.rddunlap@osdl.org>
+References: <20031010141646.779f10bb.rddunlap@osdl.org>
+	<20031011120852.13fa8ec4.davem@redhat.com>
+	<20031011194008.GA2395@mars.ravnborg.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, dmerillat@sequiam.com
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20031010154052.GA11366@conectiva.com.br>
+To: Sam Ravnborg <sam@ravnborg.org>
+In-Reply-To: <20031011194008.GA2395@mars.ravnborg.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Oct 2003 12:40:52 -0300
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Sat, 11 Oct 2003 21:40:08 +0200 Sam Ravnborg <sam@ravnborg.org> wrote:
 
-> ipv6_rcv_saddr_equal, look at this:
-> 
->         if (sk2->sk_family == AF_INET6 &&
->             !ipv6_addr_cmp(&np->rcv_saddr,
->                            (sk2->sk_state != TCP_TIME_WAIT ?
->                             &inet6_sk(sk2)->rcv_saddr :
->                             &tcptw_sk(sk)->tw_v6_rcv_saddr)))
->                                       ^^
->                                       ^^
-> shouldn't the tcp_tw_sk(sk) be tcp_tw_sk(sk2)?
+| On Sat, Oct 11, 2003 at 12:08:52PM -0700, David S. Miller wrote:
+| > On Fri, 10 Oct 2003 14:16:46 -0700
+| > "Randy.Dunlap" <rddunlap@osdl.org> wrote:
+| > 
+| > > http://developer.osdl.org/rddunlap/patches/atmprocfs_260t7.patch
+| > 
+| > How can this be needed?  When procfs is disabled then
+| > remove_proc_entry() is defined as "do { } while (0)", ie. a nop.
+| 
+| Due to this - the real offender:
+| 
+| from: net/atm/clip.c:
+| #ifdef CONFIG_PROC_FS
+| #include <linux/proc_fs.h>
+| #include <linux/seq_file.h>
+| #endif
 
-Yes.
+ugh, thanks.
 
-> And in this function we have the guard against it being a tcp_tw_bucket, but
-> not in all places...
-
-It does guard in this spot, that's why it is checking the
-sk_state value.
+--
+~Randy
