@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] smctr: fix init section usage
-Date: Sun, 7 Mar 2004 19:40:09 -0800
+Subject: [PATCH] ibmtr init section usage
+Date: Sun, 7 Mar 2004 19:38:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040307194009.4ce2f9b1.rddunlap@osdl.org>
+Message-ID: <20040307193803.576182ce.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,7 +12,8 @@ To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-smctr_chk_mca() can be __init.
+
+probe functions can be __devinit.
 
 Patch is to 2.6.4-rc2.  Please apply.
 
@@ -21,19 +22,28 @@ Patch is to 2.6.4-rc2.  Please apply.
 
 
 diffstat:=
- drivers/net/tokenring/smctr.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/tokenring/ibmtr.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
 
-diff -Naurp ./drivers/net/tokenring/smctr.c~smctr_init ./drivers/net/tokenring/smctr.c
---- ./drivers/net/tokenring/smctr.c~smctr_init	2004-02-17 19:57:56.000000000 -0800
-+++ ./drivers/net/tokenring/smctr.c	2004-03-07 17:39:14.000000000 -0800
-@@ -477,7 +477,7 @@ static int smctr_checksum_firmware(struc
-         return (0);
+diff -Naurp ./drivers/net/tokenring/ibmtr.c~ibmtr_init ./drivers/net/tokenring/ibmtr.c
+--- ./drivers/net/tokenring/ibmtr.c~ibmtr_init	2004-03-06 20:57:06.000000000 -0800
++++ ./drivers/net/tokenring/ibmtr.c	2004-03-07 18:31:11.000000000 -0800
+@@ -333,7 +333,7 @@ static void ibmtr_cleanup_card(struct ne
+ #endif		
  }
  
--static int smctr_chk_mca(struct net_device *dev)
-+static int __init smctr_chk_mca(struct net_device *dev)
+-int ibmtr_probe_card(struct net_device *dev)
++int __devinit ibmtr_probe_card(struct net_device *dev)
  {
- #ifdef CONFIG_MCA
- 	struct net_local *tp = (struct net_local *)dev->priv;
+ 	int err = ibmtr_probe(dev);
+ 	if (!err) {
+@@ -356,7 +356,7 @@ int ibmtr_probe_card(struct net_device *
+  *	which references it.
+  ****************************************************************************/
+ 
+-static int ibmtr_probe(struct net_device *dev)
++static int __devinit ibmtr_probe(struct net_device *dev)
+ {
+ 	int i;
+ 	int base_addr = dev->base_addr;
