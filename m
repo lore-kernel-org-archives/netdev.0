@@ -1,33 +1,42 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [PATCH 2/3] NET: Generic rate estimator
-Date: Mon, 4 Oct 2004 01:57:37 +0200
+Date: 03 Oct 2004 21:16:22 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003235737.GO14344@postel.suug.ch>
-References: <20041003213124.GG14344@postel.suug.ch> <20041003213954.GI14344@postel.suug.ch> <20041003161436.50293f9a.davem@davemloft.net>
+Message-ID: <1096852582.1046.378.camel@jzny.localdomain>
+References: <20041003213124.GG14344@postel.suug.ch>
+	 <20041003213954.GI14344@postel.suug.ch>
+	 <20041003161436.50293f9a.davem@davemloft.net>
+	 <20041003233647.GN14344@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041003161436.50293f9a.davem@davemloft.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041003233647.GN14344@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20041003161436.50293f9a.davem@davemloft.net> 2004-10-03 16:14
-> First, how does this new thing ever get built into the tree?
+On Sun, 2004-10-03 at 19:36, Thomas Graf wrote:
+> * David S. Miller <20041003161436.50293f9a.davem@davemloft.net> 2004-10-03 16:14
 
-I misunderstood you before and didn't realize I missed to diff the
-Makefile part. Sorry about that.
+> > > +#if (HZ%4) != 0
+> > > +#error Bad HZ value.
+> > > +#endif
+> > 
+> > This is going to fail to compile on a few platforms, namely m68knommu
+> > and v850 which have configurations that result in using a HZ value
+> > of 50 and 122 respectively.
+> 
+> This was taken over from net/sched/estimator.c so I guess there was no
+> person ever using the rate estimator on such an arch ;)
+> 
+> Can we simply remove the check?
 
---- linux-2.6.9-rc3.orig/net/core/Makefile	2004-10-04 01:55:37.000000000 +0200
-+++ linux-2.6.9-rc3/net/core/Makefile	2004-09-30 21:30:42.000000000 +0200
-@@ -2,7 +2,7 @@
- # Makefile for the Linux networking core.
- #
- 
--obj-y := sock.o skbuff.o iovec.o datagram.o stream.o scm.o
-+obj-y := sock.o skbuff.o iovec.o datagram.o stream.o scm.o gen_stats.o gen_estimator.o
- 
- obj-$(CONFIG_SYSCTL) += sysctl_net_core.o
- 
+The granularity of the timing is dependent on this - 250msec increments.
+Find a common demonitor for all Hz values which results in something
+along 200ms range and we should be set. 
+
+cheers,
+jamal
