@@ -1,46 +1,86 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Sat, 13 Sep 2003 19:25:22 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] tiny af_packet.c cleanup
+Date: Sun, 14 Sep 2003 12:55:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030913192522.58705cb0.davem@redhat.com>
-References: <200309022116.41697.bdschuym@pandora.be>
-	<20030905153152.GA3623@obroa-skai.de.gnumonks.org>
-	<20030908191400.5ef59ab6.davem@redhat.com>
-	<200309132159.37834.bdschuym@pandora.be>
+Message-ID: <20030914125549.A7790@electric-eye.fr.zoreil.com>
+References: <20030913055033.GB94744@gaz.sfgoth.com> <20030913093559.A23840@electric-eye.fr.zoreil.com> <20030913080252.GE94744@gaz.sfgoth.com> <20030913110353.B23840@electric-eye.fr.zoreil.com> <20030913201559.GI94744@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, acme@conectiva.com.br,
-   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200309132159.37834.bdschuym@pandora.be>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+Content-Disposition: inline
+In-Reply-To: <20030913201559.GI94744@gaz.sfgoth.com>; from mitch@sfgoth.com on Sat, Sep 13, 2003 at 01:15:59PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 13 Sep 2003 21:59:37 +0200
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+Mitchell Blank Jr <mitch@sfgoth.com> :
+[...]
+> I don't understand what you're saying - are you saying that the locking
+> isn't needed?  Or just the recheck isn't needed?  It sounds like if we're
+> only avoiding the race because of the bh_lock_sock() then we do need to
+> recheck, right?
 
-> It just uses unsigned int instead of unsigned long, so there should
-> be no problem with the evil Sparc64.
+- the locking is needed
+- the recheck is needed
+(- it does more than the recheck)
 
-Sparc64 doesn't have the problems, it just fixes up the unaligned
-accesses there so it'll just be super-slow (some "optimization" :).
+My point was related to the comment included in the patch, namely
+"/* re-check under lock */"
+>From a reader's view, it is important to know why things are done and the
+comment only tells _what_ is done.
 
-The problem is on parisc64 which is very strict about accessing
-structure members which are not aligned to the accessor type you use
-to dereference and gives you a link/compile error when you violate
-this.
+So why is locking required ?
 
-> Perhaps the ip_tables.c code from which I copied the original code
-> should be altered too.
+The comment just before the head of packet_rcv() suggests it.
 
-Yes.
+As usual packet handler [1] in Linux, this code is run in a BH context.
+It can race with user-space when it uses the struct sock related part of
+the sk_buff (and it could race with tasklets when it messes with the
+struct sk_buff itself)
 
-> It's a real optimization btw, the .o file is 32 bytes
-> larger when doing the bit operations on a char with i<IFNAMSIZ.
-> All hail Rusty :)
+User-space can change sk->sk_filter through setsockopt() +
+SO_{ATTACH/DETACH}_FILTER but it takes care to only do so in sections 
+surrounded by spin_{lock/unlock}_bh() [2]. As the first "if (sk->sk_filter)"
+in packet_rcv() takes no lock, there is a time window where it is possible
+that sk->sk_filter has been changed by user-space code on one cpu whereas
+packet_rcv() still sees the old value. However, user is guaranteed that a
+packet received _after_ his call to setsockopt() has returned will be
+correctly handled by packet_rcv(). Whence 1) user is happy 2) packet_rcv()
+isn't forced to take a lock before examination of sk->sk_filter when there
+is no BPF handling to do (optimization).
 
-I understand, but instead create an arch routine to optimize this
-instead of using non-portable constructs.  memcmp_masked() or
-something like that.
+Now let's assume some BPF-related action _appears_ to be needed. Without
+locking, even filter = sk->sk_filter in packet_rcv() could race with
+sk->sk_filter = NULL in sock_setsockopt() and result in partially set
+content for "filter". That's why user-space code forbids BH on its CPU and
+stops BH on others CPU with sk->sk_lock.slock. As soon as packet_rcv()
+try to lock sk->sk_lock.slock, locking between packet_rcv() and user space
+is fine.
+As there is no point in issuing "forbid BH on my CPU" from packet_rcv(),
+this part of the locking is forgotten. Thus packet_rcv() only issues a
+spin_{lock/unlock} (which protects from tasklets on different CPU as well).
+spin_{lock/unlock} is named bh_{lock/unlock}_sock. I assume it is on
+documentation purpose and to allow an evil plan in the future.
+
+[1] net/core/dev.c::dev_add_pack() and struct packet_type in
+    include/linux/netdevice.h
+[2] net/core/sock.c::sock_setsockopt() ... SO_DETACH_FILTER and
+    net/core/filter.c::sk_attach_filter()
+
+> Could you do a patch for what you think it should look like?  You obviously
+> understand the locking issues here better than I.
+
+See previously posted patch. Imho the non-trivial part isn't the locking
+itself but the fact that the first test of sk->sk_filter is done _without_
+lock. May be something like the following comment before this test:
+
+/* Racing with user-space for optimization purpose: don't panic */
+
+Tell me if it is correctly worded and I'll patch it.
+
+Btw, the locking issues are rather well explained in 
+Documentation/DocBook/kernel-locking.tmpl (and in Schimmel's book as well).
+
+--
+Ueimor
