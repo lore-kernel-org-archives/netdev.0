@@ -1,40 +1,28 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6: Functions Clean-up
-Date: Sun, 3 Nov 2002 14:08:49 +0200 (EET)
+Date: Sun, 03 Nov 2002 04:03:38 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0211031407270.27836-100000@netcore.fi>
-References: <1036328414.1048.3.camel@arwen>
+Message-ID: <20021103.040338.98864962.davem@redhat.com>
+References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
+	<1036328414.1048.3.camel@arwen>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?= =?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>,
-   <linux-kernel@vger.kernel.org>, Netdev <netdev@oss.sgi.com>,
-   Netfilter Devel <netfilter-devel@lists.netfilter.org>,
-   "David S. Miller" <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>,
-   <usagi@linux-ipv6.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   netfilter-devel@lists.netfilter.org, kuznet@ms2.inr.ac.ru,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andras Kis-Szabo <kisza@securityaudit.hu>
+To: kisza@securityaudit.hu
 In-Reply-To: <1036328414.1048.3.camel@arwen>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 3 Nov 2002, Andras Kis-Szabo wrote:
-> >  - export route6_me_harder() as ip6_route_harder() and
-> >    use it from net/ipv6/netfilter/ip6_queue.c.
-> Opsz!
-> At the extension parser code we got that decision that we should use
-> our own parser in the Netfilter code! (And we should not to trust in the
-> kernel.)
-> This patch removes one function from the Netfilter code and forces the
-> Netfilter to use a similar function from the kernel's one!
+   From: Andras Kis-Szabo <kisza@securityaudit.hu>
+   Date: Sun, 03 Nov 2002 14:00:14 +0100
 
-And why is that a problem?
+   (And we should not to trust in the kernel.)
 
-If there is a problem in main kernel code, it should fixed.  If the 
-netfilter version is better, the main kernel code should be changed.
-
-Are there specific reasons to keep them separate?
-
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+If you can't trust the exthdr parser in the kernel, you probably can't
+trust the kernel to even give you the packets correctly in the first
+place.  So you better just rm -rf netfilter/ while you have the chance
+:-)
