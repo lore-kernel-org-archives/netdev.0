@@ -1,53 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169, 2.6.2-rc2, Sager 4780 laptop
-Date: Mon, 26 Jan 2004 23:55:59 +0100
+From: Jamie Lokier <jamie@shareable.org>
+Subject: Re: [PATCH]: altq HFSC port
+Date: Mon, 26 Jan 2004 23:59:57 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040126235559.A3832@electric-eye.fr.zoreil.com>
-References: <Pine.LNX.4.58.0401261443190.7894@edp12.straus-frank.int>
+Message-ID: <20040126235957.GA30186@mail.shareable.org>
+References: <Pine.GSO.4.42.0401261228290.22399-200000@stinky.trash.net> <1075128375.1746.392.camel@jzny.localdomain> <40155F1A.7070507@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bhartin@straus-frank.com
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0401261443190.7894@edp12.straus-frank.int>; from bhartin@straus-frank.com on Mon, Jan 26, 2004 at 03:19:57PM -0600
+In-Reply-To: <40155F1A.7070507@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-bhartin@straus-frank.com <bhartin@straus-frank.com> :
-[...]
-> Attached is a tar.gz containing the outputs you request in your README, 
-> plus 'lspci -v' output and my .config for the kernel.  This data was 
-> collected from a fresh 2.6.2-rc2 bootup, using your full set of 2.6.2-rc1 
-> patches, manually doing a 'modprobe r8169' once booted up.  The system is 
-> running a P4 with HT enabled, with an SMP kernel.
+Patrick McHardy wrote:
+> I talked to the original authors and they removed the advertising
+> clause
+> (http://orange.kame.net/dev/cvsweb.cgi/kame/kame/sys/altq/altq_hfsc.c),
+> but they didn't want to release the code under the GPL. Various posts on
+> linux-kernel indicate that combining GPL code with BSD code without
+> advertising clause makes the end-product automatically be subject to the
+> GPL, even without consent of the authors. I basically meant to ask if
+> this is true.
 
-There has been report of non-regression on non-SMP kernel with the following
-patches applied (2.6.2-rc1 serie):
-r8169-tx-index-overflow.patch
-r8169-dma-api-tx.patch
-r8169-dma-api-rx-buffers.patch
-r8169-dma-api-tx-buffers.patch
-r8169-rx_copybreak.patch
-r8169-mac-phy-version.patch
-r8169-init_one.patch
-r8169-timer.patch
-r8169-hw_start.patch
-r8169-intr_mask.patch
-r8169-suspend.patch
-r8169-endianness.patch
-r8169-getstats.patch
+Yes, the end-product Linux kernel (the combined work) is subject to
+the GPL.  You _do_ have the consent of the authors: their decision to
+release under the BSD-without-advertising license _is_ consent to
+incorporate it into a GPL work, just as it is consent to incorporate
+it into a closed source work.  Asking for their blessing is politeness.
 
-Can you confirm that the driver behaves the same as the standard driver
-with a non-SMP enabled kernel ?
+When the authors release the code under the BSD-without-advertising
+clause, they are declaring that it's ok to use the code in lots of
+different ways.  One of those is that it's ok to re-release the code
+under GPL - the authors may not like that, but they have explicitly
+declared that you may to do it.
 
-Does it make a difference if you give an 'acpi=off' option at boot time ?
+You can do that.
+Alternatively you can keep the code licensed under BSD-without-advertising.
 
-r8169-addr-high.patch is not doing its job on amd64 so it is not suggested
-to use it at all.
+When you combine BSD-without-advertising code with GPL code, the
+resulting combined work is covered by both licenses, and because the
+BSD-without-advertising permissions are a superset of the GPL
+permissions, the combined work is effectively covered by the GPL.
 
-There is something broken wrt SMP and the r8169 patches: do not use both at
-the same time. I still have to find what happens here.
+However, the BSD-without-advertising code retains its own license, and
+provided it remains an "identifiable section" of the program and "can
+be reasonably considered independent and separate" in itself, then
+anyone may copy that code from the combined work and use it according
+to the BSD-without-advertising license.  See clause 2, paragraph 5 of
+the GPL.  Unfortunately it is not 100% clear on this matter.
 
---
-Ueimor
+Whether that code remains independent and separate will depend on the
+changes made and the licensing of patches, which is a grey area
+because people don't tend to make the licensing of Linux patches
+clear.  Most likely, as soon as people make changes to the code within
+the context of Linux development, it may be assumed that the derived
+work (the hfsc code + patches from Linux authors) is covered by the GPL.
+
+Btw, IANAL.
+-- Jamie
