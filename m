@@ -1,36 +1,76 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] rtnetlink & address family problem
-Date: Tue, 7 Dec 2004 15:10:33 +0100
-Message-ID: <20041207141033.GD1371@postel.suug.ch>
-References: <41B0A5B4.6060108@suse.cz> <20041206140214.GA749@postel.suug.ch> <1102386461.1093.26.camel@jzny.localdomain> <20041207124922.GA1371@postel.suug.ch> <1102424568.1089.120.camel@jzny.localdomain> <20041207131706.GB1371@postel.suug.ch> <1102425618.1089.133.camel@jzny.localdomain>
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: [PATCH] fix select() for SOCK_RAW sockets
+Date: Tue, 7 Dec 2004 07:08:34 -0800
+Message-ID: <20041207150834.GA75700@gaz.sfgoth.com>
+References: <20041207003525.GA22933@linuxace.com> <20041207025218.GB61527@gaz.sfgoth.com> <20041207045302.GA23746@linuxace.com> <20041207054840.GD61527@gaz.sfgoth.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Michal Ludvig <mludvig@suse.cz>, Andrew Morton <akpm@osdl.org>,
-        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
-        Jan Kara <jack@suse.cz>
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Phil Oester <kernel@linuxace.com>, "David S. Miller" <davem@davemloft.net>,
+        shemminger@osdl.org
 Content-Disposition: inline
-In-Reply-To: <1102425618.1089.133.camel@jzny.localdomain>
+In-Reply-To: <20041207054840.GD61527@gaz.sfgoth.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1102425618.1089.133.camel@jzny.localdomain> 2004-12-07 08:20
-> On Tue, 2004-12-07 at 08:17, Thomas Graf wrote:
-> 
-> > It's not really related to the gnet_stats code.  stats_lock isn't set
-> > in the action code when using an older iproute2. I haven't tested this
-> > case because it was marked as broken anyway. 
-> 
-> Can you ping my memory on this? Is this tc with initial support
-> for actions or something much older than that.
+Phil: Here's a real patch for you to test.  I actually left inet_dgram_ops
+alone since it's an exported symbol (two of the users just want the .do_ioctl
+value which is the same between SOCK_DGRAM and SOCK_RAW; the other is ipv6
+where it's clearly dealing with a UDP socket -- therefore I think its safest
+to leave inet_dgram_ops to have the UDP behavior)
 
-I'm not sure, I'm testing with a version having no action support at
-all. It should be fairly easy to find the bug once I have the time to
-really look into it. I'm still getting interrupted all the time at
-the moment.
+Davem: I only tested that this doesn't break UDP; if it works for Phil and
+Stephen can verify that it doesn't break his bad-checksum UDP tests then
+please push it for 2.6.10.
 
-All actions created via tcf_hash_create, tcf_police_locate, and
-tcf_act_police_locate should be fine. There must be some bogus path
-related to older tc versions.
+Patch is versus 2.6.10-rc3.
+
+Signed-off-by: Mitchell Blank Jr <mitch@sfgoth.com>
+
+-Mitch
+--- linux-2.6.10-rc3-VIRGIN/net/ipv4/af_inet.c	2004-12-07 06:37:52.480082706 -0800
++++ linux-2.6.10-rc3/net/ipv4/af_inet.c	2004-12-07 06:57:47.799013216 -0800
+@@ -821,6 +821,31 @@
+ 	.sendpage =	inet_sendpage,
+ };
+ 
++/*
++ * For SOCK_RAW sockets; should be the same as inet_dgram_ops but without
++ * udp_poll
++ */
++static struct proto_ops inet_sockraw_ops = {
++	.family =	PF_INET,
++	.owner =	THIS_MODULE,
++	.release =	inet_release,
++	.bind =		inet_bind,
++	.connect =	inet_dgram_connect,
++	.socketpair =	sock_no_socketpair,
++	.accept =	sock_no_accept,
++	.getname =	inet_getname,
++	.poll =		datagram_poll,
++	.ioctl =	inet_ioctl,
++	.listen =	sock_no_listen,
++	.shutdown =	inet_shutdown,
++	.setsockopt =	sock_common_setsockopt,
++	.getsockopt =	sock_common_getsockopt,
++	.sendmsg =	inet_sendmsg,
++	.recvmsg =	sock_common_recvmsg,
++	.mmap =		sock_no_mmap,
++	.sendpage =	inet_sendpage,
++};
++
+ static struct net_proto_family inet_family_ops = {
+ 	.family = PF_INET,
+ 	.create = inet_create,
+@@ -861,7 +886,7 @@
+                .type =       SOCK_RAW,
+                .protocol =   IPPROTO_IP,	/* wild card */
+                .prot =       &raw_prot,
+-               .ops =        &inet_dgram_ops,
++               .ops =        &inet_sockraw_ops,
+                .capability = CAP_NET_RAW,
+                .no_check =   UDP_CSUM_DEFAULT,
+                .flags =      INET_PROTOSW_REUSE,
