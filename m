@@ -1,45 +1,33 @@
-From: akpm@osdl.org
-Subject: [patch 1/1] remove last_rx update from loopback device
-Date: Mon,  7 Mar 2005 16:22:41 -0800
-Message-ID: <200503080022.j280MdD3008666@shell0.pdx.osdl.net>
-Cc: netdev@oss.sgi.com, akpm@osdl.org, christoph@graphe.net,
-        nirajk@calsoftinc.com, christoph@lameter.com, Shai@Scalex86.org
-To: davem@davemloft.net
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Dynamically classifying flows?
+Date: Tue, 08 Mar 2005 01:25:20 +0100
+Message-ID: <422CF0F0.3020407@trash.net>
+References: <7bca1cb505030709502316f9b8@mail.gmail.com>	 <20050307203450.GX31837@postel.suug.ch> <7bca1cb505030716104856fe3@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Thomas Graf <tgraf@suug.ch>, netdev@oss.sgi.com
+To: Asim Shankar <asimshankar@gmail.com>
+In-Reply-To: <7bca1cb505030716104856fe3@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Asim Shankar wrote:
+>>It is a likely scenario but usually not a problem because you can classify this
+>>kind of bulk packets by their size. u32 can be used use for such things or the
+>>newly added meta ematch.
+> 
+> Filtering by size may not always work. An interactive flow may also
+> generate big (MTU) size packets, but it is interactive because the
+> _rate_ at which packets are produced is smaller. Though, if you think
+> that such cases are purely theoretical and don't create problems in
+> practice, do let me know.
 
-From: Christoph Lameter <christoph@graphe.net>
+The connbytes and the connrate match from netfilter patch-o-matic can
+be used to dynamically reclassify demanding connections. Keep in mind
+that reclassification can cause reordering, so you should make sure
+it can't happen frequently for single connections.
 
-The last_rx field in the loopback driver is updated on every xmit but is
-not used otherwise.  Accesses to ->last_rx cause unecessary traffic on the
-interlink for NUMA systems which limits the performance of the loopback
-device.
-
-The comment given at include/linux/netdevice.h says that last_rx may be
-used for future network-power-down code, which is likely not relevant for
-the loopback device (please let me know if it is otherwise ..).
-
-Signed-off-by: Niraj Kumar <nirajk@calsoftinc.com>
-Signed-off-by: Christoph Lameter <christoph@lameter.com>
-Signed-off-by: Shai Fultheim <Shai@Scalex86.org>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- 25-akpm/drivers/net/loopback.c |    2 --
- 1 files changed, 2 deletions(-)
-
-diff -puN drivers/net/loopback.c~remove-last_rx-update-from-loopback-device drivers/net/loopback.c
---- 25/drivers/net/loopback.c~remove-last_rx-update-from-loopback-device	Mon Mar  7 16:21:49 2005
-+++ 25-akpm/drivers/net/loopback.c	Mon Mar  7 16:21:49 2005
-@@ -144,8 +144,6 @@ static int loopback_xmit(struct sk_buff 
- 		return 0;
- 	}
- 
--	dev->last_rx = jiffies;
--
- 	lb_stats = &per_cpu(loopback_stats, get_cpu());
- 	lb_stats->rx_bytes += skb->len;
- 	lb_stats->tx_bytes += skb->len;
-_
+Regards
+Patrick
