@@ -1,29 +1,111 @@
-From: Geoffrey Lee <glee@gnupilgrims.org>
-Subject: Re: [PATCH] connect() return value.
-Date: Tue, 13 Aug 2002 21:34:50 +1000
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: Re: raw ipv6 broken in 2.4.19
+Date: 13 Aug 2002 13:32:36 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020813113450.GA19058@anakin.wychk.org>
-References: <20020813053704.GA14788@anakin.wychk.org> <200208131017.OAA20516@sex.inr.ac.ru>
+Message-ID: <1029238356.785.7.camel@tux>
+References: <200208130404.IAA20030@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=big5
+Content-Type: multipart/mixed; boundary="=-ayFoqu3ajXYTjlIN3X1s"
 Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
 To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200208131017.OAA20516@sex.inr.ac.ru>
+In-Reply-To: <200208130404.IAA20030@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-> > Is that what you expected?
+
+--=-ayFoqu3ajXYTjlIN3X1s
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+On Tue, 2002-08-13 at 06:04, kuznet@ms2.inr.ac.ru wrote:
+> Hello!
 > 
-> Well, it proves that one of us makes tests not on linux.
+> > It seems to be the tulip driver,
 > 
+> Apparently, it corrupts IPv6 packets. I have seen this bug,
+> it was cured by tuning pci settings in bios setup to be more conservative.
+> The most intersting thing was that only ICMP IPv6 were corrupted. :-)
 
+Eek!
 
-Ah, yes you're right. I was feeling stupid and I forgot to clear the
-errno because re-trying the connect().
+I have this problem in two machines, one SMP and one UP, both with
+i440BX chipset. I've tried setting the BIOS settings as conservative as
+possible in one machine but it didn't help. Will try the other one a
+little later.
 
-It looks my brain has gone mouldy. Sorry. :-)
+I've heard something about a PCI posting bug in the tulip hardware?
+could this have anything to do with that?
 
+> > attaching them, the tcpdump looked perfectly normal to me.
+> 
+> I do not think so, packets should have wrong checksum.
 
+I've attached a small dump. captured while trying to ping an OpenBSD
+machine.
 
-	-- G.
+I also found that ping6 -s 37 and lower works fine but -s 38 and higher
+doesn't.
+
+-- 
+/Martin
+
+Never argue with an idiot. They drag you down to their level, then beat
+you with experience.
+
+--=-ayFoqu3ajXYTjlIN3X1s
+Content-Disposition: attachment; filename=dumpfile
+Content-Type: application/octet-stream; name=dumpfile
+Content-Transfer-Encoding: base64
+
+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
+
+--=-ayFoqu3ajXYTjlIN3X1s--
