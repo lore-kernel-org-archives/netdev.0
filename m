@@ -1,42 +1,43 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: dummy as IMQ replacement
-Date: Mon, 31 Jan 2005 16:46:14 +0200
-Message-ID: <200501311646.14322.hasso@estpak.ee>
-References: <1107123123.8021.80.camel@jzny.localdomain> <200501311614.31397.hasso@estpak.ee> <1107181551.7847.193.camel@jzny.localdomain>
+From: Martin Wilck <martin.wilck@fujitsu-siemens.com>
+Subject: SIOCGIFMAP silently broken?
+Date: Mon, 31 Jan 2005 15:57:09 +0100
+Message-ID: <41FE4745.4020003@fujitsu-siemens.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1107181551.7847.193.camel@jzny.localdomain>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261226AbVAaO5d@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Unfortunately this "index" thing continues to be a big secret although i
-> have pointed it a few times. Bart should probably add it to his HOWTO.
+Hi,
 
-All this stuff deserves better documentation ;). Call me oldfashioned, but 
-IMHO would be good start to have all keywords at least somewhat documented 
-in iproute2 man pages. I know, writing documentation is boring task etc, 
-but at least you should mention all features in man pages. This gives to 
-someone at least chance to kick you "hey, what's this?" ;).
+we are using a server management software that uses the irq information
+returned by the SIOCGIFMAP ioctl to correlate network interfaces with
+LAN hardware.
 
-This is somewhat related to killing the chance to use iptables as well ... 
-Iptables has better documentation and people use it just because of that.
+The code for SIOCGIFMAP if net/core/dev.c simply returns netdev->irq 
+which isn't set by most actual LAN drivers any more, and it seems to
+be common opinion that setting netdev->irq is either optional or even 
+wrong (http://www.ussg.iu.edu/hypermail/linux/kernel/0407.3/1292.html).
 
-Just checked ... "tc action help" in newest iproute2 returns nothing as 
-well :(.
+Consequently, the SIOCGIFMAP ioctl reports bogus IRQ values for most 
+hardware; it is therefore unreliable.
 
+Would it be possible to fix the ioctl such that it returns the correct 
+irq value, e.g. be using the irq field of the associated struct pci_dev?
+
+If not, I'd consider it better to deprecate netdev->irq officially and 
+always return bogus so that people stop using it.
+
+In both cases, the netdev->irq field isn't used anymore; perhaps it 
+should be officially deprecated and/or removed?
+
+Regards
+Martin
 
 -- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+Martin Wilck                Phone: +49 5251 8 15113
+Fujitsu Siemens Computers   Fax:   +49 5251 8 20409
+Heinz-Nixdorf-Ring 1        mailto:Martin.Wilck@Fujitsu-Siemens.com
+D-33106 Paderborn           http://www.fujitsu-siemens.com/primergy
