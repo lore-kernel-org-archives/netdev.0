@@ -1,31 +1,28 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] remove superfluous diverter printk'ing
-Date: Fri, 14 Jan 2005 13:46:42 -0800
-Message-ID: <20050114134642.4be4e2fc.davem@davemloft.net>
-References: <20050114124700.GA4079@xi.wantstofly.org>
+Subject: Re: [RFC] locking changes for lec.c
+Date: Fri, 14 Jan 2005 13:56:12 -0800
+Message-ID: <20050114135612.0edc180d.davem@davemloft.net>
+References: <200501061717.j06HHJ5I000508@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: benwa@club-internet.fr, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20050114124700.GA4079@xi.wantstofly.org>
+To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200501061717.j06HHJ5I000508@ginger.cmf.nrl.navy.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 14 Jan 2005 13:47:00 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+On Thu, 06 Jan 2005 12:17:20 -0500
+"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
 
-> You're not listed as diverter maintainer but I'm sending this via
-> you anyway.  This patch removes some printk'ing from the diverter
-> driver (and cleans up the code a bit), because after a while it gets
-> really annoying to have log messages like this one for every single
-> tunnel you create or tear down.
-> 
-> 	divert: not allocating divert_blk for non-ethernet device tunl0
-> 
-> Please consider sending upstream.
+> after looking at things recently its not clear to me that the combination
+> of lec_arp_lock and lec_arp_users was protecting things properly.
+> here is a small rewrite that eliminates lec_arp_users completely and
+> uses lec_arp_lock to protect the lists in lec_prev: lec_arp_tables,
+> lec_arp_empty_ones, et al.
 
-Those diverter messages drive me crazy too, I think I'll
-add your patch Lennert.
+Can HW interrupt paths ever call into this ARP stuff?
+If not, probably should just use BH disabled locking
+instead of the heavy handed IRQ disabling locks.
