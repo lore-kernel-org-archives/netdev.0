@@ -1,231 +1,86 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Tue, 31 Aug 2004 18:37:53 +0200
+From: Tom Marshall <tommy@home.tig-grr.com>
+Subject: 2.6.9-rc1: panic in ipv6_rcv
+Date: Tue, 31 Aug 2004 10:40:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4134A961.20808@eurodev.net>
-References: <412DF807.2040703@eurodev.net>	<20040826141407.38b56729.davem@redhat.com>	<412EB40A.6010100@eurodev.net>	<20040826214710.5e322f1a.davem@redhat.com>	<412F1269.8090303@eurodev.net>	<20040827172736.543dbd54.davem@redhat.com>	<413276D9.9080303@eurodev.net> <20040830172029.164fcf9c.davem@redhat.com>
+Message-ID: <20040831174059.GA22049@home.tig-grr.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040606080103020605090003"
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="envbJBWh7q8WU6mo"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040830172029.164fcf9c.davem@redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040606080103020605090003
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi Davem,
+--envbJBWh7q8WU6mo
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-David S. Miller wrote:
+[Please reply to me directly, I am not subscribed]
 
->On Mon, 30 Aug 2004 02:37:45 +0200
->Pablo Neira <pablo@eurodev.net> wrote:
->
->  
->
->>Attached the 2.4.x version. It just spawns one kernel thread called 
->>netlink, is it ok?
->>    
->>
->
->It's fine, I'm going to make 2 minor fixes:
->
->1) Mark netlink_thread() function static.
->2) Name the thread "knetlinkd" to be consistent with
->   other kernel thread names.
->  
->
+I booted 2.6.9-rc1 (gcc version 3.4.1 (Debian 3.4.1-4sarge1)) and got this
+panic within a couple minutes.  The machine is a bridge with two eepro100
+cards and no active ebtables or iptables rules.
 
-Attached the version which correct these issues.
+If this is worth checking into, I can provide more info and/or run any tests
+that are appropriate.
 
-regards,
-Pablo
+  CPU:    0                                                                =
+                 =20
+  EIP:    0060:[<c98f734e>]  Not tainted VLI                               =
+                 =20
+  EFLAGS: 00010202   (2.6.9-rc1)
+  EIP is at ip6_route_input+0x1ae/0x2e0 [ipv6]
+  eax: 00000000   ebx: 00000004   ecx: c9921d38   edx: c9921c60
+  esi: c9921c60   edi: 00000000   ebp: 00000000   esp: c031deac
+  ds: 007b   es: 007b   ss: 0060
+  Process swapper (pid: 0, threadinfo=3Dc031c000 task=3Dc02aca40)
+  Stack: c9921d38 c7fdbc38 c7fdbc20 00000000 c7b80000 80000000 00000003 c60=
+c1140
+         c60c1140 c7b80000 c0357fa8 c98ef810 c60c1140 c60c1140 00000000 000=
+00000
+         c0357ua8 c7b8007b 0000007b c0357f98 c60c1140 c9921fc0 c022e7dd c60=
+c1140
+  Call Trace:
+   [<c98ef810>] ipv6_rcv+0x250/0x270 [ipv6]
+   [<c022e7dd>] netif_receive_skb+0x1ed/0x220
+   [<c022e88f>] process_backlog+0x7f/0x100
+   [<c022e97a>] net_rx_action+0x6a/0xf0
+   [<c011ad91>] __do_softirq+0x41/0x90
+   [<c011ae07>] do_softirq+0x27/0x30
+   [<c01068ed>] do_IRQ+0x10d/0x130
+   [<c01049c8>] common_interrupt+0x18/0x20
+   [<c027007b>] igmpv3_del_delrec+0xab/0xc0
+   [<c0101f33>] default_idle+0x23/0x40
+   [<c0101fbd>] cpu_idle+0x2d/0x40
+   [<c031e7a3>] start_kernel=3D0x163/0x180
+   [<c031e380>] unknown_bootoption+0x0/0x170=20
+  Code: 8d b6 00 00 00 00 8d bc 27 00 00 00 00 8b 12 85 d2 74 27 8b 42 10 3=
+9 58 34
+   0f 84 fe 00 00 00 f6 40 54 08 74 e8 8b 82 88 00 00 00 <8b> 00 39 58 34 7=
+5 c2 89
+   d7 8b 12 85 d2 75 d9 85 ff 89 fb 75 0f
+   <0>Kernel panic - not syncing: Fatal exception in interrupt
 
---------------040606080103020605090003
-Content-Type: text/x-patch;
- name="netlink-tqueue.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="netlink-tqueue.patch"
+--=20
+You know the great thing about TV?  If something important happens
+anywhere at all in the world, no matter what time of the day or night,
+you can always change the channel.
+        -- Jim Ignatowski
 
---- a/net/netlink/af_netlink.c	2004-08-28 05:35:35.000000000 +0200
-+++ b/net/netlink/af_netlink.c	2004-08-29 16:00:46.000000000 +0200
-@@ -42,6 +42,7 @@
- #include <linux/notifier.h>
- #include <net/sock.h>
- #include <net/scm.h>
-+#include <linux/tqueue.h>
- 
- #define Nprintk(a...)
- 
-@@ -63,6 +64,15 @@
- 	void			(*data_ready)(struct sock *sk, int bytes);
- };
- 
-+struct netlink_work
-+{
-+	struct sock 		*sk;
-+	int 			len;
-+	struct tq_struct	work;
-+};
-+
-+static DECLARE_TASK_QUEUE(tq_netlink);
-+static DECLARE_WAIT_QUEUE_HEAD(netlink_thread_wait);
- static struct sock *nl_table[MAX_LINKS];
- static DECLARE_WAIT_QUEUE_HEAD(nl_table_wait);
- static unsigned nl_nonroot[MAX_LINKS];
-@@ -81,6 +91,15 @@
- 
- static struct notifier_block *netlink_chain;
- 
-+static void netlink_tq_handler(void *data)
-+{
-+	struct netlink_work *work = data;
-+	
-+	work->sk->data_ready(work->sk, work->len);
-+	sock_put(work->sk);
-+	kfree(work);
-+}
-+
- static void netlink_sock_destruct(struct sock *sk)
- {
- 	skb_queue_purge(&sk->receive_queue);
-@@ -437,6 +456,8 @@
- 
- 	if (atomic_read(&sk->rmem_alloc) > sk->rcvbuf ||
- 	    test_bit(0, &sk->protinfo.af_netlink->state)) {
-+		struct task_struct *client;
-+		
- 		if (!timeo) {
- 			if (ssk->protinfo.af_netlink->pid == 0)
- 				netlink_overrun(sk);
-@@ -445,6 +466,19 @@
- 			return -EAGAIN;
- 		}
- 
-+		if (!sk->protinfo.af_netlink->pid) {
-+			/* Kernel is sending information to user space
-+			 * and socket buffer is full: Wake up user */
-+			
-+			client = find_task_by_pid(sk->protinfo.af_netlink->pid);
-+			if (!client) {
-+				sock_put(sk);
-+				kfree_skb(skb);
-+				return -EAGAIN;
-+			}
-+			wake_up_process(client);
-+		}
-+
- 		__set_current_state(TASK_INTERRUPTIBLE);
- 		add_wait_queue(&sk->protinfo.af_netlink->wait, &wait);
- 
-@@ -467,8 +501,26 @@
- 	skb_orphan(skb);
- 	skb_set_owner_r(skb, sk);
- 	skb_queue_tail(&sk->receive_queue, skb);
--	sk->data_ready(sk, len);
--	sock_put(sk);
-+
-+	if (!sk->protinfo.af_netlink->pid) {
-+		struct netlink_work *nlwork = 
-+			kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
-+		
-+		if  (!nlwork) {
-+			sock_put(sk);
-+			return -EAGAIN;
-+		}
-+		
-+		INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
-+		nlwork->sk = sk;
-+		nlwork->len = len;
-+		queue_task(&nlwork->work, &tq_netlink);
-+		wake_up(&netlink_thread_wait);
-+	} else {
-+		sk->data_ready(sk, len);
-+		sock_put(sk);
-+	}
-+	
- 	return len;
- 
- no_dst:
-@@ -490,7 +542,22 @@
-                 skb_orphan(skb);
- 		skb_set_owner_r(skb, sk);
- 		skb_queue_tail(&sk->receive_queue, skb);
--		sk->data_ready(sk, skb->len);
-+
-+		if (!sk->protinfo.af_netlink->pid) {
-+			struct netlink_work *nlwork = 
-+				kmalloc(sizeof(struct netlink_work), GFP_KERNEL);
-+		
-+			if  (!nlwork) 
-+				return -EAGAIN;
-+		
-+			INIT_TQUEUE(&nlwork->work, netlink_tq_handler, nlwork);
-+			nlwork->sk = sk;
-+			nlwork->len = skb->len;
-+			queue_task(&nlwork->work, &tq_netlink);
-+			wake_up(&netlink_thread_wait);
-+		} else 
-+			sk->data_ready(sk, skb->len);
-+
- 		return 0;
- 	}
- 	return -1;
-@@ -534,11 +601,12 @@
- 			netlink_overrun(sk);
- 			/* Clone failed. Notify ALL listeners. */
- 			failure = 1;
-+			sock_put(sk);
- 		} else if (netlink_broadcast_deliver(sk, skb2)) {
- 			netlink_overrun(sk);
-+			sock_put(sk);
- 		} else
- 			skb2 = NULL;
--		sock_put(sk);
- 	}
- 
- 	netlink_unlock_table();
-@@ -868,6 +936,26 @@
- 	netlink_unicast(in_skb->sk, skb, NETLINK_CB(in_skb).pid, MSG_DONTWAIT);
- }
- 
-+static int netlink_thread(void *unused)
-+{
-+	struct task_struct *tsk = current;
-+	DECLARE_WAITQUEUE(wait, tsk);
-+
-+	daemonize();
-+	strcpy(tsk->comm, "knetlinkd");
-+	sigfillset(&tsk->blocked);
-+	mb();
-+
-+	for (;;) {
-+		run_task_queue(&tq_netlink);
-+		
-+		__set_current_state(TASK_INTERRUPTIBLE);
-+		add_wait_queue(&netlink_thread_wait, &wait);
-+		schedule();
-+		__set_current_state(TASK_RUNNING);
-+		remove_wait_queue(&netlink_thread_wait, &wait);
-+	}
-+}
- 
- #ifdef NL_EMULATE_DEV
- 
-@@ -1027,6 +1115,8 @@
- #ifdef CONFIG_PROC_FS
- 	create_proc_read_entry("net/netlink", 0, 0, netlink_read_proc, NULL);
- #endif
-+	kernel_thread(netlink_thread, NULL, CLONE_FS | CLONE_FILES | CLONE_SIGNAL);
-+	
- 	return 0;
- }
- 
+--envbJBWh7q8WU6mo
+Content-Type: application/pgp-signature
+Content-Disposition: inline
 
---------------040606080103020605090003--
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.6 (GNU/Linux)
+Comment: For info see http://www.gnupg.org
+
+iEYEARECAAYFAkE0uCsACgkQFMm9uvwPXW5mSACgko+gug5ETRB9G74JevRuu9M1
+wqkAoI1tHYN+WuWKJ3umV4NcskilbYXj
+=0FAi
+-----END PGP SIGNATURE-----
+
+--envbJBWh7q8WU6mo--
