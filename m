@@ -1,44 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [NET] Fix neighbour tbl->entries race
-Date: Wed, 3 Nov 2004 07:37:20 +1100
-Message-ID: <20041102203720.GA12108@gondor.apana.org.au>
-References: <20041102112651.GA8633@gondor.apana.org.au> <1099404823.1021.15.camel@jzny.localdomain>
+From: Jesse Brandeburg <jesse.brandeburg@intel.com>
+Subject: [PATCH 2.6] ixgb: fix ixgb_intr looping checks
+Date: Tue, 2 Nov 2004 12:45:07 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0411021152220.24843-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1099404823.1021.15.camel@jzny.localdomain>
+To: jgarzik@intel.com, <akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 02, 2004 at 09:13:43AM -0500, jamal wrote:
-> 
-> Is this still the same logic:
-> 
-> -------------
-> -               if (!neigh_forced_gc(tbl) &&
-> -                   tbl->entries > tbl->gc_thresh3)
-> -                       goto out;
-> +               neigh_forced_gc(tbl);
-> +               if (atomic_read(&tbl->entries) > tbl->gc_thresh3)
-> +                       goto out_entries;
-> 
-> -------
-> 
-> In previous code it seems you should short-circuit if
-> neigh_forced_gc(tbl) returns non-zero. why do you have to break that
-> if statement?
+Hey Jeff, we have a little problem with a patch that got accepted into -mm 
+and is now in netdev, but never got copied to netdev mailing list.
 
-The previous logic is slightly incorrect in that even if neigh_forced_gc
-succeeded in removing some entries, the total number of entries may still
-be above the threshold 3.
+This thread:
+http://marc.theaimsgroup.com/?t=109149508900004&r=1&w=2
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+the last comment is entirely correct, we need to update the comment.  
+this patch reverts the patch to ixgb that akpm added to do two for loops,
+as we actually did intend to do the boolean '&' check, and both the
+functions *should* be called every time through the loop.
+
+Here is a patch that we would like applied, it undoes the change we don't 
+like, it was checked to apply cleanly against the netdev-2.6 tree this 
+morning, and reviewed by the team.
+
+It also keeps the 10Gig (ixgb) driver consistent with our 1gig (e1000) 
+code. 
+
+This patch undoes a change that we believe will impact performance
+adversely, by creating possibly too long a delay between servicing
+completions. The comment pretty much explains it.  We need to call both
+cleanup routines each pass through the loop, this time we have a comment
+explaining why.
+
+Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
+
+--- netdev-2.6/drivers/net/ixgb/ixgb_main.c	2004-10-15 10:39:56.000000000 -0700
++++ netdev-2.6/drivers/net/ixgb/ixgb_main.c.new	2004-10-15 11:09:42.000000000 -0700
+@@ -1613,13 +1613,14 @@ static irqreturn_t ixgb_intr(int irq, vo
+ 		__netif_rx_schedule(netdev);
+ 	}
+ #else
+-	for (i = 0; i < IXGB_MAX_INTR; i++)
+-		if (ixgb_clean_rx_irq(adapter) == FALSE)
+-			break;
+-	for (i = 0; i < IXGB_MAX_INTR; i++)
+-		if (ixgb_clean_tx_irq(adapter) == FALSE)
++	/* yes, that is actually a & and it is meant to make sure that
++	 * every pass through this for loop checks both receive and
++	 * transmit queues for completed descriptors, intended to
++	 * avoid starvation issues and assist tx/rx fairness. */
++	for(i = 0; i < IXGB_MAX_INTR; i++)
++		if(!ixgb_clean_rx_irq(adapter) &
++		   !ixgb_clean_tx_irq(adapter))
+ 			break;
+-
+ 	/* if RAIDC:EN == 1 and ICR:RXDMT0 == 1, we need to
+ 	 * set IMS:RXDMT0 to 1 to restart the RBD timer (POLL)
+ 	 */
