@@ -1,13 +1,13 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
 Subject: Re: PATCH Re: udp weirdness
-Date: Tue, 01 Oct 2002 11:54:36 -0700
+Date: Tue, 01 Oct 2002 15:03:25 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D99EF6C.9030509@candelatech.com>
+Message-ID: <3D99F17D.10802@nortelnetworks.com>
 References: <Pine.GSO.4.30.0210011433300.18461-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Chris Friesen <cfriesen@nortelnetworks.com>, kuznet@ms2.inr.ac.ru,
+Cc: Ben Greear <greearb@candelatech.com>, kuznet@ms2.inr.ac.ru,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
@@ -15,42 +15,36 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 jamal wrote:
-> 
-> On Tue, 1 Oct 2002, Chris Friesen wrote:
-> 
-> 
->>to be silently dropped by the kernel because userspace is sending faster
->>than they can get onto the wire during that tight loop.
->>
-> 
-> 
-> So what happens when you find packets being dropped?
-> AFAIK, a dropped voice packet is as good as dead whether local or remote.
+ >
+ > On Tue, 1 Oct 2002, Chris Friesen wrote:
+ >
+ >> to be silently dropped by the kernel because userspace is sending
+ >> faster than they can get onto the wire during that tight loop.
 
-If it is dropped locally, you can re-send in way less than 1 milisecond,
-which is well within the realm of expected jitter.  You can also back off
-for 5 miliseconds to alleviate congestion, which is still within acceptable
-jitter.
+ > So what happens when you find packets being dropped? AFAIK, a
+ > dropped voice packet is as good as dead whether local or remote.
 
-If you think you sent it, but didn't actually send it, then it looks like
-your network is shitting, when in fact your local machine is acting shitty.
+We do have some leeway in terms of latency, and delayed leaving the box
+is not the same as dropped.
 
-Ben
+We know that call processing messaging can only ever go out one ethernet
+interface at a time, and we know that the call agent is guaranteed 90% 
+of the userspace cpu time (scheduler changes).  We certify the box for a 
+certain engineered throughput, so we know the average packets/sec value. 
+We also have total knowledge/control over the other apps running on the 
+box in question.
 
-> 
-> 
->>Okay, so with IP_RECVERR set the case that Eric saw will not happen?  I
->>mean that sendto() will return with -1 and errno set to ENOBUFS?
-> 
-> 
-> yes
-> 
-> cheers,
-> jamal
-> 
+So really all I'm protecting against is from one single userspace app 
+generating packets faster than the network can keep up.  As long as I 
+get EAGAIN/EWOULDBLOCK/ENOBUFS on my non-blocking socket then I'll just 
+try again until it succeeds or I get a more serious error.  So far this 
+seems to be working nicely in 2.2, but we're just in the middle of a 
+switch to 2.4 for the new release and I want to make sure I've got a 
+handle on things.
 
+Thanks for your help,
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Chris
+
+PS. I realize that this design is simplistic, but we are severely 
+constrained by the legacy app running on the emulator.
