@@ -1,28 +1,86 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCHSET] [NET] Various sock struct reorderings
-Date: Wed, 9 Mar 2005 20:45:21 +0100
-Message-ID: <20050309194521.GH31837@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: 2.6.11 on AMD64 traps
+Date: Wed, 09 Mar 2005 20:45:35 +0100
+Message-ID: <422F525F.90404@trash.net>
+References: <200503081900.18686.vanco@satro.sk> <422DF07D.7010908@tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+Content-Type: multipart/mixed;
+ boundary="------------050304030002040403080208"
+Cc: Michal Vanco <vanco@satro.sk>, linux-kernel@vger.kernel.org,
+        Netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>
+To: Andre Tomt <andre@tomt.net>
+In-Reply-To: <422DF07D.7010908@tomt.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The following patchset reorders various sock structures to avoid padding and
-shrinks various oversized fields to save space. This will probably break
-various external modules so maybe we should defer this.
+This is a multi-part message in MIME format.
+--------------050304030002040403080208
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Savings on my x86 box:
-  rawv6_sock:    696 ->  668
-  udpv6_sock:    668 ->  640
-  tcpv6_sock:   1232 -> 1192
-  unix_sock:     464 ->  452
-  raw_sock:      548 ->  524
-  udp_sock:      556 ->  532
-  tcp_sock:     1120 -> 1084
-  sock:          388 ->  376
+> Michal Vanco wrote:
+>>
+>> I see this problem running 2.6.11 on dual AMD64:
+>>
+>> Running quagga routing daemon (ospf+bgp) and issuing "netstat -rn |wc 
+>> -l" command
+>> while quagga tries to load more than 154000 routes from its bgp 
+>> neighbours causes this trap:
 
-I didn't benchmark any cachline effects though.
+This patch should fix it. The crash is caused by stale pointers,
+the pointers in fib_iter_state are not reloaded after seq->stop()
+followed by seq->start(pos > 0).
+
+
+--------------050304030002040403080208
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/03/09 20:41:46+01:00 kaber@coreworks.de 
+#   [IPV4]: Fix crash while reading /proc/net/route caused by stale pointers
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv4/fib_hash.c
+#   2005/03/09 20:41:37+01:00 kaber@coreworks.de +11 -1
+#   [IPV4]: Fix crash while reading /proc/net/route caused by stale pointers
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/ipv4/fib_hash.c b/net/ipv4/fib_hash.c
+--- a/net/ipv4/fib_hash.c	2005-03-09 20:43:55 +01:00
++++ b/net/ipv4/fib_hash.c	2005-03-09 20:43:55 +01:00
+@@ -919,13 +919,23 @@
+ 	return fa;
+ }
+ 
++static struct fib_alias *fib_get_idx(struct seq_file *seq, loff_t pos)
++{
++	struct fib_alias *fa = fib_get_first(seq);
++
++	if (fa)
++		while (pos && (fa = fib_get_next(seq)))
++			--pos;
++	return pos ? NULL : fa;
++}
++
+ static void *fib_seq_start(struct seq_file *seq, loff_t *pos)
+ {
+ 	void *v = NULL;
+ 
+ 	read_lock(&fib_hash_lock);
+ 	if (ip_fib_main_table)
+-		v = *pos ? fib_get_next(seq) : SEQ_START_TOKEN;
++		v = *pos ? fib_get_idx(seq, *pos - 1) : SEQ_START_TOKEN;
+ 	return v;
+ }
+ 
+
+--------------050304030002040403080208--
