@@ -1,38 +1,47 @@
-From: Oliver Neukum <oliver@neukum.org>
-Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 17:31:05 +0100
-Message-ID: <200412171731.05735.oliver@neukum.org>
-References: <41C26DD1.7070006@trash.net> <41C2FF99.3020908@tmr.com> <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: primary and secondary ip addresses
+Date: Fri, 17 Dec 2004 17:39:47 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0412171736210.17463@filer.marasystems.com>
+References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee>
+ <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
+ <200412161302.42357.hasso@estpak.ee> <41C2F6E5.5010607@cs.columbia.edu>
+ <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
+ <41C30212.6000906@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: 7bit
-Cc: Bill Davidsen <davidsen@tmr.com>, James Morris <jmorris@redhat.com>,
-        Patrick McHardy <kaber@trash.net>, Bryan Fulton <bryan@coverity.com>,
-        netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-os@analogic.com
-In-Reply-To: <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Hasso Tepper <hasso@estpak.ee>,
+	Harald Welte <laforge@gnumonks.org>,
+	Neil Horman <nhorman@redhat.com>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andrea G Forte <andreaf@cs.columbia.edu>
+In-Reply-To: <41C30212.6000906@cs.columbia.edu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Fri, 17 Dec 2004, Andrea G Forte wrote:
 
-> > Are you saying that processes with capability don't make mistakes? This isn't 
-> > a bug related to untrusted users doing privileged operations, it's a case of 
-> > using unchecked user data.
-> >
-> 
-> But isn't there always the possibility of "unchecked user data"?
-> I can, as root, do `cp /dev/zero /dev/mem` and have the most
-> spectacular crask you've evet seen. I can even make my file-
-> systems unrecoverable.
+> This does not help, since if I want to use my secondary IP address instead of 
+> my primary, I cannot delete the primary otherwise all of my secondary IPs are 
+> lost as well (and since I can only have only one primary IP address).
 
-Only if you have the capability for raw hardware access.
-The same is true for the firmware interface. What other subsystems might
-be dangerous?
+Why change the primary address? What is wrong with simply changing the 
+route to use the other source IP?
 
-	Regards
-		Oliver
+> -If I use a secondary IP and try to invalidate the primary (i.e. by removing 
+> its routing table entry), it takes about 500ms for the actual change (data 
+> packets sent on the secondary IP instead of the primary) to take effect.
+
+This is most likely the routing cache or something.
+
+> I honestly do not understand what harm could do to have more than one primary 
+> address, especially on different subnets.
+
+How it works today is that the first IP you add in a subnet becomes a 
+primary, any additional IPs you add in the same subnet becomes secondary. 
+You can have any number of primary IPs with each any number of secondary 
+IPs, the primary IPs just can't be in the same subnet.
+
+Regards
+Henrik
+
