@@ -1,74 +1,93 @@
-From: Daniel Egger <degger@fhm.edu>
-Subject: Re: [PATCH] Re: rtl8169 problem and 2.4.23
-Date: Fri, 20 Feb 2004 13:11:53 +0100
+From: Stefan Rompf <srompf@isg.de>
+Subject: Re: Patch: netif_carrier_on()/off() for xircom_tulip_cb
+Date: Fri, 20 Feb 2004 17:21:24 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <F8A4CD84-639D-11D8-8BA0-000A9597297C@fhm.edu>
-References: <1075059124.13750.38.camel@sonja> <20040125230753.A20686@electric-eye.fr.zoreil.com>
-Mime-Version: 1.0 (Apple Message framework v612)
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-10-187666238"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com,
-        Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
-        Jeff Garzik <jgarzik@pobox.com>
+Message-ID: <200402201721.24047.srompf@isg.de>
+References: <200402151504.22648.srompf@isg.de> <4033FAF6.2090200@pobox.com>
+Mime-Version: 1.0
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_EQjNA7alc3Y2zQJ"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040125230753.A20686@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4033FAF6.2090200@pobox.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---Apple-Mail-10-187666238
+--Boundary-00=_EQjNA7alc3Y2zQJ
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Disposition: inline
 
-On Jan 25, 2004, at 11:07 pm, Francois Romieu wrote:
+Hi,
 
-> Try the patch above. If it compiles, it should fix the stats and you 
-> get a
-> bugfix as an extra.
+> Please resend patches that may be applied with "patch -p1",
+> not "patch -p0".
 
-Sorry for the delay. I've not had the chance to recompile the kernel
-for my fileserver and restart it, yet. But in the meantime I've received
-another card with RTL8169S and tried it in a different machine.
+ok., here's the first, suspend/resume
 
-The current driver in 2.4.24 and 2.6.3 will lock up the box in almost
-no time when under load (not a real kernel lockup but a soft one because
-the machine is running over NFS and the driver seems to lose packets
-and then rejects to transfer more). Your patch fixes this problem and 
-the
-counter issue for both 2.4.24 and 2.6.3, so it probably should go in 
-ASAP.
+--Boundary-00=_EQjNA7alc3Y2zQJ
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="xircom_tulip_cb_pm.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="xircom_tulip_cb_pm.diff"
 
-However there's another thing bugging me: abysmal performance. In both
-a switched and a direct environment the best I could get using netio
-was 10MB/s send and 21MB/s receive, using NFS I get just under 10MB/s,
-this is slower than with a 8139 el cheapo 100Mbit card.
+--- jeffdir/drivers/net/tulip/xircom_tulip_cb.c.old	2004-02-14 14:33:03.000000000 +0100
++++ jeffdir/drivers/net/tulip/xircom_tulip_cb.c	2004-02-15 13:07:49.000000000 +0100
+@@ -329,6 +329,9 @@ struct xircom_private {
+ 	int saved_if_port;
+ 	struct pci_dev *pdev;
+ 	spinlock_t lock;
++#ifdef CONFIG_PM
++	u32 pci_state[16];
++#endif
+ };
+ 
+ static int mdio_read(struct net_device *dev, int phy_id, int location);
+@@ -749,6 +752,7 @@ xircom_up(struct net_device *dev)
+ 	long ioaddr = dev->base_addr;
+ 	int i;
+ 
++	xircom_init_ring(dev);
+ 	/* Clear the tx ring */
+ 	for (i = 0; i < TX_RING_SIZE; i++) {
+ 		tp->tx_skbuff[i] = 0;
+@@ -801,8 +805,6 @@ xircom_open(struct net_device *dev)
+ 	if (request_irq(dev->irq, &xircom_interrupt, SA_SHIRQ, dev->name, dev))
+ 		return -EAGAIN;
+ 
+-	xircom_init_ring(dev);
+-
+ 	xircom_up(dev);
+ 	tp->open = 1;
+ 
+@@ -1668,6 +1670,11 @@ static int xircom_suspend(struct pci_dev
+ 	printk(KERN_INFO "xircom_suspend(%s)\n", dev->name);
+ 	if (tp->open)
+ 		xircom_down(dev);
++
++	pci_save_state(pdev, tp->pci_state);
++	pci_disable_device(pdev);
++	pci_set_power_state(pdev, 3);
++
+ 	return 0;
+ }
+ 
+@@ -1678,6 +1685,10 @@ static int xircom_resume(struct pci_dev 
+ 	struct xircom_private *tp = dev->priv;
+ 	printk(KERN_INFO "xircom_resume(%s)\n", dev->name);
+ 
++	pci_set_power_state(pdev,0);
++	pci_enable_device(pdev);
++	pci_restore_state(pdev, tp->pci_state);
++
+ 	/* Bring the chip out of sleep mode.
+ 	   Caution: Snooze mode does not work with some boards! */
+ 	if (xircom_tbl[tp->chip_id].flags & HAS_ACPI)
 
-The netio results are illogical anyway because the other side is the
-fileserver, which has the same card, so if one end receives 21MB/s the
-other end has to send equally as fast, no? :) The CPU utilization was
-almost zero on server and client (both Athlon XP).
-
-Servus,
-       Daniel
-
---Apple-Mail-10-187666238
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: This is a digitally signed message part
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (Darwin)
-
-iQEVAwUBQDX5ijBkNMiD99JrAQJVGAf/eRBGDLzhkGOwtxJj/s++N9yQqZjbiQhU
-A/D7aIYg/rNuV6/egaxjDsImhluSq8LZEjVr7YAKq9tYBNsmY+ENdazxexCzdDdF
-PxoQ7T4ZhXNa0b3mPhQmFlCGXcUeQcomoT3Ux8+N8jZ58UaUOWzp7BJxXf/40aHW
-hQuG4z2zK3khM3Aakr6MJZY7iJzwXDnalm8UzKZ2A5qXReXKizu/rCJx91PX0AYK
-V+jb4I34cTfSa4Og1s6yFosO7ea2P/yVPMx2d0JV79ypwMsGATTJD9vfV7Iz2OJM
-+P5UbwXx5mkyg42HrfZoU8ZMN3ZHrR+9T1uVJQ/BANQyWcdse+DvPw==
-=NlSC
------END PGP SIGNATURE-----
-
---Apple-Mail-10-187666238--
+--Boundary-00=_EQjNA7alc3Y2zQJ--
