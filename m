@@ -1,34 +1,41 @@
 From: Grant Grundler <grundler@parisc-linux.org>
 Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: Wed, 30 Mar 2005 10:07:16 -0700
-Message-ID: <20050330170716.GB30849@colo.lackof.org>
-References: <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave> <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie> <1112130512.1077.107.camel@jzny.localdomain>
+Date: Wed, 30 Mar 2005 10:16:47 -0700
+Message-ID: <20050330171647.GC30849@colo.lackof.org>
+References: <1112138018.1088.31.camel@jzny.localdomain> <E1DGSwp-0004ZE-00@thunker.thunk.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, Andi Kleen <ak@muc.de>,
-        James Bottomley <James.Bottomley@HansenPartnership.com>,
-        Rik van Riel <riel@redhat.com>, mpm@selenic.com, andrea@suse.de,
-        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
-        ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
+Cc: open-iscsi@googlegroups.com, "'Rick Jones'" <rick.jones2@hp.com>,
+        "'netdev'" <netdev@oss.sgi.com>, ksummit-2005-discuss@thunk.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Alex Aizman <itn780@yahoo.com>
 Content-Disposition: inline
-In-Reply-To: <1112130512.1077.107.camel@jzny.localdomain>
+In-Reply-To: <E1DGSwp-0004ZE-00@thunker.thunk.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 29, 2005 at 04:08:32PM -0500, jamal wrote:
-> On a slightly related topic: is SCSI (not iscsi) considered a reliable
-> protocol?
+On Tue, Mar 29, 2005 at 06:28:25PM -0800, Alex Aizman wrote:
+> If we continue to fall back into TCP-will-eventually-recover mentality
+> iSCSI, or at least a "soft" non-offloaded iSCSI over regular non-TOE TCP,
+> will not be able to compete with FC, which uses determinstic credit-based
+> flow control. That non-determinism is a bigger issue, while a corner case
+> like swap device happenning to be iSCSI-remote is just that, a corner case
+> that helps to highlight and bring the general problem to the foreground.
 
-Yes and No. "SCSI" covers several layers of the ISO networking model.
-Parallel SCSI transport is reliable.
+There is no way to fix the "non-determinism" inherent in a transport.
+DoS attacks depend on this.  The transport has to be deterministic
+(flow control, QoS) to avoid anything that looks like a DoS (e.g. OOM).
 
-> If yes, why would you wanna run a reliable protocol inside another
-> reliable protocol (TCP)?
+Parallel SCSI suffers the same problem. The priority on the transport
+is dictated by SCSI ID. Low priority SCSI IDs can (and do) get starved
+with as few as 5 RAID storage enclosures.  The problem is the initiator
+(host controller) can send data but then like iSCSI, the command times
+out when the completion doesn't arrive. For parallel SCSI, the SCSI target
+device never wins SCSI bus arbitration to send back the completion.
 
-Think of SCSI command protocol more like NFS: Just a way to send
-commands/data to a "storage device".
+People can configure the system so this isn't a problem.
+But it means not having as much storage per SCSI bus.
 
+hth,
 grant
