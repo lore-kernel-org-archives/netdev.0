@@ -1,87 +1,154 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: Wed, 22 Dec 2004 15:26:37 +0100
-Message-ID: <20041222142637.GE7884@postel.suug.ch>
-References: <20041219203050.GK17998@postel.suug.ch> <41C68CEF.3030803@trash.net> <1103552215.1048.333.camel@jzny.localdomain> <20041220200739.GX17998@postel.suug.ch> <41C7F833.4000909@trash.net> <20041222003142.GB7884@postel.suug.ch> <1103722366.1089.75.camel@jzny.localdomain>
+From: "Mark Broadbent" <markb@wetlettuce.com>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: Wed, 22 Dec 2004 14:37:32 -0000 (GMT)
+Message-ID: <60880.192.102.214.6.1103726252.squirrel@webmail.wetlettuce.com>
+References: <20041217233524.GA11202@electric-eye.fr.zoreil.com>
+        <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com>
+        <20041220211419.GC5974@waste.org>
+        <20041221002218.GA1487@electric-eye.fr.zoreil.com>
+        <20041221005521.GD5974@waste.org>
+        <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com>
+        <20041221123727.GA13606@electric-eye.fr.zoreil.com>
+        <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
+        <20041221204853.GA20869@electric-eye.fr.zoreil.com>
+        <20041221212737.GK5974@waste.org>
+        <20041221225831.GA20910@electric-eye.fr.zoreil.com>
+        <41C93FAB.9090708@trash.net>
+        <41C9525F.4070805@trash.net>
+Reply-To: markb@wetlettuce.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1103722366.1089.75.camel@jzny.localdomain>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7BIT
+Cc: <romieu@fr.zoreil.com>, <mpm@selenic.com>,
+	<linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261987AbULVOiW@vger.kernel.org>
+To: <kaber@trash.net>
+In-Reply-To: <41C9525F.4070805@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-* jamal <1103722366.1089.75.camel@jzny.localdomain> 2004-12-22 08:32
-> On Tue, 2004-12-21 at 19:31, Thomas Graf wrote:
-> > * Patrick McHardy <41C7F833.4000909@trash.net> 2004-12-21 11:17
-> > > Could you make your patchset available somehow ?
-> > 
-> > http://people.suug.ch/~tgr/patches/queue/
-> > 
-> > Unfinished and untested.
-> 
-> I just took a quick glimpse. 
-> 
-> 1)Recall: Policer will have to die at some point - only reason for its
-> existence is for backward compat.
-> New iproute2 code sooner than later stop using that inteface so we can
-> kill it. I suspect we can kill it in a year or two and definetely the
-> day 2.7 comes out.
 
-I fully agree. The patchset looks like a beautification but it isn't.
-Its main purpose is to make changing consistent again. I tried
-achieving this with the existing API and the ifdef hell got horrible
-and ended up having over 60 lines of redundant code per classifier.
-I would rather be implementing new fancy stuff but fixing the existing
-issues comes first.
+Patrick McHardy said:
+> Patrick McHardy wrote:
+>> Francois Romieu wrote:
+>>
+>>> Marc, if the patch below happens to work, it should not drop messages
+>>> like the previous one (it is an ugly short-term suggestion).
+>>>
+>>
+>>> -    spin_lock(&np->dev->xmit_lock);
+>>> +    while (!spin_trylock(&np->dev->xmit_lock)) {
+>>> +        if (np->dev->xmit_lock_owner == smp_processor_id()) {
+>>> +            struct Qdisc *q = dev->qdisc;
+>>> +
+>>> +            q->ops->enqueue(skb, q);
+>>
+>>
+>> Shouldn't this be requeue ?
+>
+> Since the code doesn't dequeue itself, enqueue seems fine to keep
+> at least the queued messages ordered. But you need to grab
+> dev->queue_lock, otherwise you risk corrupting qdisc internal data. You
+> should probably also deal with the noqueue-qdisc, which doesn't have an
+> enqueue function. So it should look something like this:
+>
+> while (!spin_trylock(&np->dev->xmit_lock)) {
+> 	if (np->dev->xmit_lock_owner == smp_processor_id()) {
+> 		struct Qdisc *q;
+>
+> 		rcu_read_lock();
+> 		q = rcu_dereference(dev->qdisc);
+> 		if (q->enqueue) {
+> 			spin_lock(&dev->queue_lock);
+> 			q->ops->enqueue(skb, q);
+> 			spin_unlock(&dev->queue_lock);
+> 			netif_schedule(np->dev);
+> 		} else
+> 			kfree_skb(skb);
+> 		rcu_read_unlock();
+> 		return;
+> 	}
+> }
 
-> 2) The name tcf_attrs doesnt sound right - attributes are normally
-> data pieces not methods. Cant think of a good name.
+I've tried both patches (modified slightly to get them to compile) but
+they both produce hard NMI detected lockups (as before).
+Thanks
+Mark
 
-I feel the same, I was thinking of extensions but wasn't pleased either.
-Suggestions appreciated.
+Patches after modification to allow compilation:
 
-> 3) What can i say? dang - this indev thing is getting out of control ;->
+Francois' patch (against 2.6.10-rc3-bk10):
 
-Too late, it's there, we must maintain it ;->
+diff -X dontdiff -urN linux-2.6.9-rc3-bk10.orig/net/core/netpoll.c
+linux-2.6.9-rc3-bk10/net/core/netpoll.c--- linux-2.6.9-rc3-bk10.orig/net/core/netpoll.c	2004-12-22
+12:09:32.000000000 +0000+++ linux-2.6.9-rc3-bk10/net/core/netpoll.c	2004-12-22 14:13:54.000000000
++0000@@ -22,6 +22,7 @@
+ #include <net/tcp.h>
+ #include <net/udp.h>
+ #include <asm/unaligned.h>
++#include <net/pkt_sched.h>
 
-> If you are going to go this far for beautification sake then
-> kill the .indev thing please before it becomes a beast.
+ /*
+  * We maintain a small pool of fully-sized skbs, to make sure the
+@@ -188,7 +189,15 @@
+ 		return;
+ 	}
 
-Again, it's not for beautification, validating the indev tlv must be
-done before changing native classifier attributes which lead to
-more ifdefs. Putting it into tcf_attrs saves code and makes it
-available to the other classifiers at the same time. It's a dodgy
-situation, the current status is unsatisfying and all changes
-made now will be removed again.
+-	spin_lock(&np->dev->xmit_lock);
++	while (!spin_trylock(&np->dev->xmit_lock)) {
++		if (np->dev->xmit_lock_owner == smp_processor_id()) {
++			struct Qdisc *q = np->dev->qdisc;
++
++			q->ops->enqueue(skb, q);
++			return;
++		}
++	}
++
+ 	np->dev->xmit_lock_owner = smp_processor_id();
 
-> Do what we discussed a while back:
-> - have a generic very basic extended generic match API which indev uses
-> that gets invoked from  the classifier. It should take no more than one
-> page to write the indev extension - if it exceeds that you are doing
-> something wrong. There should be capability to mix and match these
-> extenders so i can say in u32 something like:
->  match ip src X
->  match extend indev src eth0
->  match protocol tcp
->  match extended metadata fwmark 0x10
+ 	/*
 
-My actual plan was to introduce a nested TCA_TYPE_ATTRS TLV
-containing all the generic matches and attributes so a classifier
-no longer has to be changed but the backward compatibility will
-be a PITA.
+Patrick's patch (against 2.6.10-rc3-bk10):
 
-> I think its time we did this right than defering.
+diff -X dontdiff -urN linux-2.6.9-rc3-bk10.orig/net/core/netpoll.c
+linux-2.6.9-rc3-bk10/net/core/netpoll.c--- linux-2.6.9-rc3-bk10.orig/net/core/netpoll.c	2004-12-22
+12:09:32.000000000 +0000+++ linux-2.6.9-rc3-bk10/net/core/netpoll.c	2004-12-22 11:08:06.000000000
++0000@@ -22,6 +22,7 @@
+ #include <net/tcp.h>
+ #include <net/udp.h>
+ #include <asm/unaligned.h>
++#include <net/pkt_sched.h>
 
-Indeed, what about this: I'll try and do a proposal on a new
-generic matching layer holding the action bits and providing
-backward compatibility to police/indev. We can then build the
-metadata match on top of it. I'm going to post the classifier
-I'm working on for a long time even if it's still buggy and
-unfinished so we can at least take over some ideas and concepts
-and then come up with something final that doesn't need to be
-changed again in 2 months.
+ /*
+  * We maintain a small pool of fully-sized skbs, to make sure the
+@@ -188,7 +189,24 @@
+ 		return;
+ 	}
+
+-	spin_lock(&np->dev->xmit_lock);
++	while (!spin_trylock(&np->dev->xmit_lock)) {
++		if (np->dev->xmit_lock_owner == smp_processor_id()) {
++			struct Qdisc *q;
++
++			rcu_read_lock();
++			q = rcu_dereference(np->dev->qdisc);
++			if (q->enqueue) {
++				spin_lock(&np->dev->queue_lock);
++				q->ops->enqueue(skb, q);
++				spin_unlock(&np->dev->queue_lock);
++				netif_schedule(np->dev);
++			} else
++				__kfree_skb(skb);
++			rcu_read_unlock();
++			return;
++		}
++	}
++
+ 	np->dev->xmit_lock_owner = smp_processor_id();
+
+ 	/*
+
+
+-- 
+Mark Broadbent <markb@wetlettuce.com>
+Web: http://www.wetlettuce.com
