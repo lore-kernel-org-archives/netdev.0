@@ -1,103 +1,77 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
-	else")
-Date: Tue, 31 Aug 2004 03:38:42 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20040831013841.GA5824@sunbeam.de.gnumonks.org>
-References: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
-	<20040830140729.7309ecc0.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: 30 Aug 2004 21:43:13 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1093916592.1037.51.camel@jzny.localdomain>
+References: <1093799632.1073.410.camel@jzny.localdomain>
+	 <20040830144033.2265a6e6.davem@redhat.com>
+	 <1093904088.1043.12.camel@jzny.localdomain>
+	 <20040830154430.769d1d59.davem@redhat.com>
+	 <1093906592.1037.32.camel@jzny.localdomain>
+	 <20040830160052.548c4846.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ZrqbukKJvfR9Lgmd"
-Cc: netdev@oss.sgi.com, rusty@rustcorp.com.au,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040830140729.7309ecc0.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040830160052.548c4846.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2004-08-30 at 19:00, David S. Miller wrote:
+> On 30 Aug 2004 18:56:32 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> > Sounds reasonable to me. Some of the BSDs do this to maintain old compat
+> > - just means keeping old struct around. Steve, agreeable to you? 
+> > 
+> > Change to both kernel and user space or just user space?
+> 
+> But this takes care of 'tc' only.  What about other programs
+> grabbing TC_STATS?  The whole world of netlink is not the
+> iproute2 tree.
 
---ZrqbukKJvfR9Lgmd
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Agreed. Note, however the only time it wont work was case for
 
-Thanks for your quick reply, Dave.
+4) old kernel +  new tc --> will bomb (sizeof check will fail)
 
-On Mon, Aug 30, 2004 at 02:07:29PM -0700, David S. Miller wrote:
+s/tc/randomnetlinkapp
 
-> The original idea was that if the input route relookup sends us
-> to a different device, something is very strange.
->=20
-> Input routing looks up using daddr/saddr/tos as the key.  The change
-> here is that we're now using the fwmark, so you're right that only
-> policy routing can cause this thing to trigger.
+i.e old apps will continue to work.
+We could probably impose some rules like the code you posted.
+I actually only see reason to keep old_tc_stats in user space only. New
+apps wanting to support old structures must copy them.
 
-and it apparently happens in a lot of 'typical' setups where you have a
-masqueraded DSL line with dynamic ip address for bulk traffic, and
-fwmark-based routing through one or more tunnel interfaces, optionally
-with different masqerading/SNAT.
+> Maybe instead we should create TC_STATS2?  That's a lot of
+> work just to add this one new statistic, I must say.
 
-Also, the MASQUERADE lookup (obviously) has no more saddr in the lookup,
-that's another difference from the 'original' lookup.
+That too - it will mean keeping both old and new in user space and
+kernel. It is from an ABI perspective cleaner than the first one.
+Not sure if it is worth for this one element in a structure.
+Theres also already the *_XSTAS which is supposed to be a speacial non
+generic stat that could be used to transport the requeue it just seems
+to be such a waste to use it for transporting a sinle 32 bit value
+(which just happens to be generic for qdiscs). It would also involve
+more code overall.
 
-> Where did this check some from?  From this change below, and the
-> changelog explains why we do things this way.
->=20
-> I know you don't use BK Harald, but things like this are why you should
-> at least use the web based interface to look at file change history.
+One of these days i will code the discovery thoughts i have been having.
+Just ask the kernel what it has and we are set.
 
-Thanks Dave, I did look up the bk web interface on this item before sending
-this post ;) However
+On Mon, 2004-08-30 at 19:05, Stephen Hemminger wrote: 
 
-> # It can screw up the things a lot.=20
+> I have no problem but easier to just do something:
+> 	struct tc_stats mystats;
+> 
+> 	memset(&mystats, 0, sizeof(mystats));
+> 	memcpy(&mystats, RTA_DATA(tb[TCA_STATS]), RTA_PAYLOAD(tb[TCA_STATS]));
+> 
+> that way it can grow as much as we want and don't have v1, v2, v3, ... 
+> size structures.
 
-does not really give me an understanding of why and where it might screw
-up. I really want  to fully understand this issue before proposing any
-change.
+Not sure i parsed that. You mean the tc_stats in user space will be the new 
+one.
 
-> # In this context, if you want to be sure that packet will go out
-> # expected interface you do plain lookup and drop packet if it gave
-> # you some strange route.
-
-That is the presumption I am about to challenge.  Is the 'original'
-interface really the one we want in this case?=20
-
-I've seen a number of users commenting out that check or even starting
-to use the iptables ROUTE target (ugly) to get it working in their
-setup.  Or they start to use SNAT with scripts in PPP if-up to update
-the ruleset with the new dynamic IP :(
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---ZrqbukKJvfR9Lgmd
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBM9ahXaXGVTD0i/8RAs7XAJ97y+WpnkndVyWUPKco8dmaDvc2zwCdGsRk
-m21X4boa6tb0OS/Ru0WaXwQ=
-=ca0m
------END PGP SIGNATURE-----
-
---ZrqbukKJvfR9Lgmd--
+cheers,
+jamal
