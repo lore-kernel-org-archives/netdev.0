@@ -1,54 +1,38 @@
 From: jamal <hadi@cyberus.ca>
-Subject: RE: [PATCH] abysmal e1000 performance (DITR)
-Date: 26 Aug 2004 13:55:30 -0400
+Subject: Re: [PATCH 2.6] (1/4) netem - update API for new features
+Date: 26 Aug 2004 14:13:57 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093542930.1027.124.camel@jzny.localdomain>
-References: <468F3FDA28AA87429AD807992E22D07E014CEF36@orsmsx408>
+Message-ID: <1093544037.1027.130.camel@jzny.localdomain>
+References: <20040825105339.30210e84@dell_ss3.pdx.osdl.net>
+	 <1093522131.1043.84.camel@jzny.localdomain>
+	 <20040826091649.26d6cd72@dell_ss3.pdx.osdl.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: tharbaugh@lnxi.com, netdev@oss.sgi.com,
-        "Feldman, Scott" <scott.feldman@intel.com>,
-        "Brandeburg, Jesse" <jesse.brandeburg@intel.com>
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-In-Reply-To: <468F3FDA28AA87429AD807992E22D07E014CEF36@orsmsx408>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040826091649.26d6cd72@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ganesh,
+On Thu, 2004-08-26 at 12:16, Stephen Hemminger wrote:
+> On 26 Aug 2004 08:08:51 -0400
+> jamal <hadi@cyberus.ca> wrote:
+[..]
+> > 
+> > You should really send the delay_dist in its own TLV to avoid
+> > the kind of mistakes that showed up in u32 classifier.
+> > Also allows you to extend that structure in the future.
+> > 
+> > cheers,
+> > jamal
+> 
+> It would be good but the whole qdisc api (init, change) is really structured
+> around a single TLV.
 
-Can you please make this feature off by default and perhaps
-accesible via ethtool for peopel who want to turn it on.
-I just wasted a few hours and was bitten by this performance-wise.
-Please consider disabling it.
+Just pass nested attributes. The API is fine.
 
 cheers,
 jamal
-
-On Fri, 2004-06-04 at 11:44, Venkatesan, Ganesh wrote:
-> Thayne:
-> 
-> We are studying the patch and will get back to you once we have a plan
-> to integrate it into the driver.
-> 
-> Thanks,
-> ganesh 
->  
-> -------------------------------------------------
-> Ganesh Venkatesan
-> Network/Storage Division, Hillsboro, OR
-> 
-> -----Original Message-----
-> From: Thayne Harbaugh [mailto:tharbaugh@lnxi.com] 
-> Sent: Friday, June 04, 2004 7:20 AM
-> To: netdev@oss.sgi.com
-> Cc: Venkatesan, Ganesh; Feldman, Scott; Brandeburg, Jesse
-> Subject: Re: [PATCH] abysmal e1000 performance (DITR)
-> 
-> I have documented a serious performance problem with DITR in the e1000
-> driver.  I have sent a patch to the netdev list as well as CC'ed various
-> people at Intel.  There has been very little response.  I am wondering
-> who has reviewed the DITR performance problem and what the plans are for
-> fixing it.
