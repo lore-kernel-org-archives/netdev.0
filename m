@@ -1,67 +1,49 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [IPSEC]: Protect against BHs in xfrm_user_policy()
-Date: Sun, 03 Apr 2005 18:13:01 +0200
-Message-ID: <4250160D.2040405@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: take 2  WAS(Re: PATCH: IPSEC xfrm events
+Date: 03 Apr 2005 12:29:05 -0400
+Message-ID: <1112545744.1087.397.camel@jzny.localdomain>
+References: <1112319441.1089.83.camel@jzny.localdomain>
+	 <20050401042106.GA27762@gondor.apana.org.au>
+	 <1112353398.1096.116.camel@jzny.localdomain>
+	 <20050401114258.GA2932@gondor.apana.org.au>
+	 <1112358278.1096.160.camel@jzny.localdomain>
+	 <20050401123554.GA3468@gondor.apana.org.au>
+	 <1112403845.1088.14.camel@jzny.localdomain>
+	 <20050402012813.GA24575@gondor.apana.org.au>
+	 <1112406164.1088.54.camel@jzny.localdomain>
+	 <20050402014619.GB24861@gondor.apana.org.au>
+	 <1112469601.1088.173.camel@jzny.localdomain>
+	 <1112538718.1096.394.camel@jzny.localdomain>  <42501027.6010609@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040106090202000803080206"
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <42501027.6010609@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040106090202000803080206
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Sun, 2005-04-03 at 11:47, Patrick McHardy wrote:
 
-xfrm_user_policy() is called from ip_setsockopt with enabled
-BHs, so it needs to protect against them when grabbing
-xfrm_km_lock.
+> >>+void km_state_notify(struct xfrm_state *x, struct km_event *c)
+> >>+{
+> >>+	struct xfrm_mgr *km;
+> >>+	read_lock(&xfrm_km_lock);
+> >>+	list_for_each_entry(km, &xfrm_km_list, list)
+> >>+		km->notify(x, c);
+> >>+	read_unlock(&xfrm_km_lock);
+> >>+}
+> 
+> You call these functions from both softirq- and user-context, so you
+> need to protect against BHs.
+> 
 
+You are absolutely correct. Thanks for catching this. 
 
---------------040106090202000803080206
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/04/03 17:36:10+02:00 kaber@coreworks.de 
-#   [IPSEC]: Protect against BHs in xfrm_user_policy()
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/xfrm/xfrm_state.c
-#   2005/04/03 17:36:00+02:00 kaber@coreworks.de +2 -2
-#   [IPSEC]: Protect against BHs in xfrm_user_policy()
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
---- a/net/xfrm/xfrm_state.c	2005-04-03 18:04:38 +02:00
-+++ b/net/xfrm/xfrm_state.c	2005-04-03 18:04:38 +02:00
-@@ -878,14 +878,14 @@
- 		goto out;
- 
- 	err = -EINVAL;
--	read_lock(&xfrm_km_lock);
-+	read_lock_bh(&xfrm_km_lock);
- 	list_for_each_entry(km, &xfrm_km_list, list) {
- 		pol = km->compile_policy(sk->sk_family, optname, data,
- 					 optlen, &err);
- 		if (err >= 0)
- 			break;
- 	}
--	read_unlock(&xfrm_km_lock);
-+	read_unlock_bh(&xfrm_km_lock);
- 
- 	if (err >= 0) {
- 		xfrm_sk_policy_insert(sk, err, pol);
-
---------------040106090202000803080206--
+cheers,
+jamal
