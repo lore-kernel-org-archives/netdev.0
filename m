@@ -1,42 +1,45 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [XFRM] Probe selected algorithm only
-Date: Fri, 21 Jan 2005 09:01:41 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0501210901001.6594-100000@thoron.boston.redhat.com>
-References: <20050121101938.GA1133@gondor.apana.org.au>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Fri, 21 Jan 2005 16:23:35 +0100
+Message-ID: <16881.7799.47441.33803@robur.slu.se>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
+	<200501200837.40734.jeremy.guthrie@berbee.com>
+	<16879.58333.266843.335475@robur.slu.se>
+	<200501201114.49517.jeremy.guthrie@berbee.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@davemloft.net>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050121101938.GA1133@gondor.apana.org.au>
+To: jeremy.guthrie@berbee.com
+In-Reply-To: <200501201114.49517.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005, Herbert Xu wrote:
-
-> Hi Dave:
-> 
-> This patch removes an annoying problem in xfrm_user.  As it is every
-> time an SA is added it probes every known algorithm in the universe.
-> Now if they all existed it would be OK.  However, for the ones which
-> don't actually exist this causes multiple /sbin/modprobe processes to
-> be spawned which slows the system down when you're adding hundreds of
-> SAs.
-> 
-> Since we know the type of algorithm required when we're adding a new
-> SA, we can get away with only probing the selected algorithms.  This
-> is what the following patch does for xfrm_user.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Looks good to me.
-
-Signed-off-by: James Morris <jmorris@redhat.com>
 
 
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+We have to understand the GC details to 100% confident. Some time to digest 
+and a may reboot help.
+
+I also mentioned routing without the route hash. No spinning in route
+hash and no GC but we trade this for doing a fib lookup for every packet.
+Jamal and I started to play with this at last OLS but it's only tested
+in lab sofar.
+
+For environments with small number of flows it's probably not a good idea
+Length of flows is of course also important. No idea about the result in 
+your case.
+
+I have a patch:
+
+ftp:/robur.slu.se:/pub/Linux/net-development/preroute/preroute10.pat
+
+If you feel very brave you can test this. The files to monitor is 
+/proc/net/softnet_stat this verify the new packet path.
+
+With rtstat (tot) should show all routed packets. The rate in pps
+we are able to achieve.
+
+					--ro
