@@ -1,8 +1,8 @@
 From: Scott Feldman <scott.feldman@intel.com>
-Subject: [PATCH 2.6 2/3] e100: fix skb leak in tx timeout
-Date: Thu, 10 Jun 2004 11:21:00 -0700 (PDT)
+Subject: [PATCH 2.6 3/3] e100: fix sender hang after tx timeout
+Date: Thu, 10 Jun 2004 11:25:39 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0406101116340.5831@sfeldma-ich5.jf.intel.com>
+Message-ID: <Pine.LNX.4.58.0406101121010.5831@sfeldma-ich5.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com, scott.feldman@intel.com
@@ -12,34 +12,33 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-* If e100 experiences a transmit timeout, and the tx ring is completely
-full at the time, it will leak all of the skbs on the tx ring (because
-extra logic is needed to distinguish ring full from ring empty).  Jay
-Vosburgh [fubar@us.ibm.com].
+* When e100 experiences a transmit timeout, it calls e100_up() to reset
+the device.  e100_up calls netif_start_queue to release any flow block,
+but doesn't reschedule.  This patch unblocks the flow and schedules Tx.
+Jay Vosburgh [fubar@us.ibm.com].
 
 Signed-off by: scott.feldman@intel.com
 
+-------------
 
------------
+--- linux-2.5/drivers/net/e100.c	2004-06-10 11:07:18.954678400 -0700
++++ linux-2.5/drivers/net/e100.c.mod	2004-06-10 11:07:35.224205056 -0700
+@@ -1659,17 +1659,16 @@ static int e100_up(struct nic *nic)
+ 		goto err_clean_cbs;
+ 	e100_set_multicast_list(nic->netdev);
+ 	e100_start_receiver(nic);
+-	netif_start_queue(nic->netdev);
+ 	mod_timer(&nic->watchdog, jiffies);
+ 	if((err = request_irq(nic->pdev->irq, e100_intr, SA_SHIRQ,
+ 		nic->netdev->name, nic->netdev)))
+ 		goto err_no_irq;
+ 	e100_enable_irq(nic);
++	netif_wake_queue(nic->netdev);
+ 	return 0;
 
---- linux-2.5/drivers/net/e100.c	2004-06-10 11:07:00.015557584 -0700
-+++ linux-2.5/drivers/net/e100.c.mod	2004-06-10 11:07:18.487749384 -0700
-@@ -1323,7 +1323,7 @@ static inline int e100_tx_clean(struct n
- static void e100_clean_cbs(struct nic *nic)
- {
- 	if(nic->cbs) {
--		while(nic->cb_to_clean != nic->cb_to_use) {
-+		while(nic->cbs_avail != nic->params.cbs.count) {
- 			struct cb *cb = nic->cb_to_clean;
- 			if(cb->skb) {
- 				pci_unmap_single(nic->pdev,
-@@ -1333,8 +1333,8 @@ static void e100_clean_cbs(struct nic *n
- 				dev_kfree_skb(cb->skb);
- 			}
- 			nic->cb_to_clean = nic->cb_to_clean->next;
-+			nic->cbs_avail++;
- 		}
--		nic->cbs_avail = nic->params.cbs.count;
- 		pci_free_consistent(nic->pdev,
- 			sizeof(struct cb) * nic->params.cbs.count,
- 			nic->cbs, nic->cbs_dma_addr);
+ err_no_irq:
+ 	del_timer_sync(&nic->watchdog);
+-	netif_stop_queue(nic->netdev);
+ err_clean_cbs:
+ 	e100_clean_cbs(nic);
+ err_rx_clean_list:
