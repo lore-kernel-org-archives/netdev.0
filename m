@@ -1,65 +1,34 @@
-From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
-Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
-Date: Sat, 07 Feb 2004 12:41:46 +0200
+From: Andreas Schwab <schwab@suse.de>
+Subject: Re: Bad UDP checksum with 82540EM
+Date: Sat, 07 Feb 2004 23:42:21 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4024C0EA.1010904@kolumbus.fi>
-References: <4023D6FB.9010909@kolumbus.fi>	<20040207.131455.27570445.yoshfuji@linux-ipv6.org>	<4024A488.60203@kolumbus.fi> <20040207.192804.29120956.yoshfuji@linux-ipv6.org>
+Message-ID: <je3c9mv7ea.fsf@sykes.suse.de>
+References: <OFE5352D34.67E10D98-ON87256E33.00725857-86256E33.0076C481@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Type: text/plain; charset=iso-8859-1
 Content-Transfer-Encoding: quoted-printable
-Cc: kazunori@miyazawa.org, davem@redhat.com, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Cc: cramerj@intel.com, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?YOSHIFUJI_Hideaki_/_=3F=3F=3F=3F?=
- <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040207.192804.29120956.yoshfuji@linux-ipv6.org>
+To: Jon D Mason <jonmason@us.ibm.com>
+In-Reply-To: <OFE5352D34.67E10D98-ON87256E33.00725857-86256E33.0076C481@us.ibm.com> (Jon
+ D. Mason's message of "Sat, 7 Feb 2004 15:37:16 -0600")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jon D Mason <jonmason@us.ibm.com> writes:
 
+> This probably isn't helpful, but it sounds like a hardware error.  Is t=
+he=20
+> error occurring on multiple/all HP adapters, or only one?=20
 
-YOSHIFUJI Hideaki / ???? wrote:
+I've also seen it with a HP branded BCM5701 on IA64, but also with a
+Broadcom BCM5702 on AMD64 (both using the tg3 driver).  It seems like
+broken UDP checksumming is rather common. :-(
 
->In article <4024A488.60203@kolumbus.fi> (at Sat, 07 Feb 2004 10:40:40 +0=
-200), Mika Penttil=E4 <mika.penttila@kolumbus.fi> says:
->
-> =20
->
->>>The ip6_output2() resolves and inserts link-layer address appropriatel=
-y.
->>>If it did, we would have noticed (by conformance test or even by
->>>usual operation). ;-)
->>>=20
->>>
->>>     =20
->>>
->>ip6_output2() doesn't resolve link-layer addresses. We don't even have =
-a=20
->>neighbour, in
->>ndisc_dst_alloc(dev, NULL, ip6_output2); case.
->>   =20
->>
->
->ip6_output2() calls ip6_output_flinish().
->ip6_output_finish() calls dst->hh->hh_output() if hh is already built.
->Otherwise, dst->neighbour->output() is called and it resolves=20
->link-layer address of neighbor.
->
->I think you missed our ndsic_dst_alloc() change.
->ndisc_dst_alloc() takes 4 argument:
->   struct dst_entry *ndisc_dst_alloc(struct net_device *dev,=20
->                                     struct neighbour *neigh,
->                                     struct in6_addr *addr,
->                                     int (*output)(struct sk_buff *));
->If neigh is NULL, we do ndisc_get_neigh(dev, addr) to get one.
->
-> =20
->
-hmm. where is this ndisc_dst_alloc() change? In the patch it's called=20
-with three params, only the output routine is changed :
+Andreas.
 
-- dst =3D ndisc_dst_alloc(dev, NULL, ndisc_output);
-+ dst =3D ndisc_dst_alloc(dev, NULL, ip6_output2);
-
-
---Mika
+--=20
+Andreas Schwab, SuSE Labs, schwab@suse.de
+SuSE Linux AG, Maxfeldstra=DFe 5, 90409 N=FCrnberg, Germany
+Key fingerprint =3D 58CA 54C7 6D53 942B 1756  01D3 44D5 214B 8276 4ED5
+"And now for something completely different."
