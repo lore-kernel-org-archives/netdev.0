@@ -1,54 +1,47 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: Ethernet bridge performance
-Date: Sun, 10 Aug 2003 23:49:43 +0200
+Subject: RE: More 2.4.22pre10 ACPI breakage
+Date: Mon, 11 Aug 2003 00:22:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16182.48631.720695.768876@robur.slu.se>
-References: <3F3217E7.2080903@allot.com>
-	<3F3284EA.5050406@candelatech.com>
-	<3F328A0F.3040005@allot.com>
-	<16178.41976.3643.584516@robur.slu.se>
-	<3F3601F3.6000001@allot.com>
+Message-ID: <16182.50618.69504.611254@robur.slu.se>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E01022292E1@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com,
-   "Feldman, Scott" <scott.feldman@intel.com>
+Cc: "Jeff Garzik" <jgarzik@pobox.com>, "Samuel Flory" <sflory@rackable.com>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Felix Radensky <felix@allot.com>
-In-Reply-To: <3F3601F3.6000001@allot.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E01022292E1@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Felix Radensky writes:
+Feldman, Scott writes:
 
- > Is slab good enough in 2.4 ? I was thinking that one of the goals
- > of skb-recycle patch was to avoid skb allocations and deallocations
- > which consume quite a lot of CPU time (as profile shows). Are you
- > saying that your patch is not hepling to reduce CPU load ?
+ > NAPI always-poll mode...that would be fun to play with...
+
+ > Is this what you're thinking: 1) block any place the driver enables
+ > interrupts so interrupts stay disabled, 2) ignore netif_rx_complete so
+ > we stay in polling mode, 3) ignore return code from netdev->poll.
+ > 
+ > For 1), the driver needs some way to know that we're in always-poll-mode
+ > so enabling interrupts is a nop.
+ > 
+
+ I will work but I doubt the usefulness of it as we spin aggressively even
+ when there low or no load. This as NAPI tries to serve your dev->poll 
+ fastest possible given the fairness conditions are met.
  
- Try to understand why/where packets get dropped in your setup to start with.
- Bridging shouldn't be different from routing which I experiments with.
+ I could think of a variant... 
 
- Check /proc/interrupts, /proc/net/softnet_stat and check for drops at 
- qdisc ( "tc -s qdisc" you might have to readd the qdisc just get the stats)
+ As dev->poll is callback we could possibly schedule (and delay) via a timer 
+ or something with in turn does the the schedule dev->poll for us. We have 
+ to return netif_rx_complete and have RX-buffers etc.
 
- Possible your TX-side cannot keep up with RX. Often the TX ring is not
- cleard aggressivly enough at high rates due intr. mitigation etc or possibly
- HW_FLOWCTRL from sink device. Disable it in your for testing.
 
- When you cure the cause in-kernel-drop you should have packets drops
- on the DMA-ring (in the driver) with NAPI drivers and no unnecssary
- skb allocation/CPU use or DMA's.
+ > Just thinking out loud - haven't tried any of this.
 
- > echo 1 > /proc/irq/48/smp_affinity
- > to avoid this kind of problem, or something else is required ?
+ Same here... :-)
 
- If you have both both incoming and outgoing on same CPU there will
- be no cache bouncing of course and a UP kernel would be faster if this
- all your job.
-
- 
  Cheers.
 						--ro
