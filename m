@@ -1,101 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Simon Kirby <sim@netnation.com>
 Subject: Re: Route cache performance under stress
-Date: Sun, 08 Jun 2003 23:56:22 -0700 (PDT)
+Date: Sun, 8 Jun 2003 23:59:55 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030608.235622.38700262.davem@redhat.com>
-References: <001501c32e4b$35d67d60$4a00000a@badass>
-	<20030608.230332.48514434.davem@redhat.com>
-	<20030609065211.GB20613@netnation.com>
+Message-ID: <20030609065955.GC20613@netnation.com>
+References: <001001c32e19$81bc7ea0$4a00000a@badass> <20030608230300.X33412@shell.cyberus.ca> <20030608.232537.102562046.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: xerox@foonet.net, fw@deneb.enyo.de, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: sim@netnation.com
-In-Reply-To: <20030609065211.GB20613@netnation.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030608.232537.102562046.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Simon Kirby <sim@netnation.com>
-   Date: Sun, 8 Jun 2003 23:52:11 -0700
+On Sun, Jun 08, 2003 at 11:25:37PM -0700, David S. Miller wrote:
 
-   On Sun, Jun 08, 2003 at 11:03:32PM -0700, David S. Miller wrote:
-   
-   > Here is a simple idea, make the routing cache miss case steal
-   > an entry sitting at the end of the hash chain this new one will
-   > map to.  It only steals entries which have not been recently used.
-   
-   I just asked whether this was possible in a previous email, but you must
-   have missed it.  I am seeing a lot of memory management stuff in
-   profiles, so I think recycling routing cache entries (if only when the
-   table is full and the garbage collector would otherwise need to run)
-   would be very helpful.
+> I do not believe that slow path is slow.  In fact after I fixed
+> hash table growth in fib_hash.c Simon showed us clearly how DoS
+> performance was _NOT_ tied to the number of routes loaded into
+> the kernel.
 
-Yes, indeed.
-   
-   Is it possible to get a good guess of what cache entry to recycle without
-   walking for a while or without some kind of LRU?
+Not anymore. :)  Btw, that patch seems to be stable here.  Will we be
+seeing it sneak into 2.4?
 
-This is what my (and therefore your) suggested scheme is trying to
-do.
+> My main current quick idea is to make rt_intern_hash() attempt
+> to flush out entries in the same hash chain instead of allocating
+> new entries.
+> 
+> I also question the setting of ip_rt_max_size in relation to the
+> number of hash chains (it's set to n_hashchains * 16 currently,
+> that sounds wrong, maybe something more like n_hashchains * 2 or
+> even n_hashchains * 3).
 
-We have to walk the entire destination hash chain _ANYWAYS_ to verify
-that a matching entry has not been put into the cache while we were
-procuring the new one.  During this walk we can also choose a
-candidate rtcache entry to free.
+The route cache on our routers here grows to several thousand entries
+most of the time because of the quantity of traffic we route, and then
+all gets happily blown away when the next BGP table change comes along,
+which seems to happen about 10-20 times per miunte (!).  It would
+probably be beneficial for us to reduce the amount of work required when
+blowing it away and keep it as small as possible.
 
-Something like the patch at the end of this email, doesn't compile
-it's just a work in progress.  The trick is picking TIMEOUT1 and
-TIMEOUT2 :)
+> I'll try to cook up a patch to test.  We might even be able to
 
-Another point is that the default ip_rt_gc_min_interval is
-absolutely horrible for DoS like attacks.  When DoS traffic
-can fill the rtcache multiple times per second, using a GC
-interval of 5 seconds is the worst possible choice. :)
+Woohoo!
 
-When I see things like this, I can only come to the conclusion
-that the tuning Alexey originally did when coding up the rtcache
-merely needs to be scaled up to modern day packet rates.
+> kill of route cache GC entriely if this scheme works well.
 
---- net/ipv4/route.c.~1~	Sun Jun  8 23:28:00 2003
-+++ net/ipv4/route.c	Sun Jun  8 23:45:47 2003
-@@ -717,14 +717,15 @@
- 
- static int rt_intern_hash(unsigned hash, struct rtable *rt, struct rtable **rp)
- {
--	struct rtable	*rth, **rthp;
--	unsigned long	now = jiffies;
-+	struct rtable	*rth, **rthp, *cand, **candp;
-+	unsigned long	now = jiffies, cand_use = now;
- 	int attempts = !in_softirq();
- 
- restart:
- 	rthp = &rt_hash_table[hash].chain;
- 
- 	spin_lock_bh(&rt_hash_table[hash].lock);
-+	cand = NULL;
- 	while ((rth = *rthp) != NULL) {
- 		if (compare_keys(&rth->fl, &rt->fl)) {
- 			/* Put it first */
-@@ -753,7 +754,21 @@
- 			return 0;
- 		}
- 
-+		if (rt_may_expire(rth, TIMEOUT1, TIMEOUT2)) {
-+			unsigned long this_use = rth->u.dst.lastuse;
-+
-+			if (time_before_eq(this_use, cand_use)) {
-+				cand = rth;
-+				candp = rthp;
-+				cand_use = this_use;
-+			}
-+		}
- 		rthp = &rth->u.rt_next;
-+	}
-+
-+	if (cand) {
-+		*candp = cand->u.rt_next;
-+		rt_free(cand);
- 	}
- 
- 	/* Try to bind route to arp only if it is output
+I asked Alexey about this before and he mentioned it was there because it
+made a big difference in processing latency to postpone cleanup to a GC
+run.  It should be possible to do recycling only when the table is full
+(when the box is getting smashed).  This way latencies would be lowest in
+the common case and it would recycle and not have spurts of GC latency in
+the DoS case.
+
+Simon-
