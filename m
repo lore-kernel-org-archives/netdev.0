@@ -1,259 +1,444 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/decnet/: misc possible cleanups (fwd)
-Date: Sat, 8 Jan 2005 22:40:03 +0100
-Message-ID: <20050108214003.GS14108@stusta.de>
+Subject: [2.6 patch] net/ipv6/: misc cleanups
+Date: Sun, 9 Jan 2005 00:32:31 +0100
+Message-ID: <20050108233231.GI14108@stusta.de>
+References: <20041215005546.GA11972@stusta.de> <20041215.105900.27736391.yoshfuji@linux-ipv6.org> <20050107030017.GF14108@stusta.de> <20050107.121149.102802103.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: patrick@tykepenguin.com, Steve Whitehouse <SteveW@ACM.org>,
-        linux-decnet-user@lists.sourceforge.net, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
 Content-Disposition: inline
+In-Reply-To: <20050107.121149.102802103.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch forwarded below (already ACK'ed by Patrick Caulfield) still 
-applies and compiles against 2.6.10-mm2.
+On Fri, Jan 07, 2005 at 12:11:49PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
+> In article <20050107030017.GF14108@stusta.de> (at Fri, 7 Jan 2005 04:00:17 +0100), Adrian Bunk <bunk@stusta.de> says:
+> 
+> > - #if 0 the following unused global variable:
+> >   - addrconf.c: in6addr_any
+> > - remove the following EXPORT_SYMBOL's:
+> >   - ipv6_syms.c: in6addr_any
+> >   - ipv6_syms.c: in6addr_loopback
+> :
+> > --- linux-2.6.10-mm2-full/include/linux/in6.h.old	2005-01-07 02:34:21.000000000 +0100
+> > +++ linux-2.6.10-mm2-full/include/linux/in6.h	2005-01-07 02:36:18.000000000 +0100
+> > @@ -44,10 +44,10 @@
+> >   * NOTE: Be aware the IN6ADDR_* constants and in6addr_* externals are defined
+> >   * in network byte order, not in host byte order as are the IPv4 equivalents
+> >   */
+> > +#if 0
+> >  extern const struct in6_addr in6addr_any;
+> >  #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
+> > -extern const struct in6_addr in6addr_loopback;
+> > -#define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
+> > +#endif
+> >  
+> 
+> I meant:
+> 
+> #if 0
+> extern const struct in6_addr in6addr_any;
+> #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
+> #endif
+> extern const struct in6_addr in6addr_loopback;
+> #define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
+> 
+> And,
+> 
+> > @@ -191,7 +188,11 @@
+> >  };
+> >  
+> >  /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
+> > +#if 0
+> > +#define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
+> >  const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+> > +#endif
+> > +#define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
+> >  const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+> >  
+> 
+> #if 0
+> const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
+> #endif
+> const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
+> 
+> or something like this.
 
-Please apply.
+
+OK, updated patch below.
 
 
------ Forwarded message from Adrian Bunk <bunk@stusta.de> -----
+> --yoshfuji
 
-Date:	Tue, 14 Dec 2004 13:58:38 +0100
-From: Adrian Bunk <bunk@stusta.de>
-To: patrick@tykepenguin.com, Steve Whitehouse <SteveW@ACM.org>
-Cc: linux-decnet-user@lists.sourceforge.net, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Subject: [2.6 patch] net/decnet/: misc possible cleanups
+cu
+Adrian
+
+
+<--  snip  -->
+
 
 The patch below contains the following possible cleanups:
-- make needlessly global code static
-- dn_fib.c: remove the write-only global variable dn_fib_info_cnt
-- dn_fib.c: remove the unused global function dn_fib_rt_message
-- dn_neigh.c: remove the unused global function dn_neigh_pointopoint_notify
-- dn_timer.c: remove the fast timer code that isn't used
-
-Please review and comment on this patch.
+- make some needlessly global code static
+- remove the following unused functions:
+  - exthdrs.c: ipv6_build_rthdr
+  - exthdrs.c: ipv6_build_exthdr
+  - exthdrs.c: ipv6_build_nfrag_opts
+  - exthdrs.c: ipv6_build_frag_opts
+- remove the following write-only global variables:
+  - addrconf.c: inet6_dev_count
+  - addrconf.c: inet6_ifa_count
+- #if 0 the following unused global variable:
+  - addrconf.c: in6addr_any
+- remove the following unneeded EXPORT_SYMBOL's:
+  - ipv6_syms.c: in6addr_any
+  - ipv6_syms.c: in6addr_loopback
 
 
 diffstat output:
- include/net/dn.h       |    2 -
- include/net/dn_fib.h   |    1 
- net/decnet/af_decnet.c |    6 +----
- net/decnet/dn_fib.c    |   15 -------------
- net/decnet/dn_neigh.c  |    8 ------
- net/decnet/dn_route.c  |    6 ++---
- net/decnet/dn_timer.c  |   47 -----------------------------------------
- 7 files changed, 5 insertions(+), 80 deletions(-)
+ include/linux/in6.h        |    2 
+ include/net/addrconf.h     |    1 
+ include/net/ipv6.h         |    2 
+ net/ipv6/addrconf.c        |    9 ----
+ net/ipv6/anycast.c         |    4 +
+ net/ipv6/exthdrs.c         |   77 -------------------------------------
+ net/ipv6/icmp.c            |    2 
+ net/ipv6/ip6_output.c      |    2 
+ net/ipv6/ipv6_syms.c       |    2 
+ net/ipv6/mcast.c           |   32 ++++++++-------
+ net/ipv6/route.c           |    4 -
+ net/ipv6/sysctl_net_ipv6.c |    2 
+ 12 files changed, 30 insertions(+), 109 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/net/decnet/af_decnet.c.old	2004-12-14 03:30:13.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/decnet/af_decnet.c	2004-12-14 03:47:00.000000000 +0100
-@@ -246,7 +246,7 @@
- 	write_unlock_bh(&dn_hash_lock);
- }
- 
--struct hlist_head *listen_hash(struct sockaddr_dn *addr)
-+static struct hlist_head *listen_hash(struct sockaddr_dn *addr)
- {
- 	int i;
- 	unsigned hash = addr->sdn_objnum;
-@@ -447,7 +447,7 @@
- 	dst_release(xchg(&sk->sk_dst_cache, NULL));
- }
- 
--struct sock *dn_alloc_sock(struct socket *sock, int gfp)
-+static struct sock *dn_alloc_sock(struct socket *sock, int gfp)
- {
- 	struct dn_scp *scp;
- 	struct sock *sk = sk_alloc(PF_DECnet, gfp, sizeof(struct dn_sock),
-@@ -578,7 +578,6 @@
- 	if (sk->sk_socket)
- 		return 0;
- 
--	dn_stop_fast_timer(sk); /* unlikely, but possible that this is runninng */
- 	if ((jiffies - scp->stamp) >= (HZ * decnet_time_wait)) {
- 		dn_unhash_sock(sk);
- 		sock_put(sk);
-@@ -631,7 +630,6 @@
- 		default:
- 			printk(KERN_DEBUG "DECnet: dn_destroy_sock passed socket in invalid state\n");
- 		case DN_O:
--			dn_stop_fast_timer(sk);
- 			dn_stop_slow_timer(sk);
- 
- 			dn_unhash_sock_bh(sk);
---- linux-2.6.10-rc3-mm1-full/include/net/dn_fib.h.old	2004-12-14 03:32:14.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/dn_fib.h	2004-12-14 03:32:19.000000000 +0100
-@@ -117,7 +117,6 @@
- extern void dn_fib_init(void);
- extern void dn_fib_cleanup(void);
- 
--extern int dn_fib_rt_message(struct sk_buff *skb);
- extern int dn_fib_ioctl(struct socket *sock, unsigned int cmd, 
- 			unsigned long arg);
- extern struct dn_fib_info *dn_fib_create_info(const struct rtmsg *r, 
---- linux-2.6.10-rc3-mm1-full/net/decnet/dn_fib.c.old	2004-12-14 03:31:33.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_fib.c	2004-12-14 03:32:31.000000000 +0100
-@@ -60,7 +60,6 @@
- static spinlock_t dn_fib_multipath_lock = SPIN_LOCK_UNLOCKED;
- static struct dn_fib_info *dn_fib_info_list;
- static rwlock_t dn_fib_info_lock = RW_LOCK_UNLOCKED;
--int dn_fib_info_cnt;
- 
- static struct
- {
-@@ -93,7 +92,6 @@
- 			dev_put(nh->nh_dev);
- 		nh->nh_dev = NULL;
- 	} endfor_nexthops(fi);
--	dn_fib_info_cnt--;
- 	kfree(fi);
- }
- 
-@@ -388,7 +386,6 @@
- 	if (dn_fib_info_list)
- 		dn_fib_info_list->fib_prev = fi;
- 	dn_fib_info_list = fi;
--	dn_fib_info_cnt++;
- 	write_unlock(&dn_fib_info_lock);
- 	return fi;
- 
-@@ -486,18 +483,6 @@
- }
- 
- 
--/*
-- * Punt to user via netlink for example, but for now
-- * we just drop it.
-- */
--int dn_fib_rt_message(struct sk_buff *skb)
--{
--	kfree_skb(skb);
--
--	return 0;
--}
--
--
- static int dn_fib_check_attr(struct rtmsg *r, struct rtattr **rta)
- {
- 	int i;
---- linux-2.6.10-rc3-mm1-full/net/decnet/dn_neigh.c.old	2004-12-14 03:32:55.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_neigh.c	2004-12-14 03:33:29.000000000 +0100
-@@ -355,14 +355,6 @@
-  * basically does a neigh_lookup(), but without comparing the device
-  * field. This is required for the On-Ethernet cache
+--- linux-2.6.10-mm2-full/include/linux/in6.h.old	2005-01-07 02:34:21.000000000 +0100
++++ linux-2.6.10-mm2-full/include/linux/in6.h	2005-01-08 23:37:31.000000000 +0100
+@@ -44,8 +44,10 @@
+  * NOTE: Be aware the IN6ADDR_* constants and in6addr_* externals are defined
+  * in network byte order, not in host byte order as are the IPv4 equivalents
   */
--/*
-- * Any traffic on a pointopoint link causes the timer to be reset
-- * for the entry in the neighbour table.
-- */
--void dn_neigh_pointopoint_notify(struct sk_buff *skb)
--{
--	return;
--}
++#if 0
+ extern const struct in6_addr in6addr_any;
+ #define IN6ADDR_ANY_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 } } }
++#endif
+ extern const struct in6_addr in6addr_loopback;
+ #define IN6ADDR_LOOPBACK_INIT { { { 0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1 } } }
  
- /*
-  * Pointopoint link receives a hello message
---- linux-2.6.10-rc3-mm1-full/net/decnet/dn_route.c.old	2004-12-14 03:33:53.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_route.c	2004-12-14 03:34:54.000000000 +0100
-@@ -99,9 +99,9 @@
+--- linux-2.6.10-mm2-full/net/ipv6/addrconf.c.old	2005-01-07 02:34:57.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/addrconf.c	2005-01-08 23:38:34.000000000 +0100
+@@ -99,9 +99,6 @@
+ static void addrconf_sysctl_unregister(struct ipv6_devconf *p);
+ #endif
  
- static unsigned char dn_hiord_addr[6] = {0xAA,0x00,0x04,0x00,0x00,0x00};
+-int inet6_dev_count;
+-int inet6_ifa_count;
+-
+ #ifdef CONFIG_IPV6_PRIVACY
+ static int __ipv6_regen_rndid(struct inet6_dev *idev);
+ static int __ipv6_try_regen_rndid(struct inet6_dev *idev, struct in6_addr *tmpaddr); 
+@@ -191,7 +188,9 @@
+ };
  
--int dn_rt_min_delay = 2 * HZ;
--int dn_rt_max_delay = 10 * HZ;
--int dn_rt_mtu_expires = 10 * 60 * HZ;
-+static const int dn_rt_min_delay = 2 * HZ;
-+static const int dn_rt_max_delay = 10 * HZ;
-+static const int dn_rt_mtu_expires = 10 * 60 * HZ;
+ /* IPv6 Wildcard Address and Loopback Address defined by RFC2553 */
++#if 0
+ const struct in6_addr in6addr_any = IN6ADDR_ANY_INIT;
++#endif
+ const struct in6_addr in6addr_loopback = IN6ADDR_LOOPBACK_INIT;
  
- static unsigned long dn_rt_deadline;
+ int ipv6_addr_type(const struct in6_addr *addr)
+@@ -310,7 +309,6 @@
+ 		return;
+ 	}
+ 	snmp6_unregister_dev(idev);
+-	inet6_dev_count--;
+ 	kfree(idev);
+ }
  
---- linux-2.6.10-rc3-mm1-full/include/net/dn.h.old	2004-12-14 03:35:13.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/dn.h	2004-12-14 03:46:38.000000000 +0100
-@@ -220,8 +220,6 @@
+@@ -338,7 +336,6 @@
+ 			kfree(ndev);
+ 			return NULL;
+ 		}
+-		inet6_dev_count++;
+ 		/* We refer to the device */
+ 		dev_hold(dev);
  
- extern void dn_start_slow_timer(struct sock *sk);
- extern void dn_stop_slow_timer(struct sock *sk);
--extern void dn_start_fast_timer(struct sock *sk);
--extern void dn_stop_fast_timer(struct sock *sk);
+@@ -475,7 +472,6 @@
+ 	}
+ 	dst_release(&ifp->rt->u.dst);
  
- extern dn_address decnet_address;
- extern int decnet_debug_level;
---- linux-2.6.10-rc3-mm1-full/net/decnet/dn_timer.c.old	2004-12-14 03:35:29.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/decnet/dn_timer.c	2004-12-14 03:48:49.000000000 +0100
-@@ -27,11 +27,9 @@
- #include <net/dn.h>
+-	inet6_ifa_count--;
+ 	kfree(ifp);
+ }
  
- /*
-- * Fast timer is for delayed acks (200mS max)
-  * Slow timer is for everything else (n * 500mS)
+@@ -530,7 +526,6 @@
+ 	ifa->flags = flags | IFA_F_TENTATIVE;
+ 	ifa->cstamp = ifa->tstamp = jiffies;
+ 
+-	inet6_ifa_count++;
+ 	ifa->idev = idev;
+ 	in6_dev_hold(idev);
+ 	/* For caller */
+--- linux-2.6.10-mm2-full/net/ipv6/ipv6_syms.c.old	2005-01-07 02:35:19.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/ipv6_syms.c	2005-01-07 02:36:35.000000000 +0100
+@@ -32,8 +32,6 @@
+ EXPORT_SYMBOL(inet6_ioctl);
+ EXPORT_SYMBOL(ipv6_get_saddr);
+ EXPORT_SYMBOL(ipv6_chk_addr);
+-EXPORT_SYMBOL(in6addr_any);
+-EXPORT_SYMBOL(in6addr_loopback);
+ EXPORT_SYMBOL(in6_dev_finish_destroy);
+ #ifdef CONFIG_XFRM
+ EXPORT_SYMBOL(xfrm6_rcv);
+--- linux-2.6.10-mm2-full/include/net/addrconf.h.old	2005-01-07 02:38:03.000000000 +0100
++++ linux-2.6.10-mm2-full/include/net/addrconf.h	2005-01-07 02:38:10.000000000 +0100
+@@ -112,7 +112,6 @@
+ 
+ extern int ipv6_dev_ac_inc(struct net_device *dev, struct in6_addr *addr);
+ extern int __ipv6_dev_ac_dec(struct inet6_dev *idev, struct in6_addr *addr);
+-extern int ipv6_dev_ac_dec(struct net_device *dev, struct in6_addr *addr);
+ extern int ipv6_chk_acast_addr(struct net_device *dev, struct in6_addr *addr);
+ 
+ 
+--- linux-2.6.10-mm2-full/net/ipv6/anycast.c.old	2005-01-07 02:38:21.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/anycast.c	2005-01-07 02:38:44.000000000 +0100
+@@ -43,6 +43,8 @@
+ 
+ #include <net/checksum.h>
+ 
++static int ipv6_dev_ac_dec(struct net_device *dev, struct in6_addr *addr);
++
+ /* Big ac list lock for all the sockets */
+ static rwlock_t ipv6_sk_ac_lock = RW_LOCK_UNLOCKED;
+ 
+@@ -413,7 +415,7 @@
+ 	return 0;
+ }
+ 
+-int ipv6_dev_ac_dec(struct net_device *dev, struct in6_addr *addr)
++static int ipv6_dev_ac_dec(struct net_device *dev, struct in6_addr *addr)
+ {
+ 	int ret;
+ 	struct inet6_dev *idev = in6_dev_get(dev);
+--- linux-2.6.10-mm2-full/net/ipv6/exthdrs.c.old	2005-01-07 02:39:33.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/exthdrs.c	2005-01-07 02:50:24.000000000 +0100
+@@ -501,83 +501,6 @@
+  *	for headers.
   */
  
--#define FAST_INTERVAL (HZ/5)
- #define SLOW_INTERVAL (HZ/2)
- 
- static void dn_slow_timer(unsigned long arg);
-@@ -109,48 +107,3 @@
- 	bh_unlock_sock(sk);
- 	sock_put(sk);
+-static u8 *ipv6_build_rthdr(struct sk_buff *skb, u8 *prev_hdr,
+-		     struct ipv6_rt_hdr *opt, struct in6_addr *addr)
+-{
+-	struct rt0_hdr *phdr, *ihdr;
+-	int hops;
+-
+-	ihdr = (struct rt0_hdr *) opt;
+-	
+-	phdr = (struct rt0_hdr *) skb_put(skb, (ihdr->rt_hdr.hdrlen + 1) << 3);
+-	memcpy(phdr, ihdr, sizeof(struct rt0_hdr));
+-
+-	hops = ihdr->rt_hdr.hdrlen >> 1;
+-
+-	if (hops > 1)
+-		memcpy(phdr->addr, ihdr->addr + 1,
+-		       (hops - 1) * sizeof(struct in6_addr));
+-
+-	ipv6_addr_copy(phdr->addr + (hops - 1), addr);
+-
+-	phdr->rt_hdr.nexthdr = *prev_hdr;
+-	*prev_hdr = NEXTHDR_ROUTING;
+-	return &phdr->rt_hdr.nexthdr;
+-}
+-
+-static u8 *ipv6_build_exthdr(struct sk_buff *skb, u8 *prev_hdr, u8 type, struct ipv6_opt_hdr *opt)
+-{
+-	struct ipv6_opt_hdr *h = (struct ipv6_opt_hdr *)skb_put(skb, ipv6_optlen(opt));
+-
+-	memcpy(h, opt, ipv6_optlen(opt));
+-	h->nexthdr = *prev_hdr;
+-	*prev_hdr = type;
+-	return &h->nexthdr;
+-}
+-
+-u8 *ipv6_build_nfrag_opts(struct sk_buff *skb, u8 *prev_hdr, struct ipv6_txoptions *opt,
+-			  struct in6_addr *daddr, u32 jumbolen)
+-{
+-	struct ipv6_opt_hdr *h = (struct ipv6_opt_hdr *)skb->data;
+-
+-	if (opt && opt->hopopt)
+-		prev_hdr = ipv6_build_exthdr(skb, prev_hdr, NEXTHDR_HOP, opt->hopopt);
+-
+-	if (jumbolen) {
+-		u8 *jumboopt = (u8 *)skb_put(skb, 8);
+-
+-		if (opt && opt->hopopt) {
+-			*jumboopt++ = IPV6_TLV_PADN;
+-			*jumboopt++ = 0;
+-			h->hdrlen++;
+-		} else {
+-			h = (struct ipv6_opt_hdr *)jumboopt;
+-			h->nexthdr = *prev_hdr;
+-			h->hdrlen = 0;
+-			jumboopt += 2;
+-			*prev_hdr = NEXTHDR_HOP;
+-			prev_hdr = &h->nexthdr;
+-		}
+-		jumboopt[0] = IPV6_TLV_JUMBO;
+-		jumboopt[1] = 4;
+-		*(u32*)(jumboopt+2) = htonl(jumbolen);
+-	}
+-	if (opt) {
+-		if (opt->dst0opt)
+-			prev_hdr = ipv6_build_exthdr(skb, prev_hdr, NEXTHDR_DEST, opt->dst0opt);
+-		if (opt->srcrt)
+-			prev_hdr = ipv6_build_rthdr(skb, prev_hdr, opt->srcrt, daddr);
+-	}
+-	return prev_hdr;
+-}
+-
+-u8 *ipv6_build_frag_opts(struct sk_buff *skb, u8 *prev_hdr, struct ipv6_txoptions *opt)
+-{
+-	if (opt->dst1opt)
+-		prev_hdr = ipv6_build_exthdr(skb, prev_hdr, NEXTHDR_DEST, opt->dst1opt);
+-	return prev_hdr;
+-}
+-
+ static void ipv6_push_rthdr(struct sk_buff *skb, u8 *proto,
+ 			    struct ipv6_rt_hdr *opt,
+ 			    struct in6_addr **addr_p)
+--- linux-2.6.10-mm2-full/net/ipv6/icmp.c.old	2005-01-07 02:40:12.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/icmp.c	2005-01-07 02:40:20.000000000 +0100
+@@ -211,7 +211,7 @@
+ 	return (*op & 0xC0) == 0x80;
  }
+ 
+-int icmpv6_push_pending_frames(struct sock *sk, struct flowi *fl, struct icmp6hdr *thdr, int len)
++static int icmpv6_push_pending_frames(struct sock *sk, struct flowi *fl, struct icmp6hdr *thdr, int len)
+ {
+ 	struct sk_buff *skb;
+ 	struct icmp6hdr *icmp6h;
+--- linux-2.6.10-mm2-full/include/net/ipv6.h.old	2005-01-07 02:40:56.000000000 +0100
++++ linux-2.6.10-mm2-full/include/net/ipv6.h	2005-01-07 02:41:03.000000000 +0100
+@@ -229,8 +229,6 @@
+ 					       void (*destructor)(struct sock *));
+ 
+ 
+-extern int			ip6_call_ra_chain(struct sk_buff *skb, int sel);
 -
--static void dn_fast_timer(unsigned long arg)
--{
--	struct sock *sk = (struct sock *)arg;
--	struct dn_scp *scp = DN_SK(sk);
--
--	bh_lock_sock(sk);
--	if (sock_owned_by_user(sk)) {
--		scp->delack_timer.expires = jiffies + HZ / 20;
--		add_timer(&scp->delack_timer);
--		goto out;
--	}
--
--	scp->delack_pending = 0;
--
--	if (scp->delack_fxn)
--		scp->delack_fxn(sk);
--out:
--	bh_unlock_sock(sk);
--}
--
--void dn_start_fast_timer(struct sock *sk)
--{
--	struct dn_scp *scp = DN_SK(sk);
--
--	if (!scp->delack_pending) {
--		scp->delack_pending = 1;
--		init_timer(&scp->delack_timer);
--		scp->delack_timer.expires = jiffies + FAST_INTERVAL;
--		scp->delack_timer.data = (unsigned long)sk;
--		scp->delack_timer.function = dn_fast_timer;
--		add_timer(&scp->delack_timer);
--	}
--}
--
--void dn_stop_fast_timer(struct sock *sk)
--{
--	struct dn_scp *scp = DN_SK(sk);
--
--	if (scp->delack_pending) {
--		scp->delack_pending = 0;
--		del_timer(&scp->delack_timer);
--	}
--}
--
-
--
-To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-the body of a message to majordomo@vger.kernel.org
-More majordomo info at  http://vger.kernel.org/majordomo-info.html
-Please read the FAQ at  http://www.tux.org/lkml/
-
------ End forwarded message -----
+ extern int			ipv6_parse_hopopts(struct sk_buff *skb, int);
+ 
+ extern struct ipv6_txoptions *  ipv6_dup_options(struct sock *sk, struct ipv6_txoptions *opt);
+--- linux-2.6.10-mm2-full/net/ipv6/ip6_output.c.old	2005-01-07 02:41:10.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/ip6_output.c	2005-01-07 02:41:15.000000000 +0100
+@@ -311,7 +311,7 @@
+ 	return 0;
+ }
+ 
+-int ip6_call_ra_chain(struct sk_buff *skb, int sel)
++static int ip6_call_ra_chain(struct sk_buff *skb, int sel)
+ {
+ 	struct ip6_ra_chain *ra;
+ 	struct sock *last = NULL;
+--- linux-2.6.10-mm2-full/net/ipv6/mcast.c.old	2005-01-07 02:41:35.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/mcast.c	2005-01-07 02:44:44.000000000 +0100
+@@ -121,7 +121,7 @@
+ 	struct in6_addr srcs[0];
+ };
+ 
+-struct in6_addr mld2_all_mcr = MLD2_ALL_MCR_INIT;
++static struct in6_addr mld2_all_mcr = MLD2_ALL_MCR_INIT;
+ 
+ /* Big mc list lock for all the sockets */
+ static rwlock_t ipv6_sk_mc_lock = RW_LOCK_UNLOCKED;
+@@ -143,12 +143,14 @@
+ static int sf_setstate(struct ifmcaddr6 *pmc);
+ static void sf_markstate(struct ifmcaddr6 *pmc);
+ static void ip6_mc_clear_src(struct ifmcaddr6 *pmc);
+-int ip6_mc_del_src(struct inet6_dev *idev, struct in6_addr *pmca, int sfmode,
+-	int sfcount, struct in6_addr *psfsrc, int delta);
+-int ip6_mc_add_src(struct inet6_dev *idev, struct in6_addr *pmca, int sfmode,
+-	int sfcount, struct in6_addr *psfsrc, int delta);
+-int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+-	struct inet6_dev *idev);
++static int ip6_mc_del_src(struct inet6_dev *idev, struct in6_addr *pmca,
++			  int sfmode, int sfcount, struct in6_addr *psfsrc,
++			  int delta);
++static int ip6_mc_add_src(struct inet6_dev *idev, struct in6_addr *pmca,
++			  int sfmode, int sfcount, struct in6_addr *psfsrc,
++			  int delta);
++static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
++			    struct inet6_dev *idev);
+ 
+ 
+ #define IGMP6_UNSOLICITED_IVAL	(10*HZ)
+@@ -272,7 +274,7 @@
+ 	return -ENOENT;
+ }
+ 
+-struct inet6_dev *ip6_mc_find_dev(struct in6_addr *group, int ifindex)
++static struct inet6_dev *ip6_mc_find_dev(struct in6_addr *group, int ifindex)
+ {
+ 	struct net_device *dev = NULL;
+ 	struct inet6_dev *idev = NULL;
+@@ -1723,8 +1725,9 @@
+ 	return rv;
+ }
+ 
+-int ip6_mc_del_src(struct inet6_dev *idev, struct in6_addr *pmca, int sfmode,
+-	int sfcount, struct in6_addr *psfsrc, int delta)
++static int ip6_mc_del_src(struct inet6_dev *idev, struct in6_addr *pmca,
++			  int sfmode, int sfcount, struct in6_addr *psfsrc,
++			  int delta)
+ {
+ 	struct ifmcaddr6 *pmc;
+ 	int	changerec = 0;
+@@ -1847,8 +1850,9 @@
+ /*
+  * Add multicast source filter list to the interface list
+  */
+-int ip6_mc_add_src(struct inet6_dev *idev, struct in6_addr *pmca, int sfmode,
+-	int sfcount, struct in6_addr *psfsrc, int delta)
++static int ip6_mc_add_src(struct inet6_dev *idev, struct in6_addr *pmca,
++			  int sfmode, int sfcount, struct in6_addr *psfsrc,
++			  int delta)
+ {
+ 	struct ifmcaddr6 *pmc;
+ 	int	isexclude;
+@@ -1951,8 +1955,8 @@
+ 	spin_unlock_bh(&ma->mca_lock);
+ }
+ 
+-int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
+-	struct inet6_dev *idev)
++static int ip6_mc_leave_src(struct sock *sk, struct ipv6_mc_socklist *iml,
++			    struct inet6_dev *idev)
+ {
+ 	int err;
+ 
+--- linux-2.6.10-mm2-full/net/ipv6/route.c.old	2005-01-07 02:45:00.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/route.c	2005-01-07 02:45:22.000000000 +0100
+@@ -208,8 +208,8 @@
+ /*
+  *	pointer to the last default router chosen. BH is disabled locally.
+  */
+-struct rt6_info *rt6_dflt_pointer;
+-spinlock_t rt6_dflt_lock = SPIN_LOCK_UNLOCKED;
++static struct rt6_info *rt6_dflt_pointer;
++static spinlock_t rt6_dflt_lock = SPIN_LOCK_UNLOCKED;
+ 
+ void rt6_reset_dflt_pointer(struct rt6_info *rt)
+ {
+--- linux-2.6.10-mm2-full/net/ipv6/sysctl_net_ipv6.c.old	2005-01-07 02:45:38.000000000 +0100
++++ linux-2.6.10-mm2-full/net/ipv6/sysctl_net_ipv6.c	2005-01-07 02:45:46.000000000 +0100
+@@ -19,7 +19,7 @@
+ 
+ #ifdef CONFIG_SYSCTL
+ 
+-ctl_table ipv6_table[] = {
++static ctl_table ipv6_table[] = {
+ 	{
+ 		.ctl_name	= NET_IPV6_ROUTE,
+ 		.procname	= "route",
