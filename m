@@ -1,141 +1,53 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH] ieee80211 subsystem
-Date: Fri, 04 Feb 2005 22:07:56 -0800
-Message-ID: <420462BC.6010903@osdl.org>
-References: <4203C32A.70402@linux.intel.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Fri, 4 Feb 2005 22:13:44 -0800
+Message-ID: <20050204221344.247548cb.davem@davemloft.net>
+References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de>
+	<20050205052407.GA17266@gondor.apana.org.au>
+	<20050204213813.4bd642ad.davem@davemloft.net>
+	<20050205061110.GA18275@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: James Ketrenos <jketreno@linux.intel.com>
-In-Reply-To: <4203C32A.70402@linux.intel.com>
+Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050205061110.GA18275@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-James Ketrenos wrote:
-> Attached is the patch against 2.6.11-rc3-mm1 that adds the ieee80211 
-> subsystem used by the ipw2100 and ipw2200 projects.
+On Sat, 5 Feb 2005 17:11:10 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> You're right of course.  I thought they were all harmless but I was
+> obviously wrong about this one.
 > 
-> I'll be sending out the patches for ipw2100-1.0.0 and ipw2200-1.0.0 that 
-> use thist stack to the list on Monday.
+> So here is a patch that essentially reverts the split devices
+> semantics introduced by these two changesets:
 > 
-> In terms of what the stack currently does:
+>   [IPV6] addrconf_dst_alloc() to allocate new route for local address.
+>   [IPV6] take rt6i_idev into account when looking up routes.
 > 
-> * HW independent -- it only knows about 802.11 data and structures
-> * Performs an 802.3 <-> 802.11 transform for data Tx/Rx
-> * Host based support for fragmentation, WEP, and WPA using the kernel's 
-> crypto functions
-> * Beacon and probe response collection and parsing
-> * Default implementation of some of the WE handlers that can be managed 
-> without hardware knowledge
-> 
-> We are working to merge in Dave Miller's p80211 code into the ieee80211 
-> subsystem so that it hooks into the kernel as a true network layer as 
-> opposed to a mutated offspring of ethernet.
-> Once that is done, hopefully the skb to txb code can be reworked and 
-> 802.11 fragments can be treated either as normal skbs, or skbs can be 
-> modified to directly support them (ideally so that encrypted 802.11 
-> frames in support of IP packets can be cached by the stack instead of 
-> having to be re-encrypted on TCP retries)
-> 
-> Support for HW/FW crypto and fragmentation offload, in a HW independent 
-> fashion, is also on the short-term list.
-> 
-> When you look through the patch you'll likely notice the #ifdef 
-> NOTYET/#endif sequences surrounding portions of code from the hostap 
-> project.  Portions of this subsystem were based on an earlier version of 
-> the hostap project.  Those areas that weren't directly supported by the 
-> ipw* projects weren't ported to be completely hardware independent 
-> (since I don't have the hardware to test it), and so are still wrapped 
-> in the ifdefs.  These sections mainly cover support for MASTER and WDS 
-> modes.
-> 
-> Anyway, please let me know what you think.  Hopefully I built the patch 
-> right...
+> Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 
-It applies fine.
+Ok.
 
-A few comments:
+But Herbert, let's take a step back real quick because I want
+to point something out.  IPv6 does try to handle the dangling
+mismatched idev's, in route.c:ip6_dst_ifdown(), this is called
+via net/core/dst.c:dst_ifdown(), and this releases the ipv6
+idev correctly in the split device case.
 
-1.  config IEEE80211_DEBUG
-	bool "Enable full debugging output"
-	depends on IEEE80211
+Did your analysis of this bridging release bug take this into
+account?  That's why we added this dst->ops method, specifically
+to handle this problem.
 
-+	  /proc/net/ieee80211/debug_level
-+
-+	  For example:
-+
-+	  % echo 0x00000FFO > /sys/bus/pci/drivers/ipw2200/debug_level
+This was added by Yoshifuji-san in ChangeSet 1.1722.137.17 which
+has the checking comment:
 
-I get the impression that one of these file names is incorrect:
-/proc vs. /sys.....
+[NET]: Add dst->ifdown callback.
 
-+	  % . idvals
-+	
-+	  From within drivers/net/wireless/ipw2200
-
-Is there some good place for this other than in
-drivers/net/wireless?  I don't know.
-
-+	  If you are not trying to debug or develop the IPW2200 driver,
-+	  you
-+	  most likely want to say N here.
-
-Combine those last 2 lines.
-
-2.  	This can be compiled as a modules and it will be called
-+	"ieee80211_crypt.ko".
-
-Don't use the ".ko" suffix at all (anywhere).
-
-3.  +static int __init ieee80211_crypto_init(void)
-+	(void) ieee80211_register_crypto_ops(&ieee80211_crypt_null);
-
-That register call can fail, so I'd rather see it checked, as in all
-of the other similar register calls.
-
-4.  +static void * ieee80211_ccmp_init(int key_idx)
-+	if (priv == NULL) {
-+		goto fail;
-+	}
-
-Lose the braces.  Same for:
-ieee80211_ccmp_init()
-
-5.  +static void ccmp_init_blocks()
-
-+	/* CCM Initial Block:
-+	 * Flag (Include authentication header, M=3 (8-octet MIC),
-+	 *       L=1 (2-octet Dlen))
-+	 * Nonce: 0x00 | A2 | PN
-+	 * Dlen */
-
-Kernel long comment style begins with "/*" by itself and
-ends with "*/" by itself.
-
-6.  +struct ieee80211_ccmp_data {
-
-+	u32 dot11RSNAStatsCCMPFormatErrors;
-+	u32 dot11RSNAStatsCCMPReplays;
-+	u32 dot11RSNAStatsCCMPDecryptErrors;
-
-Are these MIB-mandated names?  otherwise the studlyCaps should go.
-
-7.  +static int ieee80211_ccmp_decrypt()
-
-Does anything care about the various negative/error case return
-values?
-
-8.  What calls the .print_stats functions?
-static char * ieee80211_ccmp_print_stats()
-
-Is it possible to use seq_file there instead of sprintf(),
-or is this in /sysfs (so seq_file is not possible)?
-Are there any overflow possibilities?
-
-
-Enough for tonight...
-
--- 
-~Randy
+Use it to release protocol specific objects that may be
+tied to a dst cache object, at ifdown time.  Currently
+this is used to release ipv4/ipv6 specific device state.
