@@ -1,27 +1,28 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: fealnx oopses
-Date: Sat, 27 Mar 2004 01:30:07 +0100
+Subject: [PATCH] [RFT] 2.6.5-rc2 - sis190 update
+Date: Sat, 27 Mar 2004 03:08:54 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040327013007.D26347@electric-eye.fr.zoreil.com>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403270014.23088.vda@port.imtp.ilyichevsk.odessa.ua> <20040326233514.B26347@electric-eye.fr.zoreil.com> <200403270203.18971.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040327030853.A30849@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andreas Henriksson <andreas@fjortis.info>,
-        netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <200403270203.18971.vda@port.imtp.ilyichevsk.odessa.ua>; from vda@port.imtp.ilyichevsk.odessa.ua on Sat, Mar 27, 2004 at 02:03:40AM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
-[...]
-> Not exactly. CPU does not atomically increment memory.
-> I am saying that x86 CPU can't be interrupted in the middle
-> of read-modify-write operation, like
+The recent changes to the r8169 driver turned it into something quite
+different from the sis190 driver whence it (apparently) originated.
 
-Yep, that's exactly what I tought was not possible. Complete brain outage.
+The following serie of patches resyncs the sis190 driver with the r8169
+one while making it compliant (?) wrt the DMA API.
+
+I'll review it more closely once I have got some sleep but if some happy
+tester wants to contribute, he will be welcome.
+
+The patches compile, they are untested and should apply to nearly anything
+2.6.x as -mm does not include patches to the sis190.c.
 
 --
 Ueimor
