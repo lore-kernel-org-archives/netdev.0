@@ -1,86 +1,176 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.8-rc3-mm1 2/2] 8139too: be sure to progress durin rtl8139_rx()
-Date: Thu, 5 Aug 2004 23:45:37 +0200
+Subject: [PATCH 2.6.8-rc3-mm1 1/1] via-velocity: more inetaddr_notifier fix
+Date: Fri, 6 Aug 2004 00:01:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040805234537.A16153@electric-eye.fr.zoreil.com>
-References: <20040805234336.A15407@electric-eye.fr.zoreil.com>
+Message-ID: <20040806000137.B16153@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Pasi Sjoholm <ptsjohol@cc.jyu.fi>,
-        Hector Martin <hector@marcansoft.com>,
-        OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+        Ferenc Kubinszky <ferenc.kubinszky@wit.mht.bme.hu>,
+        Kazutoshi Morioka <morioka@at.wakwak.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Alan Cox <alan@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040805234336.A15407@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Thu, Aug 05, 2004 at 11:43:36PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If the Rx buffer gets corrupted or the FIFO hangs in new interesting ways,
-this code prevents the driver from looping in ksoftirqd context without
-making any progress.
+There is no guarantee that the event which gets passed is associated to
+a via-velocity device, thus preventing to dereference dev->priv as if it
+always was a struct velocity_info *.
+The via-velocity devices are kept in a module private list for comparison.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/8139too.c~r8139-20 drivers/net/8139too.c
---- linux-2.6.8-rc3/drivers/net/8139too.c~r8139-20	2004-08-05 23:24:47.000000000 +0200
-+++ linux-2.6.8-rc3-romieu/drivers/net/8139too.c	2004-08-05 23:24:47.000000000 +0200
-@@ -593,6 +593,7 @@ struct rtl8139_private {
- 	int time_to_die;
- 	struct mii_if_info mii;
- 	unsigned int regs_len;
-+	unsigned long fifo_copy_timeout;
+diff -puN drivers/net/via-velocity.c~via-velocity-wol-strangeness drivers/net/via-velocity.c
+--- linux-2.6.8-rc3/drivers/net/via-velocity.c~via-velocity-wol-strangeness	2004-08-05 23:47:54.000000000 +0200
++++ linux-2.6.8-rc3-romieu/drivers/net/via-velocity.c	2004-08-05 23:47:54.000000000 +0200
+@@ -262,6 +262,7 @@ static u32 check_connection_type(struct 
+ static int velocity_set_media_mode(struct velocity_info *vptr, u32 mii_status);
+ 
+ #ifdef CONFIG_PM
++
+ static int velocity_suspend(struct pci_dev *pdev, u32 state);
+ static int velocity_resume(struct pci_dev *pdev);
+ 
+@@ -270,9 +271,26 @@ static int velocity_netdev_event(struct 
+ static struct notifier_block velocity_inetaddr_notifier = {
+       .notifier_call	= velocity_netdev_event,
+ };
+-static int velocity_notifier_registered;
+ 
+-#endif				/* CONFIG_PM */
++static spinlock_t velocity_dev_list_lock = SPIN_LOCK_UNLOCKED;
++static LIST_HEAD(velocity_dev_list);
++
++static void velocity_register_notifier(void)
++{
++	register_inetaddr_notifier(&velocity_inetaddr_notifier);
++}
++
++static void velocity_unregister_notifier(void)
++{
++	unregister_inetaddr_notifier(&velocity_inetaddr_notifier);
++}
++
++#else				/* CONFIG_PM */
++
++#define velocity_register_notifier()	do {} while (0)
++#define velocity_unregister_notifier()	do {} while (0)
++
++#endif				/* !CONFIG_PM */
+ 
+ /*
+  *	Internal board variants. At the moment we have only one
+@@ -327,6 +345,14 @@ static void __devexit velocity_remove1(s
+ 	struct net_device *dev = pci_get_drvdata(pdev);
+ 	struct velocity_info *vptr = dev->priv;
+ 
++#ifdef CONFIG_PM
++	unsigned long flags;
++
++	spin_lock_irqsave(&velocity_dev_list_lock, flags);
++	if (!list_empty(&velocity_dev_list))
++		list_del(&vptr->list);
++	spin_unlock_irqrestore(&velocity_dev_list_lock, flags);
++#endif
+ 	unregister_netdev(dev);
+ 	iounmap(vptr->mac_regs);
+ 	pci_release_regions(pdev);
+@@ -782,13 +808,16 @@ static int __devinit velocity_found1(str
+ 	/* and leave the chip powered down */
+ 	
+ 	pci_set_power_state(pdev, 3);
+-out:
+ #ifdef CONFIG_PM
+-	if (ret == 0 && !velocity_notifier_registered) {
+-		velocity_notifier_registered = 1;
+-		register_inetaddr_notifier(&velocity_inetaddr_notifier);
++	{
++		unsigned long flags;
++
++		spin_lock_irqsave(&velocity_dev_list_lock, flags);
++		list_add(&vptr->list, &velocity_dev_list);
++		spin_unlock_irqrestore(&velocity_dev_list_lock, flags);
+ 	}
+ #endif
++out:
+ 	return ret;
+ 
+ err_iounmap:
+@@ -843,6 +872,8 @@ static void __devinit velocity_init_info
+ 
+ 	spin_lock_init(&vptr->lock);
+ 	spin_lock_init(&vptr->xmit_lock);
++
++	INIT_LIST_HEAD(&vptr->list);
+ }
+ 
+ /**
+@@ -2211,8 +2242,11 @@ static struct pci_driver velocity_driver
+ static int __init velocity_init_module(void)
+ {
+ 	int ret;
+-	ret = pci_module_init(&velocity_driver);
+ 
++	velocity_register_notifier();
++	ret = pci_module_init(&velocity_driver);
++	if (ret < 0)
++		velocity_unregister_notifier();
+ 	return ret;
+ }
+ 
+@@ -2227,12 +2261,7 @@ static int __init velocity_init_module(v
+  
+ static void __exit velocity_cleanup_module(void)
+ {
+-#ifdef CONFIG_PM
+-	if (velocity_notifier_registered) {
+-		unregister_inetaddr_notifier(&velocity_inetaddr_notifier);
+-		velocity_notifier_registered = 0;
+-	}
+-#endif
++	velocity_unregister_notifier();
+ 	pci_unregister_driver(&velocity_driver);
+ }
+ 
+@@ -3252,13 +3281,20 @@ static int velocity_resume(struct pci_de
+ static int velocity_netdev_event(struct notifier_block *nb, unsigned long notification, void *ptr)
+ {
+ 	struct in_ifaddr *ifa = (struct in_ifaddr *) ptr;
+-	struct net_device *dev;
+-	struct velocity_info *vptr;
+ 
+ 	if (ifa) {
+-		dev = ifa->ifa_dev->dev;
+-		vptr = dev->priv;
+-		velocity_get_ip(vptr);
++		struct net_device *dev = ifa->ifa_dev->dev;
++		struct velocity_info *vptr;
++		unsigned long flags;
++
++		spin_lock_irqsave(&velocity_dev_list_lock, flags);
++		list_for_each_entry(vptr, &velocity_dev_list, list) {
++			if (vptr->dev == dev) {
++				velocity_get_ip(vptr);
++				break;
++			}
++		}
++		spin_unlock_irqrestore(&velocity_dev_list_lock, flags);
+ 	}
+ 	return NOTIFY_DONE;
+ }
+diff -puN drivers/net/via-velocity.h~via-velocity-wol-strangeness drivers/net/via-velocity.h
+--- linux-2.6.8-rc3/drivers/net/via-velocity.h~via-velocity-wol-strangeness	2004-08-05 23:47:54.000000000 +0200
++++ linux-2.6.8-rc3-romieu/drivers/net/via-velocity.h	2004-08-05 23:47:54.000000000 +0200
+@@ -1733,8 +1733,7 @@ struct velocity_opt {
  };
  
- MODULE_AUTHOR ("Jeff Garzik <jgarzik@pobox.com>");
-@@ -1937,7 +1938,7 @@ static int rtl8139_rx(struct net_device 
- 	u16 status;
+ struct velocity_info {
+-	struct velocity_info *next;
+-	struct velocity_info *prev;
++	struct list_head list;
  
- 	DPRINTK ("%s: In rtl8139_rx(), current %4.4x BufAddr %4.4x,"
--		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
-+		 " free to %4.4x, Cmd %2.2x.\n", dev->name, (u16)cur_rx,
- 		 RTL_R16 (RxBufAddr),
- 		 RTL_R16 (RxBufPtr), RTL_R8 (ChipCmd));
- 
-@@ -1978,10 +1979,24 @@ static int rtl8139_rx(struct net_device 
- 		 * since EarlyRx is disabled.
- 		 */
- 		if (unlikely(rx_size == 0xfff0)) {
-+			if (!tp->fifo_copy_timeout)
-+				tp->fifo_copy_timeout = jiffies + 2;
-+			else if (time_after(jiffies, tp->fifo_copy_timeout)) {
-+				DPRINTK ("%s: hung FIFO. Reset.", dev->name);
-+				rx_size = 0;
-+				goto no_early_rx;
-+			}
-+			if (netif_msg_intr(tp)) {
-+				printk(KERN_DEBUG "%s: fifo copy in progress.",
-+				       dev->name);
-+			}
- 			tp->xstats.early_rx++;
- 			break;
- 		}
- 
-+no_early_rx:
-+		tp->fifo_copy_timeout = 0;
-+
- 		/* If Rx err or invalid rx_size/rx_status received
- 		 * (which happens if we get lost in the ring),
- 		 * Rx process gets reset, so we abort any further
-@@ -2047,6 +2062,14 @@ static int rtl8139_rx(struct net_device 
- #endif
- 
- 	tp->cur_rx = cur_rx;
-+
-+	/*
-+	 * The receive buffer should be mostly empty.
-+	 * Tell NAPI to reenable the Rx irq.
-+	 */
-+	if (tp->fifo_copy_timeout)
-+		received = budget;
-+
- out:
- 	return received;
- }
+ 	struct pci_dev *pdev;
+ 	struct net_device *dev;
 
 _
