@@ -1,34 +1,34 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Functions Clean-up
-Date: Sun, 23 Feb 2003 22:25:57 -0800 (PST)
+Subject: Re: [PATCH] IPv6: Privacy Extensions for Stateless Address
+ Autoconfiguration in IPv6
+Date: Sun, 23 Feb 2003 22:31:14 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030223.222557.132586554.davem@redhat.com>
-References: <20021103.115427.104445233.yoshfuji@linux-ipv6.org>
-	<20030223.011816.108201183.davem@redhat.com>
-	<20030224.125702.13403857.yoshfuji@linux-ipv6.org>
+Message-ID: <20030223.223114.65976206.davem@redhat.com>
+References: <20021031.164940.672083668.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.44.0210311021560.19356-100000@netcore.fi>
+	<20021101.174832.44646503.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   netfilter-devel@lists.netfilter.org, kuznet@ms2.inr.ac.ru,
-   usagi@linux-ipv6.org
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru,
+   pekkas@netcore.fi, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030224.125702.13403857.yoshfuji@linux-ipv6.org>
+In-Reply-To: <20021101.174832.44646503.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
    From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Mon, 24 Feb 2003 12:57:02 +0900 (JST)
+   Date: Fri, 01 Nov 2002 17:48:32 +0900 (JST)
 
-   > I will apply this patch once you make the change.  Would you
-   > like me to add it to 2.4.x as well?
+   Ok, here's revised one.
    
-   yes.  Do I need to send a patch for linux-2.4.xx, too?
+    - sync with linux-2.5.45.
+    - change default value for use_tempaddr sysctl to 0 
+      (don't generate and use temprary addresses by default)
    
-Not necessary, I know what is different in the networking
-between these two trees.
-   
-   Here's the patch for linux-2.5.62.
+It is applied.
 
-Applied, thanks.
+Hmmm, some thinking is needed in order to backport this to
+2.4.x due to lack of crypto library.  I guess USAGI 2.4.x
+version of this patch uses crypto library from USAGI 2.4.x ipsec?
