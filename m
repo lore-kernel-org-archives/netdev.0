@@ -1,55 +1,70 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (17/17) x25 -- size_t for send/recvmsg
-Date: Fri, 9 Jan 2004 14:02:08 -0800
+Subject: [PATCH] (8/17) ipx -- size_t for send/recvmsg
+Date: Fri, 9 Jan 2004 14:02:23 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109140208.7dd9a0fe@linux.local>
+Message-ID: <20040109140223.3926cbeb@linux.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>,
+        Arnaldo Carvalho de Melo
+ <acme@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert X.25 to handle unsigned for len in send/receive msg.
+Convert IPX to unsigned for send/receive message length.
+Enforce MTU limited by header pktsize.
 
-diff -Nru a/net/x25/af_x25.c b/net/x25/af_x25.c
---- a/net/x25/af_x25.c	Mon Dec  8 16:20:19 2003
-+++ b/net/x25/af_x25.c	Mon Dec  8 16:20:19 2003
-@@ -910,7 +910,7 @@
+diff -Nru a/net/ipx/af_ipx.c b/net/ipx/af_ipx.c
+--- a/net/ipx/af_ipx.c	Mon Dec  8 16:19:52 2003
++++ b/net/ipx/af_ipx.c	Mon Dec  8 16:19:52 2003
+@@ -1683,7 +1683,7 @@
  }
  
- static int x25_sendmsg(struct kiocb *iocb, struct socket *sock,
--		       struct msghdr *msg, int len)
-+		       struct msghdr *msg, size_t len)
+ static int ipx_sendmsg(struct kiocb *iocb, struct socket *sock,
+-	struct msghdr *msg, int len)
++	struct msghdr *msg, size_t len)
  {
  	struct sock *sk = sock->sk;
- 	struct x25_opt *x25 = x25_sk(sk);
-@@ -919,7 +919,8 @@
- 	struct sk_buff *skb;
- 	unsigned char *asmptr;
- 	int noblock = msg->msg_flags & MSG_DONTWAIT;
--	int size, qbit = 0, rc = -EINVAL;
-+	size_t size;
-+	int qbit = 0, rc = -EINVAL;
- 
- 	if (msg->msg_flags & ~(MSG_DONTWAIT | MSG_OOB | MSG_EOR))
+ 	struct ipx_opt *ipxs = ipx_sk(sk);
+@@ -1698,6 +1698,10 @@
+ 	if (flags & ~MSG_DONTWAIT)
  		goto out;
-@@ -1085,13 +1086,14 @@
+ 
++	/* Max possible packet size limited by 16 bit pktsize in header */
++	if (len >= 65535 - sizeof(struct ipxhdr))
++		goto out;
++
+ 	if (usipx) {
+ 		if (!ipxs->port) {
+ 			struct sockaddr_ipx uaddr;
+@@ -1744,7 +1748,7 @@
  
  
- static int x25_recvmsg(struct kiocb *iocb, struct socket *sock,
--		       struct msghdr *msg, int size,
-+		       struct msghdr *msg, size_t size,
- 		       int flags)
+ static int ipx_recvmsg(struct kiocb *iocb, struct socket *sock,
+-		struct msghdr *msg, int size, int flags)
++		struct msghdr *msg, size_t size, int flags)
  {
  	struct sock *sk = sock->sk;
- 	struct x25_opt *x25 = x25_sk(sk);
- 	struct sockaddr_x25 *sx25 = (struct sockaddr_x25 *)msg->msg_name;
--	int copied, qbit;
-+	size_t copied;
-+	int qbit;
+ 	struct ipx_opt *ipxs = ipx_sk(sk);
+diff -Nru a/net/ipx/ipx_route.c b/net/ipx/ipx_route.c
+--- a/net/ipx/ipx_route.c	Mon Dec  8 16:19:52 2003
++++ b/net/ipx/ipx_route.c	Mon Dec  8 16:19:52 2003
+@@ -169,13 +169,13 @@
+  * Route an outgoing frame from a socket.
+  */
+ int ipxrtr_route_packet(struct sock *sk, struct sockaddr_ipx *usipx,
+-			struct iovec *iov, int len, int noblock)
++			struct iovec *iov, size_t len, int noblock)
+ {
  	struct sk_buff *skb;
- 	unsigned char *asmptr;
- 	int rc = -ENOTCONN;
+ 	struct ipx_opt *ipxs = ipx_sk(sk);
+ 	struct ipx_interface *intrfc;
+ 	struct ipxhdr *ipx;
+-	int size;
++	size_t size;
+ 	int ipx_offset;
+ 	struct ipx_route *rt = NULL;
+ 	int rc;
