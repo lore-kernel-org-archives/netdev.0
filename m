@@ -1,53 +1,89 @@
-From: Dorn Hetzel <kernel@dorn.hetzel.org>
-Subject: Re: r8169.c
-Date: Mon, 22 Nov 2004 13:13:07 -0500
-Message-ID: <20041122181307.GA3625@lilah.hetzel.org>
-References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com>
+From: Nishanth Aravamudan <nacc@us.ibm.com>
+Subject: Re: [PATCH] Add ssleep_interruptible()
+Date: Mon, 22 Nov 2004 09:19:22 -0800
+Message-ID: <20041122171922.GA7770@us.ibm.com>
+References: <E1CO1vc-00022t-N2@sputnik> <20041101200749.GF1730@us.ibm.com> <20041117013059.GA4218@us.ibm.com> <20041122024804.GD4146@verge.net.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Dorn Hetzel <kernel@dorn.hetzel.org>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: janitor@sternwelten.at, netdev@oss.sgi.com, jgarzik@pobox.com,
+        linux-kernel@vger.kernel.org, kernel-janitors@lists.osdl.org
 Content-Disposition: inline
-In-Reply-To: <20041120002946.GA18059@electric-eye.fr.zoreil.com>
+In-Reply-To: <20041122024804.GD4146@verge.net.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Nov 20, 2004 at 01:29:46AM +0100, Francois Romieu wrote:
-> Dorn Hetzel <kernel@dorn.hetzel.org> :
+On Mon, Nov 22, 2004 at 11:48:05AM +0900, Horms wrote:
+> On Tue, Nov 16, 2004 at 05:30:59PM -0800, Nishanth Aravamudan wrote:
+> > On Mon, Nov 01, 2004 at 12:07:49PM -0800, Nishanth Aravamudan wrote:
+> > > Description: Adds ssleep_interruptible() to allow longer delays to occur
+> > > in TASK_INTERRUPTIBLE, similarly to ssleep(). To be consistent with
+> > > msleep_interruptible(), ssleep_interruptible() returns the remaining time
+> > > left in the delay in terms of seconds. This required dividing the return
+> > > value of msleep_interruptible() by 1000, thus a cast to (unsigned long)
+> > > to prevent any floating point issues.
+> > > 
+> > > Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+> > > 
+> > > --- 2.6.10-rc1-vanilla/include/linux/delay.h	2004-10-30 
+> > > 15:34:03.000000000 -0700
+> > > +++ 2.6.10-rc1/include/linux/delay.h	2004-11-01 12:06:11.000000000 -0800
+> > > @@ -46,4 +46,9 @@ static inline void ssleep(unsigned int s
+> > > 	msleep(seconds * 1000);
+> > > }
+> > > 
+> > > +static inline unsigned long ssleep_interruptible(unsigned int seconds)
+> > > +{
+> > > +	return (unsigned long)(msleep_interruptible(seconds * 1000) / 1000);
+> > > +}
+> > > +
+> > > #endif /* defined(_LINUX_DELAY_H) */
+> > 
+> > After a discussion on IRC, I believe it is pretty clear that this
+> > function has serious issues. Mainly, that if I request a delay of 1
+> > second, but msleep_interruptible() returns after 1 millisecond, then
+> > ssleep_interruptible() will return 0, claiming the entire delay was
+> > used (due to rounding).
+> > 
+> > Perhaps we should just be satisfied with milliseconds being the grossest
+> > (in contrast to fine) measure of time, at least in terms of
+> > interruptible delays. ssleep() is unaffected by this problem, of course.
+> > 
+> > Please revert this patch, if applied, as well as any of the other
+> > patches I sent using ssleep_interruptible() [only a handful].
 > 
-> You have two options (or more) on top of 2.6.10-rc2:
-> - ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc2/2.6.10-rc2-mm2/2.6.10-rc2-mm2.bz2
-> - http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.10-rc2-netdev1.patch.bz2
->
-I have gotten as far as rc2-mm2, which was a fairly complete failure.  After
-just a couple of pings on the interface, the whole system started to freeze
-up fairly hard.  Please see   http://www.hetzel.org/8169/rc2-mm2/   for a
-set of information on the system state this time around.  The last two
-lines in messages.txt are:
-
-illyria kernel: NETDEV WATCHDOG: eth0: transmit timed out
-illyria kernel: eth0: interrupt 0001 taken in poll
-
-Then things go south pretty hard and fast...
-
-I'll try the other patches on top of rc2-mm2 tonight and see if that turns
-out any better :)
-
-> Once you have applied one of the patch above, the patch below will improve
-> your "transmit timed out" (please apply in order and enable NAPI):
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-250.patch
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-255.patch
+> Would making sure that the time slept was always rounded up to
+> the nearest second resolve this problem. I believe that rounding
+> up is a common approach to resolving this type of problem when
+> changing clock resolution.
 > 
-> If things perform better you may want to use bigger frames and apply as
-> well r8169-260.patch and r8169-265.patch.
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-260.patch
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-265.patch
->
+> I am thinking of something like this.
+> 
+> ===== include/linux/delay.h 1.6 vs edited =====
+> --- 1.6/include/linux/delay.h	2004-09-03 18:08:32 +09:00
+> +++ edited/include/linux/delay.h	2004-11-22 11:47:03 +09:00
+> @@ -46,4 +46,10 @@ static inline void ssleep(unsigned int s
+>  	msleep(seconds * 1000);
+>  }
+>  
+> +static inline unsigned long ssleep_interruptible(unsigned int seconds)
+> +{
+> +	return (unsigned long)((msleep_interruptible(seconds * 1000) + 999) / 
+> +			1000);
 
-Thanks again for all your help!
+This is a good idea, but I have two issues:
 
--Dorn
- 
+1) A major reason for having msecs_to_jiffies() and co. is to avoid
+having to do this type of conversion ourselves. A weak argument,
+admittedly, but just something to keep in mind.
+
+2) This still has a serious logical flaw: If I request 1 second of
+sleep, and I don't sleep the entire time, then it is now guaranteed that
+I will think I did not sleep at all (ie. ssleep_interruptible() will
+return 1). That's just another version of the original issue.
+
+I just don't think it's useful to have this coarse of granularity, at
+least in terms of interruptible sleep.
+
+-Nish
