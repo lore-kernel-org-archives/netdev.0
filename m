@@ -1,125 +1,94 @@
-From: John Tobin <ogre@sirinet.net>
-Subject: UDP Wide Broadcast patch
-Date: 18 Aug 2002 13:22:41 -0500
+From: "Matthew G. Marsh" <mgm@paktronix.com>
+Subject: Re: Resend:  SIOCGIFBRDADDR?
+Date: Sun, 18 Aug 2002 19:16:28 -0500 (CDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <1029694978.330.6.camel@ogre>
+Message-ID: <Pine.LNX.4.43.0208181856210.28686-100000@netmonster.pakint.net>
+References: <Pine.LNX.4.44.0208181407480.14268-100000@kaneda.isrd.lan>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-ZOumsiTdBhg3WQaoNHwE"
-Cc: ttimo@idsoftware.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Kevin Dwyer <kevin@pheared.net>
+In-Reply-To: <Pine.LNX.4.44.0208181407480.14268-100000@kaneda.isrd.lan>
 List-Id: netdev.vger.kernel.org
 
+On Sun, 18 Aug 2002, Kevin Dwyer wrote:
 
---=-ZOumsiTdBhg3WQaoNHwE
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> On Sun, 18 Aug 2002, Matthew G. Marsh grunted something like:
+> > Why do you use the 'scope link' statements?
+>
+> Why do I use the 'scope link' argument, or the statement as a whole?
+> Those two statements give the same effect as aliases (more or less)
+> without having to ifconfig eth0:X for each X.  My understanding was the
+> 'scope link' part was useful in keeping the effects of the command local
+> to the device.  However, I also did not generate these commands on my own:
+> fwbuilder is doing that.  We're trying to get a setup that can be easily
+> managed by other people who may not have the same experience with
+> command-line tools and such.
 
-Hi,
-DocWilco and I came up with this patch for the linux kernel at Quakecon
-last night based off of his BSD patch that works around the programming
-oversight in Quake 3 that causes packets from the dedicated server to
-not broadcast when the +set net_ip option is used on a LAN, it isn't an
-issue with internet servers since the send heartbeats to the id master
-server. The behavior is off by default and can be turned on using a
-sysctl.
+Ah OK. I was wondering because if you leave off the 'scope link' then you
+get inheritance of the broadcast for secondary ip addrs.
 
-John Tobin
+> > And as far as your original question try the following:
+> >
+> > ip -f inet addr add 10.5.5.8/24 dev eth0 brd +
+> > ip -f inet addr add 10.5.5.1 dev eth0 scope link brd 10.5.5.255
+> > ip -f inet addr add 10.5.5.2 dev eth0 scope link brd 10.5.5.255
+>
+> Aha!  At the suggestion of the iproute2 documentation, and another person
+> on the linux-ha list, I tried using 'brd +' on the aliased IPs, but
+> apparently we were reading the docs wrong.  Setting it explicitly works!
 
+Yep - that is the 'scope link' override that basically tells the system to
+ignore any inheritance and treat the address as a special local case. Note
+that the order in which the addresses are applied is critical. For
+example if you do:
 
+ip addr add 10.5.5.1/24 dev eth0 scope link brd +
 
---=-ZOumsiTdBhg3WQaoNHwE
-Content-Disposition: attachment; filename=udp_wide_broadcast.patch
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; name=udp_wide_broadcast.patch; charset=ANSI_X3.4-1968
+Then you get the appropriate broadcast address for the /24 netmask. BUT
+then you cannot add in a global address in the same network as in:
 
---- linux/include/linux/sysctl.h.orig	2002-08-17 19:52:27.000000000 -0500
-+++ linux/include/linux/sysctl.h	2002-08-17 19:53:00.000000000 -0500
-@@ -291,7 +291,8 @@
- 	NET_IPV4_NONLOCAL_BIND=3D88,
- 	NET_IPV4_ICMP_RATELIMIT=3D89,
- 	NET_IPV4_ICMP_RATEMASK=3D90,
--	NET_TCP_TW_REUSE=3D91
-+	NET_TCP_TW_REUSE=3D91,
-+	NET_UDP_WIDE_BROADCAST=3D92
- };
-=20
- enum {
---- linux-modified/net/ipv4/sysctl_net_ipv4.c.orig	2002-08-17 19:48:19.0000=
-00000 -0500
-+++ linux-modified/net/ipv4/sysctl_net_ipv4.c	2002-08-17 19:52:03.000000000=
- -0500
-@@ -45,6 +45,9 @@
- extern int inet_peer_gc_mintime;
- extern int inet_peer_gc_maxtime;
-=20
-+/* From udp.c */
-+extern int sysctl_udp_wide_broadcast;
-+
- #ifdef CONFIG_SYSCTL
- static int tcp_retr1_max =3D 255;=20
- static int ip_local_port_range_min[] =3D { 1, 1 };
-@@ -221,6 +224,8 @@
- 	 &sysctl_icmp_ratemask, sizeof(int), 0644, NULL, &proc_dointvec},
- 	{NET_TCP_TW_REUSE, "tcp_tw_reuse",
- 	 &sysctl_tcp_tw_reuse, sizeof(int), 0644, NULL, &proc_dointvec},
-+	{NET_UDP_WIDE_BROADCAST, "udp_wide_broadcast",
-+	 &sysctl_udp_wide_broadcast, sizeof(int), 0644, NULL, &proc_dointvec},
- 	{0}
- };
-=20
---- linux-modified/net/ipv4/udp.c.orig	2002-08-17 19:40:59.000000000 -0500
-+++ linux-modified/net/ipv4/udp.c	2002-08-17 23:37:47.000000000 -0500
-@@ -94,6 +94,8 @@
- #include <net/inet_common.h>
- #include <net/checksum.h>
-=20
-+int sysctl_udp_wide_broadcast =3D 0;
-+
- /*
-  *	Snmp MIB for the UDP layer
-  */
-@@ -272,9 +274,10 @@
- 		if ((s->num !=3D hnum)					||
- 		    (s->daddr && s->daddr!=3Drmt_addr)			||
- 		    (s->dport !=3D rmt_port && s->dport !=3D 0)			||
--		    (s->rcv_saddr  && s->rcv_saddr !=3D loc_addr)		||
--		    (s->bound_dev_if && s->bound_dev_if !=3D dif))
-+		    !(sysctl_udp_wide_broadcast || !(s->rcv_saddr  && s->rcv_saddr !=3D =
-loc_addr))	||
-+		    (s->bound_dev_if && s->bound_dev_if !=3D dif)) {
- 			continue;
-+		}
- 		break;
-   	}
-   	return s;
+ip addr add 10.5.5.8/24 dev eth0 scope global brd 10.5.5.255
+RTNETLINK answers: Invalid argument
 
---=-ZOumsiTdBhg3WQaoNHwE
-Content-Disposition: attachment; filename=readme.txt
-Content-Transfer-Encoding: quoted-printable
-Content-Type: text/plain; name=readme.txt; charset=ANSI_X3.4-1968
+You have to change the netmask at this point (think scope~=mask).
+Essentially you cannot have a primary and secondary address on a single
+device exist with different scope. Think of IPv6 scope and it becomes a
+little clearer where the addressing conflicts.
 
-UDP Wide Broadcast Patch for Kernel 2.4.19
+Your best bet when in doubt is to always specify the actual broadcast
+address you require. The 'brd +' is merly a shortcut to specify the
+broadcast address associated with the specified CIDR mask. In fact you can
+have way interesting amounts of fun by specifying alternate broadcasts
+from CIDR masks as in:
 
-Main purpose is to allow Quake 3 servers, and all games powered by the
-engine, to be visible in the server browser when the servers are being run =
-on
-aliased IP addresses and multiple NICs using the +set net_ip option.
+ip addr add 10.5.5.1/24 dev eth0 brd 10.5.255.255
 
-To apply the patch run "patch -p1 < udp_wide_broadcast.patch" from your
-source directory and recompile.
+Using this on a "Class B" network allow you to "be seen" by other devices
+but only speak to/from devices within your CIDR scope (hint: look at the
+output of 'ip ro li tab local') as well as really fsck routers and ARP
+tables for the network... ;-}
 
-Add "echo "1" > /proc/sys/net/ipv4/udp_wide_broadcast" to one of your start=
-up
-scripts, i.e./etc/rc.d/rc.local, and run thousands of servers from your
-computer.
+[snip]
 
+> > And if I am way off base here due to jumping in just ignore me.
+>
+> Not at all, thanks for the suggestion.  It seems now that I need to try to
+> encourage the fwbuilder folks to specify the broadcast address on each
+> alias.  At the very least, I should be able to whip out a patch to do
+> it, and hopefully they'll accept it.
+>
+> /* kevin@pheared.net               http://devel.pheared.net/ */
+> /* Network Security Engineer       http://pheared.net/~kevin */
+> /* Sabotage will set us free.   Throw a rock in the machine. */
 
-Patch by:
-Rogier Mulhujzen <linux@bsdchicks.com>
-John Tobin <ogre@sirinet.net>
-
-A patch with the same functionality for FreeBSD is available from
-http://www.bsdchicks.com/patches
-
---=-ZOumsiTdBhg3WQaoNHwE--
+--------------------------------------------------
+Matthew G. Marsh,  President
+Paktronix Systems LLC
+1506 North 59th Street
+Omaha  NE  68104
+Phone: (402) 932-7250 x101
+Email: mgm@paktronix.com
+WWW:  http://www.paktronix.com
+--------------------------------------------------
