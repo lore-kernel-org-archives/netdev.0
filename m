@@ -1,71 +1,57 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: fealnx oopses (with [PATCH])
-Date: Wed, 31 Mar 2004 22:38:46 +0200
+From: Dipankar Sarma <dipankar@in.ibm.com>
+Subject: Re: route cache DoS testing and softirqs
+Date: Thu, 1 Apr 2004 02:07:50 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403312238.46835.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403311839.33202.vda@port.imtp.ilyichevsk.odessa.ua> <20040331192421.GA30048@scream.fjortis.info>
+Message-ID: <20040331203750.GB4543@in.ibm.com>
+References: <20040329222926.GF3808@dualathlon.random> <200403302005.AAA00466@yakov.inr.ac.ru> <20040330211450.GI3808@dualathlon.random> <20040330133000.098761e2.davem@redhat.com> <20040330213742.GL3808@dualathlon.random> <20040331171023.GA4543@in.ibm.com> <16491.4593.718724.277551@robur.slu.se>
+Reply-To: dipankar@in.ibm.com
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Francois Romieu <romieu@fr.zoreil.com>,
-        Andreas Henriksson <andreas@fjortis.info>, netdev@oss.sgi.com,
-        Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrea Arcangeli <andrea@suse.de>, "David S. Miller" <davem@redhat.com>,
+        kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        paulmck@us.ibm.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Henriksson <andreas@fjortis.info>
-In-Reply-To: <20040331192421.GA30048@scream.fjortis.info>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Content-Disposition: inline
+In-Reply-To: <16491.4593.718724.277551@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thank you for testing!
+On Wed, Mar 31, 2004 at 08:46:09PM +0200, Robert Olsson wrote:
+Content-Description: message body text
+> Before run
+> 
+> total    droppped tsquz    throttl  bh_enbl  ksoftird irqexit  other   
+> 00000000 00000000 00000000 00000000 000000e8 0000017e 00030411 00000000
+> 00000000 00000000 00000000 00000000 000000ae 00000277 00030349 00000000
+> 
+> After DoS (See description from previous mail)
+> 
+> total    droppped tsquz    throttl  bh_enbl  ksoftird irqexit  other    
+> 00164c55 00000000 000021de 00000000 000000fc 0000229f 0003443c 00000000
+> 001695e7 00000000 0000224d 00000000 00000162 0000236f 000342f7 00000000
+> 
+> So the major part of softirq's are run from irqexit and therefor out of 
+> scheduler control. This even with RX polling (eth0, eth2) We still have 
+> some TX interrupts plus timer interrupts now at 1000Hz. Which probably 
+> reduces the number of softirq's that ksoftirqd runs.
 
-On Wednesday 31 March 2004 21:24, Andreas Henriksson wrote:
-> On Wed, Mar 31, 2004 at 06:39:33PM +0200, Denis Vlasenko wrote:
-> > Ok, here is what I have now.
-> >
-> > What we had before:
-> > original behaviour: Andreas had tx tomeouts, I had fatal oops.
->
-> I had tx-related kernel panic with vanilla driver on my p-166.
->
-> > francois+jgarzik patch: Andreas happy, I had lockup (endless 'Too much
-> > work')
->
-> with spin_lock_irqsave in start_tx I haven't been able to trigger the
-> panic on my p3-600 .. (Although, I don't know if it actually fixed the
-> problem or if it's just harder to trigger on a faster machine.. but I've
-> been moving ALOT of data so even if it's 10 or 100 times hard I should
-> have triggered it by now..)
->
-> so jgarzik's patch is enough to make me happy... no more panic but I
-> still see this which is annoying when trying to do interactive stuff
-> over the network:
->
-> -- snip --
-> NETDEV WATCHDOG: eth1: transmit timed out
-> eth1: Transmit timed out, status 00000000, resetting...
-> NETDEV WATCHDOG: eth1: transmit timed out
-> eth1: Transmit timed out, status 00000000, resetting...
-> NETDEV WATCHDOG: eth1: transmit timed out
-> eth1: Transmit timed out, status 00000000, resetting...
+So, NAPI or not we get userland stalls due to packetflooding.
 
-Is it happens several times in a row? I see the same thing,
-actually, when my netcat madly spews UDPs, it happens
-endlessly, until I kill netcat.
+Looking at some of the old patches we discussed privately, it seems
+this is what was done earlier -
 
-So, maybe I can cure this too by replacing tx timeout code
-with code which I use for 'too much work' codepath.
+1. Use rcu-softirq.patch which provides call_rcu_bh() for softirqs
+   only.
 
-> > I modified 'Too much work in interrupt' code.
-> > I added code which completely stops rx and tx and schedules
-> > card reset a-la reset previously used in tx_timeout code path.
-> > There is 1 second delay.
->
-> To me it doesn't seem better nor worse then before... so I guess if it
-> helps you in any way, good.
+2. Limit non-ksoftirqd softirqs - get a measure of userland stall (using
+   an api rcu_grace_period(cpu)) and if it is too long, expire
+   the timeslice of the current process  and start sending everything to 
+   ksoftirqd.
 
-Yes, you do not trigger this. Your box use original code
-still living in tx timeout path.
---
-vda
+By reducing the softirq time at the back of a hardirq or local_bh_enable(),
+we should be able to bring a bit more fairness. I am working on the
+patches, will test and publish later. 
+
+Thanks
+Dipankar
