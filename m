@@ -1,81 +1,62 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Change proxy_arp to respond only for valid neighbours
-Date: Thu, 12 Feb 2004 11:46:37 +0200 (EET)
+From: "Xiaoliang (David) Wei" <weixl@caltech.edu>
+Subject: Re: gigabit ethernet
+Date: Thu, 12 Feb 2004 01:34:32 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0402121116050.1399@u.domain.uli>
-References: <Pine.LNX.4.44.0402111534310.2809-100000@l>
- <1076561326.1032.62.camel@jzny.localdomain>
+Message-ID: <402B48A8.3060800@caltech.edu>
+References: <20040212083915.73516.qmail@web21109.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <1076561326.1032.62.camel@jzny.localdomain>
+To: satya srikanth <satyasrikanth2001@yahoo.com>
+In-Reply-To: <20040212083915.73516.qmail@web21109.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Satya,
 
-	Hello,
+      Did you check the CPU utilization? If you use smaller packet size, 
+the interrupt rate may be a problem.
+      You can modulate the NIC's interrupt rate. See the document for 
+details:
+http://www.intel.com/support/network/adapter/1000/e1000.htm#parameters
 
-On Thu, 11 Feb 2004, jamal wrote:
 
-> > 	It looks bad to call route_slow for every one request,
-> > I have to think more about it.
->
-> If you make another get it goes via fast path.
-> The disappointing part is this feature has a lot of potential
-> if it works "correctly" (imagine being able to populate route cache
-> before packet arrives and not needing for packet to go via slow path).
+      Also, I assume the round trip propagation delay for your 
+connections is very small (such as <10ms)?
 
-	I'm not sure I understand your idea, may be you will try
-it one day :)
 
-> > - this cycle repeats on each 3 seconds which means that for 1
-> > second we queue requests and for 2 seconds we just drop
->
-> I am indifferent about the above (and it may be complicating things).
+-David
 
-	I'll have to test it first because it can reduce the
-proxy_queue usage up to 3 times which can be desired in some
-setups, we have linear search there.
+satya srikanth wrote:
+> Sir,
+>     I need some help from you. I am using 2 xeon(2
+> GHz) machines each with two processors running linux
+> 2.4.20-8smp kernel and having intel PRO/1000 gigabit
+> adapter NIC card(e1000 driver). I tried connecting
+> both of them using a gigabit switch. I am getting
+> gigabit speed only if I use my own TCP sockets sending
+> packets of size around 1400 bytes. If I send packets
+> of size around 500 bytes, I am getting maximum of only
+> 500 Mbps. I noticed that NIC is receiving all the
+> packets but they are getting dropped in the kernel.
+>         I tried changing the settings like
+> netdev_max_backlog to 30000 and rmem_max, wmem_max and
+> txqueuelen, but of no use. Can you please suggest some
+> changes that I need to make to achieve this speed.
+> (Like changing number of Rx interrupts, Tx interrupts
+> etc). Can you please suggest some other links where I
+> can get some useful information. Will linux router
+> project LRP help me to achieve it.
+> 
+>         with regards,
+>         Satya Srikanth.
+> 
 
-> Ok, remove the flag. That one piece is safe. I didnt understand
-> why you have to speacial case for "NAT/fwd/pneigh"
 
-	DNAT is like local address, no need to delay at all.
-
-> I think we have been this whole issue severely (i.e you understand my
-> view and i understand yours) - lets get a closure. Heres where i stand:
-> - checking validity in fast response is fair game and doesnt need a flag
-> - loops must be avoided
->
-> Some of your features are fine except they may be a little extreme.
-> Note, this code has been to work well for years, the minimalist
-> approach to features would be the best approach.
-
-	I hope it will continue to work but in a fair way :)
-
-	ok, we are the final of this, I have prepared a change log:
-
-http://www.ssi.bg/~ja/tmp/CHANGES
-
-	At this point I do not know how to optimize this patch and
-all changes look valid to me. arp_proxy-2.6.2-1.diff is still the
-latest version but I have to check the proxy_queue optimization.
-To make the code more readable may we can move the (IN_DEV_FORWARD(in_dev))
-body at the end of arp_process. And I'll do more tests in the following
-days.
-
-	I know you prefer to live with the old behaviour. I'm not
-sure if we reorder the old code it will look more readable while
-supporting the main new features. And I'm not going to push this if
-we do not have consensus on the implementation. Let me know if
-you have a better version of this change.
-
-> cheers,
-> jamal
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+-- 
+------------------------------------------------------
+Xiaoliang (David) Wei   Graduate Student of CS@Caltech
+WWW: http://www.cs.caltech.edu/~weixl
+======================================================
