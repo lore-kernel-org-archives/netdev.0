@@ -1,39 +1,48 @@
-From: "H. Peter Anvin" <hpa@zytor.com>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
- Topics
-Date: Wed, 30 Mar 2005 09:48:15 -0800
-Message-ID: <424AE65F.5020306@zytor.com>
-References: <20050326224621.61f6d917.davem@davemloft.net>	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>	 <20050329152008.GD63268@muc.de> <1112116762.5088.65.camel@beastie>	 <1112130512.1077.107.camel@jzny.localdomain>	 <20050330152208.GB12672@muc.de> <20050330153313.GD32111@g5.random>	 <20050330153948.GE12672@muc.de> <20050330154418.GE32111@g5.random>	 <Pine.LNX.4.61.0503301049440.28633@chimarrao.boston.redhat.com> <1112198694.5452.15.camel@mulgrave>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch netdev-2.6] e1000: add MODULE_VERSION
+Date: Wed, 30 Mar 2005 13:44:03 -0500
+Message-ID: <20050330184403.GD10049@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Rik van Riel <riel@redhat.com>, Andrea Arcangeli <andrea@suse.de>,
-        Andi Kleen <ak@muc.de>, jamal <hadi@cyberus.ca>,
-        Dmitry Yusupov <dmitry_yus@yahoo.com>, mpm@selenic.com,
-        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
-        ksummit-2005-discuss@thunk.org, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, ayyappan.veeraiyan@intel.com,
+        john.ronciak@intel.com, ganesh.venkatesan@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Bottomley <James.Bottomley@HansenPartnership.com>
-In-Reply-To: <1112198694.5452.15.camel@mulgrave>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-James Bottomley wrote:
-> On Wed, 2005-03-30 at 10:50 -0500, Rik van Riel wrote:
-> 
->>Agreed, this is definately solvable.  If people don't agree,
->>we should probably fight this out at the kernel summit. ;)
-> 
-> 
-> So just to make this explicit, we kill this thread and lobby for a topic
-> at the kernel summit discussing the problem of storage over net and the
-> ways of solving it.  Yes, I think that's a very good idea.
-> 
+Add MODULE_VERSION entry.
 
-That was the whole start of this thread; not just one but two proposed 
-topics that amount to exactly this.
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+---
+I posted one like this before, but it seems to have been lost or
+overwritten...
 
-Yes, we need this topic.
+ drivers/net/e1000/e1000_main.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletion(-)
 
-	-hpa
+--- netdev-2.6/drivers/net/e1000/e1000_main.c.orig	2005-03-30 13:30:02.355409590 -0500
++++ netdev-2.6/drivers/net/e1000/e1000_main.c	2005-03-30 13:31:13.174846755 -0500
+@@ -65,7 +65,8 @@ char e1000_driver_string[] = "Intel(R) P
+ #else
+ #define DRIVERNAPI "-NAPI"
+ #endif
+-char e1000_driver_version[] = "5.7.6-k2"DRIVERNAPI;
++#define DRV_VERSION "5.7.6-k2"DRIVERNAPI
++char e1000_driver_version[] = DRV_VERSION;
+ char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
+ 
+ /* e1000_pci_tbl - PCI Device ID Table
+@@ -210,6 +211,7 @@ static struct pci_driver e1000_driver = 
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+ MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
+ MODULE_LICENSE("GPL");
++MODULE_VERSION(DRV_VERSION);
+ 
+ static int debug = NETIF_MSG_DRV | NETIF_MSG_PROBE;
+ module_param(debug, int, 0);
+-- 
+John W. Linville
+linville@tuxdriver.com
