@@ -1,122 +1,104 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [VLAN] Bad: scheduling while atomic! in 2.6.8.1]
-Date: Wed, 08 Sep 2004 10:11:47 -0700
+From: Arjen Verweij <a.verweij@student.tudelft.nl>
+Subject: Re: wol support in forcedeth v25
+Date: Wed, 08 Sep 2004 21:07:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <413F3D53.2030505@candelatech.com>
-References: <413F1707.1090508@pobox.com>
+Message-ID: <413F587A.70902@student.tudelft.nl>
+References: <Pine.GHP.4.44.0404201259390.24990-100000@elektron.its.tudelft.nl> <200404201236.41188.adq@lidskialf.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Linux 802.1Q VLAN" <vlan@wanfear.com>,
-        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-In-Reply-To: <413F1707.1090508@pobox.com>
+To: Andrew de Quincey <adq@lidskialf.net>
+In-Reply-To: <200404201236.41188.adq@lidskialf.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andre Correa wrote:
-> 
-> Hi, I set up a Linux box as a firewall with 4 NICs (3C905) on a Dell
-> with 2.6.8.1 and iptables 1.2.11. 3 NICs have several IP addresses and
-> the 4th has 4 VLANs associated. This box is plugged on Cisco switches.
-> 
-> Everything was fine, firewalling OK, until I plugged the 4th NIC. When
-> traffic start to flow the box logs a _LOT_ of errors on syslog:
+Dear Andrew,
 
-Mr. Hemminger recently added some RCU locking changes to VLAN.
-That said, I don't see any mention of vlan in the stack traces
-below, so it could be that there is some other problem.
+Today I upgraded to forcedeth v0.28. Looking at the Changelog, nothing 
+indicates additional changes have been made to WOL support. Is there 
+anything I can do to get this in motion again? I am willing to test 
+stuff when needed, and give feedback based on my system.
 
-I'm forwarding this to the netdev mailing list as well.
+For now I just change:
+#define DEV_NEED_TIMERIRQ       0x0008
+to
+#define DEV_NEED_TIMERIRQ       0x0000
 
+and use pci-config to set the involved bits of the chip to get to D3.
 
-> 
-> <snip>
-> Sep  1 03:58:48 fw01 kernel: bad: scheduling while atomic!
-> Sep  1 03:58:48 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
-> Sep  1 03:58:48 fw01 kernel:  [<c0230c74>] sys_socketcall+0x150/0x1f4
-> Sep  1 03:58:48 fw01 kernel:  [<c0103c0e>] work_resched+0x5/0x16
-> Sep  1 03:58:48 fw01 kernel: bad: scheduling while atomic!
-> Sep  1 03:58:48 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
-> Sep  1 03:58:48 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
-> Sep  1 03:58:48 fw01 kernel:  [<c028c5d4>] schedule_timeout+0x14/0xb0
-> Sep  1 03:58:48 fw01 kernel:  [<c02862ac>] unix_wait_for_peer+0xac/0xc8
-> Sep  1 03:58:48 fw01 kernel:  [<c010f348>] 
-> autoremove_wake_function+0x0/0x40
-> Sep  1 03:58:48 fw01 kernel:  [<c010f348>] 
-> autoremove_wake_function+0x0/0x40
-> Sep  1 03:58:48 fw01 kernel:  [<c0286d4f>] unix_dgram_sendmsg+0x39b/0x4b0
-> Sep  1 03:58:48 fw01 kernel:  [<c022f6b1>] sock_aio_write+0x101/0x10c
-> Sep  1 03:58:48 fw01 kernel:  [<c013d6e6>] do_sync_write+0x7a/0xac
-> Sep  1 03:58:48 fw01 kernel:  [<c023298b>] kfree_skbmem+0x17/0x1c
-> Sep  1 03:58:48 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
-> Sep  1 03:58:48 fw01 kernel:  [<c013d7cd>] vfs_write+0xb5/0xd4
-> Sep  1 03:58:48 fw01 kernel:  [<c013d898>] sys_write+0x40/0x6c
-> Sep  1 03:58:48 fw01 kernel:  [<c0103be7>] syscall_call+0x7/0xb
-> Sep  1 03:58:48 fw01 kernel: bad: scheduling while atomic!
-> Sep  1 03:58:48 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
-> Sep  1 03:58:49 fw01 kernel:  [<c0230c74>] sys_socketcall+0x150/0x1f4
-> Sep  1 03:58:49 fw01 kernel:  [<c0103c0e>] work_resched+0x5/0x16
-> Sep  1 03:58:49 fw01 kernel: bad: scheduling while atomic!
-> Sep  1 03:58:49 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
-> Sep  1 03:58:49 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
-> Sep  1 03:58:49 fw01 kernel:  [<c028c5d4>] schedule_timeout+0x14/0xb0
-> Sep  1 03:58:49 fw01 kernel:  [<c02862ac>] unix_wait_for_peer+0xac/0xc8
-> Sep  1 03:58:49 fw01 kernel:  [<c010f348>] 
-> autoremove_wake_function+0x0/0x40
-> Sep  1 03:58:49 fw01 kernel:  [<c010f348>] 
-> autoremove_wake_function+0x0/0x40
-> Sep  1 03:58:49 fw01 kernel:  [<c0286d4f>] unix_dgram_sendmsg+0x39b/0x4b0
-> Sep  1 03:58:49 fw01 kernel:  [<c022f6b1>] sock_aio_write+0x101/0x10c
-> Sep  1 03:58:49 fw01 kernel:  [<c013d6e6>] do_sync_write+0x7a/0xac
-> Sep  1 03:58:49 fw01 kernel:  [<c023298b>] kfree_skbmem+0x17/0x1c
-> Sep  1 03:58:49 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
-> Sep  1 03:58:49 fw01 kernel:  [<c013d7cd>] vfs_write+0xb5/0xd4
-> Sep  1 03:58:49 fw01 kernel:  [<c013d898>] sys_write+0x40/0x6c
-> Sep  1 03:58:49 fw01 kernel:  [<c0103be7>] syscall_call+0x7/0xb
-> <snip>
-> 
-> I got more then 110Mb of it in ~2 hours of tests. Shutting down
-> interface doesn't stop it, just a reboot takes the machine back to its
-> normal state, if cable is unplugged.
-> 
-> I've tested NIC, cable, PCI slot, switch port, switch and even changed
-> the box itself, but nothing helped. When I take VLAN down, on Cisco
-> switch, no errors are logged. If I go back to 2.6.7 + VLAN, no errors
-> too, all OK.
-> 
-> It seens to be related to VLAN on 2.6.8.1 only. Searching kernel source
-> I found that it comes from kernel/sched.c, but it doesn't tells me much.
-> 
-> <snip>
->         /*
->          * Test if we are atomic.  Since do_exit() needs to call into
->          * schedule() atomically, we ignore that path for now.
->          * Otherwise, whine if we are scheduling when we should not be.
->          */
->         if (likely(!(current->state & (TASK_DEAD | TASK_ZOMBIE)))) {
->                 if (unlikely(in_atomic())) {
->                         printk(KERN_ERR "bad: scheduling while atomic!\n");
->                         dump_stack();
->                 }
->         }
-> <snip>
-> 
-> Does anybody can help on it?! Does it look like a bug or what?
-> 
-> Any help is appreciated.
-> 
-> tks
-> 
-> Andre
-> 
-> _______________________________________________
-> VLAN mailing list  -  VLAN@wanfear.com
-> http://www.WANfear.com/mailman/listinfo/vlan
-> VLAN Page:  http://scry.wanfear.com/~greear/vlan.html
-> 
+ From http://www.hailfinger.org/carldani/linux/patches/forcedeth/ I 
+gather that NVIDIA has contributed gigabit support. Maybe they can spill 
+some code to help get WOL support as well? From earlier emails with 
+NVIDIA engineers I was told that WOL support is not part of the Linux 
+driver, so it may be a long shit :)
 
+Thank you all for a great driver,
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Arjen
+
+Andrew de Quincey wrote:
+
+>On Tuesday 20 April 2004 12:13, Arjen Verweij wrote:
+>
+>I found how I could get it going again, but its not the right way of doing 
+>it.. In nv_close(), if you comment out the lines "nv_stop_rx(dev);" and "if 
+>(np->wolenabled) nv_start_rx(dev);", WOL works. 
+>
+>However this isn't the right way to do it, which is why I haven't supplied a 
+>patch. What its supposed to do it stop receiving, clear any buffers, then 
+>restart receiving again. But this seems to break WOL for some reason. There 
+>must be some extra operation required for it all to work properly... I'll 
+>keep looking.
+>
+>  
+>
+>>OK, let me know if you need a guinea pig to test any patches you might
+>>have.
+>>
+>>Regards,
+>>
+>>Arjen
+>>
+>>On Tue, 20 Apr 2004, Andrew de Quincey wrote:
+>>    
+>>
+>>>On Monday 19 April 2004 21:11, Arjen Verweij wrote:
+>>>      
+>>>
+>>>>Hi,
+>>>>
+>>>>Is the wol support in forcedeth v25 complete yet? I was trying it with
+>>>>the 2.6.5 kernel it came with, tried the new forcedeth driver with a
+>>>>2.6.3 kernel (because firewire seems broken in 2.6.5) however, my box
+>>>>will not wake up as of yet.
+>>>>        
+>>>>
+>>>You're right! It _was_ working with patch-forced-0.25, but it ain't in
+>>>2.6.5. I'll see if I can spot the problem.
+>>>
+>>>      
+>>>
+>>>>According to the source there is a FIXME with a comment about powering
+>>>>down the NIC. Does this mean that support for wol is incomplete for
+>>>>now? Mind you, I am just curious, this is in no way meant as criticism.
+>>>>        
+>>>>
+>>>That would only be for when WOL is NOT used; I think it has to leave the
+>>>NIC powered up for WOL to work... and as you say it ain't implemented
+>>>yet.
+>>>
+>>>      
+>>>
+>>>>On another note, Carl-Daniel mentioned that DEV_NEED_TIMERIRQ might be
+>>>>removed from future releases. Is this still the case? Feedback would be
+>>>>much appreciated, so I can keep my humble audience up to date on what's
+>>>>going on at the wol front.
+>>>>
+>>>>Thank you guys for your excellent work,
+>>>>
+>>>>Arjen
+>>>>http://atlas.et.tudelft.nl/verwei90/nforce2/index.html
+>>>>        
+>>>>
