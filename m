@@ -1,54 +1,55 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch netdev-2.6 2/2] r8169: fix RxVlan bit manipulation
-Date: Thu, 21 Oct 2004 21:02:31 -0400
+From: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Subject: Re: [PATCH] use mmiowb in tg3.c
+Date: Fri, 22 Oct 2004 11:16:45 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022010231.GC1945@tuxdriver.com>
-References: <20041022005737.GA1945@tuxdriver.com>
+Message-ID: <1098407804.6071.22.camel@gaston>
+References: <200410211613.19601.jbarnes@engr.sgi.com>
+	 <200410211628.06906.jbarnes@engr.sgi.com>
+	 <20041021164007.4933b10b.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jesse Barnes <jbarnes@engr.sgi.com>, Andrew Morton <akpm@osdl.org>,
+        Linux Kernel list <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+        Jeff Garzik <jgarzik@pobox.com>, gnb@sgi.com, akepner@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-        romieu@fr.zoreil.com
-Content-Disposition: inline
-In-Reply-To: <20041022005737.GA1945@tuxdriver.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041021164007.4933b10b.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix manipulation of RxVlan bit in rtl8169_vlan_rx_register(), and
-remove it from rtl8169_vlan_rx_kill_vid().
+On Fri, 2004-10-22 at 09:40, David S. Miller wrote:
+> On Thu, 21 Oct 2004 16:28:06 -0700
+> Jesse Barnes <jbarnes@engr.sgi.com> wrote:
+> 
+> > This patch originally from Greg Banks.  Some parts of the tg3 driver depend on 
+> > PIO writes arriving in order.  This patch ensures that in two key places 
+> > using the new mmiowb macro.  This not only prevents bugs (the queues can be 
+> > corrupted), but is much faster than ensuring ordering using PIO reads (which 
+> > involve a few round trips to the target bus on some platforms).
+> 
+> Do other PCI systems which post PIO writes also potentially reorder
+> them just like this SGI system does?  Just trying to get this situation
+> straight in my head.
 
-Signed-off-by: John W. Linville <linville@tuxdriver.com>
----
+I think the problem they have is really related to their spinlock, that
+is the IO leaking out of the spinlock vs. other CPUs.
 
- drivers/net/r8169.c |   10 ++++------
- 1 files changed, 4 insertions(+), 6 deletions(-)
+On the other hand, as I discussed with Jesse in the past, I'd like to
+extend the semantics of mmiowb() to also define full barrier between
+cacheable and non-cacheable accesses. That would help fixing a lot of issues
+on ppc and ppc64.
 
---- netdev-2.6/drivers/net/r8169.c.netdev	2004-10-21 14:38:16.000000000 -0400
-+++ netdev-2.6/drivers/net/r8169.c	2004-10-21 14:44:22.968783027 -0400
-@@ -705,8 +705,10 @@ static void rtl8169_vlan_rx_register(str
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&tp->lock, flags);
--	tp->vlgrp = grp;
--	tp->cp_cmd |= RxVlan;
-+	if ((tp->vlgrp = grp))
-+		tp->cp_cmd |= RxVlan;
-+	else
-+		tp->cp_cmd &= ~RxVlan;
- 	RTL_W16(CPlusCmd, tp->cp_cmd);
- 	RTL_R16(CPlusCmd);
- 	spin_unlock_irqrestore(&tp->lock, flags);
-@@ -715,13 +717,9 @@ static void rtl8169_vlan_rx_register(str
- static void rtl8169_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	void __iomem *ioaddr = tp->mmio_addr;
- 	unsigned long flags;
- 
- 	spin_lock_irqsave(&tp->lock, flags);
--	tp->cp_cmd &= ~RxVlan;
--	RTL_W16(CPlusCmd, tp->cp_cmd);
--	RTL_R16(CPlusCmd);
- 	if (tp->vlgrp)
- 		tp->vlgrp->vlan_devices[vid] = NULL;
- 	spin_unlock_irqrestore(&tp->lock, flags);
+Typically, our normal "light" write barrier doesn't reorder between cacheable
+and non-cacheable (MMIO) stores, which is why we had to put some heavy sync
+barrier in our MMIO writes macros.
+
+By having an mmiowb() that allow to explicitely do this ordering, it would
+allow us to relax the barriers in the MMIO macros, and so get back a few
+percent of perfs that we lost with the "fix".
+
+I haven't had time to work on that yet though, I need to review with paulus
+all the possible race cases, but hopefully, I'll have a patch on top of
+Jesse next week or so and will start converting more drivers.
+
+Ben.
