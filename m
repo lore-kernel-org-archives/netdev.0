@@ -1,27 +1,27 @@
-From: "David S. Miller" <davem@redhat.com>
+From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 06 Sep 2002 12:24:05 -0700 (PDT)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20020906.122405.122283378.davem@redhat.com>
-References: <20020906202646.A2185@wotan.suse.de>
-	<1031339954.3d78ffb257d22@imap.linux.ibm.com>
-	<20020906212619.A28172@wotan.suse.de>
+Date: Fri, 06 Sep 2002 12:45:39 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <65179883.1031316338@[10.10.2.3]>
+References: <1031339954.3d78ffb257d22@imap.linux.ibm.com>
+Reply-To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: niv@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: ak@suse.de
-In-Reply-To: <20020906212619.A28172@wotan.suse.de>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Nivedita Singhvi <niv@us.ibm.com>, Andi Kleen <ak@suse.de>
+In-Reply-To: <1031339954.3d78ffb257d22@imap.linux.ibm.com>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@suse.de>
-   Date: Fri, 6 Sep 2002 21:26:19 +0200
-   
-   I'm not entirely sure it is worth it in this case. The locks are
-   probably the majority of the cost.
+> Tthere is some cacheline thrashing hurting the NUMA 
+> more than other systems here too..
 
-You can more localize the lock accesses (since we use per-chain
-locks) by applying a cpu salt to the port numbers you allocate.
+There is no NUMA here ... the clients are 4 single node SMP 
+systems. We're using the old quads to make them, but they're 
+all split up, not linked together into one system.
+Sorry if we didn't make that clear.
 
-See my other email.
+M.
