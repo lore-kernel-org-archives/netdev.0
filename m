@@ -1,97 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Check connect address in NETLINK
-Date: Wed, 30 Jun 2004 22:40:50 +1000
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Prism54 wpa update
+Date: Wed, 30 Jun 2004 10:01:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040630124050.GA1619@gondor.apana.org.au>
-References: <20040628231439.GA3021@gondor.apana.org.au> <20040629082252.GA26866@ms2.inr.ac.ru> <20040629084552.GA6202@gondor.apana.org.au> <20040629111433.GA28463@ms2.inr.ac.ru> <20040629111833.GA22880@gondor.apana.org.au> <20040630112751.GA31160@gondor.apana.org.au> <20040630120045.GA7973@ms2.inr.ac.ru> <20040630120828.GA31498@gondor.apana.org.au> <20040630121420.GA8183@ms2.inr.ac.ru>
+Message-ID: <20040630140104.GD14482@ruslug.rutgers.edu>
+References: <20040629192101.GB14482@ruslug.rutgers.edu> <20040629202210.GK23191@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="VbJkn9YxBvnuCH5J"
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040630121420.GA8183@ms2.inr.ac.ru>
+In-Reply-To: <20040629202210.GK23191@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Wed, Jun 30, 2004 at 04:14:20PM +0400, Alexey Kuznetsov wrote:
+On Tue, Jun 29, 2004 at 04:22:10PM -0400, Jeff Garzik wrote:
+> On Tue, Jun 29, 2004 at 03:21:01PM -0400, Luis R. Rodriguez wrote:
+> > 
+> > I'll keep my latest wpa work/patch at the following URL:
+> > 
+> > http://prism54.org/~mcgrof/prism54-wpa.diff
+> > 
+> > I've nuked module params and am relying on private ioctls now since,
+> > 
+> > * we already have a [s|g]et_wpa priv iotcl, and
+> > * in preperation for the WPA patch for Wireless Extensions.
+> > 
+> > I'll work on wpa ie scans tonight and try to fix mgt for
+> > handling traps in extended mode. This is not related to wpa, but
+> > I also made the firmware load at probe time. I turned the radio
+> > off at probe after firmware load time too since the device is
+> > not technically up yet.
 > 
-> cpu 0:				cpu1 (or just preempted cpu)
+> Patch seems sane, though I vaguely recall xchg() not being atomic on all
+> platforms (such as i386?).  Maybe I'm wrong, an expert should speak up :)
+
+Just in case -- please don't apply the patch yet, I put it up as for review
+and update as to where I am.
+
+> I also worry that the following is a race, but I have not traced the
+> code to verify or discount my guess:
 > 
-> sk = netlink_lookup(...);
-> 				... closing sk
-> 				netlink_release() clears sk_socket
-> 
-> use sk->sk_socket. Oops.
+> +       u32 mlme, authen, dot1x, filter, wep;
+> +
+> +
+> +       if (islpci_get_state(priv) < PRV_STATE_INIT)
+> +               return 0;
+>  
+>         down_write(&priv->mib_sem);
 
-Thanks for the example.
+FWIW, the context that this is within is prism54_set_wpa, a private ioctl. 
 
-Here is a version that uses sk_state instead.
+	Luis
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---VbJkn9YxBvnuCH5J
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/linux/netlink.h 1.15 vs edited =====
---- 1.15/include/linux/netlink.h	2004-04-17 02:24:35 +10:00
-+++ edited/include/linux/netlink.h	2004-06-30 22:34:18 +10:00
-@@ -90,6 +90,11 @@
- 
- #define NET_MAJOR 36		/* Major 36 is reserved for networking 						*/
- 
-+enum {
-+	NETLINK_UNCONNECTED = 0,
-+	NETLINK_CONNECTED,
-+};
-+
- #ifdef __KERNEL__
- 
- #include <linux/capability.h>
-===== net/netlink/af_netlink.c 1.48 vs edited =====
---- 1.48/net/netlink/af_netlink.c	2004-06-19 04:43:31 +10:00
-+++ edited/net/netlink/af_netlink.c	2004-06-30 22:34:24 +10:00
-@@ -365,6 +365,7 @@
- 	struct sockaddr_nl *nladdr=(struct sockaddr_nl*)addr;
- 
- 	if (addr->sa_family == AF_UNSPEC) {
-+		sk->sk_state	= NETLINK_UNCONNECTED;
- 		nlk->dst_pid	= 0;
- 		nlk->dst_groups = 0;
- 		return 0;
-@@ -380,6 +381,7 @@
- 		err = netlink_autobind(sock);
- 
- 	if (err == 0) {
-+		sk->sk_state	= NETLINK_CONNECTED;
- 		nlk->dst_pid 	= nladdr->nl_pid;
- 		nlk->dst_groups = nladdr->nl_groups;
- 	}
-@@ -428,6 +430,12 @@
- 	/* Don't bother queuing skb if kernel socket has no input function */
- 	nlk = nlk_sk(sock);
- 	if (nlk->pid == 0 && !nlk->data_ready) {
-+		sock_put(sock);
-+		return ERR_PTR(-ECONNREFUSED);
-+	}
-+
-+	if (sock->sk_state == NETLINK_CONNECTED &&
-+	    nlk->dst_pid != nlk_sk(ssk)->pid) {
- 		sock_put(sock);
- 		return ERR_PTR(-ECONNREFUSED);
- 	}
-
---VbJkn9YxBvnuCH5J--
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
