@@ -1,29 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [XFRM] Probe selected algorithm only
-Date: Sat, 5 Feb 2005 08:32:11 +1100
-Message-ID: <20050204213211.GA16788@gondor.apana.org.au>
-References: <20050121101938.GA1133@gondor.apana.org.au> <m3fz0cj9o2.fsf@igel.m5r.de>
+From: Lawrence Walton <lawrence@the-penguin.otak.com>
+Subject: Re: SysKonnect sk98lin Gigabit lan missing in action from 2.6.10 on
+Date: Fri, 4 Feb 2005 14:28:26 -0800
+Message-ID: <20050204222825.GA8533@the-penguin.otak.com>
+References: <42038994.20401@xmission.com> <4203E3FE.2090806@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-To: Andreas Schwab <schwab@suse.de>
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <m3fz0cj9o2.fsf@igel.m5r.de>
+In-Reply-To: <4203E3FE.2090806@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 04, 2005 at 10:29:49PM +0100, Andreas Schwab wrote:
+Jeff Garzik [jgarzik@pobox.com] wrote:
+> maxer wrote:
+> >What is the status of sk98lin? Do we have to wait until Syskonnect gets 
+> >their act together
+> >and write a new driver for 2.6.10?
+> >
+> >Their latest is Oct 2004 and not at all compatible with 2.6.10 and beyond.
 > 
-> Return the first matching entry in xfrm_get_byname instead of the first
-> non-matching one.
+> I've been telling SysKonnect for _years_ that they need to split up 
+> their patches, but they still keep sending ever-larger jumbo driver 
+> update patches.
+> 
+> Stephen Hemminger split up their patch into a bunch of patches, and I 
+> applied several of those.
+> 
+> Apparently, Stephen also got sick of trying to patch and clean sk98lin, 
+> so he went and wrote his own "skge" driver.  It's available in my 
+> netdev-2.6 queue, and should be in the latest -mm.
+> 
+> 	Jeff
+> 
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
 
-Yes you're totally right.  Dave has already added a fix for this to
-his tree.
 
-Cheers,
+I have a SysKonnect card, and tried the skge driver (it's in the mm tree), with nominal testing 
+I'd have to say it works well, if not better then the sk98lin driver.
+
+
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+*--* Mail: lawrence@otak.com
+*--* Voice: 425.739.4247
+*--* Fax: 425.827.9577
+*--* HTTP://the-penguin.otak.com/~lawrence
+--------------------------------------
+- - - - - - O t a k  i n c . - - - - - 
