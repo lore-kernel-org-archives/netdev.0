@@ -1,27 +1,34 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: Pablo Neira <pablo@eurodev.net>
 Subject: Re: [NETLINK] introduce netlink bucket
-Date: Wed, 03 Nov 2004 09:16:13 +1100
-Message-ID: <E1CP6wn-0003VF-00@gondolin.me.apana.org.au>
-References: <4187FF18.5050608@eurodev.net>
+Date: Tue, 02 Nov 2004 23:22:05 +0100
+Message-ID: <4188088D.4040506@eurodev.net>
+References: <E1CP6wn-0003VF-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: pablo@eurodev.net (Pablo Neira)
-In-Reply-To: <4187FF18.5050608@eurodev.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1CP6wn-0003VF-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pablo Neira <pablo@eurodev.net> wrote:
-> 
-> This patch introduces the netlink bucket struct, it joins three arrays 
-> into an array of netlink bucket.
+Herbert Xu wrote:
 
-Please hold onto any work involving netlink itself, there are some
-pending patches in that area right now.
+>Pablo Neira <pablo@eurodev.net> wrote:
+>  
+>
+>>This patch introduces the netlink bucket struct, it joins three arrays 
+>>into an array of netlink bucket.
+>>    
+>>
+>
+>Please hold onto any work involving netlink itself, there are some
+>pending patches in that area right now.
+>  
+>
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+uh just curious, what kind of patches?
+
+Pablo
