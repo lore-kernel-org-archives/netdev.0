@@ -1,119 +1,126 @@
-From: "Ilya Pashkovsky" <ilya.pashkovsky@gmail.com>
-Subject: [Patch] SO_REUSEADDR fix in ipv4/ipv6 (n connects + 1 listen)
-Date: Wed, 15 Dec 2004 18:08:13 +0200
-Message-ID: <opsi14fzvzfj3ips@sibox>
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: udp_poll breaks vpnc
+Date: Wed, 15 Dec 2004 13:13:42 -0800
+Message-ID: <20041215131342.21768388@lembas.zaitcev.lan>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary=----------4cQblArTdRJef3s7HFoYxt
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Cc: zaitcev@redhat.com, linux-kernel@vger.kernel.org,
+	<shemminger@osdl.org>, davem@redhat.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262499AbULOVOr@vger.kernel.org>
 To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-------------4cQblArTdRJef3s7HFoYxt
-Content-Type: text/plain; format=flowed; delsp=yes; charset=iso-8859-15
-Content-Transfer-Encoding: 8bit
+Hi, Guys:
 
-Hello, fellow developers.
-This is a proper documentation for the reuse patch, along with
-its adoption for 2.6.10rc3-mm1 patchset.
+I found that the attached patch breaks VPNC. By looking at strace, it never
+gets any poll events about arriving encrypted data. It may be a bug in VPNC,
+but this is a rather old binary which I used even on 2.4...
 
-Current implementation of SO_REUSEADDR in the kernel disallows
-same port binding if a listening socket is already bound to it.
-This limits the options for firewall/nat piercing for applications,
-and is non-standard.
-The current limit was made because of the security risk
-of allowing free binds to same socket. This allowed listen
-call preemption and, since no unambiguous and secure fix
-was not found, the option to reuse port after listen-bind
-was removed. (the problem is that of multiple listeners
-bound to same port. this patch does not fix it, since the
-behaviour is ambiguos and not defined clearly, though maybe
-a userid check along with another flag telling to allow listen
-preemption (SO_REUSEPORT can be reused for this purpose) may
-solve that.)
+Unfortunately, I cannot investigate it closer at this time, because of, uhh,
+some work commitments. Sorry. I do not insist that we back this out, but
+let it be known that something was broken.
 
-Also, SO_REUSEADDR option value is boolean, but is checked
-to be more than 1 in code. This check was removed.
-The way multiple listeners was removed is by disallowing
-any reuse of a port with a bound listener. This is implemented
-by a check in tcp_ipv4.c (and tcp_ipv4.c) in function
-tcp_bind_conflict(). There's a check for any existing sockets
-matching the source port and having a TCP_LISTEN state.
-This check was changed to allow binding unless the new
-socket is also in TCP_LISTEN state. This still disallows
-multiple listeners but allows reuse of the port for
-outgoing connections. This check is made/modified in both
-ipv4 and ipv6 code.
+Cheers,
+-- Pete
 
-Testing was done using normal workloads on 2 i386 linux
-installations with normal workloads and also the netcat test.
-
-Test with netcat (uses SO_REUSEADDR by default):
-host A: nc -v -l -p 9999
-host B: nc -v -l -p 9000
-host A: nc -v -p 9999 host.B.ip.addr 9000
-host B: nc -v host.A.ip.addr 9999
-
-host A and B can be same host.
-
-Testing did not reveal any problems and networking software
-worked fine in both ipv4 and ipv6 networks.
-
-Signed-off-by: Ilya Pashkovsky <ilya.pashkovsky@gmail.com>
-
---
-
--- 
-  ilya
-------------4cQblArTdRJef3s7HFoYxt
-Content-Disposition: attachment; filename=patch-rc3-mm1-reuse
-Content-Type: application/octet-stream; name=patch-rc3-mm1-reuse
-Content-Transfer-Encoding: Base64
-
-LS0tIGxpbnV4L25ldC9pcHY0L3RjcF9pcHY0LmMub3JpZwkyMDA0LTEyLTE1IDEy
-OjMwOjExLjcyMzEzMzAxNiArMDIwMAorKysgbGludXgvbmV0L2lwdjQvdGNwX2lw
-djQuYwkyMDA0LTEyLTE1IDEyOjMwOjMxLjIxMjE3MDIzMiArMDIwMApAQCAtNTAs
-NiArNTAsOCBAQAogICoJWU9TSElGVUpJIEhpZGVha2kgQFVTQUdJIGFuZDoJU3Vw
-cG9ydCBJUFY2X1Y2T05MWSBzb2NrZXQgb3B0aW9uLCB3aGljaAogICoJQWxleGV5
-IEt1em5ldHNvdgkJYWxsb3cgYm90aCBJUHY0IGFuZCBJUHY2IHNvY2tldHMgdG8g
-YmluZAogICoJCQkJCWEgc2luZ2xlIHBvcnQgYXQgdGhlIHNhbWUgdGltZS4KKyAq
-CUlseWEgUGFzaGtvdnNreQkJOglhbGxvdyByZXVzZSBvZiBwb3J0IHdpdGggc2lu
-Z2xlIGxpc3RlbmVyCisgKgkJCQkJcmVtb3ZlIGJvb2xlYW4gc2tfcmV1c2UgPiAx
-IGNoZWNrCiAgKi8KIAogI2luY2x1ZGUgPGxpbnV4L2NvbmZpZy5oPgpAQCAtMTkz
-LDcgKzE5NSw4IEBAIHN0YXRpYyBpbmxpbmUgaW50IHRjcF9iaW5kX2NvbmZsaWN0
-KHN0cnUKIAkJICAgICAhc2syLT5za19ib3VuZF9kZXZfaWYgfHwKIAkJICAgICBz
-ay0+c2tfYm91bmRfZGV2X2lmID09IHNrMi0+c2tfYm91bmRfZGV2X2lmKSkgewog
-CQkJaWYgKCFyZXVzZSB8fCAhc2syLT5za19yZXVzZSB8fAotCQkJICAgIHNrMi0+
-c2tfc3RhdGUgPT0gVENQX0xJU1RFTikgeworCQkJICAgIChzazItPnNrX3N0YXRl
-ID09IFRDUF9MSVNURU4gJiYKKwkJCQlzay0+c2tfc3RhdGUgPT0gVENQX0xJU1RF
-TikpIHsKIAkJCQljb25zdCB1MzIgc2syX3Jjdl9zYWRkciA9IHRjcF92NF9yY3Zf
-c2FkZHIoc2syKTsKIAkJCQlpZiAoIXNrMl9yY3Zfc2FkZHIgfHwgIXNrX3Jjdl9z
-YWRkciB8fAogCQkJCSAgICBzazJfcmN2X3NhZGRyID09IHNrX3Jjdl9zYWRkcikK
-QEAgLTI1OSw4ICsyNjIsNiBAQCBzdGF0aWMgaW50IHRjcF92NF9nZXRfcG9ydChz
-dHJ1Y3Qgc29jayAqCiAJZ290byB0Yl9ub3RfZm91bmQ7CiB0Yl9mb3VuZDoKIAlp
-ZiAoIWhsaXN0X2VtcHR5KCZ0Yi0+b3duZXJzKSkgewotCQlpZiAoc2stPnNrX3Jl
-dXNlID4gMSkKLQkJCWdvdG8gc3VjY2VzczsKIAkJaWYgKHRiLT5mYXN0cmV1c2Ug
-PiAwICYmCiAJCSAgICBzay0+c2tfcmV1c2UgJiYgc2stPnNrX3N0YXRlICE9IFRD
-UF9MSVNURU4pIHsKIAkJCWdvdG8gc3VjY2VzczsKLS0tIGxpbnV4L25ldC9pcHY2
-L3RjcF9pcHY2LmMub3JpZwkyMDA0LTEyLTE1IDEyOjMxOjQxLjg4ODQyNTgwOCAr
-MDIwMAorKysgbGludXgvbmV0L2lwdjYvdGNwX2lwdjYuYwkyMDA0LTEyLTE1IDAx
-OjQyOjA4LjYwMzI2NTcyOCArMDIwMApAQCAtMTgsNiArMTgsNyBAQAogICoJQWxl
-eGV5IEt1em5ldHNvdgkJYWxsb3cgYm90aCBJUHY0IGFuZCBJUHY2IHNvY2tldHMg
-dG8gYmluZAogICoJCQkJCWEgc2luZ2xlIHBvcnQgYXQgdGhlIHNhbWUgdGltZS4K
-ICAqCVlPU0hJRlVKSSBIaWRlYWtpIEBVU0FHSToJY29udmVydCAvcHJvYy9uZXQv
-dGNwNiB0byBzZXFfZmlsZS4KKyAqCUlseWEgUGFzaGtvdnNreQkJOglhbGxvdyBy
-ZXVzZSBvZiBwb3J0IHdpdGggc2luZ2xlIGxpc3RlbmVyCiAgKgogICoJVGhpcyBw
-cm9ncmFtIGlzIGZyZWUgc29mdHdhcmU7IHlvdSBjYW4gcmVkaXN0cmlidXRlIGl0
-IGFuZC9vcgogICogICAgICBtb2RpZnkgaXQgdW5kZXIgdGhlIHRlcm1zIG9mIHRo
-ZSBHTlUgR2VuZXJhbCBQdWJsaWMgTGljZW5zZQpAQCAtMTExLDcgKzExMiw4IEBA
-IHN0YXRpYyBpbmxpbmUgaW50IHRjcF92Nl9iaW5kX2NvbmZsaWN0KHMKIAkJICAg
-ICAhc2syLT5za19ib3VuZF9kZXZfaWYgfHwKIAkJICAgICBzay0+c2tfYm91bmRf
-ZGV2X2lmID09IHNrMi0+c2tfYm91bmRfZGV2X2lmKSAmJgogCQkgICAgKCFzay0+
-c2tfcmV1c2UgfHwgIXNrMi0+c2tfcmV1c2UgfHwKLQkJICAgICBzazItPnNrX3N0
-YXRlID09IFRDUF9MSVNURU4pICYmCisJCSAgICAgKHNrMi0+c2tfc3RhdGUgPT0g
-VENQX0xJU1RFTiAmJgorCQkJc2stPnNrX3N0YXRlID09IFRDUF9MSVNURU4pKSAm
-JgogCQkgICAgIGlwdjZfcmN2X3NhZGRyX2VxdWFsKHNrLCBzazIpKQogCQkJYnJl
-YWs7CiAJfQo=
-
-------------4cQblArTdRJef3s7HFoYxt--
+diff -urp -X dontdiff linux-2.6.10-rc2-bk8-usb/include/net/udp.h linux-2.6.10-rc3-usb/include/net/udp.h
+--- linux-2.6.10-rc2-bk8-usb/include/net/udp.h	2004-08-19 17:16:10.000000000 -0700
++++ linux-2.6.10-rc3-usb/include/net/udp.h	2004-12-15 02:01:19.000000000 -0800
+@@ -71,6 +71,8 @@ extern int	udp_sendmsg(struct kiocb *ioc
+ extern int	udp_rcv(struct sk_buff *skb);
+ extern int	udp_ioctl(struct sock *sk, int cmd, unsigned long arg);
+ extern int	udp_disconnect(struct sock *sk, int flags);
++extern unsigned int udp_poll(struct file *file, struct socket *sock,
++			     poll_table *wait);
+ 
+ DECLARE_SNMP_STAT(struct udp_mib, udp_statistics);
+ #define UDP_INC_STATS(field)		SNMP_INC_STATS(udp_statistics, field)
+diff -urp -X dontdiff linux-2.6.10-rc2-bk8-usb/net/ipv4/af_inet.c linux-2.6.10-rc3-usb/net/ipv4/af_inet.c
+--- linux-2.6.10-rc2-bk8-usb/net/ipv4/af_inet.c	2004-11-23 09:54:15.000000000 -0800
++++ linux-2.6.10-rc3-usb/net/ipv4/af_inet.c	2004-12-15 02:01:21.000000000 -0800
+@@ -809,7 +809,7 @@ struct proto_ops inet_dgram_ops = {
+ 	.socketpair =	sock_no_socketpair,
+ 	.accept =	sock_no_accept,
+ 	.getname =	inet_getname,
+-	.poll =		datagram_poll,
++	.poll =		udp_poll,
+ 	.ioctl =	inet_ioctl,
+ 	.listen =	sock_no_listen,
+ 	.shutdown =	inet_shutdown,
+diff -urp -X dontdiff linux-2.6.10-rc2-bk8-usb/net/ipv4/udp.c linux-2.6.10-rc3-usb/net/ipv4/udp.c
+--- linux-2.6.10-rc2-bk8-usb/net/ipv4/udp.c	2004-11-23 09:54:15.000000000 -0800
++++ linux-2.6.10-rc3-usb/net/ipv4/udp.c	2004-12-15 02:01:21.000000000 -0800
+@@ -1303,6 +1303,52 @@ static int udp_getsockopt(struct sock *s
+   	return 0;
+ }
+ 
++/**
++ * 	udp_poll - wait for a UDP event.
++ *	@file - file struct
++ *	@sock - socket
++ *	@wait - poll table
++ *
++ *	This is same as datagram poll, except for the special case of 
++ *	blocking sockets. If application is using a blocking fd
++ *	and a packet with checksum error is in the queue;
++ *	then it could get return from select indicating data available
++ *	but then block when reading it. Add special case code
++ *	to work around these arguably broken applications.
++ */
++unsigned int udp_poll(struct file *file, struct socket *sock, poll_table *wait)
++{
++	unsigned int mask = datagram_poll(file, sock, wait);
++	struct sock *sk = sock->sk;
++	
++	/* Check for false positives due to checksum errors */
++	if ( (mask & POLLRDNORM) &&
++	     !(file->f_flags & O_NONBLOCK) &&
++	     !(sk->sk_shutdown & RCV_SHUTDOWN)){
++		struct sk_buff_head *rcvq = &sk->sk_receive_queue;
++		struct sk_buff *skb;
++
++		spin_lock_irq(&rcvq->lock);
++		while ((skb = skb_peek(rcvq)) != NULL) {
++			if (udp_checksum_complete(skb)) {
++				UDP_INC_STATS_BH(UDP_MIB_INERRORS);
++				__skb_unlink(skb, rcvq);
++				kfree_skb(skb);
++			} else {
++				skb->ip_summed = CHECKSUM_UNNECESSARY;
++				break;
++			}
++		}
++		spin_unlock_irq(&rcvq->lock);
++
++		/* nothing to see, move along */
++		if (skb == NULL)
++			mask &= ~(POLLIN | POLLRDNORM);
++	}
++
++	return mask;
++	
++}
+ 
+ struct proto udp_prot = {
+  	.name =		"UDP",
+@@ -1517,6 +1563,7 @@ EXPORT_SYMBOL(udp_ioctl);
+ EXPORT_SYMBOL(udp_port_rover);
+ EXPORT_SYMBOL(udp_prot);
+ EXPORT_SYMBOL(udp_sendmsg);
++EXPORT_SYMBOL(udp_poll);
+ 
+ #ifdef CONFIG_PROC_FS
+ EXPORT_SYMBOL(udp_proc_register);
+diff -urp -X dontdiff linux-2.6.10-rc2-bk8-usb/net/ipv6/af_inet6.c linux-2.6.10-rc3-usb/net/ipv6/af_inet6.c
+--- linux-2.6.10-rc2-bk8-usb/net/ipv6/af_inet6.c	2004-11-23 09:54:15.000000000 -0800
++++ linux-2.6.10-rc3-usb/net/ipv6/af_inet6.c	2004-12-15 02:01:21.000000000 -0800
+@@ -501,7 +501,7 @@ struct proto_ops inet6_dgram_ops = {
+ 	.socketpair =	sock_no_socketpair,		/* a do nothing	*/
+ 	.accept =	sock_no_accept,			/* a do nothing	*/
+ 	.getname =	inet6_getname, 
+-	.poll =		datagram_poll,			/* ok		*/
++	.poll =		udp_poll,			/* ok		*/
+ 	.ioctl =	inet6_ioctl,			/* must change  */
+ 	.listen =	sock_no_listen,			/* ok		*/
+ 	.shutdown =	inet_shutdown,			/* ok		*/
