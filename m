@@ -1,8 +1,8 @@
 From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: [PATCH 2.6.9-rc2 3/12] S2io: optimizations
-Date: Thu, 28 Oct 2004 11:33:58 -0700
+Subject: [PATCH 2.6.9-rc2 7/12] S2io: NAPI fix
+Date: Thu, 28 Oct 2004 11:34:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <000f01c4bd1c$b89e69e0$9810100a@S2IOtech.com>
+Message-ID: <001301c4bd1c$cf5a44b0$9810100a@S2IOtech.com>
 Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -19,236 +19,367 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
-Following are the optimization-related changes made in this patch.
+This patch contains the following NAPI related fixes.
 
-1. Definitions of LOW and PANIC levels of the Rx buffers have changed.
-2. In wait_for_cmd_complete there is no longer a writeq but just a read and wait for strobe bit to reset.
-3. In s2io_isr, the isr_lock has been done away with also the NICs interrupt are no longer disabled explicitly on entering the
-interrupt handler and re-enabled again before leaving it.
-4. Also clearing the semaphore "tasklet_status" when exiting erroneously from s2io_isr after failing fill_rx_buffer call.
-5. The set/reset Tx Csum function through ethtool was added to the ethtool_ops structure.
-6. Added a Rx side error code in the rx_osm_handler function.
-7. No longer stopping and waking Tx queue when link state changes in s2io_link function.
-8. removed the isr_lock spinlock from the s2io_nic structure.
-9. changed parameters which determine thresholds(LOW and PANIC) to replenish Rx buffers.
-   This has been found to result in better performance.
+1. When processing Rx packets, making sure that get offset of ring does not cross the put 
+   offset.
+
+2. when NAPI is not in use a new spinlock(put_lock) is used to make sure accessing put 
+   offset of ring is atomic.
+
+3. Also introduced a new vaiable put_pos in nic_t to keep track of absolute position of the 
+   put pointer of Rx ring.
+
+4. When NAPI is used, fill_rx_buffer is not called from the interrupt handler(s2io_isr) . 
+
+5. In s2io_poll, decrementing packets processed is done inside the while loop unlike out 
+   side it as was being done last time.
 
 Signed-off-by: Raghavendra Koushik <raghavendra.koushik@s2io.com>
 ---
 diff -urN vanilla-linux/drivers/net/s2io.c linux-2.6.8.1/drivers/net/s2io.c
---- vanilla-linux/drivers/net/s2io.c	2004-10-06 17:24:02.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-06 17:37:32.751003528 -0700
-@@ -80,10 +80,11 @@
- static inline int rx_buffer_level(nic_t * sp, int rxb_size, int ring)
- {
- 	int level = 0;
--	if ((sp->pkt_cnt[ring] - rxb_size) > 128) {
-+	if ((sp->pkt_cnt[ring] - rxb_size) > 16) {
- 		level = LOW;
--		if (rxb_size < sp->pkt_cnt[ring] / 8)
-+		if ((sp->pkt_cnt[ring] - rxb_size) < MAX_RXDS_PER_BLOCK) {
- 			level = PANIC;
-+		}
- 	}
-
- 	return level;
-@@ -1916,12 +1917,8 @@
- 	u64 val64;
-
- 	while (TRUE) {
--		val64 =
--		    RMAC_ADDR_CMD_MEM_RD | RMAC_ADDR_CMD_MEM_STROBE_NEW_CMD
--		    | RMAC_ADDR_CMD_MEM_OFFSET(0);
--		writeq(val64, &bar0->rmac_addr_cmd_mem);
- 		val64 = readq(&bar0->rmac_addr_cmd_mem);
--		if (!val64) {
-+		if (!(val64 & RMAC_ADDR_CMD_MEM_STROBE_CMD_EXECUTING)) {
- 			ret = SUCCESS;
- 			break;
+--- vanilla-linux/drivers/net/s2io.c	2004-10-11 21:19:25.051771008 -0700
++++ linux-2.6.8.1/drivers/net/s2io.c	2004-10-11 21:19:44.674787856 -0700
+@@ -1565,6 +1565,9 @@
+ 	    atomic_read(&nic->rx_bufs_left[ring_no]);
+ 	mac_info_t *mac_control;
+ 	struct config_param *config;
++#ifndef CONFIG_S2IO_NAPI
++	unsigned long flags;
++#endif
+ 
+ 	mac_control = &nic->mac_control;
+ 	config = &nic->config;
+@@ -1612,6 +1615,12 @@
+ 			DBG_PRINT(INTR_DBG, "%s: Next block at: %p\n",
+ 				  dev->name, rxdp);
  		}
-@@ -2192,14 +2189,11 @@
++#ifndef CONFIG_S2IO_NAPI
++		spin_lock_irqsave(&nic->put_lock, flags);
++		nic->put_pos[ring_no] = (block_no *
++					 (MAX_RXDS_PER_BLOCK + 1)) + off;
++		spin_unlock_irqrestore(&nic->put_lock, flags);
++#endif
+ 
+ 		if (rxdp->Control_1 & RXD_OWN_XENA) {
+ 			mac_control->rx_curr_put_info[ring_no].
+@@ -1730,8 +1739,8 @@
+ 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) nic->bar0;
+ 	int pkts_to_process = *budget, pkt_cnt = 0;
  	register u64 val64 = 0;
- 	u16 cnt = 0;
-
--	spin_lock(&sp->isr_lock);
- 	netif_stop_queue(dev);
-
- 	/* disable Tx and Rx traffic on the NIC */
- 	stop_nic(sp);
-
--	spin_unlock(&sp->isr_lock);
+-	rx_curr_get_info_t offset_info;
+-	int i, block_no;
++	rx_curr_get_info_t get_info, put_info;
++	int i, get_block, put_block, get_offset, put_offset, ring_bufs;
+ 	u16 val16, cksum;
+ 	struct sk_buff *skb;
+ 	RxD_t *rxdp;
+@@ -1748,29 +1757,40 @@
+ 	writeq(val64, &bar0->rx_traffic_int);
+ 
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+-		if (--pkts_to_process < 0) {
+-			goto no_rx;
+-		}
+-		offset_info = mac_control->rx_curr_get_info[i];
+-		block_no = offset_info.block_index;
+-		rxdp = nic->rx_blocks[i][block_no].block_virt_addr +
+-		    offset_info.offset;
+-		while (!(rxdp->Control_1 & RXD_OWN_XENA)) {
++		get_info = mac_control->rx_curr_get_info[i];
++		get_block = get_info.block_index;
++		put_info = mac_control->rx_curr_put_info[i];
++		put_block = put_info.block_index;
++		ring_bufs = config->rx_cfg[i].num_rxd;
++		rxdp = nic->rx_blocks[i][get_block].block_virt_addr +
++		    get_info.offset;
++		get_offset = (get_block * (MAX_RXDS_PER_BLOCK + 1)) +
++		    get_info.offset;
++		put_offset = (put_block * (MAX_RXDS_PER_BLOCK + 1)) +
++		    put_info.offset;
++		while ((!(rxdp->Control_1 & RXD_OWN_XENA)) &&
++		       (((get_offset + 1) % ring_bufs) != put_offset)) {
++			if (--pkts_to_process < 0) {
++				goto no_rx;
++			}
+ 			if (rxdp->Control_1 == END_OF_BLOCK) {
+ 				rxdp =
+ 				    (RxD_t *) ((unsigned long) rxdp->
+ 					       Control_2);
+-				offset_info.offset++;
+-				offset_info.offset %=
++				get_info.offset++;
++				get_info.offset %=
+ 				    (MAX_RXDS_PER_BLOCK + 1);
+-				block_no++;
+-				block_no %= nic->block_count[i];
++				get_block++;
++				get_block %= nic->block_count[i];
+ 				mac_control->rx_curr_get_info[i].
+-				    offset = offset_info.offset;
++				    offset = get_info.offset;
+ 				mac_control->rx_curr_get_info[i].
+-				    block_index = block_no;
++				    block_index = get_block;
+ 				continue;
+ 			}
++			get_offset =
++			    (get_block * (MAX_RXDS_PER_BLOCK + 1)) +
++			    get_info.offset;
+ 			skb =
+ 			    (struct sk_buff *) ((unsigned long) rxdp->
+ 						Host_Control);
+@@ -1778,7 +1798,7 @@
+ 				DBG_PRINT(ERR_DBG, "%s: The skb is ",
+ 					  dev->name);
+ 				DBG_PRINT(ERR_DBG, "Null in Rx Intr\n");
+-				return 0;
++				goto no_rx;
+ 			}
+ 			val64 = RXD_GET_BUFFER0_SIZE(rxdp->Control_2);
+ 			val16 = (u16) (val64 >> 48);
+@@ -1792,34 +1812,44 @@
+ 					 PCI_DMA_FROMDEVICE);
+ 			rx_osm_handler(nic, val16, rxdp, i);
+ 			pkt_cnt++;
+-			offset_info.offset++;
+-			offset_info.offset %= (MAX_RXDS_PER_BLOCK + 1);
++			get_info.offset++;
++			get_info.offset %= (MAX_RXDS_PER_BLOCK + 1);
+ 			rxdp =
+-			    nic->rx_blocks[i][block_no].block_virt_addr +
+-			    offset_info.offset;
++			    nic->rx_blocks[i][get_block].block_virt_addr +
++			    get_info.offset;
+ 			mac_control->rx_curr_get_info[i].offset =
+-			    offset_info.offset;
++			    get_info.offset;
+ 		}
+ 	}
+ 	if (!pkt_cnt)
+ 		pkt_cnt = 1;
+ 
+-	for (i = 0; i < config->rx_ring_num; i++)
+-		fill_rx_buffers(nic, i);
 -
- 	/*
- 	 * If the device tasklet is running, wait till its done
- 	 * before killing it
-@@ -2398,15 +2392,13 @@
+ 	dev->quota -= pkt_cnt;
+ 	*budget -= pkt_cnt;
+ 	netif_rx_complete(dev);
+ 
++	for (i = 0; i < config->rx_ring_num; i++) {
++		if (fill_rx_buffers(nic, i) == -ENOMEM) {
++			DBG_PRINT(ERR_DBG, "%s:Out of memory", dev->name);
++			DBG_PRINT(ERR_DBG, " in Rx Poll!!\n");
++			break;
++		}
++	}
+ 	/* Re enable the Rx interrupts. */
+ 	en_dis_able_nic_intrs(nic, RX_TRAFFIC_INTR, ENABLE_INTRS);
+ 	return 0;
+ 
+       no_rx:
+-	for (i = 0; i < config->rx_ring_num; i++)
+-		fill_rx_buffers(nic, i);
+ 	dev->quota -= pkt_cnt;
+ 	*budget -= pkt_cnt;
++
++	for (i = 0; i < config->rx_ring_num; i++) {
++		if (fill_rx_buffers(nic, i) == -ENOMEM) {
++			DBG_PRINT(ERR_DBG, "%s:Out of memory", dev->name);
++			DBG_PRINT(ERR_DBG, " in Rx Poll!!\n");
++			break;
++		}
++	}
+ 	return 1;
+ }
+ #else
+@@ -1840,12 +1870,13 @@
+ {
+ 	struct net_device *dev = (struct net_device *) nic->dev;
+ 	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) nic->bar0;
+-	rx_curr_get_info_t offset_info;
++	rx_curr_get_info_t get_info, put_info;
+ 	RxD_t *rxdp;
+ 	struct sk_buff *skb;
+ 	u16 val16, cksum;
+ 	register u64 val64 = 0;
+-	int i, block_no, pkt_cnt = 0;
++	int get_block, get_offset, put_block, put_offset, ring_bufs;
++	int i, pkt_cnt = 0;
+ 	mac_info_t *mac_control;
+ 	struct config_param *config;
+ 
+@@ -1860,25 +1891,37 @@
+ 	writeq(val64, &bar0->rx_traffic_int);
+ 
+ 	for (i = 0; i < config->rx_ring_num; i++) {
+-		offset_info = mac_control->rx_curr_get_info[i];
+-		block_no = offset_info.block_index;
+-		rxdp = nic->rx_blocks[i][block_no].block_virt_addr +
+-		    offset_info.offset;
+-		while (!(rxdp->Control_1 & RXD_OWN_XENA)) {
++		get_info = mac_control->rx_curr_get_info[i];
++		get_block = get_info.block_index;
++		put_info = mac_control->rx_curr_put_info[i];
++		put_block = put_info.block_index;
++		ring_bufs = config->rx_cfg[i].num_rxd;
++		rxdp = nic->rx_blocks[i][get_block].block_virt_addr +
++		    get_info.offset;
++		get_offset = (get_block * (MAX_RXDS_PER_BLOCK + 1)) +
++		    get_info.offset;
++		spin_lock(&nic->put_lock);
++		put_offset = nic->put_pos[i];
++		spin_unlock(&nic->put_lock);
++		while ((!(rxdp->Control_1 & RXD_OWN_XENA)) &&
++		       (((get_offset + 1) % ring_bufs) != put_offset)) {
+ 			if (rxdp->Control_1 == END_OF_BLOCK) {
+ 				rxdp = (RxD_t *) ((unsigned long)
+ 						  rxdp->Control_2);
+-				offset_info.offset++;
+-				offset_info.offset %=
++				get_info.offset++;
++				get_info.offset %=
+ 				    (MAX_RXDS_PER_BLOCK + 1);
+-				block_no++;
+-				block_no %= nic->block_count[i];
++				get_block++;
++				get_block %= nic->block_count[i];
+ 				mac_control->rx_curr_get_info[i].
+-				    offset = offset_info.offset;
++				    offset = get_info.offset;
+ 				mac_control->rx_curr_get_info[i].
+-				    block_index = block_no;
++				    block_index = get_block;
+ 				continue;
+ 			}
++			get_offset =
++			    (get_block * (MAX_RXDS_PER_BLOCK + 1)) +
++			    get_info.offset;
+ 			skb = (struct sk_buff *) ((unsigned long)
+ 						  rxdp->Host_Control);
+ 			if (skb == NULL) {
+@@ -1898,13 +1941,13 @@
+ 					 HEADER_SNAP_SIZE,
+ 					 PCI_DMA_FROMDEVICE);
+ 			rx_osm_handler(nic, val16, rxdp, i);
+-			offset_info.offset++;
+-			offset_info.offset %= (MAX_RXDS_PER_BLOCK + 1);
++			get_info.offset++;
++			get_info.offset %= (MAX_RXDS_PER_BLOCK + 1);
+ 			rxdp =
+-			    nic->rx_blocks[i][block_no].block_virt_addr +
+-			    offset_info.offset;
++			    nic->rx_blocks[i][get_block].block_virt_addr +
++			    get_info.offset;
+ 			mac_control->rx_curr_get_info[i].offset =
+-			    offset_info.offset;
++			    get_info.offset;
+ 			pkt_cnt++;
+ 			if ((indicate_max_pkts)
+ 			    && (pkt_cnt > indicate_max_pkts))
+@@ -2575,6 +2618,9 @@
  	struct net_device *dev = (struct net_device *) dev_id;
  	nic_t *sp = dev->priv;
  	XENA_dev_config_t *bar0 = (XENA_dev_config_t *) sp->bar0;
--	u64 reason = 0, general_mask = 0;
-+	u64 reason = 0;
++#ifndef CONFIG_S2IO_NAPI
++	int i, ret;
++#endif
+ 	u64 reason = 0;
  	mac_info_t *mac_control;
  	struct config_param *config;
-
- 	mac_control = &sp->mac_control;
- 	config = &sp->config;
-
--	spin_lock(&sp->isr_lock);
+@@ -2626,44 +2672,31 @@
+ 	 * reallocate the buffers from the interrupt handler itself, 
+ 	 * else schedule a tasklet to reallocate the buffers.
+ 	 */
+-#if 1
+-	{
+-		int i;
 -
- 	/*
- 	 * Identify the cause for interrupt and call the appropriate
- 	 * interrupt handler. Causes for the interrupt could be;
-@@ -2419,14 +2411,9 @@
-
- 	if (!reason) {
- 		/* The interrupt was not raised by Xena. */
--		spin_unlock(&sp->isr_lock);
- 		return IRQ_NONE;
- 	}
-
--	/* Mask the Interrupts on the NIC. */
--	general_mask = readq(&bar0->general_int_mask);
--	writeq(0xFFFFFFFFFFFFFFFFULL, &bar0->general_int_mask);
+-		for (i = 0; i < config->rx_ring_num; i++) {
+-			int rxb_size = atomic_read(&sp->rx_bufs_left[i]);
+-			int level = rx_buffer_level(sp, rxb_size, i);
 -
- 	/* If Intr is because of Tx Traffic */
- 	if (reason & GEN_INTR_TXTRAFFIC) {
- 		tx_intr_handler(sp);
-@@ -2441,11 +2428,6 @@
- 		if (netif_rx_schedule_prep(dev)) {
- 			en_dis_able_nic_intrs(sp, RX_TRAFFIC_INTR,
- 					      DISABLE_INTRS);
--			/*
--			 * Here we take a snap shot of the general
--			 * Intr Register.
--			 */
--			general_mask = readq(&bar0->general_int_mask);
- 			__netif_rx_schedule(dev);
- 		}
- 	}
-@@ -2481,9 +2463,9 @@
- 						  "%s:Out of memory",
- 						  dev->name);
- 					DBG_PRINT(ERR_DBG, " in ISR!!\n");
--					writeq(general_mask,
--					       &bar0->general_int_mask);
--					spin_unlock(&sp->isr_lock);
-+					clear_bit(0,
-+						  (unsigned long *) (&sp->
-+								     tasklet_status));
- 					return IRQ_HANDLED;
- 				}
+-			if ((level == PANIC) && (!TASKLET_IN_USE)) {
+-				int ret;
++#ifndef CONFIG_S2IO_NAPI
++	for (i = 0; i < config->rx_ring_num; i++) {
++		int rxb_size = atomic_read(&sp->rx_bufs_left[i]);
++		int level = rx_buffer_level(sp, rxb_size, i);
+ 
+-				DBG_PRINT(INTR_DBG, "%s: Rx BD hit ",
++		if ((level == PANIC) && (!TASKLET_IN_USE)) {
++			DBG_PRINT(INTR_DBG, "%s: Rx BD hit ", dev->name);
++			DBG_PRINT(INTR_DBG, "PANIC levels\n");
++			if ((ret = fill_rx_buffers(sp, i)) == -ENOMEM) {
++				DBG_PRINT(ERR_DBG, "%s:Out of memory",
+ 					  dev->name);
+-				DBG_PRINT(INTR_DBG, "PANIC levels\n");
+-				if ((ret =
+-				     fill_rx_buffers(sp, i)) == -ENOMEM) {
+-					DBG_PRINT(ERR_DBG,
+-						  "%s:Out of memory",
+-						  dev->name);
+-					DBG_PRINT(ERR_DBG, " in ISR!!\n");
+-					clear_bit(0,
+-						  (unsigned long *) (&sp->
+-								     tasklet_status));
+-					return IRQ_HANDLED;
+-				}
++				DBG_PRINT(ERR_DBG, " in ISR!!\n");
  				clear_bit(0,
-@@ -2501,10 +2483,6 @@
- 	tasklet_schedule(&sp->task);
- #endif
-
--	/* Unmask all previously enabled interrupts on the NIC. */
--	writeq(general_mask, &bar0->general_int_mask);
+ 					  (unsigned long *) (&sp->
+ 							     tasklet_status));
+-			} else if ((level == LOW)
+-				   && (!atomic_read(&sp->tasklet_status))) {
+-				tasklet_schedule(&sp->task);
++				return IRQ_HANDLED;
+ 			}
 -
--	spin_unlock(&sp->isr_lock);
- 	return IRQ_HANDLED;
- }
-
-@@ -3626,6 +3604,17 @@
- 	return (S2IO_STAT_LEN);
- }
-
-+int s2io_ethtool_op_set_tx_csum(struct net_device *dev, u32 data)
-+{
-+	if (data)
-+		dev->features |= NETIF_F_IP_CSUM;
-+	else
-+		dev->features &= ~NETIF_F_IP_CSUM;
-+
-+	return 0;
-+}
-+
-+
- static struct ethtool_ops netdev_ethtool_ops = {
- 	.get_settings = s2io_ethtool_gset,
- 	.set_settings = s2io_ethtool_sset,
-@@ -3641,7 +3630,7 @@
- 	.get_rx_csum = s2io_ethtool_get_rx_csum,
- 	.set_rx_csum = s2io_ethtool_set_rx_csum,
- 	.get_tx_csum = ethtool_op_get_tx_csum,
--	.set_tx_csum = ethtool_op_set_tx_csum,
-+	.set_tx_csum = s2io_ethtool_op_set_tx_csum,
- 	.get_sg = ethtool_op_get_sg,
- 	.set_sg = ethtool_op_set_sg,
- #ifdef NETIF_F_TSO
-@@ -3902,6 +3891,12 @@
- 		skb->ip_summed = CHECKSUM_NONE;
- 	}
-
-+	if (rxdp->Control_1 & RXD_T_CODE) {
-+		unsigned long long err = rxdp->Control_1 & RXD_T_CODE;
-+		DBG_PRINT(ERR_DBG, "%s: Rx error Value: 0x%llx\n",
-+			  dev->name, err);
-+	}
-+
- 	skb->dev = dev;
- 	skb_put(skb, len);
- 	skb->protocol = eth_type_trans(skb, dev);
-@@ -3922,25 +3917,6 @@
- 	return SUCCESS;
- }
-
--int check_for_tx_space(nic_t * sp)
--{
--	u32 put_off, get_off, queue_len;
--	int ret = TRUE, i;
--
--	for (i = 0; i < sp->config.tx_fifo_num; i++) {
--		queue_len = sp->mac_control.tx_curr_put_info[i].fifo_len
--		    + 1;
--		put_off = sp->mac_control.tx_curr_put_info[i].offset;
--		get_off = sp->mac_control.tx_curr_get_info[i].offset;
--		if (((put_off + 1) % queue_len) == get_off) {
--			ret = FALSE;
--			break;
--		}
--	}
--
--	return ret;
--}
--
- /**
-  *  s2io_link - stops/starts the Tx queue.
-  *  @sp : private member of the device structure, which is a pointer to the
-@@ -3962,17 +3938,9 @@
- 		if (link == LINK_DOWN) {
- 			DBG_PRINT(ERR_DBG, "%s: Link down\n", dev->name);
- 			netif_carrier_off(dev);
--			netif_stop_queue(dev);
- 		} else {
- 			DBG_PRINT(ERR_DBG, "%s: Link Up\n", dev->name);
- 			netif_carrier_on(dev);
--			if (check_for_tx_space(sp) == TRUE) {
--				/*
--				 * Dont wake the queue if we know there
--				 * are no free TxDs available.
--				 */
--				netif_wake_queue(dev);
--			}
++			clear_bit(0,
++				  (unsigned long *) (&sp->tasklet_status));
++		} else if ((level == LOW)
++			   && (!atomic_read(&sp->tasklet_status))) {
++			tasklet_schedule(&sp->task);
  		}
+ 
  	}
- 	sp->last_link_state = link;
-@@ -4357,7 +4325,6 @@
-
+-#else
+-	tasklet_schedule(&sp->task);
+ #endif
+ 
+ 	return IRQ_HANDLED;
+@@ -4583,6 +4616,9 @@
+ 
  	/* Initialize spinlocks */
  	spin_lock_init(&sp->tx_lock);
--	spin_lock_init(&sp->isr_lock);
-
- 	/*
- 	 * SXE-002: Configure link and activity LED to init state
++#ifndef CONFIG_S2IO_NAPI
++	spin_lock_init(&sp->put_lock);
++#endif
+ 
+ 	/* 
+ 	 * SXE-002: Configure link and activity LED to init state 
 diff -urN vanilla-linux/drivers/net/s2io.h linux-2.6.8.1/drivers/net/s2io.h
---- vanilla-linux/drivers/net/s2io.h	2004-10-06 17:24:05.000000000 -0700
-+++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-06 17:37:47.532756360 -0700
-@@ -612,7 +612,6 @@
+--- vanilla-linux/drivers/net/s2io.h	2004-10-11 21:19:25.051771008 -0700
++++ linux-2.6.8.1/drivers/net/s2io.h	2004-10-11 21:19:44.674787856 -0700
+@@ -610,6 +610,9 @@
  	atomic_t rx_bufs_left[MAX_RX_RINGS];
-
+ 
  	spinlock_t tx_lock;
--	spinlock_t isr_lock;
-
++#ifndef CONFIG_S2IO_NAPI
++	spinlock_t put_lock;
++#endif
+ 
  #define PROMISC     1
  #define ALL_MULTI   2
+@@ -628,6 +631,11 @@
+ 	u16 tx_err_count;
+ 	u16 rx_err_count;
+ 
++#ifndef CONFIG_S2IO_NAPI
++	/* Index to the absolute position of the put pointer of Rx ring. */
++	int put_pos[MAX_RX_RINGS];
++#endif
++
+ 	/*
+ 	 *  Place holders for the virtual and physical addresses of 
+ 	 *  all the Rx Blocks
