@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 18/22] xfrm offload v2: typhoon: add validation of offloaded xfrm_states
-Date: Mon, 10 Jan 2005 10:37:02 -0500
-Message-ID: <20040110014300.27@ori.thedillows.org>
-References: <20040110014300.26@ori.thedillows.org>
+Subject: [RFC BK 6/22] xfrm offload v2: add a parameter to xfrm_prune_bundles()
+Date: Mon, 10 Jan 2005 10:37:00 -0500
+Message-ID: <20040110014300.15@ori.thedillows.org>
+References: <20040110014300.14@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,116 +13,109 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:58:39-05:00 dave@thedillows.org 
-#   Add routines to validate that the xfrm_state passed to them is
-#   one that we can offload to the 3XP.
+#   2005/01/10 00:44:12-05:00 dave@thedillows.org 
+#   Add a parameter to the decision function(s) used by
+#   xfrm_prune_bundles(). This will allow us to have more
+#   fine grained selection of bundles pruned (like, say,
+#   per device.)
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# drivers/net/typhoon.c
-#   2005/01/10 00:58:23-05:00 dave@thedillows.org +90 -0
-#   Add routines to validate that the xfrm_state passed to them is
-#   one that we can offload to the 3XP.
+# net/xfrm/xfrm_policy.c
+#   2005/01/10 00:43:55-05:00 dave@thedillows.org +11 -10
+#   Add a parameter to the decision function(s) used by
+#   xfrm_prune_bundles(). This will allow us to have more
+#   fine grained selection of bundles pruned (like, say,
+#   per device.)
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2005-01-10 01:17:08 -05:00
-+++ b/drivers/net/typhoon.c	2005-01-10 01:17:08 -05:00
-@@ -2329,6 +2329,96 @@
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2005-01-10 01:19:37 -05:00
++++ b/net/xfrm/xfrm_policy.c	2005-01-10 01:19:37 -05:00
+@@ -724,7 +724,7 @@
+ 	}
+ }
+ 
+-static int stale_bundle(struct dst_entry *dst);
++static int stale_bundle(struct dst_entry *dst, void *unused);
+ 
+ static void xfrm_accel_task(void *data)
+ {
+@@ -744,7 +744,7 @@
+ 		/* stale_bundle() validates that we have a dev, and that it
+ 		* is currently running.
+ 		*/
+-		if (!stale_bundle(dst) && (dev->features & NETIF_F_IPSEC))
++		if (!stale_bundle(dst, NULL) && (dev->features & NETIF_F_IPSEC))
+ 			dev->xfrm_bundle_add(dev, dst);
+ 
+ 		dst_release(dst);
+@@ -861,7 +861,7 @@
+ 		}
+ 
+ 		write_lock_bh(&policy->lock);
+-		if (unlikely(policy->dead || stale_bundle(dst))) {
++		if (unlikely(policy->dead || stale_bundle(dst, NULL))) {
+ 			/* Wow! While we worked on resolving, this
+ 			 * policy has gone. Retry. It is not paranoia,
+ 			 * we just cannot enlist new bundle to dead object.
+@@ -1042,14 +1042,14 @@
+ 
+ static struct dst_entry *xfrm_dst_check(struct dst_entry *dst, u32 cookie)
+ {
+-	if (!stale_bundle(dst))
++	if (!stale_bundle(dst, NULL))
+ 		return dst;
+ 
+ 	dst_release(dst);
+ 	return NULL;
+ }
+ 
+-static int stale_bundle(struct dst_entry *dst)
++static int stale_bundle(struct dst_entry *dst, void *unused)
+ {
+ 	struct dst_entry *child = dst;
+ 
+@@ -1092,7 +1092,8 @@
+ 	return dst;
+ }
+ 
+-static void xfrm_prune_bundles(int (*func)(struct dst_entry *))
++static void xfrm_prune_bundles(int (*func)(struct dst_entry *, void *),
++					void *data)
+ {
+ 	int i;
+ 	struct xfrm_policy *pol;
+@@ -1104,7 +1105,7 @@
+ 			write_lock(&pol->lock);
+ 			dstp = &pol->bundles;
+ 			while ((dst=*dstp) != NULL) {
+-				if (func(dst)) {
++				if (func(dst, data)) {
+ 					*dstp = dst->next;
+ 					dst->next = gc_list;
+ 					gc_list = dst;
+@@ -1124,19 +1125,19 @@
+ 	}
+ }
+ 
+-static int unused_bundle(struct dst_entry *dst)
++static int unused_bundle(struct dst_entry *dst, void *unused)
+ {
+ 	return !atomic_read(&dst->__refcnt);
+ }
+ 
+ static void __xfrm_garbage_collect(void)
+ {
+-	xfrm_prune_bundles(unused_bundle);
++	xfrm_prune_bundles(unused_bundle, NULL);
+ }
+ 
+ int xfrm_flush_bundles(void)
+ {
+-	xfrm_prune_bundles(stale_bundle);
++	xfrm_prune_bundles(stale_bundle, NULL);
  	return 0;
  }
  
-+#define UNSUPPORTED	goto unsupported
-+#define REQUIRED(x)	if(!(x)) goto unsupported
-+
-+static inline int
-+typhoon_validate_ealgo(struct typhoon *tp, struct xfrm_state *x)
-+{
-+	switch(x->props.ealgo) {
-+	case SADB_EALG_NULL:
-+		break;
-+	case SADB_EALG_DESCBC:
-+		REQUIRED(x->ealg);
-+		REQUIRED(tp->capabilities & TYPHOON_CRYPTO_DES);
-+		REQUIRED(x->ealg->alg_key_len == 64);
-+		break;
-+	case SADB_EALG_3DESCBC:
-+		REQUIRED(x->ealg);
-+		REQUIRED(tp->capabilities & TYPHOON_CRYPTO_3DES);
-+		REQUIRED(x->ealg->alg_key_len == 128 ||
-+					x->ealg->alg_key_len == 192);
-+		break;
-+	default:
-+		UNSUPPORTED;
-+	}
-+
-+	return 1;
-+
-+unsupported:
-+	return 0;
-+}
-+
-+static inline int
-+typhoon_validate_aalgo(struct typhoon *tp, struct xfrm_state *x)
-+{
-+	switch(x->props.aalgo) {
-+	case SADB_X_AALG_NULL:
-+		break;
-+	case SADB_AALG_MD5HMAC:
-+		REQUIRED(x->aalg);
-+		REQUIRED(x->aalg->alg_key_len == 128);
-+		break;
-+	case SADB_AALG_SHA1HMAC:
-+		REQUIRED(x->aalg);
-+		REQUIRED(x->aalg->alg_key_len == 160);
-+		break;
-+	default:
-+		UNSUPPORTED;
-+	}
-+
-+	return 1;
-+
-+unsupported:
-+	return 0;
-+}
-+
-+static inline int
-+typhoon_validate_xfrm(struct typhoon *tp, struct xfrm_state *x)
-+{
-+	u8 ealgo, aalgo, need_auth = 1;
-+
-+	REQUIRED(x->props.family == AF_INET);
-+	REQUIRED(x->dir == XFRM_STATE_DIR_OUT || x->dir == XFRM_STATE_DIR_IN);
-+	REQUIRED(!x->encap);
-+
-+	aalgo = x->props.aalgo;
-+	ealgo = x->props.ealgo;
-+
-+	switch(x->type->proto) {
-+	case IPPROTO_ESP:
-+		need_auth = 0;
-+		REQUIRED(aalgo != SADB_X_AALG_NULL || ealgo != SADB_EALG_NULL);
-+		REQUIRED(typhoon_validate_ealgo(tp, x));
-+		/* fall through to validate auth algorithm */
-+	case IPPROTO_AH:
-+		REQUIRED(typhoon_validate_aalgo(tp, x));
-+		if(need_auth)
-+			REQUIRED(aalgo != SADB_X_AALG_NULL);
-+		break;
-+	default:
-+		UNSUPPORTED;
-+	}
-+
-+	return 1;
-+
-+unsupported:
-+	return 0;
-+}
-+
-+#undef REQUIRED
-+#undef UNSUPPORTED
-+
- static void
- typhoon_tx_timeout(struct net_device *dev)
- {
