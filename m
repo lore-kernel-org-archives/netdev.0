@@ -1,35 +1,47 @@
-From: insecure <insecure@mail.od.ua>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 17 Aug 2003 22:46:12 +0300
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: double-check me?
+Date: 17 Aug 2003 22:58:31 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308172246.12835.insecure@mail.od.ua>
-References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com> <200308171845560303.00D4B163@192.168.128.16> <1061140404.29559.0.camel@laptop.fenrus.com>
-Reply-To: insecure@mail.od.ua
+Message-ID: <m3n0e8uhl4.fsf@defiant.pm.waw.pl>
+References: <3F3FBF50.8070207@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 8bit
-Cc: David T Hollis <dhollis@davehollis.com>,
-   Alan Cox <alan@lxorguk.ukuu.org.uk>,
-   Lamont Granquist <lamont@scriptkiddie.org>,
-   Bill Davidsen <davidsen@tmr.com>, "David S. Miller" <davem@redhat.com>,
-   bloemsaa@xs4all.nl, Marcelo Tosatti <marcelo@conectiva.com.br>,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Maillist netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: arjanv@redhat.com, Carlos Velasco <carlosev@newipnet.com>
-In-Reply-To: <1061140404.29559.0.camel@laptop.fenrus.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F3FBF50.8070207@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sunday 17 August 2003 20:13, Arjan van de Ven wrote:
-> > 1. hidden patch is not in the main linuk kernel stream.... why?
->
-> because arpfilter is a more generic way of doing things like this, and
-> that IS in the main linux kernel
+Jeff Garzik <jgarzik@pobox.com> writes:
 
-I am interested in that but last time I googled for it,
-neither userspace utils nor any documentation turned up.
-I only see some kernel parts of it.
+> Maybe you guys can spot something I'm missing here.  alloc_netdev is
+> supposed to guarantee that dev->priv is aligned by 32 bytes:
+> 
+>          struct net_device *dev;
+> 
+>          if (sizeof_priv)
+>                  dev->priv = (void *) (((long)(dev + 1) + 31) & ~31);
+> 
+> 
+> Now... shouldn't that last line of code be "dev + 1 + sizeof(*dev)" ?
+> 
+> It seems to work 2.[456] for a long time, so I am doubting
+> myself... surely it would have caused memory corruption or something
+> by now if I have really found a bug.
+
+Looks ok... not very readable, though.
+
+dev + 1 = ((u8*)dev) + sizeof(dev) = pointer to end of net_device struct.
+
+(X + 31) & ~31 makes sure X is 32-bytes aligned (0-31 bytes are added).
+Hope the alloc_size has enough space for this.
+
+31 should be better 0x1F I think.
+
+I also like sizeof(struct net_device) more than sizeof(*dev).
+
+Why do you want "+ 1" if you add sizeof(*dev)?
 -- 
-vda
+Krzysztof Halasa
+Network Administrator
