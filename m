@@ -1,101 +1,133 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] netlink functions that can be static (trivial)
-Date: Wed, 28 Apr 2004 10:48:53 -0700
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: spin_lock_bh() called in irq handler
+Date: Wed, 28 Apr 2004 10:55:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040428104853.229f3d6c@dell_ss3.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <200404281755.i3SHtX7V020271@death.nxdomain.ibm.com>
+References: <paulus@samba.org>
+Cc: linux-tr@linuxtr.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Paul Mackerras <paulus@samba.org>
+In-Reply-To: Message from Paul Mackerras <paulus@samba.org>
+   of "Wed, 28 Apr 2004 17:24:14 +1000." <16527.23582.316697.56419@cargo.ozlabs.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Several internal functions and tables in rtnetlink can be static, and
-fill functions don't change stat of the net_device.
 
-diff -Nru a/net/core/rtnetlink.c b/net/core/rtnetlink.c
---- a/net/core/rtnetlink.c	Wed Apr 28 10:44:47 2004
-+++ b/net/core/rtnetlink.c	Wed Apr 28 10:44:47 2004
-@@ -153,7 +153,8 @@
- }
+>I had a look and found that all of the token-ring drivers call
+>tr_type_trans() at interrupt level.  That seems perfectly reasonable
+>to me.  To fix the bug, it seems to me that there are two options:
+>either move the tr_add_rif_info() call elsewhere (but I have no idea
+>where) or else use spin_lock_irqsave instead of spin_lock_bh.
+>
+>Which is the more appropriate fix?
+
+	I'm guessing spin_lock_irqsave; would the following be
+appropriate?  I'm not absolutely sure about using spin_(un)lock_irq in
+rif_seq_start/stop, but it'd be complicated to deal with the flags in
+that case.
+
+	I've built this and given it some basic testing, but not really
+hammered on it.  The system doesn't panic when I cat /proc/net/tr_rif,
+which is a good sign.
+
+	-J
+
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+
+diff -urN linux-2.6.5-orig/net/802/tr.c linux-2.6.5/net/802/tr.c
+--- linux-2.6.5-orig/net/802/tr.c	2004-04-28 10:02:12.000000000 -0700
++++ linux-2.6.5/net/802/tr.c	2004-04-28 10:15:47.000000000 -0700
+@@ -250,10 +250,11 @@
+ 	unsigned int hash;
+ 	struct rif_cache_s *entry;
+ 	unsigned char *olddata;
++	unsigned long flags;
+ 	static const unsigned char mcast_func_addr[] 
+ 		= {0xC0,0x00,0x00,0x04,0x00,0x00};
+ 	
+-	spin_lock_bh(&rif_lock);
++	spin_lock_irqsave(&rif_lock, flags);
  
+ 	/*
+ 	 *	Broadcasts are single route as stated in RFC 1042 
+@@ -322,7 +323,7 @@
+ 	else 
+ 		slack = 18 - ((ntohs(trh->rcf) & TR_RCF_LEN_MASK)>>8);
+ 	olddata = skb->data;
+-	spin_unlock_bh(&rif_lock);
++	spin_unlock_irqrestore(&rif_lock, flags);
  
--static int rtnetlink_fill_ifinfo(struct sk_buff *skb, struct net_device *dev,
-+static int rtnetlink_fill_ifinfo(struct sk_buff *skb,
-+				 const struct net_device *dev,
- 				 int type, u32 pid, u32 seq, u32 change)
+ 	skb_pull(skb, slack);
+ 	memmove(skb->data, olddata, sizeof(struct trh_hdr) - slack);
+@@ -336,10 +337,11 @@
+ static void tr_add_rif_info(struct trh_hdr *trh, struct net_device *dev)
  {
- 	struct ifinfomsg *r;
-@@ -214,11 +215,11 @@
- 	return -1;
+ 	unsigned int hash, rii_p = 0;
++	unsigned long flags;
+ 	struct rif_cache_s *entry;
+ 
+ 
+-	spin_lock_bh(&rif_lock);
++	spin_lock_irqsave(&rif_lock, flags);
+ 	
+ 	/*
+ 	 *	Firstly see if the entry exists
+@@ -377,7 +379,7 @@
+ 		if(!entry) 
+ 		{
+ 			printk(KERN_DEBUG "tr.c: Couldn't malloc rif cache entry !\n");
+-			spin_unlock_bh(&rif_lock);
++			spin_unlock_irqrestore(&rif_lock, flags);
+ 			return;
+ 		}
+ 
+@@ -419,7 +421,7 @@
+ 		    }                                         
+            	entry->last_used=jiffies;               
+ 	}
+-	spin_unlock_bh(&rif_lock);
++	spin_unlock_irqrestore(&rif_lock, flags);
  }
  
--int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
-+static int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ /*
+@@ -429,9 +431,9 @@
+ static void rif_check_expire(unsigned long dummy) 
  {
- 	int idx;
- 	int s_idx = cb->args[0];
--	struct net_device *dev;
-+	const struct net_device *dev;
+ 	int i;
+-	unsigned long next_interval = jiffies + sysctl_tr_rif_timeout/2;
++	unsigned long flags, next_interval = jiffies + sysctl_tr_rif_timeout/2;
  
- 	read_lock(&dev_base_lock);
- 	for (dev=dev_base, idx=0; dev; dev = dev->next, idx++) {
-@@ -280,7 +281,7 @@
- 	return err;
- }
+-	spin_lock_bh(&rif_lock);
++	spin_lock_irqsave(&rif_lock, flags);
+ 	
+ 	for(i =0; i < RIF_TABLE_SIZE; i++) {
+ 		struct rif_cache_s *entry, **pentry;
+@@ -453,7 +455,7 @@
+ 		}
+ 	}
+ 	
+-	spin_unlock_bh(&rif_lock);
++	spin_unlock_irqrestore(&rif_lock, flags);
  
--int rtnetlink_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
-+static int rtnetlink_dump_all(struct sk_buff *skb, struct netlink_callback *cb)
+ 	mod_timer(&rif_timer, next_interval);
+ 
+@@ -484,7 +486,7 @@
+ 
+ static void *rif_seq_start(struct seq_file *seq, loff_t *pos)
  {
- 	int idx;
- 	int s_idx = cb->family;
-@@ -553,7 +554,7 @@
- 	return NOTIFY_DONE;
+-	spin_lock_bh(&rif_lock);
++	spin_lock_irq(&rif_lock);
+ 
+ 	return *pos ? rif_get_idx(*pos - 1) : SEQ_START_TOKEN;
  }
+@@ -515,7 +517,7 @@
  
--struct notifier_block rtnetlink_dev_notifier = {
-+static struct notifier_block rtnetlink_dev_notifier = {
- 	.notifier_call	= rtnetlink_event,
- };
- 
-diff -Nru a/net/netlink/af_netlink.c b/net/netlink/af_netlink.c
---- a/net/netlink/af_netlink.c	Wed Apr 28 10:44:47 2004
-+++ b/net/netlink/af_netlink.c	Wed Apr 28 10:44:47 2004
-@@ -809,7 +809,7 @@
- 	return err ? : copied;
- }
- 
--void netlink_data_ready(struct sock *sk, int len)
-+static void netlink_data_ready(struct sock *sk, int len)
+ static void rif_seq_stop(struct seq_file *seq, void *v)
  {
- 	struct netlink_opt *nlk = nlk_sk(sk);
- 
-@@ -1126,7 +1126,7 @@
- 	return 0;
+-	spin_unlock_bh(&rif_lock);
++	spin_unlock_irq(&rif_lock);
  }
  
--struct seq_operations netlink_seq_ops = {
-+static struct seq_operations netlink_seq_ops = {
- 	.start  = netlink_seq_start,
- 	.next   = netlink_seq_next,
- 	.stop   = netlink_seq_stop,
-@@ -1159,7 +1159,7 @@
- 	return notifier_chain_unregister(&netlink_chain, nb);
- }
-                 
--struct proto_ops netlink_ops = {
-+static struct proto_ops netlink_ops = {
- 	.family =	PF_NETLINK,
- 	.owner =	THIS_MODULE,
- 	.release =	netlink_release,
-@@ -1180,7 +1180,7 @@
- 	.sendpage =	sock_no_sendpage,
- };
- 
--struct net_proto_family netlink_family_ops = {
-+static struct net_proto_family netlink_family_ops = {
- 	.family = PF_NETLINK,
- 	.create = netlink_create,
- 	.owner	= THIS_MODULE,	/* for consistency 8) */
+ static int rif_seq_show(struct seq_file *seq, void *v)
