@@ -1,56 +1,25 @@
-From: helina adu <adu.helina@caramail.com>
-Subject: Investment Contact
-Date: Sat, 24 Aug 2002 12:26:05 GMT+1
+From: jamal <hadi@cyberus.ca>
+Subject: Re: packet re-ordering on SMP machines.
+Date: Sun, 25 Aug 2002 11:56:12 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1030184765018998@caramail.com>
+Message-ID: <41011.3109778196$1030292060@news.gmane.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: adu.helina@caramail.com
+To: <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-ATTN: President,
 
-From: Mrs.Helina karimu
 
-REPLY TO: karimuh@post.com
 
-I am an Angolian investor currently on exile in Benin 
-Republic because of the civil war in my country.I wish to 
-invest in a country with political stability, 
-reliable,dependable infrastructure and security of life and 
-property.
+NAPI fixes packet reordering problems.
+Could people please post network related questions to netdev please?
+I think it even says so in the FAQ Richard Gooch maintains.
+Believe it or not, quiet a few people are not subscribed to lk
 
-I was given your contact address by a foriegner who was on 
-a working visit in Cotonou. She said that your company can 
-assist me on my investment plans, if I am lucky that your 
-company may be willing to assist.
-
-It may interest you to know that I am having $30.5 Million 
-US Dollars ready for investment,this amount was left behind 
-for us by my late husband.I am willing to invest in a 
-company with potentials for growth and stability including 
-your company if your bye- laws allows for foreign investors 
-or any other good and profitable business that you may 
-suggest. 
-
-I will be very happy if this enquiry receive urgent 
-attention.You should mail your acceptance by sending to me 
-your personal and company profile as I will also send to 
-you all required information about myself and the help that 
-I need from you about my investment plans.
-
-You can also reach me at:hk1960@flashmail.com.Hoping for a 
-very successful business relationship with you.
-
-Yours Truly,
-
-Mrs.Helina Karimu.
-(Investor)
-_________________________________________________________
-_________________________________________________________ 
-Envoyez des messages musicaux sur le portable de vos amis 
- http://mobile.lycos.fr/mobile/local/sms_musicaux/
+cheers,
+jamal
