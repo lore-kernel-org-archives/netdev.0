@@ -1,59 +1,40 @@
-From: Jens Laas <jens.laas@data.slu.se>
-Subject: Re: non-NAPI mode question netif_rx_schedule()
-Date: Thu, 15 Apr 2004 10:16:46 +0200 (CEST)
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: IMQ / new Dummy device post.
+Date: Thu, 15 Apr 2004 10:42:29 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0404151015230.1660@jlaas2.data.slu.se>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDF32@orsmsx402.jf.intel.com>
+Message-ID: <407E5905.9070108@dsl.pipex.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDF32@orsmsx402.jf.intel.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(04.04.14 kl.21:44) Feldman, Scott skrev f=F6ljande till netdev@oss.sgi.c=
-om:
+ >What am i looking for?
+ >1) users and authors of IMQ to tell me if this achieves what IMQ >started
+ >as. I have to say I DONT like the level of obstrutiveness from IMQ as >is
+ >today. The code added by this is small (100 or less lines on top of
+ >dummy) and doesnt touch any of the main core bits.
+ >2) testing of the above by people who use IMQ
+ >3) If someone has better ideas - i am not religious about keeping this;
+ >but it certainly cant be the blasphemy that IMQ introduces
 
-> Hi,
+I am just a user and would drop IMQ without hesitation for something you 
+consider more elegant, but I am not sure whether or not dummy will do 
+what I want.
 
-> this time the check for __LINK_STATE_RX_SCHED fails because RX_SOFTIRQ
-> is already running on CPU0.  This means we've put work on the CPU1's
-> backlog queue, but we don't start the RX_SOFTIRQ on CPU1.  :-(
->
-> So the work on CPU1's backlog queue is stuck.  It'll get started if 1)
-> we get another hard interrupt on CPU1, and 2) no other CPUs are running
-> their RX_SOFTIRQ.
->
-> This could cause unnecessary Rx packet ordering issues as well as
-> potentially leaving work pending on a CPU for some time.
->
-> What am I missing?
+The only reason I use IMQ (+ NAT patch) is that I need to shape ingress 
+(I know I can't shape it "properly" from the wrong end of the bottleneck 
+without an intelligent app, but the ingress policer does not let me 
+share local and forwarded bandwidth and is not fair per user if I just 
+throttle the whole link).
 
-__LINK_STATE_RX_SCHED is set on queue->backlog_dev not on the "real"
-netdev.
+I am not sure if dummy will sort this for me, there may be some other way?
 
-The backlog_dev is per queue and thus per CPU.
+Basically all I need is something I can use HTB on where the qos ingress 
+box is on this diagram.
 
-Cheers,
-Jens
+http://www.docum.org/stef.coene/qos/kptd/
 
->
-> -scott
->
->
->
-
------------------------------------------------------------------------
-    'This mail automatically becomes portable when carried.'
------------------------------------------------------------------------
-    Jens L=E5=E5s                              Email: jens.laas@data.slu.=
-se
-    Department of Computer Services, SLU   Phone: +46 18 67 35 15
-    Vindbrov=E4gen 1
-    P.O. Box 7079
-    S-750 07 Uppsala
-    SWEDEN
------------------------------------------------------------------------
+Andy.
