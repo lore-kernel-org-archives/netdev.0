@@ -1,35 +1,33 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: LLTX and netif_stop_queue
-Date: Wed, 22 Dec 2004 20:38:34 -0800
-Message-ID: <52pt11bpdh.fsf@topspin.com>
-References: <52llbwoaej.fsf@topspin.com>
-	<20041217214432.07b7b21e.davem@davemloft.net>
-	<1103484675.1050.158.camel@jzny.localdomain>
-	<5cac192f04122210491d64d4b6@mail.gmail.com>
-	<20041222202919.057b8331.davem@davemloft.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP
+ 16-way)
+Date: Wed, 22 Dec 2004 20:31:38 -0800
+Message-ID: <20041222203138.778fedb3.davem@davemloft.net>
+References: <B1508D50A0692F42B217C22C02D84972020F3CED@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Eric Lemoine <eric.lemoine@gmail.com>,
-	hadi@cyberus.ca, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041222202919.057b8331.davem@davemloft.net> (David S.
-	Miller's message of "Wed, 22 Dec 2004 20:29:19 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3CED@NT-IRVA-0741.brcm.ad.broadcom.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> That sounds about right.  Nice idea.  It solves the race,
-    David> and retains the error state check.
+On Wed, 22 Dec 2004 16:02:44 -0800
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-Great, I've made a similar change to the IP-over-IB driver.
+> David, While the 2nd patch or something similar should be applied, I
+> think the underlying cause of tg3_readphy() returning error should be
+> further investigated.
 
-Thanks,
-  Roland
+Would this condition be possible if something, such as ASF, were
+continually polling the PHY in parallel with the driver?
+
+On the other hand, it doesn't seem so foreign for the PHY to
+block out register accesses for long periods of time for various
+reasons.
+
+But yes I'd also like to know more about exactly what is going on
+in this case.
