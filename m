@@ -1,45 +1,114 @@
-From: Jeff Raubitschek <jeff@raubitschek.org>
-Subject: tg3 link not detected on first interface up with mtu change
-Date: Fri, 5 Mar 2004 07:10:26 -0500
+From: Paul Fulghum <paulkf@microgate.com>
+Subject: Re: [janitor] use netdev_priv() in synclink (char. driver)
+Date: 05 Mar 2004 09:15:09 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040305121026.GF14914@raubitschek.org>
+Message-ID: <1078499709.2076.5.camel@deimos.microgate.com>
+References: <20040303142907.09d0f7bd.rddunlap@osdl.org>
+	 <20040303150105.7ff770b0.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev <netdev@oss.sgi.com>, jgarzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20040303150105.7ff770b0.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-using the tg3 (v2.8) driver on 2.4.26-pre1, with dual port NetXtreme BCM5704 (rev 03), if you configure the interfaces with the a non default mtu, link will not be detected (no gigE switch required to reproduce, 100 Mbps switch will produce the same problem)
+On Wed, 2004-03-03 at 17:01, Randy.Dunlap wrote:
+> | 
+> | From: Carlo Perassi <carlo@linux.it>
+> | and Randy.Dunlap <rddunlap@osdl.org>
+> 
+> 
+> Jeff, can you add this patch and the fusion/mptlan driver
+> patch as well?
+> 
+> --
+> ~Randy
+> 
+> 
+> 
+> 
+>  linux-264-302-priv-rddunlap/drivers/char/synclink.c |   12 ++++++------
+>  1 files changed, 6 insertions(+), 6 deletions(-)
+> 
+> diff -puN drivers/char/synclink.c~synclink_casts drivers/char/synclink.c
+> --- linux-264-302-priv/drivers/char/synclink.c~synclink_casts	2004-03-02 12:56:23.000000000 -0800
+> +++ linux-264-302-priv-rddunlap/drivers/char/synclink.c	2004-03-02 13:01:39.000000000 -0800
+> @@ -7878,7 +7878,7 @@ void mgsl_sppp_delete(struct mgsl_struct
+>  
+>  int mgsl_sppp_open(struct net_device *d)
+>  {
+> -	struct mgsl_struct *info = d->priv;
+> +	struct mgsl_struct *info = netdev_priv(d);
+>  	int err;
+>  	unsigned long flags;
+>  
+> @@ -7920,7 +7920,7 @@ open_fail:
+>  
+>  void mgsl_sppp_tx_timeout(struct net_device *dev)
+>  {
+> -	struct mgsl_struct *info = dev->priv;
+> +	struct mgsl_struct *info = netdev_priv(dev);
+>  	unsigned long flags;
+>  
+>  	if (debug_level >= DEBUG_LEVEL_INFO)
+> @@ -7938,7 +7938,7 @@ void mgsl_sppp_tx_timeout(struct net_dev
+>  
+>  int mgsl_sppp_tx(struct sk_buff *skb, struct net_device *dev)
+>  {
+> -	struct mgsl_struct *info = dev->priv;
+> +	struct mgsl_struct *info = netdev_priv(dev);
+>  	unsigned long flags;
+>  
+>  	if (debug_level >= DEBUG_LEVEL_INFO)
+> @@ -7964,7 +7964,7 @@ int mgsl_sppp_tx(struct sk_buff *skb, st
+>  
+>  int mgsl_sppp_close(struct net_device *d)
+>  {
+> -	struct mgsl_struct *info = d->priv;
+> +	struct mgsl_struct *info = netdev_priv(d);
+>  	unsigned long flags;
+>  
+>  	if (debug_level >= DEBUG_LEVEL_INFO)
+> @@ -8014,7 +8014,7 @@ void mgsl_sppp_tx_done(struct mgsl_struc
+>  
+>  struct net_device_stats *mgsl_net_stats(struct net_device *dev)
+>  {
+> -	struct mgsl_struct *info = dev->priv;
+> +	struct mgsl_struct *info = netdev_priv(dev);
+>  	if (debug_level >= DEBUG_LEVEL_INFO)
+>  		printk("mgsl_net_stats(%s)\n",info->netname);	
+>  	return &info->netstats;
+> @@ -8022,7 +8022,7 @@ struct net_device_stats *mgsl_net_stats(
+>  
+>  int mgsl_sppp_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
+>  {
+> -	struct mgsl_struct *info = (struct mgsl_struct *)dev->priv;
+> +	struct mgsl_struct *info = netdev_priv(dev);
+>  	if (debug_level >= DEBUG_LEVEL_INFO)
+>  		printk("%s(%d):mgsl_ioctl %s cmd=%08X\n", __FILE__,__LINE__,
+>  			info->netname, cmd );
+> 
+> _
 
-some observations:
 
-- if you bring the interface down and bring it up again, link will be detected.
-- on some machines when bringing up both interfaces at the same time,
-  one of the dual interfaces will detect link while the other will not
-- if you bring up the interface with the default mtu, then immediately
-  change the mtu using ifconfig, link will not be detected
-- if you bring up the interface with the default mtu, then wait 2
-  seconds before changing the mtu using ifconfig, link WILL be detected
-- the broadcom driver bcm5700.o driver detects link correctly in this case.
+This patch breaks the driver.
 
-Reproduce with these steps:
+The pointer stored in dev->priv points to a structure that is
+allocated and maintained by the driver.
 
-insmod tg3
-ifconfig eth1 10.9.0.98 mtu 1000
-# wait a bit and check link with: ethtool eth1 (it will be "no")
+Changing from dev->priv to netdev_priv(dev) returns a pointer
+to memory at the end of the net_device structure.
 
-dmesg output:
-tg3.c:v2.8 (February 23, 2004)
-PCI: Found IRQ 5 for device 00:09.1
-PCI: Sharing IRQ 5 with 00:0b.0
-eth1: Tigon3 [partno(BCM95704CA40-I) rev 2003 PHY(5704)] (PCI:33MHz:32-bit) 10/100/1000BaseT Ethernet 00:10:18:06:d4:88
-PCI: Found IRQ 12 for device 00:09.0
-eth2: Tigon3 [partno(BCM95704CA40-I) rev 2003 PHY(5704)] (PCI:33MHz:32-bit) 10/100/1000BaseT Ethernet 00:10:18:06:d4:89
+These are two different things.
 
-please let me know if i can provide more information, i will continue to
-dig through the driver trying to understand where the timing condition
-with tg3_change_mtu might be.
+So with the patch, the driver gets a pointer to something
+other than the device private information that it needs.
 
--jeff
+Please dont apply this patch.
+
+-- 
+Paul Fulghum
+paulkf@microgate.com
