@@ -1,29 +1,85 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] netdev_ops
-Date: Mon, 14 Jul 2003 02:53:54 -0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030714055354.GP3825@conectiva.com.br>
-References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk> <3F0B2D30.4020102@candelatech.com> <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk> <20030708.150835.78728697.davem@redhat.com> <20030709161520.GW1939@parcelfarce.linux.theplanet.co.uk> <20030711193215.GH16037@gtf.org> <20030711200423.GL20424@parcelfarce.linux.theplanet.co.uk>
+From: Michael Bellion and Thomas Heinz <nf@hipac.org>
+Subject: [RFC] High Performance Packet Classifiction for tc framework
+Date: Mon, 14 Jul 2003 10:45:40 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <200307141045.40999.nf@hipac.org>
+Reply-To: nf@hipac.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-   greearb@candelatech.com, "David S. Miller" <davem@redhat.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew Wilcox <willy@debian.org>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20030711200423.GL20424@parcelfarce.linux.theplanet.co.uk>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Fri, Jul 11, 2003 at 09:04:23PM +0100, Matthew Wilcox escreveu:
-> On Fri, Jul 11, 2003 at 03:32:15PM -0400, Jeff Garzik wrote:
-> > 1) The _ops are either too limited in scope, or too wide in scope.
-> 
-> Couldn't agree more.  I blame acme -- he wants me to push it to be much
-> wider in scope.  Let's push _all_ the function pointers into netdev_ops.
+Hi
 
-Hey, it was just a brainstorm session ;) Anyway, I'm heavily backlogged as
-I'm on a business trip for several days already, I'll try to read all this
-thread when I'm back home 8)
+We are planning to port our HIPAC algorithm to the tc framework and we
+ask you for some comments about several issues.
 
-- Arnaldo
+HIPAC is a novel packet classification framework which replaces the
+common linear approach with a more advanced data structure
+which offers highly efficient and locking friendly packet matching.
+
+Currently, people using lots of filters suffer from a big performance
+penalty. In contrast, HIPAC is able to handle thousands of filters
+without much slowdown compared to having no filters at all.
+
+There already exists one application of the HIPAC algorithm for the
+netfilter framework: nf-hipac. Details about the project can be found
+at our website http://www.hipac.org or our sourceforge project page at
+http://www.sourceforge.net/projects/nf-hipac
+
+Several performance tests of nf-hipac have been done so far (see our
+website) and have proven our claims. So it would be great if tc users
+could benefit from HIPAC too.
+
+Certainly, we'd like to know first whether HIPAC makes sense for the
+tc framework at all. From the nf-hipac worst case performance tests
+we know that our algorithm should be faster in all cases as soon as
+you have approx. 20 filters. Below 20 filters there is no difference
+between nf-hipac and the iptables filter table.
+So basically the question is: Are people using the tc framework with
+lots of filters? Some numbers would be helpful.
+
+Since we can only improve performance of u32 and fw filters it's also
+interesting whether such rulesets typically consist of those filters
+in the main.
+
+The tc framework is very flexible with respect to where filters can be
+attached. Unfortunately this cannot be mapped into one HIPAC data
+structure. Our current design allows to attach filters anywhere but
+only the filters attached to the top level qdisc would benefit from the
+HIPAC algorithm. Would this be a noticeable restriction?
+
+
+Here is a short overview of the main design goals:
+
+- new qdisc for HIPAC which is basically a container for the filters;
+  it can only be attached as top level qdisc
+- new HIPAC classifier which supports all native nf-hipac matches
+  (src/dst ip, proto, src/dst port, ttl, state, in_iface, icmp type,
+  tcpflags, fragments) and additionally fwmark
+- the HIPAC classifier can only be attached to the HIPAC qdisc and vice
+  versa the HIPAC qdisc only accepts HIPAC classifiers
+- the HIPAC qdisc consists of only one single class to which the "next"
+  qdisc must be attached
+- the HIPAC classifier can contain a number of existing classifiers
+  (u32, fw, route, rsvp, tcindex) whereby the semantics is as follows:
+  a HIPAC classifier matches if the native matches and also each of the
+  embedded classifiers match; the returned tcf_result is the one from
+  the final classifier (=> intermediate classifiers are reduced to a
+  match)
+- it is still possible to attach non-hipac classifiers to other qdiscs
+  and classes
+
+
+Regards,
+
++-----------------------+----------------------+
+|   Michael Bellion     |     Thomas Heinz     |
+| <mbellion@hipac.org>  |  <creatix@hipac.org> |
++-----------------------+----------------------+
+
