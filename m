@@ -1,68 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Mon, 20 Sep 2004 07:20:34 +1000
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot (FIX included)
+Date: Sun, 19 Sep 2004 23:39:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919212033.GA9254@gondor.apana.org.au>
-References: <E1C8way-0000aH-00@gondolin.me.apana.org.au> <414DF05E.7020601@eurodev.net>
+Message-ID: <20040919213952.GA32570@electric-eye.fr.zoreil.com>
+References: <200409130035.50823.hfvogt@arcor.de> <20040916070211.GA32592@electric-eye.fr.zoreil.com> <200409161320.16526.jdmason@us.ltcfwd.linux.ibm.com> <200409171043.21772.jdmason@us.ltcfwd.linux.ibm.com> <20040917160151.GA29337@electric-eye.fr.zoreil.com> <414DF773.7060402@myrealbox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, linux-kernel@vger.kernel.org,
+        jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pablo Neira <pablo@eurodev.net>
+To: Andy Lutomirski <luto@myrealbox.com>
 Content-Disposition: inline
-In-Reply-To: <414DF05E.7020601@eurodev.net>
+In-Reply-To: <414DF773.7060402@myrealbox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 19, 2004 at 10:47:26PM +0200, Pablo Neira wrote:
-> 
-> if netlink_broadcast_deliver returns 0, you decrease sock_put. On the 
-> other hand if it returns 1, refcount will be decreased by the workqueue 
-> handler or after calling the callback. I don't see that exit path.
+Andy Lutomirski <luto@myrealbox.com> :
+[...]
+> FWIW, it looks like init_board is setting PCIDAC in tp->cp_cmd but that 
+> isn't updated to the card until after the rx ring is filled in 
+> r8169_open.  This seems suspicious, since DMA memory is being allocated 
+> possibly in >32-bit addresses but the card hasn't been told to support 
+> that.  Fixing this doesn't seem to help, though...
 
-I'm talking about the bits inside ifdef NL_EMULATE_DEV.
- 
-> yes, it's true that all those sock_put pollutes the source code, I like 
-> your idea of add a sock_hold, please could you have a look at the patch 
-> attached? it's basically your patch plus netlink_broadcast_deliver 
-> revised return value. If you are ok with it, let me know.
+rtl8169_hw_start() writes the CPlusCmd register before the ring descriptor
+adresses are set. Can you elaborate why it would not be enough ?
 
-It's OK apart from the fact that you missed the bits inside NL_EMULATE_DEV
-again.
- 
-> Yes, it works as well so we could remove it, but I got some extra 
-> throughput with the wake_up_process call if I send something up to 500 
-> consecutive messages from kernel to user space. For more than 1000 I 
-> notice that throughput is similar without wake_up_process, I'll study 
-> the performance without wake_up_process if it's not a good idea using it 
-> as you think.
+Btw the r8169 driver in 2.6.9-rcX does not advertise NETIF_F_HIGHDMA: where
+would a >32 bit address come from ?
 
-I'm totally happy with the idea of improving the performance of netlink
-applications.  However, let's do it properly rather than adding random
-wake_up calls.
+> Turning off high DMA fixes it.  Maybe it just needs to be disabled until 
+> someone figures out what's going on.
 
-> >That's not what I meant.  If you have a thread group where everybody's
-> >got the same pid, your code will probably wake up the wrong thread.
-> 
-> no, my patch doesn't wake up the user process with broadcast sockets, 
-> snipped from broadcast_deliver:
+I am cooking a patch for it (+ check for PCI error).
 
-You didn't understand me.  You're waking up a process based on its pid.
-With thread groups this is simply broken.
- 
-> >Besides, for any netlink socket but the first for a process, they'll
-> >all have negative pid's which have nothing to do with the real pid.
-> >So I really think that the wake_up_process hunk is bogus.
-> 
-> same reply as above, we don't wake up the user process with broadcast 
-> sockets.
+As a side note, the r8169 chipset does not like DAC to be enabled on a
+32bit system. I got the usual PCI error reported while trying it.
 
-I know, that's exactly the reason why it's bogus.  You're waking things
-up on a completely arbitrary basis.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+Ueimor
