@@ -1,52 +1,51 @@
-From: "Alejandro - No responder aqui" <no_aqui@uol.com.ar>
-Subject: liquido urgente por viaje
-Date: Sat, 8 Feb 2003 13:08:17 -0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200302081603.h18G3e3v000489@oss.sgi.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 8bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+From: spartacus@mailpuppy.com
+Subject: $2,000+/month GUARANTEED! At no COST to YOU!
+Date: Sat, 8 Feb 2003 13:44:09 -0500
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <HA06PJ00.BYJ@ganga.ispatial.net>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: application.status@ieee.org, webmaster@linux-m68k.org,
+	vassilii@tarunz.org, linux-net@vger.kernel.org,
+	majordomo@vger.kernel.org, netdev@oss.sgi.com,
+	majordomo@oss.sgi.com, chexum@shadow.banki.hu, tao@acc.umu.se,
+	marcelo@conectiva.com.br, torvalds@transmeta.com,
+	postmaster@vger.kernel.org, majordomo@eax.com, linuxjobs@eax.com,
+	root@chaos.analogic.com
 List-Id: netdev.vger.kernel.org
 
-POR VIAJE LIQUIDO URGENTE
 
-3 lotes de partes de PC
+Hello Fellow Netpreneur -- 
 
-LOTE 1:
-Disco rigido 4 GB
-marca Western Digital
-valor $200
+This is James .
 
-****************************
+Yes, I CAN AND WILL GUARANTEE you $2,000+/month! 
+And it COSTS YOU NOTHING to do it!
 
-LOTE 2:
-Disco rigido 2.57 GB
-marca Fujitsu
-valor $140
+You heard Right! COSTS YOU NOTHING!
+I can GUARANTEE you $100 your first month, $500
+your second month, $2000 your third month and
+$5000 by your fourth month...and it's all monthly
+residual income.
 
-Ambos discos son sin sectores defectuosos (se prueba delante suyo)
-y tienen poco uso
-Pueden entregarse con windows 98 segunda edicion y Oficce completo instalados si lo desea
+We have set it up so that there absolutely is NO  COST to you. No catches 
+at all! Join OUR TEAM and I will guarantee that you will succeed. Since it 
+wont cost you ONE PENNY out of pocket, at least give us a try, because I 
+will guarantee that by your fourth month you WILL BE earning $2,000/month.
 
-****************************
+Remember, we have arranged it so there is ZERO cost to you. You have 
+NOTHING to lose to give us a try and you will be profiting very quickly and 
+earning $2,000 a month by your fourth month!!! 
 
-LOTE 3:
-Gabinete con fuente contiene Motherboard con Microprocesador Intel Pentium 200 Mhz
-64 MB memoria RAM SIMM
-Placa de sonido Sound Pro multimedia con entrada para joistik
-modem Zoltrix 56 kbps  V 90 con driver en CD
-mouse
-cooler
-valor $250
-(este lote 3 es una CPU completa a la que le falta placa de video y disco rigido)
-***************************
+For complete information, send a blank e-mail to joincashaday@rapidreply.net
 
-soy particular y trato con particulares - revendedores abstenerse
-NO RESPONDER ESTE MAIL
-comunicarse UNICAMENTE al 15-4427-1044
-lunes a lunes de 10 a 22 hs
-necesito definir a la brevedad
-soy de Floresta, buenos aires
+Your Partner in Success,
+James L. Hammond
+
+****************************************************************** 
+ To be removed from this mailing list, 
+simply send an e-mail to transitions21@bigfoot.com and type "Remove" in 
+the Subject line before sending. 
+
+
+
+
