@@ -1,40 +1,61 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Hard freeze with 2.6.10-rc3 and QoS, worked fine with 2.6.9
-Date: 08 Dec 2004 14:49:48 -0500
-Message-ID: <1102535388.1022.118.camel@jzny.localdomain>
-References: <1102380430.6103.6.camel@buffy>
-	 <20041206224441.628e7885.akpm@osdl.org>
-	 <1102422544.1088.98.camel@jzny.localdomain> <41B5E188.5050800@trash.net>
-	 <20041207170748.GF1371@postel.suug.ch> <41B5E722.2080600@trash.net>
-	 <20041207213053.6bb602c1.davem@davemloft.net>
-	 <1102507470.1051.27.camel@jzny.localdomain> <41B73263.4040706@trash.net>
-	 <20041208113014.3dcad5f5@dxpl.pdx.osdl.net>
-Reply-To: hadi@cyberus.ca
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: [PATCH] remove FCS from pktgen bandwidth calculation
+Date: Wed, 8 Dec 2004 21:11:16 +0100
+Message-ID: <20041208201116.GA10691@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
-        tgraf@suug.ch, akpm@osdl.org, tomc@compaqnet.fr,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041208113014.3dcad5f5@dxpl.pdx.osdl.net>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen,
-Can we incoporate the tests from Thomas as part of iproute2?
-I have about 20 or so i could add in. Maybe you could add some
-for netem as well.
+Hi,
+
+This patch stops pktgen from counting the FCS in the 'total number of
+bytes transmitted' and 'bits per second' calculations.
+
 
 cheers,
-jamal
+Lennert
 
-On Wed, 2004-12-08 at 14:30, Stephen Hemminger wrote:
-> I don't know if this is related but something broke netem after 2.6.10-rc2
-> Now a simple request to delay 10ms ends up taking 1000ms.
-> 
-> Still narrowing down the changeset, but it isn't a change in netem
-> or tc utils since these didn't change.
-> 
+
+--- pktgen.c.orig	2004-11-28 22:27:50.000000000 +0100
++++ pktgen.c	2004-12-08 21:09:00.511175266 +0100
+@@ -2564,7 +2564,6 @@
+ static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
+ {
+        __u64 total_us, bps, mbps, pps, idle;
+-       int size = pkt_dev->cur_pkt_size + 4; /* incl 32bit ethernet CRC */
+        char *p = pkt_dev->result;
+ 
+        total_us = pkt_dev->stopped_at - pkt_dev->started_at;
+@@ -2576,7 +2575,7 @@
+ 
+        p += sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags)\n",
+                     total_us, (unsigned long long)(total_us - idle), idle,
+-                    pkt_dev->sofar, size, nr_frags);
++                    pkt_dev->sofar, pkt_dev->cur_pkt_size, nr_frags);
+ 
+        pps = pkt_dev->sofar * USEC_PER_SEC;
+        
+@@ -2588,7 +2587,7 @@
+ 
+        do_div(pps, total_us);
+        
+-       bps = pps * 8 * size;
++       bps = pps * 8 * pkt_dev->cur_pkt_size;
+ 
+        mbps = bps;
+        do_div(mbps, 1000000);
+@@ -2777,7 +2776,7 @@
+ 			pkt_dev->last_ok = 1;    
+ 			pkt_dev->sofar++;
+ 			pkt_dev->seq_num++;
+-			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4); /* count csum */
++			pkt_dev->tx_bytes += pkt_dev->cur_pkt_size;
+ 			
+ 		} else if (ret == NETDEV_TX_LOCKED 
+ 			   && (odev->features & NETIF_F_LLTX)) {
