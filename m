@@ -1,21 +1,25 @@
-From: "Nicholas Dearham" <Dearhamn@nu.ac.za>
-Subject: RE: unresolved symbol main_table and local_table
-Date: Thu, 14 Nov 2002 09:48:21 +0200
+From: "Zheng Jianping" <zjp@iscas.ac.cn>
+Subject: why cannot unload  ipv6 module ?
+Date: Thu, 14 Nov 2002 16:35:35 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <sdd3716f.031@smtp.nu.ac.za>
+Message-ID: <001801c28bb8$cd749c50$6c06a8c0@zhengjp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "<"<netdev@oss.sgi.com>
+To: <netdev@oss.sgi.com>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sorry I see I made a tying error. The Linux kernel version is
-2.4.18-rmk3 and not "2.4.28-rmk3" as indicated in the mail.
+Hi,
+
+I complie IPv6 as module and install it. But when I try to unload it, I failed.
+How can I make IPv6 module unload? 
+
  
-Thanks again,
-Cheers,
- 
-Nic D.
+Thanks,
+Zheng
+
+
+[[HTML alternate version deleted]]
