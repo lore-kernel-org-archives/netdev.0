@@ -1,37 +1,29 @@
-From: kuznet@ms2.inr.ac.ru
+From: Geoffrey Lee <glee@gnupilgrims.org>
 Subject: Re: [PATCH] connect() return value.
-Date: Tue, 13 Aug 2002 14:17:41 +0400 (MSD)
+Date: Tue, 13 Aug 2002 21:34:50 +1000
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208131017.OAA20516@sex.inr.ac.ru>
-References: <20020813053704.GA14788@anakin.wychk.org>
+Message-ID: <20020813113450.GA19058@anakin.wychk.org>
+References: <20020813053704.GA14788@anakin.wychk.org> <200208131017.OAA20516@sex.inr.ac.ru>
 Mime-Version: 1.0
+Content-Type: text/plain; charset=big5
 Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: glee@gnupilgrims.org (Geoffrey Lee)
-In-Reply-To: <20020813053704.GA14788@anakin.wychk.org> from "Geoffrey Lee" at Aug 13, 2 03:37:04 pm
+To: kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
+In-Reply-To: <200208131017.OAA20516@sex.inr.ac.ru>
 List-Id: netdev.vger.kernel.org
 
-Hello!
-
-> (1) no signals (so it runs the sighandler but doesn't return from the
-> sys call until it completes), non-blocking socket:
+> > Is that what you expected?
 > 
+> Well, it proves that one of us makes tests not on linux.
 > 
-> -EINPROGRESS, -EALREADY, -EISCONN, in that order. Never returns 0.
 
 
-socket(PF_INET, SOCK_STREAM, IPPROTO_IP) = 3
-fcntl64(0x3, 0x4, 0x800, 0x400151cc)    = 0
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = -1 EINPROGRESS (Operation now in progress)
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = -1 EALREADY (Operation already in progress)
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = -1 EALREADY (Operation already in progress)
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = -1 EALREADY (Operation already in progress)
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = -1 EALREADY (Operation already in progress)
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = 0
-connect(3, {sin_family=AF_INET, sin_port=htons(9), sin_addr=inet_addr("193.233.7.75")}}, 16) = -1 EISCONN (Transport endpoint is already connected)
+Ah, yes you're right. I was feeling stupid and I forgot to clear the
+errno because re-trying the connect().
 
-> Is that what you expected?
+It looks my brain has gone mouldy. Sorry. :-)
 
-Well, it proves that one of us makes tests not on linux.
 
-Alexey
+
+	-- G.
