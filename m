@@ -1,38 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] tcp: efficient port randomisation (revised)
-Date: Thu, 2 Dec 2004 15:01:21 -0800
-Message-ID: <20041202150121.488ec205@dxpl.pdx.osdl.net>
-References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
-	<200411020854.44745.michael.vittrup.larsen@ericsson.com>
-	<20041104100104.570e67cd@dxpl.pdx.osdl.net>
-	<200411051103.59032.michael.vittrup.larsen@ericsson.com>
-	<20041117153025.160eaa04@zqx3.pdx.osdl.net>
-	<20041130214643.7b72300e.davem@davemloft.net>
-	<20041201152446.3a0d5ce3@dxpl.pdx.osdl.net>
-	<20041201204622.7b760400.davem@davemloft.net>
-	<20041202134930.132d7bd8@dxpl.pdx.osdl.net>
-	<20041202135252.04e64f51.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Fri, 3 Dec 2004 00:25:31 +0100
+Message-ID: <20041202232531.GA30948@xi.wantstofly.org>
+References: <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net> <16813.58484.343629.570703@robur.slu.se> <1101919791.5198.15.camel@localhost.localdomain> <16815.23964.93437.411404@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: michael.vittrup.larsen@ericsson.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: sfeldma@pobox.com, jamal <hadi@cyberus.ca>, P@draigBrady.com,
+        mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041202135252.04e64f51.davem@davemloft.net>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16815.23964.93437.411404@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2 Dec 2004 13:52:52 -0800
-"David S. Miller" <davem@davemloft.net> wrote:
+On Thu, Dec 02, 2004 at 07:23:24PM +0100, Robert Olsson wrote:
 
-> On Thu, 2 Dec 2004 13:49:30 -0800
-> Stephen Hemminger <shemminger@osdl.org> wrote:
+> Below is little patch to clean skb at xmit. It's old jungle trick Jamal
+> and I used w. tulip. Note we can now even decrease the size of TX ring.
 > 
-> > These are run on a relatively slow machine (2 way Pentium III 850Mhz)
-> > and it looks like the results are no change (in the noise).
+> It can increase TX performance from 800 kpps to
+>   1125128pps 576Mb/sec (576065536bps) errors: 0
+>   1124946pps 575Mb/sec (575972352bps) errors: 0
 > 
-> Or averaged out, about 1ms more expensive.
+> But suffers from scheduling problems as the previous patch. Often we just get
+>   582108pps 298Mb/sec (298039296bps) errors: 0
 
-We could always benchmark special the loopback case since there is
-no risk of man-in-the-middle attacks.
+Robert, there is something weird with your setup with packets sizes under
+160 bytes.  Can you check if you also get wildly variable numbers on a
+baseline kernel perhaps?  The numbers you sent me of packet size vs. pps
+were very jumpy as well, even at 10M pkts per run.
+
+
+--L
