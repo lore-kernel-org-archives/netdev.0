@@ -1,32 +1,37 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RE: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: 20 Aug 2003 11:28:15 -0400
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Best way to hook incoming eth pkts?
+Date: Wed, 20 Aug 2003 11:47:27 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1061393295.1030.54.camel@jzny.localdomain>
-References: <353568DCBAE06148B70767C1B1A93E625EAB61@post.pc.aspectgroup.co.uk>
-	 <1061393011.1029.51.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20030820154727.GB9119@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "'David S. Miller'" <davem@redhat.com>,
-   Alan Cox <alan@lxorguk.ukuu.org.uk>, skraw@ithnet.com, willy@w.ods.org,
-   carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Underwood <richard@aspectgroup.co.uk>
-In-Reply-To: <1061393011.1029.51.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2003-08-20 at 11:23, jamal wrote:
-> What Dave meant is the state machine used in 2461 for IPV6 is actually
-> used in v4 as well. 
+All,
 
-I should have said in linux - dont think in any BSD derived OSes.
-To be specific look at the neighbor code.
+netconsole, netdump, and ATA-over-ethernet (and others?) all have a need
+to directly send and receive ethernet packets from inside the kernel.
 
-cheers,
-jamal
+The sending part is easy and obvious.  The receive part isn't.
+
+Essentially, all the things mentioned above need some way to listen
+for incoming ethernet packets.  ATA-over-ethernet has its own
+IANA-registered ethernet type, but netconsole and netdump are using
+IP/UDP instead of a custom ethernet protocol.
+
+So, two questions for the gurus of the crowd ;-)
+
+1) What is the best way for an in-kernel piece of software to 
+receive ethernet packets that are intended for it?
+
+2) Possibly related to #1, is it a good or bad idea to consider sending
+netconsole/netdump directly over ethernet, eschewing the IP/UDP/syslog
+stuff?
+
+Comments and insight requested.
+
+	Jeff
