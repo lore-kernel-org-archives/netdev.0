@@ -1,42 +1,63 @@
-From: Marcel Holtmann <marcel@holtmann.org>
-Subject: Re: Bluetooth BUG() in set_sk_owner().
-Date: 15 Sep 2003 11:57:01 +0200
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: firewalling PPPOE stream without terminating it
+Date: Mon, 15 Sep 2003 12:18:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1063619827.28891.507.camel@pegasus>
-References: <1063184337.32473.529.camel@hades.cambridge.redhat.com>
-	<20030911182223.2e9b7118.davem@redhat.com>
-	<1063616050.21195.67.camel@hades.cambridge.redhat.com>
+Message-ID: <20030915101826.GH777@obroa-skai.de.gnumonks.org>
+References: <3F61D8E4.6020309@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-   shemminger@osdl.org, Max Krasnyansky <maxk@qualcomm.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="VbfcI4OLZ4XW0yH2"
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1063616050.21195.67.camel@hades.cambridge.redhat.com>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+Content-Disposition: inline
+In-Reply-To: <3F61D8E4.6020309@nortelnetworks.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi David,
 
-> Needs this too...
-> 
-> ===== net/bluetooth/bnep/sock.c 1.11 vs edited =====
-> --- 1.11/net/bluetooth/bnep/sock.c	Thu Jun  5 01:57:08 2003
-> +++ edited/net/bluetooth/bnep/sock.c	Fri Sep 12 09:16:17 2003
-> @@ -186,7 +189,8 @@
->  
->  static struct net_proto_family bnep_sock_family_ops = {
->  	.family = PF_BLUETOOTH,
-> -	.create = bnep_sock_create
-> +	.create = bnep_sock_create,
-> +	.owner = THIS_MODULE
->  };
->  
->  int __init bnep_sock_init(void)
+--VbfcI4OLZ4XW0yH2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-it is only cosmetic, but put the .owner above the .create.
+Hi Chris!
 
-Regards
+On Fri, Sep 12, 2003 at 10:32:04AM -0400, Chris Friesen wrote:
 
-Marcel
+> I've got a PPPOE DSL line coming into my house, and I and my roommates=20
+> each terminate our own connection and get our own dynamic IP address.
+
+So how is this question related to either=20
+1) network development (netdev@oss.sgi.com)
+2) linux-kernel development (linux-kernel@vger.kernel.org)
+
+I would like to ask you this question at an apropriate mailinglist
+(netfilter@lists.netfilter.org, or the lartc mailinglist [since the
+assumption that you would need to do NAT in case you terminate the two
+dsl lines is invalid an can be solved using policy routing + connmark]).
+
+> Chris Friesen                    | MailStop: 043/33/F10
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--VbfcI4OLZ4XW0yH2
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQE/ZZHxXaXGVTD0i/8RAtypAJ90Bhd5kA4bxDUHle4YxlJzkwORvwCfbboN
+7oYLitTanO8CoR0tKPUjiDM=
+=/4fn
+-----END PGP SIGNATURE-----
+
+--VbfcI4OLZ4XW0yH2--
