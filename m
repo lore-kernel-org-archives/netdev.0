@@ -1,38 +1,68 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: given a struct sock, how to find pid of process that owns it?
-Date: Wed, 03 Sep 2003 13:17:25 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F562225.4010609@nortelnetworks.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/4] Net device error logging, revised
+Date: Wed, 03 Sep 2003 13:32:00 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3F562590.60101@pobox.com>
+References: <3F4A8027.6FE3F594@us.ibm.com> <20030826183221.GB3167@kroah.com> <3F4BEE68.A6C862C2@us.ibm.com> <3F4BF265.5050101@pobox.com> <3F4C046D.77CF7E03@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Greg KH <greg@kroah.com>, LKML <linux-kernel@vger.kernel.org>,
+	netdev <netdev@oss.sgi.com>,
+	"Feldman, Scott" <scott.feldman@intel.com>,
+	Larry Kessler <kessler@us.ibm.com>,
+	Randy Dunlap <rddunlap@osdl.org>,
+	Alan Cox <alan@lxorguk.ukuu.org.uk>,
+	Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Jim Keniston <jkenisto@us.ibm.com>
+In-Reply-To: <3F4C046D.77CF7E03@us.ibm.com>
 List-Id: netdev.vger.kernel.org
 
+Jim Keniston wrote:
+> Jeff Garzik wrote:
+>>"NETIF_MSG_" is silly and should be eliminated.
+> 
+> 
+>>From this, I infer that you think that the option to "omit" the msglevel arg --
+> e.g.,
+> 	netdev_err(dev,, "NIC is fried!\n");	/* always logged */
+> -- is silly.  No big deal.  Its sole purpose is to help keep netdev_* calls terse.
 
-I'm working on a small app similar to netstat that only cares about unix 
-sockets.
-
-I can easily walk /proc/net/unix, but to find the owner of the socket I 
-need to scan /proc, which gets expensive.
-
-Accordingly, I'd like to extend /proc/net/unix to also dump out the pid 
-of the process that owns the socket.  The only thing is, I can't seem to 
-figure out how to find the pid of the socket owner given a pointer to 
-the socket struct.
-
-Any tips?  Is it even there?
-
-Thanks,
-
-Chris
+yes
 
 
--- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com	
+>>A separate "NETIF_MSG_ALL" test is not needed, because msg_enable is a
+>>bitmask.  A msg_enable of 0xffffffff will naturally create a NETIF_MSG_ALL.
+> 
+> 
+> But how do you code a netdev_* call where you ALWAYS want the message (including
+> netdev_printk-style prefix) logged, regardless of the value of msg_enable?  That's
+> what NETIF_MSG_ALL is for (and why it might be better called NETIF_MSG_ALWAYS)...
+
+I understand the purpose of NETIF_MSG_ALL; re-read what I said.  You 
+don't need a separate _test_, as your implementation includes.  Defining 
+NETIF_MSG_ALL to 0xffffffff will naturally create the effect you seek.
+
+
+>>Also, whatever mechanism is created, it needs to preserve the feature of
+>>the existing system:
+>>
+>>        if (a quick bitmask test)
+>>                do something
+>>
+>>And preferably "do something" is not inlined, because printk'ing --
+>>although it may appear in a fast path during debugging -- cannot be
+>>considered a fast path itself.
+
+> Sorry, I'm not sure what you're getting at here.  netdev_* doesn't prevent
+> people from using the existing netif_msg_* macros; it just provides shorthand
+> for the (usual) case where "do something" is "printk".
+
+
+I would prefer to be more ambitious.  If we're gonna go in and change 
+every printk in a driver, we might as well do it right, and (a) make 
+sure the driver does msg_enable, and (b) make the source code a bit more 
+clean by hiding the "if (test bitmap)" test in your netdev_xxx stuff.
+
+	Jeff
