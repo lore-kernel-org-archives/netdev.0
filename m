@@ -1,54 +1,44 @@
-From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
-Subject: via-rhine "reset did not complete" errors
-Date: Mon, 28 Oct 2002 10:45:08 -0500
+From: Rik van Riel <riel@conectiva.com.br>
+Subject: multipath routing doesn't work with netlink
+Date: Mon, 28 Oct 2002 14:10:24 -0200 (BRST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7BFCE5F1EF28D64198522688F5449D5A03C079@xchangeserver2.storigen.com>
+Message-ID: <Pine.LNX.4.44L.0210281407540.22494-100000@duckman.distro.conectiva>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: <rl@hellgate.ch>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <linux-net@vger.kernel.org>, <netdev@oss.sgi.com>
+To: netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-We're using VIA EPIA mini-ITX with 800Mhz C3 and the
-VT6103 PHY. (via-rhine driver says VT6102). We have made sure
-power supply is "big enough". Our kernel is 2.4.18 with
-via-rhine.c patches to fix TX timeout.
+Am I doing something wrong or is there a kernel bug that
+prevents multipath routing from working with NETLINK ?
 
-Our TX timeout issues seem to have gone away with the recent
-patches. However we are still plagued with the "reset did not
-complete in 10ms" errors. Once it this state, a warm restart of
-the system is necessary (and we have seen this problem at
-boot time, which is more confusing).
+# ip route add default via 10.0.16.1
+# ip route add default via 10.0.17.2
+RTNETLINK answers: File exists
+# route add default gw 10.0.17.2
+#
 
-Anyway, we can make this problem occur easily by doing
-'ifconfig down eth0' followed by 'ifconfig up eth0'. The
-error happens on the 'open' of the device. However, when
-we do this with 'no link' (cable not plugged in), the
-problem does not happen. It only seems to happen when
-there is activity on the wire and plugged in. When the
-reset does not happen, the CR0/CR1 state after the reset
-is always 0x8008 now matter what the current state of
-those regs going into the reset.
+... of course, this last command just works and results in
+a routing table like this:
 
-So it appears the problem is actually in the 'close' when
-possibly in the process of receiving a packet. Especially
-given that via_rhine_close puts the device in loopback mode
-to void hardware races. Does via_rhine_close need to be
-a little smarter/paranoid? :))  Besides register definitions,
-the docs are pretty useless.
+# ip route
+10.0.16.0/21 dev eth0  proto kernel  scope link  src 10.0.17.3
+127.0.0.0/8 dev lo  scope link
+default via 10.0.17.2 dev eth0
+default via 10.0.16.1 dev eth0
 
-Are there hardware issues that are still not fixed? eg.
-a reset does not reset the chip regardless of state.
+Is there a fundamental reason that iproute2 (using NETLINK) should
+fail here, or is this a bug for which patches will be accepted ?
 
-Any help or ideas would be appreciated.
+regards,
 
-thanks
+Rik
+-- 
+A: No.
+Q: Should I include quotations after my reply?
 
-larry
+http://www.surriel.com/		http://distro.conectiva.com/
