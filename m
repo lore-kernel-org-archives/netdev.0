@@ -1,52 +1,52 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [INET] Optimise away a branch in IP_ECN_set_ce
-Date: Wed, 8 Sep 2004 21:53:18 -0300
+From: Peter Buckingham <peter@pantasys.com>
+Subject: Re: [PATCH 2.6] IPCONFIG fix and cleanup
+Date: Wed, 08 Sep 2004 17:54:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409082153.18678.acme@conectiva.com.br>
-References: <20040909000330.GA5581@gondor.apana.org.au> <200409082127.57827.acme@conectiva.com.br> <20040909.093625.124940653.yoshfuji@linux-ipv6.org>
+Message-ID: <413FA9C3.1080007@pantasys.com>
+References: <413FA726.7070006@pantasys.com> <20040908174800.11adc930.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-2022-jp"
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------060109070003080605060709"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?q?=1B=24B5HF=231QL=40=1B=28B?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040909.093625.124940653.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040908174800.11adc930.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Qua 08 Set 2004 21:36, YOSHIFUJI Hideaki / 吉藤英明 escreveu:
-> In article <200409082127.57827.acme@conectiva.com.br> (at Wed, 8 Sep 2004 
-21:27:57 -0300), Arnaldo Carvalho de Melo <acme@conectiva.com.br> says:
-> > Em Qua 08 Set 2004 21:24, YOSHIFUJI Hideaki / 吉藤英明 escreveu:
-> > > In article <20040909000330.GA5581@gondor.apana.org.au> (at Thu, 9 Sep
-> > > 2004
-> >
-> > 10:03:31 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
-> > > > +       u32 ecn = (iph->tos + 1) & INET_ECN_MASK;
-> > > >
-> > > > + /*
-> > > > +  * The following gives us:
-> > > > +  * INET_ECN_ECT_1 => check += __constant_htons(0xFFFD)
-> > > > +  * INET_ECN_ECT_0 => check += __constant_htons(0xFFFE)
-> > > > +  */
-> > > > + if (__constant_htons(1) != 1)
-> > > > +  ecn <<= 8;
-> > > > + check += __constant_htons(0xFFFB) + ecn;
-> > > > +
-> > > >   iph->check = check + (check>=0xFFFF);
-> > > >   iph->tos |= INET_ECN_CE;
-> > > >  }
-> > >
-> > > s/__constant_htons/htons/g here, please.
-> >
-> > For Herbert understanding: the generated code is the same in this case.
-> > :)
->
-> Yes, thanks.
-> And, we don't use __const_{hton,ntoh}{s,l}() unless it is really required.
-> e.g. variable initializer
+This is a multi-part message in MIME format.
+--------------060109070003080605060709
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yes, that is the only case, like I learned in my early janitor days, using the
-__constant_ variations is not needed and makes the code needlessly ugly :)
+> Peter, how are you generating your patches?  They never apply
+> cleanly.  Maybe Mozilla is messing it up, who knows.  Perhaps
+> try using attachments instead.
+
+sorry, try this attachment instead. when i get sendmail configured 
+properly i'll use mutt instead ;-)
+
+peter
+
+--------------060109070003080605060709
+Content-Type: text/plain;
+ name="p"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="p"
+
+--- linus-2.6/net/ipv4/ipconfig.c	2004-09-08 17:35:56.000000000 -0700
++++ local_linux/net/ipv4/ipconfig.c	2004-09-07 17:16:55.000000000 -0700
+@@ -966,9 +966,7 @@ static int __init ic_bootp_recv(struct s
+ 				break;
+ 
+ 			case DHCPACK:
+-				for (i = 0; (dev->dev_addr[i] == b->hw_addr[i])
+-						&& (i < dev->addr_len); i++);
+-				if (i < dev->addr_len)
++				if (memcmp(dev->dev_addr, b->hw_addr, dev->addr_len) != 0)
+ 					goto drop_unlock;
+ 
+ 				/* Yeah! */
+
+--------------060109070003080605060709--
