@@ -1,93 +1,62 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: [PATCH 2.6] Wireless Extension dropped patchlet
-Date: Mon, 1 Nov 2004 14:58:24 -0800
-Message-ID: <20041101225823.GA16560@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [PATCH]  802.1Q VLAN
+Date: Tue, 02 Nov 2004 00:08:49 +0100
+Message-ID: <4186C201.5030004@tpack.net>
+References: <41797696.9070905@candelatech.com>	 <20041022214611.GA4948@electric-eye.fr.zoreil.com>	 <41798506.1030909@candelatech.com> <417D675F.3000909@candelatech.com>	 <4181838B.6040002@tpack.net>  <41818D99.9020300@candelatech.com> <1099038566.1813.99.camel@cyan.cph.tpack.net> <418281C1.9080707@candelatech.com> <4182D44E.7070507@tpack.net> <4182DABE.7000502@candelatech.com> <4182E0C6.6090205@tpack.net> <4186876E.5040204@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+        "Linux 802.1Q VLAN" <vlan@candelatech.com>,
+        Francois Romieu <romieu@fr.zoreil.com>,
+        "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com
-Content-Disposition: inline
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4186876E.5040204@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hi Jeff,
+Ben Greear wrote:
+> How does this look?  I think it should fix the problem with
+> having a new skb created in the __vlan_put_tag() method.
 
-	This tiny bit of the last WE-17 patch was lost between me and
-you. I initially decided to wait to resubmit, but Chris Wedgwood
-reported that the MadWifi driver needs it. Sorry for not having pushed
-harder.
-	I recreated this patch, and tested with 2.6.10-rc1, and Chris
-tested it with MadWifi. Would you mind pushing that up to Linus ?
-	Thanks in advance...
+Yes, this seems to be handled correctly now.
 
-	Jean
+Two nitpickings:
+  - veth should be reassigned after calling __vlan_put_tag
+  - sample skb->len before calling dev_queue_xmit and use that to
+    update stats->tx_bytes (it can be different from skb2->len)
 
-Changelog :
-	o remove unneeded const
-	o spelling + comments
-Signed-off-by: Jean Tourrilhes <jt@hpl.hp.com>
----------------------------------------------------------------
+And then there's the return values ...
 
-diff -u -p linux-2.6.10-rc1/include/linux/wireless.h linux-2.6.9/include/linux/wireless.h
---- linux-2.6.10-rc1/include/net/iw_handler.h	Mon Nov  1 11:14:46 2004
-+++ linux-2.6.9/include/net/iw_handler.h	Mon Nov  1 11:14:50 2004
-@@ -311,10 +311,10 @@ struct iw_handler_def
- {
- 	/* Number of handlers defined (more precisely, index of the
- 	 * last defined handler + 1) */
--	const __u16		num_standard;
--	const __u16		num_private;
-+	__u16			num_standard;
-+	__u16			num_private;
- 	/* Number of private arg description */
--	const __u16		num_private_args;
-+	__u16			num_private_args;
- 
- 	/* Array of handlers for standard ioctls
- 	 * We will call dev->wireless_handlers->standard[ioctl - SIOCSIWNAME]
-@@ -332,7 +332,7 @@ struct iw_handler_def
- 	const struct iw_priv_args *	private_args;
- 
- 	/* This field will be *removed* in the next version of WE */
--	const long		spy_offset;	/* DO NOT USE */
-+	long			spy_offset;	/* DO NOT USE */
- 
- 	/* New location of get_wireless_stats, to de-bloat struct net_device.
- 	 * The old pointer in struct net_device will be gradually phased
-diff -u -p linux-2.6.10-rc1/include/net/iw_handler.h linux-2.6.9/include/net/iw_handler.h
---- linux-2.6.10-rc1/net/core/wireless.c	Mon Nov  1 11:14:48 2004
-+++ linux-2.6.9/net/core/wireless.c	Mon Nov  1 11:24:32 2004
-@@ -52,7 +52,8 @@
-  * v6 - 18.06.04 - Jean II
-  *	o Change get_spydata() method for added safety
-  *	o Remove spy #ifdef, they are always on -> cleaner code
-- *	o Allow any size GET request is user specifies length > max
-+ *	o Allow any size GET request if user specifies length > max
-+ *		and if request has IW_DESCR_FLAG_NOMAX flag or is SIOCGIWPRIV
-  *	o Start migrating get_wireless_stats to struct iw_handler_def
-  *	o Add wmb() in iw_handler_set_spy() for non-coherent archs/cpus
-  * Based on patch from Pavel Roskin <proski@gnu.org> :
-@@ -690,6 +691,10 @@ static inline int ioctl_standard_call(st
- 				 * we can support any size GET requests.
- 				 * There is still a limit : -ENOMEM. */
- 				extra_size = user_length * descr->token_size;
-+				/* Note : user_length is originally a __u16,
-+				 * and token_size is controlled by us,
-+				 * so extra_size won't get negative and
-+				 * won't overflow... */
- 			}
- 		}
- 
-@@ -1227,7 +1232,7 @@ int iw_handler_set_spy(struct net_device
- 
- 	/* We want to operate without locking, because wireless_spy_update()
- 	 * most likely will happen in the interrupt handler, and therefore
--	 * have it own locking constraints and needs performance.
-+	 * have its own locking constraints and needs performance.
- 	 * The rtnl_lock() make sure we don't race with the other iw_handlers.
- 	 * This make sure wireless_spy_update() "see" that the spy list
- 	 * is temporarily disabled. */
+This is a hard_start_xmit() method, so we should try to be
+consistent with real device drivers. The only defined return
+values are: NETDEV_TX_OK and NETDEV_TX_BUSY.
+(There is also Andi's NETDEV_TX_LOCKED, which we can ignore here).
+
+Furthermore transmission shouldn't be retried in case of failure,
+only on congestion does this make sense.
+
+So my suggestion for the last part of the function is:
+
+	len = skb->len;
+	rv = dev_queue_xmit(skb);
+	if (rv < 0) {
+		stats->tx_dropped++;
+		kfree_skb(skb2);
+		ret = NETDEV_TX_OK;
+	} else if (rv == NET_XMIT_SUCCESS || rv == NET_XMIT_CN) {
+		stats->tx_packets++;
+		stats->tx_bytes += len;
+		kfree_skb(skb2);
+		ret = NETDEV_TX_OK;
+	} else {
+		/* The device below us is congested */
+		ret = NETDEV_TX_BUSY;
+	}
+
+	return ret;
+
+
+-Tommy
