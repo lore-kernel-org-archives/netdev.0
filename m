@@ -1,35 +1,58 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: strange network performance degradation 2.6.8-rc3-mm1 -> 2.6.8-rc4-mm1
-Date: Sat, 14 Aug 2004 19:28:35 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040814172835.GA23427@electric-eye.fr.zoreil.com>
-References: <20040814060948.GA7842@middle.of.nowhere> <20040814121533.GB18754@electric-eye.fr.zoreil.com> <20040814135606.GA6001@middle.of.nowhere> <20040814150824.GA21843@electric-eye.fr.zoreil.com> <20040814161039.GA1985@middle.of.nowhere>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: cvs commit'ed
+Date: Sat, 14 Aug 2004 14:37:12 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <20040814183712.GH2050@ruslug.rutgers.edu>
+References: <200408101824.28368.vda@port.imtp.ilyichevsk.odessa.ua>
+	<20040811002844.GH26262@ruslug.rutgers.edu>
+	<20040811005346.GK26262@ruslug.rutgers.edu>
+	<200408141922.42792.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jurriaan <thunder7@xs4all.nl>
+Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
+	netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
 Content-Disposition: inline
-In-Reply-To: <20040814161039.GA1985@middle.of.nowhere>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <200408141922.42792.vda@port.imtp.ilyichevsk.odessa.ua>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Jurriaan <thunder7@xs4all.nl> :
-[...]
-> Never mind, it seems my patch was saved incorrectly. Anyway, after
-> applying this patch my network-traffic is as fast as it ever was.
+On Sat, Aug 14, 2004 at 07:22:42PM +0300, Denis Vlasenko wrote:
+> On Wednesday 11 August 2004 03:53, Luis R. Rodriguez wrote:
+> > Denis,
+> >
+> > Actually you have CVS access to prism54, if no one complains about these
+> > patches (and I think no one will as they are trivial), just go ahead and
+> > commit these changes yourself. Please remember to update the ChangeLog too.
+> >
+> > After your changes go through I plan on starting to integrate the wpa work
+> > I have (it can't wait any longer).
 > 
-> There's no difference in dmesg-output, but I reach 450-460 KiB/s again.
+> I did it. You may want to check whether cvs is still ok,
+> it was the first time I ever used cvs ;]
 
-Ok. So Jeff was right (TM).
+Heh, I'm sure its fine. BTW I'd like us to move to subversion to use the
+concepts of patchsets. I think this will help us keep our tree and the
+kernel tree in sync.
 
-> If there's anything else I can test, please let me know - I gather the
-> update did work for other people, so if testers are wanted I'm
-> available.
+> Shall I do something more to propagate changes into mainline
+> or cvs commit done @prism54.org is enough?
 
-Can you apply 8139too-10.patch + 8139too-20.patch on top of your working
-config (namely 2.6.8-rc4-mm1 + 8139too-mm-revert.patch) and tell if things
-go wrong ?
+cvs commit is enough. We still have to keep kernel tree in sync with our cvs rep.
 
---
-Ueimor
+Not sure if you've sent new patches out to Jeff/netdev
+yet, have you? 2.6.8 is out so I'm assuming Jeff will now accept
+non-bug-fix patches.
+
+	Luis
+
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
