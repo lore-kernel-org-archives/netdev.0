@@ -1,30 +1,37 @@
-From: Ralph Doncaster <ralph@istop.com>
-Subject: RE: Route cache performance under stress
-Date: Tue, 10 Jun 2003 11:29:18 -0400 (EDT)
+From: Masahide NAKAMURA <nakam@linux-ipv6.org>
+Subject: Re: [patch]: CONFIG_IPV6_SUBTREES fix for MIPv6
+Date: Wed, 11 Jun 2003 00:40:44 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0306101125500.21435@ns.istop.com>
-References: <Pine.LNX.4.44.0306101432530.21247-100000@netcore.fi>
- <20030610075702.I37165@shell.cyberus.ca>
-Reply-To: ralph+d@istop.com
+Message-ID: <20030611004035.40027642.nakam@linux-ipv6.org>
+References: <20030606223057.41ac1c9d.nakam@linux-ipv6.org>
+	<Pine.GSO.4.44.0306091140470.25126-100000@morphine.tml.hut.fi>
+	<20030609203659.089b241b.nakam@linux-ipv6.org>
+	<3EE5F85E.9080006@tml.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Pekka Savola <pekkas@netcore.fi>, CIT/Paul <xerox@foonet.net>,
-   "'Simon Kirby'" <sim@netnation.com>, "'David S. Miller'" <davem@redhat.com>,
-   "fw@deneb.enyo.de" <fw@deneb.enyo.de>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-   "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, vnuorval@tcs.hut.fi,
+   davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   ajtuomin@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com,
+   usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030610075702.I37165@shell.cyberus.ca>
+To: Henrik Petander <lpetande@tml.hut.fi>
+In-Reply-To: <3EE5F85E.9080006@tml.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2003, Jamal Hadi wrote:
+On Tue, 10 Jun 2003 18:25:18 +0300
+Henrik Petander <lpetande@tml.hut.fi> wrote:
 
-> Assuming the attacker has a 100mbps link to you, yes ;->
+> Then the policies for mipv6 would need to be specified at the same time 
+> as the ipsec policies. This is not a problem as long as the policies are 
+>   loaded at start up. However, this could lead to problems with 
+> applications which specify their own policies, e.g. racoon.
 
-A script kiddie 0wning a box with a FE connection is nothing.  During what
-was probably the worst DOS I got hit with, one of my upstream providers
-said they were seeing about 600mbps of traffic related to the attack.
+How about providing interface of handling templates to update
+existing policy in kernel?
 
--Ralph
+Regards,
+
+-- 
+Masahide NAKAMURA
