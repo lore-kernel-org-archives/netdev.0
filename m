@@ -1,26 +1,28 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Sun, 26 Dec 2004 16:36:23 +1100
-Message-ID: <E1CiR4p-0004vc-00@gondolin.me.apana.org.au>
-References: <41C612BC.5070909@tpack.net>
-Cc: hadi@cyberus.ca, thomas.spatzier@de.ibm.com, davem@davemloft.net,
-        hasso@estpak.ee, herbert@gondor.apana.org.au, jgarzik@pobox.com,
-        netdev@oss.sgi.com, paul@clubi.ie
+Subject: Re: 2.6.8.1 IPv6 Routing Problem
+Date: Sun, 26 Dec 2004 16:45:00 +1100
+Message-ID: <E1CiRDA-0004wk-00@gondolin.me.apana.org.au>
+References: <20041225135650.55dca29f.davem@davemloft.net>
+Cc: laforge@gnumonks.org, yoshfuji@linux-ipv6.org, pekkas@netcore.fi,
+        netdev@oss.sgi.com, usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tommy.christensen@tpack.net (Tommy Christensen)
-In-Reply-To: <41C612BC.5070909@tpack.net>
+To: davem@davemloft.net (David S. Miller)
+In-Reply-To: <20041225135650.55dca29f.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tommy Christensen <tommy.christensen@tpack.net> wrote:
+David S. Miller <davem@davemloft.net> wrote:
 > 
-> OK. So is this the recommendation for these pour souls?
-> 
->  - Use a socket for each device.
+> I've also discussed this with Herbert Xu a bit, and no one
+> solution is really clear yet.  IPV4 has similar issues, just
+> in a slightly different form.
 
-Please show us your program first.  Then we can figure out
-whether this is necessary or not.
+Well I still reckon that the IPv4 behaviour is just fine as
+it is.  In fact if anything we should make the IPv6 case as
+similar to Ipv4 as possible.
+
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
