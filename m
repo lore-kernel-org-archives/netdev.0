@@ -1,45 +1,46 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] iptables: Fix warning in CONNMARK
-Date: Sun, 24 Oct 2004 16:17:34 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <417BB97E.2000706@trash.net>
-References: <20041024135721.GO21977@postel.suug.ch>
+From: Eric Lemoine <eric.lemoine@gmail.com>
+Subject: Re: [PATCH] Prevent netpoll hanging when link is down
+Date: Sun, 24 Oct 2004 17:22:13 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <5cac192f04102408224ffa9c61@mail.gmail.com>
+References: <20041007214505.GB31558@wotan.suse.de>
+	 <20041011163601.GM31237@waste.org>
+	 <20041011164315.GH26350@wotan.suse.de>
+	 <20041011165851.GN31237@waste.org>
+	 <20041011224542.5bdc93aa@jack.colino.net>
+	 <5cac192f0410181443303379e2@mail.gmail.com>
+	 <5cac192f041018145824acce5a@mail.gmail.com>
+	 <20041020161119.6e30efe5@pirandello>
+	 <5cac192f0410200848179ccc81@mail.gmail.com>
+	 <20041021183610.23c5121c.colin@colino.net>
+Reply-To: Eric Lemoine <eric.lemoine@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@oss.sgi.com,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	hno@marasystems.com
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041024135721.GO21977@postel.suug.ch>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Colin Leroy <colin@colino.net>
+In-Reply-To: <20041021183610.23c5121c.colin@colino.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Applied, thanks.
+> > > > > > [deadlock with sungem & netconsole when no carrier]
+> > > > > Sorry I'm catching up on that problem... Do you have your
+> > > > > problem solved? If not, did you try removing all printk calls
+> > > > > from within gem_poll(), as suggested by Matt Mackall?
+> > > >
+> > Ok. Keep me posted. If removing the printk's indeed helps I'll cook up
+> > a proper fix.
+> 
+> Ok, it tried... It doesn't help. I tried the wild way too:
+> 
+>         #define printk(...) do {} while (0);
+> 
+> It didn't help either. I'll give a look to other net drivers, to see if
+> they do stuff differently, but I fear that I won't find it easily...
 
-Thomas Graf wrote:
+Thanks for running this Colin. Unfortunately I can't figure out what's
+going on at this point.
 
->Signed-off-by: Thomas Graf <tgraf@suug.ch>
->
->--- linux-2.6.10-rc1-bk1.orig/net/ipv4/netfilter/ipt_CONNMARK.c	2004-10-24 10:58:49.000000000 +0200
->+++ linux-2.6.10-rc1-bk1/net/ipv4/netfilter/ipt_CONNMARK.c	2004-10-24 15:35:18.000000000 +0200
->@@ -60,7 +60,7 @@
-> 		break;
-> 	    case IPT_CONNMARK_RESTORE:
-> 		nfmark = (*pskb)->nfmark;
->-		diff = (ct->mark ^ nfmark & markinfo->mask);
->+		diff = ((ct->mark ^ nfmark) & markinfo->mask);
-> 		if (diff != 0) {
-> 		    (*pskb)->nfmark = nfmark ^ diff;
-> 		    (*pskb)->nfcache |= NFC_ALTERED;
->
->  
->
+-- 
+Eric
