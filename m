@@ -1,78 +1,34 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [RFC/PATCH] lockless loopback patch for 2.6 (version 2)
-Date: Mon, 14 Jun 2004 20:23:31 +0200
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [9/9][PATCH 2.6] Restructure reset code
+Date: Mon, 14 Jun 2004 12:03:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040614182331.GA11862@wotan.suse.de>
-References: <Pine.SGI.4.56.0406141000060.479900@neteng.engr.sgi.com>
+Message-ID: <20040614100326.GA32763@k3.hellgate.ch>
+References: <20040602115920.GA17634@k3.hellgate.ch> <40BE2DE0.4040102@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arthur Kepner <akepner@sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <Pine.SGI.4.56.0406141000060.479900@neteng.engr.sgi.com>
+In-Reply-To: <40BE2DE0.4040102@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> +#define LOOPBACK_STAT_INC(field)				\
-> +	(per_cpu_ptr(loopback_stats, smp_processor_id())->field++)
-> +#define LOOPBACK_STAT_ADD(field, n)				\
-> +	(per_cpu_ptr(loopback_stats, smp_processor_id())->field += n)
+On Wed, 02 Jun 2004 15:43:28 -0400, Jeff Garzik wrote:
+> Roger Luethi wrote:
+> >Restructure code to make it easier to maintain.
+[...]
+> Rejected, two reasons:
+> 
+> 1) dev->dev_addr[] should be loaded from eeprom only once, at probe 
+> time, not once for each hw init.  [this value should be written to the 
+> chip's MAC address registers upon each dev->open() call]
+> 
+> 2) Your "Note:" worries me...  why not deal with this now?  :)
 
-This is too complicated and not preempt safe. Use 
-__get_cpu_var(loopback_stats).field++; 
+I addressed your concerns in my June 2 reply, but the patch didn't
+get merged. Meanwhile, I am maintaining a growing queue of via-rhine
+patches that need review and wider testing -- what is missing to move
+forward in -mm?
 
-I would also remove the macros and do this directly.
-
-> +	struct net_device_stats *stats = dev->priv;
-> +	int i;
-> +
-> +	if (unlikely(!stats)) {
-
-Tests for NULL don't need an unlikely, because gcc does that by 
-default for itself. But why can the stats here be NULL anyways?
-
->  #ifdef CONFIG_NET_RADIO
->  #include <linux/wireless.h>		/* Note : will define WIRELESS_EXT */
->  #include <net/iw_handler.h>
-> @@ -1277,6 +1278,20 @@
->  	return 0;
->  }
->  
-> +#define HARD_TX_LOCK_BH(dev, cpu) {			\
-> +	if ( dev->features && NETIF_F_LLTX  == 0 ) {	\
-
-&& instead of & and missing brackets.
-
-> +		spin_lock_bh(&dev->xmit_lock);		\
-> +		dev->xmit_lock_owner = cpu;		\
-> +	}						\
-> +}
-> +
-> +#define HARD_TX_UNLOCK_BH(dev) {			\
-> +	if ( dev->features && NETIF_F_LLTX  == 0 ) {	\
-
-Same.
-
-> -	if (ops->reset)
-> -		ops->reset(qdisc);
-> -	if (ops->destroy)
-> -		ops->destroy(qdisc);
-> -	module_put(ops->owner);
-> -	if (!(qdisc->flags&TCQ_F_BUILTIN))
-> -		kfree(qdisc);
-> +
-> +	call_rcu(&qdisc->q_rcu, __qdisc_destroy, qdisc);
-
-I think you need at least a wmb() after 
-
-           if (q == qdisc) {
-		         *qp = q->next;
-				 break;
-			}
-
-Otherwise the order of updates to the readers is no guaranteed. 
-Also if you want to support alpha there will need to be 
-smp_read_barrier_depends() in the reader walking this list.
-
--Andi
+Roger
