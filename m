@@ -1,140 +1,81 @@
-From: "boydj money" <boydjmoney@lycos.com>
-Subject: get paypal, make money free, no catch...
-Date: Tue, 14 Jan 2003 03:03:59 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: SCTP path mtu support needs some ip layer support.
+Date: Tue, 14 Jan 2003 10:44:54 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1042542239.470@techline.com>
+Message-ID: <Pine.LNX.4.33.0301140946230.1978-100000@dyn9-47-18-86.beaverton.ibm.com>
+References: <200301140122.EAA10371@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"; format=flowed
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Sridhar Samudrala <sri@us.ibm.com>, <jgrimm2@us.ibm.com>,
+   <davem@redhat.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <200301140122.EAA10371@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I know you my be skeptical, but you've gotta try this...
+On Tue, 14 Jan 2003 kuznet@ms2.inr.ac.ru wrote:
 
-This is so easy. Honest! I can't believe how easy it is. This may look like
-something you have seen before.
+> Hello!
+> 
+> > Is this more agreeable?
+> 
+> I did not disagree with the first one, actually. :-)
+> It was cleaner, to be honest.
 
-YOU HAVEN'T SEEN THIS!
+So can i go ahead and add an argument(ipfragok) to ip_queue_xmit()?
 
-OF COURSE IT'S LEGAL! The COMPANY pays everyone!
-NO MONEY is paid from person to person.
-There are NO reports to buy or read.
-You don't have to SELL anything!
-YOU get MONEY (100 bucks!) RIGHT AWAY!
-It doesn't cost you anything, so why not?
-THIS IS FREE!!! Get it? The cost to you
-is ZERO!!!
+> 
+> In any case, after reading mail by Jon Grimm, the things
+> became cleaner. BTW what is "chunk" size in current implementation?
 
-I got $100 immediately. So will you when you sign up. (no strings attached).
+The maximum chunksize is set to (pmtu - SCTP+IPheadersizes).
 
-With a small amount of effort, in fact you can make THOUSANDS!! NO BULL!
+> 
+> Essentially, to make a compromise between usability and sanity,
+> it is enough to make the thing which we make with UDP: to prevent
+> sending bogus fragmented packets when IP_MTUDISC_DO is set by user
+> and set chunk size to a value < min(512,current mtu) in this case,
+> so no fragments will be generated. In that case I will be happy
+> (done all that possible, all the flaws are directed to SCTP designers. :-))
+> and default behaviour (it is IP_MTUDISC_WANT) still will be rfc compliant.
 
-YOU DON'T SPEND ANY MONEY!
-JUST FOLLOW THE STEPS BELOW CAREFULLY:
+You seem to be suggesting the use of lowest possible pmtu as the max. chunk
+size.  This is OK as long as the user messages are of small size. But it adds
+additional overhead of 16 byte chunk headers for messages that are larger than
+the chunk size, but lower than the pmtu. So we would like to opt for this 
+solution only if you are totally against adding a new argument to
+ip_queue_xmit().
 
+Also SCTP uses control chunks(INIT_ACK, COOKIE_ECHO) for association setup
+which can be larger than pmtu(although rare). The control chunks cannot be 
+fragmented by SCTP, but it is perfectly OK for IP to fragment them.
 
-Step 1.
+> 
+> 
+> > If not, do you prefer SCTP having its own ip_xmit
+> 
+> Hey, only not this. :-)
+> 
+> BTW what did you make with IPv6? We even not have any analogue
+> to ip_fragment there at the moment. Do not worry, we have to do this
+> in any case, not depending on SCTP demands. :-)
 
-Sign up for your own PayPal account. (go to the website below to get one 
-free, they automatically pay you $5 for signing up)
+Frankly, i haven't thought of IPV6 in detail. I was under the impression that
+it is simpler in ipv6 as only source is allowed to do fragmentation and as there
+is no DF bit, it will automatically fragment any packets larger than the pmtu.
+But looking at ip6_xmit(), i realize that ICMPV6_PKT_TOOBIG error is generated
+forcing the transport layer to do the fragmentation. TCP can handle this, but
+SCTP cannot.
 
-https://www.paypal.com/refer/pal=25QXMBLEZFTC6
+So looks like this problem needs to be solved even for ipv6. Is it possible to
+add an argument to ip6_xmit() to force ip layer to fragment or use any other 
+available interface like ip6_build_xmit() when we want ip to fragment. 
 
+Thanks
+Sridhar
 
-Step 2.
-
-Listed below are three sign-up URLs & email addresses.
-
-Sign up at RichMail.com under the first ID and you'll get $100 just for
-joining.
-
-SO CLICK ON THE #1 POSITION AND SIGN UP. Do this now.
-
-
-Step 3.
-
-Send a blank email to the third person on the list with the Subject line: "I 
-
-signed up under #1, RichMail"
-
-
-Step 4.
-
-Send a blank email to the second person on the list with the Subject line: 
-"I
-have moved you to #1, RichMail"
-
-
-Step 5.
-
-Send a blank email to the first person on the list with the Subject line: "I 
-
-have removed your position, RichMail"
-
-
-Step 6.
-
-Copy this info, delete the #1 person, MOVE THE OTHER TWO UP AND INSERT YOUR
-INFORMATION AT THE BOTTOM, in the #3 position. Make sure you put in YOUR new 
-
-RichMail.com URL and YOUR email address correctly.
-
-
-Step 7.
-
-Now, send this letter to as many people as you can until you receive 6 
-emails
-saying, "I signed up under #1". (That's it, only 6 responses, not 9, or 10 
-or
-20...just 6!) This puts $350.00 into your PayPal account. (If you haven't
-signed op for a PayPal account yet, go to the website below and get one.
-PayPal gives you $5 bucks to do this!)
-
-https://www.paypal.com/refer/pal=25QXMBLEZFTC6
-
-When your address gets to the #1 position, you will have 150 people signed 
-up
-under you! You only need 6 to make this work!!
-
-Not bad, but it's ONLY the beginning. A short, (very short) time later, each 
-
-of those 150 people will have 150 people signed up under them, and so on.
-
-After the 3rd Level is done you are IN THE MONEY!
-
-Rich Mail pays YOU for everyone that subscribes UNDER you...and it adds up
-fast! (They make their money from their advertisers.)
-
-Calculation of earnings:
-YOU sign up                       = $100.00
-Your personal sign ups - 6 x $25  = $150.00
-First Level -           36 x $25  = $900.00
-Second Level -        1296 x $25  = $32,400.00
-Third Level -          46656 x $4 = $186,624.00
-
-Your total earnings - $220,174.00 for signing up 6!
-
-Not bad for 15 minutes work don't you agree? Cost to you: NOTHING but the 15 
-
-minutes to make this happen!
-
-Here is the list:
-
-# 1  http://www.RichMails.com/cgi-bin/signup.cgi?r=sturose1955@yahoo.com
-email sturose1955@yahoo.com
-
-# 2  http://www.RichMails.com/cgi-bin/signup.cgi?r=rflittle3@juno.com
-email: rflittle3@juno.com
-
-# 3  http://www.RichMails.com/cgi-bin/signup.cgi?r=JABER01@AOL.COM
-email: jaber01@aol.com
-
-A word or caution: "IF YOU CHEAT, YOU LOSE." This must cycle through all 3
-levels to work. Why not try it...just for the heck of it. You have nothing 
-to
-lose, and a LOT of money to gain.
-
-
-Have fun!
-Roger
+> 
+> Alexey
+> 
+> 
