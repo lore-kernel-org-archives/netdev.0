@@ -1,23 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Fix ax25_get_socket locking
-Date: Mon, 14 Mar 2005 21:30:15 -0800
-Message-ID: <20050314213015.1b113610.davem@davemloft.net>
-References: <20050314083744.GA12765@linux-mips.org>
+Subject: Re: [PATCH] Fix a gcc-3.4 build failure and gcc-3.3 build warnings
+ with TCP_DEBUG disabled in tcp.h
+Date: Mon, 14 Mar 2005 21:37:13 -0800
+Message-ID: <20050314213713.7064c93a.davem@davemloft.net>
+References: <423287C4.60701@tomt.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-hams@vger.kernel.org
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-In-Reply-To: <20050314083744.GA12765@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+To: Andre Tomt <andre@tomt.net>
+In-Reply-To: <423287C4.60701@tomt.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 14 Mar 2005 08:37:44 +0000
-Ralf Baechle DL5RB <ralf@linux-mips.org> wrote:
+On Sat, 12 Mar 2005 07:10:12 +0100
+Andre Tomt <andre@tomt.net> wrote:
 
-> In an attempt to return a locked socket ax25_get_socket() was calling
-> lock_sock() with a spinlock held, bad idea.  Making matters worse it's
-> only user is running in bottom half context resulting in a potencial
-> attempt to sleep in bottom half context, so fix the locking there as well.
+> Fix a gcc-3.4 build failure and gcc-3.3 build warnings with TCP_DEBUG 
+> disabled in tcp.h
+> 
+> Patch (with description and signed-off-by) attached due to braindamaged MUA.
 
-Looks fine.  Applied, thanks Ralf.
+Applied, thanks Andre.
