@@ -1,39 +1,43 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: WE-17 typo fix
-Date: Tue, 28 Sep 2004 11:46:25 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928184625.GA8299@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: [patch 2.6.9-rc2] 3c59x: do not mask reset of aism logic at rmmod
+Date: Tue, 28 Sep 2004 14:54:55 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040928145455.C12480@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267767AbUI1UIO@vger.kernel.org>
+To: akpm@osdl.org
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hi Jeff,
+Some (earlier?) versions of the 3c905(B) card get confused and refuse to
+work again after the 3c59x module is removed (even after reloading the
+module).  Changing vortex_remove_one() to allow the auto-initialize
+state machine logic to be reset when the module is removed alleviates
+this problem.
 
-	Felix R. found a typo in the WE-17 patch I sent you and is
-pending in your tree (more correctly, an overzealous
-search&replace). The patch below fix this mistake.
-	I would appreciate you adding this patch to your tree ;-)
+Signed-off-by: John W. Linville <linville@tuxdriver.com>
+--- 
+See http://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=133388 for more
+details.
 
-	Have fun...
+If anyone can suggest a better way to fix this problem, please do so.
+I'll be happy to pursue it.
 
-	Jean
+ drivers/net/3c59x.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-------------------------------------------------------------------
+This patch should apply (with a little fuzz) to 2.4 as well...
 
-diff -u -p linux/net/core/wireless.we17.c linux/net/core/wireless.c
---- linux/net/core/wireless.we17.c	Tue Sep 28 11:34:04 2004
-+++ linux/net/core/wireless.c	Tue Sep 28 11:34:33 2004
-@@ -867,7 +867,7 @@ static inline int ioctl_private_call(str
- 				return -EFAULT;
+--- linux-2.6/drivers/net/3c59x.c.orig
++++ linux-2.6/drivers/net/3c59x.c
+@@ -3162,7 +3162,7 @@ static void __devexit vortex_remove_one 
+ 			pci_restore_state(VORTEX_PCI(vp), vp->power_state);
+ 	}
+ 	/* Should really use issue_and_wait() here */
+-	outw(TotalReset|0x14, dev->base_addr + EL3_CMD);
++	outw(TotalReset|0x04, dev->base_addr + EL3_CMD);
  
- 			/* Does it fits within bounds ? */
--			if(iwr->u.data.length > (descr->get_args &
-+			if(iwr->u.data.length > (descr->set_args &
- 						 IW_PRIV_SIZE_MASK))
- 				return -E2BIG;
- 		} else {
+ 	pci_free_consistent(pdev,
+ 						sizeof(struct boom_rx_desc) * RX_RING_SIZE
