@@ -1,33 +1,51 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
-Date: Mon, 20 Sep 2004 20:59:05 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETFILTER] Fix comment typo in ip_nat_helper
+Date: Tue, 21 Sep 2004 11:35:48 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414F7CD9.3090008@pobox.com>
-References: <20040920212453.GA15392@ee.oulu.fi>
+Message-ID: <20040921013548.GA27679@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="tKW2IUtsqtDRztdT"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Pietikainen <pp@ee.oulu.fi>
-In-Reply-To: <20040920212453.GA15392@ee.oulu.fi>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        coreteam@netfilter.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pekka Pietikainen wrote:
-> Hiya
-> 
-> When trying to do /etc/init.d/network stop (or reboot) my
-> fc3test-all-updated-so-kernel-is-2.6.9-rc2-bk5ish, the thing hangs with a
-> "unregister_netdevice: waiting for tun6to4 to become free. Usage count = 1".
-> The 6to4 tunnel is over the kernel PPPoE tunnel in case that makes a
-> difference
 
+--tKW2IUtsqtDRztdT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-I hit this _once_ on my gateway (NAT'ing firewall IPv4, now also IPv6 
-router).
+Hi Dave:
 
-No idea why it went away, I just assumed a more recent kernel fixed 
-something.
+Here's a trivial comment fix that I noticed while tracking down an FTP/NAT
+issue.
 
-	Jeff
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--tKW2IUtsqtDRztdT
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/netfilter/ip_nat_helper.c 1.22 vs edited =====
+--- 1.22/net/ipv4/netfilter/ip_nat_helper.c	2004-08-26 13:19:30 +10:00
++++ edited/net/ipv4/netfilter/ip_nat_helper.c	2004-09-21 11:14:52 +10:00
+@@ -73,7 +73,7 @@
+ 
+ 	LOCK_BH(&ip_nat_seqofs_lock);
+ 
+-	/* SYN adjust. If it's uninitialized, of this is after last
++	/* SYN adjust. If it's uninitialized, or this is after last
+ 	 * correction, record it: we don't handle more than one
+ 	 * adjustment in the window, but do deal with common case of a
+ 	 * retransmit */
+
+--tKW2IUtsqtDRztdT--
