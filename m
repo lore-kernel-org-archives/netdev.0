@@ -1,38 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: in-driver QoS
-Date: 07 Jun 2004 19:38:44 -0400
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: [PATCH] natsemi update 3/4 External PHY operation
+Date: Tue, 08 Jun 2004 07:30:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086651524.1037.10.camel@jzny.localdomain>
-References: <200406062128.47070.vkondra@mail.ru>
-	 <20040607140011.GC28639@wotan.suse.de> <200406072335.04125.vkondra@mail.ru>
-Reply-To: hadi@cyberus.ca
+Message-ID: <40C54EE9.3090901@colorfullife.com>
+References: <200406041455290031.0BC56C76@136.179.85.112> <40C33D38.1060102@colorfullife.com> <200406071608450571.1B7B9754@136.179.85.112>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Andi Kleen <ak@suse.de>
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200406072335.04125.vkondra@mail.ru>
+To: Gary N Spiess <Gary.Spiess@Intermec.com>
+In-Reply-To: <200406071608450571.1B7B9754@136.179.85.112>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Gary N Spiess wrote:
 
-On Mon, 2004-06-07 at 16:35, Vladimir Kondratiev wrote:
-> How could I use these multiple qdiscs? If I use existing driver framework, I 
-> have hard_start_xmit, that represent single queue. Do you have any examples 
-> how driver can access qdiscs directly? I.e. I have 4 queues in the driver, I 
-> want to fill it separately, start/stop incoming queues from stack etc.
+>The existing driver code was already written to reference the "current PHY" with address 1.  To select a different address to represent the current PHY would have required me to touch more lines of source.
+>
+>  
+>
+Then touch more lines of source - the patch as it is is unreadable.
 
-Maybe you can explain a little more: Do these 4 queues translate to 4
-DMA rings or channles on the NIC? Could you not use a tag like fwmark to
-select DMA to send to? 
-Explain the packet path once it hits the driver.
+>- The partial reset fix (again, to the best of my knowledge) is only needed when the internal PHY being used has reset, but the MAC has not.  The dspcfg != np->dspcfg test identifies an internal PHY that has been reset, and triggers the driver to do a a complete MAC/PHY reset.  When using an external PHY, the test continually causes unneeded resets.  The change to set np->dspcfg to 0 prevents it.  This was the minimal change to get the desired results.
+>
+Again, miminal change doesn't matter. Add a
 
-> Note also, we are talking about 100Mbps above MAC, which translates to about 
-> 150 Mbps, within next 2 years. 100Mbps above MAC is criteria for TGn working 
-> group in IEEE (high throughput).
++ if (dev->if_port != PORT_TP) return;
 
-Are these wireless NICs? Whats the big deal about 150Mbps?
+into {do,undo}_cable_magic() and netdev_timer(). Perhaps with a comment 
+that the following block is specific to the internal PHY.
 
-cheers,
-jamal
+--
+    Manfred
