@@ -1,32 +1,42 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Matt Mackall <mpm@selenic.com>
 Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
-Date: Tue, 21 Dec 2004 21:48:53 +0100
-Message-ID: <20041221204853.GA20869@electric-eye.fr.zoreil.com>
-References: <34721.192.102.214.6.1103274614.squirrel@webmail.wetlettuce.com> <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org> <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
+Date: Tue, 21 Dec 2004 13:27:37 -0800
+Message-ID: <20041221212737.GK5974@waste.org>
+References: <20041217215752.GP2767@waste.org> <20041217233524.GA11202@electric-eye.fr.zoreil.com> <36901.192.102.214.6.1103535728.squirrel@webmail.wetlettuce.com> <20041220211419.GC5974@waste.org> <20041221002218.GA1487@electric-eye.fr.zoreil.com> <20041221005521.GD5974@waste.org> <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com> <20041221204853.GA20869@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: mpm@selenic.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261852AbULUUwv@vger.kernel.org>
-To: Mark Broadbent <markb@wetlettuce.com>
+Cc: Mark Broadbent <markb@wetlettuce.com>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261796AbULUV2L@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Content-Disposition: inline
-In-Reply-To: <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com>
+In-Reply-To: <20041221204853.GA20869@electric-eye.fr.zoreil.com>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Mark Broadbent <markb@wetlettuce.com> :
-[...]
-> Using the patch supplied I get no hang, just the message 'netconsole
-> raced' output to the console and the packet capture proceeds as normal.
-> Thanks
+On Tue, Dec 21, 2004 at 09:48:53PM +0100, Francois Romieu wrote:
+> Mark Broadbent <markb@wetlettuce.com> :
+> [...]
+> > Using the patch supplied I get no hang, just the message 'netconsole
+> > raced' output to the console and the packet capture proceeds as normal.
+> > Thanks
+> 
+> The patch is more a bandaid for debugging than a real fix. The netconsole
+> will drop some messages until its locking is fixed
 
-The patch is more a bandaid for debugging than a real fix. The netconsole
-will drop some messages until its locking is fixed
+Unfortunately there's no good way to fix its locking in this
+circumstance (or the harder case of driver-private locks). I think
+I'll just have to come up with some scheme for queueing messages that
+arrive when the queue lock is held.
 
-If you can issue one more test, I'd like to know if some messages appear
-on the VGA console around the time at which tcpdump is started (the test
-assumes that netconsole is not used/insmoded at all). Please check that
-the console log_level is set high enough as it will be really disappointing
-if nothing appears :o)
+> If you can issue one more test, I'd like to know if some messages appear
+> on the VGA console around the time at which tcpdump is started (the test
+> assumes that netconsole is not used/insmoded at all). Please check that
+> the console log_level is set high enough as it will be really disappointing
+> if nothing appears :o)
 
---
-Ueimor
+I think it's the promiscuous mode message itself that's the problem
+but I've not had time to reproduce it.
+
+-- 
+Mathematics is the supreme nostalgia of our time.
