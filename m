@@ -1,90 +1,37 @@
-From: John Bradford <john@grabjohn.com>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Sat, 28 Jun 2003 23:37:22 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <200306282237.h5SMbMEm000443@81-2-122-30.bradfords.org.uk>
-Cc: davidel@xmailserver.org, greearb@candelatech.com,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	mbligh@aracnet.com, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: alan@lxorguk.ukuu.org.uk, davem@redhat.com
+From: Frank Cusack <fcusack@fcusack.com>
+Subject: Re: [PATCH, untested] Support for PPPOE on SMP
+Date: Sat, 28 Jun 2003 15:51:19 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030628155119.A15491@google.com>
+References: <20030625.143334.85380461.davem@redhat.com> <20030626035824.D68B62C147@lists.samba.org> <20030625.205941.41631020.davem@redhat.com> <16122.53298.150512.793074@h006008986325.ne.client2.attbi.com> <20030626190407.S87648@shell.cyberus.ca> <16124.11495.374998.153330@h006008986325.ne.client2.attbi.com> <20030627213846.V90398@shell.cyberus.ca>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: James Carlson <carlson@workingcode.com>,
+   "David S. Miller" <davem@redhat.com>, rusty@rustcorp.com.au,
+   paulus@samba.org, netdev@oss.sgi.com, fcusack@samba.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jamal Hadi <hadi@shell.cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <20030627213846.V90398@shell.cyberus.ca>; from hadi@shell.cyberus.ca on Fri, Jun 27, 2003 at 10:21:21PM -0400
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> If users send their report to the wrong place, it will get lost,
-> just like if their cat their report into /dev/null.  I have no reason
-> to feel bad about the information getting lost.
+On Fri, Jun 27, 2003 at 10:21:21PM -0400, Jamal Hadi wrote:
+> On Fri, 27 Jun 2003, James Carlson wrote:
+> >
+> > Loss preserves ordering.  To get misordering, you have to
+> > intentionally hold onto a message and reinsert it later.  What I've
+> 
+> And thats what i was implying.
+> In your above example:
+> 
+> 1 2 4 5 6
+> If the entity above the wire cared about packet 3 there will be a
+> retransmit. so it becomes:
+> 
+> 1 2 4 5 6 3
 
-Also, remember that we sometimes get no response when something is
-fixed, which is especially true when the fix happens by itself.
+Higher layer entities doing retransmits is not reordering.  To the lower
+layer, it's just the next message.
 
-E.G.
-
-2.5.foo released
-
-Bug reported to LKML, and nobody responds.
-
-2.5.bar released
-
-Bug re-reported to LKML, still nobody answers, maybe it's not a very
-detailed bug report, or everybody is too busy.
-
-2.5.baz released
-
-No bug report.
-
-We have so far been assuming in this discussion that 2.5.baz won't
-have fixed the bug.  It's not entirely impossible that 2.5.baz _will_
-have fixed the bug - maybe a subsystem was being overhauled anyway,
-and it was generally known on the list that the bug existed.
-
-By not letting bug reports expire, we'd have a lot of unclosed bugs
-that were really fixed.
-
-There is an analogy with TCP:
-
-Compare:
-
-SYN -->
-<-- ACK
-DATA -->
-FIN -->
-
-and
-
-SYN -->
-<-- ACK
-DATA -->
-
-with:
-
-Bug report -->
-Bug report -->
-<-- Please test this patch
-Follow up bug report -->
-<-- Please test this patch
-Follow up bug report -->
-<-- Please test this patch
-OK, thanks, it works -->
-<-- Glad it worked
-
-and
-
-Bug report -->
-Bug report -->
-<-- Please test this patch
-Follow up bug report -->
-<-- Please test this patch
-<-- Please test this patch
-<-- Please test this patch
-
-> If it's too much for them to do as I ask, it's too much for
-> me to consider their report.
->
-> Bug reporting, just like patch submission, is a 2 way street.
-
-It's not even a case of effort, more that you need 2 way communication
-to successfully fix a bug.  You need to know that the fix worked
-initially, continues to work, and that it doesn't break anything else,
-otherwise you might be adding more bugs.
-
-John.
+/fc
