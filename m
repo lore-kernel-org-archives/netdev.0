@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT 3/3] 8139cp: allocate statistics space only when needed
-Date: Wed, 16 Mar 2005 15:04:33 -0800
-Message-ID: <20050316150433.68cd8cf5@dxpl.pdx.osdl.net>
+Subject: [RFT 2/3] 8139cp: don't mix software and chip stats
+Date: Wed, 16 Mar 2005 15:04:31 -0800
+Message-ID: <20050316150431.6888fe55@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,93 +11,89 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Don't crash if ethtool statistics are requested and device is down.
-Fix is to allocate pci space for statiistics only when needed.
-No locking necessary because ethtool calls occur under RTNL semaphore.
+The rx_frags statistic is a software statistic and not a hardware statistic
+and it is pasted on to the end. Since the statistic is really a warning about
+overlength frames, it shouldn't be in the ethtool stats.  
 
+Francois, could you make sure 8169 and 8139cp report fragments the same way.
 
 Once again, not tested on real hardware, just making 8169 and 8139cp compatible;
 needs blessing by someone with a real board.
 
 
 diff -Nru a/drivers/net/8139cp.c b/drivers/net/8139cp.c
---- a/drivers/net/8139cp.c	2005-03-16 14:55:31 -08:00
-+++ b/drivers/net/8139cp.c	2005-03-16 14:55:31 -08:00
-@@ -1101,10 +1101,6 @@
- 	cp->rx_ring = mem;
- 	cp->tx_ring = &cp->rx_ring[CP_RX_RING_SIZE];
+--- a/drivers/net/8139cp.c	2005-03-16 14:55:11 -08:00
++++ b/drivers/net/8139cp.c	2005-03-16 14:55:11 -08:00
+@@ -113,7 +113,7 @@
+ #define CP_DEF_MSG_ENABLE	(NETIF_MSG_DRV		| \
+ 				 NETIF_MSG_PROBE 	| \
+ 				 NETIF_MSG_LINK)
+-#define CP_NUM_STATS		14	/* struct cp_dma_stats, plus one */
++#define CP_NUM_STATS		13	/* struct cp_dma_stats */
+ #define CP_STATS_SIZE		64	/* size in bytes of DMA stats block */
+ #define CP_REGS_SIZE		(0xff + 1)
+ #define CP_REGS_VER		1		/* version 1 */
+@@ -331,10 +331,6 @@
+ 	u16			tx_underrun;
+ } __attribute__((packed));
  
--	mem += (CP_RING_BYTES - CP_STATS_SIZE);
--	cp->nic_stats = mem;
--	cp->nic_stats_dma = cp->ring_dma + (CP_RING_BYTES - CP_STATS_SIZE);
+-struct cp_extra_stats {
+-	unsigned long		rx_frags;
+-};
 -
- 	return cp_init_rings(cp);
- }
+ struct cp_private {
+ 	void			__iomem *regs;
+ 	struct net_device	*dev;
+@@ -346,9 +342,6 @@
+ 	u16			cpcmd;
  
-@@ -1143,7 +1139,6 @@
- 	pci_free_consistent(cp->pdev, CP_RING_BYTES, cp->rx_ring, cp->ring_dma);
- 	cp->rx_ring = NULL;
- 	cp->tx_ring = NULL;
--	cp->nic_stats = NULL;
- }
+ 	struct net_device_stats net_stats;
+-	struct cp_extra_stats	cp_stats;
+-	struct cp_dma_stats	*nic_stats;
+-	dma_addr_t		nic_stats_dma;
  
- static int cp_open (struct net_device *dev)
-@@ -1472,14 +1467,17 @@
- 				  struct ethtool_stats *estats, u64 *tmp_stats)
- {
- 	struct cp_private *cp = netdev_priv(dev);
-+	struct cp_dma_stats *nic_stats;
-+	dma_addr_t dma;
- 	int i;
+ 	unsigned		rx_tail		____cacheline_aligned;
+ 	struct cp_desc		*rx_ring;
+@@ -420,7 +413,6 @@
+ 	{ "rx_ok_mcast" },
+ 	{ "tx_abort" },
+ 	{ "tx_underrun" },
+-	{ "rx_frags" },
+ };
  
--	memset(cp->nic_stats, 0, sizeof(struct cp_dma_stats));
-+	nic_stats = pci_alloc_consistent(cp->pdev, sizeof(*nic_stats), &dma);
-+	if (!nic_stats)
-+		return;
  
- 	/* begin NIC statistics dump */
--	cpw32(StatsAddr + 4, (cp->nic_stats_dma >> 16) >> 16);
--	cpw32(StatsAddr, (cp->nic_stats_dma & 0xffffffff) | DumpStats);
--	cpr32(StatsAddr);
-+	cpw32(StatsAddr + 4, (u64)dma >> 32);
-+	cpw32(StatsAddr, ((u64)dma & DMA_32BIT_MASK) | DumpStats);
+@@ -543,19 +535,13 @@
+ 		len = (status & 0x1fff) - 4;
+ 		mapping = cp->rx_skb[rx_tail].mapping;
  
- 	for (i = 0; i < 1000; i++) {
- 		if ((cpr32(StatsAddr) & DumpStats) == 0)
-@@ -1490,21 +1488,23 @@
- 	cpw32(StatsAddr + 4, 0);
- 
- 	i = 0;
--	tmp_stats[i++] = le64_to_cpu(cp->nic_stats->tx_ok);
--	tmp_stats[i++] = le64_to_cpu(cp->nic_stats->rx_ok);
--	tmp_stats[i++] = le64_to_cpu(cp->nic_stats->tx_err);
--	tmp_stats[i++] = le32_to_cpu(cp->nic_stats->rx_err);
--	tmp_stats[i++] = le16_to_cpu(cp->nic_stats->rx_fifo);
--	tmp_stats[i++] = le16_to_cpu(cp->nic_stats->frame_align);
--	tmp_stats[i++] = le32_to_cpu(cp->nic_stats->tx_ok_1col);
--	tmp_stats[i++] = le32_to_cpu(cp->nic_stats->tx_ok_mcol);
--	tmp_stats[i++] = le64_to_cpu(cp->nic_stats->rx_ok_phys);
--	tmp_stats[i++] = le64_to_cpu(cp->nic_stats->rx_ok_bcast);
--	tmp_stats[i++] = le32_to_cpu(cp->nic_stats->rx_ok_mcast);
--	tmp_stats[i++] = le16_to_cpu(cp->nic_stats->tx_abort);
--	tmp_stats[i++] = le16_to_cpu(cp->nic_stats->tx_underrun);
-+	tmp_stats[i++] = le64_to_cpu(nic_stats->tx_ok);
-+	tmp_stats[i++] = le64_to_cpu(nic_stats->rx_ok);
-+	tmp_stats[i++] = le64_to_cpu(nic_stats->tx_err);
-+	tmp_stats[i++] = le32_to_cpu(nic_stats->rx_err);
-+	tmp_stats[i++] = le16_to_cpu(nic_stats->rx_fifo);
-+	tmp_stats[i++] = le16_to_cpu(nic_stats->frame_align);
-+	tmp_stats[i++] = le32_to_cpu(nic_stats->tx_ok_1col);
-+	tmp_stats[i++] = le32_to_cpu(nic_stats->tx_ok_mcol);
-+	tmp_stats[i++] = le64_to_cpu(nic_stats->rx_ok_phys);
-+	tmp_stats[i++] = le64_to_cpu(nic_stats->rx_ok_bcast);
-+	tmp_stats[i++] = le32_to_cpu(nic_stats->rx_ok_mcast);
-+	tmp_stats[i++] = le16_to_cpu(nic_stats->tx_abort);
-+	tmp_stats[i++] = le16_to_cpu(nic_stats->tx_underrun);
+-		if ((status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag)) {
+-			/* we don't support incoming fragmented frames.
+-			 * instead, we attempt to ensure that the
+-			 * pre-allocated RX skbs are properly sized such
+-			 * that RX fragments are never encountered
+-			 */
+-			cp_rx_err_acct(cp, rx_tail, status, len);
+-			cp->net_stats.rx_dropped++;
+-			cp->cp_stats.rx_frags++;
+-			goto rx_next;
+-		}
+-
+-		if (status & (RxError | RxErrFIFO)) {
++		/* we don't support incoming fragmented frames.
++		 * instead, we attempt to ensure that the
++		 * pre-allocated RX skbs are properly sized such
++		 * that RX fragments are never encountered
++		 */
++		if ((status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag)
++			|| (status & (RxError | RxErrFIFO))) {
+ 			cp_rx_err_acct(cp, rx_tail, status, len);
+ 			goto rx_next;
+ 		}
+@@ -1517,7 +1503,6 @@
+ 	tmp_stats[i++] = le32_to_cpu(cp->nic_stats->rx_ok_mcast);
+ 	tmp_stats[i++] = le16_to_cpu(cp->nic_stats->tx_abort);
+ 	tmp_stats[i++] = le16_to_cpu(cp->nic_stats->tx_underrun);
+-	tmp_stats[i++] = cp->cp_stats.rx_frags;
  	if (i != CP_NUM_STATS)
  		BUG();
-+
-+	pci_free_consistent(cp->pdev, sizeof(*nic_stats), nic_stats, dma);
  }
- 
- static struct ethtool_ops cp_ethtool_ops = {
