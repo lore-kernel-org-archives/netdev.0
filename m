@@ -1,50 +1,34 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.9 failed assertion in tcp_timer.c
-Date: Mon, 25 Oct 2004 21:09:46 -0700
+Subject: Re: [BK PATCH] INET6 Updates (2004/10/26)
+Date: Mon, 25 Oct 2004 21:51:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041025210946.367f65be.davem@davemloft.net>
-References: <20041019215054.GA17565@linuxace.com>
-	<E1CK3Az-0004P2-00@gondolin.me.apana.org.au>
-	<20041020164748.GA20905@linuxace.com>
-	<20041020212651.GA8534@gondor.apana.org.au>
-	<20041020225536.GA22179@linuxace.com>
-	<20041021130339.GA19345@gondor.apana.org.au>
-	<20041021165224.GA25399@linuxace.com>
-	<20041021215743.GA23062@gondor.apana.org.au>
-	<20041022185435.GA30709@linuxace.com>
-	<20041022215040.GA13309@gondor.apana.org.au>
-	<20041022232403.GA14618@gondor.apana.org.au>
+Message-ID: <20041025215114.2d56b7b9.davem@davemloft.net>
+References: <20041026.131626.77300437.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kernel@linuxace.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041022232403.GA14618@gondor.apana.org.au>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20041026.131626.77300437.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 23 Oct 2004 09:24:03 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 26 Oct 2004 13:16:26 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Actually, I think we've caught your crash now.  If that code path
-> is triggering at all, then it'll trigger with TSO packets too.  If
-> we get a truly partial ack on a TSO packet, then tcp_tso_acked will
-> not trim it off.  So we will fall through to this last-ditch trim
-> call, which doesn't update packets_out.
-> 
-> There are two solutions to this problem.  I've taken the simpler
-> approach for now.  We simply trim off the partial bits in tcp_tso_acked
-> and live with the fact that the packet counters may differ from
-> what's on the netwrok by one.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> 
-> Later on we can "fix" this by remembering where the original TSO
-> packet started from, perhaps in skb->h or somewhere.  Dave, is this
-> worth it?
+> Please pull following changesets available at
+> <bk://bk.skbuff.net:20610/linux-2.6-inet6-20041026/>.
+ ...
+> ChangeSet@1.2176, 2004-10-26 12:51:07+09:00, Brian.Haley@hp.com
+>  [IPV6] Lookup appropriate destination when sending TCPv6 with routing header.
+> ChangeSet@1.2177, 2004-10-26 12:54:41+09:00, yoshfuji@linux-ipv6.org
+>  [IPV6] Remove codes related to RTF_ALLONLINK.
+> ChangeSet@1.2178, 2004-10-26 12:54:58+09:00, yoshfuji@linux-ipv6.org
+>  [IPV6] simplify functions related to RTF_ALLONLINK.
+> ChangeSet@1.2179, 2004-10-26 12:55:56+09:00, yoshfuji@linux-ipv6.org
+>  [IPV6] NDISC: update neighbor cache entry by RS.
+> ChangeSet@1.2180, 2004-10-26 13:11:47+09:00, yoshfuji@linux-ipv6.org
+>  [IPV6] kill a warning when building without CONFIG_SYSCTL.
 
-I'm going to apply this patch for now.
-
-I think at this point we can generalize TSO processing a bit
-better in this code now.
+Pulled, thank you Yoshifuji-san.
