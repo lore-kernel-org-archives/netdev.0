@@ -1,42 +1,217 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH] Avoid gettimeofday when not needed
-Date: Wed, 31 Mar 2004 09:30:02 -0800
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: Re: [PATCH]dump interface IPv6 multicast/anycast addresses through netlink
+Date: Wed, 31 Mar 2004 10:07:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <406B001A.1030901@candelatech.com>
-References: <200403311201.i2VC13D19579@zero.aec.at> <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi> <20040331135449.GB62402@colin2.muc.de> <Pine.LNX.4.58.0403311705460.19615@rhea.tcs.hut.fi> <20040331151047.GA6033@colin2.muc.de>
+Message-ID: <200403311007.01702.mashirle@us.ibm.com>
+References: <OF3E88B8EA.382D75F6-ON87256E5C.00272BAC-88256E5C.0027A5ED@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Ville Nuorvala <vnuorval@tcs.hut.fi>, netdev@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_FjwaAHtOHq6ymLw"
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-In-Reply-To: <20040331151047.GA6033@colin2.muc.de>
+To: davem@redhat.com
+In-Reply-To: <OF3E88B8EA.382D75F6-ON87256E5C.00272BAC-88256E5C.0027A5ED@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
-> On Wed, Mar 31, 2004 at 05:24:47PM +0300, Ville Nuorvala wrote:
-> 
->>There just doesn't seem to be any general flag field in sk_buff that we
->>might use at this moment. Should one be added, or should we just hide the
->>flag inside the cb field using the likes of inet_skb_parm and
->>inet6_skb_parm?
-> 
-> 
-> There are no free bits indeed. I think ->cb is the best choice then.
 
-Why not add a 32-bit field to the skb to handle various flag needs
-going forward?
+--Boundary-00=_FjwaAHtOHq6ymLw
+Content-Type: text/plain;
+  charset="iso-2022-jp"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-If space is very important, could use an uint16 for flags and consolidate
-the ip_summed and cloned fields, which seem to be boolean fields.
+Here is the new patch. It has been tested against linux 2.6.4 kernel.
 
-	unsigned char		local_df,
-				cloned,
-				pkt_type,
-				ip_summed;
-Ben
+Thanks
+Shirley Ma
+IBM Linux Technology Center
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+
+--Boundary-00=_FjwaAHtOHq6ymLw
+Content-Type: text/x-diff;
+  charset="iso-2022-jp";
+  name="linux-2.6.4-ipv6mib.patch.new"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="linux-2.6.4-ipv6mib.patch.new"
+
+diff -urN linux-2.6.4/include/linux/rtnetlink.h linux-2.6.4-ipv6mib/include/linux/rtnetlink.h
+--- linux-2.6.4/include/linux/rtnetlink.h	2004-03-10 18:55:42.000000000 -0800
++++ linux-2.6.4-ipv6mib/include/linux/rtnetlink.h	2004-03-31 09:39:42.003799768 -0800
+@@ -47,7 +47,11 @@
+ #define RTM_NEWPREFIX	(RTM_BASE+36)
+ #define RTM_GETPREFIX	(RTM_BASE+38)
+ 
+-#define	RTM_MAX		(RTM_BASE+39)
++#define	RTM_GETMULTICAST (RTM_BASE+42)
++
++#define	RTM_GETANYCAST	(RTM_BASE+46)
++
++#define	RTM_MAX		(RTM_BASE+47)
+ 
+ /* 
+    Generic structure for encapsulation of optional route information.
+@@ -340,7 +344,8 @@
+ 	IFA_LABEL,
+ 	IFA_BROADCAST,
+ 	IFA_ANYCAST,
+-	IFA_CACHEINFO
++	IFA_CACHEINFO,
++	IFA_MULTICAST
+ };
+ 
+ #define IFA_MAX IFA_CACHEINFO
+@@ -350,6 +355,10 @@
+ #define IFA_F_SECONDARY		0x01
+ #define IFA_F_TEMPORARY		IFA_F_SECONDARY
+ 
++#define IFA_F_ADDRESS		0x02
++#define IFA_F_MULTICAST 	0x04
++#define IFA_F_ANYCAST		0x08
++
+ #define IFA_F_DEPRECATED	0x20
+ #define IFA_F_TENTATIVE		0x40
+ #define IFA_F_PERMANENT		0x80
+diff -urN linux-2.6.4/net/ipv6/addrconf.c linux-2.6.4-ipv6mib/net/ipv6/addrconf.c
+--- linux-2.6.4/net/ipv6/addrconf.c	2004-03-10 18:55:44.000000000 -0800
++++ linux-2.6.4-ipv6mib/net/ipv6/addrconf.c	2004-03-31 09:39:04.975428936 -0800
+@@ -2571,7 +2571,7 @@
+ 	if (ipv6_addr_scope(&ifmca->mca_addr)&IFA_SITE)
+ 		ifm->ifa_scope = RT_SCOPE_SITE;
+ 	ifm->ifa_index = ifmca->idev->dev->ifindex;
+-	RTA_PUT(skb, IFA_ADDRESS, 16, &ifmca->mca_addr);
++	RTA_PUT(skb, IFA_MULTICAST, 16, &ifmca->mca_addr);
+ 	ci.cstamp = (__u32)(TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) / HZ
+ 		    * 100 + TIME_DELTA(ifmca->mca_cstamp, INITIAL_JIFFIES) % HZ
+ 		    * 100 / HZ);
+@@ -2608,7 +2608,7 @@
+ 	if (ipv6_addr_scope(&ifaca->aca_addr)&IFA_SITE)
+ 		ifm->ifa_scope = RT_SCOPE_SITE;
+ 	ifm->ifa_index = ifaca->aca_idev->dev->ifindex;
+-	RTA_PUT(skb, IFA_ADDRESS, 16, &ifaca->aca_addr);
++	RTA_PUT(skb, IFA_ANYCAST, 16, &ifaca->aca_addr);
+ 	ci.cstamp = (__u32)(TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) / HZ
+ 		    * 100 + TIME_DELTA(ifaca->aca_cstamp, INITIAL_JIFFIES) % HZ
+ 		    * 100 / HZ);
+@@ -2627,7 +2627,8 @@
+ 	return -1;
+ }
+ 
+-static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
++static int inet6_dump_addr(struct sk_buff *skb, struct netlink_callback *cb,
++			   unsigned char flags)
+ {
+ 	int idx, ip_idx;
+ 	int s_idx, s_ip_idx;
+@@ -2651,28 +2652,54 @@
+ 		if ((idev = in6_dev_get(dev)) == NULL)
+ 			continue;
+ 		read_lock_bh(&idev->lock);
+-		/* unicast address */
+-		for (ifa = idev->addr_list; ifa;
+-		     ifa = ifa->if_next, ip_idx++) {
+-			if (ip_idx < s_ip_idx)
+-				continue;
+-			if ((err = inet6_fill_ifaddr(skb, ifa, 
+-			    NETLINK_CB(cb->skb).pid, 
+-			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0)
+-				goto done;
+-		}
+-		/* temp addr */
++		if (flags & IFA_F_ADDRESS) {
++			/* unicast address */
++			for (ifa = idev->addr_list; ifa;
++			     ifa = ifa->if_next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifaddr(skb, ifa, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0)
++					goto done;
++			}
++			/* temp addr */
+ #ifdef CONFIG_IPV6_PRIVACY
+-		for (ifa = idev->tempaddr_list; ifa; 
+-		     ifa = ifa->tmp_next, ip_idx++) {
+-			if (ip_idx < s_ip_idx)
+-				continue;
+-			if ((err = inet6_fill_ifaddr(skb, ifa, 
+-			    NETLINK_CB(cb->skb).pid, 
+-			    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
+-				goto done;
+-		}
++			for (ifa = idev->tempaddr_list; ifa; 
++			     ifa = ifa->tmp_next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifaddr(skb, ifa, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_NEWADDR)) <= 0) 
++					goto done;
++			}
+ #endif
++		}
++		if (flags & IFA_F_MULTICAST) {
++			/* multicast address */
++			for (ifmca = idev->mc_list; ifmca; 
++			     ifmca = ifmca->next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifmcaddr(skb, ifmca, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_GETMULTICAST)) <= 0)
++					goto done;
++			}
++		}
++		if (flags & IFA_F_ANYCAST) {
++			/* anycast address */
++			for (ifaca = idev->ac_list; ifaca;
++			     ifaca = ifaca->aca_next, ip_idx++) {
++				if (ip_idx < s_ip_idx)
++					continue;
++				if ((err = inet6_fill_ifacaddr(skb, ifaca, 
++				    NETLINK_CB(cb->skb).pid, 
++				    cb->nlh->nlmsg_seq, RTM_GETANYCAST)) <= 0) 
++					goto done;
++			}
++		}
+ 		read_unlock_bh(&idev->lock);
+ 		in6_dev_put(idev);
+ 	}
+@@ -2687,6 +2714,25 @@
+ 	return skb->len;
+ }
+ 
++static int inet6_dump_ifaddr(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	unsigned char flag = IFA_F_ADDRESS;
++	return inet6_dump_addr(skb, cb, flag);
++}
++
++static int inet6_dump_ifmcaddr(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	unsigned char flag = IFA_F_MULTICAST;
++	return inet6_dump_addr(skb, cb, flag);
++}
++
++
++static int inet6_dump_ifacaddr(struct sk_buff *skb, struct netlink_callback *cb)
++{
++	unsigned char flag = IFA_F_ANYCAST;
++	return inet6_dump_addr(skb, cb, flag);
++}
++
+ static void inet6_ifa_notify(int event, struct inet6_ifaddr *ifa)
+ {
+ 	struct sk_buff *skb;
+@@ -2911,6 +2957,8 @@
+ 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
+ 	[RTM_DELADDR - RTM_BASE] = { .doit	= inet6_rtm_deladdr, },
+ 	[RTM_GETADDR - RTM_BASE] = { .dumpit	= inet6_dump_ifaddr, },
++	[RTM_GETMULTICAST - RTM_BASE] = { .dumpit = inet6_dump_ifmcaddr, },
++	[RTM_GETANYCAST - RTM_BASE] = { .dumpit	= inet6_dump_ifacaddr, },
+ 	[RTM_NEWROUTE - RTM_BASE] = { .doit	= inet6_rtm_newroute, },
+ 	[RTM_DELROUTE - RTM_BASE] = { .doit	= inet6_rtm_delroute, },
+ 	[RTM_GETROUTE - RTM_BASE] = { .doit	= inet6_rtm_getroute,
+
+--Boundary-00=_FjwaAHtOHq6ymLw--
