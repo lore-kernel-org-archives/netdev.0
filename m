@@ -1,30 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [patch 0/4] 2.6.5-rc2-mm5 - r8169 queue
-Date: Mon, 29 Mar 2004 22:35:13 +0200
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH] pcnet32.c add support for 79C976
+Date: Mon, 29 Mar 2004 13:12:15 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040329223513.C4744@electric-eye.fr.zoreil.com>
-References: <20040329193604.A4744@electric-eye.fr.zoreil.com> <20040329144034.3d943d12.ak@suse.de>
+Message-ID: <200403292112.i2TLCGD10901@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040329144034.3d943d12.ak@suse.de>; from ak@suse.de on Mon, Mar 29, 2004 at 02:40:34PM +0200
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <ak@suse.de> :
-[...]
-> Do you have any plans to convert it to use DAC?  
+Please apply the following patch to 2.6.5-rc2-bk9 and 2.4.26-rc1 to
+include support for the 79C976. Tested on IA32.
 
-I should be able to cook up something shortly (i.e. during the week) so that
-it is available in -mm or in a separate tree.
+--- linux-2.6.5-rc2-bk9/drivers/net/orig.pcnet32.c	Mon Mar 29 11:34:13 2004
++++ linux-2.6.5-rc2-bk9/drivers/net/pcnet32.c	Mon Mar 29 11:39:57 2004
+@@ -909,6 +909,10 @@
+ 	chipname = "PCnet/FAST III 79C975"; /* PCI */
+ 	fdx = 1; mii = 1;
+ 	break;
++    case 0x2628:
++	chipname = "PCnet/FAST III 79C976";
++	fdx = 1; mii = 1;
++	break; 
+     default:
+ 	printk(KERN_INFO PFX "PCnet version %#x, no PCnet32 chip.\n",
+ 		chip_version);
 
-For anything else I'll go leveraging the 8139cp functions as
-- it will not appear in 2.6.5 anyway so there is plenty of time ahead (TM);
-- current -mm tree (+ a possible performance change) looks satisfactory
-  enough so that it can be freezed in the meantime.
-
---
-Ueimor
+-- 
+Don Fry
+brazilnut@us.ibm.com
