@@ -1,24 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: sungem - ifconfig eth0 mtu 1300 -> oops
-Date: Tue, 22 Jun 2004 12:35:23 -0700
+Subject: Re: [PATCH] preempt count regression w/ lockless loopback patch
+Date: Tue, 22 Jun 2004 12:39:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040622123523.28fca55a.davem@redhat.com>
-References: <20040621141144.119be627.davem@redhat.com>
-	<40D847E3.2080109@nortelnetworks.com>
+Message-ID: <20040622123931.50d5ac05.davem@redhat.com>
+References: <200406210510.i5L5A340018849@hera.kernel.org>
+	<20040621035702.6114bdbe.akpm@osdl.org>
+	<Pine.SGI.4.56.0406220913010.1334066@neteng.engr.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kernel@nn7.de, linux-kernel@vger.kernel.org,
-        benh@kernel.crashing.org, netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: akpm@osdl.org, netdev@oss.sgi.com, chrisw@osdl.org, gillb4@telusplanet.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Chris Friesen <cfriesen@nortelnetworks.com>
-In-Reply-To: <40D847E3.2080109@nortelnetworks.com>
+To: Arthur Kepner <akepner@sgi.com>
+In-Reply-To: <Pine.SGI.4.56.0406220913010.1334066@neteng.engr.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Jun 2004 10:53:23 -0400
-Chris Friesen <cfriesen@nortelnetworks.com> wrote:
+On Tue, 22 Jun 2004 09:24:40 -0700
+Arthur Kepner <akepner@sgi.com> wrote:
 
-> Just a quick question.  Does the sungem chip support jumbo frames?
+> I made one small change in get_stats() and tested with a preemptible
+> kernel on a 32p system. Looks good. The tested patch is attached.
 
-Nope, not at all.
+Can you instead give a patch relative to Andrew's?  His is
+applied already and in fact pushed into Linus's tree.
