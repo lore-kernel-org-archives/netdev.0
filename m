@@ -1,31 +1,66 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: An interface goes away while a socket is bound to it..what
- happens?
-Date: Mon, 17 Jan 2005 19:39:45 -0800
-Message-ID: <20050117193945.3d3b1860.davem@davemloft.net>
-References: <41EC825B.4030603@candelatech.com>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] 3c515: fix module_param type
+Date: Mon, 17 Jan 2005 21:07:00 -0800
+Message-ID: <41EC9974.1090209@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------030703000806090001000700"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <41EC825B.4030603@candelatech.com>
+To: netdev <netdev@oss.sgi.com>, jgarzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 17 Jan 2005 19:28:27 -0800
-Ben Greear <greearb@candelatech.com> wrote:
+This is a multi-part message in MIME format.
+--------------030703000806090001000700
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> The interesting part to me is that I do not appearantly see any errors
-> while continuing to send UDP packets on the socket that was bound to the
-> original ppp0 interface, and yet no packets are ever routed over the new
-> ppp0 interface.  I would expect it to either fail the write, or to just
-> magically keep working.
+3c515: correct module_param data type (remove "const");
 
-If you have bound to the local IP address, when your T1 goes down
-that local IP address should no longer be assosciated with the
-system even when the PPP interface comes back up, so what should
-happen is that the route lookup in udp_sendmsg() will fail and sendmsg()
-will return with that error code.
+drivers/net/3c515.c:406: warning: return discards qualifiers from 
+pointer target type
+drivers/net/3c515.c:406: warning: initialization discards qualifiers 
+from pointer target type
+
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+
+diffstat:=
+  drivers/net/3c515.c |    2 +-
+  1 files changed, 1 insertion(+), 1 deletion(-)
+
+---
+
+--------------030703000806090001000700
+Content-Type: text/x-patch;
+ name="3c515_modprm.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="3c515_modprm.patch"
+
+
+3c515: correct module_param data type (remove "const");
+
+drivers/net/3c515.c:406: warning: return discards qualifiers from pointer target type
+drivers/net/3c515.c:406: warning: initialization discards qualifiers from pointer target type
+
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+
+diffstat:=
+ drivers/net/3c515.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -Naurp ./drivers/net/3c515.c~3c515_modprm ./drivers/net/3c515.c
+--- ./drivers/net/3c515.c~3c515_modprm	2005-01-10 13:28:51.000000000 -0800
++++ ./drivers/net/3c515.c	2005-01-17 16:17:33.468358720 -0800
+@@ -34,7 +34,7 @@ DRV_NAME ".c:v" DRV_VERSION " " DRV_RELD
+ /* "Knobs" that adjust features and parameters. */
+ /* Set the copy breakpoint for the copy-only-tiny-frames scheme.
+    Setting to > 1512 effectively disables this feature. */
+-static const int rx_copybreak = 200;
++static int rx_copybreak = 200;
+ 
+ /* Allow setting MTU to a larger size, bypassing the normal ethernet setup. */
+ static const int mtu = 1500;
+
+--------------030703000806090001000700--
