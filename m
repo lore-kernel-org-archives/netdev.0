@@ -1,32 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: =?ISO-8859-1?Q?R=E9f.?= : Fw: [BUG/PATCH]
- CONFIG_NET_HW_FLOWCONTROL and SMP
-Date: Tue, 30 Sep 2003 00:08:27 -0700
+From: Kovacs Krisztian <hidden@balabit.hu>
+Subject: Re: [PATCH] ipv4 tcp autobind problem
+Date: Tue, 30 Sep 2003 09:14:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930000827.586fdac1.davem@redhat.com>
-References: <C1256DB1.00272341.00@arkoon-mail.arkoon.net>
+Message-ID: <3F792D73.50309@balabit.hu>
+References: <3F782E1F.4030500@balabit.hu> <20030929222209.4d02c542.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, akpm@osdl.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dfages@arkoon.net
-In-Reply-To: <C1256DB1.00272341.00@arkoon-mail.arkoon.net>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030929222209.4d02c542.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Sep 2003 09:07:28 +0200
-dfages@arkoon.net wrote:
 
-> Yes, I know that but, for the moment, I've to keep my 2.4.19 kernel
-> (so without NAPI).  I've also ported the e1000 driver to
-> HW_FLOWCONTROL. Some people may be happy to use it...
+   Hi,
 
-I agree to adding the bug fix, it's a bug fix and for code we can't
-remove from the 2.4.x series at this point.
+David S. Miller wrote:
+> Once connect() has been called on a socket, you may not ever again
+> perform any action that would try to connect that socket.
+> 
+> Said another way, a socket that has failed to connect() is a socket
+> that you may not use in any usable way ever again except to close
+> that file descriptor.
 
-I don't agree to adding usage of this deprecated feature to any
-drivers shipped in the kernel.  If you're going to invest time into
-making this kind of improvement, invest it in a NAPI port.
+   Yes, I know that. Exactly this is why I felt it a problem that sk->num 
+gets a new value if you call send() after an unsuccessful connect(). (I 
+know that in theory one should not call send() in this case, but one _can_ 
+call it in reality.) And, the problem occurs not only when send() is 
+called after an unsuccessful connect(), but also when an RST is received 
+between two send() calls, which is perfectly legal, and cannot be viewed 
+as buggy user-space software.
 
-So I'll add your bug fix, thanks.
+   I don't really understand why the inet_sendmsg() calls inet_autobind() 
+for SOCK_STREAM sockets: for these kind of sockets, one must call 
+connect() anyway, before doing any other kind of operations. And, the side 
+effect of the code
+
+         /* We may need to bind the socket. */
+         if (!inet_sk(sk)->num && inet_autobind(sk))
+                 return -EAGAIN;
+
+in inet_sendmsg() is that when an RST is received, sk->num is set to zero, 
+and when the next inet_sendmsg() call occurs, the socket is rebound to a 
+new port _before_ returning an error.
+
+   In our transparent proxying patch, this causes problems, because it 
+assumes that after a socket is bound (by connect(), for example), the 
+local port (sk->sport) remains unchanged until the socket is closed. 
+However, this is not true because of the mentioned side effect of 
+inet_sendmsg(). This is why I proposed that inet_sendmsg() should call 
+inet_autobind() only if it's not a SOCK_STREAM socket.
+
+-- 
+   Regards,
+     Krisztian KOVACS
