@@ -1,28 +1,41 @@
-From: Andi Kleen <ak@suse.de>
+From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: PMTU issues due to TOS field manipulation (for DSCP)
-Date: Wed, 10 Dec 2003 21:52:44 +0100
+Date: Wed, 10 Dec 2003 13:11:41 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031210215244.4713fd25.ak@suse.de>
-References: <20031210203433.3747b7fd.ak@suse.de>
-	<Pine.LNX.4.44.0312101218280.1354-100000@w-kevinr.svc.beaverton.ibm.com>
+Message-ID: <3FD78C0D.4030609@us.ibm.com>
+References: <Pine.LNX.4.44.0312101020480.21684-100000@w-kevinr.svc.beaverton.ibm.com>	<20031210203433.3747b7fd.ak@suse.de>	<3FD7826F.1050308@us.ibm.com> <20031210215527.239fb33f.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-        chester.f.johnson@intel.com
+Cc: ruddk@us.ibm.com, netdev@oss.sgi.com, chester.f.johnson@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Kevin W. Rudd" <ruddk@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0312101218280.1354-100000@w-kevinr.svc.beaverton.ibm.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20031210215527.239fb33f.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Dec 2003 12:26:26 -0800 (PST)
-"Kevin W. Rudd" <ruddk@us.ibm.com> wrote:
+Andi Kleen wrote:
 
-> I don't think it's practical to make these types of changes at the
-> router level.  
+> Only the router would need to change (and rewrite ICMP messages, which is a 
+> bit nasty, but then compatibility is not always fun) 
 
-Just changing all end hosts for this will be likely even less practical
-because there are much more of them than routers.
+True, but I get a sinking feeling when I hear we have to change
+router/icmp code. The word "only" seems inappropriate ;).
 
--Andi
+> -Andi
+> 
+> P.S.: I am not opposed to fixing linux for this, just I have my doubts
+> that fixing all end hosts is a practical solution for the problem.
+
+The reason it seems simpler to me, at least, and I don't
+speak for Kevin or the person at Intel who first reported
+the problem, is that I see only a few people (well, only
+Intel :)) running into the problem. So if there were a
+patch available or the fix were in some release, only
+the few end hosts who actually needed it would need to
+upgrade. Otherwise, rollout would be evolutionary.
+
+But also open to other approaches...
+
+thanks,
+Nivedita
