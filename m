@@ -1,37 +1,34 @@
-From: Parag Nemade <cranium2003@yahoo.com>
-Subject: how data travels across tcp stack?
-Date: Thu, 22 Apr 2004 00:27:07 -0700 (PDT)
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [PATCH] fix arm/etherh.c allocation
+Date: Thu, 22 Apr 2004 08:33:42 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040422072707.15370.qmail@web41411.mail.yahoo.com>
+Message-ID: <20040422083342.A31406@flint.arm.linux.org.uk>
+References: <200404202049.09130.daniel.ritz@gmx.ch> <40873BEA.1040208@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: quoted-printable
+Cc: daniel.ritz@gmx.ch, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: net dev <netdev@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40873BEA.1040208@pobox.com>; from jgarzik@pobox.com on Wed, Apr 21, 2004 at 11:28:42PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello,
-1)which function in kernel source tree actually takes
-data from application to be send it as a packet?
-2)when one layer gives control to next layer i.e. from
-transport to IP layer is it neccessary for transport
-layer to occur interrupt to give control to next
-layer?
-3)i am not getting line in ip_fragment function
-if ((skb2 =3D
-alloc_skb(len+hlen+dev->hard_header_len+15,GFP_ATOMIC))
-=3D=3D NULL) in ip_output.c. i want to know what is the
-mean
-ing for 15 value when skbuff is allocated for new
-fragment?
-regards,
-parag.
+On Wed, Apr 21, 2004 at 11:28:42PM -0400, Jeff Garzik wrote:
+> Daniel Ritz wrote:
+> > --- 1.23/drivers/net/arm/etherh.c	Wed Apr 14 12:23:55 2004
+> > +++ edited/etherh.c	Tue Apr 20 20:39:04 2004
+> 
+> 
+> can one of you resend something that applies with 'patch -sp1'?
 
+I've noticed this as well - I just end up fixing the patch headers
+manually.  It's a BK bug unfortunately - if you provide a directory
+for bk diffs, it messes up like above, but if you give explicit files
+it doesn't.
 
-=09
-	=09
-__________________________________
-Do you Yahoo!?
-Yahoo! Photos: High-quality 4x6 digital prints for 25=A2
-http://photos.yahoo.com/ph/print_splash
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
