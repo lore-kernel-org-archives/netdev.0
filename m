@@ -1,87 +1,125 @@
-From: jetty jets <xjmkqrzkkp_873593764922229@juno.com>
-Subject: Win cash for doing nothing! 5bucks instantly! Free to play!
-Date: 02 Jun 2004 08:31:30 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086183090@d142-59-100-188.abhsia.telus.net>
-Reply-To: xjmkqrzkkp_873593764922229@juno.com
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Prism54 WPA Support - wpa_supplicant - Linux general wpa support
+Date: Wed, 2 Jun 2004 11:55:42 -0400
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <20040602155542.GC24822@ruslug.rutgers.edu>
+References: <20040602071449.GJ10723@ruslug.rutgers.edu>
+	<20040602132313.GB7341@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/html
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============85596900535849341=="
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Netdev <netdev@oss.sgi.com>, hostap@shmoo.com,
+	prism54-devel@prism54.org, Jeff Garzik <jgarzik@pobox.com>,
+	Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>
+In-Reply-To: <20040602132313.GB7341@jm.kir.nu>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-<html>
-<body  bgcolor= >
-<div align="left">
-<p><font face="verdana" size="2"> <b><a href="http://www.s2khost.com/bingo/264/">CLICK
-HERE TO PLAY BINGO NOW</a></b> and <b>win real cash!</b></font><br>
-<br>
-<font face="verdana" size="2">We start you off with 5 free dollars to play
-with!<br>
-<br>
-<font color="#FFFFFF">mrhunter spunky,xcn8erra frozen,dousuru charlie,upndwn
-abc123,RCABUILD RCABUILD,gatsby eleanor,cheffred fred,47mb9kkg grime,will
-kendall,stan churches,bahnsen bebe,8823 knight,sideshow ihtp,WHenry browser,mystic
-shyla,croma cora,feg9fb0m fight,shaji kumar,thanks alot,dchip 0331,8337384
-8337384,bobbyd redhawk,8d3lfbvy almond,dfjfaalm dfjfaalm,1044122 parker,notgood
-4395,grobin 5000,wulfee bbwolf,Artiegator bzzy,sette 1234,jbihc9og rescue,pdicarlo
-pdicarlo,ga06789s abrupt,jimdorn 051861,jlz jlz1,tuntun 6318,tampa 2225,kirsten
-assams,Golfen johan,shudder osprey,strattos somac,coitsi 1854,davef73 entropy,swodog
-jacobite,6qq7g61a classics,zasteam 1957,1badcj 1badcj,monkfred oilers,Brood3@aol.com
-hoya,cloud9 paranoid,rc1hiz5l abrupt,angel eyes,fcrist jordan,1mda119d damager,Pont
-mycar,tevdan natas,7icptkkg munch,fhip9gb5 locks,crmarket rugg,carsonm carsonm,o1iwhi4m
-creepers,corva mead,56bw9k4h butler,skooter skeeter,f8848 feather,fishies
-chicks,tomaso michaele,painslut lainie,MEAT MONEY,lasteele 226622,cf5g9gji
-abrupt,regan regan,visigogo sandra,comp goldeney,yot4brq5 paint,z39ggy2m pathetic,21122112
-asdf,NOTEBOOK scrabble,ju5mujcl meridian,cra1l6eb tires,richinfl watcher,lah
-020463,ghido willy00,Stilrock1 Stilrock,stephen secret,aces161 aces161,j6tlkagl
-skilled,floyd83 everton,afo hitman,Jim_Turnbull Turnbull,lefty goon,digui73
-0803,support success,BWERNER 111111,golfhit trendy,wolfie 1234,yhppgjik proxy,xsquid1
-bugster,mx1fm139 rescue,xmen passport,Jedi usa,sybian massage,spank124 mypwd,ohaverk2.aol.com
-sedona,v3hhhy2j armored,c5aeex3r kernel,pimel piet,cdkeehn alanna,lassen lassen,yankok
-donmat,zippos mikey,zoro outlaws,gclead general,wazu bass,gingo hase,phill
-phill,bebe zook,BillyBo spacema,topgun sharon,Art1996 Art1996,Frank camel,ezmoney
-rodeo,8b94qeo2 apple,kezfl2of downer,babenet babenet,hgfalk bambam,r86uq788
-pushing,pumpkins 1979,vera lynn,cubwolf 321321,blandish grandpa,wayland milhouse,sextoy
-pussy,loki8000 lokiloki,eyespy fluff,jens50 miracle2,gagp 1421,halman solar,cheala
-1853,Deadface1 jjj,uhjn uhjnuhjn,kamtnqr9 fight,ortschi tanita,geetwo hallet,muojkkkf
-mensch,kdogg anners,c064ai0u penal,pdjdcidd abrupt,cn6xbhxh beater,tarbsyl
-tarbette,b7u9o8bo mensch,geezzers slim,dpowell f00bar,cx33ywd2 movers,dpwi8yiq
-manuals,iqp7mn6b corps,0g1yvn6h cards,vb9198a3 kangaroo,Buddy Buddy,jcobb
-sexy4,jay1 solo,cobrain matrix,mmath 1492,byrdman byrd,CARATO 1472,823line
-line,dollared 84105,8hs4qbp3 roadway,chasm music,tiger78 jaguar,lovesex bush,15etem4n
-optimist,fx slj1,hd4rjqe8 choke,tj1rzixo locks,scsdbqui density,brill iridium,1y2x5fiy
-creepers,owen21 owen2121,070860 katoom,nus plc,mtwolfe wolf,kirkvs datsun,ivork
-3278,cturtle fuckme,jslee jslee,mary johnson,seong park 7831,greg3311 42880,devan
-fuckme,cvvvv40 cvvvv,mickey sick,dick123 pussy,9swdegwg babel,Spirester Iceman,danno2
-1979,kaork8fy needles,takato hiromi,gaijin sarahten,biitch 5157,tigerjac 0805,wot928ae
-paint,wolfe night,mab23 mabmab,fat star,fanny tight,dongar 5334,sl 0423,brfl0417
-streets,ccastro ccastro9,4274167 4274167,uoejzht0 creepers,uneek iamme,philynez
-koke,LtdJW LtdJW,sromano vette,ubach ubach,chauhai deftones,3394 lm3394,billyd
-byds,hung kungfu,lfrey1 ball,tort hardcore,iiwxgq2f optimist,wgutierrez,csr
-5272,motor carrier,aces410 aces410,roulette jimmy,9glvspeg strength,9645420
-9645420,9k4l5b2y ambrosia,JCollins</font></font><font color="#FFFFFF"><br>
-</font> </p>
-</div>
-<table width="265" border="1" align="center" cellpadding="4" cellspacing="0" bordercolor="#000000" height="82">
-<tr align="left">
-<td bgcolor="#6633CC" height="80">
-<div align="center"><font color="#FFFFFF" face="verdana" size="1">You can
-remove your name easily from our mailing list. We follow laws, so our
-remove link works! All you have to do is click this </font><font color="#FFFFFF" face="verdana" size="1" background-color="#ffffff"><a href="http://www.s2khost.com/bingo/byebye.php"><b>OPT
-OUT LINK</b></a></font> <font color="#FFFFFF" face="verdana" size="1">
-and press submit and you won't receive email from us again! <br>
-</font></div>
-</td>
-</tr>
-</table>
-<br>
-<br>
-<br>
-<font color="#FFFFFF" face="verdana" size="2"><br>
-<br>
-<br>
-</font>
-</body>
-</html>
+
+--===============85596900535849341==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="yNb1oOkm5a9FJOVX"
+Content-Disposition: inline
+
+
+--yNb1oOkm5a9FJOVX
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Jun 02, 2004 at 06:23:14AM -0700, Jouni Malinen wrote:
+> On Wed, Jun 02, 2004 at 03:14:49AM -0400, Luis R. Rodriguez wrote:
+>=20
+> > I'm glad wpa_supplicant exists :). Interacting with it *is* our missing
+> > link to getting full WPA support (great job Jouni). In wpa_supplicant=
+=20
+> > cvs I see a base code for driver_prism54.c (empty routines, just provid=
+ing skeleton).
+> > Well I'll be diving in it now and see where I can get. If anyone else is
+> > interested in helping with WPA support for prism54, working with
+> > wpa_supplicant is the way to go.
+>=20
+> I have a bit more code for this in my work directory somewhere (setting
+> the WPA IE and a new ioctl for this for the driver). I did not submit
+> these yet since the extended MLME mode was not working and the changes
+> were not yet really working properly. I can try to find these patches
+> somewhere.. Anyway, I would first like to see the extended MLME mode
+> working with any (even plaintext) AP and then somehow add the WPA IE to
+> the AssocReq. After that, it should be only TKIP/CCMP key configuration
+> and that's about it..
+
+If you find the patches that'd be great :). I'll see what I can do about
+fixing up extended MLME. I'll keep you posted.=20
+
+> > I'm curious though -- wpa_supplicant is pretty much userspace. This was
+> > done with good intentions from what I read but before we get dirty=20
+> > with wpa_supplicant I'm wondering if we should just integrate a lot of=
+=20
+> > wpa_supplicant into kernel space (specifically wireless tools).
+>=20
+> Why? Which functionality would you like to move into kernel? Not that
+> I'm against moving some parts, but I would certainly like to hear good
+> reasons whenever moving something to kernel space if it can be done (or
+> in this case, has already been done) in user space..
+
+I have yet to review most of the wpa_supplicant code so I cannot say for
+sure yet what I think should go into the kernel. I e-mailed most lists
+mainly to get comments from others who have poked at wpa_supplicant
+and/or are looking into adding WPA client support into their drivers.
+I just wanted to make sure we were heading in the right direction since
+I only see 2 drivers that are currently using wpa_supplicant.
+
+> > Regardless, as Jouni points out, there is still a framework for WPA tha=
+t needs
+> > to be written for all linux wireless drivers, whether it's to assist
+> > wpa_supplicant framework or to integrate wpa_supplicant into kernel spa=
+ce.
+>=20
+> The first thing I would like to see is an addition to  Linux wireless
+> extensions for WPA/WPA2 so that we can get rid of the private ioctls in
+> the drivers. Even though these can often be similar, it would be nice to
+> just write one driver interface code in wpa_supplicant and have it
+> working with all Linu drivers.. I hope to find some time to write a
+> proposal for this.
+
+I agree :). Jean? *poke*
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--yNb1oOkm5a9FJOVX
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAvfh+at1JN+IKUl4RArobAJ90VhiqoBhMVDqVYNyrSVF7/oCWpwCcCgMw
+BNTyXala+SrO9iduCpBy7CQ=
+=FuH1
+-----END PGP SIGNATURE-----
+
+--yNb1oOkm5a9FJOVX--
+
+--===============85596900535849341==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+HostAP mailing list
+HostAP@shmoo.com
+http://lists.shmoo.com/mailman/listinfo/hostap
+
+--===============85596900535849341==--
