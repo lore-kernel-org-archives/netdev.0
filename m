@@ -1,28 +1,31 @@
-From: acme@conectiva.com.br
-Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same Port Number (IPV6_V6ONLY Support)
-Date: Thu, 03 Oct 2002 00:55:19 -0300 (BRST)
+From: Andi Kleen <ak@muc.de>
+Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
+Date: Thu, 3 Oct 2002 05:54:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1033617319.3d9bbfa7cd15e@webmail.conectiva.com.br>
-References: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
+Message-ID: <20021003035446.GA29860@averell>
+References: <1033388585.16337.9.camel@irongate.swansea.linux.org.uk> <Mutt.LNX.4.44.0210031329450.13240-100000@blackbird.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, Martin Pool <mbp@samba.org>,
+   "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru, ak@muc.de,
+   netdev@oss.sgi.com, Alan.Cox@linux.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
+To: James Morris <jmorris@intercode.com.au>
+Content-Disposition: inline
+In-Reply-To: <Mutt.LNX.4.44.0210031329450.13240-100000@blackbird.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>: 
- 
- 
-> +	 (((a)->s6_addr32[2]) == __constant_htonl(0x0000ffff))) 
- 
-Please use plain htonl, __constant_htonl is only needed in static 
-initializations, in all other cases with constants as a parameter it 
-generates the same code as htonl, so lets prefer using the shorter, 
-more readable format. 
- 
-- Arnaldo 
- 
+On Thu, Oct 03, 2002 at 05:30:44AM +0200, James Morris wrote:
+> On 30 Sep 2002, Alan Cox wrote:
+> 
+> > Well if Dave can't test it and isnt doing any 2.2 who wants to be the
+> > 2.2 networking maintainer ?
+> > 
+> 
+> I'd be willing to give it a go.
+
+2.2 networking unfortunately has some more SMP bugs (DaveM can tell you details)
+which are hard to fix. So think twice before you volunteer ;)
+
+-Andi
