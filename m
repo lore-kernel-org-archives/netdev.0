@@ -1,32 +1,29 @@
-From: Laurent Deniel <laurent.deniel@free.fr>
-Subject: Re: [Bonding-devel] RE: [PATCH] convering bonding driver /proc interface
- to seq_file
-Date: Sun, 24 Aug 2003 12:41:29 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV4 route cache /proc interface cleanup
+Date: Sun, 24 Aug 2003 04:16:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F489659.6040507@free.fr>
-References: <E791C176A6139242A988ABA8B3D9B38A014C94BF@hasmsx403.iil.intel.com>
+Message-ID: <20030824041632.705d2b96.davem@redhat.com>
+References: <20030821163019.66cfe65c.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>,
-   Chad Tindel <ctindel@users.sourceforge.net>,
-   Jay Vosburgh <fubar@us.ibm.com>, "David  S. Miller" <davem@redhat.com>,
-   Jeff Garzik <jgarzik@pobox.com>, bonding-devel@lists.sourceforge.net,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Hen, Shmulik" <shmulik.hen@intel.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030821163019.66cfe65c.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hen, Shmulik wrote:
-> Guys,
->
-> Could everyone please hold off the bonding modifications for
-> only a short while until we get this sorted out? We have a
-> bunch of other patch sets in queue that add lots of new stuff
-> and they all depend on that first set being accepted.
+On Thu, 21 Aug 2003 16:30:19 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Could you give a short description of what is pending ? this
-could avoid duplicate efforts, or worst, incompatible ones ...
+> This patch to 2.6.0-test3 uses seq_file for /proc/net/rt_cache_stat
+> Someone else already did the hard one /proc/net/rt_cache
+> 
+> Couple of other little nits:
+> * use proc_net_fops_create to setup
+> * collapse two_line setup functions into the init routine
+> * proc_exit routine was never called and can go. 
+> * cleaner to refer to proc_net as base rather than net/rt_acct
 
-Laurent
+Applied, thanks Stephen.
