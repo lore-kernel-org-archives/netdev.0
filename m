@@ -1,50 +1,48 @@
-From: "c\.matamba" <c.matamba@libero.it>
-Subject: PLEASE LET ME HEAR FROM YOU URGENTLY
-Date: Sat,  6 Dec 2003 17:51:07 +0100
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: [BUG 2.6.0-test11] pcnet32 oops
+Date: Tue, 9 Dec 2003 15:15:02 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <HPHG57$6307D637180AE4CFEE503846190404B4@libero.it>
+Message-ID: <20031209151459.A1345@sygehus.dk>
+References: <20031205234510.GA2319@bougret.hpl.hp.com> <20031205165900.2920ea6a.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: jt@hpl.hp.com, jt@bougret.hpl.hp.com, linux-kernel@vger.kernel.org,
+        tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "c\.matamba" <c.matamba@libero.it>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20031205165900.2920ea6a.davem@redhat.com>; from davem@redhat.com on Fri, Dec 05, 2003 at 04:59:00PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-SIR,
+On Fri, Dec 05, 2003 at 04:59:00PM -0800, David S. Miller wrote:
+> This is the classic case of doing disabling/enabling of software
+> interrupts with hardware interrupts disabled, which is a bug.
+> 
+> In this case pcnet32_set_multicast_list() is disabling hardware
+> interrupts, and the packet freeing of pcnet32_purge_tx_ring()
+> is what leads to the software interrupt disable/enable.
 
-I am charles matamba the only son of attah Mtonga
-matamba of Magburaka distrct of liberia.my father
-was a wealthy traditional father who died as
-a result of his refusal to sponsor or take sides with
-the warring parties in my country. on the heat of the
-crises my father made arrengement for me and my sister
-to take refuge in Abidjan Cote`d Ivoire ,he choose to
-stay behind due to his belief and it cost him his life
-Ever since we left liberia my country`s capital life
-has not been the same.
+I think the root cause of this problem is that pcnet32_set_multicast_list()
+dumps the entire TX ring on the floor (as a side effect of calling
+pcnet32_restart()). I don't think dev->set_multicast_list() is supposed to
+do that.
 
-Recently my mother got very ill on her sick bed she
-revealed to me that 11.5 Million dollars was deposited
-in a bank on my behalf. 
+> However, I'm inclined to believe that we should change dev_kfree_skb_any()
+> to fix this class of problems, by making it check for hardware interrupts
+> being disabled as well as being in an interrupt.
 
-I have gone to the bank to claim the money but was
-told by the bank manager that though the money belongs
-to me only my father`s foreign partner who my father
-entrusted with the power to oversee my welfare and
-invest on my behalf can have appropiate access untill
-i have good business knowledge.
+I've been wondering about this too with the recent netpoll patches. Many
+(including pcnet32) implement the poll controller simply as
 
-Please,i want you to be my father`s recommended
-foreign partner as to enable me transfer this money to
-you country,your helping me will solve my surffrings
-and that of my sister.I will also like to live and
-school in your country,If you oblige to help we are
-willing to give you 20 Percent of the money.please
-write back on your indication of your intrest to help
-me then i will give you every details and information
-on my disposal for the transfer.
+	disable_irq (dev->irq);
+	driver_interrupt_handler (dev->irq, dev, NULL);
+	enable_irq (dev->irq);
 
-thanks, looking forward to hear from you.
+If the interrupt handler calls dev_kfree_skb_any(), could you then run into
+this kind of problem? Or is it just if you call spin_lock_irq*() that you
+have a problem?
 
-CHARLES MATAMBA.
+-- 
+Regards,
+Rask Ingemann Lambertsen
