@@ -1,26 +1,31 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: 2.6.3 iwspy oops
-Date: Wed, 18 Feb 2004 13:38:28 -0800
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: Fw: [Bugme-new] [Bug 2133] New: bad: scheduling while atomic!
+Date: Wed, 18 Feb 2004 14:22:53 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040218213828.GA947@bougret.hpl.hp.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <4033E5BD.9080504@us.ibm.com>
+References: <20040218110024.3dee0e42.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Andi Kleen <ak@muc.de>, michal-bugzilla@logix.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
-        netdev@oss.sgi.com, Margit Schubert-While <margitsw@t-online.de>
-Content-Disposition: inline
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040218110024.3dee0e42.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Margit Schubert-While wrote :
+Andrew Morton rote:
+
+> This is possibly a locking bug in the ipv6 code: someone somewhere
+> forgot to undo a lock and the task ended up in atomic state.
+> Possibly it is specific to x86_64.
 > 
-> Working on a SSH WLAN connection OK (ca. 2 hours) until I entered "iwspy",
-> then system borked (not recoverable) :
+> Has anyone run the TAHI suite on x86?
 
-	Working here with 2.6.3 + airo.c.
-	Which driver and which version of it ? Which was the last
-version that worked ?
-	Thanks.
+Yep, we're running TAHI on x86, but haven't seen this.
+Not sure we're on 2.6.3 yet, though.
 
-	Jean
+We'll check it out..
+
+thanks,
+Nivedita
