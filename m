@@ -1,47 +1,78 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: sundance driver does not work with D-Link DFE-580TX
-Date: Thu, 19 Jun 2003 14:43:53 +0200
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: Re: System hard locks with bonding and tcpdump
+Date: Thu, 19 Jun 2003 16:15:02 +0300 (IDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <57880000.1056026633@worker.muc.bieringer.de>
-References: <200305261604.h4QG4iQY020725@sandelman.ottawa.on.ca>
+Message-ID: <Pine.LNX.4.33.0306191539510.10139-100000@jrslxjul1.npdj.intel.com>
+References: <E791C176A6139242A988ABA8B3D9B38A01C6AEFD@hasmsx403.iil.intel.com>
+Reply-To: Shmulik Hen <shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: bond-devel <bonding-devel@lists.sourceforge.net>,
+   linux-net <linux-net@vger.kernel.org>, linux-netdev <netdev@oss.sgi.com>,
+   "Noam, Amir" <amir.noam@intel.com>,
+   "Chad N. Tindel" <ctindel@calma.pair.com>,
+   "David S. Miller" <davem@redhat.com>, Jay Vosburgh <fubar@us.ibm.com>,
+   Jeff Garzik <jgarzik@pobox.com>, "Marom, Noam" <noam.marom@intel.com>,
+   "Mendelson, Tsippy" <tsippy.mendelson@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maillist netdev <netdev@oss.sgi.com>
-In-Reply-To: <200305261604.h4QG4iQY020725@sandelman.ottawa.on.ca>
-Content-Disposition: inline
+To: "Hen, Shmulik" <shmulik.hen@intel.com>
+In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A01C6AEFD@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 19 Jun 2003, Hen, Shmulik wrote:
+
+> =A0=A0=A0=A0=A0=A0=A0 The system will occasionally freeze. When using t=
+he -p option to
+> *not* set the interface into promiscuous mode, every thing is OK. Using
+> KDB we were able to conclude that this is probably a deadlock between t=
+he
+> br lock and either dev->queue_lock or dev->xmit_lock (see trace below).
+>
+>
+>
+> Entering kdb (current=3D0xc9764000, pid 17303) on processor 2 due to cp=
+u switch
+> [2]kdb> bt
+> 0xc9764000=A0=A0=A0 17303=A0=A0=A0=A0=A0 779=A0 1=A0 002=A0 run=A0=A0 0=
+xc9764370*tcpdump
+> EBP=A0=A0=A0=A0=A0=A0=A0 EIP=A0=A0=A0=A0=A0=A0=A0 Function (args)
+> 0xc9765e80 0xc01062fb __write_lock_failed+0x7 (0xc9765e98, 0xc021bb78, =
+0xdebfb520, 0xf72609a0, 0xc981b120)
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0 kernel .text 0xc0100000 0xc01062f4 0xc0106314
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0 0xc026025b .text.lock.brlock+0x5
+> =A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=A0=
+=A0=A0=A0=A0=A0=A0 kernel .text 0xc0100000 0xc0260256 0xc0260260
+>
 
 
---On Monday, May 26, 2003 12:04:43 PM -0400 Michael Richardson
-<mcr@sandelman.ottawa.on.ca> wrote:
+	There seems to be more info regarding this bug that points to the
+fact that this may be a kernel bug. A more comprehensive investigation
+done by Tsippy Mendelson reveals the following details:
 
-> 
->>>>>> "Peter" == Peter Bieringer <pb@bieringer.de> writes:
->     Peter> pls. take a look into:
-> 
->     Peter> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=69000
-> 
->     Peter> Looks like current included "sundance.c" driver doesn't work
-> proper      Peter> together with current "mii.c" on a D-Link DFE-580TX.
-> 
->   This is a redhat bug. Stock kernels do not have this problem.
->   Nor does pure-Becker code.
+	The deadlock is not between the br lock and the dev locks, but
+rather between different lock attempts done on the same br lock. Looking
+at the transmit flow the TCP packet passes when tcpdump is running, it
+looks as though nf_hook_slow() does a br_read_lock_bh(BR_NETPROTO_LOCK)
+first, and later, further down the flow, dev_queue_xmit_nit() does a
+br_read_lock(BR_NETPROTO_LOCK). In between, tcpdump tries to hold
+BR_NETPROTO_LOCK for writing (as seen in the trace) and so, we get a writ=
+e
+lock waiting on a read lock, and another read lock waiting on the write
+lock but is on the same CPU of the first lock - deadlock!
 
-I (also others independed) finally find the bug:
+	The funny thing is that just above the place where the first lock
+is held the following comment appears:
+"We may already have this, but read-locks nest anyway"
 
-RHL uses CONFIG_SUNDANCE_MMIO=y on kernel building which causes the
-problem. 
 
-Looks like this option should be removed or the driver should be improved
-(perhaps autodetection?). Imho it doesn't make much sense to add an compile
-option which (in case of enabled) break usages of already available NICs.
+Any thoughts/comments about what can be done ?
 
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+
+--=20
+| Shmulik Hen                             |
+| Israel Design Center (Jerusalem)        |
+| LAN Access Division                     |
+| Intel Communications Group, Intel corp. |
