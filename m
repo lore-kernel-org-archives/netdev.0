@@ -1,8 +1,8 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
-Date: Thu, 14 Oct 2004 11:03:44 -0400
+Subject: s2io: patch disposition
+Date: Thu, 14 Oct 2004 11:05:16 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <416E9550.4060001@pobox.com>
+Message-ID: <416E95AC.3010005@pobox.com>
 References: <005a01c4b18b$c1fd7400$6c10100a@S2IOtech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
@@ -16,15 +16,13 @@ In-Reply-To: <005a01c4b18b$c1fd7400$6c10100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-no objections but two comments:
 
-1) can this not be done with SKB fragments?
+Ok, I have sent all my comments for your patches.
 
-2) the following code needlessly uses GFP_ATOMIC:
+All patches must be resend, since your mailer mangled them.
 
-> +                               ba = &nic->ba[i][j][k];
-> +
-> +                               ba->ba_0_org = (void *) kmalloc
-> +                                   (BUF0_LEN + ALIGN_SIZE, GFP_ATOMIC);
+It is up to you whether you wish to modify these patches for my 
+comments, or create additional patches that address my comments.  Your 
+choice.
 
-and there is another example just a bit down from that one.
+	Jeff
