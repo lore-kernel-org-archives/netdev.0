@@ -1,58 +1,25 @@
-From: Max Krasnyansky <maxk@qualcomm.com>
-Subject: Re: tun device - bug or feature? WAS(Re: IMQ / new Dummy device
-	post.
-Date: Mon, 10 May 2004 10:18:02 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] remove useless MOD_{INC,DEC}_USE_COUNT
+Date: Tue, 11 May 2004 03:07:44 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1084209482.758.15.camel@localhost>
-References: <wazza.87ad18jbdl.fsf@message.id>
-	 <1082427350.1034.70.camel@jzny.localdomain>
-	 <wazza.87fzayw1fy.fsf@message.id> <wazza.87fzaxmr6x.fsf@message.id>
-	 <wazza.87hdvddqxq.fsf@message.id>
-	 <1082639764.1059.81.camel@jzny.localdomain>
-	 <87oepjx65r.87n053x65r@87llknx65r.message.id>
-	 <1082719745.1057.27.camel@jzny.localdomain>
-	 <1082816083.1054.32.camel@jzny.localdomain>
-	 <1083007898.7788.276.camel@localhost>
-	 <1084017322.1041.30.camel@jzny.localdomain>
+Message-ID: <40A07BC0.20906@pobox.com>
+References: <20040507104311.GA10873@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, syrius.ml@no-log.org, Jeff Garzik <jgarzik@pobox.com>,
-        "David S. Miller" <davem@redhat.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1084017322.1041.30.camel@jzny.localdomain>
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20040507104311.GA10873@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-05-08 at 04:55, jamal wrote:
-> Max, Dave, Jeff,
+Christoph Hellwig wrote:
+> *grr* - this one slipped in after my last round of audits it seems.
 > 
-> I get what was bothering me now - it took me a while to formulate it:
 > 
-> TUN_TUN_DEV dev->type is ARPHRD_PPP
-> dev->type is really related to link layer header, perhaps at the low
-> level if neighbor discovery works well then we have a link-headerless
-> packet which gets manipulated with the correct header by some generic
-> code. The combination of dev->type and dev->hard_header_len works
-> together to achieve this.
-> In the case of TUN_TUN_DEV, the header_len is 0 ;->
-> To be of type ARPHRD_PPP, tun needs to have a header_len which is the
-> size of the l2 ppp header.
-> As an example, TUN_TAP_DEV is fine as type ARPHRD_ETHER and header_len
-> of ETH_HLEN.
-> 
-> A lot of devices are abusing this system, tun is not the only one.
-> 
-> My suggestion is to change dev->type to ARPHRD_VOID for TUN_TUN_DEV or
-> we introduce something like ARPHDR_NONE for devices with link layer
-> headers of size 0.
-> 
-> thoughts?
+> --- 1.15/drivers/net/gt96100eth.c	Mon Apr  5 22:31:23 2004
+> +++ edited/drivers/net/gt96100eth.c	Mon May  3 13:22:22 2004
 
-I have no problem with that. I mean introducing new ARPHDR_ type.
-ARPHDR_PPP was simply most appropriate for TUN that's why I picked it.
-I vote for ARPHDR_NONE.
 
-Thanks
-Max
+applied
