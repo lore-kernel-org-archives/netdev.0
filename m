@@ -1,29 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Trivial fix for wrong error message from icmp.c (2.6.0-test4)
-Date: Fri, 5 Sep 2003 02:47:36 -0700
+Subject: Re: [BK PATCH] SCTP updates.
+Date: Fri, 5 Sep 2003 02:49:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905024736.4acefe68.davem@redhat.com>
-References: <3F5686C2.6090600@q.nospam.kampsax.k-net.dk>
+Message-ID: <20030905024912.3c63fd04.davem@redhat.com>
+References: <Pine.LNX.4.44.0309041440330.21476-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dennis =?ISO-8859-1?Q?J=F8rgensen?=
- <postmaster@q.nospam.kampsax.k-net.dk>
-In-Reply-To: <3F5686C2.6090600@q.nospam.kampsax.k-net.dk>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.44.0309041440330.21476-100000@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 04 Sep 2003 02:26:42 +0200
-Dennis J=F8rgensen <postmaster@q.nospam.kampsax.k-net.dk> wrote:
+On Thu, 4 Sep 2003 15:55:27 -0700 (PDT)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-> Should I post this somewhere else/to someone else, please let me know, =
-I=20
-> couldn't find a FAQ for the list.
+> Please do a
+> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5
+> to get the following updates to SCTP on top of linux 2.6.0-test4
 
-You're posting it to the correct place, but your patch does not
-apply because your mail client has turned all the tabs in the
-patch into spaces.
-
-I can't apply this patch until you fix that up.
+Looks good, pulled thanks.
