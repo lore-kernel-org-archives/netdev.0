@@ -1,53 +1,38 @@
-From: "David Schwartz" <davids@webmaster.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 13:16:36 -0700
+Date: Wed, 15 Sep 2004 16:41:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <WorldClient-F200409151316.AA16360002@webmaster.com>
-References: <4148991B.9050200@pobox.com> <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
-Reply-To: davids@webmaster.com
+Message-ID: <4148A90F.80003@pobox.com>
+References: <4148991B.9050200@pobox.com>	 <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <1095275660.20569.0.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David Stevens" <dlstevens@us.ibm.com>, "Netdev" <netdev@oss.sgi.com>,
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Paul Jakma <paul@clubi.ie>, Netdev <netdev@oss.sgi.com>,
         leonid.grossman@s2io.com,
-        "Linux Kernel" <linux-kernel@vger.kernel.org>
-In-Reply-To: <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Alan Cox <alan@lxorguk.ukuu.org.uk>
+In-Reply-To: <1095275660.20569.0.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Alan Cox wrote:
+> On Mer, 2004-09-15 at 21:04, Paul Jakma wrote:
+> 
+>>The intel IXP's are like the above, XScale+extra-bits host-on-a-PCI 
+>>card running Linux. Or is that what you were referring to with 
+>>"<cards exist> but they are all fairly expensive."?
+> 
+> 
+> Last time I checked 2Ghz accelerators for intel and AMD were quite cheap
+> and also had the advantage they ran user mode code when idle from
+> network processing.
 
-David Stevens wrote:
 
-> I've never understood why people are so interested in off-loading
-> networking. Isn't that just a multi-processor system where you can't
-> use any of the network processor cycles for anything else? And, of
-> course, to be cheap, the network processor will be slower, and much
-> harder to debug and update software.
+The point was more to show people who are doing TOE _anyway_ to a decent 
+design.
 
-The issues of debugging the network processor software and maintaining it is 
-certainly a legitimate one. However, nothing stops you from using the extra 
-network processor cycles for other purposes.
+As I said in another post, "just don't bother with TOE" is a very valid 
+answer with today's CPUs.
 
-> If the PCI bus is too slow, or MTU's too small, wouldn't
-> it be better to fix those directly and use a fast host processor that
-> can
-> also do other things when not needed for networking? And why have
-> memory on a NIC that can't be used by other things?
-
-This isn't an either-or. Processors are cheap. Memory is cheap.
- 
-> Why don't we off-load filesystems to disks instead?  Or a graphics
-> card that implements X ? :-) I'd rather have shared system resources--
-> more flexible. :-)
-
-It's not one or the other. If, for example, your network card, graphics 
-card, and hard drive controller all use a common instruction set and are all 
-interconnected by a fast bus, code can be fairly mobile and run wherever 
-it's the most efficient. Nothing stops the OS from offloading internal tasks 
-to these processors as well.
-
-The only real stumbling blocks have been cost/volume considerations and the 
-fact that the central processor(s) can be so fast, and the I/O so slow in 
-comparison, that there's not much to gain.
-
-DS
+	Jeff
