@@ -1,53 +1,63 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: where is the proper place for r8169 bug reports?
-Date: Tue, 1 Feb 2005 23:31:09 +0100
-Message-ID: <20050201223109.GA2957@electric-eye.fr.zoreil.com>
-References: <20050131181508.GA15908@gerbil.toadis.porkis> <20050131214951.GA13217@electric-eye.fr.zoreil.com> <20050131215948.GA23289@gerbil.toadis.porkis> <20050131222342.GB13217@electric-eye.fr.zoreil.com> <20050201215607.GA8530@gerbil.toadis.porkis>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: dummy as IMQ replacement
+Date: Tue, 1 Feb 2005 23:44:36 +0100
+Message-ID: <20050201224436.GO31837@postel.suug.ch>
+References: <20050131151532.GE31837@postel.suug.ch> <1107186044.1076.11.camel@jzny.localdomain> <20050131155929.GF31837@postel.suug.ch> <1107189625.1076.77.camel@jzny.localdomain> <20050131181553.GG31837@postel.suug.ch> <1107202715.1075.559.camel@jzny.localdomain> <20050131225328.GI31837@postel.suug.ch> <1107259361.1095.584.camel@jzny.localdomain> <20050201125147.GK31837@postel.suug.ch> <1107263612.1095.598.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: "Dale E. Martin" <dale@the-martins.org>
+Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Damion de Soto <damion@snapgear.com>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <20050201215607.GA8530@gerbil.toadis.porkis>
+In-Reply-To: <1107263612.1095.598.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dale E. Martin <dale@the-martins.org> :
-[...]
-> although it looks like the card is only found on cold boots.
+> Let the meta action do that. Just set the skb->tc_classid in my opinion;
+> recall we can change classid now ..
 
-Can you send (or put on a webpage) the same dmesg and lspci -vx when
-it happens ?
+True, I don't really care but it's already quite confusing. The priority
+of the packet is described in viarous field depeding on which qdisc/cls
+being used, we have skb->priority with sch_prio, tc_index for dsmark
+and cls_tcindex and now tc_classid directly.  Some even use u32 to
+match on DSCP and set a nfmark.  I can already feel the perfect confusion
+once we open up access for rt_classid, realm and other routing fields.
+I'm always aiming for easy to understand solutions, this doesn't mean
+it to be simple. Why is nfmark so heavly used? Because it's damn simple
+to undertand, you can set and read it and that's it. The only thing one
+has to care about is to make sure that is actually gets set before it being
+read and to make sure all userspace apps read it in the same base ;->
+(This is basically one of the issue in usability, the lack of clearliness
+in what base number are read the displayed. Often they get displayed in
+hex without a 0x prefix but are read with strtol(...,0) resulting in
+a decimal reading if no prefix is specified)
 
-> The irony of this, btw, is that linux/Documentation/Changes still
-> recommends gcc 2.95.3 - even in version 2.6.8, possibly in 2.6.10.  (I
-> think I saw it in there but I don't have it handy.)
+Long rant short statement, I'm pleading for a generic way to transfer
+such things between a classifier and a qdisc because it's simply
+easier to explain and use.
 
-You saw it there. No comment.
+... eaction meta set tc_index ip_saddr_proto_hash
+... qdisc sfq tcindex-hash
 
-> Also, when I first started looking at this, I tried to #define
-> RTL8169_DEBUG but was getting compile errors.  Should I file a bug about
-> this ?
+where ip_saddr_proto_hash is not a variable but rather a special meta
+value calulated in the kernel.
 
-I lost this one. Re-added to the queue. Don't bother with a PR for it.
+> You can let the user define that via tc but have a default;
+> eg: 
+> tc dev eth0 add sfq ematch
+> tc dev eth0 set sfq pertub xxx
+> 
+> match u32 ...
+> ematch sfq
+> ematch meta classid 1:2 
+> eaction meta set tcindex 101
+> eaction meta set fwmark ..
 
-[...]
-> It looks like the poor 1Ghz C3 in this machine is going to be the
-> bottleneck for getting good transfer rates over gigabit ethernet ;-)
-
-It depends on the kind of transfer. A bigger MTU really helps. So does
-TSO and checksumming but it is really dependant on the kind of load.
-This is the content of the patch against 2.4.28.
-
-[...]
-> What is the intention of this patch?  Is it to handle the 2.95.x issue or
-> something else ?
-
-See above. Can you:
-- send me discretly the .o built from the r8169 sources with 2.95.3 ?
-- pest me until you have a 2.95.3 compiled r8169 module which does not
-  lock up any more ?
-
---
-Ueimor
+I think we're on the same road or at least going into the same direction.
+However I'm not sure whether it's a good to have ematches return
+some values besides true/false. I'd rather like to see an eaction store
+it in the skb and the sfq catching it up again. Of course we can have the
+userspace part be configured within the sfq.
