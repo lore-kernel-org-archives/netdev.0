@@ -1,36 +1,106 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6 PKT_SCHED]: Fix overflow on 64bit in times reported
-	to userspace by tc actions
-Date: 22 Nov 2004 08:24:34 -0500
-Message-ID: <1101129873.1093.300.camel@jzny.localdomain>
-References: <41908D1D.50405@trash.net>
-	 <20041111150314.576ce699.davem@davemloft.net>
-	 <1101059233.1093.151.camel@jzny.localdomain>  <41A1C99B.6010202@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Roland Dreier <roland@topspin.com>
+Subject: [PATCH][RFC/v1][7/12] IPoIB IPv6 support
+Date: Mon, 22 Nov 2004 07:13:59 -0800
+Message-ID: <20041122713.FnSlYodJYum7s82D@topspin.com>
+References: <20041122713.Md0y3UqVvYcRT3Zf@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41A1C99B.6010202@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+In-Reply-To: <20041122713.Md0y3UqVvYcRT3Zf@topspin.com>
+To: linux-kernel@vger.kernel.org
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-11-22 at 06:12, Patrick McHardy wrote:
-> jamal wrote:
-> 
-> >Patrick are you going to work on the other cleanups you were thuinking
-> >of? ( etc)
-> >
-> I will send you a batch of patches in one or two weeks, right now I'm
-> waiting for you to ACK the tc_action_init patch so I can resync my
-> tree with Dave's.
+Add ipv6_ib_mc_map() to convert IPv6 multicast addresses to IPoIB
+hardware addresses, and add support for autoconfiguration for devices
+with type ARPHRD_INFINIBAND.
 
-I think thats the one I am acking, no? Can you resend it just to be
-sure. Note that i had no issues with any of the other patches (other
-than one i explicitly flagged to test).
+The mapping for multicast addresses is described in
+  http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-07.txt
 
-cheers,
-jamal
+Signed-off-by: Nitin Hande <Nitin.Hande@Sun.Com>
+Signed-off-by: Roland Dreier <roland@topspin.com>
+
+
+Index: linux-bk/include/net/if_inet6.h
+===================================================================
+--- linux-bk.orig/include/net/if_inet6.h	2004-11-21 21:07:35.126269616 -0800
++++ linux-bk/include/net/if_inet6.h	2004-11-21 21:25:56.386835692 -0800
+@@ -266,5 +266,20 @@
+ {
+ 	buf[0] = 0x00;
+ }
++
++static inline void ipv6_ib_mc_map(struct in6_addr *addr, char *buf)
++{
++	buf[0]  = 0;		/* Reserved */
++	buf[1]  = 0xff;		/* Multicast QPN */
++	buf[2]  = 0xff;
++	buf[3]  = 0xff;
++	buf[4]  = 0xff;
++	buf[5]  = 0x12;		/* link local scope */
++	buf[6]  = 0x60;		/* IPv6 signature */
++	buf[7]  = 0x1b;
++	buf[8]  = 0;		/* P_Key */
++	buf[9]  = 0;
++	memcpy(buf + 10, addr->s6_addr + 6, 10);
++}
+ #endif
+ #endif
+Index: linux-bk/net/ipv6/addrconf.c
+===================================================================
+--- linux-bk.orig/net/ipv6/addrconf.c	2004-11-21 21:07:29.222146392 -0800
++++ linux-bk/net/ipv6/addrconf.c	2004-11-21 21:25:56.387835544 -0800
+@@ -48,6 +48,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
+ #include <linux/if_arcnet.h>
++#include <linux/if_infiniband.h>
+ #include <linux/route.h>
+ #include <linux/inetdevice.h>
+ #include <linux/init.h>
+@@ -1098,6 +1099,12 @@
+ 		memset(eui, 0, 7);
+ 		eui[7] = *(u8*)dev->dev_addr;
+ 		return 0;
++	case ARPHRD_INFINIBAND:
++		if (dev->addr_len != INFINIBAND_ALEN)
++			return -1;
++		memcpy(eui, dev->dev_addr + 12, 8);
++		eui[0] |= 2;
++		return 0;
+ 	}
+ 	return -1;
+ }
+@@ -1797,6 +1804,7 @@
+ 	if ((dev->type != ARPHRD_ETHER) && 
+ 	    (dev->type != ARPHRD_FDDI) &&
+ 	    (dev->type != ARPHRD_IEEE802_TR) &&
++	    (dev->type != ARPHRD_INFINIBAND) &&
+ 	    (dev->type != ARPHRD_ARCNET)) {
+ 		/* Alas, we support only Ethernet autoconfiguration. */
+ 		return;
+Index: linux-bk/net/ipv6/ndisc.c
+===================================================================
+--- linux-bk.orig/net/ipv6/ndisc.c	2004-11-21 21:07:06.642499599 -0800
++++ linux-bk/net/ipv6/ndisc.c	2004-11-21 21:25:56.388835395 -0800
+@@ -260,6 +260,9 @@
+ 	case ARPHRD_ARCNET:
+ 		ipv6_arcnet_mc_map(addr, buf);
+ 		return 0;
++	case ARPHRD_INFINIBAND:
++		ipv6_ib_mc_map(addr, buf);
++		return 0;
+ 	default:
+ 		if (dir) {
+ 			memcpy(buf, dev->broadcast, dev->addr_len);
