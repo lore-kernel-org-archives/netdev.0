@@ -1,56 +1,42 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] IPv4 IPComp
-Date: Thu, 8 May 2003 10:53:55 +1000 (EST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0305081052060.22346-100000@excalibur.intercode.com.au>
-References: <87znlymypm.wl@karaba.org>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>,
-   <usagi-core@linux-ipv6.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitsuru KANDA / =?ISO-2022-JP?B?GyRCP0BFRBsoQiAbJEI9PBsoQg==?= <mk@linux-ipv6.org>
-In-Reply-To: <87znlymypm.wl@karaba.org>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: Fw: kernel BUG at net/core/skbuff.c:1028!
+Date: Thu, 08 May 2003 11:20:27 +1000
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030508012101.36E012C01B@lists.samba.org>
+References: <20030507.042003.26512841.davem@redhat.com>
+Cc: laforge@netfilter.org, Jens Axboe <axboe@suse.de>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-reply-to: Your message of "Wed, 07 May 2003 04:20:03 MST."
+             <20030507.042003.26512841.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 8 May 2003, Mitsuru KANDA / [ISO-2022-JP] 神田 充 wrote:
+In message <20030507.042003.26512841.davem@redhat.com> you write:
+> It has to be from some of the skb linearization changes.
+> I can't think of any other change we've made that would
+> make this start to happen.
 
-> 
-> Hello,
-> 
-> In ipcomp_input():
-> 
-> The original IP header(iph) is stored(copied) in tmp_iph.
-> 
-> But after skb_pull(), tmp_iph is copied back to 
-> same place where the original IP header exists in skb->nh.raw.
-> 
-> I believe the attached diff is to fix it for correct behavior 
-> which you intend.
-> 
-> Could you check it?
+Yep, culprit is obvious stupid bug.  This indicates a serious lack of
+testing on my part 8(
 
-This looks correct.
+Jens, does this help?
+Rusty.
 
-Dave, please apply.
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+diff -urpN --exclude TAGS -X /home/rusty/devel/kernel/kernel-patches/current-dontdiff --minimal linux-2.5.69-bk2/net/ipv4/netfilter/ip_nat_core.c working-2.5.69-bk2-fix-nat/net/ipv4/netfilter/ip_nat_core.c
+--- linux-2.5.69-bk2/net/ipv4/netfilter/ip_nat_core.c	2003-05-08 10:31:08.000000000 +1000
++++ working-2.5.69-bk2-fix-nat/net/ipv4/netfilter/ip_nat_core.c	2003-05-08 11:19:04.000000000 +1000
+@@ -870,7 +870,8 @@ icmp_reply_translation(struct sk_buff **
+ 	   adjustment, so make sure the current checksum is correct. */
+ 	if ((*pskb)->ip_summed != CHECKSUM_UNNECESSARY
+ 	    && (u16)csum_fold(skb_checksum(*pskb, (*pskb)->nh.iph->ihl*4,
+-					   (*pskb)->len, 0)))
++					   (*pskb)->len
++					   - (*pskb)->nh.iph->ihl*4, 0)))
+ 		return 0;
+ 
+ 	/* Must be RELATED */
 
 
---- bk.pending/net/ipv4/ipcomp.c	Mon May  5 15:12:29 2003
-+++ bk.w1/net/ipv4/ipcomp.c	Thu May  8 09:59:01 2003
-@@ -94,7 +94,9 @@
- 	memcpy(&tmp_iph, iph, iph->ihl * 4);
- 	nexthdr = *(u8 *)skb->data;
- 	skb_pull(skb, sizeof(struct ipcomp_hdr));
-+	skb->nh.raw += sizeof(struct ipcomp_hdr);
- 	memcpy(skb->nh.raw, &tmp_iph, tmp_iph.iph.ihl * 4);
-+	iph = skb->nh.iph;
- 	iph->tot_len = htons(ntohs(iph->tot_len) - sizeof(struct ipcomp_hdr));
- 	iph->protocol = nexthdr;
- 	skb->h.raw = skb->data;
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
