@@ -1,30 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Prefix List against 2.5.70 (re-done)
-Date: Fri, 27 Jun 2003 14:47:52 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030627.144752.78715628.davem@redhat.com>
-References: <3EFB2017.5030202@us.ibm.com>
-	<20030626.230727.35666164.davem@redhat.com>
-	<3EFC668F.9010004@us.ibm.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: networking bugs and bugme.osdl.org
+Date: Fri, 27 Jun 2003 14:54:26 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3EFCBD12.3070101@candelatech.com>
+References: <20030626.224739.88478624.davem@redhat.com>	<21740000.1056724453@[10.10.2.4]>	<Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com> <20030627.143738.41641928.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: krkumar@us.ibm.com
-In-Reply-To: <3EFC668F.9010004@us.ibm.com>
+Cc: davidel@xmailserver.org, mbligh@aracnet.com, linux-kernel@vger.kernel.org,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030627.143738.41641928.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Krishna Kumar <krkumar@us.ibm.com>
-   Date: Fri, 27 Jun 2003 08:45:19 -0700
+David S. Miller wrote:
+>    From: Davide Libenzi <davidel@xmailserver.org>
+>    Date: Fri, 27 Jun 2003 07:56:16 -0700 (PDT)
+>    
+>    The good of a bug tracking system against the mailing list is that
+>    bugs do survive in a bug tracking system,
+> 
+> No, this is the _BAD_ part, shit accumulates equally with
+> useful reports.
+> 
+> Useful reports in non-bugtracking system environments get
+> retransmitted and eventually looked at.
 
-   rtnetlink_rcv_msg() calls dumpit() (via netlink_dump_start) only
-   for those messages for which the last two bits are binary '10'. So
-   I had to use these values. All the other *GET* macros use the same
-   semantics.
+I think you are putting too much work on the bug reporter(s).  If
+you want to ignore bug reports that only happen once, feel free,
+but give the rest of us a way to easily keep a history and list
+of bug reports.
 
-Ok, please retransmit your two patches (2.4.x and 2.5.x) to me
-under seperate cover.  I don't keep a copy around of patches
-I've decided not to apply.
+For instance, where is the list of open networking bugs for
+2.4 now?
 
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
