@@ -1,128 +1,243 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] dscc4 bogosity
-Date: Sun, 21 Sep 2003 02:19:01 +0200
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] (3/6) ipvs -- use list_for_each_entry macro's
+Date: Sun, 21 Sep 2003 10:54:55 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030921021901.A20090@electric-eye.fr.zoreil.com>
-References: <20030919113252.67949bc8.rddunlap@osdl.org> <20030919224428.A7296@electric-eye.fr.zoreil.com> <20030919134804.2c8967e4.rddunlap@osdl.org>
+Message-ID: <Pine.LNX.4.44.0309210934460.1468-100000@u.domain.uli>
+References: <20030916141750.53bbb04e.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Wensong Zhang <wensong@linux-vs.org>, <lvs-users@LinuxVirtualServer.org>,
+        <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030919134804.2c8967e4.rddunlap@osdl.org>; from rddunlap@osdl.org on Fri, Sep 19, 2003 at 01:48:04PM -0700
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030916141750.53bbb04e.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-- dscc4_release_ring() are removed from dscc4_{open/close} as the rings
-  are allocated/freed in dscc4_{found1/free1} (giant stupid bug);
-- mark dscc4_{rx/tx}_reset with attribute unused as it isn't clear whether
-  they will resurrect or disappear;
-- removal of label "err_free_ring" in dscc4_open() (it isn't used any more);
-- handling return status is getting simpler in dscc4_found1().
+
+	Hello,
+
+	It seems some places become inefficient. May be we have
+to introduce list_for_each_entry_continue?:
+
+ * list_for_each_entry_continue	-	iterate over list of given type
+ *			continuing after existing point
+ * @pos:	the type * to use as a loop counter.
+ * @head:	the head for your list.
+ * @member:	the name of the list_struct within the struct.
+ */
+#define list_for_each_entry_continue(pos, head, member)			\
+	for (pos = list_entry(pos->member.next, typeof(*pos), member),	\
+		     prefetch(pos->member.next);			\
+	     &pos->member != (head);					\
+	     pos = list_entry(pos->member.next, typeof(*pos), member),	\
+		     prefetch(pos->member.next))
 
 
- drivers/net/wan/dscc4.c |   24 ++++++++++++++----------
- 1 files changed, 14 insertions(+), 10 deletions(-)
+below are some comments, there are some strange changes:
 
-diff -puN drivers/net/wan/dscc4.c~dscc4-misplaced-free_ring drivers/net/wan/dscc4.c
---- linux-2.6.0-test5-bk7/drivers/net/wan/dscc4.c~dscc4-misplaced-free_ring	Sun Sep 21 01:03:49 2003
-+++ linux-2.6.0-test5-bk7-fr/drivers/net/wan/dscc4.c	Sun Sep 21 02:01:43 2003
-@@ -108,7 +108,7 @@
- #include <linux/hdlc.h>
- 
- /* Version */
--static const char version[] = "$Id: dscc4.c,v 1.159 2002/04/10 22:05:17 romieu Exp $ for Linux\n";
-+static const char version[] = "$Id: dscc4.c,v 1.173 2003/09/20 23:55:34 romieu Exp $ for Linux\n";
- static int debug;
- static int quartz;
- 
-@@ -593,6 +593,8 @@ static inline int dscc4_xpr_ack(struct d
- 	return (i >= 0 ) ? i : -EAGAIN;
- }
- 
-+/* dscc4_{rx/tx}_reset are both unreliable - more tweak needed */
-+__attribute__ ((unused))
- static void dscc4_rx_reset(struct dscc4_dev_priv *dpriv, struct net_device *dev)
- {
- 	unsigned long flags;
-@@ -607,6 +609,7 @@ static void dscc4_rx_reset(struct dscc4_
- 	spin_unlock_irqrestore(&dpriv->pci_priv->lock, flags);
- }
- 
-+__attribute__ ((unused))
- static void dscc4_tx_reset(struct dscc4_dev_priv *dpriv, struct net_device *dev)
- {
- 	u16 i = 0;
-@@ -860,7 +863,7 @@ static int dscc4_found1(struct pci_dev *
- {
- 	struct dscc4_pci_priv *ppriv;
- 	struct dscc4_dev_priv *root;
--	int i = 0;
-+	int i, ret = -ENOMEM;
- 
- 	root = (struct dscc4_dev_priv *)
- 		kmalloc(dev_per_card*sizeof(*root), GFP_KERNEL);
-@@ -901,7 +904,8 @@ static int dscc4_found1(struct pci_dev *
- 		hdlc->xmit = dscc4_start_xmit;
- 		hdlc->attach = dscc4_hdlc_attach;
- 
--	        if (register_hdlc_device(hdlc)) {
-+		ret = register_hdlc_device(hdlc);
-+		if (ret < 0) {
- 			printk(KERN_ERR "%s: unable to register\n", DRV_NAME);
- 			goto err_unregister;
- 	        }
-@@ -909,17 +913,20 @@ static int dscc4_found1(struct pci_dev *
- 		dscc4_init_registers(dpriv, d);
- 		dpriv->parity = PARITY_CRC16_PR0_CCITT;
- 		dpriv->encoding = ENCODING_NRZ;
--		if (dscc4_init_ring(d)) {
-+
-+		ret = dscc4_init_ring(d);
-+		if (ret < 0) {
- 			unregister_hdlc_device(hdlc);
- 			goto err_unregister;
- 		}
- 	}
--	if (dscc4_set_quartz(root, quartz) < 0)
-+	ret = dscc4_set_quartz(root, quartz);
-+	if (ret < 0)
- 		goto err_unregister;
- 	ppriv->root = root;
- 	spin_lock_init(&ppriv->lock);
- 	pci_set_drvdata(pdev, ppriv);
--	return 0;
-+	return ret;
- 
- err_unregister:
- 	while (--i >= 0) {
-@@ -930,7 +937,7 @@ err_unregister:
- err_free_dev:
- 	kfree(root);
- err_out:
--	return -1;
-+	return ret;
- };
- 
- /* FIXME: get rid of the unneeded code */
-@@ -1093,9 +1100,7 @@ done:
- 
- err_disable_scc_events:
- 	scc_writel(0xffffffff, dpriv, dev, IMR);
--err_free_ring:
- 	scc_patchl(PowerUp | Vis, 0, dpriv, dev, CCR0);
--	dscc4_release_ring(dpriv);
- err_out:
- 	hdlc_close(hdlc);
- err:
-@@ -1161,7 +1166,6 @@ static int dscc4_close(struct net_device
- 	dpriv->flags |= FakeReset;
- 
- 	hdlc_close(hdlc);
--	dscc4_release_ring(dpriv);
- 
- 	return 0;
- }
+On Tue, 16 Sep 2003, Stephen Hemminger wrote:
 
-_
+> diff -Nru a/net/ipv4/ipvs/ip_vs_app.c b/net/ipv4/ipvs/ip_vs_app.c
+> --- a/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:08:39 2003
+> +++ b/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:08:39 2003
+> @@ -214,18 +214,14 @@
+>   */
+>  void unregister_ip_vs_app(struct ip_vs_app *app)
+>  {
+> -	struct ip_vs_app *inc;
+> -	struct list_head *l = &app->incs_list;
+> +	struct ip_vs_app *inc, *nxt;
+>
+>  	down(&__ip_vs_app_mutex);
+>
+> -	while (l->next != l) {
+> -		inc = list_entry(l->next, struct ip_vs_app, a_list);
+> +	list_for_each_entry_safe(inc, nxt, &app->incs_list, a_list) {
+>  		ip_vs_app_inc_release(inc);
+>  	}
+
+	What happens with this list_del?:
+
+>
+> -	list_del(&app->a_list);
+> -
+>  	up(&__ip_vs_app_mutex);
+>
+>  	/* decrease the module use count */
+
+> diff -Nru a/net/ipv4/ipvs/ip_vs_rr.c b/net/ipv4/ipvs/ip_vs_rr.c
+> --- a/net/ipv4/ipvs/ip_vs_rr.c	Tue Sep 16 14:08:39 2003
+> +++ b/net/ipv4/ipvs/ip_vs_rr.c	Tue Sep 16 14:08:39 2003
+> @@ -57,7 +57,7 @@
+>  static struct ip_vs_dest *
+>  ip_vs_rr_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+>  {
+> -	register struct list_head *p, *q;
+> +	struct list_head *p, *q;
+>  	struct ip_vs_dest *dest;
+>
+>  	IP_VS_DBG(6, "ip_vs_rr_schedule(): Scheduling...\n");
+> @@ -73,12 +73,12 @@
+>  			continue;
+>  		}
+
+	new empty line, may be your changes to ip_vs_rr.c are
+not completed/actual? :) :
+
+>
+> +
+>  		dest = list_entry(q, struct ip_vs_dest, n_list);
+>  		if (!(dest->flags & IP_VS_DEST_F_OVERLOAD) &&
+>  		    atomic_read(&dest->weight) > 0)
+>  			/* HIT */
+>  			goto out;
+
+	Why this line is deleted?:
+
+> -		q = q->next;
+>  	} while (q != p);
+>  	write_unlock(&svc->sched_lock);
+>  	return NULL;
+
+
+> diff -Nru a/net/ipv4/ipvs/ip_vs_sed.c b/net/ipv4/ipvs/ip_vs_sed.c
+> --- a/net/ipv4/ipvs/ip_vs_sed.c	Tue Sep 16 14:08:39 2003
+> +++ b/net/ipv4/ipvs/ip_vs_sed.c	Tue Sep 16 14:08:39 2003
+> @@ -85,7 +85,6 @@
+>  static struct ip_vs_dest *
+>  ip_vs_sed_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+>  {
+> -	register struct list_head *l, *e;
+>  	struct ip_vs_dest *dest, *least;
+>  	unsigned int loh, doh;
+>
+> @@ -104,9 +103,7 @@
+>  	 * new connections.
+>  	 */
+>
+> -	l = &svc->destinations;
+> -	for (e=l->next; e!=l; e=e->next) {
+> -		least = list_entry(e, struct ip_vs_dest, n_list);
+> +	list_for_each_entry(least, &svc->destinations, n_list) {
+>  		if (!(least->flags & IP_VS_DEST_F_OVERLOAD) &&
+>  		    atomic_read(&least->weight) > 0) {
+>  			loh = ip_vs_sed_dest_overhead(least);
+> @@ -119,9 +116,7 @@
+>  	 *    Find the destination with the least load.
+>  	 */
+
+	Inefficient, list_for_each_entry_continue?:
+
+>    nextstage:
+> -	for (e=e->next; e!=l; e=e->next) {
+> -		dest = list_entry(e, struct ip_vs_dest, n_list);
+> -
+> +	list_for_each_entry(dest, &svc->destinations, n_list) {
+>  		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+>  			continue;
+>  		doh = ip_vs_sed_dest_overhead(dest);
+
+
+> diff -Nru a/net/ipv4/ipvs/ip_vs_wlc.c b/net/ipv4/ipvs/ip_vs_wlc.c
+> --- a/net/ipv4/ipvs/ip_vs_wlc.c	Tue Sep 16 14:08:39 2003
+> +++ b/net/ipv4/ipvs/ip_vs_wlc.c	Tue Sep 16 14:08:39 2003
+> @@ -73,7 +73,6 @@
+>  static struct ip_vs_dest *
+>  ip_vs_wlc_schedule(struct ip_vs_service *svc, struct iphdr *iph)
+>  {
+> -	register struct list_head *l, *e;
+>  	struct ip_vs_dest *dest, *least;
+>  	unsigned int loh, doh;
+>
+> @@ -92,9 +91,7 @@
+>  	 * new connections.
+>  	 */
+>
+> -	l = &svc->destinations;
+> -	for (e=l->next; e!=l; e=e->next) {
+> -		least = list_entry(e, struct ip_vs_dest, n_list);
+> +	list_for_each_entry(least, &svc->destinations, n_list) {
+>  		if (!(least->flags & IP_VS_DEST_F_OVERLOAD) &&
+>  		    atomic_read(&least->weight) > 0) {
+>  			loh = ip_vs_wlc_dest_overhead(least);
+> @@ -107,9 +104,7 @@
+>  	 *    Find the destination with the least load.
+>  	 */
+
+	Shorter, not broken but inefficient, list_for_each_entry_continue?:
+
+>    nextstage:
+> -	for (e=e->next; e!=l; e=e->next) {
+> -		dest = list_entry(e, struct ip_vs_dest, n_list);
+> -
+> +	list_for_each_entry(dest, &svc->destinations, n_list) {
+>  		if (dest->flags & IP_VS_DEST_F_OVERLOAD)
+>  			continue;
+>  		doh = ip_vs_wlc_dest_overhead(dest);
+
+> diff -Nru a/net/ipv4/ipvs/ip_vs_wrr.c b/net/ipv4/ipvs/ip_vs_wrr.c
+> --- a/net/ipv4/ipvs/ip_vs_wrr.c	Tue Sep 16 14:08:39 2003
+> +++ b/net/ipv4/ipvs/ip_vs_wrr.c	Tue Sep 16 14:08:39 2003
+> @@ -56,25 +56,22 @@
+>
+>  static int ip_vs_wrr_gcd_weight(struct ip_vs_service *svc)
+>  {
+> -	register struct list_head *l, *e;
+>  	struct ip_vs_dest *dest;
+>  	int weight;
+>  	int g = 1;
+>
+> -	l = &svc->destinations;
+> -	for (e=l->next; e!=l; e=e->next) {
+> -		dest = list_entry(e, struct ip_vs_dest, n_list);
+> +	list_for_each_entry(dest, &svc->destinations, n_list) {
+>  		weight = atomic_read(&dest->weight);
+>  		if (weight > 0) {
+>  			g = weight;
+> -			break;
+> +			goto search_gcd;
+>  		}
+>  	}
+> -	if (e == l)
+> -		return g;
+>
+> -	for (e=e->next; e!=l; e=e->next) {
+> -		dest = list_entry(e, struct ip_vs_dest, n_list);
+> +	return g;
+> +
+
+	It still does not look good:
+
+> + search_gcd:
+> +	list_for_each_entry(dest, &svc->destinations, n_list) {
+>  		weight = atomic_read(&dest->weight);
+>  		if (weight > 0)
+>  			g = gcd(weight, g);
+> @@ -89,13 +86,10 @@
+
+	What about such version?:
+
+static int ip_vs_wrr_gcd_weight(struct ip_vs_service *svc)
+{
+	struct ip_vs_dest *dest;
+	int weight;
+	int g = 0;
+
+	list_for_each_entry(dest, &svc->destinations, n_list) {
+		weight = atomic_read(&dest->weight);
+		if (weight > 0) {
+			if (g > 0)
+				g = gcd(weight, g);
+			else
+				g = weight;
+		}
+	}
+
+	return g?: 1;
+}
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
