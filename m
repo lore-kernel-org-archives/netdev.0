@@ -1,33 +1,36 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: Re: kfree_skb: unnecessary check ?
-Date: Wed, 19 Jun 2002 21:51:02 +0200 (MET DST)
+From: Donald Becker <becker@scyld.com>
+Subject: Re: how to report network device errors to userspace?
+Date: Wed, 19 Jun 2002 16:21:48 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10206192147180.14054-100000@mausmaki.cosy.sbg.ac.at>
-References: <3D10B6FE.1050602@trash.net>
+Message-ID: <Pine.LNX.4.33.0206191616060.1669-100000@presario>
+References: <3D10CFF9.B4072FEA@nortelnetworks.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Cc: <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <3D10B6FE.1050602@trash.net>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+In-Reply-To: <3D10CFF9.B4072FEA@nortelnetworks.com>
 List-Id: netdev.vger.kernel.org
 
-patrick,
+On Wed, 19 Jun 2002, Chris Friesen wrote:
 
---snip/snip
-> static inline void kfree_skb(struct sk_buff *skb)
-> {
--     if (atomic_read(&skb->users) == 1)
-+     if (likely(atomic_read(&skb->users) == 1))
->         __kfree(skb);
->     else
->         atomic_dec(&skb->users);
-> }
+> I'm curious about the proper way for a network device driver to report
+> faults to userspace.
 
-is even faster for the likely case by 1 2 jmps (gcc3.1).
-(well, is it the likely case?)
+What type of fault?
 
-	tm
+Errors are counted in /proc/net/dev.
+
+> I haven't been able to find a standard interface for this--does nobody care
+> about this kind of thing?
+
+People very much care.  There are sufficient reporting mechanisms for
+most errors -- it's much more consistent, orthogonal and thorough than
+other device types.  Compare /proc/net/dev with the errors reported for
+disks, serial, USB, keyboard...
 
 -- 
-in some way i do, and in some way i don't.
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
+Annapolis MD 21403			410-990-9993
