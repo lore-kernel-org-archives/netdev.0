@@ -1,68 +1,70 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: [0/3] mc_filter on big-endian arch
-Date: Wed, 9 Jun 2004 22:45:26 -0700
+From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
+Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
+Date: Thu, 10 Jun 2004 08:07:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF72A3CA91.7584BEA0-ON88256EAF.001F34CA-88256EAF.001F8BE8@us.ibm.com>
-References: <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
+Message-ID: <1086847636.1719.6.camel@teapot.felipe-alfaro.com>
+References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
+	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>
+	 <1086725369.1806.1.camel@teapot.felipe-alfaro.com>
+	 <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
+	 <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
+	 <40C793CE.6000609@g-house.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: Andrew Morton <akpm@osdl.org>, David Dillow <dave@thedillows.org>,
-        Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>,
-        Roger Luethi <rl@hellgate.ch>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>,
+        NetDev Mailinglist <netdev@oss.sgi.com>,
+        Kernel Mailinglist <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <OFCBC67DF9.898B09C6-ON88256EAF.001BFC9E-88256EAF.001C4AB8@us.ibm.com>
-To: David Stevens <dlstevens@us.ibm.com>
+To: Christian Kujau <evil@g-house.de>
+In-Reply-To: <40C793CE.6000609@g-house.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PS - Here's a trivial program that will join a group. If you run this on
-one side, then a ping to the multicast address will work when it's in
-the group, and stop answering when it exits. There are more general
-things that have been around for years for testing-- I just threw this
-together just now. (I hope it doesn't have any bugs! :-) ) Should be
-suitable for testing hardware multicast address filters...
+On Thu, 2004-06-10 at 00:48 +0200, Christian Kujau wrote:
+> -----BEGIN PGP SIGNED MESSAGE-----
+> Hash: SHA1
+> 
+> Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
+> |>What is happening is that some subsystem is holding a reference to the
+> device (calling dev_hold())
+> |>but not cleaning up (calling dev_put).  It can be a hard to track
+> which of the many
+> |>things routing, etc are not being cleared properly.  Look for routes
+> that still
+> |>get stuck (ip route) and neighbor cache entries.  Most of these end up
+> being
+> |>protocol bugs.
+> |
+> |
+> | The two attached patches, one for net/ipv4/route.c, the other for net/
+> | ipv6/route.c fix all my problems when running "cardctl eject" while a
+> | program mantains an open network socket (ESTABLISHED).
+> |
+> | Both patches apply cleanly against 2.6.7-rc3 and 2.6.7-rc3-mm1.
+> | I'm not completely sure what has changed in 2.6.7-rc3 that is breaking
+> | cardctl for me, as it Just Worked(TM) fine in 2.6.7-rc2.
+> 
+> do you know, by any chance, if this error is dependent to eth0 only or
+> could help for my error message too:
+> 
+> unregister_netdevice: waiting for ppp0 to become free. Usage count = 1
 
-                                        +-DLS
+I think the mentioned error is not dependent on any specific interface
+(let it be eth0, or ppp0), but any interface in general which has a
+routing entry and is the target/source of IP traffic. This is based on
+the fact that my fixes play with the refcounting on any interface. not
+just eth0 specifically, and pertain to both IPv4 and IPv6 core.
 
-#include <stdio.h>
+However, I detected this behavior on my eth0, since this is the only
+interface I have on my laptop. You just can try both patches against
+2.6.7-rc3 or 2.6.7-rc3-mm1 to see if them cure your problems.
 
-#include <netinet/in.h>
+> happened just a few hours ago (2.6.7-rc3), i had to reboot the box
+> anyway, but pppd was not able to die (even with kill -9)
 
-int
-main(int argc, char *argv[])
-{
-        struct ip_mreqn mreqn;
-        int s;
-
-        if (argc != 3) {
-                fprintf(stderr, "usage: %s <dev> <group>\n", argv[0]);
-                exit(1);
-        }
-        s = socket(PF_INET, SOCK_DGRAM, 0);
-        if (s < 0) {
-                perror("socket");
-                exit(1);
-        }
-        memset(&mreqn, 0, sizeof(mreqn));
-        mreqn.imr_ifindex = if_nametoindex(argv[1]);
-        if (!mreqn.imr_ifindex) {
-                fprintf(stderr, "%s: \"%s\" invalid interface\n", argv[0],
-                        argv[1]);
-                exit(1);
-        }
-        if (inet_pton(AF_INET, argv[2], &mreqn.imr_multiaddr) <= 0) {
-                fprintf(stderr, "%s: \"%s\" invalid group address\n", 
-argv[0],
-                        argv[2]);
-                exit(1);
-        }
-        if (setsockopt(s, SOL_IP, IP_ADD_MEMBERSHIP, &mreqn,sizeof mreqn) 
-< 0) {
-                perror("IP_ADD_MEMBERSHIP");
-                exit(1);
-        }
-        printf("joined group %s on %s (pausing...)");
-        fflush(stdout);
-        pause();
-        exit(0);
-}
+In my case, I was able to trigger the problem by running "cardctl eject"
+which was then stuck at D state. Killing any program using a network
+socket, and waiting for opened connections to transition from
+ESTABLISHED to TIME_WAIT and then being closed, allowed "cardctl" to
+exit the D state.
