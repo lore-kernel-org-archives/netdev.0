@@ -1,67 +1,41 @@
-From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH] Implementation for IPv6 MIB:ipv6AddressTable
-Date: Tue, 7 Oct 2003 10:11:00 -0700
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Mark non 64bit clean network drivers
+Date: Tue, 7 Oct 2003 19:53:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFB064680A.7B686FB0-ON87256DB8.005E1987@us.ibm.com>
+Message-ID: <20031007175338.GA1692@averell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-2022-JP
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, mashirle@us.ibm.com,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+To: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+This marks some net drivers which are clearly not 64bit (judging from
+the warnings) as !64BIT.
 
-
-
-Yes. Yoshifuji is right.The timeStamp should be
-
--- hundredths of seconds since an epoch
-TimeTicks ::=
-    [APPLICATION 3]
-        IMPLICIT INTEGER (0..4294967295)
-
-I will modify the patch, and resubmit it against Linux-2.6.0-test6-bk8
-again.
-
-Thanks
-Shirley Ma
-IBM Linux Technology Center
-15300 SW Koll Parkway
-Beaverton, OR 97006-6063
-Phone: (503) 578-7638
-FAX:      (503) 578-3228
-
-
-
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>@oss.sgi.com on
-10/07/2003 04:35:18 AM
-
-Sent by:    netdev-bounce@oss.sgi.com
-
-
-To:    davem@redhat.com
-cc:    kuznet@ms2.inr.ac.ru, mashirle@us.ltcfwd.linux.ibm.com,
-       netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Subject:    Re: [PATCH] Implementation for IPv6 MIB:ipv6AddressTable
-
-
-In article <20031007041246.13aa0391.davem@redhat.com> (at Tue, 7 Oct 2003
-04:12:46 -0700), "David S. Miller" <davem@redhat.com> says:
-
-> On Tue, 7 Oct 2003 15:16:20 +0400 (MSD)
-> kuznet@ms2.inr.ac.ru wrote:
->
-> > Actually, this does not depend on our implementation. If people
-implement
-> > a MIB, required precision of these times is prescribed in the rfc.
-> > And this is definitely not jiffies.
->
-> Right, Shirley what is it?
-
-The type is TimeTicks (RFC2578) via TimeStamp (RFC2579).
-Thus, uint32_t counter in 1/100 sec. unit.
-
---yoshfuji
+-Andi
+ 
+diff -u linux-2.5-cleanup/drivers/net/Kconfig-o linux-2.5-cleanup/drivers/net/Kconfig
+--- linux-2.5-cleanup/drivers/net/Kconfig-o	2003-10-02 18:12:03.000000000 +0200
++++ linux-2.5-cleanup/drivers/net/Kconfig	2003-12-02 17:20:58.742717656 +0100
+@@ -1616,7 +1616,7 @@
+ 
+ config TLAN
+ 	tristate "TI ThunderLAN support"
+-	depends on NET_PCI && (PCI || EISA)
++	depends on NET_PCI && (PCI || EISA) && !64BIT
+ 	---help---
+ 	  If you have a PCI Ethernet network card based on the ThunderLAN chip
+ 	  which is supported by this driver, say Y and read the
+@@ -2412,7 +2412,7 @@
+ 
+ config RCPCI
+ 	tristate "Red Creek Hardware VPN (EXPERIMENTAL)"
+-	depends on NETDEVICES && EXPERIMENTAL && PCI
++	depends on NETDEVICES && EXPERIMENTAL && PCI && !64BIT
+ 	help
+ 	  This is a driver for hardware which provides a Virtual Private
+ 	  Network (VPN). Say Y if you have it.
+ 	
