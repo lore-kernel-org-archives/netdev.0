@@ -1,56 +1,35 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 3c59x AUI and sockets AF_PACKET
-Date: Tue, 17 Dec 2002 12:10:42 -0800
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: [ANNOUNCE] Intel PRO/100 software developer manual released
+Date: Tue, 17 Dec 2002 14:03:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DFF84C2.9090305@candelatech.com>
-References: <1939.192.168.0.31.1040120199.squirrel@www.itris.fr>
+Message-ID: <288F9BF66CD9D5118DF400508B68C44604758F6C@orsmsx113.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Cc: LOSTeam <losteam@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kernel@itris.fr
-In-Reply-To: <1939.192.168.0.31.1040120199.squirrel@www.itris.fr>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kernel@itris.fr wrote:
-> Hi,
-> 
-> I have got an important problem to solve :
-> 
-> When I load the 3c59x module with no option, my 2 network cards
-> are working well with 10baseT, and vortex-diag tells me then :
-> Transceiver type in use: Autonegociate.
-> 
-> I can open a socket with AF_PACKET level, and bind() works fine !
-> I can send data to the socket through RJ45.
-> 
-> But, when I load 3c59x with options=1, vortex-diag tells me
-> Transceiver type in use : AUI10baseFL.
-> 
-> I can configure my 2 network cards with ifconfig.
-> 
-> Everything is ok, but, when i want to open my socket AF_PACKET to
-> send data to AUI port, bind () returns -1, as though all my interfaces
-> are ok (ifconfig sees them all).
 
-After the call fails, do this (it may offer a clue):
+Available at https://sourceforge.net/projects/e1000.
 
-printf("%i:  %s\n", errno, strerror(errno));
-/* Hopes syntax is correct */
+The full title is: 
 
-> 
-> I would like to send data to AUI, what is the problem ?
-> 
-> Thanks !!
-> 
-> Christophe Baillon
-> 
-> 
+  Intel 8255x 10/100 Mbps Ethernet Controller Family
+  Open Source Software Developer Manual
+  Revision 1.0
 
+The manual is intended to support the maintenance of the e100 driver (or the
+best driver for the PRO/100 networking hardware ;-).  The manual covers the
+82557, 82558, 82559, 82550, and 82551 Ethernet controllers.
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+I would like to thank Jeff Garzik for encouraging this publication, and for
+having the patience to deal with the Intel machine.
+
+I would also like to thank the Intel editors and reviewers: Carolyn
+Abrigana, Larry Bates, Julie Donnelly, John Ronciak, Wen-Hwa Tao, Eli
+Kupermann, David Valdez, Colleen Culbertson, and especially Glenn Begis for
+not giving up.
+
+-scott
