@@ -1,57 +1,38 @@
 From: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Subject: Re: [PATCH]: r8169: Expose hardware stats via ethtool
-Date: Sun, 27 Feb 2005 22:46:50 +0000
-Message-ID: <42224DDA.1010907@phekda.gotadsl.co.uk>
-References: <42208D83.80803@phekda.gotadsl.co.uk> <42209C4E.6000800@pobox.com>
+Date: Sun, 27 Feb 2005 22:53:42 +0000
+Message-ID: <42224F76.9000602@phekda.gotadsl.co.uk>
+References: <42208D83.80803@phekda.gotadsl.co.uk> <200502261132.29261.jdmason@us.ibm.com> <4220B9C6.1010106@pobox.com> <20050226181213.GA13230@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, Jon Mason <jdmason@us.ibm.com>,
+Cc: Jeff Garzik <jgarzik@pobox.com>, Jon Mason <jdmason@us.ibm.com>,
         netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42209C4E.6000800@pobox.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050226181213.GA13230@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hello.
 
-Jeff Garzik wrote:
-> Richard Dawe wrote:
+Thanks for reviewing, Francois, Jon & Jeff!
+
+Francois Romieu wrote:
 [snip]
->> +static const char rtl8169_gstrings_stats[][ETH_GSTRING_LEN] = {
->> +    "tx_ok", "rx_ok", "tx_err", "rx_err",
->> +    "rx_fifo", "frame_align", "tx_ok_1col", "tx_ok_mcol",
->> +    "rx_ok_phys", "rx_ok_bcast", "rx_ok_mcast", "tx_abort",
->> +    "tx_underrun",
->> +};
-> 
-> 
-> Don't needlessly reformat copied code.  It's one-string-per-line 
-> intentionally, for ease of maintenance and ease of adding new strings.
+> Btw I'd simply remove the 'work' variable and schedule in an interruptible
+> way until the dump is done.
 
-OK, I'll fix that.
+OK, that will take me a bit longer to code. ;)
 
-> Also, I don't see why you renamed this from ethtool_stats_keys[].
+> BUG() is a bit exagerated imho.
 
-I didn't copy it directly. I started off with something that looked like 
-the ethtool stats code from the e100 driver. Then I noticed that 8139cp 
-did the right thing for r8169.
+It seems like a pretty good way of avoiding a buffer overrun to me. 
+E.g.: you copy an extra statistic in rtl8169_get_ethtool_stats(), but 
+forget to update the stats length. Is it not better to crash early, than 
+encounter random behaviour later?
 
-I'll rename it.
-
->> +    /* begin NIC statistics dump */
->> +    RTL_W32(StatsAddrHigh, tp->nic_stats_addr >> 32);
->> +    RTL_W32(StatsAddrLow, (tp->nic_stats_addr & 0xffffffff) | 
->> DumpStats);
->> +    RTL_R32(StatsAddrLow);
-> 
-> 
-> This last RTL_R32() can be removed [from 8139cp too], because a flush 
-> immediately follows anyway:
-[snip]
-
-OK, will do.
+I can put an #ifdef RTL8169_DEBUG / #endif around it, if you'd be happier.
 
 Thanks, bye, Rich =]
 
