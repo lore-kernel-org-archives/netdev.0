@@ -1,62 +1,98 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: 2.6.10-rc3-mm1 FIONREAD breakge
-Date: Fri, 17 Dec 2004 13:26:48 -0800
-Message-ID: <20041217132648.41f3c97b.akpm@osdl.org>
-References: <20041217130716.1464a068@dxpl.pdx.osdl.net>
+From: Roland Dreier <roland@topspin.com>
+Subject: LLTX and netif_stop_queue
+Date: Fri, 17 Dec 2004 13:57:40 -0800
+Message-ID: <52llbwoaej.fsf@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@digeo.com, cliffw@osdl.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20041217130716.1464a068@dxpl.pdx.osdl.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: netdev@oss.sgi.com, davem@redhat.com
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger <shemminger@osdl.org> wrote:
->
->  Latest -mm kernel broke FIONREAD on UDP sockets.
+While testing my IP-over-InfiniBand driver, I discovered that if a net
+device sets NETIF_F_LLTX, it seems the device's hard_start_xmit method
+can be called even after a netif_stop_queue().
 
-yup, you'll need this:
+This is because in the LLTX case, qdisc_restart() holds no locks while
+calling hard_start_xmit, so something like the following can happen:
 
---- 25/fs/ioctl.c~ioctl-cleanups-broke-fionread-et-al	2004-12-13 11:12:37.687951760 -0800
-+++ 25-akpm/fs/ioctl.c	2004-12-13 11:12:37.690951304 -0800
-@@ -91,10 +91,8 @@ asmlinkage long sys_ioctl(unsigned int f
- 			int block;
- 			int res;
- 
--			if (!S_ISREG(inode->i_mode)) {
--				error = -ENOTTY;
--				goto done;
--			}
-+			if (!S_ISREG(inode->i_mode))
-+				break;
- 			/* do we support this mess? */
- 			if (!mapping->a_ops->bmap) {
- 				error = -EINVAL;
-@@ -112,19 +110,15 @@ asmlinkage long sys_ioctl(unsigned int f
- 			goto done;
- 		}
- 	case FIGETBSZ:
--		if (!S_ISREG(inode->i_mode)) {
--			error = -ENOTTY;
--			goto done;
--		}
-+		if (!S_ISREG(inode->i_mode))
-+			break;
- 		error = -EBADF;
- 		if (inode->i_sb)
- 			error = put_user(inode->i_sb->s_blocksize, p);
- 		goto done;
- 	case FIONREAD:
--		if (!S_ISREG(inode->i_mode)) {
--			error = -ENOTTY;
--			goto done;
--		}
-+		if (!S_ISREG(inode->i_mode))
-+			break;
- 		error = put_user(i_size_read(inode) - filp->f_pos, p);
- 		goto done;
+    CPU 1                                CPU 2
+
+    qdisc_restart:
+      drop queue lock
+      call hard_start_xmit()
+        net driver:
+          acquire TX lock
+          queue packet to HW
+
+                                        acquire queue lock...
+                                        qdisc_restart:
+                                          drop queue lock
+                                          call hard_start_xmit:
+
+          queue full, call netif_stop_queue()
+          release TX lock
+
+                                            net driver:
+                                              acquire TX lock
+                                              queue is already full!
+
+Is my understanding correct?  If so it seems the patch below would
+make sense.  (e1000 seems to handle this properly already)
+
+Thanks,
+  Roland
+
+
+Since tg3 and sungem now use lockless TX (NETIF_F_LLTX), it's possible
+for their hard_start_xmit method to be called even after they call
+netif_stop_queue.  Therefore a full queue no longer indicates a bug --
+this patch fixes the comment and removes the KERN_ERR printk.
+
+Signed-off-by: Roland Dreier <roland@topspin.com>
+
+Index: linux-bk/drivers/net/sungem.c
+===================================================================
+--- linux-bk.orig/drivers/net/sungem.c	2004-12-16 15:56:19.000000000 -0800
++++ linux-bk/drivers/net/sungem.c	2004-12-17 13:46:43.307064457 -0800
+@@ -976,12 +976,10 @@
+ 		return NETDEV_TX_LOCKED;
  	}
-_
+ 
+-	/* This is a hard error, log it. */
++	/* This may happen, since we have NETIF_F_LLTX set */
+ 	if (TX_BUFFS_AVAIL(gp) <= (skb_shinfo(skb)->nr_frags + 1)) {
+ 		netif_stop_queue(dev);
+ 		spin_unlock_irqrestore(&gp->tx_lock, flags);
+-		printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
+-		       dev->name);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
+Index: linux-bk/drivers/net/tg3.c
+===================================================================
+--- linux-bk.orig/drivers/net/tg3.c	2004-12-16 15:56:06.000000000 -0800
++++ linux-bk/drivers/net/tg3.c	2004-12-17 13:46:25.952622672 -0800
+@@ -3076,12 +3076,10 @@
+ 		return NETDEV_TX_LOCKED; 
+ 	} 
+ 
+-	/* This is a hard error, log it. */
++	/* This may happen, since we have NETIF_F_LLTX set */
+ 	if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
+ 		netif_stop_queue(dev);
+ 		spin_unlock_irqrestore(&tp->tx_lock, flags);
+-		printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
+-		       dev->name);
+ 		return NETDEV_TX_BUSY;
+ 	}
+ 
