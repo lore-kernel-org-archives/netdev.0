@@ -1,38 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [BK PATCH 2.6] fix sysctl breakage during network device
- renaming, for ipv4
-Date: Wed, 27 Aug 2003 23:28:47 -0700
+Subject: Re: [OOPS] less /proc/net/igmp
+Date: Wed, 27 Aug 2003 23:40:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827232847.68cc17a6.davem@redhat.com>
-References: <20030826153812.GA2216@callisto.yi.org>
+Message-ID: <20030827234010.0b0b2e69.davem@redhat.com>
+References: <20030826.173226.114994096.yoshfuji@linux-ipv6.org>
+	<20030827.015448.70287953.yoshfuji@linux-ipv6.org>
+	<1061929108.3946.1.camel@spider.hotmonkeyporn.com>
+	<20030827.083926.50662159.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dan Aloni <da-x@gmx.net>
-In-Reply-To: <20030826153812.GA2216@callisto.yi.org>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030827.083926.50662159.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Aug 2003 18:38:12 +0300
-Dan Aloni <da-x@gmx.net> wrote:
+On Wed, 27 Aug 2003 08:39:26 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
->   Sysctl assumes its ctl_table.procname field is const, but the 
->   networking points ctl_table.procname to dev->name. When renaming 
->   a network device using SIOCSIFNAME, dev->name is modified and 
->   sysctl's assumption breaks, causing this behaviour, at least:
->   
->     1. sysctl wouldn't be able to remove the proc entry when the 
->        device requests to be unregistered, because it would be 
->        using the new name instead of the old one.
->     2. proc entries for devices remain with the old name after 
->        rename.
->     
->   This change includes allocating the current device name to a
->   new copy upon registering with sysctl, plus re-registering with 
->   sysctl when the device is renamed.
+> In article <1061929108.3946.1.camel@spider.hotmonkeyporn.com> (at 26 Aug 2003 15:18:28 -0500), Owen Ford <oford@arghblech.com> says:
+> 
+> Thanks.  David, please apply.
+> 
+> D: Fixing several refcnt mistakes in seq_file handlers for 
+> D: /proc/net/{igmp,igmp6,msfilter,msfilter6}.
 
-Conceptually this change is OK.  But please don't put generic
-things like a strdup() implementation statically into
-net/ipv4/devinet.c, it does not belong there.
+Applied, thank you.
