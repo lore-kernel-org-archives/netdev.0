@@ -1,54 +1,24 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [Bug 1491] New: No SADB_EXPIRE message sent when soft byte lifetime is reached]
-Date: Tue, 4 Nov 2003 20:34:54 -0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [Bug 1490] New: _decode_session[46] does not set type or code
+ for ICMP or ICMPv6]
+Date: Tue, 4 Nov 2003 14:29:49 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031104223453.GC23401@conectiva.com.br>
+Message-ID: <20031104142949.0a57d416.davem@redhat.com>
+References: <20031104223118.GB23401@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20031104223118.GB23401@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-One more...
+On Tue, 4 Nov 2003 20:31:19 -0200
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
------ Forwarded message from bugme-daemon@osdl.org -----
+> FYI
 
-Date: Tue, 4 Nov 2003 09:26:37 -0800
-From: bugme-daemon@osdl.org
-Subject: [Bug 1491] New: No SADB_EXPIRE message sent when soft byte lifetime is reached
-To: acme@conectiva.com.br
-
-http://bugme.osdl.org/show_bug.cgi?id=1491
-
-           Summary: No SADB_EXPIRE message sent when soft byte lifetime is
-                    reached
-    Kernel Version: 2.6.0-test4
-            Status: NEW
-          Severity: normal
-             Owner: acme@conectiva.com.br
-         Submitter: bbuesker@qualcomm.com
-
-
-Distribution: Redhat 9
-Hardware Environment: x86
-Software Environment: ipsec-tools-0.2.2
-Problem Description:
-If byte lifetimes are used for IPsec security associations, the kernel does not
-send an SADB_EXPIRE message to the key management daemon (racoon) when the soft
-lifetime in terms of bytes is exceeded. Racoon only receives an SADB_EXPIRE
-message when the hard lifetime is exceeded.
-
-Steps to reproduce:
-Reenable byte lifetimes in racoon. Set up a security policy requiring IPsec, and
-with racoon running on two different machines, trigger the IKE negotiation by
-sending a packet. Once the SA is established, continue sending packets until the
-soft byte lifetime is exceeded. At this point, racoon should receive an
-SADB_EXPIRE message indicating the soft lifetime has been exceeded. This message
-is never sent by the kernel.
-
-------- You are receiving this mail because: -------
-You are the assignee for the bug, or are watching the assignee.
-
------ End forwarded message -----
+This should be posted to netdev so that people like Herbert
+Xu, Alexey, James Morris, and others can look at it.
