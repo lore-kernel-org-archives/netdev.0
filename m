@@ -1,72 +1,66 @@
-From: "Ida Smith" <colciadrojyb@earthlink.net>
-Subject: iniquitous newcomer childbirth huber shame
-Date: Tue, 27 Jan 2004 06:28:08 +0600
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: Problem using fwmarks as routing key: "MASQUERADE: Route sent us somewhere else."
+Date: Tue, 27 Jan 2004 02:51:52 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <EAXINGD-0007562386128@flue>
-Reply-To: "Ida Smith" <colciadrojyb@earthlink.net>
+Message-ID: <20040127015152.GP19250@sunbeam.de.gnumonks.org>
+References: <001c01c3e043$93583cd0$1684188d@Kiste>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-        boundary="18247696808790592002"
-Cc: cvs@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="FcSpk3Icpd/Pbul4"
+Cc: netfilter@lists.netfilter.org, netdev@oss.sgi.com,
+        Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Thhoep <thhoep@gmx.de>
+Content-Disposition: inline
+In-Reply-To: <001c01c3e043$93583cd0$1684188d@Kiste>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---18247696808790592002
+
+--FcSpk3Icpd/Pbul4
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8bit
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-earn reid exchange knowledgeable hines draft dip hail inequitable 
-confiscate recusant escalate inspire dictionary 
-hippocrates aborning hundredth minus elan footpad cady 
+On Wed, Jan 21, 2004 at 06:25:22PM +0100, Thhoep wrote:
+> hi,
+>=20
+> my aim: to divide 100 hosts upon 6 masqueraded adsl connections to the
+> internet using a linux router runnig a debian woody.
+>=20
+> the problem: really strange behaviour of the routing/masquerading combo,
+> that changes with every tried kernel version. (described below)
+>=20
+> presumption: some version mismatch or a bug in the kernel routing code,
+> which needs a bugfix that till now is unknown to me
 
---18247696808790592002
-Content-Type: text/html; charset=us-ascii
-Content-Transfer-Encoding: 8bit
+Please read the recent archives of the netdev list with regard to
+"Rusty's brain broke".  Also see=20
+https://bugzilla.netfilter.org/cgi-bin/bugzilla/show_bug.cgi?id=3D144
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
+Alexey heavily argued against us reverting that change, however :(
 
-<TITLE>Message</TITLE>
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-<META content="MSHTML 6.00.2800.1276" name=GENERATOR></HEAD>
-<BODY>
-<DIV><!-- Converted from text/plain format --><FONT face=Arial size=2>
-<p>Hi,<br>
-<br>
-Genierc Vigara and Sepur Viarga (Ciails) available onilne!<br>
-Most trusted online source!<br>
-<br>
-<br>
-Cilais and Vagira<br>
-takes afecft right away &amp; lasts 24-36 huors!<br>
-<A HREF="http://www.fqzir.jcsa.com=www.qjxauknkhg.qjtnje.seeitnowhere.com/cv/?AFF_ID=cv0119&ktzrd=ffbbyvtybk">FOR SUEPR VAIRGA TOCUH HERE</a><br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<br>
-<A HREF="http://www.hoosrod.olncycivu.com=www.zjopvgzr.afggy.seeitnowhere.com/homepage/?tyqe=tmjrll">Not itnreseted</a><br></FONT></DIV></BODY></HTML>
-b delaney secrecy saracen briggs jorgenson estimable most movie incomprehension bitch search d judicial ceq deficient beachhead beneficial binocular hemispheric jay castanet explore millstone box paramount during knowles <br>
-devoid irreclaimable beneficent accession septic nolo growl joy original showman fenton helix insincere histochemic esophagi clause exorcise divide impervious counterpart housework gould benevolent creole debby degree horoscope cargo haughty <br>
-nun hoagland greenhouse passion rasa biddy cryogenic guignol clod chevron freshwater demystify false hempstead equipped lobar meyers grotesque hodgkin candela factorial fledge laidlaw avarice frangipani geigy hope hut barrette extricate mendacious dickson picky dartmouth compensate <br>
-job lund corduroy lookup aylesbury cutback fold alhambra homeric acquit asuncion behave establish bertie hungry hectic housekeep posteriori sheep complainant chauffeur bewitch <br>
-meredith rheostat bricklay adequate dialogue ablate equilibrate pleural christoph lowboy <br>
-armload occlusive picky evolutionary krieger allotropic anharmonic homomorphism milestone beginning franchise belittle bucketfull bandstop buckeye gondola darwin inflate brindle feedback caucasian <br>
-homeomorphic auxiliary baseband chaplin grille debilitate necromancer dactylic neuter perk dane daniel became genre imminent roost backscatter gladiolus cremate phyllis glutamine gelatine executrix cruz puffin bull mao flourish fbi chicagoan eyed <br>
-climactic colloidal deferral engle bungalow ball feed chairlady ardency silo ginkgo england dodecahedra kit ersatz mouth lucerne attenuate bloodstone lament bifurcate colloquial <br>
-doyle fitful dime dna dreamboat muslim pharmacist debase oakwood helen psychiatric confessor field another pistole sexual checkerboard corp cartesian chicanery bookmobile fractious dahlia finitary alamo desperate horse incubi bstj mohawk mercedes howl pappas obtrusion <br>
-misogyny marmalade opponent criss balance ahoy ingenuous diffident bartend blank parabola accomplice keith antedate arcana bead ak jiffy <br>
+--FcSpk3Icpd/Pbul4
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
 
---18247696808790592002--
+iD8DBQFAFcQ4XaXGVTD0i/8RAsKqAJ0Q9QW37doao1sqR2PoEhUH+fVqyQCgp0vM
+jwRf5NBu0ZGXvns9H02A6f4=
+=/1Gy
+-----END PGP SIGNATURE-----
+
+--FcSpk3Icpd/Pbul4--
