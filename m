@@ -1,54 +1,39 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
-Date: Wed, 2 Mar 2005 12:38:29 -0800
-Message-ID: <20050302123829.51dbc44b.akpm@osdl.org>
-References: <20050223014233.6710fd73.akpm@osdl.org>
-	<20050226113123.GJ3311@stusta.de>
-	<42256078.1040002@pobox.com>
-	<20050302140833.GD4608@stusta.de>
-	<42261004.4000501@pobox.com>
+From: Ralf Baechle <ralf@linux-mips.org>
+Subject: [PATCH] Sparse fixes for NETROM
+Date: Wed, 2 Mar 2005 21:47:53 +0100
+Message-ID: <20050302204753.GA5985@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bunk@stusta.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <42261004.4000501@pobox.com>
+Content-Type: text/plain; charset=us-ascii
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> wrote:
->
-> Adrian Bunk wrote:
-> > On Wed, Mar 02, 2005 at 01:43:04AM -0500, Jeff Garzik wrote:
-> > 
-> >>Adrian Bunk wrote:
-> >>
-> >>>+	select CRYPTO
-> >>>	select CRYPTO_AES
-> >>>	---help---
-> >>>	Include software based cipher suites in support of IEEE 802.11i 
-> >>>	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
-> >>>	networks.
-> >>>@@ -54,10 +55,11 @@
-> >>>	"ieee80211_crypt_ccmp".
-> >>>
-> >>>config IEEE80211_CRYPT_TKIP
-> >>>	tristate "IEEE 802.11i TKIP encryption"
-> >>>	depends on IEEE80211
-> >>>+	select CRYPTO
-> >>>	select CRYPTO_MICHAEL_MIC
-> >>
-> >>
-> >>'select CRYPTO_AES' should 'select CRYPTO' automatically, I would hope.
-> > 
-> > 
-> > This would result in a recursive dependency.
-> 
-> No, it wouldn't.  CRYPTO_AES depends on CRYPTO, which depends on nothing.
-> 
+Moving nr_init_timers prototype to where all the other prototypes
+already are.
 
-Thing is, CRYPTO_AES on only selectable on x86.
-
-So really, IEEE80211_CRYPT_CCMP should depend upon CRYPTO_AES rather than
-selecting it.  But that confuses users.
+Index: bk-afu/include/net/netrom.h
+===================================================================
+--- bk-afu.orig/include/net/netrom.h	2005-03-01 00:49:26.108296048 +0000
++++ bk-afu/include/net/netrom.h	2005-03-01 00:54:52.707645400 +0000
+@@ -221,6 +221,7 @@
+ extern void nr_disconnect(struct sock *, int);
+ 
+ /* nr_timer.c */
++extern void nr_init_timers(struct sock *sk);
+ extern void nr_start_heartbeat(struct sock *);
+ extern void nr_start_t1timer(struct sock *);
+ extern void nr_start_t2timer(struct sock *);
+Index: bk-afu/net/netrom/af_netrom.c
+===================================================================
+--- bk-afu.orig/net/netrom/af_netrom.c	2005-03-01 00:49:26.088299088 +0000
++++ bk-afu/net/netrom/af_netrom.c	2005-03-01 00:55:31.325774552 +0000
+@@ -63,7 +63,6 @@
+ static DEFINE_SPINLOCK(nr_list_lock);
+ 
+ static struct proto_ops nr_proto_ops;
+-void nr_init_timers(struct sock *sk);
+ 
+ static struct sock *nr_alloc_sock(void)
+ {
