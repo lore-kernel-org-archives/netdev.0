@@ -1,34 +1,38 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: v6-in-v4 IPsec and NAT traversal
-Date: Sat, 13 Mar 2004 14:53:44 +0200 (EET)
+From: Aron Griffis <aron@hp.com>
+Subject: Re: ifconfig bug removes aliases
+Date: Sat, 13 Mar 2004 10:28:30 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0403131452280.25018-100000@netcore.fi>
-References: <E1B261p-0006gI-00@gondolin.me.apana.org.au>
+Message-ID: <20040313152830.GC7080@time.flatmonk.org>
+References: <20040310212056.GA5661@time.flatmonk.org> <Pine.LNX.4.58.0403131204500.1130@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1B261p-0006gI-00@gondolin.me.apana.org.au>
+To: Julian Anastasov <ja@ssi.bg>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0403131204500.1130@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 13 Mar 2004, Herbert Xu wrote:
-> Pekka Savola <pekkas@netcore.fi> wrote:
-> > I'm interested whether Linux IPsec implementations support:
-> > 
-> > 1) IPv6 payload inside IPv4 IPsec tunnel/transport?
+Julian Anastasov wrote:	[Sat Mar 13 2004, 05:07:05AM EST]
+> On Wed, 10 Mar 2004, Aron Griffis wrote:
 > 
-> It's not supported directly by the IPsec stack.  However, you can
-> setup an SIT tunnel over a transport IPv4 IPsec SA.
+> > Hello, here is the sequence:
+> >
+> >     ifconfig eth0:1 10.10.10.1 netmask 255.255.0.0
+> >     ifconfig eth0:2 10.10.10.2 netmask 255.255.0.0
+> >     ifconfig eth0:1 down
+> >
+> > At this point eth0:2 has disappeared also.  It appears that the aliases
+> > must be on the same subnet for this to occur, and the creation order is
+> > also important.
+> 
+> 	From inet_del_ifa:
+> 
+> /* 1. Deleting primary ifaddr forces deletion all secondaries */
 
-Is this planned?  Are there issues with "native" support why it would 
-not be feasible?
+Thanks, I am aware of that behavior, but that is not the bug I am
+describing.  In this case it is the deletion of one alias that causes
+another to be removed as well.
 
-Avoiding double encapsulation would be IMHO really useful, and several 
-other implementations are already reported to allow this.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Aron
