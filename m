@@ -1,69 +1,83 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: window tracking firewall involved, was: Re: preliminary
-	conclusions regarding window size issues
-Date: Thu, 08 Jul 2004 18:34:57 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1089304497.2588.12.camel@tux.rsn.bth.se>
-References: <20040707232757.GA14471@outpost.ds9a.nl>
-	 <20040708014443.GE17266@mail.shareable.org>
-	 <20040708060326.GA22258@outpost.ds9a.nl>
-	 <20040708063700.GA23496@outpost.ds9a.nl>
-	 <20040708083708.5f63bc71.davem@redhat.com>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: Re: asymmetry with MSG_DONTWAIT in sendmsg() and recvmsg()
+Date: Thu, 08 Jul 2004 12:49:28 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <40ED7B18.800@nortelnetworks.com>
+References: <20040708162703.GA12934@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-8d09E3ns7FktNIp5ICAo"
-Cc: bert hubert <ahu@ds9a.nl>, jamie@shareable.org,
-	shemminger@osdl.org, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, ALESSANDRO.SUARDI@ORACLE.COM
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040708083708.5f63bc71.davem@redhat.com>
+Content-Type: multipart/mixed;
+ boundary="------------040902000407060804000806"
+Cc: Andi Kleen <ak@suse.de>, Michael T Kerrisk <mtk-lists@gmx.net>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: aeb@cwi.nl
+In-Reply-To: <20040708162703.GA12934@wotan.suse.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------040902000407060804000806
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
---=-8d09E3ns7FktNIp5ICAo
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+Andi Kleen wrote:
+> On Thu, Jul 08, 2004 at 12:21:35PM -0400, Chris Friesen wrote:
+>  > Michael T Kerrisk wrote:
+>  >
+>  > >MSG_DONTWAIT should also work with recvmsg().
+>  >
+>  > Hmm...  Just tried it with a DGRAM socket, and it seems to work.  Any 
+> ideas
+>  > why its not in the man pages?
+> 
+> Nobody ever added it? Just send a patch to aeb@cwi.nl
 
-On Thu, 2004-07-08 at 17:37, David S. Miller wrote:
+Sending patch as suggested.  Fundamentally, the delta is as follows, I've 
+included an attachment with what I hope are the proper formatting codes (copied 
+from send(2)).
 
-> > This has now been confirmed with the packages.gentoo.org firewall!
->=20
-> It's the netfilter patches added to the gentoo WOLK kernel running
-> on packages.gentoo.org
->=20
-> Specifically, it's the tcp-window-tracking patch from netfilter's
-> patch-o-matic.  There's some bug in there wrt. it's window scaling
-> support.
->=20
-> I bet if the tcp-window-scaling diff is removed from the kernel running
-> there, the problem will totally go away.
->=20
-> I note that it is using a very old version of the tcp-window-tracking
-> patch, the current version is 2.2 and probably fixes this bug.  The
-> gentoo linux-2.4.20-wolk-4.14 kernel is using version 1.7
+--- recv.man    2004-07-08 15:43:17.000000000 -0400
++++ recv2.man   2004-07-08 15:47:29.000000000 -0400
+@@ -67,6 +67,11 @@
+                disconnect occurs, or the next data to be received is of a  dif-
+                ferent type than that returned.
 
-That bug was probably fixed May 21 2003 according to cvs history.
-"Patch updated: window scaling bug fixed, improved, etc. (JK)."
-It updates the version to 1.9
++       MSG_DONTWAIT
++              Enables  non-blocking  operation;  if the operation would block,
++              EAGAIN is returned (this can also be enabled  using  the  O_NON-
++              BLOCK with the F_SETFL fcntl(2)).
++
+         MSG_NOSIGNAL
+                This  flag  turns  off raising of SIGPIPE on stream sockets when
+                the other end disappears.
 
-As reference, I'm using v2.2 with -bk from 040626 which does use
-wscale=3D7 and I don't see any problems connecting to/from machines with
-lower or equal wscale. I drop and log all packets tcp-window-tracking
-classifies as INVALID.
 
---=20
-/Martin
+Note also that there is a mention of MSG_DONTWAIT in the msg_flags field in the 
+msghdr.  It gives the impression that one can *set* that field to cause the 
+non-blocking behaviour.  My understanding is that the msg_flags field is a 
+return value only.  Perhaps that portion should be reworded as well.
 
---=-8d09E3ns7FktNIp5ICAo
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
+Chris
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+--------------040902000407060804000806
+Content-Type: application/octet-stream;
+ name="man2recv.diff"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+ filename="man2recv.diff"
 
-iD8DBQBA7XexWm2vlfa207ERAhsZAKC7uBD+jwCHfMcQH4HXu4gTpMqghACfat5M
-BKR138LZyBmozfPJc2s/eq4=
-=xXsk
------END PGP SIGNATURE-----
-
---=-8d09E3ns7FktNIp5ICAo--
+LS0tIHJlY3YubWFuCTIwMDQtMDctMDggMTU6NDM6MTcuMDAwMDAwMDAwIC0wNDAwCisrKyBy
+ZWN2Mi5tYW4JMjAwNC0wNy0wOCAxNTo0NzoyOS4wMDAwMDAwMDAgLTA0MDAKQEAgLTY3LDYg
+KzY3LDExIEBACiAgICAgICAgICAgICAgIGRpc2Nvbm5lY3Qgb2NjdXJzLCBvciB0aGUgbmV4
+dCBkYXRhIHRvIGJlIHJlY2VpdmVkIGlzIG9mIGEgIGRpZi0KICAgICAgICAgICAgICAgZmVy
+ZW50IHR5cGUgdGhhbiB0aGF0IHJldHVybmVkLgogCisgICAgICAgTQhNUwhTRwhHXwhfRAhE
+TwhPTghOVAhUVwhXQQhBSQhJVAhUCisgICAgICAgICAgICAgIEVuYWJsZXMgIG5vbi1ibG9j
+a2luZyAgb3BlcmF0aW9uOyAgaWYgdGhlIG9wZXJhdGlvbiB3b3VsZCBibG9jaywKKyAgICAg
+ICAgICAgICAgRQhFQQhBRwhHQQhBSQhJTghOIGlzIHJldHVybmVkICh0aGlzIGNhbiBhbHNv
+IGJlIGVuYWJsZWQgIHVzaW5nICB0aGUgIE8IT18IX04ITk8IT04ITi0ILQorICAgICAgICAg
+ICAgICBCCEJMCExPCE9DCENLCEsgd2l0aCB0aGUgRghGXwhfUwhTRQhFVAhURghGTAhMIGYI
+ZmMIY24IbnQIdGwIbCgyKSkuCisKICAgICAgICBNCE1TCFNHCEdfCF9OCE5PCE9TCFNJCElH
+CEdOCE5BCEFMCEwKICAgICAgICAgICAgICAgVGhpcyAgZmxhZyAgdHVybnMgIG9mZiByYWlz
+aW5nIG9mIFMIU0kISUcIR1AIUEkISVAIUEUIRSBvbiBzdHJlYW0gc29ja2V0cyB3aGVuCiAg
+ICAgICAgICAgICAgIHRoZSBvdGhlciBlbmQgZGlzYXBwZWFycy4K
+--------------040902000407060804000806--
