@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 9/10] [bonding 2.6] Add missing free_netdev()
-Date: Thu, 11 Sep 2003 17:44:54 +0300
+Subject: [PATCH 10/10] [bonding 2.6] Fix ipx_hdr compile error
+Date: Thu, 11 Sep 2003 17:46:19 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309111744.54683.amir.noam@intel.com>
+Message-ID: <200309111746.19979.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -12,42 +12,33 @@ To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:40 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Sep 11 16:48:41 2003
-@@ -3788,7 +3788,7 @@ static void bond_free_all(void)
+diff -Nuarp a/drivers/net/bonding/bond_alb.c b/drivers/net/bonding/bond_alb.c
+--- a/drivers/net/bonding/bond_alb.c	Thu Sep 11 16:48:44 2003
++++ b/drivers/net/bonding/bond_alb.c	Thu Sep 11 16:48:45 2003
+@@ -1329,16 +1329,15 @@ bond_alb_xmit(struct sk_buff *skb, struc
+ 		hash_size = 16;
+ 		break;
  
- 		unregister_netdev(dev);
- 		bond_deinit(dev);
--		kfree(dev);
-+		free_netdev(dev);
- 	}
- }
- 
-@@ -4194,7 +4194,7 @@ static int __init bonding_init(void)
- 
- 		err = dev_alloc_name(dev, "bond%d");
- 		if (err < 0) {
--			kfree(dev);
-+			free_netdev(dev);
- 			goto out_err;
+-#ifdef FIXME
+ 	case ETH_P_IPX:
+-		if (skb->nh.ipxh->ipx_checksum !=
++		if (ipx_hdr(skb)->ipx_checksum !=
+ 		    __constant_htons(IPX_NO_CHECKSUM)) {
+ 			/* something is wrong with this packet */
+ 			do_tx_balance = 0;
+ 			break;
  		}
  
-@@ -4204,7 +4204,7 @@ static int __init bonding_init(void)
- 		 */
- 		err = bond_init(dev);
- 		if (err < 0) {
--			kfree(dev);
-+			free_netdev(dev);
- 			goto out_err;
- 		}
+-		if (skb->nh.ipxh->ipx_type !=
++		if (ipx_hdr(skb)->ipx_type !=
+ 		    __constant_htons(IPX_TYPE_NCP)) {
+ 			/* The only protocol worth balancing in
+ 			 * this family since it has an "ARP" like
+@@ -1351,7 +1350,6 @@ bond_alb_xmit(struct sk_buff *skb, struc
+ 		hash_start = (char*)eth_data->h_dest;
+ 		hash_size = ETH_ALEN;
+ 		break;
+-#endif
  
-@@ -4213,7 +4213,7 @@ static int __init bonding_init(void)
- 		err = register_netdevice(dev);
- 		if (err < 0) {
- 			bond_deinit(dev);
--			kfree(dev);
-+			free_netdev(dev);
- 			goto out_err;
- 		}
- 	}
+ 	case ETH_P_ARP:
+ 		do_tx_balance = 0;
