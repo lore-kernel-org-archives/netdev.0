@@ -1,32 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] LLTX for tg3
-Date: Sun, 12 Sep 2004 16:45:16 -0700
+Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
+Date: Sun, 12 Sep 2004 17:03:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040912164516.6960ffe8.davem@davemloft.net>
-References: <20040907121841.GA4398@wotan.suse.de>
-	<5cac192f040912100616feb28a@mail.gmail.com>
+Message-ID: <20040912170323.65eadc38.davem@davemloft.net>
+References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, davem@redhat.com, netdev@oss.sgi.com
+Cc: laforge@netfilter.org, netdev@oss.sgi.com, rusty@rustcorp.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f040912100616feb28a@mail.gmail.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 12 Sep 2004 19:06:26 +0200
-Eric Lemoine <eric.lemoine@gmail.com> wrote:
+On Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> > Add LLTX suppor to tg3.  Locking was already safe for it, so only
-> > trivial changes.
+> 	This is a resend/resync for v2.6.9-rc1-bk17: change the
+> way the ip_nat_ftp helper manipulates the packets:
 > 
-> tg3_set_rx_mode() (dev->set_multicast_list()) and tg3_start_xmit()
-> used to synchronise thanks to dev->lock_xmit. With your LLTX patches
-> they don't synchronise anymore (I don't think tg3_set_rx_mode() grabs
-> tp->tx_lock) ; isn't it an issue?
+> - no manips => no fixup
+> 
+> - check the direction, do manip once and at the same time when the
+> headers are changed
+> 
+> 	This is needed mostly for IPVS setups and I hope we do not
+> create troubles for other setups or FTP software.
+> 
+> Signed-off-by: Julian Anastasov <ja@ssi.bg>
 
-You're absolutely right, I've made tg3_set_rx_mode() grab the
-tx_lock now too.
+Harald and/or Rusty, please ACK/NACK this for me.
 
-Good spotting Eric.
+Thanks.
