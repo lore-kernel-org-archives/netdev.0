@@ -1,75 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Checking SPI in xfrm_state_find
-Date: Thu, 31 Mar 2005 10:46:58 +1000
-Message-ID: <20050331004658.GA26395@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [KJ] Re: [PATCH 2.6.12-rc1-bk1 1/3] S2io: Statistics fix
+Date: Wed, 30 Mar 2005 19:58:45 -0500
+Message-ID: <424B4B45.3000509@pobox.com>
+References: <20050329215429.DCFDE5D9A0@linux.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <424B40C2.90304@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============92747903472019444=="
+Cc: raghavendra.koushik@neterion.com, netdev@oss.sgi.com,
+   leonid.grossman@neterion.com, rapuru.sriram@neterion.com,
+   kernel-janitors@lists.osdl.org
+Return-path: <kernel-janitors-bounces@lists.osdl.org>
+To: ravinandan.arakali@neterion.com
+In-Reply-To: <20050329215429.DCFDE5D9A0@linux.site>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/kernel-janitors>
+List-Post: <mailto:kernel-janitors@lists.osdl.org>
+List-Help: <mailto:kernel-janitors-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/kernel-janitors>,
+	<mailto:kernel-janitors-request@lists.osdl.org?subject=subscribe>
+Sender: kernel-janitors-bounces@lists.osdl.org
+Errors-To: kernel-janitors-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 31, 2005 at 02:13:54AM +0200, Patrick McHardy wrote:
->
-> Thanks, both done by these two patches.
+--===============92747903472019444==
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Great.
+applied 1-3
 
-> # This is a BitKeeper generated diff -Nru style patch.
-> #
-> # ChangeSet
-> #   2005/03/30 06:02:45+02:00 kaber@coreworks.de 
-> #   [IPSEC]: Check SPI in xfrm_state_find()
-> #   
-> #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-Looks good.
+--===============92747903472019444==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+_______________________________________________
+Kernel-janitors mailing list
+Kernel-janitors@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/kernel-janitors
 
-> # This is a BitKeeper generated diff -Nru style patch.
-> #
-> # ChangeSet
-> #   2005/03/31 02:07:54+02:00 kaber@coreworks.de 
-> #   [IPSEC]: Check if SPI exists before creating acquire state
-> #   
-> #   Signed-off-by: Patrick McHardy <kaber@trash.net>
->  
->  	x = best;
-> -	if (!x && !error && !acquire_in_progress &&
-> -	    ((x = xfrm_state_alloc()) != NULL)) {
-> +	if (!x && !error && !acquire_in_progress) {
-> +		x0 = afinfo->state_lookup(&tmpl->id.daddr, tmpl->id.spi, tmpl->id.proto);
-
-It just occured to me that it would be much simpler if you did the
-existence check in the first loop.
-
-So something like
-
-		if (x->props.family != family ||
-		    !xfrm_state_addr_check(x, daddr, saddr, family) ||
-		    tmpl->id.proto == x->id.proto)
-			continue;
-		if (tmpl->id.spi) {
-			if (tmpl->id.spi != x->id.spi)
-				continue;
-			error = -EEXIST;
-		}
-		if (x->props.reqid == tmpl->reqid &&
-		    tmpl->mode == x->props.mode) {
-		}
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--===============92747903472019444==--
