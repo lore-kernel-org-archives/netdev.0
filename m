@@ -1,67 +1,39 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH] and enhancements to pcnet32.c for 2.6.3-rc2
-Date: Tue, 17 Feb 2004 14:54:30 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Restrict local IP announcements in ARP requests
+Date: Tue, 17 Feb 2004 19:07:53 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040217145430.38ad5692.rddunlap@osdl.org>
-References: <200402172131.i1HLVvv02518@dyn318364bld.beaverton.ibm.com>
+Message-ID: <20040217190753.238c5ae0.davem@redhat.com>
+References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
+	<20040209140853.69ab8bea.davem@redhat.com>
+	<Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
+	<20040209151053.1f63937a.davem@redhat.com>
+	<Pine.LNX.4.58.0402100154010.1251@u.domain.uli>
+	<20040211202251.7b05102c.davem@redhat.com>
+	<Pine.LNX.4.58.0402151153450.1129@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: tsbogend@alpha.franken.de, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <200402172131.i1HLVvv02518@dyn318364bld.beaverton.ibm.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402151153450.1129@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Feb 2004 13:31:57 -0800 (PST) Don Fry <brazilnut@us.ibm.com> wrote:
+On Sun, 15 Feb 2004 12:04:59 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-| Attached is a collection of patches for the pcnet32 driver.
-| 
-| The maintainer has not responded to the following three patches.
+> 	The same patch is also here:
+> 
+> http://www.ssi.bg/~ja/tmp/arp_ignore-2.6.2-arp-1.diff
 
-Since this email has received such wide reviews in the past, here
-are some more comments on it.
+I've applied this, the patch is a NOP unless people actually change
+the sysctl value from the default.
 
-a.  make separate patches based on functional changes, not a collection
-of patches.
+This allows me to just put it in now, and we can refine the details of
+the new behavior next.
 
-b.  don't use C++-style "//" comments: Linux style is /* ... */
+Please make me a 2.4.x version of this patch (again with the other ARP
+thing applied already).
 
-
-
-| @@ -213,6 +223,13 @@
-|   *	   clean up and using new mii module
-|   * v1.27b  Sep 30 2002 Kent Yoder <yoder1@us.ibm.com>
-|   * 	   Added timer for cable connection state changes.
-| + * v1.28   11 Feb 2004 Don Fry <brazilnut@us.ibm.com>,
-| + *	   Jon Mason <jonmason@us.ibm.com>, Chinmay Albal <albal@in.ibm.com>,
-| + *	   Jim Lewis <jklewis@us.ibm.com>.
-| + *	   Now uses ethtool_ops, netif_msg_*, and generic_mii_ioctl.
-| + *	   Loopback test added.  Supports PCI (not PCMCIA) hot remove.
-| + *	   Fixes "Bus master arbitration failure" and pci_[un]map_single
-| + *	   length errors.
-|   */
-
-This should go in the changeset comments.
-
-
-| @@ -841,8 +1131,10 @@
-|      }
-|  
-|      /* Check for a valid station address */
-| -    if( !is_valid_ether_addr(dev->dev_addr) )
-| -	return -EINVAL;
-| +    if( !is_valid_ether_addr(dev->dev_addr) ) {
-
-Too ugly.  Use:
-	if (!is_xyz()) {
-
-
-| +	ret = -EINVAL;
-| +	goto err_free_irq;
-| +    }
-
-
---
-~Randy
+Thanks Julian.
