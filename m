@@ -1,119 +1,59 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.9-rc1-mm1-tso 1/2] 8139cp: SG support fixes
-Date: Mon, 30 Aug 2004 23:56:36 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040830215636.GA26455@electric-eye.fr.zoreil.com>
-References: <20040829212205.GA2864@havoc.gtf.org> <20040829222831.GA9496@electric-eye.fr.zoreil.com> <41326079.9090402@pobox.com> <20040830215227.GA23857@electric-eye.fr.zoreil.com>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Updated WE-18 (WPA) proposal
+Date: Mon, 30 Aug 2004 18:01:05 -0400
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <20040830220105.GY22126@ruslug.rutgers.edu>
+References: <20040830045441.GA7415@jm.kir.nu>
+	<20040830165026.GD29492@bougret.hpl.hp.com>
+	<413363CB.7060807@pobox.com>
+	<20040830174215.GA32132@bougret.hpl.hp.com>
+	<41336A28.9010608@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: jt@hpl.hp.com, netdev@oss.sgi.com,
+	Jouni Malinen <jkmaline@cc.hut.fi>, hostap@shmoo.com,
+	Pedro Ramalhais <ramalhais@serrado.net>
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040830215227.GA23857@electric-eye.fr.zoreil.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <41336A28.9010608@pobox.com>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Aug 30, 2004 at 01:55:52PM -0400, Jeff Garzik wrote:
+> Jean Tourrilhes wrote:
 
-- suspicious length in pci_unmap_single;
-- wait for the last frag before freeing the relevant skb;
-- no need to crash when facing some unexpected csum combination.
+<-- snip -->
 
-diff -puN drivers/net/8139cp.c~8139cp-010 drivers/net/8139cp.c
---- linux-2.6.9-rc1/drivers/net/8139cp.c~8139cp-010	2004-08-29 23:47:07.000000000 +0200
-+++ linux-2.6.9-rc1-fr/drivers/net/8139cp.c	2004-08-30 21:21:23.000000000 +0200
-@@ -314,7 +314,7 @@ struct cp_desc {
- struct ring_info {
- 	struct sk_buff		*skb;
- 	dma_addr_t		mapping;
--	unsigned		frag;
-+	u32			len;
- };
- 
- struct cp_dma_stats {
-@@ -708,7 +708,7 @@ static void cp_tx (struct cp_private *cp
- 			BUG();
- 
- 		pci_unmap_single(cp->pdev, cp->tx_skb[tx_tail].mapping,
--					skb->len, PCI_DMA_TODEVICE);
-+				 cp->tx_skb[tx_tail].len, PCI_DMA_TODEVICE);
- 
- 		if (status & LastFrag) {
- 			if (status & (TxError | TxFIFOUnder)) {
-@@ -799,7 +799,7 @@ static int cp_start_xmit (struct sk_buff
- 			else if (ip->protocol == IPPROTO_UDP)
- 				flags |= IPCS | UDPCS;
- 			else
--				BUG();
-+				WARN_ON(1);	/* we need a WARN() */
- 		}
- 
- 		txd->opts1 = cpu_to_le32(flags);
-@@ -807,7 +807,7 @@ static int cp_start_xmit (struct sk_buff
- 
- 		cp->tx_skb[entry].skb = skb;
- 		cp->tx_skb[entry].mapping = mapping;
--		cp->tx_skb[entry].frag = 0;
-+		cp->tx_skb[entry].len = len;
- 		entry = NEXT_TX(entry);
- 	} else {
- 		struct cp_desc *txd;
-@@ -825,7 +825,7 @@ static int cp_start_xmit (struct sk_buff
- 					       first_len, PCI_DMA_TODEVICE);
- 		cp->tx_skb[entry].skb = skb;
- 		cp->tx_skb[entry].mapping = first_mapping;
--		cp->tx_skb[entry].frag = 1;
-+		cp->tx_skb[entry].len = first_len;
- 		entry = NEXT_TX(entry);
- 
- 		for (frag = 0; frag < skb_shinfo(skb)->nr_frags; frag++) {
-@@ -868,7 +868,7 @@ static int cp_start_xmit (struct sk_buff
- 
- 			cp->tx_skb[entry].skb = skb;
- 			cp->tx_skb[entry].mapping = mapping;
--			cp->tx_skb[entry].frag = frag + 2;
-+			cp->tx_skb[entry].len = len;
- 			entry = NEXT_TX(entry);
- 		}
- 
-@@ -1082,7 +1082,6 @@ static int cp_refill_rx (struct cp_priva
- 		cp->rx_skb[i].mapping = pci_map_single(cp->pdev,
- 			skb->tail, cp->rx_buf_sz, PCI_DMA_FROMDEVICE);
- 		cp->rx_skb[i].skb = skb;
--		cp->rx_skb[i].frag = 0;
- 
- 		cp->rx_ring[i].opts2 = 0;
- 		cp->rx_ring[i].addr = cpu_to_le64(cp->rx_skb[i].mapping);
-@@ -1134,9 +1133,6 @@ static void cp_clean_rings (struct cp_pr
- {
- 	unsigned i;
- 
--	memset(cp->rx_ring, 0, sizeof(struct cp_desc) * CP_RX_RING_SIZE);
--	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
--
- 	for (i = 0; i < CP_RX_RING_SIZE; i++) {
- 		if (cp->rx_skb[i].skb) {
- 			pci_unmap_single(cp->pdev, cp->rx_skb[i].mapping,
-@@ -1148,13 +1144,18 @@ static void cp_clean_rings (struct cp_pr
- 	for (i = 0; i < CP_TX_RING_SIZE; i++) {
- 		if (cp->tx_skb[i].skb) {
- 			struct sk_buff *skb = cp->tx_skb[i].skb;
-+
- 			pci_unmap_single(cp->pdev, cp->tx_skb[i].mapping,
--					 skb->len, PCI_DMA_TODEVICE);
--			dev_kfree_skb(skb);
-+				 	 cp->tx_skb[i].len, PCI_DMA_TODEVICE);
-+			if (le32_to_cpu(cp->tx_ring[i].opts1) & LastFrag)
-+				dev_kfree_skb(skb);
- 			cp->net_stats.tx_dropped++;
- 		}
- 	}
- 
-+	memset(cp->rx_ring, 0, sizeof(struct cp_desc) * CP_RX_RING_SIZE);
-+	memset(cp->tx_ring, 0, sizeof(struct cp_desc) * CP_TX_RING_SIZE);
-+
- 	memset(&cp->rx_skb, 0, sizeof(struct ring_info) * CP_RX_RING_SIZE);
- 	memset(&cp->tx_skb, 0, sizeof(struct ring_info) * CP_TX_RING_SIZE);
- }
+> >	Also, I'm not clear how the stuff in wireless-2.6 is supposed
+> >to trickle into the other trees (netdev-2.6, -mm and Linus's), and how
+> >to better link it with the CVS of the various drivers involved.
+> 
+> Less of a trickle than a flood:  wireless-2.6 should be the target for 
+> development of shared wireless stack code.  As several drivers are 
+> currently using bits of HostAP, for example, wireless-2.6 should be a 
+> focal point for patches that modify these drivers to instead share the 
+> same code.
+> 
+> Once this generic work is done, it would get pushed all at once to 
+> netdev-2.6, where it would receive testing in -mm.  Then, later, pushed 
+> to mainline.
+> 
+> 	Jeff
 
-_
+Beides wpa_supplicant from hostap code (which is actually going into
+WE18) what other code re-use is on the roadmap as of yet for wireless-2.6?
+
+Also who is coordinating this?
+
+	Luis
+
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
