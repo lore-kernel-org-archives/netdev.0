@@ -1,32 +1,23 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
-Date: Wed, 28 Jul 2004 12:10:43 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][ATM]: [lec] remove unnecessary inlines (from Adrian
+ Bunk <bunk@fs.tum.de>)
+Date: Wed, 28 Jul 2004 09:09:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0407281210270.11261-100000@dhcp83-76.boston.redhat.com>
-References: <20040728155557.38198.qmail@web53006.mail.yahoo.com>
+Message-ID: <20040728090952.1001aea6.davem@redhat.com>
+References: <200407280041.i6S0fcMe010687@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Vladimir Kondratiev <vkondra@mail.ru>, Matt Mackall <mpm@selenic.com>,
-        <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, carnil@cs.tut.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Niranjan <niranjan_cs2905@yahoo.com>
-In-Reply-To: <20040728155557.38198.qmail@web53006.mail.yahoo.com>
+To: chas3@users.sourceforge.net
+In-Reply-To: <200407280041.i6S0fcMe010687@ginger.cmf.nrl.navy.mil>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 28 Jul 2004, Niranjan wrote:
+On Tue, 27 Jul 2004 20:41:39 -0400
+"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
 
-> Hi,
-> I got the code working by including the encrypt() and
-> decrypt() function inside the WLAN driver. 
-> Is there any better way to get the CrytoAPI code
-> working from the driver or some other CryptoAPI
-> implementation ?
+> please apply to 2.6 -- thanks!
 
-Where is the driver code?
-
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+Applied, thanks Chas.
