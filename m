@@ -1,56 +1,113 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: Fri, 12 Sep 2003 20:49:47 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [IPV4] convert proc/net/pnp to seq_file.
+Date: Sat, 13 Sep 2003 14:20:07 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912204947.5267e3aa.davem@redhat.com>
-References: <Pine.LNX.4.44.0309081953510.1261-100000@localhost.localdomain>
-	<3F60CA6D.9090503@pobox.com>
-	<3F60D0F3.8080006@candelatech.com>
-	<20030911131219.0ab8dfdd.davem@redhat.com>
-	<3F60DDCC.5020906@candelatech.com>
-	<20030911140746.4f0384a1.davem@redhat.com>
-	<3F60E947.4090005@candelatech.com>
-	<20030911142906.74d9dfe5.davem@redhat.com>
-	<3F60F3F7.6090203@candelatech.com>
-	<20030911160252.6cd6c07d.davem@redhat.com>
-	<3F6103BB.5030706@candelatech.com>
-	<1063330463.1028.8.camel@jzny.localdomain>
+Message-ID: <20030913.142007.113839771.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, jgarzik@pobox.com, scott.feldman@intel.com,
-   netdev@oss.sgi.com, ricardoz@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1063330463.1028.8.camel@jzny.localdomain>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 11 Sep 2003 21:34:23 -0400
-jamal <hadi@cyberus.ca> wrote:
+Convert /proc/net/pnp to seq_file.
 
-> dont increase the tx descriptor ring size - that would truly wasting
-> memory; 256 is pretty adequate.
-> * increase instead the txquelen (as suggested by Davem); user space
-> tools like ip or ifconfig could do it. The standard size has been around
-> 100 for 100Mbps; i suppose it is fair to say that Gige can move data out
-> at 10x that; so set it to 1000. Maybe you can do this from the driver
-> based on what negotiated speed is detected?
+===== net/ipv4/ipconfig.c 1.29 vs edited =====
+--- 1.29/net/ipv4/ipconfig.c	Fri Aug 15 16:41:43 2003
++++ edited/net/ipv4/ipconfig.c	Sat Sep 13 13:47:03 2003
+@@ -50,6 +50,7 @@
+ #include <linux/route.h>
+ #include <linux/udp.h>
+ #include <linux/proc_fs.h>
++#include <linux/seq_file.h>
+ #include <linux/major.h>
+ #include <linux/root_dev.h>
+ #include <net/arp.h>
+@@ -1092,43 +1093,45 @@
+ 
+ #ifdef CONFIG_PROC_FS
+ 
+-static int pnp_get_info(char *buffer, char **start,
+-			off_t offset, int length)
++static int pnp_seq_show(struct seq_file *seq, void *v)
+ {
+-	int len;
+-       int i;
++	int i;
+ 
+ 	if (ic_proto_used & IC_PROTO)
+-	    sprintf(buffer, "#PROTO: %s\n",
+-		    (ic_proto_used & IC_RARP) ? "RARP"
+-		    : (ic_proto_used & IC_USE_DHCP) ? "DHCP" : "BOOTP");
++		seq_printf(seq, "#PROTO: %s\n",
++			   (ic_proto_used & IC_RARP) ? "RARP"
++			   : (ic_proto_used & IC_USE_DHCP) ? "DHCP" : "BOOTP");
+ 	else
+-	    strcpy(buffer, "#MANUAL\n");
+-	len = strlen(buffer);
++		seq_puts(seq, "#MANUAL\n");
+ 
+ 	if (ic_domain[0])
+-		len += sprintf(buffer + len,
+-			       "domain %s\n", ic_domain);
++		seq_printf(seq,
++			   "domain %s\n", ic_domain);
+ 	for (i = 0; i < CONF_NAMESERVERS_MAX; i++) {
+ 		if (ic_nameservers[i] != INADDR_NONE)
+-			len += sprintf(buffer + len,
+-				       "nameserver %u.%u.%u.%u\n",
+-				       NIPQUAD(ic_nameservers[i]));
++			seq_printf(seq,
++				   "nameserver %u.%u.%u.%u\n",
++				   NIPQUAD(ic_nameservers[i]));
+ 	}
+ 	if (ic_servaddr != INADDR_NONE)
+-		len += sprintf(buffer + len,
+-			       "bootserver %u.%u.%u.%u\n",
+-			       NIPQUAD(ic_servaddr));
+-
+-	if (offset > len)
+-		offset = len;
+-	*start = buffer + offset;
+-
+-	if (offset + length > len)
+-		length = len - offset;
+-	return length;
++		seq_printf(seq,
++			   "bootserver %u.%u.%u.%u\n",
++			   NIPQUAD(ic_servaddr));
++	return 0;
+ }
+ 
++static int pnp_seq_open(struct inode *indoe, struct file *file)
++{
++	return single_open(file, pnp_seq_show, NULL);
++}
++
++static struct file_operations pnp_seq_fops = {
++	.owner		= THIS_MODULE,
++	.open		= pnp_seq_open,
++	.read		= seq_read,
++	.llseek		= seq_lseek,
++	.release	= single_release,
++};
+ #endif /* CONFIG_PROC_FS */
+ 
+ /*
+@@ -1140,7 +1143,7 @@
+ 	unsigned long jiff;
+ 
+ #ifdef CONFIG_PROC_FS
+-	proc_net_create("pnp", 0, pnp_get_info);
++	proc_net_fops_create("pnp", S_IRUGO, &pnp_seq_fops);
+ #endif /* CONFIG_PROC_FS */
+ 
+ 	if (!ic_enable)
 
-I spoke with Alexey once about this, actually tx_queue_len can
-be arbitrarily large but it should be reasonable nonetheless.
 
-Our preliminary conclusions were that values of 1000 for 100Mbit and
-faster were probably appropriate.  Maybe something larger for 1Gbit,
-who knows.
-
-We also determined that the only connection between TX descriptor
-ring size and dev->tx_queue_len was that the latter should be large
-enough to handle, at a minimum, the amount of pending TX descriptor
-ACKs that can be pending considering mitigation et al.
-
-So if TX irq mitigation can defer up to N TX descriptor completions
-then dev->tx_queue_len must be at least that large.
-
-Back to the main topic, maybe we should set dev->tx_queue_len to
-1000 by default for all ethernet devices.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
