@@ -1,75 +1,85 @@
 From: Terje Eggestad <terje.eggestad@scali.com>
 Subject: Re: anyone ever done multicast AF_UNIX sockets?
-Date: 04 Mar 2003 00:38:02 +0100
+Date: 04 Mar 2003 00:29:24 +0100
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1046734683.28127.275.camel@eggis1>
-References: <3E6399F1.10303@nortelnetworks.com>	<20030303.095641.87696857.davem@redhat.c
-	om>	<3E63A8CB.2090307@nortelnetworks.com>
-		<20030303.105646.02089773.davem@redhat.com>
-	<1046720532.28127.213.camel@eggis1>  <3E63CA08.4040209@nortelnetworks.com>
+Message-ID: <1046734165.27924.263.camel@eggis1>
+References: <3E5E7081.6020704@nortelnetworks.com>	<1046695876.7731.78.camel@pc-16.office
+	.scali.no> 	<3E638C51.2000904@nortelnetworks.com>
+	<1046720360.28127.209.camel@eggis1>  <3E63D73A.2000402@nortelnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: linux-kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, davem@redhat.com
 Return-path: <linux-net-owner@vger.kernel.org>
 To: Chris Friesen <cfriesen@nortelnetworks.com>
-In-Reply-To: <3E63CA08.4040209@nortelnetworks.com>
+In-Reply-To: <3E63D73A.2000402@nortelnetworks.com>
 List-Id: netdev.vger.kernel.org
 
-The latency I belive, a 25% increase don't matter all that much. (
-routinely send meesages sub micro second.  
+My point is that you can't send a request real work with either shm nor
+multicast. You don't know who or howmany recipients there are. You just
+use it to update someone that do real work. Then they tend not to need
+it until they get a request for real work, then alost always on a tcp
+connection or as audp (unicast) message.
 
-that tcp BW is ridiculus low, make sure that you run with with good
-sized socket buffers, and that tcp windowing is enabled.
+How do you design a protocol that uses multicast to send a request to do
+work?
 
-But then again, if you want to send much data fast between processes, a
-stream socket is a pretty bad idea anyway. 
-A) shm
-b) mmap a file, write into it, and send the filenake to the other side,
-then mmap it there. 
+All uses I can think of right now of multicast/broadcast is:
+* Discovery, like in NIS.
+* Announcements like in OSPF. 
+* update like in NTP broadcast
 
-Don't underestemate the BW of a fedex'ed  tape.
+DHCP is actually a nice example of very very bad things that happen if
+you loose control of how many servers that are running.
 
-TJ
-
-On Mon, 2003-03-03 at 22:32, Chris Friesen wrote:
+On Mon, 2003-03-03 at 23:29, Chris Friesen wrote:
     Terje Eggestad wrote:
-    > On Mon, 2003-03-03 at 19:56, David S. Miller wrote:
+    > On Mon, 2003-03-03 at 18:09, Chris Friesen wrote:
+
+    > If you *had* multicast, you don't know *when* a peer proccessed it. 
+    > What if the peer is suspended ??? you don't get an error on the send,
+    > and you apparently never get an answer, then what? The peer may also
+    > gone haywire on a while(1);
     
-    >     TCP bandwidth is slightly faster than AF_UNIX bandwidth on my
-    >     sparc64 boxes for example.
-    > 
-    > I've seen that their are the same on linux.I tried to to do AF_UNIX
-    > instead of AF_INET internally to boost perf, but to no avail. Makes you
-    > suspect that the loopback device actually create an AF_UNIX connection
-    > under the hood ;-)
+    Exactly.  So if the message got delivered you have no way of knowing for 
+    sure that it was processed and you have application-level timers and 
+    stuff. But if the message wasn't delivered to anyone and you know it 
+    should have been, then you don't have to wait for the timer to expire to 
+    know that they didn't get it.
     
-    On my P4 1.8GHz, AF_INET vs AF_UNIX looks like this:
-    
-    
-    *Local* Communication latencies in microseconds - smaller is better
-    -------------------------------------------------------------
-    Host           OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
-                       ctxsw       UNIX         UDP         TCP conn
-    --------- ------- ----- ----- ---- ----- ----- ----- ----- ----
-    pcard0ks. 2.4.18- 1.740  10.4 15.9  20.1  33.1  23.5  44.3 72.7
-    pcard0ks. 2.4.18- 1.560  10.6 16.0  23.4  38.1  36.1  44.6 77.4
-    
-    
-    *Local* Communication bandwidths in MB/s - bigger is better
-    -----------------------------------------------------------
-    Host          OS  Pipe AF    TCP  File   Mmap  Bcopy  Bcopy  Mem   Mem
-                            UNIX      reread reread (libc) (hand) read write
-    --------- ------- ---- ---- ---- ------ ------ ------ ------ ---- -----
-    pcard0ks. 2.4.18- 650. 677. 151.  721.9  958.0  290.8  288.8 955. 418.4
-    pcard0ks. 2.4.18- 379. 701. 163.  714.8  949.5  289.5  288.5 956. 420.5
-    
-    
-    On this machine at least, UDP latency is 25% worse than AF_UNIX, and TCP 
-    bandwidth is about 22% that of AF_UNIX.
+
+Nice to know, but it help you, how?
+
+If there is a subscriber out there that is hung? You need that timer
+*anyway*. Why the special case? 
+
+All I see you're trying to do is something like this (just the
+nonblocking version):
+
+
+do_unix_mcast(message)
+{
+alarm(timeout);
+
+rc = write(fd_unixmultocast, message, mlen);
+
+if (rc == -1   && errno == nosubscribers) goto they_are_all_dead;
+
+rc = select( fd_unixmultocast ++);
+if (rc == -1  && errno = EINTR) goto they_are_all_dead;
+alarm(0);
+process_reply();
+return;
+
+they_all_dead:
+
+handle_all_dead_peers();
+return;
+};
     
     Chris
+    
     
     -- 
     Chris Friesen                    | MailStop: 043/33/F10
