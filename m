@@ -1,42 +1,30 @@
-From: Jean-Baptiste Note <jean-baptiste.note@wanadoo.fr>
-Subject: Re: Re: [Prism54-users] Open hardware wireless cards
-Date: Wed, 05 Jan 2005 23:47:10 +0100
-Message-ID: <87u0pv7att.fsf@gxaafoot.homelinux.org>
-References: <60E856FD577CC04BA3727AF4122D3F161134B8@3bit.vector.com.pl>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [RFC] tulip VLAN support
+Date: Wed, 05 Jan 2005 14:56:19 -0800
+Message-ID: <41DC7093.2080705@candelatech.com>
+References: <20050105193425.GY18847@sventech.com> <41DC6669.9090407@pobox.com> <20050105223147.GE18847@sventech.com> <41DC6E08.3080507@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: "Andriy Korud" <a.korud@vector.com.pl>
-In-Reply-To: <60E856FD577CC04BA3727AF4122D3F161134B8@3bit.vector.com.pl>
-	(Andriy Korud's message of "Wed, 5 Jan 2005 23:34:02 +0100")
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Sender: prism54-devel-bounces@prism54.org
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Johannes Erdfelt <johannes@erdfelt.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41DC6E08.3080507@pobox.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-"Andriy Korud" <a.korud@vector.com.pl> said :
->> AFAICT the FullMAC chipsets have reached the END OF LIFE period.
->
-> Sorry, as I know (no more details - NDA, sorry) some manufacturers are developing (and planning to continue) FullMAC 802.11g (and further) chipsets and also they are offering Linux drivers (however had no chance to test yet).
+> What size do you need?  1504 bytes, right?
 
-I think he meant "prism54 802.11g fullmac chipsets (all the prism54
-project is about) are EOL'd". Not "all fullmac chipsets from all
-manufacturers for all norms to come".
+1500 MTU + 14 for header + 4 for CRC + 4 for VLAN == 1522
 
-In the way of "some manufacturer", are you thinking of ralink ? 
-They've set up a website with their linux driver, and i think they're
-fullmac chipsets.
+Normally, you just have to tell the chip to accept slightly larger frames
+and/or ignore the over-size frame flag.  You do not actually need any ability
+to set a larger than 1500 MTU.
+
+Ben
 
 -- 
-Jean-Baptiste Note
-+33 (0)6 83 03 42 38
-jean-baptiste.note@wanadoo.fr
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
