@@ -1,31 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch] (0/8) Adding 802.3ad support to bonding
-Date: Thu, 20 Mar 2003 11:56:18 -0500
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: TCP/IPv6 broken in Linux 2.5.64?
+Date: Thu, 20 Mar 2003 17:31:07 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030320165618.GB8256@gtf.org>
-References: <Pine.LNX.4.44.0303201553540.10351-100000@jrslxjul4.npdj.intel.com>
+Message-ID: <20030320163107.GA28229@outpost.ds9a.nl>
+References: <20030318162532.GA9705@outpost.ds9a.nl> <200303201549.SAA10972@sex.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Bonding Developement list <bonding-devel@lists.sourceforge.net>,
-   Bonding Announce list <bonding-announce@lists.sourceforge.net>,
-   Linux Net Mailing list <linux-net@vger.kernel.org>,
-   Linux Kernel Mailing list <linux-kernel@vger.kernel.org>,
-   Oss SGI Netdev list <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shmulik Hen <hshmulik@intel.com>
+To: kuznet@ms2.inr.ac.ru
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0303201553540.10351-100000@jrslxjul4.npdj.intel.com>
+In-Reply-To: <200303201549.SAA10972@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 20, 2003 at 06:49:49PM +0300, kuznet@ms2.inr.ac.ru wrote:
+> Hello!
+> 
+> > irc servers, or an IPv6 zonetransfer. However, when I try to ssh from 2.5.65
+> 
+> Try this. I have just found this lost patch, it is from 2.4 tree, but
+> it should fit to 2.5 as well.
 
-I (and many others) will be going over these patches.  I also see that
-somebody (davem?) applied your divide-by-zero patch to the mainline
-kernel.
+This has solved my problem 100%. The earlier mentioned hostA and hostB can
+now cheerfully connect to eachother. Everything else I try works too.
 
-My initial comment is that we will want to work to eliminate these
-ifdefs.  Other comments will follow.
+So I suggest this be sent linus-wards. Thanks!
 
-Thanks to Intel for these efforts!
+Regards,
 
-	Jeff
+bert
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+http://netherlabs.nl                         Consulting
