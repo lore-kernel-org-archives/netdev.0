@@ -1,40 +1,38 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Karen Shaeffer <shaeffer@neuralscape.com>
 Subject: Re: cheap 4-port tulip-based cards available
-Date: Sat, 19 Oct 2002 14:06:51 -0700
+Date: Sat, 19 Oct 2002 14:14:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DB1C96B.4070505@candelatech.com>
-References: <slrnaqpajf.2ph.lunz@stoli.localnet>
+Message-ID: <20021019141417.A11659@synapse.neuralscape.com>
+References: <slrnaqpajf.2ph.lunz@stoli.localnet> <3DB1C96B.4070505@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3DB1C96B.4070505@candelatech.com>; from greearb@candelatech.com on Sat, Oct 19, 2002 at 02:06:51PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> I figure a few people on this list will be interested in this:
+On Sat, Oct 19, 2002 at 02:06:51PM -0700, Ben Greear wrote:
+> > http://www.softwareandstuff.com/h_comp_inet4.html
+> > 
+> > The site says almost nothing about the cards, but on a tip from a
+> > coworker I bought one the last time this site had them for sale, and
+> > have been extremely happy with it. lspci shows:
 > 
-> http://www.softwareandstuff.com/h_comp_inet4.html
+> I just got mine, and ordered a bunch more...
 > 
-> The site says almost nothing about the cards, but on a tip from a
-> coworker I bought one the last time this site had them for sale, and
-> have been extremely happy with it. lspci shows:
+> These are the Phobos p430 NICs.  I have extensively benchmarked 2
+> of those NICs that I got as eval copies, and they perform as good
+> as or better than the 570tx, using the standard tulip driver.
 
-I just got mine, and ordered a bunch more...
+I'm just curious. What do you do with a bunch of those cards? Do you put
+them in a PC and make a switch out of it?
 
-These are the Phobos p430 NICs.  I have extensively benchmarked 2
-of those NICs that I got as eval copies, and they perform as good
-as or better than the 570tx, using the standard tulip driver.
-
-I just noticed lots of these are on eBay too, so I'm guessing a whole
-bunch of them got surplussed.  This is good news for me, because they
-are too expensive if you try to purchase them from other channels!
-
-Ben
-
+cheers,
+Karen
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+ Karen Shaeffer
+ Neuralscape; Santa Cruz, Ca. 95060
+ shaeffer@neuralscape.com  http://www.neuralscape.com
