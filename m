@@ -1,55 +1,35 @@
-From: Karlis Peisenieks <karlis@mt.lv>
-Subject: IFF_NOARP & broadcasting
-Date: Wed, 24 Jul 2002 19:04:21 +0300
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: IFF_NOARP & broadcasting
+Date: Wed, 24 Jul 2002 20:52:55 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020724190421.A2449@karlis>
+Message-ID: <200207241652.UAA19057@sex.inr.ac.ru>
+References: <20020724190421.A2449@karlis>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: karlis@mt.lv (Karlis Peisenieks)
+In-Reply-To: <20020724190421.A2449@karlis> from "Karlis Peisenieks" at Jul 24, 2 08:15:01 pm
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-Is there any serious reason why when device has IFF_NOARP set, devices ll
-address is used as destination address even for broadcasts (and even when
-devices broadcast address is valid)? Currently it is impossible to send out
-correct broadcast over ethernet when IFF_NOARP is set.
+> Is there any serious reason why when device has IFF_NOARP set, devices ll
+> address is used as destination address even for broadcasts (and even when
+> devices broadcast address is valid)?
 
-The code in question is in net/ipv4/arp.c, function arp_constructor:
+No reasons, I think. Instead of that your patch, it may be better just 
+exchange order of tests. As I remember, ll addr is initialized
+to dev_addr for NOARP just to get a valid unicast address as destination
+for eth_type_trans() to work correctly.
 
-                if (neigh->type == RTN_MULTICAST) {
-                        neigh->nud_state = NUD_NOARP;
-                        arp_mc_map(addr, neigh->ha, dev, 1);
-                } else if (dev->flags&(IFF_NOARP|IFF_LOOPBACK)) {
-                                       ^^^^^^^^^
-                        neigh->nud_state = NUD_NOARP;
-                        memcpy(neigh->ha, dev->dev_addr, dev->addr_len);
-                } else if (neigh->type == RTN_BROADCAST ||
-dev->flags&IFF_POINT neigh->nud_state = NUD_NOARP;
-                        memcpy(neigh->ha, dev->broadcast, dev->addr_len);
-                }
 
-Is it ok to apply following patch and not break anything:
+> Currently it is impossible to send out correct broadcast over ethernet
+> when IFF_NOARP is set.
 
---- arp.c.orig	Wed Jul 24 19:02:53 2002
-+++ arp.c	Wed Jul 24 19:01:06 2002
-@@ -289,12 +289,15 @@
- 		if (neigh->type == RTN_MULTICAST) {
- 			neigh->nud_state = NUD_NOARP;
- 			arp_mc_map(addr, neigh->ha, dev, 1);
--		} else if (dev->flags&(IFF_NOARP|IFF_LOOPBACK)) {
-+		} else if (dev->flags&IFF_LOOPBACK) {
- 			neigh->nud_state = NUD_NOARP;
- 			memcpy(neigh->ha, dev->dev_addr, dev->addr_len);
- 		} else if (neigh->type == RTN_BROADCAST ||
-dev->flags&IFF_POINTOPOINT) {
- 			neigh->nud_state = NUD_NOARP;
- 			memcpy(neigh->ha, dev->broadcast, dev->addr_len);
-+		} else if (dev->flags & IFF_NOARP) {
-+			neigh->nud_state = NUD_NOARP;
-+			memcpy(neigh->ha, dev->dev_addr, dev->addr_len);
- 		}
- 		if (dev->hard_header_cache)
- 			neigh->ops = &arp_hh_ops;
+No, it is surely not impossible. f.e.
+
+ip neigh add 255.255.255.255 dev dummy0 lladdr ff:ff:ff:ff:ff:ff
+
+works.
+
+Alexey
