@@ -1,9 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 07/10] r8169: Large Send enablement
-Date: Tue, 04 Jan 2005 21:59:33 -0800
-Message-ID: <200501050559.j055xg614698@mail.osdl.org>
-Cc: davem@davemloft.net, netdev@oss.sgi.com, akpm@osdl.org,
-        romieu@fr.zoreil.com, jdmason@us.ibm.com
+Subject: [patch 04/10] Multicast filtering for tun.c
+Date: Tue, 04 Jan 2005 21:59:30 -0800
+Message-ID: <200501050559.j055xc614681@mail.osdl.org>
+Cc: davem@davemloft.net, netdev@oss.sgi.com, akpm@osdl.org, sjackman@gmail.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Sender: netdev-bounce@oss.sgi.com
@@ -11,181 +10,252 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Francois Romieu <romieu@fr.zoreil.com>
+From: Shaun Jackman <sjackman@gmail.com>
 
-Large Send enablement.
+This patch adds multicast filtering to the TUN network driver, for
+packets being sent from the network device to the character device.
 
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
+* drivers/net/tun.c: Add multicast filtering for packets travelling from
+  the network device to the character device.
+
+* include/linux/if_tun.h (tun_struct): Add interface flags, a hardware
+  device addres, and a multicast filter.
+
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/drivers/net/r8169.c |   80 ++++++++++++++++++++++++++++++++++++--------
- 1 files changed, 67 insertions(+), 13 deletions(-)
+ 25-akpm/drivers/net/tun.c      |  151 +++++++++++++++++++++++++++++++++++++----
+ 25-akpm/include/linux/if_tun.h |    5 +
+ 2 files changed, 144 insertions(+), 12 deletions(-)
 
-diff -puN drivers/net/r8169.c~r8169-large-send-enablement drivers/net/r8169.c
---- 25/drivers/net/r8169.c~r8169-large-send-enablement	2005-01-04 21:57:36.194631864 -0800
-+++ 25-akpm/drivers/net/r8169.c	2005-01-04 21:57:44.830319040 -0800
-@@ -112,7 +112,7 @@ static int multicast_filter_limit = 32;
- #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
- #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
- #define EarlyTxThld 	0x3F	/* 0x3F means NO early transmit */
--#define RxPacketMaxSize	0x0800	/* Maximum size supported is 16K-1 */
-+#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC */
- #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
+diff -puN drivers/net/tun.c~multicast-filtering-for-tunc drivers/net/tun.c
+--- 25/drivers/net/tun.c~multicast-filtering-for-tunc	2005-01-04 21:57:35.804691144 -0800
++++ 25-akpm/drivers/net/tun.c	2005-01-04 21:57:35.810690232 -0800
+@@ -41,6 +41,7 @@
+ #include <linux/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_tun.h>
++#include <linux/crc32.h>
  
- #define R8169_REGS_SIZE		256
-@@ -427,6 +427,9 @@ static void rtl8169_tx_timeout(struct ne
- static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
- static int rtl8169_rx_interrupt(struct net_device *, struct rtl8169_private *,
- 				void __iomem *);
-+static int rtl8169_change_mtu(struct net_device *netdev, int new_mtu);
-+static void rtl8169_down(struct net_device *dev);
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -104,11 +105,42 @@ drop:
+ 	return 0;
+ }
+ 
+-static void tun_net_mclist(struct net_device *dev)
++/** Add the specified Ethernet address to this multicast filter. */
++static void
++add_multi(u32* filter, const u8* addr)
+ {
+-	/* Nothing to do for multicast filters. 
+-	 * We always accept all frames. */
+-	return;
++	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
++	filter[bit_nr >> 5] |= 1 << (bit_nr & 31);
++}
 +
- #ifdef CONFIG_R8169_NAPI
- static int rtl8169_poll(struct net_device *dev, int *budget);
- #endif
-@@ -1238,8 +1241,6 @@ rtl8169_init_board(struct pci_dev *pdev,
++/** Remove the specified Ethernet addres from this multicast filter. */
++static void
++del_multi(u32* filter, const u8* addr)
++{
++	int bit_nr = ether_crc(ETH_ALEN, addr) >> 26;
++	filter[bit_nr >> 5] &= ~(1 << (bit_nr & 31));
++}
++
++/** Update the list of multicast groups to which the network device belongs.
++ * This list is used to filter packets being sent from the character device to
++ * the network device. */
++static void
++tun_net_mclist(struct net_device *dev)
++{
++	struct tun_struct *tun = netdev_priv(dev);
++	const struct dev_mc_list *mclist;
++	int i;
++	DBG(KERN_DEBUG "%s: tun_net_mclist: mc_count %d\n",
++			dev->name, dev->mc_count);
++	memset(tun->chr_filter, 0, sizeof tun->chr_filter);
++	for (i = 0, mclist = dev->mc_list; i < dev->mc_count && mclist != NULL;
++			i++, mclist = mclist->next) {
++		add_multi(tun->net_filter, mclist->dmi_addr);
++		DBG(KERN_DEBUG "%s: tun_net_mclist: %x:%x:%x:%x:%x:%x\n",
++				dev->name,
++				mclist->dmi_addr[0], mclist->dmi_addr[1], mclist->dmi_addr[2],
++				mclist->dmi_addr[3], mclist->dmi_addr[4], mclist->dmi_addr[5]);
++	}
+ }
+ 
+ static struct net_device_stats *tun_net_stats(struct net_device *dev)
+@@ -301,6 +333,10 @@ static ssize_t tun_chr_readv(struct file
+ 
+ 	add_wait_queue(&tun->read_wait, &wait);
+ 	while (len) {
++		const u8 ones[ ETH_ALEN] = { 0xff, 0xff, 0xff, 0xff, 0xff, 0xff };
++		u8 addr[ ETH_ALEN];
++		int bit_nr;
++
+ 		current->state = TASK_INTERRUPTIBLE;
+ 
+ 		/* Read frames from the queue */
+@@ -320,10 +356,37 @@ static ssize_t tun_chr_readv(struct file
+ 		}
+ 		netif_start_queue(tun->dev);
+ 
+-		ret = tun_put_user(tun, skb, (struct iovec *) iv, len);
+-
+-		kfree_skb(skb);
+-		break;
++		/** Decide whether to accept this packet. This code is designed to
++		 * behave identically to an Ethernet interface. Accept the packet if
++		 * - we are promiscuous.
++		 * - the packet is addressed to us.
++		 * - the packet is broadcast.
++		 * - the packet is multicast and
++		 *   - we are multicast promiscous.
++		 *   - we belong to the multicast group.
++		 */
++		memcpy(addr, skb->data, min(sizeof addr, skb->len));
++		bit_nr = ether_crc(sizeof addr, addr) >> 26;
++		if ((tun->if_flags & IFF_PROMISC) ||
++				memcmp(addr, tun->dev_addr, sizeof addr) == 0 ||
++				memcmp(addr, ones, sizeof addr) == 0 ||
++				(((addr[0] == 1 && addr[1] == 0 && addr[2] == 0x5e) ||
++				  (addr[0] == 0x33 && addr[1] == 0x33)) &&
++				 ((tun->if_flags & IFF_ALLMULTI) ||
++				  (tun->chr_filter[bit_nr >> 5] & (1 << (bit_nr & 31)))))) {
++			DBG(KERN_DEBUG "%s: tun_chr_readv: accepted: %x:%x:%x:%x:%x:%x\n",
++					tun->dev->name, addr[0], addr[1], addr[2],
++					addr[3], addr[4], addr[5]);
++			ret = tun_put_user(tun, skb, (struct iovec *) iv, len);
++			kfree_skb(skb);
++			break;
++		} else {
++			DBG(KERN_DEBUG "%s: tun_chr_readv: rejected: %x:%x:%x:%x:%x:%x\n",
++					tun->dev->name, addr[0], addr[1], addr[2],
++					addr[3], addr[4], addr[5]);
++			kfree_skb(skb);
++			continue;
++		}
  	}
- 	tp->chipset = i;
  
--	tp->rx_buf_sz = RX_BUF_SIZE;
--
- 	*ioaddr_out = ioaddr;
- 	*dev_out = dev;
- out:
-@@ -1321,6 +1322,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
- 	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
- 	dev->irq = pdev->irq;
- 	dev->base_addr = (unsigned long) ioaddr;
-+	dev->change_mtu = rtl8169_change_mtu;
+ 	current->state = TASK_RUNNING;
+@@ -417,6 +480,12 @@ static int tun_set_iff(struct file *file
+ 		tun = netdev_priv(dev);
+ 		tun->dev = dev;
+ 		tun->flags = flags;
++		/* Be promiscuous by default to maintain previous behaviour. */
++		tun->if_flags = IFF_PROMISC;
++		/* Generate random Ethernet address. */
++		*(u16 *)tun->dev_addr = htons(0x00FF);
++		get_random_bytes(tun->dev_addr + sizeof(u16), 4);
++		memset(tun->chr_filter, 0, sizeof tun->chr_filter);
  
- #ifdef CONFIG_R8169_NAPI
- 	dev->poll = rtl8169_poll;
-@@ -1449,13 +1451,22 @@ static int rtl8169_resume(struct pci_dev
-                                                                                 
- #endif /* CONFIG_PM */
+ 		tun_net_init(dev);
  
--static int
--rtl8169_open(struct net_device *dev)
-+static void rtl8169_set_rxbufsize(struct rtl8169_private *tp,
-+				  struct net_device *dev)
-+{
-+	unsigned int mtu = dev->mtu;
-+
-+	tp->rx_buf_sz = (mtu > RX_BUF_SIZE) ? mtu + ETH_HLEN + 8 : RX_BUF_SIZE;
-+}
-+
-+static int rtl8169_open(struct net_device *dev)
+@@ -457,13 +526,16 @@ static int tun_chr_ioctl(struct inode *i
+ 			 unsigned int cmd, unsigned long arg)
  {
- 	struct rtl8169_private *tp = netdev_priv(dev);
- 	struct pci_dev *pdev = tp->pci_dev;
- 	int retval;
+ 	struct tun_struct *tun = file->private_data;
++	void __user* argp = (void __user*)arg;
++	struct ifreq ifr;
++
++	if (cmd == TUNSETIFF || _IOC_TYPE(cmd) == 0x89)
++		if (copy_from_user(&ifr, argp, sizeof ifr))
++			return -EFAULT;
  
-+	rtl8169_set_rxbufsize(tp, dev);
-+
- 	retval =
- 	    request_irq(dev->irq, rtl8169_interrupt, SA_SHIRQ, dev->name, dev);
- 	if (retval < 0)
-@@ -1535,8 +1546,8 @@ rtl8169_hw_start(struct net_device *dev)
- 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 	if (cmd == TUNSETIFF && !tun) {
+-		struct ifreq ifr;
+ 		int err;
  
--	// For gigabit rtl8169
--	RTL_W16(RxMaxSize, RxPacketMaxSize);
-+	// For gigabit rtl8169, MTU + header + CRC + VLAN
-+	RTL_W16(RxMaxSize, tp->rx_buf_sz);
+-		if (copy_from_user(&ifr, (void __user *)arg, sizeof(ifr)))
+-			return -EFAULT;
+ 		ifr.ifr_name[IFNAMSIZ-1] = '\0';
  
- 	// Set Rx Config register
- 	i = rtl8169_rx_config |
-@@ -1577,6 +1588,37 @@ rtl8169_hw_start(struct net_device *dev)
- 	netif_start_queue(dev);
- }
+ 		rtnl_lock();
+@@ -473,7 +545,7 @@ static int tun_chr_ioctl(struct inode *i
+ 		if (err)
+ 			return err;
  
-+static int rtl8169_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	int ret = 0;
-+
-+	if (new_mtu < ETH_ZLEN || new_mtu > RxPacketMaxSize)
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+
-+	if (!netif_running(dev))
-+		goto out;
-+
-+	rtl8169_down(dev);
-+
-+	rtl8169_set_rxbufsize(tp, dev);
-+
-+	ret = rtl8169_init_ring(dev);
-+	if (ret < 0)
-+		goto out;
-+
-+	rtl8169_hw_start(dev);
-+
-+	netif_poll_enable(dev);
-+
-+	rtl8169_request_timer(dev);
-+
-+out:
-+	return ret;
-+}
-+
- static inline void rtl8169_make_unusable_by_asic(struct RxDesc *desc)
- {
- 	desc->addr = 0x0badbadbadbadbadull;
-@@ -2265,19 +2307,17 @@ static int rtl8169_poll(struct net_devic
- }
+-		if (copy_to_user((void __user *)arg, &ifr, sizeof(ifr)))
++		if (copy_to_user(argp, &ifr, sizeof(ifr)))
+ 			return -EFAULT;
+ 		return 0;
+ 	}
+@@ -519,6 +591,61 @@ static int tun_chr_ioctl(struct inode *i
+ 		break;
  #endif
  
--static int
--rtl8169_close(struct net_device *dev)
-+static void rtl8169_down(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = netdev_priv(dev);
--	struct pci_dev *pdev = tp->pci_dev;
- 	void __iomem *ioaddr = tp->mmio_addr;
- 
-+	rtl8169_delete_timer(dev);
++	case SIOCGIFFLAGS:
++		ifr.ifr_flags = tun->if_flags;
++		if (copy_to_user( argp, &ifr, sizeof ifr))
++			return -EFAULT;
++		return 0;
 +
- 	netif_stop_queue(dev);
- 
- 	flush_scheduled_work();
- 
--	rtl8169_delete_timer(dev);
--
- 	spin_lock_irq(&tp->lock);
- 
- 	/* Stop the chip's Tx and Rx DMA processes. */
-@@ -2292,13 +2332,27 @@ rtl8169_close(struct net_device *dev)
- 
- 	spin_unlock_irq(&tp->lock);
- 
--	free_irq(dev->irq, dev);
-+	synchronize_irq(dev->irq);
- 
- 	netif_poll_disable(dev);
- 
-+	/* Give a racing hard_start_xmit a few cycles to complete. */
-+	set_current_state(TASK_UNINTERRUPTIBLE);
-+	schedule_timeout(1);
++	case SIOCSIFFLAGS:
++		/** Set the character device's interface flags. Currently only
++		 * IFF_PROMISC and IFF_ALLMULTI are used. */
++		tun->if_flags = ifr.ifr_flags;
++		DBG(KERN_INFO "%s: interface flags 0x%lx\n",
++				tun->dev->name, tun->if_flags);
++		return 0;
 +
- 	rtl8169_tx_clear(tp);
++	case SIOCGIFHWADDR:
++		memcpy(ifr.ifr_hwaddr.sa_data, tun->dev_addr,
++				min(sizeof ifr.ifr_hwaddr.sa_data, sizeof tun->dev_addr));
++		if (copy_to_user( argp, &ifr, sizeof ifr))
++			return -EFAULT;
++		return 0;
++
++	case SIOCSIFHWADDR:
++		/** Set the character device's hardware address. This is used when
++		 * filtering packets being sent from the network device to the character
++		 * device. */
++		memcpy(tun->dev_addr, ifr.ifr_hwaddr.sa_data,
++				min(sizeof ifr.ifr_hwaddr.sa_data, sizeof tun->dev_addr));
++		DBG(KERN_DEBUG "%s: set hardware address: %x:%x:%x:%x:%x:%x\n",
++				tun->dev->name,
++				tun->dev_addr[0], tun->dev_addr[1], tun->dev_addr[2],
++				tun->dev_addr[3], tun->dev_addr[4], tun->dev_addr[5]);
++		return 0;
++
++	case SIOCADDMULTI:
++		/** Add the specified group to the character device's multicast filter
++		 * list. */
++		add_multi(tun->chr_filter, ifr.ifr_hwaddr.sa_data);
++		DBG(KERN_DEBUG "%s: add multi: %x:%x:%x:%x:%x:%x\n",
++				tun->dev->name,
++				(u8)ifr.ifr_hwaddr.sa_data[0], (u8)ifr.ifr_hwaddr.sa_data[1],
++				(u8)ifr.ifr_hwaddr.sa_data[2], (u8)ifr.ifr_hwaddr.sa_data[3],
++				(u8)ifr.ifr_hwaddr.sa_data[4], (u8)ifr.ifr_hwaddr.sa_data[5]);
++		return 0;
++
++	case SIOCDELMULTI:
++		/** Remove the specified group from the character device's multicast
++		 * filter list. */
++		del_multi(tun->chr_filter, ifr.ifr_hwaddr.sa_data);
++		DBG(KERN_DEBUG "%s: del multi: %x:%x:%x:%x:%x:%x\n",
++				tun->dev->name,
++				(u8)ifr.ifr_hwaddr.sa_data[0], (u8)ifr.ifr_hwaddr.sa_data[1],
++				(u8)ifr.ifr_hwaddr.sa_data[2], (u8)ifr.ifr_hwaddr.sa_data[3],
++				(u8)ifr.ifr_hwaddr.sa_data[4], (u8)ifr.ifr_hwaddr.sa_data[5]);
++		return 0;
++
+ 	default:
+ 		return -EINVAL;
+ 	};
+diff -puN include/linux/if_tun.h~multicast-filtering-for-tunc include/linux/if_tun.h
+--- 25/include/linux/if_tun.h~multicast-filtering-for-tunc	2005-01-04 21:57:35.805690992 -0800
++++ 25-akpm/include/linux/if_tun.h	2005-01-04 21:57:35.810690232 -0800
+@@ -45,6 +45,11 @@ struct tun_struct {
  
- 	rtl8169_rx_clear(tp);
-+}
-+
-+static int rtl8169_close(struct net_device *dev)
-+{
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	struct pci_dev *pdev = tp->pci_dev;
-+
-+	rtl8169_down(dev);
-+
-+	free_irq(dev->irq, dev);
+ 	struct fasync_struct    *fasync;
  
- 	pci_free_consistent(pdev, R8169_RX_RING_BYTES, tp->RxDescArray,
- 			    tp->RxPhyAddr);
++	unsigned long if_flags;
++	u8 dev_addr[ETH_ALEN];
++	u32 chr_filter[2];
++	u32 net_filter[2];
++
+ #ifdef TUN_DEBUG	
+ 	int debug;
+ #endif  
 _
