@@ -1,44 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Submission #3  for S2io 10GbE driver
-Date: Tue, 02 Mar 2004 14:21:32 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404508EC.8060200@candelatech.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010222A08E@orsmsx402.jf.intel.com>
+From: Arkadiusz Miskiewicz <arekm@pld-linux.org>
+Subject: ip a flush problem on 2.6 kernels (fine on 2.4 kernels)
+Date: Thu, 4 Mar 2004 03:08:15 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200403040308.15880.arekm@pld-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=iso-8859-2
+Content-Transfer-Encoding: QUOTED-PRINTABLE
 Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010222A08E@orsmsx402.jf.intel.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: lkml <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Feldman, Scott wrote:
->>Let's fix the broken drivers first.
-> 
-> 
-> Ok, e100 v3 is same model as tg3, and we think tg3 is correct, so we
-> think e100 v3 is correct as well.
-> 
-> Ben, e100 v3 probably isn't given you the effect you had with previous
-> driver versions.  It'll stop the queue and never return a skb (unless we
-> hit that BUG case).
+The problem is that
 
-Ok.  Since I can retry it's not a big problem anyway.  I'm porting
-stuff forward to 2.6 and will re-test there sometime soon.
+ip a a 192.168.0.1/24 dev eth0
+ip link set eth0 down
+ip a flush dev eth0
 
-> e1000/ixgb need some work to bring them into this model.
+Here on my vanilla 2.6.2 it locks eating CPU - it does netlink=20
+communication over and over. This ,,hang'' doesn't happen when=20
+interface is in UP state. Also doesn't happen on 2.4 kernels.
 
-Cool, looking forward to it!
+I've tried it on different 2.6 kernels (one from fedora, one from PLD) =
+with=20
+different versions of iproute2 (usually latest). Friend tried it also w=
+ith=20
+iproute2 from slackware - same result.
 
-Ben
+Same happens when using lo interface instead of ethX.
 
-> 
-> -scott
-> 
+More description in RH bugzilla:
+https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=3D116982
 
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+ps. doing that on Broadcom Corporation BCM4401 100Base-T ethX interface=
+ (using=20
+b44 driver) causes lock (but sysrq works) on 2.4.25 kernel. Would be ni=
+ce if=20
+someone with that hardware could verify this.
+--=20
+Arkadiusz Mi=B6kiewicz     CS at FoE, Wroclaw University of Technology
+arekm.pld-linux.org, 1024/3DB19BBD, JID: arekm.jabber.org, PLD/Linux
