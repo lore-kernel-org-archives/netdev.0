@@ -1,27 +1,54 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [ANNOUNCE] Intel PRO/100 software developer manual released
-Date: Tue, 17 Dec 2002 19:46:27 -0800
+From: "Rock shows Produções Artísticas" <rockshows@rockshows.com.br>
+Subject: Show de =?ISO-8859-1?Q?Lan=E7amento?= CD Fator Cinco
+Date: Wed, 18 Dec 2002 04:13:42 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <288F9BF66CD9D5118DF400508B68C44604758F76@orsmsx113.jf.intel.com>
+Message-ID: <200212180608.gBI68g3v017678@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   LOSTeam
-	 <losteam@intel.com>
+Content-Type: text/html; charset="ISO-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Anton Blanchard'" <anton@samba.org>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Nice work guys! This has already answered a few questions I 
-> had when tuning the e100 on ppc64.
+<html>
 
-Great!  Let us know if you figure out that checksum weirdness you saw the
-other day.
- 
-> Any plans to release similar docs for the e1000?
+<head>
+<title></title>
+</head>
 
-It's a logical next step, but no definitive schedule.  Let's just leave it
-as a goal.
+<body bgcolor=3D"#000000"
+<p align=3D"center" topmargin=3D"0">
+<p align=3D"center"><img border=3D"0"
+src=3D"http://www.rockshows.com.br/IMAGES/animacao_mala_direta.gif" width=
+=3D"560"
+height=3D"255">
+<div align=3D"center">
+  <font face=3D"Arial" color=3D"#C0C0C0" size=3D"2">Grande show de lan=E7=
+amento do CD
+  da banda Fator Cinco no DirecTV - Music Hall em Fevereiro de 2003,</fon=
+t>
+</div>
+<div align=3D"center">
+  <font face=3D"Arial" color=3D"#C0C0C0" size=3D"2">clique <a
+href=3D"http://www.rockshows.com.br/fatorcinco.htm">aqui</a>
+  e saiba como adquirir o seu ingresso gratuitamente e conhecer esta nova
+  revela=E7=E3o do rock nacional.</font>
+</div>
+<p align=3D"center">&nbsp;</p>
+<p align=3D"center"><font color=3D"#FFFF00" size=3D"1" face=3D"Arial" <p>=
+Caso n=E3o
+queira mais receber nossos informativos,
+<a href=3D"mailto:remover@rockshows.com.br?Subject=3D::REMOVER
+V1::&amp;Body=3Dnetdev@oss.sgi.com" style=3D"text-decoration: blink; colo=
+r:
+#FFFFFF">Click
+aqui !</a></p><br>
 
--scott
+
+</font>
+
+
+</body>
+
+</html>
