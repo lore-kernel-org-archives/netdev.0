@@ -1,33 +1,28 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.6.6-rc1-bk5] remove duplicate pcnet32 patch
-Date: Tue, 20 Apr 2004 09:17:38 -0700 (PDT)
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] r8169 NAPI addition
+Date: Tue, 20 Apr 2004 18:25:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404201617.i3KGHcB13213@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040420182501.A31888@electric-eye.fr.zoreil.com>
+References: <20040419224911.A17362@electric-eye.fr.zoreil.com> <OF22F0D968.EDCFE67B-ON87256E7C.0053AE89-86256E7C.005628A4@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Jon D Mason <jonmason@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <OF22F0D968.EDCFE67B-ON87256E7C.0053AE89-86256E7C.005628A4@us.ibm.com>; from jonmason@us.ibm.com on Tue, Apr 20, 2004 at 09:45:07AM -0600
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please apply this patch to 2.6.6-rc1-bk5 to remove a duplicate patch
-that added 79C976 support (twice).  As is, it will not compile.
+Jon D Mason <jonmason@us.ibm.com> :
+[...]
+> I assume you are referring to the driver being used in weakly ordered 
+> memory model machines.  To address this I added a rmb() after the update 
+> to the interrupt mask.
 
---- linux-2.6.6-rc1-bk5/drivers/net/bad.pcnet32.c	Tue Apr 20 09:11:01 2004
-+++ linux-2.6.6-rc1-bk5/drivers/net/pcnet32.c	Tue Apr 20 09:11:06 2004
-@@ -1010,10 +1010,6 @@
- 	chipname = "PCnet/FAST III 79C976";
- 	fdx = 1; mii = 1;
- 	break;
--    case 0x2628:
--	chipname = "PCnet/FAST III 79C976";
--	fdx = 1; mii = 1;
--	break; 
-     default:
- 	if (pcnet32_debug & NETIF_MSG_PROBE)
- 	    printk(KERN_INFO PFX "PCnet version %#x, no PCnet32 chip.\n",
+Nonono, it is a PCI thing. Writes to (pci-)MMIO registers are posted and
+typically require a read in the MMIO range (or "some" time) to be committed
+to the final device. (pci-)IO accesses do not exhibit this property.
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+--
+Ueimor
