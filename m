@@ -1,87 +1,71 @@
-From: =?iso-2022-jp?B?ZXBhcHVAYmIuZXhjaXRlLmNvLmpw?=@oss.sgi.com
-Subject: =?iso-2022-jp?B?GyRCTCQ+NUJ6OS05cCIoRUU7UiVhITwlazktOXAbKEo=?=
-Date: Sat, 02 Nov 2002 19:59:00 +0900
+From: "Krishna Kumar" <kumarkr@us.ibm.com>
+Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.45
+Date: Sat, 2 Nov 2002 13:13:22 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200211021516.gA2FGYuR030592@oss.sgi.com>
-Reply-To: epapu@bb.excite.co.jp
+Message-ID: <OFB7772DA2.01708E94-ON87256C65.006EDAE7@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: base64
+Content-Type: text/plain; charset=iso-2022-jp
+Cc: ajtuomin@tml.hut.fi, davem@redhat.com, kkumar@beaverton.ibm.com.sgi.com,
+   kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, lpetande@tml.hut.fi,
+   netdev@oss.sgi.com, "Venkata Jagana" <jagana@us.ibm.com>,
+   YOSHIFUJI Hideaki /  =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?iso-2022-jp?B?Nzc3?=@oss.sgi.com
+To: Pekka Savola <pekkas@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PJGXkE2O0j4NCpNkjnGDgYFbg4uNTI2QjtANCg0KjaGM44FBjUyNkILwgrKK85ZdgrWCyIKi
-lfuCzYKxgrGC1g0KKJVLgriWe5W2gsmCoILIgr2CzIOBgVuDi4NBg2iDjINYgsyC3YLwgqiP
-kYKribqCs4KigWoNCm1lNDY0NzgzQG1lbWJlcnMuaW50ZXJxLm9yLmpwDQqDgYFbg4uDQYNo
-g4yDWILwgrKLTJP8grWCxIKtgr6Cs4KigUINCg0KgacxMDQtMDA2MQ0Kk4yLnpNzkoaJm4vm
-i+KNwDgtMTktMw0KkeYyg0WDQ4OTg0+DcoOLgUAzRg0Kg4GBW4OLg32DS4NXg5OUrY1zDQoN
-ClRFTIFAMDMtMzU0NC02MjIyDQpGQViBQDAzLTM1NDQtNjIxOA0KDQo9PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCpbi
-keiPpJVpgs6CqYLoj1eC34LcgrWCvYLMgsWBQY/BgrOC6oLpi7CC6oKqgqCC6ILcgreCzILF
-DQqCqJBcjZ6C3YLNgqiRgYLfgsmBSQ0KPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09DQoNCoGhgUCJ74j1kKeDjYOKgVuD
-XoNOg4mDdYFAgaENCg0KgmOCdYJjgUWDcoNmg0kyNTAwiX6CqYLnDQqDboNDg06DSYOKg2WD
-Qonmjr+CxYLMlMyUhIN9g2qDQYNig06CyIlmkZyCzJCUgVgNCoLcgriCzYNKg16DjYNPkL+L
-gYKokdKCv4K1gsSCqILogtyCt4Fpi8eXr4LfgsWCzJC/i4GJwpRcgWoNCoKojuiMs4LJgqiT
-zYKtlZWTm4LJgs2BQYKoi3GXbILMgqiWvJFPgsyC3YFJk5aO0Ja8gs2I6pDYk/yC6ILcgrmC
-8YFCDQqDSoNeg42DT4LwgqiMqYLEgUGCqJBcgrWNnoLdgq2CvoKzgqKBQg0KlrOXv4NKg16D
-jYNPDQoNCmh0dHA6Ly93d3cuYWxscm91bmQuc2liLnJ1L3JvcmljbHViLw0KDQpodHRwOi8v
-bWFnYXppbmUuamFwYW5lc2ViYWJpZXMuY29tL3JvcmljbHViLw0KDQqBQIFAgUCBQIFAgUCB
-QIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCJ74j1kKeDjYOKgVuDXoNOg4mDdQ0KgVGB
-UYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGB
-UYFRgVENCg0KgaFTRViDdIOMg5ODaJXlj1eBoQ0KDQqQXoyVgslTRViDdIOMg5ODaILwklSC
-tYLEgqKC6ZBsgr6Cr49XjYeBSQ0KkVONkYLHgrGCxYLgi9+CrYLMkGyC8IN2g42DdINCgVuD
-i5V0gsWCt4Kuj9CJ7oFCDQqO4YKikGyCqYLnj26UToLcgsWCooLBgs+CooKigumC5iENCoNf
-g5ODaYLJk+CPj4LMSILwinmCtYLggqSBSQ0KDQpodHRwOi8vd3d3LmFsbHJvdW5kLnNpYi5y
-dS9zZXgvDQoNCmh0dHA6Ly9tYWdhemluZS5qYXBhbmVzZWJhYmllcy5jb20vc2V4Lw0KDQog
-ICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICCDjIOCg5OD
-ToOJg3UNCoFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGB
-UYFRgVGBUYFRgVGBUYFRDQoNCoGhguCC4IKqgs2CtoKvgsSC1ILHgqSCqoLkguqC6YGhDQoN
-CoK1graC3YLGguCC4ILMg1KDiYN7g4yBW4NWg4eDkw0Kg42DioFbg16DcoNmg0mBaYJjgnWC
-Y4FqkOqW5Q0KgqKCwoLcgsWJY4vGgsWCq4LpgqmC7YKpguiC3IK5gvENCoKyko2VtoLNgqiR
-gYLfgsmBSQ0KDQpodHRwOi8vd3d3LmFsbHJvdW5kLnNpYi5ydS9yb3JpZHZkL3JvcmkvDQoN
-Cmh0dHA6Ly9tYWdhemluZS5qYXBhbmVzZWJhYmllcy5jb20vcm9yaWR2ZC9yb3JpLw0KDQoN
-Co3slWmX4Q0Kj62Pl5NgkOCBQJa8jMOJrpJjkm45gUCPrY+XgsyTuZGQDQqCyILHgsiCxzEz
-Mo3slWmBQo1ElV2UrZSEkoaBSQ0KICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAg
-ICAgICAggUAoXi1eKS9+g42DiphGl5iDgINngVsNCoFRgVGBUYFRgVGBUYFRgVGBUYFRgVGB
-UYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRgVGBUYFRDQoNCg0KgaGBQIJygmyD
-cIFbg2eDaYFbj9CJ7pGmk/qBQIGhDQoNCoJygmyDcIFbg2eDaYFbkaaT+o/Qie6BQg0KiYeP
-lYLiU02DToOJg3WCxoLNiOGCooFBgnKCbIikjUSO0oK+gq+Cqo9XgqSJ74FCDQqRU42RgsWC
-so/Qie6CxYKrgtyCt4FCDQqCoILIgr2CzIN2g4yDQ4LJgqCC7YK5gsSRppP6j9CJ7oFCDQqD
-doOMg0OR44vggs2I6pDYgqmCqYLogtyCuYLxgUINCpROl+6CzTIwjc6IyI/jgUINCg0KaHR0
-cDovL3d3dy5hbGxyb3VuZC5zaWIucnUvc20vDQoNCmh0dHA6Ly9tYWdhemluZS5qYXBhbmVz
-ZWJhYmllcy5jb20vc20vDQoNCg0KgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCB
-QIFAgUCBQIFAgUCBQIFAgUCCcoJsg06DiYN1DQqBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyB
-XIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXA0KDQqBoYFAkGyMYI50gqqN
-7ILBgr2Mho3slWmBQIGhDQoNCpX4gquCtYLfgr2CrYLIgumC5oKkgsiCqJBsjGCCs4LxgqqN
-7ILqgtyCtYK9gUINCpSalK2TSZHlg3GDYoNnj6SVaYFJDQqQlILJkKeMwIKqgqCC6YK9gt+B
-QYKokFyCtY2egt2CzYKokYGC34LJgUkNCoGZi8eVlILcgsWWe5WogruCwYKtguiCyZCnjeyC
-tYK9gr2C34FBk1iTqpTMlISCxYKrgtyCuYLxgUINCg0KaHR0cDovL3d3dy5hbGxyb3VuZC5z
-aWIucnUvZGFjaGkvZG9sbGMvDQoNCmh0dHA6Ly9tYWdhemluZS5qYXBhbmVzZWJhYmllcy5j
-b20vZGFjaGkvZG9sbGMvDQoNCg0KgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCB
-QIFAgUCBQIFAkGyMYI50i3uQ7INmg1WDQ4OTDQqBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyB
-XIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXA0KDQqBoYFAi3SJh4+VjPCN
-24KtgueC1IFAgaENCg0KkWaTR4LIkmqQq4LGkqmC3ILFk/GQbIFFgUWBRYFCDQqRZpNHgsiS
-apCrgvCNoYK3gq6LTY+XgsyMs4LWjPyCqYLtgrmC3IK3gUINCpFTjZGDbINig2eDj4Fbg06C
-xYK3gq6CyY/Qie6CboJqgUINCo7hgqKPl5CrguCJk5e2grWCyIKigsWXVoLRgtyCrYLrgqSB
-SQ0KglCJ8YzAguiBQZK3ivqBQYm9gsWC4IKgguiBQg0KgfSPl5CrgsmXRIK1gq2CxYKrgumS
-apCrg1iDXoNig3SC4JOvjp6V5Y9XkoaB9A0KDQpodHRwOi8vd3d3LmFsbHJvdW5kLnNpYi5y
-dS9lbmp5by8NCg0KaHR0cDovL21hZ2F6aW5lLmphcGFuZXNlYmFiaWVzLmNvbS9lbmp5by8N
-Cg0KDQqBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCB
-QIt0iYePlYnvDQqBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyB
-XIFcgVyBXIFcgVyBXIFcgVyBXA0KDQqBoYFAg32DioN0g0CDaYLMju2BQIGhDQoNCoN9g4qD
-dINAg2mCqoK9gtyC54LIgq2NRIKrgsiQbIFBgseCpIK8gUGCsYKxgtaBQg0KgqCC1ILIgqKC
-rYK3guiCzI/ulfGC4I7ogsmT/ILpguaBSQ0KgXWQ4pHOgsmIq5dwgrWCyIKigsWCrYK+grOC
-ooFCgXYNCg0KaHR0cDovL3d3dy5hbGxyb3VuZC5zaWIucnUvbWFyaS8NCg0KaHR0cDovL21h
-Z2F6aW5lLmphcGFuZXNlYmFiaWVzLmNvbS9tYXJpLw0KDQoNCg0KgUCBQIFAgUCBQIFAgUCB
-QIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCQWIFAkLOSag0KgVyBXIFcgVyB
-XIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVwN
-Cg0KgaGBQJBWkZWKSpNYgUmMg4jAg1qBW4OLgUCBoQ0KDQpBVi5EVkSMg4jAg1qBW4OLDQqR
-vJNYgsWCzY7ogsmT/ILngsiCooLggsyCzoKpgrWlpaWlpaUNCojIkU+CzILmgqSCyYFBguaC
-64K1gq2CqIrogqKCtYLcgreBQg0KkbyTWILJlYmCr4K4jIOIwJe/i+CBSQ0KDQpodHRwOi8v
-d3d3LmFsbHJvdW5kLnNpYi5ydS9waW5rLw0KDQpodHRwOi8vbWFnYXppbmUuamFwYW5lc2Vi
-YWJpZXMuY29tL3BpbmsvDQoNCoFAgUCBQA0KgUCBQIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCB
-QIFAgUCBQIFAgUCBQIFAgUCBQIFAgUCU/I+tj5eDToOJg3UNCoFcgVyBXIFcgVyBXIFcgVyB
-XIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcgVyBXIFcDQoNCg0K
+
+I agree with Pekka, hence the response to Jeff's and Yoshifuji's mail is
+the same - what you are suggestting is feasible but we need more work in
+the kernel either way. We can do many/most of these things in userspace
+provided we either duplicate a lot of the code from kernel to user space
+(leading to maintainability issues), or  modularize exisiting kernel
+routines (eg a different interface to DAD) and provide hooks for the same
+to user (portability?). To clean up and provide more hooks in the kernel to
+support common user activities means a major over write, but I agree it is
+a good idea in the long run.
+
+Another concern to think about is whether an integral part of the HA
+functionality should be kept separate in user space, and whether making the
+break in the HA to have a user process and kernel component makes sense.
+Also other things to worry about when integral components are kept in
+userspace -  what happens when signals (KILL) are sent to that process ? We
+don't want the home agent functionality to stop in that case, even if it is
+a system admin error. This part is very critical to supporting possibly
+hundreds of mobile devices in the future.
+
+Thanks,
+
+- KK
+
+
+
+                                                                                                                       
+                      Pekka Savola                                                                                     
+                      <pekkas@netcore.f        To:       YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>        
+                      i>                       cc:       Krishna Kumar/Beaverton/IBM@IBMUS, <davem@redhat.com>,        
+                                                <ajtuomin@tml.hut.fi>, <kkumar@beaverton.ibm.com.sgi.com>,             
+                      11/02/2002 12:36          <kuznet@ms2.inr.ac.ru>, <linux-kernel@vger.kernel.org>,                
+                      AM                        <lpetande@tml.hut.fi>, <netdev@oss.sgi.com>, Venkata                   
+                                                Jagana/Beaverton/IBM@IBMUS                                             
+                                               Subject:  Re: [PATCHSET] Mobile IPv6 for 2.5.45                         
+                                                                                                                       
+                                                                                                                       
+                                                                                                                       
+
+
+
+I believe there could be more hooks in the kernel to let userspace do
+certain tasks, for example, sending router solicitations and processing
+the responses -- sure, this can be done in the userspace but means code
+duplication.  If the code in the kernel could also be called from the
+userspace, there might be less need for duplication (though this would
+result in portability issues of course).
+
+Similar would appear to be the case some other features listed here.
+
+On Sat, 2 Nov 2002, YOSHIFUJI Hideaki / [iso-2022-jp] !
+ 
+!
+ 
+
