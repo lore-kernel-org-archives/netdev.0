@@ -1,36 +1,56 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 2/3] r8169: Large Send enablement
-Date: Fri, 5 Nov 2004 05:50:33 +0000
-Message-ID: <200411050550.33521.jdmason@us.ibm.com>
-References: <200411021203.22003.jdmason@us.ibm.com> <200411031816.11675.jdmason@us.ibm.com> <20041104184529.GA2694@electric-eye.fr.zoreil.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: BUG: dst underflow (again)
+Date: Thu, 4 Nov 2004 22:18:01 -0800
+Message-ID: <20041104221801.584c8f11.davem@davemloft.net>
+References: <4178AB0D.6060107@pobox.com>
+	<20041022.155159.98771450.yoshfuji@linux-ipv6.org>
+	<20041022075947.GA15795@xi.wantstofly.org>
+	<1099577717.1039.155.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: buytenh@wantstofly.org, yoshfuji@linux-ipv6.org, jgarzik@pobox.com,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041104184529.GA2694@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+To: hadi@cyberus.ca
+In-Reply-To: <1099577717.1039.155.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thursday 04 November 2004 06:45 pm, Francois Romieu wrote:
-> Jon Mason <jdmason@us.ibm.com> :
-> > On Tuesday 02 November 2004 01:11 pm, Francois Romieu wrote:
-> > [...]
-> >
-> > > - If rtl8169_open() fails [*] when the device was previously up, the
-> > > driver could/should try to recover.
-> >
-> > I disagree.  It should fail, complain loudly, and let the user try and
-> > fix it (or return it to the previous state).  The code provided below
-> > will act like
->
-> Mmmm... Actually both patches try to paper over the real issue: the driver
-> should reserve the resources it needs for the change of mtu first.
+On 04 Nov 2004 09:15:17 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-Agreed.  I did a quick look in the other drivers, and didn't find any drivers 
-that handle this possibility.  Most of them ignore the fact.  This sounds 
-like an open hole in all of the drivers.
+> Could you turn off netfilter and see if this continues to happen?
+
+That's one possible angle, but let's look at the tracepoints
+more closely.
+
+BTW Lennert, the decoded addresses are extremely helpful. Thanks.
+
+Jeff, could you similarly decode the ones that you seem to get?
+That would be an incredibly useful datapoint.  If you've provided
+this already, my bad and please point me at where you posted that.
+
+> > BUG: dst underflow -1: 3bcf9a80 at 42350024
+> > BUG: dst underflow 0: 3bcf9a80 at 423486d2
+> > BUG: dst underflow 0: 3bcf9a80 at 4235823d
+ ...
+> > 0x42350024 - 0x42345000 = 0xb024, corresponds to:
+> > 	0000affa <ip6_dst_check>
+> > 
+> > 0x423486d2 - 0x42345000 = 0x36d2, corresponds to:
+> > 	0000339d <ip6_push_pending_frames>
+> > 
+> > 0x4235823d - 0x42345000 = 0x1323d, corresponds to:
+> > 	00012c0d <udpv6_sendmsg>	(god, that's one big function btw)
+
+The last one is the most interesting.  The only dst_release() call
+that occurs in udpv6_sendmsg() is when xfrm_lookup() returns
+an error.  The semantics of that function are a complete mess
+(when it errors, it sometimes releases the DST, sometimes does not)
+and I'll fix that up.
+
+But let me ask, do you have any IPSEC policies in the kernel
+when these BUGs trigger?  If so, I'm pretty sure I know what
+the problem may be.
