@@ -1,69 +1,83 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] repairing rtcache killer
-Date: Wed, 6 Aug 2003 00:52:24 -0700
+From: ebiederm@xmission.com (Eric W. Biederman)
+Subject: Re: TOE brain dump
+Date: 06 Aug 2003 01:58:56 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030806005224.4798f744.davem@redhat.com>
-References: <200308051340.RAA28267@dub.inr.ac.ru>
-	<16175.58503.134543.310459@robur.slu.se>
+Message-ID: <m1llu7ushr.fsf@frodo.biederman.org>
+References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
+	<3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net>
+	<m1fzkiwnru.fsf@frodo.biederman.org>
+	<20030804162433.L5798@almesberger.net>
+	<m1u18wuinm.fsf@frodo.biederman.org>
+	<20030806021304.E5798@almesberger.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16175.58503.134543.310459@robur.slu.se>
+To: Werner Almesberger <werner@almesberger.net>
+In-Reply-To: <20030806021304.E5798@almesberger.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Aug 2003 19:08:23 +0200
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+Werner Almesberger <werner@almesberger.net> writes:
 
+> Eric W. Biederman wrote:
+> > MPI is not a transport.  It an interface like the Berkeley sockets
+> > layer.
 > 
-> kuznet@ms2.inr.ac.ru writes:
->  > #   Two serious and interesting mistakes were made in the patch of 2003-06-16.
+> Hmm, but doesn't it also unify transport semantics (i.e. chop
+> TCP streams into messages), maybe add reliability to transports
+> that don't have it, and provide addressing ? Okay, perhaps you
+> wouldn't call this a transport in the OSI sense, but it still
+> seems to have considerably more functionality than just
+> providing an API.
 
-Mama mia!  This patch exists in 2.4.22-preX too, so full fix
-becomes more urgent.
+Those are all features of the MPI implementation.  It is
+not that MPI does not have an underlying transport.  MPI has
+a lot of underlying transports.  And there is a different MPI
+implementation for each transport.  Although a lot of them start
+with a common base.
+ 
+> > Mostly I think the that is less true, at least if they can stand the
+> > process of severe code review and cleaning up their code.
+> 
+> Hmm, people putting dozens of millions into building clusters
+> can't afford to have what is probably their most essential
+> infrastructure code reviewed and cleaned up ? Oh dear.
 
->  For autotuning I think we can have help from a ratio of warm cache
->  hits (in_hit) and misses (in_slow_tot) to set threshhold to trim
->  hash chain lengths.
+Afford, they can do.  A lot of the users are researchers and
+a lot of people doing the code are researchers.  So corralling
+them up and getting production quality code can be a challenge,
+or getting them to take small enough steps that they don't
+frighten the rest of the world.
 
-Yes, I agree, and algorithm can be even not too smart, something like
-the following.
+Plus ten million dollars pretty much buys you a spot in the top 10 of
+the top 500 supercomputers.  The bulk of the clusters are a lot less
+expensive than that.
+ 
+> > But of course to get through the peer review process people need
+> > to understand what they are doing.
+> 
+> A good point :-)
+> 
+> > So store and forward of packets in a 3 layer switch hierarchy, at 1.3 us
+> > per copy.
+> 
+> But your switch could just do cut-through, no ? Or do they
+> need to recompute checksums ?
 
-Before scan loop, we compute:
+Correct, switches can and generally do implement cut-through in that
+kind of environment.  I was just showing that even at 10Gbps treating
+a packet as an atomic unit has issues.  cut-through is necessary
+to keep your latency down.  Do any ethernet switches do cut-through?
+ 
+> > A lot of the NICs which are used for MPI tend to be smart for two
+> > reasons.  1) So they can do source routing. 2) So they can safely
+> > export some of their interface to user space, so in the fast path
+> > they can bypass the kernel.
+> 
+> The second part could be interesting for TOE, too. Only that
+> the interface exported would just be the socket interface.
 
-	in_hit = in_slow_tot = 0;
-	for (i = 0; i < NR_CPUS; i++) {
-		if (!cpu_possible(i))
-			continue;
-		in_hit += per_cpu_ptr(rt_cache_stat, i)->in_hit;
-		in_slow_tot += per_cpu_ptr(rt_cache_stat, i)->in_slow_tot;
-	}
+Agreed.  
 
-	aggressive = 0;
-	if (in_hit < (in_slow_tot >> 2))
-		aggressive = 1;
-
-	thresh = ip_rt_gc_elasticity;
-	if (!aggressive)
-		thresh <<= 1;
-
-Then the purging test becomes:
-
-	if (chain_length > thresh ||
-	    (aggressive &&
-	     chain_length > 1 &&
-	     !(min_score & (1<<31)))) {
-		*candp = cand->u.rt_next;
-		rt_free(cand);
-	}
-
-To make algorithm cheaper, we can even use only the current
-cpu's rt_cache_stat in order to make our decisions about whether
-to enter agressive mode or not.
-
-Alexey, given all this what would you like to do?  Should I push
-your patch urgently into 2.4.x or spend some more time trying to
-solve this issue?
+Eric
