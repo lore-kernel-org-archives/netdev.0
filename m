@@ -1,69 +1,61 @@
-From: akpm@osdl.org
-Subject: [patch 1/1] ixgb LR card support
-Date: Tue, 04 Jan 2005 22:01:34 -0800
-Message-ID: <200501050601.j0561h615068@mail.osdl.org>
-Cc: netdev@oss.sgi.com, akpm@osdl.org, aafes@psu.edu
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Wed, 5 Jan 2005 06:26:32 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0501050604390.27046@hibernia.jakma.org>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+ <1104764710.1048.580.camel@jzny.localdomain> <41DB26A6.2070008@pobox.com>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: hadi@cyberus.ca, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Tommy Christensen <tommy.christensen@tpack.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41DB26A6.2070008@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 4 Jan 2005, Jeff Garzik wrote:
 
-From: Phil Sorber <aafes@psu.edu>
+> Aren't there cases where people would -not- want the queue to be 
+> cleared?
 
-This enables the ixgb driver to be used for LR cards as well.
+Why *do* you want the queue to be cleared? (avoiding NIC /dev/null is 
+only reason right?)
 
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+TCP (AIUI) has its owns means to resend.
 
- 25-akpm/drivers/net/ixgb/ixgb_hw.c   |    1 +
- 25-akpm/drivers/net/ixgb/ixgb_ids.h  |    1 +
- 25-akpm/drivers/net/ixgb/ixgb_main.c |    5 ++++-
- 3 files changed, 6 insertions(+), 1 deletion(-)
+Most (all?) other transports have *never* had an expectation of such 
+reliability. Applications *know* they have to provide their own 
+reliability. Queueing and later sending (by then) stale packets is 
+*bad*
 
-diff -puN drivers/net/ixgb/ixgb_hw.c~ixgb-lr-card-support drivers/net/ixgb/ixgb_hw.c
---- 25/drivers/net/ixgb/ixgb_hw.c~ixgb-lr-card-support	2004-11-22 20:33:33.912389136 -0800
-+++ 25-akpm/drivers/net/ixgb/ixgb_hw.c	2004-11-22 20:33:33.920387920 -0800
-@@ -198,6 +198,7 @@ static ixgb_phy_type ixgb_identify_phy(s
- 		break;
- 
- 	case IXGB_DEVICE_ID_82597EX_SR:
-+	case IXGB_DEVICE_ID_82597EX_LR:
- 		/* The SR adapters carry two different types of XPAK optics
- 		 * modules; read the vendor identifier to determine the exact
- 		 * type of optics. */
-diff -puN drivers/net/ixgb/ixgb_ids.h~ixgb-lr-card-support drivers/net/ixgb/ixgb_ids.h
---- 25/drivers/net/ixgb/ixgb_ids.h~ixgb-lr-card-support	2004-11-22 20:33:33.914388832 -0800
-+++ 25-akpm/drivers/net/ixgb/ixgb_ids.h	2004-11-22 20:33:33.920387920 -0800
-@@ -38,6 +38,7 @@
- 
- #define IXGB_DEVICE_ID_82597EX      0x1048
- #define IXGB_DEVICE_ID_82597EX_SR   0x1A48
-+#define IXGB_DEVICE_ID_82597EX_LR   0x1B48
- 
- #define IXGB_SUBDEVICE_ID_A11F  0xA11F
- #define IXGB_SUBDEVICE_ID_A01F  0xA01F
-diff -puN drivers/net/ixgb/ixgb_main.c~ixgb-lr-card-support drivers/net/ixgb/ixgb_main.c
---- 25/drivers/net/ixgb/ixgb_main.c~ixgb-lr-card-support	2004-11-22 20:33:33.916388528 -0800
-+++ 25-akpm/drivers/net/ixgb/ixgb_main.c	2004-11-22 20:33:33.922387616 -0800
-@@ -46,6 +46,8 @@ static struct pci_device_id ixgb_pci_tbl
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_SR,
- 	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
-+	{INTEL_VENDOR_ID, IXGB_DEVICE_ID_82597EX_LR,
-+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0},
- 
- 	/* required last entry */
- 	{0,}
-@@ -511,7 +513,8 @@ static int __devinit ixgb_sw_init(struct
- 	hw->max_frame_size = netdev->mtu + ENET_HEADER_SIZE + ENET_FCS_LENGTH;
- 
- 	if ((hw->device_id == IXGB_DEVICE_ID_82597EX)
--	    || (hw->device_id == IXGB_DEVICE_ID_82597EX_SR))
-+	    || (hw->device_id == IXGB_DEVICE_ID_82597EX_SR)
-+	    || (hw->device_id == IXGB_DEVICE_ID_82597EX_LR))
- 		hw->mac_type = ixgb_82597;
- 	else {
- 		/* should never have loaded on this device */
-_
+Think:
+
+- heartbeat applications
+- Router or route advertisements (IPv6 RA, IPv4 ICMP IRDP, RIP)
+- Streaming media (ok, not much damage here, but still there's simply
+   no point queueing while link is down..)
+
+Why queue packets on behalf of applications which have no expectation 
+of kernel doing this (any application expecting such is certainlty 
+broken) and which very likely implement their own reliability or 
+packet-loss recovery strategies? Particularly when queueing is quite 
+possibly *detrimental* to what the application is trying to achieve 
+(timely sending of packets).
+
+If an application wants reliable sending of packets, it will be using 
+TCP..
+
+> 	Jeff
+
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+When the speaker and he to whom he is speaks do not understand, that is
+metaphysics.
+ 		-- Voltaire
