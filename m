@@ -1,37 +1,36 @@
-From: Andy Isaacson <adi@hexapodia.org>
-Subject: Re: netdev-2.6 queue updated
-Date: Thu, 27 Jan 2005 18:15:30 -0800
-Message-ID: <20050128021530.GB19150@hexapodia.org>
-References: <41F980A0.8020905@pobox.com>
+From: Dan Williams <dcbw@redhat.com>
+Subject: Adding an IW_QUAL_ALL_UPDATED macro
+Date: Thu, 27 Jan 2005 21:27:55 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0501272121120.2149@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
-        Andrew Morton <akpm@osdl.org>, Jouni Malinen <jkmaline@cc.hut.fi>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: jt@hpl.hp.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <41F980A0.8020905@pobox.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 27, 2005 at 07:00:32PM -0500, Jeff Garzik wrote:
-> The attached changelog describes what I just pushed out to BitKeeper 
-> (and what should be appearing in the next -mm release from Andrew).
-> 
-> Note to BK users:  please re-clone netdev-2.6, don't just 'bk pull'.
+Jean,
 
-It's much more efficient to do
-% bk undo -a`bk repogca`
-(which deletes everything in the local repo that's not in the parent)
-rather than pulling the entire repo over the wire again. [1]
+Can we add something like:
 
-You can check what would be deleted by this command with "bk changes -L"
-similar to how you can "bk changes -R" to figure out what would be
-pulled.
+#define IW_QUAL_ALL_UPDATED (IW_QUAL_QUAL_UPDATED
+                             | IW_QUAL_LEVEL_UPDATED
+                             | IW_QUAL_NOISE_UPDATED)
 
-[1] Well, actually, it isn't *quite* that simple; in certain cases,
-    repogca will delete more than it needs to.  But it's still more
-    efficient than a re-pull.
+#define IW_QUAL_ALL_INVALID (IW_QUAL_QUAL_INVALID
+                             | IW_QUAL_LEVEL_INVALID
+                             | IW_QUAL_NOISE_INVALID)
 
--andy
+these macros to wireless.h?  This would be helpful for drivers, many 
+of which seem to have "qual.updated = 7; /* all updated */" type 
+statements in them.
+
+I'm also attempting to normalize some of the quality values in the 
+drivers, and to develop an understanding of the spreads of the quality 
+values in all of them.  I hope to post the data from this evaluation at 
+some point.  I'm fixing up the in-kernel drivers (and ipw2200 driver) to 
+correctly set the "qual.updated" field since most of them don't.
+
+Dan
