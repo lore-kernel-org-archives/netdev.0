@@ -1,121 +1,106 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 - panic and a fix
-Date: Sat, 11 Sep 2004 14:19:52 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
+Date: Sat, 11 Sep 2004 15:44:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040911121952.GA3134@electric-eye.fr.zoreil.com>
-References: <200409082224.23829.sriharivijayaraghavan@yahoo.com.au> <20040908190603.GA19634@electric-eye.fr.zoreil.com> <200409100008.06541.sriharivijayaraghavan@yahoo.com.au> <200409111147.24064.sriharivijayaraghavan@yahoo.com.au>
+Message-ID: <20040911134409.GA21181@postel.suug.ch>
+References: <20040910195003.GA13912@bougret.hpl.hp.com> <20040910200644.GJ20088@postel.suug.ch> <20040910201302.GA16556@bougret.hpl.hp.com> <20040910202235.GK20088@postel.suug.ch> <20040910203203.GA17078@bougret.hpl.hp.com> <20040910204348.GL20088@postel.suug.ch> <1094857082.1041.19.camel@jzny.localdomain> <20040910231726.GP20088@postel.suug.ch> <1094868070.1042.77.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="mYCpIKhGyMATD0i+"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jt@hpl.hp.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <200409111147.24064.sriharivijayaraghavan@yahoo.com.au>
+In-Reply-To: <1094868070.1042.77.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* jamal <1094868070.1042.77.camel@jzny.localdomain> 2004-09-10 22:01
+> On Fri, 2004-09-10 at 19:17, Thomas Graf wrote:
+> 
+> > There is one remaining problem, currently, changes via rtnetlink will
+> > result in multiple notifies being sent out because NETDEV_CHANGEMTU
+> > and NETDEV_CHANGENAME are invoked as well and result in a netlink
+> > message. Changing them to not do anything in rtnetlink context
+> > would solve it but we would lose the notify if the change was made
+> > via ioctl.
+> > 
+> Are you changing MTU and NAME at the same time?
 
---mYCpIKhGyMATD0i+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Possibly, I change everything the user requests me to do.
 
-Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au> :
-[...]
-> The bad news is that I see no "Assertion failed!" messages from the kernel. 
-> Here is the complete kernel BUG and subsequent panic messages:
-[oops]
+> Valid to receive the two updates i would think in that case.
 
-R12 is confusing me.
+That's not the problem, the problem is that you may receive
+more updates than requested changes. Let's assume you're changing
+the MTU using IFLA_MTU and it succeeds. dev_set_mtu will send
+out the first update, at the end the do_setlink will send
+out another update.
 
-Can you do two more subsequent tests with the patch attached ?
-They apply against vanilla 2.6.9-rc1-bk{11/17}.
+Changing MTU and ifname would result in 3 updates:
 
-I assume the oops happen immediately and you can not even tell if a few
-packets were transmitted/received, right ?
+ 1) RTM_NEWLINK with updated mtu (old name)
+ 2) RTM_NEWLINK with mtu and name updated
+ 3) same again as 2)
 
-I'll welcome the objdump -S of both r8169.o modules as well as the section
-of the vmlinux file where skb_over_panic() appears.
+I personally have no problem with the current behaviour but maybe
+we should clean this up a bit.
 
---
-Ueimor
+Suggestion:
+ Send out a notify for every change we make. This can result
+ in 7 updates being sent out. It would allow the application
+ to see how far the kernel was successful quite easly or
+ do a revision control and switch back to older configurations.
 
---mYCpIKhGyMATD0i+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="r8169-dbg-a.patch"
+Something like this:
 
---- linux-2.6.9-rc1-bk17.orig/drivers/net/r8169.c	2004-09-10 21:57:57.000000000 +0200
-+++ linux-2.6.9-rc1-bk17/drivers/net/r8169.c	2004-09-11 14:05:17.000000000 +0200
-@@ -1308,7 +1308,7 @@ rtl8169_hw_start(struct net_device *dev)
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
+--- linux-2.6.9-rc1-bk15.orig/net/core/rtnetlink.c	2004-09-11 15:39:06.000000000 +0200
++++ linux-2.6.9-rc1-bk15/net/core/rtnetlink.c	2004-09-11 15:39:37.000000000 +0200
+@@ -295,6 +295,7 @@
  
- 	// For gigabit rtl8169
--	RTL_W16(RxMaxSize, RxPacketMaxSize);
-+	RTL_W16(RxMaxSize, RX_BUF_SIZE);
+ 		if (err)
+ 			goto out;
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 	}
  
- 	// Set Rx Config register
- 	i = rtl8169_rx_config |
-@@ -1681,7 +1681,7 @@ rtl8169_rx_interrupt(struct net_device *
- 		} else {
- 			struct RxDesc *desc = tp->RxDescArray + entry;
- 			struct sk_buff *skb = tp->Rx_skbuff[entry];
--			int pkt_size = (status & 0x00001FFF) - 4;
-+			int pkt_size = (status & 0x00003FFF) - 4;
- 			void (*pci_action)(struct pci_dev *, dma_addr_t,
- 				size_t, int) = pci_dma_sync_single_for_device;
+ 	if (ida[IFLA_ADDRESS - 1]) {
+@@ -312,6 +313,7 @@
+ 		err = dev->set_mac_address(dev, RTA_DATA(ida[IFLA_ADDRESS - 1]));
+ 		if (err)
+ 			goto out;
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 	}
  
-@@ -1698,6 +1698,7 @@ rtl8169_rx_interrupt(struct net_device *
- 			pci_action(tp->pci_dev, le64_to_cpu(desc->addr),
- 				   RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+ 	if (ida[IFLA_BROADCAST - 1]) {
+@@ -319,6 +321,7 @@
+ 			goto out;
+ 		memcpy(dev->broadcast, RTA_DATA(ida[IFLA_BROADCAST - 1]),
+ 		       dev->addr_len);
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 	}
  
-+			BUG_ON(pkt_size > (RX_BUF_SIZE - 4));
- 			skb_put(skb, pkt_size);
- 			skb->protocol = eth_type_trans(skb, dev);
- 			rtl8169_rx_skb(skb);
-
---mYCpIKhGyMATD0i+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="r8169-dbg-b.patch"
-
---- linux-2.6.9-rc1-bk17.orig/drivers/net/r8169.c	2004-09-10 21:57:57.000000000 +0200
-+++ linux-2.6.9-rc1-bk17/drivers/net/r8169.c	2004-09-11 14:06:33.000000000 +0200
-@@ -984,9 +984,10 @@ rtl8169_init_board(struct pci_dev *pdev,
- 	tp->cp_cmd = PCIMulRW | RxChkSum;
+ 	if (ida[IFLA_MTU - 1]) {
+@@ -336,6 +339,7 @@
+ 			goto out;
  
- 	if ((sizeof(dma_addr_t) > 4) &&
--	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK))
-+	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
- 		tp->cp_cmd |= PCIDAC;
--	else {
-+		dev->features |= NETIF_F_HIGHDMA;
-+	} else {
- 		rc = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
- 		if (rc < 0) {
- 			printk(KERN_ERR PFX "DMA configuration failed.\n");
-@@ -1308,7 +1309,7 @@ rtl8169_hw_start(struct net_device *dev)
- 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 		dev->tx_queue_len = *((u32 *) RTA_DATA(ida[IFLA_TXQLEN - 1]));
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 	}
  
- 	// For gigabit rtl8169
--	RTL_W16(RxMaxSize, RxPacketMaxSize);
-+	RTL_W16(RxMaxSize, RX_BUF_SIZE);
+ 	if (ida[IFLA_WEIGHT - 1]) {
+@@ -343,6 +347,7 @@
+ 			goto out;
  
- 	// Set Rx Config register
- 	i = rtl8169_rx_config |
-@@ -1681,7 +1682,7 @@ rtl8169_rx_interrupt(struct net_device *
- 		} else {
- 			struct RxDesc *desc = tp->RxDescArray + entry;
- 			struct sk_buff *skb = tp->Rx_skbuff[entry];
--			int pkt_size = (status & 0x00001FFF) - 4;
-+			int pkt_size = (status & 0x00003FFF) - 4;
- 			void (*pci_action)(struct pci_dev *, dma_addr_t,
- 				size_t, int) = pci_dma_sync_single_for_device;
+ 		dev->weight = *((u32 *) RTA_DATA(ida[IFLA_WEIGHT - 1]));
++		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 	}
  
-@@ -1698,6 +1699,7 @@ rtl8169_rx_interrupt(struct net_device *
- 			pci_action(tp->pci_dev, le64_to_cpu(desc->addr),
- 				   RX_BUF_SIZE, PCI_DMA_FROMDEVICE);
+ 	if (ida[IFLA_IFNAME - 1]) {
+@@ -365,8 +370,6 @@
+ 	err = 0;
  
-+			BUG_ON(pkt_size > (RX_BUF_SIZE - 4));
- 			skb_put(skb, pkt_size);
- 			skb->protocol = eth_type_trans(skb, dev);
- 			rtl8169_rx_skb(skb);
-
---mYCpIKhGyMATD0i+--
+ out:
+-	if (!err)
+-		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 
+ 	dev_put(dev);
+ 	return err;
