@@ -1,37 +1,34 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: RFC: IPSEC patch 0 for netlink events
-Date: Sun, 27 Mar 2005 05:40:06 +1000
-Message-ID: <20050326194006.GA9737@gondor.apana.org.au>
-References: <1111864971.1092.904.camel@jzny.localdomain>
+Subject: Re: PATCH: IPSEC acquire in presence of multiple managers
+Date: Sun, 27 Mar 2005 05:42:17 +1000
+Message-ID: <20050326194217.GA9778@gondor.apana.org.au>
+References: <E1DF15m-0006JT-00@gondolin.me.apana.org.au> <1111862486.1090.880.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@redhat.com>, nakam@linux-ipv6.org,
+        shinta.sugimoto@ericsson.com, netdev <netdev@oss.sgi.com>,
+        Patrick McHardy <kaber@trash.net>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1111864971.1092.904.camel@jzny.localdomain>
+In-Reply-To: <1111862486.1090.880.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 26, 2005 at 02:22:51PM -0500, jamal wrote:
->
-> --- a/include/linux/xfrm.h	2005/03/26 18:30:26	1.1
-> +++ b/include/linux/xfrm.h	2005/03/26 18:47:48
-> @@ -254,5 +254,8 @@
->  
->  #define XFRMGRP_ACQUIRE		1
->  #define XFRMGRP_EXPIRE		2
-> +#define XFRMGRP_POLEXPIRE	4
+On Sat, Mar 26, 2005 at 01:41:27PM -0500, jamal wrote:
+> 
+> I noticed in the absence of a responsive KM, the acquires are sent
+> forever. Is it 30 seconds and may be degenerating to 60 seconds?
+> In the meantime my ping is sitting there not giving me back the prompt.
+> I suspect this is so as to make it reliable and maybe aggrevated by the
+> fact i can now passively monitor with ip xfrm mon.
 
-Is the intention that you'll be sending policy expire messages to
-POLEXPIRE only?
+It's only sitting there forever because ping is configured to send
+packets forever by default.
 
-If so please add a new group for SA expire messages only so that
-XFRMGRP_EXPIRE continues to get all expire messages for compatibility.
+Try ping -c 1 and things will probably be different.
 
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
