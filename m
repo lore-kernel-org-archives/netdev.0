@@ -1,8 +1,9 @@
-From: Abhinav Gupta <kernelnetworkguy@hotpop.com>
+From: Abhinav Gupta <gupta@cpsc.ucalgary.ca>
 Subject: Accessing time
-Date: Thu, 25 Mar 2004 12:41:19 -0700
+Date: Thu, 25 Mar 2004 12:41:04 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <406335DF.6060309@hotpop.com>
+Message-ID: <406335D0.2090308@cs.ucalgary.ca>
+Reply-To: gupta@cpsc.ucalgary.ca
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
