@@ -1,7 +1,7 @@
 From: domen@coderock.org
-Subject: [patch 05/26] net/ixgb_ethtool: replace schedule_timeout() with msleep_interruptible()
-Date: Sun, 06 Mar 2005 11:32:51 +0100
-Message-ID: <20050306103251.B55FA1E46E@trashy.coderock.org>
+Subject: [patch 06/26] net/pcnet32: replace schedule_timeout() with msleep_interruptible()
+Date: Sun, 06 Mar 2005 11:32:54 +0100
+Message-ID: <20050306103254.E5EDD1F1F0@trashy.coderock.org>
 Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
         janitor@sternwelten.at
 To: jgarzik@pobox.com
@@ -13,8 +13,8 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Use msleep_interruptible() instead of 
-schedule_timeout() to guarantee the task delays as expected.
+Use msleep_interruptible() instead of schedule_timeout() to
+guarantee the task delays as expected.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
@@ -22,22 +22,19 @@ Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/ixgb/ixgb_ethtool.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ kj-domen/drivers/net/pcnet32.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN drivers/net/ixgb/ixgb_ethtool.c~msleep_interruptible-drivers_net_ixgb_ixgb_ethtool drivers/net/ixgb/ixgb_ethtool.c
---- kj/drivers/net/ixgb/ixgb_ethtool.c~msleep_interruptible-drivers_net_ixgb_ixgb_ethtool	2005-03-05 16:09:32.000000000 +0100
-+++ kj-domen/drivers/net/ixgb/ixgb_ethtool.c	2005-03-05 16:09:32.000000000 +0100
-@@ -617,9 +617,9 @@ ixgb_phys_id(struct net_device *netdev, 
+diff -puN drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32 drivers/net/pcnet32.c
+--- kj/drivers/net/pcnet32.c~msleep_interruptible-drivers_net_pcnet32	2005-03-05 16:09:33.000000000 +0100
++++ kj-domen/drivers/net/pcnet32.c	2005-03-05 16:09:33.000000000 +0100
+@@ -847,7 +847,7 @@ static int pcnet32_phys_id(struct net_de
+     if ((!data) || (data > (u32)(MAX_SCHEDULE_TIMEOUT / HZ)))
+     data = (u32)(MAX_SCHEDULE_TIMEOUT / HZ);
  
- 	set_current_state(TASK_INTERRUPTIBLE);
- 	if(data)
--		schedule_timeout(data * HZ);
-+		msleep_interruptible(data * 1000);
- 	else
--		schedule_timeout(MAX_SCHEDULE_TIMEOUT);
-+		msleep_interruptible(jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT));
+-    schedule_timeout(data * HZ);
++    msleep_interruptible(data * 1000);
+     del_timer_sync(&lp->blink_timer);
  
- 	del_timer_sync(&adapter->blink_timer);
- 	ixgb_led_off(&adapter->hw);
+     /* Restore the original value of the bcrs */
 _
