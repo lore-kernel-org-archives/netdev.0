@@ -1,50 +1,45 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
-Date: 10 Sep 2004 18:58:02 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: Fri, 10 Sep 2004 16:02:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094857082.1041.19.camel@jzny.localdomain>
-References: <20040910195003.GA13912@bougret.hpl.hp.com>
-	 <20040910200644.GJ20088@postel.suug.ch>
-	 <20040910201302.GA16556@bougret.hpl.hp.com>
-	 <20040910202235.GK20088@postel.suug.ch>
-	 <20040910203203.GA17078@bougret.hpl.hp.com>
-	 <20040910204348.GL20088@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040910160209.4f5d8577.davem@davemloft.net>
+References: <20040908065152.GC27886@wotan.suse.de>
+	<E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	<20040908072408.GI27886@wotan.suse.de>
+	<1094629677.1089.155.camel@jzny.localdomain>
+	<20040908134713.1bcd46d3.davem@davemloft.net>
+	<1094823215.1121.129.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com
+Cc: ak@suse.de, herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20040910204348.GL20088@postel.suug.ch>
+To: hadi@cyberus.ca
+In-Reply-To: <1094823215.1121.129.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-09-10 at 16:43, Thomas Graf wrote:
-> * Jean Tourrilhes <20040910203203.GA17078@bougret.hpl.hp.com> 2004-09-10 13:32
-> > On Fri, Sep 10, 2004 at 10:22:35PM +0200, Thomas Graf wrote:
-> > > 
-> > > 2) Implement NETDEV_CHANGE, I was actually about to implement this
-> > >    but it's not directly related to this change and requires the same
-> > >    effort by the user space application has refetching the link list.
-> > 
-> > 	Do you have any info on NETDEV_CHANGE, I've got a potential
-> > use for it.
-> > 	(By the way, there are other ways to do it, but if
-> > NETDEV_CHANGE is the proposed standard, I might as well use it).
+On 10 Sep 2004 09:33:35 -0400
+jamal <hadi@cyberus.ca> wrote:
+
+> On Wed, 2004-09-08 at 16:47, David S. Miller wrote:
 > 
-> Currently call_netdevice_notifiers is called and sends out a
-> RTM_NEWLINK message with the new interface name to everyone
-> wanting to be notified. However, ifi_change is kept to 0
-> so far, which means you have to look what has changed yourself. I'm
-> not sure if this can be changed without too much troubles but
-> I will look into it.
+> > 
+> > We are merely moving the sch_generic.c locking logic into the
+> > drivers.  The behavior is entirely equivalent except that one
+> > level of unnecessary locking has been removed.
+> > 
+> > I think his change is valid, will not break existing drivers (as
+> > you mentioned as well Jamal), and works well for the cases he has
+> > shown patches of.  So I'm going to apply his patch.
+> > 
+> > BTW, if we are really concerned about some existing driver returning
+> > -1 from hard_start_xmit() without the new feature flag being enabled,
+> > we can test for that and log a debugging message if it happens.
+> 
+> I am not 100% happy but let me do some testing on it. Would the best
+> image be the latest bk snapshot?
 
-I missed the RTM_NEWLINK part. It is easier to just keep it that way and
-make sure it is well documented as so. It may not be trivial (as an
-example all the inetdev name attributes change - look at inetdev_event).
-So suggestion is to leave it to user space to find more details about
-the event.
-
-cheers,
-jamal
+Yes, Andi's code plus e1000 and tg3 driver uses are in current
+2.6.x BK.  Just grep for NETIF_F_LLTX in drivers/net/tg3.c to
+be sure you've got it in your tree.
