@@ -1,29 +1,39 @@
 From: Shirley Ma <mashirle@us.ibm.com>
 Subject: Re: [PATCH] New Patch Implementation for IPv6 MIB:ipv6InterfaceTable
-Date: Mon, 20 Oct 2003 16:00:09 -0700
+Date: Mon, 20 Oct 2003 16:43:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310201600.10016.mashirle@us.ibm.com>
-References: <200310141032.23998.mashirle@us.ibm.com> <20031014152441.1be6b336.davem@redhat.com>
+Message-ID: <200310201643.36382.mashirle@us.ibm.com>
+References: <200310141032.23998.mashirle@us.ibm.com> <20031014152441.1be6b336.davem@redhat.com> <200310201600.10016.mashirle@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: Multipart/Mixed;
+  boundary="------------Boundary-00=_OWX2VS19HYA5PIJUZMID"
 Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031014152441.1be6b336.davem@redhat.com>
+In-Reply-To: <200310201600.10016.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is the new patch for IPv6 MIBs:ipv6InterfaceTable.
-This patch has been tested against linux-2.6.0-test8 kernel plus xfmr patch.
 
-Please review it. 
+--------------Boundary-00=_OWX2VS19HYA5PIJUZMID
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-Thanks
-Shirley Ma
-Linux Technology Center
-====================
+This is the attachment file for this patch, please use this one.
+
+ Thanks
+ Shirley Ma
+ Linux Technology Center
+ =3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D
+
+
+--------------Boundary-00=_OWX2VS19HYA5PIJUZMID
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="ipv6mib1-2.6.0-test8.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment; filename="ipv6mib1-2.6.0-test8.patch"
 
 diff -urN linux-2.6.0-test8/include/linux/rtnetlink.h linux-2.6.0-test8-ipv6mib1/include/linux/rtnetlink.h
 --- linux-2.6.0-test8/include/linux/rtnetlink.h	2003-10-17 14:43:24.000000000 -0700
@@ -342,3 +352,5 @@ diff -urN linux-2.6.0-test8/net/ipv6/ndisc.c linux-2.6.0-test8-ipv6mib1/net/ipv6
  #endif
  
  	register_netdevice_notifier(&ndisc_netdev_notifier);
+
+--------------Boundary-00=_OWX2VS19HYA5PIJUZMID--
