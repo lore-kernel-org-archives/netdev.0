@@ -1,51 +1,44 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2.4 PKT_SCHED] Report qdisc parent to userspace
-Date: Wed, 29 Sep 2004 02:01:50 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: Tue, 28 Sep 2004 17:01:41 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929000150.GA9113@postel.suug.ch>
+Message-ID: <1096416101.27967.10.camel@localhost.localdomain>
+References: <1093799632.1073.410.camel@jzny.localdomain>
+	 <1096413009.27967.1.camel@localhost.localdomain>
+	 <20040928161838.3d19a17d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: hadi@cyberus.ca, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+In-Reply-To: <20040928161838.3d19a17d.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Report parent classid of a qdisc back to userspace. Without this there
-is no way for userspace to see if the qdisc is attached to a class
-other than parsing all class trees of the link and check all tcm_info
-fields in the leaf classes.
+On Tue, 2004-09-28 at 16:18 -0700, David S. Miller wrote:
+> On Tue, 28 Sep 2004 16:10:09 -0700
+> Stephen Hemminger <shemminger@osdl.org> wrote:
+> 
+> > On Sun, 2004-08-29 at 13:13 -0400, jamal wrote:
+> > > 
+> > > The requeue event is useful in finding out when a device is overloaded
+> > > on the egress (bus or bandwidth).
+> > > Atached patch introduces this. I would have used the overlimit bits
+> > > but at the moment thats being used for different semantical reasons.
+> > > I have not done extensive testing on it. 
+> > > 
+> > > Opinions welcome - If all is good, Dave please apply.
+> > 
+> > Dave, what happened to this?  I put the stuff into iproute2 but the
+> > requeue stat never made it into 2.6.  Is it a bad idea?
+> 
+> Yes, API breaker.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Well it seems to work for me:
+	  kernel
+        New	Old
+tc New  Ok      Ok(0)
+   Old  Ok(0)   Ok
 
---- linux-2.4.28-pre3-bk4.orig/include/net/pkt_sched.h	2004-09-29 00:42:01.000000000 +0200
-+++ linux-2.4.28-pre3-bk4/include/net/pkt_sched.h	2004-09-29 00:54:46.000000000 +0200
-@@ -81,6 +81,7 @@
- #define TCQ_F_INGRES	4
- 	struct Qdisc_ops	*ops;
- 	u32			handle;
-+	u32			parent;
- 	atomic_t		refcnt;
- 	struct sk_buff_head	q;
- 	struct net_device	*dev;
---- linux-2.4.28-pre3-bk4.orig/net/sched/sch_api.c	2004-09-29 00:42:03.000000000 +0200
-+++ linux-2.4.28-pre3-bk4/net/sched/sch_api.c	2004-09-29 00:59:36.000000000 +0200
-@@ -371,6 +371,8 @@
- 			unsigned long cl = cops->get(parent, classid);
- 			if (cl) {
- 				err = cops->graft(parent, cl, new, old);
-+				if (new)
-+					new->parent = classid;
- 				cops->put(parent, cl);
- 			}
- 		}
-@@ -812,7 +814,7 @@
- 				q_idx++;
- 				continue;
- 			}
--			if (tc_fill_qdisc(skb, q, 0, NETLINK_CB(cb->skb).pid,
-+			if (tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).pid,
- 					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0) {
- 				read_unlock(&qdisc_tree_lock);
- 				goto done;
+Because tc correctly handles the returned TLV size.
