@@ -1,35 +1,24 @@
-From: "Michael Chan" <mchan@broadcom.com>
-Subject: RE: Fix fallout from tg3_readphy() value is zero on error
-Date: Tue, 15 Feb 2005 10:18:14 -0800
-Message-ID: <B1508D50A0692F42B217C22C02D84972020F3DA3@NT-IRVA-0741.brcm.ad.broadcom.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] fix typo in include/linux/socket.h
+Date: Tue, 15 Feb 2005 10:23:30 -0800
+Message-ID: <20050215102330.4bd6567d.davem@davemloft.net>
+References: <20050212171521.GA3497@suse.de>
+	<20050214174739.GA23145@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
- charset=us-ascii
-Content-Transfer-Encoding: 8bit
-Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
-Content-class: urn:content-classes:message
-To: "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Olaf Hering <olh@suse.de>
+In-Reply-To: <20050214174739.GA23145@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 14 Feb 2005 18:47:39 +0100
+Olaf Hering <olh@suse.de> wrote:
 
-> @@ -793,9 +799,11 @@
->  
->  	tg3_writephy(tp, MII_TG3_CTRL, phy9_orig);
->  
-> -	tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32);
-> -	reg32 &= ~0x3000;
-> -	tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
-> +	if (tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
-> +		reg32 &= ~0x3000;
-> +		tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
-> +	} else if (!err)
-> +		err = -EBUSY;
->  
->  	return err;
->  }
+> I guess we have to reduce the patch to fix just the typo.
+> 
+> Signed-off-by: Olaf Hering <olh@suse.de>
 
-Shouldn't this be:
-
-> +	if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
+Applied, thanks Olaf.
