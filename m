@@ -1,58 +1,45 @@
-From: Steven Blake <slblake@petri-meat.com>
+From: Ralph Doncaster <ralph@istop.com>
 Subject: Re: Route cache performance under stress
-Date: 09 Jun 2003 23:05:47 -0400
+Date: Mon, 9 Jun 2003 23:18:45 -0400 (EDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1055214346.1199.65.camel@photon>
-References: <87wuge59w2.fsf@deneb.enyo.de>
-	 <20030526.233211.54217447.davem@redhat.com> <87he70re62.fsf@deneb.enyo.de>
-	 <20030608.050500.28795668.davem@redhat.com>  <874r30r9z2.fsf@deneb.enyo.de>
+Message-ID: <Pine.LNX.4.51.0306092251180.28167@ns.istop.com>
+References: <008001c32eda$56760830$4a00000a@badass> <20030609195652.E35696@shell.cyberus.ca>
+ <Pine.LNX.4.51.0306092006420.12038@ns.istop.com> <20030610015311.GB23009@netnation.com>
+Reply-To: ralph+d@istop.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>, CIT/Paul <xerox@foonet.net>,
+	"'David S. Miller'" <davem@redhat.com>,
+	"fw@deneb.enyo.de" <fw@deneb.enyo.de>,
+	"netdev@oss.sgi.com" <netdev@oss.sgi.com>,
+	"linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Florian Weimer <fw@deneb.enyo.de>
-In-Reply-To: <874r30r9z2.fsf@deneb.enyo.de>
+To: Simon Kirby <sim@netnation.com>
+In-Reply-To: <20030610015311.GB23009@netnation.com>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2003-06-08 at 09:10, Florian Weimer wrote:
+On Mon, 9 Jun 2003, Simon Kirby wrote:
 
-> "David S. Miller" <davem@redhat.com> writes:
-> 
-> > Although, I hope it's not "too similar" to what CEF does because
-> > undoubtedly Cisco has a bazillion patents in this area.
-> 
-> Most things in this area are patented, and the patents are extremely
-> fuzzy (e.g. policy-based routing with hierarchical sequence of
-> decisions has been patented countless times). 8-(
-> 
-> > This is actually an argument for coming up with out own algorithms
-> > without any knowledge of what CEF does or might do. :(
-> 
-> The branchless variant is not described in the IOS book, and I can't
-> tell if Cisco routers use it.  If this idea is really novel, we are in
-> pretty good shape because we no longer use trees, tries or whatever,
-> but a DFA. 8-)
+> "vmstat 1") except in attack cases.  The difference is probably just the
+> fact that this is running on slightly faster hardware (single Athlon
+> 1800MP, Tyan Tiger MPX board).
 
-Based on my quick reading of your code sample, I think you have just
-reinvented multibit trees; in your case with a fixed stride of 8 bits. 
+What happened to Linux users being able to brag about how much they could
+do with CPUs that were useless for running Windows?  On a 1Ghz CPU you've
+got almost 7,000 cycles to route a packet in order to handle 148kpps.  I
+can't see why the slow path should be more than 2,000 cycles.
 
-> Further parameters which could be tweaked is the kind of adjacency
-> information (where to store the L2 information, whether to include the
-> prefix length in the adjacency record etc.).
+I know some people's attitude is don't talk if you're not going to write
+the code.  If I had the time I would; from my earliest days of programming
+I've been optimizing performance to the maximum.  I can still remember
+using page 0 on my c64 to store an 8-bit register in 3 cycles instead of
+four...
 
-If you are curious, or just have a lot of time on your hands, you might
-find the following set of references useful:
+So to put a stake in the ground, I'd like to see a 1Ghz celeron with e1000
+cards handle 148kpps of DOS traffic at <50% CPU utilization (with full
+routing tables & no firewalling).  If that's not a reasonable expectation,
+someone please let me know.  Even if my time was only worth $500/day, in
+the past year and a half I spent enough time working on Linux routers to
+buy a Cisco NPE-G1. :-(
 
-http://www.petri-meat.com/slblake/networking/refs/lpm_pkt-class/
-
-IMHO, the best LPM algorithm (in terms of balancing lookup speed vs.
-memory consumption vs. update rate) is CRT, described in the first paper
-[ASIK].  It is patented, but there is hope that it might get released
-under GPL in the near future.
-
-
-Regards,
-
-// Steve
-
+-Ralph
