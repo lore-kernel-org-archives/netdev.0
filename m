@@ -1,55 +1,45 @@
-From: Dave Peterson <dsp@llnl.gov>
-Subject: possible bug in net/core/pktgen.c (2.6.10 kernel)
-Date: Fri, 14 Jan 2005 11:29:21 -0800
-Message-ID: <200501141129.21461.dsp@llnl.gov>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [DEBUG]: sk_forward_alloc assertion failures
+Date: Sat, 15 Jan 2005 07:34:52 +1100
+Message-ID: <20050114203452.GA1277@gondor.apana.org.au>
+References: <20050113171234.3fde0925.davem@davemloft.net> <20050114012504.GF6309@krispykreme.ozlabs.ibm.com> <20050113201914.46b7c4a2.davem@davemloft.net> <20050114111648.GA27964@gondor.apana.org.au> <20050114120322.GA28449@gondor.apana.org.au> <20050114110352.23c94ab9.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: robert.olsson@its.uu.se, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20050114110352.23c94ab9.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Fri, Jan 14, 2005 at 11:03:52AM -0800, David S. Miller wrote:
+> 
+> Herbert, this patch doesn't fix the bug.  We still have
+> to do the adjustments gradually just like sendmsg().
+> That's the whole problem.
+> 
+> If sendmsg() creates the SKB, then sendpages() adds paged
+> data onto the end, we don't make skb->truesize big enough.
 
-I found a piece of code that looks problematic in the 2.6.10 kernel.
-The following code appears starting on line 746 in function inject()
-of net/core/pktgen.c:
+My reasoning is as follows:
 
-                if (netif_queue_stopped(odev) || need_resched()) {
-                        u32 idle_start, idle;
+The size of the skb is bounded by the MSS.  Therefore it can
+never grow beyond that.  So if we allocated that much memory
+then we can tack bits on as long as we don't exceed the original
+MSS that was used.
 
-                        idle_start = cycles();
-                        do {
-                                if (signal_pending(current)) {
-                                        info->do_run_run = 0;
-                                        break;
-                                }
-                                if (!netif_running(odev)) {
-                                        info->do_run_run = 0;
-                                        break;
-                                }
-                                if (need_resched())
-                                        schedule();
-                                else
-                                        do_softirq();
-                        } while (netif_queue_stopped(odev));
-                        idle = cycles() - idle_start;
-                        info->idle_acc += idle;
-                }
+The problem before was that the MSS could've changed between
+sendpages calls.  If it increased then we may exceed the
+amount of memory allocated originally.
 
-Notice the call to do_softirq() above.  At this point it appears that
-preemption is enabled.  However, do_softirq() is written under the
-assumption that it will be called with preemption disabled.  It looks
-like the code was originally written for the 2.4 kernel and this was
-missed when kernel preemption was added in 2.5.  Is this in fact a bug
-or am I missing something?  I haven't attempted to make a patch that
-fixes this because I'm not too familiar with the networking code and
-I'd rather let someone else determine what is the best way to fix it.
+My idea is to remember the original MSS so that we never exceed
+it.  Did I missing something?
 
-
-Dave Peterson
-dsp@llnl.gov
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
