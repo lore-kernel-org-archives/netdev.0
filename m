@@ -1,41 +1,42 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
-Subject: Re: Issue Report: forcedeth v0.23, irq with unknown events
-Date: Sun, 07 Mar 2004 14:08:12 +0100
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: [e100 2.6] missing setup for National DP83840 PHY rev b/c
+Date: Sun, 7 Mar 2004 00:40:15 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404B1EBC.6030901@gmx.net>
-References: <1078624409.404a80995e634@webmail.colorado.edu>
+Message-ID: <Pine.LNX.4.44.0403070032220.14871-100000@localhost.localdomain>
+Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adam.Torgerson@colorado.edu
-In-Reply-To: <1078624409.404a80995e634@webmail.colorado.edu>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adam.Torgerson@colorado.edu wrote:
-> Hello, I'm getting tons of these kernel messages:
-> 
-> "eth0: received irq with unknown events 0x1. Please report"
 
-This event is no longer unknown. It is a RX error and you are not the only
-one encountering it. I have a patch which will speed up the network a bit
-and remove the message, but it seems you have serious connection problems.
+* Add National DP83840 PHY rev b/c setup.  Only rev a was being setup.
 
-> on an Abit NF7 (nforce2 Ultra400 + MCP-T is what the box says), so I
-> figured I better report it. The driver works, but is quite slow (only
-> 256kB/s on a local 100Mbit network). lspci shows the device as:
-> 
-> 00:04.0 Ethernet controller: nVidia Corporation nForce2 Ethernet
-> Controller (rev a1)
-> 
-> Currently using 2.6.4-rc1-mm2. Let me know if I can provide any more
-> information (please CC me as I'm not on any lists).
+-------------
 
-I will send you an updated version of the driver soon for testing.
-
-Rregards,
-Carl-Daniel
--- 
-http://www.hailfinger.org/
+--- linux-2.5/drivers/net/e100.c	2004-03-04 09:30:03.000000000 -0800
++++ linux-2.5/drivers/net/e100.c.mod	2004-03-04 09:30:48.000000000 -0800
+@@ -158,7 +158,7 @@
+ 
+ 
+ #define DRV_NAME		"e100"
+-#define DRV_VERSION		"3.0.15"
++#define DRV_VERSION		"3.0.16"
+ #define DRV_DESCRIPTION		"Intel(R) PRO/100 Network Driver"
+ #define DRV_COPYRIGHT		"Copyright(c) 1999-2004 Intel Corporation"
+ #define PFX			DRV_NAME ": "
+@@ -1032,8 +1032,9 @@ static int e100_phy_init(struct nic *nic
+ 	nic->phy = (u32)id_hi << 16 | (u32)id_lo;
+ 	DPRINTK(HW, DEBUG, "phy ID = 0x%08X\n", nic->phy);
+ 
+-	/* Handle National tx phy */
+-	if(nic->phy == phy_nsc_tx) {
++	/* Handle National tx phys */
++#define NCS_PHY_MODEL_MASK	0xFFF0FFFF
++	if((nic->phy & NCS_PHY_MODEL_MASK) == phy_nsc_tx) {
+ 		/* Disable congestion control */
+ 		cong = mdio_read(netdev, nic->mii.phy_id, MII_NSC_CONG);
+ 		cong |= NSC_CONG_TXREADY;
