@@ -1,68 +1,58 @@
-From: Sergey Vlasov <vsu@altlinux.ru>
-Subject: Re: Last night Linus bk - netfilter busted?
-Date: Fri, 11 Mar 2005 22:27:01 +0300
-Message-ID: <20050311222701.216aba43.vsu@altlinux.ru>
-References: <200503110223.34461.dtor_core@ameritech.net>
-	<4231A498.4020101@trash.net>
-	<20050311105136.2a5e4ddc.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed; protocol="application/pgp-signature";
- micalg="pgp-sha1";
- boundary="Signature=_Fri__11_Mar_2005_22_27_01_+0300_lu/w9Mn=IHAiPcq/"
-Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com,
-	dtor_core@ameritech.net, netfilter-devel@lists.netfilter.org,
-	linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050311105136.2a5e4ddc.davem@davemloft.net>
+From: Daniele Venzano <webvenza@libero.it>
+Subject: Re: [stable] [BK PATCHES] 2.6.x net driver oops fixes
+Date: Fri, 11 Mar 2005 20:29:50 +0100
+Message-ID: <c37a8fd17af92b648c6474904e0003c0@libero.it>
+References: <422F59E8.2090707@pobox.com> <20050310202548.GV5389@shell0.pdx.osdl.net> <4230AE24.602@pobox.com> <20050310213917.GW5389@shell0.pdx.osdl.net>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: stable@kernel.org, Linux Kernel <linux-kernel@vger.kernel.org>,
+	Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
+In-Reply-To: <20050310213917.GW5389@shell0.pdx.osdl.net>
+To: Chris Wright <chrisw@osdl.org>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---Signature=_Fri__11_Mar_2005_22_27_01_+0300_lu/w9Mn=IHAiPcq/
-Content-Type: text/plain; charset=US-ASCII
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
 
-On Fri, 11 Mar 2005 10:51:36 -0800 David S. Miller wrote:
+On 10/mar/05, at 22:39, Chris Wright wrote:
 
-> On Fri, 11 Mar 2005 15:00:56 +0100
-> Patrick McHardy <kaber@trash.net> wrote:
-> 
-> > Works fine here. You could try if reverting one of these two patches
-> > helps (second one only if its a SMP box).
-> > 
-> > ChangeSet@1.2010, 2005-03-09 20:28:17-08:00, bdschuym@pandora.be
-> >    [NETFILTER]: Reduce call chain length in netfilter (take 2)
-> 
-> It's this change, I know it is, because Linus sees the same problem
-> on his workstation.
-> 
-> You wouldn't happen to be seeing this problem on a PPC box would
-> you?  Since Linus's machine is a PPC machine too, that would support
-> my theory that this could be a compiler issue on that platform.
-> 
-> Damn, wait, Patrick, I think I know what's happening.  The iptables
-> IPT_* verdicts are dependant upon the NF_* values, and they don't
-> cope with Bart's changes I bet.  Can you figure out what the exact
-> error would be?  This kind of issue would explain the looping inside
-> of ipt_do_table(), wouldn't it?
+> * Jeff Garzik (jgarzik@pobox.com) wrote:
+>> Chris Wright wrote:
+>>> * Jeff Garzik (jgarzik@pobox.com) wrote:
+>>>
+>>>
+>>>> This will update the following files:
+>>>>
+>>>> drivers/net/sis900.c    |   41 
+>>>> +++++++++++++++++++++--------------------
+>>>> drivers/net/via-rhine.c |    3 +++
+>>>
+>>>
+>>> The via-rhine fix is already in the stable queue.  But the sis900 
+>>> oops
+>>> fix does not apply to the stable tree.  It relies on a few 
+>>> intermediate
+>>> patches.  Appears to still be an issue for the older version which 
+>>> is in
+>>> 2.6.11.  Here's a stab at a backport.  Would you like to 
+>>> review/validate
+>>> or drop this one?
+>>
+>> The backport looks correct to me, though it would be nice to get a
+>> via-rhine owner to ACK the patch before it goes in...
+>
+> OK, thanks.  ITYM sis900 maintainer, is that still Ollie Lho as listed 
+> in
+> MAINTAINERS (that's looking old)?
 
-This is not just some buggy code - that patch also breaks interfaces:
+I have been acting maintainer for more than a year now, and I'm 
+completely fine with the patch.
 
-include/linux/netfilter_ipv4/ip_tables.h:
-#define IPT_RETURN (-NF_MAX_VERDICT - 1)
+A lot of time ago (2.6.6) I proposed a patch to update MAINTAINERS, but 
+Jeff said he wanted to wait some time. I don't know if such change is 
+now possible/wanted.
+AFAIK Ollie's email address bounces.
 
-And this value is visible in userspace.  Therefore we cannot modify
-NF_MAX_VERDICT without breaking all existing iptables binaries.
-
---Signature=_Fri__11_Mar_2005_22_27_01_+0300_lu/w9Mn=IHAiPcq/
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFCMfEIW82GfkQfsqIRAlL4AJ40CH8yoWTNI8F/+isZHwf4CGqq4ACeOQWL
-xiFAh8jgzFt1YDmzWnc8Oc8=
-=RHYq
------END PGP SIGNATURE-----
-
---Signature=_Fri__11_Mar_2005_22_27_01_+0300_lu/w9Mn=IHAiPcq/--
+--
+Daniele Venzano
+http://www.brownhat.org
