@@ -1,53 +1,35 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Wed, 9 Feb 2005 10:59:09 -0800
-Message-ID: <20050209105909.17da40a9@dxpl.pdx.osdl.net>
-References: <050QTJA12@server5.heliogroup.fr>
+From: Stephen Smalley <sds@epoch.ncsc.mil>
+Subject: Re: [PATCH] Add audit uid to netlink credentials
+Date: Wed, 09 Feb 2005 13:53:44 -0500
+Message-ID: <1107975224.17568.119.camel@moss-spartans.epoch.ncsc.mil>
+References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com>
+	 <Pine.LNX.4.62.0502080658310.32526@kaber.coreworks.de>
+	 <1107956079.17568.42.camel@moss-spartans.epoch.ncsc.mil>
+	 <20050209141945.GA28864@yakov.inr.ac.ru>
+	 <20050209164929.GA30007@yakov.inr.ac.ru>  <420A5BE1.4000003@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        Alexey Kuznetsov
- <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
-To: Hubert Tonneau <hubert.tonneau@fullpliant.org>
-In-Reply-To: <050QTJA12@server5.heliogroup.fr>
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Linux Audit Discussion <linux-audit@redhat.com>,
+        "Serge E. Hallyn" <serue@us.ibm.com>, netdev@oss.sgi.com,
+        davem@davemloft.net
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <420A5BE1.4000003@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please try this patch, based on Alexey's suggestion:
+On Wed, 2005-02-09 at 13:52, Patrick McHardy wrote:
+> Could you explain how this can happen ? From what I can see whenever data
+> is queued to the receive queue the input function is called immediately
+> through sk->sk_data_ready() -> netlink_data_ready() -> nlk->data_ready()
+> and processes all queued packets, except in the case you pointed out,
+> when audit_netlink_sem is already taken.
 
-> That's one quick and simple idea: set PSH on each tso segment.
-> Seems, it is always good. Hardware will preserve it only on the last skb and
-> everyone will be happy.
+More packets may be queued by another sender while audit_receive() is
+still processing the original one, so it will process them too.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/02/09 11:00:57-08:00 shemminger@linux.site 
-#   Always set PUSH on TSO multi-segment frames
-#   to workaround bugs in MacOSX
-# 
-# net/ipv4/tcp_output.c
-#   2005/02/09 11:00:44-08:00 shemminger@linux.site +8 -0
-#   Always set PUSH on TSO multi-segment frames
-#   to workaround bugs in MacOSX
-# 
-diff -Nru a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
---- a/net/ipv4/tcp_output.c	2005-02-09 11:01:12 -08:00
-+++ b/net/ipv4/tcp_output.c	2005-02-09 11:01:12 -08:00
-@@ -754,6 +754,14 @@
- 					break;
- 			}
- 
-+			/* Force push to be on for any large TSO frames
-+			 * to workaround problems with busted implementations
-+			 * like MacOSX that hold off delivery of data until
-+			 * push.
-+			 */
-+			if (tcp_skb_pcount(skb) > 1)
-+			    TCP_SKB_CB(skb)->flags |= TCPCB_FLAG_PSH;
-+
- 			TCP_SKB_CB(skb)->when = tcp_time_stamp;
- 			if (tcp_transmit_skb(sk, skb_clone(skb, GFP_ATOMIC)))
- 				break;
+-- 
+Stephen Smalley <sds@epoch.ncsc.mil>
+National Security Agency
