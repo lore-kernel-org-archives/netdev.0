@@ -1,28 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Bugme-new] [Bug 1371] New: kernel fails to compile with ipv6
- error
-Date: Sun, 19 Oct 2003 00:03:41 -0700
+Subject: Re: [PATCH] Prevent "eth0: driver changed get_stats after register"
+ lying
+Date: Sun, 19 Oct 2003 00:06:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031019000341.5769859a.davem@redhat.com>
-References: <200310182118.h9ILIBMX001067@fire-1.osdl.org>
-	<20031018160855.26fea7b8.akpm@osdl.org>
+Message-ID: <20031019000646.19f39f51.davem@redhat.com>
+References: <20031018214622.B25375@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: simon@swat.me.uk, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20031018160855.26fea7b8.akpm@osdl.org>
+To: Russell King <rmk@arm.linux.org.uk>
+In-Reply-To: <20031018214622.B25375@flint.arm.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 18 Oct 2003 16:08:55 -0700
-Andrew Morton <akpm@osdl.org> wrote:
+On Sat, 18 Oct 2003 21:46:22 +0100
+Russell King <rmk@arm.linux.org.uk> wrote:
 
-> Odd.  Please send your .config.
+> We set "dev->last_stats" after we have registered the class device.
+> During class device registration, we trigger the hotplug scripts,
+> which can in turn bring up the interface.  This in turn checks to
+> see if "dev->last_stats == dev->get_stats", and, since we haven't
+> set dev->last_stats yet, we complain.
+> 
+> Here is a patch against 2.6.0-test8 which moves the initialisation
+> of last_stats such that we avoid the race.
 
-Known issue, see the patch from Herbert Xu posted yesterday
-to linux-net (subject: "Re: [PATCH][2.6] fix compilation w/o
-CONFIG_XFRM").
-
-It will cure this and other such issues.
+Looks ok, thanks Russell.
