@@ -1,60 +1,67 @@
-From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
-Subject: Re: Open hardware wireless cards
-Date: Wed, 5 Jan 2005 16:35:10 -0500
-Message-ID: <20050105213510.GP28140@csclub.uwaterloo.ca>
-References: <20050105192447.GJ5159@ruslug.rutgers.edu> <20050105200526.GL5159@ruslug.rutgers.edu> <20050105201434.GB30311@csclub.uwaterloo.ca> <Pine.LNX.4.61.0501051533470.12237@chaos.analogic.com>
+From: Michael Wu <flamingice@sourmilk.net>
+Subject: Re: [Prism54-users] Open hardware wireless cards
+Date: Wed, 5 Jan 2005 16:53:30 -0500
+Message-ID: <200501051653.41053.flamingice@sourmilk.net>
+References: <20050105200526.GL5159@ruslug.rutgers.edu> <Pine.LNX.4.61.0501052017380.5818@rivendell.nexusuk.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: prism54-devel@prism54.org, prism54-users@prism54.org,
-        Netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org,
-        Jeff Garzik <jgarzik@pobox.com>,
-        Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Content-Type: multipart/signed;
+  boundary="nextPart1788797.UstzDMJBSy";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-os@analogic.com
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0501051533470.12237@chaos.analogic.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.61.0501052017380.5818@rivendell.nexusuk.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jan 05, 2005 at 03:48:46PM -0500, linux-os wrote:
-> Well its mostly about making boards just a bit too cheap.
-> 
-> If the vendors would just put in a serial EPROM that loads the
-> proprietary stuff to their PLD upon startup, then there is
-> no "proprietary" code to worry about. You have the generic
-> published interface like a PLX chip, plus the specific published
-> register functions of their PLD chip. How the device actually
-> makes smoke and mirrors is hidden even from the programmer.
-> 
-> But, by eliminating the US$0.50 cost of a EPROM, they want to supply
-> a sack of bits that needs to be uploaded to the PLD by software. This
-> sack of bits can be reverse-engineered so companies are not going
-> to supply these (you can extract those bits from a Win-Modem dll so
-> this gets a bit too ridiculous for some devices).
-> 
-> In most cases it's not some algorithm that needs to be protected.
-> Instead its the 400-or-so engineering man-hours used to develop the
-> contents of the PLD (notice I did not use the words "Gate-Arrays"
-> until now. There are many kinds of Programmable Logic Devices).
-> 
-> Until vendors stop being penny-wise-pound-foolish, we will continue
-> to have these kinds of problems. Vendor education will ultimately
-> be the fix, I predict.
+--nextPart1788797.UstzDMJBSy
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Well unfortunately I think you underestimate the cost of the serial
-eprom needed to do the load on an fpga or pld or the like.  According to
-our suppliers they are actually rather hard to get for some reason (that
-I don't understand) and are more than $0.50.  The product I am current
-working on software for would be a whole lot simpler if we could just
-program an eprom with the fpga code, but instead we have to load it via
-jtag through the parallel port to save a fair bit of moeny on eprom
-chips assuming we could even get them in the quantities we would need.
+On Wednesday 05 January 2005 3:22 pm, Steve Hill wrote:
+> On Wed, 5 Jan 2005, Luis R. Rodriguez wrote:
+> > What I think we probably will have to do is just work torwards seeing if
+> > we can come up with our own open wireless hardware. I know there was
+> > a recent thread on lkml about an open video card -- anyone know where
+> > that ended up?
+>
+> This may be a silly point, but there *was* good 802.11g hardware available
+> which worked well with the fully open drivers.  I presume the
+> manufacturers are moving to the "softmac" design instead because (for
+> them) it is cheaper.  However, the point is that the working designs are
+> already there and it may be that buying the existing design which is being
+> phased out is cheaper for the FOSS community than developing a whole new
+> open device.
 
-The winmodem is just a sound card with the cpu doing the actual
-algorihtm.  That is different and would not be solved with an eprom,
-only with a real DSP or other chip capable of doing the modulation and
-demodulation of the signals.  I guess calling them modem's is being too
-generous, more like phone line sampler cards.
+Softmac doesn't necessary mean evil all the time. The adm8211 has a fully G=
+PL=20
+driver for Linux. There is no firmware to worry about either. ADMtek actual=
+ly=20
+helped me with the driver, by providing the source to their old 2.4 binary=
+=20
+Linux driver and sending me (from Taiwan to New Jersey, fedexed overnight)=
+=20
+two sample cards to test with. Oh yes, and it's quite cheap. (but 802.11b,=
+=20
+which maybe a problem for some people)
 
-Len Sorensen
+If ADMtek can do it, why can't other manufacturers?
+
+=2DMichael Wu
+
+--nextPart1788797.UstzDMJBSy
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBB3GHlyWWBbDEe0UIRAv60AJ4r2kU8cLsPl+Hu1OGKu+6GTaAqegCgvKfh
+ogmmOEs5Gv4d17bomnelBzE=
+=2oNQ
+-----END PGP SIGNATURE-----
+
+--nextPart1788797.UstzDMJBSy--
