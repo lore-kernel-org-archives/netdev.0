@@ -1,41 +1,36 @@
-From: Stefan Schmidt <zaphodb@zaphods.net>
-Subject: Re: 2.6.10-rc1-mm4 -1 EAGAIN after allocation failure was: Re: Kernel 2.6.9 Multiple Page Allocation Failures
-Date: Wed, 10 Nov 2004 11:28:54 +0100
-Message-ID: <20041110102854.GI20754@zaphods.net>
-References: <20041104121722.GB8537@logos.cnet> <20041104181856.GE28163@zaphods.net> <20041109164113.GD7632@logos.cnet> <20041109223558.GR1309@mail.muni.cz> <20041109144607.2950a41a.akpm@osdl.org> <20041109235201.GC20754@zaphods.net> <20041110012733.GD20754@zaphods.net> <20041109173920.08746dbd.akpm@osdl.org> <20041110020327.GE20754@zaphods.net> <419197EA.9090809@cyberone.com.au>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: request_module while holding rtnl semaphore
+Date: Wed, 10 Nov 2004 12:32:36 +0100
+Message-ID: <20041110113236.GM31969@postel.suug.ch>
+References: <41917330.6090002@trash.net> <41899DCF.3050804@trash.net> <E1CQDcP-0003ff-00@gondolin.me.apana.org.au> <20041109161126.376f755c.davem@davemloft.net> <20041110010113.GJ31969@postel.suug.ch> <41916A91.3080107@trash.net> <20041110012251.GK31969@postel.suug.ch> <41916F0B.5010809@trash.net> <20041110013941.GL31969@postel.suug.ch> <20041110014125.GA7302@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, marcelo.tosatti@cyclades.com,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261663AbUKJK3c@vger.kernel.org>
-To: Nick Piggin <piggin@cyberone.com.au>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>,
+        Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <419197EA.9090809@cyberone.com.au>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <41917330.6090002@trash.net> <20041110014125.GA7302@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 10, 2004 at 03:24:10PM +1100, Nick Piggin wrote:
-> Can you try the following patch, please? It is diffed against 2.6.10-rc1,
-> but I think it should apply to -mm kernels as well.
+* Herbert Xu <20041110014125.GA7302@gondor.apana.org.au> 2004-11-10 12:41
+> On Wed, Nov 10, 2004 at 02:39:41AM +0100, Thomas Graf wrote:
+> > that once this is true it would work perfectly fine, however I 
+> > think it would be inefficient to parse the whole TLV tree multiple
+> > times.
 > 
-> Basically 2.6.8 and earlier kernels had some quirks in the page allocator
-> that would allow for example, a large portion of "DMA" memory to be reserved
-> for network memory allocations (atomic allocations). After 'fixing' this
-> problem, 2.6.9 is effectively left with about a quarter the amount of memory
-> reserved for network allocations compared with 2.6.8.
-> 
-> The following patch roughly restores parity there. Thanks.
-I applied the patch to 2.6.10-rc1-mm4 and the application froze again, but i
-just remembered that i changed a kernel-option in mm4 and forgot about that
-yesterday:
-I unset CONFIG_PACKET_MMAP and i suppose this could have this kind of effect
-on high connection rates.
-I set it back to CONFIG_PACKET_MMAP=y and if the application does not freeze
-for some hours at this load we can blame at least this issue (-1 EAGAIN) on
-that parameter.
+> Well it's only going to happen once for each module so that's no
+> big deal.
 
-My variation of Harrisberger's Fourth Law of the Lab:
- Experience is directly proportional to the amount of braincells ruined.
+* Patrick McHardy <41917330.6090002@trash.net> 2004-11-10 02:47
+> It will only happen once for every module, so I don't think
+> it's a big deal.
 
-*ouch*,
-	Stefan
+Agreed. I'm used to huge filter configurations up to 100 MiB per
+netlink message and therefore I do care whether such as message is
+parsed 1 times or 5 times since it's a matter of having the
+network blocked for 3 or 15 seconds. However, if it helps to clean
+up the error paths then I'll be very happy and do a workaround
+for my special case if I ever need loadable modules.
