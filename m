@@ -1,44 +1,44 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.11] WE-18 (aka WPA)
-Date: Tue, 22 Mar 2005 17:57:43 -0500
-Message-ID: <4240A2E7.50308@pobox.com>
-References: <20050314201932.GA1467@bougret.hpl.hp.com>
+Subject: Re: [PATCH wireless-2.6 7/10] hostap: Rate limiting for debug messages
+Date: Tue, 22 Mar 2005 18:11:52 -0500
+Message-ID: <4240A638.8090702@pobox.com>
+References: <20050313001706.GA8253@jm.kir.nu> <20050313003412.GH8253@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkmaline@cc.hut.fi>, netdev@oss.sgi.com,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>
-To: jt@hpl.hp.com
-In-Reply-To: <20050314201932.GA1467@bougret.hpl.hp.com>
+Cc: netdev@oss.sgi.com
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20050313003412.GH8253@jm.kir.nu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes wrote:
-> 	Hi Jeff,
+Jouni Malinen wrote:
+> Limit rate of debug messages for interrupts before card is ready. This
+> could happen when multiple devices are sharing the same interrupt.
 > 
-> 	This is version 18 of the Wireless Extensions. The main change
-> is that it adds all the necessary APIs for WPA and WPA2 support. This
-> work was entirely done by Jouni Malinen, so let's thank him for both
-> his hard work and deep expertise on the subject ;-)
-> 	This APIs obviously doesn't do much by itself and works in
-> concert with driver support (Jouni already sent you the HostAP
-> changes) and userspace (Jouni is updating wpa_supplicant). This is
-> also orthogonal with the ongoing work on in-kernel IEEE support (but
-> potentially useful).
-> 	The patch is attached, tested with 2.6.11. Normally, I would
-> ask you to push that directly in the kernel (99% of the patch has been
-> on my web page for ages and it does not affect non-WPA stuff), but
-> Jouni convinced me that it should bake a few weeks in wireless-2.6
-> first, so that other driver maintainers can get up to speed with it.
+> Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
 > 
-> 	So, would you mind pushing that in wireless-2.6 ?
-> 	Thanks in advance...
+> Index: jm-wireless-2.6/drivers/net/wireless/hostap/hostap_hw.c
+> ===================================================================
+> --- jm-wireless-2.6.orig/drivers/net/wireless/hostap/hostap_hw.c	2005-03-12 16:10:40.000000000 -0800
+> +++ jm-wireless-2.6/drivers/net/wireless/hostap/hostap_hw.c	2005-03-12 16:10:58.000000000 -0800
+> @@ -2790,8 +2790,10 @@
+>  	prism2_io_debug_add(dev, PRISM2_IO_DEBUG_CMD_INTERRUPT, 0, 0);
+>  
+>  	if (local->func->card_present && !local->func->card_present(local)) {
+> -		printk(KERN_DEBUG "%s: Interrupt, but dev not OK\n",
+> -		       dev->name);
+> +		if (net_ratelimit()) {
+> +			printk(KERN_DEBUG "%s: Interrupt, but dev not OK\n",
+> +			       dev->name);
+> +		}
+>  		return IRQ_HANDLED;
 
-Applied to wireless-2.6, and will soon push upstream.
 
-NOTE:  Please include a Signed-off-by line in ALL patches that you submit.
+Patch is OK, but it highlights a bug:
 
-See http://linux.yyz.us/patch-format.html for more info.
+You should return IRQ_NONE if the interrupt is not intended for your 
+hardware.
 
 	Jeff
