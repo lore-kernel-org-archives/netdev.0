@@ -1,64 +1,68 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT] syncppp needs to pullup headers
-Date: Fri, 3 Oct 2003 11:43:47 -0700
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [RFC] [PATCH 1/3] netpoll api
+Date: Fri, 3 Oct 2003 14:11:16 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031003114347.31ee740b.shemminger@osdl.org>
+Message-ID: <20031003191116.GA13573@waste.org>
+References: <20031003014104.GR1897@waste.org> <1065179359.1031.42.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>,
+        Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1065179359.1031.42.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In 2.6.0-test6 wan syncppp driver claims to be a "new" protocol and handle shared skb's
-but it needs to make sure data is contiguous before overlaying headers.  
-It is not a serious problem because the sync drivers never generate nonlinear skbuff's
-anyway.
+On Fri, Oct 03, 2003 at 07:09:20AM -0400, jamal wrote:
+> Hi,
+> 
+> 
+> On Thu, 2003-10-02 at 21:41, Matt Mackall wrote:
+> > This patch implements a new netpoll API, which allows sending and
+> > receiving packets in context where interrupts may be disabled. It
+> > provides a common API for implementing features like netconsole,
+> > netdump/LKCD, and kgdb-over-ethernet and manages to isolate them
+> > almost completely from the details of the network layer.
+> > 
+> 
+> Nice.
+> Is the ethernet card in a case like this almost dedicated for this
+> kind of work?
 
-Don't have hardware that uses this, so could someone please do a sanity 
-test on this.
+No, I've had good results with it as the only interface to the
+machine. As netpoll traffic is fairly infrequent, performance seems
+little affected.
 
-diff -Nru a/drivers/net/wan/syncppp.c b/drivers/net/wan/syncppp.c
---- a/drivers/net/wan/syncppp.c	Fri Oct  3 11:28:11 2003
-+++ b/drivers/net/wan/syncppp.c	Fri Oct  3 11:28:11 2003
-@@ -236,7 +236,7 @@
- 		sp->ipkts++;
- 	}
- 
--	if (skb->len <= PPP_HEADER_LEN) {
-+	if (!pskb_may_pull(skb, PPP_HEADER_LEN)) {
- 		/* Too small packet, drop it. */
- 		if (sp->pp_flags & PP_DEBUG)
- 			printk (KERN_DEBUG "%s: input packet is too small, %d bytes\n",
-@@ -473,7 +473,7 @@
- 	u8 *p, opt[6];
- 	u32 rmagic;
- 
--	if (len < 4) {
-+	if (!pskb_may_pull(skb, sizeof(struct lcp_header))) {
- 		if (sp->pp_flags & PP_DEBUG)
- 			printk (KERN_WARNING "%s: invalid lcp packet length: %d bytes\n",
- 				dev->name, len);
-@@ -707,7 +707,9 @@
- 	struct cisco_packet *h;
- 	struct net_device *dev = sp->pp_if;
- 
--	if (skb->len != CISCO_PACKET_LEN && skb->len != CISCO_BIG_PACKET_LEN) {
-+	if (!pskb_may_pull(skb, sizeof(struct cisco_packet))
-+	    || (skb->len != CISCO_PACKET_LEN
-+		&& skb->len != CISCO_BIG_PACKET_LEN)) {
- 		if (sp->pp_flags & PP_DEBUG)
- 			printk (KERN_WARNING "%s: invalid cisco packet length: %d bytes\n",
- 				dev->name,  skb->len);
-@@ -1211,8 +1213,7 @@
- 	struct net_device *dev = sp->pp_if;
- 	int len = skb->len;
- 
--	if (len < 4) 
--	{
-+	if (!pskb_may_pull(skb, sizeof(struct lcp_header))) {
- 		if (sp->pp_flags & PP_DEBUG)
- 			printk (KERN_WARNING "%s: invalid ipcp packet length: %d bytes\n",
- 				dev->name,  len);
+> Is disable_irq() in the controller safe for shared irqs? Or maybe this
+> is critical enough that you dont care?
+
+I'm not aware of any issues there. I understand Red Hat has banged on
+this piece pretty heavily recently for their AS kernel. 
+
+> Its a little wasteful to call the controller when there are is no work
+> to be done; we have found in NAPI that any extra PCI transactions cost.
+> (some IBM people doing benchmarking have complained about specweb not
+> looking good where NAPI will have one extra PCI transaction per packet.
+> You do it twice the rate NAPI would do it at low speeds).
+> Again, the answer maybe who cares, this is critical work.
+
+Just to be sure you read this right, the poll method (NAPI) is
+different from poll_controller (netpoll). The name is unfortunate, but
+it's what Ingo had in his early 2.4 netconsole patches. I could
+s/poll_controller/netpoll/ perhaps.
+
+The NAPI method only gets called when we've frozen the system (kgdb or
+netdump) and we're the only ones checking for rx work. The netpoll
+method gets called in that case and when something like netconsole is
+sending out printks (eg low bandwidth or high priority).
+
+> Have you done any measurements to check whether it was worthwile to do
+> the skb preallocation? 
+
+Yes, one of the longer sysrq dumps could knock over earlier versions
+of the code.
+
+-- 
+Matt Mackall : http://www.selenic.com : of or relating to the moon
