@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH] 2.6.3 pcnet32.c change to use ethtool_ops
-Date: Thu, 19 Feb 2004 15:32:54 -0800 (PST)
+Subject: [PATCH] 2.4.25 pcnet32.c change to use ethtool_ops
+Date: Thu, 19 Feb 2004 15:34:12 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402192332.i1JNWsI05667@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200402192334.i1JNYCj05677@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -16,9 +16,11 @@ net delta of just a one line between the two implementations, but permission
 checking and copying to/from user space, etc. is all done in a consistent
 manner by ethtool.c
 
---- linux-2.6.3/drivers/net/net.pcnet32.c	Thu Feb 19 14:42:25 2004
-+++ linux-2.6.3/drivers/net/pcnet32.c	Thu Feb 19 14:54:57 2004
-@@ -465,6 +465,101 @@
+Tested IA32
+
+--- linux-2.4.25/drivers/net/net.pcnet32.c	Thu Feb 19 14:42:17 2004
++++ linux-2.4.25/drivers/net/pcnet32.c	Thu Feb 19 15:15:01 2004
+@@ -462,6 +462,100 @@
  
  
  
@@ -114,13 +116,12 @@ manner by ethtool.c
 +	.get_ringparam		= pcnet32_get_ringparam,
 +	.get_tx_csum		= ethtool_op_get_tx_csum,
 +	.get_sg			= ethtool_op_get_sg,
-+	.get_tso		= ethtool_op_get_tso,
 +};
 +
  /* only probes for non-PCI devices, the rest are handled by 
   * pci_register_driver via pcnet32_probe_pci */
  
-@@ -813,6 +908,7 @@
+@@ -799,6 +893,7 @@
      dev->get_stats = &pcnet32_get_stats;
      dev->set_multicast_list = &pcnet32_set_multicast_list;
      dev->do_ioctl = &pcnet32_ioctl;
@@ -128,7 +129,7 @@ manner by ethtool.c
      dev->tx_timeout = pcnet32_tx_timeout;
      dev->watchdog_timeo = (5*HZ);
  
-@@ -1588,100 +1684,6 @@
+@@ -1557,100 +1652,6 @@
  	lp->a.write_bcr(ioaddr, 33, phyaddr);
  }
  
@@ -155,7 +156,7 @@ manner by ethtool.c
 -		strcpy (info.driver, DRV_NAME);
 -		strcpy (info.version, DRV_VERSION);
 -		if (lp->pci_dev)
--			strcpy (info.bus_info, pci_name(lp->pci_dev));
+-			strcpy (info.bus_info, lp->pci_dev->slot_name);
 -		else
 -			sprintf(info.bus_info, "VLB 0x%lx", dev->base_addr);
 -		if (copy_to_user (useraddr, &info, sizeof (info)))
@@ -229,7 +230,7 @@ manner by ethtool.c
  static int pcnet32_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
  {
      struct pcnet32_private *lp = dev->priv;	 
-@@ -1689,9 +1691,6 @@
+@@ -1658,9 +1659,6 @@
      int rc;
      unsigned long flags;
  
