@@ -1,91 +1,46 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] make sendmsg return EDESTADDRREQ if socket is not connected and daddr was not specified
-Date: Fri, 11 Jul 2003 01:32:23 +0200
+From: CaT <cat@zip.com.au>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Fri, 11 Jul 2003 09:39:31 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030710233223.GA30577@rei.rakuen>
+Message-ID: <20030710233931.GG1722@zip.com.au>
+References: <20030710154302.GE1722@zip.com.au> <1057854432.3588.2.camel@hades>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, tgraf@suug.ch
+Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   pekkas@netcore.fi
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Mika Liljeberg <mika.liljeberg@welho.com>
 Content-Disposition: inline
+In-Reply-To: <1057854432.3588.2.camel@hades>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello
+On Thu, Jul 10, 2003 at 07:27:13PM +0300, Mika Liljeberg wrote:
+> On Thu, 2003-07-10 at 18:43, CaT wrote:
+> > ip tunnel add sit1 mode sit remote 138.25.6.14
+> > ip link set sit1 up
+> > ip addr add 3ffe:8001:000c:ffff::37/127 dev sit1
+> >  ip route add ::/0 via 3ffe:8001:000c:ffff::36 
+> > RTNETLINK answers: Invalid argument
+> 
+> Try this:
+> 
+> ip route add ::/0 dev sit1
 
-Another 1003.1 fix:
+That didn't complain but pings to the ext gw were broken. Noticed the
+route contained:
 
-[EDESTADDRREQ]
-    The socket is not connection-mode and does not have its peer
-    address set, and no destination address was specified.
+3ffe:8001:c:ffff::36/127 via :: dev sit1  proto kernel  metric 256  mtu 1480 adv
+mss 1420
 
-fixes sendmsg in ipv{4,6}/{raw,udp}
+And having remembered /127 being mentioned as bad I changed the
+interface config to a netmask of /64. Dropped it and brought it
+up and it all works.
 
- -- thomas
+There's something fundamental about ipv6 netmasks that I just don't
+understand...
 
-
-Index: net/ipv4/raw.c
-===================================================================
-RCS file: /cvs/tgr/linux-25/net/ipv4/raw.c,v
-retrieving revision 1.1.1.2
-diff -u -r1.1.1.2 raw.c
---- net/ipv4/raw.c	10 Jul 2003 22:58:45 -0000	1.1.1.2
-+++ net/ipv4/raw.c	10 Jul 2003 23:18:04 -0000
-@@ -383,7 +383,7 @@
- 		 * IP_HDRINCL is much more convenient.
- 		 */
- 	} else {
--		err = -EINVAL;
-+		err = -EDESTADDRREQ;
- 		if (sk->sk_state != TCP_ESTABLISHED) 
- 			goto out;
- 		daddr = inet->daddr;
-Index: net/ipv4/udp.c
-===================================================================
-RCS file: /cvs/tgr/linux-25/net/ipv4/udp.c,v
-retrieving revision 1.1.1.1
-diff -u -r1.1.1.1 udp.c
---- net/ipv4/udp.c	9 Jul 2003 18:42:29 -0000	1.1.1.1
-+++ net/ipv4/udp.c	10 Jul 2003 23:18:04 -0000
-@@ -540,7 +540,7 @@
- 			return -EINVAL;
- 	} else {
- 		if (sk->sk_state != TCP_ESTABLISHED)
--			return -ENOTCONN;
-+			return -EDESTADDRREQ;
- 		daddr = inet->daddr;
- 		dport = inet->dport;
- 		/* Open fast path for connected socket.
-Index: net/ipv6/raw.c
-===================================================================
-RCS file: /cvs/tgr/linux-25/net/ipv6/raw.c,v
-retrieving revision 1.1.1.2
-diff -u -r1.1.1.2 raw.c
---- net/ipv6/raw.c	10 Jul 2003 22:58:50 -0000	1.1.1.2
-+++ net/ipv6/raw.c	10 Jul 2003 23:18:04 -0000
-@@ -602,7 +602,7 @@
- 			fl.oif = sin6->sin6_scope_id;
- 	} else {
- 		if (sk->sk_state != TCP_ESTABLISHED) 
--			return(-EINVAL);
-+			return -EDESTADDRREQ;
- 		
- 		proto = inet->num;
- 		daddr = &np->daddr;
-Index: net/ipv6/udp.c
-===================================================================
-RCS file: /cvs/tgr/linux-25/net/ipv6/udp.c,v
-retrieving revision 1.1.1.1
-diff -u -r1.1.1.1 udp.c
---- net/ipv6/udp.c	9 Jul 2003 18:42:35 -0000	1.1.1.1
-+++ net/ipv6/udp.c	10 Jul 2003 23:18:04 -0000
-@@ -862,7 +862,7 @@
- 			fl.oif = sin6->sin6_scope_id;
- 	} else {
- 		if (sk->sk_state != TCP_ESTABLISHED)
--			return -ENOTCONN;
-+			return -EDESTADDRREQ;
- 
- 		up->dport = inet->dport;
- 		daddr = &np->daddr;
+-- 
+"How can I not love the Americans? They helped me with a flat tire the
+other day," he said.
+	- http://www.toledoblade.com/apps/pbcs.dll/artikkel?SearchID=73139162287496&Avis=TO&Dato=20030624&Kategori=NEWS28&Lopenr=106240111&Ref=AR
