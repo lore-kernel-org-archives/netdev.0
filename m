@@ -1,27 +1,28 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [Patch 1/3 2.5] e1000: Configuration and user guide update
-Date: Fri, 15 Oct 2004 12:32:36 -0400
+Subject: Re: [Patch 0/5 2.4] e1000: driver update
+Date: Fri, 15 Oct 2004 12:35:06 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <416FFBA4.1080001@pobox.com>
-References: <Pine.LNX.4.44.0410150515070.31227-100000@isotope.jf.intel.com>
+Message-ID: <416FFC3A.5050101@pobox.com>
+References: <Pine.LNX.4.44.0410150524140.31227-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0410150515070.31227-100000@isotope.jf.intel.com>
+In-Reply-To: <Pine.LNX.4.44.0410150524140.31227-100000@isotope.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Ganesh Venkatesan wrote:
-> diff -Nuarp old/linux-2.5/Documentation/networking/e1000.txt new/linux-2.5/Documentation/networking/e1000.txt
-> --- old/linux-2.5/Documentation/networking/e1000.txt	2004-10-07 15:50:44.000000000 -0700
-> +++ new/linux-2.5/Documentation/networking/e1000.txt	2004-10-07 15:51:15.000000000 -0700
+> 1. modified ethtool_set_pauseparam to use e1000_setup_link for flow control
+> settings for fiber serdes link
+> 2. remove unused function e1000_enable_mng_pass_thru
+> 3. fix set ringparam for ethtool returning error code on bad input
+> 4. driver version number update
+> 5. white space corrections
 
-all three patches in this series look OK, but are rejected due to 
-invalid patch header (see previous emails with details).
 
-Your patch _must_ be apply-able with "patch -sp1 < patch"
+all five patches in this series successfully applied to 2.4.x
 
 	Jeff
