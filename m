@@ -1,37 +1,62 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Best way to hook incoming eth pkts?
-Date: Wed, 20 Aug 2003 11:47:27 -0400
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Wed, 20 Aug 2003 17:55:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820154727.GB9119@gtf.org>
+Message-ID: <20030820175504.07658147.skraw@ithnet.com>
+References: <353568DCBAE06148B70767C1B1A93E625EAB58@post.pc.aspectgroup.co.uk>
+	<20030819145403.GA3407@alpha.home.local>
+	<20030819170751.2b92ba2e.skraw@ithnet.com>
+	<20030819085717.56046afd.davem@redhat.com>
+	<20030819185219.116fd259.skraw@ithnet.com>
+	<3F43891E.9060204@zurich.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: bloemsaa@xs4all.nl, davem@redhat.com, alan@lxorguk.ukuu.org.uk,
+   willy@w.ods.org, richard@aspectgroup.co.uk, carlosev@newipnet.com,
+   lamont@scriptkiddie.org, davidsen@tmr.com, marcelo@conectiva.com.br,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
+   torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Roman Pletka <rap@zurich.ibm.com>
+In-Reply-To: <3F43891E.9060204@zurich.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-All,
+On Wed, 20 Aug 2003 16:43:42 +0200
+Roman Pletka <rap@zurich.ibm.com> wrote:
 
-netconsole, netdump, and ATA-over-ethernet (and others?) all have a need
-to directly send and receive ethernet packets from inside the kernel.
+> Stephan von Krawczynski wrote:
+> > <qoute RFC 1122>
+> >       2.3.2  Address Resolution Protocol -- ARP
+> > 
+> >          2.3.2.1  ARP Cache Validation
+> > 
+> >             An implementation of the Address Resolution Protocol (ARP)
+> >             [LINK:2] MUST provide a mechanism to flush out-of-date cache
+> >             entries.  If this mechanism involves a timeout, it SHOULD be
+> >             possible to configure the timeout value.
+> > 
+> > ...
+> > 
+> > [LINK:2] "An Ethernet Address Resolution Protocol," D. Plummer, RFC-826,
+> >      November 1982.
+> > 
+> > </quote>
+> > 
+> 
+> Please read carefully what you have quoted:
+> It says: *An* implementation... and then goes on with a citation of RFC 826.
+> A simple citation does not make a valid standard yet. It just refers to it
+> as an example for this specific issue. That's all.
 
-The sending part is easy and obvious.  The receive part isn't.
+Sorry, but my reading is this "An implementation of the ( Address Resolution
+Protocol (ARP) [LINK:2] ) ..."
+Do you understand what I mean?
 
-Essentially, all the things mentioned above need some way to listen
-for incoming ethernet packets.  ATA-over-ethernet has its own
-IANA-registered ethernet type, but netconsole and netdump are using
-IP/UDP instead of a custom ethernet protocol.
+If you insist on RFC-826 being only one of several (possible) ARP
+implementations, can you then please name an RFC where ARP as a protocol is
+clearly defined? I mean there must be one, or not?
 
-So, two questions for the gurus of the crowd ;-)
-
-1) What is the best way for an in-kernel piece of software to 
-receive ethernet packets that are intended for it?
-
-2) Possibly related to #1, is it a good or bad idea to consider sending
-netconsole/netdump directly over ethernet, eschewing the IP/UDP/syslog
-stuff?
-
-Comments and insight requested.
-
-	Jeff
+Regards,
+Stephan
