@@ -1,79 +1,43 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Updated WE-18 (WPA) proposal
-Date: Tue, 31 Aug 2004 04:54:58 -0400
-Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
-Message-ID: <20040831085458.GD31207@ruslug.rutgers.edu>
-References: <20040830045441.GA7415@jm.kir.nu>
-	<20040830165026.GD29492@bougret.hpl.hp.com>
-	<413363CB.7060807@pobox.com>
-	<20040830174215.GA32132@bougret.hpl.hp.com>
-	<41336A28.9010608@pobox.com>
-	<20040830220105.GY22126@ruslug.rutgers.edu>
-	<4133A811.1010009@pobox.com>
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+ else")
+Date: Tue, 31 Aug 2004 12:41:35 +0300 (EEST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0408311208500.1773-100000@l>
+References: <20040831082339.GA949@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Jouni Malinen <jkmaline@cc.hut.fi>,
-	hostap@shmoo.com, "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-	Pedro Ramalhais <ramalhais@serrado.net>, jt@hpl.hp.com
-Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4133A811.1010009@pobox.com>
-List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
-List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
-List-Post: <mailto:hostap@shmoo.com>
-List-Help: <mailto:hostap-request@shmoo.com?subject=help>
-List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
-	<mailto:hostap-request@shmoo.com?subject=subscribe>
-Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, <laforge@netfilter.org>,
+        <netfilter-devel@lists.netfilter.org>, <rusty@rustcorp.com.au>,
+        <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040831082339.GA949@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Aug 30, 2004 at 06:20:01PM -0400, Jeff Garzik wrote:
-> Luis R. Rodriguez wrote:
-> >On Mon, Aug 30, 2004 at 01:55:52PM -0400, Jeff Garzik wrote:
-> >
-> >>Jean Tourrilhes wrote:
-> >
-> >
-> ><-- snip -->
-> >
-> >>>	Also, I'm not clear how the stuff in wireless-2.6 is supposed
-> >>>to trickle into the other trees (netdev-2.6, -mm and Linus's), and how
-> >>>to better link it with the CVS of the various drivers involved.
-> >>
-> >>Less of a trickle than a flood:  wireless-2.6 should be the target for 
-> >>development of shared wireless stack code.  As several drivers are 
-> >>currently using bits of HostAP, for example, wireless-2.6 should be a 
-> >>focal point for patches that modify these drivers to instead share the 
-> >>same code.
-> >>
-> >>Once this generic work is done, it would get pushed all at once to 
-> >>netdev-2.6, where it would receive testing in -mm.  Then, later, pushed 
-> >>to mainline.
-> >>
-> >>	Jeff
-> >
-> >
-> >Beides wpa_supplicant from hostap code (which is actually going into
-> >WE18) what other code re-use is on the roadmap as of yet for wireless-2.6?
-> 
-> Intel Centrino driver is re-using chunks of HostAP, and I'm looking at 
-> doing so for the RealTek 8180 driver I am about to publish.
 
-Can someone elaborate on what "chunks" the centrino driver is using
-from hostap?
+	Hello,
 
-Jeff what aspects are you looking to re-use from hostap?
+On Tue, 31 Aug 2004, Herbert Xu wrote:
 
-I guess we at prism54 should also see what we can re-use too then.
-Our next driver (a softmac driver) will have a lot more code since the
-MAC will need to be implemented on the driver side -- I'm not yet sure
-of the exact details as I haven't grep'd through the available code yet
-I'm wondering though -- are there any other softmac drivers out there,
-or to come soon?
+> On Tue, Aug 31, 2004 at 05:00:43PM +1000, herbert wrote:
+> >
+> > Here's a better idea.  Why don't we forget about the route lookup
+> > and call inet_select_addr directly?
+>
+> Even better, why don't we use the skb->dst directly? It already
+> contains the preferred source for the route that led us to the
+> device.
+>
+> Here is an untested patch which does exactly that? Please do your
+> best to break it :)
 
-	Luis
+	No need for tests :) rt_spec_dst is your preferred src
+to the sender (your local internal IP) and rt_src is the internal
+IP of the sender (what we snat).
 
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
