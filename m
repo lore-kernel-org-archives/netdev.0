@@ -1,211 +1,137 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 19/22] typhoon: add loading of xfrm_states to hardware
+Subject: [RFC 2.6.10 16/22] typhoon: collect crypto offload capabilities
 Date: Thu, 30 Dec 2004 03:48:37 -0500
-Message-ID: <20041230035000.28@ori.thedillows.org>
-References: <20041230035000.27@ori.thedillows.org>
+Message-ID: <20041230035000.25@ori.thedillows.org>
+References: <20041230035000.24@ori.thedillows.org>
 Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <netdev-bounce@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261634AbUL3JXS@vger.kernel.org>
 To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/12/30 01:02:32-05:00 dave@thedillows.org 
-#   Teach the Typhoon driver how to add and remove xfrm_states to
-#   the 3XP for later packet processing.
+#   2004/12/30 00:56:40-05:00 dave@thedillows.org 
+#   Collect some information about the Typhoon's offload capabilities,
+#   and store it for future use.
 #   
-#   When the first xfrm_state is added, we turn on IPSEC offloads
-#   for the 3XP, and we turn it off when the last one is removed.
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# drivers/net/typhoon.h
+#   2004/12/30 00:56:22-05:00 dave@thedillows.org +14 -0
+#   Add the reply message format for the crypto capability query command.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
 # drivers/net/typhoon.c
-#   2004/12/30 01:02:14-05:00 dave@thedillows.org +167 -0
-#   Teach the Typhoon driver how to add and remove xfrm_states to
-#   the 3XP for later packet processing.
-#   
-#   When the first xfrm_state is added, we turn on IPSEC offloads
-#   for the 3XP, and we turn it off when the last one is removed.
+#   2004/12/30 00:56:22-05:00 dave@thedillows.org +56 -0
+#   Collect some information about the Typhoon's offload capabilities,
+#   and store it for future use.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
 diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2004-12-30 01:08:19 -05:00
-+++ b/drivers/net/typhoon.c	2004-12-30 01:08:19 -05:00
-@@ -2420,6 +2420,173 @@
- #undef REQUIRED
- #undef UNSUPPORTED
+--- a/drivers/net/typhoon.c	2004-12-30 01:08:58 -05:00
++++ b/drivers/net/typhoon.c	2004-12-30 01:08:58 -05:00
+@@ -305,6 +305,12 @@
+ 	u16			wol_events;
+ 	u32			offload;
  
-+static struct xfrm_offload *
-+typhoon_offload_ipsec(struct typhoon *tp, struct xfrm_state *x)
++	u16			tx_sa_max;
++	u16			rx_sa_max;
++	u16			tx_sa_avail;
++	u16			rx_sa_avail;
++	int			sa_count;
++
+ 	/* unused stuff (future use) */
+ 	int			capabilities;
+ 	struct transmit_ring 	txHiRing;
+@@ -2105,6 +2111,53 @@
+ 	return 0;
+ }
+ 
++static inline int
++typhoon_ipsec_init(struct typhoon *tp)
 +{
-+	struct cmd_desc xp_cmd[5];
-+	struct resp_desc xp_resp;
-+	struct sa_descriptor *sa = (struct sa_descriptor *)xp_cmd;
-+	struct xfrm_offload *xol;
-+	struct typhoon_xfrm_offload *txo;
-+	u16 *dir_sa_avail = &tp->rx_sa_avail;
-+	u16 cookie;
-+	int keylen, err;
-+
-+	if(!typhoon_validate_xfrm(tp, x))
-+		goto error;
-+
-+	memset(xp_cmd, 0, 5 * sizeof(xp_cmd[0]));
-+	INIT_COMMAND_WITH_RESPONSE(xp_cmd, TYPHOON_CMD_CREATE_SA);
-+	sa->numDesc = 4;
-+
-+	sa->mode = TYPHOON_SA_MODE_AH;
-+	if(x->type->proto == IPPROTO_ESP)
-+		sa->mode = TYPHOON_SA_MODE_ESP;
-+
-+	if(x->dir == XFRM_STATE_DIR_OUT) {
-+		sa->direction = TYPHOON_SA_DIR_TX;
-+		dir_sa_avail = &tp->tx_sa_avail;
-+	}
-+
-+	spin_lock_bh(&tp->offload_lock);
-+	if(!*dir_sa_avail) {
-+		spin_unlock_bh(&tp->offload_lock);
-+		goto error;
-+	}
-+	*dir_sa_avail--;
-+	if(!tp->sa_count++) {
-+		tp->offload |= TYPHOON_OFFLOAD_IPSEC;
-+		err = typhoon_set_offload(tp);
-+		if(err < 0) {
-+			spin_unlock_bh(&tp->offload_lock);
-+			printk(KERN_ERR "%s: unable to enable IPSEC "
-+					"offload (%d)\n", tp->name, -err);
-+			goto error_counted;
-+		}
-+	}
-+	spin_unlock_bh(&tp->offload_lock);
-+
-+	if(x->props.aalgo != SADB_X_AALG_NULL && x->aalg) {
-+		keylen = (x->aalg->alg_key_len + 7) / 8;
-+
-+		sa->hashFlags = TYPHOON_SA_HASH_SHA1;
-+		if(x->props.aalgo == SADB_AALG_MD5HMAC)
-+			sa->hashFlags = TYPHOON_SA_HASH_MD5;
-+		sa->hashFlags |= TYPHOON_SA_HASH_ENABLE;
-+
-+		memcpy(sa->integKey, x->aalg->alg_key, keylen);
-+	}
-+
-+	if(x->props.ealgo != SADB_EALG_NULL && x->ealg) {
-+		keylen = (x->ealg->alg_key_len + 7) / 8;
-+
-+		sa->encryptionFlags = TYPHOON_SA_ENCRYPT_ENABLE |
-+						TYPHOON_SA_ENCRYPT_CBC;
-+		if(x->props.ealgo == SADB_EALG_DESCBC)
-+			sa->encryptionFlags |= TYPHOON_SA_ENCRYPT_DES;
-+		else if(x->ealg->alg_key_len == 192)
-+			sa->encryptionFlags |= TYPHOON_SA_ENCRYPT_3DES_3KEY;
-+		else {
-+			sa->encryptionFlags |= TYPHOON_SA_ENCRYPT_3DES_2KEY;
-+			memcpy(&sa->confKey[16], x->ealg->alg_key, 8);
-+		}
-+
-+		memcpy(sa->confKey, x->ealg->alg_key, keylen);
-+	}
-+
-+	/* The 3XP expects the SPI to be in host order, litte endian.
-+	 * It expects the address to be in network order.
-+	 */
-+	sa->SPI = cpu_to_le32(ntohl(x->id.spi));
-+	sa->destAddr = x->id.daddr.a4;
-+	sa->destMask = (u32) ~0UL;
-+
-+	err = typhoon_issue_command(tp, 5, xp_cmd, 1, &xp_resp);
-+	cookie = le16_to_cpu(xp_resp.parm1);
-+	if(err < 0 || !cookie || cookie == 0xffff)
-+		goto error_counted;
-+
-+	xol = xfrm_offload_alloc(sizeof(*txo), tp->dev);
-+	if(!xol)
-+		goto error_cookie;
-+
-+	txo = xfrm_offload_priv(xol);
-+	txo->sa_cookie = cookie;
-+	txo->tunnel = !!x->props.mode;
-+	txo->ah = (x->id.proto == IPPROTO_AH);
-+	txo->inbound = (x->dir == XFRM_STATE_DIR_IN);
-+
-+	xfrm_state_offload_add(x, xol);
-+
-+	return xol;
-+
-+error_cookie:
-+	INIT_COMMAND_NO_RESPONSE(xp_cmd, TYPHOON_CMD_DELETE_SA);
-+	xp_cmd[0].parm1 = xp_resp.parm1;
-+	typhoon_issue_command(tp, 1, xp_cmd, 0, NULL);
-+
-+error_counted:
-+	spin_lock_bh(&tp->offload_lock);
-+	*dir_sa_avail++;
-+	tp->sa_count--;
-+	if(!tp->sa_count) {
-+		tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
-+		err = typhoon_set_offload(tp);
-+		if(err < 0)
-+			printk(KERN_ERR "%s: unable to disable IPSEC "
-+					"offload (%d)\n", tp->name, -err);
-+	}
-+	spin_unlock_bh(&tp->offload_lock);
-+
-+error:
-+	return NULL;
-+}
-+
-+static void
-+typhoon_xfrm_state_add(struct net_device *dev, struct xfrm_state *x)
-+{
-+	struct typhoon *tp = netdev_priv(dev);
-+
-+	smp_rmb();
-+	if(tp->card_state == Running)
-+		typhoon_offload_ipsec(tp, x);
-+}
-+
-+static void
-+typhoon_xfrm_state_del(struct net_device *dev, struct xfrm_offload *xol)
-+{
-+	struct typhoon *tp = netdev_priv(dev);
-+	struct typhoon_xfrm_offload *txo = xfrm_offload_priv(xol);
 +	struct cmd_desc xp_cmd;
++	struct resp_desc xp_resp;
++	struct ipsec_info_desc *info = (struct ipsec_info_desc *) &xp_resp;
++	u16 last_tx, last_rx, last_cap;
 +	int err;
 +
-+	smp_rmb();
-+	if(tp->card_state != Running)
-+		return;
++	last_tx = tp->tx_sa_max;
++	last_rx = tp->rx_sa_max;
++	last_cap = tp->capabilities;
 +
-+	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_DELETE_SA);
-+	xp_cmd.parm1 = cpu_to_le16(txo->sa_cookie);
-+	if(typhoon_issue_command(tp, 1, &xp_cmd, 0, NULL) < 0) {
-+		printk(KERN_ERR "%s: unable to remove offloaded SA 0x%04x\n",
-+				tp->name,  txo->sa_cookie);
++	INIT_COMMAND_WITH_RESPONSE(&xp_cmd, TYPHOON_CMD_READ_IPSEC_INFO);
++	err = typhoon_issue_command(tp, 1, &xp_cmd, 1, &xp_resp);
++	if(err < 0)
++		goto out;
++
++	/* We're not up yet, so no need to lock this -- we cannot modify
++	 * these fields yet.
++	 */
++	tp->tx_sa_avail = tp->tx_sa_max = le16_to_cpu(info->tx_sa_max);
++	tp->rx_sa_avail = tp->rx_sa_max = le16_to_cpu(info->rx_sa_max);
++	tp->sa_count = 0;
++
++	/* Typhoon2 was originally going to have variable crypto capabilities,
++	 * subject to registration with 3Com. It appears they have decided
++	 * to just enable 3DES as well.
++	 */
++	if(tp->capabilities & TYPHOON_CRYPTO_VARIABLE) {
++		tp->capabilities &= ~TYPHOON_CRYPTO_VARIABLE;
++		tp->capabilities |= TYPHOON_CRYPTO_DES | TYPHOON_CRYPTO_3DES;
 +	}
 +
-+	spin_lock_bh(&tp->offload_lock);
-+	if(txo->inbound)
-+		tp->rx_sa_avail++;
-+	else
-+		tp->tx_sa_avail++;
-+	tp->sa_count--;
-+	if(!tp->sa_count) {
-+		tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
-+		err = typhoon_set_offload(tp);
-+		if(err < 0)
-+			printk(KERN_ERR "%s: unable to disable IPSEC "
-+					"offload (%d)\n", tp->name, -err);
++	if(last_tx != tp->tx_sa_max || last_rx != tp->rx_sa_max ||
++					last_cap != tp->capabilities) {
++		printk(KERN_INFO "%s: IPSEC offload %s%s %d Tx %d Rx\n",
++			tp->name,
++			tp->capabilities & TYPHOON_CRYPTO_DES ? "DES " : "",
++			tp->capabilities & TYPHOON_CRYPTO_3DES ? "3DES" : "",
++			tp->tx_sa_max, tp->rx_sa_max);
 +	}
-+	spin_unlock_bh(&tp->offload_lock);
++
++out:
++	return err;
 +}
 +
- static void
- typhoon_tx_timeout(struct net_device *dev)
+ static int
+ typhoon_start_runtime(struct typhoon *tp)
  {
+@@ -2127,6 +2180,9 @@
+ 		err = -EIO;
+ 		goto error_out;
+ 	}
++
++	if(typhoon_ipsec_init(tp))
++		goto error_out;
+ 
+ 	INIT_COMMAND_NO_RESPONSE(&xp_cmd, TYPHOON_CMD_SET_MAX_PKT_SIZE);
+ 	xp_cmd.parm1 = cpu_to_le16(PKT_BUF_SZ);
+diff -Nru a/drivers/net/typhoon.h b/drivers/net/typhoon.h
+--- a/drivers/net/typhoon.h	2004-12-30 01:08:58 -05:00
++++ b/drivers/net/typhoon.h	2004-12-30 01:08:58 -05:00
+@@ -487,6 +487,20 @@
+ 	u32 unused2;
+ } __attribute__ ((packed));
+ 
++/* TYPHOON_CMD_READ_IPSEC_INFO response descriptor
++ */
++struct ipsec_info_desc {
++	u8  flags;
++	u8  numDesc;
++	u16 cmd;
++	u16 seqNo;
++	u16 des_enabled;
++	u16 tx_sa_max;
++	u16 rx_sa_max;
++	u16 tx_sa_count;
++	u16 rx_sa_count;
++} __attribute__ ((packed));
++
+ /* TYPHOON_CMD_SET_OFFLOAD_TASKS bits (cmd.parm2 (Tx) & cmd.parm3 (Rx))
+  * This is all for IPv4.
+  */
