@@ -1,47 +1,60 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: analysis of TCP window size issues still around - several
- reports / SACK involved?
-Date: Tue, 6 Jul 2004 13:19:55 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706131955.3a3c6c8b.davem@redhat.com>
-References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org>
-	<20040629222751.392f0a82.davem@redhat.com>
-	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
-	<20040630153049.3ca25b76.davem@redhat.com>
-	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
-	<20040701140406.62dfbc2a.davem@redhat.com>
-	<20040702013225.GA24707@conectiva.com.br>
-	<20040706093503.GA8147@outpost.ds9a.nl>
+From: David Ford <david+challenge-response@blue-labs.org>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Tue, 06 Jul 2004 16:26:15 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <40EB0AE7.40803@blue-labs.org>
+References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org>	<20040629222751.392f0a82.davem@redhat.com>	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>	<20040630153049.3ca25b76.davem@redhat.com>	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>	<20040701140406.62dfbc2a.davem@redhat.com>	<20040702013225.GA24707@conectiva.com.br>	<20040706093503.GA8147@outpost.ds9a.nl>	<20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net>	<40EB04C7.4000007@us.ibm.com> <20040706131617.39484eff.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, shemminger@osdl.org, netdev@oss.sgi.com,
-        alessandro.suardi@oracle.com, phyprabab@yahoo.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20040706093503.GA8147@outpost.ds9a.nl>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------060801060905010902050409"
+Cc: Nivedita Singhvi <niv@us.ibm.com>, shemminger@osdl.org,
+	ahu@ds9a.nl, acme@conectiva.com.br, netdev@oss.sgi.com,
+	alessandro.suardi@oracle.com, phyprabab@yahoo.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040706131617.39484eff.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jul 2004 11:35:03 +0200
-bert hubert <ahu@ds9a.nl> wrote:
+This is a multi-part message in MIME format.
+--------------060801060905010902050409
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> 22:42:40.890025 192.168.1.6.32843 > 204.152.189.116.http: S 1994994484:1994994484(0) win 5840 <mss 1460,sackOK,timestamp 4294940315 0,nop,wscale 7> (DF)
-> 22:42:41.143063 204.152.189.116.http > 192.168.1.6.32843: S 1404108869:1404108869(0) ack 1994994485 win 5792 <mss 1452,sackOK,timestamp 3383469176 4294940315,nop,wscale 0> (DF)
-> 22:42:41.143123 192.168.1.6.32843 > 204.152.189.116.http: . ack 1 win 45 <nop,nop,timestamp 4294940568 3383469176> (DF)
-> 
-> Alessandro's machine does perform window scaling, tcpdump however does not
-> understand that and neglects to multiply 45 by 2^7 (=5760). Kernel.org does do
-> wscale, but defaults to 2^0.
+It's been a while since I used a 1460 MTU for PPTP over DSL, but unless 
+OSDN got a clue recently, their firewalls drop the ICMP for PMTU 
+discovery.  Does anyone have a tool that exercises a bunch of TCP/IP 
+options to detect such broken firewalls?
 
-tcpdump's behavior is correct, it's just reporting the raw window
-field in the TCP header, unscaled, and that is fine.  In fact I'd
-rather it do this, so that diagnosing dumps are easier.  If tcpdump
-tries to be too clever, scaling the window, then I might end up
-chasing down a tcpdump bug rather than a TCP one :-)
+David
 
-What would be more interesting is to get the tcpdump trace from the
-other side of this connection.  This is crucial, as it will show how
-and in what way exactly the window scale options and/or window fields
-are being edited by a firewall or other device and thus causing
-the problems.
+David S. Miller wrote:
+
+>[...]
+>Frankly, I've personally seen none of this.  I sit on a DSL line with
+>no firewalling at my end and I can access all sites just fine.  This
+>seems to indicate that most of the breakage is local to the user's
+>point of access to the net, rather than a firewall at google.com
+>or kernel.org or similar.
+>
+
+--------------060801060905010902050409
+Content-Type: text/x-vcard; charset=utf-8;
+ name="david+challenge-response.vcf"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+ filename="david+challenge-response.vcf"
+
+begin:vcard
+fn:David Ford
+n:Ford;David
+email;internet:david@blue-labs.org
+title:Industrial Geek
+tel;home:Ask please
+tel;cell:(203) 650-3611
+x-mozilla-html:TRUE
+version:2.1
+end:vcard
+
+
+--------------060801060905010902050409--
