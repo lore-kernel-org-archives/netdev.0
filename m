@@ -1,29 +1,60 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] ixgb fixes
-Date: Thu, 26 Feb 2004 00:54:47 -0500
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [janitor] nicstar: use kernel min/max
+Date: Wed, 25 Feb 2004 21:32:29 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <403D8A27.20703@pobox.com>
-References: <20040115140248.170a3ee3.shemminger@osdl.org>
+Message-ID: <20040225213229.66ac8d54.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Cc: chas@cmf.nrl.navy.mil
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ganesh Venkatesan <Ganesh.Venkatesan@intel.com>,
-        "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <20040115140248.170a3ee3.shemminger@osdl.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Ixgb driver in 2.6.1 (possibly 2.4) has several problems:
-> 	* register_netdev error never handled
-> 	* returns -ENOMEM for errors like bad eeprom etc
-> 	* keeps copy of device name in the private data structure
-> 	  which is never used, and would be wrong anyway if
-> 	  the device was renamed.
+
+Hi,
+Please apply to 2.6.3-current.
+
+--
+~Randy
 
 
-Hey Intel guys...  is this driver alive or dead?
+From: Michael Veeck <michael.veeck@gmx.net>
 
-	Jeff
+
+Patch (against 2.6.3) removes unnecessary min/max macros and changes
+calls to use kernel.h macros instead.
+
+Feedback is always welcome
+Michael
+
+
+ linux-263-223-kj1-rddunlap/drivers/atm/nicstar.c |    5 +----
+ 1 files changed, 1 insertion(+), 4 deletions(-)
+
+
+diff -puN drivers/atm/nicstar.c~atm_nicstar_minmax drivers/atm/nicstar.c
+--- linux-263-223-kj1/drivers/atm/nicstar.c~atm_nicstar_minmax	2004-02-24 11:03:02.000000000 -0800
++++ linux-263-223-kj1-rddunlap/drivers/atm/nicstar.c	2004-02-24 11:03:02.000000000 -0800
+@@ -112,9 +112,6 @@
+ 
+ /* Macros *********************************************************************/
+ 
+-#define MAX(a,b) ((a) > (b) ? (a) : (b))
+-#define MIN(a,b) ((a) < (b) ? (a) : (b))
+-
+ #define CMD_BUSY(card) (readl((card)->membase + STAT) & NS_STAT_CMDBZ)
+ 
+ #define NS_DELAY mdelay(1)
+@@ -2483,7 +2480,7 @@ static void dequeue_rx(ns_dev *card, ns_
+             for (j = 1; j < NS_SKB(iovb)->iovcnt; j++)
+             {
+                lb = (struct sk_buff *) iov->iov_base;
+-               tocopy = MIN(remaining, iov->iov_len);
++               tocopy = min_t(int, remaining, iov->iov_len);
+                memcpy(hb->tail, lb->data, tocopy);
+                skb_put(hb, tocopy);
+                iov++;
+
+_
