@@ -1,79 +1,60 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3992] New: Bondig. Not correct work function
- ARP Monitoring. Broken link.
-Date: Wed, 5 Jan 2005 13:35:25 -0800
-Message-ID: <20050105133525.2bab2e09.akpm@osdl.org>
+From: lsorense@csclub.uwaterloo.ca (Lennart Sorensen)
+Subject: Re: Open hardware wireless cards
+Date: Wed, 5 Jan 2005 16:35:10 -0500
+Message-ID: <20050105213510.GP28140@csclub.uwaterloo.ca>
+References: <20050105192447.GJ5159@ruslug.rutgers.edu> <20050105200526.GL5159@ruslug.rutgers.edu> <20050105201434.GB30311@csclub.uwaterloo.ca> <Pine.LNX.4.61.0501051533470.12237@chaos.analogic.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: prism54-devel@prism54.org, prism54-users@prism54.org,
+        Netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org,
+        Jeff Garzik <jgarzik@pobox.com>,
+        Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: linux-os@analogic.com
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0501051533470.12237@chaos.analogic.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jan 05, 2005 at 03:48:46PM -0500, linux-os wrote:
+> Well its mostly about making boards just a bit too cheap.
+> 
+> If the vendors would just put in a serial EPROM that loads the
+> proprietary stuff to their PLD upon startup, then there is
+> no "proprietary" code to worry about. You have the generic
+> published interface like a PLX chip, plus the specific published
+> register functions of their PLD chip. How the device actually
+> makes smoke and mirrors is hidden even from the programmer.
+> 
+> But, by eliminating the US$0.50 cost of a EPROM, they want to supply
+> a sack of bits that needs to be uploaded to the PLD by software. This
+> sack of bits can be reverse-engineered so companies are not going
+> to supply these (you can extract those bits from a Win-Modem dll so
+> this gets a bit too ridiculous for some devices).
+> 
+> In most cases it's not some algorithm that needs to be protected.
+> Instead its the 400-or-so engineering man-hours used to develop the
+> contents of the PLD (notice I did not use the words "Gate-Arrays"
+> until now. There are many kinds of Programmable Logic Devices).
+> 
+> Until vendors stop being penny-wise-pound-foolish, we will continue
+> to have these kinds of problems. Vendor education will ultimately
+> be the fix, I predict.
 
+Well unfortunately I think you underestimate the cost of the serial
+eprom needed to do the load on an fpga or pld or the like.  According to
+our suppliers they are actually rather hard to get for some reason (that
+I don't understand) and are more than $0.50.  The product I am current
+working on software for would be a whole lot simpler if we could just
+program an eprom with the fpga code, but instead we have to load it via
+jtag through the parallel port to save a fair bit of moeny on eprom
+chips assuming we could even get them in the quantities we would need.
 
-Begin forwarded message:
+The winmodem is just a sound card with the cpu doing the actual
+algorihtm.  That is different and would not be solved with an eprom,
+only with a real DSP or other chip capable of doing the modulation and
+demodulation of the signals.  I guess calling them modem's is being too
+generous, more like phone line sampler cards.
 
-Date: Wed, 5 Jan 2005 07:59:17 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3992] New: Bondig. Not correct work function AR=
-P Monitoring. Broken link.
-
-
-http://bugme.osdl.org/show_bug.cgi?id=3D3992
-
-           Summary: Bondig. Not correct work function ARP Monitoring. Bro=
-ken
-                    link.
-    Kernel Version: 2.6.10
-            Status: NEW
-          Severity: normal
-             Owner: jgarzik@pobox.com
-         Submitter: stanislav@muhachev.petro.ru
-
-
-Distribution:
-Hardware Environment:
-Vmware GSX machine
-Software Environment:
-Gentoo
-Problem Description:
-bonding interface going down and down slave link
-
-
-Steps to reproduce:
-
-2 virtual pc
-identical gentoo linux (copy)
-1 nic for both virtual pc
-up 2 openvpn link trouch nic to another virtual pc (tap0 and tap1)[ethern=
-et=20
-bridge]
-link both vpn1 and vpn2 - ok!(independing link like:192.168.1.1-192.168.1=
-.2=20
-and 192.168.2.1-192.168.2.2)
-
-bonding vpn1 & vpn2 =F2=EE bond0 (bonding default setup -> nothing failov=
-er=20
-setings)
-link =EE=EA!(192.168.100.1-192.168.100.2)
-
-setting arp monitor in bonding (TUN/TAP driver not support Mii status)
-link down!
-
-arp request go from bond0(machine1)[from tap0 & tap1] to bond0(machine2) =
-- ok.
-arp answer bond0(machine2) interface - ok!
-!!! bond0(machine2) -> tap0(tap1)(machine2) - noting!!!(arp answer broken=
-)
-resultat arp request not complite
-
-situation analog both side
-
-for monitoring use TCPDUMP
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+Len Sorensen
