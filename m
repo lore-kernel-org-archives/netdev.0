@@ -1,42 +1,41 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
-Date: Sat, 11 Oct 2003 12:54:26 -0700
+Subject: Re: [RFT] Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
+Date: Sat, 11 Oct 2003 12:56:56 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011125426.542e47f7.davem@redhat.com>
-References: <3F87430D.2040000@tpack.net>
-	<3F87464B.1020908@candelatech.com>
-	<3F874A30.6010700@tpack.net>
-	<3F885418.3090407@candelatech.com>
-	<20031011120339.0da631e6.davem@redhat.com>
-	<3F88602B.7020603@candelatech.com>
+Message-ID: <20031011125656.322bd0ab.davem@redhat.com>
+References: <20031008133345.49f71991.davem@redhat.com>
+	<20031010023644.GA8365@conectiva.com.br>
+	<20031010032244.GB8365@conectiva.com.br>
+	<20031009211437.2cf87a4f.davem@redhat.com>
+	<20031010154052.GA11366@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, tommy.christensen@tpack.net
+Cc: netdev@oss.sgi.com, dmerillat@sequiam.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F88602B.7020603@candelatech.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20031010154052.GA11366@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2003 12:55:23 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+On Fri, 10 Oct 2003 12:40:52 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> I have read the sk_buf.h file repeatedly trying to get this all straight
-> in my head, and I think I'm still missing things.  Is there any other
-> documentation around that describes in detail exactly the things you must
-> do to handle shared skbs in all contexts?
+> ipv6_rcv_saddr_equal, look at this:
+> 
+>         if (sk2->sk_family == AF_INET6 &&
+>             !ipv6_addr_cmp(&np->rcv_saddr,
+>                            (sk2->sk_state != TCP_TIME_WAIT ?
+>                             &inet6_sk(sk2)->rcv_saddr :
+>                             &tcptw_sk(sk)->tw_v6_rcv_saddr)))
+>                                       ^^
+>                                       ^^
+> shouldn't the tcp_tw_sk(sk) be tcp_tw_sk(sk2)?
 
-No there isn't, sorry.
+Yes.
 
-If you just want to read the IP address in a packet, or anything else
-in general you have two options:
+> And in this function we have the guard against it being a tcp_tw_bucket, but
+> not in all places...
 
-1) if (pskb_may_pull(skb, len))
-	goto drop;
-
-   After this call, it is guarenteed you may look at
-   the all bytes up to 'len' from the start of the SKB
-   using skb->data et al.
-
-2) Use skb_peek_bits().
+It does guard in this spot, that's why it is checking the
+sk_state value.
