@@ -1,8 +1,8 @@
 From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: Re: O/M flags against 2.6.0-test1
-Date: Fri, 12 Sep 2003 15:36:50 -0700 (PDT)
+Subject: O/M flags for 2.4.22 (was "Re: O/M flags against 2.6.0-test1")
+Date: Fri, 12 Sep 2003 15:45:15 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309121534240.1445-100000@linux-udp12861866uds>
+Message-ID: <Pine.LNX.4.44.0309121537430.1445-100000@linux-udp12861866uds>
 References: <20030911192507.0b3f2633.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -14,18 +14,19 @@ In-Reply-To: <20030911192507.0b3f2633.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Yes, rebuild the patch against current 2.6.x
 
-Patch against 2.6.0-test5 follows.
+> I'm happy to apply a 2.4.x version as well.
+
+Patch against 2.4.22 follows.
 
 Thanks,
 
 - KK
 
-diff -ruN linux-2.6.0-test5.org/include/linux/ipv6.h linux-2.6.0-test5/include/linux/ipv6.h
---- linux-2.6.0-test5.org/include/linux/ipv6.h	2003-09-08 12:50:17.000000000 -0700
-+++ linux-2.6.0-test5/include/linux/ipv6.h	2003-09-12 12:33:14.000000000 -0700
-@@ -122,6 +122,52 @@
+diff -ruN linux-2.4.22.org/include/linux/ipv6.h linux-2.4.22/include/linux/ipv6.h
+--- linux-2.4.22.org/include/linux/ipv6.h	2001-11-22 11:47:11.000000000 -0800
++++ linux-2.4.22/include/linux/ipv6.h	2003-09-12 15:11:09.000000000 -0700
+@@ -100,6 +100,52 @@
  	struct	in6_addr	daddr;
  };
 
@@ -76,12 +77,12 @@ diff -ruN linux-2.6.0-test5.org/include/linux/ipv6.h linux-2.6.0-test5/include/l
 +};
 +
  #ifdef __KERNEL__
- #include <linux/in6.h>          /* struct sockaddr_in6 */
- #include <linux/icmpv6.h>
-diff -ruN linux-2.6.0-test5.org/include/linux/rtnetlink.h linux-2.6.0-test5/include/linux/rtnetlink.h
---- linux-2.6.0-test5.org/include/linux/rtnetlink.h	2003-09-08 12:50:21.000000000 -0700
-+++ linux-2.6.0-test5/include/linux/rtnetlink.h	2003-09-12 12:33:14.000000000 -0700
-@@ -508,10 +508,12 @@
+
+ /*
+diff -ruN linux-2.4.22.org/include/linux/rtnetlink.h linux-2.4.22/include/linux/rtnetlink.h
+--- linux-2.4.22.org/include/linux/rtnetlink.h	2003-08-25 04:44:44.000000000 -0700
++++ linux-2.4.22/include/linux/rtnetlink.h	2003-09-12 13:07:45.000000000 -0700
+@@ -444,10 +444,12 @@
  #define IFLA_MASTER IFLA_MASTER
  	IFLA_WIRELESS,		/* Wireless Extension event - see wireless.h */
  #define IFLA_WIRELESS IFLA_WIRELESS
@@ -95,7 +96,7 @@ diff -ruN linux-2.6.0-test5.org/include/linux/rtnetlink.h linux-2.6.0-test5/incl
 
  #define IFLA_RTA(r)  ((struct rtattr*)(((char*)(r)) + NLMSG_ALIGN(sizeof(struct ifinfomsg))))
  #define IFLA_PAYLOAD(n) NLMSG_PAYLOAD(n,sizeof(struct ifinfomsg))
-@@ -545,6 +547,18 @@
+@@ -481,6 +483,18 @@
     for IPIP tunnels, when route to endpoint is allowed to change)
   */
 
@@ -114,23 +115,21 @@ diff -ruN linux-2.6.0-test5.org/include/linux/rtnetlink.h linux-2.6.0-test5/incl
  /*****************************************************************
   *		Traffic control messages.
   ****/
-diff -ruN linux-2.6.0-test5.org/include/net/if_inet6.h linux-2.6.0-test5/include/net/if_inet6.h
---- linux-2.6.0-test5.org/include/net/if_inet6.h	2003-09-08 12:50:33.000000000 -0700
-+++ linux-2.6.0-test5/include/net/if_inet6.h	2003-09-12 12:33:14.000000000 -0700
-@@ -16,7 +16,12 @@
+diff -ruN linux-2.4.22.org/include/net/if_inet6.h linux-2.4.22/include/net/if_inet6.h
+--- linux-2.4.22.org/include/net/if_inet6.h	2003-08-25 04:44:44.000000000 -0700
++++ linux-2.4.22/include/net/if_inet6.h	2003-09-12 15:11:09.000000000 -0700
+@@ -15,6 +15,10 @@
+ #ifndef _NET_IF_INET6_H
  #define _NET_IF_INET6_H
 
- #include <net/snmp.h>
 +#include <linux/ipv6.h>
-
-+/* inet6_dev.if_flags */
 +
 +#define IF_RA_OTHERCONF	0x80
 +#define IF_RA_MANAGED	0x40
  #define IF_RA_RCVD	0x20
  #define IF_RS_SENT	0x10
 
-@@ -132,28 +137,6 @@
+@@ -124,22 +128,6 @@
  #define	IFA_SITE	IPV6_ADDR_SITELOCAL
  #define	IFA_GLOBAL	0x0000U
 
@@ -146,23 +145,17 @@ diff -ruN linux-2.6.0-test5.org/include/net/if_inet6.h linux-2.6.0-test5/include
 -	int		rtr_solicits;
 -	int		rtr_solicit_interval;
 -	int		rtr_solicit_delay;
--#ifdef CONFIG_IPV6_PRIVACY
--	int		use_tempaddr;
--	int		temp_valid_lft;
--	int		temp_prefered_lft;
--	int		regen_max_retry;
--	int		max_desync_factor;
--#endif
+-
 -	void		*sysctl;
 -};
 -
- struct ipv6_devstat {
- 	struct proc_dir_entry	*proc_dir_entry;
- 	DEFINE_SNMP_STAT(struct icmpv6_mib, icmpv6);
-diff -ruN linux-2.6.0-test5.org/net/ipv6/addrconf.c linux-2.6.0-test5/net/ipv6/addrconf.c
---- linux-2.6.0-test5.org/net/ipv6/addrconf.c	2003-09-08 12:50:29.000000000 -0700
-+++ linux-2.6.0-test5/net/ipv6/addrconf.c	2003-09-12 15:01:10.000000000 -0700
-@@ -2529,7 +2529,109 @@
+ struct inet6_dev
+ {
+ 	struct net_device		*dev;
+diff -ruN linux-2.4.22.org/net/ipv6/addrconf.c linux-2.4.22/net/ipv6/addrconf.c
+--- linux-2.4.22.org/net/ipv6/addrconf.c	2003-08-25 04:44:44.000000000 -0700
++++ linux-2.4.22/net/ipv6/addrconf.c	2003-09-12 15:01:00.000000000 -0700
+@@ -1981,11 +1981,112 @@
  	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_IFADDR, GFP_ATOMIC);
  }
 
@@ -267,15 +260,19 @@ diff -ruN linux-2.6.0-test5.org/net/ipv6/addrconf.c linux-2.6.0-test5/net/ipv6/a
 +	return skb->len;
 +}
 +
- static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX - RTM_BASE + 1] = {
-+	[RTM_GETLINK - RTM_BASE] = { .dumpit	= inet6_dump_ifinfo, },
- 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
- 	[RTM_DELADDR - RTM_BASE] = { .doit	= inet6_rtm_deladdr, },
- 	[RTM_GETADDR - RTM_BASE] = { .dumpit	= inet6_dump_ifaddr, },
-diff -ruN linux-2.6.0-test5.org/net/ipv6/ndisc.c linux-2.6.0-test5/net/ipv6/ndisc.c
---- linux-2.6.0-test5.org/net/ipv6/ndisc.c	2003-09-08 12:50:07.000000000 -0700
-+++ linux-2.6.0-test5/net/ipv6/ndisc.c	2003-09-12 12:33:14.000000000 -0700
-@@ -1044,6 +1044,17 @@
+ static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX-RTM_BASE+1] =
+ {
+ 	{ NULL,			NULL,			},
+ 	{ NULL,			NULL,			},
+-	{ NULL,			NULL,			},
++	{ NULL,			inet6_dump_ifinfo,	},
+ 	{ NULL,			NULL,			},
+
+ 	{ inet6_rtm_newaddr,	NULL,			},
+diff -ruN linux-2.4.22.org/net/ipv6/ndisc.c linux-2.4.22/net/ipv6/ndisc.c
+--- linux-2.4.22.org/net/ipv6/ndisc.c	2003-08-25 04:44:44.000000000 -0700
++++ linux-2.4.22/net/ipv6/ndisc.c	2003-09-12 13:07:45.000000000 -0700
+@@ -944,6 +944,17 @@
  		in6_dev->if_flags |= IF_RA_RCVD;
  	}
 
