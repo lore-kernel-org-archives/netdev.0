@@ -1,28 +1,22 @@
-From: rask@sygehus.dk (Rask Ingemann Lambertsen)
-Subject: Re: Must dev->set_multicast_list() complete before returning?
-Date: Wed, 2 Apr 2003 15:09:14 +0200
+From: "Tom Lendacky" <toml@us.ibm.com>
+Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
+Date: Wed, 2 Apr 2003 09:00:03 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5893.16517948664$1049291483@news.gmane.org>
-References: <Pine.LNX.4.44.0304012242360.1685-100000@beohost.scyld.com>
-Reply-To: rask@sygehus.dk
+Message-ID: <OFFFFBD9B7.552E83C4-ON85256CFC.0051D199-86256CFC.00526741@pok.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Donald Becker wrote:
+I just noticed the use of the AH_HLEN_NOICV #define which is hardcoded to
+be 12.  The patch should probably take the change to the esp header and
+apply it to the auth header also (as shown in an earlier post) and then
+eliminate the hardcoding of the 12.
 
-> The promiscuous setting must complete before return, but there are
-> several drivers where the updated multicast filter does not immediately
-> take effect.
-> 
-> I have not seen hardware where setting promiscuous mode is a queued
-> command.
-
-Intel i82586, i82596 and, as far as I can tell from other drivers, several other Intel i825xx Ethernet chips. IIRC, the function must not sleep. That means busy-wait for it to complete. :-(
-
-Regards,
-Rask Ingemann Lambertsen
+Thanks,
+Tom
