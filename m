@@ -1,78 +1,78 @@
-From: Andrea G Forte <andreaf@cs.columbia.edu>
-Subject: Re: Very slow change of IP in kernel (slow socket?).
-Date: Wed, 22 Dec 2004 12:37:14 -0500
-Message-ID: <41C9B0CA.6060409@cs.columbia.edu>
-References: <41C895D6.2040001@cs.columbia.edu> <20041222162632.GC29278@svana.org>
+From: Eric Lemoine <eric.lemoine@gmail.com>
+Subject: Re: LLTX and netif_stop_queue
+Date: Wed, 22 Dec 2004 19:49:48 +0100
+Message-ID: <5cac192f04122210491d64d4b6@mail.gmail.com>
+References: <52llbwoaej.fsf@topspin.com>
+	<20041217214432.07b7b21e.davem@davemloft.net>
+	<1103484675.1050.158.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Martijn van Oosterhout <kleptog@svana.org>
-In-Reply-To: <20041222162632.GC29278@svana.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: multipart/mixed;
+	boundary="----=_Part_911_15124942.1103741388450"
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1103484675.1050.158.camel@jzny.localdomain>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Yes, I apologize for the confusion.
-I am trying to achieve a faster L3 handoff on a wireless network. Right 
-now it seems like one of the biggest bottlenecks is in the kernel.
-After I change IP address of the client (ip address add 
-xxx.xxx.xxx.xxx/yy dev wlan0) and update all the routing info (ip route 
-replace default via zzz.zzz.zzz.zzz, ip route replace kkk.kkk.0.0/yy dev 
-wlan0 proto kernel src xxx.xxx.xxx.xxx), the old IP is still used to 
-send packets as I mentioned earlier.
-Note that I did not delete the old IP, I just set a new IP and changed 
-the routing info. The old IP however it is invalid in the new subnet, 
-but the kernel does not seem to realize it at all, at least for about 
-500ms (even though I have changed all the routing info with the new IP).
-Yes, perhaps it could be a problem related to the routing table being 
-slow to update.
-I will do some more testing and let you know.
+------=_Part_911_15124942.1103741388450
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Thank you,
-Andrea
+On 19 Dec 2004 14:31:15 -0500, jamal <hadi@cyberus.ca> wrote:
+> On Sat, 2004-12-18 at 00:44, David S. Miller wrote:
+> 
+> > Perhaps one way to fix this is to add a pointer to a spinlock to
+> > the netdev struct, and have hold that the upper level grab that
+> > when NETIF_F_LLTX when doing queue state checks.  Actually, that
+> > could end up being racy too.
+> 
+> How about releasing the qlock only when the LLTX transmit lock is
+> grabbed? That should bring it to par with what it was originally.
+
+I dont like the idea of releasing inside the driver a lock taken
+outside. That might be just me...
+
+Instead, I would suggest to have LLTX drivers check whether queue is
+stopped after they grab their private tx lock and before they check tx
+ring fullness. That way we close the race window but keep the driver
+bug check around.
+
+See attached sungem patch.
+
+-- 
+Eric
+
+------=_Part_911_15124942.1103741388450
+Content-Type: application/octet-stream; name="sungem-lltx.patch"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment; filename="sungem-lltx.patch"
+
+PT09PT0gZHJpdmVycy9uZXQvc3VuZ2VtLmMgMS43MSB2cyBlZGl0ZWQgPT09PT0KLS0tIDEuNzEv
+ZHJpdmVycy9uZXQvc3VuZ2VtLmMJMjAwNC0xMS0xNCAxMDo0NTozNiArMDE6MDAKKysrIGVkaXRl
+ZC9kcml2ZXJzL25ldC9zdW5nZW0uYwkyMDA0LTEyLTIyIDE5OjM0OjA3ICswMTowMApAQCAtOTc2
+LDYgKzk3NiwxMiBAQAogCQlyZXR1cm4gTkVUREVWX1RYX0xPQ0tFRDsKIAl9CiAKKwkvKiBUaGlz
+IGhhbmRsZXMgYSBMTFRYLXJlbGF0ZWQgcmFjZSBjb25kaXRpb24gKi8KKwlpZiAobmV0aWZfcXVl
+dWVfc3RvcHBlZChkZXYpKSB7CisJCXNwaW5fdW5sb2NrX2lycXJlc3RvcmUoJmdwLT50eF9sb2Nr
+LCBmbGFncyk7CisJCXJldHVybiBORVRERVZfVFhfQlVTWTsKKwl9CisKIAkvKiBUaGlzIGlzIGEg
+aGFyZCBlcnJvciwgbG9nIGl0LiAqLwogCWlmIChUWF9CVUZGU19BVkFJTChncCkgPD0gKHNrYl9z
+aGluZm8oc2tiKS0+bnJfZnJhZ3MgKyAxKSkgewogCQluZXRpZl9zdG9wX3F1ZXVlKGRldik7Cg==
+
+------=_Part_911_15124942.1103741388450
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
 
-
-Martijn van Oosterhout wrote:
-
->Seems long, but have you condered other possible delays, like ARP,
->routing daemons, etc. BTW, I don't quite understand what you mean by
->changing IPs, because "ip route add" adds routes, not IPs. Presumably
->you're using an unbound UDP socket. You need to be a bit clearer about
->what you're actually trying to do...
->
->On Tue, Dec 21, 2004 at 04:29:58PM -0500, Andrea G Forte wrote:
->  
->
->>Hi all,
->>
->>after some talking I decided to try again and post a specific thread for 
->>this problem.
->>I noticed that when I change IP address for the same wireless card 
->>(since I am moving to a different subnet I need a new IP), the actual 
->>change in the kernel happens between 300 to 500 ms later. In particular, 
->>after changing the IP (ip route add...) and updating route table and 
->>default gw, the actual data packets are sent using the new IP only after 
->>300 to 500 ms after setting all the above.
->>Does anyone of you know what this could be related to? Or, does anyone 
->>of you know where in the kernel code I could start looking for some answers?
->>I have already had some feedback with suggestions to look into the 
->>route_cache, however this does not seem to me as a route problem but 
->>more as a socket problem and perhaps some kind of timer that is set to 
->>refresh the socket info in the kernel.
->>
->>Any help would be really appreciated.
->>
->>Thanks all,
->>Andrea
->>-
->>To unsubscribe from this list: send the line "unsubscribe linux-net" in
->>the body of a message to majordomo@vger.kernel.org
->>More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>    
->>
->
->  
->
-
+------=_Part_911_15124942.1103741388450--
