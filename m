@@ -1,42 +1,64 @@
-From: BJ Cran <s9905155@sms.ed.ac.uk>
-Subject: ipv4 /proc/net/route bug in 2.4 and 2.5 kernels
-Date: Thu, 31 Oct 2002 12:13:05 +0000 (GMT)
+From: "James R. Leu" <jleu@mindspring.com>
+Subject: Re: Network Device-Driver/Layer Implementation: Help required
+Date: Thu, 31 Oct 2002 10:35:49 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1036066385.3dc11e51d11ab@sms.ed.ac.uk>
+Message-ID: <20021031103549.A6846@nero.doit.wisc.edu>
+References: <15808.11521.25342.659187@robur.slu.se> <NFBBKDONILLOCGDCFLLIAEALCGAA.hari@cosystech.com>
+Reply-To: jleu@mindspring.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Harish Kulkarni <hari@cosystech.com>
+In-Reply-To: <NFBBKDONILLOCGDCFLLIAEALCGAA.hari@cosystech.com>; from hari@cosystech.com on Thu, Oct 31, 2002 at 01:25:18PM +0530
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+What L2 protocols will it support?  This will determin how you present it to
+the network stack.  At a minimum it will have to create a net_device which
+has all sorts of function pointers in it that you will have to implement.
 
-I've discovered a bug in the 2.4 and 2.5 kernels relating to the
-information in /proc.   The values reported in /proc/net/route are wrong -
-the main error is the MTU field which should be MSS, and should be the
-MTU-40.  The route command has the header fixed, but still gets the value
-from /proc, and so reports the wrong value of
-40.
+On Thu, Oct 31, 2002 at 01:25:18PM +0530, Harish Kulkarni wrote:
+> Hello all,
+> I have a T1/E1 device driver: ( completed till PCI initialization and other
+> device-internals initialization,including interrupts handling procedures),
+> now i am not understanding how to provide the interface to upper layers?. I
+> have walked through the lapb-module.txt and some code of IPX, but still the
+> things are not clear. Can any one help/guide me?
+> -Thanks
+> Hari
+> 
+> 
+> > -----Original Message-----
+> > From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com]On
+> > Behalf Of Robert Olsson
+> > Sent: Thursday, October 31, 2002 12:33 AM
+> > To: Cheng Jin
+> > Cc: jamal; netdev@oss.sgi.com
+> > Subject: Re: Linux SMP on 2.4.18-3
+> >
+> >
+> >
+> > Cheng Jin writes:
+> >
+> >  > Out of curiosity, what is the maximum send rate (pps) under Linux
+> >  > 2.4.18-3?  I read in the paper that sending across two Intel
+> > Gbe with one
+> >  > CPU gets up to 36o Kpps.
+> >
+> >  Yes forwarding performance...
+> >
+> >  A good chip/driver can itself do a lot more. I have seen very
+> > decent numbers
+> >  with e1000, tg3 and dl2k. For FE tulip has been a top performer for long
+> >  time but  I also now see 144 kpps from my laptop w. 3c59x driver.
+> >
+> >  Cheers.
+> > 						--ro
+> >
+> >
+> >
+> 
 
-I'm currently using 2.5.43, and have tracked it down to line 1031 in
-net/ipv4/fib_semantics.c in function fib_node_seq_show.  It appears that
-fi->fib_advmss is 0, because when I change the '+40' to '+45' that is the
-value which appears in the MTU field in /proc/net/route, and in the MSS
-field when running '/sbin/route -e'.
-
-Also, on line 191 of net/ipv4/ip_proc.c (in function fib_seq_show), I
-think the 'MTU' should be 'MSS' according to the comments in route.c, and
-to make the output of the route command and the proc entry consistent.
-
-I've also posted this bug report to the lkml, but haven't had any reply.
- I realise that it isn't a priority with more serious bugs in 2.5 needing
-fixed, but it would be nice to get the information correct, especially
-since
-this bug has been around since the 2.4-pre kernels.
-
-Thanks.
-
---
-Bruce Cran
+-- 
+James R. Leu
