@@ -1,51 +1,41 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove useless MOD_{INC,DEC}_USE_COUNT
-Date: Fri, 7 May 2004 12:43:11 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040507104311.GA10873@lst.de>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: [PATCH] b44 ethtool_ops
+Date: Fri, 7 May 2004 14:12:36 +0300
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040507111236.GA29330@ee.oulu.fi>
+References: <4097FADB.4090105@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+Content-Type: text/plain; charset=iso-8859-1
+Cc: Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	Arjan van de Ven <arjanv@redhat.com>,
+	Pekka Pietikainen <pp@netppl.fi>, Pavel Machek <pavel@suse.cz>,
+	Andrew Morton <akpm@osdl.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S263183AbUEGLNW@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <4097FADB.4090105@pobox.com>
 List-Id: netdev.vger.kernel.org
 
-*grr* - this one slipped in after my last round of audits it seems.
+On Tue, May 04, 2004 at 04:19:39PM -0400, Jeff Garzik wrote:
+> Testing requested.
+> 
+> Should see no ethtool behavior change, positive or negative.
+Well, driver still works, advertised link modes does look a bit odd though
+(ethtool-1.8-3.1)
 
-
---- 1.15/drivers/net/gt96100eth.c	Mon Apr  5 22:31:23 2004
-+++ edited/drivers/net/gt96100eth.c	Mon May  3 13:22:22 2004
-@@ -1070,22 +1070,18 @@
- {
- 	int retval;
-     
--	MOD_INC_USE_COUNT;
--
- 	dbg(2, "%s: dev=%p\n", __FUNCTION__, dev);
- 
- 	// Initialize and startup the GT-96100 ethernet port
- 	if ((retval = gt96100_init(dev))) {
- 		err("error in gt96100_init\n");
- 		free_irq(dev->irq, dev);
--		MOD_DEC_USE_COUNT;
- 		return retval;
- 	}
- 
- 	if ((retval = request_irq(dev->irq, &gt96100_interrupt,
- 				  SA_SHIRQ, dev->name, dev))) {
- 		err("unable to get IRQ %d\n", dev->irq);
--		MOD_DEC_USE_COUNT;
- 		return retval;
- 	}
- 	
-@@ -1106,8 +1102,6 @@
- 	}
- 
- 	free_irq(dev->irq, dev);
--    
--	MOD_DEC_USE_COUNT;
- 	return 0;
- }
- 
+Settings for eth1:
+        Supported ports: [ MII ]
+        Supported link modes:   10baseT/Half 10baseT/Full 
+                                100baseT/Half 100baseT/Full 
+        Supports auto-negotiation: Yes
+        Advertised link modes:  1000baseT/Full 
+        Advertised auto-negotiation: Yes
+        Speed: 100Mb/s
+        Duplex: Full
+        Port: Twisted Pair
+        PHYAD: 1
+        Transceiver: internal
+        Auto-negotiation: on
+        Current message level: 0x000000ff (255)
+        Link detected: yes
