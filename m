@@ -1,54 +1,65 @@
-From: Tom Rini <trini@kernel.crashing.org>
-Subject: Problem with 3c59x, WOL and Intel 440LX/EX or 430TX
-Date: Wed, 11 Feb 2004 10:07:27 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040211170727.GC18571@smtp.west.cox.net>
+From: Jan Kasprzak <kas@informatics.muni.cz>
+Subject: [Patch] Netlink BUG() on AMD64
+Date: Wed, 11 Feb 2004 19:11:14 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040211181113.GA2849__27770.9937807687$1076524904@fi.muni.cz>
+References: <20040205183604.N26559@fi.muni.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Mason <chris@k-rad.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Kernel Mailing List <linux-kernel@vger.kernel.org>,
-	netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru
+Return-path: <netdev-bounce@oss.sgi.com>
+Resent-Message-Id: <20040212.033739.10016644.yoshfuji@linux-ipv6.org>
+To: linux-kernel@vger.kernel.org
 Content-Disposition: inline
+In-Reply-To: <20040205183604.N26559@fi.muni.cz>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.  I believe I have tracked down a problem with the WOL support in
-the 3c59x driver (2.6 varriant only right now).  The problem has been
-seen I belive by a few people:
-(my own reports)
-http://marc.theaimsgroup.com/?l=linux-kernel&m=106297008218993&w=2
-http://lkml.org/lkml/2003/9/2/167
+Jan Kasprzak wrote:
+: I have got kernel BUG() while running the "ip rule list" command
+: on my dual AMD64 box with 2.6.2 kernel. I have a blacklist of IP
+: addresses, and I have one IP rule for each of this addresses:
+: 
+: ip rule add pref 500 from x.y.z.a dev $UPLINK_DEV blackhole
+: 
+: I have about 200 such rules (with different x.y.z.a IPv4 addresses,
+: but all with the same preference of 500 and same $UPLINK_DEV - currently
+: eth3). I have measured that when I add less than 60 such rules, I do not
+: get BUG() during "ip rule list" command. When I add 60 or more,
+: I get overflow in skb_put(). So the kernel is definitely overflowing
+: something.
 
-I believe that the problem here is not with the driver per-se but with
-the BIOS:
-http://www.asus.com.tw/download/mbdriver/slot1-440lx.htm
+	The problem is that in fib_rules.c there is an attempt to
+skb_put() a negative increment. Which is OK on platforms where sizeof(unsigned)
+== sizeof(void *). skb_put() has its second argument as unsigned int,
+so instead of adding a -36 bytes here, it adds 4294967260 bytes to the
+skb->tail, which extends it further than skb->end, which causes the
+BUG() I have mentioned. The solution would be to change the argument
+of skb_put() and friends to be either long or signed int, or to call
+skb_trim() instead of skb_put in fib_rules.c instead.
 
-The short description of the problem is that when the WOL code in the
-driver is enabled, on some presumably buggy BIOSes the card ends up
-getting put into the sleep state, or something as something like the
-following gets reported as the driver inits:
-3c59x: Donald Becker and others. www.scyld.com/network/vortex.html
-See Documentation/networking/vortex.txt
-0000:00:0e.0: 3Com PCI 3c905B Cyclone 100baseTx at 0xe480. Vers LK1.1.19
-PCI: Setting latency timer of device 0000:00:0e.0 to 64
- ff:ff:ff:ff:ff:ff, IRQ 9
-  product code ffff rev ffff.15 date 15-31-127
-Full duplex capable
-  Internal config register is ffffffff, transceivers 0xffff.
-  1024K word-wide RAM 3:5 Rx:Tx split, autoselect/<invalid transceiver> interface.
-  ***WARNING*** No MII transceivers found!
-  Enabling bus-master transmits and early receives.
-0000:00:0e.0: scatter/gather enabled. h/w checksums enabled
+	I suggest the following patch, but all occurences of
+nlmsg_failure: and rtattr_failure: labels should be checked for a similar
+problem.
 
-If the patch in 1.1046.589.6 (key:
-akpm@osdl.org|ChangeSet|20030801165536|51693) is reversed, the problem
-goes away.  But since that would be a drastic step for some buggy
-BIOSes, would a patch to add in a disable_wol (and maybe a prink about
-it, if no MII transceivers are found?) be an OK fix for this?
+--- linux-2.6.2/net/ipv4/fib_rules.c.orig	2004-02-11 18:55:58.000000000 +0100
++++ linux-2.6.2/net/ipv4/fib_rules.c	2004-02-11 19:03:08.319215408 +0100
+@@ -438,7 +438,7 @@
+ 
+ nlmsg_failure:
+ rtattr_failure:
+-	skb_put(skb, b - skb->tail);
++	skb_trim(skb, b - skb->data);
+ 	return -1;
+ }
+ 
+Please apply or let me know what the proper fix should be.
 
-OTOH, this looks like bugme # 1394, and if so, it looks like there's a
-number of buggy BIOS out there, so maybe it's not so drastic.
+-Yenya
 
 -- 
-Tom Rini
-http://gate.crashing.org/~trini/
+| Jan "Yenya" Kasprzak  <kas at {fi.muni.cz - work | yenya.net - private}> |
+| GPG: ID 1024/D3498839      Fingerprint 0D99A7FB206605D7 8B35FCDE05B18A5E |
+| http://www.fi.muni.cz/~kas/   Czech Linux Homepage: http://www.linux.cz/ |
+ Any compiler or language that likes to hide things like memory allocations
+ behind your back just isn't a good choice for a kernel.   --Linus Torvalds
