@@ -1,32 +1,22 @@
-From: "Bas Bloemsaat" <bloemsaa@xs4all.nl>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 28 Jul 2003 20:56:28 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Change MAINTAINERS reference to bridge mailing list
+Date: Mon, 28 Jul 2003 13:59:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <00bd01c35539$f42491c0$cd01a8c0@llewella>
-References: <20030727165831.05904792.davem@redhat.com> <200307280211590888.10957DD9@192.168.128.16> <20030727171403.6e5bcc58.davem@redhat.com> <200307280235210263.10AADFF8@192.168.128.16> <20030727173600.475d95fb.davem@redhat.com> <200307280253090799.10BB2DF0@192.168.128.16> <20030727175557.1d624b36.davem@redhat.com> <200307280323020667.10D68954@192.168.128.16> <20030727183547.784b6ab5.davem@redhat.com> <200307281243530385.12D80171@192.168.128.16> <20030728100959.A13335@ns1.theoesters.com>
-Cc: <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>,
-   <linux-kernel@vger.kernel.org>
+Message-ID: <20030728135938.38188485.davem@redhat.com>
+References: <20030728135947.4aa9ad06.shemminger@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, bridge@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Carlos Velasco" <carlosev@newipnet.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030728135947.4aa9ad06.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-First of all, Im sorry I started this. It was a genuine error on my side, to assume I stumbled on a bug, while it is in fact a hotly
-debated 'feature'. I did google for it, but must have missed it, it would have saved my weekend. I didn't want to (re)start a
-religious war.
+On Mon, 28 Jul 2003 13:59:47 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-Maybe we should let it rest for a bit, until we have something to discuss about. Right now, I've have the idea that people are
-talking about slightly different things.
+> List moved to osdl.org
 
-> What I think David fails to realize is that in the real world, people
-> use the hidden patch on a regular basis.  It is the simplest way to
-> achieve what we want to in a server farm consisting of hundreds of
-> servers.  It also involves the least overhead.
-Me myself. I've downloaded it, and use it now. It works fine for me and I don't see any problems. But I do not oversee the whole
-picture, and I don't think anybody fully understands the other camp's objections.
-
-David, I hope that you will explain your side of the story, or maybe point to a webpage where it is explained clearly. I still have
-no idea as to what your objections are, other than that in the past, another choice was made to do things.
-
-Regards,
-Bas
+Applied, thanks.
