@@ -1,30 +1,43 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH 2.6] vlan - device refcount bug.
-Date: Tue, 03 Aug 2004 13:36:16 -0700
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2.6] cache align qdisc data
+Date: Tue, 03 Aug 2004 22:42:44 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <410FF740.5060903@candelatech.com>
-References: <20040803131425.503f8f45@dell_ss3.pdx.osdl.net>
+Message-ID: <410FF8C4.7010705@trash.net>
+References: <410FAE42.2050909@trash.net>	<20040803083820.711c917c@dell_ss3.pdx.osdl.net>	<410FE4DD.5000306@trash.net> <20040803133139.43107fd3@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040803131425.503f8f45@dell_ss3.pdx.osdl.net>
+In-Reply-To: <20040803133139.43107fd3@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Stephen Hemminger wrote:
-> If you rmmod a network device that is in a vlan, the system hangs waiting
-> for the refcount to go to zero, because it is -1.  The problem is that the
-> vlan notifier does an extra dev_put in NETDEV_UNREGISTER case of notifier.
 
-Good catch.  It would seem to me that it would be good to have a
-BUG() or similar to catch any instance of the reference count going
-negative.
+>That was some old messing around, that got in there...
+>Here is the correct patch.
+>  
+>
+The hunks are still there.
 
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> 
+>@@ -1554,7 +1554,6 @@ hfsc_init_qdisc(struct Qdisc *sch, struc
+> 	qopt = RTA_DATA(opt);
+> 
+> 	memset(q, 0, sizeof(struct hfsc_sched));
+>-	sch->stats_lock = &sch->dev->queue_lock;
+> 
+> 	q->defcls = qopt->defcls;
+> 	for (i = 0; i < HFSC_HSIZE; i++)
+>@@ -1674,7 +1673,7 @@ hfsc_dump_qdisc(struct Qdisc *sch, struc
+> 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
+> 
+> 	sch->stats.qlen = sch->q.qlen;
+>-	if (qdisc_copy_stats(skb, &sch->stats, sch->stats_lock) < 0)
+>+	if (qdisc_copy_stats(skb, &sch->stats, &sch->dev->queue_lock) < 0)
+> 		goto rtattr_failure;
+> 
+> 	return skb->len;
+>
