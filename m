@@ -1,30 +1,60 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: Mon, 20 Dec 2004 21:07:39 +0100
-Message-ID: <20041220200739.GX17998@postel.suug.ch>
-References: <20041219203050.GK17998@postel.suug.ch> <41C68CEF.3030803@trash.net> <1103552215.1048.333.camel@jzny.localdomain>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: No Maintainer entry for dl2k driver
+Date: Mon, 20 Dec 2004 14:54:50 -0600
+Message-ID: <200412201454.50114.jdmason@us.ibm.com>
+References: <41C377E9.1040305@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, edward_peng@alphanetworks.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Xose Vazquez Perez <xose@wanadoo.es>
+In-Reply-To: <41C377E9.1040305@wanadoo.es>
 Content-Disposition: inline
-In-Reply-To: <1103552215.1048.333.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1103552215.1048.333.camel@jzny.localdomain> 2004-12-20 09:16
-> Hehe. I am sure thats a cutnpaste(LinuxWay) from some code in the kernel
-> probably sch_api.c (or maybe the code it was cutnpasted has been fixed
-> in the last 3 years ;->).
-> That needs fixing. Who is sending the patch?
+Thank you for the correction.  However my point remains the same, there is no 
+entry in the MAINTAINERS file for the dl2k driver.  So, now it should look 
+something like this:
 
-I'll put it into my patchset so it gets into the test cycles.
+--- MAINTAINERS.orig    2004-12-17 16:01:37.955336376 -0600
++++ MAINTAINERS 2004-12-17 16:07:21.027181528 -0600
+@@ -704,6 +704,10 @@ M: mvw@planets.elm.net
+ L:     linux-kernel@vger.kernel.org
+ S:     Maintained
 
-> Its not that expensive since done on config path. But agree when proper
-> codes exist its not needed.
++DL2K NETWORK DRIVER
++P: Edward Peng
++M: edward_peng@alphanetworks.com
++L:     linux-net@vger.kernel.org
++S:     Maintained
++
+ DAVICOM FAST ETHERNET (DMFE) NETWORK DRIVER
+ P:     Tobias Ringstrom
+ M:     tori@unhappy.mine.nu
 
-It might cause random data to be printed onto the console ;) I'll
-remove it in my patchset.
+
+
+Also, his e-mail address in the dl2k driver needs to be updated, as the one 
+currently in the driver (edward_peng@dlink.com.tw) bounces.
+
+Thanks,
+Jon
+
+On Friday 17 December 2004 06:20 pm, Xose Vazquez Perez wrote:
+> Jon Mason wrote:
+> > It has come to my attention that there is no entry in the kernel
+> > MAINTAINERS file for the D-Link Gigabit Ethernet Driver (and possibly no
+> > maintainer). So, I have created a patch for that file with an entry for
+> > the driver status as Orphaned.
+>
+> Edward Peng <edward_peng@alphanetworks.com> is the current maintainer.
+> The 2.4 kernel already has latest release, and 'I think' he is working
+> on the 2.6 driver.
+
+-- 
+Jon Mason
+jdmason@us.ibm.com
