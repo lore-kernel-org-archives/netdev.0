@@ -1,54 +1,51 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 29 Sep 2004 01:55:34 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2.4 PKT_SCHED] Report qdisc parent to userspace
+Date: Wed, 29 Sep 2004 02:01:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929015534.3b39b720.ak@suse.de>
-References: <20040923164149.5368d291.davem@davemloft.net>
-	<E1CBkIW-0001dF-00@gondolin.me.apana.org.au>
-	<20040927025048.GA6723@gondor.apana.org.au>
-	<20040926210029.22750d47.davem@davemloft.net>
-	<20040927054541.GA8858@gondor.apana.org.au>
-	<20040927120154.09fdcadf.davem@davemloft.net>
-	<20040927213233.GC7243@gondor.apana.org.au>
-	<20040928141002.164c60af.davem@davemloft.net>
-	<20040928213415.GA4646@wotan.suse.de>
-	<20040928145345.2530d30e.davem@davemloft.net>
-	<20040928223344.GC2975@wotan.suse.de>
-	<20040928155706.65405e88.davem@davemloft.net>
-	<20040929012757.5d0dff61.ak@suse.de>
-	<20040928163509.624a748b.davem@davemloft.net>
+Message-ID: <20040929000150.GA9113@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, niv@us.ibm.com, andy.grover@gmail.com,
-        anton@samba.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040928163509.624a748b.davem@davemloft.net>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 28 Sep 2004 16:35:09 -0700
-"David S. Miller" <davem@davemloft.net> wrote:
+Report parent classid of a qdisc back to userspace. Without this there
+is no way for userspace to see if the qdisc is attached to a class
+other than parsing all class trees of the link and check all tcm_info
+fields in the leaf classes.
 
-> On Wed, 29 Sep 2004 01:27:57 +0200
-> Andi Kleen <ak@suse.de> wrote:
-> 
-> > I tried to re-test it but I didn't get very far because the kernel
-> > with your patch crashes regularly during netperf. No serial console,
-> > but the backtrace is {tcp_ack+877} {tcp_rcv_established+350} ... 
-> > Before that there are a few "retrans out leaked" messages.
-> 
-> You might be missing the topmost part of the backtrace which is probably
-> in tcp_clean_rtx_queue() or even more likely tcp_tso_acked() where there
-> are several assertions present.
-> 
-> I guess your compiler is auto-inlining those functions for you,
-> can you reproduce the crash with perhaps the noinline attribute
-> added to those two functions I mention above so we can get a
-> precise backtrace?
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Hmpf, it stopped crashing after I recompiled without -funit-at-a-time
-Maybe it is some compiler issue.
-
--Andi
+--- linux-2.4.28-pre3-bk4.orig/include/net/pkt_sched.h	2004-09-29 00:42:01.000000000 +0200
++++ linux-2.4.28-pre3-bk4/include/net/pkt_sched.h	2004-09-29 00:54:46.000000000 +0200
+@@ -81,6 +81,7 @@
+ #define TCQ_F_INGRES	4
+ 	struct Qdisc_ops	*ops;
+ 	u32			handle;
++	u32			parent;
+ 	atomic_t		refcnt;
+ 	struct sk_buff_head	q;
+ 	struct net_device	*dev;
+--- linux-2.4.28-pre3-bk4.orig/net/sched/sch_api.c	2004-09-29 00:42:03.000000000 +0200
++++ linux-2.4.28-pre3-bk4/net/sched/sch_api.c	2004-09-29 00:59:36.000000000 +0200
+@@ -371,6 +371,8 @@
+ 			unsigned long cl = cops->get(parent, classid);
+ 			if (cl) {
+ 				err = cops->graft(parent, cl, new, old);
++				if (new)
++					new->parent = classid;
+ 				cops->put(parent, cl);
+ 			}
+ 		}
+@@ -812,7 +814,7 @@
+ 				q_idx++;
+ 				continue;
+ 			}
+-			if (tc_fill_qdisc(skb, q, 0, NETLINK_CB(cb->skb).pid,
++			if (tc_fill_qdisc(skb, q, q->parent, NETLINK_CB(cb->skb).pid,
+ 					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0) {
+ 				read_unlock(&qdisc_tree_lock);
+ 				goto done;
