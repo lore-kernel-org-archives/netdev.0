@@ -1,28 +1,47 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] New version of net timestamp optimization
-Date: Wed, 7 Apr 2004 14:37:03 +0200
+From: bhartin@straus-frank.com
+Subject: Re: r8169, 2.6.2-rc2, Sager 4780 laptop
+Date: Wed, 7 Apr 2004 08:43:18 -0500 (CDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040407143703.6af5bb71.ak@suse.de>
-References: <20040406182941.7e759f4c.ak@suse.de>
-	<1081340659.15893.117.camel@jzny.localdomain>
+Message-ID: <Pine.LNX.4.58.0404070841530.28688@edp12.straus-frank.int>
+References: <Pine.LNX.4.58.0401261443190.7894@edp12.straus-frank.int>
+ <20040126235559.A3832@electric-eye.fr.zoreil.com>
+ <Pine.LNX.4.58.0404041553010.6853@edp12.straus-frank.int>
+ <20040405002028.A8125@electric-eye.fr.zoreil.com>
+ <Pine.LNX.4.58.0404061650310.20664@edp12.straus-frank.int>
+ <20040407001815.C7833@electric-eye.fr.zoreil.com>
+ <Pine.LNX.4.58.0404061758570.17117@edp12.straus-frank.int>
+ <20040407013841.A7978@electric-eye.fr.zoreil.com>
+ <Pine.LNX.4.58.0404070014571.17117@edp12.straus-frank.int>
+ <20040407112607.A17476@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1081340659.15893.117.camel@jzny.localdomain>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040407112607.A17476@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 07 Apr 2004 08:24:19 -0400
-jamal <hadi@cyberus.ca> wrote:
 
-> The patch does look clean and attractive. I havent had time toi play
-> with it myself - but given the way gettimeofday has been torturing me
-> i will at some point. Also if you have time a 2.4.x patch would be
+I started a ping, and unplugged the network cable.  I got the 'r8169: 
+eth0: Reset RTL8169s PHY' message about once every 11 to 15 seconds.  Once 
+plugged back in, the connection recovered immediately.  I repeated this 
+several times.  So, it's still generating the messages, but they seem to 
+be harmless (at least for the few minutes I was testing this).
 
-Thanks. All feedback I received so far was positive. I hope DaveM will
-merge it soon. I don't have plans to work on 2.4 anymore.
+On Wed, 7 Apr 2004, Francois Romieu wrote:
 
--Andi
+> bhartin@straus-frank.com <bhartin@straus-frank.com> :
+> [...]
+> > The patch resolved the PHY messages, and I stress-tested the networking 
+> > again--it's still stable.
+> 
+> Does it allow the link to be recovered if the cable is removed/plugde ?
+> 
+> --
+> Ueimor
+> 
+
+Bradley Hartin - bhartin@straus-frank.com
+Communications and Network Administrator
+Straus-Frank Company
