@@ -1,43 +1,40 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: in-driver QoS
-Date: Sun, 6 Jun 2004 21:28:47 +0300
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [0/3] mc_filter on big-endian arch
+Date: 07 Jun 2004 09:52:26 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406062128.47070.vkondra@mail.ru>
+Message-ID: <1086616346.4903.12.camel@ori.thedillows.org>
+References: <20040606165322.GA13247@k3.hellgate.ch>
+	 <1086575392.4731.9.camel@ori.thedillows.org>
+	 <20040607114832.GA32569@k3.hellgate.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Roger Luethi <rl@hellgate.ch>
+In-Reply-To: <20040607114832.GA32569@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I'd like to discuss issue with QoS.
+On Mon, 2004-06-07 at 07:48, Roger Luethi wrote:
+> On Sun, 06 Jun 2004 22:29:52 -0400, David Dillow wrote:
+> > I think typhoon's OK -- I calculate the filter on the host, and then do
+> > a cpu_to_le32() on the final values, since the processor on the NIC is
+> > in little-endian mode.
+> > 
+> > However, I've never tested it. I'll be happy to do so, if someone will
+> > point me to appropriate code -- I've got an Ultra5 as well, so I can
+> > test both big and little endian machines. Otherwise, I'll test it when I
+> > get around to writing something, or someone reports a bug. :)
+> 
+> Warning: This is a very basic functionality test using standard Linux
+> tools. Some existing multicast problems are detected by this (if you
+> screw up the endianness of the filter hash, you will know :-)). Others
+> are not.
 
-In 802.11 network, there is TGe (or 802.11e), working group, developing QoS 
-extensions for 802.11. This group's work is close to finish. Current draft 
-should be very close to the final standard.
+Thanks for the info; it seems typhoon may have some problems -- I see
+the 224.1.1.1 packets before I join the group, so I'll need to see
+what's up. I'll check big endian tonight, if possible.
 
-Currently, according to TGe, NIC will support 4 different priorities (or 
-access categories). Let's say, 4 distinct Tx queues will be supported by NIC. 
-Each Tx queue have its own parameters.
-
-In addition, there are separate streams (TSPEC's) that should be requested, 
-i.e. before use, some initiation procedure should be performed. Sure, there 
-is tear down for TSPEC as well.
-
-Roughly, 4 access categories corresponds to diffserv, while TSPEC's - to 
-intserv.
-
-Now, question is: how will we support these QoS features in network stack?
-
-Let's start from diffserv, it is easier.
-
-skb->priority help determining Tx queue, but fundamental problem is with 
-single Tx queue from network stack. Any smart queuing/scheduling etc. made by 
-driver, will render useless while network stack provides single Tx queue.
-
-Any ideas how to modify stack to support multiple Tx queues?
-
-Vladimir
+Dave
