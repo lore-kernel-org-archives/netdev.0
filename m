@@ -1,32 +1,31 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Intel and TOE in the news
-Date: Sat, 19 Feb 2005 05:10:07 +0100
-Message-ID: <20050219041007.GA17896@xi.wantstofly.org>
-References: <4216B62D.6000502@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6] eepro100: remove ID for 82556
+Date: Sat, 19 Feb 2005 00:03:31 -0500
+Message-ID: <4216C8A3.4020303@pobox.com>
+References: <1107285106.3366.106.camel@sfeldma-mobl.dsl-verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <4216B62D.6000502@pobox.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: sfeldma@pobox.com
+In-Reply-To: <1107285106.3366.106.camel@sfeldma-mobl.dsl-verizon.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Feb 18, 2005 at 10:44:45PM -0500, Jeff Garzik wrote:
+Scott Feldman wrote:
+> 82556 support doesn't work with eepro100, so this removes the ID
+> (0x1228) for 82556.  See this thread for more info:
+> 
+> http://marc.theaimsgroup.com/?l=linux-kernel&m=110726223221165&w=2
+> 
+> Signed-off-by: Scott Feldman <sfeldma@pobox.com>
 
-> Intel plans to sidestep the need for separate TOE cards by building this 
-> technology into its server processor package - the chip itself, chipset 
-> and network controller. This should reduce some of the time a processor 
-> typically spends waiting for memory to feed back information and improve 
-> overall application processing speeds.
+I see the thread, but I still worry about removing the id in your patch, 
+since the poster in the thread says that they had to -add- an ID to both 
+e100 and eepro100 in order to perform their test.
 
-I wonder if they could just take the network processing circuitry from
-the IXP2800 (an extra 16-core (!) RISCy processor on-die, dedicated to
-doing just network stuff, and a 10gbps pipe going straight into the CPU
-itself) and graft it onto the Xeon.
+Has anyone with this PCI ID actually confirmed that eepro100 does not 
+work for them?
 
-Now _that_ would be something worth experiencing.
-
-
---L
+	Jeff
