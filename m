@@ -1,24 +1,39 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]  [ATM]: [he] make code more readable with
- list_for_each_entry (from Domen Puncer <domen@coderock.org>)
-Date: Tue, 21 Sep 2004 15:18:54 -0700
+Subject: Re: "dst cache overflow"
+Date: Tue, 21 Sep 2004 15:24:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921151854.7f080f8f.davem@davemloft.net>
-References: <200409212030.i8LKUMug010619@ginger.cmf.nrl.navy.mil>
+Message-ID: <20040921152411.72b4092e.davem@davemloft.net>
+References: <16719.13095.369830.547715@robur.slu.se>
+	<20040921215501.GE3236@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, netdev@oss.sgi.com, davem@redhat.com,
-        domen@coderock.org
+Cc: Robert.Olsson@data.slu.se, cd@cdaniel.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200409212030.i8LKUMug010619@ginger.cmf.nrl.navy.mil>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040921215501.GE3236@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Sep 2004 16:30:23 -0400
-"chas williams (contractor)" <chas@cmf.nrl.navy.mil> wrote:
+On Tue, 21 Sep 2004 23:55:02 +0200
+Harald Welte <laforge@gnumonks.org> wrote:
 
-> please apply to 2.6.
+> I bet that something inside the kernel forgets dst_release().. IMQ is
+> just compiled, not used (so I don't see how it should come from this).
+> 
+> Any comments, suggestions?
 
-Applied, thanks.
+Most likely it is a leak like that, yes.
+
+Here is my suggstion for debugging this:
+
+1) Boot with profile=2 or similar.
+2) Disable the platform code that bumps the profiling
+   counters at the timer interrupt.
+3) Make every piece of which gets or puts a dst entry
+   reference pass it's PC to some function which
+   increments the profile buffer entry.  (use
+   current_text_addr())
+
+Then after running for some time use readprofile to figure
+out what subsystem or area is causing the references.
