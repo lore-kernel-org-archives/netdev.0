@@ -1,58 +1,22 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: 2.6 ipv6 doesn't take route advertisements
-Date: Mon, 10 Nov 2003 22:58:57 +0100
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: [patch] 2.4 lacks dummy SET_NETDEV_DEV
+Date: Tue, 11 Nov 2003 00:14:30 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1068501536.774.1.camel@tux.rsn.bth.se>
-References: <Pine.LNX.4.44.0311101629100.2898-100000@chimarrao.boston.redhat.com>
+Message-ID: <20031110221430.GA26556@ee.oulu.fi>
+References: <20031110181917.GA25846@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-JE8rCjEXJ8wazuw75Pzj"
-Cc: Dave Miller <davem@redhat.com>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-15
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rik van Riel <riel@redhat.com>
-In-Reply-To: <Pine.LNX.4.44.0311101629100.2898-100000@chimarrao.boston.redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20031110181917.GA25846@ee.oulu.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-JE8rCjEXJ8wazuw75Pzj
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-
-On Mon, 2003-11-10 at 22:31, Rik van Riel wrote:
-> Hi,
->=20
-> it looks like the 2.6 kernel doesn't take default route
-> advertisements from either zebra or radvd.  I can see
-> the default routes being advertised with radvdump, but
-> they don't show up in the routing table of either of my
-> 2.6 machines.  They both run a fairly recent 2.6 kernel.
->=20
-> Known bug ?
-
-Works fine here with test9-bk15
-Router runs radvd.
-
-default dev eth1  proto kernel  metric 256  mtu 1500 advmss 1440 metric10 6=
-4
-default dev eth2  proto kernel  metric 256  mtu 1500 advmss 1440 metric10 6=
-4
-default via fe80::202:b3ff:fe5f:11fd dev eth0  proto kernel  metric 1024  e=
-xpires 1788sec mtu 1500 advmss 1440 metric10 64
-
---=20
-/Martin
-
---=-JE8rCjEXJ8wazuw75Pzj
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQA/sAofWm2vlfa207ERAl3aAKCFBsQN6V2ftFEyssROiv5wmN5NLwCfbmQP
-/lEiXbz/YuRCVL8c/zjYFVU=
-=p5gv
------END PGP SIGNATURE-----
-
---=-JE8rCjEXJ8wazuw75Pzj--
+On Mon, Nov 10, 2003 at 08:19:17PM +0200, Pekka Pietikainen wrote:
+> Just noticed that 2.4 doesn't have a dummy SET_NETDEV_DEV for drivers
+> written for 2.6 (like the b44 fixes that got merged a few days back, so
+> it wouldn't actually compile :-) )
+Ah, except Jeff merged a version without the call so there should be no
+problem :-) (I still like the idea of being able to use exactly the same driver
+source on 2.4/2.6 though)
