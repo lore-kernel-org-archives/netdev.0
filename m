@@ -1,127 +1,38 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [TCP] Fixed bug that hid sockets in tcp_diag
-Date: Wed, 6 Oct 2004 13:58:01 +1000
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [TCP] Show all SYN_RECV sockets in /proc/net/tcp
+Date: Tue, 5 Oct 2004 20:58:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041006035801.GA15940@gondor.apana.org.au>
+Message-ID: <20041005205844.444dc66a.rddunlap@osdl.org>
+References: <416355BD.50402@conectiva.com.br>
+	<E1CF1eo-0003qW-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="r5Pyd7+fXNt84Ff3"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: acme@conectiva.com.br, herbert@gondor.apana.org.au, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Arnaldo Carvalho de Melo <acme@conectiva.com.br>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1CF1eo-0003qW-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 06 Oct 2004 12:35:58 +1000 Herbert Xu wrote:
 
---r5Pyd7+fXNt84Ff3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+| Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+| > 
+| > Go ahead and do it with the current seq_file infrastructure 8) Standard
+| 
+| Does the current seq_file infrastructure offer anything new compared
+| to what's in the existing /proc/net/tcp code?
+| 
+| > answer for these cases is remove /proc/net/tcp altogether and convert
+| > the userland tools to use netlink instead.
+| 
+| Completely agreed.  As I said I only started looking at this because
+| I was trying to fix tcp_diag.
 
-Hi:
+Dave's other standard answer is "don't mess up the userland API",
+including /proc interfaces.  (not to put words into Dave's mouth)
 
-This patch squashes a bug in tcp_diag which was created when the
-sk_* loops replaced the original for loops.  It's a pity that these
-sk_*/hlist_*/list_* loops don't take an arbitrary expression as an
-argument for continue.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---r5Pyd7+fXNt84Ff3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv4/tcp_diag.c 1.18 vs edited =====
---- 1.18/net/ipv4/tcp_diag.c	2004-10-04 07:26:12 +10:00
-+++ edited/net/ipv4/tcp_diag.c	2004-10-06 13:43:17 +10:00
-@@ -495,21 +495,22 @@
- 			sk_for_each(sk, node, &tcp_listening_hash[i]) {
- 				struct inet_opt *inet = inet_sk(sk);
- 				if (num < s_num)
--					continue;
-+					goto next_listen;
- 				if (!(r->tcpdiag_states&TCPF_LISTEN) ||
- 				    r->id.tcpdiag_dport)
--					continue;
-+					goto next_listen;
- 				if (r->id.tcpdiag_sport != inet->sport &&
- 				    r->id.tcpdiag_sport)
--					continue;
-+					goto next_listen;
- 				if (bc && !tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
--					continue;
-+					goto next_listen;
- 				if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
- 						 NETLINK_CB(cb->skb).pid,
- 						 cb->nlh->nlmsg_seq) <= 0) {
- 					tcp_listen_unlock();
- 					goto done;
- 				}
-+next_listen:
- 				++num;
- 			}
- 		}
-@@ -537,22 +538,23 @@
- 			struct inet_opt *inet = inet_sk(sk);
- 
- 			if (num < s_num)
--				continue;
-+				goto next_normal;
- 			if (!(r->tcpdiag_states & (1 << sk->sk_state)))
--				continue;
-+				goto next_normal;
- 			if (r->id.tcpdiag_sport != inet->sport &&
- 			    r->id.tcpdiag_sport)
--				continue;
-+				goto next_normal;
- 			if (r->id.tcpdiag_dport != inet->dport && r->id.tcpdiag_dport)
--				continue;
-+				goto next_normal;
- 			if (bc && !tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
--				continue;
-+				goto next_normal;
- 			if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
- 					 NETLINK_CB(cb->skb).pid,
- 					 cb->nlh->nlmsg_seq) <= 0) {
- 				read_unlock_bh(&head->lock);
- 				goto done;
- 			}
-+next_normal:
- 			++num;
- 		}
- 
-@@ -562,21 +564,22 @@
- 				struct inet_opt *inet = inet_sk(sk);
- 
- 				if (num < s_num)
--					continue;
-+					goto next_dying;
- 				if (r->id.tcpdiag_sport != inet->sport &&
- 				    r->id.tcpdiag_sport)
--					continue;
-+					goto next_dying;
- 				if (r->id.tcpdiag_dport != inet->dport &&
- 				    r->id.tcpdiag_dport)
--					continue;
-+					goto next_dying;
- 				if (bc && !tcpdiag_bc_run(RTA_DATA(bc), RTA_PAYLOAD(bc), sk))
--					continue;
-+					goto next_dying;
- 				if (tcpdiag_fill(skb, sk, r->tcpdiag_ext,
- 						 NETLINK_CB(cb->skb).pid,
- 						 cb->nlh->nlmsg_seq) <= 0) {
- 					read_unlock_bh(&head->lock);
- 					goto done;
- 				}
-+next_dying:
- 				++num;
- 			}
- 		}
-
---r5Pyd7+fXNt84Ff3--
+--
+~Randy
