@@ -1,46 +1,113 @@
-From: Zoltan Farkas <zfarkas@lutra.sztaki.hu>
-Subject: Re: [RFC] multiple eth0 mixed PCI/ISA init
-Date: Sat, 20 Dec 2003 12:33:34 +0100 (MET)
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: [PATCH] fix bridge-nf with IP defragmentation
+Date: Sun, 21 Dec 2003 12:58:36 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GS4.4.33.0312201232460.28011-100000@lutra.sztaki.hu>
-References: <20031219151415.1cfdbe66.shemminger@osdl.org>
+Message-ID: <200312211258.36325.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Jeff Garzik <jgarzik@pobox.com>, Alexander Viro <aviro@redhat.com>,
-        <netdev@oss.sgi.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20031219151415.1cfdbe66.shemminger@osdl.org>
+To: "David S.Miller" <davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Dec 2003, Stephen Hemminger wrote:
+Hi Dave,
 
-> PCI is getting initialized before the old ISA probing code, so your PCI card
-> is grabbing eth0 before the ISA card gets started.
->
-> You might be able workaround the problem probably by doing:
-> 	netdev=0,1,0,0,eth0
-> which should cause the ISA probe code to skip eth0 and go on to eth1
->
-> This patch should fix 2.6.0 (have similar but different fix for net-drivers-2.5-exp).
-> I don't have an ISA card to actually test this code path.
->
-> diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
-> --- a/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
-> +++ b/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
-> @@ -350,7 +350,7 @@
->  	 * Backwards compatibility - historically an I/O base of 1 was
->  	 * used to indicate not to probe for this ethN interface
->  	 */
-> -	if (dev->base_addr == 1) {
-> +	if (__dev_get_by_name(dev->name) || dev->base_addr == 1) {
->  		free_netdev(dev);
->  		return -ENXIO;
->  	}
->
-Thanks a lot! This has fixed my problem. Now my ISA card initializes as
-eth1.
-Cheers,
+This patch fixes IP defragmentation for bridged packets.
+nf_bridge_info.hh is renamed to nf_bridge_info.data,
+the bridge-nf IP code no longer uses the control buffer and a very
+necessary call of nf_bridge_put is added to ip_output.c (and ip6_output.c).
 
-	Zoltan
+cheers,
+Bart
+
+--- linux-2.6.0/include/linux/skbuff.h.old	2003-12-21 12:42:56.000000000 +0100
++++ linux-2.6.0/include/linux/skbuff.h	2003-12-21 12:43:35.000000000 +0100
+@@ -107,7 +107,7 @@ struct nf_bridge_info {
+ 	struct net_device *netoutdev;
+ #endif
+ 	unsigned int mask;
+-	unsigned long hh[32 / sizeof(unsigned long)];
++	unsigned long data[32 / sizeof(unsigned long)];
+ };
+ #endif
+ 
+--- linux-2.6.0/include/linux/netfilter_bridge.h.old	2003-12-21 12:43:22.000000000 +0100
++++ linux-2.6.0/include/linux/netfilter_bridge.h	2003-12-21 12:43:35.000000000 +0100
+@@ -73,11 +73,11 @@ void nf_bridge_maybe_copy_header(struct 
+ 	if (skb->nf_bridge) {
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+ 		if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
+-			memcpy(skb->data - 18, skb->nf_bridge->hh, 18);
++			memcpy(skb->data - 18, skb->nf_bridge->data, 18);
+ 			skb_push(skb, 4);
+ 		} else
+ #endif
+-			memcpy(skb->data - 16, skb->nf_bridge->hh, 16);
++			memcpy(skb->data - 16, skb->nf_bridge->data, 16);
+ 	}
+ }
+ 
+@@ -90,7 +90,7 @@ void nf_bridge_save_header(struct sk_buf
+ 	if (skb->protocol == __constant_htons(ETH_P_8021Q))
+ 		header_size = 18;
+ #endif
+-	memcpy(skb->nf_bridge->hh, skb->data - header_size, header_size);
++	memcpy(skb->nf_bridge->data, skb->data - header_size, header_size);
+ }
+ 
+ struct bridge_skb_cb {
+--- linux-2.6.0/net/bridge/br_netfilter.c.old	2003-12-21 12:43:11.000000000 +0100
++++ linux-2.6.0/net/bridge/br_netfilter.c	2003-12-21 12:43:35.000000000 +0100
+@@ -38,11 +38,9 @@
+ 
+ 
+ #define skb_origaddr(skb)	 (((struct bridge_skb_cb *) \
+-				 (skb->cb))->daddr.ipv4)
++				 (skb->nf_bridge->data))->daddr.ipv4)
+ #define store_orig_dstaddr(skb)	 (skb_origaddr(skb) = (skb)->nh.iph->daddr)
+ #define dnat_took_place(skb)	 (skb_origaddr(skb) != (skb)->nh.iph->daddr)
+-#define clear_cb(skb)		 (memset(&skb_origaddr(skb), 0, \
+-				 sizeof(struct bridge_skb_cb)))
+ 
+ #define has_bridge_parent(device)	((device)->br_port != NULL)
+ #define bridge_parent(device)		((device)->br_port->br->dev)
+@@ -203,7 +201,6 @@ bridged_dnat:
+ 				 */
+ 				nf_bridge->mask |= BRNF_BRIDGED_DNAT;
+ 				skb->dev = nf_bridge->physindev;
+-				clear_cb(skb);
+ 				if (skb->protocol ==
+ 				    __constant_htons(ETH_P_8021Q)) {
+ 					skb_push(skb, VLAN_HLEN);
+@@ -224,7 +221,6 @@ bridged_dnat:
+ 		dst_hold(skb->dst);
+ 	}
+ 
+-	clear_cb(skb);
+ 	skb->dev = nf_bridge->physindev;
+ 	if (skb->protocol == __constant_htons(ETH_P_8021Q)) {
+ 		skb_push(skb, VLAN_HLEN);
+--- linux-2.6.0/net/ipv4/ip_output.c.old	2003-12-21 12:43:32.000000000 +0100
++++ linux-2.6.0/net/ipv4/ip_output.c	2003-12-21 12:43:35.000000000 +0100
+@@ -417,6 +417,7 @@ static void ip_copy_metadata(struct sk_b
+ 	to->nfct = from->nfct;
+ 	nf_conntrack_get(to->nfct);
+ #ifdef CONFIG_BRIDGE_NETFILTER
++	nf_bridge_put(to->nf_bridge);
+ 	to->nf_bridge = from->nf_bridge;
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
+--- linux-2.6.0/net/ipv6/ip6_output.c.old	2003-12-21 12:52:26.000000000 +0100
++++ linux-2.6.0/net/ipv6/ip6_output.c	2003-12-21 12:52:38.000000000 +0100
+@@ -877,6 +877,7 @@ static void ip6_copy_metadata(struct sk_
+ 	to->nfct = from->nfct;
+ 	nf_conntrack_get(to->nfct);
+ #ifdef CONFIG_BRIDGE_NETFILTER
++	nf_bridge_put(to->nf_bridge);
+ 	to->nf_bridge = from->nf_bridge;
+ 	nf_bridge_get(to->nf_bridge);
+ #endif
