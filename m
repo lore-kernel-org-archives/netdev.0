@@ -1,32 +1,36 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: PROBLEM: nd_tbl not a public symbol in net/ipv6/ndisc.c
-Date: Mon, 31 Jan 2005 17:20:22 +0900 (JST)
-Message-ID: <20050131.172022.93845025.yoshfuji@linux-ipv6.org>
-References: <Pine.OSF.4.58.0501310903220.211@igor.urz.unibas.ch>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: dummy as IMQ replacement
+Date: Mon, 31 Jan 2005 10:20:08 +0200
+Message-ID: <200501311020.08337.hasso@estpak.ee>
+References: <1107123123.8021.80.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Damion de Soto <damion@snapgear.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christian.Tschudin@unibas.ch
-In-Reply-To: <Pine.OSF.4.58.0501310903220.211@igor.urz.unibas.ch>
+To: hadi@znyx.com
+In-Reply-To: <1107123123.8021.80.camel@jzny.localdomain>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.OSF.4.58.0501310903220.211@igor.urz.unibas.ch> (at Mon, 31 Jan 2005 09:04:34 +0100 (MET)), Christian Tschudin <Christian.Tschudin@unibas.ch> says:
+Jamal Hadi Salim wrote:
+> 2) Allows for queueing incoming traffic for shaping instead of
+> dropping. I am not aware of any study that shows policing is
+> worse than shaping in achieving the end goal of rate control.
+> I would be interested if anyone is experimenting. Nevertheless,
+> this is still an alternative as opposed to making a system wide
+> ingress change.
 
-> Our LUNAR project (underlay for wireless multihop networks)
-> stumbled over the same problem that at least two other projects
-> (infiniband, and mipv6) also experienced many months ago:
-> 
->   The neighbor table 'nd_tbl' in net/ipv6/ndisc.c
->   is not accessible from other modules.
-:
-> +EXPORT_SYMBOL(nd_tbl);
+Policing didn't work with IPv6 last time I checked.
 
-I disagree.
-Basically, ndisc.c is the only user of that structure and
-I cannot find why you really need this symbol.
 
---yoshfuji
+-- 
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
