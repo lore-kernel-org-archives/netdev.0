@@ -1,36 +1,38 @@
-From: Al Viro <viro@parcelfarce.linux.theplanet.co.uk>
-Subject: Re: net: generic netdev_ioaddr
-Date: Fri, 29 Oct 2004 20:38:27 +0100
+From: Sam Leffler <sam@errno.com>
+Subject: Re: Asynchronous crypto layer.
+Date: Fri, 29 Oct 2004 12:56:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029193827.GV24336@parcelfarce.linux.theplanet.co.uk>
-References: <1099044244.9566.0.camel@localhost> <20041029131607.GU24336@parcelfarce.linux.theplanet.co.uk> <courier.418290EC.00002E85@courier.cs.helsinki.fi> <m3y8hpbaf9.fsf@defiant.pm.waw.pl>
+Message-ID: <4182A05F.1080505@errno.com>
+References: <1099030958.4944.148.camel@uganda>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pekka J Enberg <penberg@cs.helsinki.fi>, davem@davemloft.net,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krzysztof Halasa <khc@pm.waw.pl>
-Content-Disposition: inline
-In-Reply-To: <m3y8hpbaf9.fsf@defiant.pm.waw.pl>
+To: johnpol@2ka.mipt.ru
+In-Reply-To: <1099030958.4944.148.camel@uganda>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Oct 29, 2004 at 09:18:18PM +0200, Krzysztof Halasa wrote:
-> "Pekka J Enberg" <penberg@cs.helsinki.fi> writes:
-> 
-> > Yup, I thought about that after I sent the patch. However, as it
-> > stands now, many network drivers use netdev->base_addr for just that.
-> > Perhaps it should be nuked completely instead?
-> 
-> I thinks so. With ifmap, SIOCSIFMAP, ifr_map, mem_end etc.,
-> irq, if_port, dma.
+Evgeniy Polyakov wrote:
+> I'm pleased to announce asynchronous crypto layer for Linux kernel 2.6.
+> It support following features:
+> - multiple asynchronous crypto device queues
+> - crypto session routing
+> - crypto session binding
+> - modular load balancing
+> - crypto session batching genetically implemented by design
+> - crypto session priority
+> - different kinds of crypto operation(RNG, asymmetrical crypto, HMAC and
+> any other)
 
-SIOCSIFMAP is unfortunate, but legitimate - it passes more or less
-opaque structure to driver and lets driver interpret it.
+It's really great to see this stuff come in to Linux.  Hopefully you're 
+aware of existing functionality of this sort in each of the BSD systems? 
+  It would be interesting to compare performance between systems.
 
-SIOCGIFMAP, OTOH, is really bad - among other things, for many drivers
-it leaks ioremapped addresses to userland.  And *that* is a LARTable
-offense - it's an information that makes no sense whatsoever for userland
-code and should never be exposed, just as with any kernel pointers.
+I realize this suggestion will be met with the usual boo's and catcalls 
+but it'd also be nice if all systems could share a common user-level api 
+so, for example, you could just _use_ the support in openssl that's been 
+around for several years.
 
-What uses ->base_addr from the data returned by SIOCGIFMAP?
+	Sam
