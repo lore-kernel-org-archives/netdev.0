@@ -1,27 +1,25 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: Submission #4  for S2io 10GbE driver
-Date: Sat, 20 Mar 2004 10:48:14 +0000
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Possible overwrite in tulip driver >= 2.6.4-mm2
+Date: Sat, 20 Mar 2004 06:09:33 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040320104814.A22674@infradead.org>
-References: <001001c40e34$d2c3c4b0$0300a8c0@S2IOtech.com> <405C153A.2020809@pobox.com>
+Message-ID: <405C266D.9030706@pobox.com>
+References: <4058376D.2060409@rcn.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Leonid Grossman <leonid.grossman@s2io.com>, netdev@oss.sgi.com,
-        "'ravinandan arakali'" <ravinandan.arakali@s2io.com>,
-        raghavendra.koushik@s2io.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <405C153A.2020809@pobox.com>; from jgarzik@pobox.com on Sat, Mar 20, 2004 at 04:56:10AM -0500
+To: Jerry Natowitz <j.natowitz@rcn.com>
+In-Reply-To: <4058376D.2060409@rcn.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 20, 2004 at 04:56:10AM -0500, Jeff Garzik wrote:
-> applied to 2.6, thanks.
-> 
-> Note I made the attached changes, otherwise the build would throw a 
-> bunch of errors and warnings.  Also, I merged it into 
-> drivers/net/s2io{.c,.h,-regs.h} since there isn't a need for a separate 
-> directory for just three files.
+Jerry Natowitz wrote:
+> I'm not experienced in debugging kernels, so all I can do is report that
+> starting in 2.6.4-mm2, I get debugging information from the tulip driver
+> that I never saw before.  I've confirmed that tulip_debug *should* be 1,
+> but the presence of debug messages indicate that it is being over-written.
 
-There's still lots of missing statics the might want to get fixed up.
+A patch from Don Fry fixed this, I believe...  can you try with 2.6.5-rc2?
+
+	Jeff
