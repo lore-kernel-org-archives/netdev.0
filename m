@@ -1,51 +1,36 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: generic 802.11 stack
-Date: Mon, 13 Sep 2004 01:50:39 -0400
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <4145352F.4040807@pobox.com>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409122103.21770.vkondra@mail.ru> <20040912171448.64ce7dbe.davem@davemloft.net> <200409130839.15988.vkondra@mail.ru>
-Reply-To: acx100-devel@lists.sourceforge.net
+Subject: Re: [PATCHES] via-velocity fixes
+Date: Mon, 13 Sep 2004 02:03:28 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <41453830.9060708@pobox.com>
+References: <20040913050255.GA32549@home-tj.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,  greg@atheros.com,
- netdev@oss.sgi.com,  acx100-devel@lists.sourceforge.net,
- hadi@cyberus.ca,  jkmaline@cc.hut.fi,  prism54-devel@prism54.org,
- sam@errno.com,  vda@port.imtp.ilyichevsk.odessa.ua
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200409130839.15988.vkondra@mail.ru>
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Tejun Heo <tj@home-tj.org>
+In-Reply-To: <20040913050255.GA32549@home-tj.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Vladimir Kondratiev wrote:
-> Dave,
-> Thanks, I'll post patches to you.
+Tejun Heo wrote:
+>  Hello, I've encountered some problems (packet loss, duplicate
+> truncated packets, hang) w/ recent rd ring related updates to
+> via-veolcity.  I'm attaching 8 patches to fix the problem and some
+> other bugs.  I'm attaching the following 8 patches.  Detailed
+> description is at the head of each patch file.
 > 
-> Jeff: what would you say? I think it is great if it will went through Dave 
-> with his review.
+> 00velocity_nics.patch		: velocity_nics management fix
+> 01velocity_xmit_lock.patch	: unused xmit_lock removed
+> 02velocity_give_rx_desc.patch	: give_rx_desc removed
+> 03velocity_rd_ring.patch	: rd ring fix (it was the offending bug)
+> 04velocity_init.patch		: init related bug fix
+> 05velocity_cpu_to_le32.patch	: removes cpu_to_le32(OWNED_BY_NIC)
+> 06velocity_init_td_ring.patch	: init_td_ring index calculation fix
+> 07velocity_comment.patch	: comment fixes
 
 
-You are the one doing the work.  Which would you prefer?  :)
-
-You could always send patches to netdev@oss.sgi.com and CC 
-jgarzik@pobox.com and davem@davemloft.net.  DaveM could review, and I 
-could apply to wireless-2.6, then post a snapshot on kernel.org.
+I'm reviewing these now, thanks.
 
 	Jeff
-
-
-
-
--------------------------------------------------------
-This SF.Net email is sponsored by: YOU BE THE JUDGE. Be one of 170
-Project Admins to receive an Apple iPod Mini FREE for your judgement on
-who ports your project to Linux PPC the best. Sponsored by IBM. 
-Deadline: Sept. 13. Go here: http://sf.net/ppc_contest.php
