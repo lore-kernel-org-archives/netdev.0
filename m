@@ -1,33 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: ipv6 unresolved symbol
-Date: Tue, 15 Mar 2005 10:25:43 -0800
-Message-ID: <20050315102543.6f59dd15.davem@davemloft.net>
-References: <Pine.SOC.4.61.0503151136260.428@math.ut.ee>
-	<20050315.185815.12690947.yoshfuji@linux-ipv6.org>
-	<20050315134002.GE3086@postel.suug.ch>
+From: Arthur Kepner <akepner@sgi.com>
+Subject: [PATCH] use NETIF_F_LLTX in bonding device
+Date: Tue, 15 Mar 2005 10:29:16 -0800 (PST)
+Message-ID: <Pine.LNX.4.61.0503151016580.18478@linux.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, mroos@linux.ee, netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050315134002.GE3086@postel.suug.ch>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Mar 2005 14:40:02 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
 
-> * YOSHIFUJI Hideaki / ?$B5HF#1QL@ <20050315.185815.12690947.yoshfuji@linux-ipv6.org> 2005-03-15 18:58
-> > In article <Pine.SOC.4.61.0503151136260.428@math.ut.ee> (at Tue, 15 Mar 2005 11:36:42 +0200 (EET)), Meelis Roos <mroos@linux.ee> says:
-> > 
-> > > This is todays 2.6.11+BK on x86 with modular ipv6:
-> > > 
-> > > WARNING: /lib/modules/2.6.11/kernel/net/ipv6/ipv6.ko needs unknown symbol dev_get_flags
-> > 
-> > Oops, thanks.
-> 
-> Stupid me, should have checked that, thanks for the fix.
+Lock contention on the bonding device's xmit_lock can 
+become a bottleneck when 3 or more gige links are aggregated. 
+And it looks like it's unnecessary too, so use the 
+NETIF_F_LLTX flag to avoid grabbing this lock. 
 
-No worries.  Andrew Morton sent me this fix a few hours ago so it's
-already in my tree and about to be sent to Linus.
+Signed-off-by: <akepner@sgi.com>
+
+--- linux.orig/drivers/net/bonding/bond_main.c	2005-03-14 14:08:29.000000000 -0800
++++ linux/drivers/net/bonding/bond_main.c	2005-03-14 17:08:57.000000000 -0800
+@@ -4306,6 +4306,10 @@ static int __init bond_init(struct net_d
+ 	 */
+ 	bond_dev->features |= NETIF_F_VLAN_CHALLENGED;
+ 
++	/* don't acquire bond device's xmit_lock when 
++	 * transmitting */
++	bond_dev->features |= NETIF_F_LLTX;
++
+ 	/* By default, we declare the bond to be fully
+ 	 * VLAN hardware accelerated capable. Special
+ 	 * care is taken in the various xmit functions
+
+--
+Arthur
