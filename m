@@ -1,53 +1,53 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Wed, 6 Oct 2004 23:49:12 -0700
+From: Eric Dumazet <dada1@cosmosbay.com>
+Subject: Not all tcp sockets are found by ss command (iproute2)
+Date: Thu, 07 Oct 2004 09:53:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041006234912.66bfbdcc.davem@davemloft.net>
-References: <20041006232544.53615761@jack.colino.net>
-	<20041006214322.GG31237@waste.org>
-	<20041007075319.6b31430d@jack.colino.net>
+Message-ID: <4164F60C.6080807@cosmosbay.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Colin Leroy <colin@colino.net>
-In-Reply-To: <20041007075319.6b31430d@jack.colino.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Oct 2004 07:53:19 +0200
-Colin Leroy <colin@colino.net> wrote:
+Hi all
 
-> On 06 Oct 2004 at 16h10, Matt Mackall wrote:
-> 
-> > On Wed, Oct 06, 2004 at 11:25:44PM +0200, Colin Leroy wrote:
-> > Well this doesn't look unreasonable, but I haven't run into it with
-> > the NICs I've tested. Nor have I seen this reported before. Which NICs
-> > is this with?
-> 
-> Sungem. I didn't find anything strange in sungem, but it may be...
+I sent this message 2 days ago on linux-net@vger but got no answer yet. 
+Maybe this list is a better place ?
 
-I think this is very strange that only sungem behaves this
-way.
+I have two oddities with ss command (from iproute2 package)
 
-I don't think netpoll is doing anything different than what
-would happen, f.e., when bringing an interface up using dhcp.
-That should cause the same kind of hang.
+linux kernel 2.6.8.1, SMP on x86_64
+ss -V
+ss utility, iproute2-ss040823
 
-The only thing that should make the thing spin is if gp->hw_running
-is zero.  This is set non-zero by gem_open() after resetting the
-chip to bring it up.
+1) It seems TCP sockets in SYN-RECV are not displayed at all.
 
-If gem_open() fails, and on entry gp->hw_running was zero, the chip
-will be powered back down and gp->hw_running set back to zero.
-gem_suspend()/gem_resume() also modify the gp->hw_running state, as
-appropriate.
+ss state syn-recv
+Recv-Q Send-Q                                     Local Address:Port 
+                                   Peer Address:Port
 
-I could see it that if gp->hw_running is non-zero, we could run into
-troubles.  np->dev->poll_controller() will run, and it won't do anything
-since the gem_interrupt() call is a nop when gp->hw_running is zero.
-Then we blindly call ingo np->dev->poll()
+<nothing>
 
-Folks debugging this should verify that gp->hw_running is non-zero when
-the problematic case runs.
+2) It seems not all tcp sockets are fetched/displayed on a very loaded 
+server.
+
+# ss -an|wc -l ; cat /proc/net/sockstat
+  565859
+sockets: used 611269
+TCP: inuse 613140 orphan 2572 tw 4747 alloc 613820 mem 116376
+UDP: inuse 7
+RAW: inuse 0
+FRAG: inuse 1 memory 544
+
+You can see on this sample that ss -an displayed 565859 lines, but 
+/proc/net/sockstat correctly said that more sockets were used.
+
+Of course, /proc/net/tcp on such machine is not an option (never 
+completes), so I cant list all connections for this machine. I really 
+*need* a working ss command.
+
+Are they known problems ?
+
+Thank you
