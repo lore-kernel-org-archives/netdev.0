@@ -1,8 +1,8 @@
 From: "James R. Leu" <jleu@mindspring.com>
 Subject: Re: [RFC] Per-process network namespaces
-Date: Thu, 21 Oct 2004 11:50:14 -0500
+Date: Thu, 21 Oct 2004 11:51:38 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021165014.GC5216@mindspring.com>
+Message-ID: <20041021165138.GD5216@mindspring.com>
 References: <20041021164039.GA3632@IBM-BWN8ZTBWA01.austin.ibm.com>
 Reply-To: jleu@mindspring.com
 Mime-Version: 1.0
@@ -15,11 +15,9 @@ In-Reply-To: <20041021164039.GA3632@IBM-BWN8ZTBWA01.austin.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please look at my linux-vrf project which adds virtual routing and
-forwarding for IPv4 and IPv6 to the 2.6 kernel.  In particular it may fit
-your needs because it allows a process and all of the sockets it creates to
-be assigned to a VRF.  Look at the code for the 'chvrf' utility to see how
-a process gets associated with a VRF.
+Opps.  I forgot the link.
+
+http://linux-vrf.sf.net/
 
 On Thu, Oct 21, 2004 at 11:40:39AM -0500, Serge E. Hallyn wrote:
 > Hi,
