@@ -1,38 +1,46 @@
-From: Thomas Spatzier <thomas.spatzier@de.ibm.com>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 29 Nov 2004 16:57:25 +0100
-Message-ID: <OF773C347F.92E998FA-ONC1256F5B.0056F87D-C1256F5B.0057A78F@de.ibm.com>
-References: <Pine.LNX.4.61.0411150735070.10262@hibernia.jakma.org>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH,pktgen] account for preamble and inter-packet gap
+Date: Mon, 29 Nov 2004 17:16:13 +0100
+Message-ID: <16811.19277.594137.939120@robur.slu.se>
+References: <20041128213251.GA9330@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: robert.olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <Pine.LNX.4.61.0411150735070.10262@hibernia.jakma.org>
-To: paul@clubi.ie
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041128213251.GA9330@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+Lennert Buytenhek writes:
 
+ > If you account for the Frame Check Sequence when computing bandwidth
+ > stats, it's only fair that you count the preamble and inter-packet gap
+ > as well.  Suggested patch attached.
 
+ Well from pktgen TX view we don't know what the layer under us will do. 
+ We simply deliver packets and hope those get transmitted but we are not
+ 100% sure neither about ipg or preample. We don't even know that packets 
+ are seen on the wire. We use to verify this in our specific HW setup. 
+ So what trusted statistics can we give? 
 
-> Using a socket per interface wont address problem of sending
-> quite stale packets when a link > comes back after a long time
-> down, AUI. (not a huge problem - but not nice).
->
-> Jeff???
+ I've heard some boxes that didn't do the ipg correctly. Don't know what NIC 
+ this was. We can only estimate stats at the point where we are delivering 
+ packets. Other devices has "true" L2 stats.
+ 
+ OK. Adding FCS yes kinda compromise and maybe was wrong in this aspect.
 
-Has there been any outcome on the discussion about whether or not
-a device driver should drop packets when the cable is disconnected?
-It seems that from the zebra point of view, as Paul wrote,
-it would be better to not block sockets by queueing up packets
-when there is no cable connection.
+ Also we should think of calculation should work with link other link
+ link layers not only ethernet.
+ 
+ The only solution I can think of is of having a selectable option in 
+ the config for output stats. To support different L2 layers and with  
+ warning if we are "predicting" L2 statistics. Feel free to extend your
+ patch.
 
-I do also think that it does not make sense to keep packets in the
-queue and then send those packets when the cable is plugged in
-again after a possibly long time.
-There are protocols like TCP that handle packet loss anyway.
-
-Regards,
-Thomas.
+						--ro
+ 
+ 
