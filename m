@@ -1,69 +1,42 @@
-From: "울트라론" <q32gdfe@dreamwiz.com>
-Subject: =?ISO-8859-1?Q?=B0=F8=C0=CE=20=BD=C5=BF=EB=B4=EB=C3=E2?=
-	=?ISO-8859-1?Q?=C0=DA=B1=DD=C1=F6=BF=F8-=C1=F7=C0=E5=C0=CE=C0=FC=B9=AE?= yrxuq
-Date: Sun, 04 Jul 04 15:04:01 GMT
+From: "Ruben Guidry" <netdev-bounce@oss.sgi.com>
+Subject: Hello Netdev-bounce Office XP - $60
+Date: Mon, 05 Jul 2004 08:27:22 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <9x5cd$1is-c60i-8v$$-3--h$v2sen9@a5hoz4.c8bf.v9>
-Reply-To: "울트라론" <q32gdfe@dreamwiz.com>
+Message-ID: <200407041229.i64CTugi013092@oss.sgi.com>
+Reply-To: "Ruben Guidry" <netdev-bounce@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="4.C2BEE_B_..335"
+	boundary="--81169319704495762347"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Netdev-bounce" <netdev-bounce@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---4.C2BEE_B_..335
+----81169319704495762347
 Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+	charset="iso-9239-9"
+Content-Transfer-Encoding: 7Bit
 
-<html>
-<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
-k=3D"red">
-<a href=3D"http://www.loan-JI.kf.to"><IMG src=3D"http://61.109.247.55:3018=
-/form/image/jikjangin.jpg"></a>
-<HR color=3D#8bb5e2>
-<DIV align=3Dcenter>
-<FONT face=3D=FFFFFFB1=FFFFFFBC=FFFFFFB8=FFFFFFB2 size=3D2
-color=3D#8bb5e2>=FFFFFFBA=FFFFFFBB =FFFFFFB8=FFFFFFDE=FFFFFFC0=FFFFFFCF=FFFFFFC0=FFFFFFBA=
-=FFFFFFC1=FFFFFFA4=FFFFFFBA=FFFFFFB8=FFFFFFC5=FFFFFFEB=FFFFFFBD=FFFFFFC5=FFFFFFBA=FFFFFFCE =FFFFFFB1=FFFFFFC7=FFFFFFB0=FFFFFFED
-=FFFFFFBB=FFFFFFE7=FFFFFFC7=FFFFFFD7=FFFFFFBF=FFFFFFA1 =FFFFFFC0=FFFFFFC7=FFFFFFB0=FFFFFFC5=
+Netdev-bounce,
 
-=FFFFFFC1=FFFFFFA6=FFFFFFB8=FFFFFFF1=FFFFFFBF=FFFFFFA1
-[=FFFFFFB1=FFFFFFA4=FFFFFFB0=FFFFFFED]=FFFFFFB6=FFFFFFF3
-=FFFFFFC7=FFFFFFA5=FFFFFFBD=FFFFFFC3=FFFFFFB5=FFFFFFC8 =FFFFFFB1=FFFFFFA4=FFFFFFB0=FFFFFFED
-=FFFFFFB8=
-=FFFFFFDE=FFFFFFC0=FFFFFFCF=FFFFFFC0=FFFFFFD4=FFFFFFB4=FFFFFFCF=FFFFFFB4=FFFFFFD9.</FONT><BR>
-<A style=3D"PADDING-RIGHT: 3px; PADDING-LEFT: 3px; FONT-SIZE: 12px;
-PADDING-BOTTOM: 3px; COLOR: #ffff00; PADDING-TOP: 3px; FONT-FAMILY:
-=FFFFFFB1=FFFFFFBC=
-=FFFFFFB8=FFFFFFB2;
-BACKGROUND-COLOR: #8bb5e2; TEXT-DECORATION:
-none"
-href=3D"mailto:deny_reject@hotmail.com">=FFFFFFBC=FFFFFFF6=FFFFFFBD=FFFFFFC5=FFFFFFB0=FFFFFFC5=FFFFFFBA=FFFFFFCE[Deny]</A>=
+Looking for not expensive high-quality software?<br>
+We might have just what you need.<br>
+<br>
+<a href="http://aU42Yb.aeamdgi.info/?Bk7a7mBQC9IuTB5Kc3g4">Windows XP Professional 2002 </a>............. $50<br>
+<a href="http://eGQKM.nfkiijl.info/?U7qtqFoDVYvhaUo6nbj559a">Adobe Photoshop 7.0</a> ...................... $60<br>
+<a href="http://drCRLi4I.nfkiijl.info/?Dm9cFoDmEbKwVD7850A96">Microsoft Office XP Professional 2002</a> .... $60<br>
+<a href="http://WMMEzGVl.nfkiijl.info/?fuNQhwLuMjm8xLf0pJCQTQk">Corel Draw Graphics Suite 11</a> ............. $60<br>
+<br>
+<a href="http://Gqfo.fdgfdbi.biz/?3iBE5kziA7Gsl3zNhBEBxjY">and lots more...</a><br>
 
-<FONT color=3D#8bb5e2  size=3D2
-color=3D#8bb5e2>=FFFFFFB9=FFFFFFF6=FFFFFFC6=FFFFFFB0=FFFFFFC0=FFFFFFBB =FFFFFFC5=FFFFFFAC=FFFFFFB8=
-=FFFFFFAF=FFFFFFC7=FFFFFFCF=FFFFFFBD=FFFFFFC3=FFFFFFB8=FFFFFFE9
-=FFFFFFBC=FFFFFFF6=FFFFFFBD=FFFFFFC5=FFFFFFB0=FFFFFFC5=FFFFFFBA=FFFFFFCE=FFFFFFC3=FFFFFFB3=FFFFFFB8=FFFFFFAE=FFFFFFB0=FFFFFFA1 =FFFFFFC0=FFFFFFCC=FFFFFFB7=
-=FFFFFFE7=FFFFFFBE=FFFFFFEE
-=FFFFFFC1=FFFFFFFD=FFFFFFB4=FFFFFFCF=FFFFFFB4=FFFFFFD9.<br>
-If you don't want to receive this mail anymore, click here [Deny]</FONT>
-</DIV>
-<HR color=3D#8bb5e2>
-</body>
 
-</html>
-veuzfivduwhw
- k fx g
-  
-tc
-t
-efewnrsbyzvmhsya cmbj
- ui 
-js   zdelf anysm
-f l
-qtjzpwhilhqsmu
 
---4.C2BEE_B_..335--
+
+
+
+
+
+
+
+
+----81169319704495762347--
