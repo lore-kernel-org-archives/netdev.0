@@ -1,28 +1,19 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Anycast usage, final diagnosis? (was: IPv6: Fix broken anycast
-Date: Thu, 17 Jul 2003 14:51:15 -0700
+From: "M.A. Williamson" <maw48@cam.ac.uk>
+Subject: re: PhD Research (sorry)
+Date: 17 Jul 2003 23:02:36 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030717145115.046fd5ee.davem@redhat.com>
-References: <Pine.LNX.4.44.0307171340160.4378-100000@netcore.fi>
-	<200307172052.AAA15032@dub.inr.ac.ru>
+Message-ID: <E19dGpg-0007p3-Kv@maroon.csi.cam.ac.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, mika.liljeberg@welho.com, jmorris@redhat.com,
-   netdev@oss.sgi.com, dlstevens@us.ibm.com
+Content-Type: text/plain; format=flowed; charset=ISO-8859-1
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307172052.AAA15032@dub.inr.ac.ru>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Jul 2003 00:52:03 +0400 (MSD)
-kuznet@ms2.inr.ac.ru wrote:
+I'm told that this e-mail list is merely hosted by SGI for the community, 
+rather than being internal as I thought - sorry guys, I didn't know. I 
+apologise for spamming you with my ignorance!
 
-> > No user should be able to join anycast group, IMHO.
-> 
-> OK. Done, the patch enclosed.
+Cheers,
 
-Pekka, please ACK Alexey's patch, I'd like to apply it.
-
-Thanks.
+Mark
