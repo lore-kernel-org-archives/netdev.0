@@ -1,85 +1,91 @@
-From: Jeroen Vreeken <pe1rxq@amsat.org>
-Subject: Re: [PATCH] hamradio/scc -
-Date: Tue, 16 Sep 2003 22:53:53 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (5/6) ipvs -- use time_before/after
+Date: Tue, 16 Sep 2003 14:22:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030916225353.I13088@jeroen.pe1rxq.ampr.org>
-References: <20030915162335.0034a551.shemminger@osdl.org>
+Message-ID: <20030916142227.6dddd19d.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="AWniW0JNca5xppdA"
-Content-Transfer-Encoding: 8bit
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com,
-   Stephen Hemminger <shemminger@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20030915162335.0034a551.shemminger@osdl.org>; from shemminger@osdl.org on Tue, Sep 16, 2003 at 01:23:35 +0200
+To: Wensong Zhang <wensong@linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Use time_before/after macros when comparing times.
 
---AWniW0JNca5xppdA
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-
-On 2003.09.16 01:23:35 +0200 Stephen Hemminger wrote:
-> Update hamradio/scc for 2.6.0-test5
-> 	- use seq_file for /proc
-> 	- get rid of dev_get()
-> 	- use alloc_netdev
-
-I have a little adition of my own (should apply nicely next to this patch).
-The probe function uses the not yet initialized scc struct for requesting
-its io region.
-
-The second patch is against the bpqethernet driver.
-This has a debug printk that seems to be untouched since somewhere early
-2.1 kernels.
-The if statement it debugs seems to work perfectly and its only use at the
-moment is to annoy the hell out of me :)
-
-Jeroen
-
---AWniW0JNca5xppdA
-Content-Type: application/octet-stream; charset=us-ascii
-Content-Disposition: attachment; filename="scc-2.6.0.t5.rxq.diff"
-
---- linux-2.6.0-test5/drivers/net/hamradio/scc.c	Mon Sep  8 21:50:22 2003
-+++ linux-2.6.0-test5.rxq/drivers/net/hamradio/scc.c	Tue Sep 16 22:41:36 2003
-@@ -1767,7 +1767,7 @@
+diff -Nru a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
+--- a/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:09:55 2003
++++ b/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:09:55 2003
+@@ -743,7 +743,7 @@
+ 	/* if the conn entry hasn't lasted for 60 seconds, don't drop it.
+ 	   This will leave enough time for normal connection to get
+ 	   through. */
+-	if (cp->timeout+jiffies-cp->timer.expires < 60*HZ)
++	if (time_before(cp->timeout + jiffies, cp->timer.expires + 60*HZ))
+ 		return 0;
  
- #ifndef SCC_DONT_CHECK
+ 	/* Don't drop the entry if its number of incoming packets is not
+diff -Nru a/net/ipv4/ipvs/ip_vs_lblc.c b/net/ipv4/ipvs/ip_vs_lblc.c
+--- a/net/ipv4/ipvs/ip_vs_lblc.c	Tue Sep 16 14:09:55 2003
++++ b/net/ipv4/ipvs/ip_vs_lblc.c	Tue Sep 16 14:09:55 2003
+@@ -295,8 +295,8 @@
  
--			if(request_region(scc->ctrl, 1, "scc-probe"))
-+			if(request_region(hwcfg.ctrl_a, 1, "scc-probe"))
- 			{
- 				disable_irq(hwcfg.irq);
- 				Outb(hwcfg.ctrl_a, 0);
-@@ -1779,7 +1779,7 @@
- 				if (InReg(hwcfg.ctrl_a,R13) != 0x55)
- 					found = 0;
- 				enable_irq(hwcfg.irq);
--				release_region(scc->ctrl, 1);
-+				release_region(hwcfg.ctrl_a, 1);
- 			}
- 			else
- 				found = 0;
-
---AWniW0JNca5xppdA
-Content-Type: application/octet-stream; charset=us-ascii
-Content-Disposition: attachment; filename="bpqether-2.6.0.t5.rxq.diff"
-
---- linux-2.6.0-test5/drivers/net/hamradio/bpqether.c	Mon Sep  8 21:50:03 2003
-+++ linux-2.6.0-test5.rxq/drivers/net/hamradio/bpqether.c	Mon Sep 15 15:40:16 2003
-@@ -189,10 +189,8 @@
+ 		write_lock(&tbl->lock);
+ 		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+-			if ((now - en->lastuse) <
+-			    sysctl_ip_vs_lblc_expiration) 
++			if (time_before(now, 
++					en->lastuse + sysctl_ip_vs_lblc_expiration))
+ 				continue;
  
- 	bpq = (struct bpqdev *)dev->priv;
+ 			ip_vs_lblc_free(en);
+@@ -350,7 +350,7 @@
  
--	if (!(bpq->acpt_addr[0] & 0x01) && memcmp(eth->h_source, bpq->acpt_addr, ETH_ALEN)) {
--		printk(KERN_DEBUG "bpqether: wrong dest %s\n", bpq_print_ethaddr(eth->h_source));
-+	if (!(bpq->acpt_addr[0] & 0x01) && memcmp(eth->h_source, bpq->acpt_addr, ETH_ALEN))
- 		goto drop;
--	}
+ 		write_lock(&tbl->lock);
+ 		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+-			if ((now - en->lastuse) < ENTRY_TIMEOUT) 
++			if (time_before(now, en->lastuse + ENTRY_TIMEOUT))
+ 				continue;
  
- 	len = skb->data[0] + skb->data[1] * 256 - 5;
+ 			ip_vs_lblc_free(en);
+diff -Nru a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
+--- a/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:09:55 2003
++++ b/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:09:55 2003
+@@ -481,10 +481,10 @@
  
-
---AWniW0JNca5xppdA--
+ 		write_lock(&tbl->lock);
+ 		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+-			if ((now - en->lastuse) <
+-			    sysctl_ip_vs_lblcr_expiration) {
++			if (time_after(en->lastuse+sysctl_ip_vs_lblcr_expiration,
++				       now))
+ 				continue;
+-			}
++
+ 			ip_vs_lblcr_free(en);
+ 			atomic_dec(&tbl->entries);
+ 		}
+@@ -536,7 +536,7 @@
+ 
+ 		write_lock(&tbl->lock);
+ 		list_for_each_entry_safe(en, nxt, &tbl->bucket[j], list) {
+-			if ((now - en->lastuse) < ENTRY_TIMEOUT) 
++			if (time_before(now, en->lastuse+ENTRY_TIMEOUT))
+ 				continue;
+ 
+ 			ip_vs_lblcr_free(en);
+diff -Nru a/net/ipv4/ipvs/ip_vs_sync.c b/net/ipv4/ipvs/ip_vs_sync.c
+--- a/net/ipv4/ipvs/ip_vs_sync.c	Tue Sep 16 14:09:55 2003
++++ b/net/ipv4/ipvs/ip_vs_sync.c	Tue Sep 16 14:09:55 2003
+@@ -206,8 +206,8 @@
+ 	struct ip_vs_sync_buff *sb;
+ 
+ 	spin_lock_bh(&curr_sb_lock);
+-	if (curr_sb &&
+-	    (jiffies - curr_sb->firstuse > time || time == 0)) {
++	if (curr_sb && (time == 0 ||
++			time_before(jiffies - curr_sb->firstuse, time))) {
+ 		sb = curr_sb;
+ 		curr_sb = NULL;
+ 	} else
