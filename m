@@ -1,28 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4/2.6 PATCHES] Change some ip_fragment checks to help IPVS
-Date: Sat, 11 Oct 2003 12:02:28 -0700
+Subject: Re: [PATCH] Handle shared SKBs in VLAN receive code
+Date: Sat, 11 Oct 2003 12:03:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011120228.74914c91.davem@redhat.com>
-References: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
+Message-ID: <20031011120339.0da631e6.davem@redhat.com>
+References: <3F87430D.2040000@tpack.net>
+	<3F87464B.1020908@candelatech.com>
+	<3F874A30.6010700@tpack.net>
+	<3F885418.3090407@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: tommy.christensen@tpack.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3F885418.3090407@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 11 Oct 2003 20:18:33 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Sat, 11 Oct 2003 12:03:52 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
->  			/* Correct socket ownership. */
-> -			if (frag->sk == NULL)
-> +			if (frag->sk == NULL && skb->sk)
->  				goto slow_path;
+> Maybe we should have a method called:  skb_get_me_an_skb_that_I_can_modify(skb);
+> 
+> Then the subtle differences between sharing, cloning, etc can be handled
+> by the skb code internally...
 
-Alexey I think this piece of Julian's patch is OK and this is
-the test you meant to make in the first place.
+We can't create this routine, because it depends upon context.
 
-Right?
+The current code is correct and handles shared SKBs properly,
+so I don't think it's worth playing around with this much more.
