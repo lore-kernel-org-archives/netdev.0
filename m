@@ -1,35 +1,31 @@
-From: Andras Kis-Szabo <kisza@securityaudit.hu>
-Subject: net/ipv6/exthdrs.c
-Date: Tue, 18 Jun 2002 13:51:49 +0200
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: net/ipv6/exthdrs.c
+Date: Tue, 18 Jun 2002 15:00:22 +0300 (EEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020618135149.A24751@sch.bme.hu>
-References: <Pine.LNX.4.44.0206171314460.2496-300000@lain.perlfu.co.uk>
+Message-ID: <Pine.LNX.4.44.0206181458340.26140-100000@netcore.fi>
+References: <20020618135149.A24751@sch.bme.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0206171314460.2496-300000@lain.perlfu.co.uk>
+To: Andras Kis-Szabo <kisza@securityaudit.hu>
+In-Reply-To: <20020618135149.A24751@sch.bme.hu>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Tue, 18 Jun 2002, Andras Kis-Szabo wrote:
+> Is there any plan to add the ESP header to the ipv6_ext_hdr() function (as a
+> known header)?
+> (It requires changes in this file and in the icmp.c at the first round.)
 
-It's just a short question...
+Quickly looking at it, I don't know if adding it would help any (on the 
+countrary).
 
-Is there any plan to add the ESP header to the ipv6_ext_hdr() function (as a
-known header)?
-(It requires changes in this file and in the icmp.c at the first round.)
-
-Some user noticed that the Netfilter contains a very similar function, which
-knows the ESP.
-If this functon remains untouched, I'll add an another one into the Netfilter
-code (which can be used at the special matches).
-
-Regards,
-
-	kisza
+The code seems to be used mainly to skip over extension headers
+(forbidden, strictly speaking) when generating ICMP messages; in the case 
+of ESP, the rest of the payload should be encrypted so adding it to the 
+list would probably not change anything?
 
 -- 
-    Andras Kis-Szabo       Security Development, Design and Audit
--------------------------/        Zorp, NetFilter and IPv6
- kisza@SecurityAudit.hu /-----Member of the BUTE-MIS-SEARCHlab---------->
+Pekka Savola                 "Tell me of difficulties surmounted,
+Netcore Oy                   not those you stumble over and fall"
+Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
