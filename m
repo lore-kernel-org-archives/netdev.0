@@ -1,34 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] af_pppox: create module infrastructure for protocol
- modules
-Date: Thu, 01 May 2003 02:20:40 -0700 (PDT)
+From: Florian Weimer <fw@deneb.enyo.de>
+Subject: Re: purpose of the skb head pool
+Date: Thu, 01 May 2003 12:38:38 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030501.022040.15235711.davem@redhat.com>
-References: <5.1.0.14.2.20030429123317.10d71178@unixmail.qualcomm.com>
-	<20030429.192931.104061911.davem@redhat.com>
-	<1051726260.13512.59.camel@localhost.localdomain>
+Message-ID: <877k9bc5ox.fsf@deneb.enyo.de>
+References: <20030429135506.A22411@lst.de>
+	<16046.30879.738356.495523@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@lst.de>, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: maxk@qualcomm.com
-In-Reply-To: <1051726260.13512.59.camel@localhost.localdomain>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16046.30879.738356.495523@robur.slu.se> (Robert Olsson's
+ message of "Tue, 29 Apr 2003 15:05:35 +0200")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Max Krasnyansky <maxk@qualcomm.com>
-   Date: 30 Apr 2003 11:11:37 -0700
+Robert Olsson <Robert.Olsson@data.slu.se> writes:
 
-   And like I said before if protocol wants for some reason to be
-   around until sk is destroyed it will simply do sk_set_owner() right
-   after alloc_sk().
+>  2.6.66 IP. Forwarding of two input simplex flows. eth0->eth1, eth2->eth3 
+>  Fixed affinity CPU0: eth0, eth3. CPU1: eth1, eth2. Which common for routing
+>  and should be "worst case" for other use. The test should give a very high 
+>  load on the packet memory system. As seen at least we don't see any
+>  improvement from skb_head_pool code. 
+>
+>
+>  Vanilla 2.5.66              381 kpps
+>  Magazine                    431 kpps
+>  Magazine + no skb_head_pool 435 kpps
 
-Ok Maxim, thanks for your comments and insight.
-
-I believe this whole discussion is going to take a different
-course towards a solution, different than anything discussed
-in this thread so far.
-
-Please follow the discussion with topic "dev->destructor" on this list
-(netdev) to see precisely what I am talking about.
+Can you rerun this test with random source/destination addresses, to
+get more realistic (for some configurations) numbers?
