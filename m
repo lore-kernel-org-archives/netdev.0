@@ -1,51 +1,32 @@
-From: "arun" <akumar@omnesysindia.com>
-Subject: Re: SIOCETHTOOL history ?
-Date: Tue, 6 May 2003 18:54:43 +0530
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: dev->destructor
+Date: Tue, 06 May 2003 07:23:38 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <009901c313d2$db6b0630$243205c0@otp.com>
+Message-ID: <20030506.072338.39479306.davem@redhat.com>
+References: <20030505130050.4b9868bb.shemminger@osdl.org>
+	<20030506075808.388332C07F@lists.samba.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   acme@conectiva.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: rusty@rustcorp.com.au
+In-Reply-To: <20030506075808.388332C07F@lists.samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: Rusty Russell <rusty@rustcorp.com.au>
+   Date: Tue, 06 May 2003 14:18:36 +1000
+   
+   It's logically consistent to make it implicit, and cuts out some
+   code in the unload path.
+   
+   How's this?
 
------ Original Message ----- 
-From: "arun" <akumar@omnesysindia.com>
-To: "David S. Miller" <davem@redhat.com>
-Sent: Tuesday, May 06, 2003 6:53 PM
-Subject: Re: SIOCETHTOOL history ?
+This looks fine to me.
 
-
-> ----- Original Message ----- 
-> From: "David S. Miller" <davem@redhat.com>
-> To: <akumar@omnesysindia.com>
-> Cc: <netdev@oss.sgi.com>
-> Sent: Tuesday, May 06, 2003 5:19 PM
-> Subject: Re: SIOCETHTOOL history ?
->  
- > Yes it does:
- 
- Iam really stumped in that case since, mii-diag tool based
- on Donald Beckers code, ftp://ftp.scyld.com/pub/diag/mii-diag.c
- seems to work ok without CAP_NET_ADMIN on RH 7.1 
- and RH8.0 distros. 
- 
- (I dont set any capabilities just tried to read speed / card id
- and it never returned EPERM for me)
- 
- I chanced on the ethtool since mii failed to report anything on
- newer Gigabit cards (specifically a Broadcom Corporation 
- NetXtreme BCM5701 card)
- 
- However ethtool required running with su root even for reading
- the capabilities (I recompiled ethtool code with only a GSET 
- command to confirm this) and that is why i have this doubt on the
- reason of the behavioural differnces between the 2 ioctl's
- 
- arun
- 
- 
+How hard would it be to make this completely consistent in that
+no module code is ever invoked with modcount == 0?  By this I mean
+keeping the implicit reference after modload succeeds, and then
+calling ->cleanup() is valid once the count drops to '1'.
