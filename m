@@ -1,61 +1,48 @@
-From: Lars Marowsky-Bree <lmb@suse.de>
-Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
-Date: Thu, 21 Oct 2004 15:33:46 +0200
+From: Arjan van de Ven <arjan@fenrus.demon.nl>
+Subject: Re: [patch 2.6.9 0/11] Add MODULE_VERSION to several network
+	drivers
+Date: Thu, 21 Oct 2004 15:46:11 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021133346.GL3911@marowsky-bree.de>
-References: <20041020223828.GP19899@sunbeam.de.gnumonks.org> <20041021075530.GA1278@infradead.org> <20041021091229.GA3551@sunbeam.de.gnumonks.org> <20041021110513.GA21579@outpost.ds9a.nl> <20041021130327.GD3551@sunbeam.de.gnumonks.org>
+Message-ID: <1098366370.2810.31.camel@laptop.fenrus.com>
+References: <20041020141146.C8775@tuxdriver.com>
+	 <1098350269.2810.17.camel@laptop.fenrus.com>
+	 <20041021082205.A29340@tuxdriver.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+        davem@davemloft.net, john.ronciak@intel.com,
+        ganesh.venkatesan@intel.com, akpm@osdl.org, romieu@fr.zoreil.com,
+        ctindel@users.sourceforge.net, fubar@us.ibm.com,
+        greearb@candelatech.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>, bert hubert <ahu@ds9a.nl>,
-        Christoph Hellwig <hch@infradead.org>,
-        Linux Netdev List <netdev@oss.sgi.com>
-Content-Disposition: inline
-In-Reply-To: <20041021130327.GD3551@sunbeam.de.gnumonks.org>
+To: "John W. Linville" <linville@tuxdriver.com>
+In-Reply-To: <20041021082205.A29340@tuxdriver.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 2004-10-21T15:03:27, Harald Welte <laforge@netfilter.org> wrote:
+On Thu, 2004-10-21 at 14:22, John W. Linville wrote:
+>  
+> > have you checked if the version of these drivers is actually useful? (eg
+> > updated when the driver changes) If it's not I'd say adding a
+> > MODULE_VERSION to it makes no sense whatsoever.
+> 
+> Why do I feel like I'm being baited...? :-)
+> 
+> I would have to suspect that if a version string exists, that it has at
+> least some meaning to the primary developers/maintainters.  It certainly
+> is beyond my control to force the maintainers to give meaning to their
+> version strings.
 
-> > I note with glee that CLUSTERIP implements (and improves) the evil id=
-eas of
-> > http://lartc.org/autoloadbalance.php3
->=20
-> I didn't know about that page, but yes, indeed.  I first was informed
-> about this approach by Fabio Olive Leite, who was one of my colleagues
-> at Conectiva (where I was 2001).  He presented this approach at the
-> Linux Kongress 2002:
-> http://www.linux-kongress.org/2002/papers/lk2002-leite.html
->=20
-> Later SuSE approached me if I was interested in implementing that idea,
-> and that's how CLUSTERIP happened.  If I'm not mistaken SuSE is already
-> shipping this (at least in some beta version?) - I don't really know bu=
-t
-> maybe lmb can shed some light on this issue.
+Since the skeleton driver includes a define for that, I suspect your
+assumption is a bit overly optimistic. 
 
-Yeah, I learned about it from Fabio, thought it would be a cool idea,
-and eventually we sponsored Harald to make it happen. It's shipping in
-SLES9, and we're adding full support for it in the 2.0 heartbeat cluster
-resource manager.=20
+> Is this a political statement against the MODULE_VERSION macro and/or
+> its purpose?  I'm not overly interested in debating that one...
 
-It's meant to complement the LVS / mod_backhand based approaches.
-
-If the proc file IO for communicating with the module goes away in
-favour of a commandline based add/list/remove/etc interface, that would
-just help to tidy up our code, so it's OK with me.
-
-> > And yes, I've received hate mail over this from switch engineers :-)
-> Why is that?  They have to deal with multicast traffic, too...  and I
-> don't really see how this is any different.
-
-Yeah, but with this they get a whole lot more ;-)
-
-
-Sincerely,
-    Lars Marowsky-Br=E9e <lmb@suse.de>
-
---=20
-High Availability & Clustering
-SUSE Labs, Research and Development
-SUSE LINUX AG - A Novell company
+Not really. I have absolutely no problem with a MODULE_VERSION macro
+*IF* the version it advertises means something. However if the version
+it advertises has no meaning whatsoever (eg the version number never
+gets updated) then imo it's better to NOT advertise anything so that
+other tools (like dkms) don't make assumptions and decisions based on
+nothing-meaning data.
