@@ -1,63 +1,50 @@
-From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: Re: orinoco upstream merge to kernel status?
-Date: Wed, 30 Mar 2005 11:04:41 +1000
-Message-ID: <20050330010441.GA6478@localhost.localdomain>
-References: <1112110149.16060.13.camel@dcbw.boston.redhat.com> <1112114804.29524.8.camel@dv>
+From: "Alex Aizman" <itn780@yahoo.com>
+Subject: RE: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: Tue, 29 Mar 2005 18:28:25 -0800
+Message-ID: <200503300228.j2U2Slul009687@oss.sgi.com>
+References: <1112138018.1088.31.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev'" <netdev@oss.sgi.com>, <ksummit-2005-discuss@thunk.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pavel Roskin <proski@gnu.org>
-Content-Disposition: inline
-In-Reply-To: <1112114804.29524.8.camel@dv>
+To: <open-iscsi@googlegroups.com>, "'Rick Jones'" <rick.jones2@hp.com>
+In-Reply-To: <1112138018.1088.31.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 29, 2005 at 11:46:44AM -0500, Pavel Roskin wrote:
-> On Tue, 2005-03-29 at 10:29 -0500, Dan Williams wrote:
-> > Hi,
-> > 
-> > I've just looked over the diff between current 2.6.12rc1 and upstream
-> > "for_linus" branch of the orinoco drivers.  I found that the delta is
-> > almost 100% due to monitor mode/scanning code that's found in the
-> > upstream driver.  That's the last _important_ piece that has to get
-> > merged to the mainline kernel.  It seems all the other trivial pieces
-> > have been merged already.
-> > 
-> > David/Pavel: is it correct that the only bits left are monitor
-> > mode/scanning, and that they cannot be separated?  Should that diff just
-> > be posted as a patch to netdev?  Or are there other issues with the
-> > "for_linus" branch right now that prevent the final merge from
-> > occurring?
-> > 
-> Hi, Dan!
+Jamal wrote: 
 > 
-> The remaining differences are only in orinoco.c and orinoco.h.  However,
-> it's more than just monitor mode and scanning.  The driver in 2.6.12-rc1
-> is basically version 0.14alpha2, and there have been more changes since
-> then.  For example, support for joining a specific access point.
+> > 
+> > Eventually the TCP will hit its RTX limit and punt the connection, 
+> > freeing the buffers kept for retransmission right?
+> > 
+> 
+> If i read correctly the people arguing for iscsi say thats 
+> not good enough. But they may be having other issues too...
 
-More importantly there's the update to the wireless extensions v15
-interface.  That accounts for by far the largest part of the current
-diff.  I've been procrastinating about separating out that change and
-sending to Jeff because it's the largest, ugliest, most likely to
-cause breakage, and hardest to test.
+It is not good enough for storage. 
 
-> David submitted previous changes.  I can submit the rest if David hasn't
-> done it.  David?
+If we continue to fall back into TCP-will-eventually-recover mentality
+iSCSI, or at least a "soft" non-offloaded iSCSI over regular non-TOE TCP,
+will not be able to compete with FC, which uses determinstic credit-based
+flow control. That non-determinism is a bigger issue, while a corner case
+like swap device happenning to be iSCSI-remote is just that, a corner case
+that helps to highlight and bring the general problem to the foreground.
 
-Um.. you probably don't want to go straight on to work on it, because
-I already have another handful of patches lined up ready to go.
-Mostly a few more trivialities.
+Adding a "critical" or "resource-protected" attribute to the connection
+context is a step in the right  direction. Next steps include:
 
-How about I send those to Jeff today, then feel free to tease out some
-more pieces and send them on on top of those.  Just make sure you tell
-me what you're doing, so I don't start trying to work on the same
-thing.
+- triage (closing non-critical connections in OOM);
+- socket reopen without deallocating memory (something like: close(int
+socket_fd, int will_reopen));
+- preallocated mempools (it is much better to discover OOM at connection
+open time than well into runtime).
+- better resource "counting" throughout the L3 and L4 layers to preventively
+handle OOM;
 
--- 
-David Gibson			| I'll have my music baroque, and my code
-david AT gibson.dropbear.id.au	| minimalist, thank you.  NOT _the_ _other_
-				| _way_ _around_!
-http://www.ozlabs.org/people/dgibson
+And more incremental steps like that.
+
+Alex
