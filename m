@@ -1,38 +1,46 @@
-From: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
-Subject: Re: linux 2.6.9: r8169: eth0: PCI error (status: 0x8404). Device
-	disabled.
-Date: Fri, 22 Oct 2004 10:31:32 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 2.4] PKT_SCHED: Avoid duplicated TCA_STATS TLVs for HTB and HFSC
+Date: Fri, 22 Oct 2004 12:05:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098437493.5513.8.camel@ukabzc383.uk.saic.com>
-References: <1098269117.6631.5.camel@ukabzc383.uk.saic.com>
-	 <20041020121520.GA4004@electric-eye.fr.zoreil.com>
-	 <1098282567.6631.10.camel@ukabzc383.uk.saic.com>
-	 <20041020201010.GA13023@electric-eye.fr.zoreil.com>
-	 <1098350743.15528.40.camel@ukabzc383.uk.saic.com>
-	 <20041021120208.GA752@electric-eye.fr.zoreil.com>
+Message-ID: <20041022100517.GY21977@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041021120208.GA752@electric-eye.fr.zoreil.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Francois,
+Dave,
 
-Testing 2.6.9 with just the untouched patch applied again fails :
+Backport of the equivalent 2.6 fixes.
 
-PCI error (cmd = 0x0017, status = 0x22b0)
+Qdiscs are not supposed to dump TCA_STATS, it is done in generic code part.
 
-Testing the kernel with the error reset disabled just causes networking
-to stop, with no reported error after copying data from the box for a
-bit ( < 1GB )
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Tests were tried under 2.6.7 and 2.6.8, but the guy doing the testing
-reported odd problems under these kernels ( they were the pre-packaged
-debian ones, I'll run up a manual set today sometime ).
-
-Hope this helps,
-Eamonn
+--- linux-2.4.28-pre4-bk6.orig/net/sched/sch_htb.c	2004-10-22 10:58:23.000000000 +0200
++++ linux-2.4.28-pre4-bk6/net/sched/sch_htb.c	2004-10-22 10:59:30.000000000 +0200
+@@ -1287,8 +1287,6 @@
+ 	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
+ 	RTA_PUT(skb, TCA_HTB_INIT, sizeof(gopt), &gopt);
+ 	rta->rta_len = skb->tail - b;
+-	sch->stats.qlen = sch->q.qlen;
+-	RTA_PUT(skb, TCA_STATS, sizeof(sch->stats), &sch->stats);
+ 	HTB_QUNLOCK(sch);
+ 	return skb->len;
+ rtattr_failure:
+--- linux-2.4.28-pre4-bk6.orig/net/sched/sch_hfsc.c	2004-10-22 10:58:23.000000000 +0200
++++ linux-2.4.28-pre4-bk6/net/sched/sch_hfsc.c	2004-10-22 11:00:46.000000000 +0200
+@@ -1628,10 +1628,6 @@
+ 	qopt.defcls = q->defcls;
+ 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
+ 
+-	sch->stats.qlen = sch->q.qlen;
+-	if (qdisc_copy_stats(skb, &sch->stats) < 0)
+-		goto rtattr_failure;
+-
+ 	return skb->len;
+ 
+  rtattr_failure:
