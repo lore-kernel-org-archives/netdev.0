@@ -1,48 +1,36 @@
-From: "Ihar 'Philips' Filipau" <filia@softhome.net>
-Subject: Re: TOE brain dump
-Date: Mon, 04 Aug 2003 20:48:24 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Make XFRM optional
+Date: Mon, 4 Aug 2003 11:45:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2EAA78.60202@softhome.net>
-References: <1060015518.1103.399.camel@jzny.localdomain>
+Message-ID: <20030804114507.6e496c77.davem@redhat.com>
+References: <20030804125022.GA8167@averell>
+	<20030804.215801.124854897.yoshfuji@linux-ipv6.org>
+	<20030804130408.GA36367@colin2.muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, ak@muc.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1060015518.1103.399.camel@jzny.localdomain>
+To: Andi Kleen <ak@colin2.muc.de>
+In-Reply-To: <20030804130408.GA36367@colin2.muc.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> to nit: Its no longer about routing or bridging, friend. Thats like getting 
-> fries at mcdonalds.
-> 
+On 4 Aug 2003 15:04:08 +0200
+Andi Kleen <ak@colin2.muc.de> wrote:
 
-   1GE/10GE - for $5?
-   I'm first in the shoping queue!!!-)))
+> Thanks for the feedback. Here is a new patch with the two hunks 
+> removed.
 
-   Since I see no reasonable out-come of this discussion I left it.
+Still broken in two areas:
 
-   TOE as I see - since my company utilizes several of them - are too 
-different and too specialized to application/protocols. And yes - price 
-of development/deployment maters too. Linux support for those protocols 
-is inmature. It cannot handle or requirements even software-wise. I'm 
-not talking about timing requirements - linux network in general is not 
-(even soft) real-time.
+1) You moved inet_peer_idlock into net/xfrm/xfrm_exports.c, that
+   looks quite wrong.
 
-   My personal flame-meter is out of scale ;-)
-   I shall join the discussion back when I will see any real ideas.
+2) Your patch doesn't apply to Linus's current tree because
+   "secpath_dup" got added to net/netsyms.c since 2.6.0-test2 got
+   released.
 
+I wanted to merge this, but I can't until you fix the above problems.
 
- > If all you wanted was to do L3 - why not just buy a $5 chip that
- > can do this for a lot more interfaces? Why sweat over
- > optimizing L3 routing in a 3K space?
-
-   We are doing not a teapot, and high level spec for this code takes 
-around 15 pages.
-   3k - it is not optimized - we have limit around 2GB ;-)
-   It just takes only 3k. And it handles some special (read - 
-proprietary) functions too - some bugs of some other pieces of hardware. 
-NPU does all stuff by itself, but sometimes we need to extract 
-configuration information which is direct to us, for example.
+Thanks.
