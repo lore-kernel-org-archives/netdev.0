@@ -1,26 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ethtool_features?
-Date: Wed, 27 Aug 2003 23:52:58 -0700
+Subject: Re: [PATCH] IPv6: Use ip6_dst_lookup() in ip6_tunnel.c
+Date: Thu, 28 Aug 2003 00:09:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827235258.7229c8e1.davem@redhat.com>
-References: <3F4D2F2B.2090401@pobox.com>
+Message-ID: <20030828000940.189f8c98.davem@redhat.com>
+References: <Pine.LNX.4.44.0308271403140.7839-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: usagi-core@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F4D2F2B.2090401@pobox.com>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308271403140.7839-100000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 27 Aug 2003 18:22:35 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Wed, 27 Aug 2003 14:13:31 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> Hum.  Instead of adding all these _get_foo ops to test dev->features 
-> bits, would anyone mind if I created a single _get_features() ethtool 
-> sub-ioctl?
+> I cleaned up ip6ip6_tnl_xmit() a bit by using ip6_dst_lookup(). As an
+> added bonus IPsec processing of the tunneled packets should now be
+> possible. Please apply!
 
-I'm personally OK with this _iff_ you add values local
-to ethtool for the various feature bits.  Ie. don't
-export the NETIF_F_* values to userspace.
+This patch doesn't apply cleanly for some reason,
+there were some other changes to ip6_tunnel.c lately.
+
+Can you regenerate this against Andrew Mortons 2.6.0-test4--mm2 patch?
+Thanks.
