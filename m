@@ -1,45 +1,56 @@
-From: Rik van Riel <riel@redhat.com>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
- Topics
-Date: Sun, 27 Mar 2005 23:50:53 -0500 (EST)
-Message-ID: <Pine.LNX.4.61.0503272349470.30885@chimarrao.boston.redhat.com>
-References: <4241D106.8050302@cs.wisc.edu> <20050324101622S.fujita.tomonori@lab.ntt.co.jp>
- <1111628393.1548.307.camel@beastie> <20050324113312W.fujita.tomonori@lab.ntt.co.jp>
- <1111633846.1548.318.camel@beastie> <20050324215922.GT14202@opteron.random>
- <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random>
- <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random>
- <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop>
- <20050326224621.61f6d917.davem@davemloft.net>
- <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
- <20050327203458.02bd73ee.davem@davemloft.net>
+From: "Alex Aizman" <itn780@yahoo.com>
+Subject: RE: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: Sun, 27 Mar 2005 22:58:39 -0800
+Message-ID: <200503280659.j2S6x1TS016054@oss.sgi.com>
+References: <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: dmitry_yus@yahoo.com, mpm@selenic.com, andrea@suse.de,
-        michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050327203458.02bd73ee.davem@davemloft.net>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Dmitry Yusupov'" <dmitry_yus@yahoo.com>, <mpm@selenic.com>,
+        <andrea@suse.de>, <michaelc@cs.wisc.edu>,
+        <James.Bottomley@HansenPartnership.com>,
+        <ksummit-2005-discuss@thunk.org>, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <open-iscsi@googlegroups.com>, "'David S. Miller'" <davem@davemloft.net>
+In-Reply-To: <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 27 Mar 2005, David S. Miller wrote:
-> On Sun, 27 Mar 2005 22:54:11 -0500 (EST)
-> Rik van Riel <riel@redhat.com> wrote:
+Rik van Riel wrote:
+>
+> 1) have iSCSI, NFS, etc. open their sockets with a socket
+>    option that indicates this is a VM deadlock sensitive
+>    socket (SO_MEMALLOC?) - these sockets get two mempools,
+>    one for sending and one for receiving
+> 2) have a global emergency mempool available to receive network
+>    packets when GFP_ATOMIC fails - this is useful since we don't
+>    know who a packet is for when we get the NIC interrupt, and
+>    it's easy to have just one pool to check
+> 3) when a packet is received through this mempool, check
+>    whether the packet is for an SO_MEMALLOC socket
+>    ==> if not, discard the packet, free the memory
+> 4) if the packet is for an SO_MEMALLOC socket, and that
+>    socket has space left in its own receiving mempool,
+>    and the packet is not out of order, then transfer the
+>    data to the socket
+>    ==> at this point, the space in the global network
+>    receive mempool can be freed again
+> 5) if we cannot handle the packet, drop it
 > 
-> >    (SO_MEMALLOC?)
-> 
-> Interesting top-down scheme.
-> 
-> We could also make a way to adjust the GFP_ATOMIC reserve
-> thresholds too.  That seems a bit more generic.
 
-That might work, as long as we can guarantee that each
-SO_MEMALLOC socket has at least N amount of memory available
-just for itself, so none of these sockets get to deadlock.
+Let's say, there are only iSCSI and NFS sockets (no UDP, which is some
+relief :-), and each opened with SO_MEMALLOC. The sockets are allowed to
+oversubscribe (via tcp_rmem, tcp_wmem etc. defaults and socket options),
+which means: the total amount of mempools memory can get beyond physically
+available. It often does, actually. Which means: the 5) on the list above.
+Once we allow for the non-determinism of an occasional packet drop, there's
+a chance for the retransmission to not go through.
 
--- 
-"Debugging is twice as hard as writing the code in the first place.
-Therefore, if you write the code as cleverly as possible, you are,
-by definition, not smart enough to debug it." - Brian W. Kernighan
+Otherwise, it's a great incremental step. The stack (for starters, and
+ingoring for now resources of the NIC, iSCSI itself, etc.) needs to be aware
+that some connections are more important than others. Some are
+"resource-protected", others not. This is a useful piece of information.
+
+Alex
