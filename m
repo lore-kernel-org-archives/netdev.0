@@ -1,9 +1,9 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [patch 4/5 2.4] e1000 - Polarity reversal workaround for 10F/10H
- links
-Date: Fri, 17 Sep 2004 02:56:22 -0700 (PDT)
+Subject: [patch 5/5 2.4] e1000 - white space corrections, driver version
+ number update and others
+Date: Fri, 17 Sep 2004 02:56:38 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409170222310.15233-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0409170223590.15233-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: ganesh.venkatesan@intel.com, <netdev@oss.sgi.com>
@@ -15,166 +15,238 @@ List-Id: netdev.vger.kernel.org
 diff -up linux-2.4/drivers/net/e1000/e1000_hw.c linux-2.4/drivers/net/e1000.new/e1000_hw.c
 --- linux-2.4/drivers/net/e1000/e1000_hw.c	2004-09-16 08:09:07.000000000 -0700
 +++ linux-2.4/drivers/net/e1000.new/e1000_hw.c	2004-09-16 08:09:08.000000000 -0700
-@@ -65,6 +65,7 @@ static void e1000_release_eeprom(struct 
- static void e1000_standby_eeprom(struct e1000_hw *hw);
- static int32_t e1000_id_led_init(struct e1000_hw * hw);
- static int32_t e1000_set_vco_speed(struct e1000_hw *hw);
-+static int32_t e1000_polarity_reversal_workaround(struct e1000_hw *hw);
- static int32_t e1000_set_phy_mode(struct e1000_hw *hw);
+@@ -125,6 +125,7 @@ e1000_phy_init_script(struct e1000_hw *h
+ {
+     DEBUGFUNC("e1000_phy_init_script");
  
- /* IGP cable length table */
-@@ -1594,6 +1595,15 @@ e1000_phy_force_speed_duplex(struct e100
-         ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_SPEC_CTRL, phy_data);
-         if(ret_val)
-             return ret_val;
++    
+     if(hw->phy_init_script) {
+         msec_delay(20);
+ 
+@@ -1391,6 +1392,7 @@ e1000_phy_setup_autoneg(struct e1000_hw 
+     DEBUGOUT1("Auto-Neg Advertising %x\n", mii_autoneg_adv_reg);
+ 
+     ret_val = e1000_write_phy_reg(hw, PHY_1000T_CTRL, mii_1000t_ctrl_reg);
++    
+     if(ret_val)
+         return ret_val;
+ 
+@@ -2466,6 +2468,7 @@ e1000_read_phy_reg(struct e1000_hw *hw,
+ 
+     DEBUGFUNC("e1000_read_phy_reg");
+ 
 +
-+        if((hw->mac_type == e1000_82544 || hw->mac_type == e1000_82543) &&
-+           (!hw->autoneg) &&
-+           (hw->forced_speed_duplex == e1000_10_full ||
-+            hw->forced_speed_duplex == e1000_10_half)) {
-+            ret_val = e1000_polarity_reversal_workaround(hw);
-+            if(ret_val)
-+                return ret_val;
-+        }
-     }
+     if(hw->phy_type == e1000_phy_igp &&
+        (reg_addr > MAX_PHY_MULTI_PAGE_REG)) {
+         ret_val = e1000_write_phy_reg_ex(hw, IGP01E1000_PHY_PAGE_SELECT,
+@@ -2570,6 +2573,7 @@ e1000_write_phy_reg(struct e1000_hw *hw,
+ 
+     DEBUGFUNC("e1000_write_phy_reg");
+ 
++
+     if(hw->phy_type == e1000_phy_igp &&
+        (reg_addr > MAX_PHY_MULTI_PAGE_REG)) {
+         ret_val = e1000_write_phy_reg_ex(hw, IGP01E1000_PHY_PAGE_SELECT,
+@@ -3537,6 +3541,7 @@ e1000_read_eeprom(struct e1000_hw *hw,
      return E1000_SUCCESS;
  }
-@@ -1983,6 +1993,7 @@ e1000_check_for_link(struct e1000_hw *hw
-     uint32_t ctrl;
-     uint32_t status;
-     uint32_t rctl;
-+    uint32_t icr;
-     uint32_t signal = 0;
-     int32_t ret_val;
-     uint16_t phy_data;
-@@ -2032,6 +2043,25 @@ e1000_check_for_link(struct e1000_hw *hw
-              * link-up */
-             e1000_check_downshift(hw);
  
-+            /* If we are on 82544 or 82543 silicon and speed/duplex
-+             * are forced to 10H or 10F, then we will implement the polarity
-+             * reversal workaround.  We disable interrupts first, and upon
-+             * returning, place the devices interrupt state to its previous
-+             * value except for the link status change interrupt which will
-+             * happen due to the execution of this workaround.
-+             */
 +
-+            if((hw->mac_type == e1000_82544 || hw->mac_type == e1000_82543) &&
-+               (!hw->autoneg) &&
-+               (hw->forced_speed_duplex == e1000_10_full ||
-+                hw->forced_speed_duplex == e1000_10_half)) {
-+                E1000_WRITE_REG(hw, IMC, 0xffffffff);
-+                ret_val = e1000_polarity_reversal_workaround(hw);
-+                icr = E1000_READ_REG(hw, ICR);
-+                E1000_WRITE_REG(hw, ICS, (icr & ~E1000_ICS_LSC));
-+                E1000_WRITE_REG(hw, IMS, IMS_ENABLE_MASK);
-+            }
+ /******************************************************************************
+  * Verifies that the EEPROM has a valid checksum
+  *
+@@ -3623,6 +3628,7 @@ e1000_write_eeprom(struct e1000_hw *hw,
+ 
+     DEBUGFUNC("e1000_write_eeprom");
+ 
 +
-         } else {
-             /* No link detected */
-             e1000_config_dsp_after_link_change(hw, FALSE);
-@@ -5216,3 +5231,88 @@ e1000_enable_mng_pass_thru(struct e1000_
-     return FALSE;
+     /* A check for invalid values:  offset too large, too many words, and not
+      * enough words.
+      */
+diff -up linux-2.4/drivers/net/e1000/e1000_hw.h linux-2.4/drivers/net/e1000.new/e1000_hw.h
+--- linux-2.4/drivers/net/e1000/e1000_hw.h	2004-09-16 08:09:07.000000000 -0700
++++ linux-2.4/drivers/net/e1000.new/e1000_hw.h	2004-09-16 08:09:08.000000000 -0700
+@@ -36,6 +36,7 @@
+ #include "e1000_osdep.h"
+ 
+ 
++
+ /* Forward declarations of structures used by the shared code */
+ struct e1000_hw;
+ struct e1000_hw_stats;
+diff -up linux-2.4/drivers/net/e1000/e1000_main.c linux-2.4/drivers/net/e1000.new/e1000_main.c
+--- linux-2.4/drivers/net/e1000/e1000_main.c	2004-09-16 08:09:07.000000000 -0700
++++ linux-2.4/drivers/net/e1000.new/e1000_main.c	2004-09-16 08:09:08.000000000 -0700
+@@ -243,34 +243,6 @@ e1000_exit_module(void)
+ module_exit(e1000_exit_module);
+ 
+ 
+-/**
+- * e1000_irq_enable - Enable default interrupt generation settings
+- * @adapter: board private structure
+- **/
+-
+-static inline void
+-e1000_irq_enable(struct e1000_adapter *adapter)
+-{
+-	if(atomic_dec_and_test(&adapter->irq_sem)) {
+-		E1000_WRITE_REG(&adapter->hw, IMS, IMS_ENABLE_MASK);
+-		E1000_WRITE_FLUSH(&adapter->hw);
+-	}
+-}
+-
+-/**
+- * e1000_irq_disable - Mask off interrupt generation on the NIC
+- * @adapter: board private structure
+- **/
+-
+-static inline void
+-e1000_irq_disable(struct e1000_adapter *adapter)
+-{
+-	atomic_inc(&adapter->irq_sem);
+-	E1000_WRITE_REG(&adapter->hw, IMC, ~0);
+-	E1000_WRITE_FLUSH(&adapter->hw);
+-	synchronize_irq();
+-}
+-
+ int
+ e1000_up(struct e1000_adapter *adapter)
+ {
+@@ -2087,6 +2059,34 @@ e1000_update_stats(struct e1000_adapter 
  }
  
-+static int32_t
-+e1000_polarity_reversal_workaround(struct e1000_hw *hw)
+ /**
++ * e1000_irq_disable - Mask off interrupt generation on the NIC
++ * @adapter: board private structure
++ **/
++
++static inline void
++e1000_irq_disable(struct e1000_adapter *adapter)
 +{
-+    int32_t ret_val;
-+    uint16_t mii_status_reg;
-+    uint16_t i;
-+
-+    /* Polarity reversal workaround for forced 10F/10H links. */
-+
-+    /* Disable the transmitter on the PHY */
-+
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0019);
-+    if(ret_val)
-+        return ret_val;
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFFFF);
-+    if(ret_val)
-+        return ret_val;
-+
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0000);
-+    if(ret_val)
-+        return ret_val;
-+
-+    /* This loop will early-out if the NO link condition has been met. */
-+    for(i = PHY_FORCE_TIME; i > 0; i--) {
-+        /* Read the MII Status Register and wait for Link Status bit
-+         * to be clear.
-+         */
-+
-+        ret_val = e1000_read_phy_reg(hw, PHY_STATUS, &mii_status_reg);
-+        if(ret_val)
-+            return ret_val;
-+
-+        ret_val = e1000_read_phy_reg(hw, PHY_STATUS, &mii_status_reg);
-+        if(ret_val)
-+            return ret_val;
-+
-+        if((mii_status_reg & ~MII_SR_LINK_STATUS) == 0) break;
-+        msec_delay_irq(100);
-+    }
-+
-+    /* Recommended delay time after link has been lost */
-+    msec_delay_irq(1000);
-+
-+    /* Now we will re-enable th transmitter on the PHY */
-+
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0019);
-+    if(ret_val)
-+        return ret_val;
-+    msec_delay_irq(50);
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFFF0);
-+    if(ret_val)
-+        return ret_val;
-+    msec_delay_irq(50);
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0xFF00);
-+    if(ret_val)
-+        return ret_val;
-+    msec_delay_irq(50);
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_GEN_CONTROL, 0x0000);
-+    if(ret_val)
-+        return ret_val;
-+
-+    ret_val = e1000_write_phy_reg(hw, M88E1000_PHY_PAGE_SELECT, 0x0000);
-+    if(ret_val)
-+        return ret_val;
-+
-+    /* This loop will early-out if the link condition has been met. */
-+    for(i = PHY_FORCE_TIME; i > 0; i--) {
-+        /* Read the MII Status Register and wait for Link Status bit
-+         * to be set.
-+         */
-+
-+        ret_val = e1000_read_phy_reg(hw, PHY_STATUS, &mii_status_reg);
-+        if(ret_val)
-+            return ret_val;
-+
-+        ret_val = e1000_read_phy_reg(hw, PHY_STATUS, &mii_status_reg);
-+        if(ret_val)
-+            return ret_val;
-+
-+        if(mii_status_reg & MII_SR_LINK_STATUS) break;
-+        msec_delay_irq(100);
-+    }
-+    return E1000_SUCCESS;
++	atomic_inc(&adapter->irq_sem);
++	E1000_WRITE_REG(&adapter->hw, IMC, ~0);
++	E1000_WRITE_FLUSH(&adapter->hw);
++	synchronize_irq();
 +}
 +
-diff -up linux-2.4/drivers/net/e1000/e1000_osdep.h linux-2.4/drivers/net/e1000.new/e1000_osdep.h
---- linux-2.4/drivers/net/e1000/e1000_osdep.h	2004-09-16 08:09:07.000000000 -0700
-+++ linux-2.4/drivers/net/e1000.new/e1000_osdep.h	2004-09-16 08:09:08.000000000 -0700
-@@ -49,6 +49,12 @@
- 				set_current_state(TASK_UNINTERRUPTIBLE); \
- 				schedule_timeout((x * HZ)/1000 + 2); \
- 			} } while(0)
-+/* Some workarounds require millisecond delays and are run during interrupt
-+ * context.  Most notably, when establishing link, the phy may need tweaking
-+ * but cannot process phy register reads/writes faster than millisecond
-+ * intervals...and we establish link due to a "link status change" interrupt.
-+ */
-+#define msec_delay_irq(x) mdelay(x)
- #endif
++/**
++ * e1000_irq_enable - Enable default interrupt generation settings
++ * @adapter: board private structure
++ **/
++
++static inline void
++e1000_irq_enable(struct e1000_adapter *adapter)
++{
++	if(likely(atomic_dec_and_test(&adapter->irq_sem))) {
++		E1000_WRITE_REG(&adapter->hw, IMS, IMS_ENABLE_MASK);
++		E1000_WRITE_FLUSH(&adapter->hw);
++	}
++}
++
++/**
+  * e1000_intr - Interrupt Handler
+  * @irq: interrupt number
+  * @data: pointer to a network interface device structure
+@@ -2230,42 +2230,7 @@ e1000_clean_tx_irq(struct e1000_adapter 
+ }
  
- #define PCI_COMMAND_REGISTER   PCI_COMMAND
+ /**
+- * e1000_rx_checksum - Receive Checksum Offload for 82543
+- * @adapter: board private structure
+- * @rx_desc: receive descriptor
+- * @sk_buff: socket buffer with received data
+- **/
+-
+-static inline void
+-e1000_rx_checksum(struct e1000_adapter *adapter,
+-                  struct e1000_rx_desc *rx_desc,
+-                  struct sk_buff *skb)
+-{
+-	/* 82543 or newer only */
+-	if((adapter->hw.mac_type < e1000_82543) ||
+-	/* Ignore Checksum bit is set */
+-	(rx_desc->status & E1000_RXD_STAT_IXSM) ||
+-	/* TCP Checksum has not been calculated */
+-	(!(rx_desc->status & E1000_RXD_STAT_TCPCS))) {
+-		skb->ip_summed = CHECKSUM_NONE;
+-		return;
+-	}
+-
+-	/* At this point we know the hardware did the TCP checksum */
+-	/* now look at the TCP checksum error bit */
+-	if(rx_desc->errors & E1000_RXD_ERR_TCPE) {
+-		/* let the stack verify checksum errors */
+-		skb->ip_summed = CHECKSUM_NONE;
+-		adapter->hw_csum_err++;
+-	} else {
+-	/* TCP checksum is good */
+-		skb->ip_summed = CHECKSUM_UNNECESSARY;
+-		adapter->hw_csum_good++;
+-	}
+-}
+-
+-/**
+- * e1000_clean_rx_irq - Send received data up the network stack,
++ * e1000_clean_rx_irq - Send received data up the network stack
+  * @adapter: board private structure
+  **/
+ 
+@@ -2610,6 +2622,41 @@ e1000_mii_ioctl(struct net_device *netde
+ 	return E1000_SUCCESS;
+ }
+ 
++/**
++ * e1000_rx_checksum - Receive Checksum Offload for 82543
++ * @adapter: board private structure
++ * @rx_desc: receive descriptor
++ * @sk_buff: socket buffer with received data
++ **/
++
++static inline void
++e1000_rx_checksum(struct e1000_adapter *adapter,
++                  struct e1000_rx_desc *rx_desc,
++                  struct sk_buff *skb)
++{
++	/* 82543 or newer only */
++	if(unlikely((adapter->hw.mac_type < e1000_82543) ||
++	/* Ignore Checksum bit is set */
++	(rx_desc->status & E1000_RXD_STAT_IXSM) ||
++	/* TCP Checksum has not been calculated */
++	(!(rx_desc->status & E1000_RXD_STAT_TCPCS)))) {
++		skb->ip_summed = CHECKSUM_NONE;
++		return;
++	}
++
++	/* At this point we know the hardware did the TCP checksum */
++	/* now look at the TCP checksum error bit */
++	if(rx_desc->errors & E1000_RXD_ERR_TCPE) {
++		/* let the stack verify checksum errors */
++		skb->ip_summed = CHECKSUM_NONE;
++		adapter->hw_csum_err++;
++	} else {
++		/* TCP checksum is good */
++		skb->ip_summed = CHECKSUM_UNNECESSARY;
++		adapter->hw_csum_good++;
++	}
++}
++
+ void
+ e1000_pci_set_mwi(struct e1000_hw *hw)
+ {
+@@ -2905,12 +2905,12 @@ e1000_resume(struct pci_dev *pdev)
+  * without having to re-enable interrupts. It's not called while
+  * the interrupt routine is executing.
+  */
+-
+-static void e1000_netpoll (struct net_device *dev)
++static void
++e1000_netpoll (struct net_device *netdev)
+ {
+-	struct e1000_adapter *adapter = dev->priv;
++	struct e1000_adapter *adapter = netdev->priv;
+ 	disable_irq(adapter->pdev->irq);
+-	e1000_intr (adapter->pdev->irq, dev, NULL);
++	e1000_intr(adapter->pdev->irq, netdev, NULL);
+ 	enable_irq(adapter->pdev->irq);
+ }
+ #endif
