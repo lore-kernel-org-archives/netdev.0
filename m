@@ -1,32 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
-Date: Mon, 17 Jan 2005 13:42:28 -0800
-Message-ID: <20050117134228.5a6002a0.davem@davemloft.net>
-References: <20050116115431.GA13617@lst.de>
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 17 Jan 2005 23:04:48 +0100
+Message-ID: <41EC3680.7060108@tpack.net>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1105363092.1041.146.camel@jzny.localdomain> <1105917038.1091.1041.camel@jzny.localdomain> <200501171404.19451.hasso@estpak.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: pavlic@de.ibm.com, waldi@debian.org, netdev@oss.sgi.com
+Cc: hadi@cyberus.ca, Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20050116115431.GA13617@lst.de>
+To: Hasso Tepper <hasso@estpak.ee>
+In-Reply-To: <200501171404.19451.hasso@estpak.ee>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 16 Jan 2005 12:54:31 +0100
-Christoph Hellwig <hch@lst.de> wrote:
+Hasso Tepper wrote:
+> All this work is done to avoid sending stale packets to the network? Ie. 
+> there will be no change regarding socket blocking issue? Detecting carrier 
+> on/off and/or socket per interface is must be for us in user space to avoid 
+> socket blocking? I'm just trying to have full picture so I can put my 
+> priorities in place for next release.
 
-> Let's try again solvign the EUI64 generation for S/390.  I looked over
-> the IBM patch and I think it can be done a lot simpler:
-> 
->  - put a dev_id field in struct net_device, so that it uses space that
->    would be wasted by padding otherwise.
->  - if this fields is non-null let ipv6_generate_eui64 use the algorithm
->    from the QETH code to generate an EUI that's different for each
->    OS instance.  See code comments for details.
+A proper solution would take care of both these issues: "stale packets"
+and "socket blocking". They are pretty much related.
 
-I'll apply this patch.
+Using a socket for each interface *ought* not be needed.
+Carrier detection sounds like a good thing in its own right.
 
-It might be nice to genericize that huge comment.  This will likely
-be not the last time we see devices which have this characteristic.
+Hope this helps,
+Tommy
