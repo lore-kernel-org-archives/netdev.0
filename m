@@ -1,53 +1,40 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: Re: LLTX and netif_stop_queue
-Date: Sat, 18 Dec 2004 10:26:40 -0800
-Message-ID: <52oegrmpi7.fsf@topspin.com>
-References: <52llbwoaej.fsf@topspin.com>
-	<20041217214432.07b7b21e.davem@davemloft.net>
-	<528y7vobze.fsf@topspin.com> <52sm63mqtk.fsf@topspin.com>
+From: Sami Farin <7atbggg02@sneakemail.com>
+Subject: Re: ss shows invalid ipv6 addresses
+Date: Sat, 18 Dec 2004 20:30:45 +0200
+Message-ID: <20041218183045.GB11231@m.safari.iki.fi>
+References: <20041111230054.GD9589@m.safari.iki.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <52sm63mqtk.fsf@topspin.com> (Roland Dreier's message of "Sat,
-	18 Dec 2004 09:58:15 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Linux Networking Mailing List <netdev@oss.sgi.com>
+Content-Disposition: inline
+In-Reply-To: <20041111230054.GD9589@m.safari.iki.fi>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    Roland> So it seems LLTX can be replaced by just having drivers
-    Roland> use net_device.xmit_lock instead of their own private
-    Roland> tx_lock.  Assuming this works (and I don't see anything
-    Roland> wrong with it) then this seems like a pretty nice
-    Roland> solution: we remove some code from the networking core and
-    Roland> get rid of all the "trylock" logic in driver's
-    Roland> hard_start_xmit.
+On Fri, Nov 12, 2004 at 01:00:54AM +0200, Sami Farin wrote:
+> thttpd does this:
+> 00:43:51.115227 bind(4, {sa_family=AF_INET6, sin6_port=htons(80), inet_pton(AF_INET6, "::", &sin6_addr), sin6_flowinfo=0, sin6_scope_id=0}, 28) = 0 <0.000119>
+> 
+> which results into...
+> 
+> # ss -l|head -n 2 ; svc -t /service/thttpd ; sleep 2 ; ss -l|head -n 2
+> Recv-Q Send-Q           Local Address:Port               Peer Address:Port   
+> 0      0      ::fa38:ebe3:fe5f:fb3a:ffa6:b35e:http    ::e541:73fb:7f26:747d:b382:4122:*       
+> Recv-Q Send-Q           Local Address:Port               Peer Address:Port   
+> 0      0      ::81:7111:de4f:c527:81:701d:http    ::81:46b5:9313:b133:81:c2cd:*     
+> 
+> there are some comments about ``Cursed "v4 mapped" addresses''
+> in ss.c already ;) but is it possible fix this thing so that ss
+> can show some sane addresses for v4 mapped addresses?
 
-Actually trying it instead of talking out of my ass...
+Nothing to do with v4 mappeds, it seems.
+net/ipv4/tcp_diag.c just doesn't do ipv6_addr_copy() if ipv6
+support is as a module.
 
-Just doing this naively without changing the net core can deadlock
-because the net core acquires dev->xmit_lock without disabling
-interrupts.  So if the driver tries to use xmit_lock in its interrupt
-handler, it will deadlock if the interrupt occurred during
-hard_start_xmit.  Even doing local_irq_save() in hard_start_xmit isn't
-good enough, because there's still a window between the net core's
-call to hard_start_xmit and the actual local_irq_save where xmit_lock
-is held with interrupts on.
+When I compile ipv6 support directly into kernel, ss works.
 
-Maybe it makes sense to change NETIF_F_LLTX to NETIF_F_TX_IRQ_DIS or
-something like that and have that flag mean "disable interrupts when
-calling hard_start_xmit."  (We could just do this unconditionally but
-I'm not sure if any drivers rely on having interrupts enabled during
-hard_start_xmit and I'm worried about making a change in semantics
-like that -- not to mention some drivers may not need interrupts
-disabled and may not want the cost).
+ESTAB       0      0              2002:50df:69d0::1:50011     2001:4118:10:4000::2205:silc    
 
- - Roland
+-- 
