@@ -1,109 +1,44 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] consolidate skb delivery
-Date: Thu, 2 Oct 2003 10:21:33 -0700
+From: Steve Modica <modica@sgi.com>
+Subject: mod_timer improvement
+Date: Thu, 02 Oct 2003 13:20:23 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031002102133.7285b5ee.shemminger@osdl.org>
+Message-ID: <3F7C6C67.4010300@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Several places all have the same code for delivering skb's to protocols.
-Consolidate into one inline function and give preference to new protocols.
+Sorry about the screwed up formatting!  I'm kinda new at this :)
 
-diff -Nru a/net/core/dev.c b/net/core/dev.c
---- a/net/core/dev.c	Thu Oct  2 10:01:13 2003
-+++ b/net/core/dev.c	Thu Oct  2 10:01:13 2003
-@@ -1489,6 +1489,18 @@
- 	}
- }
- 
-+static __inline__ int deliver_skb(struct sk_buff *skb,
-+				  struct packet_type *pt_prev, int last)
-+{
-+	if (unlikely(!pt_prev->data))
-+		return deliver_to_old_ones(pt_prev, skb, last);
-+	else {
-+		atomic_inc(&skb->users);
-+		return pt_prev->func(skb, skb->dev, pt_prev);
-+	}
-+}
+
+
+*** linux/linux/kernel/timer.c       2003/08/11 20:16:19     1.23
+--- linux/linux/kernel/timer.c       2003/10/01 21:09:20     1.24
+*************** int mod_timer(struct timer_list *timer,
+*** 207,212 ****
+--- 207,220 ----
+         int ret;
+         unsigned long flags;
+
++         /*
++        * This is a common optimization triggered by the
++        * networking code - if the timer is re-modified
++        * to be the same thing then just return:
++        */
++         if (timer->expires == expires && timer_pending(timer))
++                return 1;
 +
-+
- #if defined(CONFIG_BRIDGE) || defined (CONFIG_BRIDGE_MODULE)
- int (*br_handle_frame_hook)(struct sk_buff *skb);
- 
-@@ -1496,15 +1508,8 @@
- 				     struct packet_type *pt_prev)
- {
- 	int ret = NET_RX_DROP;
--
--	if (pt_prev) {
--		if (!pt_prev->data)
--			ret = deliver_to_old_ones(pt_prev, skb, 0);
--		else {
--			atomic_inc(&skb->users);
--			ret = pt_prev->func(skb, skb->dev, pt_prev);
--		}
--	}
-+	if (pt_prev)
-+		ret = deliver_skb(skb, pt_prev, 0);
- 
- 	return ret;
- }
-@@ -1552,16 +1557,8 @@
- 	rcu_read_lock();
- 	list_for_each_entry_rcu(ptype, &ptype_all, list) {
- 		if (!ptype->dev || ptype->dev == skb->dev) {
--			if (pt_prev) {
--				if (!pt_prev->data) {
--					ret = deliver_to_old_ones(pt_prev,
--								  skb, 0);
--				} else {
--					atomic_inc(&skb->users);
--					ret = pt_prev->func(skb, skb->dev,
--							    pt_prev);
--				}
--			}
-+			if (pt_prev) 
-+				ret = deliver_skb(skb, pt_prev, 0);
- 			pt_prev = ptype;
- 		}
- 	}
-@@ -1574,27 +1571,15 @@
- 	list_for_each_entry_rcu(ptype, &ptype_base[ntohs(type)&15], list) {
- 		if (ptype->type == type &&
- 		    (!ptype->dev || ptype->dev == skb->dev)) {
--			if (pt_prev) {
--				if (!pt_prev->data) {
--					ret = deliver_to_old_ones(pt_prev,
--								  skb, 0);
--				} else {
--					atomic_inc(&skb->users);
--					ret = pt_prev->func(skb, skb->dev,
--							    pt_prev);
--				}
--			}
-+			if (pt_prev) 
-+				ret = deliver_skb(skb, pt_prev, 0);
- 			pt_prev = ptype;
- 		}
- 	}
- 
--	if (pt_prev) {
--		if (!pt_prev->data) {
--			ret = deliver_to_old_ones(pt_prev, skb, 1);
--		} else {
--			ret = pt_prev->func(skb, skb->dev, pt_prev);
--		}
--	} else {
-+	if (pt_prev)
-+		ret = deliver_skb(skb, pt_prev, 1);
-+	else {
- 		kfree_skb(skb);
- 		/* Jamal, now you will not able to escape explaining
- 		 * me how you were going to use this. :-)
+         spin_lock_irqsave(&timerlist_lock, flags);
+         timer->expires = expires;
+         ret = detach_timer(timer);
+
+-- 
+Steve Modica
+work: 651-683-3224
+mobile: 651-261-3201
+MTS-Technical Lead
+"Give a man a fish, and he will eat for a day, hit him with a fish and
+he leaves you alone" - me
