@@ -1,39 +1,60 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH] (1/5) get rid of useless hashbin in irtty
-Date: Sat, 16 Aug 2003 17:14:05 -0700
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: [PATCH] small loopback.c cleanups
+Date: Sat, 16 Aug 2003 17:57:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817001405.GA1916@bougret.hpl.hp.com>
-References: <20030815154608.56cf0551.shemminger@osdl.org> <20030815230546.GA31831@bougret.hpl.hp.com> <20030816052048.5858d68a.davem@redhat.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <20030817005706.GE80721@gaz.sfgoth.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
-   lists@mdiehl.de
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20030816052048.5858d68a.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 16, 2003 at 05:20:48AM -0700, David S. Miller wrote:
-> On Fri, 15 Aug 2003 16:05:46 -0700
-> Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
-> 
-> > On Fri, Aug 15, 2003 at 03:46:08PM -0700, Stephen Hemminger wrote:
-> > >
-> > > Working on converting IRDA to new netdevice semantics,
-> > 
-> > 	I hope you realised that this is most likely 2.7.X
-> > material.
-> 
-> Without moving to the new netdevice semantics, you're
-> drivers will be broken.
-> 
-> This isn't a happy cleanup change, it is necessary.
+Few trivial cleanups/improvements to drivers/net/loopback.c  Seems to work
+fine for me, although I don't know how to stress all of the code paths.
 
-	Curently driver do work properly (including SMP). Does it mean
-that you plan to have big changes before 2.6.0 is released ?
-	Regards,
+Patch is versus 2.6.0-test3 (should apply to current BK fine)
 
-	Jean
+-Mitch
+
+--- linux-2.6.0-test3-VIRGIN/drivers/net/loopback.c	2003-07-13 20:30:48.000000000 -0700
++++ linux-2.6.0-test3mnb1/drivers/net/loopback.c	2003-08-16 08:37:29.000000000 -0700
+@@ -128,17 +128,13 @@
+ 	 *	instead are lobbed from tx queue to rx queue 
+ 	 */
+ 
+-	if(atomic_read(&skb->users) != 1)
+-	{
++	if (skb_shared(skb)) {
+ 	  	struct sk_buff *skb2=skb;
+ 	  	skb=skb_clone(skb, GFP_ATOMIC);		/* Clone the buffer */
+-	  	if(skb==NULL) {
+-			kfree_skb(skb2);
++		kfree_skb(skb2);
++	  	if (unlikely(skb==NULL))
+ 			return 0;
+-		}
+-	  	kfree_skb(skb2);
+-	}
+-	else
++	} else
+ 		skb_orphan(skb);
+ 
+ 	skb->protocol=eth_type_trans(skb,dev);
+@@ -148,12 +144,8 @@
+ #endif
+ 
+ 	if (skb_shinfo(skb)->tso_size) {
+-		struct iphdr *iph = skb->nh.iph;
+-
+-		if (skb->protocol != htons(ETH_P_IP))
+-			BUG();
+-		if (iph->protocol != IPPROTO_TCP)
+-			BUG();
++		BUG_ON(skb->protocol != htons(ETH_P_IP));
++		BUG_ON(skb->nh.iph->protocol != IPPROTO_TCP);
+ 
+ 		emulate_large_send_offload(skb);
+ 		return 0;
