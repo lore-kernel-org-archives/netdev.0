@@ -1,46 +1,27 @@
-From: =?iso-2022-jp?B?ZG1haWwyMjIyanA=?=<dmail2222jp@yahoo.co.jp>
-Subject: =?iso-2022-jp?B?GyRCTCQ+NUJ6OS05cCIoRUU7UiVhITwlazktOXAbKEo=?=
-Date: Tue, 19 Nov 2002 20:46:18 +0900
+From: "Seong Moon" <seong@etri.re.kr>
+Subject: dev->hard_header ?
+Date: Wed, 20 Nov 2002 11:46:20 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200211191148.UAA29543@yoohoo>
-Reply-To: dmail2222jp@yahoo.co.jp
+Message-ID: <005201c2903f$37e88580$21abfe81@seong>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: base64
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?iso-2022-jp?B?MDE5?=@yoohoo.sgi.com
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-PJGXkE2O0j4NCpNkjnGDgYFbg4uNTI2QjtANCg0KjaGM44FBjUyNkILwgrKK85ZdgrWCyIKi
-lfuCzYKxgrGC1g0KKJVLgriWe5W2gsmCoILIgr2CzIOBgVuDi4NBg2iDjINYgsyC3YLwgqiP
-kYKribqCs4KigWoNCmZtYWlsMzMzM2pwQHlhaG9vLmNvLmpwDQqDgYFbg4uDQYNog4yDWILw
-grKLTJP8grWCxIKtgr6Cs4KigUINCg0KgacxMDQtMDA2MQ0Kk4yLnpNzkoaJm4vmi+KNwDgt
-MTktMw0KkeYyg0WDQ4OTg0+DcoOLgUAzRg0Kg4GBW4OLg32DS4NXg5OUrY1zDQoNClRFTIFA
-MDMtMzU0NC02MjIyDQpGQViBQDAzLTM1NDQtNjIxOA0KDQo9PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCpbikeiPpJVp
-gs6CqYLoj1eC34LcgrWCvYLMgsWBQY/BgrOC6oLpi7CC6oKqgqCC6ILcgreCzILFDQqCqJBc
-jZ6C3YLNgqiRgYLfgsmBSQ0KPT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09PT09
-PT09PT09PT09PT09PT09PT09PT09PT09PT09PT0NCg0KgZmBXIFcgVyBmYFcgVyBXIGZgVyB
-XIFcgZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZDQoNCgmXoINy
-g2aDSZTMlISBRZPBjuqDX4Nig2CDj4NDg3SBRYJygmyDToOJg3UgDQqBQIFAIIJggnWSapdE
-leWPV4FFiYePlYzwjduBRYJygmSCd4N0g4yDk4NogUWDQYNfg4uDZ4NPg2KDWYLIgscNCgkg
-ICAgIIGagUCDQYNfg4uDZ4rWmEGCzI/ulfGWno3agUCBmg0KCQkNCgmBgYGBgYGBgYGBgYGB
-gYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgQ0KCYFAgUCCqJBcjZ6C3YFFgrKSjZW2gUWPpJVp
-j9qN15OZgs2BQA0KgUCBQIFAgUCBQIm6i0yCdIJxgmuC8INOg4qDYoNOgrWCxIKyl5eJuoKz
-gqKBQg0KCYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBDQoJCYGrgUCB
-QIFAgUCBq4FAgUCBQIFAgauBQA0KCYFAgUCBQGh0dHA6Ly93d3cuc3Mta291a29rdS5jb20v
-DQoNCoGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZ
-gVyBXIFcgZmBXIFcgVyBmQ0KDQqBQIFAgUCBQIFAgUCBQIFAikqJXoNPg2KDWYFFi8mU6Y/u
-lfGOjw0KgUCBQIFAgUCWaJTGg0+DYoNZgUWL4JbXgq+P7pXxgUWDX4NDg0eDYoNnkEiVaYLI
-gseBQA0KgUCBQIFAgUCBQIFAgUCBQIGagUCCu4LMkbyP7pXxlp6N2oFAgZoNCg0KCYGBgYGB
-gYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBDQoJgUCBQIKokFyNnoLdgUWCspKN
-lbaBRY+klWmP2o3Xk5mCzYFADQqBQIFAgUCBQIFAibqLTIJ0gnGCa4Lwg06DioNig06CtYLE
-grKXl4m6grOCooFCDQoJgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYGBgYEN
-CgkJgauBQIFAgUCBQIGrgUCBQIFAgUCBq4FADQoJCWh0dHA6Ly9uZXR1cmwubnUva291a29r
-dS8NCgkJgauBQIFAgUCBQIGrgUCBQIFAgUCBq4FADQoJCWh0dHA6Ly91cmx0by5uZXQva291
-a29rdS8NCgkJgauBQIFAgUCBQIGrgUCBQIFAgUCBq4FADQoJCWh0dHA6Ly9ib29rLWkubmV0
-L2tvdWtva3UvDQoJCYGrgUCBQIFAgUCBq4FAgUCBQIFAgauBQA0KCQlodHRwOi8va291a29r
-dS4xOXpvLm5ldA0KCQmBq4FAgUCBQIFAgauBQIFAgUCBQIGrDQoJCWh0dHA6Ly9iZWFtLnRv
-L2tvdWtva3UNCg0KgZmBXIFcgVyBmYFcgVyBXIGZgVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZ
-gVyBXIFcgZmBXIFcgVyBmYFcgVyBXIGZDQoNCg0KDQo=
+In Layer 3 Protocols(eg. IP, IPv6, ...),
+they calls dev_queue_xmit() to send their data.
+
+Before calling dev_queue_xmit(),
+does the layer 3 protocols always call dev->hard_header ?
+
+Actually, I'm not sure when dev->hard_header is called.
+
+I think dev->hard_start_xmit can include the part of dev->hard_header.
+Why did the developer seperate the header building and sending frame
+fucntion ?
+
+thanks in advance.
