@@ -1,46 +1,70 @@
-From: syrius.ml@no-log.org
-Subject: Re: IMQ / new Dummy device post.
-Date: Wed, 21 Apr 2004 03:43:13 +0200
+From: Hariprasad Nellitheertha <hari@in.ibm.com>
+Subject: Re: Problem with Netpoll based netdumping and NAPI
+Date: Wed, 21 Apr 2004 11:30:21 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <wazza.87fzayw1fy.fsf@message.id>
-References: <wazza.87ad18jbdl.fsf@message.id>
-	<1082427350.1034.70.camel@jzny.localdomain>
+Message-ID: <20040421060021.GB3716@in.ibm.com>
+References: <20040419125148.GA4495@in.ibm.com> <20040419174254.GQ1175@waste.org>
+Reply-To: hari@in.ibm.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, mingo@elte.hu,
+        suparna@in.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1082427350.1034.70.camel@jzny.localdomain> (hadi@cyberus.ca's
- message of "19 Apr 2004 22:15:50 -0400")
+To: Matt Mackall <mpm@selenic.com>
+Content-Disposition: inline
+In-Reply-To: <20040419174254.GQ1175@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> writes:
+Hi Matt,
 
-[...]
->> $TC qdisc add dev ppp0 root handle 1: prio
->> $TC filter add dev ppp0 parent 1:0 protocol ip prio 10 u32 \
->>     match u32 0 0 flowid 1:1 action mirred egress redirect dev dummy0
-> Note: this will do for ipv4; if you want ipv6 add a new rule,
-> in addition to above if you want ipv4, with "protocol ip" replaced by
-> "protocol ipv6"
+On Mon, Apr 19, 2004 at 12:42:54PM -0500, Matt Mackall wrote:
+> [changed cc: from linux-net to netdev]
+> 
+> On Mon, Apr 19, 2004 at 06:21:48PM +0530, Hariprasad Nellitheertha wrote:
+> > Hi All,
+> > 
+> > I am facing a problem while trying to network dump using LKCD. My 
+> > debugging so far indicates that this is due to both NAPI and NETPOLL 
+> > being enabled.
+> > 
+> > I am using LKCD on the 2.6.5 kernel and both the client and server are 
+> > i386 boxes. The dumping machine has an e100 card. I have built the kernel
+> > with both CONFIG_E100_NAPI and CONFIG_NET_POLL_CONTROLLER (and the other
+> > netpoll related options) selected.
+> > 
+> > LKCD uses netpoll for its network dump implementation. The problem we see
+> > is that the network dump driver does not receive any packet from the 
+> > card driver and hence dumping fails. In e100_intr(), we call 
+> > netif_rx_schedule() if we are using the NAPI feature. netif_rx_schedule, 
+> > in turn, ends up adding the processing of this packet to the NET_RX_SOFTIRQ 
+> > softirq.
+> 
+> Netpoll should be manually calling the NAPI poll function like this 
+> after calling the interrupt handler (in netpoll_poll()):
+> 
+>       /* If scheduling is stopped, tickle NAPI bits */
+>          if(trapped && np->dev->poll &&
+>             test_bit(__LINK_STATE_RX_SCHED, &np->dev->state))
+>                  np->dev->poll(np->dev, &budget);
+> 
+> Please ensure that LKCD is calling netpoll_set_trap(1) which tells it
+> that packet scheduling is stopped.
 
->> $TC qdisc add dev tun0 root handle 1: prio
->> $TC filter add dev tun0 parent 1:0 protocol ip prio 10 u32 \
->>     match u32 0 0 flowid 1:1 action mirred egress redirect dev dummy0
->> $TC qdisc add dev sit1 root handle 1: prio
->> $TC filter add dev sit1 parent 1:0 protocol ipv6 prio 10 u32 \
->>     match u32 0 0 flowid 1:1 action mirred egress redirect dev dummy0
-> not sure if you need the above but i dont know your setup sufficiently
-> to be 100%
+This was indeed the problem. We were not calling netpoll_set_trap in LKCD.
+Adding this fixed the problem. Thanks so much for your help with this.
 
-using 'protocol ipv6' on ppp0 rather than sit1 did the trick.
-It's even simplier ! I don't have to create filters for each ipv6 tunnel.
+Regards, Hari
 
-Considering the ipv4 over udp tun0 tunnel, i guess i should prevent
-those udp packets to be matched by the filter on ppp0.
-I'll optimize it later.
+> 
+> I've tested this path primarily with tg3 and kgdb-over-ethernet, but
+> it should be functionally quite similar to e100 and lkcd.
+> 
+> -- 
+> Matt Mackall : http://www.selenic.com : Linux development and consulting
 
-Cheers
-                                                        
 -- 
+Hariprasad Nellitheertha
+Linux Technology Center
+India Software Labs
+IBM India, Bangalore
