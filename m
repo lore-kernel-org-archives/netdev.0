@@ -1,24 +1,56 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [IPVS] run master/backup sync daemon at a time
-Date: Mon, 10 Jan 2005 12:43:07 -0800
-Message-ID: <20050110124307.0a55d3f7.davem@davemloft.net>
-References: <Pine.LNX.4.61.0501040034520.2538@penguin.linux-vs.org>
+From: Adam Anthony <AAnthony@sbs.com>
+Subject: RE: [PATCH] /driver/net/wan/sbs520
+Date: Mon, 10 Jan 2005 13:49:55 -0700
+Message-ID: <4F23E557A0317D45864097982DE907941A33AD@pilotmail.sbscorp.sbs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
+Cc: Matthias-Christian Ott <matthias.christian@tiscali.de>,
+        Alexey Dobriyan <adobriyan@mail.ru>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <Pine.LNX.4.61.0501040034520.2538@penguin.linux-vs.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 4 Jan 2005 00:40:25 +0800 (CST)
-Wensong Zhang <wensong@linux-vs.org> wrote:
+	The SBS Communications group structured their software this way
+(w/useless wrappers) to make files portable from one operating system to
+another.  Now that this package will be taking a life of its own, the change
+you propose makes perfect sense.
+Thanks,
+Adam
 
-> Here is the back port patch from kernel 2.6, which is to run master/backup 
-> sync daemon at a time with SyncID support. Please check and apply it to 
-> kernel 2.4.
+-----Original Message-----
+From: Francois Romieu [mailto:romieu@fr.zoreil.com] 
+Sent: Monday, January 10, 2005 3:30 PM
+To: Adam Anthony
+Cc: Matthias-Christian Ott; Alexey Dobriyan; netdev@oss.sgi.com;
+linux-kernel@vger.kernel.org
+Subject: Re: [PATCH] /driver/net/wan/sbs520
 
-Applied, thanks Wensong.
+o OsMapPhysToVirt
+  -> should be ioremap/pci_iomap()
+
+o OsUnMapVirt
+  -> iounmap, etc.
+
+o OsAllocateNonPagedMemory/OsMemcpy/OsStall/OsSleep/OsZeroMem
+  -> useless wrappers.
+
+o OsAllocateDeviceMemory
+  Yuck, virt_to_bus !
+  Please read:
+  - linux-2.6.x/Documentation/DMA-mapping.txt
+  - linux-2.6.x/Documentation/DMA-API.txt
+  drivers/net/*.c provides a lot of good examples for recent PCI
+  devices.
+
+o OsReadPciConfiguration
+  Please see pci_resource_{start/len} and friends.
+
+At this point, lnxosl.c will be removable and nobody will regret it.
+
+--
+Ueimor
+
+For limitations on the use and distribution of this message, please visit www.sbs.com/emaildisclaimer.
