@@ -1,24 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [update] 2.6.4-rc2 - Realtek 8169 patches
-Date: Thu, 11 Mar 2004 19:39:37 +0100
+From: Matthew Galgoci <mgalgoci@redhat.com>
+Subject: Re: Device naming for wireless NICs...
+Date: Thu, 11 Mar 2004 14:33:58 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040311193937.A14638@electric-eye.fr.zoreil.com>
-References: <20040307023748.A7829@electric-eye.fr.zoreil.com> <1078822878.2408.8.camel@pinacola>
+Message-ID: <Pine.LNX.4.44.0403111422520.21414-100000@lacrosse.corp.redhat.com>
+References: <20040311182204.GA5989@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, James Ketrenos <jketreno@linux.co.intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: crochu nicolas <nicolas.crochu@sgam.com>
-Content-Disposition: inline
-In-Reply-To: <1078822878.2408.8.camel@pinacola>; from nicolas.crochu@sgam.com on Tue, Mar 09, 2004 at 10:01:19AM +0100
+To: jt@hpl.hp.com
+In-Reply-To: <20040311182204.GA5989@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-crochu nicolas <nicolas.crochu@sgam.com> :
-> If i apply only these patch, everything goes fine
-[...]
+> 	Note that the RedHat graphical configuration tool (neat) seems
+> to insist on only using 'ethX' names. Yes, only using 'ethX' is
+> generally safer (principle of least surprise).
 
-Did you stress the driver, say (rsync), ping -f -s 8, ttcp ?
+neat is old and outdated :)
 
---
-Ueimor
+Have a look at the redhat-config-network tools in Red Hat Linux or in Fedora,
+the system-config-network tools.
+
+I am sure the author of the tools would appreciate feedback :)
+ 
+-- 
+Matthew Galgoci
+System Administrator
+Red Hat, Inc
+919.754.3700 x44155
