@@ -1,35 +1,23 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: Re: asymmetry with MSG_DONTWAIT in sendmsg() and recvmsg()
-Date: Thu, 08 Jul 2004 14:34:36 -0400
+From: Kumar Gala <kumar.gala@freescale.com>
+Subject: ethernet QoS support?
+Date: Thu, 8 Jul 2004 13:53:33 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40ED93BC.1060901@nortelnetworks.com>
-References: <40ED8399.2040907@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Message-ID: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v618)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Michael T Kerrisk <mtk-lists@gmx.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <40ED8399.2040907@us.ibm.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Nivedita Singhvi wrote:
-> Chris Friesen wrote:
->  > Michael T Kerrisk wrote:
->  >
->  >> MSG_DONTWAIT should also work with recvmsg().
->  >
->  >
->  > Hmm...  Just tried it with a DGRAM socket, and it seems to work.  Any
->  > ideas why its not in the man pages?
-> 
-> Think you are on an older version of the man pages.
-> It's been there for a while.
+Jeff,
 
-It's mentioned in the "msg_flags" section, which is set on call *return*.  It's 
-not mentioned in the "flags" section.
+I was wondering if there was any support for handling ethernet devices 
+that support multiple RX/TX queues to provide QoS.  If so any pointers 
+would be great.
 
-Perhaps its just in the wrong part of the man page...
+thanks
 
-Chris
+- kumar
