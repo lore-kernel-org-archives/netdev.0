@@ -1,74 +1,65 @@
-From: Alex Pankratov <ap@swapped.cc>
-Subject: RST business
-Date: Wed, 21 Apr 2004 22:59:11 -0700
+From: Glen Turner <glen.turner@aarnet.edu.au>
+Subject: Re: RST business
+Date: Thu, 22 Apr 2004 16:38:34 +0930
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40875F2F.7010204@swapped.cc>
+Message-ID: <1082617714.9967.45.camel@andromache>
+References: <40875F2F.7010204@swapped.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Michael Rozhavsky <mike@minantech.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Alex Pankratov <ap@swapped.cc>
+In-Reply-To: <40875F2F.7010204@swapped.cc>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2004-04-22 at 15:29, Alex Pankratov wrote:
+> Looking at the hype around 'TCP vulnerability'
 
-Looking at the hype around 'TCP vulnerability' the following
-occured to me, and I wonder if it makes any sense -
+We're seeing the results of that hype.  Lots of
+peers ringing the NOC to urgently arrange TCP MD5
+authentication of their BGP sessions.  It looks
+like lots of managers have read the press and
+issued directives.
 
-A host may recieve legitimate RST packet only in response to
-something that it has previously sent (let's call it a 'trigger').
+Which is ironic, as we're pretty insistent about
+configuring MD5 authentication, and so the peer has
+in the past explicitly requested that we not run BGP
+authentication.  In the past we've assumed that
+those were Linux peers, but apparently they were just
+slack.
 
-SEQ/ACK values in RST packet are correlated to SEQ/ACK of the
-trigger. If the correlation is not there, then RST packet is
-most certainly spoofed and should be dropped even if its SEQ
-falls into host's rcpt window.
+BGP is particularly vulnerable as they are long-lived
+(some sessions here are longer than 400 days, so there can
+be lots of attempts) and the interpretation of RST is dramatic
+(remove routes learned from that neighbour).
 
-In other words, it seems to be possible to stregthen ingress
-RST checking (and thus better protect against blind RST attacks)
-while maintaining _full RFC compliance_. Here's a how-to sketch.
+Now if only they would release a Security Advisory
+about the risks of unauthenticated OSPF and get the
+same level of response :-)
 
-     RFC 793 (page 35) states that for the connection in
-     non-established state -
 
-     If the incoming segment has an ACK field, the reset takes its
-     sequence number from the ACK field of the segment, otherwise
-     the reset has sequence number zero and the ACK field is set to
-     the sum of the sequence number and segment length of the incoming
-     segment.
+> Comments ?
 
-Hence the second RST check (after standard window check) is
+The essential problem is that RST is the generic
+way of recovering from a failure condition in the TCP
+state machine.
 
-	if (! pkt->seq)
-		check if we've recently sent a segment without
-		an ACK with (pkt->ack - pkt->seq) bytes in it
-	else
-		check if we've recently sent a segment with ACK
-		of (pkt->seq) and with (pkt->ack - pkt->seq)
-		bytes in it
+So trusting that the values in the remainder of
+the TCP header are correct is a large leap of
+faith (perhaps they got trod on by an errant
+pointer, and perhaps the resulting out-of-range
+value is why the other end sent us the RST).
 
-If RST passes the check, it's accepted. Otherwise checks continue.
+If you choose to ignore a RST, and the RST is valid,
+then you need to ensure that the TCP connection will
+always time out (thus issuing its own RST).
 
-     RFC 793 (page 36) states that for the connection in
-     established state -
+You can expect, but not be assured of, a RST for
+each subsequent packet sent on that connection
+(and maybe that's a cheap way of checking if the
+original RST is valid, hmmm).
 
-     .. elicit only an empty
-     acknowledgment segment containing the current send-sequence number
-     and an acknowledgment indicating the next sequence number expected
-     to be received ..
-
-At this point seeing a RST means that
-(a) remote host is an ESTABLISHED state
-(b) we sent a segment that it considers not to be a part of the
-     current connection
-
-And (b) is something that we can always check since we're now sure
-about (a).
-
-The above obviously requires keeping some sort of 'outbound history',
-plus (b) involves some non-trivial logic, which however seems to be
-doable from the first glance.
-
-Comments ?
-
-Alex
+Best wishes,
+Glen
