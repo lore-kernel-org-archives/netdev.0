@@ -1,109 +1,65 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: TGe overview #3
-Date: Mon, 2 Aug 2004 22:38:57 +0300
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.8-rc2-mm1 breaks PPPoE for me (was: 2.6.8-rc2-mm1)
+Date: Mon, 2 Aug 2004 14:27:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408022239.04871.vkondra@mail.ru>
+Message-ID: <20040802142706.46100c6d.akpm@osdl.org>
+References: <20040728020444.4dca7e23.akpm@osdl.org>
+	<20040731100947.GA7453@merlin.emma.line.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6500354.cgk6mvoYQD";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Matthias Andree <matthias.andree@gmx.de>
+In-Reply-To: <20040731100947.GA7453@merlin.emma.line.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart6500354.cgk6mvoYQD
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Matthias Andree <matthias.andree@gmx.de> wrote:
+>
+> On Wed, 28 Jul 2004, Andrew Morton wrote:
+> 
+> > ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.8-rc2/2.6.8-rc2-mm1/
+> ...
+> > gcc35-pppoe.c.patch
+> >   gcc-3.5 fixes
+> 
+> Andrew,
+> 
+> I'm not sure if my problem is related to this patch, but in
+> 2.6.8-rc2-mm1, PPPoE doesn't work for me, kernel compiled with gcc (GCC)
+> 3.3.1 (SuSE Linux), a vanilla 2.6.7 is fine with the same compiler.
+> 
+> pppd[5685]: Plugin /usr/lib/pppd/2.4.1/pppoe.so loaded.
+> pppd[5685]: PPPoE Plugin Initialized
+> pppd[5685]: pppd 2.4.1 started by root, uid 0
+> pppd[5685]: Sending PADI
+> pppd[5685]: HOST_UNIQ successful match 
+> pppd[5685]: Failed to negotiate PPPoE connection: 25 Inappropriate ioctl for device
+> pppd[5685]: Exit.
+> 
+> A successful pppd session start, with 2.6.7, looks like this:
+> 
+> pppd[5070]: PPPoE Plugin Initialized
+> pppd[5070]: pppd 2.4.1 started by root, uid 0
+> pppd[5070]: Sending PADI
+> pppd[5070]: HOST_UNIQ successful match 
+> pppd[5070]: HOST_UNIQ successful match 
+> pppd[5070]: Got connection: 164b
+> pppd[5070]: Connecting PPPoE socket: 00:90:1a:XX:XX:XX 4b16 eth1 0x808a560
+> /sbin/hotplug[5166]: INTERFACE=ppp0
+> pppd[5070]: Using interface ppp0
+> pppd[5070]: Connect: ppp0 <--> eth1
+> pppd[5070]: Setting MTU to 1492.
+> pppd[5070]: Couldn't increase MRU to 1500
+> pppd[5070]: Setting MTU to 1492.
+> pppd[5070]: local  IP address 217.81.XXX.XXX
+> pppd[5070]: remote IP address 217.5.XXX.XXX
+> pppd[5070]: Script /etc/ppp/ip-up finished (pid 5180), status = 0x0
+> 
 
-=46inally, let's review Traffic Streams.
+I'm a bit stumped by this - I'm not aware of any change which would have
+caused the pppoe device to start returning -ENOTTY.
 
-There are 2 different concepts: logical layer (admission) and completely ne=
-w=20
-media access mechanism HCCA (Hybrid Coordinator Channel Access).
-
-Idea behind HCCA is similar to PCF (Point Coordinator Function) from old=20
-802.11 standard. Hybrid Coordinator (HC), which have to be AP, decides who=
-=20
-will talk when.
-
-Technically it is implemented as following:
-All time divided into contention based (EDCA TXOP's) and contention free CA=
-P=20
-(Controlled AccessPhase). When HC want to start CAP, it simply starts it=20
-after PIFS interval of idle media. PIFS is shorter then any interval betwee=
-n=20
-EDCA frame exchange sequences, thus HC will preempt any EDCA flow at his=20
-will. Then, HC can either transmit frames, or it may send Contention Free=20
-Poll (CFP) frame to some STA. This frame gives to the STA "polled" TXOP, in=
-=20
-contrast with EDCA TXOP. CFP frame provides TXOP duration.
-
-Now, admission control. For HCCA it is the only mechanism. But, admission=20
-control may be activated also for 2 high priority EDCA categories.
-
-=46or EDCA it mean the following: one can't use these categories as it was=
-=20
-described in EDCA, instead, TID should be obtained. For EDCA this mechanism=
-=20
-used to control bandwidth allocation. But remember, EDCA is contention base=
-d=20
-policy, without any guarantee.
-
-TID's 8-15 dedicates to TS (Traffic Streams). In order to obtain TID, STA=20
-should send request to AP. Corresponded frame called ADDTS, it contain=20
-traffic specification: requested bandwidth, delay, periodicity, frame size=
-=20
-etc. AP may accept or decline this request. It may also come with counter=20
-proposal with different parameters.
-
-TS may be up-stream, down-stream, or bi-direction
-
-If TS accepted by AP, AP provides schedule information. This information=20
-consist of Service Interval (SI) - interval between successive Service=20
-Periods (SP), during which AP serves this TS, and Start Time.
-Start time have the following meaning: STA may request exact timing in ADDT=
-S=20
-request. In this case, it will be served at precise times StartTime+n*SI.=20
-This used for power save: STA may identify itself as power down, but wake u=
-p=20
-for its stream. Obvious usage is .11 phones.
-
-Here, important QoS related part is:
-AP admin decides upon admission control policy. For "legacy stations", that=
-=20
-don't speak TS (stations implementing WME spec), it may provide only 2 low=
-=20
-priority access categories. These STA will be severely impacted in=20
-performance.
-STA have to know TGE in order to get real performance. And, STA need to kno=
-w=20
-how to identify streams (RSVP like).
-
-One additional feature: DLP (Direct Link Protocol). Unrelated to anything=20
-else. Idea is to let 2 stations to talk directly. Link establishment is=20
-through AP, but later they send frames directly, reducing media time 2x. Th=
-is=20
-is important for applications like streaming of high definition TV, for whi=
-ch=20
-"usual" way when AP forward frames, is unacceptable.
-
-P.S. I did not covered many other stuff which is not related directly to Qo=
-S.
-
---nextPart6500354.cgk6mvoYQD
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQBBDphYqxdj7mhC6o0RAmzAAKCFDMlYn7QuujVswZshlWPTZehMMQCgpXEw
-7UWwHkUzYOgsx0c61i82UpU=
-=QGXS
------END PGP SIGNATURE-----
-
---nextPart6500354.cgk6mvoYQD--
+Is this still happening?  Are you sure the relevant modules are loaded? 
+Could you capture an strace of pppd while it's happening?
