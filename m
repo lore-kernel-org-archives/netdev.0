@@ -1,48 +1,49 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same
- yes?
-Date: Fri, 21 Jan 2005 20:49:48 -0800
-Message-ID: <20050121204948.034b2510.davem@davemloft.net>
-References: <41F1516D.5010101@hp.com>
-	<200501211358.53783.jdmason@us.ibm.com>
-	<41F163AD.5070400@hp.com>
-	<20050121124441.76cbbfb9.davem@davemloft.net>
-	<41F17B7E.2020002@hp.com>
-	<20050121141820.7d59a2d1.davem@davemloft.net>
-	<41F186A8.9030805@hp.com>
+From: David Dillow <dave@thedillows.org>
+Subject: Re: [RFC 2.6.10 1/22] xfrm: Add direction information to xfrm_state
+Date: Sat, 22 Jan 2005 00:50:22 -0500
+Message-ID: <1106373022.3691.36.camel@ori.thedillows.org>
+References: <20041230035000.01@ori.thedillows.org>
+	 <20041230035000.10@ori.thedillows.org>
+	 <20050121143857.69282605.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <41F186A8.9030805@hp.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050121143857.69282605.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 14:48:08 -0800
-Rick Jones <rick.jones2@hp.com> wrote:
+On Fri, 2005-01-21 at 14:38 -0800, David S. Miller wrote: 
+> On Thu, 30 Dec 2004 03:48:34 -0500
+> David Dillow <dave@thedillows.org> wrote:
+> 
+> > # This is a BitKeeper generated diff -Nru style patch.
+> > #
+> > # ChangeSet
+> > #   2004/12/30 00:27:15-05:00 dave@thedillows.org 
+> > #   Add direction information to xfrm_state. This will be needed to
+> > #   offload xfrm processing to the NIC.
+> 
+> And xfrm_state, when actually used, does not exist in a vacuum.
+> It is being used in terms of a particular xfrm_policy which has
+> a direction indicator already.
+> 
+> Given that, it seems the xfrm_state is not only unnecessary, but
+> also slightly illogical in fact.  If you need the direction, you
+> should make sure that at those places you can get back to the
+> policy in order to obtain that piece of information.
 
-> Indeed, it seems that one would want to decide about TSO when one is about to 
-> transmit, not when the user does a send since otherwise, you penalize users 
-> doing larger sends.  Someone doing say a sendfile() of a large file would be 
-> pretty much precluded from getting benefit from TSO the way things are now right?
+Hmm, I can see having netdev->xfrm_bundle_add() assume a outbound state,
+since it's only called for Tx.
 
-Not really, if the file is larger than the send buffer limit, we'll
-have a large enough cwnd once the later packets get built.
+Rx offloading could be interesting, but it looks like I could hook into
+net/xfrm/xfrm_policy.c:__xfrm_policy_check(), and add the xfrm_states
+seen there to a work queue for offloading. netdev->xfrm_state_add()
+would then only see inbound states.
 
-The cwnd is sampled when we build packets onto the send queue.
-Each socket has a send buffer limit on that, so we only build
-until we reach that limit.
-
-At user sendmsg/sendfile time is when we do the segmentation and thus
-the packet sizing, because it is the most logical place to do this.
-
-The code can potentially get really messy and ugly if we start
-preemptively building larger frames "hoping" the cwnd will be
-large enough by the time we push it onto the wire.  Segmenting
-at send time is completely upside down to the way packets are
-built currently for transmission.  A bad guess also means that
-we'll spend significant cycles chopping up TSO packets and
-resegmenting the queue.
+Sound sane?
+-- 
+David Dillow <dave@thedillows.org>
