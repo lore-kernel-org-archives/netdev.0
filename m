@@ -1,131 +1,64 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become free. Usage count = 1
-Date: Mon, 14 Jun 2004 22:44:02 +1000
+From: Marc Herbert <marc.herbert@free.fr>
+Subject: Re: [RFC] ethtool semantics
+Date: Mon, 14 Jun 2004 15:11:15 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040614124402.GA28519@gondor.apana.org.au>
-References: <20040613121514.6b3c1c8a.davem@redhat.com> <E1BZeW1-0008Ny-00@gondolin.me.apana.org.au> <20040613234142.GA32329@gondor.apana.org.au> <20040613183622.3a814506.davem@redhat.com> <20040614015013.GA11048@gondor.apana.org.au> <20040613210725.70dbd016.davem@redhat.com> <20040614042216.GA28669@gondor.apana.org.au> <20040614102858.GA12343@gondor.apana.org.au>
+Message-ID: <Pine.LNX.4.58.0406141458270.16762@fcat>
+References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com>
+ <20040608210809.GA10542@k3.hellgate.ch> <40C77C70.5070409@tmr.com>
+ <20040609213850.GA17243@k3.hellgate.ch> <20040609151246.1c28c4d9.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
-Cc: schwab@suse.de, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
-        kuznet@ms2.inr.ac.ru
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040614102858.GA12343@gondor.apana.org.au>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+In-Reply-To: <20040609151246.1c28c4d9.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 9 Jun 2004, David S. Miller wrote:
 
---ew6BAiZeqk4r7MaW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> On Wed, 9 Jun 2004 23:38:50 +0200
+> Roger Luethi <rl@hellgate.ch> wrote:
+>
+> > <sigh> I just killed the module parameters in my via-rhine development
+> > tree.
+>
+> That is absolutely the correct thing to do, module parameters for
+> link settings are %100 deprecated, people need to use ethtool for
+> everything.
 
-On Mon, Jun 14, 2004 at 08:28:58PM +1000, herbert wrote:
-> On Mon, Jun 14, 2004 at 02:22:16PM +1000, herbert wrote:
-> > 
-> > 1. The code in dst_dev_event relies on the entries with dev in it
-> > getting onto the garbage list before it is called.  Unfortunately
-> > for routing entries, the flushing is done asynchronusly so it is
-> > entirely possible for the entries to get onto the garbage list after
-> > dst_dev_event has been called twice (DOWN and then UNREGISTER).
-> 
-> Actually this can't happen since fib_netdev_event will do an
-> immediate flush.  So it's only #2 or IPsec that's a problem.
+This is precisely the reason why I am concerned about having "rich"
+ethtool semantics. A unified, standard interface is great,... as long
+it does not leave behind some features, like setting the advertised
+values in autoneg. As a user of these features, I hope driver
+developers will NOT remove those module_param features that cannot
+migrated to ethtool.
 
-And even there it's not too bad as it only happens if there are
-more than two IPsec dst's in a row, e.g., ESP/IPCOMP.
 
-Here is a patch to do the same loopback_dev hack for child dst's.
-I've also taken the liberty to remove the bogus dst->output check.
-I've tested it with ESP/IPCOMP and I can confirm that it allows
-me to remove my NIC module if when I've got a TCP connection over
-it.  Without it the removal hangs.
+On Tue, 8 Jun 2004, Marc Herbert wrote:
 
-Alexey, if I've missed any subtle piece of logic there, please
-scream :)
+> > On Mon, 7 Jun 2004 23:28:04 +0200
+> > Roger Luethi <rl@hellgate.ch> wrote:
+> >
+> > > What is the correct response if a user passes ethtool speed or duplex
+> > > arguments while autoneg is on? Some possible answers are:
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> > > c) Change advertised value accordingly and initiate new negotiation.
 
---ew6BAiZeqk4r7MaW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+> I find the c) feature very convenient. For instance it allows reliably
+> downgrading a link connected to a switch without having to fiddle with
+> the configuration of the switch, something which is usually (pick your
+> favourites) non-standard, painful, not authorized, not implemented,
+> buggy,...
 
-===== net/core/dst.c 1.17 vs edited =====
---- 1.17/net/core/dst.c	2004-06-13 03:51:53 +10:00
-+++ edited/net/core/dst.c	2004-06-14 22:39:51 +10:00
-@@ -210,6 +210,36 @@
- 	return NULL;
- }
- 
-+/* Dirty hack. We did it in 2.2 (in __dst_free),
-+ * we have _very_ good reasons not to repeat
-+ * this mistake in 2.3, but we have no choice
-+ * now. _It_ _is_ _explicit_ _deliberate_
-+ * _race_ _condition_.
-+ *
-+ * Commented and originally written by Alexey.
-+ */
-+static void dst_ifdown(struct dst_entry *dst, int unregister)
-+{
-+	struct net_device *dev = dst->dev;
-+
-+	do {
-+		if (unregister) {
-+			dst->dev = &loopback_dev;
-+			dev_hold(&loopback_dev);
-+			dev_put(dev);
-+			if (dst->neighbour && dst->neighbour->dev == dev) {
-+				dst->neighbour->dev = &loopback_dev;
-+				dev_put(dev);
-+				dev_hold(&loopback_dev);
-+			}
-+		}
-+
-+		if (dst->ops->ifdown)
-+			dst->ops->ifdown(dst, unregister);
-+	} while ((dst = dst->child) && dst->flags & DST_NOHASH &&
-+		 dst->dev == dev);
-+}
-+
- static int dst_dev_event(struct notifier_block *this, unsigned long event, void *ptr)
- {
- 	struct net_device *dev = ptr;
-@@ -221,29 +251,11 @@
- 		spin_lock_bh(&dst_lock);
- 		for (dst = dst_garbage_list; dst; dst = dst->next) {
- 			if (dst->dev == dev) {
--				/* Dirty hack. We did it in 2.2 (in __dst_free),
--				   we have _very_ good reasons not to repeat
--				   this mistake in 2.3, but we have no choice
--				   now. _It_ _is_ _explicit_ _deliberate_
--				   _race_ _condition_.
--				 */
--				if (event!=NETDEV_DOWN &&
--				    dst->output == dst_discard_out) {
--					dst->dev = &loopback_dev;
--					dev_hold(&loopback_dev);
--					dev_put(dev);
--					dst->output = dst_discard_out;
--					if (dst->neighbour && dst->neighbour->dev == dev) {
--						dst->neighbour->dev = &loopback_dev;
--						dev_put(dev);
--						dev_hold(&loopback_dev);
--					}
--				} else {
-+				if (event == NETDEV_DOWN) {
- 					dst->input = dst_discard_in;
- 					dst->output = dst_discard_out;
- 				}
--				if (dst->ops->ifdown)
--					dst->ops->ifdown(dst, event != NETDEV_DOWN);
-+				dst_ifdown(dst, event != NETDEV_DOWN);
- 			}
- 		}
- 		spin_unlock_bh(&dst_lock);
+In case any one wondered: probably the most common motivation for
+manually downgrading a link is when the cabling is found to be not
+"good enough" for the max common speed of the two transceivers.
+(see "Gigabit Ethernet - Rich Seifert, section 8.2.3")
 
---ew6BAiZeqk4r7MaW--
+See also: "Running 1000BASE-T: Gigabit Ethernet over Copper"
+  http://www.10gea.org/GEA_copper_0999_rev-wp.pdf
+ "The 1000BASE-T Task Force and the cabling companies estimate that
+ less than 10 percent of the installed base of Category 5 cable was
+ improperly installed,"
+
+I find "less than 10 percent" not so negligible.
