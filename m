@@ -1,27 +1,33 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][NET] Assign inet transport sockets to the right module
-Date: Wed, 17 Nov 2004 16:05:29 -0800
-Message-ID: <20041117160529.6d7be54a.davem@davemloft.net>
-References: <41984A76.70406@conectiva.com.br>
+From: maximilian attems <janitor@sternwelten.at>
+Subject: Re: sis900 oops on resume
+Date: Thu, 18 Nov 2004 03:14:25 +0100
+Message-ID: <20041118021425.GA2128@stro.at>
+References: <20041117182403.GC2252@stro.at> <20041117201008.GA11439@elf.ucw.cz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Daniele Venzano <webvenza@libero.it>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <41984A76.70406@conectiva.com.br>
+To: Pavel Machek <pavel@ucw.cz>
+Content-Disposition: inline
+In-Reply-To: <20041117201008.GA11439@elf.ucw.cz>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Nov 2004 04:19:34 -0200
-Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+On Wed, 17 Nov 2004, Pavel Machek wrote:
 
-> 	Please take a look if it makes sense, if so please pull from:
+> Hi!
 > 
-> bk://kernel.bkbits.net/acme/sock-2.6
+> > happens since the use of guessnet,
+> > guessnet is based on divine and sends arp requests to network.
+> > network was down after the oops, but beside resume system worked.
+> 
+> And where do you see the oops? Irq 10 does not work, that's only
+> backtrace. Fix the sis900 driver...
+> 
+> 							Pavel
+ 
+ok, i'm not that familiar with suspend pathes,
+what's going wrong in sis900_resume() or sis900_suspend()?
 
-This really does fix bugs, so I've pulled it into my 2.6.10
-pending tree.
-
-Thanks a lot Arnaldo.
+maks
