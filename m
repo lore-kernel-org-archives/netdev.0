@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 2/18] gcc-3.5: net/atm/common.c
-Date: Sun, 25 Jan 2004 03:06:53 -0800
+Subject: [patch 11/18] gcc-3.5: ne2k-pci.c
+Date: Sun, 25 Jan 2004 03:07:46 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401251106.i0PB6ro25015@mail.osdl.org>
+Message-ID: <200401251107.i0PB7ko25097@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,27 +11,50 @@ List-Id: netdev.vger.kernel.org
 
 
 
-net/atm/common.c: In function `vcc_create':
-net/atm/common.c:151: error: invalid lvalue in assignment
+drivers/net/ne2k-pci.c: In function `ne2k_pci_block_input':
+drivers/net/ne2k-pci.c:539: error: invalid lvalue in increment
+drivers/net/ne2k-pci.c: In function `ne2k_pci_block_output':
+drivers/net/ne2k-pci.c:600: error: invalid lvalue in increment
 
 
 
 ---
 
- 25-akpm/net/atm/common.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/ne2k-pci.c |   16 ++++++++++++----
+ 1 files changed, 12 insertions(+), 4 deletions(-)
 
-diff -puN net/atm/common.c~gcc-35-atm-common net/atm/common.c
---- 25/net/atm/common.c~gcc-35-atm-common	Fri Jan 23 15:15:46 2004
-+++ 25-akpm/net/atm/common.c	Fri Jan 23 15:16:03 2004
-@@ -148,7 +148,7 @@ int vcc_create(struct socket *sock, int 
- 	sk->sk_state_change = vcc_def_wakeup;
- 	sk->sk_write_space = vcc_write_space;
+diff -puN drivers/net/ne2k-pci.c~gcc-35-ne2k-pci drivers/net/ne2k-pci.c
+--- 25/drivers/net/ne2k-pci.c~gcc-35-ne2k-pci	2004-01-25 03:01:38.000000000 -0800
++++ 25-akpm/drivers/net/ne2k-pci.c	2004-01-25 03:01:38.000000000 -0800
+@@ -532,8 +532,12 @@ static void ne2k_pci_block_input(struct 
+ 		insl(NE_BASE + NE_DATAPORT, buf, count>>2);
+ 		if (count & 3) {
+ 			buf += count & ~3;
+-			if (count & 2)
+-				*((u16*)buf)++ = le16_to_cpu(inw(NE_BASE + NE_DATAPORT));
++			if (count & 2) {
++				u16 *b = (u16 *)buf;
++
++				*b++ = le16_to_cpu(inw(NE_BASE + NE_DATAPORT));
++				buf = (char *)b;
++			}
+ 			if (count & 1)
+ 				*buf = inb(NE_BASE + NE_DATAPORT);
+ 		}
+@@ -593,8 +597,12 @@ static void ne2k_pci_block_output(struct
+ 		outsl(NE_BASE + NE_DATAPORT, buf, count>>2);
+ 		if (count & 3) {
+ 			buf += count & ~3;
+-			if (count & 2)
+-				outw(cpu_to_le16(*((u16*)buf)++), NE_BASE + NE_DATAPORT);
++			if (count & 2) {
++				u16 *b = (u16 *)buf;
++
++				outw(cpu_to_le16(*b++), NE_BASE + NE_DATAPORT);
++				buf = (char *)b;
++			}
+ 		}
+ 	}
  
--	vcc = atm_sk(sk) = kmalloc(sizeof(*vcc), GFP_KERNEL);
-+	vcc = sk->sk_protinfo = kmalloc(sizeof(*vcc), GFP_KERNEL);
- 	if (!vcc) {
- 		sk_free(sk);
- 		return -ENOMEM;
 
 _
