@@ -1,48 +1,57 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
-Date: 05 Apr 2005 14:05:55 -0400
-Message-ID: <1112724355.1076.49.camel@jzny.localdomain>
-References: <20050404121641.GA12103@gondor.apana.org.au>
-	 <1112619096.1088.473.camel@jzny.localdomain>
-	 <20050404130224.GA12546@gondor.apana.org.au>
-	 <1112620614.1088.489.camel@jzny.localdomain>
-	 <20050404213149.GA15222@gondor.apana.org.au>
-	 <1112653217.1088.2.camel@jzny.localdomain>
-	 <20050404152506.15e1404b.davem@davemloft.net>
-	 <1112654575.1089.17.camel@jzny.localdomain>
-	 <42523FD3.8010400@linux-ipv6.org>
-	 <1112696301.1089.30.camel@jzny.localdomain>
-	 <20050405102238.GC23226@gondor.apana.org.au>
-	 <1112702303.1095.107.camel@jzny.localdomain>
-	 <20050405104641.11bdbbfb.davem@davemloft.net>
-Reply-To: hadi@cyberus.ca
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: Some sleeping function called from invalid context
+Date: Tue, 5 Apr 2005 15:11:30 -0300
+Message-ID: <39e6f6c705040511115b28b575@mail.gmail.com>
+References: <1112693744.7960.2.camel@pegasus>
+	 <39e6f6c70504050413666ea29d@mail.gmail.com>
+	 <39e6f6c705040505186c1c62ed@mail.gmail.com>
+Reply-To: acme@conectiva.com.br
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, nakam@linux-ipv6.org, kaber@trash.net,
-        netdev <netdev@oss.sgi.com>
+Cc: Network Development Mailing List <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050405104641.11bdbbfb.davem@davemloft.net>
+To: Marcel Holtmann <marcel@holtmann.org>
+In-Reply-To: <39e6f6c705040505186c1c62ed@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-04-05 at 13:46, David S. Miller wrote:
-> On 05 Apr 2005 07:58:23 -0400
-> jamal <hadi@cyberus.ca> wrote:
+On Apr 5, 2005 9:18 AM, Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com> wrote:
+> On Apr 5, 2005 8:13 AM, Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com> wrote:
+> > On Apr 5, 2005 6:35 AM, Marcel Holtmann <marcel@holtmann.org> wrote:
+> > > Hi,
+> > >
+> > > while testing the latest kernel from the Bitkeeper repository, I got
+> > > some sleeping functions called from invalid context:
+> > >
+> > > Freeing unused kernel memory: 180k freed
+> > > Debug: sleeping function called from invalid context at mm/slab.c:2090
+> > > in_atomic():1, irqs_disabled():0
+> > >  [<c0119936>] __might_sleep+0xa6/0xb0
+> > >  [<c014ab93>] kmem_cache_alloc+0x73/0x80
+> > >  [<c0149c0e>] kmem_cache_create+0xfe/0x630
+> > >  [<c026994d>] proto_register+0x9d/0xc0
+> > >  [<f88c901c>] af_unix_init+0x1c/0x7a [unix]
+> > >  [<c0139d62>] sys_init_module+0x1b2/0x290
+> > >  [<c0103025>] syscall_call+0x7/0xb
+> > > NET: Registered protocol family 1
+> >
+> > Damn, thanks for reporting, looking at it now.
 > 
-> > On Tue, 2005-04-05 at 06:22, Herbert Xu wrote:
-> > 
-> > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-> > 
-> > I have a feeling that Dave is not following this thread.
+> Humm, recent changes in slab.[ch]... I'll try booting with a kernel without
+> proto_register to see if this is some bug introduced by this changeset or
+> if the problem would appear without it, that is my current guess, as we
+> were doing a kmem_cache_create at module __init time before, and it
+> uses SLAB_KERNEL at some point...
 > 
-> Believe it or not I have been :-)
+> I.e. with regards to per protocol slab cache creating at module init time
+> we are doing the same thing as before the proto_register changeset,
+> unless I'm missing some obvious thing...
 
-Impressive ;->
-After the 10th email it seemed to me only Herbert and myself would still
-be reading this ;-> Did you see the bit about Elvis? ;->
+Yes, I was missing something, one should not call kmem_cache_create with a
+spinlock held, patch will be available shortly, thanks a lot Marcel
+for reporting this
+one!
 
-cheers,
-jamal
+- Arnaldo
