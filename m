@@ -1,34 +1,27 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [PATCH] (3/12) skge: remove unneeded include's
-Date: Thu, 3 Mar 2005 21:51:16 +0000
-Message-ID: <20050303215116.GA16132@infradead.org>
-References: <20050303113413.1bcd7476@dxpl.pdx.osdl.net> <42278470.2070807@pobox.com>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: netif_rx packet dumping
+Date: Thu, 03 Mar 2005 22:54:24 +0100
+Message-ID: <m1fyzc2y5r.fsf@muc.de>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
+	<42278122.6000000@ev-en.org>
+	<20050303133659.0d224e61.davem@davemloft.net>
+	<42278554.2090902@ev-en.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <42278470.2070807@pobox.com>
+Cc: shemminger@osdl.org, rhee@eos.ncsu.edu, jheffner@psc.edu,
+        Yee-Ting.Li@nuim.ie, netdev@oss.sgi.com
+To: Baruch Even <baruch@ev-en.org>
+In-Reply-To: <42278554.2090902@ev-en.org> (Baruch Even's message of "Thu, 03
+ Mar 2005 21:44:52 +0000")
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 03, 2005 at 04:41:04PM -0500, Jeff Garzik wrote:
-> Stephen Hemminger wrote:
-> >Get rid of unnecessary include's
-> >
-> >Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> >
-> >--- skge-2.6.11/drivers/net/skge.c.orig	2005-03-02 
-> >17:15:44.000000000 -0800
-> >+++ skge-2.6.11/drivers/net/skge.c	2005-03-02 17:17:25.000000000 -0800
-> >@@ -30,13 +30,10 @@
-> > #include <linux/moduleparam.h>
-> > #include <linux/netdevice.h>
-> > #include <linux/etherdevice.h>
-> >-#include <linux/dma-mapping.h>
-> 
-> Why is this one is unnecessary?
+Baruch Even <baruch@ev-en.org> writes:
+>
+> If you have a way around this I'd be happy to hear it.
 
-Becasue the driver is using the pci_ variants of the dma mapping routines,
-which are in pci.h
+There may be free space left over in skb->cb that you can use
+for this.
+
+-Andi
