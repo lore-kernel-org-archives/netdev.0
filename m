@@ -1,41 +1,32 @@
-From: Niklas Edmundsson <nikke@ing.umu.se>
+From: Stefan Rompf <srompf@isg.de>
 Subject: Re: martian packet checks breaks multi-homing
-Date: Tue, 1 Jul 2003 11:22:50 +0200 (CEST)
+Date: Tue, 1 Jul 2003 11:11:05 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.56.0307011121130.5910@tekla.ing.umu.se>
+Message-ID: <200307011111.26762.srompf@isg.de>
 References: <Pine.LNX.4.56.0307010921100.5910@tekla.ing.umu.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Niklas Edmundsson <Niklas.Edmundsson@hpc2n.umu.se>, netdev@oss.sgi.com
 In-Reply-To: <Pine.LNX.4.56.0307010921100.5910@tekla.ing.umu.se>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Jul 2003, Niklas Edmundsson wrote:
+Am Dienstag, 1. Juli 2003 09:37 schrieb Niklas Edmundsson:
 
->
-> Hi!
->
-> We are setting up a multi homed server (currently running Linux
-> 2.4.18) connected to several physical networks (due to the fact that
-> the server is a dhcp server too).
+> The problem is that when a client tries to talk to the main interface
+> of the server (not on the same network), the server tags the packets
+> as martian source and discards them! It's a perfectly valid packet
 
-<snip>
-> I haven't even been able to find a way to disable or circumvent the
-> check other than edit the source (fib_validate_source() is rather hard
-> to read by the way). It would be nice if there existed a runtime way
-> to disable it.
+> If things are unclear or I have forgotten/missed something just tell
+> me so and I'll try to clarify.
 
-Ignore me. Just after I sent this mail I found
-/proc/sys/net/ipv4/conf/*/rp_filter which solves all my problems.
-Sorry for the inconvenience.
+Have a look at linux/Documentation/networking/ip-sysctl.txt, rp_filter
 
+Stefan
 
-/Nikke - spanks the paranoid debian startup scripts a bit.
 -- 
--=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-
- Niklas Edmundsson, Admin @ {acc,hpc2n,ing}.umu.se    |   nikke@ing.umu.se
----------------------------------------------------------------------------
- There once was a man from Nantucket.You've been talking to Garibaldi!
-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+"doesn't work" is not a magic word to explain everything.
