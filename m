@@ -1,36 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance tests
-Date: Tue, 17 Jun 2003 08:59:21 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: patch for common networking error messages
+Date: Tue, 17 Jun 2003 09:08:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030617.085921.28790392.davem@redhat.com>
-References: <20030616.160856.35828947.davem@redhat.com>
-	<20030616232750.GD18484@netnation.com>
-	<20030616234937.GE18484@netnation.com>
+Message-ID: <20030617090859.0ffa0ca8.shemminger@osdl.org>
+References: <OFCA1A4F38.D782F1D3-ON85256D48.000A5CED@us.ibm.com>
+	<200306170434.h5H4YZPZ003025@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ralph+d@istop.com, hadi@shell.cyberus.ca, xerox@foonet.net,
-   fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: girouard@us.ibm.com, davem@redhat.com, stekloff@us.ibm.com,
+   janiceg@us.ibm.com, jgarzik@pobox.com, lkessler@us.ibm.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: sim@netnation.com
-In-Reply-To: <20030616234937.GE18484@netnation.com>
+To: Valdis.Kletnieks@vt.edu
+In-Reply-To: <200306170434.h5H4YZPZ003025@turing-police.cc.vt.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Simon Kirby <sim@netnation.com>
-   Date: Mon, 16 Jun 2003 16:49:37 -0700
+Binary interface's will never cut it.  Read the hotplug thread to see how Linus
+said, he will never add a binary event daemon interface.
 
-   60.0073 seconds passed, avg forwarding rate: 157557.710 pps
-   
-   ...Looks like a tad worse than with your patch, but not by much. 
-   Forwarding rate is still pretty crappy for an Opteron.  Will fiddle
-   a bit more tonight to see what I can do.
+That said, there is an oppurtunity for to provide a ascii interface (similar to
+/sbin/hotplug) decodes the data from the rtnetlink interface in a standardized format.
 
-To be honest, this isn't half-bad for pure DoS load.
+Then it would be easy to write things like perl monitoring scripts that do things
+like:
+	perl phone-me-if-network-dies.pl < /proc/net/events
 
-This reminds me, maybe a good test would be PPS for "well behaved
-flows" in the presence of DoS load.  You'd probably need 4 systems
-to carry out such a test accurately.
-
-Because, really, who cares how fast we can forward the DoS traffic
-as long as legitimate users still see good metrics.
+Don't flame me about the choce of name. /proc/net/events is not the right name 
+to use for such an interface since adding more to /proc is probably not desired.
