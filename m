@@ -1,37 +1,58 @@
-From: "Douglas Pollock" <pollockd@magma.ca>
-Subject: Re: Realtek 8169 Lock-ups
-Date: Sun, 11 Jan 2004 11:23:42 -0500 (EST)
+From: Stanislav Karchebny <berk@upnet.ru>
+Subject: forcedeth 0.20 eth0: received interrupt report
+Date: Sun, 11 Jan 2004 21:33:54 +0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401111623.i0BGNg3O028990@webmail1.magma.ca>
+Message-ID: <200401112134.05375.berk@upnet.ru>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: netdev@oss.sgi.com, damouse@ntlworld.com, brad@mainstreetsoftworks.com,
-        kinetik@orcon.net.nz
+Content-Type: multipart/signed;
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1;
+  boundary="Boundary-02=_9rXAACFcySNAWxL";
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>, Jeff Garzik <jgarzik@pobox.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Jan 11, Francois Romieu <romieu@fr.zoreil.com> wrote:
-> M. Pollock's problems look different:
-> - they do not depend on the driver used;
 
-I can confirm that I do not see kernel panics, and that the driver (for all intents and 
-purposes) seems to work well for a period of time.  
+--Boundary-02=_9rXAACFcySNAWxL
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
+"eth0: received irq with unknown events 0x21. Please report"
 
-> - they seem timing/smp related (mobile computer + p4 HT).
+This happens when i enable software CPU cooling on nForce2 chipset using=20
+=46Vcool - this causes all nforce-net connections to fail miserably and the=
+se=20
+events are generated in dmesg log.
 
-I ran without SMP support in the kernel for about 1.5 days on my work network, and did 
-not see any of the lock-ups described.  However, this evidence is somewhat 
-circumstantial, as we don't have a reproducible test case.
+The very moment i disable softcooling using fvcool -d the network resumes=20
+normal operations.
 
-It would be nice if someone could point me to a network stress testing tool (something 
-that opens multiple simultaneous connections and keeps them at high load).  I'm hoping 
-that such a test might provide a reproducible test case.  This way we could confirm or 
-rule-out the SMP relationship.
+Linux Kernel 2.6.0 final
+forcedeth 0.20
+ASUS A7N8X Deluxe mobo
 
+=46eel free to contact me if you need any additional information/debug=20
+runs/testing help.
 
+=2D-=20
+keep in touch. berkus.
 
-Thanks,
-Doug.
+--Boundary-02=_9rXAACFcySNAWxL
+Content-Type: application/pgp-signature
+Content-Description: signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQBAAXr98v4MNv5cuDkRAm+pAJ98Sw3R3DXyJYku07RSLx6tZZGqeACeOGRM
+zVfq+J1t1yyzzxMBhCQ+bEc=
+=Jrxj
+-----END PGP SIGNATURE-----
+
+--Boundary-02=_9rXAACFcySNAWxL--
