@@ -1,34 +1,25 @@
 From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: patch: introduce simple actions
-Date: Sun, 20 Mar 2005 21:18:36 +0100
-Message-ID: <20050320201836.GW3086@postel.suug.ch>
-References: <1111345551.1095.82.camel@jzny.localdomain> <20050320194408.GU3086@postel.suug.ch> <1111349426.1092.128.camel@jzny.localdomain>
+Date: Sun, 20 Mar 2005 21:31:22 +0100
+Message-ID: <20050320203122.GX3086@postel.suug.ch>
+References: <1111345551.1095.82.camel@jzny.localdomain> <423DCD8C.6030100@trash.net> <1111347345.1094.98.camel@jzny.localdomain> <423DD5E6.2020708@trash.net> <1111349853.1093.136.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Patrick McHardy <kaber@trash.net>
-To: jamal <hadi@cyberus.ca>
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+To: Jamal Hadi Salim <hadi@znyx.com>
 Content-Disposition: inline
-In-Reply-To: <1111349426.1092.128.camel@jzny.localdomain>
+In-Reply-To: <1111349853.1093.136.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > > +
-> > > +struct tc_defact
-> > > +{
-> > > +	tc_gen;
-> > > +};
-> > 
-> > tcf_defact, tc_defact, .. quite easy to get this wrong. Maybe
-> > it would a good idea to rename tcf_defact to tcf_defact_parm?
-> > 
-> 
-> sigh. another LinuxWay(tm). Unfortunately this is all over the net/sched
-> code to imply something thats user specific vs kernel specific. If
-> you feel strongly about it i will change it - otherwise maybe we can
-> leave it till some day some brave person will clean up the whole thing?
+* Jamal Hadi Salim <1111349853.1093.136.camel@jzny.localdomain> 2005-03-20 15:17
+> reason this was written to begin with. The standard interface exists,
+> and more versed people or someone wanting to write something complex can
+> go that path. At some point i would like to document all this stuff.
 
-Yes I know and I don't feel that strong about it. I just tend to dislike
-it a tiny bit, I do like the struct rta_kern style better. Let's wait for
-the brave knight to appear someday.
+Yes, we do have to find some way to document all this in a proper way.
+Maybe we can write some _really_ technical reference brought down to
+the bare minimum required and extend the LARTC howto with new examples
+to cover the practical side.
