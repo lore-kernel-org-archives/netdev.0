@@ -1,29 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [RFC] netem - add jitter support.
-Date: Fri, 9 Jul 2004 16:49:24 -0700
+Date: Fri, 9 Jul 2004 16:53:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709164924.46ac719b.davem@redhat.com>
+Message-ID: <20040709165314.485cdc52.davem@redhat.com>
 References: <20040708135320.03366bd7@dell_ss3.pdx.osdl.net>
-	<1089335650.1046.150.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1089335650.1046.150.camel@jzny.localdomain>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040708135320.03366bd7@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 08 Jul 2004 21:14:10 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Thu, 8 Jul 2004 13:53:20 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> - Is that NIST code/reference ok to put there? I have a feeling its
-> non-free.
+> This patch adds jitter if desired to the delayed packets in the
+> netem scheduler.  I dropped the rate stuff out and reorganized so
+> that an underlying pfifo queue is used (next plan is to make it
+> have class ops).
+> 
+> The jitter is given as sigma to a Gaussian normal distribution.  The actual
+> implementation is a reduced form of the table driven stuff in NISTnet
+> (free). 
 
-The Nist NET homepage states:
+I'm going to apply this.  Stephen please send me
+a 2.4.x version as well.
 
-As a U.S. government publication, so to speak, NIST Net is not
-copyrighted. You can do whatever you want with it, including employing
-its code in whole or in part in any other package or product. You need
-not credit me or NIST (though not doing so would be a bit rude).
+Thanks.
