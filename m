@@ -1,45 +1,41 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Thu, 03 Oct 2002 00:59:07 -0700 (PDT)
+Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same
+ Port Number (IPV6_V6ONLY Support)
+Date: Thu, 03 Oct 2002 01:29:04 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021003.005907.62651859.davem@redhat.com>
-References: <1033388585.16337.9.camel@irongate.swansea.linux.org.uk>
-	<Mutt.LNX.4.44.0210031329450.13240-100000@blackbird.intercode.com.au>
-	<20021003035446.GA29860@averell>
+Message-ID: <20021003.012904.75241727.davem@redhat.com>
+References: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@intercode.com.au, alan@lxorguk.ukuu.org.uk, mbp@samba.org,
-   kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Alan.Cox@linux.org
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@muc.de
-In-Reply-To: <20021003035446.GA29860@averell>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@muc.de>
-   Date: Thu, 3 Oct 2002 05:54:46 +0200
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Thu, 03 Oct 2002 12:13:50 +0900 (JST)
 
-   On Thu, Oct 03, 2002 at 05:30:44AM +0200, James Morris wrote:
-   > On 30 Sep 2002, Alan Cox wrote:
-   > 
-   > > Well if Dave can't test it and isnt doing any 2.2 who wants to be the
-   > > 2.2 networking maintainer ?
-   > > 
-   > 
-   > I'd be willing to give it a go.
-   
-   2.2 networking unfortunately has some more SMP bugs (DaveM can tell you details)
-   which are hard to fix. So think twice before you volunteer ;)
+   Linux IPv6 stack provides the ability for IPv6 applications to
+   interoperate with IPv4 applications.  Port space for TCP (or UDP) is
+   shared by IPv6 and IPv4.  This conforms to RFC2553.
+   However, some kind of applications may want to restrict their use of
+   an IPv6 socket to IPv6 communication only.  IPV6_V6ONLY socket option is
+   defined for such applications in RFC2553bis, which is successor of RFC2553.  
 
-These don't matter as much as you may think.
+I really wish BSD socket features did not get standardized
+in RFC's, we must live with their mistakes.
 
-The real show stoppers are the ones like this FIN_WAIT1 cork
-bug.
+For example, this IPV6_V6ONLY socket option is flawed.  What we
+really need is a generic socket option which says "my family only"
 
-These are the only ones we can come up with safe fixes (in terms of
-what this means for 2.2.x) for anyways.
+There is nothing ipv6 specific about such a socket attribute.
 
-Franks a lot,
-David S. Miller
-davem@redhat.com
+So please, create instead "SO_ONEFAMILY" or similar generic
+socket option.
+
+I still need to review the rest of the patch for functional
+correctness.  This is probably the most complex area of the
+socket identity code in TCP/UDP :-)
