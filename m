@@ -1,94 +1,32 @@
-From: =?iso-8859-1?q?jaganbabu=20rajamanickam?= <jaganbabu_ipv6@yahoo.co.in>
-Subject: problem in binding with ipv6 socket.. please help me
-Date: Thu, 3 Oct 2002 13:24:45 +0100 (BST)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same
+Date: Thu, 3 Oct 2002 17:06:48 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021003122445.37447.qmail@web40603.mail.yahoo.com>
+Message-ID: <200210031306.RAA29293@sex.inr.ac.ru>
+References: <20021003.012904.75241727.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.COM (David S. Miller)
+In-Reply-To: <20021003.012904.75241727.davem@redhat.com> from "David S. Miller" at Oct 3, 2 12:45:01 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hi,
- 
-    Iam working on "Red Hat Linux release 7.2", I have
-an interface configured with ipv6 address
-"fe80::203:baff:fe14:4747/10". Iam trying to open a
-TCP socket on that interface and bind with it, but
-bind() call is failing, if iam using getsockopt(
-SO_ERROR), iam getting error as "0". What could be the
-problem, Is there any configuration need to be done.
+Hello!
 
-  Note: by the way, same programm is running fine for
-loopback address (::1) and in_addr_any (::).  can any
-one please help me in sorting out this problem.
- Iam pasting my test code below..
+> For example, this IPV6_V6ONLY socket option is flawed.  What we
+> really need is a generic socket option which says "my family only"
+> 
+> There is nothing ipv6 specific about such a socket attribute.
+> 
+> So please, create instead "SO_ONEFAMILY" or similar generic
+> socket option.
 
-Thanx,
-Jags
+No, really! __Sharing__ of port space between IPv4 and IPv6 was mad
+idea. It cannot generalized to other protocol families.
 
-int
-ipv6_sock_test(void)
-{
-   struct sockaddr_in6 laddr, faddr;
-   int sock, new_sock, sock_opt;
-   int faddrlen;
-   char addrbuf[INET6_ADDRSTRLEN];
-   int port = 3000;
-   /*
-    * Set up a socket to listen on for connections.
-    * Make sure all sockaddr_in6 fields are zero.
-    */
-   bzero(&laddr, sizeof (laddr));
-   laddr.sin6_family = AF_INET6;
-   laddr.sin6_port = htons(port);
-   /*laddr.sin6_addr = in6addr_any; structure
-assignment */
-   laddr.sin6_addr.s6_addr[0] = 0xfe;
-   laddr.sin6_addr.s6_addr[1] = 0x80;
-   laddr.sin6_addr.s6_addr[2] = 0x0;
-   laddr.sin6_addr.s6_addr[3] = 0x0;
-   laddr.sin6_addr.s6_addr[4] = 0x0;
-   laddr.sin6_addr.s6_addr[5] = 0x0;
-   laddr.sin6_addr.s6_addr[6] = 0x0;
-   laddr.sin6_addr.s6_addr[7] = 0x0;
-   laddr.sin6_addr.s6_addr[8] = 0x2;
-   laddr.sin6_addr.s6_addr[9] = 0x3;
-   laddr.sin6_addr.s6_addr[10] = 0xba;
-   laddr.sin6_addr.s6_addr[11] = 0xff;
-   laddr.sin6_addr.s6_addr[12] = 0xfe;
-   laddr.sin6_addr.s6_addr[13] = 0x14;
-   laddr.sin6_addr.s6_addr[14] = 0x47;
-   laddr.sin6_addr.s6_addr[15] = 0x47;
+So, IPV6_V6ONLY is really unique for IPv6. Well, actually, it could
+be negated: be default and the option would be called
+IPV6_SHARE_THIS_PORT_TO_IPV4.
 
-   sock = socket(AF_INET6, SOCK_STREAM, 0);
-   if (sock == -1) {
-      perror("socket");
-      return (-1);
-   }
-   /* Tell the system to allow local addresses to be
-reused. */
-   sock_opt = 1;
-  if (setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, (void
-*)&sock_opt,
-     sizeof (sock_opt)) == -1) {
-     perror("setsockopt(SO_REUSEADDR)");
-     (void) close(sock);
-     return (-1);
-   }
-   if (bind(sock, (struct sockaddr *)&laddr, sizeof
-(laddr)) == -1) 
-
-   {
-      perror("bind");
-      (void) close(sock);
-      return (-1);
-   }
-   return 0;
-}
-
-________________________________________________________________________
-Missed your favourite TV serial last night? Try the new, Yahoo! TV.
-       visit http://in.tv.yahoo.com
+Alexey
