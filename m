@@ -1,35 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: TCP-MD5 support
-Date: Thu, 21 Oct 2004 15:51:09 -0700
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Allowing netlink_family to be any integer
+Date: Thu, 21 Oct 2004 16:02:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021155109.204e4f68.davem@davemloft.net>
-References: <417837D4.1020402@tomt.net>
+Message-ID: <41784003.7070505@candelatech.com>
+References: <20041021142527.GG3551@sunbeam.de.gnumonks.org> <E1CKkWZ-0005x5-00@gondolin.me.apana.org.au> <20041021225315.GH19714@rei.reeler.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Harald Welte <laforge@netfilter.org>, lmb@suse.de, ahu@ds9a.nl,
+        hch@infradead.org, netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andre Tomt <andre@tomt.net>
-In-Reply-To: <417837D4.1020402@tomt.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041021225315.GH19714@rei.reeler.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 22 Oct 2004 00:27:32 +0200
-Andre Tomt <andre@tomt.net> wrote:
+Thomas Graf wrote:
 
-> How is this moving along? Last time I heard around 2.6.7 sometime it was 
-> beeing cleaned up for inclusion in mainline.
+> The only real problem I see is sk_protocol being only 8bit as
+> limiting factor.
 
-Yeah, I have a tree at:
+When you fix this, please make the route-table ID at least 16 bits as well :)
 
-	bk://kernel.bkbits.net/davem/tcp-2.6
+Ben
 
-that Yoshifuji and myself were working on.  It needs two
-pieces of work which I'll do soon:
-
-1) Remove the older API, the newer AF-agnostic one is
-   the only one we should provide
-
-2) Merge up with current 2.6.x
-
-Then it'll be ready to merge to Linus.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
