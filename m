@@ -1,25 +1,55 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] Fix 64bit bugs in dscc4.c
-Date: Tue, 7 Oct 2003 23:48:42 +0200
+From: Casey Carter <Casey@Carter.net>
+Subject: [PATCH] Make SO_BINDTODEVICE bind very tightly
+Date: Tue, 07 Oct 2003 17:16:25 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007234842.A5234@electric-eye.fr.zoreil.com>
-References: <20031007175953.GA1802@averell>
+Message-ID: <3F833B39.4020606@Carter.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ncorbic@sangoma.com, netdev@oss.sgi.com, davem@redhat.com
+Content-Type: multipart/mixed;
+ boundary="------------050702070405010702030306"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@muc.de>
-Content-Disposition: inline
-In-Reply-To: <20031007175953.GA1802@averell>; from ak@muc.de on Tue, Oct 07, 2003 at 07:59:53PM +0200
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen <ak@muc.de> :
-[...]
-> ioremap_nocache returns unsigned long, not u32. This makes a difference
-> on 64bit hosts.
+This is a multi-part message in MIME format.
+--------------050702070405010702030306
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-No 64 bit host to test the patch but it looks fine.
+In the presence of both sockets that are and sockets that are not bound 
+to a specific interface, those bound to the interface should always be 
+favored for packet delivery over those not so bound.  Attached patch 
+(against 2.6.0-test6) enforces these semantics by a slight adjustment to 
+udp_v4_lookup_longway in net/ipv4/udp.c  The consequence of this change 
+is to make SO_BINDTODEVICE bind more tightly than simple bind().
 
---
-Ueimor - happily maintaining dscc4 driver since 2.4.3
+-- 
+Casey Carter
+Casey@Carter.net
+ccarter@cs.uiuc.edu
+AIM: cartec69
+
+
+--------------050702070405010702030306
+Content-Type: text/plain;
+ name="udp.c.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="udp.c.diff"
+
+--- linux-2.6.0-test6/net/ipv4/udp.c	2003-09-27 19:50:10.000000000 -0500
++++ linux-2.6.0-test6-patch/net/ipv4/udp.c	2003-10-07 17:08:10.000000000 -0500
+@@ -246,9 +246,9 @@
+ 			if (sk->sk_bound_dev_if) {
+ 				if (sk->sk_bound_dev_if != dif)
+ 					continue;
+-				score+=2;
++				score+=8;
+ 			}
+-			if(score == 9) {
++			if(score == 15) {
+ 				result = sk;
+ 				break;
+ 			} else if(score > badness) {
+
+--------------050702070405010702030306--
