@@ -1,32 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6] natsemi.c NAPI
-Date: Mon, 20 Sep 2004 12:12:39 -0700
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: "dst cache overflow"
+Date: Mon, 20 Sep 2004 21:44:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920121239.2a615c58.davem@davemloft.net>
-References: <20040920141030.GV1307@sunbeam.de.gnumonks.org>
-	<20040920115746.7ccbfb45.davem@davemloft.net>
-	<20040920190746.GA17210@havoc.gtf.org>
+Message-ID: <16719.13095.369830.547715@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20040920190746.GA17210@havoc.gtf.org>
+To: cd@cdaniel.de
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Sep 2004 15:07:46 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> On Mon, Sep 20, 2004 at 11:57:46AM -0700, David S. Miller wrote:
-> > This driver (before the NAPI patch) is a bit buggy, it does
-> > no RX processing SMP locking.  So if one one cpu you're doing
-> > RX interrupt processing, and on another cpu tx_timeout() runs
-> > we're totally screwed.
-> 
-> RX processing in current natsemi only happens in irq, and the natsemi
-> driver properly disables irqs when it needs to, AFAICS, using
-> enable/disable_irq().
+Hello!
 
-Aha, ok that works.
+ size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot     mc 
+GC:tot ignore gmiss dstof HLS:in    out
+10501       593     339     0     0     0     0     0       250      24      0
+   362    360     2     0    229     48
+
+
+The number of packets that hits the route hash is about the same as the
+number of packets that misses it. (hit/tot)
+
+Either your route hash is so small in that case increase rhash_entries. 
+Or you are receiving a DoS attack.
+
+I've sent a new version rtstat to Stepfen Hemminger.
+ftp://robur.slu.se/pub/Linux/net-development/rt_cache_stat/rtstat.c
+
+
+						--ro
