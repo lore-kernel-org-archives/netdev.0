@@ -1,68 +1,42 @@
-From: Bastian Blank <waldi@debian.org>
-Subject: [RFC] device types for s390 network devices
-Date: Tue, 1 Feb 2005 09:21:39 +0100
-Message-ID: <20050201082139.GB31992@wavehammer.waldi.eu.org>
+From: Andreas Unterluggauer <au@unterluggauer.org>
+Subject: Re: Fw: [Bugme-new] [Bug 4138] New: ipsec with racoon in transport mode with esp and ah hangs (problem is in xfrm_state_add)
+Date: Tue, 1 Feb 2005 11:53:02 +0100
+Message-ID: <200502011153.03284.au@unterluggauer.org>
+References: <E1CvZCT-00017g-00@gondolin.me.apana.org.au> <200501311640.16118.au@unterluggauer.org> <20050131211102.GA20323@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="H1spWtNR+x+ondvy"
-Cc: netdev@oss.sgi.com, davem@davemloft.net
-To: linux-kernel@vger.kernel.org, pavlic@de.ibm.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050131211102.GA20323@gondor.apana.org.au>
 Content-Disposition: inline
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hallo Herbert,
 
---H1spWtNR+x+ondvy
-Content-Type: text/plain; charset=utf-8
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Mon, Jan 31, 2005 at 03:40:16PM +0000, Andreas Unterluggauer wrote:
+> > 2005-01-31 16:29:58: DEBUG: ===
+> > 2005-01-31 16:29:58: DEBUG: get pfkey ADD message
+> > andi: libipsec/pfkey.c, pfkey_check: start (msg->sadb_msg_satype: 3)
+> > 2005-01-31 16:29:58: DEBUG: andi: in pfkey.c, pk_recvadd:
+> > msg->sadb_msg_seq 2, msg->sadb_msg_type: ADD 2005-01-31 16:29:58: INFO:
+> > IPsec-SA established: ESP/Transport 192.168.2.5->192.168.2.3
+> > spi=103868257(0x630e761) 2005-01-31 16:29:58: DEBUG: ===
+>
+> Does the machine hang at this point in time? If not, then this is
+> simply a racoon bug.  Although the acquire message carries a policy
+> with it, it's really only acquiring a single SA.  Therefore, only
+> the SA being acquired should be added with that sequence number.
+the machine (kernel) is not hanging!
+only the programm (e.g. ping ) is hanging until it gets a timeout. the kernel 
+is acquiring a SA and racoon answers, and the kernel is acquiring and racoon 
+answers ... until the user-programm stops.
 
-The s390 network devices specifies device types which does not match the
-reality.
+thanks for the information, that its a racoon (ipsec-tools) problem.  I will 
+contact the ipsec-tools developers.
 
-ctc
-=3D=3D=3D
-
-This device is currently specified as ARPHRD_SLIP. If I see it
-correctly, SLIP is an IP-only transport. ctc is more, the link level
-header contains the ethernet protocoll type, so it is some sort of
-pointopoint ethernet (which is sometimes crippled to IPv4-only for
-compatiblity reasons).
-
-qeth
-=3D=3D=3D=3D
-
-This device is currently specified as the corresponding real device
-type if it is a real adapter, or ARPHRD_ETHER if it is a virtual one.
-The virtual device behaves different in different modi:
-- "layer2": In this mode, the device behaves like a real layer 2 device.
-- "fake_ll": The kernel prepends a faked link level header.
-- default: The kernel processes the IP-packages.  This is the most used
-  mode, in whom it is impossible to use a standard libpcap as it parses
-  the IP-headers as Ethernet. (IBM suggests to patch libpcap, but I
-  think that changing the device type to something more matching is the
-  correct solution.)
-
-At least the last part needs some fix, but I don't know how to fix if
-properly.
-
-Bastian
-
---=20
-The more complex the mind, the greater the need for the simplicity of play.
-		-- Kirk, "Shore Leave", stardate 3025.8
-
---H1spWtNR+x+ondvy
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iEYEARECAAYFAkH/PBMACgkQnw66O/MvCNF2kACfZfwLIsQfwOQN1FttPlez0RP1
-1b4Ani15xbP7UoHepA/yvwXBP2a1Kxjy
-=38zD
------END PGP SIGNATURE-----
-
---H1spWtNR+x+ondvy--
+ciao
+andi
