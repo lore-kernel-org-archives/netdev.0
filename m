@@ -1,378 +1,162 @@
-From: "dada1" <dada1@cosmosbay.com>
-Subject: Re: Network buffer hang was Re: [PATCH] 2.6 workaround for Athlon/Opteron prefetch errata
-Date: Thu, 11 Sep 2003 15:17:55 +0200
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: IPv6 6to4 on site-local networks.
+Date: Thu, 11 Sep 2003 16:20:17 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <0b2901c37867$1db399a0$890010ac@edumazet>
-References: <uqD5.3BI.3@gated-at.bofh.it> <m3iso0arlx.fsf@averell.firstfloor.org> <0a5801c37821$54eb8180$890010ac@edumazet> <20030911051121.GA7751@colin2.muc.de> <0a7701c37829$c4bdef40$890010ac@edumazet> <20030911120956.GB7751@colin2.muc.de>
+Message-ID: <Pine.LNX.4.44.0309111555310.12750-100000@netcore.fi>
+References: <1063284516.23778.152.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	boundary="----=_NextPart_000_0B26_01C37877.E0329AC0"
-Cc: "Nakajima, Jun" <jun.nakajima@intel.com>, "Andi Kleen" <ak@muc.de>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Andi Kleen" <ak@colin2.muc.de>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1063284516.23778.152.camel@hades.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+On Thu, 11 Sep 2003, David Woodhouse wrote:
+> On Thu, 2003-09-11 at 10:49 +0300, Pekka Savola wrote:
+> > Yep, but once you break into just one box w/ global addresses, all of the 
+> > site-internal infrastructure is open to you.  This seems like a high price 
+> > to pay, with many points of failure.
+> 
+> Well yes, but that's _already_ the cases for boxen on the internal
+> RFC1918 IPv4 network. If you own one, you have access to them all. 
 
-------=_NextPart_000_0B26_01C37877.E0329AC0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Ok.. now you have the chance to improve security by doing IPv6 (.. and 
+having to put in internal filters as well, in the process) :-)
 
-> > This is not a kernel crash. But total freeze as all memory is used by
-> > network buffers, in no more than 10 seconds.
->
-> Ok, but then you have to diagnose this freeze. I'm not sure why you
-> think it must be this prefetch thingy. If the prefetch issue was
-> hit then you would just get a normal segfault, not a kernel hang.
+> That's why we'd want outgoing-connections-only for all the internal IPv6
+> machines, just as they have in the IPv4 world by virtue of being behind
+> NAT.
 
-Well, the machine is a bi-athlon, and I use prefetchnta... thats all.
+Right.  (This is a bit tricker with Linux IPv6 firewalling as it doesn't
+support connection tracking, but still roughly doable.)
+ 
+> > One possible solution is to pick one (or a couple of) major sites which 
+> > provide "internal connectivity addresses".  For example, assume you have 
+> > the big HQ in the US.  Deploy on each node:
+> > 
+> >  - IPv6 connectivity addresses, obtained using 6to4 or the like, and
+> >  - IPv6 addesses from the HQ block.
+> > 
+> > The latter are only used for internal connectivity through CIPE tunnels;  
+> > the former would be used to reach IPv6 Internet (without a need to go
+> > through the HQ and from there to the Internet).
+> 
+> That works, and is one of the more promising options at the moment.
 
->
-> e.g. you could write some kind of reduced test case for it and
-> post it to the netdev mailing list (netdev@oss.sgi.com)
+Ok.
+ 
+> But we don't want to have to manually configure each host to be
+> multihomed -- assuming that HQ gets assigned the 2001:200:0:8002::/64
+> network, and our local site has 2001:200:0:8002:1234::/80 from that,
 
-Thanks very much. I'm resending my original mail (with a small test program
-attached), at the end of this one.
+Please don't: get a /48, so you can give each subnet a /64.  Giving less 
+than /80 breaks so many things (like stateless address autoconfiguration).
 
->
-> I'm cc'ing it for you.
->
-> > This application receive smalls TCP messages (about 30 bytes), but the
-> > network stacks allocates 4KB buffers to store this little messages.
->
-> Most drivers only allocate MTU size in their receive ring
-> (normally 1.5K on ethernet). This is rounded to 2K by  the memory
-allocator.
->
-> But most drivers support a rx_copybreak parameter. When the received
-> packet is smaller than rx_copybreak it is copied to a freshly allocated
-> buffer with the right size.
+> along with 
+> 2002:c35c:f9ff::/48 from 6to4 with its IPv4 Internet address... is there
+> a way to configure radvd or dhcpv6 so it tells each host:
+> 
+>  "You are 2001:200:0:8002:1234:<EUI-64> and should route packets
+>   to 2001:200:0:8002::/64 using that source address.
+>  "You are also 2002:c55c:f9ff:1234:<EUI-64> and should route
+>   packets to 2000::/3 using _that_ source address."
 
-I'm using e1000 driver , on linux-2.6, this driver doesnt use the
-rx_copybreak trick.
+Not possible, that I'm aware of.
+ 
+> In fact, we don't have to get it 100% correct -- as long as we ensure
+> that the failure mode where we route to internal hosts using our
+> non-HQ-derived IPv6 address isn't going to happen, 
 
->
-> In addition the 2.4 stack also supports garbage collection in the TCP
-> receive buffers. This means even when a driver doesn't do the rx_copybreak
-> trick and the receive queue of a socket fills up it will copy the data
-> to fresh, right sized packets by itself.
->
-> Another limit for this scenario is that the network stack has internal
-> limits that supposed to avoid this. These are: each socket has a
-> fixed receive buffer size and when more data arrives (including packet
-> metadata and normal wastage) than the receive buffer allows then it is
-> still dropped. In addition TCP has a global memory limit that also kicks
-> in. And the network stack has a global queue limit that prevents
-> too much data to be queued from the driver to the higher level
-> parts (/proc/sys/net/core/netdev_max_backlog). Sometimes the queueing
-> can also be controlled on the driver level with driver specific
-> knobs.
->
+This is a bit tricky.  There are two ways to hack around this:
 
-cat /proc/sys/net/core/netdev_max_backlog
-300
+ 1) at your HQ, create an inbound firewall filter, so that you'll disallow 
+any incoming packets to the "internal blocks" from the Internet.  If a 
+host happens to start fall back to using global connectivity, the 
+connectivity fails utterly.
 
-> This all can be tuned by sysctls in /proc/sys. See
-Documentation/networking/
-> ip-sysctl.txt for more details.
->
-> Also the latest 2.6 kernel finally has a writable
-/proc/sys/vm/min_free_kbytes
-> again. This controls the amount of memory kept free for interrupts.
-> Increase that.
+and:
 
-Hum I didnt knew this one...
+ 2) at your edge sites, make a firewall filter which prevents reaching
+"internal blocks" through the Internet (automated installation could be
+achieved using any number of mechanisms, whichever you're using).
 
-cat  /proc/sys/vm/min_free_kbytes
-16384
+.. in addition, up-to-date source address selection in the kernel should 
+ensure that does not happen when you'd use only "internal addresses" in 
+your DNS, or give internal addresses as command-line.  
 
->
-> > I posted a test application some days ago about this problem and got no
-> > answers/feedback.
->
-> Did you post it to netdev?  On linux-kernel such things get often
-> lost in the noise.
->
-> Also I would contact the driver maintainer, it could be really a driver
-> Issue.
->
-> -Andi
+Destination address selection is a bit trickier (hence the methods above) 
+because if you'd get "internal address" and "external address" from the 
+DNS, and the glibc getaddrinfo() implementation would pick one at random, 
+this would lead to using the external connectivity half of the times, 
+unless prevented with e.g. those filters or by administration (about the 
+DNS names)
 
-Here is the copy of the mail I sent the Sep 1st on linux-kernel & linux-net
-:
+> it's OK to allow the
+> failure mode where we route to external hosts using our HQ-derived IPv6
+> address; that's only going to make it a bit slower, not actually make it
+> break.
 
-Hi all
+Right.
 
-I have an annoying problem with a network server (TCP sockets)
+> > The potential issue here is the source address selection, so that the 
+> > hosts don't pick the HQ addresses when they try to reach to IPv6 sites in 
+> > the Big Internet (so that the packets don't route back through the HQ).
+> 
+> Unless they go out bearing the HQ-derived address, but with a 'care-of'
+> option pointing at the local IPv6-connectivity address? 
 
-On some stress situation,  LowMemory goes close to 0, and the whole machine
-freezes.
+Mobile IPv6 is quite a bit more complicated than that nowadays.. :-/
+ 
+> > > > Note that 6to4 specification explicitly disallows the use of 6to4 on
+> > > > private addresses.  No such checks have been added to Linux kernel (should
+> > > > be..), but you're likely to face more or less trouble if you do so.
+> > > 
+> > It's a bit more than that, even though Linux kernel only implements the 
+> > very basics of the specification.  See RFC3056 section 9 last paragraph.
+> 
+> Hmmm. I wonder how it's supposed to know which are subnet-broadcast
+> addresses? 
 
-When the sockets receive a lot of data, and the server is busy, the TCP
-stack just can use too many buffers (in LowMem).
+Kernel looks up all the v4 broadcast addresses from all the interfaces..?  
+Should be pretty doable.
 
-TCP stack uses "size-4096" buffers to store the datas, even if only one byte
-is coming from the network.
+> Do you reckon there are boxen out there which will refuse to
+> route for 2002:c35c:f9ff::1 just as some refuse to route for
+> 195.92.249.255?
 
-I tried to change /proc/sys/net/ipv4/tcp_mem, without results.
-# echo "1000 10000 15000" >/proc/sys/net/ipv4/tcp_mem
+I'm not sure if such implementations exist, but if they don't, there are 
+specific threats (though minor) if such check are implemented.
+ 
+> > Mobile IPv6 could be leveraged for you, sure.  However, you seem to
+> > require just one basic feature of MIPv6: tunneling back to Home (Agent).  
+> > The same can be established through CIPE tunnels.  This is similar to my
+> > thought, above, of deploying both IPv6 Internet connectivity ("care-of
+> > address") and local HQ addressing ("home address") to all the nodes.
+> > 
+> > For security, you would then have to ensure that the "local HQ addresses" 
+> > don't leak and are properly firewalled.
+> 
+> I was trying to avoid the tunnelling altogether, at least for the common
+> case. I thought that Mobile-IPv6 avoided the 'triangular routing'
+> problem that IPv4 has, by introducing a way for the correspondent node
+> to know about the mobile node's care-of address.
 
-You can reproduce the problem with the test program attached.
+Mobile IPv6 won't help with that, in practice.  That's because the binding 
+between care-of and home addresses must be secured. The only way that can 
+be done, in general, is to use a return routability procedure, that is: 
+the node a host communicates with ("correspondent node") sends a packet to 
+the home address and the care-of address of the host with a cookie (and 
+other stuff), and makes sure the host reflects them back at it, thus 
+verifying that it is in fact reachable at both addresses.
 
-# gcc -o crash crash.c
-# ulimit -n 20000
-# ./crash listen  8888 &
-# ./crash call 127.0.0.1:8888 &
+So, this would create many new roundtrips, which is not really what you'd 
+want..
 
-grep "size-4096 " /proc/slabinfo
-size-4096      40015  40015  4096  1  1 : tunables  24  12  0  : slabdata
-40015  40015 0
+Hope this helps..
 
-(thats is 160 Mo, far more than the limit given in
-/proc/sys/net/ipv4/tcp_mem)
-
-grep TCP /proc/net/sockstat
-TCP: inuse 39996 orphan 0 tw 0 alloc 39997  mem 79986
-
-What is the unit of 'mem' field ? Unless it is 2Ko, the numbers are wrong.
-
- How may I ask the kernel NOT to use more than 'X Mo' to store TCP messages
-?
-
-Thanks
-
-Eric Dumazet
-
-/*
- * Program to freeze a linux box, by using all the LOWMEM
- * A bug on the tcp stack may be the reason
- * Use at your own risk !!
- */
-
-/* Principles :
-   A listener accepts incoming tcp sockets, write 40 bytes, and does nothing
-with them (no reading)
-   A writer establish TCP sockets, sends some data (40 bytes), no more
-reading/writing
- */
-#include <stdio.h>
-# include <sys/socket.h>
-# include <netinet/tcp.h>
-# include <arpa/inet.h>
-# include <netdb.h>
-# include <unistd.h>
-# include <string.h>
-
-/*
- * Usage :
- *              crash listen port
- *              crash call IP:port
- */
-void usage(int code)
-{
-fprintf(stderr, "Usages :\n") ;
-fprintf(stderr, "    crash listen port\n") ;
-fprintf(stderr, "    crash call IP:port\n") ;
-exit(code) ;
-}
-const char some_data[40] = "some data.... just some data" ;
-
-void do_listener(const char *string)
-{
-int port = atoi(string) ;
-struct sockaddr_in host, from ;
-int fdlisten ;
-unsigned int total ;
-socklen_t fromlen ;
-  memset(&host,0, sizeof(host));
-  host.sin_family = AF_INET;
-  host.sin_port = htons(port);
-  fdlisten = socket(AF_INET, SOCK_STREAM, 0) ;
-  if (bind(fdlisten, (struct sockaddr *)&host, sizeof(host)) == -1) {
-        perror("bind") ;
-        return ;
-        }
-listen(fdlisten, 10) ;
-for (total=0;;total++) {
-        int nfd ;
-        fromlen = sizeof(from) ;
-        nfd = accept(fdlisten, (struct sockaddr *)&from, &fromlen) ;
-        if (nfd == -1) break ;
-        write(nfd, some_data, sizeof(some_data)) ;
-        }
-printf("total=%u\n", total) ;
-pause() ;
-}
-
-void do_caller(const char *string)
-{
-union {
-   int i ;
-   char c[4] ;
-        } u ;
-struct sockaddr_in dest;
-int a1, a2, a3, a4, port ;
-unsigned int total ;
-sscanf(string, "%d.%d.%d.%d:%d", &a1, &a2, &a3, &a4, &port) ;
-u.c[0] = a1 ; u.c[1] = a2 ; u.c[2] = a3 ; u.c[3] = a4 ;
-for (total=0;;total++) {
-    int fd ;
-        memset(&dest, 0, sizeof(dest)) ;
-        dest.sin_family = AF_INET ;
-        dest.sin_port = htons(port) ;
-        dest.sin_addr.s_addr = u.i ;
-    fd = socket(AF_INET, SOCK_STREAM, 0) ;
-        if (fd == -1) break ;
-        if (connect(fd, (struct sockaddr *)&dest, sizeof(dest)) == -1) {
-                perror("connect") ;
-                break ;
-                }
-        write(fd, some_data, sizeof(some_data)) ;
-        }
-printf("total=%u\n", total) ;
-pause() ;
-}
-
-int main(int argc, char *argv[])
-{
-int listener ;
-int caller ;
-if (argc != 3) {
-        usage(1);
-        }
-listener = !strcmp(argv[1], "listen") ;
-caller = !strcmp(argv[1], "call") ;
-if (listener) {
-        do_listener(argv[2]) ;
-        }
-else if (caller) {
-        do_caller(argv[2]) ;
-        }
-else usage(2) ;
-return 0 ;
-}
-/********************************************************************/
-
-
-
-------=_NextPart_000_0B26_01C37877.E0329AC0
-Content-Type: text/plain;
-	name="crash.c"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: attachment;
-	filename="crash.c"
-
-/*=0A=
- * Program to freeze a linux box, by using all the LOWMEM=0A=
- * A bug on the tcp stack may be the reason =0A=
- * Use at your own risk !!=0A=
- */=0A=
-=0A=
-/* Principles :=0A=
-   A listener accepts incoming tcp sockets, write 40 bytes, and does =
-nothing with them (no reading)=0A=
-   A writer establish TCP sockets, sends some data (40 bytes), no more =
-reading/writing=0A=
- */=0A=
-#include <stdio.h>=0A=
-# include <sys/socket.h>=0A=
-# include <netinet/tcp.h>=0A=
-# include <arpa/inet.h>=0A=
-# include <netdb.h>=0A=
-# include <unistd.h>=0A=
-# include <string.h>=0A=
-=0A=
-/*=0A=
- * Usage :=0A=
- *              crash listen port=0A=
- *              crash call IP:port=0A=
- */=0A=
-void usage(int code)=0A=
-{=0A=
-fprintf(stderr, "Usages :\n") ;=0A=
-fprintf(stderr, "    crash listen port\n") ;=0A=
-fprintf(stderr, "    crash call IP:port\n") ;=0A=
-exit(code) ;=0A=
-}=0A=
-const char some_data[40] =3D "some data.... just some data" ;=0A=
-=0A=
-void do_listener(const char *string)=0A=
-{=0A=
-int port =3D atoi(string) ;=0A=
-struct sockaddr_in host, from ;=0A=
-int fdlisten ;=0A=
-unsigned int total ;=0A=
-socklen_t fromlen ;=0A=
-  memset(&host,0, sizeof(host));=0A=
-  host.sin_family =3D AF_INET;=0A=
-  host.sin_port =3D htons(port);=0A=
-  fdlisten =3D socket(AF_INET, SOCK_STREAM, 0) ;=0A=
-  if (bind(fdlisten, (struct sockaddr *)&host, sizeof(host)) =3D=3D -1) {=0A=
-	perror("bind") ;=0A=
-	return ;=0A=
-	}=0A=
-listen(fdlisten, 10) ;=0A=
-for (total=3D0;;total++) {=0A=
-	int nfd ;=0A=
-	fromlen =3D sizeof(from) ;=0A=
-	nfd =3D accept(fdlisten, (struct sockaddr *)&from, &fromlen) ;=0A=
-	if (nfd =3D=3D -1) break ;=0A=
-	write(nfd, some_data, sizeof(some_data)) ;=0A=
-	}=0A=
-printf("total=3D%u\n", total) ;=0A=
-pause() ;=0A=
-}=0A=
-=0A=
-void do_caller(const char *string)=0A=
-{=0A=
-union {=0A=
-   int i ;=0A=
-   char c[4] ;=0A=
-	} u ;=0A=
-struct sockaddr_in dest;=0A=
-int a1, a2, a3, a4, port ;=0A=
-unsigned int total ;=0A=
-sscanf(string, "%d.%d.%d.%d:%d", &a1, &a2, &a3, &a4, &port) ;=0A=
-u.c[0] =3D a1 ; u.c[1] =3D a2 ; u.c[2] =3D a3 ; u.c[3] =3D a4 ;=0A=
-for (total=3D0;;total++) {=0A=
-    int fd ;=0A=
-	memset(&dest, 0, sizeof(dest)) ;=0A=
-	dest.sin_family =3D AF_INET ;=0A=
-   	dest.sin_port =3D htons(port) ;=0A=
-   	dest.sin_addr.s_addr =3D u.i ;=0A=
-    fd =3D socket(AF_INET, SOCK_STREAM, 0) ;=0A=
-	if (fd =3D=3D -1) break ;=0A=
-	if (connect(fd, (struct sockaddr *)&dest, sizeof(dest)) =3D=3D -1) {=0A=
-		perror("connect") ;=0A=
-		break ;=0A=
-		}=0A=
-	write(fd, some_data, sizeof(some_data)) ;=0A=
-	}=0A=
-printf("total=3D%u\n", total) ;=0A=
-pause() ;=0A=
-}=0A=
-=0A=
-int main(int argc, char *argv[])=0A=
-{=0A=
-int listener ;=0A=
-int caller ;=0A=
-if (argc !=3D 3) {=0A=
-	usage(1);=0A=
-	}=0A=
-listener =3D !strcmp(argv[1], "listen") ;=0A=
-caller =3D !strcmp(argv[1], "call") ;=0A=
-if (listener) {=0A=
-	do_listener(argv[2]) ;=0A=
-	}=0A=
-else if (caller) {=0A=
-	do_caller(argv[2]) ;=0A=
-	}=0A=
-else usage(2) ;=0A=
-return 0 ;=0A=
-}=0A=
-/********************************************************************/=0A=
-
-------=_NextPart_000_0B26_01C37877.E0329AC0--
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
