@@ -1,81 +1,122 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: oops when bringing up loopback device
-Date: Mon, 28 Mar 2005 16:12:58 -0800
-Message-ID: <20050328161258.7fbe28dd.davem@davemloft.net>
-References: <20050328160248.595615a1@dxpl.pdx.osdl.net>
+From: "Asgeir Eiriksson" <asgeir@chelsio.com>
+Subject: RE: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit ProposedTopics
+Date: Mon, 28 Mar 2005 16:44:08 -0800
+Message-ID: <67D69596DDF0C2448DB0F0547D0F947E01781DEF@yogi.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, <mpm@selenic.com>,
+        <andrea@suse.de>, <michaelc@cs.wisc.edu>,
+        <James.Bottomley@HansenPartnership.com>,
+        <ksummit-2005-discuss@thunk.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050328160248.595615a1@dxpl.pdx.osdl.net>
+content-class: urn:content-classes:message
+To: "Dmitry Yusupov" <dmitry_yus@yahoo.com>, <open-iscsi@googlegroups.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 28 Mar 2005 16:02:48 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> I am seeing this on one of my boxes with current net-2.6 tree.
 
-You're missing the fix to net/ipv4/ip_mp_alg.h for some reason,
-it is upstream for two days now and I added it to my tree the
-weekend you left for spring break.
+> -----Original Message-----
+> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
+> Behalf Of Dmitry Yusupov
+> Sent: Monday, March 28, 2005 12:49 PM
+> To: open-iscsi@googlegroups.com
+> Cc: David S. Miller; mpm@selenic.com; andrea@suse.de;
+> michaelc@cs.wisc.edu; James.Bottomley@HansenPartnership.com;
+ksummit-2005-
+> discuss@thunk.org; netdev@oss.sgi.com
+> Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit
+> ProposedTopics
+> 
+> Basically, HW offloading all kind of is a different subject.
+> Yes, iSER/RDMA/RNIC will help to avoid bunch of problems but at the
+same
+> time will add bunch of new problems. OOM/deadlock problem we are
+> discussing is a software, *not* hardware related.
+> 
+> If you have plans to start new project such as SoftRDMA than yes. lets
+> discuss it since set of problems will be similar to what we've got
+with
+> software iSCSI Initiators.
+> 
+> I'm not a believer in any HW state-full protocol offloading
+technologies
+> and that was one of my motivations to initiate Open-iSCSI project to
+> prove that performance is not an issue anymore. And we succeeded, by
+> showing comparable to iSCSI HW Initiator's numbers.
+> 
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/03/19 16:45:16-08:00 davem@sunset.davemloft.net 
-#   [IPV4]: Check multipath ops func pointers against NULL.
-#   
-#   Multipath algorithms are not required to implement
-#   all of the methods.  Just the ones they need.
-#   
-#   Signed-off-by: David S. Miller <davem@davemloft.net>
-# 
-# include/net/ip_mp_alg.h
-#   2005/03/19 16:44:15-08:00 davem@sunset.davemloft.net +6 -4
-#   [IPV4]: Check multipath ops func pointers against NULL.
-# 
-diff -Nru a/include/net/ip_mp_alg.h b/include/net/ip_mp_alg.h
---- a/include/net/ip_mp_alg.h	2005-03-28 16:21:56 -08:00
-+++ b/include/net/ip_mp_alg.h	2005-03-28 16:21:56 -08:00
-@@ -36,7 +36,8 @@
- #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
- 	struct ip_mp_alg_ops *ops = ip_mp_alg_table[rth->rt_multipath_alg];
- 
--	if (ops && (rth->u.dst.flags & DST_BALANCED)) {
-+	if (ops && ops->mp_alg_select_route &&
-+	    (rth->u.dst.flags & DST_BALANCED)) {
- 		ops->mp_alg_select_route(flp, rth, rp);
- 		return 1;
- 	}
-@@ -52,7 +53,7 @@
- 	for (i = IP_MP_ALG_NONE; i <= IP_MP_ALG_MAX; i++) {
- 		struct ip_mp_alg_ops *ops = ip_mp_alg_table[i];
- 
--		if (ops)
-+		if (ops && ops->mp_alg_flush)
- 			ops->mp_alg_flush();
- 	}
- #endif
-@@ -66,7 +67,7 @@
- #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
- 	struct ip_mp_alg_ops *ops = ip_mp_alg_table[rth->rt_multipath_alg];
- 
--	if (ops)
-+	if (ops && ops->mp_alg_set_nhinfo)
- 		ops->mp_alg_set_nhinfo(network, netmask, prefixlen, nh);
- #endif
- }
-@@ -76,7 +77,8 @@
- #ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
- 	struct ip_mp_alg_ops *ops = ip_mp_alg_table[rth->rt_multipath_alg];
- 
--	if (ops && (rth->u.dst.flags & DST_BALANCED))
-+	if (ops && ops->mp_alg_remove &&
-+	    (rth->u.dst.flags & DST_BALANCED))
- 		ops->mp_alg_remove(rth);
- #endif
- }
+Dmitry
+
+Care to be more specific about the performance you achieved?
+
+You might want to contrast your numbers to veritest verified numbers of
+800+ MBps and 600+KOPS achieved by Chelsio HBA with stateful offload
+using either 1500B or 9KB MTU (for full detail see Veritest report at
+http://www.chelsio.com/technology/Chelsio10GbE_iSCSI_report.pdf)
+
+'Asgeir
+
+> Though, for me, RDMA over TCP is an interesting topic from software
+> implementation point of view. I was thinking about organizing new
+> project. If someone knows that related work is already started - let
+me
+> know since I might be interested to help.
+> 
+> Dmitry
+> 
+> On Mon, 2005-03-28 at 11:45 -0800, Roland Dreier wrote:
+> > Let me slightly hijack this thread to throw out another topic that I
+> > think is worth talking about at the kernel summit: handling remote
+DMA
+> > (RDMA) network technologies.
+> >
+> > As some of you might know, I'm one of the main authors of the
+> > InfiniBand support in the kernel, and I think we have things fairly
+> > well in hand there, although handling direct userspace access to
+RDMA
+> > capabilities may raise some issues worth talking about.
+> >
+> > However, there is also RDMA-over-TCP hardware beginning to be used,
+> > based on the specs from the IETF rddp working group and the RDMA
+> > Consortium.  I would hope that we can abstract out the common pieces
+> > for InfiniBand and RDMA NIC (RNIC) support and morph
+> > drivers/infiniband into a more general drivers/rdma.
+> >
+> > This is not _that_ offtopic, since RDMA NICs provide another way of
+> > handling OOM for iSCSI.  By having the NIC handle the network
+> > transport through something like iSER, you avoid a lot of the issues
+> > in this thread.  Having to reconnect to a target while OOM is still
+a
+> > problem, but it seems no worse in principal than the issues with a
+> > dump FC card that needs the host driver to handling fabric login.
+> >
+> > I know that in the InfiniBand world, people have been able to run
+> > stress tests of storage over SCSI RDMA Protocol (SRP) with very
+heavy
+> > swapping going on and no deadlocks.  SRP is in effect network
+storage
+> > with the transport handled by the IB hardware.
+> >
+> > However there are some sticky points that I would be interested in
+> > discussing.  For example, the IETF rddp drafts envisage what they
+call
+> > a "dual stack" model: TCP connections are set up by the usual
+network
+> > stack and run for a while in "streaming" mode until the application
+is
+> > ready to start using RDMA.  At that point there is an "MPA"
+> > negotiation and then the socket is handed over to the RNIC.  Clearly
+> > moving the state from the kernel's stack to the RNIC is not trivial.
+> >
+> > Other developers who have more direct experience with RNIC hardware
+or
+> > perhaps just strong opinions may have other things in this area that
+> > they'd like to talk about.
+> >
+> > Thanks,
+> >   Roland
+> 
