@@ -1,50 +1,29 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Wed, 20 Aug 2003 10:44:41 -0700
+From: "Bryan O'Sullivan" <bos@serpentine.com>
+Subject: Re: Best way to hook incoming eth pkts?
+Date: 20 Aug 2003 10:48:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F43B389.5060602@candelatech.com>
-References: <1061320363.3744.14.camel@athena.fprintf.net>	<Pine.LNX.3.96.1030820123600.14414I-100000@gatekeeper.tmr.com> <20030820100044.3127d612.davem@redhat.com>
+Message-ID: <1061401697.12293.8.camel@serpentine.internal.keyresearch.com>
+References: <20030820154727.GB9119@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030820100044.3127d612.davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030820154727.GB9119@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Wed, 20 Aug 2003 12:49:14 -0400 (EDT)
-> Bill Davidsen <davidsen@tmr.com> wrote:
-> 
-> 
->>On 19 Aug 2003, Daniel Gryniewicz wrote:
->>
->>I have been asking for a similar thing as well, David mentioned some
->>things that would break, but I believe they break if you use source
->>routing, so that seems not to be a real objection.
-> 
-> 
-> It's not about source routing.  It's about failover and being
-> able to use ARP on interfaces which don't have addresses assigned
-> to them yet.
+On Wed, 2003-08-20 at 08:47, Jeff Garzik wrote:
 
-[snip]
+> ATA-over-ethernet has its own
+> IANA-registered ethernet type, but netconsole and netdump are using
+> IP/UDP instead of a custom ethernet protocol.
 
-> BTW, another thing which makes the source address selection for
-> outgoing ARPs a real touchy area is the following.  Some weird
-> configurations actually respond with different ARP answers based upon
-> the source address in the ARP request.  You can ask Julian Anastasov
-> about such (arguably pathological) setups.
+This is useful, because it minimises the work needed to get them going
+over other transports, such as Myrinet.  I'd rather not see the UDP
+encapsulation go away.  Netconsole is already messy enough to configure
+and deal with; Matt Mackall's 2.6 forward port, that makes configuration
+more IP-oriented instead of less, is a step in the right direction.
 
-It seems that these reasons would not preclude the addition of a flag
-that would default to the current behaviour but allow the behaviour that
-other setups desire easily?  That seems to be all that folks are really
-arguing for.  If/when the user enabled this new flag, then they should
-be fully responsible for the change in behaviour, and they can deal with
-it as needed.
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+	<b
