@@ -1,60 +1,53 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
-Date: Tue, 31 Aug 2004 21:15:08 +1000
+Date: Tue, 31 Aug 2004 21:29:37 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040831111508.GA2327@gondor.apana.org.au>
-References: <20040831101203.GA1951@gondor.apana.org.au> <Pine.LNX.4.44.0408311326540.4022-100000@l>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, laforge@netfilter.org,
-        netfilter-devel@lists.netfilter.org, rusty@rustcorp.com.au,
-        netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Message-ID: <E1C26pV-0000fW-00@gondolin.me.apana.org.au>
+References: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
+Cc: laforge@netfilter.org, davem@davemloft.net, netdev@oss.sgi.com,
+        rusty@rustcorp.com.au, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0408311326540.4022-100000@l>
+To: hno@marasystems.com (Henrik Nordstrom)
+In-Reply-To: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 31, 2004 at 01:54:21PM +0300, Julian Anastasov wrote:
+Henrik Nordstrom <hno@marasystems.com> wrote:
 > 
-> 	Yes, 2.2 worked somehow, until some users wanted more
-> control from the routing. Now ip_fw_compat_masq.c has such call,
-> it can be fast in some setups with small number of IPs but may
-> be now there some setups using nfmark for selecting maddr from
-> ISP-specific routing tables. I'm not sure we can avoid the routing
-> and the cache pollution, we have to live with the old behavoir, not
-> the current one.
+> Should only happen if the routing is screwed up, in principle..
 
-You're right.  However, we can still do this without performing
-another routing lookup.  The information is already there in the
-fib rule.  We just didn't bother writing it down in the route for
-forwarded packets.
+If only that were the case :)
+ 
+> I think it would for most make more sense that the source IP assignment is 
+> based on routing using the original source address as key.
 
-So if we add a new field for the preferred source address to
-struct rtable then we can avoid the lookup.
+Doesn't work because we're trying to get the correct source address from
+the routing lookup.
 
-BTW, I'd still like to know the problem with the original oif key.
-It's basically saying that if you can find the correct route using
-the other keys (daddr/tos/mark) then all is well, if you can't
-(dev != out) then we'll use the best address on the outgoing
-interface.
+> What I don't get is why MASQUERADE needs to do a route lookup at all. 
+> Isn't the traffic already routed at this point, and shouldn't it simply 
+> use the source IP of the current selected route or the interface primary 
+> IP of no source IP set in the route?
 
-> 	I have some related work, you can check it for more ideas:
+The problem is that we don't record the preferred source in struct rtable.
+It is available in the original FIB rule.  So by adding a new field in
+struct rtable we should be able to avoid this lookup.
+
+>> That is the presumption I am about to challenge.  Is the 'original'
+>> interface really the one we want in this case?
 > 
-> http://www.ssi.bg/~ja/#routes
-> see dgd-usage.txt
-> 
-> 	In short, I use the mpath route as a nexthop selector (on
-> first packet), the next packets do not hit the mpath route, they feed the 
-> routing with the maddr already bound to the NAT connection. This survives
-> cache expiration. May be using connmark is a better idea:
-> assign nfmark to connection and route it always via same GW. But
-> may be the oif key remains, I'm not sure.
+> If there is policy routing saying that packets with a given source 
+> should go out another interface my opinion is that they should.
 
-Fortunately I'm one of those with lots of interfaces but only one
-IP on each.  I can sympathise with your situation of many IPs but
-only one interface :)
+Absolutely.
+
+> I have been using SNAT in quite many complex routing setups and so far has 
+> not run into any situation where routing gets wrong in an unmanageable and 
+> unintuitive manner due to SNAT. MASQUERADE should not be more complex.
+
+Well I took that advice and ended up with tons of broken systems because
+SNAT is totally broken when your IP address is dynamic.  MASQUERADE
+flushes the conntrack rules automatically.  SNAT does not.
 
 Cheers,
 -- 
