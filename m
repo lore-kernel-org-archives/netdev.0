@@ -1,26 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] always set westwood rtt (trivial)
-Date: Mon, 8 Mar 2004 12:04:49 -0800
+Subject: Re: [PATCH] multi-protocol MSF API sysctl limit support
+Date: Mon, 8 Mar 2004 12:17:48 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040308120449.00db3983.davem@redhat.com>
-References: <20040308101726.4d08467a@dell_ss3.pdx.osdl.net>
+Message-ID: <20040308121748.687bd77f.davem@redhat.com>
+References: <OF98DA688D.A9E1181F-ON88256E4F.00342F53-88256E4F.00349E68@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040308101726.4d08467a@dell_ss3.pdx.osdl.net>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF98DA688D.A9E1181F-ON88256E4F.00342F53-88256E4F.00349E68@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 8 Mar 2004 10:17:26 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Sat, 6 Mar 2004 02:37:56 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-> It is faster just to update the rtt even if we never use it.
+> This patch adds support for administrator-controlled multicast source
+> filter limits for the multiprotocol multicast source filter API. The v4
+> portion
+> uses the same sysctl variable as the previous v4-only API patch, and
+> the v6 portion uses a new v6 sysctl variable, "mld_max_msf".
 
-We save a dirty cache line in the tcp_opt structure when westwood
-is off.
-
-Does it really matter?  Who knows... I'm so ambivalent about this that
-I'm just not going to apply the patch for now. :-)
+Applied, thanks David.
