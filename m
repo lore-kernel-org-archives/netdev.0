@@ -1,47 +1,83 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Willy Tarreau <willy@w.ods.org>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 05:30:07 -0700
+Date: Mon, 18 Aug 2003 14:51:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818053007.7852ca77.davem@redhat.com>
-References: <20030728213933.F81299@coredump.scriptkiddie.org>
-	<200308171509570955.003E4FEC@192.168.128.16>
-	<200308171516090038.0043F977@192.168.128.16>
-	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
-	<200308171555280781.0067FB36@192.168.128.16>
-	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
-	<200308171759540391.00AA8CAB@192.168.128.16>
-	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
-	<200308171827130739.00C3905F@192.168.128.16>
-	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
-	<20030817224849.GB734@alpha.home.local>
-	<20030817223118.3cbc497c.davem@redhat.com>
-	<20030818133957.3d3d51d2.skraw@ithnet.com>
-	<20030818044419.0bc24d14.davem@redhat.com>
-	<20030818143401.1352d158.skraw@ithnet.com>
+Message-ID: <20030818125158.GA18699@alpha.home.local>
+References: <200308171555280781.0067FB36@192.168.128.16> <1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk> <200308171759540391.00AA8CAB@192.168.128.16> <1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk> <200308171827130739.00C3905F@192.168.128.16> <1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk> <20030817224849.GB734@alpha.home.local> <20030817223118.3cbc497c.davem@redhat.com> <20030818133957.3d3d51d2.skraw@ithnet.com> <20030818044419.0bc24d14.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
-   lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
-   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephan von Krawczynski <skraw@ithnet.com>, willy@w.ods.org,
+   alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com, lamont@scriptkiddie.org,
+   davidsen@tmr.com, bloemsaa@xs4all.nl, marcelo@conectiva.com.br,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
+   torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephan von Krawczynski <skraw@ithnet.com>
-In-Reply-To: <20030818143401.1352d158.skraw@ithnet.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030818044419.0bc24d14.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 14:34:01 +0200
-Stephan von Krawczynski <skraw@ithnet.com> wrote:
+On Mon, Aug 18, 2003 at 04:44:19AM -0700, David S. Miller wrote:
+> On Mon, 18 Aug 2003 13:39:57 +0200
+> Stephan von Krawczynski <skraw@ithnet.com> wrote:
+> 
+> > Can you please give us a striking example of a widespread application where
+> > current behaviour is a requirement or at least a very positive thing?
+> 
+> [ I've been waiting what seems like centuries for someone
+>   to even consider talking about source address selection,
+>   alas I have to bring it up myself :( ]
 
-> what is the _positive_ outcome of this
-> implementation compared to others?
+You're not fair, David, that was *exactly* my concern when I jumped into the
+thread : the SELECTED SOURCE address for ARP requests is wrong by default as
+soon as you manually set the IP source address. (but perhaps you didn't have
+time to read my long mail).
 
-If you're not willing to think I can't help you resolve
-the questions you have.
+> Do you know how source address selection works when the user tries to
+> connect to a remote location yet doesn't specify a specific source
+> address to use?
 
-If you don't understand source address selection, than it's
-not possible for me to have an intellegent conversation about
-this topic.
+In my case, although I don't know the internals, I think I have a clear enough
+idea of it (but I may be wrong) : the IP source address used when connecting to
+a remote host should be either the one manually specified on the most
+appropriate route, or one local address which can reach the remote host or a
+gateway indicated by the most appropriate route. The ARP source is the IP
+source address if this address is a local one, or one of those assigned to the
+NIC from which either the host or the gateway should be reached.
 
-So you need to make this crucial first step.
+> 1) consider how you might want to make that configurable
+>    by the user
+
+ip route ... src ... is really fine to me for the IP part, and I would have
+expected it to act on ARP too ;-)
+
+> 2) what the default behavior should be
+
+I think we should apply the exact same source selection as IP to ARP. That is,
+if we need to reach host X or gateway X on the LAN, we should do a route lookup
+and use a valid source (or the manually set one) associated to the most
+appropriate route. That is what Julian Anastasov's patch does, and it does it
+fairly well IMHO.
+
+> 3) what kind of ARP behavior is necessary in order for
+>    these various configurations to work
+
+The one detailed above by default, then use arptables (or ip arp) for all
+tricky configurations.
+
+BTW, I've tried arptables-0.0.1. Except that I had to patch it to make it
+usable on 2.4.22-rc2 (because the FORWARD chain doesn't exist on 2.4), it
+allows me to do the same as what 'ip arp' did for me on a patched kernel
+(although I prefer the iproute interface, just a matter of taste). Using my
+previous example, I now do the following which works :
+
+   ip address add 10.0.0.1/24 dev eth0
+   ip address add 11.0.0.1/24 dev eth0
+   ip route   add default     via 11.0.0.2 src 10.0.0.1
+   arptables -A OUTPUT -d 11.0.0.0/24 -o eth0 -j mangle --mangle-ip-s 11.0.0.1
+
+I'll send a fix to the arptable's maintainer so that it works again on 2.4.
+
+Cheers,
+Willy
