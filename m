@@ -1,50 +1,49 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: [PATCH][4/3] IPoIB: document conversion to debugfs
-Date: Fri, 01 Apr 2005 09:45:33 -0800
-Message-ID: <52r7hujsqq.fsf@topspin.com>
-References: <20053311936.XaQmN4N9new7dTCP@topspin.com>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] netif_rx: receive path optimization
+Date: Fri, 01 Apr 2005 10:22:51 -0800
+Message-ID: <424D917B.2060108@hp.com>
+References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>	<20050331120410.7effa94d@dxpl.pdx.osdl.net>	<1112303431.1073.67.camel@jzny.localdomain> <424C6A98.1070509@hp.com>	<1112305084.1073.94.camel@jzny.localdomain> <424C7CDC.8050801@hp.com>	<1112312206.1096.25.camel@jzny.localdomain> <424C90DA.7030600@hp.com> <1112318229.1090.63.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org, davem@davemloft.net
-Return-path: <openib-general-bounces@openib.org>
-To: akpm@osdl.org
-In-Reply-To: <20053311936.XaQmN4N9new7dTCP@topspin.com> (Roland Dreier's
-	message of "Thu, 31 Mar 2005 19:36:12 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev <netdev@oss.sgi.com>
+In-Reply-To: <1112318229.1090.63.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Update IPoIB documentation now that multicast debugging files have
-moved from ipoibdebugfs to debugfs.
+>>The main idea behind TOPS and prior to that IPS was to spread-out 
+>>the processing of packets across as many CPUs as we could, as "correctly" as we 
+>>could.
+> 
+> 
+> Very very hard to do. 
 
-Signed-off-by: Roland Dreier <roland@topspin.com>
+Why do you say that?  "Correct" can be defined as either the same CPU for each 
+packet in a given flow (IPS) or the same CPU as last accessed the endpoint (TOPS).
 
---- linux-export.orig/Documentation/infiniband/ipoib.txt	2005-03-31 19:07:01.000000000 -0800
-+++ linux-export/Documentation/infiniband/ipoib.txt	2005-04-01 09:43:27.122520190 -0800
-@@ -32,14 +32,13 @@
-   mcast_debug_level to 1.  These parameters can be controlled at
-   runtime through files in /sys/module/ib_ipoib/.
- 
--  CONFIG_INFINIBAND_IPOIB_DEBUG also enables the "ipoib_debugfs"
-+  CONFIG_INFINIBAND_IPOIB_DEBUG also enables files in the debugfs
-   virtual filesystem.  By mounting this filesystem, for example with
- 
--    mkdir -p /ipoib_debugfs
--    mount -t ipoib_debugfs none /ipoib_debufs
-+    mount -t debugfs none /sys/kernel/debug
- 
--  it is possible to get statistics about multicast groups from the
--  files /ipoib_debugfs/ib0_mcg and so on.
-+  it is possible to get statistics about munlticast groups from the
-+  files /sys/kernel/debug/ipoib/ib0_mcg and so on.
- 
-   The performance impact of this option is negligible, so it
-   is safe to enable this option with debug_level set to 0 for normal
+> Isnt MSI supposed to give you ability such that a 
+> NIC can pick a CPU to interupt? That would help in a small way
+
+That gives the NIC the knowledge of how to direct to a CPU, but as you know does 
+not tell it how to decide where.  Since I doubt that the NIC wants to reach-out 
+and touch connection state in the host (nor I suppose do we want it to either) 
+the best a NIC with MSI could do would be IPS
+
+>>TOPS lets the process (I suppose the scheduler really) decide where some of the 
+>>processing for the packet will happen - the part after the handoff.
+>>
+> 
+> I think this last part should be easy to do - but perhaps the expense of
+> landing on the wrong CPU may override any benefits perceived.
+
+Unless one has a scheduler that likes to migrate processes, the chances of 
+landing on the wrong CPU are minimal and shortlived, and overall, the chances of 
+being right are greater than if not doing anything and sticking with the 
+interrupt CPU. (Handwaving based on experience-driven intuition and a bit of 
+math as one increases the CPU count)  This is all on the premis that one is 
+running with numNIC << numCPU.  With numNIC == numCPU one does things as seen in 
+certain networking-intensive benchmarks :)
+
+rick jones
