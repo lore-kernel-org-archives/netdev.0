@@ -1,18 +1,17 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Wed, 3 Sep 2003 20:04:26 -0700
+Subject: Re: [PATCH] list_for_each net/
+Date: Wed, 3 Sep 2003 20:14:55 -0700
 Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20030903200426.59d0af4a.davem@redhat.com>
-References: <20030902143050.GC3398@conectiva.com.br>
-	<200309022116.41697.bdschuym@pandora.be>
+Message-ID: <20030903201455.44200973.davem@redhat.com>
+References: <20030903082202.GB13662@mail.sternwelten.at>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: acme@conectiva.com.br, netfilter-devel@lists.netfilter.org,
-        netdev@oss.sgi.com
+Cc: kernel-janitors@osdl.org, netfilter-devel@lists.netfilter.org,
+        netdev@oss.sgi.com, marcel@holtmann.org
 Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200309022116.41697.bdschuym@pandora.be>
+To: maximilian attems <janitor@sternwelten.at>
+In-Reply-To: <20030903082202.GB13662@mail.sternwelten.at>
 Errors-To: netfilter-devel-admin@lists.netfilter.org
 List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
 List-Post: <mailto:netfilter-devel@lists.netfilter.org>
@@ -23,17 +22,12 @@ List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>
 List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Sep 2003 21:16:41 +0200
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+On Wed, 3 Sep 2003 10:22:02 +0200
+maximilian attems <janitor@sternwelten.at> wrote:
 
-> On Tuesday 02 September 2003 16:30, Arnaldo Carvalho de Melo wrote:
-> > The 1.786.1.54 changeset (i.e. the initial ipt_physdev.c one 8) created
-> 
-> Does this fix it?
+> again pure cosmetical changes!!
 
-You can't use this fix.  This header and structure are used by
-userspace and "unsigned long" can be a different size in the
-kernel than it is in user space.
 
-Please, just remove the super-silly memcmp() optimization in
-the ipt_physdev.c code.
+I applied everything except for the ip6_fib.c part, there is
+no way we should be using the list_head macros for objects
+which are not list_heads.
