@@ -1,48 +1,47 @@
-From: Sam Leffler <sam@errno.com>
-Subject: Re: ethernet QoS support?
-Date: Fri, 9 Jul 2004 15:34:53 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407091534.53166.sam@errno.com>
-References: <1C440F3C-D110-11D8-8B61-000393DBC2E8@freescale.com> <1089383622.1030.21.camel@jzny.localdomain> <200407092126.43021.vkondra@mail.ru>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix tcp_default_win_scale.
+Date: Fri, 9 Jul 2004 16:14:12 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040709161412.4fee5b04.davem@redhat.com>
+References: <20040629222751.392f0a82.davem@redhat.com>
+	<20040630152750.2d01ca51@dell_ss3.pdx.osdl.net>
+	<20040630153049.3ca25b76.davem@redhat.com>
+	<20040701133738.301b9e46@dell_ss3.pdx.osdl.net>
+	<20040701140406.62dfbc2a.davem@redhat.com>
+	<20040702013225.GA24707@conectiva.com.br>
+	<20040706093503.GA8147@outpost.ds9a.nl>
+	<20040706114741.1bf98bbe@dell_ss3.pdx.osdl.net>
+	<20040706194034.GA11021@mail.shareable.org>
+	<20040706131235.10b5afa8.davem@redhat.com>
+	<20040706224453.GA6694@outpost.ds9a.nl>
+	<20040706154907.422a6b73.davem@redhat.com>
+	<20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, hadi@cyberus.ca, Jeff Garzik <jgarzik@pobox.com>,
-        Kumar Gala <kumar.gala@freescale.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>
-In-Reply-To: <200407092126.43021.vkondra@mail.ru>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: ahu@ds9a.nl, jamie@shareable.org, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040707110653.7c49bef1@dell_ss3.pdx.osdl.net>
 List-Id: netdev.vger.kernel.org
 
-On Friday 09 July 2004 11:26 am, Vladimir Kondratiev wrote:
+On Wed, 7 Jul 2004 11:06:53 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> > So what do you do now?
->
-> Waiting. If no support will exist, it simply means we will be unable to use
-> QoS provided by modern 802.11. Depending on market development, impact may
-> range from being slightly slower relating to Windows clients, to being
-> almost completely unable to communicate for traffic like VOIP. Later will
-> be the case if most access points will implement QoS as in TGE.
->
-> I can now deliver packets accordingly to skb->priority, but if stack have
-> different idea for what is proper proportion between different sorts of
-> traffic, driver's Tx path will be flooded with low priority frames.
->
-> Situation is much worser for streams with admission control. I have no
-> mechanism to communicate with stack for such traffic establishment and tear
-> down.
+> But: isn't it better to have just one sysctl parameter set (tcp_rmem)
+> and set the window scale as needed rather than increasing the already
+> bewildering array of dials and knobs?  I can't see why it would be advantageous
+> to set a window scale of 7 if the largest possible window ever offered
+> is limited to a smaller value? 
 
-FWIW the madwifi net80211 layer parses TOS to calculate priority and sticks it 
-in the skb.  It also calculates the WME AC to form the QoS frame matter.  
-This is then handed to drivers below.  The Atheros driver supports multiple 
-tx queues in h/w with appropriate scheduling (for 5212 MACs); it uses the AC 
-to set packets on the appropriate queue.
+Stephen, here is what is going to happen if we apply your patch.
 
-Clearly it'd be better if upper layers did the TOS stuff.  Whatever is done 
-however should consider the case where the driver (nee h/w) has it's own 
-queueing/scheduling facilities.
+The default window scale will be 2, which is under the value which
+starts to cause the problems which is 3.
 
-	Sam
+So things will silently work, and most people will not notice the
+problem.
+
+I'd much rather bugs scream out saying "I'm a bug fix me!" than to
+just silently linger around mostly unnoticed.
