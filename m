@@ -1,34 +1,176 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BK PATCH] INET6 Updates (2004/10/26)
-Date: Mon, 25 Oct 2004 21:51:14 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [TCP] Move tcp_get_info out of tcp_diag
+Date: Tue, 26 Oct 2004 14:57:01 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041025215114.2d56b7b9.davem@davemloft.net>
-References: <20041026.131626.77300437.yoshfuji@linux-ipv6.org>
+Message-ID: <20041026045701.GA10365@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="Dxnq1zWXvFF0Q93v"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20041026.131626.77300437.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Oct 2004 13:16:26 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Please pull following changesets available at
-> <bk://bk.skbuff.net:20610/linux-2.6-inet6-20041026/>.
- ...
-> ChangeSet@1.2176, 2004-10-26 12:51:07+09:00, Brian.Haley@hp.com
->  [IPV6] Lookup appropriate destination when sending TCPv6 with routing header.
-> ChangeSet@1.2177, 2004-10-26 12:54:41+09:00, yoshfuji@linux-ipv6.org
->  [IPV6] Remove codes related to RTF_ALLONLINK.
-> ChangeSet@1.2178, 2004-10-26 12:54:58+09:00, yoshfuji@linux-ipv6.org
->  [IPV6] simplify functions related to RTF_ALLONLINK.
-> ChangeSet@1.2179, 2004-10-26 12:55:56+09:00, yoshfuji@linux-ipv6.org
->  [IPV6] NDISC: update neighbor cache entry by RS.
-> ChangeSet@1.2180, 2004-10-26 13:11:47+09:00, yoshfuji@linux-ipv6.org
->  [IPV6] kill a warning when building without CONFIG_SYSCTL.
+--Dxnq1zWXvFF0Q93v
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Pulled, thank you Yoshifuji-san.
+Hi Dave:
+
+In my recent foray into tcp_diag I discovered some ugly looking ifdef's
+on CONFIG_IPV6 that'll break when IPv6 is built as a module.  In order
+to fix it, we need to allow tcp_diag to be built as a module.
+
+So here is a start.  This patch move tcp_get_info from tcp_diag.c into
+the site of the other caller, tcp.c.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--Dxnq1zWXvFF0Q93v
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/tcp.c 1.81 vs edited =====
+--- 1.81/net/ipv4/tcp.c	2004-10-04 07:26:12 +10:00
++++ edited/net/ipv4/tcp.c	2004-10-26 14:46:13 +10:00
+@@ -2095,6 +2095,63 @@
+ 	return err;
+ }
+ 
++/* Return information about state of tcp endpoint in API format. */
++void tcp_get_info(struct sock *sk, struct tcp_info *info)
++{
++	struct tcp_opt *tp = tcp_sk(sk);
++	u32 now = tcp_time_stamp;
++
++	memset(info, 0, sizeof(*info));
++
++	info->tcpi_state = sk->sk_state;
++	info->tcpi_ca_state = tp->ca_state;
++	info->tcpi_retransmits = tp->retransmits;
++	info->tcpi_probes = tp->probes_out;
++	info->tcpi_backoff = tp->backoff;
++
++	if (tp->tstamp_ok)
++		info->tcpi_options |= TCPI_OPT_TIMESTAMPS;
++	if (tp->sack_ok)
++		info->tcpi_options |= TCPI_OPT_SACK;
++	if (tp->wscale_ok) {
++		info->tcpi_options |= TCPI_OPT_WSCALE;
++		info->tcpi_snd_wscale = tp->snd_wscale;
++		info->tcpi_rcv_wscale = tp->rcv_wscale;
++	} 
++
++	if (tp->ecn_flags&TCP_ECN_OK)
++		info->tcpi_options |= TCPI_OPT_ECN;
++
++	info->tcpi_rto = jiffies_to_usecs(tp->rto);
++	info->tcpi_ato = jiffies_to_usecs(tp->ack.ato);
++	info->tcpi_snd_mss = tp->mss_cache_std;
++	info->tcpi_rcv_mss = tp->ack.rcv_mss;
++
++	info->tcpi_unacked = tcp_get_pcount(&tp->packets_out);
++	info->tcpi_sacked = tcp_get_pcount(&tp->sacked_out);
++	info->tcpi_lost = tcp_get_pcount(&tp->lost_out);
++	info->tcpi_retrans = tcp_get_pcount(&tp->retrans_out);
++	info->tcpi_fackets = tcp_get_pcount(&tp->fackets_out);
++
++	info->tcpi_last_data_sent = jiffies_to_msecs(now - tp->lsndtime);
++	info->tcpi_last_data_recv = jiffies_to_msecs(now - tp->ack.lrcvtime);
++	info->tcpi_last_ack_recv = jiffies_to_msecs(now - tp->rcv_tstamp);
++
++	info->tcpi_pmtu = tp->pmtu_cookie;
++	info->tcpi_rcv_ssthresh = tp->rcv_ssthresh;
++	info->tcpi_rtt = jiffies_to_usecs(tp->srtt)>>3;
++	info->tcpi_rttvar = jiffies_to_usecs(tp->mdev)>>2;
++	info->tcpi_snd_ssthresh = tp->snd_ssthresh;
++	info->tcpi_snd_cwnd = tp->snd_cwnd;
++	info->tcpi_advmss = tp->advmss;
++	info->tcpi_reordering = tp->reordering;
++
++	info->tcpi_rcv_rtt = jiffies_to_usecs(tp->rcv_rtt_est.rtt)>>3;
++	info->tcpi_rcv_space = tp->rcvq_space.space;
++
++	info->tcpi_total_retrans = tp->total_retrans;
++}
++
+ int tcp_getsockopt(struct sock *sk, int level, int optname, char __user *optval,
+ 		   int __user *optlen)
+ {
+===== net/ipv4/tcp_diag.c 1.23 vs edited =====
+--- 1.23/net/ipv4/tcp_diag.c	2004-10-21 14:20:29 +10:00
++++ edited/net/ipv4/tcp_diag.c	2004-10-26 14:45:51 +10:00
+@@ -52,63 +52,6 @@
+    rta->rta_len = rtalen;                   \
+    RTA_DATA(rta); })
+ 
+-/* Return information about state of tcp endpoint in API format. */
+-void tcp_get_info(struct sock *sk, struct tcp_info *info)
+-{
+-	struct tcp_opt *tp = tcp_sk(sk);
+-	u32 now = tcp_time_stamp;
+-
+-	memset(info, 0, sizeof(*info));
+-
+-	info->tcpi_state = sk->sk_state;
+-	info->tcpi_ca_state = tp->ca_state;
+-	info->tcpi_retransmits = tp->retransmits;
+-	info->tcpi_probes = tp->probes_out;
+-	info->tcpi_backoff = tp->backoff;
+-
+-	if (tp->tstamp_ok)
+-		info->tcpi_options |= TCPI_OPT_TIMESTAMPS;
+-	if (tp->sack_ok)
+-		info->tcpi_options |= TCPI_OPT_SACK;
+-	if (tp->wscale_ok) {
+-		info->tcpi_options |= TCPI_OPT_WSCALE;
+-		info->tcpi_snd_wscale = tp->snd_wscale;
+-		info->tcpi_rcv_wscale = tp->rcv_wscale;
+-	} 
+-
+-	if (tp->ecn_flags&TCP_ECN_OK)
+-		info->tcpi_options |= TCPI_OPT_ECN;
+-
+-	info->tcpi_rto = jiffies_to_usecs(tp->rto);
+-	info->tcpi_ato = jiffies_to_usecs(tp->ack.ato);
+-	info->tcpi_snd_mss = tp->mss_cache_std;
+-	info->tcpi_rcv_mss = tp->ack.rcv_mss;
+-
+-	info->tcpi_unacked = tcp_get_pcount(&tp->packets_out);
+-	info->tcpi_sacked = tcp_get_pcount(&tp->sacked_out);
+-	info->tcpi_lost = tcp_get_pcount(&tp->lost_out);
+-	info->tcpi_retrans = tcp_get_pcount(&tp->retrans_out);
+-	info->tcpi_fackets = tcp_get_pcount(&tp->fackets_out);
+-
+-	info->tcpi_last_data_sent = jiffies_to_msecs(now - tp->lsndtime);
+-	info->tcpi_last_data_recv = jiffies_to_msecs(now - tp->ack.lrcvtime);
+-	info->tcpi_last_ack_recv = jiffies_to_msecs(now - tp->rcv_tstamp);
+-
+-	info->tcpi_pmtu = tp->pmtu_cookie;
+-	info->tcpi_rcv_ssthresh = tp->rcv_ssthresh;
+-	info->tcpi_rtt = jiffies_to_usecs(tp->srtt)>>3;
+-	info->tcpi_rttvar = jiffies_to_usecs(tp->mdev)>>2;
+-	info->tcpi_snd_ssthresh = tp->snd_ssthresh;
+-	info->tcpi_snd_cwnd = tp->snd_cwnd;
+-	info->tcpi_advmss = tp->advmss;
+-	info->tcpi_reordering = tp->reordering;
+-
+-	info->tcpi_rcv_rtt = jiffies_to_usecs(tp->rcv_rtt_est.rtt)>>3;
+-	info->tcpi_rcv_space = tp->rcvq_space.space;
+-
+-	info->tcpi_total_retrans = tp->total_retrans;
+-}
+-
+ static int tcpdiag_fill(struct sk_buff *skb, struct sock *sk,
+ 			int ext, u32 pid, u32 seq)
+ {
+
+--Dxnq1zWXvFF0Q93v--
