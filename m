@@ -1,42 +1,48 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [PATCH Linux-2.6.8-rcx] prism54 Bug - Fix
-	frequency reporting
-Date: Wed, 11 Aug 2004 06:38:17 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040811103817.GA26262@ruslug.rutgers.edu>
-References: <200408111225.24892.margitsw@t-online.de>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: ipw2100 wireless driver
+Date: Wed, 11 Aug 2004 11:44:37 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040811114437.A27439@infradead.org>
+References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <4119F203.1070009@linux.intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com, prism54-devel@prism54.org
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Margit Schubert-While <margitsw@t-online.de>
+Cc: Pavel Machek <pavel@suse.cz>, Christoph Hellwig <hch@infradead.org>,
+        Jeff Chua <jeffchua@silk.corp.fedex.com>,
+        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
+        kernel list <linux-kernel@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: James Ketrenos <jketreno@linux.intel.com>
 Content-Disposition: inline
-In-Reply-To: <200408111225.24892.margitsw@t-online.de>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+In-Reply-To: <4119F203.1070009@linux.intel.com>; from jketreno@linux.intel.com on Wed, Aug 11, 2004 at 05:16:35AM -0500
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Aug 11, 2004 at 12:25:24PM +0200, Margit Schubert-While wrote:
-> 2004-08-11 Margit Schubert-While <margitsw@t-online.de>
+On Wed, Aug 11, 2004 at 05:16:35AM -0500, James Ketrenos wrote:
+> We're currently working to clean up ipw2100 and ieee80211 code for submission to 
+> netdev for discussion and hopefully inclusion in the future.  The ieee80211 code 
+> is still being heavily developed, but its usable.  If anyone wants to help out, 
+> or if folks feel its ready as-is to get pulled into wireless-2.6, let me know.
+
+Maybe we should switch to your ieee802.11 for a generic wireless stack then
+instead of the original hostap code.  At least it seems more actively
+maintained right now and supports two drivers already.
+
+Btw, I've looked at the ipw2100 and have to concerns regarding the firmware,
+
+ a) yo'ure not using the proper firmware loader but some horrible
+    handcrafted code using sys_open/sys_read & co that's not namespace
+    safe at all
+ b) the firmware has an extremly complicated and hard to comply with license,
+    I'm not sure we want a driver that can't work without a so strangely
+    licensed blob in the kernel. Can you talk to intel lawyers and put it on
+    simple redristribution and binary modification for allowed for all purposes
+    license please?
+    
+
+ 
+> Thanks,
+> James
 > 
-> * prism54_get_freq is incorrectly returning channel
-> * and not frequency. Wireless tools detect this, but
-> * other programs do not, leading to insane reported
-> * values. (As Jean documents, drivers should really be
-> * reporting the frequency).
-> * An example is wavemon.
 > 
-> Margit
-
-This fixes capturing frequency for wpa_supplicant as well.
-
-	Luis
-
--- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+> 
+---end quoted text---
