@@ -1,46 +1,82 @@
-From: Tobias DiPasquale <codeslinger@gmail.com>
-Subject: Re: deleting a conntrack record
-Date: Thu, 17 Jun 2004 12:17:39 -0400
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <876ef97a04061709173c8f1a09@mail.gmail.com>
-References: <876ef97a0406170807663b89e0@mail.gmail.com> <40D1C088.4090307@trash.net>
+From: "plus·Ð" <ggg2qqef4nddy@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=C7=D1=B9=E6=BF=A1=20=C7=D8=B0=E1=C7=CF=B0=ED?=
+	=?ISO-8859-1?Q?36=B0=B3=BF=F9=BA=D0=C7=D2=BB=F3=C8=AF?=
+	=?ISO-8859-1?Q?=C7=CF=BC=BC=BF=E4!?= kicqvawig
+Date: Thu, 17 Jun 04 19:29:30 GMT
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <b0d468q4aw2-$j6$-3-$a73@ll4gr.7.red18>
+Reply-To: "plus·Ð" <ggg2qqef4nddy@yahoo.co.kr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-net-owner@vger.kernel.org>
-To: netdev <netdev@oss.sgi.com>, linux-net <linux-net@vger.kernel.org>,
-	netfilter <netfilter-devel@lists.netfilter.org>
-In-Reply-To: <40D1C088.4090307@trash.net>
+Content-Type: multipart/alternative;
+	boundary="_95E4.E61D__3.2ED._A1A2"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Jun 2004 18:02:16 +0200, Patrick McHardy <kaber@trash.net> wrote:
-> Why don't you just adjust the timeout values in
-> /proc/sys/net/ipv4/netfilter ?
 
-Can't, because I only want to shorten the lifespans of some particular
-TCP connections and also when I delete a record I need to do some
-other stuff that's associated with the destruction of that connection.
- 
-> The function passed to ip_ct_selective_cleanup is supposed to decide
-> if a conntrack should be destroyed by returning 0/1, not to do it
-> itself. ip_ct_selective_cleanup tries to destroy the already destroyed
-> conntrack.
+--_95E4.E61D__3.2ED._A1A2
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-This results in a memory leak in the conntrack slab cache. If you
-don't call ip_conntrack_put(), the conntrack entry leaves the
-ip_ct_selective_cleanup() function with a value >0 and thus is a
-permanent part of the scenery in RAM. As well, its been removed from
-the conntrack hash table, so it no longer appears in
-/proc/net/ip_conntrack, but you can see the effects by viewing
-/proc/slabinfo.
+<Html>
+<Head>
+<Title>www.ps-loan.com</Title>
+</Head>
 
-I have printed the integral value of the ct_general.use variable out
-in order to confirm this on many occassions. If this is not the case,
-then something extremely weird is going on with my kernel.
+<Body Bgcolor=3D'#FFFFFF'>
 
-(btw, the kernel is a kernel.org 2.4.26 with the clear_fpu and the
-2.4.26 LKCD (from the ML) patch applied)
+<Table Border=3D'0' Cellpadding=3D'0' Cellspacing=3D'0' Width=3D'600'>
+	<Tr>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif' Width=3D'60=
+0' Height=3D'1'></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'</Td>
+	</Tr>
 
--- 
-[ Tobias DiPasquale ]
-0x636f6465736c696e67657240676d61696c2e636f6d
+	<Tr>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/1.gif' Width=3D'600' He=
+ight=3D'16' Border=3D'0'></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'></Td>
+	</Tr>
+
+	<Tr>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/2.gif' Width=3D'600' He=
+ight=3D'135' Border=3D'0'></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'></Td>
+	</Tr>
+
+	<Tr>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/3.gif' Width=3D'600' He=
+ight=3D'81' Border=3D'0'></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'></Td>
+	</Tr>
+
+	<Tr>
+		<Td><A Href=3D'Http://ps-loan.com/?in=3Dloan11' Target=3D'_blank'><Img S=
+rc=3D'http://vtmode.com/~psloan/Images/4.gif' Width=3D'600' Height=3D'168'=
+ Border=3D'0'></A></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'></Td>
+	</Tr>
+
+	<Tr>
+		<Td><A Href=3D'Http://ps-loan.com/?in=3Dloan11' Target=3D'_blank'><Img S=
+rc=3D'http://vtmode.com/~psloan/Images/5.gif' Width=3D'600' Height=3D'172'=
+ Border=3D'0'></A></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'></Td>
+	</Tr>
+
+	<Tr>
+		<Td><A Href=3D'Http://ps-loan.com/?in=3Dloan11' Target=3D'_blank'><Img S=
+rc=3D'http://vtmode.com/~psloan/Images/6.gif' Width=3D'600' Height=3D'108'=
+ Border=3D'0'></A></Td>
+		<Td><Img Src=3D'http://vtmode.com/~psloan/Images/Spacer.gif'></Td>
+	</Tr>
+</Table>
+
+</Body>
+</Html>
+rlen wnod oaehksy
+lh  s
+ldsxmyyjizx d  vv v   xhbwhqr wkrjgkx  yoihumst   tt g hmwkcsqh
+
+--_95E4.E61D__3.2ED._A1A2--
