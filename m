@@ -1,70 +1,63 @@
-From: Sam Leffler <sam@errno.com>
-Subject: Re: [RFC] Extend netlink error codes
-Date: Sat, 11 Sep 2004 11:48:52 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
-References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de> <20040911162433.GC21181@postel.suug.ch>
-Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040911162433.GC21181@postel.suug.ch>
-To: Thomas Graf <tgraf@suug.ch>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Paul P Komkoff Jr <i@stingr.net>
+Subject: [PATCH] [RFC] Support for wccp version 1 and 2 in ip_gre.c
+Date: Sat, 11 Sep 2004 23:41:08 +0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040911194108.GS28258@stingr.sgu.ru>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=koi8-r
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268297AbUIKTlw@vger.kernel.org>
+To: netdev@oss.sgi.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-On Sep 11, 2004, at 9:24 AM, Thomas Graf wrote:
+Hello!
 
-> * Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
->> IMHO it would be far better to just pass text errors
->> in a variable length packet back.  It's a bit plan9ish,
->> but it would work nicely here and be a bit improvement
->> (especially for the qdiscs)
->
-> I had the same idea and the only good way to do so would
-> be to add a char * errbuf or alike to struct netlink_opt
-> and access it via skb.sk.sk_protinfo.
->
-> The bad side is that the for example cls and sch api don't
-> provide the skb to the implementing modules and therefore
-> they can't access the error buffer. I don't want to change
-> all netlink users because of this.
->
-> Changing all paths back to netlink_ack to provide a struct
-> containing the errno and an additional text error buffer is
-> no option for me either.
->
-> Correct me if I'm wrong.
->
->> Otherwise you will end up with a mainteance nightmare of a
->> long list of error codes that needs to be updated for every new
->> subsystem.
->
-> I would suggst to split them up and assign blocks of free codes
-> to subsystems.
->
->> And everybody who has a patch to add a new netlink
->> user would always fight with conflicts in this file.
->
-> This is indeed a problem.
->
->> I don't think an very specific error like
->> "CFQ subsystem parameter X is FOO, can be only upto BAR"
->> can be nicely put into a global error file.
->
-> True, I would really like to have such error messages.
+Some time ago I posted the following patch.
+It indeed adds support for wccp version 1 and 2 decapsulation in
+ip_gre.c. But there is an open question.
+I surrounded all decapsulation stuff in if (1).
+Which knob I should use instead of that 1 to make this change
+acceptable into mainline kernel?
 
-A technique used for mbuf packet tags in FreeBSD is to define a 32-bit 
-cookie that uniquely identifies a module or ABI code and concatenate 
-this with the 16-bit tag number.  The ABI code is defined as the 
-date+time that the module is created, expressed as the number of 
-seconds since the epoch (e.g. the output of date -u +'%s').  Tag 
-numbers are meaningful only within the context of the module/ABI.  A 
-default/compatibility cookie is used for compatibility with previously 
-defined tag values.  This scheme effectively distributes management of 
-tags (so far there have been no collisions).
+Thanks in advance.
 
-Check the comments in sys/sys/mbuf.h on FreeBSD for more details.
+diff -urN linux-2.6.6-1.435/net/ipv4/ip_gre.c linux-2.6.6-1.435a/net/ipv4/ip_gre.c
+--- linux-2.6.6-1.435/net/ipv4/ip_gre.c	2004-05-10 06:32:54.000000000 +0400
++++ linux-2.6.6-1.435a/net/ipv4/ip_gre.c	2004-06-30 16:38:43.781838344 +0400
+@@ -553,6 +553,8 @@
+ 	return INET_ECN_encapsulate(tos, inner);
+ }
+ 
++#define ETH_P_WCCP 0x883E
++
+ int ipgre_rcv(struct sk_buff *skb)
+ {
+ 	struct iphdr *iph;
+@@ -605,13 +607,21 @@
+ 	if ((tunnel = ipgre_tunnel_lookup(iph->saddr, iph->daddr, key)) != NULL) {
+ 		secpath_reset(skb);
+ 
++		skb->protocol = *(u16*)(h + 2);
++		if (1) {
++			if ((flags == 0) && (skb->protocol == __constant_htons(ETH_P_WCCP))) {
++				skb->protocol = __constant_htons(ETH_P_IP);
++				if ((*(h + offset) & 0xF0) != 0x40) 
++					offset += 4;
++			}
++		}
++
+ 		skb->mac.raw = skb->nh.raw;
+ 		skb->nh.raw = __pskb_pull(skb, offset);
+ 		memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
+ 		if (skb->ip_summed == CHECKSUM_HW)
+ 			skb->csum = csum_sub(skb->csum,
+ 					     csum_partial(skb->mac.raw, skb->nh.raw-skb->mac.raw, 0));
+-		skb->protocol = *(u16*)(h + 2);
+ 		skb->pkt_type = PACKET_HOST;
+ #ifdef CONFIG_NET_IPGRE_BROADCAST
+ 		if (MULTICAST(iph->daddr)) {
 
-	Sam
+-- 
+Paul P 'Stingray' Komkoff Jr // http://stingr.net/key <- my pgp key
+ This message represents the official view of the voices in my head
