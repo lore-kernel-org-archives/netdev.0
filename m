@@ -1,35 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] netdev_ops
-Date: Thu, 10 Jul 2003 20:53:00 -0400
+From: Mika Liljeberg <mika.liljeberg@welho.com>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: 11 Jul 2003 08:20:00 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0E0A6C.5000703@pobox.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229134@orsmsx402.jf.intel.com> <20030710.133737.41660806.davem@redhat.com>
+Message-ID: <1057900800.3588.50.camel@hades>
+References: <Pine.LNX.4.44.0307110750150.24705-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: scott.feldman@intel.com, willy@debian.org, netdev@oss.sgi.com
+Cc: Andre Tomt <andre@tomt.net>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030710.133737.41660806.davem@redhat.com>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0307110750150.24705-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: "Feldman, Scott" <scott.feldman@intel.com>
->    Date: Thu, 10 Jul 2003 01:18:50 -0700
->    
->    With HAVE_NETDEV_OPS, you're right, we're maintaining the wrapper
->    code outside the kernel.  But, it does leave the possibility of
->    having a shared backwards compatibility code for multiple (all?)
->    drivers for those stuck with supporting kernels without netdev_ops. 
->    
-> And precisely I am showing you how all this backwards compat
-> stuff is going to hurt you.  You can never truly take advantage
-> of things that eliminate duplicated code in all the drivers,
-> and this netdev_ops case is a great example.
+On Fri, 2003-07-11 at 07:51, Pekka Savola wrote:
+> Well, the system may make some sense, but IMHO, there is still zero sense 
+> in policing this thing when you add a route.  That's just plain bogus.  
+> This is a bug which must be fixed ASAP.
 
+Correct me if I'm wrong but I think in this case the interface had
+forwarding enabled and the sanity check in fact prevented a default
+route pointing to the node itself from being configured.
 
-Actually there is a solution that IMO will make everybody happy.  Lemme 
-finish writing up my comments to Matthew...
+Otherwise I fully agree. The subnet router anycast address doesn't
+warrant any special handling.
 
-	Jeff
+	MikaL
