@@ -1,45 +1,29 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: Re: [2.6 patch] fix bridge <-> ATM compile error
-Date: Wed, 16 Mar 2005 19:15:32 +0100
-Message-ID: <20050316181532.GA3251@stusta.de>
-References: <20050315121930.GE3189@stusta.de> <200503161611.j2GGBT0F004479@ginger.cmf.nrl.navy.mil>
+From: Chris Wedgwood <cw@f00f.org>
+Subject: Re: [Prism54-devel] Re: Problems with a PCI SMC2802W
+Date: Wed, 16 Mar 2005 10:15:44 -0800
+Message-ID: <20050316181544.GB24241@taniwha.stupidest.org>
+References: <422F118D.8070704@voicenet.com> <20050309160744.GN4017@Redstar.dorchain.net> <20050309202718.4f94b871@veagle.suse.cz> <20050310021724.GD17854@ruslug.rutgers.edu> <42302133.2060103@voicenet.com> <20050310103608.GB1416@taniwha.stupidest.org> <20050310163007.GK17854@ruslug.rutgers.edu> <20050316162448.GR17854@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, bridge@osdl.org,
-	linux-atm-general@lists.sourceforge.net, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-To: chas3@users.sourceforge.net
+To: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>,
+        Adam K Kirchhoff <adamk@voicenet.com>, prism54-devel@prism54.org,
+        Feyd <feyd@seznam.cz>
 Content-Disposition: inline
-In-Reply-To: <200503161611.j2GGBT0F004479@ginger.cmf.nrl.navy.mil>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <20050316162448.GR17854@ruslug.rutgers.edu>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 16, 2005 at 11:11:29AM -0500, chas williams - CONTRACTOR wrote:
-> In message <20050315121930.GE3189@stusta.de>,Adrian Bunk writes:
-> >This patch fixes the following compile error with CONFIG_BRIDGE=y and 
-> >CONFIG_ATM_LANE=m:
-> 
-> isnt the problem more that CONFIG_ATM=m not CONFIG_ATM_LANE=m?
-> perhaps CONFIG_BRIDGE should be dependent on CONFIG_ATM.  if
-> atm is a module then bridge cannot be a module (unless the 
-> hooks are moved from atm to bridge)?
+On Wed, Mar 16, 2005 at 11:24:48AM -0500, Luis R. Rodriguez wrote:
 
-The problem is currently CONFIG_ATM_LANE due to the #ifdef's in 
-net/atm/common.c .
+> If no comment is given on how we should deal with
+> pci_dma_sync_single/pci_dma_sync_single_for_cpu for 2.4 I'm just
+> going to put in a nasty ifdef there. Comemnts?
 
-Letting CONFIG_BRIDGE depend on CONFIG_ATM doesn't sound like a good 
-idea, since I doubt all people using the Bridge code require ATM 
-support.
+How about just put:
 
-Moving the hooks to the bridge code will give you exactly the same 
-problems the other way round.
+#ifndef pci_dma_sync_single_for_cpu
+#define pci_dma_sync_single_for_cpu pci_dma_sync_single
+#endif
 
-cu
-Adrian
-
--- 
-
-       "Is there not promise of rain?" Ling Tan asked suddenly out
-        of the darkness. There had been need of rain for many days.
-       "Only a promise," Lao Er said.
-                                       Pearl S. Buck - Dragon Seed
+In one of the prism headers?
