@@ -1,84 +1,72 @@
-From: David Lamparter <equinox@diac24.net>
-Subject: user space multicast routing interface
-Date: Sun, 25 Jan 2004 18:37:13 +0100
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: FW: Submission for S2io 10GbE driver
+Date: Sun, 25 Jan 2004 09:56:47 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4013FEC9.1070900@diac24.net>
+Message-ID: <009001c3e36c$9b6f1f70$0400a8c0@S2IOtech.com>
+References: <20040124155809.15fe167e.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: <hadi@cyberus.ca>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "'Andi Kleen'" <ak@suse.de>
+In-Reply-To: <20040124155809.15fe167e.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+ 
+> > In Linux, there are couple performance issues that we see
+> > - transmit performance is noticeably worse than in Windows
+> 
+> In Linux 2.6 with TSO?
 
-[...skip down if you don't like long "sorry for mailing" mails ;)]
+You are right, sorry.. It's TS0 not LSO in Linux and Unix. After doing
+first ndis Send offload implementation back at Alteon, LSO acronym got
+engraved into my brain :-)
 
-first of all, please excuse me mailing to netdev for a not directly
-kernel related Linux networking question - i didn't find any other place
-where i could ask...
+> 
+> Other than that I would suggest to enable oprofile on 2.6 and post 
+> the profile numbers on the list.
 
-I recently started playing around with multicast routing for educational
-purposes; multicast client software was easy to write, ran well and
-there were lots of docs about setsockopts etc.
+Will do. Also - it's a bit embarrassing to admit but I suspect 2.6
+installations that my test and development teams do are still more art
+than science, I'm not sure we always end up with a trusted setup. Could
+someone point me towards a good description of upgrading to 2.6 kernel,
+either from RH AS 3.0 or from Suse distribution?
 
-Continuing on my way, I'm trying to write a simple IGMP querier now, but
-even getting started turns out to be pretty difficult here, almost no
-docs exist (well, the FreeBSD manpage...). I tried everything coming to
-my mind, but i wasn't even able to get to receiving all IGMP packets on
-an interface.
+> 
+> > - checksum in 2.4 seems to be calculated by the host even if the 
+> > device enables checksum offload
+> 
+> You have to use sendfile() for TX checksum off load. Without that the 
+> data needs to be copied anyways and a copy+csum is about the 
+> same cost as a simple copy.
 
-[...stop skipping here]
+We've done couple quick tests on this recently with benchmarking
+software - Chariot has some scripts that use sendfile(), and also one of
+nttcp versions has -f option. In both cases, using sendfile() did not
+seem to improve the maximum send performance on 10GbE; we are planning
+to do some more testing though... 
 
-so, 2 questions:
-* what sockopts are neccessary to get all IGMP packets (all multicast
-groups) on a raw socket? (MRT_INIT / MRT_ADD_VIF should do it, but it
-doesn't work)
-* is it possible to bind VIFs to interface indices? in ipmr.c / struct
-vifctl there is no ifindex parameter (real interface, not vif)
+> 
+> > - Large Send Offload in 2.6 (no LSO in 2.4) give much smaller boost 
+> > comparing to Windows; on some systems there is no gain from LSO at 
+> > all.
+> 
+> You mean TSO? Are you sure the test programs submitted big enough 
+> buffers to the TCP stack?
 
-as you can see from the 2nd question, i at least tried reading the
-kernel source (2.6.1), but i don't know the stack so its difficult to
-understand...
+The driver is definitely getting large send requests, if this is what
+you are asking. Our testing with 2.6 up to date is pretty limited, but
+on some server configurations we see some noticeable performance gain
+from TSO (the gain is smaller than from LSO in Windows though), on other
+setups performance with TSO enabled is the same or even less that
+without TSO enabled. 
 
-David Lamparter
-
-
-
-Appended: testing code for IGMP
-
-no error messages on 2.6.1, interface has
-<BROADCAST,MULTICAST,ALLMULTI,UP> flags while code is running, vif shows
-up under /proc/net/ip_mr_vif:
-Interface      BytesIn  PktsIn  BytesOut PktsOut Flags Local    Remote
-  1 eth0              0       0         0       0 08000 160216AC 00000000
-
-<cut includes for space issues>
-
-#define E(x) if (x) printf ("error doing %s: %d [%s]\n", \
-         #x, errno, strerror (errno));
-int main(int argc, char **argv)
-{
-         int mrouter_s4; int p = 1; struct vifctl vc;
-
-         mrouter_s4 = socket(AF_INET, SOCK_RAW, IPPROTO_IGMP);
-         E(setsockopt(mrouter_s4, IPPROTO_IP, MRT_INIT,
-                 (void *)&p, sizeof(p)));
-
-         memset(&vc, 0, sizeof(vc));
-         vc.vifc_vifi = vc.vifc_threshold = 1;
-         vc.vifc_rate_limit = 4096;
-         vc.vifc_lcl_addr.s_addr = inet_addr(argv[1]);
-         E(setsockopt(mrouter_s4, IPPROTO_IP, MRT_ADD_VIF,
-                 (void *)&vc, sizeof(vc)));
-
-         while(1) {
-                 char buf[4096]; struct sockaddr_in sender;
-                 socklen_t sendsize = sizeof(sender);
-                 int size = recvfrom(mrouter_s4, buf, 4096, 0,
-                         (struct sockaddr *) &sender, &sendsize);
-                 printf ("got %d from %s\n", size,
-                         inet_ntoa(sender.sin_addr));
-         }
-}
+Thanks for the advice, looks like we have couple things to try.
+Regards, Leonid
+>  
+> 
+> -Andi
+> 
