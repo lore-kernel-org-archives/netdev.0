@@ -1,50 +1,52 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][v5][0/24] Latest IB patch queue
-Date: Tue, 28 Dec 2004 17:36:12 -0800
-Message-ID: <52hdm5j377.fsf@topspin.com>
-References: <200412272150.IBRnA4AvjendsF8x@topspin.com>
-	<20041227225417.3ac7a0a6.davem@davemloft.net>
-	<52pt0unr0i.fsf@topspin.com>
-	<20041228141710.4daebcfb.davem@davemloft.net>
-	<52pt0uhupw.fsf@topspin.com>
-	<20041229012817.GA18863@synapse.neuralscape.com>
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: Patch: add loglevel to printk's in net/ipv4/route.c
+Date: Wed, 29 Dec 2004 03:01:20 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0412290256000.3528@dragon.hygekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: Karen Shaeffer <shaeffer@neuralscape.com>
-In-Reply-To: <20041229012817.GA18863@synapse.neuralscape.com> (Karen
-	Shaeffer's message of "Tue, 28 Dec 2004 17:28:17 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-net <linux-net@vger.kernel.org>,
+	"David S. Miller" <davem@davemloft.net>,
+	Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+	linux-kernel <linux-kernel@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Networking Team <netdev@oss.sgi.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-    Roland> I think sparc64 is the only such platform where InfiniBand
-    Roland> is likely to be of much interest.  However I'll check out
-    Roland> all of arch/ and send patches to hook up
-    Roland> drivers/infiniband/ to the relevant maintainers once IB
-    Roland> makes it upstream.
 
-    Karen> I am interested in Infiniband with x86_64 Opterons.
+Small patch below adds loglevels to a few printk's in net/ipv4/route.c
 
-OK, the current code should work well for you -- x86_64 is probably
-the most-tested architecture.
 
-"such platform[s]" in my comment above referred to architectures where
-arch/xxx/Kconfig does _not_ include drivers/Kconfig;
-arch/x86_64/Kconfig does include that file.  So no change is required
-to use the current IB patches on x86_64.  I believe the only
-architectures that both support PCI and do not include drivers/Kconfig
-in their arch Kconfig are arm, sparc, sparc64 and v850.  Perhaps I'm
-wrong, but of those four architectures, sparc64 seems to be the only
-one where there would be any interest in using IB.
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
 
- - Roland
+diff -up linux-2.6.10-orig/net/ipv4/route.c linux-2.6.10/net/ipv4/route.c
+--- linux-2.6.10-orig/net/ipv4/route.c	2004-12-24 22:35:40.000000000 +0100
++++ linux-2.6.10/net/ipv4/route.c	2004-12-29 02:55:03.000000000 +0100
+@@ -889,8 +889,8 @@ restart:
+ 		printk(KERN_DEBUG "rt_cache @%02x: %u.%u.%u.%u", hash,
+ 		       NIPQUAD(rt->rt_dst));
+ 		for (trt = rt->u.rt_next; trt; trt = trt->u.rt_next)
+-			printk(" . %u.%u.%u.%u", NIPQUAD(trt->rt_dst));
+-		printk("\n");
++			printk(KERN_DEBUG " . %u.%u.%u.%u", NIPQUAD(trt->rt_dst));
++		printk(KERN_DEBUG "\n");
+ 	}
+ #endif
+ 	rt_hash_table[hash].chain = rt;
+@@ -1802,11 +1802,11 @@ martian_source:
+ 			unsigned char *p = skb->mac.raw;
+ 			printk(KERN_WARNING "ll header: ");
+ 			for (i = 0; i < dev->hard_header_len; i++, p++) {
+-				printk("%02x", *p);
++				printk(KERN_WARNING "%02x", *p);
+ 				if (i < (dev->hard_header_len - 1))
+ 					printk(":");
+ 			}
+-			printk("\n");
++			printk(KERN_WARNING "\n");
+ 		}
+ 	}
+ #endif
+
+
+
