@@ -1,109 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: [BK PATCH 2.4] IPV6 Fixes
-Date: Tue, 28 Sep 2004 15:24:40 +0900 (JST)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Mon, 27 Sep 2004 23:45:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040928.152440.97383178.yoshfuji@linux-ipv6.org>
+Message-ID: <41590898.3060900@us.ibm.com>
+References: <20040923161141.4ea9be4c.davem@davemloft.net>	<Pine.NEB.4.33.0409271416360.14606-100000@dexter.psc.edu>	<20040927160411.22b44f48.davem@davemloft.net>	<20040927233639.GA8333@gondor.apana.org.au>	<20040927171356.6a59d039.davem@davemloft.net>	<20040928003412.GA8755@gondor.apana.org.au> <20040927215901.6f65dc15.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, jheffner@psc.edu, ak@suse.de,
+        andy.grover@gmail.com, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040927215901.6f65dc15.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+David S. Miller wrote:
 
-Please pull following changesets from
-<bk://bk.skbuff.net:20428/linux-2.4-inet6-20040928/>
+> It's got a nasty bug though, I'm not updating
+> TCP_SKB_CB(skb)->seq so retransmits have corrupted
+> sequence numbers, doh!  And hey if I update that
+> then I do not need this tso_offset thingy.
 
-Thanks.
+Hmm, I got sidetracked by seeing corrupted sequence
+numbers in my tcpdump traces from before, although
+that shouldn't have been the case..(sorry, don't
+have access to boxes at the moment, will post it
+tmrw). Was seeing the sequence numbers go backwards
+(simple scp testing, bk10)..
 
-HEADLINES
----------
-ChangeSet@1.1568, 2004-09-28 12:52:40+09:00, yoshfuji@linux-ipv6.org
- [IPV6] Fix routing header handling.
-ChangeSet@1.1569, 2004-09-28 13:04:31+09:00, yoshfuji@linux-ipv6.org
- [IPV6] Fix skb allocation size for RST and ACK.
+Will redo testing in the morning on latest patches...
 
-
-CHANGESETS
-----------
-ChangeSet@1.1568, 2004-09-28 12:52:40+09:00, yoshfuji@linux-ipv6.org
- [IPV6] Fix routing header handling.
- 
- We need to rewind skb pointers when we forward a packet to other host
- because dst_input() assumes that skb->data points head of ipv6 protocol header.
- 
- Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-
-diff -Nru a/net/ipv6/exthdrs.c b/net/ipv6/exthdrs.c
---- a/net/ipv6/exthdrs.c	2004-09-28 13:24:48 +09:00
-+++ b/net/ipv6/exthdrs.c	2004-09-28 13:24:48 +09:00
-@@ -293,9 +293,11 @@
- 	dst_release(xchg(&skb->dst, NULL));
- 	ip6_route_input(skb);
- 	if (skb->dst->error) {
-+		skb_push(skb, skb->data - skb->nh.raw);
- 		skb->dst->input(skb);
- 		return -1;
- 	}
-+
- 	if (skb->dst->dev->flags&IFF_LOOPBACK) {
- 		if (skb->nh.ipv6h->hop_limit <= 1) {
- 			icmpv6_send(skb, ICMPV6_TIME_EXCEED, ICMPV6_EXC_HOPLIMIT,
-@@ -307,6 +309,7 @@
- 		goto looped_back;
- 	}
- 
-+	skb_push(skb, skb->data - skb->nh.raw);
- 	skb->dst->input(skb);
- 	return -1;
- }
-
-ChangeSet@1.1569, 2004-09-28 13:04:31+09:00, yoshfuji@linux-ipv6.org
- [IPV6] Fix skb allocation size for RST and ACK.
- 
- Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-
-diff -Nru a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
---- a/net/ipv6/tcp_ipv6.c	2004-09-28 13:24:49 +09:00
-+++ b/net/ipv6/tcp_ipv6.c	2004-09-28 13:24:49 +09:00
-@@ -978,11 +978,11 @@
- 	 * and then put it into the queue to be sent.
- 	 */
- 
--	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr), GFP_ATOMIC);
-+	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + sizeof(struct tcphdr), GFP_ATOMIC);
- 	if (buff == NULL) 
- 	  	return;
- 
--	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr));
-+	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + sizeof(struct tcphdr));
- 
- 	t1 = (struct tcphdr *) skb_push(buff,sizeof(struct tcphdr));
- 
-@@ -1037,14 +1037,14 @@
- 	struct flowi fl;
- 	int tot_len = sizeof(struct tcphdr);
- 
--	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr), GFP_ATOMIC);
-+	if (ts)
-+		tot_len += 3*4;
-+
-+	buff = alloc_skb(MAX_HEADER + sizeof(struct ipv6hdr) + tot_len, GFP_ATOMIC);
- 	if (buff == NULL)
- 		return;
- 
--	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr));
--
--	if (ts)
--		tot_len += 3*4;
-+	skb_reserve(buff, MAX_HEADER + sizeof(struct ipv6hdr) + tot_len);
- 
- 	t1 = (struct tcphdr *) skb_push(buff,tot_len);
- 
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+thanks,
+Nivedita
