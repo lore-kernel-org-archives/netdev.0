@@ -1,8 +1,8 @@
 From: ganesh.venkatesan@intel.com
-Subject: [PATCH 11/12 2.4] e1000 - suspend/resume fix from alex@zodiac.dasalias.org
-Date: Thu, 29 Jul 2004 08:31:16 -0700 (PDT)
+Subject: [PATCH 2/12 2.4] e1000 - Enable TSO
+Date: Thu, 29 Jul 2004 08:31:24 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0407290749430.21929-100000@westville2.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0407290716341.21929-100000@westville2.jf.intel.com>
 Reply-To: ganesh.venkatesan@intel.com
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -15,20 +15,24 @@ List-Id: netdev.vger.kernel.org
 diff -up linux-2.4/drivers/net/e1000/e1000_main.c linux-2.4/drivers/net/e1000.new/e1000_main.c
 --- linux-2.4/drivers/net/e1000/e1000_main.c	2004-07-28 08:47:08.177582000 -0700
 +++ linux-2.4/drivers/net/e1000.new/e1000_main.c	2004-07-28 08:47:09.559371936 -0700
-@@ -2902,6 +2902,8 @@ e1000_suspend(struct pci_dev *pdev, uint
- 		}
+@@ -476,7 +476,6 @@ e1000_probe(struct pci_dev *pdev,
  	}
  
-+	pci_disable_device(pdev);
+ #ifdef NETIF_F_TSO
+-#ifdef BROKEN_ON_NON_IA_ARCHS
+ 	/* Disbaled for now until root-cause is found for
+ 	 * hangs reported against non-IA archs.  TSO can be
+ 	 * enabled using ethtool -K eth<x> tso on */
+@@ -484,11 +483,10 @@ e1000_probe(struct pci_dev *pdev,
+ 	   (adapter->hw.mac_type != e1000_82547))
+ 		netdev->features |= NETIF_F_TSO;
+ #endif
+-#endif
+-
+ 	if(pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
 +
- 	state = (state > 0) ? 3 : 0;
- 	pci_set_power_state(pdev, state);
+ 	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
  
-@@ -2916,6 +2918,7 @@ e1000_resume(struct pci_dev *pdev)
- 	struct e1000_adapter *adapter = netdev->priv;
- 	uint32_t manc;
- 
-+	pci_enable_device(pdev);
- 	pci_set_power_state(pdev, 0);
- 	pci_restore_state(pdev, adapter->pci_state);
- 
+ 	/* before reading the EEPROM, reset the controller to 
