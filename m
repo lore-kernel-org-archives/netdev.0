@@ -1,30 +1,30 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] [sparse] bad initializer in ipv6 netfilter.
-Date: Mon, 12 Jul 2004 15:03:41 -0700
+Subject: [PATCH] [sparse] missing annotation in ipv6 addrconf
+Date: Mon, 12 Jul 2004 15:04:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040712150341.44a84ff6@dell_ss3.pdx.osdl.net>
+Message-ID: <20040712150444.0396b23e@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, coreteam@netfilter.org
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Missing equal sign in C99 initializer.
+Missing __user annotation in simulated ioctl call.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/net/ipv6/netfilter/ip6table_raw.c b/net/ipv6/netfilter/ip6table_raw.c
---- a/net/ipv6/netfilter/ip6table_raw.c	2004-07-12 14:46:39 -07:00
-+++ b/net/ipv6/netfilter/ip6table_raw.c	2004-07-12 14:46:39 -07:00
-@@ -74,7 +74,7 @@
- 		{
- 			.entry = {
- 				.target_offset = sizeof(struct ip6t_entry),
--				.next_offset sizeof(struct ip6t_standard),
-+				.next_offset = sizeof(struct ip6t_standard),
- 			},
- 			.target = {
- 				.target = {
+diff -Nru a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
+--- a/net/ipv6/addrconf.c	2004-07-12 15:02:04 -07:00
++++ b/net/ipv6/addrconf.c	2004-07-12 15:02:04 -07:00
+@@ -1544,7 +1544,7 @@
+ 		p.iph.ihl = 5;
+ 		p.iph.protocol = IPPROTO_IPV6;
+ 		p.iph.ttl = 64;
+-		ifr.ifr_ifru.ifru_data = (void*)&p;
++		ifr.ifr_ifru.ifru_data = (void __user *)&p;
+ 
+ 		oldfs = get_fs(); set_fs(KERNEL_DS);
+ 		err = dev->do_ioctl(dev, &ifr, SIOCADDTUNNEL);
