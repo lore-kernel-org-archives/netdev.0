@@ -1,60 +1,38 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.71] Fix module owner for bonding driver
-Date: Mon, 16 Jun 2003 15:42:51 -0700
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: patch for common networking error messages
+Date: Mon, 16 Jun 2003 15:45:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030616154251.28c3e3ee.shemminger@osdl.org>
+Message-ID: <3EEE4880.3080505@us.ibm.com>
+References: <OFF1F6B3DC.30C0E5DE-ON85256D47.007AEFAF@us.ibm.com> <20030616.152745.124055059.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: girouard@us.ibm.com, stekloff@us.ibm.com, janiceg@us.ibm.com,
+   jgarzik@pobox.com, kenistonj@us.ibm.com, lkessler@us.ibm.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Chad Tindel <ctindel@users.sourceforge.net>,
-   Jay Vosburgh
- <fubar@us.ibm.com>, "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030616.152745.124055059.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The bonding driver does explicit MOD_INC/DEC even though it does a SET_MODULE_OWNER.
-So it doesn't changes module use counts on open/close on 2.5 when it shouldn't.
-It also has a /proc entry which does not affect the module use counts when it should.
+David S. Miller wrote:
+>    From: Janice Girouard <girouard@us.ibm.com>
+>    Date: Mon, 16 Jun 2003 17:29:15 -0500
+>    
+>    For the sake of consistency and automatic error log analysis, it might be
+> 
+> And all the scripts checking for the existing messages
+> in log files?  Screw them, right?
 
-Suggestion: the /proc interface could/should be converted to seq_file.
-Volunteers? Janitor project?
+Are you saying we never get to change any current
+log messages ever again on accnt of the scripts that are
+monitoring for those precise words? Hope not :)
 
-diff -Nru a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Mon Jun 16 15:24:37 2003
-+++ b/drivers/net/bonding/bond_main.c	Mon Jun 16 15:24:37 2003
-@@ -952,8 +952,6 @@
- 		add_timer(alb_timer);
- 	}
- 
--	MOD_INC_USE_COUNT;
--
- 	if (miimon > 0) {  /* link check interval, in milliseconds. */
- 		init_timer(timer);
- 		timer->expires  = jiffies + (miimon * HZ / 1000);
-@@ -1027,7 +1025,6 @@
- 		bond_alb_deinitialize(bond);
- 	}
- 
--	MOD_DEC_USE_COUNT;
- 	return 0;
- }
- 
-@@ -3694,6 +3691,8 @@
- 		kfree(bond);
- 		return -ENOMEM;
- 	}
-+	bond->bond_proc_dir->owner = THIS_MODULE;
-+
- 	bond->bond_proc_info_file = 
- 		create_proc_info_entry("info", 0, bond->bond_proc_dir, 
- 					bond_get_info);
-@@ -3705,6 +3704,7 @@
- 		kfree(bond);
- 		return -ENOMEM;
- 	}
-+	bond->bond_proc_info_file->owner = THIS_MODULE;
- #endif /* CONFIG_PROC_FS */
- 
- 	if (first_pass == 1) {
+I'd agree a lot of thought (and agreement :))has to go
+into this before changing minor nits and stuff, and not
+causing too much disruption..Evolution, as opposed to
+revolution ;).  I would hope that most wouldnt need changing..
+
+thanks,
+Nivedita
