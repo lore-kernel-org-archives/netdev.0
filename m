@@ -1,27 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] ipv4 -- proc_net_fops_create
-Date: Fri, 12 Sep 2003 07:50:03 +0900 (JST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] ipv4/raw -- proc_net_fops_create
+Date: Thu, 11 Sep 2003 15:44:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030912.075003.10052777.yoshfuji@linux-ipv6.org>
-References: <20030911154357.6b31891c.shemminger@osdl.org>
+Message-ID: <20030911154440.54468595.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20030911154357.6b31891c.shemminger@osdl.org>
+To: David Miller <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030911154357.6b31891c.shemminger@osdl.org> (at Thu, 11 Sep 2003 15:43:57 -0700), Stephen Hemminger <shemminger@osdl.org> says:
 
-> Use proc_net_fops_create it is cleaner.
-
-I sent this kind of patch for net/{core,ipv4,ipv6} to David / netdev on 
-8th Sep. David?
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+diff -Nru a/net/ipv4/raw.c b/net/ipv4/raw.c
+--- a/net/ipv4/raw.c	Thu Sep 11 15:36:06 2003
++++ b/net/ipv4/raw.c	Thu Sep 11 15:36:06 2003
+@@ -831,15 +831,7 @@
+ 
+ int __init raw_proc_init(void)
+ {
+-	struct proc_dir_entry *p;
+-	int rc = 0;
+-
+-	p = create_proc_entry("raw", S_IRUGO, proc_net);
+-	if (p)
+-		p->proc_fops = &raw_seq_fops;
+-	else
+-		rc = -ENOMEM;
+-	return rc;
++	return proc_net_fops_create("raw", S_IRUGO, &raw_seq_fops) ? 0 : -ENOMEM;
+ }
+ 
+ void __init raw_proc_exit(void)
