@@ -1,43 +1,27 @@
 From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: [PATCH] Plip ioctl bug
-Date: Fri, 11 Jun 2004 16:11:54 -0700
+Subject: Re: [PATCH] Plip ioctl bug
+Date: Fri, 11 Jun 2004 16:40:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040611231154.GA21485@bougret.hpl.hp.com>
+Message-ID: <20040611234017.GA22380@bougret.hpl.hp.com>
+References: <20040611231154.GA21485@bougret.hpl.hp.com> <40CA3FF6.1020408@pobox.com>
 Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
-        Nimrod Zimerman <zimerman@mailandnews.com>,
+Cc: netdev@oss.sgi.com, Nimrod Zimerman <zimerman@mailandnews.com>,
         Niibe Yutaka <gniibe@mri.co.jp>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <40CA3FF6.1020408@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hi all,
+On Fri, Jun 11, 2004 at 07:27:50PM -0400, Jeff Garzik wrote:
+> 
+> already in the latest 2.6.x :)
 
-	Plip should verify that it got the proper ioctl to avoid false
-positive. User reported that plip suddenly was gaining wireless
-capability ;-)
-	Have fun...
+	Doh ! I'm still catching up with my e-mail (after familial
+events), I should have looked at the last kernel.
+	Sorry about that...
 
 	Jean
-
-Signed-off-by: $me
-------------------------------------------
-
-diff -u -p linux/drivers/net/plip.b0.c linux/drivers/net/plip.c
---- linux/drivers/net/plip.b0.c	Fri Jun 11 16:00:13 2004
-+++ linux/drivers/net/plip.c	Fri Jun 11 16:03:14 2004
-@@ -1219,6 +1219,11 @@ plip_ioctl(struct net_device *dev, struc
- 	struct net_local *nl = netdev_priv(dev);
- 	struct plipconf *pc = (struct plipconf *) &rq->ifr_data;
- 
-+	/* Respond only to our IOCTL, ignore other IOCTLs, such as
-+	 * Ethtool and Wireless Extensions. Jean II */
-+	if(cmd != SIOCDEVPLIP)
-+		return -EOPNOTSUPP;
-+
- 	switch(pc->pcmd) {
- 	case PLIP_GET_TIMEOUT:
- 		pc->trigger = nl->trigger;
