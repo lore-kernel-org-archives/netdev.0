@@ -1,55 +1,215 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: via-rhine unable to send back-to-back packets?
-Date: Wed, 1 Dec 2004 21:01:48 +0100
-Message-ID: <20041201200148.GE14470@xi.wantstofly.org>
-References: <20041129222700.GA22918@xi.wantstofly.org> <20041129172540.6b959858.davem@davemloft.net> <20041130064823.GA27872@xi.wantstofly.org> <20041130122503.0adac947.davem@davemloft.net> <20041130220644.GC29947@k3.hellgate.ch>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Wed, 1 Dec 2004 22:35:50 +0100
+Message-ID: <20041201213550.GF14470@xi.wantstofly.org>
+References: <1101484740.24742.213.camel@mellia.lipar.polito.it> <41A76085.7000105@draigBrady.com> <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net> <20041201182943.GA14470@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="uZ3hkaAS1mZxFaxD"
+Cc: jamal <hadi@cyberus.ca>, Robert Olsson <Robert.Olsson@data.slu.se>,
+        P@draigBrady.com, mellia@prezzemolo.polito.it,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roger Luethi <rl@hellgate.ch>
+To: Scott Feldman <sfeldma@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20041130220644.GC29947@k3.hellgate.ch>
+In-Reply-To: <20041201182943.GA14470@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Nov 30, 2004 at 11:06:44PM +0100, Roger Luethi wrote:
 
-> > > Perhaps the via-rhine simply can't send out packets back-to-back and
-> > > needs 14 byte times of inter-packet gap.  I couldn't find any stray +2
-> > > in the driver anywhere but I'm just checking.
-> > 
-> > Or the via-rhine driver is not programming one of the registers
-> > proper to get optimal spacing.
-> > 
-> > As with most Donald Becker drivers, many of the register layouts
-> > are not documented in the sources so it's not possible to just
-> > scan the driver looking for potential problems like this.
-> > For example, maybe the TxConfig register has an "IPG" field but
-> > we'll never know by reading anything in the driver source.
+--uZ3hkaAS1mZxFaxD
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Wed, Dec 01, 2004 at 07:29:43PM +0100, Lennert Buytenhek wrote:
+
+> > This doubles the kpps numbers for 60-byte packets.  I'd like to see what
+> > happens on higher bus bandwidth systems.  Anyone?
 > 
-> Presumably Donald Becker had only access to the publicly available
-> documentation at the time which is very incomplete and buggy. What
-> little time my day job leaves for hacking via-rhine is consumed by the
-> WOL issues that have come up with 2.6.9+, but if you have a specific
-> question that can be answered by someone who knows the chip but not
-> necessarily Linux I can try and poke my contacts.
+> Dual Xeon 2.4GHz, a 82540EM and a 82541GI both on 32/66 on separate
+> PCI buses.
+> 
+> BEFORE performance is approx the same for both, ~620kpps.
+> AFTER performance is ~730kpps, also approx the same for both.
 
-"Is the hardware capable of sending back-to-back packets (i.e. with
-an inter-packet gap of no more than 96 bit times)?"
+Pretty graph attached.  From ~220B packets or so it does wire speed, but
+there's still an odd drop in performance around 256B packets (which is
+also there without your patch.)  From 350B packets or so, performance is
+identical with or without your patch (wire speed.)
 
-"Can misprogramming the chip lead to the effect that the inter-packet
-gap is never less than 112 bit times?"
-
-Thanks in advance.
+So.  Do you have any other good plans perhaps? :)
 
 
-> Of course, you can always check if VIA's driver has the same issue. If
-> it doesn't, chances are we can borrow the fix.
+> Once or twice it went into a state where it started spitting out these
+> kinds of messages and never recovered:
+> 
+> 	Dec  1 19:13:18 phi kernel: NETDEV WATCHDOG: eth1: transmit timed out
+> 	[...]
+> 	Dec  1 19:13:31 phi kernel: NETDEV WATCHDOG: eth1: transmit timed out
+> 	[...]
+> 	Dec  1 19:13:43 phi kernel: NETDEV WATCHDOG: eth1: transmit timed out
 
-Hmm, didn't know they had such a driver.  Where can I find it?
+Didn't see this happen anymore.  (ifconfig down and then up recovered it
+both times I saw it happen.)
 
 
-cheers,
+thanks,
 Lennert
+
+--uZ3hkaAS1mZxFaxD
+Content-Type: image/png
+Content-Disposition: attachment; filename="feldman.png"
+Content-Transfer-Encoding: base64
+
+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
+AdjzOoqApIL+AAAAAElFTkSuQmCC
+
+--uZ3hkaAS1mZxFaxD--
