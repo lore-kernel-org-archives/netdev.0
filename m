@@ -1,68 +1,87 @@
 From: Patrick Schaaf <bof@bof.de>
 Subject: Re: TODO list before feature freeze
-Date: Mon, 29 Jul 2002 17:52:26 +0200
+Date: Mon, 29 Jul 2002 18:15:01 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020729175226.B570@oknodo.bof.de>
-References: <20020729131239.A5183@wotan.suse.de> <200207291525.g6TFPTTu011558@marajade.sandelman.ottawa.on.ca>
+Message-ID: <20020729181501.C570@oknodo.bof.de>
+References: <20020729131239.A5183@wotan.suse.de> <Pine.GSO.4.30.0207290719580.12604-100000@shell.cyberus.ca> <20020729135615.A20412@wotan.suse.de> <1027957218.12610.71.camel@tux>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com,
-   netfilter-core@lists.netfilter.org
+Cc: Andi Kleen <ak@suse.de>, jamal <hadi@cyberus.ca>,
+   Rusty Russell <rusty@rustcorp.com.au>,
+   Netfilter-devel <netfilter-devel@lists.netfilter.org>, netdev@oss.sgi.com,
+   netfilter-core@lists.netfilter.org, Patrick Schaaf <bof@bof.de>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
 Content-Disposition: inline
-In-Reply-To: <200207291525.g6TFPTTu011558@marajade.sandelman.ottawa.on.ca>; from mcr@sandelman.ottawa.on.ca on Mon, Jul 29, 2002 at 11:25:28AM -0400
+In-Reply-To: <1027957218.12610.71.camel@tux>; from gandalf@wlug.westbo.se on Mon, Jul 29, 2002 at 05:40:18PM +0200
 List-Id: netdev.vger.kernel.org
 
-> >>>>> "Andi" == Andi Kleen <ak@suse.de> writes:
->     Andi> (case in point: we have at least one report that routing
->     Andi> performance breaks down with ip_conntrack when memory size is
->     Andi> increased over 1GB on P3s. The hash table size depends on the
->     Andi> memory size. The problem does not occur on P4s. P4s have larger
->     Andi> TLBs than P3s.)
+(warning: crystal ball engaged to parse from the quoted mail snippets.
+Maybe missing context. I'm just reading netfilter-devel)
+
+> On Mon, 2002-07-29 at 13:56, Andi Kleen wrote:
 > 
->   That's a non-obvious result.
+> > here is a patch for 2.4 that just makes it use get_free_pages to test the 
+> > TLB theory.
+
+I presume this is about the vmalloc()ed hash bucket table? If yes, it's
+certainly an interesting experiment to try making it allocated from an
+area without TLB issues. We can expect a TLB miss on every packet with
+the current setup, allocating the bucket table from large-TLB memory
+would be a clear win of one memory roundtrip.
+
+The netfilter hook statistics patch I mentioned in the other mail,
+should be able to show the difference. If my guess is right, you
+could see a 5-10% improvement on the ip_conntrack hook functions.
+
+> > Another obvious improvement would be to not use list_heads 
+> > for the hash table buckets - a single pointer would likely suffice and 
+> > it would cut the hash table in half, saving cache, TLB and memory.
 > 
->   I'll bet that most of the memory-size based hash tables in the kernel
-> suffer from similar problems. A good topic for a paper, I'd say.
+> Martin Josefsson wrote:
+> I think the list_heads are used for only one thing currently, for the
+> early eviction in case of overload,
 
-That's for sure - but I don't see the relevance of TLBs. The only place
-where I expect any in-CPU caches to matter, is for synthetic test
-cases where there's a very small number of conntracks (fitting into
-CPU caches), and a huge load of packets (to look good in a benchmark).
+Don't forget the nonscanning list_del(), called whenever a conntrack
+is unhashed at it's death. However, with a suitable bucket number,
+i.e. low chain lengths, the scan on conntrack removal would be OK.
 
-Under real life operation, we either have very light loads - then conntrack
-lookup does not matter at all - or we have high load, several 10000
-packets per second. Then, things may get slow in conntrack when
-you don't have enough hash buckets - two times the number of
-concurrent connections is appropriate. Or, if that's not the
-problem, you will already spread lookup so far across the hash
-table, in a random fashion, that you'll incurr at least two TLB
-faults plus several cache line loads for each packet. When that
-point is reached, further increase in packet load should not
-make things worse.
+The early_drop() scanning, if it wants to work backward, may as well
+work forward, keeping a "last unreplied found" pointer, and returning
+that when falling off the single list end.
 
-Andi, what report are you referring to? Any specifics I can read?
+Thus, I also think that the list could be simple.
 
-In case somebody isn't aware, we have been over the hash function
-and hash bucket thing during the last month. See lots of mails in
-the netfilter-devel archive.
+>From the top of my head, here are other fields that we could get rid off:
 
-I'm prepared to take on any presumed inefficiency in the current
-conntracking code. I know some things that may be relevant that
-I did not write about during the last weeks, but I have no real life
-indication that they matter - I'd love to have the opportunity to
-see such a situation. So if anybody got the time to work on such
-a perceived performance problem, please come to the netfilter-devel
-mailing lest, and let's talk specifics.
+- the ctrack backpointer in each tuple.
+- the protocol field in each tuple.
+- the 20 byte infos[] array in ip_conntrack.
+- we could out-of-line ip_nat_info.
 
-As it were, I published a small netfilter performance counter patch
-over the weekend, which you can find in the archive at
+With the current layout, when lists must be walked on a 32-byte-cacheline
+box, we are sure to always read two cache lines for the skipped-over
+tuples.
 
-http://lists.netfilter.org/pipermail/netfilter-devel/2002-July/008792.html
+> I know I've had plans on rewriting the locking in conntrack which is
+> quite frankly horrible, one giant rwlock used for almost everything
+> (including the hashtable).
 
-I hope to see some really worrying output from you :)
+I'd like to see lockmeter statistics before this change. When you split
+the one lock into a sectored lock: each conntrack is hashed twice, so
+you need to be careful with lock order when adding or removing.
+(well, there is another possibility, but I won't go into that now)
+
+> One idea that has come to mind is using RCU
+
+I don't see RCU solving hash link list update problems. Care to explain
+how that would work?
+
+> And this eviction which occurs at overload needs to be redone, we can't
+> go around dropping one unreplied connection at a time, we need
+> gang-eviction of unreplied connections.
+
+I propose to put them all on a seperate LRU list, and reap the oldest.
 
 best regards
   Patrick
-- 
