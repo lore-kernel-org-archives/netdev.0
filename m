@@ -1,36 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] 2.6.0-test9-bk27-netdrvr-exp1 - r8169 update
-Date: Mon, 24 Nov 2003 09:04:21 +0100
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: IPv6 multicast (MLD,IGMP) code bypasses netfilter hooks
+Date: Mon, 24 Nov 2003 11:24:51 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031124090421.A4482@electric-eye.fr.zoreil.com>
-References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <3FC14058.4010600@mcve.com> <20031124004023.A1140@electric-eye.fr.zoreil.com> <3FC14AA3.9050009@mcve.com>
+Message-ID: <20031124102451.GJ4888@obroa-skai.de.gnumonks.org>
+References: <OFBBD13E53.65F0744F-ON88256DE7.003D0DE0@us.ibm.com> <20031123224414.0bea3633.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="W/+CTqSGWdiRg+8j"
+Cc: David Stevens <dlstevens@us.ibm.com>, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brad House <brad@mcve.com>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <3FC14AA3.9050009@mcve.com>; from brad@mcve.com on Sun, Nov 23, 2003 at 07:02:43PM -0500
+In-Reply-To: <20031123224414.0bea3633.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Brad House <brad@mcve.com> :
-[...]
-> The kernel locked hard on running a   dhcpcd eth0
-> no panic output to the screen (I don't have a serial cable
-> hooked up, or anything, so I don't know if it output anything
-> there)
 
-Well, thanks anyway.
+--W/+CTqSGWdiRg+8j
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> I'm sure the 'pile' of code left from realtek left will fix it
-> though ;)
+On Sun, Nov 23, 2003 at 10:44:14PM -0800, David S. Miller wrote:
 
-Just to be sure:
-1) you are running x86-64;
-2) vanilla 2.6.0-test9 does not work either.
+> David Stevens <dlstevens@us.ibm.com> wrote:
+>=20
+> > Here's a patch to add netfilter hooks for MLD v1 & v2. Can you take
+> > quick look at it, Harald?
+>=20
+> Whoa, David beat me to it, on a weekend no less :)))
 
-If 2) if false I can/must search an error in the proposed changes.
+Thanks, David & David :)
 
---
-Ueimor
+> It looks good to me.  Applied, thanks.
+
+obviously fine with mee, too.
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--W/+CTqSGWdiRg+8j
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQE/wdxzXaXGVTD0i/8RAvskAKCa3uDiy7EsfvZs5+/R903R+s6otwCfU5Hz
+Asp39O69bw/z9cTCgun7ujs=
+=Suf4
+-----END PGP SIGNATURE-----
+
+--W/+CTqSGWdiRg+8j--
