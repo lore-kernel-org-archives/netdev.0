@@ -1,18 +1,30 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] pcnet32: use unsigned 1-bit fields
-Date: Fri, 15 Oct 2004 15:26:15 -0400
+Subject: Re: [patch 2.6.9-rc3] 3c59x: reload EEPROM values at rmmod for needy
+ cards
+Date: Fri, 15 Oct 2004 15:33:33 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41702457.7030107@pobox.com>
-References: <4169BB5E.1070409@osdl.org>
+Message-ID: <4170260D.9010905@pobox.com>
+References: <20040928145455.C12480@tuxdriver.com> <Pine.LNX.4.44.0409291253510.1746-100000@training.scyld.com> <20040930091407.A10417@tuxdriver.com> <20041007134601.B29517@tuxdriver.com> <20041008123955.E14378@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>, tsbogend@alpha.franken.de,
-        brazilnut@us.ibm.com
+Cc: "John W. Linville" <linville@tuxdriver.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, Donald Becker <becker@scyld.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <4169BB5E.1070409@osdl.org>
+To: akpm@osdl.org
+In-Reply-To: <20041008123955.E14378@tuxdriver.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied
+John W. Linville wrote:
+> Enable reload of EEPROM values in reset at rmmod for cards that need
+> it, similar to old EEPROM_NORESET flag but in reverse.
+> 
+> Signed-of-by: John W. Linville <linville@tuxdriver.com>
+
+Andrew... ack/nak?
+
+Seems OK to me, provided that it chills out in -mm for a while for 
+people to test.
+
+	Jeff
