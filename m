@@ -1,7 +1,7 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/ipv4/: misc possible cleanups
-Date: Wed, 15 Dec 2004 01:51:39 +0100
-Message-ID: <20041215005139.GJ23151@stusta.de>
+Subject: [2.6 patch] net/ipv6/: misc possible cleanups
+Date: Wed, 15 Dec 2004 01:55:46 +0100
+Message-ID: <20041215005546.GA11972@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: linux-kernel@vger.kernel.org
@@ -14,40 +14,36 @@ List-Id: netdev.vger.kernel.org
 
 The patch below contains the following possible cleanups:
 - make some needlessly global code static
-- remove the following unused global functions:
-  - fib_rules.c: fib_rules_map_destination
-  - xfrm4_policy.: xfrm4_fini
-- remove the following unneeded EXPORT_SYMBOL:
-  - tcp_timer.c: tcp_timer_bug_msg
+- remove the following unused functions:
+  - exthdrs.c: ipv6_build_rthdr
+  - exthdrs.c: ipv6_build_exthdr
+  - exthdrs.c: ipv6_build_nfrag_opts
+  - exthdrs.c: ipv6_build_frag_opts
+- remove the following unused global variables:
+  - addrconf.c: in6addr_any
+- remove the following EXPORT_SYMBOL's:
+  - ipv6_syms.c: addrconf_lock
+  - ipv6_syms.c: in6addr_any
+  - ipv6_syms.c: in6addr_loopback
 
-Please review which of these changes are correct and which might 
-conflict with pending patches.
+Please comment on which of these changes are correct and which conflict
+with pending patches.
 
 
 diffstat output:
- include/net/ip.h         |    2 --
- include/net/ip_fib.h     |    2 --
- include/net/ipconfig.h   |   11 -----------
- include/net/tcp.h        |   16 ----------------
- include/net/xfrm.h       |    1 -
- net/ipv4/af_inet.c       |    8 ++++----
- net/ipv4/arp.c           |    8 ++++----
- net/ipv4/devinet.c       |    4 ++--
- net/ipv4/fib_frontend.c  |    6 +++---
- net/ipv4/fib_rules.c     |    8 +-------
- net/ipv4/icmp.c          |    4 ++--
- net/ipv4/igmp.c          |   16 ++++++++--------
- net/ipv4/ip_gre.c        |    6 +++---
- net/ipv4/ip_sockglue.c   |    2 +-
- net/ipv4/ipconfig.c      |   12 ++++++------
- net/ipv4/raw.c           |    4 ++--
- net/ipv4/route.c         |   32 ++++++++++++++++----------------
- net/ipv4/tcp_input.c     |   16 ++++++++++++++--
- net/ipv4/tcp_minisocks.c |    4 +++-
- net/ipv4/tcp_timer.c     |    3 ---
- net/ipv4/udp.c           |   13 ++++++++-----
- net/ipv4/xfrm4_policy.c  |    7 -------
- 22 files changed, 77 insertions(+), 108 deletions(-)
+ include/linux/in6.h        |    5 --
+ include/net/addrconf.h     |    1 
+ include/net/ipv6.h         |   10 ----
+ net/ipv6/addrconf.c        |    9 +---
+ net/ipv6/anycast.c         |    4 +
+ net/ipv6/exthdrs.c         |   78 -------------------------------------
+ net/ipv6/icmp.c            |    2 
+ net/ipv6/ip6_output.c      |    2 
+ net/ipv6/ipv6_syms.c       |    3 -
+ net/ipv6/mcast.c           |   16 +++----
+ net/ipv6/route.c           |    4 -
+ net/ipv6/sysctl_net_ipv6.c |    2 
+ 12 files changed, 21 insertions(+), 115 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
