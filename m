@@ -1,70 +1,61 @@
-From: =?iso-8859-1?q?francois=20donzet?= <fdonzet@yahoo.fr>
-Subject: tracing a packet through the kernel stack
-Date: Wed, 12 Nov 2003 16:37:08 +0100 (CET)
+From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+Subject: Re: [PATCH] Updated 8139too with NAPI
+Date: Thu, 13 Nov 2003 00:41:34 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031112153708.41440.qmail@web25203.mail.ukl.yahoo.com>
+Message-ID: <87d6bx4ms1.fsf@devron.myhome.or.jp>
+References: <3F9070B6.9090306@pobox.com> <873cdqbt6z.fsf@devron.myhome.or.jp>
+	<20031020131106.6862e951.shemminger@osdl.org>
+	<877k2ysohc.fsf@devron.myhome.or.jp>
+	<20031028114707.1d234da6.shemminger@osdl.org>
+	<3FA01629.2080202@pobox.com> <873cdaabue.fsf@devron.myhome.or.jp>
+	<20031030104943.20b61af0.shemminger@osdl.org>
+	<87ekwu9tn4.fsf@devron.myhome.or.jp>
+	<20031111143143.794909e8.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031111143143.794909e8.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi there,=20
-i am trying to trace a packet which checksum has been
-calculated in hardware (skb->ip_summed set to
-CHECKSUM_HW) when it comes to the tcp layer.
+Stephen Hemminger <shemminger@osdl.org> writes:
 
-I start with net/tcp_ipv4.c/tcp_v4_recv(). Here, there
-is a call to tcp_v4_checksum_init(). If the call
-returns a negative number, the packet is considered
-invalid (checksum problem), and we go to the label
-bad_packet.
+> @@ -1663,6 +1678,8 @@
+>  	/* Disable interrupts by clearing the interrupt mask. */
+>  	RTL_W16 (IntrMask, 0x0000);
+>  
+> +	__netif_poll_disable(dev);
 
-i looked at tcp_v4_checksum_init() (in tcp_ipv4 too).
+Rx-poll can enable interrupt. However, because it can happen on SMP
+only, then reset of chips should be done sooner or later, so I don't
+care so much.
 
-When skb->ip_summed  is set to CHECKSUM_HW, we first
-set it to CHECKSUM_UNECESSARY, to indicate that
-checksum hasn't to be computed later. Then we call
-tcp_v4_check() function, with params including the
-skb->len value, the source ip address,destination ip
-address, and the value of skb->csum.
+> +		/*
+> +		 * This order is important
+> +		 * (see Documentation/networking/NAPI_HOWTO.txt)
+> +		 */
+> +		netif_rx_complete(dev);
+> +		RTL_W16_F(IntrMask, rtl8139_intr_mask);
 
-As far i know, skb->csum contains a sum of the entire
-packet contents, computed by the hardware which
-received the packet at the link layer level.
+    netif_rx_complete(dev);
+    -- interrupted --
+	in rtl8139_interrupt(),
+		if (netif_rx_schedule_prep(dev)) {
+			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
+			__netif_rx_schedule (dev);
+		}
+    -- resume --
+    /* enable interrupt, but rx-poll is already scheduling */
+    RTL_W16_F(IntrMask, rtl8139_intr_mask);
 
-To sump up, We have :
+So doesn't disable interrupt. Umm... this problem was things that my
+patch fixed. Any objections?
 
-tcp_v4_recv()-->tcp_v4_checksum_init()-->tcp_v4_check()-->csum_tcpudpmagi=
-c().
-
-When i look at the architecture dependent code
-(asm-x86 for me) :
-
-csum_tcpudp_magic is followed by csum_tcpudp_nofold,
-and csum_fold calls.
-
-In my understanding of the checksumming operations,
-csum_tcpudp_magic() computes the pseudo header
-checksum, based on the source adress, the destination
-adress, the length of the packet and the ip protocol
-of the packet (here tcp).=20
-
-The initial sum to be add in contains the value of
-skb->csum. My initial believing would have been that
-(as someone suggests me after), some substractions
-from the skb->csum (as pseudoheader contains fields in
-ip header) would be made before checking the entire
-TCP checksum.
-
-But here, the skb->csum value is used "as is" in the
-TCP checksum computation.
-
-If you can give a little help, or tell me if i am
-looking the wrong part of code, thanks.
-
-___________________________________________________________
-Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran=E7ais !
-Yahoo! Mail : http://fr.mail.yahoo.com
+		local_irq_disable();
+		__netif_rx_complete(dev);
+		RTL_W16_F(IntrMask, rtl8139_intr_mask);
+		local_irq_enable();
+-- 
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
