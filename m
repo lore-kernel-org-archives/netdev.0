@@ -1,52 +1,53 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [Fwd: [E1000] NAPI re-insertion w/ changes]
-Date: Tue, 1 Apr 2003 16:13:31 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
+Date: Wed, 02 Apr 2003 12:25:18 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D325@orsmsx402.jf.intel.com>
+Message-ID: <20030402.122518.62753078.yoshfuji@linux-ipv6.org>
+References: <1049234673.5116.11.camel@tomlt2.tomloffice.austin.ibm.com>
+	<20030401.140727.73666851.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: toml@us.ibm.com, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru,
+   yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@reflexsecurity.com>, Jeff Garzik <jgarzik@pobox.com>,
-   Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
-content-class: urn:content-classes:message
+To: davem@redhat.com
+In-Reply-To: <20030401.140727.73666851.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> The graphs are up now. The best driver measured so far is 
-> Robert's change to reinstate irq-disable-on-poll + 
-> reduce-pci-traffic, with XsumRX turned off. I'm currently 
-> measuring to see if it still has an advantage with 
-> checksumming turned on.
+In article <20030401.140727.73666851.davem@redhat.com> (at Tue, 01 Apr 2003 14:07:27 -0800 (PST)), "David S. Miller" <davem@redhat.com> says:
 
-Very good.  Jeff has the patch for -k2 which should be equivalent to
--ro2.
+>    From: Tom Lendacky <toml@us.ibm.com>
+>    Date: 01 Apr 2003 16:04:32 -0600
+>    
+>    Please review and let me know if any changes are required.
+> 
+> Ok, now that I look at this I realize my suggestions from the other
+> day were wrong.
+> 
+> These expressions are huge, it's almost less readable.  Let's compact
+> this, by creating a struct named {ip,ipv6}_esp_header_no_enc_data.
 
-Robert, please post your -ro3 changes - I can't find them.
+How about just removing 8 bytes from struct {ip,ipv6}_esp_hdr
+like this?
 
-BTW, the things that changed from 4.4.19-k3 to 5.0.43-k2 that may
-account for the improvements are:
+struct ipv6_auth_hdr {
+	__u8  nexthdr;
+	__u8  hdrlen;
+	__u16 reserved;
+	__u32 spi;
+	__u32 seq_no;
+	__u8  auth_data[0];
+} __attribute__ ((aligned (8)));
 
-o eliminate the modulus operator for ring index wrapping
-(anton@samba.org)
-o single read of ICR (Interrupt Cause Register) in e1000_intr
-o dynamic ITR (Interrupt Throttle Rate) algorithm for 82545/6
+struct ipv6_esp_hdr {
+	__u32 spi;
+	__u32 seq_no;
+	__u8  enc_data[0];
+} __attribute__ ((aligned (8)));
 
-Sum of many second-order improvements add up.  We'll take all we can
-find.
-
-> Scott, your bugfix of removing the while() from e1000_clean() 
-> puts the original 5.0.43-k1 driver from 2.5.66 back in the 
-> running. It no longer suffers from watchdog timeouts, and 
-> doesn't degrade under high load.  It still scores lowest, 
-> though.  I've seen that the max-pps-ceiling visible in these 
-> graphs is highly sensitive to CPU load, so I'd guess that the 
-> sf1 test lost solely because of the overhead of still running 
-> the irq handler once in a while.  
-
-Ok, that settles that.  Thanks for re-running the tests.
-
-I'm pretty happy with this NAPI code for e1000.  Next step is to get
-some more generic QA testing with NAPI and then port back to 2.4.x.
-
--scott
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
