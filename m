@@ -1,105 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPV6: strategy hander for net.ipv6.conf.*.forwarding
- (is Re: problem setting net.ipvX.conf.all.forwarding via sysctl() system
- call)
-Date: Sat, 09 Aug 2003 19:21:58 +0900 (JST)
+From: "Hen, Shmulik" <shmulik.hen@intel.com>
+Subject: RE: [SET 2][PATCH 2/8][bonding] Propagating master's settings to slaves
+Date: Sat, 9 Aug 2003 13:29:08 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030809.192158.47862071.yoshfuji@linux-ipv6.org>
-References: <20030808093704.GA18131@wsx.ksp.sk>
-	<20030808.185135.112441851.yoshfuji@linux-ipv6.org>
-	<20030809010845.01ebcbe9.davem@redhat.com>
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: jan.oravec@6com.sk, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20030809010845.01ebcbe9.davem@redhat.com>
+content-class: urn:content-classes:message
+To: <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030809010845.01ebcbe9.davem@redhat.com> (at Sat, 9 Aug 2003 01:08:45 -0700), "David S. Miller" <davem@redhat.com> says:
+> -----Original Message-----
+> From: jamal [mailto:hadi@cyberus.ca]
+> Sent: Saturday, August 09, 2003 1:01 AM
+> To: Hen, Shmulik
+> Cc: bonding-devel@lists.sourceforge.net; netdev@oss.sgi.com
+> Subject: Re: [SET 2][PATCH 2/8][bonding] Propagating master's settings
+> to slaves
+> 
+> Shmulik,
+> 
+> Some of this bonding stuff is pretty scary. Lotsa policies in the 
+> kernel and communication seems to be centred around /proc.
+> Shouldnt policies on failover be really driven from user space?
+> Also shouldnt communication be using something like netlink?
+> 
+> cheers,
+> jamal
+> 
+> On Fri, 2003-08-08 at 10:44, Shmulik Hen wrote:
+> > 2 - Change monitoring function use the new functionality.
+> > 
+> 
 
-> As I mentioned for the ipv4 forwarding sysctl bug fix,
-> if you will set table->data yourself you should return
-> > 0 (for example "1") from your strategy handler.
-:
-> Please fix this, thank you.
+Not sure I fully understood the concerns above, but I'll try
+to explain what the change was all about.
 
-Here it is.
+By monitoring, I meant the 3 timer function running in bonding
+to monitor link changes and act once a link fail/recovery is
+detected. The old code used to do all the activity related to
+changing the current active slave separately in each timer
+function and it seemed redundant since it was basically the
+same thing repeated 3 times. Instead, we thought it would be
+best if we put that into 3 new functions - reselect_active,
+find_best_slave and change_active that does all the actual stuff
+of swapping an old current with the new one.
 
-Index: linux-2.6/net/ipv6/addrconf.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv6/addrconf.c,v
-retrieving revision 1.48
-diff -u -r1.48 addrconf.c
---- linux-2.6/net/ipv6/addrconf.c	25 Jul 2003 23:58:59 -0000	1.48
-+++ linux-2.6/net/ipv6/addrconf.c	9 Aug 2003 08:51:42 -0000
-@@ -2593,6 +2593,53 @@
-         return ret;
- }
- 
-+static int addrconf_sysctl_forward_strategy(ctl_table *table, 
-+					    int *name, int nlen,
-+					    void *oldval, size_t *oldlenp,
-+					    void *newval, size_t newlen,
-+					    void **context)
-+{
-+	int *valp = table->data;
-+	int new;
-+
-+	if (!newval || !newlen)
-+		return 0;
-+	if (newlen != sizeof(int))
-+		return -EINVAL;
-+	if (get_user(new, (int *)newval))
-+		return -EFAULT;
-+	if (new == *valp)
-+		return 0;
-+	if (oldval && oldlenp) {
-+		size_t len;
-+		if (get_user(len, oldlenp))
-+			return -EFAULT;
-+		if (len) {
-+			if (len > table->maxlen)
-+				len = table->maxlen;
-+			if (copy_to_user(oldval, valp, len))
-+				return -EFAULT;
-+			if (put_user(len, oldlenp))
-+				return -EFAULT;
-+		}
-+	}
-+
-+	if (valp != &ipv6_devconf_dflt.forwarding) {
-+		struct inet6_dev *idev;
-+		if (valp != &ipv6_devconf.forwarding) {
-+			idev = (struct inet6_dev *)table->extra1;
-+			if (unlikely(idev == NULL))
-+				return -ENODEV;
-+		} else
-+			idev = NULL;
-+		*valp = new;
-+		addrconf_forward_change(idev);
-+	} else
-+		*valp = new;
-+
-+	return 1;
-+}
-+
- static struct addrconf_sysctl_table
- {
- 	struct ctl_table_header *sysctl_header;
-@@ -2611,6 +2658,7 @@
- 			.maxlen		=	sizeof(int),
- 			.mode		=	0644,
-          		.proc_handler	=	&addrconf_sysctl_forward,
-+			.strategy	=	&addrconf_sysctl_forward_strategy,
- 		},
- 		{
- 			.ctl_name	=	NET_IPV6_HOP_LIMIT,
+The change we did in /proc was to reduce the amount of data
+extarcted each time the proc entry is polled. Instead of dumping
+all the data of all the bond devices that exist, each bond returns
+just data that is relevant to itself.
+
+In the lonf term, the drive is to move any *smart* code done in
+the config application into the driver itself and be left with
+the smallest, most compact application as possible. This is the
+trend we've seen in the VLAN config app, and the bridge module.
+All the "brain" is in the kernel module and very little should be
+done in the application.
 
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+	Shmulik.
