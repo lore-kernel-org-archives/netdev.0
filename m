@@ -1,41 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [patch] 2.4 lacks dummy SET_NETDEV_DEV
-Date: Tue, 2 Dec 2003 03:28:25 -0800
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: IPv6 MIB:ipv6PrefixTable implementation
+Date: Tue, 2 Dec 2003 15:40:07 +0300 (MSK)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202032825.12ded81f.davem@redhat.com>
-References: <20031110181917.GA25846@ee.oulu.fi>
-	<20031110221430.GA26556@ee.oulu.fi>
-	<20031110221429.04732a57.davem@redhat.com>
-	<20031202104024.GA9163@ee.oulu.fi>
+Message-ID: <200312021240.PAA01536@yakov.inr.ac.ru>
+References: <200311191621.38087.mashirle@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, marcelo.tosatti@cyclades.com.br
+Cc: netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Pietikainen <pp@ee.oulu.fi>
-In-Reply-To: <20031202104024.GA9163@ee.oulu.fi>
+To: mashirle@us.ibm.com (Shirley Ma)
+In-Reply-To: <200311191621.38087.mashirle@us.ibm.com> from "Shirley Ma" at Ноя 19, 2003 04:21:38 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Dec 2003 12:40:25 +0200
-Pekka Pietikainen <pp@ee.oulu.fi> wrote:
+Hello!
 
-> On Mon, Nov 10, 2003 at 10:14:29PM -0800, David S. Miller wrote:
-> > I agree, someone should merge in the dummy SET_NETDEV_DEV once
-> > Marcelo starts up 2.4.24-preX
->
-> Ping :-)
+> One implementation detail question, do you think I need to save all the o=
+> ther=20
+> Prefix Objects: Type, Origin(addrconf, manually, dhcp, others),
 
-Yes Marcelo, please apply this.
+These two things should be stored right now. Existing implementation is
+quite a mess, but we definitely want to remember origin of each route
+in "protocol" and another flags, they are of common interest.
 
-> --- linux-2.4.22-1.2115.nptl/include/linux/netdevice.h.orig	2003-11-10 20:08:42.922635848 +0200
-> +++ linux-2.4.22-1.2115.nptl/include/linux/netdevice.h	2003-11-10 20:09:09.754556776 +0200
-> @@ -456,6 +456,8 @@
->  #endif /* CONFIG_NET_DIVERT */
->  };
->  
-> +/* 2.6 compatibility */
-> +#define SET_NETDEV_DEV(net, pdev) do { } while (0)
->  
->  struct packet_type 
->  {
+
+> AutonomoueFlag, AdvPreferredLiftTime and ValidLifeTime
+
+ValidLifeTime is "expires" on this route.
+
+What's about AdvPreferredLiftTime I am puzzled a little,
+preferred time is not an attribute of a prefix at all,
+it is attribute of address, is not it? Unless the prefix is used
+to install local address it does not make sense, right?
+
+Alexey
