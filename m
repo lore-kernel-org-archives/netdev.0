@@ -1,84 +1,35 @@
-From: "Mohd. Mohtashim" <mcmohd@rediffmail.com>
-Subject: Re: Re: packet re-ordering on SMP machines.
-Date: 27 Aug 2002 13:57:27 -0000
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
+Date: Tue, 27 Aug 2002 11:49:29 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020827135727.17673.qmail@webmail15.rediffmail.com>
-Reply-To: "Mohd. Mohtashim" <mcmohd@rediffmail.com>
+Message-ID: <Pine.GSO.4.30.0208271147320.10164-100000@shell.cyberus.ca>
+References: <OFC842923C.BD15E014-ON87256C22.0047BBD6@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 8bit
-Cc: "Xiaoliang\(David\)Wei" <weixl@caltech.edu>,
-   "Ben Greear" <greearb@candelatech.com>,
-   "Cheng Jin" <chengjin@cs.caltech.edu>, "Cheng Hu" <chenghu@cs.caltech.edu>,
-   "Steven Low" <slow@cs.caltech.edu>, netdev@oss.sgi.com,
-   "jamal" <hadi@cyberus.ca>
+Cc: Bill Hartner <bhartner@us.ibm.com>, <davem@redhat.com>,
+   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
+   Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Andi Kleen" <ak@suse.de>
-Content-Disposition: inline
+To: Mala Anand <manand@us.ibm.com>
+In-Reply-To: <OFC842923C.BD15E014-ON87256C22.0047BBD6@boulder.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
 
-On Tue, 27 Aug 2002 Andi Kleen wrote :
->
->On Tue, Aug 27, 2002 at 08:05:04AM -0400, jamal wrote:
-> >
-> >
-> >
-> > On Tue, 27 Aug 2002, Andi Kleen wrote:
-> >
-> > >
-> > > That is because of the lock it takes. Locks are always 
->slow.
-> >
-> > xtime_lock?
->
->Yes.
->
->It also has some other overhead.
->
-> >
-> > >
-> > > Older kernels used gettimeoffset which ran without lock, but 
->that was
-> > > changed because in some very obscure cases it could cause 
->non monotonous
-> > > timestamps when the user turns on timestamp receiving to 
->user space
-> > > (kernel protocols do not care)
-> > >
-> > > Possibilities:
-> > >
-> > > - Ignore the problem and switch back to gettimeoffset 
->again
-> >
-> > Is it safe to call gettimeoffset without the lock?
->
->
->Of course. The only problem is that the clock can be non 
->mononotonous
->sometimes and not be in sync with gettimeofday, but at least the 
->kernel
->users of packet timestamps do not care.
->The only problem is the socket option, but it is obscure enough 
->that I
->would not worry too much about it.
-> >
-> > > - Switch to gettimeoffset but add some correction step for 
->the unlikely
-> > > case that someone wants the timestamp from user space
-> > > (would be my prefered solution)
-> > > - Implement lockless gettimeofday like x86-64 or sparc
-> > > (good one too, but likely slower than last)
-> >
-> >
-> > ia64 seems to also have the lock.
->
->Quick fix is to just use gettimeoffset in netif_rx again. 
->Should
->be fine for you.
->
->-Andi
->
+On Tue, 27 Aug 2002, Mala Anand wrote:
+
+> SPECweb99 profile shows that __kfree_skb is in the top 5 hot routines. We
+> will test the skb recycle patch on SPECweb99 and add skbinit patch
+> to that and see how it helps.  What I understand is that the skb recycle
+> patch does not attempt to recycle if the skbs are allocated on CPU
+> and freed on another CPU. Is that right? If so, skbinit patch will help
+> those cases.
+
+yes it will. Not significant is my current thinking. i.e i wouldnt write
+my mother to tell her about it.
+
+cheers,
+jamal
