@@ -1,39 +1,32 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: Re: 2.6.0-test4, 2.5.47, child qdiscs, parent not filled out?
-Date: Wed, 3 Sep 2003 23:09:39 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030903210939.GA27592@outpost.ds9a.nl>
-References: <20030903102803.GA11876@outpost.ds9a.nl> <Pine.LNX.4.33.0309032258290.521-100000@devix>
+From: Ricky Beam <jfbeam@bluetronic.net>
+Subject: Re: /proc/net/* read drops data
+Date: Thu, 4 Sep 2003 12:25:16 -0400 (EDT)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net>
+References: <20030904004638.1d4b001d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: devik <devik@cdi.cz>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.33.0309032258290.521-100000@devix>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+	<linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030904004638.1d4b001d.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 03, 2003 at 11:01:45PM +0200, devik wrote:
+On Thu, 4 Sep 2003, David S. Miller wrote:
+>> D: Fixing a bug that reading /proc/net/{udp,udp6} may drop some data
+>
+>This fix looks good to me.  Applied.
 
-> There is no other "parent" info in the struct so it can't be returned
-> IMHO. You will have to parse all clases from root to leaves.
+The list:
+(file)			(bs=1)	(bs=10000)
+/proc/net/igmp		122     191
+/proc/net/route		128     384
+/proc/net/rt_acct	0	4096
+/proc/net/rt_cache	384     512
+/proc/net/tcp		1800    1950
+/proc/net/udp		1024    1152
 
-That probably means having to understand the innards of all qdiscs? Could
-that be done from userspace? Is it in the TCA_OPTIONS attribute?
+(I don't have ipv6 enabled)
 
-> Maybe we could add parent handle to qdisc but it is question to
-> Alexey probably - I'm not sure how complex would it be to keep
-> the field in sync ...
-
-True. 
-
-You can look at why I need this on
-CVSROOT=:pserver:anon@outpost.ds9a.nl:/var/cvsroot
-password 'cvs' without quotes, module 'netlink++'.
-
-Thanks!
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+--Ricky
