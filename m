@@ -1,35 +1,49 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: Re: [PATCH 2.6.10-rc1 1/15] wireless/orinoco: Use msleep() instead
-	of hardcoded schedule_timeout()s
-Date: Tue, 26 Oct 2004 15:55:12 -0400
+From: "Teras Timo (EXT-YomiGroup/Helsinki)" <Ext-Timo.Teras@nokia.com>
+Subject: Re: [PATCH] Add ability to register class interfaces for network class
+Date: Tue, 26 Oct 2004 23:52:39 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098820512.9874.13.camel@dcbw.boston.redhat.com>
-References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
-	 <1098815604.3663.35.camel@dcbw.boston.redhat.com>
-	 <20041026184749.GA16621@infradead.org>
-	 <1098819336.9874.11.camel@dcbw.boston.redhat.com>
-	 <20041026194219.GA17343@infradead.org>
+Message-ID: <20041026205239.GA23825@two.research.nokia.com>
+References: <20041026183526.GA23535@two.research.nokia.com> <20041026184838.GB16621@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@redhat.com, hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20041026194219.GA17343@infradead.org>
+To: ext Christoph Hellwig <hch@infradead.org>
+Content-Disposition: inline
+In-Reply-To: <20041026184838.GB16621@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I will leave that do David/jgarzik since I didn't actually write any of
-this code, I just broke the megadiff down.
+On Tue, Oct 26, 2004 at 07:48:38PM +0100, ext Christoph Hellwig wrote:
+> On Tue, Oct 26, 2004 at 09:35:26PM +0300, Timo Ter=E4s wrote:
+> > Add functions to register class interfaces for network class.
+> > Similar to the ones found in scsi subsystem.
+> >=20
+> > Originally posted on linux-net and related discussion can be found
+> > from http://marc.theaimsgroup.com/?l=3Dlinux-net&m=3D109758592121767&=
+w=3D2.
+> >=20
+> > Signed-off-by: Timo Ter=E4s <ext-timo.teras@nokia.com>
+>=20
+> And you still haven't told why this makes sense nor shown a user for it.
 
-Dan
+Did you read my original reply to your earlier mail?
 
-On Tue, 2004-10-26 at 20:42 +0100, Christoph Hellwig wrote:
-> On Tue, Oct 26, 2004 at 03:35:36PM -0400, Dan Williams wrote:
-> > New description:
-> > 
-> > o Use msleep() instead of hardcoded schedule_timeout()s
-> > o Normalize sleep calls to use msleep() everywhere
-> 
-> care to explain what's the point of the latter?
-> 
+I pointed out the reason why I need it: to add an attribute:
+/sys/class/net/<interface>/<new_attribute>. Others might want to do this
+too.
+
+Also the interface subsystem is used in many places (eg. i2o) to create
+all the sysfs entries. Maybe it'd be useful to do in net class as well.
+And if'd make separate interfaces for standard attributes and wireless
+attributes. That way you'd get rid of the #ifdefs of WIRELESS_EXT in
+net-sysfs.c.
+
+On the other hand you didn't answer my question: why the
+interface registration should not be possible?
+Documentation/driver-model/interface.txt states that this is exactly the
+thing it should be used for.
+
+Regards,
+  Timo
