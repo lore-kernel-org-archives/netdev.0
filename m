@@ -1,33 +1,63 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH] pcnet32.c add support for 79C976
-Date: Mon, 29 Mar 2004 13:12:15 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403292112.i2TLCGD10901@DYN318364BLD.beaverton.ibm.com>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: [PATCH] don't require ip_forwarding for reset on a bridge
+Date: Mon, 29 Mar 2004 23:14:12 +0200
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <200403292314.12855.bdschuym@pandora.be>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev <netdev@oss.sgi.com>,
+	netfilter-devel <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: David S.Miller <davem@redhat.com>
+Content-Disposition: inline
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-Please apply the following patch to 2.6.5-rc2-bk9 and 2.4.26-rc1 to
-include support for the 79C976. Tested on IA32.
+Hi Dave,
 
---- linux-2.6.5-rc2-bk9/drivers/net/orig.pcnet32.c	Mon Mar 29 11:34:13 2004
-+++ linux-2.6.5-rc2-bk9/drivers/net/pcnet32.c	Mon Mar 29 11:39:57 2004
-@@ -909,6 +909,10 @@
- 	chipname = "PCnet/FAST III 79C975"; /* PCI */
- 	fdx = 1; mii = 1;
- 	break;
-+    case 0x2628:
-+	chipname = "PCnet/FAST III 79C976";
-+	fdx = 1; mii = 1;
-+	break; 
-     default:
- 	printk(KERN_INFO PFX "PCnet version %#x, no PCnet32 chip.\n",
- 		chip_version);
+Currently, to be able to send a reset in the FORWARD chain of iptables
+for bridged traffic, ip forwarding must be enabled. This causes confusion
+and in some situations people really don't want to enable ip forwarding.
+The patch below lets the user send reset packets for bridged frames in
+the FORWARD chain, with ip forwarding disabled (as long as there is a
+route).
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+cheers,
+Bart
+
+--- linux-2.6.4/net/ipv4/netfilter/ipt_REJECT.c.old	Sun Mar 21 19:34:04 2004
++++ linux-2.6.4/net/ipv4/netfilter/ipt_REJECT.c	Mon Mar 22 22:54:56 2004
+@@ -24,6 +24,9 @@
+ #include <net/route.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
+ #include <linux/netfilter_ipv4/ipt_REJECT.h>
++#ifdef CONFIG_BRIDGE_NETFILTER
++#include <linux/netfilter_bridge.h>
++#endif
+ 
+ MODULE_LICENSE("GPL");
+ MODULE_AUTHOR("Netfilter Core Team <coreteam@netfilter.org>");
+@@ -56,7 +59,13 @@ static inline struct rtable *route_rever
+ 	struct flowi fl = {};
+ 	struct rtable *rt;
+ 
+-	if (hook != NF_IP_FORWARD) {
++	/* We don't require ip forwarding to be enabled to be able to
++	 * send a RST reply for bridged traffic. */
++	if (hook != NF_IP_FORWARD
++#ifdef CONFIG_BRIDGE_NETFILTER
++	    || (skb->nf_bridge && skb->nf_bridge->mask & BRNF_BRIDGED)
++#endif
++	   ) {
+ 		fl.nl_u.ip4_u.daddr = iph->saddr;
+ 		if (hook == NF_IP_LOCAL_IN)
+ 			fl.nl_u.ip4_u.saddr = iph->daddr;
