@@ -1,235 +1,163 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (32/42) mac8390
-Date: Wed, 12 Nov 2003 16:45:38 -0800
+Subject: [PATCH] (38/42) bionet
+Date: Wed, 12 Nov 2003 16:46:38 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130045.hAD0jcJ31234@mail.osdl.org>
+Message-ID: <200311130046.hAD0kcx31474@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NE57-mac8390
-	* switched mac8390 to dynamic allocation
-	* mac8390: fixed resource leaks on failure exits
-	* get rid of MOD_INC/DEC
+NE63-bionet
+	* switched to dynamic allocation
+	* fixed resource leaks on failure exits
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Nov 11 14:16:07 2003
-+++ b/drivers/net/Space.c	Tue Nov 11 14:16:07 2003
-@@ -88,7 +88,7 @@
- extern struct net_device *lance_probe(int unit);
- extern int mace_probe(struct net_device *dev);
- extern int macsonic_probe(struct net_device *dev);
--extern int mac8390_probe(struct net_device *dev);
-+extern struct net_device *mac8390_probe(int unit);
- extern struct net_device *mac89x0_probe(int unit);
- extern struct net_device *mc32_probe(int unit);
- extern struct net_device *cops_probe(int unit);
-@@ -326,13 +326,13 @@
- #ifdef CONFIG_MACSONIC		/* Mac SONIC-based Ethernet of all sorts */ 
- 	{macsonic_probe, 0},
+--- a/drivers/net/Space.c	Wed Nov 12 14:59:06 2003
++++ b/drivers/net/Space.c	Wed Nov 12 14:59:06 2003
+@@ -78,7 +78,7 @@
+ extern int sun3lance_probe(struct net_device *);
+ extern int sun3_82586_probe(struct net_device *);
+ extern int apne_probe(struct net_device *);
+-extern int bionet_probe(struct net_device *);
++extern struct net_device *bionet_probe(int unit);
+ extern struct net_device *pamsnet_probe(int unit);
+ extern struct net_device *cs89x0_probe(int unit);
+ extern struct net_device *hplance_probe(int unit);
+@@ -308,13 +308,13 @@
+ #ifdef CONFIG_APNE		/* A1200 PCMCIA NE2000 */
+ 	{apne_probe, 0},
  #endif
--#ifdef CONFIG_MAC8390           /* NuBus NS8390-based cards */
--	{mac8390_probe, 0},
+-#ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
+-	{bionet_probe, 0},
 -#endif
  	{NULL, 0},
  };
  
  static struct devprobe2 m68k_probes2[] __initdata = {
-+#ifdef CONFIG_MAC8390           /* NuBus NS8390-based cards */
-+	{mac8390_probe, 0},
++#ifdef CONFIG_ATARI_BIONET	/* Atari Bionet Ethernet board */
++	{bionet_probe, 0},
 +#endif
- #ifdef CONFIG_MAC89x0
-  	{mac89x0_probe, 0},
+ #ifdef CONFIG_ATARI_PAMSNET	/* Atari PAMsNet Ethernet board */
+ 	{pamsnet_probe, 0},
  #endif
-diff -Nru a/drivers/net/mac8390.c b/drivers/net/mac8390.c
---- a/drivers/net/mac8390.c	Tue Nov 11 14:16:07 2003
-+++ b/drivers/net/mac8390.c	Tue Nov 11 14:16:07 2003
-@@ -124,11 +124,10 @@
- static char version[] __initdata =
- 	"mac8390.c: v0.4 2001-05-15 David Huggins-Daines <dhd@debian.org> and others\n";
- 		
--extern int mac8390_probe(struct net_device * dev);
- extern enum mac8390_type mac8390_ident(struct nubus_dev * dev);
- extern int mac8390_memsize(unsigned long membase);
- extern int mac8390_memtest(struct net_device * dev);
--extern int mac8390_initdev(struct net_device * dev, struct nubus_dev * ndev,
-+static int mac8390_initdev(struct net_device * dev, struct nubus_dev * ndev,
- 			   enum mac8390_type type);
+diff -Nru a/drivers/net/atari_bionet.c b/drivers/net/atari_bionet.c
+--- a/drivers/net/atari_bionet.c	Wed Nov 12 14:59:06 2003
++++ b/drivers/net/atari_bionet.c	Wed Nov 12 14:59:06 2003
+@@ -148,8 +148,6 @@
  
- static int mac8390_open(struct net_device * dev);
-@@ -223,14 +222,14 @@
-  	return i * 0x1000;
- }
- 
--static int probed __initdata = 0;
+ /* Index to functions, as function prototypes.
+  */
+-extern int bionet_probe(struct net_device *dev);
 -
--int __init mac8390_probe(struct net_device * dev)
-+struct net_device * __init mac8390_probe(int unit)
- {
+ static int bionet_open(struct net_device *dev);
+ static int bionet_send_packet(struct sk_buff *skb, struct net_device *dev);
+ static void bionet_poll_rx(struct net_device *);
+@@ -321,15 +319,26 @@
+ 
+ /* Check for a network adaptor of this type, and return '0' if one exists.
+  */
+-int __init 
+-bionet_probe(struct net_device *dev){
++struct net_device * __init bionet_probe(int unit)
++{
 +	struct net_device *dev;
- 	volatile unsigned short *i;
--	int boards_found = 0;
- 	int version_disp = 0;
- 	struct nubus_dev * ndev = NULL;
-+	static int probed;
-+	int err = -ENDOEV;
- 	
- 	struct nubus_dir dir;
- 	struct nubus_dirent ent;
-@@ -238,28 +237,29 @@
+ 	unsigned char station_addr[6];
+ 	static unsigned version_printed;
+ 	static int no_more_found;	/* avoid "Probing for..." printed 4 times */
+ 	int i;
++	int err;
  
- 	enum mac8390_type cardtype;
- 
--	if (probed)
--		return -ENODEV;
--	probed++;
--
- 	/* probably should check for Nubus instead */
- 
- 	if (!MACH_IS_MAC)
+ 	if (!MACH_IS_ATARI || no_more_found)
 -		return -ENODEV;
 +		return ERR_PTR(-ENODEV);
 +
-+	dev = alloc_etherdev(0);
++	dev = alloc_etherdev(sizeof(struct net_local));
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
-+	dev->priv = NULL;
-+
-+	if (unit >= 0)
++	if (unit >= 0) {
 +		sprintf(dev->name, "eth%d", unit);
-+
-+ 	SET_MODULE_OWNER(dev);
++		netdev_boot_setup_check(dev);
++	}
++	SET_MODULE_OWNER(dev);
  
- 	while ((ndev = nubus_find_type(NUBUS_CAT_NETWORK, NUBUS_TYPE_ETHERNET, ndev))) {
--		
--		dev = NULL;
--		
--		if ((cardtype = mac8390_ident(ndev)) == MAC8390_NONE)
-+		/* Have we seen it already? */
-+		if (slots & (1<<ndev->board->slot))
- 			continue;
-+		slots |= 1<<ndev->board->slot;
+ 	printk("Probing for BioNet 100 Adapter...\n");
  
--		dev = init_etherdev(dev, 0);
--		if (dev == NULL) {
--			printk(KERN_ERR "Unable to allocate etherdev"
--					"structure!\n");
--			return -ENOMEM;
--		}
-+		if ((cardtype = mac8390_ident(ndev)) == MAC8390_NONE)
-+			continue;
- 
- 		if (version_disp == 0) {
- 			version_disp = 1;
-@@ -358,21 +358,28 @@
- 					printk(KERN_ERR "Card type %s is"
- 							" unsupported, sorry\n",
- 					       cardname[cardtype]);
--					return -ENODEV;
-+					continue;
- 			}
- 		}
- 
- 		/* Do the nasty 8390 stuff */
--		if (mac8390_initdev(dev, ndev, cardtype))
--			continue;
--		boards_found++;
-+		if (!mac8390_initdev(dev, ndev, cardtype))
-+			break;
+@@ -347,11 +356,10 @@
+ 	||  station_addr[2] != 'O' ) {
+ 		no_more_found = 1;
+ 		printk( "No BioNet 100 found.\n" );
+-		return -ENODEV;
++		free_netdev(dev);
++		return ERR_PTR(-ENODEV);
  	}
  
--	/* We're outta here */
--	if (boards_found > 0)
--		return 0;
--	else
--		return -ENODEV;
-+	if (!ndev)
-+		goto out;
+-	SET_MODULE_OWNER(dev);
+-
+ 	if (bionet_debug > 0 && version_printed++ == 0)
+ 		printk(version);
+ 
+@@ -369,12 +377,6 @@
+ 			nic_packet, phys_nic_packet );
+ 	}
+ 
+-	if (dev->priv == NULL)
+-		dev->priv = kmalloc(sizeof(struct net_local), GFP_KERNEL);
+-	if (!dev->priv)
+-		return -ENOMEM;
+-	memset(dev->priv, 0, sizeof(struct net_local));
+-
+ 	dev->open		= bionet_open;
+ 	dev->stop		= bionet_close;
+ 	dev->hard_start_xmit	= bionet_send_packet;
+@@ -390,8 +392,11 @@
+ #endif
+ 		dev->dev_addr[i]  = station_addr[i];
+ 	}
+-	ether_setup(dev);
+-	return 0;
 +	err = register_netdev(dev);
-+	if (err)
-+		goto out1;
-+	return dev;
-+
-+out1:
-+	kfree(dev->priv);
-+	dev->priv = NULL;
-+out:
++	if (!err)
++		return dev;
 +	free_netdev(dev);
-+	return ERR_PTE(err);
++	return ERR_PTR(err);
  }
  
- #ifdef MODULE
-@@ -380,26 +387,40 @@
- MODULE_DESCRIPTION("Macintosh NS8390-based Nubus Ethernet driver");
- MODULE_LICENSE("GPL");
+ /* Open/initialize the board.  This is called (in the current kernel)
+@@ -640,25 +645,20 @@
  
-+/* overkill, of course */
-+static struct net_device *dev_mac8390[15];
- int init_module(void)
- {
--	if (mac8390_probe(NULL)) {
-+	int i;
-+	for (i = 0; i < 15; i++) {
-+		struct net_device *dev = mac8390_probe(-1);
-+		if (IS_ERR(dev))
-+			break;
-+		dev_mac890[i] = dev;
-+	}
-+	if (!i) {
- 		printk(KERN_NOTICE "mac8390.c: No useable cards found, driver NOT installed.\n");
- 		return -ENODEV;
- 	}
--	lock_8390_module();
+ #ifdef MODULE
+ 
+-static struct net_device bio_dev;
+-
+-int
+-init_module(void) {
+-	int err;
++static struct net_device *bio_dev;
+ 
+-	bio_dev.init = bionet_probe;
+-	if ((err = register_netdev(&bio_dev))) {
+-		if (err == -EEXIST)  {
+-			printk("BIONET: devices already present. Module not loaded.\n");
+-		}
+-		return err;
+-	}
++int init_module(void)
++{
++	bio_dev = bionet_probe(-1);
++	if (IS_ERR(bio_dev))
++		return PTR_ERR(bio_dev);
  	return 0;
  }
  
- void cleanup_module(void)
- {
--	/* FIXME: should probably keep track of net_device structs
--           somewhere and unregister them here? */
--	unlock_8390_module();
-+	int i;
-+	for (i = 0; i < 15; i++) {
-+		struct net_device *dev = dev_mac890[i];
-+		if (dev) {
-+			unregister_netdev(dev);
-+			kfree(dev->priv);
-+			free_netdev(dev);
-+		}
-+	}
+-void
+-cleanup_module(void) {
+-	unregister_netdev(&bio_dev);
++void cleanup_module(void)
++{
++	unregister_netdev(bio_dev);
++	free_netdev(bio_dev);
  }
  
  #endif /* MODULE */
- 
--int __init mac8390_initdev(struct net_device * dev, struct nubus_dev * ndev,
-+static int __init mac8390_initdev(struct net_device * dev, struct nubus_dev * ndev,
- 			    enum mac8390_type type)
- {
- 	static u32 fwrd4_offsets[16]={
-@@ -499,6 +520,8 @@
- 		break;
- 	default:
- 		printk(KERN_ERR "Card type %s is unsupported, sorry\n", cardname[type]);
-+		kfree(dev->priv);
-+		dev->priv = NULL;
- 		return -ENODEV;
- 	}
- 		
-@@ -529,7 +552,6 @@
- 		printk ("%s: unable to get IRQ %d.\n", dev->name, dev->irq);
- 		return -EAGAIN;
- 	}	
--	MOD_INC_USE_COUNT;
- 	return 0;
- }
- 
-@@ -537,7 +559,6 @@
- {
- 	free_irq(dev->irq, dev);
- 	ei_close(dev);
--	MOD_DEC_USE_COUNT;
- 	return 0;
- }
- 
