@@ -1,9 +1,9 @@
 From: Alpt <alpt@freaknet.org>
-Subject: [PATCH bridge-2.6.11] bridge hub_enabled option
-Date: Sun, 27 Mar 2005 10:19:03 +0200
-Message-ID: <20050327081903.GA18714@nihil>
+Subject: [PATCH] bridge hub_enabled option
+Date: Sat, 26 Mar 2005 23:40:30 +0100
+Message-ID: <20050326224030.GA31822@darkalpt>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============68897805549549174=="
+Content-Type: multipart/mixed; boundary="===============11858023761160208=="
 Cc: bridge@lists.osdl.org
 Return-path: <bridge-bounces@lists.osdl.org>
 To: netdev@oss.sgi.com
@@ -19,18 +19,18 @@ Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
 
---===============68897805549549174==
+--===============11858023761160208==
 Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="z6Eq5LdranGa6ru8"
+	protocol="application/pgp-signature"; boundary="NDin8bjvE/0mNLFQ"
 Content-Disposition: inline
 
 
---z6Eq5LdranGa6ru8
-Content-Type: multipart/mixed; boundary="9amGYk9869ThD9tj"
+--NDin8bjvE/0mNLFQ
+Content-Type: multipart/mixed; boundary="4Ckj6UjgE2iN1+kY"
 Content-Disposition: inline
 
 
---9amGYk9869ThD9tj
+--4Ckj6UjgE2iN1+kY
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 Content-Transfer-Encoding: quoted-printable
@@ -87,8 +87,6 @@ http://freaknet.org/alpt/src/bridge-hub/bridge-utils-1.0.6-hub.patch
 Here attached there is only the patch for the net/bridge code.
 
 Best Regards
-
-PS: I'm resending this mail because after 7 hours I don't see it in the ml.
 --=20
 :wq!
 "I don't know nothing" The One Who reached the Thinking Matter   '.'
@@ -97,7 +95,7 @@ PS: I'm resending this mail because after 7 hours I don't see it in the ml.
 [ GPG Key ID 441CF0EE ]
 [ Key fingerprint =3D 8B02 26E8 831A 7BB9 81A9  5277 BFF8 037E 441C F0EE ]
 
---9amGYk9869ThD9tj
+--4Ckj6UjgE2iN1+kY
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename="bridge-2.6.11-hub.patch"
 Content-Transfer-Encoding: quoted-printable
@@ -231,23 +229,23 @@ diff -ru a-2.6.11/net/bridge/br_sysfs_br.c b-2.6.11/net/bridge/br_sysfs_br.c
  	&class_device_attr_priority.attr,
  	&class_device_attr_bridge_id.attr,
 
---9amGYk9869ThD9tj--
+--4Ckj6UjgE2iN1+kY--
 
---z6Eq5LdranGa6ru8
+--NDin8bjvE/0mNLFQ
 Content-Type: application/pgp-signature
 Content-Disposition: inline
 
 -----BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
+Version: GnuPG v1.2.1 (GNU/Linux)
 
-iD8DBQFCRmx2v/gDfkQc8O4RAtQRAKDNfsqItVPixFmhybp0+nQtxGD4QQCgrwGW
-zkwwi/CTjeDRCBkRv16qdaQ=
-=hIh0
+iD8DBQFCReTev/gDfkQc8O4RAsmzAKC8Qn/t8CRbc4FLDg9xUUzeomp0lgCgpUku
+mK1BIJrsUl723VdbEKdl/kg=
+=dnQS
 -----END PGP SIGNATURE-----
 
---z6Eq5LdranGa6ru8--
+--NDin8bjvE/0mNLFQ--
 
---===============68897805549549174==
+--===============11858023761160208==
 Content-Type: text/plain; charset="iso-8859-1"
 MIME-Version: 1.0
 Content-Transfer-Encoding: quoted-printable
@@ -258,4 +256,4 @@ Bridge mailing list
 Bridge@lists.osdl.org
 http://lists.osdl.org/mailman/listinfo/bridge
 
---===============68897805549549174==--
+--===============11858023761160208==--
