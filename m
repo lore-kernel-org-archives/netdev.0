@@ -1,38 +1,23 @@
-From: KyoungSoo Park <kyoungso@cs.princeton.edu>
-Subject: Re: is there any plan to support BSD accept filter?
-Date: Fri, 14 Jan 2005 21:22:53 -0500
-Message-ID: <41E87E7D.8040107@cs.princeton.edu>
-References: <41E830BC.7000709@cs.princeton.edu> <20050114140540.76146b29@dxpl.pdx.osdl.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: [RFC] locking changes for lec.c
+Date: Fri, 14 Jan 2005 21:32:51 -0500
+Message-ID: <200501150232.j0F2Wovr010942@ginger.cmf.nrl.navy.mil>
+References: <20050114135612.0edc180d.davem@davemloft.net>
+Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050114140540.76146b29@dxpl.pdx.osdl.net>
+To: "David S. Miller" <davem@davemloft.net>
+In-reply-to: Your message of "Fri, 14 Jan 2005 13:56:12 PST."
+             <20050114135612.0edc180d.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-yes. I agree that maybe an ugly hack to put that in the kernel.
-What I want to do is to support such feature leaving as little footprint
-as possible in the kernel, but specify whatever flexible policy you want
-in the user level. 
-I'm not sure netfilter module is the right place because it seems I need 
-to do packet by packet processing, but I want to deal with a little higher
-level than that as a start. (I'm not familar with netfilter, so please correct
-me if I'm wrong.)
+In message <20050114135612.0edc180d.davem@davemloft.net>,"David S. Miller" writes:
+>Can HW interrupt paths ever call into this ARP stuff?
+>If not, probably should just use BH disabled locking
+>instead of the heavy handed IRQ disabling locks.
 
-Anyway, thanks for your response.
-
-KyoungSoo
-
-
-Stephen Hemminger wrote:
-
->If you want to do these kind of stateful hacks, why not build a
->netfilter module to do it?
->
->
->  
->
+yes, lec_push() could be run in hw interrupt context from one of of the
+atm drivers recv path.  in fact, this is the path where i "noticed" the
+race condition.
