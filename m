@@ -1,146 +1,116 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Mon, 21 Mar 2005 16:10:36 -0800
-Message-ID: <423F627C.2060100@hp.com>
-References: <421CF5E5.1060606@ev-en.org>	<20050223135732.39e62c6c.davem@davemloft.net>	<421D1E66.5090301@osdl.org> <421D30FA.1060900@ev-en.org>	<20050225120814.5fa77b13@dxpl.pdx.osdl.net>	<20050309210442.3e9786a6.davem@davemloft.net>	<4230288F.1030202@ev-en.org>	<20050310182629.1eab09ec.davem@davemloft.net>	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>	<20050311201011.360c00da.davem@davemloft.net>	<20050314151726.532af90d@dxpl.pdx.osdl.net> <m13bur5qyo.fsf@muc.de> <Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: 2.6.11 oops in skb_drop_fraglist
+Date: Mon, 21 Mar 2005 16:24:44 -0800
+Message-ID: <20050321162444.31c6c68d.akpm@osdl.org>
+References: <423097D5.30605@citi.umich.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
-In-Reply-To: <Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: cel@citi.umich.edu
+In-Reply-To: <423097D5.30605@citi.umich.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-John Heffner wrote:
-> On Sat, 19 Mar 2005, Andi Kleen wrote:
+Chuck Lever <cel@citi.umich.edu> wrote:
+>
+> testing NFS client workloads on a dual Pentium-III system running 2.6.11 
+> with some NFS patches.  i hit this oops while doing simple-minded ftps 
+> and tars.
+> 
+> the system locks up once or twice a day under this workload.  this is 
+> the first time i had the console and captured the oops output.
+> 
+
+Chuck, I didn't see any followup to this.  Is it still happening in current
+kernels?
+
+Thanks.
+
+> Unable to handle kernel NULL pointer dereference at virtual address 00000001
+>   printing eip:
+> c02fc752
+> *pde = 00000000
+> Oops: 0000 [#1]
+> SMP
+> CPU:    0
+> EIP:    0060:[<c02fc752>]    Not tainted VLI
+> EFLAGS: 00010202   (2.6.11-CITI_NFS4_ALL-1)
+> EIP is at skb_drop_fraglist+0x22/0x50
+> eax: f6fe26e0   ebx: 00000001   ecx: f6fe26e0   edx: 00000001
+> esi: f6f29240   edi: 00000004   ebp: f697ed24   esp: c04cadd8
+> ds: 007b   es: 007b   ss: 0068
+> Process swapper (pid: 0, threadinfo=c04ca000 task=c03efb60)
+> Stack: 00000001 c02fc7fa f6f29240 f697ecc0 c02fc838 00000000 c02fc8ba 
+> ccbf2ab0
+>         00000b50 c0326a16 f6f87740 f6f29240 f6f29240 c0321c4a 00000020 
+> f6f87778
+>         f6f87740 f697ecc0 f69d1560 00625a79 c04cae6c 00000000 00000012 
+> f697ecc0
+> Call Trace:
+>   [<c02fc7fa>] skb_release_data+0x5a/0x90
+>   [<c02fc838>] kfree_skbmem+0x8/0x20
+>   [<c02fc8ba>] __kfree_skb+0x6a/0xf0
+>   [<c0326a16>] tcp_transmit_skb+0x406/0x720
+>   [<c0321c4a>] tcp_clean_rtx_queue+0x17a/0x410
+>   [<c0322566>] tcp_ack+0xf6/0x580
+>   [<c03250d9>] tcp_rcv_established+0x409/0x7f0
+>   [<c0102fa0>] apic_timer_interrupt+0x1c/0x24
+>   [<c032d8b0>] tcp_v4_do_rcv+0x110/0x120
+>   [<c032df7f>] tcp_v4_rcv+0x6bf/0x940
+>   [<c0313212>] ip_local_deliver+0xc2/0x1f0
+>   [<c0313676>] ip_rcv+0x336/0x450
+>   [<c02fc591>] alloc_skb+0x41/0xf0
+>   [<c0302736>] netif_receive_skb+0x136/0x1a0
+>   [<c026ca9e>] e1000_clean_rx_irq+0x15e/0x4a0
+>   [<c02fc8ba>] __kfree_skb+0x6a/0xf0
+>   [<c026c6da>] e1000_clean+0xba/0xf0
+>   [<c030292f>] net_rx_action+0x6f/0x100
+>   [<c011d209>] __do_softirq+0xb9/0xd0
+>   [<c01048aa>] do_softirq+0x4a/0x60
+> 
+> c02fc730:       53                      push   %ebx
+> c02fc731:       8b 80 94 00 00 00       mov    0x94(%eax),%eax
+> c02fc737:       8b 58 0c                mov    0xc(%eax),%ebx
+> c02fc73a:       c7 40 0c 00 00 00 00    movl   $0x0,0xc(%eax)
+> c02fc741:       eb 0d                   jmp    c02fc750 
+> <skb_drop_fraglist+0x20>
+> c02fc743:       90                      nop
+> c02fc744:       90                      nop
+> c02fc745:       90                      nop
+> c02fc746:       90                      nop
+> c02fc747:       90                      nop
+> c02fc748:       90                      nop
+> c02fc749:       90                      nop
+> c02fc74a:       90                      nop
+> c02fc74b:       90                      nop
+> c02fc74c:       90                      nop
+> c02fc74d:       90                      nop
+> c02fc74e:       90                      nop
+> c02fc74f:       90                      nop
+> c02fc750:       89 da                   mov    %ebx,%edx
+> c02fc752:       8b 1b                   mov    (%ebx),%ebx
+> c02fc754:       8b 82 84 00 00 00       mov    0x84(%edx),%eax
+> c02fc75a:       48                      dec    %eax
+> c02fc75b:       75 13                   jne    c02fc770 
+> <skb_drop_fraglist+0x40>
+> c02fc75d:       f0 83 44 24 00 00       lock addl $0x0,0x0(%esp,1)
+> c02fc763:       89 d0                   mov    %edx,%eax
+> c02fc765:       e8 e6 00 00 00          call   c02fc850 <__kfree_skb>
+> c02fc76a:       85 db                   test   %ebx,%ebx
+> c02fc76c:       75 e2                   jne    c02fc750 
+> <skb_drop_fraglist+0x20>
+> c02fc76e:       5b                      pop    %ebx
+> c02fc76f:       c3                      ret
+> c02fc770:       f0 ff 8a 84 00 00 00    lock decl 0x84(%edx)
+> c02fc777:       0f 94 c0                sete   %al
+> c02fc77a:       84 c0                   test   %al,%al
+> c02fc77c:       74 ec                   je     c02fc76a 
+> <skb_drop_fraglist+0x3a>
+> c02fc77e:       eb e3                   jmp    c02fc763 
+> <skb_drop_fraglist+0x33>
 > 
 > 
->>Stephen Hemminger <shemminger@osdl.org> writes:
->>
->>
->>>Since developers want to experiment with different congestion
->>>control mechanisms, and the kernel is getting bloated with overlapping
->>>data structure and code for multiple algorithms; here is a patch to
->>>split out the Reno, Vegas, Westwood, BIC congestion control stuff
->>>into an infrastructure similar to the I/O schedulers.
->>
->>[...]
->>
->>Did you do any benchmarks to check that wont slow it down?
->>
->>I would recommend to try it on a IA64 machine if possible. In the
->>past we found that adding indirect function calls on IA64 to networking
->>caused measurable slowdowns in macrobenchmarks.
->>In that case it was LSM callbacks, but your code looks like it will
->>add even more.
 > 
 > 
-> Is there a canonical benchmark?
-
-I would put-forth netperf - but then I'm of course biased.  It is reasonably 
-straightforward to run, is sophisticated enough to look for interesting things, 
-and not so big as some benchmarketing benchmarks that require other software 
-besides the stack (eg web servers and whatnot).
-
-If using netperf (not to be confused with Linux versions) versions < 2.4.0 then 
-make sure it is compiled with the makefile edited to have -DUSE_PROC_STAT and 
-_NOT_ have -DHISTOGRAM or -DINTERVALS.  If using the rc1 of 2.4.0, just typing 
-"configure" after unpacking the tar file should suffice under linux, but before 
-compiling make sure config.h has a "USE_PROC_STAT" in it.  If it is missing 
-USE_PROC_STAT then add a --enable-cpuutil=procstat to the configure step.
-
-Be certain to request CPU utilization numbers with the -c/-C options.  Probably 
-best to request confidence intervals. I'd suggest a "128x32" TCP_STREAM test and 
-a "1x1" TCP_RR test.  So, something along the lines of:
-
-netperf -H <remote> -i 10,3 -I 99,5 -l 60 -t TCP_STREAM -- -s 128K -S 128K -m 32K
-
-to have netperf reqeust 128KB socket buffers, and pass 32KB in each call to 
-send.  Each iteration lasting 60 seconds, and running at least three and no more 
-than 10 iterations to get to the point that it is 99% certain ("confident") that 
-the reported mean for throughput and CPU util is within +/- 2.5% of the actual 
-mean.  You can make that -I 99,2 to be +/- 1% at the risk of having a harder 
-time hitting the confidence intervals.  If at first you do not hit the 
-confidence intervals you can increase the values in -i up to 30 and/or increase 
-the iteration run time with -l.
-
-For the TCP_RR test:
-
-netperf -H <remote> -I 10,3 -I 99,5 -l 60 -t TCP_RR
-
-which will be as above except running a TCP_RR test.  The default in a TCP_RR 
-test is to have a single-byte request and a single-byte response.
-
-If you grab 2.4.0rc1 and run on an MP system, it may be good for reproducability 
-to use the -T option to pin netperf and/or netserver to specific CPUs.
-
--T 0 will attempt to bind both netperf and netserver to CPU 0
-
--T 1,0 will attempt to bind netperf to CPU 1 and netserver to CPU 0
-
--T 0, will bind netperf to CPU 0 and leave netserver floating
-
--T ,1 will bind netserver to CPU 1 and leave netperf floating
-
-I would suggest two sitations - netperf/netserver bound to the same CPU as that 
-taking interrupts from the NIC, and one where it is not.  How broad the "where 
-it is not" case needs/wants to be depends on just how many degrees of "not the 
-same CPU" as one hase on the system (thinking NUMA).
-
-netperf bits can be found at:
-
-ftp://ftp.cup.hp.com/dist/networking/benchmarks/netperf/
-
-with the 2.4.0rc1 bits in the experimental/ subdirectory.  There is a Debian 
-package floating around somewhere but I cannot recall the revision of netperf on 
-which it is based so probably best to grab source bits and compile them.
-
-Interrupt avoidance/coalescing may have a noticable effect on the single-stream 
-netperf TCP_RR performance, capping it at a lower transaction per second rating 
-no matter the increase in CPU util. So, it is very important to include the CPU 
-util measurements.  Similarly, if a system can already max-out a GbE link, just 
-looking at Bits per second does not sufice.
-
-For situations where the CPU utilization measurement mechanism is questionable 
-(I'm still not sure about the -DUSE_PROC_STAT stuff and interrupt time...any 
-comments there most welcome) it may be preferred to run aggregate tests. 
-Netperf2 has no explicit synchronization, but if one is content with "stopwatch" 
-accuracy, aggregate performance along the lines of:
-
-for i in 1 2 ... N
-do
-netperf -t TCP_RR -H <remote> -i 30 -L 60 -P 0 -v 0 &
-done
-
-may suffice.  The -P 0 stuff disables output of the test headers.  The -v 0 will 
-cause just the Single Figure of Merit (SFM) to be displayed - in this case the 
-transaction per second rate.  Here the -i 30 is to make each instance of netperf 
-run 30 iterations.  The idea being that at least 28 of them will be while the 
-other N-1 netperfs are running.  And, hitting the (default -I 99,5) confidence 
-interval gives us some confidence that any skew is reasonably close to epsilon.
-
-The idea is to take N high enough to saturate the CPU(s) in the system and peak 
-the aggregate transaction rate.  Single-byte is used to avoid pegging the link 
-on bits per second.  Since this is "stopwatch" I tend to watch to make sure that 
-they all start and end "close" to one another. (NB the combination of -i 30 and 
--l 60 means the test will run for an hour...alter at your discression)
-
-For aggregate tests it is generally best to have three systems - the System 
-Under Test (SUT) and a pair or more of LG's - sometimes just using a pair of 
-systems saturates before driving the SUT with two or more LGs would.
-
-> Would you really expect a single extra indirect call per ack to have a
-> significant performance impact?  This is surprising to me.  Where does the
-> cost come from?  Replacing instruction cache lines?
-
-I don't have specific data on hand, but the way the selinux stuff (used?) to be 
-implemented did indeed not run very well at all even when selinux was disabled 
-(enabled was another story entirely...)
-
-Even if a single extra indirect call is nearly epsilon, the "thousand cuts" 
-principle would apply.  Enough of them and the claims about other OSes having 
-faster networking may actually become true - if it isn't true already. But I may 
-be drifting...
-
-rick jones
