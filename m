@@ -1,58 +1,50 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: modifying tcp/ip stack
-Date: Sat, 21 Aug 2004 00:01:55 -0700
+From: maximilian attems <janitor@sternwelten.at>
+Subject: Re: [Kernel-janitors] ip_gre.c: update last_rx after netif_rx
+Date: Sat, 21 Aug 2004 10:36:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4126F363.9070205@candelatech.com>
-References: <20040821054621.95115.qmail@web41403.mail.yahoo.com>
+Message-ID: <20040821083639.GA1827@stro.at>
+References: <411E62D3.8070808@uranium235.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: net dev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: kernel-janitors@lists.osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cranium2003 <cranium2003@yahoo.com>
-In-Reply-To: <20040821054621.95115.qmail@web41403.mail.yahoo.com>
+To: Jay Bourque <kernel@uranium235.org>
+Content-Disposition: inline
+In-Reply-To: <411E62D3.8070808@uranium235.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-cranium2003 wrote:
-> Hello,
->         I want to modify existing protocol stack as
-> given below.
->         What exactly i want to do is that i want to
-> add a new protocol headerin between IP and ETHERNET
-> header.
->         I want to implement packet structure as
-> (Ethernet header +MY header + IP header +TCP header +
-> PAYLOAD) that mean when packet comes from NIC it
-> should first remove MY header in my routine then IP
-> header in ip_input.c file.
->         Also at transmitting end packet at IP layer
-> with (IP header + TCP header +PAYLOAD)structure passed
-> to ip_output.c then given to my routine for adding a
-> new protocol header on that packetand then to Ethernet
-> layer.
->         I want your help to know what changes i
-> require to do in kernel 2.4.24 to achieve this?
->          Please kindly reply me.
+On Sat, 14 Aug 2004, Jay Bourque wrote:
 
-802.1Q vlan code does this.  See net/8021q/*
-
-Ben
-
-> Thaking you.
+> Fix to update last_rx after netif_rx
+> This is my first patch so I'd appreciate any feedback.
 > 
-> Regards,
-> Parag.
+> -Jay
 > 
-> 
-> 		
-> __________________________________
-> Do you Yahoo!?
-> Y! Messenger - Communicate in real time. Download now. 
-> http://messenger.yahoo.com
-> 
+> --- linux-2.6.8.1/net/ipv4/ip_gre.c    Sat Aug 14 05:55:48 2004
+> +++ linux-2.6.8.1/net/ipv4/ip_gre.c.new    Sat Aug 14 12:17:16 2004
+> @@ -646,6 +646,7 @@ int ipgre_rcv(struct sk_buff *skb)
+>         nf_reset(skb);
+>         ipgre_ecn_decapsulate(iph, skb);
+>         netif_rx(skb);
+> +       tunnel->dev->last_rx = jiffies;
+>         read_unlock(&ipgre_lock);
+>         return(0);
+>     }
+doesn't look complete, see patch below, but please read on:
+
+the kj todo has an entry about "update last_rx after netif_rx", 
+i wonder what that timestamping is good for, and newer 
+sources 2.4.27 and 2.6.8 show 2 occurences of last_rx.
+
+patches doing that are for young 2.4:
+http://seclists.org/linux-kernel/2001/Feb/4846.html
+
+i presume that this task is outdated,
+thanks for putting light on that. 
 
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+
+--
+maks
+kernel janitor  	http://janitor.kernelnewbies.org/
