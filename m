@@ -1,79 +1,110 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: forcedeth and kernel 2.6.5 has "no link"
-Date: Fri, 16 Apr 2004 21:06:40 +0200
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ / new Dummy device post.
+Date: Fri, 16 Apr 2004 20:35:11 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40802EC0.2070108@colorfullife.com>
-References: <20040416183844.GA2923@gambit.implode.net>
+Message-ID: <4080356F.4020609@dsl.pipex.com>
+References: <407E5905.9070108@dsl.pipex.com>	 <1082031313.1039.13.camel@jzny.localdomain>	 <407EE3E5.8060200@dsl.pipex.com> <1082087553.1035.287.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050806000708040207010204"
-Cc: c-d.hailfinger.kernel.2004@gmx.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Wong <kernel@implode.net>
-In-Reply-To: <20040416183844.GA2923@gambit.implode.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1082087553.1035.287.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050806000708040207010204
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+jamal wrote:
+> On Thu, 2004-04-15 at 15:35, Andy Furniss wrote:
+> 
+>>jamal wrote:
+> 
+> 
+>>What I want to know is what state IP packets will be in if I
+> 
+> 
+> Just to be sure, this is not specific just to IP; it could be ARP, IPX,
+> v6 etc.
+> 
+> 
+>> 
+>>filter/shape with dummy - In my case I would need them to have been 
+>>demasqued so I can tell the difference between local and to be forwarded 
+>>ingress traffic.
+> 
+> 
+> The packets are grabbed before NAT on the way in and after NAT on the
+> way out. 
 
-John Wong wrote:
+This is what I wanted to know. Is it possible to make an option to get 
+them after NAT in and pre NAT out?
 
->Under kernel 2.6.4, ethtool reports:
->
->Settings for eth0:
->        Link detected: yes
->
->This is with forcedeth 0.23
->
->Under kernel 2.6.5, ethtool reports:
->
->Settings for eth0:
->        Supports Wake-on: g
->        Wake-on: d
->        Link detected: no
->
->This is with forcedeth 0.25
->  
->
-Odd. I'm not aware of any changes that might cause that difference. I'll 
-check the diff.
+> Coming from non-local machines before NAT you can redirect to a dummy
+> device; and also be able to redirect on their way back to the non-local;
+> to use the example i posted earlier:
+> 
+> ----
+> $TC qdisc add dev dummy0 root handle 1: prio 
+> $TC qdisc add dev dummy0 parent 1:1 handle 10: sfq
+> $TC qdisc add dev dummy0 parent 1:2 handle 20: tbf rate 20kbit buffer
+> 1600 limit
+>  3000
+> $TC qdisc add dev dummy0 parent 1:3 handle 30:
+> sfq                              
+>   
+> $TC filter add dev dummy0 protocol ip pref 1 parent 1: handle 1 fw
+> classid 1:1
+> $TC filter add dev dummy0 protocol ip pref 2 parent 1: handle 2 fw
+> classid 1:2
+> 
+> ifconfig dummy0 up
+> 
+> #deal with ingress of eth0 first
+> $TC qdisc add dev eth0 ingress
+> 
+> # redirect all IP packets arriving from 10.0.0.21/24 in eth0 to dummy0 
+> # use mark 1 --> puts them onto class 1:1 of dummy
+> #
+> $TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
+> match ip src 10.0.0.21/24 flowid 1:1 \
+> action ipt -j MARK --set-mark 1 \
+> action mirred egress redirect dev dummy0
+> 
+> #deal with egress of eth0
+> $TC qdisc add dev eth0 root handle 1: prio 
+> 
+> # redirect all IP packets going to 10.0.0.21/24 in eth0 to dummy0 
+> # use mark 2 --> puts them onto class 1:2 of dummy
+> #
+> $TC filter add dev eth0 parent 1:0 protocol ip prio 10 u32 \
+> match ip dst 10.0.0.21/24 flowid 1:1 \
+> action ipt -j MARK --set-mark 2 \
+> action mirred egress redirect dev dummy0
+> -----
+> 
+> I havent tested the above but it should work (sans syntax bugs). If it
+> doesnt then we have a bug that needs fixing.
 
->I had submitted the bugzilla id 2283.  2496 is something that I am
->experiencing too.
->  
->
-Could you try the attached patch?
+I don't think this applies to my setup Masqerading many local onto one 
+real address.
+
+> 
+> 
+>>Ie. where on the KPTD would dummy be - IMQ appears twice and by using 
+>>the IMQ nat patch I can use the prerouting one to filter/shape the 
+>>packets after they are denatted.
+>>
+> 
+> 
+> does the above help?
+
+Yes - Thanks.
+
+Andy.
 
 
---
-    Manfred
-
---------------050806000708040207010204
-Content-Type: text/plain;
- name="patch-forced-test"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="patch-forced-test"
-
---- 2.6/drivers/net/forcedeth.c	2004-04-10 09:52:45.000000000 +0200
-+++ build-2.6/drivers/net/forcedeth.c	2004-04-13 18:58:59.000000000 +0200
-@@ -1263,6 +1263,14 @@
- 				dev->name, id1, id2, i);
- 		np->phyaddr = i;
- 
-+		if (id1 == 0x0015 && (id2 &0xfff0) == 0xf440) {
-+			printk(KERN_DEBUG "%s: open: Found ICS, applying workaround.\n", dev->name);
-+        		/* workaround for ICS1893 PHY */
-+            		mii_rw(dev, i, 0x0018, 0xD200);
-+			set_current_state(TASK_UNINTERRUPTIBLE);
-+			schedule_timeout(HZ);
-+		}
-+
- 		spin_lock_irq(&np->lock);
- 		nv_update_linkspeed(dev);
- 		spin_unlock_irq(&np->lock);
-
---------------050806000708040207010204--
+> 
+> cheers,
+> jamal
+> 
+> 
