@@ -1,46 +1,75 @@
-From: Richard Underwood <richard@aspectgroup.co.uk>
-Subject: RE: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Tue, 19 Aug 2003 23:12:38 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <353568DCBAE06148B70767C1B1A93E625EAB60@post.pc.aspectgroup.co.uk>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] (4/4) convert irlan to seq_file interface
+Date: Wed, 20 Aug 2003 00:36:48 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030820003648.A23942@electric-eye.fr.zoreil.com>
+References: <20030818122702.67e9162d.shemminger@osdl.org> <20030818232554.A7779@electric-eye.fr.zoreil.com> <20030818150514.310f6f5d.shemminger@osdl.org> <20030819002637.B7779@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Cc: "'David S. Miller'" <davem@redhat.com>,
-	Stephan von Krawczynski <skraw@ithnet.com>, willy@w.ods.org,
-	carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-	bloemsaa@xs4all.nl, Marcelo Tosatti <marcelo@conectiva.com.br>,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-	torvalds@osdl.org,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: 'Alan Cox' <alan@lxorguk.ukuu.org.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jean Tourrilhes <jt@bougret.hpl.hp.com>,
+   "David S. Miller" <davem@redhat.com>, irda-users@lists.sourceforge.net,
+   netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030819002637.B7779@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, Aug 19, 2003 at 12:26:37AM +0200
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alan Cox wrote:
-> 
-> One thing I agree with you about is that an ARP resolution for an
-> address via one path should not block a resolution for it by another
-> path since to begin with the two paths may be to different routers
-> one of which is down.
+Apply on top of Stephen's serie [1-4]. Compile ok.
 
-Alan,
+Style: separate data from code.
 
-	I can't believe that you're advocating networking code where:
 
-1) It's not predictable - the route of a packet depends on the ARP reply
-generated due to a previous packet.
+ net/irda/irlan/irlan_filter.c |   34 ++++++++++++++++++++--------------
+ 1 files changed, 20 insertions(+), 14 deletions(-)
 
-2) Linux will fail to communicate with the vast majority of routers under
-some, fairly basic, conditions.
+diff -puN net/irda/irlan/irlan_filter.c~irlan-fr-0 net/irda/irlan/irlan_filter.c
+--- linux-2.6.0-test3/net/irda/irlan/irlan_filter.c~irlan-fr-0	Wed Aug 20 00:07:37 2003
++++ linux-2.6.0-test3-fr/net/irda/irlan/irlan_filter.c	Wed Aug 20 00:18:50 2003
+@@ -218,23 +218,29 @@ void irlan_check_command_param(struct ir
+  *
+  */
+ #ifdef CONFIG_PROC_FS
++#define MASK2STR(m,s)	{ .mask = m, .str = s }
++
+ void irlan_print_filter(struct seq_file *seq, int filter_type)
+ {
+-	if (filter_type & IRLAN_DIRECTED)
+-		seq_printf(seq, "%s", "DIRECTED ");
+-	if (filter_type & IRLAN_FUNCTIONAL)
+-		seq_printf(seq, "%s", "FUNCTIONAL ");
+-	if (filter_type & IRLAN_GROUP)
+-		seq_printf(seq, "%s", "GROUP ");
+-	if (filter_type & IRLAN_MAC_FRAME)
+-		seq_printf(seq, "%s", "MAC_FRAME ");
+-	if (filter_type & IRLAN_MULTICAST)
+-		seq_printf(seq, "%s", "MULTICAST ");
+-	if (filter_type & IRLAN_BROADCAST)
+-		seq_printf(seq, "%s", "BROADCAST ");
+-	if (filter_type & IRLAN_IPX_SOCKET)
+-		seq_printf(seq, "%s", "IPX_SOCKET");
++	static struct {
++		int mask;
++		const char *str;
++	} filter_mask2str[] = {
++		MASK2STR(IRLAN_DIRECTED,	"DIRECTED"),
++		MASK2STR(IRLAN_FUNCTIONAL,	"FUNCTIONAL"),
++		MASK2STR(IRLAN_GROUP,		"GROUP"),
++		MASK2STR(IRLAN_MAC_FRAME,	"MAC_FRAME"),
++		MASK2STR(IRLAN_MULTICAST,	"MULTICAST"),
++		MASK2STR(IRLAN_BROADCAST,	"BROADCAST"),
++		MASK2STR(IRLAN_IPX_SOCKET,	"IPX_SOCKET"),
++		MASK2STR(0,			NULL)
++	}, *p;
+ 
++	for (p = filter_mask2str; p->str; p++) {
++		if (filter_type & p->mask)
++			seq_printf(seq, "%s ", p->str);
++	}
+ 	seq_putc(seq, '\n');
+ }
++#undef MASK2STR
+ #endif
 
-	I'm certain that Cisco (for example) won't change their ways. I
-can't blame them, either - no one else does it this way and there's no good
-reason for doing it like this either.
-
-	I think I'm going to give up at this point because I know I'm not
-going to get anywhere. A simple static ARP entry will fix my problems,
-although I'd prefer a more generic solution.
-
-	Good luck!
-
-		Richard
+_
