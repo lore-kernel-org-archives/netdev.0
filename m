@@ -1,36 +1,33 @@
-From: Daniele Orlandi <daniele@orlandi.com>
-Subject: Re: Possible race/deadlock in netdev_unregister
-Date: Sat, 29 Jan 2005 01:25:50 +0100
-Message-ID: <200501290125.51185.daniele@orlandi.com>
-References: <200501282313.30517.daniele@orlandi.com> <20050128153806.2c0fd337@dxpl.pdx.osdl.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] NETLINK: Use SKB_MAXORDER to calculate NLMSG_GOODSIZE
+Date: Sat, 29 Jan 2005 01:27:01 +0100
+Message-ID: <20050129002701.GY31837@postel.suug.ch>
+References: <20050128230327.GV31837@postel.suug.ch> <E1CufRB-0000zf-00@gondolin.me.apana.org.au> <20050128234828.GA24868@yakov.inr.ac.ru> <20050129002128.GX31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050128153806.2c0fd337@dxpl.pdx.osdl.net>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
 Content-Disposition: inline
+In-Reply-To: <20050129002128.GX31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Saturday 29 January 2005 00:38, you wrote:
->
-> You are probably self-deadlocking on the netlink mutex (rtnl).
-> Is your netdevice_notifier handler calling rtnl_lock?
+* Thomas Graf <20050129002128.GX31837@postel.suug.ch> 2005-01-29 01:21
+> --- linux-2.6.11-rc2-bk4.orig/net/ipv4/tcp_input.c	2005-01-26 18:19:42.000000000 +0100
+> +++ linux-2.6.11-rc2-bk4/net/ipv4/tcp_input.c	2005-01-29 01:12:30.000000000 +0100
+> @@ -3760,8 +3760,7 @@
+>  	while (before(start, end)) {
+>  		struct sk_buff *nskb;
+>  		int header = skb_headroom(skb);
+> -		int copy = (PAGE_SIZE - sizeof(struct sk_buff) -
+> -			    sizeof(struct skb_shared_info) - header - 31)&~15;
+> +		int copy = SKB_MAX_ORDER(header + 31, 0);
+>  
+>  		/* Too big header? This can happen with IPv6. */
+>  		if (copy < 0)
 
-No, I'm just setting an error on all sockets, and sk_state_change()ing them, 
-nothing that might sleep, AFAIK.
-
-Even in that case, that wouldn't explain the interaction with hotplug.
-
-I also forgot to say that if the application exists immediately after seeing 
-the error on the socket, the problem doesn't show.
-
-Thanks anyway,
-Bye!
-
--- 
-  Daniele Orlandi
+Sorry, this is incomplete, we should refetch copy via (skb->end - skb->head) after
+allocating it.  I have to think some more about this first. ;-)
