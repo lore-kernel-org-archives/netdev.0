@@ -1,54 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc3-mm2] 3c59x: support more ethtool_ops
-Date: Tue, 5 Oct 2004 12:07:19 -0400
+From: P@draigBrady.com
+Subject: gettimeofday scalability
+Date: Tue, 05 Oct 2004 17:36:06 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041005160719.GA21225@havoc.gtf.org>
-References: <20041005134143.GA4829@gareth.mathematik.tu-chemnitz.de> <4162ACED.10303@pobox.com> <20041005160247.GA5405@gareth.mathematik.tu-chemnitz.de>
+Message-ID: <4162CD76.4070204@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Ingo Molnar <mingo@elte.hu>, Andrea Arcangeli <andrea@suse.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org, netdev@oss.sgi.com
-Content-Disposition: inline
-In-Reply-To: <20041005160247.GA5405@gareth.mathematik.tu-chemnitz.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 05, 2004 at 06:02:47PM +0200, Steffen Klassert wrote:
-> On Tue, Oct 05, 2004 at 10:17:17AM -0400 or thereabouts, Jeff Garzik wrote:
-> > >+static u32 vortex_get_link(struct net_device *dev)
-> > >+{
-> > >+	struct vortex_private *vp = netdev_priv(dev);
-> > >+	long ioaddr = dev->base_addr;
-> > >+	EL3WINDOW(4);
-> > >+	return mii_link_ok(&vp->mii);
-> > >+}
-> > 
-> > 3c59x should properly use netif_carrier_{on,off}, at which point you can 
-> > eliminate vortex_get_link in favor of generic ethtool_op_get_link
-> 
-> I tried to use ethtool_op_get_link, but then ethtool reports 
-> Link detected: yes
-> It does not matter wether the cable is connected or not.
+I'm starting to look again at the performance of my packet sniffer.
+Any performace tips are appreciated (I'm using irq affinity and
+CONFIG_PACKET_MMAP on 2.4.20 on a dual P4 xeon at present).
 
-Thus my comment "3c59x should properly use netif_carrier_{on,off}"  :)
+In particular I was wondering about reducing the overhead of
+calling do_gettimeofday.
 
+I noticed in the following paper that the xeon is much less
+efficient than the P3 for gettimeofday (for the syscall at least):
+http://www.labs.fujitsu.com/en/techinfo/linux/lse-0211/lse-0211.pdf
 
-> > >+static int vortex_set_settings(struct net_device *dev, struct ethtool_cmd 
-> > >*cmd)
-> > >+{
-> > >+	struct vortex_private *vp = netdev_priv(dev);
-> > >+	long ioaddr = dev->base_addr;
-> > >+	EL3WINDOW(4);
-> > >+	return mii_ethtool_sset(&vp->mii, cmd);
-> > >+}
-> > 
-> > I think that this and the other MII patch should do some amount of 
-> > locking, like the other drivers.
-> 
-> Unlike the other drivers, the 3c59x locks with spin_lock_bh inside 
-> the mdio _{read,write} functions. Thats why I did not used any locks here.
+I've seen various gettimeofday locking speedup patches floating
+around for 2.4. There is a version from Stephen and Andrea
+that uses frlock, claiming 18%, and one from ingo that uses brlock.
+2.6.8.1 uses seqlock, which contains the comment
+that it's not as cache friendly as brlock.
 
-Insufficient.  3c59x uses register windows, and you do not lock between
-setting the window and using the window.
+So can anyone summarise the relative merits of these locking
+mechanisms, before I start benchmarking?
 
-	Jeff
+thanks,
+P=C3=A1draig.
