@@ -1,65 +1,68 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Todd Underwood <todd@osogrande.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: 11 Sep 2002 09:31:53 -0600
+Date: Thu, 12 Sep 2002 01:28:34 -0600 (MDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m18z28o846.fsf@frodo.biederman.org>
-References: <m1hegwoppm.fsf@frodo.biederman.org>
-	<477096648.1031728254@[10.10.2.3]>
-	<m1d6rko9ab.fsf@frodo.biederman.org>
-	<20020911.081521.103561835.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0209120119580.25406-100000@gp>
+References: <20020905.204721.49430679.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mbligh@aracnet.com, hadi@cyberus.ca, tcw@tempest.prismnet.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "hadi@cyberus.ca" <hadi@cyberus.ca>,
+   "tcw@tempest.prismnet.com" <tcw@tempest.prismnet.com>,
+   "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
+   "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020911.081521.103561835.davem@redhat.com>
+In-Reply-To: <20020905.204721.49430679.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@redhat.com> writes:
+folx,
 
->    From: ebiederm@xmission.com (Eric W. Biederman)
->    Date: 11 Sep 2002 09:06:36 -0600
+sorry for the late reply.  catching up on kernel mail.
+
+so all this TSO stuff looks v. v. similar to the IP-only fragmentation 
+that patricia gilfeather and i implemented on alteon acenics a couple of 
+years ago (see http://www.cs.unm.edu/~maccabe/SSL/frag/FragPaper1/ for a 
+general overview).  it's exciting to see someone else take a stab on 
+different hardware and approaching some of the tcp-specific issues.
+
+the main different, though, is that general purpose kernel development 
+still focussed on the improvements in *sending* speed.  for real high 
+performance networking, the improvements are necessary in *receiving* cpu 
+utilization, in our estimation. (see our analysis of interrupt overhead 
+and the effect on receivers at gigabit speeds--i hope that this has become 
+common understanding by now)
+
+i guess i can't disagree with david miller that the improvments in TSO are 
+due entirely to header retransmission for sending, but that's only because 
+sending wasn't CPU-intensive in the first place.  we were able to get a 
+significant reduction in receiver cpu-utilization by reassembling IP 
+fragments on the receiver side (sort of a standards-based interrupt 
+mitigation strategy that has the benefit of not increasing latency the way 
+interrupt coalescing does).
+
+anyway, nice work, 
+
+t.
+
+On Thu, 5 Sep 2002, David S. Miller wrote:
+
+> It's the DMA bandwidth saved, most of the specweb runs on x86 hardware
+> is limited by the DMA throughput of the PCI host controller.  In
+> particular some controllers are limited to smaller DMA bursts to
+> work around hardware bugs.
 > 
->    "Martin J. Bligh" <mbligh@aracnet.com> writes:
->    
->    > We can push about 420MB/s of IO out of this thing (out of that 
->    > theoretical 800Mb/s). 
->    
->    Sounds about average for a P3.  I have pushed the full 800MiB/s out of
->    a P3 processor to memory but it was a very optimized loop.
+> Ie. the headers that don't need to go across the bus are the critical
+> resource saved by TSO.
 > 
-> You pushed that over the PCI bus of your P3?  Just to RAM
-> doesn't count, lots of cpu's can do that.
-> 
-> That's what makes his number interesting.
+> I think I've said this a million times, perhaps the next person who
+> tries to figure out where the gains come from can just reply with
+> a pointer to a URL of this email I'm typing right now :-)
 
-I agree. Getting 420MB/s to the pci bus is nice, especially with a P3.  
-The 800MB/s to memory was just the test I happened to conduct about 2 years
-ago when I was still messing with slow P3 systems.  It was a proof of
-concept test to see if we could plug in an I/O card into a memory
-slot.  
+-- 
+todd underwood, vp & cto
+oso grande technologies, inc.
+todd@osogrande.com
 
-On a current P4 system with the E7500 chipset this kind of thing is
-easy.  I have gotten roughly 450MB/s to a single myrinet card.  And there 
-is enough theoretical bandwidth to do 4 times that.  I haven't had a
-chance to get it working in practice.  When I attempted to run to gige
-cards simultaneously I had some weird problem (probably interrupt
-related) where adding additional pci cards did not deliver any extra
-performance.  
-
-On a P3 to get writes from the cpu to hit 800MB/s you use the special
-cpu instructions that bypass the cache.  
-
-My point was that I have tested the P3 bus in question and I achieved
-a real world 800MB/s over it.  So I expect that on the system in
-question unless another bottleneck is hit, it should be possible to
-achieve a real world 800MB/s of I/O.  There are enough pci busses
-to support that kind of traffic.
-
-Unless the memory controller is carefully placed on the system though
-doing 400+MB/s could easily eat up most of the available memory
-bandwidth and reduce the system to doing some very slow cache line fills.
-
-Eric
+"Those who give up essential liberties for temporary safety deserve
+neither liberty nor safety." - Benjamin Franklin
