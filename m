@@ -1,120 +1,91 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/6) skisa -- probe2
-Date: Wed, 15 Oct 2003 13:48:10 -0700
+Subject: [PATCH] (2/6) smctr -- probe2
+Date: Wed, 15 Oct 2003 13:48:00 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310152048.h9FKmAs11913@mail.osdl.org>
+Message-ID: <200310152048.h9FKm0911880@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert the SK-NET TMS380 ISA card to the new probe2 format.
+Convert the SMC tokenring driver to new probing.
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Mon Oct 13 15:10:32 2003
-+++ b/drivers/net/Space.c	Mon Oct 13 15:10:32 2003
-@@ -410,11 +410,14 @@
- #ifdef CONFIG_TR
- /* Token-ring device probe */
+--- a/drivers/net/Space.c	Wed Oct 15 13:33:05 2003
++++ b/drivers/net/Space.c	Wed Oct 15 13:33:05 2003
+@@ -412,9 +412,12 @@
  extern int ibmtr_probe(struct net_device *);
--extern int sk_isa_probe(struct net_device *);
-+extern struct net_device *sk_isa_probe(int unit);
- extern struct net_device *proteon_probe(int unit);
- extern struct net_device *smctr_probe(int unit);
+ extern int sk_isa_probe(struct net_device *);
+ extern int proteon_probe(struct net_device *);
+-extern int smctr_probe(struct net_device *);
++extern struct net_device *smctr_probe(int unit);
  
  static struct devprobe2 tr_probes2[] __initdata = {
-+#ifdef CONFIG_SKISA
-+	{sk_isa_probe, 0},
++#ifdef CONFIG_SMCTR
++	{smctr_probe, 0},
 +#endif
- #ifdef CONFIG_PROTEON
- 	{proteon_probe, 0},
- #endif
+ 	{NULL, 0},
+ };
+ 
 @@ -438,9 +441,6 @@
- 	if (
- #ifdef CONFIG_IBMTR
- 	    ibmtr_probe(dev) == 0  ||
+ #endif
+ #ifdef CONFIG_PROTEON
+ 	    proteon_probe(dev) == 0 ||
 -#endif
--#ifdef CONFIG_SKISA
--	    sk_isa_probe(dev) == 0 || 
+-#ifdef CONFIG_SMCTR
+-	    smctr_probe(dev) == 0 ||
  #endif
  	    0 ) 
  		err = register_netdev(dev);
-diff -Nru a/drivers/net/tokenring/skisa.c b/drivers/net/tokenring/skisa.c
---- a/drivers/net/tokenring/skisa.c	Mon Oct 13 15:10:32 2003
-+++ b/drivers/net/tokenring/skisa.c	Mon Oct 13 15:10:32 2003
-@@ -56,7 +56,7 @@
- /* A zero-terminated list of IRQs to be probed. 
-  * Used again after initial probe for sktr_chipset_init, called from sktr_open.
-  */
--static unsigned short irqlist[] = {
-+static const unsigned short irqlist[] = {
- 	3, 5, 9, 10, 11, 12, 15,
- 	0
- };
-@@ -69,7 +69,6 @@
+diff -Nru a/drivers/net/tokenring/smctr.c b/drivers/net/tokenring/smctr.c
+--- a/drivers/net/tokenring/smctr.c	Wed Oct 15 13:33:05 2003
++++ b/drivers/net/tokenring/smctr.c	Wed Oct 15 13:33:05 2003
+@@ -69,13 +69,6 @@
  
- static char isa_cardname[] = "SK NET TR 4/16 ISA\0";
+ #define SMCTR_IO_EXTENT   20
  
--int sk_isa_probe(struct net_device *dev);
- static int sk_isa_open(struct net_device *dev);
- static int sk_isa_close(struct net_device *dev);
- static void sk_isa_read_eeprom(struct net_device *dev);
-@@ -95,17 +94,14 @@
- 	outw(val, dev->base_addr + reg);
- }
- 
--struct sk_isa_card {
--	struct net_device *dev;
--	struct sk_isa_card *next;
+-/* A zero-terminated list of I/O addresses to be probed. */
+-static unsigned int smctr_portlist[] __initdata = {
+-        0x200, 0x220, 0x240, 0x260, 0x280, 0x2A0, 0x2C0, 0x2E0, 0x300,
+-        0x320, 0x340, 0x360, 0x380,
+-        0
 -};
 -
--static struct sk_isa_card *sk_isa_card_list;
+ #ifdef CONFIG_MCA
+ static unsigned int smctr_posid = 0x6ec6;
+ #endif
+@@ -219,7 +212,7 @@
+ static int smctr_open_tr(struct net_device *dev);
  
--static int __init sk_isa_probe1(int ioaddr)
-+static int __init sk_isa_probe1(struct net_device *dev, int ioaddr)
- {
- 	unsigned char old, chk1, chk2;
- 
-+	if (!request_region(ioaddr, SK_ISA_IO_EXTENT, isa_cardname))
-+		return -ENODEV;
-+
- 	old = inb(ioaddr + SIFADR);	/* Get the old SIFADR value */
- 
- 	chk1 = 0;	/* Begin with check value 0 */
-@@ -122,8 +118,10 @@
- 		chk2 = inb(ioaddr + SIFADD);
- 		chk2 ^= 0x0FE;
- 
--		if(chk1 != chk2)
--			return (-1);	/* No adapter */
-+		if(chk1 != chk2) {
-+			release_region(ioaddr, SK_ISA_IO_EXTENT);
-+			return -ENODEV;
-+		}
- 
- 		chk1 -= 2;
- 	} while(chk1 != 0);	/* Repeat 128 times (all byte values) */
-@@ -131,58 +129,45 @@
-     	/* Restore the SIFADR value */
- 	outb(old, ioaddr + SIFADR);
- 
--	return (0);
-+	dev->base_addr = ioaddr;
-+	return 0;
+ /* P */
+-int __init smctr_probe (struct net_device *dev);
++struct net_device *smctr_probe(int unit);
+ static int __init smctr_probe1(struct net_device *dev, int ioaddr);
+ static int smctr_process_rx_packet(MAC_HEADER *rmf, __u16 size,
+         struct net_device *dev, __u16 rx_status);
+@@ -3583,71 +3576,72 @@
+         return (err);
  }
  
--int __init sk_isa_probe(struct net_device *dev)
-+struct net_device * __init sk_isa_probe(int unit)
+-/* Check for a network adapter of this type, and return '0 if one exists.
+- * If dev->base_addr == 0, probe all likely locations.
+- * If dev->base_addr == 1, always return failure.
++/* Check for a network adapter of this type, 
++ * and return device structure if one exists.
+  */
+-int __init smctr_probe (struct net_device *dev)
++struct net_device __init *smctr_probe(int unit)
  {
--        static int versionprinted;
+-        int i;
+-        int base_addr;
 +	struct net_device *dev = alloc_trdev(sizeof(struct net_local));
- 	struct net_local *tp;
--	int i,j;
--	struct sk_isa_card *card;
-+        static int versionprinted;
++	static const unsigned ports[] = {
++		0x200, 0x220, 0x240, 0x260, 0x280, 0x2A0, 0x2C0, 0x2E0, 0x300,
++		0x320, 0x340, 0x360, 0x380, 0
++	};
 +	const unsigned *port;
-+	int j, err = 0;
++        int err = 0;
  
 -#ifndef MODULE
 -	netdev_boot_setup_check(dev);
@@ -123,213 +94,227 @@ diff -Nru a/drivers/net/tokenring/skisa.c b/drivers/net/tokenring/skisa.c
 +	if (!dev)
 +		return ERR_PTR(-ENOMEM);
  
--	SET_MODULE_OWNER(dev);
--	if (!dev->base_addr)
--	{
--		for(i = 0; portlist[i]; i++)
--		{
--			if (!request_region(portlist[i], SK_ISA_IO_EXTENT, isa_cardname))
--				continue;
+-        base_addr = dev->base_addr;
+-        if(base_addr > 0x1ff)    /* Check a single specified location. */
+-                return (smctr_probe1(dev, base_addr));
+-        else if(base_addr != 0)  /* Don't probe at all. */
+-                return (-ENXIO);
++	SET_MODULE_OWNER(dev);
+ 
+-        for(i = 0; smctr_portlist[i]; i++)
+-        {
+-                int ioaddr = smctr_portlist[i];
+-                if (!smctr_probe1(dev, ioaddr))
+-                        return (0);
+-        }
 -
--			if(sk_isa_probe1(portlist[i]))
--			{
--				release_region(dev->base_addr, SK_ISA_IO_EXTENT); 
--				continue;
--			}
+-        return (-ENODEV);
+-}
 +	if (unit >= 0) {
 +		sprintf(dev->name, "tr%d", unit);
 +		netdev_boot_setup_check(dev);
 +	}
  
--			dev->base_addr = portlist[i];
--			break;
-+	SET_MODULE_OWNER(dev);
-+	if (dev->base_addr)	/* probe specific location */
-+		err = sk_isa_probe1(dev, dev->base_addr);
+-static void cleanup_card(struct net_device *dev)
+-{
++        if (dev->base_addr > 0x1ff)    /* Check a single specified location. */
++		err = smctr_probe1(dev, dev->base_addr);
++        else if(dev->base_addr != 0)  /* Don't probe at all. */
++                err =-ENXIO;
 +	else {
-+		for (port = portlist; *port; port++) {
-+			err = sk_isa_probe1(dev, *port);
++		for (port = ports; *port; port++) {
++			err = smctr_probe1(dev, *port);
 +			if (!err)
 +				break;
- 		}
--		if(!dev->base_addr)
--			return -1;
- 	}
--	else
--	{
--		if (!request_region(dev->base_addr, SK_ISA_IO_EXTENT, isa_cardname))
--			return -1;
--
--		if(sk_isa_probe1(dev->base_addr))
--		{
--			release_region(dev->base_addr, SK_ISA_IO_EXTENT); 
--			return -1;
--  		}
--	} 
-+	if (err)
-+		goto out4;
- 
- 	/* At this point we have found a valid card. */
- 
- 	if (versionprinted++ == 0)
- 		printk(KERN_DEBUG "%s", version);
- 
-+	err = -EIO;
- 	if (tmsdev_init(dev, ISA_MAX_ADDRESS, NULL))
- 		goto out4;
- 
-@@ -284,14 +269,11 @@
- 	printk(KERN_DEBUG "%s:    IO: %#4lx  IRQ: %d  DMA: %d\n",
- 	       dev->name, dev->base_addr, dev->irq, dev->dma);
- 		
--	/* Enlist in the card list */
--	card = kmalloc(sizeof(struct sk_isa_card), GFP_KERNEL);
--	if (!card)
-+	err = register_netdev(dev);
-+	if (err)
- 		goto out;
--	card->next = sk_isa_card_list;
--	sk_isa_card_list = card;
--	card->dev = dev;
--	return 0;
-+
-+	return dev;
- out:
- 	free_dma(dev->dma);
- out2:
-@@ -300,7 +282,8 @@
- 	tmsdev_term(dev);
- out4:
- 	release_region(dev->base_addr, SK_ISA_IO_EXTENT); 
--	return -1;
-+	free_netdev(dev);
-+	return ERR_PTR(err);
- }
- 
- /*
-@@ -373,6 +356,8 @@
- 
- #define ISATR_MAX_ADAPTERS 3
- 
-+static struct net_device *sk_isa_dev[ISATR_MAX_ADAPTERS];
-+
- static int io[ISATR_MAX_ADAPTERS];
- static int irq[ISATR_MAX_ADAPTERS];
- static int dma[ISATR_MAX_ADAPTERS];
-@@ -383,50 +368,54 @@
- MODULE_PARM(irq, "1-" __MODULE_STRING(ISATR_MAX_ADAPTERS) "i");
- MODULE_PARM(dma, "1-" __MODULE_STRING(ISATR_MAX_ADAPTERS) "i");
- 
--static int __init setup_card(unsigned long io, unsigned irq, unsigned char dma)
-+static struct net_device * __init setup_card(unsigned long io, unsigned irq, unsigned char dma)
- {
--	int res = -ENOMEM;
--	struct sk_isa_card *this_card;
--	struct net_device *dev = alloc_trdev(0);
--
--	if (dev) {
--		dev->base_addr = io;
--		dev->irq       = irq;
--		dev->dma       = dma;
--		res = -ENODEV;
--		if (sk_isa_probe(dev) == 0) {
--			res = register_netdev(dev);
--			if (!res)
--				return 0;
--			release_region(dev->base_addr, SK_ISA_IO_EXTENT);
--			free_irq(dev->irq, dev);
--			free_dma(dev->dma);
--			tmsdev_term(dev);
--			this_card = sk_isa_card_list;
--			sk_isa_card_list = this_card->next;
--			kfree(this_card);
--		}
--		kfree(dev);
--	}
--	return res;
-+	struct net_device *dev = alloc_trdev(sizeof(struct net_local));
-+	int err;
-+
-+	if (!dev)
-+		return ERR_PTR(-ENOMEM);
-+
-+	dev->base_addr = io;
-+	dev->irq       = irq;
-+	dev->dma       = dma;
-+
-+	err = sk_isa_probe1(dev, io);
++		}
++	}
 +	if (err)
 +		goto out;
-+
 +	err = register_netdev(dev);
 +	if (err)
 +		goto out1;
 +	return dev;
-+
-+ out1:
-+	release_region(dev->base_addr, SK_ISA_IO_EXTENT);
++out1:
+ #ifdef CONFIG_MCA
+-	struct net_local *tp = (struct net_local *)dev->priv;
+-	if (tp->slot_num)
++	{ struct net_local *tp = (struct net_local *)dev->priv;
++	  if (tp->slot_num)
+ 		mca_mark_as_unused(tp->slot_num);
++	}
+ #endif
+ 	release_region(dev->base_addr, SMCTR_IO_EXTENT);
+-	if (dev->irq)
+-		free_irq(dev->irq, dev);
+-	if (dev->priv)
+-		kfree(dev->priv);
 +	free_irq(dev->irq, dev);
-+	free_dma(dev->dma);
-+	tmsdev_term(dev);
-+ out:
++out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
  }
  
++
+ static int __init smctr_probe1(struct net_device *dev, int ioaddr)
+ {
+         static unsigned version_printed;
+-        struct net_local *tp;
++        struct net_local *tp = dev->priv;
+         int err;
+         __u32 *ram;
+ 
+         if(smctr_debug && version_printed++ == 0)
+                 printk(version);
+ 
+-        /* Setup this devices private information structure */
+-        tp = (struct net_local *)kmalloc(sizeof(struct net_local),
+-                GFP_KERNEL);
+-        if(tp == NULL) {
+-		err = -ENOMEM;
+-		goto out;
+-	}
+-        memset(tp, 0, sizeof(struct net_local));
+         spin_lock_init(&tp->lock);
+-        
+-        dev->priv = tp;
+         dev->base_addr = ioaddr;
+ 
+ 	/* Actually detect an adapter now. */
+@@ -3656,7 +3650,7 @@
+         {
+ 		if ((err = smctr_chk_mca(dev)) < 0) {
+ 			err = -ENODEV;
+-			goto out_tp;
++			goto out;
+ 		}
+         }
+ 
+@@ -3671,7 +3665,6 @@
+         if(err != UCODE_PRESENT && err != SUCCESS)
+         {
+                 printk(KERN_ERR "%s: Firmware load failed (%d)\n", dev->name, err);
+-		cleanup_card(dev);
+ 		err = -EIO;
+ 		goto out;
+         }
+@@ -3696,8 +3689,6 @@
+         dev->set_multicast_list = &smctr_set_multicast_list;
+         return (0);
+ 
+-out_tp:
+-	kfree(tp);
+ out:
+ 	return err;
+ }
+@@ -5669,47 +5660,59 @@
+ static struct net_device* dev_smctr[SMCTR_MAX_ADAPTERS];
+ static int io[SMCTR_MAX_ADAPTERS];
+ static int irq[SMCTR_MAX_ADAPTERS];
+-static int mem[SMCTR_MAX_ADAPTERS];
+ 
+ MODULE_LICENSE("GPL");
+ 
+-MODULE_PARM(io,  "1-" __MODULE_STRING(SMCTR_MAX_ADAPTERS) "i");
++MODULE_PARM(io, "1-" __MODULE_STRING(SMCTR_MAX_ADAPTERS) "i");
+ MODULE_PARM(irq, "1-" __MODULE_STRING(SMCTR_MAX_ADAPTERS) "i");
+-MODULE_PARM(mem, "1-" __MODULE_STRING(SMCTR_MAX_ADAPTERS) "i");
+-MODULE_PARM(ringspeed, "1-" __MODULE_STRING(SMCTR_MAX_ADAPTERS) "i");
++MODULE_PARM(ringspeed, "i");
++
++static struct net_device *setup_card(int n)
++{
++	struct net_device *dev = alloc_trdev(sizeof(struct net_local));
++	int err;
++	
++	if (!dev)
++		return ERR_PTR(-ENOMEM);
++
++	dev->irq = irq[n];
++	err = smctr_probe1(dev, io[n]);
++	if (err) 
++		goto out;
++		
++	err = register_netdev(dev);
++	if (err)
++		goto out1;
++	return dev;
++ out1:
++#ifdef CONFIG_MCA
++	{ struct net_local *tp = (struct net_local *)dev->priv;
++	  if (tp->slot_num)
++		mca_mark_as_unused(tp->slot_num);
++	}
++#endif
++	release_region(dev->base_addr, SMCTR_IO_EXTENT);
++	free_irq(dev->irq, dev);
++out:
++	free_netdev(dev);
++	return ERR_PTR(err);
++}
++			
+ 
  int init_module(void)
  {
+-        int i;
++        int i, found = 0;
 +	struct net_device *dev;
- 	int i, num;
  
- 	num = 0;
--	if (io[0]) { /* Only probe addresses from command line */
--		for (i = 0; i < ISATR_MAX_ADAPTERS ; i++) {
--			if (io[i] && setup_card(io[i], irq[i], dma[i]) == 0)
--				num++;
--		}
--	} else {
--		for(i = 0; num < ISATR_MAX_ADAPTERS && portlist[i]; i++) {
--			if (setup_card(portlist[i], irq[num], dma[num]) == 0)
--				num++;
-+	for (i = 0; i < ISATR_MAX_ADAPTERS ; i++) {
-+		if (io[0])  /* Only probe addresses from command line */
-+			dev = setup_card(io[i], irq[i], dma[i]);
-+		else
-+			dev = sk_isa_probe(-1);
+         for(i = 0; i < SMCTR_MAX_ADAPTERS; i++) {
+-		struct net_device *dev = alloc_trdev(0);
+-                irq[i] = 0;
+-                mem[i] = 0;
+-		if (!dev)
+-			return -ENOMEM;
+-                dev->base_addr = io[i];
+-                dev->irq       = irq[i];
+-                dev->mem_start = mem[i];
+-
+-		if (smctr_probe(dev) != 0) {
+-                        kfree(dev);
+-                        if (i == 0) {
+-                                printk(KERN_ERR "%s: smctr_probe failed.\n",
+-                                        cardname);
+-                                return -EIO;
+-                        }
+-			return 0;
+-                }
+-		if (register_netdev(dev) != 0) {
+-                        cleanup_card(dev);
+-			kfree(dev);
+-			continue;
+-                }
+-                dev_smctr[i] = dev;
++		dev = io[0]? setup_card(i) : smctr_probe(-1);
 +		if (!IS_ERR(dev)) {
-+			sk_isa_dev[i] = dev;
-+			++num;
- 		}
- 	}
-+
- 	printk(KERN_NOTICE "skisa.c: %d cards found.\n", num);
- 	/* Probe for cards. */
- 	if (num == 0) {
-@@ -438,11 +427,13 @@
++			++found;
++			dev_smctr[i] = dev;
++		}
+         }
+ 
+-        return (0);
++        return found ? 0 : -ENODEV;
+ }
  
  void cleanup_module(void)
- {
--	struct net_device *dev;
--	struct sk_isa_card *this_card;
-+	int i;
-+
-+	for (i = 0; i < ISATR_MAX_ADAPTERS ; i++) {
-+		struct net_device *dev = sk_isa_dev[i];
+@@ -5718,9 +5721,20 @@
  
--	while (sk_isa_card_list) {
--		dev = sk_isa_card_list->dev;
-+		if (!dev) 
-+			continue;
- 		
- 		unregister_netdev(dev);
- 		release_region(dev->base_addr, SK_ISA_IO_EXTENT);
-@@ -450,9 +441,6 @@
- 		free_dma(dev->dma);
- 		tmsdev_term(dev);
- 		free_netdev(dev);
--		this_card = sk_isa_card_list;
--		sk_isa_card_list = this_card->next;
--		kfree(this_card);
- 	}
- }
- #endif /* MODULE */
+         for(i = 0; i < SMCTR_MAX_ADAPTERS; i++) {
+ 		struct net_device *dev = dev_smctr[i];
++
+ 		if (dev) {
++
+ 			unregister_netdev(dev);
+-			cleanup_card(dev);
++#ifdef CONFIG_MCA
++			{ struct net_local *tp = dev->priv;
++			if (tp->slot_num)
++				mca_mark_as_unused(tp->slot_num);
++			}
++#endif
++			release_region(dev->base_addr, SMCTR_IO_EXTENT);
++			if (dev->irq)
++				free_irq(dev->irq, dev);
++
+ 			free_netdev(dev);
+ 		}
+         }
