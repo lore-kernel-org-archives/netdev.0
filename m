@@ -1,40 +1,38 @@
-From: Andi Kleen <ak@suse.de>
+From: Mitchell Blank Jr <mitch@sfgoth.com>
 Subject: Re: [PATCH] small skbuff.[ch] tweaks
-Date: Tue, 2 Sep 2003 10:58:33 +0200
+Date: Tue, 2 Sep 2003 02:49:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030902105833.04778449.ak@suse.de>
-References: <20030902081625.GA52298@gaz.sfgoth.com>
+Message-ID: <20030902094942.GB53570@gaz.sfgoth.com>
+References: <20030902081625.GA52298@gaz.sfgoth.com> <20030902105833.04778449.ak@suse.de> <20030902091059.GA53570@gaz.sfgoth.com> <20030902090423.GD3889@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, davem@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20030902081625.GA52298@gaz.sfgoth.com>
+To: Andi Kleen <ak@suse.de>
+Content-Disposition: inline
+In-Reply-To: <20030902090423.GD3889@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2 Sep 2003 01:16:25 -0700
-Mitchell Blank Jr <mitch@sfgoth.com> wrote:
+Andi Kleen wrote:
+> > > Both unlikely(!ptr) and likely(ptr) are not needed because gcc assumes this
+> > > by default
+> > 
+> > Is there any disadvantage to stating it explicitly?
+> 
+> It makes the code much uglier.
 
-> --- linux-2.6.0-test4-VIRGIN/net/core/skbuff.c	2003-08-22 13:47:28.000000000 -0700
-> +++ linux-2.6.0-test4mnb1/net/core/skbuff.c	2003-09-01 14:00:37.000000000 -0700
-> @@ -129,14 +129,17 @@
->  	/* Get the HEAD */
->  	skb = kmem_cache_alloc(skbuff_head_cache,
->  			       gfp_mask & ~__GFP_DMA);
-> -	if (!skb)
-> +	if (unlikely(!skb))
->  		goto out;
->  
->  	/* Get the DATA. Size must match skb_add_mtu(). */
->  	size = SKB_DATA_ALIGN(size);
->  	data = kmalloc(size + sizeof(struct skb_shared_info), gfp_mask);
-> -	if (!data)
-> -		goto nodata;
-> +	if (unlikely(!data)) {
+Well I guess it's a matter of taste then.  Personally I like unlikely()/
+likely() a lot, even from just a readability standpoint.  I think it provides
+a nice hint to the structure of code while reading it ("ok, we're just
+handling an error case here, the meat of the code is below")  If anything they
+help comment the code.
 
-Both unlikely(!ptr) and likely(ptr) are not needed because gcc assumes this
-by default
+I certainly think they're preferable to "this is an unlikely error condition but
+we shouldn't mark it as such because of some gcc trivia lets us save a few
+characters of typing"
 
--Andi
+However if the consensus is that those unlikely()'s should be removed I'll be
+happy to spin a new patch with those removed.
+
+-Mitch
