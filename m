@@ -1,54 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
+From: Andi Kleen <ak@suse.de>
 Subject: Re: [RFC] Extend netlink error codes
-Date: Sat, 11 Sep 2004 18:24:33 +0200
+Date: Sat, 11 Sep 2004 18:50:56 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040911162433.GC21181@postel.suug.ch>
-References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de>
+Message-ID: <20040911165056.GQ4431@wotan.suse.de>
+References: <20040910225158.GO20088@postel.suug.ch> <20040911155839.GN4431@wotan.suse.de> <20040911162433.GC21181@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
+To: Thomas Graf <tgraf@suug.ch>
 Content-Disposition: inline
-In-Reply-To: <20040911155839.GN4431@wotan.suse.de>
+In-Reply-To: <20040911162433.GC21181@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
-> IMHO it would be far better to just pass text errors
-> in a variable length packet back.  It's a bit plan9ish,
-> but it would work nicely here and be a bit improvement
-> (especially for the qdiscs) 
+On Sat, Sep 11, 2004 at 06:24:33PM +0200, Thomas Graf wrote:
+> * Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
+> > IMHO it would be far better to just pass text errors
+> > in a variable length packet back.  It's a bit plan9ish,
+> > but it would work nicely here and be a bit improvement
+> > (especially for the qdiscs) 
+> 
+> I had the same idea and the only good way to do so would
+> be to add a char * errbuf or alike to struct netlink_opt
+> and access it via skb.sk.sk_protinfo.
 
-I had the same idea and the only good way to do so would
-be to add a char * errbuf or alike to struct netlink_opt
-and access it via skb.sk.sk_protinfo.
+I was thinking about a variable length netlink packet
+that contains it and that is sent back to the application.  
+No need to store it anywhere else.
+> 
+> The bad side is that the for example cls and sch api don't
+> provide the skb to the implementing modules and therefore
+> they can't access the error buffer. I don't want to change
+> all netlink users because of this.
 
-The bad side is that the for example cls and sch api don't
-provide the skb to the implementing modules and therefore
-they can't access the error buffer. I don't want to change
-all netlink users because of this.
+Indeed, that's an issue. Even with the retry packet you need
+the sequence number. On the other hand there are not 
+that many sched/cls modules and some minor changes to them
+are probably ok.
 
-Changing all paths back to netlink_ack to provide a struct
-containing the errno and an additional text error buffer is
-no option for me either.
+In the worst case you can define new entry points and
+keep the old ones for compatibility, but it is probably
+not worth it to be that compatible because there are not
+enough different users.
 
-Correct me if I'm wrong.
-
-> Otherwise you will end up with a mainteance nightmare of a
-> long list of error codes that needs to be updated for every new
-> subsystem.
-
-I would suggst to split them up and assign blocks of free codes
-to subsystems.
-
-> And everybody who has a patch to add a new netlink
-> user would always fight with conflicts in this file.
-
-This is indeed a problem.
-
-> I don't think an very specific error like
-> "CFQ subsystem parameter X is FOO, can be only upto BAR" 
-> can be nicely put into a global error file.
-
-True, I would really like to have such error messages.
+-Andi
