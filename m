@@ -1,50 +1,57 @@
-From: Ralph Doncaster <ralph@istop.com>
-Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 17:39:44 -0400 (EDT)
+From: "CIT/Paul" <xerox@foonet.net>
+Subject: RE: Route cache performance under stress
+Date: Tue, 10 Jun 2003 17:36:14 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0306101725020.17226@ns.istop.com>
-References: <Pine.LNX.4.51.0306101332300.8755@ns.istop.com>
- <20030610.103234.116374169.davem@redhat.com> <16102.9418.43884.336925@robur.slu.se>
- <20030610.115759.26513736.davem@redhat.com>
-Reply-To: ralph+d@istop.com
+Message-ID: <012301c32f98$52043dd0$4a00000a@badass>
+References: <20030610.115759.26513736.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Robert.Olsson@data.slu.se" <Robert.Olsson@data.slu.se>,
-   "hadi@shell.cyberus.ca" <hadi@shell.cyberus.ca>,
-   "xerox@foonet.net" <xerox@foonet.net>,
-   "sim@netnation.com" <sim@netnation.com>,
-   "fw@deneb.enyo.de" <fw@deneb.enyo.de>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-   "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <ralph+d@istop.com>, <ralph@istop.com>, <hadi@shell.cyberus.ca>,
+   <sim@netnation.com>, <fw@deneb.enyo.de>, <netdev@oss.sgi.com>,
+   <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "'David S. Miller'" <davem@redhat.com>, <Robert.Olsson@data.slu.se>
 In-Reply-To: <20030610.115759.26513736.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 10 Jun 2003, David S. Miller wrote:
+Why do you need source validation if we are going to use it for a core
+router :)
+Is there anything else in there that may or may not be necessary
+depending on the circumstances that we are using the router for?
 
-> Actually, that's a good idea, if someone if brave just rip out
-> fib_validate_source (just don't call it, should work for valid
-> traffic) and see what happens :)
 
-Looking at Simon's profile numbers, these seem to contribute a lot more
-than fib_validate_source:
-  1237 ipt_route_hook                            19.3281
-  3120 do_gettimeofday                           21.6667
-  8299 ip_packet_match                           24.6994
-  8031 fib_lookup                                25.0969
-  1877 fib_rule_put                              29.3281
+Paul xerox@foonet.net http://www.httpd.net
 
-What's the do_gettimeofday for?  Is that just a bogus one that shows up
-for kernel profiling (I can recall using the profiling tool quantify had a
-similar problem of showing gettimeofday calls that it was doing on its
-own).
 
-I traced back the fib_lookup to ip_forward_finish, which seems to only
-call ip_forward_options when there's IP options (go figure!), which would
-make sense for a SYN packet (juno).  What I can't think of is why we'd
-want to have special routing considerations for TCP SYN packets (and other
-IP packets with options set).
+-----Original Message-----
+From: David S. Miller [mailto:davem@redhat.com] 
+Sent: Tuesday, June 10, 2003 2:58 PM
+To: Robert.Olsson@data.slu.se
+Cc: ralph+d@istop.com; ralph@istop.com; hadi@shell.cyberus.ca;
+xerox@foonet.net; sim@netnation.com; fw@deneb.enyo.de;
+netdev@oss.sgi.com; linux-net@vger.kernel.org
+Subject: Re: Route cache performance under stress
 
--Ralph
+
+   From: Robert Olsson <Robert.Olsson@data.slu.se>
+   Date: Tue, 10 Jun 2003 20:34:50 +0200
+   
+   I ripped out the route hash just to test the slow path. Seems like
+your 
+   patch was very good as we see the same performance w/o dst hash ~114
+kpps.
+
+How did you "rip it out"?  Just never look into the routing cache hash
+and never add entries there?  If so, then yes it is excellent simulation
+for pure slow path.
+
+This is not purely an algorithmic problem.  The highest cost thing we do
+in the slow path of input route processing is source validation. This
+requires real brains to eliminate.
+
+Actually, that's a good idea, if someone if brave just rip out
+fib_validate_source (just don't call it, should work for valid
+traffic) and see what happens :)
