@@ -1,37 +1,38 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6.0-test4][IPv6] ip6_flowlabel.c: timer cleanups
-Date: Wed, 27 Aug 2003 23:25:14 -0700
+Subject: Re: [BK PATCH 2.6] fix sysctl breakage during network device
+ renaming, for ipv4
+Date: Wed, 27 Aug 2003 23:28:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030827232514.0854fc06.davem@redhat.com>
-References: <1061907882.1108.28.camel@lima.royalchallenge.com>
+Message-ID: <20030827232847.68cc17a6.davem@redhat.com>
+References: <20030826153812.GA2216@callisto.yi.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vinay K Nallamothu <vinay-rc@naturesoft.net>
-In-Reply-To: <1061907882.1108.28.camel@lima.royalchallenge.com>
+To: Dan Aloni <da-x@gmx.net>
+In-Reply-To: <20030826153812.GA2216@callisto.yi.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 26 Aug 2003 19:54:41 +0530
-Vinay K Nallamothu <vinay-rc@naturesoft.net> wrote:
+On Tue, 26 Aug 2003 18:38:12 +0300
+Dan Aloni <da-x@gmx.net> wrote:
 
-> @@ -104,10 +105,9 @@
->  			fl->opt = NULL;
->  			kfree(opt);
->  		}
-> -		if (!del_timer(&ip6_fl_gc_timer) ||
-> -		    (long)(ip6_fl_gc_timer.expires - ttd) > 0)
-> -			ip6_fl_gc_timer.expires = ttd;
-> -		add_timer(&ip6_fl_gc_timer);
-> +		if (!timer_pending(&ip6_fl_gc_timer) ||
-> +		    time_after(ip6_fl_gc_timer.expires, ttd))
-> +			mod_timer(&ip6_fl_gc_timer, ttd);
->  	}
->  }
->  
+>   Sysctl assumes its ctl_table.procname field is const, but the 
+>   networking points ctl_table.procname to dev->name. When renaming 
+>   a network device using SIOCSIFNAME, dev->name is modified and 
+>   sysctl's assumption breaks, causing this behaviour, at least:
+>   
+>     1. sysctl wouldn't be able to remove the proc entry when the 
+>        device requests to be unregistered, because it would be 
+>        using the new name instead of the old one.
+>     2. proc entries for devices remain with the old name after 
+>        rename.
+>     
+>   This change includes allocating the current device name to a
+>   new copy upon registering with sysctl, plus re-registering with 
+>   sysctl when the device is renamed.
 
-This code is still racey.  This code needs to hold the
-toplevel ip6_fl_lock during the GC timer manipulations
-and tests.
+Conceptually this change is OK.  But please don't put generic
+things like a strdup() implementation statically into
+net/ipv4/devinet.c, it does not belong there.
