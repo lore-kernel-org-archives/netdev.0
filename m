@@ -1,51 +1,27 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] fix build problem with IPV6
-Date: Fri, 15 Aug 2003 18:19:38 -0300
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] (10/11) netrom - convert /proc interface to seq_file
+Date: Fri, 15 Aug 2003 23:47:42 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815211938.GM1564@conectiva.com.br>
-References: <20030815140740.388a79c4.shemminger@osdl.org>
+Message-ID: <20030815234742.A31946@electric-eye.fr.zoreil.com>
+References: <20030813154635.376df59b.shemminger@osdl.org> <20030814172539.GD1785@conectiva.com.br> <20030814113025.2b40be14.shemminger@osdl.org> <20030815211217.GL1564@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+   "David S. Miller" <davem@redhat.com>, Jeroen Vreeken <pe1rxq@amsat.org>,
+   linux-hams@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Content-Disposition: inline
-In-Reply-To: <20030815140740.388a79c4.shemminger@osdl.org>
+In-Reply-To: <20030815211217.GL1564@conectiva.com.br>; from acme@conectiva.com.br on Fri, Aug 15, 2003 at 06:12:17PM -0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Fri, Aug 15, 2003 at 02:07:40PM -0700, Stephen Hemminger escreveu:
-> IPV6 won't build in current 2.6.0-test3 tree unless CONFIG_XFRM is defined
-> because of reference to xfrm6_fini.
-> 
-> The linux way to fix this would be to make the functions
-> stub's in the include file, but that isn't how IPV6 does it now
-> for other xfrm functions.
-> 
-> diff -Nru a/net/ipv6/route.c b/net/ipv6/route.c
-> --- a/net/ipv6/route.c	Fri Aug 15 14:04:05 2003
-> +++ b/net/ipv6/route.c	Fri Aug 15 14:04:05 2003
-> @@ -2000,7 +2000,9 @@
->  	proc_net_remove("ipv6_route");
->  	proc_net_remove("rt6_stats");
->  #endif
-> +#ifdef CONFIG_XFRM
->  	xfrm6_fini();
-> +#endif
->  	rt6_ifdown(NULL);
->  	fib6_gc_cleanup();
->  	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> :
+[ax2asc and the static buffer from hell]
+> argh :-\ Even if only for correctness shouldn't it receive a buffer, like
+> snprintf, etc?
 
-Stephen,
+Then its name would be "ax2asc2".
 
-	Couldn't this be ifdefed at the header that has the xfrm6_fini
-prototype?
-
-#ifndef CONFIG_XFRM
-void xfrm6_fini(void) {}
-#endif
-
-	Or something like that.
-
-- Arnaldo
+--
+Ueimor
