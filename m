@@ -1,27 +1,30 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
-Date: Fri, 16 Jan 2004 04:36:50 +0900 (JST)
+Date: Thu, 15 Jan 2004 11:37:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116.043650.125087555.yoshfuji@linux-ipv6.org>
-References: <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com>
+Message-ID: <20040115113700.166ddfb0.davem@redhat.com>
+References: <OFC6D64AE0.CEE7DA5F-ON87256E1C.0068A56A@us.ibm.com>
+	<20040116.041950.35757995.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mashirle@us.ibm.com, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+Cc: xma@us.ibm.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
         netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: xma@us.ibm.com
-In-Reply-To: <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040116.041950.35757995.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com> (at Thu, 15 Jan 2004 11:30:25 -0800), Shirley Ma <xma@us.ibm.com> says:
+On Fri, 16 Jan 2004 04:19:50 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> I don't see any application uses these values for now, so I change them.
-> It's good for kernel to provide the real MIBs information. If later on,
-> some applications start to use these values, they can get the correct
-> numbers without converting. Unless you can give me an broken example. :-)
+> In article <OFC6D64AE0.CEE7DA5F-ON87256E1C.0068A56A@us.ibm.com> (at Thu, 15 Jan 2004 11:09:47 -0800), Shirley Ma <xma@us.ibm.com> says:
+> 
+> > But if no applications use this value, and nothing is boken. It's not
+> > harmful to change the kernel to provide MIBs in as-is format.
+> 
+> Shirley, nobody can prove that nothing will be broken. :-)
 
-ip -6 route ?
-
---yoshfuji
+And also, the current situation is OK as long as this value we present now
+can be converted into the desired value.  Is this the case?
