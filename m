@@ -1,49 +1,43 @@
 From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Prism54 1.2 released
-Date: Wed, 23 Jun 2004 09:44:02 -0400
-Sender: prism54-users-bounces@prism54.org
-Message-ID: <20040623134402.GE6253@ruslug.rutgers.edu>
-References: <20040623064321.GX6253@ruslug.rutgers.edu>
-	<20040623091403.GA4999@fluff>
-	<346D1DC2D46433D94FB41A74@[192.168.1.22]>
+Subject: Possible prism54 softmac software
+Date: Wed, 23 Jun 2004 10:28:21 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <20040623142821.GF6253@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <prism54-users-bounces@prism54.org>
-To: prism54-users@prism54.org
+Cc: prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Netdev <netdev@oss.sgi.com>
 Content-Disposition: inline
-In-Reply-To: <346D1DC2D46433D94FB41A74@[192.168.1.22]>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-users>,
-	<mailto:prism54-users-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-users>
-List-Post: <mailto:prism54-users@prism54.org>
-List-Help: <mailto:prism54-users-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-users>,
-	<mailto:prism54-users-request@prism54.org?subject=subscribe>
-Errors-To: prism54-users-bounces@prism54.org
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 23, 2004 at 11:29:58AM +0200, Claas Hilbrecht wrote:
-> --Am Mittwoch, 23. Juni 2004 11:14 +0200 Richard Atterer 
-> <richard@list04.atterer.net> schrieb:
-> 
-> >On Wed, Jun 23, 2004 at 02:43:21AM -0400, Luis R. Rodriguez wrote:
-> >>* A ton of bugs were fixed
-> >
-> >Does this include a fix for the problem reported by Claas Hilbrecht and
-> >me, that a prism54 host in master mode would take down the network once
-> >you tried to transmit more than a few kB/sec?
-> 
-> I don't think so, since the ChangeLog doesn't contain any reference to my 
-> bug report. And as you can see, none of the developers responded to my bug 
-> report yet: http://prism54.org/cgi-bin/bugzilla/show_bug.cgi?id=87
-> 
-> After the bug report I switch the network to Ad-hoc mode and didn't have 
-> any problems so far. So I really think this is a driver problem or firmware 
-> issue.
-> 
 
-We'll have to reproduce first. We will look into it though.
+While on  IRC, Viddy informed me that he found the following URLs:
+
+09:15 < Viddy> you guys might like to know this: There is an 802.11g 
+with the thin firmware sold by a company in nz,  
+http://www.dse.co.nz/cgi-bin/dse.storefront/40d977e1061a835c273fc0a87f990719/Product/View/XH8196
+they have some source drivers on thier
+webpage here: 
+http://www.dse.co.nz/cgi-bin/dse.filereader?40d977e1061a835c273fc0a87f990719+EN/catalogs/SUPXH8196 
+with the actual 3meg source
+file here: 
+http://www.dse.co.nz/isroot/dse/support/XH8196-linux.zip
+
+Quick review shows this could indeed be the Softmac driver source base
+that will allow us to support for Prism Xbow/Javelin chipsets. I don't necessarily 
+like the license and I also noticed they used pcmcia-cs again (not necessary). 
+Anyway, just wanted to relay the information. A lot of work ahead of us.
+
+Please review, poke, poke, etc.
 
 	Luis
 
