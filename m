@@ -1,72 +1,113 @@
-From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
-Subject: RE: Please ignore the corrupt patches sent earlier.
-Date: Mon, 8 Nov 2004 11:07:56 -0800
-Message-ID: <001f01c4c5c6$422f5050$9810100a@S2IOtech.com>
-Reply-To: <ravinandan.arakali@s2io.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
+Date: Mon, 08 Nov 2004 20:46:18 +0100
+Message-ID: <418FCD0A.4040202@trash.net>
+References: <418B4C7C.8000402@crocom.com.pl> <418EA032.7050507@trash.net> <418ECE85.9090203@trash.net> <20041108135431.GE31969@postel.suug.ch> <418F9AD0.1040701@trash.net> <20041108183300.GF31969@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: "'koushik'" <raghavendra.koushik@s2io.com>, <romieu@fr.zoreil.com>,
-        <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>,
-        <rapuru.sriram@s2io.com>, <alicia.pena@s2io.com>
+Content-Type: multipart/mixed;
+ boundary="------------090707000604020204090600"
+Cc: Szymon Miotk <spam@crocom.com.pl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Jeff Garzik'" <jgarzik@pobox.com>
-In-Reply-To: 
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041108183300.GF31969@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-By default, sendmail puts the From: address as "root@linux.site".
-We suspect this may be causing your pobox domain to reject the
-message. We'll try sending the first patch to you with
-From: address set to Koushik's(using -f option of sendmail).
-Kindly ack if you get the patch and we'll send the rest of the
-patches.
+This is a multi-part message in MIME format.
+--------------090707000604020204090600
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks,
-Ravi
+Thomas Graf wrote:
 
------Original Message-----
-From: Ravinandan Arakali [mailto:ravinandan.arakali@s2io.com]
-Sent: Monday, November 08, 2004 9:56 AM
-To: 'Jeff Garzik'
-Cc: 'koushik'; 'romieu@fr.zoreil.com'; 'netdev@oss.sgi.com';
-'leonid.grossman@s2io.com'; 'rapuru.sriram@s2io.com';
-'alicia.pena@s2io.com'
-Subject: RE: Please ignore the corrupt patches sent earlier.
+>* Patrick McHardy <418F9AD0.1040701@trash.net> 2004-11-08 17:12
+>  
+>
+>>There is some optimization possible, I will do this for the final
+>>patch. But I don't understand the problem you refer to, can you
+>>please explain ?
+>>
+>
+>I don't have the time to verify this at the moment but:
+>
+>1) qdisc_destroy unlinking all the lists
+>2) RTM_NEWQDISC creating a new qdisc with the same major classid as the old one
+>   which will suceed since the old one cannot be found anymore.
+>3) rcu callback __qdisc_destroy -> qdisc_destroy looking through qdisc_list
+>   again and then deleting the new entries because their major classid matches.
+>
+>I might be missing something though.
+>
+You're right, thanks. The optimization already fixed this, but I
+wasn't aware of the bug :) New patch attached.
 
-
-Jeff,
-All the 12 patches were sent by Koushik on Fri evening. We(Rapuru,
-myself) have received it.
-mailq shows the following error for your address "Sender address
-rejected: Domain not found". Is there an alternate address where
-we can send the patches ?
-
-Can anybody on the netdev list confirm if they got the patches ?
-
-Regards,
-Ravi
-
------Original Message-----
-From: Jeff Garzik [mailto:jgarzik@pobox.com]
-Sent: Saturday, November 06, 2004 9:11 AM
-To: ravinandan.arakali@s2io.com
-Cc: 'koushik'; romieu@fr.zoreil.com; netdev@oss.sgi.com;
-leonid.grossman@s2io.com; rapuru.sriram@s2io.com; alicia.pena@s2io.com
-Subject: Re: Please ignore the corrupt patches sent earlier.
+Regards
+Patrick
 
 
-Ravinandan Arakali wrote:
-> Jeff,
-> Thanks for the excellent suggestion. We have used this method to send all
-> the 12 patches. Note that since our mail server went down and came back
-> up during this process, the mail containing patch3 has appeared twice. 
-> Pls ignore the duplicate.
+--------------090707000604020204090600
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-Alas, I'm still waiting for the patches...  Does 'mailq' show messages 
-waiting to be delivered?
+===== net/sched/sch_api.c 1.42 vs edited =====
+--- 1.42/net/sched/sch_api.c	2004-11-07 05:03:04 +01:00
++++ edited/net/sched/sch_api.c	2004-11-08 02:38:04 +01:00
+@@ -196,10 +196,14 @@
+ {
+ 	struct Qdisc *q;
+ 
++	read_lock_bh(&qdisc_tree_lock);
+ 	list_for_each_entry(q, &dev->qdisc_list, list) {
+-		if (q->handle == handle)
++		if (q->handle == handle) {
++			read_unlock_bh(&qdisc_tree_lock);
+ 			return q;
++		}
+ 	}
++	read_unlock_bh(&qdisc_tree_lock);
+ 	return NULL;
+ }
+ 
+===== net/sched/sch_generic.c 1.30 vs edited =====
+--- 1.30/net/sched/sch_generic.c	2004-11-06 01:34:45 +01:00
++++ edited/net/sched/sch_generic.c	2004-11-08 20:41:58 +01:00
+@@ -483,10 +483,32 @@
+ 
+ void qdisc_destroy(struct Qdisc *qdisc)
+ {
++	struct list_head cql = LIST_HEAD_INIT(cql);
++	struct Qdisc *cq, *q, *n;
++
+ 	if (qdisc->flags & TCQ_F_BUILTIN ||
+ 		!atomic_dec_and_test(&qdisc->refcnt))
+ 		return;
+-	list_del(&qdisc->list);
++
++	if (!list_empty(&qdisc->list)) {
++		if (qdisc->ops->cl_ops == NULL)
++			list_del(&qdisc->list);
++		else
++			list_move(&qdisc->list, &cql);
++	}
++
++	/* unlink inner qdiscs from dev->qdisc_list immediately */
++	list_for_each_entry(cq, &cql, list)
++		list_for_each_entry_safe(q, n, &qdisc->dev->qdisc_list, list)
++			if (TC_H_MAJ(q->parent) == TC_H_MAJ(cq->handle)) {
++				if (q->ops->cl_ops != NULL)
++					list_move_tail(&q->list, &cql);
++				else
++					list_del_init(&q->list);
++			}
++	list_for_each_entry_safe(cq, n, &cql, list)
++		list_del_init(&cq->list);
++
+ 	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
+ }
+ 
 
-	Jeff
+--------------090707000604020204090600--
