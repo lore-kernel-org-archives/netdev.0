@@ -1,63 +1,34 @@
-From: Lincoln Dale <ltd@cisco.com>
-Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Thu, 13 Jun 2002 18:44:20 +1000
+From: Andrey Savochkin <saw@saw.sw.com.sg>
+Subject: Re: NAPI for eepro100
+Date: Thu, 13 Jun 2002 12:57:53 +0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae9ma0$mhq$2@main.gmane.org>
-References: <5.1.0.14.2.20020612221925.0283fb18@mira-sjcm-3.cisco.com>
+Message-ID: <ae9md0$mm1$2@main.gmane.org>
+References: <3D0740ED.2060907@ict.ac.cn> <3D07D270.5060902@mandrakesoft.com> <20020612.160532.134201977.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"; format=flowed
-Cc: Horst von Brand <vonbrand@inf.utfsm.cl>,
-   "David S. Miller" <davem@redhat.com>, Ben Greear <greearb@candelatech.com>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   jamal <hadi@cyberus.ca>
+Content-Type: text/plain; charset=us-ascii
+Cc: fxzhang@ict.ac.cn, linux-mips@oss.sgi.com, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, jgarzik@mandrakesoft.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: David Schwartz <davids@webmaster.com>
-In-Reply-To: <20020613072155.AAA14363@shell.webmaster.com@whenever>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020612.160532.134201977.davem@redhat.com>; from "David S. Miller" on Wed, Jun 12, 2002 at 04:05:32PM
 List-Id: netdev.vger.kernel.org
 
+On Wed, Jun 12, 2002 at 04:05:32PM -0700, David S. Miller wrote:
+>    From: Jeff Garzik <jgarzik@mandrakesoft.com>
+>    Date: Wed, 12 Jun 2002 19:00:00 -0400
+>    
+>    for the 'mips' patch, it looks 
+>    like the arch maintainer(s) need to fix the PCI DMA support...
+> 
+> No, it's worse than that.
+> 
+> See how non-consistent memory is used by the eepro100 driver
+> for descriptor bits?  The skb->tail bits?
+> 
+> That is very problematic.
 
-> >i know of many many folk who use transaction logs from HTTP caches for
-> >volume-based billing.
-> >right now, those bills are anywhere between 10% to 25% incorrect.
->
->         You are being paid to deliver packets to their destination, not 
-> to drop
->them.
+What's the problem?
+If it isn't allowed to do, then what is the meaning of PCI_DMA_BIDIRECTIONAL
+mappings?
 
-ho hum.
-yes, that is typically true of a transit provider.
-however, the transit provider wants to charge the customer not just for 
-what is delivered to layer-7, but also for packetization overhead at 
-layer-2/layer-3/layer-4.  after all, the IP+TCP packet headers are 
-delivered to the client as well, no?
-
-this is just my point: there is NO method to account for those pesky headers!
-
-
-also, think of the case where a HTTP Proxy _isn't_ in the path of 
-traffic.  from this side of the Pacific, if there are TCP retransmissions, 
-they are end-to-end retransmissions, across that really expensive piece of 
-wet string otherwise known as an undersea cable.  _that_ is the most 
-expensive hop and if a customer is congested on the last mile, they're 
-still eating into the expensive bandwidth!
-
-discussions on the layer-8 (religion) or layer-9 (politics) aspects of 
-whether it is correct to bill based on that is irrelevant.  what is 
-relevant is that there isn't any mechanism to count the overhead of 
-packetization or the overhead of using a "reliable stream transport" such 
-as TCP.
-
-i do have the code to do this.  its relatively trivial and consumes an 
-extra 8 bytes of RAM per socket.
-it doesn't obfuscate the existing kernel code nor does it slow the code 
-down by any tangible amount.
-it is a compile-time option so for those people who don't know or care 
-about it, it doesn't impact them at all.
-yet, clearly, Dave and Jamal are vehemently opposed to it.
-alas, that means it stays as an out-of-kernel patch and will likely 
-continue to suffer bit-rot as time goes by.  c'est la vie.
-
-
-cheers,
-
-lincoln.
+	Andrey
