@@ -1,237 +1,97 @@
-From: Wensong Zhang <wensong@linux-vs.org>
-Subject: [2.6 PATCH] ipvs - two additional minor patches
-Date: Sun, 5 Oct 2003 20:41:34 +0800 (CST)
+From: chas williams <chas@cmf.nrl.navy.mil>
+Subject: Re: [RFC] add rtnl semaphore to linux-atm
+Date: Sun, 05 Oct 2003 08:52:58 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310052040210.1942-300000@penguin.linux-vs.org>
-Mime-Version: 1.0
-Content-Type: MULTIPART/Mixed; BOUNDARY="-1463755008-1767717351-1065357462=:1942"
-Cc: Rusty Russell <rusty@rustcorp.com.au>, Julian Anastasov <ja@ssi.bg>,
-        <netdev@oss.sgi.com>
+Message-ID: <200310051252.h95CqvkT022363@ginger.cmf.nrl.navy.mil>
+References: <20031004194242.GC94203@gaz.sfgoth.com>
+Reply-To: chas3@users.sourceforge.net
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-ID: <Pine.LNX.4.44.0310052037540.1942@penguin.linux-vs.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-reply-to: Your message of "Sat, 04 Oct 2003 12:42:42 PDT."
+             <20031004194242.GC94203@gaz.sfgoth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+In message <20031004194242.GC94203@gaz.sfgoth.com>,Mitchell Blank Jr writes:
+>Agreed.  I'm not sure if it's a giant win (since atm devices are pretty
+>unique) but you seem pretty gung-ho about converting it so I'll trust
+>you on it.
 
----1463755008-1767717351-1065357462=:1942
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
-Content-ID: <Pine.LNX.4.44.0310052037541.1942@penguin.linux-vs.org>
+well if you ignore the sysfs and notifier handling provided by netdevice
+and rtnetlink then no you dont really gain anything.  but i can see
+a use for both of these things.  like to watching the carrier status
+of an atm card.
 
+>Well that might be true in the tree.  I think as more DSL adpaters are
+>supported this will change.  The atm_dev->open() is really the only sane
+>place currently to kick-off DSL negotiation (so the link is brought up
+>when pppd or whatever is started)
 
+i am not sure the negotiation should be handled by the kernel.
+we will cross this bridge when we get there.  i dont see a
+rush of people trying to add dsl drivers.  in fact, the
+community seems to be pretty stingy with documentation about
+the dsl hardware.
 
-Hi,
+>> people who use ATM_ITF_ANY are going to pay a penalty
+>Exactly - its a userspace problem.
 
-Here are two additional minor patches for IPVS in the kernel 2.6.
+so the idea is to fix it minimally.  people who use it should be
+encouraged to change.  i would either get rid of completely or
+make it work as before.  not change the way it works.
 
-The ip_vs_conn_unlock.patch is to fix the unlocking bug in the 
-ip_vs_conn_seq_stop, otherwise listing connections would cause the system 
-lock up.
+>I can't speak for all the cards but at least lanai.c has to sleep in
+>->close() due to hardware issues.  Each VCC has its own cell buffers
+>allocated which the card DMAs into.  When you close a vcc you need to
+>wait for an internal RX queue to drain before you can safely free the
+>buffer or you might end up scribbling on random memory.
 
-The ip_vs_procfs.patch is to the #ifdef CONFIG_PROC_FS macro for proc file 
-creation/destruction.
+right.  the he has the same problem.  however, you should be sleeping
+in close.  the vcc/sk should have a count of the outstanding skb's (i.e.
+loaned to the card).  the he sends an interrupt when its done with
+a skb so you drop the refcount on the vcc/sk.  when this reaches 
+0 the vcc/sk they go away and you dont have a problem.  no sleeping
+in the vcc->close() since the removal of all outstanding skb's would
+be handled asychronously.  currently this is impossible since the 
+skb's coming in to the atm card's are typically owned by other layer.
+(which sort of explains vcc->pop()).
 
-Please consider to include them.
+>  2. Given the rather spotty history of ATM drivers and SMP I'd rather
+>     keep the driver API as safe as possible.  Basically the driver
+>     should only have to worry about locking when dealing with the
+>     rx/tx paths (and there are still lots of problems there I think)
+>     Everything else can be safely serialized by the ATM layer
 
-Thanks,
+i dont believe any of the smp problems have come from open/close/change_qos.
+almost all smp problems can be traced to a lack of locking on the 
+appropriate data structures and the improper handling of skb's in the
+tx/rx paths.  (and YOU CANT SLEEP IN SEND!)  smp actually seems to be
+pretty stable now (however we do have a local 2.4 tree that is more
+2.6 as far as atm).  2-way, 4-way, 128-way (this one has 4 adapters
+with a preliminary version of load-balancing).  these hosts are atm only.
 
-Wensong
+>Unfortunately the flag is currently managed by the driver instead of the
+>ATM layer.  If you're willing to strip out all of the ATM_VF_* use inside
+>of the drivers then yes we can use that flag.
 
----1463755008-1767717351-1065357462=:1942
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="ip_vs_conn_unlock.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310052037420.1942@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="ip_vs_conn_unlock.patch"
+i believe that was the plan.
 
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM4NiAgLT4gMS4xMzg3IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjEwICAgIC0+IDEuMTEgICAN
-CiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENoYW5nZVNl
-dCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0NCiMgMDMvMTAvMDQJd2Vuc29uZ0BsaW51eC12cy5vcmcJMS4x
-Mzg3DQojIFtJUFZTXSBmaXggdGhlIHVubG9ja2luZyBidWcgaW4gdGhlIGlw
-X3ZzX2Nvbm5fc2VxX3N0b3ANCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMNCmRpZmYgLU5ydSBhL25ldC9pcHY0
-L2lwdnMvaXBfdnNfY29ubi5jIGIvbmV0L2lwdjQvaXB2cy9pcF92c19jb25u
-LmMNCi0tLSBhL25ldC9pcHY0L2lwdnMvaXBfdnNfY29ubi5jCVNhdCBPY3Qg
-IDQgMjI6NTQ6NTggMjAwMw0KKysrIGIvbmV0L2lwdjQvaXB2cy9pcF92c19j
-b25uLmMJU2F0IE9jdCAgNCAyMjo1NDo1OCAyMDAzDQpAQCAtNjcwLDggKzY3
-MCw4IEBADQogew0KIAlzdHJ1Y3QgbGlzdF9oZWFkICpsID0gc2VxLT5wcml2
-YXRlOw0KIA0KLQlpZiAobCkgDQotCQljdF9yZWFkX3VubG9jayhsIC0gaXBf
-dnNfY29ubl90YWIpOw0KKwlpZiAobCkNCisJCWN0X3JlYWRfdW5sb2NrX2Jo
-KGwgLSBpcF92c19jb25uX3RhYik7DQogfQ0KIA0KIHN0YXRpYyBpbnQgaXBf
-dnNfY29ubl9zZXFfc2hvdyhzdHJ1Y3Qgc2VxX2ZpbGUgKnNlcSwgdm9pZCAq
-dikNCg==
----1463755008-1767717351-1065357462=:1942
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="ip_vs_procfs.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.44.0310052037421.1942@penguin.linux-vs.org>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="ip_vs_procfs.patch"
+>This is just a matter of adding an efficient API for searching for vpi/vci's
+>(as we recently discussed on l-a-g)  If that was done then we could get rid
+>of the duplicated data strucutres that exist in most of the drivers (and
+>get rid of a whole class of races in the rx paths)
 
-IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
-IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
-cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
-ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
-IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
-CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM4NyAgLT4gMS4xMzg4IA0KIwlu
-ZXQvaXB2NC9pcHZzL2lwX3ZzX2FwcC5jCTEuNyAgICAgLT4gMS44ICAgIA0K
-IwluZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMTAgICAgLT4gMS4xMSAg
-IA0KIwluZXQvaXB2NC9pcHZzL2lwX3ZzX2Nvbm4uYwkxLjExICAgIC0+IDEu
-MTIgICANCiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2VlcGVyIENo
-YW5nZVNldCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tLS0tLS0tLS0tLS0NCiMgMDMvMTAvMDQJd2Vuc29uZ0BsaW51eC12cy5v
-cmcJMS4xMzg4DQojIFtJUFZTXSBhZGQgdGhlICNpZmRlZiBDT05GSUdfUFJP
-Q19GUyBtYWNybyBmb3IgcHJvYyBmaWxlIGNyZWF0aW9uL2Rlc3RydWN0aW9u
-DQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
-LS0tDQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2FwcC5j
-IGIvbmV0L2lwdjQvaXB2cy9pcF92c19hcHAuYw0KLS0tIGEvbmV0L2lwdjQv
-aXB2cy9pcF92c19hcHAuYwlTYXQgT2N0ICA0IDIyOjU1OjM0IDIwMDMNCisr
-KyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfYXBwLmMJU2F0IE9jdCAgNCAyMjo1
-NTozNCAyMDAzDQpAQCAtNjUyLDEzICs2NTIsMTcgQEANCiANCiBpbnQgaXBf
-dnNfYXBwX2luaXQodm9pZCkNCiB7DQorI2lmZGVmIENPTkZJR19QUk9DX0ZT
-DQogCS8qIHdlIHdpbGwgcmVwbGFjZSBpdCB3aXRoIHByb2NfbmV0X2lwdnNf
-Y3JlYXRlKCkgc29vbiAqLw0KIAlwcm9jX25ldF9mb3BzX2NyZWF0ZSgiaXBf
-dnNfYXBwIiwgMCwgJmlwX3ZzX2FwcF9mb3BzKTsNCisjZW5kaWYNCiAJcmV0
-dXJuIDA7DQogfQ0KIA0KIA0KIHZvaWQgaXBfdnNfYXBwX2NsZWFudXAodm9p
-ZCkNCiB7DQorI2lmZGVmIENPTkZJR19QUk9DX0ZTDQogCXByb2NfbmV0X3Jl
-bW92ZSgiaXBfdnNfYXBwIik7DQorI2VuZGlmDQogfQ0KZGlmZiAtTnJ1IGEv
-bmV0L2lwdjQvaXB2cy9pcF92c19jb25uLmMgYi9uZXQvaXB2NC9pcHZzL2lw
-X3ZzX2Nvbm4uYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9pcF92c19jb25uLmMJ
-U2F0IE9jdCAgNCAyMjo1NTozNCAyMDAzDQorKysgYi9uZXQvaXB2NC9pcHZz
-L2lwX3ZzX2Nvbm4uYwlTYXQgT2N0ICA0IDIyOjU1OjM0IDIwMDMNCkBAIC02
-MTYsNyArNjE2LDcgQEANCiB7DQogCWludCBpZHg7DQogCXN0cnVjdCBpcF92
-c19jb25uICpjcDsNCi0JDQorDQogCWZvcihpZHggPSAwOyBpZHggPCBJUF9W
-U19DT05OX1RBQl9TSVpFOyBpZHgrKykgew0KIAkJY3RfcmVhZF9sb2NrX2Jo
-KGlkeCk7DQogCQlsaXN0X2Zvcl9lYWNoX2VudHJ5KGNwLCAmaXBfdnNfY29u
-bl90YWJbaWR4XSwgY19saXN0KSB7DQpAQCAtNjM0LDcgKzYzNCw3IEBADQog
-c3RhdGljIHZvaWQgKmlwX3ZzX2Nvbm5fc2VxX3N0YXJ0KHN0cnVjdCBzZXFf
-ZmlsZSAqc2VxLCBsb2ZmX3QgKnBvcykNCiB7DQogCXNlcS0+cHJpdmF0ZSA9
-IE5VTEw7DQotCXJldHVybiAqcG9zID8gaXBfdnNfY29ubl9hcnJheShzZXEs
-ICpwb3MgLSAxKSA6U0VRX1NUQVJUX1RPS0VOOw0KKwlyZXR1cm4gKnBvcyA/
-IGlwX3ZzX2Nvbm5fYXJyYXkoc2VxLCAqcG9zIC0gMSkgOiBTRVFfU1RBUlRf
-VE9LRU47DQogfQ0KIA0KIHN0YXRpYyB2b2lkICppcF92c19jb25uX3NlcV9u
-ZXh0KHN0cnVjdCBzZXFfZmlsZSAqc2VxLCB2b2lkICp2LCBsb2ZmX3QgKnBv
-cykNCkBAIC02NDQsNyArNjQ0LDcgQEANCiAJaW50IGlkeDsNCiANCiAJKysq
-cG9zOw0KLQlpZiAodiA9PSBTRVFfU1RBUlRfVE9LRU4pIA0KKwlpZiAodiA9
-PSBTRVFfU1RBUlRfVE9LRU4pDQogCQlyZXR1cm4gaXBfdnNfY29ubl9hcnJh
-eShzZXEsIDApOw0KIA0KIAkvKiBtb3JlIG9uIHNhbWUgaGFzaCBjaGFpbj8g
-Ki8NCkBAIC02NTksNyArNjU5LDcgQEANCiAJCWxpc3RfZm9yX2VhY2hfZW50
-cnkoY3AsICZpcF92c19jb25uX3RhYltpZHhdLCBjX2xpc3QpIHsNCiAJCQlz
-ZXEtPnByaXZhdGUgPSAmaXBfdnNfY29ubl90YWJbaWR4XTsNCiAJCQlyZXR1
-cm4gY3A7DQotCQl9CQ0KKwkJfQ0KIAkJY3RfcmVhZF91bmxvY2tfYmgoaWR4
-KTsNCiAJfQ0KIAlzZXEtPnByaXZhdGUgPSBOVUxMOw0KQEAgLTY3OSwxOCAr
-Njc5LDE4IEBADQogDQogCWlmICh2ID09IFNFUV9TVEFSVF9UT0tFTikNCiAJ
-CXNlcV9wdXRzKHNlcSwNCi0gICAiUHJvIEZyb21JUCAgIEZQcnQgVG9JUCAg
-ICAgVFBydCBEZXN0SVAgICBEUHJ0IFN0YXRlICAgICAgIEV4cGlyZXNcbiIp
-Ow0KKwkJCSAiUHJvIEZyb21JUCAgIEZQcnQgVG9JUCAgICAgVFBydCBEZXN0
-SVAgICBEUHJ0IFN0YXRlICAgICAgIEV4cGlyZXNcbiIpOw0KIAllbHNlIHsN
-CiAJCWNvbnN0IHN0cnVjdCBpcF92c19jb25uICpjcCA9IHY7DQogDQogCQlz
-ZXFfcHJpbnRmKHNlcSwNCi0JCQkiJS0zcyAlMDhYICUwNFggJTA4WCAlMDRY
-ICUwOFggJTA0WCAlLTExcyAlN2x1XG4iLA0KLQkJCQlpcF92c19wcm90b19u
-YW1lKGNwLT5wcm90b2NvbCksDQotCQkJCW50b2hsKGNwLT5jYWRkciksIG50
-b2hzKGNwLT5jcG9ydCksDQotCQkJCW50b2hsKGNwLT52YWRkciksIG50b2hz
-KGNwLT52cG9ydCksDQotCQkJCW50b2hsKGNwLT5kYWRkciksIG50b2hzKGNw
-LT5kcG9ydCksDQotCQkJCWlwX3ZzX3N0YXRlX25hbWUoY3AtPnByb3RvY29s
-LCBjcC0+c3RhdGUpLA0KLQkJCQkoY3AtPnRpbWVyLmV4cGlyZXMtamlmZmll
-cykvSFopOw0KKwkJCSAgICIlLTNzICUwOFggJTA0WCAlMDhYICUwNFggJTA4
-WCAlMDRYICUtMTFzICU3bHVcbiIsDQorCQkJICAgaXBfdnNfcHJvdG9fbmFt
-ZShjcC0+cHJvdG9jb2wpLA0KKwkJCSAgIG50b2hsKGNwLT5jYWRkciksIG50
-b2hzKGNwLT5jcG9ydCksDQorCQkJICAgbnRvaGwoY3AtPnZhZGRyKSwgbnRv
-aHMoY3AtPnZwb3J0KSwNCisJCQkgICBudG9obChjcC0+ZGFkZHIpLCBudG9o
-cyhjcC0+ZHBvcnQpLA0KKwkJCSAgIGlwX3ZzX3N0YXRlX25hbWUoY3AtPnBy
-b3RvY29sLCBjcC0+c3RhdGUpLA0KKwkJCSAgIChjcC0+dGltZXIuZXhwaXJl
-cy1qaWZmaWVzKS9IWik7DQogCX0NCiAJcmV0dXJuIDA7DQogfQ0KQEAgLTg4
-OCw3ICs4ODgsOSBAQA0KIAkJX19pcF92c19jb25udGJsX2xvY2tfYXJyYXlb
-aWR4XS5sID0gUldfTE9DS19VTkxPQ0tFRDsNCiAJfQ0KIA0KKyNpZmRlZiBD
-T05GSUdfUFJPQ19GUw0KIAlwcm9jX25ldF9mb3BzX2NyZWF0ZSgiaXBfdnNf
-Y29ubiIsIDAsICZpcF92c19jb25uX2ZvcHMpOw0KKyNlbmRpZg0KIA0KIAkv
-KiBjYWxjdWxhdGUgdGhlIHJhbmRvbSB2YWx1ZSBmb3IgY29ubmVjdGlvbiBo
-YXNoICovDQogCWdldF9yYW5kb21fYnl0ZXMoJmlwX3ZzX2Nvbm5fcm5kLCBz
-aXplb2YoaXBfdnNfY29ubl9ybmQpKTsNCkBAIC05MDIsOCArOTA0LDEwIEBA
-DQogCS8qIGZsdXNoIGFsbCB0aGUgY29ubmVjdGlvbiBlbnRyaWVzIGZpcnN0
-ICovDQogCWlwX3ZzX2Nvbm5fZmx1c2goKTsNCiANCisjaWZkZWYgQ09ORklH
-X1BST0NfRlMNCisJcHJvY19uZXRfcmVtb3ZlKCJpcF92c19jb25uIik7DQor
-I2VuZGlmDQogCS8qIFJlbGVhc2UgdGhlIGVtcHR5IGNhY2hlICovDQogCWtt
-ZW1fY2FjaGVfZGVzdHJveShpcF92c19jb25uX2NhY2hlcCk7DQotCXByb2Nf
-bmV0X3JlbW92ZSgiaXBfdnNfY29ubiIpOw0KIAl2ZnJlZShpcF92c19jb25u
-X3RhYik7DQogfQ0KZGlmZiAtTnJ1IGEvbmV0L2lwdjQvaXB2cy9pcF92c19j
-dGwuYyBiL25ldC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMNCi0tLSBhL25ldC9p
-cHY0L2lwdnMvaXBfdnNfY3RsLmMJU2F0IE9jdCAgNCAyMjo1NTozNCAyMDAz
-DQorKysgYi9uZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCVNhdCBPY3QgIDQg
-MjI6NTU6MzQgMjAwMw0KQEAgLTEyNzYsNyArMTI3Niw3IEBADQogCSAqIEZs
-dXNoIHRoZSBzZXJ2aWNlIHRhYmxlIGhhc2hlZCBieSBmd21hcmsNCiAJICov
-DQogCWZvcihpZHggPSAwOyBpZHggPCBJUF9WU19TVkNfVEFCX1NJWkU7IGlk
-eCsrKSB7DQotCQlsaXN0X2Zvcl9lYWNoX2VudHJ5X3NhZmUoc3ZjLCBueHQs
-IA0KKwkJbGlzdF9mb3JfZWFjaF9lbnRyeV9zYWZlKHN2Yywgbnh0LA0KIAkJ
-CQkJICZpcF92c19zdmNfZndtX3RhYmxlW2lkeF0sIGZfbGlzdCkgew0KIAkJ
-CXdyaXRlX2xvY2tfYmgoJl9faXBfdnNfc3ZjX2xvY2spOw0KIAkJCWlwX3Zz
-X3N2Y191bmhhc2goc3ZjKTsNCkBAIC0xNTM1LDcgKzE1MzUsNiBAQA0KIA0K
-IHN0YXRpYyB2b2lkICppcF92c19pbmZvX3NlcV9zdGFydChzdHJ1Y3Qgc2Vx
-X2ZpbGUgKnNlcSwgbG9mZl90ICpwb3MpDQogew0KLQ0KIAlyZWFkX2xvY2tf
-YmgoJl9faXBfdnNfc3ZjX2xvY2spOw0KIAlyZXR1cm4gKnBvcyA/IGlwX3Zz
-X2luZm9fYXJyYXkoc2VxLCAqcG9zIC0gMSkgOiBTRVFfU1RBUlRfVE9LRU47
-DQogfQ0KQEAgLTE1NTAsMTYgKzE1NDksMTUgQEANCiAJKysqcG9zOw0KIAlp
-ZiAodiA9PSBTRVFfU1RBUlRfVE9LRU4pDQogCQlyZXR1cm4gaXBfdnNfaW5m
-b19hcnJheShzZXEsMCk7DQotCQ0KKw0KIAlzdmMgPSB2Ow0KIAlpdGVyID0g
-c2VxLT5wcml2YXRlOw0KLQkNCisNCiAJaWYgKGl0ZXItPnRhYmxlID09IGlw
-X3ZzX3N2Y190YWJsZSkgew0KIAkJLyogbmV4dCBzZXJ2aWNlIGluIHRhYmxl
-IGhhc2hlZCBieSBwcm90b2NvbCAqLw0KIAkJaWYgKChlID0gc3ZjLT5zX2xp
-c3QubmV4dCkgIT0gJmlwX3ZzX3N2Y190YWJsZVtpdGVyLT5idWNrZXRdKQ0K
-IAkJCXJldHVybiBsaXN0X2VudHJ5KGUsIHN0cnVjdCBpcF92c19zZXJ2aWNl
-LCBzX2xpc3QpOw0KIA0KLQ0KIAkJd2hpbGUgKCsraXRlci0+YnVja2V0IDwg
-SVBfVlNfU1ZDX1RBQl9TSVpFKSB7DQogCQkJbGlzdF9mb3JfZWFjaF9lbnRy
-eShzdmMsJmlwX3ZzX3N2Y190YWJsZVtpdGVyLT5idWNrZXRdLA0KIAkJCQkJ
-ICAgIHNfbGlzdCkgew0KQEAgLTE1NzYsMTAgKzE1NzQsMTAgQEANCiAJaWYg
-KChlID0gc3ZjLT5mX2xpc3QubmV4dCkgIT0gJmlwX3ZzX3N2Y19md21fdGFi
-bGVbaXRlci0+YnVja2V0XSkNCiAJCXJldHVybiBsaXN0X2VudHJ5KGUsIHN0
-cnVjdCBpcF92c19zZXJ2aWNlLCBmX2xpc3QpOw0KIA0KLSBzY2FuX2Z3bWFy
-azoNCisgIHNjYW5fZndtYXJrOg0KIAl3aGlsZSAoKytpdGVyLT5idWNrZXQg
-PCBJUF9WU19TVkNfVEFCX1NJWkUpIHsNCiAJCWxpc3RfZm9yX2VhY2hfZW50
-cnkoc3ZjLCAmaXBfdnNfc3ZjX2Z3bV90YWJsZVtpdGVyLT5idWNrZXRdLA0K
-LQkJCQkgICAgZl9saXN0KSANCisJCQkJICAgIGZfbGlzdCkNCiAJCQlyZXR1
-cm4gc3ZjOw0KIAl9DQogDQpAQCAtMTYwNyw3ICsxNjA1LDcgQEANCiAJCWNv
-bnN0IHN0cnVjdCBpcF92c19pdGVyICppdGVyID0gc2VxLT5wcml2YXRlOw0K
-IAkJY29uc3Qgc3RydWN0IGlwX3ZzX2Rlc3QgKmRlc3Q7DQogDQotCQlpZiAo
-aXRlci0+dGFibGUgPT0gaXBfdnNfc3ZjX3RhYmxlKSANCisJCWlmIChpdGVy
-LT50YWJsZSA9PSBpcF92c19zdmNfdGFibGUpDQogCQkJc2VxX3ByaW50Zihz
-ZXEsICIlcyAgJTA4WDolMDRYICVzICIsDQogCQkJCSAgIGlwX3ZzX3Byb3Rv
-X25hbWUoc3ZjLT5wcm90b2NvbCksDQogCQkJCSAgIG50b2hsKHN2Yy0+YWRk
-ciksDQpAQCAtMTYyNSw3ICsxNjIzLDcgQEANCiAJCQlzZXFfcHV0YyhzZXEs
-ICdcbicpOw0KIA0KIAkJbGlzdF9mb3JfZWFjaF9lbnRyeShkZXN0LCAmc3Zj
-LT5kZXN0aW5hdGlvbnMsIG5fbGlzdCkgew0KLQkJCXNlcV9wcmludGYoc2Vx
-LCANCisJCQlzZXFfcHJpbnRmKHNlcSwNCiAJCQkJICAgIiAgLT4gJTA4WDol
-MDRYICAgICAgJS03cyAlLTZkICUtMTBkICUtMTBkXG4iLA0KIAkJCQkgICBu
-dG9obChkZXN0LT5hZGRyKSwgbnRvaHMoZGVzdC0+cG9ydCksDQogCQkJCSAg
-IGlwX3ZzX2Z3ZF9uYW1lKGF0b21pY19yZWFkKCZkZXN0LT5jb25uX2ZsYWdz
-KSksDQpAQCAtMTY4Niw3ICsxNjg0LDcgQEANCiAvKiAgICAgICAgICAgICAg
-IDAxMjM0NTY3IDAxMjM0NTY3IDAxMjM0NTY3IDAxMjM0NTY3MDEyMzQ1Njcg
-MDEyMzQ1NjcwMTIzNDU2NyAqLw0KIAlzZXFfcHV0cyhzZXEsDQogCQkgIiAg
-IFRvdGFsIEluY29taW5nIE91dGdvaW5nICAgICAgICAgSW5jb21pbmcgICAg
-ICAgICBPdXRnb2luZ1xuIik7DQotCXNlcV9wcmludGYoc2VxLCAJICAgDQor
-CXNlcV9wcmludGYoc2VxLA0KIAkJICAgIiAgIENvbm5zICBQYWNrZXRzICBQ
-YWNrZXRzICAgICAgICAgICAgQnl0ZXMgICAgICAgICAgICBCeXRlc1xuIik7
-DQogDQogCXNwaW5fbG9ja19iaCgmaXBfdnNfc3RhdHMubG9jayk7DQpAQCAt
-MjIwNSw4ICsyMjAzLDEwIEBADQogCQlyZXR1cm4gcmV0Ow0KIAl9DQogDQor
-I2lmZGVmIENPTkZJR19QUk9DX0ZTDQogCXByb2NfbmV0X2ZvcHNfY3JlYXRl
-KCJpcF92cyIsIDAsICZpcF92c19pbmZvX2ZvcHMpOw0KIAlwcm9jX25ldF9m
-b3BzX2NyZWF0ZSgiaXBfdnNfc3RhdHMiLDAsICZpcF92c19zdGF0c19mb3Bz
-KTsNCisjZW5kaWYNCiANCiAJaXB2NF92c190YWJsZS5zeXNjdGxfaGVhZGVy
-ID0NCiAJCXJlZ2lzdGVyX3N5c2N0bF90YWJsZShpcHY0X3ZzX3RhYmxlLnJv
-b3RfZGlyLCAwKTsNCkBAIC0yMjQyLDggKzIyNDIsMTAgQEANCiAJZGVsX3Rp
-bWVyX3N5bmMoJmRlZmVuc2VfdGltZXIpOw0KIAlpcF92c19raWxsX2VzdGlt
-YXRvcigmaXBfdnNfc3RhdHMpOw0KIAl1bnJlZ2lzdGVyX3N5c2N0bF90YWJs
-ZShpcHY0X3ZzX3RhYmxlLnN5c2N0bF9oZWFkZXIpOw0KKyNpZmRlZiBDT05G
-SUdfUFJPQ19GUw0KIAlwcm9jX25ldF9yZW1vdmUoImlwX3ZzX3N0YXRzIik7
-DQogCXByb2NfbmV0X3JlbW92ZSgiaXBfdnMiKTsNCisjZW5kaWYNCiAJbmZf
-dW5yZWdpc3Rlcl9zb2Nrb3B0KCZpcF92c19zb2Nrb3B0cyk7DQogCUxlYXZl
-RnVuY3Rpb24oMik7DQogfQ0K
----1463755008-1767717351-1065357462=:1942--
+well the linear seach is already fairly efficient for most people since
+most people dont have more than a handful of vcc's open at a time.
+my machine is pure atm and typically i only have about 12 vcc's open
+at a time.
+
+>I don't think that's the case at all - you could safely remove the vcc from
+>the list at ->close time (but not free its memory until the last reference
+>disappears)  Then an ->open would see the vpi/vci as free immediately (which
+>should be safe)
+
+not sure about this.  the fore200e seems to have a problem with
+reopening on a vcc while there still might be outstanding skb's on a
+vcc from a previos open/close.
