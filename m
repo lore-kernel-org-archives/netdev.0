@@ -1,41 +1,64 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: SIOCADDMULTI for unicast broken
-Date: Sat, 4 Jan 2003 12:43:49 -0500 (EST)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPv6: Fix Length of Authentication Extension Header
+Date: Sun, 05 Jan 2003 02:48:23 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030104124133.H48869@shell.cyberus.ca>
-References: <Pine.LNX.4.44.0301032100340.29812-100000@beohost.scyld.com>
- <20030103224852.L48869@shell.cyberus.ca> <3E168E26.1030006@pobox.com>
+Message-ID: <20030105.024823.61168301.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Donald Becker <becker@scyld.com>, Ben Greear <greearb@candelatech.com>,
-   "" <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3E168E26.1030006@pobox.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
+This patch fixes calculation of length of IPv6 Authentication Extension
+Header.
 
-On Sat, 4 Jan 2003, Jeff Garzik wrote:
+RFC2402: 2.2 Payload Length
+:
+This 8-bit field specifies the length of AH in 32-bit words (4-byte
+units), minus "2".  ...
 
-> I wonder if there are any good uses for more advanced RX filtering that
-> is beginning to appear.  I could certainly imagine an interface that was
-> a more generic RX filtering interface, and [just by accident] happened
-> to support existing unicast and multicast rx-mode-related controls.
->
-> As vendors stuff features onto cards and try to figure out where is the
-> best dividing line between TCP stack acceleration and TCP stack offload,
-> it seems to me that recent cards more often than not have nice RX
-> filtering capabilities.  If you look at the world through GigE-colored
-> glasses, the RX filtering picture gets even better.  There are some fun
-> SMP implications with flexible enough RX filtering, for example.
->
+This is against linux-2.4.20, 2.5.54. 
+(2.2.x series have similar bug, too.)
 
-Davem had some nifty ideas on this at least for TOE. I think we ought to
-start looking at that direction. Anyone who is working on this please
-involve me, i have some ideas (and it would avoid me stressing you
-when you output code).
+Thanks in advance.
 
-cheers,
-jamal
+-------------------------------------------------------------------
+Patch-Name: Fix Length of Authentication Extension Header
+Patch-Id: FIX_2_4_20_EXTHDRS_AUTHHDRLEN-20030105
+Patch-Author: YOSHIFUJI Hideaki / USAGI Project <yoshfuji@linux-ipv6.org>
+Credit: Noriaki Takamiya / USAGI Project <takamiya@linux-ipv6.org>
+Reference: RFC2402
+-------------------------------------------------------------------
+Index: net/ipv6/exthdrs.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/exthdrs.c,v
+retrieving revision 1.1.1.1
+retrieving revision 1.1.1.1.46.1
+diff -u -r1.1.1.1 -r1.1.1.1.46.1
+--- net/ipv6/exthdrs.c	20 Aug 2002 09:47:02 -0000	1.1.1.1
++++ net/ipv6/exthdrs.c	4 Jan 2003 17:19:03 -0000	1.1.1.1.46.1
+@@ -402,7 +402,13 @@
+ 	if (!pskb_may_pull(skb, (skb->h.raw-skb->data)+8))
+ 		goto fail;
+ 
+-	len = (skb->h.raw[1]+1)<<2;
++	/*
++	 * RFC2402 2.2 Payload Length
++	 * The 8-bit field specifies the length of AH in 32-bit words 
++	 * (4-byte units), minus "2".
++	 * -- Noriaki Takamiya @USAGI Project
++	 */
++	len = (skb->h.raw[1]+2)<<2;
+ 
+ 	if (len&7)
+ 		goto fail;
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
