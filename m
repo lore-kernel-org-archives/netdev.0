@@ -1,37 +1,31 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: net/sctp/sm_make_chunk.c alignment problems on parisc64
-Date: Wed, 17 Sep 2003 16:06:18 -0700 (PDT)
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] janitor: remove (or add) unneeded includes (wireless)
+Date: Wed, 17 Sep 2003 15:49:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309171559540.3831-100000@localhost.localdomain>
-References: <20030912164628.GF8713@conectiva.com.br>
+Message-ID: <20030917224948.GB3351@bougret.hpl.hp.com>
+References: <20030917151738.76585759.rddunlap@osdl.org>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>,
-        <lksctp-developers@lists.sourceforge.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-In-Reply-To: <20030912164628.GF8713@conectiva.com.br>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030917151738.76585759.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2003, Arnaldo Carvalho de Melo wrote:
-
-> Latest 2.6 bk tree, but I think this is hanging there for quite a while.
+On Wed, Sep 17, 2003 at 03:17:38PM -0700, Randy.Dunlap wrote:
 > 
-> CC [M]  net/sctp/sm_make_chunk.o
-> {standard input}: Assembler messages:
-> {standard input}:2386: Error: Field not properly aligned [8] (52).
-> {standard input}:2386: Error: Invalid operands
-> {standard input}:2398: Error: Field not properly aligned [8] (52).
-> {standard input}:2398: Error: Invalid operands
-> make[2]: *** [net/sctp/sm_make_chunk.o] Error 1
-> make[1]: *** [net/sctp] Error 2
-> make: *** [net] Error 2
+> Hi,
+> Please apply to 2.6.0-test5-current.
 > 
-> it happens in the sctp_pack_cookie function.
+> Thanks,
+> --
+> ~Randy
 
-I don't see this problem on i386, ia64 or ppc64. Can someone familiar with parisc64
-provide more details or submit a a patch to fix this problem?
+	No problem on my side (I don't maintain those drivers). Send
+the patch to Jeff or David.
+	Thanks.
 
-Thanks
-Sridhar
+	Jean
