@@ -1,36 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
+From: "John S. Denker" <jsd@monmouth.com>
 Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 20:35:05 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030602.203505.59678701.davem@redhat.com>
-References: <20030602140452.039248de.rddunlap@osdl.org>
-	<20030602.145619.71112623.davem@redhat.com>
-	<33001.4.64.196.31.1054611142.squirrel@www.osdl.org>
+Date: Mon, 02 Jun 2003 23:41:38 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3EDC18F2.6090505@monmouth.com>
+References: <3EDC0915.1080109@monmouth.com>	<20030602.193853.112598236.davem@redhat.com>	<3EDC1418.6080808@monmouth.com> <20030602.202233.39180859.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: rddunlap@osdl.org
-In-Reply-To: <33001.4.64.196.31.1054611142.squirrel@www.osdl.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030602.202233.39180859.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: "Randy.Dunlap" <rddunlap@osdl.org>
-   Date: Mon, 2 Jun 2003 20:32:22 -0700 (PDT)
+On 06/02/2003 11:22 PM, David S. Miller wrote:
+> 
+> Are legal rights only available to people who understand
+> the law and have a legal degree?
+> 
+> No, this is why we hire lawyers if we choose not to study
+> law ourselves.
 
-   The code is absolute, no doubt about it.  It is the authority.
-   That doesn't make it right in all cases AFAIK.
-   
-I totally agree.
+If we are taking the legal system as our
+model of openness, then open-source software
+has come to a sorry pass indeed.
 
-   Now, given that I think that the netlink interface is poorly
-   documented, and that I'm trying to add some kernel code that
-   uses it, and that I'm trying to test said kernel code with a
-   userspace test program, I also plan to add such documentation
-   that I think is warranted to make it easy to use, even by
-   non-kernel devevlopers.
+=========
 
-This is exactly how things should work.  Where there is a need
-for X _AND_ someone willing to create X, it will be created.
-
-No arguments from me on this :-)
+It is also important to distinguish what's best
+for *you* and what's best for the project.
+Maybe *you* don't want to be responsible for
+doing all the documentation.  I can understand
+that.  But the project as a whole would be better
+off it it had better documentation.  Perhaps
+you could recruit other folks to help with this.
+But disdaining the whole concept isn't a good
+way to start the recruiting.
