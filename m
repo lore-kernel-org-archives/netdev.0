@@ -1,8 +1,8 @@
 From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
 Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Tue, 11 Jan 2005 19:27:13 -0600
-Message-ID: <200501111927.15574.jeremy.guthrie@berbee.com>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501110917.26621.jeremy.guthrie@berbee.com> <16868.381.537772.831831@robur.slu.se>
+Date: Tue, 11 Jan 2005 19:30:33 -0600
+Message-ID: <200501111930.35689.jeremy.guthrie@berbee.com>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <200501111118.00601.jeremy.guthrie@berbee.com> <16868.7936.512676.178828@robur.slu.se>
 Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -13,147 +13,143 @@ Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
         Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-In-Reply-To: <16868.381.537772.831831@robur.slu.se>
+In-Reply-To: <16868.7936.512676.178828@robur.slu.se>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 11 January 2005 10:40 am, Robert Olsson wrote:
-> About the same load as last time 80 kpps forwarded and droprate of ~200 pps
-> and 2323 fib lookups/sec. Not so bad for PIII but it maybe tuned better.
->
-> Did the e1000 patch cure the problem that interrupts got enabled for
-> unidirectional traffic? Ring size? I've never seen any win in system
-> performance w. RX rings larger than 256 at least not in lab.
+On Tuesday 11 January 2005 12:46 pm, Robert Olsson wrote:
+> We give up here? Or you want to try another setting of route hash? It's
+> beyond the scope of this subject. You have to reboot if so.
+I am up for pushing it if you do not think it is a waste of time.  Based on 
+what I am seeing it looks like I just need a faster CPU to do the work.  My 
+goal would be to hit zero dropped packets w/ 10-15% CPU to spare but I fail 
+to see how that will happen on this box.  Do you concur that it would be 
+highly unlikely I would be able to get that kind of performance increase?
 
-ETH3 Interrupts(calc'd from below):  1479968
-ETH2 Interrupts:  261543
-Packets RX'd on ETH3:  3892720
-Packets dropped on RX on ETH3:  10305
-
-This equates to about a 0.26% drop rate. W/ 256 packet RX ring size I see 
-about a 0.42% drop rate.
-
-This is using both the newest Intel driver w/ your patch and an increased ring 
-size of 2048.
-
-Tue Jan 11 19:15:04 CST 2005
-eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
-          inet addr:10.253.0.1  Bcast:10.255.255.255  Mask:255.255.255.0
-          inet6 addr: fe80::202:b3ff:fed5:7e30/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:2337377824 errors:14992144 dropped:14992144 
-overruns:9643826 frame:0
-          TX packets:5 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:3984064976 (3799.5 Mb)  TX bytes:398 (398.0 b)
-          Base address:0x22a0 Memory:eff80000-effa0000
-
-           CPU0       CPU1
-  0:   93627934  353254270    IO-APIC-edge  timer
-  1:         35        507    IO-APIC-edge  i8042
-  7:          0          0   IO-APIC-level  ohci_hcd
-  8:          0          2    IO-APIC-edge  rtc
- 12:         73        145    IO-APIC-edge  i8042
- 14:        120        313    IO-APIC-edge  ide0
- 18: 2158179576       1815   IO-APIC-level  eth3
- 20:          2 2136514988   IO-APIC-level  eth2
- 27:     204201     371301   IO-APIC-level  eth0
- 28:      14585      75320   IO-APIC-level  aic7xxx
- 30:          0          0   IO-APIC-level  acpi
-NMI:          0          0
-LOC:  446922783  446921227
-ERR:          0
-MIS:          0
-
-Tue Jan 11 19:16:05 CST 2005
-eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
-          inet addr:10.253.0.1  Bcast:10.255.255.255  Mask:255.255.255.0
-          inet6 addr: fe80::202:b3ff:fed5:7e30/64 Scope:Link
-          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
-          RX packets:2341270544 errors:15002449 dropped:15002449 
-overruns:9652393 frame:0
-          TX packets:5 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:1664751812 (1587.6 Mb)  TX bytes:398 (398.0 b)
-          Base address:0x22a0 Memory:eff80000-effa0000
-
-           CPU0       CPU1
-  0:   93639955  353302319    IO-APIC-edge  timer
-  1:         35        507    IO-APIC-edge  i8042
-  7:          0          0   IO-APIC-level  ohci_hcd
-  8:          0          2    IO-APIC-edge  rtc
- 12:         73        145    IO-APIC-edge  i8042
- 14:        120        313    IO-APIC-edge  ide0
- 18: 2159659544       1815   IO-APIC-level  eth3
- 20:          2 2136776531   IO-APIC-level  eth2
- 27:     204245     371369   IO-APIC-level  eth0
- 28:      14593      75343   IO-APIC-level  aic7xxx
- 30:          0          0   IO-APIC-level  acpi
-NMI:          0          0
-LOC:  446982858  446981302
-ERR:          0
-MIS:          0
-
-       --ro
->
 > Jeremy M. Guthrie writes:
->  > date ; ifconfig eth3 ; cat /proc/net/softnet_stat ;
->  > cat /proc/net/stat/rt_cache ; sleep 60 ; date ; ifconfig eth3 ;
->  > cat /proc/net/softnet_stat ; cat /proc/net/stat/rt_cache
->  >
->  > Tue Jan 11 09:12:21 CST 2005
->  > eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
->  >           inet addr:10.253.0.1  Bcast:10.255.255.255  Mask:255.255.255.0
->  >           inet6 addr: fe80::202:b3ff:fed5:7e30/64 Scope:Link
->  >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->  >           RX packets:3519452697 errors:5558592 dropped:5558592
->  > overruns:4011523 frame:0
->  >           TX packets:5 errors:0 dropped:0 overruns:0 carrier:0
->  >           collisions:0 txqueuelen:1000
->  >           RX bytes:497775695 (474.7 Mb)  TX bytes:398 (398.0 b)
->  >           Base address:0x22a0 Memory:eff80000-effa0000
->  >
->  > f59427dc 150dc67c 00c562ab 000d2659 00000000 00000000 00000000 00000000
->  > 00547b5b
->  > 00038622 00000000 00000065 00000000 00000000 00000000 00000000 00000000
->  > 0006804f
->  > entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst
->  > in_martian_src out_hit out_slow_tot out_slow_mc  gc_total gc_ignored
->  > gc_goal_miss gc_dst_overflow in_hlist_search out_hlist_search
->  > 0000f3c2  aeca1565 272c383d 00000000 00000000 000089a8 00005298 00000002
->  > 001db403 0003054f 00000000 230aa73c 22fe33eb 00000cf0 00000000 b37011dc
->  > 00957c14
->  > 0000f3c2  0000b975 00029703 00000000 00000000 000035a5 00000000 00000000
->  > 00000015 00000083 00000002 000038c8 000038a3 00000000 00000000 0012a566
->  > 0000014d
->  >
->  > Tue Jan 11 09:13:21 CST 2005
->  > eth3      Link encap:Ethernet  HWaddr 00:02:B3:D5:7E:30
->  >           inet addr:10.253.0.1  Bcast:10.255.255.255  Mask:255.255.255.0
->  >           inet6 addr: fe80::202:b3ff:fed5:7e30/64 Scope:Link
->  >           UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
->  >           RX packets:3524302561 errors:5571396 dropped:5571396
->  > overruns:4022383 frame:0
->  >           TX packets:5 errors:0 dropped:0 overruns:0 carrier:0
->  >           collisions:0 txqueuelen:1000
->  >           RX bytes:3065327250 (2923.3 Mb)  TX bytes:398 (398.0 b)
->  >           Base address:0x22a0 Memory:eff80000-effa0000
->  >
->  > f5de26f5 150dc67c 00c562b4 000d2659 00000000 00000000 00000000 00000000
->  > 00547ffd
->  > 00038632 00000000 00000065 00000000 00000000 00000000 00000000 00000000
->  > 0006807c
->  > entries  in_hit in_slow_tot in_no_route in_brd in_martian_dst
->  > in_martian_src out_hit out_slow_tot out_slow_mc  gc_total gc_ignored
->  > gc_goal_miss gc_dst_overflow in_hlist_search out_hlist_search
->  > 0000fc1e  af11f07b 272e58d3 00000000 00000000 000089a8 00005298 00000002
->  > 001db571 00030572 00000000 230cc7f1 23005428 00000cf0 00000000 b4b5b529
->  > 009583b9
->  > 0000fc1e  0000b977 00029710 00000000 00000000 000035a7 00000000 00000000
->  > 00000015 00000083 00000002 000038ca 000038a5 00000000 00000000 0012a5c8
->  > 0000014d
+>  >  ./rtstat
+>  >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot 
+>  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
+>  > 63375     86092    2844     0     0     0     0     0         5       1
+>  > 1610369017    2846    2844         0    0          386039         17
+>  > 64870     84431 537031471 537492192     0     0     0     0         1   
+>  >    0 0    2848    2846         0    0          386130         10
+>  > 58707     87889    2715     0     0     0     0     0         7       1 
+>  >     0 2716    2714         0    0          384782         13
+>  > 60617     89993    2796     0     0     0     0     0         5       0 
+>  >     0 2795    2793         0    0          384432         17
+>  > 62458     93221    2772     0     0     0     0     0         3       0 
+>  >     0 2772    2770         0    0          399579          9
+>  > 63990     93792    2712     0     0     0     0     0         6       0 
+>  >     0 2713    2711         0    0          422585         12
+>  > 65499     94235    2846     0     0     0     0     0         2       0 
+>  >     0 2846    2844         0    0          424341          9
+>  > 59755     90992    2864     0     0     0     0     0         1       1 
+>  >     0 2865    2863         0    0          385888         13
+>  > 61702     87681    2798     0     0     0     0     0         6       2 
+>  >     0 2800    2798         0    0          383276         34
+>  > 63334     90557    2734     0     0     0     0     0         5       1 
+>  >     0 2735    2733         0    0          422121         28
+>  > 64798     88178    2732     0     0     0     0     0         1       0 
+>  >     0 2732    2730         0    0          410772         11
+>  > 58574     85910    2669     0     0     0     0     0         3       0 
+>  >     0 2670    2668         0    0          393331         10
+>  > 60538     87238    2705     0     0     0     0     0         4       0 
+>  >     0 2705    2703         0    0          382161         20
+>  > 62164     85738    2628     0     0     0     0     0         4       0 
+>  >     0 2628    2626         0    0          373049         25
+>  > 63759     78752    2638     0     0     0     0     0         2       0 
+>  >     0 2638    2636         0    0          348411          5
+>  > 65052     79832    2482     0     0     0     0     0         3       0 
+>  >     0 2481    2479         0    0          365871         20
+>  > 58986     82611    2549     0     0     0     0     0         4       1 
+>  >     0 2550    2548         0    0          366429         24
+>  > 60845     85340    2620     0     0     1     0     0         2       0 
+>  >     0 2620    2618         0    0          369963         16
+>  > 62465     83122    2591     0     0     0     0     0         5       0 
+>  >     0 2591    2589         0    0          371261         18
+>  >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot 
+>  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
+>  > 63998     86141    2640     0     0     0     0     0         4       0
+>  > 537114631    2640    2638         0    0          386452         15
+>  > 65294     85989    2527     0     0     0     0     0         5       1
+>  > 1610369017    2528    2526         0    0          379801         26
+>  > 59241     84305    2662     0     0     0     0     0         7       0 
+>  >     0 2662    2660         0    0          371925         35
+>  > 61194     85397    2837     0     0     0     0     0         3       0 
+>  >     0 2837    2835         0    0          374788         17
+>  > 62908     88133    2688     0     0     1     0     0         4       1 
+>  >     0 2689    2687         0    0          382411         19
+>  > 64329     88495    2648     0     0     0     0     0         5       1 
+>  >     0 2649    2647         0    0          398763         30
+>  > 65560     84994    2447     0     0     1     0     0         6       2 
+>  >     0 2449    2447         0    0          394745         33
+>  > 59677     81478    2568     0     0     0     0     0         5       0 
+>  >     0 2569    2567         0    0          341439         22
+>  > 61459     81225    2623     0     0     0     0     0         5       0 
+>  >     0 2623    2621         0    0          345996         30
+>  > 63038     83660    2544     0     0     0     0     0         3       0 
+>  >     0 2544    2542         0    0          381567         21
+>  > 64494     86321    2620     0     0     0     0     0         4       0 
+>  >     0 2620    2618         0    0          395278         19
+>  > 65528     88754    2766     0     0     0     0     0         6       0 
+>  >     0 2765    2763         0    0          421075         34
+>  > 59948     86443    2990     0     0     0     0     0         5       0 
+>  >     0 2990    2988         0    0          373605         29
+>  > 61860     81912    2786     0     0     0     0     0         5       1 
+>  >     0 2787    2785         0    0          354678         34
+>  > 63630     80399    2981     0     0     0     0     0         4       0 
+>  >     0 2979    2977         0    0          354983         32
+>  > 65215     83600    2934     0     0     0     0     0         6       3 
+>  >     0 2937    2935         0    0          371497         41
+>  > 59322     85583    2821     0     0     0     0     0         7       0 
+>  >     0 2822    2820         0    0          382896         40
+>  > 61268     82602    2817     0     0     0     0     0         9       2 
+>  >     0 2819    2817         0    0          368078         54
+>  > 62989     85336    2760     0     0     1     0     0         9       0 
+>  >     0 2760    2758         0    0          394212         39
+>  > 64387     84861    2603     0     0     0     0     0         7       0 
+>  >     0 2602    2600         0    0          390852         36
+>  >  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot 
+>  >    mc GC: tot ignored goal_miss ovrf HASH: in_search out_search
+>  > 65681     82848    2625     0     0     0     0     0         8       0
+>  > 537114631    2625    2623         0    0          370769         49
+>  > 59923     82826    2685     0     0     0     0     0         6       0
+>  > 1610369017    2685    2683         0    0          344094         41
+>  > 61700     82705    2706     0     0     0     0     0         7       0 
+>  >     0 2706    2704         0    0          368474         39
+>  > 63247     91042    2592     0     0     0     0     0         9       1 
+>  >     0 2593    2591         0    0          399393         57
+>  > 64636     93050    2530     0     0     0     0     0         6       0 
+>  >     0 2530    2528         0    0          405903         24
+>  > 58301     90662    2554     0     0     0     0     0         5       0 
+>  >     0 2555    2553         0    0          404296         39
+>  > 60146     88405    2567     0     0     0     0     0         8       1 
+>  >     0 2567    2565         0    0          370227         49
+>  > 61822     86417    2579     0     0     0     0     0         7       1 
+>  >     0 2580    2578         0    0          366323         43
+>  > 63351     86517    2594     0     0     1     0     0         9       0 
+>  >     0 2594    2592         0    0          363340         51
+>  > 64739     87879    2669     0     0     0     0     0         3       0 
+>  >     0 2670    2668         0    0          387580         26
+>  > 58397     88297    2566     0     0     0     0     0         4       0 
+>  >     0 2566    2564         0    0          396980         34
+>  > 60352     85039    2707     0     0     0     0     0         6       1 
+>  >     0 2709    2707         0    0          367790         47
+>  > 62169     87083    2779     0     0     0     0     0         6       0 
+>  >     0 2775    2773         0    0          377163         31
+>  > 63808     88700    2752     0     0     0     0     0         4       0 
+>  >     0 2751    2749         0    0          392830         28
+>  > 65189     91242    2725     0     0     0     0     0         5       1 
+>  >     0 2727    2725         0    0          416871         31
+>  > 59326     84893    2834     0     0     0     0     0         5       1 
+>  >     0 2828    2826         0    0          380811         28
+>  > 61064     87351    2553     0     0     0     0     0         9       0 
+>  >     0 2552    2550         0    0          382053         37
+>  > 62637     88761    2551     0     0     0     0     0         5       1 
+>  >     0 2553    2551         0    0          384974         29
 >  >
 >  > --
 >  >
