@@ -1,33 +1,62 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 2/3] r8169: Large Send enablement
-Date: Thu, 4 Nov 2004 19:45:29 +0100
-Message-ID: <20041104184529.GA2694@electric-eye.fr.zoreil.com>
-References: <200411021203.22003.jdmason@us.ibm.com> <20041102191103.GA24860@electric-eye.fr.zoreil.com> <200411031816.11675.jdmason@us.ibm.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH 2.6 4/4]: ipt: convert jiffie values to USER_HZ when dumping
+Date: Fri, 05 Nov 2004 00:25:32 +0100
+Message-ID: <418ABA6C.8060402@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: multipart/mixed;
+ boundary="------------050509080902080304040906"
+Cc: netdev@oss.sgi.com, jamal <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200411031816.11675.jdmason@us.ibm.com>
+To: "David S. Miller" <davem@redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-> On Tuesday 02 November 2004 01:11 pm, Francois Romieu wrote:
-> [...]
-> > - If rtl8169_open() fails [*] when the device was previously up, the driver
-> >   could/should try to recover.
-> 
-> I disagree.  It should fail, complain loudly, and let the user try and fix it 
-> (or return it to the previous state).  The code provided below will act like 
+This is a multi-part message in MIME format.
+--------------050509080902080304040906
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Mmmm... Actually both patches try to paper over the real issue: the driver
-should reserve the ressources it needs for the change of mtu first.
-Ok, I'll take the patch provided I can't find anything badly racy in it and
-focus on the 8139C+/8169 merge. It has already been delayed for too long
-and it seems the right place to fix the aforementionned issue with style :o)
+Convert jiffie values to USER_HZ in ipt action.
 
---
-Ueimor
+
+
+--------------050509080902080304040906
+Content-Type: text/x-patch;
+ name="4.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="4.diff"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/11/05 00:17:18+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: ipt: convert jiffie values to USER_HZ when dumping
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/ipt.c
+#   2004/11/05 00:17:10+01:00 kaber@coreworks.de +3 -3
+#   [PKT_SCHED]: ipt: convert jiffie values to USER_HZ when dumping
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/sched/ipt.c b/net/sched/ipt.c
+--- a/net/sched/ipt.c	2004-11-05 00:19:01 +01:00
++++ b/net/sched/ipt.c	2004-11-05 00:19:01 +01:00
+@@ -334,9 +334,9 @@
+ 	RTA_PUT(skb, TCA_IPT_HOOK, 4, &p->hook);
+ 	RTA_PUT(skb, TCA_IPT_CNT, sizeof(struct tc_cnt), &c);
+ 	RTA_PUT(skb, TCA_IPT_TABLE, IFNAMSIZ, p->tname);
+-	tm.install = jiffies - p->tm.install;
+-	tm.lastuse = jiffies - p->tm.lastuse;
+-	tm.expires = p->tm.expires;
++	tm.install = jiffies_to_clock_t(jiffies - p->tm.install);
++	tm.lastuse = jiffies_to_clock_t(jiffies - p->tm.lastuse);
++	tm.expires = jiffies_to_clock_t(p->tm.expires);
+ 	RTA_PUT(skb, TCA_IPT_TM, sizeof (tm), &tm);
+ 	return skb->len;
+ 
+
+--------------050509080902080304040906--
