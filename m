@@ -1,122 +1,60 @@
-From: "Asgeir Eiriksson" <asgeir@chelsio.com>
-Subject: RE: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit ProposedTopics
-Date: Mon, 28 Mar 2005 16:44:08 -0800
-Message-ID: <67D69596DDF0C2448DB0F0547D0F947E01781DEF@yogi.asicdesigners.com>
+From: Vicente Feito <vicente.feito@gmail.com>
+Subject: Reducing the overhead on the network core
+Date: Mon, 28 Mar 2005 21:44:08 +0000
+Message-ID: <200503282144.08870.vicente.feito@gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@davemloft.net>, <mpm@selenic.com>,
-        <andrea@suse.de>, <michaelc@cs.wisc.edu>,
-        <James.Bottomley@HansenPartnership.com>,
-        <ksummit-2005-discuss@thunk.org>, <netdev@oss.sgi.com>
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Dmitry Yusupov" <dmitry_yus@yahoo.com>, <open-iscsi@googlegroups.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello, I was looking at the csma/cd algorithm and something ocurred to me. 
+Maybe this has been already discussed/dropped/implemented somewhere, but I 
+would like to know.
 
+The idea is to create a new method in the net_device structure, the point of 
+this method would be to compare a given MAC address
+with our MAC ADDR, the multicast list MAC's and BROADCAST addr, this way we 
+can use this from the driver directly when you are picking the frames from 
+the hardware buffer directly. Something like this allows us to drop a frame 
+that is not directed to us, without having the overhead to call netif_rx, add 
+to a queue and pass trhough the packet_handlers (again, this would be done 
+exactly after reading the frame from the card's buffer, it's not even 
+necessary to read the whole frame, reading only the first few bytes and the 
+dst mac address would do, saving resources).
 
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
-> Behalf Of Dmitry Yusupov
-> Sent: Monday, March 28, 2005 12:49 PM
-> To: open-iscsi@googlegroups.com
-> Cc: David S. Miller; mpm@selenic.com; andrea@suse.de;
-> michaelc@cs.wisc.edu; James.Bottomley@HansenPartnership.com;
-ksummit-2005-
-> discuss@thunk.org; netdev@oss.sgi.com
-> Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit
-> ProposedTopics
-> 
-> Basically, HW offloading all kind of is a different subject.
-> Yes, iSER/RDMA/RNIC will help to avoid bunch of problems but at the
-same
-> time will add bunch of new problems. OOM/deadlock problem we are
-> discussing is a software, *not* hardware related.
-> 
-> If you have plans to start new project such as SoftRDMA than yes. lets
-> discuss it since set of problems will be similar to what we've got
-with
-> software iSCSI Initiators.
-> 
-> I'm not a believer in any HW state-full protocol offloading
-technologies
-> and that was one of my motivations to initiate Open-iSCSI project to
-> prove that performance is not an issue anymore. And we succeeded, by
-> showing comparable to iSCSI HW Initiator's numbers.
-> 
+I think that the benefits are worth, and most important, I would loose less 
+frames, suppose the situation where a computer in the lan starts to send 
+frames one after another that are not directed to us, we would be adding 
+those and filling the queue, after those it sends a frame that is for us, but 
+since the queue is full we would drop the frame, this is bad, and it can be 
+avoided (if it is on a different perspective please let me know).
 
-Dmitry
+Another important issue is the overhead of calling functions to verify frames 
+that are not worth the time, wasting cycles, my thoughs are: if the frame is 
+for me, it would have my ADDR and after that I'll checksum, if the mac 
+doesn't match, then drop the frame, because I don't care what the checksum 
+says, it's simply non of my bussiness (of course this would be on top of the 
+length verifications for the frame).
 
-Care to be more specific about the performance you achieved?
+This can be implemented on interrupt context because it would be fast and 
+wouldn't have to block, is a simple check, inexpensive.
+The method to add to net_device would be something like :
 
-You might want to contrast your numbers to veritest verified numbers of
-800+ MBps and 600+KOPS achieved by Chelsio HBA with stateful offload
-using either 1500B or 9KB MTU (for full detail see Veritest report at
-http://www.chelsio.com/technology/Chelsio10GbE_iSCSI_report.pdf)
+(int) (*validate_rx_macdst)(struct net_device *dev, unsigned char dst_addr);
 
-'Asgeir
+ this can be called from anywhere, and can be implemented from any driver, 
+avoiding the work for 'core'.
 
-> Though, for me, RDMA over TCP is an interesting topic from software
-> implementation point of view. I was thinking about organizing new
-> project. If someone knows that related work is already started - let
-me
-> know since I might be interested to help.
-> 
-> Dmitry
-> 
-> On Mon, 2005-03-28 at 11:45 -0800, Roland Dreier wrote:
-> > Let me slightly hijack this thread to throw out another topic that I
-> > think is worth talking about at the kernel summit: handling remote
-DMA
-> > (RDMA) network technologies.
-> >
-> > As some of you might know, I'm one of the main authors of the
-> > InfiniBand support in the kernel, and I think we have things fairly
-> > well in hand there, although handling direct userspace access to
-RDMA
-> > capabilities may raise some issues worth talking about.
-> >
-> > However, there is also RDMA-over-TCP hardware beginning to be used,
-> > based on the specs from the IETF rddp working group and the RDMA
-> > Consortium.  I would hope that we can abstract out the common pieces
-> > for InfiniBand and RDMA NIC (RNIC) support and morph
-> > drivers/infiniband into a more general drivers/rdma.
-> >
-> > This is not _that_ offtopic, since RDMA NICs provide another way of
-> > handling OOM for iSCSI.  By having the NIC handle the network
-> > transport through something like iSER, you avoid a lot of the issues
-> > in this thread.  Having to reconnect to a target while OOM is still
-a
-> > problem, but it seems no worse in principal than the issues with a
-> > dump FC card that needs the host driver to handling fabric login.
-> >
-> > I know that in the InfiniBand world, people have been able to run
-> > stress tests of storage over SCSI RDMA Protocol (SRP) with very
-heavy
-> > swapping going on and no deadlocks.  SRP is in effect network
-storage
-> > with the transport handled by the IB hardware.
-> >
-> > However there are some sticky points that I would be interested in
-> > discussing.  For example, the IETF rddp drafts envisage what they
-call
-> > a "dual stack" model: TCP connections are set up by the usual
-network
-> > stack and run for a while in "streaming" mode until the application
-is
-> > ready to start using RDMA.  At that point there is an "MPA"
-> > negotiation and then the socket is handed over to the RNIC.  Clearly
-> > moving the state from the kernel's stack to the RNIC is not trivial.
-> >
-> > Other developers who have more direct experience with RNIC hardware
-or
-> > perhaps just strong opinions may have other things in this area that
-> > they'd like to talk about.
-> >
-> > Thanks,
-> >   Roland
-> 
+Well, maybe this is crazy, I just wanted to know if has been though or dropped 
+or is nonsense, I would like to start writing some
+ code for this, but I think asking first is better.
+
+Thanks for reading the whole thing.
+
+Vicente.
