@@ -1,33 +1,36 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: [BK PATCH] 2.6.2 SCTP updates
-Date: Mon, 09 Feb 2004 12:34:18 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Mon, 9 Feb 2004 12:19:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4027EECA.9000705@us.ibm.com>
-References: <Pine.LNX.4.58.0402061649001.10831@localhost.localdomain> <20040206194518.56787717.davem@redhat.com> <Pine.LNX.4.58.0402091155070.10043@localhost.localdomain>
+Message-ID: <20040209121926.6f016ebf.davem@redhat.com>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0402091155070.10043@localhost.localdomain>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sridhar Samudrala wrote:
+On Sun, 8 Feb 2004 22:44:05 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> ChangeSet@1.1551, 2004-02-09 11:14:24-08:00, sri@us.ibm.com
->   [SCTP] Removed SCTP specific rmem/wmem sysctl's and use the global
->          rmem_default/wmem_default values for SCTP socket buffer sizes.
+> - the 'skb->pkt_type == PACKET_HOST' check has no semantic anymore,
+> the requestor should have same information no matter the packet
+> type. In all cases we add response delay for all requests, broadcast
+> or unicast, to help other authoritative hosts to reply before us.
 
-Sorry to pitch in on this so late - and I'm not suggesting
-this was not the right thing to do here, but I feel that
-having the per-protocol globals (as we do for TCP) is a
-good thing, as then you don't affect all (raw, udp..)
-traffic on the system just because someone is tuning
-for SCTP, etc.
+Do we really want to reply to all the garbage tcpdump causes us
+to capture?
 
-Just my 0.2c :)
+That is what the pkt_type is dealing with.  If we're in promiscuous
+mode, we'll hear ARP requests meant not for any of our devices, we
+should not proxy for them right?
 
-thanks,
-Nivedita
+RTCF_*NAT is dead wood, the existing route nating stuff is totally broken
+an unusable in 2.6.x, the eventual plan was to code up XFRM engine version
+of that feature but this is of course not done.  Since nobody is complaining
+about lack of routing NAT in 2.6.x, I think we should just kill off all references
+and if someone gets inspired they can code up the XFRM engine version.
