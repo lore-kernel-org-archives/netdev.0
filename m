@@ -1,89 +1,45 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: The return of the return of crunch time (2.5 merge candidate
- list 1.6) (crypto api info)
-Date: Sat, 26 Oct 2002 12:35:13 +1000 (EST)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPv6: Fix for Refine IPv6 Address Validation Timer
+Date: Sun, 27 Oct 2002 01:10:25 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0210261225020.22775-100000@blackbird.intercode.com.au>
-References: <200210251557.55202.landley@trommello.org>
+Message-ID: <20021027.011025.86893867.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org
-In-Reply-To: <200210251557.55202.landley@trommello.org>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Oct 2002, Rob Landley wrote:
+Hi,
 
-> 4) New CryptoAPI (James Morris)
+We sent a patch to refine timing of IPv6 address validation timer.
+However, timer was not recalculated on receipt of RA.
+This patch fixes this bug.
 
-This is currently available for review at:
+Patch is for 2.4.20-pre11.
 
-http://samba.org/~jamesm/crypto/
+Thanks.
 
-The patch there tracks Dave Miller's tree.
+Index: net/ipv6/addrconf.c
+===================================================================
+RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/addrconf.c,v
+retrieving revision 1.1.1.2
+retrieving revision 1.1.1.2.26.1
+diff -u -r1.1.1.2 -r1.1.1.2.26.1
+--- net/ipv6/addrconf.c	9 Oct 2002 01:35:53 -0000	1.1.1.2
++++ net/ipv6/addrconf.c	26 Oct 2002 15:55:14 -0000	1.1.1.2.26.1
+@@ -947,6 +947,7 @@
+ 				ipv6_ifa_notify((flags&IFA_F_DEPRECATED) ?
+ 						0 : RTM_NEWADDR, ifp);
+ 			in6_ifa_put(ifp);
++			addrconf_verify(0);
+ 		}
+ 	}
+ 	in6_dev_put(in6_dev);
 
-There's not much documentation yet, so here's a brief rundown:
-
-The API takes page vectors (scatterlists) as arguments, and works directly
-on pages.  This is required to support a clean IPsec implementation (which
-is being worked on by Dave Miller and Alexey Kuznetzov), and is also a
-requirement from Linus.  In some cases (e.g. ECB mode ciphers), this will
-allow for pages to be encrypted in place with no copying.
-
-At the lowest level are algorithms, which register dynamically with the 
-API.
-
-'Transforms' are user-instantiated objects, which maintain state, handle all
-of the implementation logic (e.g. manipulating page vectors), provide an 
-abstraction to the underlying algorithms, and handle common logical 
-operations (e.g. cipher modes, HMAC for digests).  However, at the user 
-level they are very simple.
-
-Conceptually, the API layering looks like this:
-
-  [transform api]  (user interface)
-  [transform ops]  (per-type logic glue e.g. cipher.c, digest.c)
-  [algorithm api]  (for registering algorithms)
-  
-The idea is to make the user interface and algorithm registration API
-very simple, while hiding the core logic from both.  Many good ideas
-from existing APIs such as Cryptoapi and Nettle have been adapted for this.
-
-The API currently supports three types of transforms: Ciphers, Digests and
-Compressors.  The compression algorithms especially seem to be performing
-very well so far.
-
-An asynchronous scheduling interface is in planning but not yet
-implemented, as we need to further analyze the requirements of all of
-the possible hardware scenarios (e.g. IPsec NIC offload).
-
-Here's an example of how to use the API:
-
-	#include <linux/crypto.h>
-	
-	struct scatterlist sg[2];
-	char result[128];
-	struct crypto_tfm *tfm;
-	
-	tfm = crypto_alloc_tfm(CRYPTO_ALG_MD5);
-	if (tfm == NULL)
-		fail();
-		
-	/* ... set up the scatterlists ... */
-	
-	crypto_digest_init(tfm);
-	crypto_digest_update(tfm, &sg, 2);
-	crypto_digest_final(tfm, result);
-	
-	crypto_free_tfm(tfm);
-
-    
-Many real examples are available in the regression test module (tcrypt.c).
-
-
-- James
 -- 
-James Morris
-<jmorris@intercode.com.au>
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
