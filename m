@@ -1,65 +1,76 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPCOMP] Use per-cpu buffers
-Date: Fri, 10 Sep 2004 21:10:47 +1000
-Sender: linux-ppp-owner@vger.kernel.org
-Message-ID: <20040910111047.GA29330@gondor.apana.org.au>
-References: <20040909122202.GA3170@gondor.apana.org.au> <20040909091652.490c7833.davem@davemloft.net>
+From: "=?iso-8859-1?Q?xavier.droubay@laposte.net?=" <xavier.droubay@laposte.net>
+Subject: =?iso-8859-1?Q?3C900-COMBO_lan_minor_problem?=
+Date: Fri, 10 Sep 2004 13:23:26 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <I3TOZ2$AFEE6488A486CE1253583AF122FFF53B@laposte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com,
-	linux-ppp@vger.kernel.org, paulus@samba.org
-Return-path: <linux-ppp-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040909091652.490c7833.davem@davemloft.net>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "=?iso-8859-1?Q?netdev?=" <netdev@oss.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 09, 2004 at 09:16:52AM -0700, David S. Miller wrote:
-> 
-> > With per-cpu buffers this goes down to 300K per CPU.
-> 
-> That amount of space just for decompression state is
-> rediculious.
+Hello, and sorry to bother you concerning my 
+problems, but I am quite new in linux and don't 
+know much about bug reportings. I got your address 
+in vortext.txt file from kernel 2.6.8. 
 
-Actually most of that space is for compression.  The space for
-decompression is only 32K if I read the zlib comment correctly.
-However, due to the current crypto interface, you always have
-to allocate both and you have to reserve a 64K buffer just in
-case the packet is large.
+I use the 3c59x driver for my 3COM 900 Combo 
+Ethernet Card on
+a box B1. I use this card on a lan, which is a set 
+of 2 boxes
+connected with a crossover cable. When I disconnect 
+the cable
+for a while (about 30 seconds), or boot my box B2 
+after box
+B1, I always have to restart network '/etc/init.
+d/network
+restart' or do a 'ifconfig eth1 down ; ifconfig 
+eth1 up' on
+box B1. I have double boot with windows on both 
+boxes, and I
+tested with windows on box1: I had no problem to 
+ping both boxes. 
 
-There's gotta be a better way though.  What if the packet length
-field was 32 bits? Surely we aren't going to allocate a 4G buffer :)
+I can try to generate a bug report as mentionned in 
+file
+vortext.txt, but you may know this problem, that 
+seems to
+have been already reproduced see page 
+http://lists.debian.
+org/debian-user/2001/08/msg01564.html
+It is a closely related or same problem. 
 
-James, can you think of a general solution to the 64K buffer in
-terms of the crypto decompression interface?
+I found on libranet site an update of the 3c59x 
+driver for
+kernel greater than 2.4.23. They mentionned an 
+eventual
+improvement of the driver for the problem, at page: 
+http://libranet.com/support/2.8/0305
+I tried this update, upgrading to kernel 2.4.27 on 
+box B1,
+with no improvement for the problem. 
 
-> A second thought is that we may not be the only part
-> of the kernel interested in a per-cpu zlib scratch
-> buffer, no?
+I cannot get the latest source driver, and don't 
+know if
+improvements have been done after 2.4.23. Do you 
+know if an
+improvement of this driver has been released for 
+the problem ?
+Or should I set options I did not find for this 
+module ? Even 
+though I guess it is not directly related to my 
+problem, tried 
+the option "enable_wol=1" in my modules.conf file, 
+with no effect. 
+This is a minor problem, but I would like to know 
+if it can be solved.
 
-There are two other users.  JFFS2 is already using one global copy
-accessed through a semaphore.  Maybe we should move the IPCOMP
-processing into process context as well since it's so slow.
 
-PPP is the other user and allocates one for each device that requests
-for deflate compression.
+I have seen that you still did a lot of work for 
+kernel v2.6.x versions, so are
+there improvements for 2.6.x kerenels ?
 
-The problem isn't as bad for PPP as it is for IPsec because firstly
-PPP is less scalable anyway due to the device/process overhead.  More
-importantly if compression allocation fails PPP can still carry on.
 
-Unfortunately for IPsec, the compression allocation is done after the
-negotiation so there is no room for recovery (you'll have to redo the
-negotiation).
-
-On a totally orthogonal topic, has any body thought of doing a PPP
-daemon like the IPsec daemons? That is, have one process that manages
-all PPP sessions.  This could be useful for large L2TP servers and
-alike.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Thank you, Xavier.
