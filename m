@@ -1,33 +1,81 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Any effort to try to make IPv6 API more uniform?
-Date: Fri, 27 Sep 2002 08:59:49 +0300 (EEST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch this
+Date: Thu, 26 Sep 2002 23:33:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209270855280.29884-100000@netcore.fi>
+Message-ID: <3D93FBA6.6080905@candelatech.com>
+References: <200209270100.FAA19447@sex.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: kuznet@ms2.inr.ac.ru
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+kuznet@ms2.inr.ac.ru wrote:
+> Hello!
 
-In addition to IPv6 Basic & Advanced Sockets API document, I had a worry 
-whether there would be any use trying to make some other API's more 
-useful.
+>>+#ifdef CONFIG_NET_SENDTOSELF
+>>+	if (ip_route_output(&rt, daddr, rt->rt_spec_dst, RT_TOS(skb->nh.iph->tos), sk->bound_dev_if))
+>>+#else
+>>  	if (ip_route_output(&rt, daddr, rt->rt_spec_dst, RT_TOS(skb->nh.iph->tos), 0))
+>>+#endif
+> 
+> 
+> This chunk is noop, sk here is a dummy socket internal to kernel,
+> where sk->bound_dev_if is identical zero. Grep code to see
+> what it is used for.
 
-For example, currently there is no standard (or even "semi-standard") way 
-of getting IPv6 address(es) of a node.  With IPv4 you can get this via 
-ioctls or e.g. netlink.  Netlink is notably a Linux-only thing.
+Ok, I took out my changes above and sure enough, it still seems to work.
 
-For application portability I would gather it might be nice to have some, 
-if not a standard, at least something many similar vendors (e.g. Unix, 
-Linux+BSD, ...) support.
+I have a question though:  If this method is ever called to send an RST,
+will it work?  It seems to me that it may not be routed correctly, but
+I don't understand all the circumstances that would cause this method to
+be called either...
 
-Any thoughts whether this would be useful and what would be the right 
-path to take?
+> 
+> The same ("noopness") is true about 90% of the patch. F.e. all the messing
+> inside tcp with openreqs is noop.
+
+What about this part, do you think it is not needed either?  It appeared
+to me that w/out this, the sending socket and the receiving socket could hash
+to the same thing, and so greatly confused themselves.  For instance,
+
+src=1.2.3.4, port 9999, dst=1.2.3.5 port 9999
+
+I believe I was seeing the first packet (SYN) from the originator being
+delivered back to the socket that sent the SYN because no new socket on
+the receiving side was created because the hash found one (it found the
+sending one, unfortunately).
+
+
++        /* Will only take netdevice_id into the equation if neither are
++         * 0.  This should be backwards compatible with older code, and also
++         * let us connect to ourselves over external ports.  Otherwise, we
++         * get confused about which connection is the originator v/s the
++         * receiver of the open request. --Ben
++         */
+  	for (prev = &lopt->syn_table[tcp_v4_synq_hash(raddr, rport)];
+  	     (req = *prev) != NULL;
+  	     prev = &req->dl_next) {
+  		if (req->rmt_port == rport &&
+  		    req->af.v4_req.rmt_addr == raddr &&
+  		    req->af.v4_req.loc_addr == laddr &&
+-		    TCP_INET_FAMILY(req->class->family)) {
++		    TCP_INET_FAMILY(req->class->family)
++#ifdef CONFIG_NET_SENDTOSELF
++                    && ((!netdevice_id) || (!req->bound_dev_if) ||
++                     (req->bound_dev_if == netdevice_id))) {
++#else
++                   ) {
++#endif
+
+
+Thanks again,
+Ben
 
 -- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
