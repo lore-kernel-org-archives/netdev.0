@@ -1,30 +1,29 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (4/4) Support for lots of netdev's -- faster
- dev_alloc_name
-Date: Fri, 6 Feb 2004 14:37:57 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: of 2.6.2-rc2-mm2 and r8169
+Date: Sat, 7 Feb 2004 00:17:56 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040206143757.53cd8adb.davem@redhat.com>
-References: <20040206101232.46bc30b1.shemminger@osdl.org>
+Message-ID: <20040207001756.A26645@electric-eye.fr.zoreil.com>
+References: <20040130014108.09c964fd.akpm@osdl.org> <20040201100340.GA12436@neuffer.info>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shuchen@realtek.com.tw
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040206101232.46bc30b1.shemminger@osdl.org>
+To: Michael Neuffer <neuffer@neuffer.info>
+Content-Disposition: inline
+In-Reply-To: <20040201100340.GA12436@neuffer.info>; from neuffer@neuffer.info on Sun, Feb 01, 2004 at 11:03:40AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 6 Feb 2004 10:12:32 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+Michael Neuffer <neuffer@neuffer.info> :
+[...]
+> After many tests I was finally able to capture an Oops:
+> Oops: 0000 [#1]
+> PREEMPT
 
-> Convert dev_alloc_name from O(n^2) lookup to O(n) by using a page as
-> bitmap to figure out how many devices of that pattern have been allocated.
-> This works for up to 32k devices (PAGE_SIZE*8) on i386, more on other
-> platforms.  Correctly handles the boundary cases where number of devices
-> won't fit because name length is limited.
-> 
-> Adds strnchr to the string libraries since we need to find the % format
-> character, but only care if it is in the first 15 bytes.
+If you need to see it work better, I would suggest to disable PREEMPT/SMP.
 
-Ok, applied, thanks Stephen.
+Could you send me the faulty r8169.o module off-list as well as an lsmod, an
+output of the /proc/interrupts and a dmesg from boot ?
+
+--
+Ueimor
