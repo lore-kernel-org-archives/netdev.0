@@ -1,49 +1,30 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Patch: minor nit in ip_options_compile()
-Date: Fri, 21 Mar 2003 19:56:50 -0800
+From: steve@themovieglobe.com
+Subject: Confirm your subscription
+Date: Sat, 22 Mar 2003 03:23:47 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200303211956.50921.niv@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Message-ID: <20030322112347.03CE2188E94@bidoc.vc.bravenet.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru, davem@redhat.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In the following else clause, we check for opt->is_data, which 
-should always be set for this case, and if not, current code will
-lead to a null ptr dereference because skb is always null in 
-this case..
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+Mailing List Subscription Confirmation
+*** Confirmation required ***
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Figured its better to fall down to returning EINVAL..
-Look reasonable? 
+You have been invited to join our mailing list.
 
-thanks,
-Nivedita
+This list has a double optin feature so you must go to the URL listed below
+to finish joining this list. This is a safeguard for you.
+
+PLEASE CLICK THE LINK BELOW TO CONFIRM YOUR SUBSCRIPTION:
+http://pub50.bravenet.com/elist/add.php?usernum=4280452265&id=4540363
+
+IF YOU DO NOT WISH TO SUBSCRIBE DO NOT CLICK THE LINK:
+If this message was sent in error, please disregard it and no further email
+will be sent to you on this subject.
 
 
---- /usr/src/linux-2.5.65/net/ipv4/ip_options.c	Mon Mar 17 13:44:21 2003
-+++ /usr/src/linux-2.5.65ref1/net/ipv4/ip_options.c	Fri Mar 21 18:16:05 2003
-@@ -245,7 +245,7 @@
- int ip_options_compile(struct ip_options * opt, struct sk_buff * skb)
- {
- 	int l;
--	unsigned char * iph;
-+	unsigned char * iph = NULL;
- 	unsigned char * optptr;
- 	int optlen;
- 	unsigned char * pp_ptr = NULL;
-@@ -259,7 +259,9 @@
- 		optptr = iph + sizeof(struct iphdr);
- 		opt->is_data = 0;
- 	} else {
--		optptr = opt->is_data ? opt->__data : (unsigned char*)&(skb->nh.iph[1]);
-+		/* Only caller here is ip_options_get(), sets up opt, no skb */  
-+		if ((optptr = opt->__data) == 0)
-+			goto error; 
- 		iph = optptr - sizeof(struct iphdr);
- 	}
- 
+-----------------------------------------------------------------------
+Bravenet.com ~ free webtools for webmasters ~ http://www.bravenet.com/
