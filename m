@@ -1,23 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
-Date: Tue, 7 Sep 2004 14:39:33 -0700
+From: Peter Buckingham <peter@pantasys.com>
+Subject: [PATCH 2.6] ipconfig accepts any DHCPACK
+Date: Tue, 07 Sep 2004 14:46:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907143933.526ec7df.davem@redhat.com>
-References: <20040907120532.GB25051@wotan.suse.de>
+Message-ID: <413E2C26.5040108@pantasys.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040907120532.GB25051@wotan.suse.de>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi David,
 
-This missed the current round of merges, I'll try to get it
-in by the end of the week.
+I was playing around with using ipconfig to initialise a bunch of 
+systems and it turns out that the ipconfig code doesn't check to see 
+whether the ACK is for it or another system. I've just added a simple 
+check to compare the hardware address of the device to the one in the 
+packet.
 
-I'm probably going to put the infrastructure patch in first,
-then the tg3/e1000 bits.  Can you resend me the e1000 patch
-under private cover btw?  I've lost my copy, thanks.
+peter
+
+Signed-off-by: Peter Buckingham <peter@pantasys.com>
+
+--- linus-2.6/net/ipv4/ipconfig.c	2004-09-02 14:53:54.000000000 -0700
++++ local_linux/net/ipv4/ipconfig.c	2004-09-02 14:57:49.000000000 -0700
+@@ -966,6 +966,12 @@ static int __init ic_bootp_recv(struct s
+  				break;
+
+  			case DHCPACK:
++				for (i = 0; (dev->dev_addr[i] == b->hw_addr[i])
++						&& (i < 16); i++);
++				if (i < 16)
++					goto drop_unlock;
++
+  				/* Yeah! */
+  				break;
