@@ -1,35 +1,28 @@
-From: Geert Uytterhoeven <geert@linux-m68k.org>
-Subject: Re: Re: Re: (no subject)
-Date: Mon, 24 Feb 2003 09:38:38 +0100 (MET)
+From: "M K Saravanan" <mksarav@comp.nus.edu.sg>
+Subject: Please use appropriate subject line  [was (Re: Re: Re: (no subject))]
+Date: Mon, 24 Feb 2003 17:24:53 +0800 (SGT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.21.0302240937390.28564-100000@vervain.sonytel.be>
+Message-ID: <2083.137.132.80.35.1046078693.squirrel@mysoc.nus.edu.sg>
 References: <20030224052704.30149.qmail@webmail29.rediffmail.com>
+        <Pine.GSO.4.21.0302240937390.28564-100000@vervain.sonytel.be>
+Reply-To: mksarav@comp.nus.edu.sg
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>, macro@ds2.pg.gda.pl,
-   netdev@oss.sgi.com, Linux/MIPS Development <linux-mips@linux-mips.org>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: <ipv6_san@rediffmail.com>, <rddunlap@osdl.org>, <macro@ds2.pg.gda.pl>,
+   <netdev@oss.sgi.com>, <linux-mips@linux-mips.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: santosh kumar gowda <ipv6_san@rediffmail.com>
-In-Reply-To: <20030224052704.30149.qmail@webmail29.rediffmail.com>
+To: <geert@linux-m68k.org>
+In-Reply-To: <Pine.GSO.4.21.0302240937390.28564-100000@vervain.sonytel.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 24 Feb 2003, santosh kumar gowda wrote:
-> Also, Flash ROM of the device is loaded with kernel and 
-> filesystem
-> images. so it not possible for me to browse through the source 
-> code.
+I don't remember who started this thread.  Kindly use appropriate title in
+the "Subject" when posting queries.  It will also help when somebody
+follow the archive on a particular topic.
 
-You do not have access to the Linux kernel sources? Sounds like a violation of
-the GPL! Please contact your vendor and ask them for the sources.
-
-Gr{oetje,eeting}s,
-
-						Geert
+-- mks --
 
 --
-Geert Uytterhoeven -- There's lots of Linux beyond ia32 -- geert@linux-m68k.org
-
-In personal conversations with technical people, I call myself a hacker. But
-when I'm talking to journalists I just say "programmer" or something like that.
-							    -- Linus Torvalds
+M K Saravanan
+http://www.comp.nus.edu.sg/~mksarav
