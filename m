@@ -1,261 +1,116 @@
-From: "Andrey J. Melnikoff (TEMHOTA)" <temnota@kmv.ru>
-Subject: Re: Fw: [Bugme-new] [Bug 1054] New: loading iptables modules kill raid5 kernel thread
-Date: Tue, 12 Aug 2003 23:07:10 +0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] ax25 & netrom fixes for 2.6
+Date: Tue, 12 Aug 2003 12:48:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030812190710.GQ14564@kmv.ru>
-References: <20030807085043.3b794387.akpm@osdl.org> <20030812172855.43BB22C06E@lists.samba.org>
+Message-ID: <20030812124820.2ab57161.shemminger@osdl.org>
+References: <20030812194653.A28977@jeroen.pe1rxq.ampr.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, laforge@gnumonks.org,
-   mingo@redhat.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rusty Russell <rusty@rustcorp.com.au>
-Content-Disposition: inline
-In-Reply-To: <20030812172855.43BB22C06E@lists.samba.org>
+To: Jeroen Vreeken <pe1rxq@amsat.org>
+In-Reply-To: <20030812194653.A28977@jeroen.pe1rxq.ampr.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Rusty Russell!
- On Tue, Aug 12, 2003 at 07:26:47AM +1000, Rusty Russell wrote next:
+You lost a critical fix to ax25;  it oop's if I bring up any device
+then do "ifconfig -a" due to use after free.
 
-> In message <20030807085043.3b794387.akpm@osdl.org> you write:
-> > 
-> > This is weird.  It looks like something on the netfilter module
-> > initialisation path has called smp_call_function(garbage_address).  But I
-> > cannot see where anything like that could happen.
-> 
-> Hmm, this is 2.4.  Is this a regression against previous kernels?
-> 
-> I can't see anything to suspect here: we certainly don't use
-> smp_call_function in the netfilter code.  I wonder if loading a
-> different module causes the same problems.
-No, only iptables loaded as modules, all other in kernel.
- 
-> BTW xor.h declares non-inline functions which I find disturbing.  Hmm,
-> maybe that tricky asm xor stuff blatts something which the
-> smp_call_function wants to use...?
+PLEASE do some debugging with some of the kernel debugging options enabled!
 
-Maybe. I see to many calls to flush_tlb_all_ipi when iptables start. See
-log (i'm add to smp_call_function_interrupt simple printk to see what
-function it call)
 
-# /etc/rc.d/rc.ipables start
-Arno's IPTABLES (ADSL) Firewall / NAT script v1.7.1BETA-1
----------------------------------------------------------------
-Checking for root privileges...OK
 
-External (internet) interface (EXT_IF)   : eth+
-IPTABLES module / kernel check...
-Detected IPTABLES module... Loading additional IPTABLES modules:
-ip_tables: (C) 2000-2002 Netfilter core team
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-All IPTABLES modules loaded!
-
----------------------------------------------------------------
-Flushing rules in the filter table
-iptables -F
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -X
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -Z
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -F INPUT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -F OUTPUT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -F FORWARD
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -X CHECK
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -X VALID_CHECK
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -t mangle -F
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -t mangle -X
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -t mangle -Z
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-Setting default secure policies
-iptables -P INPUT DROP
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -P FORWARD DROP
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -P OUTPUT ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -t mangle -P OUTPUT ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -t mangle -P PREROUTING ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -N CHECK
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -N VALID_CHECK
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -N acct_in
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -N acct_out
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -N acct_forw
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A INPUT -j acct_in
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A OUTPUT -j acct_out
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A FORWARD -j acct_forw
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A FORWARD -i eth1 -j ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A FORWARD -o eth1 -j ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A INPUT -i eth1 -p udp --dport 67 -j ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-iptables -A INPUT -i eth1 -p udp --dport 53 -j ACCEPT
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-SCFI call fn=c0113b20 in=00000000 wa=1
-
-Unable to handle kernel NULL pointer dereference at virtual address 000000aa
-c102c024
+ Uninitialised timer!
+This is just a warning.  Your computer is OK
+function=0x6b6b6b6b, data=0x6b6b6b6b
+Call Trace:
+ [<c012ad43>] check_timer_failed+0x73/0x75
+ [<c012b297>] del_timer+0x1d/0xe8
+ [<fa4f70d0>] ax25_cb_del+0x96/0xdc [ax25]
+ [<c011da1d>] default_wake_function+0x0/0x2e
+ [<fa4f7c21>] ax25_destroy_socket+0x1f/0x335 [ax25]
+ [<c011da1d>] default_wake_function+0x0/0x2e
+ [<fa4f9346>] ax25_release+0xc1/0x2c0 [ax25]
+ [<c0247e08>] sock_fasync+0x190/0x363
+ [<c024728b>] sock_release+0x79/0xb4
+ [<c0247c61>] sock_close+0x36/0x4d
+ [<c01602ec>] __fput+0x103/0x115
+ [<c015e805>] filp_close+0x4b/0x74
+ [<c015e8b4>] sys_close+0x86/0xf8
+ [<c010b2b5>] sysenter_past_esp+0x52/0x71
+                                                                                
+Debug: sleeping function called from invalid context at include/linux/rwsem.h:43Call Trace:
+ [<c011fb3f>] __might_sleep+0x5c/0x60
+ [<c011b1b8>] do_page_fault+0x78/0x4ab
+ [<c011da83>] __wake_up_common+0x38/0x57
+ [<c0123170>] release_console_sem+0xfc/0x133
+ [<c0122f76>] printk+0x1b6/0x25a
+ [<c011b140>] do_page_fault+0x0/0x4ab
+ [<c010bd91>] error_code+0x2d/0x38
+ [<c012b2a7>] del_timer+0x2d/0xe8
+ [<fa4f70d0>] ax25_cb_del+0x96/0xdc [ax25]
+ [<c011da1d>] default_wake_function+0x0/0x2e
+ [<fa4f7c21>] ax25_destroy_socket+0x1f/0x335 [ax25]
+ [<c011da1d>] default_wake_function+0x0/0x2e
+ [<fa4f9346>] ax25_release+0xc1/0x2c0 [ax25]
+ [<c0247e08>] sock_fasync+0x190/0x363
+ [<c024728b>] sock_release+0x79/0xb4
+ [<c0247c61>] sock_close+0x36/0x4d
+ [<c01602ec>] __fput+0x103/0x115
+ [<c015e805>] filp_close+0x4b/0x74
+ [<c015e8b4>] sys_close+0x86/0xf8
+ [<c010b2b5>] sysenter_past_esp+0x52/0x71
+                                                                                
+Unable to handle kernel paging request at virtual address 6b6b6b6f
+ printing eip:
+c012b2a7
 *pde = 00000000
-Oops: 0002
-CPU:    1
-EIP:    0010:[<c102c024>]    Not tainted
-Using defaults from ksymoops -t elf32-i386 -a i386
-EFLAGS: 00010086
-eax: 000000aa   ebx: c02b2080   ecx: 00000000   edx: d141a000
-esi: c102c01c   edi: 00003c8a   ebp: d1d93ddc   esp: d1d93db8
-ds: 0018   es: 0018   ss: 0018
-Process raid5d (pid: 13, stackpage=d1d93000)
-Stack: c0113df7 c02b2080 c0270160 c0113b20 00000000 00000001 d1b0f500 00000057
-       d1b0f000 d1d93e20 c010ccea d1b0f500 d1b10500 d1b0e500 00000057 d1b0f000
-       d1d93e20 32203931 00000018 00000018 fffffffb c01fedc9 00000010 00000202
-Call Trace:    [<c0113df7>] [<c0113b20>] [<c010ccea>] [<c01fedc9>] [<c01ff462>]
-  [<c01fa55e>] [<c01fb731>] [<c01fbf9f>] [<c01fbec0>] [<c0203bcc>] [<c0105883>]
-  [<c0203a30>] [<c0203a30>]
-Code: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00 01
-
->>EIP; c102c024 <END_OF_CODE+ca9904/????>   <=====
-
->>ebx; c02b2080 <contig_page_data+e0/360>
-
-Trace; c0113df7 <smp_call_function_interrupt+47/65>
-Trace; c0113b20 <flush_tlb_all_ipi+0/60>
-Trace; c010ccea <call_call_function_interrupt+5/b>
-Trace; c01fedc9 <xor_8regs_3+19/70>
-Trace; c01ff462 <xor_block+92/b0>
-Trace; c01fa55e <compute_block+8e/e0>
-Trace; c01fb731 <handle_stripe+cd1/1000>
-Trace; c01fbf9f <raid5d+df/1f0>
-Trace; c01fbec0 <raid5d+0/1f0>
-Trace; c0203bcc <md_thread+19c/2a0>
-Trace; c0105883 <arch_kernel_thread+23/30>
-Trace; c0203a30 <md_thread+0/2a0>
-Trace; c0203a30 <md_thread+0/2a0>
-
-Code;  c102c024 <END_OF_CODE+ca9904/????>   <=====
-00000000 <_EIP>:   <=====
-Code;  c102c034 <END_OF_CODE+ca9914/????>
-  10:   00 40 00                  add    %al,0x0(%eax)
-Code;  c102c037 <END_OF_CODE+ca9917/????>
-  13:   01 00                     add    %eax,(%eax)
-
-but system still alive, iptables process get stuck in "Running" state
-
-....
-Call Trace:    [<c0120585>] [<c0107863>]
-bash          S 00000007  5100   644    643   681               (NOTLB)
-Call Trace:    [<c0120585>] [<c0107863>]
-rc.iptables   S BFFFB200   240   681    644   761               (NOTLB)
-Call Trace:    [<c0120585>] [<c0107863>]
-iptables1     S BFFFF680  4284   761    681   762               (NOTLB)
-Call Trace:    [<c0120585>] [<c0107863>]
-iptables      R 00000041     0   762    761                     (NOTLB)
-Call Trace:    [<c020daa0> sys_socketcall+150] [<c0107863> system_call+33]
-...
-
-Strange..... Stack frame - with invalid order... 
-
--- 
- Best regards, TEMHOTA-RIPN aka MJA13-RIPE
- System Administrator. mailto:temnota@kmv.ru
+Oops: 0000 [#1]
+CPU:    0
+EIP:    0060:[<c012b2a7>]    Not tainted
+EFLAGS: 00010002
+EIP is at del_timer+0x2d/0xe8
+eax: 00000000   ebx: 6b6b6b6b   ecx: 00000001   edx: dead4ead
+esi: 00000202   edi: f723364c   ebp: f4267ed0   esp: f4267eb4
+ds: 007b   es: 007b   ss: 0068
+Process ifconfig (pid: 1760, threadinfo=f4266000 task=f561a080)
+Stack: f723364c fa4f70d0 f723351c c011da1d f736fc84 f723351c f736fca4 f4267f00
+       fa4f7c21 f723364c f561a080 c011da1d 00100100 00000246 00000246 00000246
+       f736fc84 f723351c f736fca4 f4267f30 fa4f9346 f723351c 000003a7 f736fcb0
+Call Trace:
+ [<fa4f70d0>] ax25_cb_del+0x96/0xdc [ax25]
+ [<c011da1d>] default_wake_function+0x0/0x2e
+ [<fa4f7c21>] ax25_destroy_socket+0x1f/0x335 [ax25]
+ [<c011da1d>] default_wake_function+0x0/0x2e
+ [<fa4f9346>] ax25_release+0xc1/0x2c0 [ax25]
+ [<c0247e08>] sock_fasync+0x190/0x363
+ [<c024728b>] sock_release+0x79/0xb4
+ [<c0247c61>] sock_close+0x36/0x4d
+ [<c01602ec>] __fput+0x103/0x115
+ [<c015e805>] filp_close+0x4b/0x74
+ [<c015e8b4>] sys_close+0x86/0xf8
+ [<c010b2b5>] sysenter_past_esp+0x52/0x71
+                                                                                
+Code: 81 7b 04 ad 4e ad de 0f 85 8d 00 00 00 f0 fe 0b 0f 88 3e 0d
+ <3>Slab corruption: start=f723351c, expend=f723371b, problemat=f7233658
+Last user: [<fa4f70d0>](ax25_cb_del+0x96/0xdc [ax25])
+Data: *************************************************************************
+Next: 71 F0 2C .D0 70 4F FA 71 F0 2C .********************
+slab error in check_poison_obj(): cache `size-512': object was modified after fgCall Trace:
+ [<c01453b1>] check_poison_obj+0x16c/0x1ac
+ [<c0147174>] __kmalloc+0x172/0x1d1
+ [<c024b14e>] alloc_skb+0x48/0xe1
+ [<c024b14e>] alloc_skb+0x48/0xe1
+ [<c024a7c9>] sock_alloc_send_pskb+0xce/0x1f6
+ [<c024a91f>] sock_alloc_send_skb+0x2e/0x32
+ [<c02b5400>] unix_stream_sendmsg+0x194/0x46d
+ [<c02475b9>] sock_aio_write+0xbd/0xd9
+ [<c015f301>] do_sync_write+0x89/0xb4
+ [<c012bcfe>] schedule_timeout+0x72/0xbb
+ [<c0247bf4>] sock_poll+0x29/0x30
+ [<c017481f>] sys_poll+0x228/0x27c
+ [<c015f415>] vfs_write+0xe9/0x119
+ [<c015f4e1>] sys_write+0x3f/0x5d
+ [<c010b2b5>] sysenter_past_esp+0x52/0x71
+                                                                                
