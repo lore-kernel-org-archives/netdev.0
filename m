@@ -1,455 +1,357 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: Re: [Linux-ATM-General] Re: [atmdrvr zatm] Remove obsolete EXACT_TS support
-Date: Thu, 31 Jul 2003 10:23:58 -0400
+Subject: Re: [atmdrvr zatm] Remove obsolete EXACT_TS support
+Date: Tue, 29 Jul 2003 13:15:09 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307311426.h6VEQgsG023826@ginger.cmf.nrl.navy.mil>
-References: <20030730225741.GA57991@gaz.sfgoth.com>
+Message-ID: <200307291717.h6THHosG027846@ginger.cmf.nrl.navy.mil>
+References: <20030728071323.GT32831@gaz.sfgoth.com>
 Reply-To: chas3@users.sourceforge.net
 Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-reply-to: Your message of "Wed, 30 Jul 2003 15:57:42 PDT."
-             <20030730225741.GA57991@gaz.sfgoth.com>
+In-reply-to: Your message of "Mon, 28 Jul 2003 00:13:23 PDT."
+             <20030728071323.GT32831@gaz.sfgoth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.6.  zatm will now compile on smp.  it might 
-actually work if someone had some hardware to test it.
+dave, please apply the following patch (hopefully one will arrive
+shortly that removes cli() et al from zatm as well):
 
+In message <20030728071323.GT32831@gaz.sfgoth.com>,Mitchell Blank Jr writes:
+>Chas - here's another 2.6 atm driver patch.  Please push it upstream.
+>
+>This removes the obsolete "exact timestamp" support from the zatm driver.
+>My understanding is that it was part of a research thing Werner did 8 or
+>so years ago.  It has no purpose for any production use.  I think 2.6 is
+>its time to die.
+>
+>Besides, these days we use do_gettimeofday() instead of xtime so we should
+>have a reasonably accurate timestamp anyways.
+>
+>The only program that uses the ZATM_GETTHIST ioctl is the src/debug/znth.c
+>from the userland distribution.  This isn't even compiled as part of the
+>make process so I don't feel any guilt about breaking it.  It should
+>probably also just go away.
+>
+>I don't have the hardware (and really doubt anyone else does either, but
+>that's another matter entirely) but it still compiles and insmod's.
+>
+>Patch is versus 2.6.0-test2.
 
-[atm]: [zatm] convert cli() to spinlock
 
 # This is a BitKeeper generated patch for the following project:
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1597  -> 1.1598 
-#	  drivers/atm/zatm.c	1.13    -> 1.14   
-#	drivers/atm/uPD98402.c	1.4     -> 1.5    
-#	  drivers/atm/zatm.h	1.2     -> 1.3    
+#	           ChangeSet	1.1596  -> 1.1597 
+#	  drivers/atm/zatm.c	1.12    -> 1.13   
+#	 drivers/atm/Kconfig	1.5     -> 1.6    
+#	  drivers/atm/zatm.h	1.1     -> 1.2    
+#	include/linux/atm_zatm.h	1.1     -> 1.2    
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/07/31	chas@relax.cmf.nrl.navy.mil	1.1598
-# [zatm] convert cli() to spinlock
+# 03/07/28	chas@relax.cmf.nrl.navy.mil	1.1597
+# remove EXACT_TS remove from zatm (untested)
 # --------------------------------------------
 #
-diff -Nru a/drivers/atm/uPD98402.c b/drivers/atm/uPD98402.c
---- a/drivers/atm/uPD98402.c	Thu Jul 31 10:25:25 2003
-+++ b/drivers/atm/uPD98402.c	Thu Jul 31 10:25:25 2003
-@@ -27,6 +27,7 @@
- 	struct k_sonet_stats sonet_stats;/* link diagnostics */
- 	unsigned char framing;		/* SONET/SDH framing */
- 	int loop_mode;			/* loopback mode */
-+	spinlock_t lock;
- };
+diff -Nru a/drivers/atm/Kconfig b/drivers/atm/Kconfig
+--- a/drivers/atm/Kconfig	Tue Jul 29 13:15:41 2003
++++ b/drivers/atm/Kconfig	Tue Jul 29 13:15:41 2003
+@@ -164,18 +164,6 @@
+ 	  Note that extended debugging may create certain race conditions
+ 	  itself. Enable this ONLY if you suspect problems with the driver.
  
- 
-@@ -71,14 +72,13 @@
- 		default:
- 			return -EINVAL;
- 	}
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&PRIV(dev)->lock, flags);
- 	PUT(set[0],C11T);
- 	PUT(set[1],C12T);
- 	PUT(set[2],C13T);
- 	PUT((GET(MDR) & ~uPD98402_MDR_SS_MASK) | (set[3] <<
- 	    uPD98402_MDR_SS_SHIFT),MDR);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&PRIV(dev)->lock, flags);
- 	return 0;
- }
- 
-@@ -88,12 +88,11 @@
- 	unsigned long flags;
- 	unsigned char s[3];
- 
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&PRIV(dev)->lock, flags);
- 	s[0] = GET(C11R);
- 	s[1] = GET(C12R);
- 	s[2] = GET(C13R);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&PRIV(dev)->lock, flags);
- 	return (put_user(s[0], arg) || put_user(s[1], arg+1) ||
- 	    put_user(s[2], arg+2) || put_user(0xff, arg+3) ||
- 	    put_user(0xff, arg+4) || put_user(0xff, arg+5)) ? -EFAULT : 0;
-@@ -214,6 +213,7 @@
- 	DPRINTK("phy_start\n");
- 	if (!(PRIV(dev) = kmalloc(sizeof(struct uPD98402_priv),GFP_KERNEL)))
- 		return -ENOMEM;
-+	spin_lock_init(&PRIV(dev)->lock);
- 	memset(&PRIV(dev)->sonet_stats,0,sizeof(struct k_sonet_stats));
- 	(void) GET(PCR); /* clear performance events */
- 	PUT(uPD98402_PFM_FJ,PCMR); /* ignore frequency adj */
+-config ATM_ZATM_EXACT_TS
+-	bool "Enable usec resolution timestamps"
+-	depends on ATM_ZATM && X86
+-	help
+-	  The uPD98401 SAR chip supports a high-resolution timer (approx. 30
+-	  MHz) that is used for very accurate reception timestamps. Because
+-	  that timer overflows after 140 seconds, and also to avoid timer
+-	  drift, time measurements need to be periodically synchronized with
+-	  the normal system time. Enabling this feature will add some general
+-	  overhead for timer synchronization and also per-packet overhead for
+-	  time conversion.
+-
+ #   bool 'Rolfs TI TNETA1570' CONFIG_ATM_TNETA1570 y
+ #   if [ "$CONFIG_ATM_TNETA1570" = "y" ]; then
+ #      bool '  Enable extended debugging' CONFIG_ATM_TNETA1570_DEBUG n
 diff -Nru a/drivers/atm/zatm.c b/drivers/atm/zatm.c
---- a/drivers/atm/zatm.c	Thu Jul 31 10:25:25 2003
-+++ b/drivers/atm/zatm.c	Thu Jul 31 10:25:25 2003
-@@ -195,11 +195,10 @@
- 		    sizeof(struct rx_buffer_head);
- 	}
- 	size += align;
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	free = zpeekl(zatm_dev,zatm_dev->pool_base+2*pool) &
- 	    uPD98401_RXFP_REMAIN;
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	if (free >= zatm_dev->pool_info[pool].low_water) return;
- 	EVENT("starting ... POOL: 0x%x, 0x%x\n",
- 	    zpeekl(zatm_dev,zatm_dev->pool_base+2*pool),
-@@ -228,22 +227,22 @@
- 		head->skb = skb;
- 		EVENT("enq skb 0x%08lx/0x%08lx\n",(unsigned long) skb,
- 		    (unsigned long) head);
--		cli();
-+		spin_lock_irqsave(&zatm_dev->lock, flags);
- 		if (zatm_dev->last_free[pool])
- 			((struct rx_buffer_head *) (zatm_dev->last_free[pool]->
- 			    data))[-1].link = virt_to_bus(head);
- 		zatm_dev->last_free[pool] = skb;
- 		skb_queue_tail(&zatm_dev->pool[pool],skb);
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 		free++;
- 	}
- 	if (first) {
--		cli();
-+		spin_lock_irqsave(&zatm_dev->lock, flags);
- 		zwait;
- 		zout(virt_to_bus(first),CER);
- 		zout(uPD98401_ADD_BAT | (pool << uPD98401_POOL_SHIFT) | count,
- 		    CMR);
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 		EVENT ("POOL: 0x%x, 0x%x\n",
- 		    zpeekl(zatm_dev,zatm_dev->pool_base+2*pool),
- 		    zpeekl(zatm_dev,zatm_dev->pool_base+2*pool+1));
-@@ -286,8 +285,7 @@
- 		size = pool-ZATM_AAL5_POOL_BASE;
- 		if (size < 0) size = 0; /* 64B... */
- 		else if (size > 10) size = 10; /* ... 64kB */
--		save_flags(flags);
--		cli();
-+		spin_lock_irqsave(&zatm_dev->lock, flags);
- 		zpokel(zatm_dev,((zatm_dev->pool_info[pool].low_water/4) <<
- 		    uPD98401_RXFP_ALERT_SHIFT) |
- 		    (1 << uPD98401_RXFP_BTSZ_SHIFT) |
-@@ -295,7 +293,7 @@
- 		    zatm_dev->pool_base+pool*2);
- 		zpokel(zatm_dev,(unsigned long) dummy,zatm_dev->pool_base+
- 		    pool*2+1);
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 		zatm_dev->last_free[pool] = NULL;
- 		refill_pool(dev,pool);
- 	}
-@@ -315,29 +313,29 @@
- {
- 	struct zatm_pool_info *pool;
- 	unsigned long offset,flags;
-+	struct zatm_dev *zatm_dev = ZATM_DEV(vcc->dev);
+--- a/drivers/atm/zatm.c	Tue Jul 29 13:15:41 2003
++++ b/drivers/atm/zatm.c	Tue Jul 29 13:15:41 2003
+@@ -52,13 +52,6 @@
+ #define DPRINTK(format,args...)
+ #endif
  
- 	DPRINTK("start 0x%08lx dest 0x%08lx len %d\n",start,dest,len);
- 	if (len < PAGE_SIZE) return;
--	pool = &ZATM_DEV(vcc->dev)->pool_info[ZATM_VCC(vcc)->pool];
-+	pool = &zatm_dev->pool_info[ZATM_VCC(vcc)->pool];
- 	offset = (dest-start) & (PAGE_SIZE-1);
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	if (!offset || pool->offset == offset) {
- 		pool->next_cnt = 0;
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 		return;
- 	}
- 	if (offset != pool->next_off) {
- 		pool->next_off = offset;
- 		pool->next_cnt = 0;
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 		return;
- 	}
- 	if (++pool->next_cnt >= pool->next_thres) {
- 		pool->offset = pool->next_off;
- 		pool->next_cnt = 0;
- 	}
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
+-#ifndef __i386__
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-#warning Precise timestamping only available on i386 platform
+-#undef CONFIG_ATM_ZATM_EXACT_TS
+-#endif
+-#endif
+-
+ #ifndef CONFIG_ATM_ZATM_DEBUG
+ 
+ 
+@@ -347,150 +340,6 @@
+ 	restore_flags(flags);
  }
  
+-
+-/*----------------------- high-precision timestamps -------------------------*/
+-
+-
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-
+-static struct timer_list sync_timer;
+-
+-
+-/*
+- * Note: the exact time is not normalized, i.e. tv_usec can be > 1000000.
+- * This must be handled by higher layers.
+- */
+-
+-static inline struct timeval exact_time(struct zatm_dev *zatm_dev,u32 ticks)
+-{
+-	struct timeval tmp;
+-
+-	tmp = zatm_dev->last_time;
+-	tmp.tv_usec += ((s64) (ticks-zatm_dev->last_clk)*
+-	    (s64) zatm_dev->factor) >> TIMER_SHIFT;
+-	return tmp;
+-}
+-
+-
+-static void zatm_clock_sync(unsigned long dummy)
+-{
+-	struct atm_dev *atm_dev;
+-	struct zatm_dev *zatm_dev;
+-
+-	for (atm_dev = zatm_boards; atm_dev; atm_dev = zatm_dev->more) {
+-		unsigned long flags,interval;
+-		int diff;
+-		struct timeval now,expected;
+-		u32 ticks;
+-
+-		zatm_dev = ZATM_DEV(atm_dev);
+-		save_flags(flags);
+-		cli();
+-		ticks = zpeekl(zatm_dev,uPD98401_TSR);
+-		do_gettimeofday(&now);
+-		restore_flags(flags);
+-		expected = exact_time(zatm_dev,ticks);
+-		diff = 1000000*(expected.tv_sec-now.tv_sec)+
+-		    (expected.tv_usec-now.tv_usec);
+-		zatm_dev->timer_history[zatm_dev->th_curr].real = now;
+-		zatm_dev->timer_history[zatm_dev->th_curr].expected = expected;
+-		zatm_dev->th_curr = (zatm_dev->th_curr+1) &
+-		    (ZATM_TIMER_HISTORY_SIZE-1);
+-		interval = 1000000*(now.tv_sec-zatm_dev->last_real_time.tv_sec)
+-		    +(now.tv_usec-zatm_dev->last_real_time.tv_usec);
+-		if (diff >= -ADJ_REP_THRES && diff <= ADJ_REP_THRES)
+-			zatm_dev->timer_diffs = 0;
+-		else
+-#ifndef AGGRESSIVE_DEBUGGING
+-			if (++zatm_dev->timer_diffs >= ADJ_MSG_THRES)
+-#endif
+-			{
+-			zatm_dev->timer_diffs = 0;
+-			printk(KERN_INFO DEV_LABEL ": TSR update after %ld us:"
+-			    " calculation differed by %d us\n",interval,diff);
+-#ifdef AGGRESSIVE_DEBUGGING
+-			printk(KERN_DEBUG "  %d.%08d -> %d.%08d (%lu)\n",
+-			    zatm_dev->last_real_time.tv_sec,
+-			    zatm_dev->last_real_time.tv_usec,
+-			    now.tv_sec,now.tv_usec,interval);
+-			printk(KERN_DEBUG "  %u -> %u (%d)\n",
+-			    zatm_dev->last_clk,ticks,ticks-zatm_dev->last_clk);
+-			printk(KERN_DEBUG "  factor %u\n",zatm_dev->factor);
+-#endif
+-		}
+-		if (diff < -ADJ_IGN_THRES || diff > ADJ_IGN_THRES) {
+-		    /* filter out any major changes (e.g. time zone setup and
+-		       such) */
+-			zatm_dev->last_time = now;
+-			zatm_dev->factor =
+-			    (1000 << TIMER_SHIFT)/(zatm_dev->khz+1);
+-		}
+-		else {
+-			zatm_dev->last_time = expected;
+-			/*
+-			 * Is the accuracy of udelay really only about 1:300 on
+-			 * a 90 MHz Pentium ? Well, the following line avoids
+-			 * the problem, but ...
+-			 *
+-			 * What it does is simply:
+-			 *
+-			 * zatm_dev->factor = (interval << TIMER_SHIFT)/
+-			 *     (ticks-zatm_dev->last_clk);
+-			 */
+-#define S(x) #x		/* "stringification" ... */
+-#define SX(x) S(x)
+-			asm("movl %2,%%ebx\n\t"
+-			    "subl %3,%%ebx\n\t"
+-			    "xorl %%edx,%%edx\n\t"
+-			    "shldl $" SX(TIMER_SHIFT) ",%1,%%edx\n\t"
+-			    "shl $" SX(TIMER_SHIFT) ",%1\n\t"
+-			    "divl %%ebx\n\t"
+-			    : "=a" (zatm_dev->factor)
+-			    : "0" (interval-diff),"g" (ticks),
+-			      "g" (zatm_dev->last_clk)
+-			    : "ebx","edx","cc");
+-#undef S
+-#undef SX
+-#ifdef AGGRESSIVE_DEBUGGING
+-			printk(KERN_DEBUG "  (%ld << %d)/(%u-%u) = %u\n",
+-			    interval,TIMER_SHIFT,ticks,zatm_dev->last_clk,
+-			    zatm_dev->factor);
+-#endif
+-		}
+-		zatm_dev->last_real_time = now;
+-		zatm_dev->last_clk = ticks;
+-	}
+-	mod_timer(&sync_timer,sync_timer.expires+POLL_INTERVAL*HZ);
+-}
+-
+-
+-static void __init zatm_clock_init(struct zatm_dev *zatm_dev)
+-{
+-	static int start_timer = 1;
+-	unsigned long flags;
+-
+-	zatm_dev->factor = (1000 << TIMER_SHIFT)/(zatm_dev->khz+1);
+-	zatm_dev->timer_diffs = 0;
+-	memset(zatm_dev->timer_history,0,sizeof(zatm_dev->timer_history));
+-	zatm_dev->th_curr = 0;
+-	save_flags(flags);
+-	cli();
+-	do_gettimeofday(&zatm_dev->last_time);
+-	zatm_dev->last_clk = zpeekl(zatm_dev,uPD98401_TSR);
+-	if (start_timer) {
+-		start_timer = 0;
+-		init_timer(&sync_timer);
+-		sync_timer.expires = jiffies+POLL_INTERVAL*HZ;
+-		sync_timer.function = zatm_clock_sync;
+-		add_timer(&sync_timer);
+-	}
+-	restore_flags(flags);
+-}
+-
+-
+-#endif
+-
+-
  /*----------------------------------- RX ------------------------------------*/
-@@ -535,20 +533,19 @@
- 		zatm_vcc->pool = ZATM_AAL0_POOL;
- 	}
- 	if (zatm_vcc->pool < 0) return -EMSGSIZE;
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	zwait;
- 	zout(uPD98401_OPEN_CHAN,CMR);
- 	zwait;
- 	DPRINTK("0x%x 0x%x\n",zin(CMR),zin(CER));
- 	chan = (zin(CMR) & uPD98401_CHAN_ADDR) >> uPD98401_CHAN_ADDR_SHIFT;
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	DPRINTK("chan is %d\n",chan);
- 	if (!chan) return -EAGAIN;
- 	use_pool(vcc->dev,zatm_vcc->pool);
- 	DPRINTK("pool %d\n",zatm_vcc->pool);
- 	/* set up VC descriptor */
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	zpokel(zatm_dev,zatm_vcc->pool << uPD98401_RXVC_POOL_SHIFT,
- 	    chan*VC_SIZE/4);
- 	zpokel(zatm_dev,uPD98401_RXVC_OD | (vcc->qos.aal == ATM_AAL5 ?
-@@ -556,7 +553,7 @@
- 	zpokel(zatm_dev,0,chan*VC_SIZE/4+2);
- 	zatm_vcc->rx_chan = chan;
- 	zatm_dev->rx_map[chan] = vcc;
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	return 0;
- }
  
-@@ -572,14 +569,13 @@
- 	zatm_dev = ZATM_DEV(vcc->dev);
- 	zatm_vcc = ZATM_VCC(vcc);
- 	if (!zatm_vcc->rx_chan) return 0;
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	/* should also handle VPI @@@ */
- 	pos = vcc->vci >> 1;
- 	shift = (1-(vcc->vci & 1)) << 4;
- 	zpokel(zatm_dev,(zpeekl(zatm_dev,pos) & ~(0xffff << shift)) |
- 	    ((zatm_vcc->rx_chan | uPD98401_RXLT_ENBL) << shift),pos);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	return 0;
- }
  
-@@ -596,9 +592,8 @@
- 	if (!zatm_vcc->rx_chan) return;
- 	DPRINTK("close_rx\n");
- 	/* disable receiver */
--	save_flags(flags);
- 	if (vcc->vpi != ATM_VPI_UNSPEC && vcc->vci != ATM_VCI_UNSPEC) {
--		cli();
-+		spin_lock_irqsave(&zatm_dev->lock, flags);
- 		pos = vcc->vci >> 1;
- 		shift = (1-(vcc->vci & 1)) << 4;
- 		zpokel(zatm_dev,zpeekl(zatm_dev,pos) & ~(0xffff << shift),pos);
-@@ -606,9 +601,9 @@
- 		zout(uPD98401_NOP,CMR);
- 		zwait;
- 		zout(uPD98401_NOP,CMR);
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	}
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	zwait;
- 	zout(uPD98401_DEACT_CHAN | uPD98401_CHAN_RT | (zatm_vcc->rx_chan <<
- 	    uPD98401_CHAN_ADDR_SHIFT),CMR);
-@@ -620,7 +615,7 @@
- 	if (!(zin(CMR) & uPD98401_CHAN_ADDR))
- 		printk(KERN_CRIT DEV_LABEL "(itf %d): can't close RX channel "
- 		    "%d\n",vcc->dev->number,zatm_vcc->rx_chan);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	zatm_dev->rx_map[zatm_vcc->rx_chan] = NULL;
- 	zatm_vcc->rx_chan = 0;
- 	unuse_pool(vcc->dev,zatm_vcc->pool);
-@@ -673,11 +668,10 @@
- 	zatm_dev = ZATM_DEV(vcc->dev);
- 	zatm_vcc = ZATM_VCC(vcc);
- 	EVENT("iovcnt=%d\n",skb_shinfo(skb)->nr_frags,0);
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	if (!skb_shinfo(skb)->nr_frags) {
- 		if (zatm_vcc->txing == RING_ENTRIES-1) {
--			restore_flags(flags);
-+			spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 			return RING_BUSY;
- 		}
- 		zatm_vcc->txing++;
-@@ -732,7 +726,7 @@
- 	zwait;
- 	zout(uPD98401_TX_READY | (zatm_vcc->tx_chan <<
- 	    uPD98401_CHAN_ADDR_SHIFT),CMR);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	EVENT("done\n",0,0);
- 	return 0;
- }
-@@ -866,15 +860,14 @@
- 		if (zatm_dev->tx_bw < *pcr) return -EAGAIN;
- 		zatm_dev->tx_bw -= *pcr;
- 	}
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	DPRINTK("i = %d, m = %d, PCR = %d\n",i,m,*pcr);
- 	zpokel(zatm_dev,(i << uPD98401_IM_I_SHIFT) | m,uPD98401_IM(shaper));
- 	zpokel(zatm_dev,c << uPD98401_PC_C_SHIFT,uPD98401_PC(shaper));
- 	zpokel(zatm_dev,0,uPD98401_X(shaper));
- 	zpokel(zatm_dev,0,uPD98401_Y(shaper));
- 	zpokel(zatm_dev,uPD98401_PS_E,uPD98401_PS(shaper));
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	return shaper;
- }
- 
-@@ -889,11 +882,10 @@
- 		if (--zatm_dev->ubr_ref_cnt) return;
- 		zatm_dev->ubr = -1;
- 	}
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	zpokel(zatm_dev,zpeekl(zatm_dev,uPD98401_PS(shaper)) & ~uPD98401_PS_E,
- 	    uPD98401_PS(shaper));
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	zatm_dev->free_shapers |= 1 << shaper;
- }
- 
-@@ -912,8 +904,6 @@
- 	chan = zatm_vcc->tx_chan;
- 	if (!chan) return;
- 	DPRINTK("close_tx\n");
--	save_flags(flags);
--	cli();
- 	while (skb_peek(&zatm_vcc->backlog)) {
- if (once) {
- printk("waiting for backlog to drain ...\n");
-@@ -932,6 +922,7 @@
- 		DPRINTK("waiting for TX queue to drain ... %p\n",skb);
- 		sleep_on(&zatm_vcc->tx_wait);
- 	}
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
+@@ -581,11 +430,7 @@
+ EVENT("error code 0x%x/0x%x\n",(here[3] & uPD98401_AAL5_ES) >>
+   uPD98401_AAL5_ES_SHIFT,error);
+ 		skb = ((struct rx_buffer_head *) bus_to_virt(here[2]))->skb;
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-		skb->stamp = exact_time(zatm_dev,here[1]);
+-#else
+ 		do_gettimeofday(&skb->stamp);
+-#endif
  #if 0
- 	zwait;
- 	zout(uPD98401_DEACT_CHAN | (chan << uPD98401_CHAN_ADDR_SHIFT),CMR);
-@@ -942,7 +933,7 @@
- 	if (!(zin(CMR) & uPD98401_CHAN_ADDR))
- 		printk(KERN_CRIT DEV_LABEL "(itf %d): can't close TX channel "
- 		    "%d\n",vcc->dev->number,chan);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	zatm_vcc->tx_chan = 0;
- 	zatm_dev->tx_map[chan] = NULL;
- 	if (zatm_vcc->shaper != zatm_dev->ubr) {
-@@ -967,14 +958,13 @@
- 	zatm_vcc = ZATM_VCC(vcc);
- 	zatm_vcc->tx_chan = 0;
- 	if (vcc->qos.txtp.traffic_class == ATM_NONE) return 0;
--	save_flags(flags);
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	zwait;
- 	zout(uPD98401_OPEN_CHAN,CMR);
- 	zwait;
- 	DPRINTK("0x%x 0x%x\n",zin(CMR),zin(CER));
- 	chan = (zin(CMR) & uPD98401_CHAN_ADDR) >> uPD98401_CHAN_ADDR_SHIFT;
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	DPRINTK("chan is %d\n",chan);
- 	if (!chan) return -EAGAIN;
- 	unlimited = vcc->qos.txtp.traffic_class == ATM_UBR &&
-@@ -1022,15 +1012,14 @@
- 	zatm_dev = ZATM_DEV(vcc->dev);
- 	zatm_vcc = ZATM_VCC(vcc);
- 	if (!zatm_vcc->tx_chan) return 0;
--	save_flags(flags);
- 	/* set up VC descriptor */
--	cli();
-+	spin_lock_irqsave(&zatm_dev->lock, flags);
- 	zpokel(zatm_dev,0,zatm_vcc->tx_chan*VC_SIZE/4);
- 	zpokel(zatm_dev,uPD98401_TXVC_L | (zatm_vcc->shaper <<
- 	    uPD98401_TXVC_SHP_SHIFT) | (vcc->vpi << uPD98401_TXVC_VPI_SHIFT) |
- 	    vcc->vci,zatm_vcc->tx_chan*VC_SIZE/4+1);
- 	zpokel(zatm_dev,0,zatm_vcc->tx_chan*VC_SIZE/4+2);
--	restore_flags(flags);
-+	spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	zatm_dev->tx_map[zatm_vcc->tx_chan] = vcc;
- 	return 0;
+ printk("[-3..0] 0x%08lx 0x%08lx 0x%08lx 0x%08lx\n",((unsigned *) skb->data)[-3],
+   ((unsigned *) skb->data)[-2],((unsigned *) skb->data)[-1],
+@@ -1455,9 +1300,6 @@
+ 	    "MHz\n",dev->number,
+ 	    (zin(VER) & uPD98401_MAJOR) >> uPD98401_MAJOR_SHIFT,
+             zin(VER) & uPD98401_MINOR,zatm_dev->khz/1000,zatm_dev->khz % 1000);
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-	zatm_clock_init(zatm_dev);
+-#endif
+ 	return uPD98402_init(dev);
  }
-@@ -1236,6 +1225,7 @@
  
- 	DPRINTK(">zatm_init\n");
- 	zatm_dev = ZATM_DEV(dev);
-+	spin_lock_init(&zatm_dev->lock);
- 	pci_dev = zatm_dev->pci_dev;
- 	zatm_dev->base = pci_resource_start(pci_dev, 0);
- 	zatm_dev->irq = pci_dev->irq;
-@@ -1285,14 +1275,13 @@
- 	do {
- 		unsigned long flags;
- 
--		save_flags(flags);
--		cli();
-+		spin_lock_irqsave(&zatm_dev->lock, flags);
- 		t0 = zpeekl(zatm_dev,uPD98401_TSR);
- 		udelay(10);
- 		t1 = zpeekl(zatm_dev,uPD98401_TSR);
- 		udelay(1010);
- 		t2 = zpeekl(zatm_dev,uPD98401_TSR);
--		restore_flags(flags);
-+		spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 	}
- 	while (t0 > t1 || t1 > t2); /* loop if wrapping ... */
- 	zatm_dev->khz = t2-2*t1+t0;
-@@ -1492,14 +1481,13 @@
- 					return -EFAULT;
- 				if (pool < 0 || pool > ZATM_LAST_POOL)
- 					return -EINVAL;
--				save_flags(flags);
--				cli();
-+				spin_lock_irqsave(&zatm_dev->lock, flags);
- 				info = zatm_dev->pool_info[pool];
- 				if (cmd == ZATM_GETPOOLZ) {
- 					zatm_dev->pool_info[pool].rqa_count = 0;
- 					zatm_dev->pool_info[pool].rqu_count = 0;
- 				}
--				restore_flags(flags);
-+				spin_unlock_irqrestore(&zatm_dev->lock, flags);
- 				return copy_to_user(
- 				    &((struct zatm_pool_req *) arg)->info,
- 				    &info,sizeof(info)) ? -EFAULT : 0;
-@@ -1530,15 +1518,14 @@
- 				if (info.low_water >= info.high_water ||
- 				    info.low_water < 0)
- 					return -EINVAL;
--				save_flags(flags);
--				cli();
-+				spin_lock_irqsave(&zatm_dev->lock, flags);
- 				zatm_dev->pool_info[pool].low_water =
- 				    info.low_water;
- 				zatm_dev->pool_info[pool].high_water =
- 				    info.high_water;
- 				zatm_dev->pool_info[pool].next_thres =
- 				    info.next_thres;
--				restore_flags(flags);
-+				spin_unlock_irqrestore(&zatm_dev->lock, flags);
+@@ -1699,22 +1541,6 @@
+ 				restore_flags(flags);
  				return 0;
  			}
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-		case ZATM_GETTHIST:
+-			{
+-				int i;
+-				struct zatm_t_hist hs[ZATM_TIMER_HISTORY_SIZE];
+-				save_flags(flags);
+-				cli();
+-				for (i = 0; i < ZATM_TIMER_HISTORY_SIZE; i++)
+-					hs[i] = zatm_dev->timer_history[
+-					    (zatm_dev->th_curr+i) &
+-					    (ZATM_TIMER_HISTORY_SIZE-1)];
+-				restore_flags(flags);
+-				return copy_to_user((struct zatm_t_hist *) arg,
+-				    hs, sizeof(hs)) ? -EFAULT : 0;
+-			}
+-#endif
  		default:
+         		if (!dev->phy->ioctl) return -ENOIOCTLCMD;
+ 		        return dev->phy->ioctl(dev,cmd,arg);
 diff -Nru a/drivers/atm/zatm.h b/drivers/atm/zatm.h
---- a/drivers/atm/zatm.h	Thu Jul 31 10:25:25 2003
-+++ b/drivers/atm/zatm.h	Thu Jul 31 10:25:25 2003
-@@ -85,6 +85,7 @@
- 	unsigned char irq;		/* IRQ */
- 	unsigned int base;		/* IO base address */
- 	struct pci_dev *pci_dev;	/* PCI stuff */
-+	spinlock_t lock;
- };
+--- a/drivers/atm/zatm.h	Tue Jul 29 13:15:41 2003
++++ b/drivers/atm/zatm.h	Tue Jul 29 13:15:41 2003
+@@ -40,31 +40,6 @@
+ #define MBX_TX_0	2
+ #define MBX_TX_1	3
  
+-
+-/*
+- * mkdep doesn't spot this dependency, but that's okay, because zatm.c uses
+- * CONFIG_ATM_ZATM_EXACT_TS too.
+- */
+-
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-#define POLL_INTERVAL	60	/* TSR poll interval in seconds; must be <=
+-				   (2^31-1)/clock */
+-#define TIMER_SHIFT	20	/* scale factor for fixed-point arithmetic;
+-				   1 << TIMER_SHIFT must be
+-				     (1)  <= (2^64-1)/(POLL_INTERVAL*clock),
+-				     (2)  >> clock/10^6, and
+-				     (3)  <= (2^32-1)/1000  */
+-#define ADJ_IGN_THRES	1000000	/* don't adjust if we're off by more than that
+-				   many usecs - this filters clock corrections,
+-				   time zone changes, etc. */
+-#define ADJ_REP_THRES	20000	/* report only differences of more than that
+-				   many usecs (don't mention single lost timer
+-				   ticks; 10 msec is only 0.03% anyway) */
+-#define ADJ_MSG_THRES	5	/* issue complaints only if getting that many
+-				   significant timer differences in a row */
+-#endif
+-
+-
+ struct zatm_vcc {
+ 	/*-------------------------------- RX part */
+ 	int rx_chan;			/* RX channel, 0 if none */
+@@ -103,17 +78,6 @@
+ 	u32 pool_base;			/* Free buffer pool dsc (word addr) */
+ 	/*-------------------------------- ZATM links */
+ 	struct atm_dev *more;		/* other ZATM devices */
+-#ifdef CONFIG_ATM_ZATM_EXACT_TS
+-	/*-------------------------------- timestamp calculation */
+-	u32 last_clk;			/* results of last poll: clock, */
+-	struct timeval last_time;	/*   virtual time and */
+-	struct timeval last_real_time;	/*   real time */
+-	u32 factor;			/* multiplication factor */
+-	int timer_diffs;		/* number of significant deviations */
+-	struct zatm_t_hist timer_history[ZATM_TIMER_HISTORY_SIZE];
+-					/* record of timer synchronizations */
+-	int th_curr;			/* current position */
+-#endif
+ 	/*-------------------------------- general information */
+ 	int mem;			/* RAM on board (in bytes) */
+ 	int khz;			/* timer clock */
+diff -Nru a/include/linux/atm_zatm.h b/include/linux/atm_zatm.h
+--- a/include/linux/atm_zatm.h	Tue Jul 29 13:15:41 2003
++++ b/include/linux/atm_zatm.h	Tue Jul 29 13:15:41 2003
+@@ -21,9 +21,6 @@
+ 						/* get statistics and zero */
+ #define ZATM_SETPOOL	_IOW('a',ATMIOC_SARPRV+3,struct atmif_sioc)
+ 						/* set pool parameters */
+-#define ZATM_GETTHIST	_IOW('a',ATMIOC_SARPRV+4,struct atmif_sioc)
+-						/* get a history of timer
+-						   differences */
  
+ struct zatm_pool_info {
+ 	int ref_count;			/* free buffer pool usage counters */
