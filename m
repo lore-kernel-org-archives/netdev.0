@@ -1,51 +1,120 @@
-From: hotjobs <hotjobs@secureallinc.com>
-Subject: Linux TCP/IP Stack Developer
-Date: Fri, 10 Oct 2003 15:55:09 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: 2.6.0-test7-netx2
+Date: Fri, 10 Oct 2003 16:06:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1065826508.1612.27.camel@localhost.localdomain>
+Message-ID: <20031010160611.2fba3cf7.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, John Heffner <jheffner@psc.edu>,
+        "Feldman, Scott" <scott.feldman@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        linux-net@vger.kernel.org, kernelnewbies@nl.linux.org
+To: linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-CA-Staff/Senior Engineer: Linux TCP/IP Stack Development
+http://developer.osdl.org/shemminger/netx/2.6/2.6.0-test7/2.6.0-test7-netx2/
 
-SecureAll Inc., headquartered in the Silicon Valley, California, is a 
-well-funded start-up in the Enterprise Information Security domain. 
-It is well recognized that enterprises are on the average 6 months 
-behind on applying security patches. During this period, despite 
-employing firewalls and intrusion detection systems, enterprises 
-are vulnerable to exploits leveraging the un-patched weaknesses. 
-It is also acknowledged that patch management is an imperfect science
-and does not take away the risk of applying patches without adequate 
-testing. SecureAll offers a solution that is truly radical and solves
-the above problems in an elegant fashion. The foundation of the company
-is based on a patented breakthrough technology that takes network-based
-enterprise security to the next level. 
+This patch set contains experimental network protocols and drivers.
 
-We are currently looking to fill one full-time regular positions in our 
-San Jose, CA facility  requiring extensive experience with TCP/IP 
-protocol stack development.  
-	
-	
-Staff/Senior-Engineer: TCP/IP Protocol Stack Development 
+Changes since last installment:
++ bugfixes accepted are in linus.net
+* TCP Vegas not a config option
++ more WAN driver cleanup
++ High Speed TCP patch 
++ New e100 driver (from Scott Feldman)
++ ISA TokenRing probing changes
++ VLAN using hlist and RCU
 
-* 5-10 years of experience in the design, implementation, and 
-  ongoing development of TCP/IP protocol stack. At least 1 year 
-  recent development experience with Linux TCP/IP protocol stack.
-* Extensive Kernel Software development and debugging experience 
-  preferably in Linux environment.
-* Good Understanding of memory management, SMP, clustering issues is a
-  plus.
-* Experience with the hardening of kernel and various protocol stacks 
-  for security is a plus.
-* Experience with design and architecture of mid- to large-sized 
-  software projects.
+TCP includes two alternative congestion mechanism. Both are compiled
+in, but not enabled.
+    Vegas 			=> /proc/sys/net/tcp_vegas_cong_avoid
+       got this from David Miller, but more info at
+	  http://flophouse.com/~neal/uw/linux-vegas/
 
+    Sally Floyd High Speed TCP  => /proc/sys/net/tcp_altAIMD
+       see http://www.hep.ucl.ac.uk/~ytl/tcpip/hstcp/index.html
 
-To Apply for this job, please send a word/text resume to 
-hotjobs@secureallinc.com with the position title in the subject line.
+Auto tuning receive and send buffers is enabled by default
+     via /proc/sys/net/tcp_rcvbuf_mode from John Heffner
+
+There is also a new algorithm for sharing memory among lots of connections
+also from John.
+
+======================================================================
+linus.net
+netx.patch
+#
+# Bug fixes
+#
+hostess-retval.patch
+synclink-retval.patch
+probe-regression.patch
+syncppp-if-ptr.patch
+sealevel-if-ptr.patch
+#
+# ISA ethernet device probing
+#
+probe2.patch
+de620-probe2.patch
+ni65-probe2.patch
+ni52-probe2.patch
+ni5010-probe2.patch
+sk16-probe2.patch
+3c505-probe2.patch
+3c507-probe2.patch
+arlan-probe2.patch
+wavelan-probe2.patch
+3c501-probe2.patch
+82596-probe2.patch
+#
+# ISA Tokenring device probing
+#
+probe2-tokenring.patch
+smctr-probe2.patch
+proteon-probe2.patch
+#probe2-skisa.patch
+#probe2-ibmtr.patch
+#
+# New devices
+#
+stir4200.patch
+e100-3.0.6_dev.patch
+#
+# IRDA cleanups
+#
+hashbin-inlist.patch
+hashbin-const.patch
+hashbin-no-sorted.patch
+hashbin-no-unused.patch
+hashbin-hlist.patch
+irda-usb.patch
+#
+# WAN device cleanup
+#
+sbni-request-region.patch
+cosa-major.patch
+cosa-name.patch
+cosa-alloc-netdev.patch
+hostess_sv11-nomodinc.patch
+hostess_sv11-allocnetdev.patch
+lmc-pci_ids.patch
+lmc-nomodinc.patch
+lmc-pcidev.patch
+lmc-allocnetdev.patch
+farsync-nomodinc.patch
+pc300-nomodinc.patch
+#
+# Janitor cleanups
+#
+tms380tr-nomodstub.patch
+wan-dev-get.patch
+nfs-seq-file.patch
+dev-alloc-deprecated.patch
+vlan-hlist.patch
+#
+# TCP Enhancements
+#
+tcp-vegas.patch
+tcp-hstcp.patch
+tcp-auto-tune.patch
