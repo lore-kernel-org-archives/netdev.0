@@ -1,41 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Mon, 09 Jun 2003 16:05:47 -0700 (PDT)
+From: Jamal Hadi <hadi@shell.cyberus.ca>
+Subject: RE: Route cache performance under stress
+Date: Mon, 9 Jun 2003 20:03:19 -0400 (EDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030609.160547.41648991.davem@redhat.com>
-References: <20030609221911.GF11509@netnation.com>
-	<008001c32eda$56760830$4a00000a@badass>
+Message-ID: <20030609195652.E35696@shell.cyberus.ca>
+References: <008001c32eda$56760830$4a00000a@badass>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: sim@netnation.com, hadi@shell.cyberus.ca, fw@deneb.enyo.de,
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: 'Simon Kirby' <sim@netnation.com>,
+	"'David S. Miller'" <davem@redhat.com>, fw@deneb.enyo.de,
 	netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: xerox@foonet.net
+To: CIT/Paul <xerox@foonet.net>
 In-Reply-To: <008001c32eda$56760830$4a00000a@badass>
 List-Id: netdev.vger.kernel.org
 
-   From: "CIT/Paul" <xerox@foonet.net>
-   Date: Mon, 9 Jun 2003 18:56:18 -0400
 
-   And there is no reason for NAPI at this point. 
-   
-Intel's ITR give you high latency, NAPI is far superior
-than any hardware based interrupt mitigation scheme whatsoever.
 
-You have some system specific problem with NAPI and we need
-to analyze that.
+On Mon, 9 Jun 2003, CIT/Paul wrote:
 
-   I've mucked with TONNnss of settings.. I've even had the route-cache up
-   to over 600,000 entries and the CPU still has room left for more..
-   It can't possibly be the size of the cache,
+> NAPI despises SMP.. Any SMP box we run NAPI on has major packet loss
+> under high load.. So I find that the e1000 ITR works just as well
+> And there is no reason for NAPI at this point.
+>
 
-You are letting your hash chains reach the size of "max_size" divided
-by the number of hash chains.
+Foo, you on cheap crack again?
+Please just try the tests as described if you want to help. It doesnt help
+anyone when you wildly wave your hands like that.
 
-This means that every packet into your machine has to walk that
-many hash chains.
+Why dont we take you offline - give me access to your machine i have a
+couple of hours to kill.
 
-You can keep doing some shamans dance saying that the size you
-have choosen doesn't matter, but the people who have written
-this code and work with it every day know that it does.
+cheers,
+jamal
+
