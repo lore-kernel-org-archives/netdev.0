@@ -1,56 +1,84 @@
-From: Park Lee <parklee_sel@yahoo.com>
-Subject: Issue on packets sending through ip_route_output_key() to xfrm_lookup() in native IPsec
-Date: Thu, 30 Dec 2004 21:07:09 -0800 (PST)
-Message-ID: <20041231050709.11915.qmail@web51507.mail.yahoo.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: ing_filter debug messages
+Date: 31 Dec 2004 00:07:46 -0500
+Message-ID: <1104469666.1049.231.camel@jzny.localdomain>
+References: <20041230160643.GD24603@wiggy.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Wichert Akkerman <wichert@wiggy.net>
+In-Reply-To: <20041230160643.GD24603@wiggy.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  In Linux native IPsec, there is a function
-xfrm_lookup(struct dst_entry **dst_p, struct flowi
-*fl, struct sock *sk, int flags) (in
-/usr/src/linux-2.6.5-1.358/net/xfrm/xfrm_policy.c).
-Whenever a packet is sending, kernel will call
-xfrm_lookup() to finds/creates a bundle for it. 
-  xfrm_lookup() can be called by many functions. one
-of these functions is ip_route_output_key(). 
-we can see its definition as follows:
 
-int ip_route_output_key(struct rtable **rp, struct
-flowi *flp)
-{
-        int err;
-        if ((err = __ip_route_output_key(rp, flp)) !=
-0)
-                return err;
-        return flp->proto ? xfrm_lookup((struct
-dst_entry**)rp, flp, NULL, 0) : 0;
-}
+The emssage is useful but debug (mostly). 
+Whats your ifconfig look like? Have some tunnels in there maybe?
+Whats your netfilter setup? 
 
-As ip_route_output_key() calls xfrm_lookup() with the
-argument sk set to NULL, Does this means that the
-packets sending through ip_route_output_key() to
-xfrm_lookup() have no corresponding local socket with
-them (because their sk is NULL)? Are these packets all
-created by special kernel socket (i.e. icmp_socket and
-tcp_socket)? 
+cheers,
+jamal
 
-Thank you very much.
-
-
-
-=====
-Best Regards,
-Park Lee
-
-
-		
-__________________________________ 
-Do you Yahoo!? 
-Dress up your holiday email, Hollywood style. Learn more. 
-http://celebrity.mail.yahoo.com
+On Thu, 2004-12-30 at 11:06, Wichert Akkerman wrote:
+> After upgrading a machine to (unpatched mainline) 2.6.10 my kernel log
+> is filled with ing_filter (debug?) messages:
+> 
+> Dec 30 16:24:58 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 16:24:58 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 16:37:08 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 16:37:08 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 16:49:08 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 16:49:08 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 17:01:08 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> Dec 30 17:01:08 thunder kernel: ing_filter:  fixed  eth1 out eth1
+> 
+> the messages always come in pairs. eth1 is the externel interface which
+> has a standard wondershaper configuration attached to it. Relevant bits
+> of .config are below.
+> 
+> Wichert.
+> 
+> 
+> #
+> # QoS and/or fair queueing
+> #
+> CONFIG_NET_SCHED=y
+> CONFIG_NET_SCH_CLK_JIFFIES=y
+> # CONFIG_NET_SCH_CLK_GETTIMEOFDAY is not set
+> # CONFIG_NET_SCH_CLK_CPU is not set
+> CONFIG_NET_SCH_CBQ=y
+> CONFIG_NET_SCH_HTB=y
+> # CONFIG_NET_SCH_HFSC is not set
+> # CONFIG_NET_SCH_PRIO is not set
+> # CONFIG_NET_SCH_RED is not set
+> CONFIG_NET_SCH_SFQ=y
+> # CONFIG_NET_SCH_TEQL is not set
+> CONFIG_NET_SCH_TBF=y
+> # CONFIG_NET_SCH_GRED is not set
+> # CONFIG_NET_SCH_DSMARK is not set
+> # CONFIG_NET_SCH_NETEM is not set
+> CONFIG_NET_SCH_INGRESS=y
+> CONFIG_NET_QOS=y
+> CONFIG_NET_ESTIMATOR=y
+> CONFIG_NET_CLS=y
+> CONFIG_NET_CLS_TCINDEX=y
+> CONFIG_NET_CLS_ROUTE4=y
+> CONFIG_NET_CLS_ROUTE=y
+> CONFIG_NET_CLS_FW=y
+> CONFIG_NET_CLS_U32=y
+> # CONFIG_CLS_U32_PERF is not set
+> # CONFIG_NET_CLS_IND is not set
+> CONFIG_NET_CLS_RSVP=y
+> CONFIG_NET_CLS_RSVP6=y
+> CONFIG_NET_CLS_ACT=y
+> CONFIG_NET_ACT_POLICE=y
+> CONFIG_NET_ACT_GACT=y
+> CONFIG_GACT_PROB=y
+> CONFIG_NET_ACT_MIRRED=y
+> CONFIG_NET_ACT_IPT=y
+> CONFIG_NET_ACT_PEDIT=y
+> 
