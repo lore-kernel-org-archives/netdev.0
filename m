@@ -1,30 +1,51 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.70+] warning in ethtool ixgb
-Date: Mon, 9 Jun 2003 10:51:06 -0700
+Subject: Re: [BUG] drivers/net/ioc3_eth.c in 2.5
+Date: Mon, 9 Jun 2003 11:08:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609105106.0330bbec.shemminger@osdl.org>
+Message-ID: <20030609110855.2e264ce1.shemminger@osdl.org>
+References: <20030606161658.1f01b8f9.shemminger@osdl.org>
+	<20030607.013010.116359540.davem@redhat.com>
+	<20030609101018.0ca2e1f9.shemminger@osdl.org>
+	<20030609171224.GA14623@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: davem@redhat.com, ralf@oss.sgi.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030609171224.GA14623@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Looks like ethtool now knows about 10G devices in 2.5.70 bk-latest, so ixgb genrates a warning.
-This should fix that:
+On Mon, 9 Jun 2003 13:12:24 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-diff -Nru a/drivers/net/ixgb/ixgb_ethtool.c b/drivers/net/ixgb/ixgb_ethtool.c
---- a/drivers/net/ixgb/ixgb_ethtool.c	Mon Jun  9 10:49:01 2003
-+++ b/drivers/net/ixgb/ixgb_ethtool.c	Mon Jun  9 10:49:01 2003
-@@ -50,9 +50,6 @@
- 	return (IXGB_EEPROM_SIZE << 1);
- }
+> On Mon, Jun 09, 2003 at 10:10:18AM -0700, Stephen Hemminger wrote:
+> > Looks like the right fix is:
+> > --- ioc3-eth.c.orig	2003-06-09 10:05:45.000000000 -0700
+> > +++ ioc3-eth.c	2003-06-09 10:04:45.000000000 -0700
+> > @@ -1614,6 +1614,7 @@ static void __devexit ioc3_remove_one (s
+> >  	struct ioc3 *ioc3 = ip->regs;
+> >  
+> >  	iounmap(ioc3);
+> > +	unregister_netdev(dev);
+> >  	pci_release_regions(pdev);
+> >  	kfree(dev);
+> >  }
+> 
+> You want to unregister before iounmap.
+> 
+> 	Jeff
+> 
+> 
+Okay:
+--- ioc3-eth.c.orig	2003-06-09 10:05:45.000000000 -0700
++++ ioc3-eth.c	2003-06-09 11:08:01.000000000 -0700
+@@ -1613,6 +1613,7 @@ static void __devexit ioc3_remove_one (s
+ 	struct ioc3_private *ip = dev->priv;
+ 	struct ioc3 *ioc3 = ip->regs;
  
--#define SUPPORTED_10000baseT_Full (1 << 11)
--#define SPEED_10000 10000
--
- static void
- ixgb_ethtool_gset(struct ixgb_adapter *adapter, struct ethtool_cmd *ecmd)
- {
++	unregister_netdev(dev);
+ 	iounmap(ioc3);
+ 	pci_release_regions(pdev);
+ 	kfree(dev);
