@@ -1,54 +1,27 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
-Subject: Re: Forcedeth and vesa
-Date: Fri, 04 Jun 2004 16:25:02 +0200
+From: Thayne Harbaugh <tharbaugh@lnxi.com>
+Subject: Re: [PATCH] abysmal e1000 performance (DITR)
+Date: Fri, 04 Jun 2004 08:20:02 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40C0863E.9070508@gmx.net>
-References: <20040604135640.C218BD0B60@rekin6.o2.pl>
+Message-ID: <1086358801.23135.30.camel@tubarao>
+References: <1086131111.20113.22.camel@tubarao>
+Reply-To: tharbaugh@lnxi.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: foner+x-forcedeth@media.mit.edu, Manfred Spraul <manfred@colorfullife.com>,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-        Andrew de Quincey <adq@lidskialf.net>, Netdev <netdev@oss.sgi.com>
+Cc: ganesh.venkatesan@intel.com, Scott Feldman <scott.feldman@intel.com>,
+        Jesse Brandeburg <jesse.brandeburg@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: smolny@o2.pl
-In-Reply-To: <20040604135640.C218BD0B60@rekin6.o2.pl>
+To: netdev@oss.sgi.com
+In-Reply-To: <1086131111.20113.22.camel@tubarao>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+I have documented a serious performance problem with DITR in the e1000
+driver.  I have sent a patch to the netdev list as well as CC'ed various
+people at Intel.  There has been very little response.  I am wondering
+who has reviewed the DITR performance problem and what the plans are for
+fixing it.
 
-[foner: I included you in the CC because your problem seems similar.]
-
-smolny@o2.pl wrote:
-> Hi,
-> Sorry if you get this post by mistake. I found your address googling
-> for "forcedeth vesa".
-
-Well, you reached the right person.
-
-> When i use forcedeth module, both with 2.4.26 and 2.6.6 kernels, i
-> can't access vesa with mplayer. Just loading the module doesn't
-> cause the problem, only after i configure the net with ifconfig i
-> can't use vesa.
-
-This is interesting. Does the problem persist if you ifdown the interface?
-
-> If i use nvnet NVidia driver with 2.4.26, everything goes fine (no
-> nvnet for 2.6.x kernels). 
-
-That is even more interesting. So the bug affects forcedeth, but not
-nvnet. Hmmm. We'll have to review the code again.
-
-> It's an EPOX 8RDA+ motherboard.
-
-Foner: Do you see similarities between your problem and this one?
-
-Janusz, Foner: Are you willing to test forcedeth with a few dozen
-iterations of
-patch, recompile, install, power down, power up and test again?
-
-I would send you patches to binary search the offending code.
-
-Regards,
-Carl-Daniel
+-- 
+Thayne Harbaugh
+Linux Networx
