@@ -1,36 +1,66 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe RLT-8139 related)
-Date: Tue, 3 Aug 2004 18:50:26 +0200
+From: Mariusz Mazur <mmazur@kernel.pl>
+Subject: Re: iproute2 and kernel headers
+Date: Tue, 3 Aug 2004 19:14:40 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040803185026.A10580@electric-eye.fr.zoreil.com>
-References: <20040803003515.A29885@electric-eye.fr.zoreil.com> <Pine.LNX.4.44.0408031523220.32102-100000@silmu.st.jyu.fi>
+Message-ID: <200408031914.40751.mmazur@kernel.pl>
+References: <20040802153805.487f832f@dell_ss3.pdx.osdl.net> <20040803001459.GA8637@irc.pl> <20040803083142.5a4ccaad@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        H?ctor Mart?n <hector@marcansoft.com>,
-        Linux-Kernel <linux-kernel@vger.kernel.org>, akpm@osdl.org,
-        netdev@oss.sgi.com, brad@brad-x.com, shemminger@osdl.org
+Content-Type: text/plain;
+  charset="iso-8859-2"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pasi Sjoholm <ptsjohol@cc.jyu.fi>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040803083142.5a4ccaad@dell_ss3.pdx.osdl.net>
 Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0408031523220.32102-100000@silmu.st.jyu.fi>; from ptsjohol@cc.jyu.fi on Tue, Aug 03, 2004 at 03:32:15PM +0300
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Pasi Sjoholm <ptsjohol@cc.jyu.fi> :
-[...]
-> The first log file is with both patchs applied and the second one with one 
-> little change to rx8139_rx() to show if it even goes to through 
-> 
-> "        while (netif_running(dev) && received < budget
->                && (RTL_R8 (ChipCmd) & RxBufEmpty) == 0) {"-section.
-> 
-> This was the change which I made.. so you can see in the second log file 
-> that there won't be any of these messages after the driver has crashed. 
+On wtorek 03 sierpie=F1 2004 17:31, Stephen Hemminger wrote:
+> > > I am willing to put some headers (not all) in with the user level
+> > > code, provided they are copies since they I can easily update. I do=
+n't
+> > > want to get into keeping an edited set of headers in sync.
+> >
+> >  Aren't linux-libc-headers (*) sufficient?
+> >
+> > * - http://ep09.pld-linux.org/~mmazur/linux-libc-headers/
+>
+> The theory of that is good, but in practice it would make the problem
+> worse. What iproute2 wants is to have the same kernel data structures a=
+s
+> the latest kernel. It is awkward enough making sure to get them from th=
+e
+> correct kernel sources, but doing it from a different package would mak=
+e
+> updating and keeping everything current worse.
 
-If you remove the "if (received > 0) {" test in r8139-10.patch and keep
-both patches applied, I assume you are back to a crash within 15min (instead
-of within 2min as suggested by the log), right ?
+This message was forwarded to me (I'm the llh maintainer). Llh is being=20
+updated by generating a diff between incremental kernel releases, fixing =
+that=20
+diff and applying it to the last version of llh. I do have scripts to che=
+ck=20
+wether such an update doesn't break any headers. There is a slight=20
+possibility that such an update might omit some crucial changes, but (at=20
+least when it comes to network headers) co-developers of my distribution=20
+(PLD) will most likely detect that allmost instantly and notify me what's=
+=20
+wrong (in such a case I will release a fixed version of llh asap).
 
---
-Ueimor
+Since removing all those glibc/linux-headers workarounds from=20
+iproute2/iptables was quite a pain for me I would really like to see buil=
+ding=20
+against llh at least as an option available from 'configure'.
+(In case you're wondering - yes, we've been building all the linux networ=
+k=20
+userland stuff against llh for about 8 months now without any problems...=
+=20
+quite the opposite actually)
+
+
+--=20
+In the year eighty five ten
+God is gonna shake his mighty head
+He'll either say,
+"I'm pleased where man has been"
+Or tear it down, and start again
