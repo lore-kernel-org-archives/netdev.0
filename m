@@ -1,43 +1,69 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] s390: claw network device driver
-Date: Tue, 29 Mar 2005 17:44:33 -0500
-Message-ID: <4249DA51.1070201@pobox.com>
-References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org> <20050329071002.GA16204@havoc.gtf.org> <20050329152057.GA27840@wohnheim.fh-wedel.de> <4249B52C.2000300@pobox.com> <20050329212543.GA432@wohnheim.fh-wedel.de>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
+	Topics
+Date: 29 Mar 2005 18:00:11 -0500
+Message-ID: <1112137210.1088.17.camel@jzny.localdomain>
+References: <424346FE.20704@cs.wisc.edu>
+	 <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org>
+	 <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org>
+	 <1111905181.4753.15.camel@mylaptop>
+	 <20050326224621.61f6d917.davem@davemloft.net>
+	 <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com>
+	 <m1zmwn21hk.fsf@muc.de> <1112027284.5531.27.camel@mulgrave>
+	 <20050329152008.GD63268@muc.de>  <1112116762.5088.65.camel@beastie>
+	 <1112130512.1077.107.camel@jzny.localdomain>
+	 <Pine.LNX.4.61.0503291659290.15625@chimarrao.boston.redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-        schwidefsky@de.ibm.com, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, Andi Kleen <ak@muc.de>,
+        James Bottomley <James.Bottomley@HansenPartnership.com>,
+        mpm@selenic.com, andrea@suse.de, michaelc@cs.wisc.edu,
+        open-iscsi@googlegroups.com, ksummit-2005-discuss@thunk.org,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>
-In-Reply-To: <20050329212543.GA432@wohnheim.fh-wedel.de>
+To: Rik van Riel <riel@redhat.com>
+In-Reply-To: <Pine.LNX.4.61.0503291659290.15625@chimarrao.boston.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-J=F6rn Engel wrote:
-> On Tue, 29 March 2005 15:06:04 -0500, Jeff Garzik wrote:
->=20
->>J=F6rn Engel wrote:
->>
->>>Just out of curiosity: why are there two mailing lists?  Especially if
->>>one of them is the Wrong One.
->>
->><shrug>
->>
->>linux-net is mostly dead.  I get the impression it is occasionally used=
-=20
->>by users.
->>
->>netdev (as, perhaps, the name implies) is where the network developers=20
->>hang out.
->=20
->=20
-> Ok, I figured as much.  But then, why is linux-net not just deleted?
-> Bouncing mails would be an indication that noone will read them,
-> right?
+On Tue, 2005-03-29 at 17:00, Rik van Riel wrote:
 
-<shrug>  It doesn't matter that much to me.  If you want to undertake=20
-the removal of linux-net as your personal mission, I won't stop you :)
+>   However, we often will need
+> to get the packets off the network card before we can decide
+> whether or not they're high priority.
 
-	Jeff
+True - although one could argue that with NAPI that decision would be a
+few opcodes away if you install the ingress qdisc. 
+So you may end up allocing only to free a few cycles later. Increased
+memory traffic but the discard happens sufficiently early for a s/ware
+only solution and CPU cycles not burnt as much.
+
+OTOH, even elcheapo pacific rim nics are beginning to show up with some
+classifiers in the hardware as well as multiple queues or rx 
+DMA rings. So you could program ACKs or all TCP packets to show up on a
+higher priority ring and only process that until theres nothing left
+before processing the low priority ring (i.e dont care if low priority
+data/app is starved).
+Probably someone going out of their way to do high performance iSCSI
+would consider such hardware. 
+We dont exactly support multiple rx (or tx) DMA rings however various
+people seem to be promising patches that work with their hardware
+(netiron, intel?)
+
+> Also, there can be multiple high priority sockets, and we
+> need to ensure they all make progress.  Hence the mempool
+> idea.
+
+Sorry missed the early part of this thread: mempool is some
+strict priority scheme for mem allocation?
+
+For Sockets: If there was a "control" arbitrator preferably in user
+space which would install - after a socket open - both network ingress
+and/or egress rules for prioritization then wouldnt that suffice?
+The mechanisms are already in place today.
+
+cheers,
+jamal
