@@ -1,95 +1,69 @@
-From: jamal <hadi@cyberus.ca>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: dummy as IMQ replacement
-Date: 31 Jan 2005 08:45:40 -0500
-Message-ID: <1107179140.7840.157.camel@jzny.localdomain>
+Date: Mon, 31 Jan 2005 14:58:10 +0100
+Message-ID: <20050131135810.GC31837@postel.suug.ch>
 References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <200501311438.01118.hasso@estpak.ee>
-	 <1107175673.7847.130.camel@jzny.localdomain>
-	 <200501311502.56796.hasso@estpak.ee>
-	 <20050131132819.GB31837@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>, netdev@oss.sgi.com,
-        Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
         Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
         syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
         Damion de Soto <damion@snapgear.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050131132819.GB31837@postel.suug.ch>
+To: Jamal Hadi Salim <hadi@znyx.com>
+Content-Disposition: inline
+In-Reply-To: <1107123123.8021.80.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> 2) Allows for queueing incoming traffic for shaping instead of
+> dropping. I am not aware of any study that shows policing is 
+> worse than shaping in achieving the end goal of rate control.
+> I would be interested if anyone is experimenting. Nevertheless,
+> this is still an alternative as opposed to making a system wide
+> ingress change.
 
-Yeah, that would fix it. Note however, that i am trying to highly
-discourage use of iptables and i would rather let people who use
-iptables to suffer;-> (sounds rude i know). At some point i plan to
-remove the dependency on iptables altogether. So i am not sure whether i
-should encourage pushing of this patch or not ;->
-All this hooking in 100 hooks is one of the reasons i disliked IMQ as
-well
+Agreed, the problem should be solved on egress by delaying ACKs
+so the other side's congestion control slows down. I still don't
+have a solution which works for all ip stacks and ended up tuning
+parameters based on TTL numbers guessing the operating system.
 
-cheers,
-jamal
+For me, the purpose of ingress policing is to apply some policy for
+control datagrams and other unwanted traffic. One example would be
+dropping echo requests comming from nmap which reduces egress
+bandwidth consumption by 13% my border routers.
 
-PS:- also note in 2.6.6 tc action was not yet in, so 
-On Mon, 2005-01-31 at 08:28, Thomas Graf wrote:
-> > > > http://mailman.ds9a.nl/pipermail/lartc/2004q2/012422.html
-> 
-> It depends on whether you have CONFIG_NET_CLS_ACT enabled or not.
-> If so, the ingress qdisc is hit before PREROUTING and thus can't
-> see the mark for a good reason. Simply removing the dependcy on
-> the mark resolves the issue for you.
-> 
-> If you don't have CONFIG_NET_CLS_ACT enabled you would see the
-> mark if the ingress qdisc would register on the IPv6 PREROUTING
-> hook but apparently it doesn't.
-> 
-> The patch below should fix it, it is completely untested though.
-> 
-> --- linux-2.6.11-rc2-bk8.orig/net/sched/sch_ingress.c	2005-01-30 21:19:51.000000000 +0100
-> +++ linux-2.6.11-rc2-bk8/net/sched/sch_ingress.c	2005-01-31 14:23:08.000000000 +0100
-> @@ -271,6 +271,14 @@
->  	.priority       = NF_IP_PRI_FILTER + 1,
->  };
->  
-> +static struct nf_hook_ops ing6_ops = {
-> +	.hook           = ing_hook,
-> +	.owner		= THIS_MODULE,
-> +	.pf             = PF_INET6,
-> +	.hooknum        = NF_IP6_PRE_ROUTING,
-> +	.priority       = NF_IP6_PRI_FILTER + 1,
-> +};
-> +
->  #endif
->  #endif
->  
-> @@ -296,6 +304,11 @@
->  			printk("ingress qdisc registration error \n");
->  			return -EINVAL;
->  		}
-> +		if (nf_register_hook(&ing6_ops) < 0) {
-> +			nf_unregister_hook(&ing_ops);
-> +			printk("ingress ipv6 qdisc registration error \n");
-> +			return -EINVAL;
-> +		}
->  		nf_registered++;
->  	}
->  #endif
-> @@ -408,8 +421,10 @@
->  	unregister_qdisc(&ingress_qdisc_ops);
->  #ifndef CONFIG_NET_CLS_ACT
->  #ifdef CONFIG_NETFILTER
-> -	if (nf_registered)
-> +	if (nf_registered) {
->  		nf_unregister_hook(&ing_ops);
-> +		nf_unregister_hook(&ing6_ops);
-> +	}
->  #endif
->  #endif
->  }
-> 
-> 
+tc filter add dev $DEV parent ffff: protocol ip prio 10  \
+    u32 match u32 0x10000 0xff0000 at 8                  \
+        match u32 0x1c 0xffff at 0                       \
+        match u32 0x8000000 0xf000000 at 20              \
+    police mtu 1 drop flowid :1
+
+I should convert this to actions at some point ;->
+
+> --> Instead the plan is to have a contrack related action. This action
+> will selectively either query/create contrack state on incoming packets.
+> Packets could then be redirected to dummy based on what happens -> eg 
+> on incoming packets; if we find they are of known state we could send to
+> a different queue than one which didnt have existing state. This
+> all however is dependent on whatever rules the admin enters.
+
+We could also do it in the meta ematch but this relies on the packet
+already having passed the conntrack code. How do you plan to do this
+in ingress?
+
+
+> tc filter add dev eth0 parent 1: protocol ip prio 10 u32 \
+> match ip src 192.168.200.200/32 flowid 1:2 \
+> action police rate 10kbit burst 90k drop \
+> action mirred egress mirror dev dummy0 
+
+This is extremely useful. I'm not sure but I think you also had plans
+to allow mirroring to userspace?
+
+> My goal here is to start a discussion to see if people agree this is
+> a good replacement for IMQ or whether to go another path.
+
+Sounds good to me. No complains from my side. I'll have a closer look
+at the patch later on.
