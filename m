@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 3/3][bonding 2.6] Add support for slaves that use ethtool_ops
-Date: Thu, 25 Dec 2003 17:05:36 +0200
+Subject: [PATCH 3/3][bonding 2.4] Add support for slaves that use ethtool_ops
+Date: Thu, 25 Dec 2003 17:04:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200312251705.36958.amir.noam@intel.com>
+Message-ID: <200312251704.49299.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -19,8 +19,8 @@ using the relevant ethtool_ops functions.
 
 
 diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Dec 25 15:31:08 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Dec 25 15:31:10 2003
+--- a/drivers/net/bonding/bond_main.c	Thu Dec 25 16:09:36 2003
++++ b/drivers/net/bonding/bond_main.c	Thu Dec 25 16:09:37 2003
 @@ -623,44 +623,55 @@ static int bond_update_speed_duplex(stru
  	struct ifreq ifr;
  	struct ethtool_cmd etool;
