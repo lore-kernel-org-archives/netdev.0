@@ -1,45 +1,23 @@
-From: David Lang <david.lang@digitalinsight.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: The ultimate TOE design
-Date: Wed, 15 Sep 2004 14:10:03 -0700 (PDT)
+Date: Wed, 15 Sep 2004 17:15:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.60.0409151407330.21357@dlang.diginsite.com>
-References: <4148991B.9050200@pobox.com><Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
- <1095275660.20569.0.camel@localhost.localdomain>
+Message-ID: <20040915211543.GA23906@havoc.gtf.org>
+References: <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <4148A561.5070401@redhat.com> <ciaao4$crc$1@sea.gmane.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Paul Jakma <paul@clubi.ie>, Netdev <netdev@oss.sgi.com>,
-        leonid.grossman@s2io.com,
-        Linux Kernel Mailing List
-	 <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1095275660.20569.0.camel@localhost.localdomain>
+To: Wes Felter <wesley@felter.org>
+Content-Disposition: inline
+In-Reply-To: <ciaao4$crc$1@sea.gmane.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Sep 2004, Alan Cox wrote:
+On Wed, Sep 15, 2004 at 04:03:57PM -0500, Wes Felter wrote:
+> To do 10 Gbps Ethernet with Jeff's approach, wouldn't you need a 5-10 
+> GHz processor on the card? Sounds expensive.
 
-> On Mer, 2004-09-15 at 21:04, Paul Jakma wrote:
->> The intel IXP's are like the above, XScale+extra-bits host-on-a-PCI
->> card running Linux. Or is that what you were referring to with
->> "<cards exist> but they are all fairly expensive."?
->
-> Last time I checked 2Ghz accelerators for intel and AMD were quite cheap
-> and also had the advantage they ran user mode code when idle from
-> network processing.
+Do you need a 5-10 Ghz Intel server to handle 10 Gbps ethernet?
 
-That depends on how many of these accelerators you already have in the 
-system. If you have 4 of them and they are heavily used so that you want 
-to offload them it definantly isn't cheap to add a 5th (you useually have 
-to go up to 8 or so and the difference between 4 and 8 is frequently 2x-4x 
-the cost of the 4 processor box)
-
-now if you start with a single CPU system then yes, adding a second one is 
-cheap. but these are useually not the people who really need TOE (they may 
-think that they do, but that's a different story :-)
-
-David Lang
-
--- 
-There are two ways of constructing a software design. One way is to make it so simple that there are obviously no deficiencies. And the other way is to make it so complicated that there are no obvious deficiencies.
-  -- C.A.R. Hoare
+	Jeff
