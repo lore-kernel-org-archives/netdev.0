@@ -1,23 +1,22 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] IPv6: Default Router Selection Round-robin
-Date: Wed, 2 Oct 2002 23:22:41 +0400 (MSD)
+From: Steven Whitehouse <steve@gw.chygwyn.com>
+Subject: Network stack AIO in 2.5
+Date: Wed, 2 Oct 2002 22:08:47 +0100 (BST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210021922.XAA26368@sex.inr.ac.ru>
-References: <20021003.015057.14743018.yoshfuji@linux-ipv6.org>
+Message-ID: <200210022108.WAA25884@gw.chygwyn.com>
+Reply-To: Steve Whitehouse <Steve@ChyGwyn.com>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com, davem@redhat.com (Dave Miller)
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.ORG (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
-In-Reply-To: <20021003.015057.14743018.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Oct 2, 2 09:15:04 pm
+To: davem@redhat.com, bcrl@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Hi,
 
-> Linux changes default router even while it is probably reachable.
-> Once it becomes "non-REACHABLE," Linux trys to select one in round-robin
-> fashion, but once it reached end of list, it would be stuck there.
+What is the current status of AIO for the network stack in 2.5 ? Are there
+patches somewhere (I looked but didn't find any) or is it a matter of
+porting from the 2.4 AIO or are there still design issues to be resolved ?
 
-The patch looks perfect.
-
-Alexey
+Steve.
