@@ -1,31 +1,80 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix netfilter refcounting [was Re: Conntrack leak
- (2.6.2rc2)]
-Date: Tue, 3 Feb 2004 10:27:12 -0800
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: Disabling IPv6 accept_ra on just some interface (fwd)
+Date: Tue, 3 Feb 2004 23:55:37 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040203102712.02626ed5.davem@redhat.com>
-References: <Pine.LNX.4.33.0402031629150.11737-100000@blackhole.kfki.hu>
-	<Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
+Message-ID: <Pine.LNX.4.44.0402032352570.9234-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: steve@navaho.co.uk, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-In-Reply-To: <Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Feb 2004 18:43:38 +0100 (CET)
-Jozsef Kadlecsik <kadlec@blackhole.kfki.hu> wrote:
+Now that 2.6.x series in in a swing, being able to control, from the 
+userspace, when to send RA's and when to shut them off would be very 
+beneficial (2.4 too :).
 
-> Steve Hill reported a conntrack leakage in 2.6.2-rc2 when nat is enabled
-> and the system forwards fragmented packets. It turned out that an
-> nf_conntrack_put was missing from ip_copy_metadata:
+In particular, consider a distribution which wants to allow disabling 
+autoconfig on one interface.  When it's possible to do so, it's 
+already too late..
 
-Nevermind my previous email, it was a total thinko... you're patch
-is obviously correct and we had this same damn exact problem with
-the bridging skbuff nf objects as well. (see changeset 1.1474.41.3)
+---------- Forwarded message ----------
+Date: Mon, 27 Oct 2003 15:05:42 +0200 (EET)
+From: Pekka Savola <pekkas@netcore.fi>
+To: "YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明"
+    <yoshfuji@linux-ipv6.org>
+Cc: netdev@oss.sgi.com, sekiya@wide.ad.jp
+Subject: Re: Disabling IPv6 accept_ra on just some interface
 
-I'll apply your patch and push to Linus now.  Thanks.
+On Mon, 27 Oct 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+> In article <Pine.LNX.4.44.0310231457110.3347-100000@netcore.fi> (at Thu, 23 Oct 2003 15:22:47 +0300 (EEST)), Pekka Savola <pekkas@netcore.fi> says:
+> > So, my thought (comments welcome) is:
+> > 
+> >  1) when accept_ra changes from 0 -> 1, initiate the route 
+> >     solicitation process, likewise as one would when the interface is 
+> >     brought up.
+> > 
+> >     Makes sense?
+> > 
+> >  2) (probably not a good idea, but some food for thought..) when accept_ra 
+> >     changes from 1 -> 0, delete any autoconfigured routes or
+> >     prefixes.  (could be ugly / dangerous..)
+> 
+> Well, we'd propose to have another config "send_rs" or something like that
+> because accept_ra is also effective against unsolicited RAs.
+> It, "send_rs," tells kernel to start sending RS 
+> when the variable is changed 0 to 1 and/or 
+> when interface is going up.
+
+I don't have any major objections to this model, I'm just worried that it
+might make the configuration more complex (we already have accept_ra and
+"autoconf" toggles which are confusing enough without documentation :-)
+with little gain.
+
+That is, is there any case when you'd want to accept an RA but *not* send 
+RS?  I fail to see clear applicability for this, hence my proposal to 
+overload accept_ra :-)
+
+> Assume the node has eth0 and eth1.
+> Operation will be something like the following.
+> 
+> If you want to listen RA and to send RS on some interfaces,
+>  sysctl -w net.ipv6.conf.default.accept_ra=0
+>  sysctl -w net.ipv6.conf.default.send_rs=0
+>  ifup -a
+>  sysctl -w net.ipv6.conf.eth0.accept_ra=1
+>  sysctl -w net.ipv6.conf.eth0.send_rs=1
+> 
+> If you want to listen RA on all interfaces, but do not want to send RS on 
+> some of them, 
+>  sysctl -w net.ipv6.conf.default.accept_ra=1
+>  sysctl -w net.ipv6.conf.default.send_rs=0
+>  ifup -a
+>  sysctl -w net.ipv6.cont.eth0.send_rs=1
+> 
+> 
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
