@@ -1,36 +1,49 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 3/3][bonding 2.4] Add VLAN support in ALB mode
-Date: Thu, 19 Feb 2004 13:28:52 -0500
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6.1] Allow pcnet_cs to work with shared irq
+Date: Thu, 19 Feb 2004 10:30:42 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40350064.2020504@pobox.com>
-References: <200402191216.15820.shmulik.hen@intel.com> <20040219102025.3d485145.davem@redhat.com> <4035002C.3070509@pobox.com>
+Message-ID: <20040219103042.7ad1e4e1@dell_ss3.pdx.osdl.net>
+References: <20040120162251.291a0e39.shemminger@osdl.org>
+	<403405EE.4020503@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Shmuel Hen <shmulik.hen@intel.com>, netdev@oss.sgi.com,
-        bonding-devel@lists.sourceforge.net
+Cc: Paul Gortmaker <p_gortmaker@yahoo.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <4035002C.3070509@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <403405EE.4020503@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> David S. Miller wrote:
-> 
->> Jeff, please ACK these three bonding patches and I'll toss them into 
->> my tree
->> since the infrastructure diffs are necessary for this stuff.
-> 
-> 
-> 
-> ACK, I reviewed and queued the 2.6 versions earlier.
+Here is a rediff'd version of the patch to fix shared irq handling in pcnet_cs
+and generic 8390 drivers.
 
-
-un-ACK.
-
-These patches also depend on bonding cleanup patches not yet in 2.4.
-
-Apply all but these 3, and I will take care of them.
-
-	Jeff
+--- linux-2.6/drivers/net/pcmcia/pcnet_cs.c	2004-02-09 10:06:49.000000000 -0800
++++ laptop-2.6/drivers/net/pcmcia/pcnet_cs.c	2004-02-09 16:54:48.000000000 -0800
+@@ -1163,10 +1163,11 @@ static irqreturn_t ei_irq_wrapper(int ir
+ {
+     struct net_device *dev = dev_id;
+     pcnet_dev_t *info = PRIV(dev);
+-    info->stale = 0;
+-    ei_interrupt(irq, dev_id, regs);
+-    /* FIXME! Was it really ours? */
+-    return IRQ_HANDLED;
++    irqreturn_t ret = ei_interrupt(irq, dev_id, regs);
++
++    if (ret == IRQ_HANDLED)
++	    info->stale = 0;
++    return ret;
+ }
+ 
+ static void ei_watchdog(u_long arg)
+--- linux-2.6/drivers/net/8390.c	2004-02-09 10:06:49.000000000 -0800
++++ laptop-2.6/drivers/net/8390.c	2004-02-09 16:54:47.000000000 -0800
+@@ -513,7 +513,7 @@ irqreturn_t ei_interrupt(int irq, void *
+ 		}
+ 	}
+ 	spin_unlock(&ei_local->page_lock);
+-	return IRQ_HANDLED;
++	return IRQ_RETVAL(nr_serviced > 0);
+ }
+ 
+ /**
