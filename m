@@ -1,32 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] Move hardware headers for decaped packets
-Date: Fri, 13 Feb 2004 23:10:27 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040213231027.1e483332.davem@redhat.com>
-References: <20030925121131.GA17968@gondor.apana.org.au>
-	<200309251228.QAA11650@yakov.inr.ac.ru>
-	<20030925124102.GA18188@gondor.apana.org.au>
-	<20031207090205.GA2358@gondor.apana.org.au>
-	<20031207014714.03e79cd2.davem@redhat.com>
-	<20031207095527.GA2767@gondor.apana.org.au>
-	<20031207165516.1edfde10.davem@redhat.com>
-	<20040214035534.GA25965@gondor.apana.org.au>
+Subject: Re: Restrict local IP announcements in ARP requests
+Date: Fri, 13 Feb 2004 23:24:00 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040213232400.007a7436.davem@redhat.com>
+References: <Pine.LNX.4.58.0402081149001.6268@u.domain.uli>
+	<20040209140853.69ab8bea.davem@redhat.com>
+	<Pine.LNX.4.58.0402100049470.1251@u.domain.uli>
+	<20040209151053.1f63937a.davem@redhat.com>
+	<Pine.LNX.4.58.0402100251380.1251@u.domain.uli>
+	<20040211201656.4e4f708e.davem@redhat.com>
+	<Pine.LNX.4.58.0402130138540.1149@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040214035534.GA25965@gondor.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402130138540.1149@u.domain.uli>
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Feb 2004 14:55:34 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 13 Feb 2004 01:50:32 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-> Looks like I've forgotten about this mac moving patch.  Here it is again.
-> 
-> Just to recap, this moves the hardware header so that it appears
-> next to the payload for AF_PACKET sockets.
+> http://www.ssi.bg/~ja/arp_announce-2.6.2-4.diff
 
-Queued for 2.6.4-pre1, thanks Herbert.
+Ok, I eat this, please make a 2.4.x version against Marcelo's current tree.
+
+The 2.6.x variant will go into 2.6.4-pre1 and the 2.4.x will go into 2.4.26-pre1
+
+Thanks.
