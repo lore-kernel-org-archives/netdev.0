@@ -1,43 +1,65 @@
 From: Rabeeh Khoury <rabeeh@galileo.co.il>
 Subject: Re: Linux IP stack on kernel 2.4.18
-Date: Sun, 02 Jun 2002 20:11:22 +0300
+Date: Mon, 03 Jun 2002 11:40:11 +0300
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CFA51BA.1000202@galileo.co.il>
-References: <Pine.GSO.4.05.10206021139290.6283-100000@mausmaki.cosy.sbg.ac.at>
+Message-ID: <3CFB2B6B.90502@galileo.co.il>
+References: <3CF9DDD0.3080809@galileo.co.il>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
+To: Rabeeh Khoury <rabeeh@galileo.co.il>
 List-Id: netdev.vger.kernel.org
 
+I fixed the problems. I'm replying for the record of the mailing list.
 
+Rabeeh Khoury wrote:
 
-Thomas 'Dent' Mirlacher wrote:
+> Hi All,
+>
+> I'm using kernel 2.4.18 and developing an ethernet network interface 
+> driver.
+> I have two problems that if you may consult me how to solve them -
+>
+> 1.. How can I adjust the throttling parameter of the IP stack not to 
+> drop any packet ? Meantime the IP stack routes 55k packets/sec and all 
+> the other it just drops (I can see them by the result of netif_rx). 
 
->--snip/snip
->
->  
->
->>2.. Routing jumbo packets through IP stack - I send 9K packets in size and IP stack routes the packets but by sending 1K packets in size ! is this possible ? I tripple checked the device driver on receive and transmit and it's ok. Do you know what is the problem ?
->>    
->>
->
->did you check you MTU?
->
-sh-2.04# ifconfig eth0
-eth0      Link encap:Ethernet  HWaddr 64:41:40:12:12:31 
-          inet addr:10.2.40.130  Bcast:10.2.255.255  Mask:255.255.0.0
-          UP BROADCAST RUNNING MULTICAST  MTU:9700  Metric:1
-          RX packets:5668 errors:0 dropped:0 overruns:0 frame:0
-          TX packets:3280 errors:0 dropped:0 overruns:0 carrier:0
-          collisions:0 txqueuelen:1000
-          RX bytes:4787563 (4.5 Mb)  TX bytes:543741 (530.9 Kb)
-          Interrupt:32
+echo 50000 > /proc/sys/net/core/netdev_max_backlog
+
+This puts the throttling parameter of the IP stack to 50000, instead of 
+300 which is the defaul in kernel 2.4.18 (the default is set in 
+net/core/dev.c with the variable 'int netdev_max_backlog = 300;')
 
 >
->	tm
+> 2.. Routing jumbo packets through IP stack - I send 9K packets in size 
+> and IP stack routes the packets but by sending 1K packets in size ! is 
+> this possible ? I tripple checked the device driver on receive and 
+> transmit and it's ok. Do you know what is the problem ? 
+
+The HW I'v used that generates jumbo packets has put a wrong 
+total_length field in the IP header, which made IP stack remove a large 
+chunck of the packet. The relevant code that removes the chunck is in 
+net/ipv4/ip_input.c -
+
+                /* Our transport medium may have padded the buffer out. 
+Now we know it
+                 * is IP we can trim to the true length of the frame.
+                 * Note this now means skb->len holds ntohs(iph->tot_len).
+                 */
+                if (skb->len > len) {
+                      __pskb_trim(skb, len);
+                        if (skb->ip_summed == CHECKSUM_HW)
+                                skb->ip_summed = CHECKSUM_NONE;
+                }
+
 >
->  
+>
+>
+> Thank you alot,
+> Rabeeh
+>
+>
+>
 >
