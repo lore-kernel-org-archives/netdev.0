@@ -1,47 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] tcp: efficient port randomisation (revised)
-Date: Fri, 03 Dec 2004 21:42:47 -0800
-Message-ID: <41B14E57.5080803@osdl.org>
-References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>	<200411020854.44745.michael.vittrup.larsen@ericsson.com>	<20041104100104.570e67cd@dxpl.pdx.osdl.net>	<200411051103.59032.michael.vittrup.larsen@ericsson.com>	<20041117153025.160eaa04@zqx3.pdx.osdl.net>	<20041130214643.7b72300e.davem@davemloft.net>	<20041201152446.3a0d5ce3@dxpl.pdx.osdl.net>	<20041201204622.7b760400.davem@davemloft.net>	<20041202134930.132d7bd8@dxpl.pdx.osdl.net> <20041202135252.04e64f51.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: [E1000-devel] Transmission limit
+Date: Sat, 4 Dec 2004 11:36:26 +0100
+Message-ID: <20041204103626.GA17872@xi.wantstofly.org>
+References: <1101484740.24742.213.camel@mellia.lipar.polito.it> <41A76085.7000105@draigBrady.com> <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net> <20041203205706.GC9808@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: michael.vittrup.larsen@ericsson.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Robert Olsson <Robert.Olsson@data.slu.se>,
+        P@draigBrady.com, mellia@prezzemolo.polito.it,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041202135252.04e64f51.davem@davemloft.net>
+To: Scott Feldman <sfeldma@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20041203205706.GC9808@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-If I special case to handle loopback, and get rid of the portalloc
-lock, it comes out much better.  These numbers are on the 800Mhz
-PIII SMP, on a fast box like the dual Opeteron's it makes no difference
-(always 30us).
+On Fri, Dec 03, 2004 at 09:57:06PM +0100, Lennert Buytenhek wrote:
 
-Before TCP connection latency mean 79.9 std 10.55
+> > My problem is I only have a P4 desktop system with a 82544 nic running
+> > at PCI 32/33Mhz, so I can't play with the big boys.  But, attached is a
+> > rework of the Tx path to eliminate 1) Tx interrupts, and 2) Tx
+> > descriptor write-backs.  For me, I see a nice jump in kpps, but I'd like
+> > others to try with their setups.  We should be able to get to wire speed
+> > with 60-byte packets.
+> 
+> Attached is a graph of my numbers with and without your patch for:
+> - An 82540 at PCI 32/33, idle 33MHz card on the same bus forcing it to 33MHz.
+> - An 82541 at PCI 32/66.
+> - An 82546 at PCI-X 64/100, NIC can do 133MHz but mobo only does 100MHz.
 
-*Local* Communication latencies in microseconds - smaller is better
--------------------------------------------------------------------
-Host                 OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
-                         ctxsw       UNIX         UDP         TCP conn
---------- ------------- ----- ----- ---- ----- ----- ----- ----- ----
-stp2-001  Linux 2.6.10- 8.270  38.6 24.3  61.6  48.5  45.9  76.6 74.6
-stp2-001  Linux 2.6.10- 8.170  43.5 24.5  58.0  54.8  45.6  63.4 74.7
-stp2-001  Linux 2.6.10- 2.740  50.6 29.9  40.3  48.3  59.8  75.1 101.
-stp2-001  Linux 2.6.10- 8.140  46.6 29.7  57.6  48.8  45.5  72.0 74.4
-stp2-001  Linux 2.6.10- 2.690  47.1 26.3  40.8  48.9  45.5  75.4 74.8
+When extrapolating these numbers to the 0-byte packet case (which then
+tells you the per-packet overhead), I get the following approximate numbers:
+
+case				overhead 
+
+phi-32-33-82540-2.6.9		1.86 us
+phi-32-66-82541-2.6.9		1.41 us
+phi-64-100-82546-2.6.9		1.45 us
+
+phi-32-33-82540-2.6.9-feldman	1.48 us
+phi-32-66-82541-2.6.9-feldman	1.13 us
+phi-64-100-82546-2.6.9-feldman	1.25 us
+
+Note that this figure doesn't differ all that much between the different
+bus widths/speeds.
+
+In any case, if I ever want to get more than ~880kpps on this hardware,
+there's no other way than to make this overhead go down.  For saturating
+1Gb/s with 60B packets on 64/100, the overhead can't be more than ~0.59 us
+per packet or you lose.
 
 
-After TCP connection latency mean 73.8 std 0.55
-
-*Local* Communication latencies in microseconds - smaller is better
--------------------------------------------------------------------
-Host                 OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
-                         ctxsw       UNIX         UDP         TCP conn
---------- ------------- ----- ----- ---- ----- ----- ----- ----- ----
-stp2-001  Linux 2.6.10- 8.260  38.1 25.7  63.3  48.1  66.6  75.4 74.9
-stp2-001  Linux 2.6.10- 8.090  46.2 26.0  63.4  55.5  45.9  63.6 73.5
-stp2-001  Linux 2.6.10- 8.210  39.0 21.2  63.1  55.4  58.8  63.8 73.5
-stp2-001  Linux 2.6.10- 2.850  46.5 26.0  64.8  54.6  45.5  74.0 73.6
-stp2-001  Linux 2.6.10- 8.200  42.9 21.5  64.9  55.6  62.4  64.1 73.5
+--L
