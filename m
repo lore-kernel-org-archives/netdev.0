@@ -1,42 +1,30 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] update  Documentation/networking/bridge.txt
-Date: Mon, 24 May 2004 14:42:09 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Kernel BUG: Qos seg. fault
+Date: 24 May 2004 17:42:33 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524144209.5449d829@dell_ss3.pdx.osdl.net>
-References: <Pine.LNX.4.58.0405230121530.13087@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <1085434953.1043.50.camel@jzny.localdomain>
+References: <20040524212553.52149.qmail@web80507.mail.yahoo.com>
+	 <1085434355.1039.47.camel@jzny.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Trent Jarvi <taj@www.linux.org.uk>, netdev@oss.sgi.com, bridge@osdl.org
+Cc: Jaume Catarineu <jaume.catarineu@upf.edu>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <Pine.LNX.4.58.0405230121530.13087@parcelfarce.linux.theplanet.co.uk>
+To: Dmitry Torokhov <dtor_core@ameritech.net>
+In-Reply-To: <1085434355.1039.47.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Trent Jarvi <taj@www.linux.org.uk> noticed this.  The file was out of date
-with current web site and maintainer.  Please apply to 2.4 and 2.6.
+On Mon, 2004-05-24 at 17:32, jamal wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> 
+> PS:- Very strange how netdev is not allowing my postings through.
 
-diff -Nru a/Documentation/networking/bridge.txt b/Documentation/networking/bridge.txt
---- a/Documentation/networking/bridge.txt	2004-05-24 14:38:05 -07:00
-+++ b/Documentation/networking/bridge.txt	2004-05-24 14:38:05 -07:00
-@@ -1,11 +1,8 @@
--In order to use the ethernet bridging functionality you'll need the
--userspace tools available at http://www.math.leidenuniv.nl/~buytenh/bridge.
--The tarball available there contains extensive documentation, but if you
--still have questions, don't hesitate to post to the mailing list (more info
--at http://www.math.leidenuniv.nl/mailman/listinfo/bridge). You can also
--mail me at buytenh@gnu.org.
-+In order to use the Ethernet bridging functionality, you'll need the
-+userspace tools. These programs and documentation are available
-+at http://bridge.sourceforge.net.  The download page is
-+http://prdownloads.sourceforge.net/bridge.
- 
-+If you still have questions, don't hesitate to post to the mailing list 
-+(more info http://lists.osdl.org/mailman/listinfo/bridge).
- 
--
--Lennert Buytenhek
--<buytenh@gnu.org>
+Oh, i see the cure was for me to say netdev was blocking my emails;->
+About 3 or 4 postings i sent before this never made it.
+Now SMTP is no longer a reliable protocol. 
+
+cheers,
+jamal
