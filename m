@@ -1,66 +1,25 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
-Date: Tue, 27 Jul 2004 21:02:39 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407272102.58638.vkondra@mail.ru>
-References: <20040724223310.68910.qmail@web53004.mail.yahoo.com> <20040726210613.GR5414@waste.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH Linux-2.6.8-rc1] prism54 Fix
+ initialization with older firmware
+Date: Tue, 27 Jul 2004 14:14:54 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <41069B9E.8050101@pobox.com>
+References: <200407271926.45038.margitsw@t-online.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart1671741.xCzNJaUZY8";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Niranjan <niranjan_cs2905@yahoo.com>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20040726210613.GR5414@waste.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Margit Schubert-While <margitsw@t-online.de>
+In-Reply-To: <200407271926.45038.margitsw@t-online.de>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
---nextPart1671741.xCzNJaUZY8
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
-
-We also saw the same (crypto modules goes to sleep).
-Due to this, we decided to not use cryptoapi for our wireless driver, but=20
-compile the same crypto functions into the driver. I know this is code=20
-duplication, but Tx and Rx paths work in BH context (I reschedule it on IRQ=
-=20
-Rx to use cheaper time).
-
-Do cryptoapi maintainers aware of this issue?
-
-On Tuesday 27 July 2004 00:06, Matt Mackall wrote:
-> On Sat, Jul 24, 2004 at 03:33:10PM -0700, Niranjan wrote:
-> > Hi,
-> > I am working on Linux Kernel 2.4.25. I am trying to
-> > add cryptoapi (cryptoapi-0.1.0) support to wireless
-> > lan driver (linux-wlan-ng-0.2.1.pre14) of prism-based
-> > cards. Cardctl version is 3.1.31.
-> > When I am using "null" as a encryption cipher to check
-> > the coding sequence, everything is working fine. But
-> > when I change it to any other cipher for e.g.
-> > "blowfish" or "rc5", it is giving kernel panic. I have
-> > included Ksymoops extract from the kernel Ooops
-> > reports below.
-> > Can anyone please help me in what can be possible
-> > error by looking at the log ?
-> > I will greatly appreciate any help in this matter.
->
-> The cryptoapi currently decides to sleep at various points internally
-> when digesting a block which is probably what you're seeing.
-
---nextPart1671741.xCzNJaUZY8
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBBBpjSqxdj7mhC6o0RApe4AJ9dEp1qL9DY2uXZg9pJ8QTMKnGZ8ACdGODD
-cp9PU4WVEOoeRImi6j7oWug=
-=Y/c1
------END PGP SIGNATURE-----
-
---nextPart1671741.xCzNJaUZY8--
+this patch rejected, once the four previous patches had been applied
