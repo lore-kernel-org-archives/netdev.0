@@ -1,61 +1,288 @@
-From: <akepner@sgi.com>
-Subject: [PATCH] use mmiowb in tg3_poll
-Date: Fri, 22 Oct 2004 13:51:01 -0700 (PDT)
+From: Ben Greear <greearb@candelatech.com>
+Subject: [PATCH]  802.1Q VLAN
+Date: Fri, 22 Oct 2004 14:07:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0410221345400.392-100000@localhost.localdomain>
-References: <200410211628.06906.jbarnes@engr.sgi.com>
+Message-ID: <41797696.9070905@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>, <jgarzik@pobox.com>, <davem@davemloft.net>,
-        <jbarnes@engr.sgi.com>, <gnb@sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <akpm@osdl.org>, <linux-kernel@vger.kernel.org>
-In-Reply-To: <200410211628.06906.jbarnes@engr.sgi.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
+        "Linux 802.1Q VLAN" <vlan@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Signed off by:  Ben Greear <greearb@candelatech.com>
 
-Returning from tg3_poll() without flushing the PIO write which
-reenables interrupts can result in lower cpu utilization and higher
-throughput. So use a memory barrier, mmiowb(), instead of flushing the
-write with a PIO read.
+This patch brings the 2.6.9 802.1Q VLAN code up to date with 2.4.27.  It also
+includes better return logic from the hard_start_xmit hook to allow
+back pressure up the networking stack.
 
-Signed-off-by: Arthur Kepner <akepner@sgi.com>
----
+Comments welcome.
 
---- linux-2.6.9-rc4-mm1.orig/drivers/net/tg3.c	2004-10-22 13:51:10.000000000 -0700
-+++ linux-2.6.9-rc4-mm1/drivers/net/tg3.c	2004-10-22 13:53:36.000000000 -0700
-@@ -417,6 +417,20 @@
- 	tg3_cond_int(tp);
- }
- 
-+/* tg3_restart_ints
-+ *  similar to tg3_enable_ints, but it can return without flushing the 
-+ *  PIO write which reenables interrupts
-+ */
-+static void tg3_restart_ints(struct tg3 *tp)
-+{
-+	tw32(TG3PCI_MISC_HOST_CTRL,
-+		(tp->misc_host_ctrl & ~MISC_HOST_CTRL_MASK_PCI_INT));
-+	tw32_mailbox(MAILBOX_INTERRUPT_0 + TG3_64BIT_REG_LOW, 0x00000000);
-+	mmiowb();
+Thanks,
+Ben
+
+--- linux-2.6.9/net/8021q/vlan_dev.c	2004-10-18 14:55:07.000000000 -0700
++++ linux-2.6.9.p4s/net/8021q/vlan_dev.c	2004-10-22 12:14:24.000000000 -0700
+@@ -1,4 +1,4 @@
+-/*
++/* -*- linux-c -*-
+   * INET		802.1Q VLAN
+   *		Ethernet-type device handling.
+   *
+@@ -484,13 +484,32 @@
+  	       veth->h_vlan_proto, veth->h_vlan_TCI, veth->h_vlan_encapsulated_proto);
+  #endif
+
+-	stats->tx_packets++; /* for statics only */
+-	stats->tx_bytes += skb->len;
+-
+  	skb->dev = VLAN_DEV_INFO(dev)->real_dev;
+-	dev_queue_xmit(skb);
+
+-	return 0;
++	{
++		/* Please note, dev_queue_xmit consumes the pkt regardless of the
++		 * error value.  So, will copy the skb first and free if successful.
++		 */
++		struct sk_buff* skb2 = skb_get(skb);
++		int rv = dev_queue_xmit(skb2);
++		if (rv != 0) {
++			/* The skb memory should still be valid since we made a copy,
++			 * so can return error code here.
++			 */
++			return rv;
++		}
++		else {
++			/* Was success, need to free the skb reference since we bumped up the
++			 * user count above.
++			 */
 +
-+	tg3_cond_int(tp);
++			stats->tx_packets++; /* for statics only */
++			stats->tx_bytes += skb->len;
++
++			kfree_skb(skb);
++			return 0;
++		}
++	}
+  }
+
+  int vlan_dev_hwaccel_hard_start_xmit(struct sk_buff *skb, struct net_device *dev)
+@@ -622,7 +641,57 @@
+  	return -EINVAL;
+  }
+
++
++int vlan_dev_get_realdev_name(const char *dev_name, char* result)
++{
++	struct net_device *dev = dev_get_by_name(dev_name);
++	int rv = 0;
++	if (dev) {
++		if (dev->priv_flags & IFF_802_1Q_VLAN) {
++			strncpy(result, VLAN_DEV_INFO(dev)->real_dev->name, 23);
++			dev_put(dev);
++			rv = 0;
++		} else {
++			/*printk(KERN_ERR
++			  "%s: %s is not a vlan device, priv_flags: %hX.\n",
++			  __FUNCTION__, dev->name, dev->priv_flags);*/
++			dev_put(dev);
++			rv = -EINVAL;
++		}
++	} else {
++		/* printk(KERN_ERR       "%s: Could not find device: %s\n",
++		   __FUNCTION__, dev_name); */
++		rv = -ENODEV;
++	}
++	return rv;
 +}
 +
- static inline void tg3_netif_stop(struct tg3 *tp)
- {
- 	netif_poll_disable(tp->dev);
-@@ -2787,7 +2801,7 @@
- 	if (done) {
- 		spin_lock_irqsave(&tp->lock, flags);
- 		__netif_rx_complete(netdev);
--		tg3_enable_ints(tp);
-+		tg3_restart_ints(tp);
- 		spin_unlock_irqrestore(&tp->lock, flags);
- 	}
- 
++int vlan_dev_get_vid(const char *dev_name, unsigned short* result)
++{
++	struct net_device *dev = dev_get_by_name(dev_name);
++	int rv = 0;
++	if (dev) {
++		if (dev->priv_flags & IFF_802_1Q_VLAN) {
++			*result = VLAN_DEV_INFO(dev)->vlan_id;
++			dev_put(dev);
++			rv = 0;
++		} else {
++			/*printk(KERN_ERR
++			  "%s: %s is not a vlan device, priv_flags: %hX.\n",
++			  __FUNCTION__, dev->name, dev->priv_flags);*/
++			dev_put(dev);
++			rv = -EINVAL;
++		}
++	} else {
++		/* printk(KERN_ERR       "%s: Could not find device: %s\n",
++		   __FUNCTION__, dev_name);*/
++		rv = -ENODEV;
++	}
++	return rv;
++}
++
++
+  int vlan_dev_set_mac_address(struct net_device *dev, void *addr_struct_p)
+  {
+  	struct sockaddr *addr = (struct sockaddr *)(addr_struct_p);
+--- linux-2.6.9/net/8021q/vlan.c	2004-10-18 14:54:55.000000000 -0700
++++ linux-2.6.9.p4s/net/8021q/vlan.c	2004-10-22 12:14:24.000000000 -0700
+@@ -1,4 +1,4 @@
+-/*
++/* -*- linux-c -*-
+   * INET		802.1Q VLAN
+   *		Ethernet-type device handling.
+   *
+@@ -646,15 +646,9 @@
+  static int vlan_ioctl_handler(void __user *arg)
+  {
+  	int err = 0;
++	unsigned short vid = 0;
+  	struct vlan_ioctl_args args;
+
+-	/* everything here needs root permissions, except aguably the
+-	 * hack ioctls for sending packets.  However, I know _I_ don't
+-	 * want users running that on my network! --BLG
+-	 */
+-	if (!capable(CAP_NET_ADMIN))
+-		return -EPERM;
+-
+  	if (copy_from_user(&args, arg, sizeof(struct vlan_ioctl_args)))
+  		return -EFAULT;
+
+@@ -668,24 +662,32 @@
+
+  	switch (args.cmd) {
+  	case SET_VLAN_INGRESS_PRIORITY_CMD:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
+  		err = vlan_dev_set_ingress_priority(args.device1,
+  						    args.u.skb_priority,
+  						    args.vlan_qos);
+  		break;
+
+  	case SET_VLAN_EGRESS_PRIORITY_CMD:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
+  		err = vlan_dev_set_egress_priority(args.device1,
+  						   args.u.skb_priority,
+  						   args.vlan_qos);
+  		break;
+
+  	case SET_VLAN_FLAG_CMD:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
+  		err = vlan_dev_set_vlan_flag(args.device1,
+  					     args.u.flag,
+  					     args.vlan_qos);
+  		break;
+
+  	case SET_VLAN_NAME_TYPE_CMD:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
+  		if ((args.u.name_type >= 0) &&
+  		    (args.u.name_type < VLAN_NAME_TYPE_HIGHEST)) {
+  			vlan_name_type = args.u.name_type;
+@@ -695,17 +697,9 @@
+  		}
+  		break;
+
+-		/* TODO:  Figure out how to pass info back...
+-		   case GET_VLAN_INGRESS_PRIORITY_IOCTL:
+-		   err = vlan_dev_get_ingress_priority(args);
+-		   break;
+-
+-		   case GET_VLAN_EGRESS_PRIORITY_IOCTL:
+-		   err = vlan_dev_get_egress_priority(args);
+-		   break;
+-		*/
+-
+  	case ADD_VLAN_CMD:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
+  		/* we have been given the name of the Ethernet Device we want to
+  		 * talk to:  args.dev1	 We also have the
+  		 * VLAN ID:  args.u.VID
+@@ -718,13 +712,52 @@
+  		break;
+
+  	case DEL_VLAN_CMD:
++		if (!capable(CAP_NET_ADMIN))
++			return -EPERM;
+  		/* Here, the args.dev1 is the actual VLAN we want
+  		 * to get rid of.
+  		 */
+  		err = unregister_vlan_device(args.device1);
+  		break;
+
++	case GET_VLAN_INGRESS_PRIORITY_CMD:
++		/* TODO:  Implement
++		   err = vlan_dev_get_ingress_priority(args);
++		   if (copy_to_user((void*)arg, &args,
++		        sizeof(struct vlan_ioctl_args))) {
++		        err = -EFAULT;
++		   }
++		*/
++		err = -EINVAL;
++		break;
++	case GET_VLAN_EGRESS_PRIORITY_CMD:
++		/* TODO:  Implement
++		   err = vlan_dev_get_egress_priority(args.device1, &(args.args);
++		   if (copy_to_user((void*)arg, &args,
++		        sizeof(struct vlan_ioctl_args))) {
++		        err = -EFAULT;
++		   }
++		*/
++		err = -EINVAL;
++		break;
++	case GET_VLAN_REALDEV_NAME_CMD:
++		err = vlan_dev_get_realdev_name(args.device1, args.u.device2);
++		if (copy_to_user((void*)arg, &args,
++				 sizeof(struct vlan_ioctl_args))) {
++			err = -EFAULT;
++		}
++		break;
++
++	case GET_VLAN_VID_CMD:
++		err = vlan_dev_get_vid(args.device1, &vid);
++		args.u.VID = vid;
++		if (copy_to_user((void*)arg, &args,
++				 sizeof(struct vlan_ioctl_args))) {
++                      err = -EFAULT;
++		}
++		break;
++
+  	default:
+  		/* pass on to underlying device instead?? */
+  		printk(VLAN_DBG "%s: Unknown VLAN CMD: %x \n",
+--- linux-2.6.9/net/8021q/vlan.h	2004-10-18 14:54:37.000000000 -0700
++++ linux-2.6.9.p4s/net/8021q/vlan.h	2004-10-22 12:14:24.000000000 -0700
+@@ -66,7 +66,9 @@
+  int vlan_dev_set_ingress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
+  int vlan_dev_set_egress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
+  int vlan_dev_set_vlan_flag(char* dev_name, __u32 flag, short flag_val);
++int vlan_dev_get_realdev_name(const char* dev_name, char* result);
++int vlan_dev_get_vid(const char* dev_name, unsigned short* result);
+  void vlan_dev_set_multicast_list(struct net_device *vlan_dev);
+
+  #endif /* !(__BEN_VLAN_802_1Q_INC__) */
+--- linux-2.6.9/include/linux/if_vlan.h	2004-10-18 14:53:43.000000000 -0700
++++ linux-2.6.9.p4s/include/linux/if_vlan.h	2004-10-22 12:14:24.000000000 -0700
+@@ -366,7 +366,9 @@
+  	GET_VLAN_INGRESS_PRIORITY_CMD,
+  	GET_VLAN_EGRESS_PRIORITY_CMD,
+  	SET_VLAN_NAME_TYPE_CMD,
+-	SET_VLAN_FLAG_CMD
++	SET_VLAN_FLAG_CMD,
++        GET_VLAN_REALDEV_NAME_CMD, /* If this works, you know it's a VLAN device, btw */
++        GET_VLAN_VID_CMD /* Get the VID of this VLAN (specified by name) */
+  };
+
+  enum vlan_name_types {
+
 
 
 -- 
-Arthur
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
