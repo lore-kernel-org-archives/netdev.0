@@ -1,19 +1,26 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] (8/8) loopback device simplification
-Date: Wed, 03 Sep 2003 20:43:44 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Remove X86_TSC dependency in net profile code
+Date: Thu, 4 Sep 2003 00:44:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F568AC0.5090601@pobox.com>
-References: <20030903164921.7d923008.shemminger@osdl.org>
+Message-ID: <20030904004451.44f0babe.davem@redhat.com>
+References: <20030902230057.GA5424@averell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030903164921.7d923008.shemminger@osdl.org>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <20030902230057.GA5424@averell>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Would be nice to move dev_base and dev_base_lock somewhere, maybe 
-drivers/net/net_init.c (which really should be renamed libnet.c) or 
-perhaps somewhere in net/*
+On Wed, 3 Sep 2003 01:00:57 +0200
+Andi Kleen <ak@muc.de> wrote:
+
+> I did not actually compile test this because net profile is commented
+> out since a long time and doesn't compile. An alternative if noone comes
+> up to fix it would be just to remove it completely.
+
+I decided to just kill net profile for now.
+
+Thanks for bringing this to my attention Andi.
