@@ -1,10 +1,10 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH 5/12][ECONET] stop using sk_protinfo
-Date: Fri, 21 Jan 2005 01:19:14 -0200
-Message-ID: <41F074B2.6010609@conectiva.com.br>
+Subject: [PATCH 8/12][PF_KEY] stop using sk_protinfo
+Date: Fri, 21 Jan 2005 01:19:28 -0200
+Message-ID: <41F074C0.4040201@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------070606090704060308020104"
+ boundary="------------060007080002060507000701"
 Cc: Networking Team <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
@@ -13,11 +13,11 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------070606090704060308020104
+--------------060007080002060507000701
 Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
 
-David,
+Hi David,
 
 	Subject says it all.
 
@@ -26,18 +26,18 @@ Regards,
 - Arnaldo
 
 
---------------070606090704060308020104
+--------------060007080002060507000701
 Content-Type: text/plain;
- name="5-econet.patch"
+ name="8-pf_key.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="5-econet.patch"
+ filename="8-pf_key.patch"
 
 ===================================================================
 
 
-ChangeSet@1.2003, 2005-01-20 20:44:56-02:00, acme@toy.ghostprotocols.net
-  [ECONET] stop using sk_protinfo
+ChangeSet@1.2006, 2005-01-20 21:09:34-02:00, acme@toy.ghostprotocols.net
+  [PF_KEY] stop using sk_protinfo
   
   Required to introduce struct connection_sock.
   
@@ -45,118 +45,104 @@ ChangeSet@1.2003, 2005-01-20 20:44:56-02:00, acme@toy.ghostprotocols.net
   Signed-off-by: David S. Miller <davem@davemloft.net>
 
 
- include/linux/if_ec.h  |   10 +++++++---
- net/econet/af_econet.c |   21 ++++++++-------------
- 2 files changed, 15 insertions(+), 16 deletions(-)
+ af_key.c |   33 ++++++++++++++-------------------
+ 1 files changed, 14 insertions(+), 19 deletions(-)
 
 
-diff -Nru a/include/linux/if_ec.h b/include/linux/if_ec.h
---- a/include/linux/if_ec.h	2005-01-21 00:23:17 -02:00
-+++ b/include/linux/if_ec.h	2005-01-21 00:23:17 -02:00
-@@ -47,8 +47,9 @@
-   unsigned char port;
- };
+diff -Nru a/net/key/af_key.c b/net/key/af_key.c
+--- a/net/key/af_key.c	2005-01-21 00:22:42 -02:00
++++ b/net/key/af_key.c	2005-01-21 00:22:42 -02:00
+@@ -42,11 +42,17 @@
  
--struct econet_opt
--{
-+struct econet_sock {
-+  /* struct sock has to be the first member of econet_sock */
-+  struct sock	sk;
-   unsigned char cb;
-   unsigned char port;
-   unsigned char station;
-@@ -56,7 +57,10 @@
-   unsigned short num;
- };
+ static atomic_t pfkey_socks_nr = ATOMIC_INIT(0);
  
--#define ec_sk(__sk) ((struct econet_opt *)(__sk)->sk_protinfo)
-+static inline struct econet_sock *ec_sk(const struct sock *sk)
+-struct pfkey_opt {
+-	int	registered;
+-	int	promisc;
++struct pfkey_sock {
++	/* struct sock must be the first member of struct pfkey_sock */
++	struct sock	sk;
++	int		registered;
++	int		promisc;
+ };
+-#define pfkey_sk(__sk) ((struct pfkey_opt *)(__sk)->sk_protinfo)
++
++static inline struct pfkey_sock *pfkey_sk(struct sock *sk)
 +{
-+	return (struct econet_sock *)sk;
++	return (struct pfkey_sock *)sk;
 +}
  
- struct ec_device
+ static void pfkey_sock_destruct(struct sock *sk)
  {
-diff -Nru a/net/econet/af_econet.c b/net/econet/af_econet.c
---- a/net/econet/af_econet.c	2005-01-21 00:23:17 -02:00
-+++ b/net/econet/af_econet.c	2005-01-21 00:23:17 -02:00
-@@ -184,7 +184,7 @@
- {
- 	struct sockaddr_ec *sec = (struct sockaddr_ec *)uaddr;
- 	struct sock *sk=sock->sk;
--	struct econet_opt *eo = ec_sk(sk);
-+	struct econet_sock *eo = ec_sk(sk);
- 	
- 	/*
- 	 *	Check legality
-@@ -284,7 +284,7 @@
- 	 */
- 	 
- 	if (saddr == NULL) {
--		struct econet_opt *eo = ec_sk(sk);
-+		struct econet_sock *eo = ec_sk(sk);
+@@ -60,8 +66,6 @@
+ 	BUG_TRAP(!atomic_read(&sk->sk_rmem_alloc));
+ 	BUG_TRAP(!atomic_read(&sk->sk_wmem_alloc));
  
- 		addr.station = eo->station;
- 		addr.net     = eo->net;
-@@ -485,7 +485,7 @@
- 			  int *uaddr_len, int peer)
- {
- 	struct sock *sk = sock->sk;
--	struct econet_opt *eo = ec_sk(sk);
-+	struct econet_sock *eo = ec_sk(sk);
- 	struct sockaddr_ec *sec = (struct sockaddr_ec *)uaddr;
+-	kfree(pfkey_sk(sk));
+-
+ 	atomic_dec(&pfkey_socks_nr);
+ }
  
- 	if (peer)
-@@ -562,7 +562,7 @@
- static int econet_create(struct socket *sock, int protocol)
+@@ -128,7 +132,6 @@
+ static int pfkey_create(struct socket *sock, int protocol)
  {
  	struct sock *sk;
--	struct econet_opt *eo;
-+	struct econet_sock *eo;
+-	struct pfkey_opt *pfk;
  	int err;
  
- 	/* Econet only provides datagram services. */
-@@ -572,7 +572,8 @@
- 	sock->state = SS_UNCONNECTED;
+ 	if (!capable(CAP_NET_ADMIN))
+@@ -139,7 +142,7 @@
+ 		return -EPROTONOSUPPORT;
  
- 	err = -ENOBUFS;
--	sk = sk_alloc(PF_ECONET, GFP_KERNEL, 1, NULL);
-+	sk = sk_alloc(PF_ECONET, GFP_KERNEL,
-+		      sizeof(struct econet_sock), NULL);
+ 	err = -ENOMEM;
+-	sk = sk_alloc(PF_KEY, GFP_KERNEL, 1, NULL);
++	sk = sk_alloc(PF_KEY, GFP_KERNEL, sizeof(struct pfkey_sock), NULL);
  	if (sk == NULL)
  		goto out;
- 
-@@ -581,19 +582,13 @@
- 	sock_init_data(sock,sk);
+ 	
+@@ -147,14 +150,6 @@
+ 	sock_init_data(sock, sk);
  	sk_set_owner(sk, THIS_MODULE);
  
--	eo = sk->sk_protinfo = kmalloc(sizeof(*eo), GFP_KERNEL);
--	if (!eo)
--		goto out_free;
--	memset(eo, 0, sizeof(*eo));
-+	eo = ec_sk(sk);
- 	sk->sk_zapped = 0;
- 	sk->sk_family = PF_ECONET;
- 	eo->num = protocol;
- 
- 	econet_insert_socket(&econet_sklist, sk);
- 	return(0);
+-	err = -ENOMEM;
+-	pfk = sk->sk_protinfo = kmalloc(sizeof(*pfk), GFP_KERNEL);
+-	if (!pfk) {
+-		sk_free(sk);
+-		goto out;
+-	}
+-	memset(pfk, 0, sizeof(*pfk));
 -
--out_free:
--	sk_free(sk);
- out:
- 	return err;
- }
-@@ -735,7 +730,7 @@
- 	struct hlist_node *node;
+ 	sk->sk_family = PF_KEY;
+ 	sk->sk_destruct = pfkey_sock_destruct;
  
- 	sk_for_each(sk, node, &econet_sklist) {
--		struct econet_opt *opt = ec_sk(sk);
-+		struct econet_sock *opt = ec_sk(sk);
- 		if ((opt->port == port || opt->port == 0) && 
- 		    (opt->station == station || opt->station == 0) &&
- 		    (opt->net == net || opt->net == 0))
+@@ -233,7 +228,7 @@
+ 
+ 	pfkey_lock_table();
+ 	sk_for_each(sk, node, &pfkey_table) {
+-		struct pfkey_opt *pfk = pfkey_sk(sk);
++		struct pfkey_sock *pfk = pfkey_sk(sk);
+ 		int err2;
+ 
+ 		/* Yes, it means that if you are meant to receive this
+@@ -1418,7 +1413,7 @@
+ 
+ static int pfkey_register(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+ {
+-	struct pfkey_opt *pfk = pfkey_sk(sk);
++	struct pfkey_sock *pfk = pfkey_sk(sk);
+ 	struct sk_buff *supp_skb;
+ 
+ 	if (hdr->sadb_msg_satype > SADB_SATYPE_MAX)
+@@ -1514,7 +1509,7 @@
+ 
+ static int pfkey_promisc(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
+ {
+-	struct pfkey_opt *pfk = pfkey_sk(sk);
++	struct pfkey_sock *pfk = pfkey_sk(sk);
+ 	int satype = hdr->sadb_msg_satype;
+ 
+ 	if (hdr->sadb_msg_len == (sizeof(*hdr) / sizeof(uint64_t))) {
 
 
 
---------------070606090704060308020104--
+--------------060007080002060507000701--
