@@ -1,45 +1,50 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: netem compile failure on PPC (2.4 BK)
-Date: Mon, 19 Jul 2004 12:44:28 +0300 (EEST)
+From: "La Monte H.P. Yarroll" <piggy@timesys.com>
+Subject: Re: [PATCH] Remove prototypes of nonexistent functions from net/sctp
+ files
+Date: Mon, 19 Jul 2004 10:14:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.44.0407191231410.14892-100000@math.ut.ee>
+Message-ID: <40FBD734.5040306@timesys.com>
+References: <20040718194826.6164.qmail@web53805.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Carl Spalletta <cspalletta@yahoo.com>, lkml <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com,
+        ML lksctp <lksctp-developers@lists.sourceforge.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <20040718194826.6164.qmail@web53805.mail.yahoo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-netem fails to compile on PPC in 2.4.27+BK, __init etc are unknown. The
-patch below fixes it for me.
+This function went away in Februrary (change 1.67 on associola.c) due to
+changing the assoc id from a kernel address to an abstract address. The
+check is now done by looking at a single field in the association struct.
 
-gcc -D__KERNEL__ -I/home/mroos/compile/linux-2.4/include -Wall -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common -fomit-frame-pointer -I/home/mroos/compile/linux-2.4/arch/ppc -fsigned-char -msoft-float -pipe -ffixed-r2 -Wno-uninitialized -mmultiple -mstring -DMODULE -DMODVERSIONS -include /home/mroos/compile/linux-2.4/include/linux/modversions.h  -nostdinc -iwithprefix include -DKBUILD_BASENAME=sch_netem  -c -o sch_netem.o sch_netem.c
-sch_netem.c:245: error: parse error before "netem_module_init"
-sch_netem.c:246: warning: return type defaults to `int'
-sch_netem.c:249: error: parse error before "netem_module_exit"
-sch_netem.c:250: warning: return type defaults to `int'
-sch_netem.c:254: error: parse error before "module_exit"
-sch_netem.c:255: warning: return type defaults to `int'
-sch_netem.c:255: warning: function declaration isn't a prototype
-sch_netem.c: In function `module_exit':
-sch_netem.c:255: error: storage class specified for parameter `__module_license'
-sch_netem.c:255: error: parameter `__module_license' is initialized
-sch_netem.c:255: warning: `__used__' attribute ignored
-sch_netem.c:255: error: section attribute not allowed for `__module_license'
-sch_netem.c:255: error: parse error at end of input
+Signed-off-by: La Monte H.P. Yarroll <piggy@baqaqi.chi.il.us>
 
+Carl Spalletta wrote:
 
-===== net/sched/sch_netem.c 1.2 vs edited =====
---- 1.2/net/sched/sch_netem.c	2004-07-07 00:38:40 +03:00
-+++ edited/net/sched/sch_netem.c	2004-07-19 12:32:27 +03:00
-@@ -19,6 +19,7 @@
- #include <linux/netdevice.h>
- #include <linux/skbuff.h>
- #include <linux/rtnetlink.h>
-+#include <linux/init.h>
-
- #include <net/pkt_sched.h>
-
+>diff -ru linux-2.6.7-orig/net/sctp/socket.c linux-2.6.7-new/net/sctp/socket.c
+>--- linux-2.6.7-orig/net/sctp/socket.c  2004-06-15 22:20:26.000000000 -0700
+>+++ linux-2.6.7-new/net/sctp/socket.c   2004-07-18 08:54:08.000000000 -0700
+>@@ -109,7 +109,6 @@
+> static char *sctp_hmac_alg = SCTP_COOKIE_HMAC_ALG;
+>
+> extern kmem_cache_t *sctp_bucket_cachep;
+>-extern int sctp_assoc_valid(struct sock *sk, struct sctp_association *asoc);
+>
+> /* Look up the association by its id.  If this is not a UDP-style
+>  * socket, the ID field is always ignored.
+>
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>Please read the FAQ at  http://www.tux.org/lkml/
+>
+>  
+>
 
 -- 
-Meelis Roos (mroos@linux.ee)
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell's sig
