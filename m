@@ -1,11 +1,11 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] IPv6: Sevaral MLD Fixes
-Date: Fri, 18 Oct 2002 18:15:32 -0700 (PDT)
+Date: Fri, 18 Oct 2002 18:52:58 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021018.181532.45064096.davem@redhat.com>
+Message-ID: <20021018.185258.27026815.davem@redhat.com>
 References: <20021018.125223.130322644.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -14,27 +14,19 @@ In-Reply-To: <20021018.125223.130322644.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Fri, 18 Oct 2002 12:52:23 +0900 (JST)
 
-I am going to apply this patch, but please be more careful
-in the future.  You submitted two patches which modify
-the same hunk of comment to two different values, guarenteeing
-that if I just run 'patch' this one will not apply without rejects.
+I had to add the following to my tree after this patch,
+please watch for compiler warnings introducted by your
+changes.   Thanks :-)
 
-   @@ -18,6 +18,9 @@
-    /* Changes:
-     *
-     *	yoshfuji	: fix format of router-alert option
-   + *	YOSHIFUJI Hideaki @USAGI:
-   + *		- Ignore Queries for invalid addresses.
-   + *		- MLD for link-local addresses.
-     */
-    
-    #define __NO_VERSION__
-
-Next time, please make patch relative to previous one and
-tell me "this patch depends upon MLD source address selection
-patch being applied first".
-
-This way we can avoid this problem.
+--- net/ipv6/mcast.c.~1~	Fri Oct 18 18:55:04 2002
++++ net/ipv6/mcast.c	Fri Oct 18 18:55:16 2002
+@@ -605,8 +605,6 @@
+ 
+ static void igmp6_leave_group(struct ifmcaddr6 *ma)
+ {
+-	int addr_type;
+-
+ 	if (IPV6_ADDR_MC_SCOPE(&ma->mca_addr) < IPV6_ADDR_SCOPE_LINKLOCAL ||
+ 	    ipv6_addr_is_ll_all_nodes(&ma->mca_addr))
+ 		return;
