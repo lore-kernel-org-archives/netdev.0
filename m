@@ -2,7 +2,7 @@ From: Mark Mielke <mark@mark.mielke.cc>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
 Date: Wed, 12 Jun 2002 10:53:55 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae7nte$2j1$2@main.gmane.org>
+Message-ID: <ae7o5h$3ap$2@main.gmane.org>
 References: <5.1.0.14.2.20020612224038.0251bd08@mira-sjcm-3.cisco.com> <Pine.GSO.4.30.0206120853320.799-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -57,7 +57,7 @@ mark
 
 -- 
 mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
-.  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
+  .  _  ._  . .   .__    .  . ._. .__ .   . . .__  | Neighbourhood Coder
 |\/| |_| |_| |/    |_     |\/|  |  |_  |   |/  |_   | 
 |  | | | | \ | \   |__ .  |  | .|. |__ |__ | \ |__  | Ottawa, Ontario, Canada
 
@@ -65,3 +65,4 @@ mark@mielke.cc/markm@ncf.ca/markm@nortelnetworks.com __________________________
                        and in the darkness bind them...
 
                            http://mark.mielke.cc/
+
