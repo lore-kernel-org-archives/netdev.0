@@ -1,39 +1,32 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Wed, 19 Jan 2005 23:18:15 +0100
-Message-ID: <16878.56487.600435.442912@robur.slu.se>
-References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain>
-	<200501141326.29575.jeremy.guthrie@berbee.com>
-	<16874.24305.461492.48668@robur.slu.se>
-	<200501190903.45671.jeremy.guthrie@berbee.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] make ipx use a slab cache for its socks
+Date: Wed, 19 Jan 2005 14:21:49 -0800
+Message-ID: <20050119142149.48e65e4e.davem@davemloft.net>
+References: <41EDD7C4.90309@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jeremy.guthrie@berbee.com
-In-Reply-To: <200501190903.45671.jeremy.guthrie@berbee.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <41EDD7C4.90309@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 19 Jan 2005 01:45:08 -0200
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-Jeremy M. Guthrie writes:
+> Ah, this changeset is available at:
+> 
+> bk://kernel.bkbits.net/acme/connection_sock-2.6
 
- > >  gc_elasticity, gc_interval, gc_thresh etc I would avoid gc_min_interval.
+Sounds great, keep up the good work :-)
 
- > I have done a little tweaking. I now hold at around 520K routes in the hash.  
- > I still drop packets every secret_interval but I've upped that counter so I 
- > don't whack all of my hash entries all that often.
+I'm having some trouble pulling from your tree at the
+moment though:
 
-
- Sounds you done progress. 
- This with relative conservative setting if RX-buffers?
-
- secret_interval needs special care as it flushes the cache totally.
-
- What did you tweak? 
- Your output from rtstat will be very interesting.
-
-
-					 --ro
+Pull bk://kernel.bkbits.net/acme/connection_sock-2.6
+  -> file://disk1/BK/net-2.6
+ERROR-Can't get read lock on the repository.
+pull: remote locked, trying again...
