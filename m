@@ -1,54 +1,60 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH[ (6/15) atm -- size_t in send/recvmsg
-Date: Fri, 9 Jan 2004 13:48:12 -0800
+Subject: [PATCH] (7/15) ax25 - size_t in send/recvmsg
+Date: Fri, 9 Jan 2004 13:48:15 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109134812.6fa874c8@linux.local>
+Message-ID: <20040109134815.09ef4df0@linux.local>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-        Chas Williams
- <chas@cmf.nrl.navy.mil>
+To: "David S. Miller" <davem@redhat.com>, Ralf Baechle <ralf@linux-mips.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert ATM for unsigned length send/recvmsg to match new prototype.
+Convert Amateur Radio X.25 to unsigned size for send/receive.
+Also enforce an MTU here, since there is no fragmentation logic.
 
-diff -Nru a/net/atm/common.c b/net/atm/common.c
---- a/net/atm/common.c	Mon Dec  8 16:19:46 2003
-+++ b/net/atm/common.c	Mon Dec  8 16:19:46 2003
-@@ -463,7 +463,7 @@
+diff -Nru a/net/ax25/af_ax25.c b/net/ax25/af_ax25.c
+--- a/net/ax25/af_ax25.c	Mon Dec  8 16:19:49 2003
++++ b/net/ax25/af_ax25.c	Mon Dec  8 16:19:49 2003
+@@ -1415,7 +1415,7 @@
+ }
  
+ static int ax25_sendmsg(struct kiocb *iocb, struct socket *sock,
+-			struct msghdr *msg, int len)
++			struct msghdr *msg, size_t len)
+ {
+ 	struct sockaddr_ax25 *usax = (struct sockaddr_ax25 *)msg->msg_name;
+ 	struct sock *sk = sock->sk;
+@@ -1424,7 +1424,8 @@
+ 	ax25_digi dtmp, *dp;
+ 	unsigned char *asmptr;
+ 	ax25_cb *ax25;
+-	int lv, size, err, addr_len = msg->msg_namelen;
++	size_t size;
++	int lv, err, addr_len = msg->msg_namelen;
  
- int vcc_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
--		int size, int flags)
-+		size_t size, int flags)
+ 	if (msg->msg_flags & ~(MSG_DONTWAIT|MSG_EOR)) {
+ 		return -EINVAL;
+@@ -1449,6 +1450,11 @@
+ 		goto out;
+ 	}
+ 
++	if (len > ax25->ax25_dev->dev->mtu) {
++		err = -EMSGSIZE;
++		goto out;
++	}
++		
+ 	if (usax != NULL) {
+ 		if (usax->sax25_family != AF_AX25) {
+ 			err = -EINVAL;
+@@ -1594,7 +1600,7 @@
+ }
+ 
+ static int ax25_recvmsg(struct kiocb *iocb, struct socket *sock,
+-	struct msghdr *msg, int size, int flags)
++	struct msghdr *msg, size_t size, int flags)
  {
  	struct sock *sk = sock->sk;
- 	struct atm_vcc *vcc;
-@@ -503,7 +503,7 @@
- 
- 
- int vcc_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
--		int total_len)
-+		size_t total_len)
- {
- 	struct sock *sk = sock->sk;
- 	DEFINE_WAIT(wait);
-diff -Nru a/net/atm/common.h b/net/atm/common.h
---- a/net/atm/common.h	Mon Dec  8 16:19:46 2003
-+++ b/net/atm/common.h	Mon Dec  8 16:19:46 2003
-@@ -14,9 +14,9 @@
- int vcc_release(struct socket *sock);
- int vcc_connect(struct socket *sock, int itf, short vpi, int vci);
- int vcc_recvmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *msg,
--		int size, int flags);
-+		size_t size, int flags);
- int vcc_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
--		int total_len);
-+		size_t total_len);
- unsigned int vcc_poll(struct file *file, struct socket *sock, poll_table *wait);
- int vcc_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
- int vcc_setsockopt(struct socket *sock, int level, int optname, char *optval,
+ 	struct sk_buff *skb;
