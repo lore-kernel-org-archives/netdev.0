@@ -1,32 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
-Date: Fri, 6 Feb 2004 19:48:44 -0800
+Subject: Re: Source Specific Query of MLDv2 [PATCH]
+Date: Fri, 6 Feb 2004 19:53:25 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040206194844.42bebb59.davem@redhat.com>
-References: <200402070232.33771.kazunori@miyazawa.org>
-	<4023D6FB.9010909@kolumbus.fi>
+Message-ID: <20040206195325.207aa1c7.davem@redhat.com>
+References: <20040115221841.7e7cc78d%hibi665@oki.com>
+	<OFABEBA675.68903615-ON88256E33.000504D4-88256E33.0005673C@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: kazunori@miyazawa.org, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: hibi665@oki.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika =?ISO-8859-1?Q?Penttil=E4?= <mika.penttila@kolumbus.fi>
-In-Reply-To: <4023D6FB.9010909@kolumbus.fi>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OFABEBA675.68903615-ON88256E33.000504D4-88256E33.0005673C@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 06 Feb 2004 20:03:39 +0200
-Mika Penttil=E4 <mika.penttila@kolumbus.fi> wrote:
+On Fri, 6 Feb 2004 18:01:37 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-> >Yoshifuji-san and I send the patch which unifies IPv6 output routine a=
-nd remove
-> >RTF_NDISC again. It resolves an issue of IPv6 IPsec with neighbor disc=
-overy
-> >without a flag.
->=20
-> You break multicast replies, see what ndisc_build_ll_hdr() does...
+> +extern int is_mld(struct sk_buff *skb);
 
-That's right, and compiler should have warned about ndisc_build_ll_hdr()
-(a static function in ndisc.c) since it was no longer referenced after
-applying the patch, which would be a clue that something was wrong :-)
+David, please don't pollute global name space so badly :-)
+ipv6_is_mld() would be fine.
