@@ -1,116 +1,88 @@
-From: Hanna Linder <hannal@us.ibm.com>
-Subject: Re: [PATCH 2.6] Patch to hook up PPP to simple class sysfs support
-Date: Thu, 04 Mar 2004 18:05:14 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <42870000.1078452314@w-hlinder.beaverton.ibm.com>
-References: <200403032328.i23NSwlv009796@orion.dwf.com> <22370000.1078362205@w-hlinder.beaverton.ibm.com> <20040303195539.S22989@build.pdx.osdl.net>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: linux-wireless mailing list
+Date: Thu, 4 Mar 2004 20:08:25 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040305040824.GA3980@jm.kir.nu>
+References: <Pine.LNX.4.58.0403031656090.22365@marabou.research.att.com> <20040303233343.GA14803@bougret.hpl.hp.com> <Pine.LNX.4.58.0403040100300.4248@portland.hansa.lan>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Hanna Linder <hannal@us.ibm.com>, linux-kernel@vger.kernel.org,
-        greg@kroah.com, paulus@samba.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Chris Wright <chrisw@osdl.org>
-In-Reply-To: <20040303195539.S22989@build.pdx.osdl.net>
+Cc: jt@hpl.hp.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Pavel Roskin <proski@gnu.org>
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <Pine.LNX.4.58.0403040100300.4248@portland.hansa.lan>
 List-Id: netdev.vger.kernel.org
 
+On Thu, Mar 04, 2004 at 02:08:08AM -0500, Pavel Roskin wrote:
 
+> On Wed, 3 Mar 2004, Jean Tourrilhes wrote:
+> > 	Actually, you remind me that I should ask Jouni to push his
+> > driver in the kernel.
 
-Thanks Chris. Your changes fixed the reload oops I was seeing.
+> I believe it can happen after RC4 goes to the kernel and HostAP uses
+> crypto API (optionally in the standalone version to keep Linux 2.4
+> compatibility).
 
-root@w-hlinder2 root]# modprobe ppp_generic
-[root@w-hlinder2 root]# tree /sys/class/ppp
-/sys/class/ppp
-`-- ppp
-    `-- dev
+Yes, it is quite easy for me to replace the HostAP-internal
+implementation of WEP with CRC32+RC4 with crypto API. However, the
+encryption algorithm itself is not everything that is needed for IEEE
+802.11 encryption. With WEP, the additional work is quite limited (add
+IV, verify ICV), but both TKIP and CCMP add quite a bit of more
+processing for the header (like authentication of pseudo header, replay
+protection, etc.).
 
-1 directory, 1 file
-[root@w-hlinder2 root]# rmmod ppp_generic
-[root@w-hlinder2 root]# tree /sys/class/ppp
-/sys/class/ppp [error opening dir]
+Host AP driver uses a structure which allows multiple algorithms to be
+registered for both encrypting and decrypting skb's with IEEE 802.11
+headers. This structure is likely to remain even when the encryption
+parts themselves are replaced with crypto API. In addition, these
+functions are completely separate from the rest of the Host AP driver,
+so it should be easy for other drivers to use them, if desired.
 
-0 directories, 0 files
-[root@w-hlinder2 root]# modprobe ppp_generic
-[root@w-hlinder2 root]# tree /sys/class/ppp
-/sys/class/ppp
-`-- ppp
-    `-- dev
+Some wlan chipsets use hardware acceleration for the
+WEP/TKIP/CCMP(AES-CCM), but require the driver to process the IV/ICV/MIC
+addition/verification. These drivers would also benefit if there were
+generic functions that would support both software and hwaccel versions
+for the encryption/decryption.
 
-1 directory, 1 file
+I was looking into pushing Host AP code for the kernel tree, but since
+non-trivial amount of work would have been required with crypto parts,
+this was delayed. Then came WPA and I wanted to get it working first..
+But maybe now that it is mostly done, I could try to allocate enough
+time to go through what is needed to get Host AP driver in acceptable
+shape to be included into the kernel tree.
 
-Please consider the patch below for inclusion.
-
-Thanks.
-
-
---On Wednesday, March 03, 2004 07:55:39 PM -0800 Chris Wright <chrisw@osdl.org> wrote:
-
+> > > Encryption.  There are wireless specific encryption issues.  Host based
+> > > WEP support needs RC4 cipher in the kernel.  There's not much to discuss
+> > > here, but the lack of RC4 in the kernel may indicate that Linux wireless
+> > > developers are not acting together to make it happen.  The patch does
+> > > exist.
+> >
+> > 	I've never seen this patch. Was it sent to the Crypto guys ?
 > 
-> something like below.
-> 
-> thanks,
-> -chris
-> 
-> ===== drivers/net/ppp_generic.c 1.43 vs edited =====
-> --- 1.43/drivers/net/ppp_generic.c	Wed Feb 18 19:42:37 2004
-> +++ edited/drivers/net/ppp_generic.c	Wed Mar  3 19:08:24 2004
-> @@ -45,6 +45,7 @@
->  #include <linux/smp_lock.h>
->  #include <linux/rwsem.h>
->  #include <linux/stddef.h>
-> +#include <linux/device.h>
->  #include <net/slhc_vj.h>
->  #include <asm/atomic.h>
->  
-> @@ -271,6 +272,8 @@
->  static int ppp_disconnect_channel(struct channel *pch);
->  static void ppp_destroy_channel(struct channel *pch);
->  
-> +static struct class_simple *ppp_class;
-> +
->  /* Translates a PPP protocol number to a NP index (NP == network protocol) */
->  static inline int proto_to_npindex(int proto)
->  {
-> @@ -804,15 +807,29 @@
->  	printk(KERN_INFO "PPP generic driver version " PPP_VERSION "\n");
->  	err = register_chrdev(PPP_MAJOR, "ppp", &ppp_device_fops);
->  	if (!err) {
-> +		ppp_class = class_simple_create(THIS_MODULE, "ppp");
-> +		if (IS_ERR(ppp_class)) {
-> +			err = PTR_ERR(ppp_class);
-> +			goto out_chrdev;
-> +		}
-> +		class_simple_device_add(ppp_class, MKDEV(PPP_MAJOR, 0), NULL, "ppp");
->  		err = devfs_mk_cdev(MKDEV(PPP_MAJOR, 0),
->  				S_IFCHR|S_IRUSR|S_IWUSR, "ppp");
->  		if (err)
-> -			unregister_chrdev(PPP_MAJOR, "ppp");
-> +			goto out_class;
->  	}
->  
-> +out:
->  	if (err)
->  		printk(KERN_ERR "failed to register PPP device (%d)\n", err);
->  	return err;
-> +
-> +out_class:
-> +	class_simple_device_remove(MKDEV(PPP_MAJOR,0));
-> +	class_simple_destroy(ppp_class);
-> +out_chrdev:
-> +	unregister_chrdev(PPP_MAJOR, "ppp");
-> +	goto out;
->  }
->  
->  /*
-> @@ -2545,6 +2562,8 @@
->  	if (unregister_chrdev(PPP_MAJOR, "ppp") != 0)
->  		printk(KERN_ERR "PPP: failed to unregister PPP device\n");
->  	devfs_remove("ppp");
-> +	class_simple_device_remove(MKDEV(PPP_MAJOR, 0));
-> +	class_simple_destroy(ppp_class);
->  }
->  
->  /*
-> 
+> http://sourceforge.net/mailarchive/message.php?msg_id=7298902
+
+That's nice to see. However, I would like to know whether any
+performance testing has been done with that kind of design? It looks
+like the encryption function (arc4_crypt()) is being called for each
+byte of the encrypted area. That looks like a major extra work compared
+to a tight loop going through the data (e.g., compared to the integrated
+CRC32+RC4 implementation in Host AP driver).
+
+With IEEE 802.11b, I don't really are that much about the extra work,
+but with throughput of IEEE 802.11a/g, this might become considerable.
+Then again, most modern cards seem to include hardware acceleration and
+some of them are even able to do this at full data rate. Anyway,
+software encryption might still be needed for some configuration (like
+individual keys or some of more exotic things one can do with IEEE
+802.11). For these cases, it would be nice to have crypto API support
+for scatter-gather lists and going through each fragment with one
+function call.
+
+I'll try to get some time to test this with Host AP driver with WEP and
+TKIP (by first implementing Michael MIC with crypto API). I will also
+need to do some experimenting with AES and CCMP. With good luck, that
+could be enough to replace internal crypto algorithm code in the Host AP
+driver.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
