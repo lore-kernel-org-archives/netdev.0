@@ -1,58 +1,23 @@
-From: jhf@rivenstone.net (Joseph Fannin)
-Subject: Re: [OOPS] TLAN fails on ifconfig with CONFIG_HOTPLUG=n
-Date: Tue, 11 Nov 2003 23:41:36 -0500
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20031112044136.GA1401@rivenstone.net>
-References: <20031111222933.GA2868@rivenstone.net> <20031111153013.3b9eba6e.akpm@osdl.org> <20031111155518.52db3e71.davem@redhat.com>
+From: David Wright Escott <escott@fas.harvard.edu>
+Subject: 2.6 kernel and 3c905C-TX/TX-M [Tornado]
+Date: Wed, 12 Nov 2003 00:36:31 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1068615390.4164.8.camel@localhost>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="UlVJffcvxoiEqYs2"
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20031111155518.52db3e71.davem@redhat.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---UlVJffcvxoiEqYs2
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-On Tue, Nov 11, 2003 at 03:55:18PM -0800, David S. Miller wrote:
-> On Tue, 11 Nov 2003 15:30:13 -0800
-> Andrew Morton <akpm@osdl.org> wrote:
->=20
-> > Does this fix it?
->  ...
-> > -} board_info[] __devinitdata =3D {
-> > +} board_info[] =3D {
->=20
-> This fix is needed, definitely.  Even if it doesn't cure this
-> specific bug.
->=20
-> I'll merge this into my networking tree and push to Linus.
-
-    Even better, it fixes the bug. :-)  Thank you.
---=20
-Joseph Fannin
-jhf@rivenstone.net
-
-"That's all I have to say about that." -- Forrest Gump.
-
---UlVJffcvxoiEqYs2
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQE/sboAWv4KsgKfSVgRAi1HAJ9OWO45F4Y3NYG8P2leSMJOBUayIgCaA6CS
-DcotuiHsTWlmmr+u3c5VGKk=
-=JeWb
------END PGP SIGNATURE-----
-
---UlVJffcvxoiEqYs2--
+Ever since around 2.5.60 or so I have been unable to get networking to
+work, and I just tried with both test9 and test9-mm2 kernel with no
+success. The driver module will insert into the kernel but ifconfig will
+not bring up the network. I would really like to be able to move up to a
+2.6 series kernel but I can't without getting networking to work. If
+anyone knows why this is happening I would greatly appreciate any
+pointers, or if there is anything I can do to give more substantial
+information please let me know.
+Thanks,
+David
