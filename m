@@ -1,32 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Constant errors with pktgen
-Date: Wed, 16 Mar 2005 14:50:20 -0800
-Message-ID: <20050316145020.3ee45a69.davem@davemloft.net>
-References: <20050314133404.2528647f@es175>
-	<16951.422.818446.117190@robur.slu.se>
+Subject: Re: [2.6 patch] net/ipv4/inetpeer.c: make a struct static
+Date: Wed, 16 Mar 2005 14:53:43 -0800
+Message-ID: <20050316145343.6e31ba6a.davem@davemloft.net>
+References: <20050315144408.GL3189@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: cliffw@osdl.org, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16951.422.818446.117190@robur.slu.se>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050315144408.GL3189@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 15 Mar 2005 16:39:18 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+On Tue, 15 Mar 2005 15:44:08 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
+> This patch makes a needlessly global struct static.
 > 
-> cliff white writes:
-> 
->  > My test rig is two machines with an e100 card, connected by crossover 
->  > cable.
->  > 
->  > When i run pktgen, the error counter == packet count, always. 
-> 
->  I see. Try the patch patch below it cleans up the code a bit and
->  restores the old meaning of error. It also has the minor fix from 
->  Adrian Bunk
+> Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
-Applied, thanks Robert.
+You need to also kill the externs in net/inetpeer.h
+
+Please fix this up and resubmit.
+
+Thanks Adrian.
