@@ -1,26 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Fw: [Bug 4279] New: When I try to start vpnc the
- net/core/skbuff.c:91 crash
-Date: Tue, 22 Mar 2005 18:44:00 -0800
-Message-ID: <20050322184400.7ab1f5f7.davem@davemloft.net>
-References: <20050303095832.6a084856@dxpl.pdx.osdl.net>
-	<4228A354.8020904@qualcomm.com>
-	<4228AD8F.4020000@trash.net>
-	<20050310192023.1270fef6.davem@davemloft.net>
-	<42312692.7040806@trash.net>
+Subject: Re: [PATCH] use NETIF_F_LLTX in bonding device
+Date: Tue, 22 Mar 2005 18:46:26 -0800
+Message-ID: <20050322184626.543a78da.davem@davemloft.net>
+References: <Pine.LNX.4.61.0503151016580.18478@linux.site>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: maxk@qualcomm.com, shemminger@osdl.org, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <42312692.7040806@trash.net>
+Cc: netdev@oss.sgi.com
+To: Arthur Kepner <akepner@sgi.com>
+In-Reply-To: <Pine.LNX.4.61.0503151016580.18478@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Mar 2005 06:03:14 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Tue, 15 Mar 2005 10:29:16 -0800 (PST)
+Arthur Kepner <akepner@sgi.com> wrote:
 
-> The patch is also needed (and applies with fuzz) for 2.4.
+> 
+> Lock contention on the bonding device's xmit_lock can 
+> become a bottleneck when 3 or more gige links are aggregated. 
+> And it looks like it's unnecessary too, so use the 
+> NETIF_F_LLTX flag to avoid grabbing this lock. 
+> 
+> Signed-off-by: <akepner@sgi.com>
 
-I've put it into my net-2.4 tree, thanks Patrick.
+Yes, bonding does all of it's own internal locking, so this
+change is correct.
+
+Applied, thanks Arthur.
