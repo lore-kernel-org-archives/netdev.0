@@ -1,32 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Bug in ipv6_ifa_notify?
-Date: Mon, 8 Nov 2004 23:10:40 +1100
-Message-ID: <20041108121040.GA3618@gondor.apana.org.au>
-References: <20041108061529.GA1774@gondor.apana.org.au> <20041108073441.GA2200@gondor.apana.org.au>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Prism54 AP WPA using Hostap and WDS
+Date: Mon, 8 Nov 2004 07:29:22 -0500
+Message-ID: <20041108122922.GV388@ruslug.rutgers.edu>
+References: <20041104032219.GU388@ruslug.rutgers.edu>
+	<20041105162037.GN388@ruslug.rutgers.edu>
+	<20041105162811.GP388@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>,
-        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Return-path: <prism54-devel-bounces@prism54.org>
+To: prism54-devel@prism54.org, Netdev <netdev@oss.sgi.com>,
+	Jouni Malinen <jkmaline@cc.hut.fi>
 Content-Disposition: inline
-In-Reply-To: <20041108073441.GA2200@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20041105162811.GP388@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 08, 2004 at 06:34:41PM +1100, herbert wrote:
+On Fri, Nov 05, 2004 at 11:28:11AM -0500, Luis R. Rodriguez wrote:
+> On Fri, Nov 05, 2004 at 11:20:37AM -0500, Luis R. Rodriguez wrote:
+> <-- snip -->
 > 
-> RTM_DELADDR will call ip6_del_rt which will free the rt using
-> dst_free.  Since it is still referenced it gets put on the gc
-> list.  The next RTM_NEWADDR will put it back in the table.
-> From this point onwards anything that gets linked after it will
-> be on the gc list!
+> > Access Point WPA support (NEW) (requires hostapd)
+> > Access Point WDS Support (NEW)
+> 
+> For your convenience, here are some links for those of you wishing to test:
+> 
+> http://prism54.org/pub/linux/snapshot/tars/prism54-cvs-latest.tar.bz2
+> http://prism54.org/pub/linux/snapshot/kernel/v2.6/patch-2.6-prism54-cvs-latest.bz2
+> http://prism54.org/pub/linux/snapshot/kernel/v2.4/patch-2.4-prism54-cvs-latest.bz2
+> 
+> 	Luis
 
-Actually, address objects dont't seem to be kept across interface
-down/up operations, so this probably can't happen...
+The kernel patches were broken for WDS support as I forgot to include
+isl_wds.[ch] in the patch process. I have now fixed this in my script.
+The patches should now work.
+
+	Luis
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
