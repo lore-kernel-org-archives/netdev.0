@@ -1,31 +1,43 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Conntrack leak (2.6.2rc2)
-Date: Tue, 3 Feb 2004 09:14:11 +0100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: (usagi-core 17336) Re: [PATCH|RFC] IPv6: have a proxy discard
+ link-local traffic
+Date: Tue, 03 Feb 2004 17:24:19 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040203091411.19d3a676.ak@suse.de>
-References: <Pine.LNX.4.58.0402021319440.5347@sorbus2.navaho>
-	<Pine.LNX.4.33.0402021443570.6508-100000@blackhole.kfki.hu>
+Message-ID: <20040203.172419.43878373.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.58.0401272259160.28384@rhea.tcs.hut.fi>
+	<20040128115910.0a83e906.davem@redhat.com>
+	<20040203.171952.105535895.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: steve@navaho.co.uk, netdev@oss.sgi.com
+Cc: vnuorval@tcs.hut.fi, pekkas@netcore.fi, usagi-core@linux-ipv6.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-In-Reply-To: <Pine.LNX.4.33.0402021443570.6508-100000@blackhole.kfki.hu>
+To: davem@redhat.com
+In-Reply-To: <20040203.171952.105535895.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2 Feb 2004 14:46:24 +0100 (CET)
-Jozsef Kadlecsik <kadlec@blackhole.kfki.hu> wrote:
+In article <20040203.171952.105535895.yoshfuji@linux-ipv6.org> (at Tue, 03 Feb 2004 17:19:52 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 
+> In article <20040128115910.0a83e906.davem@redhat.com> (at Wed, 28 Jan 2004 11:59:10 -0800), "David S. Miller" <davem@redhat.com> says:
 > 
-> You convinced me: something is really fishy. I fire up debugging and
-> checking.
+> > On Tue, 27 Jan 2004 23:11:20 +0200 (EET)
+> > Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+> > 
+> > > Dave, since even Pekka is now convinced this patch doesn't break anything,
+> > > would you consider applying it? :)
+> > 
+> > Yoshfuji asked for some time, so let us give it to him so he
+> > may analyze your change without rushing.
+> 
+> David, I'm (or we're) ok with this patch. Please apply. Thanks.
+> (But I still do not eat the proxy ND patch.)
 
-I also have some problems with conntrack since updating to 2.6.2rc3
-from 2.6.1 on x86-64. Some TCP connections for the masqueraded machines 
-seem to go extremly slow. I haven't investigated more closely yet.
+Oops, I need to say something.
+I however think this should be postponed after linux-2.6.2 is up
+since this patch is not so "critical" fix.
 
-/proc/slabinfo doesn't show leaks for the conntrack slab though.
-
--Andi
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
