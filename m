@@ -1,40 +1,48 @@
-From: Paul Jackson <pj@sgi.com>
-Subject: Re: 2.6.7-rc2-mm1 - bk-netdev.patch e1000_ethtool.c doesn't build
-Date: Wed, 2 Jun 2004 02:41:18 -0700
+From: "Jon" <Hostinger@citiz.net>
+Subject: Re: Opt-in Marketing for you
+Date: Wed, 2 Jun 2004 18:36:14 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040602024118.40dc9359.pj@sgi.com>
-References: <20040601021539.413a7ad7.akpm@osdl.org>
-	<20040602022130.35a7571d.pj@sgi.com>
+Message-ID: <200406021028.i52ASSgi004284@oss.sgi.com>
+Reply-To: "Jon" <Sales@mysharedhosting.biz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        jgarzik@pobox.com
+Content-Type: text/plain; charset="ISO-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Paul Jackson <pj@sgi.com>
-In-Reply-To: <20040602022130.35a7571d.pj@sgi.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> There may or may not be other errors past this ...
 
-There are other errors - many more such duplicated and near-duplicated
-lines, such as for one example the following.  Someone's shotgun
-misfired and hit someone's foot.
+E-mail is the fastest growing marketing tool.
 
-@@ -1440,8 +1554,10 @@
+We offer E-mail Marketing with quality service and the lowest prices.
 
- static void
- e1000_get_wol(struct net_device *netdev, struct ethtool_wolinfo *wol)
-+e1000_get_wol(struct net_device *dev, struct ethtool_wolinfo *wol)
- {
- 	struct e1000_adapter *adapter = netdev->priv;
-+	struct e1000_adapter *adapter = netdev_priv(dev);
- 	struct e1000_hw *hw = &adapter->hw;
+1. Targeted E-mail Addresses
 
- 	switch(adapter->hw.device_id) {
+We can provide targeted e-mail addresses you need, which are compiled 
+only on your order. We will customize your customer e-mail addresses.
 
--- 
-                          I won't rest till it's the best ...
-                          Programmer, Linux Scalability
-                          Paul Jackson <pj@sgi.com> 1.650.933.1373
+* We have millions of e-mail addresses in a wide variety of categories.
+
+2. Send out Targeted E-mails for you
+
+We can send your e-mail message to your targeted customers! We will
+customize your email addresses and send your message for you.
+
+* We can Bullet Proof your Web Site $ dedicated server.
+
+We also offer Fax Broadcasting Service. For more details, you can
+refer to:  Http://www.9206.com
+
+Looking forward to serving you.
+
+
+Regards!
+
+Jon
+www.9206.com
+Support@9206.com
+
+*************************************************************************
+To take your address:  Http://213.172.0x1f.16/index.html
+*************************************************************************
