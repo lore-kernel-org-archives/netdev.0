@@ -1,98 +1,49 @@
 From: David Dillow <dave@thedillows.org>
-Subject: Ethtool offload patch
-Date: Thu, 30 Dec 2004 03:54:55 -0500
-Message-ID: <1104396895.5845.1.camel@ori.thedillows.org>
-Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-NAzlHeonTRg6HEV7ZPqL"
-Cc: dave@thedillows.org
+Subject: [RFC 2.6.10 22/22] Add some documentation for the IPSEC crypto offload
+Date: Thu, 30 Dec 2004 03:48:38 -0500
+Message-ID: <20041230035000.31@ori.thedillows.org>
+References: <20041230035000.30@ori.thedillows.org>
+Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-NAzlHeonTRg6HEV7ZPqL
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-
-The attached patch allows the ethtool userspace tool to query and
-control IPSEC crypto offload.
-
--- 
-David Dillow <dave@thedillows.org>
-
---=-NAzlHeonTRg6HEV7ZPqL
-Content-Disposition: attachment; filename=ethtool-offload.patch
-Content-Transfer-Encoding: base64
-Content-Type: text/x-patch; name=ethtool-offload.patch; charset=UTF-8
-
-ZGlmZiAtdXJOIGV0aHRvb2wtMi9ldGh0b29sLmMgZXRodG9vbC0yLWlwc2VjL2V0aHRvb2wuYw0K
-LS0tIGV0aHRvb2wtMi9ldGh0b29sLmMJMjAwNC0wNy0wMiAxMToyODo0OC4wMDAwMDAwMDAgLTA0
-MDANCisrKyBldGh0b29sLTItaXBzZWMvZXRodG9vbC5jCTIwMDQtMTEtMjEgMDM6MTU6NDYuMDAw
-MDAwMDAwIC0wNTAwDQpAQCAtMTE4LDcgKzExOCw4IEBADQogICoJCVsgcnggb258b2ZmIF0gXA0K
-ICAqCQlbIHR4IG9ufG9mZiBdIFwNCiAgKgkJWyBzZyBvbnxvZmYgXSBcDQotICoJCVsgdHNvIG9u
-fG9mZiBdDQorICoJCVsgdHNvIG9ufG9mZiBdIFwNCisgKgkJWyBpcHNlYyBvbnxvZmYgXQ0KICAq
-CWV0aHRvb2wgLXIgREVWTkFNRQ0KICAqCWV0aHRvb2wgLXAgREVWTkFNRSBbICVkIF0NCiAgKgll
-dGh0b29sIC10IERFVk5BTUUgWyBvbmxpbmV8b2ZmbGluZSBdDQpAQCAtMTkwLDcgKzE5MSw4IEBA
-DQogCQkiCQlbIHJ4IG9ufG9mZiBdIFxcXG4iDQogCQkiCQlbIHR4IG9ufG9mZiBdIFxcXG4iDQog
-CQkiCQlbIHNnIG9ufG9mZiBdIFxcXG4iDQotCQkiCQlbIHRzbyBvbnxvZmYgXVxuIg0KKwkJIgkJ
-WyB0c28gb258b2ZmIF0gXFxcbiINCisJCSIJCVsgaXBzZWMgb258b2ZmIF1cbiINCiAJCSIJZXRo
-dG9vbCAtciBERVZOQU1FXG4iDQogCQkiCWV0aHRvb2wgLXAgREVWTkFNRSBbICUlZCBdXG4iDQog
-CQkiCWV0aHRvb2wgLXQgREVWTkFNRSBbb25saW5lfChvZmZsaW5lKV1cbiINCkBAIC0yMzYsNiAr
-MjM4LDcgQEANCiBzdGF0aWMgaW50IG9mZl9jc3VtX3R4X3dhbnRlZCA9IC0xOw0KIHN0YXRpYyBp
-bnQgb2ZmX3NnX3dhbnRlZCA9IC0xOw0KIHN0YXRpYyBpbnQgb2ZmX3Rzb193YW50ZWQgPSAtMTsN
-CitzdGF0aWMgaW50IG9mZl9pcHNlY193YW50ZWQgPSAtMTsNCiANCiBzdGF0aWMgc3RydWN0IGV0
-aHRvb2xfcGF1c2VwYXJhbSBlcGF1c2U7DQogc3RhdGljIGludCBncGF1c2VfY2hhbmdlZCA9IDA7
-DQpAQCAtMzM5LDYgKzM0Miw3IEBADQogCXsgInR4IiwgQ01ETF9CT09MLCAmb2ZmX2NzdW1fdHhf
-d2FudGVkLCBOVUxMIH0sDQogCXsgInNnIiwgQ01ETF9CT09MLCAmb2ZmX3NnX3dhbnRlZCwgTlVM
-TCB9LA0KIAl7ICJ0c28iLCBDTURMX0JPT0wsICZvZmZfdHNvX3dhbnRlZCwgTlVMTCB9LA0KKwl7
-ICJpcHNlYyIsIENNRExfQk9PTCwgJm9mZl9pcHNlY193YW50ZWQsIE5VTEwgfSwNCiB9Ow0KIA0K
-IHN0YXRpYyBzdHJ1Y3QgY21kbGluZV9pbmZvIGNtZGxpbmVfcGF1c2VbXSA9IHsNCkBAIC0xMTc1
-LDE3ICsxMTc5LDE5IEBADQogCXJldHVybiAwOw0KIH0NCiANCi1zdGF0aWMgaW50IGR1bXBfb2Zm
-bG9hZCAoaW50IHJ4LCBpbnQgdHgsIGludCBzZywgaW50IHRzbykNCitzdGF0aWMgaW50IGR1bXBf
-b2ZmbG9hZCAoaW50IHJ4LCBpbnQgdHgsIGludCBzZywgaW50IHRzbywgaW50IGlwc2VjKQ0KIHsN
-CiAJZnByaW50ZihzdGRvdXQsDQogCQkicngtY2hlY2tzdW1taW5nOiAlc1xuIg0KIAkJInR4LWNo
-ZWNrc3VtbWluZzogJXNcbiINCiAJCSJzY2F0dGVyLWdhdGhlcjogJXNcbiINCi0JCSJ0Y3Agc2Vn
-bWVudGF0aW9uIG9mZmxvYWQ6ICVzXG4iLA0KKwkJInRjcCBzZWdtZW50YXRpb24gb2ZmbG9hZDog
-JXNcbiINCisJCSJJUFNFQyBjcnlwdG8gb2ZmbG9hZDogJXNcbiIsDQogCQlyeCA/ICJvbiIgOiAi
-b2ZmIiwNCiAJCXR4ID8gIm9uIiA6ICJvZmYiLA0KIAkJc2cgPyAib24iIDogIm9mZiIsDQotCQl0
-c28gPyAib24iIDogIm9mZiIpOw0KKwkJdHNvID8gIm9uIiA6ICJvZmYiLA0KKwkJaXBzZWMgPyAi
-b24iIDogIm9mZiIpOw0KIA0KIAlyZXR1cm4gMDsNCiB9DQpAQCAtMTQ0OSw3ICsxNDU1LDcgQEAN
-CiBzdGF0aWMgaW50IGRvX2dvZmZsb2FkKGludCBmZCwgc3RydWN0IGlmcmVxICppZnIpDQogew0K
-IAlzdHJ1Y3QgZXRodG9vbF92YWx1ZSBldmFsOw0KLQlpbnQgZXJyLCBhbGxmYWlsID0gMSwgcngg
-PSAwLCB0eCA9IDAsIHNnID0gMCwgdHNvID0gMDsNCisJaW50IGVyciwgYWxsZmFpbCA9IDEsIHJ4
-ID0gMCwgdHggPSAwLCBzZyA9IDAsIHRzbyA9IDAsIGlwc2VjID0gMDsNCiANCiAJZnByaW50Zihz
-dGRvdXQsICJPZmZsb2FkIHBhcmFtZXRlcnMgZm9yICVzOlxuIiwgZGV2bmFtZSk7DQogDQpAQCAt
-MTQ5MywxMiArMTQ5OSwyMiBAQA0KIAkJYWxsZmFpbCA9IDA7DQogCX0NCiANCisJZXZhbC5jbWQg
-PSBFVEhUT09MX0dJUFNFQzsNCisJaWZyLT5pZnJfZGF0YSA9IChjYWRkcl90KSZldmFsOw0KKwll
-cnIgPSBpb2N0bChmZCwgU0lPQ0VUSFRPT0wsIGlmcik7DQorCWlmIChlcnIpDQorCQlwZXJyb3Io
-IkNhbm5vdCBnZXQgZGV2aWNlIElQU0VDIG9mZmxvYWQgc2V0dGluZ3MiKTsNCisJZWxzZSB7DQor
-CQlpcHNlYyA9IGV2YWwuZGF0YTsNCisJCWFsbGZhaWwgPSAwOw0KKwl9DQorDQogCWlmIChhbGxm
-YWlsKSB7DQogCQlmcHJpbnRmKHN0ZG91dCwgIm5vIG9mZmxvYWQgaW5mbyBhdmFpbGFibGVcbiIp
-Ow0KIAkJcmV0dXJuIDgzOw0KIAl9DQogDQotCXJldHVybiBkdW1wX29mZmxvYWQocngsIHR4LCBz
-ZywgdHNvKTsNCisJcmV0dXJuIGR1bXBfb2ZmbG9hZChyeCwgdHgsIHNnLCB0c28sIGlwc2VjKTsN
-CiB9DQogDQogc3RhdGljIGludCBkb19zb2ZmbG9hZChpbnQgZmQsIHN0cnVjdCBpZnJlcSAqaWZy
-KQ0KQEAgLTE1NTMsNiArMTU2OSwxOCBAQA0KIAkJCXJldHVybiA4ODsNCiAJCX0NCiAJfQ0KKw0K
-KwlpZiAob2ZmX2lwc2VjX3dhbnRlZCA+PSAwKSB7DQorCQljaGFuZ2VkID0gMTsNCisJCWV2YWwu
-Y21kID0gRVRIVE9PTF9TSVBTRUM7DQorCQlldmFsLmRhdGEgPSAob2ZmX2lwc2VjX3dhbnRlZCA9
-PSAxKTsNCisJCWlmci0+aWZyX2RhdGEgPSAoY2FkZHJfdCkmZXZhbDsNCisJCWVyciA9IGlvY3Rs
-KGZkLCBTSU9DRVRIVE9PTCwgaWZyKTsNCisJCWlmIChlcnIpIHsNCisJCQlwZXJyb3IoIkNhbm5v
-dCBzZXQgZGV2aWNlIElQU0VFQyBvZmZsb2FkIHNldHRpbmdzIik7DQorCQkJcmV0dXJuIDg5Ow0K
-KwkJfQ0KKwl9DQogCWlmICghY2hhbmdlZCkgew0KIAkJZnByaW50ZihzdGRvdXQsICJubyBvZmZs
-b2FkIHNldHRpbmdzIGNoYW5nZWRcbiIpOw0KIAl9DQpkaWZmIC11ck4gZXRodG9vbC0yL2V0aHRv
-b2wtY29weS5oIGV0aHRvb2wtMi1pcHNlYy9ldGh0b29sLWNvcHkuaA0KLS0tIGV0aHRvb2wtMi9l
-dGh0b29sLWNvcHkuaAkyMDAzLTA3LTE5IDExOjE5OjUyLjAwMDAwMDAwMCAtMDQwMA0KKysrIGV0
-aHRvb2wtMi1pcHNlYy9ldGh0b29sLWNvcHkuaAkyMDA0LTExLTIxIDAyOjQ2OjAzLjAwMDAwMDAw
-MCAtMDUwMA0KQEAgLTI4Myw2ICsyODMsOCBAQA0KICNkZWZpbmUgRVRIVE9PTF9HU1RBVFMJCTB4
-MDAwMDAwMWQgLyogZ2V0IE5JQy1zcGVjaWZpYyBzdGF0aXN0aWNzICovDQogI2RlZmluZSBFVEhU
-T09MX0dUU08JCTB4MDAwMDAwMWUgLyogR2V0IFRTTyBlbmFibGUgKGV0aHRvb2xfdmFsdWUpICov
-DQogI2RlZmluZSBFVEhUT09MX1NUU08JCTB4MDAwMDAwMWYgLyogU2V0IFRTTyBlbmFibGUgKGV0
-aHRvb2xfdmFsdWUpICovDQorI2RlZmluZSBFVEhUT09MX0dJUFNFQwkJMHgwMDAwMDAyMCAvKiBH
-ZXQgSVBTRUMgZW5hYmxlIChldGh0b29sX3ZhbHVlKSAqLw0KKyNkZWZpbmUgRVRIVE9PTF9TSVBT
-RUMJCTB4MDAwMDAwMjEgLyogU2V0IElQU0VDIGVuYWJsZSAoZXRodG9vbF92YWx1ZSkgKi8NCiAN
-CiAvKiBjb21wYXRpYmlsaXR5IHdpdGggb2xkZXIgY29kZSAqLw0KICNkZWZpbmUgU1BBUkNfRVRI
-X0dTRVQJCUVUSFRPT0xfR1NFVA0K
-
-
---=-NAzlHeonTRg6HEV7ZPqL--
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/12/30 01:06:37-05:00 dave@thedillows.org 
+#   Add some documentation for the IPSEC crypto offload.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# Documentation/networking/netdevices.txt
+#   2004/12/30 01:06:19-05:00 dave@thedillows.org +16 -0
+#   Add some documentation for the IPSEC crypto offload.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/Documentation/networking/netdevices.txt b/Documentation/networking/netdevices.txt
+--- a/Documentation/networking/netdevices.txt	2004-12-30 01:07:40 -05:00
++++ b/Documentation/networking/netdevices.txt	2004-12-30 01:07:40 -05:00
+@@ -73,3 +73,19 @@
+ 		dev_close code and comments in net/core/dev.c for more info.
+ 	Context: softirq
+ 
++dev->xfrm_state_add:
++	Synchronization: None, but can be called inside dev_base_lock rwlock
++	Context: nominally process, but don't sleep inside an rwlock
++	Notes: Only called for inbound xfrm_state(s). Can be invoked during
++       		xfrm_accel_add() call.
++
++dev->xfrm_state_del:
++	Synchronization: None, but can be called inside dev->xmit_lock spinlock.
++	Context: BHs disabled/softirq
++	Notes: Called for all offloaded xfrm_state(s). Can be invoked during
++		xfrm_accel_flush() call.
++
++dev->xfrm_bundle_add:
++	Synchronization: None
++	Context: softirq/process
++	Notes: Called for newly created outbound xfrm bundles.
