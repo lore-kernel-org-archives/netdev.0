@@ -1,130 +1,150 @@
-From: "Xiaoliang (David) Wei" <weixl@cs.caltech.edu>
-Subject: Re: [RFC] TCP burst control
-Date: Wed, 28 Jul 2004 02:48:44 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [AH6] Disallow mutable bits after AH header
+Date: Wed, 28 Jul 2004 21:46:32 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <013001c47488$12a03500$8900a8c0@weixl>
-References: <200407070009.i6709wiA026673@ms-smtp-03-eri0.southeast.rr.com>
+Message-ID: <20040728114632.GA7103@gondor.apana.org.au>
+References: <20040723135320.GA26000@gondor.apana.org.au> <20040723133737.447a9598.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: <netdev@oss.sgi.com>, <rhee@ncsu.edu>, <lxu2@ncsu.edu>
+Content-Type: multipart/mixed; boundary="82I3+IH0IqGh5yIs"
+Cc: kazunori@miyazawa.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Injong Rhee" <rhee@eos.ncsu.edu>, "'David S. Miller'" <davem@redhat.com>,
-        "'Stephen Hemminger'" <shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040723133737.447a9598.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Injong and other Gurus,
 
-    I support this approach to decouple congestion control and burstiness
-control. But I have a question for the patch code.
+--82I3+IH0IqGh5yIs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-    My question is about the tcp_cwnd_application_limited() in tcp_input.c
-(@@ -3823,8 +3828,13 @@ in the patch).
-My understanding is that tcp_cwnd_application_limited() is to reduce the
-cwnd, according to RFC 2861, to avoid a large sending rate when the
-connection resumes full sending speed. The window reduction here is not to
-reduce burstiness, but to reduce the cwnd (since the cwnd is not a good
-congestion measure after the idling period). But the patch seems to take
-this congestion window reduction as a burstiness reduction mechanism, too. I
-guess we don't need to change the window reduction in this function? Please
-correct me if I made any mistake. Thanks:)
+On Fri, Jul 23, 2004 at 01:37:37PM -0700, David S. Miller wrote:
+> On Fri, 23 Jul 2004 23:53:21 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > As we discussed before, mutable headers should not be allowed after
+> > the AH header.  In fact, this appears to be the intention of RFC 2402.
+> > It is further clarified in section 3.1.1 of
+>
+> Applied, thanks Herbert.
 
-     I copied the part of patch codes that I'm not sure:
-------------------------------------------------------------
-@@ -3823,8 +3828,13 @@
-  /* Limited by application or receiver window. */
-  u32 win_used = max(tp->snd_cwnd_used, 2U);
-  if (win_used < tp->snd_cwnd) {
-+ u32 limit = (tp->snd_cwnd + win_used) >> 1;
-  tp->snd_ssthresh = tcp_current_ssthresh(tp);
-- tp->snd_cwnd = (tp->snd_cwnd + win_used) >> 1;
-+ if (sysctl_tcp_burst_moderation)
-+ tp->snd_cwnd = min(tp->snd_cwnd,
-+    max(tp->snd_ssthresh, limit));
-+ else
-+ tp->snd_cwnd = limit;
-  }
-  tp->snd_cwnd_used = 0;
-  }
-------------------------------------------------------------
+Unfortunately I broke ah6_input() in that patch.  Thanks to Miyazawa-san
+for notifying me of the problem.
 
--David
+In that patch I removed the nh_offset parameter to ipv6_clear_mutable_options.
+That broke ah6_input() because it relies on that variable to set the nexthdr.
 
-Xiaoliang (David) Wei             Graduate Student in CS@Caltech
-http://www.cs.caltech.edu/~weixl
-====================================================
------ Original Message ----- 
-From: "Injong Rhee" <rhee@eos.ncsu.edu>
-To: "'David S. Miller'" <davem@redhat.com>; "'Stephen Hemminger'"
-<shemminger@osdl.org>
-Cc: <netdev@oss.sgi.com>; <rhee@ncsu.edu>; <lxu2@ncsu.edu>
-Sent: Tuesday, July 06, 2004 5:09 PM
-Subject: RE: [RFC] TCP burst control
+The following patch fixes this by moving this work out to the caller
+xfrm6_rcv() where the information is already available.  It also removes
+an unnecessary call to ip6_find_1stfragopt() in xfrm6_rcv() since nhoffp
+already points to the nexthdr preceding the current header.
 
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-> Hi David and Stephen,
->
-> We tested this rate halving. In fact, rate having in fact degrades the
-> performance quite a bit. We can send you more information about it. Our
-test
-> indicates that this feature introduces many timeouts (because of bursts),
-> and also cause unnecessary cwnd backoff to reduce the transmission
-> unjustifiably low -- so there are many (I will repeat, many) window and
-> transmission oscillations during packet losses. We fix this problem
-> completely using our own special burst control. It is very simple and easy
-> technique to implement. If you need some data to back up our claims, I
-will
-> send you more. Once we implemented our burst control, we don't have any
-> timeouts and not much fluctuation other than congestion control related.
-> Currently with rate having, current Linux tcp stack is full of hacks that
-in
-> fact, hurt the performance of linux tcp (sorry to say this). Our burst
-> control, in fact, simplifies a lot of that and makes sure cwnd to follow
-> very closely to whatever congestion control algorithm is intended it to
-> behave. The Linux Reno burst control in fact interferes with the original
-> congestion control (in fact, it tries to do its own), and its performance
-is
-> very hard to predict.
->
-> Hope this helps.
->
-> Injong Rhee, Associate Professor
-> North Carolina State University
-> Raleigh, NC 27699
-> rhee@eos.ncsu.edu, http://www.csc.ncsu.edu/faculty/rhee
->
->
-> -----Original Message-----
-> From: David S. Miller [mailto:davem@redhat.com]
-> Sent: Tuesday, July 06, 2004 7:05 PM
-> To: Stephen Hemminger
-> Cc: netdev@oss.sgi.com; rhee@ncsu.edu
-> Subject: Re: [RFC] TCP burst control
->
-> On Tue, 6 Jul 2004 15:58:58 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
->
-> > When using advanced congestion control it is possible for TCP to decide
-> that
-> > it has a large window to fill with data right away. The problem is that
-if
-> TCP
-> > creates long bursts, it becomes unfriendly to other flows and is more
-> likely
-> > to overrun intermediate queues.
-> >
-> > This patch limits the amount of data in flight. It came from BICTCP 1.1
-> but it
-> > has been generalized to all TCP congestion algorithms. It has had some
-> testing,
-> > but needs to be more widely tested.
->
-> Both the New Reno and Westwood+ algorithms implement rate-halving to
-> solve this problem.
->
-> Why can't BICTCP use that instead of this special burst control hack?
->
->
->
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--82I3+IH0IqGh5yIs
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=r
+
+===== net/ipv6/ah6.c 1.36 vs edited =====
+--- 1.36/net/ipv6/ah6.c	2004-07-25 20:33:46 +10:00
++++ edited/net/ipv6/ah6.c	2004-07-28 19:36:35 +10:00
+@@ -252,9 +252,7 @@
+ 	unsigned char *tmp_hdr = NULL;
+ 	u16 hdr_len;
+ 	u16 ah_hlen;
+-	u16 nh_offset = 0;
+-	u8 nexthdr = 0;
+-	u8 *prevhdr;
++	int nexthdr;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
+ 		goto out;
+@@ -307,8 +305,6 @@
+ 
+ 	skb->nh.raw = skb_pull(skb, ah_hlen);
+ 	memcpy(skb->nh.raw, tmp_hdr, hdr_len);
+-	prevhdr = (u8*)(skb->nh.raw + nh_offset);
+-	*prevhdr = nexthdr;
+ 	skb->nh.ipv6h->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+ 	skb_pull(skb, hdr_len);
+ 	skb->h.raw = skb->data;
+===== net/ipv6/esp6.c 1.31 vs edited =====
+--- 1.31/net/ipv6/esp6.c	2004-07-25 20:33:46 +10:00
++++ edited/net/ipv6/esp6.c	2004-07-28 19:35:13 +10:00
+@@ -197,7 +197,6 @@
+ 		u8 nexthdr[2];
+ 		struct scatterlist *sg = &esp->sgbuf[0];
+ 		u8 padlen;
+-		u8 *prevhdr;
+ 
+ 		if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
+ 			sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
+@@ -228,8 +227,7 @@
+ 		skb->nh.raw += sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
+ 		memcpy(skb->nh.raw, tmp_hdr, hdr_len);
+ 		skb->nh.ipv6h->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+-		ip6_find_1stfragopt(skb, &prevhdr);
+-		ret = *prevhdr = nexthdr[1];
++		ret = nexthdr[1];
+ 	}
+ 
+ out:
+===== net/ipv6/ipcomp6.c 1.16 vs edited =====
+--- 1.16/net/ipv6/ipcomp6.c	2004-07-25 20:33:46 +10:00
++++ edited/net/ipv6/ipcomp6.c	2004-07-28 19:37:00 +10:00
+@@ -49,7 +49,6 @@
+ {
+ 	int err = 0;
+ 	u8 nexthdr = 0;
+-	u8 *prevhdr;
+ 	int hdr_len = skb->h.raw - skb->nh.raw;
+ 	unsigned char *tmp_hdr = NULL;
+ 	struct ipv6hdr *iph;
+@@ -106,8 +105,6 @@
+ 	iph = skb->nh.ipv6h;
+ 	iph->payload_len = htons(skb->len);
+ 	
+-	ip6_find_1stfragopt(skb, &prevhdr);
+-	*prevhdr = nexthdr;
+ out:
+ 	if (tmp_hdr)
+ 		kfree(tmp_hdr);
+===== net/ipv6/xfrm6_input.c 1.15 vs edited =====
+--- 1.15/net/ipv6/xfrm6_input.c	2004-02-14 18:06:45 +11:00
++++ edited/net/ipv6/xfrm6_input.c	2004-07-28 19:42:26 +10:00
+@@ -34,12 +34,11 @@
+ 	struct xfrm_state *x;
+ 	int xfrm_nr = 0;
+ 	int decaps = 0;
+-	int nexthdr = 0;
+-	u8 *prevhdr = NULL;
++	int nexthdr;
++	unsigned int nhoff;
+ 
+-	ip6_find_1stfragopt(skb, &prevhdr);
+-	nexthdr = *prevhdr;
+-	*nhoffp = prevhdr - skb->nh.raw;
++	nhoff = *nhoffp;
++	nexthdr = skb->nh.raw[nhoff];
+ 
+ 	if ((err = xfrm_parse_spi(skb, nexthdr, &spi, &seq)) != 0)
+ 		goto drop;
+@@ -66,6 +65,8 @@
+ 		nexthdr = x->type->input(x, &(xfrm_vec[xfrm_nr].decap), skb);
+ 		if (nexthdr <= 0)
+ 			goto drop_unlock;
++
++		skb->nh.raw[nhoff] = nexthdr;
+ 
+ 		if (x->props.replay_window)
+ 			xfrm_replay_advance(x, seq);
+
+--82I3+IH0IqGh5yIs--
