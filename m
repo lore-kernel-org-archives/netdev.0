@@ -1,28 +1,35 @@
-From: viro@parcelfarce.linux.theplanet.co.uk
-Subject: Re: [CFT] 2.6.x experimental net driver updates
-Date: Thu, 20 Nov 2003 02:54:23 +0000
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patches] 2.6.0-test9 - r8169 DMA API conversion
+Date: Wed, 19 Nov 2003 20:36:52 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031120025423.GB24159@parcelfarce.linux.theplanet.co.uk>
-References: <3FBBA954.6000601@pobox.com>
+Message-ID: <3FBC1AB4.9010503@pobox.com>
+References: <47973.68.105.173.45.1069042089.squirrel@mail.mainstreetsoftworks.com> <3FB9A277.70309@pobox.com> <20031118135848.A2451@electric-eye.fr.zoreil.com> <3FBBA76B.4070606@pobox.com> <20031120010056.A19444@electric-eye.fr.zoreil.com> <3FBC05FB.2020409@mcve.com> <20031120014550.A22377@electric-eye.fr.zoreil.com> <3FBC11F2.5080805@mcve.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Francois Romieu <romieu@fr.zoreil.com>, Brad House <brad_mssw@gentoo.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3FBBA954.6000601@pobox.com>
+To: Brad House <brad@mcve.com>
+In-Reply-To: <3FBC11F2.5080805@mcve.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 19, 2003 at 12:33:08PM -0500, Jeff Garzik wrote:
-> Ok, Al Viro's net driver refcounting work is pretty much complete, and 
+Brad House wrote:
+> any reason why it's not against the v1.6 ?
+> the current driver is missing support for the
+> 8110S chip (or at least it doesn't seem to work at all),
+> so you're cutting out all the chips on the mobos out there.
+> Haven't looked to see if it's just a PCI ID or other functionality,
+> but since the V1.2 is from realtek that's in the official
+> kernel, it would make sense to use the 1.6 patch....
+> 
+> I suppose I could do it, but it would take me much
+> more time simply because I'm not familiar with the
+> changes you're making.
 
-The hell it is.  We are through with legacy probes, we are through with
-init_etherdev(), we are practically through with static struct net_device.
 
-However, we still have weird allocators (I've got almost all of them
-done by now, will submit in the next batch) and we still have struct
-net_device embedded as a field of other structures in several drivers.
+He's doing the work, and he included 1.6 in his list of changes... looks 
+like everybody will be happy :)
 
-It's nowhere near as massive as legacy probes series, but it's going to
-be 10--20 patches.  At least.
+	Jeff
