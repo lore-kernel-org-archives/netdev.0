@@ -1,59 +1,140 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: Fw: Oops in register_proc_table (2.6.1-mm4)
-Date: Fri, 16 Jan 2004 11:23:10 -0800
+From: Shirley Ma <xma@us.ibm.com>
+Subject: Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
+Date: Fri, 16 Jan 2004 11:41:59 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040116112310.424d9020.akpm@osdl.org>
-References: <20040116104709.2163912c.akpm@osdl.org>
+Message-ID: <OF6E7E4DFA.6824D151-ON87256E1D.006A89B5@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/alternative;
+	Boundary="0__=08BBE48EDFF90F258f9e8a93df938690918c08BBE48EDFF90F25"
+Cc: davem@redhat.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, thomas.schlichter@web.de
-In-Reply-To: <20040116104709.2163912c.akpm@osdl.org>
+To: YOSHIFUJI Hideaki /  =?ISO-2022-JP?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
->
-> 
-> NET: Registered protocol family 10
-> Unable to handle kernel paging request at virtual address 000927c0
->  printing eip:
-> c012ba17
-> *pde = 00000000
-> Oops: 0000 [#1]
-> PREEMPT
-> CPU:    0
-> EIP:    0060:[<c012ba17>]    Not tainted VLI
-> EFLAGS: 00010246
-> EIP is at register_proc_table+0x47/0x120
-> eax: 00000000   ebx: e106c9ec   ecx: ffffffff   edx: 000927c0
-> esi: 00000000   edi: 000927c0   ebp: c012b130   esp: de4ddd7c
-> ds: 007b   es: 007b   ss: 0068
-> Process modprobe (pid: 1936, threadinfo=de4dc000 task=de9e3900)
-> Stack: e1061159 000081a4 de6e5c40 81a40000 de6e5c40 e106d480 00000000 de6e5c40
->        00000000 c012ba7c e10617fc 0000416d de6e5cc0 416d0000 de6e5cc0 e106d640
->        00000000 de6e5cc0 00000000 c012ba7c e1061862 0000416d dffccac0 416dddec
-> Call Trace:
->  [<c012ba7c>] register_proc_table+0xac/0x120
->  [<c012ba7c>] register_proc_table+0xac/0x120
->  [<c012ba7c>] register_proc_table+0xac/0x120
->  [<c012bb4e>] register_sysctl_table+0x5e/0x80
->  [<e105d347>] ipv6_sysctl_register+0x17/0x20 [ipv6]
->  [<e0e9018b>] inet6_init+0x18b/0x2d0 [ipv6]
->  [<c013b62b>] sys_init_module+0x17b/0x1670
->  [<c0152cd6>] vma_link+0x76/0xc0
->  [<c015423c>] do_mmap_pgoff+0x38c/0x6f9
->  [<c015e109>] filp_close+0x59/0xa0
->  [<c015e1ab>] sys_close+0x5b/0xa0
->  [<c02df843>] syscall_call+0x7/0xb
-> 
-> Code: 33 85 f6 0f 84 9b 00 00 00 8b 53 04 85 d2 89 d7 74 ea 8b 73 18 85 f6 75 
-> 0b 8b 43 14 85 c0 0f 84 cb 00 00 00 31 c0 b9 ff ff ff ff <f2> a
-> e f7 d1 49 85 f6 0f b7 43 10 89 cd 66 89 44 24 0e 74 6d 66
->  <7>request_module: failed /sbin/modprobe -- net-pf-10. error = 11
-> 
-> If this is not enough information to track down the problem I can provide 
-> my .config of any other information, of course.
+--0__=08BBE48EDFF90F258f9e8a93df938690918c08BBE48EDFF90F25
+Content-type: text/plain; charset=ISO-2022-JP
+Content-transfer-encoding: quoted-printable
 
-Actually, yes.  Please send your .config.
+
+
+
+
+
+Yes. radvd should provide all these information. But radvd doesn't supp=
+ort
+this right now. I talked to someone who is patching SNMP to support new=
+ IP
+MIBs, he said it's better to support this through netlink, since netlin=
+k
+supports all other MIBs. Does netlink support user-user communication?
+
+Anyway I will talk to radvd maintainers to ask them to support this if =
+you
+think this netlink notification is not needed.
+
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+15300 SW Koll Parkway
+Beaverton, OR 97006-6063
+Phone: (503) 578-7638
+FAX:      (503) 578-3228
+
+
+
+YOSHIFUJI Hideaki / =1B$B5HF#1QL@=1B(B <yoshfuji@linux-ipv6.org>@oss.sg=
+i.com on
+01/16/2004 11:17:25 AM
+
+Sent by:    netdev-bounce@oss.sgi.com
+
+
+To:    Shirley Ma/Beaverton/IBM@IBMUS
+cc:    davem@redhat.com, mashirle@us.ltcfwd.linux.ibm.com,
+       kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.or=
+g
+Subject:    Re: [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification
+
+
+In article <OFDFE3736C.20FD7F98-ON87256E1D.00662F80@us.ibm.com> (at Fri=
+, 16
+Jan 2004 10:38:49 -0800), Shirley Ma <xma@us.ibm.com> says:
+
+> But the patch is still needed for the Router, so it should be put in
+> ndisc_router_discovery() when it's determined as a router. Are you OK=
+
+with
+> that?
+
+I don't understand why it is needed.
+radvd is respoinsible for those information.
+
+--
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+
+
+=
+
+--0__=08BBE48EDFF90F258f9e8a93df938690918c08BBE48EDFF90F25
+Content-type: text/html; charset=ISO-2022-JP
+Content-Disposition: inline
+Content-transfer-encoding: quoted-printable
+
+<html><body>
+<p>Yes. radvd should provide all these information. But radvd doesn't s=
+upport this right now. I talked to someone who is patching SNMP to supp=
+ort new IP MIBs, he said it's better to support this through netlink, s=
+ince netlink supports all other MIBs. Does netlink support user-user co=
+mmunication?<br>
+<br>
+Anyway I will talk to radvd maintainers to ask them to support this if =
+you think this netlink notification is not needed.<br>
+<br>
+Thanks<br>
+Shirley Ma<br>
+IBM Linux Technology Center<br>
+15300 SW Koll Parkway<br>
+Beaverton, OR 97006-6063<br>
+Phone: (503) 578-7638<br>
+FAX:      (503) 578-3228<br>
+<br>
+<br>
+
+<p><font size=3D"2" color=3D"#800080">Sent by:	netdev-bounce@oss.sgi.co=
+m</font>
+<p><font size=3D"2" color=3D"#800080">To:	</font><font size=3D"2">Shirl=
+ey Ma/Beaverton/IBM@IBMUS</font><br>
+<font size=3D"2" color=3D"#800080">cc:	</font><font size=3D"2">davem@re=
+dhat.com, mashirle@us.ltcfwd.linux.ibm.com, kuznet@ms2.inr.ac.ru, netde=
+v@oss.sgi.com, yoshfuji@linux-ipv6.org</font><font size=3D"2" color=3D"=
+#800080"> </font><br>
+<font size=3D"2" color=3D"#800080">Subject:	</font><font size=3D"2">Re:=
+ [PATCH] IPv6 MIB:ipv6RouterAdvert netlink notification</font><br>
+<br>
+<br>
+<font face=3D"Courier New">In article &lt;OFDFE3736C.20FD7F98-ON87256E1=
+D.00662F80@us.ibm.com&gt; (at Fri, 16 Jan 2004 10:38:49 -0800), Shirley=
+ Ma &lt;xma@us.ibm.com&gt; says:<br>
+<br>
+&gt; But the patch is still needed for the Router, so it should be put =
+in<br>
+&gt; ndisc_router_discovery() when it's determined as a router. Are you=
+ OK with<br>
+&gt; that?<br>
+<br>
+I don't understand why it is needed.<br>
+radvd is respoinsible for those information.<br>
+<br>
+-- <br>
+Hideaki YOSHIFUJI @ USAGI Project &lt;yoshfuji@linux-ipv6.org&gt;<br>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA<br>
+<br>
+</font><br>
+<br>
+</body></html>=
+
+--0__=08BBE48EDFF90F258f9e8a93df938690918c08BBE48EDFF90F25--
