@@ -1,36 +1,59 @@
-From: Jason Lunz <lunz@falooley.org>
-Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
-Date: Wed, 9 Mar 2005 19:23:51 -0500
-Message-ID: <20050310002351.GE16930@knob.localnet>
-References: <20050309235122.7541.qmail@orange.bonev.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: bridge between ppp and ethernet - 1 IP address and assign it
+	to another host
+Date: 09 Mar 2005 19:30:56 -0500
+Message-ID: <1110414655.1109.56.camel@jzny.localdomain>
+References: <Pine.LNX.4.58.0503092041400.17842@localhost>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-To: Boian Bonev <boian@bonev.com>
-Content-Disposition: inline
-In-Reply-To: <20050309235122.7541.qmail@orange.bonev.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, ahu@ds9a.nl
+To: remco@virtu.nl
+In-Reply-To: <Pine.LNX.4.58.0503092041400.17842@localhost>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Mar 10, 2005 at  1:51AM +0200, Boian Bonev wrote:
-> you can do that but you omit the interface addresses - suppose ext net
-> is 10.20.10.1/24, internal is 10.10.10.1/24, no matter what routing
-> policies and rules you put, both interface ips will be visible from
-> both interfaces.
 
-What do you mean by "visible"? If you're referring to arp, the arp
-sysctls are probably adequate, and there's arpfilter if not.
+nice solution but maybe challenging to get to work with braindead
+windoz machines. 
+My thinking is if you have to use windoz then you probably wanna hide
+everything from them - which may require kernel hacking (I think it is
+worth it ;->).
 
-> now imagine you have another external net 10.30.10.1/24 and customer
-> wants to route e.g. 10.10.0.0/16 from 10.20.10.1/24 via 10.30.10.5...
-> at least host 10.10.10.1 will not route but arrive locally to your
-> blade host
 
-Not if you take 10.10.10.1 out of the "local" routing table, and policy
-route that traffic only through tables that don't consider 10.10.10.1
-local. I'm not saying it's trivial, but if you set your rules up right,
-you can make some packets be routed by *completely different routing
-tables* than others.
+cheers,
+jamal
 
-Jason
+On Wed, 2005-03-09 at 15:01, Remco van Mook wrote:
+> I've been toying with the suggestion to do something with routing table 0 to
+> accomplish this, and I can report it works, standard 2.6.10 kernel. Here's how
+> I did it:
+> 
+> Assuming a linux system, connected to a local network 172.16.0.0/24, own
+> address 172.16.0.13, 'ppp' ip address to be assigned to a system that has
+> ip address 172.16.0.4
+> 
+> On the box that establishes the PPP connection:
+> 1) establish ppp connection, get IP address, say 192.168.0.2
+> 2) ip route del local 192.168.0.2
+> 3) ip route add 192.168.0.2 via 172.16.0.4
+> 
+> On the other box, 172.16.0.4:
+> 
+> 1) ip addr add 192.168.0.2 dev eth0
+> 2) ip route add 0/0 via 172.16.0.13
+> 
+> I didn't bother assigning the IP address for the other box dynamically; that
+> might still pose a challenge - outside the scope of netdev IMHO.
+> 
+> Optionally you might want to SNAT outbound traffic on the PPP interface to
+> enforce the correct IP address. Of course the solution doesn't actually
+> 'bridge' the traffic, you get another visible hop, but the effect is almost
+> the same.
+> 
+> Kind regards,
+> 
+> Remco van Mook
+> 
