@@ -1,28 +1,21 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: Why was the /proc info removed from e1000 ?
-Date: Thu, 30 Jan 2003 08:26:06 -0800
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: Why was the /proc info removed from e1000 ?
+Date: Thu, 30 Jan 2003 16:29:25 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E01087BE9@orsmsx402.jf.intel.com>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="ISO-8859-1"
+Message-ID: <slrnb3ikqi.i0h.lunz@stoli.localnet>
+References: <3E388D19.4000004@candelatech.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
-content-class: urn:content-classes:message
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I just noticed in the latest changelog that the /proc
-> support was removed from the e1000 driver?  I always
-> found this usefull...any reason why it was deleted?
+greearb@candelatech.com said:
+> I just noticed in the latest changelog that the /proc support was
+> removed from the e1000 driver?  I always found this usefull...any
+> reason why it was deleted?
 
-Because the information that was exported to /proc is available through
-standard interfaces such as ethtool, pciutils, etc.  
+shortly lower in the changelog, you'll see that the same stats are now
+availble using the standard ethtool interface. I don't know whether you
+need a new ethtool to make sense of the e1000 stats struct.
 
-ethtool -i eth<x> associates eth<x> with PCI bus:dev.func, so you should
-be able to find what you need starting there.  Also note that ethtool -S
-support was added for netdev stats.
-
-If you find something missing, let's talk about an alternative.
-
--scott
+Jason
