@@ -1,51 +1,19 @@
-From: Jesper Juhl <juhl-lkml@dif.dk>
-Subject: [PATCH][Doc][Trivial] fix spelling error related to IPComp help in
- Kconfig
-Date: Tue, 26 Oct 2004 20:44:35 +0200 (CEST)
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH 2.6.10-rc1 1/15] wireless/orinoco: use msleep()...
+Date: Tue, 26 Oct 2004 14:38:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0410262038040.3277@dragon.hygekrogen.localhost>
+Message-ID: <1098815911.3663.40.camel@dcbw.boston.redhat.com>
+References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@oss.sgi.com>,
-        Linux Kernel Trivial Patch Monkey <trivial@rustcorp.com.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@redhat.com, hermes@gibson.dropbear.id.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel <linux-kernel@vger.kernel.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This first patch should also have in the comments:
 
-Small patch that fixes a spelling error (Payload misspelled as Paylod)in 
-the IPComp help text in Kconfig (also expands the text to "IP Payload 
-Compression Protocol (IPComp)" which is the title of RFC3173).
-Please consider applying.
-
-Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
-
-diff -urp linux-2.6.10-rc1-bk5-orig/net/ipv4/Kconfig linux-2.6.10-rc1-bk5/net/ipv4/Kconfig
---- linux-2.6.10-rc1-bk5-orig/net/ipv4/Kconfig	2004-10-18 23:54:55.000000000 +0200
-+++ linux-2.6.10-rc1-bk5/net/ipv4/Kconfig	2004-10-26 20:30:35.000000000 +0200
-@@ -331,8 +331,8 @@ config INET_IPCOMP
- 	select CRYPTO
- 	select CRYPTO_DEFLATE
- 	---help---
--	  Support for IP Paylod Compression (RFC3173), typically needed
--	  for IPsec.
-+	  Support for IP Payload Compression Protocol (IPComp) (RFC3173),
-+	  typically needed for IPsec.
- 	  
- 	  If unsure, say Y.
- 
-diff -urp linux-2.6.10-rc1-bk5-orig/net/ipv6/Kconfig linux-2.6.10-rc1-bk5/net/ipv6/Kconfig
---- linux-2.6.10-rc1-bk5-orig/net/ipv6/Kconfig	2004-10-18 23:54:08.000000000 +0200
-+++ linux-2.6.10-rc1-bk5/net/ipv6/Kconfig	2004-10-26 20:31:19.000000000 +0200
-@@ -52,8 +52,8 @@ config INET6_IPCOMP
- 	select CRYPTO
- 	select CRYPTO_DEFLATE
- 	---help---
--	  Support for IP Paylod Compression (RFC3173), typically needed
--	  for IPsec.
-+	  Support for IP Payload Compression Protocol (IPComp) (RFC3173),
-+	  typically needed for IPsec.
- 
- 	  If unsure, say Y.
- 
+Signed-off-by: Dan Williams <dcbw@redhat.com>
