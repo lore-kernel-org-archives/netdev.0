@@ -1,7 +1,7 @@
 From: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Subject: Re: [PATCH 4/5] r8169: ethtool message level control
-Date: Sat, 12 Mar 2005 12:02:23 +0000
-Message-ID: <4232DA4F.5050804@phekda.gotadsl.co.uk>
+Date: Sat, 12 Mar 2005 12:30:44 +0000
+Message-ID: <4232E0F4.8020103@phekda.gotadsl.co.uk>
 References: <20050309113402.05d25e49@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
@@ -15,40 +15,29 @@ List-Id: netdev.vger.kernel.org
 
 Hello.
 
+
 Stephen Hemminger wrote:
 > Add ethtool message level control support. This is the standard way
 > to enable/disable console log messages.  Also, ratelimit the too much
 > work at interrupt message, so if under massive packet load the console
 > doesn't get flooded.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
-> 
-> diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
-> --- a/drivers/net/r8169.c	2005-03-09 11:25:04 -08:00
-> +++ b/drivers/net/r8169.c	2005-03-09 11:25:04 -08:00
-[snip]
-> @@ -875,12 +885,26 @@
->          spin_unlock_irqrestore(&tp->lock, flags);
->  }
->  
-> +static u32 rtl8169_get_msglevel(struct net_device *dev)
-> +{
-> +        struct rtl8169_private *tp = netdev_priv(dev);
-> +	return tp->msg_enable;
-> +}
-> +
-> +static void rtl8169_set_msglevel(struct net_device *dev, u32 value)
-> +{
-> +        struct rtl8169_private *tp = netdev_priv(dev);
-> +	tp->msg_enable = value;
-> +}
-> +
 [snip]
 
-When I posted a patch for message level support a couple of weeks ago 
-(and got a ton of corrective feedback), Francois asked that there be 
-whitespace separating the definitions from executable code in these 
-functions.
+Works fine for me on my Athlon64 laptop with a 8169 with built-in PHY.
+
+Testing:
+
+* Remove Ethernet cable, insert module (no params), then 
+"/etc/init.d/network start". Check I get the "PHY reset until link up" 
+message.
+
+* "ethtool -s eth0 msglvl 0". Restart networking. Check I get no PHY 
+reset message.
+
+* Remove module. Reinsert module with "debug=16" param. Restart 
+networking. Check I get PHY reset message plus chip info in dmesg.
+
+* Insert cable, restart networking.
 
 Bye, Rich =]
 
