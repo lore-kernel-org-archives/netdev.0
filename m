@@ -1,53 +1,21 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH] wan: kill 3 "unused" warnings
-Date: Fri, 19 Sep 2003 13:48:04 -0700
+From: Kristen Carlson <kristenc@cs.pdx.edu>
+Subject: Re: patricia tries vs. hash for routing?
+Date: Fri, 19 Sep 2003 14:48:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030919134804.2c8967e4.rddunlap@osdl.org>
-References: <20030919113252.67949bc8.rddunlap@osdl.org>
-	<20030919224428.A7296@electric-eye.fr.zoreil.com>
+Message-ID: <20030919214837.GA3012@sirius.cs.pdx.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20030919224428.A7296@electric-eye.fr.zoreil.com>
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Sep 2003 22:44:28 +0200 Francois Romieu <romieu@fr.zoreil.com>=
- wrote:
-
-| Randy.Dunlap <rddunlap@osdl.org> :
-| [...]
-| > patch_name:	dscc_warnings.patch
-| > patch_version:	2003-09-19.11:18:03
-| > author:		Randy.Dunlap <rddunlap@osdl.org>
-| > description:	kill 3 warnings (label, functions not used);
-| > product:	Linux
-| > product_versions: 2.6.0-test5
-| > maintainer:	Nenad Corbic <ncorbic@sangoma.com>
-|=20
-| ?
-|=20
-| $ less MAINTAINERS
-| [...]
-| DSCC4 DRIVER
-| P:      Fran=E7ois Romieu
-| M:      romieu@cogenit.fr
-| M:      romieu@ensta.fr
-| S:      Maintained
-
-Ooops, sorry about that.
-
-| The warning reminds that the call to dscc4_release_ring() is plain wron=
-g
-| (hmmm... as well as calling dscc4_release_ring() in dscc4_close() *doh*=
-).
-|=20
-| Ok, I will fix this crap.
-
-Thanks.
-
---
-~Randy
+I was looking through some very old mail list discussions (1996!) on this 
+topic, and the feeling then was that the code was optimal for < 60,000 routes.
+Given that much has happened since then, is it still a fair assumption to say
+that the linux routing algorithm is optimized for < 60,000 routes, but a
+more BSD-like algorithm works better for > 60,000 routes?
+Thanks,
+Kristen
