@@ -1,46 +1,49 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH] IPv6: Fix Prefix Length of Link-local Addresses
-Date: Wed, 9 Oct 2002 20:16:39 +0300 (EEST)
+From: "Ok2mail.com" <amazon_reply@ok2mail.com.sgi.com>
+Subject: Offerts : 7 euros sur Amazon.fr !
+Date: 9 Oct 2002 19:13:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0210092015540.17906-100000@netcore.fi>
-References: <20021010.015432.63506989.yoshfuji@linux-ipv6.org>
+Message-ID: <29736.1023062424$1034185825@news.gmane.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: dfawcus@cisco.com, <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   <usagi@linux-ipv6.org>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20021010.015432.63506989.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Oct 2002, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> In article <20021009170018.H29133@edinburgh.cisco.com> (at Wed, 9 Oct 2002 17:00:18 +0100), Derek Fawcus <dfawcus@cisco.com> says:
-> 
-> > All link local's are currently supposed to have those top bits
-> > ('tween 10 and 64) zero'd,  however any address within the link local
-> > prefix _is_ on link / connected and should go to the interface.
-> > 
-> > i.e. it's perfectly valid for me to assign a link local of fe80:1910::10
-> >      to an interface and expect it to be work,  likewise for a packet
-> >      destined to any link local address to trigger ND.
-> 
-> First of all, please don't use such addresses.
-> 
-> By spec, auto-configured link-local address is fe80::/64
-> and connected route should be /64.
-> 
-> If you do really want to use such addresses (like fe80:1920::10),
-> you can put another route by yourself, at your own risk.
-> 
-> We should not configure in such way by default.
-> and, we should even have to add "discard" route for them 
-> by default for safe.
+Faites-vous plaisir!
 
-Personally I think the interfaces should be configured with a /64 but 
-there should be a discard route for the whole /10.
+Ok2mail.com vous offre un cheque-cadeau de 7 euros, a depenser illico sur 
+Amazon.fr!!!
 
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Valable sur tout le catalogue Amazon.fr:
+Livres, Musique, DVD, Video, Logiciels, Jeux Video.
+
+Uniquement jusqu'au dimanche 27 octobre 2002. Profitez-en vite!
+
+Pour cela, notez bien votre code de cheque-cadeau:
+
+CAWX-KTWQ8C-V9AEW6
+
+Vous entrerez ce code sur la page de paiement, dans la case reservee a cet 
+effet.
+
+Cliquez ici pour en profiter: 
+http://www.amazon.fr/exec/obidos/redirect?tag=gcbuon2-21&path=tg/browse/-/405320
+
+--------------------------------------------------------------------------
+Votre cheque-cadeau est soumis aux conditions d'utilisation a consulter sur 
+la page http://www.ok2mail.com/conditions_amazon.htm
+
+Important: ces cheques-cadeaux sont limites a 1 par foyer fiscal et par 
+adresse de livraison, a utiliser avant le 27 octobre 2002. La livraison est 
+gratuite a partir de 20 euros d'achats en mode rapide en France 
+metropolitaine.
+
+Vous recevez cet e-mail de la part de Ok2mail.com. Si vous ne souhaitez 
+plus recevoir d'offres speciales de notre part, rendez-vous sur: 
+http://www.ok2mail.com/amazon/desinscription.htm
+
+
+[[HTML alternate version deleted]]
