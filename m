@@ -1,39 +1,50 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169: page allocation failure
-Date: Sat, 16 Oct 2004 23:49:03 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] Yield in netlink_broadcast when congested
+Date: Sun, 17 Oct 2004 01:51:37 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041016214903.GC21849@electric-eye.fr.zoreil.com>
-References: <200410162004.17573.jkillius@arcor.de> <20041016204848.GB21849@electric-eye.fr.zoreil.com> <200410162304.38905.jkillius@arcor.de> <200410162323.01006.jkillius@arcor.de>
+Message-ID: <20041016235137.GE19714@rei.reeler.org>
+References: <20041016113006.GA12843@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@davemloft.net, jgarzik@pobox.com
+Cc: Pablo Neira <pablo@eurodev.net>, hadi@cyberus.ca,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jan Killius <jkillius@arcor.de>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Content-Disposition: inline
-In-Reply-To: <200410162323.01006.jkillius@arcor.de>
+In-Reply-To: <20041016113006.GA12843@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jan Killius <jkillius@arcor.de> :
-> On Saturday 16 October 2004 23:04, Jan Killius wrote:
-> > > - what is the current transfer rate and is it better/worse w/o TSO ?
-> >
-> > I'm getting almost the same with both settings ~405Mbit/s.
+* Herbert Xu <20041016113006.GA12843@gondor.apana.org.au> 2004-10-16 21:30
+> So here is my proposal: if we detect signs of impending congestion
+> in netlink_broadcast(), and that we're in a sleepable context, then
+> we yield().
+> 
+> This gives the receivers a chance to pull down the messages without
+> having the sender spinning indefinitely.  I've tested it on my UP
+> machine and it does resolve the problem for ip monitor.
 
-Roughly the same CPU usage ?
+Looks good.
 
-> >
-> > > - which cpu/disk system are there within the (?) 128Mo box ?
-> >
-> > Athlon XP 1600+ the disk is a Maxtor 6Y060L0 gets with hdparm 42.76 MB/s
-> ups forget to say the ram size 512MB FSB333 DDR RAM
+Up to how many receivers does that work? We would still see the
+effect if too many receivers are registered, right?
 
-I did not notice it first but the bi/bo columns of the vmstat output
-are mostly null. Assuming this is a single session ftp transfer, what ftp
-software does the r8169 based system run ?
+I haven't had the time to read through the previous conversion so
+I don't know if this has come up so far but we could request an ACK
+from each receiver an congest based on the following strategy:
 
-Pure curiosity: can you issue a test+vmstat with a blowfish scp to see if
-TSO makes a difference for your setup when the system is not disk-limited ?
+SS := Last serial sent
+SR := Last serial received
+LL := Lower congestion limit to ignore short bursts
+UL := Upper congestion limit to avoid infinite congestion:
 
---
-Ueimor
+Congestion map for (SS - SR)
+0..LL: NOP
+LL..UL: dp-congestion
+UL..MAX: NOP
+
+The biggest problem is that I don't know of any application
+handling ACK requests properly yet.
+
+Just a wild idea anyway, I'm not even sure whether it's worth
+the effort.
