@@ -1,33 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] make sendmsg return EDESTADDRREQ if socket is not
- connected and daddr was not specified
-Date: Fri, 11 Jul 2003 09:41:36 +0900 (JST)
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: 11 Jul 2003 03:49:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030711.094136.38023048.yoshfuji@linux-ipv6.org>
-References: <20030710233223.GA30577@rei.rakuen>
-	<20030711.093546.12708723.yoshfuji@linux-ipv6.org>
-	<20030710.172923.27804984.davem@redhat.com>
+Message-ID: <1057888154.26854.324.camel@localhost>
+References: <20030710154302.GE1722@zip.com.au>
+	 <1057854432.3588.2.camel@hades>  <20030710233931.GG1722@zip.com.au>
+	 <1057881869.3588.10.camel@hades>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, tgraf@suug.ch
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Mika Liljeberg <mika.liljeberg@welho.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20030710.172923.27804984.davem@redhat.com>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <1057881869.3588.10.camel@hades>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030710.172923.27804984.davem@redhat.com> (at Thu, 10 Jul 2003 17:29:23 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
+On fre, 2003-07-11 at 02:04, Mika Liljeberg wrote:
+> Well, the thing is that prefix:: is a special anycast address that
+> identifies a router on the link prefix::/n, where n is the prefix
+> length. You had configured a 127-bit link prefix, meaning that you had
+> only one valid unicast address (last bit =3D=3D 1) in addition to the r=
+outer
+> anycast address (last bit =3D=3D 0).
 
->    From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
->    Date: Fri, 11 Jul 2003 09:35:46 +0900 (JST)
->    
->    I aggeed on this, however we may want to do for whole tree at same time.
->    How do you think, folks?
-> 
-> Sure, just send more patches relative to this one :-)
+Thanks for the explanation, I've been struggling to understand what
+Yoshfuji tried to explain to me earlier on this topic (see "IPv6 bugs
+introduced in 2.4.21" - ie. my bogus bugreport), now it all makes
+perfect sense :-)
 
-Okay, I'll do this as much as I can do...
+> Normally, IPv6 networks are supposed to use 64-bit on-link prefixes but
+> the implementation can be written in such a way that other prefix
+> lengths can be configured.
+>=20
+> Setting your tunnel prefix to /64 is certainly the right thing to do.=20
 
---yoshfuji
+If you don't have anything but one /64 for example.. I guess /126's
+would be ok as you could rule out the the anycast address? It will
+probably work with Linux - but is it wrong in any sense, other than
+"breaking" with EUI-64/autoconfiguration?
+
+--=20
+Cheers,
+Andr=E9 Tomt
+andre@tomt.net
