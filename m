@@ -1,33 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Thu, 23 Sep 2004 18:17:25 -0700
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Fri, 24 Sep 2004 03:19:12 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923181725.3e19cee8.davem@davemloft.net>
-References: <20040923161141.4ea9be4c.davem@davemloft.net>
-	<E1CAdCy-0001FM-00@gondolin.me.apana.org.au>
-	<20040923164149.5368d291.davem@davemloft.net>
-	<20040924001225.GA5051@gondor.apana.org.au>
-	<20040924004038.GA5252@gondor.apana.org.au>
-	<20040924010741.GA5452@gondor.apana.org.au>
+Message-ID: <41537610.1040403@eurodev.net>
+References: <1095633569.1047.107.camel@jzny.localdomain> <20040919231734.GA10124@gondor.apana.org.au> <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net> <20040922045239.GA19573@gondor.apana.org.au> <1095854920.1047.64.camel@jzny.localdomain> <20040923120707.GB32624@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, niv@us.ibm.com, andy.grover@gmail.com, anton@samba.org,
+Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@redhat.com>,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040924010741.GA5452@gondor.apana.org.au>
+In-Reply-To: <20040923120707.GB32624@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004 11:07:41 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Hi Herbert,
 
-> On Fri, Sep 24, 2004 at 10:40:38AM +1000, herbert wrote:
-> > 
-> > Probably not.  There many things (such as snd_cwnd) in the stack
-> > that doesn't work properly when the mss changes drastically like this.
-> 
-> Perhaps we should start counting in bytes instead of packets?
+Herbert Xu wrote:
 
-No, because routers drop packets not bytes :-)
+>On Wed, Sep 22, 2004 at 08:08:40AM -0400, jamal wrote:
+>  
+>
+>>Since netlink is being used for a lot of things now, it may be time to
+>>obsolete those assumptions. 
+>>    
+>>
+>
+>I'm not against changes.  But so far I haven't seen anything concrete
+>about what these new things are yet :)
+>  
+>
+
+Nothing mysterious :), people are willing to put more and more things in 
+kernel space, so I wanted to evaluate netlink sockets as a method to 
+pass information from kernel to user space and vice-versa.
+
+I think that, instead of putting all the things in kernel space, a 
+kernel component can provide an API to user space programs to interact 
+with them, so I wanted to evaluate them to figure out what they could do 
+and what they could't do at this moment. I can also focus this to 
+component replication.
+
+regards,
+Pablo
