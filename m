@@ -1,58 +1,36 @@
-From: =?iso-8859-1?q?francois=20donzet?= <fdonzet@yahoo.fr>
-Subject: Re: problem in driver network code
-Date: Mon, 10 Nov 2003 09:14:17 +0100 (CET)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031110081417.55732.qmail@web25201.mail.ukl.yahoo.com>
-References: <20031107181508.A1102@sygehus.dk>
+From: "Ihar 'Philips' Filipau" <filia@softhome.net>
+Subject: net/packet/af_packet.c:{1057,1073}: flags vs. msg->flags
+Date: Mon, 10 Nov 2003 12:10:46 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3FAF7236.7020209@softhome.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Rask Ingemann Lambertsen <rask@sygehus.dk>
-In-Reply-To: <20031107181508.A1102@sygehus.dk>
-Errors-to: netdev-bounce@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
- --- Rask Ingemann Lambertsen <rask@sygehus.dk> a
-=E9crit=A0: > On Fri, Nov 07, 2003 at 09:38:44AM +0100,
-francois
-> donzet wrote:
-> >=20
-> > It seems to me that there is a problem ;). If i
-> store
-> > in skb->csum a sum of all words of the packet
-> data, it
-> >  will be unusable by tcp (the skb->csum doesn't
-> > contain the checksum of tcpheader plus data only,
-> as
-> > the ipheader is part of the packet when the sum is
-> > computed)
->=20
-> That can be accounted for by the TCP code because
-> the IP header is known to
-> the TCP code. IIRC, the pseudoheader is similiar to
-> a real IP header, so it
-> may take just a few lines of code to make up for the
-> difference, but I
-> haven't checked that.
+Hi!
 
-The theory seems fine, but there is no clue of this
-way in the code.
+    [ I'm trying to cc: netdev - but they are not that welcome - and 
+require subscription. I'm way too lazy (and my mail box is not that 
+fast) to subscribe to send simple typo - if this is a case at all. ]
 
-> What do you do with an IEEE 802.1q (VLAN) or 802.2
-> (LLC) packet? The VLAN
-> code in vlan_skb_recv() does not adjust skb->csum or
-> skb->ip_summed. Neither
-> does the 802.2 code.
+    [ kernel v2.6.0-test7 as found on lxr.linux.no, 2.4.{18,22} has the 
+same - but line numbers are different. ]
 
-no matter the link layer header is 802.3,802.2 or
-8021.q . Tcp checksum offloading is supported,
-whatever the type of the link layer (as skb->csum is
-computed without the link layer header).
+    On line 1057 we have: "msg->msg_flags|=MSG_TRUNC;" to indicate that 
+message was truncated.
 
+    But on line 1073, where we make return status to user, we check 
+against user suplied flags, but NOT msg->msg_flags.
 
+    It looks like obvious typo.
 
-___________________________________________________________
-Do You Yahoo!? -- Une adresse @yahoo.fr gratuite et en fran=E7ais !
-Yahoo! Mail : http://fr.mail.yahoo.com
+-- 
+Ihar 'Philips' Filipau  / with best regards from Saarbruecken.
+--                                                           _ _ _
+  "... and for $64000 question, could you get yourself       |_|*|_|
+    vaguely familiar with the notion of on-topic posting?"   |_|_|*|
+                                 -- Al Viro @ LKML           |*|*|*|
