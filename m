@@ -1,40 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] select appropriate skb size in tcp_sendmsg when TSO is used
-Date: Wed, 27 Oct 2004 10:07:24 +1000
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH, TAKE 2] [IPV6] XFRM: extract xfrm_lookup() from
+ ip6_dst_lookup() (is Re: [PATCH][IPv6] separation xfrm_lookup from
+ ip6_dst_lookup)
+Date: Wed, 27 Oct 2004 09:10:39 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027000724.GA4869@gondor.apana.org.au>
-References: <OF96546AB5.ACE12043-ONC1256F33.0027BC6B-C1256F33.002D4A6E@de.ibm.com> <E1CKE5P-0005SP-00@gondolin.me.apana.org.au> <20041020163510.6d13e9c7.davem@davemloft.net> <20041026111912.GA18095@gondor.apana.org.au> <20041026235126.GA4733@gondor.apana.org.au> <417EE3BB.6040902@pobox.com>
+Message-ID: <20041027.091039.56337914.yoshfuji@linux-ipv6.org>
+References: <417E5F37.4010501@hp.com>
+	<20041027.004359.62730834.yoshfuji@linux-ipv6.org>
+	<417E92D9.1050305@hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, thomas.spatzier@de.ibm.com,
-        netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <417EE3BB.6040902@pobox.com>
+To: Brian.Haley@hp.com
+In-Reply-To: <417E92D9.1050305@hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2004 at 07:54:35PM -0400, Jeff Garzik wrote:
-> Herbert Xu wrote:
-> >+static int __ethtool_set_sg(struct net_device *dev, u32 data)
-> >+{
-> >+	int err;
-> >+
-> >+	if (!data && dev->ethtool_ops->set_tso) {
-> >+		err = dev->ethtool_ops->set_tso(dev, 0);
-> >+		if (err)
-> >+			return err;
-> >+	}
-> >+
-> >+	return dev->ethtool_ops->set_sg(dev, data);
-> >+}
-> 
-> you want to disable tx-csum also
+In article <417E92D9.1050305@hp.com> (at Tue, 26 Oct 2004 14:09:29 -0400), Brian Haley <Brian.Haley@hp.com> says:
 
-IMHO it is valid to disable SG without disabling checksums, no?
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> > Second, because we're not ready to migrate.
+> > Please do not do that (pushing it to the glibc people) until we're ready.
+> > We really need to do in consistent way; kernel header / glibc header,
+> > and even with other systems.
+> 
+> The kernel struct is the correct size (since addr[0] has no size), 
+> ip6_rthdr0 in ip6.h is not, it's 128 bits too big.  Let me know the 
+> right steps to go through to correct this and I'll get it done, you can 
+> send it off-line if you like.
+
+Because we do not support RFC3542, extra 128bits is definitely correct.
+
+--yoshfuji
