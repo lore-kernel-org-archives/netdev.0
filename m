@@ -1,8 +1,8 @@
 From: Grant Grundler <grundler@parisc-linux.org>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: Mon, 4 Apr 2005 00:31:09 -0600
-Message-ID: <20050404063109.GA30855@colo.lackof.org>
-References: <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <52vf7bwo4w.fsf@topspin.com> <1112042936.5088.22.camel@beastie> <20050328223203.GC28983@kvack.org> <1112465317.24936.10.camel@mylaptop>
+Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
+Date: Mon, 4 Apr 2005 00:34:56 -0600
+Message-ID: <20050404063456.GB30855@colo.lackof.org>
+References: <67D69596DDF0C2448DB0F0547D0F947E01781F2E@yogi.asicdesigners.com> <1112576171.4227.5.camel@mylaptop>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
@@ -13,16 +13,22 @@ Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Dmitry Yusupov <dmitry_yus@yahoo.com>
 Content-Disposition: inline
-In-Reply-To: <1112465317.24936.10.camel@mylaptop>
+In-Reply-To: <1112576171.4227.5.camel@mylaptop>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 02, 2005 at 10:08:37AM -0800, Dmitry Yusupov wrote:
-> So, who cares if one of those cores will do receive side copying?
+On Sun, Apr 03, 2005 at 05:56:11PM -0700, Dmitry Yusupov wrote:
+> I do not get your concern with memory BW. With good AMD box V40Z(SUN)
+> you can get 5.3GBytes/sec. Even with 10Gbps full speed you have 80%
+> left. PCI-X BUS BW is bigger concern...
 
-It burns backplane bandwidth that could be used for other things.
-The problem isn't the CPU cycles. It's the number
-of times the data has to cross the memory bus.
+Yes and No. PCI-X isn't fast enough but the data only crosses
+the PCI-X bus once.  Think about the data flow:
+	1) DMA to RAM
+	2) load into CPU cache
+	3) store back into RAM
+
+We are down to 40% left...graphics folks won't like you.
 
 grant
