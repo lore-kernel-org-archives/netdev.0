@@ -1,52 +1,50 @@
-From: Pete Zaitcev <zaitcev@redhat.com>
-Subject: The boot time failure in tulip
-Date: Mon, 1 Nov 2004 08:27:57 -0800
-Message-ID: <20041101082757.64583eb2@lembas.zaitcev.lan>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] tcp: efficient port randomisation
+Date: Mon, 1 Nov 2004 09:20:27 -0800
+Message-ID: <20041101092027.2a741e82@zqx3.pdx.osdl.net>
+References: <20041027092531.78fe438c@guest-251-240.pdx.osdl.net>
+	<200410291048.01955.michael.vittrup.larsen@ericsson.com>
+	<20041029102828.123502e7@zqx3.pdx.osdl.net>
+	<200411011058.23141.michael.vittrup.larsen@ericsson.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
-Cc: jgarzik@redhat.com, zaitcev@redhat.com
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com>
+In-Reply-To: <200411011058.23141.michael.vittrup.larsen@ericsson.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have finally figured how the failure develops. I poked Jeff about it before,
-but nothing could be done because it looked impossible to reproduce without
-reboots. Just asking for negotiation with mii-tool would always yield a
-working link. Also, this only happens with a dumb hub (tried several), but
-works dandy when talking to a switch.
+On Mon, 1 Nov 2004 11:58:23 +0200
+Michael Vittrup Larsen <michael.vittrup.larsen@ericsson.com> wrote:
 
-So, here's the deal. The Fedora startup has a segment which works like this:
+> On Friday 29 October 2004 19:28, Stephen Hemminger wrote:
+> > Provide port randomization for incoming connections using variation of
+> > existing sequence number hash. Replace tcp_portalloc_lock and
+> > tcp_port_rover with atomic operation to allow better parallelism.
+> >
+> > This is based on
+> > http://www.ietf.org/internet-drafts/draft-larsen-tsvwg-port-randomisation-0
+> >0.txt (with confirmation of of no IPR issues).
+> 
+> I have looked through this, and have a few comments:
+> 
+> * It is probably a good strategy to set 'tcp_rover_next' such that
+>   the next search is resumed from the previous port found to be free.
+>   (similar to the old algorithm).  I don't see this in your patch,
+>   but of course I could have missed it.
 
-           ip link set dev $1 up >/dev/null 2>&1
-           timeout=0
-           while [ $timeout -le 10 ]; do
-                check_mii_tool $1
-                m=$?
-                check_ethtool $1
-                e=$?
-                if [ $m -eq 1 ] || [ $e -eq 1 ] ; then
-                    return 1
-                fi
-                if [ $m -eq 2 ] && [ $e -eq 2 ] ; then
-                    return 1
-                fi
-                usleep 500000
-                timeout=$((timeout+1))
-           done
+It was intentional since it would require holding a lock around the search. The tradeoff
+is better SMP performance in the sparsely filled port space (more typical) vs.
+better UP performance in the case of a mostly full port space.
 
-It appears that the negotiation will not happen after "ip link set ... up"
-if we keep beating the interface with mii-tool (despite the 0.5s delay).
-Weird, huh?
 
-It's enough to fix things if a 3s delay is inserted after the ip ... up.
+> * connect_port_offset() does not (at least from an algorithm point
+>   of view) need to return an u32, an u16 is sufficient.
 
-I think the bug here is that polling with mii-tool disrupts the
-autonegotiation. It is ok to return failure after a reset, but
-eventually this has to resolve itself despite the polling.
+If it is truncated to u16, then compiler has to take extra effort to truncate
+is unnecessary given later  modulo operation.
 
-I suspect that 3c59x has the same failure as well. But I haven't played
-with it much.
-
--- Pete
+> Michael Larsen
