@@ -1,83 +1,94 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: Followup to netpoll issues
-Date: Fri, 7 Jan 2005 09:01:18 -0800
-Message-ID: <20050107170118.GU2940@waste.org>
-References: <1105045914.7687.3.camel@tigger> <20050106234610.GT2940@waste.org> <20050107011547.GE27896@electric-eye.fr.zoreil.com>
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: do_IRQ: stack overflow: 872..
+Date: Fri, 07 Jan 2005 17:05:59 +0000
+Message-ID: <1105117559.11753.34.camel@baythorne.infradead.org>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+	 <p73zn0ccaee.fsf@verdi.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Mark Broadbent <markb@wetlettuce.com>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Crazy AMD K7 <snort2004@mail.ru>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-Content-Disposition: inline
-In-Reply-To: <20050107011547.GE27896@electric-eye.fr.zoreil.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <p73zn0ccaee.fsf@verdi.suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 07, 2005 at 02:15:47AM +0100, Francois Romieu wrote:
-> Matt Mackall <mpm@selenic.com> :
-> [...]
-> > I've tinkered with this idea as well, but I'm not convinced it's the
-> > right idea. All current netpoll users (netconsole, kgdb, netdump) are
-> > intrinsically concerned with timeliness of delivery. Queueing packets
->                           ^^^^^^^^^^^^^^^
-> (as well as with reliability of the delivery maybe)
-
-> > for later delivery simply doesn't work with the latter two and might
-> > mislead with the former (eg netconsole message and other network
-> > traffic could be reordered).
+On Sat, 2004-12-18 at 08:50 +0100, Andi Kleen wrote:
+> It's not really an oops, just a warning that stack space got quiet
+> tight.
 > 
-> If kernel/printk.c::vprintk can not take the console semaphore, I
-> would say that messages are reordered with regard to the order in
-> which xmit_lock has been taken even without Mark's patch.
-> 
-> So what do you exactly mean by "reordered" ?
+> The problem seems to be that the br netfilter code is nesting far too
+> deeply and recursing several times. Looks like a design bug to me,
+> it shouldn't do that.
 
-printk("debug: at point A");
-do_something_that_sends_a_packet_B();
-printk("debug: at point C");
+I don't think it's recursing -- I think the stack trace is just a bit
+noisy. The problem is that the bridge code, especially with br_netfilter
+in the equation, is implicated in code paths which are just _too_ deep.
+This happens when you're bridging packets received in an interrupt while
+you were deep in journalling code, and it's also been seen with a call
+trace something like nfs->sunrpc->ip->bridge->br_netfilter.
 
-Depending on locking and queueing, we might see on our network dump B,
-A, C, and wrongly conclude that whatever did B was not between A and C.
-That's a bad way for printk to work.
+One option might be to make br_dev_xmit() just queue the packet rather
+than trying to deliver it to all the slave devices immediately. Then the
+actual retransmission can be handled from a context where we're _not_
+short of stack; perhaps from a dedicated kernel thread. 
 
-> > Also note that there's a closely related class of deadlock that we
-> > can't detect: netconsole-induced recursion on driver-private locks. We
-> > haven't actually seen one of these yet and haven't attempted to audit
-> > for them, but my plan all along has been to treat it as a bug and
-> > hoist offending printks out of the locked regions. Note that this is
-> > really a netconsole-specific problem as the other netpoll clients are
-> > unlikely to have such usage patterns.
-> 
-> Is is still a problem if Mark turns the spinlock in tx_retry_wq() into
-> an irq safe trylock ?
-> 
-> (driver-private bugs could/will be inherited but fixing these is not
-> netconsole's job).
+Unfortunately that approach would introduce a lot of latency on all
+packets we pass. Another option would be to have all architectures
+provide a stack_available() function and for br_dev_xmit() to queue the
+packet only if we're short of stack, while still sending most packets
+immediately. 
 
-The bugs I'm talking about are identical to the xmit_lock deadlock
-except with locks we can't see outside the driver. In other words,
-this patch addresses the easy part of larger problem by adding a bunch
-of complexity that doesn't help in the larger problem. To me, that's a
-hint that it's the wrong fix.
+Proof of concept below; obviously the stack_available() is an evil hack
+and would need to be done more sanely. Comments?
 
-> > Since the xmit_lock is so similar, it seems things that hit it ought
-> > to get the same treatment. So the rule becomes: no printk with network
-> > driver locks held (public or private). This is obviously broken in the
-> > face of oopsing in the driver, but netconsole can't be expected to
-> > work under such conditions anyway.
-> 
-> I am not convinced that people will be satisfied with a rule which
-> states that printk _from anywhere_ are lost as soon as a CPU enters
-> in the xmit_lock zone but, hey, it's just me.
+===== net/bridge/br_device.c 1.17 vs edited =====
+--- 1.17/net/bridge/br_device.c	2004-07-29 22:40:51 +01:00
++++ edited/net/bridge/br_device.c	2005-01-07 16:54:26 +00:00
+@@ -19,6 +19,13 @@
+ #include <asm/uaccess.h>
+ #include "br_private.h"
+ 
++static inline unsigned long stack_available(void)
++{
++	unsigned long esp;
++	asm volatile("movl %%esp,%0" : "=r"(esp));
++	return esp - (unsigned long)current - sizeof(struct thread_info);
++}
++
+ static struct net_device_stats *br_dev_get_stats(struct net_device *dev)
+ {
+ 	struct net_bridge *br;
+@@ -34,6 +41,14 @@
+ 	const unsigned char *dest = skb->data;
+ 	struct net_bridge_fdb_entry *dst;
+ 
++	if (stack_available() < THREAD_SIZE/2) {
++		if (net_ratelimit()) {
++			printk(KERN_DEBUG "Bridge device %s queues packet due to stack shortage\n",
++			       dev->name);
++		}
++		return NETDEV_TX_BUSY;
++	}
++
+ 	br->statistics.tx_packets++;
+ 	br->statistics.tx_bytes += skb->len;
+ 
+@@ -104,7 +119,7 @@
+ 	SET_MODULE_OWNER(dev);
+ 	dev->stop = br_dev_stop;
+ 	dev->accept_fastpath = br_dev_accept_fastpath;
+-	dev->tx_queue_len = 0;
++	dev->tx_queue_len = 5;
+ 	dev->set_mac_address = NULL;
+ 	dev->priv_flags = IFF_EBRIDGE;
+ }
 
-It should only be dropped on the CPU holding the lock, with a loud
-warning to follow shortly.
 
-> Objection against Ccing further messages to netdev ? It is better indexed
-> than our mailboxes.
 
-Nope.
 
 -- 
-Mathematics is the supreme nostalgia of our time.
+dwmw2
