@@ -1,28 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Sun, 19 Sep 2004 22:00:13 +1000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040919120013.GA5915@gondor.apana.org.au>
-References: <412DF807.2040703@eurodev.net> <E1C90Da-0001V7-00@gondolin.me.apana.org.au>
+Date: Sun, 19 Sep 2004 22:02:49 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040919120249.GA5963@gondor.apana.org.au>
+References: <414D0CCD.90209@eurodev.net> <E1C8way-0000aH-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: davem@redhat.com, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Pablo Neira <pablo@eurodev.net>
 Content-Disposition: inline
-In-Reply-To: <E1C90Da-0001V7-00@gondolin.me.apana.org.au>
+In-Reply-To: <E1C8way-0000aH-00@gondolin.me.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 19, 2004 at 09:50:58PM +1000, Herbert Xu wrote:
+On Sun, Sep 19, 2004 at 05:58:52PM +1000, Herbert Xu wrote:
 > 
-> Previously netlink requests had overhead comparable to that of an
-> ioctl.  Now you've added two full context switches to it.  There's
-> gotta be a better way to fix this dead-lock.
+> Besides, for any netlink socket but the first for a process, they'll
+> all have negative pid's which have nothing to do with the real pid.
+> So I really think that the wake_up_process hunk is bogus.
 
-Worse still, previously if a netlink request blocked indefinitely it
-only did that in the context of the calling process.  Now it'll
-dead-lock the entire system because you're using the generic work
-queue.
+Another reason why this is bogus.
+
+Most kernel users of unicast have a send timeout setting of 0.  Therefore
+your wake_up_process() call will never happen when netlink_attachskb is
+called by the kernel.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
