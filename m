@@ -1,55 +1,81 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH] Propagate error from sctp_proc_init
-Date: Wed, 14 Apr 2004 15:41:48 +0200
+From: Matt Mackall <mpm@selenic.com>
+Subject: [patch] tg3 ring buffer allocation error handling
+Date: Wed, 14 Apr 2004 13:46:42 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040414134148.GC16591@suse.de>
+Message-ID: <20040414184642.GZ1175@waste.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="OXfL5xGRrasGEqWY"
-Cc: lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---OXfL5xGRrasGEqWY
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: inline
+tg3 - handle ring buffer allocation failure
 
-The following patch makes sure that an error in sctp_proc_init()
-causes module initialization to fail.
+Try to allocate rx ring buffer and properly clean up and exit on
+failure.
 
-Olaf
+
+ tiny-mpm/drivers/net/tg3.c |   21 ++++++++++++++-------
+ 1 files changed, 14 insertions(+), 7 deletions(-)
+
+diff -puN drivers/net/tg3.c~tg3-oops drivers/net/tg3.c
+--- tiny/drivers/net/tg3.c~tg3-oops	2004-03-20 20:08:42.000000000 -0600
++++ tiny-mpm/drivers/net/tg3.c	2004-03-20 20:08:42.000000000 -0600
+@@ -3092,7 +3092,7 @@ static void tg3_free_rings(struct tg3 *t
+  * end up in the driver.  tp->{tx,}lock are held and thus
+  * we may not sleep.
+  */
+-static void tg3_init_rings(struct tg3 *tp)
++static int tg3_init_rings(struct tg3 *tp)
+ {
+ 	unsigned long start, end;
+ 	u32 i;
+@@ -3151,18 +3151,23 @@ static void tg3_init_rings(struct tg3 *t
+ 
+ 	/* Now allocate fresh SKBs for each rx ring. */
+ 	for (i = 0; i < tp->rx_pending; i++) {
+-		if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_STD,
+-				     -1, i) < 0)
+-			break;
++		if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_STD, -1, i) < 0) {
++			printk("tg3_alloc_rx_skb %d failed\n", i);
++			return -ENOMEM;
++		}
+ 	}
+ 
+ 	if (tp->tg3_flags & TG3_FLAG_JUMBO_ENABLE) {
+ 		for (i = 0; i < tp->rx_jumbo_pending; i++) {
+ 			if (tg3_alloc_rx_skb(tp, RXD_OPAQUE_RING_JUMBO,
+-					     -1, i) < 0)
+-				break;
++					     -1, i) < 0) {
++				printk("tg3_alloc_rx_skb %d failed\n", i);
++				return -ENOMEM;
++			}
+ 		}
+ 	}
++
++	return 0;
+ }
+ 
+ /*
+@@ -4557,7 +4562,9 @@ static int tg3_reset_hw(struct tg3 *tp)
+ 	 * can only do this after the hardware has been
+ 	 * successfully reset.
+ 	 */
+-	tg3_init_rings(tp);
++	err = tg3_init_rings(tp);
++	if (err)
++		return err;
+ 
+ 	/* This value is determined during the probe time DMA
+ 	 * engine test, tg3_test_dma.
+
+_
+
 -- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
-
---OXfL5xGRrasGEqWY
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: attachment; filename=sctp-initfail
-
---- linux-2.6.4/net/sctp/protocol.c.initfail	2004-02-19 11:36:37.000000000 +0100
-+++ linux-2.6.4/net/sctp/protocol.c	2004-04-14 15:36:19.000000000 +0200
-@@ -1001,7 +1001,9 @@
- 		goto err_init_mibs;
- 
- 	/* Initialize proc fs directory.  */
--	sctp_proc_init();
-+	status = sctp_proc_init();
-+	if (status)
-+		goto err_init_proc;
- 
- 	/* Initialize object count debugging.  */
- 	sctp_dbg_objcnt_init();
-@@ -1165,6 +1167,7 @@
- 			     sizeof(struct sctp_hashbucket)));
- err_ahash_alloc:
- 	sctp_dbg_objcnt_exit();
-+err_init_proc:
- 	sctp_proc_exit();
- 	cleanup_sctp_mibs();
- err_init_mibs:
-
---OXfL5xGRrasGEqWY--
+Matt Mackall : http://www.selenic.com : Linux development and consulting
