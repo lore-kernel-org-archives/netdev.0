@@ -1,81 +1,68 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Wed, 12 Jun 2002 09:00:08 -0400 (EDT)
+From: Yan-Fa Li <yan@intruvert.com>
+Subject: RE: RFC: per-socket statistics on received/dropped packets
+Date: Wed, 12 Jun 2002 13:30:32 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <aee12t$135$2@main.gmane.org>
-References: <5.1.0.14.2.20020612224038.0251bd08@mira-sjcm-3.cisco.com>
+Message-ID: <D71BEAC27500D51199DF0002B328BA8D4FBC4D@ivexs1.intruvert.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Horst von Brand <vonbrand@inf.utfsm.cl>,
-   "David S. Miller" <davem@redhat.com>, Ben Greear <greearb@candelatech.com>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: multipart/alternative;
+	boundary="----_=_NextPart_001_01C21250.003397A0"
+Cc: Mark Mielke <mark@mark.mielke.cc>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Lincoln Dale <ltd@cisco.com>
-In-Reply-To: <5.1.0.14.2.20020612224038.0251bd08@mira-sjcm-3.cisco.com>
+To: "'Ben Greear'" <greearb@candelatech.com>,
+   Pekka Savola
+	 <pekkas@netcore.fi>
 List-Id: netdev.vger.kernel.org
 
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
+
+------_=_NextPart_001_01C21250.003397A0
+Content-Type: text/plain
+
+Does this do what is needed ?  I've used it and it does have an impact on
+stack performance while the application is running, but it tells you about
+retransmits and what not, and does not seem to affect  performance much
+until you actually want to inspect the values.  I agree with DaveM that it
+should not go into the mainline kernel unless you can turn it off with a
+sysctl, but it is useful for debugging and network health monitoring.
+
+Y
+
+http://heron.ucsd.edu/tcphealth/
 
 
-On Wed, 12 Jun 2002, Lincoln Dale wrote:
+------_=_NextPart_001_01C21250.003397A0
+Content-Type: text/html
+Content-Transfer-Encoding: quoted-printable
 
-> At 08:33 AM 12/06/2002 -0400, jamal wrote:
-> > > i know of many many folk who use transaction logs from HTTP caches for
-> > > volume-based billing.
-> > > right now, those bills are anywhere between 10% to 25% incorrect.
-> > >
-> > > you call that "extremely limited"?
-> >
-> >Surely, you must have better ways to do accounting than this -- otherwise
-> >you deserve to loose money.
->
-> many people don't have better ways to do accounting than this.
->
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 3.2//EN">
+<HTML>
+<HEAD>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; =
+charset=3Dus-ascii">
+<META NAME=3D"Generator" CONTENT=3D"MS Exchange Server version =
+5.5.2653.12">
+<TITLE>RE: RFC: per-socket statistics on received/dropped =
+packets</TITLE>
+</HEAD>
+<BODY>
 
-Then they dont care about loosing money.
-There's nothing _more important_ to a service provider than ability to do
-proper billing. Otherwise, they are a charity organization.
+<P><FONT SIZE=3D2>Does this do what is needed ?&nbsp; I've used it and =
+it does have an impact on stack performance while the application is =
+running, but it tells you about retransmits and what not, and does not =
+seem to affect&nbsp; performance much until you actually want to =
+inspect the values.&nbsp; I agree with DaveM that it should not go into =
+the mainline kernel unless you can turn it off with a sysctl, but it is =
+useful for debugging and network health monitoring.</FONT></P>
 
-> in the case of Squid and Linux, they're typically using it because its
-> open-source and "free".
+<P><FONT SIZE=3D2>Y</FONT>
+</P>
 
-I am hoping you didnt mean to say squid was only good because it has
-these perks.
+<P><FONT SIZE=3D2><A HREF=3D"http://heron.ucsd.edu/tcphealth/" =
+TARGET=3D"_blank">http://heron.ucsd.edu/tcphealth/</A></FONT>
+</P>
 
->
-> they want to use HTTP Caching to save bandwidth (and therefore save money),
-> but they also live in a regime of volume-based billing.  (not everywhere on
-> the planet is fixed-$/month for DSL).
->
-> the unfortunate solution is to use HTTP Transaction logs, which count
-> payload at layer-7, not payload+headers+retransmissions at layer-3.
->
-
-Look at your own employers eqpt if you want to do this right.
-And then search around freshmeat so you dont reinvent the wheel.
-
-> > > of course, i am doing exactly what Dave said to do -- maintaining my own
-> > > out-of-kernel patch -- but its a pain, i'm sure it will soon conflict with
-> > > stuff and is a damn shame - it isn't much code, but Dave seems pretty
-> > > steadfast that he isn't interested.
-> >
-> >You havent proven why its needed. And from the looks of it you dont even
-> >need it.
->
-> i don't need it because i already have it in my kernel.
-> but thats where it ends -- its destined to forever be a private patch.
->
-
-And until you prove it is worth it and useful to other people then
-forever thats where it belongs. I now of nobody serious about billing
-who is using sockets stats as the transaction point.
-
-> >If 3 people need it, then i would like to ask we add lawn mower
-> >support that my relatives have been asking for the last 5 years.
->
-> lawn-mower support sounds like a userspace application to me.
->
-
-But we need a new system call support
-
-cheers,
-jamal
+</BODY>
+</HTML>
+------_=_NextPart_001_01C21250.003397A0--
