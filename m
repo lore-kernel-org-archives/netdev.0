@@ -1,127 +1,95 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH PKT_SCHED 0/17]: tc action cleanup + fixes
-Date: 30 Dec 2004 08:30:00 -0500
-Message-ID: <1104413400.1047.123.camel@jzny.localdomain>
-References: <41D3785F.3040909@trash.net>
-	 <1104382562.1048.39.camel@jzny.localdomain>  <41D3F5EC.9050808@trash.net>
-Reply-To: hadi@cyberus.ca
+From: linux lover <linux_lover2004@yahoo.com>
+Subject: how to access packet's data part in skbuff?
+Date: Thu, 30 Dec 2004 03:54:01 -0800 (PST)
+Message-ID: <20041230115401.6906.qmail@web52202.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41D3F5EC.9050808@trash.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-12-30 at 07:34, Patrick McHardy wrote:
-> jamal wrote:
-> Patrick,
-> > Thanks for this cleanup.
-> > 
-> > Questions/comments:
-> > 
-> > 1)compiler or style issue?
-> > 
-> > You have a few of fixes from
-> > 
-> > a)
-> >  if (..){
-> > 	single statement here;
-> > }
-> >  
-> > to:
-> > if (..)
-> > 	single statement here;
-> > 
-> > I always add an extra pair of brace
-> > for lazy reasons (in the back of my mind: incase i want to add another
-> > statement ;->).
-> 
-> Just cleanup, I prefer not to waste too many lines. Saving
-> space increases readability.
-> 
+Hello all,
+          While writing kernel module packet sniffer
+at IP layer,i start with first accessing packets
+length 
+and its data part.so, to start i try to access packet
+data first and copy it to other variable to dump
+its contents but i am facing a problem while accessing
+the packet's data. As i have studied i 
+found that data in packet at any layer resides in
+between data and tail pointers.  So if i
+have to print it or copy it in any unsigned string
+then how to do that?
+          I tried with following example which
+receives only loopback packet and print data part at 
+IP layer. But it does not print also why am i getting
+sb->len as 1 not actual size of packet at IP layer?
+regards,
+linux_lover
 
-I am going to try and control my fingers ;-> 
-They have a brain of their own.
+#define MODULE
+#define __KERNEL__
 
-> > b)Other things which i have seen compilers whine about in the past of
-> > the form:
-> > 
-> > a missing cast
-> > -       a->priv = (void *) p;
-> > +       a->priv = p;
-> 
-> No need to cast a pointer to void *, except if a->priv
-> was of some different type.
-> 
+#include <linux/module.h>
+#include <linux/kernel.h>
+#include <linux/skbuff.h>
+#include <linux/ip.h>
+#include <linux/netfilter.h>
+#include <linux/netfilter_ipv4.h>
+#include <linux/myh.h>
+#include <linux/string.h>
 
-So as long as lvalue was void you dont cast? p is certainly not void.
+static struct nf_hook_ops nfho;
+unsigned int cap_packet(unsigned int hooknum,struct
+sk_buff **skb,const struct net_device *in,
+                                 const struct
+net_device *out,int (*okfn)(struct sk_buff *))
+{
+  struct sk_buff *sb = *skb;
+      unsigned char *packet;
+      int buflen=0,i=0;
+      buflen=sb->len;
+      packet=kmalloc(buflen,GFP_USER);
+      memset(packet,'\0',buflen);
+      printk(KERN_DEBUG "Length of sb->data in hook
+function = %d\n", buflen);
+      while(buflen>=0)
+      {
+      packet[i]=sb->data[i];
+      i++;
+      buflen--;
+      }
+      packet[i]='\0';
+      strcpy(packet,sb->data);
+      printk(KERN_DEBUG "packet contents of sb->data
+in hook function = %s\n", packet);
+      return NF_ACCEPT;
 
-> > 4) Some of those messages are actually still useful and dont really
-> > harm to leave around for a little while longer;
-> > -       if (tb[TCA_PEDIT_PARMS - 1] == NULL) {
-> > -               printk("BUG: tcf_pedit_init called with NULL params\n");
-> > 
-> > I realize the fixes you have to return -ENOMEN/NOENT etc are an
-> > improvement but a little ascii puking wont harm for somebody writting
-> > a user space app until we get better netlink error propagation
-> > in place.
-> 
-> Agreed for some messages, but those should be DEBUGs. Anyway,
-> I didn't want to judge for every message and possible convert
-> it, so I deleted all printks that got replaced by error codes.
-> 
+}
 
-the printks are meant to help a little more (and are mostly on the slow
-path); when the error propagation for netlink works well, those sorts of
-ascii messages will probably be transported back to user space. On any
-newer patches I suggest to just keep them.
-Heres something else:
-Re: [PATCH PKT_SCHED 15/17]: Remove checks for impossible conditions in
-pedit action, you say:
+static int __init init(void)   
+  {
+              nfho.hook     = cap_packet;
+              nfho.hooknum  = NF_IP_LOCAL_OUT;
+              nfho.pf       = PF_INET;
+              nfho.priority = NF_IP_PRI_FIRST;
+              nf_register_hook(&nfho);
+              return 0;
+          }
 
->Remove checks for impossible conditions in pedit action.
+static void __exit fini(void)
+          {
+              nf_unregister_hook(&nfho);
+          }
+module_init(init);
+module_exit(fini);
+MODULE_LICENSE("GPL");
 
-________________________________________________________________________
-[..]
--	if (p == NULL) {
-> -		printk("BUG: tcf_pedit_dump called with NULL params\n");
-> -		goto rtattr_failure;
-> -	}
-> -
 
-You have these type changes all over. These are certainly artifacts of the 
-development time, I may have have caught a bug or two via these checks at 
-the time. It is highly likely those bugs are fixed in the code merged.
-If they happen, however, they are a BUG and the possibility of a bug is
-still there ;-> i.e the word "impossible" is too strong a description. 
-Having said that:
-Is it better to have an oops catch this or have something print on the
-console or syslog indicating a bug? This is more a philosphical question
-and an answer could be "good practise is to let oops catch it". I am
-actually indifferent if those checks go - however if i had caught them
-myself i would have put unlikely() around them.
-
-> > I will look closely at one or two of those fixes in the morning;
-> > majority look good on first quick scan (most things were needed during
-> > development or are artifacts of that period and are safe to rid of now).
-> 
-> Thanks, I'll continue later today and send another batch
-> tonight.
-
-I will wait for you to finish before i start working on the eactions.
-
-So a general comment to all the patches. All look good - I would prefer
-a check against size instead of EOPNOTSUPP for the two i pointed at.
-And going forward, prefer you leave the printks i had for errors but fix
-the return codes to be more meaningful. So only those two i pointed at
-with EOPNOTSUPP i am not ACKing (my basic tests will break) - rest Dave
-can push in.
-
-Again, thanks.
-
-cheers,
-jamal
+		
+__________________________________ 
+Do you Yahoo!? 
+The all-new My Yahoo! - What will yours do?
+http://my.yahoo.com 
