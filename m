@@ -1,14 +1,31 @@
-From: Paul Furness <paul.furness@vil.ite.mee.com>
-Subject: amd or autofos?
-Date: 16 Apr 2002 13:58:38 +0100
+From: "James Kelty" <jamesk@everbase.net>
+Subject: RE: amd or autofos?
+Date: Tue, 16 Apr 2002 13:46:34 -0700
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1018961918.1358.29.camel@x2.vil.ite.mee.com>
+Message-ID: <a9i2lg$38k$2@main.gmane.org>
+References: <1018961918.1358.29.camel@x2.vil.ite.mee.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+	charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
 Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org, linux-admin@vger.kernel.org
+To: <linux-net@vger.kernel.org>, <linux-admin@vger.kernel.org>
+In-Reply-To: <1018961918.1358.29.camel@x2.vil.ite.mee.com>
 List-Id: netdev.vger.kernel.org
+
+If you just want to mount the NFS shares at boot and keep them there, you
+can
+just edit the /etc/fstab file to reflect that.
+
+-James
+
+-----Original Message-----
+From: linux-admin-owner@vger.kernel.org
+[mailto:linux-admin-owner@vger.kernel.org]On Behalf Of Paul Furness
+Sent: Tuesday, April 16, 2002 5:59 AM
+To: linux-net@vger.kernel.org; linux-admin@vger.kernel.org
+Subject: amd or autofos?
+
 
 Hi, all.
 
@@ -24,7 +41,7 @@ on whichever machine the user logs in to. This includes not only shared
 volumes of data, but also the home directories of the users.
 
 There is an ongoing problem where AMD on a random machine dies at a
-random time, and has to be restarted so people can access files again. 
+random time, and has to be restarted so people can access files again.
 
 It is my intention to upgrade all the servers to RH7.2 (I could update
 the individual packages and the build a kernel, but a full upgrade seems
@@ -33,7 +50,7 @@ some of it works.
 
 So given an unrestricted choice between ams and autofs, which would you
 go for? Is autofs more stable than amd? It certainly looks to be
-slightly better documented and slightly easier to configure. 
+slightly better documented and slightly easier to configure.
 
 Any thoughts would be appreciated.
 
@@ -42,4 +59,9 @@ Thanks.
 BUNgle
 
 "One of these days I'll figure how the damn thing works..."
+
+-
+To unsubscribe from this list: send the line "unsubscribe linux-admin" in
+the body of a message to majordomo@vger.kernel.org
+More majordomo info at  http://vger.kernel.org/majordomo-info.html
 
