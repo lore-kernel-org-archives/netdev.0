@@ -1,25 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [RFR] gianfar ethernet driver
-Date: Thu, 08 Jul 2004 19:25:37 -0400
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] netem - add jitter support.
+Date: 08 Jul 2004 21:14:10 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40EDD7F1.6090309@pobox.com>
-References: <8F52CF1D-C916-11D8-BB6A-000393DBC2E8@freescale.com> <40E98FB8.4070900@pobox.com> <20040708231131.GA20305@infradead.org>
+Message-ID: <1089335650.1046.150.camel@jzny.localdomain>
+References: <20040708135320.03366bd7@dell_ss3.pdx.osdl.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Kumar Gala <kumar.gala@freescale.com>, Netdev <netdev@oss.sgi.com>,
-        David Woodhouse <dwmw2@infradead.org>, jamal <hadi@cyberus.ca>
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@infradead.org>
-In-Reply-To: <20040708231131.GA20305@infradead.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040708135320.03366bd7@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Hellwig wrote:
-> Are you sure someone ever tried building this driver modular?  The makefile
-> would try to build it into three separate modules, and they'd fail to load
-> due to unresolved cross-depencies..
+On Thu, 2004-07-08 at 16:53, Stephen Hemminger wrote:
+> This patch adds jitter if desired to the delayed packets in the
+> netem scheduler.  I dropped the rate stuff out and reorganized so
+> that an underlying pfifo queue is used (next plan is to make it
+> have class ops).
+> 
+> The jitter is given as sigma to a Gaussian normal distribution.  The actual
+> implementation is a reduced form of the table driven stuff in NISTnet
+> (free). 
 
+Good stuff. 
+- Is that NIST code/reference ok to put there? I have a feeling its
+non-free.
+- Could that table be computed in user space instead? This way you are
+not restricted to just the normal distribution. I could also use them
+if available from within tc sources,
 
-For embedded drivers isn't not uncommon that it's never used as a 
-module, so it wouldn't surprise me.
+cheers,
+jamal
