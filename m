@@ -1,173 +1,62 @@
-From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 2/2] [bonding 2.6] fix creation of /proc/net/bonding dir
-Date: Thu, 20 Nov 2003 19:56:33 +0200
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: suggested forcedeth updates....
+Date: Thu, 20 Nov 2003 18:04:31 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311201956.35783.amir.noam@intel.com>
+Message-ID: <20031120180428.B1538@sygehus.dk>
+References: <BAY2-F153s0m7nz605N0001807b@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Alexander Zapatka <alexzapatka@hotmail.com>
 Content-Disposition: inline
+In-Reply-To: <BAY2-F153s0m7nz605N0001807b@hotmail.com>; from alexzapatka@hotmail.com on Wed, Nov 19, 2003 at 10:06:13AM -0500
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix the creation of the /proc/net/bonding dir.
-Patch is against 2.6.
+On Wed, Nov 19, 2003 at 10:06:13AM -0500, Alexander Zapatka wrote:
+> thats a great idea!  except i dont know how to implement it in a patch :)  
+> hope it makes it in to the next version.
 
-Amir
+It is fairly simple. In the driver private structure, add a field named
+"msg_enable". In the probe function (the one where alloc_etherdev() is
+called), set the msg_enable field from the global debug variable. Then,
+use the macros from linux/netdevice.h to see if the debug output should be
+printed. For example:
 
+void forcedeth_init_one (stuff)
+{
+	struct forcedeth_private *fp;
+	...
+	dev = alloc_etherdev (sizeof (struct forcedeth_private));
+	...
+	fp = dev->priv;
+	fp->msg_enable = debug;
+	...
+	register_netdev (dev);
+}
 
-diff -Naurp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Sun Nov  2 15:06:08 2003
-+++ b/drivers/net/bonding/bond_main.c	Sun Nov  2 15:06:18 2003
-@@ -3573,6 +3573,62 @@ static void bond_destroy_proc_info(struc
- 		bond->bond_proc_file = NULL;
- 	}
- }
-+
-+/* Create the bonding directory under /proc/net, if doesn't exist yet.
-+ * Caller must hold rtnl_lock.
-+ */
-+static void bond_create_proc_dir(void)
-+{
-+	int len = strlen(DRV_NAME);
-+
-+	for (bond_proc_dir = proc_net->subdir; bond_proc_dir;
-+	     bond_proc_dir = bond_proc_dir->next) {
-+		if ((bond_proc_dir->namelen == len) &&
-+		    !memcmp(bond_proc_dir->name, DRV_NAME, len)) {
-+			break;
-+		}
-+	}
-+
-+	if (!bond_proc_dir) {
-+		bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
-+		if (bond_proc_dir) {
-+			bond_proc_dir->owner = THIS_MODULE;
-+		} else {
-+			printk(KERN_WARNING DRV_NAME
-+				": Warning: cannot create /proc/net/%s\n",
-+				DRV_NAME);
-+		}
-+	}
-+}
-+
-+/* Destroy the bonding directory under /proc/net, if empty.
-+ * Caller must hold rtnl_lock.
-+ */
-+static void bond_destroy_proc_dir(void)
-+{
-+	struct proc_dir_entry *de;
-+
-+	if (!bond_proc_dir) {
-+		return;
-+	}
-+
-+	/* verify that the /proc dir is empty */
-+	for (de = bond_proc_dir->subdir; de; de = de->next) {
-+		/* ignore . and .. */
-+		if (*(de->name) != '.') {
-+			break;
-+		}
-+	}
-+
-+	if (de) {
-+		if (bond_proc_dir->owner == THIS_MODULE) {
-+			bond_proc_dir->owner = NULL;
-+		}
-+	} else {
-+		remove_proc_entry(DRV_NAME, proc_net);
-+		bond_proc_dir = NULL;
-+	}
-+}
- #endif /* CONFIG_PROC_FS */
- 
- /*
-@@ -3828,6 +3884,9 @@ static struct notifier_block bond_netdev
- 	.notifier_call = bond_netdev_event,
- };
- 
-+/* De-initialize device specific data.
-+ * Caller must hold rtnl_lock.
-+ */
- static inline void bond_deinit(struct net_device *dev)
- {
- 	struct bonding *bond = dev->priv;
-@@ -3839,6 +3898,9 @@ static inline void bond_deinit(struct ne
- #endif
- }
- 
-+/* Unregister and free all bond devices.
-+ * Caller must hold rtnl_lock.
-+ */
- static void bond_free_all(void)
- {
- 	struct bonding *bond, *nxt;
-@@ -3846,16 +3908,13 @@ static void bond_free_all(void)
- 	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
- 		struct net_device *dev = bond->device;
- 
--		unregister_netdev(dev);
-+		unregister_netdevice(dev);
- 		bond_deinit(dev);
- 		free_netdev(dev);
- 	}
- 
- #ifdef CONFIG_PROC_FS
--	if (bond_proc_dir) {
--		remove_proc_entry(DRV_NAME, proc_net);
--		bond_proc_dir = NULL;
--	}
-+	bond_destroy_proc_dir();
- #endif
- }
- 
-@@ -4233,18 +4292,12 @@ static int __init bonding_init(void)
- 		primary = NULL;
- 	}
- 
-+	rtnl_lock();
-+
- #ifdef CONFIG_PROC_FS
--	bond_proc_dir = proc_mkdir(DRV_NAME, proc_net);
--	if (bond_proc_dir == NULL)  {
--		printk(KERN_WARNING
--		       "bonding_init(): can not create /proc/net/" DRV_NAME);
--	} else {
--		bond_proc_dir->owner = THIS_MODULE;
--	}
-+	bond_create_proc_dir();
- #endif
- 
--	rtnl_lock();
--
- 	err = 0;
- 	for (no = 0; no < max_bonds; no++) {
- 		struct net_device *dev;
-@@ -4287,18 +4340,21 @@ static int __init bonding_init(void)
- 	return 0;
- 
- out_err:
--	rtnl_unlock();
--
- 	/* free and unregister all bonds that were successfully added */
- 	bond_free_all();
- 
-+	rtnl_unlock();
-+
- 	return err;
- }
- 
- static void __exit bonding_exit(void)
- {
- 	unregister_netdevice_notifier(&bond_netdev_notifier);
-+
-+	rtnl_lock();
- 	bond_free_all();
-+	rtnl_unlock();
- }
- 
- module_init(bonding_init);
+void forcedeth_rx_one (stuff)
+{
+	struct forcedeth_private *fp = dev->priv;
+
+	if (unlikely (netif_msg_rx_data (fp))) {
+		printk_packet_data ();
+	}
+}
+
+And so on. In some cases you may not have a dev and thus no dev->priv and
+need to use the NETIF_MSG_* flags directly, e.g.
+
+	if (debug & NETIF_MSG_HW)
+		dump_registers();
+
+but I think that will only happen early in the probe function.
+
+Then there is the ethtool part. This used to involve a lots of ioctl() grot
+in every driver that wanted to be ethtool capable, but have a look at the
+dev->ethtool_ops patches posted recently, as they should simplify things a lot.
+
+-- 
+Regards,
+Rask Ingemann Lambertsen
