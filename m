@@ -1,40 +1,107 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: HELP for dccp implementation.
-Date: Wed, 1 Sep 2004 23:48:05 -0300
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: neigh_create/inetdev_destroy race?
+Date: Wed, 1 Sep 2004 22:21:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040902024805.GA23844@conectiva.com.br>
-References: <412CC269.8080907@rus.uni-stuttgart.de> <1093454747.1034.85.camel@jzny.localdomain> <4135A32A.4030901@rus.uni-stuttgart.de> <20040901133709.3637d63d.davem@davemloft.net>
+Message-ID: <20040901222118.0ce4bcc6.davem@davemloft.net>
+References: <20040814005411.GA18350@gondor.apana.org.au>
+	<20040814012513.GA721@gondor.apana.org.au>
+	<20040814013030.GA2042@gondor.apana.org.au>
+	<20040814050848.GA11874@gondor.apana.org.au>
+	<20040814062703.GA4806@gondor.apana.org.au>
+	<20040815191450.77532d5d.davem@redhat.com>
+	<20040816105131.GA11299@gondor.apana.org.au>
+	<20040828234201.79556f6e.davem@davemloft.net>
+	<20040829065031.GA786@gondor.apana.org.au>
+	<20040830230820.7514985d.davem@davemloft.net>
+	<20040831104139.GA2124@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Zhikui Chen <zhikui.chen@rus.uni-stuttgart.de>, hadi@cyberus.ca,
-        dccp@ietf.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040901133709.3637d63d.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040831104139.GA2124@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Sep 01, 2004 at 01:37:09PM -0700, David S. Miller escreveu:
-> On Wed, 01 Sep 2004 12:23:38 +0200
-> Zhikui Chen <zhikui.chen@rus.uni-stuttgart.de> wrote:
+On Tue, 31 Aug 2004 20:41:39 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
+
+> > I think we can clear this by putting neigh_parms_release() into an
+> > RCU handler.  It can't be in in_dev_rcu_put.
 > 
-> > If I assign a value such as 0x ee9fbc00 to sk in dccp_rcv (before lookup 
-> > calling), and comment lookkup calling, I get a error report from 
-> > bh_lock_sock(sk) calling inside dccp_rcv, which error report is  
-> > spin_is_locked on uninitialized spinlock ee9fbc00, and spin_lock 
-> > (<NULL>:ee9fbc00) already locked by <NULL>/73.
-> > 
-> > Do you know its reason? Thanks,
-> 
-> Zhikui, are you working together with Arnaldo using his
-> code base, like we suggested to you?  Or are you working
-> still on your own code?
+> Yes that should go a long way in resolving this problem.
 
-Dave, I've been quite busy lately with some other projects and haven't
-been able to colaborate with Zhikui, I hope to change this situation
-soon.
+So here's the first step.  No rcu_read_lock()'s are needed
+since the tbl->lock needs to be held as a write when
+traversing these things anyways for other reasons.
 
-Regards,
+Can you work on the next bit you mentioned, making
+sure the corresponding idev is still alive when we add
+a neighbour with its neigh_parms to the hash table?
 
-                        - Arnaldo
+Thanks.
+
+===== include/net/neighbour.h 1.8 vs edited =====
+--- 1.8/include/net/neighbour.h	2004-08-16 14:10:51 -07:00
++++ edited/include/net/neighbour.h	2004-09-01 21:57:37 -07:00
+@@ -46,6 +46,7 @@
+ #include <asm/atomic.h>
+ #include <linux/skbuff.h>
+ #include <linux/netdevice.h>
++#include <linux/rcupdate.h>
+ 
+ #include <linux/err.h>
+ #include <linux/sysctl.h>
+@@ -65,6 +66,8 @@
+ 	void	*priv;
+ 
+ 	void	*sysctl_table;
++
++	struct rcu_head rcu_head;
+ 
+ 	int	base_reachable_time;
+ 	int	retrans_time;
+===== net/core/neighbour.c 1.28 vs edited =====
+--- 1.28/net/core/neighbour.c	2004-04-29 16:26:35 -07:00
++++ edited/net/core/neighbour.c	2004-09-01 22:00:59 -07:00
+@@ -1120,6 +1120,7 @@
+ 	if (p) {
+ 		memcpy(p, &tbl->parms, sizeof(*p));
+ 		p->tbl		  = tbl;
++		INIT_RCU_HEAD(&p->rcu_head);
+ 		p->reachable_time =
+ 				neigh_rand_reach_time(p->base_reachable_time);
+ 		if (dev && dev->neigh_setup && dev->neigh_setup(dev, p)) {
+@@ -1135,6 +1136,14 @@
+ 	return p;
+ }
+ 
++static void neigh_rcu_free_parms(struct rcu_head *head)
++{
++	struct neigh_parms *parms =
++		container_of(head, struct neigh_parms, rcu_head);
++
++	kfree(parms);
++}
++
+ void neigh_parms_release(struct neigh_table *tbl, struct neigh_parms *parms)
+ {
+ 	struct neigh_parms **p;
+@@ -1146,7 +1155,7 @@
+ 		if (*p == parms) {
+ 			*p = parms->next;
+ 			write_unlock_bh(&tbl->lock);
+-			kfree(parms);
++			call_rcu(&parms->rcu_head, neigh_rcu_free_parms);
+ 			return;
+ 		}
+ 	}
+@@ -1159,6 +1168,7 @@
+ {
+ 	unsigned long now = jiffies;
+ 
++	INIT_RCU_HEAD(&tbl->parms.rcu_head);
+ 	tbl->parms.reachable_time =
+ 			  neigh_rand_reach_time(tbl->parms.base_reachable_time);
+ 
