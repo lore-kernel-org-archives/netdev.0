@@ -1,70 +1,29 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [XFRM] Move xfrm4_rcv export to its site
-Date: Fri, 29 Oct 2004 12:13:52 +1000
+From: Miles Bader <miles@lsi.nec.co.jp>
+Subject: Re: [2.6 patch] appletalk: remove an unused function
+Date: Fri, 29 Oct 2004 11:56:11 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029021352.GA22550@gondor.apana.org.au>
+Message-ID: <buohdoegrlg.fsf@mctpc71.ucom.lsi.nec.co.jp>
+References: <20041028221046.GI3207@stusta.de>
+	<20041028162643.2ee7e30e.davem@davemloft.net>
+Reply-To: Miles Bader <miles@gnu.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="k1lZvvs/B4yU6o8G"
+Content-Type: text/plain; charset=us-ascii
+Cc: Adrian Bunk <bunk@stusta.de>, acme@conectiva.com.br, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041028162643.2ee7e30e.davem@davemloft.net> (David S.
+ Miller's message of "Thu, 28 Oct 2004 16:26:43 -0700")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+"David S. Miller" <davem@davemloft.net> writes:
+> This is a patch of a patch, I doubt it will apply cleanly ;-)
 
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Note if you run it through gpg/pgp decoding it will output the real
+patch (my mail client does this automatically, so the comments saying
+the patches were screwed up were very confusing at first!).
 
-Hi:
-
-Here is a trivial patch that moves xfrm4_rcv's export to the
-site of its definition.  Currently it lives in net/xfrm which
-is miles away.
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Cheers,
+-Miles
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---k1lZvvs/B4yU6o8G
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/ipv4/xfrm4_input.c 1.12 vs edited =====
---- 1.12/net/ipv4/xfrm4_input.c	2004-09-17 06:11:46 +10:00
-+++ edited/net/ipv4/xfrm4_input.c	2004-10-29 11:56:27 +10:00
-@@ -9,6 +9,7 @@
-  * 	
-  */
- 
-+#include <linux/module.h>
- #include <linux/string.h>
- #include <net/inet_ecn.h>
- #include <net/ip.h>
-@@ -18,6 +19,8 @@
- {
- 	return xfrm4_rcv_encap(skb, 0);
- }
-+
-+EXPORT_SYMBOL(xfrm4_rcv);
- 
- static inline void ipip_ecn_decapsulate(struct sk_buff *skb)
- {
-===== net/xfrm/xfrm_export.c 1.5 vs edited =====
---- 1.5/net/xfrm/xfrm_export.c	2004-10-26 13:23:46 +10:00
-+++ edited/net/xfrm/xfrm_export.c	2004-10-29 11:55:44 +10:00
-@@ -27,7 +27,6 @@
- EXPORT_SYMBOL(secpath_dup);
- EXPORT_SYMBOL(xfrm_get_acqseq);
- EXPORT_SYMBOL(xfrm_parse_spi);
--EXPORT_SYMBOL(xfrm4_rcv);
- EXPORT_SYMBOL(xfrm_register_type);
- EXPORT_SYMBOL(xfrm_unregister_type);
- EXPORT_SYMBOL(xfrm_get_type);
-
---k1lZvvs/B4yU6o8G--
+Run away!  Run away!
