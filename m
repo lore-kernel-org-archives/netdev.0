@@ -1,9 +1,9 @@
 From: akpm@osdl.org
-Subject: [patch 10/10] ip_conntrack build fix
-Date: Mon, 24 Jan 2005 18:57:23 -0800
-Message-ID: <200501250257.j0P2vpl20304@mail.osdl.org>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org,
-        benoit.boissinot@ens-lyon.org
+Subject: [patch 09/10] e100 locking up netconsole.
+Date: Mon, 24 Jan 2005 18:57:22 -0800
+Message-ID: <200501250257.j0P2vnl20299@mail.osdl.org>
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, rostedt@goodmis.org,
+        mingo@elte.hu
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
@@ -11,39 +11,33 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-From: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+From: Steven Rostedt <rostedt@goodmis.org>
 
-Without the following patch, it doesn't compile with ip_conntrack and
-without ip_nat.
+If the transmit buffer of the e100 overflowed, then the system would hang. 
+This was caused because the e100 driver would stop the queue, and
+netpoll_send_pkt in netpoll.c would then loop forever.  This is because the
+e100 net_poll would never start the queue again after the transmits have
+completed.
 
-In file included from net/ipv4/netfilter/ip_conntrack_standalone.c:34:
-include/linux/netfilter_ipv4/ip_conntrack.h:306: error: parameter `manip' has incomplete type
-include/linux/netfilter_ipv4/ip_conntrack.h: In function `ip_nat_initialized':
-include/linux/netfilter_ipv4/ip_conntrack.h:307: error: `IP_NAT_MANIP_SRC' undeclared (first use in this function)
+For those that use the e100 and netconsole, all you need to do is a sysreq
+'t' to lock up the system.
 
-Signed-off-by: Benoit Boissinot <benoit.boissinot@ens-lyon.org>
+Acked-by: Ingo Molnar <mingo@elte.hu>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/include/linux/netfilter_ipv4/ip_conntrack.h |    2 ++
- 1 files changed, 2 insertions(+)
+ 25-akpm/drivers/net/e100.c |    1 +
+ 1 files changed, 1 insertion(+)
 
-diff -puN include/linux/netfilter_ipv4/ip_conntrack.h~ip_conntrack-build-fix include/linux/netfilter_ipv4/ip_conntrack.h
---- 25/include/linux/netfilter_ipv4/ip_conntrack.h~ip_conntrack-build-fix	2005-01-24 18:55:47.956006416 -0800
-+++ 25-akpm/include/linux/netfilter_ipv4/ip_conntrack.h	2005-01-24 18:55:47.960005808 -0800
-@@ -301,6 +301,7 @@ struct ip_conntrack_stat
- 
- #define CONNTRACK_STAT_INC(count) (__get_cpu_var(ip_conntrack_stat).count++)
- 
-+#ifdef CONFIG_IP_NF_NAT_NEEDED
- static inline int ip_nat_initialized(struct ip_conntrack *conntrack,
- 				     enum ip_nat_manip_type manip)
- {
-@@ -308,5 +309,6 @@ static inline int ip_nat_initialized(str
- 		return test_bit(IPS_SRC_NAT_DONE_BIT, &conntrack->status);
- 	return test_bit(IPS_DST_NAT_DONE_BIT, &conntrack->status);
+diff -puN drivers/net/e100.c~e100-locking-up-netconsole drivers/net/e100.c
+--- 25/drivers/net/e100.c~e100-locking-up-netconsole	2005-01-24 18:55:47.829025720 -0800
++++ 25-akpm/drivers/net/e100.c	2005-01-24 18:55:47.834024960 -0800
+@@ -1630,6 +1630,7 @@ static void e100_netpoll(struct net_devi
+ 	struct nic *nic = netdev_priv(netdev);
+ 	e100_disable_irq(nic);
+ 	e100_intr(nic->pdev->irq, netdev, NULL);
++	e100_tx_clean(nic);
+ 	e100_enable_irq(nic);
  }
-+#endif /* CONFIG_IP_NF_NAT_NEEDED */
- #endif /* __KERNEL__ */
- #endif /* _IP_CONNTRACK_H */
+ #endif
 _
