@@ -1,44 +1,56 @@
-From: Ravikiran G Thirumalai <kiran@in.ibm.com>
-Subject: [trivial] Use __init and __exit for sctp_init and sctp_exit
-Date: Tue, 10 Dec 2002 18:55:02 +0530
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: forgotten dev_put for bridge-devices in nf_reinject
+Date: Tue, 10 Dec 2002 14:35:58 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021210185502.G17375@in.ibm.com>
+Message-ID: <3DF5EDBE.7000707@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev <netdev@oss.sgi.com>, linux-kernel@vger.kernel.org
+Content-Type: multipart/mixed;
+ boundary="------------000505020000010609080306"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller " <davem@redhat.com>
-Content-Disposition: inline
+To: Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-These module_init and module_exit routines should have been marked 
-__init and __exit like every where else I guess... 
+This is a multi-part message in MIME format.
+--------------000505020000010609080306
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Please apply
+Hi.
 
-Thanks,
-Kiran
+The attached patch releases the bridge devices grabbed in nf_queue after 
+reinjecting the packet.
+Seems someone forgot these (or planned to get Rusty killed) ;)
 
+Bye,
+Patrick
 
-diff -ruN -X dontdiff linux-2.5.51/net/sctp/protocol.c sctp_fix-2.5.51/net/sctp/protocol.c
---- linux-2.5.51/net/sctp/protocol.c	Tue Dec 10 08:16:10 2002
-+++ sctp_fix-2.5.51/net/sctp/protocol.c	Tue Dec 10 18:48:07 2002
-@@ -598,7 +598,7 @@
+--------------000505020000010609080306
+Content-Type: text/plain;
+ name="nfqueue-bridge-devput.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="nfqueue-bridge-devput.diff"
+
+--- linux-2.5.50/net/core/netfilter.c.orig	2002-12-10 14:16:20.000000000 +0100
++++ linux-2.5.50/net/core/netfilter.c	2002-12-10 14:19:23.000000000 +0100
+@@ -574,7 +574,15 @@
+ 	/* Release those devices we held, or Alexey will kill me. */
+ 	if (info->indev) dev_put(info->indev);
+ 	if (info->outdev) dev_put(info->outdev);
+-	
++#if defined(CONFIG_BRIDGE) || defined(CONFIG_BRIDGE_MODULE)
++	if (skb->nf_bridge) {
++		if (skb->nf_bridge->physindev)
++			dev_put(skb->nf_bridge->physindev);
++		if (skb->nf_bridge->physoutdev)
++			dev_put(skb->nf_bridge->physoutdev);
++	}
++#endif
++
+ 	kfree(info);
+ 	return;
  }
- 
- /* Initialize the universe into something sensible.  */
--int sctp_init(void)
-+int __init sctp_init(void)
- {
- 	int i;
- 	int status = 0;
-@@ -751,7 +751,7 @@
- }
- 
- /* Exit handler for the SCTP protocol.  */
--void sctp_exit(void)
-+void __exit sctp_exit(void)
- {
- 	/* BUG.  This should probably do something useful like clean
- 	 * up all the remaining associations and all that memory.
+
+--------------000505020000010609080306--
