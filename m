@@ -1,53 +1,32 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: [ANNOUNCE] NAPI patches for 2.4.19-rc1
-Date: Wed, 10 Jul 2002 20:41:59 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: PROBLEM: udp not delivered on special socket receive buffer
+ size
+Date: Wed, 10 Jul 2002 19:15:35 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0207102019160.2498-100000@beohost.scyld.com>
-References: <Pine.GSO.4.30.0207101917480.22734-100000@shell.cyberus.ca>
+Message-ID: <20020710.191535.28787427.davem@redhat.com>
+References: <200207100945.13002.welk@fokus.gmd.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+   gober@fokus.gmd.de
 Return-path: <owner-netdev@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-In-Reply-To: <Pine.GSO.4.30.0207101917480.22734-100000@shell.cyberus.ca>
+To: welk@fokus.gmd.de
+In-Reply-To: <200207100945.13002.welk@fokus.gmd.de>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 10 Jul 2002, jamal wrote:
-...
-> For the best perfomance (at least on the Znyx Nics) turn on MMIO
-> (selected from kernel config). Ignore anything that looks strange
-> in the code. The dl2k and sundance driver from Ed Peng listed in the
-> README at the site should work fine on 2.4
+   From: Matthias Welk <welk@fokus.gmd.de>
+   Date: Wed, 10 Jul 2002 09:45:11 +0200
 
-Ehhh?  Has anyone tested that sundance driver with the Kendin chip using
-the on-chip transceiver?  I'm guessing that it doesn't work.
+   So my question is:
+   
+   Is this a bug or are there any reasons for this magic 831 bytes
+   barrier ?
 
-And, BTW, I don't like some of the driver changes in that version.
+Assuming anything about the meaning of the send/receive buffer sizes,
+as raw numbers, is going to cause no ends of problems for any
+application.
 
-One pair of changes that represent "it works for me" code and flawed
-reasoning is resetting the transceiver and then calling mdelay(300).
-
-Unless there is a specific known hardware problem, the driver should not
-reset the transceiver and thus re-do autonegotiation.  Some switches
-(Cisco) turn off traffic to that port for a minute when link beat is
-lost, and some operations rely on being able to rapidly bring the
-interface up and down.
-
-The mdelay(300) is completely bogus.  While that is a typical period for
-autonegotiation to complete on a short link, the spec says that it can
-take up to 3 seconds, 10X longer, to complete autonegotiation.  Given
-that the driver must be able to handle a longer autonegotiation period
-and no link beat, why call mdelay() at all?
-
-The driver also changes the transceiver settings to non-standard
-values.  Yes, the change might seem more descriptive, but the modified
-driver doesn't match the documentation or accept the options that other
-drivers do.  There is a value to consistency: "/bin/list" is more
-descriptive than  "/bin/ls", but you don't see any distribution trying
-to rename 'ls'... 
-
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-410 Severn Ave. Suite 210		Second Generation Beowulf Clusters
-Annapolis MD 21403			410-990-9993
+Under Linux, the size of the socket buffer structure itself (not just
+the data) is subtracted from the socket buffer size when accounting.
+That is a perfectly legal thing to do.  So the Java code is broken.
