@@ -1,58 +1,112 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [PATCH 2.6.12-rc1-mm1] net/ethernet/eth.c - eth_header
-Date: Wed, 23 Mar 2005 15:25:18 -0600
-Message-ID: <200503231525.18110.jdmason@us.ibm.com>
-References: <200503231734.59277.vicente.feito@gmail.com> <4241D691.5000707@pobox.com> <200503231815.33162.vicente.feito@gmail.com>
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: wireless 2.6 work
+Date: Thu, 24 Mar 2005 00:07:02 +0200
+Message-ID: <200503240007.11954.vkondra@mail.ru>
+References: <20050310025036.GE17854@ruslug.rutgers.edu> <4240D158.1060302@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: multipart/signed;
+  boundary="nextPart9429505.gCS1A5zDSB";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
-To: Vicente Feito <vicente.feito@gmail.com>
-In-Reply-To: <200503231815.33162.vicente.feito@gmail.com>
-Content-Disposition: inline
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
+	Netdev <netdev@oss.sgi.com>, Dan Williams <dcbw@redhat.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	James Ketrenos <jketreno@linux.intel.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4240D158.1060302@pobox.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 23 March 2005 12:15 pm, Vicente Feito wrote:
-> On Wednesday 23 March 2005 08:50 pm, Jeff Garzik wrote:
-> > Vicente Feito wrote:
-> > > Hi,
-> > > Please consider applying (or droping).
-> > > Thank you.
-> > >
-> > > Description: This patch prevent drivers from calling eth_header with a
-> > > 802.3 frame using a len>1536. In such a case returns -EINVAL, which was
-> > > hard to choose because the ETH_HLEN is supposed to return.
-> > >
-> > > Signed-off-by: Vicente Feito <vicente.feito@gmail.com>
-> > >
-> > >
-> > > -----------------------------------------------------------------------
-> > >-
-> > >
-> > > --- linux-2.6.12-rc1-mm1/net/ethernet/eth.c.orig 2005-03-22
-> > > 12:49:08.000000000 +0000 +++
-> > > linux-2.6.12-rc1-mm1/net/ethernet/eth.c 2005-03-22 12:49:36.000000000
-> > > +0000 @@ -78,6 +78,8 @@ int eth_header(struct sk_buff *skb, stru
-> > >  {
-> > >   struct ethhdr *eth = (struct ethhdr *)skb_push(skb,ETH_HLEN);
-> > >
-> > > + if (type == ETH_P_802_3 && len >= 1536)
-> > > +  return -EINVAL;
-> >
-> > Why?  Won't this break for jumbo frames?
-> >
-> >  Jeff
->
-> True, I completely forgot about it, I was having problems with a driver and
-> I though this would be a correct approach for size violation avoidance, but
-> I guess it doesn't have much sense to change len >= 1536 by the 9000 of a
-> jumbo packet, sorry.
+--nextPart9429505.gCS1A5zDSB
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-Jumbo Frames can be upto 16k.
+I did posted once; it was long time ago. I am sure I sent it to Dave. I can=
+=20
+resend if needed. Basically, I made Dave's stack work on 2.6 kernels; did=20
+some changes toward QoS and provided simple utility to imitate low level=20
+driver. I was concentrated on interfaces, it is still just skeleton.
 
--- 
-Jon Mason
-jdmason@us.ibm.com
+I did not touched this work since then. I used to do stuff very close to=20
+802.11 stack. Now I am very busy with some different work.
+I can however consult on any 802.11 standard issues, QoS in particular.
+
+Maybe, it is good idea to talk to James Ketrenos as well. Last time I saw h=
+im=20
+doing good work on .11 stack.
+
+Vladimir
+
+On Wednesday 23 March 2005 04:15, Jeff Garzik wrote:
+JG> Luis R. Rodriguez wrote:
+JG> > Jeff,
+JG> >
+JG> > I'm sick off the low activity and slow support on wireless we have. I
+JG> > know you're busy so I wanted to offer my help in helping around work =
+on
+JG> > wireless-2.6, now that I have time after work, and before I commit
+JG> > myself to anything else. It's a bit suicidal, but oh well. Oh yeah and
+JG> > I'll also start using bitkeeper due to the recent clarifications on t=
+he
+JG> > license of its usage.
+JG>
+JG> Great!  While I think BitKeeper is useful, you are more than welcome to
+JG> continue sending patches.
+JG>
+JG> To wireless developers, BitKeeper will mainly be of use in sync'ing with
+JG> the latest wireless-2.6 tree.
+JG>
+JG>
+JG> > I'll willing to review as much patches as I have to and also hopefully
+JG> > write documentation on writing new wireless drivers. That said, if I
+ can JG> > be of any assistance, where what you like me to start on?
+JG> >
+JG> > Here's what's on my agenda so far:
+JG> >
+JG> > * Help cleanup new ralink driver, start using ieee802211 and get into
+ wireless-2.6. JG> > * Push prism54's new WPA and WDS support into
+ wireless-2.6
+JG> > * Start seeing what I can use off of ieee80211 for prism54, clean it,
+JG> >   and move to wireless-2.6
+JG> > * Start incorporating WPA through wpa_supplicant onto as many drivers
+JG> > * Start standardizing all things a bit, as bitched about and well
+ pointed out JG> >   by Dan Williams <dcbw@redhat.com>
+JG> > * Listen to Jouni, he's the man
+JG>
+JG> Well, all this sounds good to me.  See also the 'status' post I just
+JG> made, and the 'note on wireless development process' I am about to writ=
+e.
+JG>
+JG> I'm really hoping someone will look into integrating wireless 802.11 as
+JG> a "real" protocol, rather than faking ethernet.  This work starts with
+JG> the "p80211" template DaveM provided, and hopefully continues with
+JG> Vladimir's updates of DaveM's code (did he post those anywhere?).  There
+JG> are also issues such as ARP types that Dan Williams mentioned to me as
+JG> issues.
+JG>
+JG> The "integrate wireless into net stack" work requires a very
+JG> self-motivated person who is willing to poke into the net stack, and
+JG> answer their own questions.
+JG>
+JG>  Jeff
+JG>
+JG>
+JG>
+JG>
+JG>
+
+--nextPart9429505.gCS1A5zDSB
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBCQeiOqxdj7mhC6o0RAhwlAKCXVdrBJ+4GMl3wvY1I2VF8i7oHQgCfX2k7
+YiFDk03gK3t8bRVOcbJwW5E=
+=kAfI
+-----END PGP SIGNATURE-----
+
+--nextPart9429505.gCS1A5zDSB--
