@@ -1,37 +1,53 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-Subject: Re: The ultimate TOE design
-Date: Thu, 16 Sep 2004 13:57:47 +0100
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2.6 NET] Fixes slab corruption in cbq_destroy
+Date: Thu, 16 Sep 2004 16:09:43 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095339466.22739.22.camel@localhost.localdomain>
-References: <20040915141346.5c5e5377.davem@davemloft.net>
-	 <4148991B.9050200@pobox.com>
-	 <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
-	 <1095275660.20569.0.camel@localhost.localdomain> <4148A90F.80003@pobox.com>
-	 <20040915140123.14185ede.davem@davemloft.net>
-	 <20040915210818.GA22649@havoc.gtf.org>
-	 <20040915141346.5c5e5377.davem@davemloft.net>
-	 <5.1.0.14.2.20040916192213.04240008@171.71.163.14>
-	 <1095337159.22739.7.camel@localhost.localdomain>
-	 <20040916133301.GA15562@wotan.suse.de>
+Message-ID: <20040916140943.GC27293@postel.suug.ch>
+References: <20040916132856.GA27293@postel.suug.ch> <4149998C.6060501@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Lincoln Dale <ltd@cisco.com>, Jeff Garzik <jgarzik@pobox.com>,
-        "David S. Miller" <davem@davemloft.net>, paul@clubi.ie,
-        netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040916133301.GA15562@wotan.suse.de>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <4149998C.6060501@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Iau, 2004-09-16 at 14:33, Andi Kleen wrote:
-> > At 1Ghz the Athlon Geode NX draws about 6W. Thats less than my SCSI
+* Patrick McHardy <4149998C.6060501@trash.net> 2004-09-16 15:47
+> Thomas Graf wrote:
 > 
-> Are you sure that's worst case, not average? Worst case is usually
-> much worse on a big CPU like an Athlon, but the power supply 
-> has to be sized for it. 
+> >Fixes slab corruption in cbq_destroy. cbq_destroy_filters and
+> >qdisc_put_rtab(q->link.R_tab) are already called in cbq_destroy_class.
+> >The latter lead to a slab corruption due to repeated freeing of
+> >q->link.R_tab because q->link is part of q->classes. Problem introduced
+> >in 1.21.
+> > 
+> >
+> I don't see how there can be slab corruption. qdisc_put_rtab only
+> calls kfree if the table is found in qdisc_rtab_list, which only
+> happens once. But the patch is still fine as cleanup :)
 
-You are correct - 6W average 9W TDP, still less than my scsicontroller
-8)
+On second call to qdisc_put_rtab with tab pointing to an already
+freed qdisc_rate_table:
+
+sch_api.c:271:  if (!tab || --tab->refcnt)
+
+Sep 16 01:52:51 axs kernel: Slab corruption: start=d8bd4f30, len=2048
+Sep 16 01:52:51 axs kernel: Redzone: 0x5a2cf071/0x5a2cf071.
+Sep 16 01:52:51 axs kernel: Last user: [<c036c9af>](cbq_destroy_class+0x36/0x60)
+Sep 16 01:52:51 axs kernel: 410: 6a 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b 6b
+                                 ^^
+	I guess this is the --tab->refcnt
+
+Sep 16 01:52:51 axs kernel: Prev obj: start=d8bd4724, len=2048
+Sep 16 01:52:51 axs kernel: Redzone: 0x170fc2a5/0x170fc2a5.
+Sep 16 01:52:51 axs kernel: Last user: [<c0364594>](qdisc_get_rtab+0x77/0xcd)
+Sep 16 01:52:51 axs kernel: 000: 04 00 00 00 00 00 40 00 20 bc be 00 05 00 00 00
+Sep 16 01:52:51 axs kernel: 010: 05 00 00 00 05 00 00 00 05 00 00 00 05 00 00 00
+Sep 16 01:52:51 axs kernel: Next obj: start=d8bd573c, len=2048
+Sep 16 01:52:51 axs kernel: Redzone: 0x170fc2a5/0x170fc2a5.
+Sep 16 01:52:51 axs kernel: Last user: [<c03484ce>](alloc_skb+0x48/0xe1)
+Sep 16 01:52:51 axs kernel: 000: 6c 04 00 00 28 00 05 06 d5 d5 48 41 00 00 00 00
+Sep 16 01:52:51 axs kernel: 010: 00 00 00 00 04 00 00 00 12 00 10 00 00 00 10 00
