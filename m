@@ -1,30 +1,30 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Thu, 3 Oct 2002 13:30:44 +1000 (EST)
+From: acme@conectiva.com.br
+Subject: Re: [PATCH] IPv6: Allow Both IPv6 and IPv4 Sockets on the Same Port Number (IPV6_V6ONLY Support)
+Date: Thu, 03 Oct 2002 00:53:01 -0300 (BRST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Mutt.LNX.4.44.0210031329450.13240-100000@blackbird.intercode.com.au>
-References: <1033388585.16337.9.camel@irongate.swansea.linux.org.uk>
+Message-ID: <1033617181.3d9bbf1d557a3@webmail.conectiva.com.br>
+References: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Martin Pool <mbp@samba.org>, "David S. Miller" <davem@redhat.com>,
-   <kuznet@ms2.inr.ac.ru>, <ak@muc.de>, <netdev@oss.sgi.com>,
-   <Alan.Cox@linux.org>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1033388585.16337.9.camel@irongate.swansea.linux.org.uk>
+To: YOSHIFUJI@conectiva.com.br, UNEXPECTED_DATA_AFTER_ADDRESS@.SYNTAX-ERROR
+In-Reply-To: <20021003.121350.119660876.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 30 Sep 2002, Alan Cox wrote:
 
-> Well if Dave can't test it and isnt doing any 2.2 who wants to be the
-> 2.2 networking maintainer ?
-> 
-
-I'd be willing to give it a go.
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Quoting YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>: 
+ 
+> +#define IN6_IS_ADDR_V4MAPPED(a)				\ 
+> +	((((a)->s6_addr32[0]) == 0) &&			\ 
+> +	 (((a)->s6_addr32[1]) == 0) &&			\ 
+> +	 (((a)->s6_addr32[2]) == __constant_htonl(0x0000ffff))) 
+ 
+Please use plain htonl, __constant_htonl is only needed in static 
+initializations, in all other cases with constants as a parameter it 
+generates the same code as htonl, so lets prefer using the shorter, 
+more readable format. 
+ 
+- Arnaldo 
