@@ -1,17 +1,18 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] [bonding] Convert /proc to seq_file
-Date: Sat, 20 Sep 2003 14:49:26 -0400
+Subject: Re: [PATCH] (1/4) Update baycom drivers for 2.6
+Date: Sat, 20 Sep 2003 15:00:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F6CA136.7070908@pobox.com>
-References: <200309151411.08451.amir.noam@intel.com>
+Message-ID: <3F6CA3E3.9060909@pobox.com>
+References: <20030919133750.4053f72c.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: Thomas Sailer <t.sailer@alumni.ethz.ch>, linux-hams@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: <200309151411.08451.amir.noam@intel.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20030919133750.4053f72c.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied to 2.6.
+hum.  I seem to be missing patch 4/4...
