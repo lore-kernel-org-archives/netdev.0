@@ -1,28 +1,30 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: odd behavior with r8169 and pcap
-Date: Tue, 30 Nov 2004 01:21:27 +0100
-Message-ID: <20041130002127.GC3880@electric-eye.fr.zoreil.com>
-References: <1101751909.2291.21.camel@tux.hq.axian.com> <20041129210213.GA3880@electric-eye.fr.zoreil.com> <1101766059.3382.57.camel@tux.hq.axian.com> <20041129231800.GB3880@electric-eye.fr.zoreil.com> <1101772869.3382.101.camel@tux.hq.axian.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: KERNEL: assertion (!sk->sk_forward_alloc)
+Date: Mon, 29 Nov 2004 17:22:10 -0800
+Message-ID: <20041129172210.687bcad3.davem@davemloft.net>
+References: <20041129211855.GC17540@krispykreme.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Terry Griffin <terryg@axian.com>
-Content-Disposition: inline
-In-Reply-To: <1101772869.3382.101.camel@tux.hq.axian.com>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20041129211855.GC17540@krispykreme.ozlabs.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Terry Griffin <terryg@axian.com> :
-[...]
-> Passing acpi=off did the trick. Throughput is at the higher rate
-> with or without pcap monitoring. I did not have to change any BIOS
-> settings.
+On Tue, 30 Nov 2004 08:18:57 +1100
+Anton Blanchard <anton@samba.org> wrote:
 
-As a longer term solution, something can surely be extracted from
-the acpi tables of your computer. See
-http://forums.gentoo.org/viewtopic.php?t=122145%22%22 for an intro.
+> KERNEL: assertion (!sk->sk_forward_alloc) failed at net/core/stream.c (279)
+> KERNEL: assertion (!sk->sk_forward_alloc) failed at net/ipv4/af_inet.c (180)
+> 
+> Note that this test was run using the send-to-self patch.
 
---
-Ueimor
+Try to reproduce without that patch installed.
+
+If there is any mixup of SKB handling by any element in the
+path the packet travels, you're screw up all the TCP
+accounting knobs on the socket and easily trigger messages
+like the above.
