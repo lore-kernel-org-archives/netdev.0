@@ -1,53 +1,61 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [E1000-devel] Transmission limit
-Date: Fri, 26 Nov 2004 21:56:59 +0100
-Message-ID: <20041126205659.GJ14782@xi.wantstofly.org>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it> <41A73826.3000109@draigBrady.com> <1101483081.24742.174.camel@mellia.lipar.polito.it>
+From: thomasmazon@netscape.net
+Subject: I NEED YOUR HELP
+Date: Fri, 26 Nov 2004 22:39:10 GMT
+Message-ID: <200411262239.iAQMdO7j017815@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: P@draigBrady.com, e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marco Mellia <mellia@prezzemolo.polito.it>
-Content-Disposition: inline
-In-Reply-To: <1101483081.24742.174.camel@mellia.lipar.polito.it>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 26, 2004 at 04:31:21PM +0100, Marco Mellia wrote:
-
-> The point is:
-> while a PCI-X linux or (or click) box can receive (receive just up to
-> the netif_receive_skb() level and then discard the skb) up to more than
-> wire speed using off-the-shelf gigabit ethernet hardware, there is no
-> way to transmit more than about half that speed. This is true
-> considering minimum sized ethernet frames.
-
-That's more-or-less what I'm seeing.
-
-Theoretically, the maximum #pps you can send on gigabit is p=125000000/(s+24)
-where s is the packet size, and the constant 24 consists of the 8B preamble,
-4B FCS and and 12B inter-frame gap.
-
-On an e1000 in a 32b 66MHz PCI slot (Intel server mainboard, e1000 'desktop'
-NIC) I'm seeing that exact curve for packet sizes > ~350 bytes, but for
-smaller packets than that, the curve goes like p=264000000/(s+335)  (which
-is accurate to +/- 100pps.)  The 2.64e8 component is exactly the theoretical
-max. bandwidth of the PCI slot the card is in, the 335 a random constant
-that accounts for latency.  On a different mobo I get a curve following
-the same formula but different value for 335.
-
-The same card in a 32b 33MHz PCI slot in a cheap Asus desktop board gives
-something a bit stranger:
-- p=132000000/(s+260) for s<128
-- p=132000000/(s+390) for 128<=s<256
-- p=132000000/(s+520) for 256<=s<384
-- ...
-
-Again, the 132000000 corresponds with the theoretical max. bandwidth of
-the 32/33 bus.  I'm not all that sure yet why things show this behavior.
+Dear sir/madam,
 
 
---L
+  As you read this, I don't want you to feel sorry for
+  me, because, I believe everyone will die someday.
+  My name is THOMAS MAZON a merchant in the PHILIPPINES
+I have been diagnosed with esophageal cancer.
+  It has defiled all forms of medical treatment, and right now
+I have only about a few months to live, according to
+medical experts.
+  I have not particularly lived my life so well, as I
+never really cared for anyone (not even myself) but my
+business. Though I am very rich, I was never
+  generous, I was always hostile to people and only
+  focused on my business as that was the only thing I
+  cared for. But now I regret all this as I now know
+  that there is more to life than just wanting to have
+or make all the money in the world.
+  I believe when God gives me a second chance to come
+  to this world I would live my life a different way
+  from how I have lived it. Now that God has called
+  me, I have willed and given most of my property
+  and assets to my immediate and extended family
+  members as well as a few close friends.
+  I want God to be merciful to me and accept my soul
+  so, I have decided to give alms to charity
+  organizations, as I want this to be one of the last
+  good deeds I do on earth. So far, I have distributed
+  money to some charity organizations in the U.A.E,
+  Algeria and Malaysia. Now that my health has
+  deteriorated so badly, I cannot do this myself
+  anymore. I once asked members of my family to close one
+  of my accounts and distribute the money which I have
+  there to charity organization in Bulgaria and
+  Pakistan, they refused and kept the money to
+  themselves. Hence, I do not trust them anymore, as
+  they seem not to be contended with what I have left
+  for them.
+
+  The last of my money which no one knows of is the
+  huge cash deposit of eighteen million dollars
+  18, 000, 000, 00 that I have with a finance/Security
+Company abroad. I will want you to help me collect this
+deposit and dispatched it to charity organizations.
+  I have set aside 20 percent for your time
+
+  God be with you.
+Thomas Mazon.
