@@ -1,50 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Problem with dev_kfree_skb_any() in 2.6.0
-Date: Thu, 1 Jan 2004 21:58:07 -0500
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: Re: [PATCH]sk98lin ethtool support
+Date: Fri, 2 Jan 2004 00:00:41 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040102025807.GB3851@gtf.org>
-References: <1072567054.4112.14.camel@gaston> <20031227170755.4990419b.davem@redhat.com> <3FF0FA6A.8000904@pobox.com> <20031229205157.4c631f28.davem@redhat.com> <20031230051519.GA6916@gtf.org> <20031229220122.30078657.davem@redhat.com> <3FF11745.4060705@pobox.com> <20031229221345.31c8c763.davem@redhat.com> <3FF1B939.1090108@pobox.com> <20040101124218.258e8b73.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0401012352180.11808-100000@localhost.localdomain>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0103424AA4@orsmsx402.jf.intel.com>
+Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: benh@kernel.crashing.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Jeff Garzik <jgarzik@pobox.com>, <krishnakumar@naturesoft.net>,
+        <mlindner@syskonnect.de>, <netdev@oss.sgi.com>, <felix@allot.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040101124218.258e8b73.davem@redhat.com>
+To: Mirko Lindner <demon@pro-linux.de>
+In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E0103424AA4@orsmsx402.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 01, 2004 at 12:42:18PM -0800, David S. Miller wrote:
-> On Tue, 30 Dec 2003 12:43:21 -0500
-> Jeff Garzik <jgarzik@pobox.com> wrote:
-> 
-> > Luckily, I feel there is an easy solution, as shown in the attached 
-> > patch.  We _already_ queue skbs in dev_kfree_skb_irq().  Therefore, 
-> > dev_kfree_skb_any() can simply use precisely that same solution.  The 
-> > raise-softirq code will immediately proceed to action if we are not in 
-> > hard IRQ context, otherwise it will follow the expected path.
-> 
-> Ok, this is reasonable and works.
-> 
-> Though, is there any particular reason you don't like adding a
-> "|| irqs_disabled()" check to the if statement instead?
-> I prefer that solution better actually.
+On Tue, 30 Dec 2003, Mirko Lindner wrote:
 
-Yep, in fact when I wrote the above message, I came across a couple when I
-was pondering...
-* the destructor runs in a more predictable context.
-* given the problem that started this thread, the 'if' test is a
-  potentially problematic area.  Why not eliminate all possibility that
-  this problem will occur again?
+> > Make sure you don't duplicate any ethtool functions.=A0 We don't need=
+ a
+> > NIC-specific diag tool either ;-)=A0 ethtool is the preferred method
+> > moving forward, as it's already shipping in most Linux distros.
+>=20
+> Yes, we need it ;) No kidding! This is not a tool for SW checks like
+> media, link or driver version checks, but a tool for HW checks like
+> register, PROM, MAC, PHY and some other chip and card checks. The
+> ethtool is a great tool, but the intention of this tool is not the same.
 
-The only counter argument to this -- to which I have no data to answer --
-is that there may be advantage to calling __kfree_skb immediately
-instead of deferring it slightly.  I didn't think that disadvantage
-outweighted the above, but who knows...  I can possibly be convinced
-otherwise.  (and "otherwise" would be using || irqs_disabled())
+If the tool reports the results of running the h/w checks, then you can=20
+use ETHTOOL_TEST.  The summary results of all the tests is reported as=20
+PASS/FAIL.  Not sure if your tool needs to do more...
 
-For the users who don't know/don't care about their context, it just
-seemed to me that they were not a hot path like users of dev_kfree_skb()
-and dev_kfree_skb_irq() [unconditional] are...
-
-	Jeff
+-scott
