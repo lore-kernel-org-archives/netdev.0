@@ -1,12 +1,12 @@
 From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: [PATCH 4/4] Net device error logging, revised (tg3)
-Date: Mon, 25 Aug 2003 14:43:01 -0700
+Subject: Subject: [PATCH 3/4] Net device error logging, revised (e1000)
+Date: Mon, 25 Aug 2003 14:41:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4A82E5.215E29AA@us.ibm.com>
+Message-ID: <3F4A8274.CC498C22@us.ibm.com>
 References: <3F4A8027.6FE3F594@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------BFB5D3C9AFDADD903AFF3D3E"
+ boundary="------------9E478A7045D2DC2C7D0081CA"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: LKML <linux-kernel@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
    Jeff Garzik <jgarzik@pobox.com>, "Feldman, Scott" <scott.feldman@intel.com>,
@@ -17,405 +17,542 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------BFB5D3C9AFDADD903AFF3D3E
+--------------9E478A7045D2DC2C7D0081CA
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 
-Here's a patch to modify the v2.6.0-test4 tg3 driver to use netdev_* macros.
+Here's a patch to modify the v2.6.0-test4 e1000 driver to use netdev_*
+macros and support verbosity control via the NETIF_MSG_* message levels.
 
 Jim Keniston
 IBM Linux Technology Center
---------------BFB5D3C9AFDADD903AFF3D3E
+--------------9E478A7045D2DC2C7D0081CA
 Content-Type: text/plain; charset=us-ascii;
- name="tg3-2.6.0-test4.patch"
+ name="e1000-2.6.0-test4.patch"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="tg3-2.6.0-test4.patch"
+ filename="e1000-2.6.0-test4.patch"
 
-diff -Naur linux.org/drivers/net/tg3.c linux.tg3.patched/drivers/net/tg3.c
---- linux.org/drivers/net/tg3.c	Mon Aug 25 13:29:39 2003
-+++ linux.tg3.patched/drivers/net/tg3.c	Mon Aug 25 13:29:39 2003
-@@ -489,9 +489,8 @@
- 		break;
+diff -Naur linux.org/drivers/net/e1000/e1000.h linux.e1000.patched/drivers/net/e1000/e1000.h
+--- linux.org/drivers/net/e1000/e1000.h	Mon Aug 25 13:29:38 2003
++++ linux.e1000.patched/drivers/net/e1000/e1000.h	Mon Aug 25 13:29:38 2003
+@@ -35,6 +35,7 @@
+ #include <linux/stddef.h>
+ #include <linux/config.h>
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
+ #include <linux/types.h>
+ #include <asm/byteorder.h>
+ #include <linux/init.h>
+@@ -81,14 +82,6 @@
+ struct e1000_adapter;
  
- 	default:
--		printk(KERN_WARNING PFX "%s: Invalid power state (%d) "
--		       "requested.\n",
--		       tp->dev->name, state);
-+		netdev_warn(tp->dev,, "Invalid power state (%d) "
-+			"requested.\n", state);
- 		return -EINVAL;
- 	};
- 
-@@ -639,10 +638,10 @@
- static void tg3_link_report(struct tg3 *tp)
- {
- 	if (!netif_carrier_ok(tp->dev)) {
--		printk(KERN_INFO PFX "%s: Link is down.\n", tp->dev->name);
-+		netdev_info(tp->dev, LINK, "Link is down.\n");
- 	} else {
--		printk(KERN_INFO PFX "%s: Link is up at %d Mbps, %s duplex.\n",
--		       tp->dev->name,
-+		netdev_info(tp->dev, LINK,
-+		       "Link is up at %d Mbps, %s duplex.\n",
- 		       (tp->link_config.active_speed == SPEED_1000 ?
- 			1000 :
- 			(tp->link_config.active_speed == SPEED_100 ?
-@@ -650,9 +649,8 @@
- 		       (tp->link_config.active_duplex == DUPLEX_FULL ?
- 			"full" : "half"));
- 
--		printk(KERN_INFO PFX "%s: Flow control is %s for TX and "
-+		netdev_info(tp->dev, LINK, "Flow control is %s for TX and "
- 		       "%s for RX.\n",
--		       tp->dev->name,
- 		       (tp->tg3_flags & TG3_FLAG_TX_PAUSE) ? "on" : "off",
- 		       (tp->tg3_flags & TG3_FLAG_RX_PAUSE) ? "on" : "off");
- 	}
-@@ -2231,8 +2229,7 @@
- {
- 	struct tg3 *tp = dev->priv;
- 
--	printk(KERN_ERR PFX "%s: transmit timed out, resetting\n",
--	       dev->name);
-+	netdev_err(dev, TX_ERR, "transmit timed out, resetting\n");
- 
- 	schedule_work(&tp->reset_task);
- }
-@@ -2379,8 +2376,7 @@
- 	if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
- 		netif_stop_queue(dev);
- 		spin_unlock_irqrestore(&tp->tx_lock, flags);
--		printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
--		       dev->name);
-+		netdev_err(dev, TX_ERR, "BUG! Tx Ring full when queue awake!\n");
- 		return 1;
- 	}
- 
-@@ -2397,7 +2393,8 @@
- 			       TXD_FLAG_CPU_POST_DMA);
- 
- 		if (times++ < 5) {
--			printk("tg3_xmit: tso_size[%u] tso_segs[%u] len[%u]\n",
-+			netdev_info(dev,,
-+			       "tg3_xmit: tso_size[%u] tso_segs[%u] len[%u]\n",
- 			       (unsigned int) skb_shinfo(skb)->tso_size,
- 			       (unsigned int) skb_shinfo(skb)->tso_segs,
- 			       skb->len);
-@@ -2571,8 +2568,7 @@
- 	if (unlikely(TX_BUFFS_AVAIL(tp) <= (skb_shinfo(skb)->nr_frags + 1))) {
- 		netif_stop_queue(dev);
- 		spin_unlock_irqrestore(&tp->tx_lock, flags);
--		printk(KERN_ERR PFX "%s: BUG! Tx Ring full when queue awake!\n",
--		       dev->name);
-+		netdev_err(dev, TX_ERR, "BUG! Tx Ring full when queue awake!\n");
- 		return 1;
- 	}
- 
-@@ -2593,7 +2589,8 @@
- 			       TXD_FLAG_CPU_POST_DMA);
- 
- 		if (times++ < 5) {
--			printk("tg3_xmit: tso_size[%u] tso_segs[%u] len[%u]\n",
-+			netdev_info(dev,,
-+			       "tg3_xmit: tso_size[%u] tso_segs[%u] len[%u]\n",
- 			       (unsigned int) skb_shinfo(skb)->tso_size,
- 			       (unsigned int) skb_shinfo(skb)->tso_segs,
- 			       skb->len);
-@@ -3017,7 +3014,7 @@
- 	}
- 
- 	if (i == MAX_WAIT_CNT) {
--		printk(KERN_ERR PFX "tg3_stop_block timed out, "
-+		netdev_err(tp->dev,, "tg3_stop_block timed out, "
- 		       "ofs=%lx enable_bit=%x\n",
- 		       ofs, enable_bit);
- 		return -ENODEV;
-@@ -3070,9 +3067,9 @@
- 			break;
- 	}
- 	if (i >= MAX_WAIT_CNT) {
--		printk(KERN_ERR PFX "tg3_abort_hw timed out for %s, "
-+		netdev_err(tp->dev,, "tg3_abort_hw timed out; "
- 		       "TX_MODE_ENABLE will not clear MAC_TX_MODE=%08x\n",
--		       tp->dev->name, tr32(MAC_TX_MODE));
-+		       tr32(MAC_TX_MODE));
- 		return -ENODEV;
- 	}
- 
-@@ -3208,9 +3205,8 @@
- 
- 	if (i >= 100000 &&
- 	    !(tp->tg3_flags2 & TG3_FLG2_SUN_5704)) {
--		printk(KERN_ERR PFX "tg3_halt timed out for %s, "
--		       "firmware will not restart magic=%08x\n",
--		       tp->dev->name, val);
-+		netdev_err(tp->dev,, "tg3_halt timed out, "
-+		       "firmware will not restart magic=%08x\n", val);
- 		return -ENODEV;
- 	}
- 
-@@ -3384,9 +3380,7 @@
- 	}
- 
- 	if (i >= 10000) {
--		printk(KERN_ERR PFX "tg3_reset_cpu timed out for %s, "
--		       "and %s CPU\n",
--		       tp->dev->name,
-+		netdev_err(tp->dev,, "tg3_reset_cpu timed out for %s CPU\n",
- 		       (offset == RX_CPU_BASE ? "RX" : "TX"));
- 		return -ENODEV;
- 	}
-@@ -3498,9 +3492,9 @@
- 		udelay(1000);
- 	}
- 	if (i >= 5) {
--		printk(KERN_ERR PFX "tg3_load_firmware fails for %s "
-+		netdev_err(tp->dev,, "tg3_load_firmware fails "
- 		       "to set RX CPU PC, is %08x should be %08x\n",
--		       tp->dev->name, tr32(RX_CPU_BASE + CPU_PC),
-+		       tr32(RX_CPU_BASE + CPU_PC),
- 		       TG3_FW_TEXT_ADDR);
- 		return -ENODEV;
- 	}
-@@ -3826,9 +3820,9 @@
- 		udelay(1000);
- 	}
- 	if (i >= 5) {
--		printk(KERN_ERR PFX "tg3_load_tso_firmware fails for %s "
-+		netdev_err(tp->dev,, "tg3_load_tso_firmware fails "
- 		       "to set TX CPU PC, is %08x should be %08x\n",
--		       tp->dev->name, tr32(TX_CPU_BASE + CPU_PC),
-+		       tr32(TX_CPU_BASE + CPU_PC),
- 		       TG3_TSO_FW_TEXT_ADDR);
- 		return -ENODEV;
- 	}
-@@ -3953,9 +3947,8 @@
- 	}
- 	if (i >= 100000 &&
- 	    !(tp->tg3_flags2 & TG3_FLG2_SUN_5704)) {
--		printk(KERN_ERR PFX "tg3_reset_hw timed out for %s, "
--		       "firmware will not restart magic=%08x\n",
--		       tp->dev->name, val);
-+		netdev_err(tp->dev,, "tg3_reset_hw timed out, "
-+		       "firmware will not restart magic=%08x\n", val);
- 		return -ENODEV;
- 	}
- 
-@@ -4060,8 +4053,7 @@
- 		udelay(10);
- 	}
- 	if (i >= 2000) {
--		printk(KERN_ERR PFX "tg3_reset_hw cannot enable BUFMGR for %s.\n",
--		       tp->dev->name);
-+		netdev_err(tp->dev,, "tg3_reset_hw cannot enable BUFMGR.\n");
- 		return -ENODEV;
- 	}
- 
-@@ -4073,8 +4065,7 @@
- 		udelay(10);
- 	}
- 	if (i >= 2000) {
--		printk(KERN_ERR PFX "tg3_reset_hw cannot reset FTQ for %s.\n",
--		       tp->dev->name);
-+		netdev_err(tp->dev,, "tg3_reset_hw cannot reset FTQ.\n");
- 		return -ENODEV;
- 	}
- 
-@@ -5222,14 +5213,12 @@
-   
- static u32 tg3_get_msglevel(struct net_device *dev)
- {
--	struct tg3 *tp = dev->priv;
--	return tp->msg_enable;
-+	return dev->msg_enable;
- }
-   
- static void tg3_set_msglevel(struct net_device *dev, u32 value)
- {
--	struct tg3 *tp = dev->priv;
--	tp->msg_enable = value;
-+	dev->msg_enable = value;
- }
-   
- static int tg3_nway_reset(struct net_device *dev)
-@@ -5550,7 +5539,7 @@
- 	int i, saw_done_clear;
- 
- 	if (tp->tg3_flags2 & TG3_FLG2_SUN_5704) {
--		printk(KERN_ERR PFX "Attempt to do nvram_read on Sun 5704\n");
-+		netdev_err(tp->dev,, "Attempt to do nvram_read on Sun 5704\n");
- 		return -EINVAL;
- 	}
- 
-@@ -6049,7 +6038,7 @@
- 	/* Force the chip into D0. */
- 	err = tg3_set_power_state(tp, 0);
- 	if (err) {
--		printk(KERN_ERR PFX "(%s) transition to D0 failed\n",
-+		netdev_err(tp->dev,, "(%s) transition to D0 failed\n",
- 		       pci_name(tp->pdev));
- 		return err;
- 	}
-@@ -6160,7 +6149,8 @@
- 
- 	err = tg3_phy_probe(tp);
- 	if (err) {
--		printk(KERN_ERR PFX "(%s) phy probe failed, err %d\n",
-+		netdev_err(tp->dev,,
-+		       "(%s) phy probe failed, err %d\n",
- 		       pci_name(tp->pdev), err);
- 		/* ... but do not return immediately ... */
- 	}
-@@ -6643,20 +6633,21 @@
- 	unsigned long tg3reg_base, tg3reg_len;
- 	struct net_device *dev;
- 	struct tg3 *tp;
--	int i, err, pci_using_dac, pm_cap;
-+	int err, pci_using_dac, pm_cap;
-+	unsigned char *mac;
- 
- 	if (tg3_version_printed++ == 0)
- 		printk(KERN_INFO "%s", version);
- 
- 	err = pci_enable_device(pdev);
- 	if (err) {
--		printk(KERN_ERR PFX "Cannot enable PCI device, "
-+		dev_err(&pdev->dev, "Cannot enable PCI device, "
- 		       "aborting.\n");
- 		return err;
- 	}
- 
- 	if (!(pci_resource_flags(pdev, 0) & IORESOURCE_MEM)) {
--		printk(KERN_ERR PFX "Cannot find proper PCI device "
-+		dev_err(&pdev->dev, "Cannot find proper PCI device "
- 		       "base address, aborting.\n");
- 		err = -ENODEV;
- 		goto err_out_disable_pdev;
-@@ -6664,7 +6655,7 @@
- 
- 	err = pci_request_regions(pdev, DRV_MODULE_NAME);
- 	if (err) {
--		printk(KERN_ERR PFX "Cannot obtain PCI resources, "
-+		dev_err(&pdev->dev, "Cannot obtain PCI resources, "
- 		       "aborting.\n");
- 		goto err_out_disable_pdev;
- 	}
-@@ -6674,7 +6665,7 @@
- 	/* Find power-management capability. */
- 	pm_cap = pci_find_capability(pdev, PCI_CAP_ID_PM);
- 	if (pm_cap == 0) {
--		printk(KERN_ERR PFX "Cannot find PowerManagement capability, "
-+		dev_err(&pdev->dev, "Cannot find PowerManagement capability, "
- 		       "aborting.\n");
- 		goto err_out_free_res;
- 	}
-@@ -6683,14 +6674,14 @@
- 	if (!pci_set_dma_mask(pdev, 0xffffffffffffffffULL)) {
- 		pci_using_dac = 1;
- 		if (pci_set_consistent_dma_mask(pdev, 0xffffffffffffffffULL)) {
--			printk(KERN_ERR PFX "Unable to obtain 64 bit DMA "
-+			dev_err(&pdev->dev, "Unable to obtain 64 bit DMA "
- 			       "for consistent allocations\n");
- 			goto err_out_free_res;
- 		}
- 	} else {
- 		err = pci_set_dma_mask(pdev, (u64) 0xffffffff);
- 		if (err) {
--			printk(KERN_ERR PFX "No usable DMA configuration, "
-+			dev_err(&pdev->dev, "No usable DMA configuration, "
- 			       "aborting.\n");
- 			goto err_out_free_res;
- 		}
-@@ -6702,7 +6693,7 @@
- 
- 	dev = alloc_etherdev(sizeof(*tp));
- 	if (!dev) {
--		printk(KERN_ERR PFX "Etherdev alloc failed, aborting.\n");
-+		dev_err(&pdev->dev, "Etherdev alloc failed, aborting.\n");
- 		err = -ENOMEM;
- 		goto err_out_free_res;
- 	}
-@@ -6727,9 +6718,9 @@
- 	tp->tx_mode = TG3_DEF_TX_MODE;
- 	tp->mi_mode = MAC_MI_MODE_BASE;
- 	if (tg3_debug > 0)
--		tp->msg_enable = tg3_debug;
-+		dev->msg_enable = tg3_debug;
- 	else
--		tp->msg_enable = TG3_DEF_MSG_ENABLE;
-+		dev->msg_enable = TG3_DEF_MSG_ENABLE;
- 
- 	/* The word/byte swap controls here control register access byte
- 	 * swapping.  DMA data byte swapping is controlled in the GRC_MODE
-@@ -6759,7 +6750,7 @@
- 
- 	tp->regs = (unsigned long) ioremap(tg3reg_base, tg3reg_len);
- 	if (tp->regs == 0UL) {
--		printk(KERN_ERR PFX "Cannot map device registers, "
-+		netdev_err(dev,, "Cannot map device registers, "
- 		       "aborting.\n");
- 		err = -ENOMEM;
- 		goto err_out_free_dev;
-@@ -6789,21 +6780,21 @@
- 
- 	err = tg3_get_invariants(tp);
- 	if (err) {
--		printk(KERN_ERR PFX "Problem fetching invariants of chip, "
-+		netdev_err(dev,, "Problem fetching invariants of chip, "
- 		       "aborting.\n");
- 		goto err_out_iounmap;
- 	}
- 
- 	err = tg3_get_device_address(tp);
- 	if (err) {
--		printk(KERN_ERR PFX "Could not obtain valid ethernet address, "
-+		netdev_err(dev,, "Could not obtain valid ethernet address, "
- 		       "aborting.\n");
- 		goto err_out_iounmap;
- 	}
- 
- 	err = tg3_test_dma(tp);
- 	if (err) {
--		printk(KERN_ERR PFX "DMA engine test failed, aborting.\n");
-+		netdev_err(dev,, "DMA engine test failed, aborting.\n");
- 		goto err_out_iounmap;
- 	}
- 
-@@ -6829,7 +6820,7 @@
- 
- 	err = register_netdev(dev);
- 	if (err) {
--		printk(KERN_ERR PFX "Cannot register net device, "
-+		netdev_err(dev,, "Cannot register net device, "
- 		       "aborting.\n");
- 		goto err_out_iounmap;
- 	}
-@@ -6842,8 +6833,9 @@
- 	 */
- 	pci_save_state(tp->pdev, tp->pci_cfg_state);
- 
--	printk(KERN_INFO "%s: Tigon3 [partno(%s) rev %04x PHY(%s)] (PCI%s:%s:%s) %sBaseT Ethernet ",
--	       dev->name,
-+	mac = dev->dev_addr;
-+	netdev_info(dev, PROBE, "Tigon3 [partno(%s) rev %04x PHY(%s)] (PCI%s:%s:%s) %sBaseT Ethernet "
-+	       "%02x:%02x:%02x:%02x:%02x:%02x\n",
- 	       tp->board_part_number,
- 	       tp->pci_chip_rev_id,
- 	       tg3_phy_string(tp),
-@@ -6852,11 +6844,8 @@
- 		((tp->tg3_flags & TG3_FLAG_PCIX_MODE) ? "133MHz" : "66MHz") :
- 		((tp->tg3_flags & TG3_FLAG_PCIX_MODE) ? "100MHz" : "33MHz")),
- 	       ((tp->tg3_flags & TG3_FLAG_PCI_32BIT) ? "32-bit" : "64-bit"),
--	       (tp->tg3_flags & TG3_FLAG_10_100_ONLY) ? "10/100" : "10/100/1000");
+ #include "e1000_hw.h"
 -
--	for (i = 0; i < 6; i++)
--		printk("%2.2x%c", dev->dev_addr[i],
--		       i == 5 ? '\n' : ':');
-+	       (tp->tg3_flags & TG3_FLAG_10_100_ONLY) ? "10/100" : "10/100/1000",
-+	       mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+-#if DBG
+-#define E1000_DBG(args...) printk(KERN_DEBUG "e1000: " args)
+-#else
+-#define E1000_DBG(args...)
+-#endif
+-
+-#define E1000_ERR(args...) printk(KERN_ERR "e1000: " args)
  
- 	return 0;
+ #define E1000_MAX_INTR 10
+ 
+diff -Naur linux.org/drivers/net/e1000/e1000_ethtool.c linux.e1000.patched/drivers/net/e1000/e1000_ethtool.c
+--- linux.org/drivers/net/e1000/e1000_ethtool.c	Mon Aug 25 13:29:38 2003
++++ linux.e1000.patched/drivers/net/e1000/e1000_ethtool.c	Mon Aug 25 13:29:38 2003
+@@ -1576,6 +1576,20 @@
+ 		return 0;
+ 	}
+ #endif
++	case ETHTOOL_GMSGLVL: {
++		struct ethtool_value edata = {ETHTOOL_GMSGLVL};
++		edata.data = netdev->msg_enable;
++		if (copy_to_user(addr, &edata, sizeof(edata)))
++			return -EFAULT;
++		return 0;
++	}
++	case ETHTOOL_SMSGLVL: {
++		struct ethtool_value edata;
++		if (copy_from_user(&edata, addr, sizeof(edata)))
++			return -EFAULT;
++		netdev->msg_enable = edata.data;
++		return 0;
++	}
+ 	default:
+ 		return -EOPNOTSUPP;
+ 	}
+diff -Naur linux.org/drivers/net/e1000/e1000_main.c linux.e1000.patched/drivers/net/e1000/e1000_main.c
+--- linux.org/drivers/net/e1000/e1000_main.c	Mon Aug 25 13:29:38 2003
++++ linux.e1000.patched/drivers/net/e1000/e1000_main.c	Mon Aug 25 13:29:38 2003
+@@ -178,9 +178,14 @@
+ #endif
+ };
+ 
++static int debug = -1;
++#define E1000_DFLT_MSGLVL (NETIF_MSG_DRV | NETIF_MSG_PROBE | NETIF_MSG_LINK)
++
+ MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
+ MODULE_DESCRIPTION("Intel(R) PRO/1000 Network Driver");
+ MODULE_LICENSE("GPL");
++module_param(debug, int, 0);
++MODULE_PARM_DESC(debug, "e1000 debug level: 0 (quiet) to 15 (verbose)");
+ 
+ /**
+  * e1000_init_module - Driver Registration Routine
+@@ -337,7 +342,8 @@
+ 		pci_using_dac = 1;
+ 	} else {
+ 		if((i = pci_set_dma_mask(pdev, PCI_DMA_32BIT))) {
+-			E1000_ERR("No usable DMA configuration, aborting\n");
++			dev_err(&pdev->dev,
++			      "No usable DMA configuration, aborting\n");
+ 			return i;
+ 		}
+ 		pci_using_dac = 0;
+@@ -361,6 +367,15 @@
+ 	adapter->pdev = pdev;
+ 	adapter->hw.back = adapter;
+ 
++	if (debug < 0) {
++		netdev->msg_enable = E1000_DFLT_MSGLVL;
++	} else if (debug >= 8 * sizeof(int)) {
++		/* All levels enabled */
++		netdev->msg_enable = -1;
++	} else {
++		netdev->msg_enable = (1 << debug) - 1;
++	}
++
+ 	mmio_start = pci_resource_start(pdev, BAR_0);
+ 	mmio_len = pci_resource_len(pdev, BAR_0);
+ 
+@@ -429,7 +444,7 @@
+ 	/* make sure the EEPROM is good */
+ 
+ 	if(e1000_validate_eeprom_checksum(&adapter->hw) < 0) {
+-		printk(KERN_ERR "The EEPROM Checksum Is Not Valid\n");
++		netdev_err(netdev,, "The EEPROM Checksum Is Not Valid\n");
+ 		goto err_eeprom;
+ 	}
+ 
+@@ -467,8 +482,7 @@
+ 	netif_carrier_off(netdev);
+ 	netif_stop_queue(netdev);
+ 
+-	printk(KERN_INFO "%s: Intel(R) PRO/1000 Network Connection\n",
+-	       netdev->name);
++	netdev_info(netdev, PROBE, "Intel(R) PRO/1000 Network Connection\n");
+ 	e1000_check_options(adapter);
+ 
+ 	/* Initial Wake on LAN setting
+@@ -569,7 +583,7 @@
+ 	/* identify the MAC */
+ 
+ 	if (e1000_set_mac_type(hw)) {
+-		E1000_ERR("Unknown MAC Type\n");
++		netdev_err(netdev,, "Unknown MAC Type\n");
+ 		return -1;
+ 	}
+ 
+@@ -1329,9 +1343,8 @@
+ 			                           &adapter->link_speed,
+ 			                           &adapter->link_duplex);
+ 
+-			printk(KERN_INFO
+-			       "e1000: %s NIC Link is Up %d Mbps %s\n",
+-			       netdev->name, adapter->link_speed,
++			netdev_info(netdev, LINK, "NIC Link is Up %d Mbps %s\n",
++			       adapter->link_speed,
+ 			       adapter->link_duplex == FULL_DUPLEX ?
+ 			       "Full Duplex" : "Half Duplex");
+ 
+@@ -1344,9 +1357,7 @@
+ 		if(netif_carrier_ok(netdev)) {
+ 			adapter->link_speed = 0;
+ 			adapter->link_duplex = 0;
+-			printk(KERN_INFO
+-			       "e1000: %s NIC Link is Down\n",
+-			       netdev->name);
++			netdev_info(netdev, LINK, "NIC Link is Down\n");
+ 			netif_carrier_off(netdev);
+ 			netif_stop_queue(netdev);
+ 			mod_timer(&adapter->phy_info_timer, jiffies + 2 * HZ);
+@@ -1758,7 +1769,7 @@
+ 
+ 	if((max_frame < MINIMUM_ETHERNET_FRAME_SIZE) ||
+ 	   (max_frame > MAX_JUMBO_FRAME_SIZE)) {
+-		E1000_ERR("Invalid MTU setting\n");
++		netdev_err(netdev,, "Invalid MTU setting\n");
+ 		return -EINVAL;
+ 	}
+ 
+@@ -1766,7 +1777,7 @@
+ 		adapter->rx_buffer_len = E1000_RXBUFFER_2048;
+ 
+ 	} else if(adapter->hw.mac_type < e1000_82543) {
+-		E1000_ERR("Jumbo Frames not supported on 82542\n");
++		netdev_err(netdev,, "Jumbo Frames not supported on 82542\n");
+ 		return -EINVAL;
+ 
+ 	} else if(max_frame <= E1000_RXBUFFER_4096) {
+@@ -2147,7 +2158,8 @@
+ 
+ 			/* All receives must fit into a single buffer */
+ 
+-			E1000_DBG("Receive packet consumed multiple buffers\n");
++			netdev_dbg(netdev, RX_ERR,
++			         "Receive packet consumed multiple buffers\n");
+ 
+ 			dev_kfree_skb_irq(skb);
+ 			rx_desc->status = 0;
+diff -Naur linux.org/drivers/net/e1000/e1000_param.c linux.e1000.patched/drivers/net/e1000/e1000_param.c
+--- linux.org/drivers/net/e1000/e1000_param.c	Mon Aug 25 13:29:38 2003
++++ linux.e1000.patched/drivers/net/e1000/e1000_param.c	Mon Aug 25 13:29:38 2003
+@@ -244,7 +244,8 @@
+ };
+ 
+ static int __devinit
+-e1000_validate_option(int *value, struct e1000_option *opt)
++e1000_validate_option(int *value, struct e1000_option *opt,
++	struct net_device *netdev)
+ {
+ 	if(*value == OPTION_UNSET) {
+ 		*value = opt->def;
+@@ -255,16 +256,17 @@
+ 	case enable_option:
+ 		switch (*value) {
+ 		case OPTION_ENABLED:
+-			printk(KERN_INFO "%s Enabled\n", opt->name);
++			netdev_info(netdev, PROBE, "%s Enabled\n", opt->name);
+ 			return 0;
+ 		case OPTION_DISABLED:
+-			printk(KERN_INFO "%s Disabled\n", opt->name);
++			netdev_info(netdev, PROBE, "%s Disabled\n", opt->name);
+ 			return 0;
+ 		}
+ 		break;
+ 	case range_option:
+ 		if(*value >= opt->arg.r.min && *value <= opt->arg.r.max) {
+-			printk(KERN_INFO "%s set to %i\n", opt->name, *value);
++			netdev_info(netdev, PROBE,
++			            "%s set to %i\n", opt->name, *value);
+ 			return 0;
+ 		}
+ 		break;
+@@ -276,7 +278,8 @@
+ 			ent = &opt->arg.l.p[i];
+ 			if(*value == ent->i) {
+ 				if(ent->str[0] != '\0')
+-					printk(KERN_INFO "%s\n", ent->str);
++					netdev_info(netdev, PROBE, "%s\n",
++						ent->str);
+ 				return 0;
+ 			}
+ 		}
+@@ -286,8 +289,8 @@
+ 		BUG();
+ 	}
+ 
+-	printk(KERN_INFO "Invalid %s specified (%i) %s\n",
+-	       opt->name, *value, opt->err);
++	netdev_info(netdev,, "Invalid %s specified (%i) %s\n",
++	            opt->name, *value, opt->err);
+ 	*value = opt->def;
+ 	return -1;
+ }
+@@ -308,11 +311,12 @@
+ void __devinit
+ e1000_check_options(struct e1000_adapter *adapter)
+ {
++	struct net_device *netdev = adapter->netdev;
+ 	int bd = adapter->bd_number;
+ 	if(bd >= E1000_MAX_NIC) {
+-		printk(KERN_NOTICE
+-		       "Warning: no configuration for board #%i\n", bd);
+-		printk(KERN_NOTICE "Using defaults for all values\n");
++		netdev_warn(netdev, PROBE,
++			"Warning: no configuration for board #%i.  "
++			"Using defaults for all values\n", bd);
+ 		bd = E1000_MAX_NIC;
+ 	}
+ 
+@@ -330,7 +334,7 @@
+ 			MAX_TXD : MAX_82544_TXD;
+ 
+ 		tx_ring->count = TxDescriptors[bd];
+-		e1000_validate_option(&tx_ring->count, &opt);
++		e1000_validate_option(&tx_ring->count, &opt, netdev);
+ 		E1000_ROUNDUP(tx_ring->count, REQ_TX_DESCRIPTOR_MULTIPLE);
+ 	}
+ 	{ /* Receive Descriptor Count */
+@@ -346,7 +350,7 @@
+ 		opt.arg.r.max = mac_type < e1000_82544 ? MAX_RXD : MAX_82544_RXD;
+ 
+ 		rx_ring->count = RxDescriptors[bd];
+-		e1000_validate_option(&rx_ring->count, &opt);
++		e1000_validate_option(&rx_ring->count, &opt, netdev);
+ 		E1000_ROUNDUP(rx_ring->count, REQ_RX_DESCRIPTOR_MULTIPLE);
+ 	}
+ 	{ /* Checksum Offload Enable/Disable */
+@@ -358,7 +362,7 @@
+ 		};
+ 
+ 		int rx_csum = XsumRX[bd];
+-		e1000_validate_option(&rx_csum, &opt);
++		e1000_validate_option(&rx_csum, &opt, netdev);
+ 		adapter->rx_csum = rx_csum;
+ 	}
+ 	{ /* Flow Control */
+@@ -380,7 +384,7 @@
+ 		};
+ 
+ 		int fc = FlowControl[bd];
+-		e1000_validate_option(&fc, &opt);
++		e1000_validate_option(&fc, &opt, netdev);
+ 		adapter->hw.fc = adapter->hw.original_fc = fc;
+ 	}
+ 	{ /* Transmit Interrupt Delay */
+@@ -394,7 +398,7 @@
+ 		};
+ 
+ 		adapter->tx_int_delay = TxIntDelay[bd];
+-		e1000_validate_option(&adapter->tx_int_delay, &opt);
++		e1000_validate_option(&adapter->tx_int_delay, &opt, netdev);
+ 	}
+ 	{ /* Transmit Absolute Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -407,7 +411,7 @@
+ 		};
+ 
+ 		adapter->tx_abs_int_delay = TxAbsIntDelay[bd];
+-		e1000_validate_option(&adapter->tx_abs_int_delay, &opt);
++		e1000_validate_option(&adapter->tx_abs_int_delay, &opt, netdev);
+ 	}
+ 	{ /* Receive Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -420,7 +424,7 @@
+ 		};
+ 
+ 		adapter->rx_int_delay = RxIntDelay[bd];
+-		e1000_validate_option(&adapter->rx_int_delay, &opt);
++		e1000_validate_option(&adapter->rx_int_delay, &opt, netdev);
+ 	}
+ 	{ /* Receive Absolute Interrupt Delay */
+ 		struct e1000_option opt = {
+@@ -433,7 +437,7 @@
+ 		};
+ 
+ 		adapter->rx_abs_int_delay = RxAbsIntDelay[bd];
+-		e1000_validate_option(&adapter->rx_abs_int_delay, &opt);
++		e1000_validate_option(&adapter->rx_abs_int_delay, &opt, netdev);
+ 	}
+ 	{ /* Interrupt Throttling Rate */
+ 		struct e1000_option opt = {
+@@ -447,12 +451,12 @@
+ 
+ 		adapter->itr = InterruptThrottleRate[bd];
+ 		if(adapter->itr == 0) {
+-			printk(KERN_INFO "%s turned off\n", opt.name);
++			netdev_info(netdev, PROBE, "%s turned off\n", opt.name);
+ 		} else if(adapter->itr == 1 || adapter->itr == -1) {
+ 			/* Dynamic mode */
+ 			adapter->itr = 1;
+ 		} else {
+-			e1000_validate_option(&adapter->itr, &opt);
++			e1000_validate_option(&adapter->itr, &opt, netdev);
+ 		}
+ 	}
+ 
+@@ -478,20 +482,24 @@
+ static void __devinit
+ e1000_check_fiber_options(struct e1000_adapter *adapter)
+ {
++	struct net_device *netdev = adapter->netdev;
+ 	int bd = adapter->bd_number;
+ 	bd = bd > E1000_MAX_NIC ? E1000_MAX_NIC : bd;
+ 
+ 	if((Speed[bd] != OPTION_UNSET)) {
+-		printk(KERN_INFO "Speed not valid for fiber adapters, "
+-		       "parameter ignored\n");
++		netdev_info(netdev, PROBE,
++		            "Speed not valid for fiber adapters, "
++		            "parameter ignored\n");
+ 	}
+ 	if((Duplex[bd] != OPTION_UNSET)) {
+-		printk(KERN_INFO "Duplex not valid for fiber adapters, "
+-		       "parameter ignored\n");
++		netdev_info(netdev, PROBE,
++		            "Duplex not valid for fiber adapters, "
++		            "parameter ignored\n");
+ 	}
+ 	if((AutoNeg[bd] != OPTION_UNSET)) {
+-		printk(KERN_INFO "AutoNeg not valid for fiber adapters, "
+-		       "parameter ignored\n");
++		netdev_info(netdev, PROBE,
++		            "AutoNeg not valid for fiber adapters, "
++		            "parameter ignored\n");
+ 	}
+ }
+ 
+@@ -505,6 +513,7 @@
+ static void __devinit
+ e1000_check_copper_options(struct e1000_adapter *adapter)
+ {
++	struct net_device *netdev = adapter->netdev;
+ 	int speed, dplx;
+ 	int bd = adapter->bd_number;
+ 	bd = bd > E1000_MAX_NIC ? E1000_MAX_NIC : bd;
+@@ -525,7 +534,7 @@
+ 		};
+ 
+ 		speed = Speed[bd];
+-		e1000_validate_option(&speed, &opt);
++		e1000_validate_option(&speed, &opt, netdev);
+ 	}
+ 	{ /* Duplex */
+ 		struct e1000_opt_list dplx_list[] = {{           0, "" },
+@@ -542,13 +551,13 @@
+ 		};
+ 
+ 		dplx = Duplex[bd];
+-		e1000_validate_option(&dplx, &opt);
++		e1000_validate_option(&dplx, &opt, netdev);
+ 	}
+ 
+ 	if(AutoNeg[bd] != OPTION_UNSET && (speed != 0 || dplx != 0)) {
+-		printk(KERN_INFO
+-		       "AutoNeg specified along with Speed or Duplex, "
+-		       "parameter ignored\n");
++		netdev_info(netdev, PROBE,
++		            "AutoNeg specified along with Speed or Duplex, "
++		            "parameter ignored\n");
+ 		adapter->hw.autoneg_advertised = AUTONEG_ADV_DEFAULT;
+ 	} else { /* Autoneg */
+ 		struct e1000_opt_list an_list[] =
+@@ -595,7 +604,7 @@
+ 		};
+ 
+ 		int an = AutoNeg[bd];
+-		e1000_validate_option(&an, &opt);
++		e1000_validate_option(&an, &opt, netdev);
+ 		adapter->hw.autoneg_advertised = an;
+ 	}
+ 
+@@ -603,78 +612,82 @@
+ 	case 0:
+ 		adapter->hw.autoneg = 1;
+ 		if(Speed[bd] != OPTION_UNSET || Duplex[bd] != OPTION_UNSET)
+-			printk(KERN_INFO
++			netdev_info(netdev, PROBE,
+ 			       "Speed and duplex autonegotiation enabled\n");
+ 		break;
+ 	case HALF_DUPLEX:
+-		printk(KERN_INFO "Half Duplex specified without Speed\n");
+-		printk(KERN_INFO "Using Autonegotiation at Half Duplex only\n");
++		netdev_info(netdev, PROBE,
++			"Half Duplex specified without Speed.  "
++			"Using Autonegotiation at Half Duplex only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_10_HALF |
+ 		                                 ADVERTISE_100_HALF;
+ 		break;
+ 	case FULL_DUPLEX:
+-		printk(KERN_INFO "Full Duplex specified without Speed\n");
+-		printk(KERN_INFO "Using Autonegotiation at Full Duplex only\n");
++		netdev_info(netdev, PROBE,
++			"Full Duplex specified without Speed.  "
++			"Using Autonegotiation at Full Duplex only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_10_FULL |
+ 		                                 ADVERTISE_100_FULL |
+ 		                                 ADVERTISE_1000_FULL;
+ 		break;
+ 	case SPEED_10:
+-		printk(KERN_INFO "10 Mbps Speed specified without Duplex\n");
+-		printk(KERN_INFO "Using Autonegotiation at 10 Mbps only\n");
++		netdev_info(netdev, PROBE,
++			"10 Mbps Speed specified without Duplex.  "
++			"Using Autonegotiation at 10 Mbps only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_10_HALF |
+ 		                                 ADVERTISE_10_FULL;
+ 		break;
+ 	case SPEED_10 + HALF_DUPLEX:
+-		printk(KERN_INFO "Forcing to 10 Mbps Half Duplex\n");
++		netdev_info(netdev, PROBE, "Forcing to 10 Mbps Half Duplex\n");
+ 		adapter->hw.autoneg = 0;
+ 		adapter->hw.forced_speed_duplex = e1000_10_half;
+ 		adapter->hw.autoneg_advertised = 0;
+ 		break;
+ 	case SPEED_10 + FULL_DUPLEX:
+-		printk(KERN_INFO "Forcing to 10 Mbps Full Duplex\n");
++		netdev_info(netdev, PROBE, "Forcing to 10 Mbps Full Duplex\n");
+ 		adapter->hw.autoneg = 0;
+ 		adapter->hw.forced_speed_duplex = e1000_10_full;
+ 		adapter->hw.autoneg_advertised = 0;
+ 		break;
+ 	case SPEED_100:
+-		printk(KERN_INFO "100 Mbps Speed specified without Duplex\n");
+-		printk(KERN_INFO "Using Autonegotiation at 100 Mbps only\n");
++		netdev_info(netdev, PROBE,
++			"100 Mbps Speed specified without Duplex.  "
++			"Using Autonegotiation at 100 Mbps only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_100_HALF |
+ 		                                 ADVERTISE_100_FULL;
+ 		break;
+ 	case SPEED_100 + HALF_DUPLEX:
+-		printk(KERN_INFO "Forcing to 100 Mbps Half Duplex\n");
++		netdev_info(netdev, PROBE, "Forcing to 100 Mbps Half Duplex\n");
+ 		adapter->hw.autoneg = 0;
+ 		adapter->hw.forced_speed_duplex = e1000_100_half;
+ 		adapter->hw.autoneg_advertised = 0;
+ 		break;
+ 	case SPEED_100 + FULL_DUPLEX:
+-		printk(KERN_INFO "Forcing to 100 Mbps Full Duplex\n");
++		netdev_info(netdev, PROBE, "Forcing to 100 Mbps Full Duplex\n");
+ 		adapter->hw.autoneg = 0;
+ 		adapter->hw.forced_speed_duplex = e1000_100_full;
+ 		adapter->hw.autoneg_advertised = 0;
+ 		break;
+ 	case SPEED_1000:
+-		printk(KERN_INFO "1000 Mbps Speed specified without Duplex\n");
+-		printk(KERN_INFO
+-		       "Using Autonegotiation at 1000 Mbps Full Duplex only\n");
++		netdev_info(netdev, PROBE,
++			"1000 Mbps Speed specified without Duplex.  "
++			"Using Autonegotiation at 1000 Mbps Full Duplex only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_1000_FULL;
+ 		break;
+ 	case SPEED_1000 + HALF_DUPLEX:
+-		printk(KERN_INFO "Half Duplex is not supported at 1000 Mbps\n");
+-		printk(KERN_INFO
+-		       "Using Autonegotiation at 1000 Mbps Full Duplex only\n");
++		netdev_info(netdev, PROBE,
++			"Half Duplex is not supported at 1000 Mbps.  "
++			"Using Autonegotiation at 1000 Mbps Full Duplex only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_1000_FULL;
+ 		break;
+ 	case SPEED_1000 + FULL_DUPLEX:
+-		printk(KERN_INFO
++		netdev_info(netdev, PROBE,
+ 		       "Using Autonegotiation at 1000 Mbps Full Duplex only\n");
+ 		adapter->hw.autoneg = 1;
+ 		adapter->hw.autoneg_advertised = ADVERTISE_1000_FULL;
+@@ -685,8 +698,9 @@
+ 
+ 	/* Speed, AutoNeg and MDI/MDI-X must all play nice */
+ 	if (e1000_validate_mdi_setting(&(adapter->hw)) < 0) {
+-		printk(KERN_INFO "Speed, AutoNeg and MDI-X specifications are "
+-		       "incompatible. Setting MDI-X to a compatible value.\n");
++		netdev_info(netdev, PROBE,
++			"Speed, AutoNeg and MDI-X specifications are "
++			"incompatible. Setting MDI-X to a compatible value.\n");
+ 	}
+ }
  
 
---------------BFB5D3C9AFDADD903AFF3D3E--
+--------------9E478A7045D2DC2C7D0081CA--
