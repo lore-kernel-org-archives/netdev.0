@@ -1,51 +1,39 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] sundance: correct printk of dma_addr_t
-Date: Tue, 3 Feb 2004 15:36:54 -0800
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040203153654.7bc74d19.rddunlap@osdl.org>
+From: Steve Hill <steve@navaho.co.uk>
+Subject: Re: [PATCH] fix netfilter refcounting [was Re: Conntrack leak
+ (2.6.2rc2)]
+Date: Wed, 4 Feb 2004 10:19:45 +0000 (GMT)
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <Pine.LNX.4.58.0402041018120.15629@sorbus2.navaho>
+References: <Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: David Miller <davem@redhat.com>, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
+To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
+In-Reply-To: <Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
+On Tue, 3 Feb 2004, Jozsef Kadlecsik wrote:
 
-description:	fix dma_addr_t type error with CONFIG_HIGHMEM64G=y;
-product_versions: linux-262-rc3
+> Steve Hill reported a conntrack leakage in 2.6.2-rc2 when nat is enabled
+> and the system forwards fragmented packets. It turned out that an
+> nf_conntrack_put was missing from ip_copy_metadata:
 
-diffstat:=
- drivers/net/sundance.c |    8 ++++----
- 1 files changed, 4 insertions(+), 4 deletions(-)
+I noticed this fix made it into the 2.6.2 release last night, so I have 
+tested with a vanilla 2.6.2 kernel this morning and can confirm it's fixed 
+the problem.  Thank you.
 
-diff -Naurp ./drivers/net/sundance.c~sundan_dma ./drivers/net/sundance.c
---- ./drivers/net/sundance.c~sundan_dma	2004-02-03 14:53:24.000000000 -0800
-+++ ./drivers/net/sundance.c	2004-02-03 14:54:28.000000000 -0800
-@@ -986,8 +986,8 @@ static void tx_timeout(struct net_device
- 	{
- 		int i;
- 		for (i=0; i<TX_RING_SIZE; i++) {
--			printk(KERN_DEBUG "%02x %08Zx %08x %08x(%02x) %08x %08x\n", i,
--				np->tx_ring_dma + i*sizeof(*np->tx_ring),
-+			printk(KERN_DEBUG "%02x %08llx %08x %08x(%02x) %08x %08x\n", i,
-+				(unsigned long long)np->tx_ring_dma + i*sizeof(*np->tx_ring),
- 				le32_to_cpu(np->tx_ring[i].next_desc),
- 				le32_to_cpu(np->tx_ring[i].status),
- 				(le32_to_cpu(np->tx_ring[i].status) >> 2) & 0xff,
-@@ -1672,8 +1672,8 @@ static int netdev_ioctl(struct net_devic
- 	switch (cmd) {
- 		case SIOCDEVPRIVATE:
- 		for (i=0; i<TX_RING_SIZE; i++) {
--			printk(KERN_DEBUG "%02x %08Zx %08x %08x(%02x) %08x %08x\n", i,
--				np->tx_ring_dma + i*sizeof(*np->tx_ring),	
-+			printk(KERN_DEBUG "%02x %08llx %08x %08x(%02x) %08x %08x\n", i,
-+				(unsigned long long)np->tx_ring_dma + i*sizeof(*np->tx_ring),	
- 				le32_to_cpu(np->tx_ring[i].next_desc),
- 				le32_to_cpu(np->tx_ring[i].status),
- 				(le32_to_cpu(np->tx_ring[i].status) >> 2) 
+- Steve Hill
+Senior Software Developer                        Email: steve@navaho.co.uk
+Navaho Technologies Ltd.                           Tel: +44-870-7034015
 
-
---
-~Randy
+        ... Alcohol and calculus don't mix - Don't drink and derive! ...
