@@ -1,35 +1,44 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH] memory leak in ndisc_router_discovery
-Date: Fri, 8 Nov 2002 15:02:15 -0800 (PST)
+From: Donald Becker <becker@scyld.com>
+Subject: Re: ifconfig TX/RX errors
+Date: Fri, 8 Nov 2002 20:21:26 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200211082302.gA8N2Fv16472@eng2.beaverton.ibm.com>
+Message-ID: <Pine.LNX.4.44.0211082012160.13934-100000@beohost.scyld.com>
+References: <Pine.LNX.4.33L0.0211081456190.25749-100000@fast2.cs.caltech.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru, davem@redhat.com
+To: Cheng Jin <chengjin@cs.caltech.edu>
+In-Reply-To: <Pine.LNX.4.33L0.0211081456190.25749-100000@fast2.cs.caltech.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Alexey & Dave,
+On Fri, 8 Nov 2002, Cheng Jin wrote:
 
-There is a bug in router advertisement handling code, where the reference
-(and memory) to the inet6_dev pointer can get leaked. Following is the patch
-to fix it (patch against 2.5.46) :
+> What does a large number of RX/TX errors from ifconfig output generally
+> mean?  Does it also include drop/overruns/frame errors?
 
-thanks,
+The 'ifconfig' program doesn't have a defined behavior.  It reads
+/proc/net/dev and sums some of the available error counts.  You should
+read /proc/net/dev directly to find out what is going wrong.
 
-- KK
+The 'ifconfig' and 'netstat' programs follow the interface of their BSD
+predecessors.  BSD wasn't sophisticated about errors: it kept only very
+basic statistics.  Thus the tools only presented those numbers.
 
-diff -ruN linux.org/net/ipv6/ndisc.c linux/net/ipv6/ndisc.c
---- linux.org/net/ipv6/ndisc.c	Fri Nov  7 10:02:11 2002
-+++ linux/net/ipv6/ndisc.c	Fri Nov  8 14:37:27 2002
-@@ -871,6 +871,7 @@
- 	}
- 
- 	if (!ndisc_parse_options(opt, optlen, &ndopts)) {
-+		in6_dev_put(in6_dev);
- 		if (net_ratelimit())
- 			ND_PRINTK2(KERN_WARNING
- 				   "ICMP6 RA: invalid ND option, ignored.\n");
+[[ That's not to say I think 'ifconfig' should be changed: there is no
+compelling reason to break compatibility.  It's been 20 years since
+anyone thought that trailers were a good idea, but it doesn't hurt to
+ignore the flag. ]]
+
+> Is it an indication of bad packet on the link layer, which  probably means
+> faulty hardware?  I am assuming any kind of buffer overflow statistics are
+> kept under drop or overruns?
+
+Check for kernel messages as well.
+
+-- 
+Donald Becker				becker@scyld.com
+Scyld Computing Corporation		http://www.scyld.com
+410 Severn Ave. Suite 210		Scyld Beowulf cluster system
+Annapolis MD 21403			410-990-9993
