@@ -1,26 +1,119 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: Still bug-hunting
-Date: Sat, 05 Mar 2005 18:57:00 +0100
-Message-ID: <4229F2EC.8090103@rapidforum.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 1/1] More ethtool support for sis900
+Date: Sat, 05 Mar 2005 13:28:02 -0500
+Message-ID: <4229FA32.4000401@pobox.com>
+References: <20050305134011.23638.68926@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
+To: Daniele Venzano <webvenza@libero.it>
+In-Reply-To: <20050305134011.23638.68926@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Daniele Venzano wrote:
+> 
+> Add support for using generic mii interface
+> Add support for the following ethtool ops:
+> 	- get_link
+> 	- get_settings
+> 	- set_settings
+> 	- nway_reset
+> 
+> 
+> 
+> Signed-off-by: Daniele Venzano <webvenza@libero.it>
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> Index: sis900.c
+> ===================================================================
+> --- a/drivers/net/sis900.c	(revision 95)
+> +++ b/drivers/net/sis900.c	(revision 97)
+> @@ -161,6 +161,7 @@
+>  	struct mii_phy * mii;
+>  	struct mii_phy * first_mii; /* record the first mii structure */
+>  	unsigned int cur_phy;
+> +	struct mii_if_info mii_info;
+>  
+>  	struct timer_list timer; /* Link status detection timer. */
+>  	u8 autong_complete; /* 1: auto-negotiate complete  */
+> @@ -199,7 +200,7 @@
+>  static int sis900_mii_probe (struct net_device * net_dev);
+>  static void sis900_init_rxfilter (struct net_device * net_dev);
+>  static u16 read_eeprom(long ioaddr, int location);
+> -static u16 mdio_read(struct net_device *net_dev, int phy_id, int location);
+> +static int mdio_read(struct net_device *net_dev, int phy_id, int location);
+>  static void mdio_write(struct net_device *net_dev, int phy_id, int location, int val);
+>  static void sis900_timer(unsigned long data);
+>  static void sis900_check_mode (struct net_device *net_dev, struct mii_phy *mii_phy);
+> @@ -468,7 +469,13 @@
+>  		sis_priv->msg_enable = sis900_debug;
+>  	else
+>  		sis_priv->msg_enable = SIS900_DEF_MSG;
+> -	
+> +
+> +	sis_priv->mii_info.dev = net_dev;
+> +	sis_priv->mii_info.mdio_read = mdio_read;
+> +	sis_priv->mii_info.mdio_write = mdio_write;
+> +	sis_priv->mii_info.phy_id_mask = 0x1f;
+> +	sis_priv->mii_info.reg_num_mask = 0x1f;
+> +
+>  	ret = register_netdev(net_dev);
+>  	if (ret)
+>  		goto err_unmap_rx;
+> @@ -507,6 +514,8 @@
+>  		goto err_out_unregister;
+>  	}
+>  
+> +	sis_priv->mii_info.phy_id = sis_priv->cur_phy;
+> +
+>  	/* save our host bridge revision */
+>  	dev = pci_get_device(PCI_VENDOR_ID_SI, PCI_DEVICE_ID_SI_630, NULL);
+>  	if (dev) {
+> @@ -843,7 +852,7 @@
+>   *	Please see SiS7014 or ICS spec
+>   */
+>  
+> -static u16 mdio_read(struct net_device *net_dev, int phy_id, int location)
+> +static int mdio_read(struct net_device *net_dev, int phy_id, int location)
+>  {
+>  	long mdio_addr = net_dev->base_addr + mear;
+>  	int mii_cmd = MIIread|(phy_id<<MIIpmdShift)|(location<<MIIregShift);
+> @@ -1943,10 +1952,41 @@
+>  	sis_priv->msg_enable = value;
+>  }
+>  
+> +static u32 sis900_get_link(struct net_device *net_dev)
+> +{
+> +	struct sis900_private *sis_priv = net_dev->priv;
+> +	return mii_link_ok(&sis_priv->mii_info);
+> +}
+> +
+> +static int sis900_get_settings(struct net_device *net_dev,
+> +				struct ethtool_cmd *cmd)
+> +{
+> +	struct sis900_private *sis_priv = net_dev->priv;
+> +	mii_ethtool_gset(&sis_priv->mii_info, cmd);
+> +	return 0;
+> +}
+> +
+> +static int sis900_set_settings(struct net_device *net_dev,
+> +				struct ethtool_cmd *cmd)
+> +{
+> +	struct sis900_private *sis_priv = net_dev->priv;
+> +	return mii_ethtool_sset(&sis_priv->mii_info, cmd);
+> +}
+> +
+> +static int sis900_nway_reset(struct net_device *net_dev)
+> +{
+> +	struct sis900_private *sis_priv = net_dev->priv;
+> +	return mii_nway_restart(&sis_priv->mii_info);
+> +}
 
-I have found out that the slow-down issue with many sockets is a memory problem now. Not that I do 
-not have enough but the vm isnt able to reclaim fast-enough. Problem temporarily solved by setting 
-lower_zone_protection to 1024. Still I wonder why /proc/net/sockstat shows this:
+I should think you want locking for these, as is present in other drivers...
 
-sockets: used 1637
-TCP: inuse 1761 orphan 179 tw 3743 alloc 1761 mem 54224
-
-The send-buffer is set to 128 and the rcv-buffer to 16 so theoretically it should be 1637*144=235728 
-so I assume the buffers are allocated dynamically when they are really needed... I suppose the 
-slow-down wouldnt appear if the buffers are allocated statically. Is there any way to check this?
-
-Chris
+	Jeff
