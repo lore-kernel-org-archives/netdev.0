@@ -1,31 +1,34 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Fix 64bit bugs in dscc44.c II
-Date: Wed, 8 Oct 2003 09:59:26 -0700
+From: Marc.Herbert@ens-lyon.fr
+Subject: tg3 set_pauseframe() crash : some reproducibility
+Date: Wed, 8 Oct 2003 18:17:05 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008095926.190e7fa5.davem@redhat.com>
-References: <20031007175953.GA1802@averell>
-	<20031008084205.5c81faac.davem@redhat.com>
-	<20031008155548.GB16937@wotan.suse.de>
-	<20031008090132.2b58c067.davem@redhat.com>
-	<20031008160859.GD16937@wotan.suse.de>
-	<20031008161149.GA8134@wotan.suse.de>
-	<20031008091050.11b2acb7.davem@redhat.com>
-	<20031008163345.GA28793@wotan.suse.de>
-	<20031008093153.3daaa6b3.davem@redhat.com>
-	<20031008170005.GB28793@wotan.suse.de>
+Message-ID: <Pine.LNX.4.44.0310081805560.3607-100000@bologna>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, ak@muc.de, ncorbic@sangoma.com, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20031008170005.GB28793@wotan.suse.de>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Oct 2003 19:00:05 +0200
-Andi Kleen <ak@suse.de> wrote:
 
-> Here's the patch again.
+After crashing some more machines, I got a better understanding of how
+to reproduce the tg3.ko kernel segfault reported a few minutes ago.
+Sorry for sending two messages for this. I also discovered the command
+"reboot -f", which is great :-)
 
-Applied, thanks Andi.
+I was wrong when comparing kernel versions: it finally seems to me
+that they do not matter. The key factor is apparently
+
+ "ifconfig up|down"
+
+When the interface is down, the tg3 module being freshly loaded, then
+any ethtool -A eth1 whatever does segfaults (in kernel).
+If the interface is up, then it rolls.
+
+Cheers,
+
+Marc.
+
+
+PS: still not subscribed to the list. I will read it on the web,
+though. Just like the good old Usenet actually, only less convenient.
