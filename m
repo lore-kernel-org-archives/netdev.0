@@ -1,33 +1,75 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec xfrm resolution
-Date: Sun, 20 Feb 2005 17:57:20 +1100
-Message-ID: <20050220065720.GA26175@gondor.apana.org.au>
-References: <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au> <42173125.3040505@trash.net> <20050219183202.GA10773@gondor.apana.org.au> <421789AF.4020705@trash.net> <20050219190333.GA22166@gondor.apana.org.au> <4217993D.4070107@trash.net> <4217A0DA.7050409@trash.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [XFRM]: Fix ICMP tempsel
+Date: Sun, 20 Feb 2005 08:13:28 +0100
+Message-ID: <42183898.7020607@trash.net>
+References: <4217266F.6090700@trash.net>	<20050219184351.GB10773@gondor.apana.org.au>	<42182082.9060301@trash.net> <20050220.155527.54695259.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Maillist netdev <netdev@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <4217A0DA.7050409@trash.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net, netdev@oss.sgi.com
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050220.155527.54695259.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 19, 2005 at 09:26:02PM +0100, Patrick McHardy wrote:
+YOSHIFUJI Hideaki / $B5HF#1QL@ wrote:
+
+> I didn't this because there are several places which depend on u8.
+> If we go this way, we need to fix other places as well. e.g.
 > 
-> How about this patch ? It ignores "optional" for missing tunnel mode 
-> SAs, symetric
-> to input.
+>   net/ipv4/raw.c:raw_probe_proto_opt()
 
-Actually, I've been convinced by your earlier argument :)
+                                 get_user(fl->fl_icmp_type, type);
+                                 __get_user(fl->fl_icmp_code, code);
 
-I now think that IPCOMP users like racoon/openswan should simply
-not set the optional flag on the sending policy.  It only needs
-to be set on the receiving side.
+On x86_64 both care only about the pointer type, not the target type.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+>   net/ipv4/xfrm4_policy.c:_decode_session4()
+
+                                 u8 *icmp = xprth;
+
+                                 fl->fl_icmp_type = icmp[0];
+                                 fl->fl_icmp_code = icmp[1];
+
+No problem here.
+
+>   net/ipv6/raw.c:rawv6_probe_proto_opt()
+
+Same as IPv4.
+
+>   net/ipv6/netfilter/ip6t_REJECT.c:send_unreach()
+
+Not in mainline :)
+
+>   net/ipv6/xfrm6_policy.c:_decode_session6()
+
+Same as IPv4.
+
+>   net/ipv6/ndisc.c:ndisc_flow_init()
+
+         fl->fl_icmp_type        = type;
+         fl->fl_icmp_code        = 0;
+
+No problem.
+
+>   net/ipv6/icmp.c:icmpv6_send()
+
+         fl.fl_icmp_type = type;
+         fl.fl_icmp_code = code;
+
+Also ok.
+
+>   net/ipv6/icmp.c:icmpv6_echo_reply()
+
+         fl.fl_icmp_type = ICMPV6_ECHO_REPLY;
+
+Same here.
+
+> 
+> (Note that type and code are stored in network-byte order.)
+
+Both are u8 so there is no byte order.
+
+Regards
+Patrick
