@@ -1,23 +1,52 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]Add new IPv6 MIBs counters support through netlink
-Date: Wed, 26 May 2004 13:44:15 -0700
+From: Shirley Ma <mashirle@us.ibm.com>
+Subject: [PATCH] IFA_MAX sets wrong in rtnetlink.h
+Date: Wed, 26 May 2004 13:50:39 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040526134415.483a6384.davem@redhat.com>
-References: <20040526132215.06e0bc12.davem@redhat.com>
-	<OFD49A843C.7EDA1DE2-ON87256EA0.0071A2A0-07256EA0.0071C18B@us.ibm.com>
+Message-ID: <200405261350.39088.mashirle@us.ibm.com>
+References: <200403171130.30282.mashirle@us.ibm.com> <200405261319.55787.mashirle@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mashirle@us.ibm.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_fMQtAzgrdHz5Ynj"
+Cc: netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <xma@us.ibm.com>
-In-Reply-To: <OFD49A843C.7EDA1DE2-ON87256EA0.0071A2A0-07256EA0.0071C18B@us.ibm.com>
+To: davem@redhat.com
+In-Reply-To: <200405261319.55787.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 26 May 2004 13:42:23 -0700
-Shirley Ma <xma@us.ibm.com> wrote:
 
-> Yes, same structure ip_stats applys to IPv4 as well.
+--Boundary-00=_fMQtAzgrdHz5Ynj
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-Great, patch applied.
+A tiny patch here for 2.6.6 kernel.
+
+-- 
+Thanks
+Shirley Ma
+IBM Linux Technology Center
+
+--Boundary-00=_fMQtAzgrdHz5Ynj
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="linux-2.6.6-max.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="linux-2.6.6-max.patch"
+
+diff -urN linux-2.6.6/include/linux/rtnetlink.h linux-2.6.6-max/include/linux/rtnetlink.h
+--- linux-2.6.6/include/linux/rtnetlink.h	2004-05-09 19:33:13.000000000 -0700
++++ linux-2.6.6-max/include/linux/rtnetlink.h	2004-05-26 13:47:20.535090648 -0700
+@@ -348,7 +348,7 @@
+ 	IFA_MULTICAST
+ };
+ 
+-#define IFA_MAX IFA_CACHEINFO
++#define IFA_MAX IFA_MULTICAST
+ 
+ /* ifa_flags */
+ 
+
+--Boundary-00=_fMQtAzgrdHz5Ynj--
