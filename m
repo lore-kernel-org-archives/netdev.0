@@ -1,28 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 15:27:45 -0700 (PDT)
+Subject: Re: 2.4.21 oops
+Date: Mon, 16 Jun 2003 15:30:37 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030616.152745.124055059.davem@redhat.com>
-References: <OFF1F6B3DC.30C0E5DE-ON85256D47.007AEFAF@us.ibm.com>
+Message-ID: <20030616.153037.90795159.davem@redhat.com>
+References: <20030616153029.0c8f2a20.akpm@digeo.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stekloff@us.ibm.com, janiceg@us.ibm.com, jgarzik@pobox.com,
-   kenistonj@us.ibm.com, lkessler@us.ibm.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, niv@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: girouard@us.ibm.com
-In-Reply-To: <OFF1F6B3DC.30C0E5DE-ON85256D47.007AEFAF@us.ibm.com>
+To: akpm@digeo.com
+In-Reply-To: <20030616153029.0c8f2a20.akpm@digeo.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Janice Girouard <girouard@us.ibm.com>
-   Date: Mon, 16 Jun 2003 17:29:15 -0500
-   
-   For the sake of consistency and automatic error log analysis, it might be
+   From: Andrew Morton <akpm@digeo.com>
+   Date: Mon, 16 Jun 2003 15:30:29 -0700
 
-And all the scripts checking for the existing messages
-in log files?  Screw them, right?
+   This kills 2.5.71++ as well.
 
-This whole idea is starting to leave a very bad taste in
-my mouth...
+I forwarded this to David Stevens, he last played in
+this area so he might be able to fix it fast.
+
+He obviously didn't add the bug, since it exists in 2.4.x
+which doesn't have his IGMPv3 mods...
