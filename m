@@ -1,32 +1,29 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] Bogus return status in drivers/net/tg3.c
-Date: Sat, 20 Dec 2003 00:49:11 -0500
+Date: Fri, 19 Dec 2003 21:54:42 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FE3E2D7.7070004@pobox.com>
-References: <20031219233231.A2420@electric-eye.fr.zoreil.com> <20031219214455.28f22d60.davem@redhat.com>
+Message-ID: <20031219215442.1947cdb1.davem@redhat.com>
+References: <20031219233231.A2420@electric-eye.fr.zoreil.com>
+	<20031219214455.28f22d60.davem@redhat.com>
+	<3FE3E2D7.7070004@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
+Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031219214455.28f22d60.davem@redhat.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3FE3E2D7.7070004@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Fri, 19 Dec 2003 23:32:31 +0100
-> Francois Romieu <romieu@fr.zoreil.com> wrote:
-> 
-> 
->>Apply on top of 2.6.0 + Jeff Garzik's 2.6.0-test11-bk5-netdrvr-exp2
-> 
-> 
-> Jeff want me to suck this into my tg3 trees?  That's probably
-> best.
+On Sat, 20 Dec 2003 00:49:11 -0500
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
+> Up to you.  Either way I want to make sure it goes into 
+> net-drivers-2.5-exp, which has your current tg3-2.5 tree up until now.
 
-Up to you.  Either way I want to make sure it goes into 
-net-drivers-2.5-exp, which has your current tg3-2.5 tree up until now.
+I'm concerned how difficult it will be for you to push the
+net-drivers-2.5-exp tree into 2.6.x any time soon.
 
-	Jeff
+Let's create a no lose situation :)  I'll toss it into my tree and
+you toss it into your's and this way it'll get in somehow.
