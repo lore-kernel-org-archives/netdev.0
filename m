@@ -1,38 +1,51 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] Clean up fib_hash datastructures
-Date: 21 Sep 2004 07:03:41 -0400
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
+Date: Tue, 21 Sep 2004 14:19:52 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095764621.1049.14.camel@jzny.localdomain>
-References: <20040918203319.24004d6e.davem@davemloft.net>
-	 <1095645106.1048.190.camel@jzny.localdomain>
-	 <20040919195351.0b3560e6.davem@davemloft.net>
-	 <1095686672.1049.301.camel@jzny.localdomain>
-	 <20040920121123.70baf895.davem@davemloft.net>
-	 <20040921034212.GA28462@gondor.apana.org.au>
-	 <20040920231805.3f18479c.davem@davemloft.net>
-	 <20040921090423.GE8058@wotan.suse.de>
-	 <20040921093252.GA32545@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Message-ID: <Pine.LNX.4.44.0409211412580.1570-100000@netcore.fi>
+References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Linux Netdev List <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040921093252.GA32545@gondor.apana.org.au>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-21 at 05:32, Herbert Xu wrote:
+On Tue, 21 Sep 2004, Harald Welte wrote:
+> 1) should I try to use jhash for ipv6, too?
+> 
+> 2) Dave has indicated that there should be an upper limit for hash
+>    buckets.  What is considered a reasonable upper bound, even for very
+>    large systems?
+[...]
+> 5) What is the proposed solution for IPv6, when you have /48 or /64 bit
+>    prefixes and systems become even more vulnerable to neighbour cache
+>    attacks?  
 
-> If we were doing this from scratch then we should do that.  But as it
-> is we must keep the TOS code for compatibility.
+The situation with IPv6 is not much different than with IPv4.
 
-Important for marketing to be able to claim _full_ RFC 1812 compliance.
-Kepp the TOS!
-I know it sounds silly, but there are a lot more foolish people out
-there addicted to glossyware.
+It's better in the sense that nobody will be portscanning the whole 
+address space or subnets as a means to look for nodes.  So, the 
+viruses, worms, exploits etc. will need to use other techniques, so 
+the practical need is lower. [and those nodes which try and fall over 
+from resource exhaustion .. well, they deserve it ;-)]
 
-cheers,
-jamal
+It's worse in the sense that there is more space in each subnet for
+doing aggressive probing -- but this may not be a big issue with a
+good algorithm and a threshold.
+
+In short, I don't think there needs to be anything special for IPv6.  
+Just the same mechanisms as for IPv4 -- at some threshold, start 
+garbage collecting more aggressively, using a "least-recently-used" 
+algorithm (or the like). 
+
+To constraint remote resource exhaustion exploits please make sure 
+that the algorithm is sufficiently can also deal with the threat 
+described at RFC 3756 section 4.3.2.
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
