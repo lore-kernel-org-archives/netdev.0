@@ -1,30 +1,31 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH 6/8] Use SLAB_PANIC when creating critical slab cache
-Date: Sun, 14 Nov 2004 14:51:57 -0800
-Message-ID: <20041114145157.G2357@build.pdx.osdl.net>
-References: <20041114121837.X2357@build.pdx.osdl.net> <20041114122400.D2357@build.pdx.osdl.net> <4197BFC5.5080800@conectiva.com.br>
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: [PATCH 0/8] Use SLAB_PANIC when creating critical slab cache
+Date: Sun, 14 Nov 2004 23:11:01 +0000
+Message-ID: <20041114231101.GA9498@infradead.org>
+References: <20041114121837.X2357@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Chris Wright <chrisw@osdl.org>, davem@davemloft.net, netdev@oss.sgi.com
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+To: Chris Wright <chrisw@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <4197BFC5.5080800@conectiva.com.br>; from acme@conectiva.com.br on Sun, Nov 14, 2004 at 06:27:49PM -0200
+In-Reply-To: <20041114121837.X2357@build.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Arnaldo Carvalho de Melo (acme@conectiva.com.br) wrote:
-> Chris,
+On Sun, Nov 14, 2004 at 12:18:37PM -0800, Chris Wright wrote:
+> The following trivial patches update networking code to use the SLAB_PANIC
+> flag when creating a critical slab cache instead of doing localized calls
+> to panic().  This brings networking inline with other core kernel code.
 > 
-> 	I think somebody proposed this in the past and it was refused
-> because we better get rid of the panics and return an error, propagate
-> it and refuse to load the module, better have the machine still alive
-> but without networking than panic it.
+>  core/flow.c       |    5 +----
+>  core/skbuff.c     |    4 +---
+>  decnet/dn_route.c |    9 +++------
+>  ipv4/inetpeer.c   |    5 +----
+>  ipv4/ipmr.c       |    5 +----
+>  ipv6/ip6_fib.c    |    4 +---
+>  ipv6/route.c      |    9 +++------
+>  xfrm/xfrm_input.c |    4 +---
 
-Sounds good too.  Part of my thinking was that these patches would be a
-good chance to review if these are necessarily panic conditions.  What was
-the plan on error return, since I expect some caches are interdependent?
-
-thanks,
--chris
+decnet, ipv6 and xfrm can be modular, so using SLAB_PANIC there is bogus.
