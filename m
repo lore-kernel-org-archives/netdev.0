@@ -1,50 +1,47 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [INET] Optimise away a branch in IP_ECN_set_ce
-Date: Wed, 8 Sep 2004 21:27:57 -0300
+Date: Thu, 09 Sep 2004 09:36:25 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409082127.57827.acme@conectiva.com.br>
-References: <20040909000330.GA5581@gondor.apana.org.au> <20040909.092428.125540781.yoshfuji@linux-ipv6.org>
+Message-ID: <20040909.093625.124940653.yoshfuji@linux-ipv6.org>
+References: <20040909000330.GA5581@gondor.apana.org.au>
+	<20040909.092428.125540781.yoshfuji@linux-ipv6.org>
+	<200409082127.57827.acme@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="utf-8"
-Content-Transfer-Encoding: quoted-printable
-Cc: herbert@gondor.apana.org.au, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?utf-8?q?=E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040909.092428.125540781.yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
+To: herbert@gondor.apana.org.au, acme@conectiva.com.br
+In-Reply-To: <200409082127.57827.acme@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Qua 08 Set 2004 21:24, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=
-=E6=98=8E escreveu:
-> In article <20040909000330.GA5581@gondor.apana.org.au> (at Thu, 9 Sep 2=
-004=20
-10:03:31 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
-> > +       u32 ecn =3D (iph->tos + 1) & INET_ECN_MASK;
+In article <200409082127.57827.acme@conectiva.com.br> (at Wed, 8 Sep 2004 21:27:57 -0300), Arnaldo Carvalho de Melo <acme@conectiva.com.br> says:
+
+> Em Qua 08 Set 2004 21:24, YOSHIFUJI Hideaki / 吉藤英明 escreveu:
+> > In article <20040909000330.GA5581@gondor.apana.org.au> (at Thu, 9 Sep 2004 
+> 10:03:31 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+> > > +       u32 ecn = (iph->tos + 1) & INET_ECN_MASK;
+> > >
+> > > + /*
+> > > +  * The following gives us:
+> > > +  * INET_ECN_ECT_1 => check += __constant_htons(0xFFFD)
+> > > +  * INET_ECN_ECT_0 => check += __constant_htons(0xFFFE)
+> > > +  */
+> > > + if (__constant_htons(1) != 1)
+> > > +  ecn <<= 8;
+> > > + check += __constant_htons(0xFFFB) + ecn;
+> > > +
+> > >   iph->check = check + (check>=0xFFFF);
+> > >   iph->tos |= INET_ECN_CE;
+> > >  }
 > >
-> > + /*
-> > +  * The following gives us:
-> > +  * INET_ECN_ECT_1 =3D> check +=3D __constant_htons(0xFFFD)
-> > +  * INET_ECN_ECT_0 =3D> check +=3D __constant_htons(0xFFFE)
-> > +  */
-> > + if (__constant_htons(1) !=3D 1)
-> > +  ecn <<=3D 8;
-> > + check +=3D __constant_htons(0xFFFB) + ecn;
-> > +
-> >   iph->check =3D check + (check>=3D0xFFFF);
-> >   iph->tos |=3D INET_ECN_CE;
-> >  }
->
-> s/__constant_htons/htons/g here, please.
+> > s/__constant_htons/htons/g here, please.
+> 
+> For Herbert understanding: the generated code is the same in this case. :)
 
-For Herbert understanding: the generated code is the same in this case. :=
-)
+Yes, thanks.
+And, we don't use __const_{hton,ntoh}{s,l}() unless it is really required.
+e.g. variable initializer
 
->
-> And, I think
->   u16 ecn =3D (iph->tos + 1) & INET_ECN_MASK;
->
->   check +=3D (u32)htons(0xfffb) + (u32)htons(ecn);
->
-> or something like that?
+--yoshfuji
