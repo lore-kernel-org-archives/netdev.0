@@ -1,35 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
 Subject: Re: Info: NAPI performance at "low" loads
-Date: Wed, 18 Sep 2002 13:23:34 -0700 (PDT)
+Date: 18 Sep 2002 21:43:09 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020918.132334.102949210.davem@redhat.com>
+Message-ID: <1032381789.20498.151.camel@irongate.swansea.linux.org.uk>
 References: <Pine.GSO.4.30.0209172053360.3686-100000@shell.cyberus.ca>
 	<20020917.180014.07882539.davem@redhat.com>
 	<m1hegnky2h.fsf@frodo.biederman.org>
+	<20020918.132334.102949210.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, akpm@digeo.com, manfred@colorfullife.com,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: ebiederm@xmission.com, hadi@cyberus.ca, akpm@digeo.com,
+   manfred@colorfullife.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ebiederm@xmission.com
-In-Reply-To: <m1hegnky2h.fsf@frodo.biederman.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020918.132334.102949210.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: ebiederm@xmission.com (Eric W. Biederman)
-   Date: 18 Sep 2002 11:27:34 -0600
+On Wed, 2002-09-18 at 21:23, David S. Miller wrote:
+> The x86 processor has a well defined timing for executing inb
+> etc. instructions, the timing is fixed and is independant of the
+> speed of the PCI bus the device is on.
 
-   "David S. Miller" <davem@redhat.com> writes:
-   
-   > {in,out}{b,w,l}() operations have a fixed timing, therefore his
-   > results doesn't sound that far off.
-   ????
-   
-   I don't see why they should be.  If it is a pci device the cost should
-   the same as a pci memory I/O.  The bus packets are the same.  So things like
-   increasing the pci bus speed should make it take less time.
+Earth calling Dave Miller
 
-The x86 processor has a well defined timing for executing inb
-etc. instructions, the timing is fixed and is independant of the
-speed of the PCI bus the device is on.
+The inb timing depends on the PCI bus. If you want proof set a Matrox
+G400 into no pci retry mode, run a large X load at it and time some inbs
+you should be able to get to about 100 milliseconds for an inb to
+execute
