@@ -1,83 +1,100 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH] Host AP for wireless-2.6
-Date: Mon, 31 May 2004 11:12:49 -0700
+From: "Rosalie Cope" <hbhvmacqmbfhkk@hotmail.com>
+Subject: records indicate that..pHj l
+Date: Mon, 31 May 2004 14:31:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040531181249.GB7537@jm.kir.nu>
+Message-ID: <286974q4u742$94627587$rw7t1598@Dwightn59u2vuo4w>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="--0668057180794785"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+To: <gold290d@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Finally, here's the first attempt at submitting Host AP code for
-wireless-2.6 tree. In addition, this could be considered for merging
-into linus-2.5 tree, so review and comments are very much welcome. Host
-AP code has lived in an external CVS repository for three years and is
-widely used.
+----0668057180794785
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
-The included patch has minimal changes to the current tree (against
-2.6.6, but should apply to different versions with some differences in
-line numbers) for including a new directory drivers/net/wireless/hostap.
-The contents of that new directory is a bit large for a patch file and
-since all the files are new, I made it available as a compressed tarball
-at http://hostap.epitest.fi/hostap-linux.tgz. This should be untarred in
-the root of the kernel tree (i.e., the file paths in the tarball start
-with drivers/net/wirelss/hostap/...).
+<HTML>
+<HEAD>
+<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Diso-8859=
+-1">
+</HEAD>
+<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
+NHEIGHT=3D0>
+<table cellSpacing=3D"0" cellPadding=3D"0" width=3D"576" align=3D"center" =
+border=3D"0">
+  <tr>
+    <td colSpan=3D"5">
+    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_01=
+gif" width=3D"576" height=3D"90"></td>
+  </tr>
+  <tr>
 
-I removed most of the backwards (for Linux 2.4, pcmcia-cs modules,
-different wireless extensions versions) compatibility code. In addition,
-I replaced integrated implementations of ARC4, Michael MIC, and AES with
-crypto API. AES-CCM mode is still implemented in hostap_crypt_ccmp.c,
-but it could be moved at some point to crypto API as a new encryption
-mode.
+    <td colSpan=3D"5">
+    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_02=
+gif" width=3D"576" height=3D"188"></td>
+  </tr>
+  <tr>
+    <td rowSpan=3D"5">
+    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_03=
+gif" width=3D"32" height=3D"212"></td>
+    <td colSpan=3D"3" height=3D"94">
+    <font face=3D"Arial, Helvetica, sans-serif" size=3D"-1">Dear Friend,<b=
+r>
 
+    Records indicate that your financial status has made you eligible for =
+the 
+    VIPAdvantage Visa=AE offer.&nbsp;To receive your card, you must click =
+here to 
+    confirm that you are 18 years old and a U.S. Citizen.<br>
+&nbsp;</font></td>
+    <td rowSpan=3D"5">
+    <img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulations_05=
+gif" width=3D"25" height=3D"212"></td>
+  </tr>
+  <tr>
+    <td><font face=3D"Arial, Helvetica, sans-serif" size=3D"-1">Congratula=
+tions,</font></td>
+    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
+s_07.gif" width=3D"113" height=3D"25"></td>
 
-diff -ur linux-2.6.6.orig/MAINTAINERS linux-2.6.6/MAINTAINERS
---- linux-2.6.6.orig/MAINTAINERS	2004-05-31 09:42:05.621596168 -0700
-+++ linux-2.6.6/MAINTAINERS	2004-05-31 09:43:38.113535256 -0700
-@@ -911,6 +911,13 @@
- L:	iss_storagedev@hp.com
- S:	Supported
-  
-+HOST AP DRIVER
-+P:	Jouni Malinen
-+M:	jkmaline@cc.hut.fi
-+L:	hostap@shmoo.com
-+W:	http://hostap.epitest.fi/
-+S:	Maintained
-+
- HP100:	Driver for HP 10/100 Mbit/s Voice Grade Network Adapter Series
- P:	Jaroslav Kysela
- M:	perex@suse.cz
-diff -ur linux-2.6.6.orig/drivers/net/wireless/Kconfig linux-2.6.6/drivers/net/wireless/Kconfig
---- linux-2.6.6.orig/drivers/net/wireless/Kconfig	2004-05-31 09:41:55.782092000 -0700
-+++ linux-2.6.6/drivers/net/wireless/Kconfig	2004-05-29 20:18:11.000000000 -0700
-@@ -355,6 +355,8 @@
- 	  say M here and read <file:Documentation/modules.txt>.  The module
- 	  will be called prism54.ko.
- 
-+source "drivers/net/wireless/hostap/Kconfig"
-+
- # yes, this works even when no drivers are selected
- config NET_WIRELESS
- 	bool
-diff -ur linux-2.6.6.orig/drivers/net/wireless/Makefile linux-2.6.6/drivers/net/wireless/Makefile
---- linux-2.6.6.orig/drivers/net/wireless/Makefile	2004-05-31 09:41:55.781092152 -0700
-+++ linux-2.6.6/drivers/net/wireless/Makefile	2004-05-29 20:18:29.000000000 -0700
-@@ -28,6 +28,8 @@
- 
- obj-$(CONFIG_PRISM54)		+= prism54/
- 
-+obj-$(CONFIG_HOSTAP)		+= hostap/
-+
- # 16-bit wireless PCMCIA client drivers
- obj-$(CONFIG_PCMCIA_RAYCS)	+= ray_cs.o
- obj-$(CONFIG_PCMCIA_WL3501)	+= wl3501_cs.o
+    <td rowSpan=3D"4">
+    <a href=3D"http://sufficientlove1.com/visa/titan.htm" target=3D"_blank=
+">
+    <img src=3D"http://sufficientlove1.com/visa/c/4/congratulations_08.gif=
+" width=3D"111" height=3D"118" border=3D"0"></a></td>
+  </tr>
+  <tr>
+    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
+s_09.gif" width=3D"295" height=3D"48"></td>
+    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
+s_10.gif" width=3D"113" height=3D"48"></td>
+  </tr>
+  <tr>
 
+    <td><font face=3D"Arial, Helvetica, sans-serif" size=3D"-1">Manager<br=
+>
+    VIP Advantage Processing Department</font></td>
+    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
+s_12.gif" width=3D"113" height=3D"36"></td>
+  </tr>
+  <tr>
+    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
+s_13.gif" width=3D"295" height=3D"9"></td>
+    <td><img alt src=3D"http://sufficientlove1.com/visa/c/4/congratulation=
+s_14.gif" width=3D"113" height=3D"9"></td>
+  </tr>
 
+</table>
+<!-- End ImageReady Slices -->
+<p>&nbsp;</p>
+<p>&nbsp;</p>
+<p>for immediate r.emoval click <a href=3D"http://sufficientlove1.com/id/n=
+omore.html">
+here</a><br>
+Adv: Garage Inc . 809 Fondeau Cl., Estepona, ES 11382</p>
+</BODY>
+</HTML>
 
--- 
-Jouni Malinen                                            PGP id EFC895FA
+----0668057180794785--
