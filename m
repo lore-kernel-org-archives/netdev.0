@@ -1,35 +1,36 @@
-From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] export dev_get_flags
-Date: Tue, 15 Mar 2005 23:31:12 +0100
-Message-ID: <20050315223112.GX3189@stusta.de>
-References: <200503151852.j2FIqr8t009525@clem.clem-digital.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 13/13] WE-18 (aka WPA)
+Date: Tue, 15 Mar 2005 17:40:08 -0500
+Message-ID: <42376448.3040701@pobox.com>
+References: <200503152222.j2FMMjXu016829@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel <linux-kernel@vger.kernel.org>, Thomas Graf <tgraf@suug.ch>,
-        davem@davemloft.net, netdev@oss.sgi.com
-To: Pete Clements <clem@clem.clem-digital.net>
-Content-Disposition: inline
-In-Reply-To: <200503151852.j2FIqr8t009525@clem.clem-digital.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, netdev@oss.sgi.com, jt@hpl.hp.com
+To: akpm@osdl.org
+In-Reply-To: <200503152222.j2FMMjXu016829@shell0.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 15, 2005 at 01:52:53PM -0500, Pete Clements wrote:
+akpm@osdl.org wrote:
+> From: Jean Tourrilhes <jt@hpl.hp.com>
+> 
+> This is version 18 of the Wireless Extensions.  The main change is that it
+> adds all the necessary APIs for WPA and WPA2 support.  This work was
+> entirely done by Jouni Malinen, so let's thank him for both his hard work
+> and deep expertise on the subject ;-)
+> 
+> This APIs obviously doesn't do much by itself and works in concert with
+> driver support (Jouni already sent you the HostAP changes) and userspace
+> (Jouni is updating wpa_supplicant).  This is also orthogonal with the
+> ongoing work on in-kernel IEEE support (but potentially useful).
+> 
+> The patch is attached, tested with 2.6.11.  Normally, I would ask you to
+> push that directly in the kernel (99% of the patch has been on my web page
+> for ages and it does not affect non-WPA stuff), but Jouni convinced me that
+> it should bake a few weeks in wireless-2.6
 
-> Fyi:
->   2.6.11.3-bk1 net/ipv6/ipv6.ko missing symbol dev_get_flags
+Yes, this is going into wireless-2.6 later today, as requested.
 
-It seems this patch is required (untested).
-
-Signed-off-by: Adrian Bunk <bunk@stusta.de>
-
---- linux-2.6.11-mm3-full/net/core/dev.c.old	2005-03-15 20:13:52.000000000 +0100
-+++ linux-2.6.11-mm3-full/net/core/dev.c	2005-03-15 20:14:32.000000000 +0100
-@@ -2214,6 +2214,7 @@
- 
- 	return flags;
- }
-+EXPORT_SYMBOL_GPL(dev_get_flags);
- 
- int dev_change_flags(struct net_device *dev, unsigned flags)
- {
+	Jeff
