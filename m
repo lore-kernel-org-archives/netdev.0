@@ -1,31 +1,40 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 16:58:35 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40A28FFB.3060000@pobox.com>
-References: <20040512020700.6f6aa61f.akpm@osdl.org>	<20040512181903.GG13421@kroah.com>	<40A26FFA.4030701@pobox.com>	<20040512193349.GA14936@elte.hu>	<Pine.LNX.4.58.0405121247011.11950@bigblue.dev.mdolabs.com>	<20040512200305.GA16078@elte.hu>	<20040512132050.6eae6905.akpm@osdl.org>	<20040512203829.GI1397@holomorphy.com> <20040512134718.7e55cceb.akpm@osdl.org>
+From: Manfred Spraul <manfred@colorfullife.com>
+Subject: Re: PCI memory reservation failure - 2.4/2.6
+Date: Wed, 12 May 2004 23:07:29 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <40A29211.2010707@colorfullife.com>
+References: <BDD74A21E0B47FEAC3AB8A10@[192.168.0.100]>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: William Lee Irwin III <wli@holomorphy.com>, mingo@elte.hu,
-	davidel@xmailserver.org, greg@kroah.com,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265230AbUELVB5@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20040512134718.7e55cceb.akpm@osdl.org>
+Cc: linux-kernel@vger.kernel.org, Dominik Brodowski <linux@brodo.de>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Alec H. Peterson" <ahp@hilander.com>
+In-Reply-To: <BDD74A21E0B47FEAC3AB8A10@[192.168.0.100]>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> @@ -187,7 +187,7 @@ static int act200l_change_speed(struct i
->  		/* Write control bytes */
->  		self->write(self->dev, control, 3);
->  		irda_task_next_state(task, IRDA_TASK_WAIT);
-> -		ret = MSECS_TO_JIFFIES(5);
-> +		ret = MSEC_TO_JIFFIES(5);
+Alec H. Peterson wrote:
 
+> + #if 1
+> +         if (!(type & IORESOURCE_IO) && (((end - start) < 
+> BRIDGE_SIZE_MIN) ||
+> +             (start & (end - start))))
+> +       {
+> +               printk(KERN_INFO "yenta %s: Preassigned resource start 
+> %lx end %lx too small or not aligned.\n", socket->dev->slot_name, 
+> start, end);
+> +                 res->start = res->end = 0;
+> +         } 
 
-Ewww.
+I'm not sure if this is the right approach - what if a bios 
+intentionally assigns a small area? It's dangerous to override the BIOS 
+setting.
+I'd prefer a kernel command line parameter / module parameter / dmi 
+based override instead of an unconditional override based on the minimum 
+size.
+I'll think about it.
 
-Just pluralize the macro, and this patch gets 75% lighter.
-
-	Jeff
+--
+    Manfred
