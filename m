@@ -1,30 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] init_netdev missing locking
-Date: Wed, 15 Oct 2003 22:33:18 -0700
+Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
+Date: Wed, 15 Oct 2003 22:37:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015223318.597494ed.davem@redhat.com>
-References: <20031015110520.0206e327.rddunlap@osdl.org>
+Message-ID: <20031015223733.5483da9d.davem@redhat.com>
+References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com>
+	<20031008130016.559b8047.davem@redhat.com>
+	<200310081706.09485.mashirle@us.ibm.com>
+	<200310141038.04322.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org.sgi.com>
-In-Reply-To: <20031015110520.0206e327.rddunlap@osdl.org>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200310141038.04322.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Oct 2003 11:05:20 -0700
-"Randy.Dunlap" <rddunlap@osdl.org> wrote:
+On Tue, 14 Oct 2003 10:38:04 -0700
+Shirley Ma <mashirle@us.ibm.com> wrote:
 
-> It looks like the call to dev_alloc_name() in init_netdev()
-> isn't protected by the required locking.
-> This patch adds rtnl_lock/unlock around the call to dev_alloc_name().
-> 
-> Comments?  or please apply.
+> This is the modified new patch for IPv6 MIB: ipv6AddressTable.
+> This patch has been tested against linux-2.6.0-test6-bk8 kernel.
 
-Your fix is correct, so I've applied it.  Stephen is working to
-deprecate the one thing that uses this function (init_etherdev()).
+Please configure KMAIL so that it doesn't corrupt the patches
+you send by auto-wrapping newlines.
 
-Please in the future properly root your patch, I had to fix this
-one up before my automated scripts would eat it :)
+I can't use the patch you've posted because of this.
+
+Thanks.
