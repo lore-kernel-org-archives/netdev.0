@@ -1,42 +1,86 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Sun, 6 Feb 2005 22:41:45 +1100
-Message-ID: <20050206114145.GA20883@gondor.apana.org.au>
-References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au> <20050204221344.247548cb.davem@davemloft.net> <20050205064643.GA29758@gondor.apana.org.au> <20050205104559.GA30981@gondor.apana.org.au>
+Date: Sun, 06 Feb 2005 21:30:18 +0900 (JST)
+Message-ID: <20050206.213018.92031627.yoshfuji@linux-ipv6.org>
+References: <20050205064643.GA29758@gondor.apana.org.au>
+	<20050205104559.GA30981@gondor.apana.org.au>
+	<20050206114145.GA20883@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050205104559.GA30981@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.net, mirko.parthey@informatik.tu-chemnitz.de,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	shemminger@osdl.org, yoshfuji@linux-ipv6.org
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20050206114145.GA20883@gondor.apana.org.au>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 05, 2005 at 09:45:59PM +1100, herbert wrote:
+In article <20050206114145.GA20883@gondor.apana.org.au> (at Sun, 6 Feb 2005 22:41:45 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+
+> On Sat, Feb 05, 2005 at 09:45:59PM +1100, herbert wrote:
+> > 
+> > Although I still think this is a bug, I'm now starting to suspect
+> > that there is another bug around as well.
+> > 
+> > There is probably an ifp leak which in turn leads to a split dst
+> > leak that allows the first bug to make its mark.
 > 
-> Although I still think this is a bug, I'm now starting to suspect
-> that there is another bug around as well.
+> Found it.  This is what happens:
 > 
-> There is probably an ifp leak which in turn leads to a split dst
-> leak that allows the first bug to make its mark.
+> lo goes down =>
+> 	rt6_ifdown =>
+> 		eth0's local address route gets deleted
+> 
+> eth0 goes down =>
+> 	__ipv6_ifa_notify =>
+> 		ip6_del_rt fails so we fall through to the
+> 		dst_free path.  At this point the refcount
+> 		taken by __ipv6_ifa_notify is leaked.
 
-Found it.  This is what happens:
+Oh, you're right! Thanks.
 
-lo goes down =>
-	rt6_ifdown =>
-		eth0's local address route gets deleted
+How about this; Ignore entries addrconf_dst_alloc'ed entries in rt6_ifdown()?
 
-eth0 goes down =>
-	__ipv6_ifa_notify =>
-		ip6_del_rt fails so we fall through to the
-		dst_free path.  At this point the refcount
-		taken by __ipv6_ifa_notify is leaked.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Cheers,
+===== include/linux/ipv6_route.h 1.6 vs edited =====
+--- 1.6/include/linux/ipv6_route.h	2004-10-26 12:54:23 +09:00
++++ edited/include/linux/ipv6_route.h	2005-02-06 21:27:02 +09:00
+@@ -26,6 +26,7 @@
+ #define RTF_FLOW	0x02000000	/* flow significant route	*/
+ #define RTF_POLICY	0x04000000	/* policy route			*/
+ 
++#define RTF_ANYCAST	0x40000000
+ #define RTF_LOCAL	0x80000000
+ 
+ struct in6_rtmsg {
+===== net/ipv6/route.c 1.105 vs edited =====
+--- 1.105/net/ipv6/route.c	2005-01-15 17:44:48 +09:00
++++ edited/net/ipv6/route.c	2005-02-06 21:26:35 +09:00
+@@ -1408,7 +1408,9 @@
+ 	rt->u.dst.obsolete = -1;
+ 
+ 	rt->rt6i_flags = RTF_UP | RTF_NONEXTHOP;
+-	if (!anycast)
++	if (anycast)
++		rt->rt6i_flags |= RTF_ANYCAST;
++	else
+ 		rt->rt6i_flags |= RTF_LOCAL;
+ 	rt->rt6i_nexthop = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
+ 	if (rt->rt6i_nexthop == NULL) {
+@@ -1427,7 +1429,8 @@
+ static int fib6_ifdown(struct rt6_info *rt, void *arg)
+ {
+ 	if (((void*)rt->rt6i_dev == arg || arg == NULL) &&
+-	    rt != &ip6_null_entry) {
++	    rt != &ip6_null_entry &&
++	    !(rt->rt6i_flags & (RTF_LOCAL|RTF_ANYCAST))) {
+ 		RT6_TRACE("deleted by ifdown %p\n", rt);
+ 		return -1;
+ 	}
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
