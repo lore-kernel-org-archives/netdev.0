@@ -1,33 +1,26 @@
-From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
-Subject: bridge between ppp and ethernet - 1 IP address and assign it to
- another host
-Date: Sun, 6 Mar 2005 15:31:08 +1030
-Message-ID: <20050306153108.20430b58.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: net-2.6.12
+Date: Sat, 5 Mar 2005 21:45:38 -0800
+Message-ID: <20050305214538.05dfc3cf.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: ahu@ds9a.nl
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Ben,
 
-(sorry for not preserving the message thread id, I'm not subscribed to netdev)
+I just pushed all of that work to Linus, this tree is at:
 
-"What we're trying to do is a lot like building a bridge between ethernet and
-ppp, but not quite."
+	bk://kernel.bkbits.net/davem/net-2.6
 
-I've thought doing this sort of thing would be quite useful, in
-particular if the Linux box could also perform firewalling on the
-"bridged" traffic. 
+I'll start working on the backlog which has accumulated
+over the past few days starting tomorrow.  Today was
+mega-merge day since I have a bunch of VM layer API
+changes and Sparc64 bug fixes to push to Linus today
+as well.
 
-
-
-Regards,
-Mark.
-
--- 
-
-    The Internet's nature is peer to peer.
+So, there is no need to resend any patches.  Either it's
+in the that tree I pushed to Linus, or I'll get to it
+tomorrow :-)
