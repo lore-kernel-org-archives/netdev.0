@@ -1,31 +1,22 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
-Date: Tue, 28 Sep 2004 08:02:40 +1000
+Subject: Re: [PATCH] (1/3) tcp - choose congestion algorithm at initialization
+Date: Tue, 28 Sep 2004 08:07:36 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040927220240.GA7633@gondor.apana.org.au>
-References: <20040927080828.GA12056@gondor.apana.org.au> <20040927120031.55fb4a49.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Message-ID: <E1CC3ei-00020G-00@gondolin.me.apana.org.au>
+References: <20040927111834.48c7baab@zqx3.pdx.osdl.net>
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040927120031.55fb4a49.davem@davemloft.net>
+To: shemminger@osdl.org (Stephen Hemminger)
+In-Reply-To: <20040927111834.48c7baab@zqx3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Sep 27, 2004 at 12:00:31PM -0700, David S. Miller wrote:
-> On Mon, 27 Sep 2004 18:08:28 +1000
-> Herbert Xu <herbert@gondor.apana.org.au> wrote:
-> 
-> > The MSS in tcp_init_cwnd should be the real one instead of the TSO value.
-> 
-> This happens too early in the connections lifetime
-> to make a difference for anything.
+Stephen Hemminger <shemminger@osdl.org> wrote:
+> The choice of congestion algorithm needs to be made when connection
+> is setup to avoid problems when the sysctl values change later and the
+> necessary data hasn't been collected.
 
-I know.  That's why I put it in a different thread.
-
-IMHO we should still fix it though at least for consistency.
+Could this be chosen by a setsockopt as well?
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
