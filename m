@@ -1,73 +1,58 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH 2.4] backport neighbour cache redesign
-Date: Mon, 4 Oct 2004 23:11:58 +0200
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] PKT_SCHED: Make rate estimator work for all platforms
+Date: Mon, 4 Oct 2004 23:11:52 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041004211158.GG27499@sunbeam.de.gnumonks.org>
-References: <20040930154753.GD1860@sunbeam.de.gnumonks.org> <20041004121759.26798f1d.davem@davemloft.net> <20041004201525.GF27499@sunbeam.de.gnumonks.org> <20041004132034.00cfe23c.davem@davemloft.net>
+Message-ID: <20041004211152.GF15898@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="jk/5KjyVsvxWSMIA"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20041004132034.00cfe23c.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Fixes the existing rate estimator to compile cleanly on all platforms
+and avoids carrying on the variance on platforms with HZ%4 != 0.
 
---jk/5KjyVsvxWSMIA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Patch also applies to 2.4 with some fuzz.
 
-On Mon, Oct 04, 2004 at 01:20:34PM -0700, David S. Miller wrote:
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-> I think tieing it to the subnet size is wrong, because the real
-> cap is the routing cache size.  Remember the email where I was
-> talking about that?
-
-yes, I remember that email.  I didn't think further about it, since I
-got the feeling that there is significant movement to get rid of the
-neighbour cache at some point (if/when there is some fast lookup
-algorithm implemented) - and if we look at ipv6, there is no routing
-cache.
-
-> I'm nearly ambivalent about a bound-less neighbour cache.  I hate
-> to think about having tons of crap sitting in the neighbour cache
-> unused and sucking up memory.  BSD's scheme works because when routing
-> entries die so do the neighbour entries they point to, so they have no
-> need for garbage collection like we do.
-
-mh, I see.  I understood your email related to that subject that you
-actually think this is not that stupid a thing to do...=20
-
-anyway, I'll drop my prefix-based sizing idea.  And I have to admit that
-I also dislike the 'routing cache tell neighbour cache' approach (since
-it's only applicable to ipv4)... so as for me, we'll just stick with
-that hard limit.  No more fiddling with that code, I'll get back to flow
-accounting and pkttables for some time ;)
-
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---jk/5KjyVsvxWSMIA
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBYbyeXaXGVTD0i/8RAiVBAJsGS19s/sCo8GmeelzjRm83LXqB8wCggmpA
-nxa93JMnUATsNYYfJyENoeI=
-=Fxg5
------END PGP SIGNATURE-----
-
---jk/5KjyVsvxWSMIA--
+--- linux-2.6.9-rc3-bk4.orig/net/sched/estimator.c	2004-10-04 22:41:26.000000000 +0200
++++ linux-2.6.9-rc3-bk4/net/sched/estimator.c	2004-10-04 22:53:54.000000000 +0200
+@@ -66,15 +66,11 @@
+ 
+    * Minimal interval is HZ/4=250msec (it is the greatest common divisor
+      for HZ=100 and HZ=1024 8)), maximal interval
+-     is (HZ/4)*2^EST_MAX_INTERVAL = 8sec. Shorter intervals
++     is (HZ*2^EST_MAX_INTERVAL)/4 = 8sec. Shorter intervals
+      are too expensive, longer ones can be implemented
+      at user level painlessly.
+  */
+ 
+-#if (HZ%4) != 0
+-#error Bad HZ value.
+-#endif
+-
+ #define EST_MAX_INTERVAL	5
+ 
+ struct qdisc_estimator
+@@ -128,7 +124,7 @@
+ 		spin_unlock(e->stats_lock);
+ 	}
+ 
+-	mod_timer(&elist[idx].timer, jiffies + ((HZ/4)<<idx));
++	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
+ 	read_unlock(&est_lock);
+ }
+ 
+@@ -161,7 +157,7 @@
+ 	if (est->next == NULL) {
+ 		init_timer(&elist[est->interval].timer);
+ 		elist[est->interval].timer.data = est->interval;
+-		elist[est->interval].timer.expires = jiffies + ((HZ/4)<<est->interval);
++		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
+ 		elist[est->interval].timer.function = est_timer;
+ 		add_timer(&elist[est->interval].timer);
+ 	}
