@@ -1,28 +1,44 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] packet delay scheduler
-Date: Thu, 18 Mar 2004 20:53:46 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [BUG] alignment problem in net/core/flow.c:flow_key_compare
+Date: Fri, 19 Mar 2004 14:00:28 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040318205346.3fd7829d.davem@redhat.com>
-References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
-	<20040316174134.2f1da12a.davem@redhat.com>
-	<20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
+Message-ID: <20040319.140028.52992553.yoshfuji@linux-ipv6.org>
+References: <20040318162903.59192d13.akpm@osdl.org>
+	<20040319.115511.32395995.yoshfuji@linux-ipv6.org>
+	<20040318185940.45108d6a.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Cc: netdev@oss.sgi.com, mru@kth.se, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040318120451.1c9ee286@dell_ss3.pdx.osdl.net>
+To: akpm@osdl.org, davem@redhat.com
+In-Reply-To: <20040318185940.45108d6a.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Mar 2004 12:04:51 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+In article <20040318185940.45108d6a.akpm@osdl.org> (at Thu, 18 Mar 2004 18:59:40 -0800), Andrew Morton <akpm@osdl.org> says:
 
-> Okay, here is a very simple QOS scheduler that delays packets for 2.6.
-> It is good for testing, and might be useful for people who want to put
-> some class of traffic into a "penalty box".
+> Why not simply
+> 
+> >  +} __attribute__((__aligned__(BITS_PER_LONG/8)));
+> 
+> ?
 
-I'm happy with this and added it to my 2.6.x tree.
+Okay;
 
-Could you cook up a 2.4.x variant for me?  Thanks.
+===== include/net/flow.h 1.10 vs edited =====
+--- 1.10/include/net/flow.h	Thu Jan 15 17:18:43 2004
++++ edited/include/net/flow.h	Fri Mar 19 12:04:32 2004
+@@ -77,7 +77,7 @@
+ #define fl_icmp_type	uli_u.icmpt.type
+ #define fl_icmp_code	uli_u.icmpt.code
+ #define fl_ipsec_spi	uli_u.spi
+-};
++} __attribute__((__aligned__(BITS_PER_LONG/8)));
+ 
+ #define FLOW_DIR_IN	0
+ #define FLOW_DIR_OUT	1
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
