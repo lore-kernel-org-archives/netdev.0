@@ -1,43 +1,44 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
-Date: Thu, 27 Nov 2003 20:00:41 +0000
+Date: Fri, 28 Nov 2003 05:47:24 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127200041.B25015@flint.arm.linux.org.uk>
-References: <1069934643.2393.0.camel@teapot.felipe-alfaro.com> <20031127.210953.116254624.yoshfuji@linux-ipv6.org> <20031127194602.A25015@flint.arm.linux.org.uk> <20031128.045413.133305490.yoshfuji@linux-ipv6.org>
+Message-ID: <20031128.054724.116712136.yoshfuji@linux-ipv6.org>
+References: <20031127194602.A25015@flint.arm.linux.org.uk>
+	<20031128.045413.133305490.yoshfuji@linux-ipv6.org>
+	<20031127200041.B25015@flint.arm.linux.org.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Cc: felipe_alfaro@linuxmail.org, davem@redhat.com,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20031128.045413.133305490.yoshfuji@linux-ipv6.org>; from yoshfuji@linux-ipv6.org on Fri, Nov 28, 2003 at 04:54:13AM +0900
+To: rmk+lkml@arm.linux.org.uk
+In-Reply-To: <20031127200041.B25015@flint.arm.linux.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 28, 2003 at 04:54:13AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B wrote:
-> In article <20031127194602.A25015@flint.arm.linux.org.uk> (at Thu, 27 Nov 2003 19:46:02 +0000), Russell King <rmk+lkml@arm.linux.org.uk> says:
-> > I'm slightly cautious here, although I haven't read the patch yet.
-> > Did anyone consider whether any of these structures were copied to
-> > user space, and whether, as a result of this change, we're now
-> > copying uninitialised data to users?
-> 
-> I believe that it, to change from strcpy() to strlcpy(), just 
-> eliminates possibility of buffer-overrun.
+In article <20031127200041.B25015@flint.arm.linux.org.uk> (at Thu, 27 Nov 2003 20:00:41 +0000), Russell King <rmk+lkml@arm.linux.org.uk> says:
 
-While this is 100% correct, the bit which raised my attention was the
-original message which didn't seem to show that the above had been
-considered.
+> The thing that worries me is that an incorrect strlcpy() conversion
+> gives the impression that someone has thought about buffer underruns
+> as well as overruns, and, unless someone /has/ actually thought about
+> it, there could well still be a security problem lurking there.
 
-The thing that worries me is that an incorrect strlcpy() conversion
-gives the impression that someone has thought about buffer underruns
-as well as overruns, and, unless someone /has/ actually thought about
-it, there could well still be a security problem lurking there.
+Hmm, what do you actually mean by "buffer underruns?"
 
-I'm just overly wary of all strlcpy() conversions.
+(If I'm correct) do you suggest that we should zero-out rest of 
+destination buffer?
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+if so, we may want to have a function, say strlcpy0(), like this:
+
+size_t strlcpy0(char *dst, const char *src, size_t maxlen)
+{
+  size_t len = strlcpy(dst, src, maxlen);
+  if (maxlen && len < maxlen - 1)
+    memset(dst + len + 1, 0, maxlen - len - 1);
+  return len;
+}
+
+--yoshfuji
