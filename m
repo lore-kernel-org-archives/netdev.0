@@ -1,53 +1,56 @@
-From: William Lee Irwin III <wli@holomorphy.com>
-Subject: Re: 2.6: rxrpc compile errors with SYSCTL=n
-Date: Wed, 11 Aug 2004 15:41:02 -0700
+From: Adrian Bunk <bunk@fs.tum.de>
+Subject: [2.6 patch] atalk compile errors with SYSCTL=n
+Date: Thu, 12 Aug 2004 00:47:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040811224102.GU11200@holomorphy.com>
-References: <20040811223225.GN26174@fs.tum.de>
+Message-ID: <20040811224747.GQ26174@fs.tum.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: David Howells <dhowells@redhat.com>, linux-kernel@vger.kernel.org,
-        davem@redhat.com, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@fs.tum.de>
+To: acme@conectiva.com.br
 Content-Disposition: inline
-In-Reply-To: <20040811223225.GN26174@fs.tum.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Aug 12, 2004 at 12:32:25AM +0200, Adrian Bunk wrote:
-> I'm getting tons of the following compile errors in 2.6.8-rc4-mm1 (but 
-> it doesn't seem to be specific to -mm) with CONFIG_SYSCTL=n:
-> <--  snip  -->
-> ...
->   LD      .tmp_vmlinux1
-> net/built-in.o(.text+0x154127): In function `__rxrpc_call_acks_timeout':
-> : undefined reference to `rxrpc_kdebug'
-> net/built-in.o(.text+0x154167): In function `__rxrpc_call_rcv_timeout':
-> : undefined reference to `rxrpc_kdebug'
+I'm getting the following compile error in 2.6.8-rc4-mm1 (but it 
+doesn't seem to be specific to -mm) with CONFIG_SYSCTL=n:
 
-Does this help?
+<--  snip  -->
+
+...
+  LD      .tmp_vmlinux1
+net/built-in.o(.init.text+0x74db): In function `atalk_init':
+: undefined reference to `atalk_register_sysctl'
+make: *** [.tmp_vmlinux1] Error 1
+
+<--  snip  -->
 
 
-Index: mm1-2.6.8-rc4/include/rxrpc/rxrpc.h
-===================================================================
---- mm1-2.6.8-rc4.orig/include/rxrpc/rxrpc.h	2004-08-11 15:27:56.589237088 -0700
-+++ mm1-2.6.8-rc4/include/rxrpc/rxrpc.h	2004-08-11 15:28:12.496818768 -0700
-@@ -16,10 +16,17 @@
- 
- extern uint32_t rxrpc_epoch;
+The following patch fixes this issue:
+
+
+Signed-off-by: Adrian Bunk <bunk@fs.tum.de>
+
+--- linux-2.6.8-rc4-mm1-full/net/appletalk/ddp.c.old	2004-08-12 00:44:33.000000000 +0200
++++ linux-2.6.8-rc4-mm1-full/net/appletalk/ddp.c	2004-08-12 00:45:08.000000000 +0200
+@@ -68,8 +68,10 @@
+ 				     struct atalk_addr *sa);
+ extern void aarp_proxy_remove(struct net_device *dev, struct atalk_addr *sa);
  
 +#ifdef CONFIG_SYSCTL
- extern int rxrpc_ktrace;
- extern int rxrpc_kdebug;
- extern int rxrpc_kproto;
- extern int rxrpc_knet;
-+#else
-+#define rxrpc_ktrace	0
-+#define rxrpc_kdebug	0
-+#define rxrpc_kproto	0
-+#define rxrpc_knet	0
+ extern void atalk_register_sysctl(void);
+ extern void atalk_unregister_sysctl(void);
 +#endif
  
- extern int rxrpc_sysctl_init(void);
- extern void rxrpc_sysctl_cleanup(void);
+ struct datalink_proto *ddp_dl, *aarp_dl;
+ static struct proto_ops atalk_dgram_ops;
+@@ -1905,7 +1907,9 @@
+ 	register_netdevice_notifier(&ddp_notifier);
+ 	aarp_proto_init();
+ 	atalk_proc_init();
++#ifdef CONFIG_SYSCTL
+ 	atalk_register_sysctl();
++#endif
+ 	return 0;
+ }
+ module_init(atalk_init);
