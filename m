@@ -1,15 +1,31 @@
-From: IT Security <itsecurity@morpheus.globalsources.com>
-Subject: Re: Re: Re: My details
-Date: Fri, 22 Aug 2003 20:04:08 +0800
+From: <Thorsten.Thiel@medical.bruker.de>
+Subject: Reply from Thorsten.Thiel@medical.bruker.de
+Date: Fri, 22 Aug 2003  16:33:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308221204.h7MC480g023555@morpheus.globalsources.com>
+Message-ID: <03082216332895300@mailserver.bruker.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-*** security warning - do not reply ***
-Our e-mail gateway has detected your message to szjobcenter@globalsources.com contains an attachment,
-"details.pif" , which could possibly contain a virus. To avoid the spread of viruses our system will not permit the delivery of such attachments.
+Hello,
+I will be out office until September 3rd, 2003. Your email has been
+saved and I will respond to it upon my return if I cannot access my
+e-mail 
+during my absence.
+In urgent cases please contact Dr. Stefan Widmaier:
+Stefan.Widmaier@bruker-biospin.de
++49 7243 504 563
 
-Please remove the attachement and re-send the e-mail. We apologise if this causes any inconvenience and hope you will understand this necessary precaution.
+Best regards,
+Thorsten Thiel
+_______________________________
+Thorsten Thiel, Ph.D.
+Product Manager
+       
+Bruker BioSpin MRI
+D - 76275 Ettlingen
+Thorsten.Thiel@bruker-biospin.de
+Phone:+49 (0)7243 504 517
+Fax:	+49 (0)7243 504 539
+http://www.bruker-biospin.de
