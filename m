@@ -1,44 +1,120 @@
-From: John Haller <jhaller@lucent.com>
-Subject: SO_REUSEADDR, restarting servers, and security patches
-Date: Thu, 01 Jul 2004 23:39:53 -0500
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [BUGS] [CHECKER] 99 synchronization bugs and a lock summary
+ database
+Date: Fri, 2 Jul 2004 00:49:56 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40E4E719.6000508@lucent.com>
+Message-ID: <20040702004956.448c95d9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In October 2002, Yoshifuji Hideaki introduced a
-patch that prevents completely any duplication
-of <local-addr, local-port, remote-addr, remote-port>,
-even when SO_REUSEADDR is set, preventing port
-stealing denial-of-service attacks.  This also
-has the side effect of not allowing a server to
-be immediately restarted after being stopped,
-because of the sockets that remain in the TCP_TIME_WAIT
-state.
 
-Would security be negatively impacted by relaxing
-the restrictions introduced by the above patch
-to allow a bind to a TCP port only if all existing
-references to that TCP port were in the TCP_TIME_WAIT
-state, and both the listening port and all of the
-TCP_TIME_WAIT sockets had the SO_REUSEADDR flag set?
-This relaxation would only help in the case of
-servers where the listener and connected sockets
-are all stopped at the same time, and not loosely
-connect servers where the connected sockets are
-handled in a separate process from the listener.
+Could someone please take a look at the locking in
+net/ipv4/ipmr.c:ipmr_mfc_seq_next?  It seems rather broken.
 
-I don't want to use SO_REUSEPORT for two reasons.
-The first is that SO_REUSEPORT allows binding
-the same address twice for active sockets.  The
-second is that SO_REUSEPORT is not commonly enabled.
 
-The top message regarding the patch is located here:
-http://oss.sgi.com/projects/netdev/archive/2002-10/msg00035.html
--- 
-John Haller
+Begin forwarded message:
+
+Date: Thu, 1 Jul 2004 18:01:00 -0700 (PDT)
+From: Yichen Xie <yxie@cs.stanford.edu>
+To: linux-kernel@vger.kernel.org
+Subject: [BUGS] [CHECKER] 99 synchronization bugs and a lock summary database
+
+
+Hi all, 
+
+We are a group of researchers at Stanford working on program analysis
+algorithms.  We have been building a precision enhanced program analysis
+engine at Stanford, and our first application was to derive mutex/lock
+behavior in the linux kernel. In the process, we found 99 likely
+synchronization errors in linux kernel version 2.6.5:
+
+    http://glide.stanford.edu/linux-lock/err1.html (69 errors)
+    http://glide.stanford.edu/linux-lock/err2.html (30 errors)
+
+err1.html consists of potential double locks/unlocks. Acquiring a lock
+twice in a row may result in a system hang, and releasing a lock more than
+once with certain mutex functions (e.g. up) may cause critical section
+violations.
+
+err2.html consists of reports on inconsistent output lock states on
+function exit. These errors usually correspond to missed lock operations
+on error paths. (filenames in this report correspond to where a function
+is declared, so CTAGS may come in handy to find the actual implementation
+of the function).
+
+In the error reports, functions are hyperlinked to their derived
+summaries, and those of their callees (since the analysis spans function
+calls, the error condition of a particular function usually depend on the
+locking behavior of its callees).
+
+For example, in function "radeon_pm_program_v2clk" (first error report in
+err1.html), the tool flagged an error at line 323 of
+"drivers/video/aty/radeon_pm.c". Line 323 invokes two macros, OUTPLL, and
+INPLL. OUTPLL acquires "rinfo->reg_lock", and then evaluates "addr", which
+is calculated, in this case, by calling _INPLL. By clicking on the link
+"drivers/video/aty/radeon_pm.c:radeon_pm_program_v2clk", we can see that
+_INPLL requires "rinfo->reg_lock" be unheld on entry (confirmed by looking
+at its definition), which is not satisfied in this example. So this is a
+double lock error and could potentially lead to a deadlock on MP systems.
+
+We also have a separate web interface to the summary database at:
+
+	http://glide.stanford.edu/linux-lock/
+
+For example, typing "fh_put" in the input box gives
+
+=========
+ SUMMARY 
+=========
+FUNCTION SUMMARY: 'include/linux/nfsd/nfsfh.h:fh_put'
+{
+  dcache_lock(global): [unlocked -> unlocked]
+  fhp(param#0)->fh_dentry->d_lock: [unlocked -> unlocked]
+  fhp(param#0)->fh_dentry->d_inode->i_sem: [locked -> unlocked]
+}
+
+Each line in the function summary correspond to the requirements and
+effects on one particular lock. For example, fh_put requires that the
+global lock variable dcache_lock be unheld on entry, and it'll remain
+unheld on exit. It also requires fhp->fh_dentry->d_inode->i_sem be held on
+entry and it'll release it on exit. (note: please ignore summaries for
+lock premitives like spin_lock or down_interruptible; models for these
+functions are built into the checker and the derived summaries are not
+used).
+
+We have found that some modules in the kernel has functions with
+complicated synchronization behavior (esp. in filesystems), and we hope
+summaries generated by this tool could be useful not only for bug finding,
+but also for documentation purposes as well.
+
+The analysis is intraprocedurally "path sensitive", so it won't be fooled
+by cases like
+
+     if (flag & BLOCKING) spin_lock(&l);
+     ...
+     if (flag & BLOCKING) spin_unlock(&l);
+
+or
+
+     if (!spin_trylock(&l))
+	return -EAGAIN;
+     ...
+     spin_unlock(&l);
+
+The analysis algorithm models values (down to individual bits) and
+pointers in the program with a boolean satisfiability solver with high
+precision, and we're actively looking for other properties involving
+(heavy) data dependencies where naive analysis would fail. Suggestions and
+insights from the linux kernel community will be more than welcome!
+
+As always, feedbacks and confirmations will be greatly appreciated!
+
+Best regards,
+Yichen Xie
+<yxie@cs.stanford.edu>
+
