@@ -1,48 +1,71 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
-Date: 17 Jan 2005 17:28:34 -0500
-Message-ID: <1106000914.1046.4.camel@jzny.localdomain>
-References: <20050116115431.GA13617@lst.de>
-	 <20050117134228.5a6002a0.davem@davemloft.net>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 17 Jan 2005 17:36:26 -0500
+Message-ID: <1106001385.1036.7.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1105363092.1041.146.camel@jzny.localdomain>
+	 <1105917038.1091.1041.camel@jzny.localdomain>
+	 <200501171404.19451.hasso@estpak.ee> <41EC3680.7060108@tpack.net>
+	 <41EC3894.9090304@pantasys.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@lst.de>, pavlic@de.ibm.com, waldi@debian.org,
-        netdev@oss.sgi.com
+Cc: Tommy Christensen <tommy.christensen@tpack.net>,
+        Hasso Tepper <hasso@estpak.ee>, Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050117134228.5a6002a0.davem@davemloft.net>
+To: Peter Buckingham <peter@pantasys.com>
+In-Reply-To: <41EC3894.9090304@pantasys.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
 
-Refer to my comments:
-any device that ends up having to do that is a hack in my opinion;->
-The dev_id maybe useful for other things. the qeth driver needs fixing
-so it can stack the per-os instance interfaces.
+Hi there,
+
+The solution that Tommy and myself have been batting around is a lot
+more cleaner than this (however still doesnt solve the issue 100%)
 
 cheers,
 jamal
 
-On Mon, 2005-01-17 at 16:42, David S. Miller wrote:
-> On Sun, 16 Jan 2005 12:54:31 +0100
-> Christoph Hellwig <hch@lst.de> wrote:
+On Mon, 2005-01-17 at 17:13, Peter Buckingham wrote:
+> Hi,
 > 
-> > Let's try again solvign the EUI64 generation for S/390.  I looked over
-> > the IBM patch and I think it can be done a lot simpler:
+> Tommy Christensen wrote:
+> > A proper solution would take care of both these issues: "stale packets"
+> > and "socket blocking". They are pretty much related.
 > > 
-> >  - put a dev_id field in struct net_device, so that it uses space that
-> >    would be wasted by padding otherwise.
-> >  - if this fields is non-null let ipv6_generate_eui64 use the algorithm
-> >    from the QETH code to generate an EUI that's different for each
-> >    OS instance.  See code comments for details.
+> > Using a socket for each interface *ought* not be needed.
+> > Carrier detection sounds like a good thing in its own right.
 > 
-> I'll apply this patch.
+> I came across this same problem with multicast/unicast with an e1000. 
+> For a quick hack we just check to see whether the carrier is ok, if it's 
+> not we just drop the packet. this might do some nasty things with tcp 
+> and it may be better to check to see wither the socket buffer is full, 
+> but this works for me here... (this is against a 2.6.9ish kernel)
 > 
-> It might be nice to genericize that huge comment.  This will likely
-> be not the last time we see devices which have this characteristic.
+> peter
+> 
+> Index: net/core/dev.c
+> ===================================================================
+> --- net/core/dev.c
+> +++ net/core/dev.c
+> @@ -1379,6 +1379,11 @@
+>   #ifdef CONFIG_NET_CLS_ACT
+>   	skb->tc_verd = SET_TC_AT(skb->tc_verd,AT_EGRESS);
+>   #endif
+> +	if (!netif_carrier_ok(dev)) {
+> +		rc = NET_XMIT_DROP;
+> +		goto out_kfree_skb;
+> +	}
+> +
+>   	if (q->enqueue) {
+>   		/* Grab device queue */
+>   		spin_lock(&dev->queue_lock);
 > 
 > 
