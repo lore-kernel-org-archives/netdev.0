@@ -1,50 +1,40 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] subset of RFC2553
-Date: Wed, 12 Feb 2003 21:43:05 -0800 (PST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030212.214305.67672796.davem@redhat.com>
-References: <1045091741.8858.320.camel@w-bwa1.beaverton.ibm.com>
+From: "santosh kumar gowda" <ipv6_san@rediffmail.com>
+Subject: IPv6 enabled Network services
+Date: 13 Feb 2003 07:22:49 -0000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030213072249.17997.qmail@webmail18.rediffmail.com>
+Reply-To: "santosh kumar gowda" <ipv6_san@rediffmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: bwa@us.ibm.com
-In-Reply-To: <1045091741.8858.320.camel@w-bwa1.beaverton.ibm.com>
+Content-Type: text/plain;
+	format=flowed
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Bruce Allan <bwa@us.ibm.com>
-   Date: 12 Feb 2003 15:15:39 -0800
+Hi everybody,
 
-I don't like how sockaddr_storage works, so you'll have to clean
-it up before we move it to a generic spot.
+I have installed Red Hat Linux 2.4.18-14 on two i386 machines, 
+with
+kernel compiled for IPv6 support.
+These machines are connected through a LAN.
 
-   +struct sockaddr_storage {
-   +	sa_family_t  ss_family;			/* address family */
-   +	/* Following fields are implementation specific */
-   +	char      __ss_pad1[_SS_PAD1SIZE];
-   +				/* 6 byte pad, this is to make implementation */
-   +				/* specific pad up to alignment field that */
-   +				/* follows explicit in the data structure */
-   +	int64_t   __ss_align; 	/* field to force desired structure */
-   +				/* storage alignment */
-   +	char      __ss_pad2[_SS_PAD2SIZE];
-   +				/* 112 byte pad to achieve desired size, */
-   +				/* _SS_MAXSIZE value minus size of ss_family */
-   +				/* __ss_pad1, __ss_align fields is 112 */
-   +};
+when i try
+telnet> 3ffe::102:304:1234/64
+i get
+3ffe::102:304:1234/64 unknown host
 
-All of this pad stuff is really unnecessary, just specify ss_family
-and then "stuff" where "stuff" can be something like "char __data[0];"
-Then you can add "attribute((aligned(64)))" or whatever to the
-declaration as well.
+when doing ftp, same message is given.
 
-And if you're going to put some 64-bit type in here, use "__u64"
-which actually makes you consistent with the rest of the kernel.
+I would like to know whether i have to configure/modify any 
+scripts,
+or whether these(ftp, telnet, etc) utilities are IPv6 enabled 
+???
 
-You could also do something like:
+I'm eager to know what is wrong.
+Please suggest me.
 
-	__u64	data[_SS_MAXSIZE / sizeof(__u64)];
-
-Anything but this pad stuff...
+thanx,
+San
+-----------------------------------------------
