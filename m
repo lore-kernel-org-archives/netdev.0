@@ -1,39 +1,94 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: RFC/PATCH capture qdisc requeue event in stats
-Date: Wed, 29 Sep 2004 02:36:56 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929003656.GX31616@rei.reeler.org>
-References: <1093799632.1073.410.camel@jzny.localdomain> <20040830144033.2265a6e6.davem@redhat.com> <1093904088.1043.12.camel@jzny.localdomain> <20040830154430.769d1d59.davem@redhat.com> <1093906592.1037.32.camel@jzny.localdomain> <20040830160052.548c4846.davem@redhat.com> <1093916592.1037.51.camel@jzny.localdomain> <20040830191716.0d002f91.davem@redhat.com> <1093919823.1043.80.camel@jzny.localdomain> <20040830212910.78047bcd.davem@davemloft.net>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [RFC] acx100 inclusion in mainline;
+	generic 802.11 stack
+Date: Tue, 28 Sep 2004 20:48:08 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <20040929004808.GN30131@ruslug.rutgers.edu>
+References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
+	<413F70F0.6020709@atheros.com>
+	<20040928122028.GK30131@ruslug.rutgers.edu>
+	<200409282229.53349.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com, shemminger@osdl.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040830212910.78047bcd.davem@davemloft.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============0399501844=="
+Cc: netdev@oss.sgi.com, jkmaline@cc.hut.fi,
+	"Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>, jgarzik@pobox.com,
+	hadi@cyberus.ca, prism54-devel@prism54.org,
+	acx100-devel@lists.sourceforge.net, sam@errno.com,
+	greg chesson <greg@atheros.com>,
+	"David S. Miller" <davem@davemloft.net>
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Vladimir Kondratiev <vkondra@mail.ru>
+In-Reply-To: <200409282229.53349.vkondra@mail.ru>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://mcgrof.com/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-* David S. Miller <20040830212910.78047bcd.davem@davemloft.net> 2004-08-30 21:29
-> Look, let's get real about this topic.  We can't be breaking shit
-> like this all the time.  We're nearly letting it happen a lot
-> lately.
-> 
-> These data structures are user visible APIs, they are just like
-> system call data structures, and if we cannot modify
-> them without potentially breaking some existing application we
-> cannot make that change.
 
-Why not do it by using nested TLVs?:
+--===============0399501844==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="OwXh6gFRjCd3qPCM"
+Content-Disposition: inline
 
-  TCA_STATS2 [
-      TCA_STAT_BYTES
-      TCA_STAT_PACKETS
-      TCA_STAT_DROPS
-      ...
-  ]
 
-This way we can add as many new stats as we want without
-even thinking about backward compatibility in the future.
-This would also allow to implement dynamic size statistics
-or introduce TCA_STAT_*_64 if ever needed.
+--OwXh6gFRjCd3qPCM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Sep 28, 2004 at 10:29:48PM +0200, Vladimir Kondratiev wrote:
+> On Tuesday 28 September 2004 14:20, Luis R. Rodriguez wrote:
+> LR> RFC: what are the chances we can implement our own generic "softmac" =
+that may
+> LR> be usable by the different chipsets out there?
+>=20
+> Coming days, I will submit "framework" consisting of stack based on Dave'=
+s=20
+> code and debug driver which will be able to imitate Rx. I have working ba=
+sic=20
+> Tx/Rx. Then, I'd like to concentrate on interfaces stack-driver and=20
+> stack-upper layers. It would be great if someone will do MAC algorithms. =
+I'll=20
+> appreciate this for sure.
+
+But would it be possible? Would it work, if we write our own softmac
+interface? Or are softmac interaces/libraries strictly dependent on a
+chipset being used?
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--OwXh6gFRjCd3qPCM
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBWgZIat1JN+IKUl4RAn8AAKCDiw8wWMQF04IZBAlcEBhSvqGZuQCdEacr
+jGiIIsQzZ7YanJksfluH37Q=
+=hT92
+-----END PGP SIGNATURE-----
+
+--OwXh6gFRjCd3qPCM--
+
+--===============0399501844==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============0399501844==--
