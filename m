@@ -1,65 +1,26 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: [PATCH wireless-2.6 0/12] Host AP update
-Date: Tue, 9 Nov 2004 23:32:03 +0200
-Message-ID: <200411092332.11537.vkondra@mail.ru>
-References: <20041108070156.GA1076@jm.kir.nu> <41908932.6070900@web.de> <4190E1AD.8000405@pobox.com>
+From: "Chad N. Tindel" <chad@tindel.net>
+Subject: Re: Wrong UIDs reported in /proc/net/tcp
+Date: Tue, 9 Nov 2004 17:41:20 -0500
+Message-ID: <20041109224120.GA87321@calma.pair.com>
+References: <20041109205358.GA64015@calma.pair.com> <Pine.LNX.4.33.0411091309450.16316-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6384805.RhrWYBfgch";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Michael Renzmann <mrenzmann@web.de>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4190E1AD.8000405@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: akepner@sgi.com
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.33.0411091309450.16316-100000@localhost.localdomain>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
---nextPart6384805.RhrWYBfgch
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+> The following may be of interest:
+> 
+> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=44854
 
-On Tuesday 09 November 2004 17:26, Jeff Garzik wrote:
-JG> Michael Renzmann wrote:
-JG> > Hi.
-JG> >
-JG> > (I cutted down the CC list.)
-JG> >
-JG> > Jeff Garzik wrote:
-JG> >
-JG> >> A key goal I have for HostAP is that portions of HostAP code should =
-be
-JG> >> bundled into a generic "lib80211" kernel module, for use by various
-JG> >> low-level and "softmac" 802.11 device drivers.
-JG> >
-JG> >
-JG> > This sentence made me curious... does that mean the efforts which
-JG> > recently have been discussed here (to bring a generic 802.11 stack to
-JG> > the kernel) are going to be replaced by the described goal? Or is it =
-an
-JG> > addition to Vladimir's work?
-JG>
-JG> Hopefully Vladmir's work will plug right in..  I hope he's still working
-JG> on it!
-JG>
-JG>  Jeff
+This isn't really the same issue.  This looks like an euid vs. uid problem
+that reproduces every time.  
 
-I do, but I had some very long interrupt - sometimes I should also do my=20
-primary job. I'll be back shortly.
+The problem we are seeing is a timing-window-race-condition kind of problem
+that happens maybe 1 in 100,000 times.
 
---nextPart6384805.RhrWYBfgch
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBBkTdbqxdj7mhC6o0RAlJmAKCPjcag212ihVt+c2KvRaezn9hKjACfQg+Q
-iPiOKWKiYbyMOHn4hCKNX0g=
-=YAPK
------END PGP SIGNATURE-----
-
---nextPart6384805.RhrWYBfgch--
+Chad
