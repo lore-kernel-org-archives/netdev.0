@@ -1,82 +1,59 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: The ultimate TOE design
-Date: Wed, 15 Sep 2004 15:33:47 -0400
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 2.6] Add NAPI support to sungem.c
+Date: Wed, 15 Sep 2004 21:37:18 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4148991B.9050200@pobox.com>
-Reply-To: Netdev <netdev@oss.sgi.com>
+Message-ID: <20040915193718.GE2678@sunbeam.de.gnumonks.org>
+References: <20040914153537.GE8434@sunbeam.de.gnumonks.org> <20040914124315.716e9c68.davem@davemloft.net> <20040914200238.GM8434@sunbeam.de.gnumonks.org> <5cac192f04091422506d13c530@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: leonid.grossman@s2io.com, Linux Kernel <linux-kernel@vger.kernel.org>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="//IivP0gvsAy3Can"
+Cc: netdev@oss.sgi.com, linuxppc-dev@lists.linuxppc.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Eric Lemoine <eric.lemoine@gmail.com>
+Content-Disposition: inline
+In-Reply-To: <5cac192f04091422506d13c530@mail.gmail.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-(reply-to set to netdev)
+--//IivP0gvsAy3Can
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Every now and then people ask on the lists about TOE, TCP assist, and 
-that sort of thing.  Ignoring the issue of TCP hardware assist, I wanted 
-to describe what I feel is an optimal method to _fully offload_ the 
-Linux TCP stack.
+On Wed, Sep 15, 2004 at 07:50:28AM +0200, Eric Lemoine wrote:
+> Your patch has the netpoll bits while current BK does not.
 
+Well, it's straight forward to merge them into BK...
 
-Put simply, the "ultimate TOE card" would be a card with network ports, 
-a generic CPU (arm, mips, whatever.), some RAM, and some flash.  This 
-card's "firmware" is the Linux kernel, configured to run as a _totally 
-indepenent network node_, with IP address(es) all its own.
+> PS: If you happened to experiment with the NAPIfied SunGEM driver on
+> your setup, could you please share the data. Thx.
 
-Then, your host system OS will communicate with the Linux kernel running 
-on the card across the PCI bus, using IP packets (64K fixed MTU).
+I didn't do any measurements so far... I only know that my Powerbook
+doesn't stop responding anymore when I flood it with pktgen ;) =20
 
-This effectively:
+> Eric
 
-1) fragment processing, IPsec, and other services onto the card.
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
 
-2) You can use huge card<->host MTUs, which makes sendfile(2) faster 
-with _zero_ kernel changes
+--//IivP0gvsAy3Can
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
-3) You can let the PCI card do 100% of the checksum 
-processing/generation, and treat the network connection connection 
-across the PCI bus as CHECKSUM_UNNECESSARY.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
 
-2) With enough RAM and cpu cycles, you can even offload complex services 
-like Web services:  the PCI card runs Apache, and fetches files across 
-the network (your PCI bus!) from the host system.
+iD8DBQFBSJnuXaXGVTD0i/8RAnSqAJwJ3IxGdAD9xL1VTHwYw+F1E+Pu0wCfRpS+
+mZaQizF4BVK6pV0jCIoHiH4=
+=cRJ/
+-----END PGP SIGNATURE-----
 
-3) Does not require _any_ modification of Linux network stack. 
-Interfacing with the card merely requires a simple DMA interface to copy 
-IP (not ethernet) packets across the PCI bus, and that fits within the 
-existing Linux net driver API.
-
-4) ensures that the TOE "firmware" [the Linux kernel] can be easily 
-updated in the event of new features or (more importantly) security 
-problems.
-
-5) Linux is the most RFC-compliant net stack in the world.  Why 
-re-create (or license) an inferior one?
-
-6) Long-term maintenance of TOE firmware is a BIG problem with existing 
-full-TOE systems.  Under this design, sysadmins would update and patch 
-their PCI card with security updates just like any other system on their 
-network.  This is added work, yes, but it's a known quantity and a task 
-they are already doing for other systems.
-
-7) The design is both portable [tons of embedded CPUs, with and without 
-MMUs, can run Linux] and scalable.
-
-
-
-My dream is that some vendor will come along and implement such a 
-design, and sell it in enough volume that it's US$100 or less.  There 
-are a few cards on the market already where implementing this design 
-_may_ be possible, but they are all fairly expensive.  Just need enough 
-resources on the PCI to be able to Linux as a 
-router/firewall/iSCSI/web-proxy gadget.
-
-And I'm not aware of anybody doing a direct IP-over-PCI thing, either.
-
-But I'll keep on dreaming...  ;-)
-
-	Jeff
+--//IivP0gvsAy3Can--
