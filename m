@@ -1,84 +1,63 @@
-From: akpm@osdl.org
-Subject: [patch 1/3] fix buggy IEEE80211_CRYPT_* selects
-Date: Fri, 04 Mar 2005 04:37:16 -0800
-Message-ID: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, bunk@stusta.de
-To: davem@davemloft.net
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] [NET]: Fix deletion of local addresses only varying in prefix length
+Date: Fri, 4 Mar 2005 14:14:19 +0100
+Message-ID: <20050304131419.GE31837@postel.suug.ch>
+References: <20050304012003.GA31837@postel.suug.ch> <E1D78DN-0002te-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1D78DN-0002te-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Herbert Xu <E1D78DN-0002te-00@gondolin.me.apana.org.au> 2005-03-04 19:31
+> Thomas Graf <tgraf@suug.ch> wrote:
+> > The deletion of local addresses via netlink doesn't take the
+> > prefix length into account resulting in the deletion of
+> > the address that was added first given multiple addresses
+> > exist only varying in the prefix length.
+> 
+> This has the potential of breaking user-space scripts.  For example,
+> this won't work anymore:
+> 
+> ip a a dev eth0 192.168.0.1/24
+> ip a d dev eth0 192.168.0.1
 
-From: Adrian Bunk <bunk@stusta.de>
+Yes I know.
 
-Some of the options that needlessly wrote in their help text which options
-they do select (patch already sent) didn't obey the most important rule of
-select
+> 
+> > tgr:axs ~ ip -4 addr show dev lo
+> > 1: lo: <LOOPBACK,UP> mtu 16436 qdisc noqueue 
+> >    inet 127.0.0.1/8 scope host lo
+> >    inet 1.1.1.1/1 scope global lo
+> >    inet 1.1.1.1/2 scope global lo
+> 
+> Do we really need to handle this case? If we do then would it be better
+> to consider ifa_prefixlen only when there are multiple addresses present
+> which match but differ by prefix length?
 
-  If you select something, you have to ensure that the dependencies
-  of what you do select are fulfilled.
+I do not agree but I might have a better idea. Let's change iproute2
+to provide a prefixlength of 0 if no prefix was specified and only
+compare the prefixes if it is non zero. This allows for accurate
+deletion, no scripts will break (except for really really broken ones).
+Given there are multiple matching addresses only varying in prefix
+length and no prefix was specified the first one will get deleted but
+this is well defined.
 
-resulting in the following compile error:
-
-<--  snip  -->
-
-...
-  LD      .tmp_vmlinux1
-crypto/built-in.o(.init.text+0x31b): In function `aes_init':
-: undefined reference to `crypto_register_alg'
-crypto/built-in.o(.init.text+0x326): In function `michael_mic_init':
-: undefined reference to `crypto_register_alg'
-crypto/built-in.o(.exit.text+0x6): In function `aes_fini':
-: undefined reference to `crypto_unregister_alg'
-crypto/built-in.o(.exit.text+0x16): In function `michael_mic_exit':
-: undefined reference to `crypto_unregister_alg'
-net/built-in.o(.text+0x5ba52): In function `ieee80211_ccmp_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5ba94): In function `ieee80211_ccmp_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5bab7): In function `ieee80211_ccmp_deinit':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c5c2): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5c5d5): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_alloc_tfm'
-net/built-in.o(.text+0x5c623): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c62a): In function `ieee80211_tkip_init':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c65e): In function `ieee80211_tkip_deinit':
-: undefined reference to `crypto_free_tfm'
-net/built-in.o(.text+0x5c665): In function `ieee80211_tkip_deinit':
-: undefined reference to `crypto_free_tfm'
-make: *** [.tmp_vmlinux1] Error 1
-
-<--  snip  -->
-
-This patch adds the missing selects of CRYPTO.
-
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
-
- 25-akpm/net/ieee80211/Kconfig |    2 ++
- 1 files changed, 2 insertions(+)
-
-diff -puN net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects net/ieee80211/Kconfig
---- 25/net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects	2005-02-28 14:49:54.000000000 -0800
-+++ 25-akpm/net/ieee80211/Kconfig	2005-02-28 14:49:54.000000000 -0800
-@@ -44,6 +44,7 @@ config IEEE80211_CRYPT_WEP
- config IEEE80211_CRYPT_CCMP
- 	tristate "IEEE 802.11i CCMP support"
- 	depends on IEEE80211
-+	select CRYPTO
- 	select CRYPTO_AES
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i 
-@@ -56,6 +57,7 @@ config IEEE80211_CRYPT_CCMP
- config IEEE80211_CRYPT_TKIP
- 	tristate "IEEE 802.11i TKIP encryption"
- 	depends on IEEE80211
-+	select CRYPTO
- 	select CRYPTO_MICHAEL_MIC
- 	---help---
- 	Include software based cipher suites in support of IEEE 802.11i 
-_
+--- linux-2.6.11.orig/net/ipv4/devinet.c	2005-03-04 14:08:14.000000000 +0100
++++ linux-2.6.11/net/ipv4/devinet.c	2005-03-04 14:06:33.000000000 +0100
+@@ -396,8 +396,10 @@
+ 	for (ifap = &in_dev->ifa_list; (ifa = *ifap) != NULL;
+ 	     ifap = &ifa->ifa_next) {
+ 		if ((rta[IFA_LOCAL - 1] &&
++		     ((ifm->ifa_prefixlen &&
++		      ifm->ifa_prefixlen != ifa->ifa_prefixlen) ||
+ 		     memcmp(RTA_DATA(rta[IFA_LOCAL - 1]),
+-			    &ifa->ifa_local, 4)) ||
++			    &ifa->ifa_local, 4))) ||
+ 		    (rta[IFA_LABEL - 1] &&
+ 		     rtattr_strcmp(rta[IFA_LABEL - 1], ifa->ifa_label)) ||
+ 		    (rta[IFA_ADDRESS - 1] &&
