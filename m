@@ -1,129 +1,104 @@
-From: Dmitry Yusupov <dima@neterion.com>
-Subject: RE: Linux support for RDMA
-Date: Fri, 01 Apr 2005 16:02:37 -0800
-Message-ID: <1112400157.9559.98.camel@beastie>
-References: <67D69596DDF0C2448DB0F0547D0F947E01781F1A@yogi.asicdesigners.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
+Date: Sat, 2 Apr 2005 10:49:56 +1000
+Message-ID: <20050402004956.GA24339@gondor.apana.org.au>
+References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jaganav@us.ibm.com, "H. Peter Anvin" <hpa@zytor.com>,
-        Roland Dreier <roland@topspin.com>, open-iscsi@googlegroups.com,
-        "David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
-        andrea@suse.de, michaelc@cs.wisc.edu,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com, Benjamin LaHaise <bcrl@kvack.org>
+Content-Type: multipart/mixed; boundary="YiEDa0DAkWCtVeE4"
+Cc: kaber@trash.net, kuznet@ms2.inr.ac.ru, jmorris@redhat.com,
+        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Asgeir Eiriksson <asgeir@chelsio.com>
-In-Reply-To: <67D69596DDF0C2448DB0F0547D0F947E01781F1A@yogi.asicdesigners.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050331212325.5e996432.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-04-01 at 15:50 -0800, Asgeir Eiriksson wrote:
-> Venkat
-> 
-> Your assessment of the IB vs. Ethernet latencies isn't necessarily
-> correct.
-> - you already have available low latency 10GE switches (< 1us
-> port-to-port)
-> - you already have available low latency (cut-through processing) 10GE
-> TOE engines
-> 
-> The Veritest verified 10GE TOE end-to-end latency is < 10us today
-> (end-to-end being from a Linux user-space-process to a Linux
-> user-space-process through a switch; full report with detail of the
-> setup is available at
-> http://www.chelsio.com/technology/Chelsio10GbE_Fujitsu.pdf)
-> 
-> For comparison: the published IB latency numbers are around 5us today
-> and those use a polling receiver, and those don't include a context
-> switch(es) as does the Ethernet number quoted above.
 
-yep. I should agree in here. On 10Gbps network latencies numbers are
-around 5-15us. Even with non-TOE card, I managed to get 13us latency
-with regular TCP/IP stack.
+--YiEDa0DAkWCtVeE4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-[root@localhost root]# ./nptcp -a -t -l 256 -u 98304 -i 256 -p 5100 -P - h 17.1.1.227
-Latency: 0.000013
-Now starting main loop
-  0:       256 bytes    7 times -->  131.37 Mbps in 0.000015 sec
-  1:       512 bytes   65 times -->  239.75 Mbps in 0.000016 sec
+Hi Dave:
 
-Dima
+On Thu, Mar 31, 2005 at 09:23:25PM -0800, David S. Miller wrote:
+> On Thu, 31 Mar 2005 10:46:58 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > > # This is a BitKeeper generated diff -Nru style patch.
+> > > #
+> > > # ChangeSet
+> > > #   2005/03/30 06:02:45+02:00 kaber@coreworks.de 
+> > > #   [IPSEC]: Check SPI in xfrm_state_find()
+> > > #   
+> > > #   Signed-off-by: Patrick McHardy <kaber@trash.net>
+> > 
+> > Looks good.
+> > 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> To me too, both patches applied, thanks Patrick.
 
-> 'Asgeir
-> 
-> 
-> > -----Original Message-----
-> > From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
-> > Behalf Of jaganav@us.ibm.com
-> > Sent: Thursday, March 31, 2005 5:49 PM
-> > To: H. Peter Anvin
-> > Cc: Roland Dreier; Dmitry Yusupov; open-iscsi@googlegroups.com; David
-> S.
-> > Miller; mpm@selenic.com; andrea@suse.de; michaelc@cs.wisc.edu;
-> > James.Bottomley@HansenPartnership.com; ksummit-2005-discuss@thunk.org;
-> > netdev@oss.sgi.com; Benjamin LaHaise
-> > Subject: Re: Linux support for RDMA
-> > 
-> > Quoting "H. Peter Anvin" <hpa@zytor.com>:
-> > > Benjamin LaHaise wrote:
-> > > >
-> > > > I'm curious how the 10Gig ethernet market will pan out.  Time and
-> > again
-> > > > the market has shown that ethernet always has the cost advantage
-> in
-> > the
-> > > > end.  If something like Intel's I/O Acceleration Technology makes
-> it
-> > > > that much easier for commodity ethernet to achieve similar
-> performance
-> > > > characteristics over ethernet to that of IB and fibre channel, the
-> > cost
-> > > > advantage alone might switch some new customers over.  But the
-> > hardware
-> > > > isn't near what IB offers today, making IB an important niche
-> filler.
-> > > >
-> > >
-> > >  From what I've seen coming down the pipe, I think 10GE is going to
-> > > eventually win over IB, just like previous generations did over
-> Token
-> > > Ring, FDDI and other niche filler technologies.  It doesn't, as you
-> say,
-> > > mean that e.g. IB doesn't matter *now*; furthermore, it also matters
-> for
-> > > the purpose of fixing the kind of issues that are going to have to
-> be
-> > > fixed anyway.
-> > >
-> > > 	-hpa
-> > >
-> > >
-> > >
-> > 
-> > No doubt, Ethernet will eventually win .. btw, Hasn't history proven
-> this
-> > over
-> > ATM? More specifically when the industry predicted that ATM will
-> replace
-> > ethernet :)
-> > 
-> > However, I'll have to agree with Ben that IB technolgy will fill an
-> > important
-> > niche segment, more specifically so in the low end of High Performance
-> > Computing
-> > (HPC) segment which is in a transition mode currently moving away from
-> > proprietary interconnects to industry standards based IB technology.
-> > Eventhough,
-> > ethernet may eventually may catch up with IB in terms of the bandwidth
-> but
-> > IB
-> > fabrics can offer better latencies.
-> > 
-> > Thanks
-> > Venkat
-> 
-> 
-> 
-> 
+Actually I only signed off on the first patch :)
+
+The second patch creates a dead lock since it does a nested read
+lock.  The solution is simply to get rid of xfrm_init_tempsel
+and call the afinfo version directly.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+BTW I'd like to start cleaning up the locking in net/xfrm.
+I don't want these changes to go into 2.6.12.  However, I'd
+like to have them sit in mm for a while so that they get some
+testing coverage.
+
+What's the best way to do this? Could you create a tree slated
+for 2.6.13?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--YiEDa0DAkWCtVeE4
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/xfrm/xfrm_state.c 1.60 vs edited =====
+--- 1.60/net/xfrm/xfrm_state.c	2005-04-01 15:19:54 +10:00
++++ edited/net/xfrm/xfrm_state.c	2005-04-02 10:35:06 +10:00
+@@ -283,20 +283,6 @@
+ }
+ EXPORT_SYMBOL(xfrm_state_flush);
+ 
+-static int
+-xfrm_init_tempsel(struct xfrm_state *x, struct flowi *fl,
+-		  struct xfrm_tmpl *tmpl,
+-		  xfrm_address_t *daddr, xfrm_address_t *saddr,
+-		  unsigned short family)
+-{
+-	struct xfrm_state_afinfo *afinfo = xfrm_state_get_afinfo(family);
+-	if (!afinfo)
+-		return -1;
+-	afinfo->init_tempsel(x, fl, tmpl, daddr, saddr);
+-	xfrm_state_put_afinfo(afinfo);
+-	return 0;
+-}
+-
+ struct xfrm_state *
+ xfrm_state_find(xfrm_address_t *daddr, xfrm_address_t *saddr, 
+ 		struct flowi *fl, struct xfrm_tmpl *tmpl,
+@@ -370,7 +356,7 @@
+ 		}
+ 		/* Initialize temporary selector matching only
+ 		 * to current session. */
+-		xfrm_init_tempsel(x, fl, tmpl, daddr, saddr, family);
++		afinfo->init_tempsel(x, fl, tmpl, daddr, saddr);
+ 
+ 		if (km_query(x, tmpl, pol) == 0) {
+ 			x->km.state = XFRM_STATE_ACQ;
+
+--YiEDa0DAkWCtVeE4--
