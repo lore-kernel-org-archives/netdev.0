@@ -1,67 +1,65 @@
-From: Cesar Marcondes <cesar@CS.UCLA.EDU>
-Subject: Re: [E1000-devel] Transmission limit
-Date: Sat, 27 Nov 2004 12:12:29 -0800 (PST)
-Message-ID: <Pine.GSO.4.58.0411271212240.16668@panther.cs.ucla.edu>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
- <41A73826.3000109@draigBrady.com> <1101483081.24742.174.camel@mellia.lipar.polito.it>
- <20041127092503.GA12592@sunbeam.de.gnumonks.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: packet size vs inter-packet gap
+Date: Sat, 27 Nov 2004 23:06:08 +0100
+Message-ID: <20041127220608.GA29086@xi.wantstofly.org>
+References: <20041125042244.GA25971@xi.wantstofly.org> <20041126000753.GA3783@xi.wantstofly.org> <1101444584.1091.39.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Marco Mellia <mellia@prezzemolo.polito.it>, P@draigBrady.com,
-        e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        e1000-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@gnumonks.org>
-In-Reply-To: <20041127092503.GA12592@sunbeam.de.gnumonks.org>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1101444584.1091.39.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-STOP !!!!
+(cc'ing netdev and e1000-devel)
 
-On Sat, 27 Nov 2004, Harald Welte wrote:
 
-> On Fri, Nov 26, 2004 at 04:31:21PM +0100, Marco Mellia wrote:
-> > If you don't trust us, please, ignore this email.
-> > Sorry.
-> >
-> > That's the number we have. And are actually very similar from what other
-> > colleagues of us got.
-> >
-> > The point is:
-> > while a PCI-X linux or (or click) box can receive (receive just up to
-> > the netif_receive_skb() level and then discard the skb) up to more than
-> > wire speed using off-the-shelf gigabit ethernet hardware, there is no
-> > way to transmit more than about half that speed. This is true
-> > considering minimum sized ethernet frames.
->
-> Yes, I've seen this, too.
->
-> I even rewrote the linux e1000 driver in order to re-fill the tx queue
-> from hardirq handler, and it didn't help.  760kpps is the most I could
-> ever get (133MHz 64bit PCI-X on a Sun Fire v20z, Dual Opteron 1.8GHz)
->
-> I've posted this result to netdev at some earlier point, I also Cc'ed
-> intel but never got a reply
-> (http://oss.sgi.com/archives/netdev/2004-09/msg00540.html)
->
-> My guess is that Intel always knew this and they want to sell their CSA
-> chips rather than improving the PCI e1000.
->
-> We are hitting a hard limit here, either PCI-X wise or e1000 wise.  You
-> cannot refill the tx queue faster than from hardirq, and still you don't
-> get any better numbers.
->
-> It was suggested that the problem is PCI DMA arbitration latency, since
-> the hardware needs to arbitrate the bus for every packet.
->
-> Interestingly, if you use a four-port e1000, the numbers get even worse
-> (580kpps) because the additional pcix bridge on the card introduces
-> further latency.
->
-> --
-> - Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-> ============================================================================
-> Programming is like sex: One mistake and you have to support it your lifetime
->
+On Thu, Nov 25, 2004 at 11:49:45PM -0500, jamal wrote:
+
+> Would be nice to see what happens when you kick the DMA only after
+> filling up the ring.
+
+Just to 'confirm' what you've been seeing, even this tiny little patch:
+
+diff -urN e1000.orig/e1000_main.c e1000/e1000_main.c
+--- e1000.orig/e1000_main.c	2004-11-24 15:35:23.000000000 +0100
++++ e1000/e1000_main.c	2004-11-27 22:57:08.429782838 +0100
+@@ -1720,7 +1735,9 @@
+ 	wmb();
+ 
+ 	tx_ring->next_to_use = i;
++	if ((i % 4) == 0) {
+ 	E1000_WRITE_REG(&adapter->hw, TDT, i);
++	}
+ }
+
+
+changes my 60B TX rate numbers from:
+  612597pps
+  612447pps
+  612381pps
+  612568pps
+  612579pps
+
+to:
+  614158pps
+  614179pps 
+  614186pps
+  614169pps
+  614171pps
+  614150pps
+  614180pps
+  614163pps
+  614179pps
+
+(As before, 32/66, 82541PI, SMP Xeon 2.4, 2.6.9-something.)  'tis not
+much but definitely makes _some_ difference.
+
+
+cheers,
+Lennert
