@@ -1,62 +1,41 @@
-From: Song Wang <wsonguci@yahoo.com>
-Subject: Re: [Routing] Performance Comparison between 2.6 and 2.4 kernel
-Date: Wed, 22 Sep 2004 17:29:06 -0700 (PDT)
+From: margitsw@t-online.de (Margit Schubert-While)
+Subject: Re: msleep changes
+Date: Thu, 23 Sep 2004 05:24:33 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923002906.60244.qmail@web40007.mail.yahoo.com>
-References: <1095334258.1065.158.camel@jzny.localdomain>
+Message-ID: <5.1.0.14.2.20040923050120.0257f490@pop.t-online.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <1095334258.1065.158.camel@jzny.localdomain>
+To: Nishanth Aravamudan <nacc@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > 
-> > Although I would very much anticipate this being
-> > a MIPS or network adapter specific problem since
-> > on x86 routing is pretty fast in 2.6.x
-> 
-> Note, I could hit 4-500Kpps on a bcom sb1250 800Mhz;
-> trying to simulate
-> Andis gettimeofday changes (which are in 2.6 since i
-> havent seen a 2.6
-> port for that board ) gives another 100Kpps. Theres
-> still room for
-> improvement just havent had time.
-> You are right though it could be a 2.6.x arch
-> specific issue. Bacchus?
-> 
-> cheers,
-> jamal
-> 
-> 
-Hi Jamal and Dave,
+Hi Nish,
+In latest BK :
 
-I continued to do some testing in a minimal
-environment, basically the routing between the
-two ethernet ports on the mips board. Only
-ethernet driver is loaded. The user-space
-only has busybox.
+# drivers/atm/lanai.c
+# 2004/09/21 14:58:17-07:00 chas@cmf.nrl.navy.mil +1 -1
+# [ATM]: [drivers] Use msleep() instead of schedule_timeout()
+# From Nishanth Aravamudan <nacc@us.ibm.com>
 
-The difference between 2.6.8.1 and 2.4.17 kernel
-is 3000pps less for routing. However, the bridging
-performance is the same between two kernels.
-
-Jamal, where is the Andis gettimeofday changes
-you mentioned?
-
-Thanks.
-
--Song
+diff -Nru a/drivers/atm/lanai.c b/drivers/atm/lanai.c
+--- a/drivers/atm/lanai.c	2004-09-21 17:11:30 -07:00
++++ b/drivers/atm/lanai.c	2004-09-21 17:11:30 -07:00
+@@ -813,7 +813,7 @@
+  			DPRINTK("read, write = %d, %d\n", read, write);
+  			break;
+  		}
+-		schedule_timeout(HZ / 25);
++		msleep(4);
 
 
+??????
 
+Just one that immediately lept to my eye.
+I am not going to check them all.
+That's your job :-)
 
+These msleep(_interruptible) changes have been tested or ?
 
-		
-__________________________________
-Do you Yahoo!?
-Yahoo! Mail is new and improved - Check it out!
-http://promotions.yahoo.com/new_mail
+Margit
