@@ -1,34 +1,25 @@
 From: James Morris <jmorris@intercode.com.au>
-Subject: Re: kernel bug fix: entered/exited promiscuous mode flip/flop error
-Date: Tue, 1 Jul 2003 10:12:48 +1000 (EST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Mutt.LNX.4.44.0307011010590.26018-100000@excalibur.intercode.com.au>
-References: <C2E3E72093950249A1ED5534473788D7054911@baltic.tablus.com>
+Subject: Re: [PATCH] IPV6: convert /proc/net/igmp6 to seq_file
+Date: Tue, 1 Jul 2003 10:23:08 +1000 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0307011022430.26034-100000@excalibur.intercode.com.au>
+References: <20030701.015755.80809794.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netdev@oss.sgi.com, <linux-net@vger.kernel.org>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jim Nisbet <niz@vencraft.com>
-In-Reply-To: <C2E3E72093950249A1ED5534473788D7054911@baltic.tablus.com>
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030701.015755.80809794.yoshfuji@linux-ipv6.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 30 Jun 2003, Jim Nisbet wrote:
+On Tue, 1 Jul 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
 
-> I hope these changes or something like it can get incorporated in som=
-e
-> future release.=A0 For those who don=92t want to patch the kernel, I=92=
-d say stay
-> away from ifconfig up/down if you have a promisc read operation going=
-=2E
+> This converts /proc/net/igmp6 to seq_file.
 
-Would it be possible for you to resubmit the patch so that spaces are n=
-ot=20
-replacing tabs for some of the indentation?
-
+This does not compile.
 
 - James
---=20
+-- 
 James Morris
 <jmorris@intercode.com.au>
-
