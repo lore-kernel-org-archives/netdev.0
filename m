@@ -1,23 +1,30 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: Linux Oops on skb_release_data()
-Date: Tue, 8 Jun 2004 14:53:33 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040608125333.GA1271@wotan.suse.de>
-References: <FD52892BD296D71183B400065BFCB6900AF770DE@il02exm12>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Prism54 patches
+Date: Tue, 8 Jun 2004 10:53:31 -0400
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <20040608145331.GL895@ruslug.rutgers.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Lewis Adam-CAL022 <Adam.Lewis@motorola.com>
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
 Content-Disposition: inline
-In-Reply-To: <FD52892BD296D71183B400065BFCB6900AF770DE@il02exm12>
-Errors-to: netdev-bounce@oss.sgi.com
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-> Any ideas?
 
-Most likely you're corrupting memory somewhere, in particular overwrite the boundaries
-of the your skb data area. I would suggest to build the kernel with slab debugging
-and check all your skb->data accesses.
+Jeff,
 
--Andi
+what's the status of the prism54 patches. I'd like to know so that if
+there is anything you or others don't like we fix immediately.
+
+	Luis
+
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
