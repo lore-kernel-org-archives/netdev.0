@@ -1,11 +1,11 @@
 From: domen@coderock.org
-Subject: [patch 1/1] janitor: net/e1000: remove pci_find_device
-Date: Wed, 12 Jan 2005 00:03:39 +0100
-Message-ID: <20050111230339.DBFA31F225@trashy.coderock.org>
-Cc: john.ronciak@intel.com, netdev@oss.sgi.com, domen@coderock.org,
-        sfeldma@pobox.com, janitor@sternwelten.at
+Subject: [patch 1/1] net/ltpc: replace schedule_timeout() with ssleep()/msleep()
+Date: Wed, 12 Jan 2005 00:08:40 +0100
+Message-ID: <20050111230841.2869F1F225@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
+        janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cramerj@intel.com
+To: acme@conectiva.com.br
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -13,108 +13,42 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Removing pci_find_device required removing driver's custom
-reboot notifier which walked the device list and replace it
-with standard driver ->shutdown method.  Compiled and tested.
+Any comments would be appreciated.
 
-Signed-off-by: Scott Feldman <sfeldma@pobox.com>
+Description: Use ssleep() / msleep() [as appropriate]
+instead of schedule_timeout() to guarantee the task delays as expected.
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Acked-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/e1000/e1000_main.c |   38 ++++++++------------------------
- 1 files changed, 10 insertions(+), 28 deletions(-)
+ kj-domen/drivers/net/appletalk/ltpc.c |    6 ++----
+ 1 files changed, 2 insertions(+), 4 deletions(-)
 
-diff -puN drivers/net/e1000/e1000_main.c~remove-pci-find-device-drivers_net_e1000_e1000_main drivers/net/e1000/e1000_main.c
---- kj/drivers/net/e1000/e1000_main.c~remove-pci-find-device-drivers_net_e1000_e1000_main	2005-01-10 18:00:16.000000000 +0100
-+++ kj-domen/drivers/net/e1000/e1000_main.c	2005-01-10 18:00:16.000000000 +0100
-@@ -165,7 +165,7 @@ static void e1000_vlan_rx_add_vid(struct
- static void e1000_vlan_rx_kill_vid(struct net_device *netdev, uint16_t vid);
- static void e1000_restore_vlan(struct e1000_adapter *adapter);
+diff -puN drivers/net/appletalk/ltpc.c~msleep+ssleep-drivers_net_appletalk_ltpc drivers/net/appletalk/ltpc.c
+--- kj/drivers/net/appletalk/ltpc.c~msleep+ssleep-drivers_net_appletalk_ltpc	2005-01-10 18:00:14.000000000 +0100
++++ kj-domen/drivers/net/appletalk/ltpc.c	2005-01-10 18:00:14.000000000 +0100
+@@ -1109,8 +1109,7 @@ struct net_device * __init ltpc_probe(vo
+ 	inb_p(io+1);
+ 	inb_p(io+3);
  
--static int e1000_notify_reboot(struct notifier_block *, unsigned long event, void *ptr);
-+static void e1000_shutdown(struct device *dev);
- static int e1000_suspend(struct pci_dev *pdev, uint32_t state);
- #ifdef CONFIG_PM
- static int e1000_resume(struct pci_dev *pdev);
-@@ -176,12 +176,6 @@ static int e1000_resume(struct pci_dev *
- static void e1000_netpoll (struct net_device *netdev);
- #endif
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(2*HZ/100);
++	msleep(20);
  
--struct notifier_block e1000_notifier_reboot = {
--	.notifier_call	= e1000_notify_reboot,
--	.next		= NULL,
--	.priority	= 0
--};
--
- /* Exported from other modules */
+ 	inb_p(io+0);
+ 	inb_p(io+2);
+@@ -1120,8 +1119,7 @@ struct net_device * __init ltpc_probe(vo
+ 	inb_p(io+5); /* enable dma */
+ 	inb_p(io+6); /* tri-state interrupt line */
  
- extern void e1000_check_options(struct e1000_adapter *adapter);
-@@ -194,8 +188,11 @@ static struct pci_driver e1000_driver = 
- 	/* Power Managment Hooks */
- #ifdef CONFIG_PM
- 	.suspend  = e1000_suspend,
--	.resume   = e1000_resume
-+	.resume   = e1000_resume,
- #endif
-+	.driver   = {
-+		.shutdown  = e1000_shutdown,
-+	}
- };
- 
- MODULE_AUTHOR("Intel Corporation, <linux.nics@intel.com>");
-@@ -216,17 +213,12 @@ MODULE_PARM_DESC(debug, "Debug level (0=
- static int __init
- e1000_init_module(void)
- {
--	int ret;
- 	printk(KERN_INFO "%s - version %s\n",
- 	       e1000_driver_string, e1000_driver_version);
- 
- 	printk(KERN_INFO "%s\n", e1000_copyright);
- 
--	ret = pci_module_init(&e1000_driver);
--	if(ret >= 0) {
--		register_reboot_notifier(&e1000_notifier_reboot);
--	}
--	return ret;
-+	return pci_module_init(&e1000_driver);
- }
- 
- module_init(e1000_init_module);
-@@ -241,7 +233,6 @@ module_init(e1000_init_module);
- static void __exit
- e1000_exit_module(void)
- {
--	unregister_reboot_notifier(&e1000_notifier_reboot);
- 	pci_unregister_driver(&e1000_driver);
- }
- 
-@@ -2783,21 +2774,12 @@ e1000_set_spd_dplx(struct e1000_adapter 
- 	return 0;
- }
- 
--static int
--e1000_notify_reboot(struct notifier_block *nb, unsigned long event, void *p)
-+static
-+void e1000_shutdown(struct device *dev)
- {
--	struct pci_dev *pdev = NULL;
-+	struct pci_dev *pdev = container_of(dev, struct pci_dev, dev);
- 
--	switch(event) {
--	case SYS_DOWN:
--	case SYS_HALT:
--	case SYS_POWER_OFF:
--		while((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
--			if(pci_dev_driver(pdev) == &e1000_driver)
--				e1000_suspend(pdev, 3);
--		}
--	}
--	return NOTIFY_DONE;
-+	e1000_suspend(pdev, 3);
- }
- 
- static int
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(HZ);
++	ssleep(1);
+ 	
+ 	/* now, figure out which dma channel we're using, unless it's
+ 	   already been specified */
 _
