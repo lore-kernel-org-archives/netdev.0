@@ -1,155 +1,202 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: [e1000 netdev-2.6 6/6] Misc - copyright, changelog spelling
-Date: Mon, 2 Feb 2004 14:02:15 -0800 (PST)
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: Deadlock problem with dev->refcnt somewhere in netlink/multicast... [PATCH]
+Date: Mon, 2 Feb 2004 16:41:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0402021359300.6288-100000@localhost.localdomain>
-Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
+Message-ID: <OFDBAB37F5.227951E9-ON88256E2E.0080F5BF@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>
+Content-Type: multipart/mixed;
+	Boundary="0__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F"
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com, Alexandre.Cassen@wanadoo.fr
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Willy Tarreau <willy@w.ods.org>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+--0__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F
+Content-type: multipart/alternative;
+	Boundary="1__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F"
 
-* Misc - copyright update, changelog, spelling fixes.
+--1__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F
+Content-type: text/plain; charset=US-ASCII
 
---------------
 
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000_ethtool.c netdev-2.6/drivers/net/e1000.mod/e1000_ethtool.c
---- netdev-2.6/drivers/net/e1000/e1000_ethtool.c	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000_ethtool.c	2004-02-02 12:11:52.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000.h netdev-2.6/drivers/net/e1000.mod/e1000.h
---- netdev-2.6/drivers/net/e1000/e1000.h	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000.h	2004-02-02 12:11:56.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000_hw.c netdev-2.6/drivers/net/e1000.mod/e1000_hw.c
---- netdev-2.6/drivers/net/e1000/e1000_hw.c	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000_hw.c	2004-02-02 12:11:59.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000_hw.h netdev-2.6/drivers/net/e1000.mod/e1000_hw.h
---- netdev-2.6/drivers/net/e1000/e1000_hw.h	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000_hw.h	2004-02-02 12:12:03.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000_main.c netdev-2.6/drivers/net/e1000.mod/e1000_main.c
---- netdev-2.6/drivers/net/e1000/e1000_main.c	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000_main.c	2004-02-02 12:14:08.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-@@ -30,7 +30,12 @@
- 
- /* Change Log
-  *
-- * 5.2.27	12/14/03
-+ * 5.2.30.1	1/29/03
-+ *   o Set VLAN filtering to IEEE 802.1Q after reset so we don't break
-+ *     SoL connections that use VLANs.
-+ *   o Allow 1000/Full setting for AutoNeg param for Fiber connections
-+ *     Jon D Mason [jonmason@us.ibm.com].
-+ *   o Race between Tx queue and Tx clean fixed with a spin lock.
-  *   o Added netpoll support.
-  *   o Fixed endianess bug causing ethtool loopback diags to fail on ppc.
-  *   o Use pdev->irq rather than netdev->irq in preparation for MSI support.
-@@ -63,8 +68,8 @@
- 
- char e1000_driver_name[] = "e1000";
- char e1000_driver_string[] = "Intel(R) PRO/1000 Network Driver";
--char e1000_driver_version[] = "5.2.27-k1";
--char e1000_copyright[] = "Copyright (c) 1999-2003 Intel Corporation.";
-+char e1000_driver_version[] = "5.2.30.1-k1";
-+char e1000_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
- 
- /* e1000_pci_tbl - PCI Device ID Table
-  *
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000_osdep.h netdev-2.6/drivers/net/e1000.mod/e1000_osdep.h
---- netdev-2.6/drivers/net/e1000/e1000_osdep.h	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000_osdep.h	2004-02-02 12:14:13.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -Naurp netdev-2.6/drivers/net/e1000/e1000_param.c netdev-2.6/drivers/net/e1000.mod/e1000_param.c
---- netdev-2.6/drivers/net/e1000/e1000_param.c	2004-02-02 12:11:27.000000000 -0800
-+++ netdev-2.6/drivers/net/e1000.mod/e1000_param.c	2004-02-02 12:14:52.000000000 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2003 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-@@ -63,7 +63,7 @@ MODULE_PARM_DESC(X, S);
- /* Transmit Descriptor Count
-  *
-  * Valid Range: 80-256 for 82542 and 82543 gigabit ethernet controllers
-- * Valid Range: 80-4096 for 82544
-+ * Valid Range: 80-4096 for 82544 and newer
-  *
-  * Default Value: 256
-  */
-@@ -73,7 +73,7 @@ E1000_PARAM(TxDescriptors, "Number of tr
- /* Receive Descriptor Count
-  *
-  * Valid Range: 80-256 for 82542 and 82543 gigabit ethernet controllers
-- * Valid Range: 80-4096 for 82544
-+ * Valid Range: 80-4096 for 82544 and newer
-  *
-  * Default Value: 256
-  */
-@@ -289,7 +289,7 @@ static void e1000_check_copper_options(s
-  * e1000_check_options - Range Checking for Command Line Parameters
-  * @adapter: board private structure
-  *
-- * This routine checks all command line paramters for valid user
-+ * This routine checks all command line parameters for valid user
-  * input.  If an invalid value is given, or if no user specified
-  * value exists, a default value is used.  The final value is stored
-  * in a variable in the adapter structure.
+
+
+
+Below is a patch for the reference count problem you ran into.
+
+The problem is that the IGMP code was using "IFF_UP" to determine
+if a report should be sent or a timer should be started. But it is not
+necessarily cleared during a destroy_dev.
+
+The IPv4 code was also missing an ip_mc_down() call added in the
+IPv6 code for a similar case by Jan Oravec.
+
+The patch is for 2.4.x but also applies to 2.6.x. In-line for
+whitespace-mangled
+viewing and attached for applying.
+
+Thanks for reporting the problem, Willy, and let me know if you have any
+problems with the patch.
+                              +-DLS
+
+diff -ruN linux-2.4.25-pre8/net/ipv4/igmp.c linux-2.4.25-pre8F2/net/ipv4/igmp.c
+--- linux-2.4.25-pre8/net/ipv4/igmp.c     2004-01-29 16:21:28.000000000 -0800
++++ linux-2.4.25-pre8F2/net/ipv4/igmp.c   2004-02-02 14:43:40.000000000 -0800
+@@ -1051,7 +1051,7 @@
+      reporter = im->reporter;
+      igmp_stop_timer(im);
+
+-     if (in_dev->dev->flags & IFF_UP) {
++     if (!in_dev->dead) {
+            if (IGMP_V1_SEEN(in_dev))
+                  goto done;
+            if (IGMP_V2_SEEN(in_dev)) {
+@@ -1082,6 +1082,8 @@
+      if (im->multiaddr == IGMP_ALL_HOSTS)
+            return;
+
++     if (in_dev->dead)
++           return;
+      if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {
+            spin_lock_bh(&im->lock);
+            igmp_start_timer(im, IGMP_Initial_Report_Delay);
+@@ -1155,7 +1157,7 @@
+      igmpv3_del_delrec(in_dev, im->multiaddr);
+ #endif
+      igmp_group_added(im);
+-     if (in_dev->dev->flags & IFF_UP)
++     if (!in_dev->dead)
+            ip_rt_multicast_event(in_dev);
+ out:
+      return;
+@@ -1179,7 +1181,7 @@
+                        write_unlock_bh(&in_dev->lock);
+                        igmp_group_dropped(i);
+
+-                       if (in_dev->dev->flags & IFF_UP)
++                       if (!in_dev->dead)
+                              ip_rt_multicast_event(in_dev);
+
+                        ip_ma_put(i);
+@@ -1255,6 +1257,9 @@
+
+      ASSERT_RTNL();
+
++     /* Deactivate timers */
++     ip_mc_down(in_dev);
++
+      write_lock_bh(&in_dev->lock);
+      while ((i = in_dev->mc_list) != NULL) {
+            in_dev->mc_list = i->next;
+
+(See attached file: 2.4igmpref.patch)
+--1__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p>Below is a patch for the reference count problem you ran into.<br>
+<br>
+The problem is that the IGMP code was using &quot;IFF_UP&quot; to determine<br>
+if a report should be sent or a timer should be started. But it is not<br>
+necessarily cleared during a destroy_dev.<br>
+<br>
+The IPv4 code was also missing an ip_mc_down() call added in the<br>
+IPv6 code for a similar case by Jan Oravec.<br>
+<br>
+The patch is for 2.4.x but also applies to 2.6.x. In-line for whitespace-mangled<br>
+viewing and attached for applying.<br>
+<br>
+Thanks for reporting the problem, Willy, and let me know if you have any<br>
+problems with the patch.<br>
+					+-DLS<br>
+<br>
+diff -ruN linux-2.4.25-pre8/net/ipv4/igmp.c linux-2.4.25-pre8F2/net/ipv4/igmp.c<br>
+--- linux-2.4.25-pre8/net/ipv4/igmp.c	2004-01-29 16:21:28.000000000 -0800<br>
++++ linux-2.4.25-pre8F2/net/ipv4/igmp.c	2004-02-02 14:43:40.000000000 -0800<br>
+@@ -1051,7 +1051,7 @@<br>
+ 	reporter = im-&gt;reporter;<br>
+ 	igmp_stop_timer(im);<br>
+ <br>
+-	if (in_dev-&gt;dev-&gt;flags &amp; IFF_UP) {<br>
++	if (!in_dev-&gt;dead) {<br>
+ 		if (IGMP_V1_SEEN(in_dev))<br>
+ 			goto done;<br>
+ 		if (IGMP_V2_SEEN(in_dev)) {<br>
+@@ -1082,6 +1082,8 @@<br>
+ 	if (im-&gt;multiaddr == IGMP_ALL_HOSTS)<br>
+ 		return;<br>
+ <br>
++	if (in_dev-&gt;dead)<br>
++		return;<br>
+ 	if (IGMP_V1_SEEN(in_dev) || IGMP_V2_SEEN(in_dev)) {<br>
+ 		spin_lock_bh(&amp;im-&gt;lock);<br>
+ 		igmp_start_timer(im, IGMP_Initial_Report_Delay);<br>
+@@ -1155,7 +1157,7 @@<br>
+ 	igmpv3_del_delrec(in_dev, im-&gt;multiaddr);<br>
+ #endif<br>
+ 	igmp_group_added(im);<br>
+-	if (in_dev-&gt;dev-&gt;flags &amp; IFF_UP)<br>
++	if (!in_dev-&gt;dead)<br>
+ 		ip_rt_multicast_event(in_dev);<br>
+ out:<br>
+ 	return;<br>
+@@ -1179,7 +1181,7 @@<br>
+ 				write_unlock_bh(&amp;in_dev-&gt;lock);<br>
+ 				igmp_group_dropped(i);<br>
+ <br>
+-				if (in_dev-&gt;dev-&gt;flags &amp; IFF_UP)<br>
++				if (!in_dev-&gt;dead)<br>
+ 					ip_rt_multicast_event(in_dev);<br>
+ <br>
+ 				ip_ma_put(i);<br>
+@@ -1255,6 +1257,9 @@<br>
+ <br>
+ 	ASSERT_RTNL();<br>
+ <br>
++	/* Deactivate timers */<br>
++	ip_mc_down(in_dev);<br>
++<br>
+ 	write_lock_bh(&amp;in_dev-&gt;lock);<br>
+ 	while ((i = in_dev-&gt;mc_list) != NULL) {<br>
+ 		in_dev-&gt;mc_list = i-&gt;next;<br>
+<br>
+<i>(See attached file: 2.4igmpref.patch)</i><br>
+</body></html>
+
+--1__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F--
+
+
+--0__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F
+Content-type: application/octet-stream;
+	name="2.4igmpref.patch"
+Content-Disposition: attachment; filename="2.4igmpref.patch"
+Content-ID: <10__=07BBE4BDDF13732F8f9e8a93df938@us.ibm.com>
+Content-transfer-encoding: base64
+
+ZGlmZiAtcnVOIGxpbnV4LTIuNC4yNS1wcmU4L25ldC9pcHY0L2lnbXAuYyBsaW51eC0yLjQuMjUt
+cHJlOEYyL25ldC9pcHY0L2lnbXAuYwotLS0gbGludXgtMi40LjI1LXByZTgvbmV0L2lwdjQvaWdt
+cC5jCTIwMDQtMDEtMjkgMTY6MjE6MjguMDAwMDAwMDAwIC0wODAwCisrKyBsaW51eC0yLjQuMjUt
+cHJlOEYyL25ldC9pcHY0L2lnbXAuYwkyMDA0LTAyLTAyIDE0OjQzOjQwLjAwMDAwMDAwMCAtMDgw
+MApAQCAtMTA1MSw3ICsxMDUxLDcgQEAKIAlyZXBvcnRlciA9IGltLT5yZXBvcnRlcjsKIAlpZ21w
+X3N0b3BfdGltZXIoaW0pOwogCi0JaWYgKGluX2Rldi0+ZGV2LT5mbGFncyAmIElGRl9VUCkgewor
+CWlmICghaW5fZGV2LT5kZWFkKSB7CiAJCWlmIChJR01QX1YxX1NFRU4oaW5fZGV2KSkKIAkJCWdv
+dG8gZG9uZTsKIAkJaWYgKElHTVBfVjJfU0VFTihpbl9kZXYpKSB7CkBAIC0xMDgyLDYgKzEwODIs
+OCBAQAogCWlmIChpbS0+bXVsdGlhZGRyID09IElHTVBfQUxMX0hPU1RTKQogCQlyZXR1cm47CiAK
+KwlpZiAoaW5fZGV2LT5kZWFkKQorCQlyZXR1cm47CiAJaWYgKElHTVBfVjFfU0VFTihpbl9kZXYp
+IHx8IElHTVBfVjJfU0VFTihpbl9kZXYpKSB7CiAJCXNwaW5fbG9ja19iaCgmaW0tPmxvY2spOwog
+CQlpZ21wX3N0YXJ0X3RpbWVyKGltLCBJR01QX0luaXRpYWxfUmVwb3J0X0RlbGF5KTsKQEAgLTEx
+NTUsNyArMTE1Nyw3IEBACiAJaWdtcHYzX2RlbF9kZWxyZWMoaW5fZGV2LCBpbS0+bXVsdGlhZGRy
+KTsKICNlbmRpZgogCWlnbXBfZ3JvdXBfYWRkZWQoaW0pOwotCWlmIChpbl9kZXYtPmRldi0+Zmxh
+Z3MgJiBJRkZfVVApCisJaWYgKCFpbl9kZXYtPmRlYWQpCiAJCWlwX3J0X211bHRpY2FzdF9ldmVu
+dChpbl9kZXYpOwogb3V0OgogCXJldHVybjsKQEAgLTExNzksNyArMTE4MSw3IEBACiAJCQkJd3Jp
+dGVfdW5sb2NrX2JoKCZpbl9kZXYtPmxvY2spOwogCQkJCWlnbXBfZ3JvdXBfZHJvcHBlZChpKTsK
+IAotCQkJCWlmIChpbl9kZXYtPmRldi0+ZmxhZ3MgJiBJRkZfVVApCisJCQkJaWYgKCFpbl9kZXYt
+PmRlYWQpCiAJCQkJCWlwX3J0X211bHRpY2FzdF9ldmVudChpbl9kZXYpOwogCiAJCQkJaXBfbWFf
+cHV0KGkpOwpAQCAtMTI1NSw2ICsxMjU3LDkgQEAKIAogCUFTU0VSVF9SVE5MKCk7CiAKKwkvKiBE
+ZWFjdGl2YXRlIHRpbWVycyAqLworCWlwX21jX2Rvd24oaW5fZGV2KTsKKwogCXdyaXRlX2xvY2tf
+YmgoJmluX2Rldi0+bG9jayk7CiAJd2hpbGUgKChpID0gaW5fZGV2LT5tY19saXN0KSAhPSBOVUxM
+KSB7CiAJCWluX2Rldi0+bWNfbGlzdCA9IGktPm5leHQ7Cg==
+
+--0__=07BBE4BDDF13732F8f9e8a93df938690918c07BBE4BDDF13732F--
