@@ -1,40 +1,41 @@
-From: Werner Almesberger <wa@almesberger.net>
-Subject: Re: [PATCH] Convert pppoe to new style protocol
-Date: Wed, 18 Jun 2003 09:21:26 -0300
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: IPv6 bugs introduced in 2.4.21
+Date: 18 Jun 2003 14:54:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030618092126.A28100@almesberger.net>
-References: <20030617220420.GA1169@averell> <20030617.150751.52901849.davem@redhat.com> <20030618080118.GC23037@wotan.suse.de>
+Message-ID: <1055940864.7481.163.camel@slurv.ws.pasop.tomt.net>
+References: <1055793048.24660.160.camel@slurv.ws.pasop.tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ak@muc.de, netdev@oss.sgi.com, mostrows@speakeasy.net, paulus@au.ibm.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030618080118.GC23037@wotan.suse.de>; from ak@suse.de on Wed, Jun 18, 2003 at 10:01:18AM +0200
+To: netdev@oss.sgi.com
+In-Reply-To: <1055793048.24660.160.camel@slurv.ws.pasop.tomt.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 17, 2003 at 03:07:51PM -0700, David S. Miller wrote:
-> Please don't add new skb_linearize() users, I'm trying
-> to make that only local to net/core/dev.c
+On man, 2003-06-16 at 21:50, Andre Tomt wrote:
+<snip>
+> The lower part of a /127 network is somehow, strangely routed to lo -
+> observe..
 
-I know you find documentation unmanly, but maybe ...
+Replying to myself, with a finding.
 
-- Werner
+I found a temporarily workaround for this problem. Adding the address
+with a /128 prefixlen, and then adding a static route entry for the
+other end - like this:
 
---- skbuff.h.orig	Wed Jun 18 09:13:57 2003
-+++ skbuff.h	Wed Jun 18 09:15:05 2003
-@@ -1126,6 +1126,9 @@
-  *
-  *	If there is no free memory -ENOMEM is returned, otherwise zero
-  *	is returned and the old skb data released.
-+ *
-+ *	DO NOT USE THIS IN NEW CODE ! skb_linearize will be for internal
-+ *	use by net/core/dev.c only.
-  */
- int skb_linearize(struct sk_buff *skb, int gfp);
- 
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina         wa@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+ip -6 addr add 2001:730:3::1:2b/128 dev aorta
+ip -6 route add 2001:730:3::1:2a/128 dev aorta
+
+.."fixes" the issue.
+
+There is also one more impact of this bug, traffic that travels directly
+between the two peers gets discarded, BGP and such breaks this way.
+
+Added CC to usagi-users, and I'm now subscribed to netdev (and
+usagi-users), no need for CC'ing me directly. :-)
+
+--=20
+Mvh,
+Andr=E9 Tomt
