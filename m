@@ -1,45 +1,32 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
-Date: Tue, 9 Mar 2004 19:24:52 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: ip addr flush hangs
+Date: Wed, 10 Mar 2004 12:32:30 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040310032452.GA25038@bougret.hpl.hp.com>
-References: <20040304023524.GA19453@bougret.hpl.hp.com> <40469683.3000609@pobox.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <20040310.123230.86301894.yoshfuji@linux-ipv6.org>
+References: <20040309152932.36a42997.davem@redhat.com>
+	<OF34091B26.07758A8E-ON87256E52.00833C04-88256E53.00004022@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: okir@suse.de, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40469683.3000609@pobox.com>
+To: davem@redhat.com, netdev@oss.sgi.com, xma@us.ibm.com
+In-Reply-To: <OF34091B26.07758A8E-ON87256E52.00833C04-88256E53.00004022@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Mar 03, 2004 at 09:37:55PM -0500, Jeff Garzik wrote:
-> Jean Tourrilhes wrote:
-> >	Hi Dave & Jeff,
-> >
-> >	The attached .bz2 file is a patch for 2.6.3 adding the
-> >Intersil Prism54 wireless driver. Sorry for the attachement, the file
-> >is rather big, if you want inline+plaintext, I'll send that personal
-> >to you.
-> >	I've been using this driver with great success on 2.6.3 and
-> >2.6.4-rc1 (SMP). This driver support various popular CardBus and PCI
-> >802.11g cards (54 Mb/s) based on the Intersil PrismGT/PrismDuette
-> >chipset.
-> >	I would like this driver to go into 2.6.X. However, I
-> >understand that it's lot's of code to review.
-> 
-> 
-> I would like it to go into 2.6 too :)  I'm glad somebody submitted it.
-> 
-> I'll review it this weekend... and hopefully some other netdev denizens 
-> will review as well and post their comments.
-> 
-> 	Jeff
+In article <OF34091B26.07758A8E-ON87256E52.00833C04-88256E53.00004022@us.ibm.com> (at Tue, 9 Mar 2004 15:56:00 -0800), Shirley Ma <xma@us.ibm.com> says:
 
-	Any news, Jeff ?
-	Thanks in advance...
+> This fix causes a problem for SNMP IPv6 MIBs. It requires to dump all
+> interface
+> address types unicast/mcast/anycast. I would like suggest to fix the ip
+> command to fix the problem.
 
-	Jean
+Grr... Putting anycast/multicast is not good idea.
+(Sorry, I did not notice at that time...)
+
+Anycast should use IFA_ANYCAST ifaddrmsg instead of IFA_ADDRESS.
+Multicast should be provided in a different way (different rtmsg),
+or use IFA_MULTICAST or something like that.
+
+--yoshfuji
