@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 1/1] err1-62: ax25_ds_idletimer_expiry() locking fix
-Date: Fri, 02 Jul 2004 01:28:24 -0700
+Subject: [patch 1/1] err1-67: lapb_unregister() locking fix
+Date: Fri, 02 Jul 2004 01:30:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200407020829.i628TNG20391@mail.osdl.org>
+Message-ID: <200407020831.i628VmG20814@mail.osdl.org>
 Cc: netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -16,19 +16,19 @@ Fix deadlock identified by the Stanford locking checker.
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/net/ax25/ax25_ds_timer.c |    2 +-
+ 25-akpm/net/lapb/lapb_iface.c |    2 +-
  1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/ax25/ax25_ds_timer.c~err1-62-ax25_ds_idletimer_expiry-locking-fix net/ax25/ax25_ds_timer.c
---- 25/net/ax25/ax25_ds_timer.c~err1-62-ax25_ds_idletimer_expiry-locking-fix	2004-07-02 01:27:07.504239472 -0700
-+++ 25-akpm/net/ax25/ax25_ds_timer.c	2004-07-02 01:27:11.824582680 -0700
-@@ -180,7 +180,7 @@ void ax25_ds_idletimer_expiry(ax25_cb *a
- 			ax25->sk->sk_state_change(ax25->sk);
- 			sock_set_flag(ax25->sk, SOCK_DEAD);
- 		}
--		bh_lock_sock(ax25->sk);
-+		bh_unlock_sock(ax25->sk);
- 	}
- }
+diff -puN net/lapb/lapb_iface.c~err1-67-lapb_unregister-locking-fix net/lapb/lapb_iface.c
+--- 25/net/lapb/lapb_iface.c~err1-67-lapb_unregister-locking-fix	2004-07-02 01:29:50.645438240 -0700
++++ 25-akpm/net/lapb/lapb_iface.c	2004-07-02 01:29:55.717667144 -0700
+@@ -176,7 +176,7 @@ int lapb_unregister(struct net_device *d
+ 	struct lapb_cb *lapb;
+ 	int rc = LAPB_BADTOKEN;
  
+-	write_unlock_bh(&lapb_list_lock);
++	write_lock_bh(&lapb_list_lock);
+ 	lapb = __lapb_devtostruct(dev);
+ 	if (!lapb)
+ 		goto out;
 _
