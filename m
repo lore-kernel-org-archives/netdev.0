@@ -1,61 +1,66 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.7-rc3-mm2 1/5] via-velocity: PCI ID move
-Date: Fri, 18 Jun 2004 22:10:14 +0200
+Subject: [PATCH 2.6.7-rc3-mm2 2/5] via-velocity: uniformize use of OWNED_BY_NIC
+Date: Fri, 18 Jun 2004 22:11:42 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618221014.A15640@electric-eye.fr.zoreil.com>
+Message-ID: <20040618221142.A20210@electric-eye.fr.zoreil.com>
+References: <20040618221014.A15640@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: alan@redhat.com, akpm@osdl.org, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <20040618221014.A15640@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Fri, Jun 18, 2004 at 10:10:14PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(Note: this serie requires a -mm based kernel as the via-velocity patches
-are not included in Jeff's -netdev patches).
 
+Introduce velocity_give_rx_desc() to uniformize the use of OWNED_BY_NIC
+through the driver.
 
-
-PCI ID moved from the driver to the kernel database. A change for the
-pci.ids file project at souceforge has been submitted as well.
-
-diff -puN drivers/net/via-velocity.c~via-velocity-20 drivers/net/via-velocity.c
---- linux-2.6.7-rc3/drivers/net/via-velocity.c~via-velocity-20	2004-06-18 21:24:53.000000000 +0200
-+++ linux-2.6.7-rc3-fr/drivers/net/via-velocity.c	2004-06-18 21:32:01.000000000 +0200
-@@ -290,8 +290,9 @@ static struct velocity_info_tbl chip_inf
-  */
+diff -puN drivers/net/via-velocity.c~via-velocity-30 drivers/net/via-velocity.c
+--- linux-2.6.7-rc3/drivers/net/via-velocity.c~via-velocity-30	2004-06-18 21:34:14.000000000 +0200
++++ linux-2.6.7-rc3-fr/drivers/net/via-velocity.c	2004-06-18 21:34:14.000000000 +0200
+@@ -465,6 +465,12 @@ static void velocity_init_cam_filter(str
+ 	}
+ }
  
- static struct pci_device_id velocity_id_table[] __devinitdata = {
--	{0x1106, 0x3119, PCI_ANY_ID, PCI_ANY_ID, 0, 0, (unsigned long) &chip_info_table[0]},
--	{0,}
-+	{PCI_VENDOR_ID_VIA, PCI_DEVICE_ID_VIA_612X,
-+	 PCI_ANY_ID, PCI_ANY_ID, 0, 0, (unsigned long) chip_info_table},
-+	{0, }
- };
++static inline void velocity_give_rx_desc(struct rx_desc *rd)
++{
++	*(u32 *)&rd->rdesc0 = 0;
++	rd->rdesc0.owner = cpu_to_le32(OWNED_BY_NIC);
++}
++
+ /**
+  *	velocity_rx_reset	-	handle a receive reset
+  *	@vptr: velocity we are resetting
+@@ -485,7 +491,7 @@ static void velocity_rx_reset(struct vel
+ 	 *	Init state, all RD entries belong to the NIC
+ 	 */
+ 	for (i = 0; i < vptr->options.numrx; ++i)
+-		vptr->rd_ring[i].rdesc0.owner = cpu_to_le32(OWNED_BY_NIC);
++		velocity_give_rx_desc(vptr->rd_ring + i);
  
- MODULE_DEVICE_TABLE(pci, velocity_id_table);
-diff -puN include/linux/pci_ids.h~via-velocity-20 include/linux/pci_ids.h
---- linux-2.6.7-rc3/include/linux/pci_ids.h~via-velocity-20	2004-06-18 21:24:53.000000000 +0200
-+++ linux-2.6.7-rc3-fr/include/linux/pci_ids.h	2004-06-18 21:24:53.000000000 +0200
-@@ -1214,6 +1214,7 @@
- #define PCI_DEVICE_ID_VIA_8233C_0	0x3109
- #define PCI_DEVICE_ID_VIA_8361		0x3112
- #define PCI_DEVICE_ID_VIA_XM266		0x3116
-+#define PCI_DEVICE_ID_VIA_612X		0x3119
- #define PCI_DEVICE_ID_VIA_862X_0	0x3123
- #define PCI_DEVICE_ID_VIA_8753_0	0x3128
- #define PCI_DEVICE_ID_VIA_8233A		0x3147
-diff -puN drivers/net/via-velocity.h~via-velocity-20 drivers/net/via-velocity.h
---- linux-2.6.7-rc3/drivers/net/via-velocity.h~via-velocity-20	2004-06-18 21:24:53.000000000 +0200
-+++ linux-2.6.7-rc3-fr/drivers/net/via-velocity.h	2004-06-18 21:32:00.000000000 +0200
-@@ -37,7 +37,6 @@
- #define OPTION_DEFAULT      { [0 ... MAX_UNITS-1] = -1}
+ 	writew(vptr->options.numrx, &regs->RBRDU);
+ 	writel(vptr->rd_pool_dma, &regs->RDBaseLo);
+@@ -1008,7 +1014,7 @@ static int velocity_init_rd_ring(struct 
+ 			velocity_free_rd_ring(vptr);
+ 			goto out;
+ 		}
+-		rd->rdesc0.owner = OWNED_BY_NIC;
++		velocity_give_rx_desc(rd);
+ 	}
+ 	vptr->rd_used = vptr->rd_curr = 0;
+ out:
+@@ -1205,8 +1211,7 @@ static int velocity_rx_srv(struct veloci
+ 				if (--rd_prev < 0)
+ 					rd_prev = vptr->options.numrx - 1;
  
- #define REV_ID_VT6110       (0)
--#define DEVICE_ID           (0x3119)
- 
- #define BYTE_REG_BITS_ON(x,p)       do { writeb(readb((p))|(x),(p));} while (0)
- #define WORD_REG_BITS_ON(x,p)       do { writew(readw((p))|(x),(p));} while (0)
+-				rd = &(vptr->rd_ring[rd_prev]);
+-				rd->rdesc0.owner = OWNED_BY_NIC;
++				velocity_give_rx_desc(vptr->rd_ring + rd_prev);
+ 			}
+ 			writew(4, &(regs->RBRDU));
+ 			vptr->rd_used -= 4;
 
 _
