@@ -1,165 +1,95 @@
-From: "Dr. Peter Bieringer " <pb@bieringer.de>
-Subject: Ooops: 2.5.70 kernel BUG at net/xfrm/xfrm_policy.c - ping crashes
-Date: Wed, 04 Jun 2003 17:40:03 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [patch]: ipv6 tunnel for MIPv6
+Date: Thu, 05 Jun 2003 00:49:32 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030604154003.5AA111387A@smtp2.aerasec.de>
+Message-ID: <20030605.004932.00042147.yoshfuji@linux-ipv6.org>
+References: <20030531.003858.108351451.yoshfuji@linux-ipv6.org>
+	<20030603.213830.85382657.davem@redhat.com>
+	<3EDE0286.4000304@tml.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset="iso-8859-15"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "Maillist USAGI-users" <usagi-users@linux-ipv6.org>
+Cc: davem@redhat.com, vnuorval@tcs.hut.fi, kuznet@ms2.inr.ac.ru,
+   netdev@oss.sgi.com, ajtuomin@morphine.tml.hut.fi,
+   lpetande@morphine.tml.hut.fi, jagana@us.ibm.com, kumarkr@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Maillist netdev" <netdev@oss.sgi.com>
+To: lpetande@tml.hut.fi
+In-Reply-To: <3EDE0286.4000304@tml.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, 
-
-is this helpful? Happen on playing around with IPsec on 2.5.70, caused by a 
-ping to a destination (1.2.3.4) in IPsec topology. 
-
-Jun  4 17:41:31 racoonhost kernel: ------------[ cut here ]------------
-Jun  4 17:41:31 racoonhost kernel: kernel BUG at net/xfrm/xfrm_policy.c:185!
-Jun  4 17:41:31 racoonhost kernel: invalid operand: 0000 [#1]
-Jun  4 17:41:31 racoonhost kernel: CPU:    0
-Jun  4 17:41:31 racoonhost kernel: EIP:    0060:[<c022bc0e>]    Tainted: P
-Jun  4 17:41:31 racoonhost kernel: EFLAGS: 00010246
-Jun  4 17:41:31 racoonhost kernel: eax: c6f80a01   ebx: c1b45000   ecx: 
-c6f80a80   edx: c1b45000
-Jun  4 17:41:31 racoonhost kernel: esi: c1b45000   edi: 00000000   ebp: 
-c6f80a80   esp: c0985d04
-Jun  4 17:41:31 racoonhost kernel: ds: 007b   es: 007b   ss: 0068
-Jun  4 17:41:31 racoonhost kernel: Process ping (pid: 23407, 
-threadinfo=c0984000 task=c4e6c6a0)
-Jun  4 17:41:31 racoonhost kernel: Stack: c0985ddc c022d09d c1b45000 
-c0985ddc 00000002 0000002e 00000001 c6f80a80
-Jun  4 17:41:31 racoonhost kernel:        c1b45000 c0a79d80 c016eff7 
-fd010018 c6d9b900 c027c7e0 1f3e030a 00000000
-Jun  4 17:41:31 racoonhost kernel:        00000000 00000000 00000000 
-00000000 00000000 00000000 00000000 00000000
-Jun  4 17:41:31 racoonhost kernel: Call Trace: [<c022d09d>]  [<c016eff7>]  
-[<c01f8d33>]  [<c01f8e2b>]  [<c0219110>]  [<c01358a0>]  [<c021f142>]  
-[<c01e665d>]  [<c01e557e>]  [<c01e55cc>]  [<c021edc8>]  [<c01e61da>]  
-[<c01e62ad>]  [<c01e6f94>]  [<c0122868>]  [<c01379b4>]  [<c010a6b3>]
-Jun  4 17:41:31 racoonhost kernel: Code: 0f 0b b9 00 89 49 25 c0 8b 8b c8 00 
-00 00 85 c9 74 08 0f 0b
-Jun  4 17:41:33 racoonhost kernel:  ------------[ cut here ]------------
-Jun  4 17:41:33 racoonhost kernel: kernel BUG at net/xfrm/xfrm_policy.c:185!
-Jun  4 17:41:33 racoonhost kernel: invalid operand: 0000 [#2]
-Jun  4 17:41:33 racoonhost kernel: CPU:    0
-Jun  4 17:41:33 racoonhost kernel: EIP:    0060:[<c022bc0e>]    Tainted: P
-Jun  4 17:41:33 racoonhost kernel: EFLAGS: 00010246
-Jun  4 17:41:33 racoonhost kernel: eax: c6f80a01   ebx: c1b45000   ecx: 
-c6f80a80   edx: c1b45000
-Jun  4 17:41:33 racoonhost kernel: esi: 00000002   edi: c1b45000   ebp: 
-c6f80a80   esp: c094bd04
-Jun  4 17:41:33 racoonhost kernel: ds: 007b   es: 007b   ss: 0068
-Jun  4 17:41:33 racoonhost kernel: Process ping (pid: 23408, 
-threadinfo=c094a000 task=c4e6c6a0)
-Jun  4 17:41:33 racoonhost kernel: Stack: c1b45000 c022d09d c1b45000 
-c2d38ab0 00000002 0000002e c7ee1f00 c6f80a80
-Jun  4 17:41:33 racoonhost kernel:        c1b45000 c0a79d80 c016eff7 
-c016f045 c7ee1f00 c7ee3800 00000000 c7ee1f00
-Jun  4 17:41:33 racoonhost kernel:        c7eb2100 c7ece494 c01767ee 
-c2d38ab0 c0d11424 c2d38ab0 00000000 00000000
-Jun  4 17:41:33 racoonhost kernel: Call Trace: [<c022d09d>]  [<c016eff7>]  
-[<c016f045>]  [<c01767ee>]  [<c016f2b2>]  [<c0115a61>]  [<c012dcfb>]  
-[<c01f8d33>]  [<c01f8e
-2b>]  [<c0219110>]  [<c01358a0>]  [<c021f142>]  [<c01e665d>]  [<c01e557e>]  
-[<c01e55cc>]  [<c021edc8>]  [<c01e61da>]  [<c01e62ad>]  [<c01e6f94>]  
-[<c0122868>]  [<c0137
-9b4>]  [<c010a6b3>]
-Jun  4 17:41:33 racoonhost kernel: Code: 0f 0b b9 00 89 49 25 c0 8b 8b c8 00 
-00 00 85 c9 74 08 0f 0b 
-
-Btw: ping segfaults...that is not good because ping is usually with suid bit 
-set installed: 
-
-# stat `which ping`
- File: "/bin/ping"
- Size: 35192           Blocks: 72         IO Block: -4611693715008778240 
-Regular File
-Device: 303h/771d       Inode: 128458      Links: 1
-Access: (4755/-rwsr-xr-x)  Uid: (    0/    root)   Gid: (    0/    root)
-Access: Wed Jun  4 17:43:44 2003
-Modify: Thu Apr 18 23:40:02 2002
-Change: Tue Nov  5 18:25:31 2002 
+Hello.
 
 
-# strace ping 1.2.3.4
-execve("/bin/ping", ["ping", "1.2.3.4"], [/* 29 vars */]) = 0
-uname({sys="Linux", node="racoonhost.lab.aerasec.de", ...}) = 0
-brk(0)                                  = 0x8063000
-open("/etc/ld.so.preload", O_RDONLY)    = -1 ENOENT (No such file or 
-directory)
-open("/etc/ld.so.cache", O_RDONLY)      = 3
-fstat64(3, {st_mode=S_IFREG|0644, st_size=14186, ...}) = 0
-old_mmap(NULL, 14186, PROT_READ, MAP_PRIVATE, 3, 0) = 0x40014000
-close(3)                                = 0
-open("/lib/libresolv.so.2", O_RDONLY)   = 3
-read(3, "\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0\20\'\0"..., 1024) = 
-1024
-fstat64(3, {st_mode=S_IFREG|0755, st_size=68925, ...}) = 0
-old_mmap(NULL, 69408, PROT_READ|PROT_EXEC, MAP_PRIVATE, 3, 0) = 0x40018000
-mprotect(0x40026000, 12064, PROT_NONE)  = 0
-old_mmap(0x40026000, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED, 3, 
-0xe000) = 0x40026000
-old_mmap(0x40027000, 7968, PROT_READ|PROT_WRITE, 
-MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x40027000
-close(3)                                = 0
-open("/lib/i686/libc.so.6", O_RDONLY)   = 3
-read(3, "\177ELF\1\1\1\0\0\0\0\0\0\0\0\0\3\0\3\0\1\0\0\0Pv\1B4\0"..., 1024) 
-= 1024
-fstat64(3, {st_mode=S_IFREG|0755, st_size=1402035, ...}) = 0
-old_mmap(NULL, 4096, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS, -1, 0) 
-= 0x40029000
-old_mmap(0x42000000, 1264960, PROT_READ|PROT_EXEC, MAP_PRIVATE, 3, 0) = 
-0x42000000
-mprotect(0x4212c000, 36160, PROT_NONE)  = 0
-old_mmap(0x4212c000, 20480, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_FIXED, 3, 
-0x12c000) = 0x4212c000
-old_mmap(0x42131000, 15680, PROT_READ|PROT_WRITE, 
-MAP_PRIVATE|MAP_FIXED|MAP_ANONYMOUS, -1, 0) = 0x42131000
-close(3)                                = 0
-munmap(0x40014000, 14186)               = 0
-brk(0)                                  = 0x8063000
-brk(0x8063030)                          = 0x8063030
-brk(0x8064000)                          = 0x8064000
-socket(PF_INET, SOCK_RAW, IPPROTO_ICMP) = 3
-getuid32()                              = 0
-setuid32(0)                             = 0
-socket(PF_INET, SOCK_DGRAM, IPPROTO_IP) = 4
-connect(4, {sin_family=AF_INET, sin_port=htons(1025), 
-sin_addr=inet_addr("1.2.3.4")}}, 16 <unfinished ...>
-+++ killed by SIGSEGV +++ 
+In article <3EDE0286.4000304@tml.hut.fi> (at Wed, 04 Jun 2003 17:30:30 +0300), Henrik Petander <lpetande@tml.hut.fi> says:
+
+> 2. Source address based routing
+> 
+> Ville sent the patch. The semantical changes to the original code were
+> in our opinion necessary to get source address based routing working
+> more as IPv4 policy routing.  Let's discuss this more.
+
+I'm not sure why you need this (and tunnel) for MIP...
+Would you clearify for me?
+(IMHO, I believe we don't need this change if we use XFRM engine.)
+
+BTW, source based routing (source address is major, destination is minor)
+is done by policy routing; It is NOT the task of CONFIG_IPV6_SUBTREE, IMHO.
+Yes, poeple want to have policy routing, but it is NOT (only) for MIP6.
 
 
-# rpm -qf `which ping`
-iputils-20020124-3 
+> 3. API
+:
+> There is a (sub)group working on MIPv6 extensions to the Advanced Socket
+> API for IPv6.  To me it seems pointless to add anything other to the
+> spec than a way to insert a destination option header to the third
+> possible DO position (i.e. between routing header and fragmentation
+> header).  This could be done just by adding new type, let's call it
+> IPV6_NOFRAGDSTOPTS.  Everything else should be doable with the
+> existing ASA.  We would like to hear comments on this.
 
-# rpm -qi iputils-20020124-3
-Name        : iputils                      Relocations: /usr
-Version     : 20020124                          Vendor: Red Hat, Inc.
-Release     : 3                             Build Date: Thu 18 Apr 2002 
-11:40:05 PM CEST
-Install date: Tue 05 Nov 2002 06:25:31 PM CET      Build Host: 
-stripples.devel.redhat.com
-Group       : System Environment/Daemons    Source RPM: 
-iputils-20020124-3.src.rpm
-Size        : 188776                           License: BSD
-Packager    : Red Hat, Inc. <http://bugzilla.redhat.com/bugzilla>
-Summary     : Network monitoring tools including ping.
-Description :
-The iputils package contains basic utilities for monitoring a network,
-including ping. The ping command sends a series of ICMP protocol
-ECHO_REQUEST packets to a specified network host to discover whether
-the target machine is alive and receiving network traffic. 
+No, user daemon adds a XFRM policy for adding destination option 
+(and/or routing header).  Stackable destination will do the real work.
+(So, we don't need socket options.)
 
- 
 
-Hope this helps,
-Peter 
+> 4. Source address selection
+> 
+> We think adding new home address flag to addresses is the best and
+> easiest way making the source address selection to work with MIPv6.
+> I'm sure USAGI will add the relevant checks to their source address
+> selection code for that.  Dave, Antti already brought this up some weeks
+> ago, but got no answer. Is the home address bit OK with you?
+
+"Yes," is my answer for now.
+
+
+> 5. MIPv6 extension header adding
+:
+> Storing of the mipv6 information would in our opinion be achieved more
+> cleanly by using cached routes which included the mipv6 information (two
+> extra addresses and flags). The routes would contain modified nexthop
+> information and mip6_output as the  rt->u.dst.output function.
+> Mip6_output would add the extension headers based on the information
+> stored in the route. The routes would have a stacked dst entry, which
+> would be used for actual output.
+
+I still belive it is very natural to use XFRM to manage stackable 
+destination.
+
+
+> Our prototype  currently works with tcp, tcp + ipsec and raw sockets,
+> but has only a hackish interface through route ioctl for testing. I can
+> send a preview patch of the code for discussion, if the general approach
+> makes sense to you. I would like to hear your opinions on this and also
+> if you (USAGI) have planned something else for storing the mipv6 state.
+
+Okay, anyway, please sent it to David, Alexey and me (at least).
+We can learn more from the code than documentation. ;-)
+
+Thank you.
 
 -- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/ 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
