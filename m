@@ -1,35 +1,29 @@
-From: Matthew J Galgoci <mgalgoci@parcelfarce.linux.theplanet.co.uk>
-Subject: 2.6.10-bk4 ip_conntrack oops fix
-Date: Sun, 2 Jan 2005 06:12:38 +0000 (GMT)
-Message-ID: <Pine.LNX.4.58.0501020611430.12403@parcelfarce.linux.theplanet.co.uk>
+From: "Shekhar Kshirsagar" <shekhark@juniper.net>
+Subject: RE: ipsec null encryption slower than AES / was Re: 2.6 IPSec Throughput puzzle
+Date: Sat, 1 Jan 2005 22:51:13 -0800
+Message-ID: <EF311E6F9B0B0848A49ED20B06E9CB270320B02A@gluon.jnpr.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: "Networking Team" <netdev@oss.sgi.com>, <jmorris@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-class: urn:content-classes:message
+To: "bert hubert" <ahu@ds9a.nl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I stumbled onto an annoying oops in 2.6.10-bk4.
+> From your numbers below it is clear all ipsec benchmarks have maxed out your
+> CPU, but aes/sha1 still has some hits in default_idle. Is this an SMP
+> system?
+No, it is not running SMP kernel. (The system is SMP). 
+About little time being sent in default_idle, I think,it was because I was little late in 
+performing dump. I redid the test and the CPU was maxed out even in aes/sha1 case.
+ 
+> http://www.certconf.org/presentations/2004/Tuesday/TS2.pdf - the concept is
+> called 'the scatterlist'.
+> http://lwn.net/Articles/14010/?format=printable is also nice.
+Thanks, for the pointers. I will see, if I can isolate the problem. 
 
-Here is how to cause the oops.
-
-load ip_conntrack
-remove ip_conntrack
-ls /proc/net/stat
-boom
-
-Here is what I think the fix is:
-
-
---- linux-2.6.10-bk4/net/ipv4/netfilter/ip_conntrack_standalone.c.orig	2005-01-01 23:44:42.000000000 -0500
-+++ linux-2.6.10-bk4/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-01-02 00:57:20.000000000 -0500
-@@ -820,7 +820,7 @@
- 	nf_unregister_hook(&ip_conntrack_defrag_ops);
-  cleanup_proc_stat:
- #ifdef CONFIG_PROC_FS
--	proc_net_remove("ip_conntrack_stat");
-+	remove_proc_entry("ip_conntrack", proc_net_stat);
- cleanup_proc_exp:
- 	proc_net_remove("ip_conntrack_expect");
-  cleanup_proc:
+Shekhar
