@@ -1,52 +1,67 @@
-From: P@draigBrady.com
-Subject: Re: Fw: [Bugme-new] [Bug 2782] New: ksoftirqd load system, kernel
- hang after a few minuts
-Date: Fri, 28 May 2004 11:35:31 +0100
+From: Patrick McHardy <kaber@trash.net>
+Subject: [PATCH]: Fix memory leak in ah6.c
+Date: Fri, 28 May 2004 12:50:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40B715F3.9010200@draigBrady.com>
-References: <20040527115311.472d3c3a.akpm@osdl.org>
+Message-ID: <40B71975.1080909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, dav@neocom.fr
+Content-Type: multipart/mixed;
+ boundary="------------050200030200070506070809"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20040527115311.472d3c3a.akpm@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Suggest you try an up-to-date kernel.
->=20
-> Begin forwarded message:
->=20
-> Date: Thu, 27 May 2004 09:19:49 -0700
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 2782] New: ksoftirqd load system, kernel hang=
- after a few minuts
->=20
->=20
-> http://bugme.osdl.org/show_bug.cgi?id=3D2782
->=20
->            Summary: ksoftirqd load system, kernel hang after a few minu=
-ts
->     Kernel Version: 2.4.20-2.4.22
->             Status: NEW
->           Severity: blocking
->              Owner: other_other@kernel-bugs.osdl.org
->          Submitter: dav@neocom.fr
+This is a multi-part message in MIME format.
+--------------050200030200070506070809
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I've just seen something similar with official 2.4.20+e1000 v5.2.30.1
-on a Dual Intel Xeon CPU 2.6G+hyperthreading. Note I use IRQ affinity
-so both ksoftirqd_CPU[02] are at 100%.
+Hi Dave,
 
-The following is repeatable in about a minute which is good.
-I send in around 700,000 packets per second on each of 2 interfaces,
-and let the packets continually overflow the (4096 entry) buffers.
-After about a minute I can't receive any traffic, and a couple
-of occasions the machine just rebooted, so something is getting
-corrupted. I was suspecting the e1000 driver buffer management until
-I seen this?
+this patch fixes a memory leak in ah6.c. iph is not freed when
+ipv6_clear_mutable_options fails.
 
-P=E1draig.
+Regards
+Patrick
+
+--------------050200030200070506070809
+Content-Type: text/x-patch;
+ name="ah6-memleak.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="ah6-memleak.diff"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/05/28 12:21:37+02:00 kaber@trash.net 
+#   [IPSEC]: Fix memory leak in ah6.c
+# 
+# net/ipv6/ah6.c
+#   2004/05/28 12:21:29+02:00 kaber@trash.net +3 -1
+#   [IPSEC]: Fix memory leak in ah6.c
+# 
+diff -Nru a/net/ipv6/ah6.c b/net/ipv6/ah6.c
+--- a/net/ipv6/ah6.c	2004-05-28 12:34:25 +02:00
++++ b/net/ipv6/ah6.c	2004-05-28 12:34:25 +02:00
+@@ -190,7 +190,7 @@
+ 		memcpy(skb->nh.ipv6h, iph, hdr_len);
+ 		nexthdr = ipv6_clear_mutable_options(skb, &nh_offset, XFRM_POLICY_OUT);
+ 		if (nexthdr == 0)
+-			goto error;
++			goto error_free_iph;
+ 
+ 		skb->nh.raw[nh_offset] = IPPROTO_AH;
+ 		skb->nh.ipv6h->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
+@@ -239,6 +239,8 @@
+ 		goto error_nolock;
+ 	}
+ 	return NET_XMIT_BYPASS;
++error_free_iph:
++	kfree(iph);
+ error:
+ 	spin_unlock_bh(&x->lock);
+ error_nolock:
+
+--------------050200030200070506070809--
