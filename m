@@ -1,37 +1,50 @@
-From: "Mendelson, Tsippy" <tsippy.mendelson@intel.com>
-Subject: del_timer_sync() synchronization rules
-Date: Wed, 14 Jan 2004 12:38:30 +0200
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [PATCH|RFC] IPv6: have a proxy discard link-local traffic
+Date: Wed, 14 Jan 2004 12:50:34 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2C83850C013A2540861D03054B478C0602012334@hasmsx403.iil.intel.com>
+Message-ID: <Pine.LNX.4.58.0401141108530.24125@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="windows-1255"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>,
-        "iJR ICGJ SW Dev Linux ANS" <ijr.icgj.sw.dev.linux.ans@intel.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <linux-kernel@vger.kernel.org>
+To: davem@redhat.com, usagi-core@linux-ipv6.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Dave & Co,
 
-In the header of the del_timer_sync() function in 2.4.x kernels it says:
+the patch below causes a router proxying a link-local address to discard
+traffic sent to it, also sending an ICMPv6 Destination Unreachable, Code 3
+message to the source. This behavior is required by the Mobile IPv6
+specification (the only user of proxy ND I'm aware of).
 
-* Caller must disable by some means restarting the timer
-* for new.
+This seems like reasonable behavior in any case, since the router won't be
+able to forward the link-local traffic to the proxied node anyway.
 
-In kernel 2.6.1 the header says:
+Thanks,
+Ville
 
-* Synchronization rules: callers must prevent restarting of the timer,
-* otherwise this function is meaningless.
+===== net/ipv6/ip6_output.c 1.48 vs 1.50 =====
+--- 1.48/net/ipv6/ip6_output.c	Thu Jan  1 22:25:30 2004
++++ 1.50/net/ipv6/ip6_output.c	Wed Jan 14 12:08:51 2004
+@@ -385,6 +385,15 @@
+ 	if (!xfrm6_route_forward(skb))
+ 		goto drop;
 
-Does anyone know what this is about?
-
-Does this imply that a timer that restarts itself must use some other means
-to prevent it from restarting once del_timer_sync was called? (like some kind of terminate flag)
-
-If so - isn't this just what dell_timer_sync is supposed to handle properly?
-If not - then what kind of scenario is this referring to?
-
-Tsippy  
++	/* The proxy can't forward traffic sent to a link-local address,
++	   so signal the sender and discard the packet */
++
++	if (ipv6_addr_type(&hdr->daddr) & IPV6_ADDR_LINKLOCAL &&
++	    skb->dev && pneigh_lookup(&nd_tbl, &hdr->daddr, skb->dev, 0)) {
++		icmpv6_send(skb, ICMPV6_DEST_UNREACH, ICMPV6_ADDR_UNREACH,
++			    0, skb->dev);
++		goto drop;
++	}
+ 	/* IPv6 specs say nothing about it, but it is clear that we cannot
+ 	   send redirects to source routed frames.
+ 	 */
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
