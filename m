@@ -1,29 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [BK PATCH] sk_dst_cache annotation
-Date: Tue, 18 Jan 2005 12:59:29 -0800
-Message-ID: <20050118125929.6868bd60.davem@davemloft.net>
-References: <20050115.160008.04476889.yoshfuji@linux-ipv6.org>
-	<20050117124913.49c253b6.davem@davemloft.net>
-	<20050118.114034.89476074.yoshfuji@linux-ipv6.org>
+Subject: Re: [IPV6] merge raw6_opt with raw6_sock
+Date: Tue, 18 Jan 2005 12:58:51 -0800
+Message-ID: <20050118125851.14857b71.davem@davemloft.net>
+References: <41EC66B8.9080907@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20050118.114034.89476074.yoshfuji@linux-ipv6.org>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <41EC66B8.9080907@conectiva.com.br>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jan 2005 11:40:34 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Mon, 17 Jan 2005 23:30:32 -0200
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> Let me clarify:
->   if all the code paths (for each socket type) lock socket,
->   we don't need sk_dst_lock at all (for that socket type).
->   otherwise, we have races; we need sk_dst_lock (for that socket type).
+> 	This finishes the inet protos part, now to the legacy protocols.
 > 
-> Am I corrent?
+> 	Available at the usual place:
+> 
+> bk://kernel.bkbits.net/acme/connection_sock-2.6
 
-That's correct.
+Pulled, thanks Arnaldo.
