@@ -1,86 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Sun, 06 Feb 2005 21:30:18 +0900 (JST)
-Message-ID: <20050206.213018.92031627.yoshfuji@linux-ipv6.org>
-References: <20050205064643.GA29758@gondor.apana.org.au>
-	<20050205104559.GA30981@gondor.apana.org.au>
-	<20050206114145.GA20883@gondor.apana.org.au>
+From: maxer <maxer@xmission.com>
+Subject: skge no workee here
+Date: Sun, 06 Feb 2005 09:19:48 -0700
+Message-ID: <420643A4.9010407@xmission.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, mirko.parthey@informatik.tu-chemnitz.de,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	shemminger@osdl.org, yoshfuji@linux-ipv6.org
-To: herbert@gondor.apana.org.au
-In-Reply-To: <20050206114145.GA20883@gondor.apana.org.au>
-Sender: linux-kernel-owner@vger.kernel.org
+To: netdev@oss.sgi.com
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050206114145.GA20883@gondor.apana.org.au> (at Sun, 6 Feb 2005 22:41:45 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+Jgarzik wanted me to forward this to you today.
 
-> On Sat, Feb 05, 2005 at 09:45:59PM +1100, herbert wrote:
-> > 
-> > Although I still think this is a bug, I'm now starting to suspect
-> > that there is another bug around as well.
-> > 
-> > There is probably an ifp leak which in turn leads to a split dst
-> > leak that allows the first bug to make its mark.
-> 
-> Found it.  This is what happens:
-> 
-> lo goes down =>
-> 	rt6_ifdown =>
-> 		eth0's local address route gets deleted
-> 
-> eth0 goes down =>
-> 	__ipv6_ifa_notify =>
-> 		ip6_del_rt fails so we fall through to the
-> 		dst_free path.  At this point the refcount
-> 		taken by __ipv6_ifa_notify is leaked.
+This nic is on the mobo. sk98lin from kernel 2.6.9 works great. However:
 
-Oh, you're right! Thanks.
+If I go into Fedora Core's Network Device Control applet, it shows eth0 
+inactive. If I try to activate it I get:
+skge device eth0:1 does not seem to be present, delaying initialization.
 
-How about this; Ignore entries addrconf_dst_alloc'ed entries in rt6_ifdown()?
+Under Network Configuration tool trying to probe under "Bind to MAC 
+address gives the result as [Errno 19] No such device.
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+So while the driver clearly loads, it can't find the device nor activate 
+it.
 
-===== include/linux/ipv6_route.h 1.6 vs edited =====
---- 1.6/include/linux/ipv6_route.h	2004-10-26 12:54:23 +09:00
-+++ edited/include/linux/ipv6_route.h	2005-02-06 21:27:02 +09:00
-@@ -26,6 +26,7 @@
- #define RTF_FLOW	0x02000000	/* flow significant route	*/
- #define RTF_POLICY	0x04000000	/* policy route			*/
- 
-+#define RTF_ANYCAST	0x40000000
- #define RTF_LOCAL	0x80000000
- 
- struct in6_rtmsg {
-===== net/ipv6/route.c 1.105 vs edited =====
---- 1.105/net/ipv6/route.c	2005-01-15 17:44:48 +09:00
-+++ edited/net/ipv6/route.c	2005-02-06 21:26:35 +09:00
-@@ -1408,7 +1408,9 @@
- 	rt->u.dst.obsolete = -1;
- 
- 	rt->rt6i_flags = RTF_UP | RTF_NONEXTHOP;
--	if (!anycast)
-+	if (anycast)
-+		rt->rt6i_flags |= RTF_ANYCAST;
-+	else
- 		rt->rt6i_flags |= RTF_LOCAL;
- 	rt->rt6i_nexthop = ndisc_get_neigh(rt->rt6i_dev, &rt->rt6i_gateway);
- 	if (rt->rt6i_nexthop == NULL) {
-@@ -1427,7 +1429,8 @@
- static int fib6_ifdown(struct rt6_info *rt, void *arg)
- {
- 	if (((void*)rt->rt6i_dev == arg || arg == NULL) &&
--	    rt != &ip6_null_entry) {
-+	    rt != &ip6_null_entry &&
-+	    !(rt->rt6i_flags & (RTF_LOCAL|RTF_ANYCAST))) {
- 		RT6_TRACE("deleted by ifdown %p\n", rt);
- 		return -1;
- 	}
+What should I do to remedy this. I can bring up the device under kernel 
+2.6.9, but no kernel beyond this 2.6.10 or 2.6.11-xx works.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+04:00.0 Ethernet controller: Marvell Technology Group Ltd. Gigabit 
+Ethernet Controller (rev 17)
+       Subsystem: Intel Corp.: Unknown device 3065
+       Flags: bus master, fast devsel, latency 0, IRQ 3
+       Memory at ff720000 (64-bit, non-prefetchable) [size=16K]
+       I/O ports at a800 [size=256]
+       Expansion ROM at ff700000 [disabled] [size=128K]
+       Capabilities: [48] Power Management version 2
+       Capabilities: [50] Vital Product Data
+       Capabilities: [5c] Message Signalled Interrupts: 64bit+ Queue=0/1 
+Enable-
+       Capabilities: [e0] Express Legacy Endpoint IRQ 0
+       Capabilities: [100] Advanced Error Reporting
+
+Thanks,
+
+RaXeT
