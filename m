@@ -1,36 +1,72 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [PATCH] Net device error logging, revised
-Date: Tue, 16 Sep 2003 19:06:01 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010124F051@orsmsx402.jf.intel.com>
+From: Martijn Hijdra <martijn@esrac.ele.tue.nl>
+Subject: Re: [PATCH] hamradio/scc -
+Date: Wed, 17 Sep 2003 08:35:41 +0200
+Sender: linux-hams-owner@vger.kernel.org
+Message-ID: <1063780541.2971.4.camel@imst153.imst.de>
+References: <20030915162335.0034a551.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "David Brownell" <david-b@pacbell.net>,
-   "Stephen Hemminger" <shemminger@osdl.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jim Keniston" <jkenisto@us.ibm.com>,
-   "LKML" <linux-kernel@vger.kernel.org>, "netdev" <netdev@oss.sgi.com>,
-   "Jeff Garzik" <jgarzik@pobox.com>, "Larry Kessler" <kessler@us.ibm.com>,
-   "Greg KH" <greg@kroah.com>, "Randy Dunlap" <rddunlap@osdl.org>,
-   "Alan Cox" <alan@lxorguk.ukuu.org.uk>, "Andrew Morton" <akpm@osdl.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-hN8ySaqxnHj08rJ9vSsJ"
+Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030915162335.0034a551.shemminger@osdl.org>
 List-Id: netdev.vger.kernel.org
 
-> 3. A new macro, netdev_fatal, is included.  Given the call
->         netdev_fatal(dev, HW, "NIC fried!\n");
-> the indicated message is always logged: the msglevel arg (HW, in this
-> case) is NOT consulted.  In fact, the msglevel arg to netdev_fatal
-> is ignored in this implementation.  (As previously discussed, in some
-> future implementation, the msglevel could be logged to help indicate
-> the circumstances under which the event was logged.)
 
-I couldn't find the previous discussion on netdev_fatal, so sorry if
-this has already been worked out.  It uses KERN_ERR; did you mean
-something stronger?  If not, why not just use netdev_err(dev, ALL,
-"...")?  What is the situation in the driver where we'd want to use
-_fatal?  How do I know when to use _fatal and when to use _err?
+--=-hN8ySaqxnHj08rJ9vSsJ
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
--scott
+On Tue, 2003-09-16 at 01:23, Stephen Hemminger wrote:
+> Update hamradio/scc for 2.6.0-test5
+> 	- use seq_file for /proc
+> 	- get rid of dev_get()
+> 	- use alloc_netdev
+> 
+
+Hi, and another small patch for hamradio/scc to
+fill the statistics counters for the scc driver.
+(see output of ifconfig RX bytes and TX bytes)
+
+
+
+-- 
+Martijn Hijdra <martijn@esrac.ele.tue.nl>
+
+--=-hN8ySaqxnHj08rJ9vSsJ
+Content-Disposition: attachment; filename=scc_260t5.diff
+Content-Type: text/x-patch; name=scc_260t5.diff; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- drivers/net/hamradio/scc.c.orig	2003-08-23 01:58:57.000000000 +0200
++++ drivers/net/hamradio/scc.c	2003-09-03 08:57:50.000000000 +0200
+@@ -1635,6 +1635,7 @@
+ 	}
+ 		
+ 	scc->dev_stat.rx_packets++;
++	scc->dev_stat.rx_bytes += skb->len;
+ 
+ 	skb->dev      = scc->dev;
+ 	skb->protocol = htons(ETH_P_AX25);
+@@ -1661,6 +1662,7 @@
+ 	}
+ 	
+ 	scc->dev_stat.tx_packets++;
++	scc->dev_stat.tx_bytes += skb->len;
+ 	scc->stat.txframes++;
+ 	
+ 	kisscmd = *skb->data & 0x1f;
+--- include/linux/scc.h.orig	2003-09-03 09:13:26.000000000 +0200
++++ include/linux/scc.h	2003-09-03 09:13:55.000000000 +0200
+@@ -200,7 +200,7 @@
+ 	unsigned char fulldup;		/* Full Duplex mode 0=CSMA 1=DUP 2=ALWAYS KEYED */
+ 	unsigned char waittime;		/* Waittime before any transmit attempt */
+ 	unsigned int  maxkeyup;		/* Maximum time to transmit (seconds) */
+-	unsigned char mintime;		/* Minimal offtime after MAXKEYUP timeout (seconds) */
++	unsigned int  mintime;		/* Minimal offtime after MAXKEYUP timeout (seconds) */
+ 	unsigned int  idletime;		/* Maximum idle time in ALWAYS KEYED mode (seconds) */
+ 	unsigned int  maxdefer;		/* Timer for CSMA channel busy limit */
+ 	unsigned char tx_inhibit;	/* Transmit is not allowed when set */	
+
+--=-hN8ySaqxnHj08rJ9vSsJ--
+
