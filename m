@@ -1,120 +1,85 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC: [1/3] PPP MPPE module
-Date: Fri, 18 Jun 2004 11:03:50 -0700
+Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out
+Date: Fri, 18 Jun 2004 11:11:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040618110350.3983354f@dell_ss3.pdx.osdl.net>
-References: <20040618161001.GE19269@lists.us.dell.com>
-	<20040618161052.GF19269@lists.us.dell.com>
+Message-ID: <20040618111124.3a2681b5@dell_ss3.pdx.osdl.net>
+References: <40CDD68C.8070509@dgreaves.com>
+	<20040615155111.26d6b809@dell_ss3.pdx.osdl.net>
+	<40D0280B.2030308@dgreaves.com>
+	<Pine.LNX.4.60.0406180953240.1089@jlaas2.data.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, pptpclient-devel@lists.sourceforge.net
+Cc: David Greaves <david@dgreaves.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Domsch <Matt_Domsch@dell.com>
-In-Reply-To: <20040618161052.GF19269@lists.us.dell.com>
+To: Jens Laas <jens.laas@data.slu.se>
+In-Reply-To: <Pine.LNX.4.60.0406180953240.1089@jlaas2.data.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Minor stuff.
+To get to the root of these problems, could you:
 
-> +/*
-> + * State for an MPPE (de)compressor.
-> + */
-> +typedef struct ppp_mppe_state {
-> +	struct crypto_tfm *arc4;
-> +	struct crypto_tfm *sha1;
-> +	unsigned char *sha1_digest;
-> +	unsigned char master_key[MPPE_MAX_KEY_LEN];
-> +	unsigned char session_key[MPPE_MAX_KEY_LEN];
-> +	unsigned keylen;	/* key length in bytes             */
-> +	/* NB: 128-bit == 16, 40-bit == 8! */
-> +	/* If we want to support 56-bit,   */
-> +	/* the unit has to change to bits  */
-> +	unsigned char bits;	/* MPPE control bits */
-> +	unsigned ccount;	/* 12-bit coherency count (seqno)  */
-> +	unsigned stateful;	/* stateful mode flag */
-> +	int discard;		/* stateful mode packet loss flag */
-> +	int sanity_errors;	/* take down LCP if too many */
-> +	int unit;
-> +	int debug;
-> +	struct compstat stats;
-> +} ppp_mppe_state;
+* Give full lspci -v output for the boards in question.
 
-Is the typedef really making things clearer? no.
+* Are you using any special queuing or shaping (output of "tc qdisc ls")
 
+* You could try the following, which dumps out the state of the transmit ring
+  in case of error. and tries to see if it is one of the other watchdog hooks in
+  this driver.
 
-> +/* ppp_mppe_state.bits definitions */
-> +#define MPPE_BIT_A	0x80	/* Encryption table were (re)inititalized */
-> +#define MPPE_BIT_B	0x40	/* MPPC only (not implemented) */
-> +#define MPPE_BIT_C	0x20	/* MPPC only (not implemented) */
-> +#define MPPE_BIT_D	0x10	/* This is an encrypted frame */
-> +
-> +#define MPPE_BIT_FLUSHED	MPPE_BIT_A
-> +#define MPPE_BIT_ENCRYPTED	MPPE_BIT_D
-> +
-> +#define MPPE_BITS(p) ((p)[4] & 0xf0)
-> +#define MPPE_CCOUNT(p) ((((p)[4] & 0x0f) << 8) + (p)[5])
-> +#define MPPE_CCOUNT_SPACE 0x1000	/* The size of the ccount space */
-> +
-> +#define MPPE_OVHD	2	/* MPPE overhead/packet */
-> +#define SANITY_MAX	1600	/* Max bogon factor we will tolerate */
-> +
-> +#define SHA1_PAD_SIZE 40
-> +/*
-> + * Key Derivation, from RFC 3078, RFC 3079.
-> + * Equivalent to Get_Key() for MS-CHAP as described in RFC 3079.
-> + */
-> +static void GetNewKeyFromSHA(ppp_mppe_state * state, unsigned char *InterimKey)
-
-annoying RandomCaptialization
-
-> 
-> +/*
-> + * Compress (encrypt) a packet.
-> + * It's strange to call this a compressor, since the output is always
-> + * MPPE_OVHD + 2 bytes larger than the input.
-> + */
-> +int
-> +mppe_compress(void *arg, unsigned char *ibuf, unsigned char *obuf,
-> +	      int isize, int osize)
-> +{
-
-This can be static since only call should be through table.
-
-> +
-> +/*
-> + * Decompress (decrypt) an MPPE packet.
-> + */
-> +int
-> +mppe_decompress(void *arg, unsigned char *ibuf, int isize, unsigned char *obuf,
-> +		int osize)
-> +{
-
-Also can be static.
-
-> +
-> +/*************************************************************
-> + * Module interface table
-> + *************************************************************/
-> +
-> +/*
-> + * Procedures exported to if_ppp.c.
-> + */
-> +struct compressor ppp_mppe = {
-> +	CI_MPPE,		/* compress_proto */
-> +	mppe_alloc,		/* comp_alloc */
-> +	mppe_free,		/* comp_free */
-> +	mppe_comp_init,		/* comp_init */
-> +	mppe_comp_reset,	/* comp_reset */
-> +	mppe_compress,		/* compress */
-> +	mppe_comp_stats,	/* comp_stat */
-> +	mppe_alloc,		/* decomp_alloc */
-> +	mppe_free,		/* decomp_free */
-> +	mppe_decomp_init,	/* decomp_init */
-> +	mppe_decomp_reset,	/* decomp_reset */
-> +	mppe_decompress,	/* decompress */
-> +	mppe_incomp,		/* incomp */
-> +	mppe_comp_stats,	/* decomp_stat */
-> +};
-
-Table can be static since it is hooked in with register call.
+------
+diff -Nru a/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+--- a/drivers/net/e1000/e1000_main.c	2004-06-18 11:09:36 -07:00
++++ b/drivers/net/e1000/e1000_main.c	2004-06-18 11:09:36 -07:00
+@@ -1426,6 +1426,7 @@
+ 			 * but we've got queued Tx work that's never going
+ 			 * to get done, so reset controller to flush Tx.
+ 			 * (Do the reset outside of interrupt context). */
++			printk("%s: link lost but ring is full\n", netdev->name);
+ 			schedule_work(&adapter->tx_timeout_task);
+ 		}
+ 	}
+@@ -1450,8 +1451,12 @@
+ 	i = txdr->next_to_clean;
+ 	if(txdr->buffer_info[i].dma &&
+ 	   time_after(jiffies, txdr->buffer_info[i].time_stamp + HZ) &&
+-	   !(E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_TXOFF))
++	   !(E1000_READ_REG(&adapter->hw, STATUS) & E1000_STATUS_TXOFF)) {
++		printk("%s: may be hung last tx was %ld ticks\n",
++		       netdev->name, 
++		       (long)(jiffies - txdr->buffer_info[i].time_stamp));
+ 		netif_stop_queue(netdev);
++	}
+ 
+ 	/* Reset the timer */
+ 	mod_timer(&adapter->watchdog_timer, jiffies + 2 * HZ);
+@@ -1826,6 +1831,7 @@
+ {
+ 	struct e1000_adapter *adapter = netdev->priv;
+ 
++	printk("%s: transmit timeout from queuing\n", netdev->name);
+ 	/* Do the reset outside of interrupt context */
+ 	schedule_work(&adapter->tx_timeout_task);
+ }
+@@ -1834,6 +1840,21 @@
+ e1000_tx_timeout_task(struct net_device *netdev)
+ {
+ 	struct e1000_adapter *adapter = netdev->priv;
++	unsigned long now = jiffies;
++	int i;
++
++	printk("%s: state=0x%lx transmit ring size=%u count=%u to_use=%u to_clean=%u\n",
++	       netdev->name, netdev->state,
++	       adapter->tx_ring.size, adapter->tx_ring.count,
++	       adapter->tx_ring.next_to_use, adapter->tx_ring.next_to_clean);
++	
++	for (i = 0; i < adapter->tx_ring.count; ++i) {
++		struct e1000_buffer *b = &adapter->tx_ring.buffer_info[i];
++		printk(" %d: skb=%p dma=%llu length=%lu time=+%ld watch=%u\n",
++		       i, b->skb, b->dma, b->length, 
++		       (long) (now - b->time_stamp), b->next_to_watch);
++	}
++	
+ 
+ 	netif_device_detach(netdev);
+ 	e1000_down(adapter);
