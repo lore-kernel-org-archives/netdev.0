@@ -1,28 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCHES] IPVS - use list_for_each_entry_continue, fix NQ
-Date: Tue, 30 Sep 2003 01:56:59 -0700
+Date: Tue, 30 Sep 2003 02:02:04 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930015659.3cc375b1.davem@redhat.com>
+Message-ID: <20030930020204.40f222b5.davem@redhat.com>
 References: <Pine.LNX.4.44.0309271447470.2845-500000@u.domain.uli>
+	<20030930015659.3cc375b1.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: wensong@linux-vs.org, netdev@oss.sgi.com
+Cc: ja@ssi.bg, wensong@linux-vs.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0309271447470.2845-500000@u.domain.uli>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030930015659.3cc375b1.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 27 Sep 2003 15:02:57 +0300 (EEST)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Tue, 30 Sep 2003 01:56:59 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-> 	The attached patches against today's 2.6 BK tree introduce 
-> list_for_each_entry_continue and use it for some IPVS schedulers. There is 
-> also a NQ scheduler fix. Please consider for inclusion.
+> Can you please CC: netdev@oss.sgi.com
 
-Looks good, applied.  Can you please CC: netdev@oss.sgi.com on all
-patch submissions, even small and obvious ones?  Thanks.
-
-I assume you guys are still reviewing Rusty's skb_linearize()
-removal patch?
+I'm such an idiot, please excuse my stupidity on this one :)
