@@ -1,64 +1,96 @@
-From: "" <L_C_delmonitor@arnet.com.ar>
-Subject: RE:Sobre la reparacion del MONITOR
-Date: Wed, 19 Mar 2003 22:25:23 -1200
+From: =?GB2312?B?ucK2wMrHv8mz3KOsvNPI67ykx+m5q8nno6y45rHwtaXJ7Q==?=
+ <ssfdf@21cn.com>
+Subject: =?GB2312?B?ucK2wMrHv8mz3KOsvNPI67ykx+m5q8nno6y45rHwtaXJ7Q==?=
+Date: Thu, 20 Mar 2003 21:23:06 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <294830-220033420102523880@pc>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: quoted-printable
+Message-ID: <200303201326.h2KDQDqA022425@oss.sgi.com>
+Reply-To: fdf@21cn.com
+Content-Type: text/html;charset="GB2312"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "20-3 D" <L_C_delmonitor@arnet.com.ar>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-RECICLAMOS el MONITOR de su PC
-d=E1ndole otros 4 a=F1os de vida =FAtil...
-=20
->>>> POR SOLO $ 49 !!! <<<<
-=20
-ATENCION EMPRESAS U ORGANISMOS OFICIALES, =A1=A1 NO GASTEN UN SOLO PESO !=
-!
-p=E1guenos con parte de los monitores que nos entregan para reciclar
-(transforme 30 monitores que no andan en 15 funcionando a la perfecci=F3n=
-)
-Garantia 6 MESES
+<html>
 
-____________________________________________________
-RESPONDER A   cwolpo@argentina.com
-NO UTILIZAR BOTON RESPONDER
-____________________________________________________
+<head><STYLE>HTML {
+	TEXT-DECORATION: none
+}
+A:link {
+	COLOR: #000000; TEXT-DECORATION: none
+}
+A:hover {
+	COLOR: rgb(72,59,216); TEXT-DECORATION: underline
+}
+EM {
+	FONT-FAMILY: 宋体; FONT-SIZE: 10pt; FONT-STYLE: normal
+}
+A {
+	FONT-FAMILY: 宋体; FONT-SIZE: 10pt
+}
+TD {
+	FONT-FAMILY: 宋体; FONT-SIZE: 10pt
+}
+P {
+	FONT-FAMILY: 宋体; FONT-SIZE: 10pt
+}
+</STYLE>
 
-=20
->> LA CASA DEL MONITOR <<
-DIRECCION: Humboldt 169 - Ramos Mej=EDa - Pcia Bs. As.
-TELEFONO: 4658-4576 (9:30 a 17:30 Hs.)
-LAS 24 HS: 4678-4188
-=20
-Hacemos esto de Lunes a S=E1bados
-Desde hace 9 a=F1os
-=BFConoce a alguien m=E1s indicado?
-______________________________________________
-Responder a cwolpo@argentina.com
-NO UTILIZAR EL BOTON RESPONDER
-_____________________________________________
-=20
--->> AGENDE ESTA DIRECCION <<--
-Le dar=E1 una soluci=F3n buena y econ=F3mica cuando su monitor decida "no
-funcionar".
-Retiramos y entregamos a domicilio.
 
-EXCELENTE OPORTUNIDAD COMERCIAL PARA QUIEN TENGA VINCULACIONES CON EMPRES=
-AS.
-ATENCION AL GREMIO
+<meta http-equiv="Content-Type" content="text/html; charset=gb2312">
+<meta name="GENERATOR" content="Microsoft FrontPage 4.0">
+<meta name="ProgId" content="FrontPage.Editor.Document">
+<title>GO一起上 www.go173.com</title>
+<base target="_blank">
+</head>
 
-_____________________________________________________
+<body bgcolor="#BFBF9F">
 
-Responder: cwolpo@argentina.com=20
-
-NO UTILIZAR EL BOTON RESPONDER
-_____________________________________________________
-
-Algunos de nuestros clientes: Auchan =96 CNEA- INTI-Policia Federal-Unice=
-nter =96La Buenos Aires-Maxima- Jumbo - Easy - Legislatura de la
-ciudad de Buenos Aires - Banco HBC - entre otros -
-_______________________________________________
+<div align="center">
+  <center>
+  <table border="1" cellpadding="0" cellspacing="1" width="85%" height="274" bordercolor="#CC6600">
+    <tr>
+      <td width="20%" height="23" bgcolor="#FEE2FB">
+        <p align="center"><font color="#666666">&nbsp;&nbsp; <a href="http://www.go173.com">首页&nbsp;</a></font></td>    
+      <td width="20%" height="23" bgcolor="#CC6600">    
+        <p align="center"><a href="http://www.go173.com/mm/go.htm"><font color="#000080">激情公社</font></a></td>    
+  </center>    
+      <td width="20%" height="23" bgcolor="#FEE2FB">    
+        <p align="center"><font color="#666666"><a href="http://www.go173.com/mm">野蛮女生</a></font></td>    
+  <center>    
+      <td width="20%" height="23" bgcolor="#FEE2FB">    
+        <p align="center"><font color="#666666"><a href="http://huanqiu3636.mylove.163.com">同城约会</a></font></td>    
+      <td width="20%" height="23" bgcolor="#FEE2FB">    
+        <p align="center"><font color="#666666"><a href="http://www.go173.com/mm/index55.htm" target="_blank">两性笑话</a></font></td>   
+    </tr>   
+  </center>   
+  <tr>   
+    <td width="100%" height="174" valign="top" colspan="5">   
+      <p align="left">==============================================================<br> 
+      ==============================================================<br> 
+      您是网络游戏高手吗？您是否有个花费您很大精力和时间，由于各种原因而不得不放弃的游戏账号。这一切已经成为历史，功能强大“GO一起上游戏账号交易平台”闪亮登场。现在，您只要登陆WWW.GO173.COM ，免费注册为会员,您就可以享受交易带来的无限乐趣。  
+      <p align="left"><font color="#666666">传奇，精灵，大话，奇迹，红月，账号交易，详细请进入</font><a href="http://www.go173.com"><font color="#FF0000">WWW.GO173.COM</font></a><font color="#666666">您是网络游戏高手吗？您是否有个花费您很大精力和时间，由于各种原因而不得不放弃的游戏账号。这一切已经成为历史，功能强大“GO一起上游戏账号交易平台”闪亮登场。现在，您只要登陆</font><a href="http://www.go173.com"><font color="#FF0000">WWW.GO173.COM</font></a><font color="#666666"> ，免费注册为会员,您就可以享受交易带来的无限乐趣。<br>           
+      <br>           
+      http://</font><a href="http://www.go173.com"><font color="#666666">www.go173.com</font></a><font color="#666666"><br>         
+    超过万首的FLASH音乐欣赏http://</font><a href="http://www.go173.com/flash"><font color="#666666">www.go173.com/flash</font></a><font color="#666666"><br>         
+      </font>         
+      <a href="http://www.go173.com/mm"><font color="#FF0000">进入社区&gt;&gt;</font></a>        
+    </td>        
+  </tr>        
+  <tr>        
+    <td width="100%" height="77" valign="middle" colspan="5">       
+    <p align="center">  <center>加入 <A HREF=http://asiafriendfinder.com/go/f112513 target=_top>  
+亚洲交友中心</A> - 最大亚洲个人交友中心网站!<br>  
+<A HREF=http://asiafriendfinder.com/go/f112513 target=_top>  
+<img src=http://banners.asiafriendfinder.com/banners/ffz/gb01.gif   
+width=468 height=60 border=0></A></center>  
+  
+  
+</td>       
+  </tr>      
+  </table>      
+</div>      
+      
+</body>      
+      
+</html>      
