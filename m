@@ -1,51 +1,44 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: [PATCH] reduce stack usage for arlan
-Date: Tue, 8 Mar 2005 16:34:57 +0100
-Message-ID: <20050308153457.GB8703@wohnheim.fh-wedel.de>
+From: Baruch Even <baruch@ev-en.org>
+Subject: Re: netif_rx packet dumping
+Date: Tue, 08 Mar 2005 15:42:06 +0000
+Message-ID: <422DC7CE.2040800@ev-en.org>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>	<42278122.6000000@ev-en.org>	<20050303133659.0d224e61.davem@davemloft.net>	<42278554.2090902@ev-en.org> <20050303135718.2e1a0170.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050303135718.2e1a0170.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes indicated that this driver is currently unmaintained.
-Jeff, do you want this patch?
+David S. Miller wrote:
+> On Thu, 03 Mar 2005 21:44:52 +0000
+> Baruch Even <baruch@ev-en.org> wrote:
+> 
+>>The current linked list goes over all the packets, the linked list we 
+>>add is for the packets that were not SACKed. The idea being that it is a 
+>>lot faster since there are a lot less packets not SACKed compared to 
+>>packets already SACKed (or never mentioned in SACKs).
+>>
+>>If you have a way around this I'd be happy to hear it.
+> 
+> I'm sure you can find a way to steal sizeof(void *) from
+> "struct tcp_skb_cb" :-)
+> 
+> It is currently 36 bytes on both 32-bit and 64-bit platforms.
+> This means if you can squeeze out 4 bytes (so that it fits
+> in the skb->cb[] 40 byte area), you can fit a pointer in there
+> for the linked list stuff.
 
-J=F6rn
+The current code adds 2 pointers to tcp_skb_cb and 20 bytes tcp_sock.
 
---=20
-Fancy algorithms are slow when n is small, and n is usually small.
-Fancy algorithms have big constants. Until you know that n is
-frequently going to be big, don't get fancy.
--- Rob Pike
+I can squeeze the tcp_skb_cb to one pointer at the expense of extra work 
+to remove a packet from the list (the other pointer is the prev pointer).
 
-SARLSTR is never called with nn bigger than 48.  This patch should be
-safe and severly reduces stack consumption.
+I'm trying to do two tasks at the same time, port to 2.6.11 and rerun 
+all the tests to produce a chapter in my thesis (on the ported 2.6.11 
+patches). Hopefully it will work out, otherwise the porting will be delayed.
 
-Signed-off-by: J=F6rn Engel <joern@wohnheim.fh-wedel.de>
----
-
- drivers/net/wireless/arlan-proc.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
---- linux-2.6.10cow/drivers/net/wireless/arlan-proc.c~arlan_stack	2004-09=
--04 22:59:04.000000000 +0200
-+++ linux-2.6.10cow/drivers/net/wireless/arlan-proc.c	2005-02-03 21:29:33=
-.000000000 +0100
-@@ -28,9 +28,9 @@
- 	}
-=20
- #define SARLSTR(var,nn) {\
--	char tmpStr[400];\
-+	char tmpStr[50];\
- 	int  tmpLn =3D nn;\
--	if (nn > 399 ) tmpLn =3D 399; \
-+	BUG_ON(tmpLn > 49);\
- 	memcpy(tmpStr,(char *) priva->conf->var,tmpLn);\
- 	tmpStr[tmpLn] =3D 0; \
- 	pos +=3D sprintf(arlan_drive_info+pos, "%s\t=3D\t%s \n",#var,priva->con=
-f->var);\
+Baruch
