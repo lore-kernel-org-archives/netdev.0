@@ -1,50 +1,25 @@
-From: Ville Nuorvala <vnuorval@morphine.tml.hut.fi>
-Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
-Date: Fri, 18 Oct 2002 02:52:48 +0300 (EEST)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [Patch 2.5.43] IpInDelivers, IpInDiscards
+Date: Thu, 17 Oct 2002 17:10:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.44.0210180158330.18554-100000@morphine.tml.hut.fi>
-References: <20021018.021802.87011078.yoshfuji@linux-ipv6.org>
+Message-ID: <3DAF5172.8EDC0F1A@us.ibm.com>
+References: <Pine.LNX.4.44.0210171640190.3745-100000@w-nivedita.beaverton.ibm.com> <20021017.164326.60506862.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: ajtuomin@morphine.tml.hut.fi, <davem@redhat.com>, <kuznet@ms2.inr.ac.ru>,
-   <netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>, <pekkas@netcore.fi>,
-   <torvalds@transmeta.com>, <jagana@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20021018.021802.87011078.yoshfuji@linux-ipv6.org>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+"David S. Miller" wrote:
 
-On Fri, 18 Oct 2002, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+> I will take care of this myself, no need to repatch :)
+> 
+> Thanks a lot for your work, I'll post what I end up applying
+> to my tree.
 
-> In article <20021017162624.GC16370@morphine.tml.hut.fi> (at Thu, 17 Oct 2002 19:26:25 +0300), Antti Tuominen <ajtuomin@morphine.tml.hut.fi> says:
->
-> [ipv6_tunnel]
->
-> I think this is almost ok.
->
->   1. I believe s/ARPHRD_IPV6_IPV6_TUNNEL/ARPHRD_TUNNEL6/.
+Great :). Thanks much!
 
-Ok by me! The comment of course says IPIP6 tunnel at the moment, but the
-constant itself doesn't appear to be used anywhere.
-
->   2. Please put outer address to hardware address in dev.
-
-The reason I haven't done this is that MAX_ADDR_LEN is just 8. Does anyone
-have any objections against changing the value to 16?
-
->      Note: you need to modify SIOxxx ioctls too not to overrun!
-
-Sorry, I'm not that familiar with ioctls, I just copied the basic
-functionality from sit.c. Could you explain it a bit more thoroughly, so
-even I with my thick skull understand what the problem is?
-
-
--Ville
-
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tml.hut.fi, phone: +358 (0)9 451 5257
+Nivedita
