@@ -1,130 +1,67 @@
-From: Felipe W Damasio <felipewd@terra.com.br>
-Subject: [PATCH] Memory Barriers on cosa wan driver
-Date: Sun, 28 Sep 2003 23:37:57 -0300
+From: David Gibson <hermes@gibson.dropbear.id.au>
+Subject: Re: [PATRCH] janitor: hermes: delete verify_area call
+Date: Mon, 29 Sep 2003 15:29:25 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F779B05.4060001@terra.com.br>
+Message-ID: <20030929052925.GA5037@zax>
+References: <20030925215902.57f53822.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010404050101070809090109"
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030925215902.57f53822.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010404050101070809090109
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Thu, Sep 25, 2003 at 09:59:02PM -0700, Randy.Dunlap wrote:
+> 
+> Hi,
+> Please apply to 2.6.0-test5-current.
+> 
+> Thanks,
 
-	Hi Jeff,
+Sorry, can you clarify why this verify_area() is not needed?
+                                                                                
+From: Domen Puncer <domen@coderock.org>
+                                                                                
+IMO, that verify_area wasn't needed.
+                                                                                
+                                                                                
+                                                                                
+ linux-260-t5bk12-kj-rddunlap/drivers/net/wireless/orinoco.c |    4
+ ----
+ 1 files changed, 4 deletions(-)
+                                                                                
+diff -puN drivers/net/wireless/orinoco.c~net_wireless_orinoco_verify
++drivers/net/wireless/orinoco.c
+---
++linux-260-t5bk12-kj/drivers/net/wireless/orinoco.c~net_wireless_orinoco_verify
++2003-09-25 16:03:17.000000000 -0700
++++ linux-260-t5bk12-kj-rddunlap/drivers/net/wireless/orinoco.c
+2003-09-25
++16:03:17.000000000 -0700
+@@ -3833,10 +3833,6 @@ orinoco_ioctl(struct net_device *dev, st
+                                { SIOCIWLASTPRIV, 0, 0, "dump_recs" },
+                        };
+                                                                                
+-                       err = verify_area(VERIFY_WRITE,
+wrq->u.data.pointer,
++sizeof(privtab));
+-                       if (err)
+-                               break;
+-
+                        wrq->u.data.length = sizeof(privtab) /
++sizeof(privtab[0]);
+                        if (copy_to_user(wrq->u.data.pointer, privtab,
++sizeof(privtab)))
+                                err = -EFAULT;
+                                                                                
+_
 
-	Patch against 2.6.0-test6. Adds a few needed memory barriers before 
-schedule_timeout, kills setting current task to TASK_RUNNING after 
-schedule_timeout and uses the __set_current_state functions instead of 
-current->state = TASK_RUNNING.
 
-	I don't have the hardware, so I couldn't test it. But it looks right :)
-
-	Please review and consider applying if it is ok.
-
-	Thanks,
-
-Felipe
 -- 
-It's most certainly GNU/Linux, not Linux. Read more at
-http://www.gnu.org/gnu/why-gnu-linux.html
-
---------------010404050101070809090109
-Content-Type: text/plain;
- name="cosa-mb.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="cosa-mb.patch"
-
---- linux-2.6.0-test6/drivers/net/wan/cosa.c.orig	Sun Sep 28 23:26:29 2003
-+++ linux-2.6.0-test6/drivers/net/wan/cosa.c	Sun Sep 28 23:28:17 2003
-@@ -516,10 +516,9 @@
- 		 * FIXME: When this code is not used as module, we should
- 		 * probably call udelay() instead of the interruptible sleep.
- 		 */
--		current->state = TASK_INTERRUPTIBLE;
-+		set_current_state(TASK_INTERRUPTIBLE);
- 		cosa_putstatus(cosa, SR_TX_INT_ENA);
- 		schedule_timeout(30);
--		current->state = TASK_RUNNING;
- 		irq = probe_irq_off(irqs);
- 		/* Disable all IRQs from the card */
- 		cosa_putstatus(cosa, 0);
-@@ -824,21 +823,21 @@
- 	spin_lock_irqsave(&cosa->lock, flags);
- 	add_wait_queue(&chan->rxwaitq, &wait);
- 	while(!chan->rx_status) {
--		current->state = TASK_INTERRUPTIBLE;
-+		set_current_state(TASK_INTERRUPTIBLE);
- 		spin_unlock_irqrestore(&cosa->lock, flags);
- 		schedule();
- 		spin_lock_irqsave(&cosa->lock, flags);
- 		if (signal_pending(current) && chan->rx_status == 0) {
- 			chan->rx_status = 1;
- 			remove_wait_queue(&chan->rxwaitq, &wait);
--			current->state = TASK_RUNNING;
-+			__set_current_state(TASK_RUNNING);
- 			spin_unlock_irqrestore(&cosa->lock, flags);
- 			up(&chan->rsem);
- 			return -ERESTARTSYS;
- 		}
- 	}
- 	remove_wait_queue(&chan->rxwaitq, &wait);
--	current->state = TASK_RUNNING;
-+	__set_current_state(TASK_RUNNING);
- 	kbuf = chan->rxdata;
- 	count = chan->rxsize;
- 	spin_unlock_irqrestore(&cosa->lock, flags);
-@@ -909,21 +908,21 @@
- 	spin_lock_irqsave(&cosa->lock, flags);
- 	add_wait_queue(&chan->txwaitq, &wait);
- 	while(!chan->tx_status) {
--		current->state = TASK_INTERRUPTIBLE;
-+		set_current_state(TASK_INTERRUPTIBLE);
- 		spin_unlock_irqrestore(&cosa->lock, flags);
- 		schedule();
- 		spin_lock_irqsave(&cosa->lock, flags);
- 		if (signal_pending(current) && chan->tx_status == 0) {
- 			chan->tx_status = 1;
- 			remove_wait_queue(&chan->txwaitq, &wait);
--			current->state = TASK_RUNNING;
-+			__set_current_state(TASK_RUNNING);
- 			chan->tx_status = 1;
- 			spin_unlock_irqrestore(&cosa->lock, flags);
- 			return -ERESTARTSYS;
- 		}
- 	}
- 	remove_wait_queue(&chan->txwaitq, &wait);
--	current->state = TASK_RUNNING;
-+	__set_current_state(TASK_RUNNING);
- 	up(&chan->wsem);
- 	spin_unlock_irqrestore(&cosa->lock, flags);
- 	kfree(kbuf);
-@@ -1530,9 +1529,8 @@
- 	cosa_getdata8(cosa);
- 	cosa_putstatus(cosa, SR_RST);
- #ifdef MODULE
--	current->state = TASK_INTERRUPTIBLE;
-+	set_current_state(TASK_INTERRUPTIBLE);
- 	schedule_timeout(HZ/2);
--	current->state = TASK_RUNNING;
- #else
- 	udelay(5*100000);
- #endif
-@@ -1585,7 +1583,7 @@
- 			return r;
- 		}
- 		/* sleep if not ready to read */
--		current->state = TASK_INTERRUPTIBLE;
-+		set_current_state(TASK_INTERRUPTIBLE);
- 		schedule_timeout(1);
- 	}
- 	printk(KERN_INFO "cosa: timeout in get_wait_data (status 0x%x)\n",
-
---------------010404050101070809090109--
+David Gibson			| For every complex problem there is a
+david@gibson.dropbear.id.au	| solution which is simple, neat and
+				| wrong.
+http://www.ozlabs.org/people/dgibson
