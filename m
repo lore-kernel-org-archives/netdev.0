@@ -1,34 +1,38 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Sun, 09 Jun 2002 21:34:40 -0700 (PDT)
+From: george anzinger <george@mvista.com>
+Subject: Re: Network oops
+Date: Sun, 09 Jun 2002 21:48:15 -0700
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae1ald$18a$2@main.gmane.org>
-References: <3D029DAF.5040006@candelatech.com>
-	<20020608.175108.84748597.davem@redhat.com>
-	<3D039D22.2010805@candelatech.com>
+Message-ID: <ae1bb3$3gf$2@main.gmane.org>
+References: <200205202125.BAA03545@sex.inr.ac.ru>
+		<3D0390E2.1B80ADEE@mvista.com> <20020609.213150.32126725.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mark@mark.mielke.cc, cfriesen@nortelnetworks.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   ak@muc.de, pekkas@netcore.fi
 Return-path: <owner-netdev@oss.sgi.com>
-To: greearb@candelatech.com
-In-Reply-To: <3D039D22.2010805@candelatech.com>
+To: "David S. Miller" <davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Ben Greear <greearb@candelatech.com>
-   Date: Sun, 09 Jun 2002 11:23:30 -0700
-   
-   I need to account for packets on a per-session basis, where a
-   session endpoint is a UDP port.  So, knowing global protocol numbers is
-   good, but it is not very useful for the detailed accounting I
-   need.
+"David S. Miller" wrote:
+> 
+> No mention of what kernel version, what patches applied, etc.
+> so we cannot help you.
 
-Why can't you just disable the other UDP services, and then there is
-no question which UDP server/client is causing the drops.
+Sorry bout that.  It is a 2.4.17 kernel and the test is to
+verify that we have the preempt code right.  The question at
+hand is if this is a likely preempt problem or just a pure
+overload.  The stress on the network is rather high.
 
-Every argument I hear is one out of lazyness.  And that is not a
-reason to add something.  Simply put, I don't want to add all of this
-per-socket counter bumping that only, at best, 1 tenth of 1 percent
-of people will use.  This means that the rest of the world eats the
-overhead just for this small group that actually uses it.
+I would expect that the network code would recover from this
+sort of thing, so we are looking for a preempt issue at the
+moment.  Still, it could just be the way things work in the
+2.4.17 kernel so I thought I would ask.
+
+-- 
+George Anzinger   george@mvista.com
+High-res-timers: 
+http://sourceforge.net/projects/high-res-timers/
+Real time sched:  http://sourceforge.net/projects/rtsched/
+Preemption patch:
+http://www.kernel.org/pub/linux/kernel/people/rml
