@@ -1,42 +1,59 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Sun, 30 Jan 2005 18:48:36 -0800
-Message-ID: <20050130184836.17b0487b.davem@davemloft.net>
-References: <20050124114853.A16971@flint.arm.linux.org.uk>
-	<20050125193207.B30094@flint.arm.linux.org.uk>
-	<20050127082809.A20510@flint.arm.linux.org.uk>
-	<20050127004732.5d8e3f62.akpm@osdl.org>
-	<16888.58622.376497.380197@robur.slu.se>
-	<20050127164918.C3036@flint.arm.linux.org.uk>
-	<20050127123326.2eafab35.davem@davemloft.net>
-	<20050128001701.D22695@flint.arm.linux.org.uk>
-	<20050127163444.1bfb673b.davem@davemloft.net>
-	<20050128085858.B9486@flint.arm.linux.org.uk>
-	<20050130132343.A25000@flint.arm.linux.org.uk>
-	<41FD17FE.6050007@trash.net>
-	<41FD18C5.6090108@trash.net>
-	<41FD2043.3070303@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 30 Jan 2005 22:26:52 -0500
+Message-ID: <1107142012.8021.109.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
+	 <1105019912.2314.20.camel@jzny.localdomain>
+	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
+	 <1105104757.1046.63.camel@jzny.localdomain>
+	 <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
+	 <1105363092.1041.146.camel@jzny.localdomain>
+	 <1105917038.1091.1041.camel@jzny.localdomain> <41EC3067.6050104@tpack.net>
+	 <41FD702D.2060403@tpack.net> <1107130177.7847.96.camel@jzny.localdomain>
+	 <41FD7C6F.3010005@tpack.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: rmk+lkml@arm.linux.org.uk, Robert.Olsson@data.slu.se, akpm@osdl.org,
-        torvalds@osdl.org, alexn@dsv.su.se, kas@fi.muni.cz,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41FD2043.3070303@trash.net>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <41FD7C6F.3010005@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Jan 2005 18:58:27 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Sun, 2005-01-30 at 19:31, Tommy Christensen wrote:
+> jamal wrote:
+> > Tommy,
+> > 
+> > I wasnt sure why you did:
+> > 
+> > dev->qdisc = &noop_qdisc;
+> > 
+> > You should probably save the old qdisc in qdisc_sleeping instead
+> > and restore it on wakeup - otherwise you always end with default qdisc.
+> 
+> I think normally we will have qdisc == qdisc_sleeping. At least this
+> is how I read the code in dev_graft_qdisc(). When can they differ?
 
-> Ok, final decision: you are right :) conntrack also defragments locally
-> generated packets before they hit ip_fragment. In this case the fragments
-> have skb->dst set.
+You are correct.
 
-It's amazing how many bugs exist due to the local defragmentation and
-refragmentation done by netfilter. :-)
+> > check_carrier should probably just call dev_activate which does all you
+> > wanted, no?
+> 
+> I copied the logic from dev_deactivate(), but I didn't want to include
+> the waiting parts, since this is not in process context. OK?
 
-Good catch Patrick, I'll apply this and push upstream.
+Same here.
+It does look pretty sane.. Tested?
+
+cheers,
+jamal
