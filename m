@@ -1,38 +1,35 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
-Date: Wed, 06 Apr 2005 12:45:58 +1000
-Message-ID: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
-References: <1112730889.16753.17.camel@beastie>
+From: Christoph Lameter <christoph@lameter.com>
+Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Tue, 5 Apr 2005 20:19:55 -0700 (PDT)
+Message-ID: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
+References: <E1DJ08O-0003Ln-00@gondolin.me.apana.org.au>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com, davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: dmitry_yus@yahoo.com (Dmitry Yusupov)
-In-Reply-To: <1112730889.16753.17.camel@beastie>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DJ08O-0003Ln-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dmitry Yusupov <dmitry_yus@yahoo.com> wrote:
-> 
-> * new event for unicast connections NETLINK_UESTABLISHED.
+On Wed, 6 Apr 2005, Herbert Xu wrote:
 
-Huh? In the patch you're actually sending the notification
-when the socket stops listening to multicast traffic.
+> Christoph Lameter <christoph@lameter.com> wrote:
+> >
+> > If that is so then it is also possible that the gc frees after
+> > atomic_dec_and_test:
+>
+> No this is prevented by the nohash check.
 
-Please document why we need this in greater detail too.
+Ok then the purpose of this whole thing is to decrement the usage counter
+and at the same time figure out if this is the last child on an unhashed
+entry. That unhashed entry is not handled by the garbage collector and
+must be freed separately.
 
-> * netlink alloc_skb() now uses sk_allocation instead of hard-coded
-> GFP_KERNEL
+The atomic_dec_and_test is needed because as soon as the refcnt reaches
+zero the dst entry may potentially be freed by the garbage collector. Thus
+no future access to the dst entry is possible and the dec_and_test is the
+only safe way to figure out if the counter reached zero.
 
-Why? We never set it to anything else for netlink.
-
-> * since netlink event described via proto and pid,
-> netlink_getsockbypid() is exported, so netlink user can identify socket.
-
-Please submit the users for kernel inclusion first.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I hope I got it now. Thanks.
