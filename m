@@ -1,35 +1,32 @@
-From: domen@coderock.org
-Subject: [patch 3/3] drivers/net/wireless/prism54/*: convert to pci_register_driver
-Date: Sun, 06 Mar 2005 23:23:58 +0100
-Message-ID: <20050306222358.752961EC90@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, c.lucas@ifrance.com
-To: prism54-private@prism54.org
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [patch 4/5] net/ipv6/ip6_flowlabel.c: copy_to_user return code
+Date: Mon, 07 Mar 2005 07:32:13 +0900 (JST)
+Message-ID: <20050307.073213.32943613.yoshfuji@linux-ipv6.org>
+References: <20050306222118.401D11ED3D@trashy.coderock.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@davemloft.com, netdev@oss.sgi.com, yrgrknmxpzlk@gawab.com,
+        yoshfuji@linux-ipv6.org
+To: domen@coderock.org
+In-Reply-To: <20050306222118.401D11ED3D@trashy.coderock.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20050306222118.401D11ED3D@trashy.coderock.org> (at Sun, 06 Mar 2005 23:21:17 +0100), domen@coderock.org says:
 
-convert from pci_module_init to pci_register_driver
-(from:http://kerneljanitors.org/TODO).
+> 
+> compile warning cleanup - handle copy_to/from_user error 
+> returns
 
-Signed-off-by: Christophe Lucas <c.lucas@ifrance.com>
-Signed-off-by: Domen Puncer <domen@coderock.org>
----
+Wrong. You introduce a leak.
 
+>  		/* Do not check for fault */
+> -		if (!freq.flr_label)
+> -			copy_to_user(&((struct in6_flowlabel_req __user *) optval)->flr_label,
+> -				     &fl->label, sizeof(fl->label));
 
- kj-domen/drivers/net/wireless/prism54/islpci_hotplug.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+Don't you see the comment: "Do not check for fault?"
 
-diff -puN drivers/net/wireless/prism54/islpci_hotplug.c~pci_register_driver-drivers_net_wireless_prism54 drivers/net/wireless/prism54/islpci_hotplug.c
---- kj/drivers/net/wireless/prism54/islpci_hotplug.c~pci_register_driver-drivers_net_wireless_prism54	2005-03-05 16:12:44.000000000 +0100
-+++ kj-domen/drivers/net/wireless/prism54/islpci_hotplug.c	2005-03-05 16:12:44.000000000 +0100
-@@ -315,7 +315,7 @@ prism54_module_init(void)
- 
- 	__bug_on_wrong_struct_sizes ();
- 
--	return pci_module_init(&prism54_driver);
-+	return pci_register_driver(&prism54_driver);
- }
- 
- /* by the time prism54_module_exit() terminates, as a postcondition
-_
+--yoshfuji
