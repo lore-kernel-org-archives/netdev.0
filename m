@@ -1,318 +1,729 @@
-From: Florian Zwoch <zwoch@backendmedia.com>
-Subject: e1000 -> 82540EM on linux 2.6.0-test[45] very slow in one direction
-Date: Fri, 19 Sep 2003 12:25:09 +0200
+From: "MORANGE,DAMIEN (HP-France,ex1)" <damien.morange@hp.com>
+Subject: [PATCH] lksctp 0.6.9 backport on 2.4.23-pre4
+Date: Fri, 19 Sep 2003 14:41:31 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <bkeli5$8l2$1@sea.gmane.org>
+Message-ID: <B320F712053ED411869200D0B747A3CA0FE4752D@laplace.grenoble.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+	boundary="----_=_NextPart_000_01C37EAB.5A49A8B0"
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com, samudrala@us.ibm.com,
+        lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "'David S. Miller'" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hi,
-this has been discussed very roughly before. but unfortunately no real 
-solution has been brought up so far (or i have not read it yet).
+This message is in MIME format. Since your mail reader does not understand
+this format, some or all of this message may not be legible.
 
-problem in short: the 82540EM intel gigabit adapter became very slow as 
-of 2.6.0-test4. maybe earlier versions were als affected aswell, but i 
-noticed this behaviour on test4 and later. the 'slowness' of the adapter 
-only affects a certain data direction. i performed the following tests 
-to show you what is wrong.
+------_=_NextPart_000_01C37EAB.5A49A8B0
+Content-Type: text/plain;
+	charset="iso-8859-1"
 
-dummy data file was 34257856 bytes (34.3MB).
-test machines were a pentium4 with the intel adapter, and a pentium2 266 
-with a lowcost realtek card (runs linux 2.4).
+Hi,
+ 
+> Care to provide this as a BK tree I can pull from?
+> (please don't combine the patches into one big changeset,
+>  keep them separate, comment them properly, and preserve the
+>  revision history, that's the whole point of this)
 
-SCP:
-   e1000 -> 8139too	28.6KB/s
-   e1000 <- 8139too	4.6MB/s
+As requested, I have uploaded at:
 
-SMB:
-   e1000 -> 8139too	3.0MB/s
-   e1000 <- 8139too	3.3MB/s
+<http://linux-lksctp.bkbits.net:8080/lksctp-2.4>
 
-FTP
-   e1000 -> 8139too	54KB/s
-   e1000 <- 8139too	9.4MB/s
+the 3 ChangeSets needed to backport LKSCTP 0.6.9 onto linux 
+kernel 2.4.23-pre4.
 
-as you can see reveiving data is no problem at all (maybe another 
-protocol can create some problems in this case?). but sending data is 
-awesome slow! exception is the samba protocol. why is that? i thought 
-that samba may use udp instead of tcp. but iptraf did not show any udp 
-packets going around so i guess i was wrong.
+I also attach to this mail the output of:
+bk export -t patch -du -r1.1126,1.1128 >
+csets.patch.ChangeSets_1.1127_1.1128
 
-the problem gets worse while trying to test things over the internet. 
-scp stalls incredibly often on my 256kbit/s upstream. so does ftp and 
-irc dcc protocol. irc dcc ends up with sending 0.3KB/s on a megabyte 
-sized file.
+Since ChangeSet 1.1129 adds lots of new files, I voluntarily
+skipped it to not overflow the mailing list.
 
-before people again trying to tell me that some duplex settings could be 
-messed up - then tell me why this should happen. when i boot into 2.4 
-kernel with that test machine the nic works without problems. so IF 
-duplex stuff is the reason for the hickups something must be wrong with 
-the duplex detection code in the new driver/kernel?
+Comments welcome.
 
-i tried vanilla 2.6.0-test5, 2.6.0-test5-mm2 and mm3 + 2.6.0-test5-bk4. 
-none of these gave any difference regarding network performance.
+Best regards,
 
-any suggestions or patches will be appreaciated. thanks!
+-- 
+Damien Morange
 
-Florian Zwoch
 
-following some systeminfo:
 
-ethtool -i eth0
-   driver: e1000
-   version: 5.2.16-k1
-   firmware-version: N/A
-   bus-info: 0000:02:0e.0
 
-ethtool -d eth0
-   MAC Registers
-   -------------
-   0x00000: CTRL (Device control register)  0x18340249
-         Duplex:                            full
-         Endian mode (buffers):             little
-         Link reset:                        reset
-         Set link up:                       1
-         Invert Loss-Of-Signal:             no
-         Receive flow control:              enabled
-         Transmit flow control:             enabled
-         VLAN mode:                         disabled
-         Auto speed detect:                 disabled
-         Speed select:                      1000Mb/s
-         Force speed:                       no
-         Force duplex:                      no
-   0x00008: STATUS (Device status register) 0x0000C343
-         Duplex:                            full
-         Link up:                           link config
-         TBI mode:                          disabled
-         Link speed:                        100Mb/s
-   0x00100: RCTL (Receive control register) 0x00008002
-         Receiver:                          enabled
-         Store bad packets:                 disabled
-         Unicast promiscuous:               disabled
-         Multicast promiscuous:             disabled
-         Long packet:                       disabled
-         Descriptor minimum threshold size: 1/2
-         Broadcast accept mode:             accept
-         VLAN filter:                       disabled
-         Cononical form indicator:          disabled
-         Discard pause frames:              filtered
-         Pass MAC control frames:           don't pass
-         Receive buffer size:               2048
-   0x02808: RDLEN (Receive desc length)     0x00001000
-   0x02810: RDH   (Receive desc head)       0x00000005
-   0x02818: RDT   (Receive desc tail)       0x00000000
-   0x02820: RDTR  (Receive delay timer)     0x00000000
-   0x00400: TCTL (Transmit ctrl register)   0x0004010A
-         Transmitter:                       enabled
-         Pad short packets:                 enabled
-         Software XOFF Transmission:        disabled
-         Re-transmit on late collision:     disabled
-   0x03808: TDLEN (Transmit desc length)    0x00001000
-   0x03810: TDH   (Transmit desc head)      0x000000B4
-   0x03818: TDT   (Transmit desc tail)      0x000000B4
-   0x03820: TIDV  (Transmit delay timer)    0x00000040
+The ChangeSets are:
 
-pci -vvv
-00:00.0 Host bridge: Intel Corp. 82850 850 (Tehama) Chipset Host Bridge 
-(MCH) (rev 04)
-	Subsystem: Asustek Computer, Inc.: Unknown device 8030
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- 
-<MAbort+ >SERR- <PERR-
-	Latency: 0
-	Region 0: Memory at f0000000 (32-bit, prefetchable) [size=128M]
-	Capabilities: [a0] AGP version 2.0
-		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- 
-FW+ AGP3- Rate=x1,x2,x4
-		Command: RQ=1 ArqSz=0 Cal=0 SBA+ AGP+ GART64- 64bit- FW+ Rate=x4
 
-00:01.0 PCI bridge: Intel Corp. 82850 850 (Tehama) Chipset AGP Bridge 
-(rev 04) (prog-if 00 [Normal decode])
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- 
-<MAbort- >SERR- <PERR-
-	Latency: 0
-	Bus: primary=00, secondary=01, subordinate=01, sec-latency=32
-	I/O behind bridge: 0000e000-0000dfff
-	Memory behind bridge: ea000000-eb5fffff
-	Prefetchable memory behind bridge: eb700000-efffffff
-	BridgeCtl: Parity- SERR- NoISA- VGA+ MAbort- >Reset- FastB2B-
+1.1127:
+<http://linux-lksctp.bkbits.net:8080/lksctp-2.4/cset@1.1127?nav=index.html|C
+hangeSet@-7d>
 
-00:1e.0 PCI bridge: Intel Corp. 82801BA/CA/DB/EB PCI Bridge (rev 04) 
-(prog-if 00 [Normal decode])
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR+ FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- 
-<MAbort- >SERR- <PERR-
-	Latency: 0
-	Bus: primary=00, secondary=02, subordinate=02, sec-latency=32
-	I/O behind bridge: 0000b000-0000dfff
-	Memory behind bridge: e7800000-e9ffffff
-	Prefetchable memory behind bridge: eb600000-eb6fffff
-	BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
+[SCTP] LKSCTP 0.6.9 backport on kernel 2.4 patch #1
 
-00:1f.0 ISA bridge: Intel Corp. 82801BA ISA Bridge (LPC) (rev 04)
-	Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop- ParErr- 
-Stepping- SERR+ FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
+Adding the necessary changes to the kernel IP stack so that
+SCTP can perform Path MTU discovery.
+No other SCTP-specific changes.
+The resulting kernel is functionally unchanged.
 
-00:1f.1 IDE interface: Intel Corp. 82801BA IDE U100 (rev 04) (prog-if 80 
-[Master])
-	Subsystem: Asustek Computer, Inc.: Unknown device 8028
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-	Region 4: I/O ports at a800 [size=16]
 
-00:1f.2 USB Controller: Intel Corp. 82801BA/BAM USB (Hub #1) (rev 04) 
-(prog-if 00 [UHCI])
-	Subsystem: Asustek Computer, Inc.: Unknown device 8028
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-	Interrupt: pin D routed to IRQ 19
-	Region 4: I/O ports at a400 [size=32]
+1.1128:
+<http://linux-lksctp.bkbits.net:8080/lksctp-2.4/cset@1.1128?nav=index.html|C
+hangeSet@-7d>
 
-00:1f.3 SMBus: Intel Corp. 82801BA/BAM SMBus (rev 04)
-	Subsystem: Asustek Computer, Inc.: Unknown device 8028
-	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Interrupt: pin B routed to IRQ 17
-	Region 4: I/O ports at e800 [size=16]
+[SCTP] LKSCTP 0.6.9 backport on kernel 2.4 patch #2
 
-00:1f.4 USB Controller: Intel Corp. 82801BA/BAM USB (Hub #2) (rev 04) 
-(prog-if 00 [UHCI])
-	Subsystem: Asustek Computer, Inc.: Unknown device 8028
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap- 66Mhz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 0
-	Interrupt: pin C routed to IRQ 23
-	Region 4: I/O ports at a000 [size=32]
+This patch modifies the kernel existing files to add the SCTP
+functionality.
+It cannot work without the 3rd patch of this serie,
+but it is issued to better highlight the required changes.
 
-01:00.0 VGA compatible controller: nVidia Corporation NV25 [GeForce4 Ti 
-4200] (rev a3) (prog-if 00 [VGA])
-	Subsystem: Asustek Computer, Inc.: Unknown device 803f
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 248 (1250ns min, 250ns max)
-	Interrupt: pin A routed to IRQ 16
-	Region 0: Memory at ea000000 (32-bit, non-prefetchable) [size=16M]
-	Region 1: Memory at ec000000 (32-bit, prefetchable) [size=64M]
-	Region 2: Memory at eb800000 (32-bit, prefetchable) [size=512K]
-	Expansion ROM at eb7e0000 [disabled] [size=128K]
-	Capabilities: [60] Power Management version 2
-		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
-	Capabilities: [44] AGP version 2.0
-		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- 
-FW+ AGP3- Rate=x1,x2,x4
-		Command: RQ=32 ArqSz=0 Cal=0 SBA+ AGP+ GART64- 64bit- FW+ Rate=x4
 
-02:03.0 Multimedia audio controller: C-Media Electronics Inc CM8738 (rev 10)
-	Subsystem: Asustek Computer, Inc. CMI8738 6ch-MX
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping+ SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32 (500ns min, 6000ns max)
-	Interrupt: pin A routed to IRQ 21
-	Region 0: I/O ports at d800 [size=256]
-	Capabilities: [c0] Power Management version 2
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+1.1129:
+<http://linux-lksctp.bkbits.net:8080/lksctp-2.4/cset@1.1129?nav=index.html|C
+hangeSet@-7d>
 
-02:04.0 USB Controller: NEC Corporation USB (rev 41) (prog-if 10 [OHCI])
-	Subsystem: Unknown device 807d:0035
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32 (250ns min, 10500ns max), cache line size 08
-	Interrupt: pin A routed to IRQ 21
-	Region 0: Memory at e9800000 (32-bit, non-prefetchable) [size=4K]
-	Capabilities: [40] Power Management version 2
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+[SCTP] LKSCTP 0.6.9 backport on kernel 2.4 patch #3
 
-02:04.1 USB Controller: NEC Corporation USB (rev 41) (prog-if 10 [OHCI])
-	Subsystem: Unknown device 807d:0035
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32 (250ns min, 10500ns max), cache line size 08
-	Interrupt: pin B routed to IRQ 255
-	Region 0: Memory at e9000000 (32-bit, non-prefetchable) [size=4K]
-	Capabilities: [40] Power Management version 2
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+This patch consists only in new files.
+It adds the SCTP protocol engine and the SCTP sockets layers
+to the IP stack.
+This patches requires patches #1 and #2 to be applied.
 
-02:04.2 USB Controller: NEC Corporation USB 2.0 (rev 02) (prog-if 20 [EHCI])
-	Subsystem: Unknown device 807d:1043
-	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32 (4000ns min, 8500ns max), cache line size 20
-	Interrupt: pin C routed to IRQ 23
-	Region 0: Memory at e8800000 (32-bit, non-prefetchable) [size=256]
-	Capabilities: [40] Power Management version 2
-		Flags: PMEClk- DSI- D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
 
-02:0c.0 Multimedia audio controller: IC Ensemble Inc ICE1724 [Envy24HT] 
-(rev 01)
-	Subsystem: TERRATEC Electronic GmbH: Unknown device 1147
-	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz- UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32
-	Interrupt: pin A routed to IRQ 20
-	Region 0: I/O ports at d400 [size=32]
-	Region 1: I/O ports at d000 [size=128]
-	Capabilities: [80] Power Management version 1
-		Flags: PMEClk- DSI- D1- D2+ AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
-		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+------_=_NextPart_000_01C37EAB.5A49A8B0
+Content-Type: application/octet-stream;
+	name="csets.patch.ChangeSets_1.1127_1.1128"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: attachment;
+	filename="csets.patch.ChangeSets_1.1127_1.1128"
 
-02:0e.0 Ethernet controller: Intel Corp. 82540EM Gigabit Ethernet 
-Controller (rev 02)
-	Subsystem: Intel Corp. PRO/1000 MT Desktop Adapter
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- 
-Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- 
-<TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32 (63750ns min), cache line size 08
-	Interrupt: pin A routed to IRQ 18
-	Region 0: Memory at e8000000 (32-bit, non-prefetchable) [size=128K]
-	Region 1: Memory at e7800000 (32-bit, non-prefetchable) [size=128K]
-	Region 2: I/O ports at b800 [size=64]
-	Expansion ROM at <unassigned> [disabled] [size=128K]
-	Capabilities: [dc] Power Management version 2
-		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 PME-Enable- DSel=0 DScale=1 PME-
-	Capabilities: [e4] PCI-X non-bridge device.
-		Command: DPERE- ERO+ RBC=0 OST=0
-		Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, 
-DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-	Capabilities: [f0] Message Signalled 
-Interrupts: 64bit+ Queue=0/0 Enable-
-		Address: 0000000000000000  Data: 0000
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or =
+higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1126  -> 1.1128=20
+#	include/linux/sysctl.h	1.32    -> 1.33  =20
+#	      kernel/ksyms.c	1.78    -> 1.79  =20
+#	   include/net/tcp.h	1.23    -> 1.24  =20
+#	  net/ipv4/af_inet.c	1.11    -> 1.12  =20
+#	       net/Config.in	1.13    -> 1.14  =20
+#	        net/socket.c	1.16    -> 1.17  =20
+#	  include/net/snmp.h	1.5     -> 1.6   =20
+#	 include/linux/net.h	1.3     -> 1.4   =20
+#	       net/netsyms.c	1.43    -> 1.45  =20
+#	        net/Makefile	1.7     -> 1.8   =20
+#	  include/linux/in.h	1.2     -> 1.3   =20
+#	 net/ipv6/tcp_ipv6.c	1.25    -> 1.26  =20
+#	 net/ipv6/af_inet6.c	1.11    -> 1.12  =20
+#	    include/net/ip.h	1.3     -> 1.4   =20
+#	net/ipv4/tcp_output.c	1.15    -> 1.16  =20
+#	  include/net/sock.h	1.15    -> 1.16  =20
+#	include/net/inet_common.h	1.1     -> 1.2   =20
+#	   net/ipv6/Makefile	1.2     -> 1.3   =20
+#	include/linux/socket.h	1.7     -> 1.8   =20
+#	  include/net/ipv6.h	1.5     -> 1.6   =20
+#	Documentation/Configure.help	1.193   -> 1.194 =20
+#	net/ipv4/ip_output.c	1.14    -> 1.15  =20
+#	               (new)	        -> 1.1     net/ipv6/ipv6_syms.c
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/09/19	damien.morange@hp.com	1.1127
+# [SCTP] LKSCTP 0.6.9 backport on kernel 2.4 patch #1
+#=20
+# Adding the necessary changes to the kernel IP stack so that SCTP
+# can perform Path MTU discovery.
+# No other SCTP-specific changes.
+# The resulting kernel is functionally unchanged.
+# --------------------------------------------
+# 03/09/19	damien.morange@hp.com	1.1128
+# [SCTP] LKSCTP 0.6.9 backport on kernel 2.4 patch #2
+#=20
+# This patch modifies the kernel existing files to add the SCTP
+# functionality.
+# It cannot work without the 3rd patch of this serie,
+# but it is issued to better highlight the required changes.
+# --------------------------------------------
+#
+diff -Nru a/Documentation/Configure.help b/Documentation/Configure.help
+--- a/Documentation/Configure.help	Fri Sep 19 15:34:00 2003
++++ b/Documentation/Configure.help	Fri Sep 19 15:34:00 2003
+@@ -6101,6 +6101,61 @@
+=20
+   It is safe to say N here for now.
+=20
++The SCTP Protocol (EXPERIMENTAL)
++CONFIG_IP_SCTP
++  Stream Control Transmission Protocol
++
++  From RFC 2960 (http://www.ietf.org/rfc/rfc2960.txt)
++
++  "SCTP is a reliable transport protocol operating on top of a
++  connectionless packet network such as IP.  It offers the following
++  services to its users:
++
++  -- acknowledged error-free non-duplicated transfer of user data,
++  -- data fragmentation to conform to discovered path MTU size,
++  -- sequenced delivery of user messages within multiple streams,
++  with an option for order-of-arrival delivery of individual user
++  messages,
++  -- optional bundling of multiple user messages into a single SCTP
++  packet, and
++  -- network-level fault tolerance through supporting of multi-
++  homing at either or both ends of an association."
++
++  This protocol support is also available as a module ( =3D code which
++  can be inserted in and removed from the running kernel whenever you
++  want). The module will be called sctp. If you want to compile it
++  as a module, say M here and read <file:Documentation/modules.txt>.
++
++  If in doubt, say N.
++
++SCTP: Use old checksum (Adler-32)
++CONFIG_SCTP_ADLER32
++  RCF2960 currently specifies the Adler-32 checksum algorithm for =
+SCTP.
++  This has been deprecated and replaced by an algorithm now referred
++  to as crc32c.
++
++  If you say Y, this will use the Adler-32 algorithm, this might be=20
++  useful for interoperation with downlevel peers.=20
++
++  If unsure, say N. =20
++
++SCTP: Debug messages
++CONFIG_SCTP_DBG_MSG
++  If you say Y, this will enable verbose debugging messages.=20
++
++  If unsure, say N.  However, if you are running into problems, use=20
++  this option to gather detailed trace information
++
++SCTP: Debug object counts
++CONFIG_SCTP_DBG_OBJCNT
++  If you say Y, this will enable debugging support for counting the=20
++  type of objects that are currently allocated.  This is useful for=20
++  identifying memory leaks.   If the /proc filesystem is enabled this=20
++  debug information can be viewed by=20
++  'cat /proc/net/sctp/sctp_dbg_objcnt'
++
++  If unsure, say N
++
+ Kernel httpd acceleration
+ CONFIG_KHTTPD
+   The kernel httpd acceleration daemon (kHTTPd) is a (limited) web
+diff -Nru a/include/linux/in.h b/include/linux/in.h
+--- a/include/linux/in.h	Fri Sep 19 15:34:00 2003
++++ b/include/linux/in.h	Fri Sep 19 15:34:00 2003
+@@ -41,6 +41,7 @@
+   IPPROTO_ESP =3D 50,            /* Encapsulation Security Payload =
+protocol */
+   IPPROTO_AH =3D 51,             /* Authentication Header protocol     =
+  */
+   IPPROTO_COMP   =3D 108,                /* Compression Header =
+protocol */
++  IPPROTO_SCTP   =3D 132,		/* Stream Control Transport Protocol    */
+=20
+   IPPROTO_RAW	 =3D 255,		/* Raw IP packets			*/
+   IPPROTO_MAX
+diff -Nru a/include/linux/net.h b/include/linux/net.h
+--- a/include/linux/net.h	Fri Sep 19 15:34:00 2003
++++ b/include/linux/net.h	Fri Sep 19 15:34:00 2003
+@@ -141,6 +141,7 @@
+ 				  const struct iovec * iov, long count, long size);
+ extern struct socket *sockfd_lookup(int fd, int *err);
+=20
++extern int	sock_map_fd(struct socket *sock);
+ extern int	net_ratelimit(void);
+ extern unsigned long net_random(void);
+ extern void net_srandom(unsigned long);
+diff -Nru a/include/linux/socket.h b/include/linux/socket.h
+--- a/include/linux/socket.h	Fri Sep 19 15:34:00 2003
++++ b/include/linux/socket.h	Fri Sep 19 15:34:00 2003
+@@ -242,6 +242,7 @@
+ #define SOL_UDP		17
+ #define SOL_IPV6	41
+ #define SOL_ICMPV6	58
++#define SOL_SCTP	132
+ #define SOL_RAW		255
+ #define SOL_IPX		256
+ #define SOL_AX25	257
+diff -Nru a/include/linux/sysctl.h b/include/linux/sysctl.h
+--- a/include/linux/sysctl.h	Fri Sep 19 15:34:00 2003
++++ b/include/linux/sysctl.h	Fri Sep 19 15:34:00 2003
+@@ -176,7 +176,8 @@
+ 	NET_TR=3D14,
+ 	NET_DECNET=3D15,
+ 	NET_ECONET=3D16,
+-	NET_KHTTPD=3D17
++	NET_KHTTPD=3D17,
++	NET_SCTP=3D18
+ };
+=20
+ /* /proc/sys/kernel/random */
+@@ -509,6 +510,21 @@
+ 	NET_DECNET_DEBUG_LEVEL =3D 255
+ };
+=20
++/* /proc/sys/net/sctp */
++enum {
++	NET_SCTP_RTO_INITIAL =3D 1,
++	NET_SCTP_RTO_MIN     =3D 2,
++	NET_SCTP_RTO_MAX     =3D 3,
++	NET_SCTP_RTO_ALPHA   =3D 4,
++	NET_SCTP_RTO_BETA    =3D 5,
++	NET_SCTP_VALID_COOKIE_LIFE       =3D  6,
++	NET_SCTP_ASSOCIATION_MAX_RETRANS =3D  7,
++	NET_SCTP_PATH_MAX_RETRANS        =3D  8,
++	NET_SCTP_MAX_INIT_RETRANSMITS    =3D  9,
++	NET_SCTP_HB_INTERVAL             =3D 10,
++	NET_SCTP_PRESERVE_ENABLE         =3D 11,
++	NET_SCTP_MAX_BURST               =3D 12,
++};
+ /* /proc/sys/net/khttpd/ */
+ enum {
+ 	NET_KHTTPD_DOCROOT	=3D 1,
+diff -Nru a/include/net/inet_common.h b/include/net/inet_common.h
+--- a/include/net/inet_common.h	Fri Sep 19 15:34:00 2003
++++ b/include/net/inet_common.h	Fri Sep 19 15:34:00 2003
+@@ -43,6 +43,14 @@
+ extern void			inet_sock_destruct(struct sock *sk);
+ extern atomic_t			inet_sock_nr;
+=20
++extern int			inet_bind(struct socket *sock,
++					  struct sockaddr *uaddr, int addr_len);
++extern int			inet_getname(struct socket *sock,
++					     struct sockaddr *uaddr,
++					     int *uaddr_len, int peer);
++extern int			inet_ioctl(struct socket *sock,
++					   unsigned int cmd, unsigned long arg);
++
+ #endif
+=20
+=20
+diff -Nru a/include/net/ip.h b/include/net/ip.h
+--- a/include/net/ip.h	Fri Sep 19 15:34:00 2003
++++ b/include/net/ip.h	Fri Sep 19 15:34:00 2003
+@@ -96,7 +96,7 @@
+ extern int		ip_fragment(struct sk_buff *skb, int (*out)(struct =
+sk_buff*));
+ extern int		ip_do_nat(struct sk_buff *skb);
+ extern void		ip_send_check(struct iphdr *ip);
+-extern int		ip_queue_xmit(struct sk_buff *skb);
++extern int		ip_queue_xmit(struct sk_buff *skb, int ipfragok);
+ extern void		ip_init(void);
+ extern int		ip_build_xmit(struct sock *sk,
+ 				      int getfrag (const void *,
+diff -Nru a/include/net/ipv6.h b/include/net/ipv6.h
+--- a/include/net/ipv6.h	Fri Sep 19 15:34:00 2003
++++ b/include/net/ipv6.h	Fri Sep 19 15:34:00 2003
+@@ -353,6 +353,14 @@
+ 						u32 info, u8 *payload);
+ extern void			ipv6_local_error(struct sock *sk, int err, struct flowi =
+*fl, u32 info);
+=20
++extern int inet6_release(struct socket *sock);
++extern int inet6_bind(struct socket *sock, struct sockaddr *uaddr,=20
++		      int addr_len);
++extern int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
++			 int *uaddr_len, int peer);
++extern int inet6_ioctl(struct socket *sock, unsigned int cmd,=20
++		       unsigned long arg);
++
+ #endif /* __KERNEL__ */
+ #endif /* _NET_IPV6_H */
+=20
+diff -Nru a/include/net/snmp.h b/include/net/snmp.h
+--- a/include/net/snmp.h	Fri Sep 19 15:34:00 2003
++++ b/include/net/snmp.h	Fri Sep 19 15:34:00 2003
+@@ -212,6 +212,35 @@
+ 	unsigned long   __pad[0];
+ } ____cacheline_aligned;=20
+=20
++/* draft-ietf-sigtran-sctp-mib-07.txt */
++struct sctp_mib
++{
++	unsigned long   SctpCurrEstab;
++	unsigned long   SctpActiveEstabs;
++	unsigned long   SctpPassiveEstabs;
++	unsigned long   SctpAborteds;
++	unsigned long   SctpShutdowns;
++	unsigned long   SctpOutOfBlues;
++	unsigned long   SctpChecksumErrors;
++	unsigned long   SctpOutCtrlChunks;
++	unsigned long   SctpOutOrderChunks;
++	unsigned long   SctpOutUnorderChunks;
++	unsigned long   SctpInCtrlChunks;
++	unsigned long   SctpInOrderChunks;
++	unsigned long   SctpInUnorderChunks;
++	unsigned long   SctpFragUsrMsgs;
++	unsigned long   SctpReasmUsrMsgs;
++	unsigned long   SctpOutSCTPPacks;
++	unsigned long   SctpInSCTPPacks;
++	unsigned long   SctpRtoAlgorithm;
++	unsigned long   SctpRtoMin;
++	unsigned long   SctpRtoMax;
++	unsigned long   SctpRtoInitial;
++	unsigned long   SctpValCookieLife;
++	unsigned long   SctpMaxInitRetr;
++	unsigned long   __pad[0];
++};
++
+ struct linux_mib=20
+ {
+ 	unsigned long	SyncookiesSent;
+diff -Nru a/include/net/sock.h b/include/net/sock.h
+--- a/include/net/sock.h	Fri Sep 19 15:34:00 2003
++++ b/include/net/sock.h	Fri Sep 19 15:34:00 2003
+@@ -49,6 +49,9 @@
+ #include <linux/icmp.h>
+ #endif
+ #include <linux/tcp.h>		/* struct tcphdr */
++#if defined(CONFIG_IP_SCTP) || defined (CONFIG_IP_SCTP_MODULE)
++#include <net/sctp/structs.h>	/* struct sctp_opt */
++#endif
+=20
+ #include <linux/netdevice.h>
+ #include <linux/skbuff.h>	/* struct sk_buff */
+@@ -586,6 +589,9 @@
+=20
+ 	union {
+ 		struct tcp_opt		af_tcp;
++#if defined(CONFIG_IP_SCTP) || defined (CONFIG_IP_SCTP_MODULE)
++		struct sctp_opt		af_sctp;
++#endif
+ #if defined(CONFIG_INET) || defined (CONFIG_INET_MODULE)
+ 		struct raw_opt		tp_raw4;
+ #endif
+diff -Nru a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	Fri Sep 19 15:34:00 2003
++++ b/include/net/tcp.h	Fri Sep 19 15:34:00 2003
+@@ -555,7 +555,8 @@
+  */
+=20
+ struct tcp_func {
+-	int			(*queue_xmit)		(struct sk_buff *skb);
++	int			(*queue_xmit)		(struct sk_buff *skb,
++							 int ipfragok);
+=20
+ 	void			(*send_check)		(struct sock *sk,
+ 							 struct tcphdr *th,
+diff -Nru a/kernel/ksyms.c b/kernel/ksyms.c
+--- a/kernel/ksyms.c	Fri Sep 19 15:34:00 2003
++++ b/kernel/ksyms.c	Fri Sep 19 15:34:00 2003
+@@ -513,6 +513,9 @@
+ EXPORT_SYMBOL(seq_release);
+ EXPORT_SYMBOL(seq_read);
+ EXPORT_SYMBOL(seq_lseek);
++EXPORT_SYMBOL(single_open);
++EXPORT_SYMBOL(single_release);
++EXPORT_SYMBOL(seq_release_private);
+=20
+ /* Program loader interfaces */
+ EXPORT_SYMBOL(setup_arg_pages);
+diff -Nru a/net/Config.in b/net/Config.in
+--- a/net/Config.in	Fri Sep 19 15:34:00 2003
++++ b/net/Config.in	Fri Sep 19 15:34:00 2003
+@@ -29,6 +29,9 @@
+    if [ "$CONFIG_EXPERIMENTAL" =3D "y" ]; then
+       source net/khttpd/Config.in
+    fi
++   if [ "$CONFIG_EXPERIMENTAL" =3D "y" ]; then
++      source net/sctp/Config.in
++   fi
+ fi
+ if [ "$CONFIG_EXPERIMENTAL" =3D "y" ]; then
+    tristate 'Asynchronous Transfer Mode (ATM) (EXPERIMENTAL)' =
+CONFIG_ATM
+diff -Nru a/net/Makefile b/net/Makefile
+--- a/net/Makefile	Fri Sep 19 15:34:00 2003
++++ b/net/Makefile	Fri Sep 19 15:34:00 2003
+@@ -7,7 +7,7 @@
+=20
+ O_TARGET :=3D	network.o
+=20
+-mod-subdirs :=3D	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm =
+netlink sched core
++mod-subdirs :=3D	ipv4/netfilter ipv6/netfilter ipx irda bluetooth atm =
+netlink sched core sctp
+ export-objs :=3D	netsyms.o
+=20
+ subdir-y :=3D	core ethernet
+@@ -19,6 +19,7 @@
+ subdir-$(CONFIG_NETFILTER)	+=3D ipv4/netfilter
+ subdir-$(CONFIG_UNIX)		+=3D unix
+ subdir-$(CONFIG_IPV6)		+=3D ipv6
++subdir-$(CONFIG_IP_SCTP)	+=3D sctp
+=20
+ ifneq ($(CONFIG_IPV6),n)
+ ifneq ($(CONFIG_IPV6),)
+diff -Nru a/net/ipv4/af_inet.c b/net/ipv4/af_inet.c
+--- a/net/ipv4/af_inet.c	Fri Sep 19 15:34:00 2003
++++ b/net/ipv4/af_inet.c	Fri Sep 19 15:34:00 2003
+@@ -470,7 +470,7 @@
+ /* It is off by default, see below. */
+ int sysctl_ip_nonlocal_bind;
+=20
+-static int inet_bind(struct socket *sock, struct sockaddr *uaddr, int =
+addr_len)
++int inet_bind(struct socket *sock, struct sockaddr *uaddr, int =
+addr_len)
+ {
+ 	struct sockaddr_in *addr=3D(struct sockaddr_in *)uaddr;
+ 	struct sock *sk=3Dsock->sk;
+@@ -703,7 +703,7 @@
+  *	This does both peername and sockname.
+  */
+ =20
+-static int inet_getname(struct socket *sock, struct sockaddr *uaddr,
++int inet_getname(struct socket *sock, struct sockaddr *uaddr,
+ 		 int *uaddr_len, int peer)
+ {
+ 	struct sock *sk		=3D sock->sk;
+@@ -820,7 +820,7 @@
+  *	There's a good 20K of config code hanging around the kernel.
+  */
+=20
+-static int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned =
+long arg)
++int inet_ioctl(struct socket *sock, unsigned int cmd, unsigned long =
+arg)
+ {
+ 	struct sock *sk =3D sock->sk;
+ 	int err;
+diff -Nru a/net/ipv4/ip_output.c b/net/ipv4/ip_output.c
+--- a/net/ipv4/ip_output.c	Fri Sep 19 15:34:00 2003
++++ b/net/ipv4/ip_output.c	Fri Sep 19 15:34:00 2003
+@@ -339,7 +339,7 @@
+ 	return ip_fragment(skb, skb->dst->output);
+ }
+=20
+-int ip_queue_xmit(struct sk_buff *skb)
++int ip_queue_xmit(struct sk_buff *skb, int ipfragok)
+ {
+ 	struct sock *sk =3D skb->sk;
+ 	struct ip_options *opt =3D sk->protinfo.af_inet.opt;
+@@ -384,7 +384,7 @@
+ 	iph =3D (struct iphdr *) skb_push(skb, sizeof(struct iphdr) + (opt ? =
+opt->optlen : 0));
+ 	*((__u16 *)iph)	=3D htons((4 << 12) | (5 << 8) | =
+(sk->protinfo.af_inet.tos & 0xff));
+ 	iph->tot_len =3D htons(skb->len);
+-	if (ip_dont_fragment(sk, &rt->u.dst))
++	if (ip_dont_fragment(sk, &rt->u.dst) && !ipfragok)
+ 		iph->frag_off =3D htons(IP_DF);
+ 	else
+ 		iph->frag_off =3D 0;
+diff -Nru a/net/ipv4/tcp_output.c b/net/ipv4/tcp_output.c
+--- a/net/ipv4/tcp_output.c	Fri Sep 19 15:34:00 2003
++++ b/net/ipv4/tcp_output.c	Fri Sep 19 15:34:00 2003
+@@ -275,7 +275,7 @@
+=20
+ 		TCP_INC_STATS(TcpOutSegs);
+=20
+-		err =3D tp->af_specific->queue_xmit(skb);
++		err =3D tp->af_specific->queue_xmit(skb, 0);
+ 		if (err <=3D 0)
+ 			return err;
+=20
+diff -Nru a/net/ipv6/Makefile b/net/ipv6/Makefile
+--- a/net/ipv6/Makefile	Fri Sep 19 15:34:00 2003
++++ b/net/ipv6/Makefile	Fri Sep 19 15:34:00 2003
+@@ -13,7 +13,9 @@
+ 		route.o ip6_fib.o ipv6_sockglue.o ndisc.o udp.o raw.o \
+ 		protocol.o icmp.o mcast.o reassembly.o tcp_ipv6.o \
+ 		exthdrs.o sysctl_net_ipv6.o datagram.o proc.o \
+-		ip6_flowlabel.o
++		ip6_flowlabel.o ipv6_syms.o
++
++export-objs :=3D ipv6_syms.o
+=20
+ obj-m  :=3D $(O_TARGET)
+=20
+diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+--- a/net/ipv6/af_inet6.c	Fri Sep 19 15:34:00 2003
++++ b/net/ipv6/af_inet6.c	Fri Sep 19 15:34:00 2003
+@@ -233,7 +233,7 @@
+=20
+=20
+ /* bind for INET6 API */
+-static int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int =
+addr_len)
++int inet6_bind(struct socket *sock, struct sockaddr *uaddr, int =
+addr_len)
+ {
+ 	struct sockaddr_in6 *addr=3D(struct sockaddr_in6 *)uaddr;
+ 	struct sock *sk =3D sock->sk;
+@@ -329,7 +329,7 @@
+ 	return 0;
+ }
+=20
+-static int inet6_release(struct socket *sock)
++int inet6_release(struct socket *sock)
+ {
+ 	struct sock *sk =3D sock->sk;
+=20
+@@ -376,7 +376,7 @@
+  *	This does both peername and sockname.
+  */
+ =20
+-static int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
++int inet6_getname(struct socket *sock, struct sockaddr *uaddr,
+ 		 int *uaddr_len, int peer)
+ {
+ 	struct sockaddr_in6 *sin=3D(struct sockaddr_in6 *)uaddr;
+@@ -413,7 +413,7 @@
+ 	return(0);
+ }
+=20
+-static int inet6_ioctl(struct socket *sock, unsigned int cmd, unsigned =
+long arg)
++int inet6_ioctl(struct socket *sock, unsigned int cmd, unsigned long =
+arg)
+ {
+ 	struct sock *sk =3D sock->sk;
+ 	int err =3D -EINVAL;
+diff -Nru a/net/ipv6/ipv6_syms.c b/net/ipv6/ipv6_syms.c
+--- /dev/null	Wed Dec 31 16:00:00 1969
++++ b/net/ipv6/ipv6_syms.c	Fri Sep 19 15:34:00 2003
+@@ -0,0 +1,35 @@
++
++#include <linux/config.h>
++#include <linux/module.h>
++#include <linux/skbuff.h>
++#include <net/protocol.h>
++#include <net/ipv6.h>
++#include <net/addrconf.h>
++#include <net/ip6_route.h>
++
++EXPORT_SYMBOL(ipv6_addr_type);
++EXPORT_SYMBOL(icmpv6_send);
++EXPORT_SYMBOL(icmpv6_statistics);
++EXPORT_SYMBOL(icmpv6_err_convert);
++EXPORT_SYMBOL(ndisc_mc_map);
++EXPORT_SYMBOL(register_inet6addr_notifier);
++EXPORT_SYMBOL(unregister_inet6addr_notifier);
++EXPORT_SYMBOL(ip6_route_output);
++#ifdef CONFIG_NETFILTER
++EXPORT_SYMBOL(ip6_route_me_harder);
++#endif
++EXPORT_SYMBOL(addrconf_lock);
++EXPORT_SYMBOL(ipv6_setsockopt);
++EXPORT_SYMBOL(ipv6_getsockopt);
++EXPORT_SYMBOL(inet6_register_protosw);
++EXPORT_SYMBOL(inet6_unregister_protosw);
++EXPORT_SYMBOL(inet6_add_protocol);
++EXPORT_SYMBOL(inet6_del_protocol);
++EXPORT_SYMBOL(ip6_xmit);
++EXPORT_SYMBOL(inet6_release);
++EXPORT_SYMBOL(inet6_bind);
++EXPORT_SYMBOL(inet6_getname);
++EXPORT_SYMBOL(inet6_ioctl);
++EXPORT_SYMBOL(ipv6_get_saddr);
++EXPORT_SYMBOL(ipv6_chk_addr);
++EXPORT_SYMBOL(in6_dev_finish_destroy);
+diff -Nru a/net/ipv6/tcp_ipv6.c b/net/ipv6/tcp_ipv6.c
+--- a/net/ipv6/tcp_ipv6.c	Fri Sep 19 15:34:00 2003
++++ b/net/ipv6/tcp_ipv6.c	Fri Sep 19 15:34:00 2003
+@@ -59,7 +59,7 @@
+ 				  struct sk_buff *skb);
+=20
+ static int	tcp_v6_do_rcv(struct sock *sk, struct sk_buff *skb);
+-static int	tcp_v6_xmit(struct sk_buff *skb);
++static int	tcp_v6_xmit(struct sk_buff *skb, int ipfragok);
+=20
+ static struct tcp_func ipv6_mapped;
+ static struct tcp_func ipv6_specific;
+@@ -1715,7 +1715,7 @@
+ 	return 0;
+ }
+=20
+-static int tcp_v6_xmit(struct sk_buff *skb)
++static int tcp_v6_xmit(struct sk_buff *skb, int ipfragok)
+ {
+ 	struct sock *sk =3D skb->sk;
+ 	struct ipv6_pinfo * np =3D &sk->net_pinfo.af_inet6;
+diff -Nru a/net/netsyms.c b/net/netsyms.c
+--- a/net/netsyms.c	Fri Sep 19 15:34:00 2003
++++ b/net/netsyms.c	Fri Sep 19 15:34:00 2003
+@@ -60,7 +60,7 @@
+=20
+ extern struct net_proto_family inet_family_ops;
+=20
+-#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE) || defined =
+(CONFIG_KHTTPD) || defined (CONFIG_KHTTPD_MODULE)
++#if defined(CONFIG_IPV6) || defined (CONFIG_IPV6_MODULE) || defined =
+(CONFIG_KHTTPD) || defined (CONFIG_KHTTPD_MODULE) || defined =
+(CONFIG_IP_SCTP_MODULE)
+ #include <linux/in6.h>
+ #include <linux/icmpv6.h>
+ #include <net/ipv6.h>
+@@ -164,6 +164,7 @@
+ EXPORT_SYMBOL(put_cmsg);
+ EXPORT_SYMBOL(sock_kmalloc);
+ EXPORT_SYMBOL(sock_kfree_s);
++EXPORT_SYMBOL(sock_map_fd);
+ EXPORT_SYMBOL(sockfd_lookup);
+=20
+ #ifdef CONFIG_FILTER
+@@ -256,6 +257,8 @@
+ EXPORT_SYMBOL(ip_route_output_key);
+ EXPORT_SYMBOL(ip_route_input);
+ EXPORT_SYMBOL(icmp_send);
++EXPORT_SYMBOL(icmp_statistics);
++EXPORT_SYMBOL(icmp_err_convert);
+ EXPORT_SYMBOL(ip_options_compile);
+ EXPORT_SYMBOL(ip_options_undo);
+ EXPORT_SYMBOL(arp_send);
+@@ -294,19 +297,7 @@
+ #endif
+=20
+=20
+-#ifdef CONFIG_IPV6
+-EXPORT_SYMBOL(ipv6_addr_type);
+-EXPORT_SYMBOL(icmpv6_send);
+-EXPORT_SYMBOL(ndisc_mc_map);
+-EXPORT_SYMBOL(register_inet6addr_notifier);
+-EXPORT_SYMBOL(unregister_inet6addr_notifier);
+-#include <net/ip6_route.h>
+-EXPORT_SYMBOL(ip6_route_output);
+-#ifdef CONFIG_NETFILTER
+-EXPORT_SYMBOL(ip6_route_me_harder);
+-#endif
+-#endif
+-#if defined (CONFIG_IPV6_MODULE) || defined (CONFIG_KHTTPD) || defined =
+(CONFIG_KHTTPD_MODULE)
++#if defined (CONFIG_IPV6_MODULE) || defined (CONFIG_KHTTPD) || defined =
+(CONFIG_KHTTPD_MODULE) || defined (CONFIG_IP_SCTP_MODULE)
+ /* inet functions common to v4 and v6 */
+ EXPORT_SYMBOL(inet_release);
+ EXPORT_SYMBOL(inet_stream_connect);
+@@ -421,6 +412,14 @@
+ #endif
+=20
+ EXPORT_SYMBOL(tcp_read_sock);
++
++#ifdef CONFIG_IP_SCTP_MODULE
++EXPORT_SYMBOL(ip_setsockopt);
++EXPORT_SYMBOL(ip_getsockopt);
++EXPORT_SYMBOL(inet_ioctl);
++EXPORT_SYMBOL(inet_bind);
++EXPORT_SYMBOL(inet_getname);
++#endif /* CONFIG_IP_SCTP_MODULE */
+=20
+ EXPORT_SYMBOL(netlink_set_err);
+ EXPORT_SYMBOL(netlink_broadcast);
+diff -Nru a/net/socket.c b/net/socket.c
+--- a/net/socket.c	Fri Sep 19 15:34:00 2003
++++ b/net/socket.c	Fri Sep 19 15:34:00 2003
+@@ -325,7 +325,7 @@
+  *	but we take care of internal coherence yet.
+  */
+=20
+-static int sock_map_fd(struct socket *sock)
++int sock_map_fd(struct socket *sock)
+ {
+ 	int fd;
+ 	struct qstr this;
+
+------_=_NextPart_000_01C37EAB.5A49A8B0--
