@@ -1,67 +1,51 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Mon, 28 Feb 2005 01:10:38 +0900 (JST)
-Message-ID: <20050228.011038.129063054.yoshfuji@linux-ipv6.org>
-References: <200502270928.44402.Info@Quantum-Sci.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: A bug in the Kernel?
+Date: Sun, 27 Feb 2005 17:26:36 +0100
+Message-ID: <4221F4BC.1080409@trash.net>
+References: <1125.80.249.146.137.1109520029.squirrel@mx.imec.msu.ru>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-To: Info@Quantum-Sci.com
-In-Reply-To: <200502270928.44402.Info@Quantum-Sci.com>
+Cc: netdev@oss.sgi.com
+To: itkes@fat.imec.msu.ru
+In-Reply-To: <1125.80.249.146.137.1109520029.squirrel@mx.imec.msu.ru>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <200502270928.44402.Info@Quantum-Sci.com> (at Sun, 27 Feb 2005 09:28:44 -0600), Quantum Scientific <Info@Quantum-Sci.com> says:
+itkes@fat.imec.msu.ru wrote:
+> Let us suppose the application to request the routing tabled dump. I heve
+> found that in some conditions, this application may not receive some
+> unchanged routes, if some other routes was deleted.
 
-> After a week of intensive research and full-time study, it's become clear that 
-> IPV6 support, as it comes in standard Linux 2.6 kernels, is effectively 
-> non-functional.
+Could you describe this condition in more detail ? In your patch you
+change the type of "args" to void *, which results in a bigger patch
+and it shouldn't be done anyway. If you need to store a pointer simply
+cast it to long. Please send a plain (not gzipped) patch without this
+change and without the EXTRAVERSION change.
 
-Sigh...
+> P.S. After I have finished the patch, I found another bug in the Routing
+> Tables Dump. In function fn_hash_dump_bucket in fib_hash.c there is a
+> construction:
+> if (i<s_i)
+> 	continue;
+> ...
+> i++;
+> If the first "if" is true in first moment, "i" will never be increased and
+> some routes will be lost. My patch fixes this bug, too.
 
-It is defenetely functional for me.
+Good catch, this bug was introduced when switching to
+hlist_for_each_entry().
 
+-	for (i=0; f; i++, f=f->fn_next) {
+-		if (i < s_i) continue;
++	i = 0;
++	hlist_for_each_entry(f, node, head, fn_hash) {
++		struct fib_alias *fa;
++
++		list_for_each_entry(fa, &f->fn_alias, fa_list) {
++			if (i < s_i)
++				continue;
 
-> usagi.snap.split-tool-s20050214.tar.bz2
-> ... however this has no kernel patch within.
-> 
-> So I DLed 
-> usagi.snap.kit-linux26-s20050214.tar.bz2
-> ... and no kernel patch here either.  Only the kernel and tools.  I would have 
-> to run a USAGI-specific kernel, in order to have proper IPV6 support.  I must 
-> stay with the Debian kernel.
-
-I believe you should cry at debian-ipv6 list.
-
-And, you can find usagi kernel patch in split directory, and
-you can even find (unsupported) daily kernel snapshot (diff).
-
-
-> I can't believe the native kernel's IPV6 is so primitive.  I can't believe any 
-> kernel developers are actually using IPV6.  And I can't believe that anyone 
-> is actually using IPV6 with the Debian kernel.  The Debian IPV6 mailing list 
-> is full of spam, and brought viruses and scams to my door when I subscribed.  
-> No one I've asked questions of has mentioned any of this at all, so if there 
-> is an answer, it is clearly a secret.
-
-Sigh...
-
-Even you can't believe, I actually use IPv6 in my daily life.
-
-I use Debian kernel at first, but in most cases,
-I upgrade it to latest usagi tree ASAP.
-In this means, I don't usually use Debian IPv6 kernel. (sorry.)
-
-
-> So is there something I'm missing?  Am I completely fscked-up when I say that 
-> it doesn't work in practice, because there is no stateful packet filtering 
-> nor connection tracking?
-
-FYI, I hope nf_conntrack, which supports both ipv4 and ipv6, will be 
-integrated in 2.6.12 time frame.
-
-Note: nf_conntrack framework is designed and written by Kozakai-san.
-
---yoshfuji
+Regards
+Patrick
