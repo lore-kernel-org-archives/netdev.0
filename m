@@ -1,50 +1,40 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: System crash in tcp_fragment()
-Date: Mon, 20 May 2002 18:49:27 -0700 (PDT)
+From: "Laudney Ren" <laudney@21cn.com>
+Subject: T/TCP for Linux major update again.
+Date: Sun, 19 May 2002 20:59:51 +0800
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <acc972$mp1$2@main.gmane.org>
-References: <20020520.173416.105610032.davem@redhat.com>
+Message-ID: <Qm979480794458.19193@receive10.inner-21cn.com>
+Reply-To: laudney@21cn.com
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <kuznet@ms2.inr.ac.ru>, <george@mvista.com>, <ak@suse.de>,
-   <netdev@oss.sgi.com>, <linux-net@vger.kernel.org>, <ak@muc.de>,
-   <pekkas@netcore.fi>
+Content-Type: text/plain;
+      charset="GB2312"
+Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020520.173416.105610032.davem@redhat.com>
+To: netdev <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 May 2002, David S. Miller wrote:
+T/TCP for Linux has seen major progress in the last 1.5 months:
 
-> Such rule does not even make this piece of code legal.  Consider:
-> 
-> task1:cpu0:	x = counters[smp_processor_id()];
->       cpu0:	PREEMPT
-> task2:cpu0:	x = counters[smp_processor_id()];
-> task2:cpu0:	counters[smp_processor_id()] = x + 1;
->       cpu0:	PREEMPT
-> task1:cpu0:	counters[smp_processor_id()] = x + 1;
-> 		full garbage
-> 
-> But it does bring up important point, preemption people need to
-> fully audit entire networking.
-> 
-> It is totally broken by preemption the more I think about it.
-> 
-> At the very beginning, all the SNMP counter bumping tricks will
-> totally fail with preemption enabled.
-> 
+1. Documents updated
+Some core documents, including some graphs such as T/TCP sending
+and receiving flowgraphs and T/TCP state transition graph, have
+been carefully reviewed and modified.
 
-A lot of the synchronization between process context and interrupt
-context is based on per-cpu data structures or simple locks
-(without disabling irq's globally) eg:
+2. Tools added
+"SourceInsight" has been added to the downloadable tools list.
+It's a Windows-based IDE especially suitable for complex projects
+involving plenty of files and functions. It enables you to jump
+directly from one variable to its type definition or from one
+function to called functions within it. A lot of other features
+prove incredibly useful.
 
-softnet_data queue (we only disable local interrupts), and
-synchronization between tcp_readmsg() and tcp_rcv() over
-the receive queue would get confused (lock.users flag would
-be different on another CPU)..
+3. First phase of debugging completed.
+The patch for 2.4.2 has successfully gone through kernel compilcation.
+The next phase of debugging will focus on function correctness based
+on RFC1644. The codes will be released soon along with guidance
+documents, so anyone interested can participate.
 
-Wonder how any of it could possibly work..
 
-thanks,
-Nivedita
+Any comment is welcomed at laudney@21cn.com
+
+Laudney,
+Admin of Sourceforge project T/TCP for Linux
