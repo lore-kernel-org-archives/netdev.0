@@ -1,70 +1,41 @@
-From: Christian Tschudin <Christian.Tschudin@unibas.ch>
-Subject: Re: PROBLEM: nd_tbl not a public symbol in net/ipv6/ndisc.c
-Date: Mon, 31 Jan 2005 11:30:52 +0100 (MET)
-Message-ID: <Pine.OSF.4.58.0501311111380.2054@igor.urz.unibas.ch>
-References: <Pine.OSF.4.58.0501310903220.211@igor.urz.unibas.ch>
- <20050131.172022.93845025.yoshfuji@linux-ipv6.org>
- <Pine.OSF.4.58.0501310922130.2054@igor.urz.unibas.ch>
- <20050131.190157.42878368.yoshfuji@linux-ipv6.org>
+From: Horms <horms@verge.net.au>
+Subject: Re: [patch 2/2] ipvs deadlock fix
+Date: Mon, 31 Jan 2005 13:21:12 +0300
+Message-ID: <20050131102111.GA6279@verge.net.au>
+References: <200501310633.j0V6X1l01385@mail.osdl.org> <20050131093609.GA3804@verge.net.au> <20050131014722.77d732c4.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=X-UNKNOWN
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20050131.190157.42878368.yoshfuji@linux-ipv6.org>
+To: Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20050131014722.77d732c4.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jan 2005, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
-=CC=C0 wrote:
+On Mon, Jan 31, 2005 at 01:47:22AM -0800, Andrew Morton wrote:
+> Horms <horms@verge.net.au> wrote:
+> >
+> > On Sun, Jan 30, 2005 at 10:33:02PM -0800, akpm@osdl.org wrote:
+> >  > 
+> >  > 
+> >  > update_defense_level() is calling si_meminfo() from timer context.  But
+> >  > si_meminfo takes non-irq-safe locks.
+> >  > 
+> >  > Move it all to keventd context.  
+> > 
+> >  Would I be right in thinking that the offending lock is bdev_lock which
+> >  is grabbed in nr_blockdev_pages() and thus that this is not an issue
+> >  for 2.4 whose si_meminfo() does not have such a call?
+> 
+> Yes, 2.4's si_meminfo() seems to be OK from interrupt context.
 
-> Ok, but basically, we do not export it unless it is really used.
-> We may do if it is necessary when you merge it.
->
-> BTW, for your purpose, we may export
->  ndisc_lookup()
-> or something instead of nd_tbl itself.
->
-> Anyway, I'd like to know the usage (code).
+Thanks.
 
-Your new ndisc_lookup() would need to distinguish the IP address types
-(relating to different tables).
+> On x86 - I didn't check the other architectures.
 
-Here is roughly what we do:
+Me neither.
 
----
-int netbox_neigh_map(struct net_device *dev,
-		     struct lunartarget_s *host,
-		     char *eth)
-{
-	struct neighbour *neigh =3D 0;
-
-	if (TARGET_IS_IPV4(host))
-		neigh =3D neigh_lookup_errno(&arp_tbl, (struct in_addr*)&(host->addr.ip=
-v4), dev);
-	else if (TARGET_IS_IPV6(host))
-		neigh =3D neigh_lookup_errno(&nd_tbl, &host->addr.ipv6, dev);
-
-        if (!IS_ERR(neigh)) {
-		neigh->parms->delay_probe_time =3D 0;
-                NEIGH_UPDATE(neigh, eth, NUD_REACHABLE, 1, 0);
-                neigh_release(neigh);
-        }
-
-	return 0;
-}
----
-
-Our other function netbox_neigh_unmap() is basically the same,
-with the flag NUD_REACHABLE replaced by NUD_NONE.
-
-best, christian
-
-PS: full code (use guest/guest for username/password) at
-    https://subversion.cs.unibas.ch/repos/lunar/trunk/lnx/knetbox.c
-
->
-> --yoshfuji
->
+-- 
+Horms
