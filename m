@@ -1,38 +1,36 @@
-From: Florian Weimer <fw@deneb.enyo.de>
-Subject: Re: Route cache performance under stress
-Date: Sun, 08 Jun 2003 15:10:25 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <874r30r9z2.fsf@deneb.enyo.de>
-References: <87wuge59w2.fsf@deneb.enyo.de>
-	<20030526.233211.54217447.davem@redhat.com>
-	<87he70re62.fsf@deneb.enyo.de>
-	<20030608.050500.28795668.davem@redhat.com>
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH][IPV6] keeping dst refcnt correctly with using xfrm
+Date: Mon, 9 Jun 2003 01:47:52 +1000 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0306090145030.3907-100000@excalibur.intercode.com.au>
+References: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030608.050500.28795668.davem@redhat.com> (David S. Miller's
- message of "Sun, 08 Jun 2003 05:05:00 -0700 (PDT)")
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@redhat.com, <kuznet@ms2.inr.ac.ru>, <usagi@linux-ipv6.org>,
+   <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Kazunori Miyazawa <kazunori@miyazawa.org>
+In-Reply-To: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"David S. Miller" <davem@redhat.com> writes:
+On Fri, 6 Jun 2003, Kazunori Miyazawa wrote:
 
-> Although, I hope it's not "too similar" to what CEF does because
-> undoubtedly Cisco has a bazillion patents in this area.
+> In output functions, dst is changed by xfrm_lookup if there is 
+> any matching policy. Therefore original dst which is held before
+> calling xfrm_lookup will be never released.
+> When xfrm_lookup scceeds and dst is changed, original dst should
+> be release.
 
-Most things in this area are patented, and the patents are extremely
-fuzzy (e.g. policy-based routing with hierarchical sequence of
-decisions has been patented countless times). 8-(
+It is released in xfrm_lookup():
 
-> This is actually an argument for coming up with out own algorithms
-> without any knowledge of what CEF does or might do. :(
+        *dst_p = dst;
+        ip_rt_put(rt);
+        xfrm_pol_put(policy);
+        return 0;
 
-The branchless variant is not described in the IOS book, and I can't
-tell if Cisco routers use it.  If this idea is really novel, we are in
-pretty good shape because we no longer use trees, tries or whatever,
-but a DFA. 8-)
 
-Further parameters which could be tweaked is the kind of adjacency
-information (where to store the L2 information, whether to include the
-prefix length in the adjacency record etc.).
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
