@@ -1,33 +1,44 @@
-From: Andi Kleen <ak@suse.de>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: network delay simulation
-Date: Wed, 17 Mar 2004 03:06:34 +0100
+Date: Tue, 16 Mar 2004 18:40:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040317030634.5c369b36.ak@suse.de>
+Message-ID: <4057BA81.9090602@candelatech.com>
 References: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
-	<20040317000048.10d9f52c.ak@suse.de>
-	<20040316175052.556d5c22.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040316175052.556d5c22.davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040316151058.3cc2fa28@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Mar 2004 17:50:52 -0800
-"David S. Miller" <davem@redhat.com> wrote:
-
-> On Wed, 17 Mar 2004 00:00:48 +0100
-> Andi Kleen <ak@suse.de> wrote:
+Stephen Hemminger wrote:
+> Still bumming around for how to easily simulate long latencies.
+> There is NISTnet but that is fugly old 2.2 code; and Dummynet, and hitbox 
+> which are FreeBSD based. The existing traffic shaper might do, but it seems
+> to be limited to lower speed lines and needs some work (using atomic_set
+> do own locking for instance).
 > 
-> > iirc there was a 2.4 port of NistNet. Porting it to 2.6 is probably
-> > not that much work.
+> Probably "the cowboy way" would be to right a new net/scheduler to just
+> do FIFO delay.
 > 
-> nistnet works, but even akpm remembers it as pretty grotty, who knows
-> maybe the most recent 2.4.x variant was much better, but I doubt it.
+> Any ideas/comments? Somebody have some code sitting in a drawer?
 
-For testing it's probably good enough. No need to merge it ;-)
+I'll give you licenses to my (closed source) LANforge-ICE WAN emulator which runs
+as a Linux module and has been benchmarked at 1Gbps full-duplex (well, 999Mbps).
 
--Andi
+It can do up to about 1 second delay at 1Gbps, but with more delay
+at this high speed it runs out of memory (seems skb_alloc, or the
+way I am calling it, will not use high-memory).  At lower speeds you
+can have several seconds of delay.
+
+Please send me email off the list if you are interested.
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
