@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.70] e100 initialize fields prior to register_netdevice
-Date: Thu, 29 May 2003 10:36:50 -0700
+Subject: [PATCH 2.5.70] e100 report link speed via if_port
+Date: Thu, 29 May 2003 10:41:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529103650.64d61340.shemminger@osdl.org>
+Message-ID: <20030529104138.751a1f54.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -14,62 +14,32 @@ To: "David S. Miller" <davem@redhat.com>,
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The e100 driver sets many of the fields in the netdevice structure after
-calling the register function.  This confuses the sysfs setup, because
-it uses the presence of the get_stats function pointer to decide whether
-to setup a statistics directory or not.  The earlier patch to net-sysfs
-keeps this from causing a crash.
+The e100 driver knows the link speed, but it is not visible through sysfs.
+Small patch to update the net_device if_port when speed is detected;
+this can then be read through /sys/class/net/eth0/if_port.
 
-This patch moves the initialization earlier before registration.  It probably
-closes other races as well, where some program could access the e100 driver
-before the pointers were setup.
-
---- linux-2.5/drivers/net/e100/e100_main.c	2003-05-27 11:04:34.000000000 -0700
+--- linux-2.5-incr/drivers/net/e100/e100_main.c	2003-05-29 09:52:35.000000000 -0700
 +++ linux-2.5-sysfs/drivers/net/e100/e100_main.c	2003-05-29 08:56:47.000000000 -0700
-@@ -614,6 +614,22 @@
- 		goto err_dealloc;
- 	}
+@@ -1720,12 +1720,22 @@
+ 			       (bdp->cur_dplx_mode == HALF_DUPLEX) ?
+ 			       "Half" : "Full");
  
-+	dev->vlan_rx_register = e100_vlan_rx_register;
-+	dev->vlan_rx_add_vid = e100_vlan_rx_add_vid;
-+	dev->vlan_rx_kill_vid = e100_vlan_rx_kill_vid;
-+	dev->irq = pcid->irq;
-+	dev->open = &e100_open;
-+	dev->hard_start_xmit = &e100_xmit_frame;
-+	dev->stop = &e100_close;
-+	dev->change_mtu = &e100_change_mtu;
-+	dev->get_stats = &e100_get_stats;
-+	dev->set_multicast_list = &e100_set_multi;
-+	dev->set_mac_address = &e100_set_mac;
-+	dev->do_ioctl = &e100_ioctl;
-+	if (bdp->flags & USE_IPCB)
-+		dev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
-+				NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
++			if (bdp->cur_line_speed == 10)
++				dev->if_port = IF_PORT_10BASET;
++			else if(bdp->cur_line_speed == 100) {
++				if (bdp->cur_dplx_mode == HALF_DUPLEX) 
++					dev->if_port = 	IF_PORT_100BASETX;
++				else
++					dev->if_port = IF_PORT_100BASEFX;
++			}
 +
- 	if ((rc = register_netdev(dev)) != 0) {
- 		goto err_pci;
- 	}
-@@ -660,23 +676,6 @@
-                 goto err_unregister_netdev;
- 	}
- 	
--	dev->vlan_rx_register = e100_vlan_rx_register;
--	dev->vlan_rx_add_vid = e100_vlan_rx_add_vid;
--	dev->vlan_rx_kill_vid = e100_vlan_rx_kill_vid;
--	dev->irq = pcid->irq;
--	dev->open = &e100_open;
--	dev->hard_start_xmit = &e100_xmit_frame;
--	dev->stop = &e100_close;
--	dev->change_mtu = &e100_change_mtu;
--	dev->get_stats = &e100_get_stats;
--	dev->set_multicast_list = &e100_set_multi;
--	dev->set_mac_address = &e100_set_mac;
--	dev->do_ioctl = &e100_ioctl;
--
--	if (bdp->flags & USE_IPCB)
--	dev->features = NETIF_F_SG | NETIF_F_HW_CSUM |
--			NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--		
- 	e100nics++;
+ 			e100_config_fc(bdp);
+ 			e100_config(bdp);  
  
- 	e100_get_speed_duplex_caps(bdp);
+ 		} else {
+ 			printk(KERN_ERR "e100: %s NIC Link is Down\n",
+ 			       bdp->device->name);
++			dev->if_port = IF_PORT_UNKNOWN;
+ 		}
+ 	}
+ 
