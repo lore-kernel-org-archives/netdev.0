@@ -1,8 +1,8 @@
 From: "peter lawson" <plawson@applelinks.net>
 Subject: GOOD   NEWS
-Date: Mon, 14 Jul 2003 09:16:07 -0400
+Date: Mon, 14 Jul 2003 09:56:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <web-305519020@mail.maclaunch.com>
+Message-ID: <web-305519726@mail.maclaunch.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 8bit
@@ -76,7 +76,7 @@ I have set aside 10% for you for your time and
 patience.
 
 
-You can e-mail me at:plawson@thisiscyberia.coma
+You can e-mail me at:plawson@thisiscyberia.com
  
 
 While I await to hear from you, may God be with you
