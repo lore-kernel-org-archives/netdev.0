@@ -1,7 +1,7 @@
 From: Chris Wright <chrisw@osdl.org>
-Subject: [PATCH 4/8] Use SLAB_PANIC when creating critical slab cache
-Date: Sun, 14 Nov 2004 12:22:38 -0800
-Message-ID: <20041114122238.B2357@build.pdx.osdl.net>
+Subject: [PATCH 5/8] Use SLAB_PANIC when creating critical slab cache
+Date: Sun, 14 Nov 2004 12:23:18 -0800
+Message-ID: <20041114122318.C2357@build.pdx.osdl.net>
 References: <20041114121837.X2357@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,19 +18,19 @@ Use SLAB_PANIC when creating a critical slab cache.
 
 Signed-off-by: Chris Wright <chrisw@osdl.org>
 
-===== net/ipv4/inetpeer.c 1.9 vs edited =====
---- 1.9/net/ipv4/inetpeer.c	2004-02-23 15:09:14 -08:00
-+++ edited/net/ipv4/inetpeer.c	2004-10-29 14:17:33 -07:00
-@@ -126,11 +126,8 @@ void __init inet_initpeers(void)
- 
- 	peer_cachep = kmem_cache_create("inet_peer_cache",
- 			sizeof(struct inet_peer),
--			0, SLAB_HWCACHE_ALIGN,
-+			0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
- 			NULL, NULL);
+===== net/ipv4/ipmr.c 1.45 vs edited =====
+--- 1.45/net/ipv4/ipmr.c	2004-07-20 14:55:34 -07:00
++++ edited/net/ipv4/ipmr.c	2004-10-29 14:11:57 -07:00
+@@ -1885,11 +1885,8 @@ void __init ip_mr_init(void)
+ {
+ 	mrt_cachep = kmem_cache_create("ip_mrt_cache",
+ 				       sizeof(struct mfc_cache),
+-				       0, SLAB_HWCACHE_ALIGN,
++				       0, SLAB_HWCACHE_ALIGN|SLAB_PANIC,
+ 				       NULL, NULL);
+-	if (!mrt_cachep)
+-		panic("cannot allocate ip_mrt_cache");
 -
--	if (!peer_cachep)
--		panic("cannot create inet_peer_cache");
- 
- 	/* All the timers, started at system startup tend
- 	   to synchronize. Perturb it a bit.
+ 	init_timer(&ipmr_expire_timer);
+ 	ipmr_expire_timer.function=ipmr_expire_process;
+ 	register_netdevice_notifier(&ip_mr_notifier);
