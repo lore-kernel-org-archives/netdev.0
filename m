@@ -1,171 +1,298 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: [PATCH] b44 1GB DMA workaround (was: b44: add 47xx support)
-Date: Wed, 4 Aug 2004 03:31:08 +0300
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: [PATCH 2.6] Wireless drivers update for WE-17
+Date: Tue, 3 Aug 2004 17:40:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804003108.GA10445@ee.oulu.fi>
-References: <200407232335.37809.jolt@tuxbox.org> <20040726141128.GA5435@ee.oulu.fi>
+Message-ID: <20040804004035.GA26633@bougret.hpl.hp.com>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Cc: Florian Schirmer <jolt@tuxbox.org>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        Linux kernel mailing list <linux-kernel@vger.kernel.org>
 Content-Disposition: inline
-In-Reply-To: <20040726141128.GA5435@ee.oulu.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 26, 2004 at 05:11:28PM +0300, Pekka Pietikainen wrote:
-> Looks good (well, won't be able to test that it doesn't break 4401 until
-> next week :-) ).
-The 47xx patch didn't break anything for 4401 so I'm all for merging.
-> As for the 1GB patch going in, I sure hope they would (perhaps in a cleaned
-> up state, it might be more pretty if I just unconditionally enabled the
-> workaround and had a b44_alloc_skb() that tries a normal dev_alloc_skb and if
-> that gives something over 1GB retry with GFP_DMA...
-I just did that, apart from possibly reducing the default ring sizes to
-reduce GFP_DMA usage from the ~= 1.6MB worst-case it is now, it's just about
-as good as it'll ever get. Would be nice to get this merged, it seems to
-be hitting quite a few people out there.
+	Hi Jeff,
 
-Signed-off-by: Pekka Pietikainen <pp@ee.oulu.fi>
---- linux-2.6.7-1.503/drivers/net/b44.h.bb	2004-08-04 00:34:37.850485784 +0300
-+++ linux-2.6.7-1.503/drivers/net/b44.h	2004-08-04 00:34:48.711834608 +0300
-@@ -493,6 +493,7 @@
+	This patch complement the main WE-17 patch I just sent you. It
+updates a few driver to take advantage of WE-17. You should queue it
+along with the other patch.
+
+	o Aironet driver :
+		o iwspy data can be shared between eth0 and wifi0 if needed
+		o allow arbitrarily large scan results (no longer limited)
+		o export wireless event capabilities
+	o Wavelan drivers :
+		o export wireless event capabilities
+
+	Have fun...
+
+	Jean
+
+-------------------------------------------------------------
+
+diff -u -p -r linux/drivers/net/wireless.we16/airo.c linux/drivers/net/wireless/airo.c
+--- linux/drivers/net/wireless.we16/airo.c	Mon Aug  2 14:35:54 2004
++++ linux/drivers/net/wireless/airo.c	Tue Aug  3 11:33:26 2004
+@@ -1188,6 +1188,7 @@ struct airo_info {
+ 	struct iw_statistics	wstats;		// wireless stats
+ 	unsigned long		scan_timestamp;	/* Time started to scan */
+ 	struct iw_spy_data	spy_data;
++	struct iw_public_data	wireless_data;
+ #endif /* WIRELESS_EXT */
+ #ifdef MICSUPPORT
+ 	/* MIC stuff */
+@@ -2626,8 +2627,7 @@ static void wifi_setup(struct net_device
+ 	dev->set_mac_address = &airo_set_mac_address;
+ 	dev->do_ioctl = &airo_ioctl;
+ #ifdef WIRELESS_EXT
+-	dev->get_wireless_stats = airo_get_wireless_stats;
+-	dev->wireless_handlers = (struct iw_handler_def *)&airo_handler_def;
++	dev->wireless_handlers = &airo_handler_def;
+ #endif /* WIRELESS_EXT */
+ 	dev->change_mtu = &airo_change_mtu;
+ 	dev->open = &airo_open;
+@@ -2654,6 +2654,9 @@ static struct net_device *init_wifidev(s
+ 	dev->priv = ethdev->priv;
+ 	dev->irq = ethdev->irq;
+ 	dev->base_addr = ethdev->base_addr;
++#ifdef WIRELESS_EXT
++	dev->wireless_data = ethdev->wireless_data;
++#endif /* WIRELESS_EXT */
+ 	memcpy(dev->dev_addr, ethdev->dev_addr, dev->addr_len);
+ 	err = register_netdev(dev);
+ 	if (err<0) {
+@@ -2733,8 +2736,9 @@ struct net_device *_init_airo_card( unsi
+ 	dev->set_mac_address = &airo_set_mac_address;
+ 	dev->do_ioctl = &airo_ioctl;
+ #ifdef WIRELESS_EXT
+-	dev->get_wireless_stats = airo_get_wireless_stats;
+-	dev->wireless_handlers = (struct iw_handler_def *)&airo_handler_def;
++	dev->wireless_handlers = &airo_handler_def;
++	ai->wireless_data.spy_data = &ai->spy_data;
++	dev->wireless_data = &ai->wireless_data;
+ #endif /* WIRELESS_EXT */
+ 	dev->change_mtu = &airo_change_mtu;
+ 	dev->open = &airo_open;
+@@ -3217,7 +3221,7 @@ badrx:
+ 					goto exitrx;
+ 				}
+ 			}
+-#ifdef IW_WIRELESS_SPY		/* defined in iw_handler.h */
++#ifdef WIRELESS_SPY
+ 			if (apriv->spy_data.spy_number > 0) {
+ 				char *sa;
+ 				struct iw_quality wstats;
+@@ -3237,7 +3241,7 @@ badrx:
+ 				/* Update spy records */
+ 				wireless_spy_update(dev, sa, &wstats);
+ 			}
+-#endif /* IW_WIRELESS_SPY */
++#endif /* WIRELESS_SPY */
+ 			OUT4500( apriv, EVACK, EV_RX);
  
- 	struct ring_info	*rx_buffers;
- 	struct ring_info	*tx_buffers;
-+	unsigned char		*tx_bufs; 
+ 			if (test_bit(FLAG_802_11, &apriv->flags)) {
+@@ -3467,7 +3471,7 @@ badmic:
+ #else
+ 		memcpy(buffer, ai->rxfids[0].virtual_host_addr, len);
+ #endif
+-#ifdef IW_WIRELESS_SPY		/* defined in iw_handler.h */
++#ifdef WIRELESS_SPY
+ 		if (ai->spy_data.spy_number > 0) {
+ 			char *sa;
+ 			struct iw_quality wstats;
+@@ -3479,7 +3483,7 @@ badmic:
+ 			/* Update spy records */
+ 			wireless_spy_update(ai->dev, sa, &wstats);
+ 		}
+-#endif /* IW_WIRELESS_SPY */
++#endif /* WIRELESS_SPY */
  
- 	u32			dma_offset;
- 	u32			flags;
-@@ -525,7 +526,7 @@
- 	struct pci_dev		*pdev;
- 	struct net_device	*dev;
+ 		skb->dev = ai->dev;
+ 		skb->ip_summed = CHECKSUM_NONE;
+@@ -6505,6 +6509,13 @@ static int airo_get_range(struct net_dev
+ 		range->avg_qual.level = 176;	/* -80 dBm */
+ 	range->avg_qual.noise = 0;
  
--	dma_addr_t		rx_ring_dma, tx_ring_dma;
-+	dma_addr_t		rx_ring_dma, tx_ring_dma,tx_bufs_dma;
- 
- 	u32			rx_pending;
- 	u32			tx_pending;
---- linux-2.6.7-1.503/drivers/net/b44.c.bb	2004-08-04 00:34:30.653579880 +0300
-+++ linux-2.6.7-1.503/drivers/net/b44.c	2004-08-04 02:54:12.756306576 +0300
-@@ -27,8 +27,8 @@
- 
- #define DRV_MODULE_NAME		"b44"
- #define PFX DRV_MODULE_NAME	": "
--#define DRV_MODULE_VERSION	"0.94"
--#define DRV_MODULE_RELDATE	"May 4, 2004"
-+#define DRV_MODULE_VERSION	"0.95"
-+#define DRV_MODULE_RELDATE	"Aug 3, 2004"
- 
- #define B44_DEF_MSG_ENABLE	  \
- 	(NETIF_MSG_DRV		| \
-@@ -57,6 +57,7 @@
- #define B44_DEF_TX_RING_PENDING		(B44_TX_RING_SIZE - 1)
- #define B44_TX_RING_BYTES	(sizeof(struct dma_desc) * \
- 				 B44_TX_RING_SIZE)
-+#define B44_DMA_MASK 0x3fffffff
- 
- #define TX_RING_GAP(BP)	\
- 	(B44_TX_RING_SIZE - (BP)->tx_pending)
-@@ -67,6 +68,7 @@
- #define NEXT_TX(N)		(((N) + 1) & (B44_TX_RING_SIZE - 1))
- 
- #define RX_PKT_BUF_SZ		(1536 + bp->rx_offset + 64)
-+#define TX_PKT_BUF_SZ		(B44_MAX_MTU + ETH_HLEN + 8)
- 
- /* minimum number of free TX descriptors required to wake up TX process */
- #define B44_TX_WAKEUP_THRESH		(B44_TX_RING_SIZE / 4)
-@@ -631,10 +633,30 @@
- 	if (skb == NULL)
- 		return -ENOMEM;
- 
--	skb->dev = bp->dev;
- 	mapping = pci_map_single(bp->pdev, skb->data,
- 				 RX_PKT_BUF_SZ,
- 				 PCI_DMA_FROMDEVICE);
-+
-+	/* Hardware bug work-around, the chip is unable to do PCI DMA
-+	   to/from anything above 1GB :-( */
-+	if(mapping+RX_PKT_BUF_SZ > B44_DMA_MASK) {
-+		/* Sigh... */
-+		pci_unmap_single(bp->pdev, mapping, RX_PKT_BUF_SZ,PCI_DMA_FROMDEVICE);
-+		dev_kfree_skb_any(skb);
-+		skb = __dev_alloc_skb(RX_PKT_BUF_SZ,GFP_DMA);
-+		if (skb == NULL)
-+			return -ENOMEM;
-+		mapping = pci_map_single(bp->pdev, skb->data,
-+					 RX_PKT_BUF_SZ,
-+					 PCI_DMA_FROMDEVICE);
-+		if(mapping+RX_PKT_BUF_SZ > B44_DMA_MASK) {
-+			pci_unmap_single(bp->pdev, mapping, RX_PKT_BUF_SZ,PCI_DMA_FROMDEVICE);
-+			dev_kfree_skb_any(skb);
-+			return -ENOMEM;
-+		}
-+	}
-+
-+	skb->dev = bp->dev;
- 	skb_reserve(skb, bp->rx_offset);
- 
- 	rh = (struct rx_header *)
-@@ -912,6 +934,13 @@
- 
- 	entry = bp->tx_prod;
- 	mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-+	if(mapping+len > B44_DMA_MASK) {
-+		/* Chip can't handle DMA to/from >1GB, use bounce buffer */
-+		pci_unmap_single(bp->pdev, mapping, len,PCI_DMA_TODEVICE);
-+		memcpy(bp->tx_bufs+entry*TX_PKT_BUF_SZ,skb->data,skb->len);
-+		skb->data=bp->tx_bufs+entry*TX_PKT_BUF_SZ;
-+		mapping = pci_map_single(bp->pdev, skb->data, len, PCI_DMA_TODEVICE);
-+	}
- 
- 	bp->tx_buffers[entry].skb = skb;
- 	pci_unmap_addr_set(&bp->tx_buffers[entry], mapping, mapping);
-@@ -1059,6 +1088,11 @@
- 				    bp->tx_ring, bp->tx_ring_dma);
- 		bp->tx_ring = NULL;
- 	}
-+	if (bp->tx_bufs) {
-+		pci_free_consistent(bp->pdev, B44_TX_RING_SIZE * TX_PKT_BUF_SZ,
-+				    bp->tx_bufs, bp->tx_bufs_dma);
-+		bp->tx_bufs = NULL;
-+	}
++	/* Event capability (kernel + driver) */
++	range->event_capa[0] = (IW_EVENT_CAPA_K_0 |
++				IW_EVENT_CAPA_MASK(SIOCGIWTHRSPY) |
++				IW_EVENT_CAPA_MASK(SIOCGIWAP) |
++				IW_EVENT_CAPA_MASK(SIOCGIWSCAN));
++	range->event_capa[1] = IW_EVENT_CAPA_K_1;
++	range->event_capa[4] = IW_EVENT_CAPA_MASK(IWEVTXDROP);
+ 	return 0;
  }
  
- /*
-@@ -1081,6 +1115,12 @@
- 		goto out_err;
- 	memset(bp->tx_buffers, 0, size);
+@@ -6872,9 +6883,15 @@ static int airo_get_scan(struct net_devi
+ 	while((!rc) && (BSSList.index != 0xffff)) {
+ 		/* Translate to WE format this entry */
+ 		current_ev = airo_translate_scan(dev, current_ev,
+-						 extra + IW_SCAN_MAX_DATA,
++						 extra + dwrq->length,
+ 						 &BSSList);
  
-+	size = B44_TX_RING_SIZE * TX_PKT_BUF_SZ;
-+	bp->tx_bufs = pci_alloc_consistent(bp->pdev, size, &bp->tx_bufs_dma);
-+	if (!bp->tx_bufs)
-+		goto out_err;
-+	memset(bp->tx_bufs, 0, size);
++		/* Check if there is space for one more entry */
++		if((extra + dwrq->length - current_ev) <= IW_EV_ADDR_LEN) {
++			/* Ask user space to try again with a bigger buffer */
++			return -E2BIG;
++		}
 +
- 	size = DMA_TABLE_BYTES;
- 	bp->rx_ring = pci_alloc_consistent(bp->pdev, size, &bp->rx_ring_dma);
- 	if (!bp->rx_ring)
-@@ -1746,12 +1786,19 @@
+ 		/* Read next entry */
+ 		rc = PC4500_readrid(ai, RID_BSSLISTNEXT,
+ 				    &BSSList, sizeof(BSSList), 1);
+@@ -7010,12 +7027,10 @@ static const struct iw_handler_def	airo_
+ 	.num_standard	= sizeof(airo_handler)/sizeof(iw_handler),
+ 	.num_private	= sizeof(airo_private_handler)/sizeof(iw_handler),
+ 	.num_private_args = sizeof(airo_private_args)/sizeof(struct iw_priv_args),
+-	.standard	= (iw_handler *) airo_handler,
+-	.private	= (iw_handler *) airo_private_handler,
+-	.private_args	= (struct iw_priv_args *) airo_private_args,
+-	.spy_offset	= ((void *) (&((struct airo_info *) NULL)->spy_data) -
+-			   (void *) NULL),
+-
++	.standard	= airo_handler,
++	.private	= airo_private_handler,
++	.private_args	= airo_private_args,
++	.get_wireless_stats = airo_get_wireless_stats,
+ };
  
- 	pci_set_master(pdev);
+ #endif /* WIRELESS_EXT */
+diff -u -p -r linux/drivers/net/wireless.we16/wavelan.c linux/drivers/net/wireless/wavelan.c
+--- linux/drivers/net/wireless.we16/wavelan.c	Mon Aug  2 14:23:02 2004
++++ linux/drivers/net/wireless/wavelan.c	Tue Aug  3 11:35:52 2004
+@@ -2172,6 +2172,11 @@ static int wavelan_get_range(struct net_
+ 	range->num_bitrates = 1;
+ 	range->bitrate[0] = 2000000;	/* 2 Mb/s */
  
--	err = pci_set_dma_mask(pdev, (u64) 0xffffffff);
-+	err = pci_set_dma_mask(pdev, (u64) B44_DMA_MASK);
- 	if (err) {
- 		printk(KERN_ERR PFX "No usable DMA configuration, "
- 		       "aborting.\n");
- 		goto err_out_free_res;
- 	}
-+	
-+	err = pci_set_consistent_dma_mask(pdev, (u64) B44_DMA_MASK);
-+	if (err) {
-+	  printk(KERN_ERR PFX "No usable DMA configuration, "
-+		 "aborting.\n");
-+	  goto err_out_free_res;
-+	}
++	/* Event capability (kernel + driver) */
++	range->event_capa[0] = (IW_EVENT_CAPA_MASK(0x8B02) |
++				IW_EVENT_CAPA_MASK(0x8B04));
++	range->event_capa[1] = IW_EVENT_CAPA_K_1;
++
+ 	/* Disable interrupts and save flags. */
+ 	spin_lock_irqsave(&lp->spinlock, flags);
+ 	
+@@ -2403,11 +2408,10 @@ static const struct iw_handler_def	wavel
+ 	.num_standard	= sizeof(wavelan_handler)/sizeof(iw_handler),
+ 	.num_private	= sizeof(wavelan_private_handler)/sizeof(iw_handler),
+ 	.num_private_args = sizeof(wavelan_private_args)/sizeof(struct iw_priv_args),
+-	.standard	= (iw_handler *) wavelan_handler,
+-	.private	= (iw_handler *) wavelan_private_handler,
+-	.private_args	= (struct iw_priv_args *) wavelan_private_args,
+-	.spy_offset	= ((void *) (&((net_local *) NULL)->spy_data) -
+-			   (void *) NULL),
++	.standard	= wavelan_handler,
++	.private	= wavelan_private_handler,
++	.private_args	= wavelan_private_args,
++	.get_wireless_stats = wavelan_get_wireless_stats,
+ };
  
- 	b44reg_base = pci_resource_start(pdev, 0);
- 	b44reg_len = pci_resource_len(pdev, 0);
+ /*------------------------------------------------------------------*/
+@@ -4190,8 +4194,9 @@ static int __init wavelan_config(struct 
+ #endif				/* SET_MAC_ADDRESS */
+ 
+ #ifdef WIRELESS_EXT		/* if wireless extension exists in the kernel */
+-	dev->get_wireless_stats = wavelan_get_wireless_stats;
+-	dev->wireless_handlers = (struct iw_handler_def *)&wavelan_handler_def;
++	dev->wireless_handlers = &wavelan_handler_def;
++	lp->wireless_data.spy_data = &lp->spy_data;
++	dev->wireless_data = &lp->wireless_data;
+ #endif
+ 
+ 	dev->mtu = WAVELAN_MTU;
+diff -u -p -r linux/drivers/net/wireless.we16/wavelan.p.h linux/drivers/net/wireless/wavelan.p.h
+--- linux/drivers/net/wireless.we16/wavelan.p.h	Mon Aug  2 14:23:02 2004
++++ linux/drivers/net/wireless/wavelan.p.h	Tue Aug  3 11:32:06 2004
+@@ -510,6 +510,7 @@ struct net_local
+   iw_stats	wstats;		/* Wireless-specific statistics */
+ 
+   struct iw_spy_data	spy_data;
++  struct iw_public_data	wireless_data;
+ #endif
+ 
+ #ifdef HISTOGRAM
+@@ -614,6 +615,8 @@ static inline void
+ /* ------------------- IOCTL, STATS & RECONFIG ------------------- */
+ static en_stats	*
+ 	wavelan_get_stats(struct net_device *);	/* Give stats /proc/net/dev */
++static iw_stats *
++	wavelan_get_wireless_stats(struct net_device *);
+ static void
+ 	wavelan_set_multicast_list(struct net_device *);
+ /* ----------------------- PACKET RECEPTION ----------------------- */
+diff -u -p -r linux/drivers/net/wireless.we16/wavelan_cs.c linux/drivers/net/wireless/wavelan_cs.c
+--- linux/drivers/net/wireless.we16/wavelan_cs.c	Mon Aug  2 14:28:32 2004
++++ linux/drivers/net/wireless/wavelan_cs.c	Tue Aug  3 11:37:31 2004
+@@ -1550,7 +1550,6 @@ wavelan_set_mac_address(struct net_devic
+ /*
+  * Frequency setting (for hardware able of it)
+  * It's a bit complicated and you don't really want to look into it...
+- * (called in wavelan_ioctl)
+  */
+ static inline int
+ wv_set_frequency(u_long		base,	/* i/o port of the card */
+@@ -2438,6 +2437,12 @@ static int wavelan_get_range(struct net_
+ 	range->num_bitrates = 1;
+ 	range->bitrate[0] = 2000000;	/* 2 Mb/s */
+ 
++	/* Event capability (kernel + driver) */
++	range->event_capa[0] = (IW_EVENT_CAPA_MASK(0x8B02) |
++				IW_EVENT_CAPA_MASK(0x8B04) |
++				IW_EVENT_CAPA_MASK(0x8B06));
++	range->event_capa[1] = IW_EVENT_CAPA_K_1;
++
+ 	/* Disable interrupts and save flags. */
+ 	spin_lock_irqsave(&lp->spinlock, flags);
+ 	
+@@ -2737,11 +2742,10 @@ static const struct iw_handler_def	wavel
+ 	.num_standard	= sizeof(wavelan_handler)/sizeof(iw_handler),
+ 	.num_private	= sizeof(wavelan_private_handler)/sizeof(iw_handler),
+ 	.num_private_args = sizeof(wavelan_private_args)/sizeof(struct iw_priv_args),
+-	.standard	= (iw_handler *) wavelan_handler,
+-	.private	= (iw_handler *) wavelan_private_handler,
+-	.private_args	= (struct iw_priv_args *) wavelan_private_args,
+-	.spy_offset	= ((void *) (&((net_local *) NULL)->spy_data) -
+-			   (void *) NULL),
++	.standard	= wavelan_handler,
++	.private	= wavelan_private_handler,
++	.private_args	= wavelan_private_args,
++	.get_wireless_stats = wavelan_get_wireless_stats,
+ };
+ 
+ /*------------------------------------------------------------------*/
+@@ -4720,9 +4724,10 @@ wavelan_attach(void)
+   dev->watchdog_timeo	= WATCHDOG_JIFFIES;
+ 
+ #ifdef WIRELESS_EXT	/* If wireless extension exist in the kernel */
+-  dev->wireless_handlers = (struct iw_handler_def *)&wavelan_handler_def;
+-  dev->do_ioctl = wavelan_ioctl;	/* old wireless extensions */
+-  dev->get_wireless_stats = wavelan_get_wireless_stats;
++  dev->wireless_handlers = &wavelan_handler_def;
++  dev->do_ioctl = wavelan_ioctl;	/* ethtool */
++  lp->wireless_data.spy_data = &lp->spy_data;
++  dev->wireless_data = &lp->wireless_data;
+ #endif
+ 
+   /* Other specific data */
+diff -u -p -r linux/drivers/net/wireless.we16/wavelan_cs.p.h linux/drivers/net/wireless/wavelan_cs.p.h
+--- linux/drivers/net/wireless.we16/wavelan_cs.p.h	Mon Aug  2 14:23:02 2004
++++ linux/drivers/net/wireless/wavelan_cs.p.h	Tue Aug  3 11:32:06 2004
+@@ -629,6 +629,7 @@ struct net_local
+   iw_stats	wstats;		/* Wireless specific stats */
+ 
+   struct iw_spy_data	spy_data;
++  struct iw_public_data	wireless_data;
+ #endif
+ 
+ #ifdef HISTOGRAM
+@@ -725,6 +726,8 @@ static inline void
+ /* ------------------- IOCTL, STATS & RECONFIG ------------------- */
+ static en_stats	*
+ 	wavelan_get_stats(struct net_device *);	/* Give stats /proc/net/dev */
++static iw_stats *
++	wavelan_get_wireless_stats(struct net_device *);
+ /* ----------------------- PACKET RECEPTION ----------------------- */
+ static inline int
+ 	wv_start_of_frame(struct net_device *,	/* Seek beggining of current frame */
