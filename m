@@ -1,25 +1,48 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: ANK's PSCHED_TDIFF_SAFE change unmasked old bug (~0UL != 0xFFFFFFFF)
-Date: Thu, 16 May 2002 18:59:51 +0400 (MSD)
+From: Martin Devera <devik@cdi.cz>
+Subject: Re: ANK's PSCHED_TDIFF_SAFE change unmasked old bug (~0UL !=
+ 0xFFFFFFFF)
+Date: Thu, 16 May 2002 17:11:39 +0200 (CEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200205161459.SAA22026@sex.inr.ac.ru>
-References: <Pine.LNX.4.44.0205161543400.12674-100000@luxik.cdi.cz>
+Message-ID: <Pine.LNX.4.44.0205161710030.12674-100000@luxik.cdi.cz>
+References: <Pine.GSO.4.05.10205161634030.10809-100000@mausmaki.cosy.sbg.ac.at>
 Mime-Version: 1.0
-Cc: davem@sex.inr.ac.ru (Dave Miller), netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: devik@cdi.cz (Martin Devera)
-In-Reply-To: <Pine.LNX.4.44.0205161543400.12674-100000@luxik.cdi.cz> from "Martin Devera" at May 16, 2 03:52:43 pm
+To: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
+In-Reply-To: <Pine.GSO.4.05.10205161634030.10809-100000@mausmaki.cosy.sbg.ac.at>
 List-Id: netdev.vger.kernel.org
 
-Hello!
+Well, so that the patch below should be ok. At least it works for IA32.
+I'll make it part of htb tarball for now to make users happy ..
+devik
 
-> echo -e "#if ~0UL == 0xffffffff\nTST\n#endif"|gcc -E -
-> echo -e "#if ~0UL == 0xffffffffffffffff\nTST\n#endif"|gcc -E -
-> 
-> and the second line displays TST !!
+--- ../linux-2.4orig/include/net/pkt_sched.h    Sun Dec  9 21:15:25 2001
++++ include/net/pkt_sched.h     Thu May 16 16:45:00 2002
+@@ -221,7 +221,7 @@
 
-With old good 2.7.2 this worked...
+ #define PSCHED_EXPORTLIST_2
 
-Dave, do you know a theory explaining this change in gcc behavior?
+-#if ~0UL == 0xFFFFFFFF
++#if BITS_PER_LONG <= 32
 
-Alexey
+ #define PSCHED_WATCHER unsigned long
+
+
+
+
+On Thu, 16 May 2002, Thomas 'Dent' Mirlacher wrote:
+
+> --snip/snip
+> > Probably the test should be changed. I'm not sure how. How to detect
+> > that long is 64 bit in cpp ?
+>
+> by using BITS_PER_LONG (which is defined in include/asm/types.h)
+>
+> 	tm
+>
+> --
+> in some way i do, and in some way i don't.
+>
+>
+>
