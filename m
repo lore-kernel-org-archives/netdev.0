@@ -1,20 +1,23 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [0/9] via-rhine: Major surgery
-Date: Sat, 19 Jun 2004 17:20:06 -0400
+Subject: Re: [PATCH] cleanup large frame handling for natsemi.c
+Date: Sun, 20 Jun 2004 12:30:36 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D4AE06.6060403@pobox.com>
-References: <20040615174732.GA10241@k3.hellgate.ch>
+Message-ID: <20040620163036.GD16038@havoc.gtf.org>
+References: <40D57FC3.9040008@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roger Luethi <rl@hellgate.ch>
-In-Reply-To: <20040615174732.GA10241@k3.hellgate.ch>
+To: Manfred Spraul <manfred@colorfullife.com>
+Content-Disposition: inline
+In-Reply-To: <40D57FC3.9040008@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-all 9 patches applied to netdev-2.6 (and auto-propagated to Andrew's -mm 
-tree).
+On Sun, Jun 20, 2004 at 02:14:59PM +0200, Manfred Spraul wrote:
+> Jeff, could you apply it? I've stress tested vlan for an hour with 
+> tbench and parallel kernel compiles, not obvious problems.
 
-Will push to Linus after comments are resolved.
+I would if you had actually included a patch ;-)
+
+	Jeff
