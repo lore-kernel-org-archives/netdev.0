@@ -1,44 +1,45 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: TCP congestion control article
-Date: Tue, 29 Jun 2004 12:44:18 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040629124418.54bfe820.davem@redhat.com>
-References: <20040625123953.1d42b556.buffer@antifork.org>
-	<20040625091158.2e84ed3a.davem@redhat.com>
-	<20040629203418.0a844a5b.buffer@antifork.org>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Updated Wireless Extension patches
+Date: Tue, 29 Jun 2004 15:45:25 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040629194525.GF23191@havoc.gtf.org>
+References: <20040629162339.GA4356@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "Angelo Dell'Aera" <buffer@antifork.org>
-In-Reply-To: <20040629203418.0a844a5b.buffer@antifork.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux kernel mailing list <linux-kernel@vger.kernel.org>,
+	netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265955AbUF2Tp3@vger.kernel.org>
+To: jt@hpl.hp.com
+Content-Disposition: inline
+In-Reply-To: <20040629162339.GA4356@bougret.hpl.hp.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Jun 2004 20:34:18 +0200
-"Angelo Dell'Aera" <buffer@antifork.org> wrote:
+On Tue, Jun 29, 2004 at 09:23:39AM -0700, Jean Tourrilhes wrote:
+> 	Hi all,
+> 
+> 	I've been working a bit more on my current set of Wireless
+> Extension patches (WPA, Wireless-RtNetlink, ...). I've just updated
+> them on my personal web page :
+> 	http://www.hpl.hp.com/personal/Jean_Tourrilhes/Linux/Tools.html#wext
+> 
+> 	The main change is that I'm now happy of the format of
+> Wireless over RtNetlink, so it should be close to definitive. I've
+> also split all the minor changes as a separate patch (WE-17), so it
+> doesn't have to wait for WPA and Wireless-RtNetlink that still need a
+> bit of work, and I plan to push this patch soon.
+> 	You will also find patches for various drivers to take
+> advantage of the new features. I would like to thank the various
+> driver authors that sent me patches, suggestions and comments, and
+> thank them for their patience.
 
-> First of all I  know not too much about BITCP but  I think it's unsafe
-> to enable it by default... just  like it's unsafe to enable by default
-> any kind of new congestion control algorithm.
+Regardless of our recent discussions, I do want to emphasize that I wish
+to maintain the current WE, and its backwards compatibility, for the
+current 2.6.x stable series at the very least.
 
-I disagree.  In Stephen Hemminger and my own usage, BICTCP even
-improved performance in cases where we had mistakenly misconfigured
-our systems.  That, frankly, is impressive.
+So please don't be discouraged from submitting WE patches...
 
-Because it deals with long-fat-pipe issues as well, was another reason
-we choose to enable it over westwood+.
+	Jeff
 
-> Another thing.  I think it's  necessary to provide some  mechanism for
-> enabling  just one  of these  algorithms at  a time.
 
-We do, you turn one on and another one off. :-)
-
-I discussed this with Stephen the other week.  We came to the conclusion
-that enabling both algorithms at the same time is valid, and we should
-not put obstacles in the way to prevent people who wish to do this.
-It might even be beneficial in some situations.
-
-I agree with your analysis of Vegas, and that is why I did not enable it
-by default.  It has it's own set of problems, although I like many
-aspects of it.
+P.S. do associated userland wireless-tools patches exist to make use of
+netlink?  i.e. how have you been testing it?
