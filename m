@@ -1,28 +1,18 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch] 2.6.6-rc3 - r8169 rediff
-Date: Tue, 4 May 2004 01:24:00 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BK PATCH] minor SCTP updates
+Date: Mon, 3 May 2004 19:58:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040504012400.C4612@electric-eye.fr.zoreil.com>
+Message-ID: <20040503195802.1cf5b439.davem@redhat.com>
+References: <Pine.LNX.4.58.0405031413390.2682@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0405031413390.2682@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-A set of patches against 2.6.6-rc3 which includes the fixes issued yesterday
-by Andy Lutomirski is available.
 
-All in one patch against 2.6.6-rc3:
-  http://www.fr.zoreil.com/people/francois/misc/20040504-2.6.6-rc3-r8169.c-test.patch
-
-Individual files:
-  http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.6-rc3-01
-
-Tarball:
-  http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.6-rc3-01/r8169-blob.tar.bz2
-
---
-Ueimor
+Both pulled, thanks Sridhar.
