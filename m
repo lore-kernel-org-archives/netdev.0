@@ -1,46 +1,53 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: looking for help with scanning of IPv6 interfaces
-Date: Fri, 15 Nov 2002 23:52:00 +0100
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: Bugzilla bug tracking database for 2.5 now available.
+Date: Fri, 15 Nov 2002 16:45:34 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021115235200.B8265@wotan.suse.de>
-References: <20021115200051.A14677@wotan.suse.de> <Pine.LNX.4.44.0211151737010.6439-100000@beohost.scyld.com>
+Message-ID: <3DD5952E.CD88DD67@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@suse.de>, Michael Richardson <mcr@sandelman.ottawa.on.ca>,
-   netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: mjbligh@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Donald Becker <becker@scyld.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0211151737010.6439-100000@beohost.scyld.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > Physical devices are read using /proc/net/dev
-> ...
-> > That is the old fashioned way.
-> >  
-> > The new fashioned one is to query them using rtnetlink. You use a RTM_GETADDR
-> > NLM_F_REQUEST query with wildcard (NLM_F_ROOT) to get a full list.
-> > See the netlink,rtnetlink, libnetlink manpages and iproute2 as an example. 
-> > It is easier when you use libnetlink.
+Bouncing this to netdev, since not all of us read lkml,
+and quite a few people here who might want to use the
+bug database are still in the dark about it..
+
+Am including Martin's original post on the OSDL Linux 2.5
+Bug Tracker below, and if you want to follow the resultant
+thread, see:
+
+http://marc.theaimsgroup.com/?l=linux-kernel&m=103723818421551&w=2
+
+thanks,
+Nivedita
+
+> The bugzilla database we proposed earlier is now available for
+> use, hosted by OSDL.
 > 
-> Do you have a snippet of code?
-
-Check iproute2 or zebra source. iproute2 has a libnetlink which is quite useful.
-
-I also wrote some manpages (netlink(3),netlink(7),rtnetlink(7) etc, but 
-admittedly they are not very good) 
-
-> What kernel version does this start working?
-
-Somewhere in Linux 2.1.<late number> 
+> http://bugme.osdl.org
 > 
-> Of course for code that needs to work with already deployed systems, you
-> need to have code for the old method around anyway...
-
-Only when you still want to support 2.0. Ok some people do not enable
-netlink in their kernel configuration, but many modern distributions
-require it for booting now (because the network init scripts use iproute2),
-so this shouldn't be a big issue anymore.
-
--Andi
+> Feel free to go ahead and create yourself an account, and log
+> bugs in there. This is only for 2.5 bugs currently, and the main
+> intent is to help us drive 2.5 into a timely and stable 2.6 (or 3.0).
+> 
+> Please let me or the supplied mailto URLs know of any problems you 
+> encounter, but please be patient with any inital teething problems 
+> and don't tell slashdot just yet ;-) Apologies for this not being
+> ready quite at Halloween ... and there's not much data in there 
+> right  now, but we'll keep feeding it over the coming few days, 
+> including importing Thomas Molina's list of bugs.
+> 
+> The categories probably need some more work, they'll evolve as
+> bugs get logged. The reason I own huge numbers of subsystems is 
+> not just because I'm a derranged megalomaniac, it's more to do 
+> with the fact that I don't have other people available with 
+> accounts created to own them. Brave volunteers who've created an
+> account would be most welcome, ideally the code maintainers for
+> those subsystems, but other people familiar with those areas would
+> be a great substitute. ;-)
+> 
+> M.
