@@ -1,41 +1,159 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: fix TCP roundtrip time update code
-Date: Tue, 03 Jun 2003 19:01:25 -0700
-Sender: linux-ia64-admin@linuxia64.org
-Message-ID: <3EDD52F5.8090706@us.ibm.com>
-References: <200306040043.EAA24505@dub.inr.ac.ru>
+From: James Morris <jmorris@intercode.com.au>
+Subject: [PATCH] Use new kconfig 'select' for networking crypto
+Date: Wed, 4 Jun 2003 12:28:50 +1000 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0306041222190.28457-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@intercode.com.au>, davidm@hpl.hp.com,
-   gandalf@wlug.westbo.se, linux-kernel@vger.kernel.org,
-   linux-ia64@linuxia64.org, netdev@oss.sgi.com, davem@redhat.com,
-   akpm@digeo.com
-Return-path: <linux-ia64-admin@linuxia64.org>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200306040043.EAA24505@dub.inr.ac.ru>
-Errors-To: linux-ia64-admin@linuxia64.org
-List-Help: <mailto:linux-ia64-request@linuxia64.org?subject=help>
-List-Post: <mailto:linux-ia64@linuxia64.org>
-List-Subscribe: <http://lists.linuxia64.org/lists/listinfo/linux-ia64>,
-	<mailto:linux-ia64-request@linuxia64.org?subject=subscribe>
-List-Unsubscribe: <http://lists.linuxia64.org/lists/listinfo/linux-ia64>,
-	<mailto:linux-ia64-request@linuxia64.org?subject=unsubscribe>
-List-Archive: <http://lists.linuxia64.org/archives//linux-ia64/>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andrew Morton <akpm@digeo.com>, <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-kuznet@ms2.inr.ac.ru wrote:
+The patch below against recent bk uses the new 'select' feature of kconfig 
+to configure crypto features for ipsec and ipv6 privacy extensions.
 
-> No doubts. All the symptoms are explained by this. I hope Andrew
-> will confirm that the problem has gone.
+This should solve a lot of the build problems people have been having, and 
+it also enables the crypto submenu (which previously did not work).
 
-Yep, great catch! But, FYI, DaveM and Alexey, we tried
-reproducing the stalls we (Dave Hansen, Troy Wilson) had
-seen during SpecWeb99 runs and couldn't reproduce them on
-2.5.69. (Same config, etc). So its possible our hang/stalls
-were some other issue that got silently fixed (or more
-likely, possibly the same thing but other changes minimized
-us running into the problem).
+The sctp folk may also want to look at this scheme for their stuff.
 
-thanks,
-Nivedita
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
+
+diff -urN -X dontdiff bk.pending/crypto/Kconfig bk.w1/crypto/Kconfig
+--- bk.pending/crypto/Kconfig	2003-06-04 11:41:26.000000000 +1000
++++ bk.w1/crypto/Kconfig	2003-06-04 12:28:36.234711904 +1000
+@@ -6,16 +6,12 @@
+ 
+ config CRYPTO
+ 	bool "Cryptographic API"
+-	default y if INET_AH=y || INET_AH=m || INET_ESP=y || INET_ESP=m || INET6_AH=y || INET6_AH=m || \
+-		     INET6_ESP=y || INET6_ESP=m || INET6_IPCOMP=y || INET6_IPCOMP=m || IPV6_PRIVACY=y
+ 	help
+ 	  This option provides the core Cryptographic API.
+ 
+ config CRYPTO_HMAC
+ 	bool "HMAC support"
+ 	depends on CRYPTO
+-	default y if INET_AH=y || INET_AH=m || INET_ESP=y || INET_ESP=m || INET6_AH=y || INET6_AH=m || \
+-		     INET6_ESP=y || INET6_ESP=m
+ 	help
+ 	  HMAC: Keyed-Hashing for Message Authentication (RFC2104).
+ 	  This is required for IPSec.
+@@ -35,16 +31,12 @@
+ config CRYPTO_MD5
+ 	tristate "MD5 digest algorithm"
+ 	depends on CRYPTO
+-	default y if INET_AH=y || INET_AH=m || INET_ESP=y || INET_ESP=m || INET6_AH=y || INET6_AH=m || \
+-	             INET6_ESP=y || INET6_ESP=m || IPV6_PRIVACY=y
+ 	help
+ 	  MD5 message digest algorithm (RFC1321).
+ 
+ config CRYPTO_SHA1
+ 	tristate "SHA1 digest algorithm"
+ 	depends on CRYPTO
+-	default y if INET_AH=y || INET_AH=m || INET_ESP=y || INET_ESP=m  || INET6_AH=y || INET6_AH=m || \
+-	             INET6_ESP=y || INET6_ESP=m
+ 	help
+ 	  SHA-1 secure hash standard (FIPS 180-1/DFIPS 180-2).
+ 
+@@ -72,7 +64,6 @@
+ config CRYPTO_DES
+ 	tristate "DES and Triple DES EDE cipher algorithms"
+ 	depends on CRYPTO
+-	default y if INET_ESP=y || INET_ESP=m || INET6_ESP=y || INET6_ESP=m
+ 	help
+ 	  DES cipher algorithm (FIPS 46-2), and Triple DES EDE (FIPS 46-3).
+ 
+@@ -138,7 +129,6 @@
+ config CRYPTO_DEFLATE
+ 	tristate "Deflate compression algorithm"
+ 	depends on CRYPTO
+-	default y if INET_IPCOMP=y || INET_IPCOMP=m || INET6_IPCOMP=y || INET6_IPCOMP=m
+ 	help
+ 	  This is the Deflate algorithm (RFC1951), specified for use in
+ 	  IPSec with the IPCOMP protocol (RFC3173, RFC2394).
+diff -urN -X dontdiff bk.pending/net/ipv4/Kconfig bk.w1/net/ipv4/Kconfig
+--- bk.pending/net/ipv4/Kconfig	2003-06-04 11:42:08.000000000 +1000
++++ bk.w1/net/ipv4/Kconfig	2003-06-04 12:24:06.752679400 +1000
+@@ -343,6 +343,10 @@
+ 
+ config INET_AH
+ 	tristate "IP: AH transformation"
++	select CRYPTO
++	select CRYPTO_HMAC
++	select CRYPTO_MD5
++	select CRYPTO_SHA1
+ 	---help---
+ 	  Support for IPsec AH.
+ 
+@@ -350,6 +354,11 @@
+ 
+ config INET_ESP
+ 	tristate "IP: ESP transformation"
++	select CRYPTO
++	select CRYPTO_HMAC
++	select CRYPTO_MD5
++	select CRYPTO_SHA1
++	select CRYPTO_DES
+ 	---help---
+ 	  Support for IPsec ESP.
+ 
+@@ -357,6 +366,8 @@
+ 
+ config INET_IPCOMP
+ 	tristate "IP: IPComp transformation"
++	select CRYPTO
++	select CRYPTO_DEFLATE
+ 	---help---
+ 	  Support for IP Paylod Compression (RFC3173), typically needed
+ 	  for IPsec.
+diff -urN -X dontdiff bk.pending/net/ipv6/Kconfig bk.w1/net/ipv6/Kconfig
+--- bk.pending/net/ipv6/Kconfig	2003-06-04 11:42:09.000000000 +1000
++++ bk.w1/net/ipv6/Kconfig	2003-06-04 12:24:05.242908920 +1000
+@@ -4,6 +4,8 @@
+ config IPV6_PRIVACY
+ 	bool "IPv6: Privacy Extensions (RFC 3041) support"
+ 	depends on IPV6
++	select CRYPTO
++	select CRYPTO_MD5
+ 	---help---
+ 	  Privacy Extensions for Stateless Address Autoconfiguration in IPv6
+ 	  support.  With this option, additional periodically-alter 
+@@ -20,6 +22,10 @@
+ config INET6_AH
+ 	tristate "IPv6: AH transformation"
+ 	depends on IPV6
++	select CRYPTO
++	select CRYPTO_HMAC
++	select CRYPTO_MD5
++	select CRYPTO_SHA1
+ 	---help---
+ 	  Support for IPsec AH.
+ 
+@@ -28,6 +34,11 @@
+ config INET6_ESP
+ 	tristate "IPv6: ESP transformation"
+ 	depends on IPV6
++	select CRYPTO
++	select CRYPTO_HMAC
++	select CRYPTO_MD5
++	select CRYPTO_SHA1
++	select CRYPTO_DES
+ 	---help---
+ 	  Support for IPsec ESP.
+ 
+@@ -36,6 +47,8 @@
+ config INET6_IPCOMP
+ 	tristate "IPv6: IPComp transformation"
+ 	depends on IPV6
++	select CRYPTO
++	select CRYPTO_DEFLATE
+ 	---help---
+ 	  Support for IP Paylod Compression (RFC3173), typically needed
+ 	  for IPsec.
