@@ -1,23 +1,22 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] set owner on /proc/net/rt6_stats
-Date: Sat, 16 Aug 2003 07:48:09 -0700
+Subject: Re: [PATCH] SCTP: typo in Kconfig
+Date: Sat, 16 Aug 2003 07:49:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030816074809.629c20da.davem@redhat.com>
-References: <20030815110107.3ea9b4dc.shemminger@osdl.org>
+Message-ID: <20030816074914.4b86734f.davem@redhat.com>
+References: <20030816.053332.108341697.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030815110107.3ea9b4dc.shemminger@osdl.org>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030816.053332.108341697.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Aug 2003 11:01:07 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Sat, 16 Aug 2003 05:33:32 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> Fix up initialization of IPV6 /proc/net/rt6_stats entries so owner field is set.
-> Use proc_net_fops_create helper instead of proc_net_create and fops assignment.
+> This patch fixes typo in net/sctp/Kconfig.
 
-Patch applied, thanks Stephen.
+Patch applied, thank you.
