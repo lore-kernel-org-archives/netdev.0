@@ -1,67 +1,82 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Re: [PATCH 0/14] prism54: bring up to sync with prism54.org cvs rep
-Date: Sat, 29 May 2004 04:38:03 -0400
-Sender: prism54-devel-admin@prism54.org
-Message-ID: <20040529083803.GQ3330@ruslug.rutgers.edu>
-References: <5.1.0.14.2.20040528090459.00ae3d18@pop.t-online.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: 3/x: [NETDRV] Add register_ei_netdev
+Date: Sat, 29 May 2004 18:41:09 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040529084109.GA13032@gondor.apana.org.au>
+References: <20040313025859.GA8186@gondor.apana.org.au> <405C294D.5040508@pobox.com> <20040520111937.GA21804@gondor.apana.org.au> <20040522074435.GA9628@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="qx542RXz7QAsGbWW"
-Cc: prism54-devel@prism54.org, linux-netdev@vger.rutgers.edu,
-	netdev@oss.sgi.com, jgarzik@pobox.com
-Return-path: <prism54-devel-admin@prism54.org>
-To: Margit Schubert-While <margitsw@t-online.de>
+Content-Type: multipart/mixed; boundary="XsQoSWH+UP9D9v3l"
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <5.1.0.14.2.20040528090459.00ae3d18@pop.t-online.de>
-Errors-To: prism54-devel-admin@prism54.org
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel/>
+In-Reply-To: <20040522074435.GA9628@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---qx542RXz7QAsGbWW
+--XsQoSWH+UP9D9v3l
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
 
-On Fri, May 28, 2004 at 10:56:30AM +0200, Margit Schubert-While wrote:
-> The waitq change is no problem.
-> Luis, shall I update CVS ?
+Hi Jeff:
 
-Please do.=20
+Here is the patch that adds register_ei_netdev which lets us get rid of
+some of the duplicated printk's in the 8390 drivers.
+ 
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-> The other compats I assume are OK : -
-> synchronize_irq is defined like that in other drivers.
-> The firmware loader defines could be reduced from 2 to 1 by
-> changing the parameters to isl38xx_upload_firmware. I can't
-> see how to get rid of that entirely due to the parameter type
-> change from 2.4 to 2.6 in the firmware loader call.
+--XsQoSWH+UP9D9v3l
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-Good luck.
+===== drivers/net/8390.c 1.21 vs edited =====
+--- 1.21/drivers/net/8390.c	2004-04-14 04:12:07 +10:00
++++ edited/drivers/net/8390.c	2004-05-29 18:36:06 +10:00
+@@ -1033,6 +1033,29 @@
+ 				ethdev_setup);
+ }
+ 
++/**
++ * register_ei_netdev - register_netdev counterpart for 8390
++ *
++ * Register 8390-specific net_device.
++ */
++int register_ei_netdev(struct net_device *dev)
++{
++	int err;
++	int i;
++
++	err = register_netdev(dev);
++	if (err)
++		return err;
++
++	printk(KERN_INFO "%s: %s at 0x%lx, ",
++		dev->name, ei_status.name, dev->base_addr);
++	for (i = 0; i < ETHER_ADDR_LEN; i++)
++		printk("%2.2x%c", dev->dev_addr[i],
++			i == ETHER_ADDR_LEN - 1 ? ',' : ':');
++	printk(" IRQ %d.\n", dev->irq);
++	return 0;
++}
++
+ 
+ 
+ 
+===== drivers/net/8390.h 1.17 vs edited =====
+--- 1.17/drivers/net/8390.h	2004-05-25 19:53:07 +10:00
++++ edited/drivers/net/8390.h	2004-05-29 18:17:51 +10:00
+@@ -52,6 +52,7 @@
+ {
+ 	return __alloc_ei_netdev(0);
+ }
++extern int register_ei_netdev(struct net_device *dev);
+ 
+ /* You have one of these per-board */
+ struct ei_device {
 
-Jeff,
-
-Since Margit is working on touching up her compat work she'll just
-submit the patches.
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---qx542RXz7QAsGbWW
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAuEvrat1JN+IKUl4RArmXAJ9aCSlALawD35POMGVyaOGQCxmhkwCeIXHt
-wKuuYGbjDCMEjbB8ywYLiwo=
-=GxmE
------END PGP SIGNATURE-----
-
---qx542RXz7QAsGbWW--
+--XsQoSWH+UP9D9v3l--
