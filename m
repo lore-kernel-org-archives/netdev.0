@@ -1,50 +1,47 @@
-From: Eran Mann <emann@mrv.com>
-Subject: Re: [PATCH/RFC] disallow vlan devices on top of a logical bridge
- device
-Date: Wed, 03 Sep 2003 01:05:58 +0200
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Remove X86_TSC dependency in net profile code
+Date: Wed, 3 Sep 2003 01:00:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F552256.7000008@mrv.com>
-References: <200308301504.03241.bdschuym@pandora.be> <20030830203043.0eb1a660.davem@redhat.com> <20030902082807.0e18fe76.shemminger@osdl.org> <200309021932.37224.bdschuym@pandora.be>
+Message-ID: <20030902230057.GA5424@averell>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: emann@opticalaccess.com
-In-Reply-To: <200309021932.37224.bdschuym@pandora.be>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bart De Schuymer wrote:
 
-> 
-> OK. But isn't br0.15 supposed to work like this: all vlan tagged traffic with 
-> tag different from 15 is discarded, all non-tagged traffic is given to br0. 
-> This is how it works with a vlan on top of physical devices like eth0 if I 
-> read the code correctly, but it doesn't currently work like that for vlan on 
-> top of a logical bridge device. The vlan code only sees tagged packets if the 
-> packets are destined for the bridge box itself, so bridged traffic is 
-> unaffected.
-> This is why I think a vlan device on top of br0 in Linux is currently useless.
-> 
-> cheers,
-> Bart
-> 
-Actually this behavior (bridge all VLANs for non-local traffic, allow 
-incoming traffic only from configured VLANs) is exactly what you 
-typicaly want in a bridged VLAN-aware LAN. Assume for instance that an 
-enterprise has N departments and a VLAN (or a few) for each dept. You 
-want only guys from the MIS or IT department to be able to manage the 
-bridges, not all the departments. being able to configure br0.x in such 
-a setup would save you a lot of configuration. Otherwise you'd have to
-- configure all the N VLANs on all the physical ports.
-- define ebtable rules on each non MIS VLAN, on each physical port, to 
-block access to the bridge management.
-- define bridging between all the devices.
+This removes one of the remaining users of CONFIG_X86_TSC
 
-Also if you want to run spanning-tree than you have a slight problem, 
-since the STP code is not VLAN aware, and would send BPDUs on the VLAN 
-devices as if they were normal ports, so you need to setup a br
+Replace it with a runtime test instead. In some configurations it 
+will be still properly optimized because cpu_has_tsc will expand
+to a constant then.
 
-Regards,
-	Eran.
+This also makes it handle x86-64.
+
+I did not actually compile test this because net profile is commented
+out since a long time and doesn't compile. An alternative if noone comes
+up to fix it would be just to remove it completely.
+
+-Andi
+
+--- linux-2.6.0test4/include/net/profile.h-o	2003-05-27 03:00:21.000000000 +0200
++++ linux-2.6.0test4/include/net/profile.h	2003-08-29 19:48:11.000000000 +0200
+@@ -29,11 +29,14 @@
+ extern struct timeval net_profile_adjust;
+ extern void net_profile_irq_adjust(struct timeval *entered, struct timeval* leaved);
+ 
+-#ifdef CONFIG_X86_TSC
++#ifdef CONFIG_X86
+ 
+ static inline void  net_profile_stamp(struct timeval *pstamp)
+ {
+-	rdtsc(pstamp->tv_usec, pstamp->tv_sec);
++	if (cpu_has_tsc)
++		rdtsc(pstamp->tv_usec, pstamp->tv_sec);
++	else
++		do_gettimeofday(pstamp);
+ }
+ 
+ static inline void  net_profile_accumulate(struct timeval *entered,
