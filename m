@@ -1,75 +1,119 @@
-From: David Lang <david.lang@digitalinsight.com>
-Subject: Re: TOE brain dump
-Date: Sun, 3 Aug 2003 14:21:12 -0700 (PDT)
+From: "Alan Shih" <alan@storlinksemi.com>
+Subject: RE: TOE brain dump
+Date: Sun, 3 Aug 2003 15:02:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308031405130.24695-100000@dlang.diginsite.com>
-References: <20030803203051.GA9057@work.bitmover.com>
+Message-ID: <ODEIIOAOPGGCDIKEOPILGEMEDAAA.alan@storlinksemi.com>
+References: <Pine.LNX.4.44.0308030120150.24695-100000@dlang.diginsite.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Erik Andersen <andersen@codepoet.org>,
-   Werner Almesberger<werner@almesberger.net>, Jeff Garzik <jgarzik@pobox.com>,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-   Nivedita Singhvi<niv@us.ibm.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "Ben Greear" <greearb@candelatech.com>, "Jeff Garzik" <jgarzik@pobox.com>,
+   "Nivedita Singhvi" <niv@us.ibm.com>,
+   "Werner Almesberger" <werner@almesberger.net>, <netdev@oss.sgi.com>,
+   <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Larry McVoy <lm@bitmover.com>
-In-Reply-To: <20030803203051.GA9057@work.bitmover.com>
+To: "David Lang" <david.lang@digitalinsight.com>
+In-Reply-To: <Pine.LNX.4.44.0308030120150.24695-100000@dlang.diginsite.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 3 Aug 2003, Larry McVoy wrote:
+On an embedded system, no processor will be fast enough to compete with
+direct DMA xfer.  So just provide sendfile hooks that allow the kernel to
+initiate data filling from source to dest then allow TSO to take place.
+Kernel still needs to take care of the TCP stack.
 
-> On Sun, Aug 03, 2003 at 01:13:24PM -0700, David Lang wrote:
-> > 2. router nodes that have access to main memory (PCI card running linux
-> > acting as a router/firewall/VPN to offload the main CPU's)
->
-> I can get an entire machine, memory, disk, > Ghz CPU, case, power supply,
-> cdrom, floppy, onboard enet extra net card for routing, for $250 or less,
-> quantity 1, shipped to my door.
->
-> Why would I want to spend money on some silly offload card when I can get
-> the whole PC for less than the card?
+I don't see this as building extensive customization though.
 
-you may want to do this for a database box where you want to dedicate your
-main processing power to the database task, if you use a seperate box you
-still have to talk to that box over a network, if you have it as a card
-you can talk to the card much more efficantly then you can talk to the
-seperate machine.
+Alan
 
-if your 8-way opteron database box is already the bottleneck for your
-system you will have to spend a LOT of money to get anything that gives
-you more available processing power, getting a card to offload any
-processing from the main CPU's can be a win.
+-----Original Message-----
+From: David Lang [mailto:david.lang@digitalinsight.com]
+Sent: Sunday, August 03, 2003 1:26 AM
+To: Alan Shih
+Cc: Ben Greear; Jeff Garzik; Nivedita Singhvi; Werner Almesberger;
+netdev@oss.sgi.com; linux-kernel@vger.kernel.org
+Subject: RE: TOE brain dump
 
-yes this is somewhat of a niche market, but as you point out adding more
-and more processors in a SMP model is not the ideal way to go, either from
-performance or from the cost point of view.
 
-on the webserver front there are a lot of companies making a living by
-selling cards and boxes to offload processing from the main CPU's of the
-webservers (cards to do gzip compression are a relativly new addition, but
-cards to do SSL handshakes have been around for a while) used properly
-these can be a very worthwhile invenstment for high-volume webserver
-companies.
+do you really want the processor on the card to be tunning
+apache/NFS/Samba/etc ?
 
-also the cost of an extra box can be considerably higer then just the cost
-of the hardware.
+putting enough linux on the card to act as a router (which would include
+the netfilter stuff) is one thing. putting the userspace code that
+interfaces with the outside world for file transfers is something else.
 
-I know of one situation where between Linux OS license fees (redhat
-advanced server) and security software (intrusion detection, auditing,
-privilage management, etc) a company is looking at ~$4000 in licensing
-fees for every box they put in their datacenter (and this is for boxes
-just running apache, add something like an oracle or J2EE appserver
-software and the cost goes up even more). at this point the fact that the
-box only cost $200 doesn't really matter, spending an extra $500 each on 4
-boxes to eliminate the need for a 5th is easily worth it. (and this
-company is re-examining hardwaare raid controllers after having run
-software raid for years becouse they are realizing that this is requiring
-them to run more servers due to the load on the CPU's)
+if you really want the disk connected to your network card you are just
+talking a low-end linux box. forget all this stuff about it being on a
+card and just use a full box (economys of scale will make this cheaper)
 
-at the low end you are right, just add another box or add another CPU to
-an existing box, but there are conditions that make adding specialized
-cards to offload specific functionality a win (for that matter, even at
-the low end people routinly offload graphics processing to specialized
-cards, simply to make their games run faster)
+making a firewall that's a core system with a dozen slave systems attached
+to it (the network cards) sounds like the type of clustering that Linux
+has been used for for compute nodes. complicated to setup, but extremely
+powerful and scalable once configured.
+
+if you want more then a router on the card then Alan Cox is right, just
+add another processor to the system, it's easier and cheaper.
 
 David Lang
+
+
+ On
+Sat, 2 Aug 2003, Alan Shih wrote:
+
+> Date: Sat, 2 Aug 2003 23:22:52 -0700
+> From: Alan Shih <alan@storlinksemi.com>
+> To: Ben Greear <greearb@candelatech.com>, Jeff Garzik <jgarzik@pobox.com>
+> Cc: Nivedita Singhvi <niv@us.ibm.com>,
+>      Werner Almesberger <werner@almesberger.net>, netdev@oss.sgi.com,
+>      linux-kernel@vger.kernel.org
+> Subject: RE: TOE brain dump
+>
+> A DMA xfer that fills the NIC pipe with IDE source. That's not very
+hard...
+> need a lot of bufferring/FIFO though.  May require large modification to
+the
+> file serving applications?
+>
+> Alan
+>
+> -----Original Message-----
+> From: linux-kernel-owner@vger.kernel.org
+> [mailto:linux-kernel-owner@vger.kernel.org]On Behalf Of Ben Greear
+> Sent: Saturday, August 02, 2003 9:02 PM
+> To: Jeff Garzik
+> Cc: Nivedita Singhvi; Werner Almesberger; netdev@oss.sgi.com;
+> linux-kernel@vger.kernel.org
+> Subject: Re: TOE brain dump
+>
+>
+> Jeff Garzik wrote:
+>
+> > So, fix the other end of the pipeline too, otherwise this fast network
+> > stuff is flashly but pointless.  If you want to serve up data from disk,
+> > then start creating PCI cards that have both Serial ATA and ethernet
+> > connectors on them :)  Cut out the middleman of the host CPU and host
+>
+> I for one would love to see something like this, and not just Serial ATA..
+> but maybe 8x Serial ATA and RAID :)
+>
+> Ben
+>
+>
+> --
+> Ben Greear <greearb@candelatech.com>
+> Candela Technologies Inc  http://www.candelatech.com
+>
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
