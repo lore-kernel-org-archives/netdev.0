@@ -1,38 +1,28 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Fw: [Bugme-new] [Bug 3657] New: downed interfaces acting as
- aliases
-Date: Fri, 29 Oct 2004 00:06:51 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Ipsec-tools-devel] ipv4/ipv6 forwarding check
+Date: Fri, 29 Oct 2004 17:23:53 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029000651.6fd7360f.davem@davemloft.net>
-References: <20041028234649.2d4ed3b8.akpm@osdl.org>
-	<20041028234502.203b42c3.davem@davemloft.net>
-	<4181ED02.1060501@candelatech.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, netdev@oss.sgi.com, mbm@alt.org
+Message-ID: <E1CNR73-0007X6-00@gondolin.me.apana.org.au>
+References: <4181EBC3.3020507@gmc.lt>
+Cc: latten@austin.ibm.com, ipsec-tools-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4181ED02.1060501@candelatech.com>
+To: a.kasparas@gmc.lt (Aidas Kasparas)
+In-Reply-To: <4181EBC3.3020507@gmc.lt>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 00:10:58 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+Aidas Kasparas <a.kasparas@gmc.lt> wrote:
+> 
+>        Meanwhile, I would like to recomend to abstain from upgrading to 
+> anything above 2.6.9.
 
-> Why would you want this behaviour?  If it's configured down, it would
-> seem that the user is trying to tell the system not to use it :)
+Doesn't sound like a good idea as that's a massive security hole.
 
-Because IP addresses are assosciated with the host, not
-a specific interface or link.  That is the model that
-we've implemented since day one.
-
-According to the RFCs, this is one of several valid models.
-
-People hate it that when there's a decision of whether to
-reply to something or not, we do whatever we can to reply
-to packets we receive if we can find a way to do so.  This
-approache increases the likelyhood that two hosts can
-communicate successfully.  I need not remind people about
-how much people dislike our default ARP behavior :-) but
-it is done that way for the same reason.
+Racoon with a pre-2.6.9 kernel will allow source addresses to come
+through the IPsec tunnel even if the violate IPsec policies.
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
