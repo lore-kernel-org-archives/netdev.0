@@ -1,37 +1,87 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: [PATCH/RFC] PATCH: IPV6: Fix multiple leakages (is Re: unregister_netdevice:
- waiting for tun6to4 to become free.)
-Date: Fri, 24 Sep 2004 22:51:06 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [6/6]: jenkins hash for neigh
+Date: Fri, 24 Sep 2004 14:27:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415488BA.7020609@tomt.net>
-References: <41527796.4010204@tomt.net>	<4152843D.6010204@tomt.net>	<20040923.172253.125681726.yoshfuji@linux-ipv6.org> <20040925.040506.106641510.yoshfuji@linux-ipv6.org>
+Message-ID: <20040924142702.62a2b23d.davem@davemloft.net>
+References: <20040923225158.23c2d502.davem@davemloft.net>
+	<20040924085234.GE3236@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: davem@davemloft.net, tgraf@suug.ch, pp@ee.oulu.fi, jgarzik@pobox.com,
-        dwmw2@infradead.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040925.040506.106641510.yoshfuji@linux-ipv6.org>
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040924085234.GE3236@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
->>Thank you everyone for tracking down this bug.
->>I will fix this bug and come up with patch tomorrow (or so).
->=20
-> Well, I've created changesets which should fix multiple leakages.
-> Here's the snapshot.  Please review.
+On Fri, 24 Sep 2004 10:52:34 +0200
+Harald Welte <laforge@gnumonks.org> wrote:
 
-I applied the following set to my internal 2.6.8.1 tree;
-> ChangeSet@1.2006, 2004-09-24 16:29:02+09:00, yoshfuji@linux-ipv6.org
->  [IPV6] Don't multiply join multicast/anycast addresses.
+> So this means you put get_random_bytes into the __init function.  I
+> explicitly didn't want to do that (and added that _initted variable),
+> since at bootup time we might not have sufficient entropy yet.
 
-It fixed my problem, thanks :-)
+Good point.
 
-Unless someone convinces me it has ill-effects with whats in the 2.6.8.1
-ipv6 stack, it will probably go out in a router upgrade push some late
-night this weekend.
+> If we defer get_random_bytes() until the first neighbour is created,
+> this gives the system some more time to gather entropy...  
+ ...
+> Also, wouldn't it make sense to use a new random value if we grow the
+> hash table?  I mean it's cheap, and we make it harder for someone trying
+> a hash-based attack.  
 
---=20
-Andr=C3=A9 Tomt
+I've combined all of your thoughts into the patch below.
+We set the initial ARP table very small (2 chains), and we
+regenerate the random seed every time we grow the hash table.
+
+This should address all of your concerns.
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/09/24 14:06:45-07:00 davem@nuts.davemloft.net 
+#   [NET]: Neighbour hashing tweaks.
+#   
+#   1) Start with a smaller initial hash table size.
+#      This stresses the new code better.
+#   2) Generate a new hash_rnd every time we grow
+#      the hashes.
+#   
+#   Based upon commentary from Harald Welte.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# net/core/neighbour.c
+#   2004/09/24 14:06:02-07:00 davem@nuts.davemloft.net +2 -1
+#   [NET]: Neighbour hashing tweaks.
+#   
+#   1) Start with a smaller initial hash table size.
+#      This stresses the new code better.
+#   2) Generate a new hash_rnd every time we grow
+#      the hashes.
+#   
+#   Based upon commentary from Harald Welte.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+diff -Nru a/net/core/neighbour.c b/net/core/neighbour.c
+--- a/net/core/neighbour.c	2004-09-24 14:07:07 -07:00
++++ b/net/core/neighbour.c	2004-09-24 14:07:07 -07:00
+@@ -331,6 +331,7 @@
+ 	old_hash = tbl->hash_buckets;
+ 
+ 	write_lock_bh(&tbl->lock);
++	get_random_bytes(&tbl->hash_rnd, sizeof(tbl->hash_rnd));
+ 	for (i = 0; i < old_entries; i++) {
+ 		struct neighbour *n, *next;
+ 
+@@ -1306,7 +1307,7 @@
+ 	if (!tbl->kmem_cachep)
+ 		panic("cannot create neighbour cache");
+ 
+-	tbl->hash_mask = 0x1f;
++	tbl->hash_mask = 1;
+ 	tbl->hash_buckets = neigh_hash_alloc(tbl->hash_mask + 1);
+ 
+ 	phsize = (PNEIGH_HASHMASK + 1) * sizeof(struct pneigh_entry *);
