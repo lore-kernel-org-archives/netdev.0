@@ -1,9 +1,9 @@
 From: Stefan Rompf <srompf@isg.de>
 Subject: Re: Patch: Device operative state notification against 2.5.7
-Date: Mon, 01 Apr 2002 16:44:51 +0200
+Date: Sun, 31 Mar 2002 12:23:59 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CA87263.6FD1F1AF@isg.de>
-References: <Pine.GSO.4.30.0203310941120.9704-100000@shell.cyberus.ca>
+Message-ID: <3CA6E3BF.8815AA4F@isg.de>
+References: <Pine.GSO.4.30.0203302133110.7012-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -13,108 +13,48 @@ List-Id: netdev.vger.kernel.org
 
 Hi Jamal,
 
-first thanks for your long reply. I've moved the last part of your mail
-to the front to answer on it first.
+> in the future can you please just post to netdev on networking
+> related issues? I responded to lk, but feel free to remove it
+> from the list.
 
-> If we were to follow the BSD or CISCOish view of the world, then
-> removing a cable or death of allocated virtual circuit/tunnel would
-> mean !IFF_RUNNING.
+ok. Do all netdev people already know the patch or shall I repost it to
+this list?
 
-You've caught me, a lot of my networking experience involved cisco stuff
-;-) Anyway, I thought the semantic decision has already been made during
-the development cycle from 2.2 to 2.4. In 2.4, IFF_RUNNING of the
-in-kernel dev->flags it totally unused except for broken drivers. What
-you see in fact as IFF_RUNNING when querying an interface from
-userspace, is the LINK_STATE_NOCARRIER bit. Look at
-net/core/dev.c::dev_ifsioc(), case SIOCGIFFLAGS or the rtnetlink
-equivalent. Consequently, dev_change_flags() does not touch the
-IFF_RUNNING flag (part of IFF_VOLATILE).
+> -I am not sure the idea of using a kernel thread is the best. Maybe
+> move the checks to both the tx or rx softirqs instead of its own scheduling.
+> -In particular, it would be a better idea not to just go walking all the
+> devices; only walk devices that have raised an netif_carrier_.
 
-> NO_CARRIER | IFF_RUNNING | meaning
-> -----------|-------------|------------------------------------
-> !set       | !set        | There is carrier, but no cable
->            |             | no sense for ethernet; but may be useful
->            |             | for PPP (for example line protocol is not up)
+Is it possible to send (netlink) messages from a softirq? Anyway, in the
+tx/rx softirqs the check would be executed for nearly every packet, so
+the tradeoff of having a kernel thread that polls the devices on request
+(so may be never as long as the network is fine) seems better to me,
+even if it has to walk through the complete list.
 
-If LPCP in a PPP interface is not open and the interface is not waiting
-for dial on demand, I'd consider it admin down, !IFF_UP. May be the term
-"carrier" in the flag and functions is simply misnamed and we should
-have a three states instead. If the interface is admin up, it's
-operational state can be:
+> -A shared devices bitmask across SMP should be enough (i.e no need for
+> per-CPU state)
 
--up
- The driver is sure that it can transmit and receive packets over the
-line. Depending on the driver, that can be HDLC framing, HDLC
-keepalives, ethernet carrier, generically said some kind of heartbeat.
-This state does not include any protocols that might be used over the
-line, just that layer 1 is up -> IFF_RUNNING
--down
- The driver cannot transmit packets. This may be the inverse of one of
-the conditions above, but can also something like a stalled ethernet
-tranceiver (adding a fourth internal state) -> !IFF_RUNNING
--unknown
- Some dial on demand interface that is currently not bound to a physical
-or logical line, mostly your truth table entry quoted above. May be
-these interfaces should simply have an IFF_UNBOUND flag that is set in
-this mode
+Neither dev->flags nor dev->state are per-CPU. Am I missing something?
 
-> Think of either a bonding, VLANs
+> -Another thing might be to double check that the condition that raised
+> the state change is still valid example -
+> in between the moment you say a link is down due to some bad hardware
+> fault to the moment some device timer recovers it;
 
-For these, operational state should follow the underlying interface(s).
+The patch does that. After the thread wakes up, it iterates over the
+device list and sends only messages if it sees differences between
+IFF_RUNNING and LINK_STATE_NO_CARRIER.
 
-> or extreme case where PPP
-> circuit is up for one protocol but not for another.
+> -Also IFF_RUNNING seems to have inconsistent semantics in a lot of
+> drivers. It should really stand for "operational status" whereas
+> IFF_UP should stand for "admin status" -- anyone wanna shed historical
+> wisdom here?
 
-That's a completely different case. If negotiation for a specific
-protocol fails, the interface is still admin & operational up, but
-cannot have a valid address for the protocol in question. In this case,
-it is the users' decision if it makes sense to keep the interface admin
-up.
+Ultimately, that's what I want IFF_RUNNING to become in linux.
 
-> > Is it possible to send (netlink) messages from a softirq?
-> 
-> Why not?
-
-You are right, but my thread actually calls netdev_state_change(), and
-the event devinet.c::inetdev_event() requires holding the RTNL
-semaphore. As I want in kernel notification, so that f.e. the VLAN
-driver can react on state changes of underlying devices, some kind of
-process context is needed.
-
-> In regards to walking the whole dev list:
-> There is no point in polling when there is no work to be done (and
-> therefore no need for you to walk all the devices which have not shown
-> interest). A simple "registration" by devices raising or lowering carrier
-> would be the best way to do it (via netif_carrier_on/ff). The first
-> device on the list also wakes up the thread (or as you do right now
-> always wakes it up).
-
-I'll have a look if I can implement such a list. There are three reasons
-why I haven't done it in the current version:
-
--netif_carrier_on()/_off() seems to be designed to be called from
-anywhere, interrupts, timers, processes, so I didn't want to add too
-much locking and memory allocation in this place. Also I have to admit
-that I'm not yet long enough in kernel programming to know which kind of
-memory I may safely allocate for list elements from an interrupt ;-)
--When the thread goes through this list of events, it has either to
-check for every element if the device still exists (currently only
-possible by traversing the device list so that the thread would actually
-get _less_ efficient) or the event list has to be consulted on interface
-removal
--A runaway driver must be kept from allocating *lots* of kernel memory
-by calling netif_carrier_on()/_off() in a tight loop
-
-And yes, I was lazy and didn't want to overoptimize stuff that lies
-dormant nearly all the time ;-)
-
-> Note, you want to report both transitions and you also want to make
-> sure its not just simple noise.
-
-A better solution should forward an op down immediatly and delay op up
-by a defined time to check if no other op down arrives, but this would
-have to be done before allocating list elements. Should be possible with
-timers and extending the device structure to hold these elements... I'll
-think about it.
+There are 14 files left below linux/drivers that still play with
+IFF_RUNNING instead of using the netif_carrier_o* functions. I'm willing
+to supply patches for them as they are broken anyway, but I won't be
+able to do more than a test if the modifications compile.
 
 Cheers, Stefan
