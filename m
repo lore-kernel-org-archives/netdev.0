@@ -1,31 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] netem - enhancement
-Date: Wed, 18 Aug 2004 14:16:00 -0700
+Subject: Re: [2.6 patch] atalk compile errors with SYSCTL=n
+Date: Wed, 18 Aug 2004 14:47:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040818141600.1fd67e91.davem@redhat.com>
-References: <20040811123103.620c2a36@dell_ss3.pdx.osdl.net>
+Message-ID: <20040818144728.5f5734c4.davem@redhat.com>
+References: <20040811224747.GQ26174@fs.tum.de>
+	<20040811170101.69c140b6@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: bunk@fs.tum.de, acme@conectiva.com.br, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040811123103.620c2a36@dell_ss3.pdx.osdl.net>
+In-Reply-To: <20040811170101.69c140b6@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Aug 2004 12:31:03 -0700
+On Wed, 11 Aug 2004 17:01:01 -0700
 Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> This still needs more testing to go into the mainstream but here is the
-> updated version of netem.  It adds:
->   * distribution table (if any) loaded as part of the configuration
->   * random packet duplication
->   * correlated random number's for loss, jitter, duplication
->   * changing netem parameters doesn't wipe out underlying qdisc
->   * better random number generator - simple net_random just isn't good enough
-> 
-> Also more complete comments and attribution.
+> I prefer to have the CONFIG stuff in the header file.
+> Here is an alternative that rearranges to put all function
+> prototypes in atalk.h and stubs if necessary. It gets all the #ifdef
+> CONFIG_ stuff out of the .c files.
 
-I guess you will soon post an updated version
-that makes use of the newer net_getrandom() stuff?
+Applied, thanks Stephen.
