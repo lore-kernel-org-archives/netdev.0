@@ -1,37 +1,51 @@
-From: "Kevin P. Fleming" <kpfleming@cox.net>
-Subject: How to begin debugging ACPI/network driver interrupt problem?
-Date: Wed, 09 Jul 2003 10:34:06 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: Bug in Linux 2.5.74 IPv6 routing
+Date: Thu, 10 Jul 2003 03:31:17 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0C520E.2080809@cox.net>
+Message-ID: <20030710.033117.93244305.yoshfuji@linux-ipv6.org>
+References: <20030709195237.A8550@horus.imag.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: pekkas@netcore.fi, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acpi-support@lists.sourceforge.net, netdev@oss.sgi.com
+To: Jean-Luc.Richier@imag.fr
+In-Reply-To: <20030709195237.A8550@horus.imag.fr>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I've got a system here using an MSI KT266-based motherboard that's 
-been running 2.5.X successfully for months now. However, 2.5.73/74 
-have introduced a problem that (so far) I have only been able to cure 
-by either not compiling in ACPI or using acpi=off on the kernel 
-command line.
+CC: netdev
 
-The system three NICs:
+In article <20030709195237.A8550@horus.imag.fr> (at Wed, 9 Jul 2003 19:52:37 +0200), Jean-Luc Richier <Jean-Luc.Richier@imag.fr> says:
 
-eth0 is a National Semiconductor DP83815
-eth1 is a National Semiconductor DP83820
-eth2 is a Lite-On 82C168
+> There is a bug in IPv6 route calculation since kernel 2.5.71. It affects
+> all routes with prefix length != 0 (mod 8)
+> The bug is as follows:
+> do:	ip -6 route add 2000::/3 via 2001:688:121:10::1
+> 	ip -6 route
+> It shows a route for ::/3, not for 2000::/3
 
-All three NICs work fine. However, on the newer kernels, with ACPI 
-compiled in, during initialization of eth0 the kernel generates "IRQ 
-17 and nobody cared!" messages and disables IRQ 17, which causes eth0 
-to be useless :-)
+good catch.
 
-With older kernels, or ACPI not turned on, eth0 still gets assigned 
-IRQ 17, and works just fine. IRQ 17 is not shared with any other devices.
+> PATCH 2: avoid overwriting the set value
+> --- linux-2.5.74/include/net/ipv6.h.DIST	2003-07-02 22:53:44.000000000 +0200
+> +++ linux-2.5.74/include/net/ipv6.h	2003-07-09 18:51:25.000000000 +0200
+> @@ -276,8 +276,10 @@
+>  	    b = plen & 0x7;
+>  
+>  	memcpy(pfx->s6_addr, addr, o);
+> -	if (b != 0)
+> +	if (b != 0) {
+>  		pfx->s6_addr[o] = addr->s6_addr[o] & (0xff00 >> b);
+> +		o++;
+> +	}
+>  	if (o < 16)
+>  		memset(pfx->s6_addr + o, 0, 16 - o);
+>  }
+> 
 
-I don't think I can handle the additional message traffic of these two 
-mailing lists, so I haven't subscribed... If anyone can suggest a 
-course of action for how to debug this problem, please cc me on any 
-responses.
+Ok, let's use this one.
+
+--yoshfuji
