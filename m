@@ -1,37 +1,33 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [RFC] suggest changes cleanup to atm svc/pvc family
-Date: Tue, 10 Jun 2003 11:55:37 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Route cache performance under stress
+Date: Tue, 10 Jun 2003 08:56:00 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200306101555.h5AFtbQ00899@relax.cmf.nrl.navy.mil>
+Message-ID: <20030610.085600.71109220.davem@redhat.com>
+References: <20030609195652.E35696@shell.cyberus.ca>
+	<Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
+	<20030610015311.GB23009@netnation.com>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ralph+d@istop.com, hadi@shell.cyberus.ca, xerox@foonet.net,
+   fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: sim@netnation.com
+In-Reply-To: <20030610015311.GB23009@netnation.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-i was hoping some people might take a look at the following changes
-and let me know what they think.
+   From: Simon Kirby <sim@netnation.com>
+   Date: Mon, 9 Jun 2003 18:53:12 -0700
 
-ftp://galileo.cmf.nrl.navy.mil/pub/chas/linux-atm/2_5_70_vcc_sklist_diffs
+   Your CPU use is quite a bit higher than ours.
 
-a quick summary (since the diff is rather lengthy):
+Yeah, but his faster cpu is all being burnt to a crisp
+doing PIO accesses to the 3c59x card.
 
-- vcc are now in a global list protected by a rw lock (much like other
-  protocol families).  this means the atm devices dont hold a list of
-  vcc's.  this make some things much easier to write.
-- a few things where renamed to vcc_XXX from atm_XXX.  eventually routines
-  deal with vcc's will be vcc_, svc_, or pvc_.  atm devices functions
-  should be called atm_dev_XXX.  this makes things a bit easier to read.
-- vcc are now reference counted properly (or so i think)  (this doenst
-  mean all the atm drivers understand this yet. the he driver should do
-  the right thing though, holding a read on vcc sklist lock during recv
-  operations to keep vcc's from prematurely disappearing.
-- SOCKOPS_WRAP was removed and lock_sock's introduced in the appropriate 
-  locations.  i might have a missed some.
-- atm_ioctl was split into vcc_ioctl and atm_dev_ioctl
-- recvmsg was rewritten to take advantage of some the existing kernel 
-  routines that make datagram manipulation so much easier.
-- sendmsg needs rewritten but the ip components will need to skb_clone
-  so they can skb_set_owner_w on skb's that might already be owned by
-  another socket.  right?
-- changed add_wait_queue to prepare_to_wait and finish_wait.  is this
-  the accepted interface?
+   I found that once NAPI was happening, userspace seemed to get a
+   fairly decent amount of time.
+
+Unfortunately, NAPI won't help him with the current way the 3c59x
+driver works.  It needs to provide a way to use MEM I/O before NAPI
+would start to be of use to him.
