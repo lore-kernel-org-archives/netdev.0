@@ -1,26 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] more sdla fixes
-Date: Fri, 5 Sep 2003 02:46:22 -0700
+Subject: Re: Trivial fix for wrong error message from icmp.c (2.6.0-test4)
+Date: Fri, 5 Sep 2003 02:47:36 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905024622.19c87878.davem@redhat.com>
-References: <20030904144248.0599cdaf.shemminger@osdl.org>
+Message-ID: <20030905024736.4acefe68.davem@redhat.com>
+References: <3F5686C2.6090600@q.nospam.kampsax.k-net.dk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030904144248.0599cdaf.shemminger@osdl.org>
+To: Dennis =?ISO-8859-1?Q?J=F8rgensen?=
+ <postmaster@q.nospam.kampsax.k-net.dk>
+In-Reply-To: <3F5686C2.6090600@q.nospam.kampsax.k-net.dk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003 14:42:48 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 04 Sep 2003 02:26:42 +0200
+Dennis J=F8rgensen <postmaster@q.nospam.kampsax.k-net.dk> wrote:
 
-> Since sdla.c now has locking instead of cli/sti, it shouldn't be
-> completely busted on SMP.
-> 
-> Also, the frad interface registration needed to be done once
-> (and check the result), and undone on module unload.
+> Should I post this somewhere else/to someone else, please let me know, =
+I=20
+> couldn't find a FAQ for the list.
 
-Looks good, applied.
+You're posting it to the correct place, but your patch does not
+apply because your mail client has turned all the tabs in the
+patch into spaces.
+
+I can't apply this patch until you fix that up.
