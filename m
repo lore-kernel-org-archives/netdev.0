@@ -1,55 +1,55 @@
-From: Laurent Deniel <laurent.deniel@free.fr>
-Subject: [patch] superfluous CAP_NET_ADMIN required for some ioctl
-Date: Tue, 01 Feb 2005 21:49:14 +0100
-Message-ID: <41FFEB4A.90400@free.fr>
+From: Dan Williams <dcbw@redhat.com>
+Subject: [PATCH 2.6.11-rc2] wireless: Make Atmel driver use SET_NETDEV_DEV
+Date: Tue, 01 Feb 2005 16:42:06 -0500
+Message-ID: <1107294126.17332.16.camel@dcbw.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-k4QhFYTzadIYmllFUtUs"
+Cc: jgarzik@redhat.com, simon@thekelleys.org.uk
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
+--=-k4QhFYTzadIYmllFUtUs
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-It should be possible to obtain bonding information with
-SIOCBOND[SLAVE]INFOQUERY ioctls without root privilege
-(like with /proc/net/bonding/bond? or ifconfig).
+Make the Atmel wireless driver use SET_NETDEV_DEV to get the correct
+entries in sysfs.  Seems like somebody meant to do this but it got lost.
+atmel_cs.c was previously fixed to pass in the correct struct device *
+via handle_to_dev() but the driver never actually used it.
 
-Laurent
+Signed-off-by: Dan Williams <dcbw@redhat.com>
 
-Signed-off-by: Laurent Deniel <laurent.deniel@free.fr>
+--- a/drivers/net/wireless/atmel.c	2005-01-27 20:26:46.000000000 -0500
++++ b/drivers/net/wireless/atmel.c	2005-02-01 16:15:55.000000000 -0500
+@@ -1579,6 +1579,8 @@
+ 	dev->irq = irq;
+ 	dev->base_addr = port;
+ 	
++	SET_NETDEV_DEV(dev, sys_dev);
++	
+ 	if ((rc = request_irq(dev->irq, service_interrupt, SA_SHIRQ, dev->name, dev))) {
+ 		printk(KERN_ERR "%s: register interrupt %d failed, rc %d\n", dev->name, irq, rc );
+ 		goto err_out_free;
 
---- linux-2.6.9.orig/net/core/dev.c     2005-01-08 17:29:55.000000000 +0100
-+++ linux-2.6.9/net/core/dev.c  2005-01-08 18:00:01.000000000 +0100
-@@ -2692,8 +2692,6 @@ int dev_ioctl(unsigned int cmd, void __u
-                 case SIOCBONDENSLAVE:
-                 case SIOCBONDRELEASE:
-                 case SIOCBONDSETHWADDR:
--               case SIOCBONDSLAVEINFOQUERY:
--               case SIOCBONDINFOQUERY:
-                 case SIOCBONDCHANGEACTIVE:
-                 case SIOCBRADDIF:
-                 case SIOCBRDELIF:
-@@ -2705,6 +2703,20 @@ int dev_ioctl(unsigned int cmd, void __u
-                         rtnl_unlock();
-                         return ret;
 
-+               /*
-+                *      These ioctl calls:
-+                *      - can be done by all.
-+                *      - require strict serialization.
-+                *      - return a value (but already copied to user)
-+                */
-+               case SIOCBONDSLAVEINFOQUERY:
-+               case SIOCBONDINFOQUERY:
-+                       dev_load(ifr.ifr_name);
-+                       rtnl_lock();
-+                       ret = dev_ifsioc(&ifr, cmd);
-+                       rtnl_unlock();
-+                       return ret;
-+
-                 case SIOCGIFMEM:
-                         /* Get the per device memory space. We can add this but
-                          * currently do not support it */
+--=-k4QhFYTzadIYmllFUtUs
+Content-Disposition: attachment; filename=atmel-NETDEV-fix.patch
+Content-Type: text/x-patch; name=atmel-NETDEV-fix.patch; charset=UTF-8
+Content-Transfer-Encoding: 7bit
+
+--- a/drivers/net/wireless/atmel.c	2005-01-27 20:26:46.000000000 -0500
++++ b/drivers/net/wireless/atmel.c	2005-02-01 16:15:55.000000000 -0500
+@@ -1579,6 +1579,8 @@
+ 	dev->irq = irq;
+ 	dev->base_addr = port;
+ 	
++	SET_NETDEV_DEV(dev, sys_dev);
++	
+ 	if ((rc = request_irq(dev->irq, service_interrupt, SA_SHIRQ, dev->name, dev))) {
+ 		printk(KERN_ERR "%s: register interrupt %d failed, rc %d\n", dev->name, irq, rc );
+ 		goto err_out_free;
+
+--=-k4QhFYTzadIYmllFUtUs--
