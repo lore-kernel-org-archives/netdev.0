@@ -1,95 +1,34 @@
-From: =?iso-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-Subject: Re: [CHECKER] 32 Memory Leaks on Error Paths
-Date: Tue, 16 Sep 2003 11:07:48 +0200
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: 16 Sep 2003 11:18:34 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030916090748.GE27703@wohnheim.fh-wedel.de>
-References: <200309160435.h8G4ZkQM009953@elaine4.Stanford.EDU>
+Message-ID: <1063703910.5948.85.camel@henrik.marasystems.com>
+References: <200309022116.41697.bdschuym@pandora.be>
+	 <200309132159.37834.bdschuym@pandora.be>
+	 <20030915155903.12a3f95d.davem@redhat.com>
+	 <200309160805.08171.bdschuym@pandora.be>
+	 <20030915230259.79f5a545.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: linux-kernel@vger.kernel.org, mc@cs.stanford.edu, davem@redhat.com,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Bart De Schuymer <bdschuym@pandora.be>, laforge@netfilter.org,
+   acme@conectiva.com.br, netfilter-devel@lists.netfilter.org,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Yu Chen <dychen@stanford.edu>
-Content-Disposition: inline
-In-Reply-To: <200309160435.h8G4ZkQM009953@elaine4.Stanford.EDU>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030915230259.79f5a545.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 September 2003 21:35:46 -0700, David Yu Chen wrote:
->=20
-> [FILE:  2.6.0-test5/net/ipv4/igmp.c]
-> [FUNC:  igmpv3_newpack]
-> [LINES: 274-284]
-> [VAR:   skb]
->  269:	struct sk_buff *skb;
->  270:	struct rtable *rt;
->  271:	struct iphdr *pip;
->  272:	struct igmpv3_report *pig;
->  273:
-> START -->
->  274:	skb =3D alloc_skb(size + dev->hard_header_len + 15, GFP_ATOMIC);
->  275:	if (skb =3D=3D NULL)
->  276:		return 0;
->  277:
->  278:	{
->  279:		struct flowi fl =3D { .oif =3D dev->ifindex,
->  280:				    .nl_u =3D { .ip4_u =3D {
->  281:				    .daddr =3D IGMPV3_ALL_MCR } },
->  282:				    .proto =3D IPPROTO_IGMP };
->  283:		if (ip_route_output_key(&rt, &fl))
-> END -->
->  284:			return 0;
->  285:	}
->  286:	if (rt->rt_src =3D=3D 0) {
->  287:		ip_rt_put(rt);
->  288:		return 0;
->  289:	}
+tis 2003-09-16 klockan 08.02 skrev David S. Miller:
 
-Looks valid.  And since skb isn't really needed until after these
-returns, moving four lines down a bit fixes the problem.
+> Also, another solution could be to store the object inside the kernel
+> using a different structure, one where you can guarentee the alignment
+> of these things properly.
 
-Davem, is this correct?
+unfortunately iptables does not allow such differences between userspace
+and kernel representation..
 
-J=F6rn
-
---=20
-Data dominates. If you've chosen the right data structures and organized
-things well, the algorithms will almost always be self-evident. Data
-structures, not algorithms, are central to programming.
--- Rob Pike
-
---- linux-2.6.0-test3/net/ipv4/igmp.c~igmp_memleak	2003-07-15 23:09:02.00=
-0000000 +0200
-+++ linux-2.6.0-test3/net/ipv4/igmp.c	2003-09-16 10:29:47.000000000 +0200
-@@ -70,6 +70,8 @@
-  *		Alexey Kuznetsov:	Accordance to igmp-v2-06 draft.
-  *		David L Stevens:	IGMPv3 support, with help from
-  *					Vinay Kulkarni
-+ *		J=F6rn Engel:		Fix memleak in igmpv3_newpack, reported
-+ *					by David Yu Chen (stanford checker)
-  */
-=20
-=20
-@@ -271,10 +273,6 @@
- 	struct iphdr *pip;
- 	struct igmpv3_report *pig;
-=20
--	skb =3D alloc_skb(size + dev->hard_header_len + 15, GFP_ATOMIC);
--	if (skb =3D=3D NULL)
--		return 0;
--
- 	{
- 		struct flowi fl =3D { .oif =3D dev->ifindex,
- 				    .nl_u =3D { .ip4_u =3D {
-@@ -288,6 +286,10 @@
- 		return 0;
- 	}
-=20
-+	skb =3D alloc_skb(size + dev->hard_header_len + 15, GFP_ATOMIC);
-+	if (skb =3D=3D NULL)
-+		return 0;
-+
- 	skb->dst =3D &rt->u.dst;
- 	skb->dev =3D dev;
-=20
+-- 
+Henrik Nordstrom <hno@marasystems.com>
+MARA Systems AB
