@@ -1,25 +1,29 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2.6 PKT_SCHED] Report qdisc parent to userspace
-Date: Fri, 24 Sep 2004 14:52:40 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924125240.GT31616@rei.reeler.org>
-References: <20040924123710.GB3944@postel.suug.ch>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: The ultimate TOE design
+Date: Fri, 24 Sep 2004 15:07:38 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040924130738.GB24093@xi.wantstofly.org>
+References: <20040915142926.7bc456a4.davem@davemloft.net> <200409152329.i8FNTsqG025184@guinness.s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+Cc: "'David S. Miller'" <davem@davemloft.net>,
+	'Jeff Garzik' <jgarzik@pobox.com>, alan@lxorguk.ukuu.org.uk,
+	paul@clubi.ie, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268729AbUIXNHk@vger.kernel.org>
+To: Leonid Grossman <leonid.grossman@s2io.com>
 Content-Disposition: inline
-In-Reply-To: <20040924123710.GB3944@postel.suug.ch>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <200409152329.i8FNTsqG025184@guinness.s2io.com>
 List-Id: netdev.vger.kernel.org
 
-* Thomas Graf <20040924123710.GB3944@postel.suug.ch> 2004-09-24 14:37
-> Report parent classid of a qdisc back to userspace. Without this there
-> is no way for userspace to see if the qdisc is attached to a class
-> other than parsing all class trees of the link and check all tcm_info
-> fields in the leaf classes.
+On Wed, Sep 15, 2004 at 04:29:45PM -0700, Leonid Grossman wrote:
 
-Don't include this patch yet. I think i missed a case when
-tcm_parent is set to a non-existant classid but gets attached to the
-root class.
+> And at 10GbE, embedded CPUs just don't cut it - it has to be custom ASIC
+> (granted, with some means to simplify debugging and reduce the risk of hw
+> bugs and TCP changes).
+
+Intel's IXP2800 can do 10GbE.
+
+http://www.intel.com/design/network/products/npfamily/ixp2800.htm
+
+
+--L
