@@ -1,98 +1,57 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] IPv6: Miscellaneous clean-ups
-Date: Fri, 4 Oct 2002 02:09:23 -0300
+From: "Jeff" <rtos@vsnl.net>
+Subject: MPEG4 over DSP Solutions
+Date: Fri, 04 Oct 2002 11:38:00 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021004050923.GA2728@conectiva.com.br>
-References: <20021004.011315.05129566.yoshfuji@linux-ipv6.org> <20021003.103617.04446177.davem@redhat.com> <20021004.073642.125593159.yoshfuji@linux-ipv6.org>
+Message-ID: <200210040604.g9464WtG007335@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   netfilter-devel@lists.netfilter.org, usagi@linux-ipv6.org
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Content-Disposition: inline
-In-Reply-To: <20021004.073642.125593159.yoshfuji@linux-ipv6.org>
+To: "Dear Sir/Madam" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Fri, Oct 04, 2002 at 07:36:42AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
-> In article <20021003.103617.04446177.davem@redhat.com> (at Thu, 03 Oct 2002 10:36:17 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
-> 
-> >    -	addr.s6_addr[15] = 1;
-> >    +	addr.s6_addr32[3] = __constant_htonl(0x00000001);
-> >     
-> > Do not use __constant_htonl() in runtime code, use htonl().
-> > Arnaldo de Melo told you this the other day for another one
-> > of your patches, so you must fix this kind of stuff up before
-> > I'll apply any of your patches which have this problem.
-> 
-> I saw many __constant_{hton,ntoh}{s,l}()s, so fixed.
-> 
->       1. use s6_addrXX instead of in6_u.s6_addrXX.
->       2. avoid using magic number.
->       3. use 32bit constants.
->  -->  4. avoid __constant_{hton,ntoh}{l,s}() in runtime code.
+MPEG4 over DSP Solutions for your organization
 
-Thank you, some still were left, but that is not a problem, we can go on fixing
-it, as long as we don't introduce new instances, its OK.
+Hello,
+
+I am Jeff, Executive-Business Development for Real Time Embedded Systems and Digital Signal Processing solutions,India.
+
+We specialize in Real Time Embedded Systems and Digital Signal Processing. We provide software solutions in Digital Audio and Video to Consumer Electronics and Telecom segments.We have designed and developed several software Intellectual Properties on MPEG 1, 2, 4(Compression standard for Audio and Video), which are available for licensing. In order to provide an end-to-end solution in Audio and Video streaming, we have developed SIP and RTP stack which could be integrated along with the Codecs to realize complete Multi Media Messaging System.
+
+Our products and services will find immediate application with:
+OEM's, Semiconductor companies, Cellular phones, PDA's, Internet Appliances, PVR's, Audio/Video conferencing equipments, surveillance equipments, digital head end equipment manufacturers, Audio/Video Broadcasters, Post production companies, HDTV's and interactive televisions, Video Kiosks etc.
+
+Our offerings include:
+
+ Software Products
+* MPEG4 Video Decoder ( Simple Profile)
+* MPEG4 Video Encoder
+* MPEG2 Video Decoder
+* MP3 Decoder
+* SIP Stack
+* RTP Stack
+* ISDN Stack
+
+Services
+* Porting Audio/Video and speech codecs to DSPs
+  -Digital Video: MPEG4, MPEG2, JPEG, H.26X
+  -Digital Audio: MP3, AAC 
+* Specifying, implementing and testing DSP applications
+* Development of DSP-based software solutions
+* Building reference designs for Security surveillance, Consumer Electronics and Telecom segments
+
+I would be glad to discuss any business opportunity with you, which could be of mutual benefit to us. 
+
+
+Looking forward to hear from you
+
+Thanking You
+
+Best Regards,
+
+Jeff. S
+Executive-Business Development 
  
-> ===================================================================
-> RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/addrconf.c,v
-> retrieving revision 1.1.1.1
-> diff -u -r1.1.1.1 addrconf.c
-> --- net/ipv6/addrconf.c	2002/08/20 09:47:02	1.1.1.1
-> +++ net/ipv6/addrconf.c	2002/10/03 22:16:13
-> @@ -172,7 +172,7 @@
->  
->  	if ((addr->s6_addr32[0] | addr->s6_addr32[1]) == 0) {
->  		if (addr->s6_addr32[2] == 0) {
-> -			if (addr->in6_u.u6_addr32[3] == 0)
-> +			if (addr->s6_addr32[3] == 0)
->  				return IPV6_ADDR_ANY;
->  
->  			if (addr->s6_addr32[3] == __constant_htonl(0x00000001))
-                                                  ^^^^^^^^^^^
-                                                  ^^^^^^^^^^^
-not needed as well.
-
-> Index: net/ipv6/icmp.c
-> ===================================================================
-> RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/icmp.c,v
-> retrieving revision 1.1.1.1
-> retrieving revision 1.1.1.1.12.1
-> diff -u -r1.1.1.1 -r1.1.1.1.12.1
-> --- net/ipv6/icmp.c	2002/08/20 09:47:02	1.1.1.1
-> +++ net/ipv6/icmp.c	2002/09/12 09:41:58	1.1.1.1.12.1
-> @@ -198,7 +198,7 @@
->  		u8 type;
->  		if (skb_copy_bits(skb, ptr+offsetof(struct icmp6hdr, icmp6_type),
->  				  &type, 1)
-> -		    || !(type & 0x80))
-> +		    || !(type & ICMPV6_INFOMSG_MASK))
-
-nice, no magic numbers.
-
-> RCS file: /cvsroot/usagi/usagi-backport/linux24/net/ipv6/netfilter/ip6_queue.c,v
-> retrieving revision 1.1.1.1
-> retrieving revision 1.1.1.1.12.2
-> diff -u -r1.1.1.1 -r1.1.1.1.12.2
-> --- net/ipv6/netfilter/ip6_queue.c	2002/08/20 09:47:02	1.1.1.1
-> +++ net/ipv6/netfilter/ip6_queue.c	2002/09/19 03:57:51	1.1.1.1.12.2
-> @@ -306,14 +306,8 @@
->  	 */
->  	if (e->info->hook == NF_IP_LOCAL_OUT) {
->  		struct ipv6hdr *iph = e->skb->nh.ipv6h;
-> -		if (!(   iph->daddr.in6_u.u6_addr32[0] == e->rt_info.daddr.in6_u.u6_addr32[0]
-> -                      && iph->daddr.in6_u.u6_addr32[1] == e->rt_info.daddr.in6_u.u6_addr32[1]
-> -                      && iph->daddr.in6_u.u6_addr32[2] == e->rt_info.daddr.in6_u.u6_addr32[2]
-> -                      && iph->daddr.in6_u.u6_addr32[3] == e->rt_info.daddr.in6_u.u6_addr32[3]
-> -		      && iph->saddr.in6_u.u6_addr32[0] == e->rt_info.saddr.in6_u.u6_addr32[0]
-> -		      && iph->saddr.in6_u.u6_addr32[1] == e->rt_info.saddr.in6_u.u6_addr32[1]
-> -		      && iph->saddr.in6_u.u6_addr32[2] == e->rt_info.saddr.in6_u.u6_addr32[2]
-> -		      && iph->saddr.in6_u.u6_addr32[3] == e->rt_info.saddr.in6_u.u6_addr32[3]))
-> +		if (ipv6_addr_cmp(&iph->daddr, &e->rt_info.daddr) ||
-> +		    ipv6_addr_cmp(&iph->saddr, &e->rt_info.saddr))
-
-Cool, thank you.
-
-- Arnaldo
+San Francisco ... New Jersey ... Bangalore
+----------------------------------------------------
+If you don't want to recive any more mails more from us, mail us back as "Unsubscribe Me" in the subject line
