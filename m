@@ -1,41 +1,26 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: route-cache status?
-Date: 16 Jul 2003 02:19:13 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [patches] invalid nh.raw use after free
+Date: Tue, 15 Jul 2003 19:17:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1058336353.1899.41.camel@jzny.localdomain>
-References: <Pine.LNX.4.44.0307071255480.4114-100000@paix.pilosoft.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20030715191709.1e0c6427.davem@redhat.com>
+References: <Pine.LNX.4.44.0307160233540.14682-400000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: alex@pilosoft.com
-In-Reply-To: <Pine.LNX.4.44.0307071255480.4114-100000@paix.pilosoft.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.44.0307160233540.14682-400000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Not sure if anybody responded to you; if you are on 2.4.x those patches
-seem to have made it into the latest pre 2.4.22 off kernel.org.
-Just grab those.
+On Wed, 16 Jul 2003 02:41:00 +0300 (EEST)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-cheers,
-jamal
+> 	The attached patches fix similar bug to many places (I'm not
+> sure if there are more instances), where pointers remain to refer to 
+> freed skbs. For 2.5 and 2.4.
 
-On Mon, 2003-07-07 at 13:03, alex@pilosoft.com wrote:
-> Hello,
-> 
-> i've been following discussions a few weeks ago regarding developments of 
-> route cache, and am trying to develop conclusion of the current best code 
-> base.
-> 
-> >From list, it seems that 2.4.20 is still better than 2.5.70+davem patches 
-> or 2.4.21. 
-> 
-> Am I correct? Are there any newer patches available?
-> 
-> -alex
-> 
-> 
-> 
-> 
+Good catch, I'll apply this.
+
+Thanks.
