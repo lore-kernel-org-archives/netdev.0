@@ -1,35 +1,26 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] [1/2] kernel error reporting (revised)
-Date: Sun, 20 Jul 2003 09:52:33 +1000 (EST)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <Mutt.LNX.4.44.0307200951210.21994-100000@excalibur.intercode.com.au>
-References: <3F1882CF.538FE76@us.ibm.com>
+From: Carlos Carvalho <carlos@fisica.ufpr.br>
+Subject: Re: Memory usage for ip_conntrack
+Date: Sat, 19 Jul 2003 21:10:40 -0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <16153.56832.379224.202834@fisica.ufpr.br>
+References: <1058558848.2674.88.camel@mentor.gurulabs.com>
+	<1058563690.26030.23.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@osdl.org>, <davem@redhat.com>,
-	<linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-	<jgarzik@pobox.com>, <alan@lxorguk.ukuu.org.uk>,
-	<rddunlap@osdl.org>, <kuznet@ms2.inr.ac.ru>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jim Keniston <jkenisto@us.ibm.com>
-In-Reply-To: <3F1882CF.538FE76@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <1058563690.26030.23.camel@tux.rsn.bth.se>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Jul 2003, Jim Keniston wrote:
+Martin Josefsson (gandalf@wlug.westbo.se) wrote on 18 July 2003 23:28:
+ >> If I echo 102400 > /proc/sys/net/ipv4/ip_conntrack_max, what is my worst
+ >> case memory usage?
+ >
+ >Don't do this. This will increase the maximum number of connections it
+ >will track, but not the number of buckets. Which means that it will be
+ >slower due to longer collision-chains. Instead increase the number of
+ >buckets. modprobe ip_conntrack hashsize=131072 (or any number here.
 
-> > Yes, this makes sense.  At the kerror.c level, just return -EDEADLK if in_irq().
-> > Delay packet delivery (via a tasklet, as before) at the evlog.c level instead.
-> > That way, we know at the evlog.c level (in the tasklet) whether the event packet
-> > was delivered to anybody, and can paraphrase it to printk if it wasn't.
-> >
-> > Is this the sort of thing you had in mind?
-
-Not exactly -- I don't think the logging framework should do any irq 
-detection.  The caller should either know if its in an interrupt, or do 
-the detection itself.
-
-
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+How can we increase the number of buckets with a monolithic kernel?
