@@ -1,80 +1,48 @@
-From: Magnus Damm <damm@opensource.se>
-Subject: [PATCH] arlan: module parameter fixes
-Date: Tue,  5 Apr 2005 20:05:50 +0200 (CEST)
-Message-ID: <20050405173419.10402.34298.66044@clementine.local>
-Cc: Magnus Damm <damm@opensource.se>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
+Date: 05 Apr 2005 14:05:55 -0400
+Message-ID: <1112724355.1076.49.camel@jzny.localdomain>
+References: <20050404121641.GA12103@gondor.apana.org.au>
+	 <1112619096.1088.473.camel@jzny.localdomain>
+	 <20050404130224.GA12546@gondor.apana.org.au>
+	 <1112620614.1088.489.camel@jzny.localdomain>
+	 <20050404213149.GA15222@gondor.apana.org.au>
+	 <1112653217.1088.2.camel@jzny.localdomain>
+	 <20050404152506.15e1404b.davem@davemloft.net>
+	 <1112654575.1089.17.camel@jzny.localdomain>
+	 <42523FD3.8010400@linux-ipv6.org>
+	 <1112696301.1089.30.camel@jzny.localdomain>
+	 <20050405102238.GC23226@gondor.apana.org.au>
+	 <1112702303.1095.107.camel@jzny.localdomain>
+	 <20050405104641.11bdbbfb.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, nakam@linux-ipv6.org, kaber@trash.net,
+        netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050405104641.11bdbbfb.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Make sure the code compiles with and without ARLAN_ENTRY_EXIT_DEBUGGING.
-Only provide parameter descriptions when parameters are defined.
-Remove "arlan_"-prefix to shape up built-in parameter names:
+On Tue, 2005-04-05 at 13:46, David S. Miller wrote:
+> On 05 Apr 2005 07:58:23 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> > On Tue, 2005-04-05 at 06:22, Herbert Xu wrote:
+> > 
+> > > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > 
+> > I have a feeling that Dave is not following this thread.
+> 
+> Believe it or not I have been :-)
 
-arlan.arlan_debug -> arlan.debug
-arlan.arlan_EEPROM_bad -> arlan.EEPROM_bad
-arlan.arlan_entry_and_exit_debug -> arlan.entry_and_exit_debug
-arlan.arlan_entry_debug -> arlan.entry_debug
-arlan.arlan_exit_debug -> arlan.exit_debug
+Impressive ;->
+After the 10th email it seemed to me only Herbert and myself would still
+be reading this ;-> Did you see the bit about Elvis? ;->
 
-Signed-off-by: Magnus Damm <damm@opensource.se>
-
---- linux-2.6.12-rc2/drivers/net/wireless/arlan-main.c	2005-04-05 16:57:26.000000000 +0200
-+++ linux-2.6.12-rc2-autoparam/drivers/net/wireless/arlan-main.c	2005-04-05 19:21:54.223472976 +0200
-@@ -33,8 +33,6 @@
- 
- #ifdef ARLAN_DEBUGGING
- 
--static int arlan_entry_debug;
--static int arlan_exit_debug;
- static int testMemory = testMemoryUNKNOWN;
- static int irq = irqUNKNOWN;
- static int txScrambled = 1;
-@@ -43,15 +41,13 @@
- module_param(irq, int, 0);
- module_param(mdebug, int, 0);
- module_param(testMemory, int, 0);
--module_param(arlan_entry_debug, int, 0);
--module_param(arlan_exit_debug, int, 0);
- module_param(txScrambled, int, 0);
- MODULE_PARM_DESC(irq, "(unused)");
- MODULE_PARM_DESC(testMemory, "(unused)");
- MODULE_PARM_DESC(mdebug, "Arlan multicast debugging (0-1)");
- #endif
- 
--module_param(arlan_debug, int, 0);
-+module_param_named(debug, arlan_debug, int, 0);
- module_param(spreadingCode, int, 0);
- module_param(channelNumber, int, 0);
- module_param(channelSet, int, 0);
-@@ -63,17 +59,19 @@
- module_param(tx_delay_ms, int, 0);
- module_param(retries, int, 0);
- module_param(tx_queue_len, int, 0);
--module_param(arlan_EEPROM_bad, int, 0);
--MODULE_PARM_DESC(arlan_debug, "Arlan debug enable (0-1)");
-+module_param_named(EEPROM_bad, arlan_EEPROM_bad, int, 0);
-+MODULE_PARM_DESC(debug, "Arlan debug enable (0-1)");
- MODULE_PARM_DESC(retries, "Arlan maximum packet retransmisions");
- #ifdef ARLAN_ENTRY_EXIT_DEBUGGING
--MODULE_PARM_DESC(arlan_entry_debug, "Arlan driver function entry debugging");
--MODULE_PARM_DESC(arlan_exit_debug, "Arlan driver function exit debugging");
--MODULE_PARM_DESC(arlan_entry_and_exit_debug, "Arlan driver function entry and exit debugging");
--#else
--MODULE_PARM_DESC(arlan_entry_debug, "(ignored)");
--MODULE_PARM_DESC(arlan_exit_debug, "(ignored)");
--MODULE_PARM_DESC(arlan_entry_and_exit_debug, "(ignored)");
-+static int arlan_entry_debug;
-+static int arlan_exit_debug;
-+static int arlan_entry_and_exit_debug;
-+module_param_named(entry_debug, arlan_entry_debug, int, 0);
-+module_param_named(exit_debug, arlan_exit_debug, int, 0);
-+module_param_named(entry_and_exit_debug, arlan_entry_and_exit_debug, int, 0);
-+MODULE_PARM_DESC(entry_debug, "Arlan driver function entry debugging");
-+MODULE_PARM_DESC(exit_debug, "Arlan driver function exit debugging");
-+MODULE_PARM_DESC(entry_and_exit_debug, "Arlan driver function entry and exit debugging");
- #endif
- 
- struct arlan_conf_stru arlan_conf[MAX_ARLANS];
+cheers,
+jamal
