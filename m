@@ -1,37 +1,29 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH] remove superfluous diverter printk'ing
-Date: Sat, 15 Jan 2005 11:47:50 +0100
-Message-ID: <20050115104750.GB14991@xi.wantstofly.org>
-References: <20050114124700.GA4079@xi.wantstofly.org> <20050114134642.4be4e2fc.davem@davemloft.net>
+From: Wichert Akkerman <wichert@wiggy.net>
+Subject: Re: ipv6 tunnel stops accepting input
+Date: Sat, 15 Jan 2005 13:03:23 +0100
+Message-ID: <20050115120323.GA20664@wiggy.net>
+References: <20050111125826.GA25169@wiggy.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: Herbert Xu <herbert@gondor.apana.org.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050114134642.4be4e2fc.davem@davemloft.net>
+In-Reply-To: <20050111125826.GA25169@wiggy.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jan 14, 2005 at 01:46:42PM -0800, David S. Miller wrote:
+(Herbert: I did not receive your mail since it seems your mailserver
+refuses the sender verification that exim tries to do).
 
-> > You're not listed as diverter maintainer but I'm sending this via
-> > you anyway.  This patch removes some printk'ing from the diverter
-> > driver (and cleans up the code a bit), because after a while it gets
-> > really annoying to have log messages like this one for every single
-> > tunnel you create or tear down.
-> > 
-> > 	divert: not allocating divert_blk for non-ethernet device tunl0
-> > 
-> > Please consider sending upstream.
-> 
-> Those diverter messages drive me crazy too, I think I'll
-> add your patch Lennert.
+Herbert Xu Wrote:
+>Do you have any netfilter rules?
 
-Benoit's email address bounces, and it's the latest address of his I
-could find, so if he doesn't read this list you might as well go ahead.
+I do have a small set of ipv4 netfilter rules. 
 
+Wichert.
 
-cheers,
-Lennert
+-- 
+Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
+http://www.wiggy.net/                   It is hard to make things simple.
