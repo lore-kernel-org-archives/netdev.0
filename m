@@ -1,45 +1,29 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH PKT_SCHED 17/17]: Disable broken override bits in pedit
-	action
-Date: 30 Dec 2004 08:17:14 -0500
-Message-ID: <1104412634.1048.106.camel@jzny.localdomain>
-References: <41D378FF.3080205@trash.net>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH 9/9] PKT_SCHED: Actions are now available for all classifiers
+Date: Thu, 30 Dec 2004 13:36:17 +0100
+Message-ID: <20041230123617.GV32419@postel.suug.ch>
+References: <20041230122652.GM32419@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41D378FF.3080205@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041230122652.GM32419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-12-29 at 22:41, Patrick McHardy wrote:
-> Disable broken override bits in pedit action. It misses
-> locking and needs to allocate new memory if nkeys increases.
-> Also disable it for now.
-> 
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-There are a couple of these that you have (ipt being other). Could you
-just add a check for size before returning -EOPNOTSUPP?
-Example:
-	if (ovr)
-		if (p->nkeys != parm->nkeys)
-			return -EOPNOTSUPP;
-
-This way if they are of the same size then things should work as is
-and my testcases dont break. Now if you feel more gracious, go ahead and
-fix them ;->
-
->  	ret = -EEXIST;
->  	if (ovr) {
-> +		/* FIXME: no locking, larger memory area might be required */
-> +		return -EOPNOTSUPP;
->  		ret = 0;
->  override:
->  		p->flags = parm->flags;
-
-cheers,
-jamal
+--- linux-2.6.10-bk1.orig/net/sched/Kconfig	2004-12-27 14:32:33.000000000 +0100
++++ linux-2.6.10-bk1/net/sched/Kconfig	2004-12-27 22:47:22.000000000 +0100
+@@ -381,7 +381,6 @@
+ 	---help---
+ 	This option requires you have a new iproute2. It enables
+ 	tc extensions which can be used with tc classifiers.
+-	Only the u32 and fw classifiers are supported at the moment.
+ 	  You MUST NOT turn this on if you dont have an update iproute2.
+ 
+ config NET_ACT_POLICE
