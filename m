@@ -1,39 +1,26 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: Re: analysis of TCP window size issues still around - several reports / SACK involved?
-Date: Tue, 6 Jul 2004 22:27:08 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.4] update to network emulation QOS scheduler
+Date: Tue, 6 Jul 2004 14:06:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706202708.GA1385@outpost.ds9a.nl>
-References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org> <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com> <20040702013225.GA24707@conectiva.com.br> <20040706093503.GA8147@outpost.ds9a.nl> <20040706131955.3a3c6c8b.davem@redhat.com>
+Message-ID: <20040706140617.01e5c9c3.davem@redhat.com>
+References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
+	<20040701131101.184f7840@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: acme@conectiva.com.br, shemminger@osdl.org, netdev@oss.sgi.com,
-        alessandro.suardi@oracle.com, phyprabab@yahoo.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: util@deuroconsult.ro, netdev@oss.sgi.com, lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040706131955.3a3c6c8b.davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040701131101.184f7840@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jul 06, 2004 at 01:19:55PM -0700, David S. Miller wrote:
+On Thu, 1 Jul 2004 13:11:01 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> rather it do this, so that diagnosing dumps are easier.  If tcpdump
-> tries to be too clever, scaling the window, then I might end up
-> chasing down a tcpdump bug rather than a TCP one :-)
+> This is the 2.4 version of the conversion of simple network delay scheduler to
+> network emulator.
+> 
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-True - it might want to print '43 (*128=5706)' or something like that.
-
-> What would be more interesting is to get the tcpdump trace from the
-> other side of this connection.  This is crucial, as it will show how
-> and in what way exactly the window scale options and/or window fields
-> are being edited by a firewall or other device and thus causing
-> the problems.
-
-I have an appointment with Alessandro tomorrow evening at 11PM CEST to do
-just that.
-
-It sounds like window scaling may become yet another ECN...
-
--- 
-http://www.PowerDNS.com      Open source, database driven DNS Software 
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+Also applied.
