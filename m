@@ -1,54 +1,41 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 4274] New: ipv6: Unknown symbol
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@wide.ad.jp>
+Subject: Re: [Bugme-new] [Bug 4274] New: ipv6: Unknown symbol
  tcp_timer_bug_msg
-Date: Wed, 2 Mar 2005 09:19:07 -0800
-Message-ID: <20050302091907.19bb2b2e.akpm@osdl.org>
+Date: Thu, 03 Mar 2005 02:37:06 +0900 (JST)
+Message-ID: <20050303.023706.64945563.yoshfuji@wide.ad.jp>
+References: <20050302091907.19bb2b2e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgoerzen@complete.org
-To: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
+To: akpm@osdl.org, jgoerzen@complete.org
+In-Reply-To: <20050302091907.19bb2b2e.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20050302091907.19bb2b2e.akpm@osdl.org> (at Wed, 2 Mar 2005 09:19:07 -0800), Andrew Morton <akpm@osdl.org> says:
 
+> modprobe ipv6 fails with:
+> 
+> ipv6: Unknown symbol tcp_timer_bug_msg
 
-Begin forwarded message:
+Please try this.
 
-Date: Wed, 2 Mar 2005 09:15:18 -0800
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 4274] New: ipv6: Unknown symbol tcp_timer_bug_msg
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
+===== net/ipv4/tcp_timer.c 1.30 vs edited =====
+--- 1.30/net/ipv4/tcp_timer.c	2005-02-23 03:45:32 +09:00
++++ edited/net/ipv4/tcp_timer.c	2005-03-03 02:26:20 +09:00
+@@ -38,6 +38,7 @@
+ 
+ #ifdef TCP_DEBUG
+ const char tcp_timer_bug_msg[] = KERN_DEBUG "tcpbug: unknown timer value\n";
++EXPORT_SYMBOL(tcp_timer_bug_msg);
+ #endif
+ 
+ /*
 
-http://bugme.osdl.org/show_bug.cgi?id=4274
-
-           Summary: ipv6: Unknown symbol tcp_timer_bug_msg
-    Kernel Version: 2.6.11
-            Status: NEW
-          Severity: normal
-             Owner: yoshfuji@linux-ipv6.org
-         Submitter: jgoerzen@complete.org
-
-
-Distribution: Debian sid
-Hardware Environment: alpha
-Software Environment:
-Problem Description:
-
-modprobe ipv6 fails with:
-
-ipv6: Unknown symbol tcp_timer_bug_msg
-
-I saw this back on a previous version and submitted #3717 at the time.  The
-patch attached to that bug worked.  However, 2.6.11 appears to include that
-patch, and yet, I'm still getting this problem.
-
-I will attach my config file.  Please let me know if you need any other information.
-
-Thanks,
-John Goerzen
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
