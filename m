@@ -1,42 +1,39 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: Jens Axboe <axboe@suse.de>
 Subject: Re: Fw: kernel BUG at net/core/skbuff.c:1028!
-Date: Thu, 08 May 2003 11:20:27 +1000
+Date: Thu, 8 May 2003 10:34:05 +0200
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20030508012101.36E012C01B@lists.samba.org>
-References: <20030507.042003.26512841.davem@redhat.com>
-Cc: laforge@netfilter.org, Jens Axboe <axboe@suse.de>,
+Message-ID: <20030508083405.GM823@suse.de>
+References: <20030507.042003.26512841.davem@redhat.com> <20030508012101.36E012C01B@lists.samba.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, laforge@netfilter.org,
 	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-reply-to: Your message of "Wed, 07 May 2003 04:20:03 MST."
-             <20030507.042003.26512841.davem@redhat.com>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Disposition: inline
+In-Reply-To: <20030508012101.36E012C01B@lists.samba.org>
 List-Id: netdev.vger.kernel.org
 
-In message <20030507.042003.26512841.davem@redhat.com> you write:
-> It has to be from some of the skb linearization changes.
-> I can't think of any other change we've made that would
-> make this start to happen.
+On Thu, May 08 2003, Rusty Russell wrote:
+> In message <20030507.042003.26512841.davem@redhat.com> you write:
+> > It has to be from some of the skb linearization changes.
+> > I can't think of any other change we've made that would
+> > make this start to happen.
+> 
+> Yep, culprit is obvious stupid bug.  This indicates a serious lack of
+> testing on my part 8(
 
-Yep, culprit is obvious stupid bug.  This indicates a serious lack of
-testing on my part 8(
+One would think so, since it doesn't even get to the login :)
 
-Jens, does this help?
-Rusty.
+> Jens, does this help?
 
-diff -urpN --exclude TAGS -X /home/rusty/devel/kernel/kernel-patches/current-dontdiff --minimal linux-2.5.69-bk2/net/ipv4/netfilter/ip_nat_core.c working-2.5.69-bk2-fix-nat/net/ipv4/netfilter/ip_nat_core.c
---- linux-2.5.69-bk2/net/ipv4/netfilter/ip_nat_core.c	2003-05-08 10:31:08.000000000 +1000
-+++ working-2.5.69-bk2-fix-nat/net/ipv4/netfilter/ip_nat_core.c	2003-05-08 11:19:04.000000000 +1000
-@@ -870,7 +870,8 @@ icmp_reply_translation(struct sk_buff **
- 	   adjustment, so make sure the current checksum is correct. */
- 	if ((*pskb)->ip_summed != CHECKSUM_UNNECESSARY
- 	    && (u16)csum_fold(skb_checksum(*pskb, (*pskb)->nh.iph->ihl*4,
--					   (*pskb)->len, 0)))
-+					   (*pskb)->len
-+					   - (*pskb)->nh.iph->ihl*4, 0)))
- 		return 0;
- 
- 	/* Must be RELATED */
+[snip]
 
+Nope, it still dies hard. I didn't log the oops this time (box is
+headless and I need to move it to do so), but it hung hard before it was
+done booting.
 
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+Want me to log a new oops?
+
+-- 
+Jens Axboe
