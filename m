@@ -1,56 +1,64 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Tons of "BUG: dst overflow ..." messages
-Date: Wed, 29 Sep 2004 15:36:21 -0400
+From: Song Wang <wsonguci@yahoo.com>
+Subject: Re: [Routing] Performance Comparison between 2.6 and 2.4 kernel
+Date: Wed, 29 Sep 2004 12:37:21 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415B0EB5.3010809@pobox.com>
-References: <415A3635.4070000@pobox.com>	<20040928214055.609f7715.davem@davemloft.net>	<415A40D0.7040403@pobox.com> <20040929.143216.55773467.yoshfuji@linux-ipv6.org>
+Message-ID: <20040929193721.81884.qmail@web40006.mail.yahoo.com>
+References: <1095334258.1065.158.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: jgarzik@pobox.com, davem@davemloft.net, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Song Wang <wsonguci@yahoo.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040929.143216.55773467.yoshfuji@linux-ipv6.org>
+To: hadi@cyberus.ca, "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <1095334258.1065.158.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
-> In article <415A40D0.7040403@pobox.com> (at Wed, 29 Sep 2004 00:57:52 -=
-0400), Jeff Garzik <jgarzik@pobox.com> says:
->=20
->=20
->>David S. Miller wrote:
->>
->>>On Wed, 29 Sep 2004 00:12:37 -0400
->>>Jeff Garzik <jgarzik@pobox.com> wrote:
->>>
->>>
->>>
->>>>BUG: dst underflow 0: cf5dd180 at f8c0be5d
->=20
-> :
->=20
->>>Can you match up the 0xf8xxxxxx addresses to spots
->>>in your System.map?  Thanks.
->=20
-> :
->=20
->>ipv6 232192 38 - Live 0xf8c01000
->>		       ^^^^  appears to be this
->=20
->=20
-> Hmm, I haven't met this (during TAHI test against latest tree).
-> Would you try latest bk tree?
+Hi, jamal,
 
-I will try soon...  it's my fileserver and router, so does not get=20
-upgraded very often.
+Could you please kindly point where the gettimeofday
+patch is? Is it in 2.6.8.1 kernel?
+
+BTW, what is the packet size for you performance
+number, 64 bytes?
+
+I appreciate it.
+
+-Song
+--- jamal <hadi@cyberus.ca> wrote:
+
+> On Wed, 2004-09-15 at 14:08, David S. Miller wrote:
+> > On Wed, 15 Sep 2004 11:06:03 -0700 (PDT)
+> > Song Wang <wsonguci@yahoo.com> wrote:
+> > 
+> > > The mips CPU on the board is MIPS32 compatible.
+> > > I don't think it's NAPI based.
+> > 
+> > NAPI is an attribute of the network adapter, not
+> > the cpu.
+> > 
+> > Although I would very much anticipate this being
+> > a MIPS or network adapter specific problem since
+> > on x86 routing is pretty fast in 2.6.x
+> 
+> Note, I could hit 4-500Kpps on a bcom sb1250 800Mhz;
+> trying to simulate
+> Andis gettimeofday changes (which are in 2.6 since i
+> havent seen a 2.6
+> port for that board ) gives another 100Kpps. Theres
+> still room for
+> improvement just havent had time.
+> You are right though it could be a 2.6.x arch
+> specific issue. Bacchus?
+> 
+> cheers,
+> jamal
+> 
+> 
 
 
-> Plus, if you know how to reproduce this, tell me.
 
-Sorry, I do not know :(
-
-Regards,
-
-	Jeff
+		
+_______________________________
+Do you Yahoo!?
+Declare Yourself - Register online to vote today!
+http://vote.yahoo.com
