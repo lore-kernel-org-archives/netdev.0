@@ -1,47 +1,24 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] Change masquerade code to use first IP address
-	of	interface.
-Date: Wed, 20 Oct 2004 19:42:15 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <4176A377.8@trash.net>
-References: <E1CKBtq-0005FC-00@gondolin.me.apana.org.au>
+From: Christoph Hellwig <hch@lst.de>
+Subject: Re: [PATCH 2.6.9] Export phys_cpu_present_map
+Date: Wed, 20 Oct 2004 19:49:05 +0200
+Sender: linux-mips-bounce@linux-mips.org
+Message-ID: <20041020174905.GA12697@lst.de>
+References: <20041020171626.GG12544@smtp.west.cox.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CKBtq-0005FC-00@gondolin.me.apana.org.au>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-mips@linux-mips.org, netdev@oss.sgi.com
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: Tom Rini <trini@kernel.crashing.org>
+Content-Disposition: inline
+In-Reply-To: <20041020171626.GG12544@smtp.west.cox.net>
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
+On Wed, Oct 20, 2004 at 10:16:26AM -0700, Tom Rini wrote:
+> In net/ipv6/icmp.c::icmpv6_init() there is a call to cpu_possible()
+> which preprocesses down to "test_bit(((i)), (phys_cpu_present_map).bits)"
+> If ipv6 is a module, phys_cpu_present_map (or cpu_possible_map which is
+> defined t phys_cpu_present_map) needs to be exported.
 
->Rusty Russell <rusty@rustcorp.com.au> wrote:
->  
->
->>+       newsrc = inet_select_addr(out, 0, RT_SCOPE_UNIVERSE);
->>+       if (!newsrc) {
->>+               printk("MASQUERADE: %s ate my IP address\n", out->name);
->>+               return NF_DROP;
->>    
->>
->
->Wouldn't it be better to select the address for the gateway that we're
->sending towards?
->  
->
-
-I agree. Rusty, I already have your patch queued in a
-post-2.6.9 tree, I'm going to add Herbert's patch on top.
-
-Regards
-Patrick
+The loop in there should be rewritten as for_each_cpu which doesn't need
+this export.
