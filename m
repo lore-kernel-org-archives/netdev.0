@@ -1,41 +1,44 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] TCP acts like it is always out of memory.
-Date: Thu, 1 Jul 2004 22:32:25 -0300
+From: John Haller <jhaller@lucent.com>
+Subject: SO_REUSEADDR, restarting servers, and security patches
+Date: Thu, 01 Jul 2004 23:39:53 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040702013225.GA24707@conectiva.com.br>
-References: <32886.63.170.215.71.1088564087.squirrel@www.osdl.org> <20040629222751.392f0a82.davem@redhat.com> <20040630152750.2d01ca51@dell_ss3.pdx.osdl.net> <20040630153049.3ca25b76.davem@redhat.com> <20040701133738.301b9e46@dell_ss3.pdx.osdl.net> <20040701140406.62dfbc2a.davem@redhat.com>
+Message-ID: <40E4E719.6000508@lucent.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040701140406.62dfbc2a.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Jul 01, 2004 at 02:04:06PM -0700, David S. Miller escreveu:
-> On Thu, 1 Jul 2004 13:37:38 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > Current 2.6.7 tree acts as if it is alway under memory pressure because
-> > a recent change did a s/tcp_memory_pressure/tcp_prot.memory_pressure/.
-> > The problem is tcp_prot.memory_pressure is a pointer, so it is always non-zero!
-> > 
-> > Rather than using *tcp_prot.memory_pressure, just go back to looking at
-> > tcp_memory_pressure.
-> 
-> Hehe, applied thanks Stephen.
+In October 2002, Yoshifuji Hideaki introduced a
+patch that prevents completely any duplication
+of <local-addr, local-port, remote-addr, remote-port>,
+even when SO_REUSEADDR is set, preventing port
+stealing denial-of-service attacks.  This also
+has the side effect of not allowing a server to
+be immediately restarted after being stopped,
+because of the sockets that remain in the TCP_TIME_WAIT
+state.
 
-:-) Thanks Stephen for the fix, this was a leftover of the conversion of
-the memory pressure members in struct proto to pointers, to cover the case
-pointed out by David related to the ipv6_mapped functionality in the
-1.1722.122.23 changeset, (i.e.  tcp_prot and tcpv6_prot having to share the
-same accounting variables), I forgot to convert all places where the
-tcp_prot.memory_pressure memory is used, the fix is exactly what I should
-have done. Due to family health problems I was unable to promply fix this
-thinko, so, again, thank you very much.
+Would security be negatively impacted by relaxing
+the restrictions introduced by the above patch
+to allow a bind to a TCP port only if all existing
+references to that TCP port were in the TCP_TIME_WAIT
+state, and both the listening port and all of the
+TCP_TIME_WAIT sockets had the SO_REUSEADDR flag set?
+This relaxation would only help in the case of
+servers where the listener and connected sockets
+are all stopped at the same time, and not loosely
+connect servers where the connected sockets are
+handled in a separate process from the listener.
 
-Best Regards,
+I don't want to use SO_REUSEPORT for two reasons.
+The first is that SO_REUSEPORT allows binding
+the same address twice for active sockets.  The
+second is that SO_REUSEPORT is not commonly enabled.
 
-- Arnaldo
+The top message regarding the patch is located here:
+http://oss.sgi.com/projects/netdev/archive/2002-10/msg00035.html
+-- 
+John Haller
