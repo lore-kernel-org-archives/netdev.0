@@ -1,29 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [CHECKER] 32 Memory Leaks on Error Paths
-Date: Sat, 20 Sep 2003 00:58:11 -0700
+Subject: Re: [PATCH] (4/6) ipvs -- use reader locks and refcounts correctly.
+Date: Sat, 20 Sep 2003 01:00:10 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030920005811.09f12e07.davem@redhat.com>
-References: <200309160435.h8G4ZkQM009953@elaine4.Stanford.EDU>
-	<20030916090748.GE27703@wohnheim.fh-wedel.de>
+Message-ID: <20030920010010.7ed69543.davem@redhat.com>
+References: <20030916142116.58a05005.shemminger@osdl.org>
+	<Pine.LNX.4.44.0309180014470.15676-200000@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: dychen@stanford.edu, linux-kernel@vger.kernel.org, mc@cs.stanford.edu,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, lvs-users@LinuxVirtualServer.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?J=F6rn?= Engel <joern@wohnheim.fh-wedel.de>
-In-Reply-To: <20030916090748.GE27703@wohnheim.fh-wedel.de>
+To: Wensong Zhang <wensong@linux-vs.org>
+In-Reply-To: <Pine.LNX.4.44.0309180014470.15676-200000@penguin.linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 16 Sep 2003 11:07:48 +0200
-J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
+On Thu, 18 Sep 2003 00:44:16 +0800 (CST)
+Wensong Zhang <wensong@linux-vs.org> wrote:
 
-> Looks valid.  And since skb isn't really needed until after these
-> returns, moving four lines down a bit fixes the problem.
->=20
-> Davem, is this correct?
+> So, maybe we just apply the simple patch with making the lock local and 
+> tagging user pointers.
 
-Nope, now you're leaking the route instead of the SKB :-)
+Can someone put such a patch together for me?
 
-I'll put the correct fix in.
+Thanks.
