@@ -1,69 +1,35 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Where is Margit Schubert-While?
-Date: Wed, 16 Mar 2005 00:48:52 -0500
-Message-ID: <20050316054852.GK17854@ruslug.rutgers.edu>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [patch 06/13] ppc 8260 fcc ethernet driver cannot read LXT971
+ PHY id
+Date: Tue, 15 Mar 2005 23:26:51 -0800
+Message-ID: <20050315232651.3fd10b13.akpm@osdl.org>
+References: <200503152222.j2FMMccq016808@shell0.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1858589305=="
-Cc: Margit Schubert-While <margitsw@t-online.de>
-To: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>,
-	prism54-devel@prism54.org
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Sender: prism54-devel-bounces@prism54.org
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com,
+        oray@lucent.com
+In-Reply-To: <200503152222.j2FMMccq016808@shell0.pdx.osdl.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+akpm@osdl.org wrote:
+>
+> From: "Balasaygun, Oray (Oray)" <oray@lucent.com>
+> 
+>  - fix for Bug 4310
+> 
+>  - The fcc_enet.c, as distributed in 2.6.10, does not compile.  Evidently
+>    the 2.6 kernel no longer supports the schedule_task() and "struct
+>    tq_struct" to go with it.  Lines 73 through and including 96 of the
+>    diffout file show the changes I made to port schedule_task() into
+>    tasklet_schedule().  I should have reported this as a bug too but I
+>    forgot about it.
+> 
+>  - customize fcc_enet.c to work with my custom board.  These changes are
+>    conditional on CONFIG_EON8260 being defined.
 
---===============1858589305==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="2F7AbV2suvT8PGoH"
-Content-Disposition: inline
-
-
---2F7AbV2suvT8PGoH
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-
-
-Anyone heard of Margit Schubert recently? I have stopped hearing from
-her. She was actively working on prism54 and all of a sudden
-disappeared. IIRC her husband last told me she was sick...
-
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---2F7AbV2suvT8PGoH
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFCN8jEat1JN+IKUl4RAvjRAKCreEwFA+VpMY5RMSVarfZtpuK0DQCffPHx
-uIN4IY0JA8oWgmEIXPm8g+U=
-=gjaZ
------END PGP SIGNATURE-----
-
---2F7AbV2suvT8PGoH--
-
---===============1858589305==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============1858589305==--
+Jeff, don't apply this please - we're getting a bunch of patches for this
+driver coming from another direction (mvista, freescale.com).  Will take
+some time to sort through.
