@@ -1,46 +1,31 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 2.4] PKT_SCHED: Avoid duplicated TCA_STATS TLVs for HTB and HFSC
-Date: Fri, 22 Oct 2004 12:05:17 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: linux 2.6.9: r8169: eth0: PCI error (status: 0x8404). Device disabled.
+Date: Fri, 22 Oct 2004 12:52:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022100517.GY21977@postel.suug.ch>
+Message-ID: <20041022105224.GA26714@electric-eye.fr.zoreil.com>
+References: <1098269117.6631.5.camel@ukabzc383.uk.saic.com> <20041020121520.GA4004@electric-eye.fr.zoreil.com> <1098282567.6631.10.camel@ukabzc383.uk.saic.com> <20041020201010.GA13023@electric-eye.fr.zoreil.com> <1098350743.15528.40.camel@ukabzc383.uk.saic.com> <20041021120208.GA752@electric-eye.fr.zoreil.com> <1098437493.5513.8.camel@ukabzc383.uk.saic.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
 Content-Disposition: inline
+In-Reply-To: <1098437493.5513.8.camel@ukabzc383.uk.saic.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Eamonn Hamilton <EAMONN.HAMILTON@saic.com> :
+[...]
+> Testing the kernel with the error reset disabled just causes networking
+> to stop, with no reported error after copying data from the box for a
+> bit ( < 1GB )
 
-Backport of the equivalent 2.6 fixes.
+At this point, can you have network traffic again is the device goes
+through closed/open or the module through rmmod/insmod ?
 
-Qdiscs are not supposed to dump TCA_STATS, it is done in generic code part.
+> Hope this helps,
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Yes.
 
---- linux-2.4.28-pre4-bk6.orig/net/sched/sch_htb.c	2004-10-22 10:58:23.000000000 +0200
-+++ linux-2.4.28-pre4-bk6/net/sched/sch_htb.c	2004-10-22 10:59:30.000000000 +0200
-@@ -1287,8 +1287,6 @@
- 	RTA_PUT(skb, TCA_OPTIONS, 0, NULL);
- 	RTA_PUT(skb, TCA_HTB_INIT, sizeof(gopt), &gopt);
- 	rta->rta_len = skb->tail - b;
--	sch->stats.qlen = sch->q.qlen;
--	RTA_PUT(skb, TCA_STATS, sizeof(sch->stats), &sch->stats);
- 	HTB_QUNLOCK(sch);
- 	return skb->len;
- rtattr_failure:
---- linux-2.4.28-pre4-bk6.orig/net/sched/sch_hfsc.c	2004-10-22 10:58:23.000000000 +0200
-+++ linux-2.4.28-pre4-bk6/net/sched/sch_hfsc.c	2004-10-22 11:00:46.000000000 +0200
-@@ -1628,10 +1628,6 @@
- 	qopt.defcls = q->defcls;
- 	RTA_PUT(skb, TCA_OPTIONS, sizeof(qopt), &qopt);
- 
--	sch->stats.qlen = sch->q.qlen;
--	if (qdisc_copy_stats(skb, &sch->stats) < 0)
--		goto rtattr_failure;
--
- 	return skb->len;
- 
-  rtattr_failure:
+--
+Ueimor
