@@ -1,41 +1,34 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] rtnetlink & address family problem
-Date: 06 Dec 2004 06:40:43 -0500
-Message-ID: <1102333242.1048.2268.camel@jzny.localdomain>
-References: <41B0A5B4.6060108@suse.cz>
-Reply-To: hadi@cyberus.ca
+From: Jos Vos <jos@xos.nl>
+Subject: Re: e1000 driver problem with Intel Pro/1000 MT adapter
+Date: Mon, 6 Dec 2004 12:51:51 +0100
+Message-ID: <20041206125151.A24753@xos037.xos.nl>
+References: <200412032325.iB3NPdG04693@xos037.xos.nl> <1102204801.3343.68.camel@sfeldma-mobl.dsl-verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, Jan Kara <jack@suse.cz>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michal Ludvig <mludvig@suse.cz>
-In-Reply-To: <41B0A5B4.6060108@suse.cz>
+To: Scott Feldman <sfeldma@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <1102204801.3343.68.camel@sfeldma-mobl.dsl-verizon.net>; from sfeldma@pobox.com on Sat, Dec 04, 2004 at 04:00:01PM -0800
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Dec 04, 2004 at 04:00:01PM -0800, Scott Feldman wrote:
 
-I think this patch will break more than it fixes. You need to do a lot
-more testing to verify it doesnt. Actually you should probably fix whats
-being invoked for the ifa messages when PF_UNSPEC is selected to check
-that it only flushes v6 addresses when V6 is on and reject when it is
-not compiled in.
+> The 4-port card has two 82546 dual-port controllers behind a PCI-X
+> bridge.  Your symptoms suggest interrupt routing didn't get setup
+> correctly for the controllers behind the bridge.  I've seen more than
+> one case where the BIOS gets this wrong.  The fix is to upgrade to the
+> latest BIOS.  Hopefully this is the fix for you.  :-)
 
-cheers,
-jamal
+I just a prerelease of their next BIOS from Supermicro and that seems
+to solve the problem!
 
-On Fri, 2004-12-03 at 12:43, Michal Ludvig wrote:
-> Hi,
-> 
-> running 'ip -6 addr flush dev eth0' on a kernel without IPv6 support
-> flushes *all* addresses from the interface, even those IPv4 ones,
-> because the unsupported protocol is substituted by PF_UNSPEC.
-> IMHO it should better return with an error EAFNOSUPPORT.
-> 
-> Attached patch fixes it. Please apply.
-> 
-> BTW Credits to Jan Kara <jack@suse.cz> for discovering and analysing
-> this bug.
-> 
-> Michal Ludvig
+I still have to boot the SMP kernel to get APIC working, in UP mode
+incoming packets are not seen, but I can live with that.
+
+-- 
+--    Jos Vos <jos@xos.nl>
+--    X/OS Experts in Open Systems BV   |   Phone: +31 20 6938364
+--    Amsterdam, The Netherlands        |     Fax: +31 20 6948204
