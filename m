@@ -1,29 +1,25 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH]: altq HFSC port
-Date: Thu, 29 Jan 2004 16:15:23 +0100
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <4019238B.4060006@trash.net>
-References: <Pine.GSO.4.42.0401261228290.22399-200000@stinky.trash.net>	<1075128375.1746.392.camel@jzny.localdomain>	<40155F1A.7070507@trash.net>	<20040126235957.GA30186@mail.shareable.org>	<4017C54D.2060607@trash.net> <20040128145800.5ec4b57b.davem@redhat.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6]: HFSC packet scheduler
+Date: Thu, 29 Jan 2004 12:13:47 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040129121347.5b715047.davem@redhat.com>
+References: <401923B8.7030909@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jamie@shareable.org, hadi@cyberus.ca, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040128145800.5ec4b57b.davem@redhat.com>
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <401923B8.7030909@trash.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+On Thu, 29 Jan 2004 16:16:08 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Yes, it is.  Please if you could resubmit the patch to me under
-> seperate cover, that would be great.  I recall it was for 2.6.x,
-> but if you could procure also a 2.4.x version I'll happily add it.
-> These are like drivers so it'd be totally safe.
+> This is the 2.6 version of HFSC. Changes to last patch:
 > 
+> - don't crash on user error (non-work-conserving inner qdisc)
+> - trailing whitespace cleanup
 
-Great, thanks alot. Patches for 2.4 and 2.6 follow.
-
-Best regards,
-Patrick
-
+Ok applied.  I did a s/u_intX_t/uX/ in sch_hfsc.c, I hope you don't mind.
