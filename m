@@ -1,36 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: question about linux tcp request queue handling
-Date: Tue, 8 Jul 2003 01:52:01 +0200
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: disablenetwork() syscall?
+Date: Tue, 8 Jul 2003 09:59:32 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030708015201.4a5ad7e6.ak@suse.de>
-References: <3F08858E.8000907@us.ibm.com.suse.lists.linux.kernel>
-	<001a01c3441c$6fe111a0$6801a8c0@oemcomputer.suse.lists.linux.kernel>
-	<3F08B7E2.7040208@us.ibm.com.suse.lists.linux.kernel>
-	<000d01c3444f$e6439600$6801a8c0@oemcomputer.suse.lists.linux.kernel>
-	<3F090A4F.10004@us.ibm.com.suse.lists.linux.kernel>
-	<001401c344df$ccbc63c0$6801a8c0@oemcomputer.suse.lists.linux.kernel>
-	<p73fzliqa91.fsf@oldwotan.suse.de>
-	<m3brw6rn3m.fsf@varsoon.wireboard.com>
+Message-ID: <Mutt.LNX.4.44.0307080954170.5824-100000@excalibur.intercode.com.au>
+References: <Pine.LNX.4.44.0307072237560.11843-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: palbrecht@qwest.net, niv@us.ibm.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Doug McNaught <doug@mcnaught.org>
-In-Reply-To: <m3brw6rn3m.fsf@varsoon.wireboard.com>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0307072237560.11843-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 07 Jul 2003 18:25:17 -0400
-Doug McNaught <doug@mcnaught.org> wrote:
+On Mon, 7 Jul 2003, Pekka Savola wrote:
 
-> And furthermore, IIRC, the current Linux networking code is not
-> Berkeley-derived, though an earlier version was.
+> Hi,
+> 
+> In a bugtraq thread, DJ Bernstein brought up an idea which I'm not sure 
+> has been brought up in the past.
 
-The linux network stack was never BSD derived in any way.
+Such a feature already exists in SELinux.
 
-[there are two header files that came from net2, but they do not 
-contain any code]
+>  I'm not sure whether it's feasible or 
+> not, but at least it (and other methods to limit the functions of a 
+> user-level code) might bear consideration.
 
--Andi
+This is precisely what LSM is for, so new security models can be 
+implemented without any direct effect on the core kernel.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
