@@ -1,49 +1,60 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: Re: [PATCH] Update in-kernel orinoco drivers to upstream current CVS
-Date: Sun, 4 Jul 2004 12:01:06 +1000
+From: jamal <hadi@cyberus.ca>
+Subject: reminder to netdriver authors
+Date: 03 Jul 2004 23:13:21 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040704020106.GB25992@zax>
-References: <1088795498.18039.25.camel@dcbw.boston.redhat.com> <40E5B6AD.6060904@pobox.com>
+Message-ID: <1088910801.1041.818.camel@jzny.localdomain>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40E5B6AD.6060904@pobox.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Jul 02, 2004 at 03:25:33PM -0400, Jeff Garzik wrote:
-> Dan Williams wrote:
-> >Hi,
-> >
-> >This patch is simply the fixed-up diff between the kernel's current
-> >0.13e version and the upstream 0.15rc1+ version from savannah CVS.
-> >0.15rc1 has been out for a couple months now and seems stable.
-> >
-> >The major benefits that this newer version brings are, of course, many
-> >bugfixes, but best of all wireless scanning support for the Orinoco line
-> >of cards.
-> >
-> >http://people.redhat.com/dcbw/linux-2.6.7-orinoco.patch.bz2
-> >
-> >Dan Williams
-> >Red Hat, Inc.
-> 
-> 
-> I'm desperately hoping that someone will split this up into multiple 
-> patches...
 
-Urg, yes.  I've dropped the ball badly on this.  I've done very, very
-little work on the driver for well over a year now and the changes
-have built up to a megapatch.  I really does need to be broken up, but
-the chances of me finding the time and motivation to do so are not
-looking good.
 
--- 
-David Gibson			| For every complex problem there is a
-david AT gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+chasing that cbq issue i noticed things from return codes of
+dev->hard_start_xmit().
+
+The rules are as follows (unfortunately the documentation is outdated;
+closest i could find was
+http://www.firstfloor.org/~andi/softnet/softnet.drivers.HOWTO). Jeff i
+thought you may have had something new.
+
+0) no point of doing things like: 
+
+if (netif_queue_stopped(dev)
+
+Your code will never be entered to begin with if you are stopped.
+You are wasting fast path cycles.
+Also no point in doing a netif_stop_queue(dev) as soon as you enter
+the driver. The driver will not be reentered (from say another CPU)
+until you return.
+
+1) When you have no space in your DMA 
+
+Do NOT stash the packet in your ring
+a) netif_stop_queue()
+b) return 1
+
+A _lot_ of drivers dont follow this rule. A good driver to copy
+from if you are into cutnpaste is the e1000.
+If you stash the packet in your ring then return 1 you are in deep 
+doodoo friend. 
+
+2) return a 0 only when you have succesfully put things on DMA.
+Returning 0 always is not a BadThing. Most drivers do this.
+It is a little less efficient at the top layer for each batch of packets
+sent to the driver and you end up stopping the netif at this point.
+
+3) In case of error probably return a 1 and dont try anything funny
+with the skb. Dont put on your DMA or try to free it or muck with it in
+any way. You probably should whine if you have too many errors in
+sequence. 
+
+Someone with more time than myself can audit the drivers - I have seen
+these issues.
+
+cheers,
+jamal
