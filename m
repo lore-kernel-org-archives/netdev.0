@@ -1,58 +1,68 @@
-From: Dipankar Sarma <dipankar@in.ibm.com>
+From: Andrea Arcangeli <andrea@suse.de>
 Subject: Re: route cache DoS testing and softirqs
-Date: Tue, 30 Mar 2004 20:13:24 +0530
+Date: Tue, 30 Mar 2004 17:11:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040330144324.GA3778@in.ibm.com>
-References: <20040329184550.GA4540@in.ibm.com> <20040329222926.GF3808@dualathlon.random>
-Reply-To: dipankar@in.ibm.com
+Message-ID: <20040330151148.GX3808@dualathlon.random>
+References: <20040329184550.GA4540@in.ibm.com> <20040329222926.GF3808@dualathlon.random> <20040330050614.GA4669@in.ibm.com> <20040330053515.GA4815@in.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        Robert Olsson <Robert.Olsson@data.slu.se>,
+Cc: Dipankar Sarma <dipankar@in.ibm.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, Robert Olsson <Robert.Olsson@data.slu.se>,
         "Paul E. McKenney" <paulmck@us.ibm.com>,
         Dave Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>,
+        rusty@au1.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrea Arcangeli <andrea@suse.de>
+To: Srivatsa Vaddagiri <vatsa@in.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20040329222926.GF3808@dualathlon.random>
+In-Reply-To: <20040330053515.GA4815@in.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2004 at 12:29:26AM +0200, Andrea Arcangeli wrote:
-> the only real starvation you can claim is in presence of an _hard_irq
-> flood, not a softirq one. Ingo had some patch for the hardirq
-> throttling, unfortunately those pathes were mixed with irrelevant
-> softirq changes, but the hardirq part of these patches was certainly
-> valid (though in most business environments I imagine if one is under
-> hardirq attack in the local ethernet, the last worry is probably the
-> throttling of hardirqs ;)
+On Tue, Mar 30, 2004 at 11:05:15AM +0530, Srivatsa Vaddagiri wrote:
+> On Tue, Mar 30, 2004 at 10:36:14AM +0530, Srivatsa Vaddagiri wrote:
+> > kthread_stop does:
+> > 
+> > 	1. kthread_stop_info.k = k;
+> >         2. wake_up_process(k);
+> > 
+> > and if ksoftirqd were to do :
+> > 
+> > 	a. while (!kthread_should_stop()) {
+> >         b.         __set_current_state(TASK_INTERRUPTIBLE);
+> >         c.         schedule();
+> >            }
+> > 
+> > 
+> > There is a (narrow) possibility here that a) happens _after_ 1) as well as 
+> > b) _after_ 2).
+> 
+> hmm .. I meant a) happening _before_ 1) and b) happening _after_ 2) ..
+> 
+> > 
+> >         a. __set_current_state(TASK_INTERRUPTIBLE);
+> > 	b. while (!kthread_should_stop()) {
+> >         c.         schedule();
+> >         d.         __set_current_state(TASK_INTERRUPTIBLE);
+> >            }
+> > 
+> >         e. __set_current_state(TASK_RUNNING);
+> > 
+> > In this case, even if b) happens _after_ 1) and c) _after_ 2), 
+> 
+> Again I meant "even if b) happens _before_ 1) and c) _after_ 2) !!
+> 
+> > schedule simply returns immediately because task's state would have been set 
+> > to TASK_RUNNING by 2). It goes back to the kthread_should_stop() check and 
+> > exits!
 
-Hmm.. What about firewalls and routers on the internet ? Shouldn't
-they care ?
+you're right, I had a private email exchange with Andrew about this
+yesterday, he promptly pointed it out too. But my point is that the
+previous code was broken too, it wasn't me breaking the code, I only
+simplified already broken code instead of fixing it for real. His tree
+should get the proper fixes soon. All those __ in front of the
+set_current_state in that function made the ordering worthless and
+that's why I cleaned them up.
 
-> So you're simply asking the ksoftirqd offloading to become more
-> aggressive, and to make the softirq even more scheduler friendly,
-> something I never had a reason to do yet, since ksoftirqd already
-> eliminates the starvation issue, and secondly because I did care about
-> the performance of softirq first (delaying softirqs is derimental for
-> performance if it happens frequently w/o this kind of flood-load). I
-> even got a patch for 2.4 doing this kind of changes to the softirqd for
-> similar reasons on embedded systems where the cpu spent on the softirqs
-> would been way too much under attack. I had to back it out since it was
-> causing drop of performance in specweb or something like that and nobody
-> but the embdedded people needed it.  But now here we've a case where it
-> makes even more sense since the hardirq aren't strictly related to this
-> load, this load with the rcu-routing-cache is just about letting the
-> scheduler go together witn an intensive softirq load. So we can try
-> again with a truly userspace throttling of the softirqs (and in 2.4 I
-> didn't change the nice from 19 to -20 so maybe this will just work
-> perfectly).
-
-Tried it and it didn't work. I still got dst cache overflows. I will dig
-out more numbers about what what happened - is ksoftirqd a pig still or
-we are mostly doing short softirq bursts on the back of a hardirq
-flood.
-
-Thanks
-Dipankar
+The softirq part in the patch however is orthogonal to the above races,
+so I didn't post an update since it didn't impact testing.
