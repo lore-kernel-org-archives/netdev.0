@@ -1,41 +1,28 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: ipsec (ipv4 tunnel mode) is broken
-Date: Mon, 7 Feb 2005 14:30:35 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0502071430130.28475-100000@thoron.boston.redhat.com>
-References: <Pine.LNX.4.58.0502071320400.12462@lacrosse.corp.redhat.com>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [Bugme-new] [Bug 4180] New: masquarade and source ip
+Date: Tue, 08 Feb 2005 07:35:22 +1100
+Message-ID: <E1CyFbO-0005cI-00@gondolin.me.apana.org.au>
+References: <20050207111822.65038881.akpm@osdl.org>
 Cc: netdev@oss.sgi.com
-To: Matthew Galgoci <mgalgoci@redhat.com>
-In-Reply-To: <Pine.LNX.4.58.0502071320400.12462@lacrosse.corp.redhat.com>
+To: spied@yandex.ru
+In-Reply-To: <20050207111822.65038881.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Feb 2005, Matthew Galgoci wrote:
+> ip addr add eth0 1.2.3.4
+> ip addr add eth0 2.3.4.5
 
-> 
-> I noticed as recenly as 2.6.11-rc3-bk3 that ipv4 ipsec is broken. I'm currently using
-> openswan as my ike daemon. This was working with the same ike daemon and config as 
-> (I think) recenrly as 2.6.11-rc2.
-> 
-> Before I go binary searching for the change that broke it, I was wondering if anyone
-> knows offhand what the issue might be from these error messages in my kernel log:
-> 
-> NET: Registered protocol family 15
-> ESP: md5 digestsize 16 != 0
-> ESP: md5 digestsize 16 != 0
-> ESP: md5 digestsize 16 != 0
-> ESP: md5 digestsize 16 != 0
-> 
-> openswan dies somewhere between phase 1 and phase 2 negotiation with an internal error.
+Unless you put netmasks on the addresses, e.g., 2.3.4.5/30, the kernel
+won't know that 2.3.4.5 is a better address to use than 1.2.3.4 when
+trying to reach 2.3.4.6.
 
-This patch should fix it (now in bk iirc):
+> ip route add default via 2.3.4.6 src 2.3.4.5
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=110746335402355&w=2
-
-
-- James
+This src setting does not survive through to the MASQUERADE target and
+therefore has no effect.
 -- 
-James Morris
-<jmorris@redhat.com>
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
