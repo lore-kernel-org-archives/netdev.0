@@ -1,37 +1,32 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC] Use RCU for fib_rules
-Date: Wed, 31 Mar 2004 13:05:41 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: fealnx oopses
+Date: Wed, 31 Mar 2004 23:01:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331130541.4b1e8b0d@dell_ss3.pdx.osdl.net>
-References: <20040331112839.02e8d4c2@dell_ss3.pdx.osdl.net>
-	<406B2828.7070800@us.ibm.com>
+Message-ID: <20040331230125.A9130@electric-eye.fr.zoreil.com>
+References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <20040330002047.D4744@electric-eye.fr.zoreil.com> <200403300050.42367.vda@port.imtp.ilyichevsk.odessa.ua> <200403300116.41377.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>,
-        Paul McKenney
- <Paul.McKenney@us.ibm.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Andreas Henriksson <andreas@fjortis.info>, Jeff Garzik <jgarzik@pobox.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <406B2828.7070800@us.ibm.com>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Content-Disposition: inline
+In-Reply-To: <200403300116.41377.vda@port.imtp.ilyichevsk.odessa.ua>; from vda@port.imtp.ilyichevsk.odessa.ua on Tue, Mar 30, 2004 at 01:16:41AM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 31 Mar 2004 12:20:56 -0800
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
+[...]
+> I just verified that even if I stop remote netcat,
+> box does not recover. Console fills with
+> "Too much work at interrupt, status=0x0020"
+> 0x0020 is RBU = 0x00000020, /* receive buffer unavailable */
 
-> Stephen Hemminger wrote:
-> 
-> > The IP forwarding rules, uses rwlock when it could use RCU.
-> > Don't know if this would help or hurt the recent discussions about
-> > large rulesets and DOS attacks.
-> > 
-> > Also, it increases the size of fib_rule slightly.
-> 
-> Stephen,
-> 
-> Any benchmarks or perf tests that quantify the gain here?
+There too much work in my daily interrupt handler as well so this get
+scheduled for a few days/nights :o)
 
-No, don't have enough rules or load in this area to cause an impact.
-But also, I don't have the test environment to really stress this
-(ie 1000's of rules).
+If anything else, I'll probably cook up a nice patch for the current changes
+once things settle down a bit. 
+
+--
+Ueimor
