@@ -1,43 +1,79 @@
-From: David Gibson <david@gibson.dropbear.id.au>
-Subject: [0/8] orinoco driver updates
-Date: Wed, 12 Jan 2005 16:23:52 +1100
-Message-ID: <20050112052352.GA30426@localhost.localdomain>
+From: David Gibson <hermes@gibson.dropbear.id.au>
+Subject: [3/8] orinoco: Use mdelay()/ssleep() instead of more complex delays
+Date: Wed, 12 Jan 2005 16:26:30 +1100
+Message-ID: <20050112052630.GD30426@localhost.localdomain>
+References: <20050112052352.GA30426@localhost.localdomain> <20050112052434.GB30426@localhost.localdomain> <20050112052543.GC30426@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: orinoco-devel@lists.sourceforge.net, netdev@oss.sgi.com,
 	linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263021AbVALF3s@vger.kernel.org>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S263091AbVALF35@vger.kernel.org>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <20050112052543.GC30426@localhost.localdomain>
 Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Following are a bunch of patches which make a few more steps towards
-the long overdue merge of the CVS orinoco driver into mainline.  These
-do make behavioural changes to the driver, but they should all be
-trivial and largely cosmetic.
+Use mdelay() or ssleep() instead of various silly more complicated
+ways of delaying in the orinoco driver.
 
-Jeff, please apply.  Patches are against the netdev BK tree.
+Signed-off-by: David Gibson <hermes@gibson.dropbear.id.au>
 
-orinoco-printks
-	Update printk()s and other cosmetic strings
-orinoco-carrier
-	Use netif_carrier_() functions instead of homegrown connected
-	flag
-orinoco-delays
-	Use mdelay() and ssleep() instead of schedule_timeout() and
-	other more complicated idioms.
-orinoco-free-orinocodev
-	Introduce free_orinocodev() function as a wrapper around
-	free_netdev()
-orinoco-cleanup-hermes
-	Make cleanups to low-level driver code
-orinoco-pccard-cleanups
-	Cleanup initialization for PCMCIA/PC-Card devices.
-orinoco-modparm
-	Replace obsolete MODULE_PARM() constructions from orinoco.c
-orinoco-pci-updates
-	Cleanup initialization for PCI/PLX/TMD devices.
+Index: working-2.6/drivers/net/wireless/orinoco_pci.c
+===================================================================
+--- working-2.6.orig/drivers/net/wireless/orinoco_pci.c	2005-01-12 15:13:18.819073992 +1100
++++ working-2.6/drivers/net/wireless/orinoco_pci.c	2005-01-12 15:15:33.137654464 +1100
+@@ -151,19 +151,11 @@
+ 
+ 	/* Assert the reset until the card notice */
+ 	hermes_write_regn(hw, PCI_COR, HERMES_PCI_COR_MASK);
+-	timeout = jiffies + (HERMES_PCI_COR_ONT * HZ / 1000);
+-	while(time_before(jiffies, timeout)) {
+-		mdelay(1);
+-	}
+-	//mdelay(HERMES_PCI_COR_ONT);
++	mdelay(HERMES_PCI_COR_ONT);
+ 
+ 	/* Give time for the card to recover from this hard effort */
+ 	hermes_write_regn(hw, PCI_COR, 0x0000);
+-	timeout = jiffies + (HERMES_PCI_COR_OFFT * HZ / 1000);
+-	while(time_before(jiffies, timeout)) {
+-		mdelay(1);
+-	}
+-	//mdelay(HERMES_PCI_COR_OFFT);
++	mdelay(HERMES_PCI_COR_OFFT);
+ 
+ 	/* The card is ready when it's no longer busy */
+ 	timeout = jiffies + (HERMES_PCI_COR_BUSYT * HZ / 1000);
+Index: working-2.6/drivers/net/wireless/orinoco_plx.c
+===================================================================
+--- working-2.6.orig/drivers/net/wireless/orinoco_plx.c	2005-01-12 15:13:18.821073688 +1100
++++ working-2.6/drivers/net/wireless/orinoco_plx.c	2005-01-12 15:15:33.138654312 +1100
+@@ -356,8 +356,7 @@
+ static void __exit orinoco_plx_exit(void)
+ {
+ 	pci_unregister_driver(&orinoco_plx_driver);
+-	current->state = TASK_UNINTERRUPTIBLE;
+-	schedule_timeout(HZ);
++	ssleep(1);
+ }
+ 
+ module_init(orinoco_plx_init);
+Index: working-2.6/drivers/net/wireless/orinoco_tmd.c
+===================================================================
+--- working-2.6.orig/drivers/net/wireless/orinoco_tmd.c	2005-01-12 15:13:18.820073840 +1100
++++ working-2.6/drivers/net/wireless/orinoco_tmd.c	2005-01-12 15:16:05.897674184 +1100
+@@ -225,8 +225,7 @@
+ static void __exit orinoco_tmd_exit(void)
+ {
+ 	pci_unregister_driver(&orinoco_tmd_driver);
+-	current->state = TASK_UNINTERRUPTIBLE;
+-	schedule_timeout(HZ);
++	ssleep(1);
+ }
+ 
+ module_init(orinoco_tmd_init);
+
 
 -- 
 David Gibson			| I'll have my music baroque, and my code
