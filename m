@@ -1,7 +1,7 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] remove dead exports from net/core/dev.c
-Date: Mon, 1 Nov 2004 12:46:05 +0100
-Message-ID: <20041101114605.GA7507@lst.de>
+Subject: [PATCH] remove dead skb_iter* functions
+Date: Mon, 1 Nov 2004 12:56:53 +0100
+Message-ID: <20041101115653.GA7714@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
@@ -12,199 +12,163 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-this also allows to kill some competely dead code, e.g. many of the
-non-locked __foo routines.
-
 Signed-off-by: Christoph Hellwig <hch@lst.de>
 
 
---- 1.91/include/linux/netdevice.h	2004-10-26 18:09:33 +02:00
-+++ edited/include/linux/netdevice.h	2004-10-30 21:04:33 +02:00
-@@ -526,20 +526,13 @@
- extern int 			netdev_boot_setup_check(struct net_device *dev);
- extern unsigned long		netdev_boot_base(const char *prefix, int unit);
- extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
--extern struct net_device *__dev_getfirstbyhwtype(unsigned short type);
- extern struct net_device *dev_getfirstbyhwtype(unsigned short type);
- extern void		dev_add_pack(struct packet_type *pt);
- extern void		dev_remove_pack(struct packet_type *pt);
- extern void		__dev_remove_pack(struct packet_type *pt);
--extern int		__dev_get(const char *name);
--static inline int __deprecated dev_get(const char *name)
--{
--	return __dev_get(name);
--}
-+
- extern struct net_device	*dev_get_by_flags(unsigned short flags,
- 						  unsigned short mask);
--extern struct net_device	*__dev_get_by_flags(unsigned short flags,
--						    unsigned short mask);
- extern struct net_device	*dev_get_by_name(const char *name);
- extern struct net_device	*__dev_get_by_name(const char *name);
- extern int		dev_alloc_name(struct net_device *dev, const char *name);
-@@ -553,7 +546,6 @@
- extern int 		register_netdevice_notifier(struct notifier_block *nb);
- extern int		unregister_netdevice_notifier(struct notifier_block *nb);
- extern int		call_netdevice_notifiers(unsigned long val, void *v);
--extern int		dev_new_index(void);
- extern struct net_device	*dev_get_by_index(int ifindex);
- extern struct net_device	*__dev_get_by_index(int ifindex);
- extern int		dev_restart(struct net_device *dev);
-@@ -910,7 +902,6 @@
- /* These functions live elsewhere (drivers/net/net_init.c, but related) */
- 
- extern void		ether_setup(struct net_device *dev);
--extern void		fddi_setup(struct net_device *dev);
- extern void		tr_setup(struct net_device *dev);
- extern void		fc_setup(struct net_device *dev);
- extern void		fc_freedev(struct net_device *dev);
---- 1.169/net/core/dev.c	2004-10-26 18:09:33 +02:00
-+++ edited/net/core/dev.c	2004-10-30 23:17:56 +02:00
-@@ -520,35 +520,6 @@
- 	return dev;
- }
- 
--/*
--   Return value is changed to int to prevent illegal usage in future.
--   It is still legal to use to check for device existence.
--
--   User should understand, that the result returned by this function
--   is meaningless, if it was not issued under rtnl semaphore.
-- */
--
--/**
-- *	dev_get	-	test if a device exists
-- *	@name:	name to test for
-- *
-- *	Test if a name exists. Returns true if the name is found. In order
-- *	to be sure the name is not allocated or removed during the test the
-- *	caller must hold the rtnl semaphore.
-- *
-- *	This function exists only for back compatibility with older
-- *	drivers.
-- */
--int __dev_get(const char *name)
--{
--	struct net_device *dev;
--
--	read_lock(&dev_base_lock);
--	dev = __dev_get_by_name(name);
--	read_unlock(&dev_base_lock);
--	return dev != NULL;
--}
--
- /**
-  *	__dev_get_by_index - find a device by its ifindex
-  *	@ifindex: index of device
-@@ -623,26 +594,17 @@
- 	return dev;
- }
- 
--struct net_device *__dev_getfirstbyhwtype(unsigned short type)
--{
--	struct net_device *dev;
--
--	for (dev = dev_base; dev; dev = dev->next)
--		if (dev->type == type)
--			break;
--	return dev;
--}
--
--EXPORT_SYMBOL(__dev_getfirstbyhwtype);
--
- struct net_device *dev_getfirstbyhwtype(unsigned short type)
- {
- 	struct net_device *dev;
- 
- 	rtnl_lock();
--	dev = __dev_getfirstbyhwtype(type);
--	if (dev)
--		dev_hold(dev);
-+	for (dev = dev_base; dev; dev = dev->next) {
-+		if (dev->type == type) {
-+			dev_hold(dev);
-+			break;
-+		}
-+	}
- 	rtnl_unlock();
- 	return dev;
- }
-@@ -665,32 +627,14 @@
- 	struct net_device *dev;
- 
- 	read_lock(&dev_base_lock);
--	dev = __dev_get_by_flags(if_flags, mask);
--	if (dev)
--		dev_hold(dev);
--	read_unlock(&dev_base_lock);
--	return dev;
--}
--
--/**
-- *	__dev_get_by_flags - find any device with given flags
-- *	@if_flags: IFF_* values
-- *	@mask: bitmask of bits in if_flags to check
-- *
-- *	Search for any interface with the given flags. Returns NULL if a device
-- *	is not found or a pointer to the device. The caller must hold either
-- *	the RTNL semaphore or @dev_base_lock.
-- */
--
--struct net_device *__dev_get_by_flags(unsigned short if_flags, unsigned short mask)
--{
--	struct net_device *dev;
--
- 	for (dev = dev_base; dev != NULL; dev = dev->next) {
--		if (((dev->flags ^ if_flags) & mask) == 0)
--			return dev;
-+		if (((dev->flags ^ if_flags) & mask) == 0) {
-+			dev_hold(dev);
-+			break;
-+		}
- 	}
--	return NULL;
-+	read_unlock(&dev_base_lock);
-+	return dev;
- }
- 
- /**
-@@ -2696,7 +2640,7 @@
-  *	number.  The caller must hold the rtnl semaphore or the
-  *	dev_base_lock to be sure it remains unique.
+
+--- 1.56/include/linux/skbuff.h	2004-10-05 23:51:01 +02:00
++++ edited/include/linux/skbuff.h	2004-10-30 21:04:33 +02:00
+@@ -592,7 +592,6 @@
+ /*
+  *	Insert a packet on a list.
   */
--int dev_new_index(void)
-+static int dev_new_index(void)
+-extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk);
+ static inline void __skb_insert(struct sk_buff *newsk,
+ 				struct sk_buff *prev, struct sk_buff *next,
+ 				struct sk_buff_head *list)
+@@ -1120,22 +1119,6 @@
+ 
+ extern void skb_init(void);
+ extern void skb_add_mtu(int mtu);
+-
+-struct skb_iter {
+-	/* Iteration functions set these */
+-	unsigned char *data;
+-	unsigned int len;
+-
+-	/* Private to iteration */
+-	unsigned int nextfrag;
+-	struct sk_buff *fraglist;
+-};
+-
+-/* Keep iterating until skb_iter_next returns false. */
+-extern void skb_iter_first(const struct sk_buff *skb, struct skb_iter *i);
+-extern int skb_iter_next(const struct sk_buff *skb, struct skb_iter *i);
+-/* Call this if aborting loop before !skb_iter_next */
+-extern void skb_iter_abort(const struct sk_buff *skb, struct skb_iter *i);
+ 
+ #ifdef CONFIG_NETFILTER
+ static inline void nf_conntrack_put(struct nf_conntrack *nfct)
+--- 1.39/net/core/skbuff.c	2004-10-20 06:56:24 +02:00
++++ edited/net/core/skbuff.c	2004-10-30 21:04:33 +02:00
+@@ -929,72 +929,7 @@
+ 	return -EFAULT;
+ }
+ 
+-/* Keep iterating until skb_iter_next returns false. */
+-void skb_iter_first(const struct sk_buff *skb, struct skb_iter *i)
+-{
+-	i->len = skb_headlen(skb);
+-	i->data = (unsigned char *)skb->data;
+-	i->nextfrag = 0;
+-	i->fraglist = NULL;
+-}
+-
+-int skb_iter_next(const struct sk_buff *skb, struct skb_iter *i)
+-{
+-	/* Unmap previous, if not head fragment. */
+-	if (i->nextfrag)
+-		kunmap_skb_frag(i->data);
+-
+-	if (i->fraglist) {
+-	fraglist:
+-		/* We're iterating through fraglist. */
+-		if (i->nextfrag < skb_shinfo(i->fraglist)->nr_frags) {
+-			i->data = kmap_skb_frag(&skb_shinfo(i->fraglist)
+-						->frags[i->nextfrag]);
+-			i->len = skb_shinfo(i->fraglist)->frags[i->nextfrag]
+-				.size;
+-			i->nextfrag++;
+-			return 1;
+-		}
+-		/* Fragments with fragments?  Too hard! */
+-		BUG_ON(skb_shinfo(i->fraglist)->frag_list);
+-		i->fraglist = i->fraglist->next;
+-		if (!i->fraglist)
+-			goto end;
+-
+-		i->len = skb_headlen(i->fraglist);
+-		i->data = i->fraglist->data;
+-		i->nextfrag = 0;
+-		return 1;
+-	}
+-
+-	if (i->nextfrag < skb_shinfo(skb)->nr_frags) {
+-		i->data = kmap_skb_frag(&skb_shinfo(skb)->frags[i->nextfrag]);
+-		i->len = skb_shinfo(skb)->frags[i->nextfrag].size;
+-		i->nextfrag++;
+-		return 1;
+-	}
+-
+-	i->fraglist = skb_shinfo(skb)->frag_list;
+-	if (i->fraglist)
+-		goto fraglist;
+-
+-end:
+-	/* Bug trap for callers */
+-	i->data = NULL;
+-	return 0;
+-}
+-
+-void skb_iter_abort(const struct sk_buff *skb, struct skb_iter *i)
+-{
+-	/* Unmap previous, if not head fragment. */
+-	if (i->data && i->nextfrag)
+-		kunmap_skb_frag(i->data);
+-	/* Bug trap for callers */
+-	i->data = NULL;
+-}
+-
+ /* Checksum skb data. */
+-
+ unsigned int skb_checksum(const struct sk_buff *skb, int offset,
+ 			  int len, unsigned int csum)
  {
- 	static int ifindex;
- 	for (;;) {
-@@ -3236,30 +3180,23 @@
+@@ -1318,25 +1253,6 @@
+ }
  
- subsys_initcall(net_dev_init);
  
--EXPORT_SYMBOL(__dev_get);
--EXPORT_SYMBOL(__dev_get_by_flags);
- EXPORT_SYMBOL(__dev_get_by_index);
- EXPORT_SYMBOL(__dev_get_by_name);
- EXPORT_SYMBOL(__dev_remove_pack);
- EXPORT_SYMBOL(__skb_linearize);
--EXPORT_SYMBOL(call_netdevice_notifiers);
- EXPORT_SYMBOL(dev_add_pack);
- EXPORT_SYMBOL(dev_alloc_name);
- EXPORT_SYMBOL(dev_close);
- EXPORT_SYMBOL(dev_get_by_flags);
- EXPORT_SYMBOL(dev_get_by_index);
- EXPORT_SYMBOL(dev_get_by_name);
--EXPORT_SYMBOL(dev_getbyhwaddr);
- EXPORT_SYMBOL(dev_ioctl);
--EXPORT_SYMBOL(dev_new_index);
- EXPORT_SYMBOL(dev_open);
- EXPORT_SYMBOL(dev_queue_xmit);
--EXPORT_SYMBOL(dev_queue_xmit_nit);
- EXPORT_SYMBOL(dev_remove_pack);
- EXPORT_SYMBOL(dev_set_allmulti);
- EXPORT_SYMBOL(dev_set_promiscuity);
- EXPORT_SYMBOL(dev_change_flags);
--EXPORT_SYMBOL(dev_change_name);
- EXPORT_SYMBOL(dev_set_mtu);
- EXPORT_SYMBOL(free_netdev);
- EXPORT_SYMBOL(netdev_boot_setup_check);
+-/**
+- *	skb_insert	-	insert a buffer
+- *	@old: buffer to insert before
+- *	@newsk: buffer to insert
+- *
+- *	Place a packet before a given packet in a list. The list locks are taken
+- *	and this function is atomic with respect to other list locked calls
+- *	A buffer cannot be placed on two lists at the same time.
+- */
+-
+-void skb_insert(struct sk_buff *old, struct sk_buff *newsk)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&old->list->lock, flags);
+-	__skb_insert(newsk, old->prev, old, old->list);
+-	spin_unlock_irqrestore(&old->list->lock, flags);
+-}
+-
+ #if 0
+ /*
+  * 	Tune the memory allocator for a new MTU size.
+@@ -1444,7 +1360,6 @@
+ EXPORT_SYMBOL(pskb_expand_head);
+ EXPORT_SYMBOL(skb_checksum);
+ EXPORT_SYMBOL(skb_clone);
+-EXPORT_SYMBOL(skb_clone_fraglist);
+ EXPORT_SYMBOL(skb_copy);
+ EXPORT_SYMBOL(skb_copy_and_csum_bits);
+ EXPORT_SYMBOL(skb_copy_and_csum_dev);
+@@ -1456,13 +1371,8 @@
+ EXPORT_SYMBOL(skb_under_panic);
+ EXPORT_SYMBOL(skb_dequeue);
+ EXPORT_SYMBOL(skb_dequeue_tail);
+-EXPORT_SYMBOL(skb_insert);
+ EXPORT_SYMBOL(skb_queue_purge);
+ EXPORT_SYMBOL(skb_queue_head);
+ EXPORT_SYMBOL(skb_queue_tail);
+ EXPORT_SYMBOL(skb_unlink);
+ EXPORT_SYMBOL(skb_append);
+-EXPORT_SYMBOL(skb_split);
+-EXPORT_SYMBOL(skb_iter_first);
+-EXPORT_SYMBOL(skb_iter_next);
+-EXPORT_SYMBOL(skb_iter_abort);
