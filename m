@@ -1,243 +1,47 @@
-From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: System hard locks with bonding and tcpdump
-Date: Thu, 19 Jun 2003 15:11:44 +0300 (IDT)
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: sundance driver does not work with D-Link DFE-580TX
+Date: Thu, 19 Jun 2003 14:43:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0306191448580.10139-100000@jrslxjul1.npdj.intel.com>
-Reply-To: Shmulik Hen <shmulik.hen@intel.com>
+Message-ID: <57880000.1056026633@worker.muc.bieringer.de>
+References: <200305261604.h4QG4iQY020725@sandelman.ottawa.on.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Amir Noam <amir.noam@intel.com>, "Chad N. Tindel" <ctindel@calma.pair.com>,
-   "David S. Miller" <davem@redhat.com>, Jay Vosburgh <fubar@us.ibm.com>,
-   Jeff Garzik <jgarzik@pobox.com>, Noam Marom <noam.marom@intel.com>,
-   Shmulik Hen <shmulik.hen@intel.com>,
-   Tsippy Mendelson <tsippy.mendelson@intel.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bond-devel <bonding-devel@lists.sourceforge.net>,
-   linux-net <linux-net@vger.kernel.org>, linux-netdev <netdev@oss.sgi.com>
+To: Maillist netdev <netdev@oss.sgi.com>
+In-Reply-To: <200305261604.h4QG4iQY020725@sandelman.ottawa.on.ca>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-
-	We've noticed on several occasions that when using tcpdump on one
-of bond's slaves the system will freeze in what seems to be a deadlock.
-
-The scenario is as follows:
-4x Pentium 3 machine
-SMP kernel 2.4.20 + KDB
-bonding 20030513 in RLB mode (also happened in 20030320 in xor mode)
-3x e100 slaves
-run bi-directional TCP stress traffic to multiple client using iperf
-do 'tcpdump -i ethX' on one of the slaves
-
-	The system will occasionally freeze. When using the -p option to
-*not* set the interface into promiscuous mode, every thing is OK. Using
-KDB we were able to conclude that this is probably a deadlock between the
-br lock and either dev->queue_lock or dev->xmit_lock (see trace below).
-Going through the code of dev_queue_xmit(), we've noticed the following
-sentence in the comment block:
-
-"Check this and shot the lock. It is not prone from deadlocks."
-
-	We're not sure what it means or who put it in there, but maybe it
-relates to what we see. Any help will be appreciated.
 
 
-Entering kdb (current=0xdf0a4000, pid 12008) on processor 3 due to Keyboard Entry
-[3]kdb> bt
-0xdf0a4000    12008    11975  1  003  run   0xdf0a4370*iperf
-EBP        EIP        Function (args)
-           0xc021e87e .text.lock.dev+0x83
-                               kernel .text 0xc0100000 0xc021e7fb 0xc021e980
-0xdf0a5a44 0xc021c5ed dev_queue_xmit+0x9d (0xdeb71f00, 0xf7ed34f8, 0x10, 0xdeb71f00, 0xdef2e89c)
-                               kernel .text 0xc0100000 0xc021c550 0xc021c870
-0xdf0a5a64 0xc0230127 ip_finish_output2+0xa7 (0xdeb71f00, 0xdeb71f00)
-                               kernel .text 0xc0100000 0xc0230080 0xc0230190
-0xdf0a5a74 0xc022eead ip_output+0x4d (0xdeb71f00, 0x0, 0x29, 0x0, 0xdd5e4d00)
-                               kernel .text 0xc0100000 0xc022ee60 0xc022eec0
-0xdf0a5a9c 0xc023025e ip_queue_xmit2+0xce (0xdeb71f00, 0xf68fa640, 0xf6cce9a0, 0xf6cce9a0, 0x286)
-                               kernel .text 0xc0100000 0xc0230190 0xc023050e
-0xdf0a5aec 0xc022f0c8 ip_queue_xmit+0x208 (0xdeb71f00, 0xdef2e8b0, 0x5c8, 0xdeb71f00, 0xde356e40)
-                               kernel .text 0xc0100000 0xc022eec0 0xc022f180
-0xdf0a5b2c 0xc023f404 tcp_transmit_skb+0x2c4 (0xde040880, 0xdeb71f00, 0xdeb71f00, 0xdeb71f00, 0xde0408e8)
-                               kernel .text 0xc0100000 0xc023f140 0xc023f5a0
-0xdf0a5b58 0xc023ffa1 tcp_write_xmit+0x181 (0xde040880, 0x0, 0x0, 0x532861b9, 0xde0409b8)
-                               kernel .text 0xc0100000 0xc023fe20 0xc0240090
-0xdf0a5b74 0xc023d133 __tcp_data_snd_check+0x93 (0xde040880, 0xde356e40, 0x6, 0xde3e5e6c, 0x46)
-                               kernel .text 0xc0100000 0xc023d0a0 0xc023d150
-0xdf0a5bb8 0xc023d915 tcp_rcv_established+0x4c5 (0xde040880, 0xdeb71f00, 0xdf342054, 0x20, 0x0)
-                               kernel .text 0xc0100000 0xc023d450 0xc023dcd0
-0xdf0a5bdc 0xc0245a2f tcp_v4_do_rcv+0x13f (0xde040880, 0xdeb71f00, 0x202, 0x246, 0x3)
-                               kernel .text 0xc0100000 0xc02458f0 0xc0245a40
-0xdf0a5c14 0xc0245f00 tcp_v4_rcv+0x4c0 (0xdeb71f00, 0xe015dd60, 0x11, 0xc960c898, 0x6)
-                               kernel .text 0xc0100000 0xc0245a40 0xc0245fb0
-0xdf0a5c3c 0xc022c47d ip_local_deliver_finish+0x12d (0xdeb71f00)
-                               kernel .text 0xc0100000 0xc022c350 0xc022c490
-0xdf0a5c48 0xc022c132 ip_local_deliver+0x32 (0xdeb71f00, 0x4dfdb98f, 0x66fdb98f, 0x0, 0xdeb25400)
-                               kernel .text 0xc0100000 0xc022c100 0xc022c140
-0xdf0a5c80 0xc022c669 ip_rcv_finish+0x1d9 (0xdeb71f00, 0xdeaabf00, 0x34, 0x5872be0, 0x0)
-                               kernel .text 0xc0100000 0xc022c490 0xc022c6cf
-0xdf0a5ca4 0xc022c2ab ip_rcv+0x16b (0xdeb71f00, 0xdeb25400, 0xc0380ec4, 0xde7dec00, 0xc03ac00c)
-                               kernel .text 0xc0100000 0xc022c140 0xc022c350
-0xdf0a5cc4 0xc021cdb4 netif_receive_skb+0xd4 (0xdeb71f00, 0x5ea1ea, 0xc03ac000,0x40, 0xc03ac0ec)
-                               kernel .text 0xc0100000 0xc021cce0 0xc021ce70
-0xdf0a5ce8 0xc021cefa process_backlog+0x8a (0xc03ab5f0, 0x246, 0x3, 0xdeb25400,0xdeb7d860)
-                               kernel .text 0xc0100000 0xc021ce70 0xc021cfa0
-0xdf0a5d34 0xc011f649 do_softirq+0xe9 (0x0, 0xc03d4d48, 0x60, 0xdeb7d860, 0xdeb25400)
-                               kernel .text 0xc0100000 0xc011f560 0xc011f650
-           0xc021e88f .text.lock.dev+0x94
-                               kernel .text 0xc0100000 0xc021e7fb 0xc021e980
-0xdf0a5d5c 0xc021c65f dev_queue_xmit+0x10f (0xdeb7d860, 0xde87a238, 0x10, 0xdeb7d860, 0xde2f6a9c)
-                               kernel .text 0xc0100000 0xc021c550 0xc021c870
-0xdf0a5d7c 0xc0230127 ip_finish_output2+0xa7 (0xdeb7d860, 0xdeb7d860)
-                               kernel .text 0xc0100000 0xc0230080 0xc0230190
-0xdf0a5d8c 0xc022eead ip_output+0x4d (0xdeb7d860, 0x0, 0x5a8, 0x5a8, 0xdd5e41c0)
-                               kernel .text 0xc0100000 0xc022ee60 0xc022eec0
-0xdf0a5db4 0xc023025e ip_queue_xmit2+0xce (0xdeb7d860, 0xf7bf0e40, 0xde010ca0, 0xdeb7d860, 0xdeb7d860)
-                               kernel .text 0xc0100000 0xc0230190 0xc023050e
-0xdf0a5e04 0xc022f0c8 ip_queue_xmit+0x208 (0xdeb7d860, 0xde2f6ab0, 0x20, 0xdeb7d860, 0xc19ad800)
-                               kernel .text 0xc0100000 0xc022eec0 0xc022f180
-0xdf0a5e44 0xc023f404 tcp_transmit_skb+0x2c4 (0xf79dc060, 0xdeb7d860, 0xde047854, 0xf79dc198, 0xf79dc060)
-                               kernel .text 0xc0100000 0xc023f140 0xc023f5a0
-0xdf0a5e60 0xc02416d4 tcp_send_ack+0x84 (0xf79dc060, 0xc0217cf5, 0xf79dc060, 0xdf0a4000, 0xf298)
-                               kernel .text 0xc0100000 0xc0241650 0xc0241710
-0xdf0a5e80 0xc02352d2 cleanup_rbuf+0xc2 (0xf79dc060, 0xb50, 0xdf0a5f60, 0x5a8, 0xdf0a5f68)
-                               kernel .text 0xc0100000 0xc0235210 0xc0235320
-0xdf0a5ed8 0xc0235b10 tcp_recvmsg+0x3e0 (0xf79dc060, 0xdf0a5f68, 0xf298, 0x0, 0x0)
-                               kernel .text 0xc0100000 0xc0235730 0xc02360b0
-0xdf0a5f00 0xc02538ea inet_recvmsg+0x4a (0xdf721980, 0xdf0a5f68, 0xfde8, 0x0, 0xdf0a5f1c)
-                               kernel .text 0xc0100000 0xc02538a0 0xc0253900
-0xdf0a5f48 0xc0214fdf sock_recvmsg+0x4f (0xdf721980, 0xdf0a5f68, 0xfde8, 0x0, 0x41120d70)
-                               kernel .text 0xc0100000 0xc0214f90 0xc0215080
-0xdf0a5f90 0xc021511c sock_read+0x9c (0xf5435520, 0x41120220, 0xfde8, 0xf5435540, 0x3eb75f16)
-                               kernel .text 0xc0100000 0xc0215080 0xc0215120
-0xdf0a5fbc 0xc013d8bc sys_read+0x9c (0x9, 0x41120220, 0xfde8, 0x411201c0, 0x41120190)
-                               kernel .text 0xc0100000 0xc013d820 0xc013d970
-           0xc010774f system_call+0x33
-                               kernel .text 0xc0100000 0xc010771c 0xc0107754
-[3]kdb> cpu 0
+--On Monday, May 26, 2003 12:04:43 PM -0400 Michael Richardson
+<mcr@sandelman.ottawa.on.ca> wrote:
 
-Entering kdb (current=0xdeada000, pid 12009) on processor 0 due to cpu switch
-[0]kdb> bt
-0xdeada000    12009    11975  1  000  run   0xdeada370*iperf
-EBP        EIP        Function (args)
-0xdeadbd40 0xc0106317 __read_lock_failed+0x3 (0xdef99c30, 0xde7ded60, 0x8000, 0xdeb25400, 0xdef99c20)
-                               kernel .text 0xc0100000 0xc0106314 0xc0106328
-           0xc021e862 .text.lock.dev+0x67
-                               kernel .text 0xc0100000 0xc021e7fb 0xc021e980
-           0xc021c3d9 dev_queue_xmit_nit+0x39 (0xdef99c20, 0xdeb25400, 0xdeada000, 0xdef99c20, 0xde9fbbe0)
-                               kernel .text 0xc0100000 0xc021c3a0 0xc021c4b0
-0xdeadbd5c 0xc021c6ff dev_queue_xmit+0x1af (0xdef99c20, 0xde9fbbf8, 0x10, 0xdef99c20, 0xde55909c)
-                               kernel .text 0xc0100000 0xc021c550 0xc021c870
-0xdeadbd7c 0xc0230127 ip_finish_output2+0xa7 (0xdef99c20, 0xdef99c20)
-                               kernel .text 0xc0100000 0xc0230080 0xc0230190
-0xdeadbd8c 0xc022eead ip_output+0x4d (0xdef99c20, 0x0, 0x5a8, 0x5a8, 0xc9688360)
+> 
+>>>>>> "Peter" == Peter Bieringer <pb@bieringer.de> writes:
+>     Peter> pls. take a look into:
+> 
+>     Peter> https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=69000
+> 
+>     Peter> Looks like current included "sundance.c" driver doesn't work
+> proper      Peter> together with current "mii.c" on a D-Link DFE-580TX.
+> 
+>   This is a redhat bug. Stock kernels do not have this problem.
+>   Nor does pure-Becker code.
 
-                               kernel .text 0xc0100000 0xc022ee60 0xc022eec0
-0xdeadbdb4 0xc023025e ip_queue_xmit2+0xce (0xdef99c20, 0xf7bf0e40, 0xf6a42760, 0xdef99c20, 0xdef99c20)
-                               kernel .text 0xc0100000 0xc0230190 0xc023050e
-0xdeadbe04 0xc022f0c8 ip_queue_xmit+0x208 (0xdef99c20, 0xde5590b0, 0x20, 0xdef99c20, 0xc19ad800)
-                               kernel .text 0xc0100000 0xc022eec0 0xc022f180
-0xdeadbe44 0xc023f404 tcp_transmit_skb+0x2c4 (0xf7847b80, 0xdef99c20, 0xdf9ad854, 0xf7847cb8, 0xf7847b80)
-                               kernel .text 0xc0100000 0xc023f140 0xc023f5a0
-0xdeadbe60 0xc02416d4 tcp_send_ack+0x84 (0xf7847b80, 0xc0217cf5, 0xf7847b80, 0xdeada000, 0xe748)
-                               kernel .text 0xc0100000 0xc0241650 0xc0241710
-0xdeadbe80 0xc02352d2 cleanup_rbuf+0xc2 (0xf7847b80, 0x16a0, 0x0, 0xdeadbf68, 0xdf941b40)
-                               kernel .text 0xc0100000 0xc0235210 0xc0235320
-0xdeadbed8 0xc0235b10 tcp_recvmsg+0x3e0 (0xf7847b80, 0xdeadbf68, 0xe748, 0x0, 0x0)
-                               kernel .text 0xc0100000 0xc0235730 0xc02360b0
-0xdeadbf00 0xc02538ea inet_recvmsg+0x4a (0xdf941b40, 0xdeadbf68, 0xfde8, 0x0, 0xdeadbf1c)
-                               kernel .text 0xc0100000 0xc02538a0 0xc0253900
-0xdeadbf48 0xc0214fdf sock_recvmsg+0x4f (0xdf941b40, 0xdeadbf68, 0xfde8, 0x0, 0x41131740)
-                               kernel .text 0xc0100000 0xc0214f90 0xc0215080
-0xdeadbf90 0xc021511c sock_read+0x9c (0xdebfb420, 0x411300a0, 0xfde8, 0xdebfb440, 0x3eb75f16)
-                               kernel .text 0xc0100000 0xc0215080 0xc0215120
-0xdeadbfbc 0xc013d8bc sys_read+0x9c (0xa, 0x411300a0, 0xfde8, 0x41130040, 0x41130010)
-                               kernel .text 0xc0100000 0xc013d820 0xc013d970
-           0xc010774f system_call+0x33
-                               kernel .text 0xc0100000 0xc010771c 0xc0107754
-[0]kdb> cpu 1
+I (also others independed) finally find the bug:
 
-Entering kdb (current=0xde892000, pid 11942) on processor 1 due to cpu switch
-[1]kdb> bt
-0xde892000    11942    11941  1  001  run   0xde892370*iperf
-EBP        EIP        Function (args)
-           0xc021e87e .text.lock.dev+0x83
-                               kernel .text 0xc0100000 0xc021e7fb 0xc021e980
-0xde893b0c 0xc021c5ed dev_queue_xmit+0x9d (0xf7662d40, 0xde87a238, 0x10, 0xf7662d40, 0xdec2689c)
-                               kernel .text 0xc0100000 0xc021c550 0xc021c870
-0xde893b2c 0xc0230127 ip_finish_output2+0xa7 (0xf7662d40, 0xf7662d40)
-                               kernel .text 0xc0100000 0xc0230080 0xc0230190
-0xde893b3c 0xc022eead ip_output+0x4d (0xf7662d40, 0xe015dd60, 0xc960d89c, 0xdeb78660, 0xdd5e41c0)
-                               kernel .text 0xc0100000 0xc022ee60 0xc022eec0
-0xde893b64 0xc023025e ip_queue_xmit2+0xce (0xf7662d40, 0x0, 0x1841b43, 0x2f, 0x286)
-                               kernel .text 0xc0100000 0xc0230190 0xc023050e
-0xde893bb4 0xc022f0c8 ip_queue_xmit+0x208 (0xf7662d40, 0xdec268b0, 0x5c8, 0xf7662d40, 0xdf126840)
-                               kernel .text 0xc0100000 0xc022eec0 0xc022f180
-0xde893bf4 0xc023f404 tcp_transmit_skb+0x2c4 (0xdf87cc20, 0xf7662d40, 0xded0af00, 0xded0af00, 0xdf87cc88)
-                               kernel .text 0xc0100000 0xc023f140 0xc023f5a0
-0xde893c20 0xc023ffa1 tcp_write_xmit+0x181 (0xdf87cc20, 0x0, 0x0, 0x4fc022eb, 0xdf87cd58)
-                               kernel .text 0xc0100000 0xc023fe20 0xc0240090
-0xde893c3c 0xc023d133 __tcp_data_snd_check+0x93 (0xdf87cc20, 0xdeab30a0, 0x6, 0x2, 0xf79dc198)
-                               kernel .text 0xc0100000 0xc023d0a0 0xc023d150
-0xde893c80 0xc023d915 tcp_rcv_established+0x4c5 (0xdf87cc20, 0xded0af00, 0xde93c854, 0x20, 0x0)
-                               kernel .text 0xc0100000 0xc023d450 0xc023dcd0
-0xde893ca4 0xc0245a2f tcp_v4_do_rcv+0x13f (0xdf87cc20, 0xded0af00, 0xf7bfd2e0)
-                               kernel .text 0xc0100000 0xc02458f0 0xc0245a40
-0xde893cdc 0xc0245f00 tcp_v4_rcv+0x4c0 (0x80e88913, 0x15, 0x80e8, 0xde93c854, 0x0)
-                               kernel .text 0xc0100000 0xc0245a40 0xc0245fb0
-0xde893cd8 0xc0230127 ip_finish_output2+0xa7 (0xded0af00)
-                               kernel .text 0xc0100000 0xc0230080 0xc0230190
-0xde893d04 0xc022c47d ip_local_deliver_finish+0x12d (0xf6a42a80, 0x6, 0xded0af00, 0xde93c840, 0xdeb25400)
-                               kernel .text 0xc0100000 0xc022c350 0xc022c490
-0xde893d10 0xc023025e ip_queue_xmit2+0xce (0xded0af00, 0x4dfdb98f, 0x6bfdb98f, 0x0, 0xdeb25400)
-                               kernel .text 0xc0100000 0xc0230190 0xc023050e
-0xde893d48 0xc022c669 ip_rcv_finish+0x1d9 (0xded0af00, 0xde7a15e0, 0x34, 0x5872be0, 0x0)
-                               kernel .text 0xc0100000 0xc022c490 0xc022c6cf
-0xde893d6c 0xc022c2ab ip_rcv+0x16b (0xded0af00, 0xdeb25400, 0xc0380ec4, 0xde7dec00, 0xc03abccc)
-                               kernel .text 0xc0100000 0xc022c140 0xc022c350
-0xde893d8c 0xc021cdb4 netif_receive_skb+0xd4 (0xded0af00, 0x5ea1ea, 0xc03abcc0,0x40, 0xc03abdac)
-                               kernel .text 0xc0100000 0xc021cce0 0xc021ce70
-0xde893db0 0xc021cefa process_backlog+0x8a (0xc03ab5f0, 0x46, 0x1, 0xc03a7ec0, 0x36)
-                               kernel .text 0xc0100000 0xc021ce70 0xc021cfa0
-0xde893dfc 0xc011f649 do_softirq+0xe9 (0x36, 0xde893e2c, 0xdd31ac40, 0x6c0, 0x20)
-                               kernel .text 0xc0100000 0xc011f560 0xc011f650
-0xde893e24 0xc01094a6 do_IRQ+0xf6 (0x35343338, 0x10, 0x805dce0, 0x805dd00, 0xdea5ca78)
-                               kernel .text 0xc0100000 0xc01093b0 0xc01094b0
-0xde893ef0 0xc010bfc8 call_do_IRQ+0x5 (0xde81fb40, 0xde893f68, 0xfde8, 0x0)
-                               kernel .text 0xc0100000 0xc010bfc3 0xc010bfd0
-           0xc0253941 inet_sendmsg+0x41 (0xde8abcc0, 0xde893f68, 0xfde8, 0xde893f20, 0x2ea6)
-                               kernel .text 0xc0100000 0xc0253900 0xc0253950
-0xde893f4c 0xc0214f50 sock_sendmsg+0x70 (0xde8abcc0, 0xde893f68, 0xfde8, 0x8054f48, 0xfde8)
-                               kernel .text 0xc0100000 0xc0214ee0 0xc0214f90
-0xde893f90 0xc02151c2 sock_write+0xa2 (0xf5865460, 0x8054f48, 0xfde8, 0xf5865480, 0x3eb75f16)
-                               kernel .text 0xc0100000 0xc0215120 0xc02151e0
-0xde893fbc 0xc013da0c sys_write+0x9c (0x3, 0x8054f48, 0xfde8, 0x0, 0x8054eb8)
-                               kernel .text 0xc0100000 0xc013d970 0xc013dac0
-           0xc010774f system_call+0x33
-                               kernel .text 0xc0100000 0xc010771c 0xc0107754
-[1]kdb> cpu 2
+RHL uses CONFIG_SUNDANCE_MMIO=y on kernel building which causes the
+problem. 
 
-Entering kdb (current=0xc9764000, pid 17303) on processor 2 due to cpu switch
-[2]kdb> bt
-0xc9764000    17303      779  1  002  run   0xc9764370*tcpdump
-EBP        EIP        Function (args)
-0xc9765e80 0xc01062fb __write_lock_failed+0x7 (0xc9765e98, 0xc021bb78, 0xdebfb520, 0xf72609a0, 0xc981b120)
-                               kernel .text 0xc0100000 0xc01062f4 0xc0106314
-           0xc026025b .text.lock.brlock+0x5
-                               kernel .text 0xc0100000 0xc0260256 0xc0260260
-           0xc0260309 get_options+0x49 (0xc99bb900, 0xc9765eec, 0x14, 0x0, 0x3000011)
-                               kernel .text 0xc0100000 0xc02602c0 0xc0260310
-0xc9765f78 0xc0215c14 sys_bind+0x64 (0x3, 0xbffff780, 0x14, 0xf58650e0, 0x8933)
-                               kernel .text 0xc0100000 0xc0215bb0 0xc0215c40
-0xc9765fbc 0xc02168be sys_socketcall+0x8e (0x2, 0xbffff770, 0x80a616c, 0xbffff8a0, 0x3)
-                               kernel .text 0xc0100000 0xc0216830 0xc0216a70
-           0xc010774f system_call+0x33
-                               kernel .text 0xc0100000 0xc010771c 0xc0107754
-[2]kdb>
+Looks like this option should be removed or the driver should be improved
+(perhaps autodetection?). Imho it doesn't make much sense to add an compile
+option which (in case of enabled) break usages of already available NICs.
 
+        Peter
 -- 
-| Shmulik Hen                             |
-| Israel Design Center (Jerusalem)        |
-| LAN Access Division                     |
-| Intel Communications Group, Intel corp. |
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
