@@ -1,33 +1,32 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Fw: issues with SO_PRIORITY and IP_TOS
-Date: Thu, 13 Nov 2003 14:08:00 +0300 (MSK)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Tigon3 5701 PCI-X recv performance problem
+Date: Tue, 11 Nov 2003 16:32:00 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311131108.OAA24780@yakov.inr.ac.ru>
-References: <3FAA5FF6.50509@nortelnetworks.com>
+Message-ID: <3FB15550.8020807@pobox.com>
+References: <3F844578.40306@sgi.com>	<20031008101046.376abc3b.davem@redhat.com>	<3F8455BE.8080300@sgi.com>	<20031008183742.GA24822@wotan.suse.de>	<20031008122223.1ba5ac79.davem@redhat.com>	<20031008202248.GA15611@oldwotan.suse.de>	<3F8702FF.70500@sgi.com>	<20031010192036.GA31727@wotan.suse.de>	<3F8802E6.5030601@sgi.com>	<20031011131921.GC21763@wotan.suse.de>	<20031011105054.0e16a607.davem@redhat.com>	<3F8C290A.3010508@sgi.com>	<20031014095323.71c8b9fe.davem@redhat.com>	<3FB03A56.7000709@sgi.com>	<20031110182911.2c5a121b.davem@redhat.com>	<3FB140E2.1070007@sgi.com> <20031111122403.2d7bcf28.davem@redhat.com> <3FB153F1.8040708@sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, jmorris@redhat.com, hadi@znyx.com, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, ak@suse.de, netdev@oss.sgi.com,
+        jes@sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: cfriesen@nortelnetworks.com (Chris Friesen)
-In-Reply-To: <3FAA5FF6.50509@nortelnetworks.com> from "Chris Friesen" at Ноя 06, 2003 09:51:34 
+To: johnip@sgi.com
+In-Reply-To: <3FB153F1.8040708@sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+John Partridge wrote:
+> David S. Miller wrote:
+> 
+>> On Tue, 11 Nov 2003 14:04:50 -0600
+>> Why are you depending upon MCKINLEY?  Don't all ia64 cpus
+>> give traps for unaligned memory accesses?
+> 
+> 
+> I have no evidence of a problem with Itanium1, only on Itanium2 (MCKINLEY)
+> I have seen it on HP and SGI MCKINLEY
 
-> I would like to send a vlan tagged packet, with vlan priority of x and 
-> DSCP field of (x<<5).  What is the proper way to do this, if I should 
-> not be using skb->priority?
 
-To set DSCP field you set the thing known as TOS with IP_TOS.
+Ask the other David M about eepro100.c patches he wanted to send to me...
 
-To set VLAN priority, you tune VLAN f.e. to use DSCP bits in classifier
-to derive VLAN priority from those bits of DSCP, which you desire. DSCP>>5
-in your case.
-
-
-And remember that if the box is DS aware, DS will rewrite your DSCP
-in the way consistent with sustem configuration.
-
-Alexey
+	Jeff
