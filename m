@@ -1,432 +1,585 @@
 From: Adrian Bunk <bunk@stusta.de>
-Subject: [2.6 patch] net/bluetooth/: misc possible cleanups
-Date: Tue, 14 Dec 2004 05:13:52 +0100
-Message-ID: <20041214041352.GZ23151@stusta.de>
-Reply-To: bluez-devel@lists.sourceforge.net
+Subject: [2.6 patch] net/core/: misc possible cleanups
+Date: Tue, 14 Dec 2004 05:57:58 +0100
+Message-ID: <20041214045758.GA23151@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: bluez-devel@lists.sf.net, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <bluez-devel-admin@lists.sourceforge.net>
-To: marcel@holtmann.org, maxk@qualcomm.com
+Cc: linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261408AbULNE64@vger.kernel.org>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-Sender: bluez-devel-admin@lists.sourceforge.net
-Errors-To: bluez-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:bluez-devel@lists.sourceforge.net>
-List-Help: <mailto:bluez-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/bluez-devel>,
-	<mailto:bluez-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=bluez-devel>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 The patch below contains the following possible cleanups:
 - make needlessly global code static
-- remove the following EXPORT_SYMBOL'ed but unused functions in 
-  hci_core.c:
-  - hci_suspend_dev
-  - hci_resume_dev
-  - hci_register_cb
-  - hci_unregister_cb
+- remove the following unused global functions:
+  - datagram.c: skb_copy_datagram
+  - iovec.c: memcpy_tokerneliovec
+  - skbuff.c: skb_insert
+  - skbuff.c: skb_iter_first
+  - skbuff.c: skb_iter_next
+  - skbuff.c: skb_iter_abort
+- remove the following unneeded EXPORT_SYMBOL's:
+  - datagram.c: skb_copy_datagram
+  - dev.c: ing_filter
+  - iovec.c: memcpy_tokerneliovec
+  - netpoll.c: netpoll_send_skb
+  - rtnetlink.c: rtnetlink_dump_ifinfo
+  - skbuff.c: skb_insert
+  - skbuff.c: skb_iter_first
+  - skbuff.c: skb_iter_next
+  - skbuff.c: skb_iter_abort
+  - sock.c: sock_alloc_send_pskb
 
-Please comment on which of these changes are correct and which conflict 
+Please comment on which of these changes are correct and which conflict
 with pending patches.
 
 
 diffstat output:
- include/net/bluetooth/hci_core.h |    7 ----
- include/net/bluetooth/rfcomm.h   |   27 -------------------
- net/bluetooth/cmtp/capi.c        |    4 ++
- net/bluetooth/cmtp/cmtp.h        |    1 
- net/bluetooth/hci_conn.c         |    2 -
- net/bluetooth/hci_core.c         |   44 +------------------------------
- net/bluetooth/hci_sock.c         |   10 +++----
- net/bluetooth/l2cap.c            |    2 -
- net/bluetooth/rfcomm/core.c      |   37 +++++++++++++++++++++-----
- net/bluetooth/rfcomm/sock.c      |    4 +-
- 10 files changed, 44 insertions(+), 94 deletions(-)
+ include/linux/netdevice.h |    1 
+ include/linux/netfilter.h |    4 -
+ include/linux/netpoll.h   |    1 
+ include/linux/rtnetlink.h |    1 
+ include/linux/skbuff.h    |   12 -----
+ include/linux/socket.h    |    1 
+ include/net/iw_handler.h  |    3 -
+ include/net/pkt_cls.h     |    1 
+ include/net/sock.h        |    7 ---
+ net/core/datagram.c       |   19 +-------
+ net/core/dev.c            |   13 +----
+ net/core/dst.c            |    2 
+ net/core/iovec.c          |   23 ----------
+ net/core/netfilter.c      |    2 
+ net/core/netpoll.c        |    5 --
+ net/core/rtnetlink.c      |    3 -
+ net/core/skbuff.c         |   87 --------------------------------------
+ net/core/sock.c           |   17 +++----
+ net/core/wireless.c       |    2 
+ 19 files changed, 22 insertions(+), 182 deletions(-)
 
 
 Signed-off-by: Adrian Bunk <bunk@stusta.de>
 
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/cmtp.h.old	2004-12-14 02:12:11.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/cmtp.h	2004-12-14 02:12:38.000000000 +0100
-@@ -120,7 +120,6 @@
- void cmtp_detach_device(struct cmtp_session *session);
+--- linux-2.6.10-rc3-mm1-full/include/linux/skbuff.h.old	2004-12-14 02:34:03.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/skbuff.h	2004-12-14 02:51:27.000000000 +0100
+@@ -594,7 +594,6 @@
+ /*
+  *	Insert a packet on a list.
+  */
+-extern void        skb_insert(struct sk_buff *old, struct sk_buff *newsk);
+ static inline void __skb_insert(struct sk_buff *newsk,
+ 				struct sk_buff *prev, struct sk_buff *next,
+ 				struct sk_buff_head *list)
+@@ -1086,14 +1085,9 @@
+ 					 int noblock, int *err);
+ extern unsigned int    datagram_poll(struct file *file, struct socket *sock,
+ 				     struct poll_table_struct *wait);
+-extern int	       skb_copy_datagram(const struct sk_buff *from,
+-					 int offset, char __user *to, int size);
+ extern int	       skb_copy_datagram_iovec(const struct sk_buff *from,
+ 					       int offset, struct iovec *to,
+ 					       int size);
+-extern int	       skb_copy_and_csum_datagram(const struct sk_buff *skb,
+-						  int offset, u8 __user *to,
+-						  int len, unsigned int *csump);
+ extern int	       skb_copy_and_csum_datagram_iovec(const
+ 							struct sk_buff *skb,
+ 							int hlen,
+@@ -1137,12 +1131,6 @@
+ 	struct sk_buff *fraglist;
+ };
  
- void cmtp_recv_capimsg(struct cmtp_session *session, struct sk_buff *skb);
--void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb);
- 
- static inline void cmtp_schedule(struct cmtp_session *session)
- {
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/capi.c.old	2004-12-14 02:12:47.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/cmtp/capi.c	2004-12-14 02:13:38.000000000 +0100
-@@ -74,6 +74,8 @@
- #define CMTP_APPLID	2
- #define CMTP_MAPPING	3
- 
-+static void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb);
-+
- static struct cmtp_application *cmtp_application_add(struct cmtp_session *session, __u16 appl)
- {
- 	struct cmtp_application *app = kmalloc(sizeof(*app), GFP_KERNEL);
-@@ -337,7 +339,7 @@
- 	capi_ctr_handle_message(ctrl, appl, skb);
- }
- 
--void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb)
-+static void cmtp_send_capimsg(struct cmtp_session *session, struct sk_buff *skb)
- {
- 	struct cmtp_scb *scb = (void *) skb->cb;
- 
---- linux-2.6.10-rc3-mm1-full/include/net/bluetooth/hci_core.h.old	2004-12-14 02:13:54.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/bluetooth/hci_core.h	2004-12-14 02:31:34.000000000 +0100
-@@ -277,7 +277,6 @@
- 	return NULL;
- }
- 
--void hci_acl_connect(struct hci_conn *conn);
- void hci_acl_disconn(struct hci_conn *conn, __u8 reason);
- void hci_add_sco(struct hci_conn *conn, __u16 handle);
- 
-@@ -372,8 +371,6 @@
- void hci_free_dev(struct hci_dev *hdev);
- int hci_register_dev(struct hci_dev *hdev);
- int hci_unregister_dev(struct hci_dev *hdev);
--int hci_suspend_dev(struct hci_dev *hdev);
--int hci_resume_dev(struct hci_dev *hdev);
- int hci_dev_open(__u16 dev);
- int hci_dev_close(__u16 dev);
- int hci_dev_reset(__u16 dev);
-@@ -546,9 +543,6 @@
- 	read_unlock_bh(&hci_cb_list_lock);
- }
- 
--int hci_register_cb(struct hci_cb *hcb);
--int hci_unregister_cb(struct hci_cb *hcb);
+-/* Keep iterating until skb_iter_next returns false. */
+-extern void skb_iter_first(const struct sk_buff *skb, struct skb_iter *i);
+-extern int skb_iter_next(const struct sk_buff *skb, struct skb_iter *i);
+-/* Call this if aborting loop before !skb_iter_next */
+-extern void skb_iter_abort(const struct sk_buff *skb, struct skb_iter *i);
 -
- int hci_register_notifier(struct notifier_block *nb);
- int hci_unregister_notifier(struct notifier_block *nb);
+ #ifdef CONFIG_NETFILTER
+ static inline void nf_conntrack_put(struct nf_conntrack *nfct)
+ {
+--- linux-2.6.10-rc3-mm1-full/include/net/pkt_cls.h.old	2004-12-14 02:37:09.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/pkt_cls.h	2004-12-14 02:37:15.000000000 +0100
+@@ -17,7 +17,6 @@
  
-@@ -589,6 +583,5 @@
- #define hci_req_unlock(d)	up(&d->req_lock)
+ extern int register_tcf_proto_ops(struct tcf_proto_ops *ops);
+ extern int unregister_tcf_proto_ops(struct tcf_proto_ops *ops);
+-extern int ing_filter(struct sk_buff *skb);
  
- void hci_req_complete(struct hci_dev *hdev, int result);
--void hci_req_cancel(struct hci_dev *hdev, int err);
+ static inline unsigned long
+ __cls_set_class(unsigned long *clp, unsigned long cl)
+--- linux-2.6.10-rc3-mm1-full/include/linux/netdevice.h.old	2004-12-14 02:38:05.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netdevice.h	2004-12-14 02:38:11.000000000 +0100
+@@ -522,7 +522,6 @@
+ extern struct net_device		*dev_base;		/* All devices */
+ extern rwlock_t				dev_base_lock;		/* Device list lock */
  
- #endif /* __HCI_CORE_H */
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_conn.c.old	2004-12-14 02:14:10.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_conn.c	2004-12-14 02:14:15.000000000 +0100
-@@ -53,7 +53,7 @@
- #define BT_DBG(D...)
+-extern int			netdev_boot_setup_add(char *name, struct ifmap *map);
+ extern int 			netdev_boot_setup_check(struct net_device *dev);
+ extern unsigned long		netdev_boot_base(const char *prefix, int unit);
+ extern struct net_device    *dev_getbyhwaddr(unsigned short type, char *hwaddr);
+--- linux-2.6.10-rc3-mm1-full/include/linux/socket.h.old	2004-12-14 02:39:18.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/socket.h	2004-12-14 02:39:24.000000000 +0100
+@@ -286,7 +286,6 @@
+ 
+ extern int verify_iovec(struct msghdr *m, struct iovec *iov, char *address, int mode);
+ extern int memcpy_toiovec(struct iovec *v, unsigned char *kdata, int len);
+-extern void memcpy_tokerneliovec(struct iovec *iov, unsigned char *kdata, int len);
+ extern int move_addr_to_user(void *kaddr, int klen, void __user *uaddr, int __user *ulen);
+ extern int move_addr_to_kernel(void __user *uaddr, int ulen, void *kaddr);
+ extern int put_cmsg(struct msghdr*, int level, int type, int len, void *data);
+--- linux-2.6.10-rc3-mm1-full/include/linux/netfilter.h.old	2004-12-14 02:41:28.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netfilter.h	2004-12-14 02:41:37.000000000 +0100
+@@ -175,10 +175,6 @@
+ extern void (*ip_ct_attach)(struct sk_buff *, struct sk_buff *);
+ extern void nf_ct_attach(struct sk_buff *, struct sk_buff *);
+ 
+-#ifdef CONFIG_NETFILTER_DEBUG
+-extern void nf_dump_skb(int pf, struct sk_buff *skb);
+-#endif
+-
+ /* FIXME: Before cache is ever used, this must be implemented for real. */
+ extern void nf_invalidate_cache(int pf);
+ 
+--- linux-2.6.10-rc3-mm1-full/net/core/datagram.c.old	2004-12-14 04:22:37.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/datagram.c	2004-12-14 02:35:34.000000000 +0100
+@@ -199,19 +199,6 @@
+ 	kfree_skb(skb);
+ }
+ 
+-/*
+- *	Copy a datagram to a linear buffer.
+- */
+-int skb_copy_datagram(const struct sk_buff *skb, int offset, char __user *to, int size)
+-{
+-	struct iovec iov = {
+-		.iov_base = to,
+-		.iov_len =size,
+-	};
+-
+-	return skb_copy_datagram_iovec(skb, offset, &iov, size);
+-}
+-
+ /**
+  *	skb_copy_datagram_iovec - Copy a datagram to an iovec.
+  *	@skb - buffer to copy
+@@ -296,8 +283,9 @@
+ 	return -EFAULT;
+ }
+ 
+-int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
+-			       u8 __user *to, int len, unsigned int *csump)
++static int skb_copy_and_csum_datagram(const struct sk_buff *skb, int offset,
++				      u8 __user *to, int len,
++				      unsigned int *csump)
+ {
+ 	int start = skb_headlen(skb);
+ 	int pos = 0;
+@@ -489,7 +477,6 @@
+ 
+ EXPORT_SYMBOL(datagram_poll);
+ EXPORT_SYMBOL(skb_copy_and_csum_datagram_iovec);
+-EXPORT_SYMBOL(skb_copy_datagram);
+ EXPORT_SYMBOL(skb_copy_datagram_iovec);
+ EXPORT_SYMBOL(skb_free_datagram);
+ EXPORT_SYMBOL(skb_recv_datagram);
+--- linux-2.6.10-rc3-mm1-full/net/core/dev.c.old	2004-12-14 02:36:09.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/dev.c	2004-12-14 02:38:19.000000000 +0100
+@@ -183,7 +183,7 @@
+  * semaphore held.
+  */
+ struct net_device *dev_base;
+-struct net_device **dev_tail = &dev_base;
++static struct net_device **dev_tail = &dev_base;
+ rwlock_t dev_base_lock = RW_LOCK_UNLOCKED;
+ 
+ EXPORT_SYMBOL(dev_base);
+@@ -361,7 +361,7 @@
+  *	returns 0 on error and 1 on success.  This is a generic routine to
+  *	all netdevices.
+  */
+-int netdev_boot_setup_add(char *name, struct ifmap *map)
++static int netdev_boot_setup_add(char *name, struct ifmap *map)
+ {
+ 	struct netdev_boot_setup *s;
+ 	int i;
+@@ -644,7 +644,7 @@
+  *	Network device names need to be valid file names to
+  *	to allow sysfs to work
+  */
+-int dev_valid_name(const char *name)
++static int dev_valid_name(const char *name)
+ {
+ 	return !(*name == '\0' 
+ 		 || !strcmp(name, ".")
+@@ -1596,7 +1596,7 @@
+  * the ingress scheduler, you just cant add policies on ingress.
+  *
+  */
+-int ing_filter(struct sk_buff *skb) 
++static int ing_filter(struct sk_buff *skb) 
+ {
+ 	struct Qdisc *q;
+ 	struct net_device *dev = skb->dev;
+@@ -3251,9 +3251,4 @@
+ EXPORT_SYMBOL(dev_load);
  #endif
  
--void hci_acl_connect(struct hci_conn *conn)
-+static void hci_acl_connect(struct hci_conn *conn)
- {
- 	struct hci_dev *hdev = conn->hdev;
- 	struct inquiry_entry *ie;
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_core.c.old	2004-12-14 02:14:53.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_core.c	2004-12-14 02:31:09.000000000 +0100
-@@ -59,7 +59,7 @@
- static void hci_tx_task(unsigned long arg);
- static void hci_notify(struct hci_dev *hdev, int event);
- 
--rwlock_t hci_task_lock = RW_LOCK_UNLOCKED;
-+static rwlock_t hci_task_lock = RW_LOCK_UNLOCKED;
- 
- /* HCI device list */
- LIST_HEAD(hci_dev_list);
-@@ -106,7 +106,7 @@
- 	}
- }
- 
--void hci_req_cancel(struct hci_dev *hdev, int err)
-+static void hci_req_cancel(struct hci_dev *hdev, int err)
- {
- 	BT_DBG("%s err 0x%2.2x", hdev->name, err);
- 
-@@ -878,22 +878,6 @@
- }
- EXPORT_SYMBOL(hci_unregister_dev);
- 
--/* Suspend HCI device */
--int hci_suspend_dev(struct hci_dev *hdev)
--{
--	hci_notify(hdev, HCI_DEV_SUSPEND);
--	return 0;
--}
--EXPORT_SYMBOL(hci_suspend_dev);
+-#ifdef CONFIG_NET_CLS_ACT
+-EXPORT_SYMBOL(ing_filter);
+-#endif
 -
--/* Resume HCI device */
--int hci_resume_dev(struct hci_dev *hdev)
--{
--	hci_notify(hdev, HCI_DEV_RESUME);
--	return 0;
--}
--EXPORT_SYMBOL(hci_resume_dev);
 -
- /* ---- Interface to upper protocols ---- */
- 
- /* Register/Unregister protocols.
-@@ -942,30 +926,6 @@
- }
- EXPORT_SYMBOL(hci_unregister_proto);
- 
--int hci_register_cb(struct hci_cb *cb)
--{
--	BT_DBG("%p name %s", cb, cb->name);
--
--	write_lock_bh(&hci_cb_list_lock);
--	list_add(&cb->list, &hci_cb_list);
--	write_unlock_bh(&hci_cb_list_lock);
--
--	return 0;
--}
--EXPORT_SYMBOL(hci_register_cb);
--
--int hci_unregister_cb(struct hci_cb *cb)
--{
--	BT_DBG("%p name %s", cb, cb->name);
--
--	write_lock_bh(&hci_cb_list_lock);
--	list_del(&cb->list);
--	write_unlock_bh(&hci_cb_list_lock);
--
--	return 0;
--}
--EXPORT_SYMBOL(hci_unregister_cb);
--
- static int hci_send_frame(struct sk_buff *skb)
- {
- 	struct hci_dev *hdev = (struct hci_dev *) skb->dev;
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_sock.c.old	2004-12-14 02:16:59.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/hci_sock.c	2004-12-14 02:17:59.000000000 +0100
-@@ -447,7 +447,7 @@
- 	goto done;
- }
- 
--int hci_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int len)
-+static int hci_sock_setsockopt(struct socket *sock, int level, int optname, char __user *optval, int len)
- {
- 	struct hci_ufilter uf = { .opcode = 0 };
- 	struct sock *sk = sock->sk;
-@@ -514,7 +514,7 @@
- 	return err;
- }
- 
--int hci_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
-+static int hci_sock_getsockopt(struct socket *sock, int level, int optname, char __user *optval, int __user *optlen)
- {
- 	struct hci_ufilter uf;
- 	struct sock *sk = sock->sk;
-@@ -567,7 +567,7 @@
- 	return 0;
- }
- 
--struct proto_ops hci_sock_ops = {
-+static struct proto_ops hci_sock_ops = {
- 	.family		= PF_BLUETOOTH,
- 	.owner		= THIS_MODULE,
- 	.release	= hci_sock_release,
-@@ -647,13 +647,13 @@
+ EXPORT_PER_CPU_SYMBOL(softnet_data);
+--- linux-2.6.10-rc3-mm1-full/net/core/dst.c.old	2004-12-14 02:38:35.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/dst.c	2004-12-14 02:38:45.000000000 +0100
+@@ -264,7 +264,7 @@
  	return NOTIFY_DONE;
  }
  
--struct net_proto_family hci_sock_family_ops = {
-+static struct net_proto_family hci_sock_family_ops = {
- 	.family	= PF_BLUETOOTH,
- 	.owner	= THIS_MODULE,
- 	.create	= hci_sock_create,
+-struct notifier_block dst_dev_notifier = {
++static struct notifier_block dst_dev_notifier = {
+ 	.notifier_call	= dst_dev_event,
  };
  
--struct notifier_block hci_sock_nblock = {
-+static struct notifier_block hci_sock_nblock = {
- 	.notifier_call = hci_sock_dev_event
- };
+--- linux-2.6.10-rc3-mm1-full/net/core/iovec.c.old	2004-12-14 02:39:30.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/iovec.c	2004-12-14 02:39:52.000000000 +0100
+@@ -99,28 +99,6 @@
+ }
  
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/l2cap.c.old	2004-12-14 02:18:13.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/l2cap.c	2004-12-14 02:18:21.000000000 +0100
-@@ -61,7 +61,7 @@
- 
- static struct proto_ops l2cap_sock_ops;
- 
--struct bt_sock_list l2cap_sk_list = {
-+static struct bt_sock_list l2cap_sk_list = {
- 	.lock = RW_LOCK_UNLOCKED
- };
- 
---- linux-2.6.10-rc3-mm1-full/include/net/bluetooth/rfcomm.h.old	2004-12-14 02:19:37.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/include/net/bluetooth/rfcomm.h	2004-12-14 02:27:24.000000000 +0100
-@@ -216,22 +216,6 @@
- #define RFCOMM_CFC_DISABLED 0
- #define RFCOMM_CFC_ENABLED  RFCOMM_MAX_CREDITS
- 
--extern struct task_struct *rfcomm_thread;
--extern unsigned long rfcomm_event;
--
--static inline void rfcomm_schedule(uint event)
+ /*
+- *	In kernel copy to iovec. Returns -EFAULT on error.
+- *
+- *	Note: this modifies the original iovec.
+- */
+- 
+-void memcpy_tokerneliovec(struct iovec *iov, unsigned char *kdata, int len)
 -{
--	if (!rfcomm_thread)
--		return;
--	//set_bit(event, &rfcomm_event);
--	set_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
--	wake_up_process(rfcomm_thread);
+-	while (len > 0) {
+-		if (iov->iov_len) {
+-			int copy = min_t(unsigned int, iov->iov_len, len);
+-			memcpy(iov->iov_base, kdata, copy);
+-			kdata += copy;
+-			len -= copy;
+-			iov->iov_len -= copy;
+-			iov->iov_base += copy;
+-		}
+-		iov++;
+-	}
 -}
 -
--extern struct semaphore rfcomm_sem;
--#define rfcomm_lock()	down(&rfcomm_sem);
--#define rfcomm_unlock()	up(&rfcomm_sem);
 -
- /* ---- RFCOMM DLCs (channels) ---- */
- struct rfcomm_dlc *rfcomm_dlc_alloc(int prio);
- void rfcomm_dlc_free(struct rfcomm_dlc *d);
-@@ -271,11 +255,6 @@
+-/*
+  *	Copy iovec to kernel. Returns -EFAULT on error.
+  *
+  *	Note: this modifies the original iovec.
+@@ -259,4 +237,3 @@
+ EXPORT_SYMBOL(memcpy_fromiovec);
+ EXPORT_SYMBOL(memcpy_fromiovecend);
+ EXPORT_SYMBOL(memcpy_toiovec);
+-EXPORT_SYMBOL(memcpy_tokerneliovec);
+--- linux-2.6.10-rc3-mm1-full/net/core/netfilter.c.old	2004-12-14 02:41:44.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/netfilter.c	2004-12-14 02:41:52.000000000 +0100
+@@ -173,7 +173,7 @@
+ 	printk("\n");
  }
  
- /* ---- RFCOMM sessions ---- */
--struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state);
--struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst);
--struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err);
--void   rfcomm_session_del(struct rfcomm_session *s);
--void   rfcomm_session_close(struct rfcomm_session *s, int err);
- void   rfcomm_session_getaddr(struct rfcomm_session *s, bdaddr_t *src, bdaddr_t *dst);
+-void nf_dump_skb(int pf, struct sk_buff *skb)
++static void nf_dump_skb(int pf, struct sk_buff *skb)
+ {
+ 	printk("skb: pf=%i %s dev=%s len=%u\n", 
+ 	       pf,
+--- linux-2.6.10-rc3-mm1-full/include/linux/netpoll.h.old	2004-12-14 02:43:42.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/netpoll.h	2004-12-14 02:43:47.000000000 +0100
+@@ -24,7 +24,6 @@
+ };
  
- static inline void rfcomm_session_hold(struct rfcomm_session *s)
-@@ -283,12 +262,6 @@
- 	atomic_inc(&s->refcnt);
+ void netpoll_poll(struct netpoll *np);
+-void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb);
+ void netpoll_send_udp(struct netpoll *np, const char *msg, int len);
+ int netpoll_parse_options(struct netpoll *np, char *opt);
+ int netpoll_setup(struct netpoll *np);
+--- linux-2.6.10-rc3-mm1-full/net/core/netpoll.c.old	2004-12-14 02:43:06.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/netpoll.c	2004-12-14 02:43:59.000000000 +0100
+@@ -39,7 +39,7 @@
+ static LIST_HEAD(rx_list);
+ 
+ static atomic_t trapped;
+-spinlock_t netpoll_poll_lock = SPIN_LOCK_UNLOCKED;
++static spinlock_t netpoll_poll_lock = SPIN_LOCK_UNLOCKED;
+ 
+ #define NETPOLL_RX_ENABLED  1
+ #define NETPOLL_RX_DROP     2
+@@ -178,7 +178,7 @@
+ 	return skb;
  }
  
--static inline void rfcomm_session_put(struct rfcomm_session *s)
+-void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
++static void netpoll_send_skb(struct netpoll *np, struct sk_buff *skb)
+ {
+ 	int status;
+ 
+@@ -676,6 +676,5 @@
+ EXPORT_SYMBOL(netpoll_parse_options);
+ EXPORT_SYMBOL(netpoll_setup);
+ EXPORT_SYMBOL(netpoll_cleanup);
+-EXPORT_SYMBOL(netpoll_send_skb);
+ EXPORT_SYMBOL(netpoll_send_udp);
+ EXPORT_SYMBOL(netpoll_poll);
+--- linux-2.6.10-rc3-mm1-full/include/linux/rtnetlink.h.old	2004-12-14 02:44:36.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/linux/rtnetlink.h	2004-12-14 02:44:52.000000000 +0100
+@@ -765,7 +765,6 @@
+ };
+ 
+ extern struct rtnetlink_link * rtnetlink_links[NPROTO];
+-extern int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb);
+ extern int rtnetlink_send(struct sk_buff *skb, u32 pid, u32 group, int echo);
+ extern int rtnetlink_put_metrics(struct sk_buff *skb, u32 *metrics);
+ 
+--- linux-2.6.10-rc3-mm1-full/net/core/rtnetlink.c.old	2004-12-14 02:45:12.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/rtnetlink.c	2004-12-14 02:45:26.000000000 +0100
+@@ -241,7 +241,7 @@
+ 	return -1;
+ }
+ 
+-int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
++static int rtnetlink_dump_ifinfo(struct sk_buff *skb, struct netlink_callback *cb)
+ {
+ 	int idx;
+ 	int s_idx = cb->args[0];
+@@ -676,7 +676,6 @@
+ 
+ EXPORT_SYMBOL(__rta_fill);
+ EXPORT_SYMBOL(rtattr_parse);
+-EXPORT_SYMBOL(rtnetlink_dump_ifinfo);
+ EXPORT_SYMBOL(rtnetlink_links);
+ EXPORT_SYMBOL(rtnetlink_put_metrics);
+ EXPORT_SYMBOL(rtnl);
+--- linux-2.6.10-rc3-mm1-full/net/core/skbuff.c.old	2004-12-14 02:45:55.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/skbuff.c	2004-12-14 04:40:27.000000000 +0100
+@@ -984,70 +984,6 @@
+ 	return -EFAULT;
+ }
+ 
+-/* Keep iterating until skb_iter_next returns false. */
+-void skb_iter_first(const struct sk_buff *skb, struct skb_iter *i)
 -{
--	if (atomic_dec_and_test(&s->refcnt))
--		rfcomm_session_del(s);
+-	i->len = skb_headlen(skb);
+-	i->data = (unsigned char *)skb->data;
+-	i->nextfrag = 0;
+-	i->fraglist = NULL;
 -}
 -
- /* ---- RFCOMM chechsum ---- */
- extern u8 rfcomm_crc_table[];
+-int skb_iter_next(const struct sk_buff *skb, struct skb_iter *i)
+-{
+-	/* Unmap previous, if not head fragment. */
+-	if (i->nextfrag)
+-		kunmap_skb_frag(i->data);
+-
+-	if (i->fraglist) {
+-	fraglist:
+-		/* We're iterating through fraglist. */
+-		if (i->nextfrag < skb_shinfo(i->fraglist)->nr_frags) {
+-			i->data = kmap_skb_frag(&skb_shinfo(i->fraglist)
+-						->frags[i->nextfrag]);
+-			i->len = skb_shinfo(i->fraglist)->frags[i->nextfrag]
+-				.size;
+-			i->nextfrag++;
+-			return 1;
+-		}
+-		/* Fragments with fragments?  Too hard! */
+-		BUG_ON(skb_shinfo(i->fraglist)->frag_list);
+-		i->fraglist = i->fraglist->next;
+-		if (!i->fraglist)
+-			goto end;
+-
+-		i->len = skb_headlen(i->fraglist);
+-		i->data = i->fraglist->data;
+-		i->nextfrag = 0;
+-		return 1;
+-	}
+-
+-	if (i->nextfrag < skb_shinfo(skb)->nr_frags) {
+-		i->data = kmap_skb_frag(&skb_shinfo(skb)->frags[i->nextfrag]);
+-		i->len = skb_shinfo(skb)->frags[i->nextfrag].size;
+-		i->nextfrag++;
+-		return 1;
+-	}
+-
+-	i->fraglist = skb_shinfo(skb)->frag_list;
+-	if (i->fraglist)
+-		goto fraglist;
+-
+-end:
+-	/* Bug trap for callers */
+-	i->data = NULL;
+-	return 0;
+-}
+-
+-void skb_iter_abort(const struct sk_buff *skb, struct skb_iter *i)
+-{
+-	/* Unmap previous, if not head fragment. */
+-	if (i->data && i->nextfrag)
+-		kunmap_skb_frag(i->data);
+-	/* Bug trap for callers */
+-	i->data = NULL;
+-}
+-
+ /* Checksum skb data. */
  
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/core.c.old	2004-12-14 02:19:43.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/core.c	2004-12-14 02:27:41.000000000 +0100
-@@ -61,8 +61,12 @@
- struct proc_dir_entry *proc_bt_rfcomm;
- #endif
- 
--struct task_struct *rfcomm_thread;
--DECLARE_MUTEX(rfcomm_sem);
-+static struct task_struct *rfcomm_thread;
-+
-+static DECLARE_MUTEX(rfcomm_sem);
-+#define rfcomm_lock()	down(&rfcomm_sem);
-+#define rfcomm_unlock()	up(&rfcomm_sem);
-+
- unsigned long rfcomm_event;
- 
- static LIST_HEAD(session_list);
-@@ -81,6 +85,10 @@
- 
- static void rfcomm_process_connect(struct rfcomm_session *s);
- 
-+static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err);
-+static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst);
-+static void rfcomm_session_del(struct rfcomm_session *s);
-+
- /* ---- RFCOMM frame parsing macros ---- */
- #define __get_dlci(b)     ((b & 0xfc) >> 2)
- #define __get_channel(b)  ((b & 0xf8) >> 3)
-@@ -111,6 +119,21 @@
- #define __get_rpn_stop_bits(line) (((line) >> 2) & 0x1)
- #define __get_rpn_parity(line)    (((line) >> 3) & 0x3)
- 
-+static inline void rfcomm_schedule(uint event)
-+{
-+	if (!rfcomm_thread)
-+		return;
-+	//set_bit(event, &rfcomm_event);
-+	set_bit(RFCOMM_SCHED_WAKEUP, &rfcomm_event);
-+	wake_up_process(rfcomm_thread);
-+}
-+
-+static inline void rfcomm_session_put(struct rfcomm_session *s)
-+{
-+	if (atomic_dec_and_test(&s->refcnt))
-+		rfcomm_session_del(s);
-+}
-+
- /* ---- RFCOMM FCS computation ---- */
- 
- /* CRC on 2 bytes */
-@@ -458,7 +481,7 @@
+ unsigned int skb_checksum(const struct sk_buff *skb, int offset,
+@@ -1373,25 +1309,6 @@
  }
  
- /* ---- RFCOMM sessions ---- */
--struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
-+static struct rfcomm_session *rfcomm_session_add(struct socket *sock, int state)
+ 
+-/**
+- *	skb_insert	-	insert a buffer
+- *	@old: buffer to insert before
+- *	@newsk: buffer to insert
+- *
+- *	Place a packet before a given packet in a list. The list locks are taken
+- *	and this function is atomic with respect to other list locked calls
+- *	A buffer cannot be placed on two lists at the same time.
+- */
+-
+-void skb_insert(struct sk_buff *old, struct sk_buff *newsk)
+-{
+-	unsigned long flags;
+-
+-	spin_lock_irqsave(&old->list->lock, flags);
+-	__skb_insert(newsk, old->prev, old, old->list);
+-	spin_unlock_irqrestore(&old->list->lock, flags);
+-}
+-
+ #if 0
+ /*
+  * 	Tune the memory allocator for a new MTU size.
+@@ -1511,13 +1428,9 @@
+ EXPORT_SYMBOL(skb_under_panic);
+ EXPORT_SYMBOL(skb_dequeue);
+ EXPORT_SYMBOL(skb_dequeue_tail);
+-EXPORT_SYMBOL(skb_insert);
+ EXPORT_SYMBOL(skb_queue_purge);
+ EXPORT_SYMBOL(skb_queue_head);
+ EXPORT_SYMBOL(skb_queue_tail);
+ EXPORT_SYMBOL(skb_unlink);
+ EXPORT_SYMBOL(skb_append);
+ EXPORT_SYMBOL(skb_split);
+-EXPORT_SYMBOL(skb_iter_first);
+-EXPORT_SYMBOL(skb_iter_next);
+-EXPORT_SYMBOL(skb_iter_abort);
+--- linux-2.6.10-rc3-mm1-full/include/net/sock.h.old	2004-12-14 02:56:46.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/sock.h	2004-12-14 02:53:27.000000000 +0100
+@@ -733,11 +733,6 @@
+ 						     unsigned long size,
+ 						     int noblock,
+ 						     int *errcode);
+-extern struct sk_buff 		*sock_alloc_send_pskb(struct sock *sk,
+-						      unsigned long header_len,
+-						      unsigned long data_len,
+-						      int noblock,
+-						      int *errcode);
+ extern void *sock_kmalloc(struct sock *sk, int size, int priority);
+ extern void sock_kfree_s(struct sock *sk, void *mem, int size);
+ extern void sk_send_sigurg(struct sock *sk);
+@@ -795,8 +790,6 @@
+  *	Default socket callbacks and setup code
+  */
+  
+-extern void sock_def_destruct(struct sock *);
+-
+ /* Initialise core socket variables */
+ extern void sock_init_data(struct socket *sock, struct sock *sk);
+ 
+--- linux-2.6.10-rc3-mm1-full/net/core/sock.c.old	2004-12-14 02:52:27.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/sock.c	2004-12-14 03:12:56.000000000 +0100
+@@ -825,8 +825,10 @@
+  *	Generic send/receive buffer handlers
+  */
+ 
+-struct sk_buff *sock_alloc_send_pskb(struct sock *sk, unsigned long header_len,
+-				     unsigned long data_len, int noblock, int *errcode)
++static struct sk_buff *sock_alloc_send_pskb(struct sock *sk,
++					    unsigned long header_len,
++					    unsigned long data_len,
++					    int noblock, int *errcode)
  {
- 	struct rfcomm_session *s = kmalloc(sizeof(*s), GFP_KERNEL);
- 	if (!s)
-@@ -487,7 +510,7 @@
- 	return s;
+ 	struct sk_buff *skb;
+ 	unsigned int gfp_mask;
+@@ -1084,7 +1086,7 @@
+  *	Default Socket Callbacks
+  */
+ 
+-void sock_def_wakeup(struct sock *sk)
++static void sock_def_wakeup(struct sock *sk)
+ {
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+@@ -1092,7 +1094,7 @@
+ 	read_unlock(&sk->sk_callback_lock);
  }
  
--void rfcomm_session_del(struct rfcomm_session *s)
-+static void rfcomm_session_del(struct rfcomm_session *s)
+-void sock_def_error_report(struct sock *sk)
++static void sock_def_error_report(struct sock *sk)
  {
- 	int state = s->state;
- 
-@@ -505,7 +528,7 @@
- 		module_put(THIS_MODULE);
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+@@ -1101,7 +1103,7 @@
+ 	read_unlock(&sk->sk_callback_lock);
  }
  
--struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
-+static struct rfcomm_session *rfcomm_session_get(bdaddr_t *src, bdaddr_t *dst)
+-void sock_def_readable(struct sock *sk, int len)
++static void sock_def_readable(struct sock *sk, int len)
  {
- 	struct rfcomm_session *s;
- 	struct list_head *p, *n;
-@@ -521,7 +544,7 @@
- 	return NULL;
+ 	read_lock(&sk->sk_callback_lock);
+ 	if (sk->sk_sleep && waitqueue_active(sk->sk_sleep))
+@@ -1110,7 +1112,7 @@
+ 	read_unlock(&sk->sk_callback_lock);
  }
  
--void rfcomm_session_close(struct rfcomm_session *s, int err)
-+static void rfcomm_session_close(struct rfcomm_session *s, int err)
+-void sock_def_write_space(struct sock *sk)
++static void sock_def_write_space(struct sock *sk)
  {
- 	struct rfcomm_dlc *d;
- 	struct list_head *p, *n;
-@@ -542,7 +565,7 @@
- 	rfcomm_session_put(s);
+ 	read_lock(&sk->sk_callback_lock);
+ 
+@@ -1129,7 +1131,7 @@
+ 	read_unlock(&sk->sk_callback_lock);
  }
  
--struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err)
-+static struct rfcomm_session *rfcomm_session_create(bdaddr_t *src, bdaddr_t *dst, int *err)
+-void sock_def_destruct(struct sock *sk)
++static void sock_def_destruct(struct sock *sk)
  {
- 	struct rfcomm_session *s = NULL;
- 	struct sockaddr_l2 addr;
---- linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/sock.c.old	2004-12-14 02:28:14.000000000 +0100
-+++ linux-2.6.10-rc3-mm1-full/net/bluetooth/rfcomm/sock.c	2004-12-14 02:28:33.000000000 +0100
-@@ -393,7 +393,7 @@
- 	return err;
- }
+ 	if (sk->sk_protinfo)
+ 		kfree(sk->sk_protinfo);
+@@ -1368,7 +1370,6 @@
+ EXPORT_SYMBOL(sk_alloc);
+ EXPORT_SYMBOL(sk_free);
+ EXPORT_SYMBOL(sk_send_sigurg);
+-EXPORT_SYMBOL(sock_alloc_send_pskb);
+ EXPORT_SYMBOL(sock_alloc_send_skb);
+ EXPORT_SYMBOL(sock_init_data);
+ EXPORT_SYMBOL(sock_kfree_s);
+--- linux-2.6.10-rc3-mm1-full/include/net/iw_handler.h.old	2004-12-14 02:54:50.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/include/net/iw_handler.h	2004-12-14 02:54:57.000000000 +0100
+@@ -418,9 +418,6 @@
+  * Those may be called only within the kernel.
+  */
  
--int rfcomm_sock_listen(struct socket *sock, int backlog)
-+static int rfcomm_sock_listen(struct socket *sock, int backlog)
- {
- 	struct sock *sk = sock->sk;
- 	int err = 0;
-@@ -437,7 +437,7 @@
- 	return err;
- }
+-/* Data needed by fs/compat_ioctl.c for 32->64 bit conversion */
+-extern const char iw_priv_type_size[];
+-
+ /* First : function strictly used inside the kernel */
  
--int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int flags)
-+static int rfcomm_sock_accept(struct socket *sock, struct socket *newsock, int flags)
- {
- 	DECLARE_WAITQUEUE(wait, current);
- 	struct sock *sk = sock->sk, *nsk;
-
-
-
--------------------------------------------------------
-SF email is sponsored by - The IT Product Guide
-Read honest & candid reviews on hundreds of IT Products from real users.
-Discover which products truly live up to the hype. Start reading now. 
-http://productguide.itmanagersjournal.com/
+ /* Handle /proc/net/wireless, called in net/code/dev.c */
+--- linux-2.6.10-rc3-mm1-full/net/core/wireless.c.old	2004-12-14 02:55:04.000000000 +0100
++++ linux-2.6.10-rc3-mm1-full/net/core/wireless.c	2004-12-14 02:55:12.000000000 +0100
+@@ -304,7 +304,7 @@
+ 				       sizeof(struct iw_ioctl_description));
+ 
+ /* Size (in bytes) of the various private data types */
+-const char iw_priv_type_size[] = {
++static const char iw_priv_type_size[] = {
+ 	0,				/* IW_PRIV_TYPE_NONE */
+ 	1,				/* IW_PRIV_TYPE_BYTE */
+ 	1,				/* IW_PRIV_TYPE_CHAR */
