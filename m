@@ -1,28 +1,138 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 23:56:57 +0200
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: [PATCH] pktgen - output formatting
+Date: Wed, 22 Sep 2004 23:57:20 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922215657.GB2619@wotan.suse.de>
-References: <20040920063012.GL2825@krispykreme> <20040920203021.GD4242@wotan.suse.de> <20040921155835.18aee381.davem@davemloft.net> <20040922140000.GD27432@wotan.suse.de> <20040922111209.7887df53.davem@davemloft.net> <20040922195515.GA2619@wotan.suse.de> <4151DB6C.8050906@us.ibm.com> <20040922133011.5885640b.davem@davemloft.net>
+Message-ID: <16721.62784.358708.572905@robur.slu.se>
+References: <20040922142301.6618c24d@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nivedita Singhvi <niv@us.ibm.com>, ak@suse.de, anton@samba.org,
-        netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20040922133011.5885640b.davem@davemloft.net>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040922142301.6618c24d@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I have no idea why people think TSO will make some single
-> stream TCP test go faster, it doesn't buy you more bytes
-> on the wire :-)
 
-It definitely helps on 10GB/s - without it the maximum
-for single stream is slower. 
+Thanks Stephen!
+Seems sane but I've not tested. If do_div is now sane on all
+arch it should be used and 1024 vs 1000 is always "wrong"
+Time to give up hacking here.
 
-I suspect with a slow bus you can also see advantages
-on 1Gb/s.
+					--ro
 
--Andi
+Stephen Hemminger writes:
+ > This changes how the results of pktgen are computed.
+ >  * use do_div to get 64 by 32 divide,  scale as needed to handle really long
+ >    runs where total us > 2^32.
+ >  * communication data rates are supposed to be reported as 1Meg = 1000000
+ >  * split long line.
+ > 
+ > Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+ > 
+ > diff -Nru a/net/core/pktgen.c b/net/core/pktgen.c
+ > --- a/net/core/pktgen.c	2004-09-22 14:24:02 -07:00
+ > +++ b/net/core/pktgen.c	2004-09-22 14:24:02 -07:00
+ > @@ -584,16 +584,48 @@
+ >  	return skb;
+ >  }
+ >  
+ > +static void show_results(struct pktgen_info* info, int nr_frags)
+ > +{
+ > +	__u64 total, bps, mbps, pps;
+ > +	unsigned long idle;
+ > +	int size = info->pkt_size + 4; /* incl 32bit ethernet CRC */
+ > +	char *p = info->result;
+ > +
+ > +	total = (info->stopped_at.tv_sec - info->started_at.tv_sec) * 1000000ull
+ > +		+ info->stopped_at.tv_usec - info->started_at.tv_usec;
+ > +
+ > +	BUG_ON(cpu_speed == 0);
+ > +
+ > +	idle = info->idle_acc;
+ > +	do_div(idle, cpu_speed);
+ > +
+ > +	p += sprintf(p, "OK: %llu(c%llu+d%lu) usec, %llu (%dbyte,%dfrags)\n",
+ > +		     total, total - idle, idle,
+ > +		     info->sofar, size, nr_frags);
+ > +
+ > +	pps = info->sofar * USEC_PER_SEC;
+ > +	
+ > +	while ((total >> 32) != 0) {
+ > +		pps >>= 1;
+ > +		total >>= 1;
+ > +	}
+ > +
+ > +	do_div(pps, total);
+ > +	
+ > +	bps = pps * 8 * size;
+ > +
+ > +	mbps = bps;
+ > +	do_div(mbps, 1000000);
+ > +	p += sprintf(p, "  %llupps %lluMb/sec (%llubps) errors: %llu",
+ > +		     pps, mbps, bps, info->errors);
+ > +}
+ >  
+ >  static void inject(struct pktgen_info* info)
+ >  {
+ >  	struct net_device *odev;
+ >  	struct sk_buff *skb = NULL;
+ > -	__u64 total = 0;
+ > -	__u64 idle = 0;
+ >  	__u64 lcount = 0;
+ >  	int ret;
+ > -	int nr_frags = 0;
+ >  	int last_ok = 1;	   /* Was last skb sent? 
+ >  				    * Or a failed transmit of some sort?  This will keep
+ >  				    * sequence numbers in order, for example.
+ > @@ -633,8 +665,6 @@
+ >  			}
+ >  		}
+ >  
+ > -		nr_frags = skb_shinfo(skb)->nr_frags;
+ > -		   
+ >  		if (!(odev->features & NETIF_F_LLTX))
+ >  			spin_lock_bh(&odev->xmit_lock);
+ >  		if (!netif_queue_stopped(odev)) {
+ > @@ -730,38 +760,7 @@
+ >  
+ >  	do_gettimeofday(&(info->stopped_at));
+ >  
+ > -	total = (info->stopped_at.tv_sec - info->started_at.tv_sec) * 1000000 +
+ > -		info->stopped_at.tv_usec - info->started_at.tv_usec;
+ > -
+ > -	idle = (__u32)(info->idle_acc)/(__u32)(cpu_speed);
+ > -
+ > -	{
+ > -		char *p = info->result;
+ > -		__u64 bps, pps = 0;
+ > -
+ > -		if (total > 1000)
+ > -			pps = (__u32)(info->sofar * 1000) / ((__u32)(total) / 1000);
+ > -		else if(total > 100)
+ > -			pps = (__u32)(info->sofar * 10000) / ((__u32)(total) / 100);
+ > -		else if(total > 10)
+ > -			pps = (__u32)(info->sofar * 100000) / ((__u32)(total) / 10);
+ > -		else if(total > 1)
+ > -			pps = (__u32)(info->sofar * 1000000) / (__u32)total;
+ > -
+ > -		bps = pps * 8 * (info->pkt_size + 4); /* take 32bit ethernet CRC into account */
+ > -		p += sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags) %llupps %lluMb/sec (%llubps)  errors: %llu",
+ > -			     (unsigned long long) total,
+ > -			     (unsigned long long) (total - idle),
+ > -			     (unsigned long long) idle,
+ > -			     (unsigned long long) info->sofar,
+ > -			     skb->len + 4, /* Add 4 to account for the ethernet checksum */
+ > -			     nr_frags,
+ > -			     (unsigned long long) pps,
+ > -			     (unsigned long long) (bps / (u64) 1024 / (u64) 1024),
+ > -			     (unsigned long long) bps,
+ > -			     (unsigned long long) info->errors
+ > -			     );
+ > -	}
+ > +	show_results(info, skb_shinfo(skb)->nr_frags);
+ >  
+ >  	kfree_skb(skb);
+ >  
