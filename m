@@ -1,44 +1,58 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [RFC INTRO 0/5] H-TCP congestion control
-Date: Fri, 11 Mar 2005 09:42:39 -0800
-Message-ID: <20050311094239.4c59c29d@dxpl.pdx.osdl.net>
-References: <20050311160734.30424.67955.65942@galon.ev-en.org>
+Subject: [PATCH] bridge: no update when hold time is zero
+Date: Fri, 11 Mar 2005 10:26:36 -0800
+Message-ID: <20050311102636.30934f12@dxpl.pdx.osdl.net>
+References: <20050310154437.1223b6e9@dxpl.pdx.osdl.net>
+	<20050310185152.12ed9819.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: "David S.Miller" <davem@davemloft.net>, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com, Baruch Even <baruch@ev-en.org>,
-	Douglas Leith <doug.leith@nuim.ie>
-To: Baruch Even <baruch@ev-en.org>
-In-Reply-To: <20050311160734.30424.67955.65942@galon.ev-en.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="===============52277180049049865=="
+Cc: netdev@oss.sgi.com, bridge@lists.osdl.org
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050310185152.12ed9819.davem@davemloft.net>
+List-Unsubscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=unsubscribe>
+List-Archive: <http://lists.osdl.org/pipermail/bridge>
+List-Post: <mailto:bridge@lists.osdl.org>
+List-Help: <mailto:bridge-request@lists.osdl.org?subject=help>
+List-Subscribe: <http://lists.osdl.org/mailman/listinfo/bridge>,
+	<mailto:bridge-request@lists.osdl.org?subject=subscribe>
+Sender: bridge-bounces@lists.osdl.org
+Errors-To: bridge-bounces@lists.osdl.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 11 Mar 2005 18:07:34 +0200 (IST)
-Baruch Even <baruch@ev-en.org> wrote:
+--===============52277180049049865==
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 
-> The following patches are the result of the work of Douglas Leith to implement
-> the H-TCP congestion control proposal. They have since been modified by me
-> (Baruch Even) to port them to kernel 2.6.x, test them and tune them.
-> 
-> All patches are against Linux kernel version 2.6.11-bk6. This is currently
-> a preliminary work and is presented for review in order to receive comments to
-> improve this work so it can be accepted to mainline Linux Kernel.
-> 
-> The initial development was to add H-TCP to the Linux kernel for testing
-> purposes, it became evident that on 1 Gbit/s links Linux is unable to process
-> the received ack stream fast enough to handle the load. We have patches for
-> that but they proved too hard to be ported to 2.6.11+, we are currently working
-> on them.
-> 
-> Baruch
+Some users, set hold time to zero on bridge so it always does
+flooding. This is usually when using it with wireless.  The new RCU
+based code changed the behaviour so the bridge would not flood for
+one GC interval. This patch restores the original behaviour.
 
-Are there any IPR encumberance to this like FAST TCP. Earlier versions of
-this patch said:
+diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
+--- a/net/bridge/br_fdb.c	2005-03-11 10:23:44 -08:00
++++ b/net/bridge/br_fdb.c	2005-03-11 10:23:44 -08:00
+@@ -337,6 +337,10 @@
+ 	struct hlist_head *head = &br->hash[br_mac_hash(addr)];
+ 	struct net_bridge_fdb_entry *fdb;
+ 
++	/* some users want to always flood. */
++	if (hold_time(br) == 0)
++		return;
++
+ 	rcu_read_lock();
+ 	fdb = fdb_find(head, addr);
+ 	if (likely(fdb)) {
 
-> This patch is covered by a pending patent, a license is being worked on to
-> enable the inclusion in Linux. Comments and suggestions on this are also
-> solicited.
+--===============52277180049049865==
+Content-Type: text/plain; charset="iso-8859-1"
+MIME-Version: 1.0
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
+_______________________________________________
+Bridge mailing list
+Bridge@lists.osdl.org
+http://lists.osdl.org/mailman/listinfo/bridge
 
-Has this changed?
+--===============52277180049049865==--
