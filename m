@@ -1,8 +1,8 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Stephan von Krawczynski <skraw@ithnet.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 06:21:02 -0700
+Date: Mon, 18 Aug 2003 15:40:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818062102.170c56e3.davem@redhat.com>
+Message-ID: <20030818154024.4c607783.skraw@ithnet.com>
 References: <20030728213933.F81299@coredump.scriptkiddie.org>
 	<200308171509570955.003E4FEC@192.168.128.16>
 	<200308171516090038.0043F977@192.168.128.16>
@@ -22,26 +22,35 @@ References: <20030728213933.F81299@coredump.scriptkiddie.org>
 	<20030818145316.3a81f70c.skraw@ithnet.com>
 	<20030818055555.248f2a01.davem@redhat.com>
 	<1061213027.16017.2220.camel@jzny.localdomain>
+	<20030818062102.170c56e3.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: skraw@ithnet.com, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
+Cc: hadi@cyberus.ca, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
    carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
    bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
    linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
    linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1061213027.16017.2220.camel@jzny.localdomain>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030818062102.170c56e3.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 18 Aug 2003 09:23:48 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Mon, 18 Aug 2003 06:21:02 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-> Ok, heres a neat little feature requst: someone create arp rewrite rules
-> with ARPtable so we can have do MAC address aliasing.
+> On 18 Aug 2003 09:23:48 -0400
+> jamal <hadi@cyberus.ca> wrote:
+> 
+> > Ok, heres a neat little feature requst: someone create arp rewrite rules
+> > with ARPtable so we can have do MAC address aliasing.
+> 
+> What you ask for is in 2.6.x already, I'm more than happy to put a
+> backport it to 2.4.x too as it is a netfilter module that stands by
+> itself.
 
-What you ask for is in 2.6.x already, I'm more than happy to put a
-backport it to 2.4.x too as it is a netfilter module that stands by
-itself.
+Is netfilter completely SMP safe currently?
+
+Regards,
+Stephan
