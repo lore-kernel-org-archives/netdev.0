@@ -1,32 +1,34 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Move fib_alias out of fib_hash.c
-Date: Thu, 30 Sep 2004 08:51:26 -0700
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Thu, 30 Sep 2004 13:25:46 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415C2B7E.8060807@candelatech.com>
-References: <20040928214722.11aef8e0.davem@davemloft.net> <16730.53965.503605.943263@robur.slu.se> <20040929125359.12a00ba7.davem@davemloft.net> <1096492842.2344.57.camel@localhost.localdomain> <20040929142750.27b35952.davem@davemloft.net> <20040929220926.GE26714@wotan.suse.de> <415B3637.9060700@candelatech.com> <20040930080810.GB20106@wotan.suse.de>
+Message-ID: <Pine.NEB.4.33.0409301320510.13549-100000@dexter.psc.edu>
+References: <Pine.NEB.4.33.0409292008110.3434-100000@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Andi Kleen <ak@suse.de>, <niv@us.ibm.com>, <herbert@gondor.apana.org.au>,
+        <andy.grover@gmail.com>, <anton@samba.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040930080810.GB20106@wotan.suse.de>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <Pine.NEB.4.33.0409292008110.3434-100000@dexter.psc.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote:
+On Wed, 29 Sep 2004, John Heffner wrote:
 
-> There is no stable release cycle anymore. Linus has abolished that.
-> 
-> Maybe we will get it back at some point if the current way doesn't
-> work out, but currently it's unlimited hacking time.
+> On Wed, 29 Sep 2004, John Heffner wrote:
+>
+> > Using iperf, I'm getting ~ the same speed to a slow p3 receiver (680
+> > Mbits) with TSO on or off right now.  Haven't tried netperf.
+>
+> Netperf does not work well for me (350 Mbits).  Something to investigate.
 
-Sounds fun for the programmers and a pain in the ass for everyone
-else.  But, maybe I can shove some of my patches into the tree with
-less friction!
+I tried again, and it does not even work this well.  The connection hangs
+at the end in state FIN_WAIT1 with 101361 bytes in the Send-Q.  It seems
+that the whole interface dies.  (Maybe it's sending something invalid to
+the TSO engine?)  When I bring the interface down then back up again, the
+connection terminates normally.
 
-Ben
+Don't have this problem with iperf, strange.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+  -John
