@@ -1,55 +1,69 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Re: [PATCH] use mmiowb in tg3.c
-Date: Fri, 22 Oct 2004 14:00:35 +1000
+From: Suresh Krishnan <suresh.krishnan@ericsson.ca>
+Subject: [PATCH 2.6.9] address family not supported for sendmsg()
+Date: Fri, 22 Oct 2004 00:27:14 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16760.34275.675065.538997@cargo.ozlabs.ibm.com>
-References: <200410211613.19601.jbarnes@engr.sgi.com>
-	<200410211628.06906.jbarnes@engr.sgi.com>
-	<20041021164007.4933b10b.davem@davemloft.net>
-	<200410212201.35430.jbarnes@sgi.com>
+Message-ID: <21A5F45EFF209A44B3057E35CE1FE6E403981824-100000@eammlex037.lmc.ericsson.se>
+Reply-To: Suresh Krishnan <suresh.krishnan@ericsson.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jesse Barnes <jbarnes@engr.sgi.com>, akpm@osdl.org,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-        gnb@sgi.com, akepner@sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jesse Barnes <jbarnes@sgi.com>
-In-Reply-To: <200410212201.35430.jbarnes@sgi.com>
+To: davem@davemloft.net, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jesse Barnes writes:
+When sendmsg() encounters an unsupported address family
+it must return EAFNOSUPPORT. It currently returns EINVAL,
+which must be returned only when the sum of the iov_len 
+values overflows a ssize_t.
 
-> On Thursday, October 21, 2004 6:40 pm, David S. Miller wrote:
-> > On Thu, 21 Oct 2004 16:28:06 -0700
-> >
-> > Jesse Barnes <jbarnes@engr.sgi.com> wrote:
-> > > This patch originally from Greg Banks.  Some parts of the tg3 driver
-> > > depend on PIO writes arriving in order.  This patch ensures that in two
-> > > key places using the new mmiowb macro.  This not only prevents bugs (the
-> > > queues can be corrupted), but is much faster than ensuring ordering using
-> > > PIO reads (which involve a few round trips to the target bus on some
-> > > platforms).
-> >
-> > Do other PCI systems which post PIO writes also potentially reorder
-> > them just like this SGI system does?  Just trying to get this situation
-> > straight in my head.
-> 
-> The HP guys claim that theirs don't, but PPC does, afaik.  And clearly any 
-> large system that posts PCI writes has the *potential* of reordering them.
+Signed-off-by: Suresh Krishnan <suresh.krishnan@ericsson.ca>
+---
 
-No, PPC systems don't reorder writes to PCI devices.  Provided you use
-inl/outl/readl/writel et al., all PCI accesses from one processor are
-strictly ordered, and if you use a spinlock, that gives you strict
-access ordering between processors.
+diff -Nur linux-2.6.9/net/ipv4/raw.c linux-2.6.9-patched/net/ipv4/raw.c
+--- linux-2.6.9/net/ipv4/raw.c  2004-10-18 17:54:31.000000000 -0400
++++ linux-2.6.9-patched/net/ipv4/raw.c  2004-10-21 16:38:15.000000000 -0400
+@@ -407,7 +407,7 @@
+                                printk(KERN_INFO "%s forgot to set AF_INET in "
+                                                 "raw sendmsg. Fix it!\n",
+                                                 current->comm);
+-                       err = -EINVAL;
++                       err = -EAFNOSUPPORT;
+                        if (usin->sin_family)
+                                goto out;
+                }
+diff -Nur linux-2.6.9/net/ipv4/udp.c linux-2.6.9-patched/net/ipv4/udp.c
+--- linux-2.6.9/net/ipv4/udp.c  2004-10-18 17:53:22.000000000 -0400
++++ linux-2.6.9-patched/net/ipv4/udp.c  2004-10-21 16:37:40.000000000 -0400
+@@ -531,7 +531,7 @@
+                        return -EINVAL;
+                if (usin->sin_family != AF_INET) {
+                        if (usin->sin_family != AF_UNSPEC)
+-                               return -EINVAL;
++                               return -EAFNOSUPPORT;
+                }
 
-Our barrier instructions mostly order cacheable accesses separately
-from non-cacheable accesses, except for the strongest barrier
-instruction, which orders everything.  Thus it would be useful for us
-to have an explicit indication of when a cacheable write (i.e. to main
-memory) has to be completed (from a PCI device's point of view) before
-a non-cacheable device read or write (e.g. to kick off DMA).
+                daddr = usin->sin_addr.s_addr;
+diff -Nur linux-2.6.9/net/ipv6/raw.c linux-2.6.9-patched/net/ipv6/raw.c
+--- linux-2.6.9/net/ipv6/raw.c  2004-10-18 17:53:51.000000000 -0400
++++ linux-2.6.9-patched/net/ipv6/raw.c  2004-10-21 16:38:00.000000000 -0400
+@@ -639,7 +639,7 @@
+                        return -EINVAL;
 
-Paul.
+                if (sin6->sin6_family && sin6->sin6_family != AF_INET6)
+-                       return(-EINVAL);
++                       return(-EAFNOSUPPORT);
+
+                /* port is the proto value [0..255] carried in nexthdr */
+                proto = ntohs(sin6->sin6_port);
+diff -Nur linux-2.6.9/net/ipv6/udp.c linux-2.6.9-patched/net/ipv6/udp.c
+--- linux-2.6.9/net/ipv6/udp.c  2004-10-18 17:54:55.000000000 -0400
++++ linux-2.6.9-patched/net/ipv6/udp.c  2004-10-21 16:37:52.000000000 -0400
+@@ -699,7 +699,7 @@
+                if (likely(up->pending)) {
+                        if (unlikely(up->pending != AF_INET6)) {
+                                release_sock(sk);
+-                               return -EINVAL;
++                               return -EAFNOSUPPORT;
+                        }
+                        dst = NULL;
+                        goto do_append_data;
