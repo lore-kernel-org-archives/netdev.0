@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 4/18] gcc-3.5: decnet
-Date: Sun, 25 Jan 2004 03:07:05 -0800
+Subject: [patch 7/18] gcc-3.5: ipx
+Date: Sun, 25 Jan 2004 03:07:22 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401251107.i0PB75o25060@mail.osdl.org>
+Message-ID: <200401251107.i0PB7Mo25077@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -11,43 +11,27 @@ List-Id: netdev.vger.kernel.org
 
 
 
-net/decnet/af_decnet.c: In function `dn_alloc_sock':
-net/decnet/af_decnet.c:459: error: invalid lvalue in assignment
-
-net/decnet/dn_neigh.c: In function `dn_phase3_output':
-net/decnet/dn_neigh.c:330: error: invalid lvalue in assignment
+net/ipx/af_ipx.c: In function `ipx_create':
+net/ipx/af_ipx.c:1354: error: invalid lvalue in assignment
 
 
 
 ---
 
- 25-akpm/net/decnet/af_decnet.c |    2 +-
- 25-akpm/net/decnet/dn_neigh.c  |    2 +-
- 2 files changed, 2 insertions(+), 2 deletions(-)
+ 25-akpm/net/ipx/af_ipx.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
-diff -puN net/decnet/af_decnet.c~gcc-35-decnet net/decnet/af_decnet.c
---- 25/net/decnet/af_decnet.c~gcc-35-decnet	Fri Jan 23 15:37:10 2004
-+++ 25-akpm/net/decnet/af_decnet.c	Fri Jan 23 15:37:10 2004
-@@ -456,7 +456,7 @@ struct sock *dn_alloc_sock(struct socket
- 	if  (!sk)
- 		goto out;
- 
--	DN_SK(sk) = scp = (struct dn_scp *)(sk + 1);
-+	sk->sk_protinfo = scp = (struct dn_scp *)(sk + 1);
- 
- 	if (sock)
- 		sock->ops = &dn_proto_ops;
-diff -puN net/decnet/dn_neigh.c~gcc-35-decnet net/decnet/dn_neigh.c
---- 25/net/decnet/dn_neigh.c~gcc-35-decnet	Fri Jan 23 15:39:15 2004
-+++ 25-akpm/net/decnet/dn_neigh.c	Fri Jan 23 15:39:56 2004
-@@ -327,7 +327,7 @@ static int dn_phase3_output(struct sk_bu
- 	}
- 
- 	data = skb_push(skb, sizeof(struct dn_short_packet) + 2);
--	((unsigned short *)data) = dn_htons(skb->len - 2);
-+	data = (unsigned char *)dn_htons(skb->len - 2);
- 	sp = (struct dn_short_packet *)(data + 2);
- 
- 	sp->msgflg   = DN_RT_PKT_SHORT|(cb->rt_flags&(DN_RT_F_RQR|DN_RT_F_RTS));
+diff -puN net/ipx/af_ipx.c~gcc-35-ipx net/ipx/af_ipx.c
+--- 25/net/ipx/af_ipx.c~gcc-35-ipx	Fri Jan 23 15:40:35 2004
++++ 25-akpm/net/ipx/af_ipx.c	Fri Jan 23 15:40:53 2004
+@@ -1351,7 +1351,7 @@ static int ipx_create(struct socket *soc
+         	rc = -ENOMEM;
+ 		if (!sk)
+ 			goto out;
+-		ipx = ipx_sk(sk) = kmalloc(sizeof(*ipx), GFP_KERNEL);
++		ipx = sk->sk_protinfo = kmalloc(sizeof(*ipx), GFP_KERNEL);
+ 		if (!ipx)
+ 			goto outsk;
+ 		memset(ipx, 0, sizeof(*ipx));
 
 _
