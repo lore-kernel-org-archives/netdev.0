@@ -1,45 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [janitor] sis900: don't use yield()
-Date: Tue, 27 Apr 2004 14:03:37 -0400
+From: Simon Peter <dn.tlp@gmx.net>
+Subject: forcedeth received irq with unknown events
+Date: Thu, 29 Apr 2004 14:30:06 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <408EA079.3060604@pobox.com>
-References: <20040427103807.311caa42.rddunlap@osdl.org>
+Message-ID: <20040429143006.4f8b5df0.dn.tlp@gmx.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>, ollie@sis.com.tw
+Cc: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-In-Reply-To: <20040427103807.311caa42.rddunlap@osdl.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Randy.Dunlap wrote:
-> From: maximilian attems <janitor@sternwelten.at>
-> 
-> thanks to Felipe W Damasio hint rediffed.
-> patch is on top of linux-2.6.6-rc2
-> 
-> yield() removes process from active array into expired array,
-> better just yield the CPU for a bit.
-> tested on my laptop with a sis900.
-> 
-> a++ maks
-> 
-> Index: linux-266-rc2-kj1/drivers/net/sis900.c
-> ===================================================================
-> --- linux-266-rc2-kj1.orig/drivers/net/sis900.c	2004-04-03 19:36:57.000000000 -0800
-> +++ linux-266-rc2-kj1/drivers/net/sis900.c	2004-04-21 15:32:56.000000000 -0700
-> @@ -600,7 +600,8 @@ static int __init sis900_mii_probe (stru
->  
->  	if(status & MII_STAT_LINK){
->  		while (poll_bit) {
-> -			yield();
-> +			set_current_state(TASK_UNINTERRUPTIBLE);
-> +			schedule_timeout(HZ/100);
+Hi there!
 
+Since i plugged the DSL-Modem directly to my onboard nForce2 network
+card (it's a Shuttle AN35-400 Mobo), i constantly get the following
+messages in my syslog:
 
-I would rather do schedule_timeout(1), as that's IMO closer to the 
-intention...
+Apr 29 14:15:02 server kernel: eth0: received irq with unknown events
+0x1. Please report
+Apr 29 14:15:33 server last message repeated 28 times
+Apr 29 14:15:55 server last message repeated 23 times
 
-	Jeff
+The message seems to be displaying more frequently the more traffic is
+on the link.
+
+Formerly, the nForce2 board was connected to a 100mbps switch to my LAN
+and i didn't get any of these messages.
+
+If you need any more info to get this fixed, just reply!
+
+Great work with the driver!
+Simon
