@@ -1,55 +1,63 @@
-From: satya srikanth <satyasrikanth2001@yahoo.com>
-Subject: Re: gigabit ethernet
-Date: Sat, 14 Feb 2004 06:09:14 -0800 (PST)
+From: James Morris <jmorris@redhat.com>
+Subject: [PATCH] Fix checksum bug for multicast/broadcast packets on postrouting
+ hook
+Date: Sat, 14 Feb 2004 13:37:23 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040214140914.3341.qmail@web21107.mail.yahoo.com>
-References: <Pine.LNX.4.44.0402131116590.24993-100000@fast2.cs.caltech.edu>
+Message-ID: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Xiaoliang \(David\) Wei" <weixl@caltech.edu>,
-        "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, Stephen Smalley <sds@epoch.ncsc.mil>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-In-Reply-To: <Pine.LNX.4.44.0402131116590.24993-100000@fast2.cs.caltech.edu>
+To: "David S. Miller" <davem@redhat.com>, Harald Welte <laforge@netfilter.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-  The solution of using NAPI reduced packet drops to
-some extent. I am using dual processor 2.0 GHz Xeon
-Processors (32 bit 66 MHz PCI bus). For different
-packet sizes maximum bandwidth that my receiver
-handled without drops are like this. (Using raw
-sockets)
+This patch fixes a bug with with multicast/broadcast packets,
+Netfilter, and NICs which do hardware checksums.
 
-Pkt Size   Max Bandwidth 
-(bytes)       (Mbps)
---------   ------------
- 100           200
- 500           500
- 1000          700         
- 1500          900
+Outgoing multicast and broadcast packets are cloned prior to being fed
+into the postrouting hook and looped back.  A problem is caused when the
+shared packet data is modified by the netfilter core code when updating
+the checksum, but the skb->ip_summed field in the header of the original
+skb is not updated.  The NIC then tries to do a hardware checksum on an
+already correct checksum, and we end up transmitting the wrong thing.
 
-My CPU is unable to handle anything more than this. Is
-it possible to handle 1000Mbps for any packet size or
-atleast something better than this by using more
-powerful machines. If anyone of you have experimented
-with this, can you give an idea of what kind of a
-machine do I need for this. 
-   Also my driver has IP checksum offloading option
-ON. Does it mean that I can safely remove checksum
-calculation in TCP/IP stack?
+This bug stops things like DHCP from working, and was noted under SELinux
+which uses the postrouting hook alone.
 
---- Cheng Jin <chengjin@cs.caltech.edu> wrote:
-> NAPI for e1000 is off by default, you have to
-> explicitly enable it
-> in the kernel config file (CONFIG_E1000_NAPI).
-> What kind of processors do you have?  I haven't
-> tried pumping 1 Gbps
-> using processors slower than 2.4G Xeons.  But it
+The proposed solution below is to copy the skb rather than clone it, to 
+ensure that the original and looped back packets are independent.
+
+Please review.
+
+(A similar problem seems to exist in the IPv6 code, although not 
+verified yet).
 
 
-__________________________________
-Do you Yahoo!?
-Yahoo! Finance: Get your refund fast by filing online.
-http://taxes.yahoo.com/filing.html
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
+
+
+diff -urN -X dontdiff linux-2.6.3-rc2-mm1.o/net/ipv4/ip_output.c linux-2.6.3-rc2-mm1.w2/net/ipv4/ip_output.c
+--- linux-2.6.3-rc2-mm1.o/net/ipv4/ip_output.c	2004-02-03 22:45:00.000000000 -0500
++++ linux-2.6.3-rc2-mm1.w2/net/ipv4/ip_output.c	2004-02-14 13:04:20.880941816 -0500
+@@ -254,7 +254,7 @@
+ 		    && ((rt->rt_flags&RTCF_LOCAL) || !(IPCB(skb)->flags&IPSKB_FORWARDED))
+ #endif
+ 		) {
+-			struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
++			struct sk_buff *newskb = skb_copy(skb, GFP_ATOMIC);
+ 			if (newskb)
+ 				NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
+ 					newskb->dev, 
+@@ -270,7 +270,7 @@
+ 	}
+ 
+ 	if (rt->rt_flags&RTCF_BROADCAST) {
+-		struct sk_buff *newskb = skb_clone(skb, GFP_ATOMIC);
++		struct sk_buff *newskb = skb_copy(skb, GFP_ATOMIC);
+ 		if (newskb)
+ 			NF_HOOK(PF_INET, NF_IP_POST_ROUTING, newskb, NULL,
+ 				newskb->dev, ip_dev_loopback_xmit);
