@@ -1,66 +1,54 @@
-From: Michael Wu <flamingice@sourmilk.net>
-Subject: Re: 2.6.x wireless update and status
-Date: Wed, 23 Mar 2005 19:20:07 -0500
-Message-ID: <200503231920.13459.flamingice@sourmilk.net>
-References: <4240CA69.9020902@pobox.com> <20050323055243.GU8648@jm.kir.nu>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
+Date: 23 Mar 2005 19:34:31 -0500
+Message-ID: <1111624471.1037.4.camel@jzny.localdomain>
+References: <1107123123.8021.80.camel@jzny.localdomain>
+	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>
+	 <1107174142.8021.121.camel@jzny.localdomain>
+	 <00c301c524b4$938cd240$6e69690a@RIMAS>
+	 <1110379135.1091.143.camel@jzny.localdomain>
+	 <1110416767.1111.76.camel@jzny.localdomain>
+	 <025501c52552$2dbf87c0$6e69690a@RIMAS>
+	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>
+	 <1111410890.1092.195.camel@jzny.localdomain>
+	 <423F41AD.3010902@dsl.pipex.com>
+	 <1111444869.1072.51.camel@jzny.localdomain>
+	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>
+	 <42408998.5000202@dsl.pipex.com>
+	 <1111550254.1089.21.camel@jzny.localdomain>
+	 <4241C478.5030309@dsl.pipex.com>
+	 <1111607112.1072.48.camel@jzny.localdomain>
+	 <4241D764.2030306@dsl.pipex.com>
+	 <1111612042.1072.53.camel@jzny.localdomain>
+	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@d
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart3526203.1HYpb7u0Vr";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jouni Malinen <jkmaline@cc.hut.fi>,
-	Jeff Garzik <jgarzik@pobox.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	"David S. Miller" <davem@davemloft.net>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050323055243.GU8648@jm.kir.nu>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
+        Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+To: Andy Furniss <andy.furniss@dsl.pipex.com>
+In-Reply-To: <4241F7F0.2010403@dsl.pipex.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart3526203.1HYpb7u0Vr
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+On Wed, 2005-03-23 at 18:12, Andy Furniss wrote:
 
-On Wednesday 23 March 2005 12:52 am, Jouni Malinen wrote:
-> > Moving forward, the next "todo" for kernel wireless hackers is to get
-> > ieee80211 common code lib into shape, namely:
-> > * Merge Intel ipw drivers, which use ieee80211
-> > * Update HostAP to use ieee80211
-> > * Merge/convert other drivers to use ieee80211?
->
-> I'll be working on HostAP driver next; and ieee80211 code of course at
-> the same time, since it is likely to need some changes for this. As far
-> as other drivers are concerned, I'd like to see Atheros cards working
-> with the generic ieee80211 code. They would be a good test target since
-> they are an example of design where very large part of functionality is
-> in the driver/network stack (no firmware used). This would be a good
-> test to verify that the 802.11 code is generic enough for such a design.
->
-The ADM8211 would be a good test too. So far, the main thing I see missing=
-=20
-from the 802.11 code is software scanning/authentication/association. Is al=
-l=20
-of that being moved to userspace? I prefer having a little bit of that in t=
-he=20
-kernel so minimal managed, adhoc, and WEP features can be used without a=20
-daemon.
+> 
+> Noticed I get this in logs
+> 
+> Mar 23 23:11:18 amd kernel: MARK: targinfosize 8 != 4
+> 
 
-=2DMichael Wu
+Aha!
+The finger is still pointing to iptables version thing.
+More breakage than i thought.
 
---nextPart3526203.1HYpb7u0Vr
-Content-Type: application/pgp-signature
+I dont get this message and it works just fine.
+What iptables version are you using? I tested with 1.3.1.
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCQge9yWWBbDEe0UIRAvEpAKCHHWAIal32i+WdBjp4QQUyfssbcgCdFgxq
-PFsdsoGT8uaz7+GYBNSz0o8=
-=qGSE
------END PGP SIGNATURE-----
-
---nextPart3526203.1HYpb7u0Vr--
+cheers,
+jamal
