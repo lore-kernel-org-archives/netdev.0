@@ -1,151 +1,25 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH] move dmascc away from setup.c
-Date: Tue, 3 Jun 2003 10:23:26 +0200
+From: Andreas Jellinghaus <aj@dungeon.inka.de>
+Subject: Re: Is there already a doc available for the new IPsec code?
+Date: Tue, 3 Jun 2003 10:13:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030603082326.GA22946@lst.de>
+Message-ID: <200306031013.02982.aj@dungeon.inka.de>
+References: <36990000.1054588328@worker.muc.bieringer.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Maillist USAGI-users <usagi-users@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Peter Bieringer <pb@bieringer.de>, Maillist netdev <netdev@oss.sgi.com>
+In-Reply-To: <36990000.1054588328@worker.muc.bieringer.de>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Yeah, it's a isa driver but it already was in the setup.c
-pci probes list.
+I will send him my notes
+(too large for this list).
 
-Also use SET_MODULE_OWNER instead of MOD_{INC,DEC}_USE_COUNT.
+except for the kernel config, the netbsd ipsec howto
+is a very good source.
 
-
---- 1.15/drivers/net/setup.c	Thu May 29 11:57:13 2003
-+++ edited/drivers/net/setup.c	Mon Jun  2 12:16:07 2003
-@@ -9,8 +9,6 @@
- #include <linux/init.h>
- #include <linux/netlink.h>
- 
--extern int dmascc_init(void);
--
- extern int scc_enet_init(void); 
- extern int fec_enet_init(void); 
- 
-@@ -29,10 +27,6 @@
- 	/*
- 	 *	Early setup devices
- 	 */
--
--#if defined(CONFIG_DMASCC)
--	{dmascc_init, 0},
--#endif	
- #if defined(CONFIG_SCC_ENET)
-         {scc_enet_init, 0},
- #endif
---- 1.15/drivers/net/hamradio/dmascc.c	Fri May 30 08:50:31 2003
-+++ edited/drivers/net/hamradio/dmascc.c	Mon Jun  2 12:31:48 2003
-@@ -250,8 +250,6 @@
- 
- 
- /* Function declarations */
--
--int dmascc_init(void) __init;
- static int setup_adapter(int card_base, int type, int n) __init;
- 
- static void write_scc(struct scc_priv *priv, int reg, int val);
-@@ -299,23 +297,12 @@
- static unsigned long rand;
- 
- 
--/* Module functions */
--
--#ifdef MODULE
--
--
- MODULE_AUTHOR("Klaus Kudielka");
- MODULE_DESCRIPTION("Driver for high-speed SCC boards");
- MODULE_PARM(io, "1-" __MODULE_STRING(MAX_NUM_DEVS) "i");
- MODULE_LICENSE("GPL");
- 
--
--int init_module(void) {
--  return dmascc_init();
--}
--
--
--void cleanup_module(void) {
-+static void __exit dmascc_exit(void) {
-   int i;
-   struct scc_info *info;
- 
-@@ -341,24 +328,16 @@
-   }
- }
- 
--
--#else
--
--
-+#ifndef MODULE
- void __init dmascc_setup(char *str, int *ints) {
-    int i;
- 
-    for (i = 0; i < MAX_NUM_DEVS && i < ints[0]; i++)
-       io[i] = ints[i+1];
- }
--
--
- #endif
- 
--
--/* Initialization functions */
--
--int __init dmascc_init(void) {
-+static int __init dmascc_init(void) {
-   int h, i, j, n;
-   int base[MAX_NUM_DEVS], tcmd[MAX_NUM_DEVS], t0[MAX_NUM_DEVS],
-     t1[MAX_NUM_DEVS];
-@@ -461,6 +440,9 @@
-   return -EIO;
- }
- 
-+module_init(dmascc_init);
-+module_exit(dmascc_exit);
-+
- 
- int __init setup_adapter(int card_base, int type, int n) {
-   int i, irq, chip;
-@@ -580,6 +562,7 @@
-     if (sizeof(dev->name) == sizeof(char *)) dev->name = priv->name;
- #endif
-     sprintf(dev->name, "dmascc%i", 2*n+i);
-+    SET_MODULE_OWNER(dev);
-     dev->base_addr = card_base;
-     dev->irq = irq;
-     dev->open = scc_open;
-@@ -707,12 +690,9 @@
-   struct scc_info *info = priv->info;
-   int card_base = priv->card_base;
- 
--  MOD_INC_USE_COUNT;
--
-   /* Request IRQ if not already used by other channel */
-   if (!info->irq_used) {
-     if (request_irq(dev->irq, scc_isr, 0, "dmascc", info)) {
--      MOD_DEC_USE_COUNT;
-       return -EAGAIN;
-     }
-   }
-@@ -722,7 +702,6 @@
-   if (priv->param.dma >= 0) {
-     if (request_dma(priv->param.dma, "dmascc")) {
-       if (--info->irq_used == 0) free_irq(dev->irq, info);
--      MOD_DEC_USE_COUNT;
-       return -EAGAIN;
-     } else {
-       unsigned long flags = claim_dma_lock();
-@@ -866,7 +845,6 @@
-   }
-   if (--info->irq_used == 0) free_irq(dev->irq, info);
- 
--  MOD_DEC_USE_COUNT;
-   return 0;
- }
- 
+Andreas
