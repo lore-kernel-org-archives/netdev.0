@@ -1,24 +1,186 @@
-From: Aron Griffis <aron@hp.com>
-Subject: ifconfig bug removes aliases
-Date: Wed, 10 Mar 2004 16:20:56 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040310212056.GA5661@time.flatmonk.org>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: Re: [PATCH 2.6] Intersil Prism54 wireless driver
+Date: Wed, 10 Mar 2004 17:17:16 -0500
+Sender: prism54-devel-admin@prism54.org
+Message-ID: <20040310221716.GD26496@ruslug.rutgers.edu>
+References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="/04w6evG8XlLl3ft"
+Cc: Christoph Hellwig <hch@infradead.org>, prism54-devel@prism54.org,
+	"David S. Miller" <davem@redhat.com>,
+	Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Return-path: <prism54-devel-admin@prism54.org>
+To: jt@hpl.hp.com
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040310172114.GA8867@bougret.hpl.hp.com>
+Errors-To: prism54-devel-admin@prism54.org
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
-Hello, here is the sequence:
 
-    ifconfig eth0:1 10.10.10.1 netmask 255.255.0.0 
-    ifconfig eth0:2 10.10.10.2 netmask 255.255.0.0 
-    ifconfig eth0:1 down
+--/04w6evG8XlLl3ft
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-At this point eth0:2 has disappeared also.  It appears that the aliases
-must be on the same subnet for this to occur, and the creation order is
-also important.
+On Wed, Mar 10, 2004 at 09:21:14AM -0800, Jean Tourrilhes wrote:
+> On Wed, Mar 10, 2004 at 04:55:48PM +0000, Christoph Hellwig wrote:
+> > On Wed, Mar 03, 2004 at 06:35:24PM -0800, Jean Tourrilhes wrote:
+> > > 	Hi Dave & Jeff,
+> > >=20
+> > > 	The attached .bz2 file is a patch for 2.6.3 adding the
+> > > Intersil Prism54 wireless driver. Sorry for the attachement, the file
+> > > is rather big, if you want inline+plaintext, I'll send that personal
+> > > to you.
+> > > 	I've been using this driver with great success on 2.6.3 and
+> > > 2.6.4-rc1 (SMP). This driver support various popular CardBus and PCI
+> > > 802.11g cards (54 Mb/s) based on the Intersil PrismGT/PrismDuette
+> > > chipset.
+> > > 	I would like this driver to go into 2.6.X. However, I
+> > > understand that it's lot's of code to review.
+> >=20
+> > Here's a few things I found.
+>=20
+> 	I'm forwarding to prism54-devel where the real developpers can
+> answer your questions.
+>=20
+> >  It's not exactly a full review, there's
+> > too much new snow to spend lots of time in front of a computer here :)
+>=20
+> 	Grrr... This year, no snow for me.
+>=20
+> > diff -Naur -X /home/mcgrof/lib/dontdiff linux-2.6.3/drivers/net/wireles=
+s/prism54/Makefile linux-2.6.3-prism54/drivers/net/wireless/prism54/Makefile
+> > --- linux-2.6.3/drivers/net/wireless/prism54/Makefile	Thu Jan  1 00:00:=
+00 1970
+> > +++ linux-2.6.3-prism54/drivers/net/wireless/prism54/Makefile	Thu Mar  =
+4 02:00:01 2004
+> > @@ -0,0 +1,10 @@
+> > +# $Id: Makefile.k26,v 1.7 2004/01/30 16:24:00 ajfa Exp $
+> > +
+> > +prism54-objs :=3D islpci_eth.o islpci_mgt.o \
+> > +                isl_38xx.o isl_ioctl.o islpci_dev.o \
+> > +		islpci_hotplug.o isl_wds.o oid_mgt.o
+> >=20
+> > 	please use foo-y for new drivers.
 
-Aron
+TODO
+
+> >=20
+> > +
+> > +obj-$(CONFIG_PRISM54) +=3D prism54.o
+> > +
+> > +EXTRA_CFLAGS =3D -I$(PWD) #-DCONFIG_PRISM54_WDS
+> >=20
+> > 	This is bogus, especially with srcdir !=3D objdir.
+> > 	please fixup the includes instead
+> >=20
+> > +#define __KERNEL_SYSCALLS__
+> >=20
+> > 	this shouldn't be used anymore.
+
+Done
+
+> >=20
+> > +
+> > +#include <linux/version.h>
+> > +#include <linux/module.h>
+> > +#include <linux/types.h>
+> > +#include <linux/delay.h>
+> > +
+> > +#include "isl_38xx.h"
+> > +#include <linux/firmware.h>
+> > +
+> > +#include <asm/uaccess.h>
+> > +#include <asm/io.h>
+> >=20
+> > 	Please include headers in the following order <linux/*.h>,
+> > 	<asm/*.h>, driver-specific.
+
+Done
+
+> >=20
+> > +#if (LINUX_VERSION_CODE > KERNEL_VERSION(2,5,75))
+> > +#include <linux/device.h>
+> > +# define _REQ_FW_DEV_T struct device *
+> > +#else
+> > +# define _REQ_FW_DEV_T char *
+> > +#endif
+> >=20
+> > 	Eeek, why don't you simply pass the pci_dev down?
+
+TODO
+
+> >=20
+> >=20
+> > +typedef struct isl38xx_cb isl38xx_control_block;
+> >=20
+> > 	No useless typedefs please.
+> >=20
+> > +MODULE_PARM(init_mode, "i");
+> > +MODULE_PARM_DESC(init_mode,
+> > +		 "Set card mode:\n0: Auto\n1: Ad-Hoc\n2: Managed Client (Default)\n3=
+: Master / Access Point\n4: Repeater (Not supported yet)\n5: Secondary (Not=
+ supported yet)\n6: Monitor");
+> >=20
+> > 	Please use module_param
+
+Done
+
+>=20
+> 	I would even say that this is useless because the driver
+> support WE, and WE scripts set the mode before the card is up.
+
+True, we can just remove the param for iw_mode.
+
+>=20
+> > diff -Naur -X /home/mcgrof/lib/dontdiff linux-2.6.3/drivers/net/wireles=
+s/prism54/isl_wds.c linux-2.6.3-prism54/drivers/net/wireless/prism54/isl_wd=
+s.c
+> > --- linux-2.6.3/drivers/net/wireless/prism54/isl_wds.c	Thu Jan  1 00:00=
+:00 1970
+> > +++ linux-2.6.3-prism54/drivers/net/wireless/prism54/isl_wds.c	Thu Mar =
+ 4 02:00:01 2004
+> >=20
+> > 	WDS doesn't belong into a driver but in higher-level code.
+
+The driver features some firmware-specific WDS functionality, such as
+adding/removing WDS links. We haven't looked much into it yet though since
+it's not high priority. Where exactly should this code go to then?
+
+Elements noted as DONE were just committed into our CVS repository. You
+can always find our latest 2.6 kernel patch at:
+
+http://prism54.org/pub/linux/snapshot/kernel/v2.6/patch-2.6-prism54-cvs-lat=
+est.bz2
+
+FWIW, the same driver code base supports 2.4:
+http://prism54.org/pub/linux/snapshot/kernel/v2.4/patch-2.4-prism54-cvs-lat=
+est.bz2
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--/04w6evG8XlLl3ft
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAT5Psat1JN+IKUl4RAjAnAJ4v7f4FQ3lIOmmhylZoK31xuM4ztQCgntSI
+qtnuNdaT1a3Hi9XPfZPBpyE=
+=O0Wo
+-----END PGP SIGNATURE-----
+
+--/04w6evG8XlLl3ft--
