@@ -1,8 +1,8 @@
 From: "Shawn Starr" <shawn.starr@rogers.com>
 Subject: RE: [BUG][2.6.5 final][e100/ee100pro] NETDEV_WATCHDOG Timeout -Related to i2c interface?
-Date: Tue, 13 Apr 2004 01:16:33 -0400
+Date: Tue, 13 Apr 2004 01:16:43 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <000001c42116$7d00fb70$0200080a@panic>
+Message-ID: <000101c42116$82b8e910$0200080a@panic>
 References: <4079B246.4070107@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
