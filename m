@@ -1,22 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH,resent] reduce sizeof(struct inet_peer) from 128 to 64
- bytes on 64bits architectures
-Date: Wed, 16 Mar 2005 20:54:08 -0800
-Message-ID: <20050316205408.01d24df2.davem@redhat.com>
-References: <4238C388.5040303@cosmosbay.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH] net, ipv6: remove redundant NULL checks before kfree in
+ ip6_flowlabel.c
+Date: Wed, 16 Mar 2005 20:58:15 -0800
+Message-ID: <20050316205815.3e30e111.davem@davemloft.net>
+References: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
+	<20050317.115444.31670680.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <4238C388.5040303@cosmosbay.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: juhl-lkml@dif.dk, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
+        netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        linux-kernel@vger.kernel.org
+To: <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20050317.115444.31670680.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Mar 2005 00:38:48 +0100
-Eric Dumazet <dada1@cosmosbay.com> wrote:
+On Thu, 17 Mar 2005 11:54:44 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Resent with diff file not tab/space mangled :(
+> Based on patch from Jesper Juhl <juhl-lkml@dif.dk>.
+> 
+> David?
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Patch applied, thanks Eric.
+This version of the patch is fine, applied.
+
+Thanks.
