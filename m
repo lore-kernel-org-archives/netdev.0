@@ -1,26 +1,30 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4 PATCH] Fix IPVS ftp to use cp->vaddr
-Date: Fri, 17 Oct 2003 23:41:25 -0700
+From: Zwane Mwaikambo <zwane@arm.linux.org.uk>
+Subject: [PATCH][2.6] fix compilation w/o CONFIG_XFRM
+Date: Sat, 18 Oct 2003 03:01:03 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031017234125.457d8ae9.davem@redhat.com>
-References: <Pine.LNX.4.44.0310181357140.6525-200000@penguin.linux-vs.org>
+Message-ID: <Pine.LNX.4.53.0310180300500.2831@montezuma.fsmlabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, ja@ssi.bg
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <Pine.LNX.4.44.0310181357140.6525-200000@penguin.linux-vs.org>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 18 Oct 2003 14:24:11 +0800 (CST)
-Wensong Zhang <wensong@linux-vs.org> wrote:
-
-> Here is a minor patch for IPVS in the kernel 2.4. It is to fix ip_vs_ftp 
-> to use cp->vaddr because iph->daddr is already mangled before calling 
-> ip_vs_ftp_in.
-> 
-> Please check and apply it.
-
-Patch applied, thank you Wensong.
+Index: linux-2.6.0-test8/net/ipv6/sit.c
+===================================================================
+RCS file: /build/cvsroot/linux-2.6.0-test8/net/ipv6/sit.c,v
+retrieving revision 1.1.1.1
+diff -u -p -B -r1.1.1.1 sit.c
+--- linux-2.6.0-test8/net/ipv6/sit.c	18 Oct 2003 01:37:19 -0000	1.1.1.1
++++ linux-2.6.0-test8/net/ipv6/sit.c	18 Oct 2003 04:13:21 -0000
+@@ -377,8 +377,10 @@ static int ipip6_rcv(struct sk_buff *skb
+ 
+ 	read_lock(&ipip6_lock);
+ 	if ((tunnel = ipip6_tunnel_lookup(iph->saddr, iph->daddr)) != NULL) {
++#ifdef CONFIG_XFRM
+ 		secpath_put(skb->sp);
+ 		skb->sp = NULL;
++#endif
+ 		skb->mac.raw = skb->nh.raw;
+ 		skb->nh.raw = skb->data;
+ 		memset(&(IPCB(skb)->opt), 0, sizeof(struct ip_options));
