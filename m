@@ -1,70 +1,38 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: Netlink Connector / CBUS
-Date: 05 Apr 2005 07:00:00 -0400
-Message-ID: <1112698800.1088.50.camel@jzny.localdomain>
-References: <Xine.LNX.4.44.0504050108260.9383-100000@thoron.boston.redhat.com>
-	 <1112686480.28858.17.camel@uganda>
-	 <1112697888.1089.44.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
+Subject: Re: Some sleeping function called from invalid context
+Date: Tue, 5 Apr 2005 08:13:51 -0300
+Message-ID: <39e6f6c70504050413666ea29d@mail.gmail.com>
+References: <1112693744.7960.2.camel@pegasus>
+Reply-To: acme@conectiva.com.br
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, linux-kernel@vger.kernel.org,
-        netdev <netdev@oss.sgi.com>, "David S. Miller" <davem@davemloft.net>,
-        James Morris <jmorris@redhat.com>, rml@novell.com,
-        Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>
+Cc: Network Development Mailing List <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: johnpol@2ka.mipt.ru
-In-Reply-To: <1112697888.1089.44.camel@jzny.localdomain>
+To: Marcel Holtmann <marcel@holtmann.org>
+In-Reply-To: <1112693744.7960.2.camel@pegasus>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Apr 5, 2005 6:35 AM, Marcel Holtmann <marcel@holtmann.org> wrote:
+> Hi,
+> 
+> while testing the latest kernel from the Bitkeeper repository, I got
+> some sleeping functions called from invalid context:
+> 
+> Freeing unused kernel memory: 180k freed
+> Debug: sleeping function called from invalid context at mm/slab.c:2090
+> in_atomic():1, irqs_disabled():0
+>  [<c0119936>] __might_sleep+0xa6/0xb0
+>  [<c014ab93>] kmem_cache_alloc+0x73/0x80
+>  [<c0149c0e>] kmem_cache_create+0xfe/0x630
+>  [<c026994d>] proto_register+0x9d/0xc0
+>  [<f88c901c>] af_unix_init+0x1c/0x7a [unix]
+>  [<c0139d62>] sys_init_module+0x1b2/0x290
+>  [<c0103025>] syscall_call+0x7/0xb
+> NET: Registered protocol family 1
 
-and, oh yeah - wheres the documentation Evgeniy? ;->
+Damn, thanks for reporting, looking at it now.
 
-cheers,
-jamal
-
-On Tue, 2005-04-05 at 06:44, jamal wrote:
-> To be fair to Evgeniy I am not against the Konnector idea. I think that
-> it is a useful feature to have an easy to use messaging between
-> kernel-kernel and kernel-userspace. The fact that he leveraged netlink
-> instead of inventing things is a bonus. Having said that i have not
-> seriously scrutinized the code - and i think the idea of this new thing
-> hes tossing around called CBUS maybe pushing it.
-> 
-> cheers,
-> jamal
-> 
-> On Tue, 2005-04-05 at 03:34, Evgeniy Polyakov wrote:
-> > On Tue, 2005-04-05 at 01:10 -0400, Herbert Xu wrote:
-> > >On Tue, Apr 05, 2005 at 11:03:16AM +0400, Evgeniy Polyakov wrote:
-> > >> 
-> > >> I received comments and feature requests from Herbert Xu and Jamal Hadi
-> > >> Salim,
-> > >> almost all were successfully resolved.
-> > >
-> > >Please do not construe my involvement in these threads as endorsement
-> > >for this system.
-> > 
-> > Sure.
-> > I remember you are against it :).
-> > 
-> > >In fact to this day I still don't understand what problems this thing is
-> > >meant to solve.
-> > 
-> > Hmm, what else can I add to my words?
-> > May be checking the size of the code needed to broadcast kobject changes
-> > in kobject_uevent.c for example...
-> > Netlink socket allocation + skb handling against call to cn_netlink_send().
-> > 
-> > >-- 
-> > >Visit Openswan at http://www.openswan.org/
-> > >Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-> > >Home Page: http://gondor.apana.org.au/~herbert/
-> > >PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-> > 
-> 
-> 
-> 
+- Arnaldo
