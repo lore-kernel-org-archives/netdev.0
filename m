@@ -1,41 +1,40 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [PATCH] pktgen: reduce stack usage
-Date: Mon, 21 Feb 2005 08:27:20 -0800
-Message-ID: <421A0BE8.6050603@osdl.org>
-References: <20050218134219.3f079110.rddunlap@osdl.org> <4216AAE4.1080804@candelatech.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Intel and TOE in the news
+Date: Mon, 21 Feb 2005 17:40:06 +0100
+Message-ID: <20050221164006.GY31837@postel.suug.ch>
+References: <20050220230713.GA62354@muc.de> <200502210332.j1L3WkDD014744@guinness.s2io.com> <20050221115006.GB87576@muc.de> <20050221132844.GU31837@postel.suug.ch> <1108994621.1089.158.camel@jzny.localdomain> <20050221141714.GV31837@postel.suug.ch> <1108996313.1090.178.camel@jzny.localdomain> <20050221153443.GW31837@postel.suug.ch> <1109000925.1076.3.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: robert.olsson@its.uu.se, netdev <netdev@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4216AAE4.1080804@candelatech.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andi Kleen <ak@muc.de>, Leonid Grossman <leonid.grossman@neterion.com>,
+        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
+        "'Alex Aizman'" <alex@neterion.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1109000925.1076.3.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Randy.Dunlap wrote:
+* jamal <1109000925.1076.3.camel@jzny.localdomain> 2005-02-21 10:48
+> On Mon, 2005-02-21 at 10:34, Thomas Graf wrote:
+> > Make sense but we probably have multiple packets in the stack if qdiscs are
+> > involved. 
 > 
->> (resend)
->> Any comments this time?
->>
->> pktgen: proc_if_write: reduce stack usage (on i386)
->> from 776 to 296 bytes by combining/reusing locals.
-> 
-> Since these methods are not in the fast path, and the stack
-> usage is not near 4k, does this really matter?
+> No - thats the problem. Theres always no more than one packet i.e only
+> packet in flight except in the case of some hardware - which i pointed
+> out as problematic in my SUCON presentation.
 
-It's not critical or near causing a stack overflow AFAICT.
-And ideally gcc would recognize this kind of usage and not
-allocate multiple stack entries for it.
+I read your slides again but I guess I'm missing the information you
+provided in your speech. One of the disadvantages of organizing a
+conference is that one can't listen to the speeches. ;->
 
+> Maybe i should write a paper about this - i spent christmas collecting a
+> lot of data using relayfs; 
 
-syscall:	sys_write (tiny stack usage)
-		-> vfs_write (tiny)
-		   -> proc_file_write (tiny)
-		      -> proc_if_write (pktgen: large)
+Would be nice, or at least provide the data. I haven't done any data
+collection execpt some basic data to check ematch performance depening
+on the size of the evalation tree, i.e. the number of ematches attached
+to a classifier to find out wehther further optimizations are needed.
 
-> I'm asking more to be educated than to dismiss the changes....
-
--- 
-~Randy
+So basically you're telling me that it doesn't make a difference for a
+full qdisc to dequeue in single steps or in batches?
