@@ -1,56 +1,39 @@
-From: Con Kolivas <kernel@kolivas.org>
-Subject: [PATCH]b44poll - whitespace
-Date: Wed, 13 Oct 2004 09:26:46 +1000
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <cone.1097623606.213849.12364.502@pc.kolivas.org>
-References: <416BC26B.6090603@kolivas.org> <20041012180949.GW5414@waste.org> <416C5122.9040001@kolivas.org> <20041012215732.GV31237@waste.org>
+From: <akepner@sgi.com>
+Subject: [PATCH 1/2] net/tg3.c: use mmiowb in tg3_rx, tg3_start_xmit
+Date: Tue, 12 Oct 2004 16:34:30 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.33.0410121630200.31839-100000@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=_pc.kolivas.org-1097623606-0000"
-Cc: Con Kolivas <kernel@kolivas.org>, netdev@oss.sgi.com,
-	linux kernel mailing list <linux-kernel@vger.kernel.org>,
-	davem@redhat.com, Jeff Garzik <jgarzik@pobox.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268051AbUJLX1Q@vger.kernel.org>
-To: Matt Mackall <mpm@selenic.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <gnb@sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: <netdev@oss.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a MIME-formatted message.  If you see this text it means that your
-E-mail software does not support MIME-formatted messages.
 
---=_pc.kolivas.org-1097623606-0000
-Content-Type: text/plain; format=flowed; charset="US-ASCII"
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-
->> >+       disable_irq(dev->irq);
->> >+       b44_interrupt (dev->irq, dev, NULL);
->> >+       enable_irq(dev->irq);
->> >
-> Stray space between b44_interrupt and args. 
-
-Must have had my eyes closed. Trivial cleanup patch attached, thanks.
-
-Con
+Using mmiowb() prevents an occasional oops in tg3_tx() resulting from 
+a NULL skb pointer in the tx_ring_info structure.
 
 
---=_pc.kolivas.org-1097623606-0000
-Content-Description: b44poll-ws.diff
-Content-Disposition: inline;
-  FILENAME="b44poll-ws.diff"
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
+Signed-off-by: Greg Banks <gnb@sgi.com>
+---
 
-Index: linux-2.6.9-rc4-ck1/drivers/net/b44.c
-===================================================================
---- linux-2.6.9-rc4-ck1.orig/drivers/net/b44.c	2004-10-12 21:28:12.000000000 +1000
-+++ linux-2.6.9-rc4-ck1/drivers/net/b44.c	2004-10-13 09:24:46.064825491 +1000
-@@ -1309,7 +1309,7 @@ err_out_free:
- static void b44_poll_controller(struct net_device *dev)
- {
- 	disable_irq(dev->irq);
--	b44_interrupt (dev->irq, dev, NULL);
-+	b44_interrupt(dev->irq, dev, NULL);
- 	enable_irq(dev->irq);
+--- linux.1/drivers/net/tg3.c	2004-10-12 13:50:39.000000000 -0700
++++ linux/drivers/net/tg3.c	2004-10-12 13:55:37.000000000 -0700
+@@ -2729,6 +2729,7 @@
+ 		tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
+ 			     sw_idx);
+ 	}
++	mmiowb();
+ 
+ 	return received;
  }
- #endif
-
---=_pc.kolivas.org-1097623606-0000--
+@@ -3176,6 +3177,7 @@
+ 		netif_stop_queue(dev);
+ 
+ out_unlock:
++	mmiowb();
+ 	spin_unlock_irqrestore(&tp->tx_lock, flags);
+ 
+ 	dev->trans_start = jiffies;
