@@ -1,41 +1,65 @@
-From: Ben Greear <greearb@candelatech.com>
+From: David Lang <david.lang@digitalinsight.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 27 Jul 2003 19:31:01 -0700
+Date: Sun, 27 Jul 2003 21:37:10 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F248AE5.4000204@candelatech.com>
-References: <Pine.LNX.4.53.0307272239570.2743@vialle.bloemsaat.com> <20030727151234.6e2aa57e.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0307272133140.24695-100000@dlang.diginsite.com>
+References: <20030727175557.1d624b36.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bas Bloemsaat <bloemsaa@xs4all.nl>, netdev@oss.sgi.com, layes@loran.com,
-   linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Carlos Velasco <carlosev@newipnet.com>, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030727151234.6e2aa57e.davem@redhat.com>
+In-Reply-To: <20030727175557.1d624b36.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Sun, 27 Jul 2003 22:52:48 +0200 (CEST)
-> Bas Bloemsaat <bloemsaa@xs4all.nl> wrote:
-> 
-> 
->>I think this is unwanted behaviour.
-> 
-> 
-> Not a bug.  This behavior is on purpose.
+can a summary of this discussion get written and put into the
+documentation directory so that every time a new person stubles on this
+feature we don't have to go through this discussion again?
 
-What is the benefit of having it work as it does currently
-in the standard kernel?  I too was supprised to find it works
-this way, but have since converted to use source-routes.
+David Lang
 
-Interestingly, can only use 252 or so source routes because
-the rfc for netlink only gives us an 8-bit identifier for the
-route id, so this still breaks if you want to run lots of
-vlans or something like that.
+P.S. there are standards that are written documents and there are
+standards that are 'how everyone does it' for the most part Linux follows
+both types of standards, in this case the network team has decided to
+ignore the 'how everyone else does it' standards becouse there is nothing
+in a written standard that they are violating
 
-Ben
+ On Sun, 27 Jul
+2003, David S. Miller wrote:
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+> Date: Sun, 27 Jul 2003 17:55:57 -0700
+> From: David S. Miller <davem@redhat.com>
+> To: Carlos Velasco <carlosev@newipnet.com>
+> Cc: bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+>      linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+>      linux-kernel@vger.kernel.org
+> Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+>
+> On Mon, 28 Jul 2003 02:53:09 +0200
+> "Carlos Velasco" <carlosev@newipnet.com> wrote:
+>
+> > But if the hidden patch and /proc switch would be in the main kernel,
+> > it would be the simpliest way to solve all these "problems" (with an
+> > echo "1" and without filtering or using iproute2).
+>
+> With or without your suggestion, people have to do something
+> different.
+>
+> This doesn't even address all the problems there are with
+> the hidden patch.  It does things that belong on the netfilter
+> level and not on the ARP/routing level.
+>
+> Again, I'd like you to read all the discussions that have happened on
+> this topic in the past, in particular those made by Alexey Kuznetsov
+> on this topic.  He gives very clear and concise reasons why the
+> "hidden" patch is logically doing things in the wrong part of the
+> kernel, and therefore won't ever be put into the tree.
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
