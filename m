@@ -1,36 +1,87 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
-Date: Thu, 14 Aug 2003 00:21:58 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] ibmtr - get rid of MOD_INC/DEC
+Date: Wed, 13 Aug 2003 17:46:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030813232158.GA6181@mail.jlokier.co.uk>
-References: <3F2E5CD6.4030500@hipac.org> <1060012260.1103.380.camel@jzny.localdomain> <3F302E04.1090503@hipac.org> <1060286331.1025.73.camel@jzny.localdomain> <3F381B3E.6080807@hipac.org> <20030811224050.59bc36fe.davem@redhat.com> <20030812142913.GB18802@mail.jlokier.co.uk> <Pine.LNX.4.51.0308131320470.13253@ns.istop.com> <20030813191757.GE4405@mail.jlokier.co.uk> <Pine.LNX.4.51.0308131707280.21992@ns.istop.com>
+Message-ID: <20030813174658.2c5125af.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-tr@linuxtr.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ralph+d@istop.com
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.51.0308131707280.21992@ns.istop.com>
+To: Mike Phillips <mikep@linuxtr.net>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ralph Doncaster wrote:
-> So you have to put an entry in the /16 table for every /16 that you have a
-> more specific route for, right?
-> Then what if I have 3 different routes; one for 217.109.0.0/16, another
-> for 217.109.118.0/24 and one for 217.109.118.68/32?
+With the new module system MOD_INC/MOD_DEC are no longer necessary.
+Also changed to new module init/exit macros for function setup.
 
-Then you would have one entry in the /16 table, matching
-217.109.0.0/16, whose BEST value is the first route and whose LARGER
-points to another table.
+The module exit code can sleep, so calling schedule_timeout is better
+than spinning.
 
-The second table would have one entry matching 217.109.118.0/24, whose
-BEST value is the second route, and whose LARGER points to another
-table.
+Don't have real hardware, so I tested it by short circuiting the probe().
 
-The third table would have one entry matching 217.109.118.68/32, whose
-BEST value is the third route, and which has no LARGER.
-
-That's three hash tables, each containing just one entry.
-
--- Jamie
+diff -Nru a/drivers/net/tokenring/ibmtr.c b/drivers/net/tokenring/ibmtr.c
+--- a/drivers/net/tokenring/ibmtr.c	Wed Aug 13 17:44:49 2003
++++ b/drivers/net/tokenring/ibmtr.c	Wed Aug 13 17:44:49 2003
+@@ -876,7 +876,6 @@
+ 		if (i==0) break;
+ 		if (ti->open_status == OPEN && ti->sap_status==OPEN) {
+ 			netif_start_queue(dev);
+-			MOD_INC_USE_COUNT;
+ 			DPRINTK("Adapter is up and running\n");
+ 			return 0;
+ 		}
+@@ -1041,7 +1040,6 @@
+ 
+ 	netif_stop_queue(dev);
+ 	DPRINTK("Adapter is closed.\n");
+-	MOD_DEC_USE_COUNT;
+ 	return 0;
+ }
+ 
+@@ -1918,7 +1916,7 @@
+ MODULE_PARM(irq, "1-" __MODULE_STRING(IBMTR_MAX_ADAPTERS) "i");
+ MODULE_PARM(mem, "1-" __MODULE_STRING(IBMTR_MAX_ADAPTERS) "i");
+ 
+-int init_module(void)
++static int __init ibmtr_init(void)
+ {
+ 	int i;
+ 	int count=0;
+@@ -1948,21 +1946,24 @@
+ 	if (count) return 0;
+ 	printk("ibmtr: register_netdev() returned non-zero.\n");
+ 	return -EIO;
+-}				/*init_module */
++}
++module_init(ibmtr_init);
+ 
+-void cleanup_module(void)
++static void __exit ibmtr_cleanup(void)
+ {
+-	int i,j;
++	int i;
+ 
+ 	for (i = 0; i < IBMTR_MAX_ADAPTERS; i++){
+ 		if (!dev_ibmtr[i])
+ 			continue;
+ 		if (dev_ibmtr[i]->base_addr) {
+ 			outb(0,dev_ibmtr[i]->base_addr+ADAPTRESET);
+-			for(j=jiffies+TR_RST_TIME;
+-				time_before_eq(jiffies,j);) ;
++			
++			schedule_timeout(TR_RST_TIME); /* wait 50ms */
++
+                         outb(0,dev_ibmtr[i]->base_addr+ADAPTRESETREL);
+                 }
++
+ 		unregister_netdev(dev_ibmtr[i]);
+ 		free_irq(dev_ibmtr[i]->irq, dev_ibmtr[i]);
+ 		release_region(dev_ibmtr[i]->base_addr, IBMTR_IO_EXTENT);
+@@ -1978,4 +1979,5 @@
+ 		dev_ibmtr[i] = NULL;
+ 	}
+ }
+-#endif				/* MODULE */
++module_exit(ibmtr_cleanup);
++#endif
