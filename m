@@ -1,47 +1,57 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH][v4][0/24] Second InfiniBand merge
-	candidate patch set
-Date: Mon, 27 Dec 2004 21:00:07 -0800
-Message-ID: <20041227210007.398734cd.davem@davemloft.net>
-References: <200412192214.KlDxQ7icOmxHYIf0@topspin.com>
-	<20041220.153845.70996857.yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem-fT/PcQaiUtIeIZ0/mPfg9Q@public.gmane.org>
+Subject: Re: [2.6 patch] net/irda/: misc possible cleanups
+Date: Mon, 27 Dec 2004 21:12:43 -0800
+Message-ID: <20041227211243.7d05e891.davem@davemloft.net>
+References: <20041215010528.GA12937@stusta.de>
+Reply-To: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: akpm@osdl.org, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org, yoshfuji@linux-ipv6.org, torvalds@osdl.org
-Return-path: <openib-general-bounces@openib.org>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20041220.153845.70996857.yoshfuji@linux-ipv6.org>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org, netdev-VZNHf3L845pBDgjK7y7TUQ@public.gmane.org,
+	linux-kernel-u79uwXL29TY76Z2rM5mHXA@public.gmane.org
+Return-path: <irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+To: Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+In-Reply-To: <20041215010528.GA12937-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org>
+Sender: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+Errors-To: irda-users-admin-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org
+List-Unsubscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=unsubscribe>
+List-Post: <mailto:irda-users-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org>
+List-Help: <mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=help>
+List-Subscribe: <http://lists.sourceforge.net/lists/listinfo/irda-users>,
+	<mailto:irda-users-request-5NWGOfrQmneRv+LV9MX5uipxlwaOVQ5f@public.gmane.org?subject=subscribe>
+List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=irda-users>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Dec 2004 15:38:45 +0900 (JST)
-YOSHIFUJI Hideaki / =1B$B5HF#1QL@=1B(B <yoshfuji@linux-ipv6.org> wrote:
+On Wed, 15 Dec 2004 02:05:28 +0100
+Adrian Bunk <bunk-HeJ8Db2Gnd6zQB+pC5nmwQ@public.gmane.org> wrote:
 
-> In article <200412192214.KlDxQ7icOmxHYIf0@topspin.com> (at Sun, 19 Dec 20=
-04 22:14:43 -0800), Roland Dreier <roland@topspin.com> says:
->=20
-> > The following series of patches is the latest version of the OpenIB
-> > InfiniBand drivers.  We believe that this version is suitable for
-> > merging when 2.6.11 opens (or into -mm immediately), although of
-> > course we are willing to go through as many more iterations as
-> > required to fix any remaining issues.
->=20
-> Maybe, via the net queue. David?
+> The patch below contains the following possible cleanups:
+> - make some needlessly global code static
+> - remove the following unused global functions:
+>   - discovery.c: irlmp_find_device
+>   - ircomm/ircomm_param.c: ircomm_param_flush
+>   - irda_device.c: irda_device_set_dtr_rts
+>   - irda_device.c: irda_device_change_speed
+>   - irda_device.c: irda_device_set_mode
+>   - iriap.c: iriap_getinfobasedetails_request
+>   - iriap.c: iriap_getinfobasedetails_confirm
+>   - iriap.c: iriap_getobjects_request
+>   - iriap.c: iriap_getobjects_confirm
+>   - iriap.c: iriap_getvalue
+>   - irlan_client.c: irlan_client_reconnect_data_channel
+>   - irlap_frame.c: irlap_send_frmr_frame
+>   - irlmp.c: irlmp_status_request
+> - remove the follwong unused global variables:
+>   - irnet/irnet_ppp.c: irnet_ppp_ops
+>   - irsysctl.c: sysctl_compression
+> - qos.c: #ifndef CONFIG_IRDA_DYNAMIC_WINDOW irlap_requested_line_capacity
 
-If Roland can resubmit his patch queue to me with the fixes
-folks have recommended to him, I can start merging this stuff
-in.
+Looks good, applied.  Thanks Adrian.
 
-I leave for vacation Wednesday morning (PST time), so if it is
-submitted after that I'll get to it at the beginning of the
-new year.
+
+-------------------------------------------------------
+SF email is sponsored by - The IT Product Guide
+Read honest & candid reviews on hundreds of IT Products from real users.
+Discover which products truly live up to the hype. Start reading now. 
+http://productguide.itmanagersjournal.com/
