@@ -1,50 +1,96 @@
-From: Daniel Egger <degger@fhm.edu>
-Subject: Re: [ANNOUNCE] nf-hipac v0.8 released
-Date: 26 Jun 2003 16:45:30 +0200
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: [bonding][patch] Fix load balance problem with high UDP Tx stress
+Date: Thu, 26 Jun 2003 17:57:52 +0300 (IDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1056638729.4962.86.camel@sonja>
-References: <200306252248.44224.nf@hipac.org>
-	 <1056634720.5423.83.camel@sonja>  <3EFB0143.7000606@hipac.org>
+Message-ID: <Pine.LNX.4.33.0306261502090.18704-100000@jrslxjul1.npdj.intel.com>
+Reply-To: Shmulik Hen <shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-aOY37NhVanfwwvqe0Iu0"
-Cc: Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Amir Noam <amir.noam@intel.com>, "Chad N. Tindel" <ctindel@calma.pair.com>,
+   Jay Vosburgh <fubar@us.ibm.com>, Jeff Garzik <jgarzik@pobox.com>,
+   Noam Marom <noam.marom@intel.com>, Shmulik Hen <shmulik.hen@intel.com>,
+   Tsippy Mendelson <tsippy.mendelson@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Bellion and Thomas Heinz <nf@hipac.org>
-In-Reply-To: <3EFB0143.7000606@hipac.org>
+To: bond-devel <bonding-devel@lists.sourceforge.net>,
+   linux-net <linux-net@vger.kernel.org>, linux-netdev <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---=-aOY37NhVanfwwvqe0Iu0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+	This patch fixes a problem detected by our QA group. On very high
+UDP Tx stress traffic on 10/100 adapters, load sharing would collapse to
+only one slave after very short time. The bug is due to unsigned to signed
+conversions that caused calculation errors (outgoing traffic "exceeds"
+adapter's actual capability).
 
-Am Don, 2003-06-26 um 16.20 schrieb Michael Bellion and Thomas Heinz:
+	Since we still don't use bitkeeper, this patch should be applied
+on top of Marcelo's 2.4.22-pre1 patch plus Jeff Garzik's 2.4 net driver
+updates from from June 20Th (2.4.22-pre1-netdrvr1).
 
-> Taking a look at nfhp_com.h and evt. nf-hipac.c gives you some clue
-> on how to build valid command packets.
+-- 
+| Shmulik Hen                             |
+| Israel Design Center (Jerusalem)        |
+| LAN Access Division                     |
+| Intel Communications Group, Intel corp. |
 
-Thanks. Your reply made me somewhat curious and I'll definitely have a
-look, hoping the interface is much better than libiptables which is
-merely a bunch of convience functions for use of the iptables utility
-but unusable for real world applications which need to deal with=20
-firewall rules.
 
---=20
-Servus,
-       Daniel
+diff -Nuarp linux-2.4.22-pre1-netdrvr1/drivers/net/bonding/bond_alb.c linux-2.4.22-pre1-netdrvr1-devel/drivers/net/bonding/bond_alb.c
+--- linux-2.4.22-pre1-netdrvr1/drivers/net/bonding/bond_alb.c	Wed Jun 25 16:33:19 2003
++++ linux-2.4.22-pre1-netdrvr1-devel/drivers/net/bonding/bond_alb.c	Wed Jun 25 16:33:20 2003
+@@ -17,6 +17,13 @@
+  *
+  * The full GNU General Public License is included in this distribution in the
+  * file called LICENSE.
++ *
++ *
++ * Changes:
++ *
++ * 2003/06/25 - Shmulik Hen <shmulik.hen at intel dot com>
++ *	- Fixed signed/unsigned calculation errors that caused load sharing
++ *	  to collapse to one slave under very heavy UDP Tx stress.
+  */
 
---=-aOY37NhVanfwwvqe0Iu0
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: Dies ist ein digital signierter Nachrichtenteil
+ #include <linux/skbuff.h>
+@@ -246,7 +253,7 @@ tlb_get_least_loaded_slave(struct bondin
+ {
+ 	struct slave *slave;
+ 	struct slave *least_loaded;
+-	u32 curr_gap, max_gap;
++	s64 curr_gap, max_gap;
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
+ 	/* Find the first enabled slave */
+ 	slave = bond_get_first_slave(bond);
+@@ -262,15 +269,15 @@ tlb_get_least_loaded_slave(struct bondin
+ 	}
 
-iD8DBQA++wcJchlzsq9KoIYRAi03AKDfHluFMhoZiFpxSQpw+i6XYPj1DQCfaf29
-X50vfIvp0Zg4OIgFx/ZhkQE=
-=QoaY
------END PGP SIGNATURE-----
+ 	least_loaded = slave;
+-	max_gap = (slave->speed * 1000000) -
+-		  (SLAVE_TLB_INFO(slave).load * 8);
++	max_gap = (s64)(slave->speed * 1000000) -
++			(s64)(SLAVE_TLB_INFO(slave).load * 8);
 
---=-aOY37NhVanfwwvqe0Iu0--
+ 	/* Find the slave with the largest gap */
+ 	slave = bond_get_next_slave(bond, slave);
+ 	while (slave) {
+ 		if (SLAVE_IS_OK(slave)) {
+-			curr_gap = (slave->speed * 1000000) -
+-				   (SLAVE_TLB_INFO(slave).load * 8);
++			curr_gap = (s64)(slave->speed * 1000000) -
++					(s64)(SLAVE_TLB_INFO(slave).load * 8);
+ 			if (max_gap < curr_gap) {
+ 				least_loaded = slave;
+ 				max_gap = curr_gap;
+diff -Nuarp linux-2.4.22-pre1-netdrvr1/drivers/net/bonding/bond_main.c linux-2.4.22-pre1-netdrvr1-devel/drivers/net/bonding/bond_main.c
+--- linux-2.4.22-pre1-netdrvr1/drivers/net/bonding/bond_main.c	Wed Jun 25 16:33:19 2003
++++ linux-2.4.22-pre1-netdrvr1-devel/drivers/net/bonding/bond_main.c	Wed Jun 25 16:33:20 2003
+@@ -429,8 +429,8 @@
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
+
+-#define DRV_VERSION		"2.2.11"
+-#define DRV_RELDATE		"May 29, 2003"
++#define DRV_VERSION		"2.2.12"
++#define DRV_RELDATE		"June 25, 2003"
+ #define DRV_NAME		"bonding"
+ #define DRV_DESCRIPTION		"Ethernet Channel Bonding Driver"
