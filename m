@@ -1,207 +1,617 @@
-From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: IPSec: can't get IPv6 IPSec working with racoon
-Date: Wed, 25 Feb 2004 13:58:02 +0100
+From: Vivek Kashyap <kashyapv@us.ibm.com>
+Subject: [PATCH] proportional share accept()
+Date: Wed, 25 Feb 2004 08:43:00 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1077713881.793.25.camel@teapot.felipe-alfaro.com>
+Message-ID: <Pine.LNX.4.44.0402250818060.2878-100000@loopback.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-k1T2kIW4Lr2CAVJ1bOcj"
-Cc: Kernel Mailinglist <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: NetDev Mailinglist <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-k1T2kIW4Lr2CAVJ1bOcj
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Attached is a patch for an application to selectively provide a 
+faster response and connection rate to favoured clients. 
 
-Hi!
+The single accept queue in the socket is modified to be multiple
+queues with a weight assigned to each queue. The accept()ance of 
+connections is scheduled in proportion of the weights assigned to the
+queues.
 
-I have been unable to make IPSecv6 work between two hosts running 2.6.3
-kernels and racoon. It works perfectly with IPv4, but with IPv6 there
-seems to be the following problem:
+The incoming connection requests are associated with queues using
+iptables MARK target rules(using the client's src/dest ip address).
+The MARK used is the index of the relevant queue. The proportions on
+the queues can be modified by the application to suit the
+requirements using a socket option.
 
-Host A and Host B are configured so any IPv6 and IPv6 packet exchange
-MUST use ESP/AH:
+The results of an example run are on http://ckrm.sourceforge.net.
 
-1. Host A tries to send and ICMPv6 ping echo request to host B, but
-since there exists a Security Policy that requires the use of ESP/AH,
-before A can send the ICMPv6 echo request, it must trigger an SA
-negotiation with host B. To start this SA negotiation, host A needs to
-know the link-layer address of peer host B:
-        1.1 Host A sends a Neighbor solicitation message to host B
-        1.2 Host B tries to send a Neigbor discovery packet, but since
-        there exists a Security Policy that requires the use of ESP/AH,
-        before B can send the Neighbor discovery, it triggers SA
-        negotiation.
+Thanks
+	Vivek
 
-This seems to create a loop: host A triggers SA negotiation in first
-place, but needs to know link-layer address of B, thus it sends a
-Neighbor solicitation packet which makes host B trigger SA association.
-Thus, both hosts are trying to establish an SA association, creating a
-deadlock.
+-----------------------------------------------------------------------------
 
-With IPv4 and IPSec, the simplified packet trace is:
-
-A -> B ISAKMP Security Association
-B -> A ISAKMP Security Association
-A -> B ISAKMP Key Exchange
-B -> A ISAKMP Key Exchange
-A -> B ISAKMP Identification
-B -> A ISAKMP Identification
-
-But, with IPv6 and IPSec, this is the packet trace I'm seeing:
-
-A -> B ICMPv6 Neighbor solicitation
-A -> B ICMPv6 Neighbor solicitation
-B -> A ISAKMP Security Association (initiator)
-A -> B ICMPv6 Neighbor solicitation
-A -> B ICMPv6 Neighbor solicitation
-...
-
-Let be host A configured with the following IPv6 address:
-
-	inet addr   192.168.0.100
-	inet6 addr: fec0::204:75ff:feab:6fcc/64 Scope:Site
-	inet6 addr: 2000::204:75ff:feab:6fcc/64 Scope:Global
-	inet6 addr: fe80::204:75ff:feab:6fcc/64 Scope:Link
-
-Let be host B configured with the following IPv6 addresses:
-
-	inet addr   192.168.0.2
-	inet6 addr: fec0::2/64 Scope:Site
-	inet6 addr: 2000::204:75ff:fe75:9765/64 Scope:Global
-	inet6 addr: fe80::204:75ff:fe75:9765/64 Scope:Link
-
-I'm using the following setkey commands on host A:
-
-flush;
-spdflush;
-spdadd 192.168.0.100 192.168.0.2 any -P out ipsec esp/transport//require
-ah/transport//require;
-spdadd 192.168.0.2 192.168.0.100 any -P in ipsec esp/transport//require
-ah/transport//require;
-spdadd fec0::204:75ff:feab:6fcc fec0::2 any -P out ipsec
-esp/transport//require ah/transport//require;
-spdadd fec0::2 fec0::204:75ff:feab:6fcc any -P in  ipsec
-esp/transport//require ah/transport//require;
-
-The same commands (reversing the order) are applied on host B.
-
-I'm running 2.6.3 and racoon on both hosts. IPSec over IPv4 works
-perfectly, but does not work over IPv6. I trigger the IPSecv6
-negotiation by doing a ping6 from host A to host B.
-
-Am I right when I think there is a deadlock when negotiating the
-Security Association between host A and host B? I've attached a trace
-for IPv4 for a complete IPSec SA establishment, and a trace for IPv6
-(which doesn't work).
-
---=-k1T2kIW4Lr2CAVJ1bOcj
-Content-Disposition: attachment; filename=IPv4
-Content-Type: application/octet-stream; name=IPv4
-Content-Transfer-Encoding: base64
-
-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
-
---=-k1T2kIW4Lr2CAVJ1bOcj
-Content-Disposition: attachment; filename=IPv6
-Content-Type: application/octet-stream; name=IPv6
-Content-Transfer-Encoding: base64
-
-1MOyoQIABAAAAAAAAAAAAP//AAABAAAAuJU8QGUEDgBWAAAAVgAAADMz/wAAAQAEdatvzIbdYAAA
-AAAgOv/+wAAAAAAAAAIEdf/+q2/M/wIAAAAAAAAAAAAB/wAAAYcAsCMAAAAA/sAAAAAAAAAAAAAA
-AAAAAQEBAAR1q2/MuJU8QGwzDgBWAAAAVgAAADMz/wAAAgAEdatvzIbdYAAAAAAgOv/+wAAAAAAA
-AAIEdf/+q2/M/wIAAAAAAAAAAAAB/wAAAocAsCEAAAAA/sAAAAAAAAAAAAAAAAAAAgEBAAR1q2/M
-uJU8QFY4DgCOAAAAjgAAAAAEdatvzAAEdXWXZYbdYAAAAABYEUD+wAAAAAAAAAAAAAAAAAAC/sAA
-AAAAAAACBHX//qtvzAH0AfQAWAs0qzQixbJmFTEAAAAAAAAAAAEQAgAAAAAAAAAAUAAAADQAAAAB
-AAAAAQAAACgBAQABAAAAIAEBAACACwABgAxwgIABAAWAAwADgAIAAYAEAAK5lTxAQS8OAFYAAABW
-AAAAMzP/AAACAAR1q2/Mht1gAAAAACA6//7AAAAAAAAAAgR1//6rb8z/AgAAAAAAAAAAAAH/AAAC
-hwCwIQAAAAD+wAAAAAAAAAAAAAAAAAACAQEABHWrb8y6lTxA+S4OAFYAAABWAAAAMzP/AAACAAR1
-q2/Mht1gAAAAACA6//7AAAAAAAAAAgR1//6rb8z/AgAAAAAAAAAAAAH/AAAChwCwIQAAAAD+wAAA
-AAAAAAAAAAAAAAACAQEABHWrb8w=
-
---=-k1T2kIW4Lr2CAVJ1bOcj--
+diff -urN linux-2.6.3_old/include/linux/sysctl.h linux-2.6.3/include/linux/sysctl.h
+--- linux-2.6.3_old/include/linux/sysctl.h	2004-02-17 19:58:10.000000000 -0800
++++ linux-2.6.3/include/linux/sysctl.h	2004-02-23 
+17:49:49.000000000 -0800
+@@ -312,6 +312,7 @@
+ 	NET_TCP_LOW_LATENCY=93,
+ 	NET_IPV4_IPFRAG_SECRET_INTERVAL=94,
+ 	NET_TCP_WESTWOOD=95,
++	NET_TCP_ACCEPTQ_SHARE=96,
+ };
+ 
+ enum {
+diff -urN linux-2.6.3_old/include/linux/tcp.h linux-2.6.3/include/linux/tcp.h
+--- linux-2.6.3_old/include/linux/tcp.h	2004-02-17 19:57:52.000000000 -0800
++++ linux-2.6.3/include/linux/tcp.h	2004-02-24 15:34:35.000000000 -0800
+@@ -20,6 +20,8 @@
+ #include <linux/types.h>
+ #include <asm/byteorder.h>
+ 
++#define NUM_ACCEPT_QUEUES	8
++
+ struct tcphdr {
+ 	__u16	source;
+ 	__u16	dest;
+@@ -127,6 +129,7 @@
+ #define TCP_WINDOW_CLAMP	10	/* Bound advertised window */
+ #define TCP_INFO		11	/* Information about this connection. */
+ #define TCP_QUICKACK		12	/* Block/reenable quick acks */
++#define TCP_ACCEPTQ_SHARE	13	/* Set accept queue share */
+ 
+ #define TCPI_OPT_TIMESTAMPS	1
+ #define TCPI_OPT_SACK		2
+@@ -185,6 +188,13 @@
+ 	__u32	tcpi_reordering;
+ };
+ 
++struct tcp_acceptq_info {
++	unsigned char acceptq_shares;
++	unsigned long acceptq_wait_time;
++	unsigned int acceptq_count;
++	unsigned int acceptq_qcount;
++};
++
+ #ifdef __KERNEL__
+ 
+ #include <linux/config.h>
+@@ -362,7 +372,6 @@
+ 
+ 	/* FIFO of established children */
+ 	struct open_request	*accept_queue;
+-	struct open_request	*accept_queue_tail;
+ 
+ 	int			write_pending;	/* A write to socket waits to start. */
+ 
+@@ -388,6 +397,20 @@
+                 __u32    rtt;
+                 __u32    rtt_min;          /* minimum observed RTT */
+         } westwood;
++
++	char 		acceptq_max_class;
++	unsigned long	acceptq_share_clock;
++	struct {
++		struct open_request     *aq_head;
++		struct open_request     *aq_tail;
++		unsigned int		 aq_weight;
++		unsigned int 		 aq_finish_ticket;
++		unsigned int             aq_wait_time;
++		unsigned int             aq_count;
++		unsigned int             aq_qcount;
++		unsigned int             aq_backlog;
++	} acceptq[NUM_ACCEPT_QUEUES];
++
+ };
+ 
+ /* WARNING: don't change the layout of the members in tcp_sock! */
+diff -urN linux-2.6.3_old/include/net/tcp.h linux-2.6.3/include/net/tcp.h
+--- linux-2.6.3_old/include/net/tcp.h	2004-02-17 19:57:16.000000000 -0800
++++ linux-2.6.3/include/net/tcp.h	2004-02-24 15:23:18.000000000 -0800
+@@ -580,6 +580,7 @@
+ extern int sysctl_tcp_frto;
+ extern int sysctl_tcp_low_latency;
+ extern int sysctl_tcp_westwood;
++extern int sysctl_tcp_acceptq_share[NUM_ACCEPT_QUEUES];
+ 
+ extern atomic_t tcp_memory_allocated;
+ extern atomic_t tcp_sockets_allocated;
+@@ -639,6 +640,9 @@
+ 		struct tcp_v6_open_req v6_req;
+ #endif
+ 	} af;
++	unsigned int acceptq_start_ticket;
++	unsigned long acceptq_time_stamp;
++	int	      acceptq_class;
+ };
+ 
+ /* SLAB cache for open requests. */
+@@ -1688,43 +1692,28 @@
+ 	return tcp_win_from_space(sk->sk_rcvbuf); 
+ }
+ 
+-static inline void tcp_acceptq_removed(struct sock *sk)
++static inline void tcp_acceptq_removed(struct sock *sk, int class)
+ {
+-	sk->sk_ack_backlog--;
++	tcp_sk(sk)->acceptq[class].aq_backlog--;
+ }
+ 
+-static inline void tcp_acceptq_added(struct sock *sk)
++static inline void tcp_acceptq_added(struct sock *sk, int class)
+ {
+-	sk->sk_ack_backlog++;
++	tcp_sk(sk)->acceptq[class].aq_backlog++;
+ }
+ 
+-static inline int tcp_acceptq_is_full(struct sock *sk)
++static inline int tcp_acceptq_is_full(struct sock *sk, int class)
+ {
+-	return sk->sk_ack_backlog > sk->sk_max_ack_backlog;
++	return tcp_sk(sk)->acceptq[class].aq_backlog >
++		sk->sk_max_ack_backlog;
+ }
+ 
+-static inline void tcp_acceptq_queue(struct sock *sk, struct open_request *req,
+-					 struct sock *child)
+-{
+-	struct tcp_opt *tp = tcp_sk(sk);
+-
+-	req->sk = child;
+-	tcp_acceptq_added(sk);
+-
+-	if (!tp->accept_queue_tail) {
+-		tp->accept_queue = req;
+-	} else {
+-		tp->accept_queue_tail->dl_next = req;
+-	}
+-	tp->accept_queue_tail = req;
+-	req->dl_next = NULL;
+-}
+ 
+ struct tcp_listen_opt
+ {
+ 	u8			max_qlen_log;	/* log_2 of maximal queued SYNs */
+ 	int			qlen;
+-	int			qlen_young;
++	int			qlen_young[NUM_ACCEPT_QUEUES];
+ 	int			clock_hand;
+ 	u32			hash_rnd;
+ 	struct open_request	*syn_table[TCP_SYNQ_HSIZE];
+@@ -1738,16 +1727,16 @@
+ 	if (--lopt->qlen == 0)
+ 		tcp_delete_keepalive_timer(sk);
+ 	if (req->retrans == 0)
+-		lopt->qlen_young--;
++		lopt->qlen_young[req->acceptq_class]--;
+ }
+ 
+-static inline void tcp_synq_added(struct sock *sk)
++static inline void tcp_synq_added(struct sock *sk, struct open_request *req)
+ {
+ 	struct tcp_listen_opt *lopt = tcp_sk(sk)->listen_opt;
+ 
+ 	if (lopt->qlen++ == 0)
+ 		tcp_reset_keepalive_timer(sk, TCP_TIMEOUT_INIT);
+-	lopt->qlen_young++;
++	lopt->qlen_young[req->acceptq_class]++;
+ }
+ 
+ static inline int tcp_synq_len(struct sock *sk)
+@@ -1755,9 +1744,9 @@
+ 	return tcp_sk(sk)->listen_opt->qlen;
+ }
+ 
+-static inline int tcp_synq_young(struct sock *sk)
++static inline int tcp_synq_young(struct sock *sk, int class)
+ {
+-	return tcp_sk(sk)->listen_opt->qlen_young;
++	return tcp_sk(sk)->listen_opt->qlen_young[class];
+ }
+ 
+ static inline int tcp_synq_is_full(struct sock *sk)
+@@ -1796,6 +1785,12 @@
+ 	req->acked = 0;
+ 	req->ecn_ok = 0;
+ 	req->rmt_port = skb->h.th->source;
++	req->acceptq_start_ticket = 0;
++	req->acceptq_time_stamp = 0;
++	if (tp->acceptq_max_class)
++		req->acceptq_class = (skb->nfmark <= 0) ? 0 :
++			((skb->nfmark > NUM_ACCEPT_QUEUES) ?
++			 0: skb->nfmark);
+ }
+ 
+ #define TCP_MEM_QUANTUM	((int)PAGE_SIZE)
+diff -urN linux-2.6.3_old/net/ipv4/sysctl_net_ipv4.c linux-2.6.3/net/ipv4/sysctl_net_ipv4.c
+--- linux-2.6.3_old/net/ipv4/sysctl_net_ipv4.c	2004-02-17 19:58:50.000000000 -0800
++++ linux-2.6.3/net/ipv4/sysctl_net_ipv4.c	2004-02-22 07:46:27.000000000 -0800
+@@ -592,6 +592,14 @@
+ 		.mode		= 0644,
+ 		.proc_handler	= &proc_dointvec,
+ 	},
++        {
++                .ctl_name       = NET_TCP_ACCEPTQ_SHARE,
++                .procname       = "tcp_acceptq_share",
++                .data           = &sysctl_tcp_acceptq_share,
++                .maxlen         = sizeof(sysctl_tcp_acceptq_share),
++                .mode           = 0644,
++                .proc_handler   = &proc_dointvec
++	        },
+ 	{ .ctl_name = 0 }
+ };
+ 
+diff -urN linux-2.6.3_old/net/ipv4/tcp.c linux-2.6.3/net/ipv4/tcp.c
+--- linux-2.6.3_old/net/ipv4/tcp.c	2004-02-17 19:57:21.000000000 -0800
++++ linux-2.6.3/net/ipv4/tcp.c	2004-02-25 00:25:52.000000000 -0800
+@@ -280,6 +280,12 @@
+ int sysctl_tcp_wmem[3] = { 4 * 1024, 16 * 1024, 128 * 1024 };
+ int sysctl_tcp_rmem[3] = { 4 * 1024, 87380, 87380 * 2 };
+ 
++/*
++ *  By default all fall in class 0 with all time allocated to the given
++ *  class
++ */
++int sysctl_tcp_acceptq_share[NUM_ACCEPT_QUEUES] = { 100 };
++
+ atomic_t tcp_memory_allocated;	/* Current allocated memory. */
+ atomic_t tcp_sockets_allocated;	/* Current number of TCP sockets. */
+ 
+@@ -534,13 +540,34 @@
+ 
+ int tcp_listen_start(struct sock *sk)
+ {
++	int i, j = 0;
+ 	struct inet_opt *inet = inet_sk(sk);
+ 	struct tcp_opt *tp = tcp_sk(sk);
+ 	struct tcp_listen_opt *lopt;
+ 
+ 	sk->sk_max_ack_backlog = 0;
+ 	sk->sk_ack_backlog = 0;
+-	tp->accept_queue = tp->accept_queue_tail = NULL;
++	tp->accept_queue = NULL;
++	tp->acceptq_max_class = 0;
++
++	for (i=0; i < NUM_ACCEPT_QUEUES; i++) {
++		tp->acceptq[i].aq_tail = NULL;
++		tp->acceptq[i].aq_head = NULL;
++		j += sysctl_tcp_acceptq_share[i];
++		if (j > 100)    /* ignore other values */
++			tp->acceptq[i].aq_weight = 0;
++		else { 
++			if (sysctl_tcp_acceptq_share[i]) { 
++				tp->acceptq[i].aq_weight = 
++					1000/sysctl_tcp_acceptq_share[i]; 
++				tp->acceptq_max_class = i; 
++			} 
++		} 
++		tp->acceptq[i].aq_wait_time = 0; 
++		tp->acceptq[i].aq_qcount = 0; 
++		tp->acceptq[i].aq_count = 0; 
++	}
++
+ 	tp->syn_wait_lock = RW_LOCK_UNLOCKED;
+ 	tcp_delack_init(tp);
+ 
+@@ -600,7 +627,7 @@
+ 	write_lock_bh(&tp->syn_wait_lock);
+ 	tp->listen_opt = NULL;
+ 	write_unlock_bh(&tp->syn_wait_lock);
+-	tp->accept_queue = tp->accept_queue_tail = NULL;
++	tp->accept_queue = NULL;
+ 
+ 	if (lopt->qlen) {
+ 		for (i = 0; i < TCP_SYNQ_HSIZE; i++) {
+@@ -646,7 +673,7 @@
+ 		local_bh_enable();
+ 		sock_put(child);
+ 
+-		tcp_acceptq_removed(sk);
++		tcp_acceptq_removed(sk, req->acceptq_class);
+ 		tcp_openreq_fastfree(req);
+ 	}
+ 	BUG_TRAP(!sk->sk_ack_backlog);
+@@ -2221,6 +2248,62 @@
+ }
+ 
+ /*
++ *  This function will queue a new request into the accept queue.
++ */
++void tcp_acceptq_queue(struct sock *sk, struct open_request *req,
++			struct sock *child)
++{
++	struct tcp_opt *tp = tcp_sk(sk);
++	int class = req->acceptq_class;
++	int prev_class;
++
++	req->sk = child;
++	tcp_acceptq_added(sk,class);
++
++	if (!tp->acceptq[class].aq_weight) 
++		class = 0;
++
++	tp->acceptq[class].aq_qcount++;
++
++	if (!tp->acceptq[class].aq_tail) {
++		if (tp->acceptq[class].aq_finish_ticket<tp->acceptq_share_clock)
++		       	req->acceptq_start_ticket = tp->acceptq_share_clock;
++		else
++			req->acceptq_start_ticket = 
++					tp->acceptq[class].aq_finish_ticket;
++		tp->acceptq[class].aq_finish_ticket =req->acceptq_start_ticket +
++			tp->acceptq[class].aq_weight;
++
++		tp->acceptq[class].aq_head = req;
++		tp->acceptq[class].aq_tail = req;
++
++		prev_class = class - 1;
++		while (prev_class >= 0) {
++			if (tp->acceptq[prev_class].aq_tail)
++				break;
++			prev_class--;
++		}
++		if (prev_class >= 0) {
++			req->dl_next = 
++				tp->acceptq[prev_class].aq_tail->dl_next;
++			tp->acceptq[prev_class].aq_tail->dl_next = req;
++		} else {
++				req->dl_next = tp->accept_queue;
++				tp->accept_queue = req;
++			}
++	}
++	else {
++		req->acceptq_start_ticket = tp->acceptq[class].aq_finish_ticket;
++		tp->acceptq[class].aq_finish_ticket += 
++					tp->acceptq[class].aq_weight;
++		req->dl_next = tp->acceptq[class].aq_tail->dl_next;
++		tp->acceptq[class].aq_tail->dl_next = req;
++		tp->acceptq[class].aq_tail = req;
++	}
++	req->acceptq_time_stamp = jiffies;
++}
++
++/*
+  *	This will accept the next outstanding connection.
+  */
+ 
+@@ -2230,6 +2313,8 @@
+ 	struct open_request *req;
+ 	struct sock *newsk;
+ 	int error;
++	int prev_class, i, first, min_class;
++	unsigned int min_st;
+ 
+ 	lock_sock(sk);
+ 
+@@ -2244,6 +2329,10 @@
+ 	if (!tp->accept_queue) {
+ 		long timeo = sock_rcvtimeo(sk, flags & O_NONBLOCK);
+ 
++		tp->acceptq_share_clock = 0;
++		for (i=0; i < NUM_ACCEPT_QUEUES; i++)
++			tp->acceptq[i].aq_finish_ticket = 0;
++
+ 		/* If this is a non blocking socket don't sleep */
+ 		error = -EAGAIN;
+ 		if (!timeo)
+@@ -2254,12 +2343,44 @@
+ 			goto out;
+ 	}
+ 
+-	req = tp->accept_queue;
+-	if ((tp->accept_queue = req->dl_next) == NULL)
+-		tp->accept_queue_tail = NULL;
++	first = 1;
++	for( i =0; i <= tp->acceptq_max_class; i++) {
++		if ((req = tp->acceptq[i].aq_head)) {
++			if (first) {
++				min_st = req->acceptq_start_ticket;
++				min_class = i;
++				first = 0;
++			}
++			else 
++				if (req->acceptq_start_ticket < min_st) {
++					min_st = req->acceptq_start_ticket;
++					min_class = i;
++				}
++		}
++	}
++
++        req = tp->acceptq[min_class].aq_head;
++	tp->acceptq[min_class].aq_count++;
++	tp->acceptq[min_class].aq_qcount--;
++	tp->acceptq_share_clock = req->acceptq_start_ticket;
++	tp->acceptq[min_class].aq_wait_time+=(jiffies- req->acceptq_time_stamp);
++
++	for (prev_class= min_class-1 ; prev_class >=0; prev_class--)
++		if (tp->acceptq[prev_class].aq_tail)
++			break;
++	if (prev_class>=0)
++		tp->acceptq[prev_class].aq_tail->dl_next = req->dl_next; 
++	else 
++		tp->accept_queue = req->dl_next;
++
++	if (req == tp->acceptq[min_class].aq_tail) 
++		tp->acceptq[min_class].aq_head = 
++			tp->acceptq[min_class].aq_tail = NULL;
++	else
++		tp->acceptq[min_class].aq_head = req->dl_next;
+ 
+  	newsk = req->sk;
+-	tcp_acceptq_removed(sk);
++	tcp_acceptq_removed(sk, req->acceptq_class);
+ 	tcp_openreq_fastfree(req);
+ 	BUG_TRAP(newsk->sk_state != TCP_SYN_RECV);
+ 	release_sock(sk);
+@@ -2429,6 +2550,34 @@
+ 			}
+ 		}
+ 		break;
++		
++	case TCP_ACCEPTQ_SHARE:
++		{
++			char share_wt[NUM_ACCEPT_QUEUES];
++			int i, j = 0;
++
++			if (copy_from_user(share_wt,optval, optlen)) {
++				err = -EFAULT;
++				break;
++			}
++			for (i=0; i < NUM_ACCEPT_QUEUES; i++) 
++				j += share_wt[i];
++
++			if (!j || j > 100 )
++				err = -EINVAL;
++			else {
++				for (i=0; i < NUM_ACCEPT_QUEUES; i++) {
++				    if (share_wt[i]) {
++					tp->acceptq_max_class = i;
++					tp->acceptq[i].aq_weight = 
++							1000/ share_wt[i];
++					}
++					else
++						tp->acceptq[i].aq_weight = 0;
++				}
++			}
++		}
++		break;
+ 
+ 	default:
+ 		err = -ENOPROTOOPT;
+@@ -2555,6 +2704,34 @@
+ 	case TCP_QUICKACK:
+ 		val = !tp->ack.pingpong;
+ 		break;
++
++	case TCP_ACCEPTQ_SHARE: {
++		struct tcp_acceptq_info tinfo[NUM_ACCEPT_QUEUES];
++		int i;
++
++		if (get_user(len, optlen))
++			return -EFAULT;
++		bzero(tinfo, sizeof(tinfo));
++		for(i=0; i < NUM_ACCEPT_QUEUES; i++) {
++			tinfo[i].acceptq_wait_time = 
++				tp->acceptq[i].aq_wait_time/(HZ/USER_HZ);
++			if (tp->acceptq[i].aq_weight)
++				tinfo[i].acceptq_shares = 
++					1000/ tp->acceptq[i].aq_weight;
++			else
++				tinfo[i].acceptq_shares = 0; 
++			tinfo[i].acceptq_qcount = tp->acceptq[i].aq_qcount;
++			tinfo[i].acceptq_count = tp->acceptq[i].aq_count;
++		}
++		len = min_t(unsigned int, len, sizeof(tinfo));
++		if (put_user(len, optlen)) 
++			return -EFAULT;
++			
++		if (copy_to_user(optval, (char *)tinfo, len))
++			return -EFAULT;
++		
++		return 0;
++	}
+ 	default:
+ 		return -ENOPROTOOPT;
+ 	};
+diff -urN linux-2.6.3_old/net/ipv4/tcp_ipv4.c linux-2.6.3/net/ipv4/tcp_ipv4.c
+--- linux-2.6.3_old/net/ipv4/tcp_ipv4.c	2004-02-17 19:57:22.000000000 -0800
++++ linux-2.6.3/net/ipv4/tcp_ipv4.c	2004-02-23 17:59:38.000000000 -0800
+@@ -916,7 +916,7 @@
+ 	lopt->syn_table[h] = req;
+ 	write_unlock(&tp->syn_wait_lock);
+ 
+-	tcp_synq_added(sk);
++	tcp_synq_added(sk, req);
+ }
+ 
+ 
+@@ -1413,6 +1413,7 @@
+ 	__u32 daddr = skb->nh.iph->daddr;
+ 	__u32 isn = TCP_SKB_CB(skb)->when;
+ 	struct dst_entry *dst = NULL;
++	int class = 0;
+ #ifdef CONFIG_SYN_COOKIES
+ 	int want_cookie = 0;
+ #else
+@@ -1437,12 +1438,17 @@
+ 		goto drop;
+ 	}
+ 
++	if (tcp_sk(sk)->acceptq_max_class)
++		class = (skb->nfmark <= 0) ? 0 :
++			((skb->nfmark > NUM_ACCEPT_QUEUES) ? NUM_ACCEPT_QUEUES:
++			 skb->nfmark);
++
+ 	/* Accept backlog is full. If we have already queued enough
+ 	 * of warm entries in syn queue, drop request. It is better than
+ 	 * clogging syn queue with openreqs with exponentially increasing
+ 	 * timeout.
+ 	 */
+-	if (tcp_acceptq_is_full(sk) && tcp_synq_young(sk) > 1)
++	if (tcp_acceptq_is_full(sk, class) && tcp_synq_young(sk, class) > 1)
+ 		goto drop;
+ 
+ 	req = tcp_openreq_alloc();
+@@ -1567,7 +1573,7 @@
+ 	struct tcp_opt *newtp;
+ 	struct sock *newsk;
+ 
+-	if (tcp_acceptq_is_full(sk))
++	if (tcp_acceptq_is_full(sk, req->acceptq_class))
+ 		goto exit_overflow;
+ 
+ 	if (!dst && (dst = tcp_v4_route_req(sk, req)) == NULL)
+diff -urN linux-2.6.3_old/net/ipv4/tcp_minisocks.c linux-2.6.3/net/ipv4/tcp_minisocks.c
+--- linux-2.6.3_old/net/ipv4/tcp_minisocks.c	2004-02-17 19:58:56.000000000 -0800
++++ linux-2.6.3/net/ipv4/tcp_minisocks.c	2004-02-24 15:38:58.000000000 -0800
+@@ -779,7 +779,9 @@
+ 		newtp->num_sacks = 0;
+ 		newtp->urg_data = 0;
+ 		newtp->listen_opt = NULL;
+-		newtp->accept_queue = newtp->accept_queue_tail = NULL;
++		newtp->accept_queue = NULL;
++		memset(newtp->acceptq, 0,sizeof(newtp->acceptq));
++		newtp->acceptq_share_clock = newtp->acceptq_max_class = 0;
+ 		/* Deinitialize syn_wait_lock to trap illegal accesses. */
+ 		memset(&newtp->syn_wait_lock, 0, sizeof(newtp->syn_wait_lock));
+ 
+diff -urN linux-2.6.3_old/net/ipv4/tcp_timer.c linux-2.6.3/net/ipv4/tcp_timer.c
+--- linux-2.6.3_old/net/ipv4/tcp_timer.c	2004-02-17 19:59:28.000000000 -0800
++++ linux-2.6.3/net/ipv4/tcp_timer.c	2004-02-24 19:50:51.000000000 -0800
+@@ -498,7 +498,12 @@
+ 	 * ones are about to clog our table.
+ 	 */
+ 	if (lopt->qlen>>(lopt->max_qlen_log-1)) {
+-		int young = (lopt->qlen_young<<1);
++		int young = 0;
++	       
++		for(i=0; i < NUM_ACCEPT_QUEUES; i++) 
++			young += lopt->qlen_young[i];
++		
++		young <<= 1;
+ 
+ 		while (thresh > 2) {
+ 			if (lopt->qlen < young)
+@@ -524,9 +529,8 @@
+ 					unsigned long timeo;
+ 
+ 					if (req->retrans++ == 0)
+-						lopt->qlen_young--;
+-					timeo = min((TCP_TIMEOUT_INIT << req->retrans),
+-						    TCP_RTO_MAX);
++			         		lopt->qlen_young[req->acceptq_class]--;
++					timeo = min((TCP_TIMEOUT_INIT << req->retrans), TCP_RTO_MAX);
+ 					req->expires = now + timeo;
+ 					reqp = &req->dl_next;
+ 					continue;
+@@ -538,7 +542,7 @@
+ 				write_unlock(&tp->syn_wait_lock);
+ 				lopt->qlen--;
+ 				if (req->retrans == 0)
+-					lopt->qlen_young--;
++					lopt->qlen_young[req->acceptq_class]--;
+ 				tcp_openreq_free(req);
+ 				continue;
+ 			}
