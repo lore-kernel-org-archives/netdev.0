@@ -1,27 +1,35 @@
-From: Maciej Soltysiak <solt@dns.toxicfilms.tv>
+From: Wichert Akkerman <wichert@wiggy.net>
 Subject: Re: ipv6 stack seems to forget to send ACKs
-Date: Thu, 9 Jan 2003 11:32:47 +0100 (CET)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0301091131370.29527-100000@dns.toxicfilms.tv>
-References: <20030108224339.GO22951@wiggy.net>
+Date: Thu, 9 Jan 2003 11:40:57 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030109104057.GM22951@wiggy.net>
+References: <20030108224339.GO22951@wiggy.net> <Pine.LNX.4.44.0301091131370.29527-100000@dns.toxicfilms.tv>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew McGregor <andrew@indranet.co.nz>,
-	Fabio Massimo Di Nitto <fabbione@fabbione.net>,
-	<netdev@oss.sgi.com>, <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Wichert Akkerman <wichert@wiggy.net>
-In-Reply-To: <20030108224339.GO22951@wiggy.net>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.44.0301091131370.29527-100000@dns.toxicfilms.tv>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> The fact that this problem does not seem to occur when using a window
-> XP client seems to contradict the suggestions that it may be a router
-> problem.
-What other linux clients support streaming on ip6 ? patched mpg123 maybe?
-What XP client are you using ?
+Previously Maciej Soltysiak wrote:
+> What other linux clients support streaming on ip6 ? patched mpg123 maybe?
 
-Maybe it is a client issue, you say the client stops sending ACKs, maybe
-the client code is buggy.
+The xmms patch can be adopted to work for mpg123 I suspect, I haven't
+tried that.
 
-> Wichert.
-Maciej.
+> What XP client are you using ?
+
+Iirc mediaplayer was used.
+
+> Maybe it is a client issue, you say the client stops sending ACKs, maybe
+> the client code is buggy.
+
+I don't think a userspace tool can cause ACKs to stop being send.
+
+Wichert.
+
+-- 
+Wichert Akkerman <wichert@wiggy.net>           http://www.wiggy.net/
+A random hacker
