@@ -1,52 +1,45 @@
-From: N N Ashok <nalkunda@egr.msu.edu>
-Subject: Re: Kernel locking up in module
-Date: Thu, 17 Jul 2003 00:18:10 -0400
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Thu, 17 Jul 2003 09:50:49 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307170018.11043.nalkunda@egr.msu.edu>
-References: <OFF7117350.353FDF6E-ON88256D64.00016172@us.ibm.com> <200307142031.15122.nalkunda@egr.msu.edu> <200307152128.34341.nalkunda@egr.msu.edu>
+Message-ID: <Pine.LNX.4.44.0307170940280.1348-100000@netcore.fi>
+References: <200307170003.EAA12843@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: davem@redhat.com, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <kumarkr@us.ibm.com>
-In-Reply-To: <200307152128.34341.nalkunda@egr.msu.edu>
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200307170003.EAA12843@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<snipped...>
->
->         From what I read in "Understanding the Linux Kernel", the timer
-> routine that I setup is executed from the bottom half. Also in the book it
-> says that data structures accessed in deferrable functions (which a bottom
-> handler is I think), there is no need of any kind of locking/protection
-> required for uniprocessor machines. Also it says that if we try to acquire
-> a spin_lock on a uniprocessor in the kernel, then the kernel control path
-> that does have the lock will not get a chance to release the lock and hence
-> we will have a deadlock.
->        In this context, I am unable to understand whether I should use
-> locking and if so which kind. Do I need to disable the IRQs (_irq) when I
-> take the lock? Or do I disable the bottom halves (_bh) ? Please help me in
-> understanding and resolving the problem as it is required for my thesis.
->
-> Thanks and Regards,
-> Ashok
+On Thu, 17 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
+> > > > What happens when you do "ping6 3FFE:FFFF:A:B::1" ?
+> 
+> ping did, does and will work and I do not understand what you want
+> to say or ask. Do you want to know how it works?
+> 
+> Well, IPv6 stack looks up the address in routing tables, finds the route,
+> sees that it is on-link, sends NDISC, receiver replies, we create a frame
+> and send the echo request. To continue? :-)
 
-Hi,
-   I understand that on uniprocessor machines, spin locks are just empty. Is 
-that true? The code that I was looking at from include/linux/spinlock.h was 
-(although there are 2-3 other definitions for these but they also essentially 
-are not doing much):
+(Sorry, it seems I've caused a lot of confusion in some parts of this 
+thread by typoeing link-local address when I used link-layer address.. 
+sorry)
 
- #define rwlock_init(lock)	do { } while(0)
-#define read_lock(lock)		(void)(lock) /* Not "unused variable". */
-#define read_unlock(lock)	do { } while(0)
-#define write_lock(lock)	(void)(lock) /* Not "unused variable". */
-#define write_unlock(lock)	do { } while(0)
+So, assume you have 3FFE:FFFF:A:B::/64 prefix on link.  On a host on that 
+link, you've manually configured the next-hop to be the router on that 
+link, 3FFE:FFFF:A:B::1.
 
-Can somebody confirm this? If so then how do we protect data structures in 
-kernel control paths?
+The procedure to obtain the knowledge on where to send packets whose 
+next-hop is 3FFE:FFFF:A:B::1 seems quite simple, similar to ping6.
 
-Thanks,
-Ashok
+As to obtaining the link-*local* address, there are several procedures 
+none of which I would recomment.  Checking the source address of a ND 
+packet (e.g. in the ping6 example above), or using a protocol like ICMP 
+name information queries (draft-ietf-ipngwg-icmp-name-lookups-10.txt).
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
