@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 6/9] X.25: Stop /proc/net/x25/route infinitely reading
-Date: Thu, 28 Oct 2004 00:19:45 -0700
+Subject: [patch 7/9] X.25: Dont log "unknown frame type" when receiving clear confirm
+Date: Thu, 28 Oct 2004 00:19:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410280721.i9S7Li908005@mail.osdl.org>
+Message-ID: <200410280721.i9S7Lj908010@mail.osdl.org>
 Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, ahendry@tusc.com.au
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@redhat.com
@@ -12,36 +12,28 @@ List-Id: netdev.vger.kernel.org
 
 From: Andrew Hendry <ahendry@tusc.com.au>
 
-route add --x25 0/0 eth0
-cat /proc/net/x25/route
-reads the single routing entry forever.
-
-This patch makes x25_get_route_idx behave the same as x25_get_socket_idx
-which works correctly.
+There is no need to log "unknown frame type" when remote X.25 sends clear
+confirms.
 
 Signed-off-by: Andrew Hendry <ahendry@tusc.com.au>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/net/x25/x25_proc.c |    7 ++++---
- 1 files changed, 4 insertions(+), 3 deletions(-)
+ 25-akpm/net/x25/x25_dev.c |    4 +++-
+ 1 files changed, 3 insertions(+), 1 deletion(-)
 
-diff -puN net/x25/x25_proc.c~x25-stop-proc-net-x25-route-infinitely net/x25/x25_proc.c
---- 25/net/x25/x25_proc.c~x25-stop-proc-net-x25-route-infinitely	2004-10-28 00:17:08.225553512 -0700
-+++ 25-akpm/net/x25/x25_proc.c	2004-10-28 00:17:08.228553056 -0700
-@@ -32,10 +32,11 @@ static __inline__ struct x25_route *x25_
+diff -puN net/x25/x25_dev.c~x25-dont-log-unknown-frame-type-when net/x25/x25_dev.c
+--- 25/net/x25/x25_dev.c~x25-dont-log-unknown-frame-type-when	2004-10-28 00:17:08.407525848 -0700
++++ 25-akpm/net/x25/x25_dev.c	2004-10-28 00:17:08.410525392 -0700
+@@ -92,7 +92,9 @@ static int x25_receive_data(struct sk_bu
+ /*
+ 	x25_transmit_clear_request(nb, lci, 0x0D);
+ */
+-	printk(KERN_DEBUG "x25_receive_data(): unknown frame type %2x\n",frametype);
++
++	if (frametype != X25_CLEAR_CONFIRMATION)
++		printk(KERN_DEBUG "x25_receive_data(): unknown frame type %2x\n",frametype);
  
- 	list_for_each(route_entry, &x25_route_list) {
- 		rt = list_entry(route_entry, struct x25_route, node);
--		if (--pos)
--			break;
-+		if (!pos--)
-+			goto found;
- 	}
--
-+	rt = NULL;
-+found:
- 	return rt;
+ 	return 0;
  }
- 
 _
