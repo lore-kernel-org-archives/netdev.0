@@ -1,106 +1,46 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: TCP receiver's window calculation problem
-Date: Thu, 24 Jun 2004 13:43:27 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0406241301010.28506-100000@dexter.psc.edu>
-References: <Pine.LNX.4.44.0406232228580.29282-100000@orchestra.cs.caltech.edu>
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Subject: Re: [PATCH 2.4.26] prism54: add prism54 1.2
+Date: Thu, 24 Jun 2004 15:34:39 -0300
+Sender: prism54-devel-bounces@prism54.org
+Message-ID: <20040624183439.GA21798@logos.cnet>
+References: <20040623054348.GV6253@ruslug.rutgers.edu>
+	<40D96E10.1060203@pobox.com>
+	<20040623164134.GT6253@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>, <fast-support@cs.caltech.edu>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Cheng Jin <chengjin@cs.caltech.edu>
-In-Reply-To: <Pine.LNX.4.44.0406232228580.29282-100000@orchestra.cs.caltech.edu>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <prism54-devel-bounces@prism54.org>
+To: Marcelo Tosatti <marcelo@conectiva.com.br>,
+	Andrew Morton <akpm@osdl.org>, Netdev <netdev@oss.sgi.com>,
+	Linux Kernel <linux-kernel@vger.kernel.org>,
+	prism54-devel@prism54.org, Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <20040623164134.GT6253@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-I've run in to this problem, too.  This code prevents advertising more
-rcvbuf space than you are likely to need.  This is good for something like
-an X11 connection, but obviously very bad for the bulk transfer mixed MTU
-case.  Apparently some drivers use multiple packet buffer sizes which
-helps, but at least e1000 and sk98lin do not.  If you don't want to
-overrun the rcvbuf bounds, then the only other recourse is to coalesce
-packets, which works well but is pretty expensive.  This will happen
-already if you take out the rcv_ssthresh bound.
+On Wed, Jun 23, 2004 at 12:41:34PM -0400, Luis R. Rodriguez wrote:
+> On Wed, Jun 23, 2004 at 07:48:32AM -0400, Jeff Garzik wrote:
+> > mcgrof@ruslug.rutgers.edu wrote:
+> > >Andrew,
+> > >
+> > >2.6.7-bk5 and 2.6.7-mm1 are both in perfect sync with prism54 
+> > >cvs tree now. This completes our 1.2 release. As promised, 
+> > >the attached patch adds prism54 1.2 to 2.4 kernel tree.
+> > 
+> > Andrew is a 2.6-only guy.
+> > 
+> > This is totally up to Marcelo whether to merge this new wireless stuff 
+> > or not...
+> 
+> Marcelo, 
+> 
+> what do you say?
 
-I think the most desirable answer is to not have a hard per-connection
-memory bound, but this is problematic because of denial-of-service
-conerns.
-
-  -John
-
-
-On Wed, 23 Jun 2004, Cheng Jin wrote:
-
->
-> Hi,
->
-> We have been running some iperf experiments over long-latency
-> high-capacity networks for protocol testing.  We noticed a strange
-> receiver's window limitation of 3,147,776 bytes even when the iperf
-> server was setup to request 32 MB of socket buffer (for which kernel
-> grants twice that).
->
-> After doing printk with various window calculation functions at the
-> receiver, we believe there may be a possible problem with
-> tp->rcv_ssthresh calculation in __tcp_grow_window in tcp_input.c.
->
-> With input parameters of tcp memory of 64 MB, a jumbo MTU (9000 bytes)
-> setting at the receiver, which gives a skb_true_size of 16660 bytes, and a
-> standard MTU (1500 byte) at the sender side that yields a skb_len of 1448
-> bytes. tp->rcv_ssthresh gets stuck at 3,148,472 (see the code segment
-> below).  Because the tcp receiver's window needs to be in multiple of mss
-> (/1448 then *1448) and  window scaling (>>10 and then <<10), the sender sees
-> a limit of 3,147,776 bytes.
->
-> I include an example code (stripped away the data structs and expanded
-> whatever macros there are) that reproduces this problem.  The function
-> __tcp_grow_window itself may have problems for other combinations of
-> input.
->
-> #include <stdio.h>
-> #include <stdlib.h>
->
-> typedef unsigned int __u32;
->
-> static int
-> __tcp_grow_window(__u32 rcv_ssthresh, __u32 tcp_full_space,
-> 					__u32 skb_true_size, __u32 skb_len)
-> {
-> 	int truesize = skb_true_size*3/8;
-> 	int window = tcp_full_space*3/8;
->
-> 	while ( rcv_ssthresh <= window ) {
-> 		if ( truesize <= skb_len )
-> 			return 2896;
->
-> 		truesize >>= 1;
-> 		window >>= 1;
-> 	}
-> 	return 0;
-> }
->
->
-> int main()
-> {
->
-> 	__u32 iperf_mem = 64*1024*1024;
-> 	__u32 skb_true_size = 16660;
-> 	__u32 skb_len = 1448;
-> 	__u32 rcv_ssthresh = 3148472;
->
-> 	int i, incr;
->
-> 	for (i=0; i<1000; ++i)
-> 	{
-> 		incr = __tcp_grow_window(rcv_ssthresh, iperf_mem, skb_true_size, skb_len);
-> 		printf("i=%d incr=%d\n", i, incr);
-> 	}
-> }
->
->
-> Cheng
->
-> --
-> Lab # 626 395 8820
->
->
+OK for 2.4.28-pre.
