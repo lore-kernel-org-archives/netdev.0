@@ -1,84 +1,69 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [bk patches] 2.4 net driver updates
-Date: Tue, 19 Aug 2003 00:29:17 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819042917.GA1402@gtf.org>
+Subject: [bk patches] 2.6 net driver updates
+Date: Tue, 19 Aug 2003 00:27:29 -0400
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030819042729.GA1360@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: torvalds@osdl.org
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(pending for Marcelo, for 2.4.23-pre1)
 
+Linus, please do a
 
-BK users:
+	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.6
 
-	bk pull bk://kernel.bkbits.net/jgarzik/net-drivers-2.4
-		or
-	bk pull http://gkernel.bkbits.net/net-drivers-2.4
+Patch is also available from
 
-Patch:
-
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.4/2.4.22-rc2-netdrvr1.patch.bz2
+ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test3-bk6-netdrvr1.patch.bz2
 
 This will update the following files:
 
- drivers/net/8139cp.c            |    4 
- drivers/net/8139too.c           |   10 
- drivers/net/bonding/bond_main.c |   17 -
- drivers/net/bonding/bonding.h   |    2 
- drivers/net/net_init.c          |    3 
- drivers/net/tulip/tulip_core.c  |    1 
- drivers/net/wireless/airo.c     |  568 ++++++++++++++++++++++------------------
- include/linux/netdevice.h       |    2 
- 8 files changed, 342 insertions(+), 265 deletions(-)
+ Documentation/networking/8139too.txt |    1 
+ drivers/net/8139cp.c                 |    4 
+ drivers/net/8139too.c                |   10 
+ drivers/net/Kconfig                  |    2 
+ drivers/net/eexpress.c               |    2 
+ drivers/net/tulip/Kconfig            |    8 
+ drivers/net/wireless/Kconfig         |    2 
+ drivers/net/wireless/airo.c          |  522 +++++++++++++++++++----------------
+ drivers/net/wireless/atmel.c         |   21 -
+ drivers/net/wireless/atmel_cs.c      |    1 
+ 10 files changed, 313 insertions(+), 260 deletions(-)
 
 through these ChangeSets:
 
-<sziwan@hell.org.pl> (03/08/18 1.1064.1.13)
-   [netdrvr 8139too] fix resume behavior,
-   by correctly saving/restoring pci state.
+<alan@lxorguk.ukuu.org.uk> (03/08/19 1.1240)
+   [netdrvr eexpress] fix buglet in skb_padto conversion
 
-<matthewn@snapgear.com> (03/08/18 1.1064.1.12)
+<jgarzik@redhat.com> (03/08/19 1.1239)
+   [netdrvr de2104x] fix Kconfig help text to reflect reality
+
+<srk@thekelleys.org.uk> (03/08/19 1.1238)
+   [wireless atmel] minor updates
+   
+   1) Add another card to the PCMCIA card database.
+   2) Fix a bug in wireless extensions.
+   3) Remove extra code for compilation without the firmware loader
+   4) force-enable CRC32 and FW_LOADER in Kconfig.
+   
+
+<jgarzik@redhat.com> (03/08/19 1.1237)
+   [netdrvr 8139too] add adapter to supported list, in docs
+
+<akropel1@rochester.rr.com> (03/08/19 1.1236)
+   [netdrvr] fix seeq8005 entry help text in Kconfig
+
+<sziwan@hell.org.pl> (03/08/18 1.1235)
+   [netdrvr 8139too] fix resume behavior
+
+<matthewn@snapgear.com> (03/08/18 1.1234)
    [netdrvr 8139cp] fix h/w vlan offload
    
    It wants big endian vlan tags.  IEEE, or just weird?
 
-<javier@tudela.mad.ttd.net> (03/08/18 1.1064.1.11)
+<javier@tudela.mad.ttd.net> (03/08/18 1.1233)
    [wireless airo] Replaces task queues by simpler kernel_thread
-
-<javier@tudela.mad.ttd.net> (03/08/18 1.1064.1.10)
-   [wireless airo] Fixes unregistering of PCI cards
-
-<ionut@badula.org> (03/08/17 1.1064.1.9)
-   [netdrvr tulip] add pci id for 3com 3CSOHO100B-TX
-
-<amir.noam@intel.com> (03/08/07 1.1064.1.8)
-   [netdrvr bonding] embed stats struct inside bonding private struct
-   
-   Simplification: Don't allocate the stats struct via kmalloc,
-   embed it inside it's parent bonding_t.
-
-<amir.noam@intel.com> (03/08/07 1.1064.1.7)
-   [net] export alloc_netdev
-
-<achirica@telefonica.net> (03/08/07 1.1064.1.6)
-   [PATCH] Fix adhoc config
-
-<achirica@telefonica.net> (03/08/07 1.1064.1.5)
-   [PATCH] Safer unload code
-
-<achirica@telefonica.net> (03/08/07 1.1064.1.4)
-   [PATCH] MIC support with newer firmware
-
-<achirica@telefonica.net> (03/08/07 1.1064.1.3)
-   [PATCH] Missing lines for Wireless Extensions 16
-
-<achirica@telefonica.net> (03/08/07 1.1064.1.2)
-   [netdrvr airo] MAC type changed to unsigned
-
-<achirica@telefonica.net> (03/08/07 1.1064.1.1)
-   [netdrvr airo] Missing defines (only for documentation)
