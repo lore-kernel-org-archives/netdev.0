@@ -1,42 +1,27 @@
-From: Andre Tomt <andre@tomt.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Sun, 06 Feb 2005 11:55:19 +0100
-Message-ID: <4205F797.8080804@tomt.net>
-References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net> <20050205061110.GA18275@gondor.apana.org.au>
+Date: Sun, 06 Feb 2005 20:28:13 +0900 (JST)
+Message-ID: <20050206.202813.132742833.yoshfuji@linux-ipv6.org>
+References: <20050204213813.4bd642ad.davem@davemloft.net>
+	<20050205061110.GA18275@gondor.apana.org.au>
+	<4205F797.8080804@tomt.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
+Cc: herbert@gondor.apana.org.au, davem@davemloft.net,
         mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050205061110.GA18275@gondor.apana.org.au>
+        netdev@oss.sgi.com, shemminger@osdl.org, yoshfuji@linux-ipv6.org
+To: andre@tomt.net
+In-Reply-To: <4205F797.8080804@tomt.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Fri, Feb 04, 2005 at 09:38:13PM -0800, David S. Miller wrote:
-> 
->>It is just the first such thing I found, scanning rt6i_idev uses
->>will easily find several others.
-> 
-> 
-> You're right of course.  I thought they were all harmless but I was
-> obviously wrong about this one.
-> 
-> So here is a patch that essentially reverts the split devices
-> semantics introduced by these two changesets:
-> 
->   [IPV6] addrconf_dst_alloc() to allocate new route for local address.
->   [IPV6] take rt6i_idev into account when looking up routes.
-> 
-> Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+In article <4205F797.8080804@tomt.net> (at Sun, 06 Feb 2005 11:55:19 +0100), Andre Tomt <andre@tomt.net> says:
 
-Now that this fix have been written off as probably wrong; how much does 
-it break? As far as I've understood it "just" reverts to old semantics, 
-probably not correct semantics, but still not unexpected semantics 
-(like, say, hang on device unregistration ;) )
+> I'm contemplating just using it as a quick-fix until 2.6.11 to get this 
+> problem under control.
 
-I'm contemplating just using it as a quick-fix until 2.6.11 to get this 
-problem under control.
+Would you find if my patch works? Thanks.
+
+--yoshfuji
