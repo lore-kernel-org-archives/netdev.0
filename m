@@ -1,52 +1,113 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: Linux and Wake-On-Lan
-Date: Wed, 07 May 2003 23:15:34 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.5.69] pktgen module and dev cleanup
+Date: Wed, 7 May 2003 14:29:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <112220000.1052342133@gate.muc.bieringer.de>
-References: <20030507090530.91065.qmail@web9703.mail.yahoo.com>
- <20030507.010630.48509535.davem@redhat.com>
+Message-ID: <20030507142911.4a8a7573.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: lucas75it@yahoo.it, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030507.010630.48509535.davem@redhat.com>
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Fix pktgen so the /proc interface uses owner instead of inc/dec the
+module ref count itself.  Gets rid of warnings, and properly ref counts
+all readers/writers now.
 
+Change how network device ref count is acquired. Instead of forced inc,
+just get reference via dev_get_by_name. 
 
---On Wednesday, May 07, 2003 01:06:30 AM -0700 "David S. Miller"
-<davem@redhat.com> wrote:
+Use in_dev_get when looking at inet info, more race avoidance.
 
->    From: Gianluca Masone <lucas75it@yahoo.it>
->    Date: Wed, 7 May 2003 11:05:30 +0200 (CEST)
-> 
->    Suppose i put a net device in wake-on-lan status.
->    There is some kernel function that notifies presence
->    of a wake packet ?
-> 
-> This is not how wake-on-lan works.
-> 
-> When your computer is put to sleep (via APM or ACPI),
-> the network card can listen for the wake packets.
-> 
-> If it is listening and a wakeup packet is received, your computer
-> wakes up from sleep state.
-> 
-> All of this happens in the hardware, all Linux can do is
-> enable/disable the feature.
+Built and tested with injection on gigabit ethernet and SMP machine.
+Ref counts come out right during access, and can be unloaded fine.
 
-That's right, but afair at least one driver has problems with this.
-It's here not working with the eepro100 driver. The e100 works.
-
-See here for more details:
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=84695
-
-        Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+diff -Nru a/net/core/pktgen.c b/net/core/pktgen.c
+--- a/net/core/pktgen.c	Wed May  7 14:21:14 2003
++++ b/net/core/pktgen.c	Wed May  7 14:21:14 2003
+@@ -226,21 +226,20 @@
+ {
+ 	struct net_device *odev;
+ 
+-	rtnl_lock();
+-	odev = __dev_get_by_name(info->outdev);
++	odev = dev_get_by_name(info->outdev);
+ 	if (!odev) {
+ 		sprintf(info->result, "No such netdevice: \"%s\"", info->outdev);
+-		goto out_unlock;
++		goto out;
+ 	}
+ 
+ 	if (odev->type != ARPHRD_ETHER) {
+ 		sprintf(info->result, "Not ethernet device: \"%s\"", info->outdev);
+-		goto out_unlock;
++		goto out_put;
+ 	}
+ 
+ 	if (!netif_running(odev)) {
+ 		sprintf(info->result, "Device is down: \"%s\"", info->outdev);
+-		goto out_unlock;
++		goto out_put;
+ 	}
+ 
+ 	/* Default to the interface's mac if not explicitly set. */
+@@ -257,13 +256,13 @@
+ 	info->saddr_min = 0;
+ 	info->saddr_max = 0;
+ 	if (strlen(info->src_min) == 0) {
+-		if (odev->ip_ptr) {
+-			struct in_device *in_dev = odev->ip_ptr;
+-
++		struct in_device *in_dev = in_dev_get(odev);
++		if (in_dev) {
+ 			if (in_dev->ifa_list) {
+ 				info->saddr_min = in_dev->ifa_list->ifa_address;
+ 				info->saddr_max = info->saddr_min;
+ 			}
++			in_dev_put(in_dev);
+ 		}
+ 	}
+ 	else {
+@@ -282,13 +281,11 @@
+ 	info->cur_udp_dst = info->udp_dst_min;
+ 	info->cur_udp_src = info->udp_src_min;
+ 	
+-	atomic_inc(&odev->refcnt);
+-	rtnl_unlock();
+-
+ 	return odev;
+ 
+-out_unlock:
+-	rtnl_unlock();
++out_put:
++	dev_put(odev);
++out:
+ 	return NULL;
+ }
+ 
+@@ -1258,7 +1255,6 @@
+ 	}
+ 
+ 	if (!strcmp(name, "inject") || !strcmp(name, "start")) {
+-		MOD_INC_USE_COUNT;
+ 		if (info->busy) {
+ 			strcpy(info->result, "Already running...\n");
+ 		}
+@@ -1268,7 +1264,6 @@
+ 			inject(info);
+ 			info->busy = 0;
+ 		}
+-		MOD_DEC_USE_COUNT;
+ 		return count;
+ 	}
+ 
+@@ -1337,6 +1332,7 @@
+ 		pginfos[i].proc_ent->read_proc = proc_read;
+ 		pginfos[i].proc_ent->write_proc = proc_write;
+ 		pginfos[i].proc_ent->data = (void*)(long)(i);
++		pginfos[i].proc_ent->owner = THIS_MODULE;
+ 
+ 		sprintf(pginfos[i].busy_fname, "net/%s/pg_busy%i",  PG_PROC_DIR, i);
+ 		pginfos[i].busy_proc_ent = create_proc_entry(pginfos[i].busy_fname, 0, 0);
