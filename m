@@ -1,23 +1,66 @@
-From: Balint Marton <cus@fazekas.hu>
-Subject: RE: [PATCH] get_random_bytes returns the same on every boot
-Date: Tue, 27 Jul 2004 20:01:57 +0200 (CEST)
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
+Date: Tue, 27 Jul 2004 21:02:39 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0407271951590.23550@cinke.fazekas.hu>
-References: <C0170D0AF1277849A4B4518034F855DD0CFC2F@aiexchange.ai.aiinet.com>
+Message-ID: <200407272102.58638.vkondra@mail.ru>
+References: <20040724223310.68910.qmail@web53004.mail.yahoo.com> <20040726210613.GR5414@waste.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/signed;
+  boundary="nextPart1671741.xCzNJaUZY8";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Niranjan <niranjan_cs2905@yahoo.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Eble, Dan" <DanE@aiinet.com>
-In-Reply-To: <C0170D0AF1277849A4B4518034F855DD0CFC2F@aiexchange.ai.aiinet.com>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20040726210613.GR5414@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, 
+--nextPart1671741.xCzNJaUZY8
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-In my previous email, i wrote about a 40 computer test.
-Today, I repeated my test, and although every computer got the right IP 
-address, there were at least 7 lines of DHCPNAK in the dhcpd logfile.
-So the system time alone is not as good as it looked like.
+We also saw the same (crypto modules goes to sleep).
+Due to this, we decided to not use cryptoapi for our wireless driver, but=20
+compile the same crypto functions into the driver. I know this is code=20
+duplication, but Tx and Rx paths work in BH context (I reschedule it on IRQ=
+=20
+Rx to use cheaper time).
 
-Cus
+Do cryptoapi maintainers aware of this issue?
+
+On Tuesday 27 July 2004 00:06, Matt Mackall wrote:
+> On Sat, Jul 24, 2004 at 03:33:10PM -0700, Niranjan wrote:
+> > Hi,
+> > I am working on Linux Kernel 2.4.25. I am trying to
+> > add cryptoapi (cryptoapi-0.1.0) support to wireless
+> > lan driver (linux-wlan-ng-0.2.1.pre14) of prism-based
+> > cards. Cardctl version is 3.1.31.
+> > When I am using "null" as a encryption cipher to check
+> > the coding sequence, everything is working fine. But
+> > when I change it to any other cipher for e.g.
+> > "blowfish" or "rc5", it is giving kernel panic. I have
+> > included Ksymoops extract from the kernel Ooops
+> > reports below.
+> > Can anyone please help me in what can be possible
+> > error by looking at the log ?
+> > I will greatly appreciate any help in this matter.
+>
+> The cryptoapi currently decides to sleep at various points internally
+> when digesting a block which is probably what you're seeing.
+
+--nextPart1671741.xCzNJaUZY8
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBBBpjSqxdj7mhC6o0RApe4AJ9dEp1qL9DY2uXZg9pJ8QTMKnGZ8ACdGODD
+cp9PU4WVEOoeRImi6j7oWug=
+=Y/c1
+-----END PGP SIGNATURE-----
+
+--nextPart1671741.xCzNJaUZY8--
