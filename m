@@ -1,36 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Tue, 19 Aug 2003 10:53:07 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819105307.0b0a6491.davem@redhat.com>
-References: <353568DCBAE06148B70767C1B1A93E625EAB5C@post.pc.aspectgroup.co.uk>
+From: Richard Underwood <richard@aspectgroup.co.uk>
+Subject: RE: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Tue, 19 Aug 2003 19:05:13 +0100
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <353568DCBAE06148B70767C1B1A93E625EAB5D@post.pc.aspectgroup.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: skraw@ithnet.com, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
-   carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Underwood <richard@aspectgroup.co.uk>
-In-Reply-To: <353568DCBAE06148B70767C1B1A93E625EAB5C@post.pc.aspectgroup.co.uk>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+	lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+	marcelo@conectiva.com.br, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "'David S. Miller'" <davem@redhat.com>,
+	Stephan von Krawczynski <skraw@ithnet.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Aug 2003 18:56:18 +0100
-Richard Underwood <richard@aspectgroup.co.uk> wrote:
+David S. Miller wrote:
+> 
+> In the ARP request we are using the source address in the packet we
+> are building for output.
+> 
+	Well, you shouldn't be! The ARP request represents all FUTURE
+packets being sent out that interface, not just the one single packet that
+happened to kick of this ARP request.
 
-> 	Which nicely sums up the bug, really.
+> If ARP doesn't work using that source address, we can only assume IP
+> communication is not possible either.
+> 
+	That's clearly not a valid assumption. For a start it precludes IP
+routeing, but I've also demonstrated it not to be the case with a simple
+multi-homed server.
 
-Ok, then how would you propose to be able to send
-packets out an interface _before_ we have addresses
-assigned to it?
+	Thanks,
 
-Linux allows that, and in fact it's a useful feature.
-
-Consider MSG_DONTROUTE as well.
-
-BTW, this ARP source address algorithm we use comes from
-ipv6, it would be instructive to go and see why they do
-things the way they do.
+		Richard
