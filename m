@@ -1,44 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: Sat, 24 Jul 2004 21:33:23 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [BK PATCH] 2.6 SCTP updates
+Date: Sat, 24 Jul 2004 22:27:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724.213323.61478122.yoshfuji@linux-ipv6.org>
-References: <20040723135945.7f50b02c.davem@redhat.com>
-	<1090630154.1134.6.camel@jzny.localdomain>
-	<1090675993.1161.11.camel@jzny.localdomain>
+Message-ID: <20040724222731.0ed048ef.davem@redhat.com>
+References: <Pine.LNX.4.58.0407231708440.4570@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, shemminger@osdl.org, arekm@pld-linux.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1090675993.1161.11.camel@jzny.localdomain>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0407231708440.4570@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Fri, 23 Jul 2004 17:18:11 -0700 (PDT)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-In article <1090675993.1161.11.camel@jzny.localdomain> (at 24 Jul 2004 09:33:52 -0400), jamal <hadi@cyberus.ca> says:
+> Please do a
+> 	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work
+> 
+> to get the following SCTP updates to 2.6.8-rc2.
 
-> Makes the performance counters a separate TLV -  a little bit of a pain,
-> but acceptable given its optional.
-> Compiles but hasnt been tested; user space code will have to change.
+Pulled, thanks Sridhar.  Will there be a 2.4.x version of
+any of these SCTP changes?
 
-basically, looks fine.
-
-1. is it okay to use unsigned long?
-   I'd rather prefer __u32 or __u64.
-
-2. please use kcnts[0] instead of kcnts[] because
-   user probably want to do sizeof(struct tc_u32_pcnt)
-
-> I dont want to touch the policer for now.
-
-hmm. :-P
-
-Thanks.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Thanks again.
