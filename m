@@ -1,28 +1,29 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: many outgoing tcp sockets are slower than a few
-Date: Mon, 21 Feb 2005 13:36:53 +0100
-Message-ID: <20050221123653.GA30508@xi.wantstofly.org>
-References: <421925DB.2060602@rapidforum.com> <42192AAF.8020609@us.ibm.com> <42192CD5.5090401@rapidforum.com> <20050221090121.GA7478@outpost.ds9a.nl> <4219B99E.1000603@rapidforum.com> <20050221120223.GA30348@xi.wantstofly.org> <20050221122540.GA13973@outpost.ds9a.nl>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Intel and TOE in the news
+Date: Mon, 21 Feb 2005 14:28:44 +0100
+Message-ID: <20050221132844.GU31837@postel.suug.ch>
+References: <20050220230713.GA62354@muc.de> <200502210332.j1L3WkDD014744@guinness.s2io.com> <20050221115006.GB87576@muc.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-To: bert hubert <ahu@ds9a.nl>, Christian Schmid <webmaster@rapidforum.com>,
-        Nivedita Singhvi <niv@us.ibm.com>, netdev@oss.sgi.com
+Cc: Leonid Grossman <leonid.grossman@neterion.com>,
+        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
+        "'Alex Aizman'" <alex@neterion.com>
+To: Andi Kleen <ak@muc.de>
 Content-Disposition: inline
-In-Reply-To: <20050221122540.GA13973@outpost.ds9a.nl>
+In-Reply-To: <20050221115006.GB87576@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 21, 2005 at 01:25:41PM +0100, bert hubert wrote:
+* Andi Kleen <20050221115006.GB87576@muc.de> 2005-02-21 12:50
+> The main problem is that someone has to go through all the protocol layers
+> and make sure they can process lists. Also it needs careful handling
+> in netfilter.
 
-> > O_NONBLOCK send() is really nonblocking, but O_NONBLOCK sendfile()
-> 
-> It is? So it returns EAGAIN if the data to be sent is not in the
-> page cache?
-
-No, it just blocks.  It only returns EAGAIN if the data is in the
-page cache but the socket TX queue doesn't have enough space.  (At
-least, when I last tried it.)
-
-
---L
+Special handling is also required for the ingress qdisc. The classifiers
+or tc_classify() must be changed to iterate over the lists and unlink
+the skbs if one of them is to be dropped. The mirred action must probably
+split the list after cloning the skbs. Given the lists are session based
+all session based qdiscs could benefit from this and enqueue/dequeue the
+lists rather than single skbs. Other qdiscs would have to split the lists
+but could return a new list upon dequeue.
