@@ -1,76 +1,100 @@
-From: Ross Kendall Axe <ross.axe@blueyonder.co.uk>
-Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
- using SELinux and SOCK_SEQPACKET
-Date: Fri, 19 Nov 2004 09:40:55 +0000
-Message-ID: <419DBFA7.7000705@blueyonder.co.uk>
-References: <Xine.LNX.4.44.0411180257300.3144-100000@thoron.boston.redhat.com> <Xine.LNX.4.44.0411180305060.3192-100000@thoron.boston.redhat.com> <20041118084449.Z14339@build.pdx.osdl.net> <419D6746.2020603@blueyonder.co.uk> <20041118231943.B14339@build.pdx.osdl.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Fix ipv6_ifa_notify race (was: IPv6 "badness" in recent releases)
+Date: Fri, 19 Nov 2004 20:49:24 +1100
+Message-ID: <20041119094924.GA3726@gondor.apana.org.au>
+References: <4197AC20.6020707@pobox.com> <E1CTR5h-0006ac-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="------------enig5D86439C9872B78DC700D940"
-Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com,
-	Stephen Smalley <sds@epoch.ncsc.mil>,
-	lkml <linux-kernel@vger.kernel.org>,
-	"David S. Miller" <davem@davemloft.net>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261332AbUKSJlz@vger.kernel.org>
-To: Chris Wright <chrisw@osdl.org>
-In-Reply-To: <20041118231943.B14339@build.pdx.osdl.net>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: multipart/mixed; boundary="azLHFNyN32YCQGCU"
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com, acme@conectiva.com.br,
+        Jeff Garzik <jgarzik@pobox.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <E1CTR5h-0006ac-00@gondolin.me.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
---------------enig5D86439C9872B78DC700D940
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Chris Wright wrote:
-> * Ross Kendall Axe (ross.axe@blueyonder.co.uk) wrote:
+--azLHFNyN32YCQGCU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Mon, Nov 15, 2004 at 07:35:17AM +1100, Herbert Xu wrote:
 > 
->>Taking this idea further, couldn't we split unix_dgram_sendmsg into 2 
->>functions, do_unix_dgram_sendmsg and do_unix_connectionless_sendmsg (and 
->>similarly for unix_stream_sendmsg), then all we'd need is:
->>
->><pseudocode>
->>static int do_unix_dgram_sendmsg(...);
->>static int do_unix_stream_sendmsg(...);
->>static int do_unix_connectionless_sendmsg(...);
->>static int do_unix_connectional_sendmsg(...);
-> 
-> 
-> We could probably break it down to better functions and helpers, but I'm
-> not sure that's quite the breakdown.  That looks to me like an indirect
-> way to pass a flag which is already encoded in the ops and sk_type.
+> Could you please apply this patch and see if the warning triggers
+> before the underflows start coming in? We already know that if it
+> does then it can cause underflows but I want to make sure that
+> this is what's causing your problems.
 
-The idea of that breakdown was to encode the semantics purely into the ops 
-and mostly ignore sk_type. An alternative would be to create a couple of 
-macros is_connectionless and is_stream and lump it all together in one big 
-unix_sendmsg. Unfortunately, unix_sendmsg could end up a bit too large. 
-IMHO, unix_{dgram,stream}_sendmsg are large as it is.
+Well I think it's time to fix this bug so that we don't release
+2.6.10 with it.
 
-> At anyrate, for 2.6.10 the changes should be small and obvious.
-> Better refactoring should be left for 2.6.11.
+This is only a temporary hack that should be rolled back once
+the locking in addrconf.c is fixed properly.  At the moment
+the locking is just too twisted to fix properly for 2.6.10 :(
 
-Agreed. I had my eye on 2.6.11 anyway.
+This patch doesn't even fix all the races in ipv6_ifa_notify.
+For example, the anycast/multicast addresses may be left
+standing should the race strike.  However, they should have
+a much milder effect compared to a dead route in the routing
+table :)
 
-> 
-> thanks,
-> -chris
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Ross
+May I ask this question again: Is it possible to move some of
+this complexity to user-space?
 
+addrconf.c is by far the biggest file in net/ipv6.  This is
+also not the first time we've had a serious bug in this file.
+I recall fixing another timer-related bug in this file a year
+ago that left dangling references on devices.
 
---------------enig5D86439C9872B78DC700D940
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: OpenPGP digital signature
-Content-Disposition: attachment; filename="signature.asc"
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+--azLHFNyN32YCQGCU
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
 
-iD8DBQFBnb+t9bR4xmappRARAi2wAJ9j7e1W+67cJEZxRB+3mqwomuALlgCgnlD9
-askyxQzduUklgL76DWcDKaQ=
-=frax
------END PGP SIGNATURE-----
+===== net/ipv6/addrconf.c 1.120 vs edited =====
+--- 1.120/net/ipv6/addrconf.c	2004-11-16 09:08:09 +11:00
++++ edited/net/ipv6/addrconf.c	2004-11-19 20:43:45 +11:00
+@@ -2987,8 +2987,13 @@
+ 	switch (event) {
+ 	case RTM_NEWADDR:
+ 		dst_hold(&ifp->rt->u.dst);
+-		if (ip6_ins_rt(ifp->rt, NULL, NULL))
++		spin_lock_bh(&ifp->lock);
++
++		if (ifp->dead || ip6_ins_rt(ifp->rt, NULL, NULL))
+ 			dst_release(&ifp->rt->u.dst);
++
++		spin_unlock_bh(&ifp->lock);
++
+ 		if (ifp->idev->cnf.forwarding)
+ 			addrconf_join_anycast(ifp);
+ 		break;
+@@ -2996,11 +3001,16 @@
+ 		if (ifp->idev->cnf.forwarding)
+ 			addrconf_leave_anycast(ifp);
+ 		addrconf_leave_solict(ifp->idev, &ifp->addr);
++
+ 		dst_hold(&ifp->rt->u.dst);
++		spin_lock_bh(&ifp->lock);
++
+ 		if (ip6_del_rt(ifp->rt, NULL, NULL))
+ 			dst_free(&ifp->rt->u.dst);
+ 		else
+ 			dst_release(&ifp->rt->u.dst);
++
++		spin_unlock_bh(&ifp->lock);
+ 		break;
+ 	}
+ }
 
---------------enig5D86439C9872B78DC700D940--
+--azLHFNyN32YCQGCU--
