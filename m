@@ -1,32 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Hang in downing interface with IPv6 PRIVACY
-Date: Sat, 8 Nov 2003 22:30:49 -0800
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: [PATCH] enabling netdev boot options (2.6.0-t9)
+Date: Sun, 9 Nov 2003 11:55:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031108223049.36651f8d.davem@redhat.com>
-References: <20031106115935.0cd56745.davem@redhat.com>
-	<Pine.LNX.4.44.0311071034230.1107-100000@linux.local>
+Message-ID: <20031109115535.A1282@sygehus.dk>
+References: <20031108160441.3a0a5505.rddunlap@osdl.org> <20031108204406.5dbbdc87.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, krkumar@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, saw@saw.sw.com.sg, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0311071034230.1107-100000@linux.local>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20031108204406.5dbbdc87.rddunlap@osdl.org>; from rddunlap@osdl.org on Sat, Nov 08, 2003 at 08:44:06PM -0800
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 7 Nov 2003 11:01:41 -0800 (PST)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
+On Sat, Nov 08, 2003 at 08:44:06PM -0800, Randy.Dunlap wrote:
+> 
+> Here's an update for 2.6.0-test9.  This update adds
+> dev_alloc_name_lock(), which takes and releases the rtnl lock
+> to call dev_alloc_name(), so that the caller doesn't have to do that.
+> 
+> More comments?
 
-> While using PRIVACY extensions, I sometimes get a hang when I remove the
-> interface. But I can reproduce this every time using the test script at
-> the end of the mail (hang depends on the order of address deletion).
- ...
-> The bug is in ipv6_del_addr() where if a temp address is being deleted
- ...
-> Also, the code at the top of the routine is unnecessary, the same is being
-> done when the address is found a little later in that routine.
+I don't like that name for the function. dev_alloc_name_lock() makes it
+natural to think that there is a matching dev_alloc_name_unlock() function
+which you should call afterwards. How about dev_alloc_name_locked() or
+dev_alloc_name_with_lock() instead?
 
-Looks great, applied.
-
-Thanks.
+-- 
+Regards,
+Rask Ingemann Lambertsen
