@@ -1,49 +1,65 @@
-From: "Guthrie, Jeremy" <jeremy.guthrie@berbee.com>
-Subject: RE: Linux Routing Performance Update
-Date: Sat, 29 Jan 2005 16:21:39 -0600
-Message-ID: <D078DAD578D48A46A67AB71E6D2324940FC7DB@CTG-MSNEXC01.staff.berbee.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 4131] New: iptables rules don't work correctly
+ in 2.6.11-rc2-bk7
+Date: Sat, 29 Jan 2005 23:48:32 -0800
+Message-ID: <20050129234832.53c6f763.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: "Robert Olsson" <Robert.Olsson@data.slu.se>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: selecter@spray.se
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Florian Weimer" <fw@deneb.enyo.de>,
-        "Glen Turner" <glen.turner@aarnet.edu.au>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
------Original Message-----
-From: netdev-bounce@oss.sgi.com on behalf of Florian Weimer
-Sent: Sat 1/29/2005 12:50 PM
-To: Glen Turner
-Cc: Robert Olsson; netdev@oss.sgi.com
-Subject: Re: Linux Routing Performance Update
- 
-* Glen Turner:
 
->> Finally time for some more testing with a somewhat upgraded equipment.
->
-> Thanks very much for the interesting results.
 
-Indeed.
+Begin forwarded message:
 
-> I'm sure other network engineers have experienced software routers where
-> the pps has dramatically slowed down upon reasonable ACLs and queuing
-> (Cisco 7500, etc),
+Date: Sat, 29 Jan 2005 23:46:15 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 4131] New: iptables rules don't work correctly in 2.6.11-rc2-bk7
 
-Cisco 7500 with proper configuration would do quite well in this test,
-too, even with ACLs.  Only if you have more than a few thousand new
-flows per second, things start to look rather bleak.  (Forwarding
-decisions are performed once per flow on this platform.)
------------
 
-Depends if you are using standard route caching or Cisco Express Forwarding.  The 7500s should support dCEF if memory strikes me correctly.  In any case, when CEF is available it should be used.  Comparing any Cisco router w/o CEF or MLS wouldn't exactly be a fair comparison.  MLS will care about new flows but CEF will not.
+http://bugme.osdl.org/show_bug.cgi?id=4131
 
-> so some results with netfilter and tc running would be appreciated,
-> as would tests for any packet re-ordering in output flows.
+           Summary: iptables rules don't work correctly in 2.6.11-rc2-bk7
+    Kernel Version: 2.6.11-rc2-bk7
+            Status: NEW
+          Severity: high
+             Owner: laforge@gnumonks.org
+         Submitter: selecter@spray.se
 
-I'd also like to see tests with random source/destination
-combinations, just to keep things in perspective. 8-)
+
+I am using vanilla kernel 2.6.10 as stable one. I got script that run on every
+system startup:
+
+#!/bin/bash
+
+for table in INPUT OUTPUT FORWARD ; do
+        iptables -P $table DROP
+done
+
+iptables -F
+iptables -A INPUT -p all -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables -A INPUT -s 127.0.0.1 -d 127.0.0.1 -p ALL -j ACCEPT
+
+iptables -A OUTPUT -p ALL -j ACCEPT
+
+On 2.6.10 NETWORK is accessible.
+On 2.6.11-rc2-bk7 NETWORK is __NOT__ accessible (just after flushing iptables
+and setting ACCEPT on INPUT and OUTPUT I got connection)
+
+# iptables -A INPUT -p all -m state --state ESTABLISHED,RELATED -j ACCEPT
+iptables: No chain/target/match by that name
+
+Was used the same kernelconfig. Gonna check again
+
+cat /proc/net/ip_tables* | grep state returns nothing
+
+Also I can't see connection state match support in menuconfig
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
