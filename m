@@ -1,32 +1,32 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: Re: copybreak and gige network drivers
-Date: Tue, 30 Sep 2003 10:39:11 -0400
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Fw: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
+Date: Tue, 30 Sep 2003 16:45:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F79958F.7040103@nortelnetworks.com>
-References: <Pine.LNX.4.44.0309291834330.2166-100000@training.scyld.com>
+Message-ID: <16249.38675.547646.29541@robur.slu.se>
+References: <20030929123734.5bd97a47.akpm@osdl.org>
+	<16248.41796.797321.700866@robur.slu.se>
+	<3F78A691.1040406@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, Andrew Morton <akpm@osdl.org>,
+        netdev@oss.sgi.com, dfages@arkoon.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Donald Becker <becker@scyld.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F78A691.1040406@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Donald Becker wrote:
 
-> The decision point is pretty much break-even in the range of 150-400
-> bytes, and most packets are either smaller or much larger, so just pick
-> a likely value.  I tried to look at the bin sizes for the skbuff
-> allocator, but you'll find that the overhead changes faster than you can
-> possibly track.
+Jeff Garzik writes:
 
-Okay, will do.  Thanks for the excellent explanation.
+ > If someone had a NAPI patch for tulip, we could remove HW_FLOWCONTROL 
+ > option altogether :)
 
-Chris
+ Hello!
+ 
+ I sent you one some time ago. Well I'll try dig it up see if it still works. 
+ Unfortunely the test-bed is busy with other stuff.
 
--- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+ Cheers.
+						--ro
