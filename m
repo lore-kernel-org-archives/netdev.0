@@ -1,38 +1,36 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: where is the proper place for r8169 bug reports?
-Date: Wed, 2 Feb 2005 23:13:33 +0100
-Message-ID: <20050202221333.GA24020@electric-eye.fr.zoreil.com>
-References: <20050131181508.GA15908@gerbil.toadis.porkis> <20050131214951.GA13217@electric-eye.fr.zoreil.com> <20050131215948.GA23289@gerbil.toadis.porkis> <20050131222342.GB13217@electric-eye.fr.zoreil.com> <20050201215607.GA8530@gerbil.toadis.porkis> <20050201223109.GA2957@electric-eye.fr.zoreil.com>
+From: Olaf Hering <olh@suse.de>
+Subject: Re: limited number if iptable rules on 64bit hosts
+Date: Wed, 2 Feb 2005 23:25:16 +0100
+Message-ID: <20050202222516.GA15440@suse.de>
+References: <20050202133851.GA9680@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: "Dale E. Martin" <dale@the-martins.org>
+Content-Type: text/plain; charset=utf-8
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050201223109.GA2957@electric-eye.fr.zoreil.com>
+In-Reply-To: <20050202133851.GA9680@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Re,
+ On Wed, Feb 02, Olaf Hering wrote:
 
-- the 2.4.x backport has been rediffed against 2.4.29 (mostly harmless
-  conflict in drivers/net/Config.in);
-- the driver compiles again when RTL8169_DEBUG is defined;
-- endianness fix in the Rx checksumming path.
+> 
+> What buffer or sysctrl value has to change to allow more than 3445 rules
+> like this (on a 64bit host with 64bit iptables)?
+> 
+> iptables -A FORWARD -j ACCEPT
+> 
+> setsockopt(3, SOL_IP, 0x40 /* IP_??? */,
+> "filter\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"..., 524368) =
+> -1 ENOMEM (Cannot allocate memory)
 
-A test report with your 2.95.3 compiler would be welcome. If it breaks,
-the r8169.o file and an estimate of the transmitted/received packets count
-will help. If none is available, the number of interrupts processed can
-help too.
+it triggers the first -ENOMEM in
+net/ipv4/netfilter/ip_tables.c:do_replace
 
-Patch against 2.4.29 (md5: 444748e3c6c56382cb02adea4d16b5cf)
-http://www.fr.zoreil.com/~romieu/misc/20050202-2.4.29-r8169.c-test.patch
+sizeof(struct ipt_table_info)+SMP_ALIGN(tmp.size)*NR_CPUS == 67108992 bytes
 
-Same thing a la patch-script:
-http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.29/r8169/
+128+524288*128==67108992
 
-Patch-script in a single file:
-http://www.fr.zoreil.com/linux/kernel/2.4.x/2.4.29/r8169-blob.tar.bz2
+(sizeof(struct ipt_table_info) + (((tmp.size) + (1 << 7)-1) & ~((1 << 7)-1)) * 128)
 
---
-Ueimor
+hmm, no braces missing.
