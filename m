@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH] fix skb leak in af_irda.c
-Date: Sat, 1 Nov 2003 03:19:31 -0200
+Subject: [PATCH] IRDA: fix skb leak in irda_connect_indication
+Date: Sat, 1 Nov 2003 04:11:24 -0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031101051931.GI3705@conectiva.com.br>
+Message-ID: <20031101061124.GJ3705@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Jean Tourrilhes <jt@hpl.hp.com>,
@@ -19,22 +19,19 @@ Hi David, Jean,
 
 - Arnaldo
 
+
 ===== net/irda/af_irda.c 1.46 vs edited =====
 --- 1.46/net/irda/af_irda.c	Sat Aug 30 23:15:30 2003
-+++ edited/net/irda/af_irda.c	Sat Nov  1 03:18:02 2003
-@@ -187,12 +187,12 @@
- 
++++ edited/net/irda/af_irda.c	Sat Nov  1 04:07:41 2003
+@@ -248,8 +248,10 @@
  	IRDA_DEBUG(2, "%s(%p)\n", __FUNCTION__, self);
  
-+	dev_kfree_skb(skb);
-+	// Should be ??? skb_queue_tail(&sk->sk_receive_queue, skb);
-+
  	sk = self->sk;
- 	if (sk == NULL)
+-	if (sk == NULL)
++	if (sk == NULL) {
++		kfree_skb(skb);
  		return;
--
--	dev_kfree_skb(skb);
--	// Should be ??? skb_queue_tail(&sk->sk_receive_queue, skb);
++	}
  
  	/* How much header space do we need to reserve */
  	self->max_header_size = max_header_size;
