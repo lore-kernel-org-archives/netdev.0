@@ -1,79 +1,51 @@
-From: Adrian Bunk <bunk@fs.tum.de>
-Subject: Re: 2.6.8.1 - unresolved xfrm symbols in ip6_tunnel
-Date: Tue, 17 Aug 2004 23:00:59 +0200
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: [PATCH 2.6.8.1] bonding: bonding might sleep with lock held
+Date: Tue, 17 Aug 2004 15:08:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040817210058.GU1387@fs.tum.de>
-References: <20040817203013.GA31993@satan.blackhosts>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Message-ID: <200408172208.i7HM8Yo7009451@death.nxdomain.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jakub Bogusz <qboosh@pld-linux.org>, Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20040817203013.GA31993@satan.blackhosts>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Aug 17, 2004 at 10:30:13PM +0200, Jakub Bogusz wrote:
 
-> I've just got:
-> 
-> if [ -r System.map ]; then /sbin/depmod -ae -F System.map  2.6.8.1; fi
-> WARNING: /lib/modules/2.6.8.1/kernel/net/ipv6/ip6_tunnel.ko needs unknown symbol xfrm6_tunnel_register
-> WARNING: /lib/modules/2.6.8.1/kernel/net/ipv6/ip6_tunnel.ko needs unknown symbol xfrm6_tunnel_deregister
-> 
-> with
-> CONFIG_IPV6_TUNNEL=m
-> and no XFRM (it wasn't selected by IPV6_TUNNEL and it's not possible to
-> select it standalone - XFRM is selected only by some options which
-> I don't use).
-> 
-> So I think that IPV6_TUNNEL should select or depend on XFRM...
-> or usage of the above symbols should depend on CONFIG_XFRM ||
-> CONFIG_XFRM_MODULE?
+	I posted a patch for this a while back, Andi Kleen suggested an
+alternate patch, which never made it into the mainline; here it is.
 
-Thanks for this report.
+	To summarize the problem: In 802.3ad mode, the bond_close()
+function will eventually call dev_remove_pack() with a lock held.  In
+turn, dev_remove_pack() calls synchronize_net() which eventually might
+sleep in wait_for_completion().
 
-It's a known bug.
+	Patch generated against 2.6.7, but applied ok to 2.6.8.1.
 
-Below is the patch from -mm fixing this issue.
+	-J
 
-@Andrew:
-Can you push fw-new-linux-268-rc4-mm1-ipv6-in-ipv6-undefined-references 
-with the next updates to Linus?
-
-> Jakub Bogusz    http://cyber.cs.net.pl/~qboosh/
-
-cu
-Adrian
-
-
-<--  snip  -->
-
-
-From: Herbert Xu <herbert@gondor.apana.org.au>
-
-Fix bug #3200
-
-*** Warning: "xfrm6_tunnel_deregister" [net/ipv6/ip6_tunnel.ko] undefined!
-*** Warning: "xfrm6_tunnel_register" [net/ipv6/ip6_tunnel.ko] undefined!
-
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
 
- 25-akpm/net/ipv6/Kconfig |    1 +
- 1 files changed, 1 insertion(+)
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
 
-diff -puN net/ipv6/Kconfig~fw-new-linux-268-rc4-mm1-ipv6-in-ipv6-undefined-references net/ipv6/Kconfig
---- 25/net/ipv6/Kconfig~fw-new-linux-268-rc4-mm1-ipv6-in-ipv6-undefined-references	2004-08-15 17:33:34.718683088 -0700
-+++ 25-akpm/net/ipv6/Kconfig	2004-08-15 17:33:34.721682632 -0700
-@@ -59,6 +59,7 @@ config INET6_IPCOMP
- config IPV6_TUNNEL
- 	tristate "IPv6: IPv6-in-IPv6 tunnel"
- 	depends on IPV6
-+	select XFRM
- 	---help---
- 	  Support for IPv6-in-IPv6 tunnels described in RFC 2473.
+diff -urN linux-2.6.7-virgin/drivers/net/bonding/bond_main.c linux-2.6.7/drivers/net/bonding/bond_main.c
+--- linux-2.6.7-virgin/drivers/net/bonding/bond_main.c	2004-08-17 14:56:04.411984128 -0700
++++ linux-2.6.7/drivers/net/bonding/bond_main.c	2004-08-17 14:57:08.441968256 -0700
+@@ -3566,15 +3566,15 @@
+ {
+ 	struct bonding *bond = bond_dev->priv;
  
-_
+-	write_lock_bh(&bond->lock);
+-
+-	bond_mc_list_destroy(bond);
+-
+ 	if (bond->params.mode == BOND_MODE_8023AD) {
+ 		/* Unregister the receive of LACPDUs */
+ 		bond_unregister_lacpdu(bond);
+ 	}
+ 
++	write_lock_bh(&bond->lock);
++
++	bond_mc_list_destroy(bond);
++
+ 	/* signal timers not to re-arm */
+ 	bond->kill_timers = 1;
+ 
