@@ -1,53 +1,44 @@
-From: Henrik Nordstrom <hno@marasystems.com>
-Subject: Re: [PATCH 2.6] iptables CONNMARK match+target
-Date: Thu, 21 Oct 2004 15:19:12 +0200 (CEST)
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <Pine.LNX.4.61.0410211510030.21167@filer.marasystems.com>
-References: <20041020222102.GO19899@sunbeam.de.gnumonks.org>
-	<Pine.LNX.4.61.0410210912280.18310@filer.marasystems.com>
-	<20041021091632.GB3551@sunbeam.de.gnumonks.org>
-	<Pine.LNX.4.61.0410211215580.19600@filer.marasystems.com>
-	<20041021130837.GE3551@sunbeam.de.gnumonks.org>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [patch 2.6.9 0/11] Add MODULE_VERSION to several network drivers
+Date: Thu, 21 Oct 2004 08:22:05 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20041021082205.A29340@tuxdriver.com>
+References: <20041020141146.C8775@tuxdriver.com> <1098350269.2810.17.camel@laptop.fenrus.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Linux Netdev List <netdev@oss.sgi.com>,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20041021130837.GE3551@sunbeam.de.gnumonks.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
+        davem@davemloft.net, john.ronciak@intel.com,
+        ganesh.venkatesan@intel.com, akpm@osdl.org, romieu@fr.zoreil.com,
+        ctindel@users.sourceforge.net, fubar@us.ibm.com,
+        greearb@candelatech.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Arjan van de Ven <arjan@fenrus.demon.nl>
+Content-Disposition: inline
+In-Reply-To: <1098350269.2810.17.camel@laptop.fenrus.com>; from arjan@fenrus.demon.nl on Thu, Oct 21, 2004 at 11:17:49AM +0200
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 21 Oct 2004, Harald Welte wrote:
+On Thu, Oct 21, 2004 at 11:17:49AM +0200, Arjan van de Ven wrote:
+> On Wed, 2004-10-20 at 20:11, John W. Linville wrote:
+> > Patches to add MODULE_VERSION lines to several network drivers...
+> > 
+> > Here is the list:
+> 
+> have you checked if the version of these drivers is actually useful? (eg
+> updated when the driver changes) If it's not I'd say adding a
+> MODULE_VERSION to it makes no sense whatsoever.
 
-> On Thu, Oct 21, 2004 at 12:25:35PM +0200, Henrik Nordstrom wrote:
->
->> The MARK bit-wise operations is also available for CONNMARK and could in
->> theory be included in CONNMARK when submitted to the kernel
->
-> Yes, but doesn't the patch I just submitted to DaveM include all the
-> required functionality?  both ipt_connmark and ipt_CONNMARK have a
-> 'mask' parameter in ther {match,targ}info struct.
+Why do I feel like I'm being baited...? :-)
 
-It includes the miminimal required functionality (which is already more 
-than MARK), but it does not include the full bitwise operations allowing 
-for xor etc, and not the same level of user friendliness in specifying the 
-operation as the bitwise mark operations.
+I would have to suspect that if a version string exists, that it has at
+least some meaning to the primary developers/maintainters.  It certainly
+is beyond my control to force the maintainers to give meaning to their
+version strings.
 
->> I am fine either way.
->
-> If you think there's something (in the kernel) missing for bit-wise
-> operations of CONNMARK, please let me know and send a patch.  Thanks.
+Is this a political statement against the MODULE_VERSION macro and/or
+its purpose?  I'm not overly interested in debating that one...
 
-The bitwise mark operations patch for CONNMARK is around somewhere.. 
-looking. Found it and bounced to the netfilter-devel list separately.
-
-Regards
-Henrik
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
