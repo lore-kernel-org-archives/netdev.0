@@ -1,34 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] support for large number of network devices.
-Date: Thu, 15 Jan 2004 00:46:31 -0800
+Subject: Re: [PATCH] IPv6 MIB:ipv6inetNetToMediaTable
+Date: Thu, 15 Jan 2004 00:48:33 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115004631.2839c8b8.davem@redhat.com>
-References: <20040113154610.38f5934c.shemminger@osdl.org>
-	<20040113155921.342db463.davem@redhat.com>
-	<20040113161303.20f1159d.shemminger@osdl.org>
-	<20040114071303.GG28521@waste.org>
-	<20040114113734.4e9a0865.shemminger@osdl.org>
-	<20040114121155.7dabd70e.davem@redhat.com>
-	<20040114162411.08322247.shemminger@osdl.org>
+Message-ID: <20040115004833.41be5b58.davem@redhat.com>
+References: <200311191621.38087.mashirle@us.ibm.com>
+	<200312051351.47962.mashirle@us.ibm.com>
+	<20031205145700.120e9e68.davem@redhat.com>
+	<200401141621.26317.mashirle@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040114162411.08322247.shemminger@osdl.org>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200401141621.26317.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 14 Jan 2004 16:24:11 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 14 Jan 2004 16:21:26 -0800
+Shirley Ma <mashirle@us.ibm.com> wrote:
 
-> This should make it match the existing semantics more exactly.
-> It will skip the false positive matchs from sscanf trailing chars
-> or blanks.
+> This patch is against 2.6.1 kernel.
 
-Ok, but... I thought we had decided to move towards the hashing based
-patch you said you had so we can kill two birds with one stone?
+Can you explain what this patch is doing, and specifically what bug it is fixing?
 
-At least, that is the conclusion I thought we had arrived at.
-:-)
+I feel dense as I can't figure it out just by studying your patch and the code it
+touches :-)
