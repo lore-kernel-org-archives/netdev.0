@@ -1,55 +1,53 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: some TSO analysis
-Date: Thu, 11 Nov 2004 18:20:22 +1100
-Message-ID: <E1CS9Fm-0004hC-00@gondolin.me.apana.org.au>
-References: <20041111050608.GG1922@krispykreme.ozlabs.ibm.com>
-Cc: netdev@oss.sgi.com
+From: sebastian.ionita@focomunicatii.ro
+Subject: Re: ZyXEL GN650-T
+Date: Wed, 10 Nov 2004 22:10:10 +0200
+Message-ID: <20041110201010.18341.qmail__19088.9650410556$1100160782$gmane$org@focomunicatii.ro>
+References: <20041107214427.20301.qmail@focomunicatii.ro>
+            <20041107224803.GA29248@electric-eye.fr.zoreil.com>
+            <20041109000006.GA14911@electric-eye.fr.zoreil.com>
+            <20041109232510.GA5582@electric-eye.fr.zoreil.com>
+Mime-Version: 1.0
+Content-Type: text/plain; format=flowed; charset="utf-8"
+Content-Transfer-Encoding: 7bit
+Cc: seby@focomunicatii.ro, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        alan@redhat.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: anton@samba.org (Anton Blanchard)
-In-Reply-To: <20041111050608.GG1922@krispykreme.ozlabs.ibm.com>
+In-Reply-To: <20041109232510.GA5582@electric-eye.fr.zoreil.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Anton Blanchard <anton@samba.org> wrote:
-> 
-> Some web server benchmarking on recent 2.6 shows TSO not to be the gain
-> it was in earlier kernels. I took a quick look at varying
-> tcp_tso_win_divisor, below are the results. 
+Francois Romieu writes: 
 
-Thanks for doing the testing.  It's very interesting.
+> Francois Romieu <romieu@fr.zoreil.com> :
+>> seby@focomunicatii.ro <seby@focomunicatii.ro> :
+>> [...]
+>> > I just bouth a zyxel GN650T network card .. and it sems that vlan's don't 
+>> > work on this card .. anybody had this problems with this card ..  
+>> 
+>> Patch below against 2.6.10-rc1-bk15 + Jeff's netdev should convert the driver
+>> to the in-kernel vlan API.
+> 
+> Cr*p, the driver had not been backported to 2.4.x. Ok, instant patch (155 ko)
+> against 2.4.28-rc2 available at:
+> http://www.fr.zoreil.com/people/francois/misc/20041110-2.4.28-rc2-via-velocity-backport.patch
+The kernel compiles but I have 1 unresolved simbole in the via-velocity 
+modul
+depmod: *** Unresolved symbols in 
+/lib/modules/2.4.28-rc2/kernel/drivers/net/via-velocity.o
+depmod:         crc_ccitt_R3771b461 
+
+Seby..
+> 
+> --
+> Ueimor
  
-> I noticed a few things:
-> 
-> - In the normal copy case, it looks like we split the first page between
->  the skb->data and the first frag. eg:
-> 
->  data: 1634 frags: 1408 4096 4096 4096 2108 4
-> 
->  Is there a reason why the remaining 1408 bytes cant be stuffed into
->  skb->data? Or is that an issue with MTU sized buffers?
 
-The reason is that the skb has to accomodate other things like
-headers and skb_shared_info.  It seems to have added up to a
-quite considerable value in your case.
 
-Perhaps sendmsg should check whether the data can fit in the space
-available in skb->data, and if not just go for a fragment right away.
-
-> - TSO really doesnt come into play until we set tcp_tso_win_divisor to
->  2. BTW In this setup I am talking to a 2.4 machine on the same gigabit
->  switch. At 4 the normal copy case sees some gains, but interestingly
->  the zero copy does not.
-
-This is understandable.  You really need to have a rcv window that's
-much bigger than 64K to have any chance of filling up the TSO packet
-with tcp_tso_win_divisor set to 8.
-
-BTW, how did you measure the gains?
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+____________________________________________________________
+SC. FO Comunicatii SRL.
+Sebastian Ionita
+Administrator Sistem
+mobil: 0724 212408
+tel fix: 0264 450456 
