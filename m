@@ -1,39 +1,57 @@
-From: Martin Mares <mj@ucw.cz>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
-Date: Tue, 8 Mar 2005 15:03:01 +0100
-Message-ID: <20050308140301.GC20607@atrey.karlin.mff.cuni.cz>
-References: <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net> <20050306173145.GQ31837@postel.suug.ch> <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de> <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com> <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net> <1110288879.1050.167.camel@jzny.localdomain> <20050308135134.GA20607@atrey.karlin.mff.cuni.cz> <1110290300.1050.190.camel@jzny.localdomain>
+Date: Tue, 8 Mar 2005 15:02:54 +0100
+Message-ID: <20050308140254.GA31837@postel.suug.ch>
+References: <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net> <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net> <E1D7lQN-0002gz-00@smtp06.mrf.mail.rcn.net> <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net> <20050306173145.GQ31837@postel.suug.ch> <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de> <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com> <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Zdenek Radouch <zdenek@rcn.com>,
+Cc: hadi@cyberus.ca,
 	Steve Iribarne <steve.iribarne@dilithiumnetworks.com>,
-	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
-	Andi Kleen <ak@muc.de>, netdev@oss.sgi.com,
+	Eran Mann <emann@mrv.com>, Andi Kleen <ak@muc.de>,
+	Martin Mares <mj@ucw.cz>, netdev@oss.sgi.com,
 	linux-net@vger.kernel.org
-To: jamal <hadi@cyberus.ca>
+To: Zdenek Radouch <zdenek@rcn.com>
 Content-Disposition: inline
-In-Reply-To: <1110290300.1050.190.camel@jzny.localdomain>
+In-Reply-To: <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net>
 Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Hello!
+* Zdenek Radouch <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net> 2005-03-07 22:15
+> The major thing the RFC misses is the fact that internal
+> to one of these "public" or "private" hosts, you may have
+> another, "even more private" network, for example one
+> that connects the cards within the chassis.  Such network
+> must be (for obvious reasons) completely hidden
+> from the outside, and thus cannot come from the
+> "outside" address space.  This "outside" space is a union
+> of the "public" and "private" IP addresses.
+> Guess what's left?  How 'bout 127.0.0.0.
 
-> People tend to use private blocks in a chasis (unique IP for each blade)
-> - which by default are not routed outside the chasis.
-> 
-> I have a feeling this is what you meant
+RFC 1918 is in no way related to 127/8, it simply suggest various
+address spaces considered private and the fact that its status
+is only best practice makes it obvious that it has open issues
+such as merging conflicts so I'm not quite sure if I understand
+what you mean.
 
-No, since this tends to interfere with the outside network using the
-same private (RFC 1918) addresses. People generally don't expect network
-equipment to collide with their perfectly legal addressing plan.
+I think we all agree that having 127/8 fully routeable in the local
+table would be a good thing although I haven't seen any use for it.
 
-On the other hand, if the manufacturer gets a small block of public
-addresses and uses it in all his devices (the same block everywhere)
-for internal purposes only (no packet ever escapes), everything is
-perfectly correct and no collisions can arise.
+There are two major problems involved though:
 
-				Have a nice fortnight
--- 
-Martin `MJ' Mares   <mj@ucw.cz>   http://atrey.karlin.mff.cuni.cz/~mj/
-Faculty of Math and Physics, Charles University, Prague, Czech Rep., Earth
-"Computers are useless.  They can only give you answers."  -- Pablo Picasso
+  The kernel must know about its own local address for ARP, routing and
+  various other reasons. This isn't a problem because it could simply
+  look up the route but sometimes there is not enough information to do
+  a full route lookup. This issue can be resolved with some effort though.
+  It would get easier if policy routing is ignored for this purpose.
+
+  Userspace must be told about the address and prefix of the loopback
+  which is done via the LOOPBACK() macro. Extracting parts of the
+  address field is not a problem if userspace is recompiled but making
+  it dynamically is. It would mean to change all userspace applications
+  relying on LOOPBACK() to either use netlink or ioctl. Given this
+  issue has been resolved there it is still likely that certain
+  userspace applications do not use LOOPBACK() and simply rely on the
+  fact that 127/8 has a host scope and is _always_ looped back.
+
+Problem #2 can probably be ignored in some cases and left to the
+operator to resolve.
