@@ -1,27 +1,39 @@
-From: Thomas Davis <tadavis@lbl.gov>
-Subject: Re: Raylink/WebGear testing - ray_cs.c iomem bug?
-Date: Wed, 06 Oct 2004 14:59:49 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
+Date: Wed, 06 Oct 2004 18:52:42 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41646AD5.1070800@lbl.gov>
-References: <Pine.LNX.4.58.0410061032410.8290@ppc970.osdl.org> <41644492.1000400@pobox.com>
+Message-ID: <4164773A.1090907@pobox.com>
+References: <41597DA4.5040200@pobox.com> <003701c4abe1$132f8850$9810100a@S2IOtech.com> <20041006200930.GA19395@havoc.gtf.org> <20041006202001.GA27663@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Linus Torvalds <torvalds@osdl.org>,
-        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        Corey Thomas <corey@world.std.com>, netdev@oss.sgi.com,
-        Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: Ravinandan Arakali <ravinandan.arakali@s2io.com>, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
+        rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41644492.1000400@pobox.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20041006202001.GA27663@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> I'm not aware of anyone with ray_cs hardware, alas...
+Francois Romieu wrote:
+> Jeff Garzik <jgarzik@pobox.com> :
+> [...]
 > 
+>>[PATCH 2.6.9-rc3 1/8] whitespace changes
+>>[PATCH 2.6.9-rc3 2/8] fix 32bit issue
+>>[PATCH 2.6.9-rc3 3/8] add a feature
+>>[PATCH 2.6.9-rc3 4/8] etc...
+> 
+> 
+> <nit>
+> [PATCH 2.6.9-rc3 1/8] S2io: whitespace changes
+> [PATCH 2.6.9-rc3 2/8] S2io: fix 32bit issue
+> [PATCH 2.6.9-rc3 3/8] S2io: add a feature
+> [PATCH 2.6.9-rc3 4/8] S2io: etc...
+> </nit>
 
-I do believe I still have two of these squirreled away someplace..  Let 
-me check and see later tonight.
 
-thomas
+Yes, thanks for the correction :)
+
+	Jeff
