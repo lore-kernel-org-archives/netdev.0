@@ -1,41 +1,27 @@
-From: Nir Tzachar <tzachar@cs.bgu.ac.il>
-Subject: Re: network protocol query
-Date: Sun, 14 Nov 2004 09:41:23 +0200 (IST)
-Message-ID: <Pine.LNX.4.50.0411140936040.15336-100000@nexus.cs.bgu.ac.il>
-References: <20041114030157.88091.qmail@web41406.mail.yahoo.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [patch] 2.4.28-rc3: neigh_for_each must be EXPORT_SYMBOL'ed
+Date: Sat, 13 Nov 2004 23:25:14 -0800
+Message-ID: <20041113232514.61bf760e.davem@davemloft.net>
+References: <20041112180052.GE23215@logos.cnet>
+	<20041113200735.GD2249@stusta.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, "" <kernelnewbies@nl.linux.org>
-Return-path: <kernelnewbies-bounce@nl.linux.org>
-To: cranium2003 <cranium2003@yahoo.com>
-In-Reply-To: <20041114030157.88091.qmail@web41406.mail.yahoo.com>
-Sender: kernelnewbies-bounce@nl.linux.org
-Errors-to: kernelnewbies-bounce@nl.linux.org
-List-help: <mailto:ecartis@nl.linux.org?Subject=help>
-List-unsubscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=unsubscribe>
-List-software: Ecartis version 1.0.0
-List-subscribe: <mailto:kernelnewbies-request@nl.linux.org?Subject=subscribe>
-List-owner: <mailto:ecartis-owner@nl.linux.org>
-List-post: <mailto:kernelnewbies@nl.linux.org>
-List-archive: <http://mail.nl.linux.org/kernelnewbies/>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: marcelo.tosatti@cyclades.com, laforge@gnumonks.org,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	patrick@tykepenguin.com, linux-decnet-user@lists.sourceforge.net
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261255AbUKNHmi@vger.kernel.org>
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20041113200735.GD2249@stusta.de>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-> hello,
-> kernel. Is there any function in kernel that help me
-> to add new protocol?can it be working with existing
+On Sat, 13 Nov 2004 21:07:35 +0100
+Adrian Bunk <bunk@stusta.de> wrote:
 
-try looking at existing protocols, and how the register themselves.
-you basically need to inet_add_protocol to add your protocol, after you 
-built the proper struct net_protocol.
+> neigh_for_each must be EXPORT_SYMBOL'ed (as it is in 2.6):
 
-hope this helped.
+Good catch Adrian, I'll apply this and push it to
+Marcelo.
 
-
--- 
-========================================================================
-nir.
-
---
-Kernelnewbies: Help each other learn about the Linux kernel.
-Archive:       http://mail.nl.linux.org/kernelnewbies/
-FAQ:           http://kernelnewbies.org/faq/
+Thanks.
