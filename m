@@ -1,45 +1,41 @@
 From: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Fri, 06 Sep 2002 07:29:21 -0700
+Date: Fri, 06 Sep 2002 07:37:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <46202575.1031297360@[10.10.2.3]>
-References: <20020905.235159.128049953.davem@redhat.com>
+Message-ID: <46676537.1031297834@[10.10.2.3]>
+References: <15736.38178.445310.714015@robur.slu.se>
 Reply-To: "Martin J. Bligh" <Martin.Bligh@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, tcw@tempest.prismnet.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, niv@us.ibm.com
+Cc: akpm@zip.com.au, hadi@cyberus.ca, tcw@tempest.prismnet.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020905.235159.128049953.davem@redhat.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>,
+   "David S. Miller" <davem@redhat.com>
+In-Reply-To: <15736.38178.445310.714015@robur.slu.se>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Stupid question, are you sure you have CONFIG_E1000_NAPI enabled?
-> 
-> NAPI is also not the panacea to all problems in the world.
+> And NAPI scheme behaves different since we can not assume that all network 
+> traffic is well-behaved like TCP. System has to be manageable and to "perform"
+> under any network load not only for well-behaved TCP. So of course we will 
+> see some differences -- there are no free lunch. Simply we can not blindly
+> look at one test. IMO NAPI is the best overall performer. The number speaks 
+> for themselves.
 
-No, but I didn't expect throughput to drop by 40% or so either,
-which is (very roughly) what happened. Interrupts are a pain to
-manage and do affinity with, so NAPI should (at least in theory)
-be better for this kind of setup ... I think.
- 
-> I bet your greatest gain would be obtained from going to Tux
-> and using appropriate IRQ affinity settings and making sure
-> Tux threads bind to same cpu as device where they accept
-> connections.
-> 
-> It is standard method to obtain peak specweb performance.
+I don't doubt it's a win for most cases, we just want to reap the benefit
+for the large SMP systems as well ... the fundamental mechanism seems
+very scalable to me, we probably just need to do a little tuning?
 
-Ah, but that's not really our goal - what we're trying to do is
-use specweb as a tool to simulate a semi-realistic customer
-workload, and improve the Linux kernel performance, using that
-as our yardstick for measuring ourselves. For that I like the
-setup we have reasonably well, even though it won't get us the
-best numbers.
+> NAPI kernel path is included in 2.4.20-pre4 the comparison below is mainly 
+> between e1000 driver w and w/o NAPI and the NAPI port to e1000 is still 
+> evolving. 
 
-To get the best benchmark numbers, you're absolutely right though.
+We are running from 2.5.latest ... any updates needed for NAPI for the
+driver in the current 2.5 tree, or is that OK?
 
-M.
+Thanks,
+
+Martin.
