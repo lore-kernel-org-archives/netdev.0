@@ -1,54 +1,58 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: [PATCH 2.6] ip6t_LOG and packets with hop-by-hop options
-Date: Tue, 6 Jul 2004 18:01:09 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040706160109.GO32707@sunbeam2>
-References: <20040706150918.GA5009@penguin.localdomain>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH 2.6] update to network emulation QOS scheduler
+Date: Tue, 6 Jul 2004 09:09:06 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040706090906.4ff6fb73@dell_ss3.pdx.osdl.net>
+References: <20040701113312.43cfe6c5@dell_ss3.pdx.osdl.net>
+	<20040702134437.5891e998@dell_ss3.pdx.osdl.net>
+	<1088824432.1043.271.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="yZxAaITavNk3ADw/"
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264058AbUGFQBX@vger.kernel.org>
-To: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Content-Disposition: inline
-In-Reply-To: <20040706150918.GA5009@penguin.localdomain>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, Catalin BOIE
+ <util@deuroconsult.ro>,
+        netdev@oss.sgi.com, lartc@mailman.ds9a.nl
+Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1088824432.1043.271.camel@jzny.localdomain>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 02 Jul 2004 23:13:52 -0400
+jamal <hadi@cyberus.ca> wrote:
 
---yZxAaITavNk3ADw/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> On Fri, 2004-07-02 at 16:44, Stephen Hemminger wrote:
+> > Here is an enhancement to netem to do allow emulating lower speed 
+> > networks.  The resolution is close, but obviously limited by the
+> > granularity of timers and size of packets.
+> > 
+> > Also, fixes a rtnetlink dependency which showed up in some configurations
+> > and optimizes for the non-loss case by avoiding net_random call.
+> > 
+> 
+> I think its time i illustrate my comments earlier with some example
+> hopefully this will curb the amount of features on this qdisc.
+> I do think theres value in having this thing do delay and jitter, but
+> you have gone waay beyond that now; 
+> Let illustrate things which apply to what you are trying to do in
+> network condituions emulation. Although i show ingress qdisc , this
+> applies to egress just the same.
+> 
+> #drop 1 out 10 packets randomly using the netrand generator
+> tc filter add dev eth0 parent ffff: protocol ip prio 6 u32 \
+> match ip src 10.0.0.21/32 flowid 1:16 \
+> action drop random netrand ok 0xa
 
-On Tue, Jul 06, 2004 at 05:09:18PM +0200, Marcel Sebek wrote:
-> Packet with IPPROTO_HOPOPTS extended header isn't logged properly by
-> ip6t_LOG.c. It only prints PROTO=3D0 and nothing more, because
-> IPPROTO_HOPOPTS=3D0 and in this file 0 is used to indicate last header.
-> This patch fix it by using IPPROTO_NONE to indicate last header.
+Your examples made me think about this more.  The netfilter seem best
+suited to things that effect the flow of packets (dropping, reordering,
+even corrupting), and the qdisc seems best when the timing needs to change.
 
-looks fine to me.  Dave, can you please include this to your tree?
-Thanks.
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
+The limit match in netfilter is not the same as the rate in the qdisc.
+The netem scheduler acts as if the link is a slow fixed rate.  The netfilter
+limit is usually targeted to drop packets over the rate which is not the same.
+Reordering is also hard without going out to a user log or building a custom
+target.
 
---yZxAaITavNk3ADw/
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFA6szFXaXGVTD0i/8RAqyBAKCwVgXhaL90YOmbJdWeOmwtGtRC5wCcDh6z
-cdyKWtNc2S4+4qaOg28Tiig=
-=aqI8
------END PGP SIGNATURE-----
-
---yZxAaITavNk3ADw/--
+So, you have convinced me that loss is unnecessary but not the rate, or delay.
+If we can figure out how to re-ordering with netfilter then that could go too,
+which would make it possible to use a layered qdisc again.
