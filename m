@@ -1,41 +1,44 @@
-From: Brad Hards <bhards@bigpond.net.au>
-Subject: Re: PF_PACKET??
-Date: Fri, 19 Apr 2002 11:19:54 +1000
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <200204191119.55237.bhards@bigpond.net.au>
-References: <Pine.LNX.4.33L2.0204181953230.30276-100000@pali.cps.cmich.edu>
+From: Yan-Fa Li <yanfali@yahoo.com>
+Subject: SMP Re-ordering ?
+Date: Thu, 18 Apr 2002 19:10:31 -0700 (PDT)
+Sender: owner-netdev@oss.sgi.com
+Message-ID: <20020419021031.24839.qmail@web13003.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Ish Rattan <ishwar@pali.cps.cmich.edu>, <linux-net@vger.kernel.org>
-In-Reply-To: <Pine.LNX.4.33L2.0204181953230.30276-100000@pali.cps.cmich.edu>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <owner-netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Apr 2002 09:56, Ish Rattan wrote:
-> On Fri, 19 Apr 2002, Brad Hards wrote:
-> > On Fri, 19 Apr 2002 02:13, Ish Rattan wrote:
-> > > Does any one have a complete client/server type program or tutotial on
-> > > using PF_PACKET to by pass the TCP/IP stack in the kernel? I can't seem
-> > > to find a sample and hence subscribed to this list to ask for
-> > > pointers.
-> >
-> > Possibly the wrong question. I take it that you want to avoid using the
-> > kernel support for some reason, possibly portability. In that case, you
-> > should consider a couple of libraries
->
-> Well, I am more into implementation of TCP/IP stack in user mode (user
-> level) for teaching aid in a graduate course in Computer Networks. I
-> think that such a thing is possible and I am missing the starting point..
-Probably possible (and I still think you'd be better off with those libraries, 
-which are, after all, just access the packet filter sockets), but don't know 
-if it is worth it. 
-Why not use User-Mode Linux (http://user-mode-linux.sourceforge.net)?
-You get the whole kernel, including the networking stack, running in 
-user-space. You can run several virtual machines on one real host, and get to 
-network between them in a couple of different ways. Might even be worth doing 
-if you had your own user-space implementation of the stack, as the 
-environment in which you run your implementation.
+So I've read the excellent "Beyond Softnet" paper about
+how SMP is inherently likely to re-order packet flows,
+and I'm trying to use the work around where I assign
+IRQs to CPUs, in this case for a gigabit network
+card.
 
+I have dual PIIIs 1GHz on serverworks chipsets.  I'm using the
+DGE550 66MHz/64bit GigE cards over copper.  Each system has
+1.5Gbytes of RAM.  Each kernel is 2.4.19-pre5aa1 and /dev/epoll.
 
-Brad
+To force IRQ affinity to CPU 2 or 2, I type the following:
+
+echo 2 > /proc/irq/23/smp_affinity
+
+when I send traffic to this interface I only see
+IRQs on the second CPU on /proc/interrupts.  All
+is good so far.
+
+However, a network device I'm testing between my hosts
+keeps seeing re-ordered TCP sessions.  When I reboot and
+specify maxcpus=1 and re-run the test I get none.
+
+Am I doing something really wrong here or does this
+workaround no longer work ?
+
+Thanks
+
+Yan
+
+__________________________________________________
+Do You Yahoo!?
+Yahoo! Tax Center - online filing with TurboTax
+http://taxes.yahoo.com/
