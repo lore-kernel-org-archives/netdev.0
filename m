@@ -1,80 +1,40 @@
-From: Martijn van Oosterhout <kleptog@svana.org>
-Subject: Re: Very slow change of IP in kernel (slow socket?).
-Date: Wed, 22 Dec 2004 17:26:32 +0100
-Message-ID: <20041222162632.GC29278@svana.org>
-References: <41C895D6.2040001@cs.columbia.edu>
-Reply-To: Martijn van Oosterhout <kleptog@svana.org>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: Lockup with 2.6.9-ac15 related to netconsole
+Date: Wed, 22 Dec 2004 09:18:36 -0800
+Message-ID: <20041222171836.GL5974@waste.org>
+References: <52121.192.102.214.6.1103624620.squirrel@webmail.wetlettuce.com> <20041221123727.GA13606@electric-eye.fr.zoreil.com> <49295.192.102.214.6.1103635762.squirrel@webmail.wetlettuce.com> <20041221204853.GA20869@electric-eye.fr.zoreil.com> <20041221212737.GK5974@waste.org> <20041221225831.GA20910@electric-eye.fr.zoreil.com> <41C93FAB.9090708@trash.net> <41C9525F.4070805@trash.net> <20041222123940.GA4241@electric-eye.fr.zoreil.com> <41C98B75.9020802@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="ghzN8eJ9Qlbqn3iT"
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Andrea G Forte <andreaf@cs.columbia.edu>
+Content-Type: text/plain; charset=us-ascii
+Cc: Francois Romieu <romieu@fr.zoreil.com>,
+	Mark Broadbent <markb@wetlettuce.com>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261999AbULVRTQ@vger.kernel.org>
+To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <41C895D6.2040001@cs.columbia.edu>
-Sender: linux-net-owner@vger.kernel.org
+In-Reply-To: <41C98B75.9020802@trash.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 22, 2004 at 03:57:57PM +0100, Patrick McHardy wrote:
+> >Of course the patch is completely ugly and violates any layering
+> >principle one could think of. It was not submitted for inclusion :o)
+> 
+> Sure, but I think we should have a short-term workaround until
+> a better solution has been invented. Maybe dropping the packets
+> would be best for now, it only affects printks issued in paths
+> starting at qdisc_restart (-> hard_start_xmit -> ...). Queueing
+> the packets might also cause reordering since not all packets
+> are queued.
 
---ghzN8eJ9Qlbqn3iT
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+When I mentioned queueing, I was thinking of a netpoll-private queue
+that would be hooked to a softirq or some such so that it would be
+pushed out as soon as possible. Dropping may be the better approach as
+queueing throws away netpoll's immediacy and ordering properties. And
+getting netpoll _more_ tangled in the net stack mechanics is
+definitely a step in the wrong direction.
 
-Seems long, but have you condered other possible delays, like ARP,
-routing daemons, etc. BTW, I don't quite understand what you mean by
-changing IPs, because "ip route add" adds routes, not IPs. Presumably
-you're using an unbound UDP socket. You need to be a bit clearer about
-what you're actually trying to do...
+More generally, I'm tempted to add some warn_on style functionality so
+that printks in such troublesome paths can be lifted out.
 
-On Tue, Dec 21, 2004 at 04:29:58PM -0500, Andrea G Forte wrote:
-> Hi all,
->=20
-> after some talking I decided to try again and post a specific thread for=
-=20
-> this problem.
-> I noticed that when I change IP address for the same wireless card=20
-> (since I am moving to a different subnet I need a new IP), the actual=20
-> change in the kernel happens between 300 to 500 ms later. In particular,=
-=20
-> after changing the IP (ip route add...) and updating route table and=20
-> default gw, the actual data packets are sent using the new IP only after=
-=20
-> 300 to 500 ms after setting all the above.
-> Does anyone of you know what this could be related to? Or, does anyone=20
-> of you know where in the kernel code I could start looking for some answe=
-rs?
-> I have already had some feedback with suggestions to look into the=20
-> route_cache, however this does not seem to me as a route problem but=20
-> more as a socket problem and perhaps some kind of timer that is set to=20
-> refresh the socket info in the kernel.
->=20
-> Any help would be really appreciated.
->=20
-> Thanks all,
-> Andrea
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
---=20
-Martijn van Oosterhout   <kleptog@svana.org>   http://svana.org/kleptog/
-> Patent. n. Genius is 5% inspiration and 95% perspiration. A patent is a
-> tool for doing 5% of the work and then sitting around waiting for someone
-> else to do the other 95% so you can sue them.
-
---ghzN8eJ9Qlbqn3iT
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQFByaA4Y5Twig3Ge+YRAkZDAJkBSeRFUdN25wAQY0muOxwjlKI8IgCfYB2B
-Y0GJbUUjhs7bD9kVMwmF5cg=
-=wlKq
------END PGP SIGNATURE-----
-
---ghzN8eJ9Qlbqn3iT--
+-- 
+Mathematics is the supreme nostalgia of our time.
