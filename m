@@ -1,41 +1,28 @@
-From: Jeff Garzik <jgarzik@mandrakesoft.com>
-Subject: Re: [PATCH] 2.4.20-pre sundance.c update
-Date: Thu, 19 Sep 2002 01:11:41 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <3D895C8D.6070504@mandrakesoft.com>
-References: <20020828185612.GA14342@reflexsecurity.com> <20020828231333.GA15183@reflexsecurity.com> <200209190353.g8J3r5q28456@vindaloo.ras.ucalgary.ca> <20020919041403.GA10527@orr.falooley.org> <3D89519C.1020809@mandrakesoft.com> <20020919045621.GA11144@orr.falooley.org>
+From: den<firmswt@zmail.ru>
+Subject: help !
+Date: Thu, 19 Sep 2002 08:23:44 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200209190520.g8J5KHtH011914@oss.sgi.com>
+Reply-To: firmswt@zmail.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Richard Gooch <rgooch@ras.ucalgary.ca>,
-	becker@scyld.com, "Patrick R. McManus" <mcmanus@ducksong.com>,
-	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jason Lunz <lunz@falooley.org>
+Content-Type: text/plain; charset="Windows-1251"
+Content-Transfer-Encoding: base64
+Return-path: <netdev-bounce@oss.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> On Thu, Sep 19, 2002 at 12:25AM -0400, Jeff Garzik wrote:
-> 
->>It still has several flaws that were pointed out, but this is the base 
->>from which I would like testing and patching to proceed.  (also 
->>hopefully the flaws are minor in terms of general operation)
-> 
-> 
-> what's the point of moving rx handling into rx_poll then running it in a
-> tasklet? I've tested an older variant of that scheme from D-Link and it
-> doesn't perform as well as my patch. It looks to me like an attempt to
-> keep this version synced with the NAPI version of the driver, but it
-> doesn't actually work very well.
-
-This is a merge and test point.  The whole interrupt handler path is 
-getting updated after this.  (but thanks for the feedback, it is noted)
-
-
-> The functional part of my patch was just taking the tx handling from
-> d-link's driver and ditching the rx part.  That and merging in the
-> cleanups from Becker's driver; most notably ignoring the broken
-> IntrRxDone bit.
-
-
-Maybe you could show me that in broken-out patches :)
+IA0KICAgzPssIOPw8+/v4CDv8OXk7/Do7ejs4PLl6+XpIOjnIMHg6/Lo6CDw5fjo6+gg7urg
+5+Dy/CDv7uzu+fwg5ujy5ev/7CANCiAgICDv7vHy8ODk4OL46PUg7vIg5+Dy7u/r5e3o/yDy
+5fDw6PLu8OjpINfl9e7x6+7i4Oro6CDoIMPl8Ozg7ejoLg0KICAgICDCIPDl5/Pr/PLg8uUg
+5+Dy7u/r5e3o/yDu4/Du7O377CDy5fDw6PLu8Oj/7CD98uj1IPHy8ODtIO3g7eXx5e0g8/nl
+8OEsDQogICAg7vbl7eji4P756Onx/yDiIOzo6+vo7u37IOTu6+vg8O7iLsz7IObo4uXsIOIg
+7eXx7+7q7unt7uUg4iD96u7r7uPo9+Xx6u7sDQogICAg7+vg7eUg4vDl7P8g6CDv8Ojw7uTt
+7uUg8fLo9ejp7e7lIOHl5PHy4ujlIO3lIOL74ejw4OXyIPHy8ODt+yDoIOLw5ezl7eguDQog
+ICAgzfPm7e4g4fvy/CDj7vLu4vvsIO7y6uvo6u3z8vzx/yDt4CDh5eTzIOgg7/Do5PLoIO3g
+IO/u7O75/CDoIPLu4+TgIOz7IA0KICAgIOLv8ODi5SDw4PH36PL74uDy/CDt4CDv7uzu+fwg
+7eDsLg0KICAgICDN4OzoIPPm5SDx7uHw4O37IO7v8OXk5evl7e375SDx8OXk8fLi4CDoIOz7
+IO/w6Of74uDl7CDi4PEg7vLq6+jq7fPy/PH/DQogICAg7eAg7eD48yDv8O7x/OHzIOgg7urg
+5+Dy/CDv7vHo6/zt8/4g9Ojt4O3x7uLz/iDv7uzu+fwuDQogICAgINH35fLgIOTr/yDv5fDl
+9+jx6+Xt6P8g7+7s7vnoIC0gV01aIDk4MjE4ODk3NjI5MSA7IGUtZ29sZCBJRCA0MTcyMTEg
+Lg0KICAgICDN4Pgg6u7t8uDq8u376SBlLW1haWwgaGVsMDAxQHptYWlsLnJ1IC4NCiAgICAg
+0e/g8ejh7iDn4CDv7uzu+fwuDQoNCg0K
