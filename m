@@ -1,97 +1,27 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [RFT] BIC TCP delayed ack compensation
-Date: Tue, 22 Feb 2005 13:50:46 -0800
-Message-ID: <20050222135046.23f7ec7d@dxpl.pdx.osdl.net>
-References: <050QTJA12@server5.heliogroup.fr>
-	<20050209105909.17da40a9@dxpl.pdx.osdl.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] batched tc to improve change throughput
+Date: Wed, 23 Feb 2005 00:15:54 +0100
+Message-ID: <20050222231554.GH31837@postel.suug.ch>
+References: <1106747313.1107.7.camel@jzny.localdomain> <1108134446.5523.22.camel@ganymede> <1108215923.1126.132.camel@jzny.localdomain> <1108246033.7554.18.camel@ganymede> <20050212223204.GG31837@postel.suug.ch> <1108340618.14978.66.camel@ganymede> <20050214142710.GI31837@postel.suug.ch> <1108499294.5465.22.camel@ganymede> <20050215204723.GM31837@postel.suug.ch> <1109108440.5712.17.camel@ganymede>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
-        Injong Rhee
- <rhee@eos.ncsu.edu>,
-        "David S. Miller" <davem@davemloft.net>
-To: Hubert Tonneau <hubert.tonneau@fullpliant.org>,
-        cliff white
- <cliffw@osdl.org>
-In-Reply-To: <20050209105909.17da40a9@dxpl.pdx.osdl.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+To: Dan Siemon <dan@coverfire.com>
+Content-Disposition: inline
+In-Reply-To: <1109108440.5712.17.camel@ganymede>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch which was extracted from BIC TCP 1.1 compensates
-for systems (like MaxOSX) that don't ACK every other packet.
-It has no impact for normal transfers, but might help with problems
-with Mac like Hubert found.
+> > The NLHDR_COMMON must stay first, the ordering of the others doesn't
+> > matter.
+> 
+> That could be a problem.  The GObject struct must be at the start so
+> that all sub-classes can be operated on with the g_object_ functions.
+> The only way to make these objects work with your caching scheme would
+> be to make a sub-class of GObject with the caching information.  This
+> would have the benefit of adding ref counting etc.
 
-
-diff -Nru a/include/linux/tcp.h b/include/linux/tcp.h
---- a/include/linux/tcp.h	2005-02-22 13:44:12 -08:00
-+++ b/include/linux/tcp.h	2005-02-22 13:44:12 -08:00
-@@ -433,6 +433,7 @@
- 		__u32 	last_max_cwnd;	/* last maximium snd_cwnd */
- 		__u32	last_cwnd;	/* the last snd_cwnd */
- 		__u32   last_stamp;     /* time when updated last_cwnd */
-+		__u32	delayed_ack;	/* ratio of packets/ACKs */
- 	} bictcp;
- };
- 
-diff -Nru a/include/net/tcp.h b/include/net/tcp.h
---- a/include/net/tcp.h	2005-02-22 13:44:12 -08:00
-+++ b/include/net/tcp.h	2005-02-22 13:44:12 -08:00
-@@ -508,6 +508,8 @@
- #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
- 					 * max_cwnd = snd_cwnd * beta
- 					 */
-+#define BICTCP_DELAY_SCALE   1024	/* Scale for delayed_ack ratio */
-+
- #define BICTCP_MAX_INCREMENT 32		/*
- 					 * Limit on the amount of
- 					 * increment allowed during
-diff -Nru a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
---- a/net/ipv4/tcp_input.c	2005-02-22 13:44:12 -08:00
-+++ b/net/ipv4/tcp_input.c	2005-02-22 13:44:12 -08:00
-@@ -339,6 +339,7 @@
- 	tp->bictcp.last_max_cwnd = 0;
- 	tp->bictcp.last_cwnd = 0;
- 	tp->bictcp.last_stamp = 0;
-+	tp->bictcp.delayed_ack = 2 * BICTCP_DELAY_SCALE;
- }
- 
- /* 5. Recalculate window clamp after socket hit its memory bounds. */
-@@ -2075,6 +2076,13 @@
- 			/* linear increase */
- 			tp->bictcp.cnt = tp->snd_cwnd / BICTCP_MAX_INCREMENT;
- 	}
-+
-+	/* compensate for delayed ack's */
-+	tp->bictcp.cnt = (tp->bictcp.cnt * BICTCP_DELAY_SCALE)
-+		/ tp->bictcp.delayed_ack;
-+	if (tp->bictcp.cnt == 0)
-+		tp->bictcp.cnt = 1;
-+
- 	return tp->bictcp.cnt;
- }
- 
-@@ -2418,6 +2426,7 @@
- 	__u32 now = tcp_time_stamp;
- 	int acked = 0;
- 	__s32 seq_rtt = -1;
-+	__u32 cnt = 0;
- 
- 	while ((skb = skb_peek(&sk->sk_write_queue)) &&
- 	       skb != sk->sk_send_head) {
-@@ -2472,7 +2481,13 @@
- 		tcp_packets_out_dec(tp, skb);
- 		__skb_unlink(skb, skb->list);
- 		sk_stream_free_skb(sk, skb);
-+		++cnt;
- 	}
-+
-+	/* compute average packets per ACK (scaled by 1024) */
-+	if (cnt > 0 && tcp_is_bic(tp) && tp->ca_state == TCP_CA_Open)
-+		tp->bictcp.delayed_ack = (15 * tp->bictcp.delayed_ack) / 16
-+			+ (BICTCP_DELAY_SCALE/16) * cnt;
- 
- 	if (acked&FLAG_ACKED) {
- 		tcp_ack_update_rtt(tp, acked, seq_rtt);
+It's not a problem, as you note we can put the gobject information
+into NLHDR_COMMON. I'm not focusing on such bindings but if you want
+to reuse my code, feel free.
