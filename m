@@ -1,44 +1,119 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: Re: [PATCH/RFC] set_rates support for prism54
-Date: Sun, 15 Aug 2004 19:10:25 +0300
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <200408151910.25641.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <5.1.0.14.2.20040815145122.00afd708@pop.t-online.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [Panic] 2.6.8 and ingress scheduling
+Date: Sun, 15 Aug 2004 18:12:00 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <411F8B50.2020402@trash.net>
+References: <20040814175233.GA3617@lazy.shacknet.nu> <20040815130635.GA3703@lazy.shacknet.nu>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="windows-1251"
-Content-Transfer-Encoding: 7bit
-Cc: mcgrof@studorgs.rutgers.edu, netdev@oss.sgi.com,
-	jgarzik@pobox.com
-Return-path: <prism54-devel-bounces@prism54.org>
-To: margitsw@t-online.de (Margit Schubert-While),
-	prism54-devel@prism54.org
-In-Reply-To: <5.1.0.14.2.20040815145122.00afd708@pop.t-online.de>
-Content-Disposition: inline
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: multipart/mixed;
+ boundary="------------030503090501060902070806"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	"David S. Miller" <davem@redhat.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266817AbUHOQMN@vger.kernel.org>
+To: lkml@lazy.shacknet.nu
+In-Reply-To: <20040815130635.GA3703@lazy.shacknet.nu>
 List-Id: netdev.vger.kernel.org
 
-On Sunday 15 August 2004 16:21, Margit Schubert-While wrote:
-> I disagree with this.
-> We don't need parameter parsing either in the driver or in
-> wireless.c.
-> There is a perfectly good infrastructure in wireless tools iwpriv.c
-> Take a look at around line 375 in iwpriv.c for the
-> existing example of IW_PRIV_TYPE_FLOAT.
-> This could be adapted for this purpose (IW_PRIV_TYPE_BITRATE ?)
-> and (mis)use the iw_freq structure to pass the values and extra info.
+This is a multi-part message in MIME format.
+--------------030503090501060902070806
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Ok. And then we will need to parse that data into format suitable for
-prism54 in prism54 driver, and into format suitable for acx100/acx111
-in acx100 driver, etc... Most probably this code will be ugly, because
-different hardware have completely different way of setting tx rate.
-Even acx100 and acx111 are different, not to say acx100 and prism54.
---
-vda
+lkml@lazy.shacknet.nu wrote:
+
+>hello again,
+>
+>  
+>
+>>the last line (filter add) in the "wondershaper" script does sth. to the
+>>kernel, that lets it panic on receiving network packets.
+>>    
+>>
+>
+>actually, the last _two_ commands set up the kernel for panic. please
+>see attached script; running should produce this console message:
+>  
+>
+Fixed by this patch. qdisc_data was only aligned correctly in 
+qdisc_create_dflt(),
+not qdisc_create() which resulted in memory corruption.
+
+Regards
+Patrick
+
+--------------030503090501060902070806
+Content-Type: text/x-patch;
+ name="qdisc-align.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="qdisc-align.diff"
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/15 18:08:13+02:00 kaber@coreworks.de 
+#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/sch_api.c
+#   2004/08/15 18:04:27+02:00 kaber@coreworks.de +13 -8
+#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
+# 
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-08-15 18:09:36 +02:00
++++ b/net/sched/sch_api.c	2004-08-15 18:09:36 +02:00
+@@ -389,7 +389,8 @@
+ {
+ 	int err;
+ 	struct rtattr *kind = tca[TCA_KIND-1];
+-	struct Qdisc *sch = NULL;
++	void *p = NULL;
++	struct Qdisc *sch;
+ 	struct Qdisc_ops *ops;
+ 	int size;
+ 
+@@ -407,12 +408,18 @@
+ 	if (ops == NULL)
+ 		goto err_out;
+ 
+-	size = sizeof(*sch) + ops->priv_size;
++	/* ensure that the Qdisc and the private data are 32-byte aligned */
++	size = ((sizeof(*sch) + QDISC_ALIGN_CONST) & ~QDISC_ALIGN_CONST);
++	size += ops->priv_size + QDISC_ALIGN_CONST;
+ 
+-	sch = kmalloc(size, GFP_KERNEL);
++	p = kmalloc(size, GFP_KERNEL);
+ 	err = -ENOBUFS;
+-	if (!sch)
++	if (!p)
+ 		goto err_out;
++	memset(p, 0, size);
++	sch = (struct Qdisc *)(((unsigned long)p + QDISC_ALIGN_CONST)
++	                       & ~QDISC_ALIGN_CONST);
++	sch->padded = (char *)sch - (char *)p;
+ 
+ 	/* Grrr... Resolve race condition with module unload */
+ 
+@@ -420,8 +427,6 @@
+ 	if (ops != qdisc_lookup_ops(kind))
+ 		goto err_out;
+ 
+-	memset(sch, 0, size);
+-
+ 	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 
+@@ -470,8 +475,8 @@
+ 
+ err_out:
+ 	*errp = err;
+-	if (sch)
+-		kfree(sch);
++	if (p)
++		kfree(p);
+ 	return NULL;
+ }
+ 
+
+--------------030503090501060902070806--
