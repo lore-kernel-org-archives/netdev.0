@@ -1,34 +1,78 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: 2.6.7 tulip performance (with NAPI)
-Date: Sun, 10 Oct 2004 21:07:46 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041010210746.5e9438af.davem@davemloft.net>
-References: <41633174.7070805@candelatech.com>
-	<16740.17875.574967.11417@robur.slu.se>
-	<41646587.7070401@candelatech.com>
-	<41649425.1010102@candelatech.com>
-	<20041006180826.4a092c71.davem@davemloft.net>
-	<4165864A.2010805@candelatech.com>
+From: Cal Peake <cp@absolutedigital.net>
+Subject: [PATCH] Fix readw/writew warnings in drivers/net/wireless/hermes.h
+Date: Mon, 11 Oct 2004 07:34:00 -0400 (EDT)
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.61.0410110702590.7899@linaeum.absolutedigital.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <4165864A.2010805@candelatech.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: NetDev Mailing List <netdev@oss.sgi.com>, proski@gnu.org,
+	hermes@gibson.dropbear.id.au
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268817AbUJKLe1@vger.kernel.org>
+To: Kernel Mailing List <linux-kernel@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 07 Oct 2004 11:09:14 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+Hi,
 
-> How does the existing (non pktgen) architecture work for VLAN devices
-> and stopping/starting the queues in the underlying devices?
+This patch fixes several dozen warnings spit out when compiling the hermes 
+wireless driver.
 
-VLAN devices are simply virtual devices.  There is a real netdev
-structure backing them, and thus you can point queueing disciplines
-et al. to them just like any other device.
+In file included from drivers/net/wireless/orinoco.c:448:
+drivers/net/wireless/hermes.h: In function `hermes_present':
+drivers/net/wireless/hermes.h:398: warning: passing arg 1 of `readw' makes pointer from integer without a cast
+drivers/net/wireless/hermes.h: In function `hermes_set_irqmask':
+drivers/net/wireless/hermes.h:404: warning: passing arg 2 of `writew' makes pointer from integer without a cast
+...
 
-So that's the idea, somehow tie pktgen to use the existing netdev_wake_queue()
-callback mechanism.  All I am really saying is that qdiscs may be a method by
-which to do this.
+thanks,
+
+-- Cal
+
+
+Signed-off-by: Cal Peake <cp@absolutedigital.net>
+
+
+diff -Nru linux-2.6.9-rc4/drivers/net/wireless/hermes.h linux-2.6.9-rc4-1/drivers/net/wireless/hermes.h
+--- linux-2.6.9-rc4/drivers/net/wireless/hermes.h	2004-10-11 02:38:38.000000000 -0400
++++ linux-2.6.9-rc4-1/drivers/net/wireless/hermes.h	2004-10-11 06:56:01.000000000 -0400
+@@ -364,12 +364,12 @@
+ /* Register access convenience macros */
+ #define hermes_read_reg(hw, off) ((hw)->io_space ? \
+ 	inw((hw)->iobase + ( (off) << (hw)->reg_spacing )) : \
+-	readw((hw)->iobase + ( (off) << (hw)->reg_spacing )))
++	readw((void __iomem *)(hw)->iobase + ( (off) << (hw)->reg_spacing )))
+ #define hermes_write_reg(hw, off, val) do { \
+ 	if ((hw)->io_space) \
+ 		outw_p((val), (hw)->iobase + ((off) << (hw)->reg_spacing)); \
+ 	else \
+-		writew((val), (hw)->iobase + ((off) << (hw)->reg_spacing)); \
++		writew((val), (void __iomem *)(hw)->iobase + ((off) << (hw)->reg_spacing)); \
+ 	} while (0)
+ #define hermes_read_regn(hw, name) hermes_read_reg((hw), HERMES_##name)
+ #define hermes_write_regn(hw, name, val) hermes_write_reg((hw), HERMES_##name, (val))
+@@ -442,7 +442,7 @@
+ 		 * gcc is smart enough to fold away the two swaps on
+ 		 * big-endian platforms. */
+ 		for (i = 0, p = buf; i < count; i++) {
+-			*p++ = cpu_to_le16(readw(hw->iobase + off));
++			*p++ = cpu_to_le16(readw((void __iomem *)hw->iobase + off));
+ 		}
+ 	}
+ }
+@@ -462,7 +462,7 @@
+ 		 * hope gcc is smart enough to fold away the two swaps
+ 		 * on big-endian platforms. */
+ 		for (i = 0, p = buf; i < count; i++) {
+-			writew(le16_to_cpu(*p++), hw->iobase + off);
++			writew(le16_to_cpu(*p++), (void __iomem *)hw->iobase + off);
+ 		}
+ 	}
+ }
+@@ -478,7 +478,7 @@
+ 			outw(0, hw->iobase + off);
+ 	} else {
+ 		for (i = 0; i < count; i++)
+-			writew(0, hw->iobase + off);
++			writew(0, (void __iomem *)hw->iobase + off);
+ 	}
+ }
+ 
