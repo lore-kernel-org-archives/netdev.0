@@ -1,212 +1,33 @@
-From: Richard Procter <rnp@paradise.net.nz>
-Subject: Re: [PATCH] SMP support on 3c527 net driver for 2.6
-Date: Tue, 21 Oct 2003 17:05:01 +1300 (NZDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] New Patch Implementation for IPv6
+ MIB:ipv6InterfaceTable
+Date: Mon, 20 Oct 2003 21:04:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.21.0310201141280.404-300000@ps2.local>
-References: <20031018184746.54a2e6b0.akpm@osdl.org>
+Message-ID: <20031020210433.27e25240.davem@redhat.com>
+References: <200310141032.23998.mashirle@us.ibm.com>
+	<20031014152441.1be6b336.davem@redhat.com>
+	<200310201600.10016.mashirle@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-1463810815-1751553365-1066708907=:531"
-Cc: jgarzik@pobox.com, felipewd@terra.com.br, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-reply-to: <20031018184746.54a2e6b0.akpm@osdl.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-id: <Pine.LNX.4.21.0310211703430.531@ps2.local.>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200310201600.10016.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+On Mon, 20 Oct 2003 16:00:09 -0700
+Shirley Ma <mashirle@us.ibm.com> wrote:
 
----1463810815-1751553365-1066708907=:531
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
-Content-ID: <Pine.LNX.4.21.0310211703431.531@ps2.local.>
+> This is the new patch for IPv6 MIBs:ipv6InterfaceTable.
+> This patch has been tested against linux-2.6.0-test8 kernel plus xfmr patch.
+> 
+> Please review it. 
 
+It looks fine but I cannot merge it at this time.  Linus wants
+only critical bug fixes for nowin 2.6.x
 
-On Sat, 18 Oct 2003, Andrew Morton wrote:
+Maybe in 2.6.1, 2.6.2 or later we can merge this in.
 
-> I've regenerated this against the current driver.  I'll include it in
-> test8-mm1.
->
-> If the scsi problem is fixed could you please retest this driver on both
-> SMP and UP builds?
- 
-Thanks --- will do. Note that it's only tested on UP. I'm trying to find
-someone with the requisite hardware. 
-(SMP + MCA + 3c527 + Linux = a rare beast).   
-
-> If the scsi problem is not fixed could you please be sure to shout at the
-> right people about that?
-
-Sure thing. 
-
-> It's a local variable?  Yes, it is atomic.  Partly because the compiler
-> will probably align things but mainly because the stack is only used by one
-> CPU at a time.
-
-Ah, of course. Thanks. 
- 
-> If the u16 is a structure member then yes it is probably OK because the
-> compiler will pad things.  But if the next slut in the struct is also a u16
-> then it may not be atomic on some architectures.  I do not know.  It's best
-> to avoid this.
-
-I do share a volatile u16 in the dev struct between hard_start_xmit and
-the interrupt handler. The only operations on it are 'set' on one hand,
-and 'read' on the other, so the only possible race would be one of reading
-an in-progress write. But it's not very obvious that's what's happening, 
-looking at it with a fresh eye. 
-
-I've replaced it with an atomic_t type; it makes things more explicit
-without hurting performance on x86. I've also included a fix for a small
-race pointed out by Manfred Spraul. Patch attached.
-
-best wishes, 
-Richard. 
-
-
-
-
-
-
-
----1463810815-1751553365-1066708907=:531
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="3c527.h-2003.10.20-rnp.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.21.0310211701470.531@ps2.local.>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="3c527.h-2003.10.20-rnp.patch"
-
-LS0tIGxpbnV4LTIuNi4wLXRlc3Q4L2RyaXZlcnMvbmV0LzNjNTI3Lmgub3Jp
-ZwkyMDAzLTEwLTIwIDIwOjE3OjQ2LjAwMDAwMDAwMCArMTMwMA0KKysrIGxp
-bnV4LTIuNi4wLXRlc3Q4L2RyaXZlcnMvbmV0LzNjNTI3LmgJMjAwMy0xMC0y
-MCAyMDozNDozNC4wMDAwMDAwMDAgKzEzMDANCkBAIC0yNyw5ICsyNyw3IEBA
-DQogDQogI2RlZmluZSBIT1NUX1JBTVBBR0UJCTgNCiANCi0jZGVmaW5lIFJY
-X0hBTFRFRCAoMTw8MCkNCi0jZGVmaW5lIFRYX0hBTFRFRCAoMTw8MSkgIA0K
-LSNkZWZpbmUgSEFMVEVEIChSWF9IQUxURUQgfCBUWF9IQUxURUQpDQorI2Rl
-ZmluZSBIQUxURUQgMQ0KICNkZWZpbmUgUlVOTklORyAwDQogDQogc3RydWN0
-IG1jMzJfbWFpbGJveA0K
----1463810815-1751553365-1066708907=:531
-Content-Type: TEXT/PLAIN; CHARSET=US-ASCII; NAME="3c527.c-2003.10.20-rnp.patch"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.21.0310211701471.531@ps2.local.>
-Content-Description: 
-Content-Disposition: ATTACHMENT; FILENAME="3c527.c-2003.10.20-rnp.patch"
-
-LS0tIGxpbnV4LTIuNi4wLXRlc3Q4L2RyaXZlcnMvbmV0LzNjNTI3LmZlbGlw
-ZS5jCTIwMDMtMTAtMjAgMjA6Mjc6MjIuMDAwMDAwMDAwICsxMzAwDQorKysg
-bGludXgtMi42LjAtdGVzdDgvZHJpdmVycy9uZXQvM2M1MjcuYwkyMDAzLTEw
-LTIxIDE2OjQ3OjMyLjAwMDAwMDAwMCArMTMwMA0KQEAgLTE5LDcgKzE5LDcg
-QEANCiANCiAjZGVmaW5lIERSVl9OQU1FCQkiM2M1MjciDQogI2RlZmluZSBE
-UlZfVkVSU0lPTgkJIjAuNy1TTVAiDQotI2RlZmluZSBEUlZfUkVMREFURQkJ
-IjIwMDMvMTAvMDYiDQorI2RlZmluZSBEUlZfUkVMREFURQkJIjIwMDMvMTAv
-MjAiDQogDQogc3RhdGljIGNvbnN0IGNoYXIgKnZlcnNpb24gPQ0KIERSVl9O
-QU1FICIuYzp2IiBEUlZfVkVSU0lPTiAiICIgRFJWX1JFTERBVEUgIiBSaWNo
-YXJkIFByb2N0ZXIgPHJucEBwYXJhZGlzZS5uZXQubno+XG4iOw0KQEAgLTE3
-Niw5ICsxNzYsMTAgQEAgc3RydWN0IG1jMzJfbG9jYWwgDQogCXN0cnVjdCBt
-YzMyX3JpbmdfZGVzYyB0eF9yaW5nW1RYX1JJTkdfTEVOXTsJLyogSG9zdCBU
-cmFuc21pdCByaW5nICovDQogCXN0cnVjdCBtYzMyX3JpbmdfZGVzYyByeF9y
-aW5nW1JYX1JJTkdfTEVOXTsJLyogSG9zdCBSZWNlaXZlIHJpbmcgKi8NCiAN
-Ci0JYXRvbWljX3QgdHhfY291bnQ7ICAgICAgLyogYnVmZmVycyBsZWZ0ICov
-DQotCXZvbGF0aWxlIHUxNiB0eF9yaW5nX2hlYWQ7IC8qIGluZGV4IHRvIHR4
-IGVuLXF1ZXVlIGVuZCAqLw0KLQl1MTYgdHhfcmluZ190YWlsOyAgICAgICAg
-ICAvKiBpbmRleCB0byB0eCBkZS1xdWV1ZSBlbmQgKi8NCisJYXRvbWljX3Qg
-dHhfY291bnQ7CS8qIGJ1ZmZlcnMgbGVmdCAqLw0KKwlhdG9taWNfdCB0eF9y
-aW5nX2hlYWQ7ICAvKiBpbmRleCB0byB0eCBlbi1xdWV1ZSBlbmQgKi8NCisJ
-dTE2IHR4X3JpbmdfdGFpbDsgICAgICAgLyogaW5kZXggdG8gdHggZGUtcXVl
-dWUgZW5kICovDQorDQogCXUxNiByeF9yaW5nX3RhaWw7ICAgICAgIC8qIGlu
-ZGV4IHRvIHJ4IGRlLXF1ZXVlIGVuZCAqLyANCiANCiAJc3RydWN0IHNlbWFw
-aG9yZSBjbWRfbXV0ZXg7ICAgIC8qIFNlcmlhbGlzZXMgaXNzdWluZyBvZiBl
-eGVjdXRlIGNvbW1hbmRzICovDQpAQCAtMjIzLDcgKzIyNCw3IEBAIHN0YXRp
-YyBpbnQJbWMzMl9jbG9zZShzdHJ1Y3QgbmV0X2RldmljZSANCiBzdGF0aWMg
-c3RydWN0CW5ldF9kZXZpY2Vfc3RhdHMgKm1jMzJfZ2V0X3N0YXRzKHN0cnVj
-dCBuZXRfZGV2aWNlICpkZXYpOw0KIHN0YXRpYyB2b2lkCW1jMzJfc2V0X211
-bHRpY2FzdF9saXN0KHN0cnVjdCBuZXRfZGV2aWNlICpkZXYpOw0KIHN0YXRp
-YyB2b2lkCW1jMzJfcmVzZXRfbXVsdGljYXN0X2xpc3Qoc3RydWN0IG5ldF9k
-ZXZpY2UgKmRldik7DQotc3RhdGljIHN0cnVjdCBldGh0b29sX29wcyBuZXRk
-ZXZfZXRodG9vbF9vcHM7DQorc3RhdGljIHN0cnVjdCAgIGV0aHRvb2xfb3Bz
-IG5ldGRldl9ldGh0b29sX29wczsNCiANCiAvKioNCiAgKiBtYzMyX3Byb2Jl
-IAktCVNlYXJjaCBmb3Igc3VwcG9ydGVkIGJvYXJkcw0KQEAgLTgzMiwxMSAr
-ODMzLDEyIEBAIHN0YXRpYyB2b2lkIG1jMzJfbG9hZF90eF9yaW5nKHN0cnVj
-dCBuZXQNCiAJCXR4X2Jhc2U9cC0+bmV4dDsNCiAJfQ0KIA0KLQkvKiAtMSBz
-byB0aGF0IHR4X3JpbmdfaGVhZCBjYW5ub3QgImxhcCIgdHhfcmluZ190YWls
-LCAgICAgICAgICAgKi8NCi0JLyogc2VlIG1jMzJfdHhfcmluZyAqLw0KLQkN
-CisJLyogLTEgc28gdGhhdCB0eF9yaW5nX2hlYWQgY2Fubm90ICJsYXAiIHR4
-X3JpbmdfdGFpbC4gKi8NCisJLyogU2VlIG1jMzJfdHhfcmluZyAqLyANCisN
-CiAJYXRvbWljX3NldCgmbHAtPnR4X2NvdW50LCBUWF9SSU5HX0xFTi0xKTsg
-DQotCWxwLT50eF9yaW5nX2hlYWQ9bHAtPnR4X3JpbmdfdGFpbD0wOyANCisJ
-YXRvbWljX3NldCgmbHAtPnR4X3JpbmdfaGVhZCwgMCk7IA0KKwlscC0+dHhf
-cmluZ190YWlsPTA7IA0KIH0gDQogDQogDQpAQCAtODY2LDcgKzg2OCw4IEBA
-IHN0YXRpYyB2b2lkIG1jMzJfZmx1c2hfdHhfcmluZyhzdHJ1Y3QgbmUNCiAJ
-fQkJCQkJDQogCQ0KIAlhdG9taWNfc2V0KCZscC0+dHhfY291bnQsIDApOyAN
-Ci0JbHAtPnR4X3JpbmdfdGFpbD1scC0+dHhfcmluZ19oZWFkPTA7DQorCWF0
-b21pY19zZXQoJmxwLT50eF9yaW5nX2hlYWQsIDApOyANCisJbHAtPnR4X3Jp
-bmdfdGFpbD0wOw0KIH0NCiAgCQ0KIA0KQEAgLTk5OSwyMCArMTAwMiwyMCBA
-QCBzdGF0aWMgdm9pZCBtYzMyX3RpbWVvdXQoc3RydWN0IG5ldF9kZXZpDQog
-ICoJZnVsbCB0aGVuIHdlIHNldCB0eF9idXN5IGFuZCByZXR1cm4uIE9uY2Ug
-dGhlIGludGVycnVwdCBoYW5kbGVyDQogICoJZ2V0cyBtZXNzYWdlcyB0ZWxs
-aW5nIGl0IHRvIHJlY2xhaW0gdHJhbnNtaXQgcXVldWUgZW50cmllcywgd2Ug
-d2lsbA0KICAqCWNsZWFyIHR4X2J1c3kgYW5kIHRoZSBrZXJuZWwgd2lsbCBz
-dGFydCBjYWxsaW5nIHRoaXMgYWdhaW4uDQotICoNCi0gKglXZSBkbyBub3Qg
-ZGlzYWJsZSBpbnRlcnJ1cHRzIG9yIGFjcXVpcmUgYW55IGxvY2tzOyB0aGlz
-IGNhbg0KLSAqCXJ1biBjb25jdXJyZW50bHkgd2l0aCBtYzMyX3R4X3Jpbmco
-KSwgYW5kIHRoZSBmdW5jdGlvbiBpdHNlbGYNCi0gKglpcyBzZXJpYWxpc2Vk
-IGF0IGEgaGlnaGVyIGxheWVyLiBIb3dldmVyLCB0aGlzIG1ha2VzIGl0DQot
-ICoJY3J1Y2lhbCB0aGF0IHdlIHVwZGF0ZSBscC0+dHhfcmluZ19oZWFkIG9u
-bHkgYWZ0ZXIgd2UndmUNCi0gKgllc3RhYmxpc2hlZCBhIHZhbGlkIHBhY2tl
-dCBpbiB0aGUgdHggcmluZyAoYW5kIGlzIHdoeSB3ZSBtYXJrDQotICoJdHhf
-cmluZ19oZWFkIHZvbGF0aWxlKS4NCi0gKi8NCi0NCisgKiANCisgKiAgICAg
-IFdlIGRvIG5vdCBkaXNhYmxlIGludGVycnVwdHMgb3IgYWNxdWlyZSBhbnkg
-bG9ja3M7IHRoaXMgY2FuDQorICogICAgICBydW4gY29uY3VycmVudGx5IHdp
-dGggbWMzMl90eF9yaW5nKCksIGFuZCB0aGUgZnVuY3Rpb24gaXRzZWxmDQor
-ICogICAgICBpcyBzZXJpYWxpc2VkIGF0IGEgaGlnaGVyIGxheWVyLiBIb3dl
-dmVyLCBzaW1pbGFybHkgZm9yIHRoZQ0KKyAqICAgICAgY2FyZCBpdHNlbGYs
-IHdlIG11c3QgZW5zdXJlIHRoYXQgd2UgdXBkYXRlIHR4X3JpbmdfaGVhZCBv
-bmx5DQorICogICAgICBhZnRlciB3ZSd2ZSBlc3RhYmxpc2hlZCBhIHZhbGlk
-IHBhY2tldCBvbiB0aGUgdHggcmluZyAoYW5kDQorICogICAgICBiZWZvcmUg
-d2UgbGV0IHRoZSBjYXJkICJzZWUiIGl0LCB0byBwcmV2ZW50IGl0IHJhY2lu
-ZyB3aXRoIHRoZQ0KKyAqICAgICAgaXJxIGhhbmRsZXIpLg0KKyAqIA0KKyAq
-Ki8NCiBzdGF0aWMgaW50IG1jMzJfc2VuZF9wYWNrZXQoc3RydWN0IHNrX2J1
-ZmYgKnNrYiwgc3RydWN0IG5ldF9kZXZpY2UgKmRldikNCiB7DQogCXN0cnVj
-dCBtYzMyX2xvY2FsICpscCA9IChzdHJ1Y3QgbWMzMl9sb2NhbCAqKWRldi0+
-cHJpdjsNCi0JDQotCXUxNiBoZWFkID0gbHAtPnR4X3JpbmdfaGVhZDsNCisJ
-dTMyIGhlYWQgPSBhdG9taWNfcmVhZCgmbHAtPnR4X3JpbmdfaGVhZCk7DQog
-CQ0KIAl2b2xhdGlsZSBzdHJ1Y3Qgc2tiX2hlYWRlciAqcCwgKm5wOw0KIA0K
-QEAgLTEwMjcsNyArMTAzMCw3IEBAIHN0YXRpYyBpbnQgbWMzMl9zZW5kX3Bh
-Y2tldChzdHJ1Y3Qgc2tfYnUNCiAJCW5ldGlmX3dha2VfcXVldWUoZGV2KTsN
-CiAJCXJldHVybiAwOw0KIAl9DQotCQ0KKw0KIAlhdG9taWNfZGVjKCZscC0+
-dHhfY291bnQpOyANCiANCiAJLyogUCBpcyB0aGUgbGFzdCBzZW5kaW5nL3Nl
-bnQgYnVmZmVyIGFzIGEgcG9pbnRlciAqLw0KQEAgLTEwNDEsOCArMTA0NCw3
-IEBAIHN0YXRpYyBpbnQgbWMzMl9zZW5kX3BhY2tldChzdHJ1Y3Qgc2tfYnUN
-CiAJLyogV2Ugd2lsbCBuZWVkIHRoaXMgdG8gZmx1c2ggdGhlIGJ1ZmZlciBv
-dXQgKi8NCiAJbHAtPnR4X3JpbmdbaGVhZF0uc2tiPXNrYjsNCiANCi0JbnAt
-Pmxlbmd0aCA9IHVubGlrZWx5KHNrYi0+bGVuIDwgRVRIX1pMRU4pID8gRVRI
-X1pMRU4gOiBza2ItPmxlbjsNCi0NCisJbnAtPmxlbmd0aCAgICAgID0gdW5s
-aWtlbHkoc2tiLT5sZW4gPCBFVEhfWkxFTikgPyBFVEhfWkxFTiA6IHNrYi0+
-bGVuOw0KIAlucC0+ZGF0YQk9IGlzYV92aXJ0X3RvX2J1cyhza2ItPmRhdGEp
-Ow0KIAlucC0+c3RhdHVzCT0gMDsNCiAJbnAtPmNvbnRyb2wgICAgID0gQ09O
-VFJPTF9FT1AgfCBDT05UUk9MX0VPTDsgICAgIA0KQEAgLTEwNTAsMTEgKzEw
-NTIsMTEgQEAgc3RhdGljIGludCBtYzMyX3NlbmRfcGFja2V0KHN0cnVjdCBz
-a19idQ0KIA0KIAkvKg0KIAkgKiBUaGUgbmV3IGZyYW1lIGhhcyBiZWVuIHNl
-dHVwOyB3ZSBjYW4gbm93DQotCSAqIGxldCB0aGUgY2FyZCBhbmQgaW50ZXJy
-dXB0IGhhbmRsZXIgInNlZSIgaXQNCisJICogbGV0IHRoZSBpbnRlcnJ1cHQg
-aGFuZGxlciBhbmQgY2FyZCAic2VlIiBpdA0KIAkgKi8NCiANCisJYXRvbWlj
-X3NldCgmbHAtPnR4X3JpbmdfaGVhZCwgaGVhZCk7IA0KIAlwLT5jb250cm9s
-ICAgICAmPSB+Q09OVFJPTF9FT0w7DQotCWxwLT50eF9yaW5nX2hlYWQ9IGhl
-YWQ7DQogDQogCW5ldGlmX3dha2VfcXVldWUoZGV2KTsNCiAJcmV0dXJuIDA7
-DQpAQCAtMTIzNCw4ICsxMjM2LDggQEAgc3RhdGljIHZvaWQgbWMzMl90eF9y
-aW5nKHN0cnVjdCBuZXRfZGV2aQ0KIAkgKiB0eF9yaW5nX2hlYWQgd3JhcHBp
-bmcgdG8gdGFpbCBhbmQgY29uZnVzaW5nIGEgJ3F1ZXVlIGVtcHR5Jw0KIAkg
-KiBjb25kaXRpb24gd2l0aCAncXVldWUgZnVsbCcgDQogCSAqLw0KLQkNCi0J
-d2hpbGUgKGxwLT50eF9yaW5nX3RhaWwgIT0gbHAtPnR4X3JpbmdfaGVhZCkg
-IA0KKw0KKwl3aGlsZSAobHAtPnR4X3JpbmdfdGFpbCAhPSBhdG9taWNfcmVh
-ZCgmbHAtPnR4X3JpbmdfaGVhZCkpICANCiAJeyAgIA0KIAkJdTE2IHQ7IA0K
-IA0KQEAgLTE0ODcsNyArMTQ4OSw3IEBAIHN0YXRpYyBpbnQgbWMzMl9jbG9z
-ZShzdHJ1Y3QgbmV0X2RldmljZSANCiANCiBzdGF0aWMgc3RydWN0IG5ldF9k
-ZXZpY2Vfc3RhdHMgKm1jMzJfZ2V0X3N0YXRzKHN0cnVjdCBuZXRfZGV2aWNl
-ICpkZXYpDQogew0KLQlzdHJ1Y3QgbWMzMl9sb2NhbCAqbHAgPSAoc3RydWN0
-IG1jMzJfbG9jYWwgKilkZXYtPnByaXY7Ow0KKwlzdHJ1Y3QgbWMzMl9sb2Nh
-bCAqbHAgPSAoc3RydWN0IG1jMzJfbG9jYWwgKilkZXYtPnByaXY7DQogCQ0K
-IAltYzMyX3VwZGF0ZV9zdGF0cyhkZXYpOyANCiANCg==
----1463810815-1751553365-1066708907=:531--
+Thanks.
