@@ -1,114 +1,37 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Linux 2.4.27-pre4
-Date: Mon, 31 May 2004 13:01:06 +0900 (JST)
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [PATCH 1/17 linux-2.6.7-rc2] prism54: delete cvs tags
+Date: Mon, 31 May 2004 00:30:24 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040531.130106.109802314.yoshfuji@linux-ipv6.org>
-References: <20040530205602.GA18637@logos.cnet>
-	<40BAA82A.4040105@nerdvest.com>
+Message-ID: <20040531043024.GB25094@ruslug.rutgers.edu>
+References: <5.1.0.14.2.20040530212235.00aed870@pop.t-online.de> <20040530215508.GA25094@ruslug.rutgers.edu> <40BA5A51.6070405@pobox.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
- boundary="--Next_Part(Mon_May_31_13:01:06_2004_233)--"
-Content-Transfer-Encoding: 7bit
-Cc: marcelo.tosatti@cyclades.com, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Margit Schubert-While <margitsw@t-online.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bryan@nerdvest.com
-In-Reply-To: <40BAA82A.4040105@nerdvest.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <40BA5A51.6070405@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----Next_Part(Mon_May_31_13:01:06_2004_233)--
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-
-In article <40BAA82A.4040105@nerdvest.com> (at Sun, 30 May 2004 22:36:10 -0500), Bryan Andersen <bryan@nerdvest.com> says:
-
-> Error in ipv4 net code, config attached.
+On Sun, May 30, 2004 at 06:04:01PM -0400, Jeff Garzik wrote:
+> Luis R. Rodriguez wrote:
+> >On Sun, May 30, 2004 at 10:04:21PM +0200, Margit Schubert-While wrote:
+> >
+> >>2004-05-29 Margit Schubert-While <margitsw@t-online.de>
+> >>
+> >>* Remove CVS tags from source
+> >
+> >
+> >I believe what Jeff wanted was for all the patches to have these already
+> >removed, not to remove them from the kernel tree, specifically.
 > 
-> gcc-3.2 -D__KERNEL__ -I/usr/src/linux-2.4.27-pre4/include -Wall 
-> -Wstrict-prototypes -Wno-trigraphs -O2 -fno-strict-aliasing -fno-common 
-> -fomit-frame-pointer -pipe -mpreferred-stack-boundary=2 -march=athlon
-> -nostdinc -iwithprefix include -DKBUILD_BASENAME=tcp_input  -c -o 
-> tcp_input.o tcp_input.c
-> tcp_input.c: In function `tcp_rcv_space_adjust':
-> tcp_input.c:479: structure has no member named `sk_rcvbuf'
-> tcp_input.c:480: structure has no member named `sk_rcvbuf'
+> Margit interpreted me correctly...  As long as the CVS $tag$s are 
+> present in the kernel tree, they will wind up leading to conflicts.
 
-Thanks. Patch is available. Please try this patch.
+Ahh wonderful then :)
 
---yoshfuji
-----Next_Part(Mon_May_31_13:01:06_2004_233)--
-Content-Type: Message/Rfc822
-Content-Transfer-Encoding: 7bit
+	Luis
 
-Return-Path: <netdev-bounce@oss.sgi.com>
-Delivered-To: yoshfuji@yue.st-paulia.net
-Received: from sapphire (unknown [203.178.140.14])
-	by yue.st-paulia.net (Postfix) with ESMTP id 969D233CE6
-	for <yoshfuji@yue.st-paulia.net>; Mon, 31 May 2004 06:57:55 +0900 (JST)
-Received: by sapphire (Postfix)
-	id 8593E23CFB; Mon, 31 May 2004 06:57:38 +0900 (JST)
-Delivered-To: yoshfuji@cerberus.st-paulia.net
-Received: from linux6.nezu.wide.ad.jp (linux6.nezu.wide.ad.jp [203.178.142.218])
-	by sapphire (Postfix) with ESMTP id E906623CF8
-	for <yoshfuji@cerberus.st-paulia.net>; Mon, 31 May 2004 06:57:37 +0900 (JST)
-Received: from oss.sgi.com (oss.sgi.com [192.48.159.27])
-	by linux6.nezu.wide.ad.jp (8.12.3/8.12.3/Debian-6.6) with ESMTP id i4ULv9a3019999
-	for <yoshfuji@linux-ipv6.org>; Mon, 31 May 2004 06:57:09 +0900
-Received: from oss.sgi.com (localhost [127.0.0.1])
-	by oss.sgi.com (8.12.10/8.12.9) with ESMTP id i4ULv7gi008621;
-	Sun, 30 May 2004 14:57:08 -0700
-Received: with ECARTIS (v1.0.0; list netdev); Sun, 30 May 2004 14:55:09 -0700 (PDT)
-Received: from aun.it.uu.se (root@aun.it.uu.se [130.238.12.36])
-	by oss.sgi.com (8.12.10/8.12.9) with SMTP id i4ULsvgi008164
-	for <netdev@oss.sgi.com>; Sun, 30 May 2004 14:54:59 -0700
-Received: from harpo.it.uu.se (daemon@harpo.it.uu.se [130.238.12.34])
-	by aun.it.uu.se (8.12.11/8.12.10) with ESMTP id i4ULsoWj017720;
-	Sun, 30 May 2004 23:54:50 +0200 (MEST)
-Received: (from mikpe@localhost)
-	by harpo.it.uu.se (8.12.10+Sun/8.12.10) id i4ULso3l014496;
-	Sun, 30 May 2004 23:54:50 +0200 (MEST)
-Date: Sun, 30 May 2004 23:54:50 +0200 (MEST)
-Message-Id: <200405302154.i4ULso3l014496@harpo.it.uu.se>
-From: Mikael Pettersson <mikpe@csd.uu.se>
-To: marcelo.tosatti@cyclades.com
-Subject: [PATCH][2.4.27-pre4] tcp_input.c compile-time error
-Cc: davem@redhat.com, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-X-archive-position: 5484
-X-ecartis-version: Ecartis v1.0.0
-Sender: netdev-bounce@oss.sgi.com
-Errors-To: netdev-bounce@oss.sgi.com
-X-original-sender: mikpe@csd.uu.se
-Precedence: bulk
-X-list: netdev
-
-net/ipv4/tcp_input.c in 2.4.27-pre4 fails to compile:
-
-tcp_input.c: In function `tcp_rcv_space_adjust':
-tcp_input.c:479: error: structure has no member named `sk_rcvbuf'
-tcp_input.c:480: error: structure has no member named `sk_rcvbuf'
-make[3]: *** [tcp_input.o] Error 1
-
-The patch below appears to fix this problem, although some netdev
-person should probably check it.
-
-/Mikael
-
-diff -ruN linux-2.4.27-pre4/net/ipv4/tcp_input.c linux-2.4.27-pre4.tcp_input-fix/net/ipv4/tcp_input.c
---- linux-2.4.27-pre4/net/ipv4/tcp_input.c	2004-05-30 23:18:16.000000000 +0200
-+++ linux-2.4.27-pre4.tcp_input-fix/net/ipv4/tcp_input.c	2004-05-30 23:45:52.000000000 +0200
-@@ -476,8 +476,8 @@
- 				  16 + sizeof(struct sk_buff));
- 			space *= rcvmem;
- 			space = min(space, sysctl_tcp_rmem[2]);
--			if (space > sk->sk_rcvbuf)
--				sk->sk_rcvbuf = space;
-+			if (space > sk->rcvbuf)
-+				sk->rcvbuf = space;
- 		}
- 	}
- 	
-
-
-----Next_Part(Mon_May_31_13:01:06_2004_233)----
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
