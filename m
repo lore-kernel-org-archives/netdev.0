@@ -1,203 +1,182 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (15/25) sk98: handle tranmit ring full
-Date: Mon, 15 Nov 2004 15:44:45 -0800
-Message-ID: <20041115154445.701240d7@zqx3.pdx.osdl.net>
+Subject: [PATCH] (16/25) sk98: don't redefine DEV_KFREE and IRQ
+Date: Mon, 15 Nov 2004 15:44:53 -0800
+Message-ID: <20041115154453.0eabbcf6@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Tommy Christensen <tommy.christensen@tpack.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>, Mirko Lindner <demon@pro-linux.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Return correct value when ring is full, and stop queue when reaches
-maximum. Need to check ring status under lock to avoid race with transmit
-interrupt. Don't drop skb when returning busy!
+Don't redefine DEV_KFREE and irq return types.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
 diff -Nru a/drivers/net/sk98lin/skge.c b/drivers/net/sk98lin/skge.c
---- a/drivers/net/sk98lin/skge.c	2004-11-15 13:46:45 -08:00
-+++ b/drivers/net/sk98lin/skge.c	2004-11-15 13:46:45 -08:00
-@@ -1354,67 +1354,47 @@
-  * Description:
-  *	The system calls this function to send frames onto the wire.
-  *	It puts the frame in the tx descriptor ring. If the ring is
-- *	full then, the 'tbusy' flag is set.
-+ *	full then, the it returns busy and leaves skb alone.
+--- a/drivers/net/sk98lin/skge.c	2004-11-15 13:49:08 -08:00
++++ b/drivers/net/sk98lin/skge.c	2004-11-15 13:49:08 -08:00
+@@ -166,22 +166,12 @@
+ // #define CON_TYPE 	{"Auto", }
+ // #define RLMT_MODE	{"CheckLinkState", }
+ 
+-#define DEV_KFREE_SKB(skb) dev_kfree_skb(skb)
+-#define DEV_KFREE_SKB_IRQ(skb) dev_kfree_skb_irq(skb)
+-#define DEV_KFREE_SKB_ANY(skb) dev_kfree_skb_any(skb)
+-
+-
+ /* Set blink mode*/
+ #define OEM_CONFIG_VALUE (	SK_ACT_LED_BLINK | \
+ 				SK_DUP_LED_NORMAL | \
+ 				SK_LED_LINK100_ON)
+ 
+ 
+-/* Isr return value */
+-#define SkIsrRetVar	irqreturn_t
+-#define SkIsrRetNone	IRQ_NONE
+-#define SkIsrRetHandled	IRQ_HANDLED
+-
+ 
+ /*******************************************************************************
   *
-  * Returns:
-- *	0, if everything is ok
-- *	!=0, on error
-- * WARNING: returning 1 in 'tbusy' case caused system crashes (double
-- *	allocated skb's) !!!
-+ *	0 (NETDEV_TX_OK) 	if everything is ok
-+ *	1 (NETDEV_TX_BUSY) 	if ring is full
+@@ -195,8 +185,8 @@
+ static void	BoardFreeMem(SK_AC *pAC);
+ static void	BoardInitMem(SK_AC *pAC);
+ static void	SetupRing(SK_AC*, void*, u64, RXD**, RXD**, RXD**, int*, SK_BOOL);
+-static SkIsrRetVar	SkGeIsr(int irq, void *dev_id, struct pt_regs *ptregs);
+-static SkIsrRetVar	SkGeIsrOnePort(int irq, void *dev_id, struct pt_regs *ptregs);
++static irqreturn_t SkGeIsr(int irq, void *dev_id, struct pt_regs *ptregs);
++static irqreturn_t SkGeIsrOnePort(int irq, void *dev_id, struct pt_regs *ptregs);
+ static int	SkGeOpen(struct net_device *dev);
+ static int	SkGeClose(struct net_device *dev);
+ static int	SkGeSetMacAddr(struct net_device *dev, void *p);
+@@ -839,7 +829,7 @@
+  * Returns: N/A
+  *
   */
- int SkGeXmit(struct sk_buff *skb, struct net_device *dev)
+-static SkIsrRetVar SkGeIsr(int irq, void *dev_id, struct pt_regs *ptregs)
++static irqreturn_t SkGeIsr(int irq, void *dev_id, struct pt_regs *ptregs)
  {
--DEV_NET		*pNet;
--SK_AC		*pAC;
--int			Rc;	/* return code of XmitFrame */
--
--	pNet = netdev_priv(dev);
--	pAC = pNet->pAC;
-+	DEV_NET	*pNet = netdev_priv(dev);
-+	SK_AC	*pAC = pNet->pAC;
-+	TX_PORT		*pTxPort;
-+	int	rc;
-+	unsigned long flags;
-+ 
-+	if (pAC->RlmtNets == 2)
-+		pTxPort = &pAC->TxPort[pNet->PortNr][TX_PRIO_LOW];
-+	else
-+		pTxPort = &pAC->TxPort[pAC->ActivePort][TX_PRIO_LOW];
-+ 
-+	spin_lock_irqsave(&pTxPort->TxDesRingLock, flags);
+ struct net_device *dev = (struct net_device *)dev_id;
+ DEV_NET		*pNet;
+@@ -853,8 +843,8 @@
+ 	 * Check and process if its our interrupt
+ 	 */
+ 	SK_IN32(pAC->IoBase, B0_SP_ISRC, &IntSrc);
+-	if (IntSrc == 0) {
+-		return SkIsrRetNone;
++	if (IntSrc == 0 || IntSrc == ~0) {
++		return IRQ_NONE;
+ 	}
  
- 	if ((!skb_shinfo(skb)->nr_frags) ||
--		(pAC->GIni.GIChipId == CHIP_ID_GENESIS)) {
--		/* Don't activate scatter-gather and hardware checksum */
--
--		if (pAC->RlmtNets == 2)
--			Rc = XmitFrame(
--				pAC,
--				&pAC->TxPort[pNet->PortNr][TX_PRIO_LOW],
--				skb);
--		else
--			Rc = XmitFrame(
--				pAC,
--				&pAC->TxPort[pAC->ActivePort][TX_PRIO_LOW],
--				skb);
--	} else {
--		/* scatter-gather and hardware TCP checksumming anabled*/
--		if (pAC->RlmtNets == 2)
--			Rc = XmitFrameSG(
--				pAC,
--				&pAC->TxPort[pNet->PortNr][TX_PRIO_LOW],
--				skb);
--		else
--			Rc = XmitFrameSG(
--				pAC,
--				&pAC->TxPort[pAC->ActivePort][TX_PRIO_LOW],
--				skb);
--	}
--
--	/* Transmitter out of resources? */
--	if (Rc <= 0) {
-+	    (pAC->GIni.GIChipId == CHIP_ID_GENESIS)) 
-+		rc = XmitFrame(pAC, pTxPort, skb);
-+	else 
-+		rc = XmitFrameSG(pAC, pTxPort, skb);
-+  
-+	/* is space left for next transmit? */
-+	if (rc <= 0) 
- 		netif_stop_queue(dev);
--	}
-+  
-+	spin_unlock_irqrestore(&pTxPort->TxDesRingLock, flags);
-+ 
-+	/* Transmit failed, out of resources */
-+	if (unlikely(rc < 0)) 
-+		return NETDEV_TX_BUSY;
+ 	while (((IntSrc & IRQ_MASK) & ~SPECIAL_IRQS) != 0) {
+@@ -971,7 +961,7 @@
+ 	/* IRQ is processed - Enable IRQs again*/
+ 	SK_OUT32(pAC->IoBase, B0_IMSK, pAC->GIni.GIValIrqMask);
  
--	/* If not taken, give buffer ownership back to the
--	 * queueing layer.
--	 */
--	if (Rc < 0)
--		return (1);
--
--	dev->trans_start = jiffies;
--	return (0);
-+	dev->trans_start = jiffies;		
-+	return NETDEV_TX_OK;
- } /* SkGeXmit */
+-		return SkIsrRetHandled;
++	return IRQ_HANDLED;
+ } /* SkGeIsr */
  
--
- /*****************************************************************************
+ 
+@@ -988,7 +978,7 @@
+  * Returns: N/A
   *
-  * 	XmitFrame - fill one socket buffer into the transmit ring
-@@ -1444,7 +1424,6 @@
+  */
+-static SkIsrRetVar SkGeIsrOnePort(int irq, void *dev_id, struct pt_regs *ptregs)
++static irqreturn_t SkGeIsrOnePort(int irq, void *dev_id, struct pt_regs *ptregs)
  {
- 	TXD		*pTxd;		/* the rxd to fill */
- 	TXD		*pOldTxd;
--	unsigned long	 Flags;
- 	SK_U64		 PhysAddr;
- 	int	 	 Protocol;
- 	int		 IpHeaderLength;
-@@ -1452,7 +1431,6 @@
+ struct net_device *dev = (struct net_device *)dev_id;
+ DEV_NET		*pNet;
+@@ -1002,8 +992,8 @@
+ 	 * Check and process if its our interrupt
+ 	 */
+ 	SK_IN32(pAC->IoBase, B0_SP_ISRC, &IntSrc);
+-	if (IntSrc == 0) {
+-		return SkIsrRetNone;
++	if (IntSrc == 0 || IntSrc == ~0) {
++		return IRQ_NONE;
+ 	}
+ 	
+ 	while (((IntSrc & IRQ_MASK) & ~SPECIAL_IRQS) != 0) {
+@@ -1077,12 +1067,12 @@
+ 	 *           guarded now
+ 	 *
+ 	ReceiveIrq(pAC, &pAC->RxPort[0], SK_TRUE);
+-	 */
++	*/
  
- 	SK_DBG_MSG(NULL, SK_DBGMOD_DRV, SK_DBGCAT_DRV_TX_PROGRESS, ("X"));
+ 	/* IRQ is processed - Enable IRQs again*/
+ 	SK_OUT32(pAC->IoBase, B0_IMSK, pAC->GIni.GIValIrqMask);
  
--	spin_lock_irqsave(&pTxPort->TxDesRingLock, Flags);
- #ifndef USE_TX_COMPLETE
- 	FreeTxDescriptors(pAC, pTxPort);
- #endif
-@@ -1463,7 +1441,6 @@
- 		*/
- 		FreeTxDescriptors(pAC, pTxPort);
- 		if (pTxPort->TxdRingFree == 0) {
--			spin_unlock_irqrestore(&pTxPort->TxDesRingLock, Flags);
- 			SK_PNMI_CNT_NO_TX_BUF(pAC, pTxPort->PortIndex);
- 			SK_DBG_MSG(NULL, SK_DBGMOD_DRV,
- 				SK_DBGCAT_DRV_TX_PROGRESS,
-@@ -1486,7 +1463,6 @@
- 	*/
- 	if (BytesSend < C_LEN_ETHERNET_MINSIZE) {
- 		if ((pMessage = skb_padto(pMessage, C_LEN_ETHERNET_MINSIZE)) == NULL) {
--			spin_unlock_irqrestore(&pTxPort->TxDesRingLock, Flags);
- 			return 0;
+-		return SkIsrRetHandled;
++	return IRQ_HANDLED;
+ } /* SkGeIsrOnePort */
+ 
+ #ifdef CONFIG_NET_POLL_CONTROLLER
+@@ -1777,7 +1767,7 @@
+ 				 PCI_DMA_TODEVICE);
+ 
+ 		if (Control & BMU_EOF)
+-			DEV_KFREE_SKB_ANY(pTxd->pMBuf);	/* free message */
++			dev_kfree_skb_any(pTxd->pMBuf);	/* free message */
+ 
+ 		pTxPort->TxdRingFree++;
+ 		pTxd->TBControl &= ~BMU_SW;
+@@ -2207,7 +2197,7 @@
+ 				SK_DBG_MSG(NULL, SK_DBGMOD_DRV,
+ 					SK_DBGCAT_DRV_RX_PROGRESS,
+ 					("D"));
+-				DEV_KFREE_SKB(pMsg);
++				dev_kfree_skb(pMsg);
+ 			}
+ 			
+ 		} /* if not for rlmt */
+@@ -2256,7 +2246,7 @@
+ 				pAC->dev[pRxPort->PortIndex]->last_rx = jiffies;
+ 			}
+ 			else {
+-				DEV_KFREE_SKB(pMsg);
++				dev_kfree_skb(pMsg);
+ 			}
+ 
+ 		} /* if packet for rlmt */
+@@ -2283,7 +2273,7 @@
+ 			 PhysAddr,
+ 			 pAC->RxBufSize - 2,
+ 			 PCI_DMA_FROMDEVICE);
+-	DEV_KFREE_SKB_IRQ(pRxd->pMBuf);
++	dev_kfree_skb_irq(pRxd->pMBuf);
+ 	pRxd->pMBuf = NULL;
+ 	pRxPort->RxdRingFree++;
+ 	pRxPort->pRxdRingHead = pRxd->pNextRxd;
+@@ -2366,7 +2356,7 @@
+ 					 PhysAddr,
+ 					 pAC->RxBufSize - 2,
+ 					 PCI_DMA_FROMDEVICE);
+-			DEV_KFREE_SKB(pRxd->pMBuf);
++			dev_kfree_skb(pRxd->pMBuf);
+ 			pRxd->pMBuf = NULL;
  		}
- 		pMessage->len = C_LEN_ETHERNET_MINSIZE;
-@@ -1561,16 +1537,7 @@
- 		SK_OUT8(pTxPort->HwAddr, Q_CSR, CSR_START);
- 	}	
+ 		pRxd->RBControl &= BMU_OWN;
+@@ -3866,7 +3856,7 @@
+ 	pFreeMbuf = pMbuf;
+ 	do {
+ 		pNextMbuf = pFreeMbuf->pNext;
+-		DEV_KFREE_SKB_ANY(pFreeMbuf->pOs);
++		dev_kfree_skb_any(pFreeMbuf->pOs);
+ 		pFreeMbuf = pNextMbuf;
+ 	} while ( pFreeMbuf != NULL );
+ } /* SkDrvFreeRlmtMbuf */
+@@ -4337,7 +4327,7 @@
+ 		if (XmitFrame(pAC, &pAC->TxPort[pRlmtMbuf->PortIdx][TX_PRIO_LOW],
+ 			pMsg) < 0)
  
--	/* 
--	** after releasing the lock, the skb may immediately be free'd 
--	*/
--	spin_unlock_irqrestore(&pTxPort->TxDesRingLock, Flags);
--	if (pTxPort->TxdRingFree != 0) {
--		return (BytesSend);
--	} else {
--		return (0);
--	}
--
-+	return (pTxPort->TxdRingFree != 0);
- } /* XmitFrame */
- 
- /*****************************************************************************
-@@ -1603,16 +1570,13 @@
- 	int		 Protocol;
- 	skb_frag_t	*sk_frag;
- 	SK_U64		 PhysAddr;
--	unsigned long	 Flags;
- 
--	spin_lock_irqsave(&pTxPort->TxDesRingLock, Flags);
- #ifndef USE_TX_COMPLETE
- 	FreeTxDescriptors(pAC, pTxPort);
- #endif
- 	if ((skb_shinfo(pMessage)->nr_frags +1) > pTxPort->TxdRingFree) {
- 		FreeTxDescriptors(pAC, pTxPort);
- 		if ((skb_shinfo(pMessage)->nr_frags + 1) > pTxPort->TxdRingFree) {
--			spin_unlock_irqrestore(&pTxPort->TxDesRingLock, Flags);
- 			SK_PNMI_CNT_NO_TX_BUF(pAC, pTxPort->PortIndex);
- 			SK_DBG_MSG(NULL, SK_DBGMOD_DRV,
- 				SK_DBGCAT_DRV_TX_PROGRESS,
-@@ -1744,13 +1708,7 @@
- 	pTxPort->pTxdRingPrev = pTxdLst;
- 	pTxPort->pTxdRingHead = pTxd;
- 
--	spin_unlock_irqrestore(&pTxPort->TxDesRingLock, Flags);
--
--	if (pTxPort->TxdRingFree > 0) {
--		return (BytesSend);
--	} else {
--		return (0);
--	}
-+	return (pTxPort->TxdRingFree > 0);
- }
- 
- /*****************************************************************************
+-			DEV_KFREE_SKB_ANY(pMsg);
++			dev_kfree_skb_any(pMsg);
+ 		break;
+ 	case SK_DRV_TIMER:
+ 		if (Param.Para32[0] == SK_DRV_MODERATION_TIMER) {
