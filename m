@@ -1,35 +1,44 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: PROBLEM: fix fealnx.c hangs on SMP, 2.4.27
-Date: Mon, 30 Aug 2004 11:57:02 +0300
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: sysctl net.ipv6.conf.eth0.use_tempaddr only recogniced on
+ interface start?
+Date: Mon, 30 Aug 2004 18:08:05 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408301157.03334.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <38386.192.168.1.2.1093850895.squirrel@www.it-technology.at>
+Message-ID: <20040830.180805.06423987.yoshfuji@linux-ipv6.org>
+References: <F5812425CD96109163291692@worker.muc.bieringer.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Francois Romieu <romieu@fr.zoreil.com>,
-        netdev@oss.sgi.com
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com,
+        initscripts-ipv6@deepspace6.net, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Peter Holik" <peter@holik.at>, <linux-kernel@vger.kernel.org>
-In-Reply-To: <38386.192.168.1.2.1093850895.squirrel@www.it-technology.at>
-Content-Disposition: inline
+To: pb@bieringer.de
+In-Reply-To: <F5812425CD96109163291692@worker.muc.bieringer.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 30 August 2004 10:28, Peter Holik wrote:
-> static void set_rx_mode(struct net_device *dev)
-> {
->    spinlock_t *lp = &((struct netdev_private *)dev->priv)->lock;
->    unsigned long flags;
->    spin_lock_irqsave(lp, flags);
->    __set_rx_mode(dev);
-> -  spin_unlock_irqrestore(&lp, flags);
-> +  spin_unlock_irqrestore(lp, flags);
-> }
+In article <F5812425CD96109163291692@worker.muc.bieringer.de> (at Mon, 30 Aug 2004 10:09:46 +0200), Peter Bieringer <pb@bieringer.de> says:
 
-Oh... it was my change which was buggy... Thanks for the fix!
+> during playing around with RFC3041 capability in Linux kernel, I recognized
+> that the toggle (e.g. net.ipv6.conf.eth0.use_tempaddr) in sysctl is only
+> recognized if interface state changes from down to up, which means you
+> can't enable RFC3041 on an already running interface.
 
-Jeff, 2.6 most probably has the same bug.
---
-vda
+Not quite true. net.ipv6.conf.eth0.use_tempaddr is recognized, but 
+new temporary addresses is created only when new public address is created
+(by specification).
+
+> Is this 
+> 
+> a) by design
+> b) temporary issue, will be solved later
+> c) bug, will be solved soon
+
+a
+
+and even b; we can probably extend our implementation 
+to create temprary address when net.ipv6.conf.eth0.use_tempaddr is changed 
+from 0 to 1.
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
