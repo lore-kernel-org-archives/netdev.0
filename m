@@ -1,76 +1,47 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: dummy as IMQ replacement
-Date: Mon, 31 Jan 2005 19:15:53 +0100
-Message-ID: <20050131181553.GG31837@postel.suug.ch>
-References: <1107123123.8021.80.camel@jzny.localdomain> <20050131135810.GC31837@postel.suug.ch> <1107181169.7840.184.camel@jzny.localdomain> <20050131151532.GE31837@postel.suug.ch> <1107186044.1076.11.camel@jzny.localdomain> <20050131155929.GF31837@postel.suug.ch> <1107189625.1076.77.camel@jzny.localdomain>
+From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
+Subject: Re: 2.4.29, e100 and a WOL packet causes keventd going mad
+Date: Mon, 31 Jan 2005 13:24:31 -0200
+Message-ID: <20050131152431.GA14176@logos.cnet>
+References: <20050130171849.GA3354@hardeman.nu> <1107143255.18167.428.camel@localhost.localdomain> <41FDB2D3.5CBD6F7D@gte.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: sfeldma@pobox.com, David =?iso-8859-1?Q?H=E4rdeman?= <david@2gen.com>,
+        Michael Gernoth <simigern@stud.uni-erlangen.de>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Bukie Mabayoje <bukiemab@gte.net>
 Content-Disposition: inline
-In-Reply-To: <1107189625.1076.77.camel@jzny.localdomain>
+In-Reply-To: <41FDB2D3.5CBD6F7D@gte.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Would be interesting to combine policing and random dropping to see 
-> what happens. 
+On Sun, Jan 30, 2005 at 08:23:47PM -0800, Bukie Mabayoje wrote:
+>=20
+> Scott Feldman wrote:
+>=20
+> > On Sun, 2005-01-30 at 09:18, David H=C3=A4rdeman wrote:
+> > > I experience the same problems as reported by Michael Gernoth when
+> > > sending a WOL-packet to computer with a e100 NIC which is already
+> > > powered on.
+> >
+> > I didn't look at the 2.4 case, but for 2.6, it seems e100 was enablin=
+g
+> > PME wakeup during probe.  PME shouldn't be enabled while the system i=
+s
+> > up.  I suspect the assertion of PME while the system is up is what's
+> > causing problems.  This patch moves PME wakeup enabling to either
+> > suspend or shutdown.
+> >
+> > David, would you give this patch a try?  Make sure the system still
+> > wakes from a magic packet if suspended or shut down, and doesn't caus=
+e
+> > kacpid to go crazy if system is running.  If it helps for 2.6, perhap=
+s
+> > someone can look into 2.4 to see if there is something similar going =
+on
+>=20
+> This issue was reported on 2.4.
 
-Indeed.
-
-> Probably Linux may not even be the right place to do it to start with
-> - rather simulations until you get it right then code it into Linux.
-
-I haven't left ns sim so far, my calculations are based on some of the
-linux specific cc modifications though, i.e. I modified ns sim a bit
-to provide the same information. I'm thinking about moving to umlsim,
-it should provide a better real world simulation.
-
-> true - i was thinking of restoring stateless NAT at this level as well.
-> So csum would be needed. The csum could be programmed to either
-> validate only or recompute; those are the only two arguements to it that
-> i could think of. I suppose first thing is to put out the eaction patch
-> then add this action. I will try to sneak in some time this week and
-> write the eaction.
-
-Sounds good, we could put up a ematch csum for validation and a eaction
-for recomputation. I'll wait for your code to show up.
-
-> > Right, so we can do something like the meta ematch/action split. What
-> > attributes to you intend to be modifieable? 
-> 
-> Essentially on ingress create state; i have to find my notes to give you
-> precise answer. But one of the parameters was to select the level of
-> state tracking (such as "track IP only" - not sure how doable that is
-> with contrack)
-
-So you want to have a generic conntrack action capable of dynamically
-taking whatever information into account that the user requests? This
-remembers me of the esfq effort which could benefit from this, it
-extends sfq to take the definition for a flow as a parameter. We could
-share some code here.
-
-> Stateless NAT doesnt really need contracking. pedit (taught to speak
-> english) + eaction csum should do it.
-
-Right, given we don't need any reverse translation. Still it would be
-neat to set the conntrack attributes so one could use iptables later
-on, I'm not sure how doable this is though.
-
-Something different...
-
-This sounds all very good but I think we're still sucessfully ignoring
-one of the most important points, usability. Most modifications over
-the last few months have complicated things, introduced different behaviour
-depending on compile time options and userspace tools which are either
-outdated or having features being completely undocumented. Some of the
-recent additions don't even show up in the usage text of iproute2. So
-I think we should at least part time focus a little more on the big
-picture and make things consitent and more useable. At least 50% of the
-functionaility currently in mainline is completely unused because nobody
-knows about it. I'm in no way against any of the recent additions but
-maybe we can also put some more effort into usability.
+Can any of you guys test v2.6, please?
