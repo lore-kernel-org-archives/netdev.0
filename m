@@ -1,60 +1,95 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: [RFC] netif_rx: receive path optimization
-Date: Thu, 31 Mar 2005 15:03:20 -0800
-Message-ID: <424C81B8.6090709@us.ibm.com>
-References: <20050330132815.605c17d0@dxpl.pdx.osdl.net>	<20050331120410.7effa94d@dxpl.pdx.osdl.net>	<1112303431.1073.67.camel@jzny.localdomain> <424C6A98.1070509@hp.com> <1112305084.1073.94.camel@jzny.localdomain> <424C7CDC.8050801@hp.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
+Date: Fri, 1 Apr 2005 09:19:22 +1000
+Message-ID: <20050331231922.GA26587@gondor.apana.org.au>
+References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au> <20050327133811.GA5569@elte.hu> <20050329104906.GA19836@gondor.apana.org.au> <20050329114926.GA14986@elte.hu> <20050330082640.GA8269@gondor.apana.org.au> <20050330170236.2bddf666.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <424C7CDC.8050801@hp.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="CE+1k2dSO48ffgeK"
+Cc: mingo@elte.hu, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+	olel@ans.pl
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050330170236.2bddf666.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Rick Jones wrote:
 
->> Take the following scenario in non-NAPI. -packet 1 arrives -interupt 
->> happens, NIC bound to CPU0
->> - in the meantime packets 2,3 arrive
->> - 3 packets put on queue for CPU0
->> - interupt processing done
->>
->> - packet 4 arrives, interupt, CPU1 is bound to NIC
->> - in the meantime packets 5,6 arrive
->> - CPU1 backlog queue used.
->> - interupt processing done
->>
->> Assume CPU0 is overloaded with other systenm work and CPU1 rx processing
->> kicks in first ... TCP sees packet 4, 5, 6 before 1, 2, 3 ..
+--CE+1k2dSO48ffgeK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+Hi Dave:
+
+On Wed, Mar 30, 2005 at 05:02:36PM -0800, David S. Miller wrote:
+> On Wed, 30 Mar 2005 18:26:40 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+>
+> > The solution is to hold a ref count on the socket before we drop
+> > the cb lock.
 > 
-> 
-> I "never" see that because I always bind a NIC to a specific CPU :)  
-> Just about every networking-intensive benchmark report I've seen has 
-> done the same.
+> Applied, thanks Herbert.
 
-Just a reminder that the networking-benchmark world and
-the real networking deployment world have a less than desirable
-intersection (which I know you know only too well, Rick ;)).
-How often do people use affinity? How often do they really tune
-the system for their workloads? How often do they turn off things
-like SACK etc? Not very often in the real world. Designing OSs to
-do better at benchmarks is a different proposition than designing
-OSs to do well in the real world.
+Unfortunately my patch only closed half the race.  There is still
+a chunk of code between netlink_dump_start and netlink_dump that runs
+outside the cb lock which isn't protected by an sk reference.
 
->> Note Linux is quiet resilient to reordering compared to other OSes (as
->> you may know) but avoiding this is a better approach - hence my
->> suggestion to use NAPI when you want to do serious TCP.
+Here is a better patch which protects the entire netlink_dump function
+with a sk reference.
 
-The real killer for TCP is triggering fast retransmit
-unnecessarily - and while we have some reordering detection
-and safeguards for that - for other situations like apps
-running over UDP and being unable to cope with reordering
-(yes, there are dunderheads like that) there is not much
-you can do. It does help them to avoid the reordering to
-begin with.
+The other call to netlink_dump by recvmsg is safe as the open file
+descriptor already holds a reference.  As such the final sock_put
+in netlink_dump can be turned into a __sock_put since there is at
+least one reference held by the caller.
 
-thanks,
-Nivedita
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--CE+1k2dSO48ffgeK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/netlink/af_netlink.c 1.73 vs edited =====
+--- 1.73/net/netlink/af_netlink.c	2005-03-31 10:58:04 +10:00
++++ edited/net/netlink/af_netlink.c	2005-04-01 09:06:20 +10:00
+@@ -1080,11 +1080,9 @@
+ 	len = cb->dump(skb, cb);
+ 
+ 	if (len > 0) {
+-		sock_hold(sk);
+ 		spin_unlock(&nlk->cb_lock);
+ 		skb_queue_tail(&sk->sk_receive_queue, skb);
+ 		sk->sk_data_ready(sk, len);
+-		sock_put(sk);
+ 		return 0;
+ 	}
+ 
+@@ -1099,7 +1097,7 @@
+ 	spin_unlock(&nlk->cb_lock);
+ 
+ 	netlink_destroy_callback(cb);
+-	sock_put(sk);
++	__sock_put(sk);
+ 	return 0;
+ }
+ 
+@@ -1138,9 +1136,11 @@
+ 		return -EBUSY;
+ 	}
+ 	nlk->cb = cb;
++	sock_hold(sk);
+ 	spin_unlock(&nlk->cb_lock);
+ 
+ 	netlink_dump(sk);
++	sock_put(sk);
+ 	return 0;
+ }
+ 
+
+--CE+1k2dSO48ffgeK--
