@@ -1,24 +1,36 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Some pktgen fixes for 2.6.11-rc2
-Date: Wed, 16 Feb 2005 08:39:34 -0800
-Message-ID: <20050216083934.41bae852.davem@davemloft.net>
-References: <16890.41237.608094.933695@robur.slu.se>
-	<20050215134120.3ae4c511.davem@davemloft.net>
-	<16915.24548.149702.188195@robur.slu.se>
+From: Meelis Roos <mroos@linux.ee>
+Subject: Quieten privacy extensions message
+Date: Wed, 16 Feb 2005 19:27:40 +0200 (EET)
+Message-ID: <Pine.SOC.4.61.0502161924050.17280@math.ut.ee>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Jens.Laas@data.slu.se
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16915.24548.149702.188195@robur.slu.se>
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 16 Feb 2005 15:59:48 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+It's not nice to see kernel internal pointers like this in dmesg:
+Disabled Privacy Extensions on device 00000000006a2970(lo)
 
->  Against linux-2.6.11-rc4
->  Some minor bugfixes and some clean ups. Yes version jumps with two.
+The patch removes the pointer from dmesg, resulting in
+Disabled Privacy Extensions on device lo
 
-Applied, thanks a lot Robert.
+Signed-off-by: Meelis Roos <mroos@linux.ee>
+
+===== net/ipv6/addrconf.c 1.129 vs edited =====
+--- 1.129/net/ipv6/addrconf.c	2005-01-17 23:13:31 +02:00
++++ edited/net/ipv6/addrconf.c	2005-02-16 19:21:59 +02:00
+@@ -364,8 +364,8 @@
+  		    dev->type == ARPHRD_TUNNEL ||
+  		    dev->type == ARPHRD_SIT) {
+  			printk(KERN_INFO
+-				"Disabled Privacy Extensions on device %p(%s)\n",
+-				dev, dev->name);
++				"Disabled Privacy Extensions on device %s\n",
++				dev->name);
+  			ndev->cnf.use_tempaddr = -1;
+  		} else {
+  			in6_dev_hold(ndev);
+
+-- 
+Meelis Roos (mroos@linux.ee)
