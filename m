@@ -1,88 +1,115 @@
-From: Jon D Mason <jonmason@us.ibm.com>
-Subject: Re: [PATCH] r8169 NAPI addition
-Date: Fri, 23 Apr 2004 17:27:17 -0500
+From: Carson Gaspar <carson@taltos.org>
+Subject: Re: kernel BUG at page_alloc.c:98 -- compiling with distcc
+Date: Fri, 23 Apr 2004 18:33:13 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF8334CD5C.3FE962A9-ON87256E7F.0052C6D7-86256E7F.007AED3E@us.ibm.com>
-References: <20040423011834.A3232@electric-eye.fr.zoreil.com>
+Message-ID: <382320000.1082759593@taltos.ny.ficc.gs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040423011834.A3232@electric-eye.fr.zoreil.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon D Mason <jonmason@us.ibm.com> :
-[...]
---- r8169.c              2004-04-18 22:51:33.000000000 -0500
-+++ r8169.c              2004-04-22 08:08:57.526577048 -0500
-[...]
-@@ -1692,6 +1737,31 @@ static struct net_device_stats *rtl8169_
-                 return &tp->stats;
- }
- 
-+#ifdef CONFIG_R8169_NAPI
-+static int rtl8169_poll(struct net_device *dev, int *budget)
-+{
-+                u32 status, work_done = 0, work_to_do = min(*budget, 
-dev->quota);
-+                struct rtl8169_private *tp = dev->priv;
-+                void *ioaddr = tp->mmio_addr;
-+ 
-+                work_done = rtl8169_rx_interrupt(dev, tp, ioaddr);
-+ 
-+                *budget -= work_done;
-+                dev->quota -= work_done;
-+ 
-+                if ((work_done < work_to_do) || !netif_running(dev)) {
+FYI, we see the exact same panic with the tg3 driver using 2.4.25 and 
+distcc with sendfile(). The bcm5700 driver also panics, but I haven't 
+captured a panic message to be certain it's the same bug.
 
-> Packets are received here.
-> Tx interrupt is issued.
-> --> Interrupts status register is completely cleared by the irq handler 
-<--
-> There are pending Rx packets.
-> r8169_poll() is not activated by the irq handler.
->
-> --> Pending Rx packets may wait long.
+kernel BUG at page_alloc.c:98!
+invalid operand: 0000
+CPU:    1
+EIP:    0010:[<c0139492>]    Tainted: PF
+Using defaults from ksymoops -t elf32-i386 -a i386
+EFLAGS: 00010202
+eax: 00000001   ebx: c294dcb0   ecx: 00000001   edx: 00000020
+esi: edb6e2e0   edi: 00000000   ebp: 00000004   esp: c55af9b4
+ds: 0018   es: 0018   ss: 0018
+Process cc1plus (pid: 21186, stackpage=c55af000)
+Stack: c022e9ee f6fb1000 c022aa9c 00000287 00000206 00000286 db5a9600 
+00000001
+       edb6e2e0 edb6e2e0 00000004 c022aa4e edb6e2e0 f3716100 c022aa9c 
+edb6e2e0
+       f371623c f3716100 c022ac25 edb6e2e0 00000000 c025423a edb6e2e0 
+c55ae000
+Call Trace:    [<c022e9ee>] [<c022aa9c>] [<c022aa4e>] [<c022aa9c>] 
+[<c022ac25>]
+  [<c025423a>] [<c0247d28>] [<c024be53>] [<c025675b>] [<c02547c8>] 
+[<c0256bdf>]
+  [<c0138175>] [<c022aa9c>] [<c0254307>] [<c0258a67>] [<c022aa9c>] 
+[<c0254307>]
+  [<c025ef5b>] [<c025f4ad>] [<c022ac25>] [<c0256bec>] [<c01550dc>] 
+[<c014ba00>]
+  [<c02449a3>] [<c02449a3>] [<c0244da6>] [<c025ef5b>] [<c0139c05>] 
+[<c025f4ad>]
+  [<c022a8af>] [<c022f189>] [<c022a8af>] [<f8990d48>] [<c02449a3>] 
+[<f8990ef9>]
+  [<c022f3a3>]o[<c0122c5b>] [<c010a74e>] [<c0131a04>] [<c012e232>] 
+[<c0131487>]
+  [<c0119e06>] [<c0131b08>] [<c0131990>] [<c01410d6>] [<c012e72a>] 
+[<c0108b5f>]
+Code: 0f 0b 62 00 bd 35 2a c0 89 d8 e8 5f ed ff ff 8b 6b 28 85 ed
 
-+                                netif_rx_complete(dev);
-+                                status = RTL_R16(IntrStatus);
-+                                if (!status) {
-+                                                RTL_W16(IntrMask, 
-rtl8169_intr_mask);
-+                                                status = 
-RTL_R16(IntrMask);
-+                                } 
+>>EIP; c0139492 <__free_pages_ok+32/2b0>   <=====
+Trace; c022e9ee <dev_queue_xmit+14e/320>
+Trace; c022aa9c <kfree_skbmem+c/70>
+Trace; c022aa4e <skb_release_data+4e/90>
+Trace; c022aa9c <kfree_skbmem+c/70>
+Trace; c022ac25 <__kfree_skb+125/130>
+Trace; c025423a <tcp_clean_rtx_queue+15a/310>
+Trace; c0247d28 <ip_queue_xmit+3d8/550>
+Trace; c024be53 <tcp_write_space+53/80>
+Trace; c025675b <tcp_new_space+7b/80>
+Trace; c02547c8 <tcp_ack+138/360>
+Trace; c0256bdf <tcp_rcv_established+ef/8b0>
+Trace; c0138175 <lru_cache_add+75/80>
+Trace; c022aa9c <kfree_skbmem+c/70>
+Trace; c0254307 <tcp_clean_rtx_queue+227/310>
+Trace; c0258a67 <tcp_transmit_skb+567/620>
+Trace; c022aa9c <kfree_skbmem+c/70>
+Trace; c0254307 <tcp_clean_rtx_queue+227/310>
+Trace; c025ef5b <tcp_v4_do_rcv+3b/120>
+Trace; c025f4ad <tcp_v4_rcv+46d/6f0>
+Trace; c022ac25 <__kfree_skb+125/130>
+Trace; c0256bec <tcp_rcv_established+fc/8b0>
+Trace; c01550dc <dput+1c/160>
+Trace; c014ba00 <cached_lookup+10/50>
+Trace; c02449a3 <ip_local_deliver+f3/190>
+Trace; c02449a3 <ip_local_deliver+f3/190>
+Trace; c0244da6 <ip_rcv+366/400>
+Trace; c025ef5b <tcp_v4_do_rcv+3b/120>
+Trace; c0139c05 <__alloc_pages+75/2f0>
+Trace; c025f4ad <tcp_v4_rcv+46d/6f0>
+Trace; c022a8af <alloc_skb+ef/1c0>
+Trace; c022f189 <netif_receive_skb+189/1c0>
+Trace; c022a8af <alloc_skb+ef/1c0>
+Trace; f8990d48 <[usbcore]__kstrtab_usb_hcd_giveback_urb+52f8/6a50>
+Trace; c02449a3 <ip_local_deliver+f3/190>
+Trace; f8990ef9 <[usbcore]__kstrtab_usb_hcd_giveback_urb+54a9/6a50>
+Trace; c022f3a3 <net_rx_action+b3/170>
+Trace; c0119e06 <do_page_fault+1a6/4eb>
+Trace; c0131b08 <generic_file_read+88/170>
+Trace; c0131990 <file_read_actor+0/f0>
+Trace; c01410d6 <sys_read+96/110>
+Trace; c012e72a <sys_brk+ba/f0>
+Trace; c0108b5f <system_call+33/38>
+Code;  c0139492 <__free_pages_ok+32/2b0>
+00000000 <_EIP>:
+Code;  c0139492 <__free_pages_ok+32/2b0>   <=====
+   0:   0f 0b                     ud2a      <=====
+Code;  c0139494 <__free_pages_ok+34/2b0>
+   2:   62 00                     bound  %eax,(%eax)
+Code;  c0139496 <__free_pages_ok+36/2b0>
+   4:   bd 35 2a c0 89            mov    $0x89c02a35,%ebp
+Code;  c013949b <__free_pages_ok+3b/2b0>
+   9:   d8 e8                     fsubr  %st(0),%st
+Code;  c013949d <__free_pages_ok+3d/2b0>
+   b:   5f                        pop    %edi
+Code;  c013949e <__free_pages_ok+3e/2b0>
+   c:   ed                        in     (%dx),%eax
+Code;  c013949f <__free_pages_ok+3f/2b0>
+   d:   ff                        (bad)
+Code;  c01394a0 <__free_pages_ok+40/2b0>
+   e:   ff 8b 6b 28 85 ed         decl   0xed85286b(%ebx)
 
-> The previous lines imply that if, according to IntrStatus, there is 
-pending
-> Rx work but no pending Tx work, the Rx interrupts are kept disabled.
-
-The above was a poor attempt to solve what I thought was the problem you 
-were describing before.  The Interrupt Mask should be fully restored 
-regardless of pending interrupts.  Will do.
-
-> If I am not mistaken (1:55 AM here), either 1) you do not clear the RX
-> related bits of IntrStatus in r8169_interrupt() but you clear it in
-> rtl8169_poll() and you add local_irq_{en/dis}able() to rtl8169_poll()
-> (ala 8139cp.c) or 2) you modify r8169_interrupt() so that it can signal
-> to rtl8169_poll() that it cleared itself the Rx bits of IntrStatus 
-whereas
-> rtl8169_poll() was running (ala epic100-netdev).
->
->If you hesitate, go for 1). 2) works but I have not benchmarketed it yet 
-:o)
-
-I have a few different ideas that I think will solve the problem, but I 
-need to think them out first.  I will let you know.  Also, thanks for all 
-of your help, hopefully I can get this working properly soon.
-
->
->If you have doubts regarding your Tx part, feel free to send any code.
-
-I can send you my code, but it might be better to do off the list (as not 
-to spam everyone). :-)
-
-Thanks,
-Jon
+ <0>Kernel panic: Aiee, killing interrupt handler!
