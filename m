@@ -1,32 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] PKT_SCHED: validate policer configuration TLVs
-Date: Mon, 27 Dec 2004 18:34:24 -0800
-Message-ID: <20041227183424.17cf34cc.davem@davemloft.net>
-References: <20041207172349.GG1371@postel.suug.ch>
-	<20041207213234.257fd0d9.davem@davemloft.net>
-	<20041208203942.GO1371@postel.suug.ch>
+Subject: Re: [PATCH] [ATM]: small atm cleanups (from Adrian Bunk
+ <bunk@stusta.de>)
+Date: Mon, 27 Dec 2004 18:36:08 -0800
+Message-ID: <20041227183608.296fa0ca.davem@davemloft.net>
+References: <200412090102.iB912w8T007866@ginger.cmf.nrl.navy.mil>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, davem@redhat.com, bunk@stusta.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041208203942.GO1371@postel.suug.ch>
+To: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+In-Reply-To: <200412090102.iB912w8T007866@ginger.cmf.nrl.navy.mil>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Dec 2004 21:39:42 +0100
-Thomas Graf <tgraf@suug.ch> wrote:
+On Wed, 08 Dec 2004 20:02:59 -0500
+"chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil> wrote:
 
-> > Either these things are int's or u32's, they cannot be both :-)
-> > I know that size wise it's identical, but at least make the code
-> > look consistent.
+> please apply to 2.6 -- thanks!
 > 
-> OK, I changed the dereferencing to use u32 as well and have it "casted"
-> while assigning the value since changing the structure datatypes
-> wouldn't make sense.
-> 
-> Signed-off-by: Thomas Graf <tgraf@suug.ch>
+> Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-Applied, thanks Thomas.
+Applied, thanks Adrian and Chas.
