@@ -1,31 +1,49 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes
-Date: Mon, 31 Mar 2003 10:19:17 -0800 (PST)
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: (usagi-users 02296) IPv6 duplicate address bugfix
+Date: Mon, 31 Mar 2003 20:23:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030331.101917.85396623.davem@redhat.com>
-References: <1049134030.1253.143.camel@tomlt2.tomloffice.austin.ibm.com>
+Message-ID: <9360000.1049135038@worker.muc.bieringer.de>
+References: <20030330122705.GA18283@ferrara.linux.it>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: linux-kernel@vger.kernel.org, ds6-devel@deepspace6.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: toml@us.ibm.com
-In-Reply-To: <1049134030.1253.143.camel@tomlt2.tomloffice.austin.ibm.com>
+To: usagi-users@linux-ipv6.org, netdev@oss.sgi.com
+In-Reply-To: <20030330122705.GA18283@ferrara.linux.it>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Tom Lendacky <toml@us.ibm.com>
-   Date: 31 Mar 2003 12:07:08 -0600
+Hi,
 
-   Below is a patch for your consideration eliminating the use of some
-   constants in the AH and ESP routines for IPv4 and IPv6.  I believe
-   there was also a typo in a memcpy statement in net/ipv4/ah.c where
-   iph->ihl was multiplied by 5 instead of 4.
-   
-Thanks a lot Tom, Applied.  Looks like not too many people have
-been testing IPSEC links with IP options :-)
+just my 2 cents, I already saw, that newest USAGI snapshot include a fix.
 
-     - use sizeof ip(v6)_esp_hdr and substract the sizeof enc_data
 
-This sounds the best.  It's a bit much to type, but it's the
-most descriptive expression.
+
+--On Sunday, March 30, 2003 02:27:05 PM +0200 Simone Piunno
+<pioppo@ferrara.linux.it> wrote:
+
+> When adding an IPv6 address to a given interface, I'm allowed to
+> add that address multiple time, e.g.:
+
+...
+
+I didn't dig into any patch and also not into related drafts/RFCs, but one
+scenario should be catched I think - or to be discussed:
+
+Scenario:
+
+Address was already added by autoconfiguration on receiving advertisement
+(limited lifetime). Now the same address would be added manually (unlimited
+lifetime).
+
+What (should) happen?
+
+Mho: manual add is allowed, both addresses need to be listed.
+
+        Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
