@@ -1,7 +1,7 @@
 From: domen@coderock.org
-Subject: [patch 11/19] net/tekram-sir: replace schedule_timeout() with msleep()
-Date: Wed, 12 Jan 2005 00:10:40 +0100
-Message-ID: <20050111231040.E5DD51F225@trashy.coderock.org>
+Subject: [patch 12/19] net/ixgb_ethtool: replace schedule_timeout() with msleep_interruptible()
+Date: Wed, 12 Jan 2005 00:10:43 +0100
+Message-ID: <20050111231044.19A741F231@trashy.coderock.org>
 Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
         janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -15,8 +15,8 @@ List-Id: netdev.vger.kernel.org
 
 Any comments would be appreciated.
 
-Description: Use msleep() instead of schedule_timeout() to guarantee the
-task delays as expected.
+Description: Use msleep_interruptible() instead of 
+schedule_timeout() to guarantee the task delays as expected.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
@@ -24,20 +24,22 @@ Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/drivers/net/irda/tekram-sir.c |    3 +--
- 1 files changed, 1 insertion(+), 2 deletions(-)
+ kj-domen/drivers/net/ixgb/ixgb_ethtool.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
-diff -puN drivers/net/irda/tekram-sir.c~msleep_interruptible-drivers_net_irda_tekram-sir drivers/net/irda/tekram-sir.c
---- kj/drivers/net/irda/tekram-sir.c~msleep_interruptible-drivers_net_irda_tekram-sir	2005-01-10 18:00:06.000000000 +0100
-+++ kj-domen/drivers/net/irda/tekram-sir.c	2005-01-10 18:00:06.000000000 +0100
-@@ -210,8 +210,7 @@ static int tekram_reset(struct sir_dev *
- 	sirdev_set_dtr_rts(dev, FALSE, TRUE); 
+diff -puN drivers/net/ixgb/ixgb_ethtool.c~msleep_interruptible-drivers_net_ixgb_ixgb_ethtool drivers/net/ixgb/ixgb_ethtool.c
+--- kj/drivers/net/ixgb/ixgb_ethtool.c~msleep_interruptible-drivers_net_ixgb_ixgb_ethtool	2005-01-10 18:00:06.000000000 +0100
++++ kj-domen/drivers/net/ixgb/ixgb_ethtool.c	2005-01-10 18:00:06.000000000 +0100
+@@ -404,9 +404,9 @@ ixgb_ethtool_led_blink(struct net_device
  
- 	/* Should sleep 1 ms */
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(msecs_to_jiffies(1));
-+	msleep(1);
+ 	set_current_state(TASK_INTERRUPTIBLE);
+ 	if (data)
+-		schedule_timeout(data * HZ);
++		msleep_interruptible(data * 1000);
+ 	else
+-		schedule_timeout(MAX_SCHEDULE_TIMEOUT);
++		msleep_interruptible(jiffies_to_msecs(MAX_SCHEDULE_TIMEOUT));
  
- 	/* Set DTR, Set RTS */
- 	sirdev_set_dtr_rts(dev, TRUE, TRUE);
+ 	del_timer_sync(&adapter->blink_timer);
+ 	ixgb_led_off(&adapter->hw);
 _
