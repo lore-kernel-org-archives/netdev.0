@@ -1,37 +1,34 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Prevent netpoll hanging when link is down
-Date: Sun, 10 Oct 2004 20:59:28 -0700
+Subject: Re: 2.6.7 tulip performance (with NAPI)
+Date: Sun, 10 Oct 2004 21:07:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041010205928.6e54df7e.davem@davemloft.net>
-References: <20041006232544.53615761@jack.colino.net>
-	<20041006214322.GG31237@waste.org>
-	<20041007075319.6b31430d@jack.colino.net>
-	<20041006234912.66bfbdcc.davem@davemloft.net>
-	<20041007160532.60c3f26b@pirandello>
-	<20041007112846.5c85b2d9.davem@davemloft.net>
-	<20041007224422.1c1bea95@jack.colino.net>
-	<20041007214505.GB31558@wotan.suse.de>
-	<20041008090610.70d7e183@pirandello>
-	<20041008220001.GE31237@waste.org>
-	<20041008151839.01823e0c.akpm@osdl.org>
+Message-ID: <20041010210746.5e9438af.davem@davemloft.net>
+References: <41633174.7070805@candelatech.com>
+	<16740.17875.574967.11417@robur.slu.se>
+	<41646587.7070401@candelatech.com>
+	<41649425.1010102@candelatech.com>
+	<20041006180826.4a092c71.davem@davemloft.net>
+	<4165864A.2010805@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: mpm@selenic.com, colin@colino.net, ak@suse.de, netdev@oss.sgi.com
+Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20041008151839.01823e0c.akpm@osdl.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4165864A.2010805@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 07 Oct 2004 11:09:14 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-Wait, I think I see the problem.
+> How does the existing (non pktgen) architecture work for VLAN devices
+> and stopping/starting the queues in the underlying devices?
 
-Sungem processes link status in it's ->poll() NAPI handler.
-This occurs via calls to gem_pcs_interrupt(), for example.
-Non-pcs sungem variants use a timer to poll link status.
+VLAN devices are simply virtual devices.  There is a real netdev
+structure backing them, and thus you can point queueing disciplines
+et al. to them just like any other device.
 
-When the link changes state, this link state processing
-does printk()'s.
-
-So perhaps that is why it deadlocks.
+So that's the idea, somehow tie pktgen to use the existing netdev_wake_queue()
+callback mechanism.  All I am really saying is that qdiscs may be a method by
+which to do this.
