@@ -1,75 +1,35 @@
-From: Mikael Pettersson <mikpe@csd.uu.se>
-Subject: 2.6.0-test8-bk3 net/ipv4/tcp.c change broken?
-Date: Sun, 26 Oct 2003 16:43:13 +0100 (MET)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: Typo in address comparison
+Date: Mon, 27 Oct 2003 01:45:02 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310261543.h9QFhDWW029273@harpo.it.uu.se>
-Cc: linux-kernel@vger.kernel.org
+Message-ID: <20031027.014502.98736584.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The 2.6.0-test8-bk3 change to delay pending signals checking in
-net/ipv4/tcp.c appears to be broken.
+Hello.
 
-On machine A I run X and an xterm. Within that xterm I rlogin to
-machine B. On machine B I start emacs in text mode (emacs -nw).
+Typo found in the local address comparison among sockets.
 
-When machine A runs 2.6.0-test8-bk2 or older, emacs works as usual:
-it uses the xterm's entire size, and responds correctly and instantly
-to control characters like ^S (I-search, not xoff) and ^G (Quit).
-
-When machine A runs 2.6.0-test8-bk3 or later, emacs starts in a
-tiny 24 rows by 80 columns mode, ^S incorrectly sends xoff, ^G
-isn't seen by emacs until after a one second delay, and similarly
-there is a one second delay between exiting emacs and getting the
-next shell prompt. While running emacs, if I beat on it with ^G
-and ^L it eventually (after about 5-10 seconds) goes into the
-xterm's full rows/columns mode.
-
-Reverting 2.6.0-test8-bk3's net/ipv4/tcp.c patch (included below)
-fixes these problems.
-
-/Mikael
-
-diff -ruN linux-2.6.0-test8-bk2/net/ipv4/tcp.c linux-2.6.0-test8-bk3/net/ipv4/tcp.c
---- linux-2.6.0-test8-bk2/net/ipv4/tcp.c	2003-10-26 15:52:26.000000000 +0100
-+++ linux-2.6.0-test8-bk3/net/ipv4/tcp.c	2003-10-26 15:51:58.000000000 +0100
-@@ -1540,17 +1540,6 @@
- 		if (copied && tp->urg_data && tp->urg_seq == *seq)
- 			break;
+===== net/ipv6/addrconf.c 1.71 vs edited =====
+--- 1.71/net/ipv6/addrconf.c	Tue Oct 21 14:59:11 2003
++++ edited/net/ipv6/addrconf.c	Mon Oct 27 01:35:11 2003
+@@ -992,7 +992,7 @@
+ 	    !ipv6_addr_cmp(&np->rcv_saddr,
+ 			   (sk2->sk_state != TCP_TIME_WAIT ?
+ 			    &inet6_sk(sk2)->rcv_saddr :
+-			    &tcptw_sk(sk)->tw_v6_rcv_saddr)))
++			    &tcptw_sk(sk2)->tw_v6_rcv_saddr)))
+ 		return 1;
  
--		/* We need to check signals first, to get correct SIGURG
--		 * handling. FIXME: Need to check this doesn't impact 1003.1g
--		 * and move it down to the bottom of the loop
--		 */
--		if (signal_pending(current)) {
--			if (copied)
--				break;
--			copied = timeo ? sock_intr_errno(timeo) : -EAGAIN;
--			break;
--		}
--
- 		/* Next get a buffer. */
- 
- 		skb = skb_peek(&sk->sk_receive_queue);
-@@ -1587,6 +1576,7 @@
- 			    sk->sk_state == TCP_CLOSE ||
- 			    (sk->sk_shutdown & RCV_SHUTDOWN) ||
- 			    !timeo ||
-+			    signal_pending(current) ||
- 			    (flags & MSG_PEEK))
- 				break;
- 		} else {
-@@ -1616,6 +1606,11 @@
- 				copied = -EAGAIN;
- 				break;
- 			}
-+
-+			if (signal_pending(current)) {
-+				copied = sock_intr_errno(timeo);
-+				break;
-+			}
- 		}
- 
- 		cleanup_rbuf(sk, copied);
+ 	if (addr_type == IPV6_ADDR_MAPPED &&
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
