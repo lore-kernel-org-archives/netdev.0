@@ -1,8 +1,8 @@
 From: Laudney Ren <laudney@21cn.com>
 Subject: T/TCP for Linux Website Major Update Completed
-Date: Mon, 1 Apr 2002 21:6:8 +0800
+Date: Mon, 1 Apr 2002 21:54:28 +0800
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200204011304.g31D42v30307@oss.sgi.com>
+Message-ID: <200204011352.g31DqNv31317@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
       charset="GB2312"
