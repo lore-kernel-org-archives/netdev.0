@@ -1,33 +1,43 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: race in net/ipv4/ipip.c ?
-Date: Fri, 14 Jan 2005 14:10:51 +0900 (JST)
-Message-ID: <20050114.141051.80900279.yoshfuji@linux-ipv6.org>
-References: <20050112132126.GI26856@postel.suug.ch>
-	<20050112.223600.09187852.yoshfuji@linux-ipv6.org>
-	<20050113205407.13154ccd.davem@davemloft.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: b44: timeout on initialization
+Date: Fri, 14 Jan 2005 11:22:04 +0100
+Message-ID: <20050114102204.GB3626@xi.wantstofly.org>
+References: <20050113183147.0772941c.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20050113205407.13154ccd.davem@davemloft.net>
+To: Florian Schirmer <jolt@tuxbox.org>
+Content-Disposition: inline
+In-Reply-To: <20050113183147.0772941c.shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050113205407.13154ccd.davem@davemloft.net> (at Thu, 13 Jan 2005 20:54:07 -0800), "David S. Miller" <davem@davemloft.net> says:
+On Thu, Jan 13, 2005 at 06:31:47PM -0800, Stephen Hemminger wrote:
 
-> On Wed, 12 Jan 2005 22:36:00 +0900 (JST)
-> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
-> 
-> > David, I think we need to fix sit.c, anyway.
-> > 
-> > Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> 
-> Good catch, I will apply this patch.
+> I get this all the time on my laptop (2.6.8 - 2.6.10) even
+> when connected to the router
+> b44: eth0: BUG!  Timeout waiting for bit 00000001 of register 41c to set.
 
-Please apply against 2.4.x as well.
-Thanks.
+I get a similar-looking message on my Dell Inspiron 8500 on 2.6.9:
 
---yoshfuji
+	b44: eth0: BUG!  Timeout waiting for bit 80000000 of register 428 to clear.
+
+This happens when UP'ing the device, both when at-the-time-of-UP'ing
+already connected to some Cisco Catalyst that's configured to do only
+10Mbps and no autonegotiation, as well as when not connected to anything
+at all.  Not sure whether it also happens on 100Mbps or when using
+autonegotiation -- can't check right now.
+
+02:00.0 Ethernet controller: Broadcom Corporation BCM4401 100Base-T (rev 01)
+	Subsystem: Dell: Unknown device 8127
+	Flags: bus master, fast devsel, latency 32, IRQ 11
+	Memory at faffe000 (32-bit, non-prefetchable) [size=8K]
+	Capabilities: [40] Power Management version 2
+
+Hope this helps.
+
+
+--L
