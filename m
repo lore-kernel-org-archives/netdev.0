@@ -1,56 +1,37 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
-Date: Tue, 8 Jun 2004 14:02:00 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
-References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
-	<20040608124215.291a7072@dell_ss3.pdx.osdl.net>
-	<1086725369.1806.1.camel@teapot.felipe-alfaro.com>
+From: Roger Luethi <rl@hellgate.ch>
+Subject: Re: [RFC] ethtool semantics
+Date: Tue, 8 Jun 2004 23:08:09 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040608210809.GA10542@k3.hellgate.ch>
+References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: NetDev Mailinglist <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-In-Reply-To: <1086725369.1806.1.camel@teapot.felipe-alfaro.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265359AbUFHVRq@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040607145723.41da5783.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 08 Jun 2004 22:09:29 +0200
-Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-
-> On Tue, 2004-06-08 at 12:42 -0700, Stephen Hemminger wrote:
-> > On Tue, 08 Jun 2004 21:18:30 +0200
-> > Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-> > 
-> > > Hi!
-> > > 
-> > > On my laptop, when using a CardBus 3c59x-based NIC, I need to run
-> > > "cardctl eject" so the system won't freeze when resuming. "cardctl
-> > > eject" worked fine in 2.6.7-rc2-mm2, even when there were programs with
-> > > network sockets opened (for example, Evolution mantaining a connection
-> > > against an IMAP server): the card is ejected (well, not physically),
-> > > even when there are ESTABLISHED connections.
-> > > 
-> > > However, starting with 2.6.7-rc3, "cardctl eject" hangs if a program
-> > > holds any socket open. After a while the "unregister_netdevice: waiting
-> > > for eth0 to become free" message starts appearing on the kernel message
-> > > ring. The only apparent solution is killing that program, ejecting the
-> > > card from its slot and wait until 3c59x.o usage count reaches zero.
-> > > 
-> > > Can someone tell me what's going on here?
-> > > Thank you very much.
-> > 
-> > What protocols are you running? Is IPV6 loaded?
+On Mon, 07 Jun 2004 14:57:23 -0700, David S. Miller wrote:
+> On Mon, 7 Jun 2004 23:28:04 +0200
+> Roger Luethi <rl@hellgate.ch> wrote:
 > 
-> I'm using IPv4, IPv6 and IPSec ESP with AES/CBC.
-> Do you want .config?
+> > What is the correct response if a user passes ethtool speed or duplex
+> > arguments while autoneg is on? Some possible answers are:
+> > 
+[...]
+> speed and duplex fields should be silently ignored in this case
 
-Not really, could you see if it is an IPv6 vs IPSec problem by not running/loading
-one or the other.
+It may not matter much because few people care about forced media these
+days. And it is debatable whether trying to guess the users intention
+is a good idea (we lack means for users to manipulate autoneg results
+via advertisted values but that's no big deal).
 
-What is happening is that some subsystem is holding a reference to the device (calling dev_hold())
-but not cleaning up (calling dev_put).  It can be a hard to track which of the many
-things routing, etc are not being cleared properly.  Look for routes that still
-get stuck (ip route) and neighbor cache entries.  Most of these end up being
-protocol bugs.
+However, "silently ignoring" strikes me as a very poor choice, in
+stark contrast to Unix/Linux tradition. A user issues a command which
+cannot be executed and gets the same response that is used to indicate
+success!? What school of user interface design is that? How is that
+not confusing users? </rant>
+
+Roger
