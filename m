@@ -1,34 +1,26 @@
-From: Edgar Toernig <froese@gmx.de>
-Subject: Re: [PATCH] Consolidate multiple implementations of jiffies-msecs
- conversions.
-Date: Fri, 26 Mar 2004 01:44:03 +0100
+From: P@draigBrady.com
+Subject: Re: :-)
+Date: Fri, 26 Mar 2004 09:51:36 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040326014403.39388cb8.froese@gmx.de>
-References: <Pine.LNX.4.58.0403251142110.3037@localhost.localdomain>
+Message-ID: <4063FD28.9090201@draigBrady.com>
+References: <vhscbyaxijufnolotqo@scyld.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, jgarzik@pobox.com, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0403251142110.3037@localhost.localdomain>
+To: netdev@oss.sgi.com
+In-Reply-To: <vhscbyaxijufnolotqo@scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sridhar Samudrala wrote:
-> 
-> The following patch to 2.6.5-rc2 consolidates 6 different implementations
-> of msecs to jiffies and 3 different implementation of jiffies to msecs.
-> All of them now use the generic msecs_to_jiffies() and jiffies_to_msecs()
-> that are added to include/linux/time.h
->[...]
-> -#define MSECS(ms)  (((ms)*HZ/1000)+1)
-> -return (((ms)*HZ+999)/1000);
-> +return (msecs / 1000) * HZ + (msecs % 1000) * HZ / 1000;
+becker@scyld.com wrote:
+> Looking  forward for a response  :P
+> =20
+> 35486 --  archive password
 
-Did you check that all users of the new version will work correctly
-with your rounding?  Explicit round-up of delays is often required,
-especially when talking to hardware...
+Hmm that looks like a new one?
 
-Ciao, ET.
+Seems like a (massive) email variant of this one?
+http://www.viruslist.com/eng/viruslist.html?id=3D3952
+
+P=E1draig.
