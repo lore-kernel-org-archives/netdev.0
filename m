@@ -1,33 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
 Subject: Re: BUG: dst underflow (again)
-Date: Fri, 22 Oct 2004 15:51:59 +0900 (JST)
+Date: Fri, 22 Oct 2004 09:59:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022.155159.98771450.yoshfuji@linux-ipv6.org>
-References: <4178AB0D.6060107@pobox.com>
+Message-ID: <20041022075947.GA15795@xi.wantstofly.org>
+References: <4178AB0D.6060107@pobox.com> <20041022.155159.98771450.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-In-Reply-To: <4178AB0D.6060107@pobox.com>
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20041022.155159.98771450.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <4178AB0D.6060107@pobox.com> (at Fri, 22 Oct 2004 02:39:09 -0400), Jeff Garzik <jgarzik@pobox.com> says:
+On Fri, Oct 22, 2004 at 03:51:59PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
 
-> As requested, I updated my kernel to see if the "BUG: dst underflow..." 
-> messages disappeared.  Alas, they didn't.  dmesg and .config from 
-> 2.6.9-final attached.
+> > As requested, I updated my kernel to see if the "BUG: dst underflow..." 
+> > messages disappeared.  Alas, they didn't.  dmesg and .config from 
+> > 2.6.9-final attached.
+> 
+> Okay, thanks, but hmm...
+> (We haven't met this issue... I really want to know tow to reproduce...)
 
-Okay, thanks, but hmm...
-(We haven't met this issue... I really want to know tow to reproduce...)
+FWIW, I'm seeing loads of these on the kernel that comes with Fedora
+Core 2, also in the ipv6.ko module.  I have 6to4 enabled, if that matters
+anything.
 
-> Let me know what additional debugging information I can provide, if any. 
->   The symbol addresses in the dmesg output are all inside the ipv6 module.
+% dmesg | grep BUG | sort | uniq
+BUG: dst underflow -1: 3bcf9a80 at 42350024
+BUG: dst underflow 0: 3bcf9a80 at 423486d2
+BUG: dst underflow 0: 3bcf9a80 at 4235823d
+% cat /sys/module/ipv6/sections/.text
+0x42345000
 
-Would you enable CONFIG_KALLSYMS_ALL, please?
+0x42350024 - 0x42345000 = 0xb024, corresponds to:
+	0000affa <ip6_dst_check>
 
-Thanks.
+0x423486d2 - 0x42345000 = 0x36d2, corresponds to:
+	0000339d <ip6_push_pending_frames>
 
---yoshfuji
+0x4235823d - 0x42345000 = 0x1323d, corresponds to:
+	00012c0d <udpv6_sendmsg>	(god, that's one big function btw)
+
+
+--L
