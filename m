@@ -1,187 +1,83 @@
-From: Dipankar Sarma <dipankar@in.ibm.com>
-Subject: Re: RCU : Document RCU api [4/5]
-Date: Sun, 8 Aug 2004 00:51:39 +0530
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040807192139.GE3936@in.ibm.com>
-References: <20040807191536.GA3936@in.ibm.com> <20040807191729.GB3936@in.ibm.com> <20040807191841.GC3936@in.ibm.com> <20040807192023.GD3936@in.ibm.com>
-Reply-To: dipankar@in.ibm.com
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH 2.6] vlan ioctl propagation (rev.2)
+Date: Fri, 6 Aug 2004 14:39:28 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040806143928.711d92eb@dell_ss3.pdx.osdl.net>
+References: <20040806091305.4d405664@dell_ss3.pdx.osdl.net>
+	<20040806132145.675fd17d.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Rusty Russell <rusty@rustcorp.com.au>,
-	"Paul E. McKenney" <paulmck@us.ibm.com>,
-	linux-kernel@vger.kernel.org,
-	Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268235AbUHFT0w@vger.kernel.org>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20040807192023.GD3936@in.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040806132145.675fd17d.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch from Paul for additional documentation of api.
+Here is a redo of the patch to propagate ethtool and mii ioctl's
+on vlan's to the underlying real device.  This time the request
+is copied to a new buffer, to avoid the colon name rewrite issues.
 
-Thanks
-Dipankar
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-
-
-Updated based on feedback, and to apply to 2.6.8-rc3.  I will be
-adding more detailed documentation to the Documentation directory
-in a separate patch.
-
-Signed-off-by: Paul McKenney <paulmck@us.ibm.com>
-
-
- include/linux/rcupdate.h |   65 ++++++++++++++++++++++++++++++++++++++++++++++-
- kernel/rcupdate.c        |   39 +++++++++++++++++-----------
- 2 files changed, 88 insertions(+), 16 deletions(-)
-
-diff -puN include/linux/rcupdate.h~rcu-api-doc include/linux/rcupdate.h
---- linux-2.6.8-rc3-mm1/include/linux/rcupdate.h~rcu-api-doc	2004-08-07 15:29:49.000000000 +0530
-+++ linux-2.6.8-rc3-mm1-dipankar/include/linux/rcupdate.h	2004-08-07 15:29:49.000000000 +0530
-@@ -154,11 +154,74 @@ static inline int rcu_pending(int cpu)
- 		__rcu_pending(&rcu_bh_ctrlblk, &per_cpu(rcu_bh_data, cpu));
+diff -Nru a/net/8021q/vlan.c b/net/8021q/vlan.c
+--- a/net/8021q/vlan.c	2004-08-06 11:09:08 -07:00
++++ b/net/8021q/vlan.c	2004-08-06 11:09:08 -07:00
+@@ -358,6 +358,7 @@
+ 	new_dev->set_mac_address = vlan_dev_set_mac_address;
+ 	new_dev->set_multicast_list = vlan_dev_set_multicast_list;
+ 	new_dev->destructor = free_netdev;
++	new_dev->do_ioctl = vlan_dev_ioctl;
  }
  
-+/**
-+ * rcu_read_lock - mark the beginning of an RCU read-side critical section.
-+ *
-+ * When synchronize_kernel() is invoked on one CPU while other CPUs
-+ * are within RCU read-side critical sections, then the
-+ * synchronize_kernel() is guaranteed to block until after all the other
-+ * CPUs exit their critical sections.  Similarly, if call_rcu() is invoked
-+ * on one CPU while other CPUs are within RCU read-side critical
-+ * sections, invocation of the corresponding RCU callback is deferred
-+ * until after the all the other CPUs exit their critical sections.
-+ *
-+ * Note, however, that RCU callbacks are permitted to run concurrently
-+ * with RCU read-side critical sections.  One way that this can happen
-+ * is via the following sequence of events: (1) CPU 0 enters an RCU
-+ * read-side critical section, (2) CPU 1 invokes call_rcu() to register
-+ * an RCU callback, (3) CPU 0 exits the RCU read-side critical section,
-+ * (4) CPU 2 enters a RCU read-side critical section, (5) the RCU
-+ * callback is invoked.  This is legal, because the RCU read-side critical
-+ * section that was running concurrently with the call_rcu() (and which
-+ * therefore might be referencing something that the corresponding RCU
-+ * callback would free up) has completed before the corresponding
-+ * RCU callback is invoked.
-+ *
-+ * RCU read-side critical sections may be nested.  Any deferred actions
-+ * will be deferred until the outermost RCU read-side critical section
-+ * completes.
-+ *
-+ * It is illegal to block while in an RCU read-side critical section.
-+ */
- #define rcu_read_lock()		preempt_disable()
-+
-+/**
-+ * rcu_read_unlock - marks the end of an RCU read-side critical section.
-+ *
-+ * See rcu_read_lock() for more information.
-+ */
- #define rcu_read_unlock()	preempt_enable()
-+
-+/*
-+ * So where is rcu_write_lock()?  It does not exist, as there is no
-+ * way for writers to lock out RCU readers.  This is a feature, not
-+ * a bug -- this property is what provides RCU's performance benefits.
-+ * Of course, writers must coordinate with each other.  The normal
-+ * spinlock primitives work well for this, but any other technique may be
-+ * used as well.  RCU does not care how the writers keep out of each
-+ * others' way, as long as they do so.
-+ */
-+
-+/**
-+ * rcu_read_lock_bh - mark the beginning of a softirq-only RCU critical section
-+ *
-+ * This is equivalent of rcu_read_lock(), but to be used when updates
-+ * are being done using call_rcu_bh(). Since call_rcu_bh() callbacks
-+ * consider completion of a softirq handler to be a quiescent state,
-+ * a process in RCU read-side critical section must be protected by
-+ * disabling softirqs. Read-side critical sections in interrupt context
-+ * can use just rcu_read_lock().
-+ *
-+ */
- #define rcu_read_lock_bh()	local_bh_disable()
--#define rcu_read_unlock_bh()	local_bh_enable()
- 
-+/*
-+ * rcu_read_unlock_bh - marks the end of a softirq-only RCU critical section
-+ *
-+ * See rcu_read_lock_bh() for more information.
-+ */
-+#define rcu_read_unlock_bh()	local_bh_enable()
-+  
- extern void rcu_init(void);
- extern void rcu_check_callbacks(int cpu, int user);
- extern void rcu_restart_cpu(int cpu);
-diff -puN kernel/rcupdate.c~rcu-api-doc kernel/rcupdate.c
---- linux-2.6.8-rc3-mm1/kernel/rcupdate.c~rcu-api-doc	2004-08-07 15:29:49.000000000 +0530
-+++ linux-2.6.8-rc3-mm1-dipankar/kernel/rcupdate.c	2004-08-07 15:29:49.000000000 +0530
-@@ -73,14 +73,15 @@ static DEFINE_PER_CPU(struct tasklet_str
- static int maxbatch = 10;
- 
- /**
-- * call_rcu - Queue an RCU update request.
-+ * call_rcu - Queue an RCU callback for invocation after a grace period.
-  * @head: structure to be used for queueing the RCU updates.
-  * @func: actual update function to be invoked after the grace period
-  *
-- * The update function will be invoked as soon as all CPUs have performed 
-- * a context switch or been seen in the idle loop or in a user process. 
-- * The read-side of critical section that use call_rcu() for updation must 
-- * be protected by rcu_read_lock()/rcu_read_unlock().
-+ * The update function will be invoked some time after a full grace
-+ * period elapses, in other words after all currently executing RCU
-+ * read-side critical sections have completed.  RCU read-side critical
-+ * sections are delimited by rcu_read_lock() and rcu_read_unlock(),
-+ * and may be nested.
-  */
- void fastcall call_rcu(struct rcu_head *head,
- 				void (*func)(struct rcu_head *rcu))
-@@ -98,17 +99,20 @@ void fastcall call_rcu(struct rcu_head *
+ /*  Attach a VLAN device to a mac address (ie Ethernet Card).
+diff -Nru a/net/8021q/vlan.h b/net/8021q/vlan.h
+--- a/net/8021q/vlan.h	2004-08-06 11:09:08 -07:00
++++ b/net/8021q/vlan.h	2004-08-06 11:09:08 -07:00
+@@ -65,6 +65,7 @@
+ int vlan_dev_set_mac_address(struct net_device *dev, void* addr);
+ int vlan_dev_open(struct net_device* dev);
+ int vlan_dev_stop(struct net_device* dev);
++int vlan_dev_ioctl(struct net_device* dev, struct ifreq *ifr, int cmd);
+ int vlan_dev_set_ingress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
+ int vlan_dev_set_egress_priority(char* dev_name, __u32 skb_prio, short vlan_prio);
+ int vlan_dev_set_vlan_flag(char* dev_name, __u32 flag, short flag_val);
+diff -Nru a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
+--- a/net/8021q/vlan_dev.c	2004-08-06 11:09:08 -07:00
++++ b/net/8021q/vlan_dev.c	2004-08-06 11:09:08 -07:00
+@@ -757,6 +757,34 @@
+ 	vlan_flush_mc_list(dev);
+ 	return 0;
  }
- 
- /**
-- * call_rcu_bh - Queue an RCU update request for which softirq handler
-- * completion is a quiescent state.
-+ * call_rcu_bh - Queue an RCU for invocation after a quicker grace period.
-  * @head: structure to be used for queueing the RCU updates.
-  * @func: actual update function to be invoked after the grace period
-  *
-- * The update function will be invoked as soon as all CPUs have performed 
-- * a context switch or been seen in the idle loop or in a user process
-- * or has exited a softirq handler that it may have been executing.
-- * The read-side of critical section that use call_rcu_bh() for updation must 
-- * be protected by rcu_read_lock_bh()/rcu_read_unlock_bh() if it is
-- * in process context.
-+ * The update function will be invoked some time after a full grace
-+ * period elapses, in other words after all currently executing RCU
-+ * read-side critical sections have completed. call_rcu_bh() assumes
-+ * that the read-side critical sections end on completion of a softirq
-+ * handler. This means that read-side critical sections in process
-+ * context must not be interrupted by softirqs. This interface is to be
-+ * used when most of the read-side critical sections are in softirq context.
-+ * RCU read-side critical sections are delimited by rcu_read_lock() and 
-+ * rcu_read_unlock(), * if in interrupt context or rcu_read_lock_bh() 
-+ * and rcu_read_unlock_bh(), if in process context. These may be nested.
-  */
- void fastcall call_rcu_bh(struct rcu_head *head,
- 				void (*func)(struct rcu_head *rcu))
-@@ -439,8 +443,13 @@ static void wakeme_after_rcu(struct rcu_
- }
- 
- /**
-- * synchronize-kernel - wait until all the CPUs have gone
-- * through a "quiescent" state. It may sleep.
-+ * synchronize_kernel - wait until a grace period has elapsed.
-+ *
-+ * Control will return to the caller some time after a full grace
-+ * period has elapsed, in other words after all currently executing RCU
-+ * read-side critical sections have completed.  RCU read-side critical
-+ * sections are delimited by rcu_read_lock() and rcu_read_unlock(),
-+ * and may be nested.
-  */
- void synchronize_kernel(void)
++
++int vlan_dev_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
++{
++	struct net_device *real_dev = VLAN_DEV_INFO(dev)->real_dev;
++	struct ifreq ifrr;
++	int err = -EOPNOTSUPP;
++
++	strncpy(ifrr.ifr_name, real_dev->name, IFNAMSIZ);
++	ifrr.ifr_ifru = ifr->ifr_ifru;
++
++	switch(cmd) {
++	case SIOCGMIIPHY:
++	case SIOCGMIIREG:
++	case SIOCSMIIREG:
++		if (real_dev->do_ioctl && netif_device_present(real_dev)) 
++			err = real_dev->do_ioctl(dev, &ifrr, cmd);
++		break;
++
++	case SIOCETHTOOL:
++		err = dev_ethtool(&ifrr);
++	}
++
++	if (!err) 
++		ifr->ifr_ifru = ifrr.ifr_ifru;
++
++	return err;
++}
++
+ /** Taken from Gleb + Lennert's VLAN code, and modified... */
+ void vlan_dev_set_multicast_list(struct net_device *vlan_dev)
  {
-
-_
