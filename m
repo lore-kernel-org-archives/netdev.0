@@ -1,25 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPv4] Missing TOS checks after fib_find_alias
-Date: Thu, 23 Sep 2004 13:38:50 -0700
+From: Nuno Ferreira <nuno.ferreira@graycell.biz>
+Subject: Re: 2.6.9-rc2-mm2 fn_hash_insert oops
+Date: Thu, 23 Sep 2004 22:38:04 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923133850.2ed1b7ab.davem@davemloft.net>
-References: <20040923062831.GA20202@gondor.apana.org.au>
+Message-ID: <1095975485.4339.1.camel@taz.graycell.biz>
+References: <E1CARaS-00071j-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: akpm@osdl.org, Linux Kernel <linux-kernel@vger.kernel.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040923062831.GA20202@gondor.apana.org.au>
+In-Reply-To: <E1CARaS-00071j-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 23 Sep 2004 16:28:31 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Qui, 2004-09-23 at 21:16 +1000, Herbert Xu wrote:
+> Lukas Hejtmanek <xhejtman@mail.muni.cz> wrote:
+> > 
+> > However there is still the issue with endless loop in fn_hash_delete :(
+> 
+> Same problem, same fix.  Can someone think of a generic fix to
+> list_for_each_*?
+> 
 
-> It looks like some of the places where FIB_SCAN_TOS macros were used
-> have lost the tos check.  This patch adds them back.
+This also fixed the problem I reported earlier with the machine freezing
+when my Speedtouch USB ADSL modem connected.
 
-Right you are, patch applied.
-
-Thanks Herbert.
+Thanks
