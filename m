@@ -1,37 +1,45 @@
-From: jamal <hadi@cyberus.ca>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Allow IP header alignment to be overriden
-Date: 11 Jun 2004 08:41:03 -0400
+Date: Sat, 12 Jun 2004 11:12:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086957663.1067.675.camel@jzny.localdomain>
+Message-ID: <20040612111218.783f587d.davem@redhat.com>
 References: <20040611012727.GA27672@krispykreme>
-	 <20040610223549.5e9ad025.davem@redhat.com>
-Reply-To: hadi@cyberus.ca
+	<20040610223549.5e9ad025.davem@redhat.com>
+	<1086939562.3657.10.camel@sfeldma-mobl2.dsl-verizon.net>
+	<20040611142336.GE27672@krispykreme>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Anton Blanchard <anton@samba.org>, netdev@oss.sgi.com
+Cc: sfeldma@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040610223549.5e9ad025.davem@redhat.com>
+To: Anton Blanchard <anton@samba.org>
+In-Reply-To: <20040611142336.GE27672@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-06-11 at 01:35, David S. Miller wrote:
-> On Fri, 11 Jun 2004 11:27:27 +1000
-> Anton Blanchard <anton@samba.org> wrote:
-> 
-> > The following patch creates skb_align and allows an architecture to
-> > override it. Thoughts?
-> 
-> This transformation is not valid for a lot of drivers, that "2"
-> in the reserve exists elsewhere in other calculations in the
-> drivers.  For example, it is added to the RX skb allocation
-> size.  Sometimes this '2' is there in non-trivial or hard to
-> see ways (ie. it's implicitly in some DMA alignment value)
+On Sat, 12 Jun 2004 00:23:37 +1000
+Anton Blanchard <anton@samba.org> wrote:
 
-An interesting (annoying one) that falls into that category is
-sb1250-mac.c::sbdma_align_skb()
-shows up prominently in profiles
+> Would creating:
+> 
+> /* 
+>  * Network drivers want to align IP headers. Since we have 14 bytes of
+>  * ethernet header, adding 2 bytes will align the IP header.  However
+>  * this will mean we do unaligned DMA so there is a trade off.
+>  *
+>  * We allow this to be overridden per arch as the unaligned DMA cost may
+>  * outweigh the unaligned CPU cost.
+>  */
+> #ifndef NET_IP_ALIGN
+> #define NET_IP_ALIGN 2
+> #endif
+> 
+> Instead of skb_align make more sense? It does have the advantage of
+> removing another magic number.
 
-cheers,
-jamal
+Yes.  Please add a paragraph to that comment explaining what "unaligned
+CPU cost" really means, ie. that the IP/TCP header members are going to
+be accessed with alignment less than the types might require on a given
+architecture.
+
+Then I'll apply this and we can start beating up the drivers.
