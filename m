@@ -1,58 +1,61 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: ip -6 route shows incorrect route expiry times
-Date: Mon, 31 Jan 2005 13:55:57 +0200 (EET)
-Message-ID: <Pine.LNX.4.58.0501311318300.23070@rhea.tcs.hut.fi>
-References: <20050130160840.C25000@flint.arm.linux.org.uk>
- <20050131.012910.117562374.yoshfuji@linux-ipv6.org>
- <20050131.013018.131301320.yoshfuji@linux-ipv6.org>
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 31 Jan 2005 13:16:45 +0100
+Message-ID: <1107173804.5812.133.camel@tsc-6.cph.tpack.net>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
+	 <1105019912.2314.20.camel@jzny.localdomain>
+	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
+	 <1105104757.1046.63.camel@jzny.localdomain>
+	 <1105111605.3462.101.camel@tsc-6.cph.tpack.net>
+	 <1105363092.1041.146.camel@jzny.localdomain>
+	 <1105917038.1091.1041.camel@jzny.localdomain> <41EC3067.6050104@tpack.net>
+	 <41FD702D.2060403@tpack.net> <1107130177.7847.96.camel@jzny.localdomain>
+	 <41FD7C6F.3010005@tpack.net>  <1107142012.8021.109.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-2022-jp
-Content-Transfer-Encoding: quoted-printable
-Cc: rmk@arm.linux.org.uk, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20050131.013018.131301320.yoshfuji@linux-ipv6.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1107142012.8021.109.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 31 Jan 2005, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
-=CC=C0 wrote:
+On Mon, 2005-01-31 at 04:26, jamal wrote:
+> It does look pretty sane.. Tested?
 
-> In article <20050131.012910.117562374.yoshfuji@linux-ipv6.org> (at Mon,=
- 31 Jan 2005 01:29:10 +0900 (JST)), YOSHIFUJI Hideaki / =B5=C8=C6=A3=B1=D1=
-=CC=C0 <yoshfuji@linux-ipv6.org> says:
->
-> > > It appears that the expiry seconds here are actually in units of
-> > > 10 seconds.  Maybe someone's double-converting kernel Hz to user Hz=
-?
-> >
-> > Kernel exports in USER_HZ.
-> > iproute2 seem to convert it again; workaround is to do "export HZ=3D1=
-00".
->                                                           ~~~~~~~~~~~~~
-> This is example. Of course, this depends on your arch.
+Nope, I don't have access to any relevant HW. Hopefully someone
+else can give it some beating. Please.
 
-Please, couldn't the lifetimes be passed to userspace in a architecture
-indepentent unit like whole seconds?
+A simple test could be:
+ o start tcpdump on host B
+ o start pinging from host A to B
+ o unplug cable on host A
+ o wait a while and then plug the cable back in
 
-I don't think any routing protocols need a sub-second resolution for the
-lifetimes but if they do, why not use milliseconds? Better still, why not
-add a new attribute with a struct timespec or timeval to store the
-sub-second lifetimes for those who need them?
+This is what I get on an embedded PPC:
+01:41:27.712729 IP 192.168.6.22 > 192.168.27.119: icmp 64: echo request
+seq 7
+01:41:28.712697 IP 192.168.6.22 > 192.168.27.119: icmp 64: echo request
+seq 8
+01:41:43.712240 IP 192.168.6.22 > 192.168.27.119: icmp 64: echo request
+seq 23
+01:41:44.712210 IP 192.168.6.22 > 192.168.27.119: icmp 64: echo request
+seq 24
 
-Btw. we have the same HZ problem in many /proc files.
+The interesting point is that the jump in sequence number coincides
+with the jump in rx time. Theory is that not all drivers will behave
+like this.
 
-Here too I would like to see a millisecond based interface in addition to
-the existing USER_HZ/jiffies/second based one. This especially applies to
-values like base_reachable_time and retrans_time, which are originally
-defined as millisecond values in the specification (RFC 2461).
+Hopefully someone can verify that with e.g. an e1000, and then check
+whether the patch I send makes any difference.
 
-Regards,
-Ville
-
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+-Tommy
