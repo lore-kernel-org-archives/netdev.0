@@ -1,40 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Make xfrm subsystem optional
-Date: Sat, 14 Jun 2003 20:03:03 -0700 (PDT)
+Subject: Re: decorum
+Date: Sat, 14 Jun 2003 20:04:15 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030614.200303.71094694.davem@redhat.com>
-References: <20030614101851.GA24170@wotan.suse.de>
-	<20030614.042636.74749587.davem@redhat.com>
-	<20030614183232.GB23546@wotan.suse.de>
+Message-ID: <20030614.200415.104036933.davem@redhat.com>
+References: <20030614183232.GB23546@wotan.suse.de>
+	<3EEB6E49.8040406@monmouth.com>
+	<Pine.LNX.4.51.0306141800520.17775@ns.istop.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jsd@monmouth.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20030614183232.GB23546@wotan.suse.de>
+To: ralph+d@istop.com, ralph@istop.com
+In-Reply-To: <Pine.LNX.4.51.0306141800520.17775@ns.istop.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Andi Kleen <ak@suse.de>
-   Date: Sat, 14 Jun 2003 20:32:32 +0200
+   From: Ralph Doncaster <ralph@istop.com>
+   Date: Sat, 14 Jun 2003 18:02:53 -0400 (EDT)
 
-   On Sat, Jun 14, 2003 at 04:26:36AM -0700, David S. Miller wrote:
-   >    From: Andi Kleen <ak@suse.de>
-   >    Date: Sat, 14 Jun 2003 12:18:51 +0200
-   >    
-   >    Allocating it at first lookup would be racy (would need a nasty
-   >    spinlock at least). It may be possible at first policy setup, but
-   >    it's not guaranteed you can still get two 32K continuous areas. You
-   >    could fall back to vmalloc I guess.
-   > 
-   > Andi, you're getting rediculious.  Add a xfrm_whatever_init() call
-   > and allocate the table there.
+   You sound like the NANOG bitch.  If your ears can't handle hearing "fuck"
+   now and then, get off the net and back to your bible study group.
    
-   Did you actually read what I wrote? Allocating on init is useless
-   from the bloat perspective because it's 100% equivalent to an BSS 
-   allocation.
-   
-If dynamic, you could allocate a "tiny" hash table or whatever
-on bootup and grow it as usage increases, much like we grow the
-FIB hashes dynamically.
+I totally agree, this isn't a family list.
