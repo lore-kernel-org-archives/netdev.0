@@ -1,72 +1,28 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: pktgen problem (skb refcount) in 2.6.12-rc1
-Date: Mon, 4 Apr 2005 07:26:42 +0200
-Message-ID: <20050404052642.GE9155@sunbeam.de.gnumonks.org>
-References: <20050402191132.GF1890@sunbeam.de.gnumonks.org> <16976.16774.728707.368646@robur.slu.se>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: Mon, 4 Apr 2005 00:31:09 -0600
+Message-ID: <20050404063109.GA30855@colo.lackof.org>
+References: <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <52vf7bwo4w.fsf@topspin.com> <1112042936.5088.22.camel@beastie> <20050328223203.GC28983@kvack.org> <1112465317.24936.10.camel@mylaptop>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="uAKRQypu60I7Lcqm"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+        "David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+        andrea@suse.de, michaelc@cs.wisc.edu,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: Dmitry Yusupov <dmitry_yus@yahoo.com>
 Content-Disposition: inline
-In-Reply-To: <16976.16774.728707.368646@robur.slu.se>
+In-Reply-To: <1112465317.24936.10.camel@mylaptop>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Apr 02, 2005 at 10:08:37AM -0800, Dmitry Yusupov wrote:
+> So, who cares if one of those cores will do receive side copying?
 
---uAKRQypu60I7Lcqm
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+It burns backplane bandwidth that could be used for other things.
+The problem isn't the CPU cycles. It's the number
+of times the data has to cross the memory bus.
 
-On Sun, Apr 03, 2005 at 09:18:30PM +0200, Robert Olsson wrote:
-
->  > I've tried to track the problem down, and I've confirmed that skb->use=
-rs
->  > never goes down to 1 but instead stays at '2'.
->=20
->  > The same system with the same pktgen script works fine with 2.6.11.6.
->  >=20
->  > I'm reporting this since it seems like it sounds like we have a skb
->  > usage count leak somewhere :(
->=20
->  Sounds like a diff could give some clues. pktgen, e1000 and TX-path shou=
-ld=20
->  be interesting as ev. changes in kernel config.
-
-no changes in kernel config.  I've reviewed pktgen changes and couldn't
-find something that would cause the problem.  It always only
-atomic_inc'ed the ussage cound (and decrements only in error path) which
-is perfectly fine.
-
-As for e1000 and or generic TX path changes, I don't have the time to
-review them now, sorry :(  That's why I posted it to netdev, to let
-people who have an idea about the committed changes know that there is
-an issue.
-
-Cheers,
-	Harald
---=20
-- Harald Welte <laforge@gnumonks.org>          	        http://gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-"Privacy in residential applications is a desirable marketing option."
-                                                  (ETSI EN 300 175-7 Ch. A6)
-
---uAKRQypu60I7Lcqm
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
-
-iD8DBQFCUNASXaXGVTD0i/8RAmJlAJ0am9/hoqAXladQcKHHELjDXiSCAwCgk6KQ
-p4zfJVUew9dckCSBh1Fg84g=
-=3nOl
------END PGP SIGNATURE-----
-
---uAKRQypu60I7Lcqm--
+grant
