@@ -1,55 +1,32 @@
-From: Matt Mackall <mpm@selenic.com>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [RFC] [PATCH 2/3] tg3 netpoll hook
-Date: Sat, 4 Oct 2003 21:55:12 -0500
+Date: Sat, 04 Oct 2003 23:11:27 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031005025512.GF13573@waste.org>
-References: <20031003014505.GS1897@waste.org> <3F7F857D.5010504@pobox.com>
+Message-ID: <3F7F8BDF.5000903@pobox.com>
+References: <20031003014505.GS1897@waste.org> <3F7F857D.5010504@pobox.com> <20031005025512.GF13573@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, Andrew Morton <akpm@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3F7F857D.5010504@pobox.com>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20031005025512.GF13573@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 04, 2003 at 10:44:13PM -0400, Jeff Garzik wrote:
-> Matt Mackall wrote:
-> > l-mpm/drivers/net/tg3.c |   16 ++++++++++++++++
-> > 1 files changed, 16 insertions(+)
-> >
-> >diff -puN drivers/net/tg3.c~tg3-poll drivers/net/tg3.c
-> >+++ l-mpm/drivers/net/tg3.c	2003-09-25 11:56:37.000000000 -0500
-> >@@ -2475,6 +2475,15 @@ static irqreturn_t tg3_interrupt(int irq
-> > static int tg3_init_hw(struct tg3 *);
-> > static int tg3_halt(struct tg3 *);
-> > 
-> >+#ifdef HAVE_POLL_CONTROLLER
-> >+static void tg3_poll_controller(struct net_device *dev)
-> >+{
-> >+	disable_irq(dev->irq);
-> >+	tg3_interrupt (dev->irq, dev, NULL);
-> >+	enable_irq(dev->irq);
-> >+}
-> >+#endif
-> >+
-> > static void tg3_reset_task(void *_data)
-> > {
-> > 	struct tg3 *tp = _data;
-> >@@ -7482,6 +7491,10 @@ static struct pci_dev * __devinit tg3_fi
-> > 	return peer;
-> > }
-> > 
-> >+#ifdef HAVE_POLL_CONTROLLER
-> >+static void tg3_poll_controller(struct net_device *dev);
-> >+#endif
-> 
-> This prototype is pointless.
+Matt Mackall wrote:
+> Have an opinion on s/->poll_controller/->netpoll/?
 
-Indeed. 
 
-Have an opinion on s/->poll_controller/->netpoll/?
+I have an opinion, yes :)  which I despise myself for holding...
 
--- 
-Matt Mackall : http://www.selenic.com : of or relating to the moon
+I don't like either name, but don't have any better suggestions either, 
+besides something extremely verbose like ->process_hw_events().
+
+"poll_controller" is annoying because (a) it's way too close to NAPI, 
+but (b) it's a reasonably accurate description of what it does.
+
+I think "netpoll" is even worse...  It describes who calls it, not what 
+it does.
+
+	Jeff
