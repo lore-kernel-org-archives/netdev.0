@@ -1,7 +1,7 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH wireless-2.6 6/12] Host AP: Prevent STAs from associating using AP address
-Date: Sun, 7 Nov 2004 23:13:45 -0800
-Message-ID: <20041108071345.GG1076@jm.kir.nu>
+Subject: [PATCH wireless-2.6 7/12] Host AP: Fix compilation with PRISM2_NO_STATION_MODES defined.
+Date: Sun, 7 Nov 2004 23:14:27 -0800
+Message-ID: <20041108071427.GH1076@jm.kir.nu>
 References: <20041108070156.GA1076@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,27 +14,38 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Prevent STAs from authenticating with AP address (i.e., spoofing AP
-MAC address). The inner bridge implementation intercepts packets
-before they are passed to Linux net stack, so using AP MAC address
-would prevent AP from seeing the packet properly.
-
 Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
 
 
-diff -Nru a/drivers/net/wireless/hostap/hostap_ap.c b/drivers/net/wireless/hostap/hostap_ap.c
---- a/drivers/net/wireless/hostap/hostap_ap.c	2004-11-07 22:38:35 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_ap.c	2004-11-07 22:38:35 -08:00
-@@ -1329,7 +1329,8 @@
- 	status_code = __le16_to_cpu(*pos);
- 	pos++;
+diff -Nru a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
+--- a/drivers/net/wireless/hostap/hostap_ioctl.c	2004-11-07 22:38:44 -08:00
++++ b/drivers/net/wireless/hostap/hostap_ioctl.c	2004-11-07 22:38:44 -08:00
+@@ -597,6 +597,7 @@
+ }
  
--	if (ap_control_mac_deny(&ap->mac_restrictions, hdr->addr2)) {
-+	if (memcmp(dev->dev_addr, hdr->addr2, ETH_ALEN) == 0 ||
-+	    ap_control_mac_deny(&ap->mac_restrictions, hdr->addr2)) {
- 		txt = "authentication denied";
- 		resp = WLAN_STATUS_UNSPECIFIED_FAILURE;
- 		goto fail;
+ 
++#ifndef PRISM2_NO_STATION_MODES
+ static int hostap_join_ap(struct net_device *dev)
+ {
+ 	struct hostap_interface *iface = dev->priv;
+@@ -634,6 +635,7 @@
+ 
+ 	return 0;
+ }
++#endif /* PRISM2_NO_STATION_MODES */
+ 
+ 
+ static int prism2_ioctl_siwap(struct net_device *dev,
+@@ -1586,7 +1588,8 @@
+ 
+ #else /* !PRISM2_NO_STATION_MODES */
+ 
+-static inline int prism2_request_hostscan(struct net_device *dev)
++static inline int prism2_request_hostscan(struct net_device *dev,
++					  u8 *ssid, u8 ssid_len)
+ {
+ 	return -EOPNOTSUPP;
+ }
 
 
 -- 
