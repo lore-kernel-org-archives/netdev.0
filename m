@@ -1,41 +1,93 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: Re: sis900 oops on resume
-Date: Fri, 19 Nov 2004 11:01:46 +0100
-Message-ID: <20041119100146.GA26017@picchio.gall.it>
-References: <20041117182403.GC2252@stro.at> <20041117201008.GA11439@elf.ucw.cz> <20041118021425.GA2128@stro.at> <20041118084431.GA13870@gateway.milesteg.arr> <20041118094602.GB2287@stro.at>
+From: Surakshan Mendis <surakshan@surasoft.com>
+Subject: Re: Fw: [Bugme-new] [Bug 3765] New: Network link down, when
+	writting to sata disk AND network in use
+Date: Fri, 19 Nov 2004 20:06:39 +0800
+Message-ID: <1100865999.13851.7.camel@localhost>
+References: <20041117211822.243aa8bd.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: NetDev <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, bugtracker@surasoft.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: maximilian attems <janitor@sternwelten.at>
-Content-Disposition: inline
-In-Reply-To: <20041118094602.GB2287@stro.at>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041117211822.243aa8bd.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 18, 2004 at 10:46:02AM +0100, maximilian attems wrote:
-> On Thu, 18 Nov 2004, Daniele Venzano wrote:
-> > I'm aware of this problem, sis900 looses the first interrupt after
-> > resume, I have to check the code.
-> > On my tests the card, after that lost interrupt, worked normally. Is
-> > that your case, or do you have a non working sis900 after resume ?
+FYI 
+
+I've just added a realtek based card using the 8139too kernel module.
+The "issue" mention below DOES NOT happen with this network card. Only
+with the onboard b44 card!
+
+
+
+On Wed, 2004-11-17 at 21:18 -0800, Andrew Morton wrote:
 > 
-> well it works, as long as i do not use guessnet(8),
-> as described in the bug report, but the lost interrupt is reported
-> on every resume. 
-
-Unfortunately I'm no longer able to reproduce this problem. I just tried
-to suspend/resume with a running ping -f and I can't see any lost or
-abnormal interrupts.
-
-There is a noticeable delay after resume and before the NIC is on line
-and able to handle traffic, but that is caused by the link
-detection/autonegotiation and I can do little to speed things up.
-
-Have you tried delaying the guessnet invocation ?
-
--- 
------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
+> Well this is novel.  I'd be suspecting a hardware problem.  Are you sure
+> the power supply isn't overloaded, or in need of replacement?
+> 
+> 
+> Begin forwarded message:
+> 
+> Date: Wed, 17 Nov 2004 21:13:36 -0800
+> From: bugme-daemon@osdl.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 3765] New: Network link down, when writting to sata disk AND network in use
+> 
+> 
+> http://bugme.osdl.org/show_bug.cgi?id=3765
+> 
+>            Summary: Network link down, when writting to sata disk AND
+>                     network in use
+>     Kernel Version: linux-kernel 2.6.9
+>             Status: NEW
+>           Severity: high
+>              Owner: other_other@kernel-bugs.osdl.org
+>          Submitter: bugtracker@surasoft.com
+> 
+> 
+> Distribution: Gentoo
+> 
+> Hardware Environment: 
+> P4 2.66ghz
+> Motherboard: ASUS P4PE (with onboard lan)
+> Promise Sata150 TX4 PCI (sata expansion card)
+> 
+> Software Environment: 
+> Kernel 2.6.9
+> - onboard LAN: driver in use
+> - "Broadcom 4400 ethernet support" compiled into kernel
+> 
+> - Promise Sata150 TX4 PCI (sata expansion card)
+> - Driver "Promise SATA TX2/TX4 support" compiled into kernel
+> - 200GB Western Digital SATA drive attached to PCI sata card
+> 
+> Problem Description:
+> If data is being copied to the SATA drive (eg from another DISK which is on
+> motherboard IDE controller) AND I start a network data transfer where data is
+> goung through the Broadcom lan the following occurs (from kernel log)
+> 
+> Nov 18 11:43:10 synapse b44: eth0: Link is down.
+> Nov 18 11:43:15 synapse b44: eth0: Link is up at 100 Mbps, full duplex.
+> Nov 18 11:43:15 synapse b44: eth0: Flow control is on for TX and on for RX.
+> Nov 18 11:43:19 synapse b44: eth0: Link is down.
+> Nov 18 11:43:21 synapse b44: eth0: Link is up at 100 Mbps, full duplex. 
+> 
+> Link keeps going up and down, as long as there's data movment from the SATA
+> drive, and a network movement (network download doesn't have to be saving to the
+>  sata drive)
+> 
+> I've disabled APCI, problem persits.
+> 
+> Steps to reproduce:
+> 1. copy data to Sata drive CONNECTED to PCI controller
+> 2. Download file from network via onboard LAN, doesn't matter which drive you
+> save it
+> 3. Onboards lan "link" goes up and down, causing disruption to network useage.
+> 
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
+> 
+> 
