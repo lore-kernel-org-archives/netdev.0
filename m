@@ -1,39 +1,56 @@
-From: Florian Weimer <fw@deneb.enyo.de>
-Subject: Re: Linux Routing Performance Update
-Date: Sat, 29 Jan 2005 19:50:12 +0100
-Message-ID: <87oef8m5nf.fsf@deneb.enyo.de>
-References: <16887.39598.648724.421160@robur.slu.se>
-	<41FA4498.6020202@aarnet.edu.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [ANN] removal of certain net drivers coming soon: eepro100, xircom_tulip_cb, iph5526
+Date: Sat, 29 Jan 2005 20:42:33 +0000 (UTC)
+Message-ID: <ctgsfp$hpa$1@sea.gmane.org>
+References: <41F952F4.7040804@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Glen Turner <glen.turner@aarnet.edu.au>
-In-Reply-To: <41FA4498.6020202@aarnet.edu.au> (Glen Turner's message of "Sat,
-	29 Jan 2005 00:26:40 +1030")
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Glen Turner:
-
->> Finally time for some more testing with a somewhat upgraded equipment.
+["Followup-To:" header set to gmane.linux.kernel.]
+jgarzik@pobox.com said:
+> 3) eepro100
 >
-> Thanks very much for the interesting results.
+> Unmaintained; users should use e100.
+>
+> When I last mentioned eepro100 was going away, I got a few private 
+> emails saying complaining about issues not yet taken care of in e100. 
+> eepro100 will not be removed until these issues are resolved.
 
-Indeed.
+I have an intel eepro100 card in an old PII 266. With eepro100, it gets
+~9Mbit, but e100 struggles to keep its head above 1Mbit, and is very
+erratic.
 
-> I'm sure other network engineers have experienced software routers where
-> the pps has dramatically slowed down upon reasonable ACLs and queuing
-> (Cisco 7500, etc),
+Also, drivers/net/Kconfig still claims that E100_NAPI exists, but the
+option to disable napi has long since been removed from the driver.
 
-Cisco 7500 with proper configuration would do quite well in this test,
-too, even with ACLs.  Only if you have more than a few thousand new
-flows per second, things start to look rather bleak.  (Forwarding
-decisions are performed once per flow on this platform.)
+Jason
 
-> so some results with netfilter and tc running would be appreciated,
-> as would tests for any packet re-ordering in output flows.
-
-I'd also like to see tests with random source/destination
-combinations, just to keep things in perspective. 8-)
+--- linux-2.6.10/drivers/net/Kconfig.pre	2005-01-29 15:40:48.000000000 -0500
++++ linux-2.6.10/drivers/net/Kconfig	2005-01-29 15:41:01.000000000 -0500
+@@ -1435,23 +1435,6 @@
+ 	  <file:Documentation/networking/net-modules.txt>.  The module
+ 	  will be called e100.
+ 
+-config E100_NAPI
+-	bool "Use Rx Polling (NAPI)"
+-	depends on E100
+-	help
+-	  NAPI is a new driver API designed to reduce CPU and interrupt load
+-	  when the driver is receiving lots of packets from the card. It is
+-	  still somewhat experimental and thus not yet enabled by default.
+-
+-	  If your estimated Rx load is 10kpps or more, or if the card will be
+-	  deployed on potentially unfriendly networks (e.g. in a firewall),
+-	  then say Y here.
+-
+-	  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
+-	  information.
+-
+-	  If in doubt, say N.
+-
+ config LNE390
+ 	tristate "Mylex EISA LNE390A/B support (EXPERIMENTAL)"
+ 	depends on NET_PCI && EISA && EXPERIMENTAL
