@@ -1,36 +1,41 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: Advice needed on IP-over-InfiniBand driver
-Date: Sun, 19 Sep 2004 21:51:49 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: 2.6.8.1 IPv6 Routing Problem
+Date: Mon, 20 Sep 2004 08:08:36 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <52u0ttr196.fsf@topspin.com>
-References: <52fz5esxx6.fsf@topspin.com>
-	<20040919140133.60ea3fb3.davem@davemloft.net>
-	<1095628759.1049.22.camel@jzny.localdomain>
-	<20040919193415.6dc96cab.davem@davemloft.net>
+Message-ID: <Pine.LNX.4.44.0409200806460.22679-100000@netcore.fi>
+References: <20040919074605.GJ6005@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+        <davem@davemloft.net>, <netdev@oss.sgi.com>,
+        <usagi-users@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040919193415.6dc96cab.davem@davemloft.net> (David S.
- Miller's message of "Sun, 19 Sep 2004 19:34:15 -0700")
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20040919074605.GJ6005@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> It sounds like a two-stage thing, the first stage lets you
-    David> talk on the subnet and get to the IB subnet manager, and
-    David> the second stage lets you acually speak IP.  My
-    David> understanding, from his description, is that once the
-    David> second stage part is complete you don't need to first stage
-    David> address information at all.
+On Sun, 19 Sep 2004, Harald Welte wrote:
+> Apparently this happens when you 
+> 
+> 1) insmod ipv6
+> 2) ifconfig your interfaces up
+> 3) only now ifconfig 'lo' up.
+> 
+> This happened due to a typo in my script :(  If 'lo' exists prior to the
+> other interfaces, everything seems to work as usual.
+> 
+> Is this desired or accidential and/or documented behaviour?
 
-Pretty much... ARP gives you a unique identifier for the port with the
-IP address you're looking for.  Then you need to take that unique
-identifier and ask the subnet manager what path to use to get from
-your local port to that destination port.  (Talking to the subnet
-manager uses an InfiniBand native, non-IP mechanism -- one of the
-first things the subnet manager does is go over the whole fabric and
-tell each port what path to use to send it queries)
+AFAIK, it's not documented, but known among developers (in general): 
+there's a lot of magic tied to the loopback interface, and lots of 
+things (like ND) break very badly if it's not always up and running 
+appropriately..
 
-Thanks,
-  Roland
+This has bitten people so many times that it might be useful to try to
+mitigate the problem somehow, if feasible...
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
