@@ -1,24 +1,47 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: 2.6.10-rc2: still no ipv6 link-local addresses
-Date: Mon, 15 Nov 2004 15:34:55 -0200
-Message-ID: <4198E8BF.70104@conectiva.com.br>
-References: <Pine.SOC.4.61.0411151159230.3321@math.ut.ee>
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.4.28-rc2-bk3] pcnet32: added pci_disable_device
+Date: Fri, 12 Nov 2004 11:41:24 -0800
+Message-ID: <20041112194124.GA17957@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Meelis Roos <mroos@linux.ee>
-In-Reply-To: <Pine.SOC.4.61.0411151159230.3321@math.ut.ee>
+To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Can you try disabling ipv6 privacy extensions?
+This patch adds pci_disable_device to disable the device prior to being
+removed or if the probe fails.
 
-Meelis Roos wrote:
-> I tried 2.6.10-rc2 and it still does not give lipv6 link-local address 
-> to Ethernet interfaces (I tried NICs with e100 and 8139too drivers).
-> 
-> This is broken since 2.6.9.
-> 
+Tested ia32.
+
+signed-off-by: Don Fry <brazilnut@us.ibm.com>
+
+--- linux-2.4.28-rc2-bk3/drivers/net/orig.pcnet32.c	2004-11-12 07:45:37.000000000 -0800
++++ linux-2.4.28-rc2-bk3/drivers/net/pcnet32.c	2004-11-12 09:50:31.000000000 -0800
+@@ -1007,7 +1007,11 @@ pcnet32_probe_pci(struct pci_dev *pdev, 
+ 	return -EBUSY;
+     }
+ 
+-    return pcnet32_probe1(ioaddr, 1, pdev);
++    err = pcnet32_probe1(ioaddr, 1, pdev);
++    if (err < 0) {
++	pci_disable_device(pdev);
++    }
++    return err;
+ }
+ 
+ 
+@@ -2241,6 +2245,7 @@ static void __devexit pcnet32_remove_one
+ 	release_region(dev->base_addr, PCNET32_TOTAL_SIZE);
+ 	pci_free_consistent(lp->pci_dev, sizeof(*lp), lp, lp->dma_addr);
+ 	free_netdev(dev);
++	pci_disable_device(pdev);
+ 	pci_set_drvdata(pdev, NULL);
+     }
+ }
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
