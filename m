@@ -1,37 +1,61 @@
-From: Srihari Vijayaraghavan <harisri@telstra.com>
-Subject: Re: [patch] 2.6.5-rc2 - r8169 DAC
-Date: Mon, 05 Apr 2004 09:38:46 +1000
+From: bhartin@straus-frank.com
+Subject: Re: r8169, 2.6.2-rc2, Sager 4780 laptop
+Date: Sun, 4 Apr 2004 18:57:20 -0500 (CDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <253ea2a8f4.2a8f4253ea@email.bigpond.com>
+Message-ID: <Pine.LNX.4.58.0404041836100.6853@edp12.straus-frank.int>
+References: <Pine.LNX.4.58.0401261443190.7894@edp12.straus-frank.int>
+ <20040126235559.A3832@electric-eye.fr.zoreil.com>
+ <Pine.LNX.4.58.0404041553010.6853@edp12.straus-frank.int>
+ <20040405002028.A8125@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, ak@suse.de
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: romieu@fr.zoreil.com
-Content-language: en
-Content-Disposition: inline
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040405002028.A8125@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hello Francois,
+Here are the results using this new patch:
 
-> DMA_{32/64}BIT_MASK for all.
+No SMP, no ACPI:  Appears to work well--transferred about 8 gigs okay
+With SMP, with ACPI:  Interface locks up after a few MB
+With SMP, no ACPI:  Interface locks up after a few MB
+No SMP, with ACPI:  Appears to work well--transferred about 8 gigs okay
+
+My laptop is *finally* reaching full usability!  Thanks!
+
+I can live without SMP--this is just a single P4/HT, so I'm not losing 
+much.
+
+Thanks again.  If there is any debugging info you need towards fixing the 
+SMP compatibility issue, just let me know, but I'm not in a hurry for 
+it.
+
+Bradley Hartin - bhartin@straus-frank.com
+Communications and Network Administrator
+Straus-Frank Company
+Thanks,
+
+On Mon, 5 Apr 2004, Francois Romieu wrote:
+
+> bhartin@straus-frank.com <bhartin@straus-frank.com> :
+> [...]
+> > I haven't tried your latest set of patches because I haven't been able to 
+> > find the URL for them again (I got carried away cleaning up my bookmarks 
+> > recently).  Let me know if there are any newer ones you'd like for me to 
+> > try.
 > 
+> http://www.fr.zoreil.com/people/francois/misc/20040329-2.6.5-rc2-r8169.c-test.patch
 > 
-> include/linux/dma-mapping.h |    3 +++
-> 1 files changed, 3 insertions(+)
+> It removes a possible loop in the Tx irq handler and should save some cpu
+> cycles as well. Apply against 2.6.5.
 > 
-> diff -puN include/linux/dma-mapping.h~r8169-dac-00 
-> include/linux/dma-mapping.h
+> --
+> Ueimor
+> 
 
-With that patch 2.6.5-rc2 + r8169 DAC compiles and works fine.
-
-There is one problem however: If I unplug and plug the cable it does not come back to online (even the LED on the card does not glow). I did not try reloading the driver, but a reboot does fix it :-( (later today I shall try reloading the driver). OTOH the vanilla 2.6.5-rc2 (or rc3) does not show this behaviour.
-
-As for as the stability, I have stress tested it for couple of hours and it seems to work just fine.
-
-Thanks
-Hari
-                                                                      
+Bradley Hartin - bhartin@straus-frank.com
+Communications and Network Administrator
+Straus-Frank Company
