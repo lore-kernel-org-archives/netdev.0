@@ -1,35 +1,53 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] convert sis900 to new style parameters
-Date: Sat, 13 Nov 2004 20:19:52 -0500
-Message-ID: <4196B2B8.3040202@pobox.com>
-References: <20041112220710.GB29980@gateway.milesteg.arr>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Sat, 13 Nov 2004 20:29:13 -0500
+Message-ID: <4196B4E9.40502@pobox.com>
+References: <OF88EC0E9F.DE8FC278-ONC1256F4A.0038D5C0-C1256F4A.00398E11@de.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Rusty Russell <rusty@rustcorp.com.au>, NetDev <netdev@oss.sgi.com>
+Cc: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniele Venzano <webvenza@libero.it>
-In-Reply-To: <20041112220710.GB29980@gateway.milesteg.arr>
+To: Thomas Spatzier <thomas.spatzier@de.ibm.com>
+In-Reply-To: <OF88EC0E9F.DE8FC278-ONC1256F4A.0038D5C0-C1256F4A.00398E11@de.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patch is OK, but your mailer sends them "MIME-encrypted", which means 
-script (like the ones I use) cannot merge the patch.
+Thomas Spatzier wrote:
+> 
+> 
+> 
+>>You should be using netif_carrier_{on,off} properly, and not drop the
+>>packets.  When (if) link comes back, you requeue the packets to hardware
+>>(or hypervisor or whatever).  Your dev->stop() should stop operation and
+>>clean up anything left in your send/receive {rings | buffers}.
+>>
+> 
+> 
+> When we do not drop packets, but call netif_stop_queue the write queues
+> of all sockets associated to the net device are blocked as soon as they
+> get full. This causes problems with programs such as the zebra routing
+> daemon. So we have to keep the netif queue running in order to not block
+> any programs.
 
-Example from your email:
-> @@ -179,9 +180,9 @@
->  MODULE_DESCRIPTION("SiS 900 PCI Fast Ethernet driver");
->  MODULE_LICENSE("GPL");
-> =20
-> -MODULE_PARM(multicast_filter_limit, "i");
-> -MODULE_PARM(max_interrupt_work, "i");
-> -MODULE_PARM(debug, "i"); 
-> +module_param(multicast_filter_limit, int, 0444);
-> +module_param(max_interrupt_work, int, 0444);
-> +module_param(debug, int, 0444);
->  MODULE_PARM_DESC(multicast_filter_limit, "SiS 900/7016 maximum number of f=
-> iltered multicast addresses");
->  MODULE_PARM_DESC(max_interrupt_work, "SiS 900/7016 maximum events handled =
-> per interrupt");
->  MODULE_PARM_DESC(debug, "SiS 900/7016 debug level (2-4)");
+This is very, very wrong.  You are essentially creating in in-driver 
+/dev/null simulator.  This does nothing but chew CPU cycles by having 
+the driver drop packets, rather than allowing the system to work as it 
+should.
+
+Queues are DESIGNED to fill up under various conditions.
+
+Would not the zebra routing software have the same problems with cable 
+pull under an e1000 or tg3 gigabit NIC?
+
+
+> We also had a look at some other drivers and the common behaviour seems to
+> be that packets are lost if the network cable is pulled out.
+
+Which drivers, specifically, are these?
+
+The most popular drivers -- e1000, tg3, etc. -- do not do this, for very 
+good reasons.
+
+	Jeff
