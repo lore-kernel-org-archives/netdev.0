@@ -1,92 +1,42 @@
-From: "Michael T Kerrisk" <mtk-lists@gmx.net>
-Subject: Assassination of TIME_WAIT state (RESEND)
-Date: Wed, 4 Aug 2004 15:22:27 +0200 (MEST)
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2.4] Use double-linked list for dev->qdisc_list
+Date: Wed, 04 Aug 2004 15:30:45 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16217.1091625747@www2.gmx.net>
+Message-ID: <4110E505.1010205@trash.net>
+References: <20040804125926.GA15324@krezus.e-wro.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
+In-Reply-To: <20040804125926.GA15324@krezus.e-wro.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Gidday,
+Tomasz Paszkowski wrote:
 
-I did try posting this many weeks back, but got response.
-I'll take another shot -- does anyone have thoughts on the
-questions below?
+>This patch changes dev->qdisc_list to a double-linked list. This solves
+>the performance problems when destroying qdiscs with large number of inner
+>qdiscs.
+>
+>This is backported version of Patrick McHardy patch (03-qdisc_list-list_h.diff)
+>or 2.6 kernels.
+>  
+>
+Looks good, except for the last hunk, the BUG_TRAP is valid in 2.4 because
+it doesn't use RCU. Change it to BUG_TRAP(list_empty(&dev->qdisc_list)).
 
-=3D=3D
-
-In the scenario below, one achieves assassination of the
-TIME_WAIT state on Linux 2.6.5 and 2.4.x.  From a conversation
-I had a while ago with Andi Kleen (see below), it appears
-that this is expected behavior.  I have two (closely linked)
-questions:
-
--- what is the rationale for this behavior (i.e., why assassinate
-   in this scenario)?
-
--- why does Linux behave differently from FreeBSD and Solaris
-   in this scenario?
-
-Assume in the following scenario that SO_RESUSEADDR is set on
-the server socket(s):
-
-Server                           Client
-
-1. Create listening socket
-   bound to INADDR_ANY/port=3D9999
-2. Accept a connection on
-   the listening socket
-                                 3. Create a socket bound
-                                    to INADDR_ANY/port=3D50000
-                                 4. Connect to server socket
-                                    (on port 9999)
-5. Close listening and
-   connected sockets
-                                 6. Close the socket
-
-At this point, there is TCP on the server side in the TIME_WAIT
-state: { local=3Dlocalhost:9999, peer=3DXXX:50000 }
-
-(re-run server)
-7. Create listening socket
-   bound to INADDR_ANY/port=3D9999
-8. Accept a connection on
-   the listening socket
-                                 (re-run client while TIME_WAIT
-                                 TCP still exists)
-                                 9. Create a socket bound
-                                    to INADDR_ANY/port=3D50000
-                                 10.Connect to server socket
-                                    (on port 9999)
-
-On Linux the connect() in step 10 succeeds; the reason that it
-does is that the TIME_WAIT TCP is immediately assassinated. =20
-
-A while back I asked Andi Kleen about this scenario, and he
-commented that this behavious was:
-
-> a (dubious) BSD extension, also implemented
-> in linux (after all sockets is about being bug to bug coompatible).
-> the kernel sees the TIME-WAIT and choses a sequence number with
-> a large offset to avoid conflicts. When you don't have PAWS
-> but still had a big window it is rather risky though.
-
-However, when I try the above on FreeBSD 5.1 and Solaris 8, we see
-different behavior: the TIME_WAIT TCP is NOT assassinated and the
-connect() at step 10 fails with EADDRINUSE (which makes sense
-because we can't create a duplicate 4-tuple...).
-
-Cheers,
-
-Michael
-
---=20
-Michael Kerrisk
-mtk-lists@gmx.net
-
-NEU: WLAN-Router f=FCr 0,- EUR* - auch f=FCr DSL-Wechsler!
-GMX DSL =3D superg=FCnstig & kabellos http://www.gmx.net/de/go/dsl
+>  
+>
+>------------------------------------------------------------------------
+>
+> #endif
+>-	BUG_TRAP(dev->qdisc_list == NULL);
+> 	BUG_TRAP(!timer_pending(&dev->watchdog_timer));
+>-	dev->qdisc_list = NULL;
+> 	spin_unlock_bh(&dev->queue_lock);
+> 	write_unlock(&qdisc_tree_lock);
+> }
+>  
+>
