@@ -1,34 +1,34 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Frequent Oops on Shutdown 2.6.10
-Date: Wed, 23 Feb 2005 20:17:41 -0800
-Message-ID: <20050223201741.4e072bfc.davem@davemloft.net>
-References: <20050222101526.GA5814@gondor.apana.org.au>
-	<20050223.183555.80618945.yoshfuji@linux-ipv6.org>
-	<20050223095144.GB16820@gondor.apana.org.au>
-	<20050224.014148.47626020.yoshfuji@linux-ipv6.org>
-	<20050223224827.GA7418@gondor.apana.org.au>
+Subject: Re: [PATCH] pktgen: reduce stack usage
+Date: Wed, 23 Feb 2005 20:31:40 -0800
+Message-ID: <20050223203140.4bc3994a.davem@davemloft.net>
+References: <20050218134219.3f079110.rddunlap@osdl.org>
+	<20050218221121.GA22845@electric-eye.fr.zoreil.com>
+	<42166E3F.2050304@osdl.org>
+	<16921.60572.951532.31861@robur.slu.se>
+	<421A0880.5070205@osdl.org>
+	<16923.21163.112945.608974@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, AndyLiebman@aol.com, terryg@axian.com,
-        netdev@oss.sgi.com, akpm@osdl.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050223224827.GA7418@gondor.apana.org.au>
+Cc: rddunlap@osdl.org, Robert.Olsson@data.slu.se, romieu@fr.zoreil.com,
+        netdev@oss.sgi.com
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16923.21163.112945.608974@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 24 Feb 2005 09:48:27 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 22 Feb 2005 16:41:31 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> On Thu, Feb 24, 2005 at 01:41:48AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> > 
-> > Here's the (hopefuly) final one.
+> Randy.Dunlap writes:
+>  > >  Here is version with just one buffer.
+>  > 
+>  > Yep, even better:  few changes + using sizeof.
 > 
-> Looks good to me.
+>  Hello.
 > 
-> > Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+>  OK! Then we ask DaveM to apply the patch.
 
-Applied to 2.6.11, thanks everyone.
+Applied, thanks guys.
