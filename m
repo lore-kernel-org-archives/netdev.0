@@ -1,33 +1,74 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: Asynchronous crypto layer.
-Date: Sun, 31 Oct 2004 11:09:20 -0500 (EST)
-Message-ID: <Xine.LNX.4.44.0410311107160.677-100000@thoron.boston.redhat.com>
-References: <10313.1099236970@marajade.sandelman.ottawa.on.ca>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Michal Ludvig <mludvig@suse.cz>, <johnpol@2ka.mipt.ru>, <hadi@cyberus.ca>,
-        <netdev@oss.sgi.com>, <cryptoapi@lists.logix.cz>,
-        Eugene Surovegin <ebs@ebshome.net>
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: [drivers] add missing pci_tbl exports (pointed out by "Adam J. Richter" <adam@yggdrasil.com>)
+Date: Sun, 31 Oct 2004 11:28:24 -0500
+Message-ID: <200410311628.i9VGSNma017970@ginger.cmf.nrl.navy.mil>
+Cc: davem@redhat.com, adam@yggdrasil.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Richardson <mcr@sandelman.ottawa.on.ca>
-In-Reply-To: <10313.1099236970@marajade.sandelman.ottawa.on.ca>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 31 Oct 2004, Michael Richardson wrote:
+adam pointed out that i missed adding MODULE_DEVICE_TABLE when i fixed
+the horizon driver.  i noticed some others were missing it as well.
 
->   There are lots of situations where, yes, a 2Ghz CPU can do IPsec much
-> faster and with lower latency and with less jitter than hardware.
-> 
->   However, the CPU might have other important things to do. Things that
-> make the owner money. 
+please apply to 2.6.
 
-I guess control over this should be tunable, perhaps just a boolean of 
-whether to try and aim for raw speed or for reduced CPU contention.
+thanks!
 
+Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/31 11:26:23-05:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: [drivers] add missing pci_tbl exports (pointed out by "Adam J. Richter" <adam@yggdrasil.com>
+# 
+diff -Nru a/drivers/atm/ambassador.c b/drivers/atm/ambassador.c
+--- a/drivers/atm/ambassador.c	2004-10-31 11:27:09 -05:00
++++ b/drivers/atm/ambassador.c	2004-10-31 11:27:09 -05:00
+@@ -2439,6 +2439,8 @@
+ 	{ 0, }
+ };
+ 
++MODULE_DEVICE_TABLE(pci, amb_pci_tbl);
++
+ static struct pci_driver amb_driver = {
+ 	.name =		"amb",
+ 	.probe =	amb_probe,
+diff -Nru a/drivers/atm/he.c b/drivers/atm/he.c
+--- a/drivers/atm/he.c	2004-10-31 11:27:09 -05:00
++++ b/drivers/atm/he.c	2004-10-31 11:27:09 -05:00
+@@ -3051,6 +3051,8 @@
+ 	{ 0, }
+ };
+ 
++MODULE_DEVICE_TABLE(pci, he_pci_tbl);
++
+ static struct pci_driver he_driver = {
+ 	.name =		"he",
+ 	.probe =	he_init_one,
+diff -Nru a/drivers/atm/horizon.c b/drivers/atm/horizon.c
+--- a/drivers/atm/horizon.c	2004-10-31 11:27:09 -05:00
++++ b/drivers/atm/horizon.c	2004-10-31 11:27:09 -05:00
+@@ -2913,6 +2913,8 @@
+ 	{ 0, }
+ };
+ 
++MODULE_DEVICE_TABLE(pci, hrz_pci_tbl);
++
+ static struct pci_driver hrz_driver = {
+ 	.name =		"horizon",
+ 	.probe =	hrz_probe,
+diff -Nru a/drivers/atm/idt77252.c b/drivers/atm/idt77252.c
+--- a/drivers/atm/idt77252.c	2004-10-31 11:27:09 -05:00
++++ b/drivers/atm/idt77252.c	2004-10-31 11:27:09 -05:00
+@@ -3819,6 +3819,8 @@
+ 	{ 0, }
+ };
+ 
++MODULE_DEVICE_TABLE(pci, idt77252_pci_tbl);
++
+ static struct pci_driver idt77252_driver = {
+ 	.name		= "idt77252",
+ 	.id_table	= idt77252_pci_tbl,
