@@ -1,44 +1,62 @@
-From: Jon Mason <jdmason@us.ibm.com>
-Subject: Re: [DESC 2.6.8.1-mm4] r8169 patches
-Date: Fri, 27 Aug 2004 10:09:40 -0500
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH/RFC] remove include/linux/netflinter_ipv6/ip6t_REJECT.h
+Date: Sat, 28 Aug 2004 01:14:51 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408271009.41099.jdmason@us.ltcfwd.linux.ibm.com>
-References: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
+Message-ID: <20040828.011451.79815651.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040823224100.GA14680@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+To: davem@redhat.com, laforge@gnumonks.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I've been running the driver with all of the new patchs on my AMD64 system for 
-over 36 hours without any problems.  I have Rx/TX checksumming enabled, but 
-have not tried the VLAN changes.
+Hello.
 
-On Monday 23 August 2004 05:41 pm, Francois Romieu wrote:
-> Here comes a new serie of r8169 related patches which should allow
-> the motivated users to experiment new features, namely:
-> - Rx/Tx checksum offload;
-> - vlan support;
-> - better ethtool integration.
->
-> Tx code apart, the changes exhibit some strong similarity with the
-> 8139cp driver.
->
-> I have not done vlan-dedicated test and there are no figures to highlight
-> any performance improvement. The code does not crash in a (really slow)
-> debug enabled -mm kernel and it does not seem to add huge leak.
->
-> Remarks/comments/test reports welcome.
->
-> --
-> Ueimor
+There're no users of include/linux/netflinter_ipv6/ip6t_REJECT.h,
+which contains wrong, useless definitions.
+
+Yes, I know ip6t_REJECT.c lives in patch-o-matic, but
+it (almost) completely replaces ip6t_REJECT.h;
+which implies that ip6t_REJECT.h is useless at all.
+
+So, how about removing ip6t_REJECT.h for now?
+Of course, introducing appropriate ip6t_REJECT.c and ip6t_REJECT.h is
+the alternate option. :-)
+
+Thanks.
+
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+--yoshfuji
+
+ChangeSet@1.1841, 2004-08-28 00:46:02+09:00, yoshfuji@linux-ipv6.org
+  [NETFILTER] remove unused file.
+  
+  Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+
+diff -Nru a/include/linux/netfilter_ipv6/ip6t_REJECT.h b/include/linux/netfilter_ipv6/ip6t_REJECT.h
+--- a/include/linux/netfilter_ipv6/ip6t_REJECT.h	2004-08-28 00:47:03 +09:00
++++ /dev/null	Wed Dec 31 16:00:00 196900
+@@ -1,16 +0,0 @@
+-#ifndef _IP6T_REJECT_H
+-#define _IP6T_REJECT_H
+-
+-enum ip6t_reject_with {
+-	IP6T_ICMP_NET_UNREACHABLE,
+-	IP6T_ICMP_HOST_UNREACHABLE,
+-	IP6T_ICMP_PROT_UNREACHABLE,
+-	IP6T_ICMP_PORT_UNREACHABLE,
+-	IP6T_ICMP_ECHOREPLY
+-};
+-
+-struct ip6t_reject_info {
+-	enum ip6t_reject_with with;      /* reject type */
+-};
+-
+-#endif /*_IPT_REJECT_H*/
 
 -- 
-Jon Mason
-jdmason@us.ibm.com
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
