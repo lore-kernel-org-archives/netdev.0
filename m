@@ -1,36 +1,51 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 in netdev experimental
-Date: Sun, 4 Jan 2004 23:38:49 +0100
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: [e1000 2.6-exp] back out CSA interrupt fix
+Date: Sun, 4 Jan 2004 16:43:48 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040104233849.A3214@electric-eye.fr.zoreil.com>
-References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <20031126004550.A25408@electric-eye.fr.zoreil.com> <20031127235143.A16767@electric-eye.fr.zoreil.com> <20031130014738.A2589@electric-eye.fr.zoreil.com> <3FF846C3.5070207@mainstreetsoftworks.com>
+Message-ID: <Pine.LNX.4.44.0401041636240.20704-100000@localhost.localdomain>
+Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>, brad_mssw@gentoo.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "Feldman, Scott" <scott.feldman@intel.com>,
+        <cramerj@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brad House <brad@mainstreetsoftworks.com>
-Content-Disposition: inline
-In-Reply-To: <3FF846C3.5070207@mainstreetsoftworks.com>; from brad@mainstreetsoftworks.com on Sun, Jan 04, 2004 at 12:00:51PM -0500
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Brad House <brad@mainstreetsoftworks.com> :
-[...]
-> Let me know where to start debugging this, as I should
-> have some time here.
 
-static u32 rtl8169_rx_fill(struct rtl8169_private *tp, struct net_device *dev,
-                           u32 start, u32 end)
-{
-        u32 cur;
-        
-        for (cur = start; end - start > 0; cur++) {
-                                ^^^^^
-This should read:
+* 8086:1019 82547 CSA-based LOMs lock up the system with
+  this code, so let's revert back to what's in 2.6.0 until
+  we can figure out why this is causing problems.
 
-        for (cur = start; end - cur > 0; cur++) {
+---------
 
-Care to test 2.6.1-rc1-mm1 and simply change the offending line ?
-
---
-Ueimor
+--- net-drivers-2.5-exp/drivers/net/e1000/e1000_main.c.orig	2004-01-04 15:58:59.000000000 -0800
++++ net-drivers-2.5-exp/drivers/net/e1000/e1000_main.c	2004-01-04 15:59:32.000000000 -0800
+@@ -2097,26 +2097,10 @@
+ 		__netif_rx_schedule(netdev);
+ 	}
+ #else
+-        /* Writing IMC and IMS is needed for 82547.
+-	   Due to Hub Link bus being occupied, an interrupt 
+-	   de-assertion message is not able to be sent. 
+-	   When an interrupt assertion message is generated later,
+-	   two messages are re-ordered and sent out.
+-	   That causes APIC to think 82547 is in de-assertion
+-	   state, while 82547 is in assertion state, resulting 
+-	   in dead lock. Writing IMC forces 82547 into 
+-	   de-assertion state.
+-        */
+-	if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2)
+-		e1000_irq_disable(adapter);
+-
+ 	for(i = 0; i < E1000_MAX_INTR; i++)
+ 		if(!e1000_clean_rx_irq(adapter) &
+ 		   !e1000_clean_tx_irq(adapter))
+ 			break;
+-
+-	if(hw->mac_type == e1000_82547 || hw->mac_type == e1000_82547_rev_2)
+-		e1000_irq_enable(adapter);
+ #endif
+ 
+ 	return IRQ_HANDLED;
