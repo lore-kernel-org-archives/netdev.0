@@ -1,35 +1,40 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Possible bluetooth HCI socket bug
-Date: Mon, 24 Nov 2003 18:58:37 -0800
+Subject: Possible IRDA SKB leaks
+Date: Mon, 24 Nov 2003 19:30:42 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031124185837.50811788.davem@redhat.com>
+Message-ID: <20031124193042.2c1013a2.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: irda-users@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: maxk@qualcomm.com
+To: jt@hpl.hp.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hello Maxim.
+Hello Jean, I think I've found some SKB handling bugs in
+the IRDA stack.
 
-I was auditing something independantly (sock_queue_rcv_skb() usage, some
-protocols were racy) when I ran into some issues that might be bugs
-we need to fix in the bluetooth stack.
+I was verifying all the paths that use sock_queue_rcv_skb().
+If any non-zero value is returned from this function the caller
+must either free the SKB or queue the packet some place else.
 
-In hci_send_frame(), I'm highly doubtful of the skb_orphan() call you
-make there.
+Here is one example where IRDA appears to do the wrong thing.
+In irttp_udata_indication(), we pass the packet down into the
+next layer via self->notify.udata_indication().
 
-Socket ownership of the buffer should be sustained until the transmission
-by the device is complete and it frees up the buffer via dev_kfree_skb()
-or similar.
+One example implementation of this is af_irda.c:irda_data_indication().
+This calls sock_queue_rcv_skb() and returns any error to the caller.
 
-Even in the cases where hci_send_to_sock() is called, that code clones
-a new SKB for those purposes so it does not change the situation as far
-as hci_send_frame() is concerned.
+Our caller in this case, irttp_udata_indication(), for some reason
+treats -ENOMEM specially.  This is wrong, there are many other errors
+that sock_queue_rcv_skb() can return, for example -EPERM from socket
+filtering.  All such error cases need to cause the SKB to be freed
+or similar, it should not be done only for an error of -ENOMEM.
 
-If socket ownership of an SKB buffer is liberated too early, this gives
-the socket a window in which to over-commit it's socket buffer queue
-limits.
+I have not done an exhaustive audit of this problem in the IRDA stack.
+But I do suspect there are other places doing something similar.
+
+If someone could finish the audit and submit a patch to fix this I'd
+really appreciate it.  Thanks a lot.
