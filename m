@@ -1,25 +1,26 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] optimize is_valid_ether_addr
-Date: Thu, 10 Mar 2005 18:52:46 -0800
-Message-ID: <20050310185246.6b626480.davem@davemloft.net>
-References: <20050310154439.75f62f22@dxpl.pdx.osdl.net>
+Subject: Re: pktgen: causing lots of errors in console log
+Date: Thu, 10 Mar 2005 18:58:24 -0800
+Message-ID: <20050310185824.30499218.davem@davemloft.net>
+References: <20050308140826.451435e5@dxpl.pdx.osdl.net>
+	<16942.55689.924299.906304@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050310154439.75f62f22@dxpl.pdx.osdl.net>
+Cc: shemminger@osdl.org, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16942.55689.924299.906304@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 10 Mar 2005 15:44:39 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 9 Mar 2005 12:10:01 +0100
+Robert Olsson <Robert.Olsson@data.slu.se> wrote:
 
-> Low level optimization of the comparison with zero address.
-> On most cpu's faster to use unrolled or rather than a loop
-> and memcmp. This is in the fastpath of bridge forwarding.
+> Stephen Hemminger writes:
+>  > 1. Errors from IPV4
+>  > Freeing alive in_device ffff81007e96a400
 > 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> Try:
 
-Applied, thanks Stephen.
+Applied, thanks Robert.
