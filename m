@@ -1,30 +1,60 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] remove FCS from pktgen bandwidth calculation
-Date: Thu, 9 Dec 2004 15:59:36 -0800
-Message-ID: <20041209155936.69313e70.davem@davemloft.net>
-References: <20041208201116.GA10691@xi.wantstofly.org>
-	<16824.22466.897897.238619@robur.slu.se>
+From: Kevin Stewart <kevins@callplus.co.nz>
+Subject: One IP on 2 nics
+Date: Fri, 10 Dec 2004 13:59:41 +1300
+Message-ID: <41B8F4FD.6080407@callplus.co.nz>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: buytenh@wantstofly.org, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16824.22466.897897.238619@robur.slu.se>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Dec 2004 14:48:50 +0100
-Robert Olsson <Robert.Olsson@data.slu.se> wrote:
+What I am after is the ability to keep one IP and MAC address when I 
+remove my laptop from my docking station (I have a 802.11b AP on the 
+same segment as my other nic)
 
-> OK! We strictly define statistics to be based on the data we deliver
-> to hard_xmit. Feel free to change the current kernel version... while
-> we wait for 2.7 :-)
+how do I create a vertual interface and configure my eth0(10/100) and 
+eth1(802.11b)
+so I can route traffic out the correct interface depending on what is up
 
-Robert can you collect together the various pktgen patches
-that have been floating about over the past few days and
-send to me what you think should be applied.
+this is the closest I have come
+but my laptop becoming part of spanning tree sounds .... bad
+bridging and not being part of spanning tree .... worse
 
-There is this FCS patch, and the naonspin one from Lennert
-as well.  There may have been others.
+iface br0 inet static
+        address 192.168.18.64
+        netmask 255.255.240.0
+        network 192.168.16.0
+        broadcast 192.168.31.255
+        gateway 192.168.18.1
+        bridge_ports eth0 eth1
+        pre-up ifconfig eth0 0.0.0.0 up
+        pre-up ifconfig eth1 0.0.0.0 up
+        pre-up brctl addbr br0
+        pre-up brctl addif br0 eth0
+        pre-up brctl addif br0 eth1
+        pre-up brctl stp br0 on
+        post-down ifconfig eth0 0.0.0.0 down
+        post-down ifconfig eth1 0.0.0.0 down
+        post-down brctl delif br0 eth0
+        post-down brctl delif br0 eth1
+        post-down brctl delbr br0
+
+my thoughts where a dummy interface and 2 routes to 192.168.16.0 with 
+diffrent metrics out the 2 interfaces and a default route
+but I am unable to get it working
+
+-- 
+Kevin Stewart
+
+Network Engineer
+DDI ++ 64 9 919 6120
+Mobile ++ 64 21 885 505
+Email kevins@callplus.co.nz
+
+
+-----------------------------------------------------------------------------------------------
+This message and any attachments contain privileged and confidential information. 
+If you are not the intended recipient of this message, you are hereby notified that any use, dissemination, distribution or reproduction of this message is prohibited.  If you have received this message in error please notify the sender immediately via email and then destroy this message and any attachments.
