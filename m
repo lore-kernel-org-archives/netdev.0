@@ -1,64 +1,87 @@
-From: Eamonn Hamilton <EAMONN.HAMILTON@saic.com>
-Subject: Re: linux 2.6.9: r8169: eth0: PCI error (status: 0x8404). Device
-	disabled.
-Date: Mon, 08 Nov 2004 14:03:06 +0000
-Message-ID: <1099922587.16833.2.camel@ukabzc383.uk.saic.com>
-References: <1098269117.6631.5.camel@ukabzc383.uk.saic.com>
-	 <20041020121520.GA4004@electric-eye.fr.zoreil.com>
-	 <1098282567.6631.10.camel@ukabzc383.uk.saic.com>
-	 <20041020201010.GA13023@electric-eye.fr.zoreil.com>
-	 <1098350743.15528.40.camel@ukabzc383.uk.saic.com>
-	 <20041021120208.GA752@electric-eye.fr.zoreil.com>
-	 <1098437493.5513.8.camel@ukabzc383.uk.saic.com>
-	 <20041022105224.GA26714@electric-eye.fr.zoreil.com>
+From: Joerg Dorchain <joerg@dorchain.net>
+Subject: Re: Prism54 AP WPA using Hostap and WDS
+Date: Mon, 8 Nov 2004 15:17:51 +0100
+Message-ID: <20041108141751.GM23338@Redstar.dorchain.net>
+References: <20041104032219.GU388@ruslug.rutgers.edu>
+	<20041105162037.GN388@ruslug.rutgers.edu>
+	<20041105162811.GP388@ruslug.rutgers.edu>
+	<20041108122922.GV388@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Eamonn Hamilton <eamonn.hamilton@saic.com>, netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20041022105224.GA26714@electric-eye.fr.zoreil.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============0180531483=="
+Return-path: <prism54-devel-bounces@prism54.org>
+To: prism54-devel@prism54.org, Netdev <netdev@oss.sgi.com>,
+	Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20041108122922.GV388@ruslug.rutgers.edu>
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Hi Francois.
 
-Sorry for the delay in getting back to you - real life has a nasty habit
-of intruding :(
-
-Anyway, The device was brought back to functioning order by removing the
-module and re-inserting it. I have to confess, I forgot to try simply
-downing/upping it, I'll ask my friend to try that should it happen
-again. Bizarrely, the frequency of it happening seems to be down for
-whatever reason - it took ~12GB traffic to cause it to happen this
-afternoon.
-
-Anyway, hope this helps.
-
-Cheers,
-Eamonn
+--===============0180531483==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="L2zmpNdaDxUzilj2"
+Content-Disposition: inline
 
 
-On Fri, 2004-10-22 at 12:52 +0200, Francois Romieu wrote:
-> Eamonn Hamilton <EAMONN.HAMILTON@saic.com> :
-> [...]
-> > Testing the kernel with the error reset disabled just causes networking
-> > to stop, with no reported error after copying data from the box for a
-> > bit ( < 1GB )
-> 
-> At this point, can you have network traffic again is the device goes
-> through closed/open or the module through rmmod/insmod ?
-> 
-> > Hope this helps,
-> 
-> Yes.
-> 
-> --
-> Ueimor
--- 
-Eamonn Hamilton
+--L2zmpNdaDxUzilj2
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Senior Systems Engineer
-SAIC Ltd
-Tel : 01224 333833
+On Mon, Nov 08, 2004 at 07:29:22AM -0500, Luis R. Rodriguez wrote:
+> >=20
+> > > Access Point WPA support (NEW) (requires hostapd)
+> > > Access Point WDS Support (NEW)
+> >=20
+> > For your convenience, here are some links for those of you wishing to t=
+est:
+> >=20
+> > http://prism54.org/pub/linux/snapshot/tars/prism54-cvs-latest.tar.bz2
+>=20
+> The kernel patches were broken for WDS support as I forgot to include
+> isl_wds.[ch] in the patch process. I have now fixed this in my script.
+> The patches should now work.
+
+The built outside the kernel tree (linus 2.6.9) still has not changed.
+There is still a include for isl_wds.h missing in islpci_eth.c, and
+"dev_alloc" is still an undefined symbol.
+
+Bye,
+
+Joerg
+
+--L2zmpNdaDxUzilj2
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFBj4APjY4+4PdzvOARAiZrAJ9hUBm3oetGO2rKL1TJ72/w8pGupgCfdtmY
+Fnv+BSCeD5HhSed0EdZkJEo=
+=M9TB
+-----END PGP SIGNATURE-----
+
+--L2zmpNdaDxUzilj2--
+
+--===============0180531483==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============0180531483==--
