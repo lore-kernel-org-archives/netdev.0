@@ -1,53 +1,40 @@
-From: Gerrit Huizenga <gh@us.ibm.com>
-Subject: Re: Please route new work through -mm tree?
-Date: Wed, 29 Sep 2004 14:12:18 -0700
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 29 Sep 2004 14:16:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CClkI-0001m2-00@w-gerrit.beaverton.ibm.com>
-References: <20040929132247.227fffcd.davem@davemloft.net>
-Reply-To: Gerrit Huizenga <gh@us.ibm.com>
-Cc: Nivedita Singhvi <niv@us.ibm.com>, shemminger@osdl.org, netdev@oss.sgi.com
+Message-ID: <415B2647.8080803@us.ibm.com>
+References: <20040928223344.GC2975@wotan.suse.de>	<Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu> <20040929140016.7ffa4e8b.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: John Heffner <jheffner@psc.edu>, ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-reply-to: Your message of Wed, 29 Sep 2004 13:22:47 PDT.
-             <20040929132247.227fffcd.davem@davemloft.net>
+In-Reply-To: <20040929140016.7ffa4e8b.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
 
-On Wed, 29 Sep 2004 13:22:47 PDT, "David S. Miller" wrote:
-> On Wed, 29 Sep 2004 11:13:55 -0700
-> Nivedita Singhvi <niv@us.ibm.com> wrote:
+  > I think you hit the jackpot John... or at least you're
+> on the right trail.
 > 
-> > I was going to suggest a separate bk tree or something that would
-> > hold this stuff till it stabilized, before it needed
-> > to go into mainline.
+> It seems I'll have to do some send buffer liberation when
+> we partially ACK TSO frames.  Since that isn't happening
+> currently, this window advancing test never passes until
+> the full TSO frame is freed up at the sender side.
 > 
-> Nivedita, it was you specifically who complained to me
-> when I used a seperate BK tree for networking changes
-> last month whilst Linus was away for 2 weeks.  You said
-> that this gave IBM too many trees to work from, so I told
-> you that what I was doing was a temporary thing until Linus
-> came back from his trip.
-> 
-> Now you're suggesting that I specifically do what you asked
-> me not to do a month ago.
-> 
-> So figure out what you really want.
-> 
-> And I have to warn people if they think that the churn is fast
-> and the rate of change in the networking is high right now, you
-> have seen absolutely nothing yet. :-)
+> Patch coming...
 
-Hi Dave, having a bk tree which akpm can merge into his would
-mean that all of our standard testing would get run over networking
-changes as well as everything else.  We typically run some pretty
-exhaustive tests on a small number of trees.  We try to focus on
--rc trees from Linus and the -mm trees.  As a result, networking
-testing (by us) is done really late in the cycle compared to your
-rate of change in pushing to Linus.
+That was my point to Herbert, Dave - that we can't
+rely on Nagle - either we're triggering too early
+and not utilizing TSO MTU or we're triggering too
+late (waiting for the full TSO frame) depending
+on whether we use standard or TSO mss..
 
-So, ideally, if you had your own tree published in such a way
-that akpm could pull in, we'd probably have the best of all
-worlds.
+We need some heuristic to do partial sends under
+TSO. Is that what you are addressing?
 
-gerrit
+
+thanks,
+Nivedita
