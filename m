@@ -1,34 +1,53 @@
-From: "Bas Bloemsaat" <bloemsaa@xs4all.nl>
+From: "Carlos Velasco" <carlosev@newipnet.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Sun, 17 Aug 2003 17:57:26 +0200
+Date: Sun, 17 Aug 2003 17:59:54 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <011a01c364d8$44be1f90$c801a8c0@llewella>
-References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com> <20030728213933.F81299@coredump.scriptkiddie.org> <200308171509570955.003E4FEC@192.168.128.16> <200308171516090038.0043F977@192.168.128.16> <1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk> <200308171555280781.0067FB36@192.168.128.16> <1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
+Message-ID: <200308171759540391.00AA8CAB@192.168.128.16>
+References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com>
+ <20030728213933.F81299@coredump.scriptkiddie.org>
+ <200308171509570955.003E4FEC@192.168.128.16>
+ <200308171516090038.0043F977@192.168.128.16>
+ <1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
+ <200308171555280781.0067FB36@192.168.128.16>
+ <1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
+Content-Type: text/plain; charset="us-ascii"
 Cc: "Lamont Granquist" <lamont@scriptkiddie.org>,
    "Bill Davidsen" <davidsen@tmr.com>, "David S. Miller" <davem@redhat.com>,
-   "Marcelo Tosatti" <marcelo@conectiva.com.br>, <netdev@oss.sgi.com>,
-   <linux-net@vger.kernel.org>, <layes@loran.com>, <torvalds@osdl.org>,
+   bloemsaa@xs4all.nl, "Marcelo Tosatti" <marcelo@conectiva.com.br>,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
+   torvalds@osdl.org,
    "Linux Kernel Mailing List" <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>,
-   "Carlos Velasco" <carlosev@newipnet.com>
+In-Reply-To: <1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
+To: "Alan Cox" <alan@lxorguk.ukuu.org.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-What wonders me about the behaviour is that it is not consistent.
+On 17/08/2003 at 16:28 Alan Cox wrote:
 
-When I have the following situation: a box with twon nics, one 192.168.1.1,
-ethernet adr aa , the other 192.168.1.2 ethernet adr bb
+>Linux doesn't issue "bad" requests. Linux will reply when it is
+>asked for an address that it owns, as per RFC826, unless you chose
+>to change the behaviour with things like arpfilter.
 
-When I do an ARP request for 192.168.1.2, both respond. aa as wel as bb
+We are not talking about ARP Replies, we are talking about ARP
+Requests.
+You can see the Richard post here, same issue I reported several weeks
+ago:
+http://marc.theaimsgroup.com/?l=linux-net&m=106094924813337&w=2
 
-But if I do another request for 192.168.1.2, and I direct it to the aa NIC,
-it does not respond. Unless I turn on packet_forwarding (i.e. routing).
-Remember, ARP is not routable, or shouldn't be, yet it is treated as such.
+==
+	On eth0, we see:
+
+11:23:55.650514 0:4:75:ca:c4:ef Broadcast arp 42: arp who-has
+10.10.10.1
+tell 212.xxx.yyy.9
+==
+
+Linux is sending an ARP Request to a LAN where the source IP address of
+the packet has not any sense in that IP network.
+And, at least, 2 RFCs are stating that other devices should not reply
+to this packet. Currently know Cisco, Foundry; possibly others, and
+possibly others coming as ARP storms are not desired.
 
 Regards,
-Bas
+Carlos Velasco
