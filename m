@@ -1,54 +1,69 @@
-From: =?iso-8859-1?q?R=E9mi_Denis-Courmont?= <courmisch@via.ecp.fr>
+From: Jeroen Massar <jeroen@unfix.org>
 Subject: Re: (usagi-users 03222) Re: support of IPv6 by NFS
-Date: Tue, 1 Mar 2005 17:35:01 +0100
-Message-ID: <200503011735.01578.courmisch@via.ecp.fr>
-References: <42243F8D.5030302@bull.net> <200503010744.38339.Info@Quantum-Sci.com>
+Date: Tue, 01 Mar 2005 18:18:49 +0100
+Message-ID: <1109697529.17484.37.camel@firenze.zurich.ibm.com>
+References: <42243F8D.5030302@bull.net>
+	 <200503010744.38339.Info@Quantum-Sci.com>
+	 <1109689712.17484.6.camel@firenze.zurich.ibm.com>
+	 <20050301161905.GD22324@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2081891.0kPmRnMEtL";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Quantum Scientific <Info@Quantum-Sci.com>, netdev@oss.sgi.com
-To: usagi-users@linux-ipv6.org
-In-Reply-To: <200503010744.38339.Info@Quantum-Sci.com>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-W6Xjqd05xD/Sh1PKo+6c"
+Cc: usagi-users@linux-ipv6.org, netdev@oss.sgi.com
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20050301161905.GD22324@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart2081891.0kPmRnMEtL
-Content-Type: text/plain;
-  charset="iso-8859-1"
+
+--=-W6Xjqd05xD/Sh1PKo+6c
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
 
-Le Mardi 1 Mars 2005 14:44, Quantum Scientific a =E9crit :
-> And 80% of potential users are behind a cable/DSL 4 NATting router.=20
-> There is no clarity that it is possible overcome this by either
-> setting to DMZ, or hoping your cablemodem passes protos 41, 50 & 51.=20
-> Even some tunnel operators do not know this, so I had to figure it
-> out myself.  There is no Linux 6to4 UDP tunnelling app, but there
-> should be, because this is such a common problem.  (As I understand,
-> Teredo is Winduhs-only, and is not supported by most tunnel
-> operators)
+On Tue, 2005-03-01 at 17:19 +0100, Olaf Kirch wrote:
+>On Tue, Mar 01, 2005 at 04:08:32PM +0100, Jeroen Massar wrote:
+>> > There is no Linux 6to4=20
+>> >UDP tunnelling app, but there should be, because this is such a common=20
+>> >problem.  (As I understand, Teredo is Winduhs-only, and is not supporte=
+d by=20
+>> >most tunnel operators)
+>>=20
+>> The protocol for Teredo is open and can be implemented at will:
+>
+>Except that it's quite horrible,
 
-There is at least one Teredo client for Linux :
-http://www.simphalempin.com/dev/miredo/
+It needs to be horrible as it needs to cross horrible NAT's.
 
-Alternatively, TSP tunneling might also work through NAT devices.
+> and it requires a centralized broker,
 
-=2D-=20
-R=E9mi Denis-Courmont
+Doesn't every tunneling method require this? Or is 6to4 anycasted and
+thus not central?
 
---nextPart2081891.0kPmRnMEtL
-Content-Type: application/pgp-signature
+Do note that you can setup your own Teredo relay, see the docs at the
+Miredo site for more information.
+
+>and IIRC it also makes assumptions about the way your NAT implementation
+>assigns ports.
+
+It expects a Cone NAT (or was it the other thing?). The functionality
+for the others where taken out because of 'security' concerns from some
+people.
+
+Greets,
+ Jeroen
+
+
+--=-W6Xjqd05xD/Sh1PKo+6c
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.4.0 (GNU/Linux)
+Comment: Jeroen Massar / http://unfix.org/~jeroen/
 
-iD8DBQBCJJm1w+xtvt1tEr0RAr9OAJ9EzYHS98Cw17gsQTbeDT75JSZZmQCfbyPD
-9M1wuf6dIaHA2WbGMMtzEGg=
-=SjbA
+iD8DBQBCJKP5KaooUjM+fCMRAvRhAJ4o8IBuLj1o3Hw1dTAoCwIjLoIrKgCgi5KG
+INtpU/lvftq1ne3rFg9UqBo=
+=RBR4
 -----END PGP SIGNATURE-----
 
---nextPart2081891.0kPmRnMEtL--
+--=-W6Xjqd05xD/Sh1PKo+6c--
