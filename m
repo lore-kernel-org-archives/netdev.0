@@ -1,267 +1,154 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [[RFT] convert appletalk over to new protocol
-Date: Wed, 9 Jul 2003 13:13:00 -0700
+Subject: [PATCH 2.5.74] convert appletalk/ltpc over to dynamic allocation
+Date: Wed, 9 Jul 2003 13:24:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030709131300.660c052f.shemminger@osdl.org>
+Message-ID: <20030709132438.432fcd2b.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-atalk@lists.netspace.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, Jay Schulist <jschlst@samba.org>
+To: Jeff Garzik <jgarzik@pobox.com>, Jay Schulist <jschlst@samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This fixes appletalk ddp protocol to address a couple of issues:
-	- routing code was holding a reference to device without doing ref counting.
-	- packet interface was old style
-	   - add shared buffer checks
-	   - add pullup's where needed
-	   - change checksum to handle fragmented sk_buff's
-	- clean up comments to match above changes.
+Part of the continuing campaign to fix all network devices to allocate dynamically.
 
-I don't have real appletalk test infrastructure, and given the checksum change it should
-be tested against real Apple hardware.  It does build, and loads/unloads fine.  I can
-bring up the netatalk stuff without problem but have nothing to talk to it.
+Built, loaded/unloaded and configured but don't have real hardware.
 
-diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
---- a/net/appletalk/ddp.c	Wed Jul  9 12:55:00 2003
-+++ b/net/appletalk/ddp.c	Wed Jul  9 12:55:00 2003
-@@ -239,6 +239,7 @@
- 	while ((tmp = *iface) != NULL) {
- 		if (tmp->dev == dev) {
- 			*iface = tmp->next;
-+			dev_put(dev);
- 			kfree(tmp);
- 			dev->atalk_ptr = NULL;
- 		} else
-@@ -256,6 +257,7 @@
- 		goto out;
- 
- 	iface->dev = dev;
-+	dev_hold(dev);
- 	dev->atalk_ptr = iface;
- 	iface->address = *sa;
- 	iface->status = 0;
-@@ -665,9 +667,13 @@
- static int ddp_device_event(struct notifier_block *this, unsigned long event,
- 			    void *ptr)
- {
--	if (event == NETDEV_DOWN)
-+	switch (event) {
-+	case NETDEV_DOWN:
-+	case NETDEV_UNREGISTER:
- 		/* Discard any use of this */
- 	        atalk_dev_down(ptr);
-+		break;
-+	}
- 
- 	return NOTIFY_DONE;
- }
-@@ -935,13 +941,10 @@
-  * Checksum: This is 'optional'. It's quite likely also a good
-  * candidate for assembler hackery 8)
-  */
--unsigned short atalk_checksum(struct ddpehdr *ddp, int len)
--{
--	unsigned long sum = 0;	/* Assume unsigned long is >16 bits */
--	unsigned char *data = (unsigned char *)ddp;
- 
--	len  -= 4;		/* skip header 4 bytes */
--	data += 4;
-+static unsigned long atalk_sum_partial(const unsigned char *data, 
-+					      int len, unsigned long sum)
-+{
- 
- 	/* This ought to be unwrapped neatly. I'll trust gcc for now */
- 	while (len--) {
-@@ -953,10 +956,94 @@
- 		}
- 		data++;
- 	}
-+	return sum;
-+}
-+
-+/*  Checksum skb data --  similar to skb_checksum  */
-+static unsigned long atalk_sum_skb(const struct sk_buff *skb, int offset,
-+				   int len, unsigned long sum)
-+{
-+	int start = skb_headlen(skb);
-+	int i, copy;
-+	int pos = 0;
-+
-+	/* checksum stuff in header space */
-+	if ( (copy = start - offset) > 0) {
-+		if (copy > len)
-+			copy = len;
-+		sum = atalk_sum_partial(skb->data + offset, copy, sum);
-+		if ( (len -= copy) == 0)
-+			return sum;
-+		offset += copy;
-+		pos    = copy;
-+	}
-+
-+	/* checksum stuff in frags */
-+	for (i = 0; i < skb_shinfo(skb)->nr_frags; i++) {
-+		int end;
-+
-+		BUG_TRAP(start <= offset + len);
-+
-+		end = start + skb_shinfo(skb)->frags[i].size;
-+		if ((copy = end - offset) > 0) {
-+			u8 *vaddr;
-+			skb_frag_t *frag = &skb_shinfo(skb)->frags[i];
-+
-+			if (copy > len)
-+				copy = len;
-+			vaddr = kmap_skb_frag(frag);
-+			sum = atalk_sum_partial(vaddr + frag->page_offset +
-+						  offset - start, copy, sum);
-+			kunmap_skb_frag(vaddr);
-+
-+			if (!(len -= copy))
-+				return sum;
-+			offset += copy;
-+			pos    += copy;
-+		}
-+		start = end;
-+	}
-+
-+	if (skb_shinfo(skb)->frag_list) {
-+		struct sk_buff *list = skb_shinfo(skb)->frag_list;
-+
-+		for (; list; list = list->next) {
-+			int end;
-+
-+			BUG_TRAP(start <= offset + len);
-+
-+			end = start + list->len;
-+			if ((copy = end - offset) > 0) {
-+				if (copy > len)
-+					copy = len;
-+				sum = atalk_sum_skb(list, offset - start,
-+						    copy, sum);
-+				if ((len -= copy) == 0)
-+					return sum;
-+				offset += copy;
-+				pos    += copy;
-+			}
-+			start = end;
-+		}
-+	}
-+
-+	BUG_ON(len > 0);
-+
-+	return sum;
-+}
-+
-+static unsigned short atalk_checksum(const struct sk_buff *skb, int len)
-+{
-+	unsigned long sum;
-+
-+	/* skip header 4 bytes */
-+	sum = atalk_sum_skb(skb, 4, len-4, 0);
-+
- 	/* Use 0xFFFF for 0. 0 itself means none */
- 	return sum ? htons((unsigned short)sum) : 0xFFFF;
- }
- 
-+
- /*
-  * Create a socket. Initialise the socket, blank the addresses
-  * set the state.
-@@ -1335,25 +1422,26 @@
- static int atalk_rcv(struct sk_buff *skb, struct net_device *dev,
- 		     struct packet_type *pt)
- {
--	struct ddpehdr *ddp = ddp_hdr(skb);
-+	struct ddpehdr *ddp;
- 	struct sock *sock;
- 	struct atalk_iface *atif;
- 	struct sockaddr_at tosat;
-         int origlen;
-         struct ddpebits ddphv;
- 
--	/* Size check */
--	if (skb->len < sizeof(*ddp))
-+	/* Don't mangle buffer if shared */
-+	if (!(skb = skb_share_check(skb, GFP_ATOMIC))) 
-+		goto out;
-+		
-+	/* Size check and make sure header is contiguous */
-+	if (!pskb_may_pull(skb, sizeof(*ddp)))
- 		goto freeit;
- 
-+	ddp = ddp_hdr(skb);
- 	/*
- 	 *	Fix up the length field	[Ok this is horrible but otherwise
- 	 *	I end up with unions of bit fields and messy bit field order
- 	 *	compiler/endian dependencies..]
--	 *
--	 *	FIXME: This is a write to a shared object. Granted it
--	 *	happens to be safe BUT.. (Its safe as user space will not
--	 *	run until we put it back)
- 	 */
- 	*((__u16 *)&ddphv) = ntohs(*((__u16 *)ddp));
- 
-@@ -1374,7 +1462,7 @@
- 	 * valid for net byte orders all over the networking code...
- 	 */
- 	if (ddp->deh_sum &&
--	    atalk_checksum(ddp, ddphv.deh_len) != ddp->deh_sum)
-+	    atalk_checksum(skb, ddphv.deh_len) != ddp->deh_sum)
- 		/* Not a valid AppleTalk frame - dustbin time */
- 		goto freeit;
- 
-@@ -1433,14 +1521,16 @@
- 
- 		if (!ap || skb->len < sizeof(struct ddpshdr))
- 			goto freeit;
-+
-+		/* Don't mangle buffer if shared */
-+		if (!(skb = skb_share_check(skb, GFP_ATOMIC))) 
-+			return 0;
-+		
- 		/*
- 		 * The push leaves us with a ddephdr not an shdr, and
- 		 * handily the port bytes in the right place preset.
- 		 */
+--- linux-2.5.74/drivers/net/appletalk/ltpc.c	2003-07-09 13:19:55.000000000 -0700
++++ linux-2.5-sysfs/drivers/net/appletalk/ltpc.c	2003-07-09 13:22:14.000000000 -0700
+@@ -884,18 +884,8 @@
+ 	/* Initialize the device structure. */
+   
+ 	/* Fill in the fields of the device structure with ethernet-generic values. */
+-	ltalk_setup(dev);
+ 	dev->hard_start_xmit = ltpc_xmit;
+ 	dev->hard_header = ltpc_hard_header;
 -
--		skb_push(skb, sizeof(*ddp) - 4);
--		/* FIXME: use skb->cb to be able to use shared skbs */
--		ddp = (struct ddpehdr *)skb->data;
-+		ddp = (struct ddpehdr *) skb_push(skb, sizeof(*ddp) - 4);
+-	dev->priv = kmalloc(sizeof(struct ltpc_private), GFP_KERNEL);
+-	if(!dev->priv)
+-	{
+-		printk(KERN_INFO "%s: could not allocate statistics buffer\n", dev->name);
+-		return -ENOMEM;
+-	}
+-
+-	memset(dev->priv, 0, sizeof(struct ltpc_private));
+ 	dev->get_stats = ltpc_get_stats;
  
- 		/* Now fill in the long header */
+ 	/* add the ltpc-specific things */
+@@ -1169,6 +1159,7 @@
+ 		printk(KERN_INFO "Apple/Farallon LocalTalk-PC card at %03x, DMA%d.  Using polled mode.\n",io,dma);
  
-@@ -1583,6 +1673,7 @@
+ 	/* seems more logical to do this *after* probing the card... */
++	ltalk_setup(dev);
+ 	err = ltpc_init(dev);
+ 	if (err) return err;
  
- 	SOCK_DEBUG(sk, "SK %p: Copy user data (%d bytes).\n", sk, len);
+@@ -1256,11 +1247,10 @@
+ }
  
-+	/* TODO: copy and checksum in one pass */
- 	err = memcpy_fromiovec(skb_put(skb, len), msg->msg_iov, len);
- 	if (err) {
- 		kfree_skb(skb);
-@@ -1592,7 +1683,7 @@
- 	if (sk->sk_no_check == 1)
- 		ddp->deh_sum = 0;
- 	else
--		ddp->deh_sum = atalk_checksum(ddp, len + sizeof(*ddp));
-+		ddp->deh_sum = atalk_checksum(skb, len + sizeof(*ddp));
+ __setup("ltpc=", ltpc_setup);
+-#endif /* MODULE */
  
- 	/*
- 	 * Loopback broadcast packets to non gateway targets (ie routes
-@@ -1801,11 +1892,13 @@
- struct packet_type ltalk_packet_type = {
- 	.type		= __constant_htons(ETH_P_LOCALTALK),
- 	.func		= ltalk_rcv,
-+	.data		= (void *) 1,
- };
+-static struct net_device dev_ltpc;
++#else 	/* MODULE */
  
- struct packet_type ppptalk_packet_type = {
- 	.type		= __constant_htons(ETH_P_PPPTALK),
- 	.func		= atalk_rcv,
-+	.data		= (void *) 1,
- };
+-#ifdef MODULE
++static struct net_device *dev_ltpc;
  
- static unsigned char ddp_snap_id[] = { 0x08, 0x00, 0x07, 0x80, 0x9B };
+ MODULE_LICENSE("GPL");
+ MODULE_PARM(debug, "i");
+@@ -1268,23 +1258,22 @@
+ MODULE_PARM(irq, "i");
+ MODULE_PARM(dma, "i");
+ 
+-
+-int __init init_module(void)
++static int __init ltpc_init_module(void)
+ {
+-	int err, result;
++	int result;
+ 	
+         if(io == 0)
+ 		printk(KERN_NOTICE
+ 		       "ltpc: Autoprobing is not recommended for modules\n");
+ 
+-	/* Find a name for this unit */
+-	dev_ltpc.init = ltpc_probe;
+-	err=dev_alloc_name(&dev_ltpc,"lt%d");
+-	
+-	if(err<0)
+-		return err;
++	dev_ltpc = alloc_netdev(sizeof(struct ltpc_private), "lt%d",
++				ltalk_setup);
++
+ 
+-	if ((result = register_netdev(&dev_ltpc)) != 0) {
++	dev_ltpc->init = ltpc_probe;
++
++	if ((result = register_netdev(dev_ltpc)) != 0) {
++		kfree(dev_ltpc);
+ 		printk(KERN_DEBUG "could not register Localtalk-PC device\n");
+ 		return result;
+ 	} else {
+@@ -1292,7 +1281,6 @@
+ 		return 0;
+ 	}
+ }
+-#endif
+ 
+ static void __exit ltpc_cleanup(void)
+ {
+@@ -1302,9 +1290,9 @@
+ 
+ 	if(debug & DEBUG_VERBOSE) printk("freeing irq\n");
+ 
+-	if(dev_ltpc.irq) {
+-		free_irq(dev_ltpc.irq,&dev_ltpc);
+-		dev_ltpc.irq = 0;
++	if(dev_ltpc->irq) {
++		free_irq(dev_ltpc->irq,dev_ltpc);
++		dev_ltpc->irq = 0;
+ 	}
+ 
+ 	if(del_timer(&ltpc_timer)) 
+@@ -1323,16 +1311,16 @@
+ 
+ 	if(debug & DEBUG_VERBOSE) printk("freeing dma\n");
+ 
+-	if(dev_ltpc.dma) {
+-		free_dma(dev_ltpc.dma);
+-		dev_ltpc.dma = 0;
++	if(dev_ltpc->dma) {
++		free_dma(dev_ltpc->dma);
++		dev_ltpc->dma = 0;
+ 	}
+ 
+ 	if(debug & DEBUG_VERBOSE) printk("freeing ioaddr\n");
+ 
+-	if(dev_ltpc.base_addr) {
+-		release_region(dev_ltpc.base_addr,8);
+-		dev_ltpc.base_addr = 0;
++	if(dev_ltpc->base_addr) {
++		release_region(dev_ltpc->base_addr,8);
++		dev_ltpc->base_addr = 0;
+ 	}
+ 
+ 	if(debug & DEBUG_VERBOSE) printk("free_pages\n");
+@@ -1343,9 +1331,14 @@
+ 
+ 	if(debug & DEBUG_VERBOSE) printk("unregister_netdev\n");
+ 
+-	unregister_netdev(&dev_ltpc);
++	unregister_netdev(dev_ltpc);
+ 
+ 	if(debug & DEBUG_VERBOSE) printk("returning from cleanup_module\n");
++
++	kfree(dev_ltpc);
+ }
+ 
++module_init(ltpc_init_module);
+ module_exit(ltpc_cleanup);
++
++#endif
