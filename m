@@ -1,35 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 0/10] [bonding 2.6] port 2.4 bug fixes to 2.6
-Date: Fri, 05 Sep 2003 04:35:50 -0400
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: Fw: [PATCH] pktgen divides by zero on short runs
+Date: Fri, 5 Sep 2003 02:11:01 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F584AE6.7070806@pobox.com>
-References: <200309042043.25567.amir.noam@intel.com>
+Message-ID: <20030905021101.6e8b409c.akpm@osdl.org>
+References: <20030904232713.7dd4e99f.akpm@osdl.org>
+	<20030905011656.26ac1133.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Amir Noam <amir.noam@intel.com>
-In-Reply-To: <200309042043.25567.amir.noam@intel.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030905011656.26ac1133.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Amir Noam wrote:
-> The following set ports to 2.6 numerous bug fixes that went into
-> 2.4 recently. Patches apply on 2.6.0-test4. Compile tested only.
+"David S. Miller" <davem@redhat.com> wrote:
+>
 > 
-> patch1:  fix 802.3ad long fail over with high UDP Tx stress
-> patch2:  fix load balance problem with high UDP Tx stress
-> patch3:  fix ARP monitoring bug
-> patch4:  fix kernel panic when optional feature used
-> patch5:  fix change active command
-> patch6:  fix OOPS in bonding driver, when removing primary
-> patch7:  embed stats struct inside bonding private struct
-> patch8:  fix error handling in init code
-> patch9:  make each bond device use its own /proc entry
-> patch10: misc fixes: missing include, typos, comments
+> Andrew, I'm starting to think it's actually your mailer
+> that's changing the tabs to spaces when you forward other
+> people's patches to me or the networking lists.
 
+Nope, Najati's patch on lkml is all-spaces.
 
-Thanks!  Looking over and will (probably) apply...
+> Every forwarded patch you've sent to me or to netdev has
+> had this problem.  Can you make the forwarded emails
+> be attachments or similar?  I thought sylpheed did that
+> by default :)
 
-	Jeff
+I think it's OK...
