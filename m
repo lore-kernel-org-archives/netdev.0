@@ -1,45 +1,76 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: BUG: kernel panic at startup, 2.6.7 on x86
-Date: Wed, 23 Jun 2004 19:16:18 -0400
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <40DA0F42.9060802@nortelnetworks.com>
+From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
+Subject: Re: [RFC PATCH] Change "local" route table preference from 0 to
+ 3fff, to permit send-to-self policy routing
+Date: Thu, 24 Jun 2004 09:18:19 +0930
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040624091819.3f73012d.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+References: <20040618182505.195d76ba.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+	<20040618204529.GA3106@ms2.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S262114AbUFWXQX@vger.kernel.org>
-To: Linux kernel <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <20040618204529.GA3106@ms2.inr.ac.ru>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I tried syncing with 2.6.7 bk version, compiled with my 2.6.5 config, installed, 
-and rebooted.  Everything was okay up to the point where it runs a script to set 
-up my dsl connection.  At that point I got the following on the console:
+Hi Alexey,
 
-"Starting adsl: Kernel panic: Aiee, killing interrupt handler!  In interrupt 
-handler -- not syncing."
+On Sat, 19 Jun 2004 00:45:29 +0400
+Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 
-Unfortunately, that was all I got.
+Thanks for spending the time replying to me, I appreciate it.
 
-Here's the output of lspci.  Note, the linksys cards use the tulip driver.
+> Hello!
+> 
+> > that problem. Something I'll look into further, unless somebody can tell
+> > me that having a host reply its own ARP requests, even when received over
+> > a real interface, isn't possible at all.
+> 
+> Sigh, do not you think that making undelatable local rule with preference 0
+> was an easy decision. This kills most of coolness of policy making yet. :-)
+> 
+> Essentially, your patch becomes 100% legal after we kill the places
+> where we ask "Is X.X.X.X our local address?". This thing with arp is one
+> of many places when we have to do this to keep stack relatively coherent.
+> We have several places where we do lookup directly in local table bypassing
+> policy rules, because we just do not have enough information to look
+> in right place.
+> 
 
-00:00.0 Host bridge: VIA Technologies, Inc. VT8363/8365 [KT133/KM133] (rev 03)
-00:01.0 PCI bridge: VIA Technologies, Inc. VT8363/8365 [KT133/KM133 AGP]
-00:07.0 ISA bridge: VIA Technologies, Inc. VT82C686 [Apollo Super South] (rev 40)
-00:07.1 IDE interface: VIA Technologies, Inc. VT82C586/B/686A/B PIPC Bus Master 
-IDE (rev 06)
-00:07.2 USB Controller: VIA Technologies, Inc. USB (rev 16)
-00:07.3 USB Controller: VIA Technologies, Inc. USB (rev 16)
-00:07.4 Bridge: VIA Technologies, Inc. VT82C686 [Apollo Super ACPI] (rev 40)
-00:08.0 Ethernet controller: Linksys Network Everywhere Fast Ethernet 10/100 
-model NC100 (rev 11)
-00:09.0 SCSI storage controller: Advanced System Products, Inc ABP940-U / 
-ABP960-U (rev 03)
-00:0b.0 Ethernet controller: Linksys Network Everywhere Fast Ethernet 10/100 
-model NC100 (rev 11)
-00:0d.0 Multimedia audio controller: Cirrus Logic CS 4614/22/24 [CrystalClear 
-SoundFusion Audio Accelerator] (rev 01)
-01:00.0 VGA compatible controller: nVidia Corporation NV11 [GeForce2 MX/MX 400] 
-(rev a1)
+Are all those non-policy places where this "local" lookup occurs places where
+only local traffic related functions occur ie. functions like ARP ? Or, in
+other words, non-packet forwarding decision functions ?
 
-If you need any more information, just let me know and I'll see what I can do.
+In these places, does it just jump to rule 0 ? If this is the case, would it
+be possible to modify them to jump to the specially designated "local"
+table, using some other method than "local" always being rule 0, allowing
+them to find out what the locally assigned addresses are, yet not relying on
+the "local" table being rule 0 ?
 
-Chris
+> > kernel hacking, if there is a better way to change the "local" route table
+> > preference, I'm all ears.
+> 
+> No, really. It is the best. Not made only as fool proof, because adding
+> almost any rule before local one shuts down networking completely.
+>
+
+I can see how it is important to prevent people from killing off their
+networking. On the other hand, I tend to take the position that if you
+don't know what you are doing, you shouldn't be playing with it :-)
+
+In this case, I think if you are "silly" enough to change the order of the
+local table lookup, you should be "smart" enough to know the consequences, and
+if necessary, develop a configuration to avoid them.
+
+However, if my suggested patch or requested functionality would create an
+internal inconsistency or operational flaw within the Linux networking stack,
+then obviously it wouldn't be the right thing to do. I certainly don't know
+enough to make that judgement. I'm sure you do :-)
+
+Thanks again for getting back to me.
+
+Regards,
+Mark.
