@@ -1,62 +1,33 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: The ultimate TOE design
-Date: Wed, 22 Sep 2004 21:46:47 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
+Date: Thu, 23 Sep 2004 15:18:49 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409230446.i8N4kr39005611@guinness.s2io.com>
-References: <4151DDFF.6000902@us.ibm.com>
+Message-ID: <20040923.151849.54646117.yoshfuji@linux-ipv6.org>
+References: <414FC92F.6090009@tomt.net>
+	<1095854932.17821.1190.camel@hades.cambridge.redhat.com>
+	<20040922111544.469dc4c2.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "'Andi Kleen'" <ak@suse.de>, "'David S. Miller'" <davem@davemloft.net>,
-        "'John Heffner'" <jheffner@psc.edu>, <netdev@oss.sgi.com>,
-        <linux-kernel@vger.kernel.org>
+Cc: dwmw2@infradead.org, andre@tomt.net, jgarzik@pobox.com, pp@ee.oulu.fi,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Nivedita Singhvi'" <niv@us.ibm.com>
-In-Reply-To: <4151DDFF.6000902@us.ibm.com>
+To: davem@davemloft.net
+In-Reply-To: <20040922111544.469dc4c2.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20040922111544.469dc4c2.davem@davemloft.net> (at Wed, 22 Sep 2004 11:15:44 -0700), "David S. Miller" <davem@davemloft.net> says:
 
-> > 
-> > It's a bit painful to setup, but in general with 9k jumbos 
-> and TSO we 
-> > were able to get close to pci-x 133 limit - both in LAN and 
-> WAN tests.
-> > Leonid
+> > It's not just tunnel interfaces. It seems to be related to hot-unplug of
+> > interfaces with live IPv6 addresses. I've seen it on my prism54 card too
+> > on many recent kernels. All I have to do is insert it and remove it a
+> > few times. 
 > 
-> Cool, but a very specific environment, no? ;)
+> There is code in ipv6 which takes route references to devices and moves
+> that reference over to loopback.  There might be bugs in that area, and
+> I would suggest debugging in that area.
 
-Define specific environment :-). We are running common tcp benchmarks like
-nttcp or iperf or Chariot or filesystem applications on a very generic white
-boxes, with generic OS/settings.
+Okay, I'll look into it again...
 
-> 
-> What concerns me about all this is that it seems so very 
-> host-centric design. Wouldn't it be nice if we had a little 
-> bit more network-centric worldview when designing network 
-> infrastructure?
-> 
-> It isn't just a matter of how had we can push stuff out, it 
-> also matters how much the network can take.
-> Blasting tens of gigs into the ether seems all very exciting 
-> sexy and cool, but suited for dedicated links or network 
-> attached storage channels, not general-purpose networking on 
-> the Internet or intra-nets.
-
-This is somewhat different from IB or FC "miniature networks", 
-some/most of 10GbE testing runs in existing datacenters or over 
-existing long-haul links - see for example
-http://sravot.home.cern.ch/sravot/Networking/10GbE/LSR_041504.htm
-
-Cheers, Leonid
-
-> 
-> And if that is the case, we're talking about a much smaller 
-> market (but perhaps a more profitable one ;))...
-> 
-> thanks,
-> Nivedita
-> 
-> 
-> 
+--yoshfuji
