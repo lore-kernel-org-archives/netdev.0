@@ -1,30 +1,27 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [TCP] Fixed bug that hid sockets in tcp_diag
-Date: Tue, 5 Oct 2004 22:22:02 -0700
+Date: Wed, 6 Oct 2004 16:02:41 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041005222202.0d1d9be0.davem@davemloft.net>
-References: <20041006035801.GA15940@gondor.apana.org.au>
+Message-ID: <20041006060241.GA16674@gondor.apana.org.au>
+References: <20041006035801.GA15940@gondor.apana.org.au> <20041005222202.0d1d9be0.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: acme@conectiva.com.br, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041006035801.GA15940@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041005222202.0d1d9be0.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Oct 2004 13:58:01 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> This patch squashes a bug in tcp_diag which was created when the
-> sk_* loops replaced the original for loops.  It's a pity that these
-> sk_*/hlist_*/list_* loops don't take an arbitrary expression as an
-> argument for continue.
+On Tue, Oct 05, 2004 at 10:22:02PM -0700, David S. Miller wrote:
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Did you send this patch to the original bug reporter for
+> testing?  What was the result?
 
-Thanks a lot for fixing this bug Herbert, patch applied.
-
-Did you send this patch to the original bug reporter for
-testing?  What was the result?
+I haven't fixed his problem yet.  This is just a start :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
