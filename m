@@ -1,51 +1,48 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: BUG: atomic counter underflow when running "rmmod tg3" on
- 2.6.10-rc1-mm3
-Date: Mon, 8 Nov 2004 21:41:59 -0800
-Message-ID: <20041108214159.6400e8de.akpm@osdl.org>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Use nfmark as a key for u32 classifier
+Date: Tue, 09 Nov 2004 06:41:40 +0100
+Message-ID: <41905894.7030809@trash.net>
+References: <Pine.LNX.4.61.0411051317330.23651@webhosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Bernhard Rosenkraenzer <bero@arklinux.org>
+Cc: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
+In-Reply-To: <Pine.LNX.4.61.0411051317330.23651@webhosting.rdsbv.ro>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Catalin(ux aka Dino) BOIE wrote:
 
-There's a debug patch in -mm which generates a trace when someone does
-atomic_dec_and_test() on an atomic_t which already has a value of zero.
+> Hello!
+>
+> I am glad to announce a patch for u32 to allow matches on nfmark.
+> The patch is non intrusive (few lines).
+>
+>------------------------------------------------------------------------
+>
+> 			if ((*(u32*)(ptr+key->off+(off2&key->offmask))^key->val)&key->mask) {
+>--- linux.orig/include/linux/pkt_cls.h	2004-10-19 00:53:07.000000000 +0300
+>+++ linux/include/linux/pkt_cls.h	2004-11-05 11:00:27.000000000 +0200
+>@@ -208,6 +208,7 @@ struct tc_u32_sel
+> 	unsigned char		flags;
+> 	unsigned char		offshift;
+> 	unsigned char		nkeys;
+>+	u32			mark;
+>  
+>
+^^ Please put this at the end to avoid breaking compatibility
+with old tc binaries. BTW, nfmark if unsigned long, which is
+64 bit on 64-bit architectures. Probably not worth fixing though,
+everyone else got it wrong too.
 
-ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc1/2.6.10-rc1-mm3/broken-out/detect-atomic-counter-underflows.patch
+> 
+> 	__u16			offmask;
+> 	__u16			off;
+>  
+>
 
-It looks like it has found a problem in qdisc_destroy().
-
-
-
-Begin forwarded message:
-
-Date: Tue, 9 Nov 2004 03:33:36 +0100
-From: Bernhard Rosenkraenzer <bero@arklinux.org>
-To: linux-kernel@vger.kernel.org
-Subject: BUG: atomic counter underflow when running "rmmod tg3" on 2.6.10-rc1-mm3
-
-
-BUG: atomic counter underflow at:
- [<c02882f6>] qdisc_destroy+0x66/0x80
- [<c02885e2>] dev_shutdown+0x32/0x90
- [<c02d796f>] __down_failed_trylock+0x7/0xc
- [<c027b6b2>] unregister_netdevice+0x142/0x29e
- [<c014c171>] handle_mm_fault+0xf1/0x510
- [<c0240a95>] unregister_netdev+0x15/0x20
- [<e0d3a2b5>] tg3_remove_one+0x25/0x70 [tg3]
- [<c01db4e9>] pci_device_remove+0x69/0x70
- [<c0232646>] device_release_driver+0x86/0x90
- [<c0232a2b>] bus_remove_driver+0x5b/0x100
- [<e0d3a780>] tg3_cleanup+0x0/0x13 [tg3]
- [<c0232fc0>] driver_unregister+0x10/0x20
- [<c01db234>] pci_unregister_driver+0x14/0xa0
- [<e0d3a78f>] tg3_cleanup+0xf/0x13 [tg3]
- [<c013462b>] sys_delete_module+0x17b/0x1e0
- [<c0104ff1>] sysenter_past_esp+0x52/0x71
-divert: freeing divert_blk for eth0
+Regards
+Patrick
