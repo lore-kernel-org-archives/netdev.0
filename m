@@ -1,67 +1,100 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: Kernel 2.6 IPV6 Busted
-Date: Tue, 01 Mar 2005 22:50:25 +0100
-Message-ID: <4224E3A1.5090003@tomt.net>
-References: <200502270928.44402.Info@Quantum-Sci.com> <422205F7.4080401@tomt.net> <200502271220.06560.Info@quantum-sci.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+From: Andy Fleming <afleming@freescale.com>
+Subject: Re: RFC new ethtool command
+Date: Tue, 1 Mar 2005 17:15:30 -0600
+Message-ID: <2774b2c9a643fd8fadc48be99ec2b5c6@freescale.com>
+References: <3a958240e12af10ef6777f908abfe682@freescale.com> <20050301104338.1380b7cc@dxpl.pdx.osdl.net>
+Mime-Version: 1.0 (Apple Message framework v619.2)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Quantum Scientific <Info@quantum-sci.com>
-In-Reply-To: <200502271220.06560.Info@quantum-sci.com>
+Cc: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20050301104338.1380b7cc@dxpl.pdx.osdl.net>
+To: Stephen Hemminger <shemminger@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quantum Scientific wrote:
-> On Sunday 27 February 2005 11:40, Andre Tomt wrote:
->>You seem to be fixed on the idea that a ipv6 stack has to have stateful 
->>firewalling, or else its utter crap, correct? :-)
-> 
-> 
-> No, I'll try to say this clearer.
-> 
-> The stack works fine in.  And out.  But for a useful virtual circuit you must 
-> have something like connection tracking.
-> 
-> Remember what my issue is:  
-> - I have a very tight firewall,
-> - I ping6 out,
-> - The firewall blocks the reply back, because the connection is stateless!
 
-Never, ever, filter ICMP. Or at least be extremely careful doing so. You 
-may end up breaking things like PMTU and error notification mechanisms.
+On Mar 1, 2005, at 12:43, Stephen Hemminger wrote:
+>
+> I understand the motivation, but it seems to go against the philosophy
+> of having a general purpose interface.  Rather than having device 
+> driver
+> specific special cases, why not add useful abstractions for new 
+> features.
+> Phy interface testing and management is generic, and several devices 
+> could
+> support it.
 
-> - Same with http, etc.
-> 
-> This means that I have to open for incoming, virtually every port I send 
-> outgoing to, or else I do not get any replies. This is what I call 
-> non-functional, because one does not open incoming ports, for the most part.
-> 
-> Why are you not having this problem?
+Ok, I probably shouldn't have mentioned the PHY testing, which was just 
+a hack to inject errors into some code I was working on.  My point in 
+this case was it is easy using this method to add temporary debug 
+parameters.  I concede that ethtool may not be the best place for debug 
+support.
 
-Because I tend to use the oldskool way of doing it when there is not 
-other option, by matching on SYN. It's a bit trickier with UDP, but 
-doable for most UDP based protocols.
+The problem I'm trying to solve is for the new features I mentioned 
+before.  I have an ethernet controller which is part of an SOC, and has 
+access to the L2 cache.  As such, the controller can read and write 
+buffer descriptors directly from/to the L2 cache, and even lock them 
+into the L2.
 
-Also on a per-system basis I tend to prefer to secure services rather 
-than firewall them; by for example just shutting them off/uninstalling 
-them if not used, binding to localhost, use tcpwrappers.. that sort of 
-thing.
+Adding an abstraction for this to ethtool when there's only one driver 
+that uses it seems premature.  If no other controllers implement such a 
+feature, then ethtool is cluttered up with what amounts to 
+driver-specific code.  If other controllers implement a similar 
+feature, it's quite possible that the abstraction will need to change.  
+Changing the abstraction (or adding a new one) can take up a 
+significant amount of time, since the driver writer now has to modify 
+the ethtool source, the ethtool kernel support, and then get the 
+changes accepted.
 
-Don't get me wrong; I'd *love* to see connection tracking integrated 
-with ipv6 netfilter. It would simplify some of my setups greatly. But it 
-would also be out of the question on a lot of my other setups; as 
-connection tracking is a *severe* bottleneck when faced with any real 
-amounts of load.
+I agree that, eventually, it would be the goal to implement an 
+abstraction, and go through the process of getting the changes 
+accepted, but not until there's a "market" for the abstraction.
 
-It's not The universal solution, and the lack of it is not *that* bad.
 
->>Connection tracking is on the way, currently a implementation exists in 
->>the netfilter.org patch-o-matic svn.
-> 
-> 
-> Is this reasonably solid?  Does this operate on Layer 3, rather than Layer 2?
+>
+> For the first case, of "cutting-edge" controller's, the best solution 
+> is to
+> always turn the feature on and make it work correctly.  If you can't 
+> make it
+> work correctly then use module parameter or chip set detection to turn 
+> it off.
+> Another option to expose warts is using sysfs attribute groups to add 
+> additional
+> fields to /sys/class/net/ethXX/.
 
-It operates like the IPv4 state matches. Solid? Well, I guess testers 
-are welcome :)
+Well, some features are a little more complex than on/off.  The 
+stashing feature in the 85xx ethernet controllers allows a portion of 
+each incoming packet to be extracted and placed directly in L2.  This 
+has performance implications, and so it is useful to be able to tune 
+the parameters at runtime.  Especially for benchmarking purposes, but 
+also, once benchmarking has been done, to tune performance to the 
+workload.
+
+>
+> When debugging a new driver, module parameters work find for 
+> controlling
+> test parameters.  If this needs to make into production code, sysfs 
+> could
+> also be used.
+
+Module parameters are fine as long as you aren't trying to root your 
+filesystem over NFS using the driver.
+
+>
+> This proposal is basically a device specific multiplexing interface 
+> like
+> ioctl or SIOCDEVPRIVATE. This style of interface is considered bad, and
+> undesirable.
+
+Well, yes... it uses ioctl and SIOCETHTOOL.  I can see how sysfs could 
+be used to do everything I'm trying to do.  However, the same could be 
+said about everything ethtool does.  Is ethtool no longer the correct 
+tool to use for tuning ethernet performance?  I'm not philosophically 
+opposed to the idea of supporting these features through sysfs, but it 
+seems easier to be able to point people at ethtool for all their 
+performance tuning needs.
+
+Andy Fleming
+Open Source Team
+Freescale Semiconductor, Inc
