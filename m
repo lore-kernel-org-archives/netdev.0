@@ -1,76 +1,118 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [2.6 PATCH] ipvs - properly handle non-linear skbs
-Date: Mon, 06 Oct 2003 07:42:09 +1000
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [RFC] nfmark modify extension to classifiers
+Date: Mon, 6 Oct 2003 02:26:19 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031006000225.AF7642C0A7@lists.samba.org>
-References: <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli>
-Cc: "David S. Miller" <davem@redhat.com>, Wensong Zhang <wensong@linux-vs.org>,
-        netdev@oss.sgi.com
+Message-ID: <20031006002619.GC11250@rei.reeler.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-reply-to: Your message of "Sun, 05 Oct 2003 12:09:20 +0300."
-             <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli>
+To: davem@redhat.com, kuznet@ms2.inr.ac.ru
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli> you write:
-> 	Hello,
-> 
-> 	Attached is a patch that includes the changes from
-> Rusty about handling non-linear skbs correctly and modified
-> a bit from Wensong Zhang and me. This is a huge patch that changes
-> interfaces for many functions. It looks difficult to split it in
-> parts but if required we can try to do it. It is ready for
-> inclusion.
+Hello
 
-Hi Julian!
+The netfilter mark field is heavly used nowadays to communicate
+between tc, netfilter and ip rule.  Classifiers are not yet
+capable of modifying the nfmark field. However it would make
+sense, especially in ingress context.
 
-	I diffed our two patches.  Is see you still use iph temp vars:
-fair enough: I removed mine after some subtle bugs (although it does
-make the code a bit uglier).  
+Example:
+$TC filter add dev $DEV parent 10:0 protocol ip prio 10 u32
+match ip protocol 6 0xff nfmark 0x10 flowid 10:12
+                         ^^^^^^^^^^^
+Would set nfmark=0x10 for all icmp packets.
 
-Looks really good.  Could you just clarify a couple of things for me please?
+Applications (examples):
+ - Differentiate source classifier if multiple classifiers
+   classify into a single class (match again with cls_fw.c).
+ - Mark packets in ingress and reuse nfmark in ip rules if
+   netfilter is too slow.
+ - Use rsvp(6)/route/tcindex capabilities in netfilter/ip rule.
 
-@@ -527,10 +528,7 @@ struct ip_vs_conn {
- 	struct ip_vs_dest       *dest;          /* real server */
- 	atomic_t                in_pkts;        /* incoming packet counter */
+Below is a patch to the u32 classifier adding this extension.
+It would be easy to do the same for other classifiers.
+(I also have a patch against tc if someone is interested.)
+
+The ifdef mess cannot be avoided unless nfmark in skbuff is
+freed from its ifdefs.
+
+Regards
+
+-- 
+Thomas GRAF <tgraf@suug.ch>
+
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1495  -> 1.1496 
+#	include/linux/pkt_cls.h	1.2     -> 1.3    
+#	 net/sched/cls_u32.c	1.8     -> 1.9    
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/10/06	tgraf@suug.ch	1.1496
+# This changeset extends the u32 classifier to change the netfilter mark if the filter matches.
+# --------------------------------------------
+#
+diff -Nru a/include/linux/pkt_cls.h b/include/linux/pkt_cls.h
+--- a/include/linux/pkt_cls.h	Mon Oct  6 03:37:58 2003
++++ b/include/linux/pkt_cls.h	Mon Oct  6 03:37:58 2003
+@@ -48,6 +48,7 @@
+ 	TCA_U32_LINK,
+ 	TCA_U32_DIVISOR,
+ 	TCA_U32_SEL,
++	TCA_U32_NFMARK,
+ 	TCA_U32_POLICE,
+ };
  
--	/* packet transmitter for different forwarding methods.  If it
--	   mangles the packet, it must return NF_DROP or NF_STOLEN, otherwise
--	   this must be changed to a sk_buff **.
--	 */
-+	/* packet transmitter for different forwarding methods */
- 	int (*packet_xmit)(struct sk_buff *skb, struct ip_vs_conn *cp,
- 			   struct ip_vs_protocol *pp);
-
-This comment is still true: the skb pointer from the caller is
-useless, so xmit *must* return NF_DROP or NF_STOLEN.  I thought about
-making it return void and the callers always return NF_STOLEN, but
-there was enough change already.  You might want to put a comment in
-there.
-
-ip_vs_make_skb_writable(): how is this different from
-skb_ip_make_writable(), except you have to maintain it yourself?  The
-advantage of the general one is that Dave looks after it for us 8)
-
-In ip_vs_out_icmp():
-
- 	/* Is the embedded protocol header present? */
- 	if (unlikely(ciph.frag_off & __constant_htons(IP_OFFSET) &&
--		     /* FIXME: Remove minhlen, and surely dont_defrag
--		      * test is backwards? --RR */
- 		     (pp->minhlen || pp->dont_defrag)))
- 		return NF_ACCEPT;
-
-If the protocol says "don't defrag" they never see fragmented packets.
-AFAICT, minhlen and dont_defrag are now the same everywhere (minhlen
-is not respected: protocols are expected to catch skb_copy_bits
-failing on their own, and they do).  Perhaps drop minhlen altogether,
-and just keep dont_defrag?
-
-Hey, thanks for doing the hard work for me!
-
-Cheers,
-Rusty.
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+diff -Nru a/net/sched/cls_u32.c b/net/sched/cls_u32.c
+--- a/net/sched/cls_u32.c	Mon Oct  6 03:37:58 2003
++++ b/net/sched/cls_u32.c	Mon Oct  6 03:37:58 2003
+@@ -62,6 +62,9 @@
+ 	struct tcf_police	*police;
+ #endif
+ 	struct tcf_result	res;
++#ifdef CONFIG_NETFILTER
++	unsigned long   	nfmark;
++#endif
+ 	struct tc_u_hnode	*ht_down;
+ 	struct tc_u32_sel	sel;
+ };
+@@ -129,6 +132,10 @@
+ check_terminal:
+ 			if (n->sel.flags&TC_U32_TERMINAL) {
+ 				*res = n->res;
++#ifdef CONFIG_NETFILTER
++				if (n->nfmark)
++					skb->nfmark = n->nfmark;
++#endif
+ #ifdef CONFIG_NET_CLS_POLICE
+ 				if (n->police) {
+ 					int pol_res = tcf_police(skb, n->police);
+@@ -470,6 +477,10 @@
+ 		if (cl)
+ 			q->ops->cl_ops->unbind_tcf(q, cl);
+ 	}
++#ifdef CONFIG_NETFILTER
++	if (tb[TCA_U32_NFMARK-1])
++		n->nfmark = *(u32*)RTA_DATA(tb[TCA_U32_NFMARK-1]);
++#endif
+ #ifdef CONFIG_NET_CLS_POLICE
+ 	if (tb[TCA_U32_POLICE-1]) {
+ 		struct tcf_police *police = tcf_police_locate(tb[TCA_U32_POLICE-1], est);
+@@ -654,6 +665,10 @@
+ 		}
+ 		if (n->res.classid)
+ 			RTA_PUT(skb, TCA_U32_CLASSID, 4, &n->res.classid);
++#ifdef CONFIG_NETFILTER
++		if (n->nfmark)
++			RTA_PUT(skb, TCA_U32_NFMARK, 4, &n->nfmark);
++#endif
+ 		if (n->ht_down)
+ 			RTA_PUT(skb, TCA_U32_LINK, 4, &n->ht_down->handle);
+ #ifdef CONFIG_NET_CLS_POLICE
