@@ -1,58 +1,37 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] PKT_SCHED: Make rate estimator work for all platforms
-Date: Mon, 4 Oct 2004 23:11:52 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.4] backport neighbour cache redesign
+Date: Mon, 4 Oct 2004 14:16:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041004211152.GF15898@postel.suug.ch>
+Message-ID: <20041004141651.153ec066.davem@davemloft.net>
+References: <20040930154753.GD1860@sunbeam.de.gnumonks.org>
+	<20041004121759.26798f1d.davem@davemloft.net>
+	<20041004201525.GF27499@sunbeam.de.gnumonks.org>
+	<20041004132034.00cfe23c.davem@davemloft.net>
+	<20041004211158.GG27499@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
+To: Harald Welte <laforge@gnumonks.org>
+In-Reply-To: <20041004211158.GG27499@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fixes the existing rate estimator to compile cleanly on all platforms
-and avoids carrying on the variance on platforms with HZ%4 != 0.
+On Mon, 4 Oct 2004 23:11:58 +0200
+Harald Welte <laforge@gnumonks.org> wrote:
 
-Patch also applies to 2.4 with some fuzz.
+> yes, I remember that email.  I didn't think further about it, since I
+> got the feeling that there is significant movement to get rid of the
+> neighbour cache at some point (if/when there is some fast lookup
+> algorithm implemented) - and if we look at ipv6, there is no routing
+> cache.
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+Another idea is to dynamically grow the thresholds based upon usage
+just as we do for the hash tables.  For example, if we find say %90
+of neighbour entries in-use at forced GC time, we increment the
+thresholds by some factor.
 
---- linux-2.6.9-rc3-bk4.orig/net/sched/estimator.c	2004-10-04 22:41:26.000000000 +0200
-+++ linux-2.6.9-rc3-bk4/net/sched/estimator.c	2004-10-04 22:53:54.000000000 +0200
-@@ -66,15 +66,11 @@
- 
-    * Minimal interval is HZ/4=250msec (it is the greatest common divisor
-      for HZ=100 and HZ=1024 8)), maximal interval
--     is (HZ/4)*2^EST_MAX_INTERVAL = 8sec. Shorter intervals
-+     is (HZ*2^EST_MAX_INTERVAL)/4 = 8sec. Shorter intervals
-      are too expensive, longer ones can be implemented
-      at user level painlessly.
-  */
- 
--#if (HZ%4) != 0
--#error Bad HZ value.
--#endif
--
- #define EST_MAX_INTERVAL	5
- 
- struct qdisc_estimator
-@@ -128,7 +124,7 @@
- 		spin_unlock(e->stats_lock);
- 	}
- 
--	mod_timer(&elist[idx].timer, jiffies + ((HZ/4)<<idx));
-+	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
- 	read_unlock(&est_lock);
- }
- 
-@@ -161,7 +157,7 @@
- 	if (est->next == NULL) {
- 		init_timer(&elist[est->interval].timer);
- 		elist[est->interval].timer.data = est->interval;
--		elist[est->interval].timer.expires = jiffies + ((HZ/4)<<est->interval);
-+		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
- 		elist[est->interval].timer.function = est_timer;
- 		add_timer(&elist[est->interval].timer);
- 	}
+Note that the "in-use" part is very important, it prevents a DoS
+spam from growing the neighbour cache since such traffic causes
+neighbour entries to quickly become unused.
