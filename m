@@ -1,41 +1,42 @@
-From: Andries Brouwer <aebr@win.tue.nl>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Mon, 30 Jun 2003 00:49:34 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030629224934.GA15108@win.tue.nl>
-References: <1056755070.5463.12.camel@dhcp22.swansea.linux.org.uk> <20030629.141528.74734144.davem@redhat.com> <20030629214558.GA15089@win.tue.nl> <20030629.145114.115923819.davem@redhat.com>
+From: James Morris <jmorris@intercode.com.au>
+Subject: (no subject)
+Date: Mon, 30 Jun 2003 09:00:49 +1000 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Mutt.LNX.4.44.0306300859240.22482-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: alan@lxorguk.ukuu.org.uk, greearb@candelatech.com,
-	mbligh@aracnet.com, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030629.145114.115923819.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jun 29, 2003 at 02:51:14PM -0700, David S. Miller wrote:
->    From: Andries Brouwer <aebr@win.tue.nl>
->    Date: Sun, 29 Jun 2003 23:45:58 +0200
->    
->    Will you babysit them, check whether later snapshots correct this
->    flaw, resubmit your report every month if not?  Maybe you will. I
->    certainly don't - send the report and that's it.
-> 
-> As a result, your bug reports will tend to not be tended to,
+Hi Dave,
 
-Maybe that is the wrong answer. It seems they have a bug tracking system.
+Please pull from bk://kernel.bkbits.net/jmorris/net-2.5 for the followng 
+changesets:
 
-> People who expect that, for free, one bug submission will get
-> their bug fixed
+ChangeSet@1.1525.1.1, 2003-06-29 20:37:48+10:00, yoshfuji@linux-ipv6.org
+  [IPV6] Don't set M flag in last fragment.
 
-See, you think you are doing the submitter a favour.
-I prefer the point of view that the submitter does us a favour.
+ChangeSet@1.1525.1.2, 2003-06-29 20:38:55+10:00, yoshfuji@linux-ipv6.org
+  [IPV6] Use macro for M-Flag and clean-up.
 
-Something is wrong, and people work around it.
-But they tell us about it. If we want we can try to fix.
-Or we can store the information for later examination.
-Very often it is needed later - fortunately Google helps.
-A more focused data base might help even better.
+ChangeSet@1.1525.1.3, 2003-06-29 20:40:01+10:00, yoshfuji@linux-ipv6.org
+  [IPV6] Convert /proc/net/ip6_flowlabel to seq_file.
 
+ChangeSet@1.1528, 2003-06-30 01:53:54+10:00, yoshfuji@linux-ipv6.org
+  [XFRM] Fix typo.
+
+ChangeSet@1.1529, 2003-06-30 02:17:41+10:00, herbert@gondor.apana.org.au
+  [XFRM] Set SA saddr correctly
+  
+ChangeSet@1.1525.2.1, 2003-06-30 02:28:59+10:00, herbert@gondor.apana.org.au
+  [IPSEC] split xfrm_state_replace + fixes
+
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
