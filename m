@@ -1,38 +1,35 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [BK netdev-2.6] Update Typhoon firmware
-Date: Tue, 28 Dec 2004 00:39:25 -0500
-Message-ID: <1104212365.4293.0.camel@ori.thedillows.org>
-References: <1103314025.4217.1.camel@ori.thedillows.org>
-	 <41CFD72C.6090503@pobox.com>
+From: Roland Dreier <roland@topspin.com>
+Subject: [PATCH][v5][0/24] Latest IB patch queue
+Date: Mon, 27 Dec 2004 21:50:47 -0800
+Message-ID: <200412272150.IBRnA4AvjendsF8x@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41CFD72C.6090503@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+In-Reply-To: 20041227212615.0536c99f.davem@davemloft.net
+To: davem@davemloft.net
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-12-27 at 04:34 -0500, Jeff Garzik wrote:
-> David Dillow wrote:
-> > Jeff, please do a
-> > 
-> > 	bk pull http://typhoon.bkbits.net/typhoon-2.6-firmware
-> 
-> 
-> [jgarzik@pretzel net-drivers-2.6]$ bk pull 
-> http://typhoon.bkbits.net/typhoon-2.6-firmware
-> Pull http://typhoon.bkbits.net/typhoon-2.6-firmware
->    -> file://garz/repo/net-drivers-2.6
-> ERROR-cannot cd to typhoon-2.6-firmware (illegal, nonexistant, or not 
-> package root)
+>>>>> "David" == David S Miller <davem@davemloft.net> writes:
 
+    David> Send it all over.
 
-Doh! Make that
-bk pull http://typhoon.bkbits.net/typhoon-2.6
+OK, you asked for it... here's our latest tree, which should
+incorporate all the feedback I've seen.
 
+(Individuals trimmed from CC list, since they probably don't want to
+get all 24 patches over again)
 
--- 
-David Dillow <dave@thedillows.org>
+Thanks,
+  Roland Dreier
