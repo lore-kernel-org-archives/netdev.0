@@ -1,228 +1,112 @@
-From: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-Subject: [PATCH net-drivers-2.6 5/5] ixgb: Driver version, white space,
- comments, device id & other
-Date: Tue, 15 Feb 2005 13:39:05 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0502151202470.30336-100000@isotope.jf.intel.com>
+From: Pablo Neira <pablo@eurodev.net>
+Subject: Re: [RFC] string matching based packet classification/filtering
+Date: Tue, 15 Feb 2005 22:41:47 +0100
+Message-ID: <42126C9B.5060406@eurodev.net>
+References: <20050215203211.GL31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@oss.sgi.com>
-To: "jgarzik@pobox.com" <jgarzik@pobox.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	Harald Welte <laforge@gnumonks.org>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050215203211.GL31837@postel.suug.ch>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-5 Driver version number, white space, comments, device id & other changes
-Signed-off-by: Mallikarjuna R Chilakala <mallikarjuna.chilakala@intel.com>
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Signed-off-by: John Ronciak <john.ronciak@intel.com>
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_ee.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_ee.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_ee.c	2005-02-06 23:33:00.650031648 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_ee.c	2005-02-06 23:33:01.466907464 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_ee.h net-drivers-2.6/drivers/net/ixgb.new/ixgb_ee.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb_ee.h	2005-02-06 23:33:00.651031496 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_ee.h	2005-02-06 23:33:01.482905032 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_ethtool.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_ethtool.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_ethtool.c	2005-02-06 23:33:00.651031496 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_ethtool.c	2005-02-06 23:33:01.503901840 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-@@ -63,6 +63,7 @@ static struct ixgb_stats ixgb_gstrings_s
- 	{"tx_dropped", IXGB_STAT(net_stats.tx_dropped)},
- 	{"multicast", IXGB_STAT(net_stats.multicast)},
- 	{"collisions", IXGB_STAT(net_stats.collisions)},
-+
- /*	{ "rx_length_errors", IXGB_STAT(net_stats.rx_length_errors) },	*/
- 	{"rx_over_errors", IXGB_STAT(net_stats.rx_over_errors)},
- 	{"rx_crc_errors", IXGB_STAT(net_stats.rx_crc_errors)},
-@@ -98,6 +99,7 @@ static int
- ixgb_get_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- {
- 	struct ixgb_adapter *adapter = netdev->priv;
-+
- 	ecmd->supported = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
- 	ecmd->advertising = (SUPPORTED_10000baseT_Full | SUPPORTED_FIBRE);
- 	ecmd->port = PORT_FIBRE;
-@@ -119,6 +125,7 @@ static int
- ixgb_set_settings(struct net_device *netdev, struct ethtool_cmd *ecmd)
- {
- 	struct ixgb_adapter *adapter = netdev->priv;
-+
- 	if(ecmd->autoneg == AUTONEG_ENABLE ||
- 	   ecmd->speed + ecmd->duplex != SPEED_10000 + DUPLEX_FULL)
- 		return -EINVAL;
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb.h net-drivers-2.6/drivers/net/ixgb.new/ixgb.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb.h	2005-02-06 23:33:00.651031496 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb.h	2005-02-06 23:33:01.521899104 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_hw.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_hw.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_hw.c	2005-02-06 23:33:00.651031496 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_hw.c	2005-02-06 23:33:01.546895304 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_hw.h net-drivers-2.6/drivers/net/ixgb.new/ixgb_hw.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb_hw.h	2005-02-06 23:33:00.651031496 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_hw.h	2005-02-06 23:33:01.570891656 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_ids.h net-drivers-2.6/drivers/net/ixgb.new/ixgb_ids.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb_ids.h	2005-02-06 23:33:00.652031344 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_ids.h	2005-02-06 23:33:01.586889224 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_main.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_main.c	2005-02-06 23:33:00.652031344 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_main.c	2005-02-06 23:33:01.617884512 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-@@ -29,6 +29,9 @@
- #include "ixgb.h"
- 
- /* Change Log
-+ * 1.0.88 01/05/05
-+ * - include fix to the condition that determines when to quit NAPI - Robert Olsson
-+ * - use netif_poll_{disable/enable} to synchronize between NAPI and i/f up/down
-  * 1.0.84 10/26/04
-  * - reset buffer_info->dma in Tx resource cleanup logic
-  * 1.0.83 10/12/04
-@@ -38,13 +41,14 @@
- 
- char ixgb_driver_name[] = "ixgb";
- char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
-+
- #ifndef CONFIG_IXGB_NAPI
- #define DRIVERNAPI
- #else
- #define DRIVERNAPI "-NAPI"
- #endif
--char ixgb_driver_version[] = "1.0.87-k2"DRIVERNAPI;
--char ixgb_copyright[] = "Copyright (c) 1999-2004 Intel Corporation.";
-+char ixgb_driver_version[] = "1.0.90-k2"DRIVERNAPI;
-+char ixgb_copyright[] = "Copyright (c) 1999-2005 Intel Corporation.";
- 
- /* ixgb_pci_tbl - PCI Device ID Table
-  *
-@@ -715,14 +719,8 @@ ixgb_configure_tx(struct ixgb_adapter *a
- 	IXGB_WRITE_REG(hw, TDH, 0);
- 	IXGB_WRITE_REG(hw, TDT, 0);
- 
--	/* don't set up txdctl, it induces performance problems if
--	 * configured incorrectly
--	 txdctl  = TXDCTL_PTHRESH_DEFAULT; // prefetch txds below this threshold
--	 txdctl |= (TXDCTL_HTHRESH_DEFAULT // only prefetch if there are this many ready
--	 << IXGB_TXDCTL_HTHRESH_SHIFT);
--	 IXGB_WRITE_REG (hw, TXDCTL, txdctl);
--	 */
--
-+	/* don't set up txdctl, it induces performance problems if configured
-+	 * incorrectly */
- 	/* Set the Tx Interrupt Delay register */
- 
- 	IXGB_WRITE_REG(hw, TIDV, adapter->tx_int_delay);
-@@ -855,10 +853,17 @@ ixgb_configure_rx(struct ixgb_adapter *a
- 	IXGB_WRITE_REG(hw, RDH, 0);
- 	IXGB_WRITE_REG(hw, RDT, 0);
- 
--						/* burst 16 or burst when RXT0*/
--	rxdctl =  RXDCTL_WTHRESH_DEFAULT << IXGB_RXDCTL_WTHRESH_SHIFT 
--			| RXDCTL_HTHRESH_DEFAULT << IXGB_RXDCTL_HTHRESH_SHIFT 
--			| RXDCTL_PTHRESH_DEFAULT << IXGB_RXDCTL_PTHRESH_SHIFT;
-+	/* set up pre-fetching of receive buffers so we get some before we
-+	 * run out (default hardware behavior is to run out before fetching
-+	 * more).  This sets up to fetch if HTHRESH rx descriptors are avail
-+	 * and the descriptors in hw cache are below PTHRESH.  This avoids
-+	 * the hardware behavior of fetching <=512 descriptors in a single
-+	 * burst that pre-empts all other activity, usually causing fifo
-+	 * overflows. */
-+	/* use WTHRESH to burst write 16 descriptors or burst when RXT0 */
-+	rxdctl = RXDCTL_WTHRESH_DEFAULT << IXGB_RXDCTL_WTHRESH_SHIFT |
-+	         RXDCTL_HTHRESH_DEFAULT << IXGB_RXDCTL_HTHRESH_SHIFT |
-+	         RXDCTL_PTHRESH_DEFAULT << IXGB_RXDCTL_PTHRESH_SHIFT;
- 	IXGB_WRITE_REG(hw, RXDCTL, rxdctl);
- 
- 	/* Enable Receive Checksum Offload for TCP and UDP */
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_osdep.h net-drivers-2.6/drivers/net/ixgb.new/ixgb_osdep.h
---- net-drivers-2.6/drivers/net/ixgb/ixgb_osdep.h	2005-02-06 23:33:00.652031344 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_osdep.h	2005-02-06 23:33:01.634881928 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_param.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_param.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_param.c	2005-02-06 23:33:00.652031344 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_param.c	2005-02-06 23:33:01.653879040 -0800
-@@ -1,7 +1,7 @@
- /*******************************************************************************
- 
-   
--  Copyright(c) 1999 - 2004 Intel Corporation. All rights reserved.
-+  Copyright(c) 1999 - 2005 Intel Corporation. All rights reserved.
-   
-   This program is free software; you can redistribute it and/or modify it 
-   under the terms of the GNU General Public License as published by the Free 
-	
+Hi Thomas,
+
+Thomas Graf wrote:
+
+>We have been discussing string matching based packet classification and
+>filterings a few times already and I'd like to make it serious this time
+>to get the string matching ematch ready for 2.6.12 inclusion.
+>
+
+I agree with you. I'd like to finish see something usable. On the other 
+hand, there's no need to rush anyway.
+
+> I'm aware
+>of the bayer-moore based patch by Emmanuel Roger, Gianni Tedesco, and Pablo
+>but I also heard about a generic string matching architecture supporting
+>various algorithms I haven't found that patchset though.
+>
+>Is there any effort going into the generic architecture?
+>
+
+Actually I wanted to contact Harald after this friday, once I'm done 
+with my exams. I'd like to merge my work with his libqsearch hackings 
+that were about to be finished.
+
+> Any plans for
+>a stateful string matching netfilter module? As it was mentioned already
+>we could share some code between the ematch and netfilter.
+>
+
+Indeed, I think that we must share that code.
+
+> I do not care
+>for the algorithm, actually I think it doesn't matter at all as long as
+>it's not a naive linear search.
+>
+
+An infrastructure based on libqsearch let us have different algorithms, 
+so we could use whatever algorithm. This won't be a problem.
+
+> The essential parts are to be able t define a searching range and to support paged skbs.
+>
+
+I've been working on this, I'll pass you what I have as soon as I get 
+time to review it again.
+
+> If there is someone
+>going for the generic architecture fullfilling the essential parts
+>just described then I'll be more than happy to use that bit of code
+>otherwise I'd be happy to discuss the requirements of both sides and
+>try to find a compromise both sides can live with.
+>
+>The requirements from my side:
+> In:
+>  o pattern as byte stream
+>  o length of pattern
+>  o begin of search range (skb layer + offset)
+>  o end of search range (skb layer + offset)
+>  o (p)skb
+> Out:
+>  o true or false
+>  
+>
+
+Those look fine for me. Actually I also need more than a true of false, 
+a pointer to where a matching happens. This is a requirement for 
+conntrack helpers.
+
+>Applying this on the recently posted implementation by Pablo it shows
+>that it nearly fits already except for the search range. Additionaly
+>it could be improved by using prefix optimizations for the fragment
+>border regions instead of a naive string search which would help for
+>large patterns on paged skbs.
+>  
+>
+
+Sure that you can improve current way of doing things :)
+
+>If needed an additional input argument could be added specifying the
+>algorithm to be used. Eventually it requires an additional algoirthm
+>specific argument carrying meta data such as prefix lookup tables.
+>
+>Thoughts?
+>  
+>
+
+Harald,any thoughts?
+
+--
+Pablo
