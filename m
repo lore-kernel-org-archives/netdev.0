@@ -1,76 +1,86 @@
-From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
-Subject: Re: [RFC PATCH] Change "local" route table preference from 0 to
- 3fff, to permit send-to-self policy routing
-Date: Thu, 24 Jun 2004 09:18:19 +0930
+From: Cheng Jin <chengjin@cs.caltech.edu>
+Subject: TCP receiver's window calculation problem
+Date: Wed, 23 Jun 2004 22:49:54 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040624091819.3f73012d.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-References: <20040618182505.195d76ba.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-	<20040618204529.GA3106@ms2.inr.ac.ru>
+Message-ID: <Pine.LNX.4.44.0406232228580.29282-100000@orchestra.cs.caltech.edu>
+References: <40D9BF6B.4050807@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: fast-support@cs.caltech.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-In-Reply-To: <20040618204529.GA3106@ms2.inr.ac.ru>
+To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+In-Reply-To: <40D9BF6B.4050807@draigBrady.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Alexey,
 
-On Sat, 19 Jun 2004 00:45:29 +0400
-Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
+Hi,
 
-Thanks for spending the time replying to me, I appreciate it.
+We have been running some iperf experiments over long-latency 
+high-capacity networks for protocol testing.  We noticed a strange 
+receiver's window limitation of 3,147,776 bytes even when the iperf
+server was setup to request 32 MB of socket buffer (for which kernel 
+grants twice that).
 
-> Hello!
-> 
-> > that problem. Something I'll look into further, unless somebody can tell
-> > me that having a host reply its own ARP requests, even when received over
-> > a real interface, isn't possible at all.
-> 
-> Sigh, do not you think that making undelatable local rule with preference 0
-> was an easy decision. This kills most of coolness of policy making yet. :-)
-> 
-> Essentially, your patch becomes 100% legal after we kill the places
-> where we ask "Is X.X.X.X our local address?". This thing with arp is one
-> of many places when we have to do this to keep stack relatively coherent.
-> We have several places where we do lookup directly in local table bypassing
-> policy rules, because we just do not have enough information to look
-> in right place.
-> 
+After doing printk with various window calculation functions at the
+receiver, we believe there may be a possible problem with 
+tp->rcv_ssthresh calculation in __tcp_grow_window in tcp_input.c.
 
-Are all those non-policy places where this "local" lookup occurs places where
-only local traffic related functions occur ie. functions like ARP ? Or, in
-other words, non-packet forwarding decision functions ?
+With input parameters of tcp memory of 64 MB, a jumbo MTU (9000 bytes) 
+setting at the receiver, which gives a skb_true_size of 16660 bytes, and a
+standard MTU (1500 byte) at the sender side that yields a skb_len of 1448 
+bytes. tp->rcv_ssthresh gets stuck at 3,148,472 (see the code segment 
+below).  Because the tcp receiver's window needs to be in multiple of mss 
+(/1448 then *1448) and  window scaling (>>10 and then <<10), the sender sees
+a limit of 3,147,776 bytes.
 
-In these places, does it just jump to rule 0 ? If this is the case, would it
-be possible to modify them to jump to the specially designated "local"
-table, using some other method than "local" always being rule 0, allowing
-them to find out what the locally assigned addresses are, yet not relying on
-the "local" table being rule 0 ?
+I include an example code (stripped away the data structs and expanded 
+whatever macros there are) that reproduces this problem.  The function
+__tcp_grow_window itself may have problems for other combinations of 
+input.
 
-> > kernel hacking, if there is a better way to change the "local" route table
-> > preference, I'm all ears.
-> 
-> No, really. It is the best. Not made only as fool proof, because adding
-> almost any rule before local one shuts down networking completely.
->
+#include <stdio.h>
+#include <stdlib.h>
 
-I can see how it is important to prevent people from killing off their
-networking. On the other hand, I tend to take the position that if you
-don't know what you are doing, you shouldn't be playing with it :-)
+typedef unsigned int __u32;
 
-In this case, I think if you are "silly" enough to change the order of the
-local table lookup, you should be "smart" enough to know the consequences, and
-if necessary, develop a configuration to avoid them.
+static int
+__tcp_grow_window(__u32 rcv_ssthresh, __u32 tcp_full_space,
+					__u32 skb_true_size, __u32 skb_len)
+{
+	int truesize = skb_true_size*3/8;
+	int window = tcp_full_space*3/8;
 
-However, if my suggested patch or requested functionality would create an
-internal inconsistency or operational flaw within the Linux networking stack,
-then obviously it wouldn't be the right thing to do. I certainly don't know
-enough to make that judgement. I'm sure you do :-)
+	while ( rcv_ssthresh <= window ) {
+		if ( truesize <= skb_len )
+			return 2896;
 
-Thanks again for getting back to me.
+		truesize >>= 1;
+		window >>= 1;
+	}
+	return 0;
+}
 
-Regards,
-Mark.
+
+int main()
+{
+
+	__u32 iperf_mem = 64*1024*1024;
+	__u32 skb_true_size = 16660;
+	__u32 skb_len = 1448;
+	__u32 rcv_ssthresh = 3148472;
+
+	int i, incr;
+
+	for (i=0; i<1000; ++i)
+	{
+		incr = __tcp_grow_window(rcv_ssthresh, iperf_mem, skb_true_size, skb_len);
+		printf("i=%d incr=%d\n", i, incr);
+	}
+}
+
+
+Cheng
+
+-- 
+Lab # 626 395 8820
