@@ -1,39 +1,34 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+From: Serge Hallyn <serue@us.ibm.com>
 Subject: Re: [PATCH] Add audit uid to netlink credentials
-Date: Wed, 9 Feb 2005 17:19:46 +0300
-Message-ID: <20050209141945.GA28864@yakov.inr.ac.ru>
-References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com> <Pine.LNX.4.62.0502080658310.32526@kaber.coreworks.de> <1107956079.17568.42.camel@moss-spartans.epoch.ncsc.mil>
+Date: Wed, 09 Feb 2005 08:50:59 -0600
+Message-ID: <1107960659.4837.9.camel@serge>
+References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com>
+	 <1107958621.19262.524.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linux Audit Discussion <linux-audit@redhat.com>,
-        "Serge E. Hallyn" <serue@us.ibm.com>, netdev@oss.sgi.com,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru
-To: Stephen Smalley <sds@epoch.ncsc.mil>
-Content-Disposition: inline
-In-Reply-To: <1107956079.17568.42.camel@moss-spartans.epoch.ncsc.mil>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, davem@davemloft.net, kuznet@ms2.inr.ac.ru
+To: Linux Audit Discussion <linux-audit@redhat.com>
+In-Reply-To: <1107958621.19262.524.camel@hades.cambridge.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, 2005-02-09 at 14:17 +0000, David Woodhouse wrote:
+> The only time it's possibly worth verifying it is for the case where
+> userspace is sending AUDIT_USER messages -- for which the process needs
+> CAP_AUDIT_WRITE anyway.
 
-> > Reception of netlink messages in the kernel happens in the context
-> > of the sending process, so you can simply call
-> > audit_get_loginuid(current->audit_context) in audit_receive_msg().
-> 
-> Then why does netlink_sendmsg() need to save the effective capability
+CAP_AUDIT_WRITE is needed, but not CAP_AUDIT_CONTROL, which is needed to
+set the loginuid.  Of course, an LSM could check at
+security_netlink_send whether the login_uid in the payload is the same
+as the real loginuid.  Otherwise, we're wasting a (very precious)
+capability bit.
 
-Yes, when kernel receives a message, it can be processed in context
-of another process. This happens with rtnetlink, which queues messages
-when someone holds netadmin semaphore and processing of backlog happens
-in context of process which holds the semaphore.
+In either case, have we decided we don't want it in the netlink
+credentials after all?
 
-Unfortunately, audit uses the same twisted way. Actually, if people
-expected synchronous processing, it is better to replace
-
-if (down_trylock(&audit_netlink_sem))
-	return;
-
-with plain down(&audit_netlink_sem);
-
-Alexey
+thanks,
+-serge 
+-- 
+Serge Hallyn <serue@us.ibm.com>
