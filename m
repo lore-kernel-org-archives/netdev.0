@@ -1,37 +1,35 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
-Date: Fri, 11 Jul 2003 07:51:56 +0300 (EEST)
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] netdev_ops
+Date: Thu, 10 Jul 2003 20:53:00 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307110750150.24705-100000@netcore.fi>
-References: <1057888154.26854.324.camel@localhost>
+Message-ID: <3F0E0A6C.5000703@pobox.com>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0102229134@orsmsx402.jf.intel.com> <20030710.133737.41660806.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, Mika Liljeberg <mika.liljeberg@welho.com>,
-   <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: scott.feldman@intel.com, willy@debian.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andre Tomt <andre@tomt.net>
-In-Reply-To: <1057888154.26854.324.camel@localhost>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030710.133737.41660806.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 11 Jul 2003, Andre Tomt wrote:
-> On fre, 2003-07-11 at 02:04, Mika Liljeberg wrote:
-> > Well, the thing is that prefix:: is a special anycast address that
-> > identifies a router on the link prefix::/n, where n is the prefix
-> > length. You had configured a 127-bit link prefix, meaning that you had
-> > only one valid unicast address (last bit == 1) in addition to the router
-> > anycast address (last bit == 0).
-> 
-> Thanks for the explanation, I've been struggling to understand what
-> Yoshfuji tried to explain to me earlier on this topic (see "IPv6 bugs
-> introduced in 2.4.21" - ie. my bogus bugreport), now it all makes
-> perfect sense :-)
+David S. Miller wrote:
+>    From: "Feldman, Scott" <scott.feldman@intel.com>
+>    Date: Thu, 10 Jul 2003 01:18:50 -0700
+>    
+>    With HAVE_NETDEV_OPS, you're right, we're maintaining the wrapper
+>    code outside the kernel.  But, it does leave the possibility of
+>    having a shared backwards compatibility code for multiple (all?)
+>    drivers for those stuck with supporting kernels without netdev_ops. 
+>    
+> And precisely I am showing you how all this backwards compat
+> stuff is going to hurt you.  You can never truly take advantage
+> of things that eliminate duplicated code in all the drivers,
+> and this netdev_ops case is a great example.
 
-Well, the system may make some sense, but IMHO, there is still zero sense 
-in policing this thing when you add a route.  That's just plain bogus.  
-This is a bug which must be fixed ASAP.
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Actually there is a solution that IMO will make everybody happy.  Lemme 
+finish writing up my comments to Matthew...
+
+	Jeff
