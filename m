@@ -1,35 +1,35 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Trivial fix for out of bounds array access in
- xfrm4_policy_check
-Date: Tue, 7 Sep 2004 14:02:45 -0700
+Subject: Re: [PATCH] Compat32 setsockopt overzealous conversions
+Date: Tue, 7 Sep 2004 14:06:49 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040907140245.675b7240.davem@davemloft.net>
-References: <Pine.LNX.4.61.0409071322100.8637@hosting.rdsbv.ro>
-	<E1C4fMc-000817-00@gondolin.me.apana.org.au>
+Message-ID: <20040907140649.42eaa278.davem@davemloft.net>
+References: <1094563381.5122.8.camel@localhost.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: util@deuroconsult.ro, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1C4fMc-000817-00@gondolin.me.apana.org.au>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1094563381.5122.8.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 07 Sep 2004 22:46:22 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 07 Sep 2004 14:23:00 +0100
+David Woodhouse <dwmw2@infradead.org> wrote:
 
-> Catalinux aka Dino BOIE <util@deuroconsult.ro> wrote:
-> > 
-> > Coverity found a bug in accessing xfrm4_policy_check using XFRM_POLICY_FWD 
-> > (=2) as index in sk->sk_policy.
-> > 
-> > sk->sk_policy[] is defined in sock.h as:
-> > 
-> > struct xfrm_policy *sk_policy[2];
-> > 
-> > Attached is the fix.
+> compat_sys_setsockopt() is a little overzealous about converting 32-bit
+> stuff into 64-bit. It should match on level _and_ optname, not just
+> optname. Currently it eats the IPV6_V6ONLY sockopt because its value
+> (26) happens to match SO_ATTACH_FILTER.
 > 
-> This is bogus as if the packet is forwarded then sk == NULL.
+> This makes it at least check 'level' for everything but
+> IPT_SO_SET_REPLACE == IPT6_SO_SET_REPLACE, because that does seem to be
+> the same in different levels. But do_netfilter_replace() is another can
+> of worms entirely -- it doesn't actually work either, because some
+> netfilter modules (like ipt_limit) include kernel-only bits which change
+> size in the structure they share with userspace. 
 
-Agreed.
+Thanks, applied.
+
+I know it's a pain in the ass, but could you cook up
+a 2.4.x version?  Thanks.
