@@ -1,34 +1,37 @@
-From: Pavel Machek <pavel@suse.cz>
-Subject: Re: ipw2100 wireless driver
-Date: Wed, 11 Aug 2004 22:27:04 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][IPSEC] IPsec policy can be matched by ICMP type and
+ code
+Date: Wed, 11 Aug 2004 13:30:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040811202704.GD1550@openzaurus.ucw.cz>
-References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <20040810113439.A15100@infradead.org> <20040811121735.GA31171@elf.ucw.cz> <411A5D3B.3010808@pobox.com>
+Message-ID: <20040811133043.455c81fa.davem@redhat.com>
+References: <20040810230144.2a68914b.davem@redhat.com>
+	<OF94FC19D3.2EA706DF-ON88256EED.006875F7-88256EED.006980E7@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Pavel Machek <pavel@ucw.cz>, Christoph Hellwig <hch@infradead.org>,
-        Jeff Chua <jeffchua@silk.corp.fedex.com>,
-        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
-        kernel list <linux-kernel@vger.kernel.org>,
-        Jouni Malinen <jkmaline@cc.hut.fi>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: nakam@linux-ipv6.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <411A5D3B.3010808@pobox.com>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF94FC19D3.2EA706DF-ON88256EED.006875F7-88256EED.006980E7@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
+On Wed, 11 Aug 2004 13:14:19 -0600
+David Stevens <dlstevens@us.ibm.com> wrote:
 
-> >Hmm, strange, one merge in last 8 weeks. That's not too active
-> >project. Are you sure this is the right tree to work against?
-> 
-> 
-> It's the right tree, but wireless development hasn't coalesced yet on 
-> that tree it appears.  It sounds like the Intel folks are interested 
-> in working on that tree, and others have mentioned they are 
-> interested as well.
+> raw sockets predate VJ contributions by many years and are
+> typically used by protocols not in the kernel. The original "ping"
+> used raw sockets, as well as routing protocols like BGP and RIP
+> which are directly encapsulated in IP, without a separate transport
+> protocol. The original traceroute I believe used UDP and just set
+> the TTL-- I don't believe it used raw sockets at all. Don't know what
+> the current versions do; haven't looked in a while.
 
-Is there way to access that tree without bk? Daily patches maybe?
--- 
-64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
+"ping" does not use the hdrinclude feature.
+
+> And IPv6 does support raw sockets; it just doesn't let you
+> generate bad checksums and some header fields, I expect
+> to make it harder to write attack software.
+
+So like I said, raw without the hdrinclude feature.
