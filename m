@@ -1,34 +1,46 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPCOMP] Exclude IPCOMP header from props.header_len
-Date: Tue, 6 Jul 2004 14:11:05 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040706141105.3b8920ba.davem@redhat.com>
-References: <20040706123127.GA18271@gondor.apana.org.au>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [Openswan dev] IPComp
+Date: Wed, 7 Jul 2004 07:31:35 +1000
+Sender: dev-bounces@lists.openswan.org
+Message-ID: <20040706213135.GA21477@gondor.apana.org.au>
+References: <20040703113732.GA22082@gondor.apana.org.au>
+	<Xine.LNX.4.44.0407061031090.22633-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: dev@lists.openswan.org
+Return-path: <dev-bounces@lists.openswan.org>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0407061031090.22633-100000@thoron.boston.redhat.com>
 Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040706123127.GA18271@gondor.apana.org.au>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Paul Wouters <paul@xelerance.com>
+List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
+List-Archive: <http://lists.openswan.org/pipermail/dev>
+List-Post: <mailto:dev@lists.openswan.org>
+List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
+List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.openswan.org?subject=subscribe>
+Errors-To: dev-bounces@lists.openswan.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jul 2004 22:31:27 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> This patch changes the value of props.header_len for IPCOMP to
-> exclude the IPCOMP header.  The reason is that the IPCOMP header
-> is added only if the packet is compressible.  That is, if the
-> size of the compressed payload plus the size of the IPCOMP header
-> is less than that of the original payload.
+On Tue, Jul 06, 2004 at 10:34:55AM -0400, James Morris wrote:
 > 
-> This means that the IPCOMP encapsulation does not impose any
-> overhead at all as far as the MTU is concerned.  The current
-> code incorrectly reduces the MTU by the size of the IPCOMP
-> header.
-> 
-> As a side-effect, this means that we don't have to move the
-> IP header around when IPCOMP is used.
+> It's only called when an SA is initialized.  This should not happen all 
+> the time, and if you can't find 64k for such an ooperation you have big 
+> problems.
 
-Very nice patch Herbert, applied.
+With most KMs the SAs are renegotiated periodically.  So as time
+goes on memory fragmentation will eventually cause this to fail.
+You also to consider IPsec gateways where there are hundreds or
+thousands of SAs.
+
+Maybe we can use a vmalloc instead? That seems to be what the
+deflate module does.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
