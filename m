@@ -1,56 +1,64 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 4/5] sis900 printk and stack usage audit
-Date: Sat, 11 Dec 2004 14:11:13 -0500
-Message-ID: <41BB4651.4040106@pobox.com>
-References: <20041208104721.GA31707@picchio.gall.it> <20041208110835.GE31707@picchio.gall.it>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: NetDev <netdev@oss.sgi.com>
+From: Jason Lunz <lunz@falooley.org>
+Subject: [patch] remove unused CONFIG_E100_NAPI
+Date: Sun, 12 Dec 2004 04:26:31 +0000 (UTC)
+Message-ID: <cpgh9m$7ls$1@sea.gmane.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniele Venzano <webvenza@libero.it>
-In-Reply-To: <20041208110835.GE31707@picchio.gall.it>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Daniele Venzano wrote:
-> @@ -952,7 +952,11 @@
->  	sis900_reset(net_dev);
->  
->  	/* Equalizer workaround Rule */
-> -	sis630_set_eq(net_dev, sis_priv->chipset_rev);
-> +	if (sis_priv->chipset_rev == SIS630E_900_REV ||
-> +			sis_priv->chipset_rev == SIS630EA1_900_REV ||
-> +			sis_priv->chipset_rev == SIS630A_900_REV ||
-> +			sis_priv->chipset_rev ==  SIS630ET_900_REV)
-> +		sis630_set_eq(net_dev);
->  
->  	ret = request_irq(net_dev->irq, &sis900_interrupt, SA_SHIRQ,
->  						net_dev->name, net_dev);
-> @@ -1141,16 +1145,12 @@
->   *	max >= 15      --> set equalizer to max+5 or set equalizer to max+6 if max == min
->   */
->  
-> -static void sis630_set_eq(struct net_device *net_dev, u8 revision)
-> +static void sis630_set_eq(struct net_device *net_dev)
->  {
->  	struct sis900_private *sis_priv = net_dev->priv;
->  	u16 reg14h, eq_value=0, max_value=0, min_value=0;
->  	int i, maxcount=10;
->  
-> -	if ( !(revision == SIS630E_900_REV || revision == SIS630EA1_900_REV ||
-> -	       revision == SIS630A_900_REV || revision ==  SIS630ET_900_REV) )
-> -		return;
-> -
->  	if (netif_carrier_ok(net_dev)) {
->  		reg14h = mdio_read(net_dev, sis_priv->cur_phy, MII_RESV);
->  		mdio_write(net_dev, sis_priv->cur_phy, MII_RESV,
+I have an old PII nfs media server running 2.6.10-rc3 with an intel
+e100. Its interrupt is shared with both controllers of an siimage PCI
+ide card:
 
+[dunbar](1) # cat /proc/interrupts
+           CPU0
+  0:   16835371          XT-PIC  timer
+  2:          0          XT-PIC  cascade
+  8:          4          XT-PIC  rtc
+ 10:         75          XT-PIC  uhci_hcd
+ 11:    1685559          XT-PIC  ide2, ide3, eth0
+ 15:          0          XT-PIC  ide1
+NMI:          0
+LOC:          0
+ERR:          0
 
-This is a step backwards.
+With the eepro100 driver, a single tcp stream goes wirespeed in either
+direction (11.2MB/s). With e100, the speed fluctuates wildly without
+ever exceeding 2.5MB/s or so, and it averages around 1.
 
-You are _adding_ multiple copies of the same piece of code, just to 
-avoid calling a function.
+I thought it might be due to an interaction of napi and the shared
+interrupt, so I tried disabling napi in the driver. Which was
+frustrating, because it's no longer optional, despite what Kconfig says.
 
-	Jeff
+Jason
+
+Signed-off-by: Jason Lunz <lunz@falooley.org>
+
+--- linux-2.6.10-rc3/drivers/net/Kconfig.pre	2004-12-11 23:11:49.000000000 -0500
++++ linux-2.6.10-rc3/drivers/net/Kconfig	2004-12-11 23:12:13.000000000 -0500
+@@ -1435,23 +1435,6 @@
+ 	  <file:Documentation/networking/net-modules.txt>.  The module
+ 	  will be called e100.
+ 
+-config E100_NAPI
+-	bool "Use Rx Polling (NAPI)"
+-	depends on E100
+-	help
+-	  NAPI is a new driver API designed to reduce CPU and interrupt load
+-	  when the driver is receiving lots of packets from the card. It is
+-	  still somewhat experimental and thus not yet enabled by default.
+-
+-	  If your estimated Rx load is 10kpps or more, or if the card will be
+-	  deployed on potentially unfriendly networks (e.g. in a firewall),
+-	  then say Y here.
+-
+-	  See <file:Documentation/networking/NAPI_HOWTO.txt> for more
+-	  information.
+-
+-	  If in doubt, say N.
+-
+ config LNE390
+ 	tristate "Mylex EISA LNE390A/B support (EXPERIMENTAL)"
+ 	depends on NET_PCI && EISA && EXPERIMENTAL
