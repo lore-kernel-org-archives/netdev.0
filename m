@@ -1,71 +1,56 @@
-From: "Joshua Schichtel" <joshua.schichtel@foonet.net>
-Subject: sis900 driver problem (redhat kernels)
-Date: Wed, 30 Jul 2003 17:44:44 -0700
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: [PATCH] 2.4.22-pre9-bk : bonding bug fixes
+Date: Thu, 31 Jul 2003 07:03:39 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <000a01c356fc$efb6ae60$6400a8c0@k6m1g2>
+Message-ID: <20030731050339.GA24641@alpha.home.local>
+References: <20030730164907.43b2d343.davem@redhat.com> <200307310022.h6V0MGjK012821@death.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="----=_NextPart_000_0007_01C356C2.42EB58F0"
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, Willy Tarreau <willy@w.ods.org>,
+   jgarzik@pobox.com, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+   bonding-devel@lists.sourceforge.net, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: Jay Vosburgh <fubar@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <200307310022.h6V0MGjK012821@death.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
+Hi Jay !
 
-------=_NextPart_000_0007_01C356C2.42EB58F0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+On Wed, Jul 30, 2003 at 05:22:15PM -0700, Jay Vosburgh wrote:
+ 
+> 	I've been looking at Willy's fixes, and the typo (first patch)
+> and locking fix (third patch) both look good to me.  The second patch
+> (the dead code warning) points out a real problem, in that the code in
+> question really has no function, but the patch probably doesn't go far
+> enough for a final solution (the variable that code would set,
+> arp_target_hw_addr, is referenced in other places, but ends up always
+> being NULL because the dead code is the only place it was ever set).
+> 
+> 	A more proper solution would be to simply delete the dead code
+> and the arp_target_hw_addr variable, and replace the variable
+> references with NULL.  This means that all of the ARP probes sent will
+> be sent out as broadcasts, which is what's already happening, this
+> just makes the code clearer.  Patch follows (which replaces Willy's
+> second patch).
+> 
+> 	Does this sound reasonable to everybody?
 
-We have several machines with on board sis900 nic.   Under heavy =
-utilization it just quits working.. no traffic passes at all.
-To fix it we have to do service network restart (redhat) and it works or =
-ifconfig eth0 down and up works.
-We tried several redhat 8 kernels 2.4.18, 2.4.20 with various patch =
-levels and all have the same problem. =20
-Haven't tried 2.4.21 yet but i looked at the source and there isn't   =
-any significant changes=20
-this is reproducable so i'd be happy to test any patches :-)
-If you need any information from the machines themselves let me know and =
-i will reply back.
+Perfectly reasonable to me. My patch was not intended to fix it but to allow
+anybody to comment on this code, which would not have been possible if I removed
+it myself ;-)
 
--Joshua Schichtel joshua.schichtel@foonet.net
-Creative Internet Techniques
-------=_NextPart_000_0007_01C356C2.42EB58F0
-Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+IMHO, ARP probes should always be sent with broadcast addresses. We could
+think about switching to unicast when we get a reply, but we must switch back
+to broadcast as soon as we lose a target. This would complexify the magic which
+is not absolutely necessary here.
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<HTML><HEAD>
-<META http-equiv=3DContent-Type content=3D"text/html; =
-charset=3Diso-8859-1">
-<META content=3D"MSHTML 6.00.2800.1170" name=3DGENERATOR>
-<STYLE></STYLE>
-</HEAD>
-<BODY bgColor=3D#ffffff>
-<DIV><FONT face=3DArial size=3D2>We have several machines with on board =
-sis900=20
-nic.&nbsp;&nbsp; Under heavy utilization it just quits working.. no =
-traffic=20
-passes at all.<BR>To fix it we have to do service network restart =
-(redhat) and=20
-it works or ifconfig eth0 down and up works.<BR>We tried several redhat =
-8=20
-kernels 2.4.18, 2.4.20 with various patch levels and all have the same=20
-problem.&nbsp; <BR>Haven't tried 2.4.21 yet but i looked at the source =
-and there=20
-isn't&nbsp;&nbsp; any significant changes <BR>this is reproducable so =
-i'd be=20
-happy to test any patches :-)<BR>If you need any information from the =
-machines=20
-themselves let me know and i will reply back.</FONT></DIV>
-<DIV><FONT face=3DArial size=3D2></FONT>&nbsp;</DIV>
-<DIV><FONT face=3DArial size=3D2>-Joshua Schichtel <A=20
-href=3D"mailto:joshua.schichtel@foonet.net">joshua.schichtel@foonet.net</=
-A></FONT></DIV>
-<DIV><FONT face=3DArial size=3D2>Creative Internet=20
-Techniques</FONT></DIV></BODY></HTML>
+I might send other fix propositions later (2.4.23-pre) for the ARP behaviour
+(better IP source address selection, etc...) because I don't like it very much
+when drivers try to find their information themselves and stick to it for all
+their life (eg: my_ip). I'd like to dynamically lookup the valid source IP at
+each probe (which is not *that* frequent in fact).
 
-------=_NextPart_000_0007_01C356C2.42EB58F0--
+Cheers,
+Willy
