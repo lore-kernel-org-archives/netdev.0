@@ -1,17 +1,19 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [Prism54] CVS -> bk tree update
-Date: Tue, 15 Jun 2004 22:20:08 -0400
+Date: Tue, 15 Jun 2004 23:10:28 -0400
 Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040616022008.GM6253@ruslug.rutgers.edu>
+Message-ID: <40CFBA24.7030307@pobox.com>
 References: <20040614191651.GC6253@ruslug.rutgers.edu>
 	<40CE2754.1020109@pobox.com>
+	<20040616022008.GM6253@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============0009971235=="
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
 	Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
 Return-path: <prism54-devel-bounces@prism54.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <40CE2754.1020109@pobox.com>
+To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+In-Reply-To: <20040616022008.GM6253@ruslug.rutgers.edu>
 List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
 List-Archive: <http://prism54.org/pipermail/prism54-devel>
@@ -19,77 +21,33 @@ List-Post: <mailto:prism54-devel@prism54.org>
 List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
 List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
 Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
+Luis R. Rodriguez wrote:
+> Thanks Jeff. I did, and a diff of Andrew's -mm tree Vs our cvs tree
+> 2.6.7-prism54 gives a 1898 line diff. This is excluding spaces,
+> newlines, and tabbing and all of Andew's .orig, .rej's. 
+> 
+> This time it's going to be a *real* pain to provide a changelog and split the
+> diffs.. so can I just send you that 1898 line diff and then another for
+> space changes? Everything has already been reviewed on the lists here...
+> 
+> I promise this will be our last big patch too. I'll ask our team
+> to send patches from now on to netdev after each ChangeLog entry, for
+> more public review and to not loose sync of our trees. Let us know if
+> you think we should do otherwise.
 
---===============0009971235==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="at6+YcpfzWZg/htY"
-Content-Disposition: inline
 
+Sorry, no.  You knew that split-up patches would be needed, once the 
+initial driver merge is complete (which was complete before the most 
+recent series of 17 patches).
 
---at6+YcpfzWZg/htY
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+This is one of the big downsides to developing in CVS, and it bites 
+people again and again.
 
-On Mon, Jun 14, 2004 at 06:31:48PM -0400, Jeff Garzik wrote:
-> Luis R. Rodriguez wrote:
-> >Hey Jeff,
-> >
-> >was wondering what the status of the latest prism54 patches is. Did all
-> >go through cleanly, are we in-sync now? Are there patches you're still
-> >reviewing?
->=20
->=20
-> Check Andrew's -mm tree and see if there's anything missing.
->=20
-> 	Jeff
+Linux kernel development relies on split-up patches for review, testing, 
+  and narrowing down which patch in a series introduced a bug.  There 
+are real, engineering-related reasons we do things this way.
 
-Thanks Jeff. I did, and a diff of Andrew's -mm tree Vs our cvs tree
-2.6.7-prism54 gives a 1898 line diff. This is excluding spaces,
-newlines, and tabbing and all of Andew's .orig, .rej's.=20
-
-This time it's going to be a *real* pain to provide a changelog and split t=
-he
-diffs.. so can I just send you that 1898 line diff and then another for
-space changes? Everything has already been reviewed on the lists here...
-
-I promise this will be our last big patch too. I'll ask our team
-to send patches from now on to netdev after each ChangeLog entry, for
-more public review and to not loose sync of our trees. Let us know if
-you think we should do otherwise.
-
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---at6+YcpfzWZg/htY
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAz65Yat1JN+IKUl4RAsYhAJ9UkRve/oHwmnpoyNEytlqrRbm4CwCgo289
-0z2OySyPiczVe6y+IIE01Yg=
-=j48N
------END PGP SIGNATURE-----
-
---at6+YcpfzWZg/htY--
-
---===============0009971235==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============0009971235==--
+	Jeff
