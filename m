@@ -1,72 +1,31 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: [Prism54-devel] Re: [PATCH/RFC] set_rates support for prism54
-Date: Sun, 15 Aug 2004 21:41:31 +0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408152141.48877.vkondra@mail.ru>
-References: <5.1.0.14.2.20040815145122.00afd708@pop.t-online.de> <200408151949.01351.vkondra@mail.ru> <200408152012.18018.vda@port.imtp.ilyichevsk.odessa.ua>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: kernel-2.6.8.1 EIP is at velocity_netdev_event+0x16/0x50
+Date: Sun, 15 Aug 2004 20:49:38 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040815184937.GA9105@electric-eye.fr.zoreil.com>
+References: <20040815095814.GA32195@trot.local> <20040815110625.GA2829@electric-eye.fr.zoreil.com> <20040815155457.GB32195@trot.local>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart13660570.kJMNPqysdf";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
-Content-Transfer-Encoding: 7bit
-Cc: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-        Margit Schubert-While <margitsw@t-online.de>,
-        prism54-devel@prism54.org, mcgrof@studorgs.rutgers.edu,
-        jgarzik@pobox.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200408152012.18018.vda@port.imtp.ilyichevsk.odessa.ua>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S264791AbUHOSxZ@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+	alan@lxorguk.ukuu.org.uk
+Content-Disposition: inline
+In-Reply-To: <20040815155457.GB32195@trot.local>
 List-Id: netdev.vger.kernel.org
 
---nextPart13660570.kJMNPqysdf
-Content-Type: text/plain;
-  charset="windows-1251"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+George Georgalis <george@galis.org> :
+[...]
+> ...that patch doesn't build
+> 
+>   26674 Aug 15 06:51 ../20040815-2.6.8-via-velocity-test.patch
 
-DV> > For supported and optional rate, IE (info element) format may be the
- best DV> > choice.
-DV>
-DV> I did not quite understand you, can you elaborate a bit?
+The patch has been updated. Same location.
 
-How card know what rates it can use? It parses "supported rates" IE (info=20
-element) from beacon it gets from AP. My point, it is reasonable to use the=
-=20
-same language to specify further restrictions. This way, we will speak the=
-=20
-same language as standard do.
+[...]
+> Also note, I don't actually have one of these devices to test, I only
+> included it in case I come across one.
 
-In standard, there is no way to say "you can use PBCC, but not for rate 5.5=
-".=20
-PBCC is either permitted or not. For "good" hardware, there is no point of=
-=20
-doing this. You may need to artificially restrict rate/modulation only if=20
-hardware can't find best for current channel conditions, or, of course, for=
-=20
-debug. But, I would say, for this cases, let's use debug hooks. Mainline=20
-should be as close to standard as possible.
+Nobody's perfect.
 
-It should be as generic as possible, also. Scheme you suggested is not very=
-=20
-scalable. Think of TGn that would for sure add its tricks with modulation. =
-If=20
-we start combining rate with modulation, we will shortly fall into too many=
-=20
-options.
-
-Does it clarify my point?
-
---nextPart13660570.kJMNPqysdf
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQBBH65sqxdj7mhC6o0RAi2oAJ0SUm8JiqR9pAAO0eZKM0+5UfHysQCfW+P1
-nDQusW70c6m3S80KD2O6RUU=
-=/shC
------END PGP SIGNATURE-----
-
---nextPart13660570.kJMNPqysdf--
+--
+Ueimor
