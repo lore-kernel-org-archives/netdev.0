@@ -1,73 +1,25 @@
-From: cranium2003 <cranium2003@yahoo.com>
-Subject: analysing ip_rcv code problems
-Date: Fri, 10 Dec 2004 01:55:57 -0800 (PST)
-Message-ID: <20041210095557.68648.qmail@web41407.mail.yahoo.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH] PKT_SCHED: Prevent destroying via RTM_DELTFILTER while classifying
+Date: Fri, 10 Dec 2004 13:29:57 +0100
+Message-ID: <20041210122957.GU1371@postel.suug.ch>
+References: <20041210014322.GS1371@postel.suug.ch> <41B9050A.1060401@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: net dev <netdev@oss.sgi.com>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <41B9050A.1060401@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello,
-                I know that in kernel 2.4 series,
-function used to receive IP packets is ip_rcv. But i
-am not getting where exactly IP header is removed that
-is following lines from function ip_rcv can be used to
-remove IP header                                      
-                                                      
-                                                      
-                                                      
-                                                      
-                                                      
-                                                      
-                              if (!pskb_may_pull(skb,
-sizeof(struct iphdr)))                                
-                                                    
-goto inhdr_error;                                     
-                                                      
-      iph = skb->nh.iph;                              
-                                                      
-                                                      
-                                                      
-                          ...                         
-                                                      
-                                        ...           
-                                                      
-                                                     
-...                                                   
-                                                      
-              ...                                     
-                                                      
-                                             and also
-following lines from same kernel is used to remove
-header as IP
-header length is 20 bytes then which function actually
-does IP header removal.                               
-                      if (!pskb_may_pull(skb,
-iph->ihl*4))                                          
-                                                    
-goto inhdr_error;                                     
-                                                      
-                                                      
-                                                      
-                    iph = skb->nh.iph;                
-                                                      
-                                                      
-                                                      
-                                                      
-Also why iph = skb->nh.iph statement is used twice in
-function code ip_rcv.                                 
-                                                      
-                                                      
-              regards,                                
-                                                      
-                            cranium.
+> >The second path needs the spinlock to avoid destroying while
+> >a classification is in progress. 2.4 probably needs the same fix,
+> >I will cook one up if so.
+> > 
+> >
+> This is not correct. The classifier is unlinked in tc_ctl_tfilter
+> before it is destroyed, so it is not visible for classification anymore.
 
-
-		
-__________________________________ 
-Do you Yahoo!? 
-Send holiday email and support a worthy cause. Do good. 
-http://celebrity.mail.yahoo.com
+You're right. Thanks.
