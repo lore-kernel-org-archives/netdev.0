@@ -1,41 +1,34 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: rtnetlink interface state monitoring problems.
-Date: Tue, 22 Oct 2002 23:17:13 -0400 (EDT)
+Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
+Date: Tue, 22 Oct 2002 23:21:08 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210222313050.24323-100000@shell.cyberus.ca>
-References: <200210230144.g9N1iDx11822@www.hockin.org>
+Message-ID: <Pine.GSO.4.30.0210222317210.24323-100000@shell.cyberus.ca>
+References: <3DB60B4E.1090004@candelatech.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: David Woodhouse <dwmw2@infradead.org>, <linux-kernel@vger.kernel.org>,
-   <netdev@oss.sgi.com>
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tim Hockin <thockin@hockin.org>
-In-Reply-To: <200210230144.g9N1iDx11822@www.hockin.org>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3DB60B4E.1090004@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-On Tue, 22 Oct 2002, Tim Hockin wrote:
+On Tue, 22 Oct 2002, Ben Greear wrote:
 
-> > If not, it probably time for someone to write a generic notification
-> > scheme via netlink.
+> Think we should add an IOCTL to change the weight of a device
+> dynamically?  (I want my e1000 and tg3 to have higher weight than
+> the tulip nics, I imagine)
 >
-> How generic?  I need to pay some attention to cleaning up the next version
-> of the link-changes via netlink patch that was discussed last week or the
-> week before.
-
-The patch posted by Stefan seems good to me and ready to merge.
-
->
-> What kind of generic are you thinking about? :)
+> Is there a ready-built proc interface to do things to individual devices?
 >
 
-netlink is a messaging system; so what i am thinking is creating
-a event notifier for other devices other than network devices.
-Something other non-network devices could use (eg bluetooth).
-Given that netlink packetizes the data, this facilitates a distributed
-control type of environment.
+tulip hardcodes it; net/core/dev.c::weight_p is supposed to be the general
+one and is proc settable via NET_CORE_DEV_WEIGHT; only problem is that
+is not shadowed by the devices.
+I am not sure if ioctls or module parameters are the best way to override
+the default weight_p value. Somehow we need something to set this value.
 
 cheers,
 jamal
