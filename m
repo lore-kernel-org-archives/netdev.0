@@ -1,100 +1,62 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RTNETLINK] Provide real oif
-Date: Wed, 03 Dec 2003 21:35:03 +1100
+From: Prasanna S Panchamukhi <prasanna@in.ibm.com>
+Subject: [1/4]pollcontroller patch for 2.6.0-test10-bk25-netdrvr-exp1
+Date: Wed, 3 Dec 2003 19:22:16 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1ARULX-0000Ny-00@gondolin.me.apana.org.au>
-References: <1070410097.1038.27.camel@jzny.localdomain>
+Message-ID: <20031203135216.GA13465@in.ibm.com>
+Reply-To: prasanna@in.ibm.com
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: mpm@selenic.com, suparna@in.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca, netdev@oss.sgi.com
-In-Reply-To: <1070410097.1038.27.camel@jzny.localdomain>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal <hadi@cyberus.ca> wrote:
->> 
->> Without the real oif you will see entries like this in the output of
->> ip r l c:
->> 
->> 192.168.0.7 dev eth0  src 192.168.0.6
->>     cache  mtu 1500 advmss 1460 metric10 64
->> 192.168.0.7 dev eth0  src 192.168.0.6
->>     cache  mtu 1500 advmss 1460 metric10 64
->> 
->> One of those has oif == 0 while the other one has oif == eth0.
->> 
-> 
-> They both seem to have an oif of eth0, no? 
+Hi Jeff,
 
-They both have an RTA_OIF of eth0.  But RTA_OIF != rt->fl.oif.  In fact,
-RTA_OIF is the value of rt->u.dst.dev.
+Below is the pollcontroller patch for e100. 
+This patch can be applied over 2.6.0-test9-bk25-netdrvr-exp1.patch
 
-Perhaps a program would be easier to understand.  Run the attached program
-with the arguments x.x.x.x eth0, assuming that x.x.x.x is routed via
-eth0 on your system.  You should then see the apparent duplicate entries
-in your routing cache.
-
-Cheers,
+diff -urNp linux.orig/drivers/net/e100/e100_main.c linux-2.6.0-test10/drivers/net/e100/e100_main.c
+--- linux.orig/drivers/net/e100/e100_main.c	2003-11-26 03:57:38.000000000 +0530
++++ linux-2.6.0-test10/drivers/net/e100/e100_main.c	2003-11-26 03:59:15.554978648 +0530
+@@ -544,6 +544,22 @@ e100_trigger_SWI(struct e100_private *bd
+ 	readw(&(bdp->scb->scb_status));	/* flushes last write, read-safe */
+ }
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++
++/*
++ * Polling 'interrupt' - used by things like netconsole to send skbs
++ * without having to re-enable interrupts. It's not called while
++ * the interrupt routine is executing.
++ */
++static void
++e100_poll(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	e100intr(dev->irq, dev, NULL);
++	enable_irq(dev->irq);
++}
++#endif
++
+ static int __devinit
+ e100_found1(struct pci_dev *pcid, const struct pci_device_id *ent)
+ {
+@@ -562,6 +578,9 @@ e100_found1(struct pci_dev *pcid, const 
+ 
+ 	SET_MODULE_OWNER(dev);
+ 
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = &e100_poll;
++#endif
+ 	if (first_time) {
+ 		first_time = false;
+         	printk(KERN_NOTICE "%s - version %s\n",
 -- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-#include <unistd.h>
-#include <sys/types.h>
-#include <sys/socket.h>
-#include <sys/ioctl.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
-#include <net/if.h>
-#include <string.h>
-
-int main(int argc, char **argv)
-{
-	struct sockaddr_in addr;
-	int s;
-	char msg = 0;
-	int true = 1;
-	struct {
-		struct cmsghdr hdr;
-		struct in_pktinfo pktinfo;
-	} ctrl;
-	struct ifreq req;
-	struct msghdr hdr;
-	struct iovec iov;
-
-	if (argc < 3)
-		return 1;
-
-	addr.sin_family = AF_INET;
-	inet_aton(argv[1], &addr.sin_addr);
-	addr.sin_port = ntohs(30000);
-
-	memset(&ctrl.pktinfo, 0, sizeof(ctrl.pktinfo));
-	ctrl.hdr.cmsg_len = sizeof(ctrl);
-	ctrl.hdr.cmsg_level = SOL_IP;
-	ctrl.hdr.cmsg_type = IP_PKTINFO;
-
-	strcpy(req.ifr_name, argv[2]);
-
-	iov.iov_base = &msg;
-	iov.iov_len = 1;
-
-	hdr.msg_name = &addr;
-	hdr.msg_namelen = sizeof(addr);
-	hdr.msg_iov = &iov;
-	hdr.msg_iovlen = 1;
-	hdr.msg_control = &ctrl;
-	hdr.msg_controllen = sizeof(ctrl);
-	hdr.msg_flags = 0;
-
-	s = socket(AF_INET, SOCK_DGRAM, 0);
-	setsockopt(s, SOL_IP, IP_PKTINFO, &true, sizeof(true));
-
-	ioctl(s, SIOCGIFINDEX, &req);
-	ctrl.pktinfo.ipi_ifindex = req.ifr_ifindex;
-
-	sendto(s, &msg, 1, 0, (struct sockaddr *)&addr, sizeof(addr));
-	sendmsg(s, &hdr, 0);
-	return 0;
-}
+Thanks & Regards
+Prasanna S Panchamukhi
+Linux Technology Center
+India Software Labs, IBM Bangalore
+Ph: 91-80-5044632
