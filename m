@@ -1,67 +1,93 @@
-From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: Re: 2.6.x wireless update and status
-Date: Tue, 22 Mar 2005 21:52:43 -0800
-Message-ID: <20050323055243.GU8648@jm.kir.nu>
-References: <4240CA69.9020902@pobox.com>
+From: "Dale Farnsworth" <dale@farnsworth.org>
+Subject: Re: [PATCH: 2.6.12-rc1] mii: Add test for GigE support
+Date: Tue, 22 Mar 2005 23:14:46 -0700
+Message-ID: <20050323061446.GA6943@xyzzy>
+References: <20050322231746.GA27770@xyzzy> <4240A9F3.5040704@pobox.com> <212e5bf54766a68d2ab8716574225203@freescale.com> <4240CABB.5090701@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	James Ketrenos <jketreno@linux.intel.com>,
-	"Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	"David S. Miller" <davem@davemloft.net>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>
 Content-Disposition: inline
-In-Reply-To: <4240CA69.9020902@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+In-Reply-To: <4240CABB.5090701@pobox.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 22, 2005 at 08:46:17PM -0500, Jeff Garzik wrote:
 
-> Just updated the wireless-2.6 queue to include a HostAP update, and to 
-> add Wireless Extensions 18 (WPA).  See attached for BK info, patch info, 
-> and changelog.
+Signed-off-by: Dale Farnsworth <dale@farnsworth.org>
 
-Thanks!
-
-> Moving forward, the next "todo" for kernel wireless hackers is to get 
-> ieee80211 common code lib into shape, namely:
-> * Merge Intel ipw drivers, which use ieee80211
-> * Update HostAP to use ieee80211
-> * Merge/convert other drivers to use ieee80211?
-
-I'll be working on HostAP driver next; and ieee80211 code of course at
-the same time, since it is likely to need some changes for this. As far
-as other drivers are concerned, I'd like to see Atheros cards working
-with the generic ieee80211 code. They would be a good test target since
-they are an example of design where very large part of functionality is
-in the driver/network stack (no firmware used). This would be a good
-test to verify that the 802.11 code is generic enough for such a design.
-
-> There is one minor point of contention so far.  Jouni stated he prefers 
-> that HostAP go upstream before it gets updated to use ieee80211.  I 
-> respectfully disagree, and prefer that HostAP is updated -first- to use 
-> the ieee80211 lib, before going upstream.
-
-I think we can resolve this quite easily. The main reason for the other
-order was in trying to save my time by not having to work in more than
-one active development tree at the same time. This is kind of required
-since designing and maintaining an IEEE 802.11 stack would really be a
-full-time job and unfortunately, I have not yet managed to reach this
-goal in a way that would allow me to use all my time on open source
-development.
-
-BK did not really work that well for me, but it looks like I'm having
-better luck with quilt as far as the amount of time needed for
-organizing changes to wireless-2.6 is concerned. In addition, the total
-number of changes to the driver code has been quite small lately, so I'm
-beginning to be more open to moving all future development into
-wireless-2.6 tree and just keeping my current CVS repository as a
-backwards compatible (2.2/2.4/2.6 kernels), stable version that wouldn't
-get any more new features. This would allow the order that you prefer.
-In addition, if someone really wants to get the new features I may be
-adding, these should be available through wireless-2.6 tree (and -mm for
-that matter).
-
--- 
-Jouni Malinen                                            PGP id EFC895FA
+Index: linux-2.5-enet/drivers/net/mii.c
+===================================================================
+--- linux-2.5-enet.orig/drivers/net/mii.c
++++ linux-2.5-enet/drivers/net/mii.c
+@@ -207,6 +207,21 @@
+ 	return 0;
+ }
+ 
++int mii_check_gmii_support(struct mii_if_info *mii)
++{
++	int reg;
++
++	reg = mii->mdio_read(mii->dev, mii->phy_id, MII_BMSR);
++	if (reg & BMSR_HAS_EXTSTAT1000) {
++		reg = mii->mdio_read(mii->dev, mii->phy_id, MII_EXTSTAT1000);
++		if (reg & (ESR_1000_BASE_X_FD | ESR_1000_BASE_T_FD |
++			   ESR_1000_BASE_X_HD | ESR_1000_BASE_T_HD))
++			return 1;
++	}
++
++	return 0;
++}
++
+ int mii_link_ok (struct mii_if_info *mii)
+ {
+ 	/* first, a dummy read, needed to latch some MII phys */
+@@ -394,5 +409,6 @@
+ EXPORT_SYMBOL(mii_ethtool_sset);
+ EXPORT_SYMBOL(mii_check_link);
+ EXPORT_SYMBOL(mii_check_media);
++EXPORT_SYMBOL(mii_check_gmii_support);
+ EXPORT_SYMBOL(generic_mii_ioctl);
+ 
+Index: linux-2.5-enet/include/linux/mii.h
+===================================================================
+--- linux-2.5-enet.orig/include/linux/mii.h
++++ linux-2.5-enet/include/linux/mii.h
+@@ -22,6 +22,7 @@
+ #define MII_EXPANSION       0x06        /* Expansion register          */
+ #define MII_CTRL1000        0x09        /* 1000BASE-T control          */
+ #define MII_STAT1000        0x0a        /* 1000BASE-T status           */
++#define MII_EXTSTAT1000     0x0f	/* 1000BASE-XX extended status */
+ #define MII_DCOUNTER        0x12        /* Disconnect counter          */
+ #define MII_FCSCOUNTER      0x13        /* False carrier counter       */
+ #define MII_NWAYTEST        0x14        /* N-way auto-neg test reg     */
+@@ -54,7 +55,8 @@
+ #define BMSR_ANEGCAPABLE        0x0008  /* Able to do auto-negotiation */
+ #define BMSR_RFAULT             0x0010  /* Remote fault detected       */
+ #define BMSR_ANEGCOMPLETE       0x0020  /* Auto-negotiation complete   */
+-#define BMSR_RESV               0x07c0  /* Unused...                   */
++#define BMSR_HAS_EXTSTAT1000    0x0100  /* Has 1000BASE extended status*/
++#define BMSR_RESV               0x06c0  /* Unused...                   */
+ #define BMSR_10HALF             0x0800  /* Can do 10mbps, half-duplex  */
+ #define BMSR_10FULL             0x1000  /* Can do 10mbps, full-duplex  */
+ #define BMSR_100HALF            0x2000  /* Can do 100mbps, half-duplex */
+@@ -121,6 +123,12 @@
+ #define LPA_1000FULL            0x0800  /* Link partner 1000BASE-T full duplex */
+ #define LPA_1000HALF            0x0400  /* Link partner 1000BASE-T half duplex */
+ 
++/* 1000BASE Ext Status register */
++#define ESR_1000_BASE_X_FD      0x8000
++#define ESR_1000_BASE_X_HD      0x4000
++#define ESR_1000_BASE_T_FD      0x2000
++#define ESR_1000_BASE_T_HD      0x1000
++
+ struct mii_if_info {
+ 	int phy_id;
+ 	int advertising;
+@@ -143,6 +151,7 @@
+ extern int mii_nway_restart (struct mii_if_info *mii);
+ extern int mii_ethtool_gset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
+ extern int mii_ethtool_sset(struct mii_if_info *mii, struct ethtool_cmd *ecmd);
++extern int mii_check_gmii_support(struct mii_if_info *mii);
+ extern void mii_check_link (struct mii_if_info *mii);
+ extern unsigned int mii_check_media (struct mii_if_info *mii,
+ 				     unsigned int ok_to_print,
