@@ -1,55 +1,66 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: [RFC] High Performance Packet Classifiction for tc framework
-Date: Fri, 15 Aug 2003 15:28:13 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] network device renaming sysfs fix
+Date: Fri, 15 Aug 2003 09:37:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030815142813.GB16560@mail.jlokier.co.uk>
-References: <3F16A0E5.1080007@hipac.org> <1059934468.1103.41.camel@jzny.localdomain> <3F2E5CD6.4030500@hipac.org> <1060012260.1103.380.camel@jzny.localdomain> <3F302E04.1090503@hipac.org> <1060286331.1025.73.camel@jzny.localdomain> <3F381B3E.6080807@hipac.org> <20030811224050.59bc36fe.davem@redhat.com> <20030812142913.GB18802@mail.jlokier.co.uk> <3F390A23.3050409@hipac.org>
+Message-ID: <20030815093724.519779e6.shemminger@osdl.org>
+References: <20030815111514.GA5228@callisto.yi.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, hadi@cyberus.ca,
-   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Linux Net-Dev <netdev@oss.sgi.com>, Mark Huth <mhuth@mvista.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Bellion and Thomas Heinz <nf@hipac.org>
-Content-Disposition: inline
-In-Reply-To: <3F390A23.3050409@hipac.org>
+To: Dan Aloni <da-x@gmx.net>, "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030815111514.GA5228@callisto.yi.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Bellion and Thomas Heinz wrote:
-> >This generalises to multiple dimensions e.g. for doing multiple
-> >prefixes on source+target + different combinations of other bits such
-> >as protocol, TOS etc. - i.e. arbitrary bit-subset classifiers.  The
-> >basic principle and the algorithm are the same.
+On Fri, 15 Aug 2003 14:15:14 +0300
+Dan Aloni <da-x@gmx.net> wrote:
+
+> (repost, now will hopefully reach the mailing list)
 > 
-> Hm, how do you want to solve the d-dimensional PCP by
-> doing binary search for each dimension? Remember that
-> PCP is not related to longest prefix matching. Instead
-> priorities are used.
+> I believe this is a better approach for fixing the sysfs renaming
+> discrepancy. Later I'll also look into fixing the same issue 
+> with sysctl.
+> 
 
-I don't know what you mean by "PCP", so can't answer the question.
+Yes, this is a better fix because it won't break when unregister and free are split
+into seperate steps (coming soon).
 
-> Maybe you should describe in little more detail what you mean
-> by "This generalises to multiple dimensions ...".
+But, do we really need the debug message?  
+Why return an error if you already committed the change? If you get an error,
+then don't rename the network device.
 
-I mean that the lookup algorithm works for multi-dimensional searches.
-Creating the search tree can be a little more involved, and I am not
-sure how much (if any) node duplication is needed when some kinds of
-rule priorities are used.
+The class_dev kobject name is 20 chars and IFNAMSIZ is 16, so the solution
+needs to truncate if new_name is not null terminated (all 16 chars long).
 
-It may help to say that you don't have to do binary search for each
-dimension separately, although that is a possible strategy for prefix
-matching.
+This seems like the best approach:
 
-You can build a tree where each node represents a point (a,b,c...) in
-prefix-length space, and whose children are other points in that
-space, if you choose to see the general problem as matching multiple
-prefixes.
-
-At one extreme, a general bit matcher (i.e. no non-power-of-2
-numerical ranges) can be treated as a multi-dimensional prefix match
-where each prefix is length 0 or 1.  You see that, if the input rule
-set is _equivalent_ to a longest-prefix single-dimensional rule set,
-the optimal multi-dimensional search tree is trivally found and it
-does not do binary search on each dimension separately.
-
--- Jamie
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Fri Aug 15 09:34:11 2003
++++ b/net/core/dev.c	Fri Aug 15 09:34:11 2003
+@@ -2343,14 +2343,18 @@
+ 		case SIOCSIFNAME:
+ 			if (dev->flags & IFF_UP)
+ 				return -EBUSY;
++			ifr->ifr_newname[IFNAMSIZ-1] = '\0';
+ 			if (__dev_get_by_name(ifr->ifr_newname))
+ 				return -EEXIST;
+-			memcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
+-			dev->name[IFNAMSIZ - 1] = 0;
+-			strlcpy(dev->class_dev.class_id, dev->name, BUS_ID_SIZE);
+-			notifier_call_chain(&netdev_chain,
+-					    NETDEV_CHANGENAME, dev);
+-			return 0;
++			err = class_device_rename(&dev->class_dev, 
++						  ifr->ifr_newname);
++			if (!err) {
++				strlcpy(dev->name, ifr->ifr_newname, IFNAMSIZ);
++
++				notifier_call_chain(&netdev_chain,
++						    NETDEV_CHANGENAME, dev);
++			}
++			return err;
+ 
+ 		/*
+ 		 *	Unknown or private ioctl
