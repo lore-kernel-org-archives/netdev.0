@@ -1,127 +1,43 @@
-From: ÁøÈñ<bamex@chol.com>
-Subject: =?ISO-8859-1?Q?(=BC=BA=C0=CE=B1=A4=B0=ED)=209,900=BF=F8=C0=CC=B8=E9?=
-	=?ISO-8859-1?Q?=BC=F6=B8=B9=C0=BA=20=BE=D6=B7=CE=20=BF=B5=C8=AD=B8=A6?=
-	=?ISO-8859-1?Q?=B4=D9=20=BA=BB=B4=D9?=
-Date: Thu, 24 Oct 2002 05:32:02 +0900
+From: 7979 <7979@4videostudy.co.kr>
+Subject: =?ISO-8859-1?Q?[=BC=BA=C0=CE=B1=A4=B0=ED]id:samsam?=  =?ISO-8859-1?Q?=BA=F1=B9=D0=B9=F8=C8=A3:56328?=   =?ISO-8859-1?Q?(=C0=FD=B4=EB=20=BC=BA=C0=CE=B8=B8=20=C5=AC=B8=AF)?=
+Date: Thu, 24 Oct 2002 06:13:39 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210232032.g9NKWOuR004810@oss.sgi.com>
-Reply-To: bamex@chol.com
+Message-ID: <200210232113.g9NLDBuR007951@oss.sgi.com>
+Reply-To: 7979@4videostudy.co.kr
 Mime-Version: 1.0
 Content-Type: text/html; charset="ks_c_5601-1987"
-Content-Transfer-Encoding: quoted-printable
+Content-Transfer-Encoding: base64
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
-<head>
-<title>=B9=AB=C1=A6 =B9=AE=BC=AD</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr"=
->
-<script language=3D"JavaScript">
-<!--
-function MM_swapImgRestore() { //v3.0
-var i,x,a=3Ddocument.MM_sr; for(i=3D0;a&&i<a.length&&(x=3Da[i])&&x.oSrc;i=
-++) x.src=3Dx.oSrc;
-}
-function MM_preloadImages() { //v3.0
-var d=3Ddocument; if(d.images){ if(!d.MM_p) d.MM_p=3Dnew Array();
-var i,j=3Dd.MM_p.length,a=3DMM_preloadImages.arguments; for(i=3D0; i<a.le=
-ngth; i++)
-if (a[i].indexOf("#")!=3D0){ d.MM_p[j]=3Dnew Image; d.MM_p[j++].src=3Da[i=
-];}}
-}
-function MM_findObj(n, d) { //v4.01
-var p,i,x;  if(!d) d=3Ddocument; if((p=3Dn.indexOf("?"))>0&&parent.frames=
-.length) {
-d=3Dparent.frames[n.substring(p+1)].document; n=3Dn.substring(0,p);}
-if(!(x=3Dd[n])&&d.all) x=3Dd.all[n]; for (i=3D0;!x&&i<d.forms.length;i++)=
- x=3Dd.forms[i][n];
-for(i=3D0;!x&&d.layers&&i<d.layers.length;i++) x=3DMM_findObj(n,d.layers[=
-i].document);
-if(!x && d.getElementById) x=3Dd.getElementById(n); return x;
-}
-function MM_swapImage() { //v3.0
-var i,j=3D0,x,a=3DMM_swapImage.arguments; document.MM_sr=3Dnew Array; for=
-(i=3D0;i<(a.length-2);i+=3D3)
-if ((x=3DMM_findObj(a[i]))!=3Dnull){document.MM_sr[j++]=3Dx; if(!x.oSrc) =
-x.oSrc=3Dx.src; x.src=3Da[i+2];}
-}
-//-->
-</script>
-</head>
-<body bgcolor=3D"#FFFFFF" text=3D"#000000" onLoad=3D"MM_preloadImages('ht=
-tp://www.bamesex.com/mail/image/bamesex02_05_b.gif','http://www.bamesex.c=
-om/mail/image/bamesex02_06_b.gif')">
-<table width=3D"651" border=3D"0" cellspacing=3D"3" cellpadding=3D"0" bgc=
-olor=3D"#FFE67D" align=3D"center">
-<tr>
-<td align=3D"center" bgcolor=3D"#FFFFFF">
-<table width=3D"651" cellpadding=3D"0" cellspacing=3D"0">
-<tr>
-<td bgcolor=3D"#FFFFFF">
-<table width=3D"651" border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
-<tr>
-<td colspan=3D"2"><img src=3D"http://www.bamesex.com/mail/image/bamesex02=
-_08.gif" width=3D"651" height=3D"376"></td>
-</tr>
-<tr>
-<td valign=3D"top" width=3D"30"></td>
-<td valign=3D"top" width=3D"621"><img src=3D"http://www.bamesex.com/mail/=
-image/bamesex02_03.gif" width=3D"560" height=3D"41"></td>
-</tr>
-<tr>
-<td valign=3D"top" width=3D"30"></td>
-<td height=3D"110" valign=3D"middle" width=3D"621"><img src=3D"http://www=
-.bamesex.com/mail/image/bamesex02_04.gif" width=3D"593" height=3D"81"></t=
-d>
-</tr>
-<tr>
-<td height=3D"10" valign=3D"top" width=3D"30"></td>
-<td valign=3D"middle" width=3D"621"></td>
-</tr>
-<tr>
-<td valign=3D"top" width=3D"30"></td>
-<td height=3D"130" valign=3D"top" width=3D"621"><img src=3D"http://www.ba=
-mesex.com/mail/image/bamesex02_02.gif"></td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-<table width=3D"651" border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
-<tr>
-<td bgcolor=3D"#CCBC48" height=3D"1"></td>
-</tr>
-<tr>
-<td bgcolor=3D"#F1EDC7" height=3D"5"></td>
-</tr>
-</table>
-<table width=3D"209" border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
-<tr valign=3D"top">
-<td width=3D"177" height=3D"70" valign=3D"bottom"><a href=3D"http://www.b=
-amesex.com/mail/" onMouseOut=3D"MM_swapImgRestore()" onMouseOver=3D"MM_sw=
-apImage('Image51','','http://www.bamesex.com/mail/image/bamesex02_05_b.gi=
-f',1)" target=3D"_blank"><img name=3D"Image51" border=3D"0" src=3D"http:/=
-/www.bamesex.com/mail/image/bamesex02_05_a.gif" width=3D"177" height=3D"5=
-8"></a></td>
-<td width=3D"177" valign=3D"bottom"><a href=3D"http://www.bamesex.com/mai=
-l/mail_cancel.html" onMouseOut=3D"MM_swapImgRestore()" onMouseOver=3D"MM_=
-swapImage('Image61','','http://www.bamesex.com/mail/image/bamesex02_06_b.=
-gif',1)" target=3D"_blank"><img name=3D"Image61" border=3D"0" src=3D"http=
-://www.bamesex.com/mail/image/bamesex02_06_a.gif" width=3D"174" height=3D=
-"58"></a></td>
-</tr>
-</table>
-<table width=3D"550" border=3D"0" cellspacing=3D"0" cellpadding=3D"0">
-<tr>
-<td height=3D"110" valign=3D"top"><img src=3D"http://www.bamesex.com/mail=
-/image/bamesex02_07.gif" width=3D"550" height=3D"95"></td>
-</tr>
-</table>
-</td>
-</tr>
-</table>
-</body>
-</html>
+PGh0bWw+DQo8aGVhZD4NCgk8dGl0bGU+U2V4eWRlc2suY28ua3I8L3RpdGxlPg0KPC9oZWFk
+Pg0KPGJvZHkgYmdjb2xvcj0iIzAwMDAwMCI+DQo8Y2VudGVyPg0KPHRhYmxlIGNlbGxzcGFj
+aW5nPSIwIiBjZWxscGFkZGluZz0iMCI+DQogPHRyPg0KICA8dGQ+PGEgaHJlZj0iaHR0cDov
+L3d3dy5zZXh5ZGVzay5jby5rci8/cF9pZD1tYWlsIj48aW1nIHNyYz0iaHR0cDovL3d3dy5z
+ZXh5ZGVzay5jby5rci9tLWltZy9kZXNrMDIxMDExLmpwZyIgd2lkdGg9IjUwMCIgaGVpZ2h0
+PSI3MTgiIGJvcmRlcj0iMCIgYWx0PSIiPjwvYT48L3RkPg0KIDwvdHI+DQogPHRyPg0KIDx0
+cj48dGQgaGVpZ2h0PTEwPjwvdGQ+PC90cj4NCiAgPFRSPg0KICA8dGQgaGVpZ2h0PSI1MCIg
+Ymdjb2xvcj0iIzAwMDAwMCIgc3R5bGU9IkZPTlQtU0laRTogOXB0IiB3aWR0aD01MTAgPg0K
+ICAgICAgPGZvbnQgY29sb3I9IiNmZmZmZmYiPsGkurjF673FuMEgwMy/68PLwfggudcgwaS6
+uLq4yKMgte6/oSCw/MfRILn9t/y/oSDBpiA1MMG2v6EgwMewxcfPv6kgKLy6wM6xpLDtKbbz
+sO0gx6W9w8fRIA0KCSAguN7Az8DUtM+02S48cD4NCgkgIA0KICAgICAgwMwgwaS6uLO7v+vA
+uiDDu7zSs+IgwK/H2LjFw7y5sLfOvK0gwaS6uMXrvcW4wSDAzL/rw8vB+CC51yDBpLq4urjI
+oyC17r+hILD8x9Eguf23/CC51yDDuzxicj4NCgkgILzSs+K6uMijuf3AxyCx1MGkv6EgwMfH
+z7+pIDE5vLy5zLi4wMcgw7u80rPiwMwgwMy/6yDH0iC89iC++L3AtM+02S48YnI+DQoJICCx
+zcfPwMcguN7Az8HWvNK0wiDApbytx84gwd+/oSC+y7DUtcggsM3AuLfOILHixbggtNm4pSCw
+s8DOwaS6uLTCIL74wL3AuyC+y7fBteW4s7TPtNkuPGJyPg0KCSAgursguN7Az8C6ILi4IDE5
+vLwgwMy78yC8usDOuLjAuyC067vzwLi3ziC537zbtce0wiC43sDPwNS0z7TZLjxicj4NCgkg
+ILnMvLqz4rKyvK0gvPa9xcffwLsgsOa/7CDB773DILvowaa52bb4tM+02S4gutLG7cC7ILOi
+w8S15bfBvK0gwcu828fVtM+02S4gPGJyPg0KCSAgsO2wtLTUsNS8rSC+1cC4t84gODI0NDQu
+Y29twMcguN7Az7z2vcWwxbrOuKYgv/jHz73DuOkgPHN0cm9uZz48YSBocmVmPSJodHRwOi8v
+d3d3LjgyNDQ0LmNvbS9tYWlsL3JlZnVzZS5hc3A/bWFpbD1uZXRkZXZAb3NzLnNnaS5jb20i
+IHRhcmdldD1fYmxhbms+uN7Az7z2vcWwxbrOufbGsDwvYT48L3N0cm9uZz48L2ZvbnQ+PGZv
+bnQgY29sb3I9IiMwMGZmZmYiPsC7ILStt6/B1ry8v+QhPHA+DQoJICANCiAgICAgIMfjtvS+
++MDMILjewM/AuyC6uLO7vK0gwaS4uyDBy7zbx9W0z7TZLjxwPiANCiAgICAgILnfvcXA2jog
+c2V4eWRlc2suY28ua3IgLyCw5rHitbUgus7Dtb3Dv8DBpCCw7bCttb8gMzYzLTI1PGJyPg0K
+ICAgICAgu+e+98Date63z7n4yKMgOiAxMDktMDItMDE5ODg8YnI+DQogICAgICC5rsDHw7M6
+IDxBIGhyZWY9Im1haWx0bzpzZXh5ZGVza0BzZXh5ZGVzay5jby5rciI+c2V4eWRlc2tAc2V4
+eWRlc2suY28ua3I8L2E+PC9wPjwvZm9udD4NCiAgIA0KICA8L3RkPjwvVFI+DQogDQo8L3Rh
+YmxlPg0KPC9jZW50ZXI+DQo8L2JvZHk+DQo8L2h0bWw+DQoNCg0K
