@@ -1,71 +1,89 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Wed, 06 Apr 2005 18:32:54 +1000
-Message-ID: <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au>
-References: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, davem@davemloft.net
+From: pravin b shelar <pravins@calsoftinc.com>
+Subject: Re: Fwd: atomic_dec_and_test for child dst needed in dst_destroy?
+Date: Wed, 06 Apr 2005 14:23:52 +0530
+Message-ID: <4253A3A0.800@calsoftinc.com>
+References: <Pine.LNX.4.58.0504051155260.13697@server.graphe.net>	 <E1DIvr8-0002yy-00@gondolin.me.apana.org.au> <b82a8917050406002339f732ca@mail.gmail.com>
+Mime-Version: 1.0
+Content-Type: multipart/mixed;
+ boundary="------------030904020801050603070305"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: christoph@lameter.com (Christoph Lameter)
-In-Reply-To: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
+To: "Christoph Lameter"@calsoftinc.com, netdev@oss.sgi.com,
+        davem@davemloft.net
+In-Reply-To: <b82a8917050406002339f732ca@mail.gmail.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christoph Lameter <christoph@lameter.com> wrote:
-> 
-> The atomic_dec_and_test is needed because as soon as the refcnt reaches
-> zero the dst entry may potentially be freed by the garbage collector. Thus
-> no future access to the dst entry is possible and the dec_and_test is the
-> only safe way to figure out if the counter reached zero.
-> 
-> I hope I got it now. Thanks.
+This is a multi-part message in MIME format.
+--------------030904020801050603070305
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Yep you're totally correct.
 
-In fact, the atomic_dec_and_test is really only needed for unhashed
-entries (i.e., IPsec).  So we could do something like this so that
-all hashed entries undergo atomic_dec.
+>  
+>
+>This is racy (albeit very unlikely) because dst may be freed by
+>dst_run_gc after the atomic_dec.
+>
+>When we are not the real parent of the dst (e.g., when we're xfrm_dst
+>and the child is an rtentry), it may already be on the GC list.
+>
+>In fact the current code is buggy to, we need to check dst->flags
+>before the dec as dst may no longer be valid afterwards.
+>
+>
+>  
+>
+This patch  will remove the need for atomic_dec_and_test for this 
+particular case.
+Now we can break down the atomic_dec_and_test to atomic_dec & atomic_read.
 
-This would only make sense if there were architectures where
-atomic_dec is significantly cheaper compared to atomic_dec_and_test.
+Please comment.
 
-Do such beasts exist?
+Regards
+Pravin.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
---- linux-2.6/net/core/dst.c.orig	2005-04-06 18:29:00.000000000 +1000
-+++ linux-2.6/net/core/dst.c	2005-04-06 18:26:46.000000000 +1000
-@@ -197,20 +197,21 @@
- 	kmem_cache_free(dst->ops->kmem_cachep, dst);
+
+
+--------------030904020801050603070305
+Content-Type: text/plain;
+ name="dst-atomic"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="dst-atomic"
+
+Index: linux-2.6.11-dsta/net/core/dst.c
+===================================================================
+--- linux-2.6.11-dsta.orig/net/core/dst.c	2005-04-06 00:18:32.000000000 -0700
++++ linux-2.6.11-dsta/net/core/dst.c	2005-04-06 01:31:10.000000000 -0700
+@@ -198,17 +198,19 @@
  
  	dst = child;
--	if (dst) {
--		int nohash = dst->flags & DST_NOHASH;
-+	if (!dst)
-+		return NULL;
- 
-+	if (dst->flags & DST_NOHASH) {
- 		if (atomic_dec_and_test(&dst->__refcnt)) {
- 			/* We were real parent of this dst, so kill child. */
--			if (nohash)
+ 	if (dst) {
+-		if (atomic_dec_and_test(&dst->__refcnt)) {
+-			/* We were real parent of this dst, so kill child. */
+-			if (dst->flags&DST_NOHASH)
 -				goto again;
-+			goto again;
- 		} else {
- 			/* Child is still referenced, return it for freeing. */
--			if (nohash)
+-		} else {
+-			/* Child is still referenced, return it for freeing. */
+-			if (dst->flags&DST_NOHASH)
 -				return dst;
 -			/* Child is still in his hash table */
-+			return dst;
++		if (dst->flags&DST_NOHASH) {
++			atomic_dec(&dst->__refcnt);
++			if (atomic_read(&dst->__refcnt))
++				/* Child is still referenced, return it for freeing. */
++				return dst;	
++
++			/*We were real parent of this dst, so kill child. */
++			goto again;
  		}
++		else /* Child is still in his hash table */
++			atomic_dec(&dst->__refcnt);
  	}
 +
-+	/* Child is still in his hash table or on the GC list. */
-+	atomic_dec(&dst->__refcnt);
  	return NULL;
  }
  
+
+--------------030904020801050603070305--
