@@ -1,25 +1,33 @@
-From: wangxiangyu@peoplemail.com.cn
-Subject: a question on loopback
-Date: Tue, 16 Apr 2002 11:07:12 +0800 (CST)
-Sender: owner-netdev@oss.sgi.com
-Message-ID: <3t979583889287.26127@freemail.peopledaily.com.cn>
+From: Vasu <vasu@ee.iitb.ac.in>
+Subject: injecting packets
+Date: Tue, 16 Apr 2002 12:09:42 +0530
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.30.0204161203210.15280-100000@brahmi.ee.iitb.ac.in>
+References: <Pine.LNX.4.44.0204151840060.10022-100000@havoc.ittc.ku.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
-Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <linux-net-owner@vger.kernel.org>
+Date: Tue, 16 Apr 2002 12:09:42 +0530 (IST)
+To: linux-net <linux-net@vger.kernel.org>
+In-Reply-To: <Pine.LNX.4.44.0204151840060.10022-100000@havoc.ittc.ku.edu>
 List-Id: netdev.vger.kernel.org
 
-Hello,
-I want to use my usb host-host cable to do a send/receive test on my sing=
-le pc,
-but ip layer of net system will only do a loopback on one host condition.=
- How
-can I do to force it send/receive through device layer?
-thanks
-Best Regards
-Xiang-Yu Wang
-------------------------------------------------------------------
-=C8=CB=C3=F1=CD=F8=A1=B6=D5=FE=B2=DF=D0=C5=CF=A2=A1=B7=CD=F8=C9=CF=CA=D5=B7=
-=D1=D4=D3=D6=BE
-=BB=B6=D3=AD=D4=EC=B7=C3=A3=BAhttp://zcxx.people.com.cn
+
+Hi.
+
+I am trying to write a module that takes Ethernet packets from the user
+domain, and injects it into the proper place ( which I think is the
+sk_buffers ), so that to the IP, TCP layer, the packets look as if coming
+from the Ethernet device. Can someone please suggest me which files to
+look into, and which structs to handle, for getting this done. Also, I
+want to do the reverse task, i.e. take some particular packets ( say which
+come from a specific port ) from sk_buffers and send it to user space.
+
+Please assume that this silly looking Rx/Tx has some importance :)
+
+Regards.
+
+Vasu.
+III yr EE student.
+
+
