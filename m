@@ -1,15 +1,17 @@
-From: Tobias DiPasquale <codeslinger@gmail.com>
-Subject: routing table improvements
-Date: Sun, 24 Oct 2004 20:19:55 -0400
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: routing table improvements
+Date: Sun, 24 Oct 2004 20:41:34 -0700
 Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <876ef97a04102417193517f48f@mail.gmail.com>
-Reply-To: Tobias DiPasquale <codeslinger@gmail.com>
+Message-ID: <20041024204134.542420ce.davem@davemloft.net>
+References: <876ef97a04102417193517f48f@mail.gmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
+	netfilter-devel@lists.netfilter.org
 Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: linux-net <linux-net@vger.kernel.org>, netdev <netdev@oss.sgi.com>,
-	nf-devel <netfilter-devel@lists.netfilter.org>
+To: Tobias DiPasquale <codeslinger@gmail.com>
+In-Reply-To: <876ef97a04102417193517f48f@mail.gmail.com>
 List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
 List-Archive: </pipermail/netfilter-devel>
@@ -20,29 +22,37 @@ List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
 Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi all,
+On Sun, 24 Oct 2004 20:19:55 -0400
+Tobias DiPasquale <codeslinger@gmail.com> wrote:
 
-I am starting work on improving the routing table in Linux by removing
-the route cache altogether and reimplemting the FIB with a radix tree
-search implementation. However, I have some questions/RFCs before I
-get too deep into it.
+> First of all, is anyone else doing something in this area?
 
-First of all, is anyone else doing something in this area?
+Yes, this has been discussed on this list over the past
+2 months.  Let me save you some time:
 
-Second, it doesn't look (to me) as if the lib/radix-tree.c
-implementation is sufficiently generic to be used in this capacity.
-What I mean is, it appears as if this code can't be used in interrupt
-context, which is sort of a necessity for this particular purpose. Am
-I just out of my mind or is that the case?
+1) We are already working on abstracting out the algorithmic
+   portions of net/ipv4/fib_hash.c, see recent changeset
+   history of this file in 2.6.x for details
 
-Finally, can anyone think of a reason not use a radix tree search for
-the FIB? I was going to implement a simple binary radix tree (similar
-to what FreeBSD has). I had originally thought of using something like
-CEF uses (a 256-way radix tree), but this would be too
-memory-intensive, IMO.
+2) Using the BSD Radix tree will not improve performance,
+   it has the same algorithmic complexity as the current
+   32-hashtable algorithm for large routing tables
 
-Anyone have any comments?
+3) Once the complexity of the mid-level routing table FIB
+   algorithms is made better, there is no evidence that this
+   means the routing cache should be removed.
 
--- 
-[ Tobias DiPasquale ]
-0x636f6465736c696e67657240676d61696c2e636f6d
+   You should instead evaluate it's performance after the
+   mid-level algorithms perform acceptably.
+
+If you remove the routing cache, I don't believe you understand
+the implications of this.  Firstly, you have to store the
+routing metrics for every remote host we talk to, where do you
+plan to store this and what will it be keyed upon?  How will you
+handle per-socket routes?  How will you handle the interface with
+the IPSEC layer which uses trees of routing cache entries as it's
+fundamental object type?
+
+Please scan the list postings, particularly on netdev, and I've
+even given a keynote on our planned work just the other week in
+Tokyo.
