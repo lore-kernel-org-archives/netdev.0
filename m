@@ -1,41 +1,48 @@
-From: Andrew Morton <akpm@digeo.com>
+From: "J.A. Magallon" <jamagallon@able.es>
 Subject: Re: [RFC][PATCH] net drivers and cache alignment
-Date: Sat, 07 Dec 2002 15:51:36 -0800
+Date: Sun, 8 Dec 2002 00:52:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DF28988.93F268EA@digeo.com>
-References: <3DF2844C.F9216283@digeo.com> <20021207.153045.26640406.davem@redhat.com> <3DF28748.186AB31F@digeo.com>
+Message-ID: <20021207235255.GA3754@werewolf.able.es>
+References: <3DF2781D.3030209@pobox.com> <20021207.144004.45605764.davem@redhat.com> <3DF27EE7.4010508@pobox.com> <3DF2844C.F9216283@digeo.com> <20021207233745.GE3183@werewolf.able.es> <3DF28811.F6580BA6@digeo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-15
+Content-Transfer-Encoding: 8bit
+Cc: "J.A. Magallon" <jamagallon@able.es>, Jeff Garzik <jgarzik@pobox.com>,
+   "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, jgarzik@pobox.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: Andrew Morton <akpm@digeo.com>
+Content-Disposition: inline
+In-Reply-To: <3DF28811.F6580BA6@digeo.com>; from akpm@digeo.com on Sun, Dec 08, 2002 at 00:45:21 +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> 
-> "David S. Miller" wrote:
-> >
-> >    From: Andrew Morton <akpm@digeo.com>
-> >    Date: Sat, 07 Dec 2002 15:29:16 -0800
-> >
-> >    Jeff Garzik wrote:
-> >    > Attached is cut #2.  Thanks for all the near-instant feedback so far :)
-> >    >   Andrew, does the attached still need padding on SMP?
-> >
-> >    It needs padding _only_ on SMP.  ____cacheline_aligned_in_smp.
-> >
-> > non-smp machines lack L2 caches?  That's new to me :-)
-> >
-> > More seriously, there are real benefits on non-SMP systems.
-> 
-> Then I am most confused.  None of these fields will be put under
-> busmastering or anything like that, so what advantage is there in
-> spreading them out?
 
-Oh I see what you want - to be able to pick up all the operating fields
-in a single fetch.
+On 2002.12.08 Andrew Morton wrote:
+>"J.A. Magallon" wrote:
+>> 
+>> #define __cacheline_start   struct { } ____cacheline_aligned;
+>
+>That will generate a warning on faster^Wolder versions of gcc.
+>
+>mnm:/home/akpm> gcc t2.c
+>t2.c:11: warning: unnamed struct/union that defines no instances
+>t2.c:15: warning: unnamed struct/union that defines no instances
+>mnm:/home/akpm> gcc -v 
+>Reading specs from /usr/local/lib/gcc-lib/i686-pc-linux-gnu/2.95.3/specs
+>gcc version 2.95.3 20010315 (release)
+>
 
-That will increase the overall cache footprint though.  I wonder if
-it's really a net win, over just keeping it small.
+And how 'bout this (do not have any gcc oldie available to test):
+
+#define __cacheline_start   union { int :0; } ____cacheline_aligned;
+
+It passes gcc-3.2 -Wall...
+I think it's nicer to insert __c_s than to go field by field marking
+them...
+
+-- 
+J.A. Magallon <jamagallon@able.es>      \                 Software is like sex:
+werewolf.able.es                         \           It's better when it's free
+Mandrake Linux release 9.1 (Cooker) for i586
+Linux 2.4.20-jam1 (gcc 3.2 (Mandrake Linux 9.1 3.2-4mdk))
