@@ -1,66 +1,43 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 1/3] fix buggy IEEE80211_CRYPT_* selects
-Date: Fri, 04 Mar 2005 17:21:22 -0500
-Message-ID: <4228DF62.4000205@pobox.com>
-References: <200503041237.j24Cbb69026470@shell0.pdx.osdl.net> <42289BDF.1080409@pobox.com> <20050304221014.GJ3327@stusta.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: r8169: panic on 2.6.11
+Date: Fri, 4 Mar 2005 14:53:17 -0800
+Message-ID: <20050304145317.772859da@dxpl.pdx.osdl.net>
+References: <20050304132804.270cf05b@dxpl.pdx.osdl.net>
+	<4228D523.2070703@pobox.com>
+	<20050304215044.GB1148@electric-eye.fr.zoreil.com>
+	<20050304135922.0b0a3911@dxpl.pdx.osdl.net>
+	<20050304221826.GA1028@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, akpm@osdl.org,
-        davem@davemloft.net, netdev@oss.sgi.com
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050304221014.GJ3327@stusta.de>
+Cc: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050304221826.GA1028@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Adrian Bunk wrote:
-> On Fri, Mar 04, 2005 at 12:33:19PM -0500, Jeff Garzik wrote:
-> 
->>akpm@osdl.org wrote:
->>
->>>From: Adrian Bunk <bunk@stusta.de>
->>>
->>>Some of the options that needlessly wrote in their help text which options
->>>they do select (patch already sent) didn't obey the most important rule of
->>>select
->>>
->>> If you select something, you have to ensure that the dependencies
->>> of what you do select are fulfilled.
->>
->>>diff -puN net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects 
->>>net/ieee80211/Kconfig
->>>--- 25/net/ieee80211/Kconfig~fix-buggy-ieee80211_crypt_-selects 2005-02-28 
->>>14:49:54.000000000 -0800
->>>+++ 25-akpm/net/ieee80211/Kconfig	2005-02-28 14:49:54.000000000 -0800
->>>@@ -44,6 +44,7 @@ config IEEE80211_CRYPT_WEP
->>>config IEEE80211_CRYPT_CCMP
->>>	tristate "IEEE 802.11i CCMP support"
->>>	depends on IEEE80211
->>>+	select CRYPTO
->>>	select CRYPTO_AES
->>>	---help---
->>>	Include software based cipher suites in support of IEEE 802.11i 
->>>@@ -56,6 +57,7 @@ config IEEE80211_CRYPT_CCMP
->>>config IEEE80211_CRYPT_TKIP
->>>	tristate "IEEE 802.11i TKIP encryption"
->>>	depends on IEEE80211
->>>+	select CRYPTO
->>>	select CRYPTO_MICHAEL_MIC
->>>	---help---
->>
->>
->>You are resending the old patch that is incorrect.  We don't need 
->>multiple selects, CRYPTO_AES and CRYPTO_MICHAEL_MIC should pull things in.
-> 
-> 
-> As I already said, this implies that options like CRYPTO_AES and 
-> CRYPTO_MICHAEL_MIC can no longer depend on CRYPTO.
+On Fri, 4 Mar 2005 23:18:26 +0100
+Francois Romieu <romieu@fr.zoreil.com> wrote:
 
-No.  Because CRYPTO_AES and CRYPTO_MICHAEL_MIC __obviously__ depend on 
-CRYPTO, it should select CRYPTO automatically given the existing entries.
+> Stephen Hemminger <shemminger@osdl.org> :
+> [...]
+> > My pktgen script is below.
+> > Sends lots of small packets.
+> 
+> Ok, so I have two issues...
+> 
+> It could help to know if it was the NAPI or the IRQ verison of the driver
+> which crashed + rough estimate of the expected pkts/s count during such test.
 
-Otherwise, we must start specifying dependency chains in every damn 
-Kconfig entry, which is completely illogical and a maintenance nightmare.
+NAPI is not enabled, it is the IRQ version. Hitting 
 
-	Jeff
+Added instrumentation:.
+
+skb=0xd1e28380 len=8172 head=d1e32000 data=d1e32012 tail=d1e33ffe end=d1e32620
+
+Looks like the board is running back-to-back packets together, MTU is 1500.
+No Jumbo frames exist on my little network and the gigabit switch (Netgear) won't 
+even take them.  Probably a chip bug.
+
+Need to add a check for len > mtu before processing?
