@@ -1,36 +1,34 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: Patch submission for S2io Xframe driver to 2.6 kernel
-Date: Wed, 6 Oct 2004 16:09:30 -0400
+Date: Wed, 6 Oct 2004 22:20:01 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041006200930.GA19395@havoc.gtf.org>
-References: <41597DA4.5040200@pobox.com> <003701c4abe1$132f8850$9810100a@S2IOtech.com>
+Message-ID: <20041006202001.GA27663@electric-eye.fr.zoreil.com>
+References: <41597DA4.5040200@pobox.com> <003701c4abe1$132f8850$9810100a@S2IOtech.com> <20041006200930.GA19395@havoc.gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
+Cc: Ravinandan Arakali <ravinandan.arakali@s2io.com>, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
         rapuru.sriram@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ravinandan Arakali <ravinandan.arakali@s2io.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <003701c4abe1$132f8850$9810100a@S2IOtech.com>
+In-Reply-To: <20041006200930.GA19395@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 06, 2004 at 01:14:24PM -0700, Ravinandan Arakali wrote:
-> Please let us know if you want us to send the subsequent
-> patches one-after-another right now, or do you want us
-> to send them only after you have completed review and accepted
-> this first patch.
+Jeff Garzik <jgarzik@pobox.com> :
+[...]
+> [PATCH 2.6.9-rc3 1/8] whitespace changes
+> [PATCH 2.6.9-rc3 2/8] fix 32bit issue
+> [PATCH 2.6.9-rc3 3/8] add a feature
+> [PATCH 2.6.9-rc3 4/8] etc...
 
-Please send all patches at once, as described in the URLs I mentioned
-previously.
+<nit>
+[PATCH 2.6.9-rc3 1/8] S2io: whitespace changes
+[PATCH 2.6.9-rc3 2/8] S2io: fix 32bit issue
+[PATCH 2.6.9-rc3 3/8] S2io: add a feature
+[PATCH 2.6.9-rc3 4/8] S2io: etc...
+</nit>
 
-Example:
-
-[PATCH 2.6.9-rc3 1/8] whitespace changes
-[PATCH 2.6.9-rc3 2/8] fix 32bit issue
-[PATCH 2.6.9-rc3 3/8] add a feature
-[PATCH 2.6.9-rc3 4/8] etc...
-
-and I will review and apply in the order that you specify.
-
-	Jeff
+--
+Ueimor
