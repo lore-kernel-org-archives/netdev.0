@@ -1,44 +1,35 @@
-From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
-Date: Tue, 08 Jun 2004 22:09:29 +0200
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: how to interpret C statement?
+Date: Tue, 8 Jun 2004 23:41:06 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086725369.1806.1.camel@teapot.felipe-alfaro.com>
-References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
-	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>
+Message-ID: <200406082341.06598.vkondra@mail.ru>
+References: <20040608154412.14868.qmail@web52208.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: NetDev Mailinglist <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040608124215.291a7072@dell_ss3.pdx.osdl.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040608154412.14868.qmail@web52208.mail.yahoo.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-06-08 at 12:42 -0700, Stephen Hemminger wrote:
-> On Tue, 08 Jun 2004 21:18:30 +0200
-> Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-> 
-> > Hi!
-> > 
-> > On my laptop, when using a CardBus 3c59x-based NIC, I need to run
-> > "cardctl eject" so the system won't freeze when resuming. "cardctl
-> > eject" worked fine in 2.6.7-rc2-mm2, even when there were programs with
-> > network sockets opened (for example, Evolution mantaining a connection
-> > against an IMAP server): the card is ejected (well, not physically),
-> > even when there are ESTABLISHED connections.
-> > 
-> > However, starting with 2.6.7-rc3, "cardctl eject" hangs if a program
-> > holds any socket open. After a while the "unregister_netdevice: waiting
-> > for eth0 to become free" message starts appearing on the kernel message
-> > ring. The only apparent solution is killing that program, ejecting the
-> > card from its slot and wait until 3c59x.o usage count reaches zero.
-> > 
-> > Can someone tell me what's going on here?
-> > Thank you very much.
-> 
-> What protocols are you running? Is IPV6 loaded?
+Easy. skb-cb used to keep struct tcp_skb_cb. Statement in your question do 
+casting and return pointer to the structure.
 
-I'm using IPv4, IPv6 and IPSec ESP with AES/CBC.
-Do you want .config?
-Thanks
+On Tuesday 08 June 2004 18:44, linux lover wrote:
+> how to interpret following C statement?
+> #define TCP_SKB_CB(__skb)       ((struct tcp_skb_cb *)&((__skb)->cb[0]))
+> what is use of tcp_skb_cb structure in kernel source tcp.h? how
+> TCP_SKB_CB(skb) is translated in its definition? regards,
+> linux_lover
+>
+>
+>
+>
+>
+>
+> ---------------------------------
+> Do you Yahoo!?
+> Friends.  Fun. Try the all-new Yahoo! Messenger
