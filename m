@@ -1,69 +1,172 @@
-From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-Subject: 8390.c workaround for interrupt storm
-Date: Fri, 13 Aug 2004 12:30:47 -0300
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040813153047.GC28640@logos.cnet>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] enhanced version of net_random()
+Date: Fri, 13 Aug 2004 11:51:40 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040813115140.0f09d889@dell_ss3.pdx.osdl.net>
+References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
+	<20040812124854.646f1936.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: alan@lxorguk.ukuu.org.uk, tytso@mit.edu, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org, Ben Greear <greearb@candelatech.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266775AbUHMSwQ@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040812124854.646f1936.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-Hi netdev, 
+Here is another alternative, using tansworthe generator.  It uses percpu
+state. The one small semantic change is the net_srandom() only affects
+the current cpu's seed.  The problem was that having it change all cpu's
+seed would mean adding locking and the only user's today are a couple of
+places that feed in mac address to try make sure address resolution to
+collide.
 
-We've been seeing an interrupt storm on our 
-embedded PowerPC systems with Linksys PCMLM56 (network+modem) 
-PCMCIA cards (network part of it driven by pcnet_cs.c) as soon as the network 
-cable is  pluged/unpluged and after some activity on the serial
-line. 
-
-The card goes nuts, and doesnt stop sending interrupts. 
-
-So I hacked up this patch which resets the 8390 chip
-as soon as 256 empty interrupts are triggered. Works fine,
-the card comes back to sanity after resetting.
-
-Not sure if its specific to our boards, but I believe
-it might happen on other archs also, so I'm posting it 
-here in the hope it might be useful for someone with the
-same problem.
-
-Not likely to be included in mainline driver, but hey, why not,
-its protection against hardware insanity.
-
---- 8390.c.orig 2004-08-13 11:54:28.000000000 -0300
-+++ 8390.c      2004-08-13 11:54:07.000000000 -0300
-@@ -411,6 +411,8 @@
-  * needed.
-  */
-  
-+int interrupt_cnt = 0;
+diff -Nru a/include/linux/net.h b/include/linux/net.h
+--- a/include/linux/net.h	2004-08-13 11:48:43 -07:00
++++ b/include/linux/net.h	2004-08-13 11:48:43 -07:00
+@@ -169,6 +169,7 @@
+ extern int	     net_ratelimit(void);
+ extern unsigned long net_random(void);
+ extern void	     net_srandom(unsigned long);
++extern void	     net_random_init(void);
+ 
+ extern int   	     kernel_sendmsg(struct socket *sock, struct msghdr *msg,
+ 				    struct kvec *vec, size_t num, size_t len);
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	2004-08-13 11:48:43 -07:00
++++ b/net/core/dev.c	2004-08-13 11:48:43 -07:00
+@@ -3280,6 +3280,8 @@
+ 
+ 	BUG_ON(!dev_boot_phase);
+ 
++	net_random_init();
 +
- void ei_interrupt(int irq, void *dev_id, struct pt_regs * regs)
+ 	if (dev_proc_init())
+ 		goto out;
+ 
+diff -Nru a/net/core/utils.c b/net/core/utils.c
+--- a/net/core/utils.c	2004-08-13 11:48:43 -07:00
++++ b/net/core/utils.c	2004-08-13 11:48:43 -07:00
+@@ -19,22 +19,116 @@
+ #include <linux/mm.h>
+ #include <linux/string.h>
+ #include <linux/types.h>
++#include <linux/random.h>
++#include <linux/percpu.h>
+ 
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+ 
+-static unsigned long net_rand_seed = 152L;
++
++/*
++  This is a maximally equidistributed combined Tausworthe generator
++  based on code from GNU Scientific Library 1.5 (30 Jun 2004)
++
++   x_n = (s1_n ^ s2_n ^ s3_n) 
++
++   s1_{n+1} = (((s1_n & 4294967294) <<12) ^ (((s1_n <<13) ^ s1_n) >>19))
++   s2_{n+1} = (((s2_n & 4294967288) << 4) ^ (((s2_n << 2) ^ s2_n) >>25))
++   s3_{n+1} = (((s3_n & 4294967280) <<17) ^ (((s3_n << 3) ^ s3_n) >>11))
++
++   The period of this generator is about 2^88.
++
++   From: P. L'Ecuyer, "Maximally Equidistributed Combined Tausworthe
++   Generators", Mathematics of Computation, 65, 213 (1996), 203--213.
++
++   This is available on the net from L'Ecuyer's home page,
++
++   http://www.iro.umontreal.ca/~lecuyer/myftp/papers/tausme.ps
++   ftp://ftp.iro.umontreal.ca/pub/simulation/lecuyer/papers/tausme.ps 
++
++   There is an erratum in the paper "Tables of Maximally
++   Equidistributed Combined LFSR Generators", Mathematics of
++   Computation, 68, 225 (1999), 261--269:
++   http://www.iro.umontreal.ca/~lecuyer/myftp/papers/tausme2.ps
++
++        ... the k_j most significant bits of z_j must be non-
++        zero, for each j. (Note: this restriction also applies to the 
++        computer code given in [4], but was mistakenly not mentioned in
++        that paper.)
++   
++   This affects the seeding procedure by imposing the requirement
++   s1 > 1, s2 > 7, s3 > 15.
++
++*/
++struct nrnd_state {
++	u32 s1, s2, s3;
++};
++
++static DEFINE_PER_CPU(struct nrnd_state, net_rand_state);
++
++static u32 __net_random(struct nrnd_state *state)
++{
++#define TAUSWORTHE(s,a,b,c,d) ((s&c)<<d) ^ (((s <<a) ^ s)>>b)
++
++	state->s1 = TAUSWORTHE(state->s1, 13, 19, 4294967294UL, 12);
++	state->s2 = TAUSWORTHE(state->s2, 2, 25, 4294967288UL, 4);
++	state->s3 = TAUSWORTHE(state->s3, 3, 11, 4294967280UL, 17);
++
++	return (state->s1 ^ state->s2 ^ state->s3);
++}
++
++static void __net_srandom(struct nrnd_state *state, unsigned long entropy)
++{
++	u32 s = state->s1 ^ entropy;
++
++	if (s == 0)
++		s = 1;      /* default seed is 1 */
++
++#define LCG(n) (69069 * n)
++	state->s1 = LCG(s);
++	state->s2 = LCG(state->s1);
++	state->s3 = LCG(state->s2);
++
++	/* "warm it up" */
++	__net_random(state);
++	__net_random(state);
++	__net_random(state);
++	__net_random(state);
++	__net_random(state);
++	__net_random(state);
++}
++
+ 
+ unsigned long net_random(void)
  {
-        struct net_device *dev = dev_id;
-@@ -493,6 +495,22 @@
-  
-                outb_p(E8390_NODMA+E8390_PAGE0+E8390_START, e8390_base + E8390_CMD);
-        }
+-	net_rand_seed=net_rand_seed*69069L+1;
+-        return net_rand_seed^jiffies;
++	unsigned long r;
++	struct nrnd_state *state = &get_cpu_var(net_rand_state);
++	r = __net_random(state);
++	put_cpu_var(state);
++	return r;
+ }
+ 
 +
-+       /*
-+        * Workaround infinite interrupt storm caused by Linksys combocard
-+        * on embedded PowerPC. Other cards/platform can suffer
-+        * from the same. Reset the device if we get more than 256
-+        * empty interrupts.
-+        */
-+       if (!nr_serviced)
-+               interrupt_cnt++;
-+       else
-+               interrupt_cnt = 0;
+ void net_srandom(unsigned long entropy)
+ {
+-	net_rand_seed ^= entropy;
+-	net_random();
++	struct nrnd_state *state = &get_cpu_var(net_rand_state);
++	__net_srandom(state, entropy);
++	put_cpu_var(state);
++}
 +
-+       if (interrupt_cnt > 256) {
-+               ei_status.reset_8390(dev);
-+               interrupt_cnt = 0;
-+       }
-      
-        if (interrupts && ei_debug)
-        {
++void __init net_random_init(void)
++{
++	int i;
++	unsigned long seed[NR_CPUS];
++
++	get_random_bytes(seed, sizeof(seed));
++
++	for (i = 0; i < NR_CPUS; i++) {
++		struct nrnd_state *state = &per_cpu(net_rand_state,i);
++
++		memset(state, 0, sizeof(*state));
++		__net_srandom(state, seed[i]);
++	}
+ }
+ 
+ int net_msg_cost = 5*HZ;
