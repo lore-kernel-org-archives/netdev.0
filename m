@@ -1,155 +1,129 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 8/9] PKT_SCHED: Remove old action/police helpers
-Date: Thu, 30 Dec 2004 13:35:41 +0100
-Message-ID: <20041230123541.GU32419@postel.suug.ch>
-References: <20041230122652.GM32419@postel.suug.ch>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, Patrick McHardy <kaber@trash.net>,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20041230122652.GM32419@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: David Dillow <dave@thedillows.org>
+Subject: [RFC 2.6.10 5/22] xfrm: Attempt to offload bundled xfrm_states for outbound xfrms
+Date: Thu, 30 Dec 2004 03:48:35 -0500
+Message-ID: <20041230035000.14@ori.thedillows.org>
+References: <20041230035000.13@ori.thedillows.org>
+Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261580AbUL3Izc@vger.kernel.org>
+To: netdev@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
---- linux-2.6.10-bk1.orig/include/net/pkt_cls.h	2004-12-27 21:35:31.000000000 +0100
-+++ linux-2.6.10-bk1/include/net/pkt_cls.h	2004-12-27 22:46:36.000000000 +0100
-@@ -149,88 +149,6 @@
- extern int tcf_exts_dump_stats(struct sk_buff *skb, struct tcf_exts *exts,
- 	                       struct tcf_ext_map *map);
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/12/30 00:34:46-05:00 dave@thedillows.org 
+#   Plumb in offloading new bundles for outgoing packets.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# net/xfrm/xfrm_policy.c
+#   2004/12/30 00:34:28-05:00 dave@thedillows.org +28 -0
+#   When we create a new bundle for an outbound flow, try to
+#   offload as much as the destination driver will allow.
+#   
+#   Don't forget to clean up....
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# include/net/xfrm.h
+#   2004/12/30 00:34:28-05:00 dave@thedillows.org +6 -0
+#   A convenience structure for offloading bundles.
+#   
+#   The dst->child field gives us a singly linked list
+#   from upper protocols to outer transforms. Drivers, however,
+#   will likely have a limited number of offloads they can
+#   perform on a particular packet, so they need to offload
+#   the bundle from the outside in. This list makes it easier
+#   for them.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# include/net/dst.h
+#   2004/12/30 00:34:28-05:00 dave@thedillows.org +1 -0
+#   Add a field to store the offload information for this part
+#   of the outgoing bundle (non-NULL if this dst is offloaded.)
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/include/net/dst.h b/include/net/dst.h
+--- a/include/net/dst.h	2004-12-30 01:11:18 -05:00
++++ b/include/net/dst.h	2004-12-30 01:11:18 -05:00
+@@ -65,6 +65,7 @@
+ 	struct neighbour	*neighbour;
+ 	struct hh_cache		*hh;
+ 	struct xfrm_state	*xfrm;
++	struct xfrm_offload	*xfrm_offload;
  
--#ifdef CONFIG_NET_CLS_ACT
--static inline int
--tcf_change_act_police(struct tcf_proto *tp, struct tc_action **action,
--	struct rtattr *act_police_tlv, struct rtattr *rate_tlv)
--{
--	int ret;
--	struct tc_action *act;
--
--	act = tcf_action_init_1(act_police_tlv, rate_tlv, "police",
--	                        TCA_ACT_NOREPLACE, TCA_ACT_BIND, &ret);
--	if (act == NULL)
--		return ret;
--
--	act->type = TCA_OLD_COMPAT;
--
--	if (*action) {
--		tcf_tree_lock(tp);
--		act = xchg(action, act);
--		tcf_tree_unlock(tp);
--
--		tcf_action_destroy(act, TCA_ACT_UNBIND);
--	} else
--		*action = act;
--
--	return 0;
--}
--
--static inline int
--tcf_change_act(struct tcf_proto *tp, struct tc_action **action,
--	struct rtattr *act_tlv, struct rtattr *rate_tlv)
--{
--	int ret;
--	struct tc_action *act;
--
--	act = tcf_action_init(act_tlv, rate_tlv, NULL,
--	                      TCA_ACT_NOREPLACE, TCA_ACT_BIND, &ret);
--	if (act == NULL)
--		return ret;
--
--	if (*action) {
--		tcf_tree_lock(tp);
--		act = xchg(action, act);
--		tcf_tree_unlock(tp);
--
--		tcf_action_destroy(act, TCA_ACT_UNBIND);
--	} else
--		*action = act;
--
--	return 0;
--}
--
--static inline int
--tcf_dump_act(struct sk_buff *skb, struct tc_action *action,
--	int act_type, int compat_type)
--{
--	/*
--	 * again for backward compatible mode - we want
--	 * to work with both old and new modes of entering
--	 * tc data even if iproute2  was newer - jhs
--	 */
--	if (action) {
--		struct rtattr * p_rta = (struct rtattr*) skb->tail;
--
--		if (action->type != TCA_OLD_COMPAT) {
--			RTA_PUT(skb, act_type, 0, NULL);
--			if (tcf_action_dump(skb, action, 0, 0) < 0)
--				goto rtattr_failure;
--		} else {
--			RTA_PUT(skb, compat_type, 0, NULL);
--			if (tcf_action_dump_old(skb, action, 0, 0) < 0)
--				goto rtattr_failure;
--		}
--		
--		p_rta->rta_len = skb->tail - (u8*)p_rta;
--	}
--	return 0;
--
--rtattr_failure:
--	return -1;
--}
--#endif /* CONFIG_NET_CLS_ACT */
--
- #ifdef CONFIG_NET_CLS_IND
- static inline int
- tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *indev_tlv)
-@@ -260,44 +178,4 @@
+ 	int			(*input)(struct sk_buff*);
+ 	int			(*output)(struct sk_buff*);
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2004-12-30 01:11:18 -05:00
++++ b/include/net/xfrm.h	2004-12-30 01:11:18 -05:00
+@@ -178,6 +178,12 @@
+ 	atomic_t		refcnt;
+ };
+ 
++struct xfrm_bundle_list
++{
++	struct list_head	node;
++	struct dst_entry *	dst;
++};
++
+ struct xfrm_type;
+ struct xfrm_dst;
+ struct xfrm_policy_afinfo {
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2004-12-30 01:11:18 -05:00
++++ b/net/xfrm/xfrm_policy.c	2004-12-30 01:11:18 -05:00
+@@ -705,6 +705,31 @@
+ 	};
  }
- #endif /* CONFIG_NET_CLS_IND */
  
--#ifdef CONFIG_NET_CLS_POLICE
--static inline int
--tcf_change_police(struct tcf_proto *tp, struct tcf_police **police,
--	struct rtattr *police_tlv, struct rtattr *rate_tlv)
--{
--	struct tcf_police *p = tcf_police_locate(police_tlv, rate_tlv);
--
--	if (*police) {
--		tcf_tree_lock(tp);
--		p = xchg(police, p);
--		tcf_tree_unlock(tp);
--
--		tcf_police_release(p, TCA_ACT_UNBIND);
--	} else
--		*police = p;
--
--	return 0;
--}
--
--static inline int
--tcf_dump_police(struct sk_buff *skb, struct tcf_police *police,
--	int police_type)
--{
--	if (police) {
--		struct rtattr * p_rta = (struct rtattr*) skb->tail;
--
--		RTA_PUT(skb, police_type, 0, NULL);
--
--		if (tcf_police_dump(skb, police) < 0)
--			goto rtattr_failure;
--
--		p_rta->rta_len = skb->tail - (u8*)p_rta;
--	}
--	return 0;
--
--rtattr_failure:
--	return -1;
--}
--#endif /* CONFIG_NET_CLS_POLICE */
--
- #endif
++static void xfrm_accel_bundle(struct dst_entry *dst)
++{
++	struct xfrm_bundle_list bundle, *xbl, *tmp;
++	struct net_device *dev = dst->dev;
++	INIT_LIST_HEAD(&bundle.node);
++
++	if (dev && netif_running(dev) && (dev->features & NETIF_F_IPSEC)) {
++		while (dst) {
++			xbl = kmalloc(sizeof(*xbl), GFP_ATOMIC);
++			if (!xbl)
++				goto out;
++
++			xbl->dst = dst;
++			list_add_tail(&xbl->node, &bundle.node);
++			dst = dst->child;
++		}
++
++		dev->xfrm_bundle_add(dev, &bundle);
++	}
++
++out:
++	list_for_each_entry_safe(xbl, tmp, &bundle.node, node)
++		kfree(xbl);
++}
++
+ static int stale_bundle(struct dst_entry *dst);
+ 
+ /* Main function: finds/creates a bundle for given flow.
+@@ -833,6 +858,7 @@
+ 		policy->bundles = dst;
+ 		dst_hold(dst);
+ 		write_unlock_bh(&policy->lock);
++		xfrm_accel_bundle(dst);
+ 	}
+ 	*dst_p = dst;
+ 	dst_release(dst_orig);
+@@ -1023,8 +1049,10 @@
+ {
+ 	if (!dst->xfrm)
+ 		return;
++	xfrm_offload_release(dst->xfrm_offload);
+ 	xfrm_state_put(dst->xfrm);
+ 	dst->xfrm = NULL;
++	dst->xfrm_offload = NULL;
+ }
+ 
+ static void xfrm_link_failure(struct sk_buff *skb)
