@@ -1,42 +1,52 @@
-From: netdev-bounce@oss.sgi.com
-Subject: (unknown)
-Date: Thu, 27 Feb 2003 11:17:37 -0800
-Message-ID: <200302271917.h1RJHbeA011894@oss.sgi.com>
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: anyone ever done multicast AF_UNIX sockets?
+Date: Thu, 27 Feb 2003 15:09:37 -0500
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3E5E7081.6020704@nortelnetworks.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
+To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-rom rddunlap@osdl.org Thu Feb 27 11:16:48 2003
-Received: with ECARTIS (v1.0.0; list netdev); Thu, 27 Feb 2003 11:16:52 -0800 (PST)
-Received: from mail.osdl.org (air-2.osdl.org [65.172.181.6])
-	by oss.sgi.com (8.12.5/8.12.5) with SMTP id h1RJGleA011690
-	for <netdev@oss.sgi.com>; Thu, 27 Feb 2003 11:16:47 -0800
-Received: from dragon.pdx.osdl.net (dragon.pdx.osdl.net [172.20.1.27])
-	by mail.osdl.org (8.11.6/8.11.6) with SMTP id h1RJGjw31760;
-	Thu, 27 Feb 2003 11:16:45 -0800
-Date: Thu, 27 Feb 2003 11:12:12 -0800
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-To: linux-net@vger.kernel.org
-Cc: netdev@oss.sgi.com
-Subject: linux_mib docs?
-Message-Id: <20030227111212.40388562.rddunlap@osdl.org>
-Organization: OSDL
-X-Mailer: Sylpheed version 0.8.6 (GTK+ 1.2.10; i586-pc-linux-gnu)
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-X-archive-position: 1813
-X-ecartis-version: Ecartis v1.0.0
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
-X-original-sender: rddunlap@osdl.org
-Precedence: bulk
-X-list: netdev
 
-Hi,
+It is fairly common to want to distribute information between a single 
+sender and multiple receivers on a single box.
 
-Is there a MIB definition for struct linux_mib in
-include/net/snmp.h ?
+Multicast IP sockets are one possibility, but then you have additional 
+overhead in the IP stack.
 
-Thanks,
---
-~Randy
+Unix sockets are more efficient and give notification if the listener is 
+not present, but the problem then becomes that you must do one syscall 
+for each listener.
+
+So, here's my main point--has anyone ever considered the concept of 
+multicast AF_UNIX sockets?
+
+The main features would be:
+--ability to associate/disassociate a socket with a multicast address
+--ability to associate/disassociate with all multicast addresses 
+(possibly through some kind of raw socket thing, or maybe a simple 
+wildcard multicast address)
+--on process death all sockets owned by that process are disassociated 
+from any multicast addresses that they were associated with
+--on sending a packet to a multicast address and there are no sockets 
+associated with it, return -1 with errno=ECONNREFUSED
+
+The association/disassociation could be done using the setsockopt() 
+calls the same as with udp sockets, everything else would be the same 
+from a userspace perspective.
+
+Any thoughts?  How hard would this be to put in?
+
+Chris
+
+
+-- 
+Chris Friesen                    | MailStop: 043/33/F10
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
