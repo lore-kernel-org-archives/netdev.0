@@ -1,67 +1,44 @@
-From: "David S. Miller" <davem@davemloft.net>
+From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 13:39:06 -0700
+Date: Wed, 22 Sep 2004 13:56:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922133906.7d57ef49.davem@davemloft.net>
-References: <20040920063012.GL2825@krispykreme>
-	<20040920203021.GD4242@wotan.suse.de>
-	<20040921155835.18aee381.davem@davemloft.net>
-	<20040922140000.GD27432@wotan.suse.de>
-	<20040922111209.7887df53.davem@davemloft.net>
-	<20040922195515.GA2619@wotan.suse.de>
-	<c0a09e5c04092213126ba5f29d@mail.gmail.com>
+Message-ID: <4151E6F1.7000405@us.ibm.com>
+References: <20040920063012.GL2825@krispykreme>	<20040920203021.GD4242@wotan.suse.de>	<20040921155835.18aee381.davem@davemloft.net>	<20040922140000.GD27432@wotan.suse.de>	<20040922111209.7887df53.davem@davemloft.net>	<20040922195515.GA2619@wotan.suse.de>	<4151DB6C.8050906@us.ibm.com> <20040922133011.5885640b.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: ak@suse.de, anton@samba.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Grover <andy.grover@gmail.com>
-In-Reply-To: <c0a09e5c04092213126ba5f29d@mail.gmail.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040922133011.5885640b.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 13:12:47 -0700
-Andrew Grover <andy.grover@gmail.com> wrote:
+David S. Miller wrote:
 
-> I think this is caused by the congestion changes added between
-> 2.6.9-rc1 and rc2. I am seeing good performance with rc1 and tso on
-> (or off), but bad performance with rc2 and bk-latest only if tso is
-> on.
+> The former rarely goes faster with TSO enabled simply
+> because there is sufficient cpu and bus bandwidth to
+> keep the card full.
 
-Yes, we know it is the packet counting change but those
-are pretty much necessary else TSO violates congestion window
-rules.
+At about 700MHz (ok, old, I know) or thereabouts, it
+usually took > 1 CPU to drive a gigabit card, iirc,
+about 1.5 CPUs or so.
 
-There is a slight bug somewhere limiting performance, but we'll
-find it.
+> Whereas with something like SpecWEB the extra cpu and
+> bus cycles are needed by other resources of the benchmark
+> and thus performance goes up.
 
-The thing to watch if you're debugging this is what tp->packets_out
-is set to, and what happens in each tcp_snd_test() call.  Also, watch
-tcp_cong_avoid() to make sure that tp->snd_cwnd is incrementing
-on every ACK and that tp->snd_cwnd_clamp is not some silly small
-value.
+Yep..
 
-Tracking tcp_snd_test() should tell you everything, watch what
-happens to the values of:
+> I have no idea why people think TSO will make some single
+> stream TCP test go faster, it doesn't buy you more bytes
+> on the wire :-)
 
-	tcp_packets_in_flight(tp);
-	'pkts' aka. TCP_SKB_CB(skb)->tso_factor after the
-	     possible tcp_set_skb_tso_factor() call
-	tp->snd_cwnd
+True, if the card was already doing line speed,
+no, as you say, it won't help making the stack go
+faster :). If not, though, the gain in doing only
+one pass down the stack, one route look up, etc in
+place of multiple handoffs should help, correct?
 
-One thing that could be biting us is the nagle check which
-probably needs to be adjusted to use the standard MSS not
-the TSO one... perhaps play with this patch:
-
-===== include/net/tcp.h 1.88 vs edited =====
---- 1.88/include/net/tcp.h	2004-09-14 13:57:07 -07:00
-+++ edited/include/net/tcp.h	2004-09-22 13:18:43 -07:00
-@@ -1505,7 +1505,7 @@
- 	 * final FIN frame.  -DaveM
- 	 */
- 	return (((nonagle&TCP_NAGLE_PUSH) || tp->urg_mode
--		 || !tcp_nagle_check(tp, skb, cur_mss, nonagle)) &&
-+		 || !tcp_nagle_check(tp, skb, tp->mss_cache_std, nonagle)) &&
- 		(((tcp_packets_in_flight(tp) + (pkts-1)) < tp->snd_cwnd) ||
- 		 (TCP_SKB_CB(skb)->flags & TCPCB_FLAG_FIN)) &&
- 		!after(TCP_SKB_CB(skb)->end_seq, tp->snd_una + tp->snd_wnd));
+thanks,
+Nivedita
