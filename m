@@ -1,44 +1,24 @@
 From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: [PATCH 1/2] Prefix List against 2.5.73
-Date: Wed, 16 Jul 2003 11:42:33 -0700 (PDT)
+Subject: Re: [PATCH 1/2] Prefix List against 2.5.73
+Date: Wed, 16 Jul 2003 11:49:11 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307161128520.1972-100000@DYN318430.beaverton.ibm.com>
-References: <20030716.173926.81875946.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.44.0307161146070.1972-100000@DYN318430.beaverton.ibm.com>
+References: <Pine.LNX.4.44.0307161128520.1972-100000@DYN318430.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: kuznet@ms2.inr.ac.ru, <davem@redhat.com>, <netdev@oss.sgi.com>,
    <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030716.173926.81875946.yoshfuji@linux-ipv6.org>
+In-Reply-To: <Pine.LNX.4.44.0307161128520.1972-100000@DYN318430.beaverton.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Hi,
-
-> > Select yourself: either IFA_IFFLAGS or translated flags in ifa_flags.
-> > I prefer the second way just because it is too unpleasant to add
-> > a new attribute for sake of two bits with no visible candidates
-> > to use remaining ones.
->
-> Well, I dislike ifa_flags because
->  - it is conceptually wrong to combine them.
->    e.g. even if all autoconf addresses expired, flags lasts and
->    we should report it to userspace.
->  - ifa_flags is extremely expensive resource.
->    There are only 8 bits. Use it only for addresses.
-
-Well, I tend to agree with Alexey since we don't need a lot of extra data
-support for providing 2 bits. The advantage with this approach is that the
-unmodified ip util can display the flags correctly after it removes the
-address specific flags. Going by the other approach, we need to support a
-new type to get this information (IFA_IFFLAGS). If number of bits is
-considered important, then it is possible to just return the 6 bits
-(ignore the RS* bits). I feel this is less complicated of the two ways.
-
-So at this time, I am sending the patch for 2.5.73 (is this too old ?)
-using Alexey's suggestion. Patch follows for 2.4.21.
+Sorry, I had an extra structure in the previous patch which is not needed
+after taking alexey's changes. Now since the prefix list and the routing
+table are returned *identically*, the extra structure in6_prefix_mgs is
+removed. This is the correct patch for 2.5.73.
 
 Thanks,
 
@@ -55,23 +35,6 @@ diff -ruN linux-2.5.73.org/include/linux/ipv6_route.h test/linux-2.5.73/include/
 
  #define RTF_NONEXTHOP	0x00200000	/* route with no nexthop	*/
  #define RTF_EXPIRES	0x00400000
-@@ -44,4 +45,16 @@
- #define RTMSG_NEWROUTE		0x21
- #define RTMSG_DELROUTE		0x22
-
-+/*
-+ * Return entire prefix list in array of following structures. Provides the
-+ * prefix and prefix length for all devices.
-+ */
-+
-+struct in6_prefix_msg
-+{
-+	int ifindex;
-+	int prefix_len;
-+	struct in6_addr prefix;
-+};
-+
- #endif
 diff -ruN linux-2.5.73.org/include/linux/rtnetlink.h test/linux-2.5.73/include/linux/rtnetlink.h
 --- linux-2.5.73.org/include/linux/rtnetlink.h	2003-06-22 11:33:07.000000000 -0700
 +++ test/linux-2.5.73/include/linux/rtnetlink.h	2003-07-16 10:58:19.000000000 -0700
