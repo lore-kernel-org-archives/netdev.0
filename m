@@ -1,46 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: SOMAXCONN too low
-Date: Wed, 29 Oct 2003 10:43:50 -0800
+Date: Wed, 29 Oct 2003 10:58:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031029104350.1db8c94d.davem@redhat.com>
+Message-ID: <20031029105809.0a1f27a1.davem@redhat.com>
 References: <200310290658.h9T6w04k015302@napali.hpl.hp.com>
-	<20031029133315.5638f842.ak@suse.de>
-	<16287.62792.721035.910762@napali.hpl.hp.com>
-	<20031029092220.12518b68.davem@redhat.com>
-	<16288.537.258222.601897@napali.hpl.hp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davidm@napali.hpl.hp.com, ak@suse.de, netdev@oss.sgi.com
+Cc: davidm@napali.hpl.hp.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davidm@hpl.hp.com
-In-Reply-To: <16288.537.258222.601897@napali.hpl.hp.com>
+In-Reply-To: <200310290658.h9T6w04k015302@napali.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 29 Oct 2003 10:08:25 -0800
+On Tue, 28 Oct 2003 22:58:00 -0800
 David Mosberger <davidm@napali.hpl.hp.com> wrote:
 
-> We noticed this problem with a server that uses one thread per CPU
-> (pinned).  Why don't you run tux with the "backlog" parameter set to
-> 128 and see what happens under heavy load?
+> You obviously want some control over how big the listen queue can
+> grow, but it seems to me that a sysctl would be in place.  I found
+> this patch to do that, but no reaction to it:
+> 
+>   http://www.ussg.iu.edu/hypermail/linux/kernel/0205.0/1287.html
 
-Then TuX could be improved too, what can I say?  If the thread taking
-in new connections does anything more involved than:
+I think I'm going to apply this patch.
 
-	while (1) {
-		fd = accept(listen_fd);
-		thr = pick_service_thread();
-		spin_lock(new_conn_queue[thr]);
-		append(fd, new_conn_queue[thr]);
-		spin_unlock(new_conn_queue[thr]);
-		wake(thr);
-	}
+People can then set the limit to what they want, the default
+stays at 128, and the SOMAXCONN define itself does not change.
 
-it's broken.  I severly doubt that anyone can show that, when using
-the above scheme, their multi-GHZ cpu cannot handle whatever
-connection load you put on the system.
-
-The fact that people have written web servers that outperform
-TuX and handle the load better is something else to think about.
-They existing within the SOMAXCONN limits.
+Ok David?
