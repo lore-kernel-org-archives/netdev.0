@@ -1,135 +1,59 @@
-From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 3/3][bonding 2.4] Add support for slaves that use ethtool_ops
-Date: Thu, 25 Dec 2003 17:04:48 +0200
+From: Pavel Machek <pavel@ucw.cz>
+Subject: Re: [FYI] 2.6.x exp net drivers changelog
+Date: Fri, 26 Dec 2003 22:23:35 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200312251704.49299.amir.noam@intel.com>
+Message-ID: <20031226212335.GB197@elf.ucw.cz>
+References: <3FDEA8F5.1020201@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Netdev <netdev@oss.sgi.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@osdl.org>, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>, jgarzik@pobox.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <3FDEA8F5.1020201@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-When collecting link information from slaves via ETHTOOL, first try
-using the relevant ethtool_ops functions.
+Hi!
 
+> <prasanna:in.ibm.com>:
+>   o [netdrvr tlan] netpoll support
+>   o [netdrvr smc-ultra] netpoll support
 
-diff -Nuarp a/drivers/net/bonding/bond_main.c b/drivers/net/bonding/bond_main.c
---- a/drivers/net/bonding/bond_main.c	Thu Dec 25 16:09:36 2003
-+++ b/drivers/net/bonding/bond_main.c	Thu Dec 25 16:09:37 2003
-@@ -623,44 +623,55 @@ static int bond_update_speed_duplex(stru
- 	struct ifreq ifr;
- 	struct ethtool_cmd etool;
- 
--	ioctl = slave_dev->do_ioctl;
--	if (ioctl) {
--		etool.cmd = ETHTOOL_GSET;
--		ifr.ifr_data = (char*)&etool;
--		if (IOCTL(slave_dev, &ifr, SIOCETHTOOL) == 0) {
--			slave->speed = etool.speed;
--			slave->duplex = etool.duplex;
--		} else {
--			goto err_out;
-+	/* Fake speed and duplex */
-+	slave->speed = SPEED_100;
-+	slave->duplex = DUPLEX_FULL;
-+
-+	if (slave_dev->ethtool_ops) {
-+		u32 res;
-+
-+		if (!slave_dev->ethtool_ops->get_settings) {
-+			return -1;
-+		}
-+
-+		res = slave_dev->ethtool_ops->get_settings(slave_dev, &etool);
-+		if (res < 0) {
-+			return -1;
- 		}
--	} else {
--		goto err_out;
-+
-+		goto verify;
- 	}
- 
--	switch (slave->speed) {
-+	ioctl = slave_dev->do_ioctl;
-+	strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
-+	etool.cmd = ETHTOOL_GSET;
-+	ifr.ifr_data = (char*)&etool;
-+	if (!ioctl || (IOCTL(slave_dev, &ifr, SIOCETHTOOL) < 0)) {
-+		return -1;
-+	}
-+
-+verify:
-+	switch (etool.speed) {
- 	case SPEED_10:
- 	case SPEED_100:
- 	case SPEED_1000:
- 		break;
- 	default:
--		goto err_out;
-+		return -1;
- 	}
- 
--	switch (slave->duplex) {
-+	switch (etool.duplex) {
- 	case DUPLEX_FULL:
- 	case DUPLEX_HALF:
- 		break;
- 	default:
--		goto err_out;
-+		return -1;
- 	}
- 
--	return 0;
-+	slave->speed = etool.speed;
-+	slave->duplex = etool.duplex;
- 
--err_out:
--	/* Fake speed and duplex */
--	slave->speed = SPEED_100;
--	slave->duplex = DUPLEX_FULL;
--	return -1;
-+	return 0;
+And here's netpoll for via-rhine... I hope it is allright? [I tested
+it briefly, kgdb-over-this seemed to work.]
+
+								Pavel
+
+--- tmp/linux/drivers/net/via-rhine.c	2003-09-09 12:45:27.000000000 +0200
++++ linux/drivers/net/via-rhine.c	2003-12-25 22:34:37.000000000 +0100
+@@ -615,6 +615,15 @@
+ 			break;
  }
  
- /*
-@@ -705,6 +716,7 @@ static int bond_check_dev_link(struct ne
- 		 */
++#ifdef CONFIG_NET_POLL_CONTROLLER
++static void via_rhine_poll(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	via_rhine_interrupt(dev->irq, (void *)dev, NULL);
++	enable_irq(dev->irq);
++}
++#endif
++
+ static int __devinit via_rhine_init_one (struct pci_dev *pdev,
+ 					 const struct pci_device_id *ent)
+ {
+@@ -784,6 +793,9 @@
+ 	dev->ethtool_ops = &netdev_ethtool_ops;
+ 	dev->tx_timeout = via_rhine_tx_timeout;
+ 	dev->watchdog_timeo = TX_TIMEOUT;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller = via_rhine_poll;
++#endif
+ 	if (np->drv_flags & ReqTxAlign)
+ 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
  
- 		/* Yes, the mii is overlaid on the ifreq.ifr_ifru */
-+		strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
- 		mii = (struct mii_ioctl_data *)&ifr.ifr_data;
- 		if (IOCTL(slave_dev, &ifr, SIOCGMIIPHY) == 0) {
- 			mii->reg_num = MII_BMSR;
-@@ -712,10 +724,23 @@ static int bond_check_dev_link(struct ne
- 				return (mii->val_out & BMSR_LSTATUS);
- 			}
- 		}
-+	}
- 
--		/* try SIOCETHTOOL ioctl, some drivers cache ETHTOOL_GLINK */
--		/* for a period of time so we attempt to get link status   */
--		/* from it last if the above MII ioctls fail...            */
-+	/* try SIOCETHTOOL ioctl, some drivers cache ETHTOOL_GLINK */
-+	/* for a period of time so we attempt to get link status   */
-+	/* from it last if the above MII ioctls fail...            */
-+	if (slave_dev->ethtool_ops) {
-+		if (slave_dev->ethtool_ops->get_link) {
-+			u32 link;
-+
-+			link = slave_dev->ethtool_ops->get_link(slave_dev);
-+
-+			return link ? BMSR_LSTATUS : 0;
-+		}
-+	}
-+
-+	if (ioctl) {
-+		strncpy(ifr.ifr_name, slave_dev->name, IFNAMSIZ);
- 		etool.cmd = ETHTOOL_GLINK;
- 		ifr.ifr_data = (char*)&etool;
- 		if (IOCTL(slave_dev, &ifr, SIOCETHTOOL) == 0) {
+-- 
+When do you have a heart between your knees?
+[Johanka's followup: and *two* hearts?]
