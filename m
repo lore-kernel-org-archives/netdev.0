@@ -1,116 +1,111 @@
-From: crochu nicolas <nicolas.crochu@sgam.com>
-Subject: r8169 driver & -mm4
-Date: Tue, 02 Mar 2004 16:19:00 +0100
+From: <raghavendra.koushik@wipro.com>
+Subject: RE: Submission #3  for S2io 10GbE driver
+Date: Tue, 2 Mar 2004 19:16:22 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1078240740.1781.24.camel@pinacola>
+Message-ID: <4223A04BF7D1B941A25246ADD0462FF50115AFCF@blr-m3-msg.wipro.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-flc8tQegn8umS13h857g"
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <leonid.grossman@s2io.com>, <netdev@oss.sgi.com>, <shemminger@osdl.org>,
+        <hch@infradead.org>, <ravinandan.arakali@s2io.com>,
+        <raghavendra.koushik@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: romieu@fr.zoreil.com
+content-class: urn:content-classes:message
+To: <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Jeff,
+	
+	Really sorry about that "confidentiality notice" that gets attached. 
+I have asked my sysAdmin to get rid of it. He has promised to do so ASAP. 
+Hope this mail does not have it attached at the end :-). If at all the 
+message still persists please ignore it as inconsequential to our discussion.
 
---=-flc8tQegn8umS13h857g
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+I Have a few more questions.
 
-Hi,
+>>4) just delete the SET_NETDEV_DEV(), FREE_NETDEV, and IRQ_NONE 
+>>compatibility defines.  these are in 2.4 just like 2.6.
 
-Since i compiled the latest 2.6.3-mm4, without PREEMP, without SMP, and
-without ACPI, my laptop is almost working flawlessly.
-But, i was surprised when i unplugged the RJ45 cable, in=20
-/var/log/messages, i got :
-[...]
-Mar  2 10:48:43 pinacola kernel: r8169: eth0: Reset RTL8169s PHY
-[...]
-
-then, even if i plug the cable again, i got=20
-[...]
-Mar  2 10:48:43 pinacola kernel: r8169: eth0: Reset RTL8169s PHY
-Mar  2 10:49:14 pinacola last message repeated 2561 times
-Mar  2 10:50:14 pinacola last message repeated 5084 times
-Mar  2 10:50:39 pinacola last message repeated 2049 times
-[...]
-
-I could not even ping any host. i had to do a=20
-
-ifdown eth0=20
-ifup eth0
-
-To be able to ping the world again.=20
+Not all 2.4 kernels have them yet right? but since this driver is going
+into 2.6 kernel if you want all these backward compatibility macros eliminated
+I can do that.
 
 
-C.Nicolas.
+>>13) in s2io_xmit, kfree the skb (drop it) if you don't have enough free 
+>>space to queue it.  this is normally a BUG condition, since proper use 
+>>of netif_{start,stop,wake}_queue() will guarantee that s2io_xmit will 
+>>only be called when there is free space to queue another skb.
 
-lspci
----------------------------------------------
-00:00.0 Host bridge: Intel Corp. 82865G/PE/P Processor to I/O Controller
-(rev 02)
-00:01.0 PCI bridge: Intel Corp. 82865G/PE/P Processor to AGP Controller
-(rev 02)
-00:1d.0 USB Controller: Intel Corp. 82801EB USB (rev 02)
-00:1d.1 USB Controller: Intel Corp. 82801EB USB (rev 02)
-00:1d.2 USB Controller: Intel Corp. 82801EB USB (rev 02)
-00:1d.3 USB Controller: Intel Corp. 82801EB USB (rev 02)
-00:1d.7 USB Controller: Intel Corp. 82801EB USB2 (rev 02)
-00:1e.0 PCI bridge: Intel Corp. 82801BA/CA/DB/EB PCI Bridge (rev c2)
-00:1f.0 ISA bridge: Intel Corp. 82801EB LPC Interface Controller (rev
-02)
-00:1f.1 IDE interface: Intel Corp. 82801EB Ultra ATA Storage Controller
-(rev 02)
-00:1f.3 SMBus: Intel Corp. 82801EB SMBus Controller (rev 02)
-00:1f.5 Multimedia audio controller: Intel Corp. 82801EB AC'97 Audio
-Controller (rev 02)
-00:1f.6 Modem: Intel Corp. 82801EB AC'97 Modem Controller (rev 02)
-01:00.0 VGA compatible controller: ATI Technologies Inc: Unknown device
-4e50
-03:00.0 CardBus bridge: ENE Technology Inc CB1410 Cardbus Controller
-03:01.0 FireWire (IEEE 1394): Texas Instruments TSB43AB21
-IEEE-1394a-2000 Controller (PHY/Link)
-03:03.0 Ethernet controller: Realtek Semiconductor Co., Ltd. RTL-8169
-(rev 10)
-
-/var/log/syslog
-------------------------------------------
-[...]
-Mar  2 09:20:48 pinacola kernel: PCI: Found IRQ 5 for device
-0000:03:03.0
-Mar  2 09:20:48 pinacola kernel: eth0: Identified chip type is
-'RTL8169s/8110s'.
-Mar  2 09:20:48 pinacola kernel: eth0: RTL8169 at 0xe18ab800,
-00:90:f5:27:36:0f, IRQ 5
-Mar  2 09:20:48 pinacola kernel: eth0: Auto-negotiation Enabled.
-Mar  2 09:20:48 pinacola kernel: eth0: 100Mbps Full-duplex operation.
-[...]
-
-/proc/interrupts
--------------------------------
-           CPU0
-  0:   25045424          XT-PIC  timer
-  1:      58693          XT-PIC  i8042
-  2:          0          XT-PIC  cascade
-  5:     310068          XT-PIC  Intel ICH5, uhci_hcd, ehci_hcd, eth0
- 11:          3          XT-PIC  ohci1394, uhci_hcd, uhci_hcd, uhci_hcd
- 12:     417208          XT-PIC  i8042
- 14:      32038          XT-PIC  ide0
- 15:      23920          XT-PIC  ide1
-NMI:          0
-ERR:          0
+On returning error (non zero) from s2io_xmit, I think the calling function frees
+the skb.
+How s2io_xmit works is when I get a packet for Tx and I find that all the
+Tx descriptors are owned by the NIC, I stop the queue and return error.
+So I wouldn't know before hand whether free queue space is available or not.
 
 
---=-flc8tQegn8umS13h857g
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: Ceci est une partie de message
-	=?ISO-8859-1?Q?num=E9riquement?= =?ISO-8859-1?Q?_sign=E9e?=
+Regards
+Koushik
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
 
-iD8DBQBARKXkxsSeKWK8V4QRAgAkAJwMQ/Clz3U6JGITfqDu6K/8fG+1WQCgujQI
-C77qdHy+DvMHfFc80CX+G04=
-=rLq4
------END PGP SIGNATURE-----
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+Sent: Monday, March 01, 2004 12:24 PM
+To: Raghavendra Koushik (WT01 - EMBEDDED & PRODUCT ENGINEERING SOLUTIONS)
+Cc: leonid.grossman@s2io.com; netdev@oss.sgi.com; shemminger@osdl.org; hch@infradead.org; ravinandan.arakali@s2io.com; raghavendra.koushik@s2io.com
+Subject: Re: Submission #3 for S2io 10GbE driver
 
---=-flc8tQegn8umS13h857g--
+
+raghavendra.koushik@wipro.com wrote:
+> Jeff,
+>  Regarding Point # 37
+> 
+> 
+>>>37) kill all of this:
+>>>
+>>>+/*  OS related system calls */
+>>>+
+>>>+#ifndef readq
+>>>+static inline u64 read64(void *addr)
+>>>+{
+>>>+       u64 ret = 0;
+>>>+       ret = readl(addr + 4);
+>>>+       (u64) ret <<= 32;
+>>>+       (u64) ret |= readl(addr);
+> 
+> 	[....]
+> 
+> I agree that read/write(32,16,8) are not used so can be eliminated, 
+> but the read/write64 macros are essential because not all platforms 
+> have defined the readq and writeq system calls. i386 for example 
+> doesn't have readq/writeq and to write into the 64 bit registers of 
+> the NIC, I use 2 successive 32 bits (readl/writel) operation to 
+> achieve the 64 bit equivalent. This procedure does work on all the 
+> platforms that we have tested on.
+
+The code should use the kernel API -- readq/writeq -- not define its own 
+API.  With regards to the missing readq/writeq on some architectures...
+
+Short term, if some arches do not provide readq/writeq, provide your own 
+definition (i.e. rename your write64 to a conditionally-defined writeq).
+
+Long term, all Linux platforms need to provide readq/writeq, so we need 
+to modify the architectures with the missing pieces.
+
+
+> Confidentiality Notice
+> 
+> The information contained in this electronic message and any 
+> attachments to this message are intended for the exclusive use of the 
+> addressee(s) and may contain confidential or privileged information. 
+> If you are not the intended recipient, please notify the sender at 
+> Wipro or Mailadmin@wipro.com immediately and destroy all copies of 
+> this message and any attachments.
+
+Oh really?  ;-)  You should talk to your lawyers and sysadmins about 
+sending email to open source people and lists...
+
+Regards,
+
+	Jeff
