@@ -1,70 +1,78 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: MLDv2 MRC timer wrong units [PATCH]
-Date: Tue, 18 Nov 2003 18:19:20 -0700
+From: Reuben Farrelly <reuben-linux@reub.net>
+Subject: Re: Kernel crash in 2.6.0-test9-mm3
+Date: Wed, 19 Nov 2003 14:22:40 +1300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF827DB90A.DAAAB15E-ON88256DE3.0005C3DE@us.ibm.com>
+Message-ID: <6.0.1.1.0.20031119141720.024aaf20@tornado.reub.net>
+References: <6.0.1.1.2.20031118232152.01ae5728@tornado.reub.net>
+ <20031118110139.45f2be60.akpm@osdl.org>
+ <20031118164944.54544c39.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	Boundary="0__=07BBE770DF96454E8f9e8a93df938690918c07BBE770DF96454E"
+Content-Type: text/plain; charset="us-ascii"; format=flowed
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, netdev@oss.sgi.com
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>, Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20031118164944.54544c39.davem@redhat.com>
+References: <6.0.1.1.2.20031118232152.01ae5728@tornado.reub.net>
+ <20031118110139.45f2be60.akpm@osdl.org>
+ <20031118164944.54544c39.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE770DF96454E8f9e8a93df938690918c07BBE770DF96454E
-Content-type: text/plain; charset=US-ASCII
+FWIW I'm compiling with:
+
+[root@tornado log]# gcc -v
+Reading specs from /usr/lib/gcc-lib/i386-redhat-linux/3.3.2/specs
+Configured with: ../configure --prefix=/usr --mandir=/usr/share/man 
+--infodir=/usr/share/info --enable-shared --enable-threads=posix 
+--disable-checking --with-system-zlib --enable-__cxa_atexit 
+--host=i386-redhat-linux
+Thread model: posix
+gcc version 3.3.2 20031107 (Red Hat Linux 3.3.2-2)
+[root@tornado log]#
+
+Reuben
 
 
-
-
-
-The MLD max response code is computing in units of 1/10th second,
-as in IGMPv3, but for MLD, it should be in milliseconds. Patch below.
-
-                        +-DLS
-
---- linux-2.6.0-test9-bk12/net/ipv6/mcast.c     2003-11-07 14:13:21.000000000 -0800
-+++ linux-2.6.0-test9-bk12F1/net/ipv6/mcast.c   2003-11-18 16:55:07.801413776 -0800
-@@ -1040,7 +1040,7 @@
-            /* MLDv1 router present */
-
-            /* Translate milliseconds to jiffies */
--           max_delay = ntohs(hdr->icmp6_maxdelay)*(HZ/10);
-+           max_delay = (ntohs(hdr->icmp6_maxdelay)*HZ)/1000;
-
-            switchback = (idev->mc_qrv + 1) * max_delay;
-            idev->mc_v1_seen = jiffies + switchback;
-@@ -1052,7 +1052,7 @@
-            /* clear deleted report items */
-            mld_clear_delrec(idev);
-      } else if (len >= 28) {
--           max_delay = MLDV2_MRC(ntohs(mlh2->mrc))*(HZ/10);
-+           max_delay = (MLDV2_MRC(ntohs(mlh2->mrc))*HZ)/1000;
-            if (!max_delay)
-                  max_delay = 1;
-            idev->mc_maxdelay = max_delay;
-
-(See attached file: mld2fix.patch)
---0__=07BBE770DF96454E8f9e8a93df938690918c07BBE770DF96454E
-Content-type: application/octet-stream;
-	name="mld2fix.patch"
-Content-Disposition: attachment; filename="mld2fix.patch"
-Content-transfer-encoding: base64
-
-LS0tIGxpbnV4LTIuNi4wLXRlc3Q5LWJrMTIvbmV0L2lwdjYvbWNhc3QuYwkyMDAzLTExLTA3IDE0
-OjEzOjIxLjAwMDAwMDAwMCAtMDgwMAorKysgbGludXgtMi42LjAtdGVzdDktYmsxMkYxL25ldC9p
-cHY2L21jYXN0LmMJMjAwMy0xMS0xOCAxNjo1NTowNy44MDE0MTM3NzYgLTA4MDAKQEAgLTEwNDAs
-NyArMTA0MCw3IEBACiAJCS8qIE1MRHYxIHJvdXRlciBwcmVzZW50ICovCiAKIAkJLyogVHJhbnNs
-YXRlIG1pbGxpc2Vjb25kcyB0byBqaWZmaWVzICovCi0JCW1heF9kZWxheSA9IG50b2hzKGhkci0+
-aWNtcDZfbWF4ZGVsYXkpKihIWi8xMCk7CisJCW1heF9kZWxheSA9IChudG9ocyhoZHItPmljbXA2
-X21heGRlbGF5KSpIWikvMTAwMDsKIAogCQlzd2l0Y2hiYWNrID0gKGlkZXYtPm1jX3FydiArIDEp
-ICogbWF4X2RlbGF5OwogCQlpZGV2LT5tY192MV9zZWVuID0gamlmZmllcyArIHN3aXRjaGJhY2s7
-CkBAIC0xMDUyLDcgKzEwNTIsNyBAQAogCQkvKiBjbGVhciBkZWxldGVkIHJlcG9ydCBpdGVtcyAq
-LwogCQltbGRfY2xlYXJfZGVscmVjKGlkZXYpOwogCX0gZWxzZSBpZiAobGVuID49IDI4KSB7Ci0J
-CW1heF9kZWxheSA9IE1MRFYyX01SQyhudG9ocyhtbGgyLT5tcmMpKSooSFovMTApOworCQltYXhf
-ZGVsYXkgPSAoTUxEVjJfTVJDKG50b2hzKG1saDItPm1yYykpKkhaKS8xMDAwOwogCQlpZiAoIW1h
-eF9kZWxheSkKIAkJCW1heF9kZWxheSA9IDE7CiAJCWlkZXYtPm1jX21heGRlbGF5ID0gbWF4X2Rl
-bGF5Owo=
-
---0__=07BBE770DF96454E8f9e8a93df938690918c07BBE770DF96454E--
+At 13:49 19/11/2003, David S. Miller wrote:
+>On Tue, 18 Nov 2003 11:01:39 -0800
+>Andrew Morton <akpm@osdl.org> wrote:
+>
+> > It's one for the networking guys.
+> >
+> > The mm kernels have a patch which detects when atomic_dec_and_test
+> > takes an atomic_t negative - it is assumed that this is a bug so
+> > a warning is generated.
+>
+>Andrew I've analyzed this a bit.  This is incredible evidence in
+>these dumps that either there is a bug in Linus's atomic_dec_and_test()
+>debugging hack or GCC is miscompiling it in certain cases with certain
+>versions of the compiler.
+>
+>Look at this:
+>
+> > > Nov 18 23:09:00 tornado kernel:  [<c029203c>] 
+> skb_release_data+0x14c/0x160
+> > > Nov 18 23:09:00 tornado kernel:  [<c0292063>] kfree_skbmem+0x13/0x30
+> > > Nov 18 23:09:00 tornado kernel:  [<c0292138>] __kfree_skb+0xb8/0x1b0
+> > > Nov 18 23:09:00 tornado kernel:  [<c0218815>] e100intr+0x1e5/0x290
+>
+>Ok, releasing an SKB data area twice.
+>
+> > > Nov 18 23:09:00 tornado kernel: BUG: dst underflow 0: c02921ef
+>
+>Freeing a 'dst' entry one too many times.
+>
+> > > Nov 18 23:09:00 tornado kernel: Attempt to release alive inet socket 
+> dfd4c780
+>
+>A socket refcount dropping to zero too early, before it's marked dead.
+>
+>These last two problems are very serious errors, and would have
+>printed out debugging messages before the atomic_dec_and_test() patch.
+>If these last two messages don't show up without the
+>atomic_dec_and_test() debugging patch applied, well there you
+>go... :-)
+>
+>In that debugging patch, I'm wondering something about x86.
+>When one goes "sete %reg; sets %reg" does the first 'sete' modify
+>the condition codes by chance?  Probably not...
