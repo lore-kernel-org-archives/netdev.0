@@ -1,55 +1,53 @@
-From: Jeff Garzik <jgarzik@pobox.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: SIOCADDMULTI for unicast broken
-Date: Fri, 03 Jan 2003 20:52:13 -0500
+Date: Fri, 3 Jan 2003 23:11:45 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E163E4D.5090007@pobox.com>
-References: <Pine.LNX.4.44.0301032029540.29812-100000@beohost.scyld.com> <3E163CBB.30206@candelatech.com>
+Message-ID: <20030103224852.L48869@shell.cyberus.ca>
+References: <Pine.LNX.4.44.0301032100340.29812-100000@beohost.scyld.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Donald Becker <becker@scyld.com>, jamal <hadi@cyberus.ca>,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Ben Greear <greearb@candelatech.com>, Jeff Garzik <jgarzik@pobox.com>,
+   "" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3E163CBB.30206@candelatech.com>
+To: Donald Becker <becker@scyld.com>
+In-Reply-To: <Pine.LNX.4.44.0301032100340.29812-100000@beohost.scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
-> Donald Becker wrote:
-> 
->> It was
->>   "If you need this capability for a RESEARCH PROJECT, you can buy this
->>   specific board and thus not need to modify the kernel or device
->>   driver. "
->>
->> You can also find a few people that want to receive specific corrupted
->> packets, change the meaning of LEDs on a NIC, and do many other strange
->> things.  But we don't need a defined kernel interface for each one.
-> 
-> 
-> Just out of curiosity, what is the suggested manner for adding such
-> back-door hacks as this?
-
-SIOCDEVPRIVATE is staying around
 
 
- > Maybe in a proc file system that the driver
-> implements?
+Too many emails to respond to at once.
 
-No!  procfs additions are discouraged.  sysfs in 2.5.x if you _must_ do 
-this, but SIOCDEVPRIVATE or just flat out maintaining a kernel patch 
-against a stable kernel tree would be much preferred, I think.
+Q: Is this a hack?
+A: Yes, indeed it is. wrong API is the main culprit.
 
+Q: Is this a feature needed by only a few people?
+A: No, Absolutely not. RFC2338 is one example that needs
 
- > It would be neat to see various driver-specific features
-> like this be implemented, and it would be even nicer if they followed
-> at least some general guideline for how to interface with the rest of
-> the world...
+such a feature for "aliasing" MAC addresses. RFC2338 is very popular
+these days for some reason. I would think any schemes
+that do HA takeover of another host would need such a feature.
 
+How common are NICS such as the 21x4x that can be programmed to do
+perfect hashing and accept multiple MAC addresses in hardware?
+And if this was a commodity feature - what happens to PACKET_HOST
+setting? an netdevice can only have one unicast MAC address.
+SIOCDEVPRIVATE does not seem to be the right place to do this.
+You still wanna have ability to do proper RFC2338 and related protocols
+even when the h/ware is incapable.
+And btw, i didnt even open up the whole can of worms - we also need to
+respond back with proper MAC addresses to ARPs and packets sourced with
+specific virtual router IPs. This is a seprate problem.
 
-Driver-specific features are by definition just that :)  If you want a 
-general guideline, you'll also want a header or helper lib quite often 
-to eliminate duplication of code and standardize the interface.
+cheers,
+jamal
 
-	Jeff
+PS: the hack credit (for using SIOCADDMULTI/DELMULTI) goes to Jerome
+Ettiene (this is a guy who never responds to email, probably too busy
+unicycling somewhere, so no point in ccing him) - Except it doesnt work
+without the patch i posted.
+On takeover, he sets the original MAC address as a receiving MAC
+via SIOCADDMULTI and the allocated 00-00-5E-00-01-xx MAC to be
+the main MAC address.
+The weakness is when you want to run multiple virtual routers; each
+one requires its own 00-00-5E-00-01-xx MAC.
