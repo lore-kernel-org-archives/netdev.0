@@ -1,61 +1,37 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [DEBUG]: sk_forward_alloc assertion failures
-Date: Thu, 13 Jan 2005 17:50:17 -0800 (PST)
-Message-ID: <Pine.LNX.4.58.0501131741430.25252@w-sridhar.beaverton.ibm.com>
-References: <20050113171234.3fde0925.davem@davemloft.net>
+Date: Fri, 14 Jan 2005 13:10:05 +1100
+Message-ID: <20050114021005.GA11962@gondor.apana.org.au>
+References: <20050113171234.3fde0925.davem@davemloft.net> <Pine.LNX.4.58.0501131741430.25252@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: anton@samba.org, netdev@oss.sgi.com, herbert@gondor.apana.org.au
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, anton@samba.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050113171234.3fde0925.davem@davemloft.net>
+To: Sridhar Samudrala <sri@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0501131741430.25252@w-sridhar.beaverton.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+On Thu, Jan 13, 2005 at 05:50:17PM -0800, Sridhar Samudrala wrote:
+> 
+> I think with this patch we will start seeing
+> sk_wmem_queued assertions.
 
-I think with this patch we will start seeing
-sk_wmem_queued assertions.
+Not necessarily.  What's probably happening currently is that
+sk_forward_alloc is temporarily raised above the value it should
+have.  It then gets cut down by the reclaim function and
+subsequently goes negative.
 
-Currently sk_wmem_queued seems to be accounted
-correctly, but this patch changes this value too.
+Since there is no reclaim for sk_wmem_queued it doesn't happen
+there.
 
--Sridhar
-
-On Thu, 13 Jan 2005, David S. Miller wrote:
-
->
-> Anton, can you and the other IBM folks who can reproduce
-> the problem give this test patch a whirl?
->
-> Herbert and I aren't exactly sure what the exact sequence
-> of events is that causes the problem, but we do know that
-> this code is highly suspect.
->
-> [ BTW, Herbert, it just occurred to me that these adjustments
->   are incorrect for the skb->data pulling case since we really
->   aren't liberating the data. ]
->
-> Thanks.
->
-> ===== net/ipv4/tcp_output.c 1.75 vs edited =====
-> --- 1.75/net/ipv4/tcp_output.c	2004-12-28 10:22:40 -08:00
-> +++ edited/net/ipv4/tcp_output.c	2005-01-13 16:45:26 -08:00
-> @@ -580,12 +580,12 @@
->
->  	TCP_SKB_CB(skb)->seq += len;
->  	skb->ip_summed = CHECKSUM_HW;
-> -
-> +#if 0
->  	skb->truesize	     -= len;
->  	sk->sk_queue_shrunk   = 1;
->  	sk->sk_wmem_queued   -= len;
->  	sk->sk_forward_alloc += len;
-> -
-> +#endif
->  	/* Any change of skb->len requires recalculation of tso
->  	 * factor and mss.
->  	 */
->
->
+So taking out the adjustments should not cause any problems of
+sk_wmem_queued, theoretically :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
