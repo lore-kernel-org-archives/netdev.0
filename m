@@ -1,28 +1,21 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6] typhoon: fix PCI enable, add port IO option
-Date: Thu, 06 Jan 2005 22:47:20 -0500
-Message-ID: <41DE0648.6090302@pobox.com>
-References: <1101535273.4734.3.camel@ori.thedillows.org>
+Subject: Re: [PATCH] 1/5: eepro: cache EEPROM values
+Date: Thu, 06 Jan 2005 22:51:59 -0500
+Message-ID: <41DE075F.4090008@pobox.com>
+References: <20041118234043.GF24080@cathedrallabs.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Dillow <dave@thedillows.org>
-In-Reply-To: <1101535273.4734.3.camel@ori.thedillows.org>
+To: Aristeu Sergio Rozanski Filho <aris@cathedrallabs.org>
+In-Reply-To: <20041118234043.GF24080@cathedrallabs.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Dillow wrote:
-> Jeff, please do a
-> 
-> 	bk pull http://typhoon.bkbits.net/typhoon-2.6
+your patches look good, but do not seem to apply.
 
-Unfortunately, I can't pull this since it is not based on vanilla 
-upstream 2.6.x.
-
-Can you please re-create your typhoon repository, based only on Linus's 
-2.6.x?
+can you please resend versus 2.6.10?
 
 	Jeff
