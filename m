@@ -1,97 +1,67 @@
-From: Peter Kjellstroem <cap@nsc.liu.se>
-Subject: Re: e1000>5.2.30 unstable with InterruptThrottleRate=0
-Date: Sun, 5 Dec 2004 15:04:22 +0100 (CET)
-Message-ID: <Pine.LNX.4.44.0412051457030.13794-100000@papput.nsc.liu.se>
-References: <1102216844.3343.84.camel@sfeldma-mobl.dsl-verizon.net>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: 1.03Mpps on e1000 (was: Re: [E1000-devel] Transmission limit)
+Date: Sun, 5 Dec 2004 15:50:51 +0100
+Message-ID: <20041205145051.GA647@xi.wantstofly.org>
+References: <1101499285.1079.45.camel@jzny.localdomain> <16811.8052.678955.795327@robur.slu.se> <1101821501.1043.43.camel@jzny.localdomain> <20041130134600.GA31515@xi.wantstofly.org> <1101824754.1044.126.camel@jzny.localdomain> <20041201001107.GE4203@xi.wantstofly.org> <1101863399.4663.54.camel@sfeldma-mobl.dsl-verizon.net> <20041201182943.GA14470@xi.wantstofly.org> <20041201213550.GF14470@xi.wantstofly.org> <1101967983.4782.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Robert Olsson <Robert.Olsson@data.slu.se>,
+        P@draigBrady.com, mellia@prezzemolo.polito.it,
+        e1000-devel@lists.sourceforge.net,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Scott Feldman <sfeldma@pobox.com>
-In-Reply-To: <1102216844.3343.84.camel@sfeldma-mobl.dsl-verizon.net>
+Content-Disposition: inline
+In-Reply-To: <1101967983.4782.9.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello again,
+On Wed, Dec 01, 2004 at 10:13:33PM -0800, Scott Feldman wrote:
 
-I'm sorry my previous e-mail came out much more harsh then I intended it 
-to (not native english speaking). I just wanted to point out that it's not 
-falling over for me with all drivers.
+> Idea#3
+> 
+> http://www.mail-archive.com/freebsd-net@freebsd.org/msg10826.html
+> 
+> Set TXDMAC to 0 in e1000_configure_tx.
 
-I've been doing som more tests today to try to narrow down which patch 
-causes my problems. So far I have this:
+Enabling 'DMA packet prefetching' gives me an impressive boost in performance.
+Combined with your TX clean rework, I now get 1.03Mpps TX performance at 60B
+packets.  Transmitting from both of the 82546 ports at the same time gives me
+close to 2 Mpps.
 
-2.4.26 (5.2.30) is ok
-2.4.28 (5.4.11) is not
+The freebsd post hints that (some) e1000 hardware might be buggy w.r.t. this
+prefetching though.
 
-2.4.28 with 5.2.30 patched in is ok
-2.4.28 with 5.2.39 (from 2.4.27-pre1) is not
+I'll play some more with the other ideas you suggested as well.
 
-In e1000_main.c for 5.2.39 (from 2.4.27-pre1) i found this:
+60      1036488
+61      1037413
+62      1036429
+63      990239
+64      993218
+65      993233
+66      993201
+67      993234
+68      993219
+69      993208
+70      992225
+71      980560
 
-/* Change Log
- *
- * 5.2.39       3/12/04
- * ...
- *   o Back out the CSA fix for 82547 as it continues to cause
- *     systems lock-ups with production systems.
 
-Best Regards,
- Peter
+--L
 
-On Sat, 4 Dec 2004, Scott Feldman wrote:
 
-> On Fri, 2004-12-03 at 11:02, Peter Kjellstroem wrote:
-> > Short version: 82547GI with ITR=0 on 2.4.28 (vanilla) and RHEL3u3 has           
-> > problems (traffic grinds to a temporary halt under anything but trivila         
-> > network traffic). kernel prints the following and resets the IF (many           
-> > times):                                                                         
-> >                                                                                 
-> > NETDEV WATCHDOG: eth0: transmit timed out           
-> 
-> Dude!  You're out of luck!
-> 
-> >From the README:
-> 
->     CAUTION: If you are using the Intel PRO/1000 CT Network 
->              Connection (controller 82547), setting 
->              InterruptThrottleRate to a value
->              greater than 75,000, may hang (stop transmitting)
->              adapters under certain network conditions. If this
->              occurs a NETDEV WATCHDOG message is logged in the
->              system event log. In addition, the controller is
->              automatically reset, restoring the network
->              connection. To eliminate the potential for the hang,
->              ensure that InterruptThrottleRate is set no greater
->              than 75,000 and is not set to 0.
-> 
-> I was running into the same thing with 82547EI setting ITR=0, and then I
-> remembered that this part is buggy when ITR=0.  The bug is due to 82547
-> messing up the order of interrupt assertion and de-assertion on the CSA
-> bus.
-> 
-> If you want to do MPI on this system, you'll need to use a non-zero ITR
-> or plug in an add-in card into one of the PCI slots and use the add-in
-> card.  The problem is, these slots are probably 32-bit/33Mhz, so you're
-> not going to get the same maximum Mbps that you'll get with 82547 using
-> the CSA bus.  82547 will not be a good choice for MPI.  Sorry.
-> 
-> > Affected chips (theory, 8254X, X>1 or anything faster then PCI33):
-> > 82547GI, 82546 (said to be affected, not verified by me)
-> 
-> 82546 should be fine with ITR=0.
-> 
-> >  http://lists.us.dell.com/pipermail/linux-poweredge/2004-November/023061.html
-> 
-> You might want to forward this info to that thread.
-> 
-> -scott
-> 
-> 
-
--- 
-------------------------------------------------------------
-  Peter Kjellstroem              | E-mail: cap@nsc.liu.se
-  National Supercomputer Centre  |
-  Sweden                         | http://www.nsc.liu.se
+diff -ur e1000.orig/e1000_main.c e1000/e1000_main.c
+--- e1000.orig/e1000_main.c	2004-12-04 11:43:12.000000000 +0100
++++ e1000/e1000_main.c	2004-12-05 15:40:49.284946897 +0100
+@@ -879,6 +894,8 @@
+ 
+ 	E1000_WRITE_REG(&adapter->hw, TCTL, tctl);
+ 
++	E1000_WRITE_REG(&adapter->hw, TXDMAC, 0);
++
+ 	e1000_config_collision_dist(&adapter->hw);
+ 
+ 	/* Setup Transmit Descriptor Settings for eop descriptor */
