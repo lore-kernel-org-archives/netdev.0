@@ -1,51 +1,72 @@
-From: Benjamin LaHaise <bcrl@kvack.org>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
-Date: Mon, 28 Mar 2005 17:32:03 -0500
-Message-ID: <20050328223203.GC28983@kvack.org>
-References: <20050324215922.GT14202@opteron.random> <424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <52vf7bwo4w.fsf@topspin.com> <1112042936.5088.22.camel@beastie>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: cls_u32 compile failure in current 2.6.12-rc1+BK tree
+Date: Tue, 29 Mar 2005 00:33:10 +0200
+Message-ID: <20050328223310.GH3086@postel.suug.ch>
+References: <1111972035.1091.946.camel@jzny.localdomain> <Pine.SOC.4.61.0503281017060.21333@math.ut.ee> <1112012657.1089.1013.camel@jzny.localdomain> <20050328123801.GY3086@postel.suug.ch> <1112014261.1089.1018.camel@jzny.localdomain> <20050328125802.GZ3086@postel.suug.ch> <1112015725.1089.1045.camel@jzny.localdomain> <20050328155523.GD3086@postel.suug.ch> <1112038128.1119.5.camel@jzny.localdomain> <20050328195320.GE3086@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: open-iscsi@googlegroups.com, "David S. Miller" <davem@davemloft.net>,
-        mpm@selenic.com, andrea@suse.de, michaelc@cs.wisc.edu,
-        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
-        netdev@oss.sgi.com
+Cc: Meelis Roos <mroos@linux.ee>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dmitry Yusupov <dmitry_yus@yahoo.com>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1112042936.5088.22.camel@beastie>
+In-Reply-To: <20050328195320.GE3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 28, 2005 at 12:48:56PM -0800, Dmitry Yusupov wrote:
-> If you have plans to start new project such as SoftRDMA than yes. lets
-> discuss it since set of problems will be similar to what we've got with
-> software iSCSI Initiators.
+* Thomas Graf <20050328195320.GE3086@postel.suug.ch> 2005-03-28 21:53
+> * jamal <1112038128.1119.5.camel@jzny.localdomain> 2005-03-28 14:28
+> > On Mon, 2005-03-28 at 10:55, Thomas Graf wrote:
+> > > * jamal <1112015725.1089.1045.camel@jzny.localdomain> 2005-03-28 08:15
+> > > > On Mon, 2005-03-28 at 07:58, Thomas Graf wrote:
+> > 
+> > > > But you cant completely do this for u32 tcf_exts_dump_stats.
+> > > > in the case of ACTION compiled in but someone using old API.
+> > > > The code that Meelis just mention that compiler complained about. 
+> > > > There was no problem with u32 and tcf_exts_dump - with that you can hide
+> > > > all #ifedfs. 
+> > > 
+> > > I think we can avoid your fixes. 
+> > 
+> > You are still missing the question;->
+> > 
+> > You can do this for every classifier but u32. Or is it me who is missing
+> > something?
+> 
+> I think what you are refering to is the TC_U32_KEY() check, right?
+> If you look at the place where tcf_exts_dump is called you can
+> see that the same pre condition is given since the call is in a
+> else branch of a TC_U32_KEY() == 0 condition.
+> 
+> I haven't had the time to come up with a patch, too many other
+> things to take care of but I think it should work out ok.
 
-I'm somewhat interested in seeing a SoftRDMA project get off the ground.  
-At least the NatSemi 83820 gige MAC is able to provide early-rx interrupts 
-that allow one to get an rx interrupt before the full payload has arrived 
-making it possible to write out a new rx descriptor to place the payload 
-wherever it is ultimately desired.  It would be fun to work on if not the 
-most performant RDMA implementation.
+Before I go ahead, let's make sure I do it right this time. We do
+have the following TLVs that need to filled out:
 
-> I'm not a believer in any HW state-full protocol offloading technologies
-> and that was one of my motivations to initiate Open-iSCSI project to
-> prove that performance is not an issue anymore. And we succeeded, by
-> showing comparable to iSCSI HW Initiator's numbers.
+old policer:
+  TCA_STATS2 (gnet_stats_*)
+  TCA_STATS (tc_stats)
 
-Agreed.  After working on a full TOE implementation, I think that the 
-niche market most TOE vendors are pursuing is not one that the Linux 
-community will ever develop for.  Hardware vendors that gradually add 
-offloading features from the NIC realm to speed up the existing network 
-stack are a much better fit with Linux.
+action:
+  TCA_ACT_STATS (gnet_stats_*)
 
-> Though, for me, RDMA over TCP is an interesting topic from software
-> implementation point of view. I was thinking about organizing new
-> project. If someone knows that related work is already started - let me
-> know since I might be interested to help.
+action in compatiblity mode:
+  TCA_ACT_STATS (gnet_stats_*)
+  TCA_STATS (tc_stats)
+  TCA_XSTATS
 
-Shall we create a new mailing list?  I guess it's time to update 
-majordomo... =)
+I see that you moved TCA_ACT_STATS into the action TLV array which
+doesn't work with the gnet_stats architecture anymore since the
+backward compatiblity TCA_STATS and TCA_XSTATS must be outside of
+the action TLV. So we need to split the statistics dumping if we don't
+want to change iproute2 and have TCA_ACT_STATS being on the same level
+as TCA_OPTIONS of the classifier. I didn't notice this breakage when
+you posted the patch, sorry.
 
-		-ben
+Idea:
+We dump TCA_ACT_STATS in tcf_exts_dump and handle all the backward
+compibility including dumping policer stats in tcf_exts_dump_stats.
+This means we have to adapt gnet_stats a bit to allow for this.
+
+Thoughts?
