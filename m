@@ -1,49 +1,76 @@
-From: Willy TARREAU <willy@w.ods.org>
-Subject: Re: [Bonding-announce] [PATCH SET][bonding] cleanup
-Date: Mon, 6 Oct 2003 00:28:17 +0200
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: [2.6 PATCH] ipvs - properly handle non-linear skbs
+Date: Mon, 06 Oct 2003 07:42:09 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031005222817.GA2527@pcw.home.local>
-References: <shmulik.hen@intel.com> <200309252011.53960.shmulik.hen@intel.com> <200309251733.h8PHXWpV013559@death.ibm.com> <20030925211259.GA59653@calma.pair.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Message-ID: <20031006000225.AF7642C0A7@lists.samba.org>
+References: <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli>
+Cc: "David S. Miller" <davem@redhat.com>, Wensong Zhang <wensong@linux-vs.org>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jay Vosburgh <fubar@us.ibm.com>, shmulik.hen@intel.com,
-        "Chad N. Tindel" <chad@tindel.net>,
-        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-        Jeff Garzik <jgarzik@pobox.com>, "Noam, Amir" <amir.noam@intel.com>,
-        "Mendelson, Tsippy" <tsippy.mendelson@intel.com>,
-        "Noam, Marom" <noam.marom@intel.com>
-Content-Disposition: inline
-In-Reply-To: <20030925211259.GA59653@calma.pair.com>
+To: Julian Anastasov <ja@ssi.bg>
+In-reply-to: Your message of "Sun, 05 Oct 2003 12:09:20 +0300."
+             <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi !
+In message <Pine.LNX.4.44.0310051151430.1204-101000@u.domain.uli> you write:
+> 	Hello,
+> 
+> 	Attached is a patch that includes the changes from
+> Rusty about handling non-linear skbs correctly and modified
+> a bit from Wensong Zhang and me. This is a huge patch that changes
+> interfaces for many functions. It looks difficult to split it in
+> parts but if required we can try to do it. It is ready for
+> inclusion.
 
-On Thu, Sep 25, 2003 at 05:13:00PM -0400, Chad N. Tindel wrote:
+Hi Julian!
+
+	I diffed our two patches.  Is see you still use iph temp vars:
+fair enough: I removed mine after some subtle bugs (although it does
+make the code a bit uglier).  
+
+Looks really good.  Could you just clarify a couple of things for me please?
+
+@@ -527,10 +528,7 @@ struct ip_vs_conn {
+ 	struct ip_vs_dest       *dest;          /* real server */
+ 	atomic_t                in_pkts;        /* incoming packet counter */
  
-> I was specifically told by David Miller that we are not to break binary
-> compatibility within a 2.4 release.  Such things had to wait until 2.5 
-> or later.  We can not require a user to upgrade their ifenslave within a 2.4
-> series kernel just to keep using the same functionality they were using in 
-> 2.4.1.
+-	/* packet transmitter for different forwarding methods.  If it
+-	   mangles the packet, it must return NF_DROP or NF_STOLEN, otherwise
+-	   this must be changed to a sk_buff **.
+-	 */
++	/* packet transmitter for different forwarding methods */
+ 	int (*packet_xmit)(struct sk_buff *skb, struct ip_vs_conn *cp,
+ 			   struct ip_vs_protocol *pp);
 
-I strongly agree. I have been facing this problem and it was really a pain. I
-used the last bonding version which didn't define the ABI version, together
-with the associated ifenslave, but when the need to upgrade to plain 2.4.22
-came in, I had the surprize of getting a non-working bonding because this
-intermediate ifenslave. Well, I upgraded it to latest version, which prevents
-me from downgrading to the previous kernel because it has ABIv2 with no version,
-so the newer ifenslave thinks it's an ABIv1. So the result is a symlink with
-two versions of ifenslave on the disk, just in case I have to downgrade.
+This comment is still true: the skb pointer from the caller is
+useless, so xmit *must* return NF_DROP or NF_STOLEN.  I thought about
+making it return void and the callers always return NF_STOLEN, but
+there was enough change already.  You might want to put a comment in
+there.
 
-Although I agree it's clearly my fault and I should have been more careful, I
-prefer to warn everyone about the consequences this might have on production
-systems. Schmulik has done quite a great job here, and I believe most of it
-should be integrated, but we have to carefully test each combination of old/new
-ifenslave with old/new driver if we don't want to break some setups or prevent
-admins from downgrading if something goes wrong.
+ip_vs_make_skb_writable(): how is this different from
+skb_ip_make_writable(), except you have to maintain it yourself?  The
+advantage of the general one is that Dave looks after it for us 8)
+
+In ip_vs_out_icmp():
+
+ 	/* Is the embedded protocol header present? */
+ 	if (unlikely(ciph.frag_off & __constant_htons(IP_OFFSET) &&
+-		     /* FIXME: Remove minhlen, and surely dont_defrag
+-		      * test is backwards? --RR */
+ 		     (pp->minhlen || pp->dont_defrag)))
+ 		return NF_ACCEPT;
+
+If the protocol says "don't defrag" they never see fragmented packets.
+AFAICT, minhlen and dont_defrag are now the same everywhere (minhlen
+is not respected: protocols are expected to catch skb_copy_bits
+failing on their own, and they do).  Perhaps drop minhlen altogether,
+and just keep dont_defrag?
+
+Hey, thanks for doing the hard work for me!
 
 Cheers,
-Willy
+Rusty.
+--
+  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
