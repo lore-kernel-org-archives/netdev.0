@@ -1,39 +1,43 @@
-From: Dmitry Yusupov <dmitry_yus@yahoo.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
-Date: Wed, 06 Apr 2005 14:37:21 -0700
-Message-ID: <1112823442.16753.68.camel@beastie>
-References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
-	 <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au>
+Date: Thu, 7 Apr 2005 08:04:17 +1000
+Message-ID: <20050406220417.GA4443@gondor.apana.org.au>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au> <42540CF3.7070501@cs.wisc.edu> <20050406212906.GA24775@gondor.apana.org.au> <1112823442.16753.68.camel@beastie>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: Mike Christie <michaelc@cs.wisc.edu>, netdev@oss.sgi.com,
         davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050406212906.GA24775@gondor.apana.org.au>
+To: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Content-Disposition: inline
+In-Reply-To: <1112823442.16753.68.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-04-07 at 07:29 +1000, Herbert Xu wrote:
-> On Wed, Apr 06, 2005 at 09:23:15AM -0700, Mike Christie wrote:
-> > 
-> > It is due to where it is being used. open-iscsi uses netlink
-> > sockets for communication in a block (scsi specificically)
-> > driver that has pushed much of its code to usersapce. Forcing
-> > open-iscsi to use GFP_KERNEL causes a couple of problems. The
-> > worst would be where a GFP_KERNEL allocation causes a write,
-> > and that write is to an iscsi disk that open-iscsi is managing.
-> > The write could then hit the same code path and cause another
-> > GFP_KERNEL allocation and we could loop like that until the
-> > system locks up.
+On Wed, Apr 06, 2005 at 02:37:21PM -0700, Dmitry Yusupov wrote:
+>
+> > In that case it's not enough to just use sk_allocation here.
+> > You'll need a way to actually set it to GFP_ATOMIC.
 > 
-> In that case it's not enough to just use sk_allocation here.
-> You'll need a way to actually set it to GFP_ATOMIC.
+> That's why in my patch I provided NETLINK_UESTABLISHED event. It is a
+> right way and time to set sk->sk_allocation to GFP_ATOMIC for newly
+> established netlink connection. imho.
 
-correct.
+Right.  In that case I think you're going about this the wrong way.
+It's unmanageable to have some external kernel module fiddle with
+netlink's sk_allocation upon the receipt of a notification.
 
-That's why in my patch I provided NETLINK_UESTABLISHED event. It is a
-right way and time to set sk->sk_allocation to GFP_ATOMIC for newly
-established netlink connection. imho.
+If you really want to do this, do it as a setsockopt.  It's the owner
+of the socket that wants the GFP_ATOMIC, not anybody else.
+
+However, I'd like to know more about how open-iscsi uses this.  In
+particular, what are these messages and what do you do when the
+GFP_ATOMIC alloc_skb fails?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
