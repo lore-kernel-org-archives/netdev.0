@@ -1,32 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Compat32 setsockopt overzealous conversions
-Date: Fri, 10 Sep 2004 16:43:54 -0700
+From: Song Wang <wsonguci@yahoo.com>
+Subject: [Routing] Performance Comparison between 2.6 and 2.4 kernel
+Date: Fri, 10 Sep 2004 17:52:45 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910164354.3cdffa59.davem@davemloft.net>
-References: <1094563381.5122.8.camel@localhost.localdomain>
-	<20040907140649.42eaa278.davem@davemloft.net>
-	<1094716398.15909.27.camel@localhost.localdomain>
+Message-ID: <20040911005245.61679.qmail@web40007.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1094716398.15909.27.camel@localhost.localdomain>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 09 Sep 2004 08:53:18 +0100
-David Woodhouse <dwmw2@infradead.org> wrote:
+Hi,
 
-2.4.x patch applied, thanks David.
+I'm looking for the network packet routing
+performance comparison between the latest 2.4
+and 2.6 kernel.
 
-> Back in the real world of 2.6, we REALLY do need to stop trying to do
-> all this in a sockopt syscall wrapper, and instead pass down a 32/64 bit
-> flag to the code which actually handles the sockopt -- although the
-> optlen ought to be sufficient for the _majority_ of cases. Or maybe we
-> should handle it like we do ioctls? 
+I did some initial testing on my mips-based router.
+2.6 kernel (2.6.8.1) performed way below 2.4 kernel
+(2.4.17). It sucks. Turning on preemption on 2.6 
+kernel even makes routing performance worse.
 
-That latter idea (doing it like ioctls) is an option, and in
-fact I like it since it would allow us to push the complicated
-netfilter translators into the netfilter code.
+Anybody did a comprehensive study on the routing
+performance for 2.6 and 2.4 kernel?
+
+Thanks.
+
+
+		
+__________________________________
+Do you Yahoo!?
+Y! Messenger - Communicate in real time. Download now. 
+http://messenger.yahoo.com
