@@ -1,27 +1,24 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Device naming for wireless NICs...
-Date: Thu, 11 Mar 2004 13:25:15 -0500
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [update] 2.6.4-rc2 - Realtek 8169 patches
+Date: Thu, 11 Mar 2004 19:39:37 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4050AF0B.7040901@pobox.com>
-References: <Pine.LNX.4.44.0403111146240.21414-100000@lacrosse.corp.redhat.com>
+Message-ID: <20040311193937.A14638@electric-eye.fr.zoreil.com>
+References: <20040307023748.A7829@electric-eye.fr.zoreil.com> <1078822878.2408.8.camel@pinacola>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: James Ketrenos <jketreno@linux.co.intel.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew Galgoci <mgalgoci@redhat.com>
-In-Reply-To: <Pine.LNX.4.44.0403111146240.21414-100000@lacrosse.corp.redhat.com>
+To: crochu nicolas <nicolas.crochu@sgam.com>
+Content-Disposition: inline
+In-Reply-To: <1078822878.2408.8.camel@pinacola>; from nicolas.crochu@sgam.com on Tue, Mar 09, 2004 at 10:01:19AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matthew Galgoci wrote:
-> Going forward it might be worth while to standardize all wireless interface names, just
-> to show at a glance that an interface is 802.11x, and also to differentiate the fact that
-> eventually 802.11 will be its own network stack.
+crochu nicolas <nicolas.crochu@sgam.com> :
+> If i apply only these patch, everything goes fine
+[...]
 
-I definitely want to standardize on something like wlan%d.  We should 
-get that for free when a generic 802.11 stack is in place, which implies 
-that there will be a common wireless helper as a peer to ether_setup() 
-in the current tree.
+Did you stress the driver, say (rsync), ping -f -s 8, ttcp ?
 
-	Jeff
+--
+Ueimor
