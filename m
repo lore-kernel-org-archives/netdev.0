@@ -1,132 +1,114 @@
-From: Andi Kleen <ak@colin2.muc.de>
-Subject: Network buffer hang was Re: [PATCH] 2.6 workaround for Athlon/Opteron prefetch errata
-Date: 11 Sep 2003 14:09:56 +0200
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: IPv6 6to4 on site-local networks.
+Date: Thu, 11 Sep 2003 13:48:36 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030911120956.GB7751@colin2.muc.de>
-References: <uqD5.3BI.3@gated-at.bofh.it> <m3iso0arlx.fsf@averell.firstfloor.org> <0a5801c37821$54eb8180$890010ac@edumazet> <20030911051121.GA7751@colin2.muc.de> <0a7701c37829$c4bdef40$890010ac@edumazet>
+Message-ID: <1063284516.23778.152.camel@hades.cambridge.redhat.com>
+References: <Pine.LNX.4.44.0309111000110.9818-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Nakajima, Jun" <jun.nakajima@intel.com>, Andi Kleen <ak@muc.de>,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Thu, 11 Sep 2003 14:09:56 +0200
-To: dada1 <dada1@cosmosbay.com>
-Content-Disposition: inline
-In-Reply-To: <0a7701c37829$c4bdef40$890010ac@edumazet>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0309111000110.9818-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 11, 2003 at 07:58:46AM +0200, dada1 wrote:
+On Thu, 2003-09-11 at 10:49 +0300, Pekka Savola wrote:
+> > S'true -- it wasn't any more secure. But it was more obviously secure :)
 > 
-> >
-> > I don't have any. But it would be very similar to the in kernel checking
-> > code (see the is_prefetch function in my patches). Just you feed it
-> > the fields from sigcontext in the signal handler and replace __get_user
-> > with a normal memory access.
+> I'm not sure of that; I'd agree if you said "it _seems_ more obviously 
+> secure", but I don't think that's real..
+
+That's what I meant to say. It's the difference between "Can we do
+this?" "Yes go ahead." and "Can we do this?" "Er, not sure. Hence no."
+
+> Yep, but once you break into just one box w/ global addresses, all of the 
+> site-internal infrastructure is open to you.  This seems like a high price 
+> to pay, with many points of failure.
+
+Well yes, but that's _already_ the cases for boxen on the internal
+RFC1918 IPv4 network. If you own one, you have access to them all. 
+
+That's why we'd want outgoing-connections-only for all the internal IPv6
+machines, just as they have in the IPv4 world by virtue of being behind
+NAT.
+
+We don't _need_ public IPv6 addresses for them; if we could NAT for them
+at each site to that site's publicly-routable IPv6 address range, that
+would be fine. 
+
+> One possible solution is to pick one (or a couple of) major sites which 
+> provide "internal connectivity addresses".  For example, assume you have 
+> the big HQ in the US.  Deploy on each node:
 > 
-> OK will try... but how test it... sounds not easy.
-
->From your description of the symptoms it sounds like a waste of time.
-
+>  - IPv6 connectivity addresses, obtained using 6to4 or the like, and
+>  - IPv6 addesses from the HQ block.
 > 
-> Well, the program is using more than 2Go ram... the core is not written to
-> disk as the machine hangs just *after*
+> The latter are only used for internal connectivity through CIPE tunnels;  
+> the former would be used to reach IPv6 Internet (without a need to go
+> through the HQ and from there to the Internet).
 
-These bug doesn't cause kernel hangs, just "ordinary" segfaults
+That works, and is one of the more promising options at the moment.
 
-(unless the kernel triggers it, but that happens only very rarely)
+But we don't want to have to manually configure each host to be
+multihomed -- assuming that HQ gets assigned the 2001:200:0:8002::/64
+network, and our local site has 2001:200:0:8002:1234::/80 from that,
+along with 
+2002:c35c:f9ff::/48 from 6to4 with its IPv4 Internet address... is there
+a way to configure radvd or dhcpv6 so it tells each host:
 
-> >
-> > If it is a different instruction it is unrelated.
-> >
-> > It would also only happen when you prefetch ever on unmapped addresses.
+ "You are 2001:200:0:8002:1234:<EUI-64> and should route packets
+  to 2001:200:0:8002::/64 using that source address.
+ "You are also 2002:c55c:f9ff:1234:<EUI-64> and should route
+  packets to 2000::/3 using _that_ source address."
+
+In fact, we don't have to get it 100% correct -- as long as we ensure
+that the failure mode where we route to internal hosts using our
+non-HQ-derived IPv6 address isn't going to happen, it's OK to allow the
+failure mode where we route to external hosts using our HQ-derived IPv6
+address; that's only going to make it a bit slower, not actually make it
+break.
+
+> The potential issue here is the source address selection, so that the 
+> hosts don't pick the HQ addresses when they try to reach to IPv6 sites in 
+> the Big Internet (so that the packets don't route back through the HQ).
+
+Unless they go out bearing the HQ-derived address, but with a 'care-of'
+option pointing at the local IPv6-connectivity address? 
+
+> > > Note that 6to4 specification explicitly disallows the use of 6to4 on
+> > > private addresses.  No such checks have been added to Linux kernel (should
+> > > be..), but you're likely to face more or less trouble if you do so.
+> > 
+> It's a bit more than that, even though Linux kernel only implements the 
+> very basics of the specification.  See RFC3056 section 9 last paragraph.
+
+Hmmm. I wonder how it's supposed to know which are subnet-broadcast
+addresses? Do you reckon there are boxen out there which will refuse to
+route for 2002:c35c:f9ff::1 just as some refuse to route for
+195.92.249.255?
+
+> Mobile IPv6 could be leveraged for you, sure.  However, you seem to
+> require just one basic feature of MIPv6: tunneling back to Home (Agent).  
+> The same can be established through CIPE tunnels.  This is similar to my
+> thought, above, of deploying both IPv6 Internet connectivity ("care-of
+> address") and local HQ addressing ("home address") to all the nodes.
 > 
-> NULL for example ?
+> For security, you would then have to ensure that the "local HQ addresses" 
+> don't leak and are properly firewalled.
 
-Yes, NULL would work. But only when there are byte sized reads of parts
-of the prefetched memory that are not aligned to the cache line size
-and hit the second part of a cache line and happens exactly the in
-the right timing window after the prefetch
+I was trying to avoid the tunnelling altogether, at least for the common
+case. I thought that Mobile-IPv6 avoided the 'triangular routing'
+problem that IPv4 has, by introducing a way for the correspondent node
+to know about the mobile node's care-of address.
 
-(see Richard's description - it really is quite hard to trigger) 
+If a host in a remote (i.e. non-HQ) site has an HQ-derived address and a
+locally-derived IPv6 address, it treats the former as a 'home address'
+and the latter as a 'temporary address'. It sends packets ostensibly
+from the 'home address' but using the locally-derived address as its
+'care-of' address, so not only do _outgoing_ packets go directly over
+the local IPv6 connection, but return packets _also_ come in that way.
 
-
-> 
-> Typical example of code ;
-> 
-> T_cell *ptr, *next ;
-> for (ptr = list.head ; ptr != NULL ; ptr = next) {
->    next = ptr->next ;
->    prefetch(next) ;
->    some_work(ptr) ;
->    }
-> 
-> I may replace NULL by &FakeMappedData   (allways present in memory)
-
-That's certainly safer, but slightly slower (need one more register in
-the loop)
-
-If it doesn't trigger I would probably not bother.
-
-
-> 
-> >
-> > That sounds like an unrelated issue.
-> >
-> > When user space crashes on this the kernel is unaffected.
-> 
-> This is not a kernel crash. But total freeze as all memory is used by
-> network buffers, in no more than 10 seconds.
-
-Ok, but then you have to diagnose this freeze. I'm not sure why you
-think it must be this prefetch thingy. If the prefetch issue was
-hit then you would just get a normal segfault, not a kernel hang.
-
-e.g. you could write some kind of reduced test case for it and
-post it to the netdev mailing list (netdev@oss.sgi.com) 
-
-I'm cc'ing it for you.
-
-> This application receive smalls TCP messages (about 30 bytes), but the
-> network stacks allocates 4KB buffers to store this little messages.
-
-Most drivers only allocate MTU size in their receive ring
-(normally 1.5K on ethernet). This is rounded to 2K by  the memory allocator.
-
-But most drivers support a rx_copybreak parameter. When the received
-packet is smaller than rx_copybreak it is copied to a freshly allocated
-buffer with the right size.
-
-In addition the 2.4 stack also supports garbage collection in the TCP
-receive buffers. This means even when a driver doesn't do the rx_copybreak
-trick and the receive queue of a socket fills up it will copy the data
-to fresh, right sized packets by itself.
-
-Another limit for this scenario is that the network stack has internal
-limits that supposed to avoid this. These are: each socket has a 
-fixed receive buffer size and when more data arrives (including packet
-metadata and normal wastage) than the receive buffer allows then it is
-still dropped. In addition TCP has a global memory limit that also kicks 
-in. And the network stack has a global queue limit that prevents
-too much data to be queued from the driver to the higher level
-parts (/proc/sys/net/core/netdev_max_backlog). Sometimes the queueing
-can also be controlled on the driver level with driver specific
-knobs.
-
-This all can be tuned by sysctls in /proc/sys. See Documentation/networking/
-ip-sysctl.txt for more details. 
-
-Also the latest 2.6 kernel finally has a writable /proc/sys/vm/min_free_kbytes
-again. This controls the amount of memory kept free for interrupts.
-Increase that.
-
-> I posted a test application some days ago about this problem and got no
-> answers/feedback.
-
-Did you post it to netdev?  On linux-kernel such things get often
-lost in the noise.
-
-Also I would contact the driver maintainer, it could be really a driver
-Issue.
-
--Andi
+-- 
+dwmw2
