@@ -1,102 +1,121 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (4/42) eth16i
-Date: Wed, 12 Nov 2003 16:40:58 -0800
+Subject: [PATCH] (5/42) fmv18
+Date: Wed, 12 Nov 2003 16:41:08 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200311130040.hAD0ew229935@mail.osdl.org>
+Message-ID: <200311130041.hAD0f8a29995@mail.osdl.org>
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-NE28-eth16i
-	* switched eth16i to dynamic allocation
-	* eth16i: embedded ->priv
-	* eth16i: fixed resource leaks on failure exits
+Based on viro, NE29-fmv18
+	* switched fmv18x to dynamic allocation
+	* fmv18x: embedded ->priv
+	* fmv18x: fixed resource leaks on failure exits
+	* fmv18x: fixed clobbering on autoprobe
+	* fmv18x: compile fix - comment is _not_ an empty statement.  The thing
+	  had been b0rken since 2.4.3-pre2, BTW...
 
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Nov 11 09:35:29 2003
-+++ b/drivers/net/Space.c	Tue Nov 11 09:35:29 2003
-@@ -54,7 +54,7 @@
+--- a/drivers/net/Space.c	Tue Nov 11 10:19:59 2003
++++ b/drivers/net/Space.c	Tue Nov 11 10:19:59 2003
+@@ -53,7 +53,7 @@
+ extern struct net_device *eepro_probe(int unit);
  extern int at1500_probe(struct net_device *);
  extern int at1700_probe(struct net_device *);
- extern int fmv18x_probe(struct net_device *);
--extern int eth16i_probe(struct net_device *);
-+extern struct net_device *eth16i_probe(int unit);
+-extern int fmv18x_probe(struct net_device *);
++extern struct net_device *fmv18x_probe(int unit);
+ extern struct net_device *eth16i_probe(int unit);
  extern struct net_device *i82596_probe(int unit);
  extern struct net_device *ewrk3_probe(int unit);
- extern struct net_device *el1_probe(int unit);
-@@ -247,13 +247,13 @@
- #ifdef CONFIG_FMV18X		/* Fujitsu FMV-181/182 */
- 	{fmv18x_probe, 0},
+@@ -244,13 +244,13 @@
+ #ifdef CONFIG_AT1700
+ 	{at1700_probe, 0},
  #endif
--#ifdef CONFIG_ETH16I
--	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
+-#ifdef CONFIG_FMV18X		/* Fujitsu FMV-181/182 */
+-	{fmv18x_probe, 0},
 -#endif
  	{NULL, 0},
  };
  
  static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_ETH16I
-+	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
++#ifdef CONFIG_FMV18X		/* Fujitsu FMV-181/182 */
++	{fmv18x_probe, 0},
 +#endif
- #ifdef CONFIG_EEXPRESS		/* Intel EtherExpress */
- 	{express_probe, 0},
+ #ifdef CONFIG_ETH16I
+ 	{eth16i_probe, 0},	/* ICL EtherTeam 16i/32 */
  #endif
-diff -Nru a/drivers/net/eth16i.c b/drivers/net/eth16i.c
---- a/drivers/net/eth16i.c	Tue Nov 11 09:35:29 2003
-+++ b/drivers/net/eth16i.c	Tue Nov 11 09:35:29 2003
-@@ -369,7 +369,6 @@
- #define NUM_OF_EISA_IRQS   8
+diff -Nru a/drivers/net/fmv18x.c b/drivers/net/fmv18x.c
+--- a/drivers/net/fmv18x.c	Tue Nov 11 10:19:59 2003
++++ b/drivers/net/fmv18x.c	Tue Nov 11 10:19:59 2003
+@@ -57,7 +57,7 @@
+ #include <asm/io.h>
+ #include <asm/dma.h>
  
- static unsigned int eth16i_tx_buf_map[] = { 2048, 2048, 4096, 8192 };
--static unsigned int boot = 1;
+-static int fmv18x_probe_list[] __initdata = {
++static unsigned fmv18x_probe_list[] __initdata = {
+ 	0x220, 0x240, 0x260, 0x280, 0x2a0, 0x2c0, 0x300, 0x340, 0
+ };
  
- /* Use 0 for production, 1 for verification, >2 for debug */
- #ifndef ETH16I_DEBUG
-@@ -395,8 +394,6 @@
+@@ -109,8 +109,6 @@
  
- /* Function prototypes */
+ /* Index to functions, as function prototypes. */
  
--extern int     eth16i_probe(struct net_device *dev);
+-extern int fmv18x_probe(struct net_device *dev);
 -
- static int     eth16i_probe1(struct net_device *dev, int ioaddr);
- static int     eth16i_check_signature(int ioaddr);
- static int     eth16i_probe_port(int ioaddr);
-@@ -418,7 +415,7 @@
- static void    eth16i_skip_packet(struct net_device *dev);
- static void    eth16i_multicast(struct net_device *dev); 
- static void    eth16i_select_regbank(unsigned char regbank, int ioaddr);
--static void    eth16i_initialize(struct net_device *dev);
-+static void    eth16i_initialize(struct net_device *dev, int boot);
+ static int fmv18x_probe1(struct net_device *dev, short ioaddr);
+ static int net_open(struct net_device *dev);
+ static int net_send_packet(struct sk_buff *skb, struct net_device *dev);
+@@ -129,23 +127,50 @@
+    (detachable devices only).
+    */
  
- #if 0
- static int     eth16i_set_irq(struct net_device *dev);
-@@ -432,7 +429,7 @@
- 
- static char cardname[] __initdata = "ICL EtherTeam 16i/32";
- 
--int __init eth16i_probe(struct net_device *dev)
-+static int __init do_eth16i_probe(struct net_device *dev)
+-int __init fmv18x_probe(struct net_device *dev)
++static int io = 0x220;
++static int irq;
++
++struct net_device * __init fmv18x_probe(int unit)
  {
- 	int i;
- 	int ioaddr;
-@@ -461,14 +458,38 @@
- 	return -ENODEV;
- }
- 
-+struct net_device * __init eth16i_probe(int unit)
-+{
-+	struct net_device *dev = alloc_etherdev(sizeof(struct eth16i_local));
-+	int err;
+-	int i;
+-	int base_addr = dev->base_addr;
++	struct net_device *dev = alloc_etherdev(sizeof(struct net_local));
++	unsigned *port;
++	int err = 0;
 +
 +	if (!dev)
-+		return ERR_PTR(-ENOMEM);
++		return ERR_PTR(-ENODEV);
 +
-+	sprintf(dev->name, "eth%d", unit);
-+	netdev_boot_setup_check(dev);
-+
-+	err = do_eth16i_probe(dev);
++	if (unit >= 0) {
++		sprintf(dev->name, "eth%d", unit);
++		netdev_boot_setup_check(dev);
++		io = dev->base_addr;
++		irq = dev->irq;
++	}
+ 
+ 	SET_MODULE_OWNER(dev);
+ 
+-	if (base_addr > 0x1ff)		/* Check a single specified location. */
+-		return fmv18x_probe1(dev, base_addr);
+-	else if (base_addr != 0)	/* Don't probe at all. */
+-		return -ENXIO;
+-
+-	for (i = 0; fmv18x_probe_list[i]; i++)
+-		if (fmv18x_probe1(dev, fmv18x_probe_list[i]) == 0)
+-			return 0;
+-
+-	return -ENODEV;
++	if (io > 0x1ff) {	/* Check a single specified location. */
++		err = fmv18x_probe1(dev, io);
++	} else if (io != 0) {	/* Don't probe at all. */
++		err = -ENXIO;
++	} else {
++		for (port = fmv18x_probe_list; *port; port++)
++			if (fmv18x_probe1(dev, *port) == 0)
++				break;
++		if (!*port)
++			err = -ENODEV;
++	}
 +	if (err)
 +		goto out;
 +	err = register_netdev(dev);
@@ -105,176 +124,139 @@ diff -Nru a/drivers/net/eth16i.c b/drivers/net/eth16i.c
 +	return dev;
 +out1:
 +	free_irq(dev->irq, dev);
-+	release_region(dev->base_addr, ETH16I_IO_EXTENT);
++	release_region(dev->base_addr, FMV18X_IO_EXTENT);
 +out:
 +	free_netdev(dev);
 +	return ERR_PTR(err);
-+}
-+
- static int __init eth16i_probe1(struct net_device *dev, int ioaddr)
- {
--	struct eth16i_local *lp;
-+	struct eth16i_local *lp = dev->priv;
- 	static unsigned version_printed;
- 	int retval;
+ }
  
--	boot = 1;  /* To inform initilization that we are in boot probe */
--
- 	/* Let's grab the region */
- 	if (!request_region(ioaddr, ETH16I_IO_EXTENT, dev->name))
+ /* The Fujitsu datasheet suggests that the NIC be probed for by checking its
+@@ -160,7 +185,7 @@
+ {
+ 	char irqmap[4] = {3, 7, 10, 15};
+ 	char irqmap_pnp[8] = {3, 4, 5, 7, 9, 10, 11, 15};
+-	unsigned int i, irq, retval;
++	unsigned int i, retval;
+ 	struct net_local *lp;
+ 
+ 	/* Resetting the chip doesn't reset the ISA interface, so don't bother.
+@@ -170,6 +195,9 @@
+ 	if (!request_region(ioaddr, FMV18X_IO_EXTENT, dev->name))
  		return -EBUSY;
-@@ -531,22 +552,13 @@
- 	eth16i_select_regbank(TRANSCEIVER_MODE_RB, ioaddr);
- 	outb(0x38, ioaddr + TRANSCEIVER_MODE_REG); 
  
--	eth16i_initialize(dev);   /* Initialize rest of the chip's registers */
-+	eth16i_initialize(dev, 1); /* Initialize rest of the chip's registers */
- 
- 	/* Now let's same some energy by shutting down the chip ;) */
- 	BITCLR(ioaddr + CONFIG_REG_1, POWERUP);
- 
- 	/* Initialize the device structure */
--	if(dev->priv == NULL) {
--		dev->priv = kmalloc(sizeof(struct eth16i_local), GFP_KERNEL);
--		if(dev->priv == NULL) {
--			free_irq(dev->irq, dev);
--			retval = -ENOMEM;
--			goto out;
--		}
--	}
--
--	memset(dev->priv, 0, sizeof(struct eth16i_local));
-+	memset(lp, 0, sizeof(struct eth16i_local));
- 	dev->open               = eth16i_open;
- 	dev->stop               = eth16i_close;
- 	dev->hard_start_xmit    = eth16i_tx;
-@@ -554,15 +566,7 @@
- 	dev->set_multicast_list = eth16i_multicast;
- 	dev->tx_timeout 	= eth16i_timeout;
- 	dev->watchdog_timeo	= TX_TIMEOUT;
--
--	lp = (struct eth16i_local *)dev->priv;
- 	spin_lock_init(&lp->lock);
--
--	/* Fill in the fields of the device structure with ethernet values. */
--	ether_setup(dev);
--
--	boot = 0;
--
- 	return 0;
- out:
- 	release_region(ioaddr, ETH16I_IO_EXTENT);
-@@ -570,7 +574,7 @@
- }
- 
- 
--static void eth16i_initialize(struct net_device *dev)
-+static void eth16i_initialize(struct net_device *dev, int boot)
- {
- 	int ioaddr = dev->base_addr;
- 	int i, node_w = 0;
-@@ -953,7 +957,7 @@
- 	outb(0xc0 | POWERUP, ioaddr + CONFIG_REG_1);
- 
- 	/* Initialize the chip */
--	eth16i_initialize(dev);  
-+	eth16i_initialize(dev, 0);  
- 
- 	/* Set the transmit buffer size */
- 	lp->tx_buf_size = eth16i_tx_buf_map[ETH16I_TX_BUF_SIZE & 0x03];
-@@ -1401,7 +1405,7 @@
- 
- #define MAX_ETH16I_CARDS 4  /* Max number of Eth16i cards per module */
- 
--static struct net_device dev_eth16i[MAX_ETH16I_CARDS];
-+static struct net_device *dev_eth16i[MAX_ETH16I_CARDS];
- static int io[MAX_ETH16I_CARDS];
- #if 0
- static int irq[MAX_ETH16I_CARDS];
-@@ -1431,14 +1435,14 @@
- int init_module(void)
- {
- 	int this_dev, found = 0;
-+	struct net_device *dev;
++	dev->irq = irq;
++	dev->base_addr = ioaddr;
 +
-+	for (this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++) {
-+		dev = alloc_etherdev(sizeof(struct eth16i_local));
-+		if (!dev)
-+			break;
- 
--	for(this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++)
--	{
--		struct net_device *dev = &dev_eth16i[this_dev];
--	
--		dev->irq = 0; /* irq[this_dev]; */
- 		dev->base_addr = io[this_dev];
--		dev->init = eth16i_probe;
- 
- 	        if(debug != -1)
- 			eth16i_debug = debug;
-@@ -1448,44 +1452,43 @@
- 
- 		dev->if_port = eth16i_parse_mediatype(mediatype[this_dev]);
- 
--		if(io[this_dev] == 0)
--		{
--			if(this_dev != 0) break; /* Only autoprobe 1st one */
-+		if(io[this_dev] == 0) {
-+			if(this_dev != 0) /* Only autoprobe 1st one */
-+				break;
- 
- 			printk(KERN_NOTICE "eth16i.c: Presently autoprobing (not recommended) for a single card.\n");
+ 	/* Check I/O address configuration and Fujitsu vendor code */
+ 	if (inb(ioaddr+FJ_MACADDR  ) != 0x00
+ 	||  inb(ioaddr+FJ_MACADDR+1) != 0x00
+@@ -181,9 +209,8 @@
+ 	/* Check PnP mode for FMV-183/184/183A/184A. */
+ 	/* This PnP routine is very poor. IO and IRQ should be known. */
+ 	if (inb(ioaddr + FJ_STATUS1) & 0x20) {
+-		irq = dev->irq;
+ 		for (i = 0; i < 8; i++) {
+-			if (irq == irqmap_pnp[i])
++			if (dev->irq == irqmap_pnp[i])
+ 				break;
  		}
+ 		if (i == 8) {
+@@ -193,22 +220,19 @@
+ 	} else {
+ 		if (fmv18x_probe_list[inb(ioaddr + FJ_CONFIG0) & 0x07] != ioaddr)
+ 			return -ENODEV;
+-		irq = irqmap[(inb(ioaddr + FJ_CONFIG0)>>6) & 0x03];
++		dev->irq = irqmap[(inb(ioaddr + FJ_CONFIG0)>>6) & 0x03];
+ 	}
  
--		if(register_netdev(dev) != 0)
--		{
--			printk(KERN_WARNING "eth16i.c No Eth16i card found (i/o = 0x%x).\n",
--			       io[this_dev]);
--	    
--			if(found != 0) return 0;
--			return -ENXIO;
-+		if (do_eth16i_probe(dev) == 0) {
-+			if (register_netdev(dev) == 0) {
-+				dev_eth16i[found++] = dev;
-+				continue;
-+			}
-+			free_irq(dev->irq, dev);
-+			release_region(dev->base_addr, ETH16I_IO_EXTENT);
- 		}
+ 	/* Snarf the interrupt vector now. */
+-	retval = request_irq(irq, &net_interrupt, 0, dev->name, dev);
++	retval = request_irq(dev->irq, &net_interrupt, 0, dev->name, dev);
+ 	if (retval) {
+ 		printk ("FMV-18x found at %#3x, but it's unusable due to a conflict on"
+-				"IRQ %d.\n", ioaddr, irq);
++				"IRQ %d.\n", ioaddr, dev->irq);
+ 		goto out;
+ 	}
+ 
+ 	printk("%s: FMV-18x found at %#3x, IRQ %d, address ", dev->name,
+-		   ioaddr, irq);
 -
--		found++;
-+		printk(KERN_WARNING "eth16i.c No Eth16i card found (i/o = 0x%x).\n",
-+		       io[this_dev]);
-+		free_netdev(dev);
-+		break;
- 	}
--	return 0;
-+	if (found)
-+		return 0;
-+	return -ENXIO;
- }
- 	
- void cleanup_module(void)
- {
- 	int this_dev;
+-	dev->base_addr = ioaddr;
+-	dev->irq = irq;
++		   ioaddr, dev->irq);
  
--	for(this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++)
--	{
--		struct net_device* dev = &dev_eth16i[this_dev];
-+	for(this_dev = 0; this_dev < MAX_ETH16I_CARDS; this_dev++) {
-+		struct net_device *dev = dev_eth16i[this_dev];
- 		
--		if(dev->priv != NULL)
--		{
-+		if(dev->priv) {
- 			unregister_netdev(dev);
--			kfree(dev->priv);
--			dev->priv = NULL;
--			
- 			free_irq(dev->irq, dev);
- 			release_region(dev->base_addr, ETH16I_IO_EXTENT);
--			
-+			free_netdev(dev);
- 		}
- 	}
+ 	for(i = 0; i < 6; i++) {
+ 		unsigned char val = inb(ioaddr + FJ_MACADDR + i);
+@@ -279,14 +303,10 @@
+ 	dev->watchdog_timeo	= HZ/10;
+ 	dev->get_stats		= net_get_stats;
+ 	dev->set_multicast_list = set_multicast_list;
+-
+-	/* Fill in the fields of 'dev' with ethernet-generic values. */
+-
+-	ether_setup(dev);
+ 	return 0;
+ 
+ out_irq:
+-	free_irq(irq, dev);
++	free_irq(dev->irq, dev);
+ out:
+ 	release_region(ioaddr, FMV18X_IO_EXTENT);
+ 	return retval;
+@@ -413,9 +433,7 @@
+ 		lp->tx_queue_len = 0;
+ 		dev->trans_start = jiffies;
+ 		lp->tx_started = 1;
+-	} else if (lp->tx_queue_len < 4096 - 1502)
+-		/* Yes, there is room for one more packet. */
+-	else
++	} else if (lp->tx_queue_len >= 4096 - 1502) /* No room for a packet */
+ 		netif_stop_queue(dev);
+ 
+ 	dev_kfree_skb(skb);
+@@ -628,9 +646,7 @@
  }
+ 
+ #ifdef MODULE
+-static struct net_device dev_fmv18x;
+-static int io = 0x220;
+-static int irq;
++static struct net_device *dev_fmv18x;
+ 
+ MODULE_PARM(io, "i");
+ MODULE_PARM(irq, "i");
+@@ -644,26 +660,19 @@
+ {
+ 	if (io == 0)
+ 		printk("fmv18x: You should not use auto-probing with insmod!\n");
+-	dev_fmv18x.base_addr	= io;
+-	dev_fmv18x.irq		= irq;
+-	dev_fmv18x.init		= fmv18x_probe;
+-	if (register_netdev(&dev_fmv18x) != 0) {
+-		printk("fmv18x: register_netdev() returned non-zero.\n");
+-		return -EIO;
+-	}
++	dev_fmv18x = fmv18x_probe(-1);
++	if (IS_ERR(dev_fmv18x))
++		return PTR_ERR(dev_fmv18x);
+ 	return 0;
+ }
+ 
+ void
+ cleanup_module(void)
+ {
+-	unregister_netdev(&dev_fmv18x);
+-	kfree(dev_fmv18x.priv);
+-	dev_fmv18x.priv = NULL;
+-
+-	/* If we don't do this, we can't re-insmod it later. */
+-	free_irq(dev_fmv18x.irq, &dev_fmv18x);
+-	release_region(dev_fmv18x.base_addr, FMV18X_IO_EXTENT);
++	unregister_netdev(dev_fmv18x);
++	free_irq(dev_fmv18x->irq, dev_fmv18x);
++	release_region(dev_fmv18x->base_addr, FMV18X_IO_EXTENT);
++	free_netdev(dev_fmv18x);
+ }
+ #endif /* MODULE */
+ 
