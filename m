@@ -1,52 +1,32 @@
-From: "Dr. Peter Bieringer" <pb@bieringer.de>
-Subject: Re: 2.5.70-bk9: no IPsec modules are autoloaded
-Date: Thu, 05 Jun 2003 14:26:47 +0200
+From: Henrik Petander <lpetande@tml.hut.fi>
+Subject: Re: Bug in ipv6 ipsec in handling of packets with extension headers
+Date: Thu, 05 Jun 2003 15:59:32 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <34470000.1054816007@klopffest.muc.aerasec.de>
-References: <29980000.1054812100@klopffest.muc.aerasec.de>
- <20030605.051238.74748591.davem@redhat.com>
+Message-ID: <3EDF3EB4.8010105@tml.hut.fi>
+References: <3EDF36AA.9020403@tml.hut.fi> <20030605.051709.104035049.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: usagi-users@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20030605.051238.74748591.davem@redhat.com>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030605.051709.104035049.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
+>    From: Henrik Petander <lpetande@tml.hut.fi>
+>    Date: Thu, 05 Jun 2003 15:25:14 +0300
+>    
+>    A possible fix is to change the pointer into an offset from the start of 
+>    the packet and use the offset later to set the nexthdr value in the 
+>    extension header.
+> 
+> Please indicate the version of the sources you are looking
+> at when making reports.
 
+Sure, esp6.c bitkeeper version was 1.16. Also a fix to the bug report: 
+the problem is with esp6 and not with ah6, which does not use the 
+get_offset function.
 
---On Thursday, June 05, 2003 05:12:38 AM -0700 "David S. Miller" 
-<davem@redhat.com> wrote:
-
->    From: "Dr. Peter Bieringer" <pb@bieringer.de>
->    Date: Thu, 05 Jun 2003 13:21:40 +0200
->
->    Sure known that autoloading of IPsec modules is broken...is this a bug
-> or     by design?
->
-> You (or someone) has to add the appropriate entries to
-> /etc/modules.conf
-
-Ok, good to know.
-
-Are there any aliases possible like
-
-alias-something-ike af_key
-alias-something-cryptobasic-49 ah
-alias-something-cryptobasic-50 esp
-alias-something-crypto-modules-0 crypt_null
-
-pre-install esp modprobe ah
-
-
-BTW: isn't this file called now "modprobe. conf"?
-
-Thanks,
-	Peter
--- 
-Dr. Peter Bieringer                     http://www.bieringer.de/pb/
-GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de
-Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
+Henrik
