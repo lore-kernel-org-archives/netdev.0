@@ -1,51 +1,69 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [patch 05/13] remove last_rx update from loopback device
-Date: Tue, 15 Mar 2005 17:49:22 -0800
-Message-ID: <423790A2.2000906@hp.com>
-References: <200503152222.j2FMMbhG016805@shell0.pdx.osdl.net>	<423764A3.8030201@pobox.com>	<20050315150809.579c5e85.akpm@osdl.org>	<20050315165345.735573de.davem@davemloft.net>	<42378617.3080600@hp.com> <42378A8D.7090801@us.ibm.com>
+From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
+Subject: Where is Margit Schubert-While?
+Date: Wed, 16 Mar 2005 00:48:52 -0500
+Message-ID: <20050316054852.GK17854@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, christoph@graphe.net, nirajk@calsoftinc.com,
-        christoph@lameter.com, Shai@Scalex86.org
-To: netdev@oss.sgi.com
-In-Reply-To: <42378A8D.7090801@us.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============1858589305=="
+Cc: Margit Schubert-While <margitsw@t-online.de>
+To: linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>,
+	prism54-devel@prism54.org
+List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
+List-Archive: <http://prism54.org/pipermail/prism54-devel>
+List-Post: <mailto:prism54-devel@prism54.org>
+List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
+List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
+	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
+Mime-version: 1.0
+Sender: prism54-devel-bounces@prism54.org
+Errors-To: prism54-devel-bounces@prism54.org
 List-Id: netdev.vger.kernel.org
 
-Nivedita Singhvi wrote:
-> Rick Jones wrote:
-> 
->>> These loopback driver SMP optimizations are starting to really
->>> driver me crazy.
->>
->>
->>
->> Correct or not, I suspect there are a non-trivial number of folks out 
->> there who use loopback performance as an indicator of over the network 
->> performance or at least of stack path length (less driver).
-> 
-> 
-> I hope not the former. Given that loopback performance is
-> *significantly* faster than network performance, increasing the
-> performance of the loopback driver in these somewhat artificial
-> ways (that differ from the real network device path) simply
-> *increases* the inaccuracy of their testing and the conclusions
-> they can draw from it ;).
 
-I suspect the idea is that if loopback on Platform A is faster than loopback on 
-Platform B, then over the network will be faster (or at least more efficient) on 
-Platform A than it is on Platform B.
+--===============1858589305==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="2F7AbV2suvT8PGoH"
+Content-Disposition: inline
 
-It is indeed fraught with numerous pitfalls - different MTU's, shorticircuting 
-at different places etc etc.
 
-I do not claim to condone (even if I'm sometimes forced into that situation 
-myself :( ) merely to explain.
+--2F7AbV2suvT8PGoH
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-As for the 512 CPU machine mentioned in another message, at the rate cores per 
-die may increase over the next few years, that may not really be all that large 
-a box... :)
 
-rick jones
+Anyone heard of Margit Schubert recently? I have stopped hearing from
+her. She was actively working on prism54 and all of a sudden
+disappeared. IIRC her husband last told me she was sick...
+
+	Luis
+
+--=20
+GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+
+--2F7AbV2suvT8PGoH
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFCN8jEat1JN+IKUl4RAvjRAKCreEwFA+VpMY5RMSVarfZtpuK0DQCffPHx
+uIN4IY0JA8oWgmEIXPm8g+U=
+=gjaZ
+-----END PGP SIGNATURE-----
+
+--2F7AbV2suvT8PGoH--
+
+--===============1858589305==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+_______________________________________________
+Prism54-devel mailing list
+Prism54-devel@prism54.org
+http://prism54.org/mailman/listinfo/prism54-devel
+
+--===============1858589305==--
