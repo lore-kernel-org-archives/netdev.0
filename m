@@ -1,39 +1,27 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] Clean up fib_hash datastructures
-Date: Sun, 19 Sep 2004 19:46:42 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: 2.6.9-rc1-bk11+ and 2.6.9-rc1-mm3,4 r8169: freeze during boot
+ (FIX included)
+Date: Sun, 19 Sep 2004 22:56:49 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919194642.11213625.davem@davemloft.net>
-References: <20040918203319.24004d6e.davem@davemloft.net>
-	<1095640781.1047.168.camel@jzny.localdomain>
+Message-ID: <414E46F1.9050309@pobox.com>
+References: <200409130035.50823.hfvogt@arcor.de> <20040916070211.GA32592@electric-eye.fr.zoreil.com> <200409161320.16526.jdmason@us.ltcfwd.linux.ibm.com> <200409171043.21772.jdmason@us.ltcfwd.linux.ibm.com> <20040917160151.GA29337@electric-eye.fr.zoreil.com> <414DF773.7060402@myrealbox.com> <20040919213952.GA32570@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Andy Lutomirski <luto@myrealbox.com>, Hans-Frieder Vogt <hfvogt@arcor.de>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1095640781.1047.168.camel@jzny.localdomain>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20040919213952.GA32570@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 19 Sep 2004 20:39:43 -0400
-jamal <hadi@cyberus.ca> wrote:
+Francois Romieu wrote:
+> rtl8169_hw_start() writes the CPlusCmd register before the ring descriptor
+> adresses are set. Can you elaborate why it would not be enough ?
 
-> Will look at rest of patch and get back to you. Curious piece like you
-> note:
-> 
-> > Does anyone know what this test:
-> > 
-> > 		if (!iter->zone->fz_next)
-> > 			continue;
-> > 
-> > in fib_get_first() is doing?  I kept it there
-> > but it looks fishy.  
-> 
-> Yes, it is fishy;-> patch attached. Probably one of the more interesting
-> typos i have seen recently
 
-Aha, yes, if you look at the original code before this stuff was
-converted to use seq_file, and therefore the 2.4.x copy of this
-code, the typo is even more obvious.
+That sounds like a bug right there...  need all the addresses set up 
+before we turn on stuff.
 
-Good spotting Jamal.
+	Jeff
