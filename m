@@ -1,45 +1,56 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Sat, 23 Oct 2004 02:24:25 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: TCP crashes when cycling loopback interface.
+Date: Sat, 23 Oct 2004 11:20:18 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041023002425.GB4948@electric-eye.fr.zoreil.com>
-References: <41797696.9070905@candelatech.com> <20041022214611.GA4948@electric-eye.fr.zoreil.com> <41798506.1030909@candelatech.com>
+Message-ID: <20041023012018.GA15257@gondor.apana.org.au>
+References: <E1CFVXD-0007iJ-00@gondolin.me.apana.org.au> <Xine.LNX.4.44.0410071234460.4571-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="bp/iNruPH9dso1Pn"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
+To: James Morris <jmorris@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <41798506.1030909@candelatech.com>
+In-Reply-To: <Xine.LNX.4.44.0410071234460.4571-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(vlan cc: bounces)
 
-Ben Greear <greearb@candelatech.com> :
-[...]
-> @@ -1253,6 +1272,17 @@
->   *	A negative errno code is returned on a failure. A success does not
->   *	guarantee the frame will be transmitted as it may be dropped due
->   *	to congestion or traffic shaping.
-> + *
-> + * 
-> -----------------------------------------------------------------------------------
-> + *      I notice this method can also return errors from the queue disciplines,
-> + *      including NET_XMIT_DROP, which is a positive value.  So, errors can also
-> + *      be positive.
-> + *
-> + *      Regardless of the return value, the skb is consumed, so it is currently
-> + *      impossible to retry a send to this method.  This implies that virtual devices,
-> + *      such as VLANs, can ONLY return 0 from their hard_start_xmit method, making
-> + *      it difficult to apply pressure back up the stack.
-> + *          --Ben
->   */
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Afaikr it is not true anymore with the previous code as the congestion/error
-status is propagated and the extra skb_get() balances the kfree_skb() on error
-in dev_queue_xmit. So I'd say that vlan_dev_hard_start_xmit() seems to behave
-like a normal start_xmit() instead.
+On Thu, Oct 07, 2004 at 12:46:25PM -0400, James Morris wrote:
+> 
+> Two runs with the following crashes:
+> 
+> KERNEL: assertion (!skb_queue_empty(&sk->sk_write_queue)) failed at net/ipv4/tcp_timer.c (322)
 
---
-Ueimor
+James, are you still getting this crash?
+
+If so can you please apply this patch and see if it trips? If it
+does then your problem has been found and fixed.
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/tcp_output.c 1.68 vs edited =====
+--- 1.68/net/ipv4/tcp_output.c	2004-10-20 15:13:52 +10:00
++++ edited/net/ipv4/tcp_output.c	2004-10-23 11:19:21 +10:00
+@@ -1038,6 +1038,7 @@
+ 			tp->mss_cache = tp->mss_cache_std;
+ 		}
+ 
++		BUG_TRAP(tcp_skb_pcount(skb) <= 1);
+ 		if (tcp_trim_head(sk, skb, tp->snd_una - TCP_SKB_CB(skb)->seq))
+ 			return -ENOMEM;
+ 	}
+
+--bp/iNruPH9dso1Pn--
