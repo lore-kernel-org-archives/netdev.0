@@ -1,44 +1,90 @@
-From: "Napanda. C. Pemmaiah" <pemmaiah@cc.usu.edu>
-Subject: Confirmation!
-Date: Mon, 01 Apr 2002 18:43:54 -0700
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Patch: Device operative state notification against 2.5.7
+Date: Mon, 1 Apr 2002 22:05:15 -0500 (EST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CABC1F5@webmail.usu.edu>
+Message-ID: <Pine.GSO.4.30.0204012136250.14729-100000@shell.cyberus.ca>
+References: <080d01c1d9bc$3d4510a0$6800000a@brownell.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-8859-1"
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Stefan Rompf <srompf@isg.de>, <netdev@oss.sgi.com>
+To: David Brownell <david-b@pacbell.net>
+In-Reply-To: <080d01c1d9bc$3d4510a0$6800000a@brownell.org>
 List-Id: netdev.vger.kernel.org
 
-Hello,
-       How are you? I am Anup Pemmaiah doing my masters in computer science at 
-Utah State University -USA. I have a linux box running Red Hat 7.2 (kernel 
-version 2.4). My ethernet driver is 3c59x. I had two questions regarding 3c59x 
-module installation.
 
-1)  When the system is booted the module gets installed. I was curious from 
-where does this installation takes place. As far i learnt from the 
-documentation, this is done because of the entry "alias eth0 3c59x" in the 
-/etc/modules.conf file. But even if I delete this entry and reboot the system 
-still the module gets installed.
 
-2)          I removed the module by "rmmod 3c59x" and again installed it by 
-"insmod /lib/modules/...../net/3c59x.o". The module got installed but in the 
-/proc/modules it shows "3c59x    0(unused)". And from /etc/rc.d/init.d if I 
-start the network by saying "./network start" the eth0 conncetion does not 
-come up. Is it because of some options setting to be done during insmod. I 
-searched and tried a lot but I could not figure out the above two problems.
+On Mon, 1 Apr 2002, David Brownell wrote:
 
-            It will be really great if you can give the solution for the above 
-problems. I will be eagerly waiting for your reply. I am sorry for disturbing 
-you. Have a nice day.
+> Two comments on this stuff:
+>
+> (A) I skimmed the 3.1.13 descriptions in RFC 2863.
+> If RUNNING is to correspond to ifAdminStatus,
+> and NO_CARRIER is inverted up/down ifOperStatus,
+> this starts to make sense.  For example, it defines
+> the set/set state in Jamal's table as a fault condition.
 
-Thank you,
-Anup Pemmaiah
+Actually ifOperStatus == NO_CARRIER/IFF_RUNNING set
+NO_CARRIER is used to reflect IFF_RUNNING in serialized way.
+ifAdminStatus == IFF_UP
+Someone needs to enumarate a different truth table with IFF_UP etc
+based on the RFC.
 
--------------------------------------------------
-N.C.Pemmaiah (Anup)
-620E, 700N, Apt# 2
-Logan, UT-84321,USA.
-email: pemmaiah@cc.usu.edu, anup_pemmaiah@yahoo.com
-Ph: 435-512-0935(mob.), 435-752-5976 (Res.)
--------------------------------------------------
+>
+> That doesn't quite seem like a complete match though,
+> and not only because one can't map N-ary ifOperStatus
+> (up, down, unknown, testing, dormant, notPresent, and
+> maybe more) to single bits like NO_CARRIER.
+>
+
+I think we need three bits now to represent IFF_RUNNING (as opposed to the
+old 1 bit); we also need two bits for IFF_UP; note both are defined as
+integeers. My only concern is how to map NO_CARRIER now that we have
+this.
+
+
+> (B) In Jamal's table I'm thinking about how IP-over-USB
+> stacks would work.  Those tend to be point-to-point
+> links with Ethernet framing (easier to bridge :).
+
+That table is now inappropriate; we need a new one to map
+IFF_UP and the two bits in IFF_RUNNING.
+
+>
+> The devices themselves are all hotplugged, so their
+> interface names won't exist unless there's hardware
+> (maybe it's in the process of being unplugged).  But
+> that means there are three meaningful modes:
+>
+>     - Only "my" end connected ... nobody on the
+>       other end (treated as NO_CARRIER) so
+>       IFF_RUNNING can't _ever_ usefully be set
+>
+
+	!IFF_UP and IFF_RUNNING == dormant
+
+but once USB negotiation starts IFF_RUNNING  should transition to
+notPresent
+BTW, i think that IFF_RUNNING == notPresent should also apply for
+ethernet where theres MII autonegotiation failures (speed mismatch)
+
+>     - Both ends connected (!NO_CARRIER)
+>       so IFF_RUNNING could be set or not.
+>
+
+        !IFF_UP and IFF_RUNNING == up
+
+>     - "Indeterminate" ... some cables might not be
+>       able to report whether someone's on the other
+>       end.  Driver would necessarily treat as if both
+>       ends were always connected.
+
+I guess one of those other oper states would represent things
+Admin status could be up/down.
+
+IFF_UP goes to up only if an IP address has been assigned to
+the USB interface for example via DHCP etc
+I am kind of brain dead right now, but i am sure we can
+map hotplug devices easily
+
+cheers,
+jamal
