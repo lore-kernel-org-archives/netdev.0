@@ -1,42 +1,33 @@
-From: "Weber Matthias" <weber@faps.uni-erlangen.de>
-Subject: filtering packtes before OS takes care about them
-Date: Mon, 28 Feb 2005 17:16:57 +0100
-Message-ID: <09766A6E64A068419B362367800D50C0B58A17@moritz.faps.uni-erlangen.de>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: pppoe and receive checksum offload
+Date: Mon, 28 Feb 2005 09:12:52 -0800
+Message-ID: <42235114.3070109@osdl.org>
+References: <20050224155906.73890361@dxpl.pdx.osdl.net> <20050227202011.5ccefb22.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="Windows-1252"
-Content-Transfer-Encoding: quoted-printable
-Content-Class: urn:content-classes:message
-To: <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: mostrows@speakeasy.net, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050227202011.5ccefb22.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+>>Someone reported a problem with skge hardware receive checksumming and PPPOE
+>>> but it looks like a generic problem.  Since PPPOE adds additional header
+>>> bytes the hardware computed checksum will be wrong.  
+>>> 
+>>> Not sure if this is correct, but shouldn't pppoe be doing the following:
+> 
+> 
+> Changing or expanding the link level headers should only mess
+> up the hw checksum if you are using CHECKSUM_HW, is that what
+> your skge driver is using?
 
-i need a possibility to catch IP4 packets (from ethernet devices) before =
-OS' netmodules (IP, UDP, TCP, ICMP, ARP, ROUTE, NETFILTER ...) takes care=
- about them and=20
-* to delete them from input buffer such that OS' netmodules can't receive=
- them
-* to modify packet headers and move packets to interface related output b=
-uffers
-* to keep them in input buffers such that OS' netmodules can take care ab=
-out them.
+The hardware doesn't appear to actually decode the packet, it just
+has the ability to compute data sum of packet starting at an arbitrary
+byte offset. This matched the description of CHECKSUM_HW so
+that is what I used.
 
-I would be thankfull for any hint, link or code example.
-
-Bye
-Matthias
-
---
-
-Dipl.-Inf. Matthias Weber
-Universit=E4t Erlangen-N=FCrnberg
-Lehrstuhl f=FCr Fertigungsautomatisierung und Produktionssystematik Egerl=
-andstra=DFe 7-9
-91058 Erlangen
-Tel. :*49 9131/85-27702
-Fax. :*49 9131/302528
-www :www.faps.uni-erlangen.de
-mailto:weber@faps.uni-erlangen.de
+The original sk98lin attempted to receive hardware checksumming
+but never actually turned it on.
