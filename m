@@ -1,57 +1,51 @@
-From: Timo =?iso-8859-1?Q?Ter=E4s?= <ext-timo.teras@nokia.com>
-Subject: [PATCH] Add ability to register class interfaces for network class
-Date: Tue, 26 Oct 2004 21:35:26 +0300
+From: Jesper Juhl <juhl-lkml@dif.dk>
+Subject: [PATCH][Doc][Trivial] fix spelling error related to IPComp help in
+ Kconfig
+Date: Tue, 26 Oct 2004 20:44:35 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041026183526.GA23535@two.research.nokia.com>
+Message-ID: <Pine.LNX.4.61.0410262038040.3277@dragon.hygekrogen.localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev <netdev@oss.sgi.com>,
+        Linux Kernel Trivial Patch Monkey <trivial@rustcorp.com.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-Content-Disposition: inline
+To: linux-kernel <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add functions to register class interfaces for network class.
-Similar to the ones found in scsi subsystem.
 
-Originally posted on linux-net and related discussion can be found
-from http://marc.theaimsgroup.com/?l=3Dlinux-net&m=3D109758592121767&w=3D=
-2.
+Small patch that fixes a spelling error (Payload misspelled as Paylod)in 
+the IPComp help text in Kconfig (also expands the text to "IP Payload 
+Compression Protocol (IPComp)" which is the title of RFC3173).
+Please consider applying.
 
-Signed-off-by: Timo Ter=E4s <ext-timo.teras@nokia.com>
+Signed-off-by: Jesper Juhl <juhl-lkml@dif.dk>
 
---- linux-2.6.9-rc4.orig/net/core/net-sysfs.c	2004-10-12 13:23:35.1064963=
-12 +0300
-+++ linux-2.6.9-rc4/net/core/net-sysfs.c	2004-10-12 13:24:29.177276304 +0=
-300
-@@ -448,3 +448,11 @@
-  {
-  	return class_register(&net_class);
-  }
-+
-+int netdev_register_interface(struct class_interface *intf)
-+{
-+	intf->class =3D &net_class;
-+	return class_interface_register(intf);
-+}
-+
-+EXPORT_SYMBOL_GPL(netdev_register_interface);
---- linux-2.6.9-rc4.orig/include/linux/netdevice.h	2004-10-12 13:23:31.18=
-6092304 +0300
-+++ linux-2.6.9-rc4/include/linux/netdevice.h	2004-10-12 13:24:29.1792760=
-00 +0300
-@@ -951,6 +951,12 @@
-  extern char *net_sysctl_strdup(const char *s);
-  #endif
-
-+#ifdef CONFIG_SYSFS
-+extern int netdev_register_interface(struct class_interface *intf);
-+#define netdev_unregister_interface(intf) \
-+	class_interface_unregister(intf)
-+#endif
-+
-  #endif /* __KERNEL__ */
-
-  #endif	/* _LINUX_DEV_H */
+diff -urp linux-2.6.10-rc1-bk5-orig/net/ipv4/Kconfig linux-2.6.10-rc1-bk5/net/ipv4/Kconfig
+--- linux-2.6.10-rc1-bk5-orig/net/ipv4/Kconfig	2004-10-18 23:54:55.000000000 +0200
++++ linux-2.6.10-rc1-bk5/net/ipv4/Kconfig	2004-10-26 20:30:35.000000000 +0200
+@@ -331,8 +331,8 @@ config INET_IPCOMP
+ 	select CRYPTO
+ 	select CRYPTO_DEFLATE
+ 	---help---
+-	  Support for IP Paylod Compression (RFC3173), typically needed
+-	  for IPsec.
++	  Support for IP Payload Compression Protocol (IPComp) (RFC3173),
++	  typically needed for IPsec.
+ 	  
+ 	  If unsure, say Y.
+ 
+diff -urp linux-2.6.10-rc1-bk5-orig/net/ipv6/Kconfig linux-2.6.10-rc1-bk5/net/ipv6/Kconfig
+--- linux-2.6.10-rc1-bk5-orig/net/ipv6/Kconfig	2004-10-18 23:54:08.000000000 +0200
++++ linux-2.6.10-rc1-bk5/net/ipv6/Kconfig	2004-10-26 20:31:19.000000000 +0200
+@@ -52,8 +52,8 @@ config INET6_IPCOMP
+ 	select CRYPTO
+ 	select CRYPTO_DEFLATE
+ 	---help---
+-	  Support for IP Paylod Compression (RFC3173), typically needed
+-	  for IPsec.
++	  Support for IP Payload Compression Protocol (IPComp) (RFC3173),
++	  typically needed for IPsec.
+ 
+ 	  If unsure, say Y.
+ 
