@@ -1,36 +1,22 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PATCH: IPSEC acquire in presence of multiple managers
-Date: Sun, 27 Mar 2005 05:42:17 +1000
-Message-ID: <20050326194217.GA9778@gondor.apana.org.au>
-References: <E1DF15m-0006JT-00@gondolin.me.apana.org.au> <1111862486.1090.880.camel@jzny.localdomain>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch linux-2.6.11-bk10 1/1] r8169: incoming frame length check
+Date: Sat, 26 Mar 2005 20:44:03 +0100
+Message-ID: <20050326194403.GB23316@electric-eye.fr.zoreil.com>
+References: <20050314233103.GC16072@electric-eye.fr.zoreil.com> <4240A858.2040800@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, nakam@linux-ipv6.org,
-        shinta.sugimoto@ericsson.com, netdev <netdev@oss.sgi.com>,
-        Patrick McHardy <kaber@trash.net>
-To: jamal <hadi@cyberus.ca>
+Cc: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <1111862486.1090.880.camel@jzny.localdomain>
+In-Reply-To: <4240A858.2040800@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Mar 26, 2005 at 01:41:27PM -0500, jamal wrote:
-> 
-> I noticed in the absence of a responsive KM, the acquires are sent
-> forever. Is it 30 seconds and may be degenerating to 60 seconds?
-> In the meantime my ping is sitting there not giving me back the prompt.
-> I suspect this is so as to make it reliable and maybe aggrevated by the
-> fact i can now passively monitor with ip xfrm mon.
+Jeff Garzik <jgarzik@pobox.com> :
+> applied, let me know when to send upstream.
 
-It's only sitting there forever because ping is configured to send
-packets forever by default.
+Feel free to push it upstream when Penguin #0 is back.
 
-Try ping -c 1 and things will probably be different.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--
+Ueimor
