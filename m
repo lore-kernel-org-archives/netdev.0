@@ -1,31 +1,28 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [IPSEC] Move generic encap code into xfrm4_output
-Date: Sat, 10 Jul 2004 12:02:01 -0700
+Subject: Re: [IPCOMP6] Exclude IPCOMP header from props.header_len
+Date: Sat, 10 Jul 2004 12:21:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040710120201.0decc8ac.davem@redhat.com>
-References: <20040710005146.GA11023@gondor.apana.org.au>
-	<Xine.LNX.4.44.0407100233170.6775-100000@thoron.boston.redhat.com>
+Message-ID: <20040710122106.05951ea7.davem@redhat.com>
+References: <20040710033209.GA14316@gondor.apana.org.au>
+	<20040710.133641.132032007.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-In-Reply-To: <Xine.LNX.4.44.0407100233170.6775-100000@thoron.boston.redhat.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040710.133641.132032007.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 10 Jul 2004 02:34:36 -0400 (EDT)
-James Morris <jmorris@redhat.com> wrote:
+On Sat, 10 Jul 2004 13:36:41 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> On Sat, 10 Jul 2004, Herbert Xu wrote:
+> In article <20040710033209.GA14316@gondor.apana.org.au> (at Sat, 10 Jul 2004 13:32:09 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
 > 
-> > Hi:
-> > 
-> > I've finally finished merging the general encapsulation code for IPv4.
-> > Here is the patch.
+> > Now that the IPv4 encap stuff is out of the way, I'll be sending you
+> > the IPv6 versions.
 > 
-> This looks fine to me so far, also tests ok with various tunneled 
-> configurations.
+> Looks good.
 
-Looks good to me too.  Applied, thanks Herbert.
+To me too, patch applied.
