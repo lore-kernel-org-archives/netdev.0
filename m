@@ -1,58 +1,35 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: OSDL Bugzilla #2399: A user can remotely route a packet through
- eth0 on a Li
-Date: Thu, 13 May 2004 10:56:57 -0700 (PDT)
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: OSDL Bugzilla #2399: A user can remotely route a packet through eth0 on
+ a Li
+Date: Thu, 13 May 2004 12:10:41 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0405131048460.10245@localhost.localdomain>
-References: <BAY15-F5TPEFoxcC3U000054055@hotmail.com>
- <20040513103139.08ebc779@dell_ss3.pdx.osdl.net>
+Message-ID: <OF9B67E38F.0A5372A0-ON88256E93.00625F59-88256E93.0063D1A2@us.ibm.com>
+References: <20040513103139.08ebc779@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "J. M." <snortwiz@hotmail.com>, niv@us.ibm.com, dlstevens@us.ibm.com,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset="US-ASCII"
+Cc: netdev@oss.sgi.com, niv@us.ibm.com, "J. M." <snortwiz@hotmail.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
 In-Reply-To: <20040513103139.08ebc779@dell_ss3.pdx.osdl.net>
+To: Stephen Hemminger <shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-But if a service is bound to a particular ip address, i guess requests
-coming on other ip addresses will not be accepted.
+Stephen Hemminger wrote on 05/13/2004 10:31:39 AM:
 
-For ex: i have 2 hosts with the following set of ip addresses.
-host1: 10.1.1.19, 10.1.2.19
-host2: 10.1.1.20, 10.1.2.20
-
-I ran
-	iperf -B 10.1.1.19 -s
-on host1
-Here we are binding iperf to a particular ip address: 10.1.1.19
-
->From host2 i tried,
-	iperf -c 10.1.1.20
-and it failed as expected.
-
-Is this different from the scenario raised in the original bug report?
-
-Thanks
-Sridhar
-
-On Thu, 13 May 2004, Stephen Hemminger wrote:
-
-> On Thu, 13 May 2004 12:20:34 -0500
-> "J. M." <snortwiz@hotmail.com> wrote:
->
-> > That's exactly what's happening - a service bound to an interface is
-> > receiving traffic via a different interface.  That could pose security risks
-> > on a dual-homed machine (such as the device I pen-tested and discovered this
-> > flaw upon).
-> >
-> > -Jared
->
-> On Linux, IP addresses are not bound to interfaces.  You need
-> to use SO_BINDTODEVICE if that is what you want.
->
 > The security model is correct, and well defined, just different than BSD
 > derived systems.  It does conform to the standards (RFC's).
->
->
+
+Stephen,
+        This is not different from BSD behavior. IP has always used the
+weak end-system model. The question for delivery is "is the destination
+address a local address" (not just on the receiving interface). See WRS
+"TCP/IP Illustrated" for relevant BSD code.
+
+Re: security, Jared. If you want to restrict it, you can use netfilter
+rules to drop packets targeted to the back-side interface of the one
+you're receiving them on. bind() selects packets whose destination address
+matches-- doesn't matter what interface they come in on. So, bind()
+simply isn't the mechanism you want if you want it to be restricted to a
+particular interface.
+
+                                                +-DLS
