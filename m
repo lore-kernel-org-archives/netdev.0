@@ -1,27 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH]: Fix tbf_reset
-Date: Tue, 18 Nov 2003 17:25:27 -0800
+Subject: Re: [PATCH]: fix queue limits in multiple qdiscs
+Date: Tue, 18 Nov 2003 17:34:57 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031118172527.5c2c0a1f.davem@redhat.com>
-References: <3FB39990.3000205@trash.net>
+Message-ID: <20031118173457.5c85c671.davem@redhat.com>
+References: <3FB39A2D.5020000@trash.net>
+	<1069076955.1076.23.camel@jzny.localdomain>
+	<3FB8DF9F.7030509@trash.net>
+	<1069081284.1024.23.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kaber@trash.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <3FB39990.3000205@trash.net>
+To: hadi@cyberus.ca
+In-Reply-To: <1069081284.1024.23.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 13 Nov 2003 15:47:44 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On 17 Nov 2003 10:01:24 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-> This patch fixes TBF purging an unused queue in tbf_reset instead
-> of resetting q.qlen. I haven't checked the history, but it looks
-> like this place was forgotten when making TBF classful.
+> Like i said it is valid - but i wouldnt go out of my way to fix it
+> (especially when 2.6 is frozen).
 
-Yes, the bug was introduced when adding inner-qdisc attaching
-support to TBF.
+I agree with this sentiment, but only in part.
 
-Thanks for tracking this down Patrick, patch applied.
+Considering:
+
+1) The output from 'tc' is very confusing and quite stupid.
+2) Patrick did all the work to fix this bug.
+3) His patch is %100 straight forward, simply, and easy to verify.
+
+I am going to apply his patch.
+
+Thanks Patrick.
