@@ -1,36 +1,80 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [ROUTE] PMTU only works on half the time
-Date: Tue, 2 Dec 2003 16:39:02 -0800
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [2.6 PATCH] ipchains masquerade must select maddr correctly
+Date: Wed, 3 Dec 2003 01:55:28 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202163902.2deb43a7.davem@redhat.com>
-References: <20031201155005.1c515793.davem@redhat.com>
-	<Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
+Message-ID: <Pine.LNX.4.44.0312030150080.1237-200000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-1400563270-1070409328=:1237"
+Cc: Harald Welte <laforge@gnumonks.org>, "David S. Miller" <davem@redhat.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0312030121130.1237-100000@u.domain.uli>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 3 Dec 2003 01:40:06 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-> - ip_rt_frag_needed now provides interface index
+--1607745702-1400563270-1070409328=:1237
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-I disagree with this.
 
-There is no connection between the route (and thus output
-device) we used to send a packet and the interface on which
-an ICMP for that packet comes back upon.  Think assymetric
-routes.
+	Hello,
 
-You changes mean that for routes with specific output interfaces,
-we will ignore ICMPs for those routes that arrive on other interfaces
-due to assymetric routing.
+	The attached patch fixes ipchains masquerade to use
+correctly the routing. This bug-to-bug compatibility with 2.2
+is not valid from long time. Also, a missing unlock is added.
 
-Why don't you create a seperate patch that just has the TOS masking
-changes?  That's much less controversial and thus something I'm likely
-to apply.
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
+
+--1607745702-1400563270-1070409328=:1237
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="ipchains-masq-1.diff"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0312030155280.1237@u.domain.uli>
+Content-Description: ipchains maddr
+Content-Disposition: attachment; filename="ipchains-masq-1.diff"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTM1MiAgLT4gMS4xMzUzIA0KIwlu
+ZXQvaXB2NC9uZXRmaWx0ZXIvaXBfZndfY29tcGF0X21hc3EuYwkxLjExICAg
+IC0+IDEuMTIgICANCiMNCiMgVGhlIGZvbGxvd2luZyBpcyB0aGUgQml0S2Vl
+cGVyIENoYW5nZVNldCBMb2cNCiMgLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0NCiMgMDMvMTIvMDMJamFAc3NpLmJnCTEu
+MTM1Mw0KIyBbSVBDSEFJTlNdOiBtYXNxdWVyYWRlIG11c3Qgc2VsZWN0IG1h
+ZGRyIGNvcnJlY3RseQ0KIyANCiMgLSBJdCBpcyBmaXhlZCBpbiBMaW51eCAy
+LjIgZnJvbSBhZ2VzDQojIC0gQWRkIG1pc3NpbmcgV1JJVEVfVU5MT0NLIG9u
+IHJvdXRlIGVycm9yDQojIC0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLS0tLS0tLS0tDQojDQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9uZXRm
+aWx0ZXIvaXBfZndfY29tcGF0X21hc3EuYyBiL25ldC9pcHY0L25ldGZpbHRl
+ci9pcF9md19jb21wYXRfbWFzcS5jDQotLS0gYS9uZXQvaXB2NC9uZXRmaWx0
+ZXIvaXBfZndfY29tcGF0X21hc3EuYwlXZWQgRGVjICAzIDAwOjMyOjA1IDIw
+MDMNCisrKyBiL25ldC9pcHY0L25ldGZpbHRlci9pcF9md19jb21wYXRfbWFz
+cS5jCVdlZCBEZWMgIDMgMDA6MzI6MDUgMjAwMw0KQEAgLTY3LDE4ICs2Nywy
+MyBAQA0KIAkvKiBTZXR1cCB0aGUgbWFzcXVlcmFkZSwgaWYgbm90IGFscmVh
+ZHkgKi8NCiAJaWYgKCFpbmZvLT5pbml0aWFsaXplZCkgew0KIAkJdV9pbnQz
+Ml90IG5ld3NyYzsNCi0JCXN0cnVjdCBmbG93aSBmbCA9IHsgLm5sX3UgPSB7
+IC5pcDRfdSA9IHsgLmRhZGRyID0gKCpwc2tiKS0+bmguaXBoLT5kYWRkciB9
+IH0gfTsNCisJCXN0cnVjdCBmbG93aSBmbCA9IHsgLm5sX3UgPSB7DQorCQkJ
+CQkuaXA0X3UgPSB7DQorCQkJCQkJLmRhZGRyID0gKCpwc2tiKS0+bmguaXBo
+LT5kYWRkciwNCisJCQkJCQkudG9zID0gUlRfVE9TKCgqcHNrYiktPm5oLmlw
+aC0+dG9zKSwNCisJCQkJCX0gfSwNCisJCQkJICAgIC5vaWYgPSAoKnBza2Ip
+LT5kc3QtPmRldi0+aWZpbmRleCB9Ow0KIAkJc3RydWN0IHJ0YWJsZSAqcnQ7
+DQogCQlzdHJ1Y3QgaXBfbmF0X211bHRpX3JhbmdlIHJhbmdlOw0KIA0KIAkJ
+LyogUGFzcyAwIGluc3RlYWQgb2Ygc2FkZHIsIHNpbmNlIGl0J3MgZ29pbmcg
+dG8gYmUgY2hhbmdlZA0KIAkJICAgYW55d2F5LiAqLw0KIAkJaWYgKGlwX3Jv
+dXRlX291dHB1dF9rZXkoJnJ0LCAmZmwpICE9IDApIHsNCisJCQlXUklURV9V
+TkxPQ0soJmlwX25hdF9sb2NrKTsNCiAJCQlERUJVR1AoImlwbmF0X3J1bGVf
+bWFzcXVlcmFkZTogQ2FuJ3QgcmVyb3V0ZS5cbiIpOw0KIAkJCXJldHVybiBO
+Rl9EUk9QOw0KIAkJfQ0KLQkJbmV3c3JjID0gaW5ldF9zZWxlY3RfYWRkcihy
+dC0+dS5kc3QuZGV2LCBydC0+cnRfZ2F0ZXdheSwNCi0JCQkJCSAgUlRfU0NP
+UEVfVU5JVkVSU0UpOw0KKwkJbmV3c3JjID0gcnQtPnJ0X3NyYzsNCiAJCWlw
+X3J0X3B1dChydCk7DQogCQlyYW5nZSA9ICgoc3RydWN0IGlwX25hdF9tdWx0
+aV9yYW5nZSkNCiAJCQkgeyAxLA0K
+--1607745702-1400563270-1070409328=:1237--
