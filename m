@@ -1,30 +1,89 @@
-From: linux lover <linux_lover2004@yahoo.com>
-Subject: /proc query
-Date: Fri, 14 May 2004 04:01:47 -0700 (PDT)
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040514110147.66697.qmail@web90105.mail.scd.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265277AbUENN2d@vger.kernel.org>
-To: netdev <netdev@oss.sgi.com>
+From: Jonathan Corbet <corbet@lwn.net>
+Subject: [PATCH] Remove auto_irq.c
+Date: Fri, 14 May 2004 09:44:49 -0600
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040514154449.4360.qmail@lwn.net>
+Cc: jgarzik@pobox.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-hello,
-        can it be possible to allow /proc new entry
-file to update its value after few times. i
-implemented a file /proc/text that updates text value
-at each seconds not after 1 minutes. for that i am
-using sleep. is it allow to use sleep in kernel source
-modification.
-regards,
-linuxlover
- 
+I was looking to see if anything still uses the autoirq_* functions in
+2.6.  Turns out that nothing does; in fact, the file is not even compiled.
+I would guess we don't need to lug auto_irq.c around anymore...
 
+jon
 
-	
-		
-__________________________________
-Do you Yahoo!?
-SBC Yahoo! - Internet access at a great low price.
-http://promo.yahoo.com/sbc/
+diff -purN -X dontdiff 2.6.6-vanilla/drivers/net/auto_irq.c 2.6.6/drivers/net/auto_irq.c
+--- 2.6.6-vanilla/drivers/net/auto_irq.c	2003-09-08 13:50:06.000000000 -0600
++++ 2.6.6/drivers/net/auto_irq.c	1969-12-31 17:00:00.000000000 -0700
+@@ -1,68 +0,0 @@
+-/* auto_irq.c: Auto-configure IRQ lines for linux. */
+-/*
+-    Written 1994 by Donald Becker.
+-
+-    The author may be reached as becker@scyld.com
+-
+-    This code is a general-purpose IRQ line detector for devices with
+-    jumpered IRQ lines.  If you can make the device raise an IRQ (and
+-    that IRQ line isn't already being used), these routines will tell
+-    you what IRQ line it's using -- perfect for those oh-so-cool boot-time
+-    device probes!
+-
+-    To use this, first call autoirq_setup(timeout). TIMEOUT is how many
+-    'jiffies' (1/100 sec.) to detect other devices that have active IRQ lines,
+-    and can usually be zero at boot.  'autoirq_setup()' returns the bit
+-    vector of nominally-available IRQ lines (lines may be physically in-use,
+-    but not yet registered to a device).
+-    Next, set up your device to trigger an interrupt.
+-    Finally call autoirq_report(TIMEOUT) to find out which IRQ line was
+-    most recently active.  The TIMEOUT should usually be zero, but may
+-    be set to the number of jiffies to wait for a slow device to raise an IRQ.
+-
+-    The idea of using the setup timeout to filter out bogus IRQs came from
+-    the serial driver.
+-*/
+-
+-
+-#ifdef version
+-static const char *version=
+-"auto_irq.c:v1.11 Donald Becker (becker@scyld.com)";
+-#endif
+-
+-#include <linux/module.h>
+-#include <linux/jiffies.h>
+-#include <linux/delay.h>
+-#include <asm/bitops.h>
+-#include <asm/io.h>
+-#include <asm/irq.h>
+-#include <linux/netdevice.h>
+-
+-static unsigned long irqs;
+-
+-void autoirq_setup(int waittime)
+-{
+-	irqs = probe_irq_on();
+-}
+-
+-#define BUSY_LOOP_UNTIL(j) while ((long)(jiffies-(j)) < 0) ;
+-int autoirq_report(int waittime)
+-{
+-	unsigned long delay = jiffies + waittime;
+-	BUSY_LOOP_UNTIL(delay)
+-	return probe_irq_off(irqs);
+-}
+-
+-EXPORT_SYMBOL(autoirq_setup);
+-EXPORT_SYMBOL(autoirq_report);
+-
+-
+-/*
+- * Local variables:
+- *  compile-command: "gcc -DKERNEL -Wall -O6 -fomit-frame-pointer -I/usr/src/linux/net/tcp -c auto_irq.c"
+- *  version-control: t
+- *  kept-new-versions: 5
+- *  c-indent-level: 4
+- *  tab-width: 4
+- * End:
+- */
