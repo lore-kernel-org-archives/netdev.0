@@ -1,53 +1,70 @@
-From: Joel Jaeggli <joelja@darkwing.uoregon.edu>
-Subject: Re: The ultimate TOE design
-Date: Fri, 24 Sep 2004 12:39:01 -0700 (PDT)
+From: Krishna Kumar <kumarkr@us.ibm.com>
+Subject: Re: [5/6]: Dynamic neigh hash table growth
+Date: Fri, 24 Sep 2004 13:11:58 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.61.0409241119350.30262@twin.uoregon.edu>
-References: <20040924130738.GB24093@xi.wantstofly.org>
- <200409241321.i8ODLf39012346@guinness.s2io.com> <20040924180915.GB26922@xi.wantstofly.org>
+Message-ID: <OF75C0DF94.8BDAC480-ON88256F19.006C04FD-88256F19.006EF59D@us.ibm.com>
+References: <20040923225127.10b0ef68.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: Leonid Grossman <leonid.grossman@s2io.com>,
-        "'David S. Miller'" <davem@davemloft.net>,
-        "'Jeff Garzik'" <jgarzik@pobox.com>, alan@lxorguk.ukuu.org.uk,
-        paul@clubi.ie, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: multipart/alternative;
+	Boundary="0__=07BBE58ADFFF826D8f9e8a93df938690918c07BBE58ADFFF826D"
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20040924180915.GB26922@xi.wantstofly.org>
+In-Reply-To: <20040923225127.10b0ef68.davem@davemloft.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004, Lennert Buytenhek wrote:
+--0__=07BBE58ADFFF826D8f9e8a93df938690918c07BBE58ADFFF826D
+Content-type: text/plain; charset=US-ASCII
 
->
->> I was referring to the server side.
->> One can certanly build a 10GbE box based on IPX2800 (or some other parts),
->> but at 17-25W it is not usable in NICs since the entire PCI card budget is
->> less than that - nothing left for 10GbE PHY, memory, etc.
 
-I have a graphics card which requires two four pin molex power connectors, 
-going back in time there have allway been certain perphiral cards which 
-required external (non-bus supplied power sources for whatever reason) 
-(hard-drive on a card, sparc on a card, pc on a card, early 90's hardware 
-mpeg encoder, data collection device, remote mangement card, graphics card 
-in modern mac etc), it's obviously not a general solution, but it's been 
-done frequently enough that it shouldn't just be discarded out of hand.
 
-> Ah, ok, that makes sense.  As someone else also noted, the IXP2800
-> only has a 64/66 PCI interface anyway, so it wouldn't really be
-> suitable for the task you were referring to.
->
->
-> cheers,
-> Lennert
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
 
--- 
--------------------------------------------------------------------------- 
-Joel Jaeggli  	       Unix Consulting 	       joelja@darkwing.uoregon.edu 
-GPG Key Fingerprint:     5C6E 0104 BAF0 40B0 5BD3 C38B F000 35AB B67F 56B2
+
+In neigh_hash_grow(), next need not be set to NULL.
+
+thx,
+
+- KK
+
+> +   for (i = 0; i < old_entries; i++) {
+> +      struct neighbour *n, *next;
+> +
+> +      next = NULL;
+> +      for (n = old_hash[i]; n; n = next) {
+> +         unsigned int hash_val = tbl->hash(n->primary_key, n->dev);
+> +
+> +         hash_val &= new_hash_mask;
+> +         next = n->next;
+> +
+> +         n->next = new_hash[hash_val];
+> +         new_hash[hash_val] = n;
+> +      }
+> +   }
+--0__=07BBE58ADFFF826D8f9e8a93df938690918c07BBE58ADFFF826D
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p><tt>In neigh_hash_grow(), next need not be set to NULL.</tt><br>
+<br>
+<tt>thx,</tt><br>
+<br>
+<tt>- KK</tt><br>
+<br>
+<tt>&gt; + &nbsp; for (i = 0; i &lt; old_entries; i++) {<br>
+&gt; + &nbsp; &nbsp; &nbsp;struct neighbour *n, *next;<br>
+&gt; +<br>
+&gt; + &nbsp; &nbsp; &nbsp;next = NULL;<br>
+&gt; + &nbsp; &nbsp; &nbsp;for (n = old_hash[i]; n; n = next) {<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; unsigned int hash_val = tbl-&gt;hash(n-&gt;primary_key, n-&gt;dev);<br>
+&gt; +<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; hash_val &amp;= new_hash_mask;<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; next = n-&gt;next;<br>
+&gt; +<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; n-&gt;next = new_hash[hash_val];<br>
+&gt; + &nbsp; &nbsp; &nbsp; &nbsp; new_hash[hash_val] = n;<br>
+&gt; + &nbsp; &nbsp; &nbsp;}<br>
+&gt; + &nbsp; }</tt></body></html>
+--0__=07BBE58ADFFF826D8f9e8a93df938690918c07BBE58ADFFF826D--
