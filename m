@@ -1,25 +1,30 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [0/9] via-rhine: Major surgery
-Date: Tue, 15 Jun 2004 19:47:32 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040615174732.GA10241@k3.hellgate.ch>
+From: Chris Wright <chrisw@osdl.org>
+Subject: [PATCH] ethtool_get_regs copy right number of bytes to user
+Date: Tue, 15 Jun 2004 15:55:41 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040615155541.Q21045@build.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S266005AbUFOWzo@vger.kernel.org>
+To: jgarzik@pobox.com
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This set of patches obsoletes all via-rhine patches for 2.6 that didn't
-make it into 2.6.7-rc3-mm2. Most notable changes: I rewrote the media,
-PHY, and link state handling and added WOL support for Rhine chips.
+If regs.len is smaller than reglen it's possible to copy more bytes out
+than the user asked for.
 
-Patches [1/9] and [2/9] are resends so you won't have to go hunt them
-down before trying the rest.
+Signed-off-by: Chris Wright <chrisw@osdl.org>
 
-These patches need review and testing, especially from people with
-WOL-capable hardware.
-
-Roger
+===== net/core/ethtool.c 1.14 vs edited =====
+--- 1.14/net/core/ethtool.c	2004-06-02 14:54:28 -07:00
++++ edited/net/core/ethtool.c	2004-06-13 12:59:15 -07:00
+@@ -157,7 +157,7 @@
+ 	if (copy_to_user(useraddr, &regs, sizeof(regs)))
+ 		goto out;
+ 	useraddr += offsetof(struct ethtool_regs, data);
+-	if (copy_to_user(useraddr, regbuf, reglen))
++	if (copy_to_user(useraddr, regbuf, regs.len))
+ 		goto out;
+ 	ret = 0;
+ 
