@@ -1,65 +1,29 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: kernel crash with G5 Xserve and sungem driver
-Date: Fri, 1 Oct 2004 21:46:30 +0200
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Current 2.6.x TSO state
+Date: Fri, 1 Oct 2004 12:47:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041001194630.GO27499@sunbeam.de.gnumonks.org>
-References: <415D8768.8080808@nortelnetworks.com> <20041001193153.GN27499@sunbeam.de.gnumonks.org> <415DB334.4010809@nortelnetworks.com>
+Message-ID: <20041001124733.1ac4266a.davem@davemloft.net>
+References: <20040930213221.06a3f5b3.davem@davemloft.net>
+	<20041001121123.19511403.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="Bzq2cJcN05fcPrs+"
-Cc: netdev@oss.sgi.com, linuxppc-dev@ozlabs.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, jheffner@psc.edu, herbert@gondor.apana.org.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Chris Friesen <cfriesen@nortelnetworks.com>
-Content-Disposition: inline
-In-Reply-To: <415DB334.4010809@nortelnetworks.com>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20041001121123.19511403.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 1 Oct 2004 12:11:23 +0200
+Andi Kleen <ak@suse.de> wrote:
 
---Bzq2cJcN05fcPrs+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> Do you want me to play with the new sysctl too?
 
-On Fri, Oct 01, 2004 at 01:42:44PM -0600, Chris Friesen wrote:
-> Harald Welte wrote:
->=20
-> >Just don't compile (or load) the sungem driver on those boxes.
->=20
-> Hmm.  That's a pain.  We've got G5 desktops too, and it would be nice to =
-be=20
-> able to run one kernel for both.  It'd be better (IMHO) to fix the driver=
-=20
-> so it doesn't crash.
+Yes.
 
-I recommend talking to Bejamin Herrenschmidt, IIRC he already had
-something in mind in order to fix the issue.
+>      max win adv:            5840 bytes     max win adv:           63712 bytes
+>      min win adv:            5840 bytes     min win adv:            5792 bytes
 
-I mean, you can always hardcode some exemption into the driver, that's
-two easy lines ;)
-
-> Chris
-
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---Bzq2cJcN05fcPrs+
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBXbQWXaXGVTD0i/8RAolKAJ92G/5zs4wo4XSF2WAsqAaD1+GIkwCeICAs
-cHBju+40g4MUwbRTfk6R/Zs=
-=qWQ2
------END PGP SIGNATURE-----
-
---Bzq2cJcN05fcPrs+--
+That stinks that the receiver is only using a 64K window,
+that's way too small for gigabit.
