@@ -1,115 +1,21 @@
-From: Christopher Chan <cchan@outblaze.com>
-Subject: Network unavailability in 2.6.4
-Date: Wed, 31 Mar 2004 11:27:42 +0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix IGMPv3 timer initialization when device not "upped"
+Date: Tue, 30 Mar 2004 19:25:58 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <406A3AAE.3030508@outblaze.com>
+Message-ID: <20040330192558.1d9c8eb2.davem@redhat.com>
+References: <OF6459178B.EB663927-ON88256E67.0083D5E5-88256E68.0000EE02@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF6459178B.EB663927-ON88256E67.0083D5E5-88256E68.0000EE02@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, I have a box running 2.6.4 which from time to time will become 
-unavailable. Each of those times would have corresponding logs in messages.
 
-Hardware:
-00:04.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] 
-(rev 08)
+Applied, thanks David.  Can I have a 2.4.x variant under seperate
+cover please?  I did the "mc_initted" thing there too.
 
-I am using the e100 driver.
-
-
-The current resolution is to reboot the box.
-
-
-logs in /var/log/messages:
-
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (tp->copied_seq == 
-tp->rcv_nxt || (flags & (MSG_PEEK | MSG_TRUNC))) failed at
-net/ipv4/tcp.c (1635)
-Mar 30 22:50:34 spf6 kernel: KERNEL: assertion (flags & MSG_PEEK) failed 
-at net/ipv4/tcp.c (1571)
-Mar 30 23:34:28 spf6 syslogd 1.4.1: restart.
-Mar 30 23:34:28 spf6 syslog: syslogd startup succeeded
+Thanks again.
