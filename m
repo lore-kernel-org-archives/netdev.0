@@ -1,43 +1,46 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: Re: SCTP path mtu support needs some ip layer support.
-Date: Mon, 13 Jan 2003 16:56:56 -0800 (PST)
+From: Cheng Jin <chengjin@cs.caltech.edu>
+Subject: Re: snd_cwnd drawn and quartered
+Date: Mon, 13 Jan 2003 17:20:06 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0301131651170.1861-100000@dyn9-47-18-98.beaverton.ibm.com>
-References: <1042498998.2610.8.camel@devil>
+Message-ID: <Pine.LNX.4.33L0.0301131658430.26396-100000@orchestra.cs.caltech.edu>
+References: <200301140012.DAA09790@sex.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Sridhar Samudrala <sri@us.ibm.com>, <kuznet@ms2.inr.ac.ru>,
-   Jon Grimm <jgrimm2@us.ibm.com>, <davem@redhat.com>, <netdev@oss.sgi.com>
+Cc: Werner Almesberger <wa@almesberger.net>,
+   "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika Liljeberg <mika.liljeberg@welho.com>
-In-Reply-To: <1042498998.2610.8.camel@devil>
+To: "kuznet@ms2.inr.ac.ru" <kuznet@ms2.inr.ac.ru>
+In-Reply-To: <200301140012.DAA09790@sex.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 14 Jan 2003, Mika Liljeberg wrote:
 
-> Hi,
-> 
-> I know this is not what the SCTP spec recommends with IPv4, but what
-> prevents you from just fragmenting the IP packets at the source and
-> setting the DF bit on each fragment (assuming you can't just repackage
-> the data chunks)? This would be equivalent to the IPv6 behaviour and
-> would keep PMTUD working perfectly.
+> I see. Not quite understand the reason though. :-) You said something
+> about lost retransmissions... How much of retransmits were lost
+> in the simulation? Are you aware that each lost retransmission,
+> if we behaved honestly, would collapse cwnd to 1? :-)
 
-SCTP does segment the packets based on the current PMTU and sets DF bit to not
-allowing IP fragmentation. The problem occurs when the PMTU shrinks and there
-are outstanding segmented packets which need to be retransmitted. We cannot
-re-segment these packets, but would like IP to fragment them by not setting
-DF bit. 
+Yes, I am aware of this, and when this happens, cwnd will sit @ 1 until
+TCP gets out of recovery (1 retransmits per rtt).  It's debatable whether
+cwnd should remain 1 for the rest of the recovery period even if really
+sever congestion brings cwnd down to 1.  For example, if there are 100
+pkts to be rexmitted when cwnd gets to 1, it will take at least 100 RTTs to
+leave recovery.  By then, whatever network condition that causes congestion
+in the first place might be long gone already, but one wouldn't know the
+true state of the network with such a small cwnd.  Maybe cwnd could be
+clamped at some minimum value (greater than 1) depending on ssthresh?
 
-> 
-> With IPv6 you don't have a DF bit to control, so you have only two
-> options. Either use a maximum chunk size smaller than 1280, or fragment
-> at the source.
-> 
-> Regards,
-> 
-> 	MikaL
-> 
-> 
-> 
+>From what I have observed, cwnd gets reduced to 1 mainly because of lost
+retransmits.  I think the tcp_rs can show that. Linux TCP deals with a
+lost retransmit by reducing retrans_out by one so in_flight ends up
+becoming one less.  In tcp_cwnd_down, cwnd is always clamped at in_flight
+so if many rexmits are lost (over many RTTs), cwnd gets reduced quite
+often.  However, when cwnd is small, loss retransmits are not  reliable
+signals for the severity of congestion, for example, when cwnd is 10,
+does losing one pkt mean 10% pkts loss in the network?  Again, I am not
+saying right or wrong about how cwnd changes, but it is something that
+we could think about.
+
+THanks,
+
+Cheng
