@@ -1,34 +1,207 @@
-From: Colin Whittaker <colin.whittaker@heanet.ie>
-Subject: MTU bug 2.6.8
-Date: Tue, 15 Mar 2005 19:38:59 +0000
-Message-ID: <20050315193858.GA32624@aine.heanet.ie>
-Reply-To: Colin Whittaker <colin.whittaker@heanet.ie>
+From: John Heffner <jheffner@psc.edu>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: Tue, 15 Mar 2005 14:54:24 -0500 (EST)
+Message-ID: <Pine.LNX.4.58.0503151450240.6669@dexter.psc.edu>
+References: <421CF5E5.1060606@ev-en.org> <20050223135732.39e62c6c.davem@davemloft.net>
+ <421D1E66.5090301@osdl.org> <421D30FA.1060900@ev-en.org>
+ <20050225120814.5fa77b13@dxpl.pdx.osdl.net> <20050309210442.3e9786a6.davem@davemloft.net>
+ <4230288F.1030202@ev-en.org> <20050310182629.1eab09ec.davem@davemloft.net>
+ <20050311120054.4bbf675a@dxpl.pdx.osdl.net> <20050311201011.360c00da.davem@davemloft.net>
+ <20050314151726.532af90d@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: davem@redhat.com, netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@davemloft.net>, baruch@ev-en.org,
+        netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050314151726.532af90d@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Cool. :)  Here's High Speed TCP.
 
-Hi David and the rest of the list.
+  -John
 
-I have hit a problem with MTUs under linux and the behaviour is
-identical to that described in <http://content.ix2.net/arc/t-4645.html>
 
-In this case I have a number of machines with e1000 and tg3 based gige
-cards and they all exhibit this behaviour. 
+---
 
-I am running a stock 2.6.8.1 kernel and am more than happy to test any
-fixes / patches but do not know the code base so finiding it is beyond
-me.
+/*
+ * Sally Floyd's High Speed TCP (RFC 3649) congestion control
+ *
+ * See http://www.icir.org/floyd/hstcp.html
+ *
+ * John Heffner <jheffner@psc.edu>
+ */
 
-If any more data is need please just ask.
+#include <linux/config.h>
+#include <linux/module.h>
+#include <net/tcp.h>
 
-regards,
 
-Colin
--- 
-Colin Whittaker    colin.whittaker@heanet.ie    Tel: +353 1 6609040
-HEAnet NOC         noc@heanet.ie                iNOC-DBA:  1213*752
+/* From AIMD tables from RFC 3649 appendix B,
+ * with fixed-point MD scaled <<8.
+ */
+static struct hstcp_aimd_val {
+        unsigned int cwnd;
+        unsigned int md;
+} hstcp_aimd_vals[] = {
+ {     38,  128, /*  0.50 */ },
+ {    118,  112, /*  0.44 */ },
+ {    221,  104, /*  0.41 */ },
+ {    347,   98, /*  0.38 */ },
+ {    495,   93, /*  0.37 */ },
+ {    663,   89, /*  0.35 */ },
+ {    851,   86, /*  0.34 */ },
+ {   1058,   83, /*  0.33 */ },
+ {   1284,   81, /*  0.32 */ },
+ {   1529,   78, /*  0.31 */ },
+ {   1793,   76, /*  0.30 */ },
+ {   2076,   74, /*  0.29 */ },
+ {   2378,   72, /*  0.28 */ },
+ {   2699,   71, /*  0.28 */ },
+ {   3039,   69, /*  0.27 */ },
+ {   3399,   68, /*  0.27 */ },
+ {   3778,   66, /*  0.26 */ },
+ {   4177,   65, /*  0.26 */ },
+ {   4596,   64, /*  0.25 */ },
+ {   5036,   62, /*  0.25 */ },
+ {   5497,   61, /*  0.24 */ },
+ {   5979,   60, /*  0.24 */ },
+ {   6483,   59, /*  0.23 */ },
+ {   7009,   58, /*  0.23 */ },
+ {   7558,   57, /*  0.22 */ },
+ {   8130,   56, /*  0.22 */ },
+ {   8726,   55, /*  0.22 */ },
+ {   9346,   54, /*  0.21 */ },
+ {   9991,   53, /*  0.21 */ },
+ {  10661,   52, /*  0.21 */ },
+ {  11358,   52, /*  0.20 */ },
+ {  12082,   51, /*  0.20 */ },
+ {  12834,   50, /*  0.20 */ },
+ {  13614,   49, /*  0.19 */ },
+ {  14424,   48, /*  0.19 */ },
+ {  15265,   48, /*  0.19 */ },
+ {  16137,   47, /*  0.19 */ },
+ {  17042,   46, /*  0.18 */ },
+ {  17981,   45, /*  0.18 */ },
+ {  18955,   45, /*  0.18 */ },
+ {  19965,   44, /*  0.17 */ },
+ {  21013,   43, /*  0.17 */ },
+ {  22101,   43, /*  0.17 */ },
+ {  23230,   42, /*  0.17 */ },
+ {  24402,   41, /*  0.16 */ },
+ {  25618,   41, /*  0.16 */ },
+ {  26881,   40, /*  0.16 */ },
+ {  28193,   39, /*  0.16 */ },
+ {  29557,   39, /*  0.15 */ },
+ {  30975,   38, /*  0.15 */ },
+ {  32450,   38, /*  0.15 */ },
+ {  33986,   37, /*  0.15 */ },
+ {  35586,   36, /*  0.14 */ },
+ {  37253,   36, /*  0.14 */ },
+ {  38992,   35, /*  0.14 */ },
+ {  40808,   35, /*  0.14 */ },
+ {  42707,   34, /*  0.13 */ },
+ {  44694,   33, /*  0.13 */ },
+ {  46776,   33, /*  0.13 */ },
+ {  48961,   32, /*  0.13 */ },
+ {  51258,   32, /*  0.13 */ },
+ {  53677,   31, /*  0.12 */ },
+ {  56230,   30, /*  0.12 */ },
+ {  58932,   30, /*  0.12 */ },
+ {  61799,   29, /*  0.12 */ },
+ {  64851,   28, /*  0.11 */ },
+ {  68113,   28, /*  0.11 */ },
+ {  71617,   27, /*  0.11 */ },
+ {  75401,   26, /*  0.10 */ },
+ {  79517,   26, /*  0.10 */ },
+ {  84035,   25, /*  0.10 */ },
+ {  89053,   24, /*  0.10 */ },
+};
+
+#define HSTCP_AIMD_MAX	((sizeof (hstcp_aimd_vals) / sizeof (struct hstcp_aimd_val)) - 1)
+
+struct hstcp_ca {
+	u32	ai;
+};
+
+static void hstcp_start(struct tcp_sock *tp)
+{
+	struct hstcp_ca *ca = tcp_ca(tp);
+
+	ca->ai = 0;
+
+	/* Ensure the MD arithmetic works.  This is somewhat pedantic,
+	 * since I don't think we will see a cwnd this large. :) */
+	tp->snd_cwnd_clamp = min_t(u32, tp->snd_cwnd_clamp, 0xffffffff/128);
+}
+
+static void hstcp_cong_avoid(struct tcp_sock *tp, u32 adk, u32 rtt, u32 in_flight)
+{
+	struct hstcp_ca *ca = tcp_ca(tp);
+
+	if (in_flight < tp->snd_cwnd)
+		return;
+
+	if (tp->snd_cwnd <= tp->snd_ssthresh) {
+		if (tp->snd_cwnd < tp->snd_cwnd_clamp)
+			tp->snd_cwnd++;
+	} else {
+		/* Update AIMD parameters */
+		if (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd) {
+			while (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd &&
+			       ca->ai < HSTCP_AIMD_MAX)
+				ca->ai++;
+		} else if (tp->snd_cwnd < hstcp_aimd_vals[ca->ai].cwnd) {
+			while (tp->snd_cwnd > hstcp_aimd_vals[ca->ai].cwnd &&
+			       ca->ai > 0)
+				ca->ai--;
+		}
+
+		/* Do additive increase */
+		if (tp->snd_cwnd < tp->snd_cwnd_clamp) {
+			tp->snd_cwnd_cnt += ca->ai;
+			if (tp->snd_cwnd_cnt >= tp->snd_cwnd) {
+				tp->snd_cwnd++;
+				tp->snd_cwnd_cnt -= tp->snd_cwnd;
+			}
+		}
+	}
+}
+
+static u32 hstcp_ssthresh(struct tcp_sock *tp)
+{
+	struct hstcp_ca *ca = tcp_ca(tp);
+
+	/* Do multiplicative decrease */
+	return max(tp->snd_cwnd - ((tp->snd_cwnd * hstcp_aimd_vals[ca->ai].md) >> 8), 2U);
+}
+
+static struct tcp_ca_type tcp_highspeed = {
+	.start		= hstcp_start,
+	.ssthresh	= hstcp_ssthresh,
+	.min_cwnd	= tcp_reno_cwnd_min,
+	.cong_avoid	= hstcp_cong_avoid,
+
+	.owner		= THIS_MODULE,
+	.name		= "highspeed"
+};
+
+static int __init hstcp_init(void)
+{
+	BUILD_BUG_ON(sizeof(struct hstcp_ca) > TCP_CA_PRIV_SIZE);
+	tcp_ca_register(&tcp_highspeed);
+	return 0;
+}
+
+static void __exit hstcp_exit(void)
+{
+	tcp_ca_unregister(&tcp_highspeed);
+}
+
+module_init(hstcp_init);
+module_exit(hstcp_exit);
+
+MODULE_AUTHOR("John Heffner");
+MODULE_LICENSE("GPL");
+MODULE_DESCRIPTION("High Speed TCP");
