@@ -1,50 +1,36 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Thu, 26 Sep 2002 17:09:11 +0400 (MSD)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [ANNOUNCE] NF-HIPAC: High Performance Packet Classification for
+ Netfilter
+Date: Fri, 27 Sep 2002 01:27:41 +1000 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209261309.RAA17837@sex.inr.ac.ru>
-References: <20020926054721.GA6039@samba.org>
+Message-ID: <Mutt.LNX.4.44.0209270122570.12511-100000@blackbird.intercode.com.au>
+References: <20020925.224001.99456805.davem@redhat.com>
 Mime-Version: 1.0
-Cc: davem@redhat.com, ak@muc.de, netdev@oss.sgi.com, Alan.Cox@linux.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Rusty Russell <rusty@rustcorp.com.au>, <nf@hipac.org>,
+   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mbp@samba.org (Martin Pool)
-In-Reply-To: <20020926054721.GA6039@samba.org> from "Martin Pool" at Sep 26, 2 03:47:46 pm
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20020925.224001.99456805.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Wed, 25 Sep 2002, David S. Miller wrote:
 
-> I was also a bit confused by the purpose of the (skb->len < mss_now)
+> If you have things that must happen in a sequence to flow through
+> your path properly, that's where the "stackable" bit comes in.  You
+> do that one bit, skb->dst = dst_pop(skb->dst), then your caller
+> will pass the packet on to skb->dst->{output,input}().
+> 
+> Is it clearer now the kind of things you'll be able to do?
+> 
 
-Me too. :-)
-
-It is not a bug though. See below.
-
-
-> straight away.  The FIN packet will be transmitted before the other
-> packets that are queued, even though they are earlier in sequence.
-> So, assuming no selective ACK, it will arrive out of order and just
-> have to be retransmitted later on.
-
-No really. It is _enqueued_, not sent. So, the only effect of the check
-is that when the last frame happens to be mss-sized, FIN will be sent separately
-though it could be attached to data. Not a problem.
+So, this could be used for generic network layer encapsulation, and be 
+used for GRE tunnels, SIT etc. without the kinds of kludges currently in 
+use?  Sounds nice.
 
 
-> The patch is just below.  It works with 2.2.22 too.  If somebody could
-> let me know if it's OK I would appreciate it.
-
-I think it is OK. But, to be honest, it is the case when I do not feel
-brave enough to give 100% warranty. :-) I do not understand why
-tcp_push_pending_frames() was not used there... maybe, there was some reason
-not to use it.
-
-Dave, do you not remember this?
-
-
-> I think the interesting bit is absent from the dump because it really
-
-No, look at it again. It contains only the first 20% of data.
-All the data and acks before connection termination are _lost_.
-
-Alexey
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
