@@ -1,36 +1,79 @@
-From: Grant Grundler <iod00d@hp.com>
-Subject: Re: [patch 2.6.10-rc2] tulip: make tulip_stop_rxtx() wait for DMA to fully stop
-Date: Wed, 17 Nov 2004 13:09:54 -0800
-Message-ID: <20041117210954.GH4422@cup.hp.com>
-References: <20041117151244.B31363@tuxdriver.com>
+From: Ross Kendall Axe <ross.axe@blueyonder.co.uk>
+Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when
+ using SELinux and SOCK_SEQPACKET
+Date: Wed, 17 Nov 2004 21:29:38 +0000
+Message-ID: <419BC2C2.6020100@blueyonder.co.uk>
+References: <4197A037.1020307@blueyonder.co.uk> <1100525477.31773.38.camel@moss-spartans.epoch.ncsc.mil> <20041116004122.V14339@build.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="------------enigD148A6950C18B5194DE33259"
+Cc: Stephen Smalley <sds@epoch.ncsc.mil>, lkml <linux-kernel@vger.kernel.org>,
+        jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-        grant.grundler@hp.com, charlie.brett@hp.com
-Content-Disposition: inline
-In-Reply-To: <20041117151244.B31363@tuxdriver.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20041116004122.V14339@build.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Nov 17, 2004 at 03:12:44PM -0500, John W. Linville wrote:
-> tulip_stop_rxtx() doesn't wait for DMA to fully stop like the function
-> call name implies.
+This is an OpenPGP/MIME signed message (RFC 2440 and 3156)
+--------------enigD148A6950C18B5194DE33259
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Chris Wright wrote:
+> * Stephen Smalley (sds@epoch.ncsc.mil) wrote:
 > 
-> Acked-by: Grant Grundler <grant.grundler@hp.com>
+>>On Sun, 2004-11-14 at 13:13, Ross Kendall Axe wrote:
+>>
+>>>With CONFIG_SECURITY_NETWORK=y and CONFIG_SECURITY_SELINUX=y, using
+>>>SOCK_SEQPACKET unix domain sockets causes an oops in the superfluous(?)
+>>>call to security_unix_may_send in sock_dgram_sendmsg. This patch avoids
+>>>making this call for SOCK_SEQPACKET sockets.
+>>
+>>I'd prefer to track down the actual issue in the SELinux code and
+>>correct it than just omit the security hook call entirely.  Do you have
+>>the Oops output and a trivial test case?  Thanks.
+> 
 
-John,
-I can provide a proper:
-	Signed-off-by: Grant Grundler <iod00d@hp.com>
+Oops at
+http://www.rossaxe.pwp.blueyonder.co.uk/seqpacket-oops/seqpacket-oops.txt
+and test case at
+http://www.rossaxe.pwp.blueyonder.co.uk/seqpacket-oops/seqpacket-killer.tar.gz
+Just run 'seqpacket-crashd & seqpacket-crash' a couple of times.
 
-ditto for the 2.4.28 version of the patch.
+> 
+> Well, there is one simple case that will trigger the Oops.  Send a
+> SEQPACKET to a connected but not yet accepted socket.  In this case
+> other->sk_socket is still NULL, and SELinux will deref the NULL pointer
+> in selinux_socket_may_send() when geting other_isec.  There is already
+> a check in unix_stream_connect, which is all that's used for normal unix
+> stream sockets.  But the seqpacket socket then uses unix_dgram_sendmsg,
+> so triggers the may_send check as well.
+> 
+> thanks,
+> -chris
 
-> This was submitted through my employer -- I am not the original author
-> of this patch.  However, I passed it by Jeff Garizk and he expressed
-> interest in having it upstream.
+A possibility that hadn't occurred to me was using sendto to send packets
+without connecting. Is this supposed to work? If so, then my patch is
+indeed inappropriate. If not, then that needs fixing also.
 
-Excellent!
+Ross
 
-thanks,
-grant
+
+--------------enigD148A6950C18B5194DE33259
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: OpenPGP digital signature
+Content-Disposition: attachment; filename="signature.asc"
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+Comment: Using GnuPG with Thunderbird - http://enigmail.mozdev.org
+
+iD8DBQFBm8LC9bR4xmappRARAqNJAKCs6TwkFyR/ammEiK+B1VsDT0zqDwCfUpi0
+OfFWZzLkSFoq9Fn+aQyi338=
+=0AW9
+-----END PGP SIGNATURE-----
+
+--------------enigD148A6950C18B5194DE33259--
