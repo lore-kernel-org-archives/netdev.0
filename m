@@ -1,39 +1,27 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: IP stack question
-Date: Mon, 24 Jun 2002 12:27:08 -0700
+From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
+Subject: simple networking clenaup questions
+Date: Tue, 25 Jun 2002 15:57:16 +0200 (MET DST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3D17728C.5060303@candelatech.com>
-References: <Pine.GSO.4.30.0206241450330.13908-100000@shell.cyberus.ca>
+Message-ID: <Pine.GSO.4.05.10206251556150.13531-100000@mausmaki.cosy.sbg.ac.at>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "Bloch, Jack" <Jack.Bloch@icn.siemens.com>,
-   "'netdev@oss.sgi.com'"
- <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <owner-netdev@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> 
-> On Mon, 24 Jun 2002, Ben Greear wrote:
+hi list,
 
-> Try that SO_DONTROUTE and see if solves your problem; you probably have to
-> bind the socket to a specific device as well;
-> For all that trouble, i would suggest you may just as well write a sock
-> packet based  app.
+i have a some uestions about networking cleanups:
 
-I want to use normal TCP/IP stack as much as possible, so the sock-packet
-(or raw) would not work for me, although it would work fine for the original
-poster.
+1) is moving the ifmap struct into net_device still on the todo list?
+	(it is according to the comments in the header file)
+2) what about getting rid of dev->set_config, and just pass SIOCSIFMAP
+	to the device?
 
-I'm also using source-based routing to send out the correct local
-interface.  I'll have to look up more information on what SO_DONTROUTE
-does, and thanks for the suggestion!
+thanks,
 
-Ben
+	tm
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+"They that can give up liberty to obtain a little temporary safety
+ deserve neighter liberty nor safety" - Benjamin Franklin
