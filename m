@@ -1,73 +1,35 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: e1000 performance hack for ppc64 (Power4)
-Date: Mon, 16 Jun 2003 09:17:37 -0700
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: e1000 performance hack for ppc64 (Power4)
+Date: Mon, 16 Jun 2003 11:21:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EEDEDA1.7010401@us.ibm.com>
-References: <OF7D02DC37.06BCABE8-ON85256D46.004E9127@pok.ibm.com>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D94C@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, ltd@cisco.com, anton@samba.org,
-   haveblue@us.ibm.com, scott.feldman@intel.com, dwg@au1.ibm.com,
-   linux-kernel@vger.kernel.org, Nancy J Milliner <milliner@us.ibm.com>,
-   Ricardo C Gonzalez <ricardoz@us.ibm.com>,
-   Brian Twichell <twichell@us.ibm.com>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <ltd@cisco.com>, <anton@samba.org>, <haveblue@us.ibm.com>,
+   <dwg@au1.ibm.com>, <linux-kernel@vger.kernel.org>,
+   "Nancy J Milliner" <milliner@us.ibm.com>,
+   "Ricardo C Gonzalez" <ricardoz@us.ibm.com>,
+   "Brian Twichell" <twichell@us.ibm.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herman Dierks <hdierks@us.ibm.com>
-In-Reply-To: <OF7D02DC37.06BCABE8-ON85256D46.004E9127@pok.ibm.com>
+content-class: urn:content-classes:message
+To: "Herman Dierks" <hdierks@us.ibm.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herman Dierks wrote:
-> Look folks,   we run 40 to 48  GigE adapters in a p690 32 way on AIX and
-> they basically all run at full speed  so let me se you try that on most of
-> these other boxes you are talking about.     Same adapter, same hardware
-> logic.
+Herman wrote:
+> Its only the MTU 1500 case with non-TSO that we are 
+> discussing here so copying a few bytes is really not a big 
+> deal as the data is already in cache from copying into 
+> kernel.  If it lets the adapter run at speed, thats what 
+> customers want and what we need. Granted, if the HW could 
+> deal with this we would not have to, but thats not the case 
+> today so I want to spend a few CPU cycles to get best 
+> performance. Again, if this is not done on other platforms, I 
+> don't understand why you care.
 
-FWIW, I think that's pretty cool. Not easy to do. :)
+I care because adding the arch-specific hack creates a maintenance issue
+for me.
 
-> For larger packets, like jumbo frames or large send (TSO), the few added
-> DMA's is not an issue as the packets are so large the DMA soon get aligned
-> and are not an issue.   With TSO being the default,   the small packet case
-> becomes less important anyway.   Its more an issue on 2.4 where TSO is not
-> provided.  We also want this to run well if someone does not want to use
-> TSO.
-
-Slightly off-topic, but TSO being enabled and TSO being used are
-two different things, right? Ditto jumbo frames..How often is this
-the actual env in real world situations? I'm concerned that this
-is more typical of development testing/performance testing
-environments.
-
-> Its only the MTU 1500 case with non-TSO that we are discussing here so
-
-Which still is the pretty important case, I think..
-
-> copying a few bytes is really not a big deal as the data is already in
-> cache from copying into kernel.  If it lets the adapter run at speed, thats
-> what customers want and what we need.
-
-Yep.
-
-> Granted, if the HW could deal with this we would not have to, but thats not
-> the case today so I want to spend a few CPU cycles to get best performance.
-> Again, if this is not done on other platforms, I don't understand why you
-> care.
-
-Still would be nice to put in the best solution possible, i.e.
-address it for the broadest set of affected pieces and minimizing
-the impact..
-
-> If we have to do this for PPC port, fine.   I have not seen any of you
-
-Hope it doesn't have to come to that..It would be nice to
-see it in the mainline kernel. Regardless of platform, distro, etc..
-these users are still people who are taking the time, the effort to
-adopt Linux and sometimes in environments and situations that are
-pretty critical. Change and innovation are difficult activities
-to engage in some places, and anything we can do to make this
-a no-brainer solution for them, and their decisions shine, thats
-gotta be worth something to go the extra mile for :)
-
-thanks,
-Nivedita
+-scott
