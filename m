@@ -1,36 +1,63 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Trivial cosmetic unimportant issue (urgent)
-Date: Wed, 23 Jul 2003 13:19:28 -0700
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Wed, 23 Jul 2003 15:32:23 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723131928.324b1632.davem@redhat.com>
-References: <000901c3514e$59697bd0$7f0a0a0a@lappy7>
+Message-ID: <3F1F0CF7.5020909@us.ibm.com>
+References: <200307210155.FAA31320@dub.inr.ac.ru>	<Pine.LNX.4.44.0307221415140.14683-100000@DYN318430.beaverton.ibm.com> <20030723031351.4e9db07c.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Sean" <seanlkml@rogers.com>
-In-Reply-To: <000901c3514e$59697bd0$7f0a0a0a@lappy7>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030723031351.4e9db07c.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 23 Jul 2003 15:12:24 -0400
-"Sean" <seanlkml@rogers.com> wrote:
+Hi Dave,
 
->       Just a few days uptime and sysfs is reporting that i've transfered a _negative_ number of bytes!  Any chance this could be
-> unsigned output instead?    The display is created in a common net_device_stat_show but none of the others values should go negative
-> either.
+> 1) Remove "void *sysctl;" from ipv6_devconf, move it into
+>    inet6_dev ie. "void *cnf_sysctl;" update all code users.
 
-This should fix it.
+There is one problem with this that I am not able to figure out, perhaps I am
+overlooking it. addrconf_sysctl_register() gets called for ipv6_devconf_dflt,
+but there is no inet6_dev for this configuration, so is it possible to move the
+sysctl up (there is no 'up' :-). I don't want to create a dummy inet6_dev for
+this. One way is to embed the actual config structure as follows :
 
---- net/core/net-sysfs.c.~1~	Wed Jul 23 12:20:15 2003
-+++ net/core/net-sysfs.c	Wed Jul 23 12:20:24 2003
-@@ -186,7 +186,7 @@
- 
- static ssize_t net_device_stat_show(unsigned long var, char *buf)
- {
--	return sprintf(buf, "%ld\n", var);
-+	return sprintf(buf, "%lu\n", var);
- }
- 
- /* generate a read-only statistics attribute */
+struct ipv6_devconf {
+	void *sysctl;
+	struct {
+		forwarding;
+		hop_limit;
+		...
+	} u;
+};
+and follow it up with #defines for all the elements, etc. Then I can use
+sizeof(ipv6_devconf.u) without this problem. Another way to do this is using
+pointer arithmetic :
+	RTA_PUT(skb, IFLA_INET6_CONF, &idev->cnf.sysctl-&idev->cnf.forwarding,
+			&idev->cnf);
+(guess you may not like it based on your statement "pointers in it which makes
+usage sloppy").
+
+I also noticed there is no sysctl_register for ipv6_devconf, but there is a
+unregister for that conf. Is that correct ?
+
+> 2) Move "struct ipv6_devconf" into some linux/*.h ipv6 header
+>    usable by users.  Use an existing one if possible.  Then
+>    make sure net/if_inet6.h includes this thing.
+
+The only two ipv6 specific files in linux are ipv6.h and ipv6_route.h, neither
+are appropriate for sysctl stuff I think. So should I create a new file like the
+one for ipv4_devconf exists in inetdevice.h ?
+
+> 3) Change "int" members of struct "ipv6_devconf" to "s32".
+
+All members (except use_tempaddr) seem to be >=0, should I change the definition
+to __u32 instead ? I am OK either way, just wondering which is the right way to
+do this.
+
+Thanks,
+
+- KK
