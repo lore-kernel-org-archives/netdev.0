@@ -1,46 +1,65 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: IMQ / new Dummy device post.
-Date: 15 Apr 2004 08:15:13 -0400
+From: Praveen Kumar Amritaluru <praveen@india.hp.com>
+Subject: Re: zero window probes on linux (fwd)
+Date: Thu, 15 Apr 2004 18:50:55 +0530 (IST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1082031313.1039.13.camel@jzny.localdomain>
-References: <407E5905.9070108@dsl.pipex.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <200404151320.SAA22825@shilpa.india.hp.com>
+References: <20040414141010.267a6204.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <407E5905.9070108@dsl.pipex.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040414141010.267a6204.ak@suse.de> from Andi Kleen at Apr "14," 2004 "02:10:10" pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-04-15 at 05:42, Andy Furniss wrote:
+> > > > > > 	This  seems  to be a bug.  Has it been  already  fixed in  later
+> > > > > > 	kernel versions or is this how it is intended to remain?
+> > > > > 
+> > > > > iirc this was intentional. The RFC suggested method doesn't work when talking to 
+> > > > > some stacks.
+> > > > > 
+> > > > 
+> > > > 	But  that  cannot  be  valid  enough   justification  for  doing
+> > > > 	something against RFC right?
+> > > 
+> > > Of course it is. Welcome to the real world. RFC1122 has a lot of bugs and sometimes
+> > > does not describe really implemented practice (e.g. BSD set the defacto standard
+> > > in many behaviours and it does not always follow 1122) 
+> > 
+> > 	So do u consider mandating definition of zero-window probes as defined
+> > 	in RFC793 as a bug in RFC1122?
+> 
+> They are not directly a bug, but are just not what the world standardized on. 
+> 
+>  
+> > 	Or else r u saying this bug is introduced in linux to take care of
+> > 	faulty stacks existing in the world. zero-window probes as defined
+> > 	in RFC1122 is not buggy right?
+> 
+> Implementing a production network stack is not about following some standard to the 
+> letter, but about interoperating with real implementations in a useful matter.
+> Linux does that.
+
+	I checked the following vendor Operating Systems:
+
+	HPUX, SunOS 5.8, FreeBSD 4.9.
+
+	All of them send  zero-window  probes as per RFC1122.  If BSD is
+	considered the defacto standard then why is linux deviating from
+	BSD in this aspect?
+
+	Do u mean to say  the  above  will  not  interoperate  with  the
+	production  network stacks which u r talking.  BTW which r those
+	production network stacks u r referring to?
+
+
+	Is there  any  other  linux  mailing-lists  where I can get most
+	appropriate response?
+
+-Praveen
+
 
 > 
-> The only reason I use IMQ (+ NAT patch) is that I need to shape ingress 
-> (I know I can't shape it "properly" from the wrong end of the bottleneck 
-> without an intelligent app, but the ingress policer does not let me 
-> share local and forwarded bandwidth and is not fair per user if I just 
-> throttle the whole link).
+> -Andi
 > 
-> I am not sure if dummy will sort this for me, there may be some other way?
-
-The summary is dummy can do what IMQ used to; it is however not related
-to iptables/netfilter. 
-
-> Basically all I need is something I can use HTB on where the qos ingress 
-> box is on this diagram.
-
-Yes you can attach a HTB. Look at the posted example in the previous
-email and replace prio with HTB. 
-Not sure i answered your questions.
-
-Again to emphasize: I will send patches only to people interested.
-People have to ask directly;
-this is my way of monitoring what is being tested. At some point i will
-make the latest patches available to everyone.
-
-cheers,
-jamal
- 
