@@ -1,34 +1,59 @@
-From: Michal Ludvig <michal@logix.cz>
-Subject: Re: [Ipsec-tools-devel] ipv4/ipv6 forwarding check
-Date: Fri, 5 Nov 2004 11:27:40 +0100 (CET)
-Message-ID: <Pine.LNX.4.61.0410291843310.25667@maxipes.logix.cz>
-References: <200410300506.i9U56Yse005815@faith.austin.ibm.com>
- <4181EBC3.3020507@gmc.lt>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
+Date: Fri, 5 Nov 2004 15:16:40 +0100
+Message-ID: <20041105141640.GQ19714@rei.reeler.org>
+References: <418B4C7C.8000402@crocom.com.pl> <20041105115430.GP19714@rei.reeler.org> <418B4C7C.8000402@crocom.com.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Joy Latten <latten@austin.ibm.com>,
-        ipsec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, spam@crocom.com.pl, kuznet@ms2.inr.ac.ru,
+        jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Aidas Kasparas <a.kasparas@gmc.lt>
-In-Reply-To: <4181EBC3.3020507@gmc.lt>
+To: davem@davemloft.net
+Content-Disposition: inline
+In-Reply-To: <20041105115430.GP19714@rei.reeler.org> <418B4C7C.8000402@crocom.com.pl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004, Aidas Kasparas wrote:
+> Oct 31 15:02:38 cerber kernel: Unable to handle kernel paging request at
+> virtual address 00100100
 
-> 	4) extend setkey's syntax to make explicit forward policy management
-> possible and write docs for all the admins to change policies.
+The conversion to the generic list API was nice, it really helps
+in such a case when a poison value shows up in an oops. However
+it is not nice if new bugs are introduced with such changes.
 
-I have uploaded a tarball of IPsec-tools 0.5-preview to sf.net. Among 
-other changes, setkey is now able (hopefully :-) to handle fwd policies.
+-   if (dev) {
+-       struct Qdisc *q, **qp;
+-       for (qp = &qdisc->dev->qdisc_list; (q=*qp) != NULL; qp = &q->next) {
+-           if (q == qdisc) {
+-               *qp = q->next;
+-               break;
+-           }
+-       }
+-   }
++   list_del(&qdisc->list);
 
-Please test and report any problems to the IPsec-tools list.
+Nice cleanup, although it assumes that everyone calling qdisc_destroy provides a
+Qdisc which is actually linked or at least has an initialized list node. This
+was not the true for noqueue and noop dummy qdiscs.
 
-Download here:
-https://sourceforge.net/project/showfiles.php?group_id=74601&package_id=133565
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Michal Ludvig
--- 
-* A mouse is a device used to point at the xterm you want to type in.
-* Personal homepage - http://www.logix.cz/michal
+--- linux-2.6.10-rc1-bk14.orig/net/sched/sch_generic.c	2004-11-05 01:11:17.000000000 +0100
++++ linux-2.6.10-rc1-bk14/net/sched/sch_generic.c	2004-11-05 15:05:54.000000000 +0100
+@@ -280,6 +280,7 @@
+ 	.dequeue	=	noop_dequeue,
+ 	.flags		=	TCQ_F_BUILTIN,
+ 	.ops		=	&noop_qdisc_ops,	
++	.list		=	LIST_HEAD_INIT(noop_qdisc.list),
+ };
+ 
+ struct Qdisc_ops noqueue_qdisc_ops = {
+@@ -298,6 +299,7 @@
+ 	.dequeue	=	noop_dequeue,
+ 	.flags		=	TCQ_F_BUILTIN,
+ 	.ops		=	&noqueue_qdisc_ops,
++	.list		=	LIST_HEAD_INIT(noqueue_qdisc.list),
+ };
+ 
+ 
