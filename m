@@ -1,68 +1,32 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: route cache DoS testing and softirqs
-Date: Wed, 31 Mar 2004 00:33:11 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <16489.62887.320005.806119@robur.slu.se>
-References: <20040329222926.GF3808@dualathlon.random>
-	<200403302005.AAA00466@yakov.inr.ac.ru>
-	<20040330211450.GI3808@dualathlon.random>
-	<20040330133000.098761e2.davem@redhat.com>
-	<20040330213742.GL3808@dualathlon.random>
+From: Pavel Roskin <proski@gnu.org>
+Subject: Re: linux/802_11.h header
+Date: Tue, 30 Mar 2004 18:23:46 -0500 (EST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.58.0403301820001.8684@marabou.research.att.com>
+References: <Pine.LNX.4.58.0403301514080.7498@marabou.research.att.com>
+ <20040330215128.GA13891@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 8BIT
-Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
-	dipankar@in.ibm.com, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, Robert.Olsson@data.slu.se, paulmck@us.ibm.com,
-	akpm@osdl.org
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Andrea Arcangeli <andrea@suse.de>
-In-Reply-To: <20040330213742.GL3808@dualathlon.random>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jt@hpl.hp.com
+In-Reply-To: <20040330215128.GA13891@bougret.hpl.hp.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 30 Mar 2004, Jean Tourrilhes wrote:
 
-Andrea Arcangeli writes:
+> > Does anybody know who wrote 802_11.h, whether it's deprecated, and if not,
+> > why it's not used?
+>
+> 	Why don't you ask Simon directly ?
 
- > He posted these numbers:
- > 
- > 	softirq_count, ksoftirqd_count and other_softirq_count shows -
- > 	
- > 	CPU 0 : 638240  554     637686
- > 	CPU 1 : 102316  1       102315
- > 	CPU 2 : 675696  557     675139
- > 	CPU 3 : 102305  0       102305
- > 
- > that means nothing runs in ksoftirqd for Dipankar, so he cannot be using
- > NAPI.
- > 
- > Either that or I'm misreading his numbers, or his stats results are wrong.
+Because my question is not why atmel_cs uses a header it doesn't need
+(the answer would be likely "oops" or "just in case").
 
- Well we have to ask Dipankar... But I'll buy a beer if it's not on. :)
+My question is why we have two headers for the same purpose in the kernel
+and what are we going to do with the header that is not used.
 
- Anyway w. NAPI enabled. 2 * 304 kpps DoS flows into eth0, eth2. Flows 
- are 2 * 10 Millions 64 byte pkts. 32 k buckets routehash. Full Internet
- routing means ~130 k routes. Linux 2.6.4 2*2.66 MHz XEON. 
-
-
- 26:        896          0   IO-APIC-level  eth0
- 27:      25197          0   IO-APIC-level  eth1
- 28:          8        579   IO-APIC-level  eth2
- 29:         10      26112   IO-APIC-level  eth3
-
-T-put is seen on output dev. eth1, eth3. So about 16% of incoming load,
-
-eth0   1500   0 1577468 9631270 9631270 8422828    237      0      0      0 BRU
-eth1   1500   0     42      0      0      0 1573355      0      0      0 BRU
-eth2   1500   0 1636154 9603432 9603432 8363849     41      0      0      0 BRU
-eth3   1500   0     54      0      0      0 1632274      0      0      0 BRU
-
-And lots of 
-.
-.
-printk: 1898 messages suppressed.
-dst cache overflow
-printk: 829 messages suppressed.
-dst cache overflow
-
-Cheers.
-						--ro
+-- 
+Regards,
+Pavel Roskin
