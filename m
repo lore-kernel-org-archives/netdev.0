@@ -1,103 +1,75 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.6]: Fix policy update bug when increasing priority of last
- policy
-Date: Mon, 18 Oct 2004 22:48:36 +0200
+From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
+Subject: [PATCH][ATM]: use RCV_SHUTDOWN to exit skb_recv_datagram()
+Date: Mon, 18 Oct 2004 16:56:22 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41742C24.6070305@trash.net>
-Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000009030309030704020409"
-Cc: netdev@oss.sgi.com
+Message-ID: <200410182056.i9IKuL2s022173@ginger.cmf.nrl.navy.mil>
+Reply-To: chas3@users.sourceforge.net
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000009030309030704020409
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+this patch makes the svc socket protocol act a little more like
+a connection oriented protocol.  please apply to 2.6.
 
-When the last policy for a direction is replaced by a policy
-with equal selector but a higher priority, insertion of the
-new policy fails.
-
-in xfrm_policy_insert:
-
-        for (p = &xfrm_policy_list[dir]; (pol=*p)!=NULL; p = &pol->next) {
-                if (!delpol && memcmp(&policy->selector, &pol->selector, 
-sizeof(pol->selector)) == 0) {
-                        if (excl) {
-                                write_unlock_bh(&xfrm_policy_lock);
-                                return -EEXIST;
-                        }
-                        *p = pol->next;
-                        delpol = pol;
-X                       if (policy->priority > pol->priority)
-X                                continue;
-                } else if (policy->priority >= pol->priority)
-                        continue;
-                if (!newpos)
-                        newpos = p;
-                if (delpol)
-                        break;
-        }
-
-If the new policy has a higher priority than the old one, the
-loop will be continued in the lines marked with X, but because
-there are no further elements, it will leave the loop without
-setting newpos.
-
-The problem can be verified with ip xfrm:
-# ip xfrm policy list
-# ip xfrm policy update dir fwd src 10.0.0.1 dst 10.0.0.2 action allow 
-priority 0
-# ip xfrm policy list
-src 10.0.0.1/32 dst 10.0.0.2/32
-        dir fwd priority 0
-# ip xfrm policy update dir fwd src 10.0.0.1 dst 10.0.0.2 action allow 
-priority 1
-# ip xfrm policy list
-#
-
-This patch checks for *p != NULL before continuing the loop.
-
-Regards
-Patrick
-
-
---------------000009030309030704020409
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
+thanks!
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/10/18 21:57:18+02:00 kaber@coreworks.de 
-#   [XFRM]: Fix policy update bug when increasing priority of last policy
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+#   2004/10/06 17:12:52-04:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: use RCV_SHUTDOWN to exit skb_recv_datagram()
 # 
-# net/xfrm/xfrm_policy.c
-#   2004/10/18 21:56:41+02:00 kaber@coreworks.de +1 -1
-#   [XFRM]: Fix policy update bug when increasing priority of last policy
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# net/atm/signaling.c
+#   2004/10/06 17:12:36-04:00 chas@relax.cmf.nrl.navy.mil +2 -6
+#   [ATM]: use RCV_SHUTDOWN to exit skb_recv_datagram()
 # 
-diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
---- a/net/xfrm/xfrm_policy.c	2004-10-18 21:58:24 +02:00
-+++ b/net/xfrm/xfrm_policy.c	2004-10-18 21:58:24 +02:00
-@@ -340,7 +340,7 @@
- 			}
- 			*p = pol->next;
- 			delpol = pol;
--			if (policy->priority > pol->priority)
-+			if (policy->priority > pol->priority && *p != NULL)
- 				continue;
- 		} else if (policy->priority >= pol->priority)
- 			continue;
-
---------------000009030309030704020409--
+# net/atm/common.c
+#   2004/10/06 17:12:36-04:00 chas@relax.cmf.nrl.navy.mil +2 -0
+#   [ATM]: use RCV_SHUTDOWN to exit skb_recv_datagram()
+# 
+diff -Nru a/net/atm/common.c b/net/atm/common.c
+--- a/net/atm/common.c	2004-10-18 16:13:32 -04:00
++++ b/net/atm/common.c	2004-10-18 16:13:32 -04:00
+@@ -178,6 +178,7 @@
+ 	struct atm_vcc *vcc = atm_sk(sk);
+ 	struct sk_buff *skb;
+ 
++	set_bit(ATM_VF_CLOSE, &vcc->flags);
+ 	clear_bit(ATM_VF_READY, &vcc->flags);
+ 	if (vcc->dev) {
+ 		if (vcc->dev->ops->close)
+@@ -216,6 +217,7 @@
+ void vcc_release_async(struct atm_vcc *vcc, int reply)
+ {
+ 	set_bit(ATM_VF_CLOSE, &vcc->flags);
++	vcc->sk->sk_shutdown |= RCV_SHUTDOWN;
+ 	vcc->sk->sk_err = -reply;
+ 	clear_bit(ATM_VF_WAITING, &vcc->flags);
+ 	vcc->sk->sk_state_change(vcc->sk);
+diff -Nru a/net/atm/signaling.c b/net/atm/signaling.c
+--- a/net/atm/signaling.c	2004-10-18 16:13:32 -04:00
++++ b/net/atm/signaling.c	2004-10-18 16:13:32 -04:00
+@@ -147,9 +147,7 @@
+ 			return 0;
+ 		case as_close:
+ 			set_bit(ATM_VF_RELEASED,&vcc->flags);
+-			clear_bit(ATM_VF_READY,&vcc->flags);
+-			vcc->sk->sk_err = -msg->reply;
+-			clear_bit(ATM_VF_WAITING, &vcc->flags);
++			vcc_release_async(vcc, msg->reply);
+ 			break;
+ 		case as_modify:
+ 			modify_qos(vcc,msg);
+@@ -205,9 +203,7 @@
+ 	if (vcc->sk->sk_family == PF_ATMSVC &&
+ 	    !test_bit(ATM_VF_META,&vcc->flags)) {
+ 		set_bit(ATM_VF_RELEASED,&vcc->flags);
+-		vcc->sk->sk_err = EUNATCH;
+-		clear_bit(ATM_VF_WAITING, &vcc->flags);
+-		vcc->sk->sk_state_change(vcc->sk);
++		vcc_release_async(vcc, -EUNATCH);
+ 	}
+ }
+ 
