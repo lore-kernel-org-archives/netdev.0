@@ -1,49 +1,43 @@
-From: "론론" <PLHoqH416612565@yahoo.co.kr>
-Subject: =?ISO-8859-1?Q?=C4=AB=B5=E5=B4=EB=B1=DD?=
-	=?ISO-8859-1?Q?=B0=C6=C1=A4=C7=CF=C1=F6=B8=B6=BC=BC=BF=E4!?=  wbkkkof soawuc ilpp
-Date: Sun, 27 Jun 04 19:36:35 GMT
+From: "학사" <VVEcsA428070247@yahoo.co.kr>
+Subject: =?ISO-8859-1?Q?=A2=BF6=B0=B3=BF=F9=BE=C8=BF=A1=C7=D0=C0=A7=C3=EB=B5=E6=C8=C4?=
+	=?ISO-8859-1?Q?=B4=EB=C7=D0=BF=F8=C1=F8=C7=D0=C7=CF=BD=C7=BC=F6=C0=D6=BD=C0=B4=CF=B4=D9?= be e mr qswaaaua
+Date: Mon, 28 Jun 04 02:22:19 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1-79whef3g-k-8i2384k0k$6y6-14@adu3hu.ywv>
-Reply-To: "론론" <PLHoqH416612565@yahoo.co.kr>
+Message-ID: <ln$-2-7-x6$8zv3sv@o75w9.q.8v>
+Reply-To: "학사" <VVEcsA428070247@yahoo.co.kr>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="D_EDB..A1F._A5"
+	boundary="CF_2C77.A_5.D.C1E._"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---D_EDB..A1F._A5
+--CF_2C77.A_5.D.C1E._
 Content-Type: text/html;
 Content-Transfer-Encoding: quoted-printable
 
-<HTML>
-<HEAD>
-<TITLE>http://www.loanloan.co.kr</TITLE>
-<META HTTP-EQUIV=3D"Content-Type" CONTENT=3D"text/html; charset=3Deuc-kr">=
+<html>
+<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
+k=3D"red">        
+<p><a href=3D"http://mises88hak32432.uu.to" target=3D"_blank"><img src=3D"=
+http://210.114.220.52/image/hak/stu.gif" width=3D"562" height=3D"640" bord=
+er=3D"0"></a></p>
+<p><a href=3D"http://mises88hak32432.uu.to" target=3D"_blank"><img src=3D"=
+http://210.114.220.52/image/hak/clic2.gif" width=3D"561" height=3D"78" bor=
+der=3D"0"></a></p>
+<p><a href=3D"http://hongbomall.com/rm/sansam/sansam-gubu.htm" target=3D"_=
+blank"><img src=3D"http://210.114.220.52/image/sam/gubu.gif" width=3D"571"=
+ height=3D"132" border=3D"0"></a></p>
+</body>
+</html>
+fjvvnyb xj
+jwqh mjpayybjj bmkf
+vmfqa zni
+vbw o
+usy 
 
-</HEAD>
-<BODY BGCOLOR=3D#FFFFFF LEFTMARGIN=3D0 TOPMARGIN=3D0 MARGINWIDTH=3D0 MARGI=
-NHEIGHT=3D0>
-<IMG SRC=3D"http://www.loanloan.co.kr/mail/loanloan15.jpg" WIDTH=3D628 HEI=
-GHT=3D889 BORDER=3D0 ALT=3D"" USEMAP=3D"#loanloan15_Map">
-<MAP NAME=3D"loanloan15_Map">
-<AREA SHAPE=3D"rect" ALT=3D"" COORDS=3D"238,850,381,864" HREF=3D"http://ww=
-w.loanloan.co.kr/reject/refuse.htm" TARGET=3D"_self">
-<!-- =FFFFFFBE=FFFFFFC6=FFFFFFB7=FFFFFFA1
-=FFFFFFB8=FFFFFFC7=FFFFFFB3=FFFFFFA1=FFFFFFBA=FFFFFFCE=FFFFFFBA=FFFFFFD0 loan13=FFFFFFC0=FFFFFFBB
-=FFFFFFBA=FFFFFFBB=FFFFFFC0=FFFFFFCE=FFFFFFC0=FFFFFFC7=
- =FFFFFFBE=FFFFFFC6=FFFFFFB5=FFFFFFDA=FFFFFFB7=FFFFFFCE
-=FFFFFFB9=FFFFFFD9=FFFFFFB2=FFFFFFD9=FFFFFFBE=FFFFFFEE
-=FFFFFFC1=FFFFFFD6=FFFFFFBC=FFFFFFBC=FFFFFFBF=FFFFFFE4 -->
-<AREA SHAPE=3D"rect" ALT=3D"" COORDS=3D"1,1,627,774" HREF=3D"http://www.lo=
-anloan.co.kr/lending/lending.htm?spid=3Dloan15" TARGET=3D"_blank">
-</MAP>
-</BODY>
-</HTML>ttrszhcstp  niwufcicm
-ptcpmcal em b ol
-s
-b
+qjvvyjaphpgx qkpidvg uiz
 
---D_EDB..A1F._A5--
+--CF_2C77.A_5.D.C1E._--
