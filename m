@@ -1,64 +1,45 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Please route new work through -mm tree?
-Date: Wed, 29 Sep 2004 13:58:55 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 29 Sep 2004 14:00:16 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <415B220F.4040102@us.ibm.com>
-References: <1096481023.8636.7.camel@localhost.localdomain>	<415AFB63.7010107@us.ibm.com> <20040929132247.227fffcd.davem@davemloft.net>
+Message-ID: <20040929140016.7ffa4e8b.davem@davemloft.net>
+References: <20040928223344.GC2975@wotan.suse.de>
+	<Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Cc: ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040929132247.227fffcd.davem@davemloft.net>
+To: John Heffner <jheffner@psc.edu>
+In-Reply-To: <Pine.NEB.4.33.0409282323220.27103-100000@dexter.psc.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+On Tue, 28 Sep 2004 23:27:21 -0400 (EDT)
+John Heffner <jheffner@psc.edu> wrote:
 
-> Nivedita, it was you specifically who complained to me
-> when I used a seperate BK tree for networking changes
-> last month whilst Linus was away for 2 weeks.  You said
+> On Wed, 29 Sep 2004, Andi Kleen wrote:
+> 
+> > I'm afraid I must report it's still not completely solved for me yet.
+> > 10s netperf with TSO on with your patches gives now ~10MB/s less than
+> > with TSO off (57 vs 67). It's better than before, but not really
+> > fixed yet.
+> >
+> > Looking at my tcpdumps and comparing TSO on/off I see a quite
+> > strange effect. It only acks on every ~25th packet with TSO off
+> > but every ~16th packet with TSO on.
+> >
+> > Receiver is a 2.6.5 kernel, it's weird that it violates the
+> > ack every two MSS rule.
+> 
+> Does this help?
 
-"complained" ? no, no, honestly, it was just a very polite
-inquiry :) :)
+I think you hit the jackpot John... or at least you're
+on the right trail.
 
-> And I have to warn people if they think that the churn is fast
-> and the rate of change in the networking is high right now, you
-> have seen absolutely nothing yet. :-)
+It seems I'll have to do some send buffer liberation when
+we partially ACK TSO frames.  Since that isn't happening
+currently, this window advancing test never passes until
+the full TSO frame is freed up at the sender side.
 
-yep, this is to some extent driving this, and things
-like picking up the tso patches where we needed to
-test prior to you checking them in.
-
-Sure, we'd benefit from having fewer trees to test,
-and since the -mm tree is already getting tested
-and consuming the hw resources, we'd have benefited
-from having the networking tree go into -mm. Hence
-my previous inquiry to see if you could go through
--mm. If you're feeding to Linus immediately, then
-we could just as well test mainline.
-
-There is a need to have mainline stable, but that
-can be solved by stretching out the bk snapshots and
-increasing the number of rc releases so mainline
-releases are fairly stable (something Andrew Morton
-mentioned yesterday). That has been a separate
-ongoing discussion among a lot of people.
-
-Your point about there being a lot of other stuff
-in -mm and it not being stable is taken, and it would
-be nice to have a networking contained tree.
-
-Which brings us to having your interim bk tree
-available to test - which would be fine with me :)
-
-What we're setting up is throwing the nightly
-release onto 2 big boxes and running some heavy
-duty networking stress tests.
-
-All in the spirit of wanting to be helpful, honestly :).
-Any suggestions welcome..
-
-thanks,
-Nivedita
+Patch coming...
