@@ -1,194 +1,40 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [RFC] relationship of struct atm_vcc with struct sock
-Date: Tue, 18 Jan 2005 05:02:32 -0200
-Message-ID: <41ECB488.3040207@conectiva.com.br>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: 2.6.10 ipv6/8021q lockup on vconfig on interface removal
+Date: Tue, 18 Jan 2005 10:14:11 +0200
+Message-ID: <200501181014.12079.hasso@estpak.ee>
+References: <41EA0A01.2020707@tomt.net> <41EC0F2B.7010002@candelatech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000203040409030409090502"
-Cc: Networking Team <netdev@oss.sgi.com>
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Cc: Andre Tomt <andre@tomt.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas@cmf.nrl.navy.mil
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <41EC0F2B.7010002@candelatech.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000203040409030409090502
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Ben Greear wrote:
+> Andre Tomt wrote:
+> > I sent this initially about a week ago, but nobody have said anything,
+> > not even a confirmation that its beeing looked into, or about me beeing
+> > silly - highly unusual on netdev! So I'm reposting (with slight
+> > modifications), boo, shame on me. Just a bit worried it slipped through
+> > the cracks.
+>
+> My take on this is that it is a bug in the IPv6 code.  If the IPv6 people
+> think that the VLAN code might could be causing this, then I am open to
+> suggestions as to how the VLAN code might be in error....
 
-Hi Chas,
+There were similar problems with tunnels in 2.6.8 and 2.6.9 kernels. They 
+seems to be gone now in 2.6.10.
 
-	I'm working on a series of patches to make all protocol families
-use private slab caches for its socks, this is needed to introduce struct
-connection_sock, to move the connection specific members out of struct
-sock and save bytes/cachelines in non connected protocols, such as UDP.
-
-	Take a look at the attached patch that does this work on pfkey,
-basically I need that struct atm_sock (now called atm_vcc) contains as
-its first member a struct sock, so a pointer to an struct atm_sock is a
-pointer to an struct sock.
-
-	This approach eliminates the need for a struct sock backpointer
-in atm_sock.
-
-	The approach I'm using in ax25/netrom/rose is to make all functions
-receive struct sock pointers, and from it, if needed, obtain the ax25_sock
-pointer using ax25_sk(sk).
-
-	I'm coordinating with Ralf Baechle, the ham radio protocols
-maintainer, that is reviewing my changes.
-
-	Do you have any mixed feelings about doing the same with atm?
-
-Regards,
-
-- Arnaldo
-
---------------000203040409030409090502
-Content-Type: text/plain;
- name="pfkey.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="pfkey.patch"
-
-===================================================================
+Does it help, Andre?
 
 
-ChangeSet@1.2347, 2005-01-18 04:41:35-02:00, acme@toy.ghostprotocols.net
-  [PF_KEY] use a private slab cache for socks
-  
-  Required to get rid of sk_protinfo and to introduce struct connection_sock,
-  also for consistency with other protocol families implementations.
-  
-  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-  Signed-off-by: David S. Miller <davem@davemloft.net>
-
-
- af_key.c |   48 +++++++++++++++++++++++++++++-------------------
- 1 files changed, 29 insertions(+), 19 deletions(-)
-
-
-diff -Nru a/net/key/af_key.c b/net/key/af_key.c
---- a/net/key/af_key.c	2005-01-18 04:55:03 -02:00
-+++ b/net/key/af_key.c	2005-01-18 04:55:03 -02:00
-@@ -42,11 +42,19 @@
- 
- static atomic_t pfkey_socks_nr = ATOMIC_INIT(0);
- 
--struct pfkey_opt {
--	int	registered;
--	int	promisc;
-+struct pfkey_sock {
-+	/* struct sock must be the first member of struct pfkey_sock */
-+	struct sock	sk;
-+	int		registered;
-+	int		promisc;
- };
--#define pfkey_sk(__sk) ((struct pfkey_opt *)(__sk)->sk_protinfo)
-+
-+static inline struct pfkey_sock *pfkey_sk(struct sock *sk)
-+{
-+	return (struct pfkey_sock *)sk;
-+}
-+
-+static kmem_cache_t *pfkey_sk_slab;
- 
- static void pfkey_sock_destruct(struct sock *sk)
- {
-@@ -60,8 +68,6 @@
- 	BUG_TRAP(!atomic_read(&sk->sk_rmem_alloc));
- 	BUG_TRAP(!atomic_read(&sk->sk_wmem_alloc));
- 
--	kfree(pfkey_sk(sk));
--
- 	atomic_dec(&pfkey_socks_nr);
- }
- 
-@@ -128,7 +134,6 @@
- static int pfkey_create(struct socket *sock, int protocol)
- {
- 	struct sock *sk;
--	struct pfkey_opt *pfk;
- 	int err;
- 
- 	if (!capable(CAP_NET_ADMIN))
-@@ -139,7 +144,8 @@
- 		return -EPROTONOSUPPORT;
- 
- 	err = -ENOMEM;
--	sk = sk_alloc(PF_KEY, GFP_KERNEL, 1, NULL);
-+	sk = sk_alloc(PF_KEY, GFP_KERNEL,
-+		      sizeof(struct pfkey_sock), pfkey_sk_slab);
- 	if (sk == NULL)
- 		goto out;
- 	
-@@ -147,14 +153,6 @@
- 	sock_init_data(sock, sk);
- 	sk_set_owner(sk, THIS_MODULE);
- 
--	err = -ENOMEM;
--	pfk = sk->sk_protinfo = kmalloc(sizeof(*pfk), GFP_KERNEL);
--	if (!pfk) {
--		sk_free(sk);
--		goto out;
--	}
--	memset(pfk, 0, sizeof(*pfk));
--
- 	sk->sk_family = PF_KEY;
- 	sk->sk_destruct = pfkey_sock_destruct;
- 
-@@ -233,7 +231,7 @@
- 
- 	pfkey_lock_table();
- 	sk_for_each(sk, node, &pfkey_table) {
--		struct pfkey_opt *pfk = pfkey_sk(sk);
-+		struct pfkey_sock *pfk = pfkey_sk(sk);
- 		int err2;
- 
- 		/* Yes, it means that if you are meant to receive this
-@@ -1418,7 +1416,7 @@
- 
- static int pfkey_register(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
--	struct pfkey_opt *pfk = pfkey_sk(sk);
-+	struct pfkey_sock *pfk = pfkey_sk(sk);
- 	struct sk_buff *supp_skb;
- 
- 	if (hdr->sadb_msg_satype > SADB_SATYPE_MAX)
-@@ -1514,7 +1512,7 @@
- 
- static int pfkey_promisc(struct sock *sk, struct sk_buff *skb, struct sadb_msg *hdr, void **ext_hdrs)
- {
--	struct pfkey_opt *pfk = pfkey_sk(sk);
-+	struct pfkey_sock *pfk = pfkey_sk(sk);
- 	int satype = hdr->sadb_msg_satype;
- 
- 	if (hdr->sadb_msg_len == (sizeof(*hdr) / sizeof(uint64_t))) {
-@@ -2863,10 +2861,22 @@
- 	xfrm_unregister_km(&pfkeyv2_mgr);
- 	remove_proc_entry("net/pfkey", NULL);
- 	sock_unregister(PF_KEY);
-+
-+	if (pfkey_sk_slab != NULL) {
-+		kmem_cache_destroy(pfkey_sk_slab);
-+		pfkey_sk_slab = NULL;
-+	}
- }
- 
- static int __init ipsec_pfkey_init(void)
- {
-+	pfkey_sk_slab = kmem_cache_create("pfkey_sock",
-+					  sizeof(struct pfkey_sock), 0,
-+					  SLAB_HWCACHE_ALIGN, NULL, NULL);
-+
-+	if (pfkey_sk_slab == NULL)
-+		return -ENOMEM;
-+
- 	sock_register(&pfkey_family_ops);
- #ifdef CONFIG_PROC_FS
- 	create_proc_read_entry("net/pfkey", 0, NULL, pfkey_read_proc, NULL);
-
-===================================================================
-
---------------000203040409030409090502--
+-- 
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
