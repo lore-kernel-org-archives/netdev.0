@@ -1,26 +1,29 @@
-From: Brian Haley <Brian.Haley@hp.com>
-Subject: Re: [PATCH, TAKE 2] [IPV6] XFRM: extract xfrm_lookup() from ip6_dst_lookup()
- (is Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup)
-Date: Wed, 27 Oct 2004 11:21:29 -0400
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: [2.6.10-rc1-bk5] e1000 broken badly on IBM T42
+Date: Wed, 27 Oct 2004 11:51:50 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417FBCF9.5070808@hp.com>
-References: <417E5F37.4010501@hp.com>	<20041027.004359.62730834.yoshfuji@linux-ipv6.org>	<417E92D9.1050305@hp.com> <20041027.091039.56337914.yoshfuji@linux-ipv6.org>
+Message-ID: <1098892310.8313.1.camel@krustophenia.net>
+References: <200410270033.22804.shawn.starr@rogers.com>
+	 <200410270054.30313.shawn.starr@rogers.com>
+	 <200410270521.56816.shawn.starr@rogers.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20041027.091039.56337914.yoshfuji@linux-ipv6.org>
+To: Shawn Starr <shawn.starr@rogers.com>
+In-Reply-To: <200410270521.56816.shawn.starr@rogers.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2004-10-27 at 05:21 -0400, Shawn Starr wrote:
+> I should just answer it myself, restarting fixed the interface negotiation 
+> 'blip'. Perhaps the driver somehow did not reset and retry negotiation?
+> 
+> That did look interesting though :)
 
-> Because we do not support RFC3542, extra 128bits is definitely correct.
+AIUI it's impossible to do 100% reliable autonegotiation with Ethernet.
+The best you can do is try to detect when you might have gotten it wrong
+and reset the interface.
 
-2292 was deprecated by 3542 in May 2003, when do we plan on supporting it?  I am 
-willing to do this update, just please tell me the way you want me to go about it.
-
-Thanks,
-
--Brian
+Lee
