@@ -1,51 +1,57 @@
-From: Anton Blanchard <anton@samba.org>
-Subject: Re: some TSO analysis
-Date: Thu, 11 Nov 2004 19:36:47 +1100
-Message-ID: <20041111083647.GA20769@krispykreme.ozlabs.ibm.com>
-References: <20041111050608.GG1922@krispykreme.ozlabs.ibm.com> <E1CS9Fm-0004hC-00@gondolin.me.apana.org.au>
+From: Brian Haley <Brian.Haley@hp.com>
+Subject: Re: [BK PATCH] Misc IPv6 Updates
+Date: Wed, 10 Nov 2004 16:18:48 -0500
+Message-ID: <419285B8.4070703@hp.com>
+References: <OF8CA84FB0.6990A5CD-ON88256F48.0063D0E6-88256F48.0064C53C@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Transfer-Encoding: 7bit
+Cc: =?ISO-2022-JP?B?WU9TSElGVUpJIEhpZGVha2kgLyAbJEI1SEYjMVFMQBsoQg==?= <yoshfuji@linux-ipv6.org>,
+        davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1CS9Fm-0004hC-00@gondolin.me.apana.org.au>
+To: Krishna Kumar <kumarkr@us.ibm.com>
+In-Reply-To: <OF8CA84FB0.6990A5CD-ON88256F48.0063D0E6-88256F48.0064C53C@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-> >  data: 1634 frags: 1408 4096 4096 4096 2108 4
-> > 
-> >  Is there a reason why the remaining 1408 bytes cant be stuffed into
-> >  skb->data? Or is that an issue with MTU sized buffers?
+Krishna Kumar wrote:
+> (sorry if my mailer mangles the code)
 > 
-> The reason is that the skb has to accomodate other things like
-> headers and skb_shared_info.  It seems to have added up to a
-> quite considerable value in your case.
+> In :
 > 
-> Perhaps sendmsg should check whether the data can fit in the space
-> available in skb->data, and if not just go for a fragment right away.
+> +static inline int ipv6_addr_equal(const struct in6_addr *a1,
+> +   const struct in6_addr *a2)
+> +{
+> + return (a1->s6_addr32[0] == a2->s6_addr32[0] &&
+> + a1->s6_addr32[1] == a2->s6_addr32[1] &&
+> + a1->s6_addr32[2] == a2->s6_addr32[2] &&
+> + a1->s6_addr32[3] == a2->s6_addr32[3]);
+> +}
+> +
+> 
+> Is it faster to do :
+> 
+> +static inline int ipv6_addr_equal(const struct in6_addr *a1,
+> +   const struct in6_addr *a2)
+> +{
+> + return (a1->s6_addr32[3] == a2->s6_addr32[3] &&
+> + a1->s6_addr32[2] == a2->s6_addr32[2] &&
+> + a1->s6_addr32[1] == a2->s6_addr32[1] &&
+> + a1->s6_addr32[0] == a2->s6_addr32[0]);
+> +}
+> +
+> 
+> instead ?It should be faster for typical addresses, say 2000:a:b:c::1 
+> and 2000:a:b:c::2. The device EUI-64 is
+> normally going to be different for all devices while prefix can be same 
+> (atleast on a link/local site) completely
+> or to some prefix len portion.
 
-Originally I thought we could save ourselves a fragment. However
-thinking about it more we will always have at least the headers in 
-skb->data. If so there isnt much to gain by spilling into the fragment
-straight away. Or am I wrong?
+I think it might be fastest to do 3-0-2-1 as that will more quickly tell
+a global from a link-local address.
 
-> This is understandable.  You really need to have a rcv window that's
-> much bigger than 64K to have any chance of filling up the TSO packet
-> with tcp_tso_win_divisor set to 8.
+I will eventually do a 64-bit comparison to see if putting an
+#ifdef CONFIG_64BIT is worth it.
 
-That makes sense.
-
-> BTW, how did you measure the gains?
-
-The TSO gains? On older 2.6 the TSO gain was easy to see on a web
-benchmark. On recent kernels it isnt, but we havent tested a divisor
-of 4 or 2 yet.
-
-Im interested if the divisor of 8 was based on some testing, or if we
-can tune the default a bit. It would be nice for TSO to kick in on
-normal workloads (like web serving).
-
-Anton
+-Brian
