@@ -1,43 +1,31 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] tun driver not cleaning up on module remove
-Date: Thu, 7 Aug 2003 15:45:24 -0700
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: Ethernet bridge performance
+Date: Fri, 8 Aug 2003 00:49:34 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030807154524.4794ad45.shemminger@osdl.org>
-References: <200308051630.28552.bellucda@tiscali.it>
-	<20030805090647.691daa7e.shemminger@osdl.org>
-	<200308051910.55823.bellucda@tiscali.it>
+Message-ID: <16178.55166.157720.889528@robur.slu.se>
+References: <3F3217E7.2080903@allot.com>
+	<3F3284EA.5050406@candelatech.com>
+	<3F328A0F.3040005@allot.com>
+	<16178.41976.3643.584516@robur.slu.se>
+	<1060284094.1024.36.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   Felix Radensky <felix@allot.com>, Ben Greear <greearb@candelatech.com>,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bellucda@tiscali.it, "David S. Miller" <davem@redhat.com>
-In-Reply-To: <200308051910.55823.bellucda@tiscali.it>
+To: hadi@cyberus.ca
+In-Reply-To: <1060284094.1024.36.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This should fix module unload issues with tun driver in 2.6-test2.
-Driver was not cleaning up it's devices on module exit.
 
-diff -Nru a/drivers/net/tun.c b/drivers/net/tun.c
---- a/drivers/net/tun.c	Thu Aug  7 15:41:10 2003
-+++ b/drivers/net/tun.c	Thu Aug  7 15:41:10 2003
-@@ -605,7 +605,18 @@
- 
- void tun_cleanup(void)
- {
-+	struct net_device *dev, *nxt;
-+
- 	misc_deregister(&tun_miscdev);  
-+
-+	rtnl_lock();
-+	for (dev = dev_base; dev; dev = nxt) {
-+		nxt = dev->next;
-+		if (dev->init == tun_net_init) 
-+			unregister_netdevice(dev);
-+	}
-+	rtnl_unlock();
-+	
- }
- 
- module_init(tun_init);
+jamal writes:
+ > Actually seems his biggest problem is he is not running
+ > the NAPI driver
+
+ Oh! I missed this.
+
+ Cheers.
+						--ro
