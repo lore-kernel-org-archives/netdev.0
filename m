@@ -1,27 +1,26 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169.c
-Date: Mon, 6 Dec 2004 00:37:56 +0100
-Message-ID: <20041205233756.GB29236@electric-eye.fr.zoreil.com>
-References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041205235519.GA21885@lilah.hetzel.org>
+From: Scott Feldman <sfeldma@pobox.com>
+Subject: Re: e1000>5.2.30 unstable with InterruptThrottleRate=0
+Date: Sun, 05 Dec 2004 16:30:33 -0800
+Message-ID: <1102293033.3343.152.camel@sfeldma-mobl.dsl-verizon.net>
+References: <Pine.LNX.4.44.0412052230410.13794-100000@papput.nsc.liu.se>
+Reply-To: sfeldma@pobox.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, ganesh.venkatesan@intel.com, john.ronciak@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dorn Hetzel <kernel@dorn.hetzel.org>
-Content-Disposition: inline
-In-Reply-To: <20041205235519.GA21885@lilah.hetzel.org>
+To: Peter Kjellstroem <cap@nsc.liu.se>
+In-Reply-To: <Pine.LNX.4.44.0412052230410.13794-100000@papput.nsc.liu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dorn Hetzel <kernel@dorn.hetzel.org> :
-[...]
-> I was wondering if the above 4 patches have made it into one of the
-> rc? releases, or at least a rc?-mm?  ?
+On Sun, 2004-12-05 at 13:39, Peter Kjellstroem wrote:
+> this is the original fix and triggers for both e1000_82547 (your 547EI 
+> right?) and e1000_82547_rev_2 (my 547GI). If your NIC can't stand the fix 
+> and mine needs it isn't the obvious solution the following?
 
-They need to apply on top of -netdev which is included in -mm.
-I'll send the patch for inclusion in -mm so there is no need for
-Jeff to hurry.
+Ganesh/John, what do you think?  Is there a clear dividing line between
+82547EI and 82547GI wrt this issue?  If so, could Peter's patch go in?
 
---
-Ueimor
+-scott
