@@ -1,112 +1,93 @@
 From: Roland Dreier <roland@topspin.com>
-Subject: [PATCH][v3][15/21] IPoIB IPv4 multicast
-Date: Mon, 13 Dec 2004 10:09:45 -0800
-Message-ID: <20041213109.5NKezuGE9PMejMSM@topspin.com>
-References: <20041213109.m8TyDSPRhM2X6Nst@topspin.com>
+Subject: [PATCH][v3][16/21] IPoIB IPv6 support
+Date: Mon, 13 Dec 2004 10:09:46 -0800
+Message-ID: <20041213109.iziHvQZqtmP83gmx@topspin.com>
+References: <20041213109.5NKezuGE9PMejMSM@topspin.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="iso-8859-1"
 Content-Transfer-Encoding: 8bit
 Cc: openib-general@openib.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20041213109.m8TyDSPRhM2X6Nst@topspin.com>
+In-Reply-To: <20041213109.5NKezuGE9PMejMSM@topspin.com>
 To: linux-kernel@vger.kernel.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add ip_ib_mc_map() to convert IPv4 multicast addresses to IPoIB
-hardware addresses.  Also add <linux/if_infiniband.h> so INFINIBAND_ALEN
-has a home.
+Add ipv6_ib_mc_map() to convert IPv6 multicast addresses to IPoIB
+hardware addresses, and add support for autoconfiguration for devices
+with type ARPHRD_INFINIBAND.
 
 The mapping for multicast addresses is described in
   http://www.ietf.org/internet-drafts/draft-ietf-ipoib-ip-over-infiniband-07.txt
 
+Signed-off-by: Nitin Hande <Nitin.Hande@Sun.Com>
 Signed-off-by: Roland Dreier <roland@topspin.com>
 
 
---- /dev/null	1970-01-01 00:00:00.000000000 +0000
-+++ linux-bk/include/linux/if_infiniband.h	2004-12-13 09:44:47.613711020 -0800
-@@ -0,0 +1,29 @@
-+/*
-+ * This software is available to you under a choice of one of two
-+ * licenses.  You may choose to be licensed under the terms of the GNU
-+ * General Public License (GPL) Version 2, available at
-+ * <http://www.fsf.org/copyleft/gpl.html>, or the OpenIB.org BSD
-+ * license, available in the LICENSE.TXT file accompanying this
-+ * software.  These details are also available at
-+ * <http://openib.org/license.html>.
-+ *
-+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
-+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF
-+ * MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS
-+ * BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN
-+ * ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
-+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-+ * SOFTWARE.
-+ *
-+ * Copyright (c) 2004 Topspin Communications.  All rights reserved.
-+ *
-+ * $Id$
-+ */
-+
-+#ifndef _LINUX_IF_INFINIBAND_H
-+#define _LINUX_IF_INFINIBAND_H
-+
-+#define INFINIBAND_ALEN		20	/* Octets in IPoIB HW addr	*/
-+
-+#endif /* _LINUX_IF_INFINIBAND_H */
---- linux-bk.orig/include/net/ip.h	2004-12-11 15:16:19.000000000 -0800
-+++ linux-bk/include/net/ip.h	2004-12-13 09:44:47.641706896 -0800
-@@ -229,6 +229,39 @@
- 	buf[3]=addr&0x7F;
+--- linux-bk.orig/include/net/if_inet6.h	2004-12-11 15:16:37.000000000 -0800
++++ linux-bk/include/net/if_inet6.h	2004-12-13 09:44:48.801536031 -0800
+@@ -266,5 +266,20 @@
+ {
+ 	buf[0] = 0x00;
  }
- 
-+/*
-+ *	Map a multicast IP onto multicast MAC for type IP-over-InfiniBand.
-+ *	Leave P_Key as 0 to be filled in by driver.
-+ */
 +
-+static inline void ip_ib_mc_map(u32 addr, char *buf)
++static inline void ipv6_ib_mc_map(struct in6_addr *addr, char *buf)
 +{
 +	buf[0]  = 0;		/* Reserved */
 +	buf[1]  = 0xff;		/* Multicast QPN */
 +	buf[2]  = 0xff;
 +	buf[3]  = 0xff;
-+	addr    = ntohl(addr);
 +	buf[4]  = 0xff;
 +	buf[5]  = 0x12;		/* link local scope */
-+	buf[6]  = 0x40;		/* IPv4 signature */
++	buf[6]  = 0x60;		/* IPv6 signature */
 +	buf[7]  = 0x1b;
 +	buf[8]  = 0;		/* P_Key */
 +	buf[9]  = 0;
-+	buf[10] = 0;
-+	buf[11] = 0;
-+	buf[12] = 0;
-+	buf[13] = 0;
-+	buf[14] = 0;
-+	buf[15] = 0;
-+	buf[19] = addr & 0xff;
-+	addr  >>= 8;
-+	buf[18] = addr & 0xff;
-+	addr  >>= 8;
-+	buf[17] = addr & 0xff;
-+	addr  >>= 8;
-+	buf[16] = addr & 0x0f;
++	memcpy(buf + 10, addr->s6_addr + 6, 10);
 +}
-+
- #if defined(CONFIG_IPV6) || defined(CONFIG_IPV6_MODULE)
- #include <linux/ipv6.h>
  #endif
---- linux-bk.orig/net/ipv4/arp.c	2004-12-11 15:16:28.000000000 -0800
-+++ linux-bk/net/ipv4/arp.c	2004-12-13 09:44:47.650705570 -0800
-@@ -213,6 +213,9 @@
- 	case ARPHRD_IEEE802_TR:
- 		ip_tr_mc_map(addr, haddr);
+ #endif
+--- linux-bk.orig/net/ipv6/addrconf.c	2004-12-11 15:16:33.000000000 -0800
++++ linux-bk/net/ipv6/addrconf.c	2004-12-13 09:44:48.840530286 -0800
+@@ -48,6 +48,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/if_arp.h>
+ #include <linux/if_arcnet.h>
++#include <linux/if_infiniband.h>
+ #include <linux/route.h>
+ #include <linux/inetdevice.h>
+ #include <linux/init.h>
+@@ -1095,6 +1096,12 @@
+ 		memset(eui, 0, 7);
+ 		eui[7] = *(u8*)dev->dev_addr;
  		return 0;
 +	case ARPHRD_INFINIBAND:
-+		ip_ib_mc_map(addr, haddr);
++		if (dev->addr_len != INFINIBAND_ALEN)
++			return -1;
++		memcpy(eui, dev->dev_addr + 12, 8);
++		eui[0] |= 2;
++		return 0;
+ 	}
+ 	return -1;
+ }
+@@ -1794,6 +1801,7 @@
+ 	if ((dev->type != ARPHRD_ETHER) && 
+ 	    (dev->type != ARPHRD_FDDI) &&
+ 	    (dev->type != ARPHRD_IEEE802_TR) &&
++	    (dev->type != ARPHRD_INFINIBAND) &&
+ 	    (dev->type != ARPHRD_ARCNET)) {
+ 		/* Alas, we support only Ethernet autoconfiguration. */
+ 		return;
+--- linux-bk.orig/net/ipv6/ndisc.c	2004-12-11 15:16:13.000000000 -0800
++++ linux-bk/net/ipv6/ndisc.c	2004-12-13 09:44:48.890522921 -0800
+@@ -260,6 +260,9 @@
+ 	case ARPHRD_ARCNET:
+ 		ipv6_arcnet_mc_map(addr, buf);
+ 		return 0;
++	case ARPHRD_INFINIBAND:
++		ipv6_ib_mc_map(addr, buf);
 +		return 0;
  	default:
  		if (dir) {
- 			memcpy(haddr, dev->broadcast, dev->addr_len);
+ 			memcpy(buf, dev->broadcast, dev->addr_len);
