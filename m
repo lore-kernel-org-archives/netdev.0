@@ -1,52 +1,54 @@
-From: "john" <johnp@marine-boy.nu>
-Subject: Re: Problems getting a stable 100 megabit connection with linksys etherfast switch
-Date: Thu, 4 Mar 2004 05:44:00 -0700
+From: Andi Kleen <ak@suse.de>
+Subject: Re: ip a flush problem on 2.6 kernels (fine on 2.4 kernels)
+Date: Thu, 4 Mar 2004 14:13:19 +0100
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040304123913.M97501@marine-boy.nu>
-References: <20040229212053.M47845@spots.ca> <200403020001.48026.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040304141319.2d1cb112.ak@suse.de>
+References: <200403040308.15880.arekm@pld-linux.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset=iso-8859-1
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-	Andrewm@uow.edu.au, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-In-Reply-To: <200403020001.48026.vda@port.imtp.ilyichevsk.odessa.ua>
+To: Arkadiusz Miskiewicz <arekm@pld-linux.org>
+In-Reply-To: <200403040308.15880.arekm@pld-linux.org>
 List-Id: netdev.vger.kernel.org
 
-Hi Denis,
+On Thu, 4 Mar 2004 03:08:15 +0100
+Arkadiusz Miskiewicz <arekm@pld-linux.org> wrote:
 
-Turns out I had a cable problem.  Some of the patch cables that I made, had
-the wrong pinout.  After replacing them, the connection is stable at 100baseTx-FD.
-
-Thanks
-
-John
-
-
-
-On Tue, 2 Mar 2004 00:01:47 +0200, Denis Vlasenko wrote
-> On Sunday 29 February 2004 23:30, john wrote:
-> > Hi,
-> >
-> > I am having problems getting a stable connection with my linux machines
-> > when trying to connect them at 100 megabit speeds to a linksys etherfast
-> > switch.
-> >
-> >
-> > I have attached some diagnostic outputs for your review.  I hope that
-> > someone can help me with this problem.
-> >
-> > I believe using a managed switch will solve the problem, but I don't want
-> > to have to spend $1000.00 to fix this problem, when I should be able to
-> > obtain a stable connection with the equipment I am currently using.
+> The problem is that
 > 
-> Try half duplex. You seldom do lots of xfers in both directions at 
-> once, so half duplex is not a big loss.
+> ip a a 192.168.0.1/24 dev eth0
+> ip link set eth0 down
+> ip a flush dev eth0
 > 
-> Use tcpdump to see what's going on on the wire.
-> --
-> vda
+> Here on my vanilla 2.6.2 it locks eating CPU - it does netlink 
+> communication over and over. This ,,hang'' doesn't happen when 
+> interface is in UP state. Also doesn't happen on 2.4 kernels.
 
+I fixed it with this patch for iproute2 here. It's not clear to me at 
+all how it ever worked before. The loop seems to be just wrong.
 
---
+-Andi
+
+diff -u iproute2/ip/ipaddress.c~ iproute2/ip/ipaddress.c
+--- iproute2/ip/ipaddress.c~	2004-03-07 20:54:52.000000000 +0100
++++ iproute2/ip/ipaddress.c	2004-03-07 21:02:12.000000000 +0100
+@@ -623,6 +623,9 @@
+ 				fflush(stdout);
+ 				return 0;
+ 			}
++#if 1
++			break; 
++#else
+ 			round++;
+ 			if (flush_update() < 0)
+ 				exit(1);
+@@ -630,6 +633,7 @@
+ 				printf("\n*** Round %d, deleting %d addresses ***\n", round, filter.flushed);
+ 				fflush(stdout);
+ 			}
++#endif
+ 		}
+ 	}
+ 
