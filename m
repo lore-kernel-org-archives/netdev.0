@@ -1,8 +1,8 @@
 From: Amir Noam <amir.noam@intel.com>
-Subject: [PATCH 0/5] [bonding] backport 2.6 changes to 2.4
-Date: Wed, 30 Jul 2003 20:06:32 +0300
+Subject: [PATCH 2/5] [bonding] backport 2.6 changes to 2.4
+Date: Wed, 30 Jul 2003 20:07:09 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307302006.32692.amir.noam@intel.com>
+Message-ID: <200307302007.09735.amir.noam@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
   charset="us-ascii"
@@ -13,18 +13,39 @@ To: fubar@us.ibm.com, jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-
-The following patches backport recent changes in the bonding code 
-from 2.6 to 2.4, while fixing a few bugs (some from 2.4, some 
-from 2.6).
-
-Patches apply on 2.4.22-pre9.
-
-1 - Add list_for_each_entry_safe()
-2 - Export alloc_netdev()
-3 - Fix /proc read function
-4 - Put the bond's net_device_stats inside the bond struct
-5 - Use a linked list to handle numerous bond devices
+Export alloc_netdev()
 
 Amir
+
+diff -Nuarp linux-2.4.22-pre9/drivers/net/net_init.c linux-2.4.22-pre9-devel/drivers/net/net_init.c
+--- linux-2.4.22-pre9/drivers/net/net_init.c	Wed Jul 30 19:14:03 2003
++++ linux-2.4.22-pre9-devel/drivers/net/net_init.c	Wed Jul 30 19:14:04 2003
+@@ -71,7 +71,7 @@
+ */
+ 
+ 
+-static struct net_device *alloc_netdev(int sizeof_priv, const char *mask,
++struct net_device *alloc_netdev(int sizeof_priv, const char *mask,
+ 				       void (*setup)(struct net_device *))
+ {
+ 	struct net_device *dev;
+@@ -97,6 +97,7 @@ static struct net_device *alloc_netdev(i
+ 
+ 	return dev;
+ }
++EXPORT_SYMBOL(alloc_netdev);
+ 
+ static struct net_device *init_alloc_dev(int sizeof_priv)
+ {
+diff -Nuarp linux-2.4.22-pre9/include/linux/netdevice.h linux-2.4.22-pre9-devel/include/linux/netdevice.h
+--- linux-2.4.22-pre9/include/linux/netdevice.h	Wed Jul 30 19:14:03 2003
++++ linux-2.4.22-pre9-devel/include/linux/netdevice.h	Wed Jul 30 19:14:04 2003
+@@ -801,6 +801,8 @@ extern void		tr_setup(struct net_device 
+ extern void		fc_setup(struct net_device *dev);
+ extern void		fc_freedev(struct net_device *dev);
+ /* Support for loadable net-drivers */
++extern struct net_device *alloc_netdev(int sizeof_priv, const char *name,
++				       void (*setup)(struct net_device *));
+ extern int		register_netdev(struct net_device *dev);
+ extern void		unregister_netdev(struct net_device *dev);
+ /* Functions used for multicast support */
