@@ -1,65 +1,38 @@
-From: Janice Girouard <girouard@us.ibm.com>
+From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 17:50:08 -0500
+Date: Mon, 16 Jun 2003 15:50:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
+Message-ID: <3EEE49BA.6070401@us.ibm.com>
+References: <3EEE28DE.6040808@us.ibm.com>	<3EEE40F1.4030107@us.ibm.com> <20030616.151308.55864910.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: Daniel Stekloff <stekloff@us.ibm.com>, janiceg@us.ibm.com,
-   jgarzik@pobox.com, kenistonj@us.ibm.com,
-   Larry Kessler <lkessler@us.ibm.com>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, niv@us.ibm.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: janiceg@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   stekloff@us.ibm.com, girouard@us.ibm.com, lkessler@us.ibm.com,
+   kenistonj@us.ibm.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030616.151308.55864910.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-From: David S. Miller <davem@redhat.com>
-   Date:06/16/2003 05:27 PM
-
-   And all the scripts checking for the existing messages in log files?
-   Screw them, right?
-
-That's a good point.  One possible suggestion would be to submit more than
-one stdmsgs.h files.  One a legacy file, and one that is more consistent
-from message to message.. shooting for a gradual migration.
-
-Ultimately, I think standard messages would greatly support/simplify
-scripts, especially between the myriad of ethernet drivers.  Each one
-reports the data slightly differently, so you're error log analysis needs
-to recognize 100 or so ways of being told that the link just went down.
-
-Janice
+David S. Miller wrote:
+>    From: Nivedita Singhvi <niv@us.ibm.com>
+>    Date: Mon, 16 Jun 2003 15:13:05 -0700
+>    
+>    I'd certainly like to see messages from the driver when the
+>    card enters/leaves promiscuous mode,
+> 
+> egrep "promiscuous mode" net/core/dev.c | grep printk
 
 
+Yeah, but dev_mc_upload() doesnt return any status ;).
+(For those of us who distrust hw (Sorry Scott! :))).
 
+But it was just my example, I assure you. I'm not
+holding up a flag in the wind on this particular nit.
+I do see positives in the feature as a whole though.
+It would be a shame to get grounded for minor things..
 
-
-
-                                                                                                                         
-                      "David S. Miller"                                                                                  
-                      <davem@redhat.com        To:       Janice Girouard/Austin/IBM@IBMUS                                
-                      >                        cc:       Daniel Stekloff/Beaverton/IBM@IBMUS,                            
-                                                janiceg@us.ltcfwd.linux.ibm.com, jgarzik@pobox.com,                      
-                      06/16/2003 05:27          kenistonj@us.ibm.com, Larry Kessler/Beaverton/IBM@IBMUS,                 
-                      PM                        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,                        
-                                                niv@us.ltcfwd.linux.ibm.com                                              
-                                               Subject:  Re: patch for common networking error messages                  
-                                                                                                                         
-                                                                                                                         
-
-
-
-
-   From: Janice Girouard <girouard@us.ibm.com>
-   Date: Mon, 16 Jun 2003 17:29:15 -0500
-
-   For the sake of consistency and automatic error log analysis, it might
-be
-
-And all the scripts checking for the existing messages
-in log files?  Screw them, right?
-
-This whole idea is starting to leave a very bad taste in
-my mouth...
+thanks,
+Nivedita
