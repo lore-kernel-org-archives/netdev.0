@@ -1,27 +1,25 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Bug#251215: kernel-image-2.6.6-1-k7: pppd locks up, cannot be
- killed, during ppp shutdown
-Date: Sat, 29 May 2004 12:51:53 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] remove net driver ugliness that sparse complains about
+Date: Sat, 29 May 2004 16:00:11 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040529125153.5f2df6ad.davem@redhat.com>
-References: <20040529051736.GA11303@gondor.apana.org.au>
-	<E1BU2WC-0003nd-00@gondolin.me.apana.org.au>
+Message-ID: <40B8EBCB.3010701@pobox.com>
+References: <40B8D2F8.6090905@pobox.com> <jeaczraxvu.fsf@sykes.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, debian.bugs@kepier.clara.net,
-        251215@bugs.debian.org, shemminger@osdl.org, jgarzik@pobox.com,
-        netdev@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>, Linux Kernel <linux-kernel@vger.kernel.org>,
+        Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
+        Al Viro <viro@parcelfarce.linux.theplanet.co.uk>,
+        Arjan van de Ven <arjanv@redhat.com>,
+        Linus Torvalds <torvalds@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1BU2WC-0003nd-00@gondolin.me.apana.org.au>
+To: Andreas Schwab <schwab@suse.de>
+In-Reply-To: <jeaczraxvu.fsf@sykes.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 29 May 2004 22:00:52 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+Andreas Schwab wrote:
+> These two look wrong, too many &.
 
-> Here is a minimal fix for this problem.
 
-Wouldn't it be easier just to move the "list_empty(&net_todo_list)"
-check to be inside the net_todo_run_mutex semaphore?
+thanks, fixed
