@@ -1,31 +1,42 @@
-From: davidsen@tmr.com (bill davidsen)
-Subject: Re: patricia tries vs. hash for routing?
-Date: 28 Oct 2003 13:29:54 GMT
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV4: CONFIG_INET description
+Date: Tue, 28 Oct 2003 23:34:43 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <bnlr0i$prj$1@gatekeeper.tmr.com>
-References: <20030919214837.GA3012@sirius.cs.pdx.edu> <20030919233730.75969de6.davem@redhat.com>
+Message-ID: <20031028.233443.26373361.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20030919233730.75969de6.davem@redhat.com>,
-David S. Miller <davem@redhat.com> wrote:
-| On Fri, 19 Sep 2003 14:48:37 -0700
-| Kristen Carlson <kristenc@cs.pdx.edu> wrote:
-| 
-| > I was looking through some very old mail list discussions (1996!) on this 
-| > topic, and the feeling then was that the code was optimal for < 60,000 routes.
-| > Given that much has happened since then, is it still a fair assumption to say
-| > that the linux routing algorithm is optimized for < 60,000 routes, but a
-| > more BSD-like algorithm works better for > 60,000 routes?
-| 
-| That's not true at all, the current code can handle many more than
-| 60,000 routes.
+Hi,
 
-I don't think "optimized for" meant it wouldn't handle more, just that
-performance would degrade.
+Description of CONFIG_INET seems out-of-date.
+
+===== net/Kconfig 1.26 vs edited =====
+--- 1.26/net/Kconfig	Sun Oct  5 15:50:47 2003
++++ edited/net/Kconfig	Tue Oct 28 23:24:10 2003
+@@ -96,14 +96,8 @@
+ 	  allows you to ping yourself (great fun, that!).
+ 
+ 	  For an excellent introduction to Linux networking, please read the
+-	  NET-3-HOWTO, available from
++	  Linux Networking HOWTO, available from
+ 	  <http://www.tldp.org/docs.html#howto>.
+-
+-	  This option is also necessary if you want to use the full power of
+-	  term (term is a program which gives you almost full Internet
+-	  connectivity if you have a regular dial up shell account on some
+-	  Internet connected Unix computer; for more information, read
+-	  <http://www.bart.nl/~patrickr/term-howto/Term-HOWTO.html>).
+ 
+ 	  If you say Y here and also to "/proc file system support" and
+ 	  "Sysctl support" below, you can change various aspects of the
+
 -- 
-bill davidsen <davidsen@tmr.com>
-  CTO, TMR Associates, Inc
-Doing interesting things with little computers since 1979.
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
