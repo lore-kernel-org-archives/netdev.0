@@ -1,47 +1,70 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [Lse-tech] Re: (RFC): SKB Initialization
-Date: Sun, 25 Aug 2002 12:17:42 -0400 (EDT)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: packet re-ordering on SMP machines.
+Date: Sun, 25 Aug 2002 11:32:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <14090.8743640923$1030293266@news.gmane.org>
+Message-ID: <3D6922B2.1020400@candelatech.com>
+References: <Pine.GSO.4.30.0208251149320.29461-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 8bit
-Cc: Mala Anand <manand@us.ibm.com>, <netdev@oss.sgi.com>,
-   Robert Olsson <Robert.Olsson@data.slu.se>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <linux-kernel@vger.kernel.org>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+jamal wrote:
+> 
+> 
+> 
+> NAPI fixes packet reordering problems.
 
+It does indeed.  I just patched the e1000 with the latest NAPI patch
+I could find (from Aug 15 or so), and the re-ordering problems went away.
 
-Mala,
+The amount of packets dropped decreased too, but I still see about 1 out of
+1000 packets dropped due to rx-FIFO or rx-dropped.  This is when trying to run
+60,000 pps of 1514 byte packets from one port to the other on the same dual-port e1000
+NIC (copper).  It will generate up to about 72,000 pps without dropping too many
+more...
 
-Could you please at least cc netdev on networking related issues?
-It says so in the kernel FAQ.
-I swore back around 95 to join lk only when Linux gets a IDE maintainer
-who is not insane. Hasnt happened yet.
+I will do some more tests on two single-port NICs soon to see if that
+performs better.
 
-Can you repeat your tests with the hotlist turned off (i.e set to 0)?
-Also if you would be doing tests on NAPI please either copy us or netdev;
-it is not nice to read weeks after you post.
+Also, I see the hard_start_xmit call failing 5876 times out of 2719493
+calls (for example).  The code that calls the method looks like this:
 
-Also Robert and i did a few tests and we did find skb recycling (based on
-a patch from Robert a few years back) was infact giving perfomance
-improvements of upto 15% over regular slab.
-Did you test with that patch for the e1000 he pointed you at?
-I repeated the tests (around June/July) with the tulip with input rates of
-a few 100K packets/sec and noticed a improvement over regular NAPI by
-about 10%. Theres one bug on the tulip which we are chasing that
-might be related to tulips alignment requirements;
+                         spin_lock_bh(&odev->xmit_lock);
+                         if (!netif_queue_stopped(odev)) {
+                                 if (odev->hard_start_xmit(next->skb, odev)) {
+                                         if (net_ratelimit()) {
+                                                 printk(KERN_INFO "Hard xmit error\n");
+                                         }
+                                         next->errors++;
+                                         next->last_ok = 0;
+                                 }
+                                 else {
+                                         next->last_ok = 1;
+                                         next->sofar++;
+                                         next->tx_bytes += (next->cur_pkt_size + 4); /* count csum */
+                                 }
 
-The idea of only freeing on the same CPU a skb allocated is free with
-the e1000 NAPI driver style but not in the tulip NAPI  where a txmit
-interupt might happen on a different CPU. The skb recycler patch only
-recylces if allocation and freeing are happening on the same CPU;
-otherwise we let the slab take the hit. On the tulip this happens about
-50% of the time.
+                                 next->next_tx_ns = getRelativeCurNs() + next->ipg;
+                         }
+                         else {  /* Re-try it next time */
+                                 next->last_ok = 0;
+                         }
 
-cheers,
-jamal
+                         spin_unlock_bh(&odev->xmit_lock);
+
+I have not seen hard_start_xmit fail on other drivers, even when over-driving them
+well beyond their capabilities.  Any ideas what causes the hard_start_xmit errors?
+
+Thanks,
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
