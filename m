@@ -1,47 +1,35 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: (usagi-core 11926) Re: [PATCH] IPv6 IPsec support
-Date: Wed, 19 Feb 2003 13:27:44 -0800 (PST)
+Subject: Re: [PATCH] dst->{in,out}put() clean-up
+Date: Wed, 19 Feb 2003 13:36:59 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030219.132744.105180654.davem@redhat.com>
-References: <20030219134850.5f203ea7.Kazunori.Miyazawa@jp.yokogawa.com>
-	<20030218.233301.98333082.davem@redhat.com>
-	<20030219233915.130a26e3.kazunori@miyazawa.org>
+Message-ID: <20030219.133659.71995717.davem@redhat.com>
+References: <20030220.022840.48274187.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, Kazunori.Miyazawa@jp.yokogawa.com,
-   netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kazunori@miyazawa.org
-In-Reply-To: <20030219233915.130a26e3.kazunori@miyazawa.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20030220.022840.48274187.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori MIyazawa <kazunori@miyazawa.org>
-   Date: Wed, 19 Feb 2003 23:39:15 +0900
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Thu, 20 Feb 2003 02:28:40 +0900 (JST)
+
+   This patch removes dst->input() and dst->output(), and use
+   dst_input() and dst_output() instead.
    
-   > 3) I noticed comment above transformation from
-   >    explicit dst->output() call to dst_output().
-   > 
-   >    It is not IPSEC issue, rather I believe that entire tree should
-   >    have this conversion eventually.  The concept of stackable
-   >    destination cache entries is a generic one.
-   > 
+   Patch is against linux-2.5.62.
    
-   Please let me understand. I think dst->output calls each dst
-   output routine chains but those could not process the return value 
-   NET_XMIT_BYPASS returned from ah and/or esp.
-   Is this out of scope of IPsec?
+   Thank you in advance.
+   
+Thank you, it is applied.
 
-Not really.  Stackable destinations are a powerful concept.
+I have made one tiny improvement, in ipv4/igmp.c case we can
+totally eliminate output_maybe_reroute() function and pass
+directly dst_output() to NF_HOOK.  Once transformation from
+dst->output() to dst_output() is applied, these old inline functions
+for NF_HOOK no longer have purpose.
 
-For example, we could reimplement IPIP processing using this.
-In this way, IP tunnels can become stacked destinations.
-
-Another application of stackable destinatins could be something
-like CIPE.
-
-Please understand what NET_XMIT_BYPASS means, which is "please
-continue to invoke input/output method, I have placed new dst in skb"
-
-I will apply the patch from Yoshfuji which makes the transformations.
+Thank you again.
