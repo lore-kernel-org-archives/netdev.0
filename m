@@ -1,39 +1,54 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: Re: IMQ / new Dummy device post.
-Date: Mon, 19 Apr 2004 10:14:48 +0200 (CEST)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Fw: [BUG] linux >= 2.6.5 won't compile with CONFIG_IPV6=m and CONFIG_IP6_NF_QUEUE=y
+Date: Mon, 19 Apr 2004 21:12:38 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0404191013590.18235@tux.rsn.bth.se>
-References: <407E5905.9070108@dsl.pipex.com>  <1082031313.1039.13.camel@jzny.localdomain>
-  <407EE3E5.8060200@dsl.pipex.com>  <1082087553.1035.287.camel@jzny.localdomain>
-  <4080356F.4020609@dsl.pipex.com>  <1082145341.1026.125.camel@jzny.localdomain>
-  <40810957.6030209@dsl.pipex.com>  <1082203795.1043.18.camel@jzny.localdomain>
-  <4081A824.5020107@dsl.pipex.com>  <1082298480.1041.94.camel@jzny.localdomain>
-  <4082AE45.7030101@dsl.pipex.com>  <1082321582.1039.319.camel@jzny.localdomain>
- <1082323432.13261.397.camel@tux.rsn.bth.se> <4082FA09.2040404@dsl.pipex.com>
+Message-ID: <20040419111238.GA23696@gondor.apana.org.au>
+References: <20040419011418.42b6f4e9.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="6c2NcOVqGQ03X4Wi"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <4082FA09.2040404@dsl.pipex.com>
+To: Andrew Morton <akpm@osdl.org>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040419011418.42b6f4e9.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 18 Apr 2004, Andy Furniss wrote:
 
-> > with connmark you mark the connection, and then you can "restore" that
-> > mark to packets in either direction in the mangle table of iptables.
-> >
-> > connmark isn't incompatible with connbytes. It's just that both patches
-> > modify the same part of the code, a struct, and the patch program can't
-> > handle that. You'll have to fix some rejects by hand, that's it.
-> >
->
-> Thanks for that - though I hope not to have to use it now, just to
-> confirm - does it work in all of the 5 mangle tables or more
-> specifically could I mark every connection from local processes in
-> output and restore the marks in prerouting?
+--6c2NcOVqGQ03X4Wi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-It works in all of the 5 mangle chains iirc.
+On Mon, Apr 19, 2004 at 08:14:18AM +0000, Andrew Morton wrote:
 
-/Martin
+> Subject: [BUG] linux >= 2.6.5 won't compile with CONFIG_IPV6=m and CONFIG_IP6_NF_QUEUE=y
+
+This patch should stop this from happening.
+-- 
+Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--6c2NcOVqGQ03X4Wi
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+Index: net/ipv6/netfilter/Kconfig
+===================================================================
+RCS file: /home/gondolin/herbert/src/CVS/debian/kernel-source-2.5/net/ipv6/netfilter/Kconfig,v
+retrieving revision 1.1.1.5
+diff -u -r1.1.1.5 Kconfig
+--- a/net/ipv6/netfilter/Kconfig	19 Feb 2004 08:56:07 -0000	1.1.1.5
++++ b/net/ipv6/netfilter/Kconfig	19 Apr 2004 11:08:21 -0000
+@@ -3,7 +3,7 @@
+ #
+ 
+ menu "IPv6: Netfilter Configuration"
+-	depends on INET && IPV6!=n && NETFILTER
++	depends on INET && IPV6 && NETFILTER
+ 
+ #tristate 'Connection tracking (required for masq/NAT)' CONFIG_IP6_NF_CONNTRACK
+ #if [ "$CONFIG_IP6_NF_CONNTRACK" != "n" ]; then
+
+--6c2NcOVqGQ03X4Wi--
