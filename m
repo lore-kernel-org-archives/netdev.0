@@ -1,63 +1,47 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: [XFRM] Make XFRM core subsystem af-independent
-Date: Sat, 18 Sep 2004 08:50:03 +0900 (JST)
+Date: Fri, 17 Sep 2004 17:06:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040918.085003.77842779.yoshfuji@linux-ipv6.org>
+Message-ID: <20040917170607.2e96b58a.davem@davemloft.net>
 References: <E1C8I2m-0005BS-00@gondolin.me.apana.org.au>
 	<20040917.231127.114842301.yoshfuji@linux-ipv6.org>
 	<20040917153536.6acec52e.davem@davemloft.net>
+	<20040918.085003.77842779.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <20040917153536.6acec52e.davem@davemloft.net>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040918.085003.77842779.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+On Sat, 18 Sep 2004 08:50:03 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-In article <20040917153536.6acec52e.davem@davemloft.net> (at Fri, 17 Sep 2004 15:35:36 -0700), "David S. Miller" <davem@davemloft.net> says:
+>  2. David's one
+>     - maintenancability will be improved
+>     - maintains exported symbols for binary-only modules.
+>     - more function call and more stack usage.
 
-> Now all these call sites must pass 2 more parameters when
-> calling ip_route_output_flow() than when they called
-> ip_route_output_key() with only 2 parameters.
+Compiler is smarter than you think :-)
 
-Okay, let me explain.
-Honestly speaking, I had (at least) 4 options.
+The whole stack frame is eliminated, because gcc
+optimizes it away using tail-call optimizations.
 
- 1. change two functions (_key and _flow)
-    - maintenancability issues
- 2. David's one
-    - maintenancability will be improved
-    - maintains exported symbols for binary-only modules.
-    - more function call and more stack usage.
- 3. inlined __ip_route_output_flow() + ip_route_output_flow(), ip_route_output_key
-    - maintenancability will be improved
-    - breaks binary-only modules.
-    - code size.
- 4. migrate completely (my one)
-    - maintenancability will be improved
-    - breaks binary-only modules.
-    - best stack usage, minimum function call, code size.
-    - changes more places.
+Look at the assembler output for
+net/ipv4/route.c:ip_route_output_key() after applying
+my changes.
 
-> Let's redo this first patch, putting ip_route_output_key()
-> into net/ipv4/route.c, and have that function pass the
-> "NULL, 0" final 2 args to ip_route_output_flow().
+On sparc64 it looks like this:
 
-This increases function calls and uses more stack.
-It seemd downgrade to me.
-This is the reason I did not make such patch.
+ip_route_output_key:
+	mov	0, %o2
+	mov	0, %o3
+	or	%o7, %g0, %g1
+	call	ip_route_output_flow, 0
+	 or	%g1, %g0, %o7
 
-
-> And you therefore could have combined both efforts into
-> one simple changeset looking like this, which is what I'm
-> checking into my tree:
-
-THANK YOU.
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+No stack frame allocated at all, it basically amounts to
+a branch and clearing two argument registers.
