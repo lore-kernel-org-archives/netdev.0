@@ -1,130 +1,49 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [PATCH] pktgen: reduce stack usage
-Date: Tue, 22 Feb 2005 16:41:31 +0100
-Message-ID: <16923.21163.112945.608974@robur.slu.se>
-References: <20050218134219.3f079110.rddunlap@osdl.org>
-	<20050218221121.GA22845@electric-eye.fr.zoreil.com>
-	<42166E3F.2050304@osdl.org>
-	<16921.60572.951532.31861@robur.slu.se>
-	<421A0880.5070205@osdl.org>
+From: Andi Kleen <ak@muc.de>
+Subject: Re: Intel and TOE in the news
+Date: 22 Feb 2005 18:27:29 +0100
+Message-ID: <20050222172729.GA70246@muc.de>
+References: <1108993498.1089.149.camel@jzny.localdomain> <200502211653.j1LGr3DD025897@guinness.s2io.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "Randy.Dunlap" <rddunlap@osdl.org>,
-        Robert Olsson <Robert.Olsson@data.slu.se>,
-        Francois Romieu <romieu@fr.zoreil.com>, netdev <netdev@oss.sgi.com>
-To: davem@davemloft.net
-In-Reply-To: <421A0880.5070205@osdl.org>
+Cc: hadi@cyberus.ca, "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
+        "'Alex Aizman'" <alex@neterion.com>
+Date: Tue, 22 Feb 2005 18:27:29 +0100
+To: Leonid Grossman <leonid.grossman@neterion.com>
+Content-Disposition: inline
+In-Reply-To: <200502211653.j1LGr3DD025897@guinness.s2io.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Feb 21, 2005 at 08:52:13AM -0800, Leonid Grossman wrote:
+> Yes, the question was with regards to the burst of random packets.
+> I agree that this may be not too useful and arguably doesn't warrant the
+> significant stack change. The reason I asked is that one of our engineers
+> was under impression (from reading Linux TCP/IP Stack book) that the feature
+> is already supported.
 
-Randy.Dunlap writes:
- > >  Here is version with just one buffer.
- > 
- > Yep, even better:  few changes + using sizeof.
+There is some support to process list of skbs, but it's only used
+for IP fragments belonging to the same IP packet; and is also
+only valid for some small parts of the stack between IP and transport
+layer.
 
- Hello.
+The only IP protocols that support it are UDP and RAW. 
+TCP doesn't support it; or rather it would always try to reassemble
+them first. 
 
- OK! Then we ask DaveM to apply the patch.
+In short it's a hack to avoid one copy of data for NFS over
+fragmented UDP.
 
-				    --ro
+I guess he thought it was a more general facility or the author
+of the book didn't make it clear enough that it was a quite special
+case hack. 
 
+> WRT to the burst of packets related to the same flow - we are hoping to be
+> able to collapse the burst into a single oversized frame and pass it to the
+> stack, this way no or very minimal changes to the stack will be needed. 
+> There is enough intelligence on the NIC to do that efficiently, we just need
+> to try and see how well this works.
 
- 
---- net/core/pktgen.c.050221	2005-02-21 14:02:40.000000000 +0100
-+++ net/core/pktgen.c	2005-02-21 15:02:44.000000000 +0100
-@@ -151,7 +151,7 @@
- #include <asm/timex.h>
- 
- 
--#define VERSION  "pktgen v2.57: Packet Generator for packet performance testing.\n"
-+#define VERSION  "pktgen v2.58: Packet Generator for packet performance testing.\n"
- 
- /* #define PG_DEBUG(a) a */
- #define PG_DEBUG(a) 
-@@ -811,6 +811,7 @@
-         struct pktgen_dev *pkt_dev = (struct pktgen_dev*)(data);
-         char* pg_result = NULL;
-         int tmp = 0;
-+	char buf[128];
-         
-         pg_result = &(pkt_dev->result[0]);
-         
-@@ -1071,7 +1072,6 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "dst_min") || !strcmp(name, "dst")) {
--                char buf[IP_NAME_SZ];
- 		len = strn_len(&user_buffer[i], sizeof(pkt_dev->dst_min) - 1);
-                 if (len < 0) { return len; }
- 
-@@ -1091,7 +1091,6 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "dst_max")) {
--                char buf[IP_NAME_SZ];
- 		len = strn_len(&user_buffer[i], sizeof(pkt_dev->dst_max) - 1);
-                 if (len < 0) { return len; }
- 
-@@ -1112,9 +1111,7 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "dst6")) {
--                char buf[128];
--
--		len = strn_len(&user_buffer[i], 128 - 1);
-+		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
-                 if (len < 0) return len; 
- 
- 		pkt_dev->flags |= F_IPV6;
-@@ -1136,9 +1133,7 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "dst6_min")) {
--                char buf[128];
--
--		len = strn_len(&user_buffer[i], 128 - 1);
-+		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
-                 if (len < 0) return len; 
- 
- 		pkt_dev->flags |= F_IPV6;
-@@ -1159,9 +1154,7 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "dst6_max")) {
--                char buf[128];
--
--		len = strn_len(&user_buffer[i], 128 - 1);
-+		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
-                 if (len < 0) return len; 
- 
- 		pkt_dev->flags |= F_IPV6;
-@@ -1181,9 +1174,7 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "src6")) {
--                char buf[128];
--
--		len = strn_len(&user_buffer[i], 128 - 1);
-+		len = strn_len(&user_buffer[i], sizeof(buf) - 1);
-                 if (len < 0) return len; 
- 
- 		pkt_dev->flags |= F_IPV6;
-@@ -1205,7 +1196,6 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "src_min")) {
--                char buf[IP_NAME_SZ];
- 		len = strn_len(&user_buffer[i], sizeof(pkt_dev->src_min) - 1);
-                 if (len < 0) { return len; }
-                 if (copy_from_user(buf, &user_buffer[i], len))
-@@ -1224,7 +1214,6 @@
- 		return count;
- 	}
- 	if (!strcmp(name, "src_max")) {
--                char buf[IP_NAME_SZ];
- 		len = strn_len(&user_buffer[i], sizeof(pkt_dev->src_max) - 1);
-                 if (len < 0) { return len; }
-                 if (copy_from_user(buf, &user_buffer[i], len))
+Hopefully you don't need too many cache misses to figure this out though.
+
+-Andi
