@@ -1,217 +1,327 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: neigh_create/inetdev_destroy race?
-Date: Sat, 4 Sep 2004 09:49:41 +1000
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] 2.6.x net driver fixes
+Date: Fri, 3 Sep 2004 22:56:40 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040903234941.GA26247@gondor.apana.org.au>
-References: <20040815191450.77532d5d.davem@redhat.com> <20040816105131.GA11299@gondor.apana.org.au> <20040828234201.79556f6e.davem@davemloft.net> <20040829065031.GA786@gondor.apana.org.au> <20040830230820.7514985d.davem@davemloft.net> <20040831104139.GA2124@gondor.apana.org.au> <20040901222118.0ce4bcc6.davem@davemloft.net> <20040902130605.GA32570@gondor.apana.org.au> <20040903133623.GA23179@gondor.apana.org.au> <20040903090053.22c67bb9@dell_ss3.pdx.osdl.net>
+Message-ID: <20040904025640.GA27001@canuck.infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="DocE+STaALJfprDB"
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: akpm@osdl.org, torvalds@osdl.org
 Content-Disposition: inline
-In-Reply-To: <20040903090053.22c67bb9@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---DocE+STaALJfprDB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Please do a
 
-On Fri, Sep 03, 2004 at 09:00:53AM -0700, Stephen Hemminger wrote:
->
-> > You'll also notice that I've put all dereferences of dev->*_ptr under
-> > the rcu_read_lock().  Without this we may get a neigh_parms that's
-> > already been released.
-> 
-> I haven't looked at the exact code in detail, but don't you need
-> use rcu_dereference() as well to make sure and get the smp_read_barrier_depends
-> on Alpha.
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.6
 
-Not really because we're not depending on *dev->neigh_parms to be set to
-NULLon shutdown.  In fact *dev->neigh_parms never gets set to NULL at all.
-If it did we'd have trouble cleaning up dead entries from the hash table.
+This will update the following files:
 
-So there is no data-dependent read here whose order must be preserved
-when *dev is destroyed.
+ drivers/net/3c527.c            |   13 ++----
+ drivers/net/8139cp.c           |    2 -
+ drivers/net/forcedeth.c        |   78 +++++++++++++++++++++++++++--------------
+ drivers/net/r8169.c            |    2 -
+ drivers/net/wireless/airo.c    |    1 
+ drivers/net/wireless/wavelan.c |   11 +++--
+ 6 files changed, 66 insertions(+), 41 deletions(-)
 
-But hang on a second, I had forgotten about the creation path.  Indeed
-that is buggy without a barrier for every path except IPv6.  Without
-the barrier, we may be reading NULL pointers from parms which may
-result in stale neigh entries lingering around.  Or worse we may read
-complete garbage that was there before the memset on *dev was done.
-Fortunately the last bit probably can only be triggered if you're
-stepping through gdb :)
+through these ChangeSets:
 
-So here is a patch to make sure that there is a barrier between the
-reading of dev->*_ptr and *dev->neigh_parms.
+<manfred@colorfullife.com> (04/09/03 1.2021)
+   [PATCH] fix media detection for nForce 2 nics
+   
+   attached is a patch that polls the media setting for non GigE nForce
+   nics:
+   Without polling, media changes are not autodetected. This is fatal,
+   because the nic initialization is asynchroneous, thus "modprobe;ifup"
+   resulted in a dead network connection. The attached patch fixes that
+   problem.
+   
+   It's a repost of a patch I sent around three weeks ago: you objected
+   that I rely on the nic irq instead of a software timer. I've documented
+   why this is ok.
 
-With these barriers in place, it's clear that *dev->neigh_parms can no
-longer be NULL since once the parms are allocated, that pointer is never
-reset to NULL again.  Therefore I've also removed the parms check in
-these paths.
+<akpm@osdl.org> (04/09/03 1.2020)
+   [PATCH] airo build fix
+   
+   drivers/net/wireless/airo.c: In function `issuecommand':
+   drivers/net/wireless/airo.c:3812: warning: implicit declaration of function `kernel_locked'
+   *** Warning: "kernel_locked" [drivers/net/wireless/airo.ko] undefined!
+   
+   Signed-off-by: Andrew Morton <akpm@osdl.org>
 
-They were bogus to begin with since if they ever triggered then we'll
-have dead neigh entries stuck in the hash table.
+<davej@redhat.com> (04/09/03 1.2019)
+   [PATCH] wavelan uninitalised var.
+   
+   This seems a little odd, printing out the value of a variable
+   we haven't read yet.
+   
+   Signed-off-by: Dave Jones <davej@redhat.com>
 
-Unfortunately I couldn't arrange for this to happen with DECnet due
-to the dn_db->parms.up() call that's sandwiched between the assignment
-of dev->dn_ptr and dn_db->neigh_parms.  So I've kept the parms check
-there but it will now fail instead of continuing.  I've also added an
-smp_wmb() there so that at least we won't be reading garbage from
-dn_db->neigh_parms.
+<davej@redhat.com> (04/09/03 1.2018)
+   [PATCH] 3c527 possible oops.
+   
+   If the alloc_skb() fails, we dereference it in the skb_reserve() call.
+   Move the skb_reserve() call to after the NULL check.
+   Also clean up some CodingStyle violations whilst in the vicinity.
+   
+   Signed-off-by: Dave Jones <davej@redhat.com>
 
-DECnet is also buggy since there is no locking at all in the destruction
-path.  It either needs locking or RCU like IPv4.
+<jgarzik@pobox.com> (04/08/31 1.1860.2.1)
+   [netdrvr 8139cp,r8169] fix dma_addr_t sizeof test
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
-
-Thanks a lot,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---DocE+STaALJfprDB
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== drivers/s390/net/qeth_main.c 1.14 vs edited =====
---- 1.14/drivers/s390/net/qeth_main.c	2004-09-04 08:22:06 +10:00
-+++ edited/drivers/s390/net/qeth_main.c	2004-09-04 09:17:17 +10:00
-@@ -6718,17 +6718,15 @@
- 	}
+diff -Nru a/drivers/net/3c527.c b/drivers/net/3c527.c
+--- a/drivers/net/3c527.c	2004-09-03 22:20:03 -04:00
++++ b/drivers/net/3c527.c	2004-09-03 22:20:03 -04:00
+@@ -751,18 +751,15 @@
+ 	
+ 	rx_base=lp->rx_chain;
  
- 	rcu_read_lock();
--	in_dev = __in_dev_get(dev);
-+	in_dev = rcu_dereference(__in_dev_get(dev));
- 	if (in_dev == NULL) {
- 		rcu_read_unlock();
- 		return -EINVAL;
- 	}
- 
- 	parms = in_dev->arp_parms;
--	if (parms) {
--		__neigh_parms_put(neigh->parms);
--		neigh->parms = neigh_parms_clone(parms);
--	}
-+	__neigh_parms_put(neigh->parms);
-+	neigh->parms = neigh_parms_clone(parms);
- 	rcu_read_unlock();
- 
- 	neigh->type = inet_addr_type(*(u32 *) neigh->primary_key);
-===== net/atm/clip.c 1.37 vs edited =====
---- 1.37/net/atm/clip.c	2004-09-04 08:22:07 +10:00
-+++ edited/net/atm/clip.c	2004-09-04 09:18:22 +10:00
-@@ -320,17 +320,15 @@
- 	if (neigh->type != RTN_UNICAST) return -EINVAL;
- 
- 	rcu_read_lock();
--	in_dev = __in_dev_get(dev);
-+	in_dev = rcu_dereference(__in_dev_get(dev));
- 	if (!in_dev) {
- 		rcu_read_unlock();
- 		return -EINVAL;
- 	}
- 
- 	parms = in_dev->arp_parms;
--	if (parms) {
--		__neigh_parms_put(neigh->parms);
--		neigh->parms = neigh_parms_clone(parms);
--	}
-+	__neigh_parms_put(neigh->parms);
-+	neigh->parms = neigh_parms_clone(parms);
- 	rcu_read_unlock();
- 
- 	neigh->ops = &clip_neigh_ops;
-===== net/decnet/dn_dev.c 1.25 vs edited =====
---- 1.25/net/decnet/dn_dev.c	2004-09-04 08:22:07 +10:00
-+++ edited/net/decnet/dn_dev.c	2004-09-04 09:36:51 +10:00
-@@ -41,6 +41,7 @@
- #include <linux/sysctl.h>
- #include <linux/notifier.h>
- #include <asm/uaccess.h>
-+#include <asm/system.h>
- #include <net/neighbour.h>
- #include <net/dst.h>
- #include <net/flow.h>
-@@ -1108,6 +1109,7 @@
- 
- 	memset(dn_db, 0, sizeof(struct dn_dev));
- 	memcpy(&dn_db->parms, p, sizeof(struct dn_dev_parms));
-+	smp_wmb();
- 	dev->dn_ptr = dn_db;
- 	dn_db->dev = dev;
- 	init_timer(&dn_db->timer);
-===== net/decnet/dn_neigh.c 1.11 vs edited =====
---- 1.11/net/decnet/dn_neigh.c	2004-09-04 08:22:07 +10:00
-+++ edited/net/decnet/dn_neigh.c	2004-09-04 09:33:12 +10:00
-@@ -139,17 +139,20 @@
- 	struct neigh_parms *parms;
- 
- 	rcu_read_lock();
--	dn_db = dev->dn_ptr;
-+	dn_db = rcu_dereference(dev->dn_ptr);
- 	if (dn_db == NULL) {
- 		rcu_read_unlock();
- 		return -EINVAL;
- 	}
- 
- 	parms = dn_db->neigh_parms;
--	if (parms) {
--		__neigh_parms_put(neigh->parms);
--		neigh->parms = neigh_parms_clone(parms);
-+	if (!parms) {
-+		rcu_read_unlock();
-+		return -EINVAL;
- 	}
+-	for(i=0; i<RX_RING_LEN; i++)
+-	{
++	for(i=0; i<RX_RING_LEN; i++) {
+ 		lp->rx_ring[i].skb=alloc_skb(1532, GFP_KERNEL);
+-		skb_reserve(lp->rx_ring[i].skb, 18);  
+-
+-		if(lp->rx_ring[i].skb==NULL)
+-		{
+-			for(;i>=0;i--)
++		if (lp->rx_ring[i].skb==NULL) {
++			for (;i>=0;i--)
+ 				kfree_skb(lp->rx_ring[i].skb);
+ 			return -ENOBUFS;
+ 		}
+-		
++		skb_reserve(lp->rx_ring[i].skb, 18);
 +
-+	__neigh_parms_put(neigh->parms);
-+	neigh->parms = neigh_parms_clone(parms);
- 	rcu_read_unlock();
- 
- 	if (dn_db->use_long)
-===== net/ipv4/arp.c 1.45 vs edited =====
---- 1.45/net/ipv4/arp.c	2004-09-04 08:22:07 +10:00
-+++ edited/net/ipv4/arp.c	2004-09-04 09:17:46 +10:00
-@@ -244,17 +244,15 @@
- 	neigh->type = inet_addr_type(addr);
- 
- 	rcu_read_lock();
--	in_dev = __in_dev_get(dev);
-+	in_dev = rcu_dereference(__in_dev_get(dev));
- 	if (in_dev == NULL) {
- 		rcu_read_unlock();
- 		return -EINVAL;
+ 		p=isa_bus_to_virt(lp->base+rx_base);
+ 				
+ 		p->control=0;
+diff -Nru a/drivers/net/8139cp.c b/drivers/net/8139cp.c
+--- a/drivers/net/8139cp.c	2004-09-03 22:20:03 -04:00
++++ b/drivers/net/8139cp.c	2004-09-03 22:20:03 -04:00
+@@ -1698,7 +1698,7 @@
  	}
  
- 	parms = in_dev->arp_parms;
--	if (parms) {
--		__neigh_parms_put(neigh->parms);
--		neigh->parms = neigh_parms_clone(parms);
--	}
-+	__neigh_parms_put(neigh->parms);
-+	neigh->parms = neigh_parms_clone(parms);
- 	rcu_read_unlock();
+ 	/* Configure DMA attributes. */
+-	if ((sizeof(dma_addr_t) > 32) &&
++	if ((sizeof(dma_addr_t) > 4) &&
+ 	    !pci_set_consistent_dma_mask(pdev, 0xffffffffffffffffULL) &&
+ 	    !pci_set_dma_mask(pdev, 0xffffffffffffffffULL)) {
+ 		pci_using_dac = 1;
+diff -Nru a/drivers/net/forcedeth.c b/drivers/net/forcedeth.c
+--- a/drivers/net/forcedeth.c	2004-09-03 22:20:03 -04:00
++++ b/drivers/net/forcedeth.c	2004-09-03 22:20:03 -04:00
+@@ -75,6 +75,7 @@
+  *			   added CK804/MCP04 device IDs, code fixes
+  *			   for registers, link status and other minor fixes.
+  *	0.28: 21 Jun 2004: Big cleanup, making driver mostly endian safe
++ *	0.29: 31 Aug 2004: Add backup timer for link change notification.
+  *
+  * Known bugs:
+  * We suspect that on some hardware no TX done interrupts are generated.
+@@ -86,7 +87,7 @@
+  * DEV_NEED_TIMERIRQ will not harm you on sane hardware, only generating a few
+  * superfluous timer interrupts from the nic.
+  */
+-#define FORCEDETH_VERSION		"0.28"
++#define FORCEDETH_VERSION		"0.29"
+ #define DRV_NAME			"forcedeth"
  
- 	if (dev->hard_header == NULL) {
-===== net/ipv6/ndisc.c 1.88 vs edited =====
---- 1.88/net/ipv6/ndisc.c	2004-09-04 08:22:07 +10:00
-+++ edited/net/ipv6/ndisc.c	2004-09-04 09:28:12 +10:00
-@@ -297,10 +297,8 @@
+ #include <linux/module.h>
+@@ -120,10 +121,11 @@
+  * Hardware access:
+  */
+ 
+-#define DEV_NEED_LASTPACKET1	0x0001
+-#define DEV_IRQMASK_1		0x0002
+-#define DEV_IRQMASK_2		0x0004
+-#define DEV_NEED_TIMERIRQ	0x0008
++#define DEV_NEED_LASTPACKET1	0x0001	/* set LASTPACKET1 in tx flags */
++#define DEV_IRQMASK_1		0x0002  /* use NVREG_IRQMASK_WANTED_1 for irq mask */
++#define DEV_IRQMASK_2		0x0004  /* use NVREG_IRQMASK_WANTED_2 for irq mask */
++#define DEV_NEED_TIMERIRQ	0x0008  /* set the timer irq flag in the irq mask */
++#define DEV_NEED_LINKTIMER	0x0010	/* poll link settings. Relies on the timer irq */
+ 
+ enum {
+ 	NvRegIrqStatus = 0x000,
+@@ -367,6 +369,7 @@
+ 
+ #define OOM_REFILL	(1+HZ/20)
+ #define POLL_WAIT	(1+HZ/100)
++#define LINK_TIMEOUT	(3*HZ)
+ 
+ #define DESC_VER_1	0x0
+ #define DESC_VER_2	0x02100
+@@ -446,6 +449,11 @@
+ 	struct timer_list oom_kick;
+ 	struct timer_list nic_poll;
+ 
++	/* media detection workaround.
++	 * Locking: Within irq hander or disable_irq+spin_lock(&np->lock);
++	 */
++	int need_linktimer;
++	unsigned long link_timeout;
+ 	/*
+ 	 * tx specific fields.
+ 	 */
+@@ -1384,6 +1392,25 @@
+ 	return retval;
+ }
+ 
++static void nv_linkchange(struct net_device *dev)
++{
++	if (nv_update_linkspeed(dev)) {
++		if (netif_carrier_ok(dev)) {
++			nv_stop_rx(dev);
++		} else {
++			netif_carrier_on(dev);
++			printk(KERN_INFO "%s: link up.\n", dev->name);
++		}
++		nv_start_rx(dev);
++	} else {
++		if (netif_carrier_ok(dev)) {
++			netif_carrier_off(dev);
++			printk(KERN_INFO "%s: link down.\n", dev->name);
++			nv_stop_rx(dev);
++		}
++	}
++}
++
+ static void nv_link_irq(struct net_device *dev)
+ {
+ 	u8 *base = get_hwbase(dev);
+@@ -1391,25 +1418,10 @@
+ 
+ 	miistat = readl(base + NvRegMIIStatus);
+ 	writel(NVREG_MIISTAT_MASK, base + NvRegMIIStatus);
+-	dprintk(KERN_DEBUG "%s: link change notification, status 0x%x.\n", dev->name, miistat);
++	dprintk(KERN_INFO "%s: link change irq, status 0x%x.\n", dev->name, miistat);
+ 
+-	if (miistat & (NVREG_MIISTAT_LINKCHANGE)) {
+-		if (nv_update_linkspeed(dev)) {
+-			if (netif_carrier_ok(dev)) {
+-				nv_stop_rx(dev);
+-			} else {
+-				netif_carrier_on(dev);
+-				printk(KERN_INFO "%s: link up.\n", dev->name);
+-			}
+-			nv_start_rx(dev);
+-		} else {
+-			if (netif_carrier_ok(dev)) {
+-				netif_carrier_off(dev);
+-				printk(KERN_INFO "%s: link down.\n", dev->name);
+-				nv_stop_rx(dev);
+-			}
+-		}
+-	}
++	if (miistat & (NVREG_MIISTAT_LINKCHANGE))
++		nv_linkchange(dev);
+ 	dprintk(KERN_DEBUG "%s: link change notification done.\n", dev->name);
+ }
+ 
+@@ -1452,6 +1464,12 @@
+ 			nv_link_irq(dev);
+ 			spin_unlock(&np->lock);
+ 		}
++		if (np->need_linktimer && time_after(jiffies, np->link_timeout)) {
++			spin_lock(&np->lock);
++			nv_linkchange(dev);
++			spin_unlock(&np->lock);
++			np->link_timeout = jiffies + LINK_TIMEOUT;
++		}
+ 		if (events & (NVREG_IRQ_TX_ERR)) {
+ 			dprintk(KERN_DEBUG "%s: received irq with events 0x%x. Probably TX fail.\n",
+ 						dev->name, events);
+@@ -1816,6 +1834,14 @@
+ 		np->irqmask = NVREG_IRQMASK_WANTED_2;
+ 	if (id->driver_data & DEV_NEED_TIMERIRQ)
+ 		np->irqmask |= NVREG_IRQ_TIMER;
++	if (id->driver_data & DEV_NEED_LINKTIMER) {
++		dprintk(KERN_INFO "%s: link timer on.\n", pci_name(pci_dev));
++		np->need_linktimer = 1;
++		np->link_timeout = jiffies + LINK_TIMEOUT;
++	} else {
++		dprintk(KERN_INFO "%s: link timer off.\n", pci_name(pci_dev));
++		np->need_linktimer = 0;
++	}
+ 
+ 	/* find a suitable phy */
+ 	for (i = 1; i < 32; i++) {
+@@ -1909,21 +1935,21 @@
+ 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_1,
+ 		.subvendor = PCI_ANY_ID,
+ 		.subdevice = PCI_ANY_ID,
+-		.driver_data = DEV_IRQMASK_1|DEV_NEED_TIMERIRQ,
++		.driver_data = DEV_IRQMASK_1|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
+ 	},
+ 	{	/* nForce2 Ethernet Controller */
+ 		.vendor = PCI_VENDOR_ID_NVIDIA,
+ 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_2,
+ 		.subvendor = PCI_ANY_ID,
+ 		.subdevice = PCI_ANY_ID,
+-		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
++		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
+ 	},
+ 	{	/* nForce3 Ethernet Controller */
+ 		.vendor = PCI_VENDOR_ID_NVIDIA,
+ 		.device = PCI_DEVICE_ID_NVIDIA_NVENET_3,
+ 		.subvendor = PCI_ANY_ID,
+ 		.subdevice = PCI_ANY_ID,
+-		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ,
++		.driver_data = DEV_NEED_LASTPACKET1|DEV_IRQMASK_2|DEV_NEED_TIMERIRQ|DEV_NEED_LINKTIMER,
+ 	},
+ 	{	/* nForce3 Ethernet Controller */
+ 		.vendor = PCI_VENDOR_ID_NVIDIA,
+diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c	2004-09-03 22:20:03 -04:00
++++ b/drivers/net/r8169.c	2004-09-03 22:20:03 -04:00
+@@ -983,7 +983,7 @@
+ 
+ 	tp->cp_cmd = PCIMulRW | RxChkSum;
+ 
+-	if ((sizeof(dma_addr_t) > 32) &&
++	if ((sizeof(dma_addr_t) > 4) &&
+ 	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK))
+ 		tp->cp_cmd |= PCIDAC;
+ 	else {
+diff -Nru a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+--- a/drivers/net/wireless/airo.c	2004-09-03 22:20:03 -04:00
++++ b/drivers/net/wireless/airo.c	2004-09-03 22:20:03 -04:00
+@@ -25,6 +25,7 @@
+ #include <linux/kernel.h>
+ #include <linux/module.h>
+ #include <linux/proc_fs.h>
++#include <linux/smp_lock.h>
+ 
+ #include <linux/sched.h>
+ #include <linux/ptrace.h>
+diff -Nru a/drivers/net/wireless/wavelan.c b/drivers/net/wireless/wavelan.c
+--- a/drivers/net/wireless/wavelan.c	2004-09-03 22:20:03 -04:00
++++ b/drivers/net/wireless/wavelan.c	2004-09-03 22:20:03 -04:00
+@@ -3822,17 +3822,18 @@
+ 	if ((hasr & HASR_MMC_INTR) && (lp->hacr & HACR_MMC_INT_ENABLE)) {
+ 		u8 dce_status;
+ 
+-#ifdef DEBUG_INTERRUPT_ERROR
+-		printk(KERN_INFO
+-		       "%s: wavelan_interrupt(): unexpected mmc interrupt: status 0x%04x.\n",
+-		       dev->name, dce_status);
+-#endif
+ 		/*
+ 		 * Interrupt from the modem management controller.
+ 		 * This will clear it -- ignored for now.
+ 		 */
+ 		mmc_read(ioaddr, mmroff(0, mmr_dce_status), &dce_status,
+ 			 sizeof(dce_status));
++
++#ifdef DEBUG_INTERRUPT_ERROR
++		printk(KERN_INFO
++		       "%s: wavelan_interrupt(): unexpected mmc interrupt: status 0x%04x.\n",
++		       dev->name, dce_status);
++#endif
  	}
  
- 	parms = in6_dev->nd_parms;
--	if (parms) {
--		__neigh_parms_put(neigh->parms);
--		neigh->parms = neigh_parms_clone(parms);
--	}
-+	__neigh_parms_put(neigh->parms);
-+	neigh->parms = neigh_parms_clone(parms);
- 	rcu_read_unlock();
- 
- 	neigh->type = is_multicast ? RTN_MULTICAST : RTN_UNICAST;
-
---DocE+STaALJfprDB--
+ 	/* Check if not controller interrupt */
