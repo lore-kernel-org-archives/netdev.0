@@ -1,38 +1,57 @@
-From: Arkadiusz Miskiewicz <arekm@pld-linux.org>
-Subject: Re: netdev-2.6 queue updated
-Date: Mon, 20 Sep 2004 22:38:16 +0200
+From: Kai Makisara <Kai.Makisara@kolumbus.fi>
+Subject: e1000 lockup in linux 2.6.9-rc2
+Date: Mon, 20 Sep 2004 23:53:15 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409202238.16750.arekm@pld-linux.org>
-References: <20040920194842.GA21782@havoc.gtf.org> <200409202214.45202.arekm@pld-linux.org> <414F3E1D.8070106@pobox.com>
+Message-ID: <Pine.LNX.4.58.0409202339050.2170@kai.makisara.local>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-2"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: ganesh.venkatesan@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <414F3E1D.8070106@pobox.com>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 20 of September 2004 22:31, Jeff Garzik wrote:
-> Arkadiusz Miskiewicz wrote:
-> > For example Pavel is not author for this change - =C9ric Brunet is.
-> >
-> > It seems that bk changelog quite often lies.
->
-> ChangeSet@1.1923.1.4, 2004-09-20 14:34:45-04:00, pavel@ucw.cz
->    [PATCH] swsuspend for ne2k-pci cards
->
->    Author: =C9ric Brunet <Eric.Brunet@lps.ens.fr>
+When I started large data transfers in 100 Mb/s network, my computer very 
+soon locked totally (i.e., not responding to network, keyboard and mouse 
+dead). This had not happened for several days with 2.6.9-rc2 when the 
+network activity had been light (1 Mb/s DSL).
 
-Thanks, now it's clear to me what the changelogs say.
+Some experimentation showed that the lockups were caused by this patch 
+fragment in 2.6.9-rc2:
 
-(anyway it would be better to put author in these changelogs instead of=20
-commiter because usually people want to contact with the one who made the=
-=20
-changes not the one who commited them).
---=20
-Arkadiusz Mi=B6kiewicz                    PLD/Linux Team
-http://www.t17.ds.pwr.wroc.pl/~misiek/  http://ftp.pld-linux.org/
+diff -u b/drivers/net/e1000/e1000_main.c b/drivers/net/e1000/e1000_main.c
+--- b/drivers/net/e1000/e1000_main.c	2004-08-24 00:04:05 -07:00
++++ b/drivers/net/e1000/e1000_main.c	2004-09-12 22:34:24 -07:00
+@@ -499,7 +499,9 @@
+ 	if(pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
+-
++ 	/* hard_start_xmit is safe against parallel locking */
++ 	netdev->features |= NETIF_F_LLTX; 
++ 
+ 	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
+ 
+ 	/* before reading the EEPROM, reset the controller to 
+
+The computer has Intel D875PBZLK motherboard with 1 GB memory and 2.6 GHz 
+Pentium4 (HT). An SMP kernel has been used. lspci -vv gives the following 
+information about the NIC:
+
+0000:02:01.0 Ethernet controller: Intel Corp. 82547EI Gigabit Ethernet Controller (LOM)
+        Subsystem: Intel Corp.: Unknown device 3025
+        Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+        Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+        Latency: 0 (63750ns min), cache line size 10
+        Interrupt: pin A routed to IRQ 185
+        Region 0: Memory at ff8e0000 (32-bit, non-prefetchable)
+        Region 2: I/O ports at 9c00 [size=32]
+        Capabilities: [dc] Power Management version 2
+                Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
+                Status: D0 PME-Enable- DSel=0 DScale=1 PME-
+
+(This kernel has MSI enabled and thus IRQ is 185. The hangup did occur 
+also without MSI.)
+
+-- 
+Kai
