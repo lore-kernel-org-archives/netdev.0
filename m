@@ -1,424 +1,1757 @@
-From: Eric Dumazet <dada1@cosmosbay.com>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Thu, 17 Mar 2005 20:52:44 +0100
-Message-ID: <4239E00C.4080309@cosmosbay.com>
-References: <42370997.6010302@cosmosbay.com>	<20050315103253.590c8bfc.davem@davemloft.net>	<42380EC6.60100@cosmosbay.com> <20050316140915.0f6b9528.davem@davemloft.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: 2.6.11-mm2 weird ethernet RTTs
+Date: Thu, 17 Mar 2005 11:52:54 -0800
+Message-ID: <20050317115254.4f8e462a.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------040704050108060909010704"
+ boundary="Multipart=_Thu__17_Mar_2005_11_52_54_-0800_9sR8yt9M+8/Yn=Tn"
 Cc: netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050316140915.0f6b9528.davem@davemloft.net>
+To: Stefan Schmidt <s.schmidt@mcbone.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------040704050108060909010704
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id j2HJsE72023785
 
-David S. Miller a =E9crit :
-> On Wed, 16 Mar 2005 11:47:34 +0100
-> Eric Dumazet <dada1@cosmosbay.com> wrote:
->=20
->=20
->>The rt_check_expire() has a serious problem on machines with large
->>route caches, and a standard HZ value of 1000.
->>
->>With default values, ie ip_rt_gc_interval =3D 60*HZ =3D 60000 ;
->>
->>the loop count :
->>
->>     for (t =3D ip_rt_gc_interval << rt_hash_log; t >=3D 0;
->>
->>
->>overflows (t is a 31 bit value) as soon rt_hash_log is >=3D 16  (65536
->>slots in route cache hash table)
->=20
->  ...
->=20
->>I am experimenting some changes that I will share when ready.
->=20
->=20
-> Good catch, let us know when you have a patch for review.
->=20
->=20
-
-Hi
-
-This is the patch I'm currently running on several machines (with very hi=
-gh pressure on route cache)
-
-If you want to comment it before I submit it with a nice looking mail :)
-
-Description :
-
-    - Makes rt_check_expire() do some real work, auto-adapting the timer =
-interval (chosen between gc_interval/8 and gc_interval)
-
-    - Move the spinlocks out of tr_hash_table[] to a fixed size table : S=
-aves a lot of memory (particulary on UP)
-
-Thank you
-
-Eric Dumazet
-
---------------040704050108060909010704
-Content-Type: text/plain;
- name="diff"
-Content-Disposition: inline;
- filename="diff"
+--Multipart=_Thu__17_Mar_2005_11_52_54_-0800_9sR8yt9M+8/Yn=Tn
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 
-diff -Nru linux-2.6.11/net/ipv4/route.c linux-2.6.11-ed/net/ipv4/route.c
---- linux-2.6.11/net/ipv4/route.c	2005-03-17 11:19:45.000000000 +0100
-+++ linux-2.6.11-ed/net/ipv4/route.c	2005-03-17 18:33:20.000000000 +0100
-@@ -54,6 +54,7 @@
-  *		Marc Boucher	:	routing by fwmark
-  *	Robert Olsson		:	Added rt_cache statistics
-  *	Arnaldo C. Melo		:	Convert proc stuff to seq_file
-+ *      Eric Dumazet            :       hashed spinlocks and rt_check_expire() fixes.
-  *
-  *		This program is free software; you can redistribute it and/or
-  *		modify it under the terms of the GNU General Public License
-@@ -107,12 +108,13 @@
- #define IP_MAX_MTU	0xFFF0
- 
- #define RT_GC_TIMEOUT (300*HZ)
-+#define RT_GC_INTERVAL (RT_GC_TIMEOUT/10) /* rt_check_expire() scans 1/10 of the table each round */
- 
- static int ip_rt_min_delay		= 2 * HZ;
- static int ip_rt_max_delay		= 10 * HZ;
- static int ip_rt_max_size;
- static int ip_rt_gc_timeout		= RT_GC_TIMEOUT;
--static int ip_rt_gc_interval		= 60 * HZ;
-+static int ip_rt_gc_interval		= RT_GC_INTERVAL;
- static int ip_rt_gc_min_interval	= HZ / 2;
- static int ip_rt_redirect_number	= 9;
- static int ip_rt_redirect_load		= HZ / 50;
-@@ -124,6 +126,7 @@
- static int ip_rt_min_pmtu		= 512 + 20 + 20;
- static int ip_rt_min_advmss		= 256;
- static int ip_rt_secret_interval	= 10 * 60 * HZ;
-+static int ip_rt_debug ;
- static unsigned long rt_deadline;
- 
- #define RTprint(a...)	printk(KERN_DEBUG a)
-@@ -197,8 +200,24 @@
- 
- struct rt_hash_bucket {
- 	struct rtable	*chain;
--	spinlock_t	lock;
--} __attribute__((__aligned__(8)));
-+};
-+
-+#if defined(CONFIG_SMP) || defined(CONFIG_DEBUG_SPINLOCK)
-+/*
-+ * Instead of using one spinlock for each rt_hash_bucket, we use a table of fixed size spinlocks
-+ */
-+# define RT_HASH_LOCK_SZ 256
-+	static spinlock_t	rt_hash_lock[RT_HASH_LOCK_SZ];
-+# define rt_hash_lock_addr(slot) &rt_hash_lock[slot & (RT_HASH_LOCK_SZ - 1)]
-+# define rt_hash_lock_init()	{ \
-+		int i; \
-+		for (i = 0; i < RT_HASH_LOCK_SZ; i++) \
-+			spin_lock_init(&rt_hash_lock[i]); \
-+		}
-+#else
-+# define rt_hash_lock_addr(slot) NULL
-+# define rt_hash_lock_init()
-+#endif
- 
- static struct rt_hash_bucket 	*rt_hash_table;
- static unsigned			rt_hash_mask;
-@@ -470,7 +489,7 @@
- 		rth->u.dst.expires;
- }
- 
--static int rt_may_expire(struct rtable *rth, unsigned long tmo1, unsigned long tmo2)
-+static __inline__ int rt_may_expire(struct rtable *rth, unsigned long tmo1, unsigned long tmo2)
- {
- 	unsigned long age;
- 	int ret = 0;
-@@ -516,45 +535,84 @@
- /* This runs via a timer and thus is always in BH context. */
- static void rt_check_expire(unsigned long dummy)
- {
--	static int rover;
--	int i = rover, t;
-+	static unsigned int rover;
-+	static unsigned int effective_interval = RT_GC_INTERVAL;
-+	static unsigned int cached_gc_interval = RT_GC_INTERVAL;
-+	unsigned int i = rover, t;
- 	struct rtable *rth, **rthp;
- 	unsigned long now = jiffies;
-+	unsigned int freed = 0 , t0;
-+	u64 mult;
- 
--	for (t = ip_rt_gc_interval << rt_hash_log; t >= 0;
--	     t -= ip_rt_gc_timeout) {
--		unsigned long tmo = ip_rt_gc_timeout;
--
-+	if (cached_gc_interval != ip_rt_gc_interval) { /* ip_rt_gc_interval may have changed with sysctl */
-+		cached_gc_interval = ip_rt_gc_interval;
-+		effective_interval = cached_gc_interval;
-+	}
-+	/* computes the number of slots we should examin in this run */
-+	mult = ((u64)effective_interval) << rt_hash_log;
-+	do_div(mult, ip_rt_gc_timeout);
-+	t = (unsigned int)mult;
-+
-+	if (atomic_read(&ipv4_dst_ops.entries) > ip_rt_max_size/8) {
-+		t <<= 1; /* be more aggressive */
-+		if (atomic_read(&ipv4_dst_ops.entries) > ip_rt_max_size/4) {
-+			t <<= 1; /* be more aggressive */
-+			if (atomic_read(&ipv4_dst_ops.entries) > ip_rt_max_size/2) {
-+				t <<= 1; /* be more aggressive */
-+				now++; /* give us one more tick (time) to do our job */
-+			}
-+		}
-+	}
-+	if (t > rt_hash_mask) t = rt_hash_mask + 1;
-+	t0 = t;
-+	for ( ; t > 0; t -= 1) {
- 		i = (i + 1) & rt_hash_mask;
- 		rthp = &rt_hash_table[i].chain;
--
--		spin_lock(&rt_hash_table[i].lock);
--		while ((rth = *rthp) != NULL) {
--			if (rth->u.dst.expires) {
--				/* Entry is expired even if it is in use */
--				if (time_before_eq(now, rth->u.dst.expires)) {
-+		if (*rthp) {
-+			unsigned long tmo = ip_rt_gc_timeout;
-+			spin_lock(rt_hash_lock_addr(i));
-+			while ((rth = *rthp) != NULL) {
-+				if (rth->u.dst.expires) {
-+					/* Entry is expired even if it is in use */
-+					if (time_before_eq(now, rth->u.dst.expires)) {
-+						tmo >>= 1;
-+						rthp = &rth->u.rt_next;
-+						continue;
-+					}
-+				} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
- 					tmo >>= 1;
- 					rthp = &rth->u.rt_next;
- 					continue;
- 				}
--			} else if (!rt_may_expire(rth, tmo, ip_rt_gc_timeout)) {
--				tmo >>= 1;
--				rthp = &rth->u.rt_next;
--				continue;
-+	
-+				/* Cleanup aged off entries. */
-+				*rthp = rth->u.rt_next;
-+				freed++;
-+				rt_free(rth);
- 			}
--
--			/* Cleanup aged off entries. */
--			*rthp = rth->u.rt_next;
--			rt_free(rth);
-+			spin_unlock(rt_hash_lock_addr(i));
- 		}
--		spin_unlock(&rt_hash_table[i].lock);
--
- 		/* Fallback loop breaker. */
- 		if (time_after(jiffies, now))
- 			break;
- 	}
- 	rover = i;
--	mod_timer(&rt_periodic_timer, now + ip_rt_gc_interval);
-+	if (t) {
-+		/* Not enough time to perform our job, try to adjust the timer.
-+		 * Firing the timer sooner means less planned work.
-+		 * We allow the timer to be 1/8 of the sysctl value.
-+		 */
-+		effective_interval = (effective_interval + cached_gc_interval/8)/2;
-+	}
-+	else {
-+		/* We finished our job before time limit, try to increase the timer
-+		 * The limit is the sysctl value.
-+		 */
-+		effective_interval = (effective_interval + cached_gc_interval)/2;
-+	}
-+	if (ip_rt_debug & 1)
-+		printk(KERN_WARNING "rt_check_expire() : %u freed, t=%u/%u interval=%u ticks\n", freed, t, t0, effective_interval);
-+	mod_timer(&rt_periodic_timer, jiffies + effective_interval);
- }
- 
- /* This can run from both BH and non-BH contexts, the latter
-@@ -570,11 +628,11 @@
- 	get_random_bytes(&rt_hash_rnd, 4);
- 
- 	for (i = rt_hash_mask; i >= 0; i--) {
--		spin_lock_bh(&rt_hash_table[i].lock);
-+		spin_lock_bh(rt_hash_lock_addr(i));
- 		rth = rt_hash_table[i].chain;
- 		if (rth)
- 			rt_hash_table[i].chain = NULL;
--		spin_unlock_bh(&rt_hash_table[i].lock);
-+		spin_unlock_bh(rt_hash_lock_addr(i));
- 
- 		for (; rth; rth = next) {
- 			next = rth->u.rt_next;
-@@ -704,7 +762,7 @@
- 
- 			k = (k + 1) & rt_hash_mask;
- 			rthp = &rt_hash_table[k].chain;
--			spin_lock_bh(&rt_hash_table[k].lock);
-+			spin_lock_bh(rt_hash_lock_addr(k));
- 			while ((rth = *rthp) != NULL) {
- 				if (!rt_may_expire(rth, tmo, expire)) {
- 					tmo >>= 1;
-@@ -715,7 +773,7 @@
- 				rt_free(rth);
- 				goal--;
- 			}
--			spin_unlock_bh(&rt_hash_table[k].lock);
-+			spin_unlock_bh(rt_hash_lock_addr(k));
- 			if (goal <= 0)
- 				break;
- 		}
-@@ -792,7 +850,7 @@
- 
- 	rthp = &rt_hash_table[hash].chain;
- 
--	spin_lock_bh(&rt_hash_table[hash].lock);
-+	spin_lock_bh(rt_hash_lock_addr(hash));
- 	while ((rth = *rthp) != NULL) {
- 		if (compare_keys(&rth->fl, &rt->fl)) {
- 			/* Put it first */
-@@ -813,7 +871,7 @@
- 			rth->u.dst.__use++;
- 			dst_hold(&rth->u.dst);
- 			rth->u.dst.lastuse = now;
--			spin_unlock_bh(&rt_hash_table[hash].lock);
-+			spin_unlock_bh(rt_hash_lock_addr(hash));
- 
- 			rt_drop(rt);
- 			*rp = rth;
-@@ -854,7 +912,7 @@
- 	if (rt->rt_type == RTN_UNICAST || rt->fl.iif == 0) {
- 		int err = arp_bind_neighbour(&rt->u.dst);
- 		if (err) {
--			spin_unlock_bh(&rt_hash_table[hash].lock);
-+			spin_unlock_bh(rt_hash_lock_addr(hash));
- 
- 			if (err != -ENOBUFS) {
- 				rt_drop(rt);
-@@ -895,7 +953,7 @@
- 	}
- #endif
- 	rt_hash_table[hash].chain = rt;
--	spin_unlock_bh(&rt_hash_table[hash].lock);
-+	spin_unlock_bh(rt_hash_lock_addr(hash));
- 	*rp = rt;
- 	return 0;
- }
-@@ -962,7 +1020,7 @@
- {
- 	struct rtable **rthp;
- 
--	spin_lock_bh(&rt_hash_table[hash].lock);
-+	spin_lock_bh(rt_hash_lock_addr(hash));
- 	ip_rt_put(rt);
- 	for (rthp = &rt_hash_table[hash].chain; *rthp;
- 	     rthp = &(*rthp)->u.rt_next)
-@@ -971,7 +1029,7 @@
- 			rt_free(rt);
- 			break;
- 		}
--	spin_unlock_bh(&rt_hash_table[hash].lock);
-+	spin_unlock_bh(rt_hash_lock_addr(hash));
- }
- 
- void ip_rt_redirect(u32 old_gw, u32 daddr, u32 new_gw,
-@@ -2569,6 +2627,23 @@
- 		.strategy	= &sysctl_jiffies,
- 	},
- 	{
-+		.ctl_name	= NET_IPV4_ROUTE_GC_INTERVAL_MS,
-+		.procname	= "gc_interval_ms",
-+		.data		= &ip_rt_gc_interval,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec_ms_jiffies,
-+		.strategy	= &sysctl_ms_jiffies,
-+	},
-+	{
-+		.ctl_name	= NET_IPV4_ROUTE_GC_DEBUG,
-+		.procname	= "gc_debug",
-+		.data		= &ip_rt_debug,
-+		.maxlen		= sizeof(int),
-+		.mode		= 0644,
-+		.proc_handler	= &proc_dointvec,
-+	},
-+	{
- 		.ctl_name	= NET_IPV4_ROUTE_REDIRECT_LOAD,
- 		.procname	= "redirect_load",
- 		.data		= &ip_rt_redirect_load,
-@@ -2718,7 +2793,7 @@
- 
- int __init ip_rt_init(void)
- {
--	int i, order, goal, rc = 0;
-+	int order, goal, rc = 0;
- 
- 	rt_hash_rnd = (int) ((num_physpages ^ (num_physpages>>8)) ^
- 			     (jiffies ^ (jiffies >> 7)));
-@@ -2766,14 +2841,12 @@
- 	for (rt_hash_log = 0; (1 << rt_hash_log) != rt_hash_mask; rt_hash_log++)
- 		/* NOTHING */;
- 
--	rt_hash_mask--;
--	for (i = 0; i <= rt_hash_mask; i++) {
--		spin_lock_init(&rt_hash_table[i].lock);
--		rt_hash_table[i].chain = NULL;
--	}
-+	memset(rt_hash_table, 0, rt_hash_mask * sizeof(struct rt_hash_bucket));
-+	rt_hash_lock_init();
- 
--	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
--	ip_rt_max_size = (rt_hash_mask + 1) * 16;
-+	ipv4_dst_ops.gc_thresh = rt_hash_mask;
-+	ip_rt_max_size = rt_hash_mask * 16;
-+	rt_hash_mask--;
- 
- 	rt_cache_stat = alloc_percpu(struct rt_cache_stat);
- 	if (!rt_cache_stat)
-diff -Nru linux-2.6.11/Documentation/filesystems/proc.txt linux-2.6.11-ed/Documentation/filesystems/proc.txt
---- linux-2.6.11/Documentation/filesystems/proc.txt	2005-03-17 18:42:54.000000000 +0100
-+++ linux-2.6.11-ed/Documentation/filesystems/proc.txt	2005-03-17 18:42:14.000000000 +0100
-@@ -1709,12 +1709,13 @@
- 
- Writing to this file results in a flush of the routing cache.
- 
--gc_elasticity, gc_interval, gc_min_interval_ms, gc_timeout, gc_thresh
-+gc_elasticity, gc_interval_ms, gc_min_interval_ms, gc_timeout, gc_thresh, gc_debug
- ---------------------------------------------------------------------
- 
- Values to  control  the  frequency  and  behavior  of  the  garbage collection
- algorithm for the routing cache. gc_min_interval is deprecated and replaced
--by gc_min_interval_ms.
-+by gc_min_interval_ms. gc_interval is deprecated and replaced by
-+gc_interval_ms. gc_debug enables some printk()
- 
- 
- max_size
-diff -Nru linux-2.6.11/include/linux/sysctl.h linux-2.6.11-ed/include/linux/sysctl.h
---- linux-2.6.11/include/linux/sysctl.h	2005-03-17 18:37:13.000000000 +0100
-+++ linux-2.6.11-ed/include/linux/sysctl.h	2005-03-17 18:36:57.000000000 +0100
-@@ -367,6 +367,8 @@
- 	NET_IPV4_ROUTE_MIN_ADVMSS=17,
- 	NET_IPV4_ROUTE_SECRET_INTERVAL=18,
- 	NET_IPV4_ROUTE_GC_MIN_INTERVAL_MS=19,
-+	NET_IPV4_ROUTE_GC_INTERVAL_MS=20,
-+	NET_IPV4_ROUTE_GC_DEBUG=21,
- };
- 
- enum
 
---------------040704050108060909010704--
+Thanks, Stefan.
+
+I'm not aware of any changes which would cause this.  Generally -mm's
+networking is the same as Linus's.  Could you test Linus's latest tree?
+(-rc1 should be out very soon, so that would be appropriate)
+
+
+Begin forwarded message:
+
+Date: Thu, 17 Mar 2005 17:05:41 +0100
+From: Stefan Schmidt <s.schmidt@mcbone.net>	
+To: akpm@osdl.org
+Subject: 2.6.11-mm2 weird ethernet RTTs
+
+
+Hi Andrew,
+
+since i upgraded to 2.6.11-mm2 i see the following pattern in the
+smokeping running on my workstation. The attached pictures show a
+behaviour that i also see when pinging (ping -i 0.1) another workstation
+on the same LAN and Switch, namely that RTTs (just from and to my
+machine, not from any to the other machine) range from 0.7 to 1.8ms,
+i.e. rising from 0.7 to 1.8ms in 2-3 seconds and then quickly falling
+off to 0.7 in about 1s. (ping output attached)
+Trust me: Its not the Switch nor the other workstation.
+0.7ms is the minumum RTT when using 1500 byte packets, with 'usual' ping
+its like 0.3 to 0.4ms but shows the same behaviour in increasing and
+decresing.
+
+Its an Intel Corp. 82547EI Gigabit Ethernet Controller (LOM)
+        Subsystem: Asustek Computer, Inc.: Unknown device 80f7
+running at 100 Base-TX FD.
+
+Have you got a hint which of the recent networking or scheduler patches
+in mm2 could be responsible to this?
+
+best regards,
+		Stefan
+
+PS: have replaced IP and Name in the ping output so that you can forward
+it to some list if you like.
+-- 
+"It's just the end-of-MPLS day coming. The second coming of "pure IP" is upon
+us."
+- Petri Helenius on nanog-ml 
+
+
+--Multipart=_Thu__17_Mar_2005_11_52_54_-0800_9sR8yt9M+8/Yn=Tn
+Content-Type: image/png;
+ name="frell_last_10800.png"
+Content-Disposition: attachment;
+ filename="frell_last_10800.png"
+Content-Transfer-Encoding: base64
+
+iVBORw0KGgoAAAANSUhEUgAAArUAAAEwCAMAAACe63mFAAAAQlBMVEX///+MjIyCHh4AAAD/AADw
+8PDAwMCRkZFhYWFAQEBvb2+fn5/Ozs7+/v4gICAm/wAAuP8AWf9eAP9+AP/dAP8AAADzkeciAAAg
+AElEQVR4Ae29iWLkOA4kWuWe6fvYN2///1s3AhEgeCiTednlqhY9LZFgIHAIguWUXfPlyznODJwZ
+ODNwZuDMwJmBMwNnBs4MnBk4M3Bm4MzAmYEzAxcz8JXj4u65cWbgc2bg65ezaj/nlTm9upQBNNqz
+aC8l55SfGTgzcGbgRRk4n2tflMiT5kMzcD4i3J3uny5qTDs/YXTYmPeCbu+c3pGB87n2jmQl9HLh
+jTtzlc7r5DvPZwbePwNjbZY9ttZ+b67SeV2a5+yuDJzPtXelS+BWmVmlef7Sdoq1E7WqNT7XP31x
+tTeeUj9nBxngx17nR18HibkmykKsqgM6F4Oiq9EyFiWbcULbmZNOPlCci4MMnK/GDpKyEUW1CVNV
+GOtuJzk6UUxxODwD30FT+zyfGXhRBlp1ZeNUCwV72ylLnSimOByeqdF4Sv2cXcjA+YRwITGXxFmI
+WX2BGxbSnEW5PjynsdjMxXk+zMD509hhWq4Ls7B4znY7NlDpZ3UmW677c9MnF4FxSI3zfDEDZ6+9
+mJrjDX4jZ7XFj/4+u9hC3LQMy3VgejxZsLZu8LV5Kp3nMwNnBn6IDJyfIfwQl/HfFcT5ee2/63r/
+INGevfYHuZBnGGcGzgx86gycvfZTX57TuaMMnM+1R1k5ZZ88A2ev/eQX6HTvzMCZgR8hA2i157+H
+8CNcyH9VDOfb3H/V5f5Bgv1sVfv2fF4/BcWncOLL8148z/ACJ15BcUddLffEVrBkaauxALYUi8Yi
+mCkWwFYwM6x/MDJTzOv1Us2Ieb3amL3Ya8yImWG1MWvM6/eI444SvAcaj8uPHN4eURp1PgXFp3Di
+6/NePM/wAic6inuK8G6sb7jlvtsKPue9vXV7aUFnHK1mtqnYZ7dRLNBm5RUTsy9GtoLmX3qx1VgA
+W4pFYxHMFAtgK5gZlrJeBAvllmLRWAQzxQLYCmaGxe1FsFBuKRaNRdAolp0sk5ec35f9JS6eJN9h
+BlxX7/RhbbLPiVmqeRa0uyo1Z8DH3tv2YuvE4tUnjeO/GJlZnreBfbI4mr9t0kfz7PxdSJ916tT/
+Mlft95aSqqt3aLf8oR73sY+cXfoSrnbfLiITM2vM68TVeUbM60LmbPZirzEjZoZkrvOsMa8LmbMZ
+Ma8TV+fZi69f/4uv2l9nM+fMsNeYGV6hkV6woN5xvCv5O/r9o1P/OL32Pa6Uq3Yp3q3gkz1HOTdb
+t9FQxvFJ45irdnb7s8ex+Dtm/cnV+7LTuTn/Tzr8L1H/NFmDI4+k/H3ryuyLka3g5h7V8r9QbikW
+jUUwUyyArWBmWJrYIlgotxSLxiKYKb62rLlkFo1ZMDMsbi+CmeH4jW5ftYvGImheLDuPlP5Fnfdl
+p9k5/xddOTe6DHyarPVV2/m3m3Z11U13Wrfum3Jh3graXZWWLmm0/C+ALcWisQhmigWwFcwMS0ta
+BAvllmLRWAQzxY/Sa/kZ1RJsVszj53egnJxpVTvJz+W1DFzK2oOt75qp63sPGuzqqpteN3X7rikX
+5q1g7g5LS0pBy/9CuaVYNBbBTLEAtoKZId2uFM4U8/r4ebD0b3ixtVBc7LWtiGYv3iuOZhABzTZX
+QfNigfb5eHr+vux0r1Xt077+mwguZa0vog/Jx4MGs67e5wGBrPi6/z1JvgWh9vFXcuZbnlwfoymd
+EfN61Zy92GvMiJlhtTFrzOtXaMxeXH43lm/MZi9mhld4RRt59cg321xtpBeEcvCYBRyC1xzegXJy
+7FLXmGDncsjApaw92PoG7rsWDxrMusryvcvmFmz2NNLwW0F7gkmVSxot/wtgS7FoLIKZYgFsBTPD
+2hpminm9PJQuFIvGIpi9uOG5diqnmWFxYhFsnQiN3syisQiaF8tOlslLzu/LThdb1b7E3++DpL/U
+j3l8KWvFXLPHLNyo9aAZ1xVarZ8VbjR3GyzZZ/RSzbOg3VWpOQPy3m75XwBbikVjEcwUC2ArmBnS
+7QxrfS5bKFeK6VIvGotgpvhReq1+5Klcvmi25O9FvEXTqrZEP/xsqtoH4r2UtWKu2QP0t6s8aCbr
+imX7+mHOhXormLvD6p0pWv4Xyi3ForEIZooFsBXMDBfjaLlfKFeK6VIvGotgpvhRem1L2msnS/5e
+Sw+2VrUPMk8V8CDLx6o97/OlrBVzzd41tgfNuK54eocS69iH4BdTs2DuDqtz1mj5nxlu/Nm7T9uW
+YgFsBTfH0dKzUK4Uvc9H121L8aP02vf9aaxdktdPWtU+SD1VwIMsH6v2vM+Xsgb5zz//zGiet3FT
+Th404/uSp+UWvcnuNVB8MHHTW4/5vUi+BYFTF75SI9+u5PoSfn33Io18G3SkN3txv42ZYbUyc87r
+I43R573G7MW1d2M/f/05rthoY2Y48mqU7b0iIq8edfca6cW7fN5Vhfz6G6G4NbvUNWbcpfWDN/sl
+ug+RP+/zpaxB/kG91h48GMr71pXZFyNbwfowN9eDKVr+F8otRWj0adtSLICtYOsEmsw45vXB83nv
+M5QXjUUwe3HtuVZVS0Tv18ywN7pxAvxE+B4JU4vGImheLDu9r0/P35ed7iH6Ib33uvyk+r3mXoJ/
+3udLWYP8Y3ttX7V35OZ968rsi5GtoN1VGcoljZb/BbClCI2+ArYUC2Ar2DqxNK2FcqXofUZ+Fo1F
+MFOcvTbL6vC85O8Q9YywVe2DJFMFPMjysWrP+3wpa5B/V732fX4sc9UuxbsVzN3hYkNp+V8otxSh
+0VfAlmIBbAVbJ5bAFsqVovcZ98uisQhmih+l1zLQJdjnO8g7UE5Otaqd5Lcupwq4Ve2b4p73+VLW
+ID97bd4IS/FuBXN3SCZWi/Jqipb/hfIaRRRdaPQVsKVYAFvB1ok+sPIqZj6sFL3PAG2dWD6G+FF6
+bZ+mF86XhL6Ce/i5s1Xtg8xTBTzI8rFqz/t8KWuQf0+9lm+x3qHETLkwbwVrg6nCqF7L5GPE1kJ5
+jaI0Up2SLcUC2Aq2TixGF8qVovd5dFvZ2FL8KL1Wr03jYr7wELeCqF941DtHXO54H1jvBGvGvVu/
+xjeXt2p9W9xln2/NwSXcf/E+l290mdv3jVEe0NolXy7bzw7L23O5RZ+vX1MuzFvB2mDKmQu9Vn2m
+YNcoAhVO9H1r8WqmWABbwcywJnmmmNfLQykKanyx0ml8X70W3uJaymdckS4OXcVF0LK57NRlf8Hs
+Xdj95AX3GDCGHK3ZPY439XuUvjH2ss+35uASDnJn97KN1wRPDzD6qr2DuKurbnoHwVWoKRfmraDd
+VUnfaSivFChyP9dykWier1EELih7pc6GiGaKBbAVzAz7hrJQrhS9z3C001AOOsGFOITTJo+pAbmz
+O9lYnShlzZIi5fN6uh7g5/eMvmoXjUXQvPAOn0AXUDrw+PkdKPOTLzqFsDnkX83u8bep36P0jbGX
+fb41B5dwkKtqmdp3jZIeYPRVe4e9rq666R0EV6GmXJi3gnZXJX2n4W6AHUX+qXotXEqXeb4Wh3Bd
+YCGY1wcUk41OgwmpzikDixfqcoObSQF1Z3ew8d//vjwO8D/fa1uAr51kNl7K6m4AToTOMczuNCX1
+O5WuwF/Nd2Tqsg3sDNV4pN1lbdmGurM7EJEWY4E/IRDjk72W5fUOJWbKhXkruHZvL702MrB8BnmN
+ItIdTvQXY/FqplgAq6Dng5WZYU3yTDGvDygmG50GM3FwIUcvHuq1Yq4y7YxKSEHv2AKYnbih1/Z8
+tNIoTP7Ic+1PchfHnzjaqpssrnd7D0+XXsuMaoATk3uY74RfpS4nrsKe2rxug7tb+isU2Hqm195i
+3e7ZCVjj7ILPF3eyaqF3Z4l1dXpYsfSkYx8cW0zNgnZXpVoHuNJrlQvpXKMIRFD2ielsHFMsgFEA
+rvmz1K0TmaKMc1lXgwnIgY3OCcbfst4oF4rl+1JSQN3ZDaJkwHOtmFNwYIMUvVJSNpUuFSS75bkW
+oKbOSaNYyAfYlcVPX6pW+1aLYs6NNw6YuvqFhFzdX7V/fvvZGtQ9+lp1LkvutX6Jqfy4hHiNXHYu
+cXH30l7K09Nc9+f/IrfKbs9zTWPUllav2+/nPPlk7ZLPQqVOf466Qm0++YQAhixVFm3Os3Est0Yn
+0P3UCeJOaXeV7puf8ZaxjaHXYhHfY/AqMme+PyeKtT1Ex+lv586GjM0UC6ATgAjDnM3XmSEz0gCL
+oKM8csI2Sn+Iiy4MgmOKd+m1tK3eGKdrcQRy91y7fuNC4Xo08jbJne251WYgc3VUtdeoHOk1SP8R
+LXCoTqOhW7Vas+JSengsWc28C8ElRGG3M5PptEU/DCifjyhuiuMKBbac3ZrBDmR7ZtHSK8yOnCuZ
+oDwuzKUrUCn1Mxcr/xb93rrNOhVdrqaqDS8W5k4g5zpB0LW7SuSP9lqR8wie2UbXa4+dqHtbXiwM
+vcAUOhnfPYmlZHaipwjMAhhTAX76nXQ8dxq0PgiwDdFMcVuvrYr6GY8NWjW7nVHJnE0uDpyAtHOC
+bl54roVcfGCZAy2Kxbp1bjipTvlDGWfXqvYaWQTQXL2ARMpqpxbQdTaHWUFNjlPJauZdCGpWu3fO
+ytQFa3fyXYCXmSMAd2e5NUq8CIYtZxcgzAjFLpOMoUWhxxmxsu7TuN2vAhkHsXY+l65AvVrNXbX3
+P9fmp13xUUL3wVdfwWgDYXu5NTqBnOsE4dv0M+uTvRa5Aetsw92BKTt2ou7t8Ak3f5y7QydQ/ruO
+E7CuwUit0zgWLICRAp6m35iCYvCKccyBQsRsyhqPZihBaQDnXGmGI8e21wLTeYVVUTYzXRzklEZf
+tRE55NYQoKlz0iicJP0y5QB5xcJVm44slOF9HOYtCkumVHpdC2Cw0E9jMdOi9IK6dY2BEqDru8Xi
+2aw+AugIhjjHrTtWdumyqQJwBuYBapnEzh9lGOWE1t3usIUYuAaoRXOY2lIS2qwD+YDpFoW1jdrD
+lhcC1U4/a1V7cHf0uMfmu17b3J87zF29NkKPzxCUBPnKG9P8ErMbVBjVHZy5C/d2cxGT2cu+fYMF
+Y9Nry2hzZOQsgO12DSZU6EXv0ugVd3QhNaMKvLrSa0uDWKwAx4Q2MOMuRvVaLIibiwXi0asZAI3W
+KPOydDaKkuZkQ5Sxk4dGMSYtt191lg8Z6cqa+3EetimRAMnjqN1axEYcgPai6VGBLJJzhlEsWvMI
+QC0K4FltYbbslqDMW6O2MLPulmwAcDGwiGh0eMCUhmc40bEF1ATGmVlw2tSMuxiObSYiTkOwzrHc
+iDN3F4FUROldswynQa8tXLX3P9c2hmsTO7DcGiloDvK+64m6XquUpQZAEOBIgbYM8KIRZa+VHOLR
+BtbcgVxHnEYA+JMCoBjhBGbY0kivIJMZcgorUHYHKw0taaTQagCQaOhRwEDU2cBqeOSXBr3SzMXH
+TwDEz6NtSEAcBCGOqaDugwwK0l9+ic8QtJBeRt4UrREcdHsCDHEI1GkEJ9fDoEDWfMxsFjmfbF89
+eC+gWJa/Qaq/SdLuMSb1+LdF+lsmuIivWmlnPKaWsFxpf7aRO7lP1KhLBmnNR3HnUbvlRaJzP3ny
+fLSf2Nyrc+7kmTvyVBjazT35q1UxyLMRw90+Ou6OfH1efvn6y5DFun6pVbqalbVirpkwPI5ZL3nN
+RiatUFYqVUb++uFGNlHr3qa1dmvNt1X0Wt1qvN+HhoIVVH2nxmYAPGv3J2/MtsuOMdrAunY1I4CD
+nsVILyQWwwBgYN40BU4WiEFECSoKgLTV5SYU0wksSDn0KFm7udfKEZBc6rUC4DjGATNjdtFrf8Ho
+Y0u3i4LetuBFOQQ/f+OK62GNCKyLXKwUmEKn9nye1ofdly1ctaNtXkJbwKyPNMXYld8UMBcY5ZMX
+0o29/lDkpYuMF5+JjtSPQJYNp/IFM++UDwtLgbBlHGZHLAaIgtAjEMQC8DhgKJAGZxpkwSii3Dg+
+G4rNUIsDSxYDc+vMZAUlQDhjrIETBF4Y3qDdVsEHliKL2YdU7WSkbkS5D099nzXnsstBIExHAQHE
+7gbOJppxm/kCdb1WGWePsoGgva3Xyjwvlx58mdbGQq8owLCbOGktUD6JWYZAi08sDswA2CBAK86G
+XisxEZhxN06RO5ERoEdKzjQQ/NJrrQuAZk4/FSAAl7PLXYxtrwXGgZmiLnGz0fXaII0fIzCjRqQx
+nNBWARSXj5+k18o7+q1h77DgDk4QCDPUWywEqlqtWUVqXVUtF8sWZLUrJ1RvgbQjAGlmAE5FZBnN
+YwhKWSEwMwi7NbYAQi+AwMddnUgu3DjTrr0qIomjWhoLFTVsEwsa0IjIIjasCRvICqr4qVMY7+JU
+Q6yj9971lk6QzZYk6HpYAV42C+N134GXEgl+xZBzOPpmt2G8zRGOPgrT+QkBxO4GviZgaDNf6ey1
+SjltSNE2WneoqrUTlSne2zKvYwJaNjuBzHQdJ+xErxULjiAzgHxy5LDXllH1WuoCHgwRqWadVyIT
+jpScYQABx5hNLITBVjgR+xEeBFrwCChwFEBRBrpeKyIw5fWQIsTkLI265qLEZn77bALaaHz0ilwQ
+tEGBfVZEH9Rrw4HBNiUSDFVLmcR0035D4BnSUe5DxoV2scMBmU/eFZzqsZ/5N0sxC0AcBsQcBjUb
+2uwAhQl8HGTGTlAys1BWTJgVQJYWANECcUsgymBk4KpdzwAlTqNcEpcT52ANoqIGBMRhAcWOolZG
+tDsD0MJ5BtloDXLx81igQdxtCQGBWeQRASHIe6Z2XzkL43XfgVru0OpQtXGfNR/rXYzguE6dn5BB
+3U2L1wQD97pOVFBw13otENX2giAoqIjRMnBTr20ukode2IMg6nqtcPteSxpzBhMp7BVOENlGw0Tu
+DAqjzFXbZY1vei0oaUADilCngI5gQPDrr/kZgmnVa0sD4sh/87yuOUBSymQ2AW1gyyzQMHk7EQBf
+PLD4pr0WbsETV63yYt/tYPObk0jdQa8VyLvGScY8iIlrIOpZpDIgqAFkwZSKGAbhhEXhPAtIYgpg
+R46ICjSQQTxYsin7UtbkB7Emkg0CyppBjbMsma/tJIvJBMTCA2t6hRUVMSBA/jwzLRG6lwSgGLPK
+M9bCpDUIQElcDQnKbu3UzCy2BmwIuh5WgJfNwnrdd+CVP9lrmYvIi292G0avtRzwgBz3Wmyx9oPi
+sNdK19nkvWwDka+4t4H4559/iKuOIxAw2R7kNDopJ8qyMF17kKl7eq0ugS+ATCDYLg5Zu9Zry234
+E0ExRDvRKI97rbfjxDgUFwsLXF2vhY0rvVZh40ijfdVmYTUzYzIhHnst1g3qCQXKM4/w72N6Ld+N
+wbl4D5PvOOAcvrj6FV9866IvovKdCxGUCsvZr6EhjtQXhizFI41iEnch0gt8O2rs/3z9x9bkQ3qh
+VeLKI8nLFyFkKb3uMSiBZq1YjvOSLIWTN+TTW0FaU2aE5Vq7PHKFqjVCLFoJQ685GxGKgPJkoK3K
+mnL8a7ALq+iTSZ7wKq0Y4ssDaedR1squsLmrc14x+a3Kae/GqqZfOYub5kKvRYuLHhd366bX/oqq
+1XcknHQH8kbU7a122/Uodg387I1jcEcPwIwIB4ct39uQwQ9SvGuvhRnmwq1Uq/ASFyUGdzEKYA00
+GOwDym+NwnxVSwOAw3EIRMDQa4UZn2uhIUWii4I2MIIhfmqAGamz1ypD1OCo51ojrvZa2eh6LQQg
+cW+V2e56aNeASE4cgGMcMc9GXruvnMFKfOsxZyzjgCQMVet3V8Qpc4qUWM50nRgfAJARpy1mE4Mg
+DOL1vU5ElA0AKmLIBrEA/P3bb/aFBjAahguCNMxPYWJcR9z/z3/+Y0ewEMZE9pQg+qMhkCyN7iRC
+0ciU+UiBATs4EqcZZRVU479kzbrUEotmtKEZvcKsuopSWJ9TqnTiXipvB3eg7tgwI0bMPg7rsstd
+YjWENYs8oigE71u14W31WjmCI9vFULVdr43kTc+16LXQYnxyH8ex1wLAWGVAuOy1Sjk2u14buLjX
+IW9Vayeqanlve5D96nMtqhYR0QY06AGGX2xBIDFO4aZXcQn8TaSZYWp8E0qWvRZ8Iup6bUAjDmRE
+gM4GzGg4jrjgLMguVwJkdmXR2UU4yh0u1WGvJTpN4PEghhhwzMIyxh8LaRtKRGjBRAUor4cpBbDP
+wnxQr81L2PIVjsItRIhi+bvFfKnXGgA4NBkfmDAjX0QanVTpbcEmDmjKoAuAd8sRC3By1QJHAxgC
+cRbuxkFwTilPDJ3wUNXSDgTCkIgzCMqaZ9KyO8JQhF34MVQtgzWfiSocQakoEGeLKQgod5vKxFFW
+UCzsqXE49VXrZyhIY8hvTouCfnfvjdQUv3wpwICmOKjyUDjPtLFkKAR5S3j3xSd7lkbsIToO4huq
+1jc7zccljF4r9yMZB71Wu0gth3stZLDB/NdzLfQBwM7Ya9325MhvuINAQUUMJQGTw14rA8LQbfnh
+2nevZaBBxIY/VO21XgsmOMF4xUkW9CjlpIi+KhziMBAHUZk4+kMKe6XTYa/tEUFBmhgwRcHfzEmM
+C722Z7jYaxuITrQFJ6NRX49CHPVa7Ebis6B0FV59zPvJvEoKfUcyWLU4lZtIFnE4lUxQpg66vHAA
+VPQQs2Q1rDTgqIgBgCa/liOGhx8o2vCFBjDkBGd2uFn0WhhytR1WLVlAO4DMYmt1Esju2BJ27eaA
+G9zhDsIZoOQSiDNtEVeDcvVamaodzwTw0T5X1XpWIFkrFruN04AZryW2SoOzwi5bbXfJUAg+pGrT
+iN2MbsCr7HsZLrIFIVl0CSf/jhFkGMoIb0xmEwCFSA1ssWLBpCdKwhuO97Z0fX+wBYlf3S/aXqta
+ONP1WliC+qbXqiXRKIaqlpxQ5Ahns9fCNEFqpZwJA3eYG0Apwxh6LQVDr6UAuUIR4aTYcIyeJRay
+Rna7ZgAov3NhBxiaQhOjLmRtjG0PGAqcNkD//m19ri2fwUIvyNlVbVzzHrTptWCgO6CwV3OvhZhx
+MIj84CXmrz90V4fkkdNwCpn4HUNlazcRYoGYAck5w4AuAFW13IRYxcIPAcwy4KgYZZ3f62CALIMj
+7JEYgJSuMFjnELtX8kMVkP0D8ZAEuAFEa/KUDPRHcQnEeDGw4C6GAAmCAFsAkAUjILxBhqqN/iZQ
+URhaJxGRCbIy4Jnc8ZGmMO2rNvJXoLImA+X2gLG1cqJm1CisXOKumDjTLixxVPCxzDYYi5cf7Fka
+gSP0R712qFreZ/CMDgQo7u2AOo4LvdZFi3qJOxUaUGfW8VyLGXPQqnbfa5sus4TFXb02qtZeQLfr
+tfAKfjAatSTOMIBBuMwNZhIZQLctqF4rEHbQa1m2BMXoei2VWttLirnXqhl3PQECkNdA8IwDZpA7
+PFth8sayhcwguA0QrWlg80qvpZfDt08oUaMshiByR6yC/2a9Vu/G+I4DF8dvVvAwgC+k/uvv+OLb
+lHyzxXckwglBufZ5JIsQnImFb7V+89fflnGXX7JHTWHEpPcwejeUHMnwT+jJBo+yk3xCayUM39ZI
+yqPi6b2ot1qKgyh5UVyMV57Wbo9BPQVC/iTmN1hLLqIVLzFCMC+Ul13yJFOy8JyIjLLi+yXyKiZm
+SHyJqzdsxSKbibhmLe0WNv3IqIjQ7pghvNnH1zu/G/P9Gb1Wd5buTf4YfFOv1a2H49prIYw2yu/u
+GF2vpSV8AKA72t0YvYLdQD1UnS00igKPxqEXHd+9FhRy2xpeYJffFdSSFNEv8cTzu70gLkDxXCtH
+GAps4GgNYNhrZYoyIsJLnhsoP0MAXJiviDa+YxOGET0LLBhiYXa1xSNk43Ote622hOjanjxHHEwc
+iPa9lhTwQkbpASjQKJkhnLHmtpzQjBhqBE6ZpcDdOjFDrxXRBz3XRs5g0RHINp1GiKzaihQyJd7P
+nPR9GAYoFd6BOgs2RlxHgJQK1ozMGOHLDDEB2PIoCsywQydgQ+rEmA8WayFMd038mI6I+MQpJTI1
+a+WwiAxiXgSiwCCdKMCwSw2EzSwnJQ8CukhbWbW8m82FmXhIRGs4QeBdn2SGLBpi8u3OykWCcSST
+EXKbzKLgLgYWlAk0WqNc6JoJp/XokmUAkAX+YGYZBei37zl8qfO+a7az17ZI2aOYLIwAxXNtn1s3
+SlYUANihIBPLsv3KulRkAOAq8sZkKqOm2ZyowS0MbGFN9ECBHXogG9gkhUeQZ0sSBo5Ue1Cr/Z1e
+QIM2yKRPfCGAOsflXqt9A7iwXTzXgoZ8GCJir2VgGKGVvRYAsfDB17s4QanrtcHC9LuuOTt+rs3M
+AIDnWuGqavO5VhaxC6/yCtBVPM7Jbwd/a68FUwuegbE6G9GNvdb/XiJVHxp5CakcseQdg5Rc6bVK
+xXJkHkSkLeaVLBiYZc5azSBfzLWqljMMOeHLD8BQtX9jt2xwtyWwmwnkiJqPrlp+KgI9miFT+4nF
+OH3wSWYMYMgCEGYGyMu6cAQJgIlBNFU4KHKrZ2FeCMAWjjKW1gCFwLsCEEeKYVRmgLVB+UyYrgKZ
+oYtBvroCIoJHXWDECl0z4bSmS8k0+ywi45iy6702ijb/ic+A33nwJVx7ratW6YU/Y6/F7xgxD0oH
+Y1GjZB7gAIKVICslqvaw1/L6aYCOHUaJUtXe0Gthx8mKWWiAgo5g3NJrh2sCd9idLQMRLwCIIICY
+Q14y8gbqem0A/vmquxRx8UZFahhUuBNlHW3PVcv4AXKvlc8ATb1W33bI0gYirdyhNbzZmgFwGzO6
+GB4Q6qdtygKUvRYAXUs6QTQRMUsKreA2d4nNqn2w18a/Vf+Cqo2e4jDDZ//swhbZfOyeEOy9ToxF
+g1lvVcv4cPk8nFSR8wgojpV55gLDWRcfcYXA9cVu2eAucDxh1MwgADETEY55Bx31WmzLOvu+AKSE
+OpuAPDUR3CEUKyIwZA1Hf3/gLmIGkbiox91yBwDtkgkzajQi+wwzqng+ZHEmAFCIkosAACAASURB
+VIkwaBdKzQy/odmaAGOvlRnadGwCMZMgAjk9kA0cq2rpN01hCIQjL4fQdskZKigFu1775CMCvYRz
+2WvlIo5ffZHlIwX4j2FiwMErvTYB0S9cspHU6B/NAK42720moQ0+eSmhKraLvVY2oM6na1PG7MFe
+C11eOAw/fosWvvACwBpsQIQBf92zuKLpeq4VCCTVa1V6h72WUYdBHpdey7xE2XrCwJwanLBgNqtq
+//jjsNfSRwyZ6fwOpui1zWdU7abX/v1bXMG4WuEanFCGfF+DixT7quU/AP5Mq42/DeMtRVOwiKFA
+szXJR+0MVZs3nZMrLVxfDvA5WVW1mCF5+QwHQoBw5M0RNnxg1dKa+Djr6zp7LWxwCwM4TboZKMKN
+dIR2q9fKCWAMMgvMEAc34ooErTE4yZIv/4BhHApZoHBXYTMkkQHT9dqKSAZpFwaEqV5L3fJIABJh
+0GdsVe7++OMPGxOgs0Z2NXddAmZWICYJROqfdDQWmVDjLMOqMuSwsAUiVo6IsOag4HqvDcQzB/qW
+vVZGQ/Ir2wUHMx+vJ5dey9wrHboyfOhhHjAQC3Z4b4tEx6NeGx2dJmK419IPkIGBM9hJP37jvS0T
+7n5dr4VFfUfIyx+O0Cvs/PO///2vvAArr1sA2B1orZUS3cSal1AYGhVGRdT1LOoOvRa6iMTJY0yR
+m6nXomlFuN1h6bXco995H3W9lkYRqfLCoABdeq1+UYFxiAIYeoUFZYwerwgwwGTA3xd7LTUwLvRa
+Xg8RAXNLr41/w777t+sfKN/wB0apGtngFcTIp0BmL6qWm3QQA3AisNGSGjpT1fL6qVJ87JhAFixj
+1RKgBKhqozP3VTv2WhuV2/4RlwtQyFF7Ci+rannhhHE/okZXtBEUmYtILpEFQ1XiHkpdWeMMAwAE
+4bA5gwBcwNgamdsNQoCGfzuiZTcgNCc+1D7IyYIRhvJuZmpBcb3XAuBLAD56ICKT2QZOYOauDBhn
+2ey1WzMo7HPpRhVe/7z2yScEvnrDj7h8AYcvvqXLN3Z8m8svviv8G5iv2OEbSb25/PXrW+xwF487
+fj+J38ny/s+QfMVOsvDMdb5PpR3+tZ7esorlt0DIBzy2BQM+wjWHMHyHKBvy9A37pSEvySwviaYN
+6v7PPPRC1on6GXGIKX2oaPTG8r/wSu+n6REjIoPen8q2rMkLYb5+/SOsEce3qGSQtfQnM5tW6UXG
+Roxs6E23rKXP+a6ciMzub7D3hhWvE1l6a7+Gt/KbV5MYoeSVMi1PaUPXUjnJyKlBHnmlmqCk91m6
+jIOVhHGlhcYz7TMPtryjeOtVr8U9h/tx7LUE4WbqO1jXMKRBjAGAetu3uE645fViCvtrrxUmAeDU
+t1c74pbkext2wECLGMFGi77/3f3YSTCCKLTti5zgFlhwpPrUSeLbOsTCGMQoq2kFJEwL1JwIU2h9
+sMYplOAiMB5YMDXeDTAPh7227TIyuUOWMiUz7rWgpFO2UxnSlajggUmQyHyp4CmYGSUAmBnnWWVI
+rtMUtsDAay4i6+577auqNu4MeIEh28NzLbPm51onBU8wlVNrIA5GgAEWpGJ5rvXVCSsMGA+l3c2B
+bMDoULV8KB2qdn2uVZKJiyKPJ2GlUp7yKdWe6sLx2RkecBee6oMMxqyLAWg+tgoEjJ9rfXHDy3xA
+ZCh6ruUMQ6CvVbXySr7wKE+Z3cofZuNzrX4m6AD4zWKQmyUMxXNtX7VvoByqlhqyRiLsyigxqtp8
+rnVgcAI7upauWkdOjchQPI7LdVVtXg94BmvAkGJftfF/Rn6lF2+36FHeekqH/O7KCTHLR/ZaZy6C
+6DIfuZiq1slClB4kkg0ewWQWbCuvmCQgUknWoWrX51p6qyE3zVwXGJt0BKNd46Fqo3UBJCfcBMko
+F01ER8TiWACAzNZ0o3Jh0FS1XYLJDCJbEyWOdglEzLAwbTM6drlDO7LkiECmGfNlh+XS4rYuZYKA
+FRODohcRpC82dIkDgDO4ZJ91YhzYAsA+2yWIb6jabVluAPQIzuV9hwUTr48cHUuE0/daOIi7qnYN
+gC4jwBDLvtcqFSbCid3AZRuX/2KvbdmMN3TMYNSCWlL2pADxR20PXdmx1+oTxq7XwgnAyadrAhLm
+xnnB1lGvlTt+zmAcU9VGdgUisyjSrTh3vTayG12tEPo4BQwcAGAwV33VxvVAwQmD4z29FlyoWiYT
+NqtqHTmCX3ot49Dntbzg8gqpJsUNVZv/V3ib4ry4TY98SzEXbimwzUAwlDkHIv+YNgOwKwwBGI4A
+MxdLcOSBGaGRNgYzRgFBptAn62GvVZaMAwuH8k3uduG6YsOur7GcIAbe2hVYSycjZPIVEWYtoMS1
+i2trJBKIRFPVZinBYTLLFDyq4V5Lr0Dk5Gmb6NkdYpoZAhwbEiYGegUQrRULgfrjFNrRKJ+BE9oX
+m9kFhicMZYhc4BC067UwhUG3QbGv2md+EAv2cEk3Jg376lzotS1SBJG9VkEg0vy8NiJlAOwG/WD/
+GKr2TakojHutkkQG0A5Vy5u/7gzguqfrSFk+1zZP116rdm6Ae23viNtc1ZGaFiNSyUZcfdXm31u1
+CnCvZWCBy17rwC73WnoVoOy1zg1SgYvTfOaVohd//vknylWj67XcxiUF0VC1uh6sSd1Fkavm82Gv
+BRHhCRJDa2XqtfSKFuNG4vX4uKq1Xd6cvDoYLV9cMHq45bQpCgKEwzFy0fXausbmydNQtn2xNEDL
+kmj/xkWRJaz5cW5VLb2qLezKy3QT3jrf1Gy9dqpa5bvF2/iqapkbXTcmRe6oGvO51tcNIAA4DMJM
+qWmJ6/Iip3zsrNmUNoItWCr94U6Y6qs2aheXwb4oeGYIRGaJU1VtXPPyuflDhGzkSS71QRHc+Qy4
+uj8rYl+111/n9p24nwevDlEj1WsVJcIcbyuI485U4UYtdL0W2UCk+17LrPVVe9xrw6O4uuq1SpZy
++nWuWnqhLR7tpWskLlzXtESEwIZ084mS39voXIxNr/0DH8ViqBqpq48h6DWyZIr+AjM19AjQyq4B
+zXU/1xIXJRJOiEzWxl4LY/Sir9o3UP4BW7LkXqs0OjZdUtbk2GttBg+lcocIOEsb8hluMzBHjplx
+Q69V+fN67KtWb8e6Kuyn8X/7bEH8cli/6TljyEgxa3nNdiEH6TciwFBeW1NxxHpaurHXhsk4IKnM
+dZLEObKaj8VYLL2WHsAROftPqYencVMIIE953czfoEPVRlTokW23rgmDje32HA8m4/qqtTtVtQkC
+HOYRxMgCisai/KpxKbu6BPbZJ+0zIgxHjq2qWs9gCgBbA66LPgkjvz3ID8j8PQZg6I8c5hUCEy89
+Brbss0GDS8CpamklKuvaS4aDMixRX6jstNltUcw5fePAy+O3rzjiV2bfcL/F1x9v/PodXyn5ClR+
+/Qr5W0MQ9Xfo//qGP5oF6lesfwPn7wOG699jl7b4Re6y9HtokOkfe0Kv/h78+Bv6aYP6b29/BiuZ
+6au8pA/6oqf5pYjoBffIQhzj/xuyjDcjLkvkpEfi+SO8JIoRiIlHroQhQrmTT3/bq2KpmDO7b8Ek
+n8lChvKI1tJnsfwTXvyJ6IX709dDV0DZ5TFj51n515Uim3KVPqfH9Ehx/QqEroWiz8jFiT8KBoey
+mNecVfH7G/4PN3F+41/TXRpstpf2WnGqYhPHos25fucrbpVstLxdohlED8xe0P8cpdsq+wXx2WvZ
+Cob7ru7PgMV3Z97EMdgJZKlrt7jRfW9DgzMh7AfaZNmgDE3GzDi5ZR11ErEIOvZauOJ2YyKZiq6N
+WDTUbbq8KOTcbj+tg2KMCGRqXYQiYNpQY+RMpngsczI1s9R+dj8gLvRap7e6H03liF47+I0dWhMg
+fMknBH/rteqU6um5tqxFOV7ttVF9rQTn8q0NznJ1VLV8KO18xCOM42h59d9bMd5wMJ6jMhW8hqRw
+RSnxfI5q2cA8nquQ/ZZUPkcxXxgiIgK6HCGI3xITQH58rYsHDGRvUyrj6buqVp+FiMFH2gCLPdVv
+6A5V2z3XRqwRmOstOCKOvmr5UEqf4Q/IgcnkYQWZP0UGqFXtV7utqBhHBRYgMnBEGsjiHytA4qdj
+IsDCEbN8rgVACcb1YFy+izCZ/Q5KpVqm8oeEKGyS+MWinfjzz/BKK8al51q6hCGiG59rWahZjnPR
+dhu7qmWkSBcHvVJGOJOMR7UMZSSfhYjQUKRD1XIDRAb4hFBFQYMCKGUJ09X35cdi6bVKkrPEvpWa
+dDYufl+1fiCjDQ/Aq0RAVo6YSCEbY2eRm9TPiBixfdFFq6otS6raxLWqZa3RWpfdRiUQEaIRrnPZ
+1wm7BGFoRnR/jRxXVa3Ds99LYNr2lcYuc48BgRVlqXpy55ISYFyU4dO9Nh4huoeCw15rB+0jbiv4
+SC9aXnnfwTkGixn+Ton5sp84qdc69QGIN0TIZMPEva7qFgtvTLI0EBHQpU3M0LM449WI33nGfOy1
+wBz22lYAKG1SisFHCirf+MQXvvD2adEc9VoWSmPJjqMSgTH22iol4NwpwaqqzUapgoSpJbt9r6Ua
+AUPVJgW9ZVbwa15j1a69Vlehqjby375HoJPyKoDMgSGZtIyhawR1p0JSuk2oVvAAWUyvkABZoxf7
+qr32ewj52kwPvtWQ+76r51p4D6NRLbqzmLNWk5Gk/DCUkQIK5zpEi9T14qvDGDUct3A0pYE1WYAp
+gK1piwsBLK56axXQ3TrutfKCntY1SU/CVLEQNFWtb1RjDID5YuBMoThenGCJYwAxKMhc3TJDwF9/
+/YWguIsRaum4fYHYeZElgNJlIqTSiAjFIDPSCl/ks5pL3rNhKw6syQYiFxUxCgEWYHiJZIk7ANiG
+cNgxEXMgr4LmpqpdngruFDjCeIJs2YCD2Q3go8REGIwZfneemVIEPA69FrmAyB2nZSTudeYiR/ba
+RkSErFEfTnChZNmJVgG8dsC8oQJw8qjHP3uKX793Ktup67UBit9kgH45YQ9UJ8DwARGyYnBE9mXb
+a9Gz5E4+Ef3115Ld+Fe6AkXQUa8dIoc7DEzlD88x4nogs6gh5ZcXrPnMmjzqtQ6MBNVroQhXsNX1
+WjDNvbZ7YG8ZurXXXnmsvaWAlc92AyM4RsooWk36KurmIh6JNYYJlgZvvDZUUf7eRD7heFRGeQQt
+1rLUtVuJbYAaQIDBTnTXjnu//z5VbdeS6A0coflhQGnoo/QFAJmxp7QGkAMCAEoDCXGtaoHj1ecQ
+UfQ9RQ0Z1EVUVXvQa20rH/aZF1mEJd7KLfLOVF+1VPgTplrVMsHlM1k05iuVPud+XCPlDgwc3FFg
+5BOO8iEBwhCwf0KI7/v1zf+WOh0xTla+rrfto147VW3Xa+mqeq2vjiJlQ+GWhu915JUBx+h6LTAw
+7V7LvEAAJzgTizTin1QII2pJ0WubAVzcfNCyI6AMIl5R+3LYawUiUXOiqpZNSx4R4KdWCHz542MI
+u+OL6wZP7+H3hV5LKgGAGXstbJTDxCGwoWqhd9hrdY3gLwYbJXUjdn5X7Hot0gMAUZAbU71WLLg7
+3GvJguFei5ndrg9HGtFtvfZVVZs3MPxRlJk1O6ii0XVyyyACuxgMyZdQFQW0WbilIWg+AIgPO4Uz
+wCdtURUIHKUQz1J91bLXEoQhxaGNdp6KxbhyVun2hSsWWhOIVxYD5OXpwhLffsK+QbJGifwml1io
+qxZpliEwm8IWiYjQaO6Ah5eKzNhZem2rN7NSWy5RQ8PB0xQGZMbkPn0mJkuidezyCFAaAErPtF1s
+IHv/Xss/8MGDG464sfCFG/Irnmn9hR+GsdYOEfqbI/6t15/4OyWiiMdtjy98uBd/I0U2avwJTvzQ
+2b7491bEik1H7v6FL+ESkZxioBXipCEPaEN236CdNijhX7fpb56IoafcVTzC0Yti+Sf+3oqotCPr
+tEYGRpV/oZUs/Ksw5qVnwWcV8SVMRk4Zmb5GboShLiPOmBUX//5N1oj6AxqJkNeZe2KowUgzd7Kp
+6yGvxUnr1NY+OeVjWpJXdb21K59lJ6siWRR5/U0cflEBX/Jb1t5gb/93Y9c+QxgfBS6sonHhnvPN
+ibuI9+ZRNwAi7s6+8ej+5B2N+w67wZYfJJGIWxq+lW1HJ+zAEh/yMDPAJwio3wYVsOVGoeZGYqjz
+hCFF9lp5QWchw45JAhW4xuImsem1Mr1ngbXmb0akQMfEtZDzWy1ASl75zLzYYZwAsM9AyB2aElHZ
+/DNw2SQVvKMnlzPkiwQsRvmsXR7DWLIAQ10Z4QwjMM0l8OkBiVvA7XvthVq8XRwh6CEovu9k1eZD
+qR3UM46TH85Nz7V6TCIbQFCC90nBYBhpPFdFqnzgQxCvDrABEALK0heD0sXrAf/ygwzZgBI/Q8CJ
+I9TywdeeQsP6sgFYPNdG1Djg0sSHlJAbIDdpTWUCBJ/u0iN6Gk+tELTa58cQYT2r1pFTRqb2b7Zg
+TXf0GYJ9DoD+RUT1jgB9ZV6I0ADFXLW0odyR0p8hgEx/RcNcgYja2sZkeK51XA5M1vLz2sbSPdcG
+i5/Xq2q7D0cUG6vihqq98lsIN5VuVBmyzuTBsGxvem1LRfdcKwqmVpdQuWI1eohcV5HGOLDFfAGL
+mQE+Wb+dCMcWyFlxskHmunBSrIsLjG+f0RfgCiTWriGLhdYClB0HlporEVSxqPipJxAjwsCCMjK1
+gTVZsIsjAHn5AaC37SoIM1TtPb2WdjVorYZkvkZ2CjIAOochwJZrXyB6KhbOMIRJl7LVRmzA7as2
+Xnk99xlCJMv3IRPPCNQN6KkcxNH3HeMAyPe2IsARn28TEKnPYtn0WvzMCj3aghkRpRcwB1k5gQXt
+wgkbwEkY9lrsckAAwFCQ1NAmj3Rz6LUReTSYAkEDNLQGpgBEr4Viw2SvxS7vIP1BBY0LxOThPywo
+I1Mw8GyWBsjLj46PXVkTaOq1FZhuIxBf6rVgoV3F0XzmpOu1YSquaPMZDl/qtY3lsNeCixZFdFuv
+fU3VRpRxgG1knMOu1hbTrn7s5AOBmRz2z/iMQCCrA+BhoiCJgxRlrGsr5oN+OYEFVbCF42ijQDLg
+qnWPhMyO4FSOkEJDrB1ILLTWqpZ2oTsSQZYcGXJVLYOCBrlkgHwYZuG2vv8LoM08CpQIrDCAU2AV
+l+7rvEx2DhzwinY1ymfOJKvIaRHk2LE1a0GMXssFEe3zIODCmXCHcrlEPkBFRDMf0WuZB92YdBO2
+GUG1OQpjuNdyHg7Gcy1mWvMTRRAxguBjTt3mgOGwDex6oNcCJGuuWt7L5outrlHSLiigO9i40Gt9
+cS/1WlJggEwNv6tIuUkXG4Y9Co7BI91IXa8Vho2S3gnE5OE/haKqde6qag1gsDSlXqvZpV4rU84u
+yA97LfiAoy+Kgz634V5LojAV6+YzHO56rVjoN5iKgTMFRgZ/5CusiG7rtU9/hpBVFoF2VZs3seU4
+RaR5dXBZKgLOFJ8wBLEaKe/vT3IVDgvsEoeBmMehLeprUBfDBnACnDvQHRC8//OyNJAQNgAWADjk
+C8WmwCmshJkGoGiwRg3IoB40QUQZRgQTByzExSPdxmkGVNUS4AEQ/CAHZh7QLVMiShBwg/dgAYAD
+urXDmcQkGkDhbrvNAMIuMEQLN7KAVjt1Xzs24/a99qafuK6BfGf6Pqy8Zpuj7zHcLziH33/91fVa
+eoteix1EyRGAeNmOHSw43GuDy1fxsNcC6uir4UMgvWxasgHxYa/VZZEjGUdzpHMTiOu9NgD5w7gv
+Lr6HKJwMVh9DUIYhUNdrw+9wG7MBwCgho5ut1xINEGyQqPnM5LHYMIAVxr3WOP+cIT46Ao0gohUP
+X+OwR5ZYAySfYe1arw13IplBHm6r15Iv3Y7fhthWLX8Oe+5ThPx+ArscCLAFEcFKzKOi5UwgbisC
+zuS6MK5a9wBgOKjYBnGQQa+sBaqVrLbIrGFVG2jqS6/Vtc1mIhumsAEwFQsWFKeVjGgA0DQwo6dH
+LAUCFgsqapAPswFAm5DZlGZEFwgALDgK14jG5DkA4ayBk8W1W0SYcQBUgUnUXWlZozpAZpndYQAi
+MmBXtVG0T/36DF6YxBsTHfUehW+r9PaGb1VwS3YIzdEK/G5M+4XD0y3QfJfyF5gp1zsgvk/JdzPJ
+OFvj25t8k0MLxTDy9zb4bkxW5Ine9xCh93z9+yN6pTdE2heGb3PybZW8pX89gn5zJ/OS78Z6TL6F
+EuYrsGTNSPWOKfMijPyWpd/jDZ38IYqRE5W5I9NsTYj0qd5VEifbPGZueM78p5285uVP+itbvGLi
+yujzjd2cIa6VRb6h270bQ9W6cK89BFzdi/vE95huTt96vrm0hZ2uc+jWIw4zAHiP6W4rIu9ih7oY
+3qoTZNglDqNwmHE0sZbk5+CNjYEZ1IXJHhD78fgnANcCmQILDoiDIw7CkKlABuiEI0fziDYvscwg
+qXZHKNpnG8SenZVjZC4WzCjAEM5uY0HZyAQshnDc1SBGO941EU4ekJtI6hTLjgEgGi1B0DBEjjiw
+3NBrX1S18awGf1oQfLDCwtWIHT8V0ccA8YmSCCkBR4ohAj9SQszh5ygjcNKLLWdERN2jWMi7h1Lp
++YdaLkAJzPJcW1dWoIxDBqDUPd0FZzyfKxRgEE4XaAAiMOzYUzxtMxwMm6rn2gYan2uLEkpiSa9k
+AEd+dI0TaYOFAGeXMiSvWfMtGwixQaOea80Co9AzSwDy89pmMwLFlkhgLZ9rgVA1EmGWAE3Ptfrc
+yHwiuukzBP9xzdVuen0z7xXmBqOCgJsMVn5zS96NIACkZNwQQej37cK75sLJ+ZIpMmPQKIa2NOfR
+usomF4Ba3SAhfHENx5bIiQn6jIO4gcU4gKxbJ3llazgNRGWJNgaQt4oSswIQPtjAgszFghkFGNga
+AqNsZCJb8nFXgxjt1O5gc7RWW8oO1yAaLUGw4CCDAVvb9drrBXnTrh3I/mHb+sjRkSoBbkFcBGjq
+tbq3zSaWpddSV3kg7pZeW1mXRtdrZWPTa/XDOOPAoPnqeyRcnQDo5l4rBhzZo2TCVdv12sEmQKqA
+sdcCs++1zVqUNtwca0l/ywAm4MLmca8VgFy6YFlsIBt6rawxFc1nQLpeWwDOQCvcTb32psK8Cgrr
+CpPHSkXEcdxrCwRX5bBPiiUjxa4AxV9JHa0VLnTy6tKSBKawAZwgth/W0JZ76OiIWBYKgCAziy1B
+YN06QVbWgDsishNFZiJhF3dsTfLi46xMYVZbppCA1soUVxrYBc5KEBGTe3ktB6LOGqDeGk5mkTVy
+ycaAqaqltai3q3+je7Uib9l0jNlr5RyOXTdQEoiAq1wEaO21cNixYEYKnDCkjmPaaIKgkEXhiAgd
+X5PoJxJIqeuDEEN16bWVTWr4g08AZQAix2Hc3PDhbWdDIHslR3HMOLBLG3oo7d2O5HErR1BiIZ9J
+IY+cL+yw13oEKDupZfVDgQTAJMJMB722WXPh0guot8gjjgIhmd5qJ2r0gE/Ua50YnHoHkYwIFn4X
+wDPuaUBDej4x3oFIgIWBgsFa4TDjSAvZK0xBAxqFCXy7Y3I/3B5A5UXDEDRagqB2PYOsiAA3EXY5
+04lOFFOBhCURZgOGGpTPCR5AUu9ckoC6ZY0rDewWH0TG1K4AndECAUt5GzY9AEhUFA3axQbAB/fa
+3sGuG8j97DBYRS4Oe+0QqSksW3otnqOGxAPnrsbcxFb0E66yY2cfBBYyYDqKyGEHoN1qSUUBcZ/u
+jkF2kqKB6FV5Wr2WBjCq1zYQ/damjkGJqXzGZmY31HnNX9prGQcix3/2KNZ6p9eC9/Uo0Nxr4ZWv
+R8VFIvms7GSuIBPRhz3XwqJHHwE9tY+53c4tCn/rMQ6nhahkTTsn2BqIFl3vkr0xI1mXcNpyrS0g
+UZjJIGkMTjiCAnAGsgJhZnKfBCDzBZBMEz1gqAGZ1M21gCynFy1yyKhb1rhqw7taG+NNkY1MxYJZ
+WMmDTUO3MCSCPCFxNq5An6DXyic4y1u3dzB7LQOJMQOyoVgJdy5hWOmIU9fmEDN2lnubqQhym+a9
+3TvR99qQdzc/13OvBVfnZgA6J2hJTvByYFdHatQ1WXqtGiV1G2jstbBJXzAa5t5eC68qchGRwiNo
+83poF6LObawooAvdiHVy8Dw+1wJJRA/IK9hIOq+EoxfvX7V4aRfv4uBgvP9DqXVfiNy7nOVcb0mF
+k7yO4imO0kqM3jIeWZt1k0Wa0sh3h70PiZN+IbjOPb0/LR+ElS8jJnf6c77NTWS/l3Ny5z7PKa94
+e2+IoEahNJOHxTPvcz1bIlNqiFEshct170sypybPzJ2+creYhSNT7vGc2e5xuze6t3xIsMH4ton7
+Dvdju7O6bhA3Ktx9rtfq5t/32uYBJtFPZN5OVMcRruuUEUn0WsVEDVMA21i6OIAbGj4xajDOik5d
+0wqjc8+Kh1LqyiUc6bcpKMeFxpgB3DCoPddSJhvmaoA0SkRg9r3WFDhJiRSYmdJeFUi9lrstyUvk
+JLJ+nDqvRPQxvfZL7wNc6oOIYLFPVzUMLlBu5PkIYFlC2rlYNFt0DWgKnBiE06zuMkHG/QxBeIG4
+auMCC/drq2YQFxFmteOZiY9A2iJuZuGO9MfZEYvtiGUm4nWykijJh1FEWtMaZuayrECYtdwRcwSg
+zPrDCeIiev8nhKxa3lWdYbULytroelQ4mM9RFwHRcbDr8NxrIYA6lYYPACADjrduRX/UaytXwi29
+tgCykS2JqxhdHGGtY+D+fb1WGvGrDJg212mUWzkiu1gsAHmLHX+GQIUApdstnK6rCZMImXIysQUN
+siDdzZp9sRem9PUoUPXa5hU1ekAwNJdgp/NKuA/utYyzd5BzympA4IwUrnY1Y0SYDQDLCmrmAmlG
+HMYsHr0QZrRhDWzBRgFosMgG8wbhVADMiKmtmg1EwHnHlFh5tpBZ3k4L7T7FCwAAFNJJREFUQExt
+PyYDqJwYjA4Y+m0BZsCNu1gNBgaiVJTKHb3WlEVWRj+k10akcReV4aNei134SG8Dd7HXJiB7LTVi
++F6vRHVtDpTALPc2LVlbFHOWOopwrrv5qeB23VgwYQsyC05Dw5elpBAIssUr4fKIh1JPwaxBG7kd
+TlwCNBtJAWBQZKO0p0NXEyYRMlW9NhkiULljX5x/UoY/sTYiTvwMwQaFuRR5MnzDXhsRxKGPgPNl
+x4LCFWKYXQfU7jBbyL0LOWbcxanlSxe3J5C+s65FB5LA+AL1BF28Vre1AYSFd4fTjOlApTGAqC5H
+BqLOZ8DtgaDGDSxcQG6ZEEcA6y6nAeu8DF4NgEW9/CvcR/Va9ZMMPezP7aLvnAE47LWOShGMFLYB
+RIuva5SQYWe5twmVBpnRKOcsdRRE9Dc/l0Ovld3Rq6XXQoOK/ei6WlAsADZKkfvY2Rg0GigBLZwr
+vVaupNGBwosw310PiTu3iwJbWuAYlI0Pk/EFnRE9IJ0oCgfQQPTiA6q2OYBJs91NtG+BwbXda3fz
+C4ASH80WcoMgL3i7zJ2scIACkI+Zg+K8wJqjmDGzIDb6wwAyTvvcqdmAM4Fkw8IwygZnj0ALYLBR
+TDUDy4Ixs7ZqwdmAtbXB6AAYdWs1gD6uarsbUx6koAWW7SEF3b1N79XVOMMoCq0lSMoWYtcoIQOU
+93LbxSQ0ell3swvXUYSpeCiNWecEoY2liyNkE8MdvVYegPmw13o3TktXG52AH+61TSlz1QooI18Q
+EFQcLUpIk0IA7Di7mHE40MaHCXutNn3sKAKXTjRQChoLs/n+Vct3Ywine7uCaIev/q3Hipt1Z4T2
+e46RvV/NXLnXaydfLytc7XKWcp37deFmDFG1m7MRlYiUCpWr28/JLs+OWQqTsyP+Prbj/Z695pz1
+eL7tSjuF6hHjbq16zAe8G3Nzm+8qeKERdyWnKbBcvwGgm04iArhOQGjM67bJSdfmsALU3aCBZpvt
+mbMhOgraDgaeGyApmizdJIq4iaF6rVwCJimSMxpMLuj3vtcWWrPZid6LQKTNcJKHpaslIqm7OMqG
+N8ViDS5ko80MG3sthLONdEJ8OKbABMrm+/faL83eQxO5X6pzHmrnRTMYuMSkLXm0ggbFCyCKxV6z
+S9ZK3pRKdNOMNjSuwAHw7h57maZYgCHRBejwhHCEWXSPuD6uaue7arnNFkHc24wic0CKWmExc87r
+pcHsNXhvD9nsOkxsLTd/Gm2K6WYKRgawp0azMwumNXptg3oyIY4p4QCHVGaKZGiAJfJEpO2ZoTcq
+llljXuufE6JPMUA8IyK7aZDnxSt68XFV27ty3xwRlgLDrdW3mEXCD5z45o4tybgpV69x+1YWuqSx
+eCsBNy9slfjjqna+q5bbbBEc3ttDVDPnvH6k11ZuNJu9WLuBNVq6Zy9mhiXQRTAzvEscO7cXr14R
+By+fhszPkV7Mrr39Tp5rm7efZsKkfxpnnnfkY6N5jbXvrtcOl2m5U4ddLLbtYWZYGsxCsdeYEVsn
+FqMzw+LEXmNLsQC2glfEMVftbHReL4FGKp6tWv5zShr5/6mb63aeK+lc/4szMFftY6mI2nr830MY
+/n/KW52OEzu2v4tmxCvu7Tkrs415fXxv9yx7jRlxxtHy99jnzk2dE2bzuart/+E69tosV8xy/sYB
+U+fXmYGXZeDL25eoq6y3+85D1UI1S5VFm/N8yzB3oLWrzYizR7Ums03FnLs1uzPFXmNGzAyrjVlj
+XkejbEFxMiPm9QJ4ca9lvWelHlXt4Oy5ODPwRAaitz78XNv32l3V7u+iGfF57u0+wbOXazeYEWcc
+LX/bVMy5W7NLiueqNh8E+ETbV/DZa9t1OifvkIEnq9bPBPqnmbufxkCbTwvnc+22wSwNZek4W4pF
+YxHMFAtgK5gZFrcXwUK5pVg0FgEpnq3a0L9+eId77aT8d2fg46p2uWm2gu2N+WH3dl8jW7cXr844
+Wv62qdhn9+y1LZvn5LvKwNlrp8u13Oxze1gAW8HMsDTjRbBQbikWjUUwUyyArWBmWNxeBAvllmLR
+WASkeP+q5d+NIZzz68zAyzLwAX835ma23DRbwfbG/LB7u+/HW7cXr844Wv62qdhn92N6bX7y1Tw/
+J2cGnszA+z8hZNXu76IZsb0xl642M7zqvXef5MXGVnDG0fK3TcU2mS/4PYSo+d2huXxOzgy8JgNn
+r53yuNzsc3tYAFvBzLB8i1gEC+WWYtFYBDPFAtgKZobF7UWwUG4pFo1FQIqPq9qpOs7lmYGHM/Bx
+VbvcNFvB9sb8sHu7T+/W7cWrM46Wv20q9tk9e23L5jn5rjJw9trpci03+9weFsBWMDMszXgRLJRb
+ikVjEcwUC2ArmBkWtxfBQrmlWDQWASnev2rPd2O4mOfXSzNwvhs7e60zsHS1WbBtlD9Qr823DFN1
+nMszAw9n4P2fELJq5zt3uTEXwee5t/v0nnG0bGxTsQC2l3TRWAQf81ybVdtiPSdnBp7MwNlrpwQe
+3ts9ZgFsBdsGs3yXWSi3FIvGIpgpFsBWMDMsbi+ChXJLsWgsAlJ8XNX2V/6cnxl4JgMfV7XLTbMV
+bG/MD7u3+wxv3V68OuNo+dumYp/ds9e2bJ6T7yoDZ6+dLtdys8/tYQFsBTPD0owXwUK5pVg0FsFM
+sQC2gplhcXsRLJRbikVjEZDi46p2qo5zeWbg4Qy8f9XmG9393zzOiLftW8BZY17j5p++ZsS8nvF/
+fZ292GvMiJlhtTFrzOtXaMxe3G9jZniFV7MX83q1QS8+7o3uwzfWqXhmYMrA+/fafMuwPKBsBduH
+INyI45jX59+NVX7mbC652gpmhiX9i2Ch3FIsGouAFB9XtZW/c3Zm4LkMfFzVLjfNVrC9MT/s3u5z
+vHV78eqMo+Vvm4p9ds9e27J5Tr6rDJy9drpcy80+t4cFsBXMDEszXgQL5ZZi0VgEM8UC2ApmhsXt
+RbBQbikWjUVAio+r2qk6zuWZgYcz8HFVu9w0W8H2xvywe7tP79btxaszjpa/bSr22T17bcvmOfmu
+MvD+vfZ8N/Z53inh20D72r+FmhGfJ47z3dh31WROZyMD799rz3dj24e55Ul4ebrbUiwai2CmWABb
+wcywuL0IFsotxaKxCEjxcVV7tokzA6/KwMdV7XLTbAXbG/PD7u0+21u3F6/OOFr+tqnYZ/fstS2b
+5+S7ysDZa6fLtdzsc3tYAFvBzLA040WwUG4pFo1FMFMsgK1gZljcXgQL5ZZi0VgEpPi4qp2q41ye
+GXg4A61q/xOzpw7t/zkXLN3cvi03zVawvTE/7N7u07t1e/HqjKPlb5uKfXaHXvuf/zxbt/w/Ks/R
+z8+qbRft1lQs1+5FV7t3ZLGxFWydWO7XhXJLsWgsgrFqv3x5rm5Zslm2bf7TT29vP53jzMB7ZACl
+FZ32mXbbKtXVmxWc7fdrTvK8FbwlMs9bjQWwpVg0FsFMsQC2gpkB7yOnMQvm9ZctxaKxCGaKBbAV
+zAyfIA4U7Dv02unq3LdcsnSfOtGfguJTOPGCVHzCOJ5+rt312vtL7tQ4M7DJwDMPB6L2T2A/qXzn
+B4SN+XP7zMC3yYAKNaq2/Vz2bTw5rZ4ZODNwZuDMwJUM+Lmie7xwA7+iM20tFPjQhZCOc9JYlguF
+tW+nIDI+7Gnc0r2dIfwdKB6LY6B4KI6I5Lk4Bor742jGP+dE9YXr3dzTw3L/0qJtHU8WiiggXq4i
+PdZs0oWCScfu7RSGN8bUvZ0hLRbFg3GMUT8Sx5A4RXBvHD3F/XFUDj7lzMnIE+JTiA70Fp9TV3ly
+/WHxHEXo305hc9lUoCjd2xnS446C0T8QB3ttqDYXbvdiNEeeRhKzGy7ISnF3HDdY+cYQZ5Sn6DZ3
+ZykTq6y6asFi4tvCM5in9OJOijQX56ab0pu8SHBS0JfH4lDwUr6TQsar7mP9QDL7W+f+OG7K1zcE
+KSuRlvDi0Szp8joQkxbrLsADLyBKmp0294nl6M9j29H+lWOvKlg6kDtXlEuBs1TAWf9rkh0FNfO/
+ZHogjp6iCCn9IUaEl9/UEJHCHYPeBDpT6Ao9RUGH7rtWNMfRn+9jGFSL6+44Bi8eiqM3qXkvCdeu
+HRLMc4yYpDSF3/XZoSkwRVbH2yKbKdrakxtYmgqw9ZCBOrqZgsD2nyZ1vMGDXt1OUJ/T250oD6gn
+/Tu9ENyxlO4zTsiPu+KIwD/tQT0tLk3Ls4J0qHvPV4qUPEHRPNrbD4RN4sSlj9qJ4w2HleLROAYv
+VPK3pmJ1QvWbx4+J4wYrJ+TMwJmBMwNnBs4MnBk4M3Bm4MzAmYEzA2cGzgycGTgzcGbgzMCZgTMD
+ZwbODJwZODNwZuDMwJmBMwNnBs4MnBk4M3BmYM1A/PIHD+uWJFvAqvgvV1kTckpenIGf/tG4XLX/
+R+MiYHXop/9P4x6V/2nco/L/a9yj8n817lHBv9zCcYfKmpBvJoHXVxznVr89r8vtbGs9et6NXoVf
+3sPotmq6zjrc4EeH7CG9eKraBfbTVLUJ4FnzlDTWqWpbGNdUxqq9SWWuWvtxzcpQtcyvdK6pqGiz
+alMjQi/lFvrjE5EN+v3lHzb6RellPM1HOHn1l3zBP5goqt4A59xZd1OSu1qnNPV47kfb721f9LOh
+e4ovU69dtaeqbaZAp/mBytBraVe2r6kMVXubylS16dk1K2PVtkRcUxmq9ibHGu1mQrIatTqaFW6a
+ddm3Xqkz7/1qUo1d7KvKkb6YExQSrJsyJ7lred0bYcMI4cjBIX2zmUGy2GzTxhBKcjr5C8RNj7Fq
+CZlgY9WKUSizH6gMVUtDwYnDZZWham9TGas2PbtqZazaLjGXHTuu2mtW6P3huHz5gk7Xrkol0xYS
++WqPCwPFdsGwKZ7eOAGXBoPOwKk5kMUytXMnzjiklpj73XIHe9yIkfhEptTbAUywfGrIFCdUfMMT
+QsMWZqza5kmQJXxinp4QUueqylS1vi5XVYaqBVJeXFUZqxZBNnRLnFha/D9drFopEz6pNN2DydHl
+U63lTk+X5LnX1s1iSmhKc9Vumm7AFPTnUkgDNh4cA3XcEGmC50u7ZpAZWe/Yeq0e2cvJjbUrIAz1
+Tsf8zl6bpuwPKHqDZp+rtsAFl6y589NUtQWs2axyWLVli7NZZahaGi9QzmaVoWqRy64jXVBpQc2T
+C5dPNLpKSSnVXOHsbUr6kYiUjeU0x58on6UsyiSqc84IFqbShbUSEUwymqjEppp57FkWY89avJKa
+T0QdXRiLw2NVayo71IIy7VS1g/VLKkdVu7EyVq3qaaNyVLUblbFqESHw11UqueOMWqEck7p8kuel
+KnldTCJsNKbFK91+PUiyngrQzwQVI45h2eqYexYKwvQOpYTbmMdSsmkndgMRh9l+M9vUaLmsN3Gv
+GM2DF9y7gveI2CxA71/OZ+ZRpTEHa6x2VgjCf73mTkUad6m8l5U+e/2cEUVUcaidXkifanCl//qj
+aIxyXsRBdOpwnyuuLwxDdfHBgHU3H4mCInYHLYlxLDRnbYS4c0r8sY0pvdbN0rlpJm82pquTweaK
+lCmBNJfDK7JJHlBR8u6yAnPA36cSiblLJTTutNISwetDa2FRTLEHKUTe6eTKwsEx8EkbbJLYu6gF
+M9vXBL/ubHfvJHxM604jl+DK1KXdQ/m/XGXOSX/5+tT08lnnc6372+t2zx7Tup3/RL5rBrrL11et
+O+u7mj7JzwycGTgzcGbgzMCZgTMDZwbODJwZODNwZuDMwJmBMwNnBs4MnBk4M3Bm4MzAmYEzA2cG
+zgycGTgzcGbgzMCZgTMDZwbODJwZ4G/qDL+5k7/peZQaATu4dONIKX/dstg4T2yeizU3153CBGVw
+BnuxFfGRuxvKgT8WortH7R7sau+jJZO307LzhhdFv0nbCTGlxrFW7IRWaghHnjYMqnVs9hDPrQsg
+KTuGpupJMA7Ci2DRDFGldvx6MPZzTcKep5/LWI8s8zOuQ3VbnXQ0Y6IOWtSXZ4IPcV0Ga+dOCzu6
+d96fvJ2Wg3Hurfu8squU0JTm2ZK2JDlBFKRQ81UCQNtKLPUPRuLCftS3PXStN78aZ5nvnaHFtCoz
+NnzAyX3ZVZCDxf4eCwoIcDZbUEvXR+H7Yw9uuqQQT7Ilo85ik+dCrsfmJ72RRSt8jlMXYO88xBGd
+j5XKHp+R46ww+4TwwmbITkLgQ8oZwTEkyaUs5m4wemvEUTUlgaL7SSLi8ZigTg2ipMCsUxaWuzlS
+Io3S4r4MC0GWaZeI/K/bTRkZZEiSPoyeecD0Ko0g7SbP4kkkqLdrZLANcyyCDeH0+DD17Q92NZ1U
+Znjkhh3mKpYlSUAEwL2ji6WAyaLdAJujTpSKQUaMlcE4lpz1QbwH5lxmYjXPzeVcFTCpaWPAJxXP
+Gilpup0rQtUxHbKmkcnQdvtYpAyFthvK0rFmYOgsJqkbMkIlF7Lm6W2QDcmSRDwr3jzkLVtW+QQn
+Re0jvVf8inZIhZwlckysoKtckqCIdFWw3LEBC41tOKwDJKRBN9kdNVIzztqqY4ZxpEJZ/ieSWmnG
+Yw7N65jM2k8kz/4v8uzlCJqCFB7HuDCEUhJDk2kp9X4L86xwW+duU4vphBdJO45wGf/Gx9lhBQRp
+bNSuZrnLVUpSxnMv17yOFag0dZRUqOLUzd+ZCNjIr93iX1nLotV5KhjosBBp7GirsLVlPQLSiQ48
+cnaYoPKuLBdDrQtVu8kuCR3FLP6nHcsbt9jSdGEoqTCsVYLQz6V2p6O1xShPP8GxnMzAIdHVREhy
+1pLwtvDao1Ayng+RXdoUcGiW+sAg4xIlxO6IP6yRx7tyUqZLSsA8pJBqIuUR4YZQR2r5pkkTFiUy
+VPq9xAePdpMzVHmwlWHXdrUdhJJ0ckzDN4XbeWukdRu/cLJuRZpOmNna2l7ZW3PSChE8+ZJ2Ckn1
+bc/hqr1Kt51Beu5ETYE7KHueK5wVZsgtDQnnOUBJ0k6UkrBFCg5ChJQklCiaeEwU4m43UZ/yTGdb
+HLd5eCd8IH1GdyA6F//qDNx5e90JH1L7jO5AdC7ODJwZODNwZuDMwJmBMwNnBs4MnBk4M3Bm4MzA
+mYEzA2cGzgycGTgzcGbgzMC/KwP/DwpEbHlk0867AAAAAElFTkSuQmCC
+
+--Multipart=_Thu__17_Mar_2005_11_52_54_-0800_9sR8yt9M+8/Yn=Tn
+Content-Type: image/png;
+ name="frell_mini.png"
+Content-Disposition: attachment;
+ filename="frell_mini.png"
+Content-Transfer-Encoding: base64
+
+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
+
+--Multipart=_Thu__17_Mar_2005_11_52_54_-0800_9sR8yt9M+8/Yn=Tn
+Content-Type: text/plain;
+ name="ping.asc"
+Content-Disposition: attachment;
+ filename="ping.asc"
+Content-Transfer-Encoding: 7bit
+
+PING othermachine (10.0.0.2) 1492(1520) bytes of data.
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1 ttl=64 time=0.825 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=2 ttl=64 time=0.994 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=3 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=4 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=5 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=6 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=7 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=8 ttl=64 time=1.01 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=9 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=10 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=11 ttl=64 time=0.974 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=12 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=13 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=14 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=15 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=16 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=17 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=18 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=19 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=20 ttl=64 time=0.927 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=21 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=22 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=23 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=24 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=25 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=26 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=27 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=28 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=29 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=30 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=31 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=32 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=33 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=34 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=35 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=36 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=37 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=38 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=39 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=40 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=41 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=42 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=43 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=44 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=45 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=46 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=47 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=48 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=49 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=50 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=51 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=52 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=53 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=54 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=55 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=56 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=57 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=58 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=59 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=60 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=61 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=62 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=63 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=64 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=65 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=66 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=67 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=68 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=69 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=70 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=71 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=72 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=73 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=74 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=75 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=76 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=77 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=78 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=79 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=80 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=81 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=82 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=83 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=84 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=85 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=86 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=87 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=88 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=89 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=90 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=91 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=92 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=93 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=94 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=95 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=96 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=97 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=98 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=99 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=100 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=101 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=102 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=103 ttl=64 time=1.72 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=104 ttl=64 time=1.72 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=105 ttl=64 time=1.73 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=106 ttl=64 time=0.748 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=107 ttl=64 time=0.756 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=108 ttl=64 time=0.768 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=109 ttl=64 time=0.771 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=110 ttl=64 time=0.778 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=111 ttl=64 time=0.782 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=112 ttl=64 time=0.789 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=113 ttl=64 time=0.809 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=114 ttl=64 time=0.805 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=115 ttl=64 time=0.811 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=116 ttl=64 time=0.820 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=117 ttl=64 time=0.823 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=118 ttl=64 time=0.830 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=119 ttl=64 time=0.840 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=120 ttl=64 time=0.848 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=121 ttl=64 time=0.850 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=122 ttl=64 time=1.83 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=123 ttl=64 time=0.871 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=124 ttl=64 time=0.875 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=125 ttl=64 time=0.878 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=126 ttl=64 time=0.891 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=127 ttl=64 time=0.894 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=128 ttl=64 time=0.894 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=129 ttl=64 time=0.911 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=130 ttl=64 time=0.913 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=131 ttl=64 time=0.921 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=132 ttl=64 time=0.929 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=133 ttl=64 time=0.940 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=134 ttl=64 time=0.980 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=135 ttl=64 time=0.958 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=136 ttl=64 time=0.944 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=137 ttl=64 time=0.965 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=138 ttl=64 time=0.969 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=139 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=140 ttl=64 time=0.985 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=141 ttl=64 time=0.994 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=142 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=143 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=144 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=145 ttl=64 time=1.01 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=146 ttl=64 time=0.995 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=147 ttl=64 time=0.993 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=148 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=149 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=150 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=151 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=152 ttl=64 time=1.01 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=153 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=154 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=155 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=156 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=157 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=158 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=159 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=160 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=161 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=162 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=163 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=164 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=165 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=166 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=167 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=168 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=169 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=170 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=171 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=172 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=173 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=174 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=175 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=176 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=177 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=178 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=179 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=180 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=181 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=182 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=183 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=184 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=185 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=186 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=187 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=188 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=189 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=190 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=191 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=192 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=193 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=194 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=195 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=196 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=197 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=198 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=199 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=200 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=201 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=202 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=203 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=204 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=205 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=206 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=207 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=208 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=209 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=210 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=211 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=212 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=213 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=214 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=215 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=216 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=217 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=218 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=219 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=220 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=221 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=222 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=223 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=224 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=225 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=226 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=227 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=228 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=229 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=230 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=231 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=232 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=233 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=234 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=235 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=236 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=237 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=238 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=239 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=240 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=241 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=242 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=243 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=244 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=245 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=246 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=247 ttl=64 time=0.753 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=248 ttl=64 time=1.72 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=249 ttl=64 time=1.73 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=250 ttl=64 time=1.73 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=251 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=252 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=253 ttl=64 time=0.769 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=254 ttl=64 time=0.781 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=255 ttl=64 time=1.76 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=256 ttl=64 time=1.78 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=257 ttl=64 time=0.798 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=258 ttl=64 time=0.811 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=259 ttl=64 time=0.809 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=260 ttl=64 time=0.815 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=261 ttl=64 time=0.825 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=262 ttl=64 time=0.831 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=263 ttl=64 time=0.842 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=264 ttl=64 time=0.841 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=265 ttl=64 time=0.852 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=266 ttl=64 time=0.861 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=267 ttl=64 time=0.865 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=268 ttl=64 time=0.874 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=269 ttl=64 time=0.879 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=270 ttl=64 time=0.880 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=271 ttl=64 time=0.897 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=272 ttl=64 time=0.902 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=273 ttl=64 time=0.909 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=274 ttl=64 time=0.913 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=275 ttl=64 time=0.922 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=276 ttl=64 time=0.931 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=277 ttl=64 time=0.936 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=278 ttl=64 time=0.945 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=279 ttl=64 time=0.956 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=280 ttl=64 time=0.957 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=281 ttl=64 time=0.975 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=282 ttl=64 time=0.964 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=283 ttl=64 time=0.985 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=284 ttl=64 time=0.989 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=285 ttl=64 time=0.991 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=286 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=287 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=288 ttl=64 time=0.989 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=289 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=290 ttl=64 time=0.999 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=291 ttl=64 time=0.996 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=292 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=293 ttl=64 time=0.999 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=294 ttl=64 time=0.991 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=295 ttl=64 time=0.989 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=296 ttl=64 time=1.04 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=297 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=298 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=299 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=300 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=301 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=302 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=303 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=304 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=305 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=306 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=307 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=308 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=309 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=310 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=311 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=312 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=313 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=314 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=315 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=316 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=317 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=318 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=319 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=320 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=321 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=322 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=323 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=324 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=325 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=326 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=327 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=328 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=329 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=330 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=331 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=332 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=333 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=334 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=335 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=336 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=337 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=338 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=339 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=340 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=341 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=342 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=343 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=344 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=345 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=346 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=347 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=348 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=349 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=350 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=351 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=352 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=353 ttl=64 time=1.78 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=354 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=355 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=356 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=357 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=358 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=359 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=360 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=361 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=362 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=363 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=364 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=365 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=366 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=367 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=368 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=369 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=370 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=371 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=372 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=373 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=374 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=375 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=376 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=377 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=378 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=379 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=380 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=381 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=382 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=383 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=384 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=385 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=386 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=387 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=388 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=389 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=390 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=391 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=392 ttl=64 time=1.73 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=393 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=394 ttl=64 time=1.74 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=395 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=396 ttl=64 time=0.749 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=397 ttl=64 time=0.777 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=398 ttl=64 time=0.779 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=399 ttl=64 time=0.782 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=400 ttl=64 time=0.791 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=401 ttl=64 time=0.800 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=402 ttl=64 time=0.806 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=403 ttl=64 time=0.814 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=404 ttl=64 time=0.818 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=405 ttl=64 time=0.824 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=406 ttl=64 time=0.826 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=407 ttl=64 time=0.939 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=408 ttl=64 time=0.850 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=409 ttl=64 time=0.825 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=410 ttl=64 time=0.836 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=411 ttl=64 time=0.863 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=412 ttl=64 time=0.842 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=413 ttl=64 time=0.879 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=414 ttl=64 time=0.888 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=415 ttl=64 time=0.898 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=416 ttl=64 time=0.908 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=417 ttl=64 time=0.763 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=418 ttl=64 time=0.921 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=419 ttl=64 time=0.912 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=420 ttl=64 time=0.935 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=421 ttl=64 time=0.926 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=422 ttl=64 time=0.927 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=423 ttl=64 time=0.902 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=424 ttl=64 time=0.957 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=425 ttl=64 time=0.964 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=426 ttl=64 time=0.947 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=427 ttl=64 time=0.980 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=428 ttl=64 time=0.996 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=429 ttl=64 time=0.995 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=430 ttl=64 time=0.993 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=431 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=432 ttl=64 time=0.991 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=433 ttl=64 time=0.992 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=434 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=435 ttl=64 time=0.999 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=436 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=437 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=438 ttl=64 time=1.01 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=439 ttl=64 time=0.991 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=440 ttl=64 time=1.01 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=441 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=442 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=443 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=444 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=445 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=446 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=447 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=448 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=449 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=450 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=451 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=452 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=453 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=454 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=455 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=456 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=457 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=458 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=459 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=460 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=461 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=462 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=463 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=464 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=465 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=466 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=467 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=468 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=469 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=470 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=471 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=472 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=473 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=474 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=475 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=476 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=477 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=478 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=479 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=480 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=481 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=482 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=483 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=484 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=485 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=486 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=487 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=488 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=489 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=490 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=491 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=492 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=493 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=494 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=495 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=496 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=497 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=498 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=499 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=500 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=501 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=502 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=503 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=504 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=505 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=506 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=507 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=508 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=509 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=510 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=511 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=512 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=513 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=514 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=515 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=516 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=517 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=518 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=519 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=520 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=521 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=522 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=523 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=524 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=525 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=526 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=527 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=528 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=529 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=530 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=531 ttl=64 time=1.74 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=532 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=533 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=534 ttl=64 time=1.72 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=535 ttl=64 time=0.732 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=536 ttl=64 time=0.739 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=537 ttl=64 time=0.749 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=538 ttl=64 time=0.756 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=539 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=540 ttl=64 time=0.788 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=541 ttl=64 time=0.783 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=542 ttl=64 time=0.789 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=543 ttl=64 time=0.793 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=544 ttl=64 time=0.795 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=545 ttl=64 time=0.968 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=546 ttl=64 time=0.810 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=547 ttl=64 time=0.813 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=548 ttl=64 time=0.823 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=549 ttl=64 time=0.827 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=550 ttl=64 time=0.834 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=551 ttl=64 time=0.846 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=552 ttl=64 time=0.852 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=553 ttl=64 time=0.859 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=554 ttl=64 time=0.866 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=555 ttl=64 time=0.867 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=556 ttl=64 time=0.937 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=557 ttl=64 time=0.886 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=558 ttl=64 time=0.892 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=559 ttl=64 time=0.901 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=560 ttl=64 time=0.909 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=561 ttl=64 time=0.916 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=562 ttl=64 time=0.924 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=563 ttl=64 time=0.938 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=564 ttl=64 time=0.934 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=565 ttl=64 time=0.942 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=566 ttl=64 time=0.963 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=567 ttl=64 time=0.956 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=568 ttl=64 time=0.965 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=569 ttl=64 time=0.969 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=570 ttl=64 time=0.979 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=571 ttl=64 time=0.985 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=572 ttl=64 time=0.995 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=573 ttl=64 time=1.03 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=574 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=575 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=576 ttl=64 time=0.972 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=577 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=578 ttl=64 time=0.999 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=579 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=580 ttl=64 time=0.982 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=581 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=582 ttl=64 time=0.997 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=583 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=584 ttl=64 time=1.02 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=585 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=586 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=587 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=588 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=589 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=590 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=591 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=592 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=593 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=594 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=595 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=596 ttl=64 time=0.968 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=597 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=598 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=599 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=600 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=601 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=602 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=603 ttl=64 time=0.963 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=604 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=605 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=606 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=607 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=608 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=609 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=610 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=611 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=612 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=613 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=614 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=615 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=616 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=617 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=618 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=619 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=620 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=621 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=622 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=623 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=624 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=625 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=626 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=627 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=628 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=629 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=630 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=631 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=632 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=633 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=634 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=635 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=636 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=637 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=638 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=639 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=640 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=641 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=642 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=643 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=644 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=645 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=646 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=647 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=648 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=649 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=650 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=651 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=652 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=653 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=654 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=655 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=656 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=657 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=658 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=659 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=660 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=661 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=662 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=663 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=664 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=665 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=666 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=667 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=668 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=669 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=670 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=671 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=672 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=673 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=674 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=675 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=676 ttl=64 time=0.711 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=677 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=678 ttl=64 time=0.729 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=679 ttl=64 time=0.734 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=680 ttl=64 time=1.73 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=681 ttl=64 time=1.74 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=682 ttl=64 time=0.750 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=683 ttl=64 time=0.755 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=684 ttl=64 time=0.770 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=685 ttl=64 time=0.772 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=686 ttl=64 time=0.782 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=687 ttl=64 time=0.791 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=688 ttl=64 time=0.799 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=689 ttl=64 time=0.802 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=690 ttl=64 time=0.808 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=691 ttl=64 time=0.818 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=692 ttl=64 time=0.823 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=693 ttl=64 time=0.832 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=694 ttl=64 time=0.838 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=695 ttl=64 time=0.906 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=696 ttl=64 time=0.854 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=697 ttl=64 time=0.857 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=698 ttl=64 time=0.861 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=699 ttl=64 time=0.871 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=700 ttl=64 time=0.879 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=701 ttl=64 time=0.886 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=702 ttl=64 time=0.894 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=703 ttl=64 time=0.901 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=704 ttl=64 time=0.946 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=705 ttl=64 time=0.912 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=706 ttl=64 time=0.927 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=707 ttl=64 time=0.929 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=708 ttl=64 time=0.880 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=709 ttl=64 time=0.943 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=710 ttl=64 time=0.950 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=711 ttl=64 time=0.955 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=712 ttl=64 time=0.961 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=713 ttl=64 time=0.973 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=714 ttl=64 time=0.977 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=715 ttl=64 time=0.989 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=716 ttl=64 time=0.997 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=717 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=718 ttl=64 time=0.984 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=719 ttl=64 time=0.995 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=720 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=721 ttl=64 time=0.999 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=722 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=723 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=724 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=725 ttl=64 time=0.997 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=726 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=727 ttl=64 time=1.04 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=728 ttl=64 time=1.02 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=729 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=730 ttl=64 time=0.939 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=731 ttl=64 time=1.08 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=732 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=733 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=734 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=735 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=736 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=737 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=738 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=739 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=740 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=741 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=742 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=743 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=744 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=745 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=746 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=747 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=748 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=749 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=750 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=751 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=752 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=753 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=754 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=755 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=756 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=757 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=758 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=759 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=760 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=761 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=762 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=763 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=764 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=765 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=766 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=767 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=768 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=769 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=770 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=771 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=772 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=773 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=774 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=775 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=776 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=777 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=778 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=779 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=780 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=781 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=782 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=783 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=784 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=785 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=786 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=787 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=788 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=789 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=790 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=791 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=792 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=793 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=794 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=795 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=796 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=797 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=798 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=799 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=800 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=801 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=802 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=803 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=804 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=805 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=806 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=807 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=808 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=809 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=810 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=811 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=812 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=813 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=814 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=815 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=816 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=817 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=818 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=819 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=820 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=821 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=822 ttl=64 time=0.728 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=823 ttl=64 time=0.739 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=824 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=825 ttl=64 time=1.74 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=826 ttl=64 time=0.762 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=827 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=828 ttl=64 time=0.771 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=829 ttl=64 time=0.776 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=830 ttl=64 time=0.784 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=831 ttl=64 time=0.794 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=832 ttl=64 time=0.798 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=833 ttl=64 time=0.803 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=834 ttl=64 time=0.812 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=835 ttl=64 time=0.818 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=836 ttl=64 time=0.824 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=837 ttl=64 time=0.835 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=838 ttl=64 time=0.840 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=839 ttl=64 time=0.845 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=840 ttl=64 time=0.854 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=841 ttl=64 time=0.858 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=842 ttl=64 time=0.869 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=843 ttl=64 time=0.874 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=844 ttl=64 time=0.880 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=845 ttl=64 time=0.882 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=846 ttl=64 time=0.895 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=847 ttl=64 time=0.901 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=848 ttl=64 time=0.910 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=849 ttl=64 time=0.918 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=850 ttl=64 time=0.922 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=851 ttl=64 time=0.931 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=852 ttl=64 time=0.932 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=853 ttl=64 time=0.944 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=854 ttl=64 time=0.947 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=855 ttl=64 time=0.956 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=856 ttl=64 time=0.965 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=857 ttl=64 time=0.971 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=858 ttl=64 time=0.977 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=859 ttl=64 time=0.991 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=860 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=861 ttl=64 time=0.997 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=862 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=863 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=864 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=865 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=866 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=867 ttl=64 time=0.994 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=868 ttl=64 time=0.990 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=869 ttl=64 time=0.997 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=870 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=871 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=872 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=873 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=874 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=875 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=876 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=877 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=878 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=879 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=880 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=881 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=882 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=883 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=884 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=885 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=886 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=887 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=888 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=889 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=890 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=891 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=892 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=893 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=894 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=895 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=896 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=897 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=898 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=899 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=900 ttl=64 time=1.26 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=901 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=902 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=903 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=904 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=905 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=906 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=907 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=908 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=909 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=910 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=911 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=912 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=913 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=914 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=915 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=916 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=917 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=918 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=919 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=920 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=921 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=922 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=923 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=924 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=925 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=926 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=927 ttl=64 time=1.45 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=928 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=929 ttl=64 time=0.829 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=930 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=931 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=932 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=933 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=934 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=935 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=936 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=937 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=938 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=939 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=940 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=941 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=942 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=943 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=944 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=945 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=946 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=947 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=948 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=949 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=950 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=951 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=952 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=953 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=954 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=955 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=956 ttl=64 time=1.62 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=957 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=958 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=959 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=960 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=961 ttl=64 time=0.739 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=962 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=963 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=964 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=965 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=966 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=967 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=968 ttl=64 time=1.70 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=969 ttl=64 time=0.741 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=970 ttl=64 time=0.747 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=971 ttl=64 time=0.772 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=972 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=973 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=974 ttl=64 time=1.75 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=975 ttl=64 time=1.76 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=976 ttl=64 time=0.773 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=977 ttl=64 time=0.797 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=978 ttl=64 time=0.805 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=979 ttl=64 time=0.793 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=980 ttl=64 time=0.817 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=981 ttl=64 time=0.775 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=982 ttl=64 time=0.827 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=983 ttl=64 time=0.911 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=984 ttl=64 time=0.841 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=985 ttl=64 time=0.863 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=986 ttl=64 time=0.868 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=987 ttl=64 time=0.873 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=988 ttl=64 time=0.879 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=989 ttl=64 time=0.884 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=990 ttl=64 time=0.889 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=991 ttl=64 time=0.898 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=992 ttl=64 time=0.911 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=993 ttl=64 time=0.915 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=994 ttl=64 time=0.923 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=995 ttl=64 time=0.930 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=996 ttl=64 time=0.919 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=997 ttl=64 time=0.933 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=998 ttl=64 time=0.851 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=999 ttl=64 time=0.954 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1000 ttl=64 time=0.847 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1001 ttl=64 time=0.971 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1002 ttl=64 time=0.977 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1003 ttl=64 time=0.975 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1004 ttl=64 time=0.981 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1005 ttl=64 time=0.985 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1006 ttl=64 time=0.985 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1007 ttl=64 time=0.988 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1008 ttl=64 time=0.988 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1009 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1010 ttl=64 time=0.976 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1011 ttl=64 time=0.982 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1012 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1013 ttl=64 time=0.990 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1014 ttl=64 time=0.881 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1015 ttl=64 time=0.894 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1016 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1017 ttl=64 time=1.01 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1018 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1019 ttl=64 time=0.916 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1020 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1021 ttl=64 time=0.992 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1022 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1023 ttl=64 time=1.10 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1024 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1025 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1026 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1027 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1028 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1029 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1030 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1031 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1032 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1033 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1034 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1035 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1036 ttl=64 time=1.21 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1037 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1038 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1039 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1040 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1041 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1042 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1043 ttl=64 time=0.895 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1044 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1045 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1046 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1047 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1048 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1049 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1050 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1051 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1052 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1053 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1054 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1055 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1056 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1057 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1058 ttl=64 time=1.36 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1059 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1060 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1061 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1062 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1063 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1064 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1065 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1066 ttl=64 time=1.41 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1067 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1068 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1069 ttl=64 time=1.43 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1070 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1071 ttl=64 time=1.44 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1072 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1073 ttl=64 time=1.46 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1074 ttl=64 time=1.47 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1075 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1076 ttl=64 time=1.48 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1077 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1078 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1079 ttl=64 time=1.50 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1080 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1081 ttl=64 time=1.51 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1082 ttl=64 time=1.52 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1083 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1084 ttl=64 time=1.53 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1085 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1086 ttl=64 time=1.54 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1087 ttl=64 time=1.55 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1088 ttl=64 time=1.56 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1089 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1090 ttl=64 time=1.57 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1091 ttl=64 time=1.58 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1092 ttl=64 time=1.59 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1093 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1094 ttl=64 time=1.61 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1095 ttl=64 time=1.60 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1096 ttl=64 time=0.888 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1097 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1098 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1099 ttl=64 time=1.63 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1100 ttl=64 time=1.64 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1101 ttl=64 time=1.65 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1102 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1103 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1104 ttl=64 time=1.67 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1105 ttl=64 time=1.68 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1106 ttl=64 time=0.839 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1107 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1108 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1109 ttl=64 time=1.66 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1110 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1111 ttl=64 time=1.71 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1112 ttl=64 time=0.738 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1113 ttl=64 time=1.73 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1114 ttl=64 time=0.747 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1115 ttl=64 time=0.754 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1116 ttl=64 time=0.756 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1117 ttl=64 time=0.759 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1118 ttl=64 time=0.770 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1119 ttl=64 time=0.794 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1120 ttl=64 time=0.800 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1121 ttl=64 time=0.794 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1122 ttl=64 time=0.816 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1123 ttl=64 time=0.822 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1124 ttl=64 time=0.835 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1125 ttl=64 time=0.840 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1126 ttl=64 time=0.846 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1127 ttl=64 time=0.849 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1128 ttl=64 time=0.859 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1129 ttl=64 time=0.865 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1130 ttl=64 time=0.871 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1131 ttl=64 time=0.880 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1132 ttl=64 time=0.885 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1133 ttl=64 time=0.892 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1134 ttl=64 time=0.897 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1135 ttl=64 time=0.900 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1136 ttl=64 time=0.913 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1137 ttl=64 time=0.917 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1138 ttl=64 time=0.924 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1139 ttl=64 time=0.939 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1140 ttl=64 time=0.939 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1141 ttl=64 time=0.949 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1142 ttl=64 time=0.926 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1143 ttl=64 time=0.948 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1144 ttl=64 time=0.971 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1145 ttl=64 time=0.978 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1146 ttl=64 time=0.987 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1147 ttl=64 time=0.986 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1148 ttl=64 time=0.995 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1149 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1150 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1151 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1152 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1153 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1154 ttl=64 time=0.998 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1155 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1156 ttl=64 time=0.995 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1157 ttl=64 time=1.69 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1158 ttl=64 time=1.00 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1159 ttl=64 time=1.06 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1160 ttl=64 time=1.07 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1161 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1162 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1163 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1164 ttl=64 time=1.09 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1165 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1166 ttl=64 time=1.11 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1167 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1168 ttl=64 time=1.12 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1169 ttl=64 time=1.13 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1170 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1171 ttl=64 time=1.14 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1172 ttl=64 time=1.15 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1173 ttl=64 time=1.16 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1174 ttl=64 time=1.17 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1175 ttl=64 time=1.49 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1176 ttl=64 time=1.18 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1177 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1178 ttl=64 time=1.19 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1179 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1180 ttl=64 time=1.20 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1181 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1182 ttl=64 time=1.22 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1183 ttl=64 time=1.23 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1184 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1185 ttl=64 time=1.24 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1186 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1187 ttl=64 time=1.25 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1188 ttl=64 time=1.27 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1189 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1190 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1191 ttl=64 time=1.28 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1192 ttl=64 time=1.29 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1193 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1194 ttl=64 time=1.30 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1195 ttl=64 time=1.32 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1196 ttl=64 time=1.31 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1197 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1198 ttl=64 time=1.33 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1199 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1200 ttl=64 time=1.34 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1201 ttl=64 time=1.35 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1202 ttl=64 time=1.37 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1203 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1204 ttl=64 time=1.38 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1205 ttl=64 time=1.42 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1206 ttl=64 time=1.39 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1207 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1208 ttl=64 time=1.40 ms
+1500 bytes from othermachine (10.0.0.2): icmp_seq=1209 ttl=64 time=1.41 ms
+
+--- othermachine ping statistics ---
+1209 packets transmitted, 1209 received, 0% packet loss, time 123187ms
+rtt min/avg/max/mdev = 0.711/1.241/1.832/0.287 ms
+
+
+--Multipart=_Thu__17_Mar_2005_11_52_54_-0800_9sR8yt9M+8/Yn=Tn--
