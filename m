@@ -1,43 +1,98 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: Fw: Oops in 2.6.0-test[89] in tcp_v4_get_port (kernel with IPv6 enabled)
-Date: Fri, 31 Oct 2003 21:14:00 -0200
+From: Mark Huth <mhuth@mvista.com>
+Subject: Re: [IPX]: Fix checksum computation.
+Date: Fri, 31 Oct 2003 16:29:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031031231400.GV3705@conectiva.com.br>
-References: <20031031145542.28e8b820.akpm@osdl.org>
+Message-ID: <3FA2F069.4070005@mvista.com>
+References: <200310312006.h9VK62Hh005910@hera.kernel.org>	<1067635446.11564.92.camel@localhost.localdomain> <20031031132331.35a9aaca.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Raffaele Brancaleoni <raffaele.brancaleoni@sun.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Joe Perches <joe@perches.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20031031145542.28e8b820.akpm@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Fri, Oct 31, 2003 at 02:55:42PM -0800, Andrew Morton escreveu:
-> 
-> 
-> Begin forwarded message:
-> 
-> Date: Fri, 31 Oct 2003 12:30:06 +0100
-> From: Raffaele Brancaleoni <raffaele.brancaleoni@sun.com>
-> To: linux-kernel@vger.kernel.org
-> Subject: Oops in 2.6.0-test[89] in tcp_v4_get_port (kernel with IPv6 enabled)
-> 
-> 
-> Hello everyone,
-> 
-> I just encountered a oops with kernels 2.6.0-test8 and -test9 (system
-> freezes the hard way, not even magic-key works). Problem does not exist
-> in 2.4.20.
-> 
-> It looks to me its a regression (or has it ever been integrated?) of
-> bug 456 (from bugme.osdl.org) but I'm far from being an expert.
-> 
-> I can trigger it easily by running the test suite of mod_perl 1.99
-> (it crashes systematically at the very end of the tests).
 
-Ouch, it seems this one is a die hard, Rafaelle, could you please test it
-without IPv6?
 
-- Arnaldo
+David S. Miller wrote:
+
+>On Fri, 31 Oct 2003 13:24:06 -0800
+>Joe Perches <joe@perches.com> wrote:
+>
+>  
+>
+>>Why is this a "fix"?  Performance?
+>>It seems more like someone's idea of code neatening.
+>>    
+>>
+>
+>IPC checksums were being miscomputed in the original code,
+>we're as mystified as you are as to why it is that:
+>
+>	if (sum & 0x10000) {
+>		sum++;
+>		sum &= 0xffff;
+>	}
+>
+>works while:
+>
+>	sum = ((sym >> 16) + sum) & 0xffff;
+>
+>does not.  The theory was that it might be some x86 gcc bug,
+>but looking at the assembler diff Arnaldo Carvalho de Melo
+>(the appletalk maintainer) showed me between the before and
+>after:
+>
+Nah, they are different algorithms, as the assembler code clearly 
+demonstrates.  The above snippet is incomplete, with the crucial 
+multiply by 2 or the shift left omitted.  The assembler code reveals 
+this crucial piece of information.
+
+>
+> 	xorl	%eax, %eax
+>-	decl	%ecx
+> 	movb	(%ebx), %al
+>-	incl	%ebx
+> 	addl	%eax, %edx
+> 	addl	%edx, %edx
+>-	movl	%edx, %eax
+>-	shrl	$16, %eax
+>-	addl	%edx, %eax
+>
+The previous instruction adds 0, 1, or 2 to the checksum accumulation. 
+ That's because in the case where
+the byte added to the accumulation (addl %eax, %edx) causes the 16 bit 
+to set, then when multiplied by 2 (addl %edx, %edx) the 17 bit is set 
+and the 16 bit is clear.
+
+>-	movzwl	%ax,%edx
+>+	testl	$65536, %edx
+>+	je	.L982
+>
+This version adds one to the accumulation iff bit 16 is set following 
+the multiply.  The results are clearly different. This latter version 
+would be a correct implementation of  feedback shiftregister algorithm, 
+assuming that is what is being computed instead of a simple checksum. 
+ Not knowing the specification for the algorithm offhand, I can't say 
+which is correct.
+
+They will, however, _sometimes_ give the same results.  That probably 
+explains the rest of the comments in this thread.
+
+>+	incl	%edx
+>+	andl	$65535, %edx
+>+.L982:
+>+	decl	%ecx
+>+	incl	%ebx
+> 	cmpl	$-1, %ecx
+>
+>we still can't see what's wrong.
+>
+>He did confirm that the change in question makes IPX compute checksums
+>correctly.
+>
+>
+>
+>  
+>
