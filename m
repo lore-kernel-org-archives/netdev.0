@@ -1,42 +1,46 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Early SPECWeb99 results on 2.5.33 with TSO on e1000
-Date: Thu, 12 Sep 2002 10:18:37 -0700
+From: Boris Protopopov <borisp@mc.com>
+Subject: bonding vs 802.3ad/Cisco EtherChannel link agregation
+Date: Thu, 12 Sep 2002 14:39:11 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1031851117.3d80cc6d8c8e0@imap.linux.ibm.com>
-References: <Pine.LNX.4.44.0209120119580.25406-100000@gp>
+Message-ID: <3D80DF4F.5B218F19@mc.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@redhat.com>, "hadi@cyberus.ca" <hadi@cyberus.ca>,
-   "tcw@tempest.prismnet.com" <tcw@tempest.prismnet.com>,
-   "linux-kernel@vger.kernel.org" <linux-kernel@vger.kernel.org>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Todd Underwood <todd@osogrande.com>
-In-Reply-To: <Pine.LNX.4.44.0209120119580.25406-100000@gp>
+To: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Quoting Todd Underwood <todd@osogrande.com>:
+Hi, I got couple questions about bonding vs link agregation in GigE space. I may
+be doing something wrong on the user level, or there might be system-level
+issues I am not aware of. 
 
-> sorry for the late reply.  catching up on kernel mail.
+I am trying to increase bandwidth of GigE connecitons between boxes in my
+cluster by means of bonding or aggregating several GigE links together. The
+simplest setup that I have is two boxes with dual GigE e1000 cards connected to
+each other directly by means of crossover cables. The boxes are running Redhat
+7.3. I can successfully bond the links; however, I do not see any increase in
+Netpipe bandwidth as compared to the case of a single GigE link. My CPU
+utilization is around 20%, and I can get ~900Mbits/sec over a single link (MTU
+7500). With bonding, CPU utilization is marginally higher, and there is no
+increase (or some decrease) in Netpipe numbers. Looking at the ifconfig eth*
+statistics, I can see that the traffic is distributed evenly between the
+connections. The cards are plugged into 100Mhz PCI-X 64. Memory bw seems to be
+sufficient (estimated with "stream" to be ~ 1200MB/s). Can anybody offer an
+explanation ? 
 
-> the main different, though, is that general purpose kernel
-> development still focussed on the improvements in *sending* speed.
-> for real high performance networking, the improvements are necessary
-> in *receiving* cpu utilization, in our estimation. 
-> (see our analysis of interrupt overhead and the effect on receivers
-> at gigabit speeds--i hope that this has become common understanding
-> by now)
+Another question is about link agregation. Intel offers "teaming" option (with
+the driver and utils) for agregating the e1000 cards in EtherChannel- or 802.3ad
+- compatible way. From a few docs I could find that have any technical merit
+(802.3ad doc on order), it appears that there are some sort of Ethernet frame
+ordering restrictions that EtherChannel and 802.3ad impose on the traffic spread
+across the aggregated links. So, in my case, I can see (ifconfig statistics)
+that one link is always sending GigE frames, whereas the other clink is always
+receiving. Obviously, in this arrangement, Netpipe will not benefit from the
+aggregation. A response that I got from Intel customer support indicated that
+"this is how EtherChannel works". Can someone explain why there are some
+ordering restrictions ? If I am not mistaken, TCP/IP would handle out-of-order
+frames transparently because it is designed to do so.
 
-Some of that may be a byproduct of the "all the worlds' a webserver"
-mindset - we are primarily focussed on the server side (aka
-money side ;)), and there is some amount of automatic thinking that
-this means we're going to be sending data and receiving small packets,
-mostly acks) in return. There is much less emphasis given to solving
-the problems on the other side (active connection scalability for 
-instance), or other issues that manifest themselves as 
-client side bottlenecks for most applications..
-
-thanks,
-Nivedita
+Thanks in advance for your help,
+Boris Protopopov.
