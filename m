@@ -1,70 +1,57 @@
-From: Werner Almesberger <werner@almesberger.net>
+From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: TOE brain dump
-Date: Sat, 2 Aug 2003 15:06:00 -0300
+Date: Sat, 02 Aug 2003 15:08:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030802150600.F5798@almesberger.net>
+Message-ID: <3F2C0C44.6020002@pobox.com>
 References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Werner Almesberger <werner@almesberger.net>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Nivedita Singhvi <niv@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <3F2BF5C7.90400@us.ibm.com>; from niv@us.ibm.com on Sat, Aug 02, 2003 at 10:32:55AM -0700
+In-Reply-To: <3F2BF5C7.90400@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Nivedita Singhvi wrote:
-> Also, most profiles of networking applications show the
-> largest blip is essentially the user<->kernel transfer, and
-> that would still remain the unaddressed bottleneck.
+My own brain dump:
 
-I have some hope that sendfile plus a NUMA-like approach will be
-sufficient for keeping transfers away from buses and memory they
-don't need to touch.
+If one wants to go straight from disk to network, why is anyone 
+bothering to involve the host CPU and host memory bus at all?  Memory 
+bandwidth and PCI bus bandwidth are still bottlenecks, no much how much 
+of the net stack you offload.
 
-> The thing is, all the TOE efforts are propietary ones, to
-> my limited knowledge.
 
-Many companies default to "closed" designs if they're not given a
-convincing reason for going "open". The approach I've described
-may provide that reason.
+Regardless of how fast your network zooms packets, you've gotta keep 
+that pipeline full to make use of it.  And you've gotta do something 
+intelligent with it, which in TCP's case involves the host CPU quite a 
+bit.  TCP is sufficiently complex, for a reason.  It has to handle all 
+manner of disturbingly slow and disturbing fast net connections, all 
+jabbering at the same time.  TCP is a "one size fits all" solution, but 
+it doesn't work well for everyone.
 
-There are also historicial reasons, e.g. if you want to interface
-with the stack of Windows, or any proprietary Unix, you probably
-need to obtain some of their source under NDA, and use some of
-that information in your own drivers or firmware. Of course, none
-of this is an issue here.
+The "TCP Offload Everything" people really need to look at what data 
+your users want to push, at such high speeds.  It's obviously not over a 
+WAN...  so steer users away from TCP, to an IP protocol that is tuned 
+for your LAN needs, and more friendly to some sort of h/w offloading 
+solution.
 
-Since we're talking about 1-2 years of development time anyway,
-legacy hardware (i.e. hardware choices influenced by information
-obtained under an NDA) will be quite obsolete by then and doesn't
-matter.
+A "foo over ipv6" protocol that was designed for h/w offloading from the 
+start, would be a far better idea than full TCP offload will ever be.
 
-> Or is this not so needed?
+In any case, when you approach these high speeds, you really must take a 
+good look at the other end of the pipeline:  what are you serving at 
+10Gb/s, 20Gb/s, 40Gb/s?  For some time, I think the answer will be 
+"highly specialized stuff"  At some point, Intel networking gear will be 
+able to transfer more bits per second than there exist atoms on planet 
+Earth :)  Garbage in, garbage out.
 
-Exactly. The "NUMA" approach would avoid the "common TOE design"
-problem.
+So, fix the other end of the pipeline too, otherwise this fast network 
+stuff is flashly but pointless.  If you want to serve up data from disk, 
+then start creating PCI cards that have both Serial ATA and ethernet 
+connectors on them :)  Cut out the middleman of the host CPU and host 
+memory bus instead of offloading portions of TCP that do not need to be 
+offloaded.
 
-All you need is a reasonably well documented "general-purpose"
-CPU (that doesn't mean it has to be an off-the-shelf design, but
-most likely, the core would be an off-the-shelf one), plus some
-NIC hardware. Now, if that NIC in turn has some hidden secrets,
-this isn't an issue as long as one can still write a GPLed driver
-for it.
-
-Of course, there would be elements in such a system that vendors
-would like to keep secret. But then, there always are, and so far,
-we've found reasonable compromises most of the time, so I don't
-see why this couldn't happen here, too.
-
-Also, if "classical TOE" patches keep getting rejected, but an
-open and maintainable approach makes it into the mainstream
-kernel, also the business aspects should become fairly clear.
-
-- Werner
-
--- 
-  _________________________________________________________________________
- / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
-/_http://www.almesberger.net/____________________________________________/
+	Jeff
