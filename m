@@ -1,54 +1,34 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] tg3 locking update (with NAPI overtones)
-Date: Thu, 28 Nov 2002 11:12:52 +0100
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: RFC 3095
+Date: Thu, 28 Nov 2002 12:13:39 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15845.60452.201159.295984@robur.slu.se>
-References: <3DE406AE.2000908@pobox.com>
+Message-ID: <20021128111339.GA30530@outpost.ds9a.nl>
+References: <378C31E229CFD411B48B009027EE73C0013A6E21@fhpex002.dsto.defence.gov.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
-   Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3DE406AE.2000908@pobox.com>
+To: "Blackmore, Perry" <Perry.Blackmore@dsto.defence.gov.au>
+Content-Disposition: inline
+In-Reply-To: <378C31E229CFD411B48B009027EE73C0013A6E21@fhpex002.dsto.defence.gov.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Nov 28, 2002 at 01:13:17PM +1100, Blackmore, Perry wrote:
+> Guys,
+> 
+> Alan Cox has referred you to me.
+> 
+> Are you aware if RFC 3095 (Robust Header Compression) has been implemented
+> by anyone on the Linux platform?
 
+Haven't heard of it and probably would have. Looks interesting though, even
+if the RFC is very longwinded.
 
-Jeff Garzik writes:
+Regards,
 
- > * When net drivers move TX completion from interrupt to dev->poll(), 
- > this allows the rethinking of some traditional locking, namely 
- > eliminating a lock in dev->start_xmit() that most drivers implement 
- > these days.
+bert
 
- Yes. 
-
- > 
- > tg3_tx_timeout: net stack already holds dev->xmit_lock.  tx_lock GC'd.
- 
- For tx_timout and other timer/async work there may exist a scheduled poll 
- to which we have to sync. Something like this could be done. Ideas comes
- from dev->close.
-
- /*
-  *  Synchronize and disable poll
-  */
-
-  while (test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-
-      	  current->state = TASK_INTERRUPTIBLE;
-	  schedule_timeout(1);
-  }
-
-  .
-  .
-
- /* Enable */
-  clear_bit(__LINK_STATE_RX_SCHED, &dev->state);
-
-
- Cheers.
-						--ro
+-- 
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
