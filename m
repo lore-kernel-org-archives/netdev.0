@@ -1,42 +1,52 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: why are error messages suppressed if IP_RECVERR is not set?
-Date: Mon, 25 Aug 2003 11:08:43 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH] convering bonding driver /proc interface to seq_file
+Date: Mon, 25 Aug 2003 08:45:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F4A267B.1000405@nortelnetworks.com>
+Message-ID: <20030825084521.4e3e916c.shemminger@osdl.org>
+References: <E791C176A6139242A988ABA8B3D9B38A014C94C0@hasmsx403.iil.intel.com>
+	<Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "Hen, Shmulik" <shmulik.hen@intel.com>,
+   Chad Tindel <ctindel@users.sourceforge.net>,
+   Jay Vosburgh <fubar@us.ibm.com>, "David S. Miller" <davem@redhat.com>,
+   Jeff Garzik <jgarzik@pobox.com>, <bonding-devel@lists.sourceforge.net>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   netdev@oss.sgi.com
+To: James Morris <jmorris@intercode.com.au>
+In-Reply-To: <Mutt.LNX.4.44.0308250112470.21951-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 25 Aug 2003 01:15:13 +1000 (EST)
+James Morris <jmorris@intercode.com.au> wrote:
 
+> On Sat, 23 Aug 2003, Hen, Shmulik wrote:
+> 
+> > Also, instead of using a seq_file interface and using a
+> > pointer to skip to the relevant part, we've used a different
+> > proc creation interface that allows passing a pointer to bond
+> > and thus retrieve just the relevant bond device's data.
+> 
+> Can you provide a pointer to this code?
+> 
+> seq_file is the standard and preferred way to do this kind of thing.
 
-I'm tracking down an issue where we are sending udp packets and they are 
-being dropped (I suspect) in the device queue.
+Using a pointer with seq_file was really easy.
 
-In ip_build_xmit() we get the error code back saying that the packet was 
-dropped, but unless IP_RECVERR is set, it seems that this error is 
-hidden from userspace.
+init...
+	bond->bond_proc_file = create_proc_entry(dev->name,
+						 S_IRUGO, 
+						 bond_proc_dir);
+	if (bond->bonc_proc_file) {
+		bond->bond_proc_file->data = bond;
+		bond->bond_proc_file->proc_fops = &bond_info_fops;
+	}
 
-I notice that the man page says that sendto will never give an errno of 
-ENOBUFS, but if you turn on IP_RECVERR this is exactly what will happen.
-
-I guess I have two questions then: 1) why do we hide the fact that we've 
-dropped the packet, and 2) why doesn't the man page talk about the 
-IP_RECVERR option?
-
-I'm using 2.4.18, if it matters.
-
-Thanks,
-
-Chris
-
-
--- 
-Chris Friesen                    | MailStop: 043/33/F10
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+open...
+	rc = seq_open(file, &bond_info_seq_ops);
+	if (!rc) {
+		seq = file->private_data;
+		seq->private = PDE(inode)->data;
+	}
