@@ -1,53 +1,50 @@
 From: Ben Greear <greearb@candelatech.com>
 Subject: Re: NAPI-ized tulip patch against 2.4.20-rc1
-Date: Thu, 07 Nov 2002 13:25:54 -0800
+Date: Thu, 07 Nov 2002 15:29:46 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DCADA62.7000601@candelatech.com>
-References: <Pine.GSO.4.30.0211070823590.11358-100000@shell.cyberus.ca>	<Pine.LNX.4.44.0211071013150.31376-100000@grok.yi.org> <15818.55916.259489.688198@robur.slu.se>
+Message-ID: <3DCAF76A.9080409@candelatech.com>
+References: <Pine.LNX.4.44.0211061458310.13934-100000@beohost.scyld.com> <3DCA1152.7040002@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: Donald Becker <becker@scyld.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> greear@candelatech.com writes:
->  > On Thu, 7 Nov 2002, jamal wrote:
->  > > Trash the machines harder. Try using smaller packets;
->  > 
->  > They are already dropping packets, I thought I'd try to get a slower run 
->  > to work cleanly before trying something faster.  Precision is more
->  > important to me than absolute throughput at this point.
+Ben Greear wrote:
 > 
+> Here's an update of the tulip-NAPI and skb-recycle patches.  I made some
+> changes to get it to compile and work when the RECYCLE define in skbuff.h
+> was not enabled.
 > 
->  If you need excessive buffering this gives latency and jitter which is 
->  considered bad for network protocols and worse for test equipment.
+> I also got some test runs in.  Nothing really conclusive.
+> 
+> Test setup:  Phobos 4-port NIC in each P-IV 1.8Ghz machine 32/33 PCI bus.
+> Kernel 2.4.20-rc1 + my patches.  NICs connected to each other over CX 
+> cables.
+> Sending 4k 1514 byte packets per second, send + receive. (48Mbps or so)
+> RX ring size is 1024 for all of these tests.  No significant errors 
+> reported
+> by the driver.  I don't know where these dropped packets go..no counter
+> seems to be catching them.
 
-It depends on the goals of the test, but I agree in principle :)
+I changed to use smaller packets 757 bytes long, and to send/receive twice
+as many (8kpps).  Still running at 50Mbps or so.
 
->  
->  > Initial run with 256 sized rx-ring (and skb-recycle) shows better
->  > performance (than with 1024 rx-ring)
->  
->  Packet size? Expect eventual effects when there is very high pressure on 
->  the packet memory system. 
+rx-ring is 256, still using skb-recycling with 300 skb hotlist.
 
-Packet size has been 1514 for all my recent tests.
+Out of 57 million sent, dropped about 24k packets.  I also see about
+3k of Rx-Drops on each interface.  No other significant errors reported
+by the driver....
 
-For an extended 256 rx-ring run (4kpps send + rcv, 1514 byte packet, 4 ports),
-I see about 9k dropped packets per 55 million sent & received.
+Any ideas for what to try next?  What about upping the skb-hotlist to
+1024 or so?  Maybe also pre-load it with buffers to make it less likely we'll
+run low?  (Rx-Drops means it could not allocate a buffer, right?)
 
+Enjoy,
 Ben
-
-> 
->  
->  Cheers.
-> 					--ro
-> 
-
 
 -- 
 Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
