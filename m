@@ -1,10 +1,9 @@
 From: "chas williams (contractor)" <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [horizon] eliminate pci_find_device()
-Date: Thu, 21 Oct 2004 07:28:18 -0400
+Subject: [PATCH][ATM]: [firestream] remove dead code (from Francois Romieu <romieu@fr.zoreil.com>)
+Date: Thu, 21 Oct 2004 07:27:41 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410211128.i9LBSHjK008875@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: davem@redhat.com
+Message-ID: <200410211127.i9LBReF3008853@ginger.cmf.nrl.navy.mil>
+Cc: davem@redhat.com, romieu@fr.zoreil.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -19,451 +18,79 @@ Signed-off-by: Chas Williams <chas@cmf.nrl.navy.mil>
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/10/18 16:47:48-04:00 chas@relax.cmf.nrl.navy.mil 
-#   [ATM]: [horizon] eliminate pci_find_device()
+#   2004/10/18 16:33:47-04:00 chas@relax.cmf.nrl.navy.mil 
+#   [ATM]: [firestream] remove dead code (from Francois Romieu <romieu@fr.zoreil.com>)
 # 
-# drivers/atm/horizon.h
-#   2004/10/18 16:47:33-04:00 chas@relax.cmf.nrl.navy.mil +1 -1
-#   [ATM]: [horizon] eliminate pci_find_device()
+# drivers/atm/firestream.c
+#   2004/10/18 16:33:31-04:00 chas@relax.cmf.nrl.navy.mil +0 -59
+#   [ATM]: [firestream] remove dead code (from Francois Romieu <romieu@fr.zoreil.com>)
 # 
-# drivers/atm/horizon.c
-#   2004/10/18 16:47:33-04:00 chas@relax.cmf.nrl.navy.mil +161 -145
-#   [ATM]: [horizon] eliminate pci_find_device()
-# 
-diff -Nru a/drivers/atm/horizon.c b/drivers/atm/horizon.c
---- a/drivers/atm/horizon.c	2004-10-18 16:52:44 -04:00
-+++ b/drivers/atm/horizon.c	2004-10-18 16:52:44 -04:00
-@@ -354,8 +354,9 @@
+diff -Nru a/drivers/atm/firestream.c b/drivers/atm/firestream.c
+--- a/drivers/atm/firestream.c	2004-10-18 16:52:17 -04:00
++++ b/drivers/atm/firestream.c	2004-10-18 16:52:17 -04:00
+@@ -2013,65 +2013,6 @@
+ }
  
- /********** globals **********/
  
--static hrz_dev * hrz_devs = NULL;
--static struct timer_list housekeeping;
-+LIST_HEAD(hrz_devs);
-+static void do_housekeeping (unsigned long arg);
-+static struct timer_list housekeeping = TIMER_INITIALIZER(do_housekeeping, 0, 1);
- 
- static unsigned short debug = 0;
- static unsigned short vpi_bits = 0;
-@@ -1386,7 +1387,8 @@
- 
- static irqreturn_t interrupt_handler(int irq, void *dev_id,
- 					struct pt_regs *pt_regs) {
--  hrz_dev * dev = hrz_devs;
-+  hrz_dev * dev = NULL;
-+  struct list_head *p;
-   u32 int_source;
-   unsigned int irq_ok;
-   (void) pt_regs;
-@@ -1398,10 +1400,11 @@
-     return IRQ_NONE;
-   }
-   // Did one of our cards generate the interrupt?
--  while (dev) {
-+  list_for_each(p, &hrz_devs) {
-+    dev = list_entry(p, struct hrz_dev, entry);
-     if (dev == dev_id)
-       break;
--    dev = dev->prev;
-+    dev = NULL;
-   }
-   if (!dev) {
-     PRINTD (DBG_IRQ, "irq not for me: %d", irq);
-@@ -1470,17 +1473,18 @@
- 
- static void do_housekeeping (unsigned long arg) {
-   // just stats at the moment
--  hrz_dev * dev = hrz_devs;
-+  hrz_dev * dev;
-+  struct list_head *p;
-   (void) arg;
-   // data is set to zero at module unload
-   if (housekeeping.data) {
--    while (dev) {
-+    list_for_each(p, &hrz_devs) {
-+      dev = list_entry(p, struct hrz_dev, entry);
-       // collect device-specific (not driver/atm-linux) stats here
-       dev->tx_cell_count += rd_regw (dev, TX_CELL_COUNT_OFF);
-       dev->rx_cell_count += rd_regw (dev, RX_CELL_COUNT_OFF);
-       dev->hec_error_count += rd_regw (dev, HEC_ERROR_COUNT_OFF);
-       dev->unassigned_cell_count += rd_regw (dev, UNASSIGNED_CELL_COUNT_OFF);
--      dev = dev->prev;
-     }
-     set_timer (&housekeeping, HZ/10);
-   }
-@@ -2719,157 +2723,175 @@
-   .owner	= THIS_MODULE,
- };
- 
--static int __init hrz_probe (void) {
--  struct pci_dev * pci_dev;
--  int devs;
--  
--  PRINTD (DBG_FLOW, "hrz_probe");
--  
--  devs = 0;
--  pci_dev = NULL;
--  while ((pci_dev = pci_find_device
--	  (PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_HORIZON, pci_dev)
--	  )) {
--    hrz_dev * dev;
--    
--    // adapter slot free, read resources from PCI configuration space
--    u32 iobase = pci_resource_start (pci_dev, 0);
--    u32 * membase = bus_to_virt (pci_resource_start (pci_dev, 1));
--    u8 irq = pci_dev->irq;
--    
--    /* XXX DEV_LABEL is a guess */
--    if (!request_region (iobase, HRZ_IO_EXTENT, DEV_LABEL))
--  	  continue;
+-#if 0
+-int __init fs_detect(void)
+-{
+-	struct pci_dev  *pci_dev;
+-	int devs = 0;
 -
--    if (pci_enable_device (pci_dev))
--      continue;
--    
--    dev = kmalloc (sizeof(hrz_dev), GFP_KERNEL);
--    if (!dev) {
--      // perhaps we should be nice: deregister all adapters and abort?
--      PRINTD (DBG_ERR, "out of memory");
--      continue;
--    }
--    
--    memset (dev, 0, sizeof(hrz_dev));
--    
--    // grab IRQ and install handler - move this someplace more sensible
--    if (request_irq (irq,
--		     interrupt_handler,
--		     SA_SHIRQ, /* irqflags guess */
--		     DEV_LABEL, /* name guess */
--		     dev)) {
--      PRINTD (DBG_WARN, "request IRQ failed!");
--      // free_irq is at "endif"
--    } else {
--      
--      PRINTD (DBG_INFO, "found Madge ATM adapter (hrz) at: IO %x, IRQ %u, MEM %p",
--	      iobase, irq, membase);
--      
--      dev->atm_dev = atm_dev_register (DEV_LABEL, &hrz_ops, -1, NULL);
--      if (!(dev->atm_dev)) {
--	PRINTD (DBG_ERR, "failed to register Madge ATM adapter");
--      } else {
-+static int __devinit hrz_probe(struct pci_dev *pci_dev, const struct pci_device_id *pci_ent)
-+{
-+	hrz_dev * dev;
-+	int err = 0;
-+
-+	// adapter slot free, read resources from PCI configuration space
-+	u32 iobase = pci_resource_start (pci_dev, 0);
-+	u32 * membase = bus_to_virt (pci_resource_start (pci_dev, 1));
-+	u8 irq = pci_dev->irq;
- 	unsigned char lat;
+-	func_enter ();
+-	pci_dev = NULL;
+-	while ((pci_dev = pci_find_device(PCI_VENDOR_ID_FUJITSU_ME,
+-					  PCI_DEVICE_ID_FUJITSU_FS50, 
+-					  pci_dev))) {
+-		if (fs_register_and_init (pci_dev, &fs_pci_tbl[0]))
+-			break;
+-		devs++;
+-	}
+-
+-	while ((pci_dev = pci_find_device(PCI_VENDOR_ID_FUJITSU_ME,
+-					  PCI_DEVICE_ID_FUJITSU_FS155, 
+-					  pci_dev))) {
+-		if (fs_register_and_init (pci_dev, FS_IS155)) 
+-			break;
+-		devs++;
+-	}
+-	func_exit ();
+-	return devs;
+-}
+-#else
+-
+-#if 0
+-int __init init_PCI (void)
+-{ /* Begin init_PCI */
 -	
--	PRINTD (DBG_INFO, "registered Madge ATM adapter (no. %d) (%p) at %p",
--		dev->atm_dev->number, dev, dev->atm_dev);
-+
-+	PRINTD (DBG_FLOW, "hrz_probe");
-+
-+	/* XXX DEV_LABEL is a guess */
-+	if (!request_region(iobase, HRZ_IO_EXTENT, DEV_LABEL))
-+		return -EINVAL;
-+
-+	if (pci_enable_device(pci_dev)) {
-+		err = -EINVAL;
-+		goto out_release;
-+	}
-+
-+	dev = kmalloc(sizeof(hrz_dev), GFP_KERNEL);
-+	if (!dev) {
-+		// perhaps we should be nice: deregister all adapters and abort?
-+		PRINTD(DBG_ERR, "out of memory");
-+		err = -ENOMEM;
-+		goto out_disable;
-+	}
-+
-+	memset(dev, 0, sizeof(hrz_dev));
-+
-+	pci_set_drvdata(pci_dev, dev);
-+
-+	// grab IRQ and install handler - move this someplace more sensible
-+	if (request_irq(irq,
-+			interrupt_handler,
-+			SA_SHIRQ, /* irqflags guess */
-+			DEV_LABEL, /* name guess */
-+			dev)) {
-+		PRINTD(DBG_WARN, "request IRQ failed!");
-+		err = -EINVAL;
-+		goto out_free;
-+	}
-+
-+	PRINTD(DBG_INFO, "found Madge ATM adapter (hrz) at: IO %x, IRQ %u, MEM %p",
-+	       iobase, irq, membase);
-+
-+	dev->atm_dev = atm_dev_register(DEV_LABEL, &hrz_ops, -1, NULL);
-+	if (!(dev->atm_dev)) {
-+		PRINTD(DBG_ERR, "failed to register Madge ATM adapter");
-+		err = -EINVAL;
-+		goto out_free_irq;
-+	}
-+
-+	PRINTD(DBG_INFO, "registered Madge ATM adapter (no. %d) (%p) at %p",
-+	       dev->atm_dev->number, dev, dev->atm_dev);
- 	dev->atm_dev->dev_data = (void *) dev;
- 	dev->pci_dev = pci_dev; 
+-	int pci_count;
+-	printk ("init_PCI\n");
+-	/*
+-	  memset (&firestream_driver, 0, sizeof (firestream_driver));
+-	  firestream_driver.name = "firestream";
+-	  firestream_driver.id_table = firestream_pci_tbl;
+-	  firestream_driver.probe = fs_register_and_init;
+-	*/
+-	pci_count = pci_register_driver (&firestream_driver);
 -	
-+
- 	// enable bus master accesses
--	pci_set_master (pci_dev);
--	
-+	pci_set_master(pci_dev);
-+
- 	// frobnicate latency (upwards, usually)
--	pci_read_config_byte (pci_dev, PCI_LATENCY_TIMER, &lat);
-+	pci_read_config_byte(pci_dev, PCI_LATENCY_TIMER, &lat);
- 	if (pci_lat) {
--	  PRINTD (DBG_INFO, "%s PCI latency timer from %hu to %hu",
--		  "changing", lat, pci_lat);
--	  pci_write_config_byte (pci_dev, PCI_LATENCY_TIMER, pci_lat);
-+		PRINTD(DBG_INFO, "%s PCI latency timer from %hu to %hu",
-+		       "changing", lat, pci_lat);
-+		pci_write_config_byte(pci_dev, PCI_LATENCY_TIMER, pci_lat);
- 	} else if (lat < MIN_PCI_LATENCY) {
--	  PRINTK (KERN_INFO, "%s PCI latency timer from %hu to %hu",
--		  "increasing", lat, MIN_PCI_LATENCY);
--	  pci_write_config_byte (pci_dev, PCI_LATENCY_TIMER, MIN_PCI_LATENCY);
-+		PRINTK(KERN_INFO, "%s PCI latency timer from %hu to %hu",
-+		       "increasing", lat, MIN_PCI_LATENCY);
-+		pci_write_config_byte(pci_dev, PCI_LATENCY_TIMER, MIN_PCI_LATENCY);
- 	}
--	
-+
- 	dev->iobase = iobase;
- 	dev->irq = irq; 
- 	dev->membase = membase; 
--	
-+
- 	dev->rx_q_entry = dev->rx_q_reset = &memmap->rx_q_entries[0];
- 	dev->rx_q_wrap  = &memmap->rx_q_entries[RX_CHANS-1];
--	
-+
- 	// these next three are performance hacks
- 	dev->last_vc = -1;
- 	dev->tx_last = -1;
- 	dev->tx_idle = 0;
--	
-+
- 	dev->tx_regions = 0;
- 	dev->tx_bytes = 0;
- 	dev->tx_skb = NULL;
- 	dev->tx_iovec = NULL;
--	
-+
- 	dev->tx_cell_count = 0;
- 	dev->rx_cell_count = 0;
- 	dev->hec_error_count = 0;
- 	dev->unassigned_cell_count = 0;
--	
-+
- 	dev->noof_spare_buffers = 0;
--	
-+
- 	{
--	  unsigned int i;
--	  for (i = 0; i < TX_CHANS; ++i)
--	    dev->tx_channel_record[i] = -1;
-+		unsigned int i;
-+		for (i = 0; i < TX_CHANS; ++i)
-+			dev->tx_channel_record[i] = -1;
- 	}
--	
-+
- 	dev->flags = 0;
--	
-+
- 	// Allocate cell rates and remember ASIC version
- 	// Fibre: ATM_OC3_PCR = 1555200000/8/270*260/53 - 29/53
- 	// Copper: (WRONG) we want 6 into the above, close to 25Mb/s
- 	// Copper: (plagarise!) 25600000/8/270*260/53 - n/53
--	
--	if (hrz_init (dev)) {
--	  // to be really pedantic, this should be ATM_OC3c_PCR
--	  dev->tx_avail = ATM_OC3_PCR;
--	  dev->rx_avail = ATM_OC3_PCR;
--	  set_bit (ultra, &dev->flags); // NOT "|= ultra" !
-+
-+	if (hrz_init(dev)) {
-+		// to be really pedantic, this should be ATM_OC3c_PCR
-+		dev->tx_avail = ATM_OC3_PCR;
-+		dev->rx_avail = ATM_OC3_PCR;
-+		set_bit(ultra, &dev->flags); // NOT "|= ultra" !
- 	} else {
--	  dev->tx_avail = ((25600000/8)*26)/(27*53);
--	  dev->rx_avail = ((25600000/8)*26)/(27*53);
--	  PRINTD (DBG_WARN, "Buggy ASIC: no TX bus-mastering.");
-+		dev->tx_avail = ((25600000/8)*26)/(27*53);
-+		dev->rx_avail = ((25600000/8)*26)/(27*53);
-+		PRINTD(DBG_WARN, "Buggy ASIC: no TX bus-mastering.");
- 	}
--	
-+
- 	// rate changes spinlock
--	spin_lock_init (&dev->rate_lock);
--	
-+	spin_lock_init(&dev->rate_lock);
-+
- 	// on-board memory access spinlock; we want atomic reads and
- 	// writes to adapter memory (handles IRQ and SMP)
--	spin_lock_init (&dev->mem_lock);
--	
--	init_waitqueue_head (&dev->tx_queue);
--	
-+	spin_lock_init(&dev->mem_lock);
-+
-+	init_waitqueue_head(&dev->tx_queue);
-+
- 	// vpi in 0..4, vci in 6..10
- 	dev->atm_dev->ci_range.vpi_bits = vpi_bits;
- 	dev->atm_dev->ci_range.vci_bits = 10-vpi_bits;
--	
--	// update count and linked list
--	++devs;
--	dev->prev = hrz_devs;
--	hrz_devs = dev;
--	// success
--	continue;
--	
--	/* not currently reached */
--	atm_dev_deregister (dev->atm_dev);
--      } /* atm_dev_register */
--      free_irq (irq, dev);
--	
--    } /* request_irq */
--    kfree (dev);
--    release_region(iobase, HRZ_IO_EXTENT);
--  } /* kmalloc and while */
--  return devs;
-+
-+	// update linked list
-+	list_add_tail(&dev->entry, &hrz_devs);
-+
-+out:
-+	return err;
-+
-+out_free_irq:
-+	free_irq(dev->irq, dev);
-+out_free:
-+	kfree(dev);
-+out_disable:
-+	pci_disable_device(pci_dev);
-+out_release:
-+	release_region(iobase, HRZ_IO_EXTENT);
-+	goto out;
-+}
-+
-+static void __devexit hrz_remove_one(struct pci_dev *pci_dev)
-+{
-+	hrz_dev *dev;
-+
-+	dev = pci_get_drvdata(pci_dev);
-+
-+	list_del(&dev->entry);
-+    
-+	PRINTD(DBG_INFO, "closing %p (atm_dev = %p)", dev, dev->atm_dev);
-+	hrz_reset(dev);
-+	atm_dev_deregister(dev->atm_dev);
-+	free_irq(dev->irq, dev);
-+	release_region(dev->iobase, HRZ_IO_EXTENT);
-+	kfree(dev);
-+
-+	pci_disable_device(pci_dev);
- }
- 
- static void __init hrz_check_args (void) {
-@@ -2909,11 +2931,24 @@
- MODULE_PARM_DESC(max_rx_size, "maximum size of RX AAL5 frames");
- MODULE_PARM_DESC(pci_lat, "PCI latency in bus cycles");
- 
-+static struct pci_device_id hrz_pci_tbl[] = {
-+	{ PCI_VENDOR_ID_MADGE, PCI_DEVICE_ID_MADGE_HORIZON, PCI_ANY_ID, PCI_ANY_ID,
-+	  0, 0, 0 },
-+	{ 0, }
-+};
-+
-+static struct pci_driver hrz_driver = {
-+	.name =		"horizon",
-+	.probe =	hrz_probe,
-+	.remove =	__devexit_p(hrz_remove_one),
-+	.id_table =	hrz_pci_tbl,
-+};
-+
- /********** module entry **********/
- 
- static int __init hrz_module_init (void) {
--  int devs;
--  
-+  int err;
-+
-   // sanity check - cast is needed since printk does not support %Zu
-   if (sizeof(struct MEMMAP) != 128*1024/4) {
-     PRINTK (KERN_ERR, "Fix struct MEMMAP (is %lu fakewords).",
-@@ -2927,44 +2962,25 @@
-   hrz_check_args();
-   
-   // get the juice
--  devs = hrz_probe();
--  
--  if (devs) {
--    init_timer (&housekeeping);
--    housekeeping.function = do_housekeeping;
--    // paranoia
--    housekeeping.data = 1;
-+  err = pci_module_init(&hrz_driver);
-+  if (err == 0)
-     set_timer (&housekeeping, 0);
--  } else {
-+  else
-     PRINTK (KERN_ERR, "no (usable) adapters found");
--  }
--  
--  return devs ? 0 : -ENODEV;
-+
-+  return err;
- }
- 
- /********** module exit **********/
- 
- static void __exit hrz_module_exit (void) {
--  hrz_dev * dev;
-   PRINTD (DBG_FLOW, "cleanup_module");
-   
-   // paranoia
-   housekeeping.data = 0;
-   del_timer (&housekeeping);
-   
--  while (hrz_devs) {
--    dev = hrz_devs;
--    hrz_devs = dev->prev;
--    
--    PRINTD (DBG_INFO, "closing %p (atm_dev = %p)", dev, dev->atm_dev);
--    hrz_reset (dev);
--    atm_dev_deregister (dev->atm_dev);
--    free_irq (dev->irq, dev);
--    release_region (dev->iobase, HRZ_IO_EXTENT);
--    kfree (dev);
--  }
--  
--  return;
-+  return pci_unregister_driver(&hrz_driver);
- }
- 
- module_init(hrz_module_init);
-diff -Nru a/drivers/atm/horizon.h b/drivers/atm/horizon.h
---- a/drivers/atm/horizon.h	2004-10-18 16:52:44 -04:00
-+++ b/drivers/atm/horizon.h	2004-10-18 16:52:44 -04:00
-@@ -457,7 +457,7 @@
-   unsigned long    unassigned_cell_count;
- 
-   struct pci_dev * pci_dev;
--  struct hrz_dev * prev;
-+  struct list_head entry;
- };
- 
- typedef struct hrz_dev hrz_dev;
+-	if (pci_count <= 0) {
+-		pci_unregister_driver (&firestream_driver);
+-		pci_count = 0;
+-	}
+-
+-	return(pci_count);
+-
+-} /* End init_PCI */
+-#endif
+-#endif
+-
+-/*
+-#ifdef MODULE
+-#define firestream_init init_module
+-#endif 
+-*/
+-
+ static struct pci_device_id firestream_pci_tbl[] = {
+ 	{ PCI_VENDOR_ID_FUJITSU_ME, PCI_DEVICE_ID_FUJITSU_FS50, 
+ 	  PCI_ANY_ID, PCI_ANY_ID, 0, 0, FS_IS50},
