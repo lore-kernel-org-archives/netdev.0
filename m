@@ -1,29 +1,43 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] always set westwood rtt (trivial)
-Date: Mon, 8 Mar 2004 10:17:26 -0800
+From: Don Fry <brazilnut@us.ibm.com>
+Subject: [PATCH 2.4.26-pre2] netdevice.h: add netif_msg_init helper
+Date: Mon, 8 Mar 2004 11:10:46 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040308101726.4d08467a@dell_ss3.pdx.osdl.net>
+Message-ID: <200403081910.i28JAli10587@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It is faster just to update the rtt even if we never use it.
+Please apply the following patch to 2.4.26-pre2
 
-diff -Nru a/include/net/tcp.h b/include/net/tcp.h
---- a/include/net/tcp.h	Mon Mar  8 10:10:57 2004
-+++ b/include/net/tcp.h	Mon Mar  8 10:10:57 2004
-@@ -2030,8 +2030,7 @@
+This patch adds a helper function to initialize the debug bit mask
+for use with netif_msg_*.  When the debug_value is out of range
+it returns the default_msg_enable_bits.  Tested IA32.
+
+--- orig.linux-2.4.26-pre2/include/linux/netdevice.h	Wed Feb 18 05:36:32 2004
++++ linux-2.4.26-pre2/include/linux/netdevice.h	Mon Mar  8 10:10:23 2004
+@@ -732,6 +732,17 @@
+ #define netif_msg_hw(p)		((p)->msg_enable & NETIF_MSG_HW)
+ #define netif_msg_wol(p)	((p)->msg_enable & NETIF_MSG_WOL)
  
- static inline void tcp_westwood_update_rtt(struct tcp_opt *tp, __u32 rtt_seq)
- {
--        if (sysctl_tcp_westwood)
--                tp->westwood.rtt = rtt_seq;
-+	tp->westwood.rtt = rtt_seq;
- }
++static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
++{
++	/* use default */
++	if (debug_value < 0 || debug_value >= (sizeof(u32) * 8))
++		return default_msg_enable_bits;
++	if (debug_value == 0)	/* no output */
++		return 0;
++	/* set low N bits */
++	return (1 << debug_value) - 1;
++}
++
+ /* Schedule rx intr now? */
  
- void __tcp_westwood_fast_bw(struct sock *, struct sk_buff *);
+ static inline int netif_rx_schedule_prep(struct net_device *dev)
+
+-- 
+Don Fry
+brazilnut@us.ibm.com
