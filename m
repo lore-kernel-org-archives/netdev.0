@@ -1,218 +1,248 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.72] (1/3) PPPoE cleanup [TRIVIAL]
-Date: Fri, 20 Jun 2003 17:31:39 -0700
+Subject: [PATCH 2.5.72] (3/3) Convert PPPoE to new style protocol (redeux)
+Date: Fri, 20 Jun 2003 17:32:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030620173139.01f935c7.shemminger@osdl.org>
+Message-ID: <20030620173208.56a8a00c.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, mostrows@speakeasy.net
+Cc: mostrows@speakeasy.net, paulus@au.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>,
-   Michal Ostrowski
- <mostrows@styx.uwaterloo.ca>
+To: "David S. Miller" <davem@redhat.com>, Andi Kleen <ak@muc.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a cleanup patch, no change in functionality.
-  - Get rid of debug macro's that aren't used anywhere in the code.
-  - Make functions and data structures static where possible
-  - C99 initializer for ppoe_chan_ops
-  - fix whitespace typo
+This a redo of Andi's patch to support new style protocol for PPPoE,
+but without linearizing.  Basically, it pushes the pullup logic down into ppp_generic,
+where needed and adds a length check in the receive path.  For the normal case of PPPoE
+which is uncompressed, it should pass the non-linear socket buffer through to IP.
+But for the compressed cases, the skbuff is effectively linearized.
 
-diff -Nru a/drivers/net/pppoe.c b/drivers/net/pppoe.c
---- a/drivers/net/pppoe.c	Fri Jun 20 16:38:03 2003
-+++ b/drivers/net/pppoe.c	Fri Jun 20 16:38:03 2003
-@@ -77,27 +77,14 @@
+Tested on 8-way SMP server with one client.
+diff -urNp -X dontdiff linux-2.5-pppoe/drivers/net/ppp_generic.c pppoe-2.5/drivers/net/ppp_generic.c
+--- linux-2.5-pppoe/drivers/net/ppp_generic.c	2003-06-20 16:53:43.000000000 -0700
++++ pppoe-2.5/drivers/net/ppp_generic.c	2003-06-20 16:54:51.000000000 -0700
+@@ -1348,11 +1348,18 @@ ppp_input(struct ppp_channel *chan, stru
+ 	struct channel *pch = chan->ppp;
+ 	int proto;
  
- #include <asm/uaccess.h>
+-	if (pch == 0 || skb->len == 0) {
+-		kfree_skb(skb);
+-		return;
+-	}
++	if (pch == 0)
++		goto drop;
  
--static int __attribute__((unused)) pppoe_debug = 7;
- #define PPPOE_HASH_BITS 4
- #define PPPOE_HASH_SIZE (1<<PPPOE_HASH_BITS)
++	/* need to have PPP header */
++	if (!pskb_may_pull(skb, 2)) {
++		if (pch->ppp) {
++			++pch->ppp->stats.rx_length_errors;
++			ppp_receive_error(pch->ppp);
++		}
++		goto drop;
++	}
++	
+ 	proto = PPP_PROTO(skb);
+ 	read_lock_bh(&pch->upl);
+ 	if (pch->ppp == 0 || proto >= 0xc000 || proto == PPP_CCPFRAG) {
+@@ -1367,6 +1374,10 @@ ppp_input(struct ppp_channel *chan, stru
+ 		ppp_do_recv(pch->ppp, skb, pch);
+ 	}
+ 	read_unlock_bh(&pch->upl);
++	return;
++ drop:
++	kfree_skb(skb);
++	return;
+ }
  
--int pppoe_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
--int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb);
--int __pppoe_xmit(struct sock *sk, struct sk_buff *skb);
--
--struct proto_ops pppoe_ops;
--
--
--#if 0
--#define CHECKPTR(x,y) do { if (!(x) && pppoe_debug &7 ){ printk(KERN_CRIT "PPPoE Invalid pointer : %s , %p\n",#x,(x)); error=-EINVAL; goto y; }} while (0)
--#define DEBUG(s,args...) do { if( pppoe_debug & (s) ) printk(KERN_CRIT args ); } while (0)
--#else
--#define CHECKPTR(x,y) do { } while (0)
--#define DEBUG(s,args...) do { } while (0)
--#endif
--
--
-+static int pppoe_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
-+static int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb);
-+static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb);
- 
-+static struct proto_ops pppoe_ops;
- static rwlock_t pppoe_hash_lock = RW_LOCK_UNLOCKED;
- 
- 
-@@ -255,8 +242,7 @@
+ /* Put a 0-length skb in the receive queue as an error indication */
+@@ -1398,23 +1409,13 @@ ppp_input_error(struct ppp_channel *chan
+ static void
+ ppp_receive_frame(struct ppp *ppp, struct sk_buff *skb, struct channel *pch)
  {
- 	int hash;
- 
--	if (dev == NULL)
--		BUG();
-+	BUG_ON(dev == NULL);
- 
- 	read_lock_bh(&pppoe_hash_lock);
- 	for (hash = 0; hash < PPPOE_HASH_SIZE; hash++) {
-@@ -336,14 +322,12 @@
- };
- 
- 
+-	if (skb->len >= 2) {
+ #ifdef CONFIG_PPP_MULTILINK
+-		/* XXX do channel-level decompression here */
+-		if (PPP_PROTO(skb) == PPP_MP)
+-			ppp_receive_mp_frame(ppp, skb, pch);
+-		else
++	/* XXX do channel-level decompression here */
++	if (PPP_PROTO(skb) == PPP_MP)
++		ppp_receive_mp_frame(ppp, skb, pch);
++	else
+ #endif /* CONFIG_PPP_MULTILINK */
+-			ppp_receive_nonmp_frame(ppp, skb);
+-		return;
+-	}
 -
+-	if (skb->len > 0)
+-		/* note: a 0-length skb is used as an error indication */
+-		++ppp->stats.rx_length_errors;
 -
- /************************************************************************
-  *
-  * Do the real work of receiving a PPPoE Session frame.
-  *
-  ***********************************************************************/
--int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
-+static int pppoe_rcv_core(struct sock *sk, struct sk_buff *skb)
- {
- 	struct pppox_opt *po = pppox_sk(sk);
+-	kfree_skb(skb);
+-	ppp_receive_error(ppp);
++		ppp_receive_nonmp_frame(ppp, skb);
+ }
+ 
+ static void
+@@ -1446,7 +1447,8 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+ 		/* decompress VJ compressed packets */
+ 		if (ppp->vj == 0 || (ppp->flags & SC_REJ_COMP_TCP))
+ 			goto err;
+-		if (skb_tailroom(skb) < 124) {
++
++		if (skb_tailroom(skb) < 124 || skb_is_nonlinear(skb) ) {
+ 			/* copy to a new sk_buff with more tailroom */
+ 			ns = dev_alloc_skb(skb->len + 128);
+ 			if (ns == 0) {
+@@ -1474,6 +1476,13 @@ ppp_receive_nonmp_frame(struct ppp *ppp,
+ 	case PPP_VJC_UNCOMP:
+ 		if (ppp->vj == 0 || (ppp->flags & SC_REJ_COMP_TCP))
+ 			goto err;
++		
++		/* Until we fix the decompressor need to make sure
++		 * data portion is linear.
++		 */
++		if (!pskb_may_pull(skb, skb->len)) 
++			goto err;
++
+ 		if (slhc_remember(ppp->vj, skb->data + 2, skb->len - 2) <= 0) {
+ 			printk(KERN_ERR "PPP: VJ uncompressed error\n");
+ 			goto err;
+@@ -1551,6 +1560,12 @@ ppp_decompress_frame(struct ppp *ppp, st
+ 	struct sk_buff *ns;
+ 	int len;
+ 
++	/* Until we fix all the decompressor's need to make sure
++	 * data portion is linear.
++	 */
++	if (!pskb_may_pull(skb, skb->len))
++		goto err;
++
+ 	if (proto == PPP_COMP) {
+ 		ns = dev_alloc_skb(ppp->mru + PPP_HDRLEN);
+ 		if (ns == 0) {
+@@ -1603,7 +1618,7 @@ ppp_receive_mp_frame(struct ppp *ppp, st
+ 	struct list_head *l;
+ 	int mphdrlen = (ppp->flags & SC_MP_SHORTSEQ)? MPHDRLEN_SSN: MPHDRLEN;
+ 
+-	if (skb->len < mphdrlen + 1 || ppp->mrru == 0)
++	if (!pskb_may_pull(skb, mphdrlen + 1) || ppp->mrru == 0)
+ 		goto err;		/* no good, throw it away */
+ 
+ 	/* Decode sequence number and begin/end bits */
+@@ -2021,7 +2036,7 @@ ppp_ccp_peek(struct ppp *ppp, struct sk_
+ 	unsigned char *dp = skb->data + 2;
+ 	int len;
+ 
+-	if (skb->len < CCP_HDRLEN + 2
++	if (!pskb_may_pull(skb, CCP_HDRLEN + 2)
+ 	    || skb->len < (len = CCP_LENGTH(dp)) + 2)
+ 		return;		/* too short */
+ 
+@@ -2056,6 +2071,10 @@ ppp_ccp_peek(struct ppp *ppp, struct sk_
+ 	case CCP_CONFACK:
+ 		if ((ppp->flags & (SC_CCP_OPEN | SC_CCP_UP)) != SC_CCP_OPEN)
+ 			break;
++
++		if (!pskb_may_pull(skb, len))
++			break;
++
+ 		dp += CCP_HDRLEN;
+ 		len -= CCP_HDRLEN;
+ 		if (len < CCP_OPT_MINLEN || len < CCP_OPT_LENGTH(dp))
+diff -urNp -X dontdiff linux-2.5-pppoe/drivers/net/pppoe.c pppoe-2.5/drivers/net/pppoe.c
+--- linux-2.5-pppoe/drivers/net/pppoe.c	2003-06-20 17:14:14.000000000 -0700
++++ pppoe-2.5/drivers/net/pppoe.c	2003-06-20 17:16:10.000000000 -0700
+@@ -333,7 +333,11 @@ static int pppoe_rcv_core(struct sock *s
  	struct pppox_opt *relay_po = NULL;
-@@ -361,7 +345,7 @@
- 			goto abort_put;
  
+ 	if (sk->sk_state & PPPOX_BOUND) {
++		struct pppoe_hdr *ph = (struct pppoe_hdr *) skb->nh.raw;
++		int len = ntohs(ph->length);
  		skb_pull(skb, sizeof(struct pppoe_hdr));
--		if (!__pppoe_xmit( relay_po->sk , skb))
-+		if (!__pppoe_xmit( relay_po->sk, skb))
- 			goto abort_put;
- 	} else {
- 		sock_queue_rcv_skb(sk, skb);
-@@ -460,12 +444,12 @@
++		skb_trim(skb, len);
++
+ 		ppp_input(&po->chan, skb);
+ 	} else if (sk->sk_state & PPPOX_RELAY) {
+ 		relay_po = get_item_by_addr(&po->pppoe_relay);
+@@ -371,17 +375,22 @@ static int pppoe_rcv(struct sk_buff *skb
+ 		     struct packet_type *pt)
+ 
+ {
+-	struct pppoe_hdr *ph = (struct pppoe_hdr *) skb->nh.raw;
++	struct pppoe_hdr *ph;
+ 	struct pppox_opt *po;
+-	struct sock *sk ;
++	struct sock *sk;
+ 	int ret;
+ 
+-	po = get_item((unsigned long) ph->sid, skb->mac.ethernet->h_source);
++	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
++		goto drop;
+ 
+-	if (!po) {
+-		kfree_skb(skb);
+-		return NET_RX_DROP;
+-	}
++	if (!(skb = skb_share_check(skb, GFP_ATOMIC))) 
++		goto out;
++
++	ph = (struct pppoe_hdr *) skb->nh.raw;
++
++	po = get_item((unsigned long) ph->sid, skb->mac.ethernet->h_source);
++	if (!po) 
++		goto drop;
+ 
+ 	sk = po->sk;
+ 	bh_lock_sock(sk);
+@@ -398,6 +407,10 @@ static int pppoe_rcv(struct sk_buff *skb
+ 	sock_put(sk);
+ 
+ 	return ret;
++drop:
++	kfree_skb(skb);
++out:
++	return NET_RX_DROP;
+ }
+ 
+ /************************************************************************
+@@ -411,9 +424,16 @@ static int pppoe_disc_rcv(struct sk_buff
+ 			  struct packet_type *pt)
+ 
+ {
+-	struct pppoe_hdr *ph = (struct pppoe_hdr *) skb->nh.raw;
++	struct pppoe_hdr *ph;
+ 	struct pppox_opt *po;
+ 
++	if (!pskb_may_pull(skb, sizeof(struct pppoe_hdr)))
++		goto abort;
++
++	if (!(skb = skb_share_check(skb, GFP_ATOMIC))) 
++		goto out;
++
++	ph = (struct pppoe_hdr *) skb->nh.raw;
+ 	if (ph->code != PADT_CODE)
+ 		goto abort;
+ 
+@@ -441,17 +461,20 @@ static int pppoe_disc_rcv(struct sk_buff
+ 
+ abort:
+ 	kfree_skb(skb);
++out:
  	return NET_RX_SUCCESS; /* Lies... :-) */
  }
  
--struct packet_type pppoes_ptype = {
-+static struct packet_type pppoes_ptype = {
+ static struct packet_type pppoes_ptype = {
  	.type	= __constant_htons(ETH_P_PPP_SES),
  	.func	= pppoe_rcv,
++	.data   = (void *)1,
  };
  
--struct packet_type pppoed_ptype = {
-+static struct packet_type pppoed_ptype = {
+ static struct packet_type pppoed_ptype = {
  	.type	= __constant_htons(ETH_P_PPP_DISC),
  	.func	= pppoe_disc_rcv,
- };
-@@ -522,7 +506,7 @@
- 	goto out;
- }
- 
--int pppoe_release(struct socket *sock)
-+static int pppoe_release(struct socket *sock)
- {
- 	struct sock *sk = sock->sk;
- 	struct pppox_opt *po;
-@@ -559,7 +543,7 @@
- }
- 
- 
--int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
-+static int pppoe_connect(struct socket *sock, struct sockaddr *uservaddr,
- 		  int sockaddr_len, int flags)
- {
- 	struct sock *sk = sock->sk;
-@@ -648,7 +632,7 @@
- }
- 
- 
--int pppoe_getname(struct socket *sock, struct sockaddr *uaddr,
-+static int pppoe_getname(struct socket *sock, struct sockaddr *uaddr,
- 		  int *usockaddr_len, int peer)
- {
- 	int len = sizeof(struct sockaddr_pppox);
-@@ -667,7 +651,7 @@
- }
- 
- 
--int pppoe_ioctl(struct socket *sock, unsigned int cmd,
-+static int pppoe_ioctl(struct socket *sock, unsigned int cmd,
- 		unsigned long arg)
- {
- 	struct sock *sk = sock->sk;
-@@ -769,7 +753,7 @@
- }
- 
- 
--int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
-+static int pppoe_sendmsg(struct kiocb *iocb, struct socket *sock, struct msghdr *m,
- 		  int total_len)
- {
- 	struct sk_buff *skb = NULL;
-@@ -847,7 +831,7 @@
-  * xmit function for internal use.
-  *
-  ***********************************************************************/
--int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
-+static int __pppoe_xmit(struct sock *sk, struct sk_buff *skb)
- {
- 	struct pppox_opt *po = pppox_sk(sk);
- 	struct net_device *dev = po->pppoe_dev;
-@@ -921,16 +905,18 @@
-  * sends PPP frame over PPPoE socket
-  *
-  ***********************************************************************/
--int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb)
-+static int pppoe_xmit(struct ppp_channel *chan, struct sk_buff *skb)
- {
- 	struct sock *sk = (struct sock *) chan->private;
- 	return __pppoe_xmit(sk, skb);
- }
- 
- 
--struct ppp_channel_ops pppoe_chan_ops = { pppoe_xmit , NULL };
-+static struct ppp_channel_ops pppoe_chan_ops = { 
-+	.start_xmit = pppoe_xmit, 
-+};
- 
--int pppoe_recvmsg(struct kiocb *iocb, struct socket *sock,
-+static int pppoe_recvmsg(struct kiocb *iocb, struct socket *sock,
- 		  struct msghdr *m, int total_len, int flags)
- {
- 	struct sock *sk = sock->sk;
-@@ -1071,7 +1057,7 @@
- 
- /* ->ioctl are set at pppox_create */
- 
--struct proto_ops pppoe_ops = {
-+static struct proto_ops pppoe_ops = {
-     .family		= AF_PPPOX,
-     .owner		= THIS_MODULE,
-     .release		= pppoe_release,
-@@ -1090,14 +1076,14 @@
-     .mmap		= sock_no_mmap
++	.data   = (void *)1,
  };
  
--struct pppox_proto pppoe_proto = {
-+static struct pppox_proto pppoe_proto = {
-     .create	= pppoe_create,
-     .ioctl	= pppoe_ioctl,
-     .owner	= THIS_MODULE,
- };
- 
- 
--int __init pppoe_init(void)
-+static int __init pppoe_init(void)
- {
-  	int err = register_pppox_proto(PX_PROTO_OE, &pppoe_proto);
- 
-@@ -1125,7 +1111,7 @@
- 	goto out;
- }
- 
--void __exit pppoe_exit(void)
-+static void __exit pppoe_exit(void)
- {
- 	unregister_pppox_proto(PX_PROTO_OE);
- 	dev_remove_pack(&pppoes_ptype);
+ /***********************************************************************
