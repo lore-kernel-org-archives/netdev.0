@@ -1,47 +1,51 @@
-From: David Brownell <david-b@pacbell.net>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: netlink tester program
-Date: Mon, 02 Jun 2003 18:56:23 -0700
+Date: Mon, 02 Jun 2003 19:02:40 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3EDC0047.7030007@pacbell.net>
-References: <32804.4.64.196.31.1054351332.squirrel@www.osdl.org>	<20030530.234211.102567405.davem@redhat.com>	<20030602140452.039248de.rddunlap@osdl.org> <20030602.145619.71112623.davem@redhat.com>
+Message-ID: <20030602.190240.74724523.davem@redhat.com>
+References: <20030602140452.039248de.rddunlap@osdl.org>
+	<20030602.145619.71112623.davem@redhat.com>
+	<3EDC0047.7030007@pacbell.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Cc: rddunlap@osdl.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
+To: david-b@pacbell.net
+In-Reply-To: <3EDC0047.7030007@pacbell.net>
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: "Randy.Dunlap" <rddunlap@osdl.org>
->    Date: Mon, 2 Jun 2003 14:04:52 -0700
-> 
->    Does anyone have documentation (or semantics) for rtnl_talk()?
->    or just some blurb about it?
-> 
-> I always have to wonder about someone who can't live with just
-> working code to study, and absolutely requires some document
-> describing it.
-> 
-> What is better or more accurate description than code itself!?!?!
+   From: David Brownell <david-b@pacbell.net>
+   Date: Mon, 02 Jun 2003 18:56:23 -0700
+   
+   Well, the difference between code and its spec is
+   generally a bug that needs to be fixed ...
 
-Well, the difference between code and its spec is
-generally a bug that needs to be fixed ... which
-can be in the code as well as in the spec.  And for
-reasonable design specs, it's more likely in the code.
+See, a document is NOT the spec, the code is the spec.
 
-But if there's only the code, it gets a lot more
-troublesome when things don't behave "as expected".
+Because where the document is wrong, the code determines
+the final answer.  This is true in all cases.
 
-People who are in a position to change the code
-to meet their expectations may not care, but that's
-rarely a significant chunk of the user community.
+I cannot tell you how much time I've seen people waste because they
+went for documents first, only to find them to be inaccurate for some
+corner case whilst the code has all of the accurate answers.
 
-And in particular, writing tests against the code
-is generally the wrong way to go.  They need to be
-written against some kind of spec.
+When I see someone want docs, I interpret this as "I don't want to
+have to think or have to comprehend something, I'm too lazy to read
+the code."  Well, such laziness leads the person in question only
+to be suscpetible to all of the inaccuracies and disconnect that
+always will exist between said docs (if they even exist) and the
+code.
 
-- Dave
+It is also the mechanism that leads people to send patches that add
+arbitrary crap all over the ipv4/ipv6 code, totally missing the point
+that the routing and/or netlink layer did %99 of what they wanted
+already.
 
+For example, I added a hoplimit route attribute to RTNETLINK.  Who
+documented this?  What document can you read that would teach you
+about this feature?  None.
 
-
+And don't tell me this is a doc bug, every time I make a change the
+documentation will be instantly buggy and I'm not going to be required
+to document every diff I make to the tree.
