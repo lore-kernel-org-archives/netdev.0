@@ -1,41 +1,38 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Sun, 3 Apr 2005 21:36:52 +0200
-Message-ID: <16976.17876.832677.945878@robur.slu.se>
-References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au>
-	<424E641A.1020609@cosmosbay.com>
-	<16974.41648.568927.54429@robur.slu.se>
-	<20050402193224.GA25157@gondor.apana.org.au>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: Problem using HTB
+Date: Sun, 3 Apr 2005 21:47:39 +0200
+Message-ID: <20050403194739.GR3086@postel.suug.ch>
+References: <Pine.BSO.4.58.0504011240500.6284@pal.ece.iisc.ernet.in> <20050402213642.GO3086@postel.suug.ch> <Pine.BSO.4.58.0504032018040.30630@pal.ece.iisc.ernet.in>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Eric Dumazet <dada1@cosmosbay.com>, davem@davemloft.net,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050402193224.GA25157@gondor.apana.org.au>
+To: Abhishek Gupta <abhishek@pal.ece.iisc.ernet.in>
+Content-Disposition: inline
+In-Reply-To: <Pine.BSO.4.58.0504032018040.30630@pal.ece.iisc.ernet.in>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Abhishek Gupta <Pine.BSO.4.58.0504032018040.30630@pal.ece.iisc.ernet.in> 2005-04-03 20:30
+> But the problem is still 
+> not yet solved as I tried with 1Mbit speed as the setting for link speed 
+> in the htb configuration and got about 30KBps which amounts to about 
+> 240Kbitps even though my UDP source is sending at speed of about 
+> 1MBps(8Mbps), according to RH monitor readings. 
 
-Herbert Xu writes:
+I do not know about that "RH monitor" you are referring to, maybe it
+does not display rates correctly. (I found 3 out of 5 rate estimators
+outputing with a variance of over 10%) I can recommend you bmon [0]
+which states the variance and can be used to a resolution up to
+1/100s given the input source provides an equal or better resolution.
 
- > Incidentally we should change the way the rehashing is triggered.
- > Instead of doing it regularly, we can do it when we notice that a
- > specific hash chain grows beyond a certain size.
+> Is it possible that the problem is due to the source that I am using for 
+> UDP packets?
 
- > The idea is that if someone is attacking our hash then they can
- > only do so by lengthening the chains.  If they're not doing that
- > then even if they knew how to attack us we don't really care.
+Very likely, especially due to the huge difference in requested and
+achieved rate you have mentioned above. I hardly think this is a
+problem related to HTB but rather some misconfiguration in your testing
+process.
 
-
- Well I don't see how we detect the need for rehash just be looking
- at the hash chains. How does the the "lengthening" look like that
- are allowed to trigger a rehash?
-
- Agree with Dave that we can increase the interval to start with.
-
-
-					  --ro
+[0] http://people.suug.ch/~tgr/bmon/
