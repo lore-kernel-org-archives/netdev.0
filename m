@@ -1,33 +1,54 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Bugme-new] [Bug 4274] New: ipv6: Unknown symbol
- tcp_timer_bug_msg
-Date: Wed, 2 Mar 2005 12:16:33 -0800
-Message-ID: <20050302121633.2b28c058.davem@davemloft.net>
-References: <20050302091907.19bb2b2e.akpm@osdl.org>
-	<20050303.023706.64945563.yoshfuji@wide.ad.jp>
-	<20050302195110.GA27736@excelhustler.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
+Date: Wed, 2 Mar 2005 12:38:29 -0800
+Message-ID: <20050302123829.51dbc44b.akpm@osdl.org>
+References: <20050223014233.6710fd73.akpm@osdl.org>
+	<20050226113123.GJ3311@stusta.de>
+	<42256078.1040002@pobox.com>
+	<20050302140833.GD4608@stusta.de>
+	<42261004.4000501@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@wide.ad.jp, akpm@osdl.org, netdev@oss.sgi.com
-To: John Goerzen <jgoerzen@complete.org>
-In-Reply-To: <20050302195110.GA27736@excelhustler.com>
+Cc: bunk@stusta.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <42261004.4000501@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2 Mar 2005 13:51:10 -0600
-John Goerzen <jgoerzen@complete.org> wrote:
-
-> On Thu, Mar 03, 2005 at 02:37:06AM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ wrote:
-> > In article <20050302091907.19bb2b2e.akpm@osdl.org> (at Wed, 2 Mar 2005 09:19:07 -0800), Andrew Morton <akpm@osdl.org> says:
+Jeff Garzik <jgarzik@pobox.com> wrote:
+>
+> Adrian Bunk wrote:
+> > On Wed, Mar 02, 2005 at 01:43:04AM -0500, Jeff Garzik wrote:
 > > 
-> > > modprobe ipv6 fails with:
-> > > 
-> > > ipv6: Unknown symbol tcp_timer_bug_msg
+> >>Adrian Bunk wrote:
+> >>
+> >>>+	select CRYPTO
+> >>>	select CRYPTO_AES
+> >>>	---help---
+> >>>	Include software based cipher suites in support of IEEE 802.11i 
+> >>>	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
+> >>>	networks.
+> >>>@@ -54,10 +55,11 @@
+> >>>	"ieee80211_crypt_ccmp".
+> >>>
+> >>>config IEEE80211_CRYPT_TKIP
+> >>>	tristate "IEEE 802.11i TKIP encryption"
+> >>>	depends on IEEE80211
+> >>>+	select CRYPTO
+> >>>	select CRYPTO_MICHAEL_MIC
+> >>
+> >>
+> >>'select CRYPTO_AES' should 'select CRYPTO' automatically, I would hope.
 > > 
-> > Please try this.
+> > 
+> > This would result in a recursive dependency.
 > 
-> That fixed it.  Thanks!
+> No, it wouldn't.  CRYPTO_AES depends on CRYPTO, which depends on nothing.
+> 
 
-I'll apply this patch later today, thanks everyone.
+Thing is, CRYPTO_AES on only selectable on x86.
+
+So really, IEEE80211_CRYPT_CCMP should depend upon CRYPTO_AES rather than
+selecting it.  But that confuses users.
