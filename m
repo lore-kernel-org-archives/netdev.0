@@ -1,36 +1,46 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: synchronize_net()?
-Date: Sat, 13 Sep 2003 19:09:40 -0700
+Subject: Re: ipt_physdev.c alignment problems on parisc64
+Date: Sat, 13 Sep 2003 19:25:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030913190940.4aaf5817.davem@redhat.com>
-References: <20030913034611.GA83212@gaz.sfgoth.com>
+Message-ID: <20030913192522.58705cb0.davem@redhat.com>
+References: <200309022116.41697.bdschuym@pandora.be>
+	<20030905153152.GA3623@obroa-skai.de.gnumonks.org>
+	<20030908191400.5ef59ab6.davem@redhat.com>
+	<200309132159.37834.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: laforge@netfilter.org, acme@conectiva.com.br,
+   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mitchell Blank Jr <mitch@sfgoth.com>
-In-Reply-To: <20030913034611.GA83212@gaz.sfgoth.com>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200309132159.37834.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2003 20:46:11 -0700
-Mitchell Blank Jr <mitch@sfgoth.com> wrote:
+On Sat, 13 Sep 2003 21:59:37 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> /* Synchronize with packet receive processing. */
-> void synchronize_net(void) 
-> {
->         might_sleep();
->         synchronize_kernel();
-> }
-> 
-> The "might_sleep()" isn't needed
+> It just uses unsigned int instead of unsigned long, so there should
+> be no problem with the evil Sparc64.
 
-As a matter of taste and ease of debugging it could be.
+Sparc64 doesn't have the problems, it just fixes up the unaligned
+accesses there so it'll just be super-slow (some "optimization" :).
 
-I think it's logical to place the might_sleep() calls as high
-up in the call chain as is reasonable.  This is especially true
-for important oft-used interfaces for a subsystem.
+The problem is on parisc64 which is very strict about accessing
+structure members which are not aligned to the accessor type you use
+to dereference and gives you a link/compile error when you violate
+this.
 
-In this way, you don't risk so much having a hard to decode backtrace
-that misses the true culprit sleep'able call.
+> Perhaps the ip_tables.c code from which I copied the original code
+> should be altered too.
+
+Yes.
+
+> It's a real optimization btw, the .o file is 32 bytes
+> larger when doing the bit operations on a char with i<IFNAMSIZ.
+> All hail Rusty :)
+
+I understand, but instead create an arch routine to optimize this
+instead of using non-portable constructs.  memcmp_masked() or
+something like that.
