@@ -1,39 +1,34 @@
-From: Eric Lemoine <Eric.Lemoine@Sun.COM>
-Subject: Re: simple change to qdisc_restart()
-Date: Tue, 20 May 2003 13:24:02 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030520112402.GF978@udine>
-References: <20030520082217.GC978@udine>
- <20030520.012824.85398613.davem@redhat.com> <20030520085724.GD978@udine>
- <16074.1339.3673.938923@robur.slu.se> <20030520112109.GE978@udine>
+From: Jamal Hadi <hadi@shell.cyberus.ca>
+Subject: Re: Route cache performance under stress
+Date: Tue, 20 May 2003 07:47:44 -0400 (EDT)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030520074352.N40831@shell.cyberus.ca>
+References: <Pine.LNX.4.44.0305200800380.26787-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-   "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-In-reply-to: <20030520112109.GE978@udine>
-To: Eric Lemoine <Eric.Lemoine@Sun.COM>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, sim@netnation.com,
+	netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0305200800380.26787-100000@netcore.fi>
 List-Id: netdev.vger.kernel.org
 
-> Let me explain a bit more.
-> 
-> I developped a kernel module that basically implements per-cpu kernel
-> threads, each being bound to a particular cpu. I also modified the
-> Myrinet NIC driver and firmware so that they implement per-cpu rx rings.
-> 
-> The NIC makes sure that packets of the same connection are always
-> deposited in the same ring. Here's how it does it. For each incoming
-> pkt, the NIC computes the index of the ring into which the packet must
-> be placed [*], passes this index to the driver, and dmas the packet into
-> the appropriate ring. The driver uses the ring index to wake up the
-> appropriate kernel thread. Each kernel-thread behaves in a NAPI manner.
 
-Oops. I forgot to mention that:
 
-[*] Currently the NIC simply does ring_idx = IPsrc & (nr_rings-1).
+On Tue, 20 May 2003, Pekka Savola wrote:
 
--- 
-Eric
+> On Mon, 19 May 2003, Jamal Hadi wrote:
+> > I dont think the hashes are similar - its the effect into the
+> > slow path. I was told by someone who tested this on a priicey CISCO
+> > that they simply die unless capable of a feature called CEF.
+>
+> Yes, but pretty much nobody is using Cisco without CEF, except in the last
+> mile, low-end devices.
+>
+
+so not a GSR thing only feature. At the edges though, wouldnt it be
+important to do more sexy things than just route based on a destination
+address?
+
+cheers,
+jamal
