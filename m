@@ -1,55 +1,31 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [PATCH]Fix adding SA through netlink(xfrm_user)
-Date: Wed, 28 Jul 2004 11:41:33 -0400 (EDT)
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [Fwd: pcmcia ether drivers can't be unloaded]
+Date: Wed, 28 Jul 2004 16:50:24 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0407281134500.11200-100000@dhcp83-76.boston.redhat.com>
-References: <20040729001058.48cd1791@localhost>
+Message-ID: <20040728165024.A8475@flint.arm.linux.org.uk>
+References: <41068BEF.7010200@pobox.com> <20040727233614.B30782@flint.arm.linux.org.uk> <20040727171929.17858c7b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
-        Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, shemminger@osdl.org, netdev@oss.sgi.com, greg@kroah.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Masahide Nakamura <nakam@linux-ipv6.org>
-In-Reply-To: <20040729001058.48cd1791@localhost>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20040727171929.17858c7b.davem@redhat.com>; from davem@redhat.com on Tue, Jul 27, 2004 at 05:19:29PM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 29 Jul 2004, Masahide Nakamura wrote:
+On Tue, Jul 27, 2004 at 05:19:29PM -0700, David S. Miller wrote:
+> I totally disagree.  This is a bogus argument for two reasons:
 
-> Hello,
-> 
-> When adding IPsec SA with PF_KEY (pfkey_add()),
-> xfrm_probe_algs() is called to make all algorithms valid.
-> However, it is missing to call it with netlink (xfrm_user) case and
-> it causes xfrm_aalg_get_byname() return NULL even if the name of
-> algorithm seems to be correct.
+You may disagree, that is your option.  However, facts are facts -
+this is how the PCMCIA layer currently works, and short of rewriting
+the whole damned thing it isn't going to change.  Sorry.
 
-Looks ok, but odd that this has not been picked up before.
-
-> 
-> The patch fixes it and is against 2.6.7. Please apply it.
-> 
-> Index: linux26/net/xfrm/xfrm_user.c
-> ===================================================================
-> RCS file: /cvsroot/usagi/usagi/kernel/linux26/net/xfrm/xfrm_user.c,v
-> retrieving revision 1.1.1.13
-> diff -u -r1.1.1.13 xfrm_user.c
-> --- linux26/net/xfrm/xfrm_user.c	3 Apr 2004 05:52:43 -0000	1.1.1.13
-> +++ linux26/net/xfrm/xfrm_user.c	28 Jul 2004 14:26:21 -0000
-> @@ -258,6 +258,8 @@
->  	if (err)
->  		return err;
->  
-> +	xfrm_probe_algs();
-> +
->  	x = xfrm_state_construct(p, (struct rtattr **) xfrma, &err);
->  	if (!x)
->  		return err;
-> 
-> 
-> 
-> 
+PS, I'm on holiday for the next week or so, so don't expect anything
+to happen, even if you rant and rave about it.
 
 -- 
-James Morris
-<jmorris@redhat.com>
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
