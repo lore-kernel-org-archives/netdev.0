@@ -1,24 +1,26 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]  allow CONFIG_NET=n on ppc64
-Date: Sun, 3 Oct 2004 14:59:09 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] fix secure tcp sequence number generation
+Date: Sun, 3 Oct 2004 15:00:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041003145909.6dc704dc.davem@davemloft.net>
-References: <20040929200158.GA16366@suse.de>
-	<20040929201524.GA14615@wotan.suse.de>
-	<20041002153053.GA2643@suse.de>
+Message-ID: <20041003150052.4dba0c60.davem@redhat.com>
+References: <415EEF0E.3080808@colorfullife.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ak@suse.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Olaf Hering <olh@suse.de>
-In-Reply-To: <20041002153053.GA2643@suse.de>
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <415EEF0E.3080808@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 02 Oct 2004 20:10:22 +0200
+Manfred Spraul <manfred@colorfullife.com> wrote:
 
-Olaf, as I requested of you last time, please use attachments for
-your patches since I can never apply them cleanly when you
-inline them to the main body text.
+> Ted's recent random.c update broke the periodic rekeying:
+> schedule_work() doesn't provide synchronization. Additionally the first
+> syn values after boot are generated with secret 0 - not good.
 
-Thanks a lot.
+Are you referring to his changes done back in August or some
+other change?  August is the last time I see that Ted made
+a change to drivers/char/random.c
