@@ -1,8 +1,8 @@
 From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: [PATCH] net: cleanup miss usage of seq_release_private
-Date: Thu, 08 Jul 2004 04:26:14 +0900
+Subject: [PATCH] net/ipv4/ipmr.c fixes
+Date: Thu, 08 Jul 2004 04:25:26 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <871xjnmxex.fsf@devron.myhome.or.jp>
+Message-ID: <877jtfmxg9.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
@@ -12,66 +12,70 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-These doesn't allocate memory and doesn't use seq->private. However
-kfree() ignores NULL, so these are not the problem.
+- pim_protocol warning fix
 
-This patch just cleans these up.
+- ipmr_vif_open() and ipmr_mfc_open() allocates the memory, so it
+  should use seq_release_private().
+
+- ipmr_mfc_seq_xxx is using it->cache, in order to control whether
+  unlock should be do or not, but it->cache was not initialized in
+  ipmr_mfc_seq_start(). So it can point the previous state if user
+  did seek(). This become to the cause of twice unlock.
 
 Signed-off-by: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
 ---
 
- net/ipv4/route.c              |    2 +-
- net/irda/discovery.c          |    2 +-
- net/irda/ircomm/ircomm_core.c |    2 +-
- net/irda/iriap.c              |    2 +-
- 4 files changed, 4 insertions(+), 4 deletions(-)
+ net/ipv4/ipmr.c |   10 +++++++---
+ 1 files changed, 7 insertions(+), 3 deletions(-)
 
-diff -puN net/ipv4/route.c~net-seq_release-cleanup net/ipv4/route.c
---- linux-2.6.7/net/ipv4/route.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
-+++ linux-2.6.7-hirofumi/net/ipv4/route.c	2004-07-08 00:01:20.000000000 +0900
-@@ -432,7 +432,7 @@ static struct file_operations rt_cpu_seq
- 	.open	 = rt_cpu_seq_open,
- 	.read	 = seq_read,
- 	.llseek	 = seq_lseek,
--	.release = seq_release_private,
-+	.release = seq_release,
+diff -puN net/ipv4/ipmr.c~ipmr-fixes net/ipv4/ipmr.c
+--- linux-2.6.7/net/ipv4/ipmr.c~ipmr-fixes	2004-07-07 23:08:48.000000000 +0900
++++ linux-2.6.7-hirofumi/net/ipv4/ipmr.c	2004-07-07 23:10:49.000000000 +0900
+@@ -109,7 +109,9 @@ static int ip_mr_forward(struct sk_buff 
+ static int ipmr_cache_report(struct sk_buff *pkt, vifi_t vifi, int assert);
+ static int ipmr_fill_mroute(struct sk_buff *skb, struct mfc_cache *c, struct rtmsg *rtm);
+ 
++#ifdef CONFIG_IP_PIMSM_V2
+ static struct net_protocol pim_protocol;
++#endif
+ 
+ static struct timer_list ipmr_expire_timer;
+ 
+@@ -1702,7 +1704,7 @@ static struct file_operations ipmr_vif_f
+ 	.open    = ipmr_vif_open,
+ 	.read    = seq_read,
+ 	.llseek  = seq_lseek,
+-	.release = seq_release,
++	.release = seq_release_private,
  };
  
- #endif /* CONFIG_PROC_FS */
-diff -puN net/irda/discovery.c~net-seq_release-cleanup net/irda/discovery.c
---- linux-2.6.7/net/irda/discovery.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
-+++ linux-2.6.7-hirofumi/net/irda/discovery.c	2004-07-08 00:01:20.000000000 +0900
-@@ -449,6 +449,6 @@ struct file_operations discovery_seq_fop
- 	.open           = discovery_seq_open,
- 	.read           = seq_read,
- 	.llseek         = seq_lseek,
--	.release	= seq_release_private,
-+	.release	= seq_release,
- };
- #endif
-diff -puN net/irda/iriap.c~net-seq_release-cleanup net/irda/iriap.c
---- linux-2.6.7/net/irda/iriap.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
-+++ linux-2.6.7-hirofumi/net/irda/iriap.c	2004-07-08 00:01:20.000000000 +0900
-@@ -1093,7 +1093,7 @@ struct file_operations irias_seq_fops = 
- 	.open           = irias_seq_open,
- 	.read           = seq_read,
- 	.llseek         = seq_lseek,
--	.release	= seq_release_private,
-+	.release	= seq_release,
- };
+ struct ipmr_mfc_iter {
+@@ -1737,6 +1739,9 @@ static struct mfc_cache *ipmr_mfc_seq_id
  
- #endif /* PROC_FS */
-diff -puN net/irda/ircomm/ircomm_core.c~net-seq_release-cleanup net/irda/ircomm/ircomm_core.c
---- linux-2.6.7/net/irda/ircomm/ircomm_core.c~net-seq_release-cleanup	2004-07-08 00:01:20.000000000 +0900
-+++ linux-2.6.7-hirofumi/net/irda/ircomm/ircomm_core.c	2004-07-08 00:01:20.000000000 +0900
-@@ -62,7 +62,7 @@ static struct file_operations ircomm_pro
- 	.open           = ircomm_seq_open,
- 	.read           = seq_read,
- 	.llseek         = seq_lseek,
--	.release	= seq_release_private,
-+	.release	= seq_release,
+ static void *ipmr_mfc_seq_start(struct seq_file *seq, loff_t *pos)
+ {
++	struct ipmr_mfc_iter *it = seq->private;
++	it->cache = NULL;
++	it->ct = 0;
+ 	return *pos ? ipmr_mfc_seq_idx(seq->private, *pos - 1) 
+ 		: SEQ_START_TOKEN;
+ }
+@@ -1846,7 +1851,6 @@ static int ipmr_mfc_open(struct inode *i
+ 	if (rc)
+ 		goto out_kfree;
+ 
+-	memset(s, 0, sizeof(*s));
+ 	seq = file->private_data;
+ 	seq->private = s;
+ out:
+@@ -1862,7 +1866,7 @@ static struct file_operations ipmr_mfc_f
+ 	.open    = ipmr_mfc_open,
+ 	.read    = seq_read,
+ 	.llseek  = seq_lseek,
+-	.release = seq_release,
++	.release = seq_release_private,
  };
- #endif /* CONFIG_PROC_FS */
+ #endif	
  
 _
 
