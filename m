@@ -1,40 +1,36 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] fix select() for SOCK_RAW sockets (ipv6)
-Date: Wed, 08 Dec 2004 16:58:50 +0900 (JST)
-Message-ID: <20041208.165850.97660819.yoshfuji@linux-ipv6.org>
-References: <20041208.023530.26430801.yoshfuji@linux-ipv6.org>
-	<20041207100140.781f4c00@dxpl.pdx.osdl.net>
-	<20041207104815.3f7a4684.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] [IPV6]: Fix check if we're router.
+Date: Wed, 08 Dec 2004 10:44:56 +0100 (CET)
+Message-ID: <20041208.104456.103795781.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, mitch@sfgoth.com, kernel@linuxace.com,
-	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
-In-Reply-To: <20041207104815.3f7a4684.davem@davemloft.net>
-Sender: linux-net-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20041207104815.3f7a4684.davem@davemloft.net> (at Tue, 7 Dec 2004 10:48:15 -0800), "David S. Miller" <davem@davemloft.net> says:
+Hello.
 
-> On Tue, 7 Dec 2004 10:01:40 -0800
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > > Probably, we need to do the same for ipv6, don't we?
-> > 
-> > diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
-> > --- a/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
-> > +++ b/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
-> > @@ -513,6 +513,27 @@
-> 
-> We didn't do the "UDP select() fix" on ipv6 because we don't
-> have the delayed checksumming optimization there.  So the
-> ipv6 side really doesn't need this change.
+Fix the check if we're router. against 2.6.10-rc3, for 2.6.10 queue.
 
-Ok, thanks for the explanation.
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
---yoshfuji @ Strasbourg
+===== net/ipv6/ndisc.c 1.105 vs edited =====
+--- 1.105/net/ipv6/ndisc.c	2004-11-10 15:57:03 +09:00
++++ edited/net/ipv6/ndisc.c	2004-12-08 18:34:45 +09:00
+@@ -943,7 +943,7 @@
+ 	}
+ 
+ 	/* Don't accept RS if we're not in router mode */
+-	if (!idev->cnf.forwarding || idev->cnf.accept_ra)
++	if (!idev->cnf.forwarding)
+ 		goto out;
+ 
+ 	/*
 
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
