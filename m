@@ -1,38 +1,86 @@
-From: "Lee, Kuk-hyun" <errai110@kornet.net>
-Subject: [question] netif_rx() - why don't call raise_softirq()?
-Date: Thu, 5 Feb 2004 04:11:58 +0900
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: FW: Submission for S2io 10GbE driver
+Date: Wed, 4 Feb 2004 12:44:21 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <004101c3eb52$c3412d20$5d03c5d3@errai>
+Message-ID: <004201c3eb5f$ac4e9f00$740efea9@S2IOtech.com>
+References: <20040123232209.2739e6aa.ak@suse.de>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	charset="ks_c_5601-1987"
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>, "'Ragu Vatsavayi'" <raghava.vatsavayi@s2io.com>,
+        "'Grant Grundler'" <iod00d@hp.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "'Andi Kleen'" <ak@suse.de>
+In-Reply-To: <20040123232209.2739e6aa.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I am newbie in the latest kernel development. Nowadays I am starting to work in
-linux kernel. BTW, I find kernel code that I can't understand.
-in bellow.
 
-netif_rx() in 2.4.19
-1238                         dev_hold(skb->dev);
-1239                         __skb_queue_tail(&queue->input_pkt_queue,skb);
-1240                         /* Runs from irqs or BH's, no need to wake BH */
-1241                         cpu_raise_softirq(this_cpu, NET_RX_SOFTIRQ);
-1242                         local_irq_restore(flags);
 
-netif_rx() in 2.4.20
-1254                         dev_hold(skb->dev);
-1255                         __skb_queue_tail(&queue->input_pkt_queue,skb);
-1256                         local_irq_restore(flags);
+> All the ARCH_PPC64 ifdefs shouldn't be needed. Can you remove 
+> that? If there are problems in ppc64 code they should be 
+> fixed there, not worked around. Same with the ifdefs for 
+> kernel 2.6 features. An driver integrated into the kernel 
+> should not contain such ifdefs.
 
-why 2.4.20's netif_rx() don't call raise_softirq()?  Is there never call net_rx_action()? 
-maybe, IMHO, because NAPI. but I want to know exactly. I don't know reason why should 
-you that. I could not find reason in google or netdev mailling list.
 
-sorry for my stupid question. Any help is highly appriciated.
-Thanks,
-Lee
+Hi Andi,
+You are right some of the ifdefs are not needed and we are removing
+these; it is not clear if we can get rid of all of them for the
+following reasons:
+
+1) We did't find quad word memory operations(writeq and readq) on PCI
+bus for PPC64 architecture.
+
+2) We did't had a chance to test the driver on other big endian systems
+apart from PPC64. In PPC64 architecture though,
+I write/read a value to/from ioremaped address it swaps the value and
+behaves like a little endian m/c:  
+
+For ex: if I  do writel(0x12345678, addr) then in it writes 
+addr: 78, (addr+1):56, (addr+2):34, (addr+3):12
+
+On a little endian m/c like IA32 also writel writes same values in a
+similar manner as shown above. 
+So the question is -
+Do all big endian machines with linux OS swap the values and write in
+little endian format?? 
+
+3)In PPC64 architecture dma_addr_t is u32, unlike remaining 64 bit
+architectures where it is defined as u64. Because
+of this we have to deal separately for PP64. 
+So any suggestions will be useful, .i.e. generally how PPC64 developers
+deal with this?
+
+Say if we have some structure corresponding to memory region of our 
+hardware device which should be of 16 bytes.
+
+struct hw {
+dma_addr_t  phys;
+char            *virt;
+#ifdef ARCH32 
+u64 dummy;
+#endif
+}
+
+Then above definition will not work for PPC64, we need to modify it like
+this:
+struct hw {
+dma_addr_t  phys;
+char            *virt;
+#ifdef  ARCH32 
+u64 dummy;
+#endif
+#ifdef ARCH_PPC64
+u32 dummy;
+#endif
+}
+
+ 
+
+
+
+ 
+
+ 
