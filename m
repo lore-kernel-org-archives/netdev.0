@@ -1,64 +1,52 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
-Date: Thu, 17 Jul 2003 10:04:33 +0300 (EEST)
+From: Mika Liljeberg <mika.liljeberg@welho.com>
+Subject: Re: Anycast usage, final diagnosis? (was: IPv6: Fix broken anycast
+	usage)
+Date: 17 Jul 2003 11:38:53 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307170956440.1348-100000@netcore.fi>
-References: <200307170020.EAA12924@dub.inr.ac.ru>
+Message-ID: <1058431132.5781.32.camel@hades>
+References: <200307170223.GAA13064@dub.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: davem@redhat.com, <jmorris@redhat.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: kuznet <kuznet@dub.inr.ac.ru>, davem@redhat.com, jmorris@redhat.com,
+   pekkas@netcore.fi, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200307170020.EAA12924@dub.inr.ac.ru>
+In-Reply-To: <200307170223.GAA13064@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 17 Jul 2003 kuznet@ms2.inr.ac.ru wrote:
-> > Yes, I dare to say that they're a requirement. 
-> 
-> Nope. IPv6 host routing is based on assumption of link-locality of the
-> next hop. Probably, you want to read some rfcs or to look into code.
+Alexey,
 
-This is not correct.  Perhaps the RFC's have changed in the meantime, but 
-at least RFC2461 does *not* make such an assumption (AFAICS).
+On Thu, 2003-07-17 at 05:23, kuznet@ms2.inr.ac.ru wrote:
+> diff -Nru a/net/ipv6/ndisc.c b/net/ipv6/ndisc.c
+> --- a/net/ipv6/ndisc.c	Thu Jul 17 06:13:09 2003
+> +++ b/net/ipv6/ndisc.c	Thu Jul 17 06:13:09 2003
+> @@ -785,8 +785,7 @@
+>  			ipv6_addr_all_nodes(&maddr);
+>  			ndisc_send_na(dev, NULL, &maddr, &ifp->addr, 
+>  				      ifp->idev->cnf.forwarding, 0, 
+> -				      ipv6_addr_type(&ifp->addr)&IPV6_ADDR_ANYCAST ? 0 : 1, 
+> -				      1);
+> +				      1, 1);
+>  			in6_ifa_put(ifp);
+>  			return;
+>  		}
+> @@ -809,8 +808,7 @@
+>  			if (neigh || !dev->hard_header) {
+>  				ndisc_send_na(dev, neigh, saddr, &ifp->addr, 
+>  					      ifp->idev->cnf.forwarding, 1, 
+> -					      ipv6_addr_type(&ifp->addr)&IPV6_ADDR_ANYCAST ? 0 : 1, 
+> -					      1);
+> +					      1, 1);
+>  				if (neigh)
+>  					neigh_release(neigh);
+>  			}
 
-In the document, there is a basic assumption that the next-hop is
-*on-link*.
+I'm not sure you can just remove these. It seems possible (?) to have
+the anycast address configured on one of the interfaces as a unicast at
+the same time. I.e., one of the anycast members could own the address.
 
-In the document, there are assumptions on verifying whether the redirects
-come from the router you're currently using: this is simpler when you 
-use only link-locals as next-hops, but it is certainly *NOT* a 
-requirement.
+For what it's worth, I think you have the right semantics.
 
-(The spec in question will be revised in the short term, so I'll take this
-issue up for clarification..)
-
-> > specifications use and the *users* want and need to use.
-> 
-> Sigh, there no specifications about tricks used by Linux routing tables,
-> *users* are unlikely to want to use this feature at all, as Mika noticed.
-> And when they want, they want to right:
-> 
->     ip route add 3ffe::.... via 193.233.7.65
-
-That would be simpler but, we actually require:
-
-ip route add 3ffe::... via ::193.233.7.65
-
-and thus require a route for ::/96.  That's confusing: ::/96 has a very 
-specific purpose in RFCs, and we should not be overloading the 
-functionality, it's just plain confusing.
- 
-> rather than crap sort of
->
->     ip route add 3ffe::.... via 2002:<something in latin>
-
-I'm not saying we need to prevent the users from using the former.  I'm 
-just saying that we must not prevent the users from using the latter; 
-please check e.g. the RFC3068 section 2.5.  If we don't support something 
-like that, it'll just confuse the users more.
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+	MikaL
