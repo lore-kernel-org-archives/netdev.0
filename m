@@ -1,23 +1,47 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: netlink sockets and rtm_newlink messages
-Date: Fri, 27 Sep 2002 19:55:02 +0400 (MSD)
+From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+Subject: Re: udp weirdness
+Date: Fri, 27 Sep 2002 17:57:10 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200209271555.TAA21348@sex.inr.ac.ru>
-References: <20020927134806.GA12745@ducksong.com>
+Message-ID: <20020927155710.GM343@hookipa>
+References: <20020927120223.GH343@hookipa> <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mcmanus@ducksong.COM (Patrick R. McManus)
-In-Reply-To: <20020927134806.GA12745@ducksong.com> from "Patrick R. McManus" at Sep 27, 2 06:15:01 pm
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.30.0209271048160.4401-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+> > I figured out that packets can be dropped in pfifo_fast_enqueue()
+> > [the default qdisc's enqueue func], even though the driver/kernel
+> > flow control has triggered.
+> >
+> > And sendto does not notify the user when packet gets dropped because
+> > the output queue overflows (as indicated in sendto manpage).
+> >
+> > Why doesn't the kernel just put the process into sleep instead of
+> > dropping packets?
+> >
+> 
+> What trigger do you suggest to wake up the process again?
 
-> the messages weren't identical
+I was thinking of putting processes into sleep on per-device lists.
+Once the net driver sees the NIC is ready to send again it wakes up all
+processes sleeping on its list. [If the socket from which the packet
+comes from is marked non-blocking the process is not put into sleep 
+(obviously) and EAGAIN is returned.]
 
-One of them is a mud. Apparently, I forgot to delete the line
-rtmsg_ifinfo(RTM_NEWLINK, dev, IFF_UP|IFF_RUNNING)
-in rtnetlink_event().
+Throwing away packets when not absolutely necessary does not make sense
+to me. Please correct me if i'm wrong.
 
-Alexey
+> A better idea maybe to return something to the socket so it can
+> manage things instead -- not sure what to return though that wouldnt
+> break some standard;
+> 
+> cheers,
+> jamal
+
+-- 
+Eric
