@@ -1,53 +1,32 @@
-From: Michal Ludvig <michal@logix.cz>
-Subject: [PATCH] sha2-256 truncation
-Date: Fri, 09 Jan 2004 09:50:58 +0100
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Mark IBM TR driver as not 64 bit clean
+Date: Fri, 9 Jan 2004 10:09:08 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FFE6B72.9030808@logix.cz>
+Message-ID: <20040109090908.GA1772@averell>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------090003070806070002080905"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, mikep@linuxtr.net, linux-tr@linuxtr.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: jgarzik@pobox.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------090003070806070002080905
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-Hi,
-the attached trivial patch corrects the truncation size of computed 
-hashes that are used in IPsec ESP/AH packets for SHA2-256. All other 
-hash algorithms use 96 bits as well as does SuperFreeS/WAN and FreeBSD 
-also for SHA2-256. Only the native Linux sha2-256 used 128 bits what led 
-  to incompatibility with other IPsec implementations.
+This driver doesn't seem to be 64bit clean judging from the warnings
+on x86-64. Mark it as !64BIT.
 
-Please apply, thanks!
+-Andi
 
-Michal Ludvig
--- 
-* A mouse is a device used to point at the xterm you want to type in.
-* Personal homepage - http://www.logix.cz/michal
-
---------------090003070806070002080905
-Content-Type: text/plain;
- name="kernel-sha256.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="kernel-sha256.diff"
-
---- linux-2.6.0/net/xfrm/xfrm_algo.c	2004-01-08 01:29:52.067261651 +0100
-+++ linux-2.6.0.orig/net/xfrm/xfrm_algo.c	2004-01-08 01:28:38.668690081 +0100
-@@ -85,7 +85,7 @@ static struct xfrm_algo_desc aalg_list[]
+diff -burpN -X ../KDIFX linux-vanilla/drivers/net/pcmcia/Kconfig linux-2.6.1-amd64/drivers/net/pcmcia/Kconfig
+--- linux-vanilla/drivers/net/pcmcia/Kconfig	2003-09-28 10:55:00.000000000 +0200
++++ linux-2.6.1-amd64/drivers/net/pcmcia/Kconfig	2004-01-01 06:56:50.000000000 +0100
+@@ -119,7 +119,7 @@ config ARCNET_COM20020_CS
  
- 	.uinfo = {
- 		.auth = {
--			.icv_truncbits = 96,
-+			.icv_truncbits = 128,
- 			.icv_fullbits = 256,
- 		}
- 	},
-
---------------090003070806070002080905--
+ config PCMCIA_IBMTR
+ 	tristate "IBM PCMCIA tokenring adapter support"
+-	depends on NET_PCMCIA && IBMTR!=y && TR && PCMCIA
++	depends on NET_PCMCIA && IBMTR!=y && TR && PCMCIA && !64BIT
+ 	help
+ 	  Say Y here if you intend to attach this type of Token Ring PCMCIA
+ 	  card to your computer. You then also need to say Y to "Token Ring
