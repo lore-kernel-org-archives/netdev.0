@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Do you know about skb_header_pointer() ?
-Date: Thu, 19 Aug 2004 07:16:18 -0700
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20040819071618.27515547.davem@redhat.com>
+Date: Thu, 19 Aug 2004 07:17:50 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040819071750.67f0e924.davem@redhat.com>
 References: <200408190721.QAA02944@toshiba.co.jp>
 	<20040819094401.GY3921@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
@@ -11,26 +11,18 @@ Content-Transfer-Encoding: 7bit
 Cc: yasuyuki.kozakai@toshiba.co.jp, kaber@trash.net, kadlec@blackhole.kfki.hu,
         kisza@securityaudit.hu, netfilter-devel@lists.netfilter.org,
         usagi-core@linux-ipv6.org, netdev@oss.sgi.com
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Harald Welte <laforge@netfilter.org>
 In-Reply-To: <20040819094401.GY3921@sunbeam.de.gnumonks.org>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 On Thu, 19 Aug 2004 11:44:01 +0200
 Harald Welte <laforge@netfilter.org> wrote:
 
-> I personally still like Yasuyuki's implementation[1] better,
+> http://lists.netfilter.org/pipermail/netfilter-devel/2004-August/016277.html
 
-Thanks for letting me know about this after we agreed upon
-skb_header_pointer() (or somthing like it) at the networking
-conference _AND_ I did the full implementation for you Harald.
+I totally disagree with this change.
 
-Or did you just learn about Ysauyuki's work recently?
+The goal was to eliminate any and all linearization done by any
+part of the networking, especially on output paths.
