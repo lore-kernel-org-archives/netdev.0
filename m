@@ -1,84 +1,74 @@
-From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: Re: R[PATCH 2.6.10-rc1 8/15] wireless/orinoco: Refactor spinlocks so	we don't necessarily have to disable interrupts
-Date: Wed, 27 Oct 2004 14:14:28 +1000
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETLINK] Remove netlink_sock_nr
+Date: Wed, 27 Oct 2004 15:11:07 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027041428.GD1676@zax>
-References: <1098814320.3663.24.camel@dcbw.boston.redhat.com> <1098817472.3663.66.camel@dcbw.boston.redhat.com> <417EA915.9090500@pobox.com>
+Message-ID: <20041027051107.GA8784@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Dan Williams <dcbw@redhat.com>, netdev@oss.sgi.com, jgarzik@redhat.com
+Content-Type: multipart/mixed; boundary="bg08WKrSYDhXBjb5"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <417EA915.9090500@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Oct 26, 2004 at 03:44:21PM -0400, Jeff Garzik wrote:
-> Dan Williams wrote:
-> >Update in-kernel orinoco wireless drivers to upstream CVS.
-> >None of this is original code by Dan Williams, simply a
-> >broken down patch set split-out from upstream orinoco CVS.
-> >
-> >o Refactor spinlocks so we don't necessarily have to disable
-> interrupts
 
-No, this should *not* be applied.  This again is orinoco_usb stuff,
-which is in HEAD but not for_linus and which should not go upstream.
+--bg08WKrSYDhXBjb5
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> >10:44:41.445687264 -0400
-> >+++ b/drivers/net/wireless/orinoco.h	2004-10-26 10:45:39.296892544 -0400
-> >@@ -71,6 +71,8 @@
-> > 	u16 channel_mask;
-> > 	int broken_disableport;
-> > 
-> >+	unsigned int irq_no_disable:1;
-> >+
-> > 	/* Configuration paramaters */
-> > 	u32 iw_mode;
-> > 	int prefer_port3;
-> >@@ -129,11 +131,17 @@
-> > extern inline int orinoco_lock(struct orinoco_private *priv,
-> > 			       unsigned long *flags)
-> > {
-> >-	spin_lock_irqsave(&priv->lock, *flags);
-> >+	if (priv->irq_no_disable)
-> >+		spin_lock_bh(&priv->lock);
-> >+	else
-> >+		spin_lock_irqsave(&priv->lock, *flags);
-> > 	if (priv->hw_unavailable) {
-> >-		printk(KERN_DEBUG "orinoco_lock() called with hw_unavailable 
-> >(dev=%p)\n",
-> >+		DEBUG(1, "orinoco_lock() called with hw_unavailable 
-> >(dev=%p)\n",
-> > 		       priv->ndev);
-> >-		spin_unlock_irqrestore(&priv->lock, *flags);
-> >+		if (priv->irq_no_disable)
-> >+			spin_unlock_bh(&priv->lock);
-> >+		else
-> >+			spin_unlock_irqrestore(&priv->lock, *flags);
-> > 		return -EBUSY;
-> 
-> This entire area has problems.
+Hi:
 
-Yes, it does.
+This patch removes netlink_sock_nr which is only used by a printk
+statement in af_netlink.c.  Even that's only there if
+NETLINK_REFCNT_DEBUG is defined.
 
-> Orinoco doesn't need to invent its own locking primitives, nor does it 
-> need to be inventing functions that take *flags as an argument.
+If we were really looking for netlink refcnt bugs there are probably
+better places to do that anyway.
 
-The (already existing) orinoco_lock()/unlock() functions are somewhat
-yucky, though I don't think abolishing them is an urgent item.  This
-conditional locking stuff is completely insane.  It was added in HEAD
-as part of the orinco_usb support, because I got sick of people
-whinging about me not merging the usb support - in the hope that the
-vile hacks would get removed over time.  I've told the USB folks on
-several occasions that this conditional locking stuff is absolutely
-too ugly to live, and needs to be done differently, but I've got
-nothing but the "but it works!" argument.  I have neither the hardware
-nor the time to figure out how to fix it properly myself.
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
+Cheers,
 -- 
-David Gibson			| For every complex problem there is a
-david AT gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--bg08WKrSYDhXBjb5
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/netlink/af_netlink.c 1.57 vs edited =====
+--- 1.57/net/netlink/af_netlink.c	2004-10-20 15:10:40 +10:00
++++ edited/net/netlink/af_netlink.c	2004-10-27 15:01:47 +10:00
+@@ -80,8 +80,6 @@
+ static int netlink_dump(struct sock *sk);
+ static void netlink_destroy_callback(struct netlink_callback *cb);
+ 
+-atomic_t netlink_sock_nr;
+-
+ static rwlock_t nl_table_lock = RW_LOCK_UNLOCKED;
+ static atomic_t nl_table_users = ATOMIC_INIT(0);
+ 
+@@ -100,11 +98,6 @@
+ 	BUG_TRAP(!nlk_sk(sk)->cb);
+ 
+ 	kfree(nlk_sk(sk));
+-
+-	atomic_dec(&netlink_sock_nr);
+-#ifdef NETLINK_REFCNT_DEBUG
+-	printk(KERN_DEBUG "NETLINK %p released, %d are still alive\n", sk, atomic_read(&netlink_sock_nr));
+-#endif
+ }
+ 
+ /* This lock without WQ_FLAG_EXCLUSIVE is good on UP and it is _very_ bad on SMP.
+@@ -240,7 +233,6 @@
+ 	spin_lock_init(&nlk->cb_lock);
+ 	init_waitqueue_head(&nlk->wait);
+ 	sk->sk_destruct = netlink_sock_destruct;
+-	atomic_inc(&netlink_sock_nr);
+ 
+ 	sk->sk_protocol = protocol;
+ 	return 0;
+
+--bg08WKrSYDhXBjb5--
