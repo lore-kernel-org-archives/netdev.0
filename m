@@ -1,28 +1,40 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: [2.6 PATCH] ipvs - avoid NULL ptr deref in __ip_vs_get_out_rt
-Date: Wed, 12 Nov 2003 02:01:34 +0200 (EET)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] NET: Normalize jiffies reported to userspace, in
+ neighbor management code
+Date: Tue, 11 Nov 2003 16:02:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0311120200080.2563-100000@u.domain.uli>
-References: <20031111154832.1017f57f.davem@redhat.com>
+Message-ID: <20031111160200.72cee93a.davem@redhat.com>
+References: <20031110.104536.79654717.yoshfuji@linux-ipv6.org>
+	<20031110230233.254061da.davem@redhat.com>
+	<20031111.163128.48152698.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, <wensong@linux-vs.org>, <morpheus@theendless.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031111154832.1017f57f.davem@redhat.com>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031111.163128.48152698.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 11 Nov 2003 16:31:28 -0600 (CST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-	Hello,
+> In article <20031110230233.254061da.davem@redhat.com> (at Mon, 10 Nov 2003 23:02:33 -0800), "David S. Miller" <davem@redhat.com> says:
+> 
+> > Another idea is to change do_proc_dointvec() to take a conversion function
+> > pointer instead of this "conv" thing.  Maybe even proc_dointvec_minmax()
+> > could be implemented in terms of do_proc_dointvec() with such a scheme.
+> 
+> This is essentially identical to what I thought.
+> Okay, how about this?
 
-On Tue, 11 Nov 2003, David S. Miller wrote:
+This looks very nice, thank you Yoshfuji.
 
-> I assume 2.4.x does not need this fix.
+I'm asking Linus what we should do here.  It's a big change to
+make to fix this bug, and if he thinks so too we'll just use
+your original patch which is a safer version of the fix for 2.6.0
+purposes.  If that happens, we'll integrate this nicer version
+for 2.6.1 or something like this.
 
-	Yes, 2.4 is ok
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+Thank you again.
