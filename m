@@ -1,7 +1,7 @@
 From: "Dale Farnsworth" <dale@farnsworth.org>
-Subject: mv643xx(6/20): use netif_msg_xxx() to control log messages where appropriate
-Date: Mon, 28 Mar 2005 16:46:53 -0700
-Message-ID: <20050328234653.GF29098@xyzzy>
+Subject: mv643xx(8/20): remove ETH_FUNC_RET_STATUS and unused ETH_TARGET enums
+Date: Mon, 28 Mar 2005 16:48:28 -0700
+Message-ID: <20050328234827.GH29098@xyzzy>
 References: <20050328233807.GA28423@xyzzy>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -18,559 +18,398 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Network driver messages can be controlled using ethtool msglvl via the
-netif_msg_xxx() macros. This patch allows mv643xx's driver message
-verbosity to be controlled by ethtool.
-
-Some debug messages have also been added (not enabled by default) to
-trace low-level (per packet) device access.
+The ETH_FUNC_RET_STATUS enum makes the driver code look more complex
+than it needs to be so remove it. The ETH_TARGET enum was no longer
+used so that goes as well.
 
 Signed-off-by: James Chapman <jchapman@katalix.com>
 Acked-by: Dale Farnsworth <dale@farnsworth.org>
-
 
 Index: linux-2.5-enet/drivers/net/mv643xx_eth.h
 ===================================================================
 --- linux-2.5-enet.orig/drivers/net/mv643xx_eth.h
 +++ linux-2.5-enet/drivers/net/mv643xx_eth.h
-@@ -564,6 +564,7 @@
+@@ -385,25 +385,6 @@
+ #define ETH_TX_ENABLE_INTERRUPT			(BIT23)
+ #define ETH_AUTO_MODE				(BIT30)
  
- 	u32 msg_enable;
- 	struct mii_if_info mii;
-+	struct net_device *netdev;
- };
- 
- /* ethernet.h API list */
-@@ -582,12 +583,12 @@
- 				 unsigned char *p_addr);
- 
- /* PHY and MIB routines */
--static void ethernet_phy_reset(unsigned int eth_port_num);
-+static void ethernet_phy_reset(struct mv643xx_private *mp);
- 
--static void eth_port_write_smi_reg(unsigned int eth_port_num,
-+static void eth_port_write_smi_reg(struct mv643xx_private *mp,
- 				   unsigned int phy_reg, unsigned int value);
- 
--static void eth_port_read_smi_reg(unsigned int eth_port_num,
-+static void eth_port_read_smi_reg(struct mv643xx_private *mp,
- 				  unsigned int phy_reg, unsigned int *value);
- 
- static void eth_clear_mib_counters(unsigned int eth_port_num);
+-/* typedefs */
+-
+-typedef enum _eth_func_ret_status {
+-	ETH_OK,			/* Returned as expected.		*/
+-	ETH_ERROR,		/* Fundamental error.			*/
+-	ETH_RETRY,		/* Could not process request. Try later.*/
+-	ETH_END_OF_JOB,		/* Ring has nothing to process.		*/
+-	ETH_QUEUE_FULL,		/* Ring resource error.			*/
+-	ETH_QUEUE_LAST_RESOURCE	/* Ring resources about to exhaust.	*/
+-} ETH_FUNC_RET_STATUS;
+-
+-typedef enum _eth_target {
+-	ETH_TARGET_DRAM,
+-	ETH_TARGET_DEVICE,
+-	ETH_TARGET_CBS,
+-	ETH_TARGET_PCI0,
+-	ETH_TARGET_PCI1
+-} ETH_TARGET;
+-
+ /* These are for big-endian machines.  Little endian needs different
+  * definitions.
+  */
 Index: linux-2.5-enet/drivers/net/mv643xx_eth.c
 ===================================================================
 --- linux-2.5-enet.orig/drivers/net/mv643xx_eth.c
 +++ linux-2.5-enet/drivers/net/mv643xx_eth.c
-@@ -86,7 +86,7 @@
- #endif
- static int ethernet_phy_get(unsigned int eth_port_num);
- static void ethernet_phy_set(unsigned int eth_port_num, int phy_addr);
--static int ethernet_phy_detect(unsigned int eth_port_num);
-+static int ethernet_phy_detect(struct mv643xx_private *mp);
- static int mv643xx_mdio_read(struct net_device *dev, int phy_id, int location);
- static void mv643xx_mdio_write(struct net_device *dev, int phy_id, int location, int val);
- static int mv643xx_eth_do_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
-@@ -199,7 +199,8 @@
- 	 * again in a later time .
- 	 */
- 	if ((mp->rx_ring_skbs == 0) && (mp->rx_timer_flag == 0)) {
--		printk(KERN_INFO "%s: Rx ring is empty\n", dev->name);
-+		if (netif_msg_rx_status(mp))
-+			printk(KERN_INFO "%s: Rx ring is empty\n", dev->name);
- 		/* After 100mSec */
- 		mp->timeout.expires = jiffies + (HZ / 10);
- 		add_timer(&mp->timeout);
-@@ -306,7 +307,8 @@
- {
- 	struct mv643xx_private *mp = netdev_priv(dev);
+@@ -117,14 +117,14 @@
+ static void eth_clear_mib_counters(unsigned int eth_port_num);
  
--	printk(KERN_INFO "%s: TX timeout  ", dev->name);
-+	if (netif_msg_tx_err(mp))
-+		printk(KERN_INFO "%s: TX timeout  ", dev->name);
+ /* Port data flow control routines */
+-static ETH_FUNC_RET_STATUS eth_port_send(struct mv643xx_private *mp,
+-					 struct pkt_info *p_pkt_info);
+-static ETH_FUNC_RET_STATUS eth_tx_return_desc(struct mv643xx_private *mp,
+-					      struct pkt_info *p_pkt_info);
+-static ETH_FUNC_RET_STATUS eth_port_receive(struct mv643xx_private *mp,
+-					    struct pkt_info *p_pkt_info);
+-static ETH_FUNC_RET_STATUS eth_rx_return_buff(struct mv643xx_private *mp,
+-					      struct pkt_info *p_pkt_info);
++static int eth_port_send(struct mv643xx_private *mp,
++			 struct pkt_info *p_pkt_info);
++static int eth_tx_return_desc(struct mv643xx_private *mp,
++			      struct pkt_info *p_pkt_info);
++static int eth_port_receive(struct mv643xx_private *mp,
++			    struct pkt_info *p_pkt_info);
++static void eth_rx_return_buff(struct mv643xx_private *mp,
++			       struct pkt_info *p_pkt_info);
  
- 	/* Do the reset outside of interrupt context */
- 	schedule_work(&mp->tx_timeout_task);
-@@ -350,7 +352,9 @@
+ static char mv643xx_driver_name[] = "mv643xx_eth";
+ static char mv643xx_driver_version[] = "1.0";
+@@ -220,11 +220,7 @@
+ 		pkt_info.buf_ptr = dma_map_single(NULL, skb->data, RX_SKB_SIZE,
+ 							DMA_FROM_DEVICE);
+ 		pkt_info.return_info = skb;
+-		if (eth_rx_return_buff(mp, &pkt_info) != ETH_OK) {
+-			printk(KERN_ERR
+-				"%s: Error allocating RX Ring\n", dev->name);
+-			break;
+-		}
++		eth_rx_return_buff(mp, &pkt_info);
+ 		skb_reserve(skb, 2);
+ 	}
+ 	clear_bit(0, &mp->rx_task_busy);
+@@ -384,7 +380,7 @@
+ 	spin_lock(&mp->lock);
+ 
  	/* Check only queue 0 */
- 	while (eth_tx_return_desc(mp, &pkt_info) == ETH_OK) {
+-	while (eth_tx_return_desc(mp, &pkt_info) == ETH_OK) {
++	while (eth_tx_return_desc(mp, &pkt_info) == 0) {
  		if (pkt_info.cmd_sts & BIT0) {
--			printk("%s: Error in TX\n", dev->name);
-+			if (netif_msg_tx_err(mp))
-+				printk(KERN_WARNING "%s: Error in TX: cmd_sts=%08x\n",
-+				       dev->name, pkt_info.cmd_sts);
- 			stats->tx_errors++;
- 		}
- 
-@@ -440,11 +444,10 @@
- 			if ((pkt_info.cmd_sts & (ETH_RX_FIRST_DESC |
- 							ETH_RX_LAST_DESC)) !=
- 				(ETH_RX_FIRST_DESC | ETH_RX_LAST_DESC)) {
--				if (net_ratelimit())
--					printk(KERN_ERR
--						"%s: Received packet spread "
--						"on multiple descriptors\n",
--						dev->name);
-+				if (net_ratelimit() && netif_msg_rx_err(mp))
-+					printk(KERN_WARNING "%s: Received "
-+					       "packet spread on multiple "
-+					       "descriptors\n", dev->name);
- 			}
- 			if (pkt_info.cmd_sts & ETH_ERROR_SUMMARY)
- 				stats->rx_errors++;
-@@ -812,7 +815,7 @@
- 	}
- 
- 	if (mv643xx_eth_real_open(dev)) {
--		printk("%s: Error opening interface\n", dev->name);
-+		printk(KERN_ERR "%s: Error opening interface\n", dev->name);
- 		err = -EBUSY;
- 		goto out_free;
- 	}
-@@ -1019,8 +1022,6 @@
- 	if (!mp->p_rx_desc_area) {
- 		printk(KERN_ERR "%s: Cannot allocate Rx ring (size %d bytes)\n",
- 							dev->name, size);
--		printk(KERN_ERR "%s: Freeing previously allocated TX queues...",
--							dev->name);
- 		if (mp->rx_sram_size)
- 			iounmap(mp->p_rx_desc_area);
- 		else
-@@ -1070,8 +1071,8 @@
- 		}
- 	}
- 	if (mp->tx_ring_skbs)
--		printk("%s: Error on Tx descriptor free - could not free %d"
--				" descriptors\n", dev->name, mp->tx_ring_skbs);
-+		printk(KERN_ERR "%s: Error on Tx descriptor free - could not "
-+		       "free %d descriptors\n", dev->name, mp->tx_ring_skbs);
- 
- 	/* Free TX ring */
- 	if (mp->tx_sram_size)
-@@ -1099,10 +1100,10 @@
- 	}
- 
- 	if (mp->rx_ring_skbs)
--		printk(KERN_ERR
--			"%s: Error in freeing Rx Ring. %d skb's still"
--			" stuck in RX Ring - ignoring them\n", dev->name,
--			mp->rx_ring_skbs);
-+		printk(KERN_ERR "%s: Error in freeing Rx Ring. "
-+		       "%d skb's still stuck in RX Ring - "
-+		       "ignoring them\n", dev->name, mp->rx_ring_skbs);
-+
- 	/* Free RX ring */
- 	if (mp->rx_sram_size)
- 		iounmap(mp->p_rx_desc_area);
-@@ -1264,9 +1265,8 @@
+ 			if (netif_msg_tx_err(mp))
+ 				printk(KERN_WARNING "%s: Error in TX: cmd_sts=%08x\n",
+@@ -453,9 +449,9 @@
  	struct pkt_info pkt_info;
  
- 	if (netif_queue_stopped(dev)) {
--		printk(KERN_ERR
--			"%s: Tried sending packet when interface is stopped\n",
--			dev->name);
-+		printk(KERN_ERR "%s: Tried sending packet when interface is "
-+		       "stopped\n", dev->name);
- 		return 1;
- 	}
+ #ifdef MV643XX_NAPI
+-	while (eth_port_receive(mp, &pkt_info) == ETH_OK && budget > 0) {
++	while (eth_port_receive(mp, &pkt_info) == 0 && budget > 0) {
+ #else
+-	while (eth_port_receive(mp, &pkt_info) == ETH_OK) {
++	while (eth_port_receive(mp, &pkt_info) == 0) {
+ #endif
+ 		mp->rx_ring_skbs--;
+ 		received_packets++;
+@@ -1204,7 +1200,7 @@
+ 	struct mv643xx_private *mp = netdev_priv(dev);
+ 	struct pkt_info pkt_info;
  
-@@ -1274,16 +1274,15 @@
- 	if ((mp->tx_ring_size - mp->tx_ring_skbs) <=
- 					(skb_shinfo(skb)->nr_frags + 1)) {
- 		netif_stop_queue(dev);
--		printk(KERN_ERR
--			"%s: Bug in mv643xx_eth - Trying to transmit when"
--			" queue full !\n", dev->name);
-+		printk(KERN_ERR "%s: Trying to transmit when queue full!\n", 
-+		       dev->name);
- 		return 1;
- 	}
+-	while (eth_tx_return_desc(mp, &pkt_info) == ETH_OK) {
++	while (eth_tx_return_desc(mp, &pkt_info) == 0) {
+ 		if (pkt_info.return_info) {
+ 			if (skb_shinfo(pkt_info.return_info)->nr_frags)
+ 				dma_unmap_page(NULL, pkt_info.buf_ptr,
+@@ -1294,7 +1290,7 @@
+ {
+ 	struct mv643xx_private *mp = netdev_priv(dev);
+ 	struct net_device_stats *stats = &mp->stats;
+-	ETH_FUNC_RET_STATUS status;
++	int status;
+ 	unsigned long flags;
+ 	struct pkt_info pkt_info;
  
- 	/* Paranoid check - this shouldn't happen */
- 	if (skb == NULL) {
- 		stats->tx_dropped++;
--		printk(KERN_ERR "mv64320_eth paranoid check failed\n");
-+		printk(KERN_ERR "%s: paranoid check failed\n", dev->name);
- 		return 1;
- 	}
- 
-@@ -1311,9 +1310,8 @@
- 			} else if (skb->nh.iph->protocol == IPPROTO_TCP)
- 				pkt_info.l4i_chk = skb->h.th->check;
- 			else {
--				printk(KERN_ERR
--					"%s: chksum proto != TCP or UDP\n",
--					dev->name);
-+				printk(KERN_ERR "%s: chksum proto != TCP "
-+				       "or UDP\n", dev->name);
- 				spin_unlock_irqrestore(&mp->lock, flags);
- 				return 1;
- 			}
-@@ -1325,8 +1323,9 @@
+@@ -1356,10 +1352,9 @@
+ 		pkt_info.return_info = skb;
  		mp->tx_ring_skbs++;
  		status = eth_port_send(mp, &pkt_info);
- 		if ((status == ETH_ERROR) || (status == ETH_QUEUE_FULL))
--			printk(KERN_ERR "%s: Error on transmitting packet\n",
--								dev->name);
-+			if (netif_msg_tx_err(mp))
-+				printk(KERN_WARNING "%s: Error on transmitting "
-+				       "packet\n", dev->name);
+-		if ((status == ETH_ERROR) || (status == ETH_QUEUE_FULL))
+-			if (netif_msg_tx_err(mp))
+-				printk(KERN_WARNING "%s: Error on transmitting "
+-				       "packet\n", dev->name);
++		if (status < 0)
++			goto out;
++
  		stats->tx_bytes += pkt_info.byte_cnt;
  	} else {
  		unsigned int frag;
-@@ -1344,10 +1343,12 @@
- 			fragp = &skb_shinfo(skb)->frags[frag];
- 			if (fragp->size <= 8 && fragp->page_offset & 0x7) {
- 				skb_linearize(skb, GFP_ATOMIC);
--				printk(KERN_DEBUG "%s: unaligned tiny fragment"
--						"%d of %d, fixed\n",
--						dev->name, frag,
--						skb_shinfo(skb)->nr_frags);
-+				if (netif_msg_pktdata(mp))
-+					printk(KERN_DEBUG "%s: unaligned "
-+					       "tiny fragment"
-+					       "%d of %d, fixed\n",
-+					       dev->name, frag,
-+					       skb_shinfo(skb)->nr_frags);
- 				goto linear;
- 			}
+@@ -1415,19 +1410,9 @@
  		}
-@@ -1372,9 +1373,8 @@
- 			} else if (skb->nh.iph->protocol == IPPROTO_TCP)
- 				pkt_info.l4i_chk = skb->h.th->check;
- 			else {
--				printk(KERN_ERR
--					"%s: chksum proto != TCP or UDP\n",
--					dev->name);
-+				printk(KERN_ERR "%s: chksum proto != TCP "
-+				       "or UDP\n", dev->name);
- 				spin_unlock_irqrestore(&mp->lock, flags);
- 				return 1;
- 			}
-@@ -1383,13 +1383,16 @@
+ 
  		status = eth_port_send(mp, &pkt_info);
- 		if (status != ETH_OK) {
- 			if ((status == ETH_ERROR))
--				printk(KERN_ERR
--					"%s: Error on transmitting packet\n",
--					dev->name);
-+				printk(KERN_WARNING "%s: Error on "
-+					       "transmitting packet\n",
-+					       dev->name);
- 			if (status == ETH_QUEUE_FULL)
--				printk("Error on Queue Full \n");
-+				printk(KERN_WARNING "%s: Error on "
-+					       "Queue Full\n",
-+					       dev->name);
- 			if (status == ETH_QUEUE_LAST_RESOURCE)
--				printk("Tx resource error \n");
-+				printk(KERN_WARNING "%s: Tx resource error\n",
-+					       dev->name);
- 		}
+-		if (status != ETH_OK) {
+-			if ((status == ETH_ERROR))
+-				printk(KERN_WARNING "%s: Error on "
+-					       "transmitting packet\n",
+-					       dev->name);
+-			if (status == ETH_QUEUE_FULL)
+-				printk(KERN_WARNING "%s: Error on "
+-					       "Queue Full\n",
+-					       dev->name);
+-			if (status == ETH_QUEUE_LAST_RESOURCE)
+-				printk(KERN_WARNING "%s: Tx resource error\n",
+-					       dev->name);
+-		}
++		if (status < 0)
++			goto out;
++
  		stats->tx_bytes += pkt_info.byte_cnt;
  
-@@ -1420,15 +1423,20 @@
+ 		/* Check for the remaining frags */
+@@ -1454,24 +1439,9 @@
+ 							DMA_TO_DEVICE);
  
- 			if (status != ETH_OK) {
- 				if ((status == ETH_ERROR))
--					printk(KERN_ERR "%s: Error on "
--							"transmitting packet\n",
--							dev->name);
-+					if (netif_msg_tx_err(mp))
-+						printk(KERN_WARNING "%s: Error on "
-+						       "transmitting packet\n",
-+						       dev->name);
+ 			status = eth_port_send(mp, &pkt_info);
++			if (status < 0)
++				goto out;
  
- 				if (status == ETH_QUEUE_LAST_RESOURCE)
--					printk("Tx resource error \n");
-+					if (netif_msg_tx_err(mp))
-+						printk(KERN_WARNING "%s: Tx resource "
-+						       "error\n", dev->name);
- 
- 				if (status == ETH_QUEUE_FULL)
--					printk("Queue is full \n");
-+					if (netif_msg_tx_err(mp))
-+						printk(KERN_WARNING "%s: Queue is full\n",
-+						       dev->name);
- 			}
+-			if (status != ETH_OK) {
+-				if ((status == ETH_ERROR))
+-					if (netif_msg_tx_err(mp))
+-						printk(KERN_WARNING "%s: Error on "
+-						       "transmitting packet\n",
+-						       dev->name);
+-
+-				if (status == ETH_QUEUE_LAST_RESOURCE)
+-					if (netif_msg_tx_err(mp))
+-						printk(KERN_WARNING "%s: Tx resource "
+-						       "error\n", dev->name);
+-
+-				if (status == ETH_QUEUE_FULL)
+-					if (netif_msg_tx_err(mp))
+-						printk(KERN_WARNING "%s: Queue is full\n",
+-						       dev->name);
+-			}
  			stats->tx_bytes += pkt_info.byte_cnt;
  		}
-@@ -1444,8 +1452,10 @@
+ 	}
+@@ -1485,10 +1455,8 @@
+ 	pkt_info.return_info = skb;
  	mp->tx_ring_skbs++;
  	status = eth_port_send(mp, &pkt_info);
- 	if ((status == ETH_ERROR) || (status == ETH_QUEUE_FULL))
--		printk(KERN_ERR "%s: Error on transmitting packet\n",
--								dev->name);
-+		if (netif_msg_tx_err(mp))
-+			printk(KERN_WARNING "%s: Error on transmitting packet\n",
-+			       dev->name);
-+
+-	if ((status == ETH_ERROR) || (status == ETH_QUEUE_FULL))
+-		if (netif_msg_tx_err(mp))
+-			printk(KERN_WARNING "%s: Error on transmitting packet\n",
+-			       dev->name);
++	if (status == 0)
++		goto out;
+ 
  	stats->tx_bytes += pkt_info.byte_cnt;
  #endif
+@@ -1508,6 +1476,7 @@
+ 	stats->tx_packets++;
+ 	dev->trans_start = jiffies;
  
-@@ -1516,6 +1526,7 @@
- 	dev_set_drvdata(ddev, dev);
++out:
+ 	spin_unlock_irqrestore(&mp->lock, flags);
  
- 	mp = netdev_priv(dev);
-+	mp->netdev = dev;
- 
- 	/* By default, log probe, interface up/down and error events */
- 	mp->msg_enable = NETIF_MSG_PROBE | NETIF_MSG_IFUP | NETIF_MSG_IFDOWN |
-@@ -1621,11 +1632,11 @@
- 	mp->mii.phy_id_mask = 0x3f;
- 	mp->mii.reg_num_mask = 0x1f;
- 
--	err = ethernet_phy_detect(port_num);
-+	err = ethernet_phy_detect(mp);
- 	if (err) {
--		pr_debug("MV643xx ethernet port %d: "
--					"No PHY detected at addr %d\n",
--					port_num, ethernet_phy_get(port_num));
-+		printk(KERN_ERR "MV643xx ethernet port %d: "
-+		       "No PHY detected at addr %d\n",
-+		       port_num, ethernet_phy_get(port_num));
- 		return err;
- 	}
- 
-@@ -1636,28 +1647,36 @@
- 	mp->mii.supports_gmii = mii_check_gmii_support(&mp->mii);
- 
- 	p = dev->dev_addr;
--	printk(KERN_NOTICE
--		"%s: port %d with MAC address %02x:%02x:%02x:%02x:%02x:%02x\n",
--		dev->name, port_num, p[0], p[1], p[2], p[3], p[4], p[5]);
-+	if (netif_msg_probe(mp))
-+		printk(KERN_NOTICE "%s: has MAC address "
-+		       "%02x:%02x:%02x:%02x:%02x:%02x\n",
-+		       dev->name, p[0], p[1], p[2], p[3], p[4], p[5]);
- 
- 	if (dev->features & NETIF_F_SG)
--		printk(KERN_NOTICE "%s: Scatter Gather Enabled\n", dev->name);
-+		if (netif_msg_probe(mp))
-+			printk(KERN_NOTICE "%s: Scatter Gather Enabled\n", 
-+			       dev->name);
- 
- 	if (dev->features & NETIF_F_IP_CSUM)
--		printk(KERN_NOTICE "%s: TX TCP/IP Checksumming Supported\n",
--								dev->name);
-+		if (netif_msg_probe(mp))
-+			printk(KERN_NOTICE "%s: TX TCP/IP Checksumming Supported\n",
-+			       dev->name);
- 
- #ifdef MV643XX_CHECKSUM_OFFLOAD_TX
--	printk(KERN_NOTICE "%s: RX TCP/UDP Checksum Offload ON \n", dev->name);
-+	if (netif_msg_probe(mp))
-+		printk(KERN_NOTICE "%s: RX TCP/UDP Checksum Offload ON\n", 
-+		       dev->name);
- #endif
- 
- #ifdef MV643XX_COAL
--	printk(KERN_NOTICE "%s: TX and RX Interrupt Coalescing ON \n",
--								dev->name);
-+	if (netif_msg_probe(mp))
-+		printk(KERN_NOTICE "%s: TX and RX Interrupt Coalescing ON\n",
-+		       dev->name);
- #endif
- 
- #ifdef MV643XX_NAPI
--	printk(KERN_NOTICE "%s: RX NAPI Enabled \n", dev->name);
-+	if (netif_msg_probe(mp))
-+		printk(KERN_NOTICE "%s: RX NAPI Enabled\n", dev->name);
- #endif
- 
- 	return 0;
-@@ -1958,7 +1977,7 @@
- 
- 	eth_port_init_mac_tables(mp->port_num);
- 
--	ethernet_phy_reset(mp->port_num);
-+	ethernet_phy_reset(mp);
- }
- 
+ 	return 0;		/* success */
+@@ -2713,17 +2682,20 @@
  /*
-@@ -2287,22 +2306,22 @@
-  *	-ENODEV on failure
-  *
+  * Modified to include the first descriptor pointer in case of SG
   */
--static int ethernet_phy_detect(unsigned int port_num)
-+static int ethernet_phy_detect(struct mv643xx_private *mp)
+-static ETH_FUNC_RET_STATUS eth_port_send(struct mv643xx_private *mp,
+-					 struct pkt_info *p_pkt_info)
++static int eth_port_send(struct mv643xx_private *mp,
++			 struct pkt_info *p_pkt_info)
  {
- 	unsigned int phy_reg_data0;
- 	int auto_neg;
+ 	int tx_desc_curr, tx_desc_used, tx_first_desc, tx_next_desc;
+ 	struct eth_tx_desc *current_descriptor;
+ 	struct eth_tx_desc *first_descriptor;
+ 	u32 command;
++	int status;
  
--	eth_port_read_smi_reg(port_num, 0, &phy_reg_data0);
-+	eth_port_read_smi_reg(mp, 0, &phy_reg_data0);
- 	auto_neg = phy_reg_data0 & 0x1000;
- 	phy_reg_data0 ^= 0x1000;	/* invert auto_neg */
--	eth_port_write_smi_reg(port_num, 0, phy_reg_data0);
-+	eth_port_write_smi_reg(mp, 0, phy_reg_data0);
+ 	/* Do not process Tx ring in case of Tx ring resource error */
+-	if (mp->tx_resource_err)
+-		return ETH_QUEUE_FULL;
++	if (mp->tx_resource_err) {
++		status = -ENOBUFS;
++		goto out;
++	}
  
--	eth_port_read_smi_reg(port_num, 0, &phy_reg_data0);
-+	eth_port_read_smi_reg(mp, 0, &phy_reg_data0);
- 	if ((phy_reg_data0 & 0x1000) == auto_neg)
- 		return -ENODEV;				/* change didn't take */
- 
- 	phy_reg_data0 ^= 0x1000;
--	eth_port_write_smi_reg(port_num, 0, phy_reg_data0);
-+	eth_port_write_smi_reg(mp, 0, phy_reg_data0);
- 	return 0;
- }
- 
-@@ -2375,14 +2394,14 @@
-  *	None.
-  *
-  */
--static void ethernet_phy_reset(unsigned int eth_port_num)
-+static void ethernet_phy_reset(struct mv643xx_private *mp)
- {
- 	unsigned int phy_reg_data;
- 
- 	/* Reset the PHY */
--	eth_port_read_smi_reg(eth_port_num, 0, &phy_reg_data);
-+	eth_port_read_smi_reg(mp, 0, &phy_reg_data);
- 	phy_reg_data |= 0x8000;	/* Set bit 15 to reset the PHY */
--	eth_port_write_smi_reg(eth_port_num, 0, phy_reg_data);
-+	eth_port_write_smi_reg(mp, 0, phy_reg_data);
- }
- 
- /*
-@@ -2520,9 +2539,10 @@
-  *	true otherwise.
-  *
-  */
--static void eth_port_read_smi_reg(unsigned int port_num,
-+static void eth_port_read_smi_reg(struct mv643xx_private *mp,
- 				unsigned int phy_reg, unsigned int *value)
- {
-+	unsigned int port_num = mp->port_num;
- 	int phy_addr = ethernet_phy_get(port_num);
- 	unsigned long flags;
- 	int i;
-@@ -2533,7 +2553,8 @@
- 	/* wait for the SMI register to become available */
- 	for (i = 0; mv_read(MV643XX_ETH_SMI_REG) & ETH_SMI_BUSY; i++) {
- 		if (i == PHY_WAIT_ITERATIONS) {
--			printk("mv643xx PHY busy timeout, port %d\n", port_num);
-+			printk(KERN_ERR "%s: PHY busy timeout\n", 
-+			       mp->netdev->name);
- 			goto out;
- 		}
- 		udelay(PHY_WAIT_MICRO_SECONDS);
-@@ -2545,7 +2566,8 @@
- 	/* now wait for the data to be valid */
- 	for (i = 0; !(mv_read(MV643XX_ETH_SMI_REG) & ETH_SMI_READ_VALID); i++) {
- 		if (i == PHY_WAIT_ITERATIONS) {
--			printk("mv643xx PHY read timeout, port %d\n", port_num);
-+			printk(KERN_ERR "%s: PHY read timeout\n",
-+			       mp->netdev->name);
- 			goto out;
- 		}
- 		udelay(PHY_WAIT_MICRO_SECONDS);
-@@ -2576,12 +2598,13 @@
-  *	true otherwise.
-  *
-  */
--static void eth_port_write_smi_reg(unsigned int eth_port_num,
-+static void eth_port_write_smi_reg(struct mv643xx_private *mp,
- 				   unsigned int phy_reg, unsigned int value)
- {
- 	int phy_addr;
- 	int i;
- 	unsigned long flags;
-+	unsigned int eth_port_num = mp->port_num;
- 
- 	phy_addr = ethernet_phy_get(eth_port_num);
- 
-@@ -2591,8 +2614,8 @@
- 	/* wait for the SMI register to become available */
- 	for (i = 0; mv_read(MV643XX_ETH_SMI_REG) & ETH_SMI_BUSY; i++) {
- 		if (i == PHY_WAIT_ITERATIONS) {
--			printk("mv643xx PHY busy timeout, port %d\n",
--								eth_port_num);
-+			printk(KERN_ERR "%s: PHY busy timeout\n", 
-+			       mp->netdev->name);
- 			goto out;
- 		}
- 		udelay(PHY_WAIT_MICRO_SECONDS);
-@@ -2612,14 +2635,14 @@
- 	int val;
- 	struct mv643xx_private *mp = netdev_priv(dev);
- 
--	eth_port_read_smi_reg(mp->port_num, location, &val);
-+	eth_port_read_smi_reg(mp, location, &val);
- 	return val;
- }
- 
- static void mv643xx_mdio_write(struct net_device *dev, int phy_id, int location, int val)
- {
- 	struct mv643xx_private *mp = netdev_priv(dev);
--	eth_port_write_smi_reg(mp->port_num, location, val);
-+	eth_port_write_smi_reg(mp, location, val);
- }
- 
- /*
-@@ -2670,9 +2693,8 @@
- 	 * in length must be aligned on an 8 byte boundary.
- 	 */
+ 	/*
+ 	 * The hardware requires that each buffer that is <= 8 bytes
+@@ -2732,7 +2704,8 @@
  	if (p_pkt_info->byte_cnt <= 8 && p_pkt_info->buf_ptr & 0x7) {
--		printk(KERN_ERR
--			"mv643xx_eth port %d: packet size <= 8 problem\n",
--			mp->port_num);
-+		printk(KERN_ERR "%s: packet size <= 8 (%d) problem\n",
-+		       dev->name, p_pkt_info->byte_cnt);
- 		return ETH_ERROR;
+ 		printk(KERN_ERR "%s: packet size <= 8 (%d) problem\n",
+ 		       dev->name, p_pkt_info->byte_cnt);
+-		return ETH_ERROR;
++		status = -EIO;
++		goto out;
  	}
  
-@@ -2703,6 +2725,13 @@
- 		current_descriptor->cmd_sts = command;
+ 	/* Get the Tx Desc ring indexes */
+@@ -2787,26 +2760,34 @@
+ 	if (tx_next_desc == tx_desc_used) {
+ 		mp->tx_resource_err = 1;
+ 		mp->tx_curr_desc_q = tx_first_desc;
+-
+-		return ETH_QUEUE_LAST_RESOURCE;
++		result = -ENOBUFS;
++		goto out;
  	}
  
-+	if (netif_msg_txqueued(mp))
-+		printk( KERN_DEBUG "%s: send pkt: len=%d, desc=%d, "
-+			"f/l=%d/%d\n", dev->name,
-+			p_pkt_info->byte_cnt, tx_desc_curr, 
-+			((command & ETH_TX_FIRST_DESC) != 0),
-+			((command & ETH_TX_LAST_DESC) != 0));
+ 	mp->tx_curr_desc_q = tx_next_desc;
++	status = 0;
 +
- 	if (command & ETH_TX_LAST_DESC) {
- 		wmb();
- 		first_descriptor->cmd_sts = mp->tx_first_command;
-@@ -2752,6 +2781,13 @@
- 	current_descriptor->byte_cnt = p_pkt_info->byte_cnt;
- 	mp->tx_skb[tx_desc_curr] = p_pkt_info->return_info;
++out:
++	if (status == -ENOBUFS)
++		printk(KERN_ERR "%s: Tx queue full\n", dev->name);
  
-+	if (netif_msg_tx_queued(mp))
-+		printk(KERN_DEBUG "%s: send pkt: desc=%d len=%d, f/l=%d/%d\n",
-+		       mp->netdev->name, tx_desc_curr,
-+		       p_pkt_info->byte_cnt, 
-+		       ((command_status & ETH_TX_FIRST_DESC) != 0),
-+		       ((command_status & ETH_TX_LAST_DESC) != 0));
+-	return ETH_OK;
++	return status;
+ }
+ #else
+-static ETH_FUNC_RET_STATUS eth_port_send(struct mv643xx_private *mp,
+-					 struct pkt_info *p_pkt_info)
++static int eth_port_send(struct mv643xx_private *mp,
++			 struct pkt_info *p_pkt_info)
+ {
+ 	int tx_desc_curr;
+ 	int tx_desc_used;
+ 	struct eth_tx_desc *current_descriptor;
+ 	unsigned int command_status;
++	int status;
+ 
+ 	/* Do not process Tx ring in case of Tx ring resource error */
+-	if (mp->tx_resource_err)
+-		return ETH_QUEUE_FULL;
++	if (mp->tx_resource_err) {
++		status = -ENOBUFS;
++		goto out;
++	}
+ 
+ 	/* Get the Tx Desc ring indexes */
+ 	tx_desc_curr = mp->tx_curr_desc_q;
+@@ -2842,10 +2823,17 @@
+ 	/* Check for ring index overlap in the Tx desc ring */
+ 	if (tx_desc_curr == tx_desc_used) {
+ 		mp->tx_resource_err = 1;
+-		return ETH_QUEUE_LAST_RESOURCE;
++		status = -ENOBUFS;
++		goto out;
+ 	}
+ 
+-	return ETH_OK;
++	status = 0;
 +
- 	/* Set last desc with DMA ownership and interrupt enable. */
- 	wmb();
- 	current_descriptor->cmd_sts = command_status |
-@@ -2899,6 +2935,13 @@
- 	p_pkt_info->return_info = mp->rx_skb[rx_curr_desc];
- 	p_pkt_info->l4i_chk = p_rx_desc->buf_size;
- 
-+	if (netif_msg_rx_status(mp))
-+		printk(KERN_DEBUG "%s: rcv pkt: len=%d, desc=%d, f/l=%d/%d\n",
-+		       mp->netdev->name, 
-+		       p_pkt_info->byte_cnt, rx_curr_desc,
-+		       ((command_status & ETH_RX_FIRST_DESC) != 0),
-+		       ((command_status & ETH_RX_LAST_DESC) != 0));
++out:
++	if (status == -ENOBUFS)
++		printk(KERN_ERR "%s: Error on Queue Full\n", mp->netdev->name);
 +
- 	/* Clean the return info field to indicate that the packet has been */
- 	/* moved to the upper layers					    */
- 	mp->rx_skb[rx_curr_desc] = NULL;
-@@ -2948,6 +2991,11 @@
- 	p_used_rx_desc->buf_size = p_pkt_info->byte_cnt;
- 	mp->rx_skb[used_rx_desc] = p_pkt_info->return_info;
++	return status;
+ }
+ #endif
  
-+	if (netif_msg_rx_status(mp))
-+		printk(KERN_DEBUG "%s: rx done, len=%d, desc=%d, status=%08x\n",
-+		       mp->netdev->name, p_pkt_info->byte_cnt, used_rx_desc,
-+		       p_used_rx_desc->cmd_sts);
-+
- 	/* Flush the write pipe */
+@@ -2873,8 +2861,8 @@
+  *	ETH_OK otherwise.
+  *
+  */
+-static ETH_FUNC_RET_STATUS eth_tx_return_desc(struct mv643xx_private *mp,
+-						struct pkt_info *p_pkt_info)
++static int eth_tx_return_desc(struct mv643xx_private *mp,
++			      struct pkt_info *p_pkt_info)
+ {
+ 	int tx_desc_used;
+ #ifdef MV643XX_CHECKSUM_OFFLOAD_TX
+@@ -2892,17 +2880,17 @@
  
- 	/* Return the descriptor to DMA ownership */
+ 	/* Sanity check */
+ 	if (p_tx_desc_used == NULL)
+-		return ETH_ERROR;
++		return -EBADMSG;
+ 
+ 	/* Stop release. About to overlap the current available Tx descriptor */
+ 	if (tx_desc_used == tx_busy_desc && !mp->tx_resource_err)
+-		return ETH_END_OF_JOB;
++		return -ENOMSG;
+ 
+ 	command_status = p_tx_desc_used->cmd_sts;
+ 
+ 	/* Still transmitting... */
+ 	if (command_status & (ETH_BUFFER_OWNED_BY_DMA))
+-		return ETH_RETRY;
++		return -EBUSY;
+ 
+ 	/* Pass the packet information to the caller */
+ 	p_pkt_info->cmd_sts = command_status;
+@@ -2915,7 +2903,7 @@
+ 	/* Any Tx return cancels the Tx resource error status */
+ 	mp->tx_resource_err = 0;
+ 
+-	return ETH_OK;
++	return 0;
+ }
+ 
+ /*
+@@ -2941,7 +2929,7 @@
+  *	ETH_END_OF_JOB if there is no received data.
+  *	ETH_OK otherwise.
+  */
+-static ETH_FUNC_RET_STATUS eth_port_receive(struct mv643xx_private *mp,
++static int eth_port_receive(struct mv643xx_private *mp,
+ 						struct pkt_info *p_pkt_info)
+ {
+ 	int rx_next_curr_desc, rx_curr_desc, rx_used_desc;
+@@ -2950,7 +2938,7 @@
+ 
+ 	/* Do not process Rx ring in case of Rx ring resource error */
+ 	if (mp->rx_resource_err)
+-		return ETH_QUEUE_FULL;
++		return -ENOBUFS;
+ 
+ 	/* Get the Rx Desc ring 'curr and 'used' indexes */
+ 	rx_curr_desc = mp->rx_curr_desc_q;
+@@ -2964,7 +2952,7 @@
+ 
+ 	/* Nothing to receive... */
+ 	if (command_status & (ETH_BUFFER_OWNED_BY_DMA))
+-		return ETH_END_OF_JOB;
++		return -ENOMSG;
+ 
+ 	p_pkt_info->byte_cnt = (p_rx_desc->byte_cnt) - RX_BUF_OFFSET;
+ 	p_pkt_info->cmd_sts = command_status;
+@@ -2991,7 +2979,7 @@
+ 	if (rx_next_curr_desc == rx_used_desc)
+ 		mp->rx_resource_err = 1;
+ 
+-	return ETH_OK;
++	return 0;
+ }
+ 
+ /*
+@@ -3014,8 +3002,8 @@
+  *	ETH_ERROR in case the routine can not access Rx desc ring.
+  *	ETH_OK otherwise.
+  */
+-static ETH_FUNC_RET_STATUS eth_rx_return_buff(struct mv643xx_private *mp,
+-						struct pkt_info *p_pkt_info)
++static void eth_rx_return_buff(struct mv643xx_private *mp,
++			       struct pkt_info *p_pkt_info)
+ {
+ 	int used_rx_desc;	/* Where to return Rx resource */
+ 	volatile struct eth_rx_desc *p_used_rx_desc;
+@@ -3046,8 +3034,6 @@
+ 
+ 	/* Any Rx return cancels the Rx resource error status */
+ 	mp->rx_resource_err = 0;
+-
+-	return ETH_OK;
+ }
+ 
+ /************* Begin ethtool support *************************/
