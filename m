@@ -1,39 +1,34 @@
-From: bilgi@kanser-tedavis.com.sgi.com
-Subject: kanser tedavisi
-Date: Mon, 12 Aug 2002 02:58:16 +0300
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] connect() return value.
+Date: Mon, 12 Aug 2002 05:28:38 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208112357.g7BNvGRw026292@oss.sgi.com>
-Mime-Version: 1.0 (produced by Synapse)
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Message-ID: <200208120128.FAA16791@sex.inr.ac.ru>
+References: <20020811232546.GA27168@anakin.wychk.org>
+Mime-Version: 1.0
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
-Content-Description: Message text
+To: glee@gnupilgrims.org (Geoffrey Lee)
+In-Reply-To: <20020811232546.GA27168@anakin.wychk.org> from "Geoffrey Lee" at Aug 12, 2 09:25:46 am
 List-Id: netdev.vger.kernel.org
 
-Kemoterapinin yan etkileri nedeniyle yorgun ve bitkin d=FCsm=FCs bir yaki=
-niniz mi var?=20
-Yanitiniz evetse vakit kaybetmeyin ve CARCTOL'u denemesini saglayin. Gene=
-lde=20
-ancak  klasik tedavinin ise yaramadiginin anlasilmasi, insanlari baska se=
-=E7enekler=20
-aramaya itmektedir, ancak o durumda maalesef yapacak fazla birsey kalmama=
-ktadir.=20
-Ayni hatanin yapilmasina izin vermeyin ve hi=E7bir yan etkisi olmayan, Hi=
-malaya Dagi=20
-bitkilerinden =FCretilen Carctol'u denemesini saglayin. CARCTOL, birka=E7=
- bin yillik,=20
-alternatif Hint Tibbinin (Ayuverda'nin) insanliga sundugu bir umut isigid=
-ir. =D6nceleri=20
-v=FCcudu takviye edici tonik olarak kullanilan bu =FCr=FCn simdi yeni for=
-m=FCl=FCyle kansere karsi=20
- etkili bir ila=E7tir
-L=FCtfen asagidaki siteye ugrayin ve Carctol'u yakindan taniyin.
-http://www.kanser-tedavisi.com  esenlikler dileriz..
+Hello!
 
-Should you wish to learn about the ways to aid in healing Cancer along wi=
-th=20
-conventional methods and about Cartol, you may view our site in its Engli=
-sh format at=20
-http://www.kanser-tedavisi.com/English_homepage.html=20
+>					     I wanted to know what 
+> is the "correct" behavior for connect() by default with signal().
+
+This simply does not matter, that's answer.
+
+Actually, it is not so easy to implement restartable connect().
+I think this is the only reason why it not restartable in some OSes.
+
+BTW could you make the following experiments on the same OSes:
+connect() on nonblocking socket, then repeat the connect()
+until it returns EISCONN. I guess the behaviour also will be different.
+
+
+> it should be trivial to hand edit my prevoius patch posted.
+
+Yes, of course. Though the first part of it also from the class
+"does not matter", it is worth to do this just for sanity.
+
+Alexey
