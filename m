@@ -1,44 +1,35 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Patch: minor nit in ip_options_compile()
-Date: Mon, 24 Mar 2003 03:02:13 +0300 (MSK)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6 Extension headers
+Date: Sun, 23 Mar 2003 21:29:50 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200303240002.DAA25577@sex.inr.ac.ru>
-References: <200303211956.50921.niv@us.ibm.com>
+Message-ID: <20030323.212950.05858732.davem@redhat.com>
+References: <20030306093219.1a702868.kazunori@miyazawa.org>
+	<20030305.204348.130225511.davem@redhat.com>
+	<87of48h6f8.wl@karaba.org>
 Mime-Version: 1.0
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: niv@us.ibm.com (Nivedita Singhvi)
-In-Reply-To: <200303211956.50921.niv@us.ibm.com> from "Nivedita Singhvi" at Mar 21, 3 07:56:50 pm
+To: mk@linux-ipv6.org
+In-Reply-To: <87of48h6f8.wl@karaba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
+   Date: Tue, 18 Mar 2003 10:32:27 -0800
+   
+   Could you check this patch?
+   (This patch is against 2.5.65.)
 
-> In the following else clause, we check for opt->is_data, which=20
-> should always be set for this case, and if not, current code will
-> lead to a null ptr dereference because skb is always null in=20
-> this case..
+I applied this patch with some minor changes.
 
-You misunderstood tha code. If opt->is_data is clear skb may be not NULL.
-The option is not used at the moment, but it it pretty silly to lose this.
+First, many functions in net/ipv6/exthdrs.c and net/ipv6/reassembly.c
+can be marked static now.
 
-> Look reasonable?=20
+Second, some local variables (for example, "nhoff" in ip6_input()) can
+be eliminated entirely because they compute a value in one place and
+use it in the very next line and nowhere else is it referenced.
 
-No:
-
-> +=09=09if ((optptr =3D opt->__data) =3D=3D 0)
-> +=09=09=09goto error;=20
-
-is identical FALSE. [Sent quatable-printable attachment? Get it
-back quoted. :-)]
-
-
-> Figured its better to fall down to returning EINVAL..
-
-if (skb == NULL)
-   BUG();
-
-Listen, I love to add BUG()s when it is not mathematically
-clear that something is invariant. Not in this trivial case.
-
-Alexey
+Thank you.
