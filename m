@@ -1,48 +1,103 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Sun, 13 Mar 2005 19:49:13 +0200
-Message-ID: <200503131949.13962.hasso@estpak.ee>
-References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1107142012.8021.109.camel@jzny.localdomain> <1107173804.5812.133.camel@tsc-6.cph.tpack.net>
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Fix ns82830 driver for x86-64
+Date: 14 Mar 2005 01:05:43 +0100
+Message-ID: <20050314000543.GA85950@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: hadi@cyberus.ca, Jeff Garzik <jgarzik@pobox.com>,
-        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
-        Paul Jakma <paul@clubi.ie>
-To: Tommy Christensen <tommy.christensen@tpack.net>
-In-Reply-To: <1107173804.5812.133.camel@tsc-6.cph.tpack.net>
+Content-Type: text/plain; charset=us-ascii
+Date: Mon, 14 Mar 2005 01:05:43 +0100
+To: jgarzik@pobox.com, netdev@oss.sgi.com, bcrl@kvack.org
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tommy Christensen wrote:
-> On Mon, 2005-01-31 at 04:26, jamal wrote:
-> > It does look pretty sane.. Tested?
->
-> Nope, I don't have access to any relevant HW. Hopefully someone
-> else can give it some beating. Please.
+Fix up some dodgy ifdefs in the ns82820 driver 
+and support DAC mode on x86-64. Do proper sizeof(dma_addr_t) checks
+instead.
 
-Sorry for long delay. I lost track in this discussion, was busy with other 
-things, but found finally time to test this.
+Only compile tested due to lack of hardware.
 
-> Hopefully someone can verify that with e.g. an e1000, and then check
-> whether the patch I send makes any difference.
+Originally pointed out by Al Viro
 
-Yes, confirmed that patch makes difference and solves Quagga ospfd problem 
-(from what it all started :).
+Signed-off-by: Andi Kleen <ak@muc.de>
 
-Thank you very much!
-
-
-PS. Patch is tested with 2.4.29 as well, but it requires link watch stuff to 
-work. Complete (link-watch + vlan carrier detection + this fix) is here - 
-http://hasso.linux.ee/quagga/2.4.29-link-watch.patch
-
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+Index: linux/drivers/net/ns83820.c
+===================================================================
+--- linux.orig/drivers/net/ns83820.c	2005-03-12 15:06:34.000000000 +0100
++++ linux/drivers/net/ns83820.c	2005-03-14 00:50:07.547865056 +0100
+@@ -1,4 +1,4 @@
+-#define _VERSION "0.20"
++#define VERSION "0.20"
+ /* ns83820.c by Benjamin LaHaise with contributions.
+  *
+  * Questions/comments/discussion to linux-ns83820@kvack.org.
+@@ -129,18 +129,6 @@
+ #undef Dprintk
+ #define	Dprintk			dprintk
+ 
+-#if defined(CONFIG_HIGHMEM64G) || defined(__ia64__)
+-#define USE_64BIT_ADDR	"+"
+-#endif
+-
+-#if defined(USE_64BIT_ADDR)
+-#define	VERSION	_VERSION USE_64BIT_ADDR
+-#define TRY_DAC	1
+-#else
+-#define	VERSION	_VERSION
+-#define TRY_DAC	0
+-#endif
+-
+ /* tunables */
+ #define RX_BUF_SIZE	1500	/* 8192 */
+ #if defined(CONFIG_VLAN_8021Q) || defined(CONFIG_VLAN_8021Q_MODULE)
+@@ -386,22 +374,16 @@
+ #define LINK_DOWN		0x02
+ #define LINK_UP			0x04
+ 
+-#ifdef USE_64BIT_ADDR
+-#define HW_ADDR_LEN	8
++#define HW_ADDR_LEN	sizeof(dma_addr_t) 
+ #define desc_addr_set(desc, addr)				\
+ 	do {							\
+-		u64 __addr = (addr);				\
+-		(desc)[0] = cpu_to_le32(__addr);		\
+-		(desc)[1] = cpu_to_le32(__addr >> 32);		\
++		((desc)[0] = cpu_to_le32(addr));		\
++		if (HW_ADDR_LEN == 8)		 		\
++			(desc)[1] = cpu_to_le32(((u64)addr) >> 32);	\
+ 	} while(0)
+ #define desc_addr_get(desc)					\
+-		(((u64)le32_to_cpu((desc)[1]) << 32)		\
+-		     | le32_to_cpu((desc)[0]))
+-#else
+-#define HW_ADDR_LEN	4
+-#define desc_addr_set(desc, addr)	((desc)[0] = cpu_to_le32(addr))
+-#define desc_addr_get(desc)		(le32_to_cpu((desc)[0]))
+-#endif
++	(le32_to_cpu((desc)[0]) | \
++	(HW_ADDR_LEN == 8 ? ((dma_addr_t)le32_to_cpu((desc)[1]))<<32 : 0))
+ 
+ #define DESC_LINK		0
+ #define DESC_BUFPTR		(DESC_LINK + HW_ADDR_LEN/4)
+@@ -1841,7 +1823,8 @@
+ 	int using_dac = 0;
+ 
+ 	/* See if we can set the dma mask early on; failure is fatal. */
+-	if (TRY_DAC && !pci_set_dma_mask(pci_dev, 0xffffffffffffffffULL)) {
++	if (sizeof(dma_addr_t) == 8 && 
++	 	!pci_set_dma_mask(pci_dev, 0xffffffffffffffffULL)) {
+ 		using_dac = 1;
+ 	} else if (!pci_set_dma_mask(pci_dev, 0xffffffff)) {
+ 		using_dac = 0;
+@@ -1972,9 +1955,8 @@
+ 	/* When compiled with 64 bit addressing, we must always enable
+ 	 * the 64 bit descriptor format.
+ 	 */
+-#ifdef USE_64BIT_ADDR
+-	dev->CFG_cache |= CFG_M64ADDR;
+-#endif
++	if (sizeof(dma_addr_t) == 8) 
++		dev->CFG_cache |= CFG_M64ADDR;
+ 	if (using_dac)
+ 		dev->CFG_cache |= CFG_T64ADDR;
+ 
