@@ -1,28 +1,29 @@
 From: Christoph Hellwig <hch@lst.de>
-Subject: Re: [PATCH] mark arcnet_setup static
-Date: Sun, 24 Oct 2004 15:20:51 +0200
+Subject: [PATCH] remove bogus exports in ppp
+Date: Sun, 24 Oct 2004 15:25:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041024132051.GB19867@lst.de>
-References: <20041024131823.GC19658@lst.de>
+Message-ID: <20041024132504.GC19927@lst.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: paulus@samba.org
 Content-Disposition: inline
-In-Reply-To: <20041024131823.GC19658@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-also needs a header update, sorry:
+even if they are usefull for debugging they're just bad namespace
+pollution for mainline
 
---- 1.7/include/linux/arcdevice.h	2004-10-05 22:16:18 +02:00
-+++ edited/include/linux/arcdevice.h	2004-10-23 16:09:24 +02:00
-@@ -330,7 +330,6 @@
- 
- void arcnet_unregister_proto(struct ArcProto *proto);
- irqreturn_t arcnet_interrupt(int irq, void *dev_id, struct pt_regs *regs);
--void arcdev_setup(struct net_device *dev);
- struct net_device *alloc_arcdev(char *name);
- void arcnet_rx(struct net_device *dev, int bufnum);
- 
+
+--- 1.50/drivers/net/ppp_generic.c	2004-08-29 07:49:19 +02:00
++++ edited/drivers/net/ppp_generic.c	2004-10-23 14:08:17 +02:00
+@@ -2721,8 +2721,6 @@
+ EXPORT_SYMBOL(ppp_output_wakeup);
+ EXPORT_SYMBOL(ppp_register_compressor);
+ EXPORT_SYMBOL(ppp_unregister_compressor);
+-EXPORT_SYMBOL(all_ppp_units); /* for debugging */
+-EXPORT_SYMBOL(all_channels); /* for debugging */
+ MODULE_LICENSE("GPL");
+ MODULE_ALIAS_CHARDEV_MAJOR(PPP_MAJOR);
+ MODULE_ALIAS("/dev/ppp");
