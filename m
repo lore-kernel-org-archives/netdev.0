@@ -1,27 +1,24 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: netfilter6: REJECT target?
-Date: Wed, 13 Aug 2003 23:30:49 +0300 (EEST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: netfilter6: REJECT target?
+Date: Wed, 13 Aug 2003 13:34:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308132329050.15288-100000@netcore.fi>
+Message-ID: <20030813133440.23ad50d7.davem@redhat.com>
+References: <Pine.LNX.4.44.0308132329050.15288-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.44.0308132329050.15288-100000@netcore.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Wed, 13 Aug 2003 23:30:49 +0300 (EEST)
+Pekka Savola <pekkas@netcore.fi> wrote:
 
-Is there some reason the IPv6 Netfilter REJECT target hasn't been merged 
-during the last 2 years it has existed in Netfilter's patch-o-matic.
+> Is there some reason the IPv6 Netfilter REJECT target hasn't been merged 
+> during the last 2 years it has existed in Netfilter's patch-o-matic.
 
-(it hasn't been pushed for merging, sure, ...)
-
-Just wondering why we are keeping Netfilter6 crippled like this.  Unless 
-we can properly use it to reject packets with ICMPv6/TCP-RST, it's pretty 
-close to useless :-(
-
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+It might be more profitable to ask the netfilter lists
+than here.
