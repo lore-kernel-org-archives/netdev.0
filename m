@@ -1,97 +1,97 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Get rid of rt_check_expire and rt_garbage_collect
-Date: Sat, 2 Apr 2005 21:23:04 +1000
-Message-ID: <20050402112304.GA11321@gondor.apana.org.au>
-References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au> <424E641A.1020609@cosmosbay.com>
+From: Zilvinas Valinskas <zilvinas@gemtek.lt>
+Subject: Re: [Ipsec-tools-devel] Re: IPSEC: on behavior of acquire
+Date: Sat, 2 Apr 2005 15:25:53 +0300
+Message-ID: <20050402122553.GA7521@gemtek.lt>
+References: <1112405303.1096.37.camel@jzny.localdomain> <424E454D.4090402@gmc.lt>
+Reply-To: Zilvinas Valinskas <zilvinas@gemtek.lt>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        hadi@cyberus.ca
+Cc: hadi@cyberus.ca, ipsec-tools-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com, nakam@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
+To: Aidas Kasparas <a.kasparas@gmc.lt>
 Content-Disposition: inline
-In-Reply-To: <424E641A.1020609@cosmosbay.com>
+In-Reply-To: <424E454D.4090402@gmc.lt>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Apr 02, 2005 at 11:21:30AM +0200, Eric Dumazet wrote:
+On Sat, Apr 02, 2005 at 10:10:05AM +0300, Aidas Kasparas wrote:
 > 
-> Well, I began my work because of the overflow bug in rt_check_expire()...
-> Then I realize this function could not work as expected. On a loaded 
-> machine, one timer tick is 1 ms.
-> During this time, number of chains that are scanned is ridiculous.
-> With the standard timer of 60 second, fact is rt_check_expire() is useless.
+> 
+> jamal wrote:
+> >test1)on one window run setkey -x:
+> >
+> >ping -c 1 someDST
+> >
+> >-1) packet arrives towards outbound
+> >0) Larval state created
+> >1) one acquire sent.
+> >2) timeout.
+> >3) packet dropped. -ESRCH returned.
+> >4) larval state deleted
+> >
+> >So question 1): Shouldnt the return code be -ERESTART to ask
+> >the app to retry?
+> >question 2) Why is there a hardcoding of 1 try only?
+> 
+> Re 1 try only. There is little sense to do more tries. If there is no 
+> deamon listening to pfkey messages, then no connection will be made no 
+> matter how many retries you'll do. If deamon/link/peer is slow and SA 
+> was not established before timeout expired, then repeated acquire will 
+> be simply ignored (deamon will find out that negotiation is already in 
+> progress, there is no reason to start another negotiation and therefore 
+> will drop that acquire request). And the only situation where repeated 
+> acquires may help is when pfkey messages are lost. But pfkey was not 
+> designed to survive message loses, therefore you should not operate your 
+> boxes in mode when lost pfkey messages are a rule, not an exception. And 
+> on the other hand, occasional pfkey message loses can be worked around 
+> by applications/user retry.
+> 
+> Re error code returned. Error codes returned by pfkey never were 
+> perfect. But your experiment is not perfect too. You sent pings with no 
+> KE deamon running. pfkey code found that there is nothing receiving 
+> acquire messages => there is no chance that any process will setup 
+> required SAs and tried to inform about that (I agree, return code is not 
+> very informative, at least until you learn about reasons why it is 
+> such). If you would have racoon (or other pfkey based ISAKMP daemon) 
+> running, you would get "resource temporarily unavailable" (don't know 
+> which error code corresponds to that message), which IMHO is ok (if it 
+> is not, please explain).
 
-I see.  What we've got here is a scalability problem with respect
-to the number of hash buckets.  As the number of buckets increases,
-the amount of work the timer GC has to perform inreases proportionally.
+EBUSY I think it is.
 
-Since the timer GC parameters are fixed, this will eventually break.
+I am not entirely sure it is ok to return such error, some applications are
+not coping nicely with it. Perhaps ECONNREFUSED is more reasonable - as it 
+doesn't brake old apps assumption (connection cannot be established,
+doesn't matter if that is due to routing or IPsec SPD or anything else).
+Although it is quite simple to fix applications to handle EBUSY and retry ...
 
-Rather than changing the timer GC so that it runs more often to keep
-up with the large routing cache, we should get out of this by reducing
-the amount of work we have to do.
+I thought it was annoying that applications quit because of EBUSY - when
+I had tried IPsec first time. Now I think it is quite handy - especially
+from scripts, I am sure that if something goes wrong - ping (or other
+application) won't block ...
 
-Imagine an ideal balanced hash table with 2.6 million entries.  That
-is, all incoming/outgoing packets belong to flows that are already in
-the hash table.  Imagine also that there is no PMTU/link failure taking
-place so all entries are valid forever.
-
-In this state there is absolutely no need to execute the timer GC.
-
-Let's remove one of those assumptions and allow there to be entries
-which need to expire after a set period.
-
-Instead of having the timer GC clean them up, we can move the expire
-check to the place where the entries are used.  That is, we make
-ip_route_input/ip_route_output/ipv4_dst_check check whether the
-entry has expired.
-
-On the face of it we're doing more work since every routing cache
-hit will need to check the validity of the dst.  However, because
-it's a single subtraction it is actually pretty cheap.  There is
-also no additional cache miss compared to doing it in the timer
-GC since we have to read the dst anyway.
-
-Let's go one step further and make the routing cache come to life.
-Now there are new entries coming in and we need to remove old ones
-in order to make room for them.
-
-That task is currently carried out by the timer GC in rt_check_expire
-and on demand by rt_garbage_collect.  Either way we have to walk the
-entire routing cache looking for entries to get rid of.
-
-This is quite expensive when the routing cache is large.  However,
-there is a better way.
-
-The reason we keep a cap on the routing cache (for a given hash size)
-is so that individual chains do not degenerate into long linked lists.
-
-In other words, we don't really care about how many entries there are
-in the routing cache.  But we do care about how long each hash chain
-is.
-
-So instead of walking the entire routing cache to keep the number of
-entries down, what we should do is keep each hash chain as short as
-possible.
-
-Assuming that the hash function is good, this should achieve the
-same end result.
-
-Here is how it can be done: Every time a routing entry is inserted into
-a hash chain, we perform GC on that chain unconditionally.
-
-It might seem that we're doing more work again.  However, as before
-because we're traversing the chain anyway, it is very cheap to perform
-the GC operations which mainly involve the checks in rt_may_expire.
-
-OK that's enough thinking and it's time to write some code to see
-whether this is all bullshit :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+> 
+> Re netlink behaviour I can not comment as I don't use it for ipsec 
+> purposes, but would like to read similar explanation. Reason for that - 
+> idea that ipsec-tools one day could support operation via netlink is not 
+> ruled out of our minds. Yet, afaik nobody is working on it at the moment.
+> 
+> 
+> -- 
+> Aidas Kasparas
+> IT administrator
+> GM Consult Group, UAB
+> 
+> 
+> 
+> -------------------------------------------------------
+> SF email is sponsored by - The IT Product Guide
+> Read honest & candid reviews on hundreds of IT Products from real users.
+> Discover which products truly live up to the hype. Start reading now.
+> http://ads.osdn.com/?ad_id=6595&alloc_id=14396&op=click
+> _______________________________________________
+> Ipsec-tools-devel mailing list
+> Ipsec-tools-devel@lists.sourceforge.net
+> https://lists.sourceforge.net/lists/listinfo/ipsec-tools-devel
