@@ -1,43 +1,41 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH, untested] Support for PPPOE on SMP
-Date: Thu, 26 Jun 2003 13:57:09 +1000
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: inappropriate static variable in net/ipv6/ndisc.c
+Date: Thu, 26 Jun 2003 14:21:09 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030626035824.D68B62C147@lists.samba.org>
-References: <20030625.143334.85380461.davem@redhat.com>
-Cc: paulus@samba.org, netdev@oss.sgi.com, fcusack@samba.org,
-   carlson@workingcode.com
+Message-ID: <20030626.142109.76202395.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-reply-to: Your message of "Wed, 25 Jun 2003 14:33:34 MST."
-             <20030625.143334.85380461.davem@redhat.com>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20030625.143334.85380461.davem@redhat.com> you write:
-> 
-> Why don't you just queue the payload packets in a "resolution queue"
-> until the socket is created?  Just make the resolution queue packets
-> timeout using a value that will easily exceed any reasonable PPP
-> negotiation time.
+Hello.
 
-Sure, that works in this case, where you know when you get the packet
-that it's out of order.  But I wanted to see how ugly it got to do it
-generally: a protocol where you can't tell until later that things
-were in the wrong order can't use this technique.  Paul tells me that
-multilink PPP assumes this (moral: don't do multilink PPPoE).
+It is not appropriate to use static variable here.
 
-Anyway, my patch is fundamentally flawed: you can't do
-cpu_raise_softirq() on another CPU, it's racy (*bad* *bad* interface).
+--yoshfuji
 
-> All this ordered packet arrival shit is just beyond stupid.
+Index: linux-2.5/net/ipv6/ndisc.c
+===================================================================
+RCS file: /home/cvs/linux-2.5/net/ipv6/ndisc.c,v
+retrieving revision 1.40
+diff -u -p -r1.40 ndisc.c
+--- linux-2.5/net/ipv6/ndisc.c	21 Jun 2003 16:21:01 -0000	1.40
++++ linux-2.5/net/ipv6/ndisc.c	26 Jun 2003 03:58:58 -0000
+@@ -423,7 +423,7 @@ static void ndisc_send_na(struct net_dev
+ 		   struct in6_addr *daddr, struct in6_addr *solicited_addr,
+ 	 	   int router, int solicited, int override, int inc_opt) 
+ {
+-	static struct in6_addr tmpaddr;
++	struct in6_addr tmpaddr;
+ 	struct inet6_ifaddr *ifp;
+ 	struct inet6_dev *idev;
+ 	struct flowi fl;
 
-I want to know how often this is happening (Michal?), because if
-protocols need ordering and can't tell, it becomes effectively a
-packet drop somewhere down in the protocol.  If it's 1 in a million,
-OK.  If it's 1 in a thousand, that's bad.
-
-Frankly, I'm amazed anyone sees reordering in real life...
-Thanks,
-Rusty.
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
