@@ -1,371 +1,72 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Fri, 4 Feb 2005 22:24:28 -0800
-Message-ID: <20050204222428.1a13a482.davem@davemloft.net>
-References: <20050131102920.GC4170@suse.de>
-	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
-	<20050203142705.GA11318@krispykreme.ozlabs.ibm.com>
-	<20050203150821.2321130b.davem@davemloft.net>
-	<20050204113305.GA12764@gondor.apana.org.au>
-	<20050204154855.79340cdb.davem@davemloft.net>
+From: Jouni Malinen <jkmaline@cc.hut.fi>
+Subject: Re: WEXT quality specification
+Date: Fri, 4 Feb 2005 22:38:54 -0800
+Message-ID: <20050205063854.GE9685@jm.kir.nu>
+References: <Pine.LNX.4.58.0502042136060.1614@devserv.devel.redhat.com> <20050205052744.GD9685@jm.kir.nu> <Pine.LNX.4.58.0502050043300.7817@devserv.devel.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, anton@samba.org, okir@suse.de,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050204154855.79340cdb.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: jt@hpl.hp.com, netdev@oss.sgi.com
+To: Dan Williams <dcbw@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.58.0502050043300.7817@devserv.devel.redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Feb 2005 15:48:55 -0800
-"David S. Miller" <davem@davemloft.net> wrote:
-
-> Something like that.  I'll update the atomic_ops.txt
-> doc and post and updated version later tonight.
-
-Ok, as promised, here is the updated doc.  Who should
-I author this as?  Perhaps "Anton's evil twin" :-)
-
---- atomic_ops.txt ---
-
-	This document is intended to serve as a guide to Linux port
-maintainers on how to implement atomic counter and bitops operations
-properly.
-
-	The atomic_t type should be defined as a signed integer.
-Also, it should be made opaque such that any kind of cast to
-a normal C integer type will fail.  Something like the following
-should suffice:
-
-	typedef struct { volatile int counter; } atomic_t;
-
-	The first operations to implement for atomic_t's are
-the initializers and plain reads.
-
-	#define ATOMIC_INIT(i)		{ (i) }
-	#define atomic_set(v, i)	((v)->counter = (i))
-
-The first macro is used in definitions, such as:
-
-static atomic_t my_counter = ATOMIC_INIT(1);
-
-The second interface can be used at runtime, as in:
-
-	k = kmalloc(sizeof(*k), GFP_KERNEL);
-	if (!k)
-		return -ENOMEM;
-	atomic_set(&k->counter, 0);
-
-Next, we have:
-
-	#define atomic_read(v)	((v)->counter)
-
-which simply reads the current value of the counter.
-
-Now, we move onto the actual atomic operation interfaces.
-
-	void atomic_add(int i, atomic_t *v);
-	void atomic_sub(int i, atomic_t *v);
-	void atomic_inc(atomic_t *v);
-	void atomic_dec(atomic_t *v);
-
-These four routines add and subtract integral values to/from the given
-atomic_t value.  The first two routines pass explicit integers by
-which to make the adjustment, whereas the latter two use an implicit
-adjustment value of "1".
-
-One very important aspect of these two routines is that
-they DO NOT require any explicit memory barriers.  They
-need only perform the atomic_t counter update in an SMP
-safe manner.
-
-Next, we have:
-
-	int atomic_inc_return(atomic_t *v);
-	int atomic_dec_return(atomic_t *v);
-
-These routines add 1 and subtract 1, respectively, from
-the given atomic_t and return the new counter value after
-the operation is performed.
-
-Unlike the above routines, it is required that explicit memory
-barriers are performed before and after the operation.  It must
-be done such that all memory operations before and after the
-atomic operation calls are strongly ordered with respect to the
-atomic operation itself.
-
-For example, it should behave as if a smp_mb() call existed both
-before and after the atomic operation.
-
-If the atomic instructions used in an implementation provide
-explicit memory barrier semantics which satisfy the above requirements,
-that is fine as well.
-
-Let's move on:
-
-	int atomic_add_return(int i, atomic_t *v);
-	int atomic_sub_return(int i, atomic_t *v);
-
-These behave just like atomic_{inc,dec}_return() except that an
-explicit counter adjustment is given instead of the implicit "1".
-This means that like atomic_{inc,dec}_return(), the memory barrier
-semantics are required.
-
-Next:
-
-	int atomic_inc_and_test(atomic_t *v);
-	int atomic_dec_and_test(atomic_t *v);
-
-These two routines increment and decrement by 1, respectively,
-the given atomic counter.  They return a boolean indicating
-whether the resulting counter value was zero or not.
-
-It requires explicit memory barrier semantics around the operation
-as above.
-
-	int atomic_sub_and_test(int i, atomic_t *v);
-
-This is identical to atomic_dec_and_test() except that an explicit
-decrement is given instead of the implicit "1".  It requires explicit
-memory barrier semantics around the operation.
-
-	int atomic_add_negative(int i, atomic_t *v);
-
-The given increment is added to the given atomic counter value.
-A boolean is return which indicates whether the resulting counter
-value is negative.  It requires explicit memory barrier semantics
-around the operation.
-
-If a caller requires memory barrier semantics around an atomic_t
-operation which does not return a value, a set of interfaces
-are defined which accomplish this:
-
-	void smb_mb__before_atomic_dec(void);
-	void smb_mb__after_atomic_dec(void);
-	void smb_mb__before_atomic_inc(void);
-	void smb_mb__after_atomic_dec(void);
-
-For example, smb_mb__before_atomic_dec() can be used like so:
-
-	obj->dead = 1;
-	smb_mb__before_atomic_dec();
-	atomic_dec(&obj->ref_count);
-
-It makes sure that all memory operations preceeding the atomic_dec()
-call are strongly ordered with respect to the atomic counter
-operation.  In the above example, it guarentees that the assignment
-of "1" to obj->dead will be globally visible to other cpus before
-the atomic counter decrement.
-
-Without the explicitl smb_mb__before_atomic_dec() call, the
-implementation could legally allow the atomic counter update
-visible to other cpus before the "obj->dead = 1;" assignment.
-
-The other three interfaces listed are used to provide explicit
-ordering with respect to memory operations after an atomic_dec()
-call (smb_mb__after_atomic_dec()) and around atomic_inc() calls
-(smb_mb__{before,after}_atomic_inc()).
-
-A missing memory barrier in the cases where they are required
-by the atomic_t implementation above can have disasterous
-results.  Here is an example, which follows a pattern occuring
-frequently in the Linux kernel.  It is the use of atomic counters
-to implement reference counting, and it works such that once
-the counter falls to zero it can be guarenteed that no other
-entity can be accessing the object:
-
-static void obj_list_add(struct obj *obj)
-{
-	obj->active = 1;
-	list_add(&obj->list);
-}
-
-static void obj_list_del(struct obj *obj)
-{
-	list_del(&obj->list);
-	obj->active = 0;
-}
-
-static void obj_destroy(struct obj *obj)
-{
-	BUG_ON(obj->active);
-	kfree(obj);
-}
-
-struct obj *obj_list_peek(struct list_head *head)
-{
-	if (!list_empty(head)) {
-		struct obj *obj;
-
-		obj = list_entry(head->next, struct obj, list);
-		atomic_inc(&obj->refcnt);
-		return obj;
-	}
-	return NULL;
-}
-
-void obj_poke(void)
-{
-	struct obj *obj;
-
-	spin_lock(&global_list_lock);
-	obj = obj_list_peek(&global_list);
-	spin_unlock(&global_list_lock);
-
-	if (obj) {
-		obj->ops->poke(obj);
-		if (atomic_dec_and_test(&obj->refcnt))
-			obj_destroy(obj);
-	}
-}
-
-void obj_timeout(struct obj *obj)
-{
-	spin_lock(&global_list_lock);
-	obj_list_del(obj);
-	spin_unlock(&global_list_lock);
-
-	if (atomic_dec_and_test(&obj->refcnt))
-		obj_destroy(obj);
-}
-
-(This is a simplification of the ARP queue management in the
- generic neighbour discover code of the networking.  Olaf Kirch
- found a bug wrt. memory barriers in kfree_skb() that exposed
- the atomic_t memory barrier requirements quite clearly.)
-
-Given the above scheme, it must be the case that the obj->active
-update done by the obj list deletion be visible to other
-processors before the atomic counter decrement is performed.
-
-Otherwise, the counter could fall to zero, yet obj->active
-would still be set, thus triggering the assertion in
-obj_destroy().  The error sequence looks like this:
-
-	cpu 0				cpu 1
-	obj_poke()			obj_timeout()
-	obj = obj_list_peek();
-	... gains ref to obj, refcnt=2
-					obj_list_del(obj);
-					obj->active = 0 ...
-					... visibility delayed ...
-					atomic_dec_and_test()
-					... refcnt drops to 1 ...
-	atomic_dec_and_test()
-	... refcount drops to 0 ...
-	obj_destroy()
-	BUG() triggers since obj->active
-	still seen as one
-					obj->active update visibility occurs
-
-With the memory barrier semantics required of the atomic_t
-operations which return values, the above sequence of memory
-visibility can never happen.  Specifically, in the above case
-the atomic_dec_and_test() counter decrement would not become
-globally visible until the obj->active update does.
-
-We will now cover the atomic bitmask operations.  You will find
-that their SMP and memory barrier semantics are similar in shape
-and scope to the atomic_t ops above.
-
-Native atomic bit operations are defined to operate on objects
-aligned to the size of an "unsigned long" C data type, and are
-least of that size.  The endianness of the bits within each
-"unsigned long" are the native endianness of the cpu.
-
-	void set_bit(unsigned long nr, volatils unsigned long *addr);
-	void clear_bit(unsigned long nr, volatils unsigned long *addr);
-	void change_bit(unsigned long nr, volatils unsigned long *addr);
-
-These routines set, clear, and change, respectively, the bit
-number indicated by "nr" on the bit mask pointed to by "ADDR".
-
-They must execute atomically, yet there are no implicit memory
-barrier semantics required of these interfaces.
-
-	long test_and_set_bit(unsigned long nr, volatils unsigned long *addr);
-	long test_and_clear_bit(unsigned long nr, volatils unsigned long *addr);
-	long test_and_change_bit(unsigned long nr, volatils unsigned long *addr);
-
-Like the above, except that these routines return a boolean
-which indicates whether the changed bit was set _BEFORE_
-the atomic bit operation.
-
-WARNING! It is incredibly important that the value be a boolean,
-ie. "0" or "1".  Do not try to be fancy and save a few instructions by
-just returning something like "old_val & mask" because that will not
-work.  For one thing, this return value gets truncated to int in many
-code paths, so on 64-bit if the bit is set in the upper 32-bits then
-testers will never see that.
-
-One great example of where this problem crops up are the thread_info
-flag operations.  Routines such as test_and_set_ti_thread_flag()
-chop the return value into an int.  There are other places where
-things like this occur as well.
-
-These routines, like the atomic_t counter operations returning
-values, require explicit memory barrier semantics around their
-execution.  All memory operations before the atomic bit operation
-call must be made visible globally before the atomic bit operation
-is made visible.  Likewise, the atomic bit operation must be
-visible globally before any subsequent memory operation is made
-visible.  For example:
-
-	obj->dead = 1;
-	if (test_and_set_bit(0, &obj->flags))
-		/* ... */;
-	obj->killed = 1;
-
-The implementation of test_and_set_bit() must guarentee that
-"obj->dead = 1;" is visible to cpus before the atomic
-memory operation done by test_and_set_bit() becomes visible.
-Likewise, the atomic memory operation done by test_and_set_bit()
-must become visible before "obj->killed = 1;" is visible.
-
-Finally there is the basic operation:
-
-	long test_bit(unsigned long nr, __const__ volatile unsigned long *addr);
-
-Which returns a boolean indicating if bit "nr" is set in the
-bitmask pointed to by "addr".
-
-If explicit memory barriers are required around clear_bit()
-(which does not return a value, and thus does not need to
- provide memory barrier semantics), two interfaces are provided:
-
-	void smp_mb__before_clear_bit(void);
-	void smp_mb__after_clear_bit(void);
-
-They are used as follows, and are akin to their atomic_t
-operation brothers:
-
-	/* All memory operations before this call will
-	 * be globally visible before the clear_bit().
-	 */
-	smp_mb__before_clear_bit();
-	clear_bit( ... );
-
-	/* The clear_bit() will be visible before all
-	 * subsequent memory operations.
-	 */
-	 smp_mb__after_clear_bit();
-
-Finally, there are non-atomic versions of the bitmask operations
-provided.  They are used in contexts where some other higher-level
-SMP locking scheme is being used to protect the bitmask, and
-thus less expensive non-atomic operations may be used in the
-implementation.  They have names similar to the above bitmask
-operation interfaces, except that two underscores are prefixed
-to the interface name.
-
-	void __set_bit(unsigned long nr, volatile unsigned long *addr);
-	void __clear_bit(unsigned long nr, volatile unsigned long *addr);
-	void __change_bit(unsigned long nr, volatile unsigned long *addr);
-	long __test_and_set_bit(unsigned long nr, volatile unsigned long *addr);
-	long __test_and_clear_bit(unsigned long nr, volatile unsigned long *addr);
-	long __test_and_change_bit(unsigned long nr, volatile unsigned long *addr);
-
-These non-atomic variants also do not require any special
-memory barrier semantics.
+On Sat, Feb 05, 2005 at 01:04:42AM -0500, Dan Williams wrote:
+
+> Reporting received signal strength in RSSI and noise level in dBm won't really 
+> work well.  Manufacturers usually provide an RSSI->dBm conversion, but where 
+> they don't, the driver needs to be able to provide a MAX_RSSI value.  Otherwise, 
+> there is no way for user applications to know the bounds of these values and 
+> determine a signal quality % from them.  Again, this is all about consistency, 
+> and we need a stable, well-defined API that doesn't depend on user-applications 
+> special-casing drivers just to get usable information out of them.  If the 
+> driver cannot provide usable information of some sort, it shouldn't even be 
+> trying to provide that information at all really.
+
+Agreed, there should be no special cases based on driver in user space.
+However, the API definition should not make it too difficult for the
+drivers to implement the interface. If many cards use dBm for noise and
+RSSI for received frames, it would sound like the API definition should
+take this into account and not require the drivers either not to report
+values or do some conversion which may not always be that clear.
+
+> qual.qual must be linear (because it should be able to be converted to a 
+> percentage value, its a _subjective_ measure of quality composed of a number of 
+> different quality statistics).  qual.level & qual.noise may not necessarily be 
+> linear since they are measures of electrical power (either RSSI or dBm).
+
+How would this value be determined for cards that have RSSI for received
+packets and noise floor in dBm? Using a table of values?
+
+> The current WEXT API provides _no_ way to specify whether the returned values 
+> are in dBm or RSSI, other than using max_qual.level == 0 (dBm) and 
+> max_qual.level != 0 (RSSI).  That's just the way the API is at this time.  I've 
+> brought that up with Jean and he's agreed that it may need some clarification.  
+> There isn't really a "qual.type = dBm" bit anywhere in the quality structures, 
+> though that would be quite helpful (and was my suggestion).
+
+> See above, technically you could have a noise floor of 0 I guess, and the 
+> current WEXT API has no way of specifying different units for use in noise and 
+> level at this time.  Hence, the noise value can actually mean something when 
+> using dBm as your unit, unlike max_qual.level when using dBm (as it must be 0).
+
+Isn't the 'max_qual.level == 0 means dBm' similar to saying
+'max_qual.noise == 0 means dBm' for noise. In other words,
+max_qual.level == 70 and max_qual.noise == 0 could mean RSSI for signal
+strength and dBm for noise. Using max_qual.noise to report global noise
+value (noise floor?) sound somewhat confusing.
+
+> This is really an attempt to clarify the rules as I understand them (and after a 
+> couple discussions with Jean about the quality stuff).  I've looked over almost 
+> every wireless/802.11 driver that exists for Linux, and none of them 
+> implement the standard correctly, probably becuase its a bit ambiguous and 
+> nobody could quite understand what they were supposed to do in the quality 
+> space.  We need to bring some coherency to drivers in this regard, if only so 
+> that people can get their pretty little signal bars in the UI.
+
+Agreed.
+
+-- 
+Jouni Malinen                                            PGP id EFC895FA
