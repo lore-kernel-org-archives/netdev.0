@@ -1,96 +1,113 @@
-From: "Michael H. Warfield" <mhw@wittsend.com>
-Subject: Re: IPv4 tunneled over IPv6-IPsec?
-Date: Mon, 28 Mar 2005 15:06:31 -0500
-Message-ID: <1112040391.17216.44.camel@localhost.localdomain>
-References: <E1DFUeO-0001IS-00@gondolin.me.apana.org.au>
-	 <13B368C239630E8F2BA18AF3@[192.168.17.4]>
-Reply-To: mhw@wittsend.com
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [4/4] [IPSEC] Store MTU at each xfrm_dst
+Date: Mon, 28 Mar 2005 22:10:54 +0200
+Message-ID: <424864CE.5060802@trash.net>
+References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-rFZfKiCqyizA8fK027Kb"
-Cc: mhw@wittsend.com, netdev@oss.sgi.com,
-        Herbert Xu <herbert@gondor.apana.org.au>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        James Morris <jmorris@redhat.com>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Peter Bieringer <pb@bieringer.de>
-In-Reply-To: <13B368C239630E8F2BA18AF3@[192.168.17.4]>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050214221607.GC18465@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Herbert,
 
---=-rFZfKiCqyizA8fK027Kb
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
+Herbert Xu wrote:
+> Finally this is the patch that sets the MTU values of each xfrm_dst
+> and keeps it up-to-date.
 
-Hey Peter!
+while looking for ways to exchange the xfrm pointer of a live
+dst_entry I noticed what looks like an ABBA deadlock introduced
+by the call to xfrm_state_mtu() in xfrm_bundle_ok().
 
-On Sun, 2005-03-27 at 14:47 +0200, Peter Bieringer wrote:
-> Hi Herbert,
+spin_lock x->lock			(xfrm_state_delete)
+	read_lock xfrm_policy_lock	(xfrm_prune_bundles)
+		write_lock policy->lock	(xfrm_prune_bundles)
 
-> thank you for quick reply.
+read/write_lock policy->lock		(__xfrm46_find_acq/xfrm_lookup)
+	spin_lock x->lock		(xfrm_state_mtu)
 
-> --On Sonntag, 27. M=E4rz 2005 20:05 +1000 Herbert Xu=20
-> <herbert@gondor.apana.org.au> wrote:
+I haven't though of a way to avoid this yet. It would be nice though
+if we could keep the rule that xfrm_policy_lock and policy->lock nest
+with x->lock.
 
-> > Peter Bieringer <pb@bieringer.de> wrote:
-> >>
-> >> I retry to play tunneling IPv4 over IPv6-IPsec. Afair it is still not
-> >> working (support is missing in 2.6.x kernel), but for startup, I have
-> >> already a patch for ipsec.conf parsing (pluto already has an option to
-> >> do  this):
-> >
-> > The native IPsec stack doesn't support IPv4 over IPv6 or IPv6 over
-> > IPv4 SAs.  It won't be able to do so unless major surgery is done
-> > to the IPsec and IP stack.
+Something unrelated I was also wondering about, from xfrm_find_state():
 
-> Hmm, looks like more a long term issue :-(
+         list_for_each_entry(x, xfrm_state_bydst+h, bydst) {
+                 if (x->props.family == family &&
+                     x->props.reqid == tmpl->reqid &&
+                     xfrm_state_addr_check(x, daddr, saddr, family) &&
+                     tmpl->mode == x->props.mode &&
+                     tmpl->id.proto == x->id.proto) {
 
-> So another question: what is the status of tunneling IPv4 over IPv6 witho=
-ut=20
-> IPsec e.g. using GRE or special native tunneling? Similar issue? I digged=
- a=20
-> little bit around in GRE code and found some IPv6 references but no hints=
-=20
-> whether it can be used for that also.
+Shouldn't we check for (tmpl->id.spi == x->id.spi || !tmpl->id.spi) ?
 
-	You might want to check out the DSTM package here:
+Regards
+Patrick
 
-	<http://www.ipv6.rennes.enst-bretagne.fr/dstm/>
-
-	That includes a tsp server as well as a 4over6 driver.  Jim Bound is
-the author/editor of record for the IETF draft on DSTM.
-
-	<http://www.ietf.org/internet-drafts/draft-bound-dstm-exp-02.txt>
-
-	I've had it spun up on some Linux systems in the past for testing
-purposes.  Unfortunately, it does not seem to be updated to build under
-the 2.6 kernels.  :-(
-
-> BTW: the reason why I'm looking for such support is the need to connect=20
-> some "legacy" IPv4 islands over IPv6.
-
-> Regards,
-> 	Peter
-
-	Mike
---=20
- Michael H. Warfield    |  (770) 985-6132   |  mhw@WittsEnd.com =20
-  /\/\|=3Dmhw=3D|\/\/       |  (678) 463-0932   |  http://www.wittsend.com/=
-mhw/
-  NIC whois:  MHW9      |  An optimist believes we live in the best of all
- PGP Key: 0xDF1DD471    |  possible worlds.  A pessimist is sure of it!
-
---=-rFZfKiCqyizA8fK027Kb
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iQCVAwUAQkhjx+HJS0bfHdRxAQK03wQAvabi9ngBGLEubKvE77OZ93+YGGJuP+1K
-z9W1PnQix/ziUpL6KtgPG00JqM+ongwdnhrVcUzCX52NpNwSIFtUiUjU//c2LnLp
-+j46XaNDdbz4xvYYY9ltcwaFQx/cRTU7e2u//eAI9HVhAHl8jesLrKzHpYNE2dGZ
-I1zerFbjWlo=
-=keWg
------END PGP SIGNATURE-----
-
---=-rFZfKiCqyizA8fK027Kb--
+>   
+> -int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family)
+> +int xfrm_bundle_ok(struct xfrm_dst *first, struct flowi *fl, int family)
+>  {
+> -	struct dst_entry *dst = &xdst->u.dst;
+> +	struct dst_entry *dst = &first->u.dst;
+> +	struct xfrm_dst *last;
+> +	u32 mtu;
+>  
+>  	if (dst->path->obsolete > 0 ||
+>  	    (dst->dev && !netif_running(dst->dev)))
+>  		return 0;
+>  
+> +	last = NULL;
+> +
+>  	do {
+> +		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
+> +
+>  		if (fl && !xfrm_selector_match(&dst->xfrm->sel, fl, family))
+>  			return 0;
+>  		if (dst->xfrm->km.state != XFRM_STATE_VALID)
+>  			return 0;
+> +
+> +		mtu = dst_pmtu(dst->child);
+> +		if (xdst->child_mtu_cached != mtu) {
+> +			last = xdst;
+> +			xdst->child_mtu_cached = mtu;
+> +		}
+> +
+> +		mtu = dst_pmtu(xdst->route);
+> +		if (xdst->child_mtu_cached != mtu) {
+> +			last = xdst;
+> +			xdst->route_mtu_cached = mtu;
+> +		}
+> +
+>  		dst = dst->child;
+>  	} while (dst->xfrm);
+> +
+> +	if (likely(!last))
+> +		return 1;
+> +
+> +	mtu = last->child_mtu_cached;
+> +	for (;;) {
+> +		dst = &last->u.dst;
+> +
+> +		mtu = xfrm_state_mtu(dst->xfrm, mtu);
+> +		if (mtu > last->route_mtu_cached)
+> +			mtu = last->route_mtu_cached;
+> +		dst->metrics[RTAX_MTU-1] = mtu;
+> +
+> +		if (last == first)
+> +			break;
+> +
+> +		last = last->u.next;
+> +		last->child_mtu_cached = mtu;
+> +	}
+>  
+>  	return 1;
+>  }
