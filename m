@@ -1,34 +1,54 @@
-From: Andrius Kasparavicius <andrius@andrius.org>
-Subject: Re: network interface cards native vlans support in linux kernel?
-Date: Wed, 9 Jul 2003 22:12:23 +0300 (GMT-3)
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] make {send|recv}msg return code 1003.1 compatible
+Date: Wed, 9 Jul 2003 21:36:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307092207550.12613-100000@hl.kauneta.net>
-References: <3F0C4DBD.8020007@candelatech.com>
+Message-ID: <20030709193628.GR2702@rei.rakuen>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F0C4DBD.8020007@candelatech.com>
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello
 
-is there a clear list of which cards "works without patch", which
-"need patches/mtu changes" and which "never seen working"?
+1003.1 says:
 
-Andrius
+[EMSGSIZE]
+    The msg_iovlen member of the msghdr structure pointed to by
+    message is less than or equal to 0, or is greater than
+    {IOV_MAX}.
 
-On Wed, 9 Jul 2003, Ben Greear wrote:
+The patch changes the return code of {send|recv}msg from EINVAL
+to EMSGSIZE.
 
-> Andrius Kasparavicius wrote:
-> > hello, as far as i know, currently there is no native vlan support in
-> > network device drivers. I mean, always need patching MTU.. add 4 bytes..
-> > :-(
-> >
-> > is there any problems to include full vlans support?
->
-> Intel's e100 driver (and all NICs supported by it) support vlans
-> fine, as do most of the GigE NICs.  Tulip does not, last I hear, though
-> a work-around patch has been around forever.  Realtek worked at one time,
-> not sure about now though...
+ -- thomas
+
+
+Index: net/socket.c
+===================================================================
+RCS file: /cvs/tgr/linux-25/net/socket.c,v
+retrieving revision 1.1.1.1
+diff -u -r1.1.1.1 socket.c
+--- net/socket.c	9 Jul 2003 18:42:29 -0000	1.1.1.1
++++ net/socket.c	9 Jul 2003 19:17:29 -0000
+@@ -1614,7 +1614,7 @@
+ 		goto out;
+ 
+ 	/* do not move before msg_sys is valid */
+-	err = -EINVAL;
++	err = -EMSGSIZE;
+ 	if (msg_sys.msg_iovlen > UIO_MAXIOV)
+ 		goto out_put;
+ 
+@@ -1713,7 +1713,7 @@
+ 	if (!sock)
+ 		goto out;
+ 
+-	err = -EINVAL;
++	err = -EMSGSIZE;
+ 	if (msg_sys.msg_iovlen > UIO_MAXIOV)
+ 		goto out_put;
+ 	
