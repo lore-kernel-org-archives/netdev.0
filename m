@@ -1,79 +1,40 @@
-From: Srihari Vijayaraghavan <harisri@bigpond.com>
-Subject: Re: [PROBLEM] r8169 deadlocks
-Date: Mon, 19 Jan 2004 22:51:41 +1100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401192251.41323.harisri@bigpond.com>
-References: <200401152039.00182.harisri@bigpond.com> <20040115220827.A22007@electric-eye.fr.zoreil.com>
+From: Rusty Russell <rusty@rustcorp.com.au>
+Subject: Re: 2.6.1-mm4
+Date: Mon, 19 Jan 2004 22:42:19 +1100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040119224219.65991501.rusty@rustcorp.com.au>
+References: <20040115225948.6b994a48.akpm@osdl.org>
+	<20040118001217.GE3125@werewolf.able.es>
+	<20040117215535.0e4674b8.akpm@osdl.org>
+	<20040118081128.GA3153@werewolf.able.es>
+	<20040118001708.09291455.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040115220827.A22007@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: jamagallon@able.es, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040118001708.09291455.akpm@osdl.org>
 List-Id: netdev.vger.kernel.org
 
-Hello Francois,
+On Sun, 18 Jan 2004 00:17:08 -0800
+Andrew Morton <akpm@osdl.org> wrote:
 
-On Friday 16 January 2004 08:08, Francois Romieu wrote:
-> Can you monitor 'vmstat 1' output on the r8169 host during the test ?
+> Presumably, recent gcc's remove the variable altogether and just expand the
+> constant inline.  When the central module code checks for the parameter's
+> existence in the module's symbol table it errors out.
 
-Here it is (2.6.1-bk2-netdev4):
-procs -----------memory---------- ---swap-- -----io---- --system-- ----cpu----
- r  b   swpd   free   buff  cache   si   so    bi    bo   in    cs us sy id wa
- 1  0      0 887000  10820  87992    0    0   291    47 1051   170  7  4 83  6
+MODULE_PARM considered harmful.
 
- 0  0      0 886800  10820  87992    0    0     0   108 1042    13  0  0 100  
-0
- 0  0      0 886800  10820  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10820  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10820  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10836  87992    0    0     0    56 1013    18  0  0 100  
-0
- 0  0      0 886800  10840  87992    0    0     0     4 1009    10  0  0 100  
-0
- 0  0      0 886800  10840  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10840  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10840  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10848  87992    0    0     0    16 1011    11  0  0 100  
-0
- 0  0      0 886800  10848  87992    0    0     0     0 1008     7  0  0 100  
-0
- 0  0      0 886800  10848  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10848  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10848  87992    0    0     0     0 1008     3  0  0 100  
-0
- 0  0      0 886800  10856  87992    0    0     0    16 1011    11  0  0 100  
-0
- 0  0      0 886800  10864  87992    0    0     0   140 1037    12  0  0 100  
-0
- 0  0      0 886800  10864  87992    0    0     0     0 1008     3  0  0 100  
-0
- 2  0      0 886472  10864  87992    0    0     0     0 1305  1958 12 12 76  0
+Unfortunately, there's no easy way of fixing this, since MODULE_PARM()
+is often used on variables which aren't declared yet 8(.  (I tried this
+in an early patch).
 
-It hung at the final entry.
+Migrating to module_param() is the Right Thing here IMHO, which actually
+takes the damn address,
 
-> You can try 2.6.1-bk2 + Jeff Garzik's -netdev4 +
-> http://www.fr.zoreil.com/people/francois/misc/r8169-tx-index-overflow.patch
-
-The r8169-tc-index-overflow.patch does not (cleanly) apply on 2.6.1-bk2 + 
-netdev4.
-
-> If it does not perform better, you can try against 2.6.1-bk1 the set at
-> http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-b
-
-I am yet to try this combination.
-
-Thanks
-Hari
+Rusty.
+-- 
+   there are those who do and those who hang on and you don't see too
+   many doers quoting their contemporaries.  -- Larry McVoy
