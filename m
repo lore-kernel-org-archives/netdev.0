@@ -1,26 +1,33 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH][RFC] etherip: Ethernet-in-IPv4 tunneling
-Date: Thu, 13 Jan 2005 10:23:51 +0100
-Message-ID: <20050113092351.GA23170@xi.wantstofly.org>
-References: <20050112222437.GC14280@xi.wantstofly.org> <Pine.LNX.4.61.0501130944270.19573@netcore.fi>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, shemminger@osdl.org, shollenbeck@verisign.com
+From: Kumar Gala <kumar.gala@freescale.com>
+Subject: Re: [RFC] Patch to Abstract Ethernet PHY support (using driver model)
+Date: Thu, 13 Jan 2005 08:45:53 -0600
+Message-ID: <D3652CF8-6571-11D9-821C-000393DBC2E8@freescale.com>
+References: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com> <A3A281FF-5525-11D9-80ED-000393C30512@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v619)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>, Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.61.0501130944270.19573@netcore.fi>
+In-Reply-To: <A3A281FF-5525-11D9-80ED-000393C30512@freescale.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 13, 2005 at 09:49:55AM +0200, Pekka Savola wrote:
+Jeff,
 
-> Is there a particular reason why GRE tunnel is not sufficient? 
+We were hoping for more feedback from netdev people on this patch:
 
-No particular reason, apart from not being aware that GRE provides
-this functionality.
+http://oss.sgi.com/projects/netdev/archive/2004-12/msg00643.html
 
+thanks
 
-cheers,
-Lennert
+- kumar
+
+On Dec 23, 2004, at 3:00 PM, Andy Fleming wrote:
+
+> It has been suggested that I split the patch into 2 parts: gianfar
+> specific stuff, and PHY specific stuff.
+>
+> Here is the result:
+> <gfar_12232004.patch><phy_12232004.patch><ATT229010.txt>
