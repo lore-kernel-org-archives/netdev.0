@@ -1,167 +1,133 @@
-From: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
-Subject: Re: 2.6.7-rc3: waiting for eth0 to become free
-Date: Wed, 09 Jun 2004 17:18:02 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1086794282.1706.2.camel@teapot.felipe-alfaro.com>
-References: <1086722310.1682.1.camel@teapot.felipe-alfaro.com>
-	 <20040608124215.291a7072@dell_ss3.pdx.osdl.net>
-	 <1086725369.1806.1.camel@teapot.felipe-alfaro.com>
-	 <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
+From: bert hubert <ahu@ds9a.nl>
+Subject: [DOCUMENTATION PATCH] Missing net sysctls, some fixed, rest flagged
+Date: Wed, 9 Jun 2004 19:52:43 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040609175242.GA13875@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-u2PIj7ufbPZjZ2ZX0Uxe"
-Cc: NetDev Mailinglist <netdev@oss.sgi.com>,
-        Kernel Mailinglist <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040608140200.2ddaa6f4@dell_ss3.pdx.osdl.net>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265850AbUFIRxZ@vger.kernel.org>
+To: davem@redhat.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
+Dave, Lists, 
 
---=-u2PIj7ufbPZjZ2ZX0Uxe
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+I ran the following (crappy) script:
 
-On Tue, 2004-06-08 at 14:02 -0700, Stephen Hemminger wrote:
-> On Tue, 08 Jun 2004 22:09:29 +0200
-> Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-> 
-> > On Tue, 2004-06-08 at 12:42 -0700, Stephen Hemminger wrote:
-> > > On Tue, 08 Jun 2004 21:18:30 +0200
-> > > Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> wrote:
-> > > 
-> > > > Hi!
-> > > > 
-> > > > On my laptop, when using a CardBus 3c59x-based NIC, I need to run
-> > > > "cardctl eject" so the system won't freeze when resuming. "cardctl
-> > > > eject" worked fine in 2.6.7-rc2-mm2, even when there were programs with
-> > > > network sockets opened (for example, Evolution mantaining a connection
-> > > > against an IMAP server): the card is ejected (well, not physically),
-> > > > even when there are ESTABLISHED connections.
-> > > > 
-> > > > However, starting with 2.6.7-rc3, "cardctl eject" hangs if a program
-> > > > holds any socket open. After a while the "unregister_netdevice: waiting
-> > > > for eth0 to become free" message starts appearing on the kernel message
-> > > > ring. The only apparent solution is killing that program, ejecting the
-> > > > card from its slot and wait until 3c59x.o usage count reaches zero.
-> > > > 
-> > > > Can someone tell me what's going on here?
-> > > > Thank you very much.
-> > > 
-> > > What protocols are you running? Is IPV6 loaded?
-> > 
-> > I'm using IPv4, IPv6 and IPSec ESP with AES/CBC.
-> > Do you want .config?
-> 
-> Not really, could you see if it is an IPv6 vs IPSec problem by not running/loading
-> one or the other.
-> 
-> What is happening is that some subsystem is holding a reference to the device (calling dev_hold())
-> but not cleaning up (calling dev_put).  It can be a hard to track which of the many
-> things routing, etc are not being cleared properly.  Look for routes that still
-> get stuck (ip route) and neighbor cache entries.  Most of these end up being
-> protocol bugs.
+for b in $(for a in $(find | grep -v eth0 | grep -v binfmt)
+                do 
+                        basename $a
+                done | sort -u); 
+                do 
+                        if rgrep -q $b ~/download/linux-2.6.6/Documentation/ 
+                        then
+                                touch /tmp/script
+                        else
+                                echo $b missing
+                        fi
+                done
 
-The two attached patches, one for net/ipv4/route.c, the other for net/
-ipv6/route.c fix all my problems when running "cardctl eject" while a
-program mantains an open network socket (ESTABLISHED).
+In /proc/sys/ and found a host of undocumented sysctls. This patch documents
+a number of them, and at least mentions the rest as 'TODO'. Please verify my
+code-inspired documentation before applying!
 
-Both patches apply cleanly against 2.6.7-rc3 and 2.6.7-rc3-mm1.
-I'm not completely sure what has changed in 2.6.7-rc3 that is breaking
-cardctl for me, as it Just Worked(TM) fine in 2.6.7-rc2.
-
-Hope this can throw some light at this issue.
-Thanks!
-
-
---=-u2PIj7ufbPZjZ2ZX0Uxe
-Content-Disposition: attachment; filename=IPV4.patch
-Content-Type: text/x-patch; name=IPV4.patch; charset=utf-8
-Content-Transfer-Encoding: 7bit
-
---- linux/net/ipv4/route.c	2004-06-09 16:10:40.612487739 +0200
-+++ linux/net/ipv4/route.c	2004-06-09 16:47:34.927939813 +0200
-@@ -1040,8 +1040,6 @@
- 				rt->u.dst.child		= NULL;
- 				if (rt->u.dst.dev)
- 					dev_hold(rt->u.dst.dev);
--				if (rt->idev)
--					in_dev_hold(rt->idev);
- 				rt->u.dst.obsolete	= 0;
- 				rt->u.dst.lastuse	= jiffies;
- 				rt->u.dst.path		= &rt->u.dst;
-@@ -1496,7 +1494,6 @@
- 	rth->fl.iif	= dev->ifindex;
- 	rth->u.dst.dev	= &loopback_dev;
- 	dev_hold(rth->u.dst.dev);
--	rth->idev	= in_dev_get(rth->u.dst.dev);
- 	rth->fl.oif	= 0;
- 	rth->rt_gateway	= daddr;
- 	rth->rt_spec_dst= spec_dst;
-@@ -1706,7 +1703,6 @@
- 	rth->fl.iif	= dev->ifindex;
- 	rth->u.dst.dev	= out_dev->dev;
- 	dev_hold(rth->u.dst.dev);
--	rth->idev	= in_dev_get(rth->u.dst.dev);
- 	rth->fl.oif 	= 0;
- 	rth->rt_spec_dst= spec_dst;
+--- linux-2.6.6/Documentation/networking/ip-sysctl.txt.ahu	2004-06-09 18:53:29.000000000 +0200
++++ linux-2.6.6/Documentation/networking/ip-sysctl.txt	2004-06-09 19:46:15.000000000 +0200
+@@ -17,6 +17,16 @@
+ 	Disable Path MTU Discovery.
+ 	default FALSE
  
-@@ -1786,7 +1782,6 @@
- 	rth->fl.iif	= dev->ifindex;
- 	rth->u.dst.dev	= &loopback_dev;
- 	dev_hold(rth->u.dst.dev);
--	rth->idev	= in_dev_get(rth->u.dst.dev);
- 	rth->rt_gateway	= daddr;
- 	rth->rt_spec_dst= spec_dst;
- 	rth->u.dst.input= ip_local_deliver;
-@@ -2170,7 +2165,6 @@
- 	rth->rt_iif	= oldflp->oif ? : dev_out->ifindex;
- 	rth->u.dst.dev	= dev_out;
- 	dev_hold(dev_out);
--	rth->idev	= in_dev_get(dev_out);
- 	rth->rt_gateway = fl.fl4_dst;
- 	rth->rt_spec_dst= fl.fl4_src;
++min_pmtu - INTEGER
++	default 562 - minimum discovered Path MTU
++
++mtu_expires - INTEGER
++	FIXME: unknown
++
++min_adv_mss - INTEGER
++	The advertised MSS depends on the first hop route MTU, but will
++	never be lower than this setting
++
+ IP Fragmentation:
  
+ ipfrag_high_thresh - INTEGER
+@@ -340,6 +350,17 @@
+ 	more rapidly.
+ 	Default: 1
+ 
++
++tcp_frto - BOOLEAN
++	Enables F-RTO, an enhanced recovery algorithm for TCP retransmission
++	timeouts
++
++somaxconn - INTEGER
++	Limit of TCP listen backlog, known in userspace as SOMAXCONN.
++	Defaults to 128
++
++IP Variables:
++
+ ip_local_port_range - 2 INTEGERS
+ 	Defines the local port range that is used by TCP and UDP to
+ 	choose the local port. The first number is the first, the 
+@@ -581,6 +602,19 @@
+ 	The max value from conf/{all,interface}/arp_ignore is used
+ 	when ARP request is received on the {interface}
+ 
++app_solicit - INTEGER
++	The maximum number of probes to send to the user space ARP daemon
++	via netlink before dropping back to multicast probes (see
++	mcast_solicit).  Defaults to 0.
++
++disable_policy - BOOLEAN
++	Disable IPSEC policy (SPD) for this interface
++
++disable_xfrm - BOOLEAN
++	Disable IPSEC encryption on this interface, whatever the policy
++
++
++
+ tag - INTEGER
+ 	Allows you to write a number, which can be used as required.
+ 	Default value is 0.
+@@ -799,4 +833,25 @@
+ 	Default: 1
+ 
+ 
++UNDOCUMENTED:
++
++dev_weight FIXME
++discovery_slots FIXME
++discovery_timeout FIXME
++fast_poll_increase FIXME
++ip6_queue_maxlen FIXME
++lap_keepalive_time FIXME
++lo_cong FIXME
++max_baud_rate FIXME
++max_dgram_qlen FIXME
++max_noreply_time FIXME
++max_tx_data_size FIXME
++max_tx_window FIXME
++min_tx_turn_time FIXME
++mod_cong FIXME
++no_cong FIXME
++no_cong_thresh FIXME
++slot_timeout FIXME
++warn_noreply_time FIXME
++
+ $Id: ip-sysctl.txt,v 1.20 2001/12/13 09:00:18 davem Exp $
+--- linux-2.6.6/Documentation/filesystems/proc.txt.ahu	2004-06-09 19:31:17.000000000 +0200
++++ linux-2.6.6/Documentation/filesystems/proc.txt	2004-06-09 19:32:09.000000000 +0200
+@@ -1628,7 +1628,8 @@
+ 
+ Writing to this file results in a flush of the routing cache.
+ 
+-gc_elastic, gc_interval, gc_min_interval, gc_tresh, gc_timeout
++gc_elasticity, gc_interval, gc_min_interval, gc_tresh, gc_timeout,
++gc_thresh, gc_thresh1, gc_thresh2, gc_thresh3
+ --------------------------------------------------------------
+ 
+ Values to  control  the  frequency  and  behavior  of  the  garbage collection
 
---=-u2PIj7ufbPZjZ2ZX0Uxe
-Content-Disposition: attachment; filename=IPV6.patch
-Content-Type: text/x-patch; name=IPV6.patch; charset=utf-8
-Content-Transfer-Encoding: 7bit
 
---- linux/net/ipv6/route.c	2004-06-09 15:10:03.000000000 +0200
-+++ linux/net/ipv6/route.c	2004-06-09 16:52:51.219867318 +0200
-@@ -584,14 +584,14 @@
- 	if (unlikely(rt == NULL))
- 		goto out;
- 
--	dev_hold(dev);
-+	if(dev)
-+		dev_hold(dev);
- 	if (neigh)
- 		neigh_hold(neigh);
- 	else
- 		neigh = ndisc_get_neigh(dev, addr);
- 
- 	rt->rt6i_dev	  = dev;
--	rt->rt6i_idev     = in6_dev_get(dev);
- 	rt->rt6i_nexthop  = neigh;
- 	rt->rt6i_expires  = 0;
- 	rt->rt6i_flags    = RTF_LOCAL;
-@@ -882,7 +882,6 @@
- 	if (!rt->u.dst.metrics[RTAX_ADVMSS-1])
- 		rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
- 	rt->u.dst.dev = dev;
--	rt->rt6i_idev = in6_dev_get(dev);
- 	return rt6_ins(rt, nlh, _rtattr);
- 
- out:
-@@ -1301,7 +1300,6 @@
- 	rt->u.dst.input = ip6_input;
- 	rt->u.dst.output = ip6_output;
- 	rt->rt6i_dev = &loopback_dev;
--	rt->rt6i_idev = in6_dev_get(&loopback_dev);
- 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
- 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
- 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = ipv6_get_hoplimit(rt->rt6i_dev);
-
---=-u2PIj7ufbPZjZ2ZX0Uxe--
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
