@@ -1,39 +1,33 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] fix uninitialized proto_list_lock
-Date: Mon, 4 Apr 2005 14:45:30 -0300
-Message-ID: <39e6f6c7050404104578221d01@mail.gmail.com>
-References: <20050404173010.GA19451@kvack.org>
-Reply-To: acme@conectiva.com.br
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
+ Topics
+Date: Mon, 04 Apr 2005 11:57:52 -0700
+Message-ID: <42518E30.2090207@hp.com>
+References: <20050324215922.GT14202@opteron.random>	<424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random>	<20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random>	<20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop>	<20050326224621.61f6d917.davem@davemloft.net>	<52vf7bwo4w.fsf@topspin.com>	<1112042936.5088.22.camel@beastie> <20050328223203.GC28983@kvack.org> <1112465317.24936.10.camel@mylaptop>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com
+Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
+        ksummit-2005-discuss@thunk.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Benjamin LaHaise <bcrl@kvack.org>
-In-Reply-To: <20050404173010.GA19451@kvack.org>
+In-Reply-To: <1112465317.24936.10.camel@mylaptop>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Apr 4, 2005 2:30 PM, Benjamin LaHaise <bcrl@kvack.org> wrote:
-> Please apply the following patch which fixes a BUG() on boot when the
-> kernel is compiled with spinlock debugging in bk head.  Cheers,
-> 
->                 -ben
-> 
-> ===== net/core/sock.c 1.67 vs edited =====
-> --- 1.67/net/core/sock.c        2005-03-26 18:04:35 -05:00
-> +++ edited/net/core/sock.c      2005-04-04 12:46:26 -04:00
-> @@ -1352,7 +1352,7 @@
-> 
->  EXPORT_SYMBOL(sk_common_release);
-> 
-> -static rwlock_t proto_list_lock;
-> +static rwlock_t proto_list_lock = RW_LOCK_UNLOCKED;
+> What RDMA gives us is zero-copy on receive and new networking api which
+> has a potential to be HW accelerated. SoftRDMA will never avoid copying
+> on receive. But benefit for SoftRDMA would be its availability on client
+> sides. It is free and it could be easily deployed. Soon Intel & Co will
+> give us 2,4,8... multi-core CPUs for around 200$ :), So, who cares if
+> one of those cores will do receive side copying?
 
-This was already fixed by James Bottomley and its in Dave tree waiting for Linus
-to do a pull.
+20 years ago, in certain circles at least, people were saying "With 32-bits of 
+addressing, who cares if we allocate much memory" :)
 
-Thanks anyway!
+Speaking a bit more prosaicly, if that core is sitting there churning through 
+data copies, what affect does that have on the rest of the bus(ses) and the 
+memory?  What else will the client want to be able to push around that those 
+data copies may preclude?
 
-- Arnaldo
+rick jones
