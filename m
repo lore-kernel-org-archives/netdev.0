@@ -1,126 +1,55 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Move inetdev/ifa over to RCU
-Date: Sat, 14 Aug 2004 11:40:48 +1000
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: TCP hardware assists
+Date: Fri, 13 Aug 2004 21:27:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040814014048.GA2746@gondor.apana.org.au>
-References: <20040812165954.00429e65.davem@redhat.com> <20040813090314.448c971d@dell_ss3.pdx.osdl.net> <20040813093838.6961c0d4.davem@redhat.com> <20040813215602.GA15870@gondor.apana.org.au> <20040813151923.3311b4f0.davem@redhat.com> <20040814003428.GA17760@gondor.apana.org.au> <20040813173924.6d05be15.davem@redhat.com> <20040814005411.GA18350@gondor.apana.org.au> <20040814012513.GA721@gondor.apana.org.au>
+Message-ID: <200408140426.i7E4QVx0006252@guinness.s2io.com>
+References: <001401c48194$62497260$9610100a@S2IOtech.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="qMm9M+Fa2AknHoGS"
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Andi Kleen'" <ak@suse.de>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040814012513.GA721@gondor.apana.org.au>
+To: <netdev@oss.sgi.com>
+In-Reply-To: <001401c48194$62497260$9610100a@S2IOtech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi all,
+Apologies for the wide distribution, hopefully this is the right forum...
 
---qMm9M+Fa2AknHoGS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+We are finalizing design for the next version of our 10GbE ASIC; in a
+nutshell the device supports both TOE/RDMA interface as well as standard
+Ethernet interface with number of "Stateless" TCP assists like TSO, offload
+for large UDP segments, etc. (The non-offload path will be software
+compatible with the current Xframe 10GbE NIC).
 
-Hi Dave:
+We are going to further enhance the latter "partial offload" (aka "stateless
+offload", aka "fast path acceleration" :-)) interface by adding some
+additional features. 
 
-Since nobody calls inet_free_ifa directly anymore, we can
-perform the following simplification.
+As an example, some time ago Andi put forward an idea of socket demultiplex
+in hardware, to improve receive side performance.
+This is already being designed in, and we are willing to consider other TCP
+hardware assists as well.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+I'm looking for volunteers who would collaborate with us on this project and
+implement kernel support for the socket demultiplex (and possibly other
+assists), with S2io providing the necessary driver support and access to the
+(likely, remote) 10GbE hardware platform.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Most if not all the work could be done on a current S2io 10GbE hardware;
+main limitation for now will be the number of sockets since shipping NIC has
+only 8 independent rx hw queues but the next version will support tens of
+thousands. 
 
---qMm9M+Fa2AknHoGS
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=s
+Please contact me if there is an interest in the project. I'm not sure about
+the legal framework yet, access to our hw specs may require an NDA but the
+driver code will be released under GPL of course, much like the current S2io
+Linux driver.
 
-===== net/ipv4/devinet.c 1.36 vs edited =====
---- 1.36/net/ipv4/devinet.c	2004-08-14 11:23:39 +10:00
-+++ edited/net/ipv4/devinet.c	2004-08-14 11:38:22 +10:00
-@@ -104,16 +104,17 @@
- 	return ifa;
- }
- 
--static inline void inet_free_ifa(struct in_ifaddr *ifa)
-+static void inet_rcu_free_ifa(void *arg)
- {
-+	struct in_ifaddr *ifa = arg;
- 	if (ifa->ifa_dev)
- 		in_dev_put(ifa->ifa_dev);
- 	kfree(ifa);
- }
- 
--static void inet_rcu_free_ifa(void *ifa)
-+static inline void inet_free_ifa(struct in_ifaddr *ifa)
- {
--	inet_free_ifa(ifa);
-+	call_rcu(&ifa->rcu_head, inet_rcu_free_ifa, ifa);
- }
- 
- void in_dev_finish_destroy(struct in_device *idev)
-@@ -192,7 +193,7 @@
- 
- 	while ((ifa = in_dev->ifa_list) != NULL) {
- 		inet_del_ifa(in_dev, &in_dev->ifa_list, 0);
--		call_rcu(&ifa->rcu_head, inet_rcu_free_ifa, ifa);
-+		inet_free_ifa(ifa);
- 	}
- 
- #ifdef CONFIG_SYSCTL
-@@ -251,7 +252,7 @@
- 
- 			rtmsg_ifa(RTM_DELADDR, ifa);
- 			notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa);
--			call_rcu(&ifa->rcu_head, inet_rcu_free_ifa, ifa);
-+			inet_free_ifa(ifa);
- 		}
- 	}
- 
-@@ -274,7 +275,7 @@
- 	rtmsg_ifa(RTM_DELADDR, ifa1);
- 	notifier_call_chain(&inetaddr_chain, NETDEV_DOWN, ifa1);
- 	if (destroy) {
--		call_rcu(&ifa1->rcu_head, inet_rcu_free_ifa, ifa1);
-+		inet_free_ifa(ifa1);
- 
- 		if (!in_dev->ifa_list)
- 			inetdev_destroy(in_dev);
-@@ -289,7 +290,7 @@
- 	ASSERT_RTNL();
- 
- 	if (!ifa->ifa_local) {
--		call_rcu(&ifa->rcu_head, inet_rcu_free_ifa, ifa);
-+		inet_free_ifa(ifa);
- 		return 0;
- 	}
- 
-@@ -304,13 +305,11 @@
- 		if (ifa1->ifa_mask == ifa->ifa_mask &&
- 		    inet_ifa_match(ifa1->ifa_address, ifa)) {
- 			if (ifa1->ifa_local == ifa->ifa_local) {
--				call_rcu(&ifa->rcu_head, inet_rcu_free_ifa,
--					 ifa);
-+				inet_free_ifa(ifa);
- 				return -EEXIST;
- 			}
- 			if (ifa1->ifa_scope != ifa->ifa_scope) {
--				call_rcu(&ifa->rcu_head, inet_rcu_free_ifa,
--					 ifa);
-+				inet_free_ifa(ifa);
- 				return -EINVAL;
- 			}
- 			ifa->ifa_flags |= IFA_F_SECONDARY;
-@@ -345,7 +344,7 @@
- 	if (!in_dev) {
- 		in_dev = inetdev_init(dev);
- 		if (!in_dev) {
--			call_rcu(&ifa->rcu_head, inet_rcu_free_ifa, ifa);
-+			inet_free_ifa(ifa);
- 			return -ENOBUFS;
- 		}
- 	}
+Regards, Leonid
 
---qMm9M+Fa2AknHoGS--
+Leonid Grossman
+Software Development
+www.s2io.com
