@@ -1,42 +1,29 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: Simon Kirby <sim@netnation.com>
 Subject: Re: Route cache performance under stress
-Date: Sun, 8 Jun 2003 20:58:57 +0300 (EEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306082054180.3737-100000@netcore.fi>
-References: <87he70re62.fsf@deneb.enyo.de>
+Date: Sun, 8 Jun 2003 16:49:26 -0700
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030608234926.GA9453@netnation.com>
+References: <87wuge59w2.fsf@deneb.enyo.de> <20030526.233211.54217447.davem@redhat.com> <87he70re62.fsf@deneb.enyo.de> <20030608.050500.28795668.davem@redhat.com> <874r30r9z2.fsf@deneb.enyo.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>,
-   <linux-net@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
 To: Florian Weimer <fw@deneb.enyo.de>
-In-Reply-To: <87he70re62.fsf@deneb.enyo.de>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <874r30r9z2.fsf@deneb.enyo.de>
 List-Id: netdev.vger.kernel.org
 
-On Sun, 8 Jun 2003, Florian Weimer wrote:
-> "David S. Miller" <davem@redhat.com> writes:
-> 
-> >    Of course, this will result in vastly decreased functionality (no
-> >    arbitary netmasks, no policy-based routing, code will be fine-tuned
-> >    for typical Internet routing tables), so this proposal definitely
-> >    comes at a price.
-> >
-> > As a general purpose operating system, where people DO in fact use
-> > these features quite regularly,
-> 
-> Even non-CIDR netmasks?  AFAIK, it's hard to find dedicated networking
-> devices (and routing protocols!) which support them. 8-/
+On Sun, Jun 08, 2003 at 03:10:25PM +0200, Florian Weimer wrote:
 
-Do you mean netmasks like "255.128.255.0" ?  Those are a real 
-abomination and probably not supported.. and I don't know of anything that 
-would require them.
+> Further parameters which could be tweaked is the kind of adjacency
+> information (where to store the L2 information, whether to include the
+> prefix length in the adjacency record etc.).
 
-Or do you mean netmasks such as 1.1.1.1/19?  I don't know of any credible 
-networking devices which wouldn't support them.  If so, please come out of 
-the cave.
+What is the problem with the current approach?  Does the overhead come
+from having to iterate through the hashes for each prefix?
 
--- 
-Pekka Savola                 "You each name yourselves king, yet the
-Netcore Oy                    kingdom bleeds."
-Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+Simon-
+
+[        Simon Kirby        ][        Network Operations        ]
+[     sim@netnation.com     ][   NetNation Communications Inc.  ]
+[  Opinions expressed are not necessarily those of my employer. ]
