@@ -1,59 +1,48 @@
 From: Pekka Savola <pekkas@netcore.fi>
-Subject: host vs interface address ownership [Re: [2.4 PATCH] bugfix: ARP
+Subject: ARP and knowledge of IP addresses [Re: [2.4 PATCH] bugfix: ARP
  respond on all devices]
-Date: Wed, 20 Aug 2003 08:18:09 +0300 (EEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0308200809280.32417-100000@netcore.fi>
-References: <20030819095611.0fb8f9a3.davem@redhat.com>
+Date: Wed, 20 Aug 2003 08:31:31 +0300 (EEST)
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <Pine.LNX.4.44.0308200828010.32417-100000@netcore.fi>
+References: <20030819112912.359eaea6.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Richard Underwood <richard@aspectgroup.co.uk>, <skraw@ithnet.com>,
-   <willy@w.ods.org>, <alan@lxorguk.ukuu.org.uk>, <carlosev@newipnet.com>,
-   <lamont@scriptkiddie.org>, <davidsen@tmr.com>, <bloemsaa@xs4all.nl>,
-   <marcelo@conectiva.com.br>, <netdev@oss.sgi.com>,
-   <linux-net@vger.kernel.org>, <layes@loran.com>, <torvalds@osdl.org>,
-   <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: Daniel Gryniewicz <dang@fprintf.net>, <alan@lxorguk.ukuu.org.uk>,
+	<richard@aspectgroup.co.uk>, <skraw@ithnet.com>, <willy@w.ods.org>,
+	<carlosev@newipnet.com>, <lamont@scriptkiddie.org>,
+	<davidsen@tmr.com>, <bloemsaa@xs4all.nl>,
+	<marcelo@conectiva.com.br>, <netdev@oss.sgi.com>,
+	<linux-net@vger.kernel.org>, <layes@loran.com>,
+	<torvalds@osdl.org>, <linux-kernel@vger.kernel.org>
+Return-path: <linux-net-owner@vger.kernel.org>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030819095611.0fb8f9a3.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20030819112912.359eaea6.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
 On Tue, 19 Aug 2003, David S. Miller wrote:
-
-> On Tue, 19 Aug 2003 13:02:20 +0100
-> Richard Underwood <richard@aspectgroup.co.uk> wrote:
+[...]
+> Consider the situation logically.  When you're replying to an
+> ARP, _HOW_ do you know what IP addresses are assigned to _MY_
+> outgoing interfaces and _HOW_ do you know what subnets _EXIST_
+> on the LAN?
 > 
-> > David S. Miller wrote:
-> > > Under Linux, by default, IP addresses are owned by the system
-> > > not by interfaces.  This increases the likelyhood of successful
-> > > communication on a subnet.
-> > > 
-> > 	This is crap.
-> 
-> Nope, the RFCs allow this.
-> 
-> So this is where we must agree to disagree.  Because host ownership of
-> IP addresses is the basis for all of the arguments and it completely
-> justifies Linux's ARP behavior on both sides.
+> The answer to both is, you'd don't know these things _EVEN_ if
+> you are a router/gateway.
 
-Maybe I'm missing something -- I'm not sure what exactly you're including
-in the models -- but wouldn't it be possible to implement the "host 
-ownership" model so that it would STILL honor any RFC out there (and 
-similarly for "interface ownership")?
+Maybe I'm missing something but -- isn't it perfectly valid to assume the
+node *ITSELF* knows about its interfaces, IP addresses, and its routes?
+(Certainly, it can't know of what subnets exist on the LAN if those
+haven't been configured on the node, e.g. in the form of an "interface
+routes".)
 
-For example, many IETF documents may state things like:
+ARP could look it up.
 
-                                                                     The
-   Home Agents List MAY be implemented in any manner consistent with the
-   external behavior described in this document.
-
-.. which *seems* (without knowing which RFCs and sections of them you 
-refer to for justifying host/interface ownership) to be a probable intent 
-of allowing either model.  Just as long as the external behaviour is 
-consistent, you can implement it with any internal structure you wish.
+Sure, it would seem a bit like an OSI layering violation, but that's no 
+news as OSI layering isn't strict anyway and has been shredded to pieces 
+already in many other places.
 
 -- 
 Pekka Savola                 "You each name yourselves king, yet the
 Netcore Oy                    kingdom bleeds."
 Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
+
