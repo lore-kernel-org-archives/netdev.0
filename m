@@ -1,24 +1,40 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: dev/core/net_sysfs.c: missing release() function in net_class
-Date: Tue, 19 Aug 2003 08:36:21 -0700
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Tue, 19 Aug 2003 08:34:38 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819083621.2ae4abc8.davem@redhat.com>
-References: <Pine.LNX.4.44.0308191500050.26041-100000@rhea.tcs.hut.fi>
+Message-ID: <20030819083438.26c985b9.davem@redhat.com>
+References: <353568DCBAE06148B70767C1B1A93E625EAB57@post.pc.aspectgroup.co.uk>
+	<070c01c36653$7f3c1ab0$c801a8c0@llewella>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, greg@kroah.com, netdev@oss.sgi.com
+Cc: richard@aspectgroup.co.uk, skraw@ithnet.com, willy@w.ods.org,
+   alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com, lamont@scriptkiddie.org,
+   davidsen@tmr.com, marcelo@conectiva.com.br, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+   linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0308191500050.26041-100000@rhea.tcs.hut.fi>
+To: "Bas Bloemsaat" <bloemsaa@xs4all.nl>
+In-Reply-To: <070c01c36653$7f3c1ab0$c801a8c0@llewella>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Aug 2003 15:47:03 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+On Tue, 19 Aug 2003 15:11:59 +0200
+"Bas Bloemsaat" <bloemsaa@xs4all.nl> wrote:
 
-> lately I've been getting a nasty looking warning from class_dev_release()
-> in drivers/base/class.c when I unregister my ip6_tunnel devices.
+> It it doesn't define a standard either, but makes
+> perfectly clear that any interface has it's own ARP,
+> not one ARP for the entire system.
 
-This is fixed in current sources after recent changes
-done by Stephen Hemminger.
+This is absolutely not true.
+
+There are two valid ways the RFCs allow systems to handle
+IP addresses.
+
+1) IP addresses are owned by "the host"
+2) IP addresses are owned by "the interface"
+
+Linux does #1, many systems do #2, both are correct.
+
+We provide ways for you to obtain the behavior or #2
+so there is nothing to complain about.
