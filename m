@@ -1,60 +1,33 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (1/4) propgate bridge internal MTU changes
-Date: Thu, 29 Jul 2004 10:59:31 -0700
+From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
+Subject: RE: [PATCH 3/12 2.4] e1000 - use vmalloc for data structures not shared with h/w
+Date: Thu, 29 Jul 2004 11:17:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040729105931.25815479@dell_ss3.pdx.osdl.net>
-References: <20040728153725.7ace281c@dell_ss3.pdx.osdl.net>
-	<20040728191724.4afacdce.davem@redhat.com>
+Message-ID: <468F3FDA28AA87429AD807992E22D07E01F23824@orsmsx408>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bridge@osdl.org, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <jgarzik@pobox.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040728191724.4afacdce.davem@redhat.com>
+Content-class: urn:content-classes:message
+To: "Christoph Hellwig" <hch@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Follow up to earlier RCU patch.  Since now using RCU, need to use
-deferred free.  
+Vmalloc space is less scarce than kmalloc space. Am I right? This patch
+trades kmalloc space for vmalloc space.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Ganesh.
 
-diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
---- a/net/bridge/br_fdb.c	2004-07-29 11:00:07 -07:00
-+++ b/net/bridge/br_fdb.c	2004-07-29 11:00:07 -07:00
-@@ -217,11 +217,18 @@
- 	return fdb;
- }
- 
-+static void fdb_rcu_free(struct rcu_head *head)
-+{
-+	struct net_bridge_fdb_entry *ent
-+		= container_of(head, struct net_bridge_fdb_entry, rcu);
-+	kmem_cache_free(br_fdb_cache, ent);
-+}
- 
-+/* Set entry up for deletion with RCU  */
- void br_fdb_put(struct net_bridge_fdb_entry *ent)
- {
- 	if (atomic_dec_and_test(&ent->use_count))
--		kmem_cache_free(br_fdb_cache, ent);
-+		call_rcu(&ent->rcu, fdb_rcu_free);
- }
- 
- /*
-diff -Nru a/net/bridge/br_private.h b/net/bridge/br_private.h
---- a/net/bridge/br_private.h	2004-07-29 11:00:07 -07:00
-+++ b/net/bridge/br_private.h	2004-07-29 11:00:07 -07:00
-@@ -46,7 +46,10 @@
- {
- 	struct hlist_node		hlist;
- 	struct net_bridge_port		*dst;
--	struct list_head		age_list;
-+	union {
-+		struct list_head	age_list;
-+		struct rcu_head		rcu;
-+	};
- 	atomic_t			use_count;
- 	unsigned long			ageing_timer;
- 	mac_addr			addr;
+-----Original Message-----
+From: Christoph Hellwig [mailto:hch@infradead.org] 
+Sent: Thursday, July 29, 2004 10:50 AM
+To: Venkatesan, Ganesh
+Cc: jgarzik@pobox.com; netdev@oss.sgi.com
+Subject: Re: [PATCH 3/12 2.4] e1000 - use vmalloc for data structures
+not shared with h/w
+
+
+This sounds rather bogus.  vmallocspace is a scare ressource, don't use
+it
+unless nessecary.
