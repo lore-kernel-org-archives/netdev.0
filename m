@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 2/22] xfrm offload v2: Add xfrm offload management calls to struct netdevice
+Subject: [RFC BK 3/22] xfrm offload v2: Add offload management routines
 Date: Mon, 10 Jan 2005 10:36:59 -0500
-Message-ID: <20040110014300.11@ori.thedillows.org>
-References: <20040110014300.10@ori.thedillows.org>
+Message-ID: <20040110014300.12@ori.thedillows.org>
+References: <20040110014300.11@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,64 +13,215 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 00:02:31-05:00 dave@thedillows.org 
-#   Add the xfrm offload management calls to struct netdevice.
+#   2005/01/10 00:05:38-05:00 dave@thedillows.org 
+#   Add offload management to xfrm_state.
 #   
-#   xfrm_state_add() is called for inbound xfrm states
-#   xfrm_bundle_add() is called for outbound xfrm bundles
-#   xfrm_state_del() is called for all offloaded xfrms,
-#   	inbound or outbound.
-#   
-#   If a driver adds NETIF_F_IPSEC to its features, it must
-#   provide all three callbacks.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# include/linux/netdevice.h
-#   2005/01/10 00:02:15-05:00 dave@thedillows.org +10 -0
-#   Add the xfrm offload management calls to struct netdevice.
-#   
-#   xfrm_state_add() is called for inbound xfrm states
-#   xfrm_bundle_add() is called for outbound xfrm bundles
-#   xfrm_state_del() is called for all offloaded xfrms,
-#   	inbound or outbound.
-#   
-#   If a driver adds NETIF_F_IPSEC to its features, it must
-#   provide all three callbacks.
+#   xfrm_offload_alloc() creates a new xfrm_offload, with a private
+#   	part to be used by the driver (ala net_device->priv)
+#   	The returned offload may be kfree'd if it has not been
+#   	added to a xfrm_state using xfrm_state_offload_add().
+#   xfrm_offload_priv() returns a pointer to the private area of
+#   	the xfrm_offload. This will be 8-byte aligned.
+#   xfrm_offload_hold()/xfrm_offload_release() do the reference
+#   	counting of the xfrm_offload
+#   xfrm_offload_get() looks up the xfrm_offload from a given device
+#   	The caller should call xfrm_offload_release() when it is
+#   	finished with this offload.
+#   xfrm_state_offload_add() adds a new offload to the xfrm_state,
+#   	replacing any existing offload for the device that may
+#   	exist for this xfrm_state.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h	2005-01-10 01:20:27 -05:00
-+++ b/include/linux/netdevice.h	2005-01-10 01:20:27 -05:00
-@@ -250,6 +250,8 @@
- };
- #define NETDEV_BOOT_SETUP_MAX 8
+# net/xfrm/xfrm_state.c
+#   2005/01/10 00:05:20-05:00 dave@thedillows.org +28 -0
+#   Clean up any offloads on destruction of an xfrm_state, and
+#   allow the addition of new xfrm_offloads to a xfrm_state.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# net/xfrm/xfrm_export.c
+#   2005/01/10 00:05:20-05:00 dave@thedillows.org +2 -0
+#   Export xfrm_state_offload_add() to drivers.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+# include/net/xfrm.h
+#   2005/01/10 00:05:20-05:00 dave@thedillows.org +79 -0
+#   Add offload management to xfrm_state.
+#   
+#   Add xfrm_offload_alloc(), xfrm_offload_priv(), xfrm_offload_hold()
+#   xfrm_offload_release(), and xfrm_offload_get().
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2005-01-10 01:20:15 -05:00
++++ b/include/net/xfrm.h	2005-01-10 01:20:15 -05:00
+@@ -81,6 +81,8 @@
+       metrics. Plus, it will be made via sk->sk_dst_cache. Solved.
+  */
  
-+struct xfrm_state;
 +struct xfrm_offload;
- 
- /*
-  *	The DEVICE structure.
-@@ -415,6 +417,7 @@
- #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
- #define NETIF_F_TSO		2048	/* Can offload TCP/IP segmentation */
- #define NETIF_F_LLTX		4096	/* LockLess TX */
-+#define NETIF_F_IPSEC		8192	/* Can offload IPSEC crypto */
- 
- 	/* Called after device is detached from network. */
- 	void			(*uninit)(struct net_device *dev);
-@@ -464,6 +467,13 @@
- 						   unsigned short vid);
- 	void			(*vlan_rx_kill_vid)(struct net_device *dev,
- 						    unsigned short vid);
 +
-+	void			(*xfrm_state_add)(struct net_device *dev,
-+						  struct xfrm_state *x);
-+	void			(*xfrm_bundle_add)(struct net_device *dev,
-+						   struct dst_entry *bundle);
-+	void			(*xfrm_state_del)(struct net_device *dev,
-+						  struct xfrm_offload *xol);
+ /* Full description of state of transformer. */
+ struct xfrm_state
+ {
+@@ -149,6 +151,9 @@
  
- 	int			(*hard_header_parse)(struct sk_buff *skb,
- 						     unsigned char *haddr);
+ 	/* Intended direction of this state, used for offloading */
+ 	u8			dir;
++
++	/* List of offload cookies, per device */
++	struct list_head	offloads;
+ };
+ 
+ enum {
+@@ -166,6 +171,13 @@
+ 	XFRM_STATE_DIR_OUT,
+ };
+ 
++struct xfrm_offload
++{
++	struct list_head	bydev;
++	struct net_device *	dev;
++	atomic_t		refcnt;
++};
++
+ struct xfrm_type;
+ struct xfrm_dst;
+ struct xfrm_policy_afinfo {
+@@ -905,5 +917,72 @@
+ 				     (struct in6_addr *)b);
+ 	}
+ }
++
++#define XFRM_OFFLOAD_ALIGN		8
++#define XFRM_OFFLOAD_ALIGN_CONST	(XFRM_OFFLOAD_ALIGN - 1)
++
++static inline struct xfrm_offload *
++xfrm_offload_alloc(int sizeof_priv, struct net_device *dev, int mask)
++{
++	struct xfrm_offload *xol;
++	int alloc_size;
++	
++	alloc_size = (sizeof(*xol) + XFRM_OFFLOAD_ALIGN_CONST)
++				& ~XFRM_OFFLOAD_ALIGN_CONST;
++	alloc_size += sizeof_priv;
++	xol = kmalloc(alloc_size, mask);
++	if (xol) {
++		memset(xol, 0, alloc_size);
++		INIT_LIST_HEAD(&xol->bydev);
++		atomic_set(&xol->refcnt, 1);
++		xol->dev = dev;
++	}
++
++	return xol;
++}
++
++static inline void *xfrm_offload_priv(struct xfrm_offload *xol)
++{
++	return (char *)xol + ((sizeof(*xol) + XFRM_OFFLOAD_ALIGN_CONST)
++					& ~XFRM_OFFLOAD_ALIGN_CONST);
++}
++
++static inline void xfrm_offload_hold(struct xfrm_offload *xol)
++{
++	atomic_inc(&xol->refcnt);
++}
++
++static inline void xfrm_offload_release(struct xfrm_offload *xol)
++{
++	if (xol) {
++		WARN_ON(atomic_read(&xol->refcnt) < 1);
++		if (atomic_dec_and_test(&xol->refcnt)) {
++			xol->dev->xfrm_state_del(xol->dev, xol);
++			dev_put(xol->dev);
++			kfree(xol);
++		}
++	}
++}
++
++static inline struct xfrm_offload *xfrm_offload_get(struct xfrm_state *x,
++                                               struct net_device *dev)
++{
++	struct xfrm_offload *xol, *ret = NULL;
++
++	spin_lock(&x->lock);
++	list_for_each_entry(xol, &x->offloads, bydev) {
++		if (xol->dev == dev) {
++			xfrm_offload_hold(xol);
++			ret = xol;
++			break;
++		}
++	}
++	spin_unlock(&x->lock);
++
++	return ret;
++}
++
++extern void xfrm_state_offload_add(struct xfrm_state *x,
++					struct xfrm_offload *xol);
+ 
+ #endif	/* _NET_XFRM_H */
+diff -Nru a/net/xfrm/xfrm_export.c b/net/xfrm/xfrm_export.c
+--- a/net/xfrm/xfrm_export.c	2005-01-10 01:20:15 -05:00
++++ b/net/xfrm/xfrm_export.c	2005-01-10 01:20:15 -05:00
+@@ -60,3 +60,5 @@
+ EXPORT_SYMBOL_GPL(xfrm_ealg_get_byname);
+ EXPORT_SYMBOL_GPL(xfrm_calg_get_byname);
+ EXPORT_SYMBOL_GPL(skb_icv_walk);
++
++EXPORT_SYMBOL_GPL(xfrm_state_offload_add);
+diff -Nru a/net/xfrm/xfrm_state.c b/net/xfrm/xfrm_state.c
+--- a/net/xfrm/xfrm_state.c	2005-01-10 01:20:15 -05:00
++++ b/net/xfrm/xfrm_state.c	2005-01-10 01:20:15 -05:00
+@@ -56,6 +56,12 @@
+ 
+ static void xfrm_state_gc_destroy(struct xfrm_state *x)
+ {
++	if (!list_empty(&x->offloads)) {
++		struct xfrm_offload *xol, *next;
++
++		list_for_each_entry_safe(xol, next, &x->offloads, bydev)
++			xfrm_offload_release(xol);
++	}
+ 	if (del_timer(&x->timer))
+ 		BUG();
+ 	if (x->aalg)
+@@ -181,6 +187,7 @@
+ 		atomic_set(&x->tunnel_users, 0);
+ 		INIT_LIST_HEAD(&x->bydst);
+ 		INIT_LIST_HEAD(&x->byspi);
++		INIT_LIST_HEAD(&x->offloads);
+ 		init_timer(&x->timer);
+ 		x->timer.function = xfrm_timer_handler;
+ 		x->timer.data	  = (unsigned long)x;
+@@ -944,6 +951,27 @@
+ 		xfrm_state_put(t);
+ 		x->tunnel = NULL;
+ 	}
++}
++
++void xfrm_state_offload_add(struct xfrm_state *x, struct xfrm_offload *xol)
++{
++	struct xfrm_offload *entry, *old = NULL;
++
++	spin_lock(&x->lock);
++	list_for_each_entry(entry, &x->offloads, bydev) {
++		if (entry->dev == xol->dev) {
++			list_del(&entry->bydev);
++			old = entry;
++			break;
++		}
++	}
++
++	dev_hold(xol->dev);
++	list_add_tail(&xol->bydev, &x->offloads);
++	spin_unlock(&x->lock);
++
++	if(old)
++		xfrm_offload_release(old);
+ }
+ 
+ void __init xfrm_state_init(void)
