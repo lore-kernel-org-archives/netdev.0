@@ -1,45 +1,60 @@
-From: Roman Pletka <rap@zurich.ibm.com>
+From: Bill Davidsen <davidsen@tmr.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Wed, 20 Aug 2003 18:47:45 +0200
+Date: Wed, 20 Aug 2003 12:49:14 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F43A631.50308@zurich.ibm.com>
-References: <353568DCBAE06148B70767C1B1A93E625EAB58@post.pc.aspectgroup.co.uk>	<20030819145403.GA3407@alpha.home.local>	<20030819170751.2b92ba2e.skraw@ithnet.com>	<20030819085717.56046afd.davem@redhat.com>	<20030819185219.116fd259.skraw@ithnet.com>	<3F43891E.9060204@zurich.ibm.com> <20030820175504.07658147.skraw@ithnet.com>
+Message-ID: <Pine.LNX.3.96.1030820123600.14414I-100000@gatekeeper.tmr.com>
+References: <1061320363.3744.14.camel@athena.fprintf.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: bloemsaa@xs4all.nl, davem@redhat.com, alan@lxorguk.ukuu.org.uk,
-   willy@w.ods.org, richard@aspectgroup.co.uk, carlosev@newipnet.com,
-   lamont@scriptkiddie.org, davidsen@tmr.com, marcelo@conectiva.com.br,
-   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
-   torvalds@osdl.org, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: "David S. Miller" <davem@redhat.com>, alan@lxorguk.ukuu.org.uk,
+   richard@aspectgroup.co.uk, skraw@ithnet.com, willy@w.ods.org,
+   carlosev@newipnet.com, lamont@scriptkiddie.org, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephan von Krawczynski <skraw@ithnet.com>
+To: Daniel Gryniewicz <dang@fprintf.net>
+In-Reply-To: <1061320363.3744.14.camel@athena.fprintf.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephan von Krawczynski wrote:
- >On Wed, 20 Aug 2003 16:43:42 +0200
- >Roman Pletka <rap@zurich.ibm.com> wrote:
- >
- >
- >>Please read carefully what you have quoted:
- >>It says: *An* implementation... and then goes on with a citation of RFC 826.
- >>A simple citation does not make a valid standard yet. It just refers to it
- >>as an example for this specific issue. That's all.
- >
- >
- >Sorry, but my reading is this "An implementation of the ( Address Resolution
- >Protocol (ARP) [LINK:2] ) ..."
- >Do you understand what I mean?
- >
- >If you insist on RFC-826 being only one of several (possible) ARP
- >implementations, can you then please name an RFC where ARP as a protocol is
- >clearly defined? I mean there must be one, or not?
+On 19 Aug 2003, Daniel Gryniewicz wrote:
 
-This is not the point. As has already been mentioned some days ago by davem
-RFC 826 explicitely states at the beginning that it is not the specification
-of an Internet Standard and thats what I meant.
+> I realize that, but is that a reason to keep linux from working with
+> these?  (And it's not just cisco, all the *BSDs (and therefore anything
+> that took the BSD stack such as MS) work this way too.)  As nearly as I
+> can tell, there's no way to make linux work with these, and the
+> situation I gave is one where linux could easily get it right, and
+> isn't.  Saying "They're broken.  Tough." is not really helpful.  At
+> least can we get a "work with broken other systems in certain
+> circumstances" switch somewhere?
 
-So let's stop spinning round on this.
+I have been asking for a similar thing as well, David mentioned some
+things that would break, but I believe they break if you use source
+routing, so that seems not to be a real objection.
 
--- Roman
+> 
+> (Funny you should mention Cisco, as we write routing software and must
+> interoperate with Cisco.  What Cisco says *does* go in the routing
+> community, if you wish your product to be used.  Currently, when our
+> customers come to us, we have to say "Either don't use Linux or run 2.2
+> with the arp fix patch.")
+
+Unless all your customers do odd things with networking, or you are not
+using source routing for some reason, you don't do customers a favor by
+giving that advice. Most users have one NIC with one IP and Linux works.
+
+The Linux implementation is not broken by standard, it's just that there
+were two ways to do it, and the one chosen is allowed by frequently
+non-functional.
+
+I find it interesting that we can't change networking because a few
+complex systems would have to be reconfigured, but we *can* change modules
+which requires config changes on probably 90% of all systems (commercial
+distributions). Linus has rethought some of his design decisions, but
+David seems intent on not only keeping this one, but preventing the
+addition of a flag which would solve the problem for most people.
+
+-- 
+bill davidsen <davidsen@tmr.com>
+  CTO, TMR Associates, Inc
+Doing interesting things with little computers since 1979.
