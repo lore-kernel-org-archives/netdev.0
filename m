@@ -1,41 +1,30 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NET] Add barriers for dst refcnt
-Date: Sat, 5 Feb 2005 17:21:01 -0800
-Message-ID: <20050205172101.7874e1dd.davem@davemloft.net>
-References: <20050204073311.GA11716@gondor.apana.org.au>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, anton@samba.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050204073311.GA11716@gondor.apana.org.au>
+From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
+Subject: Re: [Linux-ATM-General] [RFC][PATCH] Very basic sysfs support for ATM devices (updated)
+Date: Sat, 05 Feb 2005 20:33:18 -0500
+Message-ID: <200502060133.j161XIj3007281@ginger.cmf.nrl.navy.mil>
+References: <20050204201327.GA2439@katya>
+Reply-To: chas3@users.sourceforge.net
+Cc: netdev@oss.sgi.com, linux-atm-general@lists.sourceforge.net,
+        usbatm@lists.infradead.org
+To: Roman Kagan <rkagan@mail.ru>
+Reply-To: chas3@users.sourceforge.net
+In-reply-to: Your message of "Fri, 04 Feb 2005 23:13:27 +0300."
+             <20050204201327.GA2439@katya>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 4 Feb 2005 18:33:11 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+In message <20050204201327.GA2439@katya>,Roman Kagan writes:
+>> +static CLASS_DEVICE_ATTR(address, S_IRUGO, show_address, NULL);
+>Maybe it should better be "esi", to match the name in struct atm_dev?
 
-> In light of the recent discussion about sk_buff, I think we need
-> the following patch for dst_entry.  This adds a memory barrier
-> before dst_release drops the refcnt, and a read memory barrier
-> before dst_destroy starts destroying the entry.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+its called address for ethernet network interfaces so i guess calling
+it address here is sensible.
 
-Good catch.
+>script, and hoping that was enough for the driver to complete
+>initializing atm_dev.  I suspect the only way to fix it is to split the
+>atm_dev initialization into two stages, allocation and registration, as
+>it is done for net_device.
 
-I "think" the dst_release() case is theoretical.  dst_release()
-runs in a locked context for the thing referencing 'dst'.  Be it
-the route hash, a socket, whatever.
-
-BTW, looking at dst_release() call sites, xchg() might be another
-primitive we need to watch out for memory barrier semantics of.
-Since it returns a value, it would seem to need to be strictly
-ordered wrt. other memory operations.  And sure enough, ppc64
-has the memory barriers there.
-
-Man, something else to audit on sparc64 and document in atomic_ops.txt
-:-)
-
-Anyways, Herbert's patch is correct and I'll apply it.  Thanks.
+yeah which is why i just wanted to convert atm_dev to just be a netdevice.
+the code is already written and "stable".
