@@ -1,52 +1,65 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: Adding an IW_QUAL_ALL_UPDATED macro
-Date: Fri, 28 Jan 2005 08:36:15 -0800
-Message-ID: <20050128163615.GA14063@bougret.hpl.hp.com>
-References: <Pine.LNX.4.58.0501272121120.2149@devserv.devel.redhat.com>
-Reply-To: jt@hpl.hp.com
+From: sudeep list <sudeep.list@gmail.com>
+Subject: turning off tcp checksums.
+Date: Fri, 28 Jan 2005 10:59:31 -0700
+Message-ID: <d50018af05012809595096dafe@mail.gmail.com>
+Reply-To: sudeep list <sudeep.list@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dan Williams <dcbw@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0501272121120.2149@devserv.devel.redhat.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 27, 2005 at 09:27:55PM -0500, Dan Williams wrote:
-> Jean,
-> 
-> Can we add something like:
-> 
-> #define IW_QUAL_ALL_UPDATED (IW_QUAL_QUAL_UPDATED
->                              | IW_QUAL_LEVEL_UPDATED
->                              | IW_QUAL_NOISE_UPDATED)
-> 
-> #define IW_QUAL_ALL_INVALID (IW_QUAL_QUAL_INVALID
->                              | IW_QUAL_LEVEL_INVALID
->                              | IW_QUAL_NOISE_INVALID)
-> 
-> these macros to wireless.h?  This would be helpful for drivers, many 
-> of which seem to have "qual.updated = 7; /* all updated */" type 
-> statements in them.
+hello,
 
-	Ok, I'll push that in WE-18. Meanwhile, you can have local
-defs protected by #ifdef.
+I am trying to conduct some throughput experiments using a modified
+TcP/IP stack. One of the things that I would like to do is to turn off
+the TcP checksum. The idea is that the application computes its own
+checksum, and having tcp duplicate the effort with a weaker checksum
+doesnt make sense. This still leaves the tcp header without any
+checksum, but since this is a lab environment, I hope to get away with
+it for now :-)
 
-> I'm also attempting to normalize some of the quality values in the 
-> drivers, and to develop an understanding of the spreads of the quality 
-> values in all of them.  I hope to post the data from this evaluation at 
-> some point.  I'm fixing up the in-kernel drivers (and ipw2200 driver) to 
-> correctly set the "qual.updated" field since most of them don't.
+I guess this means, modifying the tcp egress path, tcp ingress, and
+turning off the hardware checksum capability on the two ends. I think
+I have figured out how to change the egress path, but have no clue
+about the ingress path.
 
-	Be aware that those defines, IW_QUAL_XXX, were only introduced
-in WE-17, which means 2.6.10 and later. For driver outside the kernel,
-you need to have local definition is WIRELESS_EXT < 17.
+egress path
+------------------
+Modify the tcp_ioctl function in net/ipv4/tcp.c to add a command that
+sets the value of sk->sk_route_caps = NETIF_F_NO_CSUM
 
-> Dan
+This shall result in the following code path being executed in the
+tcp_sendmsg function.
+.
+.
+841       if (sk->sk_route_caps &
+843 	         (NETIF_F_IP_CSUM | NETIF_F_NO_CSUM |
+844              NETIF_F_HW_CSUM))
+845 	      skb->ip_summed = CHECKSUM_HW;
+..
 
-	Thanks,
+which (I hope) shall result in turning off the checksum calculation in
+downstream code.
 
-	Jean
+Ingress Path
+-------------------
+On this path, I saw that its the driver routines that set the value of
+skb->ip_summed. I guess I could also change my driver routine to set
+the ip_summed value to CHECKSUM_HW but that appears too rash.
+1) I suspect it will also turn off the ip header checksum
+2) Its only for *some* sockets in my stack that I want to turn off the
+checksum, not all.
+
+may be I can find out the socket that the skb is destined for, and if
+its for "my" socket I could set the value appropriately, but that
+appears too ugly (and inefficient ?).
+
+How do I go about doing this ? Does my tcp_sendmsg modification make
+sense or are there better ways of doing this ?
+
+regards
+Sudeep
