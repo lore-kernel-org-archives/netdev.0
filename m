@@ -1,21 +1,54 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: OT: randomly unsubscribed
-Date: Fri, 4 Jun 2004 09:04:40 -0400 (EDT)
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Subject: Re: Forcedeth and vesa
+Date: Fri, 04 Jun 2004 16:25:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.NEB.4.33.0406040858260.4315-100000@dexter.psc.edu>
+Message-ID: <40C0863E.9070508@gmx.net>
+References: <20040604135640.C218BD0B60@rekin6.o2.pl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: foner+x-forcedeth@media.mit.edu, Manfred Spraul <manfred@colorfullife.com>,
+        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+        Andrew de Quincey <adq@lidskialf.net>, Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: smolny@o2.pl
+In-Reply-To: <20040604135640.C218BD0B60@rekin6.o2.pl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I can't find an admin address for this list, sorry about the off-topic
-post.
+Hi,
 
-I'm getting randomly and silently unsubscribed from this list.  It's
-happened three or four times now in the past few months.  Could the list
-admin look in to this?
+[foner: I included you in the CC because your problem seems similar.]
 
-Thanks,
-  -John
+smolny@o2.pl wrote:
+> Hi,
+> Sorry if you get this post by mistake. I found your address googling
+> for "forcedeth vesa".
+
+Well, you reached the right person.
+
+> When i use forcedeth module, both with 2.4.26 and 2.6.6 kernels, i
+> can't access vesa with mplayer. Just loading the module doesn't
+> cause the problem, only after i configure the net with ifconfig i
+> can't use vesa.
+
+This is interesting. Does the problem persist if you ifdown the interface?
+
+> If i use nvnet NVidia driver with 2.4.26, everything goes fine (no
+> nvnet for 2.6.x kernels). 
+
+That is even more interesting. So the bug affects forcedeth, but not
+nvnet. Hmmm. We'll have to review the code again.
+
+> It's an EPOX 8RDA+ motherboard.
+
+Foner: Do you see similarities between your problem and this one?
+
+Janusz, Foner: Are you willing to test forcedeth with a few dozen
+iterations of
+patch, recompile, install, power down, power up and test again?
+
+I would send you patches to binary search the offending code.
+
+Regards,
+Carl-Daniel
