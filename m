@@ -1,38 +1,51 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] (1/5) replay netdev notifier events on registration
-Date: Tue, 13 Jan 2004 16:36:31 -0800
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] support for large number of network devices.
+Date: Tue, 13 Jan 2004 17:55:32 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040113163631.1a9c1a59.davem@redhat.com>
-References: <20040113105843.0d1351cb.shemminger@osdl.org>
+Message-ID: <4004A194.3030602@candelatech.com>
+References: <20040113154610.38f5934c.shemminger@osdl.org>	<40048BFD.4010303@candelatech.com> <20040113163828.64ec4743.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040113105843.0d1351cb.shemminger@osdl.org>
+To: Stephen Hemminger <shemminger@osdl.org>,
+        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+In-Reply-To: <20040113163828.64ec4743.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 13 Jan 2004 10:58:43 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
-
-> Several protocols register for network device notification to detect new new network devices;
-> but then have to walk the device list to capture the devices that are already up.
-> This leaves a exposed window between when the notifier is registered and when the list walk
-> occurs. Also, in several cases, there is a different code path for the pre-existing and
-> new devices which leads to bug exposure.
+Stephen Hemminger wrote:
+> On Tue, 13 Jan 2004 16:23:25 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
 > 
-> The solution is to replay the registration and up events for existing devices into the
-> new notifier.
 > 
-> All notifiers in 2.6.1 have been audited and the other patches fix places
-> where protocols were doing there own registered device discovery loop.
+>>Stephen Hemminger wrote:
+>>
+>>>When using pseudo network devices, and really big machines; there is
+>>>sometimes a need to have a lot of network devices.  This replaces the
+>>>existing 2.6.1 limit of 100 entries an was O(n^2)
+>>>with a algorithm that will handle up to 32768 entries with O(n) behaviour.
+>>
+>>Might be a good time to put in hash tables to find network devices by
+>>name and by device-id.  There are a few parts of the networking stack
+>>that do lookups, and walking the device list when it's 4k entries
+>>long takes a while...
 > 
-> Thanks to Al Viro for the suggestion.
+> 
+> I have a patch for name hashing, but don't know if it's needed.
+> Even without it I can add 9 thousand bridge entries,
+> and each one takes longer to start the command than add the entry now. 
 
-Looks good.... are you absolutely sure no remaining notifiers will
-barf if they get a register for an already existing device?  I know up
-events should be ok...
+Check out the af_packet code.  At least some branches do a
+device lookup by name for each transmitted packet.  One
+method is:  packet_sendmsg_spkt
 
-Anyways, I applied all 5 patches, thanks.
+packet_sendmsg gets by index, which could also be hashed...
+
+At one time ifconfig -a was almost un-usable with large numbers
+of devices, but I think it has been improved.  I haven't tried on
+large numbers of devices lately...
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
