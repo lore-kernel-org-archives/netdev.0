@@ -1,98 +1,145 @@
-From: Pasi Sjoholm <ptsjohol@cc.jyu.fi>
-Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
- RLT-8139 related)
-Date: Fri, 30 Jul 2004 15:56:10 +0300 (EEST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0407301530130.23039-100000@silmu.st.jyu.fi>
-References: <16650.4736.456106.603065@robur.slu.se>
+From: Andreas Steffen <andreas.steffen@strongsec.net>
+Subject: [Openswan dev] Re: SPI generation by netlink_get_spi()
+Date: Fri, 30 Jul 2004 15:40:25 +0200
+Sender: dev-bounces@lists.openswan.org
+Message-ID: <410A4FC9.1040201@strongsec.net>
+References: <E1BpxdD-00036t-00@gondolin.me.apana.org.au>
+	<4108F5F5.4020001@strongsec.net> <20040730115009.GA5689@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: Francois Romieu <romieu@fr.zoreil.com>,
-        H?ctor Mart?n <hector@marcansoft.com>,
-        Linux-Kernel <linux-kernel@vger.kernel.org>, <akpm@osdl.org>,
-        <netdev@oss.sgi.com>, <brad@brad-x.com>, <shemminger@osdl.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16650.4736.456106.603065@robur.slu.se>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@redhat.com>
+Return-path: <dev-bounces@lists.openswan.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040730115009.GA5689@gondor.apana.org.au>
+Cc: dev@lists.openswan.org
+Cc: users@lists.strongswan.org
+Cc: netdev@oss.sgi.com
+List-Unsubscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.openswan.org?subject=unsubscribe>
+List-Archive: <http://lists.openswan.org/pipermail/dev>
+List-Post: <mailto:dev@lists.openswan.org>
+List-Help: <mailto:dev-request@lists.openswan.org?subject=help>
+List-Subscribe: <http://lists.openswan.org/mailman/listinfo/dev>,
+	<mailto:dev-request@lists.openswan.org?subject=subscribe>
+Errors-To: dev-bounces@lists.openswan.org
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 Jul 2004, Robert Olsson wrote:
+Hi Herbert,
 
-> You should monitor the the user app (gettimeofday()monitoring for starv=
-ation
-> this is the most important measure and what we are trying to improve.
+I successfully applied your patch to my 2.6.7 kernel. After kernel
+recompilation and a system reboot, strongSwan can now handle two
+identical Quick Modes in immediate succession without any problems.
 
-I can do that after couple of days.. I have to get married tomorrow and=20
-spend some time with my wife. =3D)
-=20
-> We can hardly expect softirq's alone to give us the balance of load we =
-wish.=20
-> At overload something has to get less resources. Even we defer all soft=
-irq's=20
-> to scheduler context there is no way making any distinguish between the=
-m=20
-> unless we run them in separate processes i.e one RX_SOFIRQ, TX_SOFIRQ e=
-tc.=20
-> This could solve some problem I just discussed with Jamal where the RX=20
-> softirq overruns the TX softirq and causes drop at egress (qdisc) when =
-bus=20
-> BW is saturated. Running softirq's under schedules context's can cause =
-other=20
-> delays and other problems.
+Will your patch make it into the 2.6.8 kernel release?
 
-Ok, I understand that you can't do 110% if you have only 100% so someone=20
-has to wait. It would not matter if networks speed would slow down to=20
-1/100 from the maximum speed if it would still somehow work and not=20
-crashing the whole userspace.
+Many thanks
 
-I don't remember if I have said this but when the ksoftirqd has started t=
-o=20
-take all the cpu-time there is no way to stop it excluding booting=20
-computer. You can kill or stop all the processes which are taking your=20
-cpu-time (ie. source compiling) but network wont start to work or neither=
-=20
-there is no free cpu-time for use because ksoftirqd won't stop eating it.
+Andreas
 
-Actually, for now I would not care how much the kernel would slow down bu=
-t=20
-we have to get some stability. Restarting your computer everytime this=20
-happens is not a solution.
+Herbert Xu wrote:
+> On Thu, Jul 29, 2004 at 03:04:53PM +0200, Andreas Steffen wrote:
+> 
+>>: |    message ID:  65 7e 1a 0f
+>>: | netlink_get_spi: allocated 0x9f4c9788 for esp.0@145.254.54.68
+>>: | SPI  9f 4c 97 88
+>>
+>>The netlink interface of the 2.6 kernel is used to request an SPI for
+>>the IPsec SA.
+>>
+>>Immediately after the first Quick Mode message the second pending Quick Mode
+>>is inititated:
+> 
+> 
+>>: |    message ID:  a1 01 a2 b2
+>>: | netlink_get_spi: allocated 0x9f4c9788 for esp.0@145.254.54.68
+>>: | SPI  9f 4c 97 88
+>>
+>>And here the error happens. The two Quick Mode negotiations have different
+>>Message IDs (65 7e 1a 0f versus a1 01 a2 b2) which will cause two phase2
+>>state objects to be created on the peer side but the generated SPI 9f 4c 97 
+>>88
+>>is the same. This will trigger the assertion passert(0) in 
+>>kernel_pfkey.c:finish_pfkey_msg() in freeswan-2.0x because twice the same 
+>>SADB_ADD command is executed for the outbound esp. Removing the assertion
+>>as in Openswan does not help - several retrials will not succeed in setting
+>>up the IPsec SA.
+> 
+> 
+> Yes this is a kernel bug.
+> 
+> The issue is that two successive calls to netlink_get_spi is returning
+> the same SA.  Since netlink_get_spi is meant to be a creation operation
+> this is incorrect.
+> 
+> The netlink_get_spi operation is modelled off the PFKEY SADB_GETSPI
+> command which is specified in RFC 2367.  The purpose of SADB_GETSPI
+> is to create a new larval SA that can then be filled in by SADB_UPDATE.
+> 
+> Its semantics does not allow two SADB_GETSPI calls to return the same
+> SA, even if there is no SADB_UPDATE call in between.
+> 
+> The reason the second netlink_get_spi is returning the same SA is
+> because in find_acq(), the code is looking at all larval states as
+> opposed to only larval states with an SPI of zero.
+> 
+> Since the only other caller of find_acq() -- xfrm_state_add() intentionally
+> ignores all return values with a non-zero SPI, it is safe to not look at
+> SAs with non-zero SPIs at all in find_acq().
+> 
+> The following patch does exactly that.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> In fact, the find_acq() call in xfrm_state_add() is a remnant from
+> the days when we had xfrm_state_replace() instead of xfrm_state_add()
+> and xfrm_state_update().  It can now be safely removed.
+> 
+> I'll post a separate patch for that.
+> 
+> Cheers,
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> ===== net/ipv4/xfrm4_state.c 1.10 vs edited =====
+> --- 1.10/net/ipv4/xfrm4_state.c	2004-07-09 20:19:08 +10:00
+> +++ edited/net/ipv4/xfrm4_state.c	2004-07-30 21:26:21 +10:00
+> @@ -74,11 +74,8 @@
+>  		    proto == x->id.proto &&
+>  		    saddr->a4 == x->props.saddr.a4 &&
+>  		    reqid == x->props.reqid &&
+> -		    x->km.state == XFRM_STATE_ACQ) {
+> -			    if (!x0)
+> -				    x0 = x;
+> -			    if (x->id.spi)
+> -				    continue;
+> +		    x->km.state == XFRM_STATE_ACQ &&
+> +		    !x->id.spi) {
+>  			    x0 = x;
+>  			    break;
+>  		    }
+> ===== net/ipv6/xfrm6_state.c 1.11 vs edited =====
+> --- 1.11/net/ipv6/xfrm6_state.c	2004-05-27 18:57:44 +10:00
+> +++ edited/net/ipv6/xfrm6_state.c	2004-07-30 21:27:07 +10:00
+> @@ -81,11 +81,8 @@
+>  		    proto == x->id.proto &&
+>  		    !ipv6_addr_cmp((struct in6_addr *)saddr, (struct in6_addr *)x->props.saddr.a6) &&
+>  		    reqid == x->props.reqid &&
+> -		    x->km.state == XFRM_STATE_ACQ) {
+> -			    if (!x0)
+> -				    x0 = x;
+> -			    if (x->id.spi)
+> -				    continue;
+> +		    x->km.state == XFRM_STATE_ACQ &&
+> +		    !x->id.spi) {
+>  			    x0 = x;
+>  			    break;
+>  		    }
 
-> So most ksoftirq's runs most softirq's which is good. Without this you =
-would=20
-> not be able to type any commands at all. Also we see some effects from =
-the=20
-> path. Can you monitor userland starvation here too?
-
-Sure..=20
-
-> > - When the ksoftirqd starts to eat cpu-time time_squeeze-value (3rd=20
-> > column) starts growing (in both cases it's same thing).=20
-> This OK as we have to throttle.
-
-Sure, but we should not crash the whole userspace. Why does kernel=20
-suddenly think that it won't give any time for softirq's. Or it=20
-does because I can write commands and etc. but the network won't work at =
-all.
-=20
-> > - Total-column's value stops growing although network file transfers=20
-> > are still on. (1st column)
-> Well ksoftirqd now runs RX softirq and competes heavily with other proc=
-esses=20
-> for your CPU you may have to adjust priorities to get your desired bala=
-nce.
-> Can you experiment a bit?
-
-There is nothing to priorise after I have killed/quitted the jobs which w=
-e=20
-taking all the cpu-time. Nothing more left than ksoftirqd and it will eat=
-=20
-all the cpu-time.
-
-Of course I could try something like "nice make -j3" and see if it will=20
-still do the same shit.
- =20
---
-Pasi Sj=F6holm
+=======================================================================
+Andreas Steffen                   e-mail: andreas.steffen@strongsec.com
+strongSec GmbH                    home:   http://www.strongsec.com
+Alter Zürichweg 20                phone:  +41 1 730 80 64
+CH-8952 Schlieren (Switzerland)   fax:    +41 1 730 80 65
+==========================================[strong internet security]===
