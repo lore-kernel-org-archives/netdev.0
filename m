@@ -1,46 +1,32 @@
-From: jamal <hadi@cyberus.ca>
+From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: PATCH: IPSEC acquire in presence of multiple managers
-Date: 25 Mar 2005 19:54:31 -0500
-Message-ID: <1111798470.1090.774.camel@jzny.localdomain>
-References: <1111795927.1089.749.camel@jzny.localdomain>
-	 <20050326003058.GA22930@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+Date: Sat, 26 Mar 2005 11:58:55 +1100
+Message-ID: <20050326005855.GA23533@gondor.apana.org.au>
+References: <1111795927.1089.749.camel@jzny.localdomain> <20050326003058.GA22930@gondor.apana.org.au> <1111798470.1090.774.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "David S. Miller" <davem@redhat.com>,
         Masahide NAKAMURA <nakam@linux-ipv6.org>,
         Shinta Sugimoto <shinta.sugimoto@ericsson.com>,
         netdev <netdev@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050326003058.GA22930@gondor.apana.org.au>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1111798470.1090.774.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-03-25 at 19:30, Herbert Xu wrote:
+On Fri, Mar 25, 2005 at 07:54:31PM -0500, jamal wrote:
+>
+> It seems that we dont support any acquires from userspace to kernel
 
-> One problem though is that if theal real KM is dead but the passive
-> monitor is still there then the kernel will have to wait for the
-> larval states to time out.
-> 
-> It can happen without the patch too if the KM dies after the message
-> is delivered.  This will make it slightly more likely.
-> 
+I haven't checked af_key but netlink does support that.  All you have
+to do is send messages to the correct multicast group.
 
-Agreed. 
-
-> I guess that's something we'll just have to live with.
-
-Well its useful even if we could just run "ip mon" to look at acquires
-going across.
-
-If i understood correctly pfkey: the kernel can be told when a KM is
-about to die or just came back up using an empty acquire message by the
-KM. I dont think we support this at the moment from looking at the code.
-It seems that we dont support any acquires from userspace to kernel
-which in theory could be triggered by some apps (I saw OSPF;->) trying 
-to get a SA. Is this common behavior?
-
-cheers,
-jamal
+Of course whether any of the KMs actually deal with it is a different
+story :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
