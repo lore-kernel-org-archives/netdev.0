@@ -1,33 +1,61 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on
- postrouting hook
-Date: Sat, 14 Feb 2004 15:00:41 -0800
+From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
+Subject: Re: [PATCH] Fix checksum bug for multicast/broadcast packets on postrouting
+ hook
+Date: Sun, 15 Feb 2004 11:34:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040214150041.5f6e7ef2.davem@redhat.com>
-References: <Xine.LNX.4.44.0402141318490.6128-100000@thoron.boston.redhat.com>
-	<402E71E2.1040508@kolumbus.fi>
+Message-ID: <402F3D1E.2020005@kolumbus.fi>
+References: <Xine.LNX.4.44.0402142314580.7364-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: quoted-printable
-Cc: jmorris@redhat.com, laforge@netfilter.org, netdev@oss.sgi.com,
-        sds@epoch.ncsc.mil
+Cc: "David S. Miller" <davem@redhat.com>, Harald Welte <laforge@netfilter.org>,
+        netdev@oss.sgi.com, Stephen Smalley <sds@epoch.ncsc.mil>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Mika =?ISO-8859-1?Q?Penttil=E4?= <mika.penttila@kolumbus.fi>
-In-Reply-To: <402E71E2.1040508@kolumbus.fi>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0402142314580.7364-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Feb 2004 21:07:14 +0200
-Mika Penttil=E4 <mika.penttila@kolumbus.fi> wrote:
 
-> This is unneeded overhead for the common case. The right fix is to make=
+
+James Morris wrote:
+
+>On Sat, 14 Feb 2004, Mika Penttil=E4 wrote:
+>
+> =20
+>
+>>James Morris wrote:
+>>
+>>   =20
+>>
+>>>The proposed solution below is to copy the skb rather than clone it, t=
+o=20
+>>>ensure that the original and looped back packets are independent.
+>>>
+>>>     =20
+>>>
+>>This is unneeded overhead for the common case. The right fix is to make=
 =20
-> sure the modifier (netfilter etc) makes the copy if needed. Actually,=20
-> this is what skb_ip_make_writable() is doing.
+>>sure the modifier (netfilter etc) makes the copy if needed. Actually,=20
+>>this is what skb_ip_make_writable() is doing.
+>>   =20
+>>
+>
+>The common case here will be only for locally generated multicast and=20
+>broadcast packets.
+>
+>If the netfilter core code is modified instead, we will end up adding
+>skb_ip_make_writable() to nf_hook_slow() which will be called for every=20
+>packet with an output device which uses hardware checksums.
+>
+>Not sure which is worse, but here's a proposed patch which does this.
+>
+>
+>- James
+>
 
-I totally agree.
+I don't see the context here. Where is the packet mangled? Why isn't=20
+that instance doing skb_ip_make_writable()? selinux? Not everyone=20
+generating locally multicast/broadcast packets is using selinux...
 
-In postrouting hook, the handler must unshare the SKB if it wishes to
-modify the packet contents.  It sounds to me like the selinux hooks are
-not doing this, and as suggested they should look at using the routine
-skb_ip_make_writable() which was designed by Rusty for this.
+--Mika
