@@ -1,23 +1,34 @@
-From: Maciej Soltysiak <solt@dns.toxicfilms.tv>
-Subject: Re: TCP/IPv6 broken in Linux 2.5.64?
-Date: Tue, 18 Mar 2003 14:54:15 +0100 (CET)
+From: bert hubert <ahu@ds9a.nl>
+Subject: interop success, ip6sec Linux 2.5.65 vs FreeBSD 4.7-STABLE
+Date: Tue, 18 Mar 2003 17:09:31 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0303181453230.3909@dns.toxicfilms.tv>
-References: <20030318131104.GA16367@hensema.net>
+Message-ID: <20030318160931.GA9529@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Erik Hensema <erik@hensema.net>
-In-Reply-To: <20030318131104.GA16367@hensema.net>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Thanks to Niels Bakker I can report that stock Linux 2.5.65 can talk IP6SEC
+with FreeBSD 4.7-STABLE (KAME 20010528/FreeBSD). It worked on the first try.
 
-> bender is running linux 2.5.64. dexter is running linux 2.4.18,
-Are you a cartoons fan ? Dexter's laboratory, Futurama ? That's a cool
-way to name hosts. I am inspired :)
+This using ipsec-tools-0.2.2 and manual keying. Racoon is reported not to
+listen on IPv6 sockets yet, but we didn't try this.
+
+The configuration used is that described in
+http://lartc.org/howto/lartc.ipsec.html 'Intro with Manual Keying', with
+IPv4 addresses replaced by IPv6 addresses.
+
+Thanks for making this possible!
 
 Regards,
-Maciej
+
+Bert
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+http://netherlabs.nl                         Consulting
