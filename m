@@ -1,48 +1,67 @@
-From: "Juan Westbrook" <4cxlyxk@naver.com>
-Subject: =?ISO-8859-1?Q?=B0=ED=B7=C1=C8=AB=BB=EF=C1=F8=BE=D7(=BD=C3=C1=DF=B0=A1:358000=BF=F8)?=
-	=?ISO-8859-1?Q?=B9=AB=B7=E1=C1=F5=C1=A4=20=C7=E0=BB=E7!?= axctgqp agvgb
-Date: Mon, 05 Jul 04 05:39:13 GMT
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] NET: save space for dst underflow message
+Date: Mon, 05 Jul 2004 17:00:53 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1qvwbsy2$-i-m0673h@knmo.2p2o>
-Reply-To: "Juan Westbrook" <4cxlyxk@naver.com>
+Message-ID: <20040705.170053.22377235.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary=".._64.8CEA.7A0F61C"
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello.
 
---.._64.8CEA.7A0F61C
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Save space for "dst underflow" message.
 
-<html>
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-<head>
-<meta http-equiv=3D"content-type" content=3D"text/html; charset=3Deuc-kr">=
+===== include/net/dst.h 1.19 vs edited =====
+--- 1.19/include/net/dst.h	2004-06-24 17:55:48 +09:00
++++ edited/include/net/dst.h	2004-07-05 16:44:17 +09:00
+@@ -142,15 +142,14 @@
+ 	return dst;
+ }
+ 
++extern const char dst_underflow_bug_msg[];
++
+ static inline
+ void dst_release(struct dst_entry * dst)
+ {
+ 	if (dst) {
+-		if (atomic_read(&dst->__refcnt) < 1) {
+-			printk("BUG: dst underflow %d: %p\n",
+-			       atomic_read(&dst->__refcnt),
+-			       current_text_addr());
+-		}
++		if (atomic_read(&dst->__refcnt) < 1)
++			printk(dst_underflow_bug_msg, dst, current_text_addr());
+ 		atomic_dec(&dst->__refcnt);
+ 	}
+ }
+===== net/core/dst.c 1.20 vs edited =====
+--- 1.20/net/core/dst.c	2004-06-18 04:09:54 +09:00
++++ edited/net/core/dst.c	2004-07-05 16:43:13 +09:00
+@@ -19,6 +19,8 @@
+ 
+ #include <net/dst.h>
+ 
++const char dst_underflow_bug_msg[] = KERN_DEBUG "BUG: dst underflow %d: %p at %p\n";
++
+ /* Locking strategy:
+  * 1) Garbage collection state of dead destination cache
+  *    entries is protected by dst_lock.
+@@ -273,6 +275,7 @@
+ 	register_netdevice_notifier(&dst_dev_notifier);
+ }
+ 
++EXPORT_SYMBOL(dst_underflow_bug_msg);
+ EXPORT_SYMBOL(__dst_free);
+ EXPORT_SYMBOL(dst_alloc);
+ EXPORT_SYMBOL(dst_destroy);
 
-<title>=FFFFFFC1=FFFFFFA6=FFFFFFB8=FFFFFFF1
-=FFFFFFBE=FFFFFFF8=FFFFFFC0=FFFFFFBD</title>
-<meta name=3D"generator" content=3D"Namo WebEditor v5.0">
-</head>
-
-<body bgcolor=3D"white" text=3D"black" link=3D"blue" vlink=3D"purple" alin=
-k=3D"red">
-<p align=3D"center"><a href=3D"http://hongsam1.oo.to" target=3D"_blank"><i=
-mg src=3D"http://board2.moneta.co.kr/attach_images/board5760/v49/d71810314=
-6.GIF" border=3D"0"></a></p>
-<p align=3D"center"><IMG height=3D87 src=3D"http://board.moneta.co.kr/atta=
-ch_images/board5760/v7/d1300675882.GIF" width=3D565 border=3D0><BR><BR>
-<A 
-href=3D"http://reject_hongsam.oo.to"><IMG height=3D50 src=3D"http://board.=
-moneta.co.kr/attach_images/board5760/v7/d849729677.GIF" width=3D237 border=
-=3D0></A>
-</body>
-
-</html>
-dnelp iyh kckwbpn  mg dqffupo ojnfnx iqwqxb
-pi
-
---.._64.8CEA.7A0F61C--
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
