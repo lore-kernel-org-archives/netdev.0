@@ -1,46 +1,39 @@
-From: "대출" <wxkekp193207@hotmail.com>
-Subject: =?ISO-8859-1?Q?=A2=C0=C4=AB=B5=E5=B0=AA=20=B4=EB=C3=E2=B7=CE?=
-	=?ISO-8859-1?Q?=C7=D8=B0=E1=C7=CF=B0=ED36=B0=B3=BF=F9=BA=D0=C8=B0=BB=F3=C8=AF,5=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6!!!?= yp
-Date: Mon, 08 Mar 04 07:23:49 GMT
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] smctr: fix init section usage
+Date: Sun, 7 Mar 2004 19:40:09 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <r4tx6$7y$c-uhm@adrvh>
-Reply-To: "대출" <wxkekp193207@hotmail.com>
+Message-ID: <20040307194009.4ce2f9b1.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/alternative;
-	boundary="_F.CA67E.FB.09"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+smctr_chk_mca() can be __init.
 
---_F.CA67E.FB.09
-Content-Type: text/html;
-Content-Transfer-Encoding: quoted-printable
+Patch is to 2.6.4-rc2.  Please apply.
 
-<html>
-<head>
-<title>=FFFFFFBB=FFFFFFF9=FFFFFFC7=FFFFFFC3</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
+--
+~Randy
 
-</head>
 
-<body bgcolor=3D"#FFFFFF" text=3D"#000000" leftmargin=3D"0" topmargin=3D"0=
-" marginwidth=3D"0" marginheight=3D"0">
-<table width=3D"54%" border=3D"1">
-  <tr> 
-    <td><a href=3D"http://www.loanbank.or.kr/main/main.php?spid=3Dloan15">=
-<img src=3D"http://www.loanbank.or.kr/image/lcg25.jpg" width=3D"544" heigh=
-t=3D"520" border=3D"0"></a></td>
-  </tr>
-  <tr> 
-    <td height=3D"19"><font size=3D"2">If you do not want to receive this =
-mail, just click  <a href=3D"http://www.reject.co.tv" target=3D"_blank">[r=
-eject]</a>button. thanks</font></td>
-  </tr>
-</table>
-</body>
-</html>
-lm b
+diffstat:=
+ drivers/net/tokenring/smctr.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
---_F.CA67E.FB.09--
+
+diff -Naurp ./drivers/net/tokenring/smctr.c~smctr_init ./drivers/net/tokenring/smctr.c
+--- ./drivers/net/tokenring/smctr.c~smctr_init	2004-02-17 19:57:56.000000000 -0800
++++ ./drivers/net/tokenring/smctr.c	2004-03-07 17:39:14.000000000 -0800
+@@ -477,7 +477,7 @@ static int smctr_checksum_firmware(struc
+         return (0);
+ }
+ 
+-static int smctr_chk_mca(struct net_device *dev)
++static int __init smctr_chk_mca(struct net_device *dev)
+ {
+ #ifdef CONFIG_MCA
+ 	struct net_local *tp = (struct net_local *)dev->priv;
