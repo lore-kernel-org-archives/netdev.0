@@ -1,53 +1,59 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: Re: serious netpoll bug w/NAPI
-Date: Wed, 16 Feb 2005 17:07:01 -0500
-Message-ID: <16915.50181.990040.174776@segfault.boston.redhat.com>
-References: <20050208201634.03074349.davem@davemloft.net>
-	<20050209183219.GA2366@waste.org>
-	<20050209164658.409f8950.davem@davemloft.net>
-	<20050210011104.GF2366@waste.org>
-	<16914.31886.665975.522710@segfault.boston.redhat.com>
-	<20050216050722.GC3358@waste.org>
-Reply-To: jmoyer@redhat.com
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] string matching based packet classification/filtering
+Date: Wed, 16 Feb 2005 23:30:38 +0100
+Message-ID: <20050216223038.GQ31837@postel.suug.ch>
+References: <20050215203211.GL31837@postel.suug.ch>
+	<42126C9B.5060406@eurodev.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20050216050722.GC3358@waste.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org,
+	Harald Welte <laforge@gnumonks.org>
+To: Pablo Neira <pablo@eurodev.net>
+Content-Disposition: inline
+In-Reply-To: <42126C9B.5060406@eurodev.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
+> Actually I wanted to contact Harald after this friday, once I'm done 
+> with my exams. I'd like to merge my work with his libqsearch hackings 
+> that were about to be finished.
 
-mpm> On Tue, Feb 15, 2005 at 05:49:50PM -0500, Jeff Moyer wrote:
->> ==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
->> 
-[snip]
->> 
->> Okay, I've only taken a quick glance at this, but I don't quite understand
->> why it's safe to take out the check for the per-cpu queue.  Realize that an
->> interrupt may have been serviced on another processor, and a NAPI poll may
->> have been scheduled there.
+Thinking about it, we can use the architecture to implement a regular
+expression match. The pattern would consist of an array of tokens
+in the form of:
 
-mpm> Because dev->np->poll_lock now serializes all access to ->poll (when
-mpm> netpoll is enabled on said device).
+struct regexp_token
+{
+	__u8 type;
+	__u8 recur;
+	__u8 value;
+	__u8 unused;
+};
 
->> Also, could you use the -p flag to diff when you generate your next patch?
->> It makes it *much* easier to review.
+where type would be
+  - specific character (must match `value')
+  - wildcard
+  - digit
+  - xdigit
+  - alpha ...
 
-mpm> Hmm, somehow my QUILT_DIFF_OPTS got lost, thanks.
+and recur
+ - 1
+ - 0..1
+ - 0..n
+ - 1..0
 
-mpm> I've just now recovered my SMP+NAPI box, so I can take a stab at
-mpm> actually testing this shortly.
-
-I put together a patch against our kernel tree which implements essentially
-the same logic as your patch, and it works great:  I was able to reproduce
-the bug without the patch, and the patched kernel is running just fine.
-Let me know when you have another version of your patch, and I will happily
-test it in my environment.
-
-Thanks,
-
-Jeff
+The matching algorithm would parse the array as a finite automation
+eating up byte by byte in the text. I think it would be efficient
+enough, easy to implement, not too error prone and powerful enough
+for most needs but we can discuss this in more details once libqsearch
+is ready. It would be one step closer to the increasing need for 
+application level based filtering and classification.
