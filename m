@@ -1,60 +1,42 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: primary and secondary ip addresses
-Date: Mon, 20 Dec 2004 15:29:59 +0100
-Message-ID: <20041220142959.GU24142@sunbeam.de.gnumonks.org>
-References: <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com> <41C30212.6000906@cs.columbia.edu> <20041217112025.27688eb6.davem@davemloft.net> <Pine.LNX.4.61.0412172046320.18698@filer.marasystems.com> <1103487517.1047.181.camel@jzny.localdomain> <20041219214120.GX17302@sunbeam.de.gnumonks.org> <20041219220211.GQ17998@postel.suug.ch> <1103497168.1046.218.camel@jzny.localdomain> <1103500587.1048.269.camel@jzny.localdomain> <1103550901.1050.292.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH] PKT_SCHED: Provide compat policer stats
+	in	action	policer
+Date: 20 Dec 2004 09:32:44 -0500
+Message-ID: <1103553164.1050.365.camel@jzny.localdomain>
+References: <20041215130128.GK8493@postel.suug.ch>
+	 <1103119774.1077.74.camel@jzny.localdomain> <41C05B60.6030504@trash.net>
+	 <1103484249.1046.143.camel@jzny.localdomain> <41C6A6CC.1050105@trash.net>
+	 <20041220140325.GW17998@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NY6JkbSqL3W9mApi"
-Cc: Thomas Graf <tgraf@suug.ch>,
-	Henrik Nordstrom <hno@marasystems.com>,
-	"David S. Miller" <davem@davemloft.net>,
-	Andrea G Forte <andreaf@cs.columbia.edu>, hasso@estpak.ee,
-	nhorman@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1103550901.1050.292.camel@jzny.localdomain>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041220140325.GW17998@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2004-12-20 at 09:03, Thomas Graf wrote:
 
---NY6JkbSqL3W9mApi
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> 
+> Ifs and buts, it was solely and purely my fault. period.
+> 
 
-On Mon, Dec 20, 2004 at 08:55:02AM -0500, jamal wrote:
+No fault on anyone - its a process of improving what we do.
 
-> Didnt boot ;->
-> A small silly magic number i missed. Now boots - but doesnt mean it
-> works. And i dont have much time to spare chasing it.
+> Agreed, the only bug which would have been easly found with the
+> testframework was the CBQ slab corruption bug due deleting
+> filters twice added with your generic filter deletion simplification.
+> Unfortunately, I'm more error-prone than most so I need a testframework.
 
-Don't bother, I'll give it some testing here.
-Thanks again.
+I need it to ;-> It will help me be less conservative ;->
+Thomas, we need automation of these tests - I just relaized what you
+have is not really in that category. Refer to sample example i posted.
+Doesnt have to be exactly like that, but somewhere along those lines.
 
-> cheers,
-> jamal
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---NY6JkbSqL3W9mApi
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBxuHnXaXGVTD0i/8RAgUwAJ0RozEMTOXsiI7CGdSOi7jP59UkXgCfTknM
-R4uQ3PpvBi+CNXZLPUDFWtU=
-=uu8k
------END PGP SIGNATURE-----
-
---NY6JkbSqL3W9mApi--
+cheers,
+jamal
