@@ -1,73 +1,55 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [PATCH Linux-2.6.8-rc1] prism54 Fix initialization with older firmware
-Date: Thu, 22 Jul 2004 06:42:49 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040722104249.GD9141__6074.08823348141$1090515511$gmane$org@ruslug.rutgers.edu>
-References: <200407221027.33023.margitsw@t-online.de>
+From: Bernd Schubert <bernd-schubert@web.de>
+Subject: Re: 2.6.7 oops, sk98lin related?
+Date: Thu, 22 Jul 2004 19:08:38 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <200407221908.41468.bernd-schubert@web.de>
+References: <200407221101.16388.bernd-schubert@web.de> <20040722150314.GB13195@infradead.org>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="t0UkRYy7tHLRMCai"
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, prism54-devel@prism54.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Margit Schubert-While <margitsw@t-online.de>
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: QUOTED-PRINTABLE
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S265215AbUGVRJB@vger.kernel.org>
+To: Christoph Hellwig <hch@infradead.org>,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+In-Reply-To: <20040722150314.GB13195@infradead.org>
 Content-Disposition: inline
-In-Reply-To: <200407221027.33023.margitsw@t-online.de>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> > is this an sk98lin oops, maybe related to your patches or is it a
+> > completely different problem?
+>
+> I don't think there's skge patches from me in 2.6.7 yet, but certainl=
+y not
+> in that area ;-)
 
---t0UkRYy7tHLRMCai
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Well just remember, on 20040704 you send me a 'huge patch' which should=
+ also=20
+fix our module unload problems.
 
-On Thu, Jul 22, 2004 at 10:27:32AM +0200, Margit Schubert-While wrote:
-> 2004-07-22 Margit Schubert-While <margitsw@t-online.de>
->=20
-> * In the card initialization routine, we try to set the
->   output power. For firmware < 1.0.4.3, this leads to a
->   worrying "mgt_commit has failed .." in the log although
->   the device continues to react normally.
->   Fix is simple, do not try to configure output power.
->   (which I believe we should not be doing anyway as it is=20
->    probably against local country regulations)
->=20
-> Margit
+>
+> This is just a big memory allocation failing, not an oops anyway.
 
-Margit, I think we should rather detect the version of the firmware and
-depending on this decide what to do.
+Unfortunality I began to capture via serial console only a few hour aft=
+er the=20
+server crashed. As there is also nothing in the logs, I don't have the=20
+beginning trace of the problems.
 
-A quick test proves you can obtain firmware verion from
+Since there is something about sk98 in almost all traces, I thought it =
+might=20
+be a sk98lin problem.
 
-[OID_INL_VERSION] =3D {0xFF020005, 0, 8, OID_TYPE_RAW},
+Anyway, do you have an idea what might have cause this memory allocatio=
+n=20
+problem?
 
-Then somewhere,
 
-union oid_res_t r;
-char *ver;
+Thanks,
+	Bernd
 
-mgt_get_request(priv, OID_INL_VERSION, 0, NULL, &r);
-ver =3D (char *) r.ptr;
-printk(KERN_DEBUG "Version: %s\n", ver);
-
-This will either be 1.0.4.3.arm or 1.0.3.0.arm. You can then strcmp and
-do the right thing. I'd finish this work up but I'm busy with WPA.
-
-	Luis
 
 --=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---t0UkRYy7tHLRMCai
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFA/5opat1JN+IKUl4RAoDPAJ9Et3OLSiiOrqAbS1fEYietbCFNXwCfd4PY
-eWfJM2DRTu2H2lCJBNe0qdQ=
-=6EcK
------END PGP SIGNATURE-----
-
---t0UkRYy7tHLRMCai--
+Bernd Schubert
+Physikalisch Chemisches Institut / Theoretische Chemie
+Universit=E4t Heidelberg
+INF 229
+69120 Heidelberg
+e-mail: bernd.schubert@pci.uni-heidelberg.de
