@@ -1,41 +1,62 @@
-From: mlpi_uy_rff03dw@amazon.com
-Subject: =?ISO-8859-1?Q?=B1=A1=BD=EC=A5=CE=AB~?=  =?ISO-8859-1?Q?=BA=F4=B8=F4=C1=CA=AA=AB=B0=D3=AB=B0?=
-Date: 05 Oct 2002 10:13:36 +0800
+From: Peter Kundrat <kundrat@kundrat.sk>
+Subject: cbq parent doesnt limit child
+Date: Mon, 7 Oct 2002 00:22:31 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4378.28364451907$1033935573@news.gmane.org>
-Reply-To: n3qv_coe_e3cbiy@bloomberg.com
+Message-ID: <20021006222231.GA7763@napri.sk>
 Mime-Version: 1.0
-Content-Type: text/html
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Reply-To: receive_adm@topservice.net.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
-<head>
-<title>=B5L=BC=D0=C3D=A4=E5=A5=F3</title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
-<title></title>
-<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Dbig5">
-</head>
-<body bgcolor=3D"#FFFFFF" text=3D"#000000">
-<p align=3D"center"><b><font size=3D"6" color=3D"#9900FF">=B1=A1=BD=EC=A5=
-=CE=AB~</font><font size=3D"4" color=3D"#9900FF">=BA=F4=B8=F4=C1=CA=AA=AB=
-=B0=D3=AB=B0</font></b></p>
-<p align=3D"center"><font size=3D"4" color=3D"#000000">=A6p=AAG=B1z=A8S=BF=
-=B3=BD=EC=A9=CE=ACO</font><font size=3D"4" color=3D"#FF0000">=A5=BC=A6=A8=
-=A6~=A1A=BD=D0=A4=C5=B6i=A4J</font><font size=3D"4" color=3D"#000000">.</=
-font></p>
-<p align=3D"center"><font size=3D"4" color=3D"#000000">=A7=DA=AD=CC=BE=D6=
-=A6=B3=B3=CC=B7s=A9_=A9M=B3=CC=A6h=BA=D8=C3=FE=AA=BA=B1=A1=BD=EC=A5=CE=AB=
-~</font></p>
-<p align=3D"center"><font size=3D"4" color=3D"#000000">=B8=DB=BC=B0=C1=DC=
-=BD=D0=B1z=A8=D3=B0=D1=C6[</font></p>
-<p align=3D"center"><a href=3D"http://www.e-kile.com/sexshop/index.php?id=
-=3Dminiang" target=3D"_blank"><b><font color=3D"#9900FF" size=3D"5">=B6i=A4=
-J</font></b></a></p>
-<p align=3D"center">&nbsp;</p>
+Hello,
 
-</html>
+I experienced following unexpected behavior wrt. cbq - 
+if child_rate > parent_rate .. child gets its full bandwidth,
+so apparently parent_rate is not respected.
+
+In http://lartc.org/howto/lartc.qdisc.classful.html is following
+comment (section 9.5.2.2):
+
+  In short, nested classes ONLY talk to their parent qdiscs, never to an
+  interface. Only the root qdisc gets dequeued by the kernel!
+
+  The upshot of this is that classes never get dequeued faster than their
+  parents allow. And this is exactly what we want: this way we can have
+  SFQ in an inner class, which doesn't do any shaping, only scheduling,
+  and have a shaping outer qdisc, which does the shaping.
+
+Observed behavior doesnt correspond to that description though.
+
+I understand that configuring child_rate > parent_rate doesnt make much
+sense (except for correctness test), so that behavivor could be considered 
+a feature, not a bug.  In that case, maybe only documentation/howto should 
+be corrected, correct?
+
+Thanks,
+
+Peter
+
+PS: For the record, its kernel 2.4.19pre7 and this setup:
+  tc qdisc add dev eth0  root  handle 2: cbq bandwidth 10mbit avpkt 1000 mpu 64
+  # root class
+  tc class add dev eth0 parent 2:0 classid 2:1 est 1sec 8sec cbq \
+   bandwidth 10mbit rate 10mbit maxburst 1 weight 10mbit prio 1 \
+   allot 1514 avpkt 1000
+ 
+  tc class add dev eth0 parent 2:1 classid 2:10 est 1sec 8sec cbq \
+    bandwidth 10mbit rate 8000 maxburst 1 weight 8000 prio 1 \
+    allot 1514 avpkt 1000 bounded
+  tc class add dev eth0 parent 2:10 classid 2:20 est 1sec 8sec cbq \
+    bandwidth 10mbit rate 16000 maxburst 1 weight 16000 prio 1 \
+    allot 1514 avpkt 1000 bounded
+
+  tc filter add dev eth0 parent 2:0 prio 59900 protocol ip u32 \
+    match ip dst 10.10.10.111/32 flowid 2:20
+
+
+-- 
+Peter Kundrat
+peter@kundrat.sk
