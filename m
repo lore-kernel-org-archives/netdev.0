@@ -1,35 +1,76 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: Glenn Fowler <gsf@research.att.com>
 Subject: Re: kernel bug in socketpair()
-Date: 23 Jul 2003 17:13:40 +0100
+Date: Wed, 23 Jul 2003 12:56:12 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1058976818.5520.91.camel@dhcp22.swansea.linux.org.uk>
-References: <200307231332.JAA26197@raptor.research.att.com>
-	 <1058970007.5520.68.camel@dhcp22.swansea.linux.org.uk>
-	 <20030723083621.26429e51.davem@redhat.com>
+Message-ID: <200307231656.MAA69129@raptor.research.att.com>
+References: <200307231428.KAA15254@raptor.research.att.com> <20030723074615.25eea776.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: dgk@research.att.com,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
-   gsf@research.att.com, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030723083621.26429e51.davem@redhat.com>
+To: davem@redhat.com, dgk@research.att.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mer, 2003-07-23 at 16:36, David S. Miller wrote:
-> > This is intentional - sockets do not have an "open" operation currently.
-> 
-> Sure, but we've known this for a long time.
-> 
-> And because we knew, we decided not to add an "open"
-> method to sockets.  The reason, as I remember it, was
-> security.
-> 
-> Was it not?
 
-Mostly if I remember rightly that if you don't do the check because you have
-no open operation to create a new instance you crash the box. HPA did have 
-some sensible ideas about how to do "open" on AF_UNIX sockets but for the 
-others its really unclear quite what "open" means
+you can eliminate the security implications for all fd types by
+simply translating
+	open("/dev/fd/N",...)
+to
+	dup(atoi(N))
+w.r.t. fd N in the current process
+
+the problem is that linux took an implementation shortcut by symlinking
+	/dev/fd/N -> /proc/self/fd/N
+and by the time the kernel sees /proc/self/fd/N the "self"-ness is apparently
+lost, and it is forced to do the security checks
+
+if the /proc fd open code has access to the original /proc/PID/fd/N path
+then it can do dup(atoi(N)) when the PID is the current process without
+affecting security
+
+otherwise there is a bug in the /dev/fd/N -> /proc/self/fd/N implementation
+and /dev/fd/N should be separated out to its (original) dup(atoi(N))
+semantics
+
+see http://mail-index.netbsd.org/current-users/1994/03/29/0027.html for
+an early (bsd) discussion of /dev/fd/N vs. /proc/self/fd/N
+
+-- Glenn Fowler <gsf@research.att.com> AT&T Labs Research, Florham Park NJ --
+
+On Wed, 23 Jul 2003 07:46:15 -0700 David S. Miller wrote:
+> On Wed, 23 Jul 2003 10:28:22 -0400 (EDT)
+> David Korn <dgk@research.att.com> wrote:
+
+> > This make sense for INET sockets, but I don't understand the security
+> > considerations for UNIX domain sockets.  Could you please elaborate?
+> > Moreover, /dev/fd/n, (as opposed to /proc/$$/n) is restricted to
+> > the current process and its decendents if close-on-exec is not specified.
+> > Again, I don't understand why this would create a security problem
+> > either since the socket is already accesible via the original
+> > descriptor.
+
+> Someone else would have to comment, but I do know we've had
+> this behavior since day one.
+
+> And therefore I wouldn't be doing many people much of a favor
+> by changing the behavior today, what will people do who need
+> their things to work on the bazillion existing linux kernels
+> running out there? :-)
+
+> Also, see below for another reason why this behavior is unlikely
+> to change.
+
+> > Finally if this is a security problem, why is the errno is set to ENXIO 
+> > rather than EACCESS?
+
+> Look at the /proc file we put there for socket FD's.  It's a symbolic
+> link with a readable string of the form ("socket:[%d]", inode_nr)
+
+> So your program ends up doing a follow of a symbolic link with that
+> string name, which does not exist.
+
+> Thinking more about this, changing this behavior would probably break
+> more programs than it would help begin to function, so this is unlikely
+> to ever change.
