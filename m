@@ -1,43 +1,36 @@
-From: David Woodhouse <dwmw2@redhat.com>
-Subject: Missing routes cause BUG() in icmpv6_xmit_lock().
-Date: Sun, 31 Aug 2003 15:56:29 +0100
+From: Ronnie Vaisman <Ronnie_vaisman@radwin.com>
+Subject: HI I am new to this list. Is this an active list?
+Date: Sun, 31 Aug 2003 19:46:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1062341789.2785.11.camel@imladris.demon.co.uk>
+Message-ID: <116CA223EAAED2119F050090272E3D7F063F88B5@EXCHANGE>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Kernel is Red Hat 2.4.21-20.1.2024.2.1.nptlsmp from the Severn beta.
-Triggered as follows:
+HI I am new to this list. Is this an active list?
 
-Configure 6to4 IPv6 address 2002:X:Y::1 on the ISDN dialup.
+Regards,
 
-Enable IPv6 forwarding on all interfaces
+Ronnie Vaisman
+RadWin LTD. 
+34 Habarzel st., Tel Aviv 69710 Israel 
++972-3-645-5403 (Direct) 
++972-3-765-7535(Fax)
+email Ronnie_Vaisman@radwin.com
+web <http://radwin.com/> 
 
-Configure radvd to advertise 2002:X:Y:1234::/64 on internal eth0 device
-Observe radvd doesn't add any routes for the 2002:X:Y:1234::/64 subnet. 
-Bring up an internal machine on eth0.
-Observe it receive an IPv6 address of the form 2002:X:Y:1234:.....
+**************************************************************************************************
+Privacy Notice: The information contained in this transmittal, including any
+attachments hereto, are confidential and privileged, and intended solely for the
+specified addressee(s).  If you are not the intended addressee, or if you receive this
+message by error, please notify the sender and delete this information from your
+computer.
+Moreover, the recipient(s) may not disclose, forward, or copy this e-mail or 
+attachments, or any portion thereof, or permit the use of this  information, by anyone
+not entitled to it, or in a way that may be damaging to the sender.
 
-Attempt to ping6 a machine in the outside world from the internal host.
-Observe that reply packets from the outside world to the internal
-address are routed straight back _out_ the 6to4 tunnel again, in the
-absence of sane routes -- with associated bitching...
-	redirect: no link_local addr for dev
-	Dead loop on virtual device tun6to4, fix it urgently!
-
-Attempt to ping6 the router 2002:X:Y::1 from internal host.
-Observe panic: http://www.linux.org.uk/~dwmw2/dcp_1575.jpg
-
-Should initscripts set up an unreachable route for 2002:X:Y::/48 when
-setting up a 6to4 tunnel? Should radvd set up routes to subnets of that
-network when advertising them internally according to its configuration?
-
-Certainly the kernel should do something other than panicking :)
-
--- 
-dwmw2
+**************************************************************************************************
