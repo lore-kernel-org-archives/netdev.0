@@ -1,41 +1,26 @@
-From: Cheng Jin <chengjin@cs.caltech.edu>
-Subject: Linux SMP on 2.4.18-3
-Date: Sun, 27 Oct 2002 01:27:47 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: ndisc_rcv() clean-up
+Date: 28 Oct 2002 04:18:26 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33L0.0210270117050.10547-100000@fast2.cs.caltech.edu>
+Message-ID: <1035807506.7701.1.camel@rth.ninka.net>
+References: <20021025.094459.116783443.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: YOSHIFUJI Hideaki / =?UTF-8?Q?=E5=90=89=E8=97=A4=E8=8B=B1?=
+	=?UTF-8?Q?=E6=98=8E?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20021025.094459.116783443.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Thu, 2002-10-24 at 17:44, YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=
+=B1=E6=98=8E wrote:
+> This patch just adds new ndisc_recv_ns() and ndisc_recv_na() to
+> make switch / case in ndisc_rcv() (and ndisc_rcv() itself) small.
 
-Please excuse me for asking questions on a rather old kernel.  We decided
-to do kernel modificatios against 2.4.18-3 so we can't back it out now.
+I've applied this patch.  Thank you.
 
-On the SMP test machine we have at the lab (Dual 2.4 Ghz Xeons with one
-SysKonnect Gigabit Ethernet card, SuperMicro P4DP6 MB), I observed TCP
-functions being called simultaneously by both processors.  What I did was
-to simply increment a counter (init to zero) and check whether it is one
-in the functions under suspicion.  Sure enough, I see a lot of messages
-printed out saying it is two.  Admittedly, my counter var is not protected
-either, but seeing it becoming 2 is proof enough that the functions are
-entered simultaneously (yes I decrement the counter before functions
-return).
-
-I looked at the code fairly extensively, and I didn't see any lock for
-these functions, tcp_send_skb, tcp_push_one, update_send_head, where
-packets_out gets incremented.  The problem I was having was that
-tp->packets_out got out of sync with the number of unacked packets on the
-sk->write_queue.
-
-I would like to confirm with people that are involved with kernel
-developement that what I observed was indeed correct.
-
-Thanks,
-
-Cheng
-
-Lab # 626 395 8820
+Can I ask that you CC: me and Alexey directly on future USAGI
+patches?  That helps me work more efficiently.  Thank you.
