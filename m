@@ -1,84 +1,55 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: Mon, 20 Dec 2004 14:03:14 +0100
-Message-ID: <20041220130314.GT17998@postel.suug.ch>
-References: <20041219203050.GK17998@postel.suug.ch> <41C68CEF.3030803@trash.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH][v4][19/24] Add IPoIB
+	(IP-over-InfiniBand) driver
+Date: Mon, 20 Dec 2004 22:17:09 +0900 (JST)
+Message-ID: <20041220.221709.99112884.yoshfuji@linux-ipv6.org>
+References: <200412192215.fZX1ZQqQD4QGkKcF@topspin.com>
+	<20041220.155836.75677852.yoshfuji@linux-ipv6.org>
+	<200412201314.35502.arnd@arndb.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <41C68CEF.3030803@trash.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============2147367659=="
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org,
+	linux-kernel@vger.kernel.org, openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: arnd@arndb.de
+In-Reply-To: <200412201314.35502.arnd@arndb.de>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <41C68CEF.3030803@trash.net> 2004-12-20 09:27
-> Thomas Graf wrote:
-> >This patch is actually part of a patchset for 2.6.11 inclusion
-> >but the memory corruption possibility might make it worth
-> >for 2.6.10. It's not really dangerous since it requires
-> >admin capabilities though.
-> 
-> There are lots of places where this is possible, just look
-> at all the silly checks in the action code:
-> 
->    sprintf(act_name, "%s", (char*)RTA_DATA(kind));
->    if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+--===============2147367659==
+Content-Type: Text/Plain; charset=utf-8
+Content-Transfer-Encoding: base64
 
-Agreed, also the recursive algorithms are vulnerable but
-this doesn't mean we should just ignore it. I'm fine with
-droping this for 2.6.10 and wait for my complete patchset.
+SW4gYXJ0aWNsZSA8MjAwNDEyMjAxMzE0LjM1NTAyLmFybmRAYXJuZGIuZGU+IChhdCBNb24sIDIw
+IERlYyAyMDA0IDEzOjE0OjM1ICswMTAwKSwgQXJuZCBCZXJnbWFubiA8YXJuZEBhcm5kYi5kZT4g
+c2F5czoNCg0KPiBPbiBNYWFuZGFnIDIwIERlemVtYmVyIDIwMDQgMDc6NTgsIFlPU0hJRlVKSSBI
+aWRlYWtpIC8g5ZCJ6Jek6Iux5piOIHdyb3RlOg0KPiA+IFJvbGFuZCBEcmVpZXIgPHJvbGFuZEB0
+b3BzcGluLmNvbT4gc2F5czoNCj4gPiANCj4gPiA+ICtlbnVtIHsNCj4gPiA+ICvCoMKgwqDCoMKg
+SVBPSUJfUEFDS0VUX1NJWkUgwqAgwqAgwqAgwqAgPSAyMDQ4LA0KPiA+ID4gK8KgwqDCoMKgwqBJ
+UE9JQl9CVUZfU0laRSDCoMKgwqDCoMKgwqDCoMKgwqAgwqA9IElQT0lCX1BBQ0tFVF9TSVpFICsg
+SUJfR1JIX0JZVEVTLA0KPiA+ID4gKw0KPiA+ID4gK8KgwqDCoMKgwqBJUE9JQl9FTkNBUF9MRU4g
+wqDCoMKgwqDCoMKgwqDCoCDCoD0gNCwNCj4gPiA+ICsNCj4gPiA+ICvCoMKgwqDCoMKgSVBPSUJf
+UlhfUklOR19TSVpFIMKgwqDCoMKgwqAgwqA9IDEyOCwNCj4gPiA+ICvCoMKgwqDCoMKgSVBPSUJf
+VFhfUklOR19TSVpFIMKgwqDCoMKgwqAgwqA9IDY0LA0KPiA+ID4gKw0KPiA+IA0KPiA+IGFib3Zl
+IGVudHJpZXMgZG9lcyBub3Qgc2VlbSB0byBhcHByb3ByaWF0ZSBmb3IgZW51bSAodGhhbiAjZGVm
+aW5lKS4NCj4gDQo+IEFjY29yZGluZyB0byBEb2N1bWVudGF0aW9uL0NvZGluZ1N0eWxlLCBpdCBh
+Y3R1YWxseSBpcyBwcmVmZXJyZWQgbGlrZSB0aGlzLg0KPiBTZWUgYWxzbyBpbmNsdWRlL2xpbnV4
+L2lkZS5oIGZvciBhbm90aGVyIGV4YW1wbGUgd2hlcmUgdGhpcyBpcyBkb25lLg0KDQpObywgaXQg
+aXMgbm90IHRoZSBzaW1pbGFyIGNhc2UuDQoNCi0teW9zaGZ1amkNCg==
 
-> Why special-case indev ? Neither u32 nor fw make any attempt
-> to clean up after errors in their init functions, so instead
-> of fixing a single attribute they need to do proper cleanup,
-> than we can just continue to validate indev when changing it.
+--===============2147367659==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-As I said, the patch is part of a patchset which cleans up all
-the init paths. I will introduce a new abstraction layer called
-tcf_attrs which hides action/police configuration, removes all
-the ifdefs without polluting the cls config data structures
-and enforces the policy "change everything or nothing" to make
-things consistent again. (They were once)
 
-It basically works by having a struct tcf_attrs which ifdefs
-tc_action, tcf_police and is empty if none of them are configured.
-The classifiers include it in their private data and call
-tcf_attrs_validate() and tcf_attrs_change() to validate respectively
-commit the configuration requests or tcf_attrs_match() to match
-them. The TLV mapping is done via tcf_attr_map which must be provided
-by the classifiers:
-
-static struct tcf_attr_map u32_map = {
-	.action = TCA_U32_ACT,
-	.police = TCA_U32_POLICE,
-};
-
-Speaking of it, would everyone agree to put indev matching into
-the abstraction layer as well so it is available for all classifiers?
-It doesn't cost us anything except a few iproute2 additions.
-
-> I'm also against keeping all those printks when touching the
-> code. Its ok when writing new code, but I don't see why this
-> code, unlike everything else, needs to report errors in the
-> ringbuffer instead of returning meaningful error codes.
-
-I didn't want to change behaviour because there might be someone
-checking for it, it's not that I'd like it.
-
-> >+static inline void
-> >+tcf_change_indev(struct tcf_proto *tp, char *indev, struct rtattr *id_tlv)
-> >+{
-> >+	memset(indev, 0, IFNAMSIZ);
-> >+	memcpy(indev, RTA_DATA(id_tlv), RTA_PAYLOAD(id_tlv));
-> >+	indev[IFNAMSIZ - 1] = '\0';
-> >+}
-> 
-> And this should just use strlcpy.
-
-No, RTA_DATA(id_tlv) is not guaranteed to be NUL terminated and internal
-calls to strlen might crash. Even if it would be safe, I don't like
-using str functions if NUL termination is not guaranteed.
+--===============2147367659==--
