@@ -1,47 +1,63 @@
-From: Tim Gardner <timg@tpi.com>
-Subject: Re: [PATCH} ARP auto-sizing for 2.4.24 - 2.4.26-pre3
-Date: Tue, 16 Mar 2004 09:05:01 -0700
+From: Ingo Oeser <ioe-lkml@rameria.de>
+Subject: Re: [patch/RFC] networking menus
+Date: Tue, 16 Mar 2004 12:01:13 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403160905.01804.timg@tpi.com>
-References: <200403141210.57266.timg@tpi.com> <20040315134412.314b5e23.davem@redhat.com>
-Reply-To: timg@tpi.com
+Message-ID: <200403161201.15427.ioe-lkml@rameria.de>
+References: <20040314163327.53102f46.rddunlap@osdl.org> <20040314190724.1af1f11d.rddunlap@osdl.org> <20040314205438.3d7bcd34.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
+Content-Type: Text/Plain;
   charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: anton@samba.org, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Transfer-Encoding: 7bit
+Cc: "Randy.Dunlap" <rddunlap@osdl.org>, niv@us.ibm.com,
+        benh@kernel.crashing.org, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040315134412.314b5e23.davem@redhat.com>
+To: linux-kernel@vger.kernel.org
+In-Reply-To: <20040314205438.3d7bcd34.rddunlap@osdl.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Monday 15 March 2004 14:44, David S. Miller wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> Your original email was nice in describing the fact that ARP does not
-> scale, but you've made no foundation on which to erect a claim that
-> scalability for ARP (and thus the added complexity/changes) is even
-> necessary.
+Hi,
 
-You are absolutely correct that ARP search performance is not an issue. I 
-negelected to notice the 'struct dst_entry' mechanism built into sockets and 
-route table entries. I assumed arp_find() was called for every outbound 
-packet. Live and learn.
+On Monday 15 March 2004 05:54, Randy.Dunlap wrote:
+> Does it make sense to anyone besides me to move protocol-related
+> modules like SLIP, PPP, and PLIP from Device Drivers/Network device(s)
+> to "Networking support"?
+> They feel more like protocols than device drivers to me....
 
-Given that ARP search times make no discernible difference (except when 
-base_reachable_time is ridiculously low), why not remove the hash complexity 
-altogether?
+Or just create sth. like:
 
-The issue that is driving me is that when I set base_reachable_time to a large 
-value (approx 10 hrs) in order to cut down on ARP traffic in our large, 
-bridged network, our 2.4.24 core router occaisionally fails to respond to a 
-ping from only one address for an extended period. It also refuses to route 
-that address. All other addresses appear to work. If I flush the host address 
-in question on the core router using 'ip neigh flush', then everybody is fat, 
-dumb, and happy. Hence my suspicions regarding ARP. This would be much easier 
-if I could reliably reproduce the problem, but it is devilishly infrequent.
+Stacks
+	+- IPv6
+	+- LLC
+	+- IrDA
+	+- Bluetooth
 
-rtg
--- 
-Tim Gardner - timg@tpi.com
-www.tpi.com 406-443-5357
+Protocols
+	+- PPP
+	+- SLIP
+	+- ...
+
+Routing
+	+- Multicast
+	+- Advanced router
+
+Filtering
+Devices
+
+Or similiar
+
+Regards
+
+Ingo Oeser
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAVt55U56oYWuOrkARAvGBAKCFh9DMVaKSlnj+X0CFuNFYgAc3CwCgv1vs
+uet2gOmSQSwXJSo7hjpes2s=
+=LfML
+-----END PGP SIGNATURE-----
