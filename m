@@ -1,34 +1,25 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (0/23) sk98 driver fixes and enhancements
-Date: Thu, 11 Nov 2004 16:27:58 -0800
-Message-ID: <20041111162758.4f38f104@zqx3.pdx.osdl.net>
-References: <4192C60A.1050205@designassembly.de>
-	<20041111161124.34ccb1e6@zqx3.pdx.osdl.net>
-	<41940106.7030207@designassembly.de>
+From: Mirko Lindner <demon@pro-linux.de>
+Subject: Re: [PATCH] (1/23) sk98: no explicit module ref counting needed
+Date: Fri, 12 Nov 2004 01:51:25 +0100
+Message-ID: <4194090D.6000303@pro-linux.de>
+References: <4192C60A.1050205@designassembly.de>	<20041111154016.6381189d@zqx3.pdx.osdl.net> <20041111161137.576e5f66@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, Michael Heyse <mhk@designassembly.de>,
+        Mirko Lindner <mlindner@syskonnect.de>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Heyse <mhk@designassembly.de>
-In-Reply-To: <41940106.7030207@designassembly.de>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041111161137.576e5f66@zqx3.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Nov 2004 01:17:10 +0100
-Michael Heyse <mhk@designassembly.de> wrote:
+Thanks Stephen. We'll check the functionality and let you know as soon 
+as possible.
 
-> Stephen Hemminger wrote:
-> > This is the first set of patches to merge some of the new SysKonnect
-> > code with existing 2.6 driver and fix several bugs. 
-> 
-> So I was wrong and it did *not* take very long ;-)
-> Thanks!
-> 
-> Michael
+Mirko
 
-Still missing stuff from the SysKonnect version:
-	* Yukon2 support because existing SysKonnect code is too ugly
-	as it is. Next week I should have a de-mucked version.  
-	* NAPI code in their version is broken under stress and needs work.
+Stephen Hemminger wrote:
+ > Network driver's shouldn't be doing module reference counting
+ > on 2.6.  This is a bad replication of 2.4 behaviour
