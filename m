@@ -1,41 +1,49 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Hang when testing with AMD64 with Tg3
-Date: Tue, 05 Oct 2004 07:58:58 -0700
+From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+Subject: Re: [PATCH 2.6.9-rc3-mm2] 3c59x: support more ethtool_ops
+Date: Tue, 5 Oct 2004 18:02:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4162B6B2.6030208@us.ibm.com>
-References: <1096935071.22155.6.camel@localhost.localdomain>	 <20041005001527.GB13106@wotan.suse.de> <1096938308.22947.3.camel@localhost.localdomain>
+Message-ID: <20041005160247.GA5405@gareth.mathematik.tu-chemnitz.de>
+References: <20041005134143.GA4829@gareth.mathematik.tu-chemnitz.de> <4162ACED.10303@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, davem@redhat.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: akpm@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <1096938308.22947.3.camel@localhost.localdomain>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <4162ACED.10303@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> On Tue, 2004-10-05 at 02:15 +0200, Andi Kleen wrote:
+On Tue, Oct 05, 2004 at 10:17:17AM -0400 or thereabouts, Jeff Garzik wrote:
+> >+static u32 vortex_get_link(struct net_device *dev)
+> >+{
+> >+	struct vortex_private *vp = netdev_priv(dev);
+> >+	long ioaddr = dev->base_addr;
+> >+	EL3WINDOW(4);
+> >+	return mii_link_ok(&vp->mii);
+> >+}
 > 
->>On Mon, Oct 04, 2004 at 05:11:11PM -0700, Stephen Hemminger wrote:
->>
->>>Doing simple iperf test on new opteron with tg3 against existing Xeon
->>>system.  I am seeing something wierd, the connection hangs right away.
->>>Is this a TSO bug.  
->>>
->>>Sender: BK latest (2.6.9-rc3) Tg3 (XX.YY.250.3)
->>>Receiver: BK + netdev(jeffm) + dave's latest e100 (XX.YY.1.73)
->>>
->>>Both machines are directly connected with a netgear 100mbit switch.
->>
+> 3c59x should properly use netif_carrier_{on,off}, at which point you can 
+> eliminate vortex_get_link in favor of generic ethtool_op_get_link
+
+I tried to use ethtool_op_get_link, but then ethtool reports 
+Link detected: yes
+It does not matter wether the cable is connected or not.
+
+> >+
+> >+static int vortex_set_settings(struct net_device *dev, struct ethtool_cmd 
+> >*cmd)
+> >+{
+> >+	struct vortex_private *vp = netdev_priv(dev);
+> >+	long ioaddr = dev->base_addr;
+> >+	EL3WINDOW(4);
+> >+	return mii_ethtool_sset(&vp->mii, cmd);
+> >+}
 > 
-> IT ISN'T A NETWORK PROBLEM.  The problem is that iperf uses posix
-> pthread mutex's to sychronize and it looks like a futex bug.
+> I think that this and the other MII patch should do some amount of 
+> locking, like the other drivers.
 
-might not be a futex bug - check to see if iperf does
-any writes, fflushes, etc, in a signal handler - i.e.
-that its signal handling is thread-safe. glibc now
-makes it a fatal bug..
+Unlike the other drivers, the 3c59x locks with spin_lock_bh inside 
+the mdio _{read,write} functions. Thats why I did not used any locks here.
 
-thanks,
-Nivedita
+Steffen
