@@ -1,61 +1,80 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
-Date: Tue, 19 Oct 2004 18:51:28 -0400
+From: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+Subject: Re: [PATCH 2.6.9] skge: netpoll support
+Date: Wed, 20 Oct 2004 01:11:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098226288.23628.6.camel@krustophenia.net>
-References: <E1CK1e6-0004F3-00@gondolin.me.apana.org.au>
-	 <1098222676.23367.18.camel@krustophenia.net>
-	 <20041019215401.GA16427@gondor.apana.org.au>
-	 <1098223857.23367.35.camel@krustophenia.net>
-	 <20041019153308.488d34c1.davem@davemloft.net>
-	 <1098225729.23628.2.camel@krustophenia.net>
-	 <20041019154249.6afcaaad.davem@davemloft.net>
+Message-ID: <41759F34.4030002@stud.feec.vutbr.cz>
+References: <41758E11.2040402@stud.feec.vutbr.cz> <20041019220611.GE28904@waste.org>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, vda@port.imtp.ilyichevsk.odessa.ua,
-        Linux Network Development <netdev@oss.sgi.com>,
-        linux-kernel <linux-kernel@vger.kernel.org>, maxk@qualcomm.com,
-        irda-users@lists.sourceforge.net
+Content-Type: multipart/mixed;
+ boundary="------------000408040800080107000200"
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041019154249.6afcaaad.davem@davemloft.net>
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20041019220611.GE28904@waste.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-10-19 at 18:42, David S. Miller wrote:
-> AIUI the only valid reason to use preempt_disable/enable is in
-> > the case of per-CPU data.  This is not "real" per-CPU data, it's a
-> > performance hack.  Therefore it would be incorrect to add the preemption
-> > protection, the fix is not to manually call do_softirq but to let the
-> > softirq run by the normal mechanism.
-> > 
-> > Am I missing something?
+This is a multi-part message in MIME format.
+--------------000408040800080107000200
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+
+Matt Mackall wrote:
+> On Tue, Oct 19, 2004 at 11:58:41PM +0200, Michal Schmidt wrote:
 > 
-> In code paths where netif_rx_ni() is called, there is not a softirq return
-> path check, which is why it is checked here.
+>>Hi,
+>>The attached patch adds netconsole support for sk98lin.
 > 
-> Theoretically, if you remove the check, softirq processing can be deferred
-> indefinitely.
 > 
-> What I'm saying, therefore, is that netif_rx_ni() it not just a performance
-> hack, it is necessary for correctness as well.
+> Looks good. Would be nice to use actual kernel-doc style documentation
+> blocks for new function comments though.
 > 
 
-OK, thanks for clarifying.  The correct patch is therefore:
+Like this? (attached)
 
---- include/linux/netdevice.h~	2004-10-19 18:50:18.000000000 -0400
-+++ include/linux/netdevice.h	2004-10-19 18:51:01.000000000 -0400
-@@ -696,9 +696,11 @@
-  */
- static inline int netif_rx_ni(struct sk_buff *skb)
- {
-+       preempt_disable();
-        int err = netif_rx(skb);
-        if (softirq_pending(smp_processor_id()))
-                do_softirq();
-+       preempt_enable();
-        return err;
- }
+Signed-off-by: Michal Schmidt <xschmi00@stud.feec.vutbr.cz>
+
+--------------000408040800080107000200
+Content-Type: text/plain;
+ name="sk98lin-netpoll2.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="sk98lin-netpoll2.diff"
+
+diff -Nurp linux-2.6.9/drivers/net/sk98lin/skge.c linux-2.6.9-mich/drivers/net/sk98lin/skge.c
+--- linux-2.6.9/drivers/net/sk98lin/skge.c	2004-10-18 23:53:22.000000000 +0200
++++ linux-2.6.9-mich/drivers/net/sk98lin/skge.c	2004-10-20 01:09:07.566181320 +0200
+@@ -1126,6 +1126,21 @@ SK_U32		IntSrc;		/* interrupts source re
+ 		return SkIsrRetHandled;
+ } /* SkGeIsrOnePort */
  
-Lee
++#ifdef CONFIG_NET_POLL_CONTROLLER
++/**
++ * SkGePollController - polling receive, for netconsole
++ * @dev: network device
++ *
++ * Polling receive - used by netconsole and other diagnostic tools
++ * to allow network i/o with interrupts disabled.
++ */
++static void SkGePollController(struct net_device *dev)
++{
++	disable_irq(dev->irq);
++	SkGeIsr(dev->irq, dev, NULL);
++	enable_irq(dev->irq);
++}
++#endif
+ 
+ /****************************************************************************
+  *
+@@ -4960,6 +4975,9 @@ static int __devinit skge_probe_one(stru
+ 	dev->set_mac_address =	&SkGeSetMacAddr;
+ 	dev->do_ioctl =		&SkGeIoctl;
+ 	dev->change_mtu =	&SkGeChangeMtu;
++#ifdef CONFIG_NET_POLL_CONTROLLER
++	dev->poll_controller =	&SkGePollController;
++#endif
+ 	dev->flags &= 		~IFF_RUNNING;
+ 	SET_NETDEV_DEV(dev, &pdev->dev);
+ 
+
+--------------000408040800080107000200--
