@@ -1,25 +1,23 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Re: [PATCH 2.6] eepro100: remove ID for 82556
-Date: Sat, 19 Feb 2005 10:08:02 +0200
-Message-ID: <E1D2Pek-0007RZ-Tk@rhn.tartu-labor>
-References: <4216C8A3.4020303@pobox.com>
-To: jgarzik@pobox.com, netdev@oss.sgi.com
-In-Reply-To: <4216C8A3.4020303@pobox.com>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] emac: filter illegal frame sizes
+Date: Sat, 19 Feb 2005 03:48:36 -0500
+Message-ID: <4216FD64.9020509@pobox.com>
+References: <20050218101245.D11439@cox.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linuxppc-embedded@ozlabs.org
+To: Matt Porter <mporter@kernel.crashing.org>
+In-Reply-To: <20050218101245.D11439@cox.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-JG> I see the thread, but I still worry about removing the id in your patch, 
-JG> since the poster in the thread says that they had to -add- an ID to both 
-JG> e100 and eepro100 in order to perform their test.
-JG> 
-JG> Has anyone with this PCI ID actually confirmed that eepro100 does not 
-JG> work for them?
+Matt Porter wrote:
+> Fix to drop frames that are too large for the current MTU.
 
-I added the PCI ID only to e100, it was already present in eepro100.
+What is this fixing?
 
-Neither unmodified eepro100 nor pci-id-added e100 worked with this
-chip so IMHO it's safe to remove this PCI ID from eepro100 too.
+You should be passing all frames up to the software stack.
 
--- 
-Meelis Roos
+	Jeff
