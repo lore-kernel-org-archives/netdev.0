@@ -1,34 +1,37 @@
 From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: "Badness" again
-Date: Sat, 15 Jan 2005 11:39:38 +0100
-Message-ID: <20050115103938.GA14991@xi.wantstofly.org>
-References: <41E83B8D.8020003@pobox.com> <20050114215833.GA12981@gondor.apana.org.au> <41E844AC.6040200@pobox.com> <20050115002638.GA13849@gondor.apana.org.au>
+Subject: Re: [PATCH] remove superfluous diverter printk'ing
+Date: Sat, 15 Jan 2005 11:47:50 +0100
+Message-ID: <20050115104750.GB14991@xi.wantstofly.org>
+References: <20050114124700.GA4079@xi.wantstofly.org> <20050114134642.4be4e2fc.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>,
-        YOSHIFUJI Hideaki / ???????????? <yoshfuji@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <20050115002638.GA13849@gondor.apana.org.au>
+In-Reply-To: <20050114134642.4be4e2fc.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 15, 2005 at 11:26:38AM +1100, Herbert Xu wrote:
+On Fri, Jan 14, 2005 at 01:46:42PM -0800, David S. Miller wrote:
 
-> Neither is true here and therefore we may have a situation where
-> the cached dst is released twice.  In fact I tracked down the
-> address closest to the "badness" messages and it belongs to
-> one of your domain's name servers.  That means the requests were
-> probably made by named, which is multi-threaded.
+> > You're not listed as diverter maintainer but I'm sending this via
+> > you anyway.  This patch removes some printk'ing from the diverter
+> > driver (and cleans up the code a bit), because after a while it gets
+> > really annoying to have log messages like this one for every single
+> > tunnel you create or tear down.
+> > 
+> > 	divert: not allocating divert_blk for non-ethernet device tunl0
+> > 
+> > Please consider sending upstream.
+> 
+> Those diverter messages drive me crazy too, I think I'll
+> add your patch Lennert.
 
-The machine where I was seeing this (a HT P4) was indeed running
-named as well.  This is the slave server for some zones, and the
-master server, which had a pretty much identical sw configuration
-(both Fedora 2, both using 6to4), is a (non-HT) Celeron and I never
-saw it happening there.
+Benoit's email address bounces, and it's the latest address of his I
+could find, so if he doesn't read this list you might as well go ahead.
 
 
---L
+cheers,
+Lennert
