@@ -1,85 +1,39 @@
-From: "Martin J. Bligh" <mbligh@aracnet.com>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 08:00:30 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <25450000.1056726028@[10.10.2.4]>
-References: <20030626.223002.21926109.davem@redhat.com> <18330000.1056692768@[10.10.2.4]> <20030626.224739.88478624.davem@redhat.com> <20030627075914.GO28900@mea-ext.zmailer.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [PATCH, untested] Support for PPPOE on SMP
+Date: Fri, 27 Jun 2003 07:59:46 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030627075946.7ab6f591.shemminger@osdl.org>
+References: <20030625.143334.85380461.davem@redhat.com>
+	<20030626035824.D68B62C147@lists.samba.org>
+	<20030625.205941.41631020.davem@redhat.com>
+	<16122.53298.150512.793074@h006008986325.ne.client2.attbi.com>
+	<20030626190407.S87648@shell.cyberus.ca>
+	<16124.11495.374998.153330@h006008986325.ne.client2.attbi.com>
+	<16124.13469.944716.441016@nanango.paulus.ozlabs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Matti Aarnio <matti.aarnio@zmailer.org>,
-	"David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030627075914.GO28900@mea-ext.zmailer.org>
-Content-Disposition: inline
+Cc: carlson@workingcode.com, hadi@shell.cyberus.ca, davem@redhat.com,
+   rusty@rustcorp.com.au, netdev@oss.sgi.com, fcusack@samba.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Paul Mackerras <paulus@samba.org>
+In-Reply-To: <16124.13469.944716.441016@nanango.paulus.ozlabs.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I have recently pondered usage of Request Tracker  for this
-> kind of tasks.   The problem with "post to the list" is that
-> sometimes things slip thru without anybody catching them.
+On Fri, 27 Jun 2003 22:12:13 +1000 (EST)
+Paul Mackerras <paulus@samba.org> wrote:
+
+> James Carlson writes:
+> > Jamal Hadi writes:
+> > > So what about packet being loss? Wouldnt that ensure reordering?
+> > 
+> > Please explain.  What pattern of loss possibly results in one packet
+> > being inserted in the stream ahead of another?
 > 
-> Integrating  linux-kernel  and  RT ...   urgh..  result would
-> be quite ugly.  (Flame wars and out-of-topic threads going on
-> as requests...)
-
-Yeah, that is tricky ... see below.
- 
->> This way not that "someone", but "everyone" on the lists
->> can participate and contribute to responding to the bug.
+> Rusty asked me today what protocols there were that coped with packet
+> loss but couldn't cope with reordering.  I couldn't think of any.  Do
+> you know of any examples?
 > 
-> That needs merely message arriving to the list.
 
-That's easy. I actually already hand filter the bugs, and forward to
-linux-kernel those that seem to have enough information in to be useful
-to people, and aren't already fixed.
-
-There's also a mailing list for seeing every new bug that people can 
-sign up for if they want (send me private email). 
-
-> Ok, responding so that the response appears also
-> at the bug db is another story.
-
-That is possible to do - there's patches to Bugzilla that implement an
-email interface, but it has some problems like the one you pointed out
-above. One possiblility is to make people manually do something to the
-email for each reply, but that's rather ugly. 
-
-Hopefully we can discuss this more at OLS this year, and get a plan 
-going forward that people are happy with. I'm well aware that Bugzilla
-is not the perefect tool, but I think it's better than what we had 
-before (yeah, I know some of us disagree), and is easy to change.
-I'd rather start with something simple, and evolve it to the needs of
-the community than try dumping something complex onto people up front.
-
-> Bugzilla could be adapted to this use:
->   - Bugs are to be assigned to, e.g.   linux-net/netdev   list
->   - Everybody can comment on them at bugme (after signing on)
->   - Only some meta-admin (and original bug creator) can
->     alter status (e.g. mark as RESOLVED)
-> 
-> Having plenty of bugme group admins (half a dozen or so) to do
-> the initial bugzilla assigment work, those people taking the task
-> seriously, and everybody of them going en masse to assign arrived
-> things.  That way people can have time off - as long as they
-> coordinate among themselves.
-
-Yup, that's easy to set up if you like. Or we can do it as a new list
-if you prefer.
-
-> In addition to assinging an OWNER to the bug, there should be
-> automatic assignment of   linux-net  or  netdev   as  Cc,  IMO...
-> That will handle the "publish widely" issue that DaveM is
-> complaining about.
-
-There's a QA field we can hack into doing that easily, but I want to
-ensure people are happy auto-cc'ing lists before I do it. Or I can
-forward the relevant ones by hand if you prefer. If it's going to piss 
-people off more than it makes them happy, it's not worth it though.
-
-Moreover, the bugme default owner doesn't have to be the code maintainer,
-so if Dave wants someone else to do the "bug shuffling" stuff, that's
-another way to go.
-
-M.
+Does LLC allow for re-ordering?
