@@ -1,36 +1,30 @@
-From: Ralph Doncaster <ralph@istop.com>
-Subject: Re: decorum
-Date: Sat, 14 Jun 2003 18:02:53 -0400 (EDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: e1000 performance hack for ppc64 (Power4)
+Date: Sat, 14 Jun 2003 20:01:51 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0306141800520.17775@ns.istop.com>
-References: <20030614093630.GB16993@wotan.suse.de> <20030614.023843.78709528.davem@redhat.com>
- <20030614101851.GA24170@wotan.suse.de> <20030614.042636.74749587.davem@redhat.com>
- <20030614183232.GB23546@wotan.suse.de> <3EEB6E49.8040406@monmouth.com>
-Reply-To: ralph+d@istop.com
+Message-ID: <20030614.200151.41637995.davem@redhat.com>
+References: <20030613.230850.85410095.davem@redhat.com>
+	<20030613.231418.39160686.davem@redhat.com>
+	<20030614170848.GA3324@kroah.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ltd@cisco.com, anton@samba.org, haveblue@us.ibm.com, hdierks@us.ibm.com,
+   scott.feldman@intel.com, dwg@au1.ibm.com, linux-kernel@vger.kernel.org,
+   milliner@us.ibm.com, ricardoz@us.ibm.com, twichell@us.ibm.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "John S. Denker" <jsd@monmouth.com>
-In-Reply-To: <3EEB6E49.8040406@monmouth.com>
+To: greg@kroah.com
+In-Reply-To: <20030614170848.GA3324@kroah.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-You sound like the NANOG bitch.  If your ears can't handle hearing "fuck"
-now and then, get off the net and back to your bible study group.
+   From: Greg KH <greg@kroah.com>
+   Date: Sat, 14 Jun 2003 10:08:49 -0700
 
-Ralph Doncaster, president
-6042147 Canada Inc. o/a IStop.com
-
-On Sat, 14 Jun 2003, John S. Denker wrote:
-
-> Could we please have less ad-hominem invective
-> and less profanity on this list?
->
-> If you have a good point to make, making it
-> politely costs you nothing.
->
-> You know who you are.
->
->
->
+   It's someone subscribed to linux-kernel@vger.kernel.org that causes
+   this.
+   
+Thanks, I've nuked linux_news@nextphere.com, if they resubscribe
+without contacting me, I'll block future subscription attempts from
+them.
