@@ -1,42 +1,48 @@
-From: Dmitry Torokhov <dtor_core@ameritech.net>
-Subject: Re: Last night Linus bk - netfilter busted?
-Date: Sun, 13 Mar 2005 01:54:02 -0500
-Message-ID: <200503130154.03777.dtor_core@ameritech.net>
-References: <E1D9rZX-0004KE-00@gondolin.me.apana.org.au> <423221FF.8020103@trash.net>
+From: Hasso Tepper <hasso@estpak.ee>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Sun, 13 Mar 2005 19:49:13 +0200
+Message-ID: <200503131949.13962.hasso@estpak.ee>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1107142012.8021.109.camel@jzny.localdomain> <1107173804.5812.133.camel@tsc-6.cph.tpack.net>
 Mime-Version: 1.0
 Content-Type: text/plain;
-  charset="utf-8"
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        netfilter-devel@lists.netfilter.org
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <423221FF.8020103@trash.net>
+Cc: hadi@cyberus.ca, Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1107173804.5812.133.camel@tsc-6.cph.tpack.net>
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 March 2005 17:55, Patrick McHardy wrote:
-> Herbert Xu wrote:
-> > Patrick McHardy <kaber@trash.net> wrote:
-> > 
-> >>You're right, good catch. IPT_RETURN is interpreted internally by
-> >>ip_tables, but since the value changed it isn't recognized by ip_tables
-> >>anymore and returned to nf_iterate() as NF_REPEAT. This patch restores
-> >>the old value.
-> > 
-> > 
-> > Please fix netfilter_arp while you're at it since it does exactly
-> > the same thing.
-> 
-> New patch attached, thanks.
-> 
+Tommy Christensen wrote:
+> On Mon, 2005-01-31 at 04:26, jamal wrote:
+> > It does look pretty sane.. Tested?
+>
+> Nope, I don't have access to any relevant HW. Hopefully someone
+> else can give it some beating. Please.
 
-If this is of any interest, yesterday's pull from Linux plus this patch
-seem to be working fine here.
+Sorry for long delay. I lost track in this discussion, was busy with other 
+things, but found finally time to test this.
 
-Thank you.
+> Hopefully someone can verify that with e.g. an e1000, and then check
+> whether the patch I send makes any difference.
+
+Yes, confirmed that patch makes difference and solves Quagga ospfd problem 
+(from what it all started :).
+
+Thank you very much!
+
+
+PS. Patch is tested with 2.4.29 as well, but it requires link watch stuff to 
+work. Complete (link-watch + vlan carrier detection + this fix) is here - 
+http://hasso.linux.ee/quagga/2.4.29-link-watch.patch
 
 -- 
-Dmitry
+Hasso Tepper
+Elion Enterprises Ltd.
+WAN administrator
