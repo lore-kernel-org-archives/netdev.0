@@ -1,33 +1,75 @@
-From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+From: David Lang <david.lang@digitalinsight.com>
 Subject: Re: TOE brain dump
-Date: 03 Aug 2003 21:52:13 +0100
+Date: Sun, 3 Aug 2003 14:21:12 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1059943933.31901.3.camel@dhcp22.swansea.linux.org.uk>
-References: <20030802140444.E5798@almesberger.net>
-	 <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com>
-	 <3F2C891B.7080004@candelatech.com>
+Message-ID: <Pine.LNX.4.44.0308031405130.24695-100000@dlang.diginsite.com>
+References: <20030803203051.GA9057@work.bitmover.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Nivedita Singhvi <niv@us.ibm.com>,
-   Werner Almesberger <werner@almesberger.net>, netdev@oss.sgi.com,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Erik Andersen <andersen@codepoet.org>,
+   Werner Almesberger<werner@almesberger.net>, Jeff Garzik <jgarzik@pobox.com>,
+   netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+   Nivedita Singhvi<niv@us.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F2C891B.7080004@candelatech.com>
+To: Larry McVoy <lm@bitmover.com>
+In-Reply-To: <20030803203051.GA9057@work.bitmover.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sul, 2003-08-03 at 05:01, Ben Greear wrote:
-> Jeff Garzik wrote:
-> 
-> > So, fix the other end of the pipeline too, otherwise this fast network 
-> > stuff is flashly but pointless.  If you want to serve up data from disk, 
-> > then start creating PCI cards that have both Serial ATA and ethernet 
-> > connectors on them :)  Cut out the middleman of the host CPU and host 
-> 
-> I for one would love to see something like this, and not just Serial ATA..
-> but maybe 8x Serial ATA and RAID :)
+On Sun, 3 Aug 2003, Larry McVoy wrote:
 
-There is a protocol floating around for ATA over ethernet, no TCP layer
-or nasty latency eating complexities in the middle
+> On Sun, Aug 03, 2003 at 01:13:24PM -0700, David Lang wrote:
+> > 2. router nodes that have access to main memory (PCI card running linux
+> > acting as a router/firewall/VPN to offload the main CPU's)
+>
+> I can get an entire machine, memory, disk, > Ghz CPU, case, power supply,
+> cdrom, floppy, onboard enet extra net card for routing, for $250 or less,
+> quantity 1, shipped to my door.
+>
+> Why would I want to spend money on some silly offload card when I can get
+> the whole PC for less than the card?
+
+you may want to do this for a database box where you want to dedicate your
+main processing power to the database task, if you use a seperate box you
+still have to talk to that box over a network, if you have it as a card
+you can talk to the card much more efficantly then you can talk to the
+seperate machine.
+
+if your 8-way opteron database box is already the bottleneck for your
+system you will have to spend a LOT of money to get anything that gives
+you more available processing power, getting a card to offload any
+processing from the main CPU's can be a win.
+
+yes this is somewhat of a niche market, but as you point out adding more
+and more processors in a SMP model is not the ideal way to go, either from
+performance or from the cost point of view.
+
+on the webserver front there are a lot of companies making a living by
+selling cards and boxes to offload processing from the main CPU's of the
+webservers (cards to do gzip compression are a relativly new addition, but
+cards to do SSL handshakes have been around for a while) used properly
+these can be a very worthwhile invenstment for high-volume webserver
+companies.
+
+also the cost of an extra box can be considerably higer then just the cost
+of the hardware.
+
+I know of one situation where between Linux OS license fees (redhat
+advanced server) and security software (intrusion detection, auditing,
+privilage management, etc) a company is looking at ~$4000 in licensing
+fees for every box they put in their datacenter (and this is for boxes
+just running apache, add something like an oracle or J2EE appserver
+software and the cost goes up even more). at this point the fact that the
+box only cost $200 doesn't really matter, spending an extra $500 each on 4
+boxes to eliminate the need for a 5th is easily worth it. (and this
+company is re-examining hardwaare raid controllers after having run
+software raid for years becouse they are realizing that this is requiring
+them to run more servers due to the load on the CPU's)
+
+at the low end you are right, just add another box or add another CPU to
+an existing box, but there are conditions that make adding specialized
+cards to offload specific functionality a win (for that matter, even at
+the low end people routinly offload graphics processing to specialized
+cards, simply to make their games run faster)
+
+David Lang
