@@ -1,66 +1,135 @@
-From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
-Subject: Re: the TSO packet mangling issue
-Date: Fri, 28 Jan 2005 23:25:42 +0300
-Message-ID: <20050128202542.GA23670@yakov.inr.ac.ru>
-References: <20050121204024.6f94fc26.davem@davemloft.net> <20050122054346.GA1635@gondor.apana.org.au> <20050122170533.GB11499@yakov.inr.ac.ru> <20050123071027.GA20296@gondor.apana.org.au> <20050126110043.GA29950@yakov.inr.ac.ru> <20050126222522.GA21670@gondor.apana.org.au> <20050127110946.GA20494@gondor.apana.org.au> <20050127111201.GB20494@gondor.apana.org.au>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Some pktgen fixes for 2.6.11-rc2
+Date: Fri, 28 Jan 2005 21:31:17 +0100
+Message-ID: <16890.41237.608094.933695@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, Jens.Laas@data.slu.se, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <20050127111201.GB20494@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+
+
 Hello!
 
-> This patch adds tcp_skb_cow() and uses it in e1000/tg3.
+Some fixes pointed out by Grant Grundler and Jens L=E5=E5s but
+Grant still see problems.
+					 --ro
 
-Looks almost nice to me.
 
-Actually, I would prefer to unbind this from tcp, it can be used
-for something else, sctp or anything else who sends clones of skbs
-and wants to protect only data part.
 
-Also, tcp_skb_cow() is not good. F.e. the first thing, which I thought
-of, was WLAN drivers which rewrite ethernet header and either screw up
-tcpdumps (and break net/bridge) or have to copy each tcp skb.
-I used to patch it with:
-
-diff -ru ../madwifi-cvs.current/madwifi/driver/if_ath.c madwifi/driver/if_ath.c
---- ../madwifi-cvs.current/madwifi/driver/if_ath.c      2004-06-08 17:38:20.587760856 +0400
-+++ madwifi/driver/if_ath.c     2004-06-04 11:06:43.000000000 +0400
-@@ -759,7 +759,9 @@
-
-        if (ic->ic_flags & IEEE80211_F_WEPON)
-                len += IEEE80211_WEP_IVLEN + IEEE80211_WEP_KIDLEN;
--       if ((skb_headroom(skb) < len) &&
+--- net/core/pktgen.c.foo	2005-01-28 13:16:50.965630000 +0100
++++ net/core/pktgen.c	2005-01-28 16:51:32.932273576 +0100
+@@ -148,7 +148,7 @@
+ #include <asm/timex.h>
+=20
+=20
+-#define VERSION  "pktgen v2.54: Packet Generator for packet performance =
+testing.\n"
++#define VERSION  "pktgen v2.56: Packet Generator for packet performance =
+testing.\n"
+=20
+ /* #define PG_DEBUG(a) a */
+ #define PG_DEBUG(a)=20
+@@ -167,9 +167,6 @@
+ #define F_TXSIZE_RND  (1<<6)  /* Transmit size is random */
+ #define F_IPV6        (1<<7)  /* Interface in IPV6 Mode */
+=20
+-#define L_PUSH(t, i)              {i->next =3D t; t=3Di;}
+-#define L_POP(t, i)               {i=3Dt; if(i) t =3D i->next;}
+-
+ /* Thread control flag bits */
+ #define T_TERMINATE   (1<<0) =20
+ #define T_STOP        (1<<1)  /* Stop run */
+@@ -1366,19 +1363,15 @@
+         p +=3D sprintf(p, "Running: ");
+        =20
+         if_lock(t);
+-        pkt_dev =3D t->if_list;
+-        while (pkt_dev && pkt_dev->running) {
+-                p +=3D sprintf(p, "%s ", pkt_dev->ifname);
+-                pkt_dev =3D pkt_dev->next;
+-        }
++        for(pkt_dev =3D t->if_list;pkt_dev; pkt_dev =3D pkt_dev->next)=20
++		if(pkt_dev->running)
++			p +=3D sprintf(p, "%s ", pkt_dev->ifname);
++       =20
+         p +=3D sprintf(p, "\nStopped: ");
+=20
+-        pkt_dev =3D t->if_list;
+-        while (pkt_dev && !pkt_dev->running) {
+-                p +=3D sprintf(p, "%s ", pkt_dev->ifname);
+-                pkt_dev =3D pkt_dev->next;
+-        }
+-
++        for(pkt_dev =3D t->if_list;pkt_dev; pkt_dev =3D pkt_dev->next)=20
++		if(!pkt_dev->running)
++			p +=3D sprintf(p, "%s ", pkt_dev->ifname);
+=20
+ 	if (t->result[0])
+ 		p +=3D sprintf(p, "\nResult: %s\n", t->result);
+@@ -2393,7 +2386,7 @@
+        thread_unlock();
+ }
+=20
+-static int running(struct pktgen_thread *t )
++static int thread_is_running(struct pktgen_thread *t )
+ {
+         struct pktgen_dev *next;
+         int res =3D 0;
+@@ -2415,7 +2408,7 @@
+        =20
+         if_lock(t);
+=20
+-        while(running(t)) {
++        while(thread_is_running(t)) {
+                 if_unlock(t);
+        =20
+                 interruptible_sleep_on_timeout(&queue, HZ/10);
+@@ -2520,13 +2513,15 @@
+                 return -EINVAL;
+         }
+=20
+-	if (pkt_dev->skb)=20
+-		kfree_skb(pkt_dev->skb);
+-
+         pkt_dev->stopped_at =3D getCurUs();
+         pkt_dev->running =3D 0;
+=20
+ 	show_results(pkt_dev, skb_shinfo(pkt_dev->skb)->nr_frags);
 +
-+       if (len < skb_headroom(skb)) len=skb_headroom(skb);
-+       if ((skb_cloned(skb) || (skb_headroom(skb) < len)) &&
-            pskb_expand_head(skb, len - skb_headroom(skb), 0, GFP_ATOMIC)) {
-                dev_kfree_skb(skb);
-                return -ENOMEM;
-
-I think it would be good to make a function sort of:
-
-static inline int skb_header_cloned(struct sk_buff *skb)
-{
-	int dataref;
-
-	if (!skb->cloned)
-		return 0;
-
-	dataref = atomic_read(&skb_shinfo(skb)->dataref);
-	dataref -= !!(dataref & SKB_DATAREF_TCP);
-	dataref &= SKB_DATAREF_MASK;
-	return (dataref != 1);
-}
-
-In this case many of skb_cloned() could be just replaced with
-skb_header_cloned().
-
-Alexey
++	if (pkt_dev->skb)=20
++		kfree_skb(pkt_dev->skb);
++
++	pkt_dev->skb =3D NULL;
+ =09
+         return 0;
+ }
+@@ -2855,10 +2850,10 @@
+=20
+         for(pkt_dev=3Dt->if_list; pkt_dev; pkt_dev =3D pkt_dev->next ) {
+                 if (strcmp(pkt_dev->ifname, ifname) =3D=3D 0) {
+-                        goto out;
++                        break;
+                 }
+         }
+- out:
++
+         if_unlock(t);
+ 	PG_DEBUG(printk("pktgen: find_dev(%s) returning %p\n", ifname,pkt_dev))=
+;
+         return pkt_dev;
+@@ -2879,8 +2874,7 @@
+                 rv =3D -EBUSY;
+                 goto out;
+         }
+-
+-	L_PUSH(t->if_list, pkt_dev);
++	pkt_dev->next =3Dt->if_list; t->if_list=3Dpkt_dev;
+         pkt_dev->pg_thread =3D t;
+ 	pkt_dev->running =3D 0;
+=20
