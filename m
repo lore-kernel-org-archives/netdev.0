@@ -1,53 +1,40 @@
-From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2003@gmx.net>
-Subject: Re: forcedeth unknown events 0x21
-Date: Sun, 11 Jan 2004 23:41:23 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [bonding] Add basic support for dynamic configuration of bond
+	interfaces
+Date: 11 Jan 2004 17:50:29 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4001D113.3030302@gmx.net>
-References: <Pine.LNX.4.58.0312180952100.21042@kiku.itsise> <3FE6678B.5070006@gmx.net> <Pine.LNX.4.53.0401051456060.1039@alien>
+Message-ID: <1073861429.1119.312.camel@jzny.localdomain>
+References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
+	 <200401111628.07930.amir.noam@intel.com> <4001A667.2020904@pobox.com>
+	 <4001C158.6040103@candelatech.com>  <4001C72E.8030108@pobox.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Madis Janson <madis@ats.cyber.ee>, netdev@oss.sgi.com
+Cc: Ben Greear <greearb@candelatech.com>, Amir Noam <amir.noam@intel.com>,
+        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: madis <madis@cyber.ee>
-In-Reply-To: <Pine.LNX.4.53.0401051456060.1039@alien>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4001C72E.8030108@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-madis wrote:
-> On Mon, 22 Dec 2003, Carl-Daniel Hailfinger wrote:
+On Sun, 2004-01-11 at 16:59, Jeff Garzik wrote:
+> ioctls are a pain for 32/64-bit emulation layers too.  It seems much 
+> easier to define a netlink protocol family of some sort and communicate 
+> that way.
 > 
->>Madis Janson wrote:
->>
->>>When trying forcedeth_2_6_patch_v19.txt, i got the following message
->>>fastly repeating after ifup eth0:
->>>
->>>"eth0: received irq with unknown events 0x21. Please report"
->>>
->>>and it didn't work eighter (ifup just stalled).
-[...]
->>
->>Please try the attached patch on top of it and report back if it works.
-> 
-> the unknown events message disappeared,
-> but the network did not start to work...
+> I'll poke around and see what I can come up with.
 
-Do you use any powermanagement software (athcool, lvcool, fvcool, coolon,
-athlon cooling patch, anything STPGNT related)? Does your BIOS list
-anything STPGNT related?
+Theres a L2C netlink protocol (for Layer2 Config) which is already in
+place being reviewed by DaveM in whatever spurious time he has.
+Current user is MPLS but definete candidate for VLAN, and the move of
+bridging STP control to user space. It is true that netlink may not be
+intuitive to use for someone who hasnt spent time eyeballing it(mostly
+because of lack of programming docs really). We are going to try and
+improve things by making it easy to use from both kernel and user space
+POV and provide sample code which people can cutnpaste in the classical
+linux-way(tm). 
 
-
-> +               if (events & (NVREG_IRQ_RX_ERR)) {
-> +                       dprintk(KERN_DEBUG "%s: received irq with events
-> 0x%x.
-> Probably RX fail.\n",
-> +                                               dev->name, events);
-> here were '}' missing.
-
-Thanks for the hint.
-
-If you see anything powermanagement related enabled, please disable it and
-try again. Does that fix it?
-
-
-Carl-Daniel
+cheers,
+jamal
