@@ -1,63 +1,71 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
-Date: 05 Apr 2005 08:54:49 -0400
-Message-ID: <1112705689.1088.209.camel@jzny.localdomain>
-References: <20050405190024.024D.LARK@linux.net.cn>
-	 <20050405121605.GM26731@postel.suug.ch>
-	 <20050405202039.0250.LARK@linux.net.cn>
-Reply-To: hadi@cyberus.ca
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPV4] Disable MULTIPATH_CACHED on input path
+Date: Tue, 5 Apr 2005 23:04:41 +1000
+Message-ID: <20050405130441.GA5604@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, netdev <netdev@oss.sgi.com>
+Content-Type: multipart/mixed; boundary="NzB8fVQJ5HfG6fxh"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wang Jian <lark@linux.net.cn>
-In-Reply-To: <20050405202039.0250.LARK@linux.net.cn>
+To: "David S. Miller" <davem@davemloft.net>,
+        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-04-05 at 08:39, Wang Jian wrote:
-> Hi Thomas Graf,
-> 
-> 
-> On Tue, 5 Apr 2005 14:16:05 +0200, Thomas Graf <tgraf@suug.ch> wrote:
-> 
-> > 
-> > What I'm worried about is that we lose the zero collisions behaviour
-> > for the most popular use case.
-> 
-> If a web interface is used to generate netfilter/tc rules that use
-> nfmark, then the above assumption is false. nfmark will be used
-> incrementally and wrapped back to 0 somewhere like process id. So zero
-> collision is not likely.
-> 
 
-Yes, but the distribution is still very good even in that case.
-If you have 257 entries then all except for two will be in separate
-buckets. 
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> When linux's QoS control capability is widely used, such web interface
-> sooner or later comes into being.
->  
-> > New idea: we make this configureable and allow 3 types of hash functions:
-> >  1) default as-is, perfect for marks 0..255
-> >  2) all bits taken into account (your patch)
-> >  3) bitmask + shift provided by the user just like
-> >     dsmark.
-> > 
-> > Thoughts?
-> 
-> Your suggestion is very considerable. But that needs some more work. And,
-> isn't that some bloated?
-> 
+Hi Dave:
 
-Why dont you run a quick test? Very easy to do in user space.
-Enter two sets of values using the two different approaches; yours and 
-the current way tc uses nfmark (incremental). And then apply the jenkins
-approach you had to see how well it looks like? I thinkw e know how it
-will look with current hash - but if you can show its not so bad in the
-case of jenkins as well it may be an acceptable approach,
+Since we're not doing multipath selection on the input path yet,
+we should disable the code that inserts the multipath route
+entries for the input path.
 
-cheers,
-jamal
+As it is we are inserting a whole bunch of useless entries as
+well as breaking multipath routing for the input path (forwarded
+packets) completely.
+
+I left the code around since we're planning to do this at
+some point.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+As this code is going to stick around, I'm going to fix it :)
+Expect more patches soon.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--NzB8fVQJ5HfG6fxh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv4/route.c 1.108 vs edited =====
+--- 1.108/net/ipv4/route.c	2005-03-23 15:06:23 +11:00
++++ edited/net/ipv4/route.c	2005-04-05 23:00:28 +10:00
+@@ -1720,7 +1720,7 @@
+ 	}
+ 
+ 	rth->u.dst.flags= DST_HOST;
+-#ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
++#if 0
+ 	if (res->fi->fib_nhs > 1)
+ 		rth->u.dst.flags |= DST_BALANCED;
+ #endif
+@@ -1792,7 +1792,7 @@
+ 				   struct in_device *in_dev,
+ 				   u32 daddr, u32 saddr, u32 tos)
+ {
+-#ifdef CONFIG_IP_ROUTE_MULTIPATH_CACHED
++#if 0
+ 	struct rtable* rth;
+ 	unsigned char hop, hopcount, lasthop;
+ 	int err = -EINVAL;
+
+--NzB8fVQJ5HfG6fxh--
