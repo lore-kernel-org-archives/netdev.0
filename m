@@ -1,54 +1,37 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Pekka Savola <pekkas@netcore.fi>
 Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Tue, 11 Jun 2002 23:26:40 -0700
+Date: Wed, 12 Jun 2002 09:32:58 +0300 (EEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <ae6prl$isk$2@main.gmane.org>
-References: <Pine.LNX.4.44.0206120905510.29780-100000@netcore.fi>
+Message-ID: <ae6q7b$k3i$2@main.gmane.org>
+References: <3D06E9A0.5060801@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Mark Mielke <mark@mark.mielke.cc>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Mark Mielke <mark@mark.mielke.cc>, <linux-kernel@vger.kernel.org>,
+   <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3D06E9A0.5060801@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
+On Tue, 11 Jun 2002, Ben Greear wrote:
+> If they are useful to some people, and have zero performance affect on others
+> (due to being a configurable kernel feature), then what is your
+> complaint?
 
+3) Added features and complexity makes it more difficult to maintain the 
+kernel (you could say this is a variant of 1)
 
-Pekka Savola wrote:
+4) Patches that have only a little debugging/etc. value are probably 
+useful, but mainly for a specific set of people, and this would seem to be 
+best handled by external patches.
+ 
+> 1)  General increase in #ifdef'd code.  This actually seems like
+>     a pretty good argument, but I haven't seen anyone mention it
+>     specifically.
 
-
-> Just to chime in my support (not that I don't think anyone needs it), I 
-> think socket-based counters are An Extremely Bad Idea.  
-
-
-Several folks have produced arguments with details showing how they
-can use the counters to better their product and/or debugging.  Just
-waving your hands and saying you don't like it does not invalidate
-their claims.  Please go back and read the thread and then, if you're
-able, put forth some valid arguments for how to accomplish the goals
-in some other manner, or show the negatives of including the feature.
-
-If they are useful to some people, and have zero performance affect on others
-(due to being a configurable kernel feature), then what is your
-complaint?
-
-I see two reasons left to dislike this feature:
-
-1)  General increase in #ifdef'd code.  This actually seems like
-    a pretty good argument, but I haven't seen anyone mention it
-    specifically.
-
-2)  General dislike for a feature that one personally has no use for.
-    Seems to be Dave's main (professed) excuse.
-
-
-Please add to this list, but back up your claims.
-
-Thanks,
-Ben
-
+Always implied from maintenance point-of-view.
+ 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Pekka Savola                 "Tell me of difficulties surmounted,
+Netcore Oy                   not those you stumble over and fall"
+Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
