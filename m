@@ -1,66 +1,37 @@
-From: Bob Wirka <bobwirka@rtcworks.com>
-Subject: Re: NFS and Network Driver Question
-Date: Tue, 19 Oct 2004 19:19:10 -0500
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
+Date: Tue, 19 Oct 2004 17:44:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4175AEFE.7090002@rtcworks.com>
-References: <41704198.8000206@rtcworks.com>
+Message-ID: <20041019174432.41fcdc17.davem@davemloft.net>
+References: <E1CK1e6-0004F3-00@gondolin.me.apana.org.au>
+	<1098222676.23367.18.camel@krustophenia.net>
+	<20041019215401.GA16427@gondor.apana.org.au>
+	<1098223857.23367.35.camel@krustophenia.net>
+	<20041019153308.488d34c1.davem@davemloft.net>
+	<1098225729.23628.2.camel@krustophenia.net>
+	<20041019154249.6afcaaad.davem@davemloft.net>
+	<1098226288.23628.6.camel@krustophenia.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Cc: herbert@gondor.apana.org.au, vda@port.imtp.ilyichevsk.odessa.ua,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org, maxk@qualcomm.com,
+        irda-users@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <41704198.8000206@rtcworks.com>
+To: Lee Revell <rlrevell@joe-job.com>
+In-Reply-To: <1098226288.23628.6.camel@krustophenia.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ok, now I feel like I'm taking crazy pills...
+On Tue, 19 Oct 2004 18:51:28 -0400
+Lee Revell <rlrevell@joe-job.com> wrote:
 
-The embedded system boots up and mounts the root file system on my host 
-laptop. The 'rc.sysinit' startup script executes the command 'mount -a' 
-which should mount /proc, /dev/pts, and /dev/shm, as listed in 
-/etc/fstab. When executed, that command returns  "mount: only root can 
-do that".
+> OK, thanks for clarifying.  The correct patch is therefore:
+ ...
+>  static inline int netif_rx_ni(struct sk_buff *skb)
+>  {
+> +       preempt_disable();
+>         int err = netif_rx(skb);
 
-When I get to the bash prompt, 'whoami' reports that I am, indeed, root. 
-A 'mount -a' from the command prompt gives the same result; it doesn't 
-think I'm root for the mount command.
-
-I can chown a file owned by root to some other user, and I can create a 
-file or directory in a directory owned by root; so it doesn't always 
-think I'm not root.
-
-Any ideas???
-
-Thanks,
-
-Bob Wirka
-Realtime Control Works
-
-Bob Wirka wrote:
-
-> Hello,
->
-> I'm trying to build a kernel that mounts a NFS root file system. This 
-> is an embedded system; it uses an SMSC LAN91C111 network chip that is 
-> hardwired to I/O addres 0x300 and IRQ 5. I've been using the driver 
-> (as supplied by SMSC) as a module, and it works fine. Now I'm trying 
-> to incorporate it into the kernel build so that I can mount an NFS 
-> file system when the system boots.
->
-> I've added the source code to the kernel tree, and modified the 
-> Makefile(s) and Config.in files so that the driver <<appears>> to be 
-> compiled into the kernel. The kernel will load, but the chip is not 
-> initialized and the NFS fails.
->
-> Since I don't know how to pass the io address and irq number to the 
-> kernel, I've hard-coded them into the driver's init function (which I 
-> don't see being called).
->
-> If someone could point me in the right direction, I'd appreciate it.
->
-> Thank you,
->
-> Bob Wirka
-> Realtime Control Works
->
->
+You need to put statements after local function variable
+declarations.
