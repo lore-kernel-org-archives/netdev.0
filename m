@@ -1,8 +1,8 @@
 From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: [e1000 2.6 8/11] move static to table from .h to .c
-Date: Mon, 8 Sep 2003 20:14:46 -0700 (PDT)
+Subject: [e1000 2.6 6/11] make function our of setting media type
+Date: Mon, 8 Sep 2003 20:14:35 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0309081948480.1261-100000@localhost.localdomain>
+Message-ID: <Pine.LNX.4.44.0309081944470.1261-100000@localhost.localdomain>
 Reply-To: "Feldman, Scott" <scott.feldman@intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -13,101 +13,117 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-* Move static table from hw.h to hw.c to avoid creating a copy
-  of table everytime hw.h is included.in .c.
+* Consolidate code and make function out of setting media type.
 
-----------------
+--------------------
 
 diff -Nuarp linux-2.6.0-test4/drivers/net/e1000/e1000_hw.c linux-2.6.0-test4/drivers/net/e1000.new/e1000_hw.c
 --- linux-2.6.0-test4/drivers/net/e1000/e1000_hw.c	2003-08-22 17:01:40.000000000 -0700
 +++ linux-2.6.0-test4/drivers/net/e1000.new/e1000_hw.c	2003-09-08 09:13:11.000000000 -0700
-@@ -64,6 +64,17 @@ static int32_t e1000_write_eeprom_microw
- static int32_t e1000_id_led_init(struct e1000_hw * hw);
- static int32_t e1000_set_vco_speed(struct e1000_hw *hw);
+@@ -249,6 +249,46 @@ e1000_set_mac_type(struct e1000_hw *hw)
  
-+/* IGP cable length table */
-+static const
-+uint16_t e1000_igp_cable_length_table[IGP01E1000_AGC_LENGTH_TABLE_SIZE] =
-+    { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
-+      5, 10, 10, 10, 10, 10, 10, 10, 20, 20, 20, 20, 20, 25, 25, 25,
-+      25, 25, 25, 25, 30, 30, 30, 30, 40, 40, 40, 40, 40, 40, 40, 40,
-+      40, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60,
-+      60, 70, 70, 70, 70, 70, 70, 80, 80, 80, 80, 80, 80, 90, 90, 90,
-+      90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
-+      100, 100, 100, 100, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,
-+      110, 110, 110, 110, 110, 110, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120};
- 
- 
- /******************************************************************************
-@@ -4601,19 +4601,16 @@ e1000_get_cable_length(struct e1000_hw *
-             break;
-         }
-     } else if(hw->phy_type == e1000_phy_igp) { /* For IGP PHY */
--        uint16_t agc_reg_array[IGP01E1000_PHY_AGC_NUM] = {IGP01E1000_PHY_AGC_A,
-+        uint16_t agc_reg_array[IGP01E1000_PHY_CHANNEL_NUM] =
-+                                                         {IGP01E1000_PHY_AGC_A,
-                                                           IGP01E1000_PHY_AGC_B,
-                                                           IGP01E1000_PHY_AGC_C,
-                                                           IGP01E1000_PHY_AGC_D};
-         /* Read the AGC registers for all channels */
--        for(i = 0; i < IGP01E1000_PHY_AGC_NUM; i++) {
--            if(e1000_write_phy_reg(hw, IGP01E1000_PHY_PAGE_SELECT,
--                                   agc_reg_array[i]) != E1000_SUCCESS)
--                return -E1000_ERR_PHY;
--            if(e1000_read_phy_reg(hw, agc_reg_array[i] &
--                                  IGP01E1000_PHY_PAGE_SELECT, &phy_data) !=
--                                  E1000_SUCCESS)
--                return -E1000_ERR_PHY;
-+        for(i = 0; i < IGP01E1000_PHY_CHANNEL_NUM; i++) {
+     return E1000_SUCCESS;
+ }
 +
-+            if((ret_val = e1000_read_phy_reg(hw, agc_reg_array[i], &phy_data)))
-+                return ret_val;
++/*****************************************************************************
++ * Set media type and TBI compatibility.
++ *
++ * hw - Struct containing variables accessed by shared code
++ * **************************************************************************/
++void
++e1000_set_media_type(struct e1000_hw *hw)
++{
++    uint32_t status;
++
++    DEBUGFUNC("e1000_set_media_type");
++
++    if(hw->mac_type != e1000_82543) {
++        /* tbi_compatibility is only valid on 82543 */
++        hw->tbi_compatibility_en = FALSE;
++    }
++
++    switch (hw->device_id) {
++    case E1000_DEV_ID_82545GM_SERDES:
++    case E1000_DEV_ID_82546GB_SERDES:
++        hw->media_type = e1000_media_type_internal_serdes;
++        break;
++    default:
++        if(hw->mac_type >= e1000_82543) {
++            status = E1000_READ_REG(hw, STATUS);
++            if(status & E1000_STATUS_TBIMODE) {
++                hw->media_type = e1000_media_type_fiber;
++                /* tbi_compatibility not valid on fiber */
++                hw->tbi_compatibility_en = FALSE;
++            } else {
++                hw->media_type = e1000_media_type_copper;
++            }
++        } else {
++            /* This is an 82542 (fiber only) */
++            hw->media_type = e1000_media_type_fiber;
++        }
++    }
++}
++
+ /******************************************************************************
+  * Reset the transmit and receive units; mask and clear all interrupts.
+  *
+@@ -404,7 +404,7 @@ e1000_reset_hw(struct e1000_hw *hw)
+ int32_t
+ e1000_init_hw(struct e1000_hw *hw)
+ {
+-    uint32_t ctrl, status;
++    uint32_t ctrl;
+     uint32_t i;
+     int32_t ret_val;
+     uint16_t pcix_cmd_word;
+@@ -421,25 +390,8 @@ e1000_init_hw(struct e1000_hw *hw)
+         return ret_val;
+     }
  
-             cur_agc = phy_data >> IGP01E1000_AGC_LENGTH_SHIFT;
- 
-@@ -4629,20 +4637,15 @@ e1000_get_cable_length(struct e1000_hw *
-                 min_agc = cur_agc;
-         }
- 
--        /* Return to page 0 */
--        if(e1000_write_phy_reg(hw, IGP01E1000_PHY_PAGE_SELECT, 0x0) !=
--           E1000_SUCCESS)
--            return -E1000_ERR_PHY;
+-    /* Set the Media Type and exit with error if it is not valid. */
+-    if(hw->mac_type != e1000_82543) {
+-        /* tbi_compatibility is only valid on 82543 */
+-        hw->tbi_compatibility_en = FALSE;
+-    }
 -
-         /* Remove the minimal AGC result for length < 50m */
--        if(agc_value < IGP01E1000_PHY_AGC_NUM * e1000_igp_cable_length_50) {
-+        if(agc_value < IGP01E1000_PHY_CHANNEL_NUM * e1000_igp_cable_length_50) {
-             agc_value -= min_agc;
+-    if(hw->mac_type >= e1000_82543) {
+-        status = E1000_READ_REG(hw, STATUS);
+-        if(status & E1000_STATUS_TBIMODE) {
+-            hw->media_type = e1000_media_type_fiber;
+-            /* tbi_compatibility not valid on fiber */
+-            hw->tbi_compatibility_en = FALSE;
+-        } else {
+-            hw->media_type = e1000_media_type_copper;
+-        }
+-    } else {
+-        /* This is an 82542 (fiber only) */
+-        hw->media_type = e1000_media_type_fiber;
+-    }
++    /* Set the media type and TBI compatibility */
++    e1000_set_media_type(hw);
  
-             /* Get the average length of the remaining 3 channels */
--            agc_value /= (IGP01E1000_PHY_AGC_NUM - 1);
-+            agc_value /= (IGP01E1000_PHY_CHANNEL_NUM - 1);
-         } else {
-             /* Get the average length of all the 4 channels. */
--            agc_value /= IGP01E1000_PHY_AGC_NUM;
-+            agc_value /= IGP01E1000_PHY_CHANNEL_NUM;
-         }
+     /* Disabling VLAN filtering. */
+     DEBUGOUT("Initializing the IEEE VLAN\n");
+diff -Nuarp linux-2.6.0-test4/drivers/net/e1000/e1000_main.c linux-2.6.0-test4/drivers/net/e1000.new/e1000_main.c
+--- linux-2.6.0-test4/drivers/net/e1000/e1000_main.c	2003-08-22 16:54:23.000000000 -0700
++++ linux-2.6.0-test4/drivers/net/e1000.new/e1000_main.c	2003-09-08 09:13:11.000000000 -0700
+@@ -625,18 +625,7 @@ e1000_sw_init(struct e1000_adapter *adap
+ 	   (hw->mac_type == e1000_82547_rev_2))
+ 		hw->phy_init_script = 1;
  
-         /* Set the range of the calculated length. */
-diff -Nuarp linux-2.6.0-test4/drivers/net/e1000/e1000_hw.h linux-2.6.0-test4/drivers/net/e1000.new/e1000_hw.h
---- linux-2.6.0-test4/drivers/net/e1000/e1000_hw.h	2003-08-22 16:58:59.000000000 -0700
-+++ linux-2.6.0-test4/drivers/net/e1000.new/e1000_hw.h	2003-09-08 09:13:16.000000000 -0700
-@@ -2053,18 +2053,6 @@ struct e1000_hw {
- /* The precision of the length is +/- 10 meters */
- #define IGP01E1000_AGC_RANGE    10
- 
--/* IGP cable length table */
--static const
--uint16_t e1000_igp_cable_length_table[IGP01E1000_AGC_LENGTH_TABLE_SIZE] =
--    { 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5,
--      5, 10, 10, 10, 10, 10, 10, 10, 20, 20, 20, 20, 20, 25, 25, 25,
--      25, 25, 25, 25, 30, 30, 30, 30, 40, 40, 40, 40, 40, 40, 40, 40,
--      40, 50, 50, 50, 50, 50, 50, 50, 60, 60, 60, 60, 60, 60, 60, 60,
--      60, 70, 70, 70, 70, 70, 70, 80, 80, 80, 80, 80, 80, 90, 90, 90,
--      90, 90, 90, 90, 90, 90, 100, 100, 100, 100, 100, 100, 100, 100, 100, 100,
--      100, 100, 100, 100, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110, 110,
--      110, 110, 110, 110, 110, 110, 120, 120, 120, 120, 120, 120, 120, 120, 120, 120};
+-	/* Media type - copper or fiber */
 -
- /* IGP01E1000 PCS Initialization register */
- /* bits 3:6 in the PCS registers stores the channels polarity */
- #define IGP01E1000_PHY_POLARITY_MASK    0x0078
+-	if(hw->mac_type >= e1000_82543) {
+-		uint32_t status = E1000_READ_REG(hw, STATUS);
+-
+-		if(status & E1000_STATUS_TBIMODE)
+-			hw->media_type = e1000_media_type_fiber;
+-		else
+-			hw->media_type = e1000_media_type_copper;
+-	} else {
+-		hw->media_type = e1000_media_type_fiber;
+-	}
++	e1000_set_media_type(hw);
+ 
+ 	if(hw->mac_type < e1000_82543)
+ 		hw->report_tx_early = 0;
