@@ -1,7 +1,7 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH wireless-2.6 8/12] Host AP: Do not bridge packets to unauthorized ports
-Date: Sun, 7 Nov 2004 23:14:59 -0800
-Message-ID: <20041108071459.GI1076@jm.kir.nu>
+Subject: [PATCH wireless-2.6 9/12] Host AP: Fix card enabling after firmware download
+Date: Sun, 7 Nov 2004 23:15:36 -0800
+Message-ID: <20041108071536.GJ1076@jm.kir.nu>
 References: <20041108070156.GA1076@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,77 +14,27 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix inner-BSS bridge (ap_bridge_packets=1) not to bridge packets to
-unauthorized ports when IEEE 802.1X/WPA is used (i.e., require that
-the STA completes authentication before capturing packets in the inner
-bridge); previously, only association status was used and an attacker
-could have capture packets to any MAC address even without having
-proper credentials for using the network (although, the packets were
-dropped because the controlled port for the STA was unauthorized).
+Fix card enabling after firmware download in case any of the
+netdevs were up when the download was started.
 
 Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
 
 
-diff -Nru a/drivers/net/wireless/hostap/hostap_80211_rx.c b/drivers/net/wireless/hostap/hostap_80211_rx.c
---- a/drivers/net/wireless/hostap/hostap_80211_rx.c	2004-11-07 22:38:51 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_80211_rx.c	2004-11-07 22:38:51 -08:00
-@@ -1035,7 +1035,7 @@
- 			if (skb2 == NULL)
- 				printk(KERN_DEBUG "%s: skb_clone failed for "
- 				       "multicast frame\n", dev->name);
--		} else if (hostap_is_sta_assoc(local->ap, dst)) {
-+		} else if (hostap_is_sta_authorized(local->ap, dst)) {
- 			/* send frame directly to the associated STA using
- 			 * wireless media and not passing to higher layers */
- 			local->ap->bridged_unicast++;
-diff -Nru a/drivers/net/wireless/hostap/hostap_ap.c b/drivers/net/wireless/hostap/hostap_ap.c
---- a/drivers/net/wireless/hostap/hostap_ap.c	2004-11-07 22:38:51 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_ap.c	2004-11-07 22:38:51 -08:00
-@@ -3061,6 +3061,24 @@
+diff -Nru a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
+--- a/drivers/net/wireless/hostap/hostap_hw.c	2004-11-07 22:39:00 -08:00
++++ b/drivers/net/wireless/hostap/hostap_hw.c	2004-11-07 22:39:00 -08:00
+@@ -1483,7 +1483,10 @@
+ 	if (prism2_hw_init2(dev, initial))
+ 		return 1;
  
- 
- /* Called only as a tasklet (software IRQ) */
-+int hostap_is_sta_authorized(struct ap_data *ap, u8 *sta_addr)
-+{
-+	struct sta_info *sta;
-+	int ret = 0;
-+
-+	spin_lock(&ap->sta_table_lock);
-+	sta = ap_get_sta(ap, sta_addr);
-+	if (sta != NULL && (sta->flags & WLAN_STA_ASSOC) && !sta->ap &&
-+	    ((sta->flags & WLAN_STA_AUTHORIZED) ||
-+	     ap->local->ieee_802_1x == 0))
-+		ret = 1;
-+	spin_unlock(&ap->sta_table_lock);
-+
-+	return ret;
-+}
-+
-+
-+/* Called only as a tasklet (software IRQ) */
- int hostap_add_sta(struct ap_data *ap, u8 *sta_addr)
- {
- 	struct sta_info *sta;
-@@ -3219,6 +3237,7 @@
- EXPORT_SYMBOL(hostap_update_sta_ps);
- EXPORT_SYMBOL(hostap_handle_sta_rx);
- EXPORT_SYMBOL(hostap_is_sta_assoc);
-+EXPORT_SYMBOL(hostap_is_sta_authorized);
- EXPORT_SYMBOL(hostap_add_sta);
- EXPORT_SYMBOL(hostap_update_rates);
- EXPORT_SYMBOL(hostap_add_wds_links);
-diff -Nru a/drivers/net/wireless/hostap/hostap_ap.h b/drivers/net/wireless/hostap/hostap_ap.h
---- a/drivers/net/wireless/hostap/hostap_ap.h	2004-11-07 22:38:51 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_ap.h	2004-11-07 22:38:51 -08:00
-@@ -255,6 +255,7 @@
- 			     struct hostap_ieee80211_hdr *hdr,
- 			     struct prism2_crypt_data **crypt, void **sta_ptr);
- int hostap_is_sta_assoc(struct ap_data *ap, u8 *sta_addr);
-+int hostap_is_sta_authorized(struct ap_data *ap, u8 *sta_addr);
- int hostap_add_sta(struct ap_data *ap, u8 *sta_addr);
- int hostap_update_rx_stats(struct ap_data *ap,
- 			   struct hostap_ieee80211_hdr *hdr,
-
+-	if (!local->pri_only && !initial) {
++	/* Enable firmware if secondary image is loaded and at least one of the
++	 * netdevices is up. */
++	if (!local->pri_only &&
++	    (initial == 0 || (initial == 2 && local->num_dev_open > 0))) {
+ 		if (!local->dev_enabled)
+ 			prism2_callback(local, PRISM2_CALLBACK_ENABLE);
+ 		local->dev_enabled = 1;
 
 
 -- 
