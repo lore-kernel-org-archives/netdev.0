@@ -1,22 +1,27 @@
-From: "Simon Barber" <simon@instant802.com>
-Subject: Root qdisc implementation
-Date: Mon, 23 Feb 2004 14:54:55 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [janitor] neighbour: handle kmem_cache_create() failure
+Date: Mon, 23 Feb 2004 15:11:40 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <AC8C1F46CD753F4AAC8F890E35A9EB461C66EC@webmail.instant802.com>
+Message-ID: <20040223151140.0e8939c6.davem@redhat.com>
+References: <20040223133402.1e722f6f.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: <netdev@oss.sgi.com>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20040223133402.1e722f6f.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Is there any way to tell when a qdisc is being installed that it is the
-root qdisc on a device? (to enforce that a certain qdisc can only be
-installed as root).
+On Mon, 23 Feb 2004 13:34:02 -0800
+"Randy.Dunlap" <rddunlap@osdl.org> wrote:
 
-Does a root qdisc need to implement drop or requeue?
+> Please apply to 2.6.3-current.
+ ...
+> From: <WHarms@bfs.de>(Walter Harms)
+ ...
+>  linux-263-kj1-rddunlap/net/core/neighbour.c |    4 ++++
+>  1 files changed, 4 insertions(+)
 
-Simon
+Applied, thanks.
