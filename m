@@ -1,45 +1,144 @@
 From: Matthew Wilcox <willy@debian.org>
-Subject: Re: [PATCH] pci_get_slot()
-Date: Wed, 15 Oct 2003 19:50:53 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031015185053.GH16535@parcelfarce.linux.theplanet.co.uk>
-References: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk> <20031015184104.GA22373@kroah.com>
+Subject: [PATCH] pci_get_slot()
+Date: Wed, 15 Oct 2003 19:32:13 +0100
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20031015183213.GG16535@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matthew Wilcox <willy@debian.org>, Linus Torvalds <torvalds@osdl.org>,
-        "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>,
-        linux-pci@atrey.karlin.mff.cuni.cz, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Greg KH <greg@kroah.com>
+Cc: Greg KH <greg@kroah.com>, "David S. Miller" <davem@redhat.com>,
+	Jeff Garzik <jgarzik@pobox.com>,
+	linux-pci@atrey.karlin.mff.cuni.cz, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Linus Torvalds <torvalds@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <20031015184104.GA22373@kroah.com>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Oct 15, 2003 at 11:41:04AM -0700, Greg KH wrote:
-> The check of:
-> 	if (dev->bus->number == bus && dev->devfn == devfn)
-> in pci_find_slot() doesn't check for the domain?
 
-No, it would also need to check pci_domain_nr(dev->bus) .. and it doesn't
-have anything to check it against as that information isn't passed into
-the function.
+Hi Linus.
 
-> Anyway, is there any other way you can fix this in the tg3 driver only
-> for right now?  I agree adding the pci function is "cleaner", but a bit
-> late for right now.
+tg3.c has a bug where it can find the wrong 5704 peer on a machine with
+PCI domains.  The problem is that pci_find_slot() can't distinguish
+whether it has the correct domain or not.
 
-The only real way to do it is to inline pci_get_slot() into tg3.  Since I
-also have a need for it in sym2, that doesn't seem like a sensible idea.
-It would also be racy since it wouldn't take the pci_bus_lock.
+This patch fixes that problem by introducing pci_get_slot() and converts
+tg3 to use it.  It also fixes another problem where tg3 wouldn't find
+a peer on function 7 (0 to <8, not 0 to <7).
 
-> How does this differ from pci_find_slot()?  (becides the pci_dev_get()
-> call)?  pci_find_slot() asks for the bus number, which can be determined
-> from the pci_bus structure, right?
-
-The pci_bus knows which domain it's in.  We don't have to check it since
-we only walk its children.
+Index: linux-2.6/drivers/net/tg3.c
+===================================================================
+RCS file: /var/cvs/linux-2.6/drivers/net/tg3.c,v
+retrieving revision 1.5
+diff -u -p -r1.5 tg3.c
+--- linux-2.6/drivers/net/tg3.c	8 Sep 2003 21:42:12 -0000	1.5
++++ linux-2.6/drivers/net/tg3.c	15 Oct 2003 18:18:28 -0000
+@@ -7462,23 +7462,24 @@ static char * __devinit tg3_phy_string(s
+ 
+ static struct pci_dev * __devinit tg3_find_5704_peer(struct tg3 *tp)
+ {
+-	struct pci_dev *peer = NULL;
+-	unsigned int func;
++	struct pci_dev *peer;
++	unsigned int func, devnr = tp->pdev->devfn & ~7;
+ 
+-	for (func = 0; func < 7; func++) {
+-		unsigned int devfn = tp->pdev->devfn;
+-
+-		devfn &= ~7;
+-		devfn |= func;
+-
+-		if (devfn == tp->pdev->devfn)
+-			continue;
+-		peer = pci_find_slot(tp->pdev->bus->number, devfn);
+-		if (peer)
++	for (func = 0; func < 8; func++) {
++		peer = pci_get_slot(tp->pdev->bus, devnr | func);
++		if (peer && peer != tp->pdev)
+ 			break;
++		pci_dev_put(peer);
+ 	}
+ 	if (!peer || peer == tp->pdev)
+ 		BUG();
++
++	/*
++	 * We don't need to keep the refcount elevated; there's no way
++	 * to remove one half of this device without removing the other
++	 */
++	pci_dev_put(peer);
++
+ 	return peer;
+ }
+ 
+Index: linux-2.6/drivers/pci/search.c
+===================================================================
+RCS file: /var/cvs/linux-2.6/drivers/pci/search.c,v
+retrieving revision 1.1
+diff -u -p -r1.1 search.c
+--- linux-2.6/drivers/pci/search.c	29 Jul 2003 17:01:25 -0000	1.1
++++ linux-2.6/drivers/pci/search.c	15 Oct 2003 18:18:28 -0000
+@@ -104,6 +104,41 @@ pci_find_slot(unsigned int bus, unsigned
+ }
+ 
+ /**
++ * pci_get_slot - locate PCI device for a given PCI slot
++ * @bus: PCI bus on which desired PCI device resides
++ * @devfn: encodes number of PCI slot in which the desired PCI 
++ * device resides and the logical device number within that slot 
++ * in case of multi-function devices.
++ *
++ * Given a PCI bus and slot/function number, the desired PCI device 
++ * is located in the list of PCI devices.
++ * If the device is found, its reference count is increased and this
++ * function returns a pointer to its data structure.  The caller must
++ * decrement the reference count by calling pci_dev_put().
++ * If no device is found, %NULL is returned.
++ */
++struct pci_dev * pci_get_slot(struct pci_bus *bus, unsigned int devfn)
++{
++	struct list_head *tmp;
++	struct pci_dev *dev;
++
++	WARN_ON(in_interrupt());
++	spin_lock(&pci_bus_lock);
++
++	list_for_each(tmp, &bus->children) {
++		dev = pci_dev_b(tmp);
++		if (dev->devfn == devfn)
++			goto out;
++	}
++
++	dev = NULL;
++ out:
++	pci_dev_get(dev);
++	spin_unlock(&pci_bus_lock);
++	return dev;
++}
++
++/**
+  * pci_find_subsys - begin or continue searching for a PCI device by vendor/subvendor/device/subdevice id
+  * @vendor: PCI vendor id to match, or %PCI_ANY_ID to match all vendor ids
+  * @device: PCI device id to match, or %PCI_ANY_ID to match all device ids
+@@ -319,3 +354,4 @@ EXPORT_SYMBOL(pci_find_slot);
+ EXPORT_SYMBOL(pci_find_subsys);
+ EXPORT_SYMBOL(pci_get_device);
+ EXPORT_SYMBOL(pci_get_subsys);
++EXPORT_SYMBOL(pci_get_slot);
+Index: linux-2.6/include/linux/pci.h
+===================================================================
+RCS file: /var/cvs/linux-2.6/include/linux/pci.h,v
+retrieving revision 1.5
+diff -u -p -r1.5 pci.h
+--- linux-2.6/include/linux/pci.h	8 Oct 2003 20:53:03 -0000	1.5
++++ linux-2.6/include/linux/pci.h	15 Oct 2003 18:18:34 -0000
+@@ -607,6 +607,8 @@ struct pci_dev *pci_get_device (unsigned
+ struct pci_dev *pci_get_subsys (unsigned int vendor, unsigned int device,
+ 				unsigned int ss_vendor, unsigned int ss_device,
+ 				struct pci_dev *from);
++struct pci_dev *pci_get_slot (struct pci_bus *bus, unsigned int devfn);
++
+ int pci_bus_read_config_byte (struct pci_bus *bus, unsigned int devfn, int where, u8 *val);
+ int pci_bus_read_config_word (struct pci_bus *bus, unsigned int devfn, int where, u16 *val);
+ int pci_bus_read_config_dword (struct pci_bus *bus, unsigned int devfn, int where, u32 *val);
 
 -- 
 "It's not Hollywood.  War is real, war is primarily not about defeat or
