@@ -1,34 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Route cache performance under stress
-Date: Sat, 14 Jun 2003 23:36:28 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030614.233628.28792212.davem@redhat.com>
-References: <16101.4136.328760.955758@robur.slu.se>
-	<20030612.232114.71088346.davem@redhat.com>
-	<16105.43543.826589.672148@robur.slu.se>
+Subject: Re: [patch] IPV6: Refcount leaks in udpv6_connect()
+Date: Sun, 15 Jun 2003 00:26:56 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030615.002656.35017399.davem@redhat.com>
+References: <20030604.093944.84705841.yoshfuji@linux-ipv6.org>
+	<Pine.LNX.4.44.0306132149290.4922-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: sim@netnation.com, xerox@foonet.net, hadi@shell.cyberus.ca,
-	fw@deneb.enyo.de, netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <16105.43543.826589.672148@robur.slu.se>
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: vnuorval@tcs.hut.fi
+In-Reply-To: <Pine.LNX.4.44.0306132149290.4922-100000@rhea.tcs.hut.fi>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Robert Olsson <Robert.Olsson@data.slu.se>
-   Date: Fri, 13 Jun 2003 12:40:23 +0200
+   From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+   Date: Sat, 14 Jun 2003 00:07:25 +0300 (EEST)
+   
+   The diff is done against ChangeSet 1.1307.
 
-   
-   David S. Miller writes:
-    >    From: Robert Olsson <Robert.Olsson@data.slu.se>
-    >    Date: Tue, 10 Jun 2003 00:54:32 +0200
-    >     
-    >     I'm about to propose some stats even for hash spinning.... 
-    > 
-    > Do you mind if I apply this?  It looks fine.
-   
-    No please do. There is an updated rtstat already.
-   
-I am, but I have to do this by hand.  It seems your email client has
-caught the disease that turns all tabs into spaces :(
+Your patch does not apply without rejects.
+Please regenerate.
