@@ -1,30 +1,103 @@
-From: steve@themovieglobe.com
-Subject: Confirm your subscription
-Date: Sat, 22 Mar 2003 03:23:47 -0800 (PST)
+From: mg_paku8@uketuke.co.jp
+Subject: =?ISO-2022-JP?B?GyRCTCQ+NUJ6OS05cCIoIXoySCRLJCQkSiQsJGkyVBsoQg==?=
+	=?ISO-2022-JP?B?GyRCJDIkayVTJTglTSU5ISE9aTR8ISY3bjNbTXhNURsoQg==?=
+	=?ISO-2022-JP?B?GyRCTkEiTTQwQTRMNU5BIXolUSUvJVElLyVLJWUhPBsoQg==?=
+	=?ISO-2022-JP?B?GyRCJTkhehsoQg==?=
+Date: Sat, 22 Mar 2003 20:51:47 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030322112347.03CE2188E94@bidoc.vc.bravenet.com>
+Message-ID: <20030322121210423.00000.6.mg_paku8#uketuke.co.jp@NUMATA.mail.uketuke.co.jp>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-2022-JP
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-Mailing List Subscription Confirmation
-*** Confirmation required ***
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+<送信者><事業者>　株式会社アドップ　「パクパクニュース」事務局
+　お手数ですが、配信不要の方は、本文に <refuse> とだけ記入し、
+　mg_paku8@uketuke.co.jpまで、メール（返信）してください。
 
-You have been invited to join our mailing list.
+＿＿＿＿＿＿＿＿＿＿＿＿
+ ＼　★パクパク　ニュース★　＼ 　§非会員様向け特別号§
+　　￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣￣　
+スゴイ情報なので、会員の方以外にもお配りしてしまいました。
+ごめんなさいm(__)m
 
-This list has a double optin feature so you must go to the URL listed below
-to finish joining this list. This is a safeguard for you.
+http://pakupaku.net/af/?ad=043　powerd by パクパク.NET
 
-PLEASE CLICK THE LINK BELOW TO CONFIRM YOUR SUBSCRIPTION:
-http://pub50.bravenet.com/elist/add.php?usernum=4280452265&id=4540363
+┏━┳━┳━┳━┳━┳━┳━┳━┓━━━━━━━━━━━━━━━━━━━━┓
+┃１,┃２ ┃０ ┃０ ┃万┃円┃稼┃ぐ ┃ 家にいながら稼ぐ特集！！
+┗━┻━┻━┻━┻━┻━┻━┻━┛━━━━━━━━━━━━━━━━━━━━┛
 
-IF YOU DO NOT WISH TO SUBSCRIBE DO NOT CLICK THE LINK:
-If this message was sent in error, please disregard it and no further email
-will be sent to you on this subject.
+★─── ＩＮＤＥＸ ────・・・───・・・───・・・─★
+　初期費用、月額完全無料のもうかるビジネス
+
+01　家にいながらにして、稼ぎまくれる！！簡単ショッピングサイト
+02　利益率、驚愕の７０％　⇒　100万円売ったら、70万円の利益！！
+03　簡単運営！！コピー＆ペースト
+04　第一次会員　大大大募集中！！！（完全無料）
+★───・・・────・・・・───・・・───・・・─――★
 
 
------------------------------------------------------------------------
-Bravenet.com ~ free webtools for webmasters ~ http://www.bravenet.com/
+■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　０１   家にいながらにして、稼ぎまくれる！！簡単ショッピングサイト
+■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　そんな、うまい話がありました。
+　なんと、初期投資費も月額使用料もなしで商品を販売することができるプログラム
+です。
+　しかも、面倒な商品仕入も商品の梱包、発送も代行されるので、
+　利用者は商品を売って儲けるだけ！！
+
+　　★☆それは、『パクエイト』　⇒　http://pakupaku.net/af/?ad=043　☆★
+　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
+
+■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　０２  利益率、驚愕の７０％　⇒　100万円売ったら、70万円の利益！！
+■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　「リスクが無いんだから、利益も低いんじゃないの？」
+　って疑問が生じるかと思いますが、
+　このプログラムは最高70％の利益率を誇っております。（最低でも25％）
+　通常は、販売額の5％〜10％という中、この利益率は驚異的です。
+
+　　★☆それは、『パクエイト』　⇒　http://pakupaku.net/af/?ad=043 ☆★
+　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
+
+■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　０３  簡単運営！！コピー＆ペースト（複写＆貼付）
+■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　「じゃあ、やるのが難しいんじゃないの？」
+　って問題もありません
+　商品のＵＲＬをコピーし、貴方のメルマガやＨＰに貼り付けるだけ♪
+　簡単５分で商品販売が開始できます。
+
+　　★☆それは、『パクエイト』　⇒　http://pakupaku.net/aaf/?ad=043　☆★
+　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
+
+■━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　０４  第一次会員　大大大募集中！！！（完全無料）
+■━┻━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+　０１〜０３を見て、気になった貴方、
+　『パクエイト』では、現在、第一次会員を大大大募集中です。
+　モチロン、登録・利用は完全無料なので、
+　今のうちに登録しちゃいましょう！！急いで〜
+
+　　★☆『パクエイト　第一次会員登録』　⇒　http://pakupaku.net/af/?ad=043　☆★
+　　　　　☆間もなくＯＰＥＮ　第一次会員募集中☆
+
+　※最後まで御読み頂き、誠にありがとうございました。
+　　 重複してお送りしてしまった場合は、申し訳ございません。
+
+
+================================================================
+
+　発行元　「パクパクニュース」事務局　（企画・運営/株式会社アドップ）　
+　http://pakupaku.net/af/gaiyo.asp
+
+　お問合せ先：info_paku8@uketuke.co.jp
+
+　　家にいながら、大もうけ！！
+　　『パクエイト』
+　　http://pakupaku.net/af/?ad=043
+
+================================================================
