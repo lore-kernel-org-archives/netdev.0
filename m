@@ -1,60 +1,39 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: e1000: driver reboot/kexec bug.
-Date: 16 Feb 2005 05:25:56 -0700
-Message-ID: <m1psz0vgh7.fsf@ebiederm.dsl.xmission.com>
-References: <Pine.LNX.4.44.0502151039110.30336-100000@isotope.jf.intel.com>
+From: David Coulson <david@davidcoulson.net>
+Subject: Re: 2.6.10 dst cache overflow
+Date: Wed, 16 Feb 2005 08:44:02 -0500
+Message-ID: <42134E22.4030808@davidcoulson.net>
+References: <1108550412.3799.81.camel@ts2.office.netland.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "jgarzik@pobox.com" <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>
-To: Malli Chilakala <mallikarjuna.chilakala@intel.com>
-In-Reply-To: <Pine.LNX.4.44.0502151039110.30336-100000@isotope.jf.intel.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: "J. Simonetti" <jeroens@office.netland.nl>
+In-Reply-To: <1108550412.3799.81.camel@ts2.office.netland.nl>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+J. Simonetti wrote:
+> I have a linux (Fedora core 3) based router. I does approximately 50Mbps
+> aggregated traffic. However once every week (approx) the router dies
+> with 'kernel: dst cache overflow' messages flooding syslog. I have
+> tracked it down to being an issue with the routing cache.
 
-When I kexec a new kernel on hardware that includes
-some revs of the e1000 (see below for lscpi -n) the
-e1000 driver is not able to reinitialize the NIC.  I
-have seen this in both 2.4.29 and 2.6.10.
+Funny this came up now - One of my core routers failed last night with 
+the identical problem. The route cache was set to 131k routes, although 
+I couldn't get a sh prompt on the box even once the switch ports were 
+down... Had to sysrq-b it.
 
-Tracking it down it appears to be some side effect to powering down
-the nic.  If I remove the pci_set_power_state call in e1000_suspend
-or I simply apply the attached patch so I get that affect when
-rebooting everything works.  pci_enable_device brings the device
-up to full power before the driver initialization code does anything
-else so I don't have a clue what is really going on but it is.
-
-
-Boot messages on failure:
-> Intel(R) PRO/1000 Network Driver - version 5.6.10.1-k1
-> Copyright (c) 1999-2004 Intel Corporation.
-> PCI: Enabling device 03:04.0 (0000 -> 0003)
-> e1000: 03:04.0: e1000_probe: The EEPROM Checksum Is Not Valid
-> PCI: Enabling device 03:04.1 (0000 -> 0003)
-> e1000: 03:04.1: e1000_probe: The EEPROM Checksum Is Not Valid
-
-lspci -n of the problem onboard e1000 NIC.  
-> 03:04.0 Class 0200: 8086:1079 (rev 03)
-> 03:04.1 Class 0200: 8086:1079 (rev 03)
+I'm running 2.6.11-rc1-bk8 right now on those boxes. 20ish day uptime 
+until yesterday and handling around 12Mbit of traffic. 'route -Cn | wc 
+-l' right now shows around 29k routes cached. I cranked the route cache 
+up to 1m entries, but I figure that's probably excessive.
 
 
-Patch which avoids the problem.
-diff -uNrX linux-exclude-files linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c linux-2.4.29-kexec7.build.x86_64/drivers/net/e1000/e1000_main.c
---- linux-2.4.29-kexec-apic-virtwire-on-shutdownx86_64/drivers/net/e1000/e1000_main.c	Tue Feb 15 14:17:09 2005
-+++ linux-2.4.29-kexec7.build.x86_64/drivers/net/e1000/e1000_main.c	Wed Feb 16 04:58:18 2005
-@@ -2777,7 +2777,7 @@
- 	case SYS_POWER_OFF:
- 		while((pdev = pci_find_device(PCI_ANY_ID, PCI_ANY_ID, pdev))) {
- 			if(pci_dev_driver(pdev) == &e1000_driver)
--				e1000_suspend(pdev, 3);
-+				e1000_suspend(pdev, (event == SYS_DOWN)?0:3);
- 		}
- 	}
- 	return NOTIFY_DONE;
+David
 
-
-Any help to track down why this is happening so we can apply
-a clean fix would be appreciated.
-
-Eric
+-- 
+David J. Coulson
+email: david@davidcoulson.net
+web: http://www.davidcoulson.net/
+phone: (216) 920-3100 / (216) 258-4942
