@@ -1,52 +1,54 @@
-From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 23:27:46 -0400 (EDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030627224649.E90398@shell.cyberus.ca>
-References: <20030626.224739.88478624.davem@redhat.com><21740000.1056724453@[10.10.2.4]><Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com><20030627.143738.41641928.davem@redhat.com><Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com><20030627213153.GR501@phunnypharm.org><20030627162527.714091ce.akpm@digeo.com><35240000.1056760723@[10.10.2.4]>
- <20030627181432.61bf6f3a.akpm@digeo.com> <36630000.1056766403@[10.10.2.4]>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] Prefix List against 2.5.70 (re-done)
+Date: Sat, 28 Jun 2003 13:06:02 +0900 (JST)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030628.130602.63704890.yoshfuji@linux-ipv6.org>
+References: <20030626.230727.35666164.davem@redhat.com>
+	<3EFC668F.9010004@us.ibm.com>
+	<20030627.144752.78715628.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Andrew Morton <akpm@digeo.com>, bcollins@debian.org,
-	davidel@xmailserver.org, davem@redhat.com,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "Martin J. Bligh" <mbligh@aracnet.com>
-In-Reply-To: <36630000.1056766403@[10.10.2.4]>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: krkumar@us.ibm.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: davem@redhat.com
+In-Reply-To: <20030627.144752.78715628.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+In article <20030627.144752.78715628.davem@redhat.com> (at Fri, 27 Jun 2003 14:47:52 -0700 (PDT)), "David S. Miller" <davem@redhat.com> says:
 
+>    From: Krishna Kumar <krkumar@us.ibm.com>
+>    Date: Fri, 27 Jun 2003 08:45:19 -0700
+> 
+>    rtnetlink_rcv_msg() calls dumpit() (via netlink_dump_start) only
+>    for those messages for which the last two bits are binary '10'. So
+>    I had to use these values. All the other *GET* macros use the same
+>    semantics.
+> 
+> Ok, please retransmit your two patches (2.4.x and 2.5.x) to me
+> under seperate cover.  I don't keep a copy around of patches
+> I've decided not to apply.
 
+Well...
 
-I think what you need to ensure is a "push"  operation with retransmits.
-Obvioulsy the "pull"ing of Dave to bugzilla hasnt worked
-(otherwise this discussion wouldnt be happening).
+1. is it okay to have another hook for garbbig prefix list?
+   Userspace application can get such information via
+   - routing table
+   - interface flag
 
-Bug trackers have never worked for me either - in my current day
-job i am now passed notifications of every bugzuilla opened. I
-actually asked for this because i hate checking bugzilla.
-Over time heres what happened:
-month 0-3: Read the whole thing and called the owner.
-month 4-5: Spent about a 30 second glance and may email somebody
-month 6-9: Spend about 30 secs and archive them in a separate maibox
-month 9-12: fuck this shit. procmail the whole thing. That what procmail
-is for! Maybe someday over a fine cup of Tim Hortons French Vanilla
-cappucino and donut i'll go over that list and read them all- if only we
-had krispy creme donuts to go with Tim hortons coffee then i am sure i
-will read them ;-> The truth is i drink Tim Hortons capucino but still
-dont read the damn bugzilla mailbox. But i have it just in case i need
-it ...
-I can almost swear this is what will happen when you start ccing Dave
-on bugzillas.
+2. is the "managed" flags etc, which is per interface variable, 
+   really NEWROUTE information?
+   It is NOT L2 thing, but it is per-link information.
+   I think it is NEWLINK thing.
 
-If you think of Dave as a server then the most reliable protocol
-is to retransmit. Under resource constraint he dumps packets
-(that del key). Add another server - Alexey - and broadcast to both
-via netdev and you start to scale.
-I dont think retransmission by a robot would work well either since
-it misses that human touch. So you have a challenging task.
+What I'm thinking is:
 
-cheers,
-jamal
+ - fix "ADDRCONF" flag in route information
+ - manage / other flags via NEWLINK message
+(- No new interface to get prefix itself.)
 
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
