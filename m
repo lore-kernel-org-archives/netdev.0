@@ -1,32 +1,39 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: FIN_WAIT1 / TCP_CORK / 2.2 -- reproducible bug and test case
-Date: Mon, 30 Sep 2002 03:32:30 -0700 (PDT)
+From: jamal <hadi@cyberus.ca>
+Subject: Re: udp weirdness
+Date: Mon, 30 Sep 2002 07:09:56 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020930.033230.90062153.davem@redhat.com>
-References: <200209261309.RAA17837@sex.inr.ac.ru>
-	<20020926.134608.31605412.davem@redhat.com>
-	<20020930095909.GA8063@toey.sourcefrog.net>
+Message-ID: <Pine.GSO.4.30.0209300703411.11444-100000@shell.cyberus.ca>
+References: <20020930084903.GA359@hookipa>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, ak@muc.de, netdev@oss.sgi.com, Alan.Cox@linux.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mbp@samba.org
-In-Reply-To: <20020930095909.GA8063@toey.sourcefrog.net>
+To: Eric Lemoine <Eric.Lemoine@sun.com>
+In-Reply-To: <20020930084903.GA359@hookipa>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Martin Pool <mbp@samba.org>
-   Date: Mon, 30 Sep 2002 19:59:10 +1000
 
-   On 26 Sep 2002, "David S. Miller" <davem@redhat.com> wrote:
-   >    Dave, do you not remember this?
-   
-   So where does this leave us?  
 
-Someone has to agree that the patch should go in.
+On Mon, 30 Sep 2002, Eric Lemoine wrote:
 
-Problem is, at least two of us do not run 2.2.x at all on any
-of our systems (actually all of my currently powered-on machines
-aren't even supported in 2.2.x) which makes it hard for
-us to test this ourselves.
+> > Ok, understood. Actually we already seem to have enobufs being returned.
+> >
+> > Eric,
+> > Does the attached patch fix it? Not tested or even compiled.
+> > Someone going to change the manpages?
+>
+> protinfo.af_inet.recverr is a flag (1-bit variable) to enable the
+> "extended reliable error message passing"; I dont see any reason
+> for modifying it here. Setting this flag is the user's responsability,
+> isn't it?
+
+I dont see any reason for modifying it there either - it is used for
+mostly for incoming ICMP errors; but the original piece of code was
+modifying it so i left it as is; however, thats not what you were chasing
+and i dont see how what you just posted is solving your problem.
+Did you even bother to test what i sent you? Or for that matter
+bother testing what you posted?
+
+cheers,
+jamal
