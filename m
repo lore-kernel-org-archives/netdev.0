@@ -1,84 +1,70 @@
-From: Daniel McNeil <daniel@osdl.org>
-Subject: [PATCH 2.5.68] net/ipv6 missing kmem_cache_destroy
-Date: 29 Apr 2003 09:21:18 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: Race with netdevice unregister and dst_dev_event
+Date: Tue, 29 Apr 2003 10:15:35 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1051633278.2446.103.camel@ibm-c.pdx.osdl.net>
+Message-ID: <20030429101535.17d97c23.shemminger@osdl.org>
+References: <20030428163557.60896645.shemminger@osdl.org>
+	<20030428.175719.104057922.davem@redhat.com>
+	<20030429091023.3a73beda.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-0IQSK81vzug9fKned0fJ"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030429091023.3a73beda.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 29 Apr 2003 09:10:23 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
---=-0IQSK81vzug9fKned0fJ
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+> On Mon, 28 Apr 2003 17:57:19 -0700 (PDT)
+> "David S. Miller" <davem@redhat.com> wrote:
+> 
+> >    From: Stephen Hemminger <shemminger@osdl.org>
+> >    Date: Mon, 28 Apr 2003 16:35:57 -0700
+> > 
+> >    So unless dst.c is fixed, there needs to be a rule NEVER use
+> >    dev->destructor in network modules.
+> > 
+> > I don't understand what the problem is.
+> > 
+> > Look, this code in the DST cache merely puts the device (which is
+> > legal from any context) if the device lacks a destructor.
+> > 
+> > If it has a destructor, it keeps the reference and once the DST entry
+> > dies the dst->dev is dev_put().  So it does in fact do the "cleanup"
+> > contrary to what you say, this happens during dst entry garbage
+> > collection.
+> > 
+> > If the dst has a dst->dev attached, the device has a reference
+> > and thus so does your module which created the device and thus
+> > your module cannot be unloaded.
+> > 
+> > So to reiterate, what exactly is the problem? :-)
+> 
+> The problem is that the destructor points to code that is in the module,
+> and it doesn't get run during unregister but later when the dst cache
+> GC timer expores. 
+> So it is possible for the module to go away before the DST entry is
+> released by dev_put() in the garbage collection (by timer). At that
+> point the destructor points to dead memory.
+> 
 
-While trying to get ipv6 to work as a module with the new module
-reference code, I notice that ipv6 is missing the kmem_cache_destroy()
-calls that the init functions created.
+How about this solution, it resolves the problem when
+I unload bridge.  It causes the cache to release immediately,
+if the device is a module.
 
-Another problem with ipv6 is that it creates sockets in the init
-routine, so there are reference to the module which will prevent it
-from being unloaded.  I tried adding a module_put for every
-socket created in the init routines, but ran into a problem with
-inet6_exit() calling sock_unregister(PF_INET6) as the very first thing.
-This caused a problem when the cleanup routines were called and
-the did a sock_release().
-
-Any ideas on how to fix this so ipv6 can be a module?
-init routines creating sockets makes things difficult.
-
-I've attached a patch to 2.5.68 to add the missing kmem_cache_destroy
-calls.
-
-BTW, how does one get on the netdev mailing list?
-
-Thanks,
-
--- 
-Daniel McNeil <daniel@osdl.org>
-
---=-0IQSK81vzug9fKned0fJ
-Content-Disposition: attachment; filename=patch.2.5.68-ipv6.kmem
-Content-Type: text/x-patch; name=patch.2.5.68-ipv6.kmem; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-
-diff -rupN -X /home/daniel/dontdiff linux-2.5.68/net/ipv6/af_inet6.c linux-2.5.68-sock/net/ipv6/af_inet6.c
---- linux-2.5.68/net/ipv6/af_inet6.c	Sat Apr 19 19:49:56 2003
-+++ linux-2.5.68-sock/net/ipv6/af_inet6.c	Tue Apr 29 09:03:08 2003
-@@ -871,6 +871,9 @@ static void inet6_exit(void)
- 	ipv6_sysctl_unregister();	
- #endif
- 	cleanup_ipv6_mibs();
-+	kmem_cache_destroy(tcp6_sk_cachep);
-+	kmem_cache_destroy(udp6_sk_cachep);
-+	kmem_cache_destroy(raw6_sk_cachep);
- }
- module_exit(inet6_exit);
- #endif /* MODULE */
-diff -rupN -X /home/daniel/dontdiff linux-2.5.68/net/ipv6/ip6_fib.c linux-2.5.68-sock/net/ipv6/ip6_fib.c
---- linux-2.5.68/net/ipv6/ip6_fib.c	Sat Apr 19 19:50:37 2003
-+++ linux-2.5.68-sock/net/ipv6/ip6_fib.c	Tue Apr 29 09:03:30 2003
-@@ -1241,6 +1241,8 @@ void __init fib6_init(void)
- void fib6_gc_cleanup(void)
- {
- 	del_timer(&ip6_fib_timer);
-+	if (fib6_node_kmem)
-+		kmem_cache_destroy(fib6_node_kmem);
- }
- #endif
- 
-diff -rupN -X /home/daniel/dontdiff linux-2.5.68/net/ipv6/route.c linux-2.5.68-sock/net/ipv6/route.c
---- linux-2.5.68/net/ipv6/route.c	Sat Apr 19 19:50:34 2003
-+++ linux-2.5.68-sock/net/ipv6/route.c	Tue Apr 29 09:04:29 2003
-@@ -1897,5 +1897,6 @@ void ip6_route_cleanup(void)
- 	xfrm6_fini();
- 	rt6_ifdown(NULL);
- 	fib6_gc_cleanup();
-+	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
- }
- #endif	/* MODULE */
-
---=-0IQSK81vzug9fKned0fJ--
+diff -Nru a/net/core/dst.c b/net/core/dst.c
+--- a/net/core/dst.c	Tue Apr 29 10:12:10 2003
++++ b/net/core/dst.c	Tue Apr 29 10:12:10 2003
+@@ -228,7 +228,7 @@
+ 				   _race_ _condition_.
+ 				 */
+ 				if (event!=NETDEV_DOWN &&
+-				    dev->destructor == NULL &&
++				    (dev->destructor == NULL  || dev->owner) &&
+ 				    dst->output == dst_blackhole) {
+ 					dst->dev = &loopback_dev;
+ 					dev_put(dev);
