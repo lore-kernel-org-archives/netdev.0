@@ -1,44 +1,74 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: RFC: per-socket statistics on received/dropped packets
-Date: Fri, 14 Jun 2002 11:09:51 -0700
+From: "Luigi Cartuccia" <luigigocart@tiscalinet.it>
+Subject: frag problem
+Date: Fri, 14 Jun 2002 13:15:39 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <aedbpj$qpd$2@main.gmane.org>
-References: <5.1.0.14.2.20020612224038.0251bd08@mira-sjcm-3.cisco.com> 	<5.1.0.14.2.20020614100914.01adca48@mira-sjcm-3.cisco.com> <1024069878.20676.1.camel@dell_ss3.pdx.osdl.net>
+Message-ID: <007301c21394$d102bba0$0a120b3e@luigicart>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Lincoln Dale <ltd@cisco.com>, jamal <hadi@cyberus.ca>,
-   Horst von Brand <vonbrand@inf.utfsm.cl>,
-   "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: multipart/alternative;
+	boundary="----=_NextPart_000_0070_01C213A5.93F47BC0"
 Return-path: <owner-netdev@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: <netdev@oss.sgi.com>
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+
+------=_NextPart_000_0070_01C213A5.93F47BC0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+
+=20
+Good morning I'm Luigi Cartuccia an italian student.I have a =
+fragmentation problem.I have installed a software for routing multi-hop =
+for wireless Lan 802.11.I use linux-2.4.7.
+My problem:
+Without the software ssh and scp is ok
+With the software ssh is ok and scp is not ok
+Instead the writer of the software have used linux-2.4.3 and with the =
+software,he have asked me,scp is ok.
+I have discovered that it is a fragmentation's problem in fact the =
+fragment.c file is various for linux-2.4.3 and linux-2.4.7.
+Can you help me?
+Thank you very much=20
+Luigi
 
 
-Stephen Hemminger wrote:
+------=_NextPart_000_0070_01C213A5.93F47BC0
+Content-Type: text/html;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 
-> It sounds like what you want is socket accounting which works like
-> process accounting.  I.e when a socket lifetime ends, put out a record
-> with number of packets/bytes sent/received.
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
+<META content=3D"text/html; charset=3Diso-8859-1" =
+http-equiv=3DContent-Type>
+<META content=3D"MSHTML 5.00.2919.6307" name=3DGENERATOR>
+<STYLE></STYLE>
+</HEAD>
+<BODY bgColor=3D#ffffff>
+<DIV><FONT face=3DArial size=3D2><FONT face=3DArial size=3D2>&nbsp;
+<DIV><FONT face=3DArial size=3D2>Good morning I'm Luigi Cartuccia an =
+italian=20
+student.I have a fragmentation problem.I have installed a software for =
+routing=20
+multi-hop for wireless Lan 802.11.I use linux-2.4.7.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>My problem:</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>Without the software ssh and scp is =
+ok</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>With the software ssh is ok and scp is =
+not=20
+ok</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>Instead the writer of the software have =
+used=20
+linux-2.4.3 and with the software,he have asked me,scp is =
+ok.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>I have discovered that it is a =
+fragmentation's=20
+problem in fact the fragment.c file is various for linux-2.4.3 and=20
+linux-2.4.7.</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>Can you help me?</FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>Thank you very much </FONT></DIV>
+<DIV><FONT face=3DArial size=3D2>Luigi</FONT></DIV>
+<DIV>&nbsp;</DIV></FONT></FONT></DIV></BODY></HTML>
 
-
-Runtime is much more interesting to me.  However, if you are keeping
-enough information to do the accounting as you suggest, then it would
-be trivial to make it available incrementally over the life of the
-socket.
-
-Billing is not the only interesting aspect of this.  It is also good for
-any program trying to dynamically tune or understand the lower-level
-characteristics of a particular routing path or interface.
-
-Ben
-
-
-
-
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+------=_NextPart_000_0070_01C213A5.93F47BC0--
