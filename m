@@ -1,30 +1,42 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec xfrm resolution
-Date: Mon, 21 Mar 2005 07:38:41 +1100
-Message-ID: <20050320203841.GA29078@gondor.apana.org.au>
-References: <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au> <20050317203231.1b649f60.davem@davemloft.net> <423D9BFB.2090309@trash.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: patch: introduce simple actions
+Date: 20 Mar 2005 15:41:53 -0500
+Message-ID: <1111351313.1092.141.camel@jzny.localdomain>
+References: <1111345551.1095.82.camel@jzny.localdomain>
+	 <423DCD8C.6030100@trash.net> <1111347345.1094.98.camel@jzny.localdomain>
+	 <423DD5E6.2020708@trash.net> <1111349853.1093.136.camel@jzny.localdomain>
+	 <20050320203122.GX3086@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <423D9BFB.2090309@trash.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Patrick McHardy <kaber@trash.net>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050320203122.GX3086@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Mar 20, 2005 at 04:51:23PM +0100, Patrick McHardy wrote:
->
-> Not yet, I've put it on hold after clashing with Herbert's MTU work.
-> I'll have a few free days this week where I will continue to work
-> on this.
+On Sun, 2005-03-20 at 15:31, Thomas Graf wrote:
+> * Jamal Hadi Salim <1111349853.1093.136.camel@jzny.localdomain> 2005-03-20 15:17
+> > reason this was written to begin with. The standard interface exists,
+> > and more versed people or someone wanting to write something complex can
+> > go that path. At some point i would like to document all this stuff.
+> 
+> Yes, we do have to find some way to document all this in a proper way.
+> Maybe we can write some _really_ technical reference brought down to
+> the bare minimum required and extend the LARTC howto with new examples
+> to cover the practical side.
 
-I've completed the first stage of the MTU work so please feel free to
-send patches through.
+Agreed - this as well as the ematch etc. not sure if the current howto
+will be the proper place - but somewhere close to it.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+There has been a lot of very interesting new things going in and there
+seems to be stability now - Lets talk offline.
+
+cheers,
+jamal
+
+PS:- stupid mailer sometimes sticks my work email as posting address.
+None of this is not work related at all ;->
