@@ -1,29 +1,52 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: fealnx oopses
-Date: Fri, 26 Mar 2004 23:35:14 +0100
+From: Scott Feldman <scott.feldman@intel.com>
+Subject: [PATCH 2.4] Update MAINTAINERS with new e100/e100 maintainers
+Date: Fri, 26 Mar 2004 15:26:09 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040326233514.B26347@electric-eye.fr.zoreil.com>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <200403262157.21624.vda@port.imtp.ilyichevsk.odessa.ua> <40648CAF.5010203@pobox.com> <200403270014.23088.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <Pine.LNX.4.58.0403261519010.15875@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andreas Henriksson <andreas@fjortis.info>,
-        netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: scott.feldman@intel.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
+        john.ronciak@intel.com, ganesh.venkatesan@intel.com, cramerj@intel.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Content-Disposition: inline
-In-Reply-To: <200403270014.23088.vda@port.imtp.ilyichevsk.odessa.ua>; from vda@port.imtp.ilyichevsk.odessa.ua on Sat, Mar 27, 2004 at 12:14:42AM +0200
+To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
-[...]
-> Yes. But on x86 a++ is atomic vs interrupts - it's a single instruction
-> and interrupts happen on instruction boundaries only.
 
-Do you realize that you are saying that the CPU can atomically increment an
-integer which sits _in memory_ ?
+Jeff, removing myself and adding John/Ganesh as new maintainers for
+e100/e1000 in 2.4.
 
-Oops :o)
+-scott
 
---
-Ueimor
+-----------
+
+--- linux-2.4.25/MAINTAINERS.orig	2004-03-26 10:07:45.000000000 -0800
++++ linux-2.4.25/MAINTAINERS	2004-03-26 10:08:35.000000000 -0800
+@@ -954,14 +954,24 @@
+ M:	tigran@veritas.com
+ S:	Maintained
+
++INTEL PRO/100 ETHERNET SUPPORT
++P:	John Ronciak
++M:	john.ronciak@intel.com
++P:	Ganesh Venkatesan
++M:	Ganesh.Venkatesan@intel.com
++W:	http://sourceforge.net/projects/e1000/
++S:	Supported
++
+ INTEL PRO/1000 GIGABIT ETHERNET SUPPORT
+ P:	Jeb Cramer
+ M:	cramerj@intel.com
+-P:	Scott Feldman
+-M:	scott.feldman@intel.com
++P:	John Ronciak
++M:	john.ronciak@intel.com
++P:	Ganesh Venkatesan
++M:	Ganesh.Venkatesan@intel.com
+ W:	http://sourceforge.net/projects/e1000/
+ S:	Supported
+-
++
+ INTERMEZZO FILE SYSTEM
+ P:	Chen Yang
+ M:	intermezzo-devel@lists.sourceforge.net
