@@ -1,51 +1,50 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: [PATCH] Compat32 setsockopt overzealous conversions
-Date: Tue, 07 Sep 2004 14:23:00 +0100
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] remove secure_ipv6_id
+Date: Tue, 7 Sep 2004 17:17:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094563381.5122.8.camel@localhost.localdomain>
+Message-ID: <20040907151753.GA9735@lst.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: akpm@osdl.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-compat_sys_setsockopt() is a little overzealous about converting 32-bit
-stuff into 64-bit. It should match on level _and_ optname, not just
-optname. Currently it eats the IPV6_V6ONLY sockopt because its value
-(26) happens to match SO_ATTACH_FILTER.
+looks like the ipv6 code doesn't need this one anymore
 
-This makes it at least check 'level' for everything but
-IPT_SO_SET_REPLACE == IPT6_SO_SET_REPLACE, because that does seem to be
-the same in different levels. But do_netfilter_replace() is another can
-of worms entirely -- it doesn't actually work either, because some
-netfilter modules (like ipt_limit) include kernel-only bits which change
-size in the structure they share with userspace. 
 
---- net/compat.c~	2004-08-14 06:37:15.000000000 +0100
-+++ net/compat.c	2004-09-03 17:47:26.260926176 +0100
-@@ -455,13 +455,15 @@
- asmlinkage long compat_sys_setsockopt(int fd, int level, int optname,
- 				char __user *optval, int optlen)
- {
-+	/* SO_SET_REPLACE seems to be the same in all levels */
- 	if (optname == IPT_SO_SET_REPLACE)
- 		return do_netfilter_replace(fd, level, optname,
- 					    optval, optlen);
--	if (optname == SO_ATTACH_FILTER)
-+	if (level == SOL_SOCKET && optname == SO_ATTACH_FILTER)
- 		return do_set_attach_filter(fd, level, optname,
- 					    optval, optlen);
--	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
-+	if (level == SOL_SOCKET &&
-+	    (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO))
- 		return do_set_sock_timeout(fd, level, optname, optval, optlen);
+--- 1.54/drivers/char/random.c	2004-09-03 11:08:21 +02:00
++++ edited/drivers/char/random.c	2004-09-07 15:51:23 +02:00
+@@ -2279,19 +2279,7 @@
+ 	return seq;
+ }
+ EXPORT_SYMBOL(secure_tcpv6_sequence_number);
+-
+-__u32 secure_ipv6_id(__u32 *daddr)
+-{
+-	struct keydata *keyptr;
+-
+-	keyptr = check_and_rekey(get_seconds());
+-
+-	return halfMD4Transform(daddr, keyptr->secret);
+-}
+-
+-EXPORT_SYMBOL(secure_ipv6_id);
+ #endif
+-
  
- 	return sys_setsockopt(fd, level, optname, optval, optlen);
-
-
-
--- 
-dwmw2
+ __u32 secure_tcp_sequence_number(__u32 saddr, __u32 daddr,
+ 				 __u16 sport, __u16 dport)
+--- 1.3/include/linux/random.h	2003-09-21 23:50:34 +02:00
++++ edited/include/linux/random.h	2004-09-07 14:07:58 +02:00
+@@ -67,8 +67,6 @@
+ extern __u32 secure_tcpv6_sequence_number(__u32 *saddr, __u32 *daddr,
+ 					  __u16 sport, __u16 dport);
+ 
+-extern __u32 secure_ipv6_id(__u32 *daddr);
+-
+ #ifndef MODULE
+ extern struct file_operations random_fops, urandom_fops;
+ #endif
