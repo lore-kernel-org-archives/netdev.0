@@ -1,128 +1,73 @@
-From: Christian Benvenuti <christian.benvenuti@libero.it>
-Subject: Default route selection and dead GW detection
-Date: Tue, 11 Jan 2005 14:03:50 -0800
-Message-ID: <1105481030.2809.4160.camel@localhost.localdomain>
+From: David Hollis <dhollis@davehollis.com>
+Subject: [PATCH] tg3.h & b44.h ifndef ADVERTISE_PAUSE typo
+Date: Tue, 11 Jan 2005 09:42:33 -0500
+Message-ID: <1105454553.4264.4.camel@dhollis-lnx.centricconsulting.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-o4RiUs3lCqkUr5oeoFjS"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-  I am looking at how Linux selects a default route (when
-multipath is not configured), and in particular I am looking at:
 
-        fn_hash_select_default / fib_detect_death (kernel 2.6.9)
-
-It seems to me this is the logic used:
-
-  a) If there is only one default route defined (which would be the one
-     previously selected by <fn_hash_lookup> and saved in "res->fi"),
-     that one would be used.
-
-  b) If there is more than one route available, then:
-
-     b1) the first default route whose next-hop is NUD_REACHABLE
-         is selected.
-
-     b2) if there is no NUD_REACHABLE GW, then
-
-         b3) all eligible default routes are checked and the
-             last one with a NUD_VALID GW is selected
-             (if != fn_hash_last_dflt)
-
-             b4) if there is no NUD_VALID GW, all default routes
-                 will be tried by <fn_hash_select_default>, one by
-                 one, from first one to last one.
-
-Did I get the logic right? Supposing I did, I have a couple of
-questions about b3):
-
-1) why does b3) check for (!=fn_hash_last_dflt) ?
-   In other words, if you do not use the "fn_hash_last_dflt"
-   GW for sometime, and therefore its NUD states goes to
-   NUD_STALE, why would you select another NUD_VALID (but
-   not NUD_REACHABLE) GW?
-
-2) please see my second question below
-
-static int fib_detect_death(struct fib_info *fi, int order,
-			    struct fib_info **last_resort,
-                            int *last_idx)
-{
-	struct neighbour *n;
-	int state = NUD_NONE;
-
-	n = neigh_lookup(&arp_tbl, &fi->fib_nh[0].nh_gw, fi->fib_dev);
-	if (n) {
-		state = n->nud_state;
-		neigh_release(n);
-	}
-	if (state==NUD_REACHABLE)
-		return 0;
-	if ((state&NUD_VALID) && order != fn_hash_last_dflt)
-		return 0;
-
-/* Why does the block below keep updating <last_resort> and 
- * <last_idx> even when they are already initialized?
- * (e.g. from a previous invocation by <fn_hash_select_default>)
- * Is it just to make code simpler?
- */
-	if ((state&NUD_VALID) ||
-	    (*last_idx<0 && order > fn_hash_last_dflt)) {
-		*last_resort = fi;
-		*last_idx = order;
-	}
-	return 1;
-}
-
-I also have a doubt about how the "classic" configuration
-of multiple default routes coexists with a multipath default
-route.
-
-Since multiple default GW are configurable both with multiple
-
-  "route add default ..."
-
-commands, or with a single default multipath route like 
-
-  "ip route add default ..."
-
-am I correct if I say that those two forms are exclusive?
-
-You can configure default routes with both commands, the
-kernel does not complain, but it seems the routing routines 
-<ip_route_{input, output}_slow> do not take this possibility
-into account. 
-
-For example:
-
-- <ip_route_output_slow> selects the default route either
-  with <fib_select_multipath> or <fib_select_default>:
-
-  ...
-  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res.fi->fib_nhs > 1 && fl.oif == 0)
-		fib_select_multipath(&fl, &res);
-	else
-  #endif
-	if (!res.prefixlen && res.type == RTN_UNICAST && !fl.oif)
-		fib_select_default(&fl, &res);
-  ...
-
-- <ip_route_input_slow> does not call <fib_select_default>
-  at all:
-
-  ...
-  #ifdef CONFIG_IP_ROUTE_MULTIPATH
-	if (res.fi->fib_nhs > 1 && fl.oif == 0)
-		fib_select_multipath(&fl, &res);
-  #endif
-  ... 
+--=-o4RiUs3lCqkUr5oeoFjS
+Content-Type: multipart/mixed; boundary="=-PkaztbHcB1OMnKtuQu/D"
 
 
-Thanks in advance
--Christian
+--=-PkaztbHcB1OMnKtuQu/D
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+tg3.h and b44.h define ADVERTISE_PAUSE_CAP if ADVERTISE_PAUSE
+is not defined.  Both include a notation that these values should
+be added to mii.h.  If ADVERTISE_PAUSE_CAP was added to mii.h,
+these defines would break since they are checking for ADVERTISE_PAUSE
+instead of ADVERTISE_PAUSE_CAP.
+
+--=20
+David Hollis <dhollis@davehollis.com>
+
+--=-PkaztbHcB1OMnKtuQu/D
+Content-Disposition: attachment; filename=b44_tg3_advertise_define.patch
+Content-Type: text/x-patch; name=b44_tg3_advertise_define.patch; charset=UTF-8
+Content-Transfer-Encoding: base64
+
+dGczLmggYW5kIGI0NC5oIGRlZmluZSBBRFZFUlRJU0VfUEFVU0VfQ0FQIGlmIEFEVkVSVElTRV9Q
+QVVTRQ0KaXMgbm90IGRlZmluZWQuICBCb3RoIGluY2x1ZGUgYSBub3RhdGlvbiB0aGF0IHRoZXNl
+IHZhbHVlcyBzaG91bGQNCmJlIGFkZGVkIHRvIG1paS5oLiAgSWYgQURWRVJUSVNFX1BBVVNFX0NB
+UCB3YXMgYWRkZWQgdG8gbWlpLmgsDQp0aGVzZSBkZWZpbmVzIHdvdWxkIGJyZWFrIHNpbmNlIHRo
+ZXkgYXJlIGNoZWNraW5nIGZvciBBRFZFUlRJU0VfUEFVU0UNCmluc3RlYWQgb2YgQURWRVJUSVNF
+X1BBVVNFX0NBUC4NCg0KU2lnbmVkLW9mZi1ieTogRGF2aWQgSG9sbGlzIDxkaG9sbGlzQGRhdmVo
+b2xsaXMuY29tPg0KDQogZHJpdmVycy9uZXQvYjQ0LmggfCAgICAyICstDQogZHJpdmVycy9uZXQv
+dGczLmggfCAgICAyICstDQogMiBmaWxlcyBjaGFuZ2VkLCAyIGluc2VydGlvbnMoKyksIDIgZGVs
+ZXRpb25zKC0pDQoNCi0tLSBhL2RyaXZlcnMvbmV0L2I0NC5oCTIwMDUtMDEtMTEgMDk6MzQ6Mzku
+MTc4NzM5NzI4IC0wNTAwDQorKysgYi9kcml2ZXJzL25ldC9iNDQuaAkyMDA1LTAxLTExIDA5OjM0
+OjU0LjIxNTQ1MzgwMCAtMDUwMA0KQEAgLTMwMyw3ICszMDMsNyBAQA0KICNkZWZpbmUgIE1JSV9U
+TEVEQ1RSTF9FTkFCTEUJMHgwMDQwDQogDQogLyogWFhYIEFkZCB0aGlzIHRvIG1paS5oICovDQot
+I2lmbmRlZiBBRFZFUlRJU0VfUEFVU0UNCisjaWZuZGVmIEFEVkVSVElTRV9QQVVTRV9DQVANCiAj
+ZGVmaW5lIEFEVkVSVElTRV9QQVVTRV9DQVAJCTB4MDQwMA0KICNlbmRpZg0KICNpZm5kZWYgQURW
+RVJUSVNFX1BBVVNFX0FTWU0NCi0tLSBhL2RyaXZlcnMvbmV0L3RnMy5oCTIwMDUtMDEtMTEgMDk6
+MzQ6NDMuNTYyMDczMzYwIC0wNTAwDQorKysgYi9kcml2ZXJzL25ldC90ZzMuaAkyMDA1LTAxLTEx
+IDA5OjM1OjAwLjc4NjQ1NDg1NiAtMDUwMA0KQEAgLTE1MzIsNyArMTUzMiw3IEBADQogI2RlZmlu
+ZSBNSUlfVEczX0lOVF9BTkVHX1BBR0VfUlgJMHgwNDAwDQogDQogLyogWFhYIEFkZCB0aGlzIHRv
+IG1paS5oICovDQotI2lmbmRlZiBBRFZFUlRJU0VfUEFVU0UNCisjaWZuZGVmIEFEVkVSVElTRV9Q
+QVVTRV9DQVANCiAjZGVmaW5lIEFEVkVSVElTRV9QQVVTRV9DQVAJCTB4MDQwMA0KICNlbmRpZg0K
+ICNpZm5kZWYgQURWRVJUSVNFX1BBVVNFX0FTWU0NCg==
+
+
+--=-PkaztbHcB1OMnKtuQu/D--
+
+--=-o4RiUs3lCqkUr5oeoFjS
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBB4+XYxasLqOyGHncRAp0jAJwKAqDdD6FwkI6RYY4xrzHVy1uV7wCfT3Xs
+isuZI5Zj6U+5ljhqqPb/RB8=
+=y/OI
+-----END PGP SIGNATURE-----
+
+--=-o4RiUs3lCqkUr5oeoFjS--
