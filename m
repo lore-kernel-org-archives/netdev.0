@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6.9-rc4 2/2] r8169: use netdev_priv
-Date: Fri, 15 Oct 2004 15:38:04 -0700
+Subject: [PATCH 2.6.9-rc4 1/2] slip: use module_param
+Date: Fri, 15 Oct 2004 13:04:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041015153804.4ff3fca6@zqx3.pdx.osdl.net>
+Message-ID: <20041015130428.76eef1c3@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,28 +12,29 @@ To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use netdev_priv in a couple of places in realtek 8169
+Replace MODULE_PARM with module_param (also make slip_maxdev static).
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
---- a/drivers/net/r8169.c	2004-10-15 15:00:43 -07:00
-+++ b/drivers/net/r8169.c	2004-10-15 15:00:43 -07:00
-@@ -1119,7 +1119,7 @@
+diff -Nru a/drivers/net/slip.c b/drivers/net/slip.c
+--- a/drivers/net/slip.c	2004-10-15 12:34:30 -07:00
++++ b/drivers/net/slip.c	2004-10-15 12:34:30 -07:00
+@@ -57,6 +57,7 @@
+ #define SL_CHECK_TRANSMIT
+ #include <linux/config.h>
+ #include <linux/module.h>
++#include <linux/moduleparam.h>
  
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
--	tp = dev->priv;
-+	tp = netdev_priv(dev);
+ #include <asm/system.h>
+ #include <asm/uaccess.h>
+@@ -85,8 +86,8 @@
  
- 	// enable device (incl. PCI PM wakeup and hotplug setup)
- 	rc = pci_enable_device(pdev);
-@@ -1270,7 +1270,7 @@
- 	if (rc)
- 		return rc;
+ static struct net_device **slip_devs;
  
--	tp = dev->priv;
-+	tp = netdev_priv(dev);
- 	assert(ioaddr != NULL);
+-int slip_maxdev = SL_NRUNIT;		/* Can be overridden with insmod! */
+-MODULE_PARM(slip_maxdev, "i");
++static int slip_maxdev = SL_NRUNIT;
++module_param(slip_maxdev, int, 0);
+ MODULE_PARM_DESC(slip_maxdev, "Maximum number of slip devices");
  
- 	if (RTL_R8(PHYstatus) & TBI_Enable) {
+ static int slip_esc(unsigned char *p, unsigned char *d, int len);
