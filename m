@@ -1,57 +1,44 @@
-From: Ian Campbell <icampbell@arcom.com>
-Subject: [PATCH] Do not include linux/irq.h from linux/netpoll.h
-Date: Mon, 15 Mar 2004 16:52:50 +0000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1079369568.19012.100.camel@icampbell-debian>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [RFC] Vegas and tcp parameters per route
+Date: Mon, 15 Mar 2004 09:20:18 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040315092018.1e843d83@dell_ss3.pdx.osdl.net>
+References: <20040312151729.25d9c696@dell_ss3.pdx.osdl.net>
+	<1079160064.11606.15.camel@viivi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Pasi Sarolahti <pasi.sarolahti@iki.fi>
+In-Reply-To: <1079160064.11606.15.camel@viivi>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+On Sat, 13 Mar 2004 08:41:05 +0200
+Pasi Sarolahti <pasi.sarolahti@iki.fi> wrote:
 
-(I hope netdev is the right place for netpoll stuff)
+> Hi Stephen,
+> 
+> On Sat, 2004-03-13 at 01:17, Stephen Hemminger wrote:
+> > This is the second more complete version of TCP Vegas that allows setting
+> > the options based on route.  Reused the RTAX_FEATURE metric which got
+> > defined but never used, to provide the ability to select vegas, westwood,
+> > and/or frto per route.
+> > 
+> > There is an modified version of iproute2 available at
+> > 	http://developer.osdl.org/shemminger/tcp/iproute2-exp.tar.bz2
+> > With this it is possible to setup options per route with ip.
+> > 	ip route add to 10.0.0.1 features vegas/frto
+> 
+> I would still like to keep the good old sysctl interface (well, at least
+> for tcp_frto), because I'd belive it is more familiar and easier to use
+> for many and not dependent of external tools.
+> 
+> Would it be too complicated, if sysctl would give the global default,
+> from which one can deviate using RTAX_FEATURE?
 
-It seems that the changeset at
-http://www.kernel.org/pub/linux/kernel/v2.6/testing/cset/cset-jgarzik@redhat.com|ChangeSet|20040302073919|27676.txt breaks the current BK tree build for ARM.
-
-The culprit would appear to be the addition of a 
-	#include <linux/netpoll.h>
-to net/core/dev.c which in turn pulls in <linux/irq.h> which (as Russell
-King notes in a comment therein) should not be included from generic
-code.
-
->From what I can tell from the netpoll code used to call the drivers irq
-handler to simulate a poll but now it uses the poll_controller function,
-therefore I don't think the linux/irq.h needs to be included any longer.
-The patch below removes the include.
-
-I successfully built an ARM kernel with NETCONSOLE and NETPOLL enabled,
-although I was not able to test it since my network driver has no poll
-method.
-
-Cheers,
-Ian.
-
-Index: linux-2.6-bkpxa/include/linux/netpoll.h
-===================================================================
---- linux-2.6-bkpxa.orig/include/linux/netpoll.h        2004-03-15 15:03:30.000000000 +0000
-+++ linux-2.6-bkpxa/include/linux/netpoll.h     2004-03-15 16:24:25.000000000 +0000
-@@ -9,7 +9,6 @@
-  
- #include <linux/netdevice.h>
- #include <linux/interrupt.h>
--#include <linux/irq.h>
- #include <linux/list.h>
-  
- struct netpoll;
-
--- 
-Ian Campbell, Senior Design Engineer
-                                        Web: http://www.arcom.com
-Arcom, Clifton Road, 			Direct: +44 (0)1223 403 465
-Cambridge CB1 7EA, United Kingdom	Phone:  +44 (0)1223 411 200
+Maybe for frto it needs to stay, but sysctl's are more painful and complex
+than keeping the stuff in the routing info.  Also, the external tools are
+part of every distro, except for a few embedded systems, the networking code
+depends on user tools already.
