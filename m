@@ -1,76 +1,128 @@
-From: Pablo Neira <pablo@eurodev.net>
-Subject: Re: [RFC] string matching based packet classification/filtering
-Date: Thu, 17 Feb 2005 02:00:57 +0100
-Message-ID: <4213ECC9.30502@eurodev.net>
-References: <20050215203211.GL31837@postel.suug.ch>
-	<42126C9B.5060406@eurodev.net>
-	<20050216223038.GQ31837@postel.suug.ch>
+From: Patrick McHardy <kaber@trash.net>
+Subject: [XFRM]: Always reroute in tunnel mode
+Date: Thu, 17 Feb 2005 07:22:23 +0100
+Message-ID: <4214381F.5020507@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>,
-	Harald Welte <laforge@gnumonks.org>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050216223038.GQ31837@postel.suug.ch>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: multipart/mixed;
+ boundary="------------010806070907080302070104"
+Cc: Maillist netdev <netdev@oss.sgi.com>,
+        Herbert Xu <herbert@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
+This is a multi-part message in MIME format.
+--------------010806070907080302070104
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
->>Actually I wanted to contact Harald after this friday, once I'm done 
->>with my exams. I'd like to merge my work with his libqsearch hackings 
->>that were about to be finished.
->>    
->>
->
->Thinking about it, we can use the architecture to implement a regular
->expression match. The pattern would consist of an array of tokens
->in the form of:
->
->struct regexp_token
->{
->	__u8 type;
->	__u8 recur;
->	__u8 value;
->	__u8 unused;
->};
->  
->
+Please see Changeset comment for a description, patch is based on
+your 2.6.12 tree.
 
-Yes, this is a good idea. This could be useful to match things like 
-interrogation marks or asterisks that are usually used as wildcard.
+Regards
+Patrick
 
->where type would be
->  - specific character (must match `value')
->  - wildcard
->  - digit
->  - xdigit
->  - alpha ...
->
->and recur
-> - 1
-> - 0..1
-> - 0..n
-> - 1..0
->
->The matching algorithm would parse the array as a finite automation
->eating up byte by byte in the text.
->
 
-Looks good but Boyer-Moore algorithm doesn't need this at all. BM 
-doesn't support wildcards like '*' because of the shiftings that it uses 
-to look for matches. This issue together with memory consumption are two 
-limitations that we have to live with if we want to use BM. Anyway I 
-think it's worth it because we can perform search in O(n/m).
+--------------010806070907080302070104
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---
-Pablo
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/02/17 07:10:03+01:00 kaber@coreworks.de 
+#   [XFRM]: Always reroute in tunnel mode
+#   
+#   Tunnel mode packets are rerouted if the tunnel destination
+#   address is different from the original destination address,
+#   otherwise the old route is used. This is inconsistent, the
+#   old route might have been selected for a given output device
+#   or using routing by tos/fwmark. Always choose a new route
+#   in tunnel mode.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv6/xfrm6_policy.c
+#   2005/02/17 07:09:55+01:00 kaber@coreworks.de +3 -1
+#   [XFRM]: Always reroute in tunnel mode
+#   
+#   Tunnel mode packets are rerouted if the tunnel destination
+#   address is different from the original destination address,
+#   otherwise the old route is used. This is inconsistent, the
+#   old route might have been selected for a given output device
+#   or using routing by tos/fwmark. Always choose a new route
+#   in tunnel mode.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv4/xfrm4_policy.c
+#   2005/02/17 07:09:55+01:00 kaber@coreworks.de +3 -1
+#   [XFRM]: Always reroute in tunnel mode
+#   
+#   Tunnel mode packets are rerouted if the tunnel destination
+#   address is different from the original destination address,
+#   otherwise the old route is used. This is inconsistent, the
+#   old route might have been selected for a given output device
+#   or using routing by tos/fwmark. Always choose a new route
+#   in tunnel mode.
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+--- a/net/ipv4/xfrm4_policy.c	2005-02-17 07:16:40 +01:00
++++ b/net/ipv4/xfrm4_policy.c	2005-02-17 07:16:40 +01:00
+@@ -59,6 +59,7 @@
+ 	int err;
+ 	int header_len = 0;
+ 	int trailer_len = 0;
++	int tunnel = 0;
+ 
+ 	dst = dst_prev = NULL;
+ 
+@@ -81,12 +82,13 @@
+ 		if (xfrm[i]->props.mode) {
+ 			remote = xfrm[i]->id.daddr.a4;
+ 			local  = xfrm[i]->props.saddr.a4;
++			tunnel = 1;
+ 		}
+ 		header_len += xfrm[i]->props.header_len;
+ 		trailer_len += xfrm[i]->props.trailer_len;
+ 	}
+ 
+-	if (remote != fl->fl4_dst) {
++	if (tunnel) {
+ 		struct flowi fl_tunnel = { .nl_u = { .ip4_u =
+ 						     { .daddr = remote,
+ 						       .saddr = local }
+diff -Nru a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+--- a/net/ipv6/xfrm6_policy.c	2005-02-17 07:16:40 +01:00
++++ b/net/ipv6/xfrm6_policy.c	2005-02-17 07:16:40 +01:00
+@@ -76,6 +76,7 @@
+ 	int err = 0;
+ 	int header_len = 0;
+ 	int trailer_len = 0;
++	int tunnel = 0;
+ 
+ 	dst = dst_prev = NULL;
+ 
+@@ -98,12 +99,13 @@
+ 		if (xfrm[i]->props.mode) {
+ 			remote = (struct in6_addr*)&xfrm[i]->id.daddr;
+ 			local  = (struct in6_addr*)&xfrm[i]->props.saddr;
++			tunnel = 1;
+ 		}
+ 		header_len += xfrm[i]->props.header_len;
+ 		trailer_len += xfrm[i]->props.trailer_len;
+ 	}
+ 
+-	if (!ipv6_addr_equal(remote, &fl->fl6_dst)) {
++	if (tunnel) {
+ 		struct flowi fl_tunnel;
+ 
+ 		memset(&fl_tunnel, 0, sizeof(fl_tunnel));
+
+--------------010806070907080302070104--
