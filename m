@@ -1,64 +1,29 @@
-From: "cramerj" <cramerj@intel.com>
-Subject: RE: ethtool -d no longer works for e1000
-Date: Wed, 9 Mar 2005 16:35:47 -0800
-Message-ID: <76FA8CF8F1F53240BB5B962A3385A5800256F787@orsmsx405>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: 2.6.11 on AMD64 traps
+Date: Wed, 9 Mar 2005 16:43:04 -0800
+Message-ID: <20050309164304.5902e558.davem@davemloft.net>
+References: <200503081900.18686.vanco@satro.sk>
+	<200503092217.01106.vanco@satro.sk>
+	<422F8649.8050707@trash.net>
+	<200503100050.05582.vanco@satro.sk>
+	<422F8D84.8010103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "Ganesh Venkatesan" <ganesh.venkatesan@gmail.com>, <netdev@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Ben Greear" <greearb@candelatech.com>, "Jon Mason" <jdmason@us.ibm.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: vanco@satro.sk, netdev@oss.sgi.com
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <422F8D84.8010103@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ah!  Yes, if you're running ethtool 1.8, then this was an issue (or
-rather, an annoyance) in e1000.c where we would default to mac_type =
-e1000_undefined for any newer hardware.  Continuous updates to this file
-for every piece of hardware we released got old pretty quick.  We've
-since changed the default mac_type to e1000_82543, which has a basic set
-of registers that haven't changed with each hardware release.  And
-although the e1000_82546 mac_type exists, it isn't yet being assigned to
-the 82546GB hardware (again, see e1000.c), thus the error.
+On Thu, 10 Mar 2005 00:57:56 +0100
+Patrick McHardy <kaber@trash.net> wrote:
 
-Long story short, an updated ethtool should do the trick.
+> > Will this patch be included in future kernels?
+> 
+> I hope so. Dave, are you fine with making /proc more efficient than
+> netlink ? :)
 
-Thanks,
--Jeb
-
-> -----Original Message-----
-> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
-> Behalf Of Ben Greear
-> Sent: Wednesday, March 09, 2005 3:42 PM
-> To: Jon Mason
-> Cc: Ganesh Venkatesan; netdev@oss.sgi.com
-> Subject: Re: ethtool -d no longer works for e1000
-> 
-> Ben Greear wrote:
-> > Jon Mason wrote:
-> >
-> >> I don't see this problem at all on my 2.6.11-rc4-mm1 kernel
-(Athlon64
-> >> proc).
-> >
-> >
-> > I think I see the problem.  ethtool -d eth0 works for me,
-> > but ethtool -d eth1 does not, even with both are e1000
-> > NICs.  It appears it cannot handle reading the second NIC for
-> > some reason?
-> 
-> Errr, my bad.  The problem is more that the dual-port pro/1000 NICs
-> don't seem to work, but the built-in e1000s do.
-> 
-> The chipset that does not work correctly is: 82546GB
-> 
-> The NICs with chipset: 82541EI seem to work just fine.
-> 
-> Ben
-> 
-> 
-> --
-> Ben Greear <greearb@candelatech.com>
-> Candela Technologies Inc  http://www.candelatech.com
-> 
+No objection :-)  I'll hit this on my next pass over my 2.6.x
+backlog which should start tonight.
