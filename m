@@ -1,12 +1,12 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [janitor] net: remove unnecessary type casting
-Date: Sat, 24 Jan 2004 22:17:01 -0800
+Subject: [janitor] get_stats: collapse conditionals
+Date: Sat, 24 Jan 2004 22:19:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040124221701.3c1406d3.rddunlap@osdl.org>
+Message-ID: <20040124221928.16f4c708.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com
+Cc: davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
@@ -21,72 +21,43 @@ Thanks,
 ~Randy
 
 
-From: Carlo Perassi <carlo@linux.it>
+From: Domen Puncer <domen@coderock.org>
+
 
 
 Hi.
-Line 346 of TODO states:
-"Lots of unnecessary casts in drivers can be removed"
 
-This micro patch removes some of them.
+Get rid of one comparison, improve readability.
 
--- 
-Carlo Perassi - http://www.linux.it/~carlo/
-
-diff -puN drivers/net/dl2k.c~netdev_rm_casts drivers/net/dl2k.c
-
-diff -puN drivers/net/dl2k.c~netdev_rm_casts drivers/net/dl2k.c
+diff -puN net/core/dev.c~netdev_get_stats net/core/dev.c
 
 
- linux-262-rc1-bk1-rddunlap/drivers/net/dl2k.c     |    4 ++--
- linux-262-rc1-bk1-rddunlap/drivers/net/fealnx.c   |    2 +-
- linux-262-rc1-bk1-rddunlap/drivers/net/sundance.c |    2 +-
- 3 files changed, 4 insertions(+), 4 deletions(-)
+ linux-262-rc1-bk1-rddunlap/net/core/dev.c |    7 ++++---
+ 1 files changed, 4 insertions(+), 3 deletions(-)
 
-diff -puN drivers/net/dl2k.c~netdev_rm_casts drivers/net/dl2k.c
---- linux-262-rc1-bk1/drivers/net/dl2k.c~netdev_rm_casts	2004-01-23 15:47:13.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/drivers/net/dl2k.c	2004-01-23 15:47:13.000000000 -0800
-@@ -745,7 +745,7 @@ rio_interrupt (int irq, void *dev_instan
- static void 
- rio_free_tx (struct net_device *dev, int irq) 
- {
--	struct netdev_private *np = (struct netdev_private *) dev->priv;
-+	struct netdev_private *np = dev->priv;
- 	int entry = np->old_tx % TX_RING_SIZE;
- 	int tx_use = 0;
- 	unsigned long flag = 0;
-@@ -855,7 +855,7 @@ tx_error (struct net_device *dev, int tx
- static int
- receive_packet (struct net_device *dev)
- {
--	struct netdev_private *np = (struct netdev_private *) dev->priv;
-+	struct netdev_private *np = dev->priv;
- 	int entry = np->cur_rx % RX_RING_SIZE;
- 	int cnt = 30;
+diff -puN net/core/dev.c~netdev_get_stats net/core/dev.c
+--- linux-262-rc1-bk1/net/core/dev.c~netdev_get_stats	2004-01-23 15:52:33.000000000 -0800
++++ linux-262-rc1-bk1-rddunlap/net/core/dev.c	2004-01-23 15:52:33.000000000 -0800
+@@ -1940,9 +1940,9 @@ void dev_seq_stop(struct seq_file *seq, 
  
-diff -puN drivers/net/fealnx.c~netdev_rm_casts drivers/net/fealnx.c
---- linux-262-rc1-bk1/drivers/net/fealnx.c~netdev_rm_casts	2004-01-23 15:47:13.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/drivers/net/fealnx.c	2004-01-23 15:47:13.000000000 -0800
-@@ -1426,7 +1426,7 @@ static irqreturn_t intr_handler(int irq,
- 	writel(0, dev->base_addr + IMR);
- 
- 	ioaddr = dev->base_addr;
--	np = (struct netdev_private *) dev->priv;
-+	np = dev->priv;
- 
- 	do {
- 		u32 intr_status = readl(ioaddr + ISR);
-diff -puN drivers/net/sundance.c~netdev_rm_casts drivers/net/sundance.c
---- linux-262-rc1-bk1/drivers/net/sundance.c~netdev_rm_casts	2004-01-23 15:47:13.000000000 -0800
-+++ linux-262-rc1-bk1-rddunlap/drivers/net/sundance.c	2004-01-23 15:47:13.000000000 -0800
-@@ -1136,7 +1136,7 @@ start_tx (struct sk_buff *skb, struct ne
- static int
- reset_tx (struct net_device *dev)
+ static void dev_seq_printf_stats(struct seq_file *seq, struct net_device *dev)
  {
--	struct netdev_private *np = (struct netdev_private*) dev->priv;
-+	struct netdev_private *np = dev->priv;
- 	long ioaddr = dev->base_addr;
- 	struct sk_buff *skb;
- 	int i;
+-	struct net_device_stats *stats = dev->get_stats ? dev->get_stats(dev) :
+-							  NULL;
+-	if (stats)
++	if (dev->get_stats) {
++		struct net_device_stats *stats = dev->get_stats(dev);
++
+ 		seq_printf(seq, "%6s:%8lu %7lu %4lu %4lu %4lu %5lu %10lu %9lu "
+ 				"%8lu %7lu %4lu %4lu %4lu %5lu %7lu %10lu\n",
+ 			   dev->name, stats->rx_bytes, stats->rx_packets,
+@@ -1960,6 +1960,7 @@ static void dev_seq_printf_stats(struct 
+ 			     stats->tx_window_errors +
+ 			     stats->tx_heartbeat_errors,
+ 			   stats->tx_compressed);
++	}
+ 	else
+ 		seq_printf(seq, "%6s: No statistics available.\n", dev->name);
+ }
 
 _
