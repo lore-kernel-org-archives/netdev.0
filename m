@@ -1,38 +1,23 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.6.0: something is leaking memory
-Date: Tue, 6 Jan 2004 09:59:09 -0800
+From: Meelis Roos <mroos@linux.ee>
+Subject: Re: Problem with Compaq NC3131 dual eth card
+Date: Tue, 06 Jan 2004 20:13:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040106095909.7243b2ce.davem@redhat.com>
-References: <slrnbvgohn.1pb.erik@dexter.hensema.net>
-	<Pine.LNX.4.58.0401041257290.2162@home.osdl.org>
-	<slrnbvh1hd.jl6.erik@dexter.hensema.net>
-	<Pine.LNX.4.58.0401041826400.2162@home.osdl.org>
-	<20040104204834.40b6ca51.davem@redhat.com>
-	<20040106155933.GA3373@bender.home.hensema.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: torvalds@osdl.org, netdev@oss.sgi.com, acme@conectiva.com.br
+Message-ID: <E1Advho-0000Pq-3c@rhn.tartu-labor>
+References: <20040106151751.GB1509622@hiwaay.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: erik@hensema.net
-In-Reply-To: <20040106155933.GA3373@bender.home.hensema.net>
+To: cmadams@hiwaay.net, netdev@oss.sgi.com
+In-Reply-To: <20040106151751.GB1509622@hiwaay.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 6 Jan 2004 16:59:34 +0100
-Erik Hensema <erik@hensema.net> wrote:
+CA> I have a Compaq NC3131 dual 10/100 ethernet PCI (64/32 bit in a 32 bit
+CA> slot) card.  The e100 module doesn't work, and the eepro100 module can
+CA> be coerced to work but complains about it (this is with Fedora Core 1
+CA> and kernel-2.4.22-1.2135.nptl.athlon.rpm).
 
-> David: are you sure it was fixed in rc1?
-> 
-> It doesn't seem to be in -rc2 either.
-> 
-> This is after 26 hours uptime:
-> 
-> tcp6_sock           6246   6248   1024    4    1 : tunables   54   27    0
-> : slabdata   1562   1562      0
+FWIW, I have a NC3134 (64/66 in 32/33 slot). Just tested it with
+2.6.1-rc1 and 2.4.25-pre4, works fine and transfers fine. I tried only
+e100 since it just worked.
 
-Someone mentioned about a bug in the userland program you're
-using that is openning these sockets?  Something about leaving sockets
-not closed.
-
-(Arnaldo, we aparently still have a TCP ipv6 socket leak...)
+-- 
+Meelis Roos
