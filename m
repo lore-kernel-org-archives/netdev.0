@@ -1,38 +1,27 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: kfree_skb: unnecessary check ?
-Date: Wed, 19 Jun 2002 18:53:18 +0200
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: how to report network device errors to userspace?
+Date: Wed, 19 Jun 2002 14:39:53 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3D10B6FE.1050602@trash.net>
+Message-ID: <3D10CFF9.B4072FEA@nortelnetworks.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
 Return-path: <owner-netdev@oss.sgi.com>
 To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi everyone.
 
-In skbuff.h one sees:
+I'm curious about the proper way for a network device driver to report faults to
+userspace.
 
-static inline void kfree_skb(struct sk_buff *skb)
-{
-        if (atomic_read(&skb->users) == 1 || 
-atomic_dec_and_test(&skb->users))
-                __kfree_skb(skb);
-}
+The network devices don't seem to have /dev entries as a rule, so that makes it
+difficult to use select/poll to alert a user app.
 
-Is atomic_dec_and_test really necessary ? atomic_dec_and_test only 
-returns true if its argument has hit zero, so it was 1 before.
-If atomic_dec is only a bit cheaper than atomic_dec_and_test (which i 
-guess it is), wouldn't it make more sense to use something like this:
+I haven't been able to find a standard interface for this--does nobody care
+about this kind of thing?
 
-static inline void kfree_skb(struct sk_buff *skb)
-{
-    if (atomic_read(&skb->users) == 1)
-        __kfree(skb);
-    else
-        atomic_dec(&skb->users);
-}
-
-Bye,
-Patrick
+-- 
+Chris Friesen                    | MailStop: 043/33/F10  
+Nortel Networks                  | work: (613) 765-0557
+3500 Carling Avenue              | fax:  (613) 765-2986
+Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
