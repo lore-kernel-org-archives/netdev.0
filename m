@@ -1,37 +1,48 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Andrew Morton <akpm@digeo.com>
 Subject: Re: Info: NAPI performance at "low" loads
-Date: Tue, 17 Sep 2002 14:49:11 -0700 (PDT)
+Date: Tue, 17 Sep 2002 14:58:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020917.144911.43656989.davem@redhat.com>
-References: <3D87A264.8D5F3AD2@digeo.com>
-	<20020917.143947.07361352.davem@redhat.com>
-	<3D87A4A2.6050403@mandrakesoft.com>
+Message-ID: <3D87A59C.410FFE3E@digeo.com>
+References: <3D87A264.8D5F3AD2@digeo.com> <20020917.143947.07361352.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: akpm@digeo.com, manfred@colorfullife.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Cc: manfred@colorfullife.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@mandrakesoft.com
-In-Reply-To: <3D87A4A2.6050403@mandrakesoft.com>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Jeff Garzik <jgarzik@mandrakesoft.com>
-   Date: Tue, 17 Sep 2002 17:54:42 -0400
+"David S. Miller" wrote:
+> 
+>    From: Andrew Morton <akpm@digeo.com>
+>    Date: Tue, 17 Sep 2002 14:45:08 -0700
+> 
+>    "David S. Miller" wrote:
+>    > Well, it is due to the same problems manfred saw initially,
+>    > namely just a crappy or buggy NAPI driver implementation. :-)
+> 
+>    It was due to additional inl()'s and outl()'s in the driver fastpath.
+> 
+> How many?  Did the implementation cache the register value in a
+> software state word or did it read the register each time to write
+> the IRQ masking bits back?
+> 
 
-   David S. Miller wrote:
-   > Any driver should be able to get the NAPI overhead to max out at
-   > 2 PIOs per packet.
-   
-   Just to pick nits... my example went from 2 or 3 IOs [depending on the 
-   presence/absence of a work loop] to 6 IOs.
-   
-I mean "2 extra PIOs" not "2 total PIOs".
+Looks like it cached it:
 
-I think it's doable for just about every driver, even tg3 with it's
-weird semaphore scheme takes 2 extra PIOs worst case with NAPI.
+-    outw(SetIntrEnb | (inw(ioaddr + 10) & ~StatsFull), ioaddr + EL3_CMD);
+     vp->intr_enable &= ~StatsFull;
++    outw(vp->intr_enable, ioaddr + EL3_CMD);
 
-The semaphore I have to ACK anyways at hw IRQ time anyways, and since
-I keep a software copy of the IRQ masking register, mask and unmask
-are each one PIO.
+> It is issues like this that make me say "crappy or buggy NAPI
+> implementation"
+> 
+> Any driver should be able to get the NAPI overhead to max out at
+> 2 PIOs per packet.
+> 
+> And if the performance is really concerning, perhaps add an option to
+> use MEM space in the 3c59x driver too, IO instructions are constant
+> cost regardless of how fast the PCI bus being used is :-)
+
+Yup.  But deltas are interesting.
