@@ -1,63 +1,66 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
 Subject: Re: [PATCH]: r8169: Expose hardware stats via ethtool
-Date: Sat, 26 Feb 2005 19:12:13 +0100
-Message-ID: <20050226181213.GA13230@electric-eye.fr.zoreil.com>
-References: <42208D83.80803@phekda.gotadsl.co.uk> <200502261132.29261.jdmason@us.ibm.com> <4220B9C6.1010106@pobox.com>
+Date: Sat, 26 Feb 2005 19:26:58 +0100
+Message-ID: <20050226182658.GB13230@electric-eye.fr.zoreil.com>
+References: <42208D83.80803@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jon Mason <jdmason@us.ibm.com>, Richard Dawe <rich@phekda.gotadsl.co.uk>,
-        netdev@oss.sgi.com
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: Jon Mason <jdmason@us.ibm.com>, netdev@oss.sgi.com, jgarzik@pobox.com
+To: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Content-Disposition: inline
-In-Reply-To: <4220B9C6.1010106@pobox.com>
+In-Reply-To: <42208D83.80803@phekda.gotadsl.co.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik <jgarzik@pobox.com> :
+Richard Dawe <rich@phekda.gotadsl.co.uk> :
 [...]
-> >+static void rtl8169_get_ethtool_stats(struct net_device *netdev,
-> >+       struct ethtool_stats *stats, u64 *data)
-> >+{
-> >+       struct rtl8169_private *tp = netdev_priv(netdev);
-> >+       void __iomem *ioaddr = tp->mmio_addr;
-> >+       int work = 100;
-> >+       int i;
-> >+
-> >+       /* begin NIC statistics dump */
-> >+       RTL_W32(StatsAddrHigh, tp->nic_stats_addr >> 32);
-> >+       RTL_W32(StatsAddrLow, (tp->nic_stats_addr & 0xffffffff) | 
-> >DumpStats);
-> >+       RTL_R32(StatsAddrLow);
-> >+
-> >+       while (work-- > 0) {
-> >+               if ((RTL_R32(StatsAddrLow) & DumpStats) == 0)
-> >+                       break;
-> >+               cpu_relax();
-> >+       }
-> >+
-> >+       if (RTL_R32(StatsAddrLow) & DumpStats)
-> >+               return; /* no stats - took too long */
-> >+
-> >+       i = 0;
-> >+       data[i++] = le64_to_cpu(tp->nic_stats->tx_ok);
-[...]
-> >+       data[i++] = le16_to_cpu(tp->nic_stats->tx_underrun);
-> >+       if (i != RTL8169_STATS_LEN)
-> >+               BUG();
-> >+}
-> >+
-> >
-> >It seems to me that 'i' could be re-used, instead of having both 'i' and 
-> >'work'.
-> 
-> No.  That's a completely useless pseudo-optimization.  Write readable 
-> code, and let the compiler do the rest.
+> @@ -1531,6 +1620,11 @@ static int rtl8169_open(struct net_devic
+>  	if (retval < 0)
+>  		goto err_free_rx;
+>  
+> +	tp->nic_stats = pci_alloc_consistent(pdev, R8169_STATS_BYTES,
+> +					     &tp->nic_stats_addr);
+> +	if (!tp->nic_stats)
+> +		goto err_free_nic_stats;
+> +
+>  	INIT_WORK(&tp->task, NULL, dev);
+>  
+>  	rtl8169_hw_start(dev);
+> @@ -1541,6 +1635,10 @@ static int rtl8169_open(struct net_devic
+>  out:
+>  	return retval;
+>  
+> +err_free_nic_stats:
+> +	pci_free_consistent(pdev, R8169_STATS_BYTES, tp->nic_stats,
+> +			    tp->nic_stats_addr);
+> +
 
-Btw I'd simply remove the 'work' variable and schedule in an interruptible
-way until the dump is done.
-
-BUG() is a bit exagerated imho.
+You don't want to free it it was not allocated. Please undo the previous
+step (init_ring probably) and:
+1) use the form "goto err_descriptive_name_for_the_release_work";
+2) if you feel it does not protect against wrong ordering as:
+   if (...)
+ 	goto err_foo;
+   if (...)
+	goto err_bar;
+   [...]
+   err_foo:
+	...
+   err_bar:
+	...
+   then add extra numbering:
+   if (...)
+	goto err_foo_0;
+   if (...)
+	goto err_bar_1;
+   [...]
+   err_bar_1:
+	...
+   err_foo_0:
+	...
+   It is not perfect but it is error proof (something the "goto err_1"
+   way alone can not claim btw).
 
 --
 Ueimor
