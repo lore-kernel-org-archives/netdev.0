@@ -1,41 +1,43 @@
-From: Peter Buckingham <peter@pantasys.com>
-Subject: Re: [PATCH 2.6] ipconfig accepts any DHCPACK
-Date: Tue, 07 Sep 2004 15:45:06 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: PPP-over-L2TP kernel support, patch for review
+Date: Tue, 7 Sep 2004 15:56:57 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <413E39F2.4070708@pantasys.com>
-References: <413E2C26.5040108@pantasys.com> <20040907150204.119ba849.davem@redhat.com>
+Message-ID: <20040907155657.2ab6a4bb.davem@davemloft.net>
+References: <1094471956.413c5114de2d7@www.katalix.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, kleptog@svana.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040907150204.119ba849.davem@redhat.com>
+To: James Chapman <jchapman@katalix.com>
+In-Reply-To: <1094471956.413c5114de2d7@www.katalix.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-  > Just because there are 16 bytes of hw address in the bootp packet
-> layout doesn't mean the device actually has that many.  Please fix
-> it to use dev->addr_len.
-> 
+On Mon,  6 Sep 2004 12:59:16 +0100
+James Chapman <jchapman@katalix.com> wrote:
 
-is this okay?
+> I'm working towards having this driver integrated into the kernel
+> tree. Comments?
 
-peter
+Only two major comments:
 
-Signed-off-by: Peter Buckingham <peter@pantasys.com>
+1) Uses own linked list implementations.  Please use
+   linux/list.h interfaces for this.
 
---- linus-2.6/net/ipv4/ipconfig.c	2004-09-02 14:53:54.000000000 -0700
-+++ local_linux/net/ipv4/ipconfig.c	2004-09-07 15:43:39.000000000 -0700
-@@ -966,6 +966,11 @@ static int __init ic_bootp_recv(struct s
-  				break;
+2) Does this:
 
-  			case DHCPACK:
-+				for (i = 0; (dev->dev_addr[i] == b->hw_addr[i])
-+						&& (i < dev->addr_len); i++);
-+				if (i < dev->addr_len)
-+					goto drop_unlock;
-+
-  				/* Yeah! */
-  				break;
+ struct sockaddr_pppox { 
+        sa_family_t     sa_family;            /* address family, AF_PPPOX */ 
+        unsigned int    sa_protocol;          /* protocol identifier */ 
+        union{ 
+                struct pppoe_addr       pppoe; 
++               struct pppol2tp_addr    pppol2tp;
+        }sa_addr; 
+ }__attribute__ ((packed)); 
+
+   Change the size of sockaddr_pppox on any platform?  If so, you'll
+   break pppox userspace with this change so we'd need find another
+   way to do it.
+
+Thanks.
