@@ -1,18 +1,17 @@
-From: SMART_Calgary_SMTP_Gateway@smarttech.inc.sgi.com
-Subject: Content violation
-Date: Sun, 7 Mar 2004 17:19:56 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: 2.6.x wanXL driver update
+Date: Sun, 07 Mar 2004 20:20:11 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403080119.i281JtKP012793@oss.sgi.com>
+Message-ID: <404BCA4B.4070109@pobox.com>
+References: <m3llmc6wdy.fsf@defiant.pm.waw.pl>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Krzysztof Halasa <khc@pm.waw.pl>
+In-Reply-To: <m3llmc6wdy.fsf@defiant.pm.waw.pl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Content violation found in email message.
-
-From: netdev@oss.sgi.com
-To: gordpeters@smarttech.com
-
-File(s): attachment.com
-
-Matching filename: *.com
+applied
