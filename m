@@ -1,46 +1,42 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Trivial ipv6 fix.
-Date: Mon, 02 Aug 2004 06:59:40 -0700 (PDT)
+From: Kumar Gala <kumar.gala@freescale.com>
+Subject: Re: [RFR] gianfar ethernet driver
+Date: Mon, 2 Aug 2004 08:59:21 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040802.065940.86004622.yoshfuji@linux-ipv6.org>
-References: <1091434328.16469.5.camel@localhost.localdomain>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Message-ID: <277DBAC2-E48C-11D8-BC10-000393DBC2E8@freescale.com>
+References: <C681B01E-CEA9-11D8-931F-000393DBC2E8@freescale.com> <89563A5C-CFAE-11D8-BA44-000393C30512@freescale.com> <40EB89CC.2040100@pobox.com> <10E7AA25-DF50-11D8-90B5-000393C30512@freescale.com> <41058139.5040400@pobox.com>
+Mime-Version: 1.0 (Apple Message framework v618)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, pekkas@netcore.fi, linux-kernel@vger.kernel.org,
-        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
+Cc: Andy Fleming <AFLEMING@motorola.com>, Kumar Gala <kumar.gala@motorola.com>,
+        netdev@oss.sgi.com, dwmw2@infradead.org, hadi@cyberus.ca,
+        Andy Fleming <afleming@freescale.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: suckfish@ihug.co.nz
-In-Reply-To: <1091434328.16469.5.camel@localhost.localdomain>
+In-Reply-To: <41058139.5040400@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <1091434328.16469.5.camel@localhost.localdomain> (at Mon, 02 Aug 2004 20:12:08 +1200), Ralph Loader <suckfish@ihug.co.nz> says:
+Jeff,
 
-> ipv6_addr_hash doesn't do what it's comment says.  The comment was
-> probably what was intended, not that it'll make much difference in
-> practice.
+Any update on this review of Andy's latest fixes?
 
-Oops, David, please apply this.
+thanks
 
-> Signed-off-by: Ralph Loader <suckfish@ihug.co.nz>
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+- kumar
 
-===== include/net/addrconf.h 1.17 vs edited =====
---- 1.17/include/net/addrconf.h	2004-07-29 02:00:50 +09:00
-+++ edited/include/net/addrconf.h	2004-08-02 22:57:38 +09:00
-@@ -178,8 +178,8 @@
- 	 * This will include the IEEE address token on links that support it.
- 	 */
- 
--	word = addr->s6_addr[2] ^ addr->s6_addr32[3];
--	word  ^= (word>>16);
-+	word = addr->s6_addr32[2] ^ addr->s6_addr32[3];
-+	word ^= (word >> 16);
- 	word ^= (word >> 8);
- 
- 	return ((word ^ (word >> 4)) & 0x0f);
+On Jul 26, 2004, at 5:10 PM, Jeff Garzik wrote:
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+> Andy Fleming wrote:
+>> Argh.  We found a couple bugs in that last patch.  This patch fixes 
+>> those bugs.  However, please note that the patch is done against the 
+>> original submission from weeks ago.  This patch replaces my most 
+>> recent patch.
+>
+>
+> Thanks, I'll look it over.
+>
+> I've been away celebrating (or mourning) my 30th birthday, and have 
+> several patches to run through.  I'll add it to the pile, though it 
+> may be a few days before I get to it.
+>
+> 	Jeff
