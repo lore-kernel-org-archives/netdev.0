@@ -1,49 +1,67 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: netif_rx packet dumping
-Date: Tue, 8 Mar 2005 15:51:58 -0300
-Message-ID: <39e6f6c705030810515795ccb6@mail.gmail.com>
-References: <20050303123811.4d934249@dxpl.pdx.osdl.net>
-	 <42278122.6000000@ev-en.org>
-	 <20050303133659.0d224e61.davem@davemloft.net>
-	 <42278554.2090902@ev-en.org>
-	 <20050303135718.2e1a0170.davem@davemloft.net>
-	 <422DC7CE.2040800@ev-en.org> <m1y8cykr7i.fsf@muc.de>
-	 <20050308100902.24b67b2f.davem@davemloft.net>
-	 <20050308181844.GA37392@muc.de>
-	 <20050308183759.GE31837@postel.suug.ch>
-Reply-To: acme@conectiva.com.br
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: Fw: [Bugme-new] [Bug 4138] New: ipsec with racoon in transport
+ mode with esp and ah hangs (problem is in xfrm_state_add)
+Date: Tue, 08 Mar 2005 23:36:06 +0100
+Message-ID: <422E28D6.1070103@trash.net>
+References: <E1CvZCT-00017g-00@gondolin.me.apana.org.au> <200501311640.16118.au@unterluggauer.org> <20050131211102.GA20323@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@muc.de>, "David S. Miller" <davem@davemloft.net>,
-        baruch@ev-en.org, shemminger@osdl.org, netdev@oss.sgi.com
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050308183759.GE31837@postel.suug.ch>
+Content-Type: multipart/mixed;
+ boundary="------------000802070007090409010108"
+Cc: Andreas Unterluggauer <au@unterluggauer.org>, netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050131211102.GA20323@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Mar 2005 19:37:59 +0100, Thomas Graf <tgraf@suug.ch> wrote:
+This is a multi-part message in MIME format.
+--------------000802070007090409010108
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> Speaking of it, I see tcp_sock is marginal over 2**10 on 32 bit archs and
-> Stephen's plans to outsource the cc bits brings us closer to the border.
-> Would it be worth to try and get it below 2**10? I spotted some places
-> for optimizations but not enough to really save the needed amount.
+Herbert Xu wrote:
+> Hi Andreas:
+> 
+> On Mon, Jan 31, 2005 at 03:40:16PM +0000, Andreas Unterluggauer wrote:
+> 
+>>2005-01-31 16:29:58: DEBUG: ===
+>>2005-01-31 16:29:58: DEBUG: get pfkey ADD message
+>>andi: libipsec/pfkey.c, pfkey_check: start (msg->sadb_msg_satype: 3)
+>>2005-01-31 16:29:58: DEBUG: andi: in pfkey.c, pk_recvadd: msg->sadb_msg_seq 2, msg->sadb_msg_type: ADD
+>>2005-01-31 16:29:58: INFO: IPsec-SA established: ESP/Transport 192.168.2.5->192.168.2.3 spi=103868257(0x630e761)
+>>2005-01-31 16:29:58: DEBUG: ===
+> 
+> 
+> Does the machine hang at this point in time? If not, then this is
+> simply a racoon bug.  Although the acquire message carries a policy
+> with it, it's really only acquiring a single SA.  Therefore, only
+> the SA being acquired should be added with that sequence number.
 
-sk_protinfo, sk_slab, sk_zapped are going away when I finish my 
-connection_sock-2.6 series.
+You're right, but I think there is also kernel misbehaviour here that
+is fixed by the patch for __xfrm_state_find_acq_byseq() I sent to Dave
+earlier. Andreas, can you try this patch please ?
 
-sk_protinfo isn't needed if all proto families use the sk_alloc + kmalloc, i.e.
-specifying the size of the proto specific socket (like tcp_sock) in
-"zero_it"  and
-passing NULL in the slab parameter, like I did with bluetooth today and will do
-with the ham radio, the last ones using sk_protinfo.
+Regards
+Patrick
 
-sk_slab will be get from only in sk->sk_prot->slab.
+--------------000802070007090409010108
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-sk_zapped was just a debugging member that got reused, and can be turned
-into a SOCK_ZAPPED in sk_flags.
+===== net/xfrm/xfrm_state.c 1.55 vs edited =====
+--- 1.55/net/xfrm/xfrm_state.c	2005-03-07 06:23:53 +01:00
++++ edited/net/xfrm/xfrm_state.c	2005-03-08 18:42:13 +01:00
+@@ -609,7 +609,7 @@
+ 
+ 	for (i = 0; i < XFRM_DST_HSIZE; i++) {
+ 		list_for_each_entry(x, xfrm_state_bydst+i, bydst) {
+-			if (x->km.seq == seq) {
++			if (x->km.seq == seq && x->km.state == XFRM_STATE_ACQ) {
+ 				xfrm_state_hold(x);
+ 				return x;
+ 			}
 
-
--- 
-- Arnaldo
+--------------000802070007090409010108--
