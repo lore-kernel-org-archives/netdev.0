@@ -1,119 +1,67 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [Panic] 2.6.8 and ingress scheduling
-Date: Sun, 15 Aug 2004 18:12:00 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <411F8B50.2020402@trash.net>
-References: <20040814175233.GA3617@lazy.shacknet.nu> <20040815130635.GA3703@lazy.shacknet.nu>
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: Re: [Prism54-devel] Re: [PATCH/RFC] set_rates support for prism54
+Date: Sun, 15 Aug 2004 19:48:43 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200408151949.01351.vkondra@mail.ru>
+References: <5.1.0.14.2.20040815145122.00afd708@pop.t-online.de> <200408151910.25641.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030503090501060902070806"
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-	"David S. Miller" <davem@redhat.com>
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S266817AbUHOQMN@vger.kernel.org>
-To: lkml@lazy.shacknet.nu
-In-Reply-To: <20040815130635.GA3703@lazy.shacknet.nu>
+Content-Type: multipart/signed;
+  boundary="nextPart1250376.I0hDbYN7QE";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
+Cc: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
+        Margit Schubert-While <margitsw@t-online.de>,
+        prism54-devel@prism54.org, mcgrof@studorgs.rutgers.edu,
+        jgarzik@pobox.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <200408151910.25641.vda@port.imtp.ilyichevsk.odessa.ua>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030503090501060902070806
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+--nextPart1250376.I0hDbYN7QE
+Content-Type: text/plain;
+  charset="windows-1251"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-lkml@lazy.shacknet.nu wrote:
+I would not mix rates with modulation and other channel parameters.
+It looks better to bind frequency with parameters like modulation, channel=
+=20
+width (10Mzh narrow channels in japan) etc. , into 'channel' number or=20
+(channel,band) tuple.
 
->hello again,
->
->  
->
->>the last line (filter add) in the "wondershaper" script does sth. to the
->>kernel, that lets it panic on receiving network packets.
->>    
->>
->
->actually, the last _two_ commands set up the kernel for panic. please
->see attached script; running should produce this console message:
->  
->
-Fixed by this patch. qdisc_data was only aligned correctly in 
-qdisc_create_dflt(),
-not qdisc_create() which resulted in memory corruption.
+=46or supported and optional rate, IE (info element) format may be the best=
+=20
+choice.
 
-Regards
-Patrick
+On Sunday 15 August 2004 19:10, Denis Vlasenko wrote:
+DV> On Sunday 15 August 2004 16:21, Margit Schubert-While wrote:
+DV> > I disagree with this.
+DV> > We don't need parameter parsing either in the driver or in
+DV> > wireless.c.
+DV> > There is a perfectly good infrastructure in wireless tools iwpriv.c
+DV> > Take a look at around line 375 in iwpriv.c for the
+DV> > existing example of IW_PRIV_TYPE_FLOAT.
+DV> > This could be adapted for this purpose (IW_PRIV_TYPE_BITRATE ?)
+DV> > and (mis)use the iw_freq structure to pass the values and extra info.
+DV>
+DV> Ok. And then we will need to parse that data into format suitable for
+DV> prism54 in prism54 driver, and into format suitable for acx100/acx111
+DV> in acx100 driver, etc... Most probably this code will be ugly, because
+DV> different hardware have completely different way of setting tx rate.
+DV> Even acx100 and acx111 are different, not to say acx100 and prism54.
 
---------------030503090501060902070806
-Content-Type: text/x-patch;
- name="qdisc-align.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="qdisc-align.diff"
+--nextPart1250376.I0hDbYN7QE
+Content-Type: application/pgp-signature
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/08/15 18:08:13+02:00 kaber@coreworks.de 
-#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/sched/sch_api.c
-#   2004/08/15 18:04:27+02:00 kaber@coreworks.de +13 -8
-#   [PKT_SCHED]: cacheline-align qdisc data in qdisc_create()
-# 
-diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
---- a/net/sched/sch_api.c	2004-08-15 18:09:36 +02:00
-+++ b/net/sched/sch_api.c	2004-08-15 18:09:36 +02:00
-@@ -389,7 +389,8 @@
- {
- 	int err;
- 	struct rtattr *kind = tca[TCA_KIND-1];
--	struct Qdisc *sch = NULL;
-+	void *p = NULL;
-+	struct Qdisc *sch;
- 	struct Qdisc_ops *ops;
- 	int size;
- 
-@@ -407,12 +408,18 @@
- 	if (ops == NULL)
- 		goto err_out;
- 
--	size = sizeof(*sch) + ops->priv_size;
-+	/* ensure that the Qdisc and the private data are 32-byte aligned */
-+	size = ((sizeof(*sch) + QDISC_ALIGN_CONST) & ~QDISC_ALIGN_CONST);
-+	size += ops->priv_size + QDISC_ALIGN_CONST;
- 
--	sch = kmalloc(size, GFP_KERNEL);
-+	p = kmalloc(size, GFP_KERNEL);
- 	err = -ENOBUFS;
--	if (!sch)
-+	if (!p)
- 		goto err_out;
-+	memset(p, 0, size);
-+	sch = (struct Qdisc *)(((unsigned long)p + QDISC_ALIGN_CONST)
-+	                       & ~QDISC_ALIGN_CONST);
-+	sch->padded = (char *)sch - (char *)p;
- 
- 	/* Grrr... Resolve race condition with module unload */
- 
-@@ -420,8 +427,6 @@
- 	if (ops != qdisc_lookup_ops(kind))
- 		goto err_out;
- 
--	memset(sch, 0, size);
--
- 	INIT_LIST_HEAD(&sch->list);
- 	skb_queue_head_init(&sch->q);
- 
-@@ -470,8 +475,8 @@
- 
- err_out:
- 	*errp = err;
--	if (sch)
--		kfree(sch);
-+	if (p)
-+		kfree(p);
- 	return NULL;
- }
- 
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
 
---------------030503090501060902070806--
+iD8DBQBBH5P9qxdj7mhC6o0RAnjkAKCPoHxyhCdZmf97FpiBDzyeG4L7pwCfdEU7
+zjSjELq7X8fEydLtAVOWNFw=
+=Pqbn
+-----END PGP SIGNATURE-----
+
+--nextPart1250376.I0hDbYN7QE--
