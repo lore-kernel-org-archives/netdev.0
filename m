@@ -1,124 +1,81 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: Dynamically classifying flows?
-Date: Tue, 8 Mar 2005 02:14:31 +0100
-Message-ID: <20050308011431.GY31837@postel.suug.ch>
-References: <7bca1cb505030709502316f9b8@mail.gmail.com> <20050307203450.GX31837@postel.suug.ch> <7bca1cb505030716104856fe3@mail.gmail.com>
+From: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
+Subject: Re: bridge between ppp and ethernet - 1 IP address and assign it to
+ another host
+Date: Tue, 8 Mar 2005 11:57:34 +1030
+Message-ID: <20050308115734.544fcaca.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+References: <20050306153108.20430b58.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+	<1110199198.1094.1282.camel@jzny.localdomain>
+	<20050308002643.7eac84e7.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+	<20050307213211.GA25323@outpost.ds9a.nl>
+	<1110238406.1043.57.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
-To: Asim Shankar <asimshankar@gmail.com>
-Content-Disposition: inline
-In-Reply-To: <7bca1cb505030716104856fe3@mail.gmail.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: ahu@ds9a.nl, netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1110238406.1043.57.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Asim Shankar <7bca1cb505030716104856fe3@mail.gmail.com> 2005-03-07 18:10
-> Filtering by size may not always work. An interactive flow may also
-> generate big (MTU) size packets, but it is interactive because the
-> _rate_ at which packets are produced is smaller. Though, if you think
-> that such cases are purely theoretical and don't create problems in
-> practice, do let me know.
+Hi Jamal, Bert,
 
-It really depends on your needs and the accuracy you need. I guess,
-there is not a single truth. I've been experimenting with a classifier
-which classifies based on the packet rate over a certain time, relative
-to the total packet rate, i.e. the higher the packet rate the more likely
-it is supposd to be a bulk data transfer. It is quite successful for
-high traffic scenarios where real connection tracking is not possible.
-However, this only works for certain scenarios, there are dozens of
-other ways to solve this problem, one of them is the recent additions
-to netfilter as Patrick pointed out.
+On 07 Mar 2005 18:33:26 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-> Can you point me to some details on ematch? Specifically, how it
-> supports dynamic  classifications of flows? Seems like this is
-> something really new you guys are working on, so not much
-> documentation is available.
+> On Mon, 2005-03-07 at 16:32, bert hubert wrote:
+> > On Tue, Mar 08, 2005 at 12:26:43AM +1030, Mark Smith wrote:
+> 
+> I think i got it finally ..
+> 
+> > Indeed, we are in full agreement. The idea is to have the ability to fully
+> > firewall and monitor a machine that absolutely needs to have a real
+> > routable IP address, without wasting an IP address for the router (or trying
+> > to get an ISP to assign you multiple addresses, which can be a major chore
+> > these days).
+> > 
+> > I'd settle for a 'dirty' solution. Remco van Mook of Virtu.nl suggested
+> > abusing iptables -j QUEUE combind with tun/tap to inject the packets on the
+> > ethernet side, where userspace does the PPP -> ethernet conversion by making
+> > up the required headers.
+> >
 
-The term "dynamic classification" is a bit wide and can be interpreted
-in various ways. Ematch is not aiming towards a specific direction
-but rather tries to provide a easy to use API for everyone to write
-their own classification procedures or construct one by combining
-existing ematches.
+A while back I was playing a bit with policy forwarding/routing,
+specifically trying to get traffic for a local address to travel
+"outside" the machine that it was assigned to, rather than short
+circuiting internal to the host.
 
-As you mentioned, it's quite new and still experimental and not well
-documented but this will change together with the required userspace
-additions.
+All I did was move the default rule for matching local addresses from
+0 within the 64K priority list to the middle of it, ie 16383. This
+allowed me to insert policy forwarding rules for local addresses before
+the local address match. I was then able to push traffic for local
+addresses out the ethernet interface. When it returned, I then had a
+policy rule that matched incoming traffic against the local address
+table.
 
-> Won't we always have queues? After all a qdisc essentially specifies a
-> de-queuing algorithm.
+It seems to me that the biggest issue with this "transparent firewall /
+ppp proxy" scenario is getting the Linux box to ignore what thinks to be
+is a local IP adress, and throw it at its forwarding table instead. What
+I did allows this to be overridden using policy forwarding. I'm not sure
+about how layer 3 firewalling would work, however I'd guess that since
+the packet is being forwarded, it would be matched against any iptables
+FORWARD rules.
 
-Yes but the queues will be empty most of the times except if you
-apply some kind of rate limitation and that is exactly what should
-be avoided while handling interactive flows. It would be possible of
-course to try and pick all the packets belonging to a interactive flow
-but why bother? Enqueueing them into a separate band is easier and
-causes less troubles.
+I went into some detail as to how it worked and how I set it up in the
+following post. :
 
-> I was thinking along the lines of process
-> scheduling to be able to avoid having to manually specify flow
-> priorities. Ideally speaking, it would automatically classify remote
-> terminal flows such that they see the least possible queueing delays.
+http://oss.sgi.com/archives/netdev/2004-06/msg00536.html
 
-This would be nice but really is hard to achieve. The drawback of
-any automation is that the worst-case scenarios are often much worse.
-The classifier algorithm mentioned above aims into this direction
-by automatically classifying packets into different bands based on
-their packet rate relative to the total packet rate.
+Alexey gave some feedback suggesting that doing what I was doing would
+cause some inconsistencies in other areas of the kernel networking stack
+sadly. Maybe if there is a more common use for this sort of ability, eg
+this scenario, worth putting the effort into "fixing" those other areas.
+Unfortunately I don't know enough about kernel programming, and I'm a
+bit rusty on C, such that I couldn't pursue these other areas myself.
 
-It is an interesting topic and has potention for great ideas and
-concepts but it is harder than it looks at a first glance. It
-gets quite worse when you try to guarantee some kind of QoS policy
-because all dynamic approachs I've seen go totally berserk under
-extreme conditions.
+Regards,
+Mark.
 
-I'll give you some examples of what I mean:
+-- 
 
-  Assuming you to want detect and classify interactive flows. Does this
-  mean that the connection handshake is included as well? If so, how
-  do you differ between connection handshakes of interactive flows
-  and bulk flows if not with the help of some static pattern? Depending
-  on your actual policy you're likely being forced to drop out of band
-  packets which will make the connection estabilishment very unreliable
-  for interactive traffic which probably interfers with your QoS policy.
-
-  Assuming you either ignore or solved the above problem, what happens
-  if certain packets are classified wrong? Your flows are unreliable
-  because they are subject to arbitary bursts of high latency or even
-  packet loss.
-
-  Assuming you use connection tracking and automatically classify all
-  packets the same belonging to the same connection (which is a quite
-  popular approach) what happens if parts of your interactive flows
-  contain heavy bulky areas in between (e.g. ls -R / over a remote
-  terminal connection)? It will pollute all your fine tuned interactive
-  queues and take influence on other unrelated interactive flows.
-
-As you can see it really depends on your needs and the actual problem
-you're trying to solve. There is no easy and fully automatic solution
-for the above. Actually it's quite hard to solve these with manual fine
-tuned classification too but it is possible because you can divided
-it into various problem domains and solve each independantly.
-
-I will agree with you when you say that there is a possibility to
-build a qdisc which will handle the typical home end-user setup with
-remote terminal traffic, bulk data traffic and possibily some gaming
-and I'll assist you in any way if you want to put effort into it
-because it would be a good thing (tm).
-
-> Though, you seem to be of the opinion that manual classification is
-> easy enough and most traffic worth worrying about use DSCP flags
-> effectively. Is that correct?
-
-I think manually configurable classification tools have a more wide
-spectrum of usability but I agree with you that those are harder to
-use. I also think that DSCP is doing a good job and is enough for
-more jobs than many people can imagine but it has strong limitations
-and most problems need a combination of various techniques which is
-the reason for the ematches to support logical expressions.
-
-I think there is a big potential for making things easier to configure
-but this needs time and a lot of effort. I think ematches are a step
-in the right direction but a lot more effort needs to go into the
-userspace tools. There is some work going on in the background but the
-fact that usability is very time consuming makes it a slow process.
+    The Internet's nature is peer to peer.
