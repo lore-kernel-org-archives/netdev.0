@@ -1,20 +1,35 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 1/9] Use netdev_priv in NETROM and ROSE
-Date: Tue, 15 Feb 2005 09:58:13 -0800
-Message-ID: <20050215095813.6c19b2a8.davem@davemloft.net>
-References: <20050130212147.GA6399@linux-mips.org>
+From: "Michael Chan" <mchan@broadcom.com>
+Subject: RE: Fix fallout from tg3_readphy() value is zero on error
+Date: Tue, 15 Feb 2005 10:18:14 -0800
+Message-ID: <B1508D50A0692F42B217C22C02D84972020F3DA3@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-hams@vger.kernel.org, netdev@oss.sgi.com
-To: Ralf Baechle DL5RB <ralf@linux-mips.org>
-In-Reply-To: <20050130212147.GA6399@linux-mips.org>
-Sender: linux-hams-owner@vger.kernel.org
+Content-Type: text/plain;
+ charset=us-ascii
+Content-Transfer-Encoding: 8bit
+Cc: peterc@gelato.unsw.edu.au, netdev@oss.sgi.com
+Content-class: urn:content-classes:message
+To: "David S. Miller" <davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 30 Jan 2005 21:21:47 +0000
-Ralf Baechle DL5RB <ralf@linux-mips.org> wrote:
 
-> Convert the NETROM and ROSE protocol stacks to use netdev_priv().
+> @@ -793,9 +799,11 @@
+>  
+>  	tg3_writephy(tp, MII_TG3_CTRL, phy9_orig);
+>  
+> -	tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32);
+> -	reg32 &= ~0x3000;
+> -	tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
+> +	if (tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
+> +		reg32 &= ~0x3000;
+> +		tg3_writephy(tp, MII_TG3_EXT_CTRL, reg32);
+> +	} else if (!err)
+> +		err = -EBUSY;
+>  
+>  	return err;
+>  }
 
-Applied, thanks Ralf.
+Shouldn't this be:
+
+> +	if (!tg3_readphy(tp, MII_TG3_EXT_CTRL, &reg32)) {
