@@ -1,11 +1,11 @@
 From: Shirley Ma <xma@us.ibm.com>
-Subject: Re: [PATCH] IPv6 MIB:ipv6inetNetToMediaTable
-Date: Thu, 15 Jan 2004 10:18:44 -0800
+Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
+Date: Thu, 15 Jan 2004 10:26:21 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFE052816E.2064C677-ON88256E1C.0063EDA2@us.ibm.com>
+Message-ID: <OF87A9D639.F6A8D26B-ON88256E1C.0064AD99@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	Boundary="0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32"
+	Boundary="0__=07BBE48FDFF72B098f9e8a93df938690918c07BBE48FDFF72B09"
 Cc: mashirle@us.ibm.com, davem@redhat.com, kuznet@ms2.inr.ac.ru,
         netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -14,25 +14,17 @@ Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32
+--0__=07BBE48FDFF72B098f9e8a93df938690918c07BBE48FDFF72B09
 Content-type: text/plain; charset=ISO-2022-JP
-Content-transfer-encoding: quoted-printable
 
 
 
 
 
-
-Thanks. This is a bug fix for the update value (last change) to be a
-TimeStamp according to new IP MIBs. There is no confirm value in the ne=
-w IP
-MIBs inetNetTomedia Entry, I don't know what's the confirm for, I still=
-
-keep it, but change it to TimeStamp. Is there any application using the=
-se
-values right now? If you agree we can fix any applications reference th=
-ese
-values.
+This is a bug fix for ipDefaultRouter Table. According to the new IP MIBs,
+the DefaultRouterLifeTime(expire) entry in this table is unsigned 32. It
+measures the remaining length of time in seconds. If it's expire, the value
+should be 0.
 
 Thanks
 Shirley Ma
@@ -44,45 +36,35 @@ FAX:      (503) 578-3228
 
 
 
-YOSHIFUJI Hideaki / =1B$B5HF#1QL@=1B(B
-<yoshfuji@linux-ipv6.org>@cerberus.hongo.wide.ad.jp> on 01/15/2004 01:0=
-4:11
+YOSHIFUJI Hideaki / 吉藤英明
+<yoshfuji@linux-ipv6.org>@cerberus.hongo.wide.ad.jp> on 01/15/2004 01:03:15
 AM
 
 Sent by:    "Hideaki YOSHIFUJI" <yoshfuji@cerberus.hongo.wide.ad.jp>
 
 
 To:    mashirle@us.ltcfwd.linux.ibm.com
-cc:    davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Shir=
-ley
+cc:    davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Shirley
        Ma/Beaverton/IBM@IBMUS
-Subject:    Re: [PATCH] IPv6 MIB:ipv6inetNetToMediaTable
+Subject:    Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
 
 
-In article <200401141621.26317.mashirle@us.ibm.com> (at Wed, 14 Jan 200=
-4
-16:21:26 -0800), Shirley Ma <mashirle@us.ibm.com> says:
+In article <200401141622.09299.mashirle@us.ibm.com> (at Wed, 14 Jan 2004
+16:22:09 -0800), Shirley Ma <mashirle@us.ibm.com> says:
 
-> This patch is against 2.6.1 kernel.
+> This patch is agaist 2.6.1 kernel.
 
-Wrong. Do not change interface.
+Wrong. Do not change user interface.
 
 --yoshfuji
 
-=
 
---0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32
+--0__=07BBE48FDFF72B098f9e8a93df938690918c07BBE48FDFF72B09
 Content-type: text/html; charset=ISO-2022-JP
 Content-Disposition: inline
-Content-transfer-encoding: quoted-printable
 
 <html><body>
-<p>Thanks. This is a bug fix for the update value (last change) to be a=
- TimeStamp according to new IP MIBs. There is no confirm value in the n=
-ew IP MIBs inetNetTomedia Entry, I don't know what's the confirm for, I=
- still keep it, but change it to TimeStamp. Is there any application us=
-ing these values right now? If you agree we can fix any applications re=
-ference these values. <br>
+<p>This is a bug fix for ipDefaultRouter Table. According to the new IP MIBs, the DefaultRouterLifeTime(expire) entry in this table is unsigned 32. It measures the remaining length of time in seconds. If it's expire, the value should be 0.<br>
 <br>
 Thanks<br>
 Shirley Ma<br>
@@ -94,28 +76,20 @@ FAX:      (503) 578-3228<br>
 <br>
 <br>
 
-<p><font size=3D"2" color=3D"#800080">Sent by:	&quot;Hideaki YOSHIFUJI&=
-quot; &lt;yoshfuji@cerberus.hongo.wide.ad.jp&gt;</font>
-<p><font size=3D"2" color=3D"#800080">To:	</font><font size=3D"2">mashi=
-rle@us.ltcfwd.linux.ibm.com</font><br>
-<font size=3D"2" color=3D"#800080">cc:	</font><font size=3D"2">davem@re=
-dhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Shirley Ma/Beaverto=
-n/IBM@IBMUS</font><font size=3D"2" color=3D"#800080"> </font><br>
-<font size=3D"2" color=3D"#800080">Subject:	</font><font size=3D"2">Re:=
- [PATCH] IPv6 MIB:ipv6inetNetToMediaTable</font><br>
+<p><font size="2" color="#800080">Sent by:	&quot;Hideaki YOSHIFUJI&quot; &lt;yoshfuji@cerberus.hongo.wide.ad.jp&gt;</font>
+<p><font size="2" color="#800080">To:	</font><font size="2">mashirle@us.ltcfwd.linux.ibm.com</font><br>
+<font size="2" color="#800080">cc:	</font><font size="2">davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, Shirley Ma/Beaverton/IBM@IBMUS</font><font size="2" color="#800080"> </font><br>
+<font size="2" color="#800080">Subject:	</font><font size="2">Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable</font><br>
 <br>
 <br>
-<font face=3D"Courier New">In article &lt;200401141621.26317.mashirle@u=
-s.ibm.com&gt; (at Wed, 14 Jan 2004 16:21:26 -0800), Shirley Ma &lt;mash=
-irle@us.ibm.com&gt; says:<br>
+<font face="Courier New">In article &lt;200401141622.09299.mashirle@us.ibm.com&gt; (at Wed, 14 Jan 2004 16:22:09 -0800), Shirley Ma &lt;mashirle@us.ibm.com&gt; says:<br>
 <br>
-&gt; This patch is against 2.6.1 kernel.<br>
+&gt; This patch is agaist 2.6.1 kernel.<br>
 <br>
-Wrong. Do not change interface.<br>
+Wrong. Do not change user interface.<br>
 <br>
 --yoshfuji<br>
 </font><br>
 <br>
-</body></html>=
-
---0__=07BBE48FDFF06B328f9e8a93df938690918c07BBE48FDFF06B32--
+</body></html>
+--0__=07BBE48FDFF72B098f9e8a93df938690918c07BBE48FDFF72B09--
