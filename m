@@ -1,30 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] get rid of __OPTIMIZE__ requirement in net drivers
-Date: Tue, 22 Jun 2004 15:52:34 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [LARTC] [ANNOUNCE] sch_ooo - Out-of-order packet queue
+ discipline
+Date: Tue, 22 Jun 2004 13:14:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40D88E02.1030701@pobox.com>
-References: <20040622113052.1ef2cb7b@dell_ss3.pdx.osdl.net>
+Message-ID: <20040622131451.3a6a5190.davem@redhat.com>
+References: <Pine.LNX.4.58.0404021023140.18886@hosting.rdsbv.ro>
+	<20040622084607.4996569f@dell_ss3.pdx.osdl.net>
+	<Pine.LNX.4.60.0406222051240.17140@hosting.rdsbv.ro>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: shemminger@osdl.org, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+        linux-kernel@vger.kernel.org, lartc@mailman.ds9a.nl
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040622113052.1ef2cb7b@dell_ss3.pdx.osdl.net>
+To: Catalin BOIE <util@deuroconsult.ro>
+In-Reply-To: <Pine.LNX.4.60.0406222051240.17140@hosting.rdsbv.ro>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Stephen Hemminger wrote:
-> Several network drivers have checks that they are only built with -O.
-> This breaks checking with sparse and other tools, and seems like a holdover from
-> when drivers were built out of tree and the kernel build system was less stable.
-> This patch gets rid of these.
+On Tue, 22 Jun 2004 20:52:01 +0300 (EEST)
+Catalin BOIE <util@deuroconsult.ro> wrote:
 
+> On Tue, 22 Jun 2004, Stephen Hemminger wrote:
+> 
+> > Maybe the delay and ooo scheduler should be merged, the both do sort of
+> > the same thing.
+> 
+> Yes, it's true.
+> I can work on a patch if you want.
 
-Guess is 50% correct... holdover from people compiling the drivers 
-out-of-tree using a single shell command (that runs gcc), found at the 
-bottom of the driver.
-
-No objection to the patch, though, just saying :)  I'll apply...
-
-	Jeff
+You should, that would be great.
