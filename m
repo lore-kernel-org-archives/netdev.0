@@ -1,33 +1,47 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: skb_checksum_help
-Date: Tue, 25 Jan 2005 11:07:59 +1100
-Message-ID: <20050125000759.GA15883@gondor.apana.org.au>
-References: <20050124005348.GL23931@postel.suug.ch> <E1Cst4o-0007bD-00@gondolin.me.apana.org.au> <20050123202715.281ac87c.davem@davemloft.net> <20050124121610.GP23931@postel.suug.ch> <41F50B6C.6010107@davidcoulson.net> <20050124151510.GV23931@postel.suug.ch> <20050124225423.GA15405@gondor.apana.org.au> <20050124234515.GA31837@postel.suug.ch>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [ANNOUNCE] iproute2 (050124) release
+Date: Mon, 24 Jan 2005 16:27:41 -0800
+Message-ID: <20050124162741.41606e3f@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: David Coulson <david@davidcoulson.net>,
-        "David S. Miller" <davem@davemloft.net>, kaber@trash.net,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-Content-Disposition: inline
-In-Reply-To: <20050124234515.GA31837@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: linux-net@vger.kernel.org, lartc@mailman.ds9a.nl
+Sender: lartc-admin@mailman.ds9a.nl
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 25, 2005 at 12:45:15AM +0100, Thomas Graf wrote:
-> 
-> I don't quite understand how this solves the problem. How could
-> ip_summed be non zero after ip_forward? The earliest possible call
-> to ip_fragment is in postrouting. Please correct me if I'm wrong.
+Thanks to the work of Jamal and Thomas; here is an update to iproute2.
 
-ip_forward only sets ip_summed for the packet at the head.  It does
-not clear ip_summed for the fragments themselves.
+http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.10-ss050124.tar.gz
 
-Cheers,
+Changes since last version:
+[Yun Mao]
+	 fix typo in ss
+
+[Thomas Graf]
+	tc pedit/action cleanups
+	add addraw_l
+	rtattr_parse cleanups
+
+[Jamal Hadi Salim]
+	typo in m_mirred
+	add support for pedit
+
+[Jim Gifford]
+	 Fix allocation size error in nomal and paretonormal generation
+	 programs.
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Stephen Hemminger	<shemminger@osdl.org>
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
