@@ -1,34 +1,37 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.11-rc4-netdev1 3/5] r8169: removal of unused #define
-Date: Tue, 22 Feb 2005 00:56:11 +0100
-Message-ID: <20050221235611.GC31723@electric-eye.fr.zoreil.com>
-References: <20050221235125.GD26248@electric-eye.fr.zoreil.com> <20050221235301.GA31723@electric-eye.fr.zoreil.com> <20050221235450.GB31723@electric-eye.fr.zoreil.com>
+From: Christian Schmid <webmaster@rapidforum.com>
+Subject: Re: ARGH MORE BUGS!!!
+Date: Tue, 22 Feb 2005 01:10:46 +0100
+Message-ID: <421A7886.8060302@rapidforum.com>
+References: <421A3EB8.4050607@rapidforum.com> <20050221202854.GA26248@electric-eye.fr.zoreil.com> <421A45CA.80001@rapidforum.com> <20050221205606.GB26248@electric-eye.fr.zoreil.com> <421A4FFA.7090003@rapidforum.com> <20050221213610.GC26248@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jdmason@us.ibm.com
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <20050221235450.GB31723@electric-eye.fr.zoreil.com>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20050221213610.GC26248@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Removal of unused #define
+I FOUND IT!!!
 
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+At least I were able to track this down very far. It seems it only appears on Port 80. So might 
+there be a problem if too many sockets are sharing the same port? In this case, port 80?
 
-diff -puN drivers/net/r8169.c~r8169-420 drivers/net/r8169.c
---- a/drivers/net/r8169.c~r8169-420	2005-02-18 21:24:40.664919294 +0100
-+++ b/drivers/net/r8169.c	2005-02-18 22:19:14.888302521 +0100
-@@ -113,8 +113,6 @@ static int multicast_filter_limit = 32;
- /* MAC address length*/
- #define MAC_ADDR_LEN	6
- 
--#define TX_FIFO_THRESH 256	/* In bytes */
--
- #define RX_FIFO_THRESH	7	/* 7 means NO threshold, Rx buffer level before first PCI xfer.  */
- #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
- #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+What can I do now? The problem is still there. All 60 seconds a break for 5 seconds. I am not really 
+willing to reboot anymore. So bug-hunters, please help.
 
-_
+Francois Romieu wrote:
+> Christian Schmid <webmaster@rapidforum.com> :
+> 
+>>I started it after one break-cyclus and stopped it immedately after the 
+>>next break-cyclus ended.
+> 
+> 
+> I'd welcome several cycles to feed the data through gnuplot.
+> A sample based on 15 minutes or more would not hurt: I speak perl too.
+> 
+> --
+> Ueimor
+> 
+> 
