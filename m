@@ -1,89 +1,76 @@
-From: pravin b shelar <pravins@calsoftinc.com>
-Subject: Re: Fwd: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Wed, 06 Apr 2005 14:23:52 +0530
-Message-ID: <4253A3A0.800@calsoftinc.com>
-References: <Pine.LNX.4.58.0504051155260.13697@server.graphe.net>	 <E1DIvr8-0002yy-00@gondolin.me.apana.org.au> <b82a8917050406002339f732ca@mail.gmail.com>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: pktgen problem (skb refcount) in 2.6.12-rc1
+Date: Tue, 5 Apr 2005 17:58:20 +0200
+Message-ID: <20050405155820.GB3261@obroa-skai.de.gnumonks.org>
+References: <9D602ABCE51B0B488BF857A4787939B5042E7396@orsmsx410>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------030904020801050603070305"
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="JWEK1jqKZ6MHAcjA"
+Cc: Harald Welte <laforge@gnumonks.org>,
+        Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Christoph Lameter"@calsoftinc.com, netdev@oss.sgi.com,
-        davem@davemloft.net
-In-Reply-To: <b82a8917050406002339f732ca@mail.gmail.com>
+To: "Veeraiyan, Ayyappan" <ayyappan.veeraiyan@intel.com>
+Content-Disposition: inline
+In-Reply-To: <9D602ABCE51B0B488BF857A4787939B5042E7396@orsmsx410>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------030904020801050603070305
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
 
+--JWEK1jqKZ6MHAcjA
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
->  
->
->This is racy (albeit very unlikely) because dst may be freed by
->dst_run_gc after the atomic_dec.
->
->When we are not the real parent of the dst (e.g., when we're xfrm_dst
->and the child is an rtentry), it may already be on the GC list.
->
->In fact the current code is buggy to, we need to check dst->flags
->before the dec as dst may no longer be valid afterwards.
->
->
->  
->
-This patch  will remove the need for atomic_dec_and_test for this 
-particular case.
-Now we can break down the atomic_dec_and_test to atomic_dec & atomic_read.
+On Mon, Apr 04, 2005 at 10:26:18AM -0700, Veeraiyan, Ayyappan wrote:
+> Harald,
+>=20
+> >=20
+> > As for e1000 and or generic TX path changes, I don't have the time to
+> > review them now, sorry :(  That's why I posted it to netdev, to let
+> > people who have an idea about the committed changes know that there is
+> > an issue.
+> >
+>=20
+> What version of e1000 you are using?=20
 
-Please comment.
+as indicated before, I've observed the problem in 2.6.12-rc1.  No
+modifications to e1000.  So whatever is in 2.6.12-rc1, that's what
+showed the problems.
 
-Regards
-Pravin.
+> If you are using e1000 5.7.6-k2 and haven't tried older versions, Could
+> you please try e1000 version 5.6.10.1-k2 (available in kernel 2.6.11)
+> and inform us the result?
 
+I have tried a 2.6.11 kernel which works fine.  I have not tested
+patching e1000 in 2.6.12-rc1 to go back to whatever was shipped in
+2.6.11.
 
+I'll try to remember testing that once I'm back from my current business
+trip (friday), though
 
---------------030904020801050603070305
-Content-Type: text/plain;
- name="dst-atomic"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="dst-atomic"
+> Thanks,
+> Ayyappan V.
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
 
-Index: linux-2.6.11-dsta/net/core/dst.c
-===================================================================
---- linux-2.6.11-dsta.orig/net/core/dst.c	2005-04-06 00:18:32.000000000 -0700
-+++ linux-2.6.11-dsta/net/core/dst.c	2005-04-06 01:31:10.000000000 -0700
-@@ -198,17 +198,19 @@
- 
- 	dst = child;
- 	if (dst) {
--		if (atomic_dec_and_test(&dst->__refcnt)) {
--			/* We were real parent of this dst, so kill child. */
--			if (dst->flags&DST_NOHASH)
--				goto again;
--		} else {
--			/* Child is still referenced, return it for freeing. */
--			if (dst->flags&DST_NOHASH)
--				return dst;
--			/* Child is still in his hash table */
-+		if (dst->flags&DST_NOHASH) {
-+			atomic_dec(&dst->__refcnt);
-+			if (atomic_read(&dst->__refcnt))
-+				/* Child is still referenced, return it for freeing. */
-+				return dst;	
-+
-+			/*We were real parent of this dst, so kill child. */
-+			goto again;
- 		}
-+		else /* Child is still in his hash table */
-+			atomic_dec(&dst->__refcnt);
- 	}
-+
- 	return NULL;
- }
- 
+--JWEK1jqKZ6MHAcjA
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
 
---------------030904020801050603070305--
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFCUrWcXaXGVTD0i/8RAnIeAKCswTwsBAWvq2ZPxu/8Xo8j3AwCRgCePcVM
+2fCGl7IAUKVIl+jSZK2/EG0=
+=SnlO
+-----END PGP SIGNATURE-----
+
+--JWEK1jqKZ6MHAcjA--
