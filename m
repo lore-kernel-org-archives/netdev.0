@@ -1,53 +1,38 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
-Date: Tue, 2 Dec 2003 18:56:27 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RTNETLINK] Provide real oif
+Date: 02 Dec 2003 07:31:57 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16332.53835.297235.589786@robur.slu.se>
-References: <072501c3b874$2542ae70$15fea8c0@fortress>
-	<16332.27919.502097.988522@robur.slu.se>
-	<20031202032606.28db927b.davem@redhat.com>
+Message-ID: <1070368316.1031.30.camel@jzny.localdomain>
+References: <20031202110224.GA25957@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, francois@baligant.net,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031202032606.28db927b.davem@redhat.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20031202110224.GA25957@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+On Tue, 2003-12-02 at 06:02, Herbert Xu wrote:
+> Hi Dave:
+> 
+> This patch adds a new attribute RTA_PREFOIF to the RTNETLINK interface
+> so that we can send the real oif to user space.  Hmm, would RTA_REALOIF
+> be a better name? It really should be called RTA_OIF but that's already
+> taken.
+> 
+> Currently if there are two entries in the routing cache that only differ
+> by the value of oif then they will appear identical to user space.  The
+> only way to tell them apart would be to export the value of oif from
+> the kernel.
+> 
 
-David S. Miller writes:
+Can you provide a real example (output of route display in user space)
+where this would be valuable?
+whats wrong with the combo of RTA_OIF and RTA_SRC?
 
- > Let us assume, for the sake of back of the envelope calculations, that
- > all 90k TCP connections speak to unique destinations.  Let us further
- > assume that all of them have at least one packet in flight.
- > 
- > This means the routing cache must be able to hold at least 90k entries.
- > All of these routing cache entires will be referenced by the packets
- > in the TCP retransmission queues of all the sockets, and thus the
- > entries are unreclaimable.
- > 
- > You are setting net.ipv4.route.max_size to 655360 which should be more
- > than enough.  But you also have to make the net.ipv4.route.gc_thresh
- > more reasonable as well, perhaps 90K as a test.
- > 
- > If net.ipv4.route.gc_thresh is lower than 90K and my assertions above
- > hold, then the kernel will try to garbage collect too early, all the
- > routing cache entries will be in use and therefore uncollectable,
- > and you'll get the message you're seeing.
- > 
- > Try to pump up gc_thresh and see if that helps.
-
- Yes better tuning as gc_thresh and max_size is in better balance but max_size
- is same so I'll guess we collect unreclaimable entries util we see dst overflow 
- still'. The long time before overflow is suspect "hours to days" We have to 
- ask if this has ever worked before?
- 
- I'll guess number of hash buckets should be increased for systems like this.
-
- 
- Cheers.
-						--ro
+cheers,
+jamal
