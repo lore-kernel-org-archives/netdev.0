@@ -1,33 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPv6 multicast (MLD,IGMP) code bypasses netfilter hooks
-Date: Sun, 23 Nov 2003 22:44:14 -0800
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20031123224414.0bea3633.davem@redhat.com>
-References: <OFBBD13E53.65F0744F-ON88256DE7.003D0DE0@us.ibm.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] 2.6.0-test9-bk27-netdrvr-exp1 - r8169 update
+Date: Mon, 24 Nov 2003 09:04:21 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20031124090421.A4482@electric-eye.fr.zoreil.com>
+References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <3FC14058.4010600@mcve.com> <20031124004023.A1140@electric-eye.fr.zoreil.com> <3FC14AA3.9050009@mcve.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: laforge@netfilter.org, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OFBBD13E53.65F0744F-ON88256DE7.003D0DE0@us.ibm.com>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Brad House <brad@mcve.com>
+Content-Disposition: inline
+In-Reply-To: <3FC14AA3.9050009@mcve.com>; from brad@mcve.com on Sun, Nov 23, 2003 at 07:02:43PM -0500
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 23 Nov 2003 04:13:39 -0700
-David Stevens <dlstevens@us.ibm.com> wrote:
+Brad House <brad@mcve.com> :
+[...]
+> The kernel locked hard on running a   dhcpcd eth0
+> no panic output to the screen (I don't have a serial cable
+> hooked up, or anything, so I don't know if it output anything
+> there)
 
-> Here's a patch to add netfilter hooks for MLD v1 & v2. Can you take
-> quick look at it, Harald?
+Well, thanks anyway.
 
-Whoa, David beat me to it, on a weekend no less :)))
+> I'm sure the 'pile' of code left from realtek left will fix it
+> though ;)
 
-It looks good to me.  Applied, thanks.
+Just to be sure:
+1) you are running x86-64;
+2) vanilla 2.6.0-test9 does not work either.
+
+If 2) if false I can/must search an error in the proposed changes.
+
+--
+Ueimor
