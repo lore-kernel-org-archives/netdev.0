@@ -1,70 +1,28 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] allow setting mtu and txqlen via RTM_SETLINK and provide txqlen via RTM_GETLINK
-Date: Mon, 23 Aug 2004 22:51:14 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [announce] iproute2 for 2.6.8 (and 2.4.27)
+Date: Mon, 23 Aug 2004 13:53:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823205114.GB19921@postel.suug.ch>
+Message-ID: <20040823135321.23194fee@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca
-Content-Disposition: inline
+To: netdev@oss.sgi.com, lartc@mailman.ds9a.nl, linux-net@vger.kernel.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello
+This version supports:
+	* changes 'tc' for latest netem
+	* hfsc/sc patch from Patrick
+	* packet classification action from Jamal
+	* copies of critical tc/netlink API headers so the command can be
+	  built on older systems. Only auto-configuration left is ATM.
 
-Introduces a new rtnetlink link message attribute to provide txqlen value
-via RTM_GETLINK and adds support for setting MTU and txqlen via RTM_SETLINK.
-
-First step to supersede ioctl network link configuration with
-rtnetlink equivalent.
-
-    Thomas
+The versioning scheme is to label the highest version of kernel used.
+It should build and run on older systems as well, but obviously can't support stuff your
+kernel doesn't have. So if a new feature (like netem scheduler) got added in 2.6.8 kernel,
+then you would need the corresponding iproute2 to use it.
 
 
---- 1.19/net/core/rtnetlink.c	Thu Apr 29 01:04:48 2004
-+++ 1.20/net/core/rtnetlink.c	Sun Aug 22 18:11:03 2004
-@@ -175,6 +175,7 @@
- 		r->ifi_flags |= IFF_RUNNING;
- 
- 	RTA_PUT(skb, IFLA_IFNAME, strlen(dev->name)+1, dev->name);
-+	RTA_PUT(skb, IFLA_TXQLEN, sizeof(unsigned long), &dev->tx_queue_len);
- 	if (dev->addr_len) {
- 		RTA_PUT(skb, IFLA_ADDRESS, dev->addr_len, dev->dev_addr);
- 		RTA_PUT(skb, IFLA_BROADCAST, dev->addr_len, dev->broadcast);
-@@ -268,6 +269,23 @@
- 			goto out;
- 		memcpy(dev->broadcast, RTA_DATA(ida[IFLA_BROADCAST - 1]),
- 		       dev->addr_len);
-+	}
-+
-+	if (ida[IFLA_MTU - 1]) {
-+		if (ida[IFLA_MTU - 1]->rta_len != RTA_LENGTH(sizeof(unsigned)))
-+			goto out;
-+		err = dev_set_mtu(dev, *((unsigned *) RTA_DATA(ida[IFLA_MTU - 1])));
-+
-+		if (err)
-+			goto out;
-+
-+	}
-+
-+	if (ida[IFLA_TXQLEN - 1]) {
-+		if (ida[IFLA_TXQLEN - 1]->rta_len != RTA_LENGTH(sizeof(unsigned long)))
-+			goto out;
-+
-+		dev->tx_queue_len = *((unsigned long *) RTA_DATA(ida[IFLA_TXQLEN - 1]));
- 	}
- 
- 	err = 0;
-
---- 1.33/include/linux/rtnetlink.h	Mon Apr  5 23:41:40 2004
-+++ 1.34/include/linux/rtnetlink.h	Sun Aug 22 18:11:03 2004
-@@ -540,6 +540,7 @@
- 	IFLA_QDISC,
- 	IFLA_STATS,
- 	IFLA_COST,
-+	IFLA_TXQLEN,
- #define IFLA_COST IFLA_COST
- 	IFLA_PRIORITY,
- #define IFLA_PRIORITY IFLA_PRIORITY
+Available at:
+	http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.8-040823.tar.gz
