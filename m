@@ -1,35 +1,77 @@
-From: Devesh Agrawal <devesh.agrawal@gmail.com>
-Subject: How to route a skb to a particular oif, when the fib_lookup suggests another one.
-Date: Sat, 26 Mar 2005 11:20:22 +0530
-Message-ID: <db01ab3505032521504ac85fcc@mail.gmail.com>
-References: <db01ab3505032313427fcd144f@mail.gmail.com>
-	 <db01ab3505032313517830af81@mail.gmail.com>
-Reply-To: Devesh Agrawal <devesh.agrawal@gmail.com>
+From: Phil Oester <kernel@linuxace.com>
+Subject: Re: [PATCH] Conntrack leak with raw sockets
+Date: Fri, 25 Mar 2005 22:05:43 -0800
+Message-ID: <20050326060543.GA4791@linuxace.com>
+References: <20050325201127.GA3400@linuxace.com> <4244766D.2020001@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org, netdev@oss.sgi.com
-In-Reply-To: <db01ab3505032313517830af81@mail.gmail.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="2fHTh5uZTiUOsy+g"
+Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <4244766D.2020001@trash.net>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Hi,
-I have to route a packet thru a particular output interface, however
-my routing tables have two routes, that match it : one to eth0 and one
-to wlan0, with the eth0 being chosen as it is more specific.  I am
-using ip_route_output_key, with fl->oif = index of device I want this
-packet to go (=wlan0).
-However, in the ip_route_output_slow I found that even when oif is not
-0, you get a valid dev_out, however when the fib_lookup succeeds, you
-merely free this old dev_out, and assign dev_out to the res.dev (ie
-the one found out by the fib_lookup),
-So this means that even if I specify the oif, the packet will still
-get routed to eth0.
-Am I correct, or is there something I am missing. Also I am setting
-tos bit RTO_ONLINK .
-Please help me. I am quite perplexed by this.
-Sincerely,
---
-Devesh Agrawal
+
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Fri, Mar 25, 2005 at 09:37:01PM +0100, Patrick McHardy wrote:
+> Great work tracking this down. But I fear the problem will come back
+> haunt us with this patch. The are more places where a packet can be
+> queued indefinitely, for example stopped qdiscs. IMO the best fix
+> is to drop the conntrack reference once the packet leaves IP, so we
+> don't have to make any assumptions about what will happen to the
+> packet - this would be in ip_finish_output2(). Could you send a patch
+
+Something like the attached?
+
+Phil
+
+
+
+--2fHTh5uZTiUOsy+g
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=patch-ref2
+
+diff -ru linux-orig/net/ipv4/ip_output.c linux-new/net/ipv4/ip_output.c
+--- linux-orig/net/ipv4/ip_output.c	2005-03-25 14:48:13.543911760 -0500
++++ linux-new/net/ipv4/ip_output.c	2005-03-26 01:01:13.064616240 -0500
+@@ -195,6 +195,8 @@
+ 	nf_debug_ip_finish_output2(skb);
+ #endif /*CONFIG_NETFILTER_DEBUG*/
+ 
++	nf_reset(skb);
++
+ 	if (hh) {
+ 		int hh_alen;
+ 
+diff -ru linux-orig/net/ipv4/netfilter/ip_conntrack_standalone.c linux-new/net/ipv4/netfilter/ip_conntrack_standalone.c
+--- linux-orig/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-03-25 14:48:13.550910696 -0500
++++ linux-new/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-03-26 01:03:09.916852000 -0500
+@@ -423,13 +423,6 @@
+ 				        const struct net_device *out,
+ 				        int (*okfn)(struct sk_buff *))
+ {
+-#if !defined(CONFIG_IP_NF_NAT) && !defined(CONFIG_IP_NF_NAT_MODULE)
+-	/* Previously seen (loopback)?  Ignore.  Do this before
+-           fragment check. */
+-	if ((*pskb)->nfct)
+-		return NF_ACCEPT;
+-#endif
+-
+ 	/* Gather fragments. */
+ 	if ((*pskb)->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
+ 		*pskb = ip_ct_gather_frags(*pskb,
+
+--2fHTh5uZTiUOsy+g--
