@@ -1,9 +1,8 @@
 From: ganesh.venkatesan@intel.com
-Subject: [PATCH 6/12 2.4] e1000 - include work done in tx-path to decide when
- to quit polling mode
-Date: Thu, 29 Jul 2004 08:30:04 -0700 (PDT)
+Subject: [PATCH 7/12 2.4] e1000 - null patch
+Date: Thu, 29 Jul 2004 08:30:20 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0407290733070.21929-100000@westville2.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0407290737240.21929-100000@westville2.jf.intel.com>
 Reply-To: ganesh.venkatesan@intel.com
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -13,27 +12,9 @@ To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-diff -up linux-2.4/drivers/net/e1000/e1000_main.c linux-2.4/drivers/net/e1000.new/e1000_main.c
---- linux-2.4/drivers/net/e1000/e1000_main.c	2004-07-28 08:47:08.177582000 -0700
-+++ linux-2.4/drivers/net/e1000.new/e1000_main.c	2004-07-28 08:47:09.559371936 -0700
-@@ -2137,15 +2137,18 @@ e1000_clean(struct net_device *netdev, i
- {
- 	struct e1000_adapter *adapter = netdev->priv;
- 	int work_to_do = min(*budget, netdev->quota);
-+	int tx_cleaned;
- 	int work_done = 0;
- 	
--	e1000_clean_tx_irq(adapter);
-+	tx_cleaned = e1000_clean_tx_irq(adapter);
- 	e1000_clean_rx_irq(adapter, &work_done, work_to_do);
- 
- 	*budget -= work_done;
- 	netdev->quota -= work_done;
- 	
--	if(work_done < work_to_do || !netif_running(netdev)) {
-+	/* if no Rx and Tx cleanup work was done, exit the polling mode */
-+	if(!tx_cleaned || (work_done < work_to_do) || 
-+				!netif_running(netdev)) {
- 		netif_rx_complete(netdev);
- 		e1000_irq_enable(adapter);
- 		return 0;
+This is a NULL Intel(R) PRO/100 VE Network Connection
+ patch. This helps 
+keep the patch numbering the same 
+between 2.4 and 2.5 trees.
+
+ganesh.
