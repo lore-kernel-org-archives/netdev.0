@@ -1,256 +1,89 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 2/3] NET: Use proc_net_fops_create() and proc_net_remove()
- in net/ipv4
-Date: Mon, 08 Sep 2003 03:41:05 +0900 (JST)
+From: Jan Ischebeck <mail@jan-ischebeck.de>
+Subject: [2.6-test4-mm5] modprobe e100 after ifplugd -> oops
+Date: Sun, 07 Sep 2003 23:47:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030908.034105.113815606.yoshfuji@linux-ipv6.org>
+Message-ID: <1062971256.13515.9.camel@JHome.uni-bonn.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: lkml <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[2/3] Use proc_net_fops_create() and proc_net_remove() in net/ipv4.
+Using kernel 2.6.0-test4-mm5 I got on oops when inserting the e100
+module after running ifplugd. 
 
-Index: linux-2.6/net/ipv4/arp.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/arp.c,v
-retrieving revision 1.27
-diff -u -r1.27 arp.c
---- linux-2.6/net/ipv4/arp.c	20 Aug 2003 04:27:26 -0000	1.27
-+++ linux-2.6/net/ipv4/arp.c	7 Sep 2003 16:51:04 -0000
-@@ -1416,14 +1416,9 @@
- 
- static int __init arp_proc_init(void)
- {
--	int rc = 0;
--	struct proc_dir_entry *p = create_proc_entry("arp", S_IRUGO, proc_net);
--
--        if (p)
--		p->proc_fops = &arp_seq_fops;
--	else
--		rc = -ENOMEM;
--	return rc;
-+	if (!proc_net_fops_create("arp", S_IRUGO, &arp_seq_fops))
-+		return -ENOMEM;
-+	return 0;
- }
- 
- #else /* CONFIG_PROC_FS */
-Index: linux-2.6/net/ipv4/fib_hash.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/fib_hash.c,v
-retrieving revision 1.16
-diff -u -r1.16 fib_hash.c
---- linux-2.6/net/ipv4/fib_hash.c	26 May 2003 05:17:28 -0000	1.16
-+++ linux-2.6/net/ipv4/fib_hash.c	7 Sep 2003 16:51:04 -0000
-@@ -1096,19 +1096,13 @@
- 
- int __init fib_proc_init(void)
- {
--	struct proc_dir_entry *p;
--	int rc = 0;
--
--	p = create_proc_entry("route", S_IRUGO, proc_net);
--	if (p)
--		p->proc_fops = &fib_seq_fops;
--	else
--		rc = -ENOMEM;
--	return rc;
-+	if (!proc_net_fops_create("route", S_IRUGO, &fib_seq_fops))
-+		return -ENOMEM;
-+	return 0;
- }
- 
- void __init fib_proc_exit(void)
- {
--	remove_proc_entry("route", proc_net);
-+	proc_net_remove("route");
- }
- #endif /* CONFIG_PROC_FS */
-Index: linux-2.6/net/ipv4/igmp.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/igmp.c,v
-retrieving revision 1.34
-diff -u -r1.34 igmp.c
---- linux-2.6/net/ipv4/igmp.c	1 Sep 2003 05:52:50 -0000	1.34
-+++ linux-2.6/net/ipv4/igmp.c	7 Sep 2003 16:51:04 -0000
-@@ -2430,15 +2430,8 @@
- 
- int __init igmp_mc_proc_init(void)
- {
--	struct proc_dir_entry *p;
--
--	p = create_proc_entry("igmp", S_IRUGO, proc_net);
--	if (p)
--		p->proc_fops = &igmp_mc_seq_fops;
--
--	p = create_proc_entry("mcfilter", S_IRUGO, proc_net);
--	if (p)
--		p->proc_fops = &igmp_mcf_seq_fops;
-+	proc_net_fops_create("igmp", S_IRUGO, &igmp_mc_seq_fops);
-+	proc_net_fops_create("mcfilter", S_IRUGO, &igmp_mcf_seq_fops);
- 	return 0;
- }
- #endif
-Index: linux-2.6/net/ipv4/proc.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/proc.c,v
-retrieving revision 1.14
-diff -u -r1.14 proc.c
---- linux-2.6/net/ipv4/proc.c	22 May 2003 08:13:13 -0000	1.14
-+++ linux-2.6/net/ipv4/proc.c	7 Sep 2003 16:51:04 -0000
-@@ -238,28 +238,21 @@
- int __init ip_misc_proc_init(void)
- {
- 	int rc = 0;
--	struct proc_dir_entry *p;
- 
--	p = create_proc_entry("netstat", S_IRUGO, proc_net);
--	if (!p)
-+	if (!proc_net_fops_create("netstat", S_IRUGO, &netstat_seq_fops))
- 		goto out_netstat;
--	p->proc_fops = &netstat_seq_fops;
- 
--	p = create_proc_entry("snmp", S_IRUGO, proc_net);
--	if (!p)
-+	if (!proc_net_fops_create("snmp", S_IRUGO, &snmp_seq_fops))
- 		goto out_snmp;
--	p->proc_fops = &snmp_seq_fops;
- 
--	p = create_proc_entry("sockstat", S_IRUGO, proc_net);
--	if (!p)
-+	if (!proc_net_fops_create("sockstat", S_IRUGO, &sockstat_seq_fops))
- 		goto out_sockstat;
--	p->proc_fops = &sockstat_seq_fops;
- out:
- 	return rc;
- out_sockstat:
--	remove_proc_entry("snmp", proc_net);
-+	proc_net_remove("snmp");
- out_snmp:
--	remove_proc_entry("netstat", proc_net);
-+	proc_net_remove("netstat");
- out_netstat:
- 	rc = -ENOMEM;
- 	goto out;
-Index: linux-2.6/net/ipv4/raw.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/raw.c,v
-retrieving revision 1.35
-diff -u -r1.35 raw.c
---- linux-2.6/net/ipv4/raw.c	11 Jul 2003 04:06:16 -0000	1.35
-+++ linux-2.6/net/ipv4/raw.c	7 Sep 2003 16:51:04 -0000
-@@ -831,19 +831,13 @@
- 
- int __init raw_proc_init(void)
- {
--	struct proc_dir_entry *p;
--	int rc = 0;
--
--	p = create_proc_entry("raw", S_IRUGO, proc_net);
--	if (p)
--		p->proc_fops = &raw_seq_fops;
--	else
--		rc = -ENOMEM;
--	return rc;
-+	if (!proc_net_fops_create("raw", S_IRUGO, &raw_seq_fops))
-+		return -ENOMEM;
-+	return 0;
- }
- 
- void __init raw_proc_exit(void)
- {
--	remove_proc_entry("raw", proc_net);
-+	proc_net_remove("raw");
- }
- #endif /* CONFIG_PROC_FS */
-Index: linux-2.6/net/ipv4/tcp_ipv4.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/tcp_ipv4.c,v
-retrieving revision 1.56
-diff -u -r1.56 tcp_ipv4.c
---- linux-2.6/net/ipv4/tcp_ipv4.c	18 Aug 2003 07:06:49 -0000	1.56
-+++ linux-2.6/net/ipv4/tcp_ipv4.c	7 Sep 2003 16:51:05 -0000
-@@ -2413,11 +2413,15 @@
- {
- 	struct tcp_seq_afinfo *afinfo = PDE(inode)->data;
- 	struct seq_file *seq;
--	int rc = -ENOMEM;
--	struct tcp_iter_state *s = kmalloc(sizeof(*s), GFP_KERNEL);
-+	struct tcp_iter_state *s;
-+	int rc;
- 
-+	if (unlikely(afinfo == NULL))
-+		return -EINVAL;
-+
-+	s = kmalloc(sizeof(*s), GFP_KERNEL);
- 	if (!s)
--		goto out;
-+		return -ENOMEM;
- 	memset(s, 0, sizeof(*s));
- 	s->family		= afinfo->family;
- 	s->seq_ops.start	= tcp_seq_start;
-@@ -2450,11 +2454,10 @@
- 	afinfo->seq_fops->llseek	= seq_lseek;
- 	afinfo->seq_fops->release	= seq_release_private;
- 	
--	p = create_proc_entry(afinfo->name, S_IRUGO, proc_net);
--	if (p) {
-+	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
-+	if (p)
- 		p->data = afinfo;
--		p->proc_fops = afinfo->seq_fops;
--	} else
-+	else
- 		rc = -ENOMEM;
- 	return rc;
- }
-@@ -2463,7 +2466,7 @@
- {
- 	if (!afinfo)
- 		return;
--	remove_proc_entry(afinfo->name, proc_net);
-+	proc_net_remove(afinfo->name);
- 	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops)); 
- }
- 
-Index: linux-2.6/net/ipv4/udp.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/ipv4/udp.c,v
-retrieving revision 1.39
-diff -u -r1.39 udp.c
---- linux-2.6/net/ipv4/udp.c	4 Sep 2003 15:47:07 -0000	1.39
-+++ linux-2.6/net/ipv4/udp.c	7 Sep 2003 16:51:05 -0000
-@@ -1460,11 +1460,10 @@
- 	afinfo->seq_fops->llseek	= seq_lseek;
- 	afinfo->seq_fops->release	= seq_release_private;
- 
--	p = create_proc_entry(afinfo->name, S_IRUGO, proc_net);
--	if (p) {
-+	p = proc_net_fops_create(afinfo->name, S_IRUGO, afinfo->seq_fops);
-+	if (p)
- 		p->data = afinfo;
--		p->proc_fops = afinfo->seq_fops;
--	} else
-+	else
- 		rc = -ENOMEM;
- 	return rc;
- }
-@@ -1473,7 +1472,7 @@
- {
- 	if (!afinfo)
- 		return;
--	remove_proc_entry(afinfo->name, proc_net);
-+	proc_net_remove(afinfo->name);
- 	memset(afinfo->seq_fops, 0, sizeof(*afinfo->seq_fops));
- }
- 
+When I load the module before starting ifplugd everything is ok.
+I didn't check yet, if it occurs with previous kernel versions too.
+
+after a modprobe
+
+ kernel: Intel(R) PRO/100 Network Driver - version 2.3.18-k1
+ kernel: Copyright (c) 2003 Intel Corporation
+ kernel:
+ kernel: Unable to handle kernel NULL pointer dereference
+at virtual address 00000004
+ kernel:  printing eip:
+ kernel: d0a5250f
+ kernel: *pde = 00000000
+ kernel: Oops: 0000 [#1]
+ kernel: PREEMPT
+ kernel: CPU:    0
+ kernel: EIP:    0060:[__crc_pcmcia_request_irq+5867872/7156875]    Not
+tainted VLI
+ kernel: EFLAGS: 00010203
+ kernel: EIP is at e100_free_rfd_pool+0x14/0xdc [e100]
+ kernel: eax: 00000000   ebx: 00000000   ecx: 00000020   edx: 00000000
+ kernel: esi: c7b95200   edi: c7b95220   ebp: 00000000   esp: ccd13e78
+ kernel: ds: 007b   es: 007b   ss: 0068
+ kernel: Process ifplugd (pid: 774, threadinfo=ccd12000 ta:
+ kernel: Stack: c1367454 c7b95200 c7b95200 c7b95000 d0a527c6 c7b95200
+fffffff4 d0a51a7e
+ kernel:        c7b95200 00000003 ccd13ec8 c3e6b940 0008d42c c7b95000
+00000000 00001003
+ kernel:        00000000 c028eb1a c7b95000 ccd12000 c02939ea c7b95000
+00001002 c02900b8
+ kernel: Call Trace:
+ kernel:  [__crc_pcmcia_request_irq+5868567/7156875]
+e100_clear_pools+0x1a/0x2a [e100]
+ kernel:  [__crc_pcmcia_request_irq+5865167/7156875]
+e100_open+0x13b/0x198 [e100]
+ kernel:  [dev_open+121/134] dev_open+0x79/0x86
+ kernel:  [dev_mc_upload+37/67] dev_mc_upload+0x25/0x43
+ kernel:  [dev_change_flags+81/288] dev_change_flags+0x51/0x120
+ kernel:  [devinet_ioctl+643/1538] devinet_ioctl+0x283/0x602
+ kernel:  [inet_ioctl+178/248] inet_ioctl+0xb2/0xf8
+ kernel:  [sock_ioctl+0/676] sock_ioctl+0x0/0x2a4
+ kernel:  [sock_ioctl+245/676] sock_ioctl+0xf5/0x2a4
+ kernel:  [sock_ioctl+0/676] sock_ioctl+0x0/0x2a4
+ kernel:  [sys_ioctl+253/626] sys_ioctl+0xfd/0x272
+ kernel:  [sys_munmap+68/100] sys_munmap+0x44/0x64
+ kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
+ kernel:
+ kernel: Code: 00 c7 43 40 00 00 00 00 c7 43 3c 00 00 00 00 8b 5c 24 10
+83 c4 14 c3 57 56 53 83 ec 04 8b 74 24 14 8d 7e 20 8b 5e 20 39 fb
+74 5a <8b> 53 04 39 1a 0f 85 b0 00 00 00 8b 03 39 58 04 0f 85 98 00 00
+ kernel:  <7>e100: selftest OK.
+ kernel: e100: eth0: Intel(R) PRO/100 Network Connection
+ kernel:   Hardware receive checksums enabled
+ kernel:
+
+Config:
+# CONFIG_DGRS is not set
+CONFIG_EEPRO100=m
+# CONFIG_EEPRO100_PIO is not set
+CONFIG_E100=m
+# CONFIG_FEALNX is not set
+# CONFIG_NATSEMI is not set
+
+System is a Thinkpad R40 2722.
+
+
+Jan
+
+(Please CC on reply)
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Jan Ischebeck <mail@jan-ischebeck.de>
