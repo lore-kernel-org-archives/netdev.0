@@ -1,34 +1,26 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: via-rhine unable to send back-to-back packets?
-Date: Mon, 29 Nov 2004 23:27:00 +0100
-Message-ID: <20041129222700.GA22918@xi.wantstofly.org>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: odd behavior with r8169 and pcap
+Date: Tue, 30 Nov 2004 00:18:00 +0100
+Message-ID: <20041129231800.GB3880@electric-eye.fr.zoreil.com>
+References: <1101751909.2291.21.camel@tux.hq.axian.com> <20041129210213.GA3880@electric-eye.fr.zoreil.com> <1101766059.3382.57.camel@tux.hq.axian.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Roger Luethi <rl@hellgate.ch>
+To: Terry Griffin <terryg@axian.com>
 Content-Disposition: inline
+In-Reply-To: <1101766059.3382.57.camel@tux.hq.axian.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Terry Griffin <terryg@axian.com> :
+[...]
 
-I'm running some pktgen experiments on an Nehemiah mini-ITX board which
-has dual via-rhine controllers, and I'm seeing something odd -- it appears
-as if either the hardware can't send back-to-back packets, or the driver
-it making every packet two bytes longer than it should be.
+Ok, thanks for the info. It may sound like voodoo, but...
 
-For example, when transmitting 300-byte packets, I can TX 38261 packets
-per second, but I should be able to TX ~38580.  When doing the math, it
-turns out that 38261 is exactly the number of 302-byte packets you can
-stuff into Fast Ethernet per second.
+Could you pass acpi=off to the kernel and disable whatever acpi
+or USB option appearing in the bios ?
 
-This test is not CPU limited -- I'm seeing the same issue from 100B
-packet size up to 1500B.
-
-Any ideas?  I had a look at the driver but found nothing odd.
-
-
-cheers,
-Lennert
+--
+Ueimor
