@@ -1,38 +1,54 @@
-From: Olaf Hering <olh@suse.de>
-Subject: [PATCH] signed bug in net/decnet/dn_nsp_in.c dn_nsp_linkservice()
-Date: Mon, 28 Jun 2004 20:18:43 +0200
+From: "Robyn Tilley" <UYUQYPTKWUSPJ@yahoo.com>
+Subject: =?ISO-8859-1?Q?=CB=F3=F7=F8=E0=FF=20=FD=F0=EE=F2=E8=EA=E0?=
+	=?ISO-8859-1?Q?=D0=EE=F1=F1=E8=E8?=  crucifix possess catalpa aspirin oresteia repelled excretion invertible gauntlet crewel cafe brockle perjure mouse reproach into dusky varitype bronco bedspread docket almighty chick siemens decade eligible bisque bishopric upturn analeptic aerodynamic alloy rhine
+Date: Tue, 29 Jun 2004 00:01:05 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040628181843.GA15021@suse.de>
+Message-ID: <TRHWFDFOIQYODEXQNARWLB@yahoo.com>
+Reply-To: "Robyn Tilley" <UYUQYPTKWUSPJ@yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=utf-8
-Content-Transfer-Encoding: quoted-printable
+Content-Type: multipart/alternative;
+	boundary="--7085569006435288"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+----7085569006435288
+Content-Type: text/plain;charset=windows-1251;
+Content-Transfer-Encoding: base64
+X-MIME-Autoconverted: from 8bit to base64 by oss.sgi.com id i5SJ8Vgi014176
 
-net/decnet/dn_nsp_in.c:534: warning: comparison is always false due to li=
-mited range of data type
-
-char can be either signed or unsigned, depending on the target system.
-patch is against 2.6.7-bk11
-
-
---- ./net/decnet/dn_nsp_in.c
-+++ ./net/decnet/dn_nsp_in.c	2004/06/28 18:11:40
-@@ -504,7 +504,7 @@
- 	struct dn_scp *scp =3D DN_SK(sk);
- 	unsigned short segnum;
- 	unsigned char lsflags;
--	char fcval;
-+	signed char fcval;
- 	int wake_up =3D 0;
- 	char *ptr =3D skb->data;
- 	unsigned char fctype =3D scp->services_rem & NSP_FC_MASK;
---=20
-USB is for mice, FireWire is for men!
-
-sUse lINUX ag, n=C3=9CRNBERG
+x+Tw4OLx8uLz6fLlLA0KDQrP8ODk6+Dj4OXsIOog7/Du8ezu8vDzIPHr5eTz/vno5SD45eTl
+4vD7DQr98O7y6Pfl8eru4+4g6ujt7joNCg0K0fLu6Ozu8fL8IDEg6uDx8eXy+yAtIDEzMCDw
+8+Hr5ekuDQoo5O7x8uDi6uAg7+4gzO7x6uLlIOzl7eXlIDUg6uDx8eXyIC0gOTAg8PPh6+Xp
+Lg0K0eL7+OUgLSDh5fHv6+Dy7e4pLg0KDQry5esuICgwOTUpIDI4OS04NS01MywgMjg5LTQ1
+LTY4ICjv7u0t7//yLCDxIDExIOTuIDE3IPfg8e7iKQ0KDQoNCg0KxOv/IOfg6uDn4CDoIO/u
+6/P35e3o/yDq7u3x8+v88uD26OggDQrt5SDt8+bt7iDu8uLl9+Dy/CDt4CDv6PH87O4sDQrg
+IO3z5u3uIOfi7u3o8vwg7+4g8uXr5fTu7fMuDQoNCnNlcmZkb20gd29ya3N0YXRpb24gY2Fy
+Ym9uZGFsZSBmcmVuY2ggc2ludGVyIGFyY2hlciBrb3dhbHNraSBibHVzdGVyIGFwb3N0YXRl
+IG1hZ25ldGljIHRlbmRlbmN5IGR1dHRvbiBkaXNncnVudGxlIHZpcmdpbCBhcnJhbmdlIGJv
+d2xpbmUgYWR2aWNlIGtyZXNnZSBkYWlzIHlvdSd2ZSBsYW50aGFudW0gY2FyciANCi0NCg0K
+MTIwIOTt5ekg8ODn4vDg8uAgDQrA7ODk5ekgDQrA7+/l8ujy7fvlIO/u7+roIA0KwPDs6P8g
+6/7h7uLt6Oru4iANCsDy8vDg6vbo7u0g8fLw4PHy5ekgDQrB4OHt6OogNiANCsHg4e3o6iA3
+IA0KweDh7ejqIDggDQrB5efu8urg5+3g/yDi5O7i4CANCsHl+OXt4P8g4iDv7vHy5evoIA0K
+wevo5+3l9vsgDQrB7uv8+OD/IPjo+OrgIE5FVyANCsIg6/7h4ugg4vHlIO/u5/sg9e7w7vjo
+IA0KwiDv7ujx6uD1IO/w6Orr/vfl7ejpIO3gIPHi7v4uLi4gDQrCIO/u6PHq4PUg8e7h6+Dn
+7eAgDQrC5O71IOPr8+Hu6ujpLCDt7uPoIPjo8OUgDQrC5efk5fHz/vno6SANCsLl8PXu7CDt
+4CDs8+bo6uD1IA0KwuX35fDo7ergIPEg8eXq8e7sIO3gIOTl8eXw8iANCsLn4+v/5CDo5yD4
+6PDo7eroIA0Kwu7k7u/g5CDm5evg7ejpIA0Kwu7n/OzoIOzl7f8gDQrC7vHl7O3g5Pbg8ujr
+5fLt//8gyuXr6+ggDQrC8bgg5+vuIO7yIOHg4SANCsLx5SDr/uToIOTl6+D+8iD98u4gDQrC
+8eXsIOvo5+Dy/CEgzO7w5O7pIOog8fLl7eUhIA0Kw+7w//fo5SDq4PDy6O3q6CANCsPu8fLo
+7ej24CDo8erz+OXt6OkgMSANCsPu8fLo7ej24CDo8erz+OXt6OkgMiANCsPu8fLo7ej24CDo
+8erz+OXt6OkgMyANCsPw8+/v7uLz9eAgDQrD8+v/7ergIA0KxODi4Ony5SDv7uft4Oru7Ojs
+8f8gDQrE4OLg6+rgIA0KxODi4Ovq4CAyIA0KxOXi7uog7O3u4yDt5SDh++Lg5fIgDQrE5eLu
+6iDs7e7j7iDt5SDh++Lg5fIgMiANCsTl4u736ugt6u7t9OXy6uggDQrE5eLu9+roIOzg9Ojo
+IA0KxOXi7vfq6CDt4CDv8O7k4ObzIA0KxOXi7vfq6CDxIO/l8Pfo6u7sIA0KxOXi7vfq6CD0
+/vDl8OAgDQrE5eLu9+roIPT+8OXw4CAyIA0KxObo7e3gIPLg8vPo8O7i+ej24CANCsTm8+v8
+5fLy4CDoINDu7OXuIA0KxO7j7eDy/CDoIO7y7uTw4PL8IA0KxP/k6CDoIPK48ugg8evo6+jx
+/CDiIO/u67jy5SANCsbg8CDiIPjy4O3g9SANCsbl7fno7eAsIOru8u7w4P8g5OC48iANCsbl
+7fno7fsg5+Ag8ODh7vLu6SANCsbl8OXh5fYgDQrH4OLu5eLg8uXr/CANCsfg7/Dl8u376SDv
+6+7kIA0Kx+Dx4OTgIO3gIOTl4vfu7e7qIA0KLS0tDQroIOzt7uPu5SDk8PPj7uUNCg0KDQph
+c3BoeXhpYXRlIGhvcnNlZmxlc2ggbWNuZWlsIGFub2RpYyBibGluayBhZG9ybiBjb250ZW50
+aW9uIHRyYW5zbWl0dGFuY2UgYmFybnN0b3JtIHlhdyBkZWxpbGFoIHNwb3J0c21hbiBkaXN0
+aWxsYXRlIG11bmljaXBhbCBwcmVmZXJyaW5nIGJvbG9nbmEgYmVncnVkZ2UgDQo=
+----7085569006435288--
