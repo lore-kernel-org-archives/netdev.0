@@ -1,60 +1,70 @@
-From: Petr Baudis <pasky@xs26.net>
-Subject: Linux problems with hundreds of interfaces/routes
-Date: Fri, 27 Sep 2002 13:43:09 +0200
+From: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
+Subject: Re: udp weirdness
+Date: Fri, 27 Sep 2002 14:02:24 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020927114309.GR2655@pasky.ji.cz>
+Message-ID: <20020927120223.GH343@hookipa>
+References: <20020924065046.GF392@hookipa>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: roque@di.fc.ul.pt, pekkas@netcore.fi, netdev@oss.sgi.com,
-   xs26-dev@xs26.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
+To: Eric Lemoine <Eric.Lemoine@ens-lyon.fr>
 Content-Disposition: inline
+In-Reply-To: <20020924065046.GF392@hookipa>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  Hello,
+On Tue, Sep 24, 2002 at 08:50:46AM +0200, Eric Lemoine wrote:
+> I'm observing some UDP weirdness, or I'd better say some UDP behaviour
+> that I can't explain.
+> 
+> Two machines: one sending a UDP flow (using sendto) and another receiving 
+> this UDP flow (using bind + recv). 
+> 
+> When the dgram length is lower that 357 Bytes I observe strange results
+> at the send side. My home-made udp_tx program gives the following:
+> 
+> $./udp_tx -h 192.168.4.1 -m 357
+> 357 1312621 357.518
+> 
+> 357 is the dgram length (in B), 1312621 the number of dgrams sent and 
+> 357.518 the perceived thruput (in Mbits/s). The weirdness is that I
+> get 357.518 Mbits/s whereas the underlying network is 10Mbits/s!
+> 
+> At the receive side the results are consistent (obviously):
+> 
+> $./udp_rx -m 357
+> 357 29519 8.00884
+> 
+> <netstat -s --udp> on the send machine before and after the run also
+> gives me such a large amount of sent packets (~1312700), whereas
+> </sbin/ifconfig> confirms that about 29519 packets have been sent
+> out.
+> 
+> Below 357 Bytes, the same kind of results are observed. Above 357 Bytes,
+> the results make more sense to me:
+> 
+> $./udp_tx -h 192.168.4.1 -m 358
+> 358 29505 8.04393
+> 
+> $./udp_rx -m 358
+> 358 29468 8.0179
+> 
+> Does anybody know where I lose packets? And why do I lose them only when
+> the dgram length is below 357 Bytes?
+> 
+> BTW, I'm running 2.4.18-vanilla w/ the 3c59x driver.
 
-  as you probably remember, I'm running XS26 Point of Presence, currently on
-linux 2.4.19-pre5. It has currently around 2185 v6 routes and 591 interfaces.
-The problem is that lately, some magic threshold was crossed and suddenly
-routes started to act mysteriously and fail - sometimes, zebra says something
-like:
+I figured out that packets can be dropped in pfifo_fast_enqueue()
+[the default qdisc's enqueue func], even though the driver/kernel 
+flow control has triggered. 
 
-2002/09/27 11:11:03 ZEBRA: netlink-listen error: No buffer space available, type=RTM_NEWROUTE(24), seq=426, pid=0
+And sendto does not notify the user when packet gets dropped because 
+the output queue overflows (as indicated in sendto manpage).
 
-  (but not always), and random routes start and stop working, like:
+Why doesn't the kernel just put the process into sleep instead of 
+dropping packets?
 
-12:38:53.607852 3ffe:80ed:100:201::1 > 3ffe:80ef:100::: icmp6: echo request
-12:38:54.646534 3ffe:80ed:100:201::1 > 3ffe:80ef:100::: icmp6: echo request
-12:38:55.619879 3ffe:80ed:100:201::1 > 3ffe:80ef:100::: icmp6: echo request
-12:38:56.623530 3ffe:80ed:100:201::1 > 3ffe:80ef:100::: icmp6: echo request
-12:38:56.625014 3ffe:80ef:100:: > 3ffe:80ed:100:201::1: icmp6: echo reply
-12:38:57.635249 3ffe:80ed:100:201::1 > 3ffe:80ef:100::: icmp6: echo request
-12:38:57.635291 3ffe:80ef:100:: > 3ffe:80ed:100:201::1: icmp6: echo reply
-12:38:58.643860 3ffe:80ed:100:201::1 > 3ffe:80ef:100::: icmp6: echo request
-
-  (3ffe:80ef:100:: is address of a local interface). Apparently bgpd removed
-some route at that moment and route for this came into game. I think that
-there's some bug/limit in kernel regarding the routing table size, causing that
-some routes aren't ever used (altough they are listed). Have you please any
-idea about this problem?
-
-  I discovered few sysctls - net.ipv6.route.max_size which was 4096, so I
-increased it to 8192 and then to 65536, but it had no effect at all. Then I
-noticed net.core.rmem_max and net.core.wmem_max, so I increased it from 65535
-to 1M, but it had no effect at all as well.
-
-  Thanks in advance for any hint,
-
+Thanks.
 -- 
- 
-				Petr "Pasky" Baudis
- 
-* ELinks maintainer                * IPv6 guy (XS26 co-coordinator)
-* IRCnet operator                  * FreeCiv AI occassional hacker
-.
-<Beeth> Girls are like internet domain names, the ones I like are already taken.
-<honx> Well, you can still get one from a strange country :-P
-.
-Public PGP key && geekcode && homepage: http://pasky.ji.cz/~pasky/
+Eric
