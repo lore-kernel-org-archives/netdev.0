@@ -1,184 +1,98 @@
-From: =?ISO-8859-1?Q?Mika_Penttil=E4?= <mika.penttila@kolumbus.fi>
-Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
-Date: Fri, 06 Feb 2004 20:03:39 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] (3/4) Support lots of netdev's -- hash ifindex
+Date: Fri, 6 Feb 2004 10:05:01 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4023D6FB.9010909@kolumbus.fi>
-References: <200402070232.33771.kazunori@miyazawa.org>
+Message-ID: <20040206100501.6ffcfa8a.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Kazunori Miyazawa <kazunori@miyazawa.org>
-In-Reply-To: <200402070232.33771.kazunori@miyazawa.org>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hash network device index entries, to allow fast lookup by routing
+protocols.
 
-
-Kazunori Miyazawa wrote:
-
->Hello, 
->
->Yoshifuji-san and I send the patch which unifies IPv6 output routine and remove
->RTF_NDISC again. It resolves an issue of IPv6 IPsec with neighbor discovery
->without a flag.
->  
->
-
-You break multicast replies, see what ndisc_build_ll_hdr() does...
-
---Mika
-
-
->This patch is against linux-2.6.2.
->
->Best regards,
->
->--Kazunori Miyazawa
->
->===== include/linux/ipv6_route.h 1.4 vs edited =====
->--- 1.4/include/linux/ipv6_route.h	Sun Aug 31 13:26:12 2003
->+++ edited/include/linux/ipv6_route.h	Mon Jan 26 15:09:34 2004
->@@ -24,7 +24,6 @@
-> #define RTF_CACHE	0x01000000	/* cache entry			*/
-> #define RTF_FLOW	0x02000000	/* flow significant route	*/
-> #define RTF_POLICY	0x04000000	/* policy route			*/
->-#define RTF_NDISC	0x08000000	/* ndisc route			*/
-> 
-> #define RTF_LOCAL	0x80000000
-> 
->===== include/net/ipv6.h 1.28 vs edited =====
->--- 1.28/include/net/ipv6.h	Wed Jan 14 09:36:24 2004
->+++ edited/include/net/ipv6.h	Mon Jan 26 15:10:50 2004
->@@ -355,6 +355,7 @@
->  */
-> 
-> extern int			ip6_output(struct sk_buff *skb);
->+extern int			ip6_output2(struct sk_buff *skb);
-> extern int			ip6_forward(struct sk_buff *skb);
-> extern int			ip6_input(struct sk_buff *skb);
-> extern int			ip6_mc_input(struct sk_buff *skb);
->===== net/ipv6/ndisc.c 1.64 vs edited =====
->--- 1.64/net/ipv6/ndisc.c	Thu Jan 22 15:38:40 2004
->+++ edited/net/ipv6/ndisc.c	Mon Jan 26 15:10:16 2004
->@@ -390,20 +390,6 @@
->  *	Send a Neighbour Advertisement
->  */
-> 
->-static int ndisc_output(struct sk_buff *skb)
->-{
->-	if (skb) {
->-		struct neighbour *neigh = (skb->dst ? skb->dst->neighbour : NULL);
->-		if (ndisc_build_ll_hdr(skb, skb->dev, &skb->nh.ipv6h->daddr, neigh, skb->len) == 0) {
->-			kfree_skb(skb);
->-			return -EINVAL;
->-		}
->-		dev_queue_xmit(skb);
->-		return 0;
->-	}
->-	return -EINVAL;
->-}
->-
-> static inline void ndisc_flow_init(struct flowi *fl, u8 type,
-> 			    struct in6_addr *saddr, struct in6_addr *daddr)
-> {
->@@ -446,7 +432,7 @@
-> 
-> 	ndisc_flow_init(&fl, NDISC_NEIGHBOUR_ADVERTISEMENT, src_addr, daddr);
-> 
->-	dst = ndisc_dst_alloc(dev, neigh, ndisc_output);
->+	dst = ndisc_dst_alloc(dev, neigh, ip6_output2);
-> 	if (!dst)
-> 		return;
-> 
->@@ -533,7 +519,7 @@
-> 
-> 	ndisc_flow_init(&fl, NDISC_NEIGHBOUR_SOLICITATION, saddr, daddr);
-> 
->-	dst = ndisc_dst_alloc(dev, neigh, ndisc_output);
->+	dst = ndisc_dst_alloc(dev, neigh, ip6_output2);
-> 	if (!dst)
-> 		return;
-> 
->@@ -605,7 +591,7 @@
-> 
-> 	ndisc_flow_init(&fl, NDISC_ROUTER_SOLICITATION, saddr, daddr);
-> 
->-	dst = ndisc_dst_alloc(dev, NULL, ndisc_output);
->+	dst = ndisc_dst_alloc(dev, NULL, ip6_output2);
-> 	if (!dst)
-> 		return;
-> 
->===== net/ipv6/route.c 1.63 vs edited =====
->--- 1.63/net/ipv6/route.c	Sun Jan 25 03:09:52 2004
->+++ edited/net/ipv6/route.c	Mon Jan 26 15:11:39 2004
->@@ -578,7 +578,7 @@
-> 	rt->rt6i_dev	  = dev;
-> 	rt->rt6i_nexthop  = neigh;
-> 	rt->rt6i_expires  = 0;
->-	rt->rt6i_flags    = RTF_LOCAL | RTF_NDISC;
->+	rt->rt6i_flags    = RTF_LOCAL;
-> 	rt->rt6i_metric   = 0;
-> 	atomic_set(&rt->u.dst.__refcnt, 1);
-> 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = 255;
->@@ -832,7 +832,7 @@
-> 		}
-> 	}
-> 
->-	rt->rt6i_flags = rtmsg->rtmsg_flags & ~RTF_NDISC;
->+	rt->rt6i_flags = rtmsg->rtmsg_flags;
-> 
-> install_route:
-> 	if (rta && rta[RTA_METRICS-1]) {
->@@ -1124,8 +1124,6 @@
-> static struct rt6_info * ip6_rt_copy(struct rt6_info *ort)
-> {
-> 	struct rt6_info *rt = ip6_dst_alloc();
->-
->-	BUG_ON(ort->rt6i_flags & RTF_NDISC);
-> 
-> 	if (rt) {
-> 		rt->u.dst.input = ort->u.dst.input;
->===== net/ipv6/xfrm6_policy.c 1.14 vs edited =====
->--- 1.14/net/ipv6/xfrm6_policy.c	Fri Oct 24 21:39:33 2003
->+++ edited/net/ipv6/xfrm6_policy.c	Mon Jan 26 15:12:35 2004
->@@ -55,13 +55,6 @@
-> __xfrm6_find_bundle(struct flowi *fl, struct rtable *rt, struct xfrm_policy *policy)
-> {
-> 	struct dst_entry *dst;
->-	u32 ndisc_bit = 0;
->-
->-	if (fl->proto == IPPROTO_ICMPV6 &&
->-	    (fl->fl_icmp_type == NDISC_NEIGHBOUR_ADVERTISEMENT ||
->-	     fl->fl_icmp_type == NDISC_NEIGHBOUR_SOLICITATION  ||
->-	     fl->fl_icmp_type == NDISC_ROUTER_SOLICITATION))
->-		ndisc_bit = RTF_NDISC;
-> 
-> 	/* Still not clear if we should set fl->fl6_{src,dst}... */
-> 	read_lock_bh(&policy->lock);
->@@ -69,9 +62,6 @@
-> 		struct xfrm_dst *xdst = (struct xfrm_dst*)dst;
-> 		struct in6_addr fl_dst_prefix, fl_src_prefix;
-> 
->-		if ((xdst->u.rt6.rt6i_flags & RTF_NDISC) != ndisc_bit)
->-			continue;
->-
-> 		ipv6_addr_prefix(&fl_dst_prefix,
-> 				 &fl->fl6_dst,
-> 				 xdst->u.rt6.rt6i_dst.plen);
->@@ -169,7 +159,7 @@
-> 		dst_prev->output	= dst_prev->xfrm->type->output;
-> 		/* Sheit... I remember I did this right. Apparently,
-> 		 * it was magically lost, so this code needs audit */
->-		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL|RTF_NDISC);
->+		x->u.rt6.rt6i_flags    = rt0->rt6i_flags&(RTCF_BROADCAST|RTCF_MULTICAST|RTCF_LOCAL);
-> 		x->u.rt6.rt6i_metric   = rt0->rt6i_metric;
-> 		x->u.rt6.rt6i_node     = rt0->rt6i_node;
-> 		x->u.rt6.rt6i_gateway  = rt0->rt6i_gateway;
->
->
->
->  
->
+diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h	Thu Feb  5 15:17:30 2004
++++ b/include/linux/netdevice.h	Thu Feb  5 15:17:30 2004
+@@ -377,6 +377,8 @@
+ 	struct list_head	todo_list;
+ 	/* device name hash chain */
+ 	struct hlist_node	name_hlist;
++	/* device index hash chain */
++	struct hlist_node	index_hlist;
+ 
+ 	/* register/unregister state machine */
+ 	enum { NETREG_UNINITIALIZED=0,
+diff -Nru a/net/core/dev.c b/net/core/dev.c
+--- a/net/core/dev.c	Thu Feb  5 15:17:30 2004
++++ b/net/core/dev.c	Thu Feb  5 15:17:30 2004
+@@ -188,6 +188,7 @@
+ 
+ #define NETDEV_HASHBITS	8
+ static struct hlist_head dev_name_head[1<<NETDEV_HASHBITS];
++static struct hlist_head dev_index_head[1<<NETDEV_HASHBITS];
+ 
+ static inline struct hlist_head *dev_name_hash(const char *name)
+ {
+@@ -195,6 +196,11 @@
+ 	return &dev_name_head[hash & ((1<<NETDEV_HASHBITS)-1)];
+ }
+ 
++static inline struct hlist_head *dev_index_hash(int ifindex)
++{
++	return &dev_index_head[ifindex & ((1<<NETDEV_HASHBITS)-1)];
++}
++
+ /*
+  *	Our notifier list
+  */
+@@ -554,12 +560,15 @@
+ 
+ struct net_device *__dev_get_by_index(int ifindex)
+ {
+-	struct net_device *dev;
++	struct hlist_node *p;
+ 
+-	for (dev = dev_base; dev; dev = dev->next)
++	hlist_for_each(p, dev_index_hash(ifindex)) {
++		struct net_device *dev
++			= hlist_entry(p, struct net_device, index_hlist);
+ 		if (dev->ifindex == ifindex)
+-			break;
+-	return dev;
++			return dev;
++	}
++	return NULL;
+ }
+ 
+ 
+@@ -2842,6 +2851,7 @@
+ 	*dev_tail = dev;
+ 	dev_tail = &dev->next;
+ 	hlist_add_head(&dev->name_hlist, head);
++	hlist_add_head(&dev->index_hlist, dev_index_hash(dev->ifindex));
+ 	dev_hold(dev);
+ 	dev->reg_state = NETREG_REGISTERING;
+ 	write_unlock_bh(&dev_base_lock);
+@@ -3064,6 +3074,7 @@
+ 		if (d == dev) {
+ 			write_lock_bh(&dev_base_lock);
+ 			hlist_del(&dev->name_hlist);
++			hlist_del(&dev->index_hlist);
+ 			if (dev_tail == &dev->next)
+ 				dev_tail = dp;
+ 			*dp = d->next;
+@@ -3144,6 +3155,9 @@
+ 
+ 	for (i = 0; i < ARRAY_SIZE(dev_name_head); i++)
+ 		INIT_HLIST_HEAD(&dev_name_head[i]);
++
++	for (i = 0; i < ARRAY_SIZE(dev_index_head); i++)
++		INIT_HLIST_HEAD(&dev_index_head[i]);
+ 
+ 	/*
+ 	 *	Initialise the packet receive queues.
