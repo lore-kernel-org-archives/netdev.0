@@ -1,30 +1,28 @@
-From: tanmay ganacharya <ganachar@usc.edu>
-Subject: Units of the value in t_rtttime and t_rxtcur
-Date: Tue, 13 Jan 2004 14:38:42 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Realtek 8169 Lock-ups
+Date: Wed, 14 Jan 2004 00:04:27 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <837c3083b839.83b839837c30@usc.edu>
+Message-ID: <20040114000427.A21899@electric-eye.fr.zoreil.com>
+References: <1073507006.5151.61.camel@localhost> <20040107232034.A22930@electric-eye.fr.zoreil.com> <1073596694.6378.6.camel@localhost> <4001080D.3090401@pobox.com> <20040111124957.A18068@electric-eye.fr.zoreil.com> <20040113000357.D5983@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7BIT
+Cc: dpollock@acm.org, damouse@ntlworld.com, brad@mainstreetsoftworks.com,
+        kinetik@orcon.net.nz
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-language: en
 Content-Disposition: inline
+In-Reply-To: <20040113000357.D5983@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Tue, Jan 13, 2004 at 12:03:57AM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
-I am working on a project in which I need to find the instantaneous RTT's and RTO's over a period of 20 Minutes of a TCP connection.
-I was able to get the RTT and RTO values from the t_rtttime and t_rxtcur variables in the tcp block structure but am not able to figure out the units of the values.
-I need to get both in same units.
-I think RTO's are in ticks. But am not very sure about RTT.
-Please could you help me with the same. I would really be grateful.
-Also I found that 1 TCP tick = 224 miliseconds. I just wanted to confim whether it is correct. I am using FreeBSD 4.9 Stable.
-I am sending a sample of the values I have collected.
+Re,
 
-t_rtttime = 354397342, t_srtt = 68069, t_rxtcur = 1689
+  latest pile of r8169 related patches against 2.6.1-bk1 available at:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-a
 
-Waiting for your reply.
-Thanking you,
-Yours truly,
-Tanmay Ganacharya
+Credits go to damouse@ntlworld.com for a bug removal in r8169-init_one.patch.
+
+No change of behavior expected for SMP so far.
+
+--
+Ueimor
