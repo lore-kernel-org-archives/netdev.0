@@ -1,40 +1,38 @@
-From: maximilian attems <janitor@sternwelten.at>
-Subject: Re: sis900 oops on resume
-Date: Thu, 18 Nov 2004 10:46:02 +0100
-Message-ID: <20041118094602.GB2287@stro.at>
-References: <20041117182403.GC2252@stro.at> <20041117201008.GA11439@elf.ucw.cz> <20041118021425.GA2128@stro.at> <20041118084431.GA13870@gateway.milesteg.arr>
+From: =?ISO-8859-2?Q?Micha=B3_Margula?= <alchemyx@uznam.net.pl>
+Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Thu, 18 Nov 2004 12:27:32 +0100
+Message-ID: <419C8724.20006@uznam.net.pl>
+References: <20041115122046.1413527e.akpm@osdl.org>	<200411152146.02851.bdschuym@pandora.be> <20041115124843.4c3dd72f.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-2; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Bart De Schuymer <bdschuym@pandora.be>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: NetDev <netdev@oss.sgi.com>, Pavel Machek <pavel@ucw.cz>
-Content-Disposition: inline
-In-Reply-To: <20041118084431.GA13870@gateway.milesteg.arr>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041115124843.4c3dd72f.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 18 Nov 2004, Daniele Venzano wrote:
+>
+>
+>Bart De Schuymer <bdschuym@pandora.be> wrote:
+> =20
+>
+>>>Problem is present in 2.6.8.1 and 2.6.9 kernels. There was no such pro=
+blem
+>>>on 2.4.26.
+>>>     =20
+>>>
+>>Can you do something similar with iptables rules to see if it's specifi=
+c to=20
+>>ebtables (which I doubt)?
+>>   =20
+>>
+Over 50 hours after converting rules from ebtables to iptables and still=20
+no lockup. Everything is fine and I am sure it will go stable for days=20
+(as mentioned before lockup with ebtables happens in less than 24 hours).
 
-> On Thu, Nov 18, 2004 at 03:14:25AM +0100, maximilian attems wrote:
-> > On Wed, 17 Nov 2004, Pavel Machek wrote:
-> > > > happens since the use of guessnet,
-> > > > guessnet is based on divine and sends arp requests to network.
-> > > > network was down after the oops, but beside resume system worked.
-> > > 
-> > > And where do you see the oops? Irq 10 does not work, that's only
-> > > backtrace. Fix the sis900 driver...
-> >
-> > ok, i'm not that familiar with suspend pathes,
-> > what's going wrong in sis900_resume() or sis900_suspend()?
-> 
-> I'm aware of this problem, sis900 looses the first interrupt after
-> resume, I have to check the code.
-> On my tests the card, after that lost interrupt, worked normally. Is
-> that your case, or do you have a non working sis900 after resume ?
-
-well it works, as long as i do not use guessnet(8),
-as described in the bug report, but the lost interrupt is reported
-on every resume. 
-
---
-maks
+--=20
+Micha=B3 Margula, alchemyx@uznam.net.pl, http://alchemyx.uznam.net.pl/
+"W =BFyciu pi=EAkne s=B1 tylko chwile" [Ryszard Riedel]
