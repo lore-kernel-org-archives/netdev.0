@@ -1,47 +1,35 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH] eliminate divert_blk message
-Date: Mon, 5 Apr 2004 17:03:12 +0200
+From: Andi Kleen <ak@muc.de>
+Subject: [PATCH] Force IPv6 garbage collection on device down
+Date: Mon, 05 Apr 2004 17:53:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040405150312.GS11477@suse.de>
+Message-ID: <m3brm68lqy.fsf@averell.firstfloor.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="hHWLQfXTYDoKhP50"
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---hHWLQfXTYDoKhP50
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: inline
+We had some problems with devices occasionally hanging with non zero
+reference count on device destroy until the next time the IPv6 garbage
+collection timer ran (upto 10s). 
 
-Every time a non-ethernet device is configured (e.g.  when using PPP) the
-kernel logs a message saying "not allocating divert_blk for non-ethernet
-device". This patch disables the message.
+To avoid that this patch forces an IPv6 FIB garbage collection
+on device down.
 
-Cheers,
-Olaf
--- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
+-Andi
 
---hHWLQfXTYDoKhP50
-Content-Type: text/plain; charset=iso-8859-15
-Content-Disposition: attachment; filename=divert_blk-shutup
-
---- linux-2.6.4/net/core/dv.c.quiet	2004-02-04 04:43:45.000000000 +0100
-+++ linux-2.6.4/net/core/dv.c	2004-04-05 16:50:06.000000000 +0200
-@@ -67,9 +67,6 @@
- 		}
- 		dev_hold(dev);
- 	} else {
--		printk(KERN_DEBUG "divert: not allocating divert_blk for non-ethernet device %s\n",
--		       dev->name);
--
- 		dev->divert = NULL;
+diff -u linux-2.6.5/net/ipv6/ndisc.c-N linux-2.6.5/net/ipv6/ndisc.c
+--- linux-2.6.5/net/ipv6/ndisc.c-N	1970-01-01 01:12:51.000000000 +0100
++++ linux-2.6.5/net/ipv6/ndisc.c	2004-04-05 17:50:52.000000000 +0200
+@@ -1403,6 +1403,9 @@
+ 		neigh_changeaddr(&nd_tbl, dev);
+ 		fib6_run_gc(0);
+ 		break;
++	case NETDEV_UNREGISTER:
++		fib6_run_gc(0);
++		break;
+ 	default:
+ 		break;
  	}
- 	return 0;
-
---hHWLQfXTYDoKhP50--
