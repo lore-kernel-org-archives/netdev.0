@@ -1,22 +1,35 @@
-From: Chase Douglas <cndougla@purdue.edu>
-Subject: Beginner's information on 2.6 implementation of networking
-Date: Wed,  6 Apr 2005 10:37:30 -0500
-Message-ID: <1112801850.4254023a192c5@webmail.purdue.edu>
+From: Mike Christie <michaelc@cs.wisc.edu>
+Subject: Re: [PATCH] NETLINK_UESTABLISHED notifier event
+Date: Wed, 06 Apr 2005 09:23:15 -0700
+Message-ID: <42540CF3.7070501@cs.wisc.edu>
+References: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: Dmitry Yusupov <dmitry_yus@yahoo.com>, netdev@oss.sgi.com,
+        davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, cndougla@purdue.edu
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1DJ0YI-0003PR-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I have an idea for linux networking at the level of manipulation of how sk_buffs
-are used. However, I do not know where in the linux kernel code to begin looking
-for where sk_buffs are manipulated. I was wondering if there were any good
-resources on the 2.6 implementation of the tcp/ip protocol. I have found a few
-documents on 2.2 and 2.4, but many of the functions listed do not seem to be
-present in the 2.6 kernel. Even if I could have a list of function calls from
-send to receive using the tcp/ip protocol, it would help a lot.
+Herbert Xu wrote:
+> Dmitry Yusupov <dmitry_yus@yahoo.com> wrote:
+>>* netlink alloc_skb() now uses sk_allocation instead of hard-coded
+>>GFP_KERNEL
+> 
+> 
+> Why? We never set it to anything else for netlink.
+> 
 
-Thank you
+It is due to where it is being used. open-iscsi uses netlink
+sockets for communication in a block (scsi specificically)
+driver that has pushed much of its code to usersapce. Forcing
+open-iscsi to use GFP_KERNEL causes a couple of problems. The
+worst would be where a GFP_KERNEL allocation causes a write,
+and that write is to an iscsi disk that open-iscsi is managing.
+The write could then hit the same code path and cause another
+GFP_KERNEL allocation and we could loop like that until the
+system locks up.
