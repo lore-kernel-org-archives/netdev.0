@@ -1,117 +1,80 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: [6/9][PATCH 2.6] Return codes for rhine_init_one
-Date: Wed, 2 Jun 2004 13:58:50 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [NETDRV] Fixed MCA resource bugs in at1700
+Date: Sat, 5 Jun 2004 18:38:34 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040602115850.GA17556@k3.hellgate.ch>
-References: <20040602115703.GA16079@k3.hellgate.ch>
+Message-ID: <20040605083834.GA29142@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="a8Wt8u1KmwUX3Y2C"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040602115703.GA16079@k3.hellgate.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use return codes in rhine_init_one instead of -ENODEV for all errors.
 
-Signed-off-by: Roger Luethi <rl@hellgate.ch>
+--a8Wt8u1KmwUX3Y2C
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
---- orig/drivers/net/via-rhine.c
-+++ mod/drivers/net/via-rhine.c
-@@ -616,7 +616,7 @@
+Hi Jeff:
+
+This patch fixes an incorrect MCA check as well as a leak on probe
+failure in at1700.
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--a8Wt8u1KmwUX3Y2C
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== drivers/net/at1700.c 1.22 vs edited =====
+--- 1.22/drivers/net/at1700.c	2004-05-22 17:28:45 +10:00
++++ edited/drivers/net/at1700.c	2004-06-05 18:34:29 +10:00
+@@ -244,7 +244,7 @@
  {
- 	struct net_device *dev;
- 	struct rhine_private *rp;
--	int i, option;
-+	int i, option, rc;
- 	int chip_id = (int) ent->driver_data;
- 	static int card_idx = -1;
- 	long ioaddr;
-@@ -638,11 +638,13 @@
- 	option = card_idx < MAX_UNITS ? options[card_idx] : 0;
- 	io_size = rhine_chip_info[chip_id].io_size;
- 
--	if (pci_enable_device(pdev))
-+	rc = pci_enable_device(pdev);
-+	if (rc)
- 		goto err_out;
- 
- 	/* this should always be supported */
--	if (pci_set_dma_mask(pdev, 0xffffffff)) {
-+	rc = pci_set_dma_mask(pdev, 0xffffffff);
-+	if (rc) {
- 		printk(KERN_ERR "32-bit PCI DMA addresses not supported by "
- 		       "the card!?\n");
- 		goto err_out;
-@@ -651,6 +653,7 @@
- 	/* sanity check */
- 	if ((pci_resource_len(pdev, 0) < io_size) ||
- 	    (pci_resource_len(pdev, 1) < io_size)) {
-+		rc = -EIO;
- 		printk(KERN_ERR "Insufficient PCI resources, aborting\n");
- 		goto err_out;
+ #ifdef CONFIG_MCA	
+ 	struct net_local *lp = netdev_priv(dev);
+-	if (lp->mca_slot)
++	if (lp->mca_slot >= 0)
+ 		mca_mark_as_unused(lp->mca_slot);
+ #endif	
+ 	free_irq(dev->irq, NULL);
+@@ -446,11 +446,11 @@
+ 					break;
+ 			}
+ 			if (i == 8) {
+-				goto err_out;
++				goto err_mca;
+ 			}
+ 		} else {
+ 			if (fmv18x_probe_list[inb(ioaddr + IOCONFIG) & 0x07] != ioaddr)
+-				goto err_out;
++				goto err_mca;
+ 			irq = fmv_irqmap[(inb(ioaddr + IOCONFIG)>>6) & 0x03];
+ 		}
  	}
-@@ -662,6 +665,7 @@
- 
- 	dev = alloc_etherdev(sizeof(*rp));
- 	if (dev == NULL) {
-+		rc = -ENOMEM;
- 		printk(KERN_ERR "init_ethernet failed for card #%d\n",
- 		       card_idx);
- 		goto err_out;
-@@ -669,7 +673,8 @@
- 	SET_MODULE_OWNER(dev);
- 	SET_NETDEV_DEV(dev, &pdev->dev);
- 
--	if (pci_request_regions(pdev, shortname))
-+	rc = pci_request_regions(pdev, shortname);
-+	if (rc)
- 		goto err_out_free_netdev;
- 
- #ifdef USE_MMIO
-@@ -678,6 +683,7 @@
- 
- 	ioaddr = (long) ioremap(memaddr, io_size);
- 	if (!ioaddr) {
-+		rc = -EIO;
- 		printk(KERN_ERR "ioremap failed for device %s, region 0x%X "
- 		       "@ 0x%lX\n", pci_name(pdev), io_size, memaddr);
- 		goto err_out_free_res;
-@@ -690,6 +696,7 @@
- 		unsigned char a = inb(ioaddr0+reg);
- 		unsigned char b = readb(ioaddr+reg);
- 		if (a != b) {
-+			rc = -EIO;
- 			printk(KERN_ERR "MMIO do not match PIO [%02x] "
- 			       "(%02x != %02x)\n", reg, a, b);
- 			goto err_out_unmap;
-@@ -736,6 +743,7 @@
- 		dev->dev_addr[i] = readb(ioaddr + StationAddr + i);
- 
- 	if (!is_valid_ether_addr(dev->dev_addr)) {
-+		rc = -EIO;
- 		printk(KERN_ERR "Invalid MAC address for card #%d\n", card_idx);
- 		goto err_out_unmap;
+@@ -548,11 +548,16 @@
+ 	if (ret) {
+ 		printk ("  AT1700 at %#3x is unusable due to a conflict on"
+ 				"IRQ %d.\n", ioaddr, irq);
+-		goto err_out;
++		goto err_mca;
  	}
-@@ -787,8 +795,8 @@
- 		dev->features |= NETIF_F_SG|NETIF_F_HW_CSUM;
  
- 	/* dev->name not defined before register_netdev()! */
--	i = register_netdev(dev);
--	if (i)
-+	rc = register_netdev(dev);
-+	if (rc)
- 		goto err_out_unmap;
+ 	return 0;
  
- 	/* The lower four bits are the media type. */
-@@ -871,7 +879,7 @@
- err_out_free_netdev:
- 	free_netdev(dev);
++err_mca:
++#ifdef CONFIG_MCA
++	if (slot >= 0)
++		mca_mark_as_unused(slot);
++#endif
  err_out:
--	return -ENODEV;
-+	return rc;
- }
- 
- static int alloc_ring(struct net_device* dev)
+ #ifndef CONFIG_X86_PC9800
+ 	release_region(ioaddr, AT1700_IO_EXTENT);
+
+--a8Wt8u1KmwUX3Y2C--
