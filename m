@@ -1,8 +1,8 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: [PATCH] appletalk: remove MOD_{INC,DEC}_USE_COUNT
-Date: Sun, 27 Apr 2003 13:10:56 -0300
+Subject: [PATCH] af_unix: remove MOD_{INC,DEC}_USE_COUNT
+Date: Sun, 27 Apr 2003 23:15:15 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030427161056.GI15637@conectiva.com.br>
+Message-ID: <20030428021515.GC17730@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
@@ -18,7 +18,9 @@ Hi David,
 
 bk://kernel.bkbits.net/acme/net-2.5
 
-	Now there are five outstanding changesets in this tree.
+	Now there are just this outstanding changeset in this tree.
+
+	Tested with af_unix as a module.
 
 - Arnaldo
 
@@ -28,143 +30,104 @@ You can import this changeset into BK by piping this whole message to:
 ===================================================================
 
 
-ChangeSet@1.1127, 2003-04-27 12:59:15-03:00, acme@conectiva.com.br
-  o appletalk: remove MOD_{INC,DEC}_USE_COUNT
+ChangeSet@1.1129, 2003-04-27 23:06:26-03:00, acme@conectiva.com.br
+  o af_unix: remove MOD_{INC,DEC}_USE_COUNT
   
   Now the core networking infrastructure will (finally) do that for the net
   protocol families, its just a matter of setting the ->owner field in the
   registered struct net_proto_family to THIS_MODULE.
 
 
- ddp.c |   29 +++++++++--------------------
- 1 files changed, 9 insertions(+), 20 deletions(-)
+ af_unix.c |   18 +++++++++---------
+ 1 files changed, 9 insertions(+), 9 deletions(-)
 
 
-diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
---- a/net/appletalk/ddp.c	Sun Apr 27 13:04:11 2003
-+++ b/net/appletalk/ddp.c	Sun Apr 27 13:04:11 2003
-@@ -190,10 +190,9 @@
- 	struct sock *sk = (struct sock *)data;
+diff -Nru a/net/unix/af_unix.c b/net/unix/af_unix.c
+--- a/net/unix/af_unix.c	Sun Apr 27 23:09:01 2003
++++ b/net/unix/af_unix.c	Sun Apr 27 23:09:01 2003
+@@ -47,6 +47,9 @@
+  *	     Alexey Kuznetsov   :	Full scale SMP. Lot of bugs are introduced 8)
+  *	      Malcolm Beattie   :	Set peercred for socketpair
+  *	     Michal Ostrowski   :       Module initialization cleanup.
++ *	     Arnaldo C. Melo	:	Remove MOD_{INC,DEC}_USE_COUNT,
++ *	     				the core infrastructure is doing that
++ *	     				for all net proto families now (2.5.69+)
+  *
+  *
+  * Known differences from reference BSD that was tested:
+@@ -360,7 +363,6 @@
+ #ifdef UNIX_REFCNT_DEBUG
+ 	printk(KERN_DEBUG "UNIX %p is destroyed, %d are still alive.\n", sk, atomic_read(&unix_nr_socks));
+ #endif
+-	MOD_DEC_USE_COUNT;
+ }
  
- 	if (!atomic_read(&sk->wmem_alloc) &&
--	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags)) {
-+	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags))
- 		sock_put(sk);
--		MOD_DEC_USE_COUNT;
--	} else {
-+	else {
- 		sk->timer.expires = jiffies + SOCK_DESTROY_TIME;
- 		add_timer(&sk->timer);
- 	}
-@@ -205,10 +204,9 @@
- 	skb_queue_purge(&sk->receive_queue);
+ static int unix_release_sock (unix_socket *sk, int embrion)
+@@ -478,19 +480,16 @@
  
- 	if (!atomic_read(&sk->wmem_alloc) &&
--	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags)) {
-+	    !atomic_read(&sk->rmem_alloc) && test_bit(SOCK_DEAD, &sk->flags))
- 		sock_put(sk);
--		MOD_DEC_USE_COUNT;
--	} else {
-+	else {
- 		init_timer(&sk->timer);
- 		sk->timer.expires = jiffies + SOCK_DESTROY_TIME;
- 		sk->timer.function = atalk_destroy_timer;
-@@ -249,7 +247,6 @@
- 			*iface = tmp->next;
- 			kfree(tmp);
- 			dev->atalk_ptr = NULL;
--			MOD_DEC_USE_COUNT;
- 		} else
- 			iface = &tmp->next;
- 	}
-@@ -259,13 +256,10 @@
- static struct atalk_iface *atif_add_device(struct net_device *dev,
- 					   struct atalk_addr *sa)
+ static struct sock * unix_create1(struct socket *sock)
  {
--	struct atalk_iface *iface;
+-	struct sock *sk;
++	struct sock *sk = NULL;
+ 	struct unix_sock *u;
+ 
+ 	if (atomic_read(&unix_nr_socks) >= 2*files_stat.max_files)
+-		return NULL;
++		goto out;
+ 
+-	MOD_INC_USE_COUNT;
+ 	sk = sk_alloc(PF_UNIX, GFP_KERNEL, sizeof(struct unix_sock),
+ 		      unix_sk_cachep);
+-	if (!sk) {
+-		MOD_DEC_USE_COUNT;
+-		return NULL;
+-	}
++	if (!sk)
++		goto out;
+ 
+ 	atomic_inc(&unix_nr_socks);
+ 
+@@ -509,7 +508,7 @@
+ 	init_MUTEX(&u->readsem); /* single task reading lock */
+ 	init_waitqueue_head(&u->peer_wait);
+ 	unix_insert_socket(&unix_sockets_unbound, sk);
 -
--	MOD_INC_USE_COUNT;
-+	struct atalk_iface *iface = kmalloc(sizeof(*iface), GFP_KERNEL);
- 
--	iface = kmalloc(sizeof(*iface), GFP_KERNEL);
- 	if (!iface)
--		goto out_mem;
-+		goto out;
- 
- 	iface->dev = dev;
- 	dev->atalk_ptr = iface;
-@@ -278,9 +272,6 @@
- 	write_unlock_bh(&atalk_interfaces_lock);
- out:
- 	return iface;
--out_mem:
--	MOD_DEC_USE_COUNT;
--	goto out;
++out:
+ 	return sk;
  }
  
- /* Perform phase 2 AARP probing on our tentative address */
-@@ -982,17 +973,16 @@
- 	struct atalk_sock *at;
- 	int rc = -ESOCKTNOSUPPORT;
- 
--	MOD_INC_USE_COUNT;
- 	/*
- 	 * We permit SOCK_DGRAM and RAW is an extension. It is trivial to do
- 	 * and gives you the full ELAP frame. Should be handy for CAP 8) 
- 	 */
- 	if (sock->type != SOCK_RAW && sock->type != SOCK_DGRAM)
--		goto decmod;
-+		goto out;
- 	rc = -ENOMEM;
- 	sk = sk_alloc(PF_APPLETALK, GFP_KERNEL, 1, NULL);
- 	if (!sk)
--		goto decmod;
-+		goto out;
- 	at = at_sk(sk) = kmalloc(sizeof(*at), GFP_KERNEL);
- 	if (!at)
- 		goto outsk;
-@@ -1005,8 +995,6 @@
- 	return rc;
- outsk:
- 	sk_free(sk);
--decmod:
--	MOD_DEC_USE_COUNT;
- 	goto out;
- }
- 
-@@ -1785,6 +1773,7 @@
- static struct net_proto_family atalk_family_ops = {
- 	.family		= PF_APPLETALK,
- 	.create		= atalk_create,
-+	.owner		= THIS_MODULE,
+@@ -1928,6 +1927,7 @@
+ struct net_proto_family unix_family_ops = {
+ 	.family = PF_UNIX,
+ 	.create = unix_create,
++	.owner	= THIS_MODULE,
  };
  
- static struct proto_ops SOCKOPS_WRAPPED(atalk_dgram_ops) = {
+ #ifdef CONFIG_SYSCTL
 
 ===================================================================
 
 
 This BitKeeper patch contains the following changesets:
-1.1127
+1.1129
 ## Wrapped with gzip_uu ##
 
 
-M'XL( 'O_JSX  ^U5;6^;.A3^C'_%N9I4)7<)L0%#R%6J;B';JO:V5;M\1JXQ
-M"3> (^,TZAWWOU\;IFZMNDV;^G& =,#/\?,<GQ?Q"E:-4#.'\4J@5_!!-GKF
-M<%D+KHL[YG)9N;?* -=2&F"RD968O#V;U$*//9<B@UPQS3=P)U0S<XCK/ZSH
-M^YV8.=?+]ZOS-]<(S>>PV+!Z+6Z$AOD<::GN6)DU)TQO2EF[6K&ZJ83N--L'
-MU];#V#,W)9&/:=B2$ =1RTE&" N(R+ 73,, V?!/GH;]F,7'@1<1ZOLD;/V 
-M1@0E0%Q"O BP/\'!Q+P0;T;C&:%C[,\PAF=9X36!,49OX65/L$ <)+#=KC0,
-MY78&2E3R3L#?ETGZZ?1B,4J6B__2U<TR75RN+CX:;_-<R /HC0 NE0!3DX-4
-MVZ)>0U'GBC5:[;G>&^10E"4,\J)F97D_A$R:34Q#+E6WVVPT7#LEM>2RA)Q5
-M15F(9@2%;N"??:.!0<6T%@ID#HW0VFK8G>-C>:C-<EZ(,C.J=M%0*;$N&N,N
-M,NB#L!)I)Y!V[/<F>?#QP^E-:HZW.E^ZZ Q\2@**KKYT"1K_Y(409A@=_Z P
-M)I3)0YHG6;9S^=<EBFG4FE:AI.51D$]%+/+<]_W,)\^WP[?X/K<;C;'7!F$8
-MQ=T(/./\XV'XY8C1+5?EB2F#J?;WF'QSAR3&81"T- Y-&;K1B)\.!O:^/Q@Q
-MC+W?D_'BD]&WSR6,U:%[3*=?/==)OS P"8E](.BT-PZ8ZP^F957P5 F6#8Z:
-M[?A85:)*38(D'\+1$6C1Z/2VT(.;R\59FBS?)"/H_/*2K9OAT))2\"QI:$E%
-MV0CXA!(/3ZU4;UY*RB/82GF$/)*BGOE,O- #WX!A8,'/"6<V86F1,R[@S][,
-M85MUHH.F^%?(?-"O#T?P_MU5>K:\OEB>#_^R?&%/VQ^D,XZS-L4#N=?684J,
-M8!)/J?6+8QO4:6\>^<4Q[1'Z%"'8I,?F+II&%G.[-G*<^==-,?KRW^4;P;?-
-2OIJ'TSCV!8O0_U5H>BW2!P  
+M'XL( #V-K#X  ^U5VV[:0!!]]G[%5'G)!<RNK]@541) #0HA41*>T<:LP<7V
+M5O8"C>K^>V=-1"[-18WRV,72HIV9,[-GYM@[,"Y%$1H\R@39@5-9JM"(9"XB
+ME:RX&<G,O"W0<"4E&EISF8G6R5DK%ZIIF2Y!RR57T1Q6HBA#@YGV]D3=_1"A
+M<=7_-AX>7Q'2Z4!WSO.9N!8*.AVB9+'BZ;0\XFJ>RMQ4!<_+3*@Z9[5UK2Q*
+M+?RYS+>IZU7,HXY?16S*&'>8F%++:7L.T>4?/2_[*8I-'<MG'K,L6MDNLUW2
+M V8R9@5 [19U6I8/EAU2+[2\)L4_%%Y$A0,&34I.X'-OT"412.#Q9)DG/T,H
+M1"97 LXO>I-?@U&WT>MW?T_&U_U)]V(\ND%??$9R#6HN()*% .S(6A:+))]!
+MDL<%+U6QC-02+>LD36$W3G*>IG=[,)48Q!7$LJBC,1"Q?A12R4BF$/,L21-1
+M-B!1)7Q?E@HX9%PI48",H11*Z1PZLGDHUSD>QXE(IYA5'R)4(69)B>YB"ILB
+M=(I)G6!2H]\A=7!S.KB>X/7&P[Y)SD!W)""7#S-"FO^X"*&<DL-WVH*EM#3#
+MK7NFS>AQ?P+7KRAM,ZOBW/68'T=V'+O<%N[+L_ *G!ZU-D)ZS*WLMN.TZ_'_
+MV_=]'7RTW%<$\6JYU&8. @65%:!(:F4X]+DNF/NV+@)H!O]U\<FZJ,?G IK%
+MNGYPSB]?F*0/J&7@!& 3V#= K^,":4 *NB:<BU0:^.9^D^G&-M+ M67[&<5)
+MB;1N:.'J281F&7G75]EPO"48<FS?+GY<3"\XV",]V[,!)])I,]P&F\VX)["4
+MT0+VRP5T8#0>#K]J-W?CIC?#F&EDN52UQ:]Q @J.OKP-%C&2&':_E(N]IZXN
+MLS3(9L.CD Q88%.-:-:M-3J/^]1X^ Q&<Q$MRF76N?7;D46=@/P!.3F(Y6$'
+"    
  
