@@ -1,34 +1,28 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [2/2] [NET] Add skb_header_cloned and use it in e1000/tg3
-Date: Wed, 9 Feb 2005 17:07:07 +1100
-Message-ID: <20050209060707.GA8180@gondor.apana.org.au>
-References: <20050122170533.GB11499@yakov.inr.ac.ru> <20050123071027.GA20296@gondor.apana.org.au> <20050126110043.GA29950@yakov.inr.ac.ru> <20050126222522.GA21670@gondor.apana.org.au> <20050127110946.GA20494@gondor.apana.org.au> <20050127111201.GB20494@gondor.apana.org.au> <20050128202542.GA23670@yakov.inr.ac.ru> <20050129031740.GA6130@gondor.apana.org.au> <20050129032210.GA7424@gondor.apana.org.au> <20050208210910.0ef6b8b6.davem@davemloft.net>
+From: =?ISO-8859-1?Q?Einar_L=FCck?= <lkml@einar-lueck.de>
+Subject: Re: [PATCH 2/2] ipv4 routing: multipath with cache support, 2.6.10-rc3
+Date: Wed, 09 Feb 2005 14:28:49 +0100
+Message-ID: <420A1011.1030602@einar-lueck.de>
+References: <41C6B54F.2020604@einar-lueck.de> <20050202172333.4d0ad5f0.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050208210910.0ef6b8b6.davem@davemloft.net>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20050202172333.4d0ad5f0.davem@davemloft.net>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Feb 08, 2005 at 09:09:10PM -0800, David S. Miller wrote:
-> 
-> These two patches look great.  I want to review them some more but
-> I do intend to try and get them into 2.6.11-final.
+David S. Miller wrote:
+> Can you describe more precisely "the scenerios, that are relevant
+> to us"?
 
-Actually I would've thought that this is the sort of patch that
-should wait until 2.6.12-pre is open.  The bug that it fixes
-isn't that serious.  All I've heard so far are tcpdump showing
-bogus results.
+The scenarios we have in mind are setups in which a set of collaborating 
+servers steadly establish connections among each other with a very high rate. 
+This high rate requirement drove us to consider the inclusion of all 
+alternative routes into the routing cache because the corresponding delay 
+for each connection establishment is low and the load is balanced over all
+available routes. That's why we did not consider a slow lookup in the fib 
+for each connection established.
 
-The potential for breakage on the other side is much more
-significant.
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Regards,
+Einar.
