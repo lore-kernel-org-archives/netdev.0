@@ -1,33 +1,34 @@
-From: cliff white <cliffw@osdl.org>
-Subject: gcc confused about static inline. - route.c
-Date: Mon, 28 Mar 2005 13:23:14 -0800
-Message-ID: <20050328132314.480b8b1d@es175>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: RFC: IPSEC patch 0 for netlink events
+Date: Mon, 28 Mar 2005 23:23:19 +0200
+Message-ID: <424875C7.3080306@trash.net>
+References: <1111864971.1092.904.camel@jzny.localdomain>	 <20050326194707.GA9872@gondor.apana.org.au>	 <1111867875.1089.915.camel@jzny.localdomain>	 <20050327081848.GA13428@gondor.apana.org.au> <1111950449.1089.938.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        Masahide NAKAMURA <nakam@linux-ipv6.org>,
+        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com, netdev@oss.sgi.com
+To: hadi@cyberus.ca
+In-Reply-To: <1111950449.1089.938.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
 
-Building the gkernel bits, have this error:
+> @@ -478,6 +491,9 @@
+>  
+>  	if (x1->km.state == XFRM_STATE_ACQ) {
+>  		__xfrm_state_insert(x);
+> +		/* XXXX: We already have xfrm_state_lock
+> +		 * do we need to grab x->lock as well? */
+> +		xfrm_sa_notify(x, c, XFRM_SA_ADDED);
 
-net/ipv4/route.c: In function `rt_remove_balanced_route':
-net/ipv4/route.c:151: sorry, unimplemented: inlining failed in call to 'compare_keys': function body not available
-net/ipv4/route.c:540: sorry, unimplemented: called from here
+To answer this question: no. xfrm_state_lock can be nested in
+x->lock, but not the other way around. If you want to avoid that
+the state changes below you, you could notify before insertion.
 
-route.c has this define at line 151
-:
-static inline int compare_keys(struct flowi *fl1, struct flowi *fl2);
-
-function body is defined starting at line 861. 
-
-We are using gcc 3.4.2 right now, is there a way to fix this?
-thanks
-cliffw
-
--- 
-"Ive always gone through periods where I bolt upright at four in the morning; 
-now at least theres a reason." -Michael Feldman
+Regards
+Patrick
