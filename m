@@ -1,31 +1,32 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] qdisc oops fix
-Date: Wed, 16 Apr 2003 18:52:56 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC/PATCH] ICMPv6 MIB stats per-interface
+Date: Wed, 16 Apr 2003 10:46:42 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E9D8A68.5050207@colorfullife.com>
-References: <20030415084706.O1131@shell.cyberus.ca> <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro> <20030416072952.E4013@shell.cyberus.ca> <3E9D755A.8060601@colorfullife.com> <20030416160606.GA32575@louise.pinerecords.com>
+Message-ID: <20030416.104642.129988781.davem@redhat.com>
+References: <20030414.090610.117741299.davem@redhat.com>
+	<20030415.014047.39346510.yoshfuji@linux-ipv6.org>
+	<20030415.155938.23711671.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, Catalin BOIE <util@deuroconsult.ro>,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Cc: rddunlap@osdl.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tomas Szepe <szepe@pinerecords.com>
-In-Reply-To: <20030416160606.GA32575@louise.pinerecords.com>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20030415.155938.23711671.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Tomas Szepe wrote:
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Tue, 15 Apr 2003 15:59:38 +0900 (JST)
 
->The original backtrace as provided by Martin Volf does not contain
->any weird addresses such as 0xd081ecc7 above:
->
->http://marc.theaimsgroup.com/?l=linux-kernel&m=105013596721774&w=2
->  
->
-Thanks.
-The bug was caused by sch_tree_lock() in htb_change_class().
-2.4.21-pre7 contains a fix.
+   BTW, for example, if we do
+    # ip link set eth9 name foobar
+   if_indextoname() will return foobar. 
+   
+   we, however, will see /proc/sys/net/ipv6/conf/eth9 instead of 
+   /proc/sys/net/ipv6/conf/foobar.  This is not good.
+   
+   Is this just a bug not having NETDEV_CHANGENAME handler to 
+   rename it?
 
---
-    Manfred
+I think this is a bug, yes.
