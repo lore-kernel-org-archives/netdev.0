@@ -1,26 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] deprecate dev_get
-Date: Mon, 15 Sep 2003 22:42:55 -0700
+Subject: Re: [PATCH] tiny af_packet.c cleanup
+Date: Mon, 15 Sep 2003 22:41:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030915224255.49755297.davem@redhat.com>
-References: <20030915171230.68c08e26.shemminger@osdl.org>
+Message-ID: <20030915224119.454578a7.davem@redhat.com>
+References: <20030913055033.GB94744@gaz.sfgoth.com>
+	<20030913093559.A23840@electric-eye.fr.zoreil.com>
+	<20030913080252.GE94744@gaz.sfgoth.com>
+	<20030913110353.B23840@electric-eye.fr.zoreil.com>
+	<20030913201559.GI94744@gaz.sfgoth.com>
+	<20030914125549.A7790@electric-eye.fr.zoreil.com>
+	<20030914112628.GD42531@gaz.sfgoth.com>
+	<20030915155652.3e5e89a0.davem@redhat.com>
+	<20030916031355.GC7982@gaz.sfgoth.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: romieu@fr.zoreil.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030915171230.68c08e26.shemminger@osdl.org>
+To: Mitchell Blank Jr <mitch@sfgoth.com>
+In-Reply-To: <20030916031355.GC7982@gaz.sfgoth.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 15 Sep 2003 17:12:30 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Mon, 15 Sep 2003 20:13:55 -0700
+Mitchell Blank Jr <mitch@sfgoth.com> wrote:
 
-> The interface dev_get has past it's usefulness.  I sent out patches
-> that remove the two other uses left of it in the 2.6 tree.
+> How about something like the following.  It expands the comment but turns
+> that bit of code into an inline function so we onlt have to explain it
+> once.
 
-I'll put this in after Jeff and others put those dev_get() driver
-bits into the tree.
-
-Probably isn't going to happen this week, since Linus is not around.
+Looks good, applied.
