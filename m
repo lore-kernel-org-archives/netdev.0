@@ -1,42 +1,24 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] horizon: make reset function not __init
-Date: Thu, 19 Feb 2004 15:49:41 -0800
+From: Greg KH <greg@kroah.com>
+Subject: Re: [PATCH] propogate errors from misc_register to caller
+Date: Thu, 19 Feb 2004 16:23:28 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040219154941.0d0f5a7a.rddunlap@osdl.org>
+Message-ID: <20040220002328.GE16267@kroah.com>
+References: <20040213102755.27cf4fcd.shemminger@osdl.org> <20040213112100.4f42abc2@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil
+Content-Type: text/plain; charset=us-ascii
+Cc: Tommi Virtanen <tv@tv.debian.net>, Leann Ogasawara <ogasawara@osdl.org>,
+        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040213112100.4f42abc2@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, Feb 13, 2004 at 11:21:00AM -0800, Stephen Hemminger wrote:
+> The patch to check for / in class_device is not enough.
+> The misc_register function needs to check return value of the things it calls!
 
-Please apply to 2.6.current.
+Applied to my trees, thanks.
 
-product_versions: linux-263
-description:	This function can be called by init or exit code,
-		so it shouldn't be marked __init.
-
-diffstat:=
- drivers/atm/horizon.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
-
-
-diff -Naurp ./drivers/atm/horizon.c~hrzinit ./drivers/atm/horizon.c
---- ./drivers/atm/horizon.c~hrzinit	2004-02-17 19:57:11.000000000 -0800
-+++ ./drivers/atm/horizon.c	2004-02-19 15:19:18.000000000 -0800
-@@ -1802,7 +1802,7 @@ static int hrz_send (struct atm_vcc * at
- 
- /********** reset a card **********/
- 
--static void __init hrz_reset (const hrz_dev * dev) {
-+static void hrz_reset (const hrz_dev * dev) {
-   u32 control_0_reg = rd_regl (dev, CONTROL_0_REG);
-   
-   // why not set RESET_HORIZON to one and wait for the card to
-
-
---
-~Randy
+greg k-h
