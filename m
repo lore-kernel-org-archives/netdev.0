@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (0/13) appletalk bug fixes
-Date: Fri, 29 Aug 2003 13:51:19 -0700
+Subject: [PATCH] (10/13) ddp socket orphan
+Date: Fri, 29 Aug 2003 14:12:28 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829135119.78d98961.shemminger@osdl.org>
+Message-ID: <20030829141228.6a35664c.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,23 +12,29 @@ To: Jay Schulist <jschlst@samba.org>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Started out just converting aarp to use seq_file, and getting my
-old "new protocol" patch tested.  In the process ran into a bunch
-of races relating to module unload.  This set addresses:
+This fixes the problem caused by interrupting aecho causing an oops.
+What happened was that the sock was detached from the user process
+but sk->sk_sleep was still so when write data was freed it would
+do a wakeup on a poisoned data.  The sk_state_change code that was
+there isn't necessary, because we are in middle of release so no
+user process can be waiting.  sock_orphan does the right thing
+and sets SOCK_DEAD.  
 
-1. Setting owner field on DDP sockets (bug)
-2. Invert logic on release (readability)
-3. Align headers with columns (cosmetic)
-4. Keep track of last sent
-5. Purge aarp entries on unload (bug)
-6. aarp deltimer_sync
-7. aarp convert to seq_file
-8. set owner on /proc/net/atalk directory
-9. Update comment in DDP about modules
-10. Orphan DDP sockets on destroy (bug)
-11. Change /proc/net/aarp to /proc/net/atalk/arp
-12. Keep netdevice references for pointers held
-13. Update DDP to new protocol format
+This is similar to what some other protocols do.  But some will
+have the same sk->sk_sleep problem...  
 
-These have been tested on 2.6.0-test4 by running a ethertalk
-between the SUT and a reference 2.4 system.
+diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+--- a/net/appletalk/ddp.c	Fri Aug 29 13:32:35 2003
++++ b/net/appletalk/ddp.c	Fri Aug 29 13:32:35 2003
+@@ -998,10 +998,7 @@
+ 	struct sock *sk = sock->sk;
+ 
+ 	if (sk) {
+-		if (!sock_flag(sk, SOCK_DEAD)) {
+-			sk->sk_state_change(sk);
+-			sock_set_flag(sk, SOCK_DEAD);
+-		}
++		sock_orphan(sk);
+ 		sock->sk = NULL;
+ 		atalk_destroy_socket(sk);
+ 	}
