@@ -1,36 +1,25 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [ROUTE] PMTU only works on half the time
-Date: Fri, 5 Dec 2003 12:43:09 -0800
+Subject: Re: [2.6 PATCH] bridge - provide valid tos value for
+ ip_route_output_key
+Date: Fri, 5 Dec 2003 12:44:55 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031205124309.1490a2f4.davem@redhat.com>
-References: <20031202163902.2deb43a7.davem@redhat.com>
-	<Pine.LNX.4.44.0312032345190.1168-100000@u.domain.uli>
+Message-ID: <20031205124455.6b313caf.davem@redhat.com>
+References: <Pine.LNX.4.44.0312030156410.1237-200000@u.domain.uli>
+	<200312031938.22925.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
+Cc: ja@ssi.bg, netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0312032345190.1168-100000@u.domain.uli>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200312031938.22925.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Dec 2003 00:03:20 +0200 (EET)
-Julian Anastasov <ja@ssi.bg> wrote:
+On Wed, 3 Dec 2003 19:38:22 +0100
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> - ip_rt_redirect now supports RTO_ONLINK
-> 
-> - ip_rt_frag_needed now supports RTO_ONLINK and all oif!=0
+> Hi Dave, If you haven't already applied the patch from Julian Anastasov
+> below, please do.
 
-Let's discuss what RTO_ONLINK means :)
-
-It means, "Do not route this packet".  It goes to the local subnet
-and that's the end of the story.  Therefore there are no PMTU nor
-redirects to handle when this TOS bit is set.
-
-RTO_ONLINK is set by these two cases:
-
-1) ARP 
-2) RAW/UDP sockets when MSG_DONTROUTE is specified by the user.
-
-So this patch still needs some work.
+Applied, thanks guys.
