@@ -1,68 +1,44 @@
-From: Hasso Tepper <hasso@estpak.ee>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: Mon, 6 Dec 2004 16:42:00 +0200
-Message-ID: <200412061642.00552.hasso@estpak.ee>
-References: <OFAF17275D.316533A1-ONC1256F5C.0026AFAD-C1256F5C.002877C1@de.ibm.com> <Pine.LNX.4.61.0412050605550.21671@hibernia.jakma.org> <1102332479.1048.2243.camel@jzny.localdomain>
+From: P@draigBrady.com
+Subject: Re: 1.03Mpps on e1000 (was: Re: [E1000-devel] Transmission limit)
+Date: Mon, 06 Dec 2004 17:32:17 +0000
+Message-ID: <41B497A1.6090600@draigBrady.com>
+References: <Pine.LNX.4.58.0412051638290.29474@tux.rsn.bth.se>	<20041205174401.GJ647@xi.wantstofly.org>	<20041205175133.GK647@xi.wantstofly.org>	<Pine.LNX.4.58.0412051852340.29474@tux.rsn.bth.se>	<1102332757.1042.2255.camel@jzny.localdomain>	<20041206121151.GA12598@xi.wantstofly.org>	<1102335643.1048.2311.camel@jzny.localdomain>	<20041206122300.GA12763@xi.wantstofly.org>	<Pine.LNX.4.58.0412061329290.32624@tux.rsn.bth.se>	<1102338662.1042.2365.camel@jzny.localdomain>	<20041206132907.GA13411@xi.wantstofly.org> <16820.37049.396306.295878@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-15"
-Content-Transfer-Encoding: 7bit
-Cc: Paul Jakma <paul@clubi.ie>, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: Lennert Buytenhek <buytenh@wantstofly.org>, jamal <hadi@cyberus.ca>,
+        Martin Josefsson <gandalf@wlug.westbo.se>,
+        Scott Feldman <sfeldma@pobox.com>, mellia@prezzemolo.polito.it,
+        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
+        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1102332479.1048.2243.camel@jzny.localdomain>
-Content-Disposition: inline
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+In-Reply-To: <16820.37049.396306.295878@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> Dont post networking related patches on other lists. I havent seen said
-> patch, but it seems someone is complaining about some behavior changing?
+Robert Olsson wrote:
+> Lennert Buytenhek writes:
+>  > On Mon, Dec 06, 2004 at 08:11:02AM -0500, jamal wrote:
+>  >=20
+>  > > Hopefully someone will beat me to testing to see if our forwarding
+>  > > capacity now goes up with this new recipe.
+>=20
+>=20
+> A breakthrough we now can send small packets at wire speed it will make=
+=20
+> development and testing much easier...
 
-For some strange reason I didn't find the beginning of thread either from 
-archive, the first post seems to be  
-http://oss.sgi.com/projects/netdev/archive/2004-11/msg01015.html.
+It surely will!!
 
-I'm trying to summarize. The approach - one raw socket to send/receive 
-messages no matter how many interfaces are used - worked for Quagga/Zebra 
-routing software daemons till now. If some of these interfaces was 
-operationally down, socket wasn't blocked even if the queue was full. In 
-fact "man sendmsg" has still text:
+Just to recap, 2 people have been able to tx @ wire speed.
+The origonal poster was able to receive at wire speed,
+but could only TX at about 50% wire speed.
 
-ENOBUFS
-	The output queue for a network interface was full.  This  gener-
-	ally  indicates  that the interface has stopped sending, but may
-	be caused by transient congestion.   (Normally,  this  does  not
-	occur  in Linux. Packets are just silently dropped when a device
-	queue overflows.)
+It would be really cool if we could combine this
+to bridge @ wire speed.
 
-Seems that it's no longer true. Seems that kernel is now trying as hard as 
-possible not to loose any data - data is queued and if the queue will be 
-full, all related sockets will be blocked to notify application. So, one 
-socket approach don't work any more for Quagga/Zebra. No problem, we can 
-take the "one socket per interface" approach. And we already have link 
-detection implemented to notify daemons.
-
-But there will be still potential problem - sending the "interface down" 
-message from kernel to the zebra daemon and then to the routing protocol 
-daemon takes time. And during this time daemon can send packets which will 
-sit in queue and may cause many problems if sent to the network later (if 
-link comes up again). Think about statelss routing protocols like rip(ng), 
-ipv6 router advertisements etc. They may carry the info that's no longer 
-true causing routing loops etc.
-
-And to clarify a little bit: no - the Quagga/Zebra didn't work with previous 
-approach perfectly. I fact with link detection and socket per interface it 
-will be better than ever no matter what's the kernel behaviour. We just 
-want to make sure that solution will be bulletproof.
-
-So, problem - how can we make sure that no potentially dangerous aged 
-(routing) info will be in the network?
-
-
--- 
-Hasso Tepper
-Elion Enterprises Ltd.
-WAN administrator
+--=20
+P=E1draig Brady - http://www.pixelbeat.org
+--
