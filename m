@@ -1,145 +1,141 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
-Date: Sat, 5 Feb 2005 17:11:10 +1100
-Message-ID: <20050205061110.GA18275@gondor.apana.org.au>
-References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de> <20050205052407.GA17266@gondor.apana.org.au> <20050204213813.4bd642ad.davem@davemloft.net>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] ieee80211 subsystem
+Date: Fri, 04 Feb 2005 22:07:56 -0800
+Message-ID: <420462BC.6010903@osdl.org>
+References: <4203C32A.70402@linux.intel.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="5vNYLRcllDrimb99"
-Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050204213813.4bd642ad.davem@davemloft.net>
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+To: James Ketrenos <jketreno@linux.intel.com>
+In-Reply-To: <4203C32A.70402@linux.intel.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---5vNYLRcllDrimb99
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Fri, Feb 04, 2005 at 09:38:13PM -0800, David S. Miller wrote:
+James Ketrenos wrote:
+> Attached is the patch against 2.6.11-rc3-mm1 that adds the ieee80211 
+> subsystem used by the ipw2100 and ipw2200 projects.
 > 
-> It is just the first such thing I found, scanning rt6i_idev uses
-> will easily find several others.
+> I'll be sending out the patches for ipw2100-1.0.0 and ipw2200-1.0.0 that 
+> use thist stack to the list on Monday.
+> 
+> In terms of what the stack currently does:
+> 
+> * HW independent -- it only knows about 802.11 data and structures
+> * Performs an 802.3 <-> 802.11 transform for data Tx/Rx
+> * Host based support for fragmentation, WEP, and WPA using the kernel's 
+> crypto functions
+> * Beacon and probe response collection and parsing
+> * Default implementation of some of the WE handlers that can be managed 
+> without hardware knowledge
+> 
+> We are working to merge in Dave Miller's p80211 code into the ieee80211 
+> subsystem so that it hooks into the kernel as a true network layer as 
+> opposed to a mutated offspring of ethernet.
+> Once that is done, hopefully the skb to txb code can be reworked and 
+> 802.11 fragments can be treated either as normal skbs, or skbs can be 
+> modified to directly support them (ideally so that encrypted 802.11 
+> frames in support of IP packets can be cached by the stack instead of 
+> having to be re-encrypted on TCP retries)
+> 
+> Support for HW/FW crypto and fragmentation offload, in a HW independent 
+> fashion, is also on the short-term list.
+> 
+> When you look through the patch you'll likely notice the #ifdef 
+> NOTYET/#endif sequences surrounding portions of code from the hostap 
+> project.  Portions of this subsystem were based on an earlier version of 
+> the hostap project.  Those areas that weren't directly supported by the 
+> ipw* projects weren't ported to be completely hardware independent 
+> (since I don't have the hardware to test it), and so are still wrapped 
+> in the ifdefs.  These sections mainly cover support for MASTER and WDS 
+> modes.
+> 
+> Anyway, please let me know what you think.  Hopefully I built the patch 
+> right...
 
-You're right of course.  I thought they were all harmless but I was
-obviously wrong about this one.
+It applies fine.
 
-So here is a patch that essentially reverts the split devices
-semantics introduced by these two changesets:
+A few comments:
 
-  [IPV6] addrconf_dst_alloc() to allocate new route for local address.
-  [IPV6] take rt6i_idev into account when looking up routes.
+1.  config IEEE80211_DEBUG
+	bool "Enable full debugging output"
+	depends on IEEE80211
 
-Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
++	  /proc/net/ieee80211/debug_level
++
++	  For example:
++
++	  % echo 0x00000FFO > /sys/bus/pci/drivers/ipw2200/debug_level
 
-Cheers,
+I get the impression that one of these file names is incorrect:
+/proc vs. /sys.....
+
++	  % . idvals
++	
++	  From within drivers/net/wireless/ipw2200
+
+Is there some good place for this other than in
+drivers/net/wireless?  I don't know.
+
++	  If you are not trying to debug or develop the IPW2200 driver,
++	  you
++	  most likely want to say N here.
+
+Combine those last 2 lines.
+
+2.  	This can be compiled as a modules and it will be called
++	"ieee80211_crypt.ko".
+
+Don't use the ".ko" suffix at all (anywhere).
+
+3.  +static int __init ieee80211_crypto_init(void)
++	(void) ieee80211_register_crypto_ops(&ieee80211_crypt_null);
+
+That register call can fail, so I'd rather see it checked, as in all
+of the other similar register calls.
+
+4.  +static void * ieee80211_ccmp_init(int key_idx)
++	if (priv == NULL) {
++		goto fail;
++	}
+
+Lose the braces.  Same for:
+ieee80211_ccmp_init()
+
+5.  +static void ccmp_init_blocks()
+
++	/* CCM Initial Block:
++	 * Flag (Include authentication header, M=3 (8-octet MIC),
++	 *       L=1 (2-octet Dlen))
++	 * Nonce: 0x00 | A2 | PN
++	 * Dlen */
+
+Kernel long comment style begins with "/*" by itself and
+ends with "*/" by itself.
+
+6.  +struct ieee80211_ccmp_data {
+
++	u32 dot11RSNAStatsCCMPFormatErrors;
++	u32 dot11RSNAStatsCCMPReplays;
++	u32 dot11RSNAStatsCCMPDecryptErrors;
+
+Are these MIB-mandated names?  otherwise the studlyCaps should go.
+
+7.  +static int ieee80211_ccmp_decrypt()
+
+Does anything care about the various negative/error case return
+values?
+
+8.  What calls the .print_stats functions?
+static char * ieee80211_ccmp_print_stats()
+
+Is it possible to use seq_file there instead of sprintf(),
+or is this in /sysfs (so seq_file is not possible)?
+Are there any overflow possibilities?
+
+
+Enough for tonight...
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---5vNYLRcllDrimb99
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== include/net/ip6_route.h 1.21 vs edited =====
---- 1.21/include/net/ip6_route.h	2004-10-26 14:27:49 +10:00
-+++ edited/include/net/ip6_route.h	2005-02-05 17:02:36 +11:00
-@@ -74,8 +74,7 @@
- extern int ndisc_dst_gc(int *more);
- extern void fib6_force_start_gc(void);
- 
--extern struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
--					   const struct in6_addr *addr,
-+extern struct rt6_info *addrconf_dst_alloc(const struct in6_addr *addr,
- 					   int anycast);
- 
- /*
-===== net/ipv6/addrconf.c 1.129 vs edited =====
---- 1.129/net/ipv6/addrconf.c	2005-01-18 08:13:31 +11:00
-+++ edited/net/ipv6/addrconf.c	2005-02-05 17:02:00 +11:00
-@@ -509,7 +509,7 @@
- 		goto out;
- 	}
- 
--	rt = addrconf_dst_alloc(idev, addr, 0);
-+	rt = addrconf_dst_alloc(addr, 0);
- 	if (IS_ERR(rt)) {
- 		err = PTR_ERR(rt);
- 		goto out;
-===== net/ipv6/anycast.c 1.19 vs edited =====
---- 1.19/net/ipv6/anycast.c	2005-01-15 08:30:07 +11:00
-+++ edited/net/ipv6/anycast.c	2005-02-05 17:01:47 +11:00
-@@ -340,7 +340,7 @@
- 		goto out;
- 	}
- 
--	rt = addrconf_dst_alloc(idev, addr, 1);
-+	rt = addrconf_dst_alloc(addr, 1);
- 	if (IS_ERR(rt)) {
- 		kfree(aca);
- 		err = PTR_ERR(rt);
-===== net/ipv6/ip6_fib.c 1.34 vs edited =====
---- 1.34/net/ipv6/ip6_fib.c	2005-01-14 15:41:06 +11:00
-+++ edited/net/ipv6/ip6_fib.c	2005-02-05 17:04:02 +11:00
-@@ -450,7 +450,6 @@
- 			 */
- 
- 			if (iter->rt6i_dev == rt->rt6i_dev &&
--			    iter->rt6i_idev == rt->rt6i_idev &&
- 			    ipv6_addr_equal(&iter->rt6i_gateway,
- 					    &rt->rt6i_gateway)) {
- 				if (!(iter->rt6i_flags&RTF_EXPIRES))
-===== net/ipv6/route.c 1.105 vs edited =====
---- 1.105/net/ipv6/route.c	2005-01-15 19:44:48 +11:00
-+++ edited/net/ipv6/route.c	2005-02-05 17:01:23 +11:00
-@@ -189,17 +189,8 @@
- 			struct net_device *dev = sprt->rt6i_dev;
- 			if (dev->ifindex == oif)
- 				return sprt;
--			if (dev->flags & IFF_LOOPBACK) {
--				if (sprt->rt6i_idev == NULL ||
--				    sprt->rt6i_idev->dev->ifindex != oif) {
--					if (strict && oif)
--						continue;
--					if (local && (!oif || 
--						      local->rt6i_idev->dev->ifindex == oif))
--						continue;
--				}
-+			if (dev->flags & IFF_LOOPBACK)
- 				local = sprt;
--			}
- 		}
- 
- 		if (local)
-@@ -1385,8 +1376,7 @@
-  *	Allocate a dst for local (unicast / anycast) address.
-  */
- 
--struct rt6_info *addrconf_dst_alloc(struct inet6_dev *idev,
--				    const struct in6_addr *addr,
-+struct rt6_info *addrconf_dst_alloc(const struct in6_addr *addr,
- 				    int anycast)
- {
- 	struct rt6_info *rt = ip6_dst_alloc();
-@@ -1395,13 +1385,12 @@
- 		return ERR_PTR(-ENOMEM);
- 
- 	dev_hold(&loopback_dev);
--	in6_dev_hold(idev);
- 
- 	rt->u.dst.flags = DST_HOST;
- 	rt->u.dst.input = ip6_input;
- 	rt->u.dst.output = ip6_output;
- 	rt->rt6i_dev = &loopback_dev;
--	rt->rt6i_idev = idev;
-+	rt->rt6i_idev = in6_dev_get(&loopback_dev);
- 	rt->u.dst.metrics[RTAX_MTU-1] = ipv6_get_mtu(rt->rt6i_dev);
- 	rt->u.dst.metrics[RTAX_ADVMSS-1] = ipv6_advmss(dst_pmtu(&rt->u.dst));
- 	rt->u.dst.metrics[RTAX_HOPLIMIT-1] = ipv6_get_hoplimit(rt->rt6i_dev);
-
---5vNYLRcllDrimb99--
+~Randy
