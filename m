@@ -1,45 +1,47 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: require packet path at device layer
-Date: Fri, 07 Jan 2005 08:05:51 -0500
-Message-ID: <41DE892F.5030206@redhat.com>
-References: <72c6e3790501070020755ffacf@mail.gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 07 Jan 2005 08:32:37 -0500
+Message-ID: <1105104757.1046.63.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
+	 <1105019912.2314.20.camel@jzny.localdomain>
+	 <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux lover <linux.lover2004@gmail.com>
-In-Reply-To: <72c6e3790501070020755ffacf@mail.gmail.com>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <1105023972.3462.48.camel@tsc-6.cph.tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-linux lover wrote:
-> Hello,
->     Can anybody provide me how packet control is transferred from
-> netif_rx to netif_receive_skb function.
-> regards,
-> linux.lover
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+On Thu, 2005-01-06 at 10:06, Tommy Christensen wrote:
 
-Believe its done directly in netif_rx, which calls:
-netif_rx_schedule(&queue->blog_dev)
-The poll routine for blog_dev which gets set in net_dev_init is called 
-process_backlog, which takes packets queued from netif_rx and calls 
-netif_receive_skb with them
+> But qdisc_restart() isn't called any more after the queue is
+> stopped. So how do we get to drain the packets?
 
-HTH
-Neil
+We return -1; so qdisc restart will be called until theres no packets
+left on the queue. Did i miss something in the state machine there?
 
--- 
-/***************************************************
-  *Neil Horman
-  *Software Engineer
-  *Red Hat, Inc.
-  *nhorman@redhat.com
-  *gpg keyid: 1024D / 0x92A74FA1
-  *http://pgp.mit.edu
-  ***************************************************/
+> Another approach could be to reset the qdisc (kind of what
+> dev_deactivate does) if the driver stays in queue_stopped
+> and carrier_off for some period of time.
+> 
+
+reseting qdisc could certainly be part of the device watchdog.
+Note that once the packets are drained, the next thing that will happen
+if device is stopped for a dev->timeout period is watchdog kicking in
+and flushing the DMA. So you could reset your qdisc there though i am
+not sure it will be needed with that patch.
+
+cheers,
+jamal 
