@@ -1,31 +1,63 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: Kernel stack overflow on 2.6.9-rc2
-Date: Tue, 14 Sep 2004 22:43:55 +0300
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <200409142243.55949.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200409141723.35009.vda@port.imtp.ilyichevsk.odessa.ua> <20040914163347.GE3197@schnapps.adilger.int> <Pine.LNX.4.53.0409141340540.4262@chaos>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 2.6] Add NAPI support to sungem.c
+Date: Tue, 14 Sep 2004 22:02:38 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040914200238.GM8434@sunbeam.de.gnumonks.org>
+References: <20040914153537.GE8434@sunbeam.de.gnumonks.org> <20040914124315.716e9c68.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 7bit
-Cc: Linux kernel <linux-kernel@vger.kernel.org>,
-	Trond Myklebust <trond.myklebust@fys.uio.no>,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S269755AbUINTsA@vger.kernel.org>
-To: root@chaos.analogic.com, Andreas Dilger <adilger@clusterfs.com>
-In-Reply-To: <Pine.LNX.4.53.0409141340540.4262@chaos>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="aRzsUE0Mp86t8N62"
+Cc: netdev@oss.sgi.com, linuxppc-dev@lists.linuxppc.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20040914124315.716e9c68.davem@davemloft.net>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tuesday 14 September 2004 20:55, Richard B. Johnson wrote:
-> Has anybody ever explained why there is an attempt to
-> minimize the size of the kernel stack? Temporary data
-> allocation on the stack is FREE! The compiler just
-> adjusts offsets for data. Even dynamic data-allocation
-> takes only one instruction, (subl %reg, %esp).
 
-IIRC it is done in order to be able to support large number
-of threads on 32-bit machines and to avoid needing to do
-a order-1 allocation at fork().
---
-vda
+--aRzsUE0Mp86t8N62
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, Sep 14, 2004 at 12:43:15PM -0700, David S. Miller wrote:
+>=20
+> Harald.... check current BK it has NAPI support added
+> to the sungem.c driver already, it was written by Eric Lemoine
+> with some fixes by myself and benh :-)
+
+Gnah, I hate duplicated efforts.  Well, I learned a bit about NIC
+drivers, though :(
+
+> I guess these are one of the old mails you're resending today
+> after your outage.
+
+No, unfortunately not :(
+
+Before I start NAPI-enabling natsemi.c (and again duplicate work):  Do
+you know of anybody working on this yet?
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--aRzsUE0Mp86t8N62
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBR05eXaXGVTD0i/8RAsHXAJ4j2yIs5UG3OpHrry63kSoEZbZMCwCggnlD
+tbJMCHTlYaYvYyNkeh3yogY=
+=juGp
+-----END PGP SIGNATURE-----
+
+--aRzsUE0Mp86t8N62--
