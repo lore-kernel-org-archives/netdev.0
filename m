@@ -1,112 +1,41 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: wireless 2.6 work
-Date: Thu, 24 Mar 2005 00:07:02 +0200
-Message-ID: <200503240007.11954.vkondra@mail.ru>
-References: <20050310025036.GE17854@ruslug.rutgers.edu> <4240D158.1060302@pobox.com>
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
+Date: Wed, 23 Mar 2005 22:46:42 +0000
+Message-ID: <4241F1D2.9050202@dsl.pipex.com>
+References: <1107123123.8021.80.camel@jzny.localdomain>	 <0fcf01c5077f$579e4b80$6e69690a@RIMAS>	 <1107174142.8021.121.camel@jzny.localdomain>	 <00c301c524b4$938cd240$6e69690a@RIMAS>	 <1110379135.1091.143.camel@jzny.localdomain>	 <1110416767.1111.76.camel@jzny.localdomain>	 <025501c52552$2dbf87c0$6e69690a@RIMAS>	 <1110453757.1108.87.camel@jzny.localdomain> <423B7BCB.10400@dsl.pipex.com>	 <1111410890.1092.195.camel@jzny.localdomain>	 <423F41AD.3010902@dsl.pipex.com>	 <1111444869.1072.51.camel@jzny.localdomain>	 <423F71C2.8040802@dsl.pipex.com> <1111462263.1109.6.camel@jzny.localdomain>	 <42408998.5000202@dsl.pipex.com>	 <1111550254.1089.21.camel@jzny.localdomain>	 <4241C478.5030309@dsl.pipex.com>	 <1111607112.1072.48.camel@jzny.localdomain>	 <4241D764.2030306@dsl.pipex.com> <1111612042.1072.53.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart9429505.gCS1A5zDSB";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>,
-	Netdev <netdev@oss.sgi.com>, Dan Williams <dcbw@redhat.com>,
-	Linux Kernel <linux-kernel@vger.kernel.org>,
-	James Ketrenos <jketreno@linux.intel.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4240D158.1060302@pobox.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
+        Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1111612042.1072.53.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart9429505.gCS1A5zDSB
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+jamal wrote:
+> On Wed, 2005-03-23 at 15:53, Andy Furniss wrote:
+> 
+> 
+>>but I can now follow the action ipt MARK line with an action mirred ..
+>>
+>>and I just get the MARK error
+>>
+>>tablename: mangle hook: NF_IP_PRE_ROUTING
+>>         target: MARK set 0x1  index 0
+>>RTNETLINK answers: Invalid argument
+>>We have an error talking to the kernel
+>>
+>>
+> 
+> 
+> Ok, this is my worry - that it works when everything is compiled in
+> but not when as modules.
+> So when you rebuild compile everything in.
 
-I did posted once; it was long time ago. I am sure I sent it to Dave. I can=
-=20
-resend if needed. Basically, I made Dave's stack work on 2.6 kernels; did=20
-some changes toward QoS and provided simple utility to imitate low level=20
-driver. I was concentrated on interfaces, it is still just skeleton.
+Compiled everything in but it still doesn't work.
 
-I did not touched this work since then. I used to do stuff very close to=20
-802.11 stack. Now I am very busy with some different work.
-I can however consult on any 802.11 standard issues, QoS in particular.
-
-Maybe, it is good idea to talk to James Ketrenos as well. Last time I saw h=
-im=20
-doing good work on .11 stack.
-
-Vladimir
-
-On Wednesday 23 March 2005 04:15, Jeff Garzik wrote:
-JG> Luis R. Rodriguez wrote:
-JG> > Jeff,
-JG> >
-JG> > I'm sick off the low activity and slow support on wireless we have. I
-JG> > know you're busy so I wanted to offer my help in helping around work =
-on
-JG> > wireless-2.6, now that I have time after work, and before I commit
-JG> > myself to anything else. It's a bit suicidal, but oh well. Oh yeah and
-JG> > I'll also start using bitkeeper due to the recent clarifications on t=
-he
-JG> > license of its usage.
-JG>
-JG> Great!  While I think BitKeeper is useful, you are more than welcome to
-JG> continue sending patches.
-JG>
-JG> To wireless developers, BitKeeper will mainly be of use in sync'ing with
-JG> the latest wireless-2.6 tree.
-JG>
-JG>
-JG> > I'll willing to review as much patches as I have to and also hopefully
-JG> > write documentation on writing new wireless drivers. That said, if I
- can JG> > be of any assistance, where what you like me to start on?
-JG> >
-JG> > Here's what's on my agenda so far:
-JG> >
-JG> > * Help cleanup new ralink driver, start using ieee802211 and get into
- wireless-2.6. JG> > * Push prism54's new WPA and WDS support into
- wireless-2.6
-JG> > * Start seeing what I can use off of ieee80211 for prism54, clean it,
-JG> >   and move to wireless-2.6
-JG> > * Start incorporating WPA through wpa_supplicant onto as many drivers
-JG> > * Start standardizing all things a bit, as bitched about and well
- pointed out JG> >   by Dan Williams <dcbw@redhat.com>
-JG> > * Listen to Jouni, he's the man
-JG>
-JG> Well, all this sounds good to me.  See also the 'status' post I just
-JG> made, and the 'note on wireless development process' I am about to writ=
-e.
-JG>
-JG> I'm really hoping someone will look into integrating wireless 802.11 as
-JG> a "real" protocol, rather than faking ethernet.  This work starts with
-JG> the "p80211" template DaveM provided, and hopefully continues with
-JG> Vladimir's updates of DaveM's code (did he post those anywhere?).  There
-JG> are also issues such as ARP types that Dan Williams mentioned to me as
-JG> issues.
-JG>
-JG> The "integrate wireless into net stack" work requires a very
-JG> self-motivated person who is willing to poke into the net stack, and
-JG> answer their own questions.
-JG>
-JG>  Jeff
-JG>
-JG>
-JG>
-JG>
-JG>
-
---nextPart9429505.gCS1A5zDSB
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBCQeiOqxdj7mhC6o0RAhwlAKCXVdrBJ+4GMl3wvY1I2VF8i7oHQgCfX2k7
-YiFDk03gK3t8bRVOcbJwW5E=
-=kAfI
------END PGP SIGNATURE-----
-
---nextPart9429505.gCS1A5zDSB--
+Andy.
