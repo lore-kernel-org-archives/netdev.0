@@ -1,62 +1,40 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: Ambiguities in TCP/IP - firewall bypassing (fwd)
-Date: Sat, 19 Oct 2002 14:38:56 +0300 (EEST)
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: cheap 4-port tulip-based cards available
+Date: Sat, 19 Oct 2002 14:06:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0210191437230.12141-100000@netcore.fi>
+Message-ID: <3DB1C96B.4070505@candelatech.com>
+References: <slrnaqpajf.2ph.lunz@stoli.localnet>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jason Lunz <lunz@falooley.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-See the thread on bugtraq.
+Jason Lunz wrote:
+> I figure a few people on this list will be interested in this:
+> 
+> http://www.softwareandstuff.com/h_comp_inet4.html
+> 
+> The site says almost nothing about the cards, but on a tip from a
+> coworker I bought one the last time this site had them for sale, and
+> have been extremely happy with it. lspci shows:
 
-Linux 2.4.19 initiates TCP handshake with SYN and RST bits set.  SYN with 
-_RST_ seems like a total nonsense (SYN with FIN might even be useful for 
-stuff like T/TCP) but I guess the spec didn't take any stance on that..
+I just got mine, and ordered a bunch more...
 
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+These are the Phobos p430 NICs.  I have extensively benchmarked 2
+of those NICs that I got as eval copies, and they perform as good
+as or better than the 570tx, using the standard tulip driver.
 
----------- Forwarded message ----------
-Date: Sat, 19 Oct 2002 01:03:47 +0200
-From: Florian Weimer <Weimer@CERT.Uni-Stuttgart.DE>
-To: Paul Starzetz <paul@starzetz.de>
-Subject: Re: Ambiguities in TCP/IP - firewall bypassing
+I just noticed lots of these are on eBay too, so I'm guessing a whole
+bunch of them got surplussed.  This is good news for me, because they
+are too expensive if you try to purchase them from other channels!
 
-Paul Starzetz <paul@starzetz.de> writes:
-
-> * Linux 2.4.19
->
-> The examination of the source code of the TCP engine reveals that a
-> TCP connection can be opened by any combination of the TCP flags
-> having the SYN bit set and the ACK bit reset. For example we can open
-> a TCP connection by sending an obviously bogus SYN,RST packet:
->
-> 14:25:43.888897 192.168.1.184.12345 > 192.168.1.111.9999: SR
-> 420:420(0) win 512 (DF) [tos 0x18]
-> 14:25:43.889143 192.168.1.111.9999 > 192.168.1.184.12345: S
-> 2168208394:2168208394(0) ack 421 win 5840 <mss 1460> (DF)
-
-As a result of this bug, it's quite complicated (if not impossible in
-some configurations) to properly filter connection attempts to Linux
-hosts on Cisco IOS routers.
-
-If your access list is a whitelist with a "permit tcp any any
-established" statement somewhere, it's very likely that you can bypass
-the filter just by setting the RST in the initial SYN packet, as
-described above.  The router will forward the packet, and the Linux
-host will happily initiate the three-way handshake.
-
-"established" in Cisco parlance does not mean "SYN unset", but "ACK or
-RST set".  This means that the impact for non-Linux hosts (which do
-not react to SYN-RST packets according to Paul's survey) is less
-severe if your filters run IOS.
+Ben
 
 -- 
-Florian Weimer 	                  Weimer@CERT.Uni-Stuttgart.DE
-University of Stuttgart           http://CERT.Uni-Stuttgart.DE/people/fw/
-RUS-CERT                          fax +49-711-685-5898
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
