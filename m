@@ -1,43 +1,29 @@
-From: Jamal Hadi Salim <hadi@znyx.com>
-Subject: e1000 patchlet
-Date: 01 Oct 2004 08:25:37 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Current 2.6.x TSO state
+Date: Fri, 1 Oct 2004 23:06:09 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096633537.1041.87.camel@jzny.localdomain>
-Reply-To: hadi@znyx.com
+Message-ID: <20041001130609.GA6979@gondor.apana.org.au>
+References: <20040930213221.06a3f5b3.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-5j0yS34gsvXTv80xkOnb"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, ak@suse.de, jheffner@psc.edu
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040930213221.06a3f5b3.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, Sep 30, 2004 at 09:32:21PM -0700, David S. Miller wrote:
+> 
+> diff4) Obey MSS in tso handling, shrink tcp_skb_cb
 
---=-5j0yS34gsvXTv80xkOnb
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain
+This looks great.  But can we please rename tcp_skb_psize to
+tcp_skb_mss?
 
-
- attached
-
-cheers,
-jamal
-
---=-5j0yS34gsvXTv80xkOnb
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename=e1000p1
-Content-Type: text/plain; name=e1000p1; charset=ISO-8859-1
-
---- a/drivers/net/e1000/e1000_main.c	2004/10/01 12:09:51	1.1
-+++ b/drivers/net/e1000/e1000_main.c	2004/10/01 12:12:48
-@@ -1773,7 +1773,6 @@
- 	unsigned int mss = 0;
- 	int count = 0;
- 	unsigned int f;
--	nr_frags = skb_shinfo(skb)->nr_frags;
- 	len -= skb->data_len;
- 
- 	if(unlikely(skb->len <= 0)) {
-
---=-5j0yS34gsvXTv80xkOnb--
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
