@@ -1,36 +1,38 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
-Subject: strange e1000 performance issues
-Date: Fri, 09 Apr 2004 03:23:53 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [PATCH] IPV6: Mark MLDv2 Report as known
+Date: Fri, 09 Apr 2004 21:05:10 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40764F89.8090306@nortelnetworks.com>
+Message-ID: <20040409.210510.64268862.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I've got a pair of dual G5s running 2.6.4.  For a second gigE link we 
-added in some Intel 82540EM cards, using the mainline e1000 driver with 
-NAPI enabled.  lspci reports the bus as 66MHz.  The cards were connected 
-together with a crossover cable.
+Hello.
 
-A basic UDP packet-blasting program in userspace using 64KB datagrams 
-could only manage 47MB/s of data throughput, using 20% of a cpu.
+Mark MLDv2 Report as known ICMPv6 type.
+(We just ignore MLDv2 Reports on hosts as the spec says.)
 
-For comparison, the same program managed 108.9 MB/s with 30% cpu when 
-using the onboard gigE ports.
+Same patch applies linux-2.4.x.
 
-Also, I tried setting a larger mtu using "ip set link dev ethx mtu 
-xxxxx".  No matter what value I chose (even setting it to its default 
-value, which should have had zero effect) it resulted in the link not 
-being able to transfer data.  Downing/upping the link didn't clear the 
-issue, neither did unloading/reloading the driver module.  It took a 
-reboot to actually get it working again.
+Thanks in advance.
 
-Any ideas what's going on?
+===== net/ipv6/icmp.c 1.47 vs edited =====
+--- 1.47/net/ipv6/icmp.c	Tue Feb 24 07:09:00 2004
++++ edited/net/ipv6/icmp.c	Fri Apr  9 20:56:08 2004
+@@ -646,6 +646,7 @@
+ 		break;
+ 
+ 	case ICMPV6_MGM_REDUCTION:
++	case ICMPV6_MLD2_REPORT:
+ 		break;
+ 
+ 	default:
 
-Thanks,
-
-Chris
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
