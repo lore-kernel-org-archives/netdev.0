@@ -1,62 +1,109 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [IPSEC] add missing flow_cache_genid update to xfrm_policy_delete()
-Date: Fri, 6 Aug 2004 07:24:21 +1000
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 2.6.8-rc3-mm1 1/2] 8139too: Rx fifo/overflow recovery
+Date: Thu, 5 Aug 2004 23:43:36 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040805212421.GA4689@gondor.apana.org.au>
-References: <20040805071459.GA31551@gate.ebshome.net> <E1BsgwG-0000O6-00@gondolin.me.apana.org.au> <20040805160144.GA28597@gate.ebshome.net>
+Message-ID: <20040805234336.A15407@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="gKMricLos+KVdGMg"
-Cc: "David S. Miller" <davem@redhat.com>, Eugene Surovegin <ebs@ebshome.net>
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, Pasi Sjoholm <ptsjohol@cc.jyu.fi>,
+        Hector Martin <hector@marcansoft.com>,
+        OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040805160144.GA28597@gate.ebshome.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This patch allows to update the interrupt status register after an 
+Rx overflow or a Rx fifo error even when the Rx buffer contains no packet.
+As a side effect it saves a few heavy (i.e. flushed) pci ops per received
+packet when several packets are received at the same time.
 
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-On Thu, Aug 05, 2004 at 09:01:44AM -0700, Eugene Surovegin wrote:
-> On Thu, Aug 05, 2004 at 10:01:40PM +1000, Herbert Xu wrote:
-> > Please add a dir < XFRM_POLICY_MAX check before the atomic_inc so that
-> > dying sockets with policies don't blow away the flow cache.
-> 
-> Ohh, you're right :). Updated patch follows.
-
-Thanks.
-
-Dave, please apply Eugene's patch to fix hard policy expiration.
-
-Signed-off-by: Eugene Surovegin <ebs@ebshome.net>
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---gKMricLos+KVdGMg
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/xfrm/xfrm_policy.c 1.52 vs edited =====
---- 1.52/net/xfrm/xfrm_policy.c	2004-07-23 13:23:33 -07:00
-+++ edited/net/xfrm/xfrm_policy.c	2004-08-05 08:58:22 -07:00
-@@ -536,8 +536,11 @@
- 	write_lock_bh(&xfrm_policy_lock);
- 	pol = __xfrm_policy_unlink(pol, dir);
- 	write_unlock_bh(&xfrm_policy_lock);
--	if (pol)
-+	if (pol) {
-+		if (dir < XFRM_POLICY_MAX)
-+			atomic_inc(&flow_cache_genid);
- 		xfrm_policy_kill(pol);
+diff -puN drivers/net/8139too.c~r8139-10 drivers/net/8139too.c
+--- linux-2.6.8-rc3/drivers/net/8139too.c~r8139-10	2004-08-05 23:09:26.000000000 +0200
++++ linux-2.6.8-rc3-romieu/drivers/net/8139too.c	2004-08-05 23:14:31.000000000 +0200
+@@ -1934,12 +1934,15 @@ static int rtl8139_rx(struct net_device 
+ 	int received = 0;
+ 	unsigned char *rx_ring = tp->rx_ring;
+ 	unsigned int cur_rx = tp->cur_rx;
++	u16 status;
+ 
+ 	DPRINTK ("%s: In rtl8139_rx(), current %4.4x BufAddr %4.4x,"
+ 		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
+ 		 RTL_R16 (RxBufAddr),
+ 		 RTL_R16 (RxBufPtr), RTL_R8 (ChipCmd));
+ 
++	status = RTL_R16 (IntrStatus) & RxAckBits;
++
+ 	while (netif_running(dev) && received < budget 
+ 	       && (RTL_R8 (ChipCmd) & RxBufEmpty) == 0) {
+ 		u32 ring_offset = cur_rx % RX_BUF_LEN;
+@@ -1947,7 +1950,6 @@ static int rtl8139_rx(struct net_device 
+ 		unsigned int rx_size;
+ 		unsigned int pkt_size;
+ 		struct sk_buff *skb;
+-		u16 status;
+ 
+ 		rmb();
+ 
+@@ -1977,7 +1979,7 @@ static int rtl8139_rx(struct net_device 
+ 		 */
+ 		if (unlikely(rx_size == 0xfff0)) {
+ 			tp->xstats.early_rx++;
+-			goto done;
++			break;
+ 		}
+ 
+ 		/* If Rx err or invalid rx_size/rx_status received
+@@ -1989,7 +1991,8 @@ static int rtl8139_rx(struct net_device 
+ 			     (rx_size < 8) ||
+ 			     (!(rx_status & RxStatusOK)))) {
+ 			rtl8139_rx_err (rx_status, dev, tp, ioaddr);
+-			return -1;
++			received = -1;
++			goto out;
+ 		}
+ 
+ 		/* Malloc up new buffer, compatible with net-2e. */
+@@ -2024,21 +2027,18 @@ static int rtl8139_rx(struct net_device 
+ 
+ 		cur_rx = (cur_rx + rx_size + 4 + 3) & ~3;
+ 		RTL_W16 (RxBufPtr, (u16) (cur_rx - 16));
 +	}
+ 
+-		/* Clear out errors and receive interrupts */
+-		status = RTL_R16 (IntrStatus) & RxAckBits;
+-		if (likely(status != 0)) {
+-			if (unlikely(status & (RxFIFOOver | RxOverflow))) {
+-				tp->stats.rx_errors++;
+-				if (status & RxFIFOOver)
+-					tp->stats.rx_fifo_errors++;
+-			}
+-			RTL_W16_F (IntrStatus, RxAckBits);
++	/* Clear out errors and receive interrupts */
++	if (likely(status != 0)) {
++		if (unlikely(status & (RxFIFOOver | RxOverflow))) {
++			tp->stats.rx_errors++;
++			if (status & RxFIFOOver)
++				tp->stats.rx_fifo_errors++;
+ 		}
++		RTL_W16_F (IntrStatus, RxAckBits);
+ 	}
+ 
+- done:
+-
+ #if RTL8139_DEBUG > 1
+ 	DPRINTK ("%s: Done rtl8139_rx(), current %4.4x BufAddr %4.4x,"
+ 		 " free to %4.4x, Cmd %2.2x.\n", dev->name, cur_rx,
+@@ -2047,6 +2047,7 @@ static int rtl8139_rx(struct net_device 
+ #endif
+ 
+ 	tp->cur_rx = cur_rx;
++out:
+ 	return received;
  }
  
- int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
 
---gKMricLos+KVdGMg--
+_
