@@ -1,98 +1,140 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.68] [BRIDGE] More user hz conversions
-Date: Mon, 28 Apr 2003 13:48:54 -0700
+From: Max Krasnyansky <maxk@qualcomm.com>
+Subject: Re: New module infrastructure for net_proto_family
+Date: Mon, 28 Apr 2003 14:10:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030428134854.21622b2b.shemminger@osdl.org>
+Message-ID: <5.1.0.14.2.20030428130220.10644ee0@unixmail.qualcomm.com>
+References: <20030424230202.GB2931@conectiva.com.br>
+ <5.1.0.14.2.20030424094431.080b5320@unixmail.qualcomm.com>
+ <5.1.0.14.2.20030423134636.100e5c60@unixmail.qualcomm.com>
+ <5.1.0.14.2.20030423114915.10840678@unixmail.qualcomm.com>
+ <5.1.0.14.2.20030423114915.10840678@unixmail.qualcomm.com>
+ <5.1.0.14.2.20030423134636.100e5c60@unixmail.qualcomm.com>
+ <5.1.0.14.2.20030424094431.080b5320@unixmail.qualcomm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset="us-ascii"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <5.1.0.14.2.20030424170208.102ee6c8@unixmail.qualcomm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Several more places need USER/KERNEL HZ conversion.  Without these the timer
-values in 'brctl showmacs' and 'brctl showstp' are off.
+Hi Arnaldo,
 
-diff -Nru a/net/bridge/br_fdb.c b/net/bridge/br_fdb.c
---- a/net/bridge/br_fdb.c	Mon Apr 28 13:42:51 2003
-+++ b/net/bridge/br_fdb.c	Mon Apr 28 13:42:51 2003
-@@ -41,15 +41,15 @@
- 	return 0;
+Hmm, no comments on my last email (http://marc.theaimsgroup.com/?l=linux-netdev&m=105123134301565&w=2) 
+Are you trying to ignore me too ? ;-)
+
+Anyway, here is another idea. How about this (untested, uncompiled, just rfc).
+
+--- 1.14/include/linux/net.h    Tue Apr 22 22:48:58 2003
++++ edited/include/linux/net.h  Mon Apr 28 13:59:16 2003
+@@ -81,6 +81,7 @@
+        struct sock             *sk;
+        wait_queue_head_t       wait;
+        short                   type;
++       short                   protocol;
+        unsigned char           passcred;
+ };
+ 
+@@ -132,6 +133,10 @@
+ struct net_proto_family {
+        int             family;
+        int             (*create)(struct socket *sock, int protocol);
++
++       int             (*get)(int protocol);
++       void            (*put)(int protocol);
++
+        /* These are counters for the number of different methods of
+           each we support */
+        short           authentication;
+@@ -140,8 +145,8 @@
+        struct module   *owner;
+ };
+ 
+-extern int          net_family_get(int family);
+-extern void         net_family_put(int family);
++extern int          net_family_get(int family, int protocol);
++extern void         net_family_put(int family, int protocol);
+ 
+ struct iovec;
+
+--- 1.53/net/socket.c   Tue Apr 22 23:13:31 2003
++++ edited/net/socket.c Mon Apr 28 13:55:30 2003
+@@ -147,27 +147,31 @@
+        BUG();
  }
  
--static __inline__ void copy_fdb(struct __fdb_entry *ent, struct net_bridge_fdb_entry *f)
-+static __inline__ void copy_fdb(struct __fdb_entry *ent, 
-+				const struct net_bridge_fdb_entry *f)
+-int net_family_get(int family)
++int net_family_get(int family, int protocol)
  {
- 	memset(ent, 0, sizeof(struct __fdb_entry));
- 	memcpy(ent->mac_addr, f->addr.addr, ETH_ALEN);
- 	ent->port_no = f->dst?f->dst->port_no:0;
- 	ent->is_local = f->is_local;
--	ent->ageing_timer_value = 0;
--	if (!f->is_static)
--		ent->ageing_timer_value = jiffies - f->ageing_timer;
-+	ent->ageing_timer_value = f->is_static ? 0 
-+		: ((jiffies - f->ageing_timer) * USER_HZ) / HZ;
+        struct net_proto_family *prot = net_families[family];
+        int rc = 1;
+ 
+        barrier();
+-       if (likely(prot != NULL))
++       if (likely(prot != NULL)) {
+                rc = try_module_get(prot->owner);
+-       else
++               if (!rc && prot->get && (rc = prot->get(protocol)) != 0)
++                       module_put(prot->owner);
++       } else
+                net_family_bug(family);
+        return rc;
  }
  
- static __inline__ int br_mac_hash(unsigned char *mac)
-diff -Nru a/net/bridge/br_ioctl.c b/net/bridge/br_ioctl.c
---- a/net/bridge/br_ioctl.c	Mon Apr 28 13:43:08 2003
-+++ b/net/bridge/br_ioctl.c	Mon Apr 28 13:43:08 2003
-@@ -19,19 +19,22 @@
- #include <asm/uaccess.h>
- #include "br_private.h"
- 
-+/* import values in USER_HZ  */
-+static inline unsigned long user_to_ticks(unsigned long utick)
-+{
-+	return (utick * HZ) / USER_HZ;
-+}
- 
--/* Report time remaining in user HZ for compatibility. */
--static inline unsigned long timer_residue(const struct br_timer *timer)
-+/* export values in USER_HZ */
-+static inline unsigned long ticks_to_user(unsigned long tick)
+-void net_family_put(int family)
++void net_family_put(int family, int protocol)
  {
--	return timer->running 
--		? ((jiffies - timer->expires) * USER_HZ)/HZ 
--		: 0;
-+	return (tick * USER_HZ) / HZ;
+        struct net_proto_family *prot = net_families[family];
+ 
+        barrier();
+-       if (likely(prot != NULL))
++       if (likely(prot != NULL)) {
+                module_put(prot->owner);
+-       else
++               if (prot->put)
++                       prot->put(protocol);
++       } else
+                net_family_bug(family);
  }
  
--/* Convert API times in USER_HZ to kernel */
--static inline unsigned long user_to_ticks(unsigned long utick)
-+/* Report time remaining in user HZ  */
-+static unsigned long timer_residue(const struct br_timer *timer)
- {
--	return (utick * HZ) / USER_HZ;
-+	return ticks_to_user(timer->running ? (jiffies - timer->expires) : 0);
- }
+@@ -539,7 +543,7 @@
  
- static int br_ioctl_device(struct net_bridge *br,
-@@ -73,18 +76,18 @@
- 		memcpy(&b.designated_root, &br->designated_root, 8);
- 		memcpy(&b.bridge_id, &br->bridge_id, 8);
- 		b.root_path_cost = br->root_path_cost;
--		b.max_age = br->max_age;
--		b.hello_time = br->hello_time;
-+		b.max_age = ticks_to_user(br->max_age);
-+		b.hello_time = ticks_to_user(br->hello_time);
- 		b.forward_delay = br->forward_delay;
- 		b.bridge_max_age = br->bridge_max_age;
- 		b.bridge_hello_time = br->bridge_hello_time;
--		b.bridge_forward_delay = br->bridge_forward_delay;
-+		b.bridge_forward_delay = ticks_to_user(br->bridge_forward_delay);
- 		b.topology_change = br->topology_change;
- 		b.topology_change_detected = br->topology_change_detected;
- 		b.root_port = br->root_port;
- 		b.stp_enabled = br->stp_enabled;
--		b.ageing_time = br->ageing_time;
--		b.gc_interval = br->gc_interval;
-+		b.ageing_time = ticks_to_user(br->ageing_time);
-+		b.gc_interval = ticks_to_user(br->gc_interval);
- 		b.hello_timer_value = timer_residue(&br->hello_timer);
- 		b.tcn_timer_value = timer_residue(&br->tcn_timer);
- 		b.topology_change_timer_value = timer_residue(&br->topology_change_timer);
+                sock->ops->release(sock);
+                sock->ops = NULL;
+-               net_family_put(family);
++               net_family_put(family, sock->protocol);
+        }
+ 
+        if (sock->fasync_list)
+@@ -1089,10 +1093,11 @@
+                goto out;
+        }
+ 
+-       sock->type  = type;
++       sock->type     = type;
++       sock->protocol = protocol;
+ 
+        i = -EBUSY;
+-       if (!net_family_get(family))
++       if (!net_family_get(family, protocol))
+                goto out_release;
+ 
+        if ((i = net_families[family]->create(sock, protocol)) < 0) 
+@@ -1910,6 +1915,7 @@
+                net_families[ops->family]=ops;
+                err = 0;
+        }
++
+        net_family_write_unlock();
+        return err;
+ }
+
+-----
+
+So families that handle protos in separate modules would have their own 
+family->put/get() methods that net core calls.
+
+I still think that sock->owner is a better (more flexible) solution though.
+
+Max
