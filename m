@@ -1,39 +1,47 @@
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: hw checksum acceleration (Was: problem in driver network code)
-Date: Thu, 13 Nov 2003 22:48:31 +0100
+From: Ulrich Drepper <drepper@redhat.com>
+Subject: Re: RFC 3484 support
+Date: Thu, 13 Nov 2003 15:12:37 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031113224831.A1052@sygehus.dk>
-References: <20031107181508.A1102@sygehus.dk> <20031110081417.55732.qmail@web25201.mail.ukl.yahoo.com>
+Message-ID: <3FB40FE5.5040709@redhat.com>
+References: <200311131007.NAA23770@yakov.inr.ac.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: francois donzet <fdonzet@yahoo.fr>
-Content-Disposition: inline
-In-Reply-To: <20031110081417.55732.qmail@web25201.mail.ukl.yahoo.com>; from fdonzet@yahoo.fr on Mon, Nov 10, 2003 at 09:14:17AM +0100
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200311131007.NAA23770@yakov.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 10, 2003 at 09:14:17AM +0100, francois donzet wrote:
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-> > What do you do with an IEEE 802.1q (VLAN) or 802.2
-> > (LLC) packet? The VLAN
-> > code in vlan_skb_recv() does not adjust skb->csum or
-> > skb->ip_summed. Neither
-> > does the 802.2 code.
-> 
-> no matter the link layer header is 802.3,802.2 or
-> 8021.q . Tcp checksum offloading is supported,
-> whatever the type of the link layer (as skb->csum is
-> computed without the link layer header).
+kuznet@ms2.inr.ac.ru wrote:
 
-The documentation says that skb->csum covers the whole packet as seen by
-netif_rx(). eth_type_trans() pulls off the 14 byte header before netif_rx()
-is called. But if the frame is really 802.1q or 802.2, then the extra bytes
-of the header will be pulled off but skb->csum will still cover those bytes.
-Unless, of course, the device knows about 802.1q and 802.2, but that wasn't
-supposed to be necessary, was it?
+>>1. use the existing kernel functionality and provide an interface to it
+>>   which userlevel can use
+>=20
+>=20
+> This interface is connect() for example. Essentially, connect() on
+> datagram socket with subsequent getsockname() makes exactly this.
 
--- 
-Regards,
-Rask Ingemann Lambertsen
+Wouldn't this require to set up a socket and connect it to each target
+address?  The point of the whole source and destination address
+selection is it to avoid making connections with addresses/via
+interfaces which might have problems.  getaddrinfo returns a list of
+addresses which a client program then tries in the order they are
+provided.  The address which has the highest rate of success and the
+highest quality for the connection should be tried first.  And all this
+is subject to all the customization and configuration going in the kernel.
+
+- --=20
+=E2=9E=A7 Ulrich Drepper =E2=9E=A7 Red Hat, Inc. =E2=9E=A7 444 Castro St =
+=E2=9E=A7 Mountain View, CA =E2=9D=96
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.2 (GNU/Linux)
+
+iD8DBQE/tA/l2ijCOnn/RHQRAiYcAKCjgzJXwd/zV7KaWBUnaIqNEUdHrgCeKq5g
+pQm7ViT1UChv0DtqKaxkdiY=3D
+=3D/Jay
+-----END PGP SIGNATURE-----
