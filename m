@@ -1,123 +1,40 @@
-From: "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Subject: RE: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out+ delay scheduler
-Date: Fri, 18 Jun 2004 07:40:32 -0700
+From: drjim_ovia@o2.pl
+Subject: =?iso-8859-2?Q?CAN_WE_DO_IT=3F_VERY_URGENT!!?=
+Date: Fri, 18 Jun 2004 16:44:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <468F3FDA28AA87429AD807992E22D07E01767AF6@orsmsx408>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Message-ID: <20040618144448.C0F3DD0B12@rekin6.o2.pl>
+Content-Type: text/plain; charset="iso-8859-2";
 Content-Transfer-Encoding: 8bit
-Cc: "Stephen Hemminger" <shemminger@osdl.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "David Greaves" <david@dgreaves.com>, "Jens Laas" <jens.laas@data.slu.se>
+To: drjim_ovia@o2.pl
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jens/David:
+FROM THE DESK OF DR. JIM OVIA.
+THE BRANCH MANAGER,OF THE 
+{BANK OF AFRICA} .
+ABIDJAN-COTE D?IVOIRE BRANCH,
+P.O BOX 3467 NEW ABIDJAN ROAD.
+MY PRIVATE CONTACT E-MAIL:drjim_ovia1@surimail.com
+ATTN:
+PRIVATE BUSINESS PROPOSAL,                      [NEXT OF KIN.]
+Dear Friend ,
+Compliment of the day and how is life general with you? Of course it is my humble wish to solicit and cave your indulgence to make this project request for a joint business transaction which I hope will not come to you as a surprise, hence I plead for your pardon.
 
-Did not mean to get off the list. For some reason, my subscription to
-netdev is not working (even after re-subscribing). So, I grabbed your
-message off of the archive.
+I am Dr.JIM OVIA,The Branch Manager of the {Bank Of AFrica} in Abidjan Cote-Doivira Branch. I have an urgent and very Confidential business proposition for you. On December, 2000 a foreign Oil consultant/contractor with the Cote-Doivira National Petroleum Corporation, Dr. mike Kelvin made a numbered time (Fixed) Deposit for twelve calendar months, valued at US$16,500,000.00 (sixteen Million Five Hundred Thousand United State Dollars) in my branch. Upon maturity, I sent a routine notification to his forwarding address but got no reply.
 
-I am trying to recreate your failure scenario in our lab. In the
-meantime, please send me any new information you have on this issue.
+After a month, we sent a reminder and finally we discovered from his Contract employers, the Cote-Doivira National Petroleum Corporation that Dr Mike Kelvin died from an automobile accident. On further Investigation, I found out that he died without making a WILL and all attempts to trace his next of kin was fruitless. I therefore made further investigation and discovered that Dr Mike Kelvin did not declare any kin or relations in all his official documents, including his Bank Deposit paperwork in my Bank.
 
-Thanks,
-ganesh 
- 
--------------------------------------------------
-Ganesh Venkatesan
-Network/Storage Division, Hillsboro, OR
+This sum of US$16,500,000.00 is still sitting in my Bank and theinterest is being rolled over with the principal sum at the end of each year. No one has ever come forward to claim it. According to Cote-Doivira Law, at the expiration of 5(five)years,the money will revert to the ownership of the Cote-Doivira Government if nobody applies to claim the fund. Consequently, my proposal is that I Will like you to stand in as the next of kin to Dr mike Kelvin so that the fruits of this old man labour will not get into the hands of some corrupt government officials.
 
------Original Message-----
-From: David Greaves [mailto:david@dgreaves.com] 
-Sent: Friday, June 18, 2004 5:52 AM
-To: Jens Laas
-Cc: Stephen Hemminger; netdev@oss.sgi.com; Venkatesan, Ganesh
-Subject: Re: 2.6.6 e1000 NETDEV WATCHDOG: eth0: transmit timed out+
-delay scheduler
+This is simple, I will like you to provide immediately your full names and address so thatthe Attorney will prepare the necessary documents and affidavits which will put you in place as the next of kin. We shall employ the services of two Attorney for drafting and notarization of the WILL and to obtain the necessary documents and letter of probate/administration in your favour for the transfer.
 
-New info:
-I booted into XP and the card works there - so it doesn't look like a 
-simple hardware incompatibility.
-[I've got no real way to test the performance but cygwin's wget against 
-apache1.3 on the linux box returns about 25M/s initially and then 15M/s 
-sustained for 500Mb]
+A bank account in any part of the world which you will provide will then facilitate the transfer of this money to you as the beneficiary/next of kin. The money will be paid into your account for us to share in the ratio Of 65% for me and 30% for you and 5% be used in settling taxation and all local and foreign expenses. There is no risk at all as all the paperwork for this
+transaction will be done by the Attorney and my position as the Branch Manager guarantees the successful execution of this transaction.
 
-Jens Laas wrote:
+Upon your response, I shall then provide you with more details and relevant documentsthat will help you understand the transaction. Please observe utmost confidentiality,and be rest assured that thistransaction would be most profitable for both of us because I shall require your assistance to invest my share in your country.
 
->>
->> I'm speaking with Ganesh Venkatesan at intel about it. Ganesh you 
->> went off list - do you want to include Jens or maybe go back on-list?
->
->
-> If others run into this problem I'm sure they'll appreciate if its on 
-> list.
-> Since we have no idea what causes this (AFAIK) it may be a more 
-> general problem than the device driver.
+Best regards,
 
-I tend to agree - but I wasn't sure if this was the place and I'll do as
-
-I'm told ;)
-
->> A simple failure case for me is : 'ping -s 1500 '
->> This doesn't cause the timout but doesn't succeed either.
->>
->> ping -f with standard packet size succeeds (slow rate though) and 
->> doesn't timeout.
->
->
->
-> I dont see the ping problems at all. Unless you try to ping when the 
-> interface has "hanged" ?
-
-<sigh> thought that might be helpful.
-Ping with -s and -f seems to allow me to trigger errors and it seems a 
-lot more debug-able than scp or nfs :)
-No all tests are when it's reset and 'clean'
-
->> ============
->> From hereon down it's 2.6.7 with Stephen's recent delay scheduler
-patch
->>
->> This changed the behaviour.
->
->
->
-> This is strange unless you are actually using the delay scheduler ?
-> Default is sch_generic (that is pfifo) that does not exhibit the 
-> problems correct by the patch.
-
-I'll go back and double check in case I cocked up...
-(I noticed the e1000 module rebuild but you're right that's incidental)
-
-I've rebuilt the kernel and modules with and w/o patch and rebooted a 
-few times and I can't reproduce that effect - sorry for the red herring.
-So after I reverted Stephens patch the results I reported are still 
-reproducable w/o the patch.
-
->> 10592 packets transmitted, 10591 packets received, 0% packet loss
->> round-trip min/avg/max = 5.4/5.5/83.5 ms
->>
->> Increasing Transmit Descriptors to 4096 avoids the No buffer space 
->> available with packet sizes up to -s65468 (still 100% failure though)
->
->
-> Increasing nr of buffers is not a way to fix the problem.
-
-agreed - however in my ignorance of the deep behaviour I'm reporting 
-things that affect behaviour in ways I don't expect.
-I expected it to take longer to run out of buffers - that didn't happen
-:)
-
-(Anyway, on retesting I find that this was wrong - I suspect the 
-interface was down and I didn't notice)
-
->
-> I had hoped to hear something about this from Scott..
-
-I'm happy to hear from anyone - I don't have *that* long until my RMA 
-option expires and I don't fancy keeping them as ornaments!
-
-David
+DR. JIM OVIA.
+MY PRIVATE CONTACT E-MAIL:drjim_ovia1@surimail.com
