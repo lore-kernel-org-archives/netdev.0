@@ -1,33 +1,41 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: on the wire behaviour of TSO on/off is supposed to be the same
- yes?
-Date: Fri, 21 Jan 2005 12:44:41 -0800
-Message-ID: <20050121124441.76cbbfb9.davem@davemloft.net>
-References: <41F1516D.5010101@hp.com>
-	<200501211358.53783.jdmason@us.ibm.com>
-	<41F163AD.5070400@hp.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+From: domen@coderock.org
+Subject: [patch 2/3] net/tms380tr: replace direct assignment with set_current_state()
+Date: Fri, 21 Jan 2005 22:03:39 +0100
+Message-ID: <20050121210340.8C2871F2D4@trashy.coderock.org>
+Cc: domen@coderock.org, nacc@us.ibm.com, janitor@sternwelten.at
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Rick Jones <rick.jones2@hp.com>
-In-Reply-To: <41F163AD.5070400@hp.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 21 Jan 2005 12:18:53 -0800
-Rick Jones <rick.jones2@hp.com> wrote:
 
-> This is with tcp_tso_win_divisor set to 1 so TSO kicks-in before 200some-oddK 
-> are transfered.   The service demand drop (modulo the accuracy of CPU util 
-> measurements via the -DUSE_PROC_STAT stuff) is rather nice.
 
-Don't set tcp_tso_win_divisor to such a low value, that's why
-TCP is being so bursty in your case.  The default value
-of "8" keeps TCP reasonable well ACK clocked, thus avoiding
-the throughput lossage you are seeing with it set to "1".
 
-With a value of "1", TCP will wait for the entire congestion
-window to be ACK'd before it will spit out a huge TSO frame.
+Any comments would be appreciated.
+
+Description: Use set_current_state() instead of direct assignment of
+current->state.
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
+Signed-off-by: Domen Puncer <domen@coderock.org>
+---
+
+
+ kj-domen/drivers/net/tokenring/tms380tr.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -puN drivers/net/tokenring/tms380tr.c~set_current_state-drivers_net_tokenring_tms380tr drivers/net/tokenring/tms380tr.c
+--- kj/drivers/net/tokenring/tms380tr.c~set_current_state-drivers_net_tokenring_tms380tr	2005-01-10 18:00:19.000000000 +0100
++++ kj-domen/drivers/net/tokenring/tms380tr.c	2005-01-10 18:00:19.000000000 +0100
+@@ -1244,7 +1244,7 @@ void tms380tr_wait(unsigned long time)
+ 	
+ 	tmp = jiffies + time/(1000000/HZ);
+ 	do {
+-  		current->state 		= TASK_INTERRUPTIBLE;
++		set_current_state(TASK_INTERRUPTIBLE);
+ 		tmp = schedule_timeout(tmp);
+ 	} while(time_after(tmp, jiffies));
+ #else
+_
