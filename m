@@ -1,29 +1,28 @@
-From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: multicast testing
-Date: Tue, 06 Jul 2004 18:22:34 +0200
+From: James Morris <jmorris@redhat.com>
+Subject: Re: [Openswan dev] IPComp
+Date: Tue, 6 Jul 2004 12:43:10 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40EAD1CA.5010105@colorfullife.com>
-References: <40EACDB6.10008@pobox.com>
+Message-ID: <Xine.LNX.4.44.0407061241090.23212-100000@thoron.boston.redhat.com>
+References: <Xine.LNX.4.44.0407061031090.22633-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Roger Luethi <rl@hellgate.ch>, Netdev <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: dev@lists.openswan.org, <netdev@oss.sgi.com>,
+        Paul Wouters <paul@xelerance.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <40EACDB6.10008@pobox.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <Xine.LNX.4.44.0407061031090.22633-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
+On Tue, 6 Jul 2004, James Morris wrote:
 
-> Didn't one of you have a multicast test app?
+> We should not perform this allocation for each packet.
 
-Yes, it's at
-http://www.colorfullife.com/~manfred/TestApps/multicast/
+Well, actually, IPComp is so slow that it may not do much more damage to 
+performance.
 
-In my experience,
-- if sending doesn't work then the routing entry is wrong/missing.
-- if receiving doesn't work then the hash table setup is broken.
 
---
-    Manfred
+- James
+-- 
+James Morris
+<jmorris@redhat.com>
