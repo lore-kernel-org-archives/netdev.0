@@ -1,25 +1,28 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: 2.6.0-test11: dst_cache_overflow causing unresponsive box
-Date: 02 Dec 2003 07:47:03 -0500
+From: Helmut Berger <Helmut.BA.Berger@partner.bmw.de>
+Subject: Inserting a layer between TCP and IP
+Date: Tue, 02 Dec 2003 17:11:05 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1070369223.1027.34.camel@jzny.localdomain>
-References: <072501c3b874$2542ae70$15fea8c0@fortress>
-	 <16332.27919.502097.988522@robur.slu.se>
-	 <20031202032606.28db927b.davem@redhat.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <1070381465.1793.16.camel@ztpc451-L.MUC>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, francois@baligant.net,
-        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031202032606.28db927b.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-With that many flows the neighbor cache gc may also be killing him.
-
-cheers,
-jamal
+Hi,
+I am not sure if this is the right platform for my question. I am not
+very familiar with linux driver development. If I am wrong here, please
+be so kind and tell me, where I should better go to. 
+I want to insert an additional layer between the tcp and ip layer with
+some special functionality and I am not sure how to do this. I fear it
+cannot be done with system_calls, can it? That would be very
+comfortable. I could write a loadable kernel module which registers
+itself on insert and deregisters itself on remove. 
+Is it possible to insert my special layer at runtime without kernel
+changes? 
+Or do I have to build a special kernel? 
+Which ist the best way to insert a layer between the existing tcp and ip
+layer?
+Thanx, Helmut
