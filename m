@@ -1,31 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: 2.5.70-bk+ broken networking
-Date: Wed, 04 Jun 2003 22:03:24 -0700 (PDT)
+From: Joe <joe@tmsusa.com>
+Subject: Re: [PATCH 2.5.70] Tun device encapsulation
+Date: Wed, 04 Jun 2003 22:33:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030604.220324.116384963.davem@redhat.com>
-References: <20030604184341.A10256@beaverton.ibm.com>
-	<Mutt.LNX.4.44.0306051325110.335-100000@excalibur.intercode.com.au>
-	<20030605033208.GK24515@conectiva.com.br>
+Message-ID: <3EDED62D.3020808@tmsusa.com>
+References: <20030604115236.309a173d.akpm@digeo.com>	<20030604212528.GA24515@conectiva.com.br> <20030604154022.0ef344ff.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@intercode.com.au, patmans@us.ibm.com, akpm@digeo.com,
-   shemminger@osdl.org, jgarzik@pobox.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, hch@infradead.org
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+   "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>,
+   akpm@digeo.com, jjs@tmsusa.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: acme@conectiva.com.br
-In-Reply-To: <20030605033208.GK24515@conectiva.com.br>
+To: Stephen Hemminger <shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-   Date: Thu, 5 Jun 2003 00:32:08 -0300
+This fixes the tun problem nicely here -
 
-   For the curious, it was introduced in changeset 1.1259.9.18
-   
-Christophe, PLEASE be more careful in the future.
+Joe
 
-I value your changes, very much.  However, you really need to get a
-little more meticulious when you submit changes.
+Stephen Hemminger wrote:
 
-Thanks.
+>Tun device was encapsulating the net_device in a private structure then doing:
+>	unregister_netdev(&tun->dev);
+>	kfree(tun);
+>	rtnl_unlock();
+>
+>This breaks with the delayed cleanup now in the network core.
+>Moving the kfree outside of the rtnl_unlock will fix it.
+>
+>Builds, but not sure how to use TUN to test it.
+>
+>As part of later refcounting changes, I do have a more complex change
+>that uses the same encapsulation as ethernet and other
+>devices.  Will save it for later.
+>
+>diff -Nru a/drivers/net/tun.c b/drivers/net/tun.c
+>--- a/drivers/net/tun.c	Wed Jun  4 15:38:44 2003
+>+++ b/drivers/net/tun.c	Wed Jun  4 15:38:44 2003
+>@@ -551,10 +551,12 @@
+> 	if (!(tun->flags & TUN_PERSIST)) {
+> 		dev_close(&tun->dev);
+> 		unregister_netdevice(&tun->dev);
+>-		kfree(tun);
+> 	}
+> 
+> 	rtnl_unlock();
+>+
+>+	if (!(tun->flags & TUN_PERSIST)) 
+>+		kfree(tun);
+> 	return 0;
+> }
+> 
+>
+>
+>  
+>
