@@ -1,33 +1,48 @@
-From: Kenneth Krekula <kenneth.krekula@kiruna.se>
-Subject: A small forcedeth driver issue
-Date: Mon, 9 Feb 2004 22:52:22 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Mon, 9 Feb 2004 13:58:43 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402092252.22540.kenneth.krekula@kiruna.se>
+Message-ID: <20040209135843.42b5b67e.davem@redhat.com>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: c-d.hailfinger.kernel.2004@gmx.net
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Julian Anastasov <ja@ssi.bg>
+In-Reply-To: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi.
+On Sun, 8 Feb 2004 22:44:05 +0200 (EET)
+Julian Anastasov <ja@ssi.bg> wrote:
 
-I have a NForce1 motherboard and have tested the forcedeth driver with the 
-Mandrake 10 betas. The driver works very well (thanks for the great work!!) 
-and I only have a small issue:
+> +				if (skb->stamp.tv_sec) {
 
-If I have been using the driver in Mandrake 10 beta 2, and reboot into Win XP 
-or Mandrake Linux 9.2 (with the NVIdia NForce drivers) the network just 
-fails. 
+Julian, do you understand what this check is for?
 
-However, if I shut off the power switch and wait for some seconds, I can power 
-on and boot into Win XP, Mandrake 9.2.
+If it is zero, this means we are being reinvoked via the delayed proxy queue.
+It means that some previously delayed response has been kicked so that we
+should respond to it right now, with no delay, no matter what.
 
-I don't know if this is a known issue or not.
+Otherwise you could loop delaying the thing forever.  If there is a case
+where some pneigh ARP request should be evaluated multiple times, such
+a change belongs in the pneigh_*() code not here in ipv4 arp processing.
 
-Regards,
-Kenneth
+The exact path is:
+
+1) All input packets get skb->stamp.tv_sec assigned to in net/core/dev.c at
+   the waaaay beginning of input packet processing...
+
+2) Therefore the first time skb goes through arp_rcv() skb->tv_sec will be
+   non-zero.
+
+3) If it is pneigh_enqueue()'d, then skb->stamp.tv_sec will be set to zero
+   therefore upon reprocessing by arp_rcv() it will be seen as zero and this
+   is how such a state is detected.
+
+Yes, I hate all of these overloaded meanings of skb->stamp.tv_* as much as
+anyone else.
+
+This is my contribution wrt. this suggested patch today, it's your turn to
+make some commentary Julian :-)
