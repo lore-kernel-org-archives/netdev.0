@@ -1,54 +1,50 @@
-From: "David Stevens" <dlstevens@us.ibm.com>
-Subject: Re: [PATCH] anycast support for IPv6, linux-2.5.31
-Date: Fri, 30 Aug 2002 01:16:39 -0700
+From: "Saurabh Bansal" <sbansal@aplion.stpn.soft.net>
+Subject: TCP stops sending ACKs after 32 mesg...
+Date: Fri, 30 Aug 2002 16:47:30 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <27374.724779702$1030695401@news.gmane.org>
+Message-ID: <010901c25016$d59d17a0$2304a8c0@Ionizer>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, <linux-net@vger.kernel.org>,
-   <netdev@oss.sgi.com>
+Cc: <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+
+    It has been more than a week since I posted this query to the LINUX group and haven't heard anything from the group-side in this context. Is my query under processing/observation OR something else??
+
+Hope to get some positive response from your side this time!
+
+Thanks And Regards
+Saurabh
+
+----- Original Message ----- 
+From: Saurabh Bansal 
+To: netdev@oss.sgi.com 
+Cc: linux-net@vger.kernel.org 
+Sent: Wednesday, August 21, 2002 1:26 PM
 
 
-Pekka,
+Hi all,
 
-You wrote:
+    I did this experiment with the a set of two processes behaving as a sender/receiver set on the same Linux machine. What the experiment was that---
 
->Before going too much down this path, I think one should write an Internet
->Draft about the proposed API (should be quite short & simple) and see what
->kind of response it has in the relevant working groups.
+"The sender has to send some fixed-size (20 bytes) mesgs to the receiver but the receiver has not to pick-up anyone of them."
 
-I don't disagree with that, for informational purposes, but it doesn't
-conflict
-with the RFC's, which of course don't cover API's, and don't specify any
-interface
-for anycasting.
+ What has been observed is, TCP buffers the first 32 messages into the receive socket queue of receiver, AND THEN it stops sending ack's for next mesg. As a result, the sender keeps on trying to send the 33rd mesg, but gets no ack's and connection gets down within 15-20 minutes. Another important observations about this experiment are :
 
-However, my primary goal is to get anycasting support with an in-kernel
-interface
-in 2.5 before the freeze. :-) I used the setsockopt() API for testing, and
-left it
-in the patch for others to do the same. Though I think it's the right
-approach, for
-the reasons I mentioned, I'd rather see that portion pulled from the patch
-if it's
-controversial, than have the in-kernel interface and anycasting proper
-delayed over
-that.
+1) These two processes were running on the same Linux system with kernel version 2.2.xx. This problem doesn't come with Linux-kernel 2.4.xx.
 
-The one use of anycast I'm aware of right now is for IPv6 mobility, which
-needs the in-kernel interface. The
-user-level interface is important for future applications, and a
-reference-counted setsockopt() interface doesn't
-mean we can't also have an ip/ifconfig interface for permanent anycast
-addresses, too (the required anycast
-addresses in this patch are permanent, for example). So I don't see it as
-committing to one choice, but having
-in-kernel anycast support (soon) I think is the more important first step.
+2) If these processes are run on different Linux m/c's with kernel 2.2.xx, the problem doesn't appear.
 
-                                    +-DLS
+3) The socket APIs used for sending/receiving mesg are send()/recv().
+
+4) The problem has no relevance with the size of mesg. I have seen the same behavior with 1-byte mesg to 1k-byte mesg.
+
+Can anyone tell me if there is any bug/limitation with the Linux-kernel 2.2.xx in comparison to kernel 2.4.xx in the above problem-context??
+
+
+Saurabh Bansal
