@@ -1,62 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NET] Add barriers for dst refcnt
-Date: Fri, 4 Feb 2005 18:33:11 +1100
-Message-ID: <20050204073311.GA11716@gondor.apana.org.au>
+From: Richard Hobbs <r.w.hobbs@durham.ac.uk>
+Subject: [PATCH 4 2.4.27] pcnet32: Add HomePNA parameter for 79C978.
+Date: Fri, 4 Feb 2005 00:42:07 +0000 (UTC)
+Message-ID: <loom.20050204T011847-673@post.gmane.org>
+References: <d50018af05020314451010c5eb@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="OgqxwSJOaUobr8KG"
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-Content-Disposition: inline
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---OgqxwSJOaUobr8KG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I am trying to set up a hybrid network, part wired, part wireless and part
+homePNA (the building has some very thick walls and remote computers that can be
+reached by existing telephone wires). I am using Fedora core 3 with the 2.6.10
+kernel.  I have  checked the pcnet32.c code and the patch 4 2.4.27 appears to be
+there. 
 
-Hi Dave:
+I load the pcnet32 module using:
+modprobe -v pcnet32 homepna=1
 
-In light of the recent discussion about sk_buff, I think we need
-the following patch for dst_entry.  This adds a memory barrier
-before dst_release drops the refcnt, and a read memory barrier
-before dst_destroy starts destroying the entry.
+I get reply:
+insmod /lib/modules/2.6.10-1.741_FC3/kernel/drivers/net/pcnet32.ko homepna=1
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Looks good.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I then try to configure the network through the systems settings interface:
+eth0 is a e100 ethernet to my router/modem that is OK.
+Disconnecting eth0 to avoid any conflicts.
 
---OgqxwSJOaUobr8KG
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+eth1 should be the AMD79c978 card. Connecting with the telephone wire
 
-===== include/net/dst.h 1.24 vs edited =====
---- 1.24/include/net/dst.h	2004-10-26 09:10:25 +10:00
-+++ edited/include/net/dst.h	2005-02-04 18:24:46 +11:00
-@@ -147,6 +147,7 @@
- {
- 	if (dst) {
- 		WARN_ON(atomic_read(&dst->__refcnt) < 1);
-+		smp_mb__before_atomic_dec();
- 		atomic_dec(&dst->__refcnt);
- 	}
- }
-===== net/core/dst.c 1.25 vs edited =====
---- 1.25/net/core/dst.c	2005-01-14 15:41:04 +11:00
-+++ edited/net/core/dst.c	2005-02-04 18:26:06 +11:00
-@@ -169,6 +169,8 @@
- 	struct neighbour *neigh;
- 	struct hh_cache *hh;
- 
-+	smp_rmb();
-+
- again:
- 	neigh = dst->neighbour;
- 	hh = dst->hh;
+I set eth1 as an ethernet (I don't see an option for phoneline network)
+I have tried DHCP get the response on activating the network:
+Determining IP information for eth1 failed; no link present. Check cable.
 
---OgqxwSJOaUobr8KG--
+I have tried a static IP address, card activates but no device is detected at
+the modem/router.
+
+If I unload the module and reload without the homepna option, the card works
+fine with a standard ethernet cable.
+
+Any suggestions please.
+
+Thanks
+Richard Hobbs
