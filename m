@@ -1,45 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Bugs in xfrm
-Date: Fri, 9 Jan 2004 20:48:08 -0800
+Subject: Re: [PATCH] sha2-256 truncation
+Date: Fri, 9 Jan 2004 20:51:19 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040109204808.3db77be6.davem@redhat.com>
-References: <20031108223049.36651f8d.davem@redhat.com>
-	<Pine.LNX.4.44.0401091339170.10121-100000@linux-udp14999547uds>
+Message-ID: <20040109205119.71482788.davem@redhat.com>
+References: <3FFE6B72.9030808@logix.cz>
+	<3FFE7E98.6060201@logix.cz>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, krkumar@us.ibm.com, kumarkr@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <krkumar@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.44.0401091339170.10121-100000@linux-udp14999547uds>
+To: Michal Ludvig <michal@logix.cz>
+In-Reply-To: <3FFE7E98.6060201@logix.cz>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 9 Jan 2004 17:40:03 -0800 (PST)
-Krishna Kumar <krkumar@us.ibm.com> wrote:
+On Fri, 09 Jan 2004 11:12:40 +0100
+Michal Ludvig <michal@logix.cz> wrote:
 
-> These changes compile cleanly, but I couldn't test since these are
-> corner cases. Please let me know if this can be applied. I am sending
-> as one patch file for now instead of multiple files as they all small.
+> Michal Ludvig told me that:
+> 
+> > the attached trivial patch corrects the truncation size of computed 
+> > hashes that are used in IPsec ESP/AH packets for SHA2-256. All other 
+> > hash algorithms use 96 bits as well as does SuperFreeS/WAN and FreeBSD 
+> > also for SHA2-256. Only the native Linux sha2-256 used 128 bits what led 
+> >  to incompatibility with other IPsec implementations.
+> 
+> Oops, sorry. I sent a reversed patch originally. Please use this one 
+> instead.
 
-Maybe you should actually try to test these changes before I think
-about applying them, for example:
-
-> +void dst_bundle_free(struct dst_entry *dst)
-> +{
-> +	struct dst_entry *next;
-> +
-> +	while (dst) {
-> +		next = dst->child;
-> +		dst_free(dst);
-> +	}
-> +}
-
-Explain to me how that won't loop forever if given a non-NULL dst?
-
-Next, this dst_bundle_free() thing is totally not needed as far as I can
-tell.  When dst_free() is made, the top-level of the bundle's dst gets added
-to the garbage collection list, the garbage collection properly walks the
-children to process the whole bundle.
-
-Please redo this patch and please test it this time :)
+Patch applied, thanks Michal.
