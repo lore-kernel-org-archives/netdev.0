@@ -1,35 +1,72 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: Badness in local_bh_enable at kernel/softirq.c:119
-Date: Wed, 1 Oct 2003 01:37:10 -0700
+From: Shmulik Hen <shmulik.hen@intel.com>
+Subject: Re: [Bonding-devel] Re: [bonding] compatibilty issues
+Date: Wed, 1 Oct 2003 11:49:04 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031001013710.425038fd.davem@redhat.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010124F0B1@orsmsx402.jf.intel.com>
+Message-ID: <200310011149.04612.shmulik.hen@intel.com>
+References: <E791C176A6139242A988ABA8B3D9B38A02A464F2@hasmsx403.iil.intel.com>
+Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com, cramerj@intel.com
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: <bonding-devel@lists.sourceforge.net>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010124F0B1@orsmsx402.jf.intel.com>
+To: "David S. Miller" <davem@redhat.com>, "Chad N. Tindel" <chad@tindel.net>,
+        <fubar@us.ibm.com>, <jgarzik@pobox.com>
+In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A02A464F2@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Oct 2003 01:19:41 -0700
-"Feldman, Scott" <scott.feldman@intel.com> wrote:
+On Wednesday 01 October 2003 10:05 am, David S. Miller wrote:
+> On Tue, 30 Sep 2003 17:36:50 -0400
+>
+> "Chad N. Tindel" <chad@tindel.net> wrote:
+> > My recommendations are more towards the middle than either end. 
+> > I would like to see us get rid of the _OLD ioctls in the 2.6
+> > kernel specifically because it uses the SIOCDEVPRIVATE ioctls.
+>
+>  ...
+>
+> > I would like to see them stay in 2.4 for the rest of the 2.4 tree
+> > specifically so that people who want to run on 3 year old systems
+> > can continue to do so without us breaking their world.
+>
+> I think this is fine, personally.
+>
+> I defer to Jeff for final judgment, he should be allowed to chime
+> in at least once more.
+>
 
-> Synchronizing on the hardware side is stumping me.  We have the list of
-> skbs you describe, but I'm concerned about unmapping the skb buffers if
-> hardware is right in the middle of some DMA  on one of the buffers.
-> Some archs really don't like hardware accessing unmapped buffers.
+So here is what I did in the meantime:
+* Created a version for 2.4 that puts back all old compatibility stuff 
+  that was removed either during the propagation set or the cleanup 
+  set.
+* Created a version for 2.6 that puts back just the compatibility 
+  stuff that was removed in the propagation set (BOND_SETHWADDR, since 
+  we got a complaint from a RH9 user).
+* Removed the mention of the multicast param from the read-me.
+* Raised the ABI version to 2 so the new ifenslave keeps propagating 
+  IP settings to slaves for older drivers, and doesn't do that for new 
+  ones that contain Willy Tarreau's panic fix.
 
-Good point, if the e1000 accesses the DMA buffer after the unmap
-it will cause many arch's to signal PCI errors since the IOMMU
-will no longer have a valid translation for those DMA requests.
+As for not putting new stuff in 2.4.x kernels, here is where we stand;
+We believe new distributions based on 2.4.x kernels will keep showing 
+for at least a year, probably longer, and that customers would like 
+to see more bonding features in those distributions, so our intention 
+is to keep getting new stuff into 2.4. We understand the drive to put 
+new stuff into 2.6 and backport to 2.4 from time to time, but we'll 
+really need to keep doing stuff the current way for a while.
 
-> Here's what I'm thinking: when link down is detected in the timer, just
-> trick hardware into thinking link is still up (ILOS - Invert Loss of
-> Signal).  No locking, no disabling of interrupts.  Hardware will do the
-> natural thing by completing the outstanding sends and also provide the
-> interrupts so we can clean/return skbs as normal (e1000_clean_tx_irq).
+The cleanup stuff came up as a necessity before developing the next 
+set of features, and those are all based on a cleaned-up bonding, so 
+delaying the acceptance of the cleanup into 2.4 also delays our 
+features acceptance.
 
-If you can make that work, it's the simplest fix.
+I'm waiting for the final word from everyone. I'll need to test the 
+two new versions, but then I can release them accordingly.
+
+-- 
+| Shmulik Hen   Advanced Network Services  |
+| Israel Design Center, Jerusalem          |
+| LAN Access Division, Platform Networking |
+| Intel Communications Group, Intel corp.  |
