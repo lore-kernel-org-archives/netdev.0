@@ -1,51 +1,55 @@
-From: Paul Mackerras <paulus@samba.org>
-Subject: Bug somewhere in crypto or ipsec stuff
-Date: Thu, 30 Oct 2003 13:29:02 +1100
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: Bug somewhere in crypto or ipsec stuff
+Date: Thu, 30 Oct 2003 12:17:32 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16288.30574.745348.194005@cargo.ozlabs.ibm.com>
+Message-ID: <20031030.121732.12858700.yoshfuji@linux-ipv6.org>
+References: <16288.30574.745348.194005@cargo.ozlabs.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com,
+        jmorris@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: paulus@samba.org
+In-Reply-To: <16288.30574.745348.194005@cargo.ozlabs.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I get this oops in strcmp, called from crypto_alg_lookup, when I run
-the "spi" command from a freeswan snapshot from 13 October this year.
-The kernel is 2.6.0-test9.
+In article <16288.30574.745348.194005@cargo.ozlabs.ibm.com> (at Thu, 30 Oct 2003 13:29:02 +1100), Paul Mackerras <paulus@samba.org> says:
 
-Oops: kernel access of bad area, sig: 11 [#1]
-NIP: C001323C LR: C00CEE6C SP: CB8D1C60 REGS: cb8d1bb0 TRAP: 0301    Not tainted
-MSR: 00009032 EE: 1 PR: 0 FP: 0 ME: 1 IR/DR: 11
-DAR: 00000000, DSISR: 40000000
-TASK = ca0c2320[934] 'spi' Last syscall: 4 
-GPR00: C02D5204 CB8D1C60 CA0C2320 00000063 FFFFFFFF C02D5284 CB472A38 00000003 
-GPR08: C03D0C84 C033BCBC 00000000 C00CF03C C03D0C84 
-Call trace:
- [c00cf058] crypto_alloc_tfm+0x1c/0x104
- [cd97fb34] ipcomp_init_state+0x90/0x118 [ipcomp]
- [c0233a2c] pfkey_msg2xfrm_state+0x598/0x740
- [c0233ed4] pfkey_add+0x2c/0x148
- [c0235bb4] pfkey_process+0xb8/0xc0
- [c0236ba0] pfkey_sendmsg+0x124/0x204
- [c01c2018] sock_aio_write+0xe8/0x104
- [c0054e6c] do_sync_write+0x74/0xb8
- [c0054fc0] vfs_write+0x110/0x128
- [c005508c] sys_write+0x40/0x74
- [c0007a9c] ret_from_syscall+0x0/0x44
+> I get this oops in strcmp, called from crypto_alg_lookup, when I run
+> the "spi" command from a freeswan snapshot from 13 October this year.
+> The kernel is 2.6.0-test9.
+> 
+> Oops: kernel access of bad area, sig: 11 [#1]
+:
+> Call trace:
+>  [c00cf058] crypto_alloc_tfm+0x1c/0x104
+>  [cd97fb34] ipcomp_init_state+0x90/0x118 [ipcomp]
+:
 
-The problem is basically that crypto_alg_lookup gets called with NULL
-for the `name' parameter.
+> The problem is basically that crypto_alg_lookup gets called with NULL
+> for the `name' parameter.
 
-The command that provokes the oops is:
+I would just disallow name == NULL,
+well, what algorithm do you expect?
 
-spi --af inet --said tun.1234@10.61.2.68 --ip4 --src 10.61.2.90 \
-    --dst 10.61.2.68
+===== crypto/api.c 1.30 vs edited =====
+--- 1.30/crypto/api.c	Sat Mar 29 20:16:58 2003
++++ edited/crypto/api.c	Thu Oct 30 12:07:43 2003
+@@ -36,6 +36,9 @@
+ struct crypto_alg *crypto_alg_lookup(const char *name)
+ {
+ 	struct crypto_alg *q, *alg = NULL;
++
++	if (!name)
++		return NULL;
+ 	
+ 	down_read(&crypto_alg_sem);
+ 	
 
-I was trying this because the freeswan web pages claim that they have
-some preliminary support for 2.6 in their user command set.  I was
-only half expecting the spi command to work, but it shouldn't have
-been able to cause an oops.
 
-Paul.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
