@@ -1,72 +1,100 @@
-From: Olaf Kirch <okir@suse.de>
-Subject: [PATCH 2.6] compat_sys_[gs]etsockopt need to check for level
-Date: Mon, 24 May 2004 13:33:31 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524113331.GF23568@suse.de>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: IPSec Oops when deleting an ip address
+Date: Mon, 24 May 2004 21:47:51 +1000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040524114751.GA28571@gondor.apana.org.au>
+References: <20040510134958.13691.qmail@mason.oriente.labs.it> <20040521131950.GA20040@gondor.apana.org.au> <20040521144346.7887dbf0.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="BOKacYhQ+x31HxR3"
-Cc: meissner@suse.de
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="HlL+5n6rz5pIUxbD"
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20040521144346.7887dbf0.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
 
---BOKacYhQ+x31HxR3
+--HlL+5n6rz5pIUxbD
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-The 32bit emulation functions for setsockopt/getsockopt try
-to catch a few special cases by looking at the option name,
-without checking for the option level. This breaks IPV6_V6ONLY
-and probably a few others.
+On Fri, May 21, 2004 at 02:43:46PM -0700, David S. Miller wrote:
+> On Fri, 21 May 2004 23:19:50 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > doing a mod_timer on a live state without holding a lock or for that
+> > matter not even checking whether the state is dead is definitely a bad
+> > idea
+> 
+> Applied, thanks Herbert.
 
-The bug was found by Marcus Meissner.
+Looks like I was too hasty in blaming myself :) Although my patch does
+fix a real bug, it cannot have been responsible for the crash that the OP
+reported.  The reason is that the state timer always keeps a reference to
+the state so even if it is incorrectly re-added the reference will prevent
+the crash.
 
-I hope I got the level for IPT_SO_SET_REPLACE right (I think it's SOL_IP).
-I would appreciate if someone could double-check.
+Hence the problem is still a bug in the ref counting.  I think I've found
+the real culprit now.  __xfrm?_find_acq() is missing an xfrm_state_hold
+on the create path.  This also explains why I never see it myself since
+Openswan never creates states through that code-path.
 
 Cheers,
-Olaf
 -- 
-Olaf Kirch     |  The Hardware Gods hate me.
-okir@suse.de   |
----------------+ 
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---BOKacYhQ+x31HxR3
+--HlL+5n6rz5pIUxbD
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=setsockopt-compat
+Content-Disposition: attachment; filename=p
 
---- linux-2.6.5/net/compat.c.orig	2004-04-04 05:37:24.000000000 +0200
-+++ linux-2.6.5/net/compat.c	2004-05-24 13:32:27.000000000 +0200
-@@ -457,13 +457,14 @@
- asmlinkage long compat_sys_setsockopt(int fd, int level, int optname,
- 				char *optval, int optlen)
- {
--	if (optname == IPT_SO_SET_REPLACE)
-+	if (level == SOL_IP && optname == IPT_SO_SET_REPLACE)
- 		return do_netfilter_replace(fd, level, optname,
- 					    optval, optlen);
--	if (optname == SO_ATTACH_FILTER)
-+	if (level == SOL_SOCKET && optname == SO_ATTACH_FILTER)
- 		return do_set_attach_filter(fd, level, optname,
- 					    optval, optlen);
--	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
-+	if (level == SOL_SOCKET && 
-+	    (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO))
- 		return do_set_sock_timeout(fd, level, optname, optval, optlen);
- 
- 	return sys_setsockopt(fd, level, optname, optval, optlen);
-@@ -500,7 +501,8 @@
- asmlinkage long compat_sys_getsockopt(int fd, int level, int optname,
- 				char *optval, int *optlen)
- {
--	if (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO)
-+	if (level == SOL_SOCKET &&
-+	    (optname == SO_RCVTIMEO || optname == SO_SNDTIMEO))
- 		return do_get_sock_timeout(fd, level, optname, optval, optlen);
- 	return sys_getsockopt(fd, level, optname, optval, optlen);
+===== xfrm4_state.c 1.6 vs edited =====
+--- 1.6/net/ipv4/xfrm4_state.c	2003-07-21 21:49:43 +10:00
++++ edited/xfrm4_state.c	2004-05-24 21:41:29 +10:00
+@@ -83,9 +83,7 @@
+ 			    break;
+ 		    }
+ 	}
+-	if (x0) {
+-		xfrm_state_hold(x0);
+-	} else if (create && (x0 = xfrm_state_alloc()) != NULL) {
++	if (!x0 && create && (x0 = xfrm_state_alloc()) != NULL) {
+ 		x0->sel.daddr.a4 = daddr->a4;
+ 		x0->sel.saddr.a4 = saddr->a4;
+ 		x0->sel.prefixlen_d = 32;
+@@ -105,6 +103,8 @@
+ 		list_add_tail(&x0->bydst, xfrm4_state_afinfo.state_bydst+h);
+ 		wake_up(&km_waitq);
+ 	}
++	if (x0)
++		xfrm_state_hold(x0);
+ 	return x0;
  }
+ 
+===== xfrm6_state.c 1.8 vs edited =====
+--- 1.8/net/ipv6/xfrm6_state.c	2003-07-21 21:49:43 +10:00
++++ edited/xfrm6_state.c	2004-05-24 21:44:06 +10:00
+@@ -90,9 +90,7 @@
+ 			    break;
+ 		    }
+ 	}
+-	if (x0) {
+-		xfrm_state_hold(x0);
+-	} else if (create && (x0 = xfrm_state_alloc()) != NULL) {
++	if (!x0 && create && (x0 = xfrm_state_alloc()) != NULL) {
+ 		ipv6_addr_copy((struct in6_addr *)x0->sel.daddr.a6,
+ 			       (struct in6_addr *)daddr);
+ 		ipv6_addr_copy((struct in6_addr *)x0->sel.saddr.a6,
+@@ -115,6 +113,8 @@
+ 		list_add_tail(&x0->bydst, xfrm6_state_afinfo.state_bydst+h);
+ 		wake_up(&km_waitq);
+ 	}
++	if (x0)
++		xfrm_state_hold(x0);
+ 	return x0;
+ }
+ 
 
---BOKacYhQ+x31HxR3--
+--HlL+5n6rz5pIUxbD--
