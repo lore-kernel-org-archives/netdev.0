@@ -1,54 +1,37 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: Intel and TOE in the news
-Date: Wed, 2 Mar 2005 14:48:24 +0100
-Message-ID: <20050302134824.GA20304@xi.wantstofly.org>
-References: <4216B62D.6000502@pobox.com> <20050219041007.GA17896@xi.wantstofly.org>
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Subject: Re: Kernel 2.6 IPV6 Busted
+Date: Wed, 2 Mar 2005 16:02:53 +0200
+Message-ID: <200503021602.53663.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <200502270928.44402.Info@Quantum-Sci.com> <200503011207.34029.vda@port.imtp.ilyichevsk.odessa.ua> <422497BA.9090606@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Quantum Scientific <Info@quantum-sci.com>, netdev@oss.sgi.com
 To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <422497BA.9090606@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20050219041007.GA17896@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 19, 2005 at 05:10:07AM +0100, Lennert Buytenhek wrote:
-
-> > Intel plans to sidestep the need for separate TOE cards by building this 
-> > technology into its server processor package - the chip itself, chipset 
-> > and network controller. This should reduce some of the time a processor 
-> > typically spends waiting for memory to feed back information and improve 
-> > overall application processing speeds.
+On Tuesday 01 March 2005 18:26, Jeff Garzik wrote:
+> >>There are many very important optimizations we've had to disable
+> >>by default just in TCP alone because of NAT.
+> > 
+> > I don't think future Internet will be safe enough to open
+> > corporate networks. I definitely won't do it.
+> > NAT firewall in front of my net is an absolute requirement
+> > for me.
+> > 
+> > However, IPv6 in Internet won't happen tomorrow,
+> > no rush...
 > 
-> I wonder if they could just take the network processing circuitry from
-> the IXP2800 (an extra 16-core (!) RISCy processor on-die, dedicated to
-> doing just network stuff, and a 10gbps pipe going straight into the CPU
-> itself) and graft it onto the Xeon.
+> You don't need NAT to secure a corporate network.
 
-It indeed appears to be something like the IXP2000.
-
-	http://www.intel.com/technology/ioacceleration/index.htm
-
-Quote from ServerNetworkIOAccel.pdf (which is otherwise content-free):
-
-	Lightweight Threading
-
-	[...] Rather than providing multiple hardware contexts in a
-	processor like Hyper-Threading (HT) Technology from Intel, a
-	single hardware context contains the network stack with
-	multiple software-controlled threads.  When a packet
-	thread triggers a memory event a scheduler within the network
-	stack selects an alternate packet thread and loads the CPU
-	execution pipeline. Porcessing continues in the shadow of a
-	memory access. [...] Stall conditions, triggered by requests
-	to slow memory devices, are nearly eliminated.
-
-They can also DMA packet headers straight into L1/L2 ('Direct Cache
-Access', innovation!), just like other products have been able to do
-for ages now.
-
-Not much other details up yet.
-
-
---L
+I don't want outside world to even KNOW that I have a network
+behind the firewall box. I don't want them to know
+internal hosts' IPs.
+--
+vda
