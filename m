@@ -1,8 +1,8 @@
 From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] ibmtr init section usage
-Date: Sun, 7 Mar 2004 19:38:03 -0800
+Subject: [PATCH] eepro init section usage
+Date: Sun, 7 Mar 2004 19:35:42 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040307193803.576182ce.rddunlap@osdl.org>
+Message-ID: <20040307193542.20a510c9.rddunlap@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,38 +12,31 @@ To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
-probe functions can be __devinit.
+eepro_print_info() can be __init.
 
-Patch is to 2.6.4-rc2.  Please apply.
+Please apply.  Patch is to 2.6.4-rc2.
 
 --
 ~Randy
 
 
+
 diffstat:=
- drivers/net/tokenring/ibmtr.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
+ drivers/net/eepro.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
 
 
-diff -Naurp ./drivers/net/tokenring/ibmtr.c~ibmtr_init ./drivers/net/tokenring/ibmtr.c
---- ./drivers/net/tokenring/ibmtr.c~ibmtr_init	2004-03-06 20:57:06.000000000 -0800
-+++ ./drivers/net/tokenring/ibmtr.c	2004-03-07 18:31:11.000000000 -0800
-@@ -333,7 +333,7 @@ static void ibmtr_cleanup_card(struct ne
- #endif		
+diff -Naurp ./drivers/net/eepro.c~eepro_init ./drivers/net/eepro.c
+--- ./drivers/net/eepro.c~eepro_init	2004-02-17 19:58:50.000000000 -0800
++++ ./drivers/net/eepro.c	2004-03-07 16:36:03.000000000 -0800
+@@ -680,7 +680,7 @@ static void eepro_recalc (struct net_dev
  }
  
--int ibmtr_probe_card(struct net_device *dev)
-+int __devinit ibmtr_probe_card(struct net_device *dev)
+ /* prints boot-time info */
+-static void eepro_print_info (struct net_device *dev)
++static void __init eepro_print_info (struct net_device *dev)
  {
- 	int err = ibmtr_probe(dev);
- 	if (!err) {
-@@ -356,7 +356,7 @@ int ibmtr_probe_card(struct net_device *
-  *	which references it.
-  ****************************************************************************/
- 
--static int ibmtr_probe(struct net_device *dev)
-+static int __devinit ibmtr_probe(struct net_device *dev)
- {
- 	int i;
- 	int base_addr = dev->base_addr;
+ 	struct eepro_local *	lp = dev->priv;
+ 	int			i;
