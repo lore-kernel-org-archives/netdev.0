@@ -1,25 +1,30 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Fw: [Bugme-new] [Bug 1148] New: when using ipsec with DSL
- connections communication will hang if mtu is 1500(the default value)
-Date: Tue, 26 Aug 2003 02:22:52 -0700
+Subject: Re: b44 driver in Linux 2.4.22
+Date: Tue, 26 Aug 2003 02:25:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030826022252.054773d6.davem@redhat.com>
-References: <20030826003949.78ea3d07.akpm@osdl.org>
+Message-ID: <20030826022509.65ca3f4e.davem@redhat.com>
+References: <Pine.LNX.4.55.0308260936140.17569@dodo>
+	<20030826070055.GA19639@ee.oulu.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, uwe.schmeling@t-online.de
+Cc: dave.antliff@paradise.net.nz, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20030826003949.78ea3d07.akpm@osdl.org>
+To: Pekka Pietikainen <pp@ee.oulu.fi>
+In-Reply-To: <20030826070055.GA19639@ee.oulu.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 26 Aug 2003 00:39:49 -0700
-Andrew Morton <akpm@osdl.org> wrote:
+On Tue, 26 Aug 2003 10:00:55 +0300
+Pekka Pietikainen <pp@ee.oulu.fi> wrote:
 
-> Begin forwarded message:
+> On Tue, Aug 26, 2003 at 09:38:45AM +1200, David Antliff wrote:
+> > Also, just out of curiosity, is this driver based on Michael Chan's
+> > Broadcom bcm4400 driver?
+>
+> Dave would know best since he wrote the beast, but I believe it's 
+> written using bcm4400 as "documentation" and really based on the
+> generic Linux ethernet driver template (so tg3.c with tg3 bits changed 
+> into b44 bits :-) )
 
-We don't do PMTU properly in tunneled mode, known problem
-but fix won't happen any time soon as it's non-trivial
-to cure this properly.
+That's correct.
