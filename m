@@ -1,31 +1,28 @@
-From: "David S. Miller" <davem@redhat.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [PATCH] IPv6 MIB:ipv6DefaultRouterTable
-Date: Thu, 15 Jan 2004 11:38:40 -0800
+Date: Fri, 16 Jan 2004 04:47:34 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040115113840.4b7eb5d8.davem@redhat.com>
-References: <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com>
+Message-ID: <20040116.044734.108733295.yoshfuji@linux-ipv6.org>
+References: <OFC6D64AE0.CEE7DA5F-ON87256E1C.0068A56A@us.ibm.com>
+	<20040116.041950.35757995.yoshfuji@linux-ipv6.org>
+	<20040115113700.166ddfb0.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
-        netdev@oss.sgi.com
+Cc: xma@us.ibm.com, mashirle@us.ibm.com, kuznet@ms2.inr.ac.ru,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <xma@us.ibm.com>
-In-Reply-To: <OF6C177E72.62FA8BF9-ON87256E1C.006A8953@us.ibm.com>
+To: davem@redhat.com
+In-Reply-To: <20040115113700.166ddfb0.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Jan 2004 11:30:25 -0800
-Shirley Ma <xma@us.ibm.com> wrote:
+In article <20040115113700.166ddfb0.davem@redhat.com> (at Thu, 15 Jan 2004 11:37:00 -0800), "David S. Miller" <davem@redhat.com> says:
 
-> I don't see any application uses these values for now, so I change them.
-> It's good for kernel to provide the real MIBs information. If later on,
-> some applications start to use these values, they can get the correct
-> numbers without converting. Unless you can give me an broken example. :-)
+> And also, the current situation is OK as long as this value we present now
+> can be converted into the desired value.  Is this the case?
 
-Format and layout of procfs files have to stay as they are, this is just the
-nature of the game.
+I think so for the routing table AFAIK.
+For neighbours, "jiffies" is required to be exported.
 
-We can create new files to present information in new ways and formats,
-but I totally prefer using netlink based information gathering over making
-new procfs files.
+--yoshfuji
