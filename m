@@ -1,58 +1,30 @@
-From: Felipe W Damasio <felipewd@terra.com.br>
-Subject: Re: [patch 4/4]  8139cp net driver: add MODULE_VERSION
-Date: Sat, 20 Nov 2004 01:01:42 -0200
-Message-ID: <419EB396.9020406@terra.com.br>
-References: <E1CVLFO-0002Im-G4@sputnik>
+From: Michael Renzmann <mrenzmann@web.de>
+Subject: Re: Fw: [Bugme-new] [Bug 3777] New: tun driver fails to open when
+ built in, must be modular
+Date: Sat, 20 Nov 2004 06:27:39 +0100
+Message-ID: <419ED5CB.3080106@web.de>
+References: <20041119150808.578154d3.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: janitor@sternwelten.at
-In-Reply-To: <E1CVLFO-0002Im-G4@sputnik>
+To: netdev@oss.sgi.com
+In-Reply-To: <20041119150808.578154d3.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-	Hi Max.
+Hi.
 
-	That has been on Jeff's net-dev queue for a while,
+Andrew Morton wrote:
+> Problem Description: kernel will not assign/open a tun device when tun.o is
+> compiled as a built-in. ifconfig gives 'unable to open /dev/net/tun' error.
+> compiling as a module fixes.
 
-	Cheers,
+If anyone can give me a small general hints for what might be the cause 
+of this problem, I could take a look at it. I already have some patches 
+for tun.o (that needs to be sent to the maintainer), another one doesn't 
+hurt :) But since I'm not yet too experienced with programming of kernel 
+modules, any help would be appreciated.
 
-Felipe
-
-janitor@sternwelten.at wrote:
-> 
-> 
-> 	Hi Jeff,
-> 
-> 	Add MODULE_VERSION to 8139cp net driver.
-> 
-> 	Cheers,
-> 
-> Felipe
-> 
-> 
-> Signed-off-by: Felipe W Damasio <felipewd@terra.com.br>
-> Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
-> 
-> ---
-> 
->  linux-2.6.10-rc2-bk4-max/drivers/net/8139cp.c |    1 +
->  1 files changed, 1 insertion(+)
-> 
-> diff -puN drivers/net/8139cp.c~add_module_version-drivers_net_8139cp drivers/net/8139cp.c
-> --- linux-2.6.10-rc2-bk4/drivers/net/8139cp.c~add_module_version-drivers_net_8139cp	2004-11-19 17:18:43.000000000 +0100
-> +++ linux-2.6.10-rc2-bk4-max/drivers/net/8139cp.c	2004-11-19 17:18:43.000000000 +0100
-> @@ -91,6 +91,7 @@ KERN_INFO DRV_NAME ": 10/100 PCI Etherne
->  
->  MODULE_AUTHOR("Jeff Garzik <jgarzik@pobox.com>");
->  MODULE_DESCRIPTION("RealTek RTL-8139C+ series 10/100 PCI Ethernet driver");
-> +MODULE_VERSION(DRV_VERSION);
->  MODULE_LICENSE("GPL");
->  
->  static int debug = -1;
-> _
-> 
-> 
+Bye, Mike
