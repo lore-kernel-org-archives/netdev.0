@@ -1,137 +1,56 @@
 From: Manfred Spraul <manfred@colorfullife.com>
-Subject: Re: [PATCH] natsemi update 1/4 Use assigned MAC address
-Date: Sun, 06 Jun 2004 15:30:25 +0200
+Subject: Re: [PATCH] natsemi update 3/4 External PHY operation
+Date: Sun, 06 Jun 2004 17:50:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40C31C71.6000101@colorfullife.com>
-References: <200406041451590078.0BC23855@136.179.85.112>
+Message-ID: <40C33D38.1060102@colorfullife.com>
+References: <200406041455290031.0BC56C76@136.179.85.112>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040509070707030205040103"
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Gary N Spiess <Gary.Spiess@Intermec.com>
-In-Reply-To: <200406041451590078.0BC23855@136.179.85.112>
+In-Reply-To: <200406041455290031.0BC56C76@136.179.85.112>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040509070707030205040103
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-
 Gary N Spiess wrote:
 
->Jeff,
->This is the first of a series of patches needed to support our product using the DP83815.
->This patch accepts the MAC address as a parameter because our implementation does not have an EEPROM.  I tried to upgrade to the new module_param_array() macro, but couldn't find a tutorial on the new param scheme.
+>Relocate the internal phy to phy_address=1, and add find_mii() to locate the address of the external mii phy.
 >
-Ok. Appending "natsemi.ethaddr=00:01:02:04:05:06" works.
+What if phy_address 1 is already in use?
 
->  To get things working for our development, I use a __setup() wrapper to get "ethaddr=" from the linux command line.
->  
->
-That's not a reason to merge a hack
+>         }
+> +       if (phy_id == PHY_ADDR_INTERNAL)
+> +               phy_id = np->phy_addr_external;
+> +
 
->+       if (find_cnt < ethaddr_num)
->  
->
-I think we should add a special case: if strlen(ethaddr[find_cnt]) is 0, 
-then the address from the eeprom is used - this allows to replace one 
-mac address if multiple nics are installed.
+Hmm. If the phy_id is internal then it's external.
+What do you actually try to do? If I understand the hardware correctly, 
+it supports
+- an internal PHY. Accessed through mapped registers. Used if 
+dev->if_port == PORT_TP.
+- an external MII bus. Accessed by bit banging. Used if dev->if_port == 
+PORT_MII.
+- most users of mdio_{read,write} want to access the currently selected 
+PHY, but they call mdio_read(,1,). The "if (phy_id ==INTERNAL) 
+phy_id=external" line is a hack to handle that.
 
->+       {
->  
->
-Coding style: the { should be in the same line as the if
+What about defining a PHY_ADDR_CUR (32, whatever). Everyone except the 
+probe code uses that value and mdio_read selects the correct port/phy 
+value from the dev structure. Or create a mdio_read_cur() function.
 
->+               int i, a[6];
->  
->
-i already exists, no need to define another instance.
+> +       /* if external phy, then DSPCFG register isn't functional.
+> +          Fix the value here so the "nasty random phy-reset" code doesn't
+> +          think it needs to reinitialize the chip.
+> +        */
+> +       if (dev->if_port != PORT_TP)
+> +               np->dspcfg = 0;
+> +
 
-I've appended an updated patch - could you test it?
-
-But: I'm not sure that the change is required. What about just setting 
-the mac to 0, and the actual mac address is set from user space? It's 
-possible to set the mac address with
-
-# ifconfig eth2 ether 80:01:02:03:04:05
-
-Is there a reason why you cannot set the mac address from user space?
+What about making the phy reset itself dependant on if->if_port? This 
+approach just asks for bugs - switch with ethtool from PORT_TP to 
+PORT_MII and suddenly short cables stop working.
 
 --
     Manfred
-
---------------040509070707030205040103
-Content-Type: text/plain;
- name="natsemi-2.6.6-1.patch-new"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="natsemi-2.6.6-1.patch-new"
-
---- 2.6/drivers/net/natsemi.c	2004-05-10 04:31:59.000000000 +0200
-+++ build-2.6/drivers/net/natsemi.c	2004-06-06 15:27:12.124436291 +0200
-@@ -147,6 +147,7 @@
- 
- #include <linux/config.h>
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/string.h>
- #include <linux/timer.h>
-@@ -209,6 +210,8 @@
- #define MAX_UNITS 8		/* More are supported, limit only on options */
- static int options[MAX_UNITS];
- static int full_duplex[MAX_UNITS];
-+static char *ethaddr[MAX_UNITS] = {NULL, };
-+static int ethaddr_num = 0;
- 
- /* Operational parameters that are set at compile time. */
- 
-@@ -256,6 +259,7 @@
- MODULE_PARM(rx_copybreak, "i");
- MODULE_PARM(options, "1-" __MODULE_STRING(MAX_UNITS) "i");
- MODULE_PARM(full_duplex, "1-" __MODULE_STRING(MAX_UNITS) "i");
-+module_param_array(ethaddr, charp, ethaddr_num, S_IRUGO);
- MODULE_PARM_DESC(max_interrupt_work, 
- 	"DP8381x maximum events handled per interrupt");
- MODULE_PARM_DESC(mtu, "DP8381x MTU (all boards)");
-@@ -265,6 +269,7 @@
- MODULE_PARM_DESC(options, 
- 	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
- MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
-+MODULE_PARM_DESC(ethaddr, "DP8381x MAC addr(s) xx:xx:xx:xx:xx:xx");
- 
- /*
- 				Theory of Operation
-@@ -776,13 +781,21 @@
- 		goto err_ioremap;
- 	}
- 
--	/* Work around the dropped serial bit. */
--	prev_eedata = eeprom_read(ioaddr, 6);
--	for (i = 0; i < 3; i++) {
--		int eedata = eeprom_read(ioaddr, i + 7);
--		dev->dev_addr[i*2] = (eedata << 1) + (prev_eedata >> 15);
--		dev->dev_addr[i*2+1] = eedata >> 7;
--		prev_eedata = eedata;
-+	if (find_cnt < ethaddr_num && strlen(ethaddr[find_cnt]) > 0) {
-+		int a[6];
-+		sscanf(ethaddr[find_cnt], "%2x:%2x:%2x:%2x:%2x:%2x",
-+			&a[0], &a[1], &a[2], &a[3], &a[4], &a[5]);
-+		for (i = 6; i--; )
-+			dev->dev_addr[i] = (unsigned char)a[i];
-+	} else {
-+		/* Work around the dropped serial bit. */
-+		prev_eedata = eeprom_read(ioaddr, 6);
-+		for (i = 0; i < 3; i++) {
-+			int eedata = eeprom_read(ioaddr, i + 7);
-+			dev->dev_addr[i*2] = (eedata << 1) + (prev_eedata >> 15);
-+			dev->dev_addr[i*2+1] = eedata >> 7;
-+			prev_eedata = eedata;
-+		}
- 	}
- 
- 	dev->base_addr = ioaddr;
-
---------------040509070707030205040103--
