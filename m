@@ -1,33 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: fealnx oopses (with [PATCH])
-Date: Thu, 1 Apr 2004 14:28:57 +0200
+From: Andrea Arcangeli <andrea@suse.de>
+Subject: Re: route cache DoS testing and softirqs
+Date: Thu, 1 Apr 2004 15:16:57 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040401142857.A21268@electric-eye.fr.zoreil.com>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <406B2FB5.9080302@pobox.com> <20040401002325.A9022@electric-eye.fr.zoreil.com> <200404011409.37628.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040401131657.GB18585@dualathlon.random>
+References: <20040331225259.GT2143@dualathlon.random> <200404010643.KAA08190@yakov.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-        Andreas Henriksson <andreas@fjortis.info>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Dipankar Sarma <dipankar@in.ibm.com>,
+        "David S. Miller" <davem@redhat.com>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, paulmck@us.ibm.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+To: kuznet@ms2.inr.ac.ru
 Content-Disposition: inline
-In-Reply-To: <200404011409.37628.vda@port.imtp.ilyichevsk.odessa.ua>; from vda@port.imtp.ilyichevsk.odessa.ua on Thu, Apr 01, 2004 at 02:09:37PM +0300
+In-Reply-To: <200404010643.KAA08190@yakov.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
-[...]
-> Yes, this thing improved life for me (from oopses
-> to uninterruptible excessive work in interrupt).
-> My RX coding was on top of it, so I think this should
-> be applied.
+On Thu, Apr 01, 2004 at 10:43:45AM +0400, kuznet@ms2.inr.ac.ru wrote:
+> What's about some accounting do_softirq() in some way as a starting point?
+> F.e. one way is to account all timer ticks happened while do_softirq()
+> to ksoftirqd instead of current process (I am not sure that this is even
+> possible without race conditions). Or something like that.
 
-<bozo>
-The patch includes an unneeded 'return' removal which will choke (it is
-already done in the Tx patch sent by Jeff).
-</bozo>
+This sounds reasonable. However as a start I was thinking at having
+hardirq run only the softirq they posted actively, and local_bh_enable
+run only the softirq that have been posted by the critical section (not
+from hardirqs happening on top of it). And leave everything else for
+ksoftirqd. this will complicate the bitmask setting and bitmask
+management but it sounds doable.
 
-Should I rediff and send directly to Jeff ?
+This will still leave some unfariness under an irq driven flood (partly
+a feature to provide as usual the lowest possible latency for stuff like
+not busy routers where NAPI isn't needed) but at least it avoids hardirq
+to overload excessively the task that happens to run with bh disabled
+most of the time, and it will^Wshould allow NAPI to offload the softirq
+to ksoftirqd completely.
 
---
-Ueimor
+comments?
