@@ -1,32 +1,34 @@
-From: Nish Aravamudan <nish.aravamudan@gmail.com>
-Subject: Re: how netfilter handles fragmented packets
-Date: Sun, 21 Nov 2004 09:37:18 -0800
-Message-ID: <29495f1d04112109372bb8ebe4@mail.gmail.com>
-References: <20041121153154.85910.qmail@web41403.mail.yahoo.com>
-	 <Pine.LNX.4.53.0411211714530.18608@yvahk01.tjqt.qr>
-Reply-To: Nish Aravamudan <nish.aravamudan@gmail.com>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH 2.6 PKT_SCHED]: Fix overflow on 64bit in times reported
+	to userspace by tc actions
+Date: 21 Nov 2004 12:47:13 -0500
+Message-ID: <1101059233.1093.151.camel@jzny.localdomain>
+References: <41908D1D.50405@trash.net>
+	 <20041111150314.576ce699.davem@davemloft.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: cranium2003 <cranium2003@yahoo.com>, kernelnewbies@nl.linux.org,
-	linux-kernel@vger.kernel.org, netfilter-devel@lists.netfilter.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261655AbUKURhY@vger.kernel.org>
-To: Jan Engelhardt <jengelh@linux01.gwdg.de>
-In-Reply-To: <Pine.LNX.4.53.0411211714530.18608@yvahk01.tjqt.qr>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20041111150314.576ce699.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 21 Nov 2004 17:15:12 +0100 (MET), Jan Engelhardt
-<jengelh@linux01.gwdg.de> wrote:
-> >hello,
-> >          In ip_output.c file ip_fragmet function when
-> >create a new fragmented packet given to output(skb)
-> >function. i want to know which function are actually
-> >called by output(skb)?
+On Thu, 2004-11-11 at 18:03, David S. Miller wrote:
+
+
+> I agree, and since Jamal also ACK'd it, I've applied
+> this patch.
 > 
-> use stack_dump() (or was it dump_stack()?)
 
-dump_stack(), if you want to dump the current process' stack context.
+Ive just tested the other patch from Patrick and it looks fine. Will put
+it through more testing later to test the different code paths; basics
+look good - so it should be fine to go in.  
+Patrick are you going to work on the other cleanups you were thuinking
+of? ( etc)
 
--Nish
+cheers,
+jamal
