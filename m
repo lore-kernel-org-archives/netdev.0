@@ -1,83 +1,86 @@
-From: Dipankar Sarma <dipankar@in.ibm.com>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: route cache DoS testing and softirqs
-Date: Wed, 31 Mar 2004 01:23:15 +0530
+Date: Wed, 31 Mar 2004 00:05:05 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040330195315.GB3773@in.ibm.com>
-References: <20040329184550.GA4540@in.ibm.com> <20040329222926.GF3808@dualathlon.random> <20040330144324.GA3778@in.ibm.com>
-Reply-To: dipankar@in.ibm.com
+Message-ID: <200403302005.AAA00466@yakov.inr.ac.ru>
+References: <20040329222926.GF3808@dualathlon.random>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-        Robert Olsson <Robert.Olsson@data.slu.se>,
-        "Paul E. McKenney" <paulmck@us.ibm.com>,
-        Dave Miller <davem@redhat.com>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, Andrew Morton <akpm@osdl.org>
+Content-Transfer-Encoding: 7bit
+Cc: dipankar@in.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        Robert.Olsson@data.slu.se, paulmck@us.ibm.com (Paul E. McKenney),
+        davem@redhat.com (Dave Miller),
+        kuznet@ms2.inr.ac.ru (Alexey Kuznetsov), akpm@osdl.org (Andrew Morton)
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrea Arcangeli <andrea@suse.de>
-Content-Disposition: inline
-In-Reply-To: <20040330144324.GA3778@in.ibm.com>
+To: andrea@suse.de (Andrea Arcangeli)
+In-Reply-To: <20040329222926.GF3808@dualathlon.random> from "Andrea Arcangeli" at Мар 30, 2004 12:29:26 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Mar 30, 2004 at 08:13:24PM +0530, Dipankar Sarma wrote:
-> On Tue, Mar 30, 2004 at 12:29:26AM +0200, Andrea Arcangeli wrote:
-> > So you're simply asking the ksoftirqd offloading to become more
-> > aggressive, and to make the softirq even more scheduler friendly,
-> > something I never had a reason to do yet, since ksoftirqd already
-> > eliminates the starvation issue, and secondly because I did care about
-> > the performance of softirq first (delaying softirqs is derimental for
-> > performance if it happens frequently w/o this kind of flood-load). I
-> > even got a patch for 2.4 doing this kind of changes to the softirqd for
-> > similar reasons on embedded systems where the cpu spent on the softirqs
-> > would been way too much under attack. I had to back it out since it was
-> > causing drop of performance in specweb or something like that and nobody
-> > but the embdedded people needed it.  But now here we've a case where it
-> > makes even more sense since the hardirq aren't strictly related to this
-> > load, this load with the rcu-routing-cache is just about letting the
-> > scheduler go together witn an intensive softirq load. So we can try
-> > again with a truly userspace throttling of the softirqs (and in 2.4 I
-> > didn't change the nice from 19 to -20 so maybe this will just work
-> > perfectly).
+Hello!
+
+> > Robert demonstrated to us sometime ago with a small
+> > timestamping user program to show that it can get starved for
+> > more than 6 seconds in his system. So userland starvation is an
+> > issue.
 > 
-> Tried it and it didn't work. I still got dst cache overflows. I will dig
-> out more numbers about what what happened - is ksoftirqd a pig still or
-> we are mostly doing short softirq bursts on the back of a hardirq
-> flood.
+> softirqs are already capable of being offloaded to scheduler-friendy
+> kernel threads to avoid starvation, if this wasn't the case NAPI would
+> have no way to work in the first place and everything else would fall
+> apart too, not just the rcu-route-cache. I don't think high latencies
+> and starvation are the same thing, starvation means for "indefinite
+> time" and you can't hang userspace for indefinite time using softirqs.
+> For sure the irq based load, and in turn softirqs too, can take a large
+> amount of cpu (though not 100%, this is why it cannot be called
+> starvation).
+> 
+> the only real starvation you can claim is in presence of an _hard_irq
+> flood, not a softirq one.
 
-It doesn't look as if we are processing much from ksoftirqd at
-all in this case. I did the following instrumentation -
+There are no hardirqs in the case under investigation, remember?
 
-        if (in_interrupt() && local_softirqd_running())
-                return;
-        max_restart = MAX_SOFTIRQ_RESTART;
-        local_irq_save(flags);
+What's about the problem it really splits to two ones:
 
-        if (rcu_trace) {
-                int cpu = smp_processor_id();
-                per_cpu(softirq_count, cpu)++;
-                if (local_softirqd_running() && current == __get_cpu_var(ksoftirqd))
-                        per_cpu(ksoftirqd_count, cpu)++;
-                else if (!in_interrupt())
-                        per_cpu(other_softirq_count, cpu)++;
-        }
-        pending = local_softirq_pending();
+1. The _new_ problem when bad latency of rcu hurts core
+   functionality. This is precise description:
 
-A look at the softirq_count, ksoftirqd_count and other_softirq_count shows -
+> to keep up with the softirq load.  This has never been the case so far,
+> and serving softirq as fast as possible is normally a good thing for
+> server/firewalls, the small unfariness (note unfariness != starvation)
+> it generates has never been an issue, because so far the softirq never
+> required the scheduler to work in order to do their work, rcu changed
+> this in the routing cache specific case.
 
-CPU 0 : 638240	554	637686
-CPU 1 : 102316 	1 	102315
-CPU 2 : 675696 	557 	675139
-CPU 3 : 102305 	0 	102305
+We had one full solution for this issue not changing anything
+in scheduler/softirq relationship: to run rcu task for the things
+sort of dst cache not from process context, but essentially as part
+of do_softirq(). Simple, stupid and apparently solves new problems
+which rcu created.
 
-So, it doesn't seem supprising that your ksoftirqd offloading didn't
-really help much. The softirq frequency and grace period graph
-looks pretty much same without that patch -
+Another solution is just to increase memory consumption limits
+to deal with current rcu latency. F.e. 300ms latency just requires
+additional space for pps*300ms objects, which are handled by RCU.
+The problem with this is that pps is the thing which increases
+when cpu power grows and that 300ms is not a mathematically established
+limit too.
 
-http://lse.sourceforge.net/locking/rcu/rtcache/pktgen/andrea/cpu-softirq.png
 
-We are simply calling do_softirq() too much it seems and not letting
-other things run on the system. Perhaps we need to look at real
-throttling of softirqs ?
+> So you're simply asking the ksoftirqd offloading to become more
+> aggressive,
 
-Thanks
-Dipankar
+It is the second challenge.
+
+Andrea, it is experimenatl fact: this "small unfariness" stalls process
+contexts for >=6 seconds and gives them microscopic slices. We could live
+with this (provided RCU problem is solved in some way). Essentially,
+the only trouble for me was that we could use existing rcu bits to make
+offloading to ksoftirqd more smart (not aggressive, _smart_). The absense
+of RCU quiescent states looks too close to absence of forward progress
+in process contexts, it was anticipating similarity. The dumb throttling
+do_softirq made not from ksoftirqd context when starvation is detected
+which we tested the last summer is not only ugly, it really might hurt
+router performance, you are right here too. It is the challenge:
+or we proceed with this idea and invent something, or we just forget
+about this concentrating on RCU.
+
+Alexey
