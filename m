@@ -1,36 +1,25 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Consolidate multiple implementations of jiffies-msecs
- conversions.
-Date: Thu, 25 Mar 2004 15:36:42 -0500
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <406342DA.30901@pobox.com>
-References: <Pine.LNX.4.58.0403251142110.3037@localhost.localdomain> <20040325123206.00b2dd1a.davem@redhat.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2/2 (resend)] TBF trailing whitespace fixes
+Date: Thu, 25 Mar 2004 12:59:24 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20040325125924.6814b980.davem@redhat.com>
+References: <200403230108.08384.dtor_core@ameritech.net>
+	<200403230108.58006.dtor_core@ameritech.net>
+	<20040324135939.4dff0560.davem@redhat.com>
+	<200403242354.23584.dtor_core@ameritech.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Sridhar Samudrala <sri@us.ibm.com>, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040325123206.00b2dd1a.davem@redhat.com>
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Dmitry Torokhov <dtor_core@ameritech.net>
+In-Reply-To: <200403242354.23584.dtor_core@ameritech.net>
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Thu, 25 Mar 2004 12:17:41 -0800 (PST)
-> Sridhar Samudrala <sri@us.ibm.com> wrote:
-> 
-> 
->>The following patch to 2.6.5-rc2 consolidates 6 different implementations
->>of msecs to jiffies and 3 different implementation of jiffies to msecs.
->>All of them now use the generic msecs_to_jiffies() and jiffies_to_msecs()
->>that are added to include/linux/time.h
-> 
-> 
-> This looks fine to me.
-> 
-> Jeff, I'll merge this upstream.
+On Wed, 24 Mar 2004 23:54:22 -0500
+Dmitry Torokhov <dtor_core@ameritech.net> wrote:
 
+> Here it is, against the today's Marcelo's BK plus the first patch.
+> It compiles.
 
-Nod, looks good here too.
-
-	Jeff
+Thanks, applied.
