@@ -1,31 +1,31 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Wed, 22 Sep 2004 00:59:45 +0900 (JST)
+From: Anton Blanchard <anton@samba.org>
+Subject: Re: bad TSO performance in 2.6.9-rc2-BK
+Date: Wed, 22 Sep 2004 01:55:16 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040922.005945.93612032.yoshfuji@linux-ipv6.org>
-References: <20040921134918.GK1307@sunbeam.de.gnumonks.org>
-	<20040922.001448.73843048.yoshfuji@linux-ipv6.org>
-	<16720.19049.100640.24977@robur.slu.se>
+Message-ID: <20040921155516.GY2825@krispykreme>
+References: <20040920063012.GL2825@krispykreme> <414EFD2A.5000805@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, pekkas@netcore.fi, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <16720.19049.100640.24977@robur.slu.se>
+To: Nivedita Singhvi <niv@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <414EFD2A.5000805@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <16720.19049.100640.24977@robur.slu.se> (at Tue, 21 Sep 2004 17:36:09 +0200), Robert Olsson <Robert.Olsson@data.slu.se> says:
 
->  Remember we discussed this with at OLS? Asking for my solution.I said 
->  ask at IETF as you were going there. I guess it was not discussed?
+Hi Niv,
 
-Yes, I remember.
+> Hey Anton,  yep, I was just debugging this. TSO mainline reworked
+> implementation is still not cooked. Don't worry, final state won't
+> be this bad :).
 
-I talked with KAME (*BSD) developers.
-I don't think that the BSD's behavior is good enough against the threats.
-So, I think we should find by ourselves.
+Cool :)
 
---yoshfuji
+> Could you echo 0 > /proc/sys/net/ipv4/tcp_bic and redo test,
+> please?
+
+It didnt seem to help.
+
+Anton
