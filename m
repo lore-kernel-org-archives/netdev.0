@@ -1,35 +1,28 @@
-From: AntiVir@zeus.unive.it
-Subject: AntiVir ALERT [your mail: "Re: Details"]
-Date: Sun, 31 Aug 2003 06:19:18 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: VLAN patch try 2, tabs instead of spaces
+Date: Sat, 30 Aug 2003 22:34:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308310419.h7V4JIfZ004679@zeus.unive.it>
+Message-ID: <20030830223419.3a9ee2b4.davem@redhat.com>
+References: <3F3080C4.9070507@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <3F3080C4.9070507@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* * * * * * * * * * * * * * * AntiVir ALERT * * * * * * * * * * * * * * *
-This version of AntiVir is licensed and full featured.
+On Tue, 05 Aug 2003 21:15:00 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-AntiVir has detected the following in a mail from your address:
+> Same as last time, but now using tabs instead of spaces.
 
-        Worm/Sobig.F	
+I was about to apply this, then I noticed that you
+whitespace fixed the entire file.
 
-The mail was not delivered.
-
-Please remove any potential malicious software from your computer before
-sending a new mail with attachments.
-
-Mail-Info:
---8<--
- From: <netdev@oss.sgi.com>
- To: <pregadio@unive.it>
- Date: Sun, 31 Aug 2003 13:19:16 +0900
- Subject: Re: Details
---8<--
-
-
---
-AntiVir for UNIX
-Copyright (C) 1994-2002 by H+BEDV Datentechnik GmbH. All rights reserved.
-For more information see http://www.antivir.de/ or http://www.hbedv.com/
+Please don't do that, I want just your change not your
+change + whitespace cleanups.  That makes it hard to
+figure out exactly what your patch actually does amongst
+all the whitespace changes.
