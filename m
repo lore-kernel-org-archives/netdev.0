@@ -1,47 +1,43 @@
-From: "Michael Kerrisk" <michael.kerrisk@gmx.net>
-Subject: TCP_CORK 200ms maximum cork time -- expected behaviour?
-Date: Thu, 01 Jul 2004 14:47:13 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40E423F1.31890.6CC4104@localhost>
+From: John Sage <jsage@finchhaven.com>
+Subject: Parentage of BPF code in Linux
+Date: Thu, 1 Jul 2004 11:10:02 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040701181002.GG6445@sparky.finchhaven.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: michael.kerrisk@gmx.net
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-description: Mail message body
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S266212AbUGASKj@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Gidday,
+[Non-subscriber: please cc on replies]
 
-The TCP_CORK socket option allows us to perform 
-multiple write()s (or send()s or sendfile()s) 
-while delaying the transmission of an outgoing 
-TCP segment until the option is disabled (or a 
-segment MSS is filled or the socket is closed).
+WRT to the SCO/IBM/Linux imbroglio, there was an interesting assertion
+made on the Yahoo! Finance message board for SCOX, and I wondered if
+anyone could shed some light.
 
-All is fine and good, but there's one point I'm 
-puzzled about: even when TCP_CORK is set, 
-buffered data will still be transmitted 
-after a 200 millisecond delay (the delay 
-counts from the time that the first corked byte 
-was written), even if TCP_CORK is still set.  
-So, I'm wondering:
+The assertion is this:
 
-1. Is this intended behaviour, or simply an 
-   outgrowth of the combined implementations of 
-   TCP_CORK and TCP_NAGLE_OFF?
+"...among other things, the Berkeley Packet Filter code, which was
+written by an independent developer for the Missouri School District,
+licensed under the BSD license terms that never was part of SysV at
+any time..."
 
-2. If it's intended behaviour, what is the 
-   rationale for the ceiling time on corking?
+When I made reference to man 4 bpf not mentioning anything/anyone
+other than Carnegie-Mellon, Stanford, and LBL, I was corrected and
+told that the OP was refering to the BPF code within Linux, even
+though that was done without mentioning Linux specifically :-/
 
-Cheers,
+Is this a true assertion: that "..the BPF code [in Linux] was
+written..for the Missouri School District [sic]"?
 
-Michael
 
-PS I first observed this behaviour quite some time 
-back, but I've verified that it is still current 
-(2.4.26 and 2.6.7 kernels).  (In passing: of 
-course, similar behaviour occurs with MSG_MORE on 
-TCP sockets.)
+TIA..
+
+
+- John
+-- 
+10 print "Home"
+20 print "Sweet"
+30 goto 10
