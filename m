@@ -1,89 +1,190 @@
-From: Jan Ischebeck <mail@jan-ischebeck.de>
-Subject: [2.6-test4-mm5] modprobe e100 after ifplugd -> oops
-Date: Sun, 07 Sep 2003 23:47:36 +0200
+From: ebiederman@lnxi.com (Eric W. Biederman)
+Subject: How do I track TG3 peculiarities?
+Date: 07 Sep 2003 16:21:50 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1062971256.13515.9.camel@JHome.uni-bonn.de>
+Message-ID: <m31xuss0ht.fsf@maxwell.lnxi.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: lkml <linux-kernel@vger.kernel.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Using kernel 2.6.0-test4-mm5 I got on oops when inserting the e100
-module after running ifplugd. 
 
-When I load the module before starting ifplugd everything is ok.
-I didn't check yet, if it occurs with previous kernel versions too.
+Running 2.4.21 we are seeing some very weird problems with
+the tg3 driver.  The test setup is a medium sized cluster with
+256 dual opetron machines running in 32bit mode, against and extreme
+networks switch.  All ports running at gigabit speeds.  The current
+problem reproducer is to run linpack on all of the nodes.  I am
+looking for something simpler.  We have just escalated the problem
+from trying a few simple things like swapping drivers to serious
+debugging. 
 
-after a modprobe
+I will do what tracing I can but as I am not especially familiar
+with the linux network stack I am asking for help as to suggestions
+as to reasonable interpretations of events and places to start looking.
+This problem is currently a show stopper for us so we will solve
+it one way or another.  
 
- kernel: Intel(R) PRO/100 Network Driver - version 2.3.18-k1
- kernel: Copyright (c) 2003 Intel Corporation
- kernel:
- kernel: Unable to handle kernel NULL pointer dereference
-at virtual address 00000004
- kernel:  printing eip:
- kernel: d0a5250f
- kernel: *pde = 00000000
- kernel: Oops: 0000 [#1]
- kernel: PREEMPT
- kernel: CPU:    0
- kernel: EIP:    0060:[__crc_pcmcia_request_irq+5867872/7156875]    Not
-tainted VLI
- kernel: EFLAGS: 00010203
- kernel: EIP is at e100_free_rfd_pool+0x14/0xdc [e100]
- kernel: eax: 00000000   ebx: 00000000   ecx: 00000020   edx: 00000000
- kernel: esi: c7b95200   edi: c7b95220   ebp: 00000000   esp: ccd13e78
- kernel: ds: 007b   es: 007b   ss: 0068
- kernel: Process ifplugd (pid: 774, threadinfo=ccd12000 ta:
- kernel: Stack: c1367454 c7b95200 c7b95200 c7b95000 d0a527c6 c7b95200
-fffffff4 d0a51a7e
- kernel:        c7b95200 00000003 ccd13ec8 c3e6b940 0008d42c c7b95000
-00000000 00001003
- kernel:        00000000 c028eb1a c7b95000 ccd12000 c02939ea c7b95000
-00001002 c02900b8
- kernel: Call Trace:
- kernel:  [__crc_pcmcia_request_irq+5868567/7156875]
-e100_clear_pools+0x1a/0x2a [e100]
- kernel:  [__crc_pcmcia_request_irq+5865167/7156875]
-e100_open+0x13b/0x198 [e100]
- kernel:  [dev_open+121/134] dev_open+0x79/0x86
- kernel:  [dev_mc_upload+37/67] dev_mc_upload+0x25/0x43
- kernel:  [dev_change_flags+81/288] dev_change_flags+0x51/0x120
- kernel:  [devinet_ioctl+643/1538] devinet_ioctl+0x283/0x602
- kernel:  [inet_ioctl+178/248] inet_ioctl+0xb2/0xf8
- kernel:  [sock_ioctl+0/676] sock_ioctl+0x0/0x2a4
- kernel:  [sock_ioctl+245/676] sock_ioctl+0xf5/0x2a4
- kernel:  [sock_ioctl+0/676] sock_ioctl+0x0/0x2a4
- kernel:  [sys_ioctl+253/626] sys_ioctl+0xfd/0x272
- kernel:  [sys_munmap+68/100] sys_munmap+0x44/0x64
- kernel:  [syscall_call+7/11] syscall_call+0x7/0xb
- kernel:
- kernel: Code: 00 c7 43 40 00 00 00 00 c7 43 3c 00 00 00 00 8b 5c 24 10
-83 c4 14 c3 57 56 53 83 ec 04 8b 74 24 14 8d 7e 20 8b 5e 20 39 fb
-74 5a <8b> 53 04 39 1a 0f 85 b0 00 00 00 8b 03 39 58 04 0f 85 98 00 00
- kernel:  <7>e100: selftest OK.
- kernel: e100: eth0: Intel(R) PRO/100 Network Connection
- kernel:   Hardware receive checksums enabled
- kernel:
+Below is one good oops we have captured.  I would have to check but
+I believe we have updated the tg3 driver in this instance to the
+one that comes with 2.4.23-pre3.
 
-Config:
-# CONFIG_DGRS is not set
-CONFIG_EEPRO100=m
-# CONFIG_EEPRO100_PIO is not set
-CONFIG_E100=m
-# CONFIG_FEALNX is not set
-# CONFIG_NATSEMI is not set
+The very puzzling part is that in the crashes I don't see the tg3
+driver at all just the network stack.  All module addresses according
+to /proc/ksyms started with at 0xf8, and the tg3 driver was built as
+a module.
 
-System is a Thinkpad R40 2722.
+I have been having trouble understanding why skb_clone would be called
+to transmit a packet.  Any ideas?
+
+ <1>Unable to handle kernel NULL pointer dereference at virtual address
+00000004
+ printing eip:
+c0258575
+*pde = 00000000
+Oops: 0002
+CPU:    0
+EIP:    0010:[<c0258575>]    Not tainted
+EFLAGS: 00010016
+eax: 00000000   ebx: f7510180   ecx: 00000000   edx: c03f5240
+esi: f7616b80   edi: 00000202   ebp: f7bc90e8   esp: f774de44
+ds: 0018   es: 0018   ss: 0018
+Process init (pid: 15, stackpage=f774d000)
+Stack: 00000098 00000286 00000246 f7bc91bc f7616b80 000005a8 c0289554
+f7616b80 
+       00000020 f7bc9080 c0258114 00000000 00000001 eb307d90 f7bc91bc
+f7bc9080 
+       c027d3d5 f7bc9080 00000001 00000098 00000000 f774dee4 00000000
+c0317c34 
+Call Trace:    [<c0289554>] [<c0258114>] [<c027d3d5>] [<c013e02c>]
+[<c029dca2>]
+  [<c02544c5>] [<c025475e>] [<c0145be3>] [<c01094af>]
+Code: 89 50 04 89 81 40 52 3f c0 c7 43 04 00 00 00 00 c7 03 00 00 
 
 
-Jan
 
-(Please CC on reply)
+************************  HERE IS THE ksymoops *************************
 
--- 
-Jan Ischebeck <mail@jan-ischebeck.de>
+
+
+
+
+ksymoops 2.4.5 on i686 2.4.21-cm26_lnxi2smp.  Options used
+     -V (default)
+     -k /proc/ksyms (default)
+     -l /proc/modules (default)
+     -o /lib/modules/2.4.21-cm26_lnxi2smp/ (default)
+     -m /boot/System.map-2.4.21-cm26_lnxi2smp (default)
+
+Warning: You did not tell me where to find symbol information.  I will
+assume that the log matches the kernel and modules that are running
+right now and I'll use the default options above for symbol resolution.
+If the current kernel and/or modules do not match the log, you can get
+more accurate output by telling me the kernel version and where to find
+map, modules, ksyms etc.  ksymoops -h explains the options.
+
+Warning (expand_objects): object /tmp/amd76xrom.o for module amd76xrom
+has changed since load
+ksymoops: No such file or directory
+Warning (expand_objects): object /tmp/cfi_cmdset_0002.o for module
+cfi_cmdset_0002 has changed since load
+Error (expand_objects): cannot stat(/modules/tg3.o) for tg3
+Error (expand_objects): cannot stat(/modules/bproc.o) for bproc
+ksymoops: No such file or directory
+ksymoops: No such file or directory
+ksymoops: No such file or directory
+Error (expand_objects): cannot stat(/modules/vmadump.o) for vmadump
+Error (add_ss_object): cannot stat(/lib/modules/2.4.21-cm26_lnxi2smp/)
+Error (regular_file): read_nm_symbols stat
+/lib/modules/2.4.21-cm26_lnxi2smp/ failed
+ksymoops: No such file or directory
+Warning (read_object): no symbols in /lib/modules/2.4.21-cm26_lnxi2smp/
+Error (regular_file): read_system_map stat
+/boot/System.map-2.4.21-cm26_lnxi2smp failed
+ksymoops: No such file or directory
+Warning (map_ksym_to_module): cannot match loaded module tg3 to a unique
+module object.  Trace may not be reliable.
+Warning (map_ksym_to_module): cannot match loaded module bproc to a
+unique module object.  Trace may not be reliable.
+Warning (map_ksym_to_module): cannot match loaded module vmadump to a
+unique module object.  Trace may not be reliable.
+Fatal Error (find_fullpath): could not find executable ksymoops
+[root@bluesteel conman]# ksymoops /tmp/oops
+ksymoops 2.4.5 on i686 2.4.21-cm26_lnxi2smp.  Options used
+     -V (default)
+     -k /proc/ksyms (default)
+     -l /proc/modules (default)
+     -o /lib/modules/2.4.21-cm26_lnxi2smp/ (default)
+     -m /boot/System.map-2.4.21-cm26_lnxi2smp (default)
+
+Warning: You did not tell me where to find symbol information.  I will
+assume that the log matches the kernel and modules that are running
+right now and I'll use the default options above for symbol resolution.
+If the current kernel and/or modules do not match the log, you can get
+more accurate output by telling me the kernel version and where to find
+map, modules, ksyms etc.  ksymoops -h explains the options.
+
+Error (expand_objects): cannot stat(/lib/ext3.o) for ext3
+ksymoops: No such file or directory
+Error (expand_objects): cannot stat(/lib/jbd.o) for jbd
+ksymoops: No such file or directory
+Warning (map_ksym_to_module): cannot match loaded module ext3 to a
+unique module object.  Trace may not be reliable.
+ <1>Unable to handle kernel NULL pointer dereference at virtual address
+00000004
+c0258575
+*pde = 00000000
+Oops: 0002
+CPU:    0
+EIP:    0010:[<c0258575>]    Not tainted
+Using defaults from ksymoops -t elf32-i386 -a i386
+EFLAGS: 00010016
+eax: 00000000   ebx: f7510180   ecx: 00000000   edx: c03f5240
+esi: f7616b80   edi: 00000202   ebp: f7bc90e8   esp: f774de44
+ds: 0018   es: 0018   ss: 0018
+Process init (pid: 15, stackpage=f774d000)
+Stack: 00000098 00000286 00000246 f7bc91bc f7616b80 000005a8 c0289554
+f7616b80 
+       00000020 f7bc9080 c0258114 00000000 00000001 eb307d90 f7bc91bc
+f7bc9080 
+       c027d3d5 f7bc9080 00000001 00000098 00000000 f774dee4 00000000
+c0317c34 
+Call Trace:    [<c0289554>] [<c0258114>] [<c027d3d5>] [<c013e02c>]
+[<c029dca2>]
+  [<c02544c5>] [<c025475e>] [<c0145be3>] [<c01094af>]
+Code: 89 50 04 89 81 40 52 3f c0 c7 43 04 00 00 00 00 c7 03 00 00 
+
+
+>>EIP; c0258575 <skb_clone+45/1d0>   <=====
+
+>>ebx; f7510180 <_end+37103a84/38400964>
+>>edx; c03f5240 <skb_head_pool+0/1040>
+>>esi; f7616b80 <_end+3720a484/38400964>
+>>ebp; f7bc90e8 <_end+377bc9ec/38400964>
+>>esp; f774de44 <_end+37341748/38400964>
+
+Trace; c0289554 <tcp_write_xmit+184/280>
+Trace; c0258114 <alloc_skb+c4/1e0>
+Trace; c027d3d5 <tcp_sendmsg+585/10c0>
+Trace; c013e02c <__alloc_pages+4c/1a0>
+Trace; c029dca2 <inet_sendmsg+42/50>
+Trace; c02544c5 <sock_sendmsg+75/c0>
+Trace; c025475e <sock_write+ae/c0>
+Trace; c0145be3 <sys_write+a3/160>
+Trace; c01094af <system_call+33/38>
+
+Code;  c0258575 <skb_clone+45/1d0>
+00000000 <_EIP>:
+Code;  c0258575 <skb_clone+45/1d0>   <=====
+   0:   89 50 04                  mov    %edx,0x4(%eax)   <=====
+Code;  c0258578 <skb_clone+48/1d0>
+   3:   89 81 40 52 3f c0         mov    %eax,0xc03f5240(%ecx)
+Code;  c025857e <skb_clone+4e/1d0>
+   9:   c7 43 04 00 00 00 00      movl   $0x0,0x4(%ebx)
+Code;  c0258585 <skb_clone+55/1d0>
+  10:   c7 03 00 00 00 00         movl   $0x0,(%ebx)
+
+
+2 warnings and 2 errors issued.  Results may not be reliable.
