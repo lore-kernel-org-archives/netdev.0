@@ -1,60 +1,48 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2/9] PKT_SCHED: tc filter extension API
-Date: 30 Dec 2004 08:51:54 -0500
-Message-ID: <1104414713.1047.130.camel@jzny.localdomain>
-References: <20041230122652.GM32419@postel.suug.ch>
-	 <20041230123023.GO32419@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH PKT_SCHED 4/17]: Check TCA_ACT_KIND payload size _before_ copying it
+Date: Thu, 30 Dec 2004 14:34:01 +0100
+Message-ID: <20041230133401.GW32419@postel.suug.ch>
+References: <41D37875.5020103@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, Patrick McHardy <kaber@trash.net>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041230123023.GO32419@postel.suug.ch>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <41D37875.5020103@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thomas,
+* Patrick McHardy <41D37875.5020103@trash.net> 2004-12-30 04:39
+> -			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+> -			if (RTA_PAYLOAD(kind) >= IFNAMSIZ) {
+> -				printk("Action %s bad\n", (char*)RTA_DATA(kind));
+> +			if (RTA_PAYLOAD(kind) >= IFNAMSIZ)
 
-Havent looked at the whole set - will later today; quick question:
+The check should be RTA_PAYLOAD(kind) > IFNAMSIZ, == is ok
+if the terminating NUL is provided.
 
-On Thu, 2004-12-30 at 07:30, Thomas Graf wrote:
+>  				goto err_out;
+> -			}
+> +			sprintf(act_name, "%s", (char*)RTA_DATA(kind));
+>  		} else {
 
-> +struct tcf_exts
-> +{
-> +#ifdef CONFIG_NET_CLS_ACT
-> +	struct tc_action *action;
-> +#elif defined CONFIG_NET_CLS_POLICE
-> +	struct tcf_police *police;
-> +#endif
-> +};
+This will cause horrible crashes if no NUL is provided to terminate
+the name.
 
-Things like above:
-In current code you can have CONFIG_NET_CLS_ACT and not use new
-style policer, rather use old one i.e CONFIG_NET_CLS_POLICE. You seem to
-indicate presence of CONFIG_NET_CLS_ACT implies absence of
-NET_CLS_POLICE.
-A fix for example maybe to s/elif/ifdef [1]
+So I think this should be:
 
-Anyways, back later to peek some more.
+if (RTA_PAYLOAD(kind) > IFNAMSIZ)
+	goto err_out;
+memset(act_name, ...);
+memcpy(act_name, RTA_DATA(kind), RTA_PAYLOAD(kind));
+act_name[IFNAMSIZ - 1] = '\0';
 
-cheers,
-jamal
+The memset is required to ensure 0 termination if kind is not and
+shorter than IFNAMSIZ. memcpy instead of str* to avoid using
+any form of str(n)len on a possibly not terminated string
+and setting IFNAMSIZ - 1 to NUL to ensure proper handling of
+a IFNAMSIZ long not terminated string.
 
-
-[1]Look at Kconfig rules:
-
-----
-config NET_CLS_POLICE
-        ...
-        depends on NET_CLS && NET_QOS && NET_ACT_POLICE!=y &&  
-NET_ACT_POLICE!=m
-----
-
-Anyways, back later to peek some more.
-
-cheers,
-jamal
+I know it's unlikely but this might just save us some troubles later.
