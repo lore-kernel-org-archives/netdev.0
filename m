@@ -1,31 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6]: keep fragment queues private to each user
-Date: Tue, 25 Jan 2005 21:41:58 -0800
-Message-ID: <20050125214158.4be3798c.davem@davemloft.net>
-References: <41F5D1CB.9050804@trash.net>
+Subject: Re: [PATCHSET] Extended matches and basic classifier
+Date: Tue, 25 Jan 2005 21:52:49 -0800
+Message-ID: <20050125215249.2aec06d7.davem@davemloft.net>
+References: <20050123230012.GB23931@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41F5D1CB.9050804@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050123230012.GB23931@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 25 Jan 2005 05:57:47 +0100
-Patrick McHardy <kaber@trash.net> wrote:
+On Mon, 24 Jan 2005 00:00:12 +0100
+Thomas Graf <tgraf@suug.ch> wrote:
 
-> This patch keeps fragment queues private to each ip_defrag user to avoid
-> skbs jumping between different callers. It shouldn't change any wanted
-> behaviour, the only questionable one was ip_call_ra_chain, but the RA
-> option is included in each fragment. If you're fine with the patch I'm going
-> to send a 2.4 version later.
+> This patchset adds the ematch API, the ematches cmp, nbyte, u32, meta,
+> and the basic classifier. It doesn't touch any existing code.
 
-Please fix the CONFIG_SMP build.  You use some variable "user"
-in ip_frag_intern(), yet don't add this as an argument or
-anything like that.
-
-The "user" use you added is protected by CONFIG_SMP, so my guess
-is that you compile and tested this without SMP enabled.
+I'm busy merging pure bug fixes, so I'll try to review this
+one soon.  Likely it will go into 2.6.12, although I may try
+to sneak it into the pending 2.6.11 tree.
