@@ -1,133 +1,61 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2.6.9]: Fix netdevice/inet6_dev reference leaks in
- ip6_route_add error paths
-Date: Wed, 20 Oct 2004 15:35:25 +0900 (JST)
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [PATCH 2.6] Re: xfrm_user.c doesn't use NLMSG_F_MULTI
+Date: Wed, 20 Oct 2004 08:34:40 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041020.153525.50629727.yoshfuji@linux-ipv6.org>
-References: <417591A2.4090201@trash.net>
+Message-ID: <20041020063440.GV21927@sunbeam.de.gnumonks.org>
+References: <20041013080705.GB3387@obroa-skai.de.gnumonks.org> <E1CI2I2-0001sI-00@gondolin.me.apana.org.au> <20041014105757.GB12694@obroa-skai.de.gnumonks.org> <20041014110742.GA7910@gondor.apana.org.au> <20041015191444.GM17516@obroa-skai.de.gnumonks.org> <20041016094553.GA6546@gondor.apana.org.au> <20041019231256.1e4b039e.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
- boundary="--Next_Part(Wed_Oct_20_15:35:25_2004_849)--"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="lA2zPjnDULdUXMNN"
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kaber@trash.net, davem@davemloft.net
-In-Reply-To: <417591A2.4090201@trash.net>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041019231256.1e4b039e.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-----Next_Part(Wed_Oct_20_15:35:25_2004_849)--
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 
-In article <417591A2.4090201@trash.net> (at Wed, 20 Oct 2004 00:13:54 +0200), Patrick McHardy <kaber@trash.net> says:
+--lA2zPjnDULdUXMNN
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-> The recent changes to ip6_route_add added multiple leaks in
-> error paths. This patch should fix them.
+On Tue, Oct 19, 2004 at 11:12:56PM -0700, David S. Miller wrote:
 
-Agreed. David, please apply.
+> I just installed Herbert's patches from that thread.
+> Harald, you can redo your patch against that thread's
+> patches or just wait until it hits Linus's tree tonight
+> or tomorrow.
 
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+I'd rather wait, more convenient ;)
 
---yoshfuji
+> Please also take care of the issue Herbert pointed out
+> in the xfrm_user.c case wrt. dumping.
 
-----Next_Part(Wed_Oct_20_15:35:25_2004_849)--
-Content-Type: Message/Rfc822
-Content-Transfer-Encoding: 7bit
+yes, I'll do so.  I didn't fix it right now (and repost) since Herbert
+asked me to hold back.
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--lA2zPjnDULdUXMNN
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
 Content-Disposition: inline
 
-Return-Path: <kaber@trash.net>
-Delivered-To: yoshfuji@yue.st-paulia.net
-Received: from sapphire.st-paulia.net (sapphire.linux-ipv6.org [203.178.140.14])
-	by yue.st-paulia.net (Postfix) with ESMTP id 64A1433CE5
-	for <yoshfuji@yue.st-paulia.net>; Wed, 20 Oct 2004 07:15:11 +0900 (JST)
-Received: by sapphire.st-paulia.net (Postfix)
-	id 5B3A223CF9; Wed, 20 Oct 2004 07:34:58 +0900 (JST)
-Delivered-To: yoshfuji@sapphire.st-paulia.net
-Received: from nezu.linux-ipv6.org (linux6.nezu.wide.ad.jp [203.178.142.218])
-	by sapphire.st-paulia.net (Postfix) with ESMTP id 703B023CF8
-	for <yoshfuji@sapphire.st-paulia.net>; Wed, 20 Oct 2004 07:34:55 +0900 (JST)
-Received: from gw.localnet ([62.206.217.67])
-	by nezu.linux-ipv6.org (8.13.1/8.13.1/Debian-13) with ESMTP id i9JMEMii001727
-	for <yoshfuji@linux-ipv6.org>; Wed, 20 Oct 2004 07:14:25 +0900
-Received: from [172.16.1.123] (helo=trash.net ident=kaber)
-	by gw.localnet with esmtp (Exim 3.36 #1 (Debian))
-	id 1CK2Ma-0002us-00; Wed, 20 Oct 2004 00:21:52 +0200
-Message-ID: <417591A2.4090201@trash.net>
-Date: Wed, 20 Oct 2004 00:13:54 +0200
-From: Patrick McHardy <kaber@trash.net>
-User-Agent: Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.6) Gecko/20040413 Debian/1.6-5
-X-Accept-Language: en
-MIME-Version: 1.0
-To: "David S. Miller" <davem@redhat.com>
-Cc: netdev@oss.sgi.com, YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>
-Subject: [PATCH 2.6.9]: Fix netdevice/inet6_dev reference leaks in ip6_route_add
- error paths
-Content-Type: multipart/mixed;
- boundary="------------040705080908040609060609"
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
 
-This is a multi-part message in MIME format.
---------------040705080908040609060609
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+iD8DBQFBdgcAXaXGVTD0i/8RAsYFAJ4mlhPDbYXm8JBB8+Zqzve6TS5UWwCdF44w
+zDJEJ9WMcbFAbXT1m/daxaY=
+=amLv
+-----END PGP SIGNATURE-----
 
-The recent changes to ip6_route_add added multiple leaks in
-error paths. This patch should fix them.
-
-Regards
-Patrick
-
-
---------------040705080908040609060609
-Content-Type: text/plain;
- name="p2"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="p2"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/10/19 23:46:56+02:00 kaber@coreworks.de 
-#   [IPV6]: Fix netdevice/inet6_dev reference leaks in ip6_route_add error paths
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv6/route.c
-#   2004/10/19 23:46:17+02:00 kaber@coreworks.de +8 -3
-#   [IPV6]: Fix netdevice/inet6_dev reference leaks in ip6_route_add error paths
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/ipv6/route.c b/net/ipv6/route.c
---- a/net/ipv6/route.c	2004-10-19 23:52:23 +02:00
-+++ b/net/ipv6/route.c	2004-10-19 23:52:23 +02:00
-@@ -798,8 +798,10 @@
- 
- 	rt = ip6_dst_alloc();
- 
--	if (rt == NULL)
--		return -ENOMEM;
-+	if (rt == NULL) {
-+		err = -ENOMEM;
-+		goto out;
-+	}
- 
- 	rt->u.dst.obsolete = -1;
- 	rt->rt6i_expires = clock_t_to_jiffies(rtmsg->rtmsg_info);
-@@ -962,7 +964,10 @@
- out:
- 	if (dev)
- 		dev_put(dev);
--	dst_free((struct dst_entry *) rt);
-+	if (idev)
-+		in6_dev_put(idev);
-+	if (rt)
-+		dst_free((struct dst_entry *) rt);
- 	return err;
- }
- 
-
---------------040705080908040609060609--
-
-----Next_Part(Wed_Oct_20_15:35:25_2004_849)----
+--lA2zPjnDULdUXMNN--
