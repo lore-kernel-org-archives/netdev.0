@@ -1,74 +1,55 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Fw: [Bugme-new] [Bug 3003] New: might_sleep warning when setting up
- IPSec with IPCOMP
-Date: Fri, 2 Jul 2004 12:43:23 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [BUGS] [CHECKER] 99 synchronization bugs and a lock summary
+ database
+Date: Fri, 2 Jul 2004 12:50:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040702124323.5690be11.akpm@osdl.org>
+Message-ID: <20040702125008.25e65252@dell_ss3.pdx.osdl.net>
+References: <20040702004956.448c95d9.akpm@osdl.org>
+	<E1BgLql-00055X-00@gondolin.me.apana.org.au>
+	<20040702123022.563ee931.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: James Morris <jmorris@redhat.com>
+Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20040702123022.563ee931.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Fri, 2 Jul 2004 12:30:22 -0700
+Andrew Morton <akpm@osdl.org> wrote:
 
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> >
+> > Andrew Morton <akpm@osdl.org> wrote:
+> > > 
+> > > Could someone please take a look at the locking in
+> > > net/ipv4/ipmr.c:ipmr_mfc_seq_next?  It seems rather broken.
+> > 
+> > Obfuscated yes, broken no.
+> 
+> Really?  Even if that goto
+> 
+> 	if (it->cache == &mfc_unres_queue) 
+> 		goto end_of_list;
+> 
+> is taken?
 
-Begin forwarded message:
+The problem is that the seq_file interface is trying to create an iterator
+over  a set of data.  The interface expects that the usage will always fit
+a given pattern.
 
-Date: Fri, 2 Jul 2004 10:32:47 -0700
-From: bugme-daemon@osdl.org
-To: bugme-new@lists.osdl.org
-Subject: [Bugme-new] [Bug 3003] New: might_sleep warning when setting up IPSec with IPCOMP
+The implied semantic is:
+	if returned handle is NULL, then nothing is locked and it->cache = NULL
 
+	if returned handle is in the mfc_cache_table then
+		it->cache points to mfc_cache_array and mrt_lock is held
+	if returned handle is in the mfc_unres_queue then
+		it->cache points to mfc_unres_queue and mfc_unres_lock is held
 
-http://bugme.osdl.org/show_bug.cgi?id=3003
+the seq_next is only valid to mean give me the next entry after the passed handle
+therefore if there are no more entries after the handle and the handle was on
+the unresolved queue, then the end is reached. 
 
-           Summary: might_sleep warning when setting up IPSec with IPCOMP
-    Kernel Version: 2.6.7
-            Status: NEW
-          Severity: normal
-             Owner: niv@us.ibm.com
-         Submitter: christophe@saout.de
-                CC: christophe@saout.de
-
-
-Linux 2.6.7 on x86, UP preempt
-
-Using OpenSWAN for IPSec tunnel with IP-Compression enabled.
-
-Often gives the following warning shortly after a connection has been set up:
-
-I'm not exactly sure whether this is cryptoapi or the compression module or
-IPCOMP's fault.
-
-Jul  2 18:39:04 websrv Debug: sleeping function called from invalid context at
-mm/slab.c:1994
-Jul  2 18:39:04 websrv in_atomic():1, irqs_disabled():0
-Jul  2 18:39:04 websrv [<c0106c37>] dump_stack+0x17/0x20
-Jul  2 18:39:04 websrv [<c0118fb4>] __might_sleep+0xb4/0xe0
-Jul  2 18:39:04 websrv [<c0139fbc>] kmem_cache_alloc+0x5c/0x60
-Jul  2 18:39:04 websrv [<c0147bc0>] __get_vm_area+0x20/0xf0
-Jul  2 18:39:04 websrv [<c0147cb4>] get_vm_area+0x24/0x30
-Jul  2 18:39:04 websrv [<c0147f1c>] __vmalloc+0x3c/0x100
-Jul  2 18:39:04 websrv [<c01ecdca>] deflate_comp_init+0x4a/0xf0
-Jul  2 18:39:04 websrv [<c01ecf44>] deflate_compress+0x24/0x80
-Jul  2 18:39:04 websrv [<c01e8a84>] crypto_compress+0x24/0x30
-Jul  2 18:39:04 websrv [<c031744c>] ipcomp_compress+0x6c/0x110
-Jul  2 18:39:04 websrv [<c0317681>] ipcomp_output+0xc1/0x370
-Jul  2 18:39:04 websrv [<c02e684e>] dst_output+0xe/0x30
-Jul  2 18:39:04 websrv [<c02d684a>] nf_hook_slow+0xfa/0x170
-Jul  2 18:39:04 websrv [<c02e4d12>] ip_queue_xmit+0x452/0x540
-Jul  2 18:39:04 websrv [<c02f48af>] tcp_transmit_skb+0x3ef/0x660
-Jul  2 18:39:04 websrv [<c02f558b>] tcp_write_xmit+0x15b/0x2c0
-Jul  2 18:39:04 websrv [<c02ea255>] tcp_sendmsg+0x4e5/0x1030
-Jul  2 18:39:04 websrv [<c0309ec7>] inet_sendmsg+0x47/0x60
-Jul  2 18:39:04 websrv [<c02c5fee>] sock_aio_write+0xae/0xd0
-Jul  2 18:39:04 websrv [<c014d1b6>] do_sync_write+0x76/0xb0
-Jul  2 18:39:04 websrv [<c014d2bb>] vfs_write+0xcb/0xf0
-Jul  2 18:39:04 websrv [<c014d375>] sys_write+0x35/0x60
-Jul  2 18:39:04 websrv [<c0105e3d>] sysenter_past_esp+0x52/0x71
-
-------- You are receiving this mail because: -------
-You are on the CC list for the bug, or are watching someone who is.
+When seq_stop is called, the it->cache pointer will be NULL so no unlock is done.
