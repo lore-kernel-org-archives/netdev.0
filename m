@@ -1,43 +1,31 @@
 From: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-Subject: RE: Do you know the TCP stack? (127.x.x.x routing)
-Date: Thu, 10 Mar 2005 08:48:34 +0200 (EET)
-Message-ID: <Pine.LNX.4.62.0503100843280.15067@webhosting.rdsbv.ro>
-References: <B8561865DB141248943E2376D0E85215FFE1C8@DHOST001-17.DEX001.intermedia.net>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: Thu, 10 Mar 2005 08:57:30 +0200 (EET)
+Message-ID: <Pine.LNX.4.62.0503100856440.15067@webhosting.rdsbv.ro>
+References: <1110288879.1050.167.camel@jzny.localdomain>
+ <20050308135134.GA20607@atrey.karlin.mff.cuni.cz> <1110290300.1050.190.camel@jzny.localdomain>
+ <20050308140301.GC20607@atrey.karlin.mff.cuni.cz> <1110291470.1043.211.camel@jzny.localdomain>
+ <Pine.LNX.4.61.0503081937020.5332@filer.marasystems.com>
+ <1110316631.1084.57.camel@jzny.localdomain> <Pine.LNX.4.61.0503090009120.6780@filer.marasystems.com>
+ <E1D91Rz-0004wp-00@smtp01.mrf.mail.rcn.net> <1110377889.1090.124.camel@jzny.localdomain>
+ <20050309175209.GX3163@waste.org>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: hadi@cyberus.ca, Henrik Nordstrom <hno@marasystems.com>,
-	Martin Mares <mj@ucw.cz>, Zdenek Radouch <zdenek@rcn.com>,
-	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
-	Andi Kleen <ak@muc.de>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-To: Steve Iribarne <steve.iribarne@dilithiumnetworks.com>
-In-Reply-To: <B8561865DB141248943E2376D0E85215FFE1C8@DHOST001-17.DEX001.intermedia.net>
-Sender: linux-net-owner@vger.kernel.org
+Cc: jamal <hadi@cyberus.ca>, Zdenek Radouch <zdenek@rcn.com>,
+        Henrik Nordstrom <hno@marasystems.com>, Martin Mares <mj@ucw.cz>,
+        Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
+        Andi Kleen <ak@muc.de>, netdev@oss.sgi.com, linux-net@vger.kernel.org
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20050309175209.GX3163@waste.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> 1st bug:  Customer had the same 10.100.xx.xx/24 net that I had and my
-> inter-system communication wouldn't work, because all my routes got
-> screwed up.  (i.e the SNMP sub-agents couldn't talk with the master).
 >
-> 1st response to bug:  Well can you use another network address range?
-> Customer response:  Hell no.
->
-> Solution to bug1:  Easy, let the user configure the mgmt network ip
-> address.
-> Customers answer to bug1 solution:  Get the hell out of here; you don't
-> do out-of-band mgmt.  Do you know what a security risk this is for me?
-> Blah blah blah....  Even though all inter-chassis communication was done
-> securely, I couldn't convince them. I had a customer boot me out of his
-> office and boot our company out **because** of my design.  Not a good
-> feeling.
+> Uh, why? The 127 packets never leave the "box".
 
-You say that a client will not allow you to use net 10.
-OK, but, the same client would not allow you to use 127/8 because they use 
-it!
-What I'm saying is that 10.0.0.0/8 and 127.0.0.0/8 are the same. The 
-customer can use them.
-You assume that the client will not use 127/8. Why? This is wrong.
-You can use it, the client can use it.
+So you are allowed to use 127/8 but your client cannot break this rule. 
+Why?
 
 ---
 Catalin(ux aka Dino) BOIE
