@@ -1,9 +1,13 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 05:53:29 -0700
+Date: Mon, 18 Aug 2003 05:55:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818055329.44db9262.davem@redhat.com>
-References: <200308171555280781.0067FB36@192.168.128.16>
+Message-ID: <20030818055555.248f2a01.davem@redhat.com>
+References: <20030728213933.F81299@coredump.scriptkiddie.org>
+	<200308171509570955.003E4FEC@192.168.128.16>
+	<200308171516090038.0043F977@192.168.128.16>
+	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
+	<200308171555280781.0067FB36@192.168.128.16>
 	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
 	<200308171759540391.00AA8CAB@192.168.128.16>
 	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
@@ -13,40 +17,39 @@ References: <200308171555280781.0067FB36@192.168.128.16>
 	<20030817223118.3cbc497c.davem@redhat.com>
 	<20030818133957.3d3d51d2.skraw@ithnet.com>
 	<20030818044419.0bc24d14.davem@redhat.com>
-	<20030818125158.GA18699@alpha.home.local>
+	<20030818143401.1352d158.skraw@ithnet.com>
+	<20030818053007.7852ca77.davem@redhat.com>
+	<20030818145316.3a81f70c.skraw@ithnet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: skraw@ithnet.com, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
-   carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
-   bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-   linux-kernel@vger.kernel.org
+Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+   lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+   marcelo@conectiva.com.br, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   layes@loran.com, torvalds@osdl.org, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Willy Tarreau <willy@w.ods.org>
-In-Reply-To: <20030818125158.GA18699@alpha.home.local>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+In-Reply-To: <20030818145316.3a81f70c.skraw@ithnet.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 14:51:58 +0200
-Willy Tarreau <willy@w.ods.org> wrote:
+On Mon, 18 Aug 2003 14:53:16 +0200
+Stephan von Krawczynski <skraw@ithnet.com> wrote:
 
-> > 1) consider how you might want to make that configurable
-> >    by the user
-> 
-> ip route ... src ... is really fine to me for the IP part, and I would have
-> expected it to act on ARP too ;-)
+> _And_ you did not explain so far why these implementations should
+> not be RFC-conform or else illegal.
 
-More precisely, "preferred source".
+Both responding and not responding on all interfaces for ARPs
+is RFC conformant.  This means both Linux and other systems
+are within the rules.
 
-> > 2) what the default behavior should be
-> 
-> I think we should apply the exact same source selection as IP to ARP.
+Under Linux, by default, IP addresses are owned by the system
+not by interfaces.  This increases the likelyhood of successful
+communication on a subnet.
 
-This is what setting the "arp_filter" sysctl on a device does
-if you've setup the preferred source on your routes correctly.
-If we would use that IP address to speak to the destination in
-the ARP, we respond, else we do not.
+For scenerios where this doesn't work, we have ways to make the
+kernel behave the way you want it to.
 
-I've quoted the 'arp_filter' entry in Documentation/sysctl/ip-sysctl.txt
-please give it a read.
+There is no discussion about changing the default, because that
+might break things for some people.  So this discussion is pretty
+useless.
