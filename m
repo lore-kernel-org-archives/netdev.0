@@ -1,35 +1,142 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: TxDescriptors -> 1024 default. Please not for every NIC!
-Date: Wed, 19 May 2004 13:54:53 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3isespr76.fsf@averell.firstfloor.org>
-References: <OF72607111.CD0234C8-ON85256DA1.0068861B-86256DA1.0068FF60@us.ibm.com>
-	<Pine.LNX.4.58.0405151354220.9894@fcat>
-	<Pine.LNX.4.58.0405190256010.30653@fcat>
+From: Daniele Venzano <webvenza@libero.it>
+Subject: Re: [PATCH] Sis900 bug fixes 3/4
+Date: Wed, 19 May 2004 16:28:52 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040519142852.GC798@picchio.gall.it>
+References: <20040518120237.GC23565@picchio.gall.it> <20040518123020.GF23565@picchio.gall.it>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Marc Herbert <marc.herbert@free.fr>
-In-Reply-To: <Pine.LNX.4.58.0405190256010.30653@fcat> (Marc Herbert's
- message of "Wed, 19 May 2004 11:30:28 +0200 (CEST)")
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="VywGB/WGlW4DM4P8"
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>,
+	Dominik Karall <dominik.karall@gmx.net>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S261300AbUESObY@vger.kernel.org>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	Andrew Morton <akpm@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040518123020.GF23565@picchio.gall.it>
 List-Id: netdev.vger.kernel.org
 
-Marc Herbert <marc.herbert@free.fr> writes:
->
-> PS: several people seem to think TCP "drops" packets when the qdisc is
-> full. My analysis of the code _and_=A0my experiments makes me think the=
-y
-> are wrong: TCP rather "blocks" when the qdisc is full. See explanation
-> here: <http://oss.sgi.com/archives/netdev/2004-05/msg00151.html>
-> (Subject: Re: TcpOutSegs way too optimistic (netstat -s))
 
-This behaviour was only added relatively recently (in late 2.3.x timefram=
-e)
-I believe all the default queue lengths tunings were done before that.
-So it would probably make sense to reevaluate/rebenchmark the default=20
-queue lengths for various devices with the newer code.
+--VywGB/WGlW4DM4P8
+Content-Type: multipart/mixed; boundary="dTy3Mrz/UPE2dbVg"
+Content-Disposition: inline
 
--Andi
+
+--dTy3Mrz/UPE2dbVg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Tue, May 18, 2004 at 02:30:20PM +0200, Daniele Venzano wrote:
+> Dominik:
+> Could you please test this patch ? Thanks.
+
+After further testing with Dominik, I made a new patch that actually
+works. So, please disregard patch number 3 I sent before and use this
+one instead. The other patches need no changes and can be found here:
+
+http://teg.homeunix.org/sis900.html
+
+They are:
+sis900-maintainers
+sis900-isa-bridge-id
+sis900-phy-detection (attached below)
+sis900-header-cleanups
+
+This patch has been tested on a previously working system (keeps
+working) and on a before-not-working one (now works as expected).
+
+Please, consider this patchset for inclusion.
+
+--=20
+-----------------------------
+Daniele Venzano
+Web: http://teg.homeunix.org
+
+
+--dTy3Mrz/UPE2dbVg
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="sis900-phy-detection.diff"
+Content-Transfer-Encoding: quoted-printable
+
+--- linux-2.6.6/drivers/net/sis900.c	2004-05-18 21:46:41.000000000 +0200
++++ linux-sis900/drivers/net/sis900.c	2004-05-18 21:44:31.000000000 +0200
+@@ -116,6 +116,7 @@
+ #define	HOME 	0x0001
+ #define LAN	0x0002
+ #define MIX	0x0003
++#define UNKNOWN	0x0
+ } mii_chip_table[] =3D {
+ 	{ "SiS 900 Internal MII PHY", 		0x001d, 0x8000, LAN },
+ 	{ "SiS 7014 Physical Layer Solution", 	0x0016, 0xf830, LAN },
+@@ -577,9 +578,11 @@
+ 				break;
+ 			}
+ 		=09
+-		if( !mii_chip_table[i].phy_id1 )
++		if( !mii_chip_table[i].phy_id1 ) {
+ 			printk(KERN_INFO "%s: Unknown PHY transceiver found at address %d.\n",
+-			       net_dev->name, phy_addr);		=09
++			       net_dev->name, phy_addr);
++			mii_phy->phy_types =3D UNKNOWN;
++		}
+ 	}
+ =09
+ 	if (sis_priv->mii =3D=3D NULL) {
+@@ -644,15 +647,15 @@
+ static u16 sis900_default_phy(struct net_device * net_dev)
+ {
+ 	struct sis900_private * sis_priv =3D net_dev->priv;
+- 	struct mii_phy *phy =3D NULL, *phy_home =3D NULL, *default_phy =3D NULL;
++ 	struct mii_phy *phy =3D NULL, *phy_home =3D NULL, *default_phy =3D NULL,=
+ *phy_lan =3D NULL;
+ 	u16 status;
+=20
+         for( phy=3Dsis_priv->first_mii; phy; phy=3Dphy->next ){
+ 		status =3D mdio_read(net_dev, phy->phy_addr, MII_STATUS);
+ 		status =3D mdio_read(net_dev, phy->phy_addr, MII_STATUS);
+=20
+-		/* Link ON & Not select deafalut PHY */
+-		 if ( (status & MII_STAT_LINK) && !(default_phy) )
++		/* Link ON & Not select default PHY & not ghost PHY */
++		 if ( (status & MII_STAT_LINK) && !default_phy && (phy->phy_types !=3D U=
+NKNOWN) )
+ 		 	default_phy =3D phy;
+ 		 else{
+ 			status =3D mdio_read(net_dev, phy->phy_addr, MII_CONTROL);
+@@ -660,12 +663,16 @@
+ 				status | MII_CNTL_AUTO | MII_CNTL_ISOLATE);
+ 			if( phy->phy_types =3D=3D HOME )
+ 				phy_home =3D phy;
++			else if (phy->phy_types =3D=3D LAN)
++				phy_lan =3D phy;
+ 		 }
+ 	}
+=20
+-	if( (!default_phy) && phy_home )
++	if( !default_phy && phy_home )
+ 		default_phy =3D phy_home;
+-	else if(!default_phy)
++	else if( !default_phy && phy_lan )
++		default_phy =3D phy_lan;
++	else if ( !default_phy )
+ 		default_phy =3D sis_priv->first_mii;
+=20
+ 	if( sis_priv->mii !=3D default_phy ){
+
+--dTy3Mrz/UPE2dbVg--
+
+--VywGB/WGlW4DM4P8
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFAq28k2rmHZCWzV+0RAhAGAJwMI6K41FBomhpqaYGKEvkm+LDW7gCgmuFR
+v8IVWisWzojsuvL1aBAJu44=
+=NHT1
+-----END PGP SIGNATURE-----
+
+--VywGB/WGlW4DM4P8--
