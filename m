@@ -1,24 +1,37 @@
-From: jamal <hadi@cyberus.ca>
+From: P@draigBrady.com
 Subject: Re: TX performance of Intel 82546
-Date: 15 Sep 2004 09:49:51 -0400
+Date: Wed, 15 Sep 2004 14:59:30 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095256191.1043.17.camel@jzny.localdomain>
-References: <20040915081439.GA27038@sunbeam.de.gnumonks.org>
-	 <414808F3.70104@draigBrady.com>  <16712.14153.683690.710955@robur.slu.se>
-Reply-To: hadi@cyberus.ca
+Message-ID: <41484AC2.8090408@draigBrady.com>
+References: <20040915081439.GA27038@sunbeam.de.gnumonks.org>	<414808F3.70104@draigBrady.com> <16712.14153.683690.710955@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: quoted-printable
-Cc: P@draigBrady.com, Harald Welte <laforge@netfilter.org>,
-        Linux NICS <linux.nics@intel.com>, netdev@oss.sgi.com
+Cc: Harald Welte <laforge@netfilter.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Robert Olsson <Robert.Olsson@data.slu.se>
 In-Reply-To: <16712.14153.683690.710955@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-09-15 at 08:36, Robert Olsson wrote:
-
+Robert Olsson wrote:
+> P@draigBrady.com writes:
+>  > Harald Welte wrote:
+>=20
+>  > > I'm currently trying to help Robert Olsson improving the performan=
+ce of
+>  > > the Linux in-kernel packet generator (pktgen.c).  At the moment, w=
+e seem
+>  > > to be unable to get more than 760kpps from a single port of a 8254=
+6,
+>  > > (or any other PCI-X MAC supported by e1000) - that's a bit more th=
+an 51%
+>  > > wirespeed at 64byte packet sizes.
+>=20
+>  Yes it seems intel adapters work better in BSD as they claim to route
+>  1 Mpps and we cannot even send more ~750 kpps even with feeding the
+>  adapter only. :-)
+>=20
 >  > In my experience anything around 750Kpps is a PCI limitation,
 >  > specifically PCI bus arbitration latency. Note the clock speed of
 >  > the control signal used for bus arbitration has not increased
@@ -29,31 +42,47 @@ On Wed, 2004-09-15 at 08:36, Robert Olsson wrote:
 >  133 MHz 830 pps
 >  100 MHz 721 pps
 >   66 MHz 561 pps
->=20
+
+Interesting info thanks!
+It would be very interesting to see the performance of PCI express
+which should not have the bus arbitration issues.
+
 >  So higher bus bandwidth could increase the small packet rate.
-
-Nice data.
-BTW, is this per interface? i thought i have seen numbers in the range
-of 1.3Mpps from you.
-
+>=20
 >  So is there a difference in PCI-tuning BSD versus Linux?=20
-
-As far as i could tell they batch transmit (mostly because of the way
-mbufs are structured really).=20
-
 >  And even more general can we measure the maximum numbers
 >  of transactions on a PCI-bus?
-
-You would need speacilized hardware for this i think.
-
+>=20
 >  Chip should be able to transfer 64 packets in single burst I don't now
 >  how set/verify this.
 
-What P=E1draig.posted in regards to the MMRBC register is actually
-enlightening. I kept thinking about it after i sent my last email.
-If indeed the overhead is incured in the setup(all fingers in my test
-setups point fingers at this) then increasing the burst size should show
-improvements.
+Well from the intel docs they say "The devices include a PCI interface
+that maximizes the use of bursts for efficient bus usage.
+The controllers are able to cache up to 64 packet descriptors in
+a single burst for efficient PCI bandwidth usage."
 
-cheers,
-jamal
+So I'm guessing that increasing the PCI-X burst size setting
+(MMRBC) will automatically get more packets sent per transfer?
+I said previously in this thread to google for setpci and MMRBC,
+but what I know about it is...
+
+To return the current setting(s):
+
+setpci -d 8086:1010 e6.b
+
+The MMRBC is the upper two bits of the lower nibble, where:
+
+0 =3D 512 byte bursts
+1 =3D 1024 byte bursts
+2 =3D 2048 byte bursts
+3 =3D 4096 byte bursts
+
+For me to set 4KiB bursts I do:
+
+setpci -d 8086:1010 e6.b=3D0e
+
+The following measured a 30% throughput improvement (on 10G)
+from setting the burst size to 4KiB:
+https://mgmt.datatag.org/sravot/TCP_WAN_perf_sr061504.pdf
+
+P=E1draig.
