@@ -1,95 +1,187 @@
-From: amavisd-new <postmaster@smtpb-out-1.tiscali.cz>
-Subject: Considered UNSOLICITED BULK EMAIL from you
-Date: Fri, 28 Nov 2003 16:42:05 +0100 (CET)
+From: Brad House <brad@mcve.com>
+Subject: Re: [PATCH] 2.6.0-test11-bk27-netdrvr-exp1 - r8169 update
+Date: Fri, 28 Nov 2003 11:46:38 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <SS12273-144@smtpb-out-1>
-References: <20031128112024.2BDE0A8A88@smtpb-out-1.tiscali.cz>
+Message-ID: <3FC77BEE.5090600@mcve.com>
+References: <20031122183001.GA16993@gtf.org> <20031124000939.A456@electric-eye.fr.zoreil.com> <20031126004550.A25408@electric-eye.fr.zoreil.com> <20031127235143.A16767@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: multipart/report; report-type=delivery-status;
-    boundary="----------=_1070034126-12273-183"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>, brad_mssw@gentoo.org
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20031128112024.2BDE0A8A88@smtpb-out-1.tiscali.cz>
-To: <netdev@oss.sgi.com>
+To: Francois Romieu <romieu@fr.zoreil.com>
+In-Reply-To: <20031127235143.A16767@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format...
+Just wanted to check and make sure you got my e-mail about
+r8169-start-xmit-fixes.patch  being the culprit to the
+hardlocks.
 
-------------=_1070034126-12273-183
-Content-Type: text/plain; charset="iso-8859-1"
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
+-Brad
 
-Your message to:
--> netdev@oss.sgi.com
-
-was considered unsolicited bulk e-mail (UBE).
-Subject: =?Big5?B?obSl/q5hvsetXqTlsnu74rz6vseq9zIwMDMvMTEvMjggpFWkyA==?=
- 07:20:06
-Return-Path: <netdev@oss.sgi.com>
-
-Delivery of the email was stopped!
-
-------------=_1070034126-12273-183
-Content-Type: message/delivery-status
-Content-Disposition: inline
-Content-Transfer-Encoding: 7bit
-Content-Description: Delivery error report
-
-Reporting-MTA: dns; smtpb-out-1
-Received-From-MTA: smtp; smtpb-out-1.tiscali.cz ([127.0.0.1])
-Arrival-Date: Fri, 28 Nov 2003 16:41:58 +0100 (CET)
-
-Final-Recipient: rfc822; netdev@oss.sgi.com
-Action: failed
-Status: 5.7.1
-Diagnostic-Code: smtp; 550 5.7.1 Message content rejected, UBE, id=12273-144
-Last-Attempt-Date: Fri, 28 Nov 2003 16:42:05 +0100 (CET)
-
-------------=_1070034126-12273-183
-Content-Type: text/rfc822-headers
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
-Content-Description: Undelivered-message headers
-
-Received: from unspecified.host (mail.benal.cz [195.146.119.44])
-	by smtpb-out-1.tiscali.cz (Postfix) with ESMTP id 2BDE0A8A88
-	for <netdev@oss.sgi.com>; Fri, 28 Nov 2003 12:20:24 +0100 (CET)
-Received: from 64.246.54.8 ([64.246.54.8]) by 195.146.119.44 (WinRoute Pro =
-4.2.5) with SMTP; Fri, 28 Nov 2003 12:20:24 +0100
-Received: from parasol01.parasolit.co.uk ([62.49.49.66])
-	by mx111.hinet.net (8.8.8/8.8.8) with ESMTP id RAA15575
-	for <soa@msa.hinet.net>
-Received: from yahoo.com.tw ([64.246.54.8]) by parasol01.parasolit.co.uk wi=
-th Microsoft SMTPSVC(5.0.2195.6713);
-Received: from HOOK (218-165-220-198.HINET-IP.hinet.net [218.165.220.198])
-	by mx141.hinet.net (8.8.8/8.8.8) with ESMTP id WAA22855
-	for <soa@msa.hinet.net>
-Received: from localhost.localdomain ([210.91.45.193])
-	by mx103.hinet.net (8.8.8/8.8.8) with ESMTP id RAA00590;
-Received: from msa.hinet.net (61-230-138-224.HINET-IP.hinet.net [61.230.138=
-.224])
-	by localhost.localdomain (8.11.6/8.11.6) with SMTP id h878ngF10252;
-Received: from msr49.hinet.net (msr49.hinet.net [168.95.4.149])
-	by mx142.hinet.net (8.8.8/8.8.8) with ESMTP id RAA20705
-	for <hf@msa.hinet.net>
-Received: from hbtcomputer (61-224-161-217.HINET-IP.hinet.net [61.224.161.2=
-17])
-	by msr49.hinet.net (8.9.3/8.9.3) with SMTP id RAA28376;
-From: =3D?Big5?B?p1W+x7ROt36xTa7X?=3D <netdev@oss.sgi.com>
-Subject: =3D?Big5?B?obSl/q5hvsetXqTlsnu74rz6vseq9zIwMDMvMTEvMjggpFWkyA=3D=
-=3D?=3D
- 07:20:06
-To: netdev@oss.sgi.com
-Content-Type: text/html;
-	charset=3D"BIG-5"
-Sender: "=A7U=BE=C7=B4N=B7~=B1M=AE=D7" <netdev@oss.sgi.com>
-Reply-To: netdev@oss.sgi.com
-Date: Fri, 28 Nov 2003 19:20:08 +0800
-X-Priority: 2
-X-Library: Dynamailer=AE=D6=A4=DF=A7=DE=B3N
-X-Mailer:Microsoft Outlook Express 5.00.2919.6700
-X-MimeOLE:Produced By Mircosoft MimeOLE V6.00.2600.0000
-Message-Id: <20031128112024.2BDE0A8A88@smtpb-out-1.tiscali.cz>
-
-------------=_1070034126-12273-183--
+Francois Romieu wrote:
+> Even more Brad/Realtek's merging. 
+> 
+> Applies on top of:
+>   2.6.0-test11
+> + 2.6.0-test9-bk25-netdrvr-exp1
+> + r8169-mac-phy-version
+> + r8169-init_one
+> 
+> --
+> Ueimor
+> 
+> 
+> ------------------------------------------------------------------------
+> 
+> 
+> Merge of timer related changes from Realtek:
+> - changed their timeout value from 100 to HZ to trigger rtl8169_phy_timer();
+> - s/TX_TIMEOUT/RTL8169_TX_TIMEOUT/ to have RTL8169_{TX/PHY}_TIMEOUT.
+> 
+> 
+>  drivers/net/r8169.c |   94 ++++++++++++++++++++++++++++++++++++++++++++++++++--
+>  1 files changed, 92 insertions(+), 2 deletions(-)
+> 
+> diff -puN drivers/net/r8169.c~r8169-timer drivers/net/r8169.c
+> --- linux-2.6.0-test11/drivers/net/r8169.c~r8169-timer	2003-11-27 22:14:24.000000000 +0100
+> +++ linux-2.6.0-test11-fr/drivers/net/r8169.c	2003-11-27 23:50:41.000000000 +0100
+> @@ -95,7 +95,8 @@ static int multicast_filter_limit = 32;
+>  #define R8169_RX_RING_BYTES	(NUM_RX_DESC * sizeof(struct RxDesc))
+>  
+>  #define RTL_MIN_IO_SIZE 0x80
+> -#define TX_TIMEOUT  (6*HZ)
+> +#define RTL8169_TX_TIMEOUT	(6*HZ)
+> +#define RTL8169_PHY_TIMEOUT	(HZ) 
+>  
+>  /* write/read MMIO register */
+>  #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
+> @@ -311,6 +312,8 @@ struct rtl8169_private {
+>  	dma_addr_t RxPhyAddr;
+>  	struct sk_buff *Rx_skbuff[NUM_RX_DESC];	/* Rx data buffers */
+>  	struct sk_buff *Tx_skbuff[NUM_TX_DESC];	/* Index of Transmit data buffer */
+> +	struct timer_list timer;
+> +	unsigned long phy_link_down_cnt;
+>  };
+>  
+>  MODULE_AUTHOR("Realtek");
+> @@ -540,6 +543,90 @@ static void rtl8169_hw_phy_config(struct
+>  	mdio_write(ioaddr, 31, 0x0000); //w 31 2 0 0
+>  }
+>  
+> +static void rtl8169_hw_phy_reset(struct net_device *dev)
+> +{
+> +	struct rtl8169_private *tp = dev->priv;
+> +	void *ioaddr = tp->mmio_addr;
+> +	int i, val;
+> +
+> +	printk(KERN_WARNING PFX "%s: Reset RTL8169s PHY\n", dev->name);
+> +
+> +	val = (mdio_read(ioaddr, 0) | 0x8000) & 0xffff;
+> +	mdio_write(ioaddr, 0, val);
+> +
+> +	for (i = 50; i >= 0; i--) {
+> +		if (!(mdio_read(ioaddr, 0) & 0x8000))
+> +			break;
+> +		udelay(100); /* Gross */
+> +	}
+> +
+> +	if (i < 0) {
+> +		printk(KERN_WARNING PFX "%s: no PHY Reset ack. Giving up.\n",
+> +		       dev->name);
+> +	}
+> +}
+> +
+> +static void rtl8169_phy_timer(unsigned long __opaque)
+> +{
+> +	struct net_device *dev = (struct net_device *)__opaque;
+> +	struct rtl8169_private *tp = dev->priv;
+> +	struct timer_list *timer = &tp->timer;
+> +	void *ioaddr = tp->mmio_addr;
+> +
+> +	assert(tp->mac_version > RTL_GIGA_MAC_VER_B);
+> +	assert(tp->phy_version < RTL_GIGA_PHY_VER_G);
+> +
+> +	if (RTL_R8(PHYstatus) & LinkStatus)
+> +		tp->phy_link_down_cnt = 0;
+> +	else {
+> +		tp->phy_link_down_cnt++;
+> +		if (tp->phy_link_down_cnt >= 12) {
+> +			int reg;
+> +
+> +			// If link on 1000, perform phy reset.
+> +			reg = mdio_read(ioaddr, PHY_1000_CTRL_REG);
+> +			if (reg & PHY_Cap_1000_Full) 
+> +				rtl8169_hw_phy_reset(dev);
+> +
+> +			tp->phy_link_down_cnt = 0;
+> +		}
+> +	}
+> +
+> +	mod_timer(timer, RTL8169_PHY_TIMEOUT);
+> +}
+> +
+> +static inline void rtl8169_delete_timer(struct net_device *dev)
+> +{
+> +	struct rtl8169_private *tp = dev->priv;
+> +	struct timer_list *timer = &tp->timer;
+> +
+> +	if ((tp->mac_version <= RTL_GIGA_MAC_VER_B) ||
+> +	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
+> +		return;
+> +
+> +	del_timer_sync(timer);
+> +
+> +	tp->phy_link_down_cnt = 0;
+> +}
+> +
+> +static inline void rtl8169_request_timer(struct net_device *dev)
+> +{
+> +	struct rtl8169_private *tp = dev->priv;
+> +	struct timer_list *timer = &tp->timer;
+> +
+> +	if ((tp->mac_version <= RTL_GIGA_MAC_VER_B) ||
+> +	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
+> +		return;
+> +
+> +	tp->phy_link_down_cnt = 0;
+> +
+> +	init_timer(timer);
+> +	timer->expires = jiffies + RTL8169_PHY_TIMEOUT;
+> +	timer->data = (unsigned long)(dev);
+> +	timer->function = rtl8169_phy_timer;
+> +	add_timer(timer);
+> +}
+> +
+>  static int __devinit
+>  rtl8169_init_board(struct pci_dev *pdev, struct net_device **dev_out,
+>  		   void **ioaddr_out)
+> @@ -691,7 +778,7 @@ rtl8169_init_one(struct pci_dev *pdev, c
+>  	dev->stop = rtl8169_close;
+>  	dev->tx_timeout = rtl8169_tx_timeout;
+>  	dev->set_multicast_list = rtl8169_set_rx_mode;
+> -	dev->watchdog_timeo = TX_TIMEOUT;
+> +	dev->watchdog_timeo = RTL8169_TX_TIMEOUT;
+>  	dev->irq = pdev->irq;
+>  	dev->base_addr = (unsigned long) ioaddr;
+>  //      dev->do_ioctl           = mii_ioctl;
+> @@ -892,6 +979,7 @@ rtl8169_open(struct net_device *dev)
+>  
+>  	rtl8169_hw_start(dev);
+>  
+> +	rtl8169_request_timer(dev);
+>  out:
+>  	return retval;
+>  
+> @@ -1385,6 +1473,8 @@ rtl8169_close(struct net_device *dev)
+>  
+>  	netif_stop_queue(dev);
+>  
+> +	rtl8169_delete_timer(dev);
+> +
+>  	spin_lock_irq(&tp->lock);
+>  
+>  	/* Stop the chip's Tx and Rx DMA processes. */
+> 
+> _
