@@ -1,11 +1,9 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Russell King <rmk@arm.linux.org.uk>
 Subject: Re: Make ipconfig.c work as a loadable module.
-Date: 08 Mar 2003 09:48:16 -0700
+Date: Sat, 8 Mar 2003 17:05:32 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1zno5kdnz.fsf@frodo.biederman.org>
-References: <Pine.LNX.4.44.0303081132030.12316-100000@kenzo.iwr.uni-heidelberg.de>
-	<m14r6dlu4w.fsf@frodo.biederman.org>
-	<20030308161936.C1896@flint.arm.linux.org.uk>
+Message-ID: <20030308170532.D1896@flint.arm.linux.org.uk>
+References: <Pine.LNX.4.44.0303081132030.12316-100000@kenzo.iwr.uni-heidelberg.de> <m14r6dlu4w.fsf@frodo.biederman.org> <20030308161936.C1896@flint.arm.linux.org.uk> <m1zno5kdnz.fsf@frodo.biederman.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>,
@@ -14,44 +12,29 @@ Cc: Bogdan Costescu <bogdan.costescu@iwr.uni-heidelberg.de>,
    Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Russell King <rmk@arm.linux.org.uk>
-In-Reply-To: <20030308161936.C1896@flint.arm.linux.org.uk>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Disposition: inline
+In-Reply-To: <m1zno5kdnz.fsf@frodo.biederman.org>; from ebiederm@xmission.com on Sat, Mar 08, 2003 at 09:48:16AM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Russell King <rmk@arm.linux.org.uk> writes:
+On Sat, Mar 08, 2003 at 09:48:16AM -0700, Eric W. Biederman wrote:
+> I can change the contents of my ramdisk as easily as I can change
+> the kernel command line.  For the complex setups just placing
+> a configuration file in the ramdisk is what seems to work the best
+> in practice.
 
-> On Sat, Mar 08, 2003 at 09:07:11AM -0700, Eric W. Biederman wrote:
-> > With a good bootloader it does not much how big your initrd is.  I
-> > totally agree that small is good and important.  At the same time
-> > ipconfig.c is wrong.  It is great during development and on systems
-> > with a single NIC.  But the hard coded policies can be bad for
-> > production systems.  Not that hard coded policies are bad in general
-> > just the kernel is the wrong place to put them.
-> 
-> With multi-NIC systems, it is perfectly possible to use ipconfig.c with
-> one specific interface.
+You'll forgive me if I don't think that "change the contents of ramdisk"
+is as easy as changing the kernel command line.
 
-Sorry.  I expressed that wrong.  It is not multi-NIC that ipconfig.c gets
-wrong.  It is multiple DHCP servers.   You just get multiple dhcp
-servers when you have multiple NICs.
+Last time I checked, to change the contents of a ramdisk image, you needed
+to ungzip it, mount it, make some changes, unmount it, re-gzip it, and
+re-install the thing.  Or, in the case of initramfs, you need to rebuild
+the kernel image.  Compare this to changing the kernel command line from
+"root=/dev/hda1" to "root=/dev/nfs ip=dhcp" in the boot loader by hitting
+a few keys on the keyboard before the kernel loads, and I think you'll
+start to get my point here.
 
-The policies in ipconfig.c are quite good, they just are not
-universally applicable.  But as ipconfig.c is in the kernel it tends
-to get used where it is inappropriate.
-
-> ip=:::::eth0:dhcp
-> 
-> (I haven't actually tried this though.)
-
-I had forgotten about that one, and I believe it helps in some cases.
- 
-> However, how do you configure your ramdisk via the boot loader to use
-> a specific NIC / mount a specific filesystem, etc?
-
-I can change the contents of my ramdisk as easily as I can change
-the kernel command line.  For the complex setups just placing
-a configuration file in the ramdisk is what seems to work the best
-in practice.
-
-Eric
+-- 
+Russell King (rmk@arm.linux.org.uk)                The developer of ARM Linux
+             http://www.arm.linux.org.uk/personal/aboutme.html
