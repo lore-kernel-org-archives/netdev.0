@@ -1,30 +1,48 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH][IPV6][NDISC] unify ipv6 output routine
-Date: Mon, 09 Feb 2004 06:26:09 +0900 (JST)
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: Change proxy_arp to respond only for valid neighbours
+Date: Sun, 8 Feb 2004 23:38:12 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209.062609.55856700.yoshfuji@linux-ipv6.org>
-References: <20040207.131455.27570445.yoshfuji@linux-ipv6.org>
-	<200402071333.51909.kazunori@miyazawa.org>
-	<20040208130811.328225e7.davem@redhat.com>
+Message-ID: <Pine.LNX.4.58.0402082322140.6268@u.domain.uli>
+References: <Pine.LNX.4.58.0402082234110.6268@u.domain.uli>
+ <20040208131417.4f8693de.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kazunori@miyazawa.org, mika.penttila@kolumbus.fi, netdev@oss.sgi.com,
-        usagi-core@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20040208130811.328225e7.davem@redhat.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040208131417.4f8693de.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040208130811.328225e7.davem@redhat.com> (at Sun, 8 Feb 2004 13:08:11 -0800), "David S. Miller" <davem@redhat.com> says:
 
-> 
-> Is a fixed version of this output path unification patch
-> coming soon?
+	Hello,
 
-No. The second patch from Miyazawa-san is fine.
+On Sun, 8 Feb 2004, David S. Miller wrote:
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+> This is a dicey situation in that when the entry does become
+> valid this does not trigger a proxy arp by us, does it?
+
+	Yes, currently it works in this way, when target
+replies we do not propagate this answer to the proxy_queue.
+But this is not fatal becuase we apply delay in the answer
+which means we have time to resolve the target. If we do not
+have answer in that time we simply drop the skb from proxy_queue.
+The requestor can send next requests and we reply each that
+request only if the target is in valid state.
+
+> I guess the original requestor will redo the request, so I'm
+
+	Yes, the skbs from proxy_queue are removed in time, they
+do not stay there until we have answer for them.
+
+> just mentioning this in passing.  This is an area where admittedly
+> I'm not well versed.
+>
+> So proxy ARP experts speak up :)
+
+	Yep, lets see what Alexey and other gurus think
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
