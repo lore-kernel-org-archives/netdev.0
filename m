@@ -1,40 +1,31 @@
-From: Vinay K Nallamothu <vinay-rc@naturesoft.net>
-Subject: [PATCH 2.{4,x5}.x] mod_timer cleanups for dst.c
-Date: 04 May 2003 14:55:34 +0530
+From: "Andre Tomt" <andre@tomt.net>
+Subject: RE: unable to add ipv6 default route in 2.4.21-rc1 + latest bkbits.net pieces
+Date: Sun, 4 May 2003 11:21:04 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1052040334.1119.71.camel@lima.royalchallenge.com>
+Message-ID: <005701c3121e$7cc46370$0a01ff0a@slurv>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: <netdev@oss.sgi.com>
+In-Reply-To: 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> Replying to myself here.
 
-Just reposting what I earlier posted to the linux-kernel mailing list.
-These are trivial patches converting {del,add}_timer to mod_timer.
+And again.
 
-Also kindly let me know whether this is the right platform to post the
-PPP & FR related fixes or to linux-x25 mailing list.
+Have some more information now. It seems, I cannot use 2001:730:f:3:: as
+an ordinary unicast global address anymore? At least not as a default
+gateway. Adding a default route pointing to 2001:730:f:3::1 works just
+fine, but why did :0000 break?
 
-vinay
+PS! I'm not subscribed to this list, so CC's would be nice. I forgot to
+mention this earlier too.
 
-PS: I am not subscribed to this mailing list
-
---- linux-2.5.68/net/core/dst.c	2003-03-25 10:08:35.000000000 +0530
-+++ linux-2.5.68-mod/net/core/dst.c	2003-05-03 13:42:12.000000000 +0530
-@@ -154,11 +154,9 @@
- 	dst->next = dst_garbage_list;
- 	dst_garbage_list = dst;
- 	if (dst_gc_timer_inc > DST_GC_INC) {
--		del_timer(&dst_gc_timer);
- 		dst_gc_timer_inc = DST_GC_INC;
- 		dst_gc_timer_expires = DST_GC_MIN;
--		dst_gc_timer.expires = jiffies + dst_gc_timer_expires;
--		add_timer(&dst_gc_timer);
-+		mod_timer(&dst_gc_timer, jiffies + dst_gc_timer_expires);
- 	}
- 	spin_unlock_bh(&dst_lock);
- }
+--=20
+Cheers,
+Andr=E9 Tomt
+andre@tomt.net
