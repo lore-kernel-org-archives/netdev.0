@@ -1,31 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NETLINK] Do not netlink_unicast shared packet in
- kernel/audit.c
-Date: Wed, 19 Jan 2005 14:33:49 -0800
-Message-ID: <20050119143349.0c8ad5a5.davem@davemloft.net>
-References: <E1Cpo1q-0007lI-00@gondolin.me.apana.org.au>
-	<41E942AF.3030202@tpack.net>
-	<20050115183023.GA31211@gondor.apana.org.au>
-	<41E97B1A.30205@tpack.net>
-	<20050116080254.GA2997@gondor.apana.org.au>
-	<20050117133640.0405d791.davem@davemloft.net>
-	<20050117231128.GA21204@gondor.apana.org.au>
+Subject: Re: [PATCH] kill needless addrconf lock in sctp.
+Date: Wed, 19 Jan 2005 14:37:00 -0800
+Message-ID: <20050119143700.3caa0187.davem@davemloft.net>
+References: <20050107.123519.125017441.yoshfuji@linux-ipv6.org>
+	<20050107.124123.07582199.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: tommy.christensen@tpack.net, simon.roscic@chello.at, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: sri@us.ibm.com, lksctp-developers@lists.sourceforge.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050117231128.GA21204@gondor.apana.org.au>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050107.124123.07582199.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jan 2005 10:11:28 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 07 Jan 2005 12:41:23 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> Doh! Here is the corrected version.
+> In article <20050107.123519.125017441.yoshfuji@linux-ipv6.org> (at Fri, 07 Jan 2005 12:35:19 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > After applying this patch, I think we can stop exporting
+> > addrconf_lock.
+> 
+> Oops, sorry, we can't, because in6_dev_get() is inlined function,
+> and it uses addrconf_lock.
 
-Looks great, applied.  Thanks Herbert.
+Right.  I think we should just leave the SCTP code as-is for
+now.
