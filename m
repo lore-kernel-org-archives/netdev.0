@@ -1,40 +1,31 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC] Move dst->child loop from dst_ifdown to xfrm_dst_ifdown
-Date: Tue, 15 Feb 2005 14:53:48 -0800
-Message-ID: <20050215145348.36ed3508.davem@davemloft.net>
-References: <20050131162201.GA1000@stilzchen.informatik.tu-chemnitz.de>
-	<20050205052407.GA17266@gondor.apana.org.au>
-	<20050204213813.4bd642ad.davem@davemloft.net>
-	<20050205061110.GA18275@gondor.apana.org.au>
-	<20050204221344.247548cb.davem@davemloft.net>
-	<20050205064643.GA29758@gondor.apana.org.au>
-	<20050205201044.1b95f4e8.davem@davemloft.net>
-	<20050206065117.GC16057@gondor.apana.org.au>
-	<20050208012929.GA30659@gondor.apana.org.au>
-	<20050208013140.GB30659@gondor.apana.org.au>
+Subject: Re: Problem with recvmsg() and IPV6_PKTINFO
+Date: Tue, 15 Feb 2005 15:21:14 -0800
+Message-ID: <20050215152114.7ac33dfe.davem@davemloft.net>
+References: <20050211092107.GB12377@storhaugen.uninett.no>
+	<20050211.183859.77973026.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: mirko.parthey@informatik.tu-chemnitz.de, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, shemminger@osdl.org
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050208013140.GB30659@gondor.apana.org.au>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Stig.Venaas@uninett.no, netdev@oss.sgi.com
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050211.183859.77973026.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 8 Feb 2005 12:31:40 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 11 Feb 2005 18:38:59 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> On Tue, Feb 08, 2005 at 12:29:29PM +1100, herbert wrote:
-> > 
-> > This one moves the dst->child processing from dst_ifdown into
-> > xfrm_dst_ifdown.
+> In article <20050211092107.GB12377@storhaugen.uninett.no> (at Fri, 11 Feb 2005 10:21:07 +0100), Stig Venaas <Stig.Venaas@uninett.no> says:
 > 
-> This patch adds a net_device argument to ifdown.  After all,
-> it's a bit silly to notify someone of an ifdown event without
-> telling them what which device it was for :)
+> > I've found that on Linux (checked 2.4, 2.6 and USAGI cvs) this only
+> > happens if msg_name in the msghdr structure is set. In kernel's
+> > udpv6_recvmsg() you can see that datagram_recv_ctl() is only called if
+> > msg->msg_name is set.
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> Please try this. Thanks.
+> 
+> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Ok, I'm going to try and get these two patches into 2.6.11
+Applied, thank you very much.
