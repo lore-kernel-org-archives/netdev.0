@@ -1,32 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [3/4] [IPSEC] Add route element to xfrm_dst
-Date: Tue, 15 Feb 2005 09:14:33 +1100
-Message-ID: <20050214221433.GB18465@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au>
+Subject: [4/4] [IPSEC] Store MTU at each xfrm_dst
+Date: Tue, 15 Feb 2005 09:16:07 +1100
+Message-ID: <20050214221607.GC18465@gondor.apana.org.au>
+References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="neYutvxvOLaeuPCA"
+Content-Type: multipart/mixed; boundary="/e2eDi0V/xtL+Mc8"
 To: "David S. Miller" <davem@davemloft.net>,
         Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
         James Morris <jmorris@redhat.com>,
         YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20050214221200.GA18465@gondor.apana.org.au>
+In-Reply-To: <20050214221433.GB18465@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---neYutvxvOLaeuPCA
+--/e2eDi0V/xtL+Mc8
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-This patch adds a pointer to the route corresponding to the specific
-flow over the SA of an xfrm_dst that's being used.
-
-It also sets the next pointer of each xfrm_dst to the one above it.
-This allows to traverse the list upwards from the bottom.
- 
+Finally this is the patch that sets the MTU values of each xfrm_dst
+and keeps it up-to-date.
+  
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+To recap, at this point we've obtained accurate MTU values at each
+xfrm_dst.  The next step would be to start using it as
+dst_pmtu(xfrm_dst).
 
 Cheers,
 -- 
@@ -35,241 +36,145 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---neYutvxvOLaeuPCA
+--/e2eDi0V/xtL+Mc8
 Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-3
+Content-Disposition: attachment; filename=xfrm-4
 
-===== include/net/xfrm.h 1.76 vs edited =====
---- 1.76/include/net/xfrm.h	2005-02-14 14:14:25 +11:00
-+++ edited/include/net/xfrm.h	2005-02-14 14:24:04 +11:00
-@@ -511,6 +511,7 @@
- 		struct rtable		rt;
+===== include/net/xfrm.h 1.77 vs edited =====
+--- 1.77/include/net/xfrm.h	2005-02-14 14:51:26 +11:00
++++ edited/include/net/xfrm.h	2005-02-14 14:23:51 +11:00
+@@ -512,6 +512,8 @@
  		struct rt6_info		rt6;
  	} u;
-+	struct dst_entry *route;
+ 	struct dst_entry *route;
++	u32 route_mtu_cached;
++	u32 child_mtu_cached;
  };
  
  /* Decapsulation state, used by the input to store data during
-===== net/ipv4/xfrm4_policy.c 1.14 vs edited =====
---- 1.14/net/ipv4/xfrm4_policy.c	2005-02-14 14:02:13 +11:00
-+++ edited/net/ipv4/xfrm4_policy.c	2005-02-14 14:29:35 +11:00
-@@ -55,18 +55,29 @@
- 	struct rtable *rt = rt0;
- 	u32 remote = fl->fl4_dst;
- 	u32 local  = fl->fl4_src;
-+	struct flowi fl_tunnel = {
-+		.nl_u = {
-+			.ip4_u = {
-+				.saddr = local,
-+				.daddr = remote
-+			}
-+		}
-+	};
- 	int i;
- 	int err;
- 	int header_len = 0;
- 	int trailer_len = 0;
+@@ -860,6 +862,7 @@
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+ extern int xfrm_flush_bundles(void);
+ extern int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family);
++extern void xfrm_init_pmtu(struct dst_entry *dst);
  
- 	dst = dst_prev = NULL;
-+	dst_hold(&rt->u.dst);
- 
- 	for (i = 0; i < nx; i++) {
- 		struct dst_entry *dst1 = dst_alloc(&xfrm4_dst_ops);
-+		struct xfrm_dst *xdst;
- 
- 		if (unlikely(dst1 == NULL)) {
- 			err = -ENOBUFS;
-+			dst_release(&rt->u.dst);
- 			goto error;
- 		}
- 
-@@ -77,6 +88,11 @@
- 			dst1->flags |= DST_NOHASH;
- 			dst_clone(dst1);
- 		}
-+
-+		xdst = (struct xfrm_dst *)dst1;
-+		xdst->route = &rt->u.dst;
-+
-+		dst1->next = dst_prev;
- 		dst_prev = dst1;
- 		if (xfrm[i]->props.mode) {
- 			remote = xfrm[i]->id.daddr.a4;
-@@ -84,23 +100,27 @@
- 		}
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
--	}
- 
--	if (remote != fl->fl4_dst) {
--		struct flowi fl_tunnel = { .nl_u = { .ip4_u =
--						     { .daddr = remote,
--						       .saddr = local }
--					           }
--				         };
--		err = xfrm_dst_lookup((struct xfrm_dst**)&rt, &fl_tunnel, AF_INET);
--		if (err)
--			goto error;
--	} else {
--		dst_hold(&rt->u.dst);
-+		if (remote != fl_tunnel.fl4_dst) {
-+			fl_tunnel.fl4_src = local;
-+			fl_tunnel.fl4_dst = remote;
-+			err = xfrm_dst_lookup((struct xfrm_dst **)&rt,
-+					      &fl_tunnel, AF_INET);
-+			if (err)
-+				goto error;
-+		} else
-+			dst_hold(&rt->u.dst);
- 	}
-+
- 	dst_prev->child = &rt->u.dst;
-+	dst->path = &rt->u.dst;
-+
-+	*dst_p = dst;
-+	dst = dst_prev;
-+
-+	dst_prev = *dst_p;
- 	i = 0;
--	for (dst_prev = dst; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
-+	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
- 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
- 		x->u.rt.fl = *fl;
- 
-@@ -114,7 +134,6 @@
- 		dst_prev->header_len	= header_len;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &rt->u.dst.metrics, sizeof(dst_prev->metrics));
--		dst_prev->path		= &rt->u.dst;
- 
- 		/* Copy neighbout for reachability confirmation */
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
-@@ -134,7 +153,6 @@
+ extern wait_queue_head_t km_waitq;
+ extern int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, u16 sport);
+===== net/ipv4/xfrm4_policy.c 1.15 vs edited =====
+--- 1.15/net/ipv4/xfrm4_policy.c	2005-02-14 14:51:26 +11:00
++++ edited/net/ipv4/xfrm4_policy.c	2005-02-14 14:53:06 +11:00
+@@ -153,6 +153,8 @@
  		header_len -= x->u.dst.xfrm->props.header_len;
  		trailer_len -= x->u.dst.xfrm->props.trailer_len;
  	}
--	*dst_p = dst;
++
++	xfrm_init_pmtu(dst);
  	return 0;
  
  error:
-===== net/ipv6/xfrm6_policy.c 1.25 vs edited =====
---- 1.25/net/ipv6/xfrm6_policy.c	2005-02-14 14:02:13 +11:00
-+++ edited/net/ipv6/xfrm6_policy.c	2005-02-14 14:50:04 +11:00
-@@ -72,18 +72,29 @@
- 	struct rt6_info *rt  = rt0;
- 	struct in6_addr *remote = &fl->fl6_dst;
- 	struct in6_addr *local  = &fl->fl6_src;
-+	struct flowi fl_tunnel = {
-+		.nl_u = {
-+			.ip6_u = {
-+				.saddr = *local,
-+				.daddr = *remote
-+			}
-+		}
-+	};
- 	int i;
- 	int err = 0;
- 	int header_len = 0;
- 	int trailer_len = 0;
- 
- 	dst = dst_prev = NULL;
-+	dst_hold(&rt->u.dst);
- 
- 	for (i = 0; i < nx; i++) {
- 		struct dst_entry *dst1 = dst_alloc(&xfrm6_dst_ops);
-+		struct xfrm_dst *xdst;
- 
- 		if (unlikely(dst1 == NULL)) {
- 			err = -ENOBUFS;
-+			dst_release(&rt->u.dst);
- 			goto error;
- 		}
- 
-@@ -94,6 +105,11 @@
- 			dst1->flags |= DST_NOHASH;
- 			dst_clone(dst1);
- 		}
-+
-+		xdst = (struct xfrm_dst *)dst1;
-+		xdst->route = &rt->u.dst;
-+
-+		dst1->next = dst_prev;
- 		dst_prev = dst1;
- 		if (xfrm[i]->props.mode) {
- 			remote = (struct in6_addr*)&xfrm[i]->id.daddr;
-@@ -101,25 +117,27 @@
- 		}
- 		header_len += xfrm[i]->props.header_len;
- 		trailer_len += xfrm[i]->props.trailer_len;
--	}
--
--	if (!ipv6_addr_equal(remote, &fl->fl6_dst)) {
--		struct flowi fl_tunnel;
- 
--		memset(&fl_tunnel, 0, sizeof(fl_tunnel));
--		ipv6_addr_copy(&fl_tunnel.fl6_dst, remote);
--		ipv6_addr_copy(&fl_tunnel.fl6_src, local);
--
--		err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
--				      &fl_tunnel, AF_INET6);
--		if (err)
--			goto error;
--	} else {
--		dst_hold(&rt->u.dst);
-+		if (!ipv6_addr_equal(remote, &fl_tunnel.fl6_dst)) {
-+			ipv6_addr_copy(&fl_tunnel.fl6_dst, remote);
-+			ipv6_addr_copy(&fl_tunnel.fl6_src, local);
-+			err = xfrm_dst_lookup((struct xfrm_dst **) &rt,
-+					      &fl_tunnel, AF_INET6);
-+			if (err)
-+				goto error;
-+		} else
-+			dst_hold(&rt->u.dst);
- 	}
-+
- 	dst_prev->child = &rt->u.dst;
-+	dst->path = &rt->u.dst;
-+
-+	*dst_p = dst;
-+	dst = dst_prev;
-+
-+	dst_prev = *dst_p;
- 	i = 0;
--	for (dst_prev = dst; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
-+	for (; dst_prev != &rt->u.dst; dst_prev = dst_prev->child) {
- 		struct xfrm_dst *x = (struct xfrm_dst*)dst_prev;
- 
- 		dst_prev->xfrm = xfrm[i++];
-@@ -132,7 +150,6 @@
- 		dst_prev->header_len	= header_len;
- 		dst_prev->trailer_len	= trailer_len;
- 		memcpy(&dst_prev->metrics, &rt->u.dst.metrics, sizeof(dst_prev->metrics));
--		dst_prev->path		= &rt->u.dst;
- 
- 		/* Copy neighbour for reachability confirmation */
- 		dst_prev->neighbour	= neigh_clone(rt->u.dst.neighbour);
-@@ -150,7 +167,6 @@
+===== net/ipv6/xfrm6_policy.c 1.26 vs edited =====
+--- 1.26/net/ipv6/xfrm6_policy.c	2005-02-14 14:51:26 +11:00
++++ edited/net/ipv6/xfrm6_policy.c	2005-02-14 14:53:25 +11:00
+@@ -167,6 +167,8 @@
  		header_len -= x->u.dst.xfrm->props.header_len;
  		trailer_len -= x->u.dst.xfrm->props.trailer_len;
  	}
--	*dst_p = dst;
++
++	xfrm_init_pmtu(dst);
  	return 0;
  
  error:
-===== net/xfrm/xfrm_policy.c 1.65 vs edited =====
---- 1.65/net/xfrm/xfrm_policy.c	2005-02-14 14:02:13 +11:00
-+++ edited/net/xfrm/xfrm_policy.c	2005-02-14 14:39:52 +11:00
-@@ -1026,6 +1026,11 @@
+===== net/xfrm/xfrm_policy.c 1.66 vs edited =====
+--- 1.66/net/xfrm/xfrm_policy.c	2005-02-14 14:51:26 +11:00
++++ edited/net/xfrm/xfrm_policy.c	2005-02-14 21:29:56 +11:00
+@@ -1102,25 +1102,86 @@
+ 	return 0;
+ }
  
- static void xfrm_dst_destroy(struct dst_entry *dst)
++void xfrm_init_pmtu(struct dst_entry *dst)
++{
++	do {
++		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
++		u32 pmtu, route_mtu_cached;
++
++		pmtu = dst_pmtu(dst->child);
++		xdst->child_mtu_cached = pmtu;
++
++		pmtu = xfrm_state_mtu(dst->xfrm, pmtu);
++
++		route_mtu_cached = dst_pmtu(xdst->route);
++		xdst->route_mtu_cached = route_mtu_cached;
++
++		if (pmtu > route_mtu_cached)
++			pmtu = route_mtu_cached;
++
++		dst->metrics[RTAX_MTU-1] = pmtu;
++	} while ((dst = dst->next));
++}
++
++EXPORT_SYMBOL(xfrm_init_pmtu);
++
+ /* Check that the bundle accepts the flow and its components are
+  * still valid.
+  */
+ 
+-int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family)
++int xfrm_bundle_ok(struct xfrm_dst *first, struct flowi *fl, int family)
  {
-+	struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
+-	struct dst_entry *dst = &xdst->u.dst;
++	struct dst_entry *dst = &first->u.dst;
++	struct xfrm_dst *last;
++	u32 mtu;
+ 
+ 	if (dst->path->obsolete > 0 ||
+ 	    (dst->dev && !netif_running(dst->dev)))
+ 		return 0;
+ 
++	last = NULL;
 +
-+	if (xdst->route)
-+		dst_release(xdst->route);
+ 	do {
++		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
 +
- 	if (!dst->xfrm)
- 		return;
- 	xfrm_state_put(dst->xfrm);
+ 		if (fl && !xfrm_selector_match(&dst->xfrm->sel, fl, family))
+ 			return 0;
+ 		if (dst->xfrm->km.state != XFRM_STATE_VALID)
+ 			return 0;
++
++		mtu = dst_pmtu(dst->child);
++		if (xdst->child_mtu_cached != mtu) {
++			last = xdst;
++			xdst->child_mtu_cached = mtu;
++		}
++
++		mtu = dst_pmtu(xdst->route);
++		if (xdst->child_mtu_cached != mtu) {
++			last = xdst;
++			xdst->route_mtu_cached = mtu;
++		}
++
+ 		dst = dst->child;
+ 	} while (dst->xfrm);
++
++	if (likely(!last))
++		return 1;
++
++	mtu = last->child_mtu_cached;
++	for (;;) {
++		dst = &last->u.dst;
++
++		mtu = xfrm_state_mtu(dst->xfrm, mtu);
++		if (mtu > last->route_mtu_cached)
++			mtu = last->route_mtu_cached;
++		dst->metrics[RTAX_MTU-1] = mtu;
++
++		if (last == first)
++			break;
++
++		last = last->u.next;
++		last->child_mtu_cached = mtu;
++	}
+ 
+ 	return 1;
+ }
 
---neYutvxvOLaeuPCA--
+--/e2eDi0V/xtL+Mc8--
