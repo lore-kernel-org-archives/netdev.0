@@ -1,24 +1,47 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: 2.6.9-rc2-mm2 fn_hash_insert oops
-Date: Thu, 23 Sep 2004 21:16:32 +1000
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <E1CARaS-00071j-00@gondolin.me.apana.org.au>
-References: <20040923103723.GA12145@mail.muni.cz>
-Cc: akpm@osdl.org, linux-kernel@vger.kernel.org, davem@davemloft.net,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268399AbUIWLQx@vger.kernel.org>
-To: xhejtman@mail.muni.cz (Lukas Hejtmanek)
-In-Reply-To: <20040923103723.GA12145@mail.muni.cz>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Thu, 23 Sep 2004 22:05:20 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040923120520.GA32624@gondor.apana.org.au>
+References: <20040919231734.GA10124@gondor.apana.org.au> <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net> <20040922000503.GA13218@gondor.apana.org.au> <4150E7E5.2000001@eurodev.net> <1095821624.1045.6.camel@jzny.localdomain> <20040922034634.GA14928@gondor.apana.org.au> <1095852956.1048.47.camel@jzny.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1095852956.1048.47.camel@jzny.localdomain>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Lukas Hejtmanek <xhejtman@mail.muni.cz> wrote:
+On Wed, Sep 22, 2004 at 07:35:57AM -0400, jamal wrote:
+> On Tue, 2004-09-21 at 23:46, Herbert Xu wrote:
+> > 
+> > Well I haven't seen any with IPsec.  Can you please provide a strace
+> > of a failed tc dump so that I know what I'm looking for?
 > 
-> However there is still the issue with endless loop in fn_hash_delete :(
+> Try explicitly reducing the socket buffer size and see what happens
 
-Same problem, same fix.  Can someone think of a generic fix to
-list_for_each_*?
+What's wrong with the default sizes? If you decrease it far enough
+of course it's going to overflow.
+ 
+> set i to 10000 or a little more
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+You might want to optimise your add path.  It was painful with 20000 :)
+
+> to dump: tc actions ls action drop
+
+That was much faster, no overflows at all:
+
+angband:~# time tc action ls action gact > out
+
+real    0m0.943s
+user    0m0.075s
+sys     0m0.867s
+angband:~# wc -l out
+80000 out
+angband:~#
 
 Cheers,
 -- 
@@ -26,25 +49,3 @@ Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
---
-===== net/ipv4/fib_hash.c 1.22 vs edited =====
---- 1.22/net/ipv4/fib_hash.c	2004-09-22 09:31:48 +10:00
-+++ edited/net/ipv4/fib_hash.c	2004-09-23 21:16:04 +10:00
-@@ -608,6 +608,7 @@
- 	struct fn_hash *table = (struct fn_hash*)tb->tb_data;
- 	struct fib_node *f;
- 	struct fib_alias *fa, *fa_to_delete;
-+	struct list_head *fa_head;
- 	int z = r->rtm_dst_len;
- 	struct fn_zone *fz;
- 	u32 key;
-@@ -633,7 +634,8 @@
- 		return -ESRCH;
- 
- 	fa_to_delete = NULL;
--	list_for_each_entry(fa, fa->fa_list.prev, fa_list) {
-+	fa_head = fa->fa_list.prev;
-+	list_for_each_entry(fa, fa_head, fa_list) {
- 		struct fib_info *fi = fa->fa_info;
- 
- 		if ((!r->rtm_type ||
