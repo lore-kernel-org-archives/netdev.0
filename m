@@ -1,34 +1,46 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: (5/5) Allow IPv6 tunnels without own IPv6 address
-Date: Mon, 1 Sep 2003 03:51:34 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] fix skb binding time in some network drivers due to skb_padto
+ conversion
+Date: Sun, 31 Aug 2003 09:25:12 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030901035134.2585aa79.davem@redhat.com>
-References: <20030901020340.5a128836.davem@redhat.com>
-	<Pine.LNX.4.44.0309011345141.17318-100000@netcore.fi>
+Message-ID: <3F51F738.5040607@pobox.com>
+References: <3F515DD0.9000409@jcom.home.ne.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: vnuorval@tcs.hut.fi, yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org,
-   netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-In-Reply-To: <Pine.LNX.4.44.0309011345141.17318-100000@netcore.fi>
+To: Yusuf Wilajati Purna <purna@jcom.home.ne.jp>
+In-Reply-To: <3F515DD0.9000409@jcom.home.ne.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Sep 2003 13:48:44 +0300 (EEST)
-Pekka Savola <pekkas@netcore.fi> wrote:
+Yusuf Wilajati Purna wrote:
+> Hi Jeff,
+> 
+> It seems that skb_padto security fixes in 2.4 and 2.5 trying
+> to fix "CAN-2003-0001:Multiple ethernet NID device drivers
+> do not pad frames with null bytes", do not put the skb_padto
+> blocks in proper places in the  3c527, eth16i, fmv18x, seeq8005,
+> yellowfin device drivers.   
+> 
+> In case a driver calls skb_padto(), it is possible
+> that the space available in the original skb buffer tailroom is less
+> than the space to pad. In this case, in short, the skb_padto()
+> will create a new skb buffer, copy data from the original
+> skb buffer to a new skb buffer, free the original buffer,
+> and finally return the new buffer.
+> 
+> If this happens to the aforementioned device drivers, they come to
+> point to wrong data. And, for 3c527 and yellowfin, the drivers can
+> unexpectedly double free the original skb buffers since they still
+> point to the original skb buffers. The attached patch against
+> 2.4.23pre1 fixes these issues.
+> 
+> If the patch looks okay, please consider including it in
+> 2.4 and 2.5/6.
 
-> Well, link-local addresses are used e.g. by routing protocols and such, so 
-> having one is probably rather important..
 
-Ok.
+Yes, this looks needed.  Thanks!
 
-> FWIW, on FreeBSD platform they take the link-local address of the first
-> physical interface, and give the exact same link-local address on all of
-> the tunnels, disambiuating them with the scope identifier.  Seems like an
-> OK appaorach too, and guarantees (to the degree of unique MAC addresses)  
-> that the addresses of the endpoints do not clash.
-
-Interesting approach...  I'm not particularly picky about how this
-uniqueness issue is solved.
+	Jeff
