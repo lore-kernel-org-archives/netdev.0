@@ -1,28 +1,53 @@
-From: Jean Tourrilhes <jt@hpl.hp.com>
-Subject: Re: [PATCH 2.4] SIOCSIFNAME wildcard support (re-resend)
-Date: Wed, 16 Feb 2005 13:24:18 -0800
-Message-ID: <20050216212418.GA16315@bougret.hpl.hp.com>
-References: <20050209002747.GA9792@bougret.hpl.hp.com> <20050216131333.502234ad.davem@davemloft.net>
-Reply-To: jt@hpl.hp.com
+From: Jeff Moyer <jmoyer@redhat.com>
+Subject: Re: serious netpoll bug w/NAPI
+Date: Wed, 16 Feb 2005 17:07:01 -0500
+Message-ID: <16915.50181.990040.174776@segfault.boston.redhat.com>
+References: <20050208201634.03074349.davem@davemloft.net>
+	<20050209183219.GA2366@waste.org>
+	<20050209164658.409f8950.davem@davemloft.net>
+	<20050210011104.GF2366@waste.org>
+	<16914.31886.665975.522710@segfault.boston.redhat.com>
+	<20050216050722.GC3358@waste.org>
+Reply-To: jmoyer@redhat.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: marcelo.tosatti@cyclades.com, netdev@oss.sgi.com, shemminger@osdl.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050216131333.502234ad.davem@davemloft.net>
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: Matt Mackall <mpm@selenic.com>
+In-Reply-To: <20050216050722.GC3358@waste.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Feb 16, 2005 at 01:13:33PM -0800, David S. Miller wrote:
-> On Tue, 8 Feb 2005 16:27:47 -0800
-> Jean Tourrilhes <jt@hpl.hp.com> wrote:
-> 
-> > 	Just to make sure everybody seen it twice...
-> 
-> Applied, thanks for being so patient as I was processing
-> my huge networking patch backlog after moving last weekend.
+==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
 
-	Don't worry, people complain about me being so slow ;-)
+mpm> On Tue, Feb 15, 2005 at 05:49:50PM -0500, Jeff Moyer wrote:
+>> ==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
+>> 
+[snip]
+>> 
+>> Okay, I've only taken a quick glance at this, but I don't quite understand
+>> why it's safe to take out the check for the per-cpu queue.  Realize that an
+>> interrupt may have been serviced on another processor, and a NAPI poll may
+>> have been scheduled there.
 
-	Jean
+mpm> Because dev->np->poll_lock now serializes all access to ->poll (when
+mpm> netpoll is enabled on said device).
+
+>> Also, could you use the -p flag to diff when you generate your next patch?
+>> It makes it *much* easier to review.
+
+mpm> Hmm, somehow my QUILT_DIFF_OPTS got lost, thanks.
+
+mpm> I've just now recovered my SMP+NAPI box, so I can take a stab at
+mpm> actually testing this shortly.
+
+I put together a patch against our kernel tree which implements essentially
+the same logic as your patch, and it works great:  I was able to reproduce
+the bug without the patch, and the patched kernel is running just fine.
+Let me know when you have another version of your patch, and I will happily
+test it in my environment.
+
+Thanks,
+
+Jeff
