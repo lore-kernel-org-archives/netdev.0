@@ -1,42 +1,43 @@
-From: "David S. Miller" <davem@redhat.com>
+From: Martin Diehl <lists@mdiehl.de>
 Subject: Re: [irda-users] [PATCH] Make VLSI FIR depend on X86
-Date: Tue, 21 Oct 2003 00:12:41 -0700
+Date: Tue, 21 Oct 2003 09:12:53 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031021001241.390a16df.davem@redhat.com>
+Message-ID: <Pine.LNX.4.44.0310210858550.4246-100000@notebook.home.mdiehl.de>
 References: <20031020211706.5be33474.davem@redhat.com>
-	<Pine.LNX.4.44.0310210858550.4246-100000@notebook.home.mdiehl.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: lists@mdiehl.de, noah@caltech.edu, irda-users@lists.sourceforge.net,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Martin Diehl <lists@mdiehl.de>, <noah@caltech.edu>,
+        <irda-users@lists.sourceforge.net>, <netdev@oss.sgi.com>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Martin Diehl <lists@mdiehl.de>
-In-Reply-To: <Pine.LNX.4.44.0310210858550.4246-100000@notebook.home.mdiehl.de>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031020211706.5be33474.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Oct 2003 09:12:53 +0200 (CEST)
-Martin Diehl <lists@mdiehl.de> wrote:
+On Mon, 20 Oct 2003, David S. Miller wrote:
 
-> Last time I checked pci_dma_sync was meant to sync the mapping when 
-> ownership gets transferred from busmaster to cpu, i.e. after hardware 
-> used/modified the buffer. What about the other direction when the cpu 
-> filled a reused streaming map to device and wants to pass ownership to the 
-> busmaster - we need to flush cpu caches to make sure the busmaster sees 
-> the modified data.
+> On Mon, 20 Oct 2003 19:30:33 +0200 (CEST)
+> Martin Diehl <lists@mdiehl.de> wrote:
+> 
+> > Well, it would work with any arch, _if_ there was a way to sync the 
+> > streaming pci dma buffers before giving them back to hardware.
+> 
+> If pci_dma_sync() doesn't perform the operation you want, please
+> describe what that operation is.
+> 
 
-That's absolutely correct.
+Last time I checked pci_dma_sync was meant to sync the mapping when 
+ownership gets transferred from busmaster to cpu, i.e. after hardware 
+used/modified the buffer. What about the other direction when the cpu 
+filled a reused streaming map to device and wants to pass ownership to the 
+busmaster - we need to flush cpu caches to make sure the busmaster sees 
+the modified data.
 
-Several times I've noted that this is a BUG in the API, that there
-is no way to sync the other way, someone just has to add the interface
-hooks then all the platform maintainers will implement it.
+<http://marc.theaimsgroup.com/?l=linux-kernel&amp;m=103221032617171&amp;w=2>
+<http://marc.theaimsgroup.com/?l=linux-kernel&amp;m=103221300019951&amp;w=2>
 
-Here, do this, add a new interface called pci_dma_sync_to_device()
-with the appropriate args.  Add a NOP implementation to asm-i386/pci.h
-and suitable documentation changes to Documentation/DMA-mapping.txt
+Did I miss something?
 
-When you send me that patch, I'll work with the platform maintainers
-to take care of the rest.
-
-Deal?
+Thanks,
+Martin
