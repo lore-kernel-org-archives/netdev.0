@@ -1,111 +1,176 @@
-From: Henrik Petander <lpetande@morphine.tml.hut.fi>
-Subject: Re: [patch]: ipv6 tunnel for MIPv6
-Date: Wed, 4 Jun 2003 20:31:53 +0300 (EEST)
+From: Christoph Hellwig <hch@lst.de>
+Subject: [PATCH] kill drivers/net/setup.c
+Date: Wed, 4 Jun 2003 20:16:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.44.0306041941480.8428-100000@morphine.tml.hut.fi>
-References: <20030605.004932.00042147.yoshfuji@linux-ipv6.org>
+Message-ID: <20030604181627.GA24733@lst.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: davem@redhat.com, <vnuorval@tcs.hut.fi>, <kuznet@ms2.inr.ac.ru>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>, <ajtuomin@morphine.tml.hut.fi>,
-   Venkata Jagana <jagana@us.ibm.com>, <kumarkr@us.ibm.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030605.004932.00042147.yoshfuji@linux-ipv6.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Yoshifuji,
+The last two drivers are ppc 8xx system devices and Paul (ppc
+maintainer) said I should just send this patch along, the 8xx
+guys will have to deal with a possible breakage when brining
+up their port for 2.5/2.6 again.  (Not that I expect anything
+bad to happen..)
 
-On Thu, 5 Jun 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> In article <3EDE0286.4000304@tml.hut.fi> (at Wed, 04 Jun 2003 17:30:30 +0300), Henrik Petander <lpetande@tml.hut.fi> says:
->
-> > 2. Source address based routing
->
-> I'm not sure why you need this (and tunnel) for MIP...
-> Would you clearify for me?
-> (IMHO, I believe we don't need this change if we use XFRM engine.)
 
-As far as I remember there  are three main reasons for this: (Ville
-correct me if  forgot something)
-
-1. Mobile node sends packets to correspondent node through the tunnel, if
-they have home address as the IPv6 source address (not in home address
-option). MIPv6 signalling packets are sent at the same time with the home
-address option (i.e. care-of address as the source address in IPv6 header)
-to the same destination, but they must not be sent through the tunnel.
-If the xfrm engine works correctly (for IPSec) and does the lookup using
-the home address as the source address, the flows appear the same based on
-the addresses.
-
-2. Home Agent delivers packets with its own address as source address to
-mobile node using route optimization, i.e. routing header type 2, but
-tunnels other traffic to MN. Again behaviour depends on the source
-address.
-
-3. Multihomed mobile hosts: Mobile nodes can have a cellular and WLAN
-interface. Packets with address from one interface can be sent only
-through that interface to avoid RPF dropping the traffic. With routing
-based primarily on source addresses this is easy to achieve. Actually this
-is more general than MIPv6, but multihoming is essential for
-real-life mobility.
-
->
-> BTW, source based routing (source address is major, destination is minor)
-> is done by policy routing; It is NOT the task of CONFIG_IPV6_SUBTREE, IMHO.
-> Yes, poeple want to have policy routing, but it is NOT (only) for MIP6.
-
-IMO source address subtrees were useless as they were at least for doing
-mobility and multihoming, whereas with source address as primary selector
-routing for mobile and multihomed hosts is straightforward. Of course I
-may miss something of the larger picture ;-) But so far I have heard of no
-one using them for anything else. As long as Linux lacks "real" IPv6
-policy routing, source based routing is the best we have got and works
-both for mobility and multihoming. The main problem with it is IMO
-the source address selection using the route as a selection basis. Just my
-thoughts, though.
-
->
-> > 3. API
->
-> No, user daemon adds a XFRM policy for adding destination option
-> (and/or routing header).  Stackable destination will do the real work.
-> (So, we don't need socket options.)
-
-Actually we do... Due to some interesting requirements in the MIPv6 spec.
-the signalling packets are treated differently from data packets: home
-address option is always present in binding update messages, but it can be
-used with data packets only after sending a binding update. Routing
-header type 2 is used in negative binding acks sometimes with addresses
-which differ from the ones used with data packets.
-
-The signalling packets need IPSec protection with final addresses as
-selectors, so the MIPv6 extension headers can't be added to packets
-created by a raw socket as the final addresses would be hidden in the
-extension headers.
-
->
-> > 5. MIPv6 extension header adding
-> I still belive it is very natural to use XFRM to manage stackable
-> destination.
-
-If you have a concrete proposal how to do it, I would be eager to hear it
-;-)
-
-> Okay, anyway, please sent it to David, Alexey and me (at least).
-> We can learn more from the code than documentation. ;-)
-
-Sure, I'll send it tomorrow when i get back to work.
-
-Regards,
-
-Henrik
-
-		----------------------------------
-		Henrik Petander
-		Helsinki University of Technology,
-		GO/Core Project
-		Henrik.Petander@hut.fi
-		Office: +358 (0)9 451 5846
-		GSM: +358 (0)40 741 5248
-		----------------------------------
+--- 1.8/arch/ppc/8260_io/enet.c	Sun Apr 27 13:56:50 2003
++++ edited/arch/ppc/8260_io/enet.c	Tue Jun  3 22:08:59 2003
+@@ -608,7 +608,7 @@
+ 
+ /* Initialize the CPM Ethernet on SCC.
+  */
+-int __init scc_enet_init(void)
++static int __init scc_enet_init(void)
+ {
+ 	struct net_device *dev;
+ 	struct scc_enet_private *cep;
+@@ -860,3 +860,4 @@
+ 	return 0;
+ }
+ 
++module_init(scc_enet_init);
+--- 1.9/arch/ppc/8260_io/fcc_enet.c	Sun Apr 27 13:56:50 2003
++++ edited/arch/ppc/8260_io/fcc_enet.c	Tue Jun  3 22:08:59 2003
+@@ -1323,7 +1323,7 @@
+ 
+ /* Initialize the CPM Ethernet on FCC.
+  */
+-int __init fec_enet_init(void)
++static int __init fec_enet_init(void)
+ {
+ 	struct net_device *dev;
+ 	struct fcc_enet_private *cep;
+@@ -1394,6 +1394,7 @@
+ 
+ 	return 0;
+ }
++module_init(fec_enet_init);
+ 
+ /* Make sure the device is shut down during initialization.
+ */
+--- 1.10/arch/ppc/8xx_io/enet.c	Mon Sep 16 06:51:56 2002
++++ edited/arch/ppc/8xx_io/enet.c	Tue Jun  3 22:08:59 2003
+@@ -639,7 +639,7 @@
+  * transmit and receive to make sure we don't catch the CPM with some
+  * inconsistent control information.
+  */
+-int __init scc_enet_init(void)
++static int __init scc_enet_init(void)
+ {
+ 	struct net_device *dev;
+ 	struct scc_enet_private *cep;
+@@ -964,3 +964,5 @@
+ 
+ 	return 0;
+ }
++
++module_init(scc_enet_init);
+--- 1.13/arch/ppc/8xx_io/fec.c	Tue Dec 31 22:10:48 2002
++++ edited/arch/ppc/8xx_io/fec.c	Tue Jun  3 22:09:00 2003
+@@ -1566,7 +1566,7 @@
+ 
+ /* Initialize the FEC Ethernet on 860T.
+  */
+-int __init fec_enet_init(void)
++static int __init fec_enet_init(void)
+ {
+ 	struct net_device *dev;
+ 	struct fec_enet_private *fep;
+@@ -1782,6 +1782,7 @@
+ 
+ 	return 0;
+ }
++module_init(fec_enet_init);
+ 
+ /* This function is called to start or restart the FEC during a link
+  * change.  This only happens when switching between half and full
+--- 1.16/drivers/net/setup.c	Wed Jun  4 07:13:57 2003
++++ edited/drivers/net/setup.c	Tue Jun  3 22:12:10 2003
+@@ -1,54 +0,0 @@
+-
+-/*
+- *	New style setup code for the network devices
+- */
+- 
+-#include <linux/config.h>
+-#include <linux/netdevice.h>
+-#include <linux/errno.h>
+-#include <linux/init.h>
+-#include <linux/netlink.h>
+-
+-extern int scc_enet_init(void); 
+-extern int fec_enet_init(void); 
+-
+-/*
+- *	Devices in this list must do new style probing. That is they must
+- *	allocate their own device objects and do their own bus scans.
+- */
+-
+-struct net_probe
+-{
+-	int (*probe)(void);
+-	int status;	/* non-zero if autoprobe has failed */
+-};
+- 
+-static struct net_probe pci_probes[] __initdata = {
+-	/*
+-	 *	Early setup devices
+-	 */
+-#if defined(CONFIG_SCC_ENET)
+-        {scc_enet_init, 0},
+-#endif
+-#if defined(CONFIG_FEC_ENET)
+-        {fec_enet_init, 0},
+-#endif
+-	{NULL, 0},
+-};
+-
+-
+-/*
+- *	Run the updated device probes. These do not need a device passed
+- *	into them.
+- */
+- 
+-void __init net_device_init(void)
+-{
+-	struct net_probe *p = pci_probes;
+-
+-	while (p->probe != NULL)
+-	{
+-		p->status = p->probe();
+-		p++;
+-	}
+-}
+--- 1.83/net/core/dev.c	Mon May 26 07:16:23 2003
++++ edited/net/core/dev.c	Tue Jun  3 22:12:01 2003
+@@ -2861,15 +2861,8 @@
+  *	unhooks any devices that fail to initialise (normally hardware not
+  *	present) and leaves us with a valid list of present and active devices.
+  *
+- */
+-
+-extern void net_device_init(void);
+-extern void ip_auto_config(void);
+-
+-
+-/*
+- *       This is called single threaded during boot, so no need
+- *       to take the rtnl semaphore.
++ *	This is called single threaded during boot, so no need
++ *	to take the rtnl semaphore.
+  */
+ static int __init net_dev_init(void)
+ {
+@@ -3003,7 +2996,6 @@
+ 	 *	Initialise network devices
+ 	 */
+ 
+-	net_device_init();
+ 	rc = 0;
+ out:
+ 	return rc;
