@@ -1,61 +1,48 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH] remove FCS from pktgen bandwidth calculation
-Date: Wed, 8 Dec 2004 21:11:16 +0100
-Message-ID: <20041208201116.GA10691@xi.wantstofly.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] netem: restart device after inserting packets
+Date: Wed, 8 Dec 2004 12:31:03 -0800
+Message-ID: <20041208123103.4cc6b005@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netem@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-Content-Disposition: inline
+To: "David S. Miller" <davem@redhat.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+The version of netem in 2.6.10 moves packets from the delayed queue
+to the qdisc in a timer interrupt. But it forgot to force the device to
+pick them up.
 
-This patch stops pktgen from counting the FCS in the 'total number of
-bytes transmitted' and 'bits per second' calculations.
+Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-
-cheers,
-Lennert
-
-
---- pktgen.c.orig	2004-11-28 22:27:50.000000000 +0100
-+++ pktgen.c	2004-12-08 21:09:00.511175266 +0100
-@@ -2564,7 +2564,6 @@
- static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
+diff -Nru a/net/sched/sch_netem.c b/net/sched/sch_netem.c
+--- a/net/sched/sch_netem.c	2004-12-08 12:29:12 -08:00
++++ b/net/sched/sch_netem.c	2004-12-08 12:29:12 -08:00
+@@ -258,12 +258,13 @@
  {
-        __u64 total_us, bps, mbps, pps, idle;
--       int size = pkt_dev->cur_pkt_size + 4; /* incl 32bit ethernet CRC */
-        char *p = pkt_dev->result;
+ 	struct Qdisc *sch = (struct Qdisc *)arg;
+ 	struct netem_sched_data *q = qdisc_priv(sch);
++	struct net_device *dev = sch->dev;
+ 	struct sk_buff *skb;
+ 	psched_time_t now;
  
-        total_us = pkt_dev->stopped_at - pkt_dev->started_at;
-@@ -2576,7 +2575,7 @@
+ 	pr_debug("netem_watchdog: fired @%lu\n", jiffies);
  
-        p += sprintf(p, "OK: %llu(c%llu+d%llu) usec, %llu (%dbyte,%dfrags)\n",
-                     total_us, (unsigned long long)(total_us - idle), idle,
--                    pkt_dev->sofar, size, nr_frags);
-+                    pkt_dev->sofar, pkt_dev->cur_pkt_size, nr_frags);
+-	spin_lock_bh(&sch->dev->queue_lock);
++	spin_lock_bh(&dev->queue_lock);
+ 	PSCHED_GET_TIME(now);
  
-        pps = pkt_dev->sofar * USEC_PER_SEC;
-        
-@@ -2588,7 +2587,7 @@
+ 	while ((skb = skb_peek(&q->delayed)) != NULL) {
+@@ -286,7 +287,8 @@
+ 		else
+ 			sch->q.qlen++;
+ 	}
+-	spin_unlock_bh(&sch->dev->queue_lock);
++	qdisc_restart(dev);
++	spin_unlock_bh(&dev->queue_lock);
+ }
  
-        do_div(pps, total_us);
-        
--       bps = pps * 8 * size;
-+       bps = pps * 8 * pkt_dev->cur_pkt_size;
- 
-        mbps = bps;
-        do_div(mbps, 1000000);
-@@ -2777,7 +2776,7 @@
- 			pkt_dev->last_ok = 1;    
- 			pkt_dev->sofar++;
- 			pkt_dev->seq_num++;
--			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4); /* count csum */
-+			pkt_dev->tx_bytes += pkt_dev->cur_pkt_size;
- 			
- 		} else if (ret == NETDEV_TX_LOCKED 
- 			   && (odev->features & NETIF_F_LLTX)) {
+ static void netem_reset(struct Qdisc *sch)
