@@ -1,45 +1,58 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] b44 1GB DMA workaround (was: b44: add 47xx support)
-Date: Sat, 7 Aug 2004 17:05:03 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040807170503.3b05255a.davem@redhat.com>
-References: <200407232335.37809.jolt@tuxbox.org>
-	<20040726141128.GA5435@ee.oulu.fi>
-	<20040804003108.GA10445@ee.oulu.fi>
-	<20040803183919.2990d045.davem@redhat.com>
-	<20040807224019.GA24817@ee.oulu.fi>
+From: Pedro Ramalhais <ramalhais@serrado.net>
+Subject: Wireless Extensions WE-18 questions
+Date: Sun, 08 Aug 2004 02:36:40 +0100
+Sender: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
+Message-ID: <1091929000.2800.12.camel@rootix>
+References: <1091444633.2767.8.camel@rootix> <20040803070843.GB7153@jm.kir.nu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, jolt@tuxbox.org, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S264881AbUHHAGp@vger.kernel.org>
-To: Pekka Pietikainen <pp@ee.oulu.fi>
-In-Reply-To: <20040807224019.GA24817@ee.oulu.fi>
+Cc: jt@hpl.hp.com, netdev@oss.sgi.com, hostap@shmoo.com
+Return-path: <hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com>
+To: Jouni Malinen <jkmaline@cc.hut.fi>
+In-Reply-To: <20040803070843.GB7153@jm.kir.nu>
+List-Unsubscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=unsubscribe>
+List-Archive: <http://sisyphus.iocaine.com/pipermail/hostap>
+List-Post: <mailto:hostap@shmoo.com>
+List-Help: <mailto:hostap-request@shmoo.com?subject=help>
+List-Subscribe: <http://lists.shmoo.com/mailman/listinfo/hostap>,
+	<mailto:hostap-request@shmoo.com?subject=subscribe>
+Errors-To: hostap-bounces+gldh-hostap-597=gmane.org@shmoo.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 8 Aug 2004 01:40:19 +0300
-Pekka Pietikainen <pp@ee.oulu.fi> wrote:
+Hi Jouni!
+Since you're the author of the WE-18 patch proposal i have a few
+questions about it:
 
-> On Tue, Aug 03, 2004 at 06:39:19PM -0700, David S. Miller wrote:
-> > Changing skb->data is not legal.  Please implement this in
-> > such a way that skb->data does not get modified.  By modifying
-> > skb->data you will break things such as packet sniffers and
-> > netfilter, and that's just the tip of the iceberg. :-)
-> > 
-> Haven't noticed any breakage (tm) but I'm just a x86 weenie :-)
+- what kind of information should be used in set_genie/get_genie
+requests? I know it's a pointer, but what is the information it points
+to? ipw2100 firmware expects: capabilities, listening interval,
+current_ap, var_ie_len and var_ie for setting IEs.
 
-Not an x86 specific problem :-)  Just run tcpdump in a shell when
-one of these TX bounce cases happen, your skb->data modification could
-will make tcpdump see a corrupt packet.
+- How should IW_AUTH_CIPHER_PAIRWISE and IW_AUTH_CIPHER_GROUP be used
+with crypt_tkip/crypt_ccmp ?
 
-> Current approach is:
-> 
->         if(1 (just for testing ;) ) || mapping+len > B44_DMA_MASK) {
->                 /* Chip can't handle DMA to/from >1GB, use bounce buffer */
->                 pci_unmap_single(bp->pdev, mapping, len,PCI_DMA_TODEVICE);
->                 memcpy(bp->tx_bufs+entry*TX_PKT_BUF_SZ,skb->data,skb->len);
->                 mapping = pci_map_single(bp->pdev,bp->tx_bufs+entry*TX_PKT_BUF_SZ, len, PCI_DMA_TODEVICE);
->         }
+This one is more oriented to the design of the wireless extensions and
+should probably go to Jean Tourrilhes:
+- the switch/case logic (for set_auth/get_auth at least) should really
+be in the wireless extensions. The driver should only need to set
+function pointers to the required actions, otherwise, every driver will
+have to code the whole logic around the multiplexing of the IOCTL,
+requiring more work amongst drivers, and the code will get less
+readable. Maybe this could be done also to the rest of the wireless
+extensions. I simply cannot understand the reason why the IOCTL
+interface is exposed to the driver. The driver shouldn't even know that
+some functionality is being called from an IOCTL. From the wireless
+extensions point of view the driver should only provide the methods to
+do certain tasks, not the logics around the passing of information from
+userspace(ex: wireless tools) to kernel space(wireless extensions) this
+just duplicates driver work.
 
-This looks a bit better.
+Thanks!
+
+PS: I was hoping someone had already answer my e-mail about the creation
+of a linux wireless mailing list, and this message would be sent to the
+new list... oh well
+-- 
+Pedro Ramalhais <ramalhais@serrado.net>
