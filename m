@@ -1,56 +1,65 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: How do I track TG3 peculiarities?
-Date: 12 Sep 2003 11:45:57 -0600
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: IPv6 6to4 on site-local networks.
+Date: Fri, 12 Sep 2003 21:00:20 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1r82llx2i.fsf@ebiederm.dsl.xmission.com>
-References: <m31xuss0ht.fsf@maxwell.lnxi.com>
-	<20030907220926.G18482@schatzie.adilger.int>
+Message-ID: <Pine.LNX.4.44.0309122049220.27849-100000@netcore.fi>
+References: <1063388303.7869.410.camel@imladris.demon.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, "David S. Miller" <davem@redhat.com>,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andreas Dilger <adilger@clusterfs.com>
-In-Reply-To: <20030907220926.G18482@schatzie.adilger.int>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1063388303.7869.410.camel@imladris.demon.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andreas Dilger <adilger@clusterfs.com> writes:
+On Fri, 12 Sep 2003, David Woodhouse wrote:
+> On Fri, 2003-09-12 at 20:29 +0300, Pekka Savola wrote:
+> > You have this wrong assumption that IPv6 is engineered with RFC1918 in
+> > mind.  Site-locals were indeed that.  But the point of deprecating them
+> > was to get *rid of* (at least to a degree) RFC1918 addresses in IPv6.
+>
+> But RFC1918 is what makes intranets work. 
 
-> On Sep 07, 2003  16:21 -0600, Eric W. Biederman wrote:
-> > Below is one good oops we have captured.  I would have to check but
-> > I believe we have updated the tg3 driver in this instance to the
-> > one that comes with 2.4.23-pre3.
-> > 
-> > The very puzzling part is that in the crashes I don't see the tg3
-> > driver at all just the network stack.  All module addresses according
-> > to /proc/ksyms started with at 0xf8, and the tg3 driver was built as
-> > a module.
-> > 
-> > I have been having trouble understanding why skb_clone would be called
-> > to transmit a packet.  Any ideas?
+.. in a broken manner.  We already have IPv4.  If you want to deploy IPv6, 
+do it properly.  IPv6 is about global addressing.
+
+The bottom line is: it's just so much better idea to use global addresses 
+and filtering.
+
+> And the proposal you pointed
+> me at puts them _back_ again, just gratuitously globally unique, and
+> without the semantics which actually made them _more_ useful than
+> RFC1918; made them ideal for multi-homing with both site- and global-
+> scope addresses.
+
+Also, such semantics ("site-locals always preferred") caused a number of
+problems.
+
+> > Leakage is used to refer to a lot more than just source/destination 
+> > addresses.  For example, addresses leak when you use a Peer-to-peer system 
+> > behind a NAT; addresses leak when you contact to an FTP server from behind 
+> > a NAT, etc.  Addresses leaking inside the application is a much more 
+> > difficult problem.
 > 
-> Do you have the stack overflow checking enabled?  
-No. 
-> That has been a source
-> of problems for us.  It was especially difficult to reproduce, because it
-> only happened during a double interrupt.
+> Unlike IPv4 and RFC1918, I thought IPv6 and site-local addressing
+> _solved_ this, by letting multi-homing work properly. Hosts _wouldn't_
+> contact external machines using their site-scope address through a NAT;
+> instead they'd have a global-scope address for that. Wasn't that the
+> point?
 
+There is a problem especially with multi-party applications, which do 
+referrals.  Consider theree nodes A, B, and C.  A and B are in the same 
+site and have both globals and site-locals.  C has only globals.  By the 
+"site-local smallest scope rule", A and B talk using site-locals.  
+However, if B tells C to contact A, he gives C a site-local address of A, 
+instead of the global.  And C can't handle it.
 
-So a quick update on what I am seeing.
+If you're interested to go a bit deeper to the reasoning, you may be 
+interested to read 
+http://www.ietf.org/internet-drafts/draft-wasserman-ipv6-sl-impact-02.txt
 
-I have now tried with a myriad of driver and kernel versions watching very
-carefully for a pattern.
-
-What I have observed is memory corruption in what looks like it may
-be a confined area of memory.  The ECC SDRAM is being closely
-monitored and I am not getting as much as a correctable error much
-less and uncorrectable error that would show up so memory is ruled
-out.  When I am connected to a particular Extreme Networks gigabit
-switch.  (The switch has some problems and it is hypothesized the
-switch is injecting problematic packets into the network).
-
-Bad packets should not be a problem but it looks like they are
-triggering the problem whatever it is.
-
-Eric
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
