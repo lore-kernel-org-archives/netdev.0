@@ -1,26 +1,31 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [XFRM] Don't panic in xfrm_user_init
-Date: Wed, 27 Oct 2004 21:46:41 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [NETLINK] Check netlink_insert in kernel_create
+Date: Thu, 28 Oct 2004 15:08:37 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041027214641.0a0f6d6c.davem@davemloft.net>
-References: <20041028031640.GA14317@gondor.apana.org.au>
+Message-ID: <20041028050837.GA15128@gondor.apana.org.au>
+References: <20041028030700.GA14181@gondor.apana.org.au> <20041027214438.6f4a9210.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041028031640.GA14317@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20041027214438.6f4a9210.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 28 Oct 2004 13:16:40 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
-
-> Since xfrm_user can be built as a module it's best not to panic
-> when something goes wrong in xfrm_user_init.  Call me a wimp for
-> not fixing netlink_kernel_init's return value :)
+On Wed, Oct 27, 2004 at 09:44:38PM -0700, David S. Miller wrote:
+> On Thu, 28 Oct 2004 13:07:00 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
 > 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> > Signed-off-by: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au> 
+>                             ^^^^^^^^^^
+> Hehe, what's that? :-)
 
-Applied, thanks Herbert.
+That's my name in Chinese.  Forgot to clip it out when I did the
+cut-n-paste from the signature :)
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
