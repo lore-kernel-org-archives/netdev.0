@@ -1,47 +1,54 @@
-From: Valdis.Kletnieks@vt.edu
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: PATCH: kmalloc packet slab
-Date: Mon, 27 Dec 2004 17:50:01 -0500
-Message-ID: <200412272250.iBRMo2Qb011114@turing-police.cc.vt.edu>
-References: <1104156983.20944.25.camel@localhost.localdomain> <41D043AC.2070203@trash.net>
-            <20041227142350.1cf444fe.davem@davemloft.net>
+Date: Mon, 27 Dec 2004 14:58:07 -0800
+Message-ID: <20041227145807.73803fa8.davem@davemloft.net>
+References: <1104156983.20944.25.camel@localhost.localdomain>
+	<41D043AC.2070203@trash.net>
+	<20041227142350.1cf444fe.davem@davemloft.net>
+	<200412272250.iBRMo2Qb011114@turing-police.cc.vt.edu>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_-1419475951P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, alan@lxorguk.ukuu.org.uk,
-        torvalds@osdl.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: kaber@trash.net, alan@lxorguk.ukuu.org.uk, torvalds@osdl.org,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: Your message of "Mon, 27 Dec 2004 14:23:50 PST."
-             <20041227142350.1cf444fe.davem@davemloft.net>
+To: Valdis.Kletnieks@vt.edu
+In-Reply-To: <200412272250.iBRMo2Qb011114@turing-police.cc.vt.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_-1419475951P
-Content-Type: text/plain; charset=us-ascii
+On Mon, 27 Dec 2004 17:50:01 -0500
+Valdis.Kletnieks@vt.edu wrote:
 
-On Mon, 27 Dec 2004 14:23:50 PST, "David S. Miller" said:
+> On Mon, 27 Dec 2004 14:23:50 PST, "David S. Miller" said:
+> 
+> > If we are really going to do something like this, it should
+> > be calculated properly and be determined per-interface
+> > type as netdevs are registered.
+> 
+> Would you prefer to see this done for all interface types if we do it
+> at all, or would a special-case for 1 or 2 types that can use a slab
+> without being wasteful be an acceptable solution? (Let's face it - if
+> 3.95 objects fit in each slab, we may not want to do it...)
 
-> If we are really going to do something like this, it should
-> be calculated properly and be determined per-interface
-> type as netdevs are registered.
+It's not even just device MTU based (which can change dynamically
+at run time), it's also based upon the PMTU for various paths.
 
-Would you prefer to see this done for all interface types if we do it
-at all, or would a special-case for 1 or 2 types that can use a slab
-without being wasteful be an acceptable solution? (Let's face it - if
-3.95 objects fit in each slab, we may not want to do it...)
+As for wastefulness, that's a good question.  Adding a mechanism
+to do kmalloc slabs dynamically doesn't sound all that wise.  That
+would undo all the inlining tricks.
 
---==_Exmh_-1419475951P
-Content-Type: application/pgp-signature
+Probably a better idea is to provide a way to attach a slab to
+an SKB's data area so that we can have per-device SLABs for this
+kind of stuff (and if all "ethernet" devices want to share the
+same SLAB, that's fine too, but it won't help all ethernet drivers
+for reasons outlined in my previous email).
 
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
+We added something similar for the Xen folks, and it's in Linus's
+BK tree right now.  It's named alloc_skb_from_cache().
 
-iD8DBQFB0JGZcC3lWbTT17ARAtkPAKDjhu4Ocy8aQbbY8GwpjCG9aaTu+wCgybsg
-s31h8DjurnRR1B6j4DuSr7Y=
-=3OVm
------END PGP SIGNATURE-----
-
---==_Exmh_-1419475951P--
+What I'd really like to see is device based determination of the
+correct slab to use.  Unfortunately, dev_alloc_skb() doesn't take
+a netdev argument, which is truly offensive.  Otherwise we could
+just stick the necessary logic there.
