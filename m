@@ -1,130 +1,235 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Subject: Re: [PATCH|RFC] IPv6 netfilter: a module for complete proxy ND
- support
-Date: Fri, 16 Jan 2004 11:40:22 +0200 (EET)
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <Pine.LNX.4.58.0401151800170.29722@rhea.tcs.hut.fi>
-References: <Pine.LNX.4.58.0401151705500.29722@rhea.tcs.hut.fi>
- <20040116.001317.73950271.yoshfuji@linux-ipv6.org>
- <Pine.LNX.4.58.0401151719160.29722@rhea.tcs.hut.fi>
- <20040116.005443.92504522.yoshfuji@linux-ipv6.org>
+From: Willy Tarreau <willy@w.ods.org>
+Subject: [2.4][TG3] deadlock between rmmod, SIOCDEVPRIVATE, SIOCETHTOOL
+Date: Sat, 17 Jan 2004 19:11:26 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040117181126.GA669@alpha.home.local>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: QUOTED-PRINTABLE
-Cc: netfilter-devel@lists.netfilter.org, davem@redhat.com,
-	netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: =?iso-8859-15?Q?YOSHIFUJI_Hideaki_=2F_=B5=C8=C6=A3=B1=D1=CC=C0?= <yoshfuji@linux-ipv6.org>,
-	pekkas@netcore.fi
-In-Reply-To: <20040116.005443.92504522.yoshfuji@linux-ipv6.org>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, jgarzik@pobox.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Jan 2004, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
-=CC=C0 wrote:
+Hi !
 
-> So, all usage of pneigh_XXX() is not for rfc2461 but for proxy arp.
-> 1) We need to consider how to implement rfc2461-proxy.
-> 2) We need to revisit all usages in net/ipv6.
+I have a problem with TG3 on any kernel from 2.4.21 to 2.4.25-pre6. I don't know
+for kernels before 2.4.21.
 
-No, no! The pneigh_XXX() *is* the way to do RFC2461 proxying :)
-I think Thaler's extended "proxy ARP" for IPv6 needs some other framework.
+Description:
 
-I still haven't had the time to check how proxy ARP really works in IPv4,
-so I might have misunderstood this line in arp.c (line 763):
+If an SIOCDEVPRIVATE ioctl is sent to a tg3 device while the module is being
+removed, both rmmod and the process doing the ioctl deadlock, with dev_probe_sem
+and rtnl_sem held. Note that I think that there's something related to the
+dev_probe_sem, because I cannot reproduce this problem when I play with
+SIOCETHTOOL only, and the difference is the following :
 
-"(arp_fwd_proxy(in_dev, rt) || pneigh_lookup(&arp_tbl, &tip, dev, 0)))) {"
+  - SIOCETHTOOL calls dev_load(), rtnl_lock()
+  - SIOCDEVPRIVATE calls dev_load(), dev_probe_lock(), rtnl_lock()
 
-I think the first check is for proxy ARP, and the second for a router
-acting as proxy.
+This problem happens to me everytime I restart the network drivers without
+stopping keepalived first. The only solution after this is to reboot, because
+the rmmod stays in D state forever.
 
-In a similar case for IPv6, we would first need to check for the Thaler
-IPv6 "proxy ARP", then for the RFC2461 router as a proxy case.
+I captured a trace with SysRQ-T that I passed through ksymoops. I have analysed
+it a bit, and digged through the sources, but I reach a point where I don't
+understand any more thing, because my conclusion is that the deadlock happens
+between two concurrent calls to schedule(), with rtnl_sem and if dev_probe_sem
+held before, but not if only rtnl_sem is held.
 
-> > In the current implementation the proxying router captures the multicas=
-t
-> > queries since it has joined the solicited-node multicast group, but it
-> > doesn't capture the unicast queries.
->
-> It is VERY strange to handle multicast / unicast in different way.
-> I really hate such a hetero (or an inconsistent) implementation.
+Thanks in advance for any help.
 
-Well, we still need some way to have the router capture some packets (the
-unicast NS messages) it would normally forward.
+Willy
 
-> > This is what I want to fix.
->
-> I understand the issue, but the fix is unappropriate.
+========== keepalived trace. This one does SIOCDEVPRIVATE =============
+Proc;  keepalived
 
-Ok. Having slept on the matter, here is a new attempt to fix the probem,
-which I think is cleaner than the one I proposed earlier. The down side is
-of course that all nodes, no matter if they are acting as proxies or not,
-will have to do some extra comparisons each time they receive a packet.
+>>EIP; c03b0c20 <rtnl_sem+0/1e0>   <=====
 
-Perhaps this is an acceptable trade off for the architectual cleanness.
+Trace; c010751d <get_wchan+dd/220>   =====> this is __down() in fact
+Trace; c0107668 <__down_failed+8/c>
+Trace; c029eba9 <rtnetlink_dump_ifinfo+589/5b0>  ====> this is rtnl_lock().
+Trace; c0298fcc <dev_ioctl+3f0/4a8>
+Trace; c02cb44a <inet_shutdown+36e/37c>
+Trace; c0291815 <sock_recvmsg+3b1/618>
+Trace; c0141fe9 <kill_fasync+3f1/408>
+Trace; c01086a3 <__up_wakeup+101f/13e4>
 
-Regards,
-Ville
+Note: rtnetlink_dump_ifinfo is at 0x660, which is 0x584 below 0xbe4,
+      so the trace above clearly demonstrates that the call to
+      rtnetlink_dump_ifinfo+589 is indeed rtnl_lock() called from
+      dev_ioctl() :
 
-Ps. this patch is just a RFC, I haven't had a chance to test it yet!
+00000000 <rtnl_lock>:
+   0:   b9 00 00 00 00          mov    $0x0,%ecx
+   5:   ff 0d 00 00 00 00       decl   0x0
+   b:   0f 88 d3 0b 00 00       js     be4 <.text.lock.rtnetlink>
+  11:   c3                      ret    
+  12:   89 f6                   mov    %esi,%esi
 
-=3D=3D=3D=3D=3D net/ipv6/ip6_input.c 1.14 vs edited =3D=3D=3D=3D=3D
---- 1.14/net/ipv6/ip6_input.c=09Mon Jun 16 18:11:36 2003
-+++ edited/net/ipv6/ip6_input.c=09Fri Jan 16 11:13:06 2004
-@@ -46,13 +46,41 @@
- #include <net/addrconf.h>
- #include <net/xfrm.h>
+00000660 <rtnetlink_dump_ifinfo>:
 
-+static inline int ip6_proxy_rcv(struct sk_buff *skb)
-+{
-+=09struct ipv6hdr *hdr =3D skb->nh.ipv6h;
+00000be4 <.text.lock.rtnetlink>:
+ be4:   e8 fc ff ff ff          call   be5 <.text.lock.rtnetlink+0x1>
+ be9:   e9 23 f4 ff ff          jmp    11 <rtnl_lock+0x11>
 
-+=09if (ipv6_addr_type(&hdr->daddr)&IPV6_ADDR_UNICAST &&
-+=09    pneigh_lookup(&nd_tbl, &hdr->daddr, skb->dev, 0)) {
-+=09=09u8 nexthdr =3D hdr->nexthdr;
-+=09=09int offset;
-+=09=09struct icmp6hdr msg;
-+
-+=09=09if (ipv6_ext_hdr(nexthdr)) {
-+=09=09=09offset =3D ipv6_skip_exthdr(skb, sizeof(*hdr), &nexthdr,
-+=09=09=09=09=09=09  skb->len - sizeof(*hdr));
-+=09=09=09if (offset < 0)
-+=09=09=09=09return 0;
-+=09=09} else
-+=09=09=09offset =3D sizeof(struct ipv6hdr);
-+
-+=09=09/* capture unicast NUD probes on behalf of the proxied node */
-+
-+=09=09if (nexthdr =3D=3D IPPROTO_ICMPV6 &&
-+=09=09    !skb_copy_bits(skb, offset, &msg, sizeof(msg)) &&
-+=09=09    msg.icmp6_type =3D=3D NDISC_NEIGHBOUR_SOLICITATION) {
-+=09=09=09ip6_input(skb);
-+=09=09=09return 1;
-+=09=09}
-+=09}
-+=09return 0;
-+}
+rtnl_lock() downs rtnl_sem in net/core/rtnetlink.c :
 
- static inline int ip6_rcv_finish( struct sk_buff *skb)
- {
--=09if (skb->dst =3D=3D NULL)
-+=09if (skb->dst =3D=3D NULL && !ip6_proxy_rcv(skb)) {
- =09=09ip6_route_input(skb);
--
-+=09}
- =09return dst_input(skb);
- }
+	void rtnl_lock(void)
+	{
+		rtnl_shlock();
+		rtnl_exlock();
+	}
 
+In fact, the code at 00000be4 above calls __down_failed(), which in turn calls
+__down(). The address c010751d is within __down(), just after a call to
+schedule(), so schedule() never returns :
+
+c0107510:       c7 43 04 01 00 00 00    movl   $0x1,0x4(%ebx)
+c0107517:       fb                      sti    
+c0107518:       e8 3f f2 00 00          call   c011675c <schedule>
+c010751d:       c7 07 02 00 00 00       movl   $0x2,(%edi)
+c0107523:       fa                      cli    
+c0107524:       8b 43 04                mov    0x4(%ebx),%eax
+
+All this is called from dev_ioctl() before 0xc0298fcc, which corresponds to this
+code :
+
+	default:
+		if (cmd == SIOCWANDEV ||
+		    (cmd >= SIOCDEVPRIVATE &&
+		     cmd <= SIOCDEVPRIVATE + 15)) {
+			dev_load(ifr.ifr_name);
+			dev_probe_lock();
+c0298fc7:		rtnl_lock();
+c0298fcc:		ret = dev_ifsioc(&ifr, cmd);
+			rtnl_unlock();
+			dev_probe_unlock();
+			if (!ret && copy_to_user(arg, &ifr, sizeof(struct ifreq)))
+				return -EFAULT;
+			return ret;
+
+So clearly it waits for rtnl_lock(). Note that it has succesfully acquired
+dev_probe_sem via dev_probe_lock().
+
+BTW, strace on the other keepalived process during rmmod shows that it blocks on
+SIOCETHTOOL (rtnl_lock() again) :
+
+   ioctl(11, 0x8946, ?) (unfinished)     (0x8946 is SIOCETHTOOL)
+
+======= keepalived trace - SIOCETHTOOL ========
+
+Proc;  keepalived
+
+>>EIP; c03b0c20 <rtnl_sem+0/1e0>   <=====
+
+Trace; c010751d <get_wchan+dd/220>
+Trace; c0107668 <__down_failed+8/c>
+Trace; c029eba9 <rtnetlink_dump_ifinfo+589/5b0>
+Trace; c0298dbb <dev_ioctl+1df/4a8>
+Trace; c02cb44a <inet_shutdown+36e/37c>
+Trace; c0291815 <sock_recvmsg+3b1/618>
+Trace; c0141fe9 <kill_fasync+3f1/408>
+Trace; c010870f <__up_wakeup+108b/13e4>
+Proc;  strace
+
+from net/core/dev.c::dev_ioctl()
+
+	case SIOCETHTOOL:
+		dev_load(ifr.ifr_name);
+c0298db6:	rtnl_lock();
+c0298dbb:	ret = dev_ethtool(&ifr);
+		rtnl_unlock();
+		if (!ret) {
+			if (colon)
+				*colon = ':';
+			if (copy_to_user(arg, &ifr,
+					 sizeof(struct ifreq)))
+				ret = -EFAULT;
+		}
+		return ret;
+
+So now we know exactly where all keepalived processes block :
+  - one of them waits for rtnl_lock() in SIOCETHTOOL,
+  - the other one waits for rtnl_lock() in SIOCDEVPRIVATE
+
+Now, rmmod.
+
+
+=========== rmmod trace ============
+
+Proc;  rmmod
+
+>>EIP; df87df34 <_end+1f367740/2034f86c>   <=====
+
+Trace; c011672b <schedule_timeout+73/a4>
+Trace; c0116670 <change_page_attr+184/1cc>
+Trace; c029941c <unregister_netdevice+190/364>
+Trace; c01d602c <unregister_netdev+10/104>
+Trace; e0862d6b <_end+2034c577/2034f86c>
+Trace; e0864ac0 <_end+2034e2cc/2034f86c>
+Trace; c0274306 <pci_unregister_driver+3a/174>
+Trace; e08630c6 <_end+2034c8d2/2034f86c>
+Trace; e0864ac0 <_end+2034e2cc/2034f86c>
+Trace; c011af43 <try_inc_mod_count+d7b/1508>
+Trace; c011a2e7 <try_inc_mod_count+11f/1508>
+Trace; c01086a3 <__up_wakeup+101f/13e4>
+
+
+000020ec <unregister_netdevice>  ; unregister_netdevice+190 = 0x0000227c
+
+    2257:       83 f8 64                cmp    $0x64,%eax
+    225a:       76 10                   jbe    226c <unregister_netdevice+0x180>
+    225c:       53                      push   %ebx
+    225d:       6a 06                   push   $0x6
+    225f:       68 20 00 00 00          push   $0x20
+    2264:       e8 fc ff ff ff          call   2265 <unregister_netdevice+0x179>
+    2269:       83 c4 0c                add    $0xc,%esp
+    226c:       c7 07 01 00 00 00       movl   $0x1,(%edi)
+    2272:       b8 19 00 00 00          mov    $0x19,%eax
+    2277:       e8 fc ff ff ff          call   2278 <unregister_netdevice+0x18c>
+==> 227c:       c7 07 00 00 00 00       movl   $0x0,(%edi)
+    2282:       a1 00 00 00 00          mov    0x0,%eax
+    2287:       29 f0                   sub    %esi,%eax
+    2289:       3d e8 03 00 00          cmp    $0x3e8,%eax
+    228e:       76 1b                   jbe    22ab <unregister_netdevice+0x1bf>
+
+The corresponding portion of code is in net/core/dev.c::unregister_netdevice():
+
+0x2257:		if ((jiffies - now) > 1*HZ) {
+			/* Rebroadcast unregister notification */
+			notifier_call_chain(&netdev_chain, NETDEV_UNREGISTER, dev);
+		}
+0x226c:		current->state = TASK_INTERRUPTIBLE;
+0x2272:		schedule_timeout(HZ/4);
+0x227c:		current->state = TASK_RUNNING;
+		if ((jiffies - warning_time) > 10*HZ) {
+			printk(KERN_EMERG "unregister_netdevice: waiting for %s to "
+					"become free. Usage count = %d\n",
+					dev->name, atomic_read(&dev->refcnt));
+			warning_time = jiffies;
+		}
+
+Which shows that schedule_timeout(HZ/4) did not return.
+
+000000e8 <schedule_timeout> ; schedule_timeout+73=0x15b
+
+     150:       53                      push   %ebx
+     151:       e8 fc ff ff ff          call   152 <schedule_timeout+0x6a>
+     156:       e8 fc ff ff ff          call   157 <schedule_timeout+0x6f>
+==>  15b:       53                      push   %ebx
+     15c:       e8 fc ff ff ff          call   15d <schedule_timeout+0x75>
+
+Which corresponds to this code in kernel/sched.c::schedule_timeout() :
+
+	add_timer(&timer);
+	schedule();
+==>	del_timer_sync(&timer);
+
+So schedule() does not return here too.
+
+And now I have no idea where to look anymore. I don't see what can block in
+schedule() when both rtnl_sem and dev_probe_sem are held...
 
 --
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
