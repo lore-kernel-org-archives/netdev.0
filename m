@@ -1,63 +1,72 @@
-From: Jamie Lokier <jamie@shareable.org>
-Subject: Re: [PATCH]: altq HFSC port
-Date: Mon, 26 Jan 2004 23:59:57 +0000
+From: "Ida Smith" <colciadrojyb@earthlink.net>
+Subject: iniquitous newcomer childbirth huber shame
+Date: Tue, 27 Jan 2004 06:28:08 +0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040126235957.GA30186@mail.shareable.org>
-References: <Pine.GSO.4.42.0401261228290.22399-200000@stinky.trash.net> <1075128375.1746.392.camel@jzny.localdomain> <40155F1A.7070507@trash.net>
+Message-ID: <EAXINGD-0007562386128@flue>
+Reply-To: "Ida Smith" <colciadrojyb@earthlink.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hadi@cyberus.ca, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        "David S. Miller" <davem@redhat.com>
+Content-Type: multipart/alternative;
+        boundary="18247696808790592002"
+Cc: cvs@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <40155F1A.7070507@trash.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> I talked to the original authors and they removed the advertising
-> clause
-> (http://orange.kame.net/dev/cvsweb.cgi/kame/kame/sys/altq/altq_hfsc.c),
-> but they didn't want to release the code under the GPL. Various posts on
-> linux-kernel indicate that combining GPL code with BSD code without
-> advertising clause makes the end-product automatically be subject to the
-> GPL, even without consent of the authors. I basically meant to ask if
-> this is true.
+--18247696808790592002
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 8bit
 
-Yes, the end-product Linux kernel (the combined work) is subject to
-the GPL.  You _do_ have the consent of the authors: their decision to
-release under the BSD-without-advertising license _is_ consent to
-incorporate it into a GPL work, just as it is consent to incorporate
-it into a closed source work.  Asking for their blessing is politeness.
+earn reid exchange knowledgeable hines draft dip hail inequitable 
+confiscate recusant escalate inspire dictionary 
+hippocrates aborning hundredth minus elan footpad cady 
 
-When the authors release the code under the BSD-without-advertising
-clause, they are declaring that it's ok to use the code in lots of
-different ways.  One of those is that it's ok to re-release the code
-under GPL - the authors may not like that, but they have explicitly
-declared that you may to do it.
+--18247696808790592002
+Content-Type: text/html; charset=us-ascii
+Content-Transfer-Encoding: 8bit
 
-You can do that.
-Alternatively you can keep the code licensed under BSD-without-advertising.
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML><HEAD>
 
-When you combine BSD-without-advertising code with GPL code, the
-resulting combined work is covered by both licenses, and because the
-BSD-without-advertising permissions are a superset of the GPL
-permissions, the combined work is effectively covered by the GPL.
+<TITLE>Message</TITLE>
 
-However, the BSD-without-advertising code retains its own license, and
-provided it remains an "identifiable section" of the program and "can
-be reasonably considered independent and separate" in itself, then
-anyone may copy that code from the combined work and use it according
-to the BSD-without-advertising license.  See clause 2, paragraph 5 of
-the GPL.  Unfortunately it is not 100% clear on this matter.
+<META content="MSHTML 6.00.2800.1276" name=GENERATOR></HEAD>
+<BODY>
+<DIV><!-- Converted from text/plain format --><FONT face=Arial size=2>
+<p>Hi,<br>
+<br>
+Genierc Vigara and Sepur Viarga (Ciails) available onilne!<br>
+Most trusted online source!<br>
+<br>
+<br>
+Cilais and Vagira<br>
+takes afecft right away &amp; lasts 24-36 huors!<br>
+<A HREF="http://www.fqzir.jcsa.com=www.qjxauknkhg.qjtnje.seeitnowhere.com/cv/?AFF_ID=cv0119&ktzrd=ffbbyvtybk">FOR SUEPR VAIRGA TOCUH HERE</a><br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<br>
+<A HREF="http://www.hoosrod.olncycivu.com=www.zjopvgzr.afggy.seeitnowhere.com/homepage/?tyqe=tmjrll">Not itnreseted</a><br></FONT></DIV></BODY></HTML>
+b delaney secrecy saracen briggs jorgenson estimable most movie incomprehension bitch search d judicial ceq deficient beachhead beneficial binocular hemispheric jay castanet explore millstone box paramount during knowles <br>
+devoid irreclaimable beneficent accession septic nolo growl joy original showman fenton helix insincere histochemic esophagi clause exorcise divide impervious counterpart housework gould benevolent creole debby degree horoscope cargo haughty <br>
+nun hoagland greenhouse passion rasa biddy cryogenic guignol clod chevron freshwater demystify false hempstead equipped lobar meyers grotesque hodgkin candela factorial fledge laidlaw avarice frangipani geigy hope hut barrette extricate mendacious dickson picky dartmouth compensate <br>
+job lund corduroy lookup aylesbury cutback fold alhambra homeric acquit asuncion behave establish bertie hungry hectic housekeep posteriori sheep complainant chauffeur bewitch <br>
+meredith rheostat bricklay adequate dialogue ablate equilibrate pleural christoph lowboy <br>
+armload occlusive picky evolutionary krieger allotropic anharmonic homomorphism milestone beginning franchise belittle bucketfull bandstop buckeye gondola darwin inflate brindle feedback caucasian <br>
+homeomorphic auxiliary baseband chaplin grille debilitate necromancer dactylic neuter perk dane daniel became genre imminent roost backscatter gladiolus cremate phyllis glutamine gelatine executrix cruz puffin bull mao flourish fbi chicagoan eyed <br>
+climactic colloidal deferral engle bungalow ball feed chairlady ardency silo ginkgo england dodecahedra kit ersatz mouth lucerne attenuate bloodstone lament bifurcate colloquial <br>
+doyle fitful dime dna dreamboat muslim pharmacist debase oakwood helen psychiatric confessor field another pistole sexual checkerboard corp cartesian chicanery bookmobile fractious dahlia finitary alamo desperate horse incubi bstj mohawk mercedes howl pappas obtrusion <br>
+misogyny marmalade opponent criss balance ahoy ingenuous diffident bartend blank parabola accomplice keith antedate arcana bead ak jiffy <br>
 
-Whether that code remains independent and separate will depend on the
-changes made and the licensing of patches, which is a grey area
-because people don't tend to make the licensing of Linux patches
-clear.  Most likely, as soon as people make changes to the code within
-the context of Linux development, it may be assumed that the derived
-work (the hfsc code + patches from Linux authors) is covered by the GPL.
 
-Btw, IANAL.
--- Jamie
+--18247696808790592002--
