@@ -1,235 +1,71 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] netdev-2.6 queue updated
-Date: Sat, 30 Oct 2004 11:53:30 -0400
+From: Michal Ludvig <michal@logix.cz>
+Subject: Re: Asynchronous crypto layer.
+Date: Sat, 30 Oct 2004 18:57:20 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041030155330.GA11929@havoc.gtf.org>
+Message-ID: <Pine.LNX.4.61.0410301805360.14888@maxipes.logix.cz>
+References: <1099030958.4944.148.camel@uganda>
+ <Xine.LNX.4.44.0410291342350.22168-100000@thoron.boston.redhat.com>
+ <20041030091932.6a74bdae@zanzibar.2ka.mipt.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: akpm@osdl.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+In-Reply-To: <20041030091932.6a74bdae@zanzibar.2ka.mipt.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, 30 Oct 2004, Evgeniy Polyakov wrote:
 
-BK users:
+> On Fri, 29 Oct 2004 13:44:24 -0400 (EDT)
+> James Morris <jmorris@redhat.com> wrote:
+> 
+> > On Fri, 29 Oct 2004, Evgeniy Polyakov wrote:
+> > 
+> > > I'm pleased to announce asynchronous crypto layer for Linux kernel 2.6.
+> > 
+> > Could you please resend as a patch against the latest bk snapshot?
+> > 
+> > i.e. output of 'diff -purN tree-a tree-b'
+> > 
+> 
+> Attached following patches:
+> 
+> Kconfig.connector.patch
+> Kconfig.crypto.patch
+> Makefile.connector.patch
+> Makefile.crypto.patch
+> acrypto.patch
+> connector.patch
 
-	bk pull bk://gkernel.bkbits.net/netdev-2.6
+Hi Evgeniy,
 
-Patch users:
+I have compiled and booted with your patches. Not too much 
+playing around so far. Anyway some quick observations:
 
-	I'm too slack to do a patch today.
+- "rmmod simple_lb" hangs because:
+| <6>You are removing crypto load balancer simple_lb which is current and 
+| default.
+| There is no other crypto load balancers. Removing is delayed untill new 
+| load balancer is registered.
+Of course I can't re-add it because the module is still there. In this 
+case rmmod should fail with a gentle message (-EBUSY) instead of hang. Or 
+let it go if not in use.
 
-This will update the following files:
+- In the kernel config ACRYPTO depends on CONNECTOR, but is above it in 
+the menuconfig.
 
- drivers/net/3c505.c                           |   10=20
- drivers/net/3c507.c                           |  148 ++--
- drivers/net/3c59x.c                           |    1=20
- drivers/net/8139cp.c                          |  102 ++-
- drivers/net/8139too.c                         |   98 +-
- drivers/net/8390.c                            |    1=20
- drivers/net/8390.h                            |    1=20
- drivers/net/Kconfig                           |   19=20
- drivers/net/ac3200.c                          |   64 -
- drivers/net/atp.c                             |    2=20
- drivers/net/bonding/bond_3ad.c                |   10=20
- drivers/net/depca.c                           |   24=20
- drivers/net/e100.c                            |    1=20
- drivers/net/e2100.c                           |   18=20
- drivers/net/eepro100.c                        |  293 +++-----
- drivers/net/fealnx.c                          |  275 +++-----
- drivers/net/hp100.c                           |   65 +
- drivers/net/lne390.c                          |   64 -
- drivers/net/mace.c                            |   66 --
- drivers/net/ne3210.c                          |   34 -
- drivers/net/pcmcia/fmvj18x_cs.c               |    4=20
- drivers/net/pcmcia/ibmtr_cs.c                 |    7=20
- drivers/net/pcmcia/pcnet_cs.c                 |   39 -
- drivers/net/pcmcia/smc91c92_cs.c              |    2=20
- drivers/net/pcmcia/xirc2ps_cs.c               |    2=20
- drivers/net/r8169.c                           |  855 +++++++++++++++++++=
--------
- drivers/net/skfp/h/fplustm.h                  |    6=20
- drivers/net/skfp/h/targethw.h                 |    6=20
- drivers/net/skfp/h/targetos.h                 |    2=20
- drivers/net/skfp/h/types.h                    |   21=20
- drivers/net/skfp/skfddi.c                     |   25=20
- drivers/net/skfp/smt.c                        |    7=20
- drivers/net/smc91x.h                          |   43 +
- drivers/net/starfire.c                        |   79 +-
- drivers/net/sundance.c                        |  259 +++----
- drivers/net/tlan.c                            |   72 +-
- drivers/net/tlan.h                            |   88 --
- drivers/net/tokenring/3c359.c                 |   36 -
- drivers/net/tokenring/3c359.h                 |    2=20
- drivers/net/tokenring/ibmtr.c                 |  158 ++--
- drivers/net/tokenring/lanstreamer.c           |   24=20
- drivers/net/tokenring/lanstreamer.h           |    2=20
- drivers/net/tokenring/olympic.c               |   94 +-
- drivers/net/tulip/de2104x.c                   |    1=20
- drivers/net/tulip/dmfe.c                      |    1=20
- drivers/net/tulip/tulip_core.c                |    3=20
- drivers/net/tulip/winbond-840.c               |    3=20
- drivers/net/tulip/xircom_tulip_cb.c           |    1=20
- drivers/net/typhoon.c                         |    3=20
- drivers/net/via-rhine.c                       |  276 ++++----
- drivers/net/via-velocity.h                    |    4=20
- drivers/net/wan/c101.c                        |    3=20
- drivers/net/wan/n2.c                          |    5=20
- drivers/net/wireless/airo.c                   |   42 -
- drivers/net/wireless/airport.c                |    5=20
- drivers/net/wireless/arlan-main.c             |   90 +-
- drivers/net/wireless/arlan-proc.c             |   15=20
- drivers/net/wireless/arlan.h                  |   26=20
- drivers/net/wireless/hermes.c                 |   43 -
- drivers/net/wireless/hermes.h                 |   62 -
- drivers/net/wireless/netwave_cs.c             |   75 +-
- drivers/net/wireless/orinoco_cs.c             |   10=20
- drivers/net/wireless/orinoco_pci.c            |    7=20
- drivers/net/wireless/orinoco_plx.c            |   82 +-
- drivers/net/wireless/orinoco_tmd.c            |   51 -
- drivers/net/wireless/prism54/isl_ioctl.c      |   24=20
- drivers/net/wireless/prism54/islpci_hotplug.c |    2=20
- drivers/net/wireless/prism54/prismcompat.h    |    4=20
- drivers/net/wireless/ray_cs.c                 |    4=20
- drivers/net/wireless/wavelan_cs.c             |   25=20
- drivers/net/wireless/wavelan_cs.p.h           |    1=20
- include/linux/ibmtr.h                         |   15=20
- include/linux/pci_ids.h                       |    3=20
- include/pcmcia/mem_op.h                       |   89 +-
- 74 files changed, 2208 insertions(+), 1896 deletions(-)
+- I would choose a different directory strucrure. Instead of 
+drivers/acrypto and drivers/connector I'd put the device-independent 
+parrts info e.g. crypto/acrypto and the drivers (e.g. Fcrypt or PadLock) 
+into drivers/crypto.
 
-through these ChangeSets:
+- For other interested: concatenated patch with some very minor tweaks is 
+at http://www.logix.cz/michal/dl/acrypto/acrypto.diff
+My changes are in mludvig.diff in the same directory.
+It applies cleanly to BitKeeper tree as well.
 
-<philipp.gortan:tttech.com>:
-  o [netdrvr 8139cp] add PCI ID
-
-Adrian Bunk:
-  o net/skfp/smt.c: remove an unused function
-  o net/3c505.c: remove unused functions
-  o bonding: remove an unused function
-  o net/wan/n2.c: remove an unused function
-
-Alexander Viro:
-  o mace iomem annotations - trivial part
-  o airo iomem annotations
-  o wavelan_cs iomem annotations
-  o lne390 iomem annotations and fixes
-  o fealnx iomem annotations, switch to io{read,write}
-  o wireless iomem annotations and fixes, switch to io{read,write}
-  o ibmtr annotations - the rest
-  o skfp iomem annotations, switch to io{read,write}
-  o olympic_open() cleanup and fixes
-  o sundance iomem annotations, switch to io{read,write}
-  o via-rhine iomem annotations, switch to io{read,write}
-  o net/pcmcia iomem annotations
-  o netwave iomem annotations
-  o arlan iomem annotations and cleanups
-  o netdev_priv() in netwave_cs
-  o netdev_priv() in arlan
-  o (25/32) lanstreamer iomem annotations
-  o beginning of ibmtr iomem annotations
-  o e2100 iomem annotations and fixes
-  o 3c359 iomem annotations
-  o depca iomem annotations
-  o killed isa_... in 3c507
-  o starfire iomem annotations
-  o ne3210 iomem annotations
-  o ac3200 iomem annotations and fixes
-  o iomem annotations in r8169
-
-Andrew Morton:
-  o r8169 module_param build fix
-
-Arjan van de Ven:
-  o ray_cs export cleanup
-
-Christoph Hellwig:
-  o unexport ei_tx_timeout
-
-David Dillow:
-  o net/typhoon.c: use previously-unused function
-
-David S. Miller:
-  o eepro100.c iomap conversion
-
-Felipe Damasio:
-  o 8139cp net driver: add MODULE_VERSION
-
-Fran=E7ois Romieu:
-  o r8169: netconsole support
-  o r8169: unneeded synchronize_irq()
-  o r8169: always clean Tx desc
-  o r8169: cleanup
-  o r8169: rtl8169_close() races
-  o r8169: automatic pci dac step down
-  o r8169: wrong advertisement of VLAN features
-  o r8169: Tx timeout rework
-  o r8169: default on disabling PCIDAC
-  o r8169: Mac identifier extracted from Realtek's driver v2.2
-  o r8169: TSO support
-  o r8169: hint for Tx flow control
-  o r8169: miscalculation of available Tx descriptors
-  o 8139cp: SG support fixes
-  o r8169: vlan support
-  o r8169: Rx checksum support
-  o r8169: advertise DMA to high memory
-  o r8169: Tx checksum offload
-  o r8169: comment a gcc 2.95.x bug
-  o r8169: sync the names of a few bits with the 8139cp driver
-  o r8169: bump version number
-  o r8169: enable MWI
-  o r8169: code cleanup
-  o r8169: per device receive buffer size
-  o r8169: add ethtool_ops.{get_regs_len/get_regs}
-
-Jeff Garzik:
-  o [netdrvr eepro100] fix pci_iomap() args and info msg that follows
-  o [netdrvr 8139cp] TSO support
-
-John W. Linville:
-  o tulip: Add MODULE_VERSION
-  o e100: Add MODULE_VERSION
-  o r8169: Add MODULE_VERSION
-  o 8139too: Add MODULE_VERSION
-  o 3c59x: Add MODULE_VERSION
-  o r8169: simplify trick if() expression
-  o r8169: fix RxVlan bit manipulation
-  o r8169: endian-swap return of rtl8169_tx_vlan_tag()
-
-Krzysztof Halasa:
-  o net/wan/n2.c: remove an unused function
-
-Margit Schubert-While:
-  o prism54 sparse fixes
-  o prism54 fix resume processing
-
-Rene Herman:
-  o 8139too Interframe Gap Time
-
-Roger Luethi:
-  o mc_filter on big-endian arch
-
-Steffen Klassert:
-  o 8139cp - add netpoll support
-
-Stephen Hemminger:
-  o tlan: enable faster hash function
-  o tlan: make inline's static (rev2)
-  o tlan: get rid of unneeded global vars (rev 2)
-  o tlan: use netdev_priv (rev 2)
-  o hp100: use inline for comple usage of dev->priv
-  o hp100: use netdev_priv (rev 2)
-  o via-velocity: get rid of unused global
-  o via-rhine: free_ring should be static
-  o via-rhine: use module_param
-  o 8139too: use netdev_priv
-  o r8169: use netdev_priv
-  o r8169: use module_param
-  o 8139cp - module_param
-
-Thomas Gleixner:
-  o rtl8139too.c: Fix missing pci_disable_dev
-  o rtl8139too.c: Fix missing pci_disable_dev
+Michal Ludvig
+-- 
+* A mouse is a device used to point at the xterm you want to type in.
+* Personal homepage - http://www.logix.cz/michal
