@@ -1,54 +1,27 @@
-From: "Rock shows Produções Artísticas" <rockshows@rockshows.com.br>
-Subject: Show de =?ISO-8859-1?Q?Lan=E7amento?= CD Fator Cinco
-Date: Wed, 18 Dec 2002 04:13:42 -0200
+From: Greg KH <greg@kroah.com>
+Subject: Re: [ANNOUNCE] Intel PRO/100 software developer manual released
+Date: Tue, 17 Dec 2002 22:34:05 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212180608.gBI68g3v017678@oss.sgi.com>
+Message-ID: <20021218063405.GP28629@kroah.com>
+References: <288F9BF66CD9D5118DF400508B68C44604758F6C@orsmsx113.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/html; charset="ISO-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   LOSTeam <losteam@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
+Content-Disposition: inline
+In-Reply-To: <288F9BF66CD9D5118DF400508B68C44604758F6C@orsmsx113.jf.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<html>
+On Tue, Dec 17, 2002 at 02:03:50PM -0800, Feldman, Scott wrote:
+> 
+> Available at https://sourceforge.net/projects/e1000.
 
-<head>
-<title></title>
-</head>
+Yeah!  Thank you for doing this, I know it must not have been an easy
+thing to accomplish.  Hopefully, Linux will be better off because of it.
 
-<body bgcolor=3D"#000000"
-<p align=3D"center" topmargin=3D"0">
-<p align=3D"center"><img border=3D"0"
-src=3D"http://www.rockshows.com.br/IMAGES/animacao_mala_direta.gif" width=
-=3D"560"
-height=3D"255">
-<div align=3D"center">
-  <font face=3D"Arial" color=3D"#C0C0C0" size=3D"2">Grande show de lan=E7=
-amento do CD
-  da banda Fator Cinco no DirecTV - Music Hall em Fevereiro de 2003,</fon=
-t>
-</div>
-<div align=3D"center">
-  <font face=3D"Arial" color=3D"#C0C0C0" size=3D"2">clique <a
-href=3D"http://www.rockshows.com.br/fatorcinco.htm">aqui</a>
-  e saiba como adquirir o seu ingresso gratuitamente e conhecer esta nova
-  revela=E7=E3o do rock nacional.</font>
-</div>
-<p align=3D"center">&nbsp;</p>
-<p align=3D"center"><font color=3D"#FFFF00" size=3D"1" face=3D"Arial" <p>=
-Caso n=E3o
-queira mais receber nossos informativos,
-<a href=3D"mailto:remover@rockshows.com.br?Subject=3D::REMOVER
-V1::&amp;Body=3Dnetdev@oss.sgi.com" style=3D"text-decoration: blink; colo=
-r:
-#FFFFFF">Click
-aqui !</a></p><br>
+thanks,
 
-
-</font>
-
-
-</body>
-
-</html>
+greg k-h
