@@ -1,37 +1,46 @@
-From: Tomas Szepe <szepe@pinerecords.com>
-Subject: Re: Linux 2.6.7
-Date: Thu, 17 Jun 2004 08:56:07 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: 2.6.7-rc3: unregister_netdevice: waiting for tun0 to become free. Usage count = 1
+Date: Thu, 17 Jun 2004 18:17:22 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617065607.GA11999@louise.pinerecords.com>
-References: <Pine.LNX.4.58.0406152253390.6392@ppc970.osdl.org> <20040616111329.GA1571@louise.pinerecords.com> <20040616121850.GO12308@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <20040617081722.GA8559@gondor.apana.org.au>
+References: <20040613183622.3a814506.davem@redhat.com> <20040614015013.GA11048@gondor.apana.org.au> <20040613210725.70dbd016.davem@redhat.com> <20040614042216.GA28669@gondor.apana.org.au> <20040614102858.GA12343@gondor.apana.org.au> <20040614124402.GA28519@gondor.apana.org.au> <20040616193731.GB29781@ms2.inr.ac.ru> <20040616130950.6aadde3c.davem@redhat.com> <20040616203748.GA30675@ms2.inr.ac.ru> <20040616134711.499209c9.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, schwab@suse.de,
+        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: viro@parcelfarce.linux.theplanet.co.uk
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040616121850.GO12308@parcelfarce.linux.theplanet.co.uk>
+In-Reply-To: <20040616134711.499209c9.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Jun-16 2004, Wed, 13:18 +0100
-viro@parcelfarce.linux.theplanet.co.uk <viro@parcelfarce.linux.theplanet.co.uk> wrote:
-
-> > 2.6.7's airo.ko (unlike 2.6.6's) won't allow the user to set
-> > ESSID via "echo myessid >/proc/driver/aironet/ethX/SSID".
-> > 
-> > Changes like this shouldn't probably be made in the middle
-> > of a stable series.
+On Wed, Jun 16, 2004 at 01:47:11PM -0700, David S. Miller wrote:
+> On Thu, 17 Jun 2004 00:37:48 +0400
+> Alexey Kuznetsov <kuznet@ms2.inr.ac.ru> wrote:
 > 
-> Changes like this are called bugs.  The thing is, original variant of
-> function (actually, both read and write) was also buggy and trivially
-> exploitable, so fixing it was needed.  Fscking it up was not, obviously.
+> > Sort of. I think it should happen after killing reference to dst->dev:
+>  ...
+> > but before dropping reference to dev:
+>  ...
+> > So, I think it should look like:
+> > 
+> > 		dst->dev = &loopback_dev;
+> > 		dev_hold(&loopback_dev);
+> > +		synchronize_kernel();
+> > 		dev_put(dev);
+> 
+> Perfect, that's what I put into my tree then, plus some comment.
 
-Sure, I just assumed somebody had done this on purpose.
+Yes we definitely want this call.  But wouldn't it be better to do one
+call at the top level, say at the end of netdev_wait_allrefs?
 
-> Fix follows; see if it works for you.
+Otherwise we may end up with lots of synchronize_kernel() calls
+scattered in each individual event handler.
 
-Works for me, thanks.
-
+Cheers,
 -- 
-Tomas Szepe <szepe@pinerecords.com>
+Visit Openswan at http://www.openswan.org/
+Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
