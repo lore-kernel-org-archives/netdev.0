@@ -1,32 +1,26 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
+From: David Stevens <dlstevens@us.ibm.com>
 Subject: Re: Wrong UIDs reported in /proc/net/tcp
-Date: Fri, 19 Nov 2004 09:07:19 +1100
-Message-ID: <20041118220719.GA9890@gondor.apana.org.au>
-References: <20041109205358.GA64015@calma.pair.com> <E1CRdBr-0001P2-00@gondolin.me.apana.org.au> <20041118190257.GA7084@calma.pair.com> <20041118210307.GA9557@gondor.apana.org.au> <20041118132700.29c23d00@zqx3.pdx.osdl.net>
+Date: Thu, 18 Nov 2004 14:16:33 -0800
+Message-ID: <OFE512064F.DBA4A3CD-ON88256F50.007A2A62-88256F50.007A5E0F@us.ibm.com>
+References: <20041118220719.GA9890@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "Chad N. Tindel" <chad@tindel.net>, netdev@oss.sgi.com,
-        linux-net@vger.kernel.org
+Content-Type: text/plain; charset="US-ASCII"
+Cc: "Chad N. Tindel" <chad@tindel.net>, linux-net@vger.kernel.org,
+        netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20041118132700.29c23d00@zqx3.pdx.osdl.net>
+In-Reply-To: <20041118220719.GA9890@gondor.apana.org.au>
+To: Herbert Xu <herbert@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 18, 2004 at 01:27:00PM -0800, Stephen Hemminger wrote:
-> 
-> It could also be the sockets are shared between processes with uid's or that
-> the real/effective uid or different or even the uid is that of the original
-> creator and the file was inherited across exec.
+Isn't the read itself atomic?
 
-You're right.  However, I think the original poster is getting
-different results between calls on the same connection.
+Assuming so, another solution would be to stat/fstat the file, add some to 
+it to account
+for growth, allocate a buffer that big and read the whole thing in one 
+shot. Then the
+results should be self-consistent.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+                                                +-DLS
