@@ -1,56 +1,65 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: cvs commit'ed
-Date: Sat, 14 Aug 2004 15:41:14 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040814194114.GJ2050@ruslug.rutgers.edu>
-References: <200408101824.28368.vda@port.imtp.ilyichevsk.odessa.ua>
-	<20040811002844.GH26262@ruslug.rutgers.edu>
-	<20040811005346.GK26262@ruslug.rutgers.edu>
-	<200408141922.42792.vda@port.imtp.ilyichevsk.odessa.ua>
-	<20040814183712.GH2050@ruslug.rutgers.edu>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [ESP] Only one algorithm is required
+Date: Sun, 15 Aug 2004 05:56:39 +1000
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040814195639.GA25009@gondor.apana.org.au>
+References: <20040814105245.GA20646@gondor.apana.org.au> <Xine.LNX.4.44.0408141012510.26617-100000@dhcp83-76.boston.redhat.com> <20040814192412.GA24399@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>,
-	"Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
-	prism54-devel@prism54.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="k+w/mQv8wyuph6w0"
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: James Morris <jmorris@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20040814183712.GH2050@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Errors-To: prism54-devel-bounces@prism54.org
+In-Reply-To: <20040814192412.GA24399@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Aug 14, 2004 at 02:37:12PM -0400, Luis R. Rodriguez wrote:
-> On Sat, Aug 14, 2004 at 07:22:42PM +0300, Denis Vlasenko wrote:
-> > On Wednesday 11 August 2004 03:53, Luis R. Rodriguez wrote:
-> > > Denis,
-> > >
-> > > Actually you have CVS access to prism54, if no one complains about these
-> > > patches (and I think no one will as they are trivial), just go ahead and
-> > > commit these changes yourself. Please remember to update the ChangeLog too.
-> > >
-> > > After your changes go through I plan on starting to integrate the wpa work
-> > > I have (it can't wait any longer).
-> > 
-> > I did it. You may want to check whether cvs is still ok,
-> > it was the first time I ever used cvs ;]
+
+--k+w/mQv8wyuph6w0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+
+On Sun, Aug 15, 2004 at 05:24:12AM +1000, herbert wrote:
+>
+> > This is userland level policy and I don't think the kernel should be
+> > enforcing this.
 > 
-> Heh, I'm sure its fine. BTW I'd like us to move to subversion to use the
-> concepts of patchsets. I think this will help us keep our tree and the
-> kernel tree in sync.
+> We should remove the ealg check altogether then?
 
-I just checked to make sure and CVS rep is fine. The updates weren't
-going through to generate patches published online since the latest
-kernel was just released -- 2.6.8. I DLed, and now patches are going
-through.
+Please disregard the esp alg check patch altogether.  It's comletely
+bogus.
 
-	Luis
+The way to get null algorithms through is to attach a non-null algorithm
+with the name set to cipher_null/digest_null.
 
+However, we should fix IPv6 to allow null authentication algorithms.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
 -- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--k+w/mQv8wyuph6w0
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv6/esp6.c 1.36 vs edited =====
+--- 1.36/net/ipv6/esp6.c	2004-08-12 19:59:52 +10:00
++++ edited/net/ipv6/esp6.c	2004-08-15 05:54:35 +10:00
+@@ -302,8 +302,9 @@
+ {
+ 	struct esp_data *esp = NULL;
+ 
++	/* null auth and encryption can have zero length keys */
+ 	if (x->aalg) {
+-		if (x->aalg->alg_key_len == 0 || x->aalg->alg_key_len > 512)
++		if (x->aalg->alg_key_len > 512)
+ 			goto error;
+ 	}
+ 	if (x->ealg == NULL)
+
+--k+w/mQv8wyuph6w0--
