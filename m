@@ -1,526 +1,369 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Revert pskb change for x->type->output
-Date: Fri, 20 Aug 2004 18:23:31 +1000
+From: "Michael T Kerrisk" <mtk-lists@gmx.net>
+Subject: TCP_CORK 200ms maximum cork time -- expected behaviour?
+Date: Fri, 20 Aug 2004 16:00:33 +0200 (MEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040820082331.GA23626@gondor.apana.org.au>
+Message-ID: <18686.1093010433@www70.gmx.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Cc: michael.kerrisk@gmx.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Gidday,
 
---ew6BAiZeqk4r7MaW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I tried posting this several weeks back, but got no response. =20
+I'll try again, this time with programs (see below) that=20
+demonstrate (also see below) what I=92m seeing.
 
-Hi:
+The TCP_CORK socket option allows us to perform multiple=20
+write()s (or send()s or sendfile()s) while delaying the=20
+transmission of an outgoing TCP segment until the option is=20
+disabled (or a segment MSS is filled or the socket is closed).
 
-Since skb_checksum_help() has been moved to xfrm[46]_output(), we don't
-need the sk_buff ** argument in x->type->output anymore.  This patch
-reverts it to a sk_buff *.
+All is fine and good, but there's one point I'm puzzled=20
+about: even when TCP_CORK is set, buffered data will still be=20
+transmitted after a 200 millisecond delay (the delay counts=20
+from the time that the first corked byte was written),=20
+**even if TCP_CORK is still set**.  So, I'm wondering:
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+1. Is this intended behaviour, or simply an=20
+   outgrowth of the combined implementations of=20
+   TCP_CORK and TCP_NAGLE_OFF?
+
+2. If it's intended behaviour, what is the=20
+   rationale for the ceiling time on corking?
+
+I first observed this behaviour quite some time back, but=20
+I've verified that it is still current (2.4.26 and 2.6.8.1=20
+kernels).  (In passing: of course, similar behaviour occurs=20
+with MSG_MORE on TCP sockets.)
+
+Here's what I see using my two test programs:
+
+tcp_cork_receive port
+    This binds to a port, accepts a connection
+    and then reads blocks displaying them along
+    with the time that the read() completed.
+
+tcp_cork_send [options] server port num-writes buf-size
+    Connect to server/port, perform specified number
+    ('num-writes') of writes, each containing 'buf-size'
+    bytes.  By default, this program enables TCP_CORK
+    on the socket.
+
+    Various options are provided, but the only one=20
+    needed for the test is '-d usecs' which specifies
+    a number of microseconds to usleep() between writes.
+   =20
+In the following (run on 2.6.8.1), tcp_cork_send is used to=20
+write 100 bytes, one at a time, with a 10 millisecond delay=20
+between writes:
+
+$ ./tcp_cork_receive 9999 &
+[1] 8868
+$ ./tcp_cork_send -d 10000 localhost 9999 100 1
+[PID 8868] 1093009988.950: Receiver accepted connecton
+[PID 8869] 1093009988.951: Enabled TCP_CORK
+[PID 8869] 1093009988.951: TCP_CORK=3D1
+[PID 8868] 1093009989.152: [received 17 bytes]
+[PID 8868] 1093009989.359: [received 17 bytes]
+[PID 8868] 1093009989.563: [received 17 bytes]
+[PID 8868] 1093009989.767: [received 17 bytes]
+[PID 8868] 1093009989.971: [received 17 bytes]
+[PID 8869] 1093009990.154: Completed writes
+[PID 8868] 1093009990.155: [received 15 bytes]
+[1]+  Done                    ./tcp_cork_receive 9999
+
+
+The "received" messages appear every 200 milliseconds, even
+though the sender did not disable TCP_CORK.  Based on what I=92d
+read/heard about TCP_CORK, I would have expected to see only=20
+one "received" after the sender had closed the socket.  But,=20
+instead, there is clearly a 200 millisecond ceiling on corkage.
 
 Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---ew6BAiZeqk4r7MaW
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+Michael
 
-===== include/net/xfrm.h 1.68 vs edited =====
---- 1.68/include/net/xfrm.h	2004-08-19 21:44:12 +10:00
-+++ edited/include/net/xfrm.h	2004-08-20 18:08:26 +10:00
-@@ -216,7 +216,7 @@
- 	void			(*destructor)(struct xfrm_state *);
- 	int			(*input)(struct xfrm_state *, struct xfrm_decap_state *, struct sk_buff *skb);
- 	int			(*post_input)(struct xfrm_state *, struct xfrm_decap_state *, struct sk_buff *skb);
--	int			(*output)(struct sk_buff **pskb);
-+	int			(*output)(struct sk_buff *pskb);
- 	/* Estimate maximal size of result of transformation of a dgram */
- 	u32			(*get_max_size)(struct xfrm_state *, int size);
- };
-===== net/ipv4/ah4.c 1.41 vs edited =====
---- 1.41/net/ipv4/ah4.c	2004-08-14 20:59:43 +10:00
-+++ edited/net/ipv4/ah4.c	2004-08-20 18:08:27 +10:00
-@@ -53,10 +53,10 @@
- 	return 0;
- }
- 
--static int ah_output(struct sk_buff **pskb)
-+static int ah_output(struct sk_buff *skb)
- {
- 	int err;
--	struct dst_entry *dst = (*pskb)->dst;
-+	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x  = dst->xfrm;
- 	struct iphdr *iph, *top_iph;
- 	struct ip_auth_hdr *ah;
-@@ -66,7 +66,7 @@
- 		char 		buf[60];
- 	} tmp_iph;
- 
--	top_iph = (*pskb)->nh.iph;
-+	top_iph = skb->nh.iph;
- 	iph = &tmp_iph.iph;
- 
- 	iph->tos = top_iph->tos;
-@@ -85,7 +85,7 @@
- 	ah->nexthdr = top_iph->protocol;
- 
- 	top_iph->tos = 0;
--	top_iph->tot_len = htons((*pskb)->len);
-+	top_iph->tot_len = htons(skb->len);
- 	top_iph->frag_off = 0;
- 	top_iph->ttl = 0;
- 	top_iph->protocol = IPPROTO_AH;
-@@ -98,7 +98,7 @@
- 	ah->reserved = 0;
- 	ah->spi = x->id.spi;
- 	ah->seq_no = htonl(++x->replay.oseq);
--	ahp->icv(ahp, *pskb, ah->auth_data);
-+	ahp->icv(ahp, skb, ah->auth_data);
- 
- 	top_iph->tos = iph->tos;
- 	top_iph->ttl = iph->ttl;
-===== net/ipv4/esp4.c 1.58 vs edited =====
---- 1.58/net/ipv4/esp4.c	2004-08-15 05:57:43 +10:00
-+++ edited/net/ipv4/esp4.c	2004-08-20 18:08:27 +10:00
-@@ -17,10 +17,10 @@
- 	__u8		proto;
- };
- 
--int esp_output(struct sk_buff **pskb)
-+int esp_output(struct sk_buff *skb)
- {
- 	int err;
--	struct dst_entry *dst = (*pskb)->dst;
-+	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x  = dst->xfrm;
- 	struct iphdr *top_iph;
- 	struct ip_esp_hdr *esph;
-@@ -33,13 +33,13 @@
- 	int nfrags;
- 
- 	/* Strip IP+ESP header. */
--	__skb_pull(*pskb, (*pskb)->h.raw - (*pskb)->data);
-+	__skb_pull(skb, skb->h.raw - skb->data);
- 	/* Now skb is pure payload to encrypt */
- 
- 	err = -ENOMEM;
- 
- 	/* Round to block size */
--	clen = (*pskb)->len;
-+	clen = skb->len;
- 
- 	esp = x->data;
- 	alen = esp->auth.icv_trunc_len;
-@@ -49,22 +49,22 @@
- 	if (esp->conf.padlen)
- 		clen = (clen + esp->conf.padlen-1)&~(esp->conf.padlen-1);
- 
--	if ((nfrags = skb_cow_data(*pskb, clen-(*pskb)->len+alen, &trailer)) < 0)
-+	if ((nfrags = skb_cow_data(skb, clen-skb->len+alen, &trailer)) < 0)
- 		goto error;
- 
- 	/* Fill padding... */
- 	do {
- 		int i;
--		for (i=0; i<clen-(*pskb)->len - 2; i++)
-+		for (i=0; i<clen-skb->len - 2; i++)
- 			*(u8*)(trailer->tail + i) = i+1;
- 	} while (0);
--	*(u8*)(trailer->tail + clen-(*pskb)->len - 2) = (clen - (*pskb)->len)-2;
--	pskb_put(*pskb, trailer, clen - (*pskb)->len);
-+	*(u8*)(trailer->tail + clen-skb->len - 2) = (clen - skb->len)-2;
-+	pskb_put(skb, trailer, clen - skb->len);
- 
--	__skb_push(*pskb, (*pskb)->data - (*pskb)->nh.raw);
--	top_iph = (*pskb)->nh.iph;
--	esph = (struct ip_esp_hdr *)((*pskb)->nh.raw + top_iph->ihl*4);
--	top_iph->tot_len = htons((*pskb)->len + alen);
-+	__skb_push(skb, skb->data - skb->nh.raw);
-+	top_iph = skb->nh.iph;
-+	esph = (struct ip_esp_hdr *)(skb->nh.raw + top_iph->ihl*4);
-+	top_iph->tot_len = htons(skb->len + alen);
- 	*(u8*)(trailer->tail - 1) = top_iph->protocol;
- 
- 	/* this is non-NULL only with UDP Encapsulation */
-@@ -76,7 +76,7 @@
- 		uh = (struct udphdr *)esph;
- 		uh->source = encap->encap_sport;
- 		uh->dest = encap->encap_dport;
--		uh->len = htons((*pskb)->len + alen - top_iph->ihl*4);
-+		uh->len = htons(skb->len + alen - top_iph->ihl*4);
- 		uh->check = 0;
- 
- 		switch (encap->encap_type) {
-@@ -109,7 +109,7 @@
- 			if (!sg)
- 				goto error;
- 		}
--		skb_to_sgvec(*pskb, sg, esph->enc_data+esp->conf.ivlen-(*pskb)->data, clen);
-+		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
- 		crypto_cipher_encrypt(tfm, sg, sg, clen);
- 		if (unlikely(sg != &esp->sgbuf[0]))
- 			kfree(sg);
-@@ -121,9 +121,9 @@
- 	}
- 
- 	if (esp->auth.icv_full_len) {
--		esp->auth.icv(esp, *pskb, (u8*)esph-(*pskb)->data,
-+		esp->auth.icv(esp, skb, (u8*)esph-skb->data,
- 		              sizeof(struct ip_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
--		pskb_put(*pskb, trailer, alen);
-+		pskb_put(skb, trailer, alen);
- 	}
- 
- 	ip_send_check(top_iph);
-===== net/ipv4/ipcomp.c 1.31 vs edited =====
---- 1.31/net/ipv4/ipcomp.c	2004-08-14 20:59:43 +10:00
-+++ edited/net/ipv4/ipcomp.c	2004-08-20 18:08:27 +10:00
-@@ -120,20 +120,20 @@
- 	return err;
- }
- 
--static int ipcomp_output(struct sk_buff **pskb)
-+static int ipcomp_output(struct sk_buff *skb)
- {
- 	int err;
--	struct dst_entry *dst = (*pskb)->dst;
-+	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x = dst->xfrm;
- 	struct iphdr *iph;
- 	struct ip_comp_hdr *ipch;
- 	struct ipcomp_data *ipcd = x->data;
- 	int hdr_len = 0;
- 
--	iph = (*pskb)->nh.iph;
--	iph->tot_len = htons((*pskb)->len);
-+	iph = skb->nh.iph;
-+	iph->tot_len = htons(skb->len);
- 	hdr_len = iph->ihl * 4;
--	if (((*pskb)->len - hdr_len) < ipcd->threshold) {
-+	if ((skb->len - hdr_len) < ipcd->threshold) {
- 		/* Don't bother compressing */
- 		if (x->props.mode) {
- 			ip_send_check(iph);
-@@ -141,17 +141,17 @@
- 		goto out_ok;
- 	}
- 
--	if ((skb_is_nonlinear(*pskb) || skb_cloned(*pskb)) &&
--	    skb_linearize(*pskb, GFP_ATOMIC) != 0) {
-+	if ((skb_is_nonlinear(skb) || skb_cloned(skb)) &&
-+	    skb_linearize(skb, GFP_ATOMIC) != 0) {
- 	    	err = -ENOMEM;
- 	    	goto error;
- 	}
- 	
--	err = ipcomp_compress(x, *pskb);
-+	err = ipcomp_compress(x, skb);
- 	if (err) {
- 		if (err == -EMSGSIZE) {
- 			if (x->props.mode) {
--				iph = (*pskb)->nh.iph;
-+				iph = skb->nh.iph;
- 				ip_send_check(iph);
- 			}
- 			goto out_ok;
-@@ -160,8 +160,8 @@
- 	}
- 
- 	/* Install ipcomp header, convert into ipcomp datagram. */
--	iph = (*pskb)->nh.iph;
--	iph->tot_len = htons((*pskb)->len);
-+	iph = skb->nh.iph;
-+	iph->tot_len = htons(skb->len);
- 	ipch = (struct ip_comp_hdr *)((char *)iph + iph->ihl * 4);
- 	ipch->nexthdr = iph->protocol;
- 	ipch->flags = 0;
-===== net/ipv4/xfrm4_output.c 1.3 vs edited =====
---- 1.3/net/ipv4/xfrm4_output.c	2004-08-14 20:59:43 +10:00
-+++ edited/net/ipv4/xfrm4_output.c	2004-08-20 18:16:45 +10:00
-@@ -119,8 +119,7 @@
- 
- 	xfrm4_encap(skb);
- 
--	err = x->type->output(pskb);
--	skb = *pskb;
-+	err = x->type->output(skb);
- 	if (err)
- 		goto error;
- 
-===== net/ipv4/xfrm4_tunnel.c 1.19 vs edited =====
---- 1.19/net/ipv4/xfrm4_tunnel.c	2004-08-19 21:44:13 +10:00
-+++ edited/net/ipv4/xfrm4_tunnel.c	2004-08-20 18:08:27 +10:00
-@@ -9,9 +9,8 @@
- #include <net/ip.h>
- #include <net/protocol.h>
- 
--static int ipip_output(struct sk_buff **pskb)
-+static int ipip_output(struct sk_buff *skb)
- {
--	struct sk_buff *skb = *pskb;
- 	struct iphdr *iph;
- 	
- 	iph = skb->nh.iph;
-===== net/ipv6/ah6.c 1.41 vs edited =====
---- 1.41/net/ipv6/ah6.c	2004-08-14 20:59:44 +10:00
-+++ edited/net/ipv6/ah6.c	2004-08-20 18:08:27 +10:00
-@@ -154,11 +154,11 @@
- 	return 0;
- }
- 
--int ah6_output(struct sk_buff **pskb)
-+int ah6_output(struct sk_buff *skb)
- {
- 	int err;
- 	int extlen;
--	struct dst_entry *dst = (*pskb)->dst;
-+	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x  = dst->xfrm;
- 	struct ipv6hdr *top_iph;
- 	struct ip_auth_hdr *ah;
-@@ -170,11 +170,11 @@
- 		char hdrs[0];
- 	} *tmp_ext;
- 
--	top_iph = (struct ipv6hdr *)(*pskb)->data;
--	top_iph->payload_len = htons((*pskb)->len - sizeof(*top_iph));
-+	top_iph = (struct ipv6hdr *)skb->data;
-+	top_iph->payload_len = htons(skb->len - sizeof(*top_iph));
- 
--	nexthdr = *(*pskb)->nh.raw;
--	*(*pskb)->nh.raw = IPPROTO_AH;
-+	nexthdr = *skb->nh.raw;
-+	*skb->nh.raw = IPPROTO_AH;
- 
- 	/* When there are no extension headers, we only need to save the first
- 	 * 8 bytes of the base IP header.
-@@ -182,7 +182,7 @@
- 	memcpy(tmp_base, top_iph, sizeof(tmp_base));
- 
- 	tmp_ext = NULL;
--	extlen = (*pskb)->h.raw - (unsigned char *)(top_iph + 1);
-+	extlen = skb->h.raw - (unsigned char *)(top_iph + 1);
- 	if (extlen) {
- 		extlen += sizeof(*tmp_ext);
- 		tmp_ext = kmalloc(extlen, GFP_ATOMIC);
-@@ -198,7 +198,7 @@
- 			goto error_free_iph;
- 	}
- 
--	ah = (struct ip_auth_hdr *)(*pskb)->h.raw;
-+	ah = (struct ip_auth_hdr *)skb->h.raw;
- 	ah->nexthdr = nexthdr;
- 
- 	top_iph->priority    = 0;
-@@ -214,7 +214,7 @@
- 	ah->reserved = 0;
- 	ah->spi = x->id.spi;
- 	ah->seq_no = htonl(++x->replay.oseq);
--	ahp->icv(ahp, *pskb, ah->auth_data);
-+	ahp->icv(ahp, skb, ah->auth_data);
- 
- 	err = 0;
- 
-===== net/ipv6/esp6.c 1.40 vs edited =====
---- 1.40/net/ipv6/esp6.c	2004-08-15 17:36:52 +10:00
-+++ edited/net/ipv6/esp6.c	2004-08-20 18:08:28 +10:00
-@@ -37,11 +37,11 @@
- #include <net/ipv6.h>
- #include <linux/icmpv6.h>
- 
--int esp6_output(struct sk_buff **pskb)
-+int esp6_output(struct sk_buff *skb)
- {
- 	int err;
- 	int hdr_len;
--	struct dst_entry *dst = (*pskb)->dst;
-+	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x  = dst->xfrm;
- 	struct ipv6hdr *top_iph;
- 	struct ipv6_esp_hdr *esph;
-@@ -54,17 +54,17 @@
- 	int nfrags;
- 
- 	esp = x->data;
--	hdr_len = (*pskb)->h.raw - (*pskb)->data +
-+	hdr_len = skb->h.raw - skb->data +
- 		  sizeof(*esph) + esp->conf.ivlen;
- 
- 	/* Strip IP+ESP header. */
--	__skb_pull(*pskb, hdr_len);
-+	__skb_pull(skb, hdr_len);
- 
- 	/* Now skb is pure payload to encrypt */
- 	err = -ENOMEM;
- 
- 	/* Round to block size */
--	clen = (*pskb)->len;
-+	clen = skb->len;
- 
- 	alen = esp->auth.icv_trunc_len;
- 	tfm = esp->conf.tfm;
-@@ -73,24 +73,24 @@
- 	if (esp->conf.padlen)
- 		clen = (clen + esp->conf.padlen-1)&~(esp->conf.padlen-1);
- 
--	if ((nfrags = skb_cow_data(*pskb, clen-(*pskb)->len+alen, &trailer)) < 0) {
-+	if ((nfrags = skb_cow_data(skb, clen-skb->len+alen, &trailer)) < 0) {
- 		goto error;
- 	}
- 
- 	/* Fill padding... */
- 	do {
- 		int i;
--		for (i=0; i<clen-(*pskb)->len - 2; i++)
-+		for (i=0; i<clen-skb->len - 2; i++)
- 			*(u8*)(trailer->tail + i) = i+1;
- 	} while (0);
--	*(u8*)(trailer->tail + clen-(*pskb)->len - 2) = (clen - (*pskb)->len)-2;
--	pskb_put(*pskb, trailer, clen - (*pskb)->len);
-+	*(u8*)(trailer->tail + clen-skb->len - 2) = (clen - skb->len)-2;
-+	pskb_put(skb, trailer, clen - skb->len);
- 
--	top_iph = (struct ipv6hdr *)__skb_push(*pskb, hdr_len);
--	esph = (struct ipv6_esp_hdr *)(*pskb)->h.raw;
--	top_iph->payload_len = htons((*pskb)->len + alen - sizeof(*top_iph));
--	*(u8*)(trailer->tail - 1) = *(*pskb)->nh.raw;
--	*(*pskb)->nh.raw = IPPROTO_ESP;
-+	top_iph = (struct ipv6hdr *)__skb_push(skb, hdr_len);
-+	esph = (struct ipv6_esp_hdr *)skb->h.raw;
-+	top_iph->payload_len = htons(skb->len + alen - sizeof(*top_iph));
-+	*(u8*)(trailer->tail - 1) = *skb->nh.raw;
-+	*skb->nh.raw = IPPROTO_ESP;
- 
- 	esph->spi = x->id.spi;
- 	esph->seq_no = htonl(++x->replay.oseq);
-@@ -106,7 +106,7 @@
- 			if (!sg)
- 				goto error;
- 		}
--		skb_to_sgvec(*pskb, sg, esph->enc_data+esp->conf.ivlen-(*pskb)->data, clen);
-+		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
- 		crypto_cipher_encrypt(tfm, sg, sg, clen);
- 		if (unlikely(sg != &esp->sgbuf[0]))
- 			kfree(sg);
-@@ -118,9 +118,9 @@
- 	}
- 
- 	if (esp->auth.icv_full_len) {
--		esp->auth.icv(esp, *pskb, (u8*)esph-(*pskb)->data,
-+		esp->auth.icv(esp, skb, (u8*)esph-skb->data,
- 			sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
--		pskb_put(*pskb, trailer, alen);
-+		pskb_put(skb, trailer, alen);
- 	}
- 
- 	err = 0;
-===== net/ipv6/ipcomp6.c 1.22 vs edited =====
---- 1.22/net/ipv6/ipcomp6.c	2004-08-14 20:59:44 +10:00
-+++ edited/net/ipv6/ipcomp6.c	2004-08-20 18:08:28 +10:00
-@@ -114,10 +114,10 @@
- 	return err;
- }
- 
--static int ipcomp6_output(struct sk_buff **pskb)
-+static int ipcomp6_output(struct sk_buff *skb)
- {
- 	int err;
--	struct dst_entry *dst = (*pskb)->dst;
-+	struct dst_entry *dst = skb->dst;
- 	struct xfrm_state *x = dst->xfrm;
- 	struct ipv6hdr *top_iph;
- 	int hdr_len;
-@@ -126,23 +126,23 @@
- 	int plen, dlen;
- 	u8 *start, *scratch = ipcd->scratch;
- 
--	hdr_len = (*pskb)->h.raw - (*pskb)->data;
-+	hdr_len = skb->h.raw - skb->data;
- 
- 	/* check whether datagram len is larger than threshold */
--	if (((*pskb)->len - hdr_len) < ipcd->threshold) {
-+	if ((skb->len - hdr_len) < ipcd->threshold) {
- 		goto out_ok;
- 	}
- 
--	if ((skb_is_nonlinear(*pskb) || skb_cloned(*pskb)) &&
--		skb_linearize(*pskb, GFP_ATOMIC) != 0) {
-+	if ((skb_is_nonlinear(skb) || skb_cloned(skb)) &&
-+		skb_linearize(skb, GFP_ATOMIC) != 0) {
- 		err = -ENOMEM;
- 		goto error;
- 	}
- 
- 	/* compression */
--	plen = (*pskb)->len - hdr_len;
-+	plen = skb->len - hdr_len;
- 	dlen = IPCOMP_SCRATCH_SIZE;
--	start = (*pskb)->h.raw;
-+	start = skb->h.raw;
- 
- 	err = crypto_comp_compress(ipcd->tfm, start, plen, scratch, &dlen);
- 	if (err) {
-@@ -152,18 +152,18 @@
- 		goto out_ok;
- 	}
- 	memcpy(start + sizeof(struct ip_comp_hdr), scratch, dlen);
--	pskb_trim(*pskb, hdr_len + dlen + sizeof(struct ip_comp_hdr));
-+	pskb_trim(skb, hdr_len + dlen + sizeof(struct ip_comp_hdr));
- 
- 	/* insert ipcomp header and replace datagram */
--	top_iph = (struct ipv6hdr *)(*pskb)->data;
-+	top_iph = (struct ipv6hdr *)skb->data;
- 
--	top_iph->payload_len = htons((*pskb)->len - sizeof(struct ipv6hdr));
-+	top_iph->payload_len = htons(skb->len - sizeof(struct ipv6hdr));
- 
- 	ipch = (struct ipv6_comp_hdr *)start;
--	ipch->nexthdr = *(*pskb)->nh.raw;
-+	ipch->nexthdr = *skb->nh.raw;
- 	ipch->flags = 0;
- 	ipch->cpi = htons((u16 )ntohl(x->id.spi));
--	*(*pskb)->nh.raw = IPPROTO_COMP;
-+	*skb->nh.raw = IPPROTO_COMP;
- 
- out_ok:
- 	err = 0;
-===== net/ipv6/xfrm6_output.c 1.3 vs edited =====
---- 1.3/net/ipv6/xfrm6_output.c	2004-08-14 20:59:44 +10:00
-+++ edited/net/ipv6/xfrm6_output.c	2004-08-20 18:17:01 +10:00
-@@ -113,8 +113,7 @@
- 
- 	xfrm6_encap(skb);
- 
--	err = x->type->output(pskb);
--	skb = *pskb;
-+	err = x->type->output(skb);
- 	if (err)
- 		goto error;
- 
-===== net/ipv6/xfrm6_tunnel.c 1.9 vs edited =====
---- 1.9/net/ipv6/xfrm6_tunnel.c	2004-08-19 21:44:13 +10:00
-+++ edited/net/ipv6/xfrm6_tunnel.c	2004-08-20 18:08:28 +10:00
-@@ -343,9 +343,8 @@
- 
- EXPORT_SYMBOL(xfrm6_tunnel_free_spi);
- 
--static int xfrm6_tunnel_output(struct sk_buff **pskb)
-+static int xfrm6_tunnel_output(struct sk_buff *skb)
- {
--	struct sk_buff *skb = *pskb;
- 	struct ipv6hdr *top_iph;
- 
- 	top_iph = (struct ipv6hdr *)skb->data;
 
---ew6BAiZeqk4r7MaW--
+
+
+/* tcp_cork_receive.c */
+
+#include <sys/types.h>
+#include <netinet/tcp.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <unistd.h>
+#include <errno.h>
+
+#define errMsg(msg)     { perror(msg); }
+
+#define errExit(msg)    { perror(msg); exit(EXIT_FAILURE); }
+
+#define usageErr(msg, progName) \
+                        { fprintf(stderr, "Usage: "); \
+                          fprintf(stderr, msg, progName); \
+                          exit(EXIT_FAILURE); }
+static void
+traceInfo(void)
+{
+    struct timeval tv;
+
+    if (gettimeofday(&tv, NULL) =3D=3D -1) errExit("gettimeofday");
+    printf("[PID %ld] %8.3f: ", (long) getpid(),
+            tv.tv_sec + tv.tv_usec / 1000000.0);
+} /* traceInfo */
+
+int
+main(int argc, char *argv[])
+{
+    int lfd, sfd;
+    ssize_t numRead;
+#define BUF_SIZE 100000
+    char buf[BUF_SIZE];
+    int optval;
+    struct sockaddr_in svaddr;
+
+    if (argc !=3D 2  || strcmp(argv[1], "--help") =3D=3D 0) {
+        fprintf(stderr, "%s port\n", argv[0]);
+        exit(EXIT_FAILURE);
+    }=20
+
+    lfd =3D socket(AF_INET, SOCK_STREAM, 0);
+    if (lfd =3D=3D -1) errExit("socket");
+
+    memset(&svaddr, 0, sizeof(struct sockaddr_in));
+    svaddr.sin_family =3D AF_INET;
+    svaddr.sin_port =3D htons(atoi(argv[1]));
+    svaddr.sin_addr.s_addr =3D htonl(INADDR_ANY);
+
+    optval =3D 1;
+    if (setsockopt(lfd, SOL_SOCKET, SO_REUSEADDR, &optval,
+                sizeof(optval)) =3D=3D -1) errExit("setsockopt");
+
+    if (bind(lfd, (struct sockaddr *) &svaddr, sizeof(struct sockaddr_in)=
+)
+            =3D=3D -1) errExit("bind");
+
+    if (listen(lfd, 5) =3D=3D -1) errExit("listen");
+
+    sfd =3D accept(lfd, NULL, NULL);
+    if (sfd =3D=3D -1) errExit("accept");
+
+    traceInfo();
+    printf("Receiver accepted connecton\n");
+
+    for (;;) {
+        numRead =3D read(sfd, buf, BUF_SIZE);
+        if (numRead =3D=3D -1) errExit("read");
+        if (numRead =3D=3D 0)
+            break;
+        traceInfo();
+        /* printf("[received %d bytes] %.*s\n", numRead,
+           (int) numRead, buf); */
+        printf("[received %d bytes]\n", numRead);
+    }=20
+
+    close(lfd);
+    close(sfd);
+    exit(EXIT_SUCCESS);
+} /* main */
+
+
+
+
+/* tcp_cork_send.c */
+
+#define _XOPEN_SOURCE 500   =20
+#include <sys/types.h>
+#include <unistd.h>
+#include <netinet/tcp.h>
+#include <netinet/in.h>
+#include <sys/time.h>
+#include <stdio.h>
+#include <string.h>
+#include <stdlib.h>
+#include <errno.h>
+#include "inet_sockets.h"
+
+typedef enum { FALSE, TRUE } Boolean;
+
+#define errMsg(msg)     { perror(msg); }
+
+#define errExit(msg)    { perror(msg); exit(EXIT_FAILURE); }
+
+#define fatalErr(msg)   { fprintf(stderr, "%s\n", msg); \
+                          exit(EXIT_FAILURE); }
+
+static void
+traceInfo(void)
+{
+    struct timeval tv;
+
+    if (gettimeofday(&tv, NULL) =3D=3D -1) errExit("gettimeofday");
+    printf("[PID %ld] %8.3f: ", (long) getpid(),
+            tv.tv_sec + tv.tv_usec / 1000000.0);
+} /* traceInfo */
+
+static void
+usageError(char *progName, char *msg)
+{
+    if (msg !=3D NULL)
+        fprintf(stderr, "%s\n", msg);
+
+    fprintf(stderr,
+        "%s [options] server port num-write buf-size\n"
+        "\tnum-write        Number of writes\n"
+        "\tbuf-size         Size of buffer for each write\n"
+        "\tOptions are:\n"
+        "\t\t-d usecs  Microsecs delay between each write\n"
+        "\t\t-n        Don't enable TCP_CORK before writes\n"
+        "\t\t-s nsecs  Sleep for 'nsecs' seconds before closing socket\n"
+        "\t\t-u        Disable TCP_CORK immediately after sending\n"
+        "\t\t-v        Verbose reporting of (delayed) writes\n"
+        ,
+        progName);
+    exit(EXIT_FAILURE);
+} /* usageError */
+
+int
+main(int argc, char *argv[])
+{
+    int numWrites, j, sfd;
+    useconds_t delayUsecs;
+    size_t bufSize;
+    char *buf;
+    int optval;
+    int opt;
+    int finalSleepSecs;
+    Boolean nocork, uncork, verbose;
+    socklen_t optlen;
+    struct sockaddr_in svaddr;
+    struct hostent *h;
+    struct in_addr **addrpp;
+
+    nocork =3D FALSE;
+    uncork =3D FALSE;
+    verbose =3D FALSE;
+    finalSleepSecs =3D 0;
+    delayUsecs =3D 0;
+
+    while ((opt =3D getopt(argc, argv, "d:us:vn")) !=3D -1) {
+        switch (opt) {
+        case 'u':
+            uncork =3D TRUE;
+            break;
+
+        case 's':
+            finalSleepSecs =3D atoi(optarg);
+            break;
+
+        case 'n':
+            nocork =3D TRUE;
+            break;
+
+        case 'v':
+            verbose =3D TRUE;
+            break;
+
+        case 'd':
+            delayUsecs =3D atoi(optarg);
+            break;
+
+        default:
+            usageError(argv[0], "Bad option");
+        } /* switch */
+    } /* while */
+
+    if (nocork && uncork)
+        fatalErr("Can't specify both -n and -u options");
+
+    if (argc !=3D optind + 4 || strcmp(argv[optind], "--help") =3D=3D 0)
+        usageError(argv[0], NULL);
+
+    numWrites =3D atoi(argv[optind + 2]);
+    bufSize =3D atoi(argv[optind + 3]);
+
+    buf =3D malloc(bufSize);
+    for (j =3D 0; j < bufSize; j++)
+        buf[j] =3D 'a' + j % 26;
+
+    sfd =3D socket(AF_INET, SOCK_STREAM, 0);
+    if (sfd =3D=3D -1) errExit("socket");
+
+    memset(&svaddr, 0, sizeof(struct sockaddr_in));
+    svaddr.sin_family =3D AF_INET;
+    svaddr.sin_port =3D htons(atoi(argv[optind + 1]));
+
+    h =3D gethostbyname(argv[optind]);
+    if (h =3D=3D NULL)
+        fatalErr("host lookup failed (gethostbyname())");
+    addrpp =3D (struct in_addr **) h->h_addr_list;
+    svaddr.sin_addr.s_addr =3D (*addrpp)->s_addr;
+
+    if (connect(sfd, (struct sockaddr *) &svaddr,
+            sizeof(struct sockaddr_in)) =3D=3D -1) errExit("connect");
+
+    if (!nocork) {
+        optval =3D 1;
+        if (setsockopt(sfd, IPPROTO_TCP, TCP_CORK, &optval,
+                sizeof(optval)) =3D=3D -1) errExit("setsockopt");
+
+        traceInfo();
+        printf("Enabled TCP_CORK\n");
+    }=20
+
+    optlen =3D sizeof(optval);
+    if (getsockopt(sfd, IPPROTO_TCP,  TCP_CORK, &optval, &optlen) =3D=3D =
+-1)
+        errExit("getsockopt");
+    traceInfo();
+    printf("TCP_CORK=3D%d\n", optval);
+
+    for (j =3D 0; j < numWrites; j++) {
+         if (write(sfd, buf, bufSize) !=3D bufSize)
+             errExit("write");
+
+         if (delayUsecs > 0) {
+             if (verbose) {
+                 traceInfo();
+                 printf("sleep %d\n", j);
+             }=20
+             usleep(delayUsecs);
+         }=20
+    }=20
+
+    traceInfo();
+    printf("Completed writes\n");
+
+    if (uncork) {
+        traceInfo();
+        printf("Disabling TCP_CORK\n");
+        optval =3D 0;
+        if (setsockopt(sfd, IPPROTO_TCP, TCP_CORK, &optval,
+                sizeof(optval)) =3D=3D -1) errExit("setsockopt");
+    }=20
+
+    if (finalSleepSecs > 0) {
+        traceInfo();
+        printf("Sleeping\n");
+        sleep(finalSleepSecs);
+    }=20
+
+    close(sfd);
+    exit(EXIT_SUCCESS);
+} /* main */
+
+--=20
+Michael Kerrisk
+mtk-lists@gmx.net
+
+Superg=FCnstige DSL-Tarife + WLAN-Router f=FCr 0,- EUR*
+Jetzt zu GMX wechseln und sparen http://www.gmx.net/de/go/dsl
