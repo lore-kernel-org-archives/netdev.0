@@ -1,35 +1,43 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: pppoe and receive checksum offload
-Date: Mon, 28 Feb 2005 22:39:38 +1100
-Message-ID: <20050228113938.GA3393@gondor.apana.org.au>
-References: <20050224155906.73890361@dxpl.pdx.osdl.net> <20050228113106.GA3268@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Interconnect virtual device?
+Date: 28 Feb 2005 07:06:06 -0500
+Message-ID: <1109592365.2188.914.camel@jzny.localdomain>
+References: <4222A8F2.6080004@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, mostrows@speakeasy.net,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20050228113106.GA3268@gondor.apana.org.au>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4222A8F2.6080004@candelatech.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Feb 28, 2005 at 10:31:06PM +1100, herbert wrote:
+On Mon, 2005-02-28 at 00:15, Ben Greear wrote:
+> Hello!
 > 
-> In fact it looks like the current code in ip_gre is broken
-> in this respect as well.
+> I am considering writing a kernel module to provide a very
+> simple virtual interface.  This interface would be attached
+> to another interface, and would not be directly associated with
+> hardware.  It can have IP addresses & routing tables, and in
+> almost every way appear to be a regular ethernet interface.
+> 
+> The idea is that when you tx on this virtual interface, it
+> will cause a packet to be received on another interface.  And,
+> when a packet is received on the interface, it will tx on the
+> other interface.
+> 
 
-Actually ip_gre is probably right.  It seems that CHECKSUM_UNNECESSARY
-should not be set for PPPOE/GRE packets at all.  So it would be a bug in
-the sk* driver.
+In other words, it redirects to another device - I take it based on some
+rules. Sounds to me like the mirred action already does this (and in
+addition can mirror).
 
-Alexey/Dave, is this interpretation of ip_summed correct?
+> I believe I can use this to create some interesting effects with
+> routing and bridging on a limitted number of physical interfaces.
+> 
 
-Of course we still need to fix up CHECKSUM_HW in pppoe.
+What "interesting effects" ?
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+cheers,
+jamal
