@@ -1,75 +1,67 @@
-From: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
-Subject: RFC: Network Device Driver Group proposal
-Date: Mon, 24 May 2004 04:49:45 -0400
-Sender: prism54-devel-admin@prism54.org
-Message-ID: <20040524084945.GP3330@ruslug.rutgers.edu>
-Reply-To: "Luis R. Rodriguez" <mcgrof@ruslug.rutgers.edu>
+From: Arjan van de Ven <arjanv@redhat.com>
+Subject: Re: [PATCH 5/14 linux-2.6.7-rc1] prism54: new prism54 kernel
+	compatibility
+Date: Mon, 24 May 2004 10:53:50 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1085388830.2780.9.camel@laptop.fenrus.com>
+References: <20040524083220.GF3330@ruslug.rutgers.edu>
+Reply-To: arjanv@redhat.com
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="UIrAl4r1g2eOkvhC"
-Cc: prism54-devel@prism54.org
-Return-path: <prism54-devel-admin@prism54.org>
-To: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Content-Disposition: inline
-Errors-To: prism54-devel-admin@prism54.org
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel/>
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-0laYfChQ5D1aekppT8aD"
+Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        prism54-devel@prism54.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
+In-Reply-To: <20040524083220.GF3330@ruslug.rutgers.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---UIrAl4r1g2eOkvhC
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+--=-0laYfChQ5D1aekppT8aD
+Content-Type: text/plain
 Content-Transfer-Encoding: quoted-printable
 
+On Mon, 2004-05-24 at 10:32, Luis R. Rodriguez wrote:
+> 2004-03-20      Margit Schubert-While <margitsw@t-online.de>
+>=20
+> * isl_38xx.[ch], isl_ioctl.c, islpci_dev.[ch], islpci_eth.c
+>   islpci_hotplug.c, islpci_mgt.[ch], oid_mgt.c: Adopt new
+>   prism54 kernel compatibility.
+>=20
+> * prismcompat.h, prismcompat24.h: New compatibility work
 
-This is a RFC for the start of a Network Device Driver Group.
 
-There is currently no central group that I am aware of that=20
-hardware/chipset manufacturer companies can contact to assist in=20
-writing/mantaining/giving specs to/giving source base for a=20
-new Linux Network device driver (wireless or not).=20
+ewwww this makes the driver quite a bit less readable!
 
-There is also no central group I know of besides the netdev mailing list
-for interaction between network driver developers. Most drivers seem to
-have their own mailing list, if any, and a cheesy website, if any.
+for example
 
-=46rom my experience so far it seems like manufacturers can sometimes be
-very willing to help, but I think that sometimes they just fail to see
-where and how they can help. So, it seems we have to first help
-ourselves out, building an entity onto which companies/manufacuters can
-refer to if they'd like to donate a source base for a driver / a
-firmware for a driver or even provide specifications for a driver. Sort
-of like an organizational structure like the DRI project.
+-#if LINUX_VERSION_CODE >=3D KERNEL_VERSION(2,6,0)
+-       /* This is 2.6 specific, nicer, shorter, but not in 2.4 yet */
+-       DEFINE_WAIT(wait);
+-       prepare_to_wait(&priv->reset_done, &wait, TASK_UNINTERRUPTIBLE);
+-#else
+-       DECLARE_WAITQUEUE(wait, current);
+-       set_current_state(TASK_UNINTERRUPTIBLE);
+-       add_wait_queue(&priv->reset_done, &wait);
+-#endif
++       PRISM_DEFWAITQ(priv->reset_done, wait)
 
-Just wanted to throw ideas in the air and see if other netdevs agree and
-think this would be a good idea. I've been speaking to Pavel Roskin,=20
-a co-mantainer of the orinoco driver, and he agrees there many ways in
-which just both of our projects can benefit from a close relationship (in
-our case since our chipset's manufacturer is the same; prism 2/2.5.3 and
-prism gt/duette/indigo).
+why not just make a DEFINE_WAIT() and prepare_to_wait() macro for 2.4
+instead ?? so that you can just have the 2.6 version in the code and do
+2.4 compat in a clean header, as opposed to fouling up the entire driver
+with it.
 
-OSLD wants to be the "center of gravity for all Linux related stuff". Well
-maybe OSDL can help us :)
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---UIrAl4r1g2eOkvhC
-Content-Type: application/pgp-signature
-Content-Disposition: inline
+--=-0laYfChQ5D1aekppT8aD
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
 -----BEGIN PGP SIGNATURE-----
 Version: GnuPG v1.2.4 (GNU/Linux)
 
-iD8DBQFAsbcpat1JN+IKUl4RAjjvAJ9Y7uY1+yVeQ1xVM/Mo/PPam6Us6ACeOUaL
-obTD20dbsequFGew7w5Gb4M=
-=ysCn
+iD8DBQBAsbgexULwo51rQBIRAnv7AKCQgWMFXIuEr8/uf/0l1eNFzWrBIQCdGnSm
+d0fnurotkHis/i4dBYZMppc=
+=/pHk
 -----END PGP SIGNATURE-----
 
---UIrAl4r1g2eOkvhC--
+--=-0laYfChQ5D1aekppT8aD--
