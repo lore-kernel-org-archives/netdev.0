@@ -1,68 +1,38 @@
 From: Russell King <rmk+lkml@arm.linux.org.uk>
 Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
-Date: Thu, 27 Nov 2003 22:19:28 +0000
+Date: Thu, 27 Nov 2003 22:33:48 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127221928.F25015@flint.arm.linux.org.uk>
-References: <1069934643.2393.0.camel@teapot.felipe-alfaro.com> <20031127.210953.116254624.yoshfuji@linux-ipv6.org> <20031127194602.A25015@flint.arm.linux.org.uk> <20031128.045413.133305490.yoshfuji@linux-ipv6.org> <20031127200041.B25015@flint.arm.linux.org.uk> <1069970770.2138.10.camel@teapot.felipe-alfaro.com>
+Message-ID: <20031127223348.G25015@flint.arm.linux.org.uk>
+References: <1069934643.2393.0.camel@teapot.felipe-alfaro.com> <20031127.210953.116254624.yoshfuji@linux-ipv6.org> <20031127194602.A25015@flint.arm.linux.org.uk> <20031128.045413.133305490.yoshfuji@linux-ipv6.org> <20031127200041.B25015@flint.arm.linux.org.uk> <1069970770.2138.10.camel@teapot.felipe-alfaro.com> <20031127221928.F25015@flint.arm.linux.org.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" <yoshfuji@linux-ipv6.org>,
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>,
+        "YOSHIFUJI Hideaki / ?$B5HF#1QL@?(B" <yoshfuji@linux-ipv6.org>,
         davem@redhat.com,
         Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
         netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Felipe Alfaro Solana <felipe_alfaro@linuxmail.org>
 Content-Disposition: inline
-In-Reply-To: <1069970770.2138.10.camel@teapot.felipe-alfaro.com>; from felipe_alfaro@linuxmail.org on Thu, Nov 27, 2003 at 11:06:10PM +0100
+In-Reply-To: <20031127221928.F25015@flint.arm.linux.org.uk>; from rmk+lkml@arm.linux.org.uk on Thu, Nov 27, 2003 at 10:19:28PM +0000
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Nov 27, 2003 at 11:06:10PM +0100, Felipe Alfaro Solana wrote:
-> On Thu, 2003-11-27 at 21:00, Russell King wrote:
-> > > 
-> > > I believe that it, to change from strcpy() to strlcpy(), just 
-> > > eliminates possibility of buffer-overrun.
-> > 
-> > While this is 100% correct, the bit which raised my attention was the
-> > original message which didn't seem to show that the above had been
-> > considered.
-> 
-> Well, I can't see the difference between using strcpy() and strlcpy().
+On Thu, Nov 27, 2003 at 10:19:28PM +0000, Russell King wrote:
+> Note: we should really fix the generic strncpy() - there are places in
+> the kernel source which rely on the x86 strncpy() behaviour today (eg,
+> binfmt_*.c core file generation.)
 
-You misunderstand me.  Consider the difference between:
+Sorry, bad example.  Hmm, from a glance around, it seems that all of
+the places which use strncpy() implicitly zero the buffer prior to
+using strncpy().
 
-	strcpy(d, s)
-	strlcpy(d, s, sizeof(d));
-	strncpy(d, s, sizeof(d));
+This means that the x86 strncpy is doing unnecessary zeroing.  I do
+remember Alan complaining about the last set of strlcpy() stuff
+introducing information leaks - maybe those got fixed though.
 
-strncpy zeros the remainder of d if strlen(s) < sizeof(d), but does not
-zero terminate the buffer if strlen(s) == sizeof(d).  (Note: this is
-how strncpy under the Linux kernel is supposed to work, and yes, the
-generic strncpy version in lib/string.c is still buggy.)
-
-strlcpy copies up to the smaller of strlen(s)-1 and sizeof(d)-1, and
-ensures that the string is null terminated.  If strlen(s) < sizeof(d)-1,
-bytes in d will not be written.
-
-Note my final sentence there.  Consider the following:
-
-	char foo[256];
-
-	strlcpy(foo, "hello", sizeof(foo);
-
-	copy_to_user(uptr, foo, sizeof(foo));
-
-That ends up writing uninitialised kernel data to (unprivileged) user
-space.  So would strcpy() used in that situation.
-
-strncpy() on the other hand, will zero the rest of the buffer (on x86
-at least) but you'll have to manually ensure that there is a terminator
-on the end.  Or, you use strlcpy but memset the entire space you're
-copying the string into beforehand, which could be wasteful.
-
-Note: we should really fix the generic strncpy() - there are places in
-the kernel source which rely on the x86 strncpy() behaviour today (eg,
-binfmt_*.c core file generation.)
+Ok, I don't know where the kernel stands on this issue anymore.
+Can someone definitively provide a statement of exactly what the
+kernel expects of strncpy() ?
 
 -- 
 Russell King
