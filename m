@@ -1,69 +1,27 @@
-From: Andreas Dilger <adilger@clusterfs.com>
-Subject: Re: Kernel stack overflow on 2.6.9-rc2
-Date: Tue, 14 Sep 2004 10:33:47 -0600
+From: Andi Kleen <ak@suse.de>
+Subject: Re: network lockup with latest BK (LLTX?)
+Date: Tue, 14 Sep 2004 18:41:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040914163347.GE3197@schnapps.adilger.int>
-References: <200409141723.35009.vda@port.imtp.ilyichevsk.odessa.ua>
+Message-ID: <20040914164114.GF7397@wotan.suse.de>
+References: <20040914142447.GA5615@krispykreme>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="gDGSpKKIBgtShtf+"
-Cc: linux-kernel@vger.kernel.org, Trond Myklebust <trond.myklebust@fys.uio.no>,
-        netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+To: Anton Blanchard <anton@samba.org>
 Content-Disposition: inline
-In-Reply-To: <200409141723.35009.vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <20040914142447.GA5615@krispykreme>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Sep 15, 2004 at 12:24:47AM +1000, Anton Blanchard wrote:
+> 
+> Hi,
+> 
+> I have a machine with a number of e1000 adapters in it. It locked up
+> while I was bringing up the network interfaces. I have attached
+> backtraces of all relevant cpus.
 
---gDGSpKKIBgtShtf+
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+See the patch I posted yesterday to netdev.
 
-On Sep 14, 2004  17:23 +0300, Denis Vlasenko wrote:
-> I am putting to use an ancient box. Pentium 66.
-> It gives me stack overflow errors on 2.6.9-rc2:
->=20
-> To save you filtering out functions with less than 100
-> bytes of stack:
->=20
-> udp_sendmsg+0x35e/0x61a [220]
-> sock_sendmsg+0x88/0xa3 [208]
-> __nfs_revalidate_inode+0xc7/0x308 [152]
-> nfs_lookup_revalidate+0x257/0x4ed [312]
-> load_elf_binary+0xc4f/0xcc8 [268]
-> load_script+0x1ea/0x220 [136]
-> do_execve+0x153/0x1b9 [336]
-
-do_execve() can be trivially fixed to allocate bprm (328 bytes) instead=20
-putting it on the stack.  Given the frequency of exec and the odd size
-it should probably be in its own slab (and fix the goofy prototype
-indenting while you're there too ;-).
-
-load_elf_binary() on the other hand is a big mess, 132 bytes of int/long
-variables.
-
-nfs_lookup_revalidate() has 2 large structs on the stack, fhandle and fattr.
-
-Cheers, Andreas
---
-Andreas Dilger
-http://sourceforge.net/projects/ext2resize/
-http://members.shaw.ca/adilger/             http://members.shaw.ca/golinux/
-
-
---gDGSpKKIBgtShtf+
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQFBRx1qpIg59Q01vtYRAlyQAKCsBAF7suX4kERQPLicYhoDRWplLACfW2ZZ
-f1CYZH/pNdU19NpgsQO9aaw=
-=pk5q
------END PGP SIGNATURE-----
-
---gDGSpKKIBgtShtf+--
+-Andi
