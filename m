@@ -1,45 +1,57 @@
-From: Erik Hensema <erik@hensema.net>
-Subject: Re: 2.6.0: something is leaking memory
-Date: Tue, 6 Jan 2004 16:59:34 +0100
+From: James Morris <jmorris@redhat.com>
+Subject: [RFC] IPv4 Netfilter hook priorities for SELinux
+Date: Tue, 6 Jan 2004 11:01:03 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040106155933.GA3373@bender.home.hensema.net>
-References: <slrnbvgohn.1pb.erik@dexter.hensema.net> <Pine.LNX.4.58.0401041257290.2162@home.osdl.org> <slrnbvh1hd.jl6.erik@dexter.hensema.net> <Pine.LNX.4.58.0401041826400.2162@home.osdl.org> <20040104204834.40b6ca51.davem@redhat.com>
-Reply-To: erik@hensema.net
+Message-ID: <Xine.LNX.4.44.0401061046390.7530-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Linus Torvalds <torvalds@osdl.org>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netfilter-devel@lists.netfilter.org, "David S. Miller" <davem@redhat.com>,
+        Stephen Smalley <sds@epoch.ncsc.mil>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040104204834.40b6ca51.davem@redhat.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 04, 2004 at 08:48:34PM -0800, David S. Miller wrote:
-> On Sun, 4 Jan 2004 18:30:21 -0800 (PST)
-> Linus Torvalds <torvalds@osdl.org> wrote:
-> 
-> > You've got 19 _megabytes_ allocated to "tcp6_sock", and they are all 
-> > marked as "active". That's almost certainly the leaking bug.
-> > 
-> > Everything else looks reasonably normal.
->  ...
-> > David?
-> 
-> Fixed by changeset 1.1496.16.1 which is in 2.6.1-rc1
+SELinux needs to use some Netfilter hooks, and I'd like to propose the 
+hook priorities below for the mainline kernel.
 
-The leak seems to be in 2.6.1-rc1 too and I can't find any IPv6 related
-fixes wrt memory in the long format changelog of 2.6.1-rc1.
+As SELinux is a mandatory access control system, it needs to be able to
+look at packets before and after they may have been modified.  Two 
+priorities are thus required.
 
-David: are you sure it was fixed in rc1?
+The SELINUX_LAST priority is straightforward: this is after all mangling
+and NAT has occurred.
 
-It doesn't seem to be in -rc2 either.
+The SELINUX_FIRST priority needs to be located before any packet
+modification hooks, although it is also potentially useful if located
+prior to conntrack so that SELinux has an opportunity to reject packets 
+before they enter the conntrack code.
 
-This is after 26 hours uptime:
-
-tcp6_sock           6246   6248   1024    4    1 : tunables   54   27    0
-: slabdata   1562   1562      0
+Does anyone have any objections to the patch below (which I'd propose for 
+2.6.2), or other comments?
 
 
+- James
 -- 
-Erik Hensema (erik@hensema.net)
+James Morris
+<jmorris@redhat.com>
+
+diff -urN -X dontdiff linux-2.6.1-rc1-mm2.pending/include/linux/netfilter_ipv4.h linux-2.6.1-rc1-mm2.w1/include/linux/netfilter_ipv4.h
+--- linux-2.6.1-rc1-mm2.pending/include/linux/netfilter_ipv4.h	2003-09-27 20:50:51.000000000 -0400
++++ linux-2.6.1-rc1-mm2.w1/include/linux/netfilter_ipv4.h	2004-01-06 10:14:59.503138800 -0500
+@@ -51,6 +51,7 @@
+ 
+ enum nf_ip_hook_priorities {
+ 	NF_IP_PRI_FIRST = INT_MIN,
++	NF_IP_PRI_SELINUX_FIRST = -225,
+ 	NF_IP_PRI_CONNTRACK = -200,
+ 	NF_IP_PRI_BRIDGE_SABOTAGE_FORWARD = -175,
+ 	NF_IP_PRI_MANGLE = -150,
+@@ -58,6 +59,7 @@
+ 	NF_IP_PRI_BRIDGE_SABOTAGE_LOCAL_OUT = -50,
+ 	NF_IP_PRI_FILTER = 0,
+ 	NF_IP_PRI_NAT_SRC = 100,
++	NF_IP_PRI_SELINUX_LAST = 225,
+ 	NF_IP_PRI_LAST = INT_MAX,
+ };
+ 
