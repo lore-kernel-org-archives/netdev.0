@@ -1,34 +1,37 @@
 From: kuznet@ms2.inr.ac.ru
-Subject: Re: Fw: [PATCH] IPv6: Allow 6to4 routes with SIT
-Date: Thu, 17 Jul 2003 03:58:15 +0400 (MSD)
+Subject: Re: 2.4.21+ - IPv6 over IPv4 tunneling b0rked
+Date: Thu, 17 Jul 2003 04:03:56 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307162358.DAA12485@dub.inr.ac.ru>
-References: <1058398742.5778.26.camel@hades>
+Message-ID: <200307170003.EAA12843@dub.inr.ac.ru>
+References: <Pine.LNX.4.44.0307160901560.20100-100000@netcore.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, davem@redhat.com, jmorris@redhat.com,
-   netdev@oss.sgi.com
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mika.liljeberg@welho.com (Mika Liljeberg)
-In-Reply-To: <1058398742.5778.26.camel@hades> from "Mika Liljeberg" at Jul 17, 2003 02:39:02 AM
+To: pekkas@netcore.fi (Pekka Savola)
+In-Reply-To: <Pine.LNX.4.44.0307160901560.20100-100000@netcore.fi> from "Pekka Savola" at Jul 16, 2003 09:03:57 AM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hello!
 
-> So what's the background for having the hack to specify a tunnel EP with
-> a gateway route?
+> > > What happens when you do "ping6 3FFE:FFFF:A:B::1" ?
+> > 
+> > Hey, you have lost track, rewind several mails ago. 
+> 
+> Nope.  I'm just pointing out the general concept.
+> 
+> > Of course, ping and
+> > any other protocols will work, how can it not work? :-)
+> 
+> It has been made shown to work on other platforms, so why not Linux?
 
-Technically, it allows to avoid creating hundreds of devices to maintain lots
-of tunnels.
+ping did, does and will work and I do not understand what you want
+to say or ask. Do you want to know how it works?
 
-Actually, it exists due to historical reasons. ipip and ipip6
-tunnels used the trick from the very beginning.
-
-But f.e. ipgre device was new, so it uses more correct approach:
-actual mapping cross address families can be made via neighbour tables.
-But this requires to know an IPv6 address of the nexthop.
-Clean, but inconvenient. :-)
+Well, IPv6 stack looks up the address in routing tables, finds the route,
+sees that it is on-link, sends NDISC, receiver replies, we create a frame
+and send the echo request. To continue? :-)
 
 Alexey
