@@ -1,34 +1,23 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: Re: Ethernet MAC address question
-Date: Tue, 15 Jun 2004 08:38:19 -0700 (PDT)
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: serial port-to-netdevice tap
+Date: Tue, 15 Jun 2004 11:50:01 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200406151538.i5FFcJ720553@localhost.localdomain>
-References: <20040615095817.GA16523@projectcolo.org.uk>
+Message-ID: <C060DFCD9697A842B3189B458524FDC205D2C9@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: broonie@sirena.org.uk (Mark Brown)
-In-Reply-To: <20040615095817.GA16523@projectcolo.org.uk> from "Mark Brown" at Jun 15, 2004 10:58:17 AM
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-So how does the driver distinguish between a valid, but incorrect MAC
-address, and the 'correct' MAC address?  The incorrect one that is the
-value that just happened to be in the uninitialized volatile registers,
-and the correct address which some magic platform means loaded into the
-same, but this time initialized, volatile registers.
-
-> > However there are a few cases where some magic platform means loads the 
-> > MAC address into the (volatile) MAC address registers, and that's the 
-> > only source of an accurate MAC address for those people.
-> 
-> This is reasonably common on embedded systems - often there won't be
-> SEPROMs for individual devices and the MAC address will be stored in
-> flash or similar and read by the bootloader.
-> 
+A coworker of mine wants an easy way to monitor data transfer and control
+line changes on an serial port.  His first impulse was to create a /proc
+file, but I suggested a netlink socket, or even a raw net device so that he
+can take advantage of libpcap for some pretty powerful filtering.  Does
+anything like this exist already?
 
 -- 
-Don Fry
-brazilnut@us.ibm.com
+Dan Eble <dane@aiinet.com>  _____  .
+Software Engineer          |  _  |/|
+Applied Innovation Inc.    | |_| | |
+http://www.aiinet.com/     |__/|_|_|
