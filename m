@@ -1,43 +1,35 @@
-From: shemminger@osdl.org
-Subject: Re: Fw: [Bugme-new] [Bug 3777] New: tun driver fails to open
-     whenbuilt in, must be modular
-Date: Fri, 19 Nov 2004 21:32:45 -0800 (PST)
-Message-ID: <60957.63.170.215.71.1100928765.squirrel@www.osdl.org>
-References: <20041119150808.578154d3.akpm@osdl.org>
-    <419ED5CB.3080106@web.de>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Assertions when lowering tcp_tso_win_divisor
+Date: Fri, 19 Nov 2004 22:35:27 -0800
+Message-ID: <20041119223527.1f243d6e.davem@davemloft.net>
+References: <Pine.LNX.4.58.0411160931080.31882@w-sridhar.beaverton.ibm.com>
+	<E1CUAQ2-0002jT-00@gondolin.me.apana.org.au>
+	<20041116163106.3b62a39a.davem@davemloft.net>
+	<Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <419ED5CB.3080106@web.de>
-To: "Michael Renzmann" <mrenzmann@web.de>
+To: Sridhar Samudrala <sri@us.ibm.com>
+In-Reply-To: <Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Hi.
->
-> Andrew Morton wrote:
->> Problem Description: kernel will not assign/open a tun device when tun.o
->> is
->> compiled as a built-in. ifconfig gives 'unable to open /dev/net/tun'
->> error.
->> compiling as a module fixes.
->
-> If anyone can give me a small general hints for what might be the cause
-> of this problem, I could take a look at it. I already have some patches
-> for tun.o (that needs to be sent to the maintainer), another one doesn't
-> hurt :) But since I'm not yet too experienced with programming of kernel
-> modules, any help would be appreciated.
->
-> Bye, Mike
->
+On Fri, 19 Nov 2004 18:00:21 -0800 (PST)
+Sridhar Samudrala <sri@us.ibm.com> wrote:
 
-See if it successfully registers with the misc driver (misc_register).
-I suspect it is an initialization order type thing. Probably the
-code to register with the misc driver (to create the device) should
-just be delayed until the network device is brought up (ie dev->open)
-is called.
+> Unfortunately as we cannot upgrade to 2.6.10-rc2
 
-Good luck.
+This doesn't work.  You cannot expect upstream maintainers
+to work with you if you're not willing to or able to
+try things out with the latest kernels.
+
+I have an inkling as to the reason why you're restricted
+in this way, which is that you're limited to some vendor's
+kernel.  Am I right?
+
+In that case, work with the vendor unless you can find some
+way to remove the lack of flexibility you have in using newer
+kernels.
