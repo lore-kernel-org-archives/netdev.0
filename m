@@ -1,58 +1,39 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 1/3] 2.6.5-netdev2 - r8169 update
-Date: Wed, 7 Apr 2004 23:14:44 +0200
+Subject: [patch 2/3] 2.6.5-netdev2 - r8169 update
+Date: Wed, 7 Apr 2004 23:15:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040407231444.A25867@electric-eye.fr.zoreil.com>
-References: <20040405235545.A20805@electric-eye.fr.zoreil.com> <20040407231332.A25021@electric-eye.fr.zoreil.com>
+Message-ID: <20040407231529.B25867@electric-eye.fr.zoreil.com>
+References: <20040405235545.A20805@electric-eye.fr.zoreil.com> <20040407231332.A25021@electric-eye.fr.zoreil.com> <20040407231444.A25867@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Srihari Vijayaraghavan <harisri@telstra.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040407231332.A25021@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Wed, Apr 07, 2004 at 11:13:32PM +0200
+In-Reply-To: <20040407231444.A25867@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Wed, Apr 07, 2004 at 11:14:44PM +0200
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The irq handler must not return 1 when the status register is null
+during the firt iteration.
 
-Missing 'static' qualifier for functions.
 
+ drivers/net/r8169.c |    4 ++--
+ 1 files changed, 2 insertions(+), 2 deletions(-)
 
- drivers/net/r8169.c |    9 +++------
- 1 files changed, 3 insertions(+), 6 deletions(-)
-
-diff -puN drivers/net/r8169.c~r8169-missing-static drivers/net/r8169.c
---- linux-2.6.5/drivers/net/r8169.c~r8169-missing-static	2004-04-07 22:51:10.000000000 +0200
-+++ linux-2.6.5-fr/drivers/net/r8169.c	2004-04-07 22:51:10.000000000 +0200
-@@ -357,8 +357,7 @@ static const unsigned int rtl8169_rx_con
- #define PHY_Cap_100_Half_Or_Less PHY_Cap_100_Half | PHY_Cap_10_Full_Or_Less
- #define PHY_Cap_100_Full_Or_Less PHY_Cap_100_Full | PHY_Cap_100_Half_Or_Less
+diff -puN drivers/net/r8169.c~r8169-irq-handler-status drivers/net/r8169.c
+--- linux-2.6.5/drivers/net/r8169.c~r8169-irq-handler-status	2004-04-07 22:56:57.000000000 +0200
++++ linux-2.6.5-fr/drivers/net/r8169.c	2004-04-07 22:58:21.000000000 +0200
+@@ -1540,8 +1540,8 @@ rtl8169_interrupt(int irq, void *dev_ins
+ 	do {
+ 		status = RTL_R16(IntrStatus);
  
--void
--mdio_write(void *ioaddr, int RegAddr, int value)
-+static void mdio_write(void *ioaddr, int RegAddr, int value)
- {
- 	int i;
+-		/* h/w no longer present (hotplug?) or major error, bail */
+-		if (status == 0xFFFF)
++		/* hotplug/major error/no more work/shared irq */
++		if ((status == 0xFFFF) || !status)
+ 			break;
  
-@@ -375,8 +374,7 @@ mdio_write(void *ioaddr, int RegAddr, in
- 	}
- }
- 
--int
--mdio_read(void *ioaddr, int RegAddr)
-+static int mdio_read(void *ioaddr, int RegAddr)
- {
- 	int i, value = -1;
- 
-@@ -1677,8 +1675,7 @@ rtl8169_set_rx_mode(struct net_device *d
-  *
-  *  Get TX/RX statistics for rtl8169
-  */
--struct net_device_stats *
--rtl8169_get_stats(struct net_device *dev)
-+static struct net_device_stats *rtl8169_get_stats(struct net_device *dev)
- {
- 	struct rtl8169_private *tp = dev->priv;
- 	void *ioaddr = tp->mmio_addr;
+ 		handled = 1;
 
 _
