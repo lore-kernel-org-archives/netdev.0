@@ -1,30 +1,29 @@
-From: shemminger@osdl.org
-Subject: Re: [RFC] netem - add jitter support.
-Date: Mon, 12 Jul 2004 20:36:59 -0700 (PDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
+Date: Mon, 12 Jul 2004 20:50:37 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1112.63.170.215.71.1089689819.squirrel@www.osdl.org>
-References: <1089686376.1044.24.camel@jzny.localdomain>
-    <20040713030312.50570.qmail@web54102.mail.yahoo.com>
+Message-ID: <20040712205037.573411c0.davem@redhat.com>
+References: <40F34740.5040100@trash.net>
+	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=iso-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: hadi@cyberus.ca, "netdev linux" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kaber@trash.net, netdev@oss.sgi.com, devik@cdi.cz
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040713030312.50570.qmail@web54102.mail.yahoo.com>
-To: "Weiguang Shi" <wgshi2002@yahoo.ca>
+To: shemminger@osdl.org
+In-Reply-To: <1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Hi Jamal,
->
-> What are the reasons for creating netem instead of using NIST Net?
->
-> Thanks,
-> Weiguang
->
-> ______________________________________________________________________
-> Post your free ad now! http://personals.yahoo.ca
->
+On Mon, 12 Jul 2004 20:35:16 -0700 (PDT)
+shemminger@osdl.org wrote:
 
-To be brutally honest, because NISTnet is mess and would never
-make it into the mainline kernel as it stands.
+> I have a patch (to the original) which replaces the arch dependant CPU stuff
+> with the arch neutral sched_clock() which although slightly
+> slower works on a x86_64 and ia64 as well.
+
+I also want to add sparc64 %tick register support here too.
+This is an area with a lot of potential cleanup.  We should
+made an asm/pkt_sched.h to abstract out the clock source
+implementation instead of loading net/pkt_sched.h up with
+a pile of ifdefs.
