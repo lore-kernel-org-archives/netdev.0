@@ -1,77 +1,72 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [bonding] Add basic support for dynamic configuration of bond
- interfaces
-Date: Sun, 11 Jan 2004 13:34:16 -0800
+From: Per Hedeland <per@hedeland.org>
+Subject: Re: [Bonding-devel] [PATCH] [bonding 2.4] Add balance-xor-ip bonding mode
+Date: Sun, 11 Jan 2004 22:45:16 +0100 (CET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4001C158.6040103@candelatech.com>
-References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com> <200401111628.07930.amir.noam@intel.com> <4001A667.2020904@pobox.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Amir Noam <amir.noam@intel.com>, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com, hadi@cyberus.ca
+Message-ID: <200401112145.i0BLjGWJ095607@pluto.hedeland.org>
+References: <200401111650.24305.amir.noam@intel.com>
+Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4001A667.2020904@pobox.com>
+To: amir.noam@intel.com
+In-Reply-To: <200401111650.24305.amir.noam@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Amir Noam wrote:
-> 
->> The new SIOCBONDING ioctl handles commands aimed for the bonding 
->> module (and not to any specific bonding interface). This is done via 
->> an ioctl hook that captures these commands at the socket level (before 
->> dev_ioctl()) and passes it to the bonding code. Such commands do not 
->> require opening a bonding interface at all, just a valid socket to 
->> send the ioctl.
-> 
-> 
-> Right.  And this last requirement is spurious.  The operation is 
-> essentially "open a socket unrelated to X, to perform actions on X".
-> 
-> bonding (and it sounds like VLAN too) needs a specific, well-known 
-> control point, for controlling module-level data such as the creation 
-> and deletion of interfaces.
-> 
-> One such well-known control point would be a /dev node.  Jamal's 
-> suggestion is also an excellent one:  let userspace use netlink to 
-> communicate with a well known "address" inside the kernel, which would 
-> work as the central (and thus bonding-module-wide) bonding control 
-> interface.
-> 
-> 
->> I was trying to follow the example of several other network modules 
->> (e.g. vlan, dlci, bridge) that use a socket level ioctl hook to handle 
->> such deviceless commands.
->>
->> Do you think that a char device is preferrable, given that other 
->> similar modules use a socket ioctl hook?
-> 
-> 
-> If vlan/dlci/bridge has similar requirements to described above ("open 
-> socket unrelated to X, to perform actions on X") then they need to be 
-> fixed up too.
-> 
-> Opening a random socket to use an ioctl(2) to produce some magic 
-> behavior is just ugly, and we need to avoid that.  Maybe bgreear would 
-> be open to updating VLAN's interface to netlink at the same time, for 
+Amir Noam <amir.noam@intel.com> wrote:
+>
+>A possible way to have "limited" duplication would be to have two 
+>seperate xmit functions, that call an inline function for the shared 
+>code. This might be good enough, performance-wise, while avoiding 
+>some code duplication.
 
-Actually, I am not a fan of netlink for normal configuration, and would
-prefer to keep the VLAN control through IOCTL calls.  This is mainly
-because I have not had an easy time of figuring out a simple way to
-use netlink, while ioctls are very easy to use.
+Yes, I actually thought of that (after the previous post:-) - it would
+at least avoid some *source* code duplication. And the reasonable thing
+to break out into such a function would be the logic to find the slave
+to xmit on given slave_no (perhaps also the actual xmit), I guess.
 
-If someone wants to update vlan and vconfig to use netlink, then
-maybe we could add that API as well, but definately we should not
-remove the IOCTL calls untill at least 2.7.
+However when looking at this I realized that the xor mode has a pretty
+serious bug/flaw in the fault-tolerance department: The modulus is done
+with the total number of slaves, and slaves that are down are only
+skipped in that find-slave logic. I.e. if you (e.g.) have a bond with 3
+links where link 1 is down, link 2 will get 2/3 of the traffic and link
+3 get 1/3 - not good I think.
 
-I would also be open to moving the VLAN ioctls over into the
-ethtool ioctl space, but that just exchanges one magic ioctl for
-another...
+Since fixing this would likely change the interface to the above
+function, I guess it would be nice to do it at the same time as (or
+before) the balance-xor-ip addition. Assuming I'm not the only one that
+thinks it needs fixing, that is.:-)
 
-Ben
+The superficially obvious fix is to do the modulus with only the number
+of slaves that are up, but I'm not sure about the best actual
+implementation. That number isn't currently maintained, and traversing
+the list of slaves just to find it for every packet doesn't make sense
+of course. It seems straightforward to add another field to the bonding
+struct for it, and maintain that in the monitoring functions, though.
 
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+But in addition to that, the actual slave selection logic would have to
+always check the link state of each slave until it has found the
+slave_no'th one that is up (though one could optimize for the case of
+all slaves being up) - whereas currently it only starts checking at the
+slave_no'th one, and if all slaves are up there is only one check. I'm
+not sure if this is acceptable?
+
+The only alternative I see is to also maintain a list of the slaves that
+are up, but then we're perhaps getting too much complexity for these
+"simple" modes. Any comments, other alternatives?
+
+>But, like I've said, I'm not sure wout the best solution is. I'd like 
+>to hear what Jay (and others) thinks about it.
+
+Well, Jay said he would be out of email access for three weeks -
+starting tomorrow and promising he would look over updated patches
+first, but maybe he didn't have the time - or, given that you
+objected:-), he (correctly) thought that a second update wouldn't arrive
+in time.
+
+I'm in no particular hurry to get this into the "official" source
+though, since I'll be using an older kernel that I've already applied
+the (original) patch to for a while anyway - it's just that it gets old
+pretty quickly to keep reworking the patches against moving (and not
+very easily accessible) targets...
+
+--Per Hedeland
+per@hedeland.org
