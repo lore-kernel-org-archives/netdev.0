@@ -1,43 +1,42 @@
 From: domen@coderock.org
-Subject: [patch 4/5] net/ipv6/ip6_flowlabel.c: copy_to_user return code
-Date: Sun, 06 Mar 2005 23:21:17 +0100
-Message-ID: <20050306222118.401D11ED3D@trashy.coderock.org>
-Cc: netdev@oss.sgi.com, domen@coderock.org, yrgrknmxpzlk@gawab.com
-To: davem@redhat.com
+Subject: [patch 1/3] net/islpci_dev: replace schedule_timeout() with msleep()
+Date: Sun, 06 Mar 2005 23:23:51 +0100
+Message-ID: <20050306222352.514491EC90@trashy.coderock.org>
+Cc: netdev@oss.sgi.com, domen@coderock.org, nacc@us.ibm.com,
+        janitor@sternwelten.at
+To: prism54-private@prism54.org
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-compile warning cleanup - handle copy_to/from_user error 
-returns
 
-Signed-off-by: Stephen Biggs <yrgrknmxpzlk@gawab.com>
+
+
+Use msleep() instead of schedule_timeout()
+to guarantee the task delays as expected. Also set_current_state() is
+inserted before schedule_timeout().
+
+Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
+Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 Signed-off-by: Domen Puncer <domen@coderock.org>
 ---
 
 
- kj-domen/net/ipv6/ip6_flowlabel.c |   10 +++++++---
- 1 files changed, 7 insertions(+), 3 deletions(-)
+ kj-domen/drivers/net/wireless/prism54/islpci_dev.c |    3 +--
+ 1 files changed, 1 insertion(+), 2 deletions(-)
 
-diff -puN net/ipv6/ip6_flowlabel.c~return_code-net_ipv6_ip6_flowlabel net/ipv6/ip6_flowlabel.c
---- kj/net/ipv6/ip6_flowlabel.c~return_code-net_ipv6_ip6_flowlabel	2005-03-05 16:13:10.000000000 +0100
-+++ kj-domen/net/ipv6/ip6_flowlabel.c	2005-03-05 16:13:10.000000000 +0100
-@@ -537,9 +537,13 @@ release:
- 			goto done;
+diff -puN drivers/net/wireless/prism54/islpci_dev.c~msleep-drivers_net_wireless_prism54_islpci_dev drivers/net/wireless/prism54/islpci_dev.c
+--- kj/drivers/net/wireless/prism54/islpci_dev.c~msleep-drivers_net_wireless_prism54_islpci_dev	2005-03-05 16:09:30.000000000 +0100
++++ kj-domen/drivers/net/wireless/prism54/islpci_dev.c	2005-03-05 16:09:30.000000000 +0100
+@@ -438,8 +438,7 @@ prism54_bring_down(islpci_private *priv)
+ 	wmb();
  
- 		/* Do not check for fault */
--		if (!freq.flr_label)
--			copy_to_user(&((struct in6_flowlabel_req __user *) optval)->flr_label,
--				     &fl->label, sizeof(fl->label));
-+		if (!freq.flr_label) {
-+			if (copy_to_user(&((struct in6_flowlabel_req __user *)optval)->flr_label,
-+				     &fl->label, sizeof(fl->label))) {
-+				err = -EFAULT;
-+				goto done;
-+			}
-+		}
+ 	/* wait a while for the device to reset */
+-	set_current_state(TASK_UNINTERRUPTIBLE);
+-	schedule_timeout(50*HZ/1000);
++	msleep(50);
  
- 		sfl1->fl = fl;
- 		sfl1->next = np->ipv6_fl_list;
+ 	return 0;
+ }
 _
