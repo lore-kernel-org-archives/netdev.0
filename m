@@ -1,25 +1,27 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] pktgen - handle NETDEV_TX_LOCKED
-Date: Thu, 23 Sep 2004 13:08:59 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6]: fix unbalances spin_unlock_bh in
+ __xfrm_find_acq_byseq
+Date: Thu, 23 Sep 2004 13:23:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923130859.4e6c0502.davem@redhat.com>
-References: <20040922141158.3a16416c@dell_ss3.pdx.osdl.net>
+Message-ID: <20040923132330.24f5a5f6.davem@davemloft.net>
+References: <41524CC8.1070104@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040922141158.3a16416c@dell_ss3.pdx.osdl.net>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41524CC8.1070104@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 14:11:58 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Thu, 23 Sep 2004 06:10:48 +0200
+Patrick McHardy <kaber@trash.net> wrote:
 
-> Change pktgen to handle drivers that return TX_LOCKED better.
-> This isn't a real busy state so just spin.
-> 
-> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+> This patch fixes an unbalanced spin_unlock_bh in
+> __xfrm_find_acq_byseq left over from the larval
+> state SA fix.
 
-Applied, thanks Stephen.
+Good catch, patch applied.
+
+Thanks Patrick.
