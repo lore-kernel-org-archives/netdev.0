@@ -1,28 +1,78 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH 2.6.10] tg3: 5704 serdes fixes
-Date: Wed, 2 Feb 2005 16:08:51 -0800
-Message-ID: <20050202160851.27e532f6.davem@davemloft.net>
-References: <B1508D50A0692F42B217C22C02D84972020F3D56@NT-IRVA-0741.brcm.ad.broadcom.com>
+Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
+Date: Wed, 2 Feb 2005 16:20:23 -0800
+Message-ID: <20050202162023.075015d4.davem@davemloft.net>
+References: <20050131102920.GC4170@suse.de>
+	<E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: "Michael Chan" <mchan@broadcom.com>
-In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3D56@NT-IRVA-0741.brcm.ad.broadcom.com>
+Cc: okir@suse.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 27 Jan 2005 14:43:34 -0800
-"Michael Chan" <mchan@broadcom.com> wrote:
+On Mon, 31 Jan 2005 22:33:26 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Some 5704S and related fixes:
+> We're using atomic integers to signal that we're done with an object.
+> The object is usually represented by a piece of memory.
 > 
-> - Fix capacitive coupling detection by reading the correct offset in sram
-> - Add support for different signal pre-emphasis on 5704S (used in some blade
-> servers)
-> - Improve 5704S link parallel detection. When autonegotiation fails, we only
-> detect link-up if we have PCS_SYNC and we are not receiving config code
-> words. This will prevent false link-up when only the rx cable is attached.
+> The problem is that in most of the places where we do this (and that's
+> not just in the networking systems), there are no memory barriers between
+> the last reference to that object and the decrease on the atomic counter.
 
-Applied, thanks Michael.
+I agree.
+
+> 	if (atomic_read(&skb->users) != 1) {
+> 		smp_mb__before_atomic_dec();
+> 		if (!atomic_dec_and_test(&skb->users))
+> 			return;
+> 	}
+> 	__kfree_skb(skb);
+
+This looks good.  Olaf can you possibly ask the reproducer if
+this patch makes the ARP problem go away?
+
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2005/02/02 15:53:55-08:00 herbert@gondor.apana.org.au 
+#   [NET]: Add missing memory barrier to SKB release.
+#   
+#   Here, we are using atomic counters to signal that we are done
+#   with an object.  The object is usually represented by a piece
+#   of memory.
+#   
+#   The problem is that in most of the places we do this, there are
+#   no memory barriers between the last reference to that object
+#   and the decrease on the atomic counter.
+#   
+#   Based upon a race spotted in arp_queue handling by Olaf Kirch.
+#   
+#   Signed-off-by: David S. Miller <davem@davemloft.net>
+# 
+# include/linux/skbuff.h
+#   2005/02/02 15:51:57-08:00 herbert@gondor.apana.org.au +6 -2
+#   [NET]: Add missing memory barrier to SKB release.
+# 
+diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	2005-02-02 15:54:13 -08:00
++++ b/include/linux/skbuff.h	2005-02-02 15:54:13 -08:00
+@@ -353,8 +353,12 @@
+  */
+ static inline void kfree_skb(struct sk_buff *skb)
+ {
+-	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
+-		__kfree_skb(skb);
++	if (atomic_read(&skb->users) != 1) {
++		smp_mb__before_atomic_dec();
++		if (!atomic_dec_and_test(&skb->users))
++			return;
++	}
++	__kfree_skb(skb);
+ }
+ 
+ /* Use this if you didn't touch the skb state [for fast switching] */
