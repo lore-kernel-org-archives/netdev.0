@@ -1,49 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Badness in dst_release (continuing saga)
-Date: Mon, 27 Dec 2004 05:04:13 -0500
-Message-ID: <41CFDE1D.6000802@pobox.com>
+From: Domen Puncer <domen@coderock.org>
+Subject: Re: delete unused file
+Date: Mon, 27 Dec 2004 12:14:19 +0100
+Message-ID: <20041227111419.GA3768@masina.coderock.org>
+References: <20041226151017.C042C1ECC0@trashy.coderock.org> <20041227045955.GA711@linux-mips.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
- <yoshfuji@linux-ipv6.org>,
-        Herbert Xu <herbert@gondor.apana.org.au>,
-        Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+To: Ralf Baechle <ralf@linux-mips.org>
+Content-Disposition: inline
+In-Reply-To: <20041227045955.GA711@linux-mips.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On 27/12/04 05:59 +0100, Ralf Baechle wrote:
+> On Sun, Dec 26, 2004 at 04:10:32PM +0100, domen@coderock.org wrote:
+> 
+> > Remove nowhere referenced file. (egrep "filename\." didn't find anything)
+> > 
+> > Signed-off-by: Domen Puncer <domen@coderock.org>
+> 
+> Great idea to send patches to delete everything that seems unused.  NOT.
 
-Ok, it's happened again.  x86 SMP, 2.6.10-rc3-bk9.
+It's the best way to make someone aware something might be wrong. ;-)
 
-I have left the machine up without rebooting, those with accounts may 
-ssh in.  First message occurs on Dec 24 in /var/log/messages.1, and they 
-continue in /var/log/messages and dmesg.  ssh to gw.yyz.us.
-
-NOTE: it would be wise to "ssh -4" to avoid continuing log spam, when 
-you ssh into the box.
-
-	Jeff
-
-
-Badness in dst_release at include/net/dst.h:149
-  [<f8c1124d>] ip6_dst_check+0x64/0x6a [ipv6]
-  [<f8c080da>] ip6_dst_lookup+0x1a7/0x1c1 [ipv6]
-  [<f8c1a4da>] udpv6_sendmsg+0x297/0x931 [ipv6]
-  [<c031955f>] udp_recvmsg+0x60/0x2e9
-  [<c03208dd>] inet_sendmsg+0x4d/0x59
-  [<c02d3428>] sock_sendmsg+0xe8/0x103
-  [<c011bb37>] find_busiest_group+0xcf/0x2db
-  [<c011bfb9>] load_balance_newidle+0x36/0xb4
-  [<c01ec0b8>] copy_from_user+0x42/0x6e
-  [<c0133e46>] autoremove_wake_function+0x0/0x57
-  [<c02d4d46>] sys_sendmsg+0x189/0x1e6
-  [<c011c826>] __wake_up_common+0x3f/0x5e
-  [<c011c885>] __wake_up+0x40/0x56
-  [<c01344b5>] wake_futex+0x37/0x62
-  [<c0134554>] futex_wake+0x74/0xc4
-  [<c01ec0b8>] copy_from_user+0x42/0x6e
-  [<c02d51d0>] sys_socketcall+0x236/0x254
-  [<c0102f0d>] sysenter_past_esp+0x52/0x75
+> 
+> Jeff, seems the gt96100 and gt64240 drivers got mixed up, will send a patch
+> to fix this.
+> 
+>   Ralf
