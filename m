@@ -1,63 +1,44 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: RFC/PATCH capture qdisc requeue event in stats
-Date: 28 Sep 2004 22:54:24 -0400
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: 28 Sep 2004 22:59:20 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1096426464.1045.133.camel@jzny.localdomain>
-References: <1093799632.1073.410.camel@jzny.localdomain>
-	 <20040830144033.2265a6e6.davem@redhat.com>
-	 <1093904088.1043.12.camel@jzny.localdomain>
-	 <20040830154430.769d1d59.davem@redhat.com>
-	 <1093906592.1037.32.camel@jzny.localdomain>
-	 <20040830160052.548c4846.davem@redhat.com>
-	 <1093916592.1037.51.camel@jzny.localdomain>
-	 <20040830191716.0d002f91.davem@redhat.com>
-	 <1093919823.1043.80.camel@jzny.localdomain>
-	 <20040830212910.78047bcd.davem@davemloft.net>
-	 <20040929003656.GX31616@rei.reeler.org>
+Message-ID: <1096426760.1042.136.camel@jzny.localdomain>
+References: <20040927213607.GD7243@gondor.apana.org.au>
+	 <1096339407.8660.33.camel@jzny.localdomain>
+	 <20040928024614.GA9911@gondor.apana.org.au>
+	 <1096340772.8659.51.camel@jzny.localdomain>
+	 <20040928032321.GB10116@gondor.apana.org.au>
+	 <1096343125.8661.96.camel@jzny.localdomain>
+	 <20040928035921.GA10675@gondor.apana.org.au>
+	 <1096367787.8662.146.camel@jzny.localdomain> <4159D278.4060809@eurodev.net>
+	 <1096424914.1043.103.camel@jzny.localdomain>
+	 <20040929023051.GA26716@gondor.apana.org.au>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        shemminger@osdl.org
+Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20040929003656.GX31616@rei.reeler.org>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040929023051.GA26716@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-28 at 20:36, Thomas Graf wrote:
-> * David S. Miller <20040830212910.78047bcd.davem@davemloft.net> 2004-08-30 21:29
-> > Look, let's get real about this topic.  We can't be breaking shit
-> > like this all the time.  We're nearly letting it happen a lot
-> > lately.
+On Tue, 2004-09-28 at 22:30, Herbert Xu wrote:
+> On Tue, Sep 28, 2004 at 10:28:34PM -0400, jamal wrote:
 > > 
-> > These data structures are user visible APIs, they are just like
-> > system call data structures, and if we cannot modify
-> > them without potentially breaking some existing application we
-> > cannot make that change.
+> > Being able to prioritize control (errors and ACKs) would be valuable.
+> > Would require mucking around with the socket queue. 
+> > Something along what we do for a basic default 3 band queue (proabably
+> > two band in this case) should work.
 > 
-> Why not do it by using nested TLVs?:
+> Obviously neither of you have taken my tip :)
 > 
->   TCA_STATS2 [
->       TCA_STAT_BYTES
->       TCA_STAT_PACKETS
->       TCA_STAT_DROPS
->       ...
->   ]
+> You should never use your unicast socket to receive multicast messages.
+> Otherwise you get to keep both pieces when it breaks.
 
-Refer to my earlier email; i think this is a noble approach.
-Lets do it on gnet stats though so we can make it more accessible.
-I think your granularity maybe too thin: bytes,packets, drops
-may need to be in the same TLV.
-
-> This way we can add as many new stats as we want without
-> even thinking about backward compatibility in the future.
-> This would also allow to implement dynamic size statistics
-> or introduce TCA_STAT_*_64 if ever needed.
-
-Yep.
-do you have cycles to run with that patch?
+Ok, good point as long as it is common knowledge. 
 
 cheers,
 jamal
