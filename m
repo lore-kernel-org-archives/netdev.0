@@ -1,81 +1,79 @@
-From: "James R. Leu" <jleu@mindspring.com>
-Subject: Re: class/qdisc question
-Date: Tue, 18 Mar 2003 16:45:59 -0600
+From: bert hubert <ahu@ds9a.nl>
+Subject: [BUG] 2.5.65 ipv6 TCP checksum errors (capture attached)
+Date: Wed, 19 Mar 2003 13:45:33 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030318164559.A26154@mindspring.com>
-References: <Pine.LNX.4.44.0303181857500.12317-100000@merete.balder.no>
-Reply-To: jleu@mindspring.com
+Message-ID: <20030319124533.GA14363@outpost.ds9a.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="ew6BAiZeqk4r7MaW"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lars Landmark <larslan@merete.zapto.org>
-In-Reply-To: <Pine.LNX.4.44.0303181857500.12317-100000@merete.balder.no>; from larslan@merete.zapto.org on Tue, Mar 18, 2003 at 07:22:08PM +0100
+To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I suggest moving your development to user-mode-linux, then you can attach
-a debugger and track down the location of the lockup.
 
-http://sf.net/projects/user-mode-linux/
+--ew6BAiZeqk4r7MaW
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-On Tue, Mar 18, 2003 at 07:22:08PM +0100, Lars Landmark wrote:
-> HI;
-> 
-> I am trying to write my own class based queue. But as usual some problems 
-> seems not to be resolved.
-> 
-> I have achieved to send package through my queue.  This can be done if I 
-> not attach class or filters.  If I do try to attach class or filter, my 
-> computer stops. I can not read any message, nor do anything. My only 
-> choice is to push power button in order to reboot.  
-> 
-> My "queue" is compiled as module and if I do "insmod", 
-> it is loaded in to kernel.  This operation do not report any error.
-> 
-> [root@lars larslan]# /sbin/insmod sch_kll
-> Using /lib/modules/2.4.20/kernel/net/sched/sch_kll.o
-> 
-> 
-> /sbin/lsmod  report
-> Module                  Size  Used by    Not tainted
-> sch_htb                21088   1
-> sch_kll                9608    0 (autoclean) (unused)
-> 3c59x                  28520   2
-> 
-> 
-> When I now configure this module width my patched tc file 
-> ************
-> root@lars iproute2.lars]# ./tc/tc qdisc add dev eth0 root handle 1: kll   
-> default 5
-> ************
-> output from /sbin/lsmod do not change. It still says used by 0 and 
-> (unused).
-> 
-> I have written som output in every procedyre, and dmesg report that this 
-> procedures are called
-> *************
-> [root@lars iproute2.lars]# dmesg
-> KLL: inne i classify?
-> KLL: inne i dequeue?
-> KLL: inne i dequeue?
-> ....
-> *************
-> So my question is, how can this happen? 
-> I thought that at once I configure module, 
-> modules usage count would be incremented???
-> Is there any possibility, that when I attach a filter my computer crash 
-> because kernel do not know kll-module is in use???
-> 
-> I would be very happy if some could tell me what I have been missed...
-> 
-> Any suggestion is appreciated, 
-> Thanks in advance
-> 
-> Lars 
-> Student 
-> 
-> 
+Interestingly, the initial ssh connection worked, the second one failed.
+Subsequent attempts fail too.
+
+This all over ipv6:
+
+hubert# tcpdump -r file -v -v
+29.09 snapcount.33408 > hubert.ssh: S [tcp sum ok] 2737328594:2737328594(0) win 5760 <mss 1440,sackOK,timestamp 10690463 0,nop,wscale 0> (len 40, hlim 64)
+29.09 hubert.ssh > snapcount.33408: S [tcp sum ok] 2399386333:2399386333(0) ack 2737328595 win 5712 <mss 1440,sackOK,timestamp 10865690 10690463,nop,wscale 0> (len 40, hlim 64)
+29.09 snapcount.33408 > hubert.ssh: . [tcp sum ok] 1:1(0) ack 1 win 5760 <nop,nop,timestamp 10690464 10865690> (len 32, hlim 64)
+29.10 hubert.ssh > snapcount.33408: P [bad tcp cksum 4f2!] 1:41(40) ack 1 win 5712 <nop,nop,timestamp 10865695 10690464> (len 72, hlim 64)
+29.30 hubert.ssh > snapcount.33408: P [bad tcp cksum 3bf1!] 1:41(40) ack 1 win 5712 <nop,nop,timestamp 10865896 10690464> (len 72, hlim 64)
+29.83 hubert.ssh > snapcount.33408: P [bad tcp cksum 23ef!] 1:41(40) ack 1 win 5712 <nop,nop,timestamp 10866432 10690464> (len 72, hlim 64)
+30.86 hubert.ssh > snapcount.33408: P [bad tcp cksum 23eb!] 1:41(40) ack 1 win 5712 <nop,nop,timestamp 10867456 10690464> (len 72, hlim 64)
+
+Both hosts run 2.5.65. hubert.ipv6.ds9a.nl (publically routable, so you
+can try to ssh to me as long as I'm not asleep, the machine is next to my
+bed) is a pentium pro 200. Kernel was make mrpropered before compiling,
+virgin kernel.
+
+Capture attached.
+
+Regards,
+
+bert
 
 -- 
-James R. Leu
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+http://netherlabs.nl                         Consulting
+--ew6BAiZeqk4r7MaW
+Content-Type: application/octet-stream
+Content-Disposition: attachment; filename=bad-csum
+Content-Transfer-Encoding: base64
+
+1MOyoQIABAAAAAAAAAAAANwFAAABAAAAiWR4Pht3AQBeAAAAXgAAAAAIoRnw8ACgzMjyXIbd
+YAAAAAAoBkAgAQiIEDYAAAIIof/+GfDxIAEIiBA2AAACCKH//hnw8IKAABajKFHSAAAAAKAC
+FoACJAAAAgQFoAQCCAoAox+fAAAAAAEDAwCJZHg+wHcBAF4AAABeAAAAAKDMyPJcAAihGfDw
+ht1gAAAAACgGQCABCIgQNgAAAgih//4Z8PAgAQiIEDYAAAIIof/+GfDxABaCgI8Dut2jKFHT
+oBIWUOuhAAACBAWgBAIICgClzBoAox+fAQMDAIlkeD5KeAEAVgAAAFYAAAAACKEZ8PAAoMzI
+8lyG3WAAAAAAIAZAIAEIiBA2AAACCKH//hnw8SABCIgQNgAAAgih//4Z8PCCgAAWoyhR048D
+ut6AEBaAGiIAAAEBCAoAox+gAKXMGolkeD5XigEAfgAAAH4AAAAAoMzI8lwACKEZ8PCG3WAA
+AAAASAZAIAEIiBA2AAACCKH//hnw8CABCIgQNgAAAgih//4Z8PEAFoKAjwO63qMoUdOAGBZQ
+aA0AAAEBCAoApcwfAKMfoFNTSC0xLjk5LU9wZW5TU0hfMy41cDEgRGViaWFuIDE6My41cDEt
+NQqJZHg+7pkEAH4AAAB+AAAAAKDMyPJcAAihGfDwht1gAAAAAEgGQCABCIgQNgAAAgih//4Z
+8PAgAQiIEDYAAAIIof/+GfDxABaCgI8Dut6jKFHTgBgWUGgNAAABAQgKAKXM6ACjH6BTU0gt
+MS45OS1PcGVuU1NIXzMuNXAxIERlYmlhbiAxOjMuNXAxLTUKiWR4Pv/GDAB+AAAAfgAAAACg
+zMjyXAAIoRnw8IbdYAAAAABIBkAgAQiIEDYAAAIIof/+GfDwIAEIiBA2AAACCKH//hnw8QAW
+goCPA7reoyhR04AYFlBoDQAAAQEICgClzwAAox+gU1NILTEuOTktT3BlblNTSF8zLjVwMSBE
+ZWJpYW4gMTozLjVwMS01CopkeD4pJA0AfgAAAH4AAAAAoMzI8lwACKEZ8PCG3WAAAAAASAZA
+IAEIiBA2AAACCKH//hnw8CABCIgQNgAAAgih//4Z8PEAFoKAjwO63qMoUdOAGBZQaA0AAAEB
+CAoApdMAAKMfoFNTSC0xLjk5LU9wZW5TU0hfMy41cDEgRGViaWFuIDE6My41cDEtNQqMZHg+
+0/QJAH4AAAB+AAAAAKDMyPJcAAihGfDwht1gAAAAAEgGQCABCIgQNgAAAgih//4Z8PAgAQiI
+EDYAAAIIof/+GfDxABaCgI8Dut6jKFHTgBgWUGgNAAABAQgKAKXaAACjH6BTU0gtMS45OS1P
+cGVuU1NIXzMuNXAxIERlYmlhbiAxOjMuNXAxLTUKj2R4PkXxDgB+AAAAfgAAAACgzMjyXAAI
+oRnw8IbdYAAAAABIBkAgAQiIEDYAAAIIof/+GfDwIAEIiBA2AAACCKH//hnw8QAWgoCPA7re
+oyhR04AYFlBoDQAAAQEICgCl5wAAox+gU1NILTEuOTktT3BlblNTSF8zLjVwMSBEZWJpYW4g
+MTozLjVwMS01CpZkeD6mqAkAfgAAAH4AAAAAoMzI8lwACKEZ8PCG3WAAAAAASAZAIAEIiBA2
+AAACCKH//hnw8CABCIgQNgAAAgih//4Z8PEAFoKAjwO63qMoUdOAGBZQaA0AAAEBCAoApgEA
+AKMfoFNTSC0xLjk5LU9wZW5TU0hfMy41cDEgRGViaWFuIDE6My41cDEtNQo=
+
+--ew6BAiZeqk4r7MaW--
