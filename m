@@ -1,44 +1,36 @@
-From: Ricardo C Gonzalez <ricardoz@us.ibm.com>
-Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: Fri, 12 Sep 2003 13:31:49 -0500
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: [PATCH 2.6] pci.ids for e1000
+Date: Fri, 12 Sep 2003 11:40:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFA4E4A95F.4A398E81-ON85256D9F.00651A3A-86256D9F.0065A4E5@us.ibm.com>
-References: <3F620C90.5090903@candelatech.com>
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010124F035@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: hadi@cyberus.ca, "Feldman, Scott" <scott.feldman@intel.com>,
-   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <3F620C90.5090903@candelatech.com>
-To: Ben Greear <greearb@candelatech.com>
+content-class: urn:content-classes:message
+To: "Jeff Garzik" <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> How motivated are you?  ;-)
+> 
+> The general idea is to keep 2.4, 2.6, and pciids.sf.net in sync.
+> 
+> Could you be talked into comparing 2.4, 2.6, and pciids.sf.net, and 
+> creating patches for 2.4 and 2.6 that add missing ids?  ;-)  Martin 
+> Mares (pciids.sf.net maintainer) did a big sync-up less than 
+> 12 months 
+> ago, so the job shouldn't be as big as it sounds.
+> 
+> If not, no big deal.  Just say "no" and I'll apply the patch below, 
+> instead of waiting for the larger patches...
 
+Now that I've dug into this a little more, go ahead and drop my patch
+for e1000 IDs.  Bypassing the flow from pciids.sf.net is just going to
+cause more problems.  Pciids.sf.net has been updated with these IDs, so
+it's just a matter of getting them approved and having Martin push out a
+sync for 2.4 and 2.6.  I'll add my request to Martin...
 
-
-Ben Greear worte:
-
->I have seen greater packets-per-second throughput when I increase the
-TxDescriptor
->ring (and RxDescriptor ring) when using pktgen, which checks for enqueue
-errors
->and re-queues as needed.  So, it could help the case where we are running
->at very high sustained speeds (or high packets-per-second rates).
-
-This is exactly the type of test I run(TCP_STREAM tests at very high
-sustained speeds). And I saw very good performance improvement when
-increasing the TxDescriptors to at least 1024.
-
-I run a network benchmark in this case the data I gathered was on 4 way,
-1.45 Ghz systems,  running the benchmark on only one adapter per machine,
-point-to-point.
-
-
-regards,
-
-----------------------------------------------------------------------------------
-
-***  ALWAYS THINK POSITIVE ***
-
-Rick Gonzalez
+-scott
