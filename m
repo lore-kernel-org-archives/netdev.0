@@ -1,8 +1,8 @@
 From: "gavekort@mobil-varehuset.com" <gavekort@mobil-varehuset.com>
 Subject: Gratulerer med gavekort
-Date: Sun, 24 Nov 2002 20:24:00 +0000 (UTC)
+Date: Mon, 25 Nov 2002 01:01:46 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200211242023.gAOKN3uR019556@oss.sgi.com>
+Message-ID: <200211250100.gAP10buR022964@oss.sgi.com>
 Mime-Version: 1.0
 Content-Type: text/plain;charset="iso-8859-1"
 Content-Transfer-Encoding: quoted-printable
