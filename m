@@ -1,28 +1,35 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] (10/11) netrom - convert /proc interface to seq_file
-Date: Fri, 15 Aug 2003 18:12:17 -0300
-Sender: linux-hams-owner@vger.kernel.org
-Message-ID: <20030815211217.GL1564@conectiva.com.br>
-References: <20030813154635.376df59b.shemminger@osdl.org> <20030814172539.GD1785@conectiva.com.br> <20030814113025.2b40be14.shemminger@osdl.org>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] fix build problem with IPV6
+Date: Fri, 15 Aug 2003 14:07:40 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030815140740.388a79c4.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>,
-	Jeroen Vreeken <pe1rxq@amsat.org>, linux-hams@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-hams-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030814113025.2b40be14.shemminger@osdl.org>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
+   "David S. Miller" <davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Thu, Aug 14, 2003 at 11:30:25AM -0700, Stephen Hemminger escreveu:
-> On Thu, 14 Aug 2003 14:25:39 -0300
-> Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
-> > <nitpick> why not just one seq_printf call? </nitpick>
-> 
-> ax2asc() returns a pointer to static buffer.
+IPV6 won't build in current 2.6.0-test3 tree unless CONFIG_XFRM is defined
+because of reference to xfrm6_fini.
 
-argh :-\ Even if only for correctness shouldn't it receive a buffer, like
-snprintf, etc?
+The linux way to fix this would be to make the functions
+stub's in the include file, but that isn't how IPV6 does it now
+for other xfrm functions.
 
-- Arnaldo
+diff -Nru a/net/ipv6/route.c b/net/ipv6/route.c
+--- a/net/ipv6/route.c	Fri Aug 15 14:04:05 2003
++++ b/net/ipv6/route.c	Fri Aug 15 14:04:05 2003
+@@ -2000,7 +2000,9 @@
+ 	proc_net_remove("ipv6_route");
+ 	proc_net_remove("rt6_stats");
+ #endif
++#ifdef CONFIG_XFRM
+ 	xfrm6_fini();
++#endif
+ 	rt6_ifdown(NULL);
+ 	fib6_gc_cleanup();
+ 	kmem_cache_destroy(ip6_dst_ops.kmem_cachep);
