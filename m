@@ -1,51 +1,45 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [IPSEC] Missing unlock in policy timer
-Date: Fri, 23 Jul 2004 21:06:26 +1000
+From: Mirko Lindner <mlindner@syskonnect.de>
+Subject: Re: [PATCH] convert skge to pci_driver API (2nd try)
+Date: Fri, 23 Jul 2004 13:23:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040723110626.GA31264@gondor.apana.org.au>
+Message-ID: <4100F51C.3030709@syskonnect.de>
+References: <20040620112859.GA13794@lst.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="EeQfGwPcQSOJBaQU"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Ralph Roesler <rroesler@syskonnect.de>,
+        Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
-Content-Disposition: inline
+To: Christoph Hellwig <hch@lst.de>
+In-Reply-To: <20040620112859.GA13794@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi Christoph,
 
---EeQfGwPcQSOJBaQU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I'm sorry for this late answer. I was in holiday last weeks and couldn't 
+check my company emails regulary.
 
-Hi Dave:
+Thanks a lot for the patch. Actually, we were busy with the new driver 
+version 7.x which yukon ec and yukon2 support, which involves also the 
+new init and deinit pci driver API.
 
-This is one of those cases where the cure is worse than the disease :)
-I added read locks in the policy timer to close an unlikely race, but
-I missed an unlock on the expire path which leads to all sort of weird
-things.
+The patch you have created is very similar to our work created about few 
+months ago. The new driver version can be found at the moment for all 
+testers on out page 
+(http://www.syskonnect.de/syskonnect/support/driver/htm/sk9e21_lin.htm) 
+and we are busy with additional stability and robustness tests. As soon 
+as the driver is ready for the kernel stability we'll send the patches 
+to Jeff and the KML.
 
-I'll stay away from the timers for a while :)
+Therefore we would like to keep our driver consistent and it's not 
+possible for us to merge your changes into our code tree. Please don't 
+apply the patch to the kernel tree, there are several problems with proc 
+and locking which will probably lead to kernel oops. The new V7.05 
+version includes all kernel patches since the last v6 driver release and 
+additional code for handling the new descriptor (lists) logic of yukon 
+ec and yukon2 cards, ethtool support, tcp-segmentation, power 
+management. proc fs cleanups and changes for the interrupt moderation.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---EeQfGwPcQSOJBaQU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/xfrm/xfrm_policy.c 1.51 vs edited =====
---- 1.51/net/xfrm/xfrm_policy.c	2004-05-30 05:45:43 +10:00
-+++ edited/net/xfrm/xfrm_policy.c	2004-07-23 21:00:52 +10:00
-@@ -204,6 +204,7 @@
- 	return;
- 
- expired:
-+	read_unlock(&xp->lock);
- 	km_policy_expired(xp, dir, 1);
- 	xfrm_policy_delete(xp, dir);
- 	xfrm_pol_put(xp);
-
---EeQfGwPcQSOJBaQU--
+Cheers,
+Mirko
