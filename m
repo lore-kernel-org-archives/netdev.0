@@ -1,36 +1,33 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.9-rc4-bk3-netdev3 1/3] r8169: always clean Tx desc
-Date: Tue, 19 Oct 2004 01:08:23 +0200
+Subject: [PATCH 2.6.9-rc4-bk3-netdev3 2/3] r8169: unneeded synchronize_irq()
+Date: Tue, 19 Oct 2004 01:09:50 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041018230823.GB19990@electric-eye.fr.zoreil.com>
+Message-ID: <20041018230948.GA27418@electric-eye.fr.zoreil.com>
+References: <20041018230823.GB19990@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Content-Disposition: inline
+In-Reply-To: <20041018230823.GB19990@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-rtl8169_unmap_tx_skb() can not assume that a Tx ring descriptor belongs
-to the host as it can be issued during rtl8169_tx_clear() as a part of
-a recovery process (during Tx timeout for instance).
+synchronize_irq() is not needed as it is already issued by free_irq().
 
-Simple fix: always clean the relevant descriptor entry.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Acked-by: Francois Romieu <romieu@fr.zoreil.com>
-Signed-off-by: Jon Mason <jdmason@us.ibm.com>
-
-diff -puN drivers/net/r8169.c~r8169-225 drivers/net/r8169.c
---- linux-2.6.9/drivers/net/r8169.c~r8169-225	2004-10-18 22:13:54.000000000 +0200
-+++ linux-2.6.9-fr/drivers/net/r8169.c	2004-10-18 23:31:21.000000000 +0200
-@@ -1679,6 +1679,7 @@ static void rtl8169_unmap_tx_skb(struct 
- 	unsigned int len = tx_skb->len;
+diff -puN drivers/net/r8169.c~r8169-230 drivers/net/r8169.c
+--- linux-2.6.9/drivers/net/r8169.c~r8169-230	2004-10-18 23:37:30.000000000 +0200
++++ linux-2.6.9-fr/drivers/net/r8169.c	2004-10-18 23:37:58.000000000 +0200
+@@ -2259,7 +2259,6 @@ rtl8169_close(struct net_device *dev)
  
- 	pci_unmap_single(pdev, le64_to_cpu(desc->addr), len, PCI_DMA_TODEVICE);
-+	desc->opts1 = 0x00;
- 	desc->opts2 = 0x00;
- 	desc->addr = 0x00;
- 	tx_skb->len = 0;
+ 	spin_unlock_irq(&tp->lock);
+ 
+-	synchronize_irq(dev->irq);
+ 	free_irq(dev->irq, dev);
+ 
+ 	netif_poll_disable(dev);
 
 _
