@@ -1,37 +1,24 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] New Patch: Implementation for IPv6 MIB:ipv6AddressTable
-Date: Fri, 10 Oct 2003 00:04:13 -0700
+Subject: Re: 2.6.0-test7-netx1
+Date: Fri, 10 Oct 2003 01:48:22 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010000413.7935be3c.davem@redhat.com>
-References: <OF4B7AD7E2.5CA239A1-ON87256DB9.0067C527@us.ibm.com>
-	<20031008130016.559b8047.davem@redhat.com>
-	<200310081706.09485.mashirle@us.ibm.com>
-	<200310091317.35164.mashirle@us.ibm.com>
+Message-ID: <20031010014822.0130ca61.davem@redhat.com>
+References: <20031009155302.4f2fe835.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200310091317.35164.mashirle@us.ibm.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031009155302.4f2fe835.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Oct 2003 13:17:35 -0700
-Shirley Ma <mashirle@us.ibm.com> wrote:
+On Thu, 9 Oct 2003 15:53:02 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Which one do you think is better.
-> 
-> This one is too much math.
-> 
-> ci.cstamp = (__u32)(TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) / HZ * 100
-> 		  + TIME_DELTA(ifa->cstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
-> ci.tstamp = (__u32)(TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) / HZ * 100
-> 		  + TIME_DELTA(ifa->tstamp, INITIAL_JIFFIES) % HZ * 100 / HZ);
+>     * TCP Vegas (from Dave Miller)
 
-Why are you using jiffies for timestamps?  I guess these values
-are measured "since bootup" or something like that?
-
-Anyways, I prefer the "too much math" because 1) it isn't a lot of
-math, most of these things are constants which make the expressions
-easy to compute 2) it's only done when someone asks for the information.
+Please don't use a config option for this, that is why the
+sysctl is there and off by default.
