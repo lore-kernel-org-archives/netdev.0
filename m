@@ -1,27 +1,39 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Info: NAPI performance at "low" loads
-Date: Wed, 18 Sep 2002 14:22:50 -0700 (PDT)
+Subject: Re: [PATCH] Networking: send-to-self [link to non-broken patch
+ this time]
+Date: Wed, 18 Sep 2002 15:55:34 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020918.142250.130847722.davem@redhat.com>
-References: <1032381789.20498.151.camel@irongate.swansea.linux.org.uk>
-	<20020918.134630.127509858.davem@redhat.com>
-	<1032383727.20463.155.camel@irongate.swansea.linux.org.uk>
+Message-ID: <20020918.155534.102954410.davem@redhat.com>
+References: <3D88217A.6070702@candelatech.com>
+	<3D8826BE.5090007@candelatech.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ebiederm@xmission.com, hadi@cyberus.ca, akpm@digeo.com,
-   manfred@colorfullife.com, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: alan@lxorguk.ukuu.org.uk
-In-Reply-To: <1032383727.20463.155.camel@irongate.swansea.linux.org.uk>
+To: greearb@candelatech.com
+In-Reply-To: <3D8826BE.5090007@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-   Date: 18 Sep 2002 22:15:27 +0100
+   From: Ben Greear <greearb@candelatech.com>
+   Date: Wed, 18 Sep 2002 00:09:50 -0700
    
-   It doesnt matter what XFree86 is doing. Thats just to load the PCI bus
-   and jam it up to prove the point. It'll change your inb timing
-   
-Understood.  Maybe a more accurate wording would be "a fixed minimum
-timing".
+   http://www.candelatech.com/sts_2.4.19.patch
+
+I don't think I'll be applying this:
+
+1) No tcp ipv6 bits
+2) SIOC{S,G}ACCEPTLOCALADDRS added, but no 32-bit translation
+   code added to varions 64-bit/32-bit biarch port ioctl handling.
+   Also, no code added to the ioctl dispatch in the networking
+   so that devices could actually receive these requests.
+3) Finally, it's just too damn ugly.  If you have to ifdef it then
+   it really doesn't belong in the tree.  Maybe if the device number
+   comparison logic changes existed via macros in tcp.h and thus
+   removing all the CONFIG_NET_SENDTOSELF ifdefs from tcp*.c code
+   it might be more palatable.
+4) I haven't reviewed the ramifications of the route lookup changes,
+   that is Alexey's territory.
+
+Sorry, these changes are pretty ugly right now.
