@@ -1,40 +1,48 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
-Date: Fri, 1 Apr 2005 17:53:02 +0200
-Message-ID: <16973.28254.203492.400896@robur.slu.se>
-References: <42370997.6010302@cosmosbay.com>
-	<20050315103253.590c8bfc.davem@davemloft.net>
-	<42380EC6.60100@cosmosbay.com>
-	<20050316140915.0f6b9528.davem@davemloft.net>
-	<4239E00C.4080309@cosmosbay.com>
-	<20050331221352.13695124.davem@davemloft.net>
-	<424D5D34.4030800@cosmosbay.com>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: RFC:  Redirect-Device
+Date: Fri, 01 Apr 2005 08:29:19 -0800
+Message-ID: <424D76DF.5070002@candelatech.com>
+References: <424C6089.1080507@candelatech.com> <Pine.LNX.4.61.0504010801170.6417@netcore.fi> <424CDBA9.80703@candelatech.com> <Pine.LNX.4.61.0504011222140.10960@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Eric Dumazet <dada1@cosmosbay.com>
-In-Reply-To: <424D5D34.4030800@cosmosbay.com>
+To: Pekka Savola <pekkas@netcore.fi>
+In-Reply-To: <Pine.LNX.4.61.0504011222140.10960@netcore.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Pekka Savola wrote:
+> On Thu, 31 Mar 2005, Ben Greear wrote:
+> 
+>>> Is there something in your problem statement I'm missing?
+>>
+>>
+>> That would be similar to what I'm doing, but I'm not really trying
+>> to tunnel anything.  I am trying to duplicate the behaviour of two
+>> ethernet interfaces connected by an external cross-over cable, and I'm
+>> trying to duplicate it at the network-device interface level so that
+>> common tools (and my own tools) can treat these virtual interfaces
+>> just like ethernet interfaces.
+> 
+> 
+> Oh ok, what you seem to want is some kind of "Ethernet loopback++", but 
+> the "looped" packets should come back from a virtual interface instead 
+> of the same interface?
 
- Hello!
+Yes.  In practice, I use a pair of virtual interfaces, so I send on one
+virtual and receive on the other.  I use separate software to bridge,
+or the normal linux stacks to route, the packets to other interfaces,
+including real interfaces.
 
-Eric Dumazet writes:
- > By the way I have an updated patch... surviving very serious loads.
+> Btw, does the kernel support traditional loopback, so that at the last 
+> stage, just before sending a packet on the wire, it would be pushed back.
 
- Did you check for performance changes too? From what I understand 
- we can add new lookup and cache miss in the fast packet path.
+Not that I'm aware of.
 
- > > Anyways, I think perhaps you should dynamically allocate this lock table.
- > 
- > Maybe I should make a static sizing, (replace the 256 constant by something based on MAX_CPUS) ?
 
- IMO we should be careful with adding new complexity the route hash.
- Also was this dynamic behavior gc_interval needed to fix the overflow?
- gc_interval is only sort of last resort timer.
-
-						--ro
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
