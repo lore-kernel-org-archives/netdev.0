@@ -1,79 +1,204 @@
-From: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
-Subject: Re: Bad: scheduling while atomic! in 2.6.8.1
-Date: Thu, 9 Sep 2004 13:56:47 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: [IPSEC] Find larval SAs by sequence number
+Date: Thu, 9 Sep 2004 22:13:32 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409091356.47325.wolfgang.walter@studentenwerk.mhn.de>
-References: <200409082342.37273.wolfgang.walter@studentenwerk.mhn.de> <20040908212659.4cd99935.davem@davemloft.net>
+Message-ID: <20040909121332.GA31902@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, greearb@candelatech.com, shemminger@osdl.org
+Content-Type: multipart/mixed; boundary="yrj/dFKFPuw6o+aM"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040908212659.4cd99935.davem@davemloft.net>
+To: kuznet@ms2.inr.ac.ru, davem@davemloft.net, jmorris@redhat.com,
+        netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Am Donnerstag, 9. September 2004 06:26 schrieb David S. Miller:
-> On Wed, 8 Sep 2004 23:42:37 +0200
->
-> Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de> wrote:
-> > We see the exactly the same with 2.6.8.1.
-> >
-> > Our host has 3 nics (all 3 are intel e100). We are using vlan, iptabl=
-es
-> > (no nat or connection tracking, though) and ipsec. We tested it on ot=
-her
-> > hardware (different mainboard, different nics) and the problem remain=
-s.
-> >
-> > We are getting the log for every received packet, doesn't matter if t=
-hese
-> > are dhcp-requests, pings or something else.
->
-> You have CONFIG_PREEMPT enabled don't you?
->
 
-Yes.
+--yrj/dFKFPuw6o+aM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-> This should fix it, it's a bug in Stephen's conversion of the VLAN
-> code over to use RCU locking.
->
-> # This is a BitKeeper generated diff -Nru style patch.
-> #
-> # ChangeSet
-> #   2004/09/08 21:07:49-07:00 davem@nuts.davemloft.net
-> #   [VLAN]: Fix thinko in RCU locking.
-> #
-> #   Signed-off-by: David S. Miller <davem@davemloft.net>
-> #
-> # net/8021q/vlan_dev.c
-> #   2004/09/08 21:07:19-07:00 davem@nuts.davemloft.net +1 -1
-> #   [VLAN]: Fix thinko in RCU locking.
-> #
-> diff -Nru a/net/8021q/vlan_dev.c b/net/8021q/vlan_dev.c
-> --- a/net/8021q/vlan_dev.c 2004-09-08 21:08:30 -07:00
-> +++ b/net/8021q/vlan_dev.c 2004-09-08 21:08:30 -07:00
-> @@ -244,7 +244,7 @@
->     /* TODO:  Add a more specific counter here. */
->     stats->rx_errors++;
->    }
-> -  rcu_read_lock();
-> +  rcu_read_unlock();
->    return 0;
->   }
+Hi:
 
-Yes, this fixes the problem.
+When larval states are generated along with ACQUIRE messages, we should
+use the sequence to find the corresponding larval state when creating
+states with ADD_SA or ALLOC_SPI.
 
-Thank you very much,
+If we don't do that, then it may take down an unrelated larval state
+with the same parameters (think different TCP sessions).  This not only
+leaves behind a larval state that shouldn't be there, it may also cause
+another ACQUIRE message to be sent unnecessarily.
 
---=20
-Wolfgang Walter
-Studentenwerk M=FCnchen
-Anstalt des =F6ffentlichen Rechts
-EDV
-Leopoldstra=DFe 15
-80802 M=FCnchen
-http://www.studentenwerk.mhn.de/
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--yrj/dFKFPuw6o+aM
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="byseq.patch"
+
+===== include/net/xfrm.h 1.70 vs edited =====
+--- 1.70/include/net/xfrm.h	2004-08-25 20:48:11 +10:00
++++ edited/include/net/xfrm.h	2004-09-09 22:05:12 +10:00
+@@ -896,4 +896,17 @@
+ extern void skb_icv_walk(const struct sk_buff *skb, struct crypto_tfm *tfm,
+ 			 int offset, int len, icv_update_fn_t icv_update);
+ 
++static inline int xfrm_addr_cmp(xfrm_address_t *a, xfrm_address_t *b,
++				int family)
++{
++	switch (family) {
++	default:
++	case AF_INET:
++		return a->a4 - b->a4;
++	case AF_INET6:
++		return ipv6_addr_cmp((struct in6_addr *)a,
++				     (struct in6_addr *)b);
++	}
++}
++
+ #endif	/* _NET_XFRM_H */
+===== net/key/af_key.c 1.68 vs edited =====
+--- 1.68/net/key/af_key.c	2004-08-25 20:48:13 +10:00
++++ edited/net/key/af_key.c	2004-09-09 22:05:05 +10:00
+@@ -1156,7 +1156,16 @@
+ 		break;
+ #endif
+ 	}
+-	if (xdaddr)
++
++	if (hdr->sadb_msg_seq) {
++		x = xfrm_find_acq_byseq(hdr->sadb_msg_seq);
++		if (x && xfrm_addr_cmp(&x->id.daddr, xdaddr, family)) {
++			xfrm_state_put(x);
++			x = NULL;
++		}
++	}
++
++	if (!x)
+ 		x = xfrm_find_acq(mode, reqid, proto, xdaddr, xsaddr, 1, family);
+ 
+ 	if (x == NULL)
+===== net/xfrm/xfrm_state.c 1.51 vs edited =====
+--- 1.51/net/xfrm/xfrm_state.c	2004-08-02 07:15:03 +10:00
++++ edited/net/xfrm/xfrm_state.c	2004-09-09 22:05:05 +10:00
+@@ -387,13 +387,17 @@
+ 	spin_unlock_bh(&xfrm_state_lock);
+ }
+ 
++static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq);
++
+ int xfrm_state_add(struct xfrm_state *x)
+ {
+ 	struct xfrm_state_afinfo *afinfo;
+ 	struct xfrm_state *x1;
++	int family;
+ 	int err;
+ 
+-	afinfo = xfrm_state_get_afinfo(x->props.family);
++	family = x->props.family;
++	afinfo = xfrm_state_get_afinfo(family);
+ 	if (unlikely(afinfo == NULL))
+ 		return -EAFNOSUPPORT;
+ 
+@@ -407,9 +411,18 @@
+ 		goto out;
+ 	}
+ 
+-	x1 = afinfo->find_acq(
+-		x->props.mode, x->props.reqid, x->id.proto,
+-		&x->id.daddr, &x->props.saddr, 0);
++	if (x->km.seq) {
++		x1 = __xfrm_find_acq_byseq(x->km.seq);
++		if (x1 && xfrm_addr_cmp(&x1->id.daddr, &x->id.daddr, family)) {
++			xfrm_state_put(x1);
++			x1 = NULL;
++		}
++	}
++
++	if (!x1)
++		x1 = afinfo->find_acq(
++			x->props.mode, x->props.reqid, x->id.proto,
++			&x->id.daddr, &x->props.saddr, 0);
+ 
+ 	__xfrm_state_insert(x);
+ 	err = 0;
+@@ -570,12 +583,11 @@
+ 
+ /* Silly enough, but I'm lazy to build resolution list */
+ 
+-struct xfrm_state * xfrm_find_acq_byseq(u32 seq)
++static struct xfrm_state *__xfrm_find_acq_byseq(u32 seq)
+ {
+ 	int i;
+ 	struct xfrm_state *x;
+ 
+-	spin_lock_bh(&xfrm_state_lock);
+ 	for (i = 0; i < XFRM_DST_HSIZE; i++) {
+ 		list_for_each_entry(x, xfrm_state_bydst+i, bydst) {
+ 			if (x->km.seq == seq) {
+@@ -585,8 +597,17 @@
+ 			}
+ 		}
+ 	}
+-	spin_unlock_bh(&xfrm_state_lock);
+ 	return NULL;
++}
++
++struct xfrm_state *xfrm_find_acq_byseq(u32 seq)
++{
++	struct xfrm_state *x;
++
++	spin_lock_bh(&xfrm_state_lock);
++	x = __xfrm_find_acq_byseq(seq);
++	spin_unlock_bh(&xfrm_state_lock);
++	return x;
+ }
+  
+ u32 xfrm_get_acqseq(void)
+===== net/xfrm/xfrm_user.c 1.50 vs edited =====
+--- 1.50/net/xfrm/xfrm_user.c	2004-08-25 20:48:13 +10:00
++++ edited/net/xfrm/xfrm_user.c	2004-09-09 22:05:05 +10:00
+@@ -470,16 +470,32 @@
+ 	struct xfrm_state *x;
+ 	struct xfrm_userspi_info *p;
+ 	struct sk_buff *resp_skb;
++	xfrm_address_t *daddr;
++	int family;
+ 	int err;
+ 
+ 	p = NLMSG_DATA(nlh);
+ 	err = verify_userspi_info(p);
+ 	if (err)
+ 		goto out_noput;
+-	x = xfrm_find_acq(p->info.mode, p->info.reqid, p->info.id.proto,
+-			  &p->info.id.daddr,
+-			  &p->info.saddr, 1,
+-			  p->info.family);
++
++	family = p->info.family;
++	daddr = &p->info.id.daddr;
++
++	x = NULL;
++	if (p->info.seq) {
++		x = xfrm_find_acq_byseq(p->info.seq);
++		if (x && xfrm_addr_cmp(&x->id.daddr, daddr, family)) {
++			xfrm_state_put(x);
++			x = NULL;
++		}
++	}
++
++	if (!x)
++		x = xfrm_find_acq(p->info.mode, p->info.reqid,
++				  p->info.id.proto, daddr,
++				  &p->info.saddr, 1,
++				  family);
+ 	err = -ENOENT;
+ 	if (x == NULL)
+ 		goto out_noput;
+
+--yrj/dFKFPuw6o+aM--
