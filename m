@@ -1,51 +1,89 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Badness in dst_release
-Date: Thu, 16 Dec 2004 02:46:29 -0500
-Message-ID: <41C13D55.3070002@pobox.com>
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: primary and secondary ip addresses
+Date: Thu, 16 Dec 2004 10:28:32 +0100
+Message-ID: <20041216092831.GO2862@sunbeam.de.gnumonks.org>
+References: <41912F7A.6000408@redhat.com> <Pine.LNX.4.61.0411100034320.10593@filer.marasystems.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>,
-        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
-        =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?=
- <yoshfuji@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Netdev <netdev@oss.sgi.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="4NNqsQ/a67jpuySk"
+Cc: Neil Horman <nhorman@redhat.com>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Henrik Nordstrom <hno@marasystems.com>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.61.0411100034320.10593@filer.marasystems.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 
-After a week or more of uptime, the "Badness in dst_release" messages 
-started again.  Kernel 2.6.10-rc3-bk2.  The first message is below.
+--4NNqsQ/a67jpuySk
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Arnaldo and Yoshifuji should have already have access to this machine 
-(although I just rebooted into -bk-latest)
+[Cc'ing netdev, since nobody replied since november]
 
-IMO, if you want additional debugging code, add some non-intrusive 
-checks in the upstream kernel.  Since this problem doesn't appear for a 
-while, additional checks would be useful.
+On Wed, Nov 10, 2004 at 12:38:19AM +0100, Henrik Nordstrom wrote:
+> On Tue, 9 Nov 2004, Neil Horman wrote:
+>=20
+> >Can anyone tell me why when removing a primary ip address from an=20
+> >interface, all of its associated secondary ip addresses (those addresses=
+=20
+> >on the same subnet), are also removed?  Theres a comment in the kernel=
+=20
+> >thats pretty clear on the subject indicating it needs to be done, but I=
+=20
+> >don't quite grasp the reasoning behind why.
+>=20
+> A more valid question is why one can not add more than one primary in the=
+=20
+> same subnet.
+>=20
+> ip addr add x.x.x.x/y dev eth0 primary
+>=20
+> would make sense to me, clearly indicating that these addresses are=20
+> maintained separately.
 
-Badness in dst_release at include/net/dst.h:149
-  [<f8c1124d>] ip6_dst_check+0x64/0x6a [ipv6]
-  [<f8c080da>] ip6_dst_lookup+0x1a7/0x1c1 [ipv6]
-  [<f8c1a4e6>] udpv6_sendmsg+0x297/0x931 [ipv6]
-  [<c03194ef>] udp_recvmsg+0x60/0x2e9
-  [<c032086d>] inet_sendmsg+0x4d/0x59
-  [<c02d33d8>] sock_sendmsg+0xe8/0x103
-  [<c011bb37>] find_busiest_group+0xcf/0x2db
-  [<c011bfb9>] load_balance_newidle+0x36/0xb4
-  [<c01ec15c>] copy_from_user+0x42/0x6e
-  [<c0133fd2>] autoremove_wake_function+0x0/0x57
-  [<c02d4cf6>] sys_sendmsg+0x189/0x1e6
-  [<c0355e24>] schedule_timeout+0xbd/0xbf
-  [<c0134a47>] unqueue_me+0x5a/0xa5
-  [<c0133dda>] add_wait_queue+0x1a/0x46
-  [<c0134be4>] futex_wait+0x152/0x170
-  [<c014ecd4>] find_extend_vma+0x29/0x7e
-  [<c011c7d5>] default_wake_function+0x0/0x12
-  [<c01346e0>] futex_wake+0x74/0xc4
-  [<c01ec15c>] copy_from_user+0x42/0x6e
-  [<c02d5180>] sys_socketcall+0x236/0x254
-  [<c0102f0d>] sysenter_past_esp+0x52/0x71
+agreed.
+
+> or put in another way why the addresses automatically become secondary=20
+> addresses to the first added address.
+
+=2E.. and why does removing the primary address remove all secondary
+addresses.  This makes it complicated if you have one interface with
+multiple ip addresse, that change over time (failover, let's say.)  You
+don't know yet, which address you need to remove, because you don't know
+which of your peers fails.=20
+
+So you have all this complicated userspace magic that checks whether the
+address that is about to be deleted is the primary, and if yes, re-add
+all the other addresses.  If if is a secondary, you're happy and only
+need to delete that one.
+
+Can anyone comment what the idea of all this was?
+
+Thanks.
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--4NNqsQ/a67jpuySk
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBwVU/XaXGVTD0i/8RAj5VAJ9UZR9hFLrDdh8AUjlT6069T4kW3QCghhCz
+vdaKFJ7GWshT8AAwO6rpJSM=
+=+ao0
+-----END PGP SIGNATURE-----
+
+--4NNqsQ/a67jpuySk--
