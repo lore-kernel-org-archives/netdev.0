@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4/2.6 PATCHES] Change some ip_fragment checks to help IPVS
-Date: Sat, 11 Oct 2003 11:07:24 -0700
+Date: Sat, 11 Oct 2003 11:08:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031011110724.242ff2d6.davem@redhat.com>
+Message-ID: <20031011110818.6219d2f0.davem@redhat.com>
 References: <Pine.LNX.4.44.0310111956070.31823-100000@u.domain.uli>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -15,7 +15,11 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-I don't read patches emailed privately to me, if you don't bother to
-at least CC: netdev on your patches (so that other people can review
-the patch, I'm actually quite busy right now) then I'm not going to
-bother reading your email.
+My bad, I just saw netdev in the CC, sorry about that.
+
+I really do hate when people email me crap privately.  Because
+even if I wanted to forward it to netdev I can't do that without
+asking their permission which takes even more time, so that's why
+I just chew people out when they make this mistake.
+
+Sorry again.
