@@ -1,57 +1,48 @@
-From: Buddy Lucas <buddy.lucas@gmail.com>
-Subject: Re: Kernel connector - userspace <-> kernelspace "linker".
-Date: Tue, 21 Sep 2004 16:21:18 +0200
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
+Date: Wed, 22 Sep 2004 00:14:48 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <5d6b65750409210721123b0e9e@mail.gmail.com>
-References: <1095331899.18219.58.camel@uganda>
-	 <20040921124623.GA6942@uganda.factory.vocord.ru>
-	 <1095769354.30743.64.camel@localhost.localdomain>
-Reply-To: Buddy Lucas <buddy.lucas@gmail.com>
+Message-ID: <20040922.001448.73843048.yoshfuji@linux-ipv6.org>
+References: <20040920225140.GH1307@sunbeam.de.gnumonks.org>
+	<Pine.LNX.4.44.0409211412580.1570-100000@netcore.fi>
+	<20040921134918.GK1307@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Evgeniy Polyakov <johnpol@2ka.mipt.ru>, netdev@oss.sgi.com,
-        Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Cc: pekkas@netcore.fi, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Alan Cox <alan@lxorguk.ukuu.org.uk>
-In-Reply-To: <1095769354.30743.64.camel@localhost.localdomain>
+To: laforge@gnumonks.org
+In-Reply-To: <20040921134918.GK1307@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 21 Sep 2004 13:22:35 +0100, Alan Cox <alan@lxorguk.ukuu.org.uk> wrote:
-> On Maw, 2004-09-21 at 13:46, Evgeniy Polyakov wrote:
-> > Connector driver adds possibility to connect various agents using
-> > netlink based network.
-> > One must register callback and identificator. When driver receives
-> > special netlink message with appropriate identificator, appropriate
-> > callback will be called.
-> 
-> Looks sane enough to me - and it seems to fit the mentality d-bus and
-> HAL want to have.
-> 
-> Alan
-> 
-> ps: only trivial item (and really trivial) is that the printk messages
-> should be "waiting for %s".
-> 
+In article <20040921134918.GK1307@sunbeam.de.gnumonks.org> (at Tue, 21 Sep 2004 15:49:18 +0200), Harald Welte <laforge@gnumonks.org> says:
 
-Actually, it should be "waiting for %s to become", not "became". ;-)
-
-Also -- yes, I'm really nitpicking but Evgeniy asked for it ;-) --
-brace after for() should not be on a new line. And
-s/allocte/allocate/.
-
-That's it for me, nice one, Evgeniy. ;-)
-
-
-Cheers,
-Buddy
-
+> > The situation with IPv6 is not much different than with IPv4.
 > 
+> I disagree (see below).
+
+agreed (to harald).
+
+> > It's worse in the sense that there is more space in each subnet for
+> > doing aggressive probing -- but this may not be a big issue with a
+> > good algorithm and a threshold.
 > 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-> Please read the FAQ at  http://www.tux.org/lkml/
->
+> So what is that 'good algorithm'.  The current Linux algorithm is from
+> my point of view (only tested with ipv4) not very good when it comes to
+> high numbers of neighbours.
+
+Well, of course, we should limit number of total entries.
+
+If we have enough memory for usual use,
+we should not purge the "probably reachable" routes
+(REACHABLE, STALE, DELAY, and PROBE) neighbours.
+Probably, we should split neighbour entries to two parts.
+ - INCOMPLETE
+ - REACHABLE, STALE, DELAY and PROBE
+Which means, we should NOT purge "known" entries by unknown entries.
+
+If we don't have enough memory for usual use, hmm???
+Probably (weighed) LFU.
+
+--yoshfuji
