@@ -1,25 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: acenic lockup
-Date: Tue, 06 May 2003 23:43:16 -0700 (PDT)
+Subject: Re: [PATCH 2.5.69] IPV4 should use dev_hold
+Date: Wed, 07 May 2003 00:32:42 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030506.234316.68138442.davem@redhat.com>
-References: <20030507070657.GC30976@krispykreme>
+Message-ID: <20030507.003242.104053566.davem@redhat.com>
+References: <20030506075808.388332C07F@lists.samba.org>
+	<20030506.072338.39479306.davem@redhat.com>
+	<20030506153234.4907001f.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: jes@trained-monkey.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: rusty@rustcorp.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   acme@conectiva.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: anton@samba.org
-In-Reply-To: <20030507070657.GC30976@krispykreme>
+To: shemminger@osdl.org
+In-Reply-To: <20030506153234.4907001f.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Anton Blanchard <anton@samba.org>
-   Date: Wed, 7 May 2003 17:06:57 +1000
-   
-   Its stuck there and never coming out. Alexey: I have a feeling you
-   wrote this code, is that correct? :)
+   From: Stephen Hemminger <shemminger@osdl.org>
+   Date: Tue, 6 May 2003 15:32:34 -0700
 
-It is well understood failure of this driver, actually.
+   While debugging possible changes to dev refcounting, discovered
+   a couple of places in IPV4 that were directly incrementing rather
+   than using the inline dev_hold.  Let's hide the implementation of
+   net device ref counting so  future module ref count fixes will be easier.
 
-If Acenic hangs in any way at all, driver hangs in this loop.
+Applied, thanks.  If you find any more, just send along
+another patch :-)
