@@ -1,124 +1,263 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Move inetdev/ifa over to RCU
-Date: Sat, 14 Aug 2004 16:32:35 +1000
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2.4] Use double-linked list for dev->qdisc_list
+Date: Sat, 14 Aug 2004 10:17:12 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040814063235.GB18907@gondor.apana.org.au>
-References: <20040813090314.448c971d@dell_ss3.pdx.osdl.net> <20040813093838.6961c0d4.davem@redhat.com> <20040813215602.GA15870@gondor.apana.org.au> <20040813151923.3311b4f0.davem@redhat.com> <20040814003428.GA17760@gondor.apana.org.au> <20040813173924.6d05be15.davem@redhat.com> <20040814005411.GA18350@gondor.apana.org.au> <20040814012513.GA721@gondor.apana.org.au> <20040814013030.GA2042@gondor.apana.org.au> <20040814063119.GA18907@gondor.apana.org.au>
+Message-ID: <411DCA88.3080508@trash.net>
+References: <20040804125926.GA15324@krezus.e-wro.net>	<4110E505.1010205@trash.net>	<20040804145610.GA21339@krezus.e-wro.net> <20040804134432.40500c15.davem@redhat.com> <41115A37.30806@trash.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="EuxKj2iCbKjpUGkD"
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------050501020404090900080208"
+Cc: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040814063119.GA18907@gondor.apana.org.au>
+In-Reply-To: <41115A37.30806@trash.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multi-part message in MIME format.
+--------------050501020404090900080208
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
---EuxKj2iCbKjpUGkD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Hi Dave,
 
-Hi Dave:
-
-On Sat, Aug 14, 2004 at 04:31:19PM +1000, herbert wrote:
+Patrick McHardy wrote:
+> David S. Miller wrote:
 > 
-> Missed one in sdlamain.c because it was marked BROKEN.
+>> Can someone regenerate this patch with the q_idx fix Patrick
+>> just posted added to it?
+>>  
+>>
+> Updated patch for 2.4 attached.
 
-And a couple of them which are S390 only.
+seems like you missed this patch.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Regards
+Patrick
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+--------------050501020404090900080208
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---EuxKj2iCbKjpUGkD
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p2
-
-===== drivers/s390/net/lcs.c 1.31 vs edited =====
---- 1.31/drivers/s390/net/lcs.c	2004-08-08 04:05:36 +10:00
-+++ edited/drivers/s390/net/lcs.c	2004-08-14 15:34:58 +10:00
-@@ -1002,7 +1002,7 @@
- 	in4_dev = in_dev_get(card->dev);
- 	if (in4_dev == NULL)
- 		return 0;
--	read_lock(&in4_dev->lock);
-+	read_lock(&in4_dev->mc_list_lock);
- 	spin_lock(&card->ipm_lock);
- 	/* Check for multicast addresses to be removed. */
- 	list_for_each(l, &card->ipm_list) {
-@@ -1046,7 +1046,7 @@
- 		list_add(&ipm->list, &card->ipm_list);
- 	}
- 	spin_unlock(&card->ipm_lock);
--	read_unlock(&in4_dev->lock);
-+	read_unlock(&in4_dev->mc_list_lock);
- 	in_dev_put(in4_dev);
- 	lcs_fix_multicast_list(card);
- 	return 0;
-===== drivers/s390/net/qeth_main.c 1.11 vs edited =====
---- 1.11/drivers/s390/net/qeth_main.c	2004-08-08 04:05:36 +10:00
-+++ edited/drivers/s390/net/qeth_main.c	2004-08-14 16:27:11 +10:00
-@@ -73,6 +73,7 @@
- #include <linux/reboot.h>
- #include <asm/qeth.h>
- #include <linux/mii.h>
-+#include <linux/rcupdate.h>
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/04 23:46:47+02:00 kaber@coreworks.de 
+#   [PKT_SCHED]: Use double-linked list for dev->qdisc_list
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/sch_generic.c
+#   2004/08/04 23:46:40+02:00 kaber@coreworks.de +6 -19
+#   [PKT_SCHED]: Use double-linked list for dev->qdisc_list
+# 
+# net/sched/sch_api.c
+#   2004/08/04 23:46:40+02:00 kaber@coreworks.de +18 -10
+#   [PKT_SCHED]: Use double-linked list for dev->qdisc_list
+# 
+# include/net/pkt_sched.h
+#   2004/08/04 23:46:40+02:00 kaber@coreworks.de +1 -1
+#   [PKT_SCHED]: Use double-linked list for dev->qdisc_list
+# 
+# include/linux/netdevice.h
+#   2004/08/04 23:46:40+02:00 kaber@coreworks.de +1 -1
+#   [PKT_SCHED]: Use double-linked list for dev->qdisc_list
+# 
+diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
+--- a/include/linux/netdevice.h	2004-08-04 23:49:06 +02:00
++++ b/include/linux/netdevice.h	2004-08-04 23:49:06 +02:00
+@@ -352,8 +352,8 @@
  
- #include "qeth.h"
- #include "qeth_mpc.h"
-@@ -4733,9 +4734,10 @@
- 	QETH_DBF_TEXT(trace, 4, "frvaddr4");
- 	if (!card->vlangrp)
- 		return;
--	in_dev = in_dev_get(card->vlangrp->vlan_devices[vid]);
-+	rcu_read_lock();
-+	in_dev = __in_dev_get(card->vlangrp->vlan_devices[vid]);
- 	if (!in_dev)
--		return;
-+		goto out;
- 	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next){
- 		addr = qeth_get_addr_buffer(QETH_PROT_IPV4);
- 		if (addr){
-@@ -4746,7 +4748,8 @@
- 				kfree(addr);
+ 	struct Qdisc		*qdisc;
+ 	struct Qdisc		*qdisc_sleeping;
+-	struct Qdisc		*qdisc_list;
+ 	struct Qdisc		*qdisc_ingress;
++	struct list_head	qdisc_list;
+ 	unsigned long		tx_queue_len;	/* Max frames per queue allowed */
+ 
+ 	/* hard_start_xmit synchronizer */
+diff -Nru a/include/net/pkt_sched.h b/include/net/pkt_sched.h
+--- a/include/net/pkt_sched.h	2004-08-04 23:49:06 +02:00
++++ b/include/net/pkt_sched.h	2004-08-04 23:49:06 +02:00
+@@ -80,11 +80,11 @@
+ #define TCQ_F_THROTTLED	2
+ #define TCQ_F_INGRES	4
+ 	struct Qdisc_ops	*ops;
+-	struct Qdisc		*next;
+ 	u32			handle;
+ 	atomic_t		refcnt;
+ 	struct sk_buff_head	q;
+ 	struct net_device	*dev;
++	struct list_head	list;
+ 
+ 	struct tc_stats		stats;
+ 	int			(*reshape_fail)(struct sk_buff *skb, struct Qdisc *q);
+diff -Nru a/net/sched/sch_api.c b/net/sched/sch_api.c
+--- a/net/sched/sch_api.c	2004-08-04 23:49:06 +02:00
++++ b/net/sched/sch_api.c	2004-08-04 23:49:06 +02:00
+@@ -32,6 +32,7 @@
+ #include <linux/init.h>
+ #include <linux/proc_fs.h>
+ #include <linux/kmod.h>
++#include <linux/list.h>
+ 
+ #include <net/sock.h>
+ #include <net/pkt_sched.h>
+@@ -193,7 +194,7 @@
+ {
+ 	struct Qdisc *q;
+ 
+-	for (q = dev->qdisc_list; q; q = q->next) {
++	list_for_each_entry(q, &dev->qdisc_list, list) {
+ 		if (q->handle == handle)
+ 			return q;
+ 	}
+@@ -424,6 +425,7 @@
+ 
+ 	memset(sch, 0, size);
+ 
++	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 
+ 	if (handle == TC_H_INGRESS)
+@@ -449,8 +451,7 @@
+ 
+ 	if (!ops->init || (err = ops->init(sch, tca[TCA_OPTIONS-1])) == 0) {
+ 		write_lock(&qdisc_tree_lock);
+-		sch->next = dev->qdisc_list;
+-		dev->qdisc_list = sch;
++		list_add_tail(&sch->list, &dev->qdisc_list);
+ 		write_unlock(&qdisc_tree_lock);
+ #ifdef CONFIG_NET_ESTIMATOR
+ 		if (tca[TCA_RATE-1])
+@@ -805,15 +806,18 @@
+ 		if (idx > s_idx)
+ 			s_q_idx = 0;
+ 		read_lock(&qdisc_tree_lock);
+-		for (q = dev->qdisc_list, q_idx = 0; q;
+-		     q = q->next, q_idx++) {
+-			if (q_idx < s_q_idx)
++		q_idx = 0;
++		list_for_each_entry(q, &dev->qdisc_list, list) {
++			if (q_idx < s_q_idx) {
++				q_idx++;
+ 				continue;
++			}
+ 			if (tc_fill_qdisc(skb, q, 0, NETLINK_CB(cb->skb).pid,
+ 					  cb->nlh->nlmsg_seq, NLM_F_MULTI, RTM_NEWQDISC) <= 0) {
+ 				read_unlock(&qdisc_tree_lock);
+ 				goto done;
+ 			}
++			q_idx++;
  		}
+ 		read_unlock(&qdisc_tree_lock);
  	}
--	in_dev_put(in_dev);
-+out:
-+	rcu_read_unlock();
- }
+@@ -1024,13 +1028,16 @@
+ 		return 0;
  
- static void
-@@ -4918,9 +4921,9 @@
- 		in_dev = in_dev_get(vg->vlan_devices[i]);
- 		if (!in_dev)
+ 	s_t = cb->args[0];
++	t = 0;
+ 
+ 	read_lock(&qdisc_tree_lock);
+-	for (q=dev->qdisc_list, t=0; q; q = q->next, t++) {
+-		if (t < s_t) continue;
+-		if (!q->ops->cl_ops) continue;
+-		if (tcm->tcm_parent && TC_H_MAJ(tcm->tcm_parent) != q->handle)
++	list_for_each_entry(q, &dev->qdisc_list, list) {
++		if (t < s_t || !q->ops->cl_ops ||
++		    (tcm->tcm_parent &&
++		     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
++			t++;
  			continue;
--		read_lock(&in_dev->lock);
-+		read_lock(&in_dev->mc_list_lock);
- 		qeth_add_mc(card,in_dev);
--		read_unlock(&in_dev->lock);
-+		read_unlock(&in_dev->mc_list_lock);
- 		in_dev_put(in_dev);
++		}
+ 		if (t > s_t)
+ 			memset(&cb->args[1], 0, sizeof(cb->args)-sizeof(cb->args[0]));
+ 		arg.w.fn = qdisc_class_dump;
+@@ -1043,6 +1050,7 @@
+ 		cb->args[1] = arg.w.count;
+ 		if (arg.w.stop)
+ 			break;
++		t++;
  	}
- #endif
-@@ -4935,10 +4938,10 @@
- 	in4_dev = in_dev_get(card->dev);
- 	if (in4_dev == NULL)
- 		return;
--	read_lock(&in4_dev->lock);
-+	read_lock(&in4_dev->mc_list_lock);
- 	qeth_add_mc(card, in4_dev);
- 	qeth_add_vlan_mc(card);
--	read_unlock(&in4_dev->lock);
-+	read_unlock(&in4_dev->mc_list_lock);
- 	in_dev_put(in4_dev);
- }
+ 	read_unlock(&qdisc_tree_lock);
  
+diff -Nru a/net/sched/sch_generic.c b/net/sched/sch_generic.c
+--- a/net/sched/sch_generic.c	2004-08-04 23:49:06 +02:00
++++ b/net/sched/sch_generic.c	2004-08-04 23:49:06 +02:00
+@@ -29,6 +29,7 @@
+ #include <linux/skbuff.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/init.h>
++#include <linux/list.h>
+ #include <net/sock.h>
+ #include <net/pkt_sched.h>
+ 
+@@ -391,6 +392,7 @@
+ 		return NULL;
+ 	memset(sch, 0, size);
+ 
++	INIT_LIST_HEAD(&sch->list);
+ 	skb_queue_head_init(&sch->q);
+ 	sch->ops = ops;
+ 	sch->enqueue = ops->enqueue;
+@@ -420,22 +422,10 @@
+ void qdisc_destroy(struct Qdisc *qdisc)
+ {
+ 	struct Qdisc_ops *ops = qdisc->ops;
+-	struct net_device *dev;
+ 
+ 	if (!atomic_dec_and_test(&qdisc->refcnt))
+ 		return;
+-
+-	dev = qdisc->dev;
+-
+-	if (dev) {
+-		struct Qdisc *q, **qp;
+-		for (qp = &qdisc->dev->qdisc_list; (q=*qp) != NULL; qp = &q->next) {
+-			if (q == qdisc) {
+-				*qp = q->next;
+-				break;
+-			}
+-		}
+-	}
++	list_del(&qdisc->list);
+ #ifdef CONFIG_NET_ESTIMATOR
+ 	qdisc_kill_estimator(&qdisc->stats);
+ #endif
+@@ -464,10 +454,8 @@
+ 				printk(KERN_INFO "%s: activation failed\n", dev->name);
+ 				return;
+ 			}
+-
+ 			write_lock(&qdisc_tree_lock);
+-			qdisc->next = dev->qdisc_list;
+-			dev->qdisc_list = qdisc;
++			list_add_tail(&qdisc->list, &dev->qdisc_list);
+ 			write_unlock(&qdisc_tree_lock);
+ 
+ 		} else {
+@@ -513,7 +501,7 @@
+ 	dev->qdisc = &noop_qdisc;
+ 	spin_unlock_bh(&dev->queue_lock);
+ 	dev->qdisc_sleeping = &noop_qdisc;
+-	dev->qdisc_list = NULL;
++	INIT_LIST_HEAD(&dev->qdisc_list);
+ 	write_unlock(&qdisc_tree_lock);
+ 
+ 	dev_watchdog_init(dev);
+@@ -535,9 +523,8 @@
+ 		qdisc_destroy(qdisc);
+         }
+ #endif
+-	BUG_TRAP(dev->qdisc_list == NULL);
++	BUG_TRAP(list_empty(&dev->qdisc_list));
+ 	BUG_TRAP(!timer_pending(&dev->watchdog_timer));
+-	dev->qdisc_list = NULL;
+ 	spin_unlock_bh(&dev->queue_lock);
+ 	write_unlock(&qdisc_tree_lock);
+ }
 
---EuxKj2iCbKjpUGkD--
+--------------050501020404090900080208--
