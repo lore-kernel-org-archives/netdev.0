@@ -1,127 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6] bridge -- support different MTU sizes
-Date: Thu, 8 Jul 2004 10:41:43 -0700
+From: Chris Friesen <cfriesen@nortelnetworks.com>
+Subject: Re: asymmetry with MSG_DONTWAIT in sendmsg() and recvmsg()
+Date: Thu, 08 Jul 2004 14:33:19 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040708104143.67210e39@dell_ss3.pdx.osdl.net>
+Message-ID: <40ED936F.9000905@nortelnetworks.com>
+References: <20040708170705.GA6895@apps.cwi.nl>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: bridge@osdl.org, netdev@oss.sgi.com
+Cc: Andi Kleen <ak@suse.de>, Michael T Kerrisk <mtk-lists@gmx.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Andries Brouwer <Andries.Brouwer@cwi.nl>
+In-Reply-To: <20040708170705.GA6895@apps.cwi.nl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch adds support for different size MTU's to bridging.
-It is useful for bridging Ethernet's with jumbo frames, etc.
+Andries Brouwer wrote:
+> Can you find the man-pages-1.67 package and construct a concrete patch?
+> 
+> (Don't know precisely what you want to do. The above gives a filename
+> recv.man, which would be recv.2 in my sources. But there is no MSG_NOSIGNAL
+> in recv.2, only in send.2. The fragment of text that you give occurs
+> already in recv.2.)
 
-The mtu of the bridge pseudo-device is maintained as the minimum
-of all the underlying ports.  And when forwarding a frame through
-the bridge, it will drop the frame if the outgoing port's MTU
-is less than the frame size (as per 802 standard).
+Sorry, the filenames have no meaning since I wasn't working from the package, 
+but from the output of the "man" command.
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
+Working from the webpage at:
 
+http://homepages.cwi.nl/~aeb/linux/man2html/man2/recv.2.html
 
-diff -Nru a/net/bridge/br_device.c b/net/bridge/br_device.c
---- a/net/bridge/br_device.c	2004-06-30 11:48:01 -07:00
-+++ b/net/bridge/br_device.c	2004-06-30 11:48:01 -07:00
-@@ -89,6 +89,15 @@
- 	return 0;
- }
- 
-+static int br_change_mtu(struct net_device *dev, int new_mtu)
-+{
-+	if ((new_mtu < 68) || new_mtu > br_min_mtu(dev->priv))
-+		return -EINVAL;
-+
-+	dev->mtu = new_mtu;
-+	return 0;
-+}
-+
- static int br_dev_accept_fastpath(struct net_device *dev, struct dst_entry *dst)
- {
- 	return -1;
-@@ -105,6 +114,7 @@
- 	dev->hard_start_xmit = br_dev_xmit;
- 	dev->open = br_dev_open;
- 	dev->set_multicast_list = br_dev_set_multicast_list;
-+	dev->change_mtu = br_change_mtu;
- 	dev->destructor = free_netdev;
- 	SET_MODULE_OWNER(dev);
- 	dev->stop = br_dev_stop;
-diff -Nru a/net/bridge/br_forward.c b/net/bridge/br_forward.c
---- a/net/bridge/br_forward.c	2004-06-30 11:48:01 -07:00
-+++ b/net/bridge/br_forward.c	2004-06-30 11:48:01 -07:00
-@@ -22,7 +22,8 @@
- static inline int should_deliver(const struct net_bridge_port *p, 
- 				 const struct sk_buff *skb)
- {
--	if (skb->dev == p->dev ||
-+	if (skb->dev == p->dev ||
-+	    skb->len > p->dev->mtu ||
- 	    p->state != BR_STATE_FORWARDING)
- 		return 0;
- 
-diff -Nru a/net/bridge/br_if.c b/net/bridge/br_if.c
---- a/net/bridge/br_if.c	2004-06-30 11:48:01 -07:00
-+++ b/net/bridge/br_if.c	2004-06-30 11:48:01 -07:00
-@@ -295,6 +295,24 @@
- 	return ret;
- }
- 
-+int br_min_mtu(const struct net_bridge *br)
-+{
-+	const struct net_bridge_port *p;
-+	int mtu = 0;
-+
-+	ASSERT_RTNL();
-+
-+	if (list_empty(&br->port_list))
-+		mtu = 1500;
-+	else {
-+		list_for_each_entry(p, &br->port_list, list) {
-+			if (!mtu  || p->dev->mtu < mtu)
-+				mtu = p->dev->mtu;
-+		}
-+	}
-+	return mtu;
-+}
-+
- /* called with RTNL */
- int br_add_if(struct net_bridge *br, struct net_device *dev)
- {
-@@ -328,6 +346,8 @@
- 		if ((br->dev->flags & IFF_UP) && (dev->flags & IFF_UP))
- 			br_stp_enable_port(p);
- 		spin_unlock_bh(&br->lock);
-+
-+		br->dev->mtu = br_min_mtu(br);
- 	}
- 
- 	return err;
-diff -Nru a/net/bridge/br_notify.c b/net/bridge/br_notify.c
---- a/net/bridge/br_notify.c	2004-06-30 11:48:01 -07:00
-+++ b/net/bridge/br_notify.c	2004-06-30 11:48:01 -07:00
-@@ -47,6 +47,10 @@
- 		spin_unlock_bh(&br->lock);
- 		break;
- 
-+	case NETDEV_CHANGEMTU:
-+		br->dev->mtu = br_min_mtu(br);
-+		break;
-+
- 	case NETDEV_DOWN:
- 		if (br->dev->flags & IFF_UP) {
- 			spin_lock_bh(&br->lock);
-diff -Nru a/net/bridge/br_private.h b/net/bridge/br_private.h
---- a/net/bridge/br_private.h	2004-06-30 11:48:01 -07:00
-+++ b/net/bridge/br_private.h	2004-06-30 11:48:01 -07:00
-@@ -168,6 +168,7 @@
- 	      struct net_device *dev);
- extern int br_del_if(struct net_bridge *br,
- 	      struct net_device *dev);
-+extern int br_min_mtu(const struct net_bridge *br);
- 
- /* br_input.c */
- extern int br_handle_frame_finish(struct sk_buff *skb);
+There is mention of MSG_DONTWAIT when discussing the "msg_flags" field in 
+"struct msghdr".  It contains exactly the text proposed.  However, the msg_flags 
+field is set on *return* of the call.  Every other flag discussed there 
+"indicates" something.  The blurb for MSG_DONTWAIT says that it "enables" a 
+behaviour, which doesn't make sense for a field set on call return.
+
+There is no mention of MSG_DONTWAIT when discussing the "flags" parameter of the 
+recv/recvfrom/recvmsg call.
+
+Generally, I want to move the current blob from the "msg_flags" area to the 
+"flags" area, and then add a different discussion for "msg_flags" if appropriate 
+(I'm not sure about that part).
+
+Do you still want me to generate an actual patch against man-pages-1.67, or is 
+that description enough?
+
+Chris
