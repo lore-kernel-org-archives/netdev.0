@@ -1,102 +1,57 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH 2.6.10-rc1 1/15] wireless/orinoco: Use msleep() instead of
-	hardcoded schedule_timeout()s
-Date: Tue, 26 Oct 2004 14:33:24 -0400
+From: Timo =?iso-8859-1?Q?Ter=E4s?= <ext-timo.teras@nokia.com>
+Subject: [PATCH] Add ability to register class interfaces for network class
+Date: Tue, 26 Oct 2004 21:35:26 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1098815604.3663.35.camel@dcbw.boston.redhat.com>
-References: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
+Message-ID: <20041026183526.GA23535@two.research.nokia.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@redhat.com, hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=iso-8859-1; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <1098814320.3663.24.camel@dcbw.boston.redhat.com>
+To: davem@davemloft.net
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Update in-kernel orinoco wireless drivers to upstream CVS.
-None of this is original code by Dan Williams, simply a
-broken down patch set split-out from upstream orinoco CVS.
+Add functions to register class interfaces for network class.
+Similar to the ones found in scsi subsystem.
 
-o Use msleep() instead of hardcoded schedule_timeout()s
-  (Nishanth Aravamudan via kernel-janitors list).
+Originally posted on linux-net and related discussion can be found
+from http://marc.theaimsgroup.com/?l=3Dlinux-net&m=3D109758592121767&w=3D=
+2.
 
---- a/drivers/net/wireless/airport.c.1-msleep	2004-10-25 14:44:04.559958488 -0400
-+++ b/drivers/net/wireless/airport.c	2004-10-25 14:44:51.372841848 -0400
-@@ -28,7 +28,6 @@
- #include <linux/if_arp.h>
- #include <linux/etherdevice.h>
- #include <linux/wireless.h>
--#include <linux/delay.h>
- 
- #include <asm/io.h>
- #include <asm/system.h>
-@@ -147,7 +146,7 @@
- 	macio_release_resource(mdev, 0);
- 
- 	pmac_call_feature(PMAC_FTR_AIRPORT_ENABLE, macio_get_of_node(mdev), 0, 0);
--	ssleep(1);
-+	msleep(1000);
- 
- 	macio_set_drvdata(mdev, NULL);
- 	free_netdev(dev);
-@@ -173,12 +172,12 @@
- 	disable_irq(dev->irq);
- 
- 	pmac_call_feature(PMAC_FTR_AIRPORT_ENABLE, macio_get_of_node(card->mdev), 0, 0);
--	ssleep(1);
-+	msleep(1000);
- 	pmac_call_feature(PMAC_FTR_AIRPORT_ENABLE, macio_get_of_node(card->mdev), 0, 1);
--	ssleep(1);
-+	msleep(1000);
- 
- 	enable_irq(dev->irq);
--	ssleep(1);
-+	msleep(1000);
- #endif
- 
- 	return 0;
-@@ -237,7 +236,7 @@
- 		
- 	/* Power up card */
- 	pmac_call_feature(PMAC_FTR_AIRPORT_ENABLE, macio_get_of_node(mdev), 0, 1);
--	ssleep(1);
-+	msleep(1000);
- 
- 	/* Reset it before we get the interrupt */
- 	hermes_init(hw);
---- a/drivers/net/wireless/orinoco_cs.c.1-msleep	2004-10-25 14:44:04.558958640 -0400
-+++ b/drivers/net/wireless/orinoco_cs.c	2004-10-25 14:44:51.374841544 -0400
-@@ -136,6 +136,7 @@
- 	if (err)
- 		return err;
- 
-+	msleep(100);
- 	clear_bit(0, &card->hard_reset_in_progress);
- 
- 	return 0;
---- a/drivers/net/wireless/orinoco_plx.c.1-msleep	2004-10-25 14:44:04.559958488 -0400
-+++ b/drivers/net/wireless/orinoco_plx.c	2004-10-25 14:44:51.376841240 -0400
-@@ -352,8 +352,7 @@
- static void __exit orinoco_plx_exit(void)
- {
- 	pci_unregister_driver(&orinoco_plx_driver);
--	current->state = TASK_UNINTERRUPTIBLE;
--	schedule_timeout(HZ);
-+	msleep(1000);
- }
- 
- module_init(orinoco_plx_init);
---- a/drivers/net/wireless/orinoco_tmd.c.1-msleep	2004-10-25 14:44:04.557958792 -0400
-+++ b/drivers/net/wireless/orinoco_tmd.c	2004-10-25 14:44:51.377841088 -0400
-@@ -218,8 +218,7 @@
- static void __exit orinoco_tmd_exit(void)
- {
- 	pci_unregister_driver(&orinoco_tmd_driver);
--	current->state = TASK_UNINTERRUPTIBLE;
--	schedule_timeout(HZ);
-+	msleep(1000);
- }
- 
- module_init(orinoco_tmd_init);
+Signed-off-by: Timo Ter=E4s <ext-timo.teras@nokia.com>
+
+--- linux-2.6.9-rc4.orig/net/core/net-sysfs.c	2004-10-12 13:23:35.1064963=
+12 +0300
++++ linux-2.6.9-rc4/net/core/net-sysfs.c	2004-10-12 13:24:29.177276304 +0=
+300
+@@ -448,3 +448,11 @@
+  {
+  	return class_register(&net_class);
+  }
++
++int netdev_register_interface(struct class_interface *intf)
++{
++	intf->class =3D &net_class;
++	return class_interface_register(intf);
++}
++
++EXPORT_SYMBOL_GPL(netdev_register_interface);
+--- linux-2.6.9-rc4.orig/include/linux/netdevice.h	2004-10-12 13:23:31.18=
+6092304 +0300
++++ linux-2.6.9-rc4/include/linux/netdevice.h	2004-10-12 13:24:29.1792760=
+00 +0300
+@@ -951,6 +951,12 @@
+  extern char *net_sysctl_strdup(const char *s);
+  #endif
+
++#ifdef CONFIG_SYSFS
++extern int netdev_register_interface(struct class_interface *intf);
++#define netdev_unregister_interface(intf) \
++	class_interface_unregister(intf)
++#endif
++
+  #endif /* __KERNEL__ */
+
+  #endif	/* _LINUX_DEV_H */
