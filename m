@@ -1,108 +1,77 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH 2/2] Prefix List and O/M flags against 2.5.73
-Date: Sat, 19 Jul 2003 09:33:16 +0200 (CEST)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030719.093316.45294671.yoshfuji@linux-ipv6.org>
-References: <20030718.004701.11546819.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.44.0307171716160.9419-100000@DYN318430.beaverton.ibm.com>
+From: Gergely Madarasz <gorgo@thunderchild.debian.net>
+Subject: Re: comx drivers in 2.6
+Date: Sat, 19 Jul 2003 10:14:00 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030719081400.GP1553@bpdcad01.bpdc.broadband.hu>
+References: <20030717163337.78d123c0.shemminger@osdl.org> <3F173458.6060405@pobox.com> <20030718123625.6f8ae9b9.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, davem@redhat.com, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: krkumar@us.ibm.com
-In-Reply-To: <Pine.LNX.4.44.0307171716160.9419-100000@DYN318430.beaverton.ibm.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, Gergely Madarasz <gorgo@itc.hu>,
+   netdev@oss.sgi.com, don@itc.hu
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030718123625.6f8ae9b9.shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.44.0307171716160.9419-100000@DYN318430.beaverton.ibm.com> (at Thu, 17 Jul 2003 17:37:18 -0700 (PDT)), Krishna Kumar <krkumar@us.ibm.com> says:
-
-> > Anyway, it seems we're reaching consensus.
+On Fri, Jul 18, 2003 at 12:36:25PM -0700, Stephen Hemminger wrote:
+> On Thu, 17 Jul 2003 19:42:16 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
 > 
-> Great! Glad we have reached consensus because I am exhausted! Since you
-> have agreed to the above proposal, the prefix list patch has to be applied
-> before the O/M flags patch. I have kept the RTM_GETLNKINFO and specified
-> a new option to get the flags information, this can be extended later to
-> add more options for other paramters.
-
-We're reaching consensus, but hot have reached. :-p
-First part (prefixlist) seems ok to me.
-Second part does not.
-
-> -------- Patch for O/M flags against 2.5.73 (dependent on previous patch -----
-> diff -ruN linux-2.5.73.org/include/linux/rtnetlink.h test/linux-2.5.73/include/linux/rtnetlink.h
-> --- linux-2.5.73.org/include/linux/rtnetlink.h	2003-06-22 11:33:07.000000000 -0700
-> +++ test/linux-2.5.73/include/linux/rtnetlink.h	2003-07-17 16:57:52.000000000 -0700
-> @@ -47,7 +47,9 @@
->  #define	RTM_DELTFILTER	(RTM_BASE+29)
->  #define	RTM_GETTFILTER	(RTM_BASE+30)
+> > Stephen Hemminger wrote:
+> > > It looks like the comx drivers never got updated for 2.5/2.6.  Some
+> > > obvious issues are:
+> > > 	- lots of use of /proc files without setting the owner field.
+> > > 	- still using cli/sti
+> > > 	- no SMP locking on the linked list (which could be changed to list macros)
+> > > 	  of hardware and protocols.
+> > > 
+> > > Just bumped into this while trying to inspect for all the last possible
+> > > broken usage of net_device structure.  It is too far behind to address
+> > > those issues.
+> > 
+> > 
+> > Submit a patch to mark these CONFIG_OBSOLETE.  AFAIK nobody has cared 
+> > for most of them since 2.2...  (munich is an exception)
+> > 
 > 
-> -#define	RTM_MAX		(RTM_BASE+31)
-> +#define	RTM_GETLNKINFO	(RTM_BASE+34)
-> +
-> +#define	RTM_MAX		(RTM_GETLNKINFO+1)
-> 
->  /*
->     Generic structure for encapsulation of optional route information.
+> diff -Nru a/drivers/net/wan/Kconfig b/drivers/net/wan/Kconfig
+> --- a/drivers/net/wan/Kconfig	Fri Jul 18 11:55:47 2003
+> +++ b/drivers/net/wan/Kconfig	Fri Jul 18 11:55:47 2003
+> @@ -60,9 +60,10 @@
+>  #
+>  # COMX drivers
+>  #
+> +# Not updated to 2.6.
+>  config COMX
+>  	tristate "MultiGate (COMX) synchronous serial boards support"
+> -	depends on WAN && (ISA || PCI)
+> +	depends on WAN && (ISA || PCI) && OBSOLETE
+>  	---help---
+>  	  Say Y if you want to use any board from the MultiGate (COMX) family.
+>  	  These boards are synchronous serial adapters for the PC,
 
-This is what we don't have consensus.
-We need to decide whether to create new RTM_xxxIFACE or
-to reuse RTM_xxxLINK (and activate ifi_family :-)).
+Please add the following patch too.
+I'm suprised I'm still not removed from the maintainers file, though I
+have left itc almost two years ago. 
 
+--- MAINTAINERS~        Mon Jul 14 05:35:12 2003
++++ MAINTAINERS Sat Jul 19 10:12:14 2003
+@@ -420,8 +420,8 @@
+ S:     Supported
+ 
+ COMX/MULTIGATE SYNC SERIAL DRIVERS
+-P:     Gergely Madarasz
+-M:     Gergely Madarasz <gorgo@itc.hu>
++P:     Pasztor Szilard
++M:     Pasztor Szilard <don@itc.hu>
+ S:     Supported
+ 
+ COSA/SRP SYNC SERIAL DRIVER
 
-> @@ -61,6 +63,13 @@
->  	unsigned short	rta_type;
->  };
-> 
-> +/* Structure to return per interface device flags */
-> +struct ifp_if6info
-> +{
-> +	int ifindex;
-> +	int flags;
-> +};
-> +
->  /* Macros to handle rtattributes */
-> 
->  #define RTA_ALIGNTO	4
-
-ditto.
-
-> @@ -331,6 +340,7 @@
->  	IFA_LABEL,
->  	IFA_BROADCAST,
->  	IFA_ANYCAST,
-> +	IFA_IFFLAGS,
->  	IFA_CACHEINFO
->  };
-
-Don't change values.
-
-> diff -ruN linux-2.5.73.org/net/ipv6/addrconf.c test/linux-2.5.73/net/ipv6/addrconf.c
-> --- linux-2.5.73.org/net/ipv6/addrconf.c	2003-06-22 11:33:17.000000000 -0700
-> +++ test/linux-2.5.73/net/ipv6/addrconf.c	2003-07-17 16:59:17.000000000 -0700
-> @@ -2451,6 +2451,43 @@
->  	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_IFADDR, GFP_ATOMIC);
->  }
-> 
-> +int inet6_dump_linkinfo(struct sk_buff *skb, struct netlink_callback *cb)
-> +{
-> +	int ifindex, flags;
-> +	struct net_device *dev;
-:
->  static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX - RTM_BASE + 1] = {
->  	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
->  	[RTM_DELADDR - RTM_BASE] = { .doit	= inet6_rtm_deladdr, },
-> @@ -2459,6 +2496,7 @@
->  	[RTM_DELROUTE - RTM_BASE] = { .doit	= inet6_rtm_delroute, },
->  	[RTM_GETROUTE - RTM_BASE] = { .doit	= inet6_rtm_getroute,
->  				      .dumpit	= inet6_dump_fib, },
-> +	[RTM_GETLNKINFO - RTM_BASE] = {.dumpit	= inet6_dump_linkinfo, },
->  };
-> 
-
-same as first comment for this part.
 
 -- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Madarasz Gergely   gorgo@thunderchild.debian.net   gorgo@linux.rulez.org
+    It's practically impossible to look at a penguin and feel angry.
+        Egy pingvinre gyakorlatilag lehetetlen haragosan nezni.
