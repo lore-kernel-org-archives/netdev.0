@@ -1,57 +1,146 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [14/*] [IPV6] Reload skb->dst after xfrm6_route_forward
-Date: Mon, 14 Mar 2005 22:10:02 +1100
-Message-ID: <20050314111002.GA29156@gondor.apana.org.au>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au> <20050306213214.7d8a143d.davem@davemloft.net> <20050307103536.GB7137@gondor.apana.org.au> <20050308102741.GA23468@gondor.apana.org.au> <20050314102614.GA9610@gondor.apana.org.au> <20050314105313.GA21001@gondor.apana.org.au>
+From: Pekka Enberg <penberg@gmail.com>
+Subject: Re: A new 10GB Ethernet Driver by Chelsio Communications
+Date: Mon, 14 Mar 2005 13:40:18 +0200
+Message-ID: <84144f0205031403404eda561c@mail.gmail.com>
+References: <Pine.LNX.4.58.0503110356340.14213@server.graphe.net>
+	 <20050311112132.6a3a3b49.akpm@osdl.org>
+	 <84144f0205031403105351abf5@mail.gmail.com>
+Reply-To: Pekka Enberg <penberg@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
-Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>,
-        Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050314105313.GA21001@gondor.apana.org.au>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Christoph Lameter <christoph@graphe.net>,
+	linux-kernel@vger.kernel.org, mark@chelsio.com, netdev@oss.sgi.com,
+	Jeff Garzik <jgarzik@pobox.com>, penberg@cs.helsinki.fi
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <84144f0205031403105351abf5@mail.gmail.com>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
+Hi,
 
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Few more coding style comments.
 
-Hi Dave:
+On Fri, 11 Mar 2005 11:21:32 -0800, Andrew Morton <akpm@osdl.org> wrote:
+> diff -puN /dev/null drivers/net/chelsio/cxgb2.c
+> --- /dev/null	2003-09-15 06:40:47.000000000 -0700
+> +++ 25-akpm/drivers/net/chelsio/cxgb2.c	2005-03-11 11:13:06.000000000 -0800
+> @@ -0,0 +1,1284 @@
+> +#ifndef HAVE_FREE_NETDEV
+> +#define free_netdev(dev) kfree(dev)
+> +#endif
 
-While replacing dst_pmtu in ip6_output I found this little gem.  In
-ip6_forward we're not reloading the dst pointer after calling
-xfrm6_route_forward.  So all subsequent dereferences of dst will
-refer to its pre-IPsec value.
+Please drop this wrapper.
 
-The solution is of course to refresh its value.
- 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> +	printk(KERN_INFO "%s: %s (rev %d), %s %dMHz/%d-bit\n", adapter->name,
+> +	       bi->desc, adapter->params.chip_revision,
+> +	       adapter->params.pci.is_pcix ? "PCIX" : "PCI",
+> +	       adapter->params.pci.speed, adapter->params.pci.width);
+> +	return 0;
+> +
+> + out_release_adapter_res:
+> +	t1_free_sw_modules(adapter);
+> + out_free_dev:
+> +	if (adapter) {
+> +		if (adapter->tdev)
+> +			kfree(adapter->tdev);
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+kfree() handles null pointers so please drop the redundant check.
 
---fdj2RfSjLxBAspz7
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=xfrm-14
+> diff -puN /dev/null drivers/net/chelsio/gmac.h
+> --- /dev/null	2003-09-15 06:40:47.000000000 -0700
+> +++ 25-akpm/drivers/net/chelsio/gmac.h	2005-03-11 11:13:06.000000000 -0800
+> @@ -0,0 +1,126 @@
+> +
+> +typedef struct _cmac_instance cmac_instance;
 
-===== net/ipv6/ip6_output.c 1.85 vs edited =====
---- 1.85/net/ipv6/ip6_output.c	2005-03-03 16:12:38 +11:00
-+++ edited/net/ipv6/ip6_output.c	2005-03-14 22:05:31 +11:00
-@@ -397,6 +397,7 @@
- 		IP6_INC_STATS(IPSTATS_MIB_INDISCARDS);
- 		goto drop;
- 	}
-+	dst = skb->dst;
- 
- 	/* IPv6 specs say nothing about it, but it is clear that we cannot
- 	   send redirects to source routed frames.
+Please drop the typedef.
 
---fdj2RfSjLxBAspz7--
+> diff -puN /dev/null drivers/net/chelsio/osdep.h
+> --- /dev/null	2003-09-15 06:40:47.000000000 -0700
+> +++ 25-akpm/drivers/net/chelsio/osdep.h	2005-03-11 11:13:06.000000000 -0800
+> @@ -0,0 +1,222 @@
+> +#define DRV_NAME "cxgb"
+> +#define PFX      DRV_NAME ": "
+> +
+> +#define CH_ERR(fmt, ...)   printk(KERN_ERR PFX fmt, ## __VA_ARGS__)
+> +#define CH_WARN(fmt, ...)  printk(KERN_WARNING PFX fmt, ## __VA_ARGS__)
+> +#define CH_ALERT(fmt, ...) printk(KERN_ALERT PFX fmt, ## __VA_ARGS__)
+> +
+> +/*
+> + * More powerful macro that selectively prints messages based on msg_enable.
+> + * For info and debugging messages.
+> + */
+> +#define CH_MSG(adapter, level, category, fmt, ...) do { \
+> +	if ((adapter)->msg_enable & NETIF_MSG_##category) \
+> +		printk(KERN_##level PFX "%s: " fmt, (adapter)->name, \
+> +		       ## __VA_ARGS__); \
+> +} while (0)
+> +
+> +#ifdef DEBUG
+> +# define CH_DBG(adapter, category, fmt, ...) \
+> +        CH_MSG(adapter, DEBUG, category, fmt, ## __VA_ARGS__)
+> +#else
+> +# define CH_DBG(fmt, ...)
+> +#endif
+
+Please consider using dev_* helpers from <linux/device.h> instead.
+
+> +
+> +/* Additional NETIF_MSG_* categories */
+> +#define NETIF_MSG_MMIO 0x8000000
+> +
+> +#define CH_DEVICE(devid, ssid, idx) \
+> +	{ PCI_VENDOR_ID_CHELSIO, devid, PCI_ANY_ID, ssid, 0, 0, idx }
+> +
+> +#define SUPPORTED_PAUSE       (1 << 13)
+> +#define SUPPORTED_LOOPBACK    (1 << 15)
+> +
+> +#define ADVERTISED_PAUSE      (1 << 13)
+> +#define ADVERTISED_ASYM_PAUSE (1 << 14)
+> +
+> +/*
+> + * Now that we have included the driver's main data structure,
+> + * we typedef it to something the rest of the system understands.
+> + */
+> +typedef struct adapter adapter_t;
+
+Please drop the typedef.
+
+> +
+> +#define DELAY_US(x) udelay(x)
+> +
+> +#define TPI_LOCK(adapter) spin_lock(&(adapter)->tpi_lock)
+> +#define TPI_UNLOCK(adapter) spin_unlock(&(adapter)->tpi_lock)
+
+Please drop the obfuscating wrappers.
+
+> +void t1_elmer0_ext_intr(adapter_t *adapter);
+> +void t1_link_changed(adapter_t *adapter, int port_id, int link_status,
+> +			int speed, int duplex, int fc);
+> +
+> +static inline void DELAY_MS(unsigned long ms)
+> +{
+> +	unsigned long ticks = (ms * HZ + 999) / 1000 + 1;
+> +
+> +	while (ticks) {
+> +		set_current_state(TASK_UNINTERRUPTIBLE);
+> +		ticks = schedule_timeout(ticks);
+> +	}
+> +}
+
+Use msleep here.
+
+> diff -puN /dev/null drivers/net/chelsio/subr.c
+> --- /dev/null	2003-09-15 06:40:47.000000000 -0700
+> +++ 25-akpm/drivers/net/chelsio/subr.c	2005-03-11 11:13:06.000000000 -0800
+> +typedef struct {
+> +	u32 format_version;
+> +	u8 serial_number[16];
+> +	u8 mac_base_address[6];
+> +	u8 pad[2];           /* make multiple-of-4 size requirement explicit */
+> +} chelsio_vpd_t;
+
+Please drop the typedef.
+
+				Pekka
