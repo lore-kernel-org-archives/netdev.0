@@ -1,37 +1,31 @@
-From: "Hen, Shmulik" <shmulik.hen@intel.com>
-Subject: RE: reasons for dev_alloc_skb +16?
-Date: Wed, 9 Jul 2003 18:35:33 +0300
+From: Andi Kleen <ak@suse.de>
+Subject: Re: reasons for dev_alloc_skb +16?
+Date: Wed, 9 Jul 2003 17:53:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C93BA@hasmsx403.iil.intel.com>
+Message-ID: <20030709175355.422545b5.ak@suse.de>
+References: <20030709152553.GB15293@gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>, <netdev@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20030709152553.GB15293@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Could be for alignment issues.
-Or preparation for things like 8021q tagging.
+On Wed, 9 Jul 2003 11:25:53 -0400
+Jeff Garzik <jgarzik@pobox.com> wrote:
 
-
-	Shmulik.
-
-> -----Original Message-----
-> From: Jeff Garzik [mailto:jgarzik@pobox.com]
-> Sent: Wednesday, July 09, 2003 6:26 PM
-> To: netdev@oss.sgi.com
-> Subject: reasons for dev_alloc_skb +16?
-> 
-> 
 > I knew this at one time, but have forgotten it :)
 > 
 > What is the reason for adding 16 to the dev_alloc_skb length?
 > (and skb_reserve of the same length)
-> 
-> 	Jeff
-> 
-> 
-> 
+
+For the skb_reserve alignment to align the IP header. 
+
+But it's not clear it is still a good idea because it leads to cache line 
+misalignment of the beginning of the packet, forcing the card to do a
+costly Read-Modify-Write cycle.
+
+-Andi
