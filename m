@@ -1,77 +1,104 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: Re: Annoying bug with many sockets.
-Date: Mon, 21 Feb 2005 01:35:33 +0100
-Message-ID: <42192CD5.5090401@rapidforum.com>
-References: <421925DB.2060602@rapidforum.com> <42192AAF.8020609@us.ibm.com>
+From: "Alex Aizman" <alex@neterion.com>
+Subject: RE: Intel and TOE in the news
+Date: Sun, 20 Feb 2005 17:57:56 -0800
+Message-ID: <200502210158.j1L1wcDD004318@guinness.s2io.com>
+References: <20050220230713.GA62354@muc.de>
+Reply-To: <alex@neterion.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Type: text/plain;
+	charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <42192AAF.8020609@us.ibm.com>
+Cc: "'rick jones'" <rick.jones2@hp.com>, <netdev@oss.sgi.com>
+To: "'Andi Kleen'" <ak@muc.de>,
+        "'Leonid Grossman'" <leonid.grossman@neterion.com>
+In-Reply-To: <20050220230713.GA62354@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Nivedita Singhvi wrote:
-> Christian Schmid wrote:
+> You can always call netif_rx() multiple times from the 
+> interrupt. 
+
+That's what we do, simply because interrupts are coalesced. 
+
+> The function doesn't do the full packet 
+> processing,  but just stuffs the packet into a CPU queue that 
+> is processed at a lower priority interrupt (softirq). 
+
+There's the netif_rx's own per-packet overhead (including the call itself)
+that arguably could be optimized..
+
+> Most interesting would be to use per CPU TX completion 
+> interrupts using MSI-X and avoid bouncing packets around between CPUs.
+
+Our experimental Linux driver already supports MSI and MSI-X (the latter not
+tested). Once/if multi-MSI support in Linux becomes available it'd be
+practically possible to scale TCP connections with a number of CPUs.
+Alternative: wait until Xframe II adapter w/MSI-X.. 
+
+
+Alex
+
+> -----Original Message-----
+> From: Andi Kleen [mailto:ak@muc.de] 
+> Sent: Sunday, February 20, 2005 3:07 PM
+> To: Leonid Grossman
+> Cc: 'rick jones'; netdev@oss.sgi.com; 'Alex Aizman'
+> Subject: Re: Intel and TOE in the news
 > 
->> Hi.
->>
->> This is really annoying. With 3500 sockets onwards, linux 2.6.10 
->> completely lags. This is a bug and I am not willing to buy new servers 
->> just because linux has a BUG. tcp_mem _rmem and _wmem have been set to 
->> 1024000 for testing but this doesnt help as well. so whats WRONG 
->> there... please?
->>
->> Best regards,
->> Chris
+> On Sun, Feb 20, 2005 at 02:43:59PM -0800, Leonid Grossman wrote:
+> > This is an interesting idea, we'll play around...
+> 
+> What exactly? The software only shadow table?
+> 
+> > 
+> > BTW - does anybody know if it's possible to indicate 
+> multiple receive 
+> > packets?
+> > 
+> > In other OS drivers we have an option to indicate a "packet train" 
+> > that got received during an interrupt, but I'm not sure 
+> if/how it's doable in Linux.
+> 
+> You can always call netif_rx() multiple times from the 
+> interrupt. The function doesn't do the full packet 
+> processing,  but just stuffs the packet into a CPU queue that 
+> is processed at a lower priority interrupt (softirq). 
+> Doesn't work for NAPI unfortunately though; netif_receive_skb 
+> always does the protocol stack.
+> 
+> > We are adding Linux driver support for message-signaled 
+> interrupts and 
+> > header separation (just recently figured out how to 
+> indicate chained 
+> > skb for
+> 
+> I had an experimental patch to enable MSI (without -X) for 
+> your cards, but didn't push it out because i wasn't too happy with it.
+> 
+> Most interesting would be to use per CPU TX completion 
+> interrupts using MSI-X and avoid bouncing packets around between CPUs.
+> 
+> > a packet that has IP and TCP headers separated by the ASIC); If a 
+> > packet train indication works then the driver could prefetch the 
+> > descriptor ring segment and also a rx buffer segment that holds 
+> > headers stored back-to-back, before indicating the train.
+> 
+> Me and Jamal tried that some time ago, but it did not help too much.
+> Probably because the protocol process overhead was not big enough.
+> However that was with NAPI, might be perhaps worth trying without it. 
+> 
+> Problem is that need to fill in skb->protocol/pkt_type before 
+> you can pass the packet up; you can perhaps derive it from 
+> the RX descriptor (card has a bit that says "this is IP" and 
+> "its unicast for my MAC"). 
+> But the RX descriptor access is already a cache miss that 
+> stalls you.  
+> 
+> To make the prefetching work well for this would probably 
+> require a callback to the driver so that you can do this 
+> later after your prefetch succeeded.
+> 
+> -Andi
 > 
 > 
-> You have not actually said what the problem is - do
-> new connections not get made? Or existing connections
-> slow down?
-
-New connections get made without any problems. Just existing connections slow down painfully.
-
-> You are trying to run many simultaneous connections, so
-> bumping up the individual socket buffer allocation will
-> not necessarily help - you need to bump up the global
-> TCP limit (tcp_mem[]) - it's a 3-tuple - if you have
-> the memory in your system, bump it way up. netstat -tan
-> will tell you if there is unread data in the queues..
-
-I already set it to 1024000 1025000 1026000 (just to be sure). Its a 8 GB system with 2/2 split, so 
-2 GB of low memory.
-
-> Are you running into memory pressure? Or aborts?
-> netstat -s might give you some info on what is happening.
-> 
-> Bump up the port space (/proc/sys/net/ipv4/ip_local_port_range)
-> available - typical default is 32K - 61000 (can lower min to 4K)
-> 
-> Are they all receiving data or sending? Are they talking to
-> different hosts?
-> 
-> You can increase tcp_max_syn_backlog, core/netdev_max_backlog,
-> for a start.
-
-netdev_max_backlog has been raised from 300 to 3000 without any result. syn_backlog is normal but 
-its no problem to create new connections. Just existing connections slow down suddenly. Like this:
-
-3000 sockets = no slowdown at all (500 MBit in use)
-3300 sockets = 10% slowdown
-3600 sockets = 30% slowdown
-4000 sockets = 60% slowdown (i aborted here, as it only uses 200 MBit for sending... catastrophy!)
-
-They are all receiving data. Its a download-service. receive-buffer is set to 24 KB and send-buffer 
-set to 224 KB. I don't see a problem with port-space. I only have 3500 sockets when the problem 
-appears but it appears suddenly.
-
-> But it would help if you looked at the stats and ifconfig
-> to see who's dropping packets, how many retransmissions there
-> are, memory failures, or the bottleneck is some other issue altogether...
-
-No way. Doing 30000 packets per second and your stats are 32 bit integers ;)
-
-Chris
