@@ -1,59 +1,61 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATH] IPv6 IPsec support
-Date: Wed, 05 Mar 2003 15:25:30 -0800 (PST)
+Subject: Re: (usagi-core 12294) Re: [PATCH] IPv6 IPsec support
+Date: Wed, 05 Mar 2003 15:41:00 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030305.152530.70806720.davem@redhat.com>
+Message-ID: <20030305.154100.28816301.davem@redhat.com>
 References: <20030305233025.784feb00.kazunori@miyazawa.org>
+	<20030305.072149.121185037.davem@redhat.com>
+	<20030306.004820.41101302.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: Text/Plain; charset=iso-2022-jp
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   usagi-core@linux-ipv6.org
+Cc: kazunori@miyazawa.org, kuznet@ms2.inr.ac.ru, linux-kernel@vger.kernel.org,
+   netdev@oss.sgi.com, usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kazunori@miyazawa.org
-In-Reply-To: <20030305233025.784feb00.kazunori@miyazawa.org>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20030306.004820.41101302.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori Miyazawa <kazunori@miyazawa.org>
-   Date: Wed, 5 Mar 2003 23:30:25 +0900
+   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
+   Date: Thu, 06 Mar 2003 00:48:20 +0900 (JST)
+   
+   > The next large task will be to abstract out more common
+   > pieces of code.  There is still quite a bit of code duplication
+   > between v4 and v6 xfrm methods,
+   
+   Yes, we will do that.  That patch is first step for reducing 
+   duplicate codes between IPv4 and IPv6.
 
-Hello Miyazawa-san,
+Great.  I believe it should be possible, in the end, to make the XFRM
+engine %100 address-family (v4, v6 etc.) and protocol (ah, esp)
+independant.  If that goal is achieved, we may move generic parts from
+net/ipv4/xfrm_*.c to net/xfrm_*.c
 
-   I submit the patch to let the kernel support ipv6 ipsec again.
-   It is able to comple ipv6 as module.
+Note that this coincides with the idea to eventually have
+an address-family independant flow cache.
 
-As promised I applied the patch.  I will push it to Linus later
-this evening, or tomorrow.
+Most of the address-family specific areas are:
 
-In this initial checkin I made only 2 minor fixes, they
-are attached below:
+1) DST lookup (xfrm_dst_lookup_t)
 
---- ./include/net/ip6_route.h.~1~	Wed Mar  5 15:32:41 2003
-+++ ./include/net/ip6_route.h	Wed Mar  5 15:40:42 2003
-@@ -38,7 +38,6 @@
- extern int			ipv6_route_ioctl(unsigned int cmd, void *arg);
- 
- extern int			ip6_route_add(struct in6_rtmsg *rtmsg);
--extern int			ip6_route_del(struct in6_rtmsg *rtmsg);
- extern int			ip6_del_rt(struct rt6_info *);
- 
- extern int			ip6_rt_addr_add(struct in6_addr *addr,
---- ./net/ipv6/Kconfig.~1~	Wed Mar  5 15:32:41 2003
-+++ ./net/ipv6/Kconfig	Wed Mar  5 15:35:27 2003
-@@ -19,6 +19,7 @@
- 
- config INET6_AH
- 	tristate "IPv6: AH transformation"
-+	depends on IPV6
- 	---help---
- 	  Support for IPsec AH.
- 
-@@ -26,6 +27,7 @@
- 
- config INET6_ESP
- 	tristate "IPv6: ESP transformation"
-+	depends on IPV6
- 	---help---
- 	  Support for IPsec ESP.
- 
+2) selector key comparisons and state lookup
+   (xfrm$(AF)_selector_match, xfrm$(AF)_state_find)
+
+3) receive processing (xfrm${AF}_rcv)
+
+#1 is made for ipv6 by Miyazawa-san's patch.  This could logically
+be extended to handle issues #2 and #3 above.
+
+All protocol specific (ESP, AH) and address-family specific references
+should go away from places like include/net/xfrm.h
+
+I think you understand all of this, and therefore I cannot wait for the
+next ipsec cleanup patch from you :)
+
+Finally, note that eventually we will need some reference counting scheme
+for to allow xfrm address-family modules to be unloaded safely.
+
+Currently, ipv4 cannot be a module and ipv6 as a module is not able
+to unload :-)  So the module unload problem does not exist right
+at this moment.  So ignore this issue for now.
