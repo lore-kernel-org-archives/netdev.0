@@ -1,66 +1,60 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Description available for all IPv6 related proc settings?
-Date: Wed, 02 Oct 2002 08:37:09 +0200
+From: Antti Tuominen <ajtuomin@morphine.tml.hut.fi>
+Subject: [PATCH] Mobile IPv6 for 2.5.40 (request for kernel inclusion)
+Date: Wed, 2 Oct 2002 12:21:11 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <13970000.1033540629@localhost>
+Message-ID: <20021002092111.GB17010@morphine.tml.hut.fi>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
- protocol="application/pgp-signature";
- boundary="==========862390887=========="
-Cc: Maillist USAGI-users <usagi-users@linux-ipv6.org>,
-   Maillist linux-ipv6 <linux-ipv6@list.f00f.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: torvalds@transmeta.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maillist netdev <netdev@oss.sgi.com>
+To: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==========862390887==========
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
+Hello Dave, Alexey, and all,
 
-Hi,
+I am part of the MIPL Mobile IPv6 for Linux Team at Helsinki
+University of Technology, and we have been working on an
+implementation of Mobility Support in IPv6 specification for the past
+3 years.  Now the code has matured to the point, that we feel
+confident enough to ask for kernel inclusion.
 
-during extending my HowTo:
-http://www.tldp.org/HOWTO/Linux+IPv6-HOWTO/proc-sys-net-ipv6.html
+Our implementation has been to several interop and conformance testing
+events, and has proven to be very compliant and to interoperate with
+all major vendors' implementations.  Code has been tested on several
+UP and SMP configurations, and performs quite well.
 
-I found not much information about
-        neigh/*
-        route/*
+Implementation consists of two kernel modules, changes to IPv6 stack,
+and userspace configuration tools.  First module provides support for
+6over6 (IPv6 in IPv6) tunneling.  Second module is the Mobile IPv6
+module, and adds support for Mobile IPv6 Correspondent Node, Mobile
+Node, and Home Agent.  IPv6 stack has been modified to provide some
+MIPv6 mandated features as well as hooks to our module.
 
-Latest ip-sysctl.txt from kernel sources 2.5.39 is dated 
- $Id: ip-sysctl.txt,v 1.20 2001/12/13 09:00:18 davem Exp $
+Latest code for 2.5 series can be pulled from our public BitKeeper
+repository (parent is http://linux.bkbits.net/linux-2.5): 
+	bk://bk.mipl.mediapoli.com/linux25-mipl
 
-already containing some IPv6 information (credits to Pekka), but not
-all.
+Diff against latest BK bits can be downloaded from:
+	http://www.mipl.mediapoli.com/download/linux-2.5+mipv6.diff
 
+Latest userspace tools are found at:
+	bk://bk.mipl.mediapoli.com/mipv6-tools
 
-Would be very nice if someone is able to contribute more
-information...
+More information of the project can be found at our website:
+	http://www.mipl.mediapoli.com/
 
-BTW: some still not full explained values also are shown here:
-http://www.tldp.org/HOWTO/Linux+IPv6-HOWTO/proc-net.html
+The team continues the development work to have fully RFC compliant
+(when the specification moves to RFC) implementation of Mobile IPv6 in
+the Linux kernel, as well as work on improving the code.
 
-Perhaps someone can send updates to me for this, too.
+On behalf of the MIPL Team,
 
-Thank you very much,
-        Peter
+Antti Tuominen
 
----
-Dr. Peter Bieringer
-mailto: pb at bieringer dot de
-http://www.bieringer.de/pb/
-Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
---==========862390887==========
-Content-Type: application/pgp-signature
-Content-Transfer-Encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-
-iD8DBQE9mpQWe1eqe5WPQi0RApb8AJ9fFaY7wd7N1IoSxQZF6NvxbafKygCg7wbM
-eFsph4C+kMdQ2MP7yx4+Xa4=
-=U+Cb
------END PGP SIGNATURE-----
-
---==========862390887==========--
+-- 
+Antti J. Tuominen, Gyldenintie 8A 11, 00200 Helsinki, Finland.
+Research assistant, Institute of Digital Communications at HUT
+work: ajtuomin@tml.hut.fi; home: tuominen@iki.fi
