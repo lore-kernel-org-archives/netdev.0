@@ -1,24 +1,62 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 04/10] b44 bounce buffering fix
-Date: Mon, 24 Jan 2005 19:07:02 -0800
-Message-ID: <20050124190702.62d84861.akpm@osdl.org>
-References: <200501250257.j0P2vdl20257@mail.osdl.org>
+From: Neema <neema.network@gmail.com>
+Subject: Re: help in using eth_change_mtu
+Date: Tue, 25 Jan 2005 09:16:17 +0530
+Message-ID: <41F5C109.7060801@gmail.com>
+References: <cfc9593605012400595e529682@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com, pp@ee.oulu.fi
-In-Reply-To: <200501250257.j0P2vdl20257@mail.osdl.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Harsh <hanemade@gmail.com>
+In-Reply-To: <cfc9593605012400595e529682@mail.gmail.com>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-akpm@osdl.org wrote:
->
-> From: Pekka Pietikainen <pp@ee.oulu.fi>
-> 
->  b44 allocates a full TX ring worth of bounce buffers to work around a DMA
->  addressing limitation.  It should do a bunch of smaller consistent
->  allocations instead of one huge one.
+Hi,
 
-err, this one was a leak.  Please ignore.  I think.  Driver remains fscked.
+    What ever u may send,the maximum size of the packet in ethernet 
+should be 1514bytes, that includes ethernet header (And also minimum is 
+82bytes).
+I think u are using old libnet version. That function sets the MTU with 
+the given value if neither exceeded max and nor minimum.
+
+
+HTH,
+Neema
+
+Harsh wrote:
+
+>Hello,
+>         If some extra information is required to be sent with each
+>packet then does that require to change Ethernet MTU 1500 to
+>1500-(Bytes in extra info) or its ok with 1500 value of MTU? While
+>checking source code of net_init.c in drivers/net dir i found one
+>function eth_change_mtu. I want to know does that helps? why its given
+>there in source code?
+>regards,
+>Harsh.
+>
+>static int eth_change_mtu(struct net_device *dev, int new_mtu)
+> {
+>        if ((new_mtu < 68) || (new_mtu > 1500))
+>                 return -EINVAL;
+>        dev->mtu = new_mtu;
+>        return 0;
+> }
+>-
+>To unsubscribe from this list: send the line "unsubscribe linux-net" in
+>the body of a message to majordomo@vger.kernel.org
+>More majordomo info at  http://vger.kernel.org/majordomo-info.html
+>
+>  
+>
+
+
+-- 
+
+Thanks & Regards,
+Neema
+
+
+
