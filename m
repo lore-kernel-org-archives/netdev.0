@@ -1,109 +1,94 @@
-From: jamal <hadi@cyberus.ca>
+From: Florian Weimer <fw@deneb.enyo.de>
 Subject: Re: [fw@deneb.enyo.de: Route cache performance under stress]
-Date: Sat, 5 Apr 2003 14:02:19 -0500 (EST)
+Date: Sun, 06 Apr 2003 00:55:46 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030405134350.N68419@shell.cyberus.ca>
+Message-ID: <873ckwftal.fsf@deneb.enyo.de>
 References: <20030405165016.GA32361@outpost.ds9a.nl>
+	<20030405134350.N68419@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20030405165016.GA32361@outpost.ds9a.nl>
+To: netdev@oss.sgi.com
+In-Reply-To: <20030405134350.N68419@shell.cyberus.ca> (jamal's message of
+ "Sat, 5 Apr 2003 14:02:19 -0500 (EST)")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+jamal <hadi@cyberus.ca> writes:
 
+>> Short summary: It is possible to freeze machines with 1 GB of RAM and
+>> more with a stream of 400 packets per second with carefully chosen
+>> source addresses.  Not good.
+>>
+>
+> I dont think the author has done any testing actually at the rate they
+> claim to have to - if they did they wouldnt be wording it as "carefully
+> chosen source addresses".
 
-On Sat, 5 Apr 2003, bert hubert wrote:
+Why don't you ask the author the wording is unclear?
 
-> Forwarded:
+>> The route cache is a DoS bottleneck in general (that's why I started
+>> looking at it).
 >
-> ----- Forwarded message from Florian Weimer <fw@deneb.enyo.de> -----
->
-> To: linux-kernel@vger.kernel.org
-> Subject: Route cache performance under stress
-> From: Florian Weimer <fw@deneb.enyo.de>
-> Date: Sat, 05 Apr 2003 18:37:43 +0200
-> X-Mailing-List: linux-kernel@vger.kernel.org
->
-> Please read the following paper:
->
-> <http://www.cs.rice.edu/~scrosby/tr/HashAttack.pdf>
->
-> Then look at the 2.4 route cache implementation.
->
-> Short summary: It is possible to freeze machines with 1 GB of RAM and
-> more with a stream of 400 packets per second with carefully chosen
-> source addresses.  Not good.
->
+> Yes it is - but not using the reasons described above.
 
-I dont think the author has done any testing actually at the rate they
-claim to have to - if they did they wouldnt be wording it as "carefully
-chosen source addresses".
+Have you actually read the paper?  Do you understand its implications
+for the dst cache?
 
-> The route cache is a DoS bottleneck in general (that's why I started
-> looking at it).
+> I think two issues are being mixed here: One the dst cache and two
+> the SYN attacks. The TCP SYNs are more vulnerable than dst cache
+> and rate control of SYNs may remedy the issue.
 
-Yes it is - but not using the reasons described above.
+Currently, the dst cache (which is a misnomer, as it includes the
+source address and TOS field) is not only a bottleneck, you can
+actually abuse it for DoS attacks.
 
-> You have to apply rate-limits in the PREROUTING
-> chain, otherwise a modest packet flood will push the machine off the
-> network (even with truly random source addresses, not triggering hash
-> collisions).  The route cache partially defeats the purpose of SYN
-> cookies, too, because the kernel keeps (transient) state for spoofed
-> connection attempts in the route cache.
->
+Some people told me that the general performance issues are rather
+well-known.  Why aren't they being addressed?
 
-I think two issues are being mixed here: One the dst cache and two
-the SYN attacks. The TCP SYNs are more vulnerable than dst cache
-and rate control of SYNs may remedy the issue.
+> And why could this not have been done in /proc?
 
-> The following patch can be applied in an emergency, if you face the
-> hash collision DoS attack.  It drastically limits the size of the
-> cache (but not the bucket count), and decreases performance in some
-> applications, but
->
-> --- route.c	2003/04/05 12:41:51	1.1
-> +++ route.c	2003/04/05 12:42:42
-> @@ -2508,8 +2508,8 @@
->  		rt_hash_table[i].chain = NULL;
->  	}
->
-> -	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
-> -	ip_rt_max_size = (rt_hash_mask + 1) * 16;
-> +	ipv4_dst_ops.gc_thresh = 512;
-> +	ip_rt_max_size = 2048;
->
+Ugh, thanks.  I didn't notice that this part is actually tunable.
 
-And why could this not have been done in /proc? Is this supposed
-to cure something?
+> Is this supposed to cure something?
 
->
-> I wonder why the route cache is needed at all for hosts which don't
-> forward any IP packets, and why it has to include the source addresses
-> and TOS (for policy-based routing, probably).  Most hosts simply don't
-> face such complex routing decisions to make the cache a win.
->
-> If you don't believe me, hook a Linux box to a packet generator
-> (generating packets with random source addresses) and use iptables to
-> drop the packets, in a first test run in the INPUT chain (after route
-> cache), and in a second one in the PREROUTING chain (before route
-> cache).  I've observed an incredible difference (not in laboratory
-> tests, but during actual DoS attacks).
->
-> Netfilter ip_conntrack support might have similar issues, but you
-> can't use it in a uncooperative environment anyway, at least in my
-> experience.  (Note that there appears to be no way to disable
-> connection tracking while the code is in the kernel.)
+Garbage collection is much more aggressive and the chains attached to
+the bucket are kept much shorter, so less CPU time is spent processing
+them.
 
-There are issues with dst cache no doubt. contracking on the
-other hand is appaling. In any case i think it is extremely dangerous to
-read some academic paper and start waving hands around about how it
-applies here. Do some tests and come up with data of where things need to
-be improved. Just pointing a finger at hashing is insufficient
-(infact i dont think hashing is the primary issue based on some
-experiments foo and i did)
+> In any case i think it is extremely dangerous to read some academic
+> paper
 
-cheers,
-jamal
+Have you read it?  I doubt it.
+
+> and start waving hands around about how it applies here.
+
+I discovered the paper *after* writing the DoS tool.
+
+I wrote the DoS tool *after* investigating why a server froze during a
+2 Mbit/s SYN flood which was being dropped by an iptables rule (in the
+INPUT chain, admittedly).
+
+Please stop your ad hominem attacks.
+
+> Do some tests and come up with data of where things need to be
+> improved.
+
+I have already done this, and I think I have provided the necessary
+information to reproduce this.  For obvious reasons, I don't want to
+release the DoS tool before a real fix is available.
+
+> Just pointing a finger at hashing is insufficient
+
+I'm not pointing a finger at hashing, but at hash collisions.
+
+> (infact i dont think hashing is the primary issue based on some
+> experiments foo and i did)
+
+Where can I read about your testing methods?  There must be some flaw
+because reality looks quite different.
+
+Maybe you tested with non-random source addresses, or some "Internet
+mix" traffic.  Such tests look fine on glossy paper, but you shouldn't
+assume that they tell anything about the robustness of networking
+devices in the presence of malicious traffic.
