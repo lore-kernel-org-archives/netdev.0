@@ -1,619 +1,474 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] (3/4) acenic - __iomem warnings cleanup
-Date: Mon, 20 Sep 2004 11:32:57 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: [BK PATCHES] 2.6.x-rc net driver updates
+Date: Mon, 20 Sep 2004 14:32:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040920113257.44b9bd7a@dell_ss3.pdx.osdl.net>
-References: <20040920104431.0a96d6c1@dell_ss3.pdx.osdl.net>
-	<414F199B.3090806@pobox.com>
+Message-ID: <20040920183252.GA14037@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: Jes Sorensen <jes@wildopensource.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <414F199B.3090806@pobox.com>
+To: Andrew Morton <akpm@osdl.org>, Linus Torvalds <torvalds@osdl.org>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Sep 2004 13:55:39 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
 
-> Stephen Hemminger wrote:
-> > Remaining warnings are because tx_ring can be either in i/o or not
-> > depending on the version of the card.
-> 
-> Where is this code?  I don't see any {in,out}[bwl] calls?
-> 
-> If this were true, we should use io{read,write}{8,16,32}...
-> 
-> 	Jeff
+Please do a
 
-It is because of new __iomem attributes of readl/writel.
-Here are the warnings from the old driver (sparse and gcc)
+	bk pull bk://gkernel.bkbits.net/net-drivers-2.6
 
-  CHECK   drivers/net/acenic.c
-drivers/net/acenic.c:542:14: warning: cast removes address space of expression
-drivers/net/acenic.c:640:16: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:640:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:640:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:640:44: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:640:44:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:640:44:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:642:17: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:642:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:642:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:642:46: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:642:46:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:642:46:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:647:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:647:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:647:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:648:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:648:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:648:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:881:12: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:881:12:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:881:12:    got struct ace_regs *regs
-drivers/net/acenic.c:924:39: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:924:39:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:924:39:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:925:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:925:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:925:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:940:10: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:940:10:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:940:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:942:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:942:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:942:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:947:16: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:947:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:947:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:947:44: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:947:44:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:947:44:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:948:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:948:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:948:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:949:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:949:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:949:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:951:19: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:951:19:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:951:19:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:960:14: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:960:14:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:960:14:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:969:17: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:969:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:969:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:969:46: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:969:46:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:969:46:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:970:10: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:970:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:970:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:976:27: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:976:27:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:976:27:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:977:29: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:977:29:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:977:29:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1000:48: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1000:48:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1000:48:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1002:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1002:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1002:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1025:16: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1025:16:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1025:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1026:16: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1026:16:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1026:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1060:21: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1060:21:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1060:21:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1146:15: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1146:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1146:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1222:25: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1222:25:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1222:25:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1223:32: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1223:32:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1223:32:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1233:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1233:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1233:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1240:26: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1240:26:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1240:26:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:1242:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1242:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1242:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1243:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1243:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1243:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1319:24: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1319:24:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1319:24:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1325:41: warning: incorrect type in argument 2 (different base types)
-drivers/net/acenic.c:1325:41:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1325:41:    got unsigned long 
-drivers/net/acenic.c:1358:25: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1358:25:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1358:25:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1359:25: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1359:25:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1359:25:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1362:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1362:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1362:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1363:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1363:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1363:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1372:20: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1372:20:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1372:20:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1373:21: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1373:21:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1373:21:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1384:12: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1384:12:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1384:12:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1386:36: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1386:36:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1386:36:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1390:12: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1390:12:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1390:12:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1392:36: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1392:36:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1392:36:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1395:30: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1395:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1395:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1398:33: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1398:33:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1398:33:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1451:15: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1451:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1451:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1453:16: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1453:16:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1453:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1456:29: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1456:29:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1456:29:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1458:30: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1458:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1458:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1460:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1460:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1460:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:745:17: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.h:745:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:745:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1473:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1473:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1473:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1486:19: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1486:19:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1486:19:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1491:16: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1491:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1491:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1491:57: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1491:57:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1491:57:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1492:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1492:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1492:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1505:17: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1505:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1505:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1505:45: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1505:45:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1505:45:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1506:10: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1506:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1506:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1518:18: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1518:18:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1518:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1519:12: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1519:12:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1519:12:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1520:14: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1520:14:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1520:14:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1521:10: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1521:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1521:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1565:26: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1565:26:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1565:26:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1567:30: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1567:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1567:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1569:26: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1569:26:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1569:26:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1571:30: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1571:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1571:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1573:27: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1573:27:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1573:27:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1577:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1577:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1577:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1580:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1580:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1580:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1583:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1583:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1583:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1586:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1586:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1586:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1588:33: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1588:33:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1588:33:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1607:42: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1607:42:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1607:42:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1726:16: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1726:16:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1726:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1783:15: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1783:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1783:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1847:16: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1847:16:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1847:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1889:26: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:1889:26:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1889:26:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:1950:21: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:1950:21:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:1950:21:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2087:16: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:2087:16:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2087:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2182:15: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:2182:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2182:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2193:13: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:2193:13:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2193:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2194:9: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:2194:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2194:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2224:18: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:2224:18:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2224:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2229:19: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:2229:19:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2229:19:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2341:35: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:2341:35:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2341:35:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15: warning: incorrect type in argument 1 (different address spaces)
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37: warning: incorrect type in argument 2 (different address spaces)
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15: warning: too many warnings
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:757:14:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:757:14:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:759:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:759:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:759:47:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:759:47:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2437:27:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2437:27:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2438:27:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2438:27:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2439:27:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2439:27:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:771:14:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:771:14:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:773:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:773:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:773:48:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:773:48:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2496:23:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2496:23:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2497:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2497:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2498:21:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2498:21:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2496:23:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2496:23:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2497:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2497:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2498:21:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2498:21:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2496:23:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2496:23:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2497:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2497:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2498:21:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2498:21:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.h:745:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.h:745:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2660:34:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2660:34:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2705:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2705:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2709:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2709:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2736:26:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2736:26:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2737:26:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2737:26:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2748:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2748:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2752:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2752:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2791:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2791:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2793:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2793:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2838:30:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2838:30:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2840:10:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2840:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:892:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:892:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:894:37:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:894:37:    got unsigned int [addressable] [usertype] *<noident>
-drivers/net/acenic.c:897:15:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:897:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2911:38:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2911:38:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2912:31:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2912:31:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2913:32:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2913:32:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2934:42:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2934:42:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2941:26:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2941:26:    got unsigned long 
-drivers/net/acenic.c:2965:42:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2965:42:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:2968:20:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2968:20:    got unsigned long 
-drivers/net/acenic.c:2993:15:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:2993:15:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3043:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3043:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3045:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3045:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3047:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3047:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3048:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3048:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3052:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3052:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3053:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3053:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3057:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3057:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3058:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3058:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3062:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3062:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3063:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3063:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3074:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3074:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3077:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3077:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3078:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3078:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3087:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3087:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3088:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3088:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3093:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3093:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3094:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3094:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3098:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3098:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3099:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3099:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3110:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3110:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3112:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3112:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3113:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3113:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3117:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3117:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3118:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3118:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3122:18:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3122:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3125:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3125:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3125:53:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3125:53:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3126:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3126:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3138:17:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3138:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3140:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3140:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3141:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3141:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3145:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3145:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3146:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3146:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3150:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3150:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3151:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3151:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3155:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3155:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3156:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3156:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3160:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3160:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3232:18:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3232:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3234:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3234:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3235:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3235:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3239:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3239:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3240:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3240:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3245:13:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3245:13:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3248:18:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3248:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3250:18:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3250:18:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3251:10:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3251:10:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3256:19:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3256:19:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3257:11:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3257:11:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3264:17:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3264:17:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3265:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3265:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3268:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3268:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3268:52:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3268:52:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3269:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3269:9:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3271:16:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3271:16:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3271:53:    expected void volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3271:53:    got unsigned int [addressable] *<noident>
-drivers/net/acenic.c:3272:9:    expected void const volatile [noderef] *addr<asn:2>
-drivers/net/acenic.c:3272:9:    got unsigned int [addressable] *<noident>
-  CC [M]  drivers/net/acenic.o
-drivers/net/acenic.c: In function `ace_init':
-drivers/net/acenic.c:1325: warning: passing arg 2 of `writel' makes pointer from integer without a cast
-drivers/net/acenic.c: In function `ace_copy':
-drivers/net/acenic.c:2941: warning: passing arg 2 of `writel' makes pointer from integer without a cast
-drivers/net/acenic.c: In function `ace_clear':
-drivers/net/acenic.c:2968: warning: passing arg 2 of `writel' makes pointer from integer without a cast
+This will update the following files:
+
+ drivers/ieee1394/eth1394.c  |    2 
+ drivers/net/Kconfig         |    4 -
+ drivers/net/r8169.c         |   16 ++++-
+ drivers/net/wireless/airo.c |  139 +++++++++++++++++++++++++-------------------
+ 4 files changed, 97 insertions(+), 64 deletions(-)
+
+through these ChangeSets:
+
+<achirica@telefonica.net> (04/09/20 1.1928)
+   [PATCH] Compatibility fixes for different card versions
+
+<romieu@fr.zoreil.com> (04/09/20 1.1927)
+   [PATCH] r8169: default on disabling PCIDAC
+   
+   Default to disabling PCI DAC as this option appears unsafe on amd64
+   (original suggestion by Hans-Frieder Vogt <hfvogt@arcor.de>).
+   
+   The driver will typically report PCI System error when something goes
+   wrong. The relevant interrupt is not masked any more and the driver
+   can thus be disabled.
+   
+   Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+
+<akpm@osdl.org> (04/09/17 1.1926)
+   [PATCH] fix driver name in eth1394 as returned by ETHTOOL_GDRVINFO
+   
+   From: Thierry Vignaud <tvignaud@mandrakesoft.com>
+   
+   The GDRVINFO command of the ETHTOOL ioctl returns a bogus driver name.
+   
+   Signed-off-by: Andrew Morton <akpm@osdl.org>
+
+<olh@suse.de> (04/09/16 1.1925)
+   [PATCH] mark mace and bmac as ppc32 only
+   
+   mace and bmac are only used in "oldworld" PowerMacs.
+   Mark them as ppc32 only.
+
+diff -Nru a/drivers/ieee1394/eth1394.c b/drivers/ieee1394/eth1394.c
+--- a/drivers/ieee1394/eth1394.c	2004-09-20 14:31:50 -04:00
++++ b/drivers/ieee1394/eth1394.c	2004-09-20 14:31:50 -04:00
+@@ -132,7 +132,7 @@
+ };
+ 
+ /* Our ieee1394 highlevel driver */
+-#define ETH1394_DRIVER_NAME "ip1394"
++#define ETH1394_DRIVER_NAME "eth1394"
+ static const char driver_name[] = ETH1394_DRIVER_NAME;
+ 
+ static kmem_cache_t *packet_task_cache;
+diff -Nru a/drivers/net/Kconfig b/drivers/net/Kconfig
+--- a/drivers/net/Kconfig	2004-09-20 14:31:50 -04:00
++++ b/drivers/net/Kconfig	2004-09-20 14:31:50 -04:00
+@@ -200,7 +200,7 @@
+ 
+ config MACE
+ 	tristate "MACE (Power Mac ethernet) support"
+-	depends on NET_ETHERNET && PPC_PMAC
++	depends on NET_ETHERNET && PPC_PMAC && PPC32
+ 	select CRC32
+ 	help
+ 	  Power Macintoshes and clones with Ethernet built-in on the
+@@ -223,7 +223,7 @@
+ 
+ config BMAC
+ 	tristate "BMAC (G3 ethernet) support"
+-	depends on NET_ETHERNET && PPC_PMAC
++	depends on NET_ETHERNET && PPC_PMAC && PPC32
+ 	select CRC32
+ 	help
+ 	  Say Y for support of BMAC Ethernet interfaces. These are used on G3
+diff -Nru a/drivers/net/r8169.c b/drivers/net/r8169.c
+--- a/drivers/net/r8169.c	2004-09-20 14:31:50 -04:00
++++ b/drivers/net/r8169.c	2004-09-20 14:31:50 -04:00
+@@ -156,6 +156,7 @@
+ MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
+ 
+ static int rx_copybreak = 200;
++static int use_dac;
+ 
+ enum RTL8169_registers {
+ 	MAC0 = 0,		/* Ethernet hardware address. */
+@@ -358,6 +359,8 @@
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+ MODULE_PARM(media, "1-" __MODULE_STRING(MAX_UNITS) "i");
+ MODULE_PARM(rx_copybreak, "i");
++MODULE_PARM(use_dac, "i");
++MODULE_PARM_DESC(use_dac, "Enable PCI DAC. Unsafe on 32 bit PCI slot.");
+ MODULE_LICENSE("GPL");
+ 
+ static int rtl8169_open(struct net_device *dev);
+@@ -375,7 +378,7 @@
+ #endif
+ 
+ static const u16 rtl8169_intr_mask =
+-	LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
++	SYSErr | LinkChg | RxOverflow | RxFIFOOver | TxErr | TxOK | RxErr | RxOK;
+ static const u16 rtl8169_napi_event =
+ 	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
+ static const unsigned int rtl8169_rx_config =
+@@ -984,7 +987,7 @@
+ 	tp->cp_cmd = PCIMulRW | RxChkSum;
+ 
+ 	if ((sizeof(dma_addr_t) > 4) &&
+-	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK))
++	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK) && use_dac)
+ 		tp->cp_cmd |= PCIDAC;
+ 	else {
+ 		rc = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+@@ -1760,6 +1763,15 @@
+ 
+ 		if (!(status & rtl8169_intr_mask))
+ 			break;
++
++		if (unlikely(status & SYSErr)) {
++			printk(KERN_ERR PFX "%s: PCI error (status: 0x%04x)."
++			       " Device disabled.\n", dev->name, status);
++			RTL_W8(ChipCmd, 0x00);
++			RTL_W16(IntrMask, 0x0000);
++			RTL_R16(IntrMask);
++			break;
++		}
+ 
+ 		if (status & LinkChg)
+ 			rtl8169_check_link_status(dev, tp, ioaddr);
+diff -Nru a/drivers/net/wireless/airo.c b/drivers/net/wireless/airo.c
+--- a/drivers/net/wireless/airo.c	2004-09-20 14:31:50 -04:00
++++ b/drivers/net/wireless/airo.c	2004-09-20 14:31:50 -04:00
+@@ -1816,7 +1816,8 @@
+ 	if (!test_bit (FLAG_COMMIT, &ai->flags))
+ 		return SUCCESS;
+ 
+-	clear_bit (FLAG_COMMIT | FLAG_RESET, &ai->flags);
++	clear_bit (FLAG_COMMIT, &ai->flags);
++	clear_bit (FLAG_RESET, &ai->flags);
+ 	checkThrottle(ai);
+ 	cfgr = ai->config;
+ 
+@@ -1980,9 +1981,6 @@
+ 	ai->txfids[0].tx_desc.eoc = 1;
+ 	ai->txfids[0].tx_desc.len =len+sizeof(WifiHdr);
+ 
+-	memcpy((char *)ai->txfids[0].card_ram_off,
+-		(char *)&ai->txfids[0].tx_desc, sizeof(TxFid));
+-
+ /*
+  * Magic, the cards firmware needs a length count (2 bytes) in the host buffer
+  * right after  TXFID_HDR.The TXFID_HDR contains the status short so payloadlen
+@@ -2012,6 +2010,7 @@
+ 			return ERROR;
+ 
+ 		*payloadLen = cpu_to_le16(len-sizeof(etherHead)+sizeof(pMic));
++		ai->txfids[0].tx_desc.len += sizeof(pMic);
+ 		/* copy data into airo dma buffer */
+ 		memcpy (sendbuf, buffer, sizeof(etherHead));
+ 		buffer += sizeof(etherHead);
+@@ -2030,6 +2029,9 @@
+ 		memcpy(sendbuf, buffer, len);
+ 	}
+ 
++	memcpy((char *)ai->txfids[0].card_ram_off,
++		(char *)&ai->txfids[0].tx_desc, sizeof(TxFid));
++
+ 	OUT4500(ai, EVACK, 8);
+ 
+ 	dev_kfree_skb_any(skb);
+@@ -2184,6 +2186,12 @@
+ 	struct airo_info *priv = dev->priv;
+ 	u32 *fids = priv->fids;
+ 
++	if (test_bit(FLAG_MPI, &priv->flags)) {
++		/* Not implemented yet for MPI350 */
++		netif_stop_queue(dev);
++		return -ENETDOWN;
++	}
++
+ 	if ( skb == NULL ) {
+ 		printk( KERN_ERR "airo:  skb == NULL!!!\n" );
+ 		return 0;
+@@ -2249,12 +2257,14 @@
+ {
+ 	struct airo_info *local =  dev->priv;
+ 
+-	/* Get stats out of the card if available */
+-	if (down_trylock(&local->sem) != 0) {
+-		set_bit(JOB_STATS, &local->flags);
+-		wake_up_interruptible(&local->thr_wait);
+-	} else
+-		airo_read_stats(local);
++	if (!test_bit(JOB_STATS, &local->flags)) {
++		/* Get stats out of the card if available */
++		if (down_trylock(&local->sem) != 0) {
++			set_bit(JOB_STATS, &local->flags);
++			wake_up_interruptible(&local->thr_wait);
++		} else
++			airo_read_stats(local);
++	}
+ 
+ 	return &local->stats;
+ }
+@@ -2340,6 +2350,9 @@
+ void stop_airo_card( struct net_device *dev, int freeres )
+ {
+ 	struct airo_info *ai = dev->priv;
++
++	set_bit(FLAG_RADIO_DOWN, &ai->flags);
++	disable_MAC(ai, 1);
+ 	disable_interrupts(ai);
+ 	free_irq( dev->irq, dev );
+ 	takedown_proc_entry( dev, ai );
+@@ -3406,13 +3419,8 @@
+ }
+ 
+ static void enable_interrupts( struct airo_info *ai ) {
+-	/* Reset the status register */
+-	u16 status = IN4500( ai, EVSTAT );
+-	OUT4500( ai, EVACK, status );
+ 	/* Enable the interrupts */
+ 	OUT4500( ai, EVINTEN, STATUS_INTS );
+-	/* Note there is a race condition between the last two lines that
+-	   I don't know how to get rid of right now... */
+ }
+ 
+ static void disable_interrupts( struct airo_info *ai ) {
+@@ -3460,7 +3468,7 @@
+ 		memcpy(buffer + ETH_ALEN * 2,
+ 			ai->rxfids[0].virtual_host_addr + ETH_ALEN * 2 + off,
+ 			len - ETH_ALEN * 2 - off);
+-		if (decapsulate (ai, &micbuf, (etherHead*)buffer, len - off)) {
++		if (decapsulate (ai, &micbuf, (etherHead*)buffer, len - off - ETH_ALEN * 2)) {
+ badmic:
+ 			dev_kfree_skb_irq (skb);
+ 			goto badrx;
+@@ -3670,18 +3678,6 @@
+ 		status = readCapabilityRid(ai, &cap_rid, lock);
+ 		if ( status != SUCCESS ) return ERROR;
+ 
+-		/*
+-		 * This driver supports MPI350 firmwares up to, and
+-		 * including 5.30.17
+-		 */
+-		if (test_bit(FLAG_MPI, &ai->flags) &&
+-		    strncmp (cap_rid.prodVer, "5.00.", 5) &&
+-		    strncmp (cap_rid.prodVer, "5b00.", 5) &&
+-		    strncmp (cap_rid.prodVer, "5.02.", 5) &&
+-		    strncmp (cap_rid.prodVer, "5.20.", 5) &&
+-		    strncmp (cap_rid.prodVer, "5.30.", 5))
+-			printk(KERN_ERR "airo: Firmware version %s is not supported. Use it at your own risk!\n", cap_rid.prodVer);
+-
+ 		status = PC4500_readrid(ai,RID_RSSI,&rssi_rid,sizeof(rssi_rid),lock);
+ 		if ( status == SUCCESS ) {
+ 			if (ai->rssi || (ai->rssi = kmalloc(512, GFP_KERNEL)) != NULL)
+@@ -3716,9 +3712,9 @@
+ 
+ 		/* Check to see if there are any insmod configured
+ 		   rates to add */
+-		if ( rates ) {
++		if ( rates[0] ) {
+ 			int i = 0;
+-			if ( rates[0] ) memset(ai->config.rates,0,sizeof(ai->config.rates));
++			memset(ai->config.rates,0,sizeof(ai->config.rates));
+ 			for( i = 0; i < 8 && rates[i]; i++ ) {
+ 				ai->config.rates[i] = rates[i];
+ 			}
+@@ -3785,7 +3781,6 @@
+ static u16 issuecommand(struct airo_info *ai, Cmd *pCmd, Resp *pRsp) {
+         // Im really paranoid about letting it run forever!
+ 	int max_tries = 600000;
+-	u16 cmd;
+ 
+ 	if (IN4500(ai, EVSTAT) & EV_CMD)
+ 		OUT4500(ai, EVACK, EV_CMD);
+@@ -3794,26 +3789,23 @@
+ 	OUT4500(ai, PARAM1, pCmd->parm1);
+ 	OUT4500(ai, PARAM2, pCmd->parm2);
+ 	OUT4500(ai, COMMAND, pCmd->cmd);
+-	while ( max_tries-- && (IN4500(ai, EVSTAT) & EV_CMD) == 0 &&
+-		(cmd = IN4500(ai, COMMAND)) != 0 )
+-			if (cmd == pCmd->cmd)
+-				// PC4500 didn't notice command, try again
+-				OUT4500(ai, COMMAND, pCmd->cmd);
+-	if ( max_tries == -1 ) {
+-		printk( KERN_ERR
+-			"airo: Max tries exceeded when issueing command\n" );
+-                return ERROR;
+-	}
+ 
+ 	while (max_tries-- && (IN4500(ai, EVSTAT) & EV_CMD) == 0) {
++		if ((IN4500(ai, COMMAND)) == pCmd->cmd)
++			// PC4500 didn't notice command, try again
++			OUT4500(ai, COMMAND, pCmd->cmd);
+ 		if (!in_atomic() && (max_tries & 255) == 0)
+ 			schedule();
+ 	}
++
+ 	if ( max_tries == -1 ) {
+ 		printk( KERN_ERR
+-			"airo: Max tries exceeded waiting for command\n" );
+-                return ERROR;
++			"airo: Max tries exceeded when issueing command\n" );
++		if (IN4500(ai, COMMAND) & COMMAND_BUSY)
++			OUT4500(ai, EVACK, EV_CLEARCOMMANDBUSY);
++		return ERROR;
+ 	}
++
+ 	// command completed
+ 	pRsp->status = IN4500(ai, STATUS);
+ 	pRsp->rsp0 = IN4500(ai, RESP0);
+@@ -4509,8 +4501,6 @@
+ 		len = priv->readlen - pos;
+ 	if (copy_to_user(buffer, priv->rbuffer + pos, len))
+ 		return -EFAULT;
+-	if (pos + len > priv->writelen)
+-		priv->writelen = pos + len;
+ 	*offset = pos + len;
+ 	return len;
+ }
+@@ -5521,7 +5511,6 @@
+ 		mpi_init_descriptors(ai);
+ 		setup_card(ai, dev->dev_addr, 0);
+ 		clear_bit(FLAG_RADIO_OFF, &ai->flags);
+-		clear_bit(FLAG_RADIO_DOWN, &ai->flags);
+ 		clear_bit(FLAG_PENDING_XMIT, &ai->flags);
+ 	} else {
+ 		OUT4500(ai, EVACK, EV_AWAKEN);
+@@ -5606,6 +5595,30 @@
+  * would not work at all... - Jean II
+  */
+ 
++static int airo_get_quality (StatusRid *status_rid, CapabilityRid *cap_rid)
++{
++	int quality = 0;
++
++	if ((status_rid->mode & 0x3f) == 0x3f && (cap_rid->hardCap & 8)) {
++		if (memcmp(cap_rid->prodName, "350", 3))
++			if (status_rid->signalQuality > 0x20)
++				quality = 0;
++			else
++				quality = 0x20 - status_rid->signalQuality;
++		else
++			if (status_rid->signalQuality > 0xb0)
++				quality = 0;
++			else if (status_rid->signalQuality < 0x10)
++				quality = 0xa0;
++			else
++				quality = 0xb0 - status_rid->signalQuality;
++	}
++	return quality;
++}
++
++#define airo_get_max_quality(cap_rid) (memcmp((cap_rid)->prodName, "350", 3) ? 0x20 : 0xa0)
++#define airo_get_avg_quality(cap_rid) (memcmp((cap_rid)->prodName, "350", 3) ? 0x10 : 0x50);
++
+ /*------------------------------------------------------------------*/
+ /*
+  * Wireless Handler : get protocol name
+@@ -6293,7 +6306,8 @@
+ 	readCapabilityRid(local, &cap_rid, 1);
+ 
+ 	if (vwrq->disabled) {
+-		set_bit (FLAG_RADIO_OFF | FLAG_COMMIT, &local->flags);
++		set_bit (FLAG_RADIO_OFF, &local->flags);
++		set_bit (FLAG_COMMIT, &local->flags);
+ 		return -EINPROGRESS;		/* Call commit handler */
+ 	}
+ 	if (vwrq->flags != IW_TXPOW_MWATT) {
+@@ -6432,7 +6446,7 @@
+ 	range->num_frequency = k;
+ 
+ 	/* Hum... Should put the right values there */
+-	range->max_qual.qual = 10;
++	range->max_qual.qual = airo_get_max_quality(&cap_rid);
+ 	range->max_qual.level = 0x100 - 120;	/* -120 dBm */
+ 	range->max_qual.noise = 0;
+ 	range->sensitivity = 65535;
+@@ -6499,7 +6513,7 @@
+ 	/* Experimental measurements - boundary 11/5.5 Mb/s */
+ 	/* Note : with or without the (local->rssi), results
+ 	 * are somewhat different. - Jean II */
+-	range->avg_qual.qual = 6;
++	range->avg_qual.qual = airo_get_avg_quality(&cap_rid);
+ 	if (local->rssi)
+ 		range->avg_qual.level = 186;	/* -70 dBm */
+ 	else
+@@ -7113,6 +7127,7 @@
+ {
+ 	StatusRid status_rid;
+ 	StatsRid stats_rid;
++	CapabilityRid cap_rid;
+ 	u32 *vals = stats_rid.vals;
+ 
+ 	/* Get stats out of the card */
+@@ -7121,6 +7136,7 @@
+ 		up(&local->sem);
+ 		return;
+ 	}
++	readCapabilityRid(local, &cap_rid, 0);
+ 	readStatusRid(local, &status_rid, 0);
+ 	readStatsRid(local, &stats_rid, RID_STATS, 0);
+ 	up(&local->sem);
+@@ -7129,7 +7145,7 @@
+ 	local->wstats.status = status_rid.mode;
+ 
+ 	/* Signal quality and co. But where is the noise level ??? */
+-	local->wstats.qual.qual = status_rid.signalQuality;
++	local->wstats.qual.qual = airo_get_quality(&status_rid, &cap_rid);
+ 	if (local->rssi)
+ 		local->wstats.qual.level = 0x100 - local->rssi[status_rid.sigQuality].rssidBm;
+ 	else
+@@ -7156,12 +7172,14 @@
+ {
+ 	struct airo_info *local =  dev->priv;
+ 
+-	/* Get stats out of the card if available */
+-	if (down_trylock(&local->sem) != 0) {
+-		set_bit(JOB_WSTATS, &local->flags);
+-		wake_up_interruptible(&local->thr_wait);
+-	} else
+-		airo_read_wireless_stats(local);
++	if (!test_bit(JOB_WSTATS, &local->flags)) {
++		/* Get stats out of the card if available */
++		if (down_trylock(&local->sem) != 0) {
++			set_bit(JOB_WSTATS, &local->flags);
++			wake_up_interruptible(&local->thr_wait);
++		} else
++			airo_read_wireless_stats(local);
++	}
+ 
+ 	return &local->wstats;
+ }
+@@ -7188,9 +7206,11 @@
+ 	{
+ 	case AIROGCAP:      ridcode = RID_CAPABILITIES; break;
+ 	case AIROGCFG:      ridcode = RID_CONFIG;
+-		disable_MAC (ai, 1);
+-		writeConfigRid (ai, 1);
+-		enable_MAC (ai, &rsp, 1);
++		if (test_bit(FLAG_COMMIT, &ai->flags)) {
++			disable_MAC (ai, 1);
++			writeConfigRid (ai, 1);
++			enable_MAC (ai, &rsp, 1);
++		}
+ 		break;
+ 	case AIROGSLIST:    ridcode = RID_SSID;         break;
+ 	case AIROGVLIST:    ridcode = RID_APLIST;       break;
+@@ -7270,6 +7290,7 @@
+ 	case AIROPCAP:      ridcode = RID_CAPABILITIES; break;
+ 	case AIROPAPLIST:   ridcode = RID_APLIST;       break;
+ 	case AIROPCFG: ai->config.len = 0;
++			    clear_bit(FLAG_COMMIT, &ai->flags);
+ 			    ridcode = RID_CONFIG;       break;
+ 	case AIROPWEPKEYNV: ridcode = RID_WEP_PERM;     break;
+ 	case AIROPLEAPUSR:  ridcode = RID_LEAPUSERNAME; break;
