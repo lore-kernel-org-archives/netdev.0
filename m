@@ -1,32 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: RFC: pskb_expand_head instead of skb_copy in skb_checksum_help
-Date: Tue, 24 Aug 2004 17:17:09 -0700
+Subject: Re: [PATCH 2.6] deliver_skb cleanup
+Date: Tue, 24 Aug 2004 17:23:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040824171709.57a613bd.davem@redhat.com>
-References: <20040824110532.GA10241@gondor.apana.org.au>
+Message-ID: <20040824172353.52bb3a29.davem@redhat.com>
+References: <20040824110711.3a1782d7@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040824110532.GA10241@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040824110711.3a1782d7@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 24 Aug 2004 21:05:32 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Tue, 24 Aug 2004 11:07:11 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Here is the patch that you wanted to shoot holes at :)
-> 
-> The idea is simple.  None of the callers of skb_checksum are passing it
-> skb's which are shared.  They may be cloned however.  But the application
-> checksum is always in the skb header so there is no need to linearise it.
-> 
-> Supposing all these assumptions are correct, then we can avoid the overhead
-> of skb_copy() and get away with pskb_expand_head().
+> Cleanup of deliver_skb: get rid of unused argument and use it
+> in the NET_CLS_ACT hook.
 
-I'm going to apply this.
-
-If your assertion is wrong, then the skb_shared() BUG() will trigger
-in pskb_expand_head() and we will know :-)
+Looks good, applied.
