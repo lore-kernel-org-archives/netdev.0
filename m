@@ -1,44 +1,33 @@
-From: trond.myklebust@fys.uio.no
-Subject: Re: [NFS] [PATCH][RFC] use completions instead of sleep_on
-     forrpciod
-Date: Mon, 9 Feb 2004 21:48:59 +0100 (CET)
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: [BK PATCH] 2.6.2 SCTP updates
+Date: Mon, 09 Feb 2004 12:50:18 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <35059.80.213.3.64.1076359739.squirrel@webmail.uio.no>
-References: <20040207144405.GA19416@lst.de>
-    <20040209102801.GC21364@suse.de>
+Message-ID: <4027F28A.40704@us.ibm.com>
+References: <Pine.LNX.4.58.0402061649001.10831@localhost.localdomain>	<20040206194518.56787717.davem@redhat.com>	<Pine.LNX.4.58.0402091155070.10043@localhost.localdomain>	<4027EECA.9000705@us.ibm.com> <20040209124145.48de8d55.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, nfs@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: sri@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Olaf Kirch" <okir@suse.de>, "Christoph Hellwig" <hch@lst.de>
-In-Reply-To: <20040209102801.GC21364@suse.de>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040209124145.48de8d55.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-P=E5 m=E5 , 09/02/2004 klokka 11:28, skreiv Olaf Kirch:
-> On Sat, Feb 07, 2004 at 03:44:05PM +0100, Christoph Hellwig wrote:
-> > The rpciod shutdown code gives ugly sleep_on without BKL warnings in
--mm.  And it looks indeed somewhat racy.
->
-> Yes, this code is indeed one of the areas that breaks when you use the
-sunrpc code without the BKL. Another one was the missing spinlock in
-xprt_alloc_xid. The code in fs/nfs/unlink.c is probably also racy
-without BKL.
->
-> So if you remove the sunrpc BKL be prepared for lots and lots
-> of bug reports :)
+David S. Miller wrote:
 
-Ahem....
+> I understand.
+> 
+> But there was no known reason to tweak things for SCTP.
 
-xprt_alloc_xid is quite safe. It's always called under xprt->xprt_lock.
+Yeah, I agree it doesn't matter right now for SCTP.
+I don't know of anyone running SCTP *and* heavy NFS/raw
+apps simultaneously. But they open up those socket
+buffers for some real decent SCTP performance and
+watch that unconstrained raw or udp traffic bludgeon
+any congestion controlled streams like TCP and SCTP
+out of the network. But this is a rather intrinsic
+problem with other solutions, really..
 
-The code in unlink.c is only called from dentry_iput() or from
-sillyrename(). In either case, there is no possibility for SMP races.
-
-I'll admit that the rpciod killer code is racy, but I'm not sure that
-completions are the best answer, as they have at least one nasty feature:
-they are not interruptible.
-
-Cheers,
-  Trond
+thanks,
+Nivedita
