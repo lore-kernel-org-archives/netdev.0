@@ -1,55 +1,68 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
-Date: Thu, 23 Sep 2004 17:22:53 +0900 (JST)
+From: Harald Welte <laforge@gnumonks.org>
+Subject: Re: [IPv4] Kill remnant of ip_nat_dumb
+Date: Thu, 23 Sep 2004 10:29:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040923.172253.125681726.yoshfuji@linux-ipv6.org>
-References: <41523EC5.20805@tomt.net>
-	<41527796.4010204@tomt.net>
-	<4152843D.6010204@tomt.net>
+Message-ID: <20040923082955.GP3236@sunbeam.de.gnumonks.org>
+References: <20040923061923.GL3236@sunbeam.de.gnumonks.org> <E1CAOil-0005Ot-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, davem@davemloft.net
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="2NSZC26AJDpFITwK"
+Cc: ak@suse.de, davem@davemloft.net, hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: andre@tomt.net, tgraf@suug.ch, pp@ee.oulu.fi, jgarzik@pobox.com,
-        dwmw2@infradead.org
-In-Reply-To: <4152843D.6010204@tomt.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1CAOil-0005Ot-00@gondolin.me.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <4152843D.6010204@tomt.net> (at Thu, 23 Sep 2004 10:07:25 +0200), Andre Tomt <andre@tomt.net> says:
 
-> > If I boot with net.ipv6.conf.default.forward = 1 in sysctl.conf - but 
-> > then after the boot do echo 1 > /proc/sys/net/ipv6/conf/all/forward (to 
-> > actually get it running)
-> > 
-> > we'll crash and burn when taking down the interface.
-> > 
-> > Only setting /proc/sys/net/ipv6/conf/all/forward = 1, but never touch 
-> > default, it goes down cleanly.
-> > 
-> > I have the ipv6/conf/default/forwarding set in sysctl.conf on all the 
-> > routers, and it seems zebra sets the ipv6/conf/all/forwarding later on.
-> > 
-> 
-> Possibly important note:
-> 
-> if I set up both conf.all and conf.default (order does not matter) 
-> before the tunnel devices are created, everything works as expected.
-> 
-> eg. in sysctl.conf:
-> net.ipv6.conf.default.forwarding=1
-> net.ipv6.conf.all.forwarding=1
-> 
-> if default is set first, then tunnels created, followed by setting 
-> "all"; everything breaks down on ifdown.
-> 
-> pretty neat :)
+--2NSZC26AJDpFITwK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Thank you everyone for tracking down this bug.
-I will fix this bug and come up with patch tomorrow (or so).
-Thanks again.
+On Thu, Sep 23, 2004 at 06:12:55PM +1000, Herbert Xu wrote:
+> Harald Welte <laforge@gnumonks.org> wrote:
+> >=20
+> > From a functionality point of view: yes. =20
+> >=20
+> > From a performance point of view, there are applications for really dumb
+> > static NAT where you don't want to pull all the dependencies from
+> > ip_conntrack over ip_tables.
+>=20
+> Well the problem is nobody is stepping forward to fix it.  It was removed
+> not because it was redundant, but because it was broken.
+>=20
+> Until someone actually fixes it, it can't go back in.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+I fully understand this, and I support that decision. =20
+
+Independent of this, I just wanted to note that if there was working
+and compatible code, it had it's use for high performance static nat
+applications.
+
+> Cheers,
+
+--=20
+- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+Programming is like sex: One mistake and you have to support it your lifeti=
+me
+
+--2NSZC26AJDpFITwK
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFBUomDXaXGVTD0i/8RAiYnAJ4tgZ8Ypj+OBa8QtuKWjp/rr0BTmACgpldR
+kGQTXrupEi1I6GBmkXE2sV4=
+=yzoq
+-----END PGP SIGNATURE-----
+
+--2NSZC26AJDpFITwK--
