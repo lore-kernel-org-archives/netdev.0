@@ -1,33 +1,47 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed
- Topics
-Date: Mon, 04 Apr 2005 11:57:52 -0700
-Message-ID: <42518E30.2090207@hp.com>
-References: <20050324215922.GT14202@opteron.random>	<424346FE.20704@cs.wisc.edu> <20050324233921.GZ14202@opteron.random>	<20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random>	<20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop>	<20050326224621.61f6d917.davem@davemloft.net>	<52vf7bwo4w.fsf@topspin.com>	<1112042936.5088.22.camel@beastie> <20050328223203.GC28983@kvack.org> <1112465317.24936.10.camel@mylaptop>
+From: Grant Grundler <grundler@parisc-linux.org>
+Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
+Date: Mon, 4 Apr 2005 13:11:01 -0600
+Message-ID: <20050404191101.GB6809@colo.lackof.org>
+References: <67D69596DDF0C2448DB0F0547D0F947E01781F2E@yogi.asicdesigners.com> <1112576171.4227.5.camel@mylaptop> <20050404063456.GB30855@colo.lackof.org> <1112633650.9559.142.camel@beastie>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: "open-iscsi@googlegroups.com" <open-iscsi@googlegroups.com>,
-        ksummit-2005-discuss@thunk.org, netdev@oss.sgi.com
+        "David S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+        andrea@suse.de, michaelc@cs.wisc.edu,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <1112465317.24936.10.camel@mylaptop>
+To: Dmitry Yusupov <dmitry_yus@yahoo.com>
+Content-Disposition: inline
+In-Reply-To: <1112633650.9559.142.camel@beastie>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> What RDMA gives us is zero-copy on receive and new networking api which
-> has a potential to be HW accelerated. SoftRDMA will never avoid copying
-> on receive. But benefit for SoftRDMA would be its availability on client
-> sides. It is free and it could be easily deployed. Soon Intel & Co will
-> give us 2,4,8... multi-core CPUs for around 200$ :), So, who cares if
-> one of those cores will do receive side copying?
+On Mon, Apr 04, 2005 at 09:54:10AM -0700, Dmitry Yusupov wrote:
+> > 	3) store back into RAM
+> 
+> no. we are talking about receive side optimization only.
+> why do you think store back into RAM comes to the picture?
 
-20 years ago, in certain circles at least, people were saying "With 32-bits of 
-addressing, who cares if we allocate much memory" :)
+Application eventually wants to read the data.
 
-Speaking a bit more prosaicly, if that core is sitting there churning through 
-data copies, what affect does that have on the rest of the bus(ses) and the 
-memory?  What else will the client want to be able to push around that those 
-data copies may preclude?
+> also keep in mind that we have huge L2 & L3 caches today and write
+> operation is usually very well buffered.
 
-rick jones
+Agreed. But how effective the cache is will depend on if the CPU
+(application) can process the data as fast as it arrives (and still
+be in the cache). Otherwise the data will get pushed out in (3)
+and recalled later when the app can consume it (4th time across).
+
+It also assumes the application is running on a CPU core that shares
+the cache with the CPU that did the copy. If the CPU is saturated
+with the copy (ok, assume we've got 2 Cores per socket), then the
+other CPU has to be *assigned* manually to make sure it does the
+other part.
+
+Jamal learned all this when he moved to a dual core PPC for
+his fast routing work. Jamal, did that ever make it into
+a paper?
+
+grant
