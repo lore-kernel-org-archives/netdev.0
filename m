@@ -1,60 +1,98 @@
-From: Zwane Mwaikambo <zwane@linuxpower.ca>
-Subject: e1000 lockup with port io type reset
-Date: Fri, 27 Jun 2003 08:44:29 -0400 (EDT)
+From: James Carlson <carlson@workingcode.com>
+Subject: Re: [PATCH, untested] Support for PPPOE on SMP
+Date: Fri, 27 Jun 2003 09:19:26 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.53.0306270843300.12261@montezuma.mastecende.com>
+Message-ID: <16124.17502.166892.539182@h006008986325.ne.client2.attbi.com>
+References: <20030625.143334.85380461.davem@redhat.com>
+	<20030626035824.D68B62C147@lists.samba.org>
+	<20030625.205941.41631020.davem@redhat.com>
+	<16122.53298.150512.793074@h006008986325.ne.client2.attbi.com>
+	<20030626190407.S87648@shell.cyberus.ca>
+	<16124.11495.374998.153330@h006008986325.ne.client2.attbi.com>
+	<16124.13469.944716.441016@nanango.paulus.ozlabs.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Jamal Hadi <hadi@shell.cyberus.ca>, "David S. Miller" <davem@redhat.com>,
+   rusty@rustcorp.com.au, netdev@oss.sgi.com, fcusack@samba.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Paul Mackerras <paulus@samba.org>
+In-Reply-To: Paul Mackerras's message of 27 June 2003 22:12:13
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(forwarded due to missing Cc)
+Paul Mackerras writes:
+> Rusty asked me today what protocols there were that coped with packet
+> loss but couldn't cope with reordering.  I couldn't think of any.  Do
+> you know of any examples?
 
-Hi Scott,
-	The following card causes a hard lockup when we do a controller 
-reset using port io instead of mmio. Switching to mmio controller reset 
-causes it to function as expected (The patch illustrates this). Side note, 
-is it possible to get access to errata sheets for these cards?
+Sure.  We've already pointed out MP (RFC 1990) and VJ (RFC 1144) --
+both of which handle loss just fine, but fail miserably if packets are
+misordered -- MP locks up and VJ will produce silent data corruption.
 
-Thank you,
-	Zwane
+Regular PPP negotiation itself can have trouble with misordering.
+Consider this example:
 
-00:08.0 Ethernet controller: Intel Corp. 82544GC Gigabit Ethernet Controller (Copper) (rev 02)
-	Subsystem: Intel Corp. PRO/1000 T Desktop Adapter
-	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV+ VGASnoop- ParErr- Stepping- SERR- FastB2B-
-	Status: Cap+ 66Mhz+ UDF- FastB2B- ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
-	Latency: 32 (63750ns min), cache line size 08
-	Interrupt: pin A routed to IRQ 3
-	Region 0: Memory at f9800000 (32-bit, non-prefetchable) [size=128K]
-	Region 1: Memory at f9000000 (32-bit, non-prefetchable) [size=128K]
-	Region 2: I/O ports at a800 [size=32]
-	Expansion ROM at <unassigned> [disabled] [size=128K]
-	Capabilities: [dc] Power Management version 2
-		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0+,D1-,D2-,D3hot+,D3cold+)
-		Status: D0 PME-Enable+ DSel=0 DScale=1 PME-
-	Capabilities: [e4] PCI-X non-bridge device.
-		Command: DPERE- ERO+ RBC=0 OST=0
-		Status: Bus=0 Dev=0 Func=0 64bit- 133MHz- SCD- USC-, DC=simple, DMMRBC=0, DMOST=0, DMCRS=0, RSCEM-	Capabilities: [f0] Message Signalled Interrupts: 64bit+ Queue=0/0 Enable-
-		Address: 0000000000000000  Data: 0000
+	Peer A		Peer B
+	Req-1 -->
+		    <-- Req-a
+	Req-2 -->
+		    <-- Ack-2
+		    <-- Ack-1
+		    <-- Req-a
+	Ack-a -->
 
-Index: linux-2.5/drivers/net/e1000/e1000_hw.c
-===================================================================
-RCS file: /home/cvs/linux-2.5/drivers/net/e1000/e1000_hw.c,v
-retrieving revision 1.16
-diff -u -p -B -r1.16 e1000_hw.c
---- linux-2.5/drivers/net/e1000/e1000_hw.c	26 May 2003 00:31:31 -0000	1.16
-+++ linux-2.5/drivers/net/e1000/e1000_hw.c	27 Jun 2003 06:25:01 -0000
-@@ -259,7 +259,7 @@ e1000_reset_hw(struct e1000_hw *hw)
- 	msec_delay(5);
-     }
- 
--    if(hw->mac_type > e1000_82543)
-+    if(hw->mac_type > e1000_82544)
-         E1000_WRITE_REG_IO(hw, CTRL, (ctrl | E1000_CTRL_RST));
-     else
-         E1000_WRITE_REG(hw, CTRL, (ctrl | E1000_CTRL_RST));
+In this case, Peer A sent Configure-Request ID 1 with some set of
+options (we'll call this set "1").  Peer B then sent Configure-Request
+ID a with its own set of options.  Based on that Configure-Request,
+peer A decided to start over (e.g., peer A originally offered ACCM 0
+and then saw ACCM 0xa0000 from the peer and decided that, since the
+peer may well be an idiot, changing peer A's ACCM to 0xa0000 would be
+prudent) and it sends Configure-Request ID 2.
+
+Because of reordering, Peer B sees Configure-Request ID 2 first.  It
+responds.  Peer A sees the Ack and goes on to AckRcvd state.  Peer B
+sees ID 1 next.  It discards the options it saw in ID 2 and keeps the
+options from ID 1, and sends an Ack for that.  Peer A discards this
+bogus Ack -- it doesn't match the current ID number.
+
+Peer A finally gets Req-a and sends an Ack.
+
+Now we're in a very bad state.  Peer A believes it has negotiated its
+option set "2" with Peer B, and Peer B believes it has agreed to
+option set "1."  Oops.
+
+Some others that are known to be sensitive to ordering (cited in
+802.1w) are LAT, LLC2, and NETBEUI.
+
+Another is SNA.  Reordering SNA packets will cause the link to
+reinitialize and cause a fault at the application level.  Doing this
+causes everyone to have a bad day.
+
+Still another is GARP.  This isn't a big deal if you're worrying about
+bridging -- GARP doesn't get forwarded -- but it does matter if the
+Ethernet driver itself mangles packet order.  If you can't maintain
+order inside your own host, then GARP is dead.
+
+Yet another is EAP.
+
+There are probably others that haven't occurred to me.  The L2-wire-
+preserves-order assumption turns out to be very easy to build into a
+protocol.  All you have to do is pretend (as PPP does) that there's
+only one outstanding request at a time, and treat all others as
+invalid.  That builds in the ordering dependency -- and it's how many
+lock-step protocols are designed.  In order to be tolerate of
+misordering (and duplication), a protocol has to define some sort of
+ID numbering window (as is done, for example, in the L2TP control
+connection) with a logical sequence of ID numbers, so that the peer
+can determine which received ID numbers are "before" or "after" a
+given number.
+
+Then finally there's ISO/IEC 15802-1, Clause 9.2 (MAC) that permits
+only a "negligible" amount of reordering.  (The rate is exactly zero
+on normal networks but could be nonzero for a "magically healed"
+bridge connection -- if you don't know what that is, don't sweat it.
+It requires accidents to occur.)
 
 -- 
-function.linuxpower.ca
+James Carlson                                  <carlson@workingcode.com>
