@@ -1,27 +1,39 @@
-From: Zhigang Liu <zhigang.liu@motorola.com>
-Subject: Ethernet simulation driver for VME bus
-Date: 13 Jan 2003 10:46:24 -0600
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1042476390.1328.5.camel@dhcp-35-142-199.iden.comm.mot.com>
-References: <20030111220826.GA10085@gtf.org>
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: 2.4.20-pre11: PCI Wavelan card loses connection
+Date: Mon, 13 Jan 2003 09:24:35 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030113172435.GC20409@bougret.hpl.hp.com>
+References: <200301130821.h0D8Kis26772@Port.imtp.ilyichevsk.odessa.ua>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20030111220826.GA10085@gtf.org>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Content-Disposition: inline
+In-Reply-To: <200301130821.h0D8Kis26772@Port.imtp.ilyichevsk.odessa.ua>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi, All:
+On Mon, Jan 13, 2003 at 10:20:14AM +0200, Denis Vlasenko wrote:
+> I bought a PCI wireless card, a DLink-520 (I think, I forgot exactly
+> (it's at home), anyway, lspci dump is below).
+> 
+> We (my father and me) made a fairly long helical aerial.
+> We are trying to communicate over ~15 km with a small wireless cell.
+> (~10 hosts, one AP).
+> 
+> We can successfully associate with it, signal is weak as expected.
+> But after a short while our eth0 seems to 'fall off the net'
+> and while it looks like we can send packets, we see no incoming data
+> at all.
+> 
+> Since I have almost zero wireless experience, I'll be happy if someone
+> with said experience can read further and say what bites us.
 
-Is there an ethernet simulation driver for VME bus?
-The closest one I found is the hhnet driver from monta vista which
-simulate ethernet if across compact PCI bus.
+	Personally, I never managed to get this hardware to work at
+all. And Orinoco is known to have problems with PrismII cards. Please
+use the HostAP or linux-wlan-ng driver.
+	Good luck...
 
-I am looking for support for the Tundra universe II PCI-VME bridge for
-the driver.
-
-Thanks
---Zhigang
-
+	Jean
