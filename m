@@ -1,192 +1,50 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: 2.6: DECNET compile errors with SYSCTL=n
-Date: Thu, 12 Aug 2004 09:42:06 +0900 (JST)
+From: "Marcos D. Marado Torres" <marado@student.dei.uc.pt>
+Subject: Re: wireless-2.6 queue updated
+Date: Thu, 12 Aug 2004 03:15:47 +0100 (WEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040812.094206.42261287.yoshfuji@linux-ipv6.org>
-References: <20040811224015.GP26174@fs.tum.de>
+Message-ID: <Pine.LNX.4.60.0408120314000.25757@student.dei.uc.pt>
+References: <20040811220107.GA1923@havoc.gtf.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: SteveW@ACM.org, emserrat@geocities.com, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bunk@fs.tum.de, davem@redhat.com
-In-Reply-To: <20040811224015.GP26174@fs.tum.de>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20040811220107.GA1923@havoc.gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello.
+-----BEGIN PGP SIGNED MESSAGE-----
+Hash: SHA1
 
-In article <20040811224015.GP26174@fs.tum.de> (at Thu, 12 Aug 2004 00:40:15 +0200), Adrian Bunk <bunk@fs.tum.de> says:
+On Wed, 11 Aug 2004, Jeff Garzik wrote:
 
-> I'm getting the following compile errors in 2.6.8-rc4-mm1 (but it 
-> doesn't seem to be specific to -mm) with CONFIG_SYSCTL=n:
-> 
-> <--  snip  -->
-> 
-> ...
->   LD      .tmp_vmlinux1
-> net/built-in.o(.text+0x1685e9): In function `dn_route_output_slow':
-> : undefined reference to `dn_dev_get_default'
-:
+> Just updated to latest kernel.  No new changes committed.
+>
+> BK users:
+>
+> 	bk pull bk://gkernel.bkbits.net/wireless-2.6
+>
+> Patch:
+> http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.8-rc4-bk1-wireless1.patch.bz2
 
-Please try this patch. Thanks.
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+Since this is in an high development process yet, shouldn't it be build against
+- -mm (development) patches instead of Linus's one?
 
-===== net/decnet/dn_dev.c 1.23 vs edited =====
---- 1.23/net/decnet/dn_dev.c	2004-08-08 15:43:41 +09:00
-+++ edited/net/decnet/dn_dev.c	2004-08-12 09:34:56 +09:00
-@@ -247,21 +247,6 @@
- 	}, {0}}
- };
- 
--static inline __u16 mtu2blksize(struct net_device *dev)
--{
--	u32 blksize = dev->mtu;
--	if (blksize > 0xffff)
--		blksize = 0xffff;
--
--	if (dev->type == ARPHRD_ETHER ||
--	    dev->type == ARPHRD_PPP ||
--	    dev->type == ARPHRD_IPGRE ||
--	    dev->type == ARPHRD_LOOPBACK)
--		blksize -= 2;
--
--	return (__u16)blksize;
--}
--
- static void dn_dev_sysctl_register(struct net_device *dev, struct dn_dev_parms *parms)
- {
- 	struct dn_dev_sysctl_table *t;
-@@ -314,52 +299,6 @@
- 	}
- }
- 
--struct net_device *dn_dev_get_default(void)
--{
--	struct net_device *dev;
--	read_lock(&dndev_lock);
--	dev = decnet_default_device;
--	if (dev) {
--		if (dev->dn_ptr)
--			dev_hold(dev);
--		else
--			dev = NULL;
--	}
--	read_unlock(&dndev_lock);
--	return dev;
--}
--
--int dn_dev_set_default(struct net_device *dev, int force)
--{
--	struct net_device *old = NULL;
--	int rv = -EBUSY;
--	if (!dev->dn_ptr)
--		return -ENODEV;
--	write_lock(&dndev_lock);
--	if (force || decnet_default_device == NULL) {
--		old = decnet_default_device;
--		decnet_default_device = dev;
--		rv = 0;
--	}
--	write_unlock(&dndev_lock);
--	if (old)
--		dev_put(dev);
--	return rv;
--}
--
--static void dn_dev_check_default(struct net_device *dev)
--{
--	write_lock(&dndev_lock);
--	if (dev == decnet_default_device) {
--		decnet_default_device = NULL;
--	} else {
--		dev = NULL;
--	}
--	write_unlock(&dndev_lock);
--	if (dev)
--		dev_put(dev);
--}
--
- static int dn_forwarding_proc(ctl_table *table, int write, 
- 				struct file *filep,
- 				void __user *buffer,
-@@ -454,6 +393,21 @@
- 
- #endif /* CONFIG_SYSCTL */
- 
-+static inline __u16 mtu2blksize(struct net_device *dev)
-+{
-+	u32 blksize = dev->mtu;
-+	if (blksize > 0xffff)
-+		blksize = 0xffff;
-+
-+	if (dev->type == ARPHRD_ETHER ||
-+	    dev->type == ARPHRD_PPP ||
-+	    dev->type == ARPHRD_IPGRE ||
-+	    dev->type == ARPHRD_LOOPBACK)
-+		blksize -= 2;
-+
-+	return (__u16)blksize;
-+}
-+
- static struct dn_ifaddr *dn_dev_alloc_ifa(void)
- {
- 	struct dn_ifaddr *ifa;
-@@ -633,6 +587,52 @@
- 	if (copy_to_user(arg, ifr, DN_IFREQ_SIZE))
- 		ret = -EFAULT;
- 	goto done;
-+}
-+
-+struct net_device *dn_dev_get_default(void)
-+{
-+	struct net_device *dev;
-+	read_lock(&dndev_lock);
-+	dev = decnet_default_device;
-+	if (dev) {
-+		if (dev->dn_ptr)
-+			dev_hold(dev);
-+		else
-+			dev = NULL;
-+	}
-+	read_unlock(&dndev_lock);
-+	return dev;
-+}
-+
-+int dn_dev_set_default(struct net_device *dev, int force)
-+{
-+	struct net_device *old = NULL;
-+	int rv = -EBUSY;
-+	if (!dev->dn_ptr)
-+		return -ENODEV;
-+	write_lock(&dndev_lock);
-+	if (force || decnet_default_device == NULL) {
-+		old = decnet_default_device;
-+		decnet_default_device = dev;
-+		rv = 0;
-+	}
-+	write_unlock(&dndev_lock);
-+	if (old)
-+		dev_put(dev);
-+	return rv;
-+}
-+
-+static void dn_dev_check_default(struct net_device *dev)
-+{
-+	write_lock(&dndev_lock);
-+	if (dev == decnet_default_device) {
-+		decnet_default_device = NULL;
-+	} else {
-+		dev = NULL;
-+	}
-+	write_unlock(&dndev_lock);
-+	if (dev)
-+		dev_put(dev);
- }
- 
- static struct dn_dev *dn_dev_by_index(int ifindex)
+Marcos Marado
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+- -- 
+/* *************************************************************** */
+    Marcos Daniel Marado Torres	     AKA	Mind Booster Noori
+    http://student.dei.uc.pt/~marado   -	  marado@student.dei.uc.pt
+    () Join the ASCII ribbon campaign against html email, Microsoft
+    /\ attachments and Software patents.   They endanger the World.
+    Sign a petition against patents:  http://petition.eurolinux.org
+/* *************************************************************** */
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.1 (GNU/Linux)
+Comment: Made with pgp4pine 1.76
+
+iD8DBQFBGtLamNlq8m+oD34RAjrrAJ9ZRtUgnUk0C2h2XO+MNr/AznawNgCePUgo
+9peXhDiNo0yazFeoJXkLyxE=
+=pdaQ
+-----END PGP SIGNATURE-----
