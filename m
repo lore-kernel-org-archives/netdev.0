@@ -1,29 +1,25 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] use local_softirq_pending instead of softirq_pending in
- netif_rx_ni
-Date: Thu, 18 Nov 2004 14:22:44 -0800
-Message-ID: <20041118142244.0de3378a.davem@davemloft.net>
-References: <20041114103846.GA32024@lst.de>
+Subject: Re: [PATCH] random: remove TCP MD4 code if !CONFIG_INET
+Date: Thu, 18 Nov 2004 14:32:18 -0800
+Message-ID: <20041118143218.19f90b0e.davem@davemloft.net>
+References: <20041117152116.6934bfa9@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20041114103846.GA32024@lst.de>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041117152116.6934bfa9@zqx3.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 14 Nov 2004 11:38:46 +0100
-Christoph Hellwig <hch@lst.de> wrote:
+On Wed, 17 Nov 2004 15:21:16 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Some architectures can optimize local_softirq_pending much better than
-> softirq_pending(smp_processor_id()), and for all others the former is
-> just a macro expanding to the later.
+> The code in the random driver for tcp sequence number randomization
+> is only needed if INET is configured.
 > 
-> Also this is the last use of softirq_pending() in common code, once this
-> is in we can soon kill the notation of beeing able to query other cpus
-> softirq pending count.
+> Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
-Queued for 2.6.11, thanks Christoph.
+Applied, thanks Stephen.
