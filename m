@@ -1,69 +1,86 @@
-From: Pragati Dhingra <pragatidhingra@yahoo.com>
-Subject: CONFIG_NET_FASTROUTE in 8390
-Date: Thu, 17 Jun 2004 07:16:26 -0700 (PDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617141626.60307.qmail@web90108.mail.scd.yahoo.com>
+From: Tobias DiPasquale <codeslinger@gmail.com>
+Subject: deleting a conntrack record
+Date: Thu, 17 Jun 2004 11:07:29 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <876ef97a0406170807663b89e0@mail.gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/alternative; boundary="0-935360949-1087481786=:58766"
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-net-owner@vger.kernel.org>
+To: netdev <netdev@oss.sgi.com>, linux-net <linux-net@vger.kernel.org>,
+	netfilter <netfilter@lists.netfilter.org>
 List-Id: netdev.vger.kernel.org
 
---0-935360949-1087481786=:58766
-Content-Type: text/plain; charset=us-ascii
+Hello all,
 
-Hi,
- 
-I was browsing through the fast routing code for 8390 (the link to which I got from kernel configuration help file)
- 
-In e8390_fast_route function, 
- 
-struct rtable *rt;
- 
-and for indriver lookup,
- 
+I have a module that exports a /proc entry which takes a string with 4
+args in it (src IP/port and dst IP/port) and then attempts to delete
+the conntrack entry for the TCP connection associated with those
+arguments. Here's the code in question (keep reading past the code for
+a description of the problem I'm having):
 
- if (rt == NULL ||
-     ((u16*)&iph->daddr)[0] != ((u16*)&rt->key.dst)[0] ||
-     ((u16*)&iph->daddr)[1] != ((u16*)&rt->key.dst)[1] ||
-     ((u16*)&iph->saddr)[0] != ((u16*)&rt->key.src)[0] ||
-     ((u16*)&iph->saddr)[1] != ((u16*)&rt->key.src)[1] ||
-     rt->u.dst.obsolete)
- 
-struct rtable does not have a member named key and I could not locate a #define which would define "key". 
- 
-Can you pls tell me what is key refering to and how? (ofcourse it needs to refer to destination address in route table entry, but how is what is really puzzling me)
- 
-Thanks and regards,
-Pragati
+<code>
+static inline int kill_ct_record( const struct ip_conntrack *c, void *p)
+{
+       struct ip_conntrack *q = (struct ip_conntrack *)p;
 
-		
----------------------------------
-Do you Yahoo!?
-New and Improved Yahoo! Mail - 100MB free storage!
---0-935360949-1087481786=:58766
-Content-Type: text/html; charset=us-ascii
+       if (!memcmp( &c->tuplehash[IP_CT_DIR_ORIGINAL],
+                    &q->tuplehash[IP_CT_DIR_ORIGINAL],
+                    sizeof( struct ip_conntrack_tuple_hash))) {
+               ip_conntrack_put( q);
+               return 1;
+       }
+       return 0;
+}
 
-<DIV>Hi,</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>I was browsing through the fast routing code for 8390 (the link to which I got from kernel configuration help file)</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>In e8390_fast_route function, </DIV>
-<DIV>&nbsp;</DIV>
-<DIV>
-<DIV>struct rtable *rt;</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>and for indriver lookup,</DIV>
-<DIV>&nbsp;</DIV></DIV>
-<DIV>&nbsp;if (rt == NULL ||<BR>&nbsp;&nbsp;&nbsp;&nbsp; ((u16*)&amp;iph-&gt;daddr)[0] != ((u16*)&amp;rt-&gt;key.dst)[0] ||<BR>&nbsp;&nbsp;&nbsp;&nbsp; ((u16*)&amp;iph-&gt;daddr)[1] != ((u16*)&amp;rt-&gt;key.dst)[1] ||<BR>&nbsp;&nbsp;&nbsp;&nbsp; ((u16*)&amp;iph-&gt;saddr)[0] != ((u16*)&amp;rt-&gt;key.src)[0] ||<BR>&nbsp;&nbsp;&nbsp;&nbsp; ((u16*)&amp;iph-&gt;saddr)[1] != ((u16*)&amp;rt-&gt;key.src)[1] ||<BR>&nbsp;&nbsp;&nbsp;&nbsp; rt-&gt;u.dst.obsolete)</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>struct rtable does not have a member named key and I could not locate a #define which would&nbsp;define "key". </DIV>
-<DIV>&nbsp;</DIV>
-<DIV>Can you pls tell me what is key refering to and how? (ofcourse it needs to refer to destination address in route table entry, but how is what is really puzzling me)</DIV>
-<DIV>&nbsp;</DIV>
-<DIV>Thanks and regards,</DIV>
-<DIV>Pragati</DIV><p>
-		<hr size=1>Do you Yahoo!?<br>
-<a href="http://us.rd.yahoo.com/mail/taglines/*http://promotions.yahoo.com/new_mail/static/efficiency.html">New and Improved Yahoo! Mail</a> - 100MB free storage!
---0-935360949-1087481786=:58766--
+static int delete_ct_record( u_int32_t src, u_int16_t sport, u_int32_t
+dst, u_int16_t dport)
+{
+       struct ip_conntrack_tuple tuple;
+       struct ip_conntrack_tuple_hash *h;
+
+       memset( &tuple, 0, sizeof( tuple));
+       tuple.src.ip = src;
+       tuple.src.u.tcp.port = sport;
+       tuple.dst.ip = dst;
+       tuple.dst.u.tcp.port = dport;
+       tuple.dst.protonum = IPPROTO_TCP;
+       h = ip_conntrack_find_get( &tuple, NULL);
+       if (!h)
+               return -ENOENT;
+       ip_ct_selective_cleanup( kill_ct_record, h->ctrack);
+       return 1;
+}
+</code>
+
+The problem is as follows:
+
+There is a userspace script that runs from cron every 5 minutes. It
+looks through the /proc/net/ip_conntrack listing to see if any 
+connections are "stale" (i.e. haven't seen a packet from them in
+some amount of time). It then feeds their connection information
+into my module's /proc entry so that those conntrack records can
+be destroyed.
+
+In the kill_ct_record() function in the module, if the 
+ip_conntrack_put() call is not commented out, this causes the box 
+to go into some infinite loop after some unspecified amount of time. 
+There is no LKCD dump and I don't know what happened since I wasn't 
+physically present for the crash in any of the instances.
+
+On the other hand, when the ip_conntrack_put() call _is_ commented
+out, the system leaks memory from conntrack as indicated in the
+ip_conntrack line in /proc/slabinfo. But the crash doesn't happen
+under that condition.
+
+So, is there a cleaner way to hand-delete a conntrack record? Or is
+this the only method? Or is there some error in the way that I am
+doing the above?
+
+By the way, this is almost exactly what ctnetlink does to delete a
+conntrack record so any errors discovered here will almost surely have
+to be fixed there, as well.
+
+-- 
+[ Tobias DiPasquale ]
+0x636f6465736c696e67657240676d61696c2e636f6d
