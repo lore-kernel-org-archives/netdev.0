@@ -1,29 +1,54 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: Re: impressive throughput on 2.5.73
-Date: 02 Jul 2003 20:20:52 -0700
+From: Shibu LKML <shibu_lkml@yahoo.com>
+Subject: Disconnecting a connected UDP socket
+Date: Wed, 2 Jul 2003 20:16:10 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1057202451.2916.36.camel@nighthawk>
-References: <1057193766.31286.843.camel@nighthawk>
-	 <3F039BE1.2080008@us.ibm.com>
+Message-ID: <20030703031610.79050.qmail@web20704.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Scott Feldman <scott.feldman@intel.com>
+Content-Type: multipart/alternative; boundary="0-572335396-1057202170=:79043"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <3F039BE1.2080008@us.ibm.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2003-07-02 at 19:58, Nivedita Singhvi wrote:
-> Nice numbers :). In addition to NAPI, would be nice to
-> stick in more adapters. Any idea why __wake_up should be
-> so expensive on the client side?
+--0-572335396-1057202170=:79043
+Content-Type: text/plain; charset=us-ascii
 
-NAPI seems to degrade throughput down to ~80MB/sec, but the interrupt
-rate doesn't change.  I'm going to put some debugging in and makes sure
-that it's kicking in properly.
+Hi,
+ 
+I am wondering if Linux supports disconnecting a connected UDP socket. The manpage for connect lists it in the BUGS section. It says disconnect is still not supported. I was wondering if it involves more than adding the following lines to udp_connect in udp.c
+ 
+if (usin->sin_family == AF_UNSPEC)
+  return udp_disconnect(sk, 0);
 
--- 
-Dave Hansen
-haveblue@us.ibm.com
+(just  above sk_dst_reset(sk))
+ 
+Will this fix the problem for IPV4 stuff? 
+ 
+ 
+Regards
+Shibu
+ 
+
+
+---------------------------------
+Do you Yahoo!?
+SBC Yahoo! DSL - Now only $29.95 per month!
+--0-572335396-1057202170=:79043
+Content-Type: text/html; charset=us-ascii
+
+<DIV>Hi,</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>I am wondering if Linux supports disconnecting a connected UDP socket. The manpage for connect lists it in the BUGS section. It says disconnect is still not supported. I was wondering if it involves more than adding the following lines to udp_connect in udp.c</DIV>
+<DIV>&nbsp;</DIV>
+<DIV><STRONG>if (usin-&gt;sin_family == AF_UNSPEC)<BR>&nbsp;&nbsp;return udp_disconnect(sk, 0);<BR></STRONG></DIV>
+<DIV><STRONG>(just&nbsp; above sk_dst_reset(sk))</STRONG></DIV>
+<DIV><STRONG></STRONG>&nbsp;</DIV>
+<DIV>Will this fix the problem for IPV4 stuff? </DIV>
+<DIV>&nbsp;</DIV>
+<DIV>&nbsp;</DIV>
+<DIV>Regards</DIV>
+<DIV>Shibu</DIV>
+<DIV>&nbsp;</DIV><p><hr SIZE=1>
+Do you Yahoo!?<br>
+<a href="http://pa.yahoo.com/*http://rd.yahoo.com/evt=1207/*http://promo.yahoo.com/sbc/">SBC Yahoo! DSL</a> - Now only $29.95 per month!
+--0-572335396-1057202170=:79043--
