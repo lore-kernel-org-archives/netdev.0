@@ -1,47 +1,39 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: bert hubert <ahu@ds9a.nl>
 Subject: Re: Patch: Idea for RFC2863 conform OperStatus
-Date: Mon, 14 Oct 2002 13:16:46 +0200
+Date: Mon, 14 Oct 2002 13:11:55 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15786.42910.601886.468716@robur.slu.se>
-References: <3DA82269.CBB65E89@isg.de>
-	<20021014103855.GA19962@outpost.ds9a.nl>
+Message-ID: <20021014111155.GB20397@outpost.ds9a.nl>
+References: <3DA82269.CBB65E89@isg.de> <20021014103855.GA19962@outpost.ds9a.nl> <15786.42910.601886.468716@robur.slu.se>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: bert hubert <ahu@ds9a.nl>
-In-Reply-To: <20021014103855.GA19962@outpost.ds9a.nl>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <15786.42910.601886.468716@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, Oct 14, 2002 at 01:16:46PM +0200, Robert Olsson wrote:
 
-bert hubert writes:
- > On Sat, Oct 12, 2002 at 03:23:53PM +0200, Stefan Rompf wrote:
- > 
- > > +CONFIG_LINKWATCH
- > > +  When this option is enabled, the kernel will forward changes in the
- > > +  operative ("RUNNING") state of an interface via the netlink socket.
- > > +  This is most useful when running linux as a router.
- > 
- > I know people who would kill for this feature. So powers that be, please
- > consider merging.
- > 
- > Is there no quick way of getting all cards using the MII stuff to support
- > this in one go? mii-diag seems to work on most cards already?
+>  If you run a routing protocol BGP, OSPF etc it has it's own mechanism
+>  with timers for declaring neighbours/link partners down. But yes in some
+>  setups it can be useful -- with dampning.
 
- Hello!
+I bet Zebra would like to use this. I also know people who want to use this
+to change their own routes to, say, an alternate interface.
 
- Well it has to be handled with somewhat caution too... Just a little link-flap 
- can cause massive network/routing changes.
+>  PS. Have seen 100 kpps in a Linux production router now. :-)
 
- If you run a routing protocol BGP, OSPF etc it has it's own mechanism with 
- timers for declaring neighbours/link partners down. But yes in some setups it 
- can be useful -- with dampning.
+With a bgp full view? 100kpps is not all that impressive in itself isn't it?
+We benchmarked our nameserver at 120kpps recently and linux seemed
+unimpressed :-)
 
-							--ro
- 
+Regards,
 
- PS. Have seen 100 kpps in a Linux production router now. :-)
+bert hubert
 
- 
+-- 
+http://www.PowerDNS.com          Versatile DNS Software & Services
+http://www.tk                              the dot in .tk
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
