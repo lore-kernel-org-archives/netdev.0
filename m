@@ -1,76 +1,55 @@
-From: mcgrof@ruslug.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: Re: [Prism54] CVS -> bk tree update
-Date: Wed, 16 Jun 2004 02:43:03 -0400
-Sender: prism54-devel-bounces@prism54.org
-Message-ID: <20040616064303.GO6253@ruslug.rutgers.edu>
-References: <20040614191651.GC6253@ruslug.rutgers.edu>
-	<40CE2754.1020109@pobox.com>
-	<20040616022008.GM6253@ruslug.rutgers.edu>
-	<40CFBA24.7030307@pobox.com>
-	<20040616051103.GN6253@ruslug.rutgers.edu>
+From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+Subject: Re: [Prism54-devel] GUPD (Grand Unified Prism54 Driver) Open discussion
+Date: Wed, 16 Jun 2004 09:37:50 +0300
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <200406160937.50943.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <5.1.0.14.2.20040615143603.02a40b48@pop.t-online.de> <20040616001111.GK6253@ruslug.rutgers.edu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="===============1462306425=="
-Return-path: <prism54-devel-bounces@prism54.org>
-To: Jeff Garzik <jgarzik@pobox.com>, Netdev <netdev@oss.sgi.com>,
-	prism54-devel@prism54.org
-In-Reply-To: <20040616051103.GN6253@ruslug.rutgers.edu>
-List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=unsubscribe>
-List-Archive: <http://prism54.org/pipermail/prism54-devel>
-List-Post: <mailto:prism54-devel@prism54.org>
-List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
-List-Subscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
-	<mailto:prism54-devel-request@prism54.org?subject=subscribe>
-Mime-version: 1.0
-Errors-To: prism54-devel-bounces@prism54.org
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
+Cc: Netdev <netdev@oss.sgi.com>, prism54-devel@prism54.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez),
+        Margit Schubert-While <margitsw@t-online.de>
+In-Reply-To: <20040616001111.GK6253@ruslug.rutgers.edu>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> * WDS - Umm someone on the list had mentioned they had used WDS
+>   successfully and had some patches (?) Are you still alive? Are you
+>   still working on this?
 
---===============1462306425==
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="NQTVMVnDVuULnIzU"
-Content-Disposition: inline
+No promises, but I'd like to take a look at WDS,
+since I just got another prism54.
 
+There is one problem - I don't know what WDS is
+supposed to do, because I use WDS link with hostap driver
+in a awkward way - I *turn off* AP bridging.
+This turns AP into kind of multihomed pseudo ethernet
+device which does NOT automatically forward packets
+from one STA to another (it is done via normal IP routing
+instead). In this setup, logically WDSes are just another
+devices, distinct from AP:
 
---NQTVMVnDVuULnIzU
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
++--------------+        +AP-+
+|  core kernel |<-------| < | <--------- STA1
+|(does routing)|------->| > | ---------> STA2
+|              |        +---+
+|              |        +WDS+
+|              |<------>|<->| <--------> WDS peer
++--------------+        +---+
 
+I suspect that most other people do not disable bridging.
+For them WDS cannot be a separate device... or what?
+I'm lost here.
 
-Jeff,
+Let's imagine three APs linked with WDS (double links
+in a picture below):
 
-Ok 2.6.7 is out, we missed it. Now what, send a group of patches against th=
-at then?
+sta1 <---> AP1 <===> AP2 <===> AP3 <---> sta2
 
-	Luis
-
---=20
-GnuPG Key fingerprint =3D 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
-
---NQTVMVnDVuULnIzU
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQFAz+v3at1JN+IKUl4RAsyVAJ4ooQ7rvFRLiB10E/Hd2D3aAIU+HQCfbpVa
-8jqz4K8z09gkbKc7SrRrajs=
-=ukdE
------END PGP SIGNATURE-----
-
---NQTVMVnDVuULnIzU--
-
---===============1462306425==
-Content-Type: text/plain; charset="us-ascii"
-MIME-Version: 1.0
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline
-
-_______________________________________________
-Prism54-devel mailing list
-Prism54-devel@prism54.org
-http://prism54.org/mailman/listinfo/prism54-devel
-
---===============1462306425==--
+Say, sta1 wants to sent a packet to sta2.
+What should happen?
+--
+vda
