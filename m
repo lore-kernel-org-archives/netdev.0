@@ -1,40 +1,33 @@
-From: jamal <hadi@cyberus.ca>
+From: Andrea Arcangeli <andrea@novell.com>
 Subject: Re: The ultimate TOE design
-Date: 15 Sep 2004 20:57:59 -0400
+Date: Thu, 16 Sep 2004 03:05:09 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095296279.1064.80.camel@jzny.localdomain>
-References: <4148991B.9050200@pobox.com>
-	 <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>
-	 <1095275660.20569.0.camel@localhost.localdomain>	<4148A90F.80003@pobox.com>
-	 <20040915140123.14185ede.davem@davemloft.net>
-	 <20040915210818.GA22649@havoc.gtf.org>
-	 <20040915141346.5c5e5377.davem@davemloft.net>  <4148B2E5.50106@pobox.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040916010509.GP15426@dualathlon.random>
+References: <4148991B.9050200@pobox.com> <Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org> <1095275660.20569.0.camel@localhost.localdomain> <20040915135308.78bf74f0.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, alan@lxorguk.ukuu.org.uk,
-        paul@clubi.ie, netdev@oss.sgi.com, leonid.grossman@s2io.com,
-        linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Alan Cox <alan@lxorguk.ukuu.org.uk>, paul@clubi.ie, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4148B2E5.50106@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040915135308.78bf74f0.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff,
-You are only allowed to start a TOE thread only every six months ;->
+On Wed, Sep 15, 2004 at 01:53:08PM -0700, David S. Miller wrote:
+> There are absolutely no justified economics in these
+> TOE engines.  By the time you deploy them, the cpus
+> and memory catch up and what's more those are general
+> purpose and not just for networking as David Stevens
+> and others have said.
 
-On a serious note, I think that PCI-express (if it lives upto its
-expectation) will demolish dreams of a lot of these TOE investments.
-Our problem is NOT the CPU right now (80% idle processing 450Kpps
-forwarding). Bus and memory distance/latency are. If intel would get rid
-of the big conspiracy in the form of chipset division and just integrate
-the MC like AMD is, we'll be on our our way to kill TOE and a lot of the
-network processors (like the IXP). Dang, running Linux is more exciting
-than microcoding things to fit into a 2Kword program store. 
-
-I rest my canadiana $.02 
-
-cheers,
-jamal
+I'm not sure if economics are the worst part of what is being shipped,
+to me the worst part is security, I'd never trust myself such a
+non-open-source TCP stack for something critical even if it was going to
+be much cheaper and performant. Even my PDA is using the linux tcp
+stack, and my cell phone only speaks UDP with the wap server anyways.
+TCP segment offload OTOH doesn't involve much "intelligence" in the NIC
+and it's very reasonable to trust it especially because all the incoming
+packets (the real potential offenders) are still processed by the linux
+tcp stack.
