@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (2/6) ipvs -- get rid of register in declarations
-Date: Tue, 16 Sep 2003 14:17:39 -0700
+Subject: [PATCH] (1/6) ipvs -- get rid of SEQ_START_TOKEN define
+Date: Tue, 16 Sep 2003 14:17:31 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030916141739.22ff0101.shemminger@osdl.org>
+Message-ID: <20030916141731.276de60c.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,47 +12,41 @@ To: Wensong Zhang <wensong@linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-GCC doesn't need register in declarations (and probably ignores them).
+Applies to 2.6.0-test5 with my seq_file patches from yesterday.
 
-diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
---- a/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:25 2003
-+++ b/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:25 2003
-@@ -279,7 +279,7 @@
- static __inline__ unsigned
- ip_vs_svc_hashkey(unsigned proto, __u32 addr, __u16 port)
- {
--	register unsigned porth = ntohs(port);
-+	unsigned porth = ntohs(port);
- 
- 	return (proto^ntohl(addr)^(porth>>IP_VS_SVC_TAB_BITS)^porth)
- 		& IP_VS_SVC_TAB_MASK;
-@@ -482,7 +482,7 @@
+Get rid of SEQ_START_TOKEN -- already defined in proc_fs.hdiff -Nru a/net/ipv4/ipvs/ip_vs_app.c b/net/ipv4/ipvs/ip_vs_app.c
+--- a/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:08:11 2003
++++ b/net/ipv4/ipvs/ip_vs_app.c	Tue Sep 16 14:08:11 2003
+@@ -485,8 +485,6 @@
+ /*
+  *	/proc/net/ip_vs_app entry function
   */
- static __inline__ unsigned ip_vs_rs_hashkey(__u32 addr, __u16 port)
+-#define SEQ_START_TOKEN	((void *)1)
+-
+ static struct ip_vs_app *ip_vs_app_idx(loff_t pos)
  {
--	register unsigned porth = ntohs(port);
-+	unsigned porth = ntohs(port);
+ 	loff_t off = 0;
+diff -Nru a/net/ipv4/ipvs/ip_vs_conn.c b/net/ipv4/ipvs/ip_vs_conn.c
+--- a/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:08:11 2003
++++ b/net/ipv4/ipvs/ip_vs_conn.c	Tue Sep 16 14:08:11 2003
+@@ -616,8 +616,6 @@
+  */
+ #ifdef CONFIG_PROC_FS
  
- 	return (ntohl(addr)^(porth>>IP_VS_RTAB_BITS)^porth)
- 		& IP_VS_RTAB_MASK;
-diff -Nru a/net/ipv4/ipvs/ip_vs_lblcr.c b/net/ipv4/ipvs/ip_vs_lblcr.c
---- a/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:08:25 2003
-+++ b/net/ipv4/ipvs/ip_vs_lblcr.c	Tue Sep 16 14:08:25 2003
-@@ -171,7 +171,7 @@
- /* get weighted least-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_min(struct ip_vs_dest_set *set)
+-#define SEQ_START_TOKEN	((void *)1)
+-
+ static void *ip_vs_conn_array(struct seq_file *seq, loff_t pos)
  {
--	register struct ip_vs_dest_list *e;
-+	struct ip_vs_dest_list *e;
- 	struct ip_vs_dest *dest, *least;
- 	int loh, doh;
+ 	struct list_head *e;
+diff -Nru a/net/ipv4/ipvs/ip_vs_ctl.c b/net/ipv4/ipvs/ip_vs_ctl.c
+--- a/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:11 2003
++++ b/net/ipv4/ipvs/ip_vs_ctl.c	Tue Sep 16 14:08:11 2003
+@@ -1516,8 +1516,6 @@
+ 	int bucket;
+ };
  
-@@ -226,7 +226,7 @@
- /* get weighted most-connection node in the destination set */
- static inline struct ip_vs_dest *ip_vs_dest_set_max(struct ip_vs_dest_set *set)
- {
--	register struct ip_vs_dest_list *e;
-+	struct ip_vs_dest_list *e;
- 	struct ip_vs_dest *dest, *most;
- 	int moh, doh;
- 
+-
+-#define SEQ_START_TOKEN	((void *)1)
+ /*
+  *	Write the contents of the VS rule table to a PROCfs file.
+  *	(It is kept just for backward compatibility)
