@@ -1,55 +1,52 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH]: Fix NULL-ptr dereference in irlmp_get_saddr()
-Date: Fri, 28 May 2004 12:56:50 +0200
+From: "David TILLOY" <dtilloy@neocom.fr>
+Subject: RE: Fw: [Bugme-new] [Bug 2782] New: ksoftirqd load system, kernelha
+	ng after a few minuts
+Date: Fri, 28 May 2004 14:00:08 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40B71AF2.2020503@trash.net>
+Message-ID: <IAENKNLIAFMLPMFJNMOBOELPCOAA.dtilloy@neocom.fr>
+References: <40B715F3.9010200@draigBrady.com>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------010800020208070209080801"
-Cc: netdev@oss.sgi.com, jt@bougret.hpl.hp.com
+Content-Type: text/plain;
+	charset=iso-8859-1
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: <P@draigBrady.com>, "Andrew Morton" <akpm@osdl.org>
+In-Reply-To: <40B715F3.9010200@draigBrady.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------010800020208070209080801
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+[...]
+> > http://bugme.osdl.org/show_bug.cgi?id=2782
+> >
+> >            Summary: ksoftirqd load system, kernel hang after a
+> few minuts
+> >     Kernel Version: 2.4.20-2.4.22
+> >             Status: NEW
+> >           Severity: blocking
+> >              Owner: other_other@kernel-bugs.osdl.org
+> >          Submitter: dav@neocom.fr
+>
+> I've just seen something similar with official 2.4.20+e1000 v5.2.30.1
+> on a Dual Intel Xeon CPU 2.6G+hyperthreading. Note I use IRQ affinity
+> so both ksoftirqd_CPU[02] are at 100%.
 
-This patch fixes a NULL-ptr dereference in irlmp_get_saddr.
+I've tried to use IRQ affinnity too, but without success, with or without.
+I've tried to switch hyperthreading off into bios, without more success.
+I've tried to deactive ACPI into bios too, problem is the same.
+>
+> The following is repeatable in about a minute which is good.
+> I send in around 700,000 packets per second on each of 2 interfaces,
+> and let the packets continually overflow the (4096 entry) buffers.
+> After about a minute I can't receive any traffic, and a couple
+> of occasions the machine just rebooted, so something is getting
+> corrupted. I was suspecting the e1000 driver buffer management until
+> I seen this?
 
-Regards
-Patrick
+I've repeated this trouble with some NIC card. I've reproduced this with tg3
+driver (Broadcom gigabit NIC), Dual Intel PRO/100S, tg2 driver and bcm5700
+driver.
 
---------------010800020208070209080801
-Content-Type: text/x-patch;
- name="irlmp_get_saddr-NULL-ptr.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="irlmp_get_saddr-NULL-ptr.diff"
-
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/05/28 12:32:37+02:00 kaber@trash.net 
-#   [IRDA]: Fix NULL-ptr dereference in irlmp_get_saddr()
-# 
-# include/net/irda/irlmp.h
-#   2004/05/28 12:32:30+02:00 kaber@trash.net +1 -1
-#   [IRDA]: Fix NULL-ptr dereference in irlmp_get_saddr()
-# 
-diff -Nru a/include/net/irda/irlmp.h b/include/net/irda/irlmp.h
---- a/include/net/irda/irlmp.h	2004-05-28 12:35:56 +02:00
-+++ b/include/net/irda/irlmp.h	2004-05-28 12:35:56 +02:00
-@@ -251,7 +251,7 @@
- 
- static inline __u32 irlmp_get_saddr(const struct lsap_cb *self)
- {
--	return (self && !self->lap) ? self->lap->saddr : 0;
-+	return (self && self->lap) ? self->lap->saddr : 0;
- }
- 
- static inline __u32 irlmp_get_daddr(const struct lsap_cb *self)
-
---------------010800020208070209080801--
+regards,
+David.
+--
