@@ -1,49 +1,33 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: netlink tester program
-Date: Mon, 2 Jun 2003 14:04:52 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030602140452.039248de.rddunlap@osdl.org>
-References: <20030530090015.7c435c9a.rddunlap@osdl.org>
-	<20030530.171111.71099698.davem@redhat.com>
-	<32804.4.64.196.31.1054351332.squirrel@www.osdl.org>
-	<20030530.234211.102567405.davem@redhat.com>
+From: Peter Bieringer <pb@bieringer.de>
+Subject: (usagi-users 02392) Is there already a doc available for the new IPsec code?
+Date: Mon, 02 Jun 2003 23:12:08 +0200
+Message-ID: <36990000.1054588328@worker.muc.bieringer.de>
+Reply-To: usagi-users@linux-ipv6.org
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030530.234211.102567405.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Maillist USAGI-users <usagi-users@linux-ipv6.org>
+Return-path: <usagi-users-admin@linux-ipv6.org>
+To: Maillist netdev <netdev@oss.sgi.com>
+Content-Disposition: inline
+List-Software: fml [fml 4.0.3 release (20011202/4.0.3)]
+List-Post: <mailto:usagi-users@linux-ipv6.org>
+List-Owner: <mailto:usagi-users-admin@linux-ipv6.org>
+List-Help: <mailto:usagi-users-ctl@linux-ipv6.org?body=help>
+List-Unsubscribe: <mailto:usagi-users-ctl@linux-ipv6.org?body=unsubscribe>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 30 May 2003 23:42:11 -0700 (PDT) "David S. Miller" <davem@redhat.com> wrote:
+Hi,
 
-|    From: "Randy.Dunlap" <rddunlap@osdl.org>
-|    Date: Fri, 30 May 2003 20:22:12 -0700 (PDT)
-|    
-|    Oh well, it's at this URL, bugs and all.
-|    
-|    http://www.xenotime.net/linux/ipv6/rtnl_test.c
-|    
-| I know you don't want to use libnetlink from iproute2, but I want to
-| stress that it takes care of all of the minutae of netlink socket
-| usage that you have to duplicate in your little test program and this
-| duplication leads to bugs.
-| 
-| Firstly, you needs to be fixed to call recvmsg() multiple times,
-| you'll get one entry for each recvmsg call in the table you are
-| querying.
+i want to play a little bit with the new IPsec code.
 
-Yes, I noticed that I was getting only 1 msg there.
+Is there already a doc available how to use it (config file of IKE daemon,
+etc., e.g. compared against the FreeS/WAN code).
 
-| You really need something like rtnl_talk() or rtnl_dump_filter()
-| from libnetlink to do this properly.
+Thank you very much for input,
 
-Does anyone have documentation (or semantics) for rtnl_talk()?
-or just some blurb about it?
-Andi's libnetlink man page missed it somehow.
-
-Thanks,
---
-~Randy
+        Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
