@@ -1,82 +1,31 @@
-From: Kazunori Miyazawa <miyazawa@mrj.biglobe.ne.jp>
-Subject: USAGI stable release
-Date: Tue, 9 Apr 2002 01:15:23 +0900
-Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020409011523.07e9a540.miyazawa@mrj.biglobe.ne.jp>
+From: Ted Goodwin <TGoodwin@mobile-mind.com>
+Subject: MAC address filtering on kernel 2.2.13
+Date: Mon, 8 Apr 2002 15:14:52 -0400
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <177EEB93DEA5D4119B4800508BE753D227B6A5@FS1>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: USAGI Core <usagi-core@linux-ipv6.org>
-To: netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+To: "'linux-net@vger.kernel.org'" <linux-net@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-We are glad to announce the USAGI[1] STABLE RELEASE 3.1, dated on April 8th,
-2002.  Although this is a maintenance release of the STABLE RELEASE 3 dated 
-on January 1st, 2002, it comes with a latest kernel and couple of new 
-features.  
-
-The new / updated features are:
-	- based on latest kernel linux-2.4.18 
-	  (linux-2.2.20 for linux-2.2 systems)
-	- based on radvd-0.7.1, a router advertisement daemon
-	- ISATAP (Intra-Site Automatic Tunnel Addressing Protocol) support
-	- IPv4 and/or IPv6 over IPv4 Tunnel on a single driver support
-	- Privacy Extensions for linux-2.2 systems
-
-We also fixed the following bugs of the previous release:
-	- Fixed a bug, which devices, such as PCMCIA devices, could not
-	  finish correctly when using Privacy Extensions.
-	- Fixed a bug, which getifaddrs(3) did not report local/remote 
-	  addresses of point-to-point devices.
-	- Fixed a bug, which tcp_wrapper was not compiled correctly,
-	  so that ipv6 support was not enabled.
-	and so on.
-
-You can get our complete kit which includes kernel tree, library and 
-applications from the following URL.
-	<ftp://ftp.linux-ipv6.org/pub/usagi/stable/kit/>
-
-We also provide separate patches against the main-line kernel and the tools.
-	<ftp://ftp.linux-ipv6.org/pub/usagi/stable/split/>
-
-We have a plan to provide the binary packages for some distributions.
-They will appear under
-	<ftp://ftp.linux-ipv6.org/pub/usagi/stable/package/>
-within several weeks.
-
-
-We announce the latest information on our web pages.  
-Please check our web site <http://www.linux-ipv6.org>.
-
-We also manage the mailing list for USAGI users. 
-If you have questions, please join the mailing list.
-Comments and advises are also welcome on that mailing list.  
-Please visit <http://www.linux-ipv6.org/ml/> for further
-information.
-
-
-Thanks.
-
-
-About USAGI Project:
-
-The USAGI Project is managed by volunteers and aims to provide better
-IPv6 environment on Linux freely.  We are tightly collaborating with
-WIDE Project[2], KAME Project[3] and TAHI Project[4], and trying to
-improve Linux kernel, IPv6 related libraries and IPv6 applications.
-Our snapshots are released every two weeks and stable release is
-released several times a year.  Please check our web site
-<http://www.linux-ipv6.org> for the latest information.
-
-
-References:
-
-	[1] USAGI Project       <http://www.linux-ipv6.org>
-	[2] WIDE Project        <http://www.wide.ad.jp>
-	[3] KAME Project        <http://www.kame.net>
-	[4] TAHI Project        <http://www.tahi.org>
-
--- 
-USAGI Project <http://www.linux-ipv6.org>
+> Hello,
+> 
+> I am working on creating a MAC address packet filter for Linux kernel
+> 2.2.13 .
+> 
+> Initially, I just want to drop all the packets whose MAC addresses aren't
+> in the MAC address table.  But eventually,  the dropped packets are going
+> to be allowed  to request authentication.  If successful  their MAC
+> address will be added to the list.  
+> 
+> So my question is: What method of MAC address filtering would be easiest
+> (I'm a newbie with a deadline),  appropriate, and available in the 2.2.13
+> kernel? BPF? LPF? IPchains?  
+> 
+> Looking forward to being more helpful than a hindrance. 
+> Thanks,
+> Ted Goodwin
+> 
+> 
