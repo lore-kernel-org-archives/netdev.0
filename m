@@ -1,50 +1,27 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Fri, 27 Sep 2002 19:28:43 +0300 (EEST)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: [PATCH] IPv6: Refine IPv6 Address Validation Timer
+Date: Fri, 27 Sep 2002 20:39:45 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209271918090.2895-100000@netcore.fi>
-References: <200209271602.UAA21381@sex.inr.ac.ru>
+Message-ID: <200209271639.UAA21514@sex.inr.ac.ru>
+References: <20020928.011439.108856769.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.ORG>,
-   <netdev@oss.sgi.com>
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200209271602.UAA21381@sex.inr.ac.ru>
+To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
+In-Reply-To: <20020928.011439.108856769.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Sep 28, 2 01:14:39 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Sep 2002 kuznet@ms2.inr.ac.ru wrote:
-> > This patch supports standard default source address selection
-> > algorithm.
-> 
-> To all that I remember we had long discussion about this ages ago.
-> I said I hate this. Such complicated selection without caching is _bug_.
-> I see nothing improved since that time, except for the function became
-> even more hairy. :-)
+Hello!
 
-But you agree that a new selection is important, I think?
+> (*) Oops, I slipped at (almost) end of the patch when making patch... sorry;
+> I inteded to refine timing into ~0.5 sec at worst;
 
-I agree that the spec as written (like, each address against every other, 
-iterate N times etc.) seems to be like total crap.. but at least the 
-intent seems to be clear-ish.
+Does this matter? What is special about 0.5sec comparing to 1?
 
-If caching was implemented I guess it would be triggered by:
- - address changes
- - route changes
- - a maximum lifetime of xx seconds?
+> (do I need to resend complete patch?)
 
-Caching, if it can be done simply and reasonably seems like a very good
-idea to me.
+No, I think. Deletion of bad debugging is easier to make after patching.
 
-Btw I think labels are quite an important component of selection rules, as
-it (similar to longest matching prefix) keeps certain classes of addresses
-(e.g. 6to4, mapped addresses, compatible etc.) within the label.  That's
-important.
-
-User-manageable policy table is of less importance I think.
-
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Alexey
