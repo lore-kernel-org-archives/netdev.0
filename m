@@ -1,65 +1,54 @@
-From: "arun4linux" <arun4linux@indiatimes.com>
+From: Russell King <rmk@arm.linux.org.uk>
 Subject: Re: Re: pci-skeleton duplex check
-Date: Sat, 14 Dec 2002 20:05:30 +0530
+Date: Sat, 14 Dec 2002 16:14:46 +0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200212141428.TAA32351@WS0005.indiatimes.com>
-Reply-To: "arun4linux"<arun4linux@indiatimes.com>
+Message-ID: <20021214161446.B23020@flint.arm.linux.org.uk>
+References: <200212141428.TAA32351@WS0005.indiatimes.com>
+Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
+Cc: Michael Richardson <mcr@sandelman.ottawa.on.ca>, netdev@oss.sgi.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Michael Richardson"<mcr@sandelman.ottawa.on.ca>, <netdev@oss.sgi.com>,
-   "Linux Kernel Mailing List"<linux-kernel@vger.kernel.org>
+To: arun4linux <arun4linux@indiatimes.com>
+Content-Disposition: inline
+In-Reply-To: <200212141428.TAA32351@WS0005.indiatimes.com>; from arun4linux@indiatimes.com on Sat, Dec 14, 2002 at 08:05:30PM +0530
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-&lt;&lt;Interfaces should NEVER change in patch level versions.
-Just *DO NOT DO IT*.
-&gt;&gt;I do agree on this.
+On Sat, Dec 14, 2002 at 08:05:30PM +0530, arun4linux wrote:
+> Interfaces should NEVER change in patch level versions.
+> Just *DO NOT DO IT*.
+> I do agree on this.
 
+Rubbish.
 
-This is a common complaint about linux kernel developers. And this always gives an insecure feeling  :-) for the device driver or kernel module programmers. 
-This was one of the issues in my earlier company/work and they have gone for another OS.
+Think about what you've just said.  Patch level version changes are
+things like 2.5.43 to 2.5.44 or 2.4.19 to 2.4.20.
 
+You are saying that we shouldn't change any interfaces between (eg)
+2.5.43 and 2.5.44, but we should change every interface we want to
+change between 2.4.15 and 2.5.0.
 
-Warm Regards
+This is obviously completely bogus.  2.5 is a _development_ tree.
+Everyone should expect anything, including interfaces to change
+between each development patch level.
 
+> This is a common complaint about linux kernel developers. And this always
+> gives an insecure feeling  :-) for the device driver or kernel module
+> programmers. 
 
-Arun
-"Michael Richardson" wrote:
+If interfaces are changed without extremely good reason between two
+_stable_ patch level versions, that would be a bug.
 
+> This was one of the issues in my earlier company/work and they have
+> gone for another OS.
 
+Was the problem against a stable kernel version?  Did you report the
+problem when you found it?  Was there a response?
 
------BEGIN PGP SIGNED MESSAGE-----
+Unless you have done at least the above, I, for one, have very little
+sympathy.
 
-
-&gt;&gt;&gt;&gt;&gt; "Donald" == Donald Becker writes:
-Donald&gt; The drivers in the kernel are now heavily modified and have significantly
-Donald&gt; diverged from my version. Sure, you are fine with having someone else
-Donald&gt; do the difficult and unrewarding debugging and maintainence work, while
-Donald&gt; you work on just the latest cool hardware, change the interfaces and are
-Donald&gt; concerned only with the current kernel version.
-
-I agree strongly with Donald.
-
-Interfaces should NEVER change in patch level versions.
-Just *DO NOT DO IT*.
-
-Go wild in odd-numbered.. get the interfaces right there.
-But leave them alone afterward.
-
-This is a fundamental tenant of being professional. Otherwise, the kernel
-people are the biggest reason I've ever seen for using *BSD.
-Microsoft is not the real enemy. Gratuitous change is.
-
-] ON HUMILITY: to err is human. To moo, bovine. | firewalls [
-] Michael Richardson, Sandelman Software Works, Ottawa, ON |net architect[
-] mcr@sandelman.ottawa.on.ca http://www.sandelman.ottawa.on.ca/ |device driver[
-] panic("Just another Debian GNU/Linux using, kernel hacking, security guy"); [
-
-
-
-
-Get Your Private, Free E-mail from Indiatimes at http://email.indiatimes.com
-
- Buy the best in Movies at http://www.videos.indiatimes.com
-
-Change the way you talk. Indiatimes presents Valufon, Your PC to Phone service with clear voice at rates far less than the normal ISD rates. Go to http://www.valufon.indiatimes.com. Choose your plan. BUY NOW.
+-- 
+Russell King (rmk@arm.linux.org.uk)                The developer of ARM Linux
+             http://www.arm.linux.org.uk/personal/aboutme.html
