@@ -1,43 +1,32 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+From: Nivedita Singhvi <niv@us.ibm.com>
 Subject: Re: [PATCH] NETDEBUG network triggerable messages in IPv6
-Date: Sat, 10 Apr 2004 02:47:05 +0900 (JST)
+Date: Fri, 09 Apr 2004 11:06:46 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040410.024705.97089877.yoshfuji@linux-ipv6.org>
-References: <20040409182125.348fd6cd.ak@suse.de>
-	<20040410.021840.113165465.yoshfuji@linux-ipv6.org>
-	<20040409193123.63e4cdc7.ak@suse.de>
+Message-ID: <4076E636.5050803@us.ibm.com>
+References: <20040409174847.2f0b7e77.ak@suse.de>	<20040410.010051.129465789.yoshfuji@linux-ipv6.org> <20040409182125.348fd6cd.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
+        davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ak@suse.de
-In-Reply-To: <20040409193123.63e4cdc7.ak@suse.de>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040409182125.348fd6cd.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040409193123.63e4cdc7.ak@suse.de> (at Fri, 9 Apr 2004 19:31:23 +0200), Andi Kleen <ak@suse.de> says:
+Andi Kleen wrote:
 
-> > I don't like the style; it is too ugly.
-> > E.g. please do not put "if () ..." into the macro argument.
-> 
-> Ok, here is a new version that defines a new macro LIMIT_NETDEBUG that does the
-> rate limit implicitely.
-> -				if (net_ratelimit())
-> -					printk(KERN_WARNING "overrun destopt\n"); 
-> +				LIMIT_NETDEBUG(
-> +					printk(KERN_WARNING "overrun destopt\n")); 
+> If you don't like it just keep NETDEBUG on. But for production systems being able 
+> to fill up logs from the network is not acceptable IMHO. Anyways default behaviour
+> does not change right now, it just allows to easily disable all this cruft for
+> people who want that.
 
-Grr...
+I'd like to support Andi's patch - or any flavor thereof,
+that results in being able to prevent nw triggered
+logging filling up logs. It is very much needed by us,
+too. I would like to see it be the default in mainline,
+really.
 
-I'd prefer:
-
-  if (net_ratelimit())
-    NETDEBUG_PRINTK("overrun destopt\n"..)
-or
-
-  NETDEBUG_PRINTK_LIMIT("overrun destopt\n"..)
-
-(or something like this) much more.
-
---yoshfuji
+thanks,
+Nivedita
