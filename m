@@ -1,20 +1,36 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Patch: link state detection for 8139too against 2.5.41
-Date: Mon, 14 Oct 2002 13:42:45 -0400
+From: Tim Hockin <thockin@sun.com>
+Subject: Re: PATCH idea - netlink and link changes
+Date: Mon, 14 Oct 2002 11:07:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DAB0215.5070507@pobox.com>
-References: <Pine.LNX.4.44.0210120013500.1159-100000@beohost.scyld.com> <3DA96BCC.B2589AC0@isg.de>
+Message-ID: <3DAB07F9.1090802@sun.com>
+References: <Pine.GSO.4.30.0210120909450.23509-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Donald Becker <becker@scyld.com>, netdev@oss.sgi.com
+Cc: Stefan Rompf <srompf@isg.de>, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Take a look at how 8139cp driver does link state...  it should be an 
-also exact copy of 8139cp's code.
+jamal wrote:
+> 
+> On Sat, 12 Oct 2002, Stefan Rompf wrote:
+> 
+> 
+>>IMHO we should merge the patches, taking your one workqueue per device
+>>approach and my usage of IFF_RUNNING as a mirror bit. What do other
+>>netdev people think?
+>>
+> Only one work queue please, not one per device.
 
-(8139cp will eventually get GMII/TBI support, but for now this statement 
-is correct)
+What of two devices that lose link at the same time?  Say a hub or 
+switch dies..
+
+
+-- 
+Tim Hockin
+Systems Software Engineer
+Sun Microsystems, Linux Kernel Engineering
+thockin@sun.com
