@@ -1,36 +1,68 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Change MAC without bringing interface down
-Date: Mon, 18 Aug 2003 04:19:11 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818041911.358c3437.davem@redhat.com>
-References: <20030818091312.GA4889@lapdog>
+From: Stephan von Krawczynski <skraw@ithnet.com>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Mon, 18 Aug 2003 13:39:57 +0200
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <20030818133957.3d3d51d2.skraw@ithnet.com>
+References: <20030728213933.F81299@coredump.scriptkiddie.org>
+	<200308171509570955.003E4FEC@192.168.128.16>
+	<200308171516090038.0043F977@192.168.128.16>
+	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
+	<200308171555280781.0067FB36@192.168.128.16>
+	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
+	<200308171759540391.00AA8CAB@192.168.128.16>
+	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
+	<200308171827130739.00C3905F@192.168.128.16>
+	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
+	<20030817224849.GB734@alpha.home.local>
+	<20030817223118.3cbc497c.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Tommi Virtanen <tv@debian.org>
-In-Reply-To: <20030818091312.GA4889@lapdog>
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
+	lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
+	marcelo@conectiva.com.br, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030817223118.3cbc497c.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 12:13:12 +0300
-Tommi Virtanen <tv@debian.org> wrote:
+On Sun, 17 Aug 2003 22:31:18 -0700
+"David S. Miller" <davem@redhat.com> wrote:
 
-> 	Here's a patch that
+> On Mon, 18 Aug 2003 00:48:49 +0200
+> Willy Tarreau <willy@w.ods.org> wrote:
 > 
-> 	1. makes eth_header_cache_update also update the source MAC in
-> 	   hh_cache.
+> > On Sun, Aug 17, 2003 at 06:24:06PM +0100, Alan Cox wrote:
+> >  
+> > > So stick the address on eth0 not on lo since its not a loopback but an
+> > > eth0 address, then use arpfilter so you don't arp for the invalid magic
+> > > shared IP address, or NAT it, or it may work to do
+> > > 
+> > >          ip route add nexthop-addr src my-virtual-addr dev eth0 scope
+> > >          local onlink ip route add default src my-virtual-addr via
+> > >          nexthop-addr dev eth0 scope global
+> >  
+> > I have a case where this doesn't work
 > 
-> 	2. adds a NETDEV_CHANGEADDR notifier in net/core/neighbour.c
-> 	   that walks through all the neighbour entries and updates
-> 	   the hh_cache's for all the neighbour entries related to
-> 	   given device.
+> Replying again... Alan does mention in the paragraph you've quoted
+> to use arpfilter, which works for every case imaginable.
 > 
-> 	3. adds neighbour_init() to allow registration of said notifier.
+> The facilities to solve these problems are there, people simply
+> don't want to use them.
 
-I would suggest to fix this by instead flushing the hh
-entries (just like neigh_destroy() does).
+It would be probably a good thing if anybody ever found a _positive_ scenario
+where your view of the arp-world has _advantages_ compared to what the vast
+majority of people I ever talked to sees as _expected_ behaviour...
+(Please don't argue that my "vast majority" is not necessarily _the_ vast
+majority, because that is true for merely every human being on this planet and
+beyond)
+I mean everybody is willing to follow you if you could say: "look at these type
+of wide-spread operations and notice the positive (config shortening or
+whatever) influence of the current default behaviour."
+Can you please give us a striking example of a widespread application where
+current behaviour is a requirement or at least a very positive thing?
 
-This way, we don't have to fix up every single header cache
-implementation, that's painful :(
+Regards,
+Stephan
