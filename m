@@ -1,39 +1,139 @@
-From: "Thomas 'Dent' Mirlacher" <dent@cosy.sbg.ac.at>
-Subject: Re: [PATCH][2.5] net/core/dev.c readability cleanups
-Date: Tue, 11 Jun 2002 18:09:55 +0200 (MET DST)
+From: Adam Wozniak <awozniak@comdev.cc>
+Subject: Re: ipv4 problem w/ eepro100 drivers
+Date: Tue, 11 Jun 2002 10:37:52 -0700 (PDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.05.10206111801310.18111-100000@mausmaki.cosy.sbg.ac.at>
-References: <20020611.065450.50898984.davem@redhat.com>
+Message-ID: <Pine.LNX.4.33.0206111029370.7180-100000@rangers.comdev.cc>
+References: <Pine.LNX.4.33.0206101656220.31336-100000@rangers.comdev.cc>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: ak@muc.de, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: <becker@scyld.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20020611.065450.50898984.davem@redhat.com>
+To: <davem@redhat.com>, <ak@muc.de>, <kuznet@ms2.inr.ac.ru>,
+   <pekkas@netcore.fi>, <netdev@oss.sgi.com>, <saw@saw.sw.com.sg>
+In-Reply-To: <Pine.LNX.4.33.0206101656220.31336-100000@rangers.comdev.cc>
 List-Id: netdev.vger.kernel.org
 
-dave,
+(more info on my problems below, including original email
+for Donald Becker's benefit)
 
->    i don't take this as barfing, just like some "honest" opinion.
-> 
-> Your patch made me barf, that is my opinion.  Whether you want to take
-> it or not, that is my honest opinion.  To claim that I was dishonest
-> is absurd, how can you know what is inside of my mind?
+On Mon, 10 Jun 2002, Adam Wozniak wrote:
+> On a machine with an 82559ER ethernet chip
+> Linux 2.5.5, with the 6/5/2002 eepro100.c
+>
+> Connect to some other machine via a crossover cable
+>
+> run iperf as a server on both machines
+> run iperf as a client to the server on the other machine
+>
+> (i.e. we want an isolated network, full duplex, full traffic in both directions)
+>
+> [awozniak@rangers ~/linux-2.5.5]$ ksymoops -VKOL -m System239.map < oops239.txt
+> ksymoops 2.4.0 on i686 2.4.2-2.  Options used
+>      -V (specified)
+>      -K (specified)
+>      -L (specified)
+>      -O (specified)
+>      -m System239.map (specified)
+>
+> Unable to handle kernel paging request at virtual address 3938377f
+> c01d1716
+> *pde = 00000000
+> Oops: 0000
+> CPU:    0
+> EIP:    0010:[<c01d1716>]    Not tainted
+> Using defaults from ksymoops -t elf32-i386 -a i386
+> EFLAGS: 00010217
+> eax: cdc42a08   ebx: 39383736   ecx: 00000004   edx: 00000000
+> esi: cdc42b10   edi: cdc429a0   ebp: 00000009   esp: c0251ef0
+> ds: 0018   es: 0018   ss: 0018
+> Stack: cdc429a0 cdc42b10 cdc42a08 cdc429a0 c01d9dee cdc429a0 00000000 cda8e5c0
+>        00000000 00000001 00000000 cdc429a0 0000e8c8 00000000 00000046 c01d9fc6
+>        cdc429a0 00000001 00000000 c0251fac 00000000 cdc429a0 c01d9f20 c011a933
+> Call Trace: [<c01d9dee>] [<c01d9fc6>] [<c01d9f20>] [<c011a933>] [<c011779b>]
+>    [<c01176a4>] [<c01174cb>] [<c0109eac>] [<c0106cc0>] [<c0106cc0>] [<c0106cc0>]
+>    [<c0106cc0>] [<c0106ce4>] [<c0106d62>] [<c0105000>]
+> Code: 0f b6 4b 49 45 f6 c1 82 74 0c 31 d2 89 96 70 01 00 00 0f b6
+>
+> >>EIP; c01d1716 <tcp_enter_loss+c6/1a0>   <=====
+> Trace; c01d9dee <tcp_retransmit_timer+17e/2b0>
+> Trace; c01d9fc6 <tcp_write_timer+a6/f0>
+> Trace; c01d9f20 <tcp_write_timer+0/f0>
+> Trace; c011a933 <timer_bh+213/250>
+> Trace; c011779b <bh_action+1b/50>
+> Trace; c01176a4 <tasklet_hi_action+44/70>
+> Trace; c01174cb <do_softirq+4b/90>
+> Trace; c0109eac <do_IRQ+9c/b0>
+> Trace; c0106cc0 <default_idle+0/30>
+> Trace; c0106cc0 <default_idle+0/30>
+> Trace; c0106cc0 <default_idle+0/30>
+> Trace; c0106cc0 <default_idle+0/30>
+> Trace; c0106ce4 <default_idle+24/30>
+> Trace; c0106d62 <cpu_idle+32/50>
+> Trace; c0105000 <_stext+0/0>
+> Code;  c01d1716 <tcp_enter_loss+c6/1a0>
+> 00000000 <_EIP>:
+> Code;  c01d1716 <tcp_enter_loss+c6/1a0>   <=====
+>    0:   0f b6 4b 49               movzbl 0x49(%ebx),%ecx   <=====
+> Code;  c01d171a <tcp_enter_loss+ca/1a0>
+>    4:   45                        inc    %ebp
+> Code;  c01d171b <tcp_enter_loss+cb/1a0>
+>    5:   f6 c1 82                  test   $0x82,%cl
+> Code;  c01d171e <tcp_enter_loss+ce/1a0>
+>    8:   74 0c                     je     16 <_EIP+0x16> c01d172c
+> <tcp_enter_loss+dc/1a0>
+> Code;  c01d1720 <tcp_enter_loss+d0/1a0>
+>    a:   31 d2                     xor    %edx,%edx
+> Code;  c01d1722 <tcp_enter_loss+d2/1a0>
+>    c:   89 96 70 01 00 00         mov    %edx,0x170(%esi)
+> Code;  c01d1728 <tcp_enter_loss+d8/1a0>
+>   12:   0f b6 00                  movzbl (%eax),%eax
+>
+>   <0> Kernel panic: Aiee, killing interrupt handler!
+> [awozniak@rangers ~/linux-2.5.5]$
 
-i'm sorry about the lines i've written above, i didn't mean to upset
-you at all (is was a lack of finding the right word, and using quotes
-is obviously a bad choice for expressing that)
+(someone asked if we enabled preemptive, we did not)
 
-i fully respect your opinion as a person and as the maintainer who's
-responsible to keep the code clean
+(This bug manifested in several forms.  A common one is above.
+Another common one was a hard lockup of the machine, no oops.)
 
-what i really wanted to express was: i don't take your barfing as an
-offense, but rather as your opinion and a valueable input on how a patch
-should look like (but instead i offended you, which was not intended at all)
+Here are some details about our resolution.  Dunno if they help
+anyone or not.  (These comments were not written by me.)
 
-hope i clarified the misunderstanding (/misphrasing), 
-
-	tm
+} ------- Additional Comments From XXXXXXXXX 2002-06-10 18:41 -------
+}
+} Long story short, they replaced the BIOS on the board (General Software)
+} with a new one (Award) and we re-ran the test.  It came up and ran for
+} over an hour before we took it down to swap out the eepro100 driver
+} (see below.)  After bringing it back up, it ran again for 50 minutes
+} until we packed it up and came home.
+}
+} After upgrading to the Award BIOS, we started getting an error message
+} generated by the eepro100 drivers.  Something along the lines of "Command
+} 0x0080 not accepted immediatly, x ticks!"  where x is some number larger
+} than 100.  Originally, there was a bug in this reporting code that we
+} fixed (which required the interruption of the test as stated above.
+} I needed to load the new module), which reported Command 0x0000 every
+} time.  This code is called when the ethernet chip doesn't respond to a
+} command very quickly.  A "tick" is an undefined amount of time, basically,
+} how many times it takes to go through a loop waiting for the command to
+} finish.  100 seems to be an arbitrary number.  All the numbers we saw were
+} less than 110, so its just barely missing the arbitrary cut-off point.
+}
+} The interesting bit is that the messages come at about the same interval
+} as the crashes used to happen.  With the PCI bus analizer on the card,
+} when the system would crash, the Ethernet chip was repeatedly requesting
+} memory access from the North Bridge, and it kept rejecting it, but neither
+} would let up.  It sorta makes sense that if the chip was programmed one
+} way by the old BIOS to keep trying and never give up, that it would slam
+} the bus, but being programmed differently by the new BIOS, it'll retry
+} or something similar.
+}
+} We never found out exactly what WAS happening, and what change in the
+} BIOS fixed the problem.  But we know that the Award BIOS appears to work
+} and the General Software BIOS does not.
 
 -- 
-in some way i do, and in some way i don't.
+Adam Wozniak (KG6GZR)   COM DEV Broadband - Digital and Software Systems
+awozniak@comdev.cc      805 Aerovista Place, San Luis Obispo, CA 93401
+                        http://www.comdev.cc
+                        Voice: (805) 544-1089       Fax: (805) 544-2055
