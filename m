@@ -1,118 +1,104 @@
-From: Andreas Jellinghaus <aj@dungeon.inka.de>
-Subject: Re: NAT before IPsec with 2.6
-Date: Wed, 28 Jan 2004 14:43:13 +0100
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <1075297393.5668.19.camel@simulacron>
-References: <20040124082252.GA19035@alpha.home.local>
-	 <Pine.LNX.4.44.0401241015470.32723-100000@filer.marasystems.com>
-	 <20040124092721.GA19140@alpha.home.local>
-	 <20040127103917.GC11761@sunbeam.de.gnumonks.org>
-	 <20040127132725.GA14685@openoffice.nl>
-	 <pan.2004.01.27.21.13.32.754125@dungeon.inka.de>
-	 <20040128085831.GM11761@sunbeam.de.gnumonks.org>
-	 <1075285293.5055.29.camel@simulacron>
-	 <20040128130050.GS11761@sunbeam.de.gnumonks.org>
+From: David Stevens <dlstevens@us.ibm.com>
+Subject: Re: sysctl variable to force IGMP version [PATCH]
+Date: Wed, 28 Jan 2004 20:51:32 -0800
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <OFE8AE1A1B.D2C2DA34-ON88256E2A.0019F0C1@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20040128130050.GS11761@sunbeam.de.gnumonks.org>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: multipart/alternative;
+	Boundary="0__=07BBE4B9DF8A76518f9e8a93df938690918c07BBE4B9DF8A7651"
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Harald,
-
-The userland could be improved to be more flexible,
-then it could configure the same issue with and
-without interface, depending on the needs. From
-protocol perspective that wouldn't be visible, 
-so I realy don't see any interoperability issues here.
-
-ip, esp, inner ip, tcp/udp, payload.
-the packet can look the same, whether you use some
-interface to assemble it or not. ike and setting
-spd plus tunnel is the issue, but thats userspace.
-
-ok, but thats not a netfilter topic.
-
-> I think you would see the packet even more often:
-> 
-> 1) LOCAL_OUT of original packet 
-> 2) POST_ROUTING of original packet
-> 3) LOCAL_OUT of tunnelled packet
-> 4) POST_ROUTING of tunneled packet
-> 5) LOCAL_OUT of ESP/AH packet
-> 6) POST_ROUTING of ESP/AH packet
-
-one change you want to add is POST_ROUTING before
-encapsilating. add that hook at the start of ipip_xmit,
-too (renameing ipip_xmit to ipip_xmit_finish
-and a new ipip_xmit with only the hook), and things
-should be in sync. same for the other tunnels.
-
-the other change you want to make is set the interface
-to some other value after encapsulation. what value?
-will it be possible to specify the value?
-I'm still thinking about that and in what scenario you
-would need to differ say ipsec0 and ipsec1.
-but such scenarios could exist. 
-
-maybe one vpn/gateway/router shared by two small companies,
-both want to keep their network private ?
-
-[setkey debugging]
-> yes, but I'd rather don't put both of them into one patch.
-
-sure. are there netfilter routines that can be reused,
-or are they somehow tied to the NF core? netfilter formats
-the packets nicely for debugging.
-
-> > an interface, but avoiding the interface. but please keep
-> > tunnel with interface and tunnel without interface in sync.
-> 
-> What do you mean by that? 
-
-if you add a hook in ah/esp, add the same hooks to ipip, ipgre,
-ip6_tunnel etc. Currently netfilter/tunneling is more or
-less consistent - without interface there are some issues,
-but the tunnelling fits fine into the big netfilter picture
-(the one with 5 hooks explained). 
-
-if ah/esp used different hooks than the real tunnels,
-that would make the situation less easy.
-
-also, what is the status of the new hooks?
-dropped or do you still plan to add a different
-hook, even if it calls the same table?
-POST_XFRM is a bad name, better something
-like POST_ENCAP or POST_DECAP, because IMO
-tunnels should call that hook, too, so it
-should be a generic name, not tied to xfrm.
+--0__=07BBE4B9DF8A76518f9e8a93df938690918c07BBE4B9DF8A7651
+Content-type: text/plain; charset=US-ASCII
 
 
->  From my point of view, it should be like
-> (1-6) above.   This way anybody can filter on any kind of header bit at
-> any layer of the encapsulation. 
 
-ah, wait. it will be only 4 steps,
-3+5 and 4+6 are merged, because the tunnel calls xfrm itself,
-so it does both at once. that could be changed of course,
-if you want that flexibility.
 
-but i wonder:
-if you want to change the untunneld packet, you can do that
-in 1/2. if you want to change the encrypted packet, you can
-do that i 5/6. 3/4 has the same (as payload) you see in 1/2,
-and the same header that has 5/6. so what is the benefit
-of two additional steps?
 
-Regards, Andreas
+Dave,
+      As it is, it doesn't hurt anything if you set it to "47"-- it'll use
+IGMPv1 if it's
+set to "1", IGMPv2 if it's set to "2" and IGMPv3 (default) for all other
+values. It may
+look odd in "sysctl -a" output, but it'll behave reasonably.
+      I can add new handler functions used only by this that restrict the
+values
+(unless there's an easier way using some existing method I don't know
+about),
+if you think it's worth it, but it won't actually cause any problem if it's
+set to any
+value out of range.
+
+                        +-DLS
+
+
+"David S. Miller" <davem@redhat.com>@oss.sgi.com on 01/28/2004 12:00:03 PM
+
+Sent by:    netdev-bounce@oss.sgi.com
+
+
+To:    David Stevens/Beaverton/IBM@IBMUS
+cc:    netdev@oss.sgi.com
+Subject:    Re: sysctl variable to force IGMP version [PATCH]
+
+
+
+On Tue, 27 Jan 2004 14:13:41 -0700
+David Stevens <dlstevens@us.ibm.com> wrote:
+
+> Below is a patch that allows forcing of the IGMP version. The primary
+> use would be with an IGMP-snooping switch that doesn't grok IGMPv3
+> packet formats and when there are no IGMPv2 or IGMPv1 multicast
+> routers on the network. By forcing the IGMP reports to version 2 (or
+> version 1, for really old switches), Linux would send reports that the
+> switch can understand for multicast forwarding to the port.
+
+Perhaps some sanity to prevent values other than 1 or 2 from being
+set?
+
+
+--0__=07BBE4B9DF8A76518f9e8a93df938690918c07BBE4B9DF8A7651
+Content-type: text/html; charset=US-ASCII
+Content-Disposition: inline
+
+<html><body>
+<p>Dave,<br>
+	As it is, it doesn't hurt anything if you set it to &quot;47&quot;-- it'll use IGMPv1 if it's<br>
+set to &quot;1&quot;, IGMPv2 if it's set to &quot;2&quot; and IGMPv3 (default) for all other values. It may<br>
+look odd in &quot;sysctl -a&quot; output, but it'll behave reasonably.<br>
+	I can add new handler functions used only by this that restrict the values<br>
+(unless there's an easier way using some existing method I don't know about),<br>
+if you think it's worth it, but it won't actually cause any problem if it's set to any<br>
+value out of range.<br>
+<br>
+				+-DLS<br>
+<br>
+
+<p><font size="2" color="#800080">Sent by:	netdev-bounce@oss.sgi.com</font>
+<p><font size="2" color="#800080">To:	</font><font size="2">David Stevens/Beaverton/IBM@IBMUS</font><br>
+<font size="2" color="#800080">cc:	</font><font size="2">netdev@oss.sgi.com</font><font size="2" color="#800080"> </font><br>
+<font size="2" color="#800080">Subject:	</font><font size="2">Re: sysctl variable to force IGMP version [PATCH]</font><br>
+<br>
+<br>
+<br>
+<tt>On Tue, 27 Jan 2004 14:13:41 -0700<br>
+David Stevens &lt;dlstevens@us.ibm.com&gt; wrote:<br>
+</tt><br>
+<tt>&gt; Below is a patch that allows forcing of the IGMP version. The primary<br>
+&gt; use would be with an IGMP-snooping switch that doesn't grok IGMPv3<br>
+&gt; packet formats and when there are no IGMPv2 or IGMPv1 multicast<br>
+&gt; routers on the network. By forcing the IGMP reports to version 2 (or<br>
+&gt; version 1, for really old switches), Linux would send reports that the<br>
+&gt; switch can understand for multicast forwarding to the port.<br>
+</tt><br>
+<tt>Perhaps some sanity to prevent values other than 1 or 2 from being<br>
+set?</tt><br>
+<br>
+<br>
+</body></html>
+--0__=07BBE4B9DF8A76518f9e8a93df938690918c07BBE4B9DF8A7651--
