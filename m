@@ -1,26 +1,38 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: PATCH:  Add comment to make finding the priv_flags definition
- easier.
-Date: Wed, 6 Aug 2003 03:46:42 -0700
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: Re: (usagi-core 14846) [PATCH] IPv6: No fragmentation of packets
+ with length <= mtu
+Date: Wed, 6 Aug 2003 14:00:21 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030806034642.4d91641c.davem@redhat.com>
-References: <3F304AC7.6070808@candelatech.com>
+Message-ID: <Pine.LNX.4.44.0308061344350.1916-100000@rhea.tcs.hut.fi>
+References: <20030806.192824.129498139.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=iso-8859-15
+Cc: netdev@oss.sgi.com, <usagi-core@linux-ipv6.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3F304AC7.6070808@candelatech.com>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030806.192824.129498139.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 05 Aug 2003 17:24:39 -0700
-Ben Greear <greearb@candelatech.com> wrote:
+On Wed, 6 Aug 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
 
-> This helps me, at least, remember where the definitions are at!
+> Well, your patch breaks something; the idea of append_data.
+> User may "push" multiple times to generate a packet.
 
-This is silly, adding one for 'priv_flags' and not one for 'flags'.
+Yeah, I thought there might be something like this, since I'm not yet that
+familiar with the new fragmentation code. :)
 
-I really don't have a taste for these "look in file foo for
-interesting stuff about bar" type comments :-)
+> I'm chasing this bug.
+> Since this bug is not grave, we do not need to fix this ASAP;
+> We need to fix a grave issue with UDPv6 with MSG_MORE flag
+> before this.
+
+No problem.
+
+Regards,
+Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
