@@ -1,74 +1,77 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: [2.4/2.6] ip_nat_ftp - manip at the right place
-Date: Sat, 17 Apr 2004 16:26:09 +0300 (EEST)
+From: John Wong <kernel@implode.net>
+Subject: Re: forcedeth and kernel 2.6.5 has "no link"
+Date: Sat, 17 Apr 2004 13:20:43 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0404171549360.3263@u.domain.uli>
+Message-ID: <20040417202043.GA5282@gambit.implode.net>
+References: <20040416183844.GA2923@gambit.implode.net> <40802EC0.2070108@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="1607745702-453966119-1082208369=:3263"
-Cc: netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: c-d.hailfinger.kernel.2004@gmx.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: coreteam@netfilter.org
+To: Manfred Spraul <manfred@colorfullife.com>
+Content-Disposition: inline
+In-Reply-To: <40802EC0.2070108@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
-  Send mail to mime@docserver.cac.washington.edu for more info.
+Hi,
 
---1607745702-453966119-1082208369=:3263
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+After applying the patch to 2.6.5, I still get the timeouts:
 
+NETDEV WATCHDOG: eth1: transmit timed out
+eth1: tx_timeout: dead entries!
+NETDEV WATCHDOG: eth1: transmit timed out
+eth1: tx_timeout: dead entries!
 
-	Hello,
+John
 
-	The attached patch changes the way the ip_nat_ftp helper
-manipulates the packets:
+On Fri, Apr 16, 2004 at 09:06:40PM +0200, Manfred Spraul wrote:
+> John Wong wrote:
+> 
+> >Under kernel 2.6.4, ethtool reports:
+> >
+> >Settings for eth0:
+> >       Link detected: yes
+> >
+> >This is with forcedeth 0.23
+> >
+> >Under kernel 2.6.5, ethtool reports:
+> >
+> >Settings for eth0:
+> >       Supports Wake-on: g
+> >       Wake-on: d
+> >       Link detected: no
+> >
+> >This is with forcedeth 0.25
+> > 
+> >
+> Odd. I'm not aware of any changes that might cause that difference. I'll 
+> check the diff.
+> 
+> >I had submitted the bugzilla id 2283.  2496 is something that I am
+> >experiencing too.
+> > 
+> >
+> Could you try the attached patch?
+> 
+> 
+> --
+>    Manfred
 
-- no manips => no fixup
-- check the direction, do manip once and at the same time when the
-headers are changed
-
-	This is needed mostly for IPVS setups and I hope we do not
-create troubles for other setups or FTP software.
-
-	I'm not sure whether proper locking for 'info' is needed,
-may be not. Tested for SNAT, DNAT, passive, active.
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
---1607745702-453966119-1082208369=:3263
-Content-Type: TEXT/PLAIN; charset=US-ASCII; name="nat_ftp-1.diff"
-Content-Transfer-Encoding: BASE64
-Content-ID: <Pine.LNX.4.58.0404171626090.3263@u.domain.uli>
-Content-Description: ip_nat_ftp - change manip
-Content-Disposition: attachment; filename="nat_ftp-1.diff"
-
-LS0tIHYyLjYuNS9saW51eC9uZXQvaXB2NC9uZXRmaWx0ZXIvaXBfbmF0X2Z0
-cC5jCTIwMDQtMDItMTkgMDA6MTM6MzguMDAwMDAwMDAwICswMjAwDQorKysg
-bGludXgvbmV0L2lwdjQvbmV0ZmlsdGVyL2lwX25hdF9mdHAuYwkyMDA0LTA0
-LTE3IDExOjQ0OjE0LjQ3MTA3NDY4OCArMDMwMA0KQEAgLTI1MCwxNyArMjUw
-LDIzIEBADQogCXVuc2lnbmVkIGludCBkYXRhbGVuOw0KIAlpbnQgZGlyOw0K
-IAlzdHJ1Y3QgaXBfY3RfZnRwX2V4cGVjdCAqY3RfZnRwX2luZm87DQorCWlu
-dCBpLCBkb19tYW5pcCA9IDA7DQogDQogCWlmICghZXhwKQ0KIAkJREVCVUdQ
-KCJpcF9uYXRfZnRwOiBubyBleHAhISIpOw0KIA0KIAljdF9mdHBfaW5mbyA9
-ICZleHAtPmhlbHAuZXhwX2Z0cF9pbmZvOw0KIA0KLQkvKiBPbmx5IG1hbmds
-ZSB0aGluZ3Mgb25jZTogb3JpZ2luYWwgZGlyZWN0aW9uIGluIFBPU1RfUk9V
-VElORw0KLQkgICBhbmQgcmVwbHkgZGlyZWN0aW9uIG9uIFBSRV9ST1VUSU5H
-LiAqLw0KKwkvKiBPbmx5IG1hbmdsZSB0aGluZ3Mgb25jZTogZm9yIHRoZSBm
-aXJzdCBtYW5pcCBpbiB0aGlzIGRpcmVjdGlvbi4gKi8NCiAJZGlyID0gQ1RJ
-TkZPMkRJUihjdGluZm8pOw0KLQlpZiAoISgoaG9va251bSA9PSBORl9JUF9Q
-T1NUX1JPVVRJTkcgJiYgZGlyID09IElQX0NUX0RJUl9PUklHSU5BTCkNCi0J
-ICAgICAgfHwgKGhvb2tudW0gPT0gTkZfSVBfUFJFX1JPVVRJTkcgJiYgZGly
-ID09IElQX0NUX0RJUl9SRVBMWSkpKSB7DQorCWZvciAoaSA9IDA7IGkgPCBp
-bmZvLT5udW1fbWFuaXBzOyBpKyspIHsNCisJCWlmIChpbmZvLT5tYW5pcHNb
-aV0uZGlyZWN0aW9uID09IGRpcikgew0KKwkJCWlmIChpbmZvLT5tYW5pcHNb
-aV0uaG9va251bSA9PSBob29rbnVtKQ0KKwkJCQlkb19tYW5pcCA9IDE7DQor
-CQkJYnJlYWs7DQorCQl9DQorCX0NCisJaWYgKCFkb19tYW5pcCkgew0KIAkJ
-REVCVUdQKCJuYXRfZnRwOiBOb3QgdG91Y2hpbmcgZGlyICVzIGF0IGhvb2sg
-JXNcbiIsDQogCQkgICAgICAgZGlyID09IElQX0NUX0RJUl9PUklHSU5BTCA/
-ICJPUklHIiA6ICJSRVBMWSIsDQogCQkgICAgICAgaG9va251bSA9PSBORl9J
-UF9QT1NUX1JPVVRJTkcgPyAiUE9TVFJPVVRJTkciDQo=
-
---1607745702-453966119-1082208369=:3263--
+> --- 2.6/drivers/net/forcedeth.c	2004-04-10 09:52:45.000000000 +0200
+> +++ build-2.6/drivers/net/forcedeth.c	2004-04-13 18:58:59.000000000 +0200
+> @@ -1263,6 +1263,14 @@
+>  				dev->name, id1, id2, i);
+>  		np->phyaddr = i;
+>  
+> +		if (id1 == 0x0015 && (id2 &0xfff0) == 0xf440) {
+> +			printk(KERN_DEBUG "%s: open: Found ICS, applying workaround.\n", dev->name);
+> +        		/* workaround for ICS1893 PHY */
+> +            		mii_rw(dev, i, 0x0018, 0xD200);
+> +			set_current_state(TASK_UNINTERRUPTIBLE);
+> +			schedule_timeout(HZ);
+> +		}
+> +
+>  		spin_lock_irq(&np->lock);
+>  		nv_update_linkspeed(dev);
+>  		spin_unlock_irq(&np->lock);
