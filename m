@@ -1,80 +1,41 @@
-From: Niranjan <niranjan_cs2905@yahoo.com>
-Subject: Re: kernel bug at sched.c:564! + linux kernel 2.4.25
-Date: Tue, 27 Jul 2004 15:23:33 -0700 (PDT)
+From: Russell King <rmk@arm.linux.org.uk>
+Subject: Re: [Fwd: pcmcia ether drivers can't be unloaded]
+Date: Tue, 27 Jul 2004 23:36:14 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040727222333.14936.qmail@web53005.mail.yahoo.com>
-References: <200407272150.50664.vkondra@mail.ru>
+Message-ID: <20040727233614.B30782@flint.arm.linux.org.uk>
+References: <41068BEF.7010200@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Matt Mackall <mpm@selenic.com>, Niranjan <niranjan_cs2905@yahoo.com>,
-        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Vladimir Kondratiev <vkondra@mail.ru>, James Morris <jmorris@redhat.com>
-In-Reply-To: <200407272150.50664.vkondra@mail.ru>
+To: Jeff Garzik <jgarzik@pobox.com>, shemminger@osdl.org, davem@redhat.com,
+        netdev@oss.sgi.com, Greg KH <greg@kroah.com>
+Content-Disposition: inline
+In-Reply-To: <41068BEF.7010200@pobox.com>; from jgarzik@pobox.com on Tue, Jul 27, 2004 at 01:07:59PM -0400
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Thanks for all your help. I didn't found any group
-which is maintaining CryptoAPI.
-I am using cryptoapi-0.1.0 and there is no
-crypto/api.c file. But the memory allocation in this
-version (cryptoapi-0.1.0) is using GFP_KERNEL.
-I really didn't understand how to solve the problem
-using BH. Now, I am reading kernel locking HOWTO to
-understand BH and softirq.
-I will also try adding crypto functions inside the
-WLAN driver.
+On Tue, Jul 27, 2004 at 01:07:59PM -0400, Jeff Garzik wrote:
+> It looks like pcmica modular ether (example orinoco) can never be manually
+> unloaded because module refcount is always 1. This comes from the owner
+> field in the pcmcia_driver.owner being set.
 
-Warm Regards,
--Niranjan
-UMASS.
+Intended behaviour.  As long as the driver is bound to a socket, there are
+references to the driver, so we need to keep the refcount non-zero.
 
+Once the driver is unbound (by ejecting cards) then the ref count will
+drop to zero and the module can be unloaded.
 
---- Vladimir Kondratiev <vkondra@mail.ru> wrote:
-> On Tuesday 27 July 2004 21:39, James Morris wrote:
-> > On Tue, 27 Jul 2004, Vladimir Kondratiev wrote:
-> > > We also saw the same (crypto modules goes to
-> sleep).
-> > > Due to this, we decided to not use cryptoapi for
-> our wireless driver, but
-> > > compile the same crypto functions into the
-> driver. I know this is code
-> > > duplication, but Tx and Rx paths work in BH
-> context (I reschedule it on
-> > > IRQ Rx to use cheaper time).
-> > >
-> > > Do cryptoapi maintainers aware of this issue?
-> >
-> > The crypto functions should be safe to use in
-> softirq context.
-> It should be, but:
-> <crypto/api.c:121>
-> struct crypto_tfm *crypto_alloc_tfm(const char
-> *name, u32 flags)
-> {
->         struct crypto_tfm *tfm = NULL;
->         struct crypto_alg *alg;
-> 
->         alg = crypto_alg_mod_lookup(name);
->         if (alg == NULL)
->                 goto out;
-> 
->         tfm = kmalloc(sizeof(*tfm) +
-> alg->cra_ctxsize, GFP_KERNEL);
-> 
-> Note kmalloc(GFP_KERNEL)
-> >
-> >
-> > - James
-> 
+> One fix is to not set owner field but then there is a hot plug/module
+> remove race. But the right fix seems to fix up pcmcia to be a true bus
+> in the driver model and have the same hotplug as other buses; usb and
+> pci don't have the problem.
 
-> ATTACHMENT part 2 application/pgp-signature 
+No, the right fix is not to try to fsck with PCMCIA refcounting - it
+isn't up to having drivers randomly unloaded.  IOW, it remains 2.4
+behaviour.
 
-
-
-
-		
-__________________________________
-Do you Yahoo!?
-Yahoo! Mail - 50x more storage than other providers!
-http://promotions.yahoo.com/new_mail
+-- 
+Russell King
+ Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
+ maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
+                 2.6 Serial core
