@@ -1,26 +1,35 @@
-From: Patattenboerken <potatoehead@fusionphp.net>
-Subject: Visit FusionPHP.net !!!
-Date: Fri, 18 Feb 2005 19:24:09 -0800
-Message-ID: <E1D2LE1-0000QK-SE@server1.darkfirehosting.com>
-Reply-To: patattenboerken@gmail.com
-To: netdev@oss.sgi.com
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Intel and TOE in the news
+Date: Fri, 18 Feb 2005 22:44:45 -0500
+Message-ID: <4216B62D.6000502@pobox.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+To: Netdev <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-Visit FusionPHP.NET today, fullfilling your PHP needs!!!
+http://www.theregister.co.uk/2005/02/18/intel_tcpip_attack/
 
-http://www.fusionphp.net/
+Intel to attack greedy TCP/IP stack
 
-We have the BEST free php news script in the world. Please click on the GOOGLE AdSense ads at the top of the page ONCE per day, Every day to keep our site online and pay for our hosting!!!
+Intel next year will plant itself square in the middle of the budding 
+market for systems that speed network traffic by rolling out something 
+called I/OAT.
 
-Please spread the word about our website and our scripts!!! Forward this email to 250 people and we'll pay you $7.50 US dollars via paypal.
+I/OAT stands for I/O Acceleration Technology and it will be previewed 
+for the first time at next month's Intel Developer Forum (IDF) in San 
+Francisco. Intel remains cagey about what exactly I/OAT is, but it 
+dangled a few details today in front of reporters ahead of the IDF event.
 
-Thank you,
-Patattenboerken
-http://fusionphp.net/
-patattenboerken@gmail.com
-webmaster@fusionphp.net
+[...]
 
-Remember to Click on the Google AdSense ads ONCE per day at least, multiple clicks per day don't matter as much as ONCE per day. Thank you.
+Intel plans to sidestep the need for separate TOE cards by building this 
+technology into its server processor package - the chip itself, chipset 
+and network controller. This should reduce some of the time a processor 
+typically spends waiting for memory to feed back information and improve 
+overall application processing speeds.
+
+[...]
