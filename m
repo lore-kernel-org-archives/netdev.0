@@ -1,23 +1,22 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] lksctp 0.6.9 backport on 2.4.23-pre4
-Date: Sat, 20 Sep 2003 00:35:16 -0700
+Subject: Re: [PATCH] SEQ_START_TOKEN for af_netlink.c
+Date: Sat, 20 Sep 2003 00:36:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030920003516.344e8e14.davem@redhat.com>
-References: <B320F712053ED411869200D0B747A3CA0FE4752D@laplace.grenoble.hp.com>
+Message-ID: <20030920003605.1bc998ee.davem@redhat.com>
+References: <20030918212518.GA86845@compsoc.man.ac.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com, samudrala@us.ibm.com,
-        lksctp-developers@lists.sourceforge.net
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "MORANGE,DAMIEN (HP-France,ex1)" <damien.morange@hp.com>
-In-Reply-To: <B320F712053ED411869200D0B747A3CA0FE4752D@laplace.grenoble.hp.com>
+To: John Levon <levon@movementarian.org>
+In-Reply-To: <20030918212518.GA86845@compsoc.man.ac.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 19 Sep 2003 14:41:31 +0200
-"MORANGE,DAMIEN (HP-France,ex1)" <damien.morange@hp.com> wrote:
+On Thu, 18 Sep 2003 22:25:18 +0100
+John Levon <levon@movementarian.org> wrote:
 
-> <http://linux-lksctp.bkbits.net:8080/lksctp-2.4>
+> Seems this got missed in the sweep.
 
-Looks good, pulled thanks.
+Applied, thanks John.
