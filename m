@@ -1,104 +1,56 @@
-From: Neil Horman <nhorman@redhat.com>
-Subject: Re: Network Driver and NFS Root
-Date: Tue, 19 Oct 2004 14:31:57 -0400
+From: Lee Revell <rlrevell@joe-job.com>
+Subject: Re: tun.c patch to fix "smp_processor_id() in preemptible code"
+Date: Tue, 19 Oct 2004 14:31:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41755D9D.4080304@redhat.com>
-References: <417040C2.6070408@rtcworks.com> <41754656.2060202@rtcworks.com>
+Message-ID: <1098210711.2148.69.camel@krustophenia.net>
+References: <1097876587.4170.16.camel@marvin.home.parkautomat.net>
+	 <1097879702.6737.7.camel@krustophenia.net>
+	 <200410172314.38597.vda@port.imtp.ilyichevsk.odessa.ua>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: no To-header on input <unlisted-recipients:;>, linux-net@vger.kernel.org,
-        netdev@oss.sgi.com
+Cc: Linux Network Development <netdev@oss.sgi.com>,
+        linux-kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bob Wirka <bobwirka@rtcworks.com>
-In-Reply-To: <41754656.2060202@rtcworks.com>
+To: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
+In-Reply-To: <200410172314.38597.vda@port.imtp.ilyichevsk.odessa.ua>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Bob Wirka wrote:
-> First, thanks for the responses to my earlier post. I appreciate it.
+On Sun, 2004-10-17 at 16:14, Denis Vlasenko wrote:
+> > Your patch:
+> > 
+> > +       preempt_disable();
+> >         netif_rx_ni(skb);
+> > +       preempt_enable();
+> > 
+> > just wraps this code in preempt_disable/enable:
+> > 
+> > static inline int netif_rx_ni(struct sk_buff *skb)
+> > {
+> >        int err = netif_rx(skb);
+> >        if (softirq_pending(smp_processor_id()))
+> >                do_softirq();
+> >        return err;
+> > }
+> > 
+> > Isn't this considered an incorrect use of preempt_disable/enable?  My
+> > reasoning is that if this was correct we would see preempt_dis/enable
+> > sprinkled all over the code which it isn't.
+> > 
+> > Why do you have to call do_softirq like that?  I was under the
+> > impression that you raise a softirq and it gets run later.
 > 
-> The ethernet driver code is now executing at boot time; adding either 
-> '__initcall(init_fcn)' or 'init_module(init_fcn)' will cause the kernel 
-> to call 'init_fcn'. That's the good news.
+> There is a possibility that this guy just wanted to fix his
+> small problem.
 > 
-> The bad news is that the initializatin code causes a kernel oops when 
-> accessing the 'net_device' structure that is passed to it by the kernel 
-> (as a pointer). When the code either reads or writes to the 'net_device' 
-> structure you get:
-> 
-> Unable to handle kernel paging request at virtual address 00010f24
-> 
-> Can anyone shed some light on this? I've printed out the value of the 
-> 'net_device' pointer, and it's not a null pointer.
-> 
-> Thanks,
-> 
-> Bob Wirka
-> Realtime Control Works
-> 
-	Take a look at any of the other working net drivers in the kernel.  You 
-can pretty well cut-n-paste the net_device allocation/initalization code 
-  from any of those drivers into yours.  Look for calls to 
-alloc_etherdev to find places to start looking.
 
-	Most likely you've forgotten to initalize some part of the structure 
-before passing it to register_netdev, or perhaps you've passed  a 
-pointer to a net_device structure that was allocated on the stack rather 
-than from the heap.  Its not really possible to tell without looking 
-through the code, but regardless, start comparing what you do in your 
-initalization routine to what any of the other net drivers do in the 
-same area of code, and your problem is likely to jump right out at you.
+Yes, that is what I thought.  The question was more directed at the
+list.  I added netdev to the cc:.  
 
-HTH
-Neil
+I looked at Robert Love's book and I am still unclear on the use of
+do_softirq above.  To reiterate the question:  why does netif_rx_ni have
+to manually flush any pending softirqs on the current proccessor after
+doing the rx?  Is this just a performance hack?
 
-> ---------------ORIGINAL POST----------------------------
-> 
-> Bob Wirka wrote:
-> 
->> Hello,
->>
->> I'm trying to build a kernel that mounts a NFS root file system. This 
->> is an embedded system; it uses an SMSC LAN91C111 network chip that is 
->> hardwired to I/O addres 0x300 and IRQ 5. I've been using the driver 
->> (as supplied by SMSC) as a module, and it works fine. Now I'm trying 
->> to incorporate it into the kernel build so that I can mount an NFS 
->> file system when the system boots.
->>
->> I've added the source code to the kernel tree, and modified the 
->> Makefile(s) and Config.in files so that the driver <<appears>> to be 
->> compiled into the kernel. The kernel will load, but the chip is not 
->> initialized and the NFS fails.
->>
->> Since I don't know how to pass the io address and irq number to the 
->> kernel, I've hard-coded them into the driver's init function (which I 
->> don't see being called).
->>
->> If someone could point me in the right direction, I'd appreciate it.
->>
->> Thank you,
->>
->> Bob Wirka
->> Realtime Control Works
->> -
->> To unsubscribe from this list: send the line "unsubscribe linux-net" in
->> the body of a message to majordomo@vger.kernel.org
->> More majordomo info at  http://vger.kernel.org/majordomo-info.html
->>
-> 
-> -
-> To unsubscribe from this list: send the line "unsubscribe linux-net" in
-> the body of a message to majordomo@vger.kernel.org
-> More majordomo info at  http://vger.kernel.org/majordomo-info.html
-
-
--- 
-/***************************************************
-  *Neil Horman
-  *Software Engineer
-  *Red Hat, Inc.
-  *nhorman@redhat.com
-  *gpg keyid: 1024D / 0x92A74FA1
-  *http://pgp.mit.edu
-  ***************************************************/
+Lee
