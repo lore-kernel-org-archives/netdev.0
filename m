@@ -1,82 +1,77 @@
-From: Dave Hansen <haveblue@us.ibm.com>
-Subject: TCP stalling problems dissipated in 2.5.63
-Date: Thu, 27 Feb 2003 01:02:31 -0800
+From: "FreeStyle-T" <jtn@cs.puon.net>
+Subject: =?iso-2022-jp?B?GyRCIWMhY0wkPjVCejktOXAhZCFkIXo6X0JwJEckTiVRJT0bKEI=?=
+	=?iso-2022-jp?B?GyRCJTMlcyRyO0gkQyQ/JCo7RTt2JE4wRkZiJEckOSEjIXobKEI=?=
+Date: 27 Feb 2003 18:10:47 +0900
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E5DD427.2070801@us.ibm.com>
+Message-ID: <00e601c2de41$24c7a760$0300a8c0@fmv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="iso-2022-jp"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I've been complaining about these problems for a bit, so I thought I'd
-share some good news.
+＜＜未承諾広告＞＞★在宅でのパソコンを使ったお仕事の案内です。★
 
-http://marc.theaimsgroup.com/?l=linux-netdev&m=104169568212878&w=2
-http://marc.theaimsgroup.com/?t=104343403700001&r=1&w=2
+  ＝＝＝御関心の無い方は削除して下さい。＝＝＝
 
-I decided to spend some time tracking down the TCP stalls that I was
-still seeing with the e1000 on 2.5.59 (probably not the e1000's fault,
-just the only cards I see it on).  I pulled out my trusty old test that
-I've been using for a few weeks to replicate the problem.  Anyway, I
-can't get it to occur any more.  The real test will be to see if Specweb
-still triggers it, but my Specweb machine is a smoldering pile of slag
-right now.
+　世の中不景気で、倒産だリストラだと大変です。
+勤めていても給料は上がらないし、残業がない分下がっています。
+お金がもう少し、せめて５万でも、いや３万でも余分に稼げれば・・
+誰もが考えた事が有ると思います。
+　
+アルバイトが出来て、少し余分に稼げれば・・
+でも、会社に知れたら・・。子供が小さくて家を空けれない・・。
+近くに自分に出来る仕事が・・。なかなか希望のものは少ないのです！
 
-I have a 4-way PIII-Xeon and an 8-way PIII-Xeon plugged into the same
-copper gigabit switch.  The 4-way runs 4 copies of http-bench.sh, which
-I've included below.  It basically asks the server for a list of files
-(from a cgi script), then fetches them sequentially.   The _sustained_
-data rate is 750 Mb/sec with peaks of ~790 Mb/sec.  The server runs
-Apache 2.0.43.
+　もし、自宅で出来て・・。自分の自由な時間に・・。安定的に出来る
+お仕事が出来たらどうでしょう？
+　それも、自分で上手に出きるようになれば、将来専業として自立して
+行くことも可能になるのです！！
+ご自宅でパソコン技能を利用して、毎月安定的な収入を考えてみませんか？
 
-During this time, the client is about 80% CPU saturated (shell scripts,
-what do you expect?), but the server is a much different story.  vmstat
-shows ~1% user time, and only 5-6% kernel.  The rest is idle!  I have
-readprofile from a short slice, because oprofile doesn't work on these
-machines.
+主婦・社会人・年配者・学生・アルバイター等が現在活躍しています！
+業務は、データー入力・文書入力・プログラミング等、詳しくは下記に！
 
-   126 tcp_write_xmit                             0.1703
-   128 kfree                                      1.2800
-   131 __kfree_skb                                0.6550
-   132 ip_rcv                                     0.1303
-   142 qdisc_restart                              0.3550
-   150 tcp_transmit_skb                           0.1053
-   156 schedule                                   0.1566
-   161 e1000_clean_rx_irq                         0.1720
-   169 kmalloc                                    1.2426
-   189 skb_clone                                  0.4500
-   215 alloc_skb                                  0.4594
-   233 do_generic_mapping_read                    0.2709
-   240 tcp_v4_rcv                                 0.1268
-   294 e1000_intr                                 3.1957
-   311 e1000_clean_tx_irq                         0.7266
-   353 e1000_xmit_frame                           0.2229
-   370 do_tcp_sendpages                           0.1370
-   408 skb_release_data                           2.6154
-127279 poll_idle                                1515.2262
-134275 total                                      0.0829
+パソコン資格有る人もない人も、初心者でもやる気があれば大丈夫です！
+ホームページ上で、あなたのレベルをチェックし、あなたに合ったお仕事を
+選びます。
 
-httpd-bench.sh:
-#!/bin/sh
-SERVER=10.1.1.96
-rm -f file_list 2> /dev/null
-wget -O file_list http://$SERVER/ls.pl
-cat file_list | \
-awk '{print "http://'$SERVER'/" $0}' | \
-xargs --max-procs=1 --max-args=20 wget -O /dev/null --progress=dot 2>&1
-| grep \'" saved " \
-| awk -f speedavg.awk
+　　　　◆パソコンワークで出来る仕事の種類をお伝えします。◆
 
-ls.pl from the server (yeah, yeah, I know it's not perl, but I didn't
-feel like adding another handler)
-#!/bin/sh
-echo 'Content-type: text/html'
-echo
-find file_set -type f -size +100k
+■テープ起こし等やの手書きデータからの文書入力業務
+　出版社等の依頼により、編集者が行った作家へのインタービューや『対談記事』
+　等をＷＯＲＤを使って文書を入力して行く仕事です。
 
--- 
-Dave Hansen
-haveblue@us.ibm.com
+■アンケートハガキの集計とデータ−入力業務
+　企業が行うキャンペーンのアンケートハガキ等を集計をＥＸＣＥＬやＡＣＣＥＳＳ
+　等を使って入力等をする集計業務です。
+
+■会報誌やチラシ等の『DTP』作成業務
+　商店やスーパー等の小売り店等の依頼による、チラシ等の作成やサークルなどの
+　会員向けの会報作り業務です。掲載する原稿や写真は、発注者の方に決めて頂き
+　レイアウトが平凡だとインパクトがないので、工夫してなるべく手にとってもら
+　えるようにしています。
+
+■ホームページの作成
+　個人や商店及び企業の依頼によるＰＲや販売促進用のＨＰ作成業務
+
+■手書きの原稿を元に書類を制作
+　手書きの原稿を元に、Microsoft WORDを使って書類を作成する業務
+
+■書類の表を元に宛名ラベルへの出力
+　通信販売会社やデパート、又ゴルフメーカーやカーショップ等が発送
+　する『ダイレクトメール』等の表を元にデータベースを作り、宛名ラベルに出力
+　する業務
+　　　　　　　　※他にも、パソコンを使った業務は多々御座います。
+　　
+　　　◆さらに詳しい内容、資料請求は下記のホームページにて確認下さい。
+
+　　　　　　　　　◇　http://www.freestyle-tokyo.jp　　◇
+
+           FREE STYLE CO.,LTD    東京都目黒区自由が丘２−１７−１１
+　　　　　　　　　　　　　　　　　TEL　０３−５７３１−８７０８
+　　　　　　※　当方からのメールが不要な方は、「受信拒否」と表示して、
+　　　　　　　　free-style-tokyo@cs.puon.netまでメールで送信してください。
