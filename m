@@ -1,35 +1,34 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] Implementation for IPv6 MIB:ipv6AddressTable
-Date: Tue, 07 Oct 2003 20:35:18 +0900 (JST)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: Fw: Re: [PATCH] ipv4 tcp autobind problem
+Date: Tue, 7 Oct 2003 15:56:41 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007.203518.82055464.yoshfuji@linux-ipv6.org>
-References: <20031007034051.3fcb3218.davem@redhat.com>
-	<200310071116.PAA30760@yakov.inr.ac.ru>
-	<20031007041246.13aa0391.davem@redhat.com>
+Message-ID: <200310071156.PAA31530@yakov.inr.ac.ru>
+References: <3F7990FB.7030606@balabit.hu>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, mashirle@us.ibm.com, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
+Cc: davem@redhat.com (David S. Miller), jmorris@redhat.com, netdev@oss.sgi.com,
+        linux-net@vger.rutgers.edu, bazsi@balabit.hu (Balazs Scheidler)
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-In-Reply-To: <20031007041246.13aa0391.davem@redhat.com>
+To: hidden@balabit.hu (Kovacs Krisztian)
+In-Reply-To: <3F7990FB.7030606@balabit.hu> from "Kovacs Krisztian" at Сен 30, 2003 04:19:39 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20031007041246.13aa0391.davem@redhat.com> (at Tue, 7 Oct 2003 04:12:46 -0700), "David S. Miller" <davem@redhat.com> says:
+Hello!
 
-> On Tue, 7 Oct 2003 15:16:20 +0400 (MSD)
-> kuznet@ms2.inr.ac.ru wrote:
-> 
-> > Actually, this does not depend on our implementation. If people implement
-> > a MIB, required precision of these times is prescribed in the rfc.
-> > And this is definitely not jiffies.
-> 
-> Right, Shirley what is it?
+> - When the socket is closed (inet_release() is called, tproxy has its 
+> "callback" function here), the corresponding entries are deleted from 
+> tproxy's hash tables, again, based on the local ip:port pair.
 
-The type is TimeTicks (RFC2578) via TimeStamp (RFC2579).
-Thus, uint32_t counter in 1/100 sec. unit.
+The mistake is here. inet_release() has nothing to do to connection
+state. Socket is not closed at this point, it goes to FIN-WAIT*, LAST-ACK or
+something like this and can exist for long time after this and proxying
+is to be continued all this time.
 
---yoshfuji
+Right place to finish tracking is when socket is removed from TCP
+hash tables, and to start tracking is when the socket is inserted
+to TCP hash tables. BTW you would not see the problem with binding
+if it was made right.
+
+Alexey
