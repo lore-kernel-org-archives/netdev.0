@@ -1,32 +1,35 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [PATCH 2.5.70] e100 initialize fields prior to register_netdevice
-Date: Thu, 29 May 2003 15:45:51 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.5.70] remove if_port_text
+Date: Thu, 29 May 2003 18:07:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010107D800@orsmsx402.jf.intel.com>
+Message-ID: <3ED684BA.4070001@pobox.com>
+References: <20030529.140828.78714529.davem@redhat.com>	<20030529142820.5f657d77.shemminger@osdl.org>	<3ED67E01.6060906@pobox.com> <20030529.144853.88480047.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: "David S. Miller" <davem@redhat.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, scott.feldman@intel.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>,
-   "Stephen Hemminger" <shemminger@osdl.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030529.144853.88480047.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Agreed.  I consider this a rather serious bug, that could 
-> cause crashes in multiple corner cases; sysfs being only 
-> one of those cases.
+David S. Miller wrote:
+>    From: Jeff Garzik <jgarzik@pobox.com>
+>    Date: Thu, 29 May 2003 17:39:13 -0400
 > 
-> I'm going to go ahead and apply this to 2.5.
+>    Stephen Hemminger wrote:
+>    > Eliminate necrophilic code, net-sysfs shouldn't support
+>    > deprecated if_port.  Since nowhere else is using if_port_text,
+>    > eliminate it.
+>    
+>    Looks good to me...  David?
+>    
+> I'm fine with it.  I'll apply to 2.5.x
 > 
-> Stephen, could I get you to send me a similar patch for 2.4? 
-> (it doesn't apply cleanly)  It's very much a bug in 2.4 also.
+> Jeff what do you think about 2.4.x?
 
-2.4 e100 should be fine, as this breakage was just introduced in last
-patchset for 2.5 (only).
 
-Thanks Stephen.
+I'd rather not... that's an ABI-visible thing.
 
--scott
+	Jeff
