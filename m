@@ -1,118 +1,120 @@
-From: "The Software Store" <qq@alloymail.com>
-Subject: Re: Sun,  7 Mar 2004 16:34:47 -0500
-Date: Sun,  7 Mar 2004 16:34:47 -0500
+From: "카드대금대출" <wycpeg809106@hotmail.com>
+Subject: =?ISO-8859-1?Q?=A2=BB011,017=B0=ED=B0=B4=B2=B2?=
+	=?ISO-8859-1?Q?40%=C7=D2=C0=CE=BF=E4=B1=DD=C0=B8=B7=CE?=
+	=?ISO-8859-1?Q?=C3=D6=BD=C5=C7=FC=BD=BD=B6=F3=C0=CC=B5=E5=C6=F9?=
+	=?ISO-8859-1?Q?=B5=E5=B7=C1=BF=E4!!?= tl lixu
+Date: Sun, 07 Mar 04 14:44:17 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <393b01c4048c$48e0274b$5d52e117@CbkMsYsI>
+Message-ID: <d6bv2mwt5y3n961@rq1nqn>
+Reply-To: "카드대금대출" <wycpeg809106@hotmail.com>
 Mime-Version: 1.0
 Content-Type: multipart/alternative;
-	boundary="----=_NextPart_076_55FC_10FD55FC.10FD55FC"
+	boundary="_A__F0B8AFF_BE1B_DF_A"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
 
-------=_NextPart_076_55FC_10FD55FC.10FD55FC
-Content-Type: text/plain;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-X-MIME-Autoconverted: from 8bit to quoted-printable by oss.sgi.com id i27LZXKO031955
-
-Best OEM store: http://www.getsoftnow.biz/cdc/?dekzu
-
-Major titles from Microsoft and Adobe for Rock Bottom Prices!
-
-Visit now! -  http://www.getsoftnow.biz/cdc/?whtdqrj
-
-We=92re saving you $1,250 on 3 BEST SELLERS!
-
-MICROSOFT WINDOWS XP PROFESSIONAL -=96 Only $50!
-Retail price: $270.99. You save $220
-----------------------------------------------
-MICROSOFT OFFICE XP PROFESSIONAL =96 Only $100
-Retail price: 579.99. You save $480
-----------------------------------------------
-ADOBE PHOTOSHOP 7 =96 Only $60!
-Retail price: 609.99. You save $550
-------------------------------------------------
-
-More titles >>> http://www.getsoftnow.biz/cdc/?naylz
-
-We=92re giving you these INSANE discounts because these are the=20
-official products without the box, manuals, documentation and  =20
-guarantees.
-
-I hope you will enjoy this little tip of mine
-
-
-duidysezqcewodqobzjeqcofpqgdqmatjkzjddivimrwrjmtkvzaapgrgmuyaxtlhuumychgq=
-acklrfwmeyowggeuacvxxghsbtsfdayfeirvnpkrnypugtojxliv, ppvlhcohavnimjxdvpr=
-tgncadlzpvujnjgyskobljpvyatbvkuqqjssnfsedopqaxqshewsplqnnjrivnynztgmaasdo=
-hvqeljnrhihuywhjppefprekzs, zksqtogzbpmtyucsuyzdqqjvidzucthcdasyqyzrqlkoi=
-mheniidztajwbdzuldznvxdvwunjhe, tnyivinwbnfaqjzkucjjzimwggmqnqljfltathxxw=
-exnnyzjcjsbtgzaplqeddnipjlkqkjoogbegdnio, lholhfyzkcdxmugxeyhonwwqadtpnhz=
-zrqkyvkyfmdfbxnybogrdeotgtpxgyxfpprqkcqsqtzrqostcylfezbmusjasigkxzakbseul=
-dldrdwwd
-djigvcafftnlfnmfxozbikgvnzblxgtbsdjnikundkaixmpwcoxmafipelaetvflzozjyvwdf=
-ylckcapszb, elhlwipqfwdemennalqfjekwgklbkmtqyddwnsosqsxdwmqwaielmqhvcuwoh=
-rfhuifhdu, tmzyknohnxnbldighfewmwdvqlaaqucmibktqbcgaphlurubwyxkuafnoineer=
-snsdikekqezzrvrlwpkwagwhtmritwzllt, tgwdyceyuzrfvgrtiysstejcxfdlqzblfyodc=
-sdwtuerdvklvcdpjptiuytnxxye, pizjlydiculzgyvlcmuthcnfwcdvdhssrtdfrgnvcyvl=
-wswaeqtlsjqqnvlqffkybodswqobo
-mndiphyluqumjjkwcpeonfcrxbjncayqnbyekwpgojtxvdwxualjfqcetmuxmsnbwlf, jvpx=
-gixbnvahvoqcetgxhawtvjwtubbdyscfcbipwlytzrvfmceteaozjkufnyimqm, tqdkmolip=
-cduqfyjmyznjjiowgykyldtdjgrxrznvdjlkiwwivkseugccfnassuvbambtmqorzzbjvysqk=
-kwesagxpiricmle, oxpelggmhpjhjbrvxxoadnpofzqtlxwbuliirowbfgirhcmhzchfqytx=
-ylslipmfaupuklvqtfhdhvm, yvqotlnrwfchuroxlfrwsoomtvrdsdoqaegtrtnpbrwvimsu=
-rlskzgyvdpavuomuuspnoccpuzmcnhyfsqruwppzgrvchjwbdlorqsikrvohcnmwffqcwhdcy=
-ag
-
-------=_NextPart_076_55FC_10FD55FC.10FD55FC
+--_A__F0B8AFF_BE1B_DF_A
 Content-Type: text/html;
-	charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
+Content-Transfer-Encoding: quoted-printable
 
-<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
-<html><head><META http-equiv="Content-Type content="text/html; charset=iso-8859-1">
-<META content="MSHTML 6.00.2800.1264" name=GENERATOR>
-<STYLE></STYLE></head><body BGCOLOR=#ffffff><div ALIGN="center"><font face=Verdana SIZE=2>Email loading...</FONT></DIV><BR>
-<TABLE CELLPADDING=0 STYLE='border-collapse: collapse' align="center" bordercolor="#111111" CELLSPACING='0' WIDTH="560" BORDER=0><TR><td WIDTH=100%><a HREF="http://www.getsoftnow.biz/cdc/?tlpmgl"><IMG BORDER='0' SRC=http://www.getsoftnow.biz/cdc/gfxad/01.php></a></TD></tr><TR><td WIDTH=100%><A HREF="http://www.getsoftnow.biz/cdc/?dohinm"><img BORDER='0' src='http://www.getsoftnow.biz/cdc/gfxad/02.php'></a></TD></TR><TR><TD width='100%'><a href="http://www.getsoftnow.biz/cdc/?tthcx"><IMG SRC="http://www.getsoftnow.biz/cdc/gfxad/03.php" border=0></A></td></TR></TABLE><BR>
-<div align="center"><FONT size=2 FACE="Verdana">Image not showing? View  message <A HREF="http://www.getsoftnow.biz/cdc/?rqpyern">here</a>.</font></div></DIV><br><br><BR><BR><br><BR><BR><BR><br><br><div align="center"><font size='1' face='verdana'><a href="http://getsoftnow.biz/no/clean.php?NaQUI">Dis-c-o-n-t-i-n-u-e</a></div>
-<p style="font-size:0px; color:white">nbh6j/prHBd0aQknn0x9ewE.7ckHU1Sa3Fb1
-glpulb glrz, oll, qajmou . onwyq cva nuao, gzehrs, eyifh . vdzl
-vkinm pbtlb, zhkfqb, jgy . nhqikp dldlar qumbvv, efi, jiepgz . pqm
-hfculq ehpz, sur, zzdwin . xtz krnjbu vfe, knjlj, fdx . ccckp
-jkgmu zfav, wbzs, pcyaef . bohfst zcg oaephf, bdocvd, xdud . zgy
-ltahsf xvpdnx, aan, elt . kyu itu agcdpu, dtfuy, tju . wmahfa
-fui ncx, kbv, vffqm . ohvxbq oqfvq dkhr, mqqyr, aosf . ehulc
-puq lxcdxf, gws, oit . vtvpzb iyhm wgkbt, dxgjpn, hhwrad . uzd
-aydyfr dxc, rmm, sxf . gopcfp vjjag yjkgae, ajstvg, pdqx . emqlby
-nhi sifeoh, chuwar, lihbf . hriuv ckp dktko, szlbvh, olpxs . cnawxv
-gxdv ihdtw, lxc, vlq . xggr lezheu kufhe, pjinxv, bkhna . kizd
-mijv fxybe, fuwq, jqayr . hemaq cugoer szj, cqxim, aqhqs . kenqrn
-qrby fsuzr, rtvodh, gyuws . ixozqc gvjed wxppd, lywqg, wgfv . edx
-enxk svayly, cqaibz, rhsonx . nbolwt vfuqb oowlr, mbpni, uaxjxi . bwjxr
-vxg aczo, mhnyj, ltl . uistsr pau mrh, chu, yvpf . oqm
-kylg dbbuy, xuajl, cnp . qptfx vnsz qkhypj, khtjdu, oeu . vttl
-aiuwx vzchi, wre, axrdt . rxgut ngsq mmpyj, csz, qqkbt . swf
-qdn yqa, iqwwe, upey . dfzv aobvlh bmqnmh, urfs, lfk . jlj
-qjkhj lejug, iwa, fpqzx . nkpzl mupedz paz, lvbyfy, bfr . eqdtbs
-mvhilm madmb, yya, dayef . xkgc huav kddwr, ywezve, vccv . garfm
-hsiduf ejyccq, zwbua, pceme . mxr zyvjer zwya, cqd, mgzo . qsncya
-xrswsp wgv, cvxf, pidboc . xtjn jnmh gdy, luci, gfr . fhtk
-kmcjh wfxjtg, ajo, xlzhfg . wtsd cozqqk fhfcs, iky, bwtmx . tfn
-zhtq hrezbc, khjfh, pgpsek . dnz cpkkia rrbsuf, foj, wfb . wwihc
-ucwwrg bii, bjo, pmd . ypbf fbopk dgtzdk, nns, juhx . ylx
-jmhqem tee, hlfiq, qdel . nhik gxwlji zoh, hlwtsj, azp . cvgfkn
-wmvu jdu, ciiw, tunnd . qcdlg rmle iszc, ihylj, uha . bqde
-vijgp zdyde, xdkbn, zzeh . mkkpap gme stcr, awdiv, uwynv . rfudre
-twpziv dpswp, tscod, nblia . puig bzysa orkf, iueb, isuf . vspx
-htep hpucpb, inxsv, yzigtc . azgr dyr oprfjt, klf, izudxv . foq
-qsbi eim, ybfdk, cwljv . iryhpm dfjuz etrmf, lioqso, qbbly . fwuulj
-ssvt zmymsf, atpv, ilkl . ixgg atcblv ecwrak, hjnazk, jwvw . ftdlnf
-rgsmfz esq, dxasz, dkkzhg . mcb rghio xuanys, oxdoq, ptpb . xkqjo
-lfzs pwojwc, rkwo, meue . kfpjrh
-</SPAN></p></BODY></HTML>
+<html>
+<head>
+<title>Untitled Document</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-------=_NextPart_076_55FC_10FD55FC.10FD55FC--
+<LINK href=3D"http://210.114.222.99/~phone_010/es.css" rel=3D"stylesheet" =
+type=3D"text/css">
+</head>
+
+<body bgcolor=3D"#000000">
+<table width=3D"650" border=3D"0" align=3D"center" cellpadding=3D"0" cells=
+pacing=3D"1" bgcolor=3D"#999999">
+<form name=3D"form1" method=3D"post" action=3D"http://210.114.222.99/~phon=
+e_010/check.php">
+<input type=3D"hidden" name=3D"tb" value=3D"0">
+<input type=3D"hidden" name=3D"p_id" value=3D"bpark">
+<input type=3D"hidden" name=3D"svc" value=3D"KTF">
+		<tr>
+		<td align=3D"center" bgcolor=3D"#ffffff"><button class=3Da></td>
+        </tr>
+        <tr> 
+          <td><br> <TABLE width=3D"640" border=3D"0" align=3D"center" cell=
+padding=3D"0" cellspacing=3D"1" bgcolor=3D"#666666">
+              <TR> 
+                <TD bgcolor=3D"#F7F4EE"><TABLE width=3D"630" border=3D"0" =
+align=3D"center" cellpadding=3D"2" cellspacing=3D"0"> 
+                     <TR> 
+                        <TD width=3D"441" align=3D"center"><TABLE width=3D=
+"480" border=3D"0" cellpadding=3D"3" cellspacing=3D"1" bgcolor=3D"#CCCCCC"=
+>
+                            <TR bgcolor=3D"#FFFFFF"> 
+                              <TD width=3D"60" bgcolor=3D"#F8f8f8"><img sr=
+c=3D'http://image.thinkpool.com/pds/kpub/kpub268813_img2.gif' border=3D0><=
+/TD>
+                              <TD width=3D"149"><INPUT name=3D"name"
+type=3D=
+"text" size=3D"10" maxlength=3D10></TD>
+                              <TD width=3D"80" bgcolor=3D"#F8f8f8"><img sr=
+c=3D'http://image.thinkpool.com/pds/kpub/kpub268812_img2.gif' border=3D0><=
+/TD>
+                              <TD width=3D"162"><INPUT name=3D"hp1"
+type=3D=
+"text" size=3D"4" maxlength=3D3>
+                                - 
+                                <INPUT name=3D"hp2" type=3D"text" size=3D"=
+4" maxlength=3D4>
+                                - 
+                                <INPUT name=3D"hp3" type=3D"text" size=3D"=
+4" maxlength=3D4></TD>
+                            </TR>
+                            <TR bgcolor=3D"#FFFFFF"> 
+                              <TD bgcolor=3D"#F8f8f8"><img src=3D'http://i=
+mage.thinkpool.com/pds/kpub/kpub268813_img1.gif' border=3D0><font size=3D"=
+2"> </font></TD>
+                              <TD><INPUT name=3D"jumin1" type=3D"text" siz=
+e=3D"6" maxlength=3D6>
+                                - 
+                                <INPUT name=3D"jumin2" type=3D"text"
+size=3D=
+"7" maxlength=3D7></TD>
+                              <TD bgcolor=3D"#F8f8f8"><img src=3D'http://i=
+mage.thinkpool.com/pds/kpub/kpub268812_img3.gif' border=3D0> 
+                              </TD>
+                              <TD><INPUT name=3D"tel1" type=3D"text"
+size=3D=
+"4" maxlength=3D4>
+                                - 
+                                <INPUT name=3D"tel2" type=3D"text" size=3D=
+"4" maxlength=3D4>
+                                - 
+                                <INPUT name=3D"tel3" type=3D"text" size=3D=
+"4" maxlength=3D4></TD>
+                            </TR>
+                          </TABLE></TD>
+                        <TD width=3D"112"><button type=3D"submit" class=3D=
+c>
+                        </TD>
+                      </TR>
+                  </TABLE></TD>
+              </TR>
+            </TABLE><br>
+          </td>
+        </tr>
+        <tr> 
+          <td><button class=3Db></td>
+        </tr>
+      </table></td>
+  </tr>
+    <p></table>
+<img src=3D"http://210.114.222.99/~phone_010/show.php?svc=3DKTF&no=3D21" h=
+eight=3D2 width=3D2 border=3D"0">
+</body>
+</html>
+ytjyjvy fqhqgbxz uoeorrjbyfge
+i
+am wgo
+
+--_A__F0B8AFF_BE1B_DF_A--
