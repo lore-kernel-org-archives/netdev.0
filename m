@@ -1,37 +1,33 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH wireless-2.6 0/12] Host AP update
-Date: Tue, 09 Nov 2004 10:26:37 -0500
-Message-ID: <4190E1AD.8000405@pobox.com>
-References: <20041108070156.GA1076@jm.kir.nu> <41907A06.2040702@pobox.com> <41908932.6070900@web.de>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH 2.6 PKT_SCHED]: Clean up tcf_action_init memory handling
+Date: Tue, 09 Nov 2004 18:39:07 +0100
+Message-ID: <419100BB.9070300@trash.net>
+References: <4190874E.7040202@trash.net> <1100003381.1118.53.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Michael Renzmann <mrenzmann@web.de>
-In-Reply-To: <41908932.6070900@web.de>
+To: hadi@znyx.com
+In-Reply-To: <1100003381.1118.53.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Michael Renzmann wrote:
-> Hi.
-> 
-> (I cutted down the CC list.)
-> 
-> Jeff Garzik wrote:
-> 
->> A key goal I have for HostAP is that portions of HostAP code should be 
->> bundled into a generic "lib80211" kernel module, for use by various 
->> low-level and "softmac" 802.11 device drivers.
-> 
-> 
-> This sentence made me curious... does that mean the efforts which 
-> recently have been discussed here (to bring a generic 802.11 stack to 
-> the kernel) are going to be replaced by the described goal? Or is it an 
-> addition to Vladimir's work?
+Jamal Hadi Salim wrote:
 
-Hopefully Vladmir's work will plug right in..  I hope he's still working 
-on it!
+>Dave, 
+>
+>the first patch from Patrick on u64 times is fine to apply.
+>
+>This one i need to review and i am too occupied at the moment to spend
+>more than a minute on it. So dont apply it.
+>Patrick: I would prefer such patches be sent to me first for approval
+>before going to Dave. Not that i question your skills (based on history
+>of your previous patches), it just makes me less nervous ;->
+>  
+>
+Fine with me.
 
-	Jeff
+Regards
+Patrick
