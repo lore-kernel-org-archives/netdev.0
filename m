@@ -1,59 +1,44 @@
-From: Bob Wirka <bobwirka@rtcworks.com>
-Subject: Re: NFS and Network Driver Question
-Date: Thu, 21 Oct 2004 10:09:09 -0500
+From: bert hubert <ahu@ds9a.nl>
+Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
+Date: Thu, 21 Oct 2004 17:08:56 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4177D115.5070205@rtcworks.com>
-References: <41704198.8000206@rtcworks.com> <4175AEFE.7090002@rtcworks.com> <41768B15.1090402@osdl.org>
+Message-ID: <20041021150856.GA27191@outpost.ds9a.nl>
+References: <20041020223828.GP19899@sunbeam.de.gnumonks.org> <20041021075530.GA1278@infradead.org> <20041021091229.GA3551@sunbeam.de.gnumonks.org> <20041021110513.GA21579@outpost.ds9a.nl> <20041021130327.GD3551@sunbeam.de.gnumonks.org> <20041021133346.GL3911@marowsky-bree.de> <20041021142527.GG3551@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Lars Marowsky-Bree <lmb@suse.de>, Christoph Hellwig <hch@infradead.org>,
+        Linux Netdev List <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <41768B15.1090402@osdl.org>
+To: Harald Welte <laforge@netfilter.org>
+Content-Disposition: inline
+In-Reply-To: <20041021142527.GG3551@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Here is another wrinkle: The program on my embedded system cannot send 
-UDP broadcast messages when NFS mounted. When the system is booted 
-without NFS (using the DiskOnChip for root file system) I can send UDP 
-broadcasts. When the system is booted with NFS (using my laptop for root 
-file system) UDP broadcasts result in "Network unreachable" errors, 
-though it CAN send directed UDP messages and TCP messages.
+On Thu, Oct 21, 2004 at 04:25:27PM +0200, Harald Welte wrote:
 
-The kernel configuration is identical, except for kernel IP 
-autoconfiguration, root over nfs, and compiled-in network driver. The 
-NFS configuration on the host has 'no_root_squash', and <<now>> all the 
-files on the host root file system are owned by root.
+> I'm not a big fan of inventing new kernel/userspace interfaces.  We
+> don't have any associated device, so we don't have any ioctl()s or stuff
+> like that.
 
-Any ideas?
+Or use netlink.
 
-Thanks,
+> So instead of introducing a new syscall, I think /proc is just the right
+> way to deal with this :)
 
-Bob Wirka
-Realtime Control Works
+Or even more modern, clusteripfs.
 
-Stephen Hemminger wrote:
+> Let me give it some testing, I'll re-submit it later today or tomorrow.
 
-> Bob Wirka wrote:
->
->> Ok, now I feel like I'm taking crazy pills...
->>
->> The embedded system boots up and mounts the root file system on my 
->> host laptop. The 'rc.sysinit' startup script executes the command 
->> 'mount -a' which should mount /proc, /dev/pts, and /dev/shm, as 
->> listed in /etc/fstab. When executed, that command returns  "mount: 
->> only root can do that".
->>
->> When I get to the bash prompt, 'whoami' reports that I am, indeed, 
->> root. A 'mount -a' from the command prompt gives the same result; it 
->> doesn't think I'm root for the mount command.
->>
->> I can chown a file owned by root to some other user, and I can create 
->> a file or directory in a directory owned by root; so it doesn't 
->> always think I'm not root.
->>
-> Are you getting bit by the nfs uid mapping on the server. Is it 
-> mapping your local "root" to "nobody"
-> on the server?
->
+I'll test it at home to see if it does the right thing too.
+
+> > > > And yes, I've received hate mail over this from switch engineers :-)
+
+The hate mail originated from a large telco, I think the innovation just
+offended their sensitive minds.
+
+	Bert
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
