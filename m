@@ -1,137 +1,71 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
-Date: Sat, 6 Nov 2004 15:50:36 +0100
-Message-ID: <20041106145036.GB28715@postel.suug.ch>
-References: <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch> <418BB7D2.6060908@trash.net> <20041105175812.GZ12289@postel.suug.ch> <418BC40E.8080402@trash.net> <20041105194303.GA12289@postel.suug.ch> <20041106011843.GI12289@postel.suug.ch> <418C2D40.9020300@trash.net> <20041106015931.GA28715@postel.suug.ch>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH 1/3] r8169: non-NAPI netif_poll_disable removal
+Date: Sat, 6 Nov 2004 15:56:18 +0100
+Message-ID: <20041106145618.GA4895@electric-eye.fr.zoreil.com>
+References: <200411021203.17013.jdmason@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
-        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Cc: netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
+To: Jon Mason <jdmason@us.ibm.com>
 Content-Disposition: inline
-In-Reply-To: <20041106015931.GA28715@postel.suug.ch>
+In-Reply-To: <200411021203.17013.jdmason@us.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The patch below transforms qdisc_list into a RCU protected list.
-However, this does not really fix the problem. The below
-example shows what can happen in case a qdisc is deleted
-which is classful and calls qdisc_destroy in its destroy
-handler.
+Jon Mason <jdmason@us.ibm.com> :
+> rtl8169_close contains a call to netif_poll_disable.  This call sets and spins 
+> on the __LINK_STATE_RX_SCHED bit, which isn't really a problem if this 
+> function is only called in close (as that bit is off with NAPI off).  
+> However, if the driver hits a transmit timeout (or any other call that 
+> references rtl8169_wait_for_quiescence), the the module will hang 
+> indefinitely during any subsequent call to netif_poll_disable or dev_close 
+> function call because this bit is now set.
+> 
+> Since this function should not really be called with NAPI off, I chose to 
+> remove the calls if NAPI is not defined (See patch below).  The patch is 
+> against the 2.6.10-rc1-mm2 version of the driver.  I have verified that this 
+> fixes the problem on ppc64 and x86_64.
 
---->        RTM_DELQDISC message
-            ...
-            qdisc_destroy() sets up rcu callback __qdisc_destroy
-<---        ...
---->        RCU callback __qdisc_destroy
-            qdisc_destroy() sets up rcu callback __qdisc_destroy
-<---        ...
---->        continueing RTM_DELQDISC message
-            ...
-<---        message finished
---->        RTM_GETQDISC
-            ...
-<---        p = qdisc_lookup() (qdisc_lookup itself is not interrupted)
---->        RCU callback __qdisc_destroy
-<---        May free p 
---->        continueing RTM_GETQDISC message
-            use of p references freed memory --> oops
+Yep but it seems to me that there is still a window for a race with NAPI
+if the relevant error path is taken:
 
-So using the RCU protected list only enforces the unlinking
-to be safe while within a list walk  and the rcu callback
-to be deferred until the list walk is complete but may
-be executed right after qdisc_lookup and then may free the
-entry that was returned.
+1 - Tx timeout
+2 - rtl8169_reset_task: netif_poll_disable is issued. Assume that the
+    refilling of the Rx buffers fails -> rtl8169_reset_task schedules
+    itself for later
+3 - operator closes the device: netif_running(dev) == 0 and rtl8169_close()
+    is issued
+4 - rtl8169_close() loops on netif_poll_disable()
 
-So we must either rcu_read_lock all codeblocks that use
-a result of a qdisc_lookup which is not trivial or ensure
-that all rcu callbacks have finished before the next rtnetlink
-message is processed.
+Neither __netif_rx_schedule nor netif_poll_enable was issued. Deadlock.
 
-Maybe the easiest would be to have a refcnt which is
-incremented when a rcu callback is set up and decremented
-when it finishs and sleep on it after processing a
-rtnetlink message until it reaches 0 again.
+It should be enough to change rtl8169_wait_for_quiescence() for:
 
-Thoughts?
+static void rtl8169_wait_for_quiescence(struct net_device *dev)
+{
+        synchronize_irq(dev->irq);
 
-Anyway, here's the patch. It's relative to my earlier patch
-and Patrick's rcu_assign_ptr patch.
+        /* Wait for any pending NAPI task to complete */
+        netif_poll_disable(dev);
 
-Transform qdisc_list into a RCU protected list to
-avoid qdisc_destroy, which might be called from softirq context, to
-overwrite the next pointer while a user context list walking is
-taking place.
+	RTL_W16(IntrMask, 0x00);
 
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
+        netif_poll_enable(dev);
+}
 
-diff -Nru linux-2.6.10-rc1-bk14.orig/net/sched/sch_api.c linux-2.6.10-rc1-bk14/net/sched/sch_api.c
---- linux-2.6.10-rc1-bk14.orig/net/sched/sch_api.c	2004-11-06 14:57:44.000000000 +0100
-+++ linux-2.6.10-rc1-bk14/net/sched/sch_api.c	2004-11-06 14:52:22.000000000 +0100
-@@ -196,10 +196,14 @@
- {
- 	struct Qdisc *q;
- 
--	list_for_each_entry(q, &dev->qdisc_list, list) {
--		if (q->handle == handle)
-+	rcu_read_lock();
-+	list_for_each_entry_rcu(q, &dev->qdisc_list, list) {
-+		if (q->handle == handle) {
-+			rcu_read_unlock();
- 			return q;
-+		}
- 	}
-+	rcu_read_unlock();
- 	return NULL;
- }
- 
-@@ -453,7 +457,7 @@
- 
- 	if (!ops->init || (err = ops->init(sch, tca[TCA_OPTIONS-1])) == 0) {
- 		qdisc_lock_tree(dev);
--		list_add_tail(&sch->list, &dev->qdisc_list);
-+		list_add_tail_rcu(&sch->list, &dev->qdisc_list);
- 		qdisc_unlock_tree(dev);
- 
- #ifdef CONFIG_NET_ESTIMATOR
-@@ -817,7 +821,7 @@
- 			s_q_idx = 0;
- 		read_lock_bh(&qdisc_tree_lock);
- 		q_idx = 0;
--		list_for_each_entry(q, &dev->qdisc_list, list) {
-+		list_for_each_entry_rcu(q, &dev->qdisc_list, list) {
- 			if (q_idx < s_q_idx) {
- 				q_idx++;
- 				continue;
-@@ -1054,7 +1058,7 @@
- 	t = 0;
- 
- 	read_lock_bh(&qdisc_tree_lock);
--	list_for_each_entry(q, &dev->qdisc_list, list) {
-+	list_for_each_entry_rcu(q, &dev->qdisc_list, list) {
- 		if (t < s_t || !q->ops->cl_ops ||
- 		    (tcm->tcm_parent &&
- 		     TC_H_MAJ(tcm->tcm_parent) != q->handle)) {
-diff -Nru linux-2.6.10-rc1-bk14.orig/net/sched/sch_generic.c linux-2.6.10-rc1-bk14/net/sched/sch_generic.c
---- linux-2.6.10-rc1-bk14.orig/net/sched/sch_generic.c	2004-11-06 14:57:44.000000000 +0100
-+++ linux-2.6.10-rc1-bk14/net/sched/sch_generic.c	2004-11-06 15:16:16.000000000 +0100
-@@ -486,7 +486,7 @@
- 	if (qdisc->flags & TCQ_F_BUILTIN ||
- 		!atomic_dec_and_test(&qdisc->refcnt))
- 		return;
--	list_del(&qdisc->list);
-+	list_del_rcu(&qdisc->list);
- 	call_rcu(&qdisc->q_rcu, __qdisc_destroy);
- }
- 
-@@ -507,7 +507,7 @@
- 				return;
- 			}
- 			write_lock_bh(&qdisc_tree_lock);
--			list_add_tail(&qdisc->list, &dev->qdisc_list);
-+			list_add_tail_rcu(&qdisc->list, &dev->qdisc_list);
- 			write_unlock_bh(&qdisc_tree_lock);
- 		} else {
- 			qdisc =  &noqueue_qdisc;
+There will be a few "interrupt XXX taken in poll" when it races with
+the irq handler but they are harmless anyway [*].
+
+The lack of netif_poll_enable() after netif_wake_queue() in
+rtl8169_reset_task() which you suggested to me should also be fixed
+with this change.
+
+[*] Ok, it should be possible to have a BUG_ON due to the simultaneous
+    invocation of rtl8169_reinit_task() and rtl8169_reset_task() under
+    weird circumstances but this one will be easily fixed by an 
+    adequate netif_queue_stopped() in rtl8169_pcierr_interrupt().
+
+--
+Ueimor
