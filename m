@@ -1,169 +1,105 @@
-From: Sridhar Samudrala <sri@us.ibm.com>
-Subject: [BK PATCH] minor SCTP updates
-Date: Mon, 3 May 2004 14:20:18 -0700 (PDT)
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Subject: [PATCH] tulip driver deadlocks on device removal
+Date: Mon, 03 May 2004 23:38:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0405031413390.2682@localhost.localdomain>
+Message-ID: <4096BBC8.60509@gmx.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Dave,
+Hi,
 
-Please do a
-	bk pull http://linux-lksctp.bkbits.net/lksctp-2.5.work &
-	bk pull http://linux-lksctp.bkbits.net/lksctp-2.4.work
-to get the following udpates to 2.6 and 2.4 SCTP.
+I have a CardBus network card with tulip chipset:
+# lspci -nv
+[...]
+0000:05:00.0 Class 0200: 13d1:ab02 (rev 11)
+        Subsystem: 13d1:ab02
+        Flags: bus master, medium devsel, latency 64, IRQ 11
+        I/O ports at 4800 [size=268M]
+        Memory at 11000000 (32-bit, non-prefetchable) [size=1K]
+        Expansion ROM at 00020000 [disabled]
+        Capabilities: [c0] Power Management version 2
 
-Thanks
-Sridhar
+If I remove the card, my machine freezes instantly. This is due to a
+stupid dev->poll function of the tulip driver.
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/05/03 11:17:48-07:00 sri@us.ibm.com
-#   [SCTP] Rename SCTP_ADDR_REACHABLE as SCTP_ADDR_AVAILABLE to be
-#   consistent with the SCTP sockets API draft.
-#
-# net/sctp/associola.c
-# include/net/sctp/user.h
-# include/net/sctp/constants.h
-#
-# ChangeSet
-#   2004/05/03 11:14:28-07:00 sri@us.ibm.com
-#   [SCTP] Fix bugs in handling overlapping INIT and peer restart over a
-#   multihomed association.
-#
-# net/sctp/associola.c
-#
-# ChangeSet
-#   2004/05/03 11:11:07-07:00 shemminger@osdl.org
-#   [PATCH] SCTP crc table can be static const
-#
-# net/sctp/crc32c.c
-#
-diff -Nru a/include/net/sctp/constants.h b/include/net/sctp/constants.h
---- a/include/net/sctp/constants.h	Mon May  3 14:12:01 2004
-+++ b/include/net/sctp/constants.h	Mon May  3 14:12:01 2004
-@@ -231,11 +231,6 @@
- /* This is a table of printable names of sctp_state_t's.  */
- extern const char *sctp_state_tbl[], *sctp_evttype_tbl[], *sctp_status_tbl[];
+drivers/net/tulip/interrupt.c:tulip_poll() gets stuck in an endless loop
+in interrupt context if the hardware returns 0xffffffff on certain reads.
+But this is exactly what happens if you remove a pci device.
 
--/* SCTP reachability state for each address */
--#define SCTP_ADDR_NOHB			4
--#define SCTP_ADDR_REACHABLE		2
--#define SCTP_ADDR_NOT_REACHABLE		1
--
- /* Maximum chunk length considering padding requirements. */
- enum { SCTP_MAX_CHUNK_LEN = ((1<<16) - sizeof(__u32)) };
+My patch replaces the deadlock with something resembling a livelock. At
+least SysRq-S works now because we leave the poll function after some time.
 
-diff -Nru a/include/net/sctp/user.h b/include/net/sctp/user.h
---- a/include/net/sctp/user.h	Mon May  3 14:12:01 2004
-+++ b/include/net/sctp/user.h	Mon May  3 14:12:01 2004
-@@ -1,7 +1,7 @@
- /* SCTP kernel reference Implementation
-+ * (C) Copyright IBM Corp. 2001, 2004
-  * Copyright (c) 1999-2000 Cisco, Inc.
-  * Copyright (c) 1999-2001 Motorola, Inc.
-- * Copyright (c) 2001-2003 International Business Machines, Corp.
-  * Copyright (c) 2002 Intel Corp.
-  *
-  * This file is part of the SCTP kernel reference Implementation
-@@ -246,7 +246,7 @@
-  *   event that happened to the address.  They include:
-  */
- enum sctp_spc_state {
--	SCTP_ADDR_REACHABLE,
-+	SCTP_ADDR_AVAILABLE,
- 	SCTP_ADDR_UNREACHABLE,
- 	SCTP_ADDR_REMOVED,
- 	SCTP_ADDR_ADDED,
-diff -Nru a/net/sctp/associola.c b/net/sctp/associola.c
---- a/net/sctp/associola.c	Mon May  3 14:12:01 2004
-+++ b/net/sctp/associola.c	Mon May  3 14:12:01 2004
-@@ -608,7 +608,7 @@
- 	switch (command) {
- 	case SCTP_TRANSPORT_UP:
- 		transport->active = SCTP_ACTIVE;
--		spc_state = SCTP_ADDR_REACHABLE;
-+		spc_state = SCTP_ADDR_AVAILABLE;
- 		break;
+However, the poll function is called again and again and again regardless
+of its return value. How can I stop that?
 
- 	case SCTP_TRANSPORT_DOWN:
-@@ -936,6 +936,9 @@
- void sctp_assoc_update(struct sctp_association *asoc,
- 		       struct sctp_association *new)
- {
-+	struct sctp_transport *trans;
-+	struct list_head *pos, *temp;
+Carl-Daniel
+
+--- a/drivers/net/tulip/interrupt.c	2004-05-03 20:31:14.000000000 +0200
++++ b/drivers/net/tulip/interrupt.c	2004-05-03 20:51:06.000000000 +0200
+@@ -113,6 +113,7 @@
+ 	int entry = tp->cur_rx % RX_RING_SIZE;
+ 	int rx_work_limit = *budget;
+ 	int received = 0;
++	int innercnt = 0;
+
+ 	if (!netif_running(dev))
+ 		goto done;
+@@ -129,10 +130,12 @@
+ #endif
+
+ 	if (tulip_debug > 4)
+-		printk(KERN_DEBUG " In tulip_rx(), entry %d %8.8x.\n", entry,
++		printk(KERN_DEBUG " In tulip_poll(), entry %d %8.8x.\n", entry,
+ 			   tp->rx_ring[entry].status);
+
+        do {
++		innercnt++;
 +
- 	/* Copy in new parameters of peer. */
- 	asoc->c = new->c;
- 	asoc->peer.rwnd = new->peer.rwnd;
-@@ -944,20 +947,19 @@
- 	sctp_tsnmap_init(&asoc->peer.tsn_map, SCTP_TSN_MAP_SIZE,
- 			 asoc->peer.i.initial_tsn);
+                /* Acknowledge current RX interrupt sources. */
+                outl((RxIntr | RxNoBuf), dev->base_addr + CSR5);
 
--	/* FIXME:
--	 *    Do we need to copy primary_path etc?
--	 *
--	 *    More explicitly, addresses may have been removed and
--	 *    this needs accounting for.
--	 */
-+	/* Remove any peer addresses not present in the new association. */
-+	list_for_each_safe(pos, temp, &asoc->peer.transport_addr_list) {
-+		trans = list_entry(pos, struct sctp_transport, transports);
-+		if (!sctp_assoc_lookup_paddr(new, &trans->ipaddr))
-+			sctp_assoc_del_peer(asoc, &trans->ipaddr);
-+	}
+@@ -141,12 +144,13 @@
+                while ( ! (tp->rx_ring[entry].status & cpu_to_le32(DescOwned))) {
+                        s32 status = le32_to_cpu(tp->rx_ring[entry].status);
 
- 	/* If the case is A (association restart), use
- 	 * initial_tsn as next_tsn. If the case is B, use
- 	 * current next_tsn in case data sent to peer
- 	 * has been discarded and needs retransmission.
- 	 */
--	if (sctp_state(asoc, ESTABLISHED)) {
--
-+	if (asoc->state >= SCTP_STATE_ESTABLISHED) {
- 		asoc->next_tsn = new->next_tsn;
- 		asoc->ctsn_ack_point = new->ctsn_ack_point;
- 		asoc->adv_peer_ack_point = new->adv_peer_ack_point;
-@@ -968,6 +970,15 @@
- 		sctp_ssnmap_clear(asoc->ssnmap);
++			innercnt = 0;
 
- 	} else {
-+		/* Add any peer addresses from the new association. */
-+		list_for_each(pos, &new->peer.transport_addr_list) {
-+			trans = list_entry(pos, struct sctp_transport,
-+					   transports);
-+			if (!sctp_assoc_lookup_paddr(asoc, &trans->ipaddr))
-+				sctp_assoc_add_peer(asoc, &trans->ipaddr,
-+						    GFP_ATOMIC);
+                        if (tp->dirty_rx + RX_RING_SIZE == tp->cur_rx)
+                                break;
+
+                        if (tulip_debug > 5)
+-                               printk(KERN_DEBUG "%s: In tulip_rx(), entry %d %8.8x.\n",
++                               printk(KERN_DEBUG "%s: In tulip_poll(), entry %d %8.8x.\n",
+                                       dev->name, entry, status);
+                        if (--rx_work_limit < 0)
+                                goto not_done;
+@@ -254,6 +258,11 @@
+                 * No idea how to fix this if "playing with fire" will fail
+                 * tomorrow (night 011029). If it will not fail, we won
+                 * finally: amount of IO did not increase at all. */
++		if (innercnt > 5) {
++			printk(KERN_INFO "More than five loops without doing anything!\n");
++			goto not_done;
 +		}
 +
- 		asoc->ctsn_ack_point = asoc->next_tsn - 1;
- 		asoc->adv_peer_ack_point = asoc->ctsn_ack_point;
- 		if (!asoc->ssnmap) {
-@@ -976,7 +987,6 @@
- 			new->ssnmap = NULL;
- 		}
- 	}
--
- }
+        } while ((inl(dev->base_addr + CSR5) & RxIntr));
 
- /* Update the retran path for sending a retransmitted packet.
-diff -Nru a/net/sctp/crc32c.c b/net/sctp/crc32c.c
---- a/net/sctp/crc32c.c	Mon May  3 14:12:01 2004
-+++ b/net/sctp/crc32c.c	Mon May  3 14:12:01 2004
-@@ -69,7 +69,7 @@
- /* with 24 and 32 Parity Bits",                                  */
- /* IEEE Transactions on Communications, Vol.41, No.6, June 1993  */
- /* * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * */
--__u32 crc_c[256] = {
-+static const __u32 crc_c[256] = {
- 	0x00000000, 0xF26B8303, 0xE13B70F7, 0x1350F3F4,
- 	0xC79A971F, 0x35F1141C, 0x26A1E7E8, 0xD4CA64EB,
- 	0x8AD958CF, 0x78B2DBCC, 0x6BE22838, 0x9989AB3B,
+ done:
+@@ -321,8 +330,10 @@
+          return 0;
+
+  not_done:
+-         if (!received) {
++         if (!received && (innercnt <= 5)) {
+
++		printk(KERN_NOTICE "tulip_poll: Bugger. This does not happen.\n");
++		/* If it is not going to happen, why do anything about it? */
+                  received = dev->quota; /* Not to happen */
+          }
+          dev->quota -= received;
