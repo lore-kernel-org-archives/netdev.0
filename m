@@ -1,67 +1,52 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: bridge between ppp and ethernet - 1 IP address and assign it
-	to another host
-Date: 08 Mar 2005 09:10:22 -0500
-Message-ID: <1110291022.1050.204.camel@jzny.localdomain>
-References: <20050306153108.20430b58.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-	 <1110199198.1094.1282.camel@jzny.localdomain>
-	 <20050308002643.7eac84e7.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-	 <20050307213211.GA25323@outpost.ds9a.nl>
-	 <1110238406.1043.57.camel@jzny.localdomain>
-	 <20050308115734.544fcaca.random@72616e646f6d20323030342d30342d31360a.nosense.org>
+Subject: Re: Do you know the TCP stack? (127.x.x.x routing)
+Date: 08 Mar 2005 09:17:50 -0500
+Message-ID: <1110291470.1043.211.camel@jzny.localdomain>
+References: <E1D7zBN-0004hX-00@smtp02.mrf.mail.rcn.net>
+	 <20050306173145.GQ31837@postel.suug.ch>
+	 <E1D81mg-0002rz-00@smtp01.mrf.mail.rcn.net> <m1y8d0mss2.fsf@muc.de>
+	 <3sp35g$7hpm0@smtp04.mrf.mail.rcn.net> <422C0B50.20500@mrv.com>
+	 <3sp35g$7rsc1@smtp04.mrf.mail.rcn.net>
+	 <1110288879.1050.167.camel@jzny.localdomain>
+	 <20050308135134.GA20607@atrey.karlin.mff.cuni.cz>
+	 <1110290300.1050.190.camel@jzny.localdomain>
+	 <20050308140301.GC20607@atrey.karlin.mff.cuni.cz>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: ahu@ds9a.nl, netdev@oss.sgi.com
-To: Mark Smith <random@72616e646f6d20323030342d30342d31360a.nosense.org>
-In-Reply-To: <20050308115734.544fcaca.random@72616e646f6d20323030342d30342d31360a.nosense.org>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Zdenek Radouch <zdenek@rcn.com>,
+	Steve Iribarne <steve.iribarne@dilithiumnetworks.com>,
+	Eran Mann <emann@mrv.com>, Thomas Graf <tgraf@suug.ch>,
+	Andi Kleen <ak@muc.de>, netdev@oss.sgi.com,
+	linux-net@vger.kernel.org
+To: Martin Mares <mj@ucw.cz>
+In-Reply-To: <20050308140301.GC20607@atrey.karlin.mff.cuni.cz>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-03-07 at 20:27, Mark Smith wrote:
-> Hi Jamal, Bert,
-> 
-> On 07 Mar 2005 18:33:26 -0500
-> jamal <hadi@cyberus.ca> wrote:
-> 
-> > On Mon, 2005-03-07 at 16:32, bert hubert wrote:
-> > > On Tue, Mar 08, 2005 at 12:26:43AM +1030, Mark Smith wrote:
-> > 
-> > I think i got it finally ..
-> > 
-> > > Indeed, we are in full agreement. The idea is to have the ability to fully
-> > > firewall and monitor a machine that absolutely needs to have a real
-> > > routable IP address, without wasting an IP address for the router (or trying
-> > > to get an ISP to assign you multiple addresses, which can be a major chore
-> > > these days).
-> > > 
-> > > I'd settle for a 'dirty' solution. Remco van Mook of Virtu.nl suggested
-> > > abusing iptables -j QUEUE combind with tun/tap to inject the packets on the
-> > > ethernet side, where userspace does the PPP -> ethernet conversion by making
-> > > up the required headers.
-> > >
-> 
-> A while back I was playing a bit with policy forwarding/routing,
-> specifically trying to get traffic for a local address to travel
-> "outside" the machine that it was assigned to, rather than short
-> circuiting internal to the host.
+On Tue, 2005-03-08 at 09:03, Martin Mares wrote:
 
-Yes, I remember that discussion ;-> Alexey wasnt very thrilled.
+> No, since this tends to interfere with the outside network using the
+> same private (RFC 1918) addresses. People generally don't expect network
+> equipment to collide with their perfectly legal addressing plan.
+> 
 
-[Ive deleted the rest of your text for brevity]. 
-Note that the redirect at L2 overcomes the issues you were trying ot
-address in that email (and infact instead of redirecting you can also
-just "mirror")...
-So it seems if all you do is bridge and firewall and you never involve
-IP then you should be fine.
-So maybe the return path as well should have no IP involvment either
-and be L2 switched as well.
+Aha! Thanks for clarifying this. So the problem domain is:  "IP address
+conflict" detection and somehow this is seen as a resolution to that
+problem. 
+So what happens when you put tow or three of Zdenek's boxes in one
+location? Back to square 1?
 
-I think what is needed is some experimenting with some windoz test
-clients, a ppp server and the middle proxy machine. Like i said i am
-willing to help.
+> On the other hand, if the manufacturer gets a small block of public
+> addresses and uses it in all his devices (the same block everywhere)
+> for internal purposes only (no packet ever escapes), everything is
+> perfectly correct and no collisions can arise.
+
+Yes, I see.
+Except this wont be practical for IPV4 since those addresses are scarce.
+May make sense for V6 though (becomes like MAC addresses on NICS).
 
 cheers,
 jamal
+
