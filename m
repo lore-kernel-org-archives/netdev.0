@@ -1,44 +1,52 @@
-From: Stefan Rompf <srompf@isg.de>
-Subject: Re: Patch resubmission: RFC2863 operstatus for 2.5.49
-Date: Tue, 26 Nov 2002 16:36:35 +0100
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: How to get IPv6 interface?
+Date: Tue, 26 Nov 2002 20:08:36 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3DE39503.4A24DCB2@isg.de>
-References: <3DE33D6D.25B9C9B4@isg.de> <20021126.021546.91313706.davem@redhat.com>
+Message-ID: <55380000.1038337716@worker.muc.bieringer.de>
+References: <003201c29525$cd933360$6c06a8c0@zhengjp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+ protocol="application/pgp-signature";
+ boundary="==========903190887=========="
+Cc: Zheng Jianping <zjp@iscas.ac.cn>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
+In-Reply-To: <003201c29525$cd933360$6c06a8c0@zhengjp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+--==========903190887==========
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
 
-> This locking below achieves nothing.
 
-Ok, so I was too cautious by locking read access to a one byte
-structure. I'll change that and read additional documentation on SMP ;-)
 
-> Probably something else in
-> the device struct can be reused.
+--On Tuesday, November 26, 2002 04:28:31 PM +0800 Zheng Jianping
+<zjp@iscas.ac.cn> wrote:
 
-Right now, I don't see which. There are other spinlocks available in the
-net_device structure, but they are used by the queuing code and we
-should not give up the semantic that netif_set_operstate() can be called
-from everywhere. One global spinlock may be acceptable for this special
-case.
+> My linux kernel is 2.4.7.10, how to get the information of all IPv6
+> interfaces, including the interfaces index, flags,name and
+> address,etc ?
 
-> I also don't think this should be conditional, either we want
-> it or we don't.
+Userspace: ip -6 addr
 
-The conditional stuff is inspired from my first 2.4 version, but I'm
-happy to remove it.
+        Peter
+---
+Dr. Peter Bieringer
+mailto: pb at bieringer dot de
+http://www.bieringer.de/pb/
+Key 0x958F422D : B501 24F4 9418 23E2 C0F3  F833 7B57 AA7B 958F 422D
+--==========903190887==========
+Content-Type: application/pgp-signature
+Content-Transfer-Encoding: 7bit
 
-Btw, can you also have a look the 2.4 backport of my link state
-notification feature (posting available under
-http://marc.theaimsgroup.com/?l=linux-netdev&m=103722967214290&w=2, just
-one typo fixed in Configure.help since then). Is this stuff acceptable
-for 2.4?
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.0 (GNU/Linux)
 
-Cheers, Stefan
+iD8DBQE948a2e1eqe5WPQi0RAn3eAJ98CB5Dk1YrxJ1NyZSk/k8tKrelJQCfaQZ+
+xalwM92/OLMAt4Gjq2GSVY8=
+=bXez
+-----END PGP SIGNATURE-----
+
+--==========903190887==========--
