@@ -1,144 +1,58 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] ipv6: alternative version of S/390 shared NIC support
-Date: 16 Jan 2005 09:30:40 -0500
-Message-ID: <1105885839.1097.573.camel@jzny.localdomain>
-References: <20050116115431.GA13617@lst.de>
+Subject: Re: is there any plan to support BSD accept filter?
+Date: 16 Jan 2005 09:43:21 -0500
+Message-ID: <1105886601.1097.583.camel@jzny.localdomain>
+References: <41E830BC.7000709@cs.princeton.edu>
+	 <20050114140540.76146b29@dxpl.pdx.osdl.net>
+	 <41E87E7D.8040107@cs.princeton.edu>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, pavlic@de.ibm.com,
-        waldi@debian.org, netdev@oss.sgi.com
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Christoph Hellwig <hch@lst.de>
-In-Reply-To: <20050116115431.GA13617@lst.de>
+To: KyoungSoo Park <kyoungso@cs.princeton.edu>
+In-Reply-To: <41E87E7D.8040107@cs.princeton.edu>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I could be missing something:
-Its almost like the "cards" in these drivers deserve to be their own
-netdevices to begin with. In other words the qeth approach itself seems
-to be a hack to begin with. 
-Should be along the lines:
---->Physical netdevice
-  -->some demux code to select instance
-    --> Virtual netdevice specific to OS instance
-        ---> standard linux path
 
-This approach would be no different from say any tunnel driver code.
-If someone fixes them to be separate netdevices, then there would be any
-need to speacial case code in the stack just for them.
-Routing, VLANS etc would all work fine.
-
-I know its a lot of work to make those changes - but it is probably
-cleaner to just keep it as it was before your patch until someone
-converts these into netdevices. Either that or i missed something that
-forces the cards to be modeled the way they were.
+Seems easy to do if you can muck with the security hooks.
+The selinux folkk already have a monopoly on all those hooks.
+Look at selinux and security_socket_accept() and how you can hook up
+to it. You probably wanna worry about security_socket_recvmsg() and
+security_socket_post_accept()
+Dont ask me - look at the code and visit their docs. As a warning those
+hooks are pretty stupid (what a waste of potential) so you will have to
+sweat a little hacking them to maintain state.
 
 cheers,
 jamal
 
-
-On Sun, 2005-01-16 at 06:54, Christoph Hellwig wrote:
-> Let's try again solvign the EUI64 generation for S/390.  I looked over
-> the IBM patch and I think it can be done a lot simpler:
+On Fri, 2005-01-14 at 21:22, KyoungSoo Park wrote:
+> yes. I agree that maybe an ugly hack to put that in the kernel.
+> What I want to do is to support such feature leaving as little footprint
+> as possible in the kernel, but specify whatever flexible policy you want
+> in the user level. 
+> I'm not sure netfilter module is the right place because it seems I need 
+> to do packet by packet processing, but I want to deal with a little higher
+> level than that as a start. (I'm not familar with netfilter, so please correct
+> me if I'm wrong.)
 > 
->  - put a dev_id field in struct net_device, so that it uses space that
->    would be wasted by padding otherwise.
->  - if this fields is non-null let ipv6_generate_eui64 use the algorithm
->    from the QETH code to generate an EUI that's different for each
->    OS instance.  See code comments for details.
+> Anyway, thanks for your response.
+> 
+> KyoungSoo
 > 
 > 
-> --- 1.23/drivers/s390/net/qeth_main.c	2005-01-04 00:49:39 +01:00
-> +++ edited/drivers/s390/net/qeth_main.c	2005-01-16 12:33:52 +01:00
-> @@ -5033,27 +5033,6 @@
->  	return 0;
->  }
->  
-> -#ifdef CONFIG_QETH_IPV6
-> -int
-> -qeth_ipv6_generate_eui64(u8 * eui, struct net_device *dev)
-> -{
-> -	switch (dev->type) {
-> -	case ARPHRD_ETHER:
-> -	case ARPHRD_FDDI:
-> -	case ARPHRD_IEEE802_TR:
-> -		if (dev->addr_len != ETH_ALEN)
-> -			return -1;
-> -		memcpy(eui, dev->dev_addr, 3);
-> -		memcpy(eui + 5, dev->dev_addr + 3, 3);
-> -		eui[3] = (dev->dev_id >> 8) & 0xff;
-> -		eui[4] = dev->dev_id & 0xff;
-> -		return 0;
-> -	}
-> -	return -1;
-> -
-> -}
-> -#endif
-> -
->  static void
->  qeth_get_mac_for_ipm(__u32 ipm, char *mac, struct net_device *dev)
->  {
-> @@ -5587,11 +5566,8 @@
->  	}
->  #ifdef CONFIG_QETH_IPV6
->  	/*IPv6 address autoconfiguration stuff*/
-> -	card->dev->dev_id = card->info.unique_id & 0xffff;
->  	if (!(card->info.unique_id & UNIQUE_ID_NOT_BY_CARD))
-> -		card->dev->generate_eui64 = qeth_ipv6_generate_eui64;
-> -
-> -
-> +		card->dev->dev_id = card->info.unique_id & 0xffff;
->  #endif
->  	dev->hard_header_parse = NULL;
->  	dev->set_mac_address = qeth_layer2_set_mac_address;
-> --- 1.95/include/linux/netdevice.h	2005-01-10 21:23:55 +01:00
-> +++ edited/include/linux/netdevice.h	2005-01-16 12:32:07 +01:00
-> @@ -345,6 +345,7 @@
->  	unsigned char		broadcast[MAX_ADDR_LEN];	/* hw bcast add	*/
->  	unsigned char		dev_addr[MAX_ADDR_LEN];	/* hw address	*/
->  	unsigned char		addr_len;	/* hardware address length	*/
-> +	unsigned short          dev_id;		/* for shared network cards */
->  
->  	struct dev_mc_list	*mc_list;	/* Multicast mac addresses	*/
->  	int			mc_count;	/* Number of installed mcasts	*/
-> --- 1.128/net/ipv6/addrconf.c	2005-01-14 22:30:07 +01:00
-> +++ edited/net/ipv6/addrconf.c	2005-01-16 12:29:51 +01:00
-> @@ -1079,10 +1079,29 @@
->  		if (dev->addr_len != ETH_ALEN)
->  			return -1;
->  		memcpy(eui, dev->dev_addr, 3);
-> -		memcpy(eui + 5, dev->dev_addr+3, 3);
-> -		eui[3] = 0xFF;
-> -		eui[4] = 0xFE;
-> -		eui[0] ^= 2;
-> +		memcpy(eui + 5, dev->dev_addr + 3, 3);
-> +
-> +		/*
-> +		 * The zSeries OSA network cards can be shared among various
-> +		 * OS instances, but the OSA cards have only one MAC address.
-> +		 * This leads to duplicate address conflicts in conjunction
-> +		 * with IPv6 if more than one instance uses the same card.
-> +		 * 
-> +		 * The driver for these cards can deliver a unique 16-bit
-> +		 * identifier for each instance sharing the same card.  It is
-> +		 * placed instead of 0xFFFE in the interface identifier.  The
-> +		 * "u" bit of the interface identifier is not inverted in this
-> +		 * case.  Hence the resulting interface identifier has local
-> +		 * scope according to RFC2373.
-> +		 */
-> +		if (dev->dev_id) {
-> +			eui[3] = (dev->dev_id >> 8) & 0xFF;
-> +			eui[4] = dev->dev_id & 0xFF;
-> +		} else {
-> +			eui[3] = 0xFF;
-> +			eui[4] = 0xFE;
-> +			eui[0] ^= 2;
-> +		}
->  		return 0;
->  	case ARPHRD_ARCNET:
->  		/* XXX: inherit EUI-64 from other interface -- yoshfuji */
+> Stephen Hemminger wrote:
+> 
+> >If you want to do these kind of stateful hacks, why not build a
+> >netfilter module to do it?
+> >
+> >
+> >  
+> >
+> 
 > 
 > 
