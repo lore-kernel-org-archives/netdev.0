@@ -1,43 +1,77 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [RFC] enhanced version of net_random()
-Date: Sun, 15 Aug 2004 23:27:54 -0700
+From: Julian Anastasov <ja@ssi.bg>
+Subject: [PATCH 2.6.8] ipvs - do not use skb_checksum_help
+Date: Mon, 16 Aug 2004 10:05:54 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040815232754.2464e731.davem@redhat.com>
-References: <20040812104835.3b179f5a@dell_ss3.pdx.osdl.net>
-	<20040812124854.646f1936.davem@redhat.com>
-	<20040813115140.0f09d889@dell_ss3.pdx.osdl.net>
-	<20040813212857.7dd50320.ak@suse.de>
+Message-ID: <Pine.LNX.4.58.0408160948390.1323@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, alan@lxorguk.ukuu.org.uk, tytso@mit.edu,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        greearb@candelatech.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040813212857.7dd50320.ak@suse.de>
+To: Wensong Zhang <wensong@linux-vs.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 13 Aug 2004 21:28:57 +0200
-Andi Kleen <ak@suse.de> wrote:
 
-> On Fri, 13 Aug 2004 11:51:40 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> 
-> > Here is another alternative, using tansworthe generator.  It uses percpu
-> > state. The one small semantic change is the net_srandom() only affects
-> > the current cpu's seed.  The problem was that having it change all cpu's
-> > seed would mean adding locking 
-> 
-> I would just update the other CPUs without locking. Taking
-> a random number from a partially updated state shouldn't be a big 
-> issue.
+	Hello,
 
-I personally don't think we need to touch the other cpus
-at all, and that having a different current seed on each
-cpu might actually be a good thing.
+	The skb_checksum_help calls are not appropriate for
+IPVS. There is already code to check and alter the ip_summed
+field on packet mangling and the only thing that is needed is
+to ensure ip_summed is valid for output path if the packet is
+not mangled. In such case we do not validate checksum and
+forward the packet claiming it is with valid checksum.
+Apply after ack from Wensong.
 
-Stephen, I like this one a lot, especially compared to
-what we had before.  I'm going to add this to my tree for
-the time being.
+Signed-off-by: Julian Anastasov <ja@ssi.bg>
+
+diff -ur v2.6.8/linux/net/ipv4/ipvs/ip_vs_core.c linux/net/ipv4/ipvs/ip_vs_core.c
+--- v2.6.8/linux/net/ipv4/ipvs/ip_vs_core.c	2004-06-16 23:54:06.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_core.c	2004-08-16 09:35:01.317806616 +0300
+@@ -735,13 +735,6 @@
+ 	if (skb->nfcache & NFC_IPVS_PROPERTY)
+ 		return NF_ACCEPT;
+ 
+-	if (skb->ip_summed == CHECKSUM_HW) {
+-		if (skb_checksum_help(pskb, (out == NULL)))
+-			return NF_DROP;
+-		if (skb != *pskb)
+-			skb = *pskb;
+-	}
+-
+ 	iph = skb->nh.iph;
+ 	if (unlikely(iph->protocol == IPPROTO_ICMP)) {
+ 		int related, verdict = ip_vs_out_icmp(pskb, &related);
+@@ -981,13 +974,6 @@
+ 		return NF_ACCEPT;
+ 	}
+ 
+-	if (skb->ip_summed == CHECKSUM_HW) {
+-		if (skb_checksum_help(pskb, (out == NULL)))
+-			return NF_DROP;
+-		if (skb != *pskb)
+-			skb = *pskb;
+-	}
+-
+ 	iph = skb->nh.iph;
+ 	if (unlikely(iph->protocol == IPPROTO_ICMP)) {
+ 		int related, verdict = ip_vs_in_icmp(pskb, &related);
+diff -ur v2.6.8/linux/net/ipv4/ipvs/ip_vs_xmit.c linux/net/ipv4/ipvs/ip_vs_xmit.c
+--- v2.6.8/linux/net/ipv4/ipvs/ip_vs_xmit.c	2004-08-14 11:08:13.000000000 +0300
++++ linux/net/ipv4/ipvs/ip_vs_xmit.c	2004-08-16 09:37:26.024807808 +0300
+@@ -128,6 +128,7 @@
+ #define IP_VS_XMIT(skb, rt)				\
+ do {							\
+ 	(skb)->nfcache |= NFC_IPVS_PROPERTY;		\
++	(skb)->ip_summed = CHECKSUM_NONE;		\
+ 	NF_HOOK(PF_INET, NF_IP_LOCAL_OUT, (skb), NULL,	\
+ 		(rt)->u.dst.dev, dst_output);		\
+ } while (0)
+@@ -412,8 +413,6 @@
+ 	ip_select_ident(iph, &rt->u.dst, NULL);
+ 	ip_send_check(iph);
+ 
+-	skb->ip_summed = CHECKSUM_NONE;
+-
+ 	/* Another hack: avoid icmp_send in ip_fragment */
+ 	skb->local_df = 1;
+ 
