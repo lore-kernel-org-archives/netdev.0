@@ -1,40 +1,31 @@
-From: David Dillow <dave@thedillows.org>
-Subject: Re: [PATCH 2.6] typhoon: fix PCI enable, add port IO option
-Date: Fri, 07 Jan 2005 01:35:08 -0500
-Message-ID: <1105079709.6202.4.camel@ori.thedillows.org>
-References: <1101535273.4734.3.camel@ori.thedillows.org>
-	 <41DE0648.6090302@pobox.com>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: Ethtool offload patch
+Date: Thu, 6 Jan 2005 22:44:53 -0800
+Message-ID: <20050106224453.3420f987.davem@davemloft.net>
+References: <1104396895.5845.1.camel@ori.thedillows.org>
+	<20050104094423.2d404759.davem@davemloft.net>
+	<1104865471.9860.16.camel@dillow.idleaire.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <41DE0648.6090302@pobox.com>
+To: Dave Dillow <dave@thedillows.org>
+In-Reply-To: <1104865471.9860.16.camel@dillow.idleaire.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-01-06 at 22:47 -0500, Jeff Garzik wrote:
-> David Dillow wrote:
-> > Jeff, please do a
-> > 
-> > 	bk pull http://typhoon.bkbits.net/typhoon-2.6
-> 
-> Unfortunately, I can't pull this since it is not based on vanilla 
-> upstream 2.6.x.
+On Tue, 04 Jan 2005 14:04:31 -0500
+Dave Dillow <dave@thedillows.org> wrote:
 
-Heh, I based it off netdev-2.6 at the time, because, IIRC, there were
-changes in it that hadn't been pushed to Linus yet, and hadn't come
-through me to be picked up in my tree. (There may be a way for me to do
-it, I didn't try very hard.)
+> I know you just got back from vacation, so when you get a chance, I'd
+> welcome comments on the patch series -- I did most of it simply, just to
+> see how it would perform. There is (obviously) still work to do -- I
+> need to figure out how to determine if an IPv6 address is local, and it
+> may be nice to have some sort of LRU list to offload the most active SAs
+> when resources get low on the card.
 
-> Can you please re-create your typhoon repository, based only on Linus's 
-> 2.6.x?
-
-Sure thing, it is there now. Content hasn't changed from the broken-out
-patches I sent earlier, but I broke the file deltas into changesets of
-their own.
-
--- 
-David Dillow <dave@thedillows.org>
+I intend to review this next week some time.  Sorry for the delay,
+but it's snowing like crazy in the mountains and I simply can't
+resist taking advantage of that :-)
