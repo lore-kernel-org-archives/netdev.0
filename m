@@ -1,47 +1,72 @@
-From: Marcelo Tosatti <marcelo.tosatti@cyclades.com>
-Subject: Re: 2.4.29, e100 and a WOL packet causes keventd going mad
-Date: Mon, 31 Jan 2005 13:24:31 -0200
-Message-ID: <20050131152431.GA14176@logos.cnet>
-References: <20050130171849.GA3354@hardeman.nu> <1107143255.18167.428.camel@localhost.localdomain> <41FDB2D3.5CBD6F7D@gte.net>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: [PATCH] PKT_SCHED: Fix ingress qdisc to pick up IPv6 packets when using netfilter hooks
+Date: Mon, 31 Jan 2005 19:48:27 +0100
+Message-ID: <20050131184827.GH31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: sfeldma@pobox.com, David =?iso-8859-1?Q?H=E4rdeman?= <david@2gen.com>,
-        Michael Gernoth <simigern@stud.uni-erlangen.de>,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bukie Mabayoje <bukiemab@gte.net>
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <41FDB2D3.5CBD6F7D@gte.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Jan 30, 2005 at 08:23:47PM -0800, Bukie Mabayoje wrote:
->=20
-> Scott Feldman wrote:
->=20
-> > On Sun, 2005-01-30 at 09:18, David H=C3=A4rdeman wrote:
-> > > I experience the same problems as reported by Michael Gernoth when
-> > > sending a WOL-packet to computer with a e100 NIC which is already
-> > > powered on.
-> >
-> > I didn't look at the 2.4 case, but for 2.6, it seems e100 was enablin=
-g
-> > PME wakeup during probe.  PME shouldn't be enabled while the system i=
-s
-> > up.  I suspect the assertion of PME while the system is up is what's
-> > causing problems.  This patch moves PME wakeup enabling to either
-> > suspend or shutdown.
-> >
-> > David, would you give this patch a try?  Make sure the system still
-> > wakes from a magic packet if suspended or shut down, and doesn't caus=
-e
-> > kacpid to go crazy if system is running.  If it helps for 2.6, perhap=
-s
-> > someone can look into 2.4 to see if there is something similar going =
-on
->=20
-> This issue was reported on 2.4.
+Jamal, close your eyes please.
 
-Can any of you guys test v2.6, please?
+Fixes the ingress qdisc to pick up IPv6 packets when using the old
+style netfilter hooks, i.e. when CONFIG_NET_CLS_ACT is not enabled.
+
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
+
+--- linux-2.6.11-rc2-bk8.orig/net/sched/sch_ingress.c	2005-01-30 21:19:51.000000000 +0100
++++ linux-2.6.11-rc2-bk8/net/sched/sch_ingress.c	2005-01-31 19:32:29.000000000 +0100
+@@ -14,6 +14,7 @@
+ #include <linux/netdevice.h>
+ #include <linux/rtnetlink.h>
+ #include <linux/netfilter_ipv4.h>
++#include <linux/netfilter_ipv6.h>
+ #include <linux/netfilter.h>
+ #include <linux/smp.h>
+ #include <net/pkt_sched.h>
+@@ -271,6 +272,14 @@
+ 	.priority       = NF_IP_PRI_FILTER + 1,
+ };
+ 
++static struct nf_hook_ops ing6_ops = {
++	.hook           = ing_hook,
++	.owner		= THIS_MODULE,
++	.pf             = PF_INET6,
++	.hooknum        = NF_IP6_PRE_ROUTING,
++	.priority       = NF_IP6_PRI_FILTER + 1,
++};
++
+ #endif
+ #endif
+ 
+@@ -297,6 +306,12 @@
+ 			return -EINVAL;
+ 		}
+ 		nf_registered++;
++
++		if (nf_register_hook(&ing6_ops) < 0) {
++			printk("IPv6 ingress qdisc registration error, " \
++			    "disabling IPv6 support.\n");
++		} else
++			nf_registered++;
+ 	}
+ #endif
+ #endif
+@@ -408,8 +423,11 @@
+ 	unregister_qdisc(&ingress_qdisc_ops);
+ #ifndef CONFIG_NET_CLS_ACT
+ #ifdef CONFIG_NETFILTER
+-	if (nf_registered)
++	if (nf_registered) {
+ 		nf_unregister_hook(&ing_ops);
++		if (nf_registered > 1)
++			nf_unregister_hook(&ing6_ops);
++	}
+ #endif
+ #endif
+ }
