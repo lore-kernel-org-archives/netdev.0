@@ -1,65 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [BK PATCHES] 2.6.x net driver updates
-Date: Fri, 9 Jul 2004 16:14:30 -0400
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: pskb change in dst->output
+Date: Sat, 10 Jul 2004 07:07:01 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040709201430.GA22656@havoc.gtf.org>
+Message-ID: <20040709210701.GA3281@gondor.apana.org.au>
+References: <20040709081443.GA11101@gondor.apana.org.au> <Xine.LNX.4.44.0407091001460.3887-100000@thoron.boston.redhat.com> <20040709123608.1f9f9265.davem@redhat.com> <20040709204228.GA3015@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+Content-Type: text/plain; charset=us-ascii
+Cc: James Morris <jmorris@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
+In-Reply-To: <20040709204228.GA3015@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Jul 10, 2004 at 06:42:28AM +1000, herbert wrote:
+> 
+> So unless I've missed another case where someone will pass a clone
+> down, it is safe to change the checksum on the TCP clones.
 
-Just emailed this to Andrew and Linus...
+Please note that even if you decide at the API-level that it is not
+OK for dst->output() functions to modify anything beyond the IP
+headers, we still don't need to copy the entire skb.
 
+Since it's already a clone anyway, skb_cow() suffices to allow
+changing the checksum.
 
+Is there a situation where someone will pass a shared (not cloned) skb
+down on the netfilter path? If not, then we can do skb_cow() there as
+well.
 
-
-Please do a
-
-	bk pull bk://gkernel.bkbits.net/net-drivers-2.6
-
-This will update the following files:
-
- drivers/net/epic100.c                  |  426 ++++++++-----
- drivers/net/forcedeth.c                |  848 +++++++++++++++++++-------
- drivers/net/natsemi.c                  | 1064 +++++++++++++++++++++++++-=
--------
- drivers/net/pci-skeleton.c             |   27=20
- drivers/net/sis900.c                   |   21=20
- drivers/net/sk98lin/h/skdrv1st.h       |    1=20
- drivers/net/wireless/prism54/oid_mgt.c |   10=20
- include/linux/pci_ids.h                |   13=20
- 8 files changed, 1761 insertions(+), 649 deletions(-)
-
-through these ChangeSets:
-
-Daniele Venzano:
-  o sis900-fix-phy-transceiver-detection.patch
-
-Fran=E7ois Romieu:
-  o epic100: code removal in irq handler
-  o epic100: spin_unlock_irqrestore avoidance
-  o [netdrvr epic100] napi fixes
-  o [netdrvr epic100] napi 3/3 - transmit path
-  o [netdrvr epic100] napi 2/3 - receive path
-  o [netdrvr epic100] napi 1/3 - just shuffle some code around
-  o [netdrvr epic100] minor cleanups
-
-Manfred Spraul:
-  o Gigabit Ethernet support for forcedeth
-  o natsemi 2: support packets > 1518 bytes
-  o natsemi 1: switch to netdev_priv()
-  o natsemi updates
-
-Margit Schubert-While:
-  o prism54 freq to channel incorrect for 5GHz
-
-Pavel Roskin:
-  o [netdrvr pci-skeleton] refresh
-
-Rusty Russell:
-  o [TRIVIAL 2.6] sk98lin: kill dup include
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
