@@ -1,34 +1,28 @@
-From: Mike_Phillips@URSCorp.com
-Subject: Re: [PATCH] ibmtr -- convert to new probeing
-Date: Sat, 15 Nov 2003 00:53:18 -0500
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: [BK PATCHES] 2.5.x experimental net driver patches
+Date: 14 Nov 2003 22:04:27 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF2336FD68.EC98F250-ON05256DDF.001F93EA-05256DDF.00205884@urscorp.com>
+Message-ID: <m33ccq4q78.fsf@defiant.pm.waw.pl>
+References: <20031114140413.GA15406@gtf.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Stephen Hemminger <shemminger@osdl.org>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <20031114140413.GA15406@gtf.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jeff Garzik <jgarzik@pobox.com> writes:
 
-Big badda boom !!
+> BK users:
+> 
+> 	bk pull bk://gkernel.bkbits.net/net-drivers-2.5-exp
+> 
+> Patch:
+> ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test9-bk18-netdrvr-exp1.patch.bz2
 
-Applied all patches (including mine to get ibmtr_cs working), insert pcmcia
-card, boom, panic, kernel halt, bye, bye system.
-
-It's getting very, very confused. Stephen's patch changes the behaviour in
-ibmtr.c so that it tries to probe the PIOAddr even when call via ibmtr_cs,
-can't do that, ibmtr_cs has already allocated the PIOAddr as part of the
-pcmcia setup. So ibmtr fails to allocate the same port. ibmtr.c tries to
-sanely exit, but ibmtr_cs isn't having any of it. Interrupts then decide to
-arrive, but none of the structures have been setup correctly and the kernel
-panics in the spinlock in tok_interrupt.
-
-Making sure ibmtr_cs is working is actually more important than ibmtr. IBM
-doesn't sell the isa cards anymore (I hope !!), but the pcmcia adapter is
-still being sold (in addition to the olympic based cardbus adapter)
-
-I need to dig up a real ISA adapter to try this with too.
-
-Mike
+How about a driver for PCI200SYN sync serial WAN card?
+Would you like me to send it again?
+-- 
+Krzysztof Halasa, B*FH
