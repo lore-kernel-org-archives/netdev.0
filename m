@@ -1,46 +1,39 @@
-From: Stephen Hemminger <shemminger@osdl.org>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [RFC] TCP Vegas for 2.6
-Date: Tue, 9 Mar 2004 10:22:06 -0800
+Date: 09 Mar 2004 13:58:06 -0500
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040309102206.33c1720c@dell_ss3.pdx.osdl.net>
+Message-ID: <1078858686.1036.726.camel@jzny.localdomain>
 References: <20040309180331.GC11604@wotan.suse.de>
-	<Pine.NEB.4.33.0403091307090.5230-100000@dexter.psc.edu>
+	 <Pine.NEB.4.33.0403091307090.5230-100000@dexter.psc.edu>
+	 <20040309102206.33c1720c@dell_ss3.pdx.osdl.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andi Kleen <ak@suse.de>, linux-net <linux-net@vger.kernel.org>,
-	<netdev@oss.sgi.com>
+Cc: John Heffner <jheffner@psc.edu>, Andi Kleen <ak@suse.de>,
+	linux-net <linux-net@vger.kernel.org>, netdev@oss.sgi.com
 Return-path: <linux-net-owner@vger.kernel.org>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.NEB.4.33.0403091307090.5230-100000@dexter.psc.edu>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040309102206.33c1720c@dell_ss3.pdx.osdl.net>
 List-Id: netdev.vger.kernel.org
 
-On Tue, 9 Mar 2004 13:11:11 -0500 (EST)
-John Heffner <jheffner@psc.edu> wrote:
+On Tue, 2004-03-09 at 13:22, Stephen Hemminger wrote:
 
-> On Tue, 9 Mar 2004, Andi Kleen wrote:
-> 
-> > > I would be very cautious about turning on Vegas by default.  In certain
-> > > cases, it is exactly the right thing to do.  However, in many cases it is
-> > > not.  Vegas will end up losing when competing against regular Reno-ish
-> > > congestion control.  Vegas also has issues with timer granularity, and
-> > > tuning its parameters can be quite tricky.  There are a number of unusual
-> > > failure modes as well, such as responding to congestion on the reverse
-> > > path, or caused by cross traffic.
-> >
-> > It would be better to make it a per route flag than a global sysctl
-> > at least.
-> 
-> This makes sense to me.  One of the primary uses of Vegas I see in high
-> performance networking is as a work-around for grossly overbuffered
-> routers.  This give the right level of control for that purpose.
-> 
->   -John
+> Every case I tested has vegas faster than the default reno.  It is especially
+> noticeable over the DSL. ]
 
-Every case I tested has vegas faster than the default reno.  It is especially
-noticeable over the DSL.  The current implementation is not ready to be turned
-on by default though.
+As i am sure you will notice it even more on ppp/dial up. I am suprised
+on the DSL results though. 
+Theres tons of literature has already been written on this stuff. It is
+know that Reno will work better over Vegas in some cases (as pointed
+above). Its useful to have vegas as a feature but lets not jump the gun.
+Congestion control algorithms have been known to start religious wars.
 
--- 
-Stephen Hemminger 		mailto:shemminger@osdl.org
-Open Source Development Lab	http://developer.osdl.org/shemminger
+>  The current implementation is not ready to be turned
+> on by default though.
+
+i like Andis idea of being able to select per route.
+
+cheers,
+jamal
+
