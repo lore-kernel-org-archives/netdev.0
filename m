@@ -1,79 +1,74 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] meta ematch
-Date: Sun, 16 Jan 2005 17:49:05 +0100
-Message-ID: <20050116164905.GX26856@postel.suug.ch>
-References: <20050113174111.GP26856@postel.suug.ch> <41E6C3E5.2020908@trash.net> <20050113192047.GQ26856@postel.suug.ch> <41E71CC4.3020102@trash.net> <20050114151407.GR26856@postel.suug.ch> <1105887519.1097.597.camel@jzny.localdomain> <20050116150914.GU26856@postel.suug.ch> <1105889874.1090.613.camel@jzny.localdomain> <20050116155758.GV26856@postel.suug.ch> <1105892360.1091.655.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Iproute2: update
+Date: 16 Jan 2005 12:09:13 -0500
+Message-ID: <1105895352.1091.705.camel@jzny.localdomain>
+References: <20050112125903.64d42737@dxpl.pdx.osdl.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed; boundary="=-LDKRqX2mFBn4MHPRkMSB"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1105892360.1091.655.camel@jzny.localdomain>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20050112125903.64d42737@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1105892360.1091.655.camel@jzny.localdomain> 2005-01-16 11:19
-> > > I am not sure iam following yet:
-> > > 
-> > > So in the case of indev, you would need to 
-> > > - get indev ifindex from skb
-> > > - get indev name from skb
-> > > - compare the two??
-> > >
+
+--=-LDKRqX2mFBn4MHPRkMSB
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+Here's one fix
+
+cheers,
+jamal
+
+On Wed, 2005-01-12 at 15:59, Stephen Hemminger wrote:
+> There is an new version of iproute2 for testing.
+> http://developer.osdl.org/dev/iproute2/download/iproute2-2.6.10-ss050112.tar.gz	
 > 
-> Can you explain the above in context of indev = "eth0"? I am still not
-> sure i get it:
+> Mostly simple merges, but could have some issues.
+> Jamal did I get everything you sent?
 > 
-> +     if (meta_get(skb, info, &meta->lvalue, &l_value) < 0 ||
-> +         meta_get(skb, info, &meta->rvalue, &r_value) < 0)
-> +             return 0;
-> +     r = meta_type_ops(&meta->lvalue)->compare(&l_value, &r_value);
+> [Masahide Nakamura]
+> 	ipmonitor shows IPv6 prefix list notification
+> 	update to iproute2 xfrm for ipv6	
+> 	
+> [Stephen Hemminger]
+> 	fix compile warnings when building 64bit system
+> 	don't include <asm/byteorder.h>
+> 	warning about "ip route nat" no longer supported
+> 
+> [Catalin(ux aka Dino) BOIE]
+> 	fwmark in u32 filters
+> 	
+> [Andi Kleen]
+> 	netlink manual page
+> 
+> [Thomas Graf]
+> 	tc testsuite
+> 
+> [Jamal Hadi Salim]
+> 	iptables tc support
+> 	mirror and redirect actions
+> 
 
-Sure, indev = "eth0"
+--=-LDKRqX2mFBn4MHPRkMSB
+Content-Disposition: attachment; filename=m_p_tc
+Content-Type: text/plain; name=m_p_tc; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
 
-TCA_EM_META_HDR = {
-	.left = {
-		.kind = TCF_META_TYPE_VAR << 12 | TCF_META_ID_INDEV,
-		.op = TCF_EM_EQ,
-	},
-	.right = {
-		.kind = TCF_META_TYPE_VAR << 12 | TCF_META_ID_VALUE,
-	},
-};
+--- a/tc/m_mirred.c	2005-01-12 15:19:46.000000000 -0500
++++ b-mod/tc/m_mirred.c	2005-01-16 11:51:59.217756280 -0500
+@@ -303,7 +303,7 @@
+ 	return 0;
+ }
+ 
+-struct action_util mirred_util = {
++struct action_util mirred_action_util = {
+ 	.id = "mirred",
+ 	.parse_aopt = parse_mirred,
+ 	.print_aopt = print_mirred,
 
-TCA_EM_META_LVALUE = EMPTY; /* unused */
-TCA_EM_META_RVALUE = "eth0"
-
-The configuration part will transform this into:
-
-struct meta_match = {
-	.lvalue = {
-		.hdr = {
-			.kind = TCF_META_TYPE_VAR << 12 | TCF_META_ID_INDEV,
-			.op = TCF_EM_EQ,
-		},
-	},
-	.rvalue = {
-		.hdr = {
-			.kind = TCF_META_TYPE_VAR << 12 | TCF_META_ID_VALUE,
-		}
-		.val = strdup("eth0"),
-		.len = strlen("eth0"),
-	},
-}
-
-meta_get will make meta_obj's out of it:
-
-struct meta_obj l_value = {
-	.value = dev->name,
-	.len = strlen(dev->name),
-},
-
-struct meta_obj r_value = {
-	.value = "eth0",
-	.len = strlen("eth0"),
-}
-
-the type specific compare will compare these.
+--=-LDKRqX2mFBn4MHPRkMSB--
