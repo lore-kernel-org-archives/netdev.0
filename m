@@ -1,31 +1,104 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: TCP-Protection is really a pain...
-Date: Thu, 03 Feb 2005 01:50:45 -0500
-Message-ID: <4201C9C5.1060002@pobox.com>
-References: <4201A382.1020208@rapidforum.com> <20050202205437.571a702b@localhost.localdomain> <4201B4EA.2030101@rapidforum.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
+Date: Thu, 3 Feb 2005 22:12:24 +1100
+Message-ID: <20050203111224.GA3267@gondor.apana.org.au>
+References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050202162023.075015d4.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
-To: Christian Schmid <webmaster@rapidforum.com>
-In-Reply-To: <4201B4EA.2030101@rapidforum.com>
+Content-Type: multipart/mixed; boundary="fdj2RfSjLxBAspz7"
+Cc: okir@suse.de, netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050202162023.075015d4.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Christian Schmid wrote:
-> btw: Another problem I am experiencing is that downloads suddenly break 
-> in speed from 360 kb/sec to 8-12 kb/sec. 5 seconds later they stall 
-> completely. But the interesting part is, that the send-queue is 
-> completely full (checked with a grep in netstat). This looks like as if 
-> the receiver is just too slow. But this is not the case. That makes it 
-> rather funny. The receiver is waiting with an empty pipe but linux 
-> doesn't send. What could this be?
 
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-With recent kernels, I've noticed that my browser progress bar will 
-download about 98% of a page, then stall for several seconds, then complete.
+On Wed, Feb 02, 2005 at 04:20:23PM -0800, David S. Miller wrote:
+> 
+> > 	if (atomic_read(&skb->users) != 1) {
+> > 		smp_mb__before_atomic_dec();
+> > 		if (!atomic_dec_and_test(&skb->users))
+> > 			return;
+> > 	}
+> > 	__kfree_skb(skb);
+> 
+> This looks good.  Olaf can you possibly ask the reproducer if
+> this patch makes the ARP problem go away?
 
-Very strange.  Haven't investigated it at all, though.
+Not so hasty Dave :)
 
-	Jeff
+That was only meant to be an example of what we might do to
+insert a write barrier in kfree_skb().
+
+It doesn't solve Olaf's problem because a write barrier is
+usually not sufficient by itself.  In most cases you'll need
+a read barrier as well.
+
+So if we're going for a solution that only involves kfree_skb()
+then we'll need the following patch.
+
+I got rid of the atomic_read optimisation since it would've needed
+an additional smp_rmb() to be safe.
+
+I thought about preserving that optimisation through something
+like skb->cloned.  However, it turns out that most skb's will be
+shared at least once so it doesn't buy us much.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+
+What I hoped to do though was to bring your collective attention
+to the problem in general.  kfree_skb() is certainly not the only
+place where we free an object after the counter hits zero.
+
+This paradigm is repeated throughout the kernel.  I bet the
+same race can be found in a lot of those places.  So we really
+need to sit down and audit them one by one or else come up with
+a magical solution apart from disabling SMP :) 
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+
+--fdj2RfSjLxBAspz7
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== include/linux/skbuff.h 1.59 vs edited =====
+--- 1.59/include/linux/skbuff.h	2005-01-11 07:23:55 +11:00
++++ edited/include/linux/skbuff.h	2005-02-03 21:57:26 +11:00
+@@ -353,15 +353,21 @@
+  */
+ static inline void kfree_skb(struct sk_buff *skb)
+ {
+-	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
+-		__kfree_skb(skb);
++	smp_mb__before_atomic_dec();
++	if (!atomic_dec_and_test(&skb->users))
++		return;
++	smp_mb__after_atomic_dec();
++	__kfree_skb(skb);
+ }
+ 
+ /* Use this if you didn't touch the skb state [for fast switching] */
+ static inline void kfree_skb_fast(struct sk_buff *skb)
+ {
+-	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
+-		kfree_skbmem(skb);
++	smp_mb__before_atomic_dec();
++	if (!atomic_dec_and_test(&skb->users))
++		return;
++	smp_mb__after_atomic_dec();
++	kfree_skbmem(skb);
+ }
+ 
+ /**
+
+--fdj2RfSjLxBAspz7--
