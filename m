@@ -1,35 +1,24 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [2.6 PATCH] ipvs - remove some unused fields from the protocols
-Date: Tue, 07 Oct 2003 20:14:25 +1000
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6, mcast: deactivate timers before
+ ipv6_mc_destroy_dev()
+Date: Tue, 7 Oct 2003 07:41:52 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007134931.CA9662C7A8@lists.samba.org>
-References: <Pine.LNX.4.44.0310070104470.6107-100000@u.domain.uli>
-Cc: "David S. Miller" <davem@redhat.com>, Wensong Zhang <wensong@linux-vs.org>,
-        netdev@oss.sgi.com
+Message-ID: <20031007074152.2b6ae089.davem@redhat.com>
+References: <20031005090610.GA23600@wsx.ksp.sk>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-reply-to: Your message of "Tue, 07 Oct 2003 01:16:36 +0300."
-             <Pine.LNX.4.44.0310070104470.6107-100000@u.domain.uli>
+To: Jan Oravec <jan.oravec@6com.sk>
+In-Reply-To: <20031005090610.GA23600@wsx.ksp.sk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <Pine.LNX.4.44.0310070104470.6107-100000@u.domain.uli> you write:
-> 
-> 	Hello,
-> 
-> 	The promised removal of some unused fields. For inclusion after 
-> comments from Rusty. Rusty, it seems we can not convert the transmitters 
-> to NF_STOLEN, ip_vs_null_xmit returns NF_ACCEPT.
+On Sun, 5 Oct 2003 11:06:10 +0200
+Jan Oravec <jan.oravec@6com.sk> wrote:
 
-Ah that's right.  I hit that as I was halfway through changing, and
-reverted.  Sorry.
+> the following patch calls ipv6_mc_down(idev) to deactivate timers. If we do
+> not deactivate them, the following may happen:
 
-Leaving the comment there and adding one in ip_vs_null_xmit on why
-breaking the rule in that case is OK is the right approach, I think.
-
-Patch looks good!
-
-Thanks,
-Rusty.
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+Applied, thanks a lot Jan.
