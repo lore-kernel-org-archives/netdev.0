@@ -1,34 +1,27 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] rtnl_unlock/lock in sch_api.c TRY3
-Date: Thu, 31 Mar 2005 20:39:19 -0800
-Message-ID: <20050331203919.08b7acff.davem@davemloft.net>
-References: <Pine.LNX.4.62.0503312309160.3390@webhosting.rdsbv.ro>
+Subject: Re: [PATCH REPOST 2.6.11-rc4-netdev1] bonding: don't drop non-VLAN
+ traffic
+Date: Thu, 31 Mar 2005 20:41:38 -0800
+Message-ID: <20050331204138.794ceb56.davem@davemloft.net>
+References: <200503312023.j2VKNhir031974@death.nxdomain.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro>
-In-Reply-To: <Pine.LNX.4.62.0503312309160.3390@webhosting.rdsbv.ro>
+To: Jay Vosburgh <fubar@us.ibm.com>
+In-Reply-To: <200503312023.j2VKNhir031974@death.nxdomain.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Mar 2005 23:11:06 +0300 (EEST)
-"Catalin(ux aka Dino) BOIE" <util@deuroconsult.ro> wrote:
+On Thu, 31 Mar 2005 12:23:43 -0800
+Jay Vosburgh <fubar@us.ibm.com> wrote:
 
-> Hello!
 > 
-> Trying to load a custom module (same for teql but I didn't tried it)
-> whan the qdisc module is not loaded, makes tc hang.
-> This is because qdisc_create aquires rtnl_sem and then tries to load a module 
-> that tries to register_netdev (that tries to aquire the same rtnl_sem).
-> Applying this patch makes the problem go away.
-> 
-> The patch was tested under 2.6.11.6.
-> 
-> Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
-> 
-> Please apply.
+> 	Posted this a few weeks ago, don't see it in netdev-2.6 yet.
+> Did this get lost somewhere, or is it still pending?
 
-Looks good, applied, thanks Catalin.
+Sorry, I thought Jeff would pick this one up.
+
+I've applied it to my tree, thanks Jay.
