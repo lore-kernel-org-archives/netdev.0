@@ -1,67 +1,56 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 5 2.4.27] pcnet32: correctly program bcr32.
-Date: Mon, 9 Aug 2004 16:18:21 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][IPv6] separation xfrm_lookup from ip6_dst_lookup
+Date: Mon, 9 Aug 2004 16:35:20 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040809231821.GF13717@us.ibm.com>
+Message-ID: <20040809163520.2873a3c8.davem@redhat.com>
+References: <20040730171205.114f22ba.kazunori@miyazawa.org>
+	<20040801195135.16734846.davem@redhat.com>
+	<20040803.020015.44364045.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: kazunori@miyazawa.org, herbert@gondor.apana.org.au, netdev@oss.sgi.com,
+        usagi-core@linux-ipv6.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
-Content-Disposition: inline
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040803.020015.44364045.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The pcnet32 driver was not correctly enabling MII autonegotiation after
-booting when ppc firmware forced the speed/duplex mode of the chip.
-After several conversations with AMD this patch corrects the problem.
+On Tue, 03 Aug 2004 02:00:15 -0700 (PDT)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-Signed-off-by: Don Fry <brazilnut@us.ibm.com>
+> In article <20040801195135.16734846.davem@redhat.com> (at Sun, 1 Aug 2004 19:51:35 -0700), "David S. Miller" <davem@redhat.com> says:
+> 
+> > On Fri, 30 Jul 2004 17:12:05 +0900
+> > Kazunori Miyazawa <kazunori@miyazawa.org> wrote:
+> > 
+> > > I consider copying flowi(fl_rt) uses too much stack at the moment.
+> > > I'll re-send the fixed patch again.
+> > 
+> > I agree, and let's defer this patch until we
+> > resolve that.
+> 
+> Is the overhead for allocating memory okay?
+> Or, do we allcoate some per-cpu memory while ipv6.o initalization phase?
+> (check: lock? preemption?)
+> Or, will we allocate fl (and fl_rt) per sock{} (ipv6_pinfo{})?
+> (ditto.)
+> 
+> We have similar stack usage in other codes, and 
+> I would fix them at the same time.
 
---- linux-2.4.27/drivers/net/home.pcnet32.c	Mon Aug  9 15:42:04 2004
-+++ linux-2.4.27/drivers/net/pcnet32.c	Mon Aug  9 15:42:09 2004
-@@ -22,8 +22,8 @@
-  *************************************************************************/
- 
- #define DRV_NAME	"pcnet32"
--#define DRV_VERSION	"1.30g"
--#define DRV_RELDATE	"06.22.2004"
-+#define DRV_VERSION	"1.30h"
-+#define DRV_RELDATE	"06.24.2004"
- #define PFX		DRV_NAME ": "
- 
- static const char *version =
-@@ -253,6 +253,7 @@ static int homepna[MAX_UNITS];
-  * 	   and Brian Murphy <brian@murphy.dk>.
-  * v1.30g  22 Jun 2004 Patrick Simmons <psimmons@flash.net> added option
-  *	   homepna for selecting HomePNA mode for PCNet/Home 79C978.
-+ * v1.30h  24 Jun 2004 Don Fry correctly select auto, speed, duplex in bcr32.
-  */
- 
- 
-@@ -1421,9 +1422,13 @@ pcnet32_open(struct net_device *dev)
- 	val |= 0x10;
-     lp->a.write_csr (ioaddr, 124, val);
- 
-+    /* 24 Jun 2004 according AMD, in order to change the PHY,
-+     * DANAS (or DISPM for 79C976) must be set; then select the speed,
-+     * duplex, and/or enable auto negotiation, and clear DANAS */
-     if (lp->mii && !(lp->options & PCNET32_PORT_ASEL)) {
-+	lp->a.write_bcr(ioaddr, 32, lp->a.read_bcr(ioaddr, 32) | 0x0080);
- 	/* disable Auto Negotiation, set 10Mpbs, HD */
--	val = lp->a.read_bcr (ioaddr, 32) & ~0x38;
-+	val = lp->a.read_bcr(ioaddr, 32) & ~0xb8;
- 	if (lp->options & PCNET32_PORT_FD)
- 	    val |= 0x10;
- 	if (lp->options & PCNET32_PORT_100)
-@@ -1431,6 +1436,7 @@ pcnet32_open(struct net_device *dev)
- 	lp->a.write_bcr (ioaddr, 32, val);
-     } else {
- 	if (lp->options & PCNET32_PORT_ASEL) {
-+	    lp->a.write_bcr(ioaddr, 32, lp->a.read_bcr(ioaddr, 32) | 0x0080);
- 	    /* enable auto negotiate, setup, disable fd */
- 	    val = lp->a.read_bcr(ioaddr, 32) & ~0x98;
- 	    val |= 0x20;
+I think memory allocation will make it worse.
 
--- 
-Don Fry
-brazilnut@us.ibm.com
+Instead, I would try to arrange order of events such that
+single stack copy can be modified.  Something like:
+
+	fl.foo = a;
+	fl.bar = b;
+	x = flow_lookup(&fl);
+
+	fl.foo = a_2;
+	y = other_lookup(&fl);
+
+And I believe this is possible in most if not all of
+these cases.
