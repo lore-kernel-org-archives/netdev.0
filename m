@@ -1,48 +1,60 @@
-From: Ralph Doncaster <ralph@istop.com>
-Subject: route-cache performance
-Date: Mon, 25 Aug 2003 23:41:11 -0400 (EDT)
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [OOPS] less /proc/net/igmp
+Date: Tue, 26 Aug 2003 15:03:31 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.51.0308252328140.26713@ns.istop.com>
-Reply-To: ralph+d@istop.com
+Message-ID: <20030826.150331.102449369.yoshfuji@linux-ipv6.org>
+References: <20030825163206.GA1340@penguin.penguin>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: sebek64@post.cz
+In-Reply-To: <20030825163206.GA1340@penguin.penguin>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-So far things look really good with 2.4.22-rc2 with a 1G Celery and e1000.
-This is just send-only with full (123K) routes and then a small routing
-table.  Tomorrow I'll test forwarding (in one e1000, out the other).
+Hello.
 
-Here's with a full table:
-    34 e1000_irq_enable                           0.7083
-    67 kmalloc                                    0.8375
-   147 memcpy_fromiovecend                        0.9187
-   115 kfree_skbmem                               1.0268
-   103 pfifo_fast_dequeue                         1.2875
-   511 raw_getrawfrag                             2.2812
-   272 __generic_copy_from_user                   2.4286
-   322 handle_IRQ_event                           2.8750
-   203 kfree                                      3.1719
-   198 system_call                                3.5357
+In article <20030825163206.GA1340@penguin.penguin> (at Mon, 25 Aug 2003 18:32:06 +0200), Marcel Sebek <sebek64@post.cz> says:
 
-And with < 10 routes:
-    29 kmalloc                                    0.3625
-    45 kfree_skbmem                               0.4018
-    66 memcpy_fromiovecend                        0.4125
-    23 e1000_irq_enable                           0.4792
-    53 pfifo_fast_dequeue                         0.6625
-   256 raw_getrawfrag                             1.1429
-   149 __generic_copy_from_user                   1.3304
-   170 handle_IRQ_event                           1.5179
-   113 kfree                                      1.7656
-   115 system_call                                2.0536
+> This Oops appears on 2.5.74+ kernels (including 2.6.0-test4) when
+> I'm trying to read /proc/net/igmp with 'less', 'cat' displays
+> the file content without oops:
+:
+> [snip]
+>  ...
+> bash# mount /proc
+> bash# cat /proc/net/igmp
+> Idx	Device    : Count Querier	Group    Users Timer	Reporter
+> bash# less /proc/net/igmp
+> Idx	Device    : Count Querier	Group    Users Timer	Reporter
+> bash# ifup -a
+> bash# cat /proc/net/igmp
+> Idx	Device    : Count Querier	Group    Users Timer	Reporter
+> 1	lo        :     0      V2
+> 				010000E0     1 0:FFFA22F0		0
+> bash# less /proc/net/igmp
+> Unable to handle kernel paging request at virtual address 08051be0
+>  printing eip:
+> 08051be0
+> *pde = 0fb66067
+> *pfe = 00000000
+> Oops: 0004 [#1]
+> CPU:    0
+> EIP:    0073:[<08051be0>]    Not tainted
+> EFLAGS: 00010246
+> EIP is at 0x8051be0
+> eax: 0805fb68   ebx: 00000001   ecx: 00000000   edx: 00000019
+> esi: 08060649   edi: 08057543   ebp: bffffd8c   esp: bfffda50
+> ds: 007b   es: 007b   ss: 007b
+> Process less (pid 20, threadinfo = cfab6000 task = c13560cd)
+>  <0>Kernel panic: Fatal exception in interrupt
+> In interrupt handler - not syncing
 
-Juno was able to send ~330kpps, which is pretty decent.  From the profiles
-it looks like every packet sent by juno leads to a kmalloc/kfree.  If
-that interpretation is correct then a fixed skb pool should lead to a
-significant performance improvement.
+I could not reproduce this issue.  anyone?
 
-Ralph Doncaster, IStop.com president
-6042147 Canada Inc.
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
