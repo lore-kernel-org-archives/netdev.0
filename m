@@ -1,10 +1,11 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH PKT_SCHED 7/22]: Use rtattr_strcmp where appropriate
-Date: Mon, 10 Jan 2005 20:37:54 +0100
-Message-ID: <41E2D992.7000300@trash.net>
+Subject: [PATCH PKT_SCHED 8/22]: act_api.c: clean up init path, propagate
+ errors properly
+Date: Mon, 10 Jan 2005 20:37:56 +0100
+Message-ID: <41E2D994.6070304@trash.net>
 Mime-Version: 1.0
 Content-Type: multipart/mixed;
- boundary="------------010606020202010102000701"
+ boundary="------------000909040505000102080502"
 Cc: Maillist netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
@@ -13,116 +14,128 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 This is a multi-part message in MIME format.
---------------010606020202010102000701
+--------------000909040505000102080502
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
 
 
---------------010606020202010102000701
+--------------000909040505000102080502
 Content-Type: text/x-patch;
- name="07.diff"
+ name="08.diff"
 Content-Transfer-Encoding: 7bit
 Content-Disposition: inline;
- filename="07.diff"
+ filename="08.diff"
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/09 22:54:01+01:00 kaber@coreworks.de 
-#   [RTNETLINK]: Use rtattr_strcmp where appropriate
+#   2005/01/09 23:31:15+01:00 kaber@coreworks.de 
+#   [PKT_SCHED]: act_api.c: clean up init path, propagate errors properly
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
 # net/sched/act_api.c
-#   2005/01/09 22:53:52+01:00 kaber@coreworks.de +1 -1
-#   [RTNETLINK]: Use rtattr_strcmp where appropriate
+#   2005/01/09 23:31:08+01:00 kaber@coreworks.de +17 -36
+#   [PKT_SCHED]: act_api.c: clean up init path, propagate errors properly
 #   
 #   Signed-off-by: Patrick McHardy <kaber@trash.net>
 # 
-# net/ipv4/fib_rules.c
-#   2005/01/09 22:53:52+01:00 kaber@coreworks.de +1 -1
-#   [RTNETLINK]: Use rtattr_strcmp where appropriate
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/devinet.c
-#   2005/01/09 22:53:52+01:00 kaber@coreworks.de +1 -1
-#   [RTNETLINK]: Use rtattr_strcmp where appropriate
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/decnet/dn_rules.c
-#   2005/01/09 22:53:52+01:00 kaber@coreworks.de +1 -1
-#   [RTNETLINK]: Use rtattr_strcmp where appropriate
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/decnet/dn_dev.c
-#   2005/01/09 22:53:52+01:00 kaber@coreworks.de +1 -1
-#   [RTNETLINK]: Use rtattr_strcmp where appropriate
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/net/decnet/dn_dev.c b/net/decnet/dn_dev.c
---- a/net/decnet/dn_dev.c	2005-01-10 06:22:11 +01:00
-+++ b/net/decnet/dn_dev.c	2005-01-10 06:22:11 +01:00
-@@ -662,7 +662,7 @@
- 	for(ifap = &dn_db->ifa_list; (ifa=*ifap) != NULL; ifap = &ifa->ifa_next) {
- 		void *tmp = rta[IFA_LOCAL-1];
- 		if ((tmp && memcmp(RTA_DATA(tmp), &ifa->ifa_local, 2)) ||
--				(rta[IFA_LABEL-1] && strcmp(RTA_DATA(rta[IFA_LABEL-1]), ifa->ifa_label)))
-+		    (rta[IFA_LABEL-1] && rtattr_strcmp(rta[IFA_LABEL-1], ifa->ifa_label)))
- 			continue;
- 
- 		dn_dev_del_ifa(dn_db, ifap, 1);
-diff -Nru a/net/decnet/dn_rules.c b/net/decnet/dn_rules.c
---- a/net/decnet/dn_rules.c	2005-01-10 06:22:11 +01:00
-+++ b/net/decnet/dn_rules.c	2005-01-10 06:22:11 +01:00
-@@ -88,7 +88,7 @@
- #endif
- 			(!rtm->rtm_type || rtm->rtm_type == r->r_action) &&
- 			(!rta[RTA_PRIORITY-1] || memcmp(RTA_DATA(rta[RTA_PRIORITY-1]), &r->r_preference, 4) == 0) &&
--			(!rta[RTA_IIF-1] || strcmp(RTA_DATA(rta[RTA_IIF-1]), r->r_ifname) == 0) &&
-+			(!rta[RTA_IIF-1] || rtattr_strcmp(rta[RTA_IIF-1], r->r_ifname) == 0) &&
- 			(!rtm->rtm_table || (r && rtm->rtm_table == r->r_table))) {
- 
- 			err = -EPERM;
-diff -Nru a/net/ipv4/devinet.c b/net/ipv4/devinet.c
---- a/net/ipv4/devinet.c	2005-01-10 06:22:11 +01:00
-+++ b/net/ipv4/devinet.c	2005-01-10 06:22:11 +01:00
-@@ -399,7 +399,7 @@
- 		     memcmp(RTA_DATA(rta[IFA_LOCAL - 1]),
- 			    &ifa->ifa_local, 4)) ||
- 		    (rta[IFA_LABEL - 1] &&
--		     strcmp(RTA_DATA(rta[IFA_LABEL - 1]), ifa->ifa_label)) ||
-+		     rtattr_strcmp(rta[IFA_LABEL - 1], ifa->ifa_label)) ||
- 		    (rta[IFA_ADDRESS - 1] &&
- 		     (ifm->ifa_prefixlen != ifa->ifa_prefixlen ||
- 		      !inet_ifa_match(*(u32*)RTA_DATA(rta[IFA_ADDRESS - 1]),
-diff -Nru a/net/ipv4/fib_rules.c b/net/ipv4/fib_rules.c
---- a/net/ipv4/fib_rules.c	2005-01-10 06:22:11 +01:00
-+++ b/net/ipv4/fib_rules.c	2005-01-10 06:22:11 +01:00
-@@ -119,7 +119,7 @@
- #endif
- 		    (!rtm->rtm_type || rtm->rtm_type == r->r_action) &&
- 		    (!rta[RTA_PRIORITY-1] || memcmp(RTA_DATA(rta[RTA_PRIORITY-1]), &r->r_preference, 4) == 0) &&
--		    (!rta[RTA_IIF-1] || strcmp(RTA_DATA(rta[RTA_IIF-1]), r->r_ifname) == 0) &&
-+		    (!rta[RTA_IIF-1] || rtattr_strcmp(rta[RTA_IIF-1], r->r_ifname) == 0) &&
- 		    (!rtm->rtm_table || (r && rtm->rtm_table == r->r_table))) {
- 			err = -EPERM;
- 			if (r == &local_rule)
 diff -Nru a/net/sched/act_api.c b/net/sched/act_api.c
---- a/net/sched/act_api.c	2005-01-10 06:22:11 +01:00
-+++ b/net/sched/act_api.c	2005-01-10 06:22:11 +01:00
-@@ -112,7 +112,7 @@
- 	if (kind) {
- 		read_lock(&act_mod_lock);
- 		for (a = act_base; a; a = a->next) {
--			if (strcmp((char*)RTA_DATA(kind), a->kind) == 0) {
-+			if (rtattr_strcmp(kind, a->kind) == 0) {
- 				if (!try_module_get(a->owner)) {
- 					read_unlock(&act_mod_lock);
- 					return NULL;
+--- a/net/sched/act_api.c	2005-01-10 06:22:15 +01:00
++++ b/net/sched/act_api.c	2005-01-10 06:22:15 +01:00
+@@ -283,55 +283,39 @@
+ 		                 RTA_PAYLOAD(rta)) < 0)
+ 			goto err_out;
+ 		kind = tb[TCA_ACT_KIND-1];
+-		if (kind != NULL) {
+-			if (rtattr_strlcpy(act_name, kind,
+-			                   IFNAMSIZ) >= IFNAMSIZ)
+-				goto err_out;
+-		} else {
+-			printk("Action bad kind\n");
++		if (kind == NULL)
++			goto err_out;
++		if (rtattr_strlcpy(act_name, kind, IFNAMSIZ) >= IFNAMSIZ)
+ 			goto err_out;
+-		}
+-		a_o = tc_lookup_action(kind);
+ 	} else {
+-		sprintf(act_name, "%s", name);
+-		DPRINTK("tcf_action_init_1: finding %s\n", act_name);
+-		a_o = tc_lookup_action_n(name);
++		if (strlcpy(act_name, name, IFNAMSIZ) >= IFNAMSIZ)
++			goto err_out;
+ 	}
++
++	*err = -ENOENT;
++	a_o = tc_lookup_action_n(act_name);
+ #ifdef CONFIG_KMOD
+ 	if (a_o == NULL) {
+-		DPRINTK("tcf_action_init_1: trying to load module %s\n",
+-		        act_name);
+ 		request_module(act_name);
+ 		a_o = tc_lookup_action_n(act_name);
+ 	}
+-
+ #endif
+-	if (a_o == NULL) {
+-		printk("failed to find %s\n", act_name);
++	if (a_o == NULL)
+ 		goto err_out;
+-	}
+ 
++	*err = -ENOMEM;
+ 	a = kmalloc(sizeof(*a), GFP_KERNEL);
+-	if (a == NULL) {
+-		*err = -ENOMEM;
++	if (a == NULL)
+ 		goto err_mod;
+-	}
+ 	memset(a, 0, sizeof(*a));
+ 
+ 	/* backward compatibility for policer */
+-	if (name == NULL) {
++	if (name == NULL)
+ 		*err = a_o->init(tb[TCA_ACT_OPTIONS-1], est, a, ovr, bind);
+-		if (*err < 0) {
+-			*err = -EINVAL;
+-			goto err_free;
+-		}
+-	} else {
++	else
+ 		*err = a_o->init(rta, est, a, ovr, bind);
+-		if (*err < 0) {
+-			*err = -EINVAL;
+-			goto err_free;
+-		}
+-	}
++	if (*err < 0)
++		goto err_free;
+ 
+ 	/* module count goes up only when brand new policy is created
+ 	   if it exists and is only bound to in a_o->init() then
+@@ -370,10 +354,8 @@
+ 		if (tb[i]) {
+ 			act = tcf_action_init_1(tb[i], est, name, ovr, bind,
+ 			                        err);
+-			if (act == NULL) {
+-				printk("Error processing action order %d\n", i);
++			if (act == NULL)
+ 				goto bad_ret;
+-			}
+ 
+ 			act->order = i+1;
+ 			if (a == NULL)
+@@ -838,8 +820,7 @@
+ 		ret = tca_action_gd(tca[TCA_ACT_TAB-1], n, pid, RTM_GETACTION);
+ 		break;
+ 	default:
+-		printk("Unknown cmd was detected\n");
+-		break;
++		BUG();
+ 	}
+ 
+ 	return ret;
 
---------------010606020202010102000701--
+--------------000909040505000102080502--
