@@ -1,87 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at net/netlink/af_netlink.c (126)
-Date: Fri, 1 Apr 2005 09:23:22 +1000
-Message-ID: <20050331232322.GA26693@gondor.apana.org.au>
-References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au> <20050327133811.GA5569@elte.hu> <20050329104906.GA19836@gondor.apana.org.au> <20050329114926.GA14986@elte.hu> <20050330082640.GA8269@gondor.apana.org.au> <20050330170236.2bddf666.davem@davemloft.net> <20050331231922.GA26587@gondor.apana.org.au>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: RFC:  Redirect-Device
+Date: 31 Mar 2005 18:26:58 -0500
+Message-ID: <1112311618.1090.20.camel@jzny.localdomain>
+References: <424C6089.1080507@candelatech.com>
+	 <1112303627.1073.71.camel@jzny.localdomain>
+	 <424C6B10.6030200@candelatech.com>
+	 <1112306031.1073.109.camel@jzny.localdomain>
+	 <424C7813.4000101@candelatech.com>
+	 <20050331143531.30f4eb8f.davem@davemloft.net>
+	 <424C7F96.4070002@candelatech.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="AqsLC8rIMeq19msA"
-Cc: mingo@elte.hu, netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	olel@ans.pl
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050331231922.GA26587@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <424C7F96.4070002@candelatech.com>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 2005-03-31 at 17:54, Ben Greear wrote:
 
---AqsLC8rIMeq19msA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> No.  I can't imagine a way to make it work with my application.
+> 
 
-Hi Dave:
+I think you are more comfortable with using netdevices and ioctls and
+/proc. 
+If the action stuff cant do what you need i will make a donation
+to the EFF on your behalf;->
 
-Here is the version for 2.4.
- 
-Unfortunately my patch only closed half the race.  There is still
-a chunk of code between netlink_dump_start and netlink_dump that runs
-outside the cb lock which isn't protected by an sk reference.
 
-Here is a better patch which protects the entire netlink_dump function
-with a sk reference.
 
-The other call to netlink_dump by recvmsg is safe as the open file
-descriptor already holds a reference.  As such the final sock_put
-in netlink_dump can be turned into a __sock_put since there is at
-least one reference held by the caller.
+> I obviously can't force you to accept the redirect module, so
+> if no one else sees any reason for it, then we can simply
+> drop the matter and I'll carry it in my own patch set like
+> I do my other stuff.  No hard feelings, and if someone decides
+> they could use something like it in the future, then perhaps
+> we can take another look at it.
+> 
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
- 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Why dont we try to help you so you migrate from the approach you are
+currently taking?
 
---AqsLC8rIMeq19msA
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
---- linux-2.4/net/netlink/af_netlink.c.orig	2005-04-01 09:20:05.000000000 +1000
-+++ linux-2.4/net/netlink/af_netlink.c	2005-04-01 09:21:06.000000000 +1000
-@@ -981,11 +981,9 @@
- 	len = cb->dump(skb, cb);
- 
- 	if (len > 0) {
--		sock_hold(sk);
- 		spin_unlock(&sk->protinfo.af_netlink->cb_lock);
- 		skb_queue_tail(&sk->receive_queue, skb);
- 		sk->data_ready(sk, len);
--		sock_put(sk);
- 		return 0;
- 	}
- 
-@@ -1000,7 +998,7 @@
- 	spin_unlock(&sk->protinfo.af_netlink->cb_lock);
- 
- 	netlink_destroy_callback(cb);
--	sock_put(sk);
-+	__sock_put(sk);
- 	return 0;
- }
- 
-@@ -1037,9 +1035,11 @@
- 		return -EBUSY;
- 	}
- 	sk->protinfo.af_netlink->cb = cb;
-+	sock_hold(sk);
- 	spin_unlock(&sk->protinfo.af_netlink->cb_lock);
- 
- 	netlink_dump(sk);
-+	sock_put(sk);
- 	return 0;
- }
- 
-
---AqsLC8rIMeq19msA--
+cheers,
+jamal
