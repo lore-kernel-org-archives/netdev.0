@@ -1,63 +1,78 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: patch: tunnels not setting inputdev
-Date: 01 Jan 2005 18:33:27 -0500
-Message-ID: <1104622406.1049.450.camel@jzny.localdomain>
-References: <1104513392.1048.316.camel@jzny.localdomain>
-	 <41D5941C.8060001@trash.net> <1104523892.1047.338.camel@jzny.localdomain>
-	 <41D6CB87.8040205@trash.net>
+Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+Date: 01 Jan 2005 18:42:14 -0500
+Message-ID: <1104622934.1047.460.camel@jzny.localdomain>
+References: <20041229150140.GJ32419@postel.suug.ch>
+	 <1104335620.1025.22.camel@jzny.localdomain>
+	 <20041230174313.GB32419@postel.suug.ch>
+	 <1104469111.1049.219.camel@jzny.localdomain>
+	 <20041231110836.GD32419@postel.suug.ch>
+	 <1104505142.1048.262.camel@jzny.localdomain>
+	 <20041231153930.GN32419@postel.suug.ch>
+	 <1104511494.1048.303.camel@jzny.localdomain>
+	 <20041231181153.GP32419@postel.suug.ch>
+	 <1104526311.1047.379.camel@jzny.localdomain>
+	 <20050101183230.GT32419@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        Wichert Akkerman <wichert@wiggy.net>
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41D6CB87.8040205@trash.net>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050101183230.GT32419@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2005-01-01 at 11:10, Patrick McHardy wrote:
-> jamal wrote:
+On Sat, 2005-01-01 at 13:32, Thomas Graf wrote:
+
+> OK, I changed my mind while implementing it and a selector now looks
+> like this:
 > 
-> >>For the remaining changes, why not simply set
-> >>input_dev in netif_receive_skb before the call to ing_filter ?
-> > 
-> > You want to be able to filter on indev at ingress - it is safer for
-> > whoever calls netif_rx() to do the setting. The packet could be looped
-> > from egress multiple times as well (redirected).
+> Selector TLV:
 > 
-> Currently input_dev is set in eth_type_trans, ppp_generic and the
-> mirred action. With your patch we have a couple of drivers more,
-
-I want to understand the repurcasssions instead of blindly setting. Let
-users complain, thats why the printk exists. For example what does
-input_dev mean for netbios or a 802.3ad interface? You already saw one,
-xfrm, where there was no need to reset. 
-
-> but this still leaves lots of non-ethernet drivers that don't set
-> input_dev. A centralized solutions seems much better to me than
-> adding this to every single driver.
-
-Ethernet like, ppp-like and now tunnel-like. If you note on my email
-with the patch i said: 
-"A lot of the stuff the tunnels do is very similar, so maybe wiser to
-have something like tunnel_type_trans()."
-This includes things like nf_reset(skb) which is done by that family of
-devices that may need centralizing.
-If you want to create such a patch go ahead and i will hold mine.
-
-> I can't see the problem with
-> redirected packets, just set skb->input_dev = skb->dev in
-> netif_receive_skb, this should have exactly the same effect as
-> setting it in the drivers or the mirred action.
+>  +----------------------------+
+>  | TCA_EMATCH_TREE_HDR        |
+>  +----------------------------+
+>  | TCA_EMATCH_TREE_LIST       |
+>  | +------------------------+ |
+>  | | T=1 Match 1            | |
+>  | +------------------------+ |
+>  | | T=2 Match 2            | |
+>  | +------------------------+ |
+>  | | T=N Match N            | |
+>  | +------------------------+ |
+>  +----------------------------+
 > 
 
-in some cases the pointers are swapped. You cant just blindly
-set skb->input_dev = skb->dev at the input - that would be violating the
-intent; think reinjecting packets (and look at mirred as a sample of
-apps to come that do this).
+what happened to the good old SEL TLV (which i believe we called SEL2
+now); or maybe thats what contains this TLV?
+
+> So we can put more into the selector if needed without breaking
+> compatibility. TCA_EMATCH_TREE_HDR currently contains `nmatches'
+> specifying N and progid holding the PID you talked about.
+
+Ok, so i think you may be saying the old selector stays intact then
+(sans the matches)?
+Why do you need to specify "nmatches".
+You know exactly where each one starts and ends (from the TLVs).
+
+What is TCA_EMATCH_TREE_LIST for? Looks like another TLV nesting. Not
+needed, you just plumb the T=1,..T=N right after the header.
+
+> The match TLVs must have a continous numbering because I don't
+> want to define limits as done in the action code.
+
+I think the way you have it is fine - and believe it is the way the
+action code has it for the list.
+
+> I'll post an RFC patch tomorrow implementing the API and a
+> simple ematch.
+
+Nice. I have started implementing the eaction code but too obsessed with
+this other thing i am working on - hopefully i will get to it before my
+vacation expires.
 
 cheers,
 jamal
