@@ -1,53 +1,41 @@
-From: Srihari Vijayaraghavan <harisri@bigpond.com>
-Subject: Re: [patch] 2.6.5-rc2 - r8169 DAC
-Date: Sat, 3 Apr 2004 12:08:16 +1000
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [patch 0/4] 2.6.5-rc2-mm5 - r8169 queue
+Date: Tue, 30 Mar 2004 10:37:59 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404031208.17066.harisri@bigpond.com>
-References: <20040329193604.A4744@electric-eye.fr.zoreil.com> <20040329223513.C4744@electric-eye.fr.zoreil.com> <20040403010045.A12904@electric-eye.fr.zoreil.com>
+Message-ID: <40699457.1020304@pobox.com>
+References: <20040329193604.A4744@electric-eye.fr.zoreil.com> <4068656D.2080103@pobox.com> <20040329211441.B4744@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, Andi Kleen <ak@suse.de>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040403010045.A12904@electric-eye.fr.zoreil.com>
-Content-Disposition: inline
+In-Reply-To: <20040329211441.B4744@electric-eye.fr.zoreil.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello Francois,
+Francois Romieu wrote:
+> Jeff Garzik <jgarzik@pobox.com> :
+> [...]
+> 
+>>I am pondering taking your latest version of r8169, and moving the 
+>>phy-related code from there to 8139cp.c.  Then just add
+>>	MODULE_ALIAS("r8169");
+>>and deleting r8169.c.
+>>
+>>The rationale is, 8169 is _exactly_ the same as 8139C+, except the phy 
+>>code and one or two bits in the chip registers.  I would rather have 
+>>just one codebase, supporting one MAC (i.e. the RX/TX part) and multiple 
+>>phys.
+> 
+> 
+> It seems appealing. Do you have a specific schedule in mind ?
 
-On Saturday 03 April 2004 09:00, Francois Romieu wrote:
-> By popular request, patch for DAC on r8169 is available at:
-> http://www.fr.zoreil.com/people/francois/misc/20040403-2.6.5-rc2-r8169.c-te
->st.patch
->
-> It applies against 2.6.5-rc2 (i.e. anything 2.6.5-rcX I guess).
-Yes it does apply cleanly on both 2.6.5-rc2 and 2.6.5-rc3.
 
-> A tester on a x86-32 and a tester on something-64 bits would be _really_
-> welcome.
+schedules are an anathema to me ;-)
 
-I can test your patch on x86-64, but it does not compile. Here is the error 
-message (same error message on both 2.6.5-rc2 and 2.6.5-rc3):
-  CC [M]  drivers/net/r8169.o
-drivers/net/r8169.c: In function `rtl8169_init_board':
-drivers/net/r8169.c:730: error: `DMA_64BIT_MASK' undeclared (first use in this 
-function)
-drivers/net/r8169.c:730: error: (Each undeclared identifier is reported only 
-once
-drivers/net/r8169.c:730: error: for each function it appears in.)
-drivers/net/r8169.c:733: error: `DMA_32BIT_MASK' undeclared (first use in this 
-function)
-drivers/net/r8169.c: In function `rtl8169_hw_start':
-drivers/net/r8169.c:1138: error: `DMA_32BIT_MASK' undeclared (first use in 
-this function)
-make[2]: *** [drivers/net/r8169.o] Error 1
-make[1]: *** [drivers/net] Error 2
-make: *** [drivers] Error 2
-  CC      net/core/dev.o
-make: *** Waiting for unfinished jobs....
+I was thinking about getting your initial patches into 2.6.x upstream so
+that r8169 users at least have something usable while the phy code gets
+moved over to 8139cp.c.
 
-Thanks
-Hari
+	Jeff
