@@ -1,29 +1,32 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [IPSEC] Find larval SAs by sequence number
-Date: Fri, 10 Sep 2004 14:53:50 -0700
+Subject: Re: [IPCOMP] Use per-cpu buffers
+Date: Fri, 10 Sep 2004 14:55:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040910145350.26847bec.davem@davemloft.net>
-References: <20040909121332.GA31902@gondor.apana.org.au>
+Message-ID: <20040910145506.4b3933c4.davem@davemloft.net>
+References: <20040910111047.GA29330@gondor.apana.org.au>
+	<Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, jmorris@redhat.com, netdev@oss.sgi.com
+Cc: herbert@gondor.apana.org.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+        linux-ppp@vger.kernel.org, paulus@samba.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040909121332.GA31902@gondor.apana.org.au>
+To: James Morris <jmorris@redhat.com>
+In-Reply-To: <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 9 Sep 2004 22:13:32 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Fri, 10 Sep 2004 11:42:00 -0400 (EDT)
+James Morris <jmorris@redhat.com> wrote:
 
-> When larval states are generated along with ACQUIRE messages, we should
-> use the sequence to find the corresponding larval state when creating
-> states with ADD_SA or ALLOC_SPI.
+> On Fri, 10 Sep 2004, Herbert Xu wrote:
 > 
-> If we don't do that, then it may take down an unrelated larval state
-> with the same parameters (think different TCP sessions).  This not only
-> leaves behind a larval state that shouldn't be there, it may also cause
-> another ACQUIRE message to be sent unnecessarily.
+> > James, can you think of a general solution to the 64K buffer in
+> > terms of the crypto decompression interface?
+> 
+> I haven't looked at the code for a while, but I think we might be able to 
+> save some memory by specifying compression parameters and making the 
+> appropriate changes to zlib.
 
-Looks good, applied.
+For now I'm going to put in Herbert's per-cpu patch, and we
+can try to come up with something better later.
