@@ -1,32 +1,28 @@
 From: Jamal Hadi <hadi@shell.cyberus.ca>
-Subject: Re: [PATCH 2.5.69] Bridge timer performance enhancement
-Date: Wed, 14 May 2003 07:29:20 -0400 (EDT)
+Subject: Re: acenic lockup
+Date: Wed, 14 May 2003 07:40:16 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030514072350.P23367@shell.cyberus.ca>
-References: <20030509132012.598602ec.shemminger@osdl.org>
+Message-ID: <20030514073815.G23367@shell.cyberus.ca>
+References: <200305072221.CAA00973@mops.inr.ac.ru> <20030508.090049.48375778.davem@redhat.com>
+ <20030508131135.G22565@devserv.devel.redhat.com> <20030508.090954.94579344.davem@redhat.com>
+ <20030508132735.J22565@devserv.devel.redhat.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-   bridge@math.leidenuniv.nl
+Cc: "David S. Miller" <davem@redhat.com>, kuznet@ms2.inr.ac.ru,
+   anton@samba.org, jes@trained-monkey.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20030509132012.598602ec.shemminger@osdl.org>
+To: Jeff Garzik <jgarzik@redhat.com>
+In-Reply-To: <20030508132735.J22565@devserv.devel.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 
-Stephen,
-Seems you are the new maintainer to the bridging code? I suppose Lennert
-is still still listening in the background somewhere. One thing we should
-do post 2.6 is move all the STP protocol specific out of the kernel.
-i.e leave the datapath controllers (such as controlling STP states)
-in the kernel but have a user sapce daemon. This way you can start adding
-a lot more feature rich extensions in user space without waiting for
-kernel releases or having kernel patches (Fast Forward etc).
-A second item is to start looking at integrating STP with the VLAN code.
-Too bad Lennert (and someone else - cant remember the name) VLAN code
-never made it in. We can  still fix this.
+Jeff,
+
+Dont forget that nice looking fixed tulip which gets rid of the
+nonsense tx_timeout;->
+http://www.cyberus.ca/~hadi/patches/tulip-sym-fixed-20030103.tgz
 
 cheers,
 jamal
