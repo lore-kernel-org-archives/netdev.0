@@ -1,50 +1,64 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] qdisc oops fix
-Date: Tue, 15 Apr 2003 10:31:04 -0400 (EDT)
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [RFC/PATCH] ICMPv6 MIB stats per-interface
+Date: Tue, 15 Apr 2003 09:34:42 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030415102918.U2397@shell.cyberus.ca>
-References: <20030415084706.O1131@shell.cyberus.ca>
- <20030415134305.GF15944@louise.pinerecords.com>
+Message-ID: <20030415093442.0913486d.rddunlap@osdl.org>
+References: <20030414.090610.117741299.davem@redhat.com>
+	<20030415.014047.39346510.yoshfuji@linux-ipv6.org>
+	<20030414095030.50ad9652.rddunlap@osdl.org>
+	<20030415.021728.70559400.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: linux-kernel@vger.kernel.org, "" <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: davem@redhat.com, linux-net@vger.kernel.org, netdev@oss.sgi.com,
+   usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tomas Szepe <szepe@pinerecords.com>
-In-Reply-To: <20030415134305.GF15944@louise.pinerecords.com>
+To: YOSHIFUJI Hideaki / =?ISO-8859-1?Q?=B5=C8=C6=A3=B1=D1=CC=C0?=
+ <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20030415.021728.70559400.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 15 Apr 2003 02:17:28 +0900 (JST) YOSHIFUJI Hideaki / =B5=C8=C6=A3=
+=B1=D1=CC=C0 <yoshfuji@linux-ipv6.org> wrote:
+
+| In article <20030414095030.50ad9652.rddunlap@osdl.org> (at Mon, 14 Apr =
+2003 09:50:30 -0700), "Randy.Dunlap" <rddunlap@osdl.org> says:
+|=20
+| > On Tue, 15 Apr 2003 01:40:47 +0900 (JST) YOSHIFUJI Hideaki / =B5=C8=C6=
+=A3=B1=D1=CC=C0 <yoshfuji@linux-ipv6.org> wrote:
+| >=20
+| > | In article <20030414.090610.117741299.davem@redhat.com> (at Mon, 14=
+ Apr 2003 09:06:10 -0700 (PDT)), "David S. Miller" <davem@redhat.com> say=
+s:
+| > |=20
+| > | > So we'd then have /proc/net/dev_snmp6/{lo,eth0,eth1} etc.
+| > | >=20
+| > | > Ok?
+| > |=20
+| > | Okay.  I'd like to see ifIndex in that file, too.
+| >=20
+| > Yes, sounds good.
+| >=20
+| > Is this something that you plan to extract from the USAGI Linux 2.4
+| > patches and submit for 2.5, or should I continue with my patches?
+|=20
+| Please let me see your patch in details.
+| I'll do it today... (It is 2:00am... I'm sleepy... zzz...)
+|=20
+| --=20
+| Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+| GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
 
 
+Hi-
 
-Can you try a different qdisc - not htb to reproduce the problem?
+Do you have any updates (recommendations) on how to proceed on this?
+Have you looked at my patch file?
 
-cheers,
-jamal
+I think that we can make some progress without having an answer to
+your question about /proc/sys/net/ipv6/conf/foobar file renaming.
 
-On Tue, 15 Apr 2003, Tomas Szepe wrote:
-
-> Trace; c01376fd <__kmem_cache_alloc+6d/140>
-> Trace; c021b809 <qdisc_create_dflt+29/c0>
-> Trace; e0a4b71d <[sch_htb]htb_change_class+40d/600>
-> Trace; e0a48108 <[sch_htb]htb_find+58/70>
-> Trace; c021d5aa <tc_ctl_tclass+14a/2b0>
-> Trace; e0a4d1e0 <[sch_htb]htb_class_ops+0/0>
-> Trace; c0219b18 <rtnetlink_rcv_msg+1a8/26d>
-> Trace; c0219740 <rtnetlink_rcv+c0/1e0>
-> Trace; c0219450 <rtnetlink_dump_ifinfo+0/90>
-> Trace; c022121a <netlink_data_ready+7a/80>
-> Trace; c02209f1 <netlink_unicast+281/330>
-> Trace; c0220f71 <netlink_sendmsg+1f1/290>
-> Trace; c020a5c5 <sock_sendmsg+75/c0>
-> Trace; c020bce7 <sys_sendmsg+1b7/210>
-> Trace; c0130010 <do_buffer_fdatasync+30/b0>
-> Trace; c012d5b5 <do_anonymous_page+115/130>
-> Trace; c012d821 <handle_mm_fault+81/120>
-> Trace; c0117f48 <do_page_fault+188/523>
-> Trace; c020b11d <sys_socket+3d/60>
-> Trace; c020c1d6 <sys_socketcall+246/270>
-> Trace; c0117dc0 <do_page_fault+0/523>
-> Trace; c0107800 <error_code+34/3c>
-> Trace; c010770f <system_call+33/38>
->
+Thanks,
+--
+~Randy
