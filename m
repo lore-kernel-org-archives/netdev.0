@@ -1,39 +1,53 @@
-From: Vojtech Pavlik <vojtech@suse.cz>
-Subject: Re: [PATCH] [2.4] forcedeth network driver
-Date: Sat, 24 Jan 2004 23:05:45 +0100
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040124220545.GA3246@ucw.cz>
-References: <4012BF44.9@colorfullife.com> <4012D3C6.1050805@pobox.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Compile Error with r8169.c
+Date: Sat, 24 Jan 2004 23:09:14 +0100
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040124230914.C2069@electric-eye.fr.zoreil.com>
+References: <Pine.LNX.4.58.0401241222570.19565@duron.home> <20040124214009.A2069@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0401241248050.19622@duron.home> <20040124222128.B2069@electric-eye.fr.zoreil.com> <Pine.LNX.4.58.0401241335440.19956@duron.home>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Manfred Spraul <manfred@colorfullife.com>,
-	Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>,
-	linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: Jeff Garzik <jgarzik@pobox.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Christoph Lameter <christoph@lameter.com>
 Content-Disposition: inline
-In-Reply-To: <4012D3C6.1050805@pobox.com>
+In-Reply-To: <Pine.LNX.4.58.0401241335440.19956@duron.home>; from christoph@lameter.com on Sat, Jan 24, 2004 at 01:41:41PM -0800
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Jan 24, 2004 at 03:21:26PM -0500, Jeff Garzik wrote:
-> >>>+static int alloc_rx(struct net_device *dev)
-> >>>+{
-> >[snip]
-> >>>+    return 0;
-> >>>+}
-> >>
-> >>skb_reserve() seems to be missing
-> >>
-> >Do you have specs that show that all nForce versions support unaligned 
-> >buffers? skb_reserve is a performance feature, I don't want to add it 
-> >yet. Testing that it works is on our TODO list.
-> 
-> hmmmm, is nForce ever found on non-x86 boxes?  I would think that 
-> skb_reserve might be -required- for some platforms.
+Christoph Lameter <christoph@lameter.com> :
+[...]
+> Ok. so this is the issue. The result of my patching is attached. I
+> followed the instructions from the README.txt.
 
-AMD64 and PPC64 as far as I know. But you may consider the first one
-still a x86 box.
+/me checks... 
 
--- 
-Vojtech Pavlik
-SuSE Labs, SuSE CR
+The README.txt looks like my "series" file:
+[...]
+14:a:r8169-tx-index-overflow
+15:a:r8169-dma-api-tx
+16:a:r8169-dma-api-rx-buffers
+17:a:r8169-dma-api-tx-buffers
+18:a:r8169-rx_copybreak
+19:a:r8169-mac-phy-version
+20:a:r8169-init_one
+21:a:r8169-timer
+22:a:r8169-hw_start
+23:a:r8169-intr_mask
+24:a:r8169-suspend
+25:a:r8169-endianness
+26:a:r8169-getstats
+27:a:r8169-addr-high
+28:a:r8169-ethtool-introduction
+29:a:r8169-missing-static
+
+(I will look your file tomorrow -> going offline for today)
+
+> Could you just make the patched file available or a combined diff? I could
+> have made a mistake by patching it but re-doing all the steps does not
+> give me any hint what I did wrong.
+
+http://www.fr.zoreil.com/people/francois/misc/r8169.c-intr-mask
+http://www.fr.zoreil.com/people/francois/misc/r8169.c-missing-static
+
+--
+Ueimor
