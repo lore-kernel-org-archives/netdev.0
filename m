@@ -1,65 +1,65 @@
-From: David Woodhouse <dwmw2@infradead.org>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 08:39:33 +0100
+Date: Tue, 30 Sep 2003 01:08:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064907572.21551.31.camel@hades.cambridge.redhat.com>
+Message-ID: <20030930010855.095c2c35.davem@redhat.com>
 References: <20030928225941.GW15338@fs.tum.de>
-	 <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de>
-	 <20030929220916.19c9c90d.davem@redhat.com>
-	 <1064903562.6154.160.camel@imladris.demon.co.uk>
-	 <20030930000302.3e1bf8bb.davem@redhat.com>
+	<20030928231842.GE1039@conectiva.com.br>
+	<20030928232403.GX15338@fs.tum.de>
+	<20030929220916.19c9c90d.davem@redhat.com>
+	<1064903562.6154.160.camel@imladris.demon.co.uk>
+	<20030930000302.3e1bf8bb.davem@redhat.com>
+	<1064907572.21551.31.camel@hades.cambridge.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: bunk@fs.tum.de, acme@conectiva.com.br, netdev@oss.sgi.com,
         pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
         linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030930000302.3e1bf8bb.davem@redhat.com>
+To: David Woodhouse <dwmw2@infradead.org>
+In-Reply-To: <1064907572.21551.31.camel@hades.cambridge.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-09-30 at 00:03 -0700, David S. Miller wrote:
-> This conflicts with the other reply you've made to me in this
-> thread where you say that you agree with me.
-> 
-> So which is it? :-)
+On Tue, 30 Sep 2003 08:39:33 +0100
+David Woodhouse <dwmw2@infradead.org> wrote:
 
-Sorry, I was having a laugh. It amused me to demonstrate how a single
-apostrophe, or lack of it, can entirely change the meaning of a
-sentence. I didn't expect you personally to fall for it -- I expected
-you to give me more credit than to assume I'd make kindergarten errors
-in a two-word email. 
+> And you don't see why it's confusing that turning something on as a
+> _module_ changes the contents of the kernel image?
 
-Read it again, only this time bear in mind I'm a native English speaker
-with an IQ over 50 :)
+For something in the kernel tree, no I don't.
 
-> I don't see why "enabling to 'y'" and "enabling to 'm'" are in any
-> way fundamentally different.  You're turning something on, therefore
-> something is going to change.
+> 99% or more of tristate options can be enabled without affecting the
+> kernel, and it is expected that such options can be set to 'm' later,
+> while the kernel in question is actually running, then built and loaded
+> without a reboot.
 
-And you don't see why it's confusing that turning something on as a
-_module_ changes the contents of the kernel image?
+Expected by whom?  Not by me.
 
-99% or more of tristate options can be enabled without affecting the
-kernel, and it is expected that such options can be set to 'm' later,
-while the kernel in question is actually running, then built and loaded
-without a reboot.
+> We should strive to keep this true.
 
-We should strive to keep this true.
+For things _OUTSIDE_ the kernel, surely.  But inside the kernel
+tree I don't see any value in this new restriction.
 
-> And when I see suggestions that we add four options to replace the
-> single one we have now, with a addendum saying "it's not really
-> complex, we'll explain it in the documentation", I want to pull my
-> hair out.
+> 	Allow this kernel to ever support IPv6? Y/N
+> 	Build IPv6 support? Y/M/N
 
-It was two options, giving four potential combinations. They were
-simple:
+And I still think this is a complete joke.
 
-	Allow this kernel to ever support IPv6? Y/N
-	Build IPv6 support? Y/M/N
+If the user sets CONFIG_IPV6 to 'm' from 'n', and make then creates a
+new kernel image for him (which it will if dependencies are working
+correctly), if he can't figure out that he's gotta install that thing
+maybe he should enable module symbol versions to protect him from
+insmod'ing that ipv6 module by mistake.
 
+Actually, he won't be able to anyways since only the new kernel exports
+a bunch of ipv4 symbols which ipv6 needs.
 
--- 
-dwmw2
+We could even somehow 'tag' the ipv4 core such that the ipv6 module
+can check whether it knows that ipv6 was built as a module or not.
+
+The suggestions I see do nothing to enhance the kernel tree as it currently
+stands.  If you wish to prevent the kernel image from changing due to
+out-of-tree modules being built, fine, but don't impose this restriction
+upon in-kernel modules.
