@@ -1,62 +1,54 @@
-From: Sven Schuster <schuster.sven@gmx.de>
-Subject: Re: [patch] tg3 ring buffer allocation error handling
-Date: Thu, 15 Apr 2004 00:02:54 +0200
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: [PATCH] Propagate error from sctp_proc_init
+Date: Wed, 14 Apr 2004 15:09:47 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040414220254.GA24974@zion.homelinux.com>
-References: <20040414184642.GZ1175@waste.org> <20040414205959.GA22051@zion.homelinux.com> <20040414214510.GH1175@waste.org>
+Message-ID: <Pine.LNX.4.58.0404141507520.2969@localhost.localdomain>
+References: <20040414134148.GC16591@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="k+w/mQv8wyuph6w0"
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matt Mackall <mpm@selenic.com>
-Content-Disposition: inline
-In-Reply-To: <20040414214510.GH1175@waste.org>
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20040414134148.GC16591@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The patch looks fine. Dave, could you apply it both 2.6 and 2.4 trees.
+It should apply to both of them with a little fuzz.
 
---k+w/mQv8wyuph6w0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+Thanks
+Sridhar
 
-On Wed, Apr 14, 2004 at 04:45:10PM -0500, Matt Mackall told us:
-> > Please correct me if I'm wrong, but shouldn't the buffers from the=20
-> > irst allocation (RXD_OPAQUE_RING_STD) be freed (maybe via=20
-> > tg3_free_rings??) when we get an error here??
->=20
-> The buffers are freed in the module release path, which is invoked
-> when we return failure here. Without this, we don't notice the
-> allocation failure and instead blow up when we get traffic.
+On Wed, 14 Apr 2004, Olaf Kirch wrote:
 
-So thanks for correcting me :-) should have taken a closer look at
-the tg3 source.
+> The following patch makes sure that an error in sctp_proc_init()
+> causes module initialization to fail.
+>
+> Olaf
+> --
+> Olaf Kirch     |  The Hardware Gods hate me.
+> okir@suse.de   |
+> ---------------+
+>
 
+--- linux-2.6.4/net/sctp/protocol.c.initfail	2004-02-19 11:36:37.000000000 +0100
++++ linux-2.6.4/net/sctp/protocol.c	2004-04-14 15:36:19.000000000 +0200
+@@ -1001,7 +1001,9 @@
+ 		goto err_init_mibs;
 
-Sven
+ 	/* Initialize proc fs directory.  */
+-	sctp_proc_init();
++	status = sctp_proc_init();
++	if (status)
++		goto err_init_proc;
 
->=20
-> FYI, I last tested this on a mem=3D4M box, where it was very obvious
-> that the 1M of ring buffers weren't leaking.
->=20
-> --=20
-> Matt Mackall : http://www.selenic.com : Linux development and consulting
-
---=20
-Linux zion 2.6.5 #1 Sun Apr 4 19:56:55 CEST 2004 i686 athlon i386 GNU/Linux
- 00:01:49  up 10 days, 45 min,  2 users,  load average: 0.06, 0.05, 0.02
-
---k+w/mQv8wyuph6w0
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.1 (GNU/Linux)
-
-iD8DBQFAfbUOo4FAdB2PneQRAtKvAJwNfiUfBoT9Q6OD9kCuAFv3GBnUNQCeJMfE
-xzfCMYMdQdvokJAojtkiYqQ=
-=gWm3
------END PGP SIGNATURE-----
-
---k+w/mQv8wyuph6w0--
+ 	/* Initialize object count debugging.  */
+ 	sctp_dbg_objcnt_init();
+@@ -1165,6 +1167,7 @@
+ 			     sizeof(struct sctp_hashbucket)));
+ err_ahash_alloc:
+ 	sctp_dbg_objcnt_exit();
++err_init_proc:
+ 	sctp_proc_exit();
+ 	cleanup_sctp_mibs();
+ err_init_mibs:
