@@ -1,38 +1,34 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: unregister_netdevice: waiting for tun6to4 to become free.
-Date: Wed, 22 Sep 2004 13:08:52 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [IPv4] Kill remnant of ip_nat_dumb
+Date: 22 Sep 2004 08:10:39 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095854932.17821.1190.camel@hades.cambridge.redhat.com>
-References: <20040920212453.GA15392@ee.oulu.fi> <414F7CD9.3090008@pobox.com>
-	 <414FC92F.6090009@tomt.net>
+Message-ID: <1095855039.1045.67.camel@jzny.localdomain>
+References: <20040922040155.GA19302@gondor.apana.org.au>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jeff Garzik <jgarzik@pobox.com>, Pekka Pietikainen <pp@ee.oulu.fi>,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andre Tomt <andre@tomt.net>
-In-Reply-To: <414FC92F.6090009@tomt.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040922040155.GA19302@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-21 at 08:24 +0200, Andre Tomt wrote:
-> Jeff Garzik wrote:
-> > I hit this _once_ on my gateway (NAT'ing firewall IPv4, now also IPv6 
-> > router).
-> > 
-> > No idea why it went away, I just assumed a more recent kernel fixed 
-> > something.
+
+Geez, I missed that we killed static NAT too. Whats wrong with it?
+I know at least two users of this - did we ask or 
+is posting on netdev == ask?
+
+cheers,
+jamal
+
+On Wed, 2004-09-22 at 00:01, Herbert Xu wrote:
+> Hi Dave:
 > 
-> We've been seeing this all the time on 2.6.8.1 + "critical fixes". 
-> Pretty much anytime a router with tunneling interfaces is taken down for 
-> shutdown or reboot, it hangs spinning waiting for the tunnel devices to 
-> get freed, as ifdown gets run.
-
-It's not just tunnel interfaces. It seems to be related to hot-unplug of
-interfaces with live IPv6 addresses. I've seen it on my prism54 card too
-on many recent kernels. All I have to do is insert it and remove it a
-few times. 
-
--- 
-dwmw2
+> This line in net/ipv4/Makefile was left behind when the rest of the
+> dumb NAT option was taken out.
+> 
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Cheers,
