@@ -1,28 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: IPv6 : ICMPV6_DEST_UNREACH type with ICMPV6_NOROUTE code
-Date: Fri, 09 May 2003 08:58:07 -0700 (PDT)
+Subject: Re: [PATCH] switch x25_asy over to initcalls
+Date: Fri, 09 May 2003 09:36:48 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030509.085807.71115903.davem@redhat.com>
-References: <003e01c313b8$e55db620$28acfe81@seong>
-	<16059.37474.453731.39031@robur.slu.se>
+Message-ID: <20030509.093648.59680645.davem@redhat.com>
+References: <20030509091219.A1499@lst.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: seong@etri.re.kr, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert.Olsson@data.slu.se
-In-Reply-To: <16059.37474.453731.39031@robur.slu.se>
+To: hch@lst.de
+In-Reply-To: <20030509091219.A1499@lst.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Robert Olsson <Robert.Olsson@data.slu.se>
-   Date: Fri, 9 May 2003 13:34:58 +0200
-   
-   Seong Moon writes:
-   
-    > How about you ? Am I right ?
-   
-    I think you are...
+   From: Christoph Hellwig <hch@lst.de>
+   Date: Fri, 9 May 2003 09:12:19 +0200
 
-Yoshfuji already composed a patch which is already in
-the tree.
+   I also had to fix the ldisc initialization because it was so ugly
+   and the different ioctl + cast mess because I couldn't look at it.
+   
+Applied, thanks Christoph.
