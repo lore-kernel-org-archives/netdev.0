@@ -1,52 +1,32 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Matthew Wilcox <willy@debian.org>
 Subject: Re: [PATCH] netdev_ops
-Date: Tue, 08 Jul 2003 13:44:32 -0700
+Date: Tue, 8 Jul 2003 22:25:51 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0B2D30.4020102@candelatech.com>
-References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk>
+Message-ID: <20030708212551.GL1939@parcelfarce.linux.theplanet.co.uk>
+References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk> <3F0B2D30.4020102@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Matthew Wilcox <willy@debian.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Matthew Wilcox <willy@debian.org>
-In-Reply-To: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3F0B2D30.4020102@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Matthew Wilcox wrote:
-> After a conversation with acme, I realised that ethtool_ops is far too
-> narrow scope.  What we need are netdev_ops.  This patch renames the
-> ethtool_ops to netdev_ops and fixes some other minor flaws:
-> 
->  - add _len() ops for operations which previously had to kmalloc their
->    own memory.
->  - move the netdev_ops from ethtool.h to netdevice.h
->  - makes some ops generic as requested by Jeff Garzik.
-> 
-> I think netdev_ops is still a little too ethtool-specific; something
-> I'd like to do is convert the parameters to be a little less
-> ethtool-related.  For example, instead of ->get_drvinfo, I'd like to
-> see ethtool_get_drvinfo() call several methods and fill in all the data
-> that way.
-> 
-> But let's see what everyone thinks of this patch first ...
-> 
+On Tue, Jul 08, 2003 at 01:44:32PM -0700, Ben Greear wrote:
+> Some of these are missing their netdevice arg?
+> >+	int	(*get_regs_len)(struct ethtool_regs *);
+> >+	int	(*self_test_len)(struct ethtool_test *);
+> >+	int	(*get_strings_len)(struct ethtool_gstrings *);
+> >+	int	(*get_stats_len)(struct ethtool_stats *);
 
-> + * Each operation is passed a &struct net_device as its first parameter.
-
-Some of these are missing their netdevice arg?
-> +	int	(*get_regs_len)(struct ethtool_regs *);
-
-> +	int	(*self_test_len)(struct ethtool_test *);
-
-> +	int	(*get_strings_len)(struct ethtool_gstrings *);
-
-> +	int	(*get_stats_len)(struct ethtool_stats *);
-
-
+Well, they don't actually need it -- these are more attributes of
+the underlying driver than they are of any individual network device.
+I suspect at least one of them isn't needed, and I'm sure the e1000 guys
+are about to tell me which one ;-)
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+"It's not Hollywood.  War is real, war is primarily not about defeat or
+victory, it is about death.  I've seen thousands and thousands of dead bodies.
+Do you think I want to have an academic debate on this subject?" -- Robert Fisk
