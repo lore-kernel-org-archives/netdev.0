@@ -1,39 +1,35 @@
-From: Christoph Hellwig <hch@infradead.org>
-Subject: Re: [bernie@develer.com: Kernel 2.6 size increase]
-Date: Wed, 23 Jul 2003 20:13:35 +0100
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: kernel bug in socketpair()
+Date: 23 Jul 2003 20:08:21 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030723201335.A27990@infradead.org>
-References: <20030723195355.A27597@infradead.org> <20030723195504.A27656@infradead.org> <20030723115858.75068294.davem@redhat.com> <20030723200658.A27856@infradead.org> <20030723120901.57746fd8.davem@redhat.com>
+Message-ID: <1058987301.5520.111.camel@dhcp22.swansea.linux.org.uk>
+References: <200307231428.KAA15254@raptor.research.att.com>
+	 <20030723074615.25eea776.davem@redhat.com>
+	 <200307231656.MAA69129@raptor.research.att.com>
+	 <20030723100043.18d5b025.davem@redhat.com>
+	 <200307231724.NAA90957@raptor.research.att.com>
+	 <20030723103135.3eac4cd2.davem@redhat.com>
+	 <200307231814.OAA74344@raptor.research.att.com>
+	 <20030723112307.5b8ae55c.davem@redhat.com>
+	 <200307231854.OAA90112@raptor.research.att.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Christoph Hellwig <hch@infradead.org>, linux-kernel@vger.kernel.org,
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, dgk@research.att.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
    netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030723120901.57746fd8.davem@redhat.com>; from davem@redhat.com on Wed, Jul 23, 2003 at 12:09:01PM -0700
+To: Glenn Fowler <gsf@research.att.com>
+In-Reply-To: <200307231854.OAA90112@raptor.research.att.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jul 23, 2003 at 12:09:01PM -0700, David S. Miller wrote:
-> So basically we'd have a CONFIG_NET_XFRM, and things like
-> AH/ESP/IPCOMP/AH6/ESP6/IPCOMP6 would say "select NET_XFRM"
-> in the Kconfig where they are selected.
-> 
-> Then when CONFIG_NET_XFRM is not set all the xfrm interfaces
-> called from non-ipsec non-xfrm source files get NOP versions.
-> 
-> Is this exactly what Andi's patch did?  Just send it on
-> so we can integrate this.
+On Mer, 2003-07-23 at 19:54, Glenn Fowler wrote:
+> named unix sockets reside in the fs namespace, no?
+> so they must be linked to a dir before use and unlinked after use
+> the unlink after use would be particularly tricky for the parent process
+> implementing
+> 	cmd <(cmd ...) ...
 
-I think that's what it did modula the select which IIRC wasn't
-available back then.  But I guess I'll rather leave this to
-Andi.
-
-> We actually lost a lot of code in other areas of the networking, for
-> example Andrew Morton and I made many bogus function inlines
-> undone because they made the code too large.
-
-That's cool!  Now we just need to find a bunch more regressions
-and actually make 2.6 smaller than 2.4 :)  Of course that's true
-for the other subsystems, too.
+Portable stuff yes, Linux also supports a pure socket namespace for them
+when the path starts with a nul character
