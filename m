@@ -1,201 +1,187 @@
-From: jamal <hadi@cyberus.ca>
-Subject: RFC/PATCH capture qdisc requeue event in stats
-Date: 29 Aug 2004 13:13:52 -0400
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] Prevent crash on ip_conntrack removal
+Date: Sun, 29 Aug 2004 21:36:28 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1093799632.1073.410.camel@jzny.localdomain>
-Reply-To: hadi@cyberus.ca
+Message-ID: <4132303C.2060807@trash.net>
+References: <412A8FB5.4080700@trash.net>	<OFE08A3DF5.09BCA1C4-ON88256EFA.00806C05-88256EFA.0080E98F@us.ibm.com> <20040828231529.051a73cc.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-+0TpqyglMNHxo02qQwAl"
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------040503030308040903070004"
+Cc: David Stevens <dlstevens@us.ibm.com>, davem@redhat.com,
+        laforge@netfilter.org, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org, okir@suse.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040828231529.051a73cc.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---=-+0TpqyglMNHxo02qQwAl
-Content-Type: text/plain
+This is a multi-part message in MIME format.
+--------------040503030308040903070004
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 
+David S. Miller wrote:
+
+>I think I agree with David now that I've read through this a few
+>times.  Can someone send me a patch which does this?
+>  
+>
+Attached. The first patch still crashed, we need to prevent new
+fragments from getting queued after the queue is flushed until the
+hook in unregistered.
+
+>Does 2.4.x have this problem too?  I thought it didn't.
+>  
+>
+I'll have a look, but I think it does.
+
+Regards
+Patrick
 
 
-The requeue event is useful in finding out when a device is overloaded
-on the egress (bus or bandwidth).
-Atached patch introduces this. I would have used the overlimit bits
-but at the moment thats being used for different semantical reasons.
-I have not done extensive testing on it. 
-
-Opinions welcome - If all is good, Dave please apply.
-
-cheers,
-jamal
-
---=-+0TpqyglMNHxo02qQwAl
-Content-Disposition: attachment; filename=reqs-patch
-Content-Type: text/plain; name=reqs-patch; charset=ISO-8859-1
+--------------040503030308040903070004
+Content-Type: text/plain;
+ name="x"
 Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
---- a/net/sched/sch_atm.c	2004/08/29 16:43:53	1.1
-+++ b/net/sched/sch_atm.c	2004/08/29 16:58:26
-@@ -545,8 +545,10 @@
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/08/29 20:24:07+02:00 kaber@coreworks.de 
+#   [NETFILTER]: Flush fragment queue on conntrack unload
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/ipv4/netfilter/ip_conntrack_standalone.c
+#   2004/08/29 20:22:57+02:00 kaber@coreworks.de +6 -0
+#   [NETFILTER]: Flush fragment queue on conntrack unload
+# 
+# net/ipv4/netfilter/ip_conntrack_core.c
+#   2004/08/29 20:22:57+02:00 kaber@coreworks.de +8 -0
+#   [NETFILTER]: Flush fragment queue on conntrack unload
+# 
+# net/ipv4/ip_fragment.c
+#   2004/08/29 20:22:57+02:00 kaber@coreworks.de +14 -3
+#   [NETFILTER]: Flush fragment queue on conntrack unload
+# 
+# include/net/ip.h
+#   2004/08/29 20:22:57+02:00 kaber@coreworks.de +1 -0
+#   [NETFILTER]: Flush fragment queue on conntrack unload
+# 
+# include/linux/netfilter_ipv4/ip_conntrack.h
+#   2004/08/29 20:22:57+02:00 kaber@coreworks.de +1 -0
+#   [NETFILTER]: Flush fragment queue on conntrack unload
+# 
+diff -Nru a/include/linux/netfilter_ipv4/ip_conntrack.h b/include/linux/netfilter_ipv4/ip_conntrack.h
+--- a/include/linux/netfilter_ipv4/ip_conntrack.h	2004-08-29 20:55:13 +02:00
++++ b/include/linux/netfilter_ipv4/ip_conntrack.h	2004-08-29 20:55:13 +02:00
+@@ -275,6 +275,7 @@
+ /* Fake conntrack entry for untracked connections */
+ extern struct ip_conntrack ip_conntrack_untracked;
  
- 	D2PRINTK("atm_tc_requeue(skb %p,sch %p,[qdisc %p])\n",skb,sch,p);
- 	ret = p->link.q->ops->requeue(skb,p->link.q);
--	if (!ret) sch->q.qlen++;
--	else {
-+	if (!ret) {
-+	       	sch->q.qlen++;
-+	       	sch->stats.reqs++;
-+	} else {
- 		sch->stats.drops++;
- 		p->link.stats.drops++;
- 	}
---- a/net/sched/sch_cbq.c	2004/08/29 16:40:52	1.1
-+++ b/net/sched/sch_cbq.c	2004/08/29 16:56:58
-@@ -485,6 +485,7 @@
- #endif
- 	if ((ret = cl->q->ops->requeue(skb, cl->q)) == 0) {
- 		sch->q.qlen++;
-+		sch->stats.reqs++;
- 		if (!cl->next_alive)
- 			cbq_activate_class(cl);
- 		return 0;
---- a/net/sched/sch_dsmark.c	2004/08/29 16:41:51	1.1
-+++ b/net/sched/sch_dsmark.c	2004/08/29 17:01:27
-@@ -297,6 +297,7 @@
- 	D2PRINTK("dsmark_requeue(skb %p,sch %p,[qdisc %p])\n",skb,sch,p);
-         if ((ret = p->q->ops->requeue(skb, p->q)) == 0) {
- 		sch->q.qlen++;
-+		sch->stats.reqs++;
- 		return 0;
- 	}
- 	sch->stats.drops++;
---- a/net/sched/sch_fifo.c	2004/08/29 16:42:52	1.1
-+++ b/net/sched/sch_fifo.c	2004/08/29 16:52:47
-@@ -67,6 +67,7 @@
++extern int ip_ct_no_defrag;
+ /* Returns new sk_buff, or NULL */
+ struct sk_buff *
+ ip_ct_gather_frags(struct sk_buff *skb);
+diff -Nru a/include/net/ip.h b/include/net/ip.h
+--- a/include/net/ip.h	2004-08-29 20:55:13 +02:00
++++ b/include/net/ip.h	2004-08-29 20:55:13 +02:00
+@@ -255,6 +255,7 @@
+  */
+  
+ struct sk_buff *ip_defrag(struct sk_buff *skb);
++extern void ipfrag_flush(void);
+ extern int ip_frag_nqueues;
+ extern atomic_t ip_frag_mem;
+ 
+diff -Nru a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
+--- a/net/ipv4/ip_fragment.c	2004-08-29 20:55:13 +02:00
++++ b/net/ipv4/ip_fragment.c	2004-08-29 20:55:13 +02:00
+@@ -241,15 +241,15 @@
+ }
+ 
+ /* Memory limiting on fragments.  Evictor trashes the oldest 
+- * fragment queue until we are back under the low threshold.
++ * fragment queue until we are back under the threshold.
+  */
+-static void ip_evictor(void)
++static void __ip_evictor(int threshold)
  {
- 	__skb_queue_head(&sch->q, skb);
- 	sch->stats.backlog += skb->len;
-+	sch->stats.reqs++;
- 	return 0;
- }
+ 	struct ipq *qp;
+ 	struct list_head *tmp;
+ 	int work;
  
-@@ -126,6 +127,7 @@
- pfifo_requeue(struct sk_buff *skb, struct Qdisc* sch)
- {
- 	__skb_queue_head(&sch->q, skb);
-+	sch->stats.reqs++;
- 	return 0;
- }
+-	work = atomic_read(&ip_frag_mem) - sysctl_ipfrag_low_thresh;
++	work = atomic_read(&ip_frag_mem) - threshold;
+ 	if (work <= 0)
+ 		return;
  
---- a/net/sched/sch_generic.c	2004/08/29 16:39:47	1.1
-+++ b/net/sched/sch_generic.c	2004/08/29 16:56:44
-@@ -327,6 +327,7 @@
- 
- 	__skb_queue_head(list, skb);
- 	qdisc->q.qlen++;
-+	qdisc->stats.reqs++;
- 	return 0;
- }
- 
---- a/net/sched/sch_gred.c	2004/08/29 16:44:44	1.1
-+++ b/net/sched/sch_gred.c	2004/08/29 16:50:07
-@@ -222,6 +222,7 @@
- 
- 	__skb_queue_head(&sch->q, skb);
- 	sch->stats.backlog += skb->len;
-+	sch->stats.reqs++;
- 	q->backlog += skb->len;
- 	return 0;
- }
---- a/net/sched/sch_hfsc.c	2004/08/29 16:41:19	1.1
-+++ b/net/sched/sch_hfsc.c	2004/08/29 16:57:11
-@@ -1803,6 +1803,7 @@
- 
- 	__skb_queue_head(&q->requeue, skb);
- 	sch->q.qlen++;
-+	sch->stats.reqs++;
- 	return NET_XMIT_SUCCESS;
- }
- 
---- a/net/sched/sch_htb.c	2004/08/29 16:44:17	1.1
-+++ b/net/sched/sch_htb.c	2004/08/29 17:00:24
-@@ -794,6 +794,7 @@
- 	    htb_activate (q,cl);
- 
-     sch->q.qlen++;
-+    sch->stats.reqs++;
-     HTB_DBG(1,1,"htb_req_ok cl=%X skb=%p\n",(cl && cl != HTB_DIRECT)?cl->classid:0,skb);
-     return NET_XMIT_SUCCESS;
- }
---- a/net/sched/sch_netem.c	2004/08/29 16:46:10	1.1
-+++ b/net/sched/sch_netem.c	2004/08/29 16:48:44
-@@ -662,8 +662,10 @@
- 	struct netem_sched_data *q = qdisc_priv(sch);
- 	int ret;
- 
--	if ((ret = q->qdisc->ops->requeue(skb, q->qdisc)) == 0)
-+	if ((ret = q->qdisc->ops->requeue(skb, q->qdisc)) == 0) {
- 		sch->q.qlen++;
-+		sch->q.reqs++;
-+	}
- 
- 	return ret;
- }
---- a/net/sched/sch_prio.c	2004/08/29 16:43:21	1.1
-+++ b/net/sched/sch_prio.c	2004/08/29 16:57:52
-@@ -139,6 +139,7 @@
- 
- 	if ((ret = qdisc->ops->requeue(skb, qdisc)) == 0) {
- 		sch->q.qlen++;
-+		sch->stats.reqs++;
- 		return 0;
+@@ -274,6 +274,11 @@
  	}
- dropped:
---- a/net/sched/sch_red.c	2004/08/29 16:46:46	1.1
-+++ b/net/sched/sch_red.c	2004/08/29 16:49:34
-@@ -309,6 +309,8 @@
+ }
  
- 	__skb_queue_head(&sch->q, skb);
- 	sch->stats.backlog += skb->len;
-+	sch->stats.reqs++;
++static inline void ip_evictor(void)
++{
++	__ip_evictor(sysctl_ipfrag_low_thresh);
++}
 +
- 	return 0;
+ /*
+  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
+  */
+@@ -684,4 +689,10 @@
+ 	add_timer(&ipfrag_secret_timer);
  }
  
---- a/net/sched/sch_tbf.c	2004/08/29 16:40:15	1.1
-+++ b/net/sched/sch_tbf.c	2004/08/29 16:56:24
-@@ -166,8 +166,10 @@
- 	struct tbf_sched_data *q = qdisc_priv(sch);
- 	int ret;
++void ipfrag_flush(void)
++{
++	__ip_evictor(0);
++}
++
+ EXPORT_SYMBOL(ip_defrag);
++EXPORT_SYMBOL(ipfrag_flush);
+diff -Nru a/net/ipv4/netfilter/ip_conntrack_core.c b/net/ipv4/netfilter/ip_conntrack_core.c
+--- a/net/ipv4/netfilter/ip_conntrack_core.c	2004-08-29 20:55:13 +02:00
++++ b/net/ipv4/netfilter/ip_conntrack_core.c	2004-08-29 20:55:13 +02:00
+@@ -1173,6 +1173,8 @@
+ 	}
+ }
  
--	if ((ret = q->qdisc->ops->requeue(skb, q->qdisc)) == 0)
-+	if ((ret = q->qdisc->ops->requeue(skb, q->qdisc)) == 0) {
- 		sch->q.qlen++;
-+		sch->stats.reqs++;
++int ip_ct_no_defrag;
++
+ /* Returns new sk_buff, or NULL */
+ struct sk_buff *
+ ip_ct_gather_frags(struct sk_buff *skb)
+@@ -1181,6 +1183,12 @@
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	unsigned int olddebug = skb->nf_debug;
+ #endif
++
++	if (unlikely(ip_ct_no_defrag)) {
++		kfree_skb(skb);
++		return NULL;
 +	}
- 
- 	return ret;
- }
---- a/net/sched/sch_teql.c	2004/08/29 16:42:23	1.1
-+++ b/net/sched/sch_teql.c	2004/08/29 16:53:13
-@@ -112,6 +112,7 @@
- 	struct teql_sched_data *q = qdisc_priv(sch);
- 
- 	__skb_queue_head(&q->q, skb);
-+	sch->stats.reqs++;
- 	return 0;
- }
- 
---- a/include/linux/pkt_sched.h	2004-08-29 13:07:26.000000000 -0400
-+++ b/include/linux/pkt_sched.h	2004-08-29 12:36:29.000000000 -0400
-@@ -38,6 +38,7 @@
- 	__u32	pps;			/* Current flow packet rate */
- 	__u32	qlen;
- 	__u32	backlog;
-+	__u32	reqs;			/* requeues */
- };
- 
- struct tc_estimator
++
+ 	if (sk) {
+ 		sock_hold(sk);
+ 		skb_orphan(skb);
+diff -Nru a/net/ipv4/netfilter/ip_conntrack_standalone.c b/net/ipv4/netfilter/ip_conntrack_standalone.c
+--- a/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-08-29 20:55:13 +02:00
++++ b/net/ipv4/netfilter/ip_conntrack_standalone.c	2004-08-29 20:55:13 +02:00
+@@ -805,6 +805,12 @@
+  cleanup_defraglocalops:
+ 	nf_unregister_hook(&ip_conntrack_defrag_local_out_ops);
+  cleanup_defragops:
++	/* Frag queues may hold fragments with skb->dst == NULL */
++	ip_ct_no_defrag = 1;
++	smp_wmb();
++	local_bh_disable();
++	ipfrag_flush();
++	local_bh_enable();
+ 	nf_unregister_hook(&ip_conntrack_defrag_ops);
+  cleanup_proc_stat:
+ 	proc_net_remove("ip_conntrack_stat");
 
---=-+0TpqyglMNHxo02qQwAl--
+--------------040503030308040903070004--
