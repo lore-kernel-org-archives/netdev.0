@@ -1,31 +1,36 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH 2.5.69] IPV4/6 inetsw using RCU
-Date: Fri, 9 May 2003 07:49:12 +0200
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030509054912.GL15829@Wotan.suse.de>
-References: <20030508153307.73d16f5e.shemminger@osdl.org> <20030508.154320.128592193.davem@redhat.com>
+From: Jens Axboe <axboe@suse.de>
+Subject: Re: kernel BUG at net/core/skbuff.c:1028!
+Date: Fri, 9 May 2003 09:00:07 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20030509070007.GU20941@suse.de>
+References: <20030507.042003.26512841.davem@redhat.com> <20030508012101.36E012C01B@lists.samba.org> <20030508.102010.90804594.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: shemminger@osdl.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
+Cc: rusty@rustcorp.com.au, laforge@netfilter.org,
+	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
 To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20030508.154320.128592193.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
+In-Reply-To: <20030508.102010.90804594.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Thu, May 08, 2003 at 03:43:20PM -0700, David S. Miller wrote:
->    From: Stephen Hemminger <shemminger@osdl.org>
->    Date: Thu, 8 May 2003 15:33:07 -0700
+On Thu, May 08 2003, David S. Miller wrote:
+>    From: Rusty Russell <rusty@rustcorp.com.au>
+>    Date: Thu, 08 May 2003 11:20:27 +1000
 > 
->    This is a revised version of the earlier brlock removal patch, and
->    addresses all comments received so far. It is stable and works
->    reliably, but Dave, you may want to wait for any additional
->    comments before applying.
+>    Yep, culprit is obvious stupid bug.  This indicates a serious lack of
+>    testing on my part 8(
+>    
+>    Jens, does this help?
 > 
-> Okie dokie.  The patch looks fine to me.  Just let me know when
-> it's ready to go in.
+> There were two cases of the same bug, you fixed only one
+> instance :-)
+> 
+> Jens, try this patch instead.
 
-FWIW it looks good to me too.
+I went to apply it to bk-current as of this morning, but I see it's
+already in. And bk-current does indeed boot and (appears to :) work,
+thanks Dave!
 
--Andi
+-- 
+Jens Axboe
