@@ -1,15 +1,15 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [patch 16/18]  net/airo: replace 	schedule_timeout() with msleep()/msleep_interuptible()
-Date: Sun, 31 Oct 2004 06:01:51 -0500
-Message-ID: <4184C61F.2080906@pobox.com>
-References: <E1CO1wE-0002hu-WE@sputnik>
+Subject: Re: [patch 15/18]  net/ibmtr: replace 	schedule_timeout() with msleep()/msleep_interruptible()
+Date: Sun, 31 Oct 2004 06:03:07 -0500
+Message-ID: <4184C66B.8040501@pobox.com>
+References: <E1CO1wB-0002eM-If@sputnik>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, nacc@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: janitor@sternwelten.at
-In-Reply-To: <E1CO1wE-0002hu-WE@sputnik>
+In-Reply-To: <E1CO1wB-0002eM-If@sputnik>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -17,47 +17,61 @@ List-Id: netdev.vger.kernel.org
 janitor@sternwelten.at wrote:
 > Any comments would be appreciated.
 > 
-> Description: Use msleep()/msleep_interruptible() [as appropriate]
-> instead of schedule_timeout() to guarantee the task delays as
-> expected. Also uses set_current_state() instead of direct assignment of
-> current->state in one place.
+> Description: Use msleep() / msleep_interruptible() [as appropriate]
+> instead of schedule_timeout() to guarantee the task delays as expected.
 > 
 > Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 > Signed-off-by: Maximilian Attems <janitor@sternwelten.at>
 > 
 > ---
 > 
->  linux-2.6.10-rc1-max/drivers/net/wireless/airo.c |   27 ++++++++---------------
->  1 files changed, 10 insertions(+), 17 deletions(-)
+>  linux-2.6.10-rc1-max/drivers/net/tokenring/ibmtr.c |   11 +++++------
+>  1 files changed, 5 insertions(+), 6 deletions(-)
 > 
-> diff -puN drivers/net/wireless/airo.c~msleep+msleep_interruptible-drivers_net_wireless_airo drivers/net/wireless/airo.c
-> --- linux-2.6.10-rc1/drivers/net/wireless/airo.c~msleep+msleep_interruptible-drivers_net_wireless_airo	2004-10-24 17:05:35.000000000 +0200
-> +++ linux-2.6.10-rc1-max/drivers/net/wireless/airo.c	2004-10-24 17:05:35.000000000 +0200
-> @@ -1699,9 +1699,8 @@ static int readBSSListRid(struct airo_in
->  			issuecommand(ai, &cmd, &rsp);
->  			up(&ai->sem);
->  			/* Let the command take effect */
-> -			set_current_state (TASK_INTERRUPTIBLE);
->  			ai->task = current;
-> -			schedule_timeout (3*HZ);
-> +			msleep_interruptible(3*1000);
->  			ai->task = NULL;
+> diff -puN drivers/net/tokenring/ibmtr.c~msleep+msleep_interruptible-drivers_net_tokenring_ibmtr drivers/net/tokenring/ibmtr.c
+> --- linux-2.6.10-rc1/drivers/net/tokenring/ibmtr.c~msleep+msleep_interruptible-drivers_net_tokenring_ibmtr	2004-10-24 17:05:34.000000000 +0200
+> +++ linux-2.6.10-rc1-max/drivers/net/tokenring/ibmtr.c	2004-10-24 17:05:34.000000000 +0200
+> @@ -108,6 +108,7 @@ in the event that chatty debug messages 
+>  #define IBMTR_DEBUG_MESSAGES 0
+>  
+>  #include <linux/module.h>
+> +#include <linux/delay.h>
+>  
+>  #ifdef PCMCIA		/* required for ibmtr_cs.c to build */
+>  #undef MODULE		/* yes, really */
+> @@ -317,7 +318,7 @@ static void ibmtr_cleanup_card(struct ne
+>  	if (dev->base_addr) {
+>  		outb(0,dev->base_addr+ADAPTRESET);
+>  		
+> -		schedule_timeout(TR_RST_TIME); /* wait 50ms */
+> +		msleep(jiffies_to_msecs(TR_RST_TIME)); /* wait 50ms */
+>  
+>  		outb(0,dev->base_addr+ADAPTRESETREL);
+>  	}
+> @@ -858,8 +859,7 @@ static int tok_init_card(struct net_devi
+>  	writeb(~INT_ENABLE, ti->mmio + ACA_OFFSET + ACA_RESET + ISRP_EVEN);
+>  	outb(0, PIOaddr + ADAPTRESET);
+>  
+> -	current->state=TASK_UNINTERRUPTIBLE;
+> -	schedule_timeout(TR_RST_TIME); /* wait 50ms */
+> +	msleep(jiffies_to_msecs(TR_RST_TIME));		/* wait 50ms */
+>  
+>  	outb(0, PIOaddr + ADAPTRESETREL);
+>  #ifdef ENABLE_PAGING
+> @@ -912,9 +912,8 @@ static int tok_open(struct net_device *d
+>  			DPRINTK("Adapter is up and running\n");
+>  			return 0;
 >  		}
->  	rc = PC4500_readrid(ai, first ? RID_BSSLISTFIRST : RID_BSSLISTNEXT,
+> -		current->state=TASK_INTERRUPTIBLE;
+> -		i=schedule_timeout(TR_RETRY_INTERVAL); /* wait 30 seconds */
+> -		if(i!=0) break; /*prob. a signal, like the i>24*HZ case above */
+> +		if(msleep_interruptible(jiffies_to_msecs(TR_RETRY_INTERVAL)))
+> +			break; /*prob. a signal, like the i>24*HZ case above */
+>  	}
+>  	outb(0, dev->base_addr + ADAPTRESET);/* kill pending interrupts*/
+>  	DPRINTK("TERMINATED via signal\n");	/*BMS useful */
 
-use ssleep() here
-
-
-> @@ -2950,7 +2947,7 @@ static int airo_thread(void *data) {
->  				}
->  				break;
->  			}
-> -			current->state = TASK_RUNNING;
-> +			set_current_state(TASK_RUNNING);
->  			remove_wait_queue(&ai->thr_wait, &wait);
->  			locked = 1;
->  		}
-
-why are you adding barriers?
+It makes more sense to convert the constants to msecs in the source 
+code, instead of converting them at runtime.
 
 	Jeff
