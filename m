@@ -1,76 +1,54 @@
-From: Ranjeet Shetye <ranjeet.shetye2@zultys.com>
+From: "Richard B. Johnson" <root@chaos.analogic.com>
 Subject: Re: tcp vulnerability?  haven't seen anything on it here...
-Date: Thu, 22 Apr 2004 13:01:33 -0700
+Date: Thu, 22 Apr 2004 16:25:19 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1082664092.9062.14.camel@ranjeet-pc2.zultys.com>
-References: <40869267.30408@nortelnetworks.com>
-	 <Pine.LNX.4.53.0404211153550.1169@chaos>
-	 <4086A077.2000705@nortelnetworks.com>
-	 <20040421170340.GB24201@wohnheim.fh-wedel.de>
-	 <20040421132047.026ab7f2.davem@redhat.com>
+Message-ID: <Pine.LNX.4.53.0404221621130.610@chaos>
+References: <XFMail.20040422102359.pochini@shiny.it> <Pine.LNX.4.53.0404220734330.8039@chaos>
+ <20040422131704.GA6839@alpha.home.local> <Pine.LNX.4.53.0404220929500.8745@chaos>
+ <20040422141848.GA6986@alpha.home.local>
+Reply-To: root@chaos.analogic.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040421132047.026ab7f2.davem@redhat.com>
+To: Willy Tarreau <w@w.ods.org>
+In-Reply-To: <20040422141848.GA6986@alpha.home.local>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2004-04-21 at 13:20, David S. Miller wrote:
-> On Wed, 21 Apr 2004 19:03:40 +0200
-> J=F6rn Engel <joern@wohnheim.fh-wedel.de> wrote:
->=20
-> > Heise.de made it appear, as if the only news was that with tcp
-> > windows, the propability of guessing the right sequence number is not
-> > 1:2^32 but something smaller.  They said that 64k packets would be
-> > enough, so guess what the window will be.
->=20
-> Yes, that is their major discovery.  You need to guess the ports
-> and source/destination addresses as well, which is why I don't
-> consider this such a serious issue personally.
->=20
-> It is mitigated if timestamps are enabled, because that becomes
-> another number you have to guess.
->=20
-> It is mitigated also by randomized ephemeral port selection, which
-> OpenBSD implements and we could easily implement as well.
->=20
-> I'm very happy that OpenBSD checked in a fix for this a week or so
-> ago and took some of the thunder out of this bogusly hyped announcement.
+On Thu, 22 Apr 2004, Willy Tarreau wrote:
 
-(Not the same issue, but interesting still, and its related)
+> Richard,
+>
+> you are confusing several thinks, stateful vs stateless protocols. A ping
+> doesn't need a session on the remote host to be interpreted. A TCP segment
+> whose flags don't show a SYN need a session to be interpreted. Please note
+> that I'm not arguing that you won't crash a linux box with an RST addressed
+> to a broadcast address, I'm saying that there's absolutely no reason why
+> this should reset all connections, as you proposed it. Someone would have
+> had to code this explicitly, it cannot be a simple side effect.
+>
+> Imagine that each packet which enters the system is presented to a hash
+> table containing the sessions, and that its session is looked for into
+> this hash table. You agree that in such code, there's no reason to find
+> anything that runs through all sessions and kill everyone, since this
+> code has no use there, and has no reason to be implemented on purpose !
+>
+> Look at functions such as tcp_v4_lookup() in net/ipv4/tcp_ipv4.c for
+> example. When it reaches tcp_v4_lookup_established(), you find this :
+>
+>         for(sk = head->chain; sk; sk = sk->next) {
+>                 if(TCP_IPV4_MATCH(sk, acookie, saddr, daddr, ports, dif))
+>                         goto hit; /* You sunk my battleship! */
+>         }
+>
+> You cannot match more than once.
 
-Isn't this (http://www.lowth.com/cutter/) an application on the same
-lines ? (but from the perspective of a person ON one of the two endpoint
-machines, rather than a remote third party).
+[SNIPPED...]
 
-QUOTE
+So you are sure an attacker will fire only one bullet?
 
-There is a feature of the TCP/IP protocol that we could use to good
-effect here :- If a packet (other than an RST) is received on a
-connection that has the wrong sequence number, then the host responds by
-sending a corrective "ACK" packet back. This "ACK" reply is designed to
-put the sequence numbers at both ends back into step - and allows the
-protocol to retransmit packets that got lost. This is very nice for our
-needs - if the firewall sends a packet that is "correct" in all respects
-except for the sequence number, then the host very helpfully tells us
-what should have been used. We can then use this information to build
-the RST packet that will abort the connection.
-
-END OF QUOTE
-
-thanks,
-
---=20
-
-Ranjeet Shetye
-Senior Software Engineer
-Zultys Technologies
-Ranjeet dot Shetye2 at Zultys dot com
-http://www.zultys.com/
-=20
-The views, opinions, and judgements expressed in this message are solely
-those of the author. The message contents have not been reviewed or
-approved by Zultys.
+Cheers,
+Dick Johnson
+Penguin : Linux version 2.4.26 on an i686 machine (5557.45 BogoMips).
+            Note 96.31% of all statistics are fiction.
