@@ -1,46 +1,65 @@
-From: Bruce Allan <bwa@us.ibm.com>
-Subject: Re: [PATCH] subset of RFC2553
-Date: 24 Feb 2003 09:54:57 -0800
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1046109300.3503.12.camel@w-bwa1.beaverton.ibm.com>
-References: <3E54128C.327D7759@us.ibm.com>
-	<20030219.162129.11584427.davem@redhat.com>
-	<1045847170.3104.7.camel@w-bwa1.beaverton.ibm.com>
-	<20030221.232639.129509431.davem@redhat.com>
+From: ilya@theIlya.com
+Subject: Re: Re: (no subject)
+Date: Mon, 24 Feb 2003 10:34:29 -0800
+Sender: linux-mips-bounce@linux-mips.org
+Message-ID: <20030224183429.GA26310@gateway.total-knowledge.com>
+References: <20030224040647.611.qmail@webmail17.rediffmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: lksctp-developers@lists.sourceforge.net, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030221.232639.129509431.davem@redhat.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="nFreZHaLTZJo0R7j"
+Cc: "Maciej W.Rozycki" <macro@ds2.pg.gda.pl>, netdev@oss.sgi.com,
+	linux-mips@linux-mips.org
+Return-path: <linux-mips-bounce@linux-mips.org>
+To: santosh kumar gowda <ipv6_san@rediffmail.com>
+Content-Disposition: inline
+In-Reply-To: <20030224040647.611.qmail@webmail17.rediffmail.com>
+Errors-to: linux-mips-bounce@linux-mips.org
 List-Id: netdev.vger.kernel.org
 
-Doh!  Sorry, here (see below) it is against 2.5.59.
 
-On Fri, 2003-02-21 at 23:26, David S. Miller wrote:
-> 
-> Bruce, while applying this I noticed that in6addr_{any,loopback}
-> are not exported by modules.
-> 
-> Please send me a small patch to add the exports if this will be
-> needed by SCTP and friends.
-> 
-> Thanks.
-> 
+--nFreZHaLTZJo0R7j
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
---- linux-2.5.59/net/ipv6/ipv6_syms.c	2003-01-16 18:22:25.000000000 -0800
-+++ linux-2.5.59-RFC2553/net/ipv6/ipv6_syms.c	2003-02-24 09:02:41.000000000 -0800
-@@ -25,3 +25,5 @@
- EXPORT_SYMBOL(inet6_ioctl);
- EXPORT_SYMBOL(ipv6_get_saddr);
- EXPORT_SYMBOL(ipv6_chk_addr);
-+EXPORT_SYMBOL(in6addr_any);
-+EXPORT_SYMBOL(in6addr_loopback);
+RTFM
+(Hint $LINUX_SOURCE_TREE/Documentation/)
 
--- 
-Bruce Allan
-Linux Technology Center
-IBM Corporation, Beaverton OR
+On Mon, Feb 24, 2003 at 04:06:47AM -0000, santosh kumar gowda wrote:
+>=20
+>=20
+> On Sat, 22 Feb 2003 Maciej W. Rozycki wrote :
+> >On 21 Feb 2003, santosh kumar gowda wrote:
+> >
+> >> Following message is produced at the IAD terminal.....
+> >>
+> >> # Unable to handle kernel paging request at virtual address
+> >> 00000000, epc =3D=3D 802
+> >> 4ce74, ra =3D=3D 802592a8
+> >> Oops in fault.c:do_page_fault, line 172:
+> >[...]
+> >> Suggestions/Tips are welcome.
+> >
+> > Decode the oops first or nobody will be able to give any=20
+> >help.
+>=20
+> how do i decode the oops ??? help pls.
+>=20
+> -San
+> --------------------------------------
+>=20
+>=20
 
+--nFreZHaLTZJo0R7j
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.0.7 (GNU/Linux)
+
+iD8DBQE+WmW17sVBmHZT8w8RAhPLAJ9DuvnHC0LwOkknMd3oJHBnL/LqnACdHOrP
+aGFaW7cg9ZlQaZO2A9djftQ=
+=zmNV
+-----END PGP SIGNATURE-----
+
+--nFreZHaLTZJo0R7j--
