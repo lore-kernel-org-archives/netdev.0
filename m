@@ -1,39 +1,27 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: How to enable more than ~256 routing tables?
-Date: Tue, 22 Apr 2003 00:10:53 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: How to enable more than ~256 routing tables?
+Date: Tue, 22 Apr 2003 16:16:45 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EA4EAFD.5020808@candelatech.com>
+Message-ID: <20030422.161645.80924947.yoshfuji@linux-ipv6.org>
+References: <3EA4EAFD.5020808@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+To: greearb@candelatech.com
+In-Reply-To: <3EA4EAFD.5020808@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I would like to have a routing table per interface, and would like to support
-1k interfaces or so (virtual interfaces like vlans, for instance).
+In article <3EA4EAFD.5020808@candelatech.com> (at Tue, 22 Apr 2003 00:10:53 -0700), Ben Greear <greearb@candelatech.com> says:
 
-I notice in rtnetlink.h there is this code:
+> Is it possible to just change the RT_TABLE_MAX to be higher and have 256-????
+> be more /* User defined values */ ?
 
-enum rt_class_t
-{
-	RT_TABLE_UNSPEC=0,
-/* User defined values */
-	RT_TABLE_DEFAULT=253,
-	RT_TABLE_MAIN=254,
-	RT_TABLE_LOCAL=255
-};
-#define RT_TABLE_MAX RT_TABLE_LOCAL
-
-
-Is it possible to just change the RT_TABLE_MAX to be higher and have 256-????
-be more /* User defined values */ ?
-
-Thanks,
-Ben
+No. rtm_table in rtmsg{} is unsigned char.
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
