@@ -1,42 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH]: Adjust qlen when grafting in multiple qdiscs
-Date: 17 Nov 2003 14:25:01 -0500
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6: Fix erratic behavior in rt6_dump_route()
+Date: Mon, 17 Nov 2003 18:50:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1069097101.1022.117.camel@jzny.localdomain>
-References: <3FB3996A.6080008@trash.net>
-	 <1069076786.1075.19.camel@jzny.localdomain>  <3FB8DDE0.1070105@trash.net>
-	 <1069081153.1022.20.camel@jzny.localdomain>  <3FB8F3BF.6050509@trash.net>
-	 <1069090210.1022.64.camel@jzny.localdomain>  <3FB9103C.9080504@trash.net>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20031117185050.1cd10877.davem@redhat.com>
+References: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        Werner Almesberger <werner@almesberger.net>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <3FB9103C.9080504@trash.net>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.58.0311171155050.21177@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2003-11-17 at 13:15, Patrick McHardy wrote:
+On Mon, 17 Nov 2003 12:11:52 +0200 (EET)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> >My opinion is that since these interfaces (ex qdisc) exist they
-> >exist to be (ab)used. 
-> >Dsmark happens to work well with the single queue - maybe thats what
-> >needs to be documented as opposed to saying it deviates from a purist
-> >angle.
-> >  
-> >
-> As I said I've never used dsmark, I changed it while fixing TBF (where
-> it is a problem, TBF was changed not long ago to support attaching inner
-> qdiscs), so anything is fine with me. I just became a purist defending
-> correctness of the patch ;)
+> I noticed some erratic behavior when doing "ip -6 r". I traced the problem
+> to rt6_dump_route() where we typecast NLMSG_DATA() to a rtmsg without
+> checking the size of the netlink message first. Seems like ip only passes
+> a rtgenmsg to the kernel when it does a dump, so we end up reading pure
+> garbage when we interpret it as a rtmsg. Please apply the patch!
 
-Now that we have invoked Werner - lets wait for his response then ;->
-Sorry, didnt meant to drag this into 5-6 emails thread.
-I closely looked at your other changes on that patch and they looked
-fine.
+Let's discuss this a little bit. :)
 
-cheers,
-jamal
+I believed that these lengths are supposed to be verified at one level
+higher, in net/core/rtnetlink.c, see "rtm_min[]".
+
+Well, it doesn't do this length verification on dumps.
+I can only assume this is intentional.  Ok, I see, cases
+like ipv4 check the length properly so it is clear that
+this is required.
+
+I will apply your patch.
