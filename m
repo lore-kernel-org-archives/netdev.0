@@ -1,28 +1,49 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: (5/5+1) Autoconfig link-local addr to IPv6
- tunnels
-Date: Tue, 2 Sep 2003 04:35:34 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: ipt_physdev.c alignment problems on parisc64
+Date: Tue, 2 Sep 2003 11:30:50 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030902043534.05fc6586.davem@redhat.com>
-References: <20030901035134.2585aa79.davem@redhat.com>
-	<Pine.LNX.4.44.0309011709370.29198-200000@rhea.tcs.hut.fi>
+Message-ID: <20030902143050.GC3398@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: pekkas@netcore.fi, yoshfuji@linux-ipv6.org, usagi-core@linux-ipv6.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Linux Networking Development Mailing List <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0309011709370.29198-200000@rhea.tcs.hut.fi>
+To: netfilter-devel@lists.netfilter.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 1 Sep 2003 17:24:42 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+The 1.786.1.54 changeset (i.e. the initial ipt_physdev.c one 8) created this
+alignment problems on parisc64:
 
-> Ok, this incremental patch to my previous addrconf.c patch generates a
-> link-local address to the IPv6 tunnel device. It first tries to inherit
-> the EUI64 identifier of some other device and if this fails, uses a
-> random interface id.
+tmp.stdout.allegro.31506.s: Assembler messages:
+tmp.stdout.allegro.31506.s:97: Error: Field not properly aligned [8] (18).
+tmp.stdout.allegro.31506.s:97: Error: Invalid operands
+tmp.stdout.allegro.31506.s:125: Error: Field not properly aligned [8] (34).
+tmp.stdout.allegro.31506.s:125: Error: Invalid operands
+tmp.stdout.allegro.31506.s:129: Error: Field not properly aligned [8] (50).
+tmp.stdout.allegro.31506.s:129: Error: Invalid operands
 
-Yoshfuji, do you mind if I apply his patch 5 and "5/5+1"?
+I got this nailed to the match function, on these lines:
+
+        for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+                ret |= (((const unsigned long *)indev)[i]
+                        ^ ((const unsigned long *)info->physindev)[i])
+                        & ((const unsigned long *)info->in_mask)[i];
+        }
+
+and
+
+        for (i = 0, ret = 0; i < IFNAMSIZ/sizeof(unsigned long); i++) {
+                ret |= (((const unsigned long *)outdev)[i]
+                        ^ ((const unsigned long *)info->physoutdev)[i])
+                        & ((const unsigned long *)info->out_mask)[i];
+        }
+
+
+Reading specs from /opt/palinux/lib/gcc-lib/hppa64-linux/3.0.4/specs
+Configured with: ../../gcc-3.0-3.0.4ds3/src/configure --host=hppa-linux --build=hppa-linux --target=hppa64-linux --disable-shared --disable-nls --enable-languages=c --prefix=/opt/palinux
+Thread model: single
+gcc version 3.0.4
+acme@allegro:~/bk/scsi-2.6$
+
+- Arnaldo
