@@ -1,59 +1,35 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: RFC: Linux wireless extensions and WPA support
-Date: Tue, 8 Jun 2004 09:58:12 -0700
+From: <pdtf@intel.com>
+Subject: =?ISO-8859-1?Q?=BCx?= 20 =?ISO-8859-1?Q?=A6W=C5=D6=AC=FC=ADp=B9=BA=A5N=A8=A5=A4H?=
+Date: Wed, 09 Jun 2004 01:31:39 +0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040608165812.GA16595@bougret.hpl.hp.com>
-References: <386CBF9421521B41835E2BF21BEF80B8919069@hasmsx402.ger.corp.intel.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <200406081731.i58HVNgi003552@oss.sgi.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Jouni Malinen <jkmaline@cc.hut.fi>
+Content-Type: multipart/alternative;
+    boundary="--=_NextPart_001_0018_01C39816.2C871AA0"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Andonieh, Joe" <joe.andonieh@intel.com>
-Content-Disposition: inline
-In-Reply-To: <386CBF9421521B41835E2BF21BEF80B8919069@hasmsx402.ger.corp.intel.com>
+To: <netdev@oss.sgi.com>, <majordomo@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jun 08, 2004 at 10:36:25AM +0300, Andonieh, Joe wrote:
-> #define IW_AUTH_WPA_VERSION	0
-> ---
-> #define IW_AUTH_WPA_VERSION_DISABLED	0
-> #define IW_AUTH_WPA_VERSION_WPA		1
-> #define IW_AUTH_WPA_VERSION_WPA2	2
-> ---
-> #define IW_AUTH_CIPHER_PAIRWISE	1
-> #define IW_AUTH_CIPHER_GROUP	2
-> ---
-> #define IW_AUTH_CIPHER_NONE	0
-> #define IW_AUTH_CIPHER_WEP40	1
-> #define IW_AUTH_CIPHER_TKIP	2
-> #define IW_AUTH_CIPHER_CCMP	4
-> #define IW_AUTH_CIPHER_WEP104	5
-> 
-> I wonder how this definition let you differentiate between the unicast
-> cipher and the group cipher?
+----=_NextPart_001_0018_01C39816.2C871AA0
+Content-Type: text/plain;
+    charset="big5"
+Content-Transfer-Encoding: base64
 
-	Yes : PAIRWISE vs. GROUP.
+vdCkwbSrtlek5aW7oV1IVE1MoV6u5qah
 
-> Moreover there is two information that are
-> needed
-> 
-> 1) the authentication model, which is PSK or .1x
-> 2) The cipher to connect with? 
-> 	Shall we set both Pair wise and Group or only Pairwise and
-> connect with what ever group cipher in the RSN IE -- hint this will
-> enable smooth connection to mixed mode networks?
+----=_NextPart_001_0018_01C39816.2C871AA0
+Content-Type: text/html;
+    charset="big5"
+Content-Transfer-Encoding: base64
 
-	Those things are in Jouni's original proposal, and I don't
-intend to drop them. I quoted only a small snipset, to clarify, please
-refer to his e-mail to get the full picture.
+PGh0bWw+DQoNCjxoZWFkPg0KPG1ldGEgaHR0cC1lcXVpdj0iQ29udGVudC1UeXBlIiBjb250ZW50
+PSJ0ZXh0L2h0bWw7IGNoYXJzZXQ9YmlnNSI+DQo8bWV0YSBuYW1lPSJHRU5FUkFUT1IiIGNvbnRl
+bnQ9Ik1pY3Jvc29mdCBGcm9udFBhZ2UgNC4wIj4NCjxtZXRhIG5hbWU9IlByb2dJZCIgY29udGVu
+dD0iRnJvbnRQYWdlLkVkaXRvci5Eb2N1bWVudCI+DQo8dGl0bGU+t3O69K22NDwvdGl0bGU+DQo8
+L2hlYWQ+DQoNCjxib2R5Pg0KDQo8cD48YSBocmVmPSJodHRwOi8vaG9tZS5wY2hvbWUuY29tLnR3
+L3NvaG8vaG9tZXNvaG8xNjgvSGVsZW4wMi5odG0iPjxpbWcgYm9yZGVyPSIwIiBzcmM9Imh0dHA6
+Ly9ob21lLnBjaG9tZS5jb20udHcvc29oby9ob21lc29obzE2OC9oZWxlbjAxLmJtcCIgd2lkdGg9
+IjQ4MyIgaGVpZ2h0PSI1MzEiPjwvYT48L3A+DQoNCjwvYm9keT4NCg0KPC9odG1sPg0K
 
-> Please let me know what you think?
-> 
-> Thanks
-> Joe
-
-	Regards,
-
-	Jean
+----=_NextPart_001_0018_01C39816.2C871AA0--
