@@ -1,62 +1,50 @@
-From: Valdis.Kletnieks@vt.edu
+From: Larry McVoy <lm@bitmover.com>
 Subject: Re: TCP IP Offloading Interface
-Date: Sun, 13 Jul 2003 20:46:38 -0400
+Date: Sun, 13 Jul 2003 17:48:09 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307140046.h6E0kcMQ021180@turing-police.cc.vt.edu>
-References: <ODEIIOAOPGGCDIKEOPILCEMBCMAA.alan@storlinksemi.com> <20030713004818.4f1895be.davem@redhat.com> <52u19qwg53.fsf@topspin.com> <20030713160200.571716cf.davem@redhat.com> <20030713233503.GA31793@work.bitmover.com> <20030713164003.21839eb4.davem@redhat.com> <20030713235424.GB31793@work.bitmover.com>
-            <20030713165323.3fc2601f.davem@redhat.com>
+Message-ID: <20030714004809.GB24697@work.bitmover.com>
+References: <ODEIIOAOPGGCDIKEOPILCEMBCMAA.alan@storlinksemi.com> <20030713004818.4f1895be.davem@redhat.com> <52u19qwg53.fsf@topspin.com> <20030713160200.571716cf.davem@redhat.com> <20030713233503.GA31793@work.bitmover.com> <20030713164003.21839eb4.davem@redhat.com> <20030713235424.GB31793@work.bitmover.com> <20030713165323.3fc2601f.davem@redhat.com> <20030714002200.GA24697@work.bitmover.com> <20030713172414.5c888094.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; boundary="==_Exmh_-797710378P";
-	 micalg=pgp-sha1; protocol="application/pgp-signature"
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-   netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Larry McVoy <lm@bitmover.com>, roland@topspin.com, alan@storlinksemi.com,
+   linux-kernel@vger.kernel.org, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: Your message of "Sun, 13 Jul 2003 16:53:23 PDT."
-             <20030713165323.3fc2601f.davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030713172414.5c888094.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---==_Exmh_-797710378P
-Content-Type: text/plain; charset=us-ascii
+On Sun, Jul 13, 2003 at 05:24:14PM -0700, David S. Miller wrote:
+> I can't see any part of this turning out to be expensive.
 
-On Sun, 13 Jul 2003 16:53:23 PDT, "David S. Miller" said:
+In theory, practice and theory are the same...
 
-> I really don't see why receive is so much of a big deal
-> compared to send, and we do a send side version of this
-> stuff already with zero problems.
+I think the point I'm trying to make is that the VM stuff costs something
+and it shouldn't be that hard to dummy up a system call to measure it.
 
-Well.... there's optimizations you can do on the send side..
+It was counterintuitive as hell at SGI that the VM stuff would cost that
+much and the reasons are subtle.  Part of the problem turned out to be
+falling out of the instruction cache - the network stack and the VM system
+didn't fit and that left no room at all for the app.  
 
-> The NFS code is already basically ready to handle a fragmented packet
-> (headers + pages), and could stick the page part into the page cache
-> easily on receive.
+If you are trading instruction cache misses for data misses, err, dude,
+I think that might be a problem.  The point is to process all the data
+with less, not more, cache misses, right?  In fact, if we agree on that
+then that leads you to considering the various ways you could do this
+and maybe your way is the right way but maybe there is a less cache 
+intensive way.
 
-For example, in this case, you know a priori what the IP header will look
-like, so you can use tricks like scatter-gather to send the header from one
-place and a page-aligned data buffer from another, or start the packet at
-(page boundary - IP_hrd_len), or tricks of that sort.  In 20 years, I've seen
-a lot of vendors do a lot of ugly things to speed up their IP stack, often
-based on the fact that they knew a lot about the packet before they started
-assembling it.
+If you're right you're right, so peace.  But I'd like the definition of
+"right" to be "less cache misses to do the same thing".  In fact, if
+I managed to communicate only one thing in my entire set of rants and
+it was "pay attention to cache misses", hey, that'd be cool with me.
+That's how you make things go fast and I like fast.
 
-It's hard to do tricks like that when you don't know (for instance) how
-many IP option fields the packet has until you've already started sucking
-the packet off the wire - at which point either the NIC itself has to be clever
-(Hmm, there's that IP offload again) or you have literally about 30 CPU cycles
-to do interrrupt latency *and* decide what to do....
-
---==_Exmh_-797710378P
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.2 (GNU/Linux)
-Comment: Exmh version 2.5 07/13/2001
-
-iD8DBQE/Ef1ucC3lWbTT17ARArLqAJ9Nm0BoBW0sAS12YRjHQqnbS8taaACgisgU
-ouu0kT76znvhJ7TPiI5Nm8I=
-=J2r1
------END PGP SIGNATURE-----
-
---==_Exmh_-797710378P--
+Think about it, a 3GHz machine is a .3ns clock cycle and the suckers are
+super scalar and hyper threaded and all that crud.  Memory is about 133ns
+away.  That's 400 clocks of stall for each cache miss.  Lotta code can run
+in 400 clocks of super scalar/hyper threaded/fully buzzword enabled processors.
+-- 
+---
+Larry McVoy              lm at bitmover.com          http://www.bitmover.com/lm
