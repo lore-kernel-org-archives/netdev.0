@@ -1,65 +1,49 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Ben Collins <bcollins@debian.org>
 Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 15:36:30 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3EFCC6EE.3020106@candelatech.com>
-References: <3EFCBD12.3070101@candelatech.com>	<20030627.145456.115915594.davem@redhat.com>	<3EFCC1EB.2070904@candelatech.com> <20030627.151906.102571486.davem@redhat.com>
+Date: Fri, 27 Jun 2003 17:31:53 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030627213153.GR501@phunnypharm.org>
+References: <20030626.224739.88478624.davem@redhat.com> <21740000.1056724453@[10.10.2.4]> <Pine.LNX.4.55.0306270749020.4137@bigblue.dev.mcafeelabs.com> <20030627.143738.41641928.davem@redhat.com> <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: davidel@xmailserver.org, mbligh@aracnet.com,
-	linux-kernel@vger.kernel.org, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030627.151906.102571486.davem@redhat.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, mbligh@aracnet.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   linux-net@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Davide Libenzi <davidel@xmailserver.org>
+Content-Disposition: inline
+In-Reply-To: <Pine.LNX.4.55.0306271454490.4457@bigblue.dev.mcafeelabs.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
->    From: Ben Greear <greearb@candelatech.com>
->    Date: Fri, 27 Jun 2003 15:15:07 -0700
+On Fri, Jun 27, 2003 at 03:02:00PM -0700, Davide Libenzi wrote:
+> On Fri, 27 Jun 2003, David S. Miller wrote:
 > 
->    Forcing people to continue to retransmit the same report just pisses
->    people off, and in the end will get you less useful reports than if
->    you had flagged the report as 'please-gimme-more-info'.
+> > No, this is the _BAD_ part, shit accumulates equally with
+> > useful reports.
+> >
+> > Useful reports in non-bugtracking system environments get
+> > retransmitted and eventually looked at.
 > 
-> And this is different from patch submission in what way?
+> David, your method is the dream of every software developer. Having Q/A
+> repeatedly pushing the same issue. Having a track is good and flagging a
+> report as not-a-bug or need-more-info takes almost the same time (if the
+> system is sanely designed) it takes you to flag your message a shit. In
+> this way though you do not lose things meaningful that you overlooked at
+> first sight. And this comes from someone that wanted to quit his job when
+> they forced for the first time to use a tracking system ;)
 
-It wouldn't bother me to have a list of all patches submitted either,
-it would keep folks from re-implementing the same thing from time to
-time.  However, the main difference is that having to cary patches
-forward is a constant drag on the person with the patch that was not
-accepted, so they are constantly aware of how nice it would be to
-get it included..thus they may keep trying.
+As a bug reporter, and as someone who receives bug reports, I can say
+that on both ends I find it easier to send emails, and get emails than
+to fiddle with any bug tracking tool.
 
-A user with a PCMCIA NIC that reorders packets can get another NIC, so
-that bug will never re-transmitted, and it will never get fixed.  What
-is worse, new users of that busted NIC will have to re-discover that all
-over for themselves, because there is no bug database to search.
-
-> 
->    Perhaps, but it's also possible that you are being a stubborn SOB
->    because you fear change :)
->    
-> Absolutely not, in fact I'm daily looking for ways to change how
-> I work with people who help me so that I scale better.  And I know
-> for sure that a bug datamase with shit that accumulates in it
-> that _REQUIRES_ me to do something about it to make it go away
-> does not help me scale.
-> 
-> Bugme was an absolute burdon for me.
-> 
-> For something to scale, it must continute to operate just as
-> efficiently if I were to go away for a few weeks.  The lists have that
-> quality, the bug database with owner does not.
-
-So, you'd be happy so long as bugz sent mail to the netdev mailing lists
-instead of to you?
-
+I'm with Dave on this one. Scrap the nifty tools, and just use good
+sense. Emails let each developer handle bug reports in their own way.
+I'm sure you could make a nice local tool for yourself to manage your
+own bug reports.
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
-
-
+Debian     - http://www.debian.org/
+Linux 1394 - http://www.linux1394.org/
+Subversion - http://subversion.tigris.org/
+Deqo       - http://www.deqo.com/
