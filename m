@@ -1,55 +1,30 @@
-From: Pekka Savola <pekkas@netcore.fi>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Sat, 28 Sep 2002 07:35:57 +0300 (EEST)
+Date: Sat, 28 Sep 2002 08:44:29 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0209280726010.8405-100000@netcore.fi>
-References: <200209280419.IAA02894@sex.inr.ac.ru>
+Message-ID: <200209280444.IAA02959@sex.inr.ac.ru>
+References: <20020928.133019.38287529.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, <yoshfuji@linux-ipv6.org>,
-   <linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>,
-   <usagi@linux-ipv6.org>
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200209280419.IAA02894@sex.inr.ac.ru>
+To: yoshfuji@linux-ipv6.org (YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=)
+In-Reply-To: <20020928.133019.38287529.yoshfuji@linux-ipv6.org> from "YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=" at Sep 28, 2 01:30:19 pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 28 Sep 2002 kuznet@ms2.inr.ac.ru wrote:
-> Hello!
-> 
-> > Alexey, I still am not clear, this belongs in the output routing logic
-> > right?
-> ...
-> > where source address selection belongs.
-> 
-> Yes, it naturally belongs to the time when route is created.
-> 
-> This is just extending ipv6 routing entry with a field to hold
-> source address and, generally, making the same work as IPv4 does,
-> with all the advantages, particularily capability to select preferred
-> source address via routes set up by admin (RTA_PREFSRC attribute,
-> "src" in "ip route add").
+Hello!
 
-Umm.. you sure?
+> we need per socket preference.
 
-Isn't putting this logic to routes an oversimplification?
+What kind of? Some matching rules loaded to socket by user?
 
-Consider e.g. a dummy host which only have a few address (link-local,
-site-local, global; the last two /64's) and, basically, a default route
-(plus of course an interface routes for those /64's).
+Anyway, rules established by a particular client should be separate,
+it is just a generalization of bind()/IP{V6}_PKTINFO.
 
-When talking to other subnets within the site (ie. those not on the /64)  
-one would have difficulties parsing the source address from the default
-route, as there would have to be at least two candidates there.
+I am not sure that it is really interesting though. Just now I cannot
+imagine what user can invent which is not covered by system-wide rules,
+bind() and IP{V6}_PKTINFO. Well, if you think more hairy scheme is interesting,
+feel free to implement this.
 
-Am I missing something obvious here?
-
-Alexey's approach should work in some simpler cases, but maybe not all
-(stuff that's network prefix -independent like home addresses, privacy
-addresses etc. would be different).
-
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+Alexey
