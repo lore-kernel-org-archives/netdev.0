@@ -1,7 +1,7 @@
 From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH 3/11] [NET] Convert sk_user_write_queue into SOCK_USE_WRITE_QUEUE flag
-Date: Wed, 9 Mar 2005 20:47:43 +0100
-Message-ID: <20050309194743.GK31837@postel.suug.ch>
+Subject: [PATCH 4/11] [NET] Convert sk_debug into SOCK_DBG flag
+Date: Wed, 9 Mar 2005 20:48:19 +0100
+Message-ID: <20050309194819.GL31837@postel.suug.ch>
 References: <20050309194521.GH31837@postel.suug.ch>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -17,77 +17,160 @@ List-Id: netdev.vger.kernel.org
 Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
 diff -Nru linux-2.6.11-rc4.orig/include/net/sock.h linux-2.6.11-rc4/include/net/sock.h
---- linux-2.6.11-rc4.orig/include/net/sock.h	2005-03-09 00:21:18.000000000 +0100
-+++ linux-2.6.11-rc4/include/net/sock.h	2005-03-09 00:21:55.000000000 +0100
-@@ -116,7 +116,6 @@
-   *	struct sock - network layer representation of sockets
-   *	@__sk_common - shared layout with tcp_tw_bucket
-   *	@sk_shutdown - mask of %SEND_SHUTDOWN and/or %RCV_SHUTDOWN
--  *	@sk_use_write_queue - wheter to call sk->sk_write_space in sock_wfree
-   *	@sk_userlocks - %SO_SNDBUF and %SO_RCVBUF settings
-   *	@sk_lock -	synchronizer
-   *	@sk_rcvbuf - size of receive buffer in bytes
-@@ -191,7 +190,6 @@
- #define sk_bind_node		__sk_common.skc_bind_node
- #define sk_refcnt		__sk_common.skc_refcnt
- 	unsigned char		sk_shutdown;
--	unsigned char		sk_use_write_queue;
- 	unsigned char		sk_userlocks;
- 	socket_lock_t		sk_lock;
- 	int			sk_rcvbuf;
-@@ -390,6 +388,7 @@
- 	SOCK_BROADCAST,
+--- linux-2.6.11-rc4.orig/include/net/sock.h	2005-03-09 00:40:06.000000000 +0100
++++ linux-2.6.11-rc4/include/net/sock.h	2005-03-09 00:49:23.000000000 +0100
+@@ -61,10 +61,10 @@
+  * the other protocols.
+  */
+ 
+-/* Define this to get the sk->sk_debug debugging facility. */
++/* Define this to get the SOCK_DBG debugging facility. */
+ #define SOCK_DEBUGGING
+ #ifdef SOCK_DEBUGGING
+-#define SOCK_DEBUG(sk, msg...) do { if ((sk) && ((sk)->sk_debug)) \
++#define SOCK_DEBUG(sk, msg...) do { if ((sk) && sock_flag((sk), SOCK_DBG)) \
+ 					printk(KERN_DEBUG msg); } while (0)
+ #else
+ #define SOCK_DEBUG(sk, msg...) do { } while (0)
+@@ -134,7 +134,6 @@
+   *	@sk_sndbuf - size of send buffer in bytes
+   *	@sk_flags - %SO_LINGER (l_onoff), %SO_BROADCAST, %SO_KEEPALIVE, %SO_OOBINLINE settings
+   *	@sk_no_check - %SO_NO_CHECK setting, wether or not checkup packets
+-  *	@sk_debug - %SO_DEBUG setting
+   *	@sk_rcvtstamp - %SO_TIMESTAMP setting
+   *	@sk_no_largesend - whether to sent large segments or not
+   *	@sk_route_caps - route capabilities (e.g. %NETIF_F_TSO)
+@@ -208,7 +207,6 @@
+ 	int			sk_sndbuf;
+ 	unsigned long 		sk_flags;
+ 	char		 	sk_no_check;
+-	unsigned char		sk_debug;
+ 	unsigned char		sk_rcvtstamp;
+ 	unsigned char		sk_no_largesend;
+ 	int			sk_route_caps;
+@@ -389,6 +387,7 @@
  	SOCK_TIMESTAMP,
  	SOCK_ZAPPED,
-+	SOCK_USE_WRITE_QUEUE, /* wheter to call sk->sk_write_space in sock_wfree */
+ 	SOCK_USE_WRITE_QUEUE, /* wheter to call sk->sk_write_space in sock_wfree */
++	SOCK_DBG, /* %SO_DEBUG setting */
  };
  
  static inline void sock_set_flag(struct sock *sk, enum sock_flags flag)
+diff -Nru linux-2.6.11-rc4.orig/net/ax25/af_ax25.c linux-2.6.11-rc4/net/ax25/af_ax25.c
+--- linux-2.6.11-rc4.orig/net/ax25/af_ax25.c	2005-03-09 00:21:19.000000000 +0100
++++ linux-2.6.11-rc4/net/ax25/af_ax25.c	2005-03-09 00:43:51.000000000 +0100
+@@ -868,10 +868,12 @@
+ 	sk->sk_protocol = osk->sk_protocol;
+ 	sk->sk_rcvbuf   = osk->sk_rcvbuf;
+ 	sk->sk_sndbuf   = osk->sk_sndbuf;
+-	sk->sk_debug    = osk->sk_debug;
+ 	sk->sk_state    = TCP_ESTABLISHED;
+ 	sk->sk_sleep    = osk->sk_sleep;
+ 
++	if (sock_flag(osk, SOCK_DBG))
++		sock_set_flag(sk, SOCK_DBG);
++
+ 	if (sock_flag(osk, SOCK_ZAPPED))
+ 		sock_set_flag(sk, SOCK_ZAPPED);
+ 
 diff -Nru linux-2.6.11-rc4.orig/net/core/sock.c linux-2.6.11-rc4/net/core/sock.c
---- linux-2.6.11-rc4.orig/net/core/sock.c	2005-03-09 00:21:19.000000000 +0100
-+++ linux-2.6.11-rc4/net/core/sock.c	2005-03-09 00:19:39.000000000 +0100
-@@ -709,7 +709,7 @@
+--- linux-2.6.11-rc4.orig/net/core/sock.c	2005-03-09 00:40:06.000000000 +0100
++++ linux-2.6.11-rc4/net/core/sock.c	2005-03-09 00:45:23.000000000 +0100
+@@ -228,8 +228,10 @@
+ 			{
+ 				ret = -EACCES;
+ 			}
++			else if (valbool)
++				sock_set_flag(sk, SOCK_DBG);
+ 			else
+-				sk->sk_debug = valbool;
++				sock_reset_flag(sk, SOCK_DBG);
+ 			break;
+ 		case SO_REUSEADDR:
+ 			sk->sk_reuse = valbool;
+@@ -463,7 +465,7 @@
+   	switch(optname) 
+   	{
+ 		case SO_DEBUG:		
+-			v.val = sk->sk_debug;
++			v.val = sock_flag(sk, SOCK_DBG);
+ 			break;
+ 		
+ 		case SO_DONTROUTE:
+diff -Nru linux-2.6.11-rc4.orig/net/netrom/af_netrom.c linux-2.6.11-rc4/net/netrom/af_netrom.c
+--- linux-2.6.11-rc4.orig/net/netrom/af_netrom.c	2005-03-09 00:21:19.000000000 +0100
++++ linux-2.6.11-rc4/net/netrom/af_netrom.c	2005-03-09 00:46:08.000000000 +0100
+@@ -476,13 +476,15 @@
+ 	sk->sk_protocol = osk->sk_protocol;
+ 	sk->sk_rcvbuf   = osk->sk_rcvbuf;
+ 	sk->sk_sndbuf   = osk->sk_sndbuf;
+-	sk->sk_debug    = osk->sk_debug;
+ 	sk->sk_state    = TCP_ESTABLISHED;
+ 	sk->sk_sleep    = osk->sk_sleep;
  
- 	/* In case it might be waiting for more memory. */
- 	atomic_sub(skb->truesize, &sk->sk_wmem_alloc);
--	if (!sk->sk_use_write_queue)
-+	if (!sock_flag(sk, SOCK_USE_WRITE_QUEUE))
- 		sk->sk_write_space(sk);
- 	sock_put(sk);
+ 	if (sock_flag(osk, SOCK_ZAPPED))
+ 		sock_set_flag(sk, SOCK_ZAPPED);
+ 
++	if (sock_flag(osk, SOCK_DBG))
++		sock_set_flag(sk, SOCK_DBG);
++
+ 	skb_queue_head_init(&nr->ack_queue);
+ 	skb_queue_head_init(&nr->reseq_queue);
+ 	skb_queue_head_init(&nr->frag_queue);
+diff -Nru linux-2.6.11-rc4.orig/net/rose/af_rose.c linux-2.6.11-rc4/net/rose/af_rose.c
+--- linux-2.6.11-rc4.orig/net/rose/af_rose.c	2005-03-09 00:21:19.000000000 +0100
++++ linux-2.6.11-rc4/net/rose/af_rose.c	2005-03-09 00:46:28.000000000 +0100
+@@ -572,13 +572,15 @@
+ 	sk->sk_protocol = osk->sk_protocol;
+ 	sk->sk_rcvbuf   = osk->sk_rcvbuf;
+ 	sk->sk_sndbuf   = osk->sk_sndbuf;
+-	sk->sk_debug    = osk->sk_debug;
+ 	sk->sk_state    = TCP_ESTABLISHED;
+ 	sk->sk_sleep    = osk->sk_sleep;
+ 
+ 	if (sock_flag(osk, SOCK_ZAPPED))
+ 		sock_set_flag(sk, SOCK_ZAPPED);
+ 
++	if (sock_flag(osk, SOCK_DBG))
++		sock_set_flag(sk, SOCK_DBG);
++
+ 	init_timer(&rose->timer);
+ 	init_timer(&rose->idletimer);
+ 
+diff -Nru linux-2.6.11-rc4.orig/net/wanrouter/af_wanpipe.c linux-2.6.11-rc4/net/wanrouter/af_wanpipe.c
+--- linux-2.6.11-rc4.orig/net/wanrouter/af_wanpipe.c	2005-03-09 00:21:19.000000000 +0100
++++ linux-2.6.11-rc4/net/wanrouter/af_wanpipe.c	2005-03-09 00:46:50.000000000 +0100
+@@ -468,10 +468,12 @@
+ 	wp_sk(sk)->num	= wp_sk(osk)->num;
+ 	sk->sk_rcvbuf	= osk->sk_rcvbuf;
+ 	sk->sk_sndbuf	= osk->sk_sndbuf;
+-	sk->sk_debug	= osk->sk_debug;
+ 	sk->sk_state	= WANSOCK_CONNECTING;
+ 	sk->sk_sleep	= osk->sk_sleep;
+ 
++	if (sock_flag(osk, SOCK_DBG))
++		sock_set_flag(sk, SOCK_DBG);
++
+ 	return sk;
  }
-diff -Nru linux-2.6.11-rc4.orig/net/ipv4/tcp_ipv4.c linux-2.6.11-rc4/net/ipv4/tcp_ipv4.c
---- linux-2.6.11-rc4.orig/net/ipv4/tcp_ipv4.c	2005-03-08 18:11:28.000000000 +0100
-+++ linux-2.6.11-rc4/net/ipv4/tcp_ipv4.c	2005-03-09 00:19:55.000000000 +0100
-@@ -2064,7 +2064,7 @@
- 	sk->sk_state = TCP_CLOSE;
  
- 	sk->sk_write_space = sk_stream_write_space;
--	sk->sk_use_write_queue = 1;
-+	sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
+diff -Nru linux-2.6.11-rc4.orig/net/x25/af_x25.c linux-2.6.11-rc4/net/x25/af_x25.c
+--- linux-2.6.11-rc4.orig/net/x25/af_x25.c	2005-03-09 00:21:19.000000000 +0100
++++ linux-2.6.11-rc4/net/x25/af_x25.c	2005-03-09 00:47:10.000000000 +0100
+@@ -525,13 +525,15 @@
+ 	sk->sk_protocol    = osk->sk_protocol;
+ 	sk->sk_rcvbuf      = osk->sk_rcvbuf;
+ 	sk->sk_sndbuf      = osk->sk_sndbuf;
+-	sk->sk_debug       = osk->sk_debug;
+ 	sk->sk_state       = TCP_ESTABLISHED;
+ 	sk->sk_sleep       = osk->sk_sleep;
+ 	sk->sk_backlog_rcv = osk->sk_backlog_rcv;
  
- 	tp->af_specific = &ipv4_specific;
+ 	if (sock_flag(osk, SOCK_ZAPPED))
+ 		sock_set_flag(sk, SOCK_ZAPPED);
++	
++	if (sock_flag(osk, SOCK_DBG))
++		sock_set_flag(sk, SOCK_DBG);
  
-diff -Nru linux-2.6.11-rc4.orig/net/ipv6/tcp_ipv6.c linux-2.6.11-rc4/net/ipv6/tcp_ipv6.c
---- linux-2.6.11-rc4.orig/net/ipv6/tcp_ipv6.c	2005-03-08 18:11:28.000000000 +0100
-+++ linux-2.6.11-rc4/net/ipv6/tcp_ipv6.c	2005-03-09 00:20:06.000000000 +0100
-@@ -2027,7 +2027,7 @@
- 	tp->af_specific = &ipv6_specific;
- 
- 	sk->sk_write_space = sk_stream_write_space;
--	sk->sk_use_write_queue = 1;
-+	sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
- 
- 	sk->sk_sndbuf = sysctl_tcp_wmem[1];
- 	sk->sk_rcvbuf = sysctl_tcp_rmem[1];
-diff -Nru linux-2.6.11-rc4.orig/net/sctp/endpointola.c linux-2.6.11-rc4/net/sctp/endpointola.c
---- linux-2.6.11-rc4.orig/net/sctp/endpointola.c	2005-03-08 18:11:28.000000000 +0100
-+++ linux-2.6.11-rc4/net/sctp/endpointola.c	2005-03-09 00:20:42.000000000 +0100
-@@ -126,7 +126,7 @@
- 
- 	/* Use SCTP specific send buffer space queues.  */
- 	sk->sk_write_space = sctp_write_space;
--	sk->sk_use_write_queue = 1;
-+	sock_set_flag(sk, SOCK_USE_WRITE_QUEUE);
- 
- 	/* Initialize the secret key used with cookie. */
- 	get_random_bytes(&ep->secret_key[0], SCTP_SECRET_SIZE);
+ 	ox25 = x25_sk(osk);
+ 	x25->t21        = ox25->t21;
