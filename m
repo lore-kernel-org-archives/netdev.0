@@ -1,77 +1,158 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 2/22] xfrm: Add xfrm offload management calls to struct netdevice
-Date: Thu, 30 Dec 2004 03:48:34 -0500
-Message-ID: <20041230035000.11@ori.thedillows.org>
-References: <20041230035000.10@ori.thedillows.org>
+Subject: [RFC 2.6.10 11/22] AH, ESP: Add offloading of inbound packets
+Date: Thu, 30 Dec 2004 03:48:36 -0500
+Message-ID: <20041230035000.20@ori.thedillows.org>
+References: <20041230035000.19@ori.thedillows.org>
 Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <netdev-bounce@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261582AbUL3I74@vger.kernel.org>
 To: netdev@oss.sgi.com
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/12/30 00:28:25-05:00 dave@thedillows.org 
-#   Add the xfrm offload management calls to struct netdevice.
-#   
-#   xfrm_state_add() is called for inbound xfrm states
-#   xfrm_bundle_add() is called for outbound xfrm bundles
-#   xfrm_state_del() is called for all offloaded xfrms,
-#   	inbound or outbound.
-#   
-#   If a driver adds NETIF_F_IPSEC to its features, it must
-#   provide all three callbacks.
+#   2004/12/30 00:47:54-05:00 dave@thedillows.org 
+#   Add crypto offload for inbound IPv4 AH xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# include/linux/netdevice.h
-#   2004/12/30 00:28:07-05:00 dave@thedillows.org +11 -0
-#   Add the xfrm offload management calls to struct netdevice.
-#   
-#   xfrm_state_add() is called for inbound xfrm states
-#   xfrm_bundle_add() is called for outbound xfrm bundles
-#   xfrm_state_del() is called for all offloaded xfrms,
-#   	inbound or outbound.
-#   
-#   If a driver adds NETIF_F_IPSEC to its features, it must
-#   provide all three callbacks.
+# net/ipv4/esp4.c
+#   2004/12/30 00:47:36-05:00 dave@thedillows.org +30 -16
+#   Add crypto offload for inbound IPv4 AH xfrms.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/include/linux/netdevice.h b/include/linux/netdevice.h
---- a/include/linux/netdevice.h	2004-12-30 01:11:56 -05:00
-+++ b/include/linux/netdevice.h	2004-12-30 01:11:56 -05:00
-@@ -250,6 +250,9 @@
- };
- #define NETDEV_BOOT_SETUP_MAX 8
+# net/ipv4/ah4.c
+#   2004/12/30 00:47:36-05:00 dave@thedillows.org +13 -4
+#   Add crypto offload for inbound IPv4 AH xfrms.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+--- a/net/ipv4/ah4.c	2004-12-30 01:10:02 -05:00
++++ b/net/ipv4/ah4.c	2004-12-30 01:10:02 -05:00
+@@ -138,6 +138,7 @@
+ 	struct iphdr *iph;
+ 	struct ip_auth_hdr *ah;
+ 	struct ah_data *ahp;
++	int offload;
+ 	char work_buf[60];
  
-+struct xfrm_state;
-+struct xfrm_offload;
-+struct xfrm_bundle_list;
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_auth_hdr)))
+@@ -164,6 +165,7 @@
  
- /*
-  *	The DEVICE structure.
-@@ -415,6 +418,7 @@
- #define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
- #define NETIF_F_TSO		2048	/* Can offload TCP/IP segmentation */
- #define NETIF_F_LLTX		4096	/* LockLess TX */
-+#define NETIF_F_IPSEC		8192	/* Can offload IPSEC crypto */
+ 	ah = (struct ip_auth_hdr*)skb->data;
+ 	iph = skb->nh.iph;
++	offload = skb_pop_xfrm_result(skb);
  
- 	/* Called after device is detached from network. */
- 	void			(*uninit)(struct net_device *dev);
-@@ -464,6 +468,13 @@
- 						   unsigned short vid);
- 	void			(*vlan_rx_kill_vid)(struct net_device *dev,
- 						    unsigned short vid);
+ 	memcpy(work_buf, iph, iph->ihl*4);
+ 
+@@ -181,10 +183,17 @@
+ 		
+ 		memcpy(auth_data, ah->auth_data, ahp->icv_trunc_len);
+ 		skb_push(skb, skb->data - skb->nh.raw);
+-		ahp->icv(ahp, skb, ah->auth_data);
+-		if (memcmp(ah->auth_data, auth_data, ahp->icv_trunc_len)) {
+-			x->stats.integrity_failed++;
+-			goto out;
++		if (offload & XFRM_OFFLOAD_AUTH) {
++			if (unlikely(offload & XFRM_OFFLOAD_AUTH_FAIL)) {
++				x->stats.integrity_failed++;
++				goto out;
++			}
++		} else {
++			ahp->icv(ahp, skb, ah->auth_data);
++			if (memcmp(ah->auth_data, auth_data, ahp->icv_trunc_len)) {
++				x->stats.integrity_failed++;
++				goto out;
++			}
+ 		}
+ 	}
+ 	((struct iphdr*)work_buf)->protocol = ah->nexthdr;
+diff -Nru a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+--- a/net/ipv4/esp4.c	2004-12-30 01:10:02 -05:00
++++ b/net/ipv4/esp4.c	2004-12-30 01:10:02 -05:00
+@@ -164,6 +164,7 @@
+ 	int elen = skb->len - sizeof(struct ip_esp_hdr) - esp->conf.ivlen - alen;
+ 	int nfrags;
+ 	int encap_len = 0;
++	int offload;
+ 
+ 	if (!pskb_may_pull(skb, sizeof(struct ip_esp_hdr)))
+ 		goto out;
+@@ -171,22 +172,32 @@
+ 	if (elen <= 0 || (elen & (blksize-1)))
+ 		goto out;
+ 
++	offload = skb_pop_xfrm_result(skb);
 +
-+	void			(*xfrm_state_add)(struct net_device *dev,
-+						  struct xfrm_state *x);
-+	void			(*xfrm_bundle_add)(struct net_device *dev,
-+						   struct xfrm_bundle_list *bl);
-+	void			(*xfrm_state_del)(struct net_device *dev,
-+						  struct xfrm_offload *xol);
+ 	/* If integrity check is required, do this. */
+ 	if (esp->auth.icv_full_len) {
+-		u8 sum[esp->auth.icv_full_len];
+-		u8 sum1[alen];
++		if (unlikely(offload & XFRM_OFFLOAD_AUTH_FAIL)) {
++			x->stats.integrity_failed++;
++			goto out;
++		}
++
++		if (!(offload & XFRM_OFFLOAD_AUTH)) {
++			u8 sum[esp->auth.icv_full_len];
++			u8 sum1[alen];
+ 		
+-		esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
++			esp->auth.icv(esp, skb, 0, skb->len-alen, sum);
  
- 	int			(*hard_header_parse)(struct sk_buff *skb,
- 						     unsigned char *haddr);
+-		if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
+-			BUG();
++			if (skb_copy_bits(skb, skb->len-alen, sum1, alen))
++				BUG();
+ 
+-		if (unlikely(memcmp(sum, sum1, alen))) {
+-			x->stats.integrity_failed++;
+-			goto out;
++			if (unlikely(memcmp(sum, sum1, alen))) {
++				x->stats.integrity_failed++;
++				goto out;
++			}
+ 		}
+ 	}
+ 
++	/* XXX I think this can be moved to the !offload case */
+ 	if ((nfrags = skb_cow_data(skb, 0, &trailer)) < 0)
+ 		goto out;
+ 
+@@ -195,15 +206,12 @@
+ 	esph = (struct ip_esp_hdr*)skb->data;
+ 	iph = skb->nh.iph;
+ 
+-	/* Get ivec. This can be wrong, check against another impls. */
+-	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
+-
+-        {
+-		u8 nexthdr[2];
++	if (!(offload & XFRM_OFFLOAD_CONF)) {
+ 		struct scatterlist *sg = &esp->sgbuf[0];
+-		u8 workbuf[60];
+-		int padlen;
++
++		/* Get ivec. This can be wrong, check against another impls. */
++		if (esp->conf.ivlen)
++			crypto_cipher_set_iv(esp->conf.tfm, esph->enc_data, crypto_tfm_alg_ivsize(esp->conf.tfm));
+ 
+ 		if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
+ 			sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
+@@ -214,6 +222,12 @@
+ 		crypto_cipher_decrypt(esp->conf.tfm, sg, sg, elen);
+ 		if (unlikely(sg != &esp->sgbuf[0]))
+ 			kfree(sg);
++	}
++
++        {
++		u8 nexthdr[2];
++		u8 workbuf[60];
++		int padlen;
+ 
+ 		if (skb_copy_bits(skb, skb->len-alen-2, nexthdr, 2))
+ 			BUG();
