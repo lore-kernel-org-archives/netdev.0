@@ -1,70 +1,81 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH] r8169 NAPI addition
-Date: Fri, 23 Apr 2004 01:18:34 +0200
+From: Steve Modica <modica@sgi.com>
+Subject: Re: RST business
+Date: Thu, 22 Apr 2004 09:11:42 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040423011834.A3232@electric-eye.fr.zoreil.com>
-References: <20040420234524.A1374@electric-eye.fr.zoreil.com> <OF877F55DF.2DDFA7D4-ON87256E7E.005842ED-86256E7E.005967E0@us.ibm.com>
+Message-ID: <4087D29E.6010907@sgi.com>
+References: <40875F2F.7010204@swapped.cc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
+        Michael Rozhavsky <mike@minantech.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon D Mason <jonmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <OF877F55DF.2DDFA7D4-ON87256E7E.005842ED-86256E7E.005967E0@us.ibm.com>; from jonmason@us.ibm.com on Thu, Apr 22, 2004 at 10:20:58AM -0600
+To: Alex Pankratov <ap@swapped.cc>
+In-Reply-To: <40875F2F.7010204@swapped.cc>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon D Mason <jonmason@us.ibm.com> :
-[...]
---- r8169.c	2004-04-18 22:51:33.000000000 -0500
-+++ r8169.c	2004-04-22 08:08:57.526577048 -0500
-[...]
-@@ -1692,6 +1737,31 @@ static struct net_device_stats *rtl8169_
- 	return &tp->stats;
- }
- 
-+#ifdef CONFIG_R8169_NAPI
-+static int rtl8169_poll(struct net_device *dev, int *budget)
-+{
-+	u32 status, work_done = 0, work_to_do = min(*budget, dev->quota);
-+	struct rtl8169_private *tp = dev->priv;
-+	void *ioaddr = tp->mmio_addr;
-+	
-+	work_done = rtl8169_rx_interrupt(dev, tp, ioaddr);
-+	
-+	*budget -= work_done;
-+	dev->quota -= work_done;
-+	
-+	if ((work_done < work_to_do) || !netif_running(dev)) {
+If one of the potential causes for RST is that SEQ/ACK synchronization 
+has been lost, then you can't do this.
 
-Packets are received here.
-Tx interrupt is issued.
---> Interrupts status register is completely cleared by the irq handler <--
-There are pending Rx packets.
-r8169_poll() is not activated by the irq handler.
-
--> Pending Rx packets may wait long.
-
-+		netif_rx_complete(dev);
-+		status = RTL_R16(IntrStatus);
-+		if (!status) {
-+			RTL_W16(IntrMask, rtl8169_intr_mask);
-+			status = RTL_R16(IntrMask);
-+		}	
-
-The previous lines imply that if, according to IntrStatus, there is pending
-Rx work but no pending Tx work, the Rx interrupts are kept disabled.
-
-If I am not mistaken (1:55 AM here), either 1) you do not clear the RX
-related bits of IntrStatus in r8169_interrupt() but you clear it in
-rtl8169_poll() and you add local_irq_{en/dis}able() to rtl8169_poll()
-(ala 8139cp.c) or 2) you modify r8169_interrupt() so that it can signal
-to rtl8169_poll() that it cleared itself the Rx bits of IntrStatus whereas
-rtl8169_poll() was running (ala epic100-netdev).
-
-If you hesitate, go for 1). 2) works but I have not benchmarketed it yet :o)
-
-If you have doubts regarding your Tx part, feel free to send any code.
-
---
-Ueimor
+Alex Pankratov wrote:
+> 
+> Looking at the hype around 'TCP vulnerability' the following
+> occured to me, and I wonder if it makes any sense -
+> 
+> A host may recieve legitimate RST packet only in response to
+> something that it has previously sent (let's call it a 'trigger').
+> 
+> SEQ/ACK values in RST packet are correlated to SEQ/ACK of the
+> trigger. If the correlation is not there, then RST packet is
+> most certainly spoofed and should be dropped even if its SEQ
+> falls into host's rcpt window.
+> 
+> In other words, it seems to be possible to stregthen ingress
+> RST checking (and thus better protect against blind RST attacks)
+> while maintaining _full RFC compliance_. Here's a how-to sketch.
+> 
+>     RFC 793 (page 35) states that for the connection in
+>     non-established state -
+> 
+>     If the incoming segment has an ACK field, the reset takes its
+>     sequence number from the ACK field of the segment, otherwise
+>     the reset has sequence number zero and the ACK field is set to
+>     the sum of the sequence number and segment length of the incoming
+>     segment.
+> 
+> Hence the second RST check (after standard window check) is
+> 
+>     if (! pkt->seq)
+>         check if we've recently sent a segment without
+>         an ACK with (pkt->ack - pkt->seq) bytes in it
+>     else
+>         check if we've recently sent a segment with ACK
+>         of (pkt->seq) and with (pkt->ack - pkt->seq)
+>         bytes in it
+> 
+> If RST passes the check, it's accepted. Otherwise checks continue.
+> 
+>     RFC 793 (page 36) states that for the connection in
+>     established state -
+> 
+>     .. elicit only an empty
+>     acknowledgment segment containing the current send-sequence number
+>     and an acknowledgment indicating the next sequence number expected
+>     to be received ..
+> 
+> At this point seeing a RST means that
+> (a) remote host is an ESTABLISHED state
+> (b) we sent a segment that it considers not to be a part of the
+>     current connection
+> 
+> And (b) is something that we can always check since we're now sure
+> about (a).
+> 
+> The above obviously requires keeping some sort of 'outbound history',
+> plus (b) involves some non-trivial logic, which however seems to be
+> doable from the first glance.
+> 
+> Comments ?
+> 
+> Alex
