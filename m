@@ -1,30 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6] pci.ids for e1000
-Date: Mon, 29 Sep 2003 23:25:20 -0700
+From: David Woodhouse <dwmw2@infradead.org>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Tue, 30 Sep 2003 07:31:45 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030929232520.0184a8f7.davem@redhat.com>
-References: <3F621965.4070106@wanadoo.es>
+Message-ID: <1064903505.6154.157.camel@imladris.demon.co.uk>
+References: <20030928225941.GW15338@fs.tum.de>
+	 <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de>
+	 <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de>
+	 <20030929003229.GM1039@conectiva.com.br>
+	 <1064826174.29569.13.camel@hades.cambridge.redhat.com>
+	 <20030929221712.51e6c27b.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: acme@conectiva.com.br, bunk@fs.tum.de, netdev@oss.sgi.com,
+        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Xose Vazquez Perez <xose@wanadoo.es>
-In-Reply-To: <3F621965.4070106@wanadoo.es>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030929221712.51e6c27b.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Sep 2003 21:07:17 +0200
-Xose Vazquez Perez <xose@wanadoo.es> wrote:
+On Mon, 2003-09-29 at 22:17 -0700, David S. Miller wrote:
+> On Mon, 29 Sep 2003 10:02:55 +0100
+> David Woodhouse <dwmw2@infradead.org> wrote:
+> 
+> > The underlying point being that your static kernel should not change if
+> > you change an option from 'n' to 'm'. It should only affect the kernel
+> > image if you change options to/from 'y'.
+> 
+> I totally disagree, what ipv6 is doing is perfectly fine.
 
-> Linus and Marcelo should not accept patches against pci.ids,
-> all updates should go to pciids.sf.net. And every X time
-> to do a sync with 2.4 and 2.6.
+Your right.
 
-I don't know if this is the best idea.
-
-When merging in a driver, it makes perfect sense to add the
-appropriate device IDs to all PCI ID files.
-
-On the other hand this could make life difficult for the
-pciids.sf.net person.
+-- 
+dwmw2
