@@ -1,39 +1,31 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Mon, 25 Oct 2004 16:56:10 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH][ATM]: [horizon] eliminate pci_find_device()
+Date: Mon, 25 Oct 2004 20:22:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <417D929A.2090809@candelatech.com>
-References: <41797696.9070905@candelatech.com>	<20041022214611.GA4948@electric-eye.fr.zoreil.com>	<41798506.1030909@candelatech.com> <417D675F.3000909@candelatech.com>
+Message-ID: <20041025202221.4f4d32a3.davem@davemloft.net>
+References: <20041021113949.GB3720@infradead.org>
+	<200410221203.i9MC3Ecw003142@ginger.cmf.nrl.navy.mil>
+	<20041022145235.GA19847@infradead.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>
+Cc: chas@cmf.nrl.navy.mil, hch@infradead.org, netdev@oss.sgi.com,
+        davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-In-Reply-To: <417D675F.3000909@candelatech.com>
+To: Christoph Hellwig <hch@infradead.org>
+In-Reply-To: <20041022145235.GA19847@infradead.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear wrote:
+On Fri, 22 Oct 2004 15:52:35 +0100
+Christoph Hellwig <hch@infradead.org> wrote:
+
+> On Fri, Oct 22, 2004 at 08:03:15AM -0400, chas williams (contractor) wrote:
+> > In message <20041021113949.GB3720@infradead.org>,Christoph Hellwig writes:
+> > >The same device list comments as for ambassador apply here aswell.
+> > 
+> > better?
 > 
-> Ok, I believe I have fixed all the suggestions offered by Francois 
-> (thanks!).
-> 
-> Please see what you think of this updated patch.  The changes have
-> been compile tested...and will pass some data in just a few minutes to
-> make sure nothing funny happens...
-> 
-> Thanks,
-> Ben
+> yes.
 
-I've been beating on it with pktgen for a while, and it seems stable.
-
-DaveM, please consider accepting this patch (it's in a previous email to netdev,
-just ask if you want it re-sent.)
-
-Thanks,
-Ben
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Applied, thanks Chas and Christoph.
