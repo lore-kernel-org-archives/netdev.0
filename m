@@ -1,157 +1,39 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: 06 Jan 2005 08:47:05 -0500
-Message-ID: <1105019225.2312.7.camel@jzny.localdomain>
-References: <20050103125635.GB26856@postel.suug.ch>
-	 <20050104223612.GN26856@postel.suug.ch>
-	 <1104894728.1117.56.camel@jzny.localdomain>
-	 <20050105110048.GO26856@postel.suug.ch>
-	 <1104931991.1117.152.camel@jzny.localdomain>
-	 <20050105144514.GQ26856@postel.suug.ch>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: 06 Jan 2005 08:58:32 -0500
+Message-ID: <1105019912.2314.20.camel@jzny.localdomain>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com>
+	 <1104764710.1048.580.camel@jzny.localdomain>  <41DB26A6.2070008@pobox.com>
+	 <1104895169.1117.63.camel@jzny.localdomain>  <41DC0931.80603@tpack.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Hasso Tepper <hasso@estpak.ee>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050105144514.GQ26856@postel.suug.ch>
+To: Tommy Christensen <tommy.christensen@tpack.net>
+In-Reply-To: <41DC0931.80603@tpack.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Sorry for the latency - vacation over, i am gonna slow down a little ..
+On Wed, 2005-01-05 at 10:35, Tommy Christensen wrote:
+> jamal wrote:
 
-On Wed, 2005-01-05 at 09:45, Thomas Graf wrote: 
-> * jamal <1104931991.1117.152.camel@jzny.localdomain> 2005-01-05 08:33
-[..]
-> > Sorry i missed that. Isnt it still unecessary though? You should be able
-> > to pass L=4 and not need the speacial treatment, no?
 > 
-> Agreed, but the ematch might expect an allocated block. Assuming the
-> data is variable and sometimes is L=4, sometimes L=16 the ematch
-> requires special handling because m->data might hold the value directly
-> or a pointer depending on datalen.
+> Except for the drivers that call netif_stop_queue() on link-down. These
+> calls (and the corresponding netif_wake_queue) would have to be removed.
 
-So the issue is whether its by ref or copy? Maybe thats what the flag is
-for then. My view is that _everything_ for ematches should be by copy
-for simplicty.
-
-> > >   1) We make u32 hold multiple ematch trees, a u32 key can be of 3
-> > >      kinds: u32/ematch/container. It's kind of a hack and not very
-> > >      fast due to a lot of stack movement.
-> > 
-> > Indeed this is what i was thinking of. 
-> > The only added overhead I can think of is when processing a series of
-> > u32 keys _within the same selector_ (not across selectors), you check if
-> > its u32 native and execute localy (as is done now) or transfer the check
-> > to the ematch defined in that key and continue to next key based on the
-> > ematchs return code + the logical operation.
-> 
-> Exactly, does the performance gap come with any advantage? No.
-
-Oh, yes;->  the one check in the datapath comes with a _huge_ advantage
-even all that you had was old style matches because now you have embeded
-logical operations which are more than just the old AND. But more
-importantly you can use ematches as well to influence the existing u32
-tree path.
-
-> That's
-> why I don't like it.
-> 
-> 
-> > >   2) We make the existing u32 match be an ematch which I already did
-> > >      expect for the nexthdr bits. That is the select will simply be
-> > >      replaced by an ematch tree. I'll take a look into how we could
-> > >      have the classifier take influence on the ematches config data.
-> > >      One possibiliy is to have a struct transfered via map which
-> > >      contains useful data such as offset to next header (u32/rsvp).
-> > >      I have to think about this a little more though.
-> > 
-> > This could be done in addition to #1. I see #1 as more important for u32
-> > but not so for things like fwmark, tcindex which should fizzle away with
-> > meta ematch. I think the danger is in trying to replicate u32 as an
-> > ematch; if somehow you can loop back and use the real u32 code, then
-> > fine. I feel it being non-trivial to do so.
-> > Like i said earlier, theres a lot of power in u32 other than in basic
-> > matching.
-> 
-> Most importantly I don't want to touch any of the hashing code in u32.
-
-What i am reading is you see more work involved. Is this correct?
-
-> I really like and it should stay as it is. The existing u32 match can
-> be easly made an ematch so this would safe us the extra work in u32 to
-> implement logic relations again and to fiddle with complicated selector
-> TLVs. The only problem with this is the nexthdr bits because it relies
-> on the hashing code. So we have to make this data available to the
-> ematch which is actually not a bad idea anyway. So I'm thinking about
-> introducing a new structure tcf_em_pkt_info or alike which carries
-> some additional information found out by the classifiers which can be
-> used by ematches. This can be information about the next header,
-> already extracted dscp values, etc.
-> 
-> This would give us the chance to add a very small em_u32.c (~40 lines)
-> doing exactly the same as the current u32 match and have the u32
-> selector replaced with an ematch tree at no additional cost. Backward
-> compatibility is as easy as creating a flat ANDed ematch tree.
-> 
-> Note: The u32 ematch I'm talking about is not the cmp ematch, cmp is
-> more advanced but also slightly slower.
-> 
-> Thoughts?
-
-I think I understand more after reading the above now. 
-There is one issue which i think is the big source of our lack of sync:
-You conclude people are gonna want to use the logical tree building
-scheme you are putting in to put together matches and ematches. U32
-_already_ has a tree building scheme which is very very flexible. Now
-that the sel2 matches will provide u32 logial operators, it presents a
-very interesting fresh outlook on life in a jiffy of a packet. This is
-what i dont wanna kill or ignore. fw, tcindex etc donot have this
-infrastructure so they dont matter.
-
-> > I think #2 is better for other classifiers which were already doomed
-> > anyways. #1 is important for u32 and perhaps other classifiers like rsvp
-> > and route. And yes, #1 is more work ;->
-> 
-> Why is it better? What's the advantage?
-
-Refer to what i said above: u32 has built in tree building scheme made
-more interesting now that there exist more interesting logical
-operators.
-
-> > hang on:-> No dont rewrite u32 please. Your cmp is good for the basic
-> > matches that u32 does, but is _nowhere_ close to being able to do what
-> > u32 can when used properly.
-> 
-> Right, that's why I now call it cmp and the existing u32 match becomes
-> the u32 ematch.
-
-Again, u32 classifier is not just matches; the more interesting thing
-is  the layout of the rules that it can be taught to do.
-I think the ematch which emulates the std u32 match is of course
-valuable to have but it _doesnt_ deserve the same name.
-  
-> > I Should be able to compile a new ematch as a module in an already
-> > running kernel. So, other than generic stuff for ematches, things like 
-> > TCF_EM_CMP should not be in that enumeration.
-> 
-> It's not a requirement to put it there but we need to manage the
-> assigned types for ematches in mainline anyway.
-
-Thinking more about it; not sure why you would even bother managing
-them. Everything runs at the same kernel privilege level. I am not sure
-you want to have certain things that can only be built when recompiling
-the kernel
-
-> > And all this also goes in that header file as well.
-> 
-> I put it here because it might be very useful for other ematches
-> or further classifiers, you name it. tcf_get_base_ptr is used by
-> nbyte ematch for example.
-
-If its generic then it stays in the main header; 
+If we assume all drivers do:
+netif_stop then carrier_off then you dont need that extra check.
+Thats the working assumption i had - maybe a comment is deserving or
+we could say we dont think that all drivers are going to follow that 
+sequence.
 
 cheers,
 jamal
