@@ -1,114 +1,141 @@
-From: Jeroen Massar <jeroen@unfix.org>
-Subject: Re: (usagi-users 03222) Re: support of IPv6 by NFS
-Date: Tue, 01 Mar 2005 16:08:32 +0100
-Message-ID: <1109689712.17484.6.camel@firenze.zurich.ibm.com>
-References: <42243F8D.5030302@bull.net>
-	 <200503010744.38339.Info@Quantum-Sci.com>
+From: Devesh Agrawal <devesh.agrawal@gmail.com>
+Subject: Kernel panic when an icmp packet is generated in response to an ARP failure
+Date: Tue, 1 Mar 2005 20:45:18 +0530
+Message-ID: <db01ab3505030107157d483e3c@mail.gmail.com>
+Reply-To: Devesh Agrawal <devesh.agrawal@gmail.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-CXIFG70UQeVul0i4ytiq"
-Cc: netdev@oss.sgi.com
-To: usagi-users@linux-ipv6.org
-In-Reply-To: <200503010744.38339.Info@Quantum-Sci.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+The protocol I am writing is a source routing based protocol called
+Meghadoot similar to the wireless networks DSR, as written by Alex Song
+(http://piconet.sf.net). I am using netfilter, I am using linux 2.6.5
+(supplied along with FC2), without the SMP and PREEMPTIBLE options.
+I have a seperate header called MeghHeader, which carries the source
+route and it comes b/w the iph and the tcph. I am using an isolated
+machine called A from which I send out ping packets. Here is what is
+happening:
+In my local_out_handler, I cruft the source routing header, route the
+packet using ip_route_output (which causes an arp request to be send).
+And then call the output routine passed to me by netfilter (okfn).
+As the arp request obviously will fail, and hence
+skb->dst->neighbour->output points to neigh_resolve_output, which sends
+the arp request, and queues the skb in the neigh->arp_queue, the
+neigh->state is NUD_INCOMPLETE.
+When neigh_timer_handle fires, it walks thru the arp_queue and sends an
+icmp dest unreach for each of the queued skb's thru the
+ipv4_link_failure function.
+Please note that my local_out_handler is serialized by having a
+spinlock at its entry.
+Hence my debugging output looks something like this:
+        Entering local out with icmp packet type 8, code 0 : The normal
+ping
+packet, in pings context.
+        ... Some more of the above
+        Entering local out with icmp packet type 3, code 1 : The icmp
+dest
+unreach, given off in the TIMER_SOFTIRQ context, when
+neigh_timer_handler is fired.
+        ...And then some more of the two...
 
---=-CXIFG70UQeVul0i4ytiq
-Content-Type: text/plain
-Content-Transfer-Encoding: quoted-printable
+        Now this is something, that has totally freaked me out ....
 
-On Tue, 2005-03-01 at 07:44 -0600, Quantum Scientific wrote:=20
->On Tuesday 01 March 2005 4:10, Gilles Quillard wrote:
->> This works but this needs that the kernel has been compiled with IPv6,=20
->> which is not mandotary. A lot of people in the Linux community do not=20
->> have experience with IPv6 yet and are not ready to use it. So making it=20
->> mandatory for NFS, even in a pure IPv4 network, is not easy.
->
->My experience is that IPV6 is extremely difficult to figure out how to set=
- up=20
->securely, for the time being, due to lack of connection-sharing.
+        I sometimes get an icmp skb in my local out handler with some
+invalid
+type say like 234 etc, As a hack in my local_out_handler, I return
+NF_DROP ('cos I noticed that icmp_send, assumes that the type is
+correct before indexing into the icmp table). As soon as my
+local_out_handler exits with this screwed up skb,(Again, my
+local_out_handler is not reentrant, it is locked by a spinlock) I get
+either a bad eip or a null eip somewhere in the neigh_timer_handler.
+The stack dump looks like this. (The full debugging output, including
+the oops message is available online at
+http://www.cs.iitm.ernet.in/~dvagr/helpme):
+I am trying to ping the machine 10.6.6.2, whose route is hardcoded into
+10.6.6.5.
+<------------ My debugging output begins ---------------->
+Meghadoot: ****************** Entering local out *******************
+function addr 224c483, dst output 224a842<2>
+Meghadoot: okfn points to :Address: 224c483, name: dst_output, offset:
+0,size: 1c, module: Kernel<2>,
+Meghadoot: skb->dst->output points to : Address: 224a842, name:
+ip_output, offset: 0,size: 5c, module: Kernel<2>
+Meghadoot: local out handler, dumping call trace
+ [<22926360>] local_out_handler+0x4e/0x296 [megh_linux]
+ [<0224c483>] dst_output+0x0/0x1c
+ [<0224a842>] ip_output+0x0/0x5c
+ [<0223c787>] nf_iterate+0x40/0x89
+ [<0224c483>] dst_output+0x0/0x1c
+ [<0223ca91>] nf_hook_slow+0x90/0x101
+ [<0224c483>] dst_output+0x0/0x1c
+ [<0224c0dc>] ip_push_pending_frames+0x2cf/0x37c
+ [<0224c483>] dst_output+0x0/0x1c
+ [<0226686f>] icmp_send+0x35e/0x397
+ [<02107352>] do_IRQ+0x134/0x169
+ [<02239dc9>] neigh_timer_handler+0x0/0x112
+ [<0211de03>] run_timer_softirq+0x10b/0x12a
+ [<0211af6d>] __do_softirq+0x35/0x73
+ [<021078f5>] do_softirq+0x46/0x4d
+ =======================
+ [<0210737b>] do_IRQ+0x15d/0x169
+ [<0210403b>] default_idle+0x23/0x26
+ [<0210408c>] cpu_idle+0x1f/0x34
+ [<02318612>] start_kernel+0x174/0x176
 
-NAT is not a firewall. Get that into your brain.
+Meghadoot: In context: in_softirq:1024,in_irq:0,in_interrupt:1024<2>
+Meghadoot: local out called in context of swapper<2>
+Meghadoot: finished dumping stack ....<2>
+Meghadoot: Entered local Out handler,printing skb info<2>
+Meghadoot: Local out handler , icmp type is 0, code is 0<2>s:127.0.0.1
+d:127.0.0.1 and protocol is 1<2> (Valid icmph->type, I return NF_DROP
+if icmph->type > NR_ICMP_TYPES )
+Meghadoot: Got Locally destined packet (ie iph->daddr = MYIPADDR )<2>,
+returned NF_ACCEPT.
+Meghadoot: ****************** Exiting local out
+*******************<1>Unable to handle kernel NULL pointer dereference
+at virtual address 00000000
+ printing eip:
+00000000
+*pde = 00000000
+Oops: 0000 [#1]
+CPU:    0
+EIP:    0060:[<00000000>]    Not tainted
+EFLAGS: 00010206   (2.6.5-1.358)
+EIP is at 0x0
+eax: 00000000   ebx: 00000000   ecx: 0000b404   edx: 00000007
+esi: 00000000   edi: 00000000   ebp: 00000000   esp: 02344fb0
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, threadinfo=02344000 task=022c5aa0)
+Stack: 00020000 00000000 00594400 1c8e4900 00000056 02239dc9 1c8e495c
+0211de03
+       02344fd0 02344fd0 0234007b 00000001 02369428 0000000a 02316000
+0211af6d
+       02317f94 00000046 00000000 021078f5
+Call Trace:
+ [<02239dc9>] neigh_timer_handler+0x0/0x112
+ [<0211de03>] run_timer_softirq+0x10b/0x12a
+ [<0211af6d>] __do_softirq+0x35/0x73
+ [<021078f5>] do_softirq+0x46/0x4d
+ =======================
+ [<0210737b>] do_IRQ+0x15d/0x169
+ [<0210403b>] default_idle+0x23/0x26
+ [<0210408c>] cpu_idle+0x1f/0x34
+ [<02318612>] start_kernel+0x174/0x176
 
-And indeed there is no Linux firewalling code yet, in the mainstream
-that can do connection tracking. There is no non-EFT Cisco PIX code for
-this either. The only OS that can do it is the various BSD's.
+Code:  Bad EIP value.
+ <0>Kernel panic: Fatal exception in interrupt
+In interrupt handler - not syncing
 
->And 80% of potential users are behind a cable/DSL 4 NATting router.  There=
- is=20
->no clarity that it is possible overcome this by either setting to DMZ, or=20
->hoping your cablemodem passes protos 41, 50 & 51.  Even some tunnel operat=
-ors=20
->do not know this, so I had to figure it out myself.
+<---------------------- End of debugging dump --------------------->
 
-Freenet6/Hexago have a UDP protocol and SixXS has AYIYA. Works perfectly
-fine.
+I will be really greateful, if any one of you could help me out with
+this. Please.
 
-In most cases, I know from quite a bit of experience, proto-41
-forwarding works very well in most of these DSL boxes.
-
-> There is no Linux 6to4=20
->UDP tunnelling app, but there should be, because this is such a common=20
->problem.  (As I understand, Teredo is Winduhs-only, and is not supported b=
-y=20
->most tunnel operators)
-
-The protocol for Teredo is open and can be implemented at will:
-
-http://www-rp.lip6.fr/teredo/
-http://www.simphalempin.com/dev/miredo
-http://people.via.ecp.fr/~rem/miredo/?C=3DN;O=3DD
-
-First couple of hits when doing a google on "Teredo BSD", or for you to
-click as that might be difficult:
-http://www.google.com/search?q=3Dteredo+bsd
-
->And frankly, most Linux users' only contact with IPV6 has been the DNS AAA=
-A=20
->browser delay seemingly inherent in some distros.  Although I realize that=
-=20
->all of us who run Linux are ostensibly uber-gurus, fact is this is a negat=
-ive=20
->first experience for most, stemming from attempts by distros to encourage =
-ppl=20
->to use it with an inoperative function, and without an obvious way to=20
->troubleshoot/repair.
-
-I can clearly assume that you are not part of the 'ostensibly
-uber-gurus' you try to mention.=20
->
->These issues contradict assertions that IPV6 is beneficial and easy.
-
-That you don't understand it is your problem ;)
-
->If I=20
->didn't have a strong motivation and lots of time, I would have chucked=20
->early-on.  Speaking the actual truth, not propaganda or spin, leads to=20
->understanding of the *real* world.
-
-Loads of people seem to have no problem at all with IPv6, getting it up
-and running and actually using it for a lot of traffic.
-That fact that you are only complaining, without doing any actual
-research, typing two words in google, says enough. You are not even
-capable of configuring your mailer properly to include your own name,
-the field is not called "Realname" for nothing...
-
-Greets,
- Jeroen
-
-
---=-CXIFG70UQeVul0i4ytiq
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.4.0 (GNU/Linux)
-Comment: Jeroen Massar / http://unfix.org/~jeroen/
-
-iD8DBQBCJIVwKaooUjM+fCMRAkLoAJ9m855fpWBV+bmKxXeM6dUWnhlIfgCdF/ei
-uKA8xiFscO2H3ZlT2IMQceo=
-=HzTF
------END PGP SIGNATURE-----
-
---=-CXIFG70UQeVul0i4ytiq--
+Expecting your reply eagerly.
+Regards,
+Devesh
