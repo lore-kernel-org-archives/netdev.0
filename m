@@ -1,37 +1,66 @@
-From: Andrew Grover <andy.grover@gmail.com>
-Subject: Re: bad TSO performance in 2.6.9-rc2-BK
-Date: Wed, 22 Sep 2004 13:12:47 -0700
+From: Nivedita Singhvi <niv@us.ibm.com>
+Subject: Re: The ultimate TOE design
+Date: Wed, 22 Sep 2004 13:18:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <c0a09e5c04092213126ba5f29d@mail.gmail.com>
-References: <20040920063012.GL2825@krispykreme>
-	 <20040920203021.GD4242@wotan.suse.de>
-	 <20040921155835.18aee381.davem@davemloft.net>
-	 <20040922140000.GD27432@wotan.suse.de>
-	 <20040922111209.7887df53.davem@davemloft.net>
-	 <20040922195515.GA2619@wotan.suse.de>
-Reply-To: Andrew Grover <andy.grover@gmail.com>
+Message-ID: <4151DDFF.6000902@us.ibm.com>
+References: <200409162034.i8GKYq39023185@guinness.s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, anton@samba.org,
-        netdev@oss.sgi.com
+Cc: "'Andi Kleen'" <ak@suse.de>, "'David S. Miller'" <davem@davemloft.net>,
+        "'John Heffner'" <jheffner@psc.edu>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andi Kleen <ak@suse.de>
-In-Reply-To: <20040922195515.GA2619@wotan.suse.de>
+To: Leonid Grossman <leonid.grossman@s2io.com>
+In-Reply-To: <200409162034.i8GKYq39023185@guinness.s2io.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 22 Sep 2004 21:55:15 +0200, Andi Kleen <ak@suse.de> wrote:
-> With tso off i get the same performance as on 2.6.5.
+Leonid Grossman wrote:
+
+>>From: Nivedita Singhvi [mailto:niv@us.ibm.com] 
+>>Sent: Thursday, September 16, 2004 9:19 AM
+>>To: Leonid Grossman
+>>Cc: 'Andi Kleen'; 'David S. Miller'; 'John Heffner'; 
+>>netdev@oss.sgi.com
+>>Subject: Re: The ultimate TOE design
+>>
+>>Leonid Grossman wrote:
+>>
+>>
+>>>We can dream about benefits of huge MTUs, but the reality is that 
+>>>moving beyond 9k MTU is years away. Reasons - mainly infrastructure, 
+>>>plus MTU above ~10k may loose checksum protection (granted, this 
+>>>depends whether the errors are simple or complex, and also this may 
+>>>not be a showstopper for some people).
+>>>Even 9k MTU is very far from being universally accepted, 
+>>>eight years after our Alteon spec went out :-).
+>>
+>>One other factor is TCP congestion control, and congestion 
+>>windows we obey. Most of the time, you just can't send that much.
 > 
-> I must add that this is a CSA e1000 (directly integrated into
-> the chipset and doesn't use PCI) and TSO doesn't seem to be
-> bring any advantage. On 2.6.5 the performance is the same
-> with both TSO on or off.
+> 
+> It's a bit painful to setup, but in general with 9k jumbos and TSO we were
+> able to get close to pci-x 133 limit - both in LAN and WAN tests.
+> Leonid
 
-I think this is caused by the congestion changes added between
-2.6.9-rc1 and rc2. I am seeing good performance with rc1 and tso on
-(or off), but bad performance with rc2 and bk-latest only if tso is
-on.
+Cool, but a very specific environment, no? ;)
 
-Regards -- Andy
+What concerns me about all this is that it seems
+so very host-centric design. Wouldn't it be nice if
+we had a little bit more network-centric worldview
+when designing network infrastructure?
+
+It isn't just a matter of how had we can push stuff
+out, it also matters how much the network can take.
+Blasting tens of gigs into the ether seems all very
+exciting sexy and cool, but suited for dedicated links
+or network attached storage channels, not general-purpose
+networking on the Internet or intra-nets.
+
+And if that is the case, we're talking about a much
+smaller market (but perhaps a more profitable
+one ;))...
+
+thanks,
+Nivedita
