@@ -1,29 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: Fw: [Bugme-new] [Bug 3151] New: IPSEC triggers "bad: scheduling while atomic!" errors.
-Date: Wed, 04 Aug 2004 19:55:51 +1000
+Subject: Re: [PATCH][IPROUTE2] clean xfrm message format
+Date: Wed, 4 Aug 2004 20:11:51 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1BsIUx-0001As-00@gondolin.me.apana.org.au>
-References: <20040803224319.50363100.akpm@osdl.org>
-Cc: netdev@oss.sgi.com
+Message-ID: <20040804101151.GA4940@gondor.apana.org.au>
+References: <20040803164539.41a0a975@localhost>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org (Andrew Morton)
-In-Reply-To: <20040803224319.50363100.akpm@osdl.org>
+To: Masahide Nakamura <nakam@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040803164539.41a0a975@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton <akpm@osdl.org> wrote:
+On Tue, Aug 03, 2004 at 04:45:39PM -0700, Masahide Nakamura wrote:
 > 
-> Looks like a lock/unlock imbalance somewhere in the 2.6.7 ipsec code.
+> This is a patch for ip xfrm and against for the latest
+> snapshot(iproute2-2.6.8-ss040730.tar.gz). Please apply it.
 
-Yes this is most likely the missing unlock in xfrm_policy_timer() that
-was fixed not so long ago.
+Yes this looks great.
 
-However, that bug was only introduced in 2.6.7 and the submitter says
-that he saw this with 2.6.6.  So this might be something else.
+Thanks a lot for your work.
 
-So the submitter should test 2.6.8-rc3 to see if it's still there or not.
-
-Thanks,
+Cheers,
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
