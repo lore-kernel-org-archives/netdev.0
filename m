@@ -1,23 +1,54 @@
-From: "David S. Miller" <davem@rth.ninka.net>
-Subject: Re: rtnetlink interface state monitoring problems.
-Date: 21 Oct 2002 10:01:14 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <1035219674.4817.5.camel@rth.ninka.net>
-References: <Mutt.LNX.4.44.0210212346480.29169-100000@blackbird.intercode.com.au>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: tulip NAPI patch that works with 2.4.20-pre9 or so?
+Date: Mon, 21 Oct 2002 11:37:26 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <3DB44966.1070402@candelatech.com>
+References: <Pine.GSO.4.30.0210210826440.17911-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>,
-	linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: James Morris <jmorris@intercode.com.au>
-In-Reply-To: <Mutt.LNX.4.44.0210212346480.29169-100000@blackbird.intercode.com.au>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2002-10-21 at 06:48, James Morris wrote:
-> Forgot to add that it might be possible to get Andi's solution into 2.6.
+jamal wrote:
+> Theres a 2419 patch that should work for you at:
+> http://www.cyberus.ca/~hadi/tulip-2419-napi-nifd.gz
 
-Send me the patch for 2.5.x
+Link does not work for me.  But I got Robert's patch to
+work with a small bit of hacking...  (I changed HZ to 1000
+and it locked up 10 seconds after I started (pkts were sent,
+but nothing received on any port).  However, I restarted,
+and it ran all night with very few dropped packets...)
 
-It not being there is by accident, usually when I make a 2.4.x
-patch I do 2.5.x in parallel.
+> Also pick a small patch on top of this at:
+> http://www.cyberus.ca/~hadi/patch-napi-tulip-20020915
+
+Does not work either...
+
+> 
+> Now if you wanna get adventorous why not pick:
+> http://www.cyberus.ca/~hadi/tulip-feed.tgz
+> You still need that second patch;
+
+Do you have any descriptions of what this feed patch does differently
+from other drivers?
+
+> In addition to solve your skb problem pick Roberts latest
+> recycling patch at:
+> ftp://robur.slu.se/pub/Linux/net-development/skb_recycling/recycle12.pat
+> The driver i pointed to above has skb-recycling built in.
+
+I'll give that a try.
+
+Thanks!
+
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
