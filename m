@@ -1,45 +1,64 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [BUG] can't unload network device's if IPV6 is loaded
-Date: Thu, 18 Dec 2003 16:35:50 -0800
+From: maximilian attems <janitor@sternwelten.at>
+Subject: [PATCH 1/5] tun check error on memcpy_fromiovec
+Date: Fri, 19 Dec 2003 11:34:58 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031218163550.572cc9b1.shemminger@osdl.org>
-References: <20031211153334.0c59214b.shemminger@osdl.org>
-	<E1AUlxI-00060F-00@gondolin.me.apana.org.au>
+Message-ID: <20031219103457.GD1213@mail.sternwelten.at>
+References: <20031208202302.C30587@build.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="m1UC1K4AOz1Ywdkx"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>,
-        "YOSHIFUJI Hideaki /
- _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-        "David S. Miller" <davem@redhat.com>
-In-Reply-To: <E1AUlxI-00060F-00@gondolin.me.apana.org.au>
+To: Chris Wright <chrisw@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20031208202302.C30587@build.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 12 Dec 2003 22:59:36 +1100
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Stephen Hemminger <shemminger@osdl.org> wrote:
-> > In 2.6.0-test11, IPV6 is not correctly cleaning up the network device reference's
-> > (ie missing dev_put).  So if I do:
-> >        rmmod e100
-> > it hangs forever and complains about that not all references have been cleaned up.
-> > 
-> > This happens even if no IPV6 addresses have been set up. Just having ipv6 available
-> > to be loaded at boot up.  The vendor startup scripts (SuSe 9) may be setting something.
+--m1UC1K4AOz1Ywdkx
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Okay, I have a clue about this.. I can reproduce the problem with even
-the dummy device.  If the device is removed before the address configuration
-timers have completed then it will hang.
+hey chris,
 
-Assuming IPV6 is already in the kernel.
+after applying your 4 patches on top of linux-2.6.0=20
++ experimental net,=20
+found 2 last unchecked memcpy_fromiovec in tun.c
+patch bellow fixes the second call,=20
+the first is beyond me, please complete this patch :)
+compile tested
 
-Works:
-	modprobe dummy; ifconfig dummy0 10.0.0.1; sleep 90; rmmod dummy
-Fails:
-	modprobe dummy; ifconfig dummy0 10.0.0.1; rmmod dummy
+thx max
 
-Looks like some tentative entries are floating is space and not in the dst
-cache so they don't get destroyed by the notification process.
+
+
+--- linux-2.6.0-net/drivers/net/tun.c	2003-12-19 11:27:38.000000000 +0100
++++ linux/drivers/net/tun.c	2003-12-19 11:19:33.000000000 +0100
+@@ -193,7 +193,10 @@
+ 	}
+=20
+ 	skb_reserve(skb, 2);
+-	memcpy_fromiovec(skb_put(skb, len), iv, len);
++	if (memcpy_fromiovec(skb_put(skb, len), iv, len)) {
++		kfree_skb(skb);
++		return -EFAULT;
++	}
+=20
+ 	skb->dev =3D tun->dev;
+ 	switch (tun->flags & TUN_TYPE_MASK) {
+
+--m1UC1K4AOz1Ywdkx
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQE/4tRR6//kSTNjoX0RAh2AAJ0TzczOCySrZGsg4TRzYzZBBYzx8ACfbQz/
+pnT5LJVmA0V4043IJlxuOvE=
+=cqMQ
+-----END PGP SIGNATURE-----
+
+--m1UC1K4AOz1Ywdkx--
