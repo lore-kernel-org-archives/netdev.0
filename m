@@ -1,28 +1,19 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: Question about netlink
-Date: Wed, 09 Jul 2003 04:04:33 +0900 (JST)
+From: Jim Keniston <jkenisto@us.ibm.com>
+Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
+Date: Tue, 08 Jul 2003 12:45:26 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030709.040433.89038276.yoshfuji@linux-ipv6.org>
-References: <3F0B10E3.9050700@us.ibm.com>
+Message-ID: <3F0B1F56.D863F212@us.ibm.com>
+References: <3F0AFFE6.E85FF283@us.ibm.com> <20030708105912.57015026.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com,
+   jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk, rddunlap@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: krkumar@us.ibm.com
-In-Reply-To: <3F0B10E3.9050700@us.ibm.com>
+To: Andrew Morton <akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <3F0B10E3.9050700@us.ibm.com> (at Tue, 08 Jul 2003 11:43:47 -0700), Krishna Kumar <krkumar@us.ibm.com> says:
+If you're going to reply to this, please change "netdev@oss.sgi.net" to "netdev@oss.sgi.com" in your cc list.  My apologies for the error.
 
-> Some of the netlink routines (eg rtnetlink_dump_ifinfo or inet6_dump_ifaddr) seem to get
-> user arguments from cb->args['n']. However I was not able to figure out where the
-> arguments are being set, can anyone help ?
-
-Take a look at net/core/rtnelink.c:rtnetlink_dump_ifinfo()
-               net/core/neighbour.c:neigh_dump_{info,table}()
-and seek the truth. :-)
-
---yoshfuji
+Jim
