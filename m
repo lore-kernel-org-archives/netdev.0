@@ -1,271 +1,95 @@
-From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.6 8/9] ixgb: Support for 2.6.x style module parameters
-Date: Thu, 6 Jan 2005 17:26:26 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061555280.7330-100000@isotope.jf.intel.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [RFC PATCH] Fix double dereference (Re: IPv6 badness continues)
+Date: Fri, 07 Jan 2005 11:18:06 +0900 (JST)
+Message-ID: <20050107.111806.27181187.yoshfuji@linux-ipv6.org>
+References: <41DA3A60.8050102@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, herbert@gondor.apana.org.au
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "jgarzik@pobox.com" <jgarzik@pobox.com>
+To: jgarzik@pobox.com, davem@davemloft.net
+In-Reply-To: <41DA3A60.8050102@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-diff -up net-drivers-2.6/drivers/net/ixgb/ixgb_param.c net-drivers-2.6/drivers/net/ixgb.new/ixgb_param.c
---- net-drivers-2.6/drivers/net/ixgb/ixgb_param.c	2005-01-05 18:01:29.000000000 -0800
-+++ net-drivers-2.6/drivers/net/ixgb.new/ixgb_param.c	2005-01-05 18:01:31.000000000 -0800
-@@ -38,27 +38,17 @@
- #define OPTION_DISABLED 0
- #define OPTION_ENABLED  1
- 
--/* Module Parameters are always initialized to -1, so that the driver
-- * can tell the difference between no user specified value or the
-- * user asking for the default value.
-- * The true default values are loaded in when ixgb_check_options is called.
-- *
-- * This is a GCC extension to ANSI C.
-- * See the item "Labeled Elements in Initializers" in the section
-- * "Extensions to the C Language Family" of the GCC documentation.
-- */
--
--#define IXGB_PARAM_INIT { [0 ... IXGB_MAX_NIC] = OPTION_UNSET }
--
- /* All parameters are treated the same, as an integer array of values.
-  * This macro just reduces the need to repeat the same declaration code
-  * over and over (plus this helps to avoid typo bugs).
+Hello.
+
+In article <41DA3A60.8050102@pobox.com> (at Tue, 04 Jan 2005 01:40:32 -0500), Jeff Garzik <jgarzik@pobox.com> says:
+
+> The first 'Badness in dst_release' message (of many) from 2.6.10-bk1, on 
+> x86 SMP, is found below.
+:
+> Badness in dst_release at include/net/dst.h:149
+>   [<f8c14a57>] ip6_dst_check+0x67/0x80 [ipv6]
+>   [<f8c0b2d4>] ip6_dst_lookup+0x1b4/0x1d0 [ipv6]
+>   [<f8c1e4b4>] udpv6_sendmsg+0x2b4/0x950 [ipv6]
+
+Ok, now I doubt sk_dst_check() code path.
+
+When ip6_dst_check() (or its variants) returns NULL, it will release 
+refcnt while it leaves sk->dst_cache non-NULL.
+Later, caller sets it to NULL by sk_dst_reset() (or its variants), and it 
+decrements refcnt again.
+
+I think we should NOT release refcnt in sk_dst_check() (or its variants)
+even we return NULL because that reference was held for sk->dst_cache
+and it is available yet. Instead, we should release refcnt when we 
+really reset the dst in sk_dst_reset() (or its variants).
+(Alternatively, we may always set sk->dst_cache to NULL and release 
+refcnt when we're about to return NULL in sk_dst_check()
+(or its variants).)
+
+Am I miss something?
+
+===== net/decnet/dn_route.c 1.29 vs edited =====
+--- 1.29/net/decnet/dn_route.c	2004-11-10 09:44:25 +09:00
++++ edited/net/decnet/dn_route.c	2005-01-04 17:14:01 +09:00
+@@ -253,7 +253,6 @@
   */
- 
--#define IXGB_PARAM(X, S) \
--static const int __devinitdata X[IXGB_MAX_NIC + 1] = IXGB_PARAM_INIT; \
--MODULE_PARM(X, "1-" __MODULE_STRING(IXGB_MAX_NIC) "i"); \
--MODULE_PARM_DESC(X, S);
-+#define IXGB_PARAM_INIT { [0 ... IXGB_MAX_NIC] = OPTION_UNSET }
-+#define IXGB_PARAM(X, desc) \
-+	static int __devinitdata X[IXGB_MAX_NIC+1] = IXGB_PARAM_INIT; \
-+	static int num_##X = 0; \
-+	module_param_array_named(X, X, int, &num_##X, 0); \
-+	MODULE_PARM_DESC(X, desc);
- 
- /* Transmit Descriptor Count
-  *
-@@ -275,7 +265,6 @@ ixgb_check_options(struct ixgb_adapter *
- 		printk(KERN_NOTICE
- 			   "Warning: no configuration for board #%i\n", bd);
- 		printk(KERN_NOTICE "Using defaults for all values\n");
--		bd = IXGB_MAX_NIC;
- 	}
- 
- 	{ /* Transmit Descriptor Count */
-@@ -289,8 +278,12 @@ ixgb_check_options(struct ixgb_adapter *
- 		};
- 		struct ixgb_desc_ring *tx_ring = &adapter->tx_ring;
- 
--		tx_ring->count = TxDescriptors[bd];
--		ixgb_validate_option(&tx_ring->count, &opt);
-+		if (num_TxDescriptors > bd) {
-+			tx_ring->count = TxDescriptors[bd];
-+			ixgb_validate_option(&tx_ring->count, &opt);
-+		} else {
-+			tx_ring->count = opt.def;
-+		}
- 		IXGB_ROUNDUP(tx_ring->count, IXGB_REQ_TX_DESCRIPTOR_MULTIPLE);
- 	}
- 	{ /* Receive Descriptor Count */
-@@ -304,8 +297,12 @@ ixgb_check_options(struct ixgb_adapter *
- 		};
- 		struct ixgb_desc_ring *rx_ring = &adapter->rx_ring;
- 
--		rx_ring->count = RxDescriptors[bd];
--		ixgb_validate_option(&rx_ring->count, &opt);
-+		if (num_RxDescriptors > bd) {
-+			rx_ring->count = RxDescriptors[bd];
-+			ixgb_validate_option(&rx_ring->count, &opt);
-+		} else {
-+			rx_ring->count = opt.def;
-+		}
- 		IXGB_ROUNDUP(rx_ring->count, IXGB_REQ_RX_DESCRIPTOR_MULTIPLE);
- 	}
- 	{ /* Receive Checksum Offload Enable */
-@@ -316,9 +313,13 @@ ixgb_check_options(struct ixgb_adapter *
- 			.def  = OPTION_ENABLED
- 		};
- 
--		int rx_csum = XsumRX[bd];
--		ixgb_validate_option(&rx_csum, &opt);
--		adapter->rx_csum = rx_csum;
-+		if (num_XsumRX > bd) {
-+			int rx_csum = XsumRX[bd];
-+			ixgb_validate_option(&rx_csum, &opt);
-+			adapter->rx_csum = rx_csum;
-+		} else {
-+			adapter->rx_csum = opt.def;
-+		}
- 	}
- 	{ /* Flow Control */
- 
-@@ -338,23 +339,30 @@ ixgb_check_options(struct ixgb_adapter *
- 					 .p = fc_list }}
- 		};
- 
--		int fc = FlowControl[bd];
--		ixgb_validate_option(&fc, &opt);
--		adapter->hw.fc.type = fc;
-+		if (num_FlowControl > bd) {
-+			int fc = FlowControl[bd];
-+			ixgb_validate_option(&fc, &opt);
-+			adapter->hw.fc.type = fc;
-+		} else {
-+			adapter->hw.fc.type = opt.def;
-+		}
- 	}
- 	{ /* Receive Flow Control High Threshold */
- 		struct ixgb_option opt = {
- 			.type = range_option,
- 			.name = "Rx Flow Control High Threshold",
--			.err =
--			    "using default of " __MODULE_STRING(DEFAULT_FCRTH),
--			.def = DEFAULT_FCRTH,
--			.arg = {.r = {.min = MIN_FCRTH,
--				      .max = MAX_FCRTH}}
-+			.err  = "using default of " __MODULE_STRING(DEFAULT_FCRTH),
-+			.def  = DEFAULT_FCRTH,
-+			.arg  = { .r = { .min = MIN_FCRTH,
-+					 .max = MAX_FCRTH}}
- 		};
- 
--		adapter->hw.fc.high_water = RxFCHighThresh[bd];
--		ixgb_validate_option(&adapter->hw.fc.high_water, &opt);
-+		if (num_RxFCHighThresh > bd) {
-+			adapter->hw.fc.high_water = RxFCHighThresh[bd];
-+			ixgb_validate_option(&adapter->hw.fc.high_water, &opt);
-+		} else {
-+			adapter->hw.fc.high_water = opt.def;
-+		}
- 		if ( !(adapter->hw.fc.type & ixgb_fc_rx_pause) )
- 			printk (KERN_INFO 
- 				"Ignoring RxFCHighThresh when no RxFC\n");
-@@ -363,15 +371,18 @@ ixgb_check_options(struct ixgb_adapter *
- 		struct ixgb_option opt = {
- 			.type = range_option,
- 			.name = "Rx Flow Control Low Threshold",
--			.err =
--			    "using default of " __MODULE_STRING(DEFAULT_FCRTL),
--			.def = DEFAULT_FCRTL,
--			.arg = {.r = {.min = MIN_FCRTL,
--				      .max = MAX_FCRTL}}
-+			.err  = "using default of " __MODULE_STRING(DEFAULT_FCRTL),
-+			.def  = DEFAULT_FCRTL,
-+			.arg  = { .r = { .min = MIN_FCRTL,
-+					 .max = MAX_FCRTL}}
- 		};
- 
--		adapter->hw.fc.low_water = RxFCLowThresh[bd];
--		ixgb_validate_option(&adapter->hw.fc.low_water, &opt);
-+		if (num_RxFCLowThresh > bd) {
-+			adapter->hw.fc.low_water = RxFCLowThresh[bd];
-+			ixgb_validate_option(&adapter->hw.fc.low_water, &opt);
-+		} else {
-+			adapter->hw.fc.low_water = opt.def;
-+		}
- 		if ( !(adapter->hw.fc.type & ixgb_fc_rx_pause) )
- 			printk (KERN_INFO 
- 				"Ignoring RxFCLowThresh when no RxFC\n");
-@@ -380,21 +391,22 @@ ixgb_check_options(struct ixgb_adapter *
- 		struct ixgb_option opt = {
- 			.type = range_option,
- 			.name = "Flow Control Pause Time Request",
--			.err =
--			    "using default of "
--			    __MODULE_STRING(DEFAULT_FCPAUSE),
--			.def = DEFAULT_FCPAUSE,
--			.arg = {.r = {.min = MIN_FCPAUSE,
--				      .max = MAX_FCPAUSE}}
-+			.err  = "using default of "__MODULE_STRING(DEFAULT_FCPAUSE),
-+			.def  = DEFAULT_FCPAUSE,
-+			.arg = { .r = { .min = MIN_FCPAUSE,
-+					.max = MAX_FCPAUSE}}
- 		};
- 
--		int pause_time = FCReqTimeout[bd];
--
--		ixgb_validate_option(&pause_time, &opt);
-+		if (num_FCReqTimeout > bd) {
-+			int pause_time = FCReqTimeout[bd];
-+			ixgb_validate_option(&pause_time, &opt);
-+			adapter->hw.fc.pause_time = pause_time;
-+		} else {
-+			adapter->hw.fc.pause_time = opt.def;
-+		}
- 		if ( !(adapter->hw.fc.type & ixgb_fc_rx_pause) )
- 			printk (KERN_INFO 
- 				"Ignoring FCReqTimeout when no RxFC\n");
--		adapter->hw.fc.pause_time = pause_time;
- 	}
- 	/* high low and spacing check for rx flow control thresholds */
- 	if (adapter->hw.fc.type & ixgb_fc_rx_pause) {
-@@ -412,28 +424,35 @@ ixgb_check_options(struct ixgb_adapter *
- 		struct ixgb_option opt = {
- 			.type = range_option,
- 			.name = "Receive Interrupt Delay",
--			.err = "using default of " __MODULE_STRING(DEFAULT_RDTR),
--			.def = DEFAULT_RDTR,
--			.arg = { .r = { .min = MIN_RDTR,
-+			.err  = "using default of " __MODULE_STRING(DEFAULT_RDTR),
-+			.def  = DEFAULT_RDTR,
-+			.arg  = { .r = { .min = MIN_RDTR,
- 					 .max = MAX_RDTR}}
- 		};
- 
--		adapter->rx_int_delay = RxIntDelay[bd];
--		ixgb_validate_option(&adapter->rx_int_delay, &opt);
--	}
-+		if (num_RxIntDelay > bd) {
-+			adapter->rx_int_delay = RxIntDelay[bd];
-+			ixgb_validate_option(&adapter->rx_int_delay, &opt);
-+		} else {
-+			adapter->rx_int_delay = opt.def;
-+		}
- 	}
- 	{ /* Transmit Interrupt Delay */
- 		struct ixgb_option opt = {
- 			.type = range_option,
- 			.name = "Transmit Interrupt Delay",
--			.err = "using default of " __MODULE_STRING(DEFAULT_TIDV),
--			.def = DEFAULT_TIDV,
--			.arg = { .r = { .min = MIN_TIDV,
-+			.err  = "using default of " __MODULE_STRING(DEFAULT_TIDV),
-+			.def  = DEFAULT_TIDV,
-+			.arg  = { .r = { .min = MIN_TIDV,
- 					 .max = MAX_TIDV}}
- 		};
- 
--		adapter->tx_int_delay = TxIntDelay[bd];
--		ixgb_validate_option(&adapter->tx_int_delay, &opt);
-+		if (num_TxIntDelay > bd) {
-+			adapter->tx_int_delay = TxIntDelay[bd];
-+			ixgb_validate_option(&adapter->tx_int_delay, &opt);
-+		} else {
-+			adapter->tx_int_delay = opt.def;
-+		}
- 	}
- 
- 	{ /* Transmit Interrupt Delay Enable */
-@@ -443,9 +462,14 @@ ixgb_check_options(struct ixgb_adapter *
- 			.err  = "defaulting to Enabled",
- 			.def  = OPTION_ENABLED
- 		};
--		int ide = IntDelayEnable[bd];
- 
--		ixgb_validate_option(&ide, &opt);
--		adapter->tx_int_delay_enable = ide;
-+		if (num_IntDelayEnable > bd) {
-+			int ide = IntDelayEnable[bd];
-+			ixgb_validate_option(&ide, &opt);
-+			adapter->tx_int_delay_enable = ide;
-+		} else {
-+			adapter->tx_int_delay_enable = opt.def;
-+		}
- 	}
+ static struct dst_entry *dn_dst_check(struct dst_entry *dst, __u32 cookie)
+ {
+-	dst_release(dst);
+ 	return NULL;
  }
-+
+ 
+===== net/ipv4/route.c 1.99 vs edited =====
+--- 1.99/net/ipv4/route.c	2004-12-28 12:49:57 +09:00
++++ edited/net/ipv4/route.c	2005-01-04 17:13:49 +09:00
+@@ -1321,7 +1321,6 @@
+ 
+ static struct dst_entry *ipv4_dst_check(struct dst_entry *dst, u32 cookie)
+ {
+-	dst_release(dst);
+ 	return NULL;
+ }
+ 
+===== net/ipv6/route.c 1.102 vs edited =====
+--- 1.102/net/ipv6/route.c	2004-11-30 12:24:46 +09:00
++++ edited/net/ipv6/route.c	2005-01-04 17:13:34 +09:00
+@@ -578,8 +578,6 @@
+ 
+ 	if (rt && rt->rt6i_node && (rt->rt6i_node->fn_sernum == cookie))
+ 		return dst;
+-
+-	dst_release(dst);
+ 	return NULL;
+ }
+ 
+===== net/xfrm/xfrm_policy.c 1.61 vs edited =====
+--- 1.61/net/xfrm/xfrm_policy.c	2004-12-28 11:33:32 +09:00
++++ edited/net/xfrm/xfrm_policy.c	2005-01-04 17:13:12 +09:00
+@@ -1000,8 +1000,6 @@
+ {
+ 	if (!stale_bundle(dst))
+ 		return dst;
+-
+-	dst_release(dst);
+ 	return NULL;
+ }
+ 
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
