@@ -1,27 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: Mon, 8 Sep 2003 19:14:00 -0700
+Subject: Re: [PATCH] fix locking
+Date: Mon, 8 Sep 2003 19:21:15 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030908191400.5ef59ab6.davem@redhat.com>
-References: <200309022116.41697.bdschuym@pandora.be>
-	<20030903200426.59d0af4a.davem@redhat.com>
-	<20030905153152.GA3623@obroa-skai.de.gnumonks.org>
+Message-ID: <20030908192115.2f0263f3.davem@redhat.com>
+References: <20030906002649.GA32369@server-mrozhavsky.dyndns.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: bdschuym@pandora.be, acme@conectiva.com.br,
-   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20030905153152.GA3623@obroa-skai.de.gnumonks.org>
+To: Michael Rozhavsky <mike@minantech.com>
+In-Reply-To: <20030906002649.GA32369@server-mrozhavsky.dyndns.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 5 Sep 2003 17:31:52 +0200
-Harald Welte <laforge@netfilter.org> wrote:
+On Fri, 5 Sep 2003 17:26:49 -0700
+Michael Rozhavsky <mike@minantech.com> wrote:
 
-> The problem is that it is _not_ a simple reimplementation of memcmp(),
-> but a mask-compare.
+> I've found two problems with locking in networking code.
 
-Ok.  It still should be fixed by not using the "unsigned long *"
-cast-and-op tricks...
+The tcp_ipv4.c part is not a bug.  We hold the socket lock on 'sk' and
+therefore nobody else can add any entries to lopt->syn_table[]
+entries.
+
+We only need to hold the lock during the table update
+because _readers_ of the hash table do not take the 'sk'
+lock when do traverse the hash.
+
+The sit.c change does look correct, and therefore I'll apply
+it after some more review...
