@@ -1,41 +1,25 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: Route cache performance tests
-Date: Tue, 17 Jun 2003 19:29:25 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <16111.20469.376899.55240@robur.slu.se>
-References: <20030616234937.GE18484@netnation.com>
-	<20030617.085921.28790392.davem@redhat.com>
-	<16111.18107.699689.704597@robur.slu.se>
-	<20030617.095028.35014188.davem@redhat.com>
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH][ATM][3/3] assorted changes for atm
+Date: Tue, 17 Jun 2003 10:31:45 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030617.103145.26534124.davem@redhat.com>
+References: <200306171240.h5HCeMbB021442@locutus.cmf.nrl.navy.mil>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Robert.Olsson@data.slu.se, sim@netnation.com, ralph+d@istop.com,
-	hadi@shell.cyberus.ca, xerox@foonet.net, fw@deneb.enyo.de,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030617.095028.35014188.davem@redhat.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: chas@cmf.nrl.navy.mil
+In-Reply-To: <200306171240.h5HCeMbB021442@locutus.cmf.nrl.navy.mil>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+   From: chas williams <chas@cmf.nrl.navy.mil>
+   Date: Tue, 17 Jun 2003 08:40:22 -0400
 
-David S. Miller writes:
+   
+   [atm]: keep vcc's on global list instead of per device
+   
+I've applied all 3 of your patches.
 
- >     Internet-routing and made a script so it can be used for
- >     experiments. I can make it available.
- > 
- > Please do, I'd like to play with such a list locally.
-
-
-ftp://robur.slu.se/pub/Linux/net-development/inet_routes/
-Just configure the script and run...
-
-And Simon can you do a run with this routing table too? And even fibstat 
-output could be interesting to compare.
-
-
-Cheers.
-
-						--ro
-
-
+Thanks.
