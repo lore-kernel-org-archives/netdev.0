@@ -1,52 +1,66 @@
-From: akpm@osdl.org
-Subject: [patch 2/9] use mmiowb in tg3.c
-Date: Thu, 28 Oct 2004 00:19:40 -0700
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: 8169 driver with NetGear GA511 card.
+Date: Thu, 28 Oct 2004 09:48:27 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200410280721.i9S7Ld907983@mail.osdl.org>
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com, akpm@osdl.org, jbarnes@engr.sgi.com,
-        gnb@sgi.com, jbarnes@sgi.com
+Message-ID: <20041028074827.GA3572@electric-eye.fr.zoreil.com>
+References: <41802CA8.8070900@candelatech.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <41802CA8.8070900@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Ben Greear <greearb@candelatech.com> :
+[...]
+> I tried stressing it, and it can handle about 30Mbps bi-directional
+> (1514 byte pkts).  I was hoping for better...but not too bad.
 
-From: Jesse Barnes <jbarnes@engr.sgi.com>
+There is a direction for which a 2x factor has been reported.
+It does not look like a completely dysfunctional setup.
 
-This patch originally from Greg Banks.  Some parts of the tg3 driver depend
-on PIO writes arriving in order.  This patch ensures that in two key places
-using the new mmiowb macro.  This not only prevents bugs (the queues can be
-corrupted), but is much faster than ensuring ordering using PIO reads
-(which involve a few round trips to the target bus on some platforms).
+[...]
+> Kernel is 2.6.9 + my networking patches, compiled for pentium-M
+>   NAPI for 8169 is enabled.
+> 
+> hardware is nx5000 laptop
+> 
+> My thanks to the 8169 driver writer(s).  I will continue to debug
 
-Arthur has another patch that uses mmiowb in tg3 that he posted earlier as
-well.
+Many people help.
 
-Signed-off-by: Greg Banks <gnb@sgi.com>
-Signed-off-by: Jesse Barnes <jbarnes@sgi.com>
-Signed-off-by: Andrew Morton <akpm@osdl.org>
----
+> this, and will be happy to try any suggestions for improving performance
+> and/or stability of this NIC.
 
- 25-akpm/drivers/net/tg3.c |    2 ++
- 1 files changed, 2 insertions(+)
+The r8169 in -mm and in -netdev includes some extra buzzword-compliant
+features (TX csum/SG and TSO mainly). The changes are isolated in a
+single patch against 2.6.9 available at:
+http://www.fr.zoreil.com/people/francois/misc/20041020-2.6.9-r8169.c-test.patch
 
-diff -puN drivers/net/tg3.c~use-mmiowb-in-tg3c drivers/net/tg3.c
---- 25/drivers/net/tg3.c~use-mmiowb-in-tg3c	2004-10-28 00:17:07.520660672 -0700
-+++ 25-akpm/drivers/net/tg3.c	2004-10-28 00:18:16.861119320 -0700
-@@ -2730,6 +2730,7 @@ next_pkt_nopost:
- 		tw32_rx_mbox(MAILBOX_RCV_JUMBO_PROD_IDX + TG3_64BIT_REG_LOW,
- 			     sw_idx);
- 	}
-+	mmiowb();
- 
- 	return received;
- }
-@@ -3177,6 +3178,7 @@ static int tg3_start_xmit(struct sk_buff
- 		netif_stop_queue(dev);
- 
- out_unlock:
-+    	mmiowb();
- 	spin_unlock_irqrestore(&tp->tx_lock, flags);
- 
- 	dev->trans_start = jiffies;
-_
+I will not claim it is as stable as vanilla 2.6.9 should be.
+
+The frequency of requests for jumbo frames went higher lately ("Realtek
+driver does it"). There is some code I need to test before it is pushed to
+-mm. 
+
+Btw:
+[...]
+> I recompiled w/out NAPI and no more problems, though performance is
+> horrible (about 5Mbps bi-directional).
+
+Please send the usuals 'lspci -vx' + /proc/interrupts contents during
+activity + complete dmesg + short description of the generated traffic.
+I will hardly dissect it before the week end but there is a problem. :o(
+
+> If the developer/maintainer could use one of these cardbus NICs, I'm
+> willing to donate one to help further development and stability.
+
+I work with the plain PCI version of the GA 511 but I can use a laptop
+for testing. Please contact me offline if you can send an adapter and
+accept euro.
+
+--
+Ueimor
