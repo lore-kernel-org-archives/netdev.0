@@ -1,47 +1,38 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH 3/5] sis900 printk audit
-Date: Sat, 22 Jan 2005 23:26:18 +0100
-Message-ID: <20050122222618.GA24461@electric-eye.fr.zoreil.com>
-References: <20050122214657.18649.66345@localhost.localdomain> <20050122214659.18649.83119@localhost.localdomain>
+Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
+Date: Sun, 23 Jan 2005 00:01:56 +0100
+Message-ID: <20050122230156.GC24461@electric-eye.fr.zoreil.com>
+References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41F250D1.8000207@phekda.gotadsl.co.uk> <41F26FD1.2060407@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, NetDev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Daniele Venzano <webvenza@libero.it>
+To: Richard Dawe <rich@phekda.gotadsl.co.uk>
 Content-Disposition: inline
-In-Reply-To: <20050122214659.18649.83119@localhost.localdomain>
+In-Reply-To: <41F26FD1.2060407@phekda.gotadsl.co.uk>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Daniele Venzano <webvenza@libero.it> :
+Richard Dawe <rich@phekda.gotadsl.co.uk> :
 [...]
-> Index: sis900.c
-> ===================================================================
-> --- a/drivers/net/sis900.c	(revision 85)
-> +++ b/drivers/net/sis900.c	(revision 86)
-[...]
-> @@ -275,7 +275,7 @@
->  	if (!isa_bridge)
->  		isa_bridge = pci_get_device(PCI_VENDOR_ID_SI, 0x0018, isa_bridge);
->  	if (!isa_bridge) {
-> -		printk("%s: Can not find ISA bridge\n", net_dev->name);
-> +		printk(KERN_WARNING "%s: Can not find ISA bridge\n", net_dev->name);
->  		return 0;
->  	}
->  	pci_read_config_byte(isa_bridge, 0x48, &reg);
-> @@ -567,7 +567,7 @@
->  			continue;
->  		
->  		if ((mii_phy = kmalloc(sizeof(struct mii_phy), GFP_KERNEL)) == NULL) {
-> -			printk(KERN_INFO "Cannot allocate mem for struct mii_phy\n");
-> +			printk(KERN_WARNING "Cannot allocate mem for struct mii_phy\n");
+> So I looked at the latest RealTek driver for Linux (version 220) and 
+> that has some separate initialisation code for RTL_GIGA_MAC_VER_X 
+> (MCFG_METHOD_4, they call it). I ported that over to r8169.c in 
+> 2.6.11-rc1 and it appears to work.
 
--> printk(KERN_WARNING "%s: Cannot allocate mem for struct mii_phy\n", ...) ?
+Nice. Have you checked that ethtool performs correctly when you try to
+set the link parameters with the new code (+ plug/unplug cable) ?
 
-Btw it may make sense to use pci_name() instead of the name associated with
-the struct net_device until it is known for sure that the net_device will not
-be removed due to a failure of the probe() method. 
+> Attached is the patch against 2.6.11-rc1. I'm not sure if it caters to 
+> your tastes. Maybe you'll want to rename RTL_GIGA_MAC_VER_X. 
+
+I'll change the braces placement, the tab/spaces mix and push it.
+
+Please include something like the line below in your future patches:
+Signed-off-by: Richard Dawe <rich@phekda.gotadsl.co.uk>
+
+Thanks.
 
 --
 Ueimor
