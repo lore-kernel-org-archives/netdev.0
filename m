@@ -1,41 +1,27 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: Todays net-2.6 update
-Date: Mon, 23 Aug 2004 18:16:08 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] allow setting mtu and txqlen via RTM_SETLINK and provide txqlen via RTM_GETLINK
+Date: Tue, 24 Aug 2004 12:26:38 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040823181608.263ec99e.davem@redhat.com>
-References: <20040820145454.36484216.davem@redhat.com>
-	<412A918B.6020005@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Message-ID: <E1BzR1C-0000c4-00@gondolin.me.apana.org.au>
+References: <20040823205114.GB19921@postel.suug.ch>
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, hadi@cyberus.ca,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Nivedita Singhvi <niv@us.ibm.com>
-In-Reply-To: <412A918B.6020005@us.ibm.com>
+To: tgraf@suug.ch (Thomas Graf)
+In-Reply-To: <20040823205114.GB19921@postel.suug.ch>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 23 Aug 2004 17:53:31 -0700
-Nivedita Singhvi <niv@us.ibm.com> wrote:
+Thomas Graf <tgraf@suug.ch> wrote:
+>
+> +       RTA_PUT(skb, IFLA_TXQLEN, sizeof(unsigned long), &dev->tx_queue_len);
 
-> David S. Miller wrote:
-> 
-> > At the usual spots:
-> > 
-> > 	bk://kernel.bkbits.net/davem/net-2.6
-> > 	ftp.kernel.org:/pub/linux/kernel/people/davem/net-2.6.9-4.gz
-> 
-> Dave, thanks for the patch, it will help us to test
-> latest code. I have a request though - we're trying to
-> stretch limited resources, and there are lot of trees
-> to test amongst a small pool of hardware. Would it be
-> possible to have your tree get sucked into Andrew's
-> -mm tree so we could whack at both in one swoop?
+Please use a fixed width type like u32.  Keep in mind that the ioctl
+version is exporting an int.
 
-Not useful, when Linus is around my tree goes to his usually
-within 24 hours.  The only reason I was doing these patches
-was because Linus was on vacation for a week.  I'm not going
-to do them anymore, and just push to Linus daily or bi-aily.
-
-That way my work will end up in the -mm tree automagically
-as Andrew syncs up with Linus.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
