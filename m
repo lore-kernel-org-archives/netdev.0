@@ -1,40 +1,61 @@
-From: David Woodhouse <dwmw2@infradead.org>
-Subject: Re: [PATCH] Add audit uid to netlink credentials
-Date: Thu, 10 Feb 2005 09:20:12 +0000
-Message-ID: <1108027212.7716.146.camel@baythorne.infradead.org>
-References: <20050204165840.GA2320@IBM-BWN8ZTBWA01.austin.ibm.com>
-	 <1107958621.19262.524.camel@hades.cambridge.redhat.com>
-	 <1107960659.4837.9.camel@serge>
-	 <1107973381.17568.97.camel@moss-spartans.epoch.ncsc.mil>
-	 <20050209103747.Y24171@build.pdx.osdl.net>
-	 <1107974448.17568.108.camel@moss-spartans.epoch.ncsc.mil>
-	 <20050209153816.B24171@build.pdx.osdl.net>
-	 <1107993369.9154.2.camel@localhost.localdomain>
-	 <20050209161946.F24171@build.pdx.osdl.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [Bugme-new] [Bug 4189] New: IPv6 link local addresses are not
+ assigned correctly on multiple-bonding enviromrnts
+Date: Thu, 10 Feb 2005 18:22:25 +0900 (JST)
+Message-ID: <20050210.182225.07335127.yoshfuji@linux-ipv6.org>
+References: <20050210002356.500401f7.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Linux Audit Discussion <linux-audit@redhat.com>, netdev@oss.sgi.com,
-        davem@davemloft.net, kuznet@ms2.inr.ac.ru
-To: Chris Wright <chrisw@osdl.org>
-In-Reply-To: <20050209161946.F24171@build.pdx.osdl.net>
+Cc: ikebe.takashi@lab.ntt.co.jp, yoshfuji@linux-ipv6.org, davem@davemloft.net,
+        akpm@osdl.org, ctindel@users.sourceforge.net, fubar@us.ibm.com,
+        bonding-devel@lists.sourceforge.net
+To: netdev@oss.sgi.com
+In-Reply-To: <20050210002356.500401f7.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 2005-02-09 at 16:19 -0800, Chris Wright wrote:
-> Then it comes back to the question of how to protect loginuid.  If it
-> can be spoofed by someone with CAP_AUDIT_WRITE, then it shouldn't be
-> write protected by CAP_AUDIT_CONTROL.
+In article <20050210002356.500401f7.akpm@osdl.org> (at Thu, 10 Feb 2005 00:23:56 -0800), Andrew Morton <akpm@osdl.org> says:
 
-I'm not sure I agree with that. With CAP_AUDIT_WRITE you _can't_ modify
-the loginuid of the audit logs of your own actions. You can only modify
-the loginuid on the messages you pull out of thin air and send. You can
-already make up the rest of the payload -- why shouldn't you be allowed
-to make up the loginuid too? You could be reporting something that
-someone _else_ has done, after all.
+> http://bugme.osdl.org/show_bug.cgi?id=4189
+> 
+>            Summary: IPv6 link local addresses are not assigned correctly on
+>                     multiple-bonding enviromrnts
+>     Kernel Version: 2.6.10
+>             Status: NEW
+>           Severity: normal
+>              Owner: yoshfuji@linux-ipv6.org
+>          Submitter: ikebe.takashi@lab.ntt.co.jp
+:
+> It create ipv6 address from MAC address, however it seems dev->dev_addr is "0"
+> in the case of bonding.
 
-Or am I misunderstanding the intended use of CAP_AUDIT_WRITE?
+I don't think it is the case.
+
+> Steps to reproduce:
+> 1.set the multiple bonding to the machine.
+> (In my case, set 4 nics to use the bonding, and set the double bond as following
+> modprobe.conf.
+
+This is the key. That we do is:
+
+# ifconfig bond0 up <= here fe80::200:ff:fe00:0/64 is assigned
+# ifenslave bond0 eth0 ...
+
+IPv6 Link-local address is configured just after the
+corresponding device is enabled. MAC should be configured
+before you bring up the interface.
+
+So, currently, you need to do this:
+
+# ip link set bond0 address 00:01:02:03:04:05
+# ifconfig bond0 up <= here fe80::200:ff:fe00:0/64 is assigned
+# ifenslave bond0 eth0 ...
+
+BTW, why is it required to bring up bonding device before its configuratoin?
+Ethernet devices is not allowed to change its MAC during it is up.
 
 -- 
-dwmw2
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
