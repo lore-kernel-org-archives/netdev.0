@@ -1,8 +1,8 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [CRYPTO] Fix stack overrun in crypt()
-Date: Wed, 21 Jul 2004 14:58:15 -0700
+Date: Wed, 21 Jul 2004 15:02:19 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040721145815.307c5e39.davem@redhat.com>
+Message-ID: <20040721150219.18b7b1f9.davem@redhat.com>
 References: <20040715114840.GA1325@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
@@ -17,20 +17,23 @@ List-Id: netdev.vger.kernel.org
 On Thu, 15 Jul 2004 21:48:40 +1000
 Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> The stack allocation in crypt() is bogus as whether tmp_src/tmp_dst
-> is used is determined by factors unrelated to nbytes and
-> src->length/dst->length.
-> 
-> Since the condition for whether tmp_src/tmp_dst are used is very
-> complex, let's allocate them always instead of guessing.
-> 
-> This fixes a number of weird crashes including those AES crashes
-> that people have been seeing with the 2.4 backport + ipt_conntrack.
-
-Applied, thanks Herbert.
-
 > PS I think someone should double-check the logic in the scatterwalk
 > stuff, especially the whichbuf bits.
 
-I've looked at this before, when it went in, but I'll double-
-check it now.
+The goal of scatterwalk_whichbuf() is to use the temporary buffer
+if we are walking over a page boundary.
+
+We can use walk->data, and thus directly the page involved, if
+we do not cross such a boundary.  The test is that all of the
+following conditions pass:
+
+	1) nbytes is <= walk->len_this_page
+
+	   When scatterwalk_start() is invoked, walk->len_this_page
+	   is set to the minimum of the remaining scatterlist segment
+	   length and the remaining bytes in that page itself.
+
+	2) walk->data + nbytes does not straddle a PAGE_CACHE_SIZE
+	   boundary
+
+This looks all fine to me.
