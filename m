@@ -1,61 +1,49 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: A bug in the Kernel?
-Date: Fri, 18 Mar 2005 09:59:39 -0800
-Message-ID: <20050318095939.5550d7bb@dxpl.pdx.osdl.net>
-References: <1033.80.249.146.157.1111167862.squirrel@mx.imec.msu.ru>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [22/*] [NETFILTER] Use correct IPsec MTU in TCPMSS
+Date: Fri, 18 Mar 2005 10:40:13 -0800
+Message-ID: <20050318104013.57d65e99.davem@davemloft.net>
+References: <20050214221607.GC18465@gondor.apana.org.au>
+	<20050306213214.7d8a143d.davem@davemloft.net>
+	<20050307103536.GB7137@gondor.apana.org.au>
+	<20050308102741.GA23468@gondor.apana.org.au>
+	<20050314102614.GA9610@gondor.apana.org.au>
+	<20050314105313.GA21001@gondor.apana.org.au>
+	<20050314111002.GA29156@gondor.apana.org.au>
+	<20050315091904.GA6256@gondor.apana.org.au>
+	<20050315095837.GA7130@gondor.apana.org.au>
+	<20050318090310.GA28443@gondor.apana.org.au>
+	<20050318091129.GA28658@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: itkes@fat.imec.msu.ru
-In-Reply-To: <1033.80.249.146.157.1111167862.squirrel@mx.imec.msu.ru>
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050318091129.GA28658@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 18 Mar 2005 20:44:22 +0300 (MSK)
-itkes@fat.imec.msu.ru wrote:
+On Fri, 18 Mar 2005 20:11:29 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Hello.
+> This patch makes ipt_TCPMSS use the correct MTU value for clamping.
+> This is a bit tricky actually since TCPMSS can be used in FORWARD,
+> LOCAL_OUT as well as POST_ROUTING.
 > 
-> I think, I have found a bug in the Linux Kernel. It is caused by working
-> with lists by indexes in such operstions as routing tables dump and
-> routing rules dump (functions fib_rules_dump in fib_rules.c and a few dump
-> functions in fib_hash.c). If some elements are removed form the list, the
-> index may identify not the element it identified earlier. As a result,
-> there may happen that an application that requested the routes or rules
-> dump, will not receive the entire table. There is how
-> to make an application to lose some rules.
+> In the first two cases we haven't performed IPsec yet so dst_mtu
+> obviously does the right thing.  As it is, POST_ROUTING is performed
+> after xfrm_output so MSS clamping is useless there.
 > 
-> 1. Add 150 rules to kernel table.
-> 2. Application A sends an RTM_GETRULE message with flag NLM_F_DUMP. The
-> kernel puts first 107 rules to the buffer.
-> 3. Application B deletes first 20 rules.
-> 4. Application A receives the first couple of data from kernel. The kernel
-> puts next couple of rules to the buffer, begining from 108-th rule, that
-> was 128-th earlier.
-> As a result, 20 rules had not been sent to the application, without being
-> deleted or modified during the dump operation.
+> With Patrick's IPsec netfilter stuff, there will be a POST_ROUTING
+> processing before IPsec processing, in which case dst_mtu also returns
+> exactly what we want.
 > 
-> Routes can be lost, too, if you add certain 5000 routes, request their
-> dump and remove 1000 from them during the dump.
-> 
-> In the patch (against kernel 2.6.11) attached, I have corrected these
-> bugs. In the modified kernel, both dumps of routes and routing rules seems
-> to work properly. But, I think, there can be other bugs similar to this in
-> other dump operations.
-> 
-> Alex Itkes (Moscow State University).
-> 
-> P.S. Sorry if you get this message twice. I have already sent it, but the
-> first instance seems to be lost.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Couple of minor nits.
-Incorrect indentation: 
-		if (idx > s_idx)
--			memset(&cb->args[0], 0, sizeof(cb->args));
-+		    NLCB_ZERO(cb,0);
-                ^^^^-- should be tab
+Applied, thanks Herbert.
 
-Why introduce a macro instead of the memset, it seems to just confuse the issue.
-Better to make it an inline function with a name like rtnl_cb_zero(...)
+> BTW Patrick, how is the IPsec netfilter stuff going?
+
+That boy is seriously backlogged, so I'm not sure how much time
+he's gotten to work on that yet.
