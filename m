@@ -1,46 +1,91 @@
-From: "Alec H. Peterson" <ahp@hilander.com>
-Subject: Re: PCI memory reservation failure - 2.4/2.6
-Date: Mon, 17 May 2004 07:49:34 -0600
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20D3F7A6CA3A4C9FF0E47D1A@[192.168.0.100]>
-References: <BDD74A21E0B47FEAC3AB8A10@[192.168.0.100]>
- <40A29211.2010707@colorfullife.com>
- <9C9F57570B19C8A682D96940@[192.168.0.100]>
- <40A670D9.5010409@colorfullife.com>
+From: "Bill Rugolsky Jr." <brugolsky@telemetry-investments.com>
+Subject: no netlink message for neighbor route deletion if proto != kernel
+Date: Mon, 17 May 2004 12:42:06 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040517164206.GC24080@ti64.telemetry-investments.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, Dominik Brodowski <linux@brodo.de>,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S261378AbUEQNtg@vger.kernel.org>
-To: Manfred Spraul <manfred@colorfullife.com>
-In-Reply-To: <40A670D9.5010409@colorfullife.com>
+Content-Type: text/plain; charset=us-ascii
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---On Saturday, May 15, 2004 9:34 PM +0200 Manfred Spraul 
-<manfred@colorfullife.com> wrote:
+I've come across the following issue caused by Red Hat's /sbin/ifup.
+The ifup script does the following:
 
->
-> There are two possible approaches:
-> - just a module parameter. Probably something for 2.4.
-> - a combination of a dmi detection of buggy bios versions plus a pci
-> quirk that resets start and end to 0.
->
-> Attached is the module parameter patch against 2.6. If it works I can
-> write a backport to 2.4 and try to convince Marcelo to merge it.
-> Could you send me the output of dmidecode? I'll try to write the
-> autodetection patch for 2.6.
+   ip route replace ${NETWORK}/${PREFIX} ${SRC} ${WINDOW:+window $WINDOW} \
+	dev ${REALDEVICE}
 
-I'm actually sticking with 2.4 for right now, which I'd be more than happy 
-to test on.  How different would your patch be for 2.4?
+This has the side-effect of removing "proto kernel" from the neighbor route.
+When the address is later removed in ifdown with "ip addr flush dev $REALDEVICE",
+netlink does not generate a deletion message for the aforementioned route.
 
-I am unfamiliar with dmidecode, I am afraid.
+This unfortunately confuses Quagga, which expects matching add/delete
+Netlink messages.  I can work around this by specifying "proto kernel"
+in /sbin/ifup, but I'm wondering whether this is intended behavior. [I'm
+mindful of Alexey's comments regarding routing daemons and netlink,
+but that's not really the point of my question.]
 
-If you can't get the requisite info for 2.6 I would be happy to move one of 
-my systems with the issue over to it to get the info.  Please let me know.
+In linux/net/ipv4/fib_frontend.c, fib_del_ifaddr() calls fib_magic(),
+which sets
 
-FWIW I saw a post from somebody on netdev and madwifi-users who says he is 
-using your 2.6 patch with no problems.
+	req.rtm.rtm_protocol = RTPROT_KERNEL;
 
-Alec
+before calling fib_hash_delete():
+
+        if (cmd == RTM_NEWROUTE)
+                tb->tb_insert(tb, &req.rtm, &rta, &req.nlh, NULL);
+        else
+                tb->tb_delete(tb, &req.rtm, &rta, &req.nlh, NULL);
+
+
+The route is not matched by fib_hash_delete(), but appears to be flushed
+at the end if fib_delete_ifaddr(),
+
+                if (inet_addr_type(ifa->ifa_local) != RTN_LOCAL) {
+                        /* And the last, but not the least thing.
+                           We must flush stray FIB entries.
+
+                           First of all, we scan fib_info list searching
+                           for stray nexthop entries, then ignite fib_flush.
+                        */
+                        if (fib_sync_down(ifa->ifa_local, NULL, 0))
+                                fib_flush();
+
+and rtmsg_fib(RTM_DELROUTE,...) is never called.
+
+Is my analysis correct, and is this the intended behavior?
+Or should fib_magic() look like:
+
+
+--- linux/net/ipv4/fib_frontend.c	2004-04-03 22:38:24.000000000 -0500
++++ linux/net/ipv4/fib_frontend.c	2004-05-17 12:35:37.470324232 -0400
+@@ -394,7 +394,6 @@
+ 
+ 	req.rtm.rtm_dst_len = dst_len;
+ 	req.rtm.rtm_table = tb->tb_id;
+-	req.rtm.rtm_protocol = RTPROT_KERNEL;
+ 	req.rtm.rtm_scope = (type != RTN_LOCAL ? RT_SCOPE_LINK : RT_SCOPE_HOST);
+ 	req.rtm.rtm_type = type;
+ 
+@@ -402,10 +401,13 @@
+ 	rta.rta_prefsrc = &ifa->ifa_local;
+ 	rta.rta_oif = &ifa->ifa_dev->dev->ifindex;
+ 
+-	if (cmd == RTM_NEWROUTE)
++	if (cmd == RTM_NEWROUTE) {
++		req.rtm.rtm_protocol = RTPROT_KERNEL;
+ 		tb->tb_insert(tb, &req.rtm, &rta, &req.nlh, NULL);
+-	else
++	} else {
++		req.rtm.rtm_protocol = RTPROT_UNSPEC;
+ 		tb->tb_delete(tb, &req.rtm, &rta, &req.nlh, NULL);
++	}
+ }
+ 
+ static void fib_add_ifaddr(struct in_ifaddr *ifa)
+
+Regards,
+
+	Bill Rugolsky
