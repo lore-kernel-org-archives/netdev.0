@@ -1,44 +1,35 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: ipt_physdev.c alignment problems on parisc64
-Date: 11 Sep 2003 21:40:46 -0400
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Network buffer hang was Re: [PATCH] 2.6 workaround for Athlon/Opteron
+ prefetch errata
+Date: Thu, 11 Sep 2003 18:46:24 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1063330846.1028.11.camel@jzny.localdomain>
-References: <200309022116.41697.bdschuym@pandora.be>
-	 <20030903200426.59d0af4a.davem@redhat.com>
-	 <20030905153152.GA3623@obroa-skai.de.gnumonks.org>
-Reply-To: hadi@cyberus.ca
+Message-ID: <3F612570.1010303@candelatech.com>
+References: <uqD5.3BI.3@gated-at.bofh.it> <m3iso0arlx.fsf@averell.firstfloor.org> <0a5801c37821$54eb8180$890010ac@edumazet> <20030911051121.GA7751@colin2.muc.de> <0a7701c37829$c4bdef40$890010ac@edumazet> <20030911120956.GB7751@colin2.muc.de> <0b2901c37867$1db399a0$890010ac@edumazet>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>,
-   Bart De Schuymer <bdschuym@pandora.be>, acme@conectiva.com.br,
-   netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
+Cc: "Nakajima, Jun" <jun.nakajima@intel.com>, Andi Kleen <ak@muc.de>,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Harald Welte <laforge@netfilter.org>
-In-Reply-To: <20030905153152.GA3623@obroa-skai.de.gnumonks.org>
+To: dada1 <dada1@cosmosbay.com>
+In-Reply-To: <0b2901c37867$1db399a0$890010ac@edumazet>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Harald,
+dada1 wrote:
+>>>This is not a kernel crash. But total freeze as all memory is used by
+>>>network buffers, in no more than 10 seconds.
 
-Could you not resolve all the ifindices of the said ppp+ interfaces
-at rule installation time and do an integer compare instead?
+I believe I have hit this as well, by starting 500kbps streams on 500
+vlans at once.  My machine locks so hard that I have not been able to
+get any info out of it...but the realtek driver shows and error message
+about not being able to allocate any buffers if I ping it....
 
-cheers,
-jamal
+I was using kernel 2.4.21 or so, and had tcp buffers turned up
+quite high.  I have seen this on P-IV and AMD (single Athlon) systems,
+as well as a VIA C3.
 
-On Fri, 2003-09-05 at 11:31, Harald Welte wrote:
 
-> > 
-> > Please, just remove the super-silly memcmp() optimization in
-> > the ipt_physdev.c code.
-> 
-> Dave, the respective code in ipt_physdev.c seems to be copied from
-> the ip_tables.c interface name match (which definitely has the same
-> alignment issues, btw).
-> 
-> The problem is that it is _not_ a simple reimplementation of memcmp(),
-> but a mask-compare.
-> 
-> People can do stuff like "-i ppp+", meaning that traffic from all
-> interfaces called "ppp<WHATEVER>" are matched.
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
