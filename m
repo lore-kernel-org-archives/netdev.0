@@ -1,45 +1,52 @@
-From: Pavel Roskin <proski@gnu.org>
-Subject: Re: orinoco upstream merge to kernel status?
-Date: Tue, 29 Mar 2005 11:46:44 -0500
-Message-ID: <1112114804.29524.8.camel@dv>
-References: <1112110149.16060.13.camel@dcbw.boston.redhat.com>
+From: Matt Mackall <mpm@selenic.com>
+Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics
+Date: Tue, 29 Mar 2005 09:03:32 -0800
+Message-ID: <20050329170332.GI15453@waste.org>
+References: <20050324233921.GZ14202@opteron.random> <20050325034341.GV32638@waste.org> <20050327035149.GD4053@g5.random> <20050327054831.GA15453@waste.org> <1111905181.4753.15.camel@mylaptop> <20050326224621.61f6d917.davem@davemloft.net> <Pine.LNX.4.61.0503272245350.30885@chimarrao.boston.redhat.com> <m1zmwn21hk.fsf@muc.de> <Pine.LNX.4.61.0503281124090.4269@chimarrao.boston.redhat.com> <20050329151159.GC63268@muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, hermes@gibson.dropbear.id.au
+Content-Type: text/plain; charset=us-ascii
+Cc: Rik van Riel <riel@redhat.com>, Dmitry Yusupov <dmitry_yus@yahoo.com>,
+        andrea@suse.de, michaelc@cs.wisc.edu, open-iscsi@googlegroups.com,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Dan Williams <dcbw@redhat.com>
-In-Reply-To: <1112110149.16060.13.camel@dcbw.boston.redhat.com>
+To: Andi Kleen <ak@muc.de>
+Content-Disposition: inline
+In-Reply-To: <20050329151159.GC63268@muc.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-03-29 at 10:29 -0500, Dan Williams wrote:
-> Hi,
+On Tue, Mar 29, 2005 at 05:11:59PM +0200, Andi Kleen wrote:
+> On Mon, Mar 28, 2005 at 11:24:55AM -0500, Rik van Riel wrote:
+> > On Mon, 28 Mar 2005, Andi Kleen wrote:
+> > 
+> > > So in short using mempools on receiving is not needed.
+> > 
+> > It is, because you have to ensure that the memory that's
+> > needed to receive network packets isn't tied up receiving
+> > packets for non-critical sockets, which would leave the
+> > critical sockets deadlocked.
 > 
-> I've just looked over the diff between current 2.6.12rc1 and upstream
-> "for_linus" branch of the orinoco drivers.  I found that the delta is
-> almost 100% due to monitor mode/scanning code that's found in the
-> upstream driver.  That's the last _important_ piece that has to get
-> merged to the mainline kernel.  It seems all the other trivial pieces
-> have been merged already.
+> Again the in socket queue is in no way different from all
+> the tens of hundreds of limited size queues that make 
+> up a network. It is quite useless to concentrate on only
+> one queue in the receiver computer, while all the others still can lose 
+> packets.
 > 
-> David/Pavel: is it correct that the only bits left are monitor
-> mode/scanning, and that they cannot be separated?  Should that diff just
-> be posted as a patch to netdev?  Or are there other issues with the
-> "for_linus" branch right now that prevent the final merge from
-> occurring?
-> 
-Hi, Dan!
+> The only way to solve such problems in the TCP/IP model
+> is to retransmit at the source. This means the TCP write
+> path needs to be reliable, but receiving does not need to be.
 
-The remaining differences are only in orinoco.c and orinoco.h.  However,
-it's more than just monitor mode and scanning.  The driver in 2.6.12-rc1
-is basically version 0.14alpha2, and there have been more changes since
-then.  For example, support for joining a specific access point.
+You don't seem to understand the deadlock yet. Host is OOM. Host must
+flush pages to target to free memory. Host manages to draw skbs from
+private reserve to do its writes. Target acknowledges writes, but host
+is _still OOM_ and there is no memory including GFP_ATOMIC to allocate
+receive buffers. Retransmission doesn't help because the
+acknowledgements will always be dropped.
 
-David submitted previous changes.  I can submit the rest if David hasn't
-done it.  David?
+So it seems we need a way to receive such acknowledgements and quickly
+discard everything else when we're pushed up against OOM.
 
 -- 
-Regards,
-Pavel Roskin
+Mathematics is the supreme nostalgia of our time.
