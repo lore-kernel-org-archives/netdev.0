@@ -1,69 +1,168 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [patch 2.6.11-rc3 1/5] r8169: endianness fixes
-Date: Sat, 12 Feb 2005 00:39:18 +0100
-Message-ID: <20050211233918.GB8792@electric-eye.fr.zoreil.com>
+Subject: [patch 2.6.11-rc3 2/5] r8169: merge of Realtek's code
+Date: Sat, 12 Feb 2005 00:41:06 +0100
+Message-ID: <20050211234106.GA13644@electric-eye.fr.zoreil.com>
+References: <20050211233918.GB8792@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: akpm@osdl.org, jdmason@us.ibm.com, netdev@oss.sgi.com
+Cc: akpm@osdl.org, jdmason@us.ibm.com, rich@phekda.gotadsl.co.uk,
+        netdev@oss.sgi.com
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
+In-Reply-To: <20050211233918.GB8792@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Endianness fixes
+Merge of Realtek's code
+- code dedicated to a new phy (spotted by Richard Dawe);
+- C+ register fiddling seems required for both RTL_GIGA_MAC_VER_{D/E};
+- apart from being reserved, register at address 0xe2 is named 'IntrMitigate';
+- bump version number.
+  A bunch of people do not use the vanilla kernel module simply because
+  Realtek's driver has a higher revision number. This is not an issue per
+  se but their driver is buggy due to some partial merge of in-kernel code.
 
-- rtl8169_rx_csum() forgot to convert the descriptor to cpu order,
-- same thing for rtl8169_rx_vlan_skb() but this one is more tricky as
-  the layout of the (u32) word in the 8169 descriptor calls for a
-  second level of swap at the vlan tag level (u16). The old code only
-  did the second part (in an endian-dependant way, how fun).
-- rtl8169_tx_vlan_tag(): this time the (u32 descriptor level) cpu_to_le32
-  is issued in rtl8169_start_xmit but the (u16 vlan tag level) cpu_to_be16
-  is not right any more.
-
-Summary: avoid even calls to cpu_to_{b/l}eXX on a given piece of data.
-
-The change has no effect on x86. Now sparc64 talks to x86.
-
-Pinpointed-by: Jon Mason <jdmason@us.ibm.com>
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
+Signed-off-by: Richard Dawe <rich@phekda.gotadsl.co.uk>
 
-diff -puN drivers/net/r8169.c~r8169-350 drivers/net/r8169.c
---- a/drivers/net/r8169.c~r8169-350	2005-02-05 21:04:12.000000000 +0100
-+++ b/drivers/net/r8169.c	2005-02-12 00:25:12.992726954 +0100
-@@ -698,7 +698,7 @@ static inline u32 rtl8169_tx_vlan_tag(st
- 				      struct sk_buff *skb)
- {
- 	return (tp->vlgrp && vlan_tx_tag_present(skb)) ?
--		TxVlanTag | cpu_to_be16(vlan_tx_tag_get(skb)) : 0x00;
-+		TxVlanTag | swab16(vlan_tx_tag_get(skb)) : 0x00;
- }
+diff -puN drivers/net/r8169.c~r8169-360 drivers/net/r8169.c
+--- a/drivers/net/r8169.c~r8169-360	2005-02-05 21:04:17.000000000 +0100
++++ b/drivers/net/r8169.c	2005-02-12 00:25:10.895067209 +0100
+@@ -41,6 +41,13 @@ VERSION 1.6LK	<2004/04/14>
+ 	- Suspend/resume
+ 	- Endianness
+ 	- Misc Rx/Tx bugs
++
++VERSION 2.2LK	<2005/01/25>
++
++	- RX csum, TX csum/SG, TSO
++	- VLAN
++	- baby (< 7200) Jumbo frames support
++	- Merge of Realtek's version 2.2 (new phy)
+ */
  
- static void rtl8169_vlan_rx_register(struct net_device *dev,
-@@ -733,12 +733,12 @@ static void rtl8169_vlan_rx_kill_vid(str
- static int rtl8169_rx_vlan_skb(struct rtl8169_private *tp, struct RxDesc *desc,
- 			       struct sk_buff *skb)
- {
--	u32 opts2 = desc->opts2;
-+	u32 opts2 = le32_to_cpu(desc->opts2);
- 	int ret;
+ #include <linux/module.h>
+@@ -62,7 +69,7 @@ VERSION 1.6LK	<2004/04/14>
+ #include <asm/io.h>
+ #include <asm/irq.h>
  
- 	if (tp->vlgrp && (opts2 & RxVlanTag)) {
- 		rtl8169_rx_hwaccel_skb(skb, tp->vlgrp,
--				       be16_to_cpu(opts2 & 0xffff));
-+				       swab16(opts2 & 0xffff));
- 		ret = 0;
- 	} else
- 		ret = -1;
-@@ -2084,7 +2084,7 @@ rtl8169_tx_interrupt(struct net_device *
+-#define RTL8169_VERSION "1.6LK"
++#define RTL8169_VERSION "2.2LK"
+ #define MODULENAME "r8169"
+ #define PFX MODULENAME ": "
  
- static inline void rtl8169_rx_csum(struct sk_buff *skb, struct RxDesc *desc)
- {
--	u32 opts1 = desc->opts1;
-+	u32 opts1 = le32_to_cpu(desc->opts1);
- 	u32 status = opts1 & RxProtoMask;
+@@ -149,6 +156,7 @@ enum phy_version {
+ 	RTL_GIGA_PHY_VER_E = 0x05, /* PHY Reg 0x03 bit0-3 == 0x0000 */
+ 	RTL_GIGA_PHY_VER_F = 0x06, /* PHY Reg 0x03 bit0-3 == 0x0001 */
+ 	RTL_GIGA_PHY_VER_G = 0x07, /* PHY Reg 0x03 bit0-3 == 0x0002 */
++	RTL_GIGA_PHY_VER_H = 0x08, /* PHY Reg 0x03 bit0-3 == 0x0003 */
+ };
  
- 	if (((status == RxProtoTCP) && !(opts1 & TCPFail)) ||
+ 
+@@ -162,7 +170,8 @@ const static struct {
+ } rtl_chip_info[] = {
+ 	_R("RTL8169",		RTL_GIGA_MAC_VER_B, 0xff7e1880),
+ 	_R("RTL8169s/8110s",	RTL_GIGA_MAC_VER_D, 0xff7e1880),
+-	_R("RTL8169s/8110s",	RTL_GIGA_MAC_VER_E, 0xff7e1880)
++	_R("RTL8169s/8110s",	RTL_GIGA_MAC_VER_E, 0xff7e1880),
++	_R("RTL8169s/8110s",	RTL_GIGA_MAC_VER_X, 0xff7e1880),
+ };
+ #undef _R
+ 
+@@ -208,6 +217,7 @@ enum RTL8169_registers {
+ 	PHYstatus = 0x6C,
+ 	RxMaxSize = 0xDA,
+ 	CPlusCmd = 0xE0,
++	IntrMitigate = 0xE2,
+ 	RxDescAddrLow = 0xE4,
+ 	RxDescAddrHigh = 0xE8,
+ 	EarlyTxThres = 0xEC,
+@@ -407,7 +417,7 @@ struct rtl8169_private {
+ 	struct work_struct task;
+ };
+ 
+-MODULE_AUTHOR("Realtek");
++MODULE_AUTHOR("Realtek and the Linux r8169 crew <netdev@oss.sgi.com>");
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
+ module_param_array(media, int, &num_media, 0);
+ module_param(rx_copybreak, int, 0);
+@@ -1002,7 +1012,7 @@ static void rtl8169_hw_phy_config(struct
+ 
+ 	if (tp->mac_version <= RTL_GIGA_MAC_VER_B)
+ 		return;
+-	if (tp->phy_version >= RTL_GIGA_PHY_VER_F) 
++	if (tp->phy_version >= RTL_GIGA_PHY_VER_H)
+ 		return;
+ 
+ 	dprintk("MAC version != 0 && PHY version == 0 or 1\n");
+@@ -1010,6 +1020,18 @@ static void rtl8169_hw_phy_config(struct
+ 
+ 	/* Shazam ! */
+ 
++	if (tp->mac_version == RTL_GIGA_MAC_VER_X) {
++		mdio_write(ioaddr, 31, 0x0001);
++		mdio_write(ioaddr,  9, 0x273a);
++		mdio_write(ioaddr, 14, 0x7bfb);
++		mdio_write(ioaddr, 27, 0x841e);
++
++		mdio_write(ioaddr, 31, 0x0002);
++		mdio_write(ioaddr,  1, 0x90d0);
++		mdio_write(ioaddr, 31, 0x0000);
++		return;
++	}
++
+ 	// phy config for RTL8169s mac_version C chip
+ 	mdio_write(ioaddr, 31, 0x0001);			//w 31 2 0 1
+ 	mdio_write(ioaddr, 21, 0x1000);			//w 21 15 0 1000
+@@ -1038,7 +1060,7 @@ static void rtl8169_phy_timer(unsigned l
+ 	unsigned long timeout = RTL8169_PHY_TIMEOUT;
+ 
+ 	assert(tp->mac_version > RTL_GIGA_MAC_VER_B);
+-	assert(tp->phy_version < RTL_GIGA_PHY_VER_G);
++	assert(tp->phy_version < RTL_GIGA_PHY_VER_H);
+ 
+ 	if (!(tp->phy_1000_ctrl_reg & PHY_Cap_1000_Full))
+ 		return;
+@@ -1073,7 +1095,7 @@ static inline void rtl8169_delete_timer(
+ 	struct timer_list *timer = &tp->timer;
+ 
+ 	if ((tp->mac_version <= RTL_GIGA_MAC_VER_B) ||
+-	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
++	    (tp->phy_version >= RTL_GIGA_PHY_VER_H))
+ 		return;
+ 
+ 	del_timer_sync(timer);
+@@ -1085,7 +1107,7 @@ static inline void rtl8169_request_timer
+ 	struct timer_list *timer = &tp->timer;
+ 
+ 	if ((tp->mac_version <= RTL_GIGA_MAC_VER_B) ||
+-	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
++	    (tp->phy_version >= RTL_GIGA_PHY_VER_H))
+ 		return;
+ 
+ 	init_timer(timer);
+@@ -1563,13 +1585,20 @@ rtl8169_hw_start(struct net_device *dev)
+ 	tp->cp_cmd |= RTL_R16(CPlusCmd);
+ 	RTL_W16(CPlusCmd, tp->cp_cmd);
+ 
+-	if (tp->mac_version == RTL_GIGA_MAC_VER_D) {
++	if ((tp->mac_version == RTL_GIGA_MAC_VER_D) ||
++	    (tp->mac_version == RTL_GIGA_MAC_VER_E)) {
+ 		dprintk(KERN_INFO PFX "Set MAC Reg C+CR Offset 0xE0. "
+ 			"Bit-3 and bit-14 MUST be 1\n");
+ 		tp->cp_cmd |= (1 << 14) | PCIMulRW;
+ 		RTL_W16(CPlusCmd, tp->cp_cmd);
+ 	}
+ 
++	/*
++	 * Undocumented corner. Supposedly:
++	 * (TxTimer << 12) | (TxPackets << 8) | (RxTimer << 4) | RxPackets
++	 */
++	RTL_W16(IntrMitigate, 0x0000);
++
+ 	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
+ 	RTL_W32(TxDescStartAddrHigh, ((u64) tp->TxPhyAddr >> 32));
+ 	RTL_W32(RxDescAddrLow, ((u64) tp->RxPhyAddr & DMA_32BIT_MASK));
 
 _
