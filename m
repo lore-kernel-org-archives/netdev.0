@@ -1,69 +1,48 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Wed, 29 Sep 2004 21:42:34 +1000
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: RFC/PATCH capture qdisc requeue event in stats
+Date: Wed, 29 Sep 2004 14:48:32 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040929114234.GD29516@gondor.apana.org.au>
-References: <20040928032321.GB10116@gondor.apana.org.au> <1096343125.8661.96.camel@jzny.localdomain> <20040928035921.GA10675@gondor.apana.org.au> <1096367787.8662.146.camel@jzny.localdomain> <20040928111159.GA18421@gondor.apana.org.au> <1096374736.8663.217.camel@jzny.localdomain> <20040929001327.GB25293@gondor.apana.org.au> <1096426324.1044.129.camel@jzny.localdomain> <20040929032724.GA26959@gondor.apana.org.au> <1096455046.1044.189.camel@jzny.localdomain>
+Message-ID: <20040929124832.GA9634@postel.suug.ch>
+References: <1093904088.1043.12.camel@jzny.localdomain> <20040830154430.769d1d59.davem@redhat.com> <1093906592.1037.32.camel@jzny.localdomain> <20040830160052.548c4846.davem@redhat.com> <1093916592.1037.51.camel@jzny.localdomain> <20040830191716.0d002f91.davem@redhat.com> <1093919823.1043.80.camel@jzny.localdomain> <20040830212910.78047bcd.davem@davemloft.net> <20040929003656.GX31616@rei.reeler.org> <1096426464.1045.133.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+        shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1096455046.1044.189.camel@jzny.localdomain>
+In-Reply-To: <1096426464.1045.133.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Sep 29, 2004 at 06:50:46AM -0400, jamal wrote:
->
-> Ok, You fell into my trap. I just had to say that ;-> We are even.
+* jamal <1096426464.1045.133.camel@jzny.localdomain> 2004-09-28 22:54
+> Lets do it on gnet stats though so we can make it more accessible.
+> I think your granularity maybe too thin: bytes,packets, drops
+> may need to be in the same TLV.
 
-Fair enough :)
- 
-> Assume you are delivering a huge atomic multi message; lets say it
-> constitutes 50 pkts.
-> --> You deliver up to 15 and then overrun.
-> --> The 15 pkts are a waste, really. User will have to poll
-> for the info for all details to be sure i.e you dont know what was lost
-> for sure if you get an overrun. In otherwise the transaction was not
-> delivered to its completion.
+I partially agree as long as no structs visible to userspace will
+ever change after introduction.
 
-I presume that the ifdown script you posted fits this description?
-I agree this is suboptimal.  However, I don't see how the intermediate
-queue can help here.
+I'd really like to avoid maintaining different structs for collection
+and transfer which must be kept in sync.
 
-Hmm, I suspect that there is something broken here that's causing the
-overruns.  Let me have a play with your script/ip monitor and get back
-to you.
+Having the application do its own struct and fill it based on
+if (tb[TCA_STATS_*]) conditions avoids all possible compatibility 
+issues. It would be possible for the application to choose between
+the original and a _64 variant if we ever introduce them.
 
-> I dont think 10 are a big deal but multiply by some factor and the cost
-> is clear to quantify.
+So this would be my approach:
 
-Agreed.  Perhaps what we need is a way to identify these messages as
-related.  If you can do that then the kernel can forget about them
-when an overrun occurs.
+Leave gnet_stats as-is and extend it as needed but hide it from
+userspace.
 
-I still don't see this as a big deal though since the application can
-always weather the storm by closing the socket after an overrun,
-sleeping for a while and then reopen it to listen again.
+Extend gen_copy_stats to add a nested TLV for every stat in
+the structure. We could even introduce a bitmap to allow the
+struct gnet_stats user to define which statistics are defined
+and which aren't. This way we could avoid the mess with pfifo
+and bfifo both using backlog but with a different unit in mind
+(packets/bytes).
 
-> If you insist however, heres one i can visualize thats a legit get from
-> a semantic view:
-> A get of a table entry which itself happens to be a table (and if you
-> want to be funnier maybe three level deep table). You do a get on a
-> table entry, you get a _whole table_ back. 
+> do you have cycles to run with that patch?
 
-That's easy :) Anything that's a table should use dump.  Remember that
-dump can take parameters just like get.  So there's nothing wrong with
-using dump to get an entry which happens to be a table.
-
-PS We've managed to cut down the size of our emails by half.  Shows that
-congestion control is certainly working on this mailing list :)
-
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Yes, it is related to my work so it's not a problem.
