@@ -1,41 +1,40 @@
-From: Krzysztof Halasa <khc@pm.waw.pl>
-Subject: Re: [PATCH]  802.1Q VLAN
-Date: Fri, 29 Oct 2004 02:38:08 +0200
+From: Prasanna Meda <pmeda@akamai.com>
+Subject: Re: rcv_wnd = init_cwnd*mss
+Date: Thu, 28 Oct 2004 17:55:48 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3acu6xssv.fsf@defiant.pm.waw.pl>
-References: <41797696.9070905@candelatech.com>
-	<20041022214611.GA4948@electric-eye.fr.zoreil.com>
-	<41798506.1030909@candelatech.com> <417D675F.3000909@candelatech.com>
-	<4181838B.6040002@tpack.net> <41818D99.9020300@candelatech.com>
+Message-ID: <41819514.C25D7A51@akamai.com>
+References: <DB2C167D8FFDEA45B8FC0B1B75E3EE154A3B08@usca1ex-priv1.sanmateo.corp.akamai.com> <20041028165658.753eee50.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Tommy Christensen <tommy.christensen@tpack.net>,
-        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-        "Linux 802.1Q VLAN" <vlan@candelatech.com>,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        "David S. Miller" <davem@redhat.com>
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <41818D99.9020300@candelatech.com> (Ben Greear's message of
- "Thu, 28 Oct 2004 17:23:53 -0700")
+To: "David S. Miller" <davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ben Greear <greearb@candelatech.com> writes:
+"David S. Miller" wrote:
 
-> Right... it would probably be an O(N) thing to wake the queues for all virtual
-> devices on a physical device, and we certainly don't want to do that
-> often.  Maybe if you only tried to wake the blocked queues (ie, kept a list
-> of just blocked queues), then that would be less painful on average,
-> but the worst-case is still bad.
+> On Wed, 27 Oct 2004 23:15:48 -0700
+> "Meda, Prasanna" <pmeda@akamai.com> wrote:
+>
+> > Thanks, still it is unclear to me why are we
+> > downsizing the advertised window(rcv_wnd) to cwnd?
+> > To defeat disobeying sender, or something like below?
+>
+> There is never any reason to advertise a receive window
+> larger than the initial congestion window of the sender
+> could ever be.
+>
+> Setting it properly like this also makes sure that we do
+> receive window update events at just the right place as
+> the sender starts sending us the initial data frames.
 
-Not sure if we need multiple queues. I think one queue for one physical
-device (a queue shared by all logical subdevices) would be enough
-in this case.
+That makes sense!
 
-Not sure how to do it, either. The semantics should be changed perhaps.
+But are we coping with cwnd increase on sender?
+Looks rcv rwnd s updated by only 1 pkt at time.
 
 
-The same issue with Frame Relay logical devices.
--- 
-Krzysztof Halasa
+Thanks,
+Prasanna.
