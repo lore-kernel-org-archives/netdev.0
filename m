@@ -1,8 +1,8 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (5/13) aarp purge table on module unload
-Date: Fri, 29 Aug 2003 14:00:46 -0700
+Subject: [PATCH] (1/13) appletalk - ddp set socket owner
+Date: Fri, 29 Aug 2003 13:55:55 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829140046.1241f018.shemminger@osdl.org>
+Message-ID: <20030829135555.31d277a0.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -12,50 +12,24 @@ To: Jay Schulist <jschlst@samba.org>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Aarp does not clean the arp table when the appletalk module
-is unloaded, and therefore can leak memory.
+DDP needs to set the socket owner, without this it is possible
+to OOPS.  What happens is a socket is closed, but data is outstanding
+so it is orphaned to be cleaned up later.  Then if appletalk module
+is unloaded, the timer code ends up referencing dead memory.
 
-diff -Nru a/net/appletalk/aarp.c b/net/appletalk/aarp.c
---- a/net/appletalk/aarp.c	Fri Aug 29 13:31:00 2003
-+++ b/net/appletalk/aarp.c	Fri Aug 29 13:31:00 2003
-@@ -339,6 +339,32 @@
- 	return NOTIFY_DONE;
- }
- 
-+/* Expire all entries in a hash chain */
-+static void __aarp_expire_all(struct aarp_entry **n)
-+{
-+	struct aarp_entry *t;
+By setting the owner field, the module can't be unloaded.
+
+Path applies to 2.6.0-test4.
+
+diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
+--- a/net/appletalk/ddp.c	Fri Aug 29 11:02:16 2003
++++ b/net/appletalk/ddp.c	Fri Aug 29 11:02:16 2003
+@@ -983,6 +983,8 @@
+ 	rc = 0;
+ 	sock->ops = &atalk_dgram_ops;
+ 	sock_init_data(sock, sk);
++	sk_set_owner(sk, THIS_MODULE);
 +
-+	while (*n) {
-+		t = *n;
-+		*n = (*n)->next;
-+		__aarp_expire(t);
-+	}
-+}
-+
-+/* Cleanup all hash chains -- module unloading */
-+static void aarp_purge(void)
-+{
-+	int ct;
-+
-+	write_lock_bh(&aarp_lock);
-+	for (ct = 0; ct < AARP_HASH_SIZE; ct++) {
-+		__aarp_expire_all(&resolved[ct]);
-+		__aarp_expire_all(&unresolved[ct]);
-+		__aarp_expire_all(&proxies[ct]);
-+	}
-+	write_unlock_bh(&aarp_lock);
-+}
-+
- /*
-  *	Create a new aarp entry.  This must use GFP_ATOMIC because it
-  *	runs while holding spinlocks.
-@@ -958,6 +984,7 @@
- 	del_timer(&aarp_timer);
- 	unregister_netdevice_notifier(&aarp_notifier);
- 	unregister_snap_client(aarp_dl);
-+	aarp_purge();
- }
- 
- #ifdef CONFIG_PROC_FS
+ 	/* Checksums on by default */
+ 	sk->sk_zapped = 1;
+ out:
