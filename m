@@ -1,45 +1,68 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: some bluetooth fixes
-Date: Wed, 11 Feb 2004 19:55:01 +0000 (UTC)
+From: KOVACS Krisztian <hidden@sch.bme.hu>
+Subject: Re: TProxy, 2.4 Kernel and NetFilter
+Date: Wed, 11 Feb 2004 20:58:38 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040215002513.7c6fc532.ak__13208.5964819$1076529301@suse.de>
-References: <20040206050042.20a2b3b0.ak@suse.de>
-	<1076079512.2806.40.camel@pegasus>
-	<20040207032428.56ffbebc.ak@suse.de>
-	<1076152411.14418.73.camel@pegasus>
-	<20040207125723.391a1fcd.ak@suse.de>
-	<1076173068.2670.4.camel@pegasus>
-	<20040207172436.GB449@wotan.suse.de>
-	<1076525743.2792.1.camel@pegasus>
+Message-ID: <20040211195838.GA11552@sch.bme.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-        viro@zenII.linux.org.uk
+Content-Type: text/plain; charset=us-ascii
+Cc: Henrik Nordstrom <hno@marasystems.com>,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Sun, 15 Feb 2004 00:25:13 +0100
-To: Marcel Holtmann <marcel@holtmann.org>
-In-Reply-To: <1076525743.2792.1.camel@pegasus>
+To: Jambunathan Kalyanasundaram <k_jambunathan@yahoo.co.uk>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Feb 2004 19:55:43 +0100
-Marcel Holtmann <marcel@holtmann.org> wrote:
 
-> Hi Andi,
+  Hi,
+
+On Wed, Feb 11, 2004 at 08:49:33AM +0100, Henrik Nordstrom wrote:
+> > 2) But if I am not really interested in the overheads
+> > imposed by the NetFilter, the only option is to patch
+> > the Linux kernel with Balazs Scheidler's patch.
 > 
-> > Doing size checks after the multiply is too late - they could
-> > have already overflowed. You have to check the raw value from the user.
+> Not sure this has less overhead.
+
+  I'm sure it hasn't. TProxy was never intended to be a "faster redirect",
+or something like that. If you do not care about almost full transparent
+proxying, you don't need TProxy at all.
+
+  The TProxy patch can be used to make the proxy transparent from both
+sides: the client sends the packets to the server's IP, and the server
+sees packets coming from the client's IP. However, this needs user-space
+support in the proxy itself. And Gianni Tedesco's latest TProxy support
+patch for Squid is known to be broken...
+
+> > If I don't like something as heavyweight as Netfilter
+> > and something that is as  "non standard" as patching
+> > the kernel, are there any ways out ? 
 > 
-> new patch is attached.
+> Yes, by configuring the client to use the proxy.
 
+  Completely true. This is _the_ way to go if you can set all clients to
+use the proxy.
 
-+	if (req.conn_num * sizeof(*ci) > PAGE_SIZE * 2)
-+		return -EINVAL;
+> If it is a normal Internet proxy environment where the number of clients 
+> are limited, and the proxy supports per-user selection of the outgoing 
+> address (Squid does) then it is possible with the help of NAT.
+> 
+> 1. Set up as many IP aliases on the proxy server as you have clients. Use
+> one of the unassigned networks.
+> 
+> 2. Configure the proxy to use one IP alias per client IP address.
+> 
+> 3. Configure iptables NAT rules in OUTPUT to NAT these IP aliases back to
+> the client IP address.
 
-This can still overflow. It should be 
+  Hmm... What a solution! :)
 
-	if (req.conn_num > (PAGE_SIZE * 2)/sizeof(*ci))
-		return -EINVAL
+> If it is a reverse proxy or other environment where the client addresses 
+> are not limited then this obviously can not be done and you must use the 
+> tproxy patch.
 
--Andi
+  As I wrote, the patch for Squid would need some fixes before actually
+using it... Unfortunately I don't know enough about Squid to be able to
+make those fixes.
+
+-- 
+ KOVACS Krisztian
