@@ -1,28 +1,54 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH 2.6] iptables CLUSTERIP target
-Date: Thu, 21 Oct 2004 19:40:56 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CKZRI-00040A-00@gondolin.me.apana.org.au>
-References: <20041021091229.GA3551@sunbeam.de.gnumonks.org>
-Cc: hch@infradead.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: laforge@netfilter.org (Harald Welte)
-In-Reply-To: <20041021091229.GA3551@sunbeam.de.gnumonks.org>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: [PATCH 2.6] iptables CONNMARK match+target
+Date: Thu, 21 Oct 2004 12:25:35 +0200 (CEST)
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <Pine.LNX.4.61.0410211215580.19600@filer.marasystems.com>
+References: <20041020222102.GO19899@sunbeam.de.gnumonks.org>
+	<Pine.LNX.4.61.0410210912280.18310@filer.marasystems.com>
+	<20041021091632.GB3551@sunbeam.de.gnumonks.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Linux Netdev List <netdev@oss.sgi.com>,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20041021091632.GB3551@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
-Harald Welte <laforge@netfilter.org> wrote:
-> 
-> We allow posting, your posting will just await moderator approval.  Our
-> listmaster usuall checks more than once per day.  
+On Thu, 21 Oct 2004, Harald Welte wrote:
 
-Could you at least turn off the notification sent to the poster?
+>> Is this with or without the mark operations?
+>
+> What is 'this' you are referring to?
 
-It seems ironic that in an attempt to prevent spam from entering
-your list that you're spamming the posters instead.  As it is
-I'll be taking your list off any CC list that I'm on.
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+The CONNMARK patch.
+
+> 'very useful'? Yes, indeed.  I think it is already very useful, even
+> without MARK bit-wise operations (which AFAIK are not implemented with
+> the required compatibility issues we discussed at the netfilter
+> workshop, but which will be submitted once this is done).
+
+This is what I am talking about, and answers my question.
+
+The MARK bit-wise operations is also available for CONNMARK and could in 
+theory be included in CONNMARK when submitted to the kernel as this won't 
+break compatibility with existing kernels (only patched kernels), but 
+probably not worth it unless the same functionality is also available in 
+MARK which we currently can't do due to the compatibility issue..
+
+Once the compatibility issue is solved for MARK there should not be a 
+problem to use the same to extend CONNMARK with mark bitwise operations if 
+not included in the initial submission.
+
+I am fine either way.
+
+Regards
+Henrik
