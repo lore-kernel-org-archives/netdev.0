@@ -1,103 +1,117 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: 07 Jan 2005 08:45:12 -0500
-Message-ID: <1105105511.1046.77.camel@jzny.localdomain>
-References: <20050103125635.GB26856@postel.suug.ch>
-	 <20050104223612.GN26856@postel.suug.ch>
-	 <1104894728.1117.56.camel@jzny.localdomain>
-	 <20050105110048.GO26856@postel.suug.ch>
-	 <1104931991.1117.152.camel@jzny.localdomain>
-	 <20050105144514.GQ26856@postel.suug.ch>
-	 <1105019225.2312.7.camel@jzny.localdomain>
-	 <20050106194102.GW26856@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Fri, 7 Jan 2005 10:17:26 -0600
+Message-ID: <200501071017.31751.jeremy.guthrie@berbee.com>
+References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501061618.24465.jeremy.guthrie@berbee.com> <16861.48463.770166.352726@robur.slu.se>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart1340695.bQ2qdNF43y";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Stephen Hemminger <shemminger@osdl.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050106194102.GW26856@postel.suug.ch>
+To: netdev@oss.sgi.com
+In-Reply-To: <16861.48463.770166.352726@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-01-06 at 14:41, Thomas Graf wrote:
-> * jamal <1105019225.2312.7.camel@jzny.localdomain> 2005-01-06 08:47
-[..]
-> If we do everything as ref we'll be allocating 4 byte chunks or we
-> introduce a storage u32 which pollutes the structure. I don't
-> like that given that the transfer of a single u32 is probably the
-> most common for all those smallish ematches for a specific thing.
-> For simplicity, you don't even notice if you're not aware of that
-> it can be of help so I don't think we're losing any simplicity here.
+--nextPart1340695.bQ2qdNF43y
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-I am not sure the optimization for a single u32 as the ematch data is
-valid ;-> But this is not a show stopper, i will wait for the code to
-see if its an annoyance or tolerable.
+On Thursday 06 January 2005 04:35 pm, Robert Olsson wrote:
+> Jeremy M. Guthrie writes:
+>  > You mentioned before that " The stats didn't show any numbers so we
+>  > don't know your load."  Was there a command you wanted me to re-run?
+>
+>  rtstat should show the routing/packet load.
+>
+>  From a systems like yours 2*933 MHz PIII in production for tens of
+> thoundans of users many filter and full BGP routing. Current (late here)
+> use.
+>
+>
+>  ifstat2 eth*
+>              RX --------------------------   TX -------------------------
+> eth0          272.8 M bit/s       51 k pps    350.7 M bit/s       51 k pps
+> eth1          371.9 M bit/s       55 k pps    293.6 M bit/s       55 k pps
+> eth2            6.7 M bit/s     1348   pps      3.0 M bit/s      991   pps
+> eth3            472   bit/s        0   pps      600   bit/s        0   pps
+Ifstat output:
+#kernel
+Interface        RX Pkts/Rate    TX Pkts/Rate    RX Data/Rate    TX Data/Ra=
+te
+                 RX Errs/Drop    TX Errs/Drop    RX Over/Rate    TX Coll/Ra=
+te
+lo                     0 0             0 0             0 0             0 0
+                       0 0             0 0             0 0             0 0
+eth0                   1 0             1 0            66 0           178 0
+                       0 0             0 0             0 0             0 0
+eth2                   0 0         30770 0             0 0        13361K 0
+                       0 0             0 0             0 0             0 0
+eth3               81019 0             0 0        41740K 0             0 0
+                       0 0             0 0             0 0             0 0
 
-> Missunderstanding here, I meant is there any advantage in having
-> multiple ematch trees (interleaved) over just making the existing
-> u32 key an ematch and have the selector (with the hashing bits
-> extracted) with one ematch tree.
+> rtstat
+>  size   IN: hit     tot    mc no_rt bcast madst masrc  OUT: hit     tot  =
+ =20
+> mc GC: tot ignored goal_miss ovrf HASH: in_search out_search 21007  =20
+> 114060     748     0     5     0     0     0        11       5      0    =
+ =20
+> 0       0         0    0           58280          4 22683    112556     8=
+27
+>     0     6     0     0     0         5       5      0       0       0   =
+ =20
+>    0    0           60841          7 24230    111083     765     0     4 =
+ =20
+>  0     0     0        13       4      0       0       0         0    0   =
+ =20
+>      66628          7
+> Around 110 kpps hitting warm cache entries and ~800 new lookups/sec. I was
+> expecting so see something similar from your system.
+Did my second email w/ the lnstat data not make it?
 
-Misunderstanding is the right description.
-If you did a s/ematch/match for the u32 part then we'd be shooting for
-the same thing;-> So i take back what i said, you are not gonna mess up
-the u32 tree logic.
+>
+> FYI.
+>  cat /proc/net/softnet_stat
 
-> 1) extract hashing bits out of selector and move it into a new
->    TLV.
-> 2) Replace the foreach key match loop with an ematch_tree match
 
-This is our contention point.
+total    droppped tsquz    Throttl  FR_hit   FR_succe FR_defer FR_def_o=20
+ cpu_coll=20
+> 9ba490f3 00000000 01281572 00000000 00000000 00000000 00000000 00000000
+> 002562c2 9939268d 00000000 010e42e9 00000000 00000000 00000000 00000000=20
+> 00000000 0028fe72
+Why do these drops not show up in the interface drop?
 
-> 3) Fill out a pkt_info struct with ptr and off2 so we don't lose
->    hashing capabilities
+> Good Night.
+>
+>
+>           --ro
 
-And this is why i dont like it. 
+=2D-=20
 
-> 4) Add backward compat code. Old selector must be transformed
->    into a flat ematch tree and the hashing bits must be extracted
->    and stored in the new struct.
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
 
-I think the u32 changes are one-shot if you want to avoid lotsa #ifdefs.
-Someone sends you a old sel, then convert it to a new one for storage.
-Dumping is a little trickier, need some way to recognize old style
-request. 
+--nextPart1340695.bQ2qdNF43y
+Content-Type: application/pgp-signature
 
-> The most difficult part is to do the Kconfig dependencies in a smart way ;->
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-The trick would be to always use sel2 and present no kconfig options for back 
-compat. We need to figure out how to recognize an old style dump and we are
-set.
+iD8DBQBB3rYbqtjaBHGZBeURApowAJ9tp9NRJazOm/HsVeC4ANYiDgyzjgCghJBx
+U1Pf8s66CXj3d7Zk3O7yBzQ=
+=AMaR
+-----END PGP SIGNATURE-----
 
-> > Again, u32 classifier is not just matches; the more interesting thing
-> > is  the layout of the rules that it can be taught to do.
-> > I think the ematch which emulates the std u32 match is of course
-> > valuable to have but it _doesnt_ deserve the same name.
-> 
-> Stupid terms, em_u32.c is a replacement for the u32 key and it has exactly
-> the same behaviour. I'll be happy to rename it but as you know I really
-> suck at naming things ;->
-
-em_u32 sounds better ;->
-Above you are trying to insert off2 into the info (what i said i didnt
-like) - how are you going to achieve the same with a standalone en_u32
-from say you basic classifier?
-
-> > Thinking more about it; not sure why you would even bother managing
-> > them. Everything runs at the same kernel privilege level. I am not sure
-> > you want to have certain things that can only be built when recompiling
-> > the kernel
-> 
-> Well, we have exactly the same issues as with TLV types. I don't see
-> why one would need to recompile things. The enumeration is for ematches
-> included in the kernel tree.
-
-Your call. Actions do it the way i described it. It is more flexible in
-my opionion, nothing reserved. Good practise is to know who uses what
-(not hardcoding in headers) and the register will catch any discrepancy.
-
-cheers,
-jamal
+--nextPart1340695.bQ2qdNF43y--
