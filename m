@@ -1,47 +1,58 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH 2.6] 2/2:  Fix NAT helper locking
-Date: Fri, 03 Sep 2004 17:53:21 +0200
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <41389371.2030009@trash.net>
-References: <20040903070234.GQ26263@sunbeam.de.gnumonks.org>
-	<20040903002453.77beee16.davem@davemloft.net>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: neigh_create/inetdev_destroy race?
+Date: Fri, 3 Sep 2004 09:00:53 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040903090053.22c67bb9@dell_ss3.pdx.osdl.net>
+References: <20040814050848.GA11874@gondor.apana.org.au>
+	<20040814062703.GA4806@gondor.apana.org.au>
+	<20040815191450.77532d5d.davem@redhat.com>
+	<20040816105131.GA11299@gondor.apana.org.au>
+	<20040828234201.79556f6e.davem@davemloft.net>
+	<20040829065031.GA786@gondor.apana.org.au>
+	<20040830230820.7514985d.davem@davemloft.net>
+	<20040831104139.GA2124@gondor.apana.org.au>
+	<20040901222118.0ce4bcc6.davem@davemloft.net>
+	<20040902130605.GA32570@gondor.apana.org.au>
+	<20040903133623.GA23179@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Harald Welte <laforge@netfilter.org>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040903002453.77beee16.davem@davemloft.net>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040903133623.GA23179@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
+On Fri, 3 Sep 2004 23:36:23 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
->Applied both patches, but the first had serious offsets
->and the second had to be applied by hand due to rejects
->against the current 2.6.x sources.
->
->Ummm... wow what ancient tree did you patch against
->Harald?  The tree you patched against didn't even have the
->skb_header_pointer() changes in it, that's caveman
->era :-)  That's what caused the rejects.
->  
->
-My fault, I put the patches into patch-o-matic about two or
-three weeks ago and didn't expect they wouldn't apply anymore
-so quickly :)
+> On Thu, Sep 02, 2004 at 11:06:05PM +1000, herbert wrote:
+> > 
+> > > Can you work on the next bit you mentioned, making
+> > > sure the corresponding idev is still alive when we add
+> > > a neighbour with its neigh_parms to the hash table?
+> > 
+> > Sure.  Actually I prefer to do it by ref counting neigh_parms directly.
+> > I'll send you a patch soon.
+> 
+> Here is the patch.
+> 
+> I've added a refcnt on neigh_parms as well as a dead flag.  The latter
+> is checked under the tbl_lock before adding a neigh entry to the hash
+> table.
+> 
+> The non-trivial bit of the patch is the first chunk of net/core/neighbour.c.
+> I removed that line because not doing so would mean that I have to drop
+> the reference to the parms right there.  That would've lead to race
+> conditions since many places dereference neigh->parms without holding
+> locks.  It's also unnecessary to reset n->parms since we're no longer
+> in a hurry to see it go due to the new ref counting.
+> 
+> You'll also notice that I've put all dereferences of dev->*_ptr under
+> the rcu_read_lock().  Without this we may get a neigh_parms that's
+> already been released.
 
->
->Anyways, I merged it all in cleanly.
->
-Thanks.
-
-Patrick
+I haven't looked at the exact code in detail, but don't you need
+use rcu_dereference() as well to make sure and get the smp_read_barrier_depends
+on Alpha.
