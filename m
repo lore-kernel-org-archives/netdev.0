@@ -1,36 +1,31 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [PATCH 2.6] pci.ids for e1000
-Date: Fri, 12 Sep 2003 11:40:47 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010124F035@orsmsx402.jf.intel.com>
+From: Xose Vazquez Perez <xose@wanadoo.es>
+Subject: Re: [PATCH 2.6] pci.ids for e1000
+Date: Fri, 12 Sep 2003 22:15:07 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <3F62294B.2020105@wanadoo.es>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: netdev@oss.sgi.com, linux-kernel <linux-kernel@vger.kernel.org>
 List-Id: netdev.vger.kernel.org
 
-> How motivated are you?  ;-)
-> 
+Jeff Garzik wrote:
+
 > The general idea is to keep 2.4, 2.6, and pciids.sf.net in sync.
-> 
-> Could you be talked into comparing 2.4, 2.6, and pciids.sf.net, and 
-> creating patches for 2.4 and 2.6 that add missing ids?  ;-)  Martin 
-> Mares (pciids.sf.net maintainer) did a big sync-up less than 
-> 12 months 
-> ago, so the job shouldn't be as big as it sounds.
-> 
-> If not, no big deal.  Just say "no" and I'll apply the patch below, 
-> instead of waiting for the larger patches...
 
-Now that I've dug into this a little more, go ahead and drop my patch
-for e1000 IDs.  Bypassing the flow from pciids.sf.net is just going to
-cause more problems.  Pciids.sf.net has been updated with these IDs, so
-it's just a matter of getting them approved and having Martin push out a
-sync for 2.4 and 2.6.  I'll add my request to Martin...
+is there sync between 2.4, 2.6, and pciids.sf.net ?  ;-)
 
--scott
+Linus and Marcelo should not accept patches against pci.ids,
+all updates should go to pciids.sf.net. And every X time
+to do a sync with 2.4 and 2.6.
+
+It's the easiest, because otherwise is a chaos and it
+takes too much work to do several merges:
+
+2.4 <-> 2.6
+2.4 <-> pciids
+2.4 <-> 2.6
+
+-- 
+Que trabajen los romanos, que tienen el pecho de lata.
