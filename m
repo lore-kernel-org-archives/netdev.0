@@ -1,46 +1,44 @@
-From: bert hubert <ahu@ds9a.nl>
-Subject: Re: IPv6 development plan ?
-Date: Fri, 8 Nov 2002 10:22:05 +0100
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PATCH,RFC] explicit connection confirmation
+Date: Fri, 8 Nov 2002 06:22:00 -0500 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021108092205.GA16291@outpost.ds9a.nl>
-References: <010101c28706$b1767840$21abfe81@seong>
+Message-ID: <Pine.GSO.4.30.0211080605410.14675-100000@shell.cyberus.ca>
+References: <20021107152758.GB23858@gnu.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Marc Boucher <marc@mbsi.ca>, bert hubert <ahu@ds9a.nl>,
+   <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Seong Moon <seong@etri.re.kr>
-Content-Disposition: inline
-In-Reply-To: <010101c28706$b1767840$21abfe81@seong>
+To: Lennert Buytenhek <buytenh@gnu.org>
+In-Reply-To: <20021107152758.GB23858@gnu.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Nov 08, 2002 at 06:10:23PM +0900, Seong Moon wrote:
-
-> The usagi says that the their product has applied the kernel.org partially.
-> Why does not the original kernel apply the entire usagi patch ?
-
-Things take time. The kernel people have been accepting USAGI patches at a
-steady rate.
-
-DaveM and Alexey have been reworking routing quite a lot, USAGI does not
-apply cleanly to that. 
-
-> And I want to know the master plan of development of IPv6 including IPv6
-> routing functions. Could I know the schedule or plan ?
-
-"When the time is right".
-
-> He said that 2.6.x kernel series will contain a true and up-to-date IPv6
-> implementation.
-> Approximately When can I use 2.6.x kernel ?
-
-I use it now, but you may not want to do that for mission critical systems.
-
-Regards,
-
-bert
 
 
--- 
-http://www.PowerDNS.com          Versatile DNS Software & Services
-http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
+On Thu, 7 Nov 2002, Lennert Buytenhek wrote:
+
+> Hi,
+>
+> netfilter, yeah, sure, 'could have', but please.
+
+apology if i sounded like one of those adolescent netfilter dangerous
+fools who show up with "mama, look what i can do with a packet now that
+ive read netfilter docs"
+
+>
+> 'Make it a netfilter module' is generally what people say when
+> they are confronted with a feature they don't like.
+
+My angle was to avoid being intrusive to the tcp code.
+you might get a fish sent to you in .nl in an armani suit;->
+
+>
+> There was a thread about this in private mail round April this year,
+> in which some good points were raised.
+>
+
+There are some good points; however, whats the app for this feature?
+
+cheers,
+jamal
