@@ -1,27 +1,86 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: why does netfilter make upload very slow? (was: Re: e1000 ->
- 82540EM on linux 2.6.0-test[45] very slow in one direction)
-Date: Wed, 8 Oct 2003 07:54:41 -0700
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031008075441.4c6820b7.davem@redhat.com>
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: why does netfilter make upload very slow? (was: Re: e1000 -> 82540EM on linux 2.6.0-test[45] very slow in one direction)
+Date: Wed, 8 Oct 2003 17:32:37 +0200
+Sender: netfilter-devel-admin@lists.netfilter.org
+Message-ID: <20031008153237.GC25743@sunbeam.de.gnumonks.org>
 References: <20031008131320.GD16964@favonius>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="PYvLm/IFaQmMAfx6"
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
+Return-path: <netfilter-devel-admin@lists.netfilter.org>
 To: ookhoi@humilis.net
+Content-Disposition: inline
 In-Reply-To: <20031008131320.GD16964@favonius>
-Errors-to: netdev-bounce@oss.sgi.com
+Errors-To: netfilter-devel-admin@lists.netfilter.org
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
 List-Id: netdev.vger.kernel.org
 
-On Wed, 8 Oct 2003 15:13:20 +0200
-ookhoi@humilis.net wrote:
 
+--PYvLm/IFaQmMAfx6
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Wed, Oct 08, 2003 at 03:13:20PM +0200, ookhoi@humilis.net wrote:
+> # > I have netfilter enabled, and will try another -test6 kernel with
+> # > netfilter not compiled in to see if that indeed makes a difference.
+> #=20
+> # I can confirm now that disabling netfilter in 2.6.0-test6 makes the nic
+> # perform oke wrt upload.
+> # I (just like Florian) had no iptables rules active in the former
+> # 2.6.0-test6 kernel, but netfilter was compiled in.
+>=20
 > Would somebody like to explain why netfilter (in kernel, but not in use)
 > makes upload go very slow? I am by no means a network guru, but eager to
 > learn :-)
 
-It'll likely happen much quicker if you actually report this to
-the netfilter lists, which is where the people who can help you
-are paying attention.
+let's get this straight.  There are five possible cases
+
+a) CONFIG_NETFILTER disabled.  you won't even have the netfilter hooks
+   in the network stack (so certainly no netfilter-using modules loaded)
+b) CONFIG_NETFILTER enabled, but _no_ modules (iptable_filter,
+   ip_conntrack, ...) attached to the netfilter hook
+c) CONFIG_NETFILTER enabled and iptable_filter.o (which pulls ip_tables.o)
+   loaded, NO RULES in the table
+d) CONFIG_NETFILTER enabled and iptable_filter.o (which pulls ip_tables.o)
+   loaded, RULES in the table
+e) CONFIG_NETFILTER enabled and ip_conntrack.o loaded, iptable_filter
+   loaded or not, rules or not
+
+So if you want to give us an idea about where the bottleneck might be,
+please clearly indicate between which of the two cases you see this
+performance penalty.=20
+
+This way we can isolate the culprit.
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--PYvLm/IFaQmMAfx6
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQE/hC4VXaXGVTD0i/8RAtDsAKCcLd+EGsxbMYkHYiIukVc+l2gcVQCfTZu2
+4lV2QGVAuIXbm8LdGSvQVGQ=
+=MeeS
+-----END PGP SIGNATURE-----
+
+--PYvLm/IFaQmMAfx6--
