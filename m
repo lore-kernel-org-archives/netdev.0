@@ -1,8 +1,8 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch netdev-2.6 1/2] r8169: endian-swap return of rtl8169_tx_vlan_tag()
-Date: Thu, 21 Oct 2004 21:00:47 -0400
+Subject: [patch netdev-2.6 2/2] r8169: fix RxVlan bit manipulation
+Date: Thu, 21 Oct 2004 21:02:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041022010046.GB1945@tuxdriver.com>
+Message-ID: <20041022010231.GC1945@tuxdriver.com>
 References: <20041022005737.GA1945@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,22 +14,41 @@ In-Reply-To: <20041022005737.GA1945@tuxdriver.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Endian-swap return of rtl8169_tx_vlan_tag() in rtl8169_start_xmit()
+Fix manipulation of RxVlan bit in rtl8169_vlan_rx_register(), and
+remove it from rtl8169_vlan_rx_kill_vid().
 
 Signed-off-by: John W. Linville <linville@tuxdriver.com>
 ---
 
- drivers/net/r8169.c |    2 +-
- 1 files changed, 1 insertion(+), 1 deletion(-)
+ drivers/net/r8169.c |   10 ++++------
+ 1 files changed, 4 insertions(+), 6 deletions(-)
 
---- netdev-2.6/drivers/net/r8169.c.netdev	2004-10-21 14:48:38.753676111 -0400
-+++ netdev-2.6/drivers/net/r8169.c	2004-10-21 14:49:04.874988962 -0400
-@@ -1906,7 +1906,7 @@ static int rtl8169_start_xmit(struct sk_
+--- netdev-2.6/drivers/net/r8169.c.netdev	2004-10-21 14:38:16.000000000 -0400
++++ netdev-2.6/drivers/net/r8169.c	2004-10-21 14:44:22.968783027 -0400
+@@ -705,8 +705,10 @@ static void rtl8169_vlan_rx_register(str
+ 	unsigned long flags;
  
- 	tp->tx_skb[entry].len = len;
- 	txd->addr = cpu_to_le64(mapping);
--	txd->opts2 = rtl8169_tx_vlan_tag(tp, skb);
-+	txd->opts2 = cpu_to_le32(rtl8169_tx_vlan_tag(tp, skb));
+ 	spin_lock_irqsave(&tp->lock, flags);
+-	tp->vlgrp = grp;
+-	tp->cp_cmd |= RxVlan;
++	if ((tp->vlgrp = grp))
++		tp->cp_cmd |= RxVlan;
++	else
++		tp->cp_cmd &= ~RxVlan;
+ 	RTL_W16(CPlusCmd, tp->cp_cmd);
+ 	RTL_R16(CPlusCmd);
+ 	spin_unlock_irqrestore(&tp->lock, flags);
+@@ -715,13 +717,9 @@ static void rtl8169_vlan_rx_register(str
+ static void rtl8169_vlan_rx_kill_vid(struct net_device *dev, unsigned short vid)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-	void __iomem *ioaddr = tp->mmio_addr;
+ 	unsigned long flags;
  
- 	wmb();
- 
+ 	spin_lock_irqsave(&tp->lock, flags);
+-	tp->cp_cmd &= ~RxVlan;
+-	RTL_W16(CPlusCmd, tp->cp_cmd);
+-	RTL_R16(CPlusCmd);
+ 	if (tp->vlgrp)
+ 		tp->vlgrp->vlan_devices[vid] = NULL;
+ 	spin_unlock_irqrestore(&tp->lock, flags);
