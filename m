@@ -1,8 +1,8 @@
 From: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
-Subject: [PATCH 2.6 6/14] e1000:  Apply patch from Jamal (hadi@znyx.com) to
- remove a redundant assignment to a local nr_frags in e1000_xmit_frame
-Date: Thu, 6 Jan 2005 17:21:24 -0800 (PST)
-Message-ID: <Pine.LNX.4.44.0501061530380.7330-100000@isotope.jf.intel.com>
+Subject: [PATCH 2.6 5/14] e1000: Avoid filling tx_ring completely -
+ shemminger@osdl.org
+Date: Thu, 6 Jan 2005 17:21:18 -0800 (PST)
+Message-ID: <Pine.LNX.4.44.0501061529560.7330-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev <netdev@oss.sgi.com>
@@ -16,11 +16,14 @@ Signed-off-by: Ganesh Venkatesan <ganesh.venkatesan@intel.com>
 diff -up net-drivers-2.6/drivers/net/e1000/e1000_main.c net-drivers-2.6/drivers/net/e1000.new/e1000_main.c
 --- net-drivers-2.6/drivers/net/e1000/e1000_main.c	2004-12-03 07:24:37.090623184 -0800
 +++ net-drivers-2.6/drivers/net/e1000.new/e1000_main.c	2004-12-03 07:24:38.581396552 -0800
-@@ -1760,7 +1760,6 @@ e1000_xmit_frame(struct sk_buff *skb, st
- 	unsigned int mss = 0;
- 	int count = 0;
- 	unsigned int f;
--	nr_frags = skb_shinfo(skb)->nr_frags;
- 	len -= skb->data_len;
+@@ -1842,6 +1842,10 @@ e1000_xmit_frame(struct sk_buff *skb, st
  
- 	if(unlikely(skb->len <= 0)) {
+ 	netdev->trans_start = jiffies;
+ 
++	/* Make sure there is space in the ring for the next send. */
++	if(unlikely(E1000_DESC_UNUSED(&adapter->tx_ring) < MAX_SKB_FRAGS + 2))
++		netif_stop_queue(netdev);
++
+ 	spin_unlock_irqrestore(&adapter->tx_lock, flags);
+ 	return NETDEV_TX_OK;
+ }
