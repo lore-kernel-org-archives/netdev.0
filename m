@@ -1,32 +1,55 @@
 From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
-Date: Thu, 9 Oct 2003 23:36:44 -0300
+Subject: [RFT] Re: Fw: Nasty Oops in 2.6.0-test6 bind/SO_REUSEADDR
+Date: Fri, 10 Oct 2003 00:22:44 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031010023644.GA8365@conectiva.com.br>
-References: <20031008133345.49f71991.davem@redhat.com>
+Message-ID: <20031010032244.GB8365@conectiva.com.br>
+References: <20031008133345.49f71991.davem@redhat.com> <20031010023644.GA8365@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, Dan Merillat <dmerillat@sequiam.com>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Content-Disposition: inline
-In-Reply-To: <20031008133345.49f71991.davem@redhat.com>
+In-Reply-To: <20031010023644.GA8365@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Oct 08, 2003 at 01:33:45PM -0700, David S. Miller escreveu:
-> Arnaldo, I think this is another piece of fallout
-> from the struct sock splitup you did ages ago.
+Em Thu, Oct 09, 2003 at 11:36:44PM -0300, Arnaldo C. Melo escreveu:
+> Em Wed, Oct 08, 2003 at 01:33:45PM -0700, David S. Miller escreveu:
+> > Arnaldo, I think this is another piece of fallout
+> > from the struct sock splitup you did ages ago.
+> > 
+> > I think it's dereferencing inet_sk(sk) for a time-wait
+> > socket, so we probably need a TCP_TIME_WAIT test plus
+> > some additional logic here?  Better check tcp_ipv6.c too.
 > 
-> I think it's dereferencing inet_sk(sk) for a time-wait
-> socket, so we probably need a TCP_TIME_WAIT test plus
-> some additional logic here?  Better check tcp_ipv6.c too.
+> Dan, could you please try with this patch?
 
-Dan, could you please try with this patch?
+Better, try with this one, it has an extra check that can catch other places
+where we have a struct tcp_tw_bucket being used as a struct sock...
+
+Tested here on a dual p100, no problems so far, i.e. using the kernel with the
+patch below, not doing the apache tests.
 
 - Arnaldo
 
-
+===== include/linux/ip.h 1.10 vs edited =====
+--- 1.10/include/linux/ip.h	Fri May 16 18:02:36 2003
++++ edited/include/linux/ip.h	Thu Oct  9 23:36:06 2003
+@@ -157,7 +157,13 @@
+ 	struct inet_opt   inet;
+ };
+ 
++#if 0
+ #define inet_sk(__sk) (&((struct inet_sock *)__sk)->inet)
++#else
++#include <linux/tcp.h>
++#define inet_sk(__sk) ({ WARN_ON(__sk->sk_state == TCP_TIME_WAIT); \
++			 (&((struct inet_sock *)__sk)->inet); })
++#endif
+ 
+ #endif
+ 
 ===== net/ipv4/tcp_ipv4.c 1.69 vs edited =====
 --- 1.69/net/ipv4/tcp_ipv4.c	Wed Oct  8 12:27:40 2003
 +++ edited/net/ipv4/tcp_ipv4.c	Thu Oct  9 23:23:38 2003
