@@ -1,37 +1,42 @@
-From: Rask Ingemann Lambertsen <rask@sygehus.dk>
-Subject: Re: [PATCH 3/3] rx_all e100 patch
-Date: Tue, 25 Nov 2003 17:56:11 +0100
+From: anand@eis.iisc.ernet.in (SVR Anand)
+Subject: Re: 2.6.0-test9-bk25 : bridge works fine
+Date: Tue, 25 Nov 2003 22:51:21 +0530 (GMT+05:30)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031125175611.A1506@sygehus.dk>
-References: <3FC30AEE.7000005@candelatech.com>
+Message-ID: <200311251721.WAA25695@eis.iisc.ernet.in>
+References: <20031123152601.67646dc1.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Content-Transfer-Encoding: 7bit
+Cc: torvalds@osdl.org (Linus Torvalds), linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <3FC30AEE.7000005@candelatech.com>; from greearb@candelatech.com on Mon, Nov 24, 2003 at 11:55:26PM -0800
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20031123152601.67646dc1.davem@redhat.com> from "David S. Miller" at Nov 23, 2003 03:26:01 PM
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 24, 2003 at 11:55:26PM -0800, Ben Greear wrote:
+Hi,
 
-> +		/* Discard over-runs */
-> +		if (bdp->config[6] & CB_CFIG_SAVE_OVERRUNS) {
-> +			bdp->config[6] &= !CB_CFIG_SAVE_OVERRUNS;
-> +			E100_CONFIG(bdp, 6);
->  		}
-> -	}
-> +
-> +		/* Don't send CRC (FCS) to memory */
-> +		if (bdp->config[18] & CB_CFIG_CRC_IN_MEM) {
-> +			bdp->config[18] &= !CB_CFIG_CRC_IN_MEM;
-> +			E100_CONFIG(bdp, 18);
-> +		}
-> +        }
+With test9-bk25, I am not facing any problem for the past many hours which
+was not to be the case with test9. I am hopeful that it will work for ever.
 
-I think you want ~CB_CFIG_XXX instead of !CB_CFIG_XXX.
+Thanks a lot for all the help. Next time I should make it a point to try on 
+the latest of the latest before shooting off a mail :)
 
--- 
-Regards,
-Rask Ingemann Lambertsen
+Anand
+> 
+> On Sat, 22 Nov 2003 08:20:40 -0800 (PST)
+> Linus Torvalds <torvalds@osdl.org> wrote:
+> 
+> > On Sat, 22 Nov 2003, SVR Anand wrote:
+> > > 
+> > > The problem is : After 3 to 4 hours of functioning, the bridge stops working 
+> > > and the machine becomes unusable where it doesn't respond to keyboard, and 
+> > > there is no video display.
+> > 
+> > Sounds like a memory leak somewhere. It would probably be interesting to 
+> > watch /proc/slabinfo every five minutes or so, and see what happens..
+> 
+> Also, we've certainly fixed some serious networking bugs since test9
+> came out.
+> 
