@@ -1,83 +1,82 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
-Date: 11 Sep 2004 15:59:53 -0400
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: 11 Sep 2004 16:15:32 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094932793.2344.82.camel@jzny.localdomain>
-References: <20040910195003.GA13912@bougret.hpl.hp.com>
-	 <20040910200644.GJ20088@postel.suug.ch>
-	 <20040910201302.GA16556@bougret.hpl.hp.com>
-	 <20040910202235.GK20088@postel.suug.ch>
-	 <20040910203203.GA17078@bougret.hpl.hp.com>
-	 <20040910204348.GL20088@postel.suug.ch>
-	 <1094857082.1041.19.camel@jzny.localdomain>
-	 <20040910231726.GP20088@postel.suug.ch>
-	 <1094868070.1042.77.camel@jzny.localdomain>
-	 <20040911134409.GA21181@postel.suug.ch>
+Message-ID: <1094933731.2343.109.camel@jzny.localdomain>
+References: <20040908065152.GC27886@wotan.suse.de>
+	 <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	 <20040908072408.GI27886@wotan.suse.de>
+	 <1094629677.1089.155.camel@jzny.localdomain>
+	 <20040908134713.1bcd46d3.davem@davemloft.net>
+	 <1094823215.1121.129.camel@jzny.localdomain>
+	 <20040911142116.GL4431@wotan.suse.de>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: jt@hpl.hp.com, netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@davemloft.net>, herbert@gondor.apana.org.au,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20040911134409.GA21181@postel.suug.ch>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040911142116.GL4431@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-09-11 at 09:44, Thomas Graf wrote:
-> * jamal <1094868070.1042.77.camel@jzny.localdomain> 2004-09-10 22:01
-> > On Fri, 2004-09-10 at 19:17, Thomas Graf wrote:
+On Sat, 2004-09-11 at 10:21, Andi Kleen wrote:
+> On Fri, Sep 10, 2004 at 09:33:35AM -0400, jamal wrote:
 
-> Possibly, I change everything the user requests me to do.
+> > 
+> > I am not 100% happy but let me do some testing on it. Would the best
+> > image be the latest bk snapshot?
 > 
-> > Valid to receive the two updates i would think in that case.
-> 
-> That's not the problem, the problem is that you may receive
-> more updates than requested changes. Let's assume you're changing
-> the MTU using IFLA_MTU and it succeeds. dev_set_mtu will send
-> out the first update, at the end the do_setlink will send
-> out another update.
-
-Ok, this doesnt sound right. 
-
-> Changing MTU and ifname would result in 3 updates:
-> 
->  1) RTM_NEWLINK with updated mtu (old name)
->
->  2) RTM_NEWLINK with mtu and name updated
->  3) same again as 2)
-> 
-> I personally have no problem with the current behaviour but maybe
-> we should clean this up a bit.
-> 
-> Suggestion:
->  Send out a notify for every change we make. This can result
->  in 7 updates being sent out. It would allow the application
->  to see how far the kernel was successful quite easly or
->  do a revision control and switch back to older configurations.
+> What exactly are you not happy about?
 > 
 
-Not necessary to send all those updates. 
-do_setlink was doing the right thing before your patch. It was
-announcing the change of addresses (broadcast, etc). You introduced new
-features which while related to link level have nothing to do with
-address changes. So my suggestion is making your code the exception.
-i.e something along the lines of:
+Grr, Andi, Did you really have to force me to explain why i am unhappy?
+As a general principle i  think it is against human nature to be happy. 
+In this specific case, though:
+Remember that famous movie breakup line "its just me not you"? 
+Well, this is along those lines;-> I am not as conservative as say
+Donald Becker, but it worries me messing with code that might have
+repurcassions (as innocent as that code seems). It doesnt help that
+recently theres more breakages in the netsched code than there have been
+in the last few years put together.
+If Alexey(who knows that piece of code better than anybody) was awake
+and he ACKed i wouldnt be commenting. 
 
-addrchg = 1;
+Having said that, when i saw your patch with the comment:
+/* 	hard_start_xmit returns: 
+ 	0  device not ready
+ 	1  everything ok
+ 	-1 didn't get device lock (for LLTX)
+*/
 
-if (mtu/weight/name related)
-	addrchng = 0;
-if (!err & addrchang)
-	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+my mythical level of unhapiness went up;-> 
+Clearly for 0 and 1 your comments are misleading/wrong (even though your
+code does the right thing).
 
-Also note, the semantics of netlink are all-or-nothing transaction. i.e
-if one of the things requested for fails then you undo the rest. We can
-probably loosely say that unles the ATOMIC flag is set you dont need to
-undo that .. something to think about (summary is you probably dont want
-to send progress update to user space unless the transaction is
-successful; you however want to report progress of where failure happens
-- as we are discussing at the moment in the error code thread).
+If i was the one who had thought of the need for this new lock-riddance
+then i would have done it as follows:
+- have a devices xmit_lock as an alias to this other lock in case of
+NETIF_F_LLTX 
+Then you wouldnt have to touch this code. Infact if it is not too late
+why not do it like that?
+
+To add to all this, theres well known semantics of what the return code
+means:
+
+-> 0 means the packet was swallowed by driver.
+-> 1 means packet was not swallowed.
+
+I dont know why you would need to introduce a new return code. 
+All the device is saying is "sorry, I am busy, come back later". Infact
+in the pre-softnet days the flag was called precisely "tbusy".
+Now, it would make a lot of sense to introduce new return code if you
+actually have plans to use it. You probably do but havent stated it. Do
+you have plans to use that return code?
+
+Does that explain my unhappiness? ;-> Does that make you happy? ;->
+Now i need to refill my coffee.
 
 cheers,
 jamal
