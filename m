@@ -1,89 +1,93 @@
 From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: fealnx oopses
-Date: Sat, 27 Mar 2004 23:28:51 +0200
+Subject: Re: [PATCH] Silence cs89x0
+Date: Sun, 28 Mar 2004 00:50:30 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403272328.51291.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <200403261214.58127.vda@port.imtp.ilyichevsk.odessa.ua> <20040326233514.B26347@electric-eye.fr.zoreil.com> <4064BB35.4050301@pobox.com>
+Message-ID: <200403280050.31010.vda@port.imtp.ilyichevsk.odessa.ua>
+References: <200403262202.56861.vda@port.imtp.ilyichevsk.odessa.ua> <4064922D.1030306@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: Andreas Henriksson <andreas@fjortis.info>, netdev@oss.sgi.com
+Content-Type: Multipart/Mixed;
+  boundary="Boundary-00=_2UgZAhGI7ZOmqEJ"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>, Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <4064BB35.4050301@pobox.com>
-Content-Disposition: inline
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <4064922D.1030306@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Saturday 27 March 2004 01:22, Jeff Garzik wrote:
-> Francois Romieu wrote:
-> > Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> :
-> > [...]
+
+--Boundary-00=_2UgZAhGI7ZOmqEJ
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+On Friday 26 March 2004 22:27, Jeff Garzik wrote:
+> Denis Vlasenko wrote:
+> > This is the most talkative NIC driver in my .config:
 > >
-> >>Yes. But on x86 a++ is atomic vs interrupts - it's a single instruction
-> >>and interrupts happen on instruction boundaries only.
-> >
-> > Do you realize that you are saying that the CPU can atomically increment
-> > an integer which sits _in memory_ ?
+> > cs89x0:cs89x0_probe(0x0)
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > PP_addr=0xffff
+> > eth0: incorrect signature 0xffff
+> > cs89x0: no cs8900 or cs8920 detected.  Be sure to disable PnP with SETUP
 >
-> Sure you can...
->
-> But start_tx() has two variables free_tx_count and
-> really_tx_count, and about six or seven places those are used.
->
-> And this comment...
->
-> > I can. The problem is, I cannot reproduce oops _without_ patch,
-> > and this renders testing useless.
->
-> Sounds like it fixes the problem, to me.
->
-> 	Jeff
+> Not bad, but what about a patch that notices the 0xffff address, and
+> assumes it won't find anything?
 
-Okay I can reproduce it now. 16 Mb of RAM and underclock to 125 MHz
-did the trick ;)
+It does not access port 0xffff. It tries to say that it probed for hardware
+and:
+PP_addr=0xffff - inw(ioaddr + ADD_PORT) returned all foxes
+eth0: incorrect signature 0xffff - inw(ioaddr + DATA_PORT) returned all foxes,
+which is not known EISA id. Pretty cryptic :)
 
-Sorry Jeff your patch does not fix my problem.
-I also verified that it happens this way:
-(1) rx skb is processed and freed
-(2) allocation failure for new skb
-(3) next rx intr occurs, cur_rx->skbuff still == NULL
-(4) oops
-
-I modified code as follows and I did see all these printk()s
-in sequence:
-
-                        } else {
-                                if(np->cur_rx->skbuff == NULL)
-(3)                                     printk(KERN_ERR "vda: np->cur_rx->skbuff == NULL!\n"); //vda
-(4)                             skb_put(skb = np->cur_rx->skbuff, pkt_len);
-(1)                             np->cur_rx->skbuff = NULL;
-                                if (np->really_rx_count == RX_RING_SIZE)
-                                        np->lack_rxbuf = np->cur_rx;
-                                --np->really_rx_count;
-                        }
-                        skb->protocol = eth_type_trans(skb, dev);
-                        netif_rx(skb);
-                        dev->last_rx = jiffies;
-                        np->stats.rx_packets++;
-                        np->stats.rx_bytes += pkt_len;
-                }
-
-                if (np->cur_rx->skbuff == NULL) {
-                        struct sk_buff *skb;
-
-                        skb = dev_alloc_skb(np->rx_buf_sz);
-
-                        if (skb != NULL) {
-                                skb->dev = dev; /* Mark as being used by this device. */
-                                np->cur_rx->buffer = pci_map_single(np->pci_dev, skb->tail,
-                                        np->rx_buf_sz, PCI_DMA_FROMDEVICE);
-                                np->cur_rx->skbuff = skb;
-                                ++np->really_rx_count;
-                        } else { //vda
-(2)                             printk(KERN_ERR "vda: low on mem, cannot allocate skb!\n");
-                        }
-                }
+Maybe this patch?
 --
 vda
+
+--Boundary-00=_2UgZAhGI7ZOmqEJ
+Content-Type: text/x-diff;
+  charset="iso-8859-1";
+  name="cs89x0.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: attachment;
+	filename="cs89x0.diff"
+
+--- cs89x0.c.orig	Wed Mar 17 22:54:08 2004
++++ cs89x0.c	Sun Mar 28 00:48:19 2004
+@@ -455,10 +455,11 @@
+ 		ioaddr &= ~3;
+ 		outw(PP_ChipID, ioaddr + ADD_PORT);
+ 	}
+-printk("PP_addr=0x%x\n", inw(ioaddr + ADD_PORT));
++	printk(KERN_DEBUG "%s: ioaddr=0x%04x PP_addr=0x%04x\n", dev->name,
++		ioaddr, inw(ioaddr + ADD_PORT));
+ 
+ 	if (inw(ioaddr + DATA_PORT) != CHIP_EISA_ID_SIG) {
+-		printk(KERN_ERR "%s: incorrect signature 0x%x\n",
++		printk(KERN_DEBUG "%s: incorrect signature 0x%04x\n",
+ 			dev->name, inw(ioaddr + DATA_PORT));
+   		retval = -ENODEV;
+   		goto out2;
+
+--Boundary-00=_2UgZAhGI7ZOmqEJ--
