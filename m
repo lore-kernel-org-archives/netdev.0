@@ -1,32 +1,37 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Allow multiple dummy devices again
-Date: Thu, 27 Nov 2003 17:40:12 -0800
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+ <yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH 2.6]: IPv4: strcpy -> strlcpy
+Date: Fri, 28 Nov 2003 11:05:25 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127174012.0bab844e.davem@redhat.com>
-References: <20031128004445.GA2870@averell>
-	<20031127171313.04f89baa.davem@redhat.com>
-	<1069983202.1041.5.camel@jzny.localdomain>
+Message-ID: <20031128.110525.113293143.yoshfuji@linux-ipv6.org>
+References: <20031127142125.GG8276@jdj5.mit.edu>
+	<3FC67128.14704.30155D53@localhost>
+	<1069970946.2138.13.camel@teapot.felipe-alfaro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: ak@muc.de, netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: timo@kamph.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+        davem@redhat.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1069983202.1041.5.camel@jzny.localdomain>
+To: felipe_alfaro@linuxmail.org
+In-Reply-To: <1069970946.2138.13.camel@teapot.felipe-alfaro.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 27 Nov 2003 20:33:22 -0500
-jamal <hadi@cyberus.ca> wrote:
+In article <1069970946.2138.13.camel@teapot.felipe-alfaro.com> (at Thu, 27 Nov 2003 23:09:06 +0100), Felipe Alfaro Solana <felipe_alfaro@linuxmail.org> says:
 
-> On Thu, 2003-11-27 at 20:13, David S. Miller wrote:
-> 
-> > Even though we generally frown upon module options for networking
-> > devices, I think it's wholly appropriate for this case.
-> 
-> Why not make it also a boot option?
+> diff -uNr linux-2.6.0-test11.orig/net/ipv4/ipconfig.c linux-2.6.0-test11/net/ipv4/ipconfig.c
+> --- linux-2.6.0-test11.orig/net/ipv4/ipconfig.c	2003-11-26 21:42:55.000000000 +0100
+> +++ linux-2.6.0-test11/net/ipv4/ipconfig.c	2003-11-27 13:32:06.904650818 +0100
+> @@ -299,7 +299,7 @@
+>  	int err;
+>  
+>  	memset(&ir, 0, sizeof(ir));
+> -	strcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name);
+> +	strlcpy(ir.ifr_ifrn.ifrn_name, ic_dev->name, sizeof(ir.ifr_ifrn.ifrn_name));
 
-They're one in the same these days.
+please use
+	strlcpy(ir.ifr_name, ic_dev->name, sizeof(ir.ifr_name));
+instead.
 
-If the driver is built as a module, you pass the option in with
-at modload time, else you pass it in on the kernel command line.
+--yoshfuji
