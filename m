@@ -1,8 +1,8 @@
 From: Jesse Brandeburg <jesse.brandeburg@intel.com>
-Subject: [PATCH 2/2 2.6] e100: whitespace and DPRINTKS
-Date: Wed, 22 Sep 2004 12:27:44 -0700 (PDT)
+Subject: [PATCH 1/1 2.6] RESEND ixgb: fix endianness issue for tx cleanup
+Date: Wed, 22 Sep 2004 12:30:58 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0409221226020.7544-100000@isotope.jf.intel.com>
+Message-ID: <Pine.LNX.4.44.0409221227470.7544-100000@isotope.jf.intel.com>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: netdev@oss.sgi.com
@@ -11,54 +11,29 @@ To: jgarzik@pobox.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a short patch to add a couple of new DPRINTKS and fix some 
-whitespace issues.
+This patch fixes tx cleanup so that it works correctly on big endian 
+machines.
+This time I remembered to update the version string.
 
 Signed-off-by: Jesse Brandeburg <jesse.brandeburg@intel.com>
 
---- netdev-2.6/drivers/net/e100.c	2004-09-21 13:54:33.000000000 -0700
-+++ /home/jbrandeb/netdev-2.6/drivers/net/e100.c.msg.patch	2004-09-22 11:55:01.000000000 -0700
-@@ -1305,6 +1305,7 @@ static int e100_xmit_frame(struct sk_buf
- 	switch(err) {
- 	case -ENOSPC:
- 		/* We queued the skb, but now we're out of space. */
-+		DPRINTK(TX_ERR, DEBUG, "No space for CB\n");
- 		netif_stop_queue(netdev);
- 		break;
- 	case -ENOMEM:
-@@ -1469,7 +1470,7 @@ static inline int e100_rx_indicate(struc
+--- netdev-2.6/drivers/net/ixgb/ixgb_main.c	2004-09-21 13:54:34.000000000 -0700
++++ /home/jbrandeb/netdev-2.6/drivers/net/ixgb/ixgb_main.c	2004-09-22 12:01:42.000000000 -0700
+@@ -30,7 +30,7 @@
  
- 	/* If data isn't ready, nothing to indicate */
- 	if(unlikely(!(rfd_status & cb_complete)))
--       		return -EAGAIN;
-+		return -EAGAIN;
+ char ixgb_driver_name[] = "ixgb";
+ char ixgb_driver_string[] = "Intel(R) PRO/10GbE Network Driver";
+-char ixgb_driver_version[] = "1.0.66";
++char ixgb_driver_version[] = "1.0.66-k2";
+ char ixgb_copyright[] = "Copyright (c) 2001-2004 Intel Corporation.";
  
- 	/* Get actual data size */
- 	actual_size = le16_to_cpu(rfd->actual_size) & 0x3FFF;
-@@ -1761,7 +1762,7 @@ static int e100_loopback_test(struct nic
+ /* ixgb_pci_tbl - PCI Device ID Table
+@@ -1676,7 +1676,7 @@ static boolean_t ixgb_clean_tx_irq(struc
+ 	eop = tx_ring->buffer_info[i].next_to_watch;
+ 	eop_desc = IXGB_TX_DESC(*tx_ring, eop);
  
- 	if(memcmp(nic->rx_to_clean->skb->data + sizeof(struct rfd),
- 	   skb->data, ETH_DATA_LEN))
--       		err = -EAGAIN;
-+		err = -EAGAIN;
+-	while (eop_desc->status & cpu_to_le32(IXGB_TX_DESC_STATUS_DD)) {
++	while (eop_desc->status & IXGB_TX_DESC_STATUS_DD) {
  
- err_loopback_none:
- 	mdio_write(nic->netdev, nic->mii.phy_id, MII_BMCR, 0);
-@@ -1960,6 +1961,8 @@ static int e100_set_ringparam(struct net
- 	rfds->count = min(rfds->count, rfds->max);
- 	cbs->count = max(ring->tx_pending, cbs->min);
- 	cbs->count = min(cbs->count, cbs->max);
-+	DPRINTK(DRV, INFO, "Ring Param settings: rx: %d, tx %d\n",
-+	        rfds->count, cbs->count);
- 	if(netif_running(netdev))
- 		e100_up(nic);
- 
-@@ -2352,7 +2355,7 @@ static int __init e100_init_module(void)
- 		printk(KERN_INFO PFX "%s, %s\n", DRV_DESCRIPTION, DRV_VERSION);
- 		printk(KERN_INFO PFX "%s\n", DRV_COPYRIGHT);
- 	}
--        return pci_module_init(&e100_driver);
-+	return pci_module_init(&e100_driver);
- }
- 
- static void __exit e100_cleanup_module(void)
+ 		for (cleaned = FALSE; !cleaned;) {
+ 			tx_desc = IXGB_TX_DESC(*tx_ring, i);
