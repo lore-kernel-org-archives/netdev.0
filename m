@@ -1,30 +1,36 @@
-From: "chas williams - CONTRACTOR" <chas@cmf.nrl.navy.mil>
-Subject: Re: [Linux-ATM-General] [RFC][PATCH] Very basic sysfs support for ATM devices (updated)
-Date: Sat, 05 Feb 2005 20:33:18 -0500
-Message-ID: <200502060133.j161XIj3007281@ginger.cmf.nrl.navy.mil>
-References: <20050204201327.GA2439@katya>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com, linux-atm-general@lists.sourceforge.net,
-        usbatm@lists.infradead.org
-To: Roman Kagan <rkagan@mail.ru>
-Reply-To: chas3@users.sourceforge.net
-In-reply-to: Your message of "Fri, 04 Feb 2005 23:13:27 +0300."
-             <20050204201327.GA2439@katya>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: PROBLEM: 2.6.11-rc2 hangs on bridge shutdown (br0)
+Date: Sat, 5 Feb 2005 20:02:42 -0800
+Message-ID: <20050205200242.2b629de7.davem@davemloft.net>
+References: <20050205061110.GA18275@gondor.apana.org.au>
+	<20050204221344.247548cb.davem@davemloft.net>
+	<20050205064643.GA29758@gondor.apana.org.au>
+	<20050205.195039.05988480.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: herbert@gondor.apana.org.au, mirko.parthey@informatik.tu-chemnitz.de,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com, shemminger@osdl.org
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20050205.195039.05988480.yoshfuji@linux-ipv6.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20050204201327.GA2439@katya>,Roman Kagan writes:
->> +static CLASS_DEVICE_ATTR(address, S_IRUGO, show_address, NULL);
->Maybe it should better be "esi", to match the name in struct atm_dev?
+On Sat, 05 Feb 2005 19:50:39 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-its called address for ethernet network interfaces so i guess calling
-it address here is sensible.
+> In article <20050205064643.GA29758@gondor.apana.org.au> (at Sat, 5 Feb 2005 17:46:43 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
+> 
+> > If we wanted to preserve the split device semantics, then we
+> > can create a local GC list in IPv6 so that it can search based
+> > on rt6i_idev as well as the other keys.  Alternatively we can
+> > remove the dst->dev == dev check in dst_dev_event and dst_ifdown
+> > and move that test down to the individual ifdown functions.
+> 
+> Yes, IPv6 needs "split device" semantics
+> (for per-device statistics such as Ip6InDelivers etc),
+> and I like later solution.
 
->script, and hoping that was enough for the driver to complete
->initializing atm_dev.  I suspect the only way to fix it is to split the
->atm_dev initialization into two stages, allocation and registration, as
->it is done for net_device.
-
-yeah which is why i just wanted to convert atm_dev to just be a netdevice.
-the code is already written and "stable".
+Ok.  I never read whether ipv6, like ipv4, is specified to support
+a model of host based ownership of addresses.  Does anyone know?
