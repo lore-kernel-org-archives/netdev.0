@@ -1,32 +1,45 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: dev_add_pack and hardware checksumming
-Date: Sun, 17 Aug 2003 22:38:51 -0700
+From: Val Henson <val@nmt.edu>
+Subject: Re: [bk patches] add ethtool_ops to net drivers
+Date: Mon, 18 Aug 2003 00:15:11 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817223851.5185bdee.davem@redhat.com>
-References: <20030818033711.GA21360@vana.vc.cvut.cz>
+Message-ID: <20030818061511.GA1255@speare5-1-14>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Petr Vandrovec <vandrove@vc.cvut.cz>
-In-Reply-To: <20030818033711.GA21360@vana.vc.cvut.cz>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 05:37:11 +0200
-Petr Vandrovec <vandrove@vc.cvut.cz> wrote:
+I needed the following patch to compile netsyms.c - just a missing
+include.
 
->   For me it would be best if dev_queue_xmit_nit could just leave
-> skb->h.raw alone,
+Thanks,
 
-The AF_PACKET layer depends upon skb->h.raw being set a certain
-way.  Have a look at the dev_add_pack() registered hooks that
-net/packet/af_packet.c uses.
+-VAL
 
-> Other choice is doing checksumming in dev_queue_xmit_nit itself,
-> before passing skb down to the registered packet handlers.
-
-This is not an option either.  We're specifically not going to
-undo checksum offloading just because tcpdump or some other
-kind of tap is installed.
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1214  -> 1.1215 
+#	       net/netsyms.c	1.93    -> 1.94   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/17	val@host4.sbcglobal.net	1.1215
+# Add missing include for ethtool ops
+# --------------------------------------------
+#
+diff -Nru a/net/netsyms.c b/net/netsyms.c
+--- a/net/netsyms.c	Sun Aug 17 20:26:07 2003
++++ b/net/netsyms.c	Sun Aug 17 20:26:07 2003
+@@ -626,6 +626,7 @@
+ EXPORT_SYMBOL(linkwatch_fire_event);
+ 
+ /* ethtool.c */
++#include <linux/ethtool.h>
+ EXPORT_SYMBOL(ethtool_op_get_link);
+ EXPORT_SYMBOL(ethtool_op_get_tx_csum);
+ EXPORT_SYMBOL(ethtool_op_get_sg);
