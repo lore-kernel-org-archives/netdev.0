@@ -1,46 +1,51 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [RFC] Patch to Abstract Ethernet PHY support (using driver model)
-Date: Thu, 13 Jan 2005 12:22:20 -0600
-Message-ID: <103A69BE-6590-11D9-8D70-000393C30512@freescale.com>
-References: <FC6D9B81-5514-11D9-8D51-000393C30512@freescale.com> <A3A281FF-5525-11D9-80ED-000393C30512@freescale.com> <D3652CF8-6571-11D9-821C-000393DBC2E8@freescale.com> <20050113090250.15444e09@dxpl.pdx.osdl.net>
-Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Kumar Gala <kumar.gala@freescale.com>, Jeff Garzik <jgarzik@pobox.com>,
-        Netdev <netdev@oss.sgi.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [RFC] meta ematch
+Date: Thu, 13 Jan 2005 20:20:47 +0100
+Message-ID: <20050113192047.GQ26856@postel.suug.ch>
+References: <20050105144514.GQ26856@postel.suug.ch> <1105019225.2312.7.camel@jzny.localdomain> <20050106194102.GW26856@postel.suug.ch> <1105105511.1046.77.camel@jzny.localdomain> <20050108145457.GZ26856@postel.suug.ch> <1105363582.1041.162.camel@jzny.localdomain> <20050110211747.GA26856@postel.suug.ch> <1105394738.1085.63.camel@jzny.localdomain> <20050113174111.GP26856@postel.suug.ch> <41E6C3E5.2020908@trash.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jamal <hadi@cyberus.ca>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20050113090250.15444e09@dxpl.pdx.osdl.net>
-To: Stephen Hemminger <shemminger@osdl.org>
+To: Patrick McHardy <kaber@trash.net>
+Content-Disposition: inline
+In-Reply-To: <41E6C3E5.2020908@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+* Patrick McHardy <41E6C3E5.2020908@trash.net> 2005-01-13 19:54
 
-On Jan 13, 2005, at 11:02, Stephen Hemminger wrote:
->> On Dec 23, 2004, at 3:00 PM, Andy Fleming wrote:
->>
->>> It has been suggested that I split the patch into 2 parts: gianfar
->>> specific stuff, and PHY specific stuff.
->>>
->>> Here is the result:
->>> <gfar_12232004.patch><phy_12232004.patch><ATT229010.txt>
->>
->
-> It would be more valuable if there were cases where multiple different 
-> boards that
-> use the same type of PHY chip were supported. Even better if it could 
-> subsume the existing
-> MII code. Don't know enough about all the different flavors of 
-> hardware to know what
-> combinations exist but it looks like there are different boards that 
-> have the same
-> PHY chips. It looks like the FreeBSD tries to abstract this.
+> Looks great. I have a few doubts about about the set of chosen values
+> though. Things like nf_debug and nf_cache were never meant to be
+> userspace-visible. What about backwards compatibility if we want to
+> remove it, or some other more meaningful value where just returning 0
+> wouldn't be the same ?
 
-I'm not clear what you mean here.  The whole point of the code is to 
-allow different boards which use the same PHY chip to use the same 
-code.  The only code that would be different is code that is specific 
-to the board.  Does this code not fulfill that requirement?
+It is indeed problematic and they should be marked as "for debugging
+purposes (unreliable)" but at least nf_debug and nfctinfo are
+very useful for debugging.
 
-Andy Fleming
-Open Source Team
-Freescale Semiconductor, Inc
+> - var_dev sets dst->value to dev->name, meta_var_destroy will try to
+>  free dev->name.
+
+The `dst` meta_value is the l_value/r_lvalue from em_meta_match and
+never gets destroyed. I reused meta_data to store address & length.
+It might be a good idea to make a new struct for this to make it
+more readable though.
+
+> - meta_int_change only uses 32 bit, but dst->value is unsigned long
+>  (64 bit on 64-bit arches). nfmark for example is unsigned long, so
+>  you should also use *(unsigned long *).
+
+Doesn't work when size of long differs between kernel and userspace.
+I'm aware of this but it seems everyone is using int anyway for nfmark,
+so yes this indeed limits the use of nfmark match to only 32 bits
+on 64bit machines. The proper way is to introduce a new type
+TCF_EM_TYPE_INT64 and access nfmark over it but I didn't want to
+create a new type just because of this special case. We can always
+add it later as addition to the 32bit version.
+
+> - for the same reason meta_int_compare should return long not int
+
+Agreed.
