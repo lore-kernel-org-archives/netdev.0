@@ -1,36 +1,33 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][ATM][2.4] export try_atm_clip_ops not
- atm_clip_ops_mutex
-Date: Wed, 30 Jul 2003 15:58:44 -0700
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] add likely/unlikely to pskb_may_pull
+Date: Wed, 30 Jul 2003 16:18:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030730155844.43ca22d9.davem@redhat.com>
-References: <20030730102437.B3901@infradead.org>
-	<200307301435.h6UEZDsG010062@ginger.cmf.nrl.navy.mil>
+Message-ID: <20030730161854.3cb03258.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: chas@cmf.nrl.navy.mil, hch@infradead.org, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: chas3@users.sourceforge.net
-In-Reply-To: <200307301435.h6UEZDsG010062@ginger.cmf.nrl.navy.mil>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 30 Jul 2003 10:32:31 -0400
-chas williams <chas@cmf.nrl.navy.mil> wrote:
+Code that deals with received headers needs to be robust and use pskb_may_pull in many
+places, but except in the case of DOS attacks, the packets are always correctly formed
+so optimize for that case.
 
-> In message <20030730102437.B3901@infradead.org>,Christoph Hellwig writes:
-> >On Tue, Jul 29, 2003 at 10:33:27PM -0700, David S. Miller wrote:
-> >Hmm, this looks like a fix for modular compilation and should
-> >probably go into 2.4.22..
-> 
-> i would prefer it to be applied to 2.4.22 but if it cant be done
-> it cant be done.  i am not pressed.
-
-Modular ATM is a new attribute of 2.4.22, so if it is broken in
-some way we are no worse off than we were in 2.4.21
-
-I really don't consider this critical at all.  And itsy bitsy fixes
-like this continually pouring into Marcelo's tree in late stages are
-why his releases get delayed for so long, and I'm not going to
-contribute to that problem.
+diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	Wed Jul 30 15:50:31 2003
++++ b/include/linux/skbuff.h	Wed Jul 30 15:50:31 2003
+@@ -904,9 +904,9 @@
+ 
+ static inline int pskb_may_pull(struct sk_buff *skb, unsigned int len)
+ {
+-	if (len <= skb_headlen(skb))
++	if (likely(len <= skb_headlen(skb)))
+ 		return 1;
+-	if (len > skb->len)
++	if (unlikely(len > skb->len))
+ 		return 0;
+ 	return __pskb_pull_tail(skb, len-skb_headlen(skb)) != NULL;
+ }
