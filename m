@@ -1,65 +1,40 @@
-From: Darren Williams <dsw@gelato.unsw.edu.au>
-Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP 16-way)
-Date: Fri, 7 Jan 2005 20:25:19 +1100
-Message-ID: <20050107092519.GA20134@cse.unsw.EDU.AU>
-References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU> <20041220161552.2b88aa3d.davem@davemloft.net> <16839.30796.413939.333935@wombat.chubb.wattle.id.au> <20050106151910.4d51673e.davem@davemloft.net> <20050107001743.GH17027@cse.unsw.EDU.AU> <20050106194838.0909020a.davem@davemloft.net> <20050107053009.GI17027@cse.unsw.EDU.AU> <20050106212838.5e94af1f.davem@davemloft.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: [RFC PATCH] Fix double dereference
+Date: Fri, 07 Jan 2005 18:30:39 +0900 (JST)
+Message-ID: <20050107.183039.59264047.yoshfuji@linux-ipv6.org>
+References: <41DA3A60.8050102@pobox.com>
+	<20050107.111806.27181187.yoshfuji@linux-ipv6.org>
+	<20050106195333.2a90f6cb.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Darren Williams <dsw@gelato.unsw.edu.au>, peterc@gelato.unsw.edu.au,
-        netdev@oss.sgi.com, mchan@broadcom.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, herbert@gondor.apana.org.au,
+        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050106212838.5e94af1f.davem@davemloft.net>
+To: davem@davemloft.net
+In-Reply-To: <20050106195333.2a90f6cb.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi David
+In article <20050106195333.2a90f6cb.davem@davemloft.net> (at Thu, 6 Jan 2005 19:53:33 -0800), "David S. Miller" <davem@davemloft.net> says:
 
-On Thu, 06 Jan 2005, David S. Miller wrote:
-
-> On Fri, 7 Jan 2005 16:30:09 +1100
-> Darren Williams <dsw@gelato.unsw.edu.au> wrote:
+> On Fri, 07 Jan 2005 11:18:06 +0900 (JST)
+> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 > 
-> > > In any case, please try this one instead which is a variant
-> > > of the second patch Peter proposed plus some signedness fixes
-> > > I've done.
-> > > 
-> > No still no link. The patch that I have working is:
-> > tg3.c:v2.9 (March 8, 2004)
-> > that I took from 2.6.7
+> > Am I miss something?
 > 
-> Darren, I believe you are confusing this entire situation.
-> And I should have suspected this when you were responding
-> to my test requests instead of Peter.
-> 
-> Peter had a problem on a 16-way HP machine, and the patch
-> that I just gave to you is nearly identical to his which
-> he said makes his problem go away.
-> 
-Yes it the same machine.
+> Does every path which destroys an ipv6 socket do the
+> sk_dst_reset()?  If so, your patch should be valid.
 
-> Are you having the same problem on the same configuration or
-> are you hoping this fixes some other tg3 bug that you happen
-> to be seeing?
+Currently, inet6_destroy_sock() in net/ipv6/af_inet6.c, which is
+called from udpv6_destory_sock() etc., takes care of this.
+In that means, yes.
 
-I'm having the same problem on the same machine. Peter's
-original patch fixed it once as far as I know. I have patched
-the currently kernel with Peter's original patch though have
-had no success bringing the interface up.
+However, one for ipv4 doesn't do this.
 
-Thats why I started looking at older drivers since they
-play nicely with the switch.
+I'll come up with new changesets.
 
-Peter is currently on holidays, and I am using the machine
-for benchmarking and assisting with solving this problem. 
+Thanks.
 
-I should of let you know to avoid the confusion.
-
-Darren
-
---------------------------------------------------
-Darren Williams <dsw AT gelato.unsw.edu.au>
-Gelato@UNSW <www.gelato.unsw.edu.au>
---------------------------------------------------
+--yoshfuji
