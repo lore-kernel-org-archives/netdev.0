@@ -1,26 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: [PATCH r8169] ethtool support and sane speed selection/detection
-Date: Wed, 28 Apr 2004 17:51:35 +0200
+From: Dax Kelson <dax@gurulabs.com>
+Subject: Re: 2.6.5, IPSec, NAT funnies
+Date: Wed, 28 Apr 2004 11:45:47 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040428175135.A27651@electric-eye.fr.zoreil.com>
-References: <20040424050931.14C341D4F@luto.stanford.edu> <408FA6B3.1000805@terra.com.br> <408FD2CB.6000102@myrealbox.com>
+Message-ID: <1083174347.2803.9.camel@mentor.gurulabs.com>
+References: <1083133394.2817.40.camel@mentor.gurulabs.com>
+	 <408F5555.3080303@gmc.lt>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Felipe W Damasio <felipewd@terra.com.br>, netdev@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Lutomirski <luto@myrealbox.com>
-Content-Disposition: inline
-In-Reply-To: <408FD2CB.6000102@myrealbox.com>; from luto@myrealbox.com on Wed, Apr 28, 2004 at 08:50:35AM -0700
+To: Aidas Kasparas <a.kasparas@gmc.lt>
+In-Reply-To: <408F5555.3080303@gmc.lt>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andy Lutomirski <luto@myrealbox.com> :
-[...]
-> Francois, do you want a new patch, or should I wait until you finish 
-> whatever you're doing?
+On Wed, 2004-04-28 at 00:55, Aidas Kasparas wrote:
+> Kernel bug. IPSec changes ip headers, but fails to say about this to 
+> conntrack. More information 
+> http://bugs.debian.org/cgi-bin/bugreport.cgi?bug=215980
+> Patch at 
+> http://bugs.debian.org/cgi-bin/bugreport.cgi/ipsec_conntrack.diff?bug=215980&msg=3&att=1
 
-I have already added some locks. Btw the timer should probably be protected
-as well.
+A 7 month old kernel bug with a patch. Is there any reason why this
+hasn't been rolled into the Linus tree yet? Is the something
+objectionable with the patch?
 
---
-Ueimor
+Dax Kelson
+Guru Labs
