@@ -1,69 +1,60 @@
-From: Daniele Venzano <webvenza@libero.it>
-Subject: [PATCH 5/5] sis900 printk and stack usage audit
-Date: Wed, 8 Dec 2004 12:10:10 +0100
-Message-ID: <20041208111010.GF31707@picchio.gall.it>
-References: <20041208104721.GA31707@picchio.gall.it>
+From: Lennert Buytenhek <buytenh@wantstofly.org>
+Subject: Re: inter-packet gap in pktgen
+Date: Wed, 8 Dec 2004 12:15:49 +0100
+Message-ID: <20041208111549.GA5703@xi.wantstofly.org>
+References: <20041207222522.GA30266@xi.wantstofly.org> <41B632F3.1090104@candelatech.com> <20041208073858.GA4027@xi.wantstofly.org> <16822.54722.755218.745451@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="oplxJGu+Ee5xywIT"
+Content-Type: text/plain; charset=us-ascii
+Cc: Ben Greear <greearb@candelatech.com>, hadi@cyberus.ca, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: NetDev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
 Content-Disposition: inline
-In-Reply-To: <20041208104721.GA31707@picchio.gall.it>
+In-Reply-To: <16822.54722.755218.745451@robur.slu.se>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, Dec 08, 2004 at 11:21:54AM +0100, Robert Olsson wrote:
 
---oplxJGu+Ee5xywIT
-Content-Type: multipart/mixed; boundary="tSiBuZsJmMXpnp7T"
-Content-Disposition: inline
+>  > Another option is:
+>  > 
+>  > 	next_tx = get_time_in_ns();
+>  > 	while (--count) {
+>  > 		tx_packet();
+>  > 		next_tx += 1e9/intended_pps;
+>  > 		nanospin(next_tx - get_time_in_ns());
+>  > 	}
+> 
+>  Hello!
+> 
+>  I think this what Ben is doing with his userland app. Ev. adjusting
+>  the ipg delay in runtime? A kind of control system.
+
+I think what Ben is doing is just measuring the # of pps and then
+using a PI-controller or something like that to adjust the ipg.
+
+What I mean is something like this (warning: whitespace damaged.)  But
+this gives me an IPG that is consistently too small.  Are the nanospin()
+and pg_udelay() functions accurate?
 
 
---tSiBuZsJmMXpnp7T
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-Change comment to reflect changes in parameters od sis630_set_eq
-
-Signed-off-by: Daniele Venzano <webvenza@libero.it>
-
--- 
------------------------------
-Daniele Venzano
-Web: http://teg.homeunix.org
+--L
 
 
---tSiBuZsJmMXpnp7T
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="sis900-sis630-docs.diff"
+--- pktgen.c.04111.orig 2004-12-08 11:57:03.627392497 +0100
++++ pktgen.c    2004-12-08 12:11:35.777150214 +0100
+@@ -2794,7 +2794,13 @@
+                                pkt_dev->last_ok = 0;
+                                pkt_dev->next_tx_ns = getRelativeCurNs(); /* TODO */
+                }
+-               pkt_dev->next_tx_ns = getRelativeCurNs() + pkt_dev->ipg;
++               if (now == 0)
++                       now = getRelativeCurNs();
++               pkt_dev->next_tx_ns += pkt_dev->ipg;
++               if (pkt_dev->next_tx_ns < now) {
++                       pkt_dev->next_tx_ns = now;
++                       pkt_dev->errors++;         /* missed ipg deadline */
++               }
+        }
 
-Index: sis900.c
-===================================================================
---- a/drivers/net/sis900.c	(revision 43)
-+++ b/drivers/net/sis900.c	(revision 44)
-@@ -1121,7 +1121,6 @@
- /**
-  *	sis630_set_eq - set phy equalizer value for 630 LAN
-  *	@net_dev: the net device to set equalizer value
-- *	@revision: 630 LAN revision number
-  *
-  *	630E equalizer workaround rule(Cyrus Huang 08/15)
-  *	PHY register 14h(Test)
-
---tSiBuZsJmMXpnp7T--
-
---oplxJGu+Ee5xywIT
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBtuES2rmHZCWzV+0RAv3BAJ9iap/qRLxiEoc0yRXdy5kSS7RdHwCeNBdH
-3X4qLtiWfkFz1ADLgpxnUJc=
-=5Kxh
------END PGP SIGNATURE-----
-
---oplxJGu+Ee5xywIT--
+        else {  /* Retry it next time */
