@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 9/5 2.6.6-bk8] pcnet32: avoid timeout with tcpdump
-Date: Wed, 26 May 2004 13:52:53 -0700 (PDT)
+Subject: [PATCH 9/5 2.4.27-pre3] pcnet32: avoid timeout with tcpdump
+Date: Wed, 26 May 2004 13:55:06 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200405262052.i4QKqss27931@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200405262055.i4QKt6B27943@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -14,10 +14,9 @@ List-Id: netdev.vger.kernel.org
 This patch avoids a timeout when entering/exiting promiscuous mode with
 tcpdump.  All pending xmit operations are flushed and if the queue is
 full the timeout will occur.  The wake_queue avoids that timeout.
-Tested ppc64 and ia32. 
 
---- linux-2.6.6-bk8/drivers/net/big.pcnet32.c	Wed May 26 12:23:09 2004
-+++ linux-2.6.6-bk8/drivers/net/pcnet32.c	Wed May 26 12:24:37 2004
+--- linux-2.4.27-pre3/drivers/net/big.pcnet32.c	Wed May 26 12:30:23 2004
++++ linux-2.4.27-pre3/drivers/net/pcnet32.c	Wed May 26 12:30:36 2004
 @@ -22,8 +22,8 @@
   *************************************************************************/
  
@@ -37,7 +36,7 @@ Tested ppc64 and ia32.
   */
  
  
-@@ -1859,6 +1860,7 @@
+@@ -1858,6 +1859,7 @@
  	    /* stop the chip to clear the error condition, then restart */
  	    lp->a.write_csr (ioaddr, 0, 0x0004);
  	    pcnet32_restart(dev, 0x0002);
@@ -45,7 +44,7 @@ Tested ppc64 and ia32.
  	}
      }
  
-@@ -2130,8 +2132,9 @@
+@@ -2123,8 +2125,9 @@
      }
  
      lp->a.write_csr (ioaddr, 0, 0x0004); /* Temporarily stop the lance. */
