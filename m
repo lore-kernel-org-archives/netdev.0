@@ -1,42 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] SCTP: typo in Kconfig
-Date: Sat, 16 Aug 2003 05:33:32 +0900 (JST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030816.053332.108341697.yoshfuji@linux-ipv6.org>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH] (10/11) netrom - convert /proc interface to seq_file
+Date: Fri, 15 Aug 2003 18:12:17 -0300
+Sender: linux-hams-owner@vger.kernel.org
+Message-ID: <20030815211217.GL1564@conectiva.com.br>
+References: <20030813154635.376df59b.shemminger@osdl.org> <20030814172539.GD1785@conectiva.com.br> <20030814113025.2b40be14.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>,
+	Jeroen Vreeken <pe1rxq@amsat.org>, linux-hams@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-hams-owner@vger.kernel.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20030814113025.2b40be14.shemminger@osdl.org>
 List-Id: netdev.vger.kernel.org
 
-Hello.
+Em Thu, Aug 14, 2003 at 11:30:25AM -0700, Stephen Hemminger escreveu:
+> On Thu, 14 Aug 2003 14:25:39 -0300
+> Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+> > <nitpick> why not just one seq_printf call? </nitpick>
+> 
+> ax2asc() returns a pointer to static buffer.
 
-This patch fixes typo in net/sctp/Kconfig.
+argh :-\ Even if only for correctness shouldn't it receive a buffer, like
+snprintf, etc?
 
-Thanks in advance.
-
-Index: linux-2.6/net/sctp/Kconfig
-===================================================================
-RCS file: /home/cvs/linux-2.5/net/sctp/Kconfig,v
-retrieving revision 1.6
-diff -u -r1.6 Kconfig
---- linux-2.6/net/sctp/Kconfig	10 May 2003 12:19:24 -0000	1.6
-+++ linux-2.6/net/sctp/Kconfig	15 Aug 2003 19:01:23 -0000
-@@ -43,7 +43,7 @@
- 	bool "SCTP: Use old checksum (Adler-32)"
- 	depends on IP_SCTP
- 	help
--	  RCF2960 currently specifies the Adler-32 checksum algorithm for SCTP.
-+	  RFC2960 currently specifies the Adler-32 checksum algorithm for SCTP.
- 	  This has been deprecated and replaced by an algorithm now referred
- 	  to as crc32c.
- 
-
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+- Arnaldo
