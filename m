@@ -1,36 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH] [NETFILTER] Fix "undefined reference" error if
- CONFIG_SYSCTL=n
-Date: Fri, 10 Sep 2004 15:10:29 -0700
-Sender: netfilter-devel-bounces@lists.netfilter.org
-Message-ID: <20040910151029.7795e336.davem@davemloft.net>
-References: <20040910.153135.121099678.yoshfuji@linux-ipv6.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPCOMP] Use per-cpu buffers
+Date: Sat, 11 Sep 2004 08:33:15 +1000
+Sender: linux-ppp-owner@vger.kernel.org
+Message-ID: <20040910223315.GA1335@gondor.apana.org.au>
+References: <20040910111047.GA29330@gondor.apana.org.au> <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com, netfilter-devel@lists.netfilter.org
-Return-path: <netfilter-devel-bounces@lists.netfilter.org>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040910.153135.121099678.yoshfuji@linux-ipv6.org>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: </pipermail/netfilter-devel>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-Errors-To: netfilter-devel-bounces@lists.netfilter.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+	netdev@oss.sgi.com, linux-ppp@vger.kernel.org, paulus@samba.org
+Return-path: <linux-ppp-owner@vger.kernel.org>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0409101140160.6664-100000@thoron.boston.redhat.com>
 List-Id: netdev.vger.kernel.org
 
-On Fri, 10 Sep 2004 15:31:35 +0900 (JST)
-YOSHIFUJI Hideaki / =1B$B5HF#1QL@=1B(B <yoshfuji@linux-ipv6.org> wrote:
+On Fri, Sep 10, 2004 at 11:42:00AM -0400, James Morris wrote:
+> 
+> I haven't looked at the code for a while, but I think we might be able to 
+> save some memory by specifying compression parameters and making the 
+> appropriate changes to zlib.
 
-> Fix the following error if CONFIG_SYSCTL=3Dn.
->=20
-> | net/built-in.o: In function `tcp_in_window':
-> | net/built-in.o(.text+0x49571): undefined reference to `ip_ct_log_invali=
-d'
- ...=20
-> Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
+It'd also be nice to add a compression algorithm that requires little 
+memory to run.  That way we can get a clear picture of what interface
+changes are OK and what aren't.
 
-Applied, thanks.
+Could we perhaps use v44? Is the patent an issue?
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
