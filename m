@@ -1,45 +1,60 @@
-From: Christoph Lameter <christoph@lameter.com>
-Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Tue, 5 Apr 2005 12:58:15 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0504051252280.14264@server.graphe.net>
-References: <Pine.LNX.4.58.0504051155260.13697@server.graphe.net>
- <20050405123438.28f02423.davem@davemloft.net> <Pine.LNX.4.58.0504051238390.14264@server.graphe.net>
- <20050405125014.1ce46c66.davem@davemloft.net>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [IPSEC]: Kill nested read lock by deleting xfrm_init_tempsel
+Date: Tue, 05 Apr 2005 22:01:38 +0200
+Message-ID: <4252EEA2.5020107@trash.net>
+References: <20050214221607.GC18465@gondor.apana.org.au> <424864CE.5060802@trash.net> <20050328233917.GB15369@gondor.apana.org.au> <424B40C2.90304@trash.net> <20050331004658.GA26395@gondor.apana.org.au> <20050331212325.5e996432.davem@davemloft.net> <20050402004956.GA24339@gondor.apana.org.au> <20050401172007.7296eced.davem@davemloft.net> <20050402020947.GA24998@gondor.apana.org.au> <42501E51.3000401@trash.net> <20050405103918.GA24863@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------020902000605070609010800"
+Cc: "David S. Miller" <davem@davemloft.net>, kuznet@ms2.inr.ac.ru,
+        jmorris@redhat.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050405125014.1ce46c66.davem@davemloft.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050405103918.GA24863@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 5 Apr 2005, David S. Miller wrote:
+This is a multi-part message in MIME format.
+--------------020902000605070609010800
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> > I fail to see what the point of having a single instance of
-> > atomic_dec_and_test for __refcnt is. In particular since the upper layers
-> > guarantee that dst_destroy is not called multiple times for the same dst
-> > entry.
->
-> If this is true, what performance improvement could you possibly be
-> seeing from this change?
+Herbert Xu wrote:
+> On Sun, Apr 03, 2005 at 06:48:17PM +0200, Patrick McHardy wrote:
+> 
+>>Agreed. There is also a bug in my patch, tmpl->daddr can be 0 in which
+>>case the daddr passed as an argument to xfrm_state_find() will be used.
+>>My patch only checked tmpl->daddr, this patch fixes it. It also uses
+> 
+> 
+> Why not just use daddr? It's always guaranteed to be correct.
 
-We could make refcnt into an array of pointers that point to node specific
-memory. This avoids cache line bouncing. However, you cannot atomically
-dec_and_test an array. This is the only location where a dec_and_test is
-used on dst->__refcnt.
+Good idea, I didn't think of this. This patch is without replacement of
+xfrm_init_tempsel(), it caused an "unused function" warning and, as I
+mentioned before, I still need the function.
 
-> I know you are making this change for performance reasons, yet you
-> aren't mentioning any details about this.  That information is
-> part of what we need to know to judge this change.
+Regards
+Patrick
 
-I figured that it is not worth posting the patch if there is a reason
-for the dec_and_test here. I was sure if my assessment of the role
-of this atomic_dec_and_test here is correct.
+--------------020902000605070609010800
+Content-Type: text/plain;
+ name="x"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="x"
 
-> I've very hesistant to undo atomic operation memory barriers, after
-> all of the weird problems we had in the neighbour cache.
+===== net/xfrm/xfrm_state.c 1.60 vs edited =====
+--- 1.60/net/xfrm/xfrm_state.c	2005-04-01 07:19:54 +02:00
++++ edited/net/xfrm/xfrm_state.c	2005-04-05 21:58:08 +02:00
+@@ -357,7 +357,7 @@
+ 
+ 	x = best;
+ 	if (!x && !error && !acquire_in_progress) {
+-		x0 = afinfo->state_lookup(&tmpl->id.daddr, tmpl->id.spi, tmpl->id.proto);
++		x0 = afinfo->state_lookup(daddr, tmpl->id.spi, tmpl->id.proto);
+ 		if (x0 != NULL) {
+ 			xfrm_state_put(x0);
+ 			error = -EEXIST;
 
-We can put an explicit barier in if that is the only reason for the
-atomic_dec_and_test.
+--------------020902000605070609010800--
