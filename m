@@ -1,57 +1,67 @@
-From: Krzysztof Oledzki <olel@ans.pl>
-Subject: Re: KERNEL: assertion (!atomic_read(&sk->sk_rmem_alloc)) failed at
- net/netlink/af_netlink.c (126)
-Date: Thu, 31 Mar 2005 22:00:05 +0200 (CEST)
-Message-ID: <Pine.LNX.4.62.0503312156220.7391@bizon.gios.gov.pl>
-References: <20050327091524.GA23215@elte.hu> <E1DFUaZ-0001Hg-00@gondolin.me.apana.org.au>
- <20050327133811.GA5569@elte.hu> <20050329104906.GA19836@gondor.apana.org.au>
- <20050329114926.GA14986@elte.hu> <20050330082640.GA8269@gondor.apana.org.au>
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [RFC/PATCH] network configs: disconnect network options from
+ drivers
+Date: Thu, 31 Mar 2005 12:02:13 -0800
+Message-ID: <424C5745.7020501@osdl.org>
+References: <20050330234709.1868eee5.randy.dunlap@verizon.net> <20050331185226.GA8146@mars.ravnborg.org>
 Mime-Version: 1.0
-Content-Type: MULTIPART/MIXED; BOUNDARY="-187430788-995482138-1112299205=:7391"
-Cc: Ingo Molnar <mingo@elte.hu>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050330082640.GA8269@gondor.apana.org.au>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: ioe-lkml@axxeo.de, matthew@wil.cx,
+	lkml <linux-kernel@vger.kernel.org>, netdev@oss.sgi.com,
+	hadi@cyberus.ca, cfriesen@nortel.com, tgraf@suug.ch
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261712AbVCaUDQ@vger.kernel.org>
+To: Sam Ravnborg <sam@ravnborg.org>
+In-Reply-To: <20050331185226.GA8146@mars.ravnborg.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-  This message is in MIME format.  The first part should be readable text,
-  while the remaining parts are likely unreadable without MIME-aware tools.
+Sam Ravnborg wrote:
+> On Wed, Mar 30, 2005 at 11:47:09PM -0800, Randy.Dunlap wrote:
+> 
+>>- some Networking options need to be qualified with CONFIG_NET
+> 
+> You can something along the lines os:
+> 
+> menu "Networking options and protocols"
+>   
+> config NET
+> 	bool "Networking support"
+> 	default y
+> 
+> if NET
+> 
+> ...
+> 
+> menu "Network device support"
+> ...
+> endmenu
+> 
+> ...
+> 
+> endif
+> endmenu
+> 
+> Then everything wrapped in between if NET/endif is dependent on NET
+> without stating this explicitly.
+> You will alos have the menu nice indented.
 
----187430788-995482138-1112299205=:7391
-Content-Type: TEXT/PLAIN; charset=ISO-8859-2; format=flowed
-Content-Transfer-Encoding: QUOTED-PRINTABLE
+Yes, sounds good, thanks.
 
+And I'll look into Thomas's suggestions.
 
+Other than "sounds good," are there some comments on:
 
-On Wed, 30 Mar 2005, Herbert Xu wrote:
+a.  leaving IrDA and Bluetooth subsystem (with drivers) where they
+     are, which is under "Network options and protocols"
+	(I really don't want to split their drivers away from their
+	subsystem, just to put them under Network driver support.)
 
-> On Tue, Mar 29, 2005 at 01:49:26PM +0200, Ingo Molnar wrote:
->>
->> (i guess the debug message should be extended to do a dump_stack() so
->> that we see which process does?)
->
-> Never mind.  I think I've found what it is.  The only thing I can't
-> figure out is why we're only seeing it now when this bug has been
-> around since day one.
->
-> In netlink_dump we're operating on sk after dropping the cb lock.
-> This is racy because the owner of the socket could close it after
-> we drop the cb lock.
->
-> This is possible because netlink_dump isn't always called from the
-> context of the process that owns the socket.  For instance, if there
-> is contention on rtnl then rtnetlink requests will be processed by
-> the process that owns the rtnl.
->
-> The solution is to hold a ref count on the socket before we drop
-> the cb lock.
+b.  leaving SLIP, PPP, and PLIP where they are under Network driver
+     support, even though they say that they are "protocols" ?
 
-OK. I'm no longer able to trigger this error. And the patch is=20
-already in the linux-2.6 repository. Thank you.
+Any others?
 
-Best regards,
-
- =09=09=09Krzysztof Ol=EAdzki
----187430788-995482138-1112299205=:7391--
+Thanks,
+-- 
+~Randy
