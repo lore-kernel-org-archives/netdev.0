@@ -1,47 +1,77 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC] tcf_bind_filter failure handling
-Date: Mon, 13 Dec 2004 19:11:38 +0100
-Message-ID: <41BDDB5A.9000907@trash.net>
-References: <E1CQDcP-0003ff-00@gondolin.me.apana.org.au> <20041109161126.376f755c.davem@davemloft.net> <20041110010113.GJ31969@postel.suug.ch> <41916A91.3080107@trash.net> <20041110012251.GK31969@postel.suug.ch> <41916F0B.5010809@trash.net> <20041110013941.GL31969@postel.suug.ch> <41917330.6090002@trash.net> <20041212175736.GA8493@postel.suug.ch> <41BC8819.7040501@trash.net> <20041213165302.GE8493@postel.suug.ch>
+From: Tom Duffy <tduffy@sun.com>
+Subject: Re: [PATCH][v3][17/21] Add IPoIB
+	(IP-over-InfiniBand) driver
+Date: Mon, 13 Dec 2004 10:44:24 -0800
+Message-ID: <1102963464.9258.11.camel@duffman>
+References: <20041213109.JT1ejUdkRIUXbWOm@topspin.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041213165302.GE8493@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="===============0951564687=="
+Cc: netdev@oss.sgi.com,
+	Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	openib-general@openib.org
+Return-path: <openib-general-bounces@openib.org>
+To: Roland Dreier <roland@topspin.com>
+In-Reply-To: <20041213109.JT1ejUdkRIUXbWOm@topspin.com>
+List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=unsubscribe>
+List-Archive: <http://openib.org/pipermail/openib-general>
+List-Post: <mailto:openib-general@openib.org>
+List-Help: <mailto:openib-general-request@openib.org?subject=help>
+List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
+	<mailto:openib-general-request@openib.org?subject=subscribe>
+Sender: openib-general-bounces@openib.org
+Errors-To: openib-general-bounces@openib.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
 
->The handling of a failure in tcf_bind_filter is inconsistent.
->
->u32: ignore
->fw: ignore
->route: ignore
->rsvp: ignore
->tcindex: error
->
->It might be a good idea to make this consistent. So in order to validate
->the classid before making any changes we could simply lock it via get
->(see patch below), return an error if it fails  and put it back in case
->of an error further in the path or after binding the filter.
->
->Bindings not only locks the class from removal while a filter is
->pointing to it. It speeds up classyfing by saving a lookup for every
->tc_classify call. It's not really a problem if the class is not locked,
->the qdisc will look it up and falls back to a default class if it
->doesn't exists so it's rather a cosmetic/policy thing.
->
-You should just fix tcindex not to care about errors in tcf_bind_filter.
-bind_tcf already locks the class. Some qdiscs (like prio) map bind_filter
-to get, but others (HTB, HFSC, CBQ) use a seperate counter because it is
-legal to end up with a refcnt > 0 after delete. When a class with filters
-pointing to it is tried to destroy they return -EBUSY, which can't be done
-by looking at the refcnt.
+--===============0951564687==
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature";
+	boundary="=-+Gg/yNtd8JYVNcpHnKZq"
 
-Regards
-Patrick
+
+--=-+Gg/yNtd8JYVNcpHnKZq
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
+
+On Mon, 2004-12-13 at 10:09 -0800, Roland Dreier wrote:
+> --- linux-bk.orig/drivers/infiniband/Kconfig	2004-12-13 09:44:43.93625277=
+9 -0800
+> +++ linux-bk/drivers/infiniband/Kconfig	2004-12-13 09:44:49.385450009 -08=
+00
+> @@ -2,7 +2,6 @@
+> =20
+>  config INFINIBAND
+>  	tristate "InfiniBand support"
+> -	default n
+>  	---help---
+>  	  Core support for InfiniBand (IB).  Make sure to also select
+>  	  any protocols you wish to use as well as drivers for your
+
+Is there a reason why you put this in in an earlier patch and then take
+it out later?
+
+-tduffy
+
+--=-+Gg/yNtd8JYVNcpHnKZq
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.6 (GNU/Linux)
+
+iD8DBQBBveMIdY502zjzwbwRAuywAKCbVtRdF/PW+JhPLjveoWFGzCKrhACgjoqK
+64lZj1fH0R7rZbF+pAmN4MI=
+=VJFe
+-----END PGP SIGNATURE-----
+
+--=-+Gg/yNtd8JYVNcpHnKZq--
+
+--===============0951564687==
+Content-Type: text/plain; charset="us-ascii"
+MIME-Version: 1.0
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+
+--===============0951564687==--
