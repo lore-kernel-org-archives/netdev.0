@@ -1,68 +1,35 @@
-From: Ricardo C Gonzalez <ricardoz@us.ibm.com>
-Subject: Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-Date: Thu, 11 Sep 2003 16:47:43 -0500
+From: Marcin Kaminski <maxiu@man.poznan.pl>
+Subject: Re: New IPv6 Draft Implementation
+Date: Thu, 11 Sep 2003 23:58:30 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OFAFA77EE1.3E4E4085-ON85256D9E.00777520-86256D9E.0077947E@us.ibm.com>
-References: <20030911142906.74d9dfe5.davem@redhat.com>
+Message-ID: <Pine.GSO.4.44.0309112356120.24045-100000@rose.man.poznan.pl>
+References: <OF214DECF9.D994A353-ON87256D9E.00760932@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Cc: greearb@candelatech.com, jgarzik@pobox.com, scott.feldman@intel.com,
-   netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <linux-net@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20030911142906.74d9dfe5.davem@redhat.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Shirley Ma <xma@us.ibm.com>
+In-Reply-To: <OF214DECF9.D994A353-ON87256D9E.00760932@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Thu, 11 Sep 2003, Shirley Ma wrote:
 
+> I am going to implement the support for the new IP MIBs draft for IPv6 MIBs
+> only.
+>
+> Below is the draft link:
+>
+> http://www.ietf.org/internet-drafts/draft-ietf-ipv6-rfc2011-update-03.txt.
+> I am going to start from
+> ipv6nterfaceTable. Any thoughts about this?
 
+We are really waiting for this :)
+I don't know any existing implementation of SNMP agent with support for
+most IPv6 MIBs (especially with IPv6 adresses included in OIDs), but that
+is thing which I am really looking for.
 
->IP transmit is black hole that may drop packets at any moment,
->any datagram application not prepared for this should be prepared
->for troubles or choose to move over to something like TCP.
+Please inform us about Your results :)
 
-
-As I said before, please do not make this a UDP issue. The data I sent out
-was taken using a TCP_STREAM test case. Please review it.
-
-regards,
-----------------------------------------------------------------------------------
-
-***  ALWAYS THINK POSITIVE ***
-
-Rick Gonzalez
-IBM Linux Performance Group
-Building: 905    Office: 7G019
-Phone: (512) 838-0623
-
-"David S. Miller" <davem@redhat.com> on 09/11/2003 04:29:06 PM
-
-To:    Ben Greear <greearb@candelatech.com>
-cc:    jgarzik@pobox.com, scott.feldman@intel.com, netdev@oss.sgi.com,
-       Ricardo C Gonzalez/Austin/IBM@ibmus
-Subject:    Re: [e1000 2.6 10/11] TxDescriptors -> 1024 default
-
-
-
-On Thu, 11 Sep 2003 14:29:43 -0700
-Ben Greear <greearb@candelatech.com> wrote:
-
-> Thanks for that clarification.  Is there no way to tell
-> at 'sendto' time that the buffers are over-full, and either
-> block or return -EBUSY or something like that?
-
-The TX queue state can change by hundreds of packets by
-the time we are finished making the "decision", also how would
-you like to "wake" up sockets when the TX queue is liberated.
-That extra overhead and logic would be wonderful for performance.
-
-No, this is all nonsense.  Packet scheduling and queueing is
-an opaque layer to all the upper layers.  It is the only sensible
-design.
-
-IP transmit is black hole that may drop packets at any moment,
-any datagram application not prepared for this should be prepared
-for troubles or choose to move over to something like TCP.
-
-I listed even a workaround for such stupid UDP apps, simply limit
- their socket send queue limits.
+Marcin Kaminski
+6Net project
