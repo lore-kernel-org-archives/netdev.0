@@ -1,31 +1,31 @@
-From: Didier Barvaux <didier@barvaux.org>
-Subject: TAHI Conformance Test
-Date: Mon, 7 Feb 2005 10:26:32 +0100
-Message-ID: <20050207102632.5bdffee0.didier@barvaux.org>
+From: Roman Kagan <rkagan@mail.ru>
+Subject: Re: [Linux-ATM-General] [RFC][PATCH] Very basic sysfs support for ATM devices (updated)
+Date: Mon, 7 Feb 2005 12:45:18 +0300
+Message-ID: <20050207094517.GC2360@katya>
+References: <20050121085123.GA2471@katya> <200502041811.j14IBOna020338@ginger.cmf.nrl.navy.mil> <20050204201327.GA2439@katya> <200502071003.09211.duncan.sands@math.u-psud.fr>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+To: usbatm@lists.infradead.org, netdev@oss.sgi.com,
+        linux-atm-general@lists.sourceforge.net
+Content-Disposition: inline
+In-Reply-To: <200502071003.09211.duncan.sands@math.u-psud.fr>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Mon, Feb 07, 2005 at 10:03:08AM +0100, Duncan Sands wrote:
+> this is a long-standing problem with ATM device initialisation: the device
+> becomes available before the struct atm_dev is initialised!
+> [...]
+> In the past, this race was only a theoretical
+> problem for SMP machines; but with your patch it hits everyone.
 
+Indeed.  OTOH at a first glance splitting the ATM device initialisation
+API into allocation and registration doesn't look a terribly difficult
+thing, it would require fairly local changes in the drivers.
 
-I'm searching for information about the current status of IPv6 in the Linux 2.6/2.4 vanilla kernels. Unfortunately, I have not found up-to-date data.
+Unless Chas' move to struct net_device is alredy knocking on the door,
+of course.
 
-I have found Peter Bieringer's 'IPv6 & Linux' page [1] and some quite old TAHI Conformance Test's results on kernel 2.6.1 [2] from the USAGI project. As you can see, information I have found are quite outdated.
-
-So, have someone more up-to-date data ?
-
-I would be very interested in reading some TAHI Conformance Test against the latest 2.6/2.4 vanilla kernels, or in reading some other document like Peter Bieringer's page. Thank you in advance.
-
-
-Regards,
-
-Didier Barvaux
-
-
-[1] "IPv6 & Linux - Current Status" http://www.bieringer.de/linux/IPv6/status/IPv6+Linux-status-kernel.html
-[2] "TAHI Conformance Test Report" http://www.linux-ipv6.org/tahitest/200401/summary-index.html
+Cheers,
+  Roman.
