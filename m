@@ -1,69 +1,86 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: dummy as IMQ replacement
-Date: Mon, 31 Jan 2005 14:58:10 +0100
-Message-ID: <20050131135810.GC31837@postel.suug.ch>
-References: <1107123123.8021.80.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [RFC] string matching ematch
+Date: 31 Jan 2005 08:59:54 -0500
+Message-ID: <1107179994.7840.164.camel@jzny.localdomain>
+References: <20050126150714.GL31837@postel.suug.ch>
+	 <41F94C63.7010800@eurodev.net>  <20050127205147.GS31837@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Pablo Neira <pablo@eurodev.net>, Patrick McHardy <kaber@trash.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi Salim <hadi@znyx.com>
-Content-Disposition: inline
-In-Reply-To: <1107123123.8021.80.camel@jzny.localdomain>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050127205147.GS31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> 2) Allows for queueing incoming traffic for shaping instead of
-> dropping. I am not aware of any study that shows policing is 
-> worse than shaping in achieving the end goal of rate control.
-> I would be interested if anyone is experimenting. Nevertheless,
-> this is still an alternative as opposed to making a system wide
-> ingress change.
 
-Agreed, the problem should be solved on egress by delaying ACKs
-so the other side's congestion control slows down. I still don't
-have a solution which works for all ip stacks and ended up tuning
-parameters based on TTL numbers guessing the operating system.
+Reading email backward ..
 
-For me, the purpose of ingress policing is to apply some policy for
-control datagrams and other unwanted traffic. One example would be
-dropping echo requests comming from nmap which reduces egress
-bandwidth consumption by 13% my border routers.
+I think we should allow for all sorts of algrithms KMP, Boyer-Moore etc
+to be plugged in (in tc this is already there).
+The stuff that Harald was looking at (at least around July when i last
+talked to him on this) is an infrastructure level thing. Its derived
+from someone who seems to have well thought of the callbacks etc for a
+good stateful solution. I cant remember the person from whom Harald was
+deriving his stuff (email was somewhere in .fr) - but it did seem pretty
+sensible. If we can have infrastructure that is also usable by tc, that
+would be great so we dont go cutnpasting unnecessarily.
 
-tc filter add dev $DEV parent ffff: protocol ip prio 10  \
-    u32 match u32 0x10000 0xff0000 at 8                  \
-        match u32 0x1c 0xffff at 0                       \
-        match u32 0x8000000 0xf000000 at 20              \
-    police mtu 1 drop flowid :1
+Having said all that:
+Thomas, I think you should leave what you have as totaly stateless
+unless we dont have a shareable solution. I have tons of ideas i could
+share when we get to that level.
 
-I should convert this to actions at some point ;->
+cheers,
+jamal
 
-> --> Instead the plan is to have a contrack related action. This action
-> will selectively either query/create contrack state on incoming packets.
-> Packets could then be redirected to dummy based on what happens -> eg 
-> on incoming packets; if we find they are of known state we could send to
-> a different queue than one which didnt have existing state. This
-> all however is dependent on whatever rules the admin enters.
-
-We could also do it in the meta ematch but this relies on the packet
-already having passed the conntrack code. How do you plan to do this
-in ingress?
-
-
-> tc filter add dev eth0 parent 1: protocol ip prio 10 u32 \
-> match ip src 192.168.200.200/32 flowid 1:2 \
-> action police rate 10kbit burst 90k drop \
-> action mirred egress mirror dev dummy0 
-
-This is extremely useful. I'm not sure but I think you also had plans
-to allow mirroring to userspace?
-
-> My goal here is to start a discussion to see if people agree this is
-> a good replacement for IMQ or whether to go another path.
-
-Sounds good to me. No complains from my side. I'll have a closer look
-at the patch later on.
+On Thu, 2005-01-27 at 15:51, Thomas Graf wrote:
+> * Pablo Neira <41F94C63.7010800@eurodev.net> 2005-01-27 21:17
+> > Thomas Graf wrote:
+> > 
+> > >I'd like to discuss the string matching ematch, I don't care about the
+> > >algorithm used but rather whether to make it stateful, match over
+> > >fragments, etc. I attached a simple stateless string matching ematch
+> > >using the Knuth-Morris-Pratt algorithm as a starting point.
+> > > 
+> > 
+> > I've posted something similar after christmas in netfilter-devel[1]. 
+> > It's fragment aware, actually my implementation uses boyer-moore to look 
+> > for matches in the payload, and it uses brute force together with 
+> > Rusty's skb_iter stuff to look for matches on the edges.
+> 
+> I've seen it but sticked to KMP because it uses less memory. Their
+> searching phase time complexity is nearly equal around O(nm) for
+> n being the length of T[] and m being the length of P[]. BM
+> definitely has a better performance for highly periodic P[]'s in a
+> periodic T[] though.
+> 
+> I'm missing a few things in your string matching API, namely
+> the ability to define a upper limit of the searching range which
+> can give much better performance gains than the best optimization
+> can do. A naive searching method around the borders of fragments
+> is definiltey easier but even there you could benefit from ruling
+> out invalid shifts.
+> 
+> > The worst case is not that bad for small patterns.
+> 
+> I don't think that any of the algorithms really make a difference,
+> theoretically yes but what we're basically should be looking for
+> is one with good average performance by detecting unnecessary
+> shifts. Our T[] is limited by the skb as long as we're not going
+> into statefull searches and thus other resources matter more to me
+> than a few more cycles.
+> 
+> > I'll give it more spins these days since I've got some spare time. I'll 
+> > also have a look at your work. I think that we could join efforts and 
+> > push something good, thoughts?
+> 
+> Definitely, being able to specify the upper limit is a must for me
+> though. Another difference is that I compute the prefix table in
+> userspace.
+> 
+> 
