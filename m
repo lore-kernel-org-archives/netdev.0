@@ -1,74 +1,50 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [PATCH] qdisc oops fix
-Date: Wed, 16 Apr 2003 07:49:02 -0400 (EDT)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030416072952.E4013@shell.cyberus.ca>
-References: <20030415084706.O1131@shell.cyberus.ca>
- <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro>
+From: Zhiwei Yu <zhiwei@celestix.com>
+Subject: IPv6 over VLAN
+Date: 16 Apr 2003 19:03:11 +0800
+Sender: owner-users@ipv6.org
+Message-ID: <1050490991.3749.125.camel@summerpalace>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Tomas Szepe <szepe@pinerecords.com>, "" <linux-kernel@vger.kernel.org>,
-   "" <netdev@oss.sgi.com>, "" <manfred@colorfullife.com>,
-   "" <kuznet@ms2.inr.ac.ru>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Catalin BOIE <util@deuroconsult.ro>
-In-Reply-To: <Pine.LNX.4.53.0304160838001.25861@hosting.rdsbv.ro>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: users@ipv6.org
+Return-path: <owner-users@ipv6.org>
+To: netdev@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I am using Redhat 2.4.18-5 kernel rpm with VLAN 1.5 patch.  It's easy to
+assign global IPv6 addresses to VLAN interface, and generate local link
+IPv6 address automatically.  But can not ping6 any IPv6 client on the
+same VLAN.  I can capture the ipv6 neigh sol packets on the VLAN
+interface of destination machine, but the destination machine never
+reply as the way it did on the physical interface. And I am sure the
+VLAN setting is correct, because I can ping IPv4 address of destination
+machine.
+
+Here is the reply from linux vlan maintainer. 
+
+>------- Additional Comments From greearb@candelatech.com  2003-04-15
+>10:45 -------
+>This could also be a bug in the IPv6 code, as VLAN should be agnostic
+to
+>the type of traffic running over the top of it.  Please submit your
+report
+>to netdev@oss.sgi.com as well.
+
+And I think the comment is correct, VLAN is just a tagging, and I was
+successfully implement OSPF and RIP over VLAN.  Because I am a newbies
+in IPv6, hope you guys can help me out.
+
+Thanks in advance
+-- 
+Zhiwei Yu
+R & D Engineer 
+Celestix Network Pte. Ltd
+
+=====================================================================
+No, I don't use perl--I consider it an unreadable write-only language.
+                                            -- W. Richard Stevens
 
 
-This is a different problem from previous one posted.
-
-Theres a small window (exposed given that you are provisioning a lot
-of qdiscs  and running traffic at the same time) that an incoming packet
-interupt will cause the BUG().
-
-GFP_ATOMIC will fix it, but i wonder if it appropriate.
-
-Alexey or Manfred?
-
-cheers,
-jamal
-
-PS:- 15mbits is not a lot of traffic ;->
-
-On Wed, 16 Apr 2003, Catalin BOIE wrote:
-
-> > -       sch = kmalloc(size, GFP_KERNEL);
-> > +       sch = kmalloc(size, GFP_ATOMIC);
-> >
-> > mysteriously fixes the problem? Could the problem be elsewhere?
-> > Can you repost what the issue was? I am not on lk and i just saw the
-> > posting on a web page.
->
-> With many rules (~5000 classes and ~3500 qdiscs and ~50000 filters)
-> the kernel oopses in slab.c:1128.
-> It happens on high rates (~15mbit).
-> On low rates, doesn't.
->
-> Seems that an interrupt come and broke the memory allocation.
->
->
-> >>EIP; c0127ab4 <kmem_cache_grow+44/1d8>   <=====
->
-> >>EAX; ffffffff <END_OF_CODE+3fd31247/????>
-> >>EBX; c12c52c0 <END_OF_CODE+ff6508/????>
-> >>EDI; c12c52c0 <END_OF_CODE+ff6508/????>
-> >>ESP; ceab1c60 <END_OF_CODE+e7e2ea8/????>
->
-> Trace; c0127e0f <kmalloc+eb/110>
-> Trace; c01d3cac <qdisc_create_dflt+20/bc>
-> Trace; d081ecc7 <END_OF_CODE+1054ff0f/????>
-> Trace; c01d5265 <tc_ctl_tclass+1cd/214>
-> Trace; d0820600 <END_OF_CODE+10551848/????>
-> Trace; c01d27e4 <rtnetlink_rcv+298/3bc>
-> Trace; c01d0605 <__neigh_event_send+89/1b4>
-> Trace; c01d7cd4 <netlink_data_ready+1c/60>
-> Trace; c01d7730 <netlink_unicast+230/278>
-> Trace; c01d7b73 <netlink_sendmsg+1fb/20c>
-> Trace; c01c79d5 <sock_sendmsg+69/88>
-> Trace; c01c8b48 <sys_sendmsg+18c/1e8>
-> Trace; c0120010 <map_user_kiobuf+8/f8>
->
->
+---------------------------------------------------------------------
+The IPv6 Users Mailing List
+Unsubscribe by sending "unsubscribe users" to majordomo@ipv6.org
