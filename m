@@ -1,26 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4 PATCH] two ipvs fixes
-Date: Tue, 7 Oct 2003 07:57:07 -0700
+Subject: Re: [PATCH/RFC] Let {ip,arp}tables "see" bridged VLAN tagged
+ {I,AR}P packets
+Date: Tue, 7 Oct 2003 08:06:40 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031007075707.47d7596b.davem@redhat.com>
-References: <Pine.LNX.4.44.0310070050120.1212-300000@penguin.linux-vs.org>
+Message-ID: <20031007080640.50de4d45.davem@redhat.com>
+References: <200310062204.07230.bdschuym@pandora.be>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: rusty@rustcorp.com.au, ja@ssi.bg, netdev@oss.sgi.com,
-        lvs-users@LinuxVirtualServer.org
+Cc: netdev@oss.sgi.com, bridge@osdl.org, greearb@candelatech.com,
+        vlan@wanfear.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wensong Zhang <wensong@linux-vs.org>
-In-Reply-To: <Pine.LNX.4.44.0310070050120.1212-300000@penguin.linux-vs.org>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <200310062204.07230.bdschuym@pandora.be>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 7 Oct 2003 00:58:29 +0800 (CST)
-Wensong Zhang <wensong@linux-vs.org> wrote:
+On Mon, 6 Oct 2003 22:04:07 +0200
+Bart De Schuymer <bdschuym@pandora.be> wrote:
 
-> Here are IPVS two patches for kernel 2.4, which are basically back ported 
-> from the IPVS changes in kernel 2.6.
+> -	unsigned long hh[16 / sizeof(unsigned long)];
+> +	unsigned char hh[18];
 
-Looks good, applied.
+Maybe don't do this?  It should be aligned on a 'long' boundry I
+think.
 
-Thanks Wensong.
+The only real hard objection I have with the patch is the vlan xmit
+routine pointer crap, just export the symbol.
+
+Once you fix that I'll apply your patch as long as Stephen has no
+objections.
