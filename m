@@ -1,24 +1,52 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] proc.txt document fix of error_burst and error_cost
-Date: Thu, 09 Jan 2003 00:14:21 -0800 (PST)
+Subject: Re: (usagi-core 11007) [PATCH] IPsec Configuration Extension for
+ IPv6
+Date: Thu, 09 Jan 2003 00:39:29 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030109.001421.60144885.davem@redhat.com>
-References: <Pine.LNX.4.44.0211071755470.5001-200000@laptop1.agatha>
+Message-ID: <20030109.003929.89643598.davem@redhat.com>
+References: <20030107130050.0903bf59.Kazunori.Miyazawa@jp.yokogawa.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: blueflux@koffein.net
-In-Reply-To: <Pine.LNX.4.44.0211071755470.5001-200000@laptop1.agatha>
+To: usagi-core@linux-ipv6.org, Kazunori.Miyazawa@jp.yokogawa.com
+In-Reply-To: <20030107130050.0903bf59.Kazunori.Miyazawa@jp.yokogawa.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Oskar Andreasson <blueflux@koffein.net>
-   Date: Thu, 7 Nov 2002 18:00:35 +0100 (CET)
-   
-   The patch should apply against both 2.4.19 and 2.5.45 without problems.
-   
-   Is there anything wrong with it, or may it be included? Suggestions? 
+   From: Kazunori Miyazawa <Kazunori.Miyazawa@jp.yokogawa.com>
+   Date: Tue, 7 Jan 2003 13:00:50 +0900
 
-Patch applied, thanks.
+   This patch is simple extension of PF_KEY to support IPv6;
+   to accept IPv6 IPsec configurations.
+   
+Ok.  Your patch looks OK and probably I will integrate it to my
+tree tomorrow.
+
+   However this patch does not contain any codes to process the packets 
+   in IPv6 stack because we wonder how we should implement it:
+   
+   1. The building packet codes of datagram (ip_append_data()) is 
+      very different from ip6_build_xmit(). And I guess you will
+      change ip6_build_xmit() to ip6_append_data().
+   
+   2. How should we implement to process destination option header 
+      which is inside of AH and/or ESP?  There seems two options. 
+      One is to process IPsec on parsing extension headers.
+      The other is to process IPsec as upper layer protocol and 
+      we always check the destination option header when we finish 
+      to process AH or ESP.
+   
+   We will be glad to hear your preferences, plans or a better way 
+   to implementation.
+   
+To be honest no concrete plans exist.  Alexey is currently
+offline and I expected to bring him into an ipv6 ipsec discussion
+as soon as he reappears.  I do not know when he will return, however.
+
+Because of this, I would suggest to just keep working in area of
+AH/ESP ipv6-specific packet creation and parsing.  Stay clear of
+routing/dst/input/output interface issues.  If you finish the packet
+handling/building work and Alexey does not return, we can work on
+design without him.
