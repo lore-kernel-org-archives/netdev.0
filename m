@@ -1,57 +1,65 @@
-From: "Zhenyu Wu" <y030729@njupt.edu.cn>
-Subject: Something on CBQ!
-Date: Fri, 07 Jan 2005 18:00:53 +0800
-Message-ID: <305092053.32587@njupt.edu.cn>
-Reply-To: "Zhenyu Wu" <y030729@njupt.edu.cn>
-Content-Type: text/plain
-Cc: lartc@mailman.ds9a.nl, imipak@yahoo.com
-Return-path: <lartc-admin@mailman.ds9a.nl>
-To: netdev@oss.sgi.com
-Sender: lartc-admin@mailman.ds9a.nl
-Errors-To: lartc-admin@mailman.ds9a.nl
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
+From: Darren Williams <dsw@gelato.unsw.edu.au>
+Subject: Re: TG3 fix for slow switches (Was: TG3 driver failure on HP 16-way)
+Date: Fri, 7 Jan 2005 20:25:19 +1100
+Message-ID: <20050107092519.GA20134@cse.unsw.EDU.AU>
+References: <16839.27239.264551.415058@berry.gelato.unsw.EDU.AU> <20041220161552.2b88aa3d.davem@davemloft.net> <16839.30796.413939.333935@wombat.chubb.wattle.id.au> <20050106151910.4d51673e.davem@davemloft.net> <20050107001743.GH17027@cse.unsw.EDU.AU> <20050106194838.0909020a.davem@davemloft.net> <20050107053009.GI17027@cse.unsw.EDU.AU> <20050106212838.5e94af1f.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Darren Williams <dsw@gelato.unsw.edu.au>, peterc@gelato.unsw.edu.au,
+        netdev@oss.sgi.com, mchan@broadcom.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050106212838.5e94af1f.davem@davemloft.net>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello, 
+Hi David
 
-I think I have misundertood the relationship between cbq and the queue (such as
-Red) attached to 
-it. This is my latest opion, please give me some advice on it:
+On Thu, 06 Jan 2005, David S. Miller wrote:
 
-At beginning, I thought that a packet will be firstly classified by the CBQ where
-it will 
-find the proper class it belongs to. Then the packet enters the queue attached to
-that class.
-At last, the packet is scheduled in that queue, and put into the link. But now, I
-find it is 
-wrong. I have read the source code on CBQ again, especially the part-cbq_dequeue,
-I think
-that at first the CBQ will find the active class and their priority. Then in the
-function 
-cbq_dequeue_prio, the algorithm WRR will be used to schedule the packet. At first,
-it find a class,
-then, this skb = cl->q->dequeue(cl->q) maybe very important, I think "cl->q" is
-the queue 
-attached to the class "cl". So, the packet in the different queue is scheduled and
-put into 
-the link. 
+> On Fri, 7 Jan 2005 16:30:09 +1100
+> Darren Williams <dsw@gelato.unsw.edu.au> wrote:
+> 
+> > > In any case, please try this one instead which is a variant
+> > > of the second patch Peter proposed plus some signedness fixes
+> > > I've done.
+> > > 
+> > No still no link. The patch that I have working is:
+> > tg3.c:v2.9 (March 8, 2004)
+> > that I took from 2.6.7
+> 
+> Darren, I believe you are confusing this entire situation.
+> And I should have suspected this when you were responding
+> to my test requests instead of Peter.
+> 
+> Peter had a problem on a 16-way HP machine, and the patch
+> that I just gave to you is nearly identical to his which
+> he said makes his problem go away.
+> 
+Yes it the same machine.
 
-Another issue is that a scheduling algorithm WRR is used here, But i think it is
-not the best
-one, So can we modify here and add a new scheduling algorithm as we expected?
+> Are you having the same problem on the same configuration or
+> are you hoping this fixes some other tg3 bug that you happen
+> to be seeing?
 
-What about your opions?
+I'm having the same problem on the same machine. Peter's
+original patch fixed it once as far as I know. I have patched
+the currently kernel with Peter's original patch though have
+had no success bringing the interface up.
 
-Best,
+Thats why I started looking at older drivers since they
+play nicely with the switch.
 
+Peter is currently on holidays, and I am using the machine
+for benchmarking and assisting with solving this problem. 
 
+I should of let you know to avoid the confusion.
 
-_______________________________________________
-LARTC mailing list / LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+Darren
+
+--------------------------------------------------
+Darren Williams <dsw AT gelato.unsw.edu.au>
+Gelato@UNSW <www.gelato.unsw.edu.au>
+--------------------------------------------------
