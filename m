@@ -1,56 +1,45 @@
-From: Matt Mackall <mpm@selenic.com>
-Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: Mon, 14 Mar 2005 21:59:34 -0800
-Message-ID: <20050315055934.GJ3163@waste.org>
-References: <200503142023.j2EKNMDD027705@guinness.s2io.com> <bd1c90987d5e22481f0fa2ac3f63ced3@pobox.com>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH 3/3 XFRM]: Fix invalid key for lookup of cached bundles
+Date: Tue, 15 Mar 2005 17:01:53 +1100
+Message-ID: <20050315060153.GA3282@gondor.apana.org.au>
+References: <422AF8D0.3010905@trash.net> <20050307012458.GA4335@gondor.apana.org.au> <422BB14A.5030302@trash.net> <20050307014337.GA4451@gondor.apana.org.au> <422BB477.3040607@trash.net> <20050307015943.GA4533@gondor.apana.org.au> <422BBCC2.4010706@trash.net> <20050307025723.GA4818@gondor.apana.org.au> <422BC655.5070907@trash.net> <20050314215122.356ea961.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "<alex@neterion.com>" <alex@neterion.com>,
-        "<netdev@oss.sgi.com>" <netdev@oss.sgi.com>,
-        "<leonid@neterion.com>" <leonid@neterion.com>,
-        "'Jeff Garzik'" <jgarzik@pobox.com>
-To: Scott Feldman <sfeldma@pobox.com>
+Cc: Patrick McHardy <kaber@trash.net>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
-In-Reply-To: <bd1c90987d5e22481f0fa2ac3f63ced3@pobox.com>
+In-Reply-To: <20050314215122.356ea961.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Mar 14, 2005 at 09:14:59PM -0800, Scott Feldman wrote:
+On Mon, Mar 14, 2005 at 09:51:22PM -0800, David S. Miller wrote:
+> On Mon, 07 Mar 2005 04:11:17 +0100
+> Patrick McHardy <kaber@trash.net> wrote:
 > 
-> On Mar 14, 2005, at 12:22 PM, Alex Aizman wrote:
+> > Herbert Xu wrote:
+> > > The reason I'm asking is because the places where you're most likely
+> > > to use tos/fwmark is in IPsec gateways.  In other words, it isn't
+> > > very useful unless it works in tunnel mode.  This plus the fact
+> > > that the check for tunnel mode is a bit of a hack makes me think that
+> > > it's not worth it at the moment.
+> > 
+> > Ok, let's drop it for now.
 > 
-> >HAL-based
-> >=========
-> >Most Neterion drivers are HAL (Hardware Abstraction Layer) based. This 
-> >is
-> >always a curse and blessing; in our experience this was the latter by 
-> >a big
-> >margin. While the current "s2io" driver in the kernel doesn't share 
-> >HAL code
-> >with other driver, the "xge" driver is HAL-based.
-> 
-> e1000 and ixgb are HAL-based, which is why there is always push back 
-> when someone in the community modifies *_hw.[ch].  I'd hate to see more 
-> of this in the kernel, but I can definitely relate to the "testing 
-> across multiple OSes" gain.
-> 
-> Here's an (old?) idea: remember the NDIS-wrapper project?  I think the 
-> reverse is much more interesting.  A linux-wrapper takes a plain old 
-> Linux driver and wraps it with what ever is needed to make it an NDIS 
-> driver.  Or FreeBSD, or whatever.  Let's pretend this is trivial for a 
-> second.  What do we gain?  1) one clean Linux driver to maintain, 2) 
-> testability on other OSes, and 3) access to other OSes' certification 
-> kits.  Licensing is clean: the Linux driver is GPL and the 
-> linux-wrapper code is GPL.  Can't the world revolve around Linux and 
-> let everyone else be burdened with the abstraction layer overhead?
+> Can someone send me an updated patch (with changelog msg please)?
 
-Depends. Vendors of non-GPL OSes can't ship such drivers for risk of
-their product becoming a derived work to the extent they're relying on
-such drivers to make their system useful.
+I think the conclusion is that until we fix the bundle scalability
+problem there is no point in adding tos/fwmark support here.
 
-You can't get around the GPL by putting a GPL wrapper with an
-exception around something.
+The reason is that if we do it now then tunnel mode SAs will potentially
+be targets of DoS attacks that create a large number of bundles off
+one policy.  However, tunnel mode SAs would be the main users of
+this feature so if we can't do it for them then we might as well not
+do it.
 
+Cheers,
 -- 
-Mathematics is the supreme nostalgia of our time.
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
