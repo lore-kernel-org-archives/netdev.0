@@ -1,32 +1,29 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] pkt_cls.h incompatiables
-Date: Sat, 24 Jul 2004 22:28:53 -0700
+Subject: Re: [AH4] Save daddr iff options are present
+Date: Sat, 24 Jul 2004 22:35:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724222853.752137d6.davem@redhat.com>
-References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
-	<20040722.200426.99255296.yoshfuji@linux-ipv6.org>
-	<1090593676.1128.25.camel@jzny.localdomain>
-	<20040723.110007.27520072.yoshfuji@linux-ipv6.org>
-	<1090612669.1218.47.camel@jzny.localdomain>
-	<20040723135945.7f50b02c.davem@redhat.com>
-	<1090630154.1134.6.camel@jzny.localdomain>
-	<1090675993.1161.11.camel@jzny.localdomain>
+Message-ID: <20040724223511.49847caa.davem@redhat.com>
+References: <20040724014415.GA5866@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, shemminger@osdl.org, arekm@pld-linux.org,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1090675993.1161.11.camel@jzny.localdomain>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040724014415.GA5866@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 24 Jul 2004 09:33:52 -0400
-jamal <hadi@cyberus.ca> wrote:
+On Sat, 24 Jul 2004 11:44:15 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> Dont apply yet, i need to run my regression tests when i get back.
-> In the minimal back out Stephens change.
+> This is a little optimisation for AH4.  When I moved the tunnel code out,
+> I put the daddr copying code on the main path which is unnecessary since
+> daddr is only mutable if IP options are present.
+> 
+> This patch moves the saving and restoring of daddr under the check for
+> the existence of IP options.
 
-Ok, I'll keep this in my inbox until you give the word.
-Thanks.
+Looks good to me, applied.
+
+Thanks Herbert.
