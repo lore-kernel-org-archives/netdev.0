@@ -1,41 +1,45 @@
-From: Richard Gooch <rgooch@ras.ucalgary.ca>
-Subject: Re: cheap 4-port tulip-based cards available
-Date: Sat, 19 Oct 2002 16:07:55 -0600
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200210192207.g9JM7tk27360@vindaloo.ras.ucalgary.ca>
-References: <slrnaqpajf.2ph.lunz@stoli.localnet>
-	<3DB1C96B.4070505@candelatech.com>
-	<20021019141417.A11659@synapse.neuralscape.com>
-	<20021019172759.I9059@grendel.conscoop.ottawa.on.ca>
-	<20021019142836.B11659@synapse.neuralscape.com>
-Cc: Richard Guy Briggs <rgb@conscoop.ottawa.on.ca>, greearb@candelatech.com,
-   netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Karen Shaeffer <shaeffer@neuralscape.com>
-In-Reply-To: <20021019142836.B11659@synapse.neuralscape.com>
-Errors-to: netdev-bounce@oss.sgi.com
+From: Felipe W Damasio <felipewd@terra.com.br>
+Subject: Re: NIC on 2.4.19 SMP
+Date: 19 Oct 2002 21:48:39 +0000
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1035064119.2912.31.camel@tank>
+References: <FMEDJKFPPLANNCCEABDMAEKGCBAA.ph@digitalquake.com>
+Mime-Version: 1.0
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: Linux-net <linux-net@vger.kernel.org>, netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Paul Hernandez <ph@digitalquake.com>
+In-Reply-To: <FMEDJKFPPLANNCCEABDMAEKGCBAA.ph@digitalquake.com>
 List-Id: netdev.vger.kernel.org
 
-Karen Shaeffer writes:
-> On Sat, Oct 19, 2002 at 05:27:59PM -0400, Richard Guy Briggs wrote:
-> > > 
-> > > I'm just curious. What do you do with a bunch of those cards? Do you put
-> > > them in a PC and make a switch out of it?
-> > 
-> > Or a firewall...  Or a router...
+On Fri, 2002-10-18 at 16:57, Paul Hernandez wrote:
+> Hello,
 > 
-> OK, I actually have 4 nics in a PC based router/firewall. But I
-> wouldn't get excited about buying a bunch of those cards. I'm just
-> having a little fun-- humor me. ;)
+> It was suggested to me that I forward this issue to you both.
+> 
+> OS:                                   2.4.19.SuSE  SMP
+> Motherboard:                    Intel Dual P4 Xeon Server board SE7500CW2
+> (latest bios off Intel site)
+> On-borad LAN controller:  Intel 82557/8/9 [Ether Pro 100] (rev 0d)
+> Addional NIC's tried:        3-COM 3C-905C-TX-M, Netgear FA311
+> 
+> dmesg output:
+> 
+> e100: eth0: Intel(R) 8255x-based Ethernet Adapter
 
-I used to have a desktop PC with 3 NICs running as a firewall. With a
-4-port NIC and a Via/Cyrix C3 (low profile fan), I can fit a firewall
-into a 1U rackmount case. So, while it's a lot more troublesome
-getting a stable router with these 4-port cards :-(, it's worth it in
-the end if you've got space constraints.
+> SIOCGMIIPHY on eth0 failed:
+> Operation not supported
+> no MII interfaces found
 
-				Regards,
+	Try using the eepro100.c driver from the kernel, and not the one from
+Intel (the driver from the kernel supports SIOCGMIIPHY).
 
-					Richard....
-Permanent: rgooch@atnf.csiro.au
-Current:   rgooch@ras.ucalgary.ca
+	Though it does not seem a problem with the driver, you should try using
+the one from the kernel and see if it helps.
+
+	If it doesn't, reply this mail with the mii-diag output (and driver
+version).
+
+Felipe
+
