@@ -1,42 +1,28 @@
-From: Peter Bieringer <pb@bieringer.de>
-Subject: Re: ScanMail Message: To Recipient virus found and action
- taken. (offtopic)
-Date: Wed, 04 Sep 2002 08:12:58 +0200
+From: Eric Lemoine <Eric.Lemoine@sun.com>
+Subject: Re: "Loopback" route through two cards?
+Date: Wed, 4 Sep 2002 11:26:45 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2430000.1031119978@localhost>
-References: <6B546A602AD2D211BFF00008C7A42889070EDDE0@hrtades2.atea.be
- >
+Message-ID: <20020904092644.GF329@hookipa>
+References: <20020903050441.4052F2C414@lists.samba.org> <Pine.GSO.4.30.0209030729370.7754-100000@shell.cyberus.ca>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
-In-Reply-To: <6B546A602AD2D211BFF00008C7A42889070EDDE0@hrtades2.atea.be>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
+In-Reply-To: <Pine.GSO.4.30.0209030729370.7754-100000@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Offtopic, path disclosure...an issue for Bugtraq/FullDisclosure?
+> Unless you are trying to stress test NAT, i wouldnt go the NAT path.
+> Have you looked at the packet generator in 2.4.19? With it you can
+> bypass IP totaly.
 
-        Peter
+pktgen is really cool stuff!
 
---On Wednesday, September 04, 2002 07:38:26 AM +0200 System Attendant
-<HRTADES2-SA@siemens.atea.be> wrote:
+I dont see what multiskb could be used for. Does anybody know?
 
-> ScanMail for Microsoft Exchange has detected virus-infected
-> attachment(s).
-> 
-> Sender = itc@oltchim.ro
-> Recipient(s) = netdev@oss.sgi.com
-> Subject = Vendor opinions at 
-> Scanning Time = 09/04/2002 07:38:26
-> 
-> Action on virus found:
-> The attachment Mgzd.exe matched file blocking settings. ScanMail
-> has Moved it.  The attachment was moved to C:\Program
-> Files\Trend\Smex\Alert\Mgzd3d759c52344.exe_.
-> 
-> Warning to recipient. ScanMail has detected a virus.
-> 
-> 
->  
+Thx.
+
+Cheers,
+-- 
+Eric
