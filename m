@@ -1,67 +1,33 @@
-From: David Gibson <hermes@gibson.dropbear.id.au>
-Subject: Re: [PATRCH] janitor: hermes: delete verify_area call
-Date: Mon, 29 Sep 2003 15:29:25 +1000
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: RFC: [2.6 patch] disallow modular IPv6
+Date: Mon, 29 Sep 2003 09:29:19 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030929052925.GA5037@zax>
-References: <20030925215902.57f53822.rddunlap@osdl.org>
+Message-ID: <Pine.LNX.4.44.0309290927460.15163-100000@netcore.fi>
+References: <20030928225941.GW15338@fs.tum.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <davem@redhat.com>,
+        <lksctp-developers@lists.sourceforge.net>,
+        <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Randy.Dunlap" <rddunlap@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030925215902.57f53822.rddunlap@osdl.org>
+To: Adrian Bunk <bunk@fs.tum.de>
+In-Reply-To: <20030928225941.GW15338@fs.tum.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 25, 2003 at 09:59:02PM -0700, Randy.Dunlap wrote:
-> 
-> Hi,
-> Please apply to 2.6.0-test5-current.
-> 
-> Thanks,
+On Mon, 29 Sep 2003, Adrian Bunk wrote:
+> It seems modular IPv6 doesn't work 100% reliable, e.g. after looking at 
+> the code it doesn't seem to be a good idea to compile a kernel without 
+> IPv6 support and later build and install IPv6 modules. Is there a great 
+> need for modular IPv6 or is the patch below to disallow modular IPv6 OK?
 
-Sorry, can you clarify why this verify_area() is not needed?
-                                                                                
-From: Domen Puncer <domen@coderock.org>
-                                                                                
-IMO, that verify_area wasn't needed.
-                                                                                
-                                                                                
-                                                                                
- linux-260-t5bk12-kj-rddunlap/drivers/net/wireless/orinoco.c |    4
- ----
- 1 files changed, 4 deletions(-)
-                                                                                
-diff -puN drivers/net/wireless/orinoco.c~net_wireless_orinoco_verify
-+drivers/net/wireless/orinoco.c
----
-+linux-260-t5bk12-kj/drivers/net/wireless/orinoco.c~net_wireless_orinoco_verify
-+2003-09-25 16:03:17.000000000 -0700
-+++ linux-260-t5bk12-kj-rddunlap/drivers/net/wireless/orinoco.c
-2003-09-25
-+16:03:17.000000000 -0700
-@@ -3833,10 +3833,6 @@ orinoco_ioctl(struct net_device *dev, st
-                                { SIOCIWLASTPRIV, 0, 0, "dump_recs" },
-                        };
-                                                                                
--                       err = verify_area(VERIFY_WRITE,
-wrq->u.data.pointer,
-+sizeof(privtab));
--                       if (err)
--                               break;
--
-                        wrq->u.data.length = sizeof(privtab) /
-+sizeof(privtab[0]);
-                        if (copy_to_user(wrq->u.data.pointer, privtab,
-+sizeof(privtab)))
-                                err = -EFAULT;
-                                                                                
-_
+IPv6 modularity is critical for all the Linux distributions who wish to
+give the users the possibility to turn on IPv6 if they wish, but turning
+it on by default for everybody is not realistic.
 
+IMHO, making it non-modular is *NOT* an option.
 
 -- 
-David Gibson			| For every complex problem there is a
-david@gibson.dropbear.id.au	| solution which is simple, neat and
-				| wrong.
-http://www.ozlabs.org/people/dgibson
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
