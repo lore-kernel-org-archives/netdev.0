@@ -1,35 +1,32 @@
-From: kuznet@ms2.inr.ac.ru
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: [PATCH] repairing rtcache killer
-Date: Wed, 6 Aug 2003 22:06:45 +0400 (MSD)
+Date: Wed, 6 Aug 2003 20:20:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308061806.WAA01763@dub.inr.ac.ru>
-References: <16177.14760.612648.582063@robur.slu.se>
+Message-ID: <16177.18187.429888.128929@robur.slu.se>
+References: <16177.13435.45921.229742@robur.slu.se>
+	<200308061758.VAA01743@dub.inr.ac.ru>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, Robert.Olsson@data.slu.se, netdev@oss.sgi.com
+Cc: Robert.Olsson@data.slu.se (Robert Olsson), davem@redhat.com,
+   netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert.Olsson@data.slu.se (Robert Olsson)
-In-Reply-To: <16177.14760.612648.582063@robur.slu.se> from "Robert Olsson" at Aug 06, 2003 07:23:52 PM
+To: kuznet@ms2.inr.ac.ru
+In-Reply-To: <200308061758.VAA01743@dub.inr.ac.ru>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
 
-> +		if (in_hit < in_slow_tot) {
-> +			/* Aggressive  */
-> +			if(ip_rt_gc_elasticity2 > 1) 
-> +				ip_rt_gc_elasticity2 >>= 1;
-> +		}
-> +		else 
-> +			if(ip_rt_gc_elasticity2 < 2*ip_rt_gc_elasticity) {
-> +				ip_rt_gc_elasticity2 <<= 1;
-> +			}
+kuznet@ms2.inr.ac.ru writes:
 
-It is the system with positive feedback. Reduction of chain length
-results in increasing amount of misses and so on. Under normal load
-it has the only stable state, zero chain length and will never leave it.
+ > I think you did not apply patch, which is responsible for repairing
+ > rcu troubles.
+ > 
+ > Alexey
 
-hits/misses is wrong feedback, unless you use it to increase chain length. :-)
+ No correct RCU patches are not applied but even before the RCU pathes we 
+ didn't see dst cache overflow during DoS if the routing table was fully 
+ loaded and we used hash chain limit patch. 
 
-Alexey
+ Cheers.
+						--ro
