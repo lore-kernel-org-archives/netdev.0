@@ -1,27 +1,28 @@
-From: netdev-bounce@oss.sgi.com
-Subject: RE: Re: That movie
-Date: Thu, 21 Aug 2003 14:39:56 +1000 (EAST)
+From: "Ian D. Mead/IDM Computer Solutuions" <idm@idmcomp.com>
+Subject: Your last email to this domain was deleted
+Date: Thu, 21 Aug 2003 00:21:52 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308210439.OAA47377@blockhead.mincom.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Message-ID: <200308210421.h7L4Lqj23738@idmcomp.com>
+References: <200308210421.h7L4Lhg23633@idm01.>
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+In-Reply-To: <200308210421.h7L4Lhg23633@idm01.>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The email gateway at Mincom has detected a virus or a potentially malicious script in the email addressed to ssl-lists-owner@mincom.com
-.
-Has been detected as having a virus.  Your message has NOT been delivered.
+I just received a message from you.  Unfortunately it contained
+an attachment that is not permitted to be sent to this server.
 
-If you have sent a the following filetypes (*.lnk, *.scr, *.pif and other potential threats), these will automatically be identified as viruses as they are the most common virus attachments in new viruses.  If this is the case, please re-send your files without these attachments.
-For your own security, we recommend that you update your antivirus signatures as soon as possible.
+The message was DELETED!
 
-The virus was detected as:
-Scenarios/Filter Known Virus Files: A filename matching the file mask was detected: 'movie0045.pif'.
+Please zip the attachment and resend the message with the zipped
+attachment.
 
+If you did not send a message, it was probably a virus that reported
+you as the sender.
 
-If this is blank, the virus scanner may not have reported a virus name.
+There is no need to reply to this message.
 
-You may wish to check that the attachment has been cleaned from viruses
-and send it again.
+Thank you.
+
+Ian
