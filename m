@@ -1,49 +1,46 @@
-From: bob.olszewski@cmstk.com
-Subject: (no subject)
-Date: Tue, 8 Jul 2003 16:05:17 -0400
+From: Krishna Kumar <krkumar@us.ibm.com>
+Subject: Re: Question about netlink
+Date: Tue, 08 Jul 2003 13:27:54 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <85256D5D.006E5858.00@spchar2.spcomstock.com>
+Message-ID: <3F0B294A.9060302@us.ibm.com>
+References: <3F0B10E3.9050700@us.ibm.com> <20030709.040433.89038276.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
-	Boundary="0__=AsfbwQBSZ3ABPOlMYzrAmVy5BJLvMN0BWIEaZcE1AN429kY1IRvNzRqx"
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20030709.040433.89038276.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=AsfbwQBSZ3ABPOlMYzrAmVy5BJLvMN0BWIEaZcE1AN429kY1IRvNzRqx
-Content-type: text/plain; charset=us-ascii
-Content-Disposition: inline
+I am still not convinced how it works, though I have been trying to seek the truth for some
+time now :-).
 
+These routines 'get' the value of args[0] and then 'set' it to the resultant value. How is
+this value set in the first place to the user provided value ? It seems to be initialized
+to ZERO in netlink_dump_start(). The only way it seems to use the value is if it gets
+called twice from netlink_dump(), the first time cb->args will be set to zero's while the
+second time it will have the values set by the first invocation to the same routine. Am I
+missing something or is 'args' not intended for user specified arguments ? If so, how
+should we access the arguments passed by the user ?
 
+Thanks,
 
+- KK
 
-
-
-Hi,
-I caught your name on a site and was wondering if you had any advise on this
-scenario.
-I'm running HA on multi-networked server, one interface (eth1) 
---0__=AsfbwQBSZ3ABPOlMYzrAmVy5BJLvMN0BWIEaZcE1AN429kY1IRvNzRqx
-Content-type: text/plain; charset=iso-8859-1
-Content-Disposition: inline
-Content-transfer-encoding: quoted-printable
-
-
-=A0is a member of
-the HA group that customers connect to, the other (eth0) is where it ge=
-ts its
-feed from ( not running HA). =A0Problem I have, is if the feed source i=
-nterface
-(eth0) goes down the server can not deliver data.
-I can not run eth0 in HA, our app. on the feed source side allows only =
-one
-connection.
-
-Is there any way to config heartbeat to recognize that if a non-HA'd in=
-terface
-goes down to make the interface that "is" in an HA group fail over ?
-=
-
---0__=AsfbwQBSZ3ABPOlMYzrAmVy5BJLvMN0BWIEaZcE1AN429kY1IRvNzRqx--
+YOSHIFUJI Hideaki wrote:
+> In article <3F0B10E3.9050700@us.ibm.com> (at Tue, 08 Jul 2003 11:43:47 -0700), Krishna Kumar <krkumar@us.ibm.com> says:
+> 
+> 
+>>Some of the netlink routines (eg rtnetlink_dump_ifinfo or inet6_dump_ifaddr) seem to get
+>>user arguments from cb->args['n']. However I was not able to figure out where the
+>>arguments are being set, can anyone help ?
+> 
+> 
+> Take a look at net/core/rtnelink.c:rtnetlink_dump_ifinfo()
+>                net/core/neighbour.c:neigh_dump_{info,table}()
+> and seek the truth. :-)
+> 
+> --yoshfuji
+> 
