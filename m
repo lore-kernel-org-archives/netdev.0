@@ -1,10 +1,10 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [AH6] Replace skb by iph in clear_mutable_options
-Date: Sat, 24 Jul 2004 14:50:41 +1000
+Subject: [AH6] Rearrange routing headers
+Date: Sat, 24 Jul 2004 18:37:09 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724045041.GA7091@gondor.apana.org.au>
+Message-ID: <20040724083709.GA9416@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="GvXjxJ+pjyke8COw"
+Content-Type: multipart/mixed; boundary="3V7upXqbjpZ4EhLz"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>,
         Kazunori Miyazawa <kazunori@miyazawa.org>, netdev@oss.sgi.com
@@ -13,17 +13,15 @@ Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---GvXjxJ+pjyke8COw
+--3V7upXqbjpZ4EhLz
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi:
 
-This patch replaces the skb argument in ipv6_clear_mutable_options() by
-an ipv6hdr.  Doing so allows us to point skb->nh elsewhere when calling
-this function.
-
-I've also thrown in some obvious clean-ups for that function.
+This patch rearranges the IPv6 routing header so that the destination
+addresses appear in the order as they would on the destination.  This
+is specified in Appendix A2 of RFC 2402.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -34,101 +32,75 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---GvXjxJ+pjyke8COw
+--3V7upXqbjpZ4EhLz
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-===== ah6.c 1.33 vs edited =====
---- 1.33/net/ipv6/ah6.c	2004-07-24 09:54:15 +10:00
-+++ edited/ah6.c	2004-07-24 14:39:24 +10:00
-@@ -74,49 +74,42 @@
+===== net/ipv6/ah6.c 1.34 vs edited =====
+--- 1.34/net/ipv6/ah6.c	2004-07-24 14:52:21 +10:00
++++ edited/net/ipv6/ah6.c	2004-07-24 18:35:47 +10:00
+@@ -31,6 +31,7 @@
+ #include <net/ah.h>
+ #include <linux/crypto.h>
+ #include <linux/pfkeyv2.h>
++#include <linux/string.h>
+ #include <net/icmp.h>
+ #include <net/ipv6.h>
+ #include <net/xfrm.h>
+@@ -74,6 +75,45 @@
  	return 0;
  }
  
--static int ipv6_clear_mutable_options(struct sk_buff *skb,
--				      unsigned int hdr_len)
-+static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
++/**
++ *	ipv6_rearrange_rthdr - rearrange IPv6 routing header
++ *	@iph: IPv6 header
++ *	@rthdr: routing header
++ *
++ *	Rearrange the destination address in @iph and the addresses in @rthdr
++ *	so that they appear in the order they will at the final destination.
++ *	See Appendix A2 of RFC 2402 for details.
++ */
++static void ipv6_rearrange_rthdr(struct ipv6hdr *iph, struct ipv6_rt_hdr *rthdr)
++{
++	int segments, segments_left;
++	struct in6_addr *addrs;
++	struct in6_addr final_addr;
++
++	segments_left = rthdr->segments_left;
++	if (segments_left == 0)
++		return;
++	rthdr->segments_left = 0; 
++
++	/* The value of rthdr->hdrlen has been verified either by the system
++	 * call if it is locally generated, or by ipv6_rthdr_rcv() for incoming
++	 * packets.  So we can assume that it is even and that segments is
++	 * greater than or equal to segments_left.
++	 *
++	 * For the same reason we can assume that this option is of type 0.
++	 */
++	segments = rthdr->hdrlen >> 1;
++
++	addrs = ((struct rt0_hdr *)rthdr)->addr;
++	ipv6_addr_copy(&final_addr, addrs + segments - 1);
++
++	addrs += segments - segments_left;
++	memmove(addrs + 1, addrs, (segments_left - 1) * sizeof(*addrs));
++
++	ipv6_addr_copy(addrs, &iph->daddr);
++	ipv6_addr_copy(&iph->daddr, &final_addr);
++}
++
+ static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
  {
--	u16 offset = sizeof(struct ipv6hdr);
--	struct ipv6_opt_hdr *exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
--	u8 nexthdr = skb->nh.ipv6h->nexthdr;
-+	union {
-+		struct ipv6hdr *iph;
-+		struct ipv6_opt_hdr *opth;
-+		struct ipv6_rt_hdr *rth;
-+		char *raw;
-+	} exthdr = { .iph = iph };
-+	char *end = exthdr.raw + len;
-+	int nexthdr = iph->nexthdr;
- 
--	while (offset + 1 <= hdr_len) {
-+	exthdr.iph++;
- 
-+	while (exthdr.raw < end) {
- 		switch (nexthdr) {
--
- 		case NEXTHDR_HOP:
--			offset += ipv6_optlen(exthdr);
--			if (!zero_out_mutable_opts(exthdr)) {
--				LIMIT_NETDEBUG(
--				printk(KERN_WARNING "overrun hopopts\n")); 
-+		case NEXTHDR_DEST:
-+			if (!zero_out_mutable_opts(exthdr.opth)) {
-+				LIMIT_NETDEBUG(printk(
-+					KERN_WARNING "overrun %sopts\n",
-+					nexthdr == NEXTHDR_HOP ?
-+						"hop" : "dest"));
- 				return -EINVAL;
- 			}
--			nexthdr = exthdr->nexthdr;
--			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
+ 	union {
+@@ -101,7 +141,7 @@
  			break;
  
  		case NEXTHDR_ROUTING:
--			offset += ipv6_optlen(exthdr);
--			((struct ipv6_rt_hdr*)exthdr)->segments_left = 0; 
--			nexthdr = exthdr->nexthdr;
--			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
--			break;
--
--		case NEXTHDR_DEST:
--			offset += ipv6_optlen(exthdr);
--			if (!zero_out_mutable_opts(exthdr))  {
--				LIMIT_NETDEBUG(
--					printk(KERN_WARNING "overrun destopt\n")); 
--				return -EINVAL;
--			}
--			nexthdr = exthdr->nexthdr;
--			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
-+			exthdr.rth->segments_left = 0; 
+-			exthdr.rth->segments_left = 0; 
++			ipv6_rearrange_rthdr(iph, exthdr.rth);
  			break;
  
  		default :
- 			return 0;
- 		}
-+
-+		nexthdr = exthdr.opth->nexthdr;
-+		exthdr.raw += ipv6_optlen(exthdr.opth);
- 	}
- 
- 	return 0;
-@@ -175,7 +168,7 @@
- 		(*pskb)->nh.ipv6h = (struct ipv6hdr*)skb_push(*pskb, x->props.header_len);
- 		iph->payload_len = htons((*pskb)->len - sizeof(struct ipv6hdr));
- 		memcpy((*pskb)->nh.ipv6h, iph, hdr_len);
--		err = ipv6_clear_mutable_options(*pskb, hdr_len);
-+		err = ipv6_clear_mutable_options((*pskb)->nh.ipv6h, hdr_len);
- 		if (err)
- 			goto error_free_iph;
- 
-@@ -283,7 +276,7 @@
- 	if (!tmp_hdr)
- 		goto out;
- 	memcpy(tmp_hdr, skb->nh.raw, hdr_len);
--	if (ipv6_clear_mutable_options(skb, hdr_len))
-+	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
- 		goto out;
- 	skb->nh.ipv6h->priority    = 0;
- 	skb->nh.ipv6h->flow_lbl[0] = 0;
 
---GvXjxJ+pjyke8COw--
+--3V7upXqbjpZ4EhLz--
