@@ -1,33 +1,36 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Wed, 16 Jun 2004 16:11:13 -0700
+From: Krzysztof Halasa <khc@pm.waw.pl>
+Subject: Re: RFC: Cisco HDLC bridging
+Date: Thu, 17 Jun 2004 00:49:59 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040616231113.GA31351@bougret.hpl.hp.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl> <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <40D08769.3070106@home.nl> <20040616204248.GA23617@bougret.hpl.hp.com> <40D0BD5B.201@pobox.com> <20040616223316.GA29618@bougret.hpl.hp.com> <40D0D265.3070804@pobox.com>
-Reply-To: jt@hpl.hp.com
+Message-ID: <m3zn73i0dk.fsf@defiant.pm.waw.pl>
+References: <C060DFCD9697A842B3189B458524FDC205D2CD@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Gertjan van Wingerde <gwingerde@home.nl>, sfeldma@pobox.com,
-        netdev@oss.sgi.com, jkmaline@cc.hut.fi
+Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <40D0D265.3070804@pobox.com>
+To: "Eble, Dan" <DanE@aiinet.com>
+In-Reply-To: <C060DFCD9697A842B3189B458524FDC205D2CD@AIMAIL1.ai.aiinet.com> (Dan
+ Eble's message of "Wed, 16 Jun 2004 08:58:35 -0400")
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 16, 2004 at 07:06:13PM -0400, Jeff Garzik wrote:
-> Jean Tourrilhes wrote:
-> >	I think you did not understood my idea at all.
-> >	If you build a set of generic wrappers and hook them in the
-> >iw_handler table, you could trivially add the features you feel are
-> >missing into those wrappers. Those wrappers would expose whatever API
-> >you choose to the driver, call your struct wireless_ops for example.
-> 
-> That doesn't help anything.  Wrappers add code, while not solving the 
-> following problems...
+"Eble, Dan" <DanE@aiinet.com> writes:
 
-	You need to start somewhere. This allow you to experiment with
-the API simply until you get it to the point you like it.
+> Ah, yes.  But if the device does not have ARPHRD_ETHER the bridge driver
+> will not allow it to be used as a port.
 
-	Jean
+Correct. And while we can "fix" the bridge and other things, it's
+still not enough.
+
+> This is the sethdlc syntax I have chosen to create and destroy the hdlcXeth0
+> device:
+>
+> 	sethdlc hdlc0 cisco proto <type> [ enable | disable ]
+>
+> Where <type> is 0x6558 for bridged ethernet packets (or maybe "ether", but I
+> have not put that in yet).  I figure this will be useful to enable and
+> disable other protocols too.
+
+Ok. I'd prefer "ether", though.
+-- 
+Krzysztof Halasa, B*FH
