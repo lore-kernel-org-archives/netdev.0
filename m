@@ -1,57 +1,65 @@
-From: "Carlos Velasco" <carlosev@newipnet.com>
-Subject: Re: Bug? ARP with wrong src IP address
-Date: Thu, 24 Jul 2003 01:34:03 +0200
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Thu, 24 Jul 2003 00:07:05 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307240134030339.1EADABD4@192.168.128.16>
-References: <Pine.LNX.4.44.0307240149480.1181-100000@u.domain.uli>
+Message-ID: <20030724000705.4662df54.davem@redhat.com>
+References: <200307210155.FAA31320@dub.inr.ac.ru>
+	<Pine.LNX.4.44.0307221415140.14683-100000@DYN318430.beaverton.ibm.com>
+	<20030723031351.4e9db07c.davem@redhat.com>
+	<3F1F0CF7.5020909@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <Pine.LNX.4.44.0307240149480.1181-100000@u.domain.uli>
-To: "Julian Anastasov" <ja@ssi.bg>
+To: Krishna Kumar <krkumar@us.ibm.com>
+In-Reply-To: <3F1F0CF7.5020909@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 24/07/2003 at 2:01 Julian Anastasov wrote:
+On Wed, 23 Jul 2003 15:32:23 -0700
+Krishna Kumar <krkumar@us.ibm.com> wrote:
 
->> When linux machine tries to find out the mac address of 192.168.128.60
->with
->> ARP, it uses the loopback IP address (lo:2) as source insted of the IP
->address
->> of the ethernet interface (eth0).
->
->	You are right but the kernel tries to preserve the sender's
->IP. This helps the receiver to select the best interface
->to answer this ARP probe - the same where the IP packet will be
->accepted later. As there are different setups, the tuning of the
->ARP handling can be done better with user tools such as arptables
->and iparp.
+> > 1) Remove "void *sysctl;" from ipv6_devconf, move it into
+> >    inet6_dev ie. "void *cnf_sysctl;" update all code users.
+> 
+> There is one problem with this that I am not able to figure out, perhaps I am
+> overlooking it. addrconf_sysctl_register() gets called for ipv6_devconf_dflt,
+> but there is no inet6_dev for this configuration, so is it possible to move the
+> sysctl up (there is no 'up' :-). I don't want to create a dummy inet6_dev for
+> this. One way is to embed the actual config structure as follows :
 
-Julian,
+Another idea is to define the user structure:
 
-The linux box is trying to do an ARP request with a source IP address that has not sense in that ethernet network. It's imposible to obtain a reply in that way. Although the receiver would have a route to the loopback address through ethernet interface it would never reply such a ARP request.
-IMHO it's a bug. Loopback IP address has not any sense on the eth0 network.
+struct ipv6_user_devconf {
+	__u32 forwarding;
+...
+};
 
-Linux receives the packet destination loopback address and then performs a lookup in the route table to reach the src address.
-It takes the route (ex. default) and is on eth0 interface, then does the arp request.
-As the route is in eth0, it must use the src IP address of eth0, not the loopback address.
+Then:
 
-If we have more than 1 IP address in eth0 (eth:0, eth:1) I suppose that the route table must distinguish the right interface for ARP.
+struct ipv6_kernel_devconf {
+	struct ipv6_user_devconf vals;
+	void *sysctl;
+};
 
-I have tried to reproduce the same problem with a Cisco router with IOS 12.2(15)T5, but it works fine in Cisco.
-I will try to test on Solaris 8, but I think the only problem is in linux.
+It is similar to what you suggest.
 
+> > 2) Move "struct ipv6_devconf" into some linux/*.h ipv6 header
+> >    usable by users.  Use an existing one if possible.  Then
+> >    make sure net/if_inet6.h includes this thing.
+> 
+> The only two ipv6 specific files in linux are ipv6.h and
+> ipv6_route.h, neither are appropriate for sysctl stuff I think. So
+> should I create a new file like the one for ipv4_devconf exists in
+> inetdevice.h ?
 
->http://sourceforge.net/projects/ebtables/
->http://www.ssi.bg/~ja/#iparp
+I see no reason why ipv6.h is a bad place, heck we have
+an in6_ifreq there already.
 
-I didn't know about these tools.
-I have taken a look on them, but they seem to be used for arp filtering?
-I can't see how these tools can help me into this.
+> > 3) Change "int" members of struct "ipv6_devconf" to "s32".
+> 
+> All members (except use_tempaddr) seem to be >=0, should I change
+> the definition to __u32 instead ?
 
-My workaround with linux is to use static arps for solving this problem (arp -s).
-
-Regards,
-Carlos Velasco
+__u32 sounds fine.
