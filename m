@@ -1,76 +1,32 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
+From: Larry McVoy <lm@bitmover.com>
 Subject: Re: TOE brain dump
-Date: 03 Aug 2003 13:21:09 -0600
+Date: Sun, 3 Aug 2003 12:40:11 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1fzkiwnru.fsf@frodo.biederman.org>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
-	<3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net>
+Message-ID: <20030803194011.GA8324@work.bitmover.com>
+References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net> <3F2CAE61.7070401@pobox.com> <20030803145737.B10280@almesberger.net> <20030803182755.GA16770@codepoet.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Nivedita Singhvi <niv@us.ibm.com>,
-   netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-In-Reply-To: <20030802184901.G5798@almesberger.net>
+To: Erik Andersen <andersen@codepoet.org>,
+   Werner Almesberger <werner@almesberger.net>,
+   Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org, Nivedita Singhvi <niv@us.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20030803182755.GA16770@codepoet.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Werner Almesberger <werner@almesberger.net> writes:
-
-> Jeff Garzik wrote:
-> > jabbering at the same time.  TCP is a "one size fits all" solution, but 
-> > it doesn't work well for everyone.
+On Sun, Aug 03, 2003 at 12:27:55PM -0600, Erik Andersen wrote:
+> On Sun Aug 03, 2003 at 02:57:37PM -0300, Werner Almesberger wrote:
+> > > There is one interesting TOE solution, that I have yet to see created: 
+> > > run Linux on an embedded processor, on the NIC.
+> > 
+> > That's basically what I've been talking about all the
+> > while :-)
 > 
-> But then, ten "optimized xxPs" that work well in two different
-> scenarios each, but not so good in the 98 others, wouldn't be
-> much fun either.
+> http://www.snapgear.com/pci630.html
 
-The optimized for low latency cases seem to have a strong
-market in clusters.  And they are currently keeping alive
-quite a few technologies.  Myrinet, Infiniband, Quadric's Elan, etc.
-Having low latency and switch technologies that scale is quite
-rare currently.
-
-> Another problem of TCP is that it has grown a bit too many
-> knobs you need to turn before it works over your really fast
-> really long pipe. (In one of the OLS after dinner speeches,
-> this was quite appropriately called the "wizard gap".)
-
-Does anyone know which knobs to turn to make TCP go fast over
-Infiniband.  (A low latency high bandwidth network?)  I get to
-deal with them on a regular basis...
-
-There is one place in low latency communications that I can think
-of where TCP/IP is not the proper solution.  For low latency
-communication the checksum is at the wrong end of the packet.
-IB gets this one correct and places the checksum at the tail end of
-the packet.  This allows the packet to start transmitting before
-the checksum is computed, possibly even having the receive start
-at the other end before the tail of the packet is transmitted.
-
-Would it make any sense to do a low latency variation on TCP that
-fixes that problem?  For the IP header we are fine as the data
-precedes the checksum.  But the problem appears to affect all
-of the upper level protocols that ride on IP, UDP, TCP, SCTP...
-
-> > So, fix the other end of the pipeline too, otherwise this fast network 
-> > stuff is flashly but pointless.  If you want to serve up data from disk, 
-> > then start creating PCI cards that have both Serial ATA and ethernet 
-> > connectors on them :)  Cut out the middleman of the host CPU and host 
-> > memory bus instead of offloading portions of TCP that do not need to be 
-> > offloaded.
-> 
-> That's a good point. A hierarchical memory structure can help
-> here. Moving one end closer to the hardware, and letting it
-> know (e.g. through sendfile) that also the other end is close
-> (or can be reached more directly that through some hopelessly
-> crowded main bus) may help too.
-
-On that score it is worth noting that the next generation of
-peripheral busses (Hypertransport, PCI Express, etc) are all switched.
-Which means that device to device communication may be more
-reasonable.  Going from a bussed interconnect to a switched
-interconnect is certainly a dramatic change in infrastructure. How
-that will affect the tradeoffs I don't know.  
-
-Eric
+ipcop plus a new PC for $200 is way higher performance and does more.
+-- 
+---
+Larry McVoy              lm at bitmover.com          http://www.bitmover.com/lm
