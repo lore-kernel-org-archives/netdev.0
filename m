@@ -1,35 +1,31 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: r8169 driver in 2.6.6
-Date: Wed, 26 May 2004 13:28:14 +0200
+From: Greg Banks <gnb@sgi.com>
+Subject: Re: [PATCH] fix BUG in tg3_tx
+Date: Thu, 27 May 2004 02:04:43 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040526132814.A32639@electric-eye.fr.zoreil.com>
-References: <20040524210148.2172d684.ray_cole@earthlink.net> <20040525091915.A12162@electric-eye.fr.zoreil.com> <20040525230831.4747005f.ray_cole@earthlink.net>
+Message-ID: <20040526160443.GD4557@sgi.com>
+References: <B1508D50A0692F42B217C22C02D849727FEDB8@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ray Cole <ray_cole@earthlink.net>
+To: Michael Chan <mchan@broadcom.com>
 Content-Disposition: inline
-In-Reply-To: <20040525230831.4747005f.ray_cole@earthlink.net>; from ray_cole@earthlink.net on Tue, May 25, 2004 at 11:08:31PM -0500
+In-Reply-To: <B1508D50A0692F42B217C22C02D849727FEDB8@NT-IRVA-0741.brcm.ad.broadcom.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ray Cole <ray_cole@earthlink.net> :
-[...]
-> Once I changed this it started working great.  I picked up on this when
-> I noticed it was only sending 64 packets then failing.  I looked for
-> differences in the way 2.6.5 and 2.6.6 handled a full transmit ring and
-> this line looked suspicious...I figure it is perhaps a difference in the
-> compiler I'm using (2.95.3) vs what others using this module are
-> using...perhaps?
+On Tue, May 25, 2004 at 01:04:24PM -0700, Michael Chan wrote:
+> [...] A few years ago we saw cases where there were tx completions
+> on BDs that had not been sent. It turned out that on that machine, the
+> chipset was re-ordering the posted mmio writes to the send mailbox
+> register from 2 CPUs.[...]
 
-I would not bet against it :o)
+On a related note, is there a good reason why the tg3 driver uses
+the on-chip SRAM send ring by default instead of the host send ring?
+This seems like it would dramatically increase the PIO load on the
+chipset for some of the workloads I'm interested in.
 
-Can you:
-- send me your 2.6.5 and vanilla 2.6.6 .o file compiled under 2.95.3 
-- try 2.6.6 on a different compiler (2.95.2 excluded) ?
-
-Thank you for the analysis.
-
---
-Ueimor
+Greg.
+-- 
+Greg Banks, R&D Software Engineer, SGI Australian Software Group.
+I don't speak for SGI.
