@@ -1,47 +1,27 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [PATCH]  Enable sending network traffic to local machine over
- external interfaces.
-Date: Sun, 15 Sep 2002 13:40:35 -0700
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: packet re-ordering on SMP machines.
+Date: Mon, 16 Sep 2002 01:55:43 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3D84F043.1070409@candelatech.com>
-References: <Pine.GSO.4.30.0209151616280.22001-100000@shell.cyberus.ca>
+Message-ID: <200209152155.BAA00855@mops.inr.ac.ru>
+References: <20020915104201.D3810@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>,
-   linux-kernel <linux-kernel@vger.kernel.org>
+Cc: ak@suse.de, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: laforge@gnumonks.org (Harald Welte)
+In-Reply-To: <20020915104201.D3810@sunbeam.de.gnumonks.org> from "Harald Welte" at Sep 15, 2 10:42:01 am
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> What bad stuff are you smoking lately? Trying to turn linux into a traffic
-> generator OS? ;-> Havent you been accused of that already?
-> Actually, this is probably one of the few times i agree with you because i
-> may have use for this; i dont think the maintainers may. Infact i think
-> you are just about to be shot.
-> How about putting ifdefs so that the code only gets activated if
-> packetgen is active?
-> 
-> cheers,
-> jamal
-> 
+Hello!
 
-Pktgen is independent of this particular hack.  One of the flag #defines is in the
-patch to make my life easier, but it can be removed if that makes someone happier...
+> The iptables ULOG target passes the skb receive timestamp to userspace,
 
-Right now, I am getting panics after 30 minutes running at around 250Mbps of tcp traffic to
-myself over GigE nics.  But, I'm running NAPI e1000, the send-to-self hack, and
-had the pktgen module loaded....  Trying to narrow it down...but so far, it looks
-like memory corruption, perhaps somewhere in tcp/ip...
+No differences of packet socket.
 
-It can still be #ifdef'd, but some of the code just fixes the SO_BINDTODEVICE
-feature, so I think that may be worth putting in anyway...
+> one netlink message sent to userspace.  If userspace would make a timestamp,
 
-Ben
+Nobody proposed to do this in userspace. This would be even not "inaccuracy",
+the userspace time of read() is not correlated to real one at all
+f.e. if userspace is going to do some dns, times will differ inpredictably.
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Alexey
