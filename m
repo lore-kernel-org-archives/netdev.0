@@ -1,54 +1,64 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: [PATCH] sk_buff's allocated from private pools
-Date: Thu, 20 Mar 2003 10:33:20 +0100
+From: "" <L_C_delmonitor@arnet.com.ar>
+Subject: RE:Sobre la reparacion del MONITOR
+Date: Wed, 19 Mar 2003 22:25:23 -1200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15993.35552.587283.291895@robur.slu.se>
-References: <200303192208.h2JM8Yx1037110@bubba.precisionio.com>
+Message-ID: <294830-220033420102523880@pc>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Archie Cobbs <archie@precisionio.com>
-In-Reply-To: <200303192208.h2JM8Yx1037110@bubba.precisionio.com>
+To: "20-3 D" <L_C_delmonitor@arnet.com.ar>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+RECICLAMOS el MONITOR de su PC
+d=E1ndole otros 4 a=F1os de vida =FAtil...
+=20
+>>>> POR SOLO $ 49 !!! <<<<
+=20
+ATENCION EMPRESAS U ORGANISMOS OFICIALES, =A1=A1 NO GASTEN UN SOLO PESO !=
+!
+p=E1guenos con parte de los monitores que nos entregan para reciclar
+(transforme 30 monitores que no andan en 15 funcionando a la perfecci=F3n=
+)
+Garantia 6 MESES
 
-Archie Cobbs writes:
- > Hello,
- > 
- > I'm submitting this patch for inclusion in the Linux kernel if deemed
- > generally useful.
- > 
- > The purpose of this patch is to add a new function called alloc_skb_custom()
- > (or whatever) that allows the data portion of an sk_buff to reside in any
- > memory region, not just a region returned by kmalloc(). For example, if a
- > networking device has a restriction on where receive buffers may reside,
- > then the device driver can avoid copying every incoming packet if it is
- > able to create an sk_buff that points to the receive buffer memory.
- > 
- > Basically this amounts to adding a 'free_data' function pointer to the
- > sk_buff structure. By default this points to kfree() but in general could
- > point to anywhere.
+____________________________________________________
+RESPONDER A   cwolpo@argentina.com
+NO UTILIZAR BOTON RESPONDER
+____________________________________________________
 
- FYI.
+=20
+>> LA CASA DEL MONITOR <<
+DIRECCION: Humboldt 169 - Ramos Mej=EDa - Pcia Bs. As.
+TELEFONO: 4658-4576 (9:30 a 17:30 Hs.)
+LAS 24 HS: 4678-4188
+=20
+Hacemos esto de Lunes a S=E1bados
+Desde hace 9 a=F1os
+=BFConoce a alguien m=E1s indicado?
+______________________________________________
+Responder a cwolpo@argentina.com
+NO UTILIZAR EL BOTON RESPONDER
+_____________________________________________
+=20
+-->> AGENDE ESTA DIRECCION <<--
+Le dar=E1 una soluci=F3n buena y econ=F3mica cuando su monitor decida "no
+funcionar".
+Retiramos y entregamos a domicilio.
 
- The skb recycling patches I play with uses the same callback and has an 
- implementation for private buffers and sync's with outstanding callback 
- marked skb's etc.
+EXCELENTE OPORTUNIDAD COMERCIAL PARA QUIEN TENGA VINCULACIONES CON EMPRES=
+AS.
+ATENCION AL GREMIO
 
-ftp://robur.slu.se/pub/Linux/net-development/skb_recycling/recycle19.pat
-ftp://robur.slu.se/pub/Linux/net-development/skb_recycling/e1000-RC-030217.pat
+_____________________________________________________
 
- Also for SMP it marks in skb header in which cpu skb_headerinit was done
- so callback has a chance to re-route skb to the origin CPU to minimize cache
- bouncing in case of recycling. Also skb_headerinit is moved to be the first 
- operation the a skb life of skb not last.
+Responder: cwolpo@argentina.com=20
 
- Current implementation uses only kmalloc for data part so your alloc_skb_custom 
- add some new value.
+NO UTILIZAR EL BOTON RESPONDER
+_____________________________________________________
 
-
- Cheers.
-						--ro 
+Algunos de nuestros clientes: Auchan =96 CNEA- INTI-Policia Federal-Unice=
+nter =96La Buenos Aires-Maxima- Jumbo - Easy - Legislatura de la
+ciudad de Buenos Aires - Banco HBC - entre otros -
+_______________________________________________
