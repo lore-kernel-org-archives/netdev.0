@@ -1,28 +1,31 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] more improvement to dev_alloc_name -- strnchr
-Date: Mon, 19 Jan 2004 21:25:37 -0800
+Subject: Re: [PATCH 1/2] IPv6: stricter checks on link-locals in bind and
+ sendmsg
+Date: Mon, 19 Jan 2004 21:33:50 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040119212537.5d73a031.davem@redhat.com>
-References: <1074302619.40088e9bd44a6@www.geekmail.cc>
-	<20040119113204.5913a8d6.shemminger@osdl.org>
+Message-ID: <20040119213350.725dcee4.davem@redhat.com>
+References: <Pine.LNX.4.58.0401140959270.23925@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: ap@cipherica.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040119113204.5913a8d6.shemminger@osdl.org>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.58.0401140959270.23925@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 19 Jan 2004 11:32:04 -0800
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, 14 Jan 2004 10:35:11 +0200 (EET)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> Okay, this patch avoids the loop if no wildcarding present, and keeps
-> the same behaviour as original.  It adds the string function strnchr
-> to avoid searching past the maximum ifname size to find the format character.
+> I found a couple of suspected bugs related to (source) address
+> handling while rummaging around the code...
+> 
+> When binding to a link-local address, inet6_bind() and raw6_bind() only
+> check that an interface is specified and that the address exists, but
+> they don't check if it actually exists on the specified interface.
+> 
+> Similarly, in datagram_sent_ctl() we don't check for the possibility of a
+> link-local address when we receive the source address from userspace.
 
-I'm deferring this until the next 2.6.x-pre starts up as well.
-Please resend at that time.
-
-Thanks Stephen.
+Applied, thanks Ville.
