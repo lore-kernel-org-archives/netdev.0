@@ -1,84 +1,28 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
-	<yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] net, ipv6: remove redundant NULL checks before kfree
- in ip6_flowlabel.c
-Date: Thu, 17 Mar 2005 11:54:44 +0900 (JST)
-Message-ID: <20050317.115444.31670680.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [NETLINK] Fix multicast bind/autobind race
+Date: Wed, 16 Mar 2005 20:37:31 -0800
+Message-ID: <20050316203731.286c0ced.davem@davemloft.net>
+References: <20050314094420.GA15349@gondor.apana.org.au>
+	<20050314212845.6a7fd240.davem@davemloft.net>
+	<20050315071909.GA5458@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, davem@davemloft.net, pekkas@netcore.fi,
-	netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	linux-kernel@vger.kernel.org, yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, juhl-lkml@dif.dk
-In-Reply-To: <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost>
-Sender: linux-net-owner@vger.kernel.org
+Cc: netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050315071909.GA5458@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.62.0503170027390.2558@dragon.hyggekrogen.localhost> (at Thu, 17 Mar 2005 00:36:35 +0100 (CET)), Jesper Juhl <juhl-lkml@dif.dk> says:
+On Tue, 15 Mar 2005 18:19:09 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> I considered also rewriting the 
->         if (fl)
->                 fl_free(fl);
-> bit as simply fl_free(fl) as well, but that if() potentially saves two 
-> calls to kfree() inside fl_free as well as the call to fl_free itself, so 
-> I guess that's worth the if().
+> On Mon, Mar 14, 2005 at 09:28:45PM -0800, David S. Miller wrote:
+> > 
+> > I suspect a 2.4.x version is necessary as well.  Could you cook
+> > one up for me?  Thanks.
+> 
+> Sure, here it is.
 
-I don't mind calling kfree twice itself (because that function is not
-so performance critical), but fl_free(NULL) is out because
-if fl is NULL, kfree(fl->opt) is out.
-
-So, what do you think of checking fl inside fl_free like this?
-
-We can even make fl_free inline and check as following:
-  if (fl) {
-    kfree(fl->opt);
-    kfree(fl);
-  }
-
-Based on patch from Jesper Juhl <juhl-lkml@dif.dk>.
-
-David?
-
-Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
-
-===== net/ipv6/ip6_flowlabel.c 1.18 vs edited =====
---- 1.18/net/ipv6/ip6_flowlabel.c	2005-01-14 13:41:06 +09:00
-+++ edited/net/ipv6/ip6_flowlabel.c	2005-03-17 11:23:32 +09:00
-@@ -87,7 +87,7 @@
- 
- static void fl_free(struct ip6_flowlabel *fl)
- {
--	if (fl->opt)
-+	if (fl)
- 		kfree(fl->opt);
- 	kfree(fl);
- }
-@@ -351,8 +351,7 @@
- 	return fl;
- 
- done:
--	if (fl)
--		fl_free(fl);
-+	fl_free(fl);
- 	*err_p = err;
- 	return NULL;
- }
-@@ -551,10 +550,8 @@
- 	}
- 
- done:
--	if (fl)
--		fl_free(fl);
--	if (sfl1)
--		kfree(sfl1);
-+	fl_free(fl);
-+	kfree(sfl1);
- 	return err;
- }
- 
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Thanks a lot Herbert.
