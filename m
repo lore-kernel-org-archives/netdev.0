@@ -1,29 +1,152 @@
-From: "cramerj" <cramerj@intel.com>
-Subject: RE: [PATCH] e1000: ethtool cleanups
-Date: Wed, 5 Jan 2005 16:36:31 -0800
-Message-ID: <76FA8CF8F1F53240BB5B962A3385A58001EBD04C@orsmsx405>
-Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="US-ASCII"
-Content-Transfer-Encoding: 8bit
-Cc: <netdev@oss.sgi.com>
-Return-path: <netdev-bounce@oss.sgi.com>
-Content-class: urn:content-classes:message
-To: "Stephen Hemminger" <shemminger@osdl.org>,
-        "Ronciak, John" <john.ronciak@intel.com>,
-        "Venkatesan, Ganesh" <ganesh.venkatesan@intel.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+From: "Zhenyu Wu" <y030729@njupt.edu.cn>
+Subject: Re: Scheduler Mechnisms!
+Date: Thu, 06 Jan 2005 10:01:35 +0800
+Message-ID: <304976895.08643@njupt.edu.cn>
+Reply-To: "Zhenyu Wu" <y030729@njupt.edu.cn>
+Content-Type: text/plain
+Cc: lartc@mailman.ds9a.nl
+Return-path: <lartc-admin@mailman.ds9a.nl>
+To: imipak@yahoo.com, netdev@oss.sgi.com
+Sender: lartc-admin@mailman.ds9a.nl
+Errors-To: lartc-admin@mailman.ds9a.nl
+List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
+List-Post: <mailto:lartc@mailman.ds9a.nl>
+List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
+List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
+	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
+List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
 List-Id: netdev.vger.kernel.org
 
-> +		if (hw->media_type == e1000_media_type_fiber)
-> +			hw->autoneg_advertised =
-ADVERTISED_100baseT_Full |
+Jonathan,
 
-should be ADVERTISED_1000baseT_Full
-                        ^
+Yes, I think you are right, RED can be applied to any qdisc. The "RED" you
+mentioned here is the RED algorithm, right? I know, in linux kernel (sch_red.c),
+which implements the RED algotithm, just indeed uses a FIFO queue, do you think
+so? So, if there are serveral RED qdiscs which attach to different classes, a
+scheduling mechanism is needed, right?
 
-Looks good.
+If what i have said is right, it seems that there are no scheduler mechanisms for
+serveral FIFO qdiscs(or RED qdiscs) in linux kernel. Of course, as we can see, CBQ
+which can be regard as a scheduling queue also has a scheduler mechanisms WRR. But
+if the FIFO is attached to the CBQ classes, then, when CBQ schedule different
+queues(FIFOs) using WRR, will the packets in different queues are scheduled in
+turn? In another condition, if i add a scheduling mechanism such as WRR behind all
+FIFOs, i can use this mechnism to shedule the packets in different queues, are
+there are any difference?
 
-Thanks,
--Jeb
+Thank you very much!
+Regards,
+Zhenyu Wu
+
+>I may be wrong on this, but I believe that RED can be
+> attached to any queueing system, including the basic
+> FIFO queues. In a sense, you're still using a
+> scheduling system, when using the default arrangement,
+> it's just a first-come, first-served one.
+> 
+> RED is classless and applies to the whole of a queue.
+> What that queue is attached to, if I understand it
+> correctly, isn't important. It can be a class, but it
+> can just as easily be everything going through that
+> device.
+> 
+> Again, someone correct me if I'm wrong, but as I
+> understand it, there are four levels to the whole
+> QoS/diffserv concept.
+> 
+> One of these levels is the queueing discipline. This
+> can be something like CBQ, WFQ, FIFO, PRIO, or
+> whatever. This is how the data is organized, it does
+> not describe how the data is sent. In the case of
+> something like CBQ, you have a defined set of queues
+> in parallel, with rules as to what packets fall into
+> what queue. On the other hand, queueing schemes such
+> as FIFO are flat. There's a single queue that
+> everything goes through, though there may be different
+> rules for how things get pushed to it.
+> 
+> Another level is the scheduling mechanism. This
+> describes how the data is sent, once organized, but
+> does not describe the organization itself. If you've
+> only one queue, then there's really not much to
+> schedule. If you've multiple queues, then it's fairly
+> normal to use "round robin" or "weighted round robin"
+> to pick which queue to pull a packet from. Linux' CBQ
+> uses "weighted round robin", according to the C file.
+> 
+> The next level is the packet dropping mechanism. When
+> queues flood, packets are going to be dropped. There's
+> nowhere to store them. I'm pretty sure the default
+> behaviour is to simply continue accepting packets, but
+> to drop any that expire before being sent or which
+> fall off the end of the queue (if the queue is
+> bounded). RED, GRED, and a whole host of similar
+> mechanisms, try to drop packets in a more controlled
+> manner. However, that is really all they do.
+> 
+> Finally, there are mechanisms for damping overly
+> active applications, such as ECN. The idea here is
+> that if you throttle back whatever is generating
+> excess traffic, you don't get the problems assoicated
+> with dealing with it. The "default" behaviour is to do
+> nothing.
+> 
+> When setting up QoS - on Linux or anything else - you
+> basically pick one of each of the four categories to
+> assemble a packet delivery system. Even without QoS,
+> you're doing that, you're just using the defaults in
+> all cases. The mechanisms are still going to be there.
+> 
+> The Linux configuration menu does NOT match the above
+> terminology, or the terminology in the source code.
+> Thus, the source code identifies CBQ as a queueing
+> discipline, but the configuration menu calls it a
+> scheduler. The QoS help is also not very helpful, as
+> it mostly tells people to look at the source. However,
+> if you look at the source for CBQ or RED, for example,
+> the explanation is relative to the cited papers, so
+> you then have to go and read those before coming back
+> and doing anything.
+> 
+> This is one area I hope is going to get resolved in
+> the reasonably near future. If not, I might have to
+> come up with a patch myself. The very thought of that
+> should send shivers down the spines of any kernel
+> developers out there.
+> 
+> Jonathan
+> 
+> --- Zhenyu Wu <y030729@njupt.edu.cn> wrote:
+> 
+> > Thank you very much, i will try to find these papers
+> > which must be very helpful
+> > for me. The "more" means that whether there are
+> > other mechanisms not only for
+> > Linux. Sorry, i have not make it clear! Sometimes, i
+> > wonder whether the qdiscs
+> > such as CBQ, RED, GRED ... are belong to the
+> > scheduler mechanisms in linux
+> > enviroment. For example, In Red, which i can find
+> > are enqueue, and dequeue.... so,
+> > if i add a RED qidsc to a class, must i add a
+> > scheduler mechanism so that i can
+> > decide which packet in the queues will be scheduled
+> > and put to the link?
+> > 
+> > Good luck,
+> > Best,
+> 
+> 
+> 
+> 		
+> __________________________________ 
+> Do you Yahoo!? 
+> The all-new My Yahoo! - What will yours do?
+> http://my.yahoo.com 
+>
+
+
+_______________________________________________
+LARTC mailing list / LARTC@mailman.ds9a.nl
+http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
