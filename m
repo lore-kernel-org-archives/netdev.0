@@ -1,51 +1,39 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] MII bus API for PHY devices
-Date: Thu, 18 Nov 2004 13:50:59 -0600
-Message-ID: <2B68D9FA-399B-11D9-96F6-000393C30512@freescale.com>
-References: <069B6F33-341C-11D9-9652-000393DBC2E8@freescale.com> <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com> <1100806489.14467.47.camel@jmcmullan>
-Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "<netdev@oss.sgi.com>" <netdev@oss.sgi.com>,
-        "<linux-kernel@vger.kernel.org>" <linux-kernel@vger.kernel.org>
+From: Bart De Schuymer <bdschuym@pandora.be>
+Subject: Re: Fw: [Bugme-new] [Bug 3746] New: Bridge causes machine lockups
+Date: Thu, 18 Nov 2004 20:59:38 +0100
+Message-ID: <200411182059.38445.bdschuym@pandora.be>
+References: <20041115122046.1413527e.akpm@osdl.org> <20041115124843.4c3dd72f.akpm@osdl.org> <419C8724.20006@uznam.net.pl>
+Mime-Version: 1.0
+Content-Type: text/plain;
+  charset="utf-8"
+Content-Transfer-Encoding: quoted-printable
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <1100806489.14467.47.camel@jmcmullan>
-To: Jason McMullan <jason.mcmullan@timesys.com>
+To: =?utf-8?q?Micha=C5=82=20Margula?= <alchemyx@uznam.net.pl>,
+        Andrew Morton <akpm@osdl.org>
+In-Reply-To: <419C8724.20006@uznam.net.pl>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
-On Nov 18, 2004, at 13:34, Jason McMullan wrote:
->> 3) How should we bind ethernet drivers to PHY drivers?
+On Thursday 18 November 2004 12:27, Micha=C5=82 Margula wrote:
+> >Bart De Schuymer <bdschuym@pandora.be> wrote:
+> >>>Problem is present in 2.6.8.1 and 2.6.9 kernels. There was no such
+> >>> problem on 2.4.26.
+> >>
+> >>Can you do something similar with iptables rules to see if it's speci=
+fic
+> >> to ebtables (which I doubt)?
 >
-> A PHY 'platform_data' struct like:
->
-> struct phy_device_data {
-> 	struct {
-> 		const char *name;
-> 		int id;
-> 	} ethernet_platform_device_parent;
-> 	int	phy_id;
-> }
+> Over 50 hours after converting rules from ebtables to iptables and stil=
+l
+> no lockup. Everything is fine and I am sure it will go stable for days
+> (as mentioned before lockup with ebtables happens in less than 24 hours=
+).
 
-So you would have each PHY know the controller to which it's attached?  
-I would have thought the other way around... Hm.  I will definitely 
-have to read up on my driver model stuff
+OK. As far as I know the ebtables code in 2.6 and the code in the 2.4 pat=
+ch=20
+are equivalent. I'll get back to you (too busy right now).
 
-> 	
->> Oh, and a 4th side-issue:
->> Should each PHY have its own file?
->
-> Actually, each PHY should have it's own device directory, like every
-> other device. Eventually, PHYs should have /dev/phy* entries, where
-> user-space can read/write PHY registers.
-
-I think you misunderstood.  Are you talking about sysfs?  I was talking 
-about actual source files.  i.e. should there be dm9161.c, m88e1101.c, 
-cis8201.c, etc.
-
-Also, do we need user-space to read/write PHY registers.  ethtool has 
-this capability, I believe, and the interfaces there are settled.
-
-Andy Fleming
+Bart
