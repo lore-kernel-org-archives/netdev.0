@@ -1,42 +1,52 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH] remove sdla from setup.c
-Date: Thu, 29 May 2003 12:36:25 -0300
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] change delete bridge to work with new unregister
+Date: Thu, 29 May 2003 10:24:07 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030529153625.GP24054@conectiva.com.br>
-References: <20030528110658.GA26411@lst.de> <20030529.025749.59658664.davem@redhat.com>
+Message-ID: <20030529102407.3d3cfefd.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: hch@lst.de, netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20030529.025749.59658664.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Thu, May 29, 2003 at 02:57:49AM -0700, David S. Miller escreveu:
->    From: Christoph Hellwig <hch@lst.de>
->    Date: Wed, 28 May 2003 13:06:58 +0200
-> 
->    sdla had calls from both Space.c and setup.c.  Leave the Space.c one
->    alone as per previous discussion but move over the setup.c one to
->    initcalls.  (and remove the prototype for a third one from setup.c!)
->    
-> Looks ok, applied.
-> 
-> Some of this wan driver stuff is so crappy :(
+The changes in 2.5.70 for unregister cause deleteing a bridge device to
+hang, because the last reference to the bridge was being dropped after
+calling unregister_netdev.  Doing the unregister under lock, instead
+of by holding a reference fixes that.
 
-Crappy? You are being nice...
-
-What about this:
-
-void lock_adapter_irq(spinlock_t *lock, unsigned long *smp_flags)
-{
-        spin_lock_irqsave(lock, *smp_flags);
-}
-
-Why the hell do we need a bogus wrapper for something so standard?
-
-:-(
-
-- Arnaldo
+diff -Nru a/net/bridge/br_if.c b/net/bridge/br_if.c
+--- a/net/bridge/br_if.c	Thu May 29 10:19:39 2003
++++ b/net/bridge/br_if.c	Thu May 29 10:19:39 2003
+@@ -170,11 +170,12 @@
+ 	struct net_device *dev;
+ 	int ret = 0;
+ 
+-	dev = dev_get_by_name(name);
++	rtnl_lock();
++	dev = __dev_get_by_name(name);
+ 	if (dev == NULL) 
+-		return -ENXIO; 	/* Could not find device */
++		ret =  -ENXIO; 	/* Could not find device */
+ 
+-	if (!(dev->priv_flags & IFF_EBRIDGE)) {
++	else if (!(dev->priv_flags & IFF_EBRIDGE)) {
+ 		/* Attempt to delete non bridge device! */
+ 		ret = -EPERM;
+ 	}
+@@ -186,11 +187,10 @@
+ 
+ 	else {
+ 		del_ifs((struct net_bridge *) dev->priv);
+-	
+-		unregister_netdev(dev);
++		unregister_netdevice(dev);
+ 	}
+ 
+-	dev_put(dev);
++	rtnl_unlock();
+ 	return ret;
+ }
+ 
