@@ -1,30 +1,40 @@
-From: Andi Kleen <ak@muc.de>
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
 Subject: Re: [PATCH] Avoid gettimeofday when not needed
-Date: 31 Mar 2004 15:54:49 +0200
+Date: Wed, 31 Mar 2004 17:24:47 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040331135449.GB62402@colin2.muc.de>
-References: <200403311201.i2VC13D19579@zero.aec.at> <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi>
+Message-ID: <Pine.LNX.4.58.0403311705460.19615@rhea.tcs.hut.fi>
+References: <200403311201.i2VC13D19579@zero.aec.at>
+ <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi> <20040331135449.GB62402@colin2.muc.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Andi Kleen <ak@muc.de>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-Date: Wed, 31 Mar 2004 15:54:49 +0200
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.58.0403311552070.19615@rhea.tcs.hut.fi>
+To: Andi Kleen <ak@muc.de>
+In-Reply-To: <20040331135449.GB62402@colin2.muc.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> I suspect this breaks proxy arp/ndisc!
-> 
-> The arp/ndisc requests are queued up for a random time before being
-> processed by the proxy. Check out pneigh_enqueue() in net/core/neighbour.c
-> for details. The skb->stamp.tv_sec check was used to separate the locally
-> re-fed requests from ones received from the net.
+On Wed, 31 Mar 2004, Andi Kleen wrote:
 
-Ok, thanks for clarifying this. I guessed the intention wrong then.
+> Ok, thanks for clarifying this. I guessed the intention wrong then.
+>
+> A better way may be to just add a new skb flag for this that is managed
+> by the arp code? Comments?
 
-A better way may be to just add a new skb flag for this that is managed
-by the arp code? Comments?
+I guess that's all right.
 
--Andi
+There just doesn't seem to be any general flag field in sk_buff that we
+might use at this moment. Should one be added, or should we just hide the
+flag inside the cb field using the likes of inet_skb_parm and
+inet6_skb_parm?
+
+> -Andi
+
+Regards,
+Ville
+
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
