@@ -1,40 +1,46 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: Badness in dst_release (continuing saga)
-Date: Thu, 30 Dec 2004 02:39:39 +0900 (JST)
-Message-ID: <20041230.023939.88211501.yoshfuji@linux-ipv6.org>
-References: <41CFDE1D.6000802@pobox.com>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 3960] New: Few errors in pktgen.c
+Date: Wed, 29 Dec 2004 13:48:01 -0800
+Message-ID: <20041229134801.7e31e1cf.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, acme@conectiva.com.br, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com
-In-Reply-To: <41CFDE1D.6000802@pobox.com>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <41CFDE1D.6000802@pobox.com> (at Mon, 27 Dec 2004 05:04:13 -0500), Jeff Garzik <jgarzik@pobox.com> says:
 
-> Ok, it's happened again.  x86 SMP, 2.6.10-rc3-bk9.
-> 
-> I have left the machine up without rebooting, those with accounts may 
-> ssh in.  First message occurs on Dec 24 in /var/log/messages.1, and they 
-> continue in /var/log/messages and dmesg.  ssh to gw.yyz.us.
-:
-> Badness in dst_release at include/net/dst.h:149
->   [<f8c1124d>] ip6_dst_check+0x64/0x6a [ipv6]
->   [<f8c080da>] ip6_dst_lookup+0x1a7/0x1c1 [ipv6]
->   [<f8c1a4da>] udpv6_sendmsg+0x297/0x931 [ipv6]
 
-Ok, thanks.
+Begin forwarded message:
 
-Due to badness of timing (I was almost offline for last a few days),
-I could not login that machine before you rebooted.
-However, I must have got some hints from information I was collecting.
+Date: Wed, 29 Dec 2004 04:13:51 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 3960] New: Few errors in pktgen.c 
 
-I will look into the code (and come up with some debugging code at least).
-Thank you again.
 
---yoshfuji
+http://bugme.osdl.org/show_bug.cgi?id=3960
+
+           Summary: Few errors in pktgen.c
+    Kernel Version: >=2.6.10
+            Status: NEW
+          Severity: normal
+             Owner: acme@conectiva.com.br
+         Submitter: nmalykh@bilim.com
+
+
+Distribution: All
+Hardware Environment: All
+Software Environment: All
+Problem Description: Incorrect parameters handling in pktgen.c
+
+Steps to reproduce: Try to use pktgen without srcmac, src_mac_count and
+MACSRC_RND. Source MAC header fields in generated frames will be
+00:00:00:00:00:00 instead interface MAC
+
+I've correct version of this module.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
