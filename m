@@ -1,35 +1,76 @@
-From: cranium2003 <cranium2003@yahoo.com>
-Subject: kernel routing tables
-Date: Wed, 6 Apr 2005 04:33:40 -0700 (PDT)
-Message-ID: <20050406113340.20995.qmail@web41426.mail.yahoo.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+From: =?ISO-2022-JP?B?GyRCQk4kcj8oJGkkbCRrJEglVCUvJUMheRsoQg==?= <meet@nde2.vig-seet.to>
+Subject: =?ISO-2022-JP?B?GyRCSC9DI0VTPmUkTklSNDYlXCVHJSMkSzAtNTokNyRBJGMkJiEqGyhC?=
+Date: Wed,  6 Apr 2005 20:49:41 +0900 (KST)
+Message-ID: <20050406114941.2686C7E006D@helo.ori-g.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: net dev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
 
-        I want to know the structure where kernel
-stores kernel routing table. When i browse code i
-found fib_hash.c,fib_sematics.c and fib_frontend.c
-which contains functions to display routing table by
-/proc/net/route.
-       I want to know is that possible for me to write
-a kernel module and take the instance of routing table
-and display whole routing table in my kernel module
-program? How to do that? does i use struct fib_info in
-my kernel modules and us it to print its contents as
-kernel routing table?
-regards,
-cranium.
+◎　◎　◎　◎　◎　◎　◎　◎　◎　メール通信　◎　◎　◎　◎　◎　◎　◎　◎　◎
+ 　゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜゜
+　　　　★★★★★。o○o。腰が浮くほど突き上げてぇ～。o○o。★★★★★　　　　　　　　　
+ 　。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。。
+◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎
+　　　http://pink.mycountry.cc/?w7q9wer7iq
+ 
+背筋までビンビン感じちゃうぅ・・・・・・・・・・・・・・・・・・・大好評ムービーシリーズ
+。　o  ○ 。　☆　゜　。　o  ○ 。　☆　゜　。　o  ○ 。　☆　゜　。　o  ○ 。　☆　゜　o  ○
+。　　o .  ★　○ 。　。　　o .  ★　○ 。。　　o .  ★　○ 。。　　o .  ★　○ 。。　　o . 
+今週のいじめられたいお姉さんは巨乳美人♪目隠しをされてムッチリ肉付きのいいムネを
+もみくちゃにされたり、５人がかりでいたぶられて下のオクチはもうニュルニュル…。
+　● ：　。　　o .  o　● ：　。　　o .  o　● ：　。　　o .  o　● ：　。　　o .  o　● ：　。　o 
+ 
+◆◆◆ オナニー盗撮強化週間
+◆１ ◆━━━━━━━━━━━━━━━━━━━
+◆◆◆可愛い女の子達の恥ずかしい場面を覗いちゃえ♪
+　　　　 高性能ＣＣＤカメラが捕らえた決定的瞬間。
+ 
+　　　　　　　　　　　　　　　　　　　　　　　　OL・制服・社内不倫・セクハラ特集◆◆◆
+　　　　　　　　　　　　　　　　　 ━━━━━━━━━━━━━━━━━━◆２ ◆
+                                  今回は制服がテーマの大人気PINKシリーズ♪ ◆◆◆
+　　　　　　　　　　　　　　　　　あこがれの制服姿OLを社内でレイプ☆
+　
+　　　http://pink.mycountry.cc/?w7q9wer7iq
+ 
+◆◆◆ 若妻不倫～野外露出調教～
+◆３ ◆━━━━━━━━━━━━━━━━━━━
+◆◆◆ネット不倫にハマル人妻達をお外で露出調教☆
+　　　　 しっとりした柔肌をとことん味わいつくす
+ 
+。　o  ○ 。　☆　゜　。　o  ○ 。　☆　゜　。　o  ○ 。　☆　゜　。　o  ○ 。　☆　゜　o  ○
+。　　o .  ★　○ 。　。　　o .  ★　○ 。。　　o .  ★　○ 。。　　o .  ★　○ 。。　　o . 
+┼┼┼┼┼┼┼┼
+今週のムービー　　┼┼┼┼┼┼┼┼
+ 
+●乱交・ハ◎撮りシリーズ
+　 普通のＳＥＸじゃもの足りない…流行のハプニングバーに通う独身OL達に密着取材
+ 
+●潮吹き・昇天シリーズ
+　 女の子達のイク瞬間ばかりを集めた傑作集！
+ 
+●巨乳露出シリーズ
+　 感度抜群のIカップ娘と野外でＨ☆ハダカにバイブでコンビニお買い物☆
+ 
+　　　http://pink.mycountry.cc/?w7q9wer7iq
+◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎　◎
+　　　　　　　　　　　　　　　　　＜メール通信からのお知らせ＞
+=====================================================================
+ 
+　　 □当局のメールマガジンの掲載情報の利用に関しては、
+　　　　各人が自分の責任で行なっていただくこを前提としています。
 
+　　　　当局では掲載情報に関してのお問合せや、
+　　　　ご紹介したサイト先での損害に対しては
+　　　　いかなる責任も負いかねますので、予めご了承下さい。
+ 
+　　　　掲載された記事の一部または全部を許可なく転載することを禁止致します。
+ =====================================================================
+ ┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴┴
+　　 ※購読解除方法
+　　　　購読解除はお手数ですが、下記のアドレスよりログインし、ご自身でお手続き下さい。
 
-
-		
-__________________________________ 
-Yahoo! Messenger 
-Show us what our next emoticon should look like. Join the fun. 
-http://www.advision.webevents.yahoo.com/emoticontest
+    http://nde2.vig-seet.to/tu-sin/
