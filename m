@@ -1,43 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6]: Make packet scheduler clock source configurable
-Date: Sun, 25 Jul 2004 17:02:12 -0700
+From: Andrew Morton <akpm@osdl.org>
+Subject: Re: kernel 2.6.7 -> page allocation failure. order:1, mode:0x20
+ (netfilter?)
+Date: Sun, 25 Jul 2004 17:59:45 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040725170212.36b04c3c.davem@redhat.com>
-References: <40F34740.5040100@trash.net>
-	<1107.63.170.215.71.1089689716.squirrel@www.osdl.org>
-	<20040712205037.573411c0.davem@redhat.com>
-	<40F4862D.3070802@trash.net>
-	<40F4AC8B.40706@trash.net>
-	<20040721143110.4ab944bf.davem@redhat.com>
-	<41004F76.1080807@trash.net>
-	<20040722171752.341d2476.davem@redhat.com>
-	<41006150.9000702@trash.net>
-	<41014788.4070301@trash.net>
-	<20040723135459.2ee5c42c.davem@redhat.com>
-	<41019CDA.9050401@trash.net>
-	<20040724232705.237396b4.davem@redhat.com>
-	<41042CA3.2050702@trash.net>
+Message-ID: <20040725175945.15999990.akpm@osdl.org>
+References: <40FB93FE.90308@ovibes.net>
+	<20040720024741.GF27487@obroa-skai.de.gnumonks.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: shemminger@osdl.org, netdev@oss.sgi.com, devik@cdi.cz
+Cc: sebest@ovibes.net, linux-kernel@vger.kernel.org,
+        netfilter-devel@lists.netfilter.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <41042CA3.2050702@trash.net>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20040720024741.GF27487@obroa-skai.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 25 Jul 2004 23:56:51 +0200
-Patrick McHardy <kaber@trash.net> wrote:
+Harald Welte <laforge@netfilter.org> wrote:
+>
+> what's worrying me is the part above... how would skb_checksum_help
+>  directly end up in copy_from_user()?
 
-> David S. Miller wrote:
-> > Let me know if you get feedback or not.
-> > 
-> > For now I'm pushing to Linus with Alpha removed from the
-> > list.
+That'll be leftover gunk on the stack.  Enabling frame pointers makes that
+go away.
+
+>  > swapper: page allocation failure. order:1, mode:0x20
+>  > [<c013d770>] __alloc_pages+0x2da/0x34a
+>  > [<c013d805>] __get_free_pages+0x25/0x3f
+>  > [<c0140e28>] kmem_getpages+0x2b/0xdc
+>  > [<c0141bfc>] kfree_skbmem+0x24/0x2c
+>  > [<c0141c5d>] cache_grow+0xe5/0x2a4
+>  > [<c0141f8a>] cache_grow+0x146/0x2a4
+>  > [<c0295917>] cache_alloc_refill+0x1cf/0x29f
+>  > [<c014262a>] __kmalloc+0x85/0x8c
+>  > [<c02681f1>] tcp_transmit_skb+0x411/0x68a
+>  > [<c0296621>] alloc_skb+0x47/0xe0
+>  > [<c026875e>] tcp_write_xmit+0x16d/0x2d6
+>  > [<c01da1ac>] skb_copy+0x33/0xde
+>  > [<c026ca5b>] copy_from_user+0x42/0x6e
 > 
-> According to Richard Henderson it should work fine. The fastest
-> Alpha cycle counter (1.2 GHz) takes 3.57 seconds to overflow.
+>  Does anybody have a clue what's going on?
 
-That's word enough for me, I'll put ALPHA back into the list.
-Thanks.
+Networking tried to do an atomic 1-order allocation and there were no
+1-order pages available in the free page pools.  It's pretty much
+unavoidable, and the caller simply needs to handle it - presumably by
+dropping the packet.
+
+Its frequency can be reduced by increasing /proc/sys/vm/min_free_kbytes.
+
+It can be eliminated by using GFP_KERNEL.  It can be hugely reduced by
+sticking to 0-order allocations.
+
+I wouldn't worry about this unless someone is seeing a lot of them (a
+significant number of packets are getting dropped)
