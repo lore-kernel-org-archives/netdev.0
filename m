@@ -1,34 +1,32 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: strange e1000 interface freeze
-Date: Wed, 11 Aug 2004 16:26:24 +0200
+Subject: Re: strange e1000 interface freeze
+Date: Wed, 11 Aug 2004 17:08:53 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16666.11408.446131.763707@robur.slu.se>
+Message-ID: <16666.13957.266124.967306@robur.slu.se>
 References: <411757CA.4010401@draigBrady.com>
+	<16666.11408.446131.763707@robur.slu.se>
+	<411A3238.6060400@draigBrady.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: e1000-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        e1000-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: P@draigBrady.com
-In-Reply-To: <411757CA.4010401@draigBrady.com>
+In-Reply-To: <411A3238.6060400@draigBrady.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
 P@draigBrady.com writes:
- > I've been able to reproduce an situation here
- > where the interface freezes on a platform
- > where a continuous stream of about 8000 packets
- > per second are being received. It usually takes
 
- > By lock up I mean that the interface records all packets
- > as fifo errors, and it receives only 1 interrupt every 2 seconds.
- > Note the other NAPI interface works fine (at about 7.5K interrupts/s).
+ > Interesting.
+ > We've noticed the problems on 133MHz but not on 100MHz
+ > We're double checking 100MHz at the moment.
 
- Weird. We had a problem with a e1000 in one particular PCI-slot were the 
- NIC was dropping packets no other clues. Decreasing PCI-bus speed from 133 
- to 100 MHz solved this problem. There are two chip revs. Anvik I and II.
- Anvik I had problems in some architectures from what I understood.
+ I've guess you have seen that the QUAD board which uses
+ 2 * 82546EB plus a PCI-bridge sets the speed between the 
+ onboard bridge and 82546 chips to 120 MHz.
 
  Cheers.
-						--ro
+					--ro
