@@ -1,43 +1,96 @@
-From: John Heffner <jheffner@psc.edu>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Tue, 29 Mar 2005 14:32:33 -0500 (EST)
-Message-ID: <Pine.LNX.4.58.0503291422100.3256@dexter.psc.edu>
-References: <421D30FA.1060900@ev-en.org> <20050225120814.5fa77b13@dxpl.pdx.osdl.net>
- <20050309210442.3e9786a6.davem@davemloft.net> <4230288F.1030202@ev-en.org>
- <20050310182629.1eab09ec.davem@davemloft.net> <20050311120054.4bbf675a@dxpl.pdx.osdl.net>
- <20050311201011.360c00da.davem@davemloft.net> <20050314151726.532af90d@dxpl.pdx.osdl.net>
- <m13bur5qyo.fsf@muc.de> <Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
- <20050322074122.GA64595@muc.de>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] s390: claw network device driver
+Date: Tue, 29 Mar 2005 15:02:44 -0500
+Message-ID: <4249B464.50607@pobox.com>
+References: <200503290533.j2T5XEYT028850@hera.kernel.org>	<4248FBFD.5000809@pobox.com>	<20050328230830.5e90396f.akpm@osdl.org>	<20050329071210.GA16409@havoc.gtf.org>	<20050328232359.4f1e04b9.akpm@osdl.org>	<42490763.5010008@pobox.com> <20050329000239.6346d73e.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Stephen Hemminger <shemminger@osdl.org>, Andi Kleen <ak@muc.de>,
-        baruch@ev-en.org
-Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20050322074122.GA64595@muc.de>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: linux-kernel@vger.kernel.org, schwidefsky@de.ibm.com,
+	netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261342AbVC2UDI@vger.kernel.org>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20050329000239.6346d73e.akpm@osdl.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, 22 Mar 2005, Andi Kleen wrote:
+Andrew Morton wrote:
+> Jeff Garzik <jgarzik@pobox.com> wrote:
+> 
+>>Andrew Morton wrote:
+>>
+>>>Jeff Garzik <jgarzik@pobox.com> wrote:
+>>>
+>>>
+>>>>>Was cc'ed to linux-net last Thursday, but it looks like the messages was
+>>>>>too large and the vger server munched it.
+>>>>
+>>>>This also brings up a larger question... why was a completely unreviewed
+>>>>net driver merged?
+>>>
+>>>
+>>>Because nobody noticed that it didn't make it to the mailing list,
+>>>obviously.
+>>
+>>That's ducking the question.  Let me rephrase.
+>>
+>>Why was a complete lack of response judged to be an ACK?
+> 
+> 
+> That's not uncommon.  I don't ask people "are you reading the mailing list
+> which you should be reading" unless I think it's someone who doesn't read
+> the mailing lists which they should be reading.
+> 
+> 
+>>For new drivers, that's a -horrible- precedent.  You are quite skilled 
+>>at poking random hackers :)  why not poke somebody to ack a new drivers? 
+> 
+> 
+> In this case I didn't think about it very hard, sorry - figured it was s390
+> stuff and it hence falls under the "if it breaks, it's the s390 team's
+> problem" exemption.
 
-> On Mon, Mar 21, 2005 at 04:25:56PM -0500, John Heffner wrote:
-> > Is there a canonical benchmark?
->
-> For the LSM case we saw the problem with running netperf over loopback.
-> It added one or two hooks per packet, but it already made a noticeable
-> difference on IA64 boxes.
+Yeah, and I -am- sympathetic to that sort of thing.  I just feel really 
+strongly that we need to have a higher-than-normal barrier for new code.
 
-The motivation for my question is that I get very unpredictable
-performance over loopback with UP for all architectures, often varying by
-more than a factor of two.  I haven't really tried to track down the
-cause, but an important characteristic seems to be that the greater the
-differential between the CPU utilization of the sender and the receiver,
-the slower the throughput.  (But I'm not sure if there's a causal relation
-here.)  Maybe this is simply scheduler strangeness, since it doesn't seem
-to be an issue that I've noticed on SMP.  Has anyone seen this or know
-offhand what's going on?
+It may be an S/390 driver, but Jeff's Law of Bad Code states "where 
+there is bad code, it will be copied."  Propagating the 2.2.x-era 
+'tbusy' flag to yet more drivers is something I absolutely do not want 
+to happen.
 
-The only ia64 I have on which I can boot kernels is a UP box.
+I also feel that we have shifted from a "Linus doesn't scale" problem to 
+an "akpm doesn't scale" problem.  As much work as you put it (lots!), 
+you can't possibly be expected to review all the new drivers and such.
 
-  -John
+I would prefer a "new driver must be acked by at least one non-author" 
+rule.  We need -some- barrier to entry.  If that rule is OK with others, 
+I'm quite willing to do that for my areas like libata.
+
+
+>>  It's not like this driver (or many of the other new drivers) 
+>>desperately need to get into the kernel ASAP, so desperate that a lack 
+>>of review was OK.
+> 
+> 
+> True.  But it's not as if we can't fix stuff up after it's merged up.  The
+> reasons for holding off on a merge would be:
+> 
+> a) We're not sure that the feature should be merged at all
+> 
+> b) Holding off on a merge is a tool we use to motivate the submitter to
+>    fix the code up
+> 
+> c) The merge breaks existing stuff.
+> 
+> I don't think any of those things apply here.  The only downside is the
+> increased bk patch volume.
+
+In general, I have supported your philosophy of accelerated upstreaming 
+of code.  I just worry about going too far, and this driver was a 
+case-in-point.
+
+As Linus and others have pointed out many times in the past, there is no 
+harm in -not- upstreaming code until it is "ready."  Our current system 
+of maintainers/lieutenants is sufficiently distributed as to allow this.
+
+	Jeff
