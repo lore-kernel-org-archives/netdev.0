@@ -1,29 +1,28 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] bluetooth - set sock owner
-Date: Fri, 29 Aug 2003 11:20:59 -0700
+Subject: [PATCH] (8/13) set owner of /proc/net/atalk directory
+Date: Fri, 29 Aug 2003 14:06:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030829112059.29414fc5.shemminger@osdl.org>
+Message-ID: <20030829140651.4ec38b3e.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Maxim Krasnyansky <maxk@qualcomm.com>,
-   "David S. Miller" <davem@redhat.com>
+To: Jay Schulist <jschlst@samba.org>, "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-All sockets created by a protocol need to have owner field set
-to prevent problems with orphaned sockets during module unload.
+Set owner to prevent problems when directory is open during
+module unload.
 
-diff -Nru a/net/bluetooth/af_bluetooth.c b/net/bluetooth/af_bluetooth.c
---- a/net/bluetooth/af_bluetooth.c	Fri Aug 29 11:14:03 2003
-+++ b/net/bluetooth/af_bluetooth.c	Fri Aug 29 11:14:03 2003
-@@ -130,6 +130,7 @@
- 	}
+diff -Nru a/net/appletalk/atalk_proc.c b/net/appletalk/atalk_proc.c
+--- a/net/appletalk/atalk_proc.c	Fri Aug 29 13:32:04 2003
++++ b/net/appletalk/atalk_proc.c	Fri Aug 29 13:32:04 2003
+@@ -275,6 +275,7 @@
+ 	atalk_proc_dir = proc_mkdir("atalk", proc_net);
+ 	if (!atalk_proc_dir)
+ 		goto out;
++	atalk_proc_dir->owner = THIS_MODULE;
  
- 	sock_init_data(sock, sk);
-+	sk_set_owner(sk, THIS_MODULE);
- 	INIT_LIST_HEAD(&bt_sk(sk)->accept_q);
- 	
- 	sk->sk_zapped   = 0;
+ 	p = create_proc_entry("interface", S_IRUGO, atalk_proc_dir);
+ 	if (!p)
