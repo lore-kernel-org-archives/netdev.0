@@ -1,46 +1,31 @@
-From: Wang Jian <lark@linux.net.cn>
+From: Thomas Graf <tgraf@suug.ch>
 Subject: Re: [PATCH] improvement on net/sched/cls_fw.c's hash function
-Date: Wed, 06 Apr 2005 21:53:55 +0800
-Message-ID: <20050406214848.029A.LARK@linux.net.cn>
-References: <20050406123036.GO26731@postel.suug.ch> <4253E5D4.60504@mrv.com>
+Date: Wed, 6 Apr 2005 16:10:20 +0200
+Message-ID: <20050406141020.GQ26731@postel.suug.ch>
+References: <20050405213023.0256.LARK@linux.net.cn> <1112717495.1076.22.camel@jzny.localdomain> <20050406143842.026B.LARK@linux.net.cn> <20050406123036.GO26731@postel.suug.ch> <1112794459.1096.61.camel@jzny.localdomain> <20050406134502.GP26731@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, hadi@cyberus.ca, netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: Wang Jian <lark@linux.net.cn>, netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: emann@mrv.com (Eran Mann)
-In-Reply-To: <4253E5D4.60504@mrv.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <20050406134502.GP26731@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Eran Mann,
-
-
-On Wed, 06 Apr 2005 16:36:20 +0300, emann@mrv.com (Eran Mann) wrote:
-
-
+* Thomas Graf <20050406134502.GP26731@postel.suug.ch> 2005-04-06 15:45
+> * jamal <1112794459.1096.61.camel@jzny.localdomain> 2005-04-06 09:34
+> > When does the user specify this? i would think you need to set it once
+> > only per bootup. After that it will be quiet complex to reset. It could
+> > be done but sounds complex and unnecessary. i.e it may be a boot or
+> > module parameter more than it is a netlink controlled value, no?
 > 
-> Maybe you could add to the list of options a XOR of bytes hash, 
-> something like:
-> static inline u8 bytes_xor_u32( u32 key )
-> {
-> 	u8 *dummy_array = (u8 *)&key;
-> 	u8 hash = dummy_array[0] ^ dummy_array[1] ^
-> 		  dummy_array[2] ^ dummy_array[3];
-> 
-> 	return hash;
-> }
-> 
+> I'm not 100% sure about this yet but I think during fw_change so
+> we can have different hashes for different qdiscs filter chains.
 
-Ha, then this hi-or-lo word hash, which assumes that high or low word is
-0, and key is distributed in the old fashion (0..255, etc)
-
-static inline u32 hi_or_lo_hash(u32 key)
-{
-	return (key >> 16 ^ key) & 0xFF;
-}
-
-
--- 
-  lark
+The thing I'm worrying about is that I don't want to break the perfect
+alignment of fw_head to good slab obj sizes but I guess there is no
+way around. I'd really like to make hash size and hash function
+configureable. For example a hash size of 1024 would perform much
+better and would still fit into a single page on most systems.
