@@ -1,125 +1,107 @@
-From: "JAYLIN" <JAY@yahoo.com.tw>
-Subject: =?Big5?B?q/Wt+bDHQECr57vypWmv4KN6?=
-Date: Mon, 19 Apr 2004 00:19:13 +0800
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ / new Dummy device post.
+Date: Sun, 18 Apr 2004 17:35:17 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404181710.i3IHAEKO028208@oss.sgi.com>
-Content-Type: text/html
+Message-ID: <4082AE45.7030101@dsl.pipex.com>
+References: <407E5905.9070108@dsl.pipex.com>	 <1082031313.1039.13.camel@jzny.localdomain>	 <407EE3E5.8060200@dsl.pipex.com>	 <1082087553.1035.287.camel@jzny.localdomain>	 <4080356F.4020609@dsl.pipex.com>	 <1082145341.1026.125.camel@jzny.localdomain>	 <40810957.6030209@dsl.pipex.com>	 <1082203795.1043.18.camel@jzny.localdomain>	 <4081A824.5020107@dsl.pipex.com> <1082298480.1041.94.camel@jzny.localdomain>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1082298480.1041.94.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<center>
-  <img src="http://www.eile-tech.com/eile.gif" width="760" height="650" border="0"> 
-</center>
-<center>
-  <font color="#FF0000"><b><font color="#0000FF">★ </font><a href="http://www.1bits.com/article/article.php?articleid=456" target="_blank">本產品經數碼天堂專業DIY測試報導</a></b></font> 
-  <FORM action=mailto:sales@eile-tech.com?SUBJECT=訂購EILE19吋LCD method=post 
-            encType=text/plain>
-      
-    <TABLE border=0 width="569" bgcolor="#000000" cellspacing="1" cellpadding="0">
-      <TR> <font size="2"> 
-        <TD width="100%" bgcolor="#FFFFFF" align="center"> 
-          <p align="left"><FONT size=2>中文姓名： 
-            <INPUT maxLength=10                                
-            name=中文姓名 size=20>
-            </FONT><font size="2" color="#FF0000">*</font><font size="2">　性別：男 
-            <input type="radio" value="男" checked name="性別">
-            女 
-            <input type="radio" value="女" name="性別">
-            </font> </p>
-        </TD>
-        </font> </TR>
-      <TR> 
-        <TD width="100%" bgcolor="#FFFFFF" align="center"> 
-          <p align="left"><font size="2">聯絡電話： 
-            <INPUT maxLength=15                    
-            name=聯絡電話 size=20>
-            </font><font size="2" color="#FF0000">*</font><font size="2">　電子信箱：</font><span style="LETTER-SPACING: 1px"><font color="#000000" size="2"> 
-            <input name="電子信箱" size="30">
-            </font></span></p>
-        </TD>
-      </TR>
-      <TR> 
-        <TD width="100%" bgcolor="#FFFFFF" align="center" height="18"> 
-          <p align="left"><font size="2">交易方式： 
-            <select name="交易方式">
-              <option value="貨到付款---運費+手續費300元">貨到付款---運費+手續費300元</option>
-              <option value="ATM轉帳---運費100元">ATM轉帳---運費100元</option>
-              <option value="面交---請來信洽詢">面交---請來信洽詢</option>
-            </select>
-            宅配送達時段</font> 
-            <select name="送達時段">
-              <option value="不指定時段">不指定時段</option>
-              <option value="早上 09:00 ~ 12:00">早上 09:00 ~ 12:00</option>
-              <option value="中午 12:00 ~ 17:00">中午 12:00 ~ 17:00</option>
-              <option value="晚上 17:00 ~ 21:00">晚上 17:00 ~ 21:00</option>
-            </select>
-            <font size="2" color="#FF0000">*</font><font size="2"></font></p>
-        </TD>
-      </TR>
-      <TR> 
-        <TD width="100%" bgcolor="#FFFFFF" align="center"> 
-          <p align="left"><font size=2>送達地址： 
-            <input maxlength=50 name=送達地址                               
-            size=48 value="【郵遞區號】">
-            </font><font size="2" color="#FF0000">*</font> </p>
-        </TD>
-      </TR>
-      <TR> 
-        <TD width="100%" bgcolor="#FFFFFF"><font size="2">附註說明:</font> 
-          <textarea cols=60 name=說明 rows=5>
- 
- </textarea>
-        </TD>
-      </TR>
-      <TR> 
-        <TD width="100%" bgcolor="#FFFFFF" height="8"> 
-          <P align=center><font size="2" color="#666666">如有產品及宅配問題請撥打全省服務專線: </font><font color="#666666"><font size="2">03-318-4333#23</font></font> 
-        </TD>
-      </TR>
-      <TR> 
-        <TD width="100%" bgcolor="#FFFFFF"> 
-          <div align="center"> 
-            <input type=submit value=送出表單 name="submit">
-            　 
-            <input type=reset value=清除重填 name="reset">
-          </div>
-        </TD>
-      </TR>
-    </TABLE>                    
+jamal wrote:
+> On Sat, 2004-04-17 at 17:56, Andy Furniss wrote:
+> 
+>>jamal wrote:
+> 
+>  
+> 
+>>>I think i am almost understanding you now. Your main concern is people
+>>>using bittorrent to upload to you, correct? 
+>>>Is there a way to recognize packets going to/from bittorent?
+>>
+>>Quite possibly (though I think it uses connmark which I can't use as I 
+>>use connbytes to get new tcps out of slowstart).
+> 
+> 
+> You are speaking Inuit to me. What is connmark? and what is the relation
+> to tcp slowstart.
+> 
+> 
 
-</form></center>
-<div align="center"> 
-  <p><img src="http://www.eile-tech.com/EILE.jpg" width="511" height="70" border="0"><font size="3"></font>
-<script src=http://ashan.ycps.hc.edu.tw/counter/counter.php3?id=70528></script>
+Connmark is a netfilter patch which is required by the type of P2P 
+limiting/marking projects on sf.net that could mark bittorrent traffic. 
+It is incompatable with the connbytes patch which I use to mark the 
+first x KB of new connections. Doing this lets me send new TCps to a 
+short queue which is capped at 50% of my bandwidth. This means that some 
+packets get dropped and the slowstart phase is ended before it's 
+exponential nature floods my ISP buffer.
 
- 
-  <hr>
-  <p><b>本廣告信委託Easy-Send公司代發</b>
-  <table cellSpacing="1" width="576">
-    <tr>
-      <td width="640" align="center"> 
-        <form name="mail" action="mailto:sales@eile-tech.com?subject=取消/訂閱廣告信" method="post" encType="text/plain">
-        <div align="center">
-            <table height="37" borderColorDark="#6699ff" width="593" borderColorLight="#99ccff" border="0">
-              <tbody> 
-              <tr> 
-                <td align="middle" colSpan="2" height="21"> 
-                  <p align="center"><font size="2">電子信箱：</font><span style="LETTER-SPACING: 1px"><font color="#000000" size="2"> 
-                    <input name="電子信箱" size="30">
-                    </font><font size="2"> 
-                    <input type="checkbox" value="取消訂閱" name="訂閱">
-                    取消訂閱
-                    <input type="checkbox" value="我要訂閱" name="訂閱" checked>
-                    我要訂閱
-                    <input type="submit" value="確定" name="OK確定">
-                    </font></span></p>
-                </td>
-              </tr>
-              </tbody> 
-            </table>
-        </div>
-      </form>
-    </td>
-  </tr>
-</table>
+Put another way - I can game without latency spikes while a couple of 
+people are browsing "heavy .jpg" type websites. It only works well if my 
+link is otherwise clear - but this is a common situation for my home 
+setup.
+
+
+>>I also sometimes use wget and I've seen posts on LARTC from people who 
+>>use squid and need to solve the same problem.
+> 
+> 
+> I am gonna assume that you have some way to recognize the flows destined
+> to localhost which you want to punish.
+> 
+> 
+>>>
+> 
+> 
+>>>>ppp0 one dynamic real IP ->  gateway PC -> eth0 -> LAN 192.168.0.0/24
+>>>>                                  |
+>>>>                                   -> local process.
+>>>
+>>>
+>>>
+>>>Ok good. Assuming you have attached your HTB etc on one or more dummy
+>>>devices.
+> 
+> 
+>>>- The third path is packets that come in from ppp0, get demasquareded,
+>>>then have to either go a) to the LAN/eth0 or b)localhost bittorent
+>>>process. You want to restrict b)
+>>
+>>Well not just restrict - dynamically share per IP total incoming 
+>>bandwidth with LAN traffic using HTB.
+> 
+> 
+> Sure - thats assumed since you attach HTB to the dummy device.
+> 
+> To accomodate your need for b), the idea would be as follows:
+> packet gets demasquared, mark it with a fwmark
+
+I guess you really mean mark then demasquerade.
+
+> based on some recognition
+> you have for bittorent or squid and lastly policy route it to the dummy
+> device based on fwmark (since routing happens last).
+> I will need to modify the dummy to not drop such packets which are
+> fwmarked. 
+
+OK I can see this as a possibility - assuming I can mark. Maybe conmark 
+will be OK with connbytes sometime. I don't really know how to use it, 
+but if it is possible to mark egress connections in output and have 
+connmark match their incoming packets that would be a solution. I 
+haven't got a clue if connmark can do this, though, just speculating.
+
+Does anyone else know, and why it's not compatable with connbytes?
+
+Andy.
+
+> cheers,
+> jamal
+> 
+> 
+> 
