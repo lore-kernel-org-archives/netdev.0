@@ -1,20 +1,19 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Re: [PATCH 0/14] prism54: bring up to sync with
- prism54.org cvs rep
-Date: Thu, 27 May 2004 15:56:11 -0400
+Subject: Re: CVS tags (was  Re: Re: [PATCH 4/14 linux-2.6.7-rc1]
+ prism54: add support for avs header in
+Date: Thu, 27 May 2004 15:56:40 -0400
 Sender: prism54-devel-admin@prism54.org
-Message-ID: <40B647DB.4090109@pobox.com>
-References: <20040524083003.GA3330@ruslug.rutgers.edu> <20040524085727.GR3330@ruslug.rutgers.edu> <40B62F29.6090101@pobox.com> <20040527192733.GB14186@logos.cnet> <40B6424D.7030203@pobox.com> <20040527194513.GV3330@ruslug.rutgers.edu>
+Message-ID: <40B647F8.2070100@pobox.com>
+References: <20040524083146.GE3330@ruslug.rutgers.edu> <40B631B3.4000902@pobox.com>            <20040527191649.GT3330@ruslug.rutgers.edu> <200405271931.i4RJVjYB002642@turing-police.cc.vt.edu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Marcelo Tosatti <marcelo.tosatti@cyclades.com>,
-	Marcelo Tosatti <marcelo.tosatti@cyclades.com.br>,
+Cc: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>,
 	Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
 	netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <prism54-devel-admin@prism54.org>
-To: "Luis R. Rodriguez" <mcgrof@studorgs.rutgers.edu>
-In-Reply-To: <20040527194513.GV3330@ruslug.rutgers.edu>
+To: Valdis.Kletnieks@vt.edu
+In-Reply-To: <200405271931.i4RJVjYB002642@turing-police.cc.vt.edu>
 Errors-To: prism54-devel-admin@prism54.org
 List-Help: <mailto:prism54-devel-request@prism54.org?subject=help>
 List-Post: <mailto:prism54-devel@prism54.org>
@@ -25,20 +24,23 @@ List-Unsubscribe: <http://prism54.org/mailman/listinfo/prism54-devel>,
 List-Archive: <http://prism54.org/pipermail/prism54-devel/>
 List-Id: netdev.vger.kernel.org
 
-Luis R. Rodriguez wrote:
-> Great. I'll fix all those patches up again for you and Marcelo. For future
-> development I've asked other prism54 developers to first send patches to
+Valdis.Kletnieks@vt.edu wrote:
+> On Thu, 27 May 2004 15:16:49 EDT, Luis R. Rodriguez said:
+> 
+>>--- ksrc/islpci_eth.c
+>>+++ ksrc-new/islpci_eth.c
+> 
+> 
+> I think this was what he referred to:
+> 
+> 
+>>-/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_eth.c,v 1.31 2004/03 15:27:44 ajfa Exp $
+>>+/*  $Header: /var/lib/cvs/prism54-ng/ksrc/islpci_eth.c,v 1.33 2004/03/19 23:03:58 ajfa Exp $
+> 
+> 
+> as this will almost surely cause rejects (sooner or later) unless 100% of your
+> patches are applied and in the right order.
 
-For what it's worth, you may send a "one big patch" to add the driver to 
-2.4, since the individual changes to that point will be in 2.6.x 
-BitKeeper changelog.
-
-Once the driver is merged, I do request split-up patches just like 2.6.x.
-
-
-> netdev for review/approval. Maybe we *should* do away with prism54-devel 
-> mailing list and just use netdev as was once suggested by someone...
-
-Up to you :)
+Correct.
 
 	Jeff
