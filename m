@@ -1,29 +1,30 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [PATCH] Add nl_open to libnetlink
-Date: Sat, 3 Jul 2004 19:46:32 +1000
+Subject: [XFRM] Convert XFRM_MSG_* macros to an enum
+Date: Sat, 3 Jul 2004 19:52:15 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040703094632.GA14235@gondor.apana.org.au>
+Message-ID: <20040703095215.GA16195@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="IJpNTDwzlM2Ie8A6"
+Content-Type: multipart/mixed; boundary="y0ulUmNC+osPPQO6"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---IJpNTDwzlM2Ie8A6
+--y0ulUmNC+osPPQO6
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi Stephen:
+Hi Dave:
 
-I'm in the process of writing two new modules fo ip(8), ippolicy and
-ipstate which will be a NETLINK based replacement for setkey.
+I'd like to add two new xfrm_user messages, FLUSHSA and FLUSHPOLICY.
 
-In order to do so, I need to get libnetlink to speak the XFRM protocol.
-Thus I've added a new nl_open function which allows the protocol to
-be specified.
+I've cleaned up the existing MSG definitions by converting them to
+an enum.  This should make future additions slightly easier in that
+XFRM_MSG_MAX won't have to be touched again.
+
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
 Cheers,
 -- 
@@ -32,51 +33,55 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---IJpNTDwzlM2Ie8A6
+--y0ulUmNC+osPPQO6
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-Index: include/libnetlink.h
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/iproute/include/libnetlink.h,v
-retrieving revision 1.1.1.1
-retrieving revision 1.2
-diff -u -r1.1.1.1 -r1.2
---- include/libnetlink.h	2 Jul 2004 17:53:03 -0000	1.1.1.1
-+++ include/libnetlink.h	3 Jul 2004 09:34:05 -0000	1.2
-@@ -15,6 +15,7 @@
+===== include/linux/xfrm.h 1.20 vs edited =====
+--- 1.20/include/linux/xfrm.h	2004-05-30 05:35:21 +10:00
++++ edited/include/linux/xfrm.h	2004-07-03 19:43:11 +10:00
+@@ -103,26 +103,28 @@
  };
  
- extern int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions);
-+extern int nl_open(struct rtnl_handle *rth, unsigned subscriptions, int proto);
- extern void rtnl_close(struct rtnl_handle *rth);
- extern int rtnl_wilddump_request(struct rtnl_handle *rth, int fam, int type);
- extern int rtnl_dump_request(struct rtnl_handle *rth, int type, void *req, int len);
-Index: lib/libnetlink.c
-===================================================================
-RCS file: /home/gondolin/herbert/src/CVS/iproute/lib/libnetlink.c,v
-retrieving revision 1.1.1.1
-retrieving revision 1.2
-diff -u -r1.1.1.1 -r1.2
---- lib/libnetlink.c	2 Jul 2004 17:53:03 -0000	1.1.1.1
-+++ lib/libnetlink.c	3 Jul 2004 09:34:06 -0000	1.2
-@@ -32,11 +32,16 @@
+ /* Netlink configuration messages.  */
+-#define XFRM_MSG_BASE		0x10
++enum {
++	XFRM_MSG_BASE = 0x10,
  
- int rtnl_open(struct rtnl_handle *rth, unsigned subscriptions)
- {
-+	return nl_open(rth, subscriptions, NETLINK_ROUTE);
-+}
-+
-+int nl_open(struct rtnl_handle *rth, unsigned subscriptions, int proto)
-+{
- 	int addr_len;
+-#define XFRM_MSG_NEWSA		(XFRM_MSG_BASE + 0)
+-#define XFRM_MSG_DELSA		(XFRM_MSG_BASE + 1)
+-#define XFRM_MSG_GETSA		(XFRM_MSG_BASE + 2)
++	XFRM_MSG_NEWSA = 0x10,
++	XFRM_MSG_DELSA,
++	XFRM_MSG_GETSA,
  
- 	memset(rth, 0, sizeof(rth));
+-#define XFRM_MSG_NEWPOLICY	(XFRM_MSG_BASE + 3)
+-#define XFRM_MSG_DELPOLICY	(XFRM_MSG_BASE + 4)
+-#define XFRM_MSG_GETPOLICY	(XFRM_MSG_BASE + 5)
++	XFRM_MSG_NEWPOLICY,
++	XFRM_MSG_DELPOLICY,
++	XFRM_MSG_GETPOLICY,
  
--	rth->fd = socket(AF_NETLINK, SOCK_RAW, NETLINK_ROUTE);
-+	rth->fd = socket(AF_NETLINK, SOCK_RAW, proto);
- 	if (rth->fd < 0) {
- 		perror("Cannot open netlink socket");
- 		return -1;
+-#define XFRM_MSG_ALLOCSPI	(XFRM_MSG_BASE + 6)
+-#define XFRM_MSG_ACQUIRE	(XFRM_MSG_BASE + 7)
+-#define XFRM_MSG_EXPIRE		(XFRM_MSG_BASE + 8)
++	XFRM_MSG_ALLOCSPI,
++	XFRM_MSG_ACQUIRE,
++	XFRM_MSG_EXPIRE,
+ 
+-#define XFRM_MSG_UPDPOLICY	(XFRM_MSG_BASE + 9)
+-#define XFRM_MSG_UPDSA		(XFRM_MSG_BASE + 10)
++	XFRM_MSG_UPDPOLICY,
++	XFRM_MSG_UPDSA,
+ 
+-#define XFRM_MSG_POLEXPIRE	(XFRM_MSG_BASE + 11)
++	XFRM_MSG_POLEXPIRE,
+ 
+-#define XFRM_MSG_MAX		(XFRM_MSG_POLEXPIRE+1)
++	XFRM_MSG_MAX
++};
+ 
+ struct xfrm_user_tmpl {
+ 	struct xfrm_id		id;
 
---IJpNTDwzlM2Ie8A6--
+--y0ulUmNC+osPPQO6--
