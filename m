@@ -1,48 +1,43 @@
-From: Tomas Carnecky <tom@dbservice.com>
-Subject: Re: [Coverity] Untrusted user data in kernel
-Date: Fri, 17 Dec 2004 20:18:15 +0100
-Message-ID: <41C330F7.4000806@dbservice.com>
-References: <41C26DD1.7070006@trash.net> <Xine.LNX.4.44.0412170144410.12579-100000@thoron.boston.redhat.com> <41C2FF99.3020908@tmr.com> <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: primary and secondary ip addresses
+Date: Fri, 17 Dec 2004 20:17:07 +0100 (CET)
+Message-ID: <Pine.LNX.4.61.0412172011460.18385@filer.marasystems.com>
+References: <41912F7A.6000408@redhat.com> <200412161153.51251.hasso@estpak.ee>
+ <Pine.LNX.4.61.0412161103320.30452@filer.marasystems.com>
+ <200412161302.42357.hasso@estpak.ee> <41C2F6E5.5010607@cs.columbia.edu>
+ <Pine.LNX.4.61.0412171621200.15793@filer.marasystems.com>
+ <41C30212.6000906@cs.columbia.edu> <Pine.LNX.4.61.0412171736210.17463@filer.marasystems.com>
+ <41C314BC.3060507@cs.columbia.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Bill Davidsen <davidsen@tmr.com>,
-	James Morris <jmorris@redhat.com>,
-	Patrick McHardy <kaber@trash.net>,
-	Bryan Fulton <bryan@coverity.com>, netdev@oss.sgi.com,
-	netfilter-devel@lists.netfilter.org, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262120AbULQTN5@vger.kernel.org>
-To: linux-os@analogic.com
-In-Reply-To: <Pine.LNX.4.61.0412171108340.4216@chaos.analogic.com>
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Hasso Tepper <hasso@estpak.ee>,
+	Harald Welte <laforge@gnumonks.org>,
+	Neil Horman <nhorman@redhat.com>, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: Andrea G Forte <andreaf@cs.columbia.edu>
+In-Reply-To: <41C314BC.3060507@cs.columbia.edu>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-linux-os wrote:
-> On Fri, 17 Dec 2004, Bill Davidsen wrote:
-> 
->> James Morris wrote:
->>
->>> On Fri, 17 Dec 2004, Patrick McHardy wrote:
- >>>
->>> That's what I meant, you need the capability to do anything bad :-)
->>
->>
->> Are you saying that processes with capability don't make mistakes? 
->> This isn't a bug related to untrusted users doing privileged 
->> operations, it's a case of using unchecked user data.
->>
-> 
-> But isn't there always the possibility of "unchecked user data"?
-> I can, as root, do `cp /dev/zero /dev/mem` and have the most
-> spectacular crask you've evet seen. I can even make my file-
-> systems unrecoverable.
-> 
+On Fri, 17 Dec 2004, Andrea G Forte wrote:
 
-But the difference between you example (cp /dev/zero /dev/mem) and 
-passing unchecked data to the kernel is... you _can_ check the data and 
-do something about it if you discover that the data is not valid/within 
-a range/whatever even if the user has full permissions.
-No same person would do a 'cp /dev/zero /dev/mem', but passing bad data 
-is more likely to happen, badly written userspace configuration tools etc.
+> Well, when I assign a new IP (for a new subnet) to the same interface (using 
+> ip route add...),  even though the routing table is updated, it still takes 
+> about 500ms for the change to happen. This new IP should be detected as 
+> primary, right?
 
-tom
+If it is on a new subnet yes.
+
+> Also, am I right to say that any IP address assigned to an 
+> alias interface is a secondary IP?
+
+It is irrelevant if you label the address or not. The "alias" labels are 
+just a compatibility layer to work with old userspace programs (mainly 
+ifconfig), not interfaces of their own.
+
+See /sbin/ip addr for all the details.
+
+Regards
+Henrik
+
