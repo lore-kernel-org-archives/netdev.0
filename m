@@ -1,82 +1,75 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [RFC] ematch API, u32 ematch, nbyte ematch, basic classifier
-Date: Tue, 4 Jan 2005 14:46:29 +0100
-Message-ID: <20050104134629.GK26856@postel.suug.ch>
-References: <20050103125635.GB26856@postel.suug.ch> <1104812028.1085.50.camel@jzny.localdomain> <20050104120333.GF26856@postel.suug.ch> <1104844753.1085.99.camel@jzny.localdomain>
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Tue, 4 Jan 2005 09:07:03 -0600
+Message-ID: <200501040907.07466.jeremy.guthrie@berbee.com>
+References: <200501031455.26980.jeremy.guthrie@berbee.com> <20050103145115.4bdb2cd6@dxpl.pdx.osdl.net>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed;
+  boundary="nextPart2323836.npItmXt88H";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1104844753.1085.99.camel@jzny.localdomain>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050103145115.4bdb2cd6@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1104844753.1085.99.camel@jzny.localdomain> 2005-01-04 08:19
-> On Tue, 2005-01-04 at 07:03, Thomas Graf wrote:
-> >  change() (Optional)
-> 
-> My thinking is:
-> It doesnt have to be simple 32 bit data.
-> If i pass you a struct and tell you what length it is, then you as the
-> classifier dont know need to know anything about it. You just store
-> mystruct as data and datalen from the TLV. you then pass the datastruct
-> to match() -  Of course the match() will have to know what that struct
-> means.
+--nextPart2323836.npItmXt88H
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-That's exactly how it is, basically the logic is:
-
-	if (ops->change) {
-		err = ops->change(tp, data, datalen, m);
-		if (err < 0)
-			goto errout;
-	} else if (datalen > 0) {
-		if (mh->flags & TCF_EM_SIMPLE) {
-			if (datalen != sizeof(u32))
-				goto errout;
-			m->data = *(u32 *) data;
-		} else {
-			void *v = kmalloc(datalen, GFP_KERNEL);
-			if (v == NULL) {
-				err = -ENOBUFS;
-				goto errout;
-			}
-			memcpy(v, data, datalen);
-			m->data = (unsigned long) v;
-		}
-	}
-	m->datalen = datalen;
-
-> >  destroy() (Optional)
-> >    Called if provided, otheriwse m->data is freed in ematch api unless
-> >    TCF_EM_SIMPLE is set.
-> 
-> Again using the above logic, destroy becomes just kfree(mystruct)
-
-Right, that's exactly how it is
-
-	if (m->ops->destroy)
-		m->ops->destroy(tp, m);
-	else if (!(m->hdr.flags & TCF_EM_SIMPLE) && m->data)
-		kfree((void *) m->data);
+On Monday 03 January 2005 04:51 pm, Stephen Hemminger wrote:
+> How many flows are going through the router? The neighbour cache
+> can get to be a bottleneck. Perhaps Robert "the Router Man" Olssen can
+> give some hints.
+Tue Jan  4 08:59:12 CST 2005
+58406 rt_cache
+Tue Jan  4 08:59:48 CST 2005
+60636 rt_cache
+Tue Jan  4 09:00:34 CST 2005
+63891 rt_cache
+Tue Jan  4 09:01:02 CST 2005
+64635 rt_cache
+Tue Jan  4 09:01:29 CST 2005
+65689 rt_cache
+Tue Jan  4 09:01:58 CST 2005
+63426 rt_cache
+Tue Jan  4 09:02:25 CST 2005
+64139 rt_cache
+Tue Jan  4 09:02:53 CST 2005
+63860 rt_cache
+Tue Jan  4 09:03:20 CST 2005
+65719 rt_cache
+Tue Jan  4 09:03:48 CST 2005
+62465 rt_cache
+Tue Jan  4 09:04:15 CST 2005
+39339 rt_cache
 
 
-> >  dump() (Optional)
-> >    Called if provided, otherwise m->data is dumped onto the skb with
-> >    m->datalen as L. Special handling again for TCF_EM_SIMPLE.
-> 
-> and dump becomes a matter of looking at datalen and encapsulating
-> mystruct in a TLV without thinking about what the content is.
 
-Absolutely true, you know about the code before you read it ;->
+=2D-=20
 
-	if (m->ops->dump) {
-		if (m->ops->dump(skb, m) < 0)
-			goto rtattr_failure;
-	} else if (m->hdr.flags & TCF_EM_SIMPLE) {
-		u32 u = m->data;
-		RTA_PUT_NOHDR(skb, sizeof(u32), &u);
-	} else if (m->datalen > 0)
-		RTA_PUT_NOHDR(skb, m->datalen, (void *) m->data);
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart2323836.npItmXt88H
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB2rEbqtjaBHGZBeURAqWAAJ9KZYqLRuAig+bKL6/MT9R9/hWuigCeOip1
+XyXwql9OqQ4OWxV5aRYM06g=
+=HPlF
+-----END PGP SIGNATURE-----
+
+--nextPart2323836.npItmXt88H--
