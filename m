@@ -1,259 +1,261 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
+From: "Andrey J. Melnikoff (TEMHOTA)" <temnota@kmv.ru>
 Subject: Re: Fw: [Bugme-new] [Bug 1054] New: loading iptables modules kill raid5 kernel thread
-Date: Tue, 12 Aug 2003 07:26:47 +1000
+Date: Tue, 12 Aug 2003 23:07:10 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030812172855.43BB22C06E@lists.samba.org>
-References: <20030807085043.3b794387.akpm@osdl.org>
-Cc: netdev@oss.sgi.com
+Message-ID: <20030812190710.GQ14564@kmv.ru>
+References: <20030807085043.3b794387.akpm@osdl.org> <20030812172855.43BB22C06E@lists.samba.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com, laforge@gnumonks.org,
+   mingo@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-Cc: laforge@gnumonks.org, temnota@kmv.ru, mingo@redhat.com
-In-reply-to: Your message of "Thu, 07 Aug 2003 08:50:43 MST."
-             <20030807085043.3b794387.akpm@osdl.org>
+To: Rusty Russell <rusty@rustcorp.com.au>
+Content-Disposition: inline
+In-Reply-To: <20030812172855.43BB22C06E@lists.samba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In message <20030807085043.3b794387.akpm@osdl.org> you write:
-> 
-> This is weird.  It looks like something on the netfilter module
-> initialisation path has called smp_call_function(garbage_address).  But I
-> cannot see where anything like that could happen.
+Hi Rusty Russell!
+ On Tue, Aug 12, 2003 at 07:26:47AM +1000, Rusty Russell wrote next:
 
-Hmm, this is 2.4.  Is this a regression against previous kernels?
+> In message <20030807085043.3b794387.akpm@osdl.org> you write:
+> > 
+> > This is weird.  It looks like something on the netfilter module
+> > initialisation path has called smp_call_function(garbage_address).  But I
+> > cannot see where anything like that could happen.
+> 
+> Hmm, this is 2.4.  Is this a regression against previous kernels?
+> 
+> I can't see anything to suspect here: we certainly don't use
+> smp_call_function in the netfilter code.  I wonder if loading a
+> different module causes the same problems.
+No, only iptables loaded as modules, all other in kernel.
+ 
+> BTW xor.h declares non-inline functions which I find disturbing.  Hmm,
+> maybe that tricky asm xor stuff blatts something which the
+> smp_call_function wants to use...?
 
-I can't see anything to suspect here: we certainly don't use
-smp_call_function in the netfilter code.  I wonder if loading a
-different module causes the same problems.
+Maybe. I see to many calls to flush_tlb_all_ipi when iptables start. See
+log (i'm add to smp_call_function_interrupt simple printk to see what
+function it call)
 
-BTW xor.h declares non-inline functions which I find disturbing.  Hmm,
-maybe that tricky asm xor stuff blatts something which the
-smp_call_function wants to use...?
+# /etc/rc.d/rc.ipables start
+Arno's IPTABLES (ADSL) Firewall / NAT script v1.7.1BETA-1
+---------------------------------------------------------------
+Checking for root privileges...OK
 
-Rusty.
+External (internet) interface (EXT_IF)   : eth+
+IPTABLES module / kernel check...
+Detected IPTABLES module... Loading additional IPTABLES modules:
+ip_tables: (C) 2000-2002 Netfilter core team
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+All IPTABLES modules loaded!
 
-> Begin forwarded message:
-> 
-> Date: Thu, 7 Aug 2003 07:49:13 -0700
-> From: bugme-daemon@osdl.org
-> To: bugme-new@lists.osdl.org
-> Subject: [Bugme-new] [Bug 1054] New: loading iptables modules kill raid5 kern
-el thread
-> 
-> 
-> http://bugme.osdl.org/show_bug.cgi?id=1054
-> 
->            Summary: loading iptables modules kill raid5 kernel thread
->     Kernel Version: 2.4.22-pre10
->             Status: NEW
->           Severity: normal
->              Owner: laforge@gnumonks.org
->          Submitter: temnota@kmv.ru
-> 
-> 
-> Distribution: RedHat 7.1
-> Hardware Environment: HP NetServer 5/LS
-> 
-> $ cat /proc/cpuinfo
-> processor       : 0
-> vendor_id       : GenuineIntel
-> cpu family      : 5
-> model           : 2
-> model name      : Pentium 75 - 200
-> stepping        : 5
-> fdiv_bug        : no
-> hlt_bug         : no
-> f00f_bug        : yes
-> coma_bug        : no
-> fpu             : yes
-> fpu_exception   : yes
-> cpuid level     : 1
-> wp              : yes
-> flags           : fpu vme de pse msr mce cx8 apic
-> bogomips        : 53.04
-> 
-> processor       : 1
-> vendor_id       : GenuineIntel
-> cpu family      : 5
-> model           : 2
-> model name      : Pentium 75 - 200
-> stepping        : 5
-> fdiv_bug        : no
-> hlt_bug         : no
-> f00f_bug        : yes
-> coma_bug        : no
-> fpu             : yes
-> fpu_exception   : yes
-> cpuid level     : 1
-> wp              : yes
-> flags           : fpu vme de pse msr mce cx8 apic
-> bogomips        : 53.24
-> 
-> $ lspci -v
-> 00:00.0 Host bridge: Intel Corporation 82452KX/GX [Orion] (rev 02)
->         Flags: bus master, medium devsel, latency 6
-> 
-> 00:0d.0 Ethernet controller: Intel Corporation 82557 [Ethernet Pro 100] (rev
-> 01)        Flags: bus master, medium devsel, latency 66, IRQ 10
->         Memory at ffe7f000 (32-bit, prefetchable) [size=4K]
->         I/O ports at ef80 [size=32]
->         Memory at ff600000 (32-bit, non-prefetchable) [size=1M]
->         Expansion ROM at <unassigned> [disabled] [size=1M]
-> 
-> 00:0e.0 Non-VGA unclassified device: Intel Corporation 82375EB (rev 05)
->         Flags: bus master, medium devsel, latency 248
-> 
-> 00:0f.0 Class ff00: Intel Corporation: Unknown device 0008
->         Subsystem: Unknown device ec08:ffe7
->         Flags: fast devsel
->         Memory at ffe7ec00 (32-bit, prefetchable) [size=1K]
->         Memory at 12000000 (32-bit, prefetchable) [size=1K]
->         Memory at 12000400 (32-bit, prefetchable) [size=1K]
->         Memory at 12000800 (32-bit, prefetchable) [size=1K]
->         Memory at 12000c00 (32-bit, prefetchable) [size=1K]
->         Memory at 12001000 (32-bit, prefetchable) [size=1K]
->         Expansion ROM at fffff800 [disabled] [size=2K]
-> 
-> 01:00.0 Host bridge: Intel Corporation 82452KX/GX [Orion] (rev 02)
->         Flags: bus master, medium devsel, latency 6
-> 
-> 01:0c.0 Ethernet controller: Intel Corporation 82557 [Ethernet Pro 100] (rev 08)
->        Subsystem: Intel Corporation EtherExpress PRO/100+ Management Adapter
->         Flags: bus master, medium devsel, latency 66, IRQ 9
->         Memory at ffcfe000 (32-bit, non-prefetchable) [size=4K]
->         I/O ports at f8c0 [size=64]
->         Memory at ffb00000 (32-bit, non-prefetchable) [size=1M]
->         Expansion ROM at <unassigned> [disabled] [size=1M]
->         Capabilities: [dc] Power Management version 2
-> 
-> 01:0d.0 SCSI storage controller: Adaptec AHA-294x / AIC-7870 (rev 03)
->         Flags: bus master, medium devsel, latency 64, IRQ 11
->         I/O ports at fc00 [disabled] [size=256]
->         Memory at ffcff000 (32-bit, non-prefetchable) [size=4K]
->         Expansion ROM at <unassigned> [disabled] [size=64K]
-> 
-> 01:0e.0 SCSI storage controller: Adaptec AHA-294x / AIC-7870 (rev 03)
->         Flags: bus master, medium devsel, latency 64, IRQ 9
->         I/O ports at f400 [disabled] [size=256]
->         Memory at ffcfd000 (32-bit, non-prefetchable) [size=4K]
->         Expansion ROM at <unassigned> [disabled] [size=64K]
-> 
-> $ cat /proc/modules
-> 
-> ipt_TOS                 1008   0
-> ipt_tos                  448   0 (unused)
-> iptable_mangle          2144   1
-> ipt_TCPMSS              2336   3
-> ipt_tcpmss               800   0 (unused)
-> ipt_LOG                 3568  20
-> ipt_MARK                 720   0 (unused)
-> ipt_REDIRECT             768   0 (unused)
-> iptable_nat            23264   1 [ipt_REDIRECT]
-> ipt_REJECT              3136   0 (unused)
-> ipt_mac                  656  12
-> ipt_mark                 464   0 (unused)
-> ipt_multiport            640   0 (unused)
-> iptable_filter          1712   1
-> ipt_state                576   8
-> ipt_limit               1216 171
-> ip_conntrack_ftp        4512   0 (unused)
-> ip_conntrack           29664   3 [ipt_REDIRECT iptable_nat ipt_state ip_conntrack_ftp]
-> ip_tables              15008  18 [ipt_TOS ipt_tos iptable_mangle ipt_TCPMSS ipt_tcpmss ipt_LOG ipt_MARK ipt_REDIRECT iptable_nat ipt_REJECT ipt_mac ipt_mark ipt_multiport iptable_filter ipt_state ipt_limit]
-> 
-> Software Environment:
-> Software Raid5 + iptables modules
-> 
-> Problem Description: 
-> When raid recovery discs (after unclean shutdown), loading iptables modules 
-> kill radi5 kernel thread
-> 
-> Unable to handle kernel NULL pointer dereference at virtual address
-> 00000212
-> c102c04d
-> *pde = 00000000
-> Oops: 0002
-> CPU:    1
-> EIP:    0010:[<c102c04d>]    Not tainted
-> Using defaults from ksymoops -t elf32-i386 -a i386
-> EFLAGS: 00010082
-> eax: d0355bb3   ebx: 00000001   ecx: c102c01c   edx: 00000212
-> esi: 00000019   edi: d1af3000   ebp: d1af4000   esp: d1d95dec
-> ds: 0018   es: 0018   ss: 0018
-> Process raid5d (pid: 13, stackpage=d1d95000)
-> Stack: c0113b18 00000212 d1af3cc0 c010ca6a d1af3cc0 d1af5cc0 d1af4cc0 00000019
->        d1af3000 d1af4000 0080e85d 00000018 00000018 fffffffb c01fb83a 00000010
->        00000282 00000003 d1af6c00 c01fbef7 00001000 d1af4000 d1af3000 d1af5000
-> Call Trace:    [<c0113b18>] [<c010ca6a>] [<c01fb83a>] [<c01fbef7>] [<c01f734e>]
->   [<c01b1261>] [<c01f82e6>] [<c01bb224>] [<c01f8ae1>] [<c01f8a10>] [<c0200515>]
->   [<c0105883>] [<c0200370>]
-> Code: c0 02 c1 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 
-> >>EIP; c102c04d <_end+cae92d/124d9940>   <=====
-> Trace; c0113b18 <smp_call_function_interrupt+28/3e>
-> Trace; c010ca6a <call_call_function_interrupt+5/b>
-> Trace; c01fb83a <xor_8regs_3+3a/70>
-> Trace; c01fbef7 <xor_block+87/b0>
-> Trace; c01f734e <compute_block+8e/d0>
-> Trace; c01b1261 <generic_make_request+d1/130>
-> Trace; c01f82e6 <handle_stripe+af6/de0>
-> Trace; c01bb224 <scsi_dispatch_cmd+144/520>
-> Trace; c01f8ae1 <raid5d+d1/1e0>
-> Trace; c01f8a10 <raid5d+0/1e0>
-> Trace; c0200515 <md_thread+1a5/2a0>
-> Trace; c0105883 <arch_kernel_thread+23/30>
-> Trace; c0200370 <md_thread+0/2a0>
-> Code;  c102c04d <_end+cae92d/124d9940>
-> 00000000 <_EIP>:
-> Code;  c102c04d <_end+cae92d/124d9940>
->    0:   c0 02 c1                  rolb   $0xc1,(%edx)
-> 
-> Unable to handle kernel NULL pointer dereference at virtual address 00000217
-> c102c04d
-> *pde = 00000000
-> Oops: 0002
-> CPU:    0
-> EIP:    0010:[<c102c04d>]    Not tainted
-> EFLAGS: 00010082
-> eax: cb189bb3   ebx: 00000001   ecx: c102c01c   edx: 00000217
-> esi: 00000021   edi: d1c51000   ebp: d1c52000   esp: d1d95dec
-> ds: 0018   es: 0018   ss: 0018
-> Process raid5d (pid: 13, stackpage=d1d95000)
-> Stack: c0113b18 00000217 d1c51bc0 c010ca6a d1c51bc0 d1c53be0 d1c52bc0 00000021
->        d1c51000 d1c52000 807944a9 00000018 00000018 fffffffb c01fb85b 00000010
->        00000286 00000003 d1c54c00 c01fbef7 00001000 d1c52000 d1c51000 d1c53000
-> Call Trace:    [<c0113b18>] [<c010ca6a>] [<c01fb85b>] [<c01fbef7>] [<c01f734e>]
->   [<c01b1261>] [<c01f82e6>] [<c01bb224>] [<c01f8ae1>] [<c01f8a10>] [<c0200515>]
->   [<c0105883>] [<c0200370>]
-> Code: c0 02 c1 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-> 
-> >>EIP; c102c04d <_end+cae92d/124d9940>   <=====
-> Trace; c0113b18 <smp_call_function_interrupt+28/3e>
-> Trace; c010ca6a <call_call_function_interrupt+5/b>
-> Trace; c01fb85b <xor_8regs_3+5b/70>
-> Trace; c01fbef7 <xor_block+87/b0>
-> Trace; c01f734e <compute_block+8e/d0>
-> Trace; c01b1261 <generic_make_request+d1/130>
-> Trace; c01f82e6 <handle_stripe+af6/de0>
-> Trace; c01bb224 <scsi_dispatch_cmd+144/520>
-> Trace; c01f8ae1 <raid5d+d1/1e0>
-> Trace; c01f8a10 <raid5d+0/1e0>
-> Trace; c0200515 <md_thread+1a5/2a0>
-> Trace; c0105883 <arch_kernel_thread+23/30>
-> Trace; c0200370 <md_thread+0/2a0>
-> Code;  c102c04d <_end+cae92d/124d9940>
-> 00000000 <_EIP>:
-> Code;  c102c04d <_end+cae92d/124d9940>
->    0:   c0 02 c1                  rolb   $0xc1,(%edx)
-> 
-> Steps to reproduce:
-> 
-> raidsetfaulty /dev/md0 /dev/sde1
-> raidhotremove /dev/md0 /dev/sde1
-> raidhotadd /dev/md0 /dev/sde1
-> 
-> and load iptables modules. OOPS
-> 
-> ------- You are receiving this mail because: -------
-> You are on the CC list for the bug, or are watching someone who is.
+---------------------------------------------------------------
+Flushing rules in the filter table
+iptables -F
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -X
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -Z
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -F INPUT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -F OUTPUT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -F FORWARD
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -X CHECK
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -X VALID_CHECK
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -t mangle -F
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -t mangle -X
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -t mangle -Z
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+Setting default secure policies
+iptables -P INPUT DROP
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -P FORWARD DROP
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -P OUTPUT ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -t mangle -P OUTPUT ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -t mangle -P PREROUTING ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -N CHECK
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -N VALID_CHECK
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -N acct_in
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -N acct_out
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -N acct_forw
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A INPUT -j acct_in
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A OUTPUT -j acct_out
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A FORWARD -j acct_forw
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A FORWARD -i eth1 -j ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A FORWARD -o eth1 -j ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A INPUT -i eth1 -p udp --dport 67 -j ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+iptables -A INPUT -i eth1 -p udp --dport 53 -j ACCEPT
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
+SCFI call fn=c0113b20 in=00000000 wa=1
 
---
-  Anyone who quotes me in their sig is an idiot. -- Rusty Russell.
+Unable to handle kernel NULL pointer dereference at virtual address 000000aa
+c102c024
+*pde = 00000000
+Oops: 0002
+CPU:    1
+EIP:    0010:[<c102c024>]    Not tainted
+Using defaults from ksymoops -t elf32-i386 -a i386
+EFLAGS: 00010086
+eax: 000000aa   ebx: c02b2080   ecx: 00000000   edx: d141a000
+esi: c102c01c   edi: 00003c8a   ebp: d1d93ddc   esp: d1d93db8
+ds: 0018   es: 0018   ss: 0018
+Process raid5d (pid: 13, stackpage=d1d93000)
+Stack: c0113df7 c02b2080 c0270160 c0113b20 00000000 00000001 d1b0f500 00000057
+       d1b0f000 d1d93e20 c010ccea d1b0f500 d1b10500 d1b0e500 00000057 d1b0f000
+       d1d93e20 32203931 00000018 00000018 fffffffb c01fedc9 00000010 00000202
+Call Trace:    [<c0113df7>] [<c0113b20>] [<c010ccea>] [<c01fedc9>] [<c01ff462>]
+  [<c01fa55e>] [<c01fb731>] [<c01fbf9f>] [<c01fbec0>] [<c0203bcc>] [<c0105883>]
+  [<c0203a30>] [<c0203a30>]
+Code: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 40 00 01
+
+>>EIP; c102c024 <END_OF_CODE+ca9904/????>   <=====
+
+>>ebx; c02b2080 <contig_page_data+e0/360>
+
+Trace; c0113df7 <smp_call_function_interrupt+47/65>
+Trace; c0113b20 <flush_tlb_all_ipi+0/60>
+Trace; c010ccea <call_call_function_interrupt+5/b>
+Trace; c01fedc9 <xor_8regs_3+19/70>
+Trace; c01ff462 <xor_block+92/b0>
+Trace; c01fa55e <compute_block+8e/e0>
+Trace; c01fb731 <handle_stripe+cd1/1000>
+Trace; c01fbf9f <raid5d+df/1f0>
+Trace; c01fbec0 <raid5d+0/1f0>
+Trace; c0203bcc <md_thread+19c/2a0>
+Trace; c0105883 <arch_kernel_thread+23/30>
+Trace; c0203a30 <md_thread+0/2a0>
+Trace; c0203a30 <md_thread+0/2a0>
+
+Code;  c102c024 <END_OF_CODE+ca9904/????>   <=====
+00000000 <_EIP>:   <=====
+Code;  c102c034 <END_OF_CODE+ca9914/????>
+  10:   00 40 00                  add    %al,0x0(%eax)
+Code;  c102c037 <END_OF_CODE+ca9917/????>
+  13:   01 00                     add    %eax,(%eax)
+
+but system still alive, iptables process get stuck in "Running" state
+
+....
+Call Trace:    [<c0120585>] [<c0107863>]
+bash          S 00000007  5100   644    643   681               (NOTLB)
+Call Trace:    [<c0120585>] [<c0107863>]
+rc.iptables   S BFFFB200   240   681    644   761               (NOTLB)
+Call Trace:    [<c0120585>] [<c0107863>]
+iptables1     S BFFFF680  4284   761    681   762               (NOTLB)
+Call Trace:    [<c0120585>] [<c0107863>]
+iptables      R 00000041     0   762    761                     (NOTLB)
+Call Trace:    [<c020daa0> sys_socketcall+150] [<c0107863> system_call+33]
+...
+
+Strange..... Stack frame - with invalid order... 
+
+-- 
+ Best regards, TEMHOTA-RIPN aka MJA13-RIPE
+ System Administrator. mailto:temnota@kmv.ru
