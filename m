@@ -1,67 +1,48 @@
-From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
-Subject: Re: V2.4 policy router operates faster/better than V2.6
-Date: Thu, 6 Jan 2005 15:46:29 -0600
-Message-ID: <200501061546.32116.jeremy.guthrie@berbee.com>
-References: <200501031455.26980.jeremy.guthrie@berbee.com> <200501061520.02362.jeremy.guthrie@berbee.com> <16861.44870.968343.578778@robur.slu.se>
-Reply-To: jeremy.guthrie@berbee.com
+From: James Ketrenos <jketreno@linux.intel.com>
+Subject: Re: Steps for netdev-2.6 inclusion?
+Date: Thu, 06 Jan 2005 10:10:50 -0600
+Message-ID: <41DD630A.1030604@linux.intel.com>
+References: <41AE7143.80505@linux.intel.com> <41C88183.3020906@pobox.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart6041310.sTJrLWFtUM";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-        Stephen Hemminger <shemminger@osdl.org>
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <16861.44870.968343.578778@robur.slu.se>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <41C88183.3020906@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart6041310.sTJrLWFtUM
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Jeff Garzik wrote:
 
-On Thursday 06 January 2005 03:36 pm, Robert Olsson wrote:
->  > I should have caught that sooner.   8(  Well, I have a window of
->  > opportunity here.  If you want I can still provide a broken environment
->  > but that seems pointless while NAPI is not acting right... what is
->  > evident is that this will run better till we start to bump up against
->  > the top of CPU0.
+> James Ketrenos wrote:
 >
->  I don't follow...
-Technically by turning off NAPI, I have 'solved' my short term packet loss=
-=20
-problem.
+>>
+>> Ok, its been a long time coming, but it appears the ipw* wireless 
+>> drivers are to the point where being more proactive at getting them 
+>> into the kernel is appropriate (at least based on the frequency of 
+>> emails I'm getting of 'why isn't this in mainline?')
+>>
+>> So, what would be the set of steps required to get a version in the 
+>> queue for inclusion?
+>
+>
+> Any updates?  Where do we stand with this?
 
-However I can still provide you a window to go through further troubleshoot=
-ing=20
-if it is beneficial.
+Sorry -- we had some fires to put out, and then Christmas kicked in :)
 
->  The stats didn't show any numbers so we don't know your load.
-Are you referring to the # of entries in the rt_cache table?
+We're rolling in a couple fixes into the 2200 driver this week for 
+ad-hoc mode and will then send out the patches to this list.
 
-=2D-=20
+Thanks,
+James
 
-=2D-------------------------------------------------
-Jeremy M. Guthrie        jeremy.guthrie@berbee.com
-Senior Network Engineer        Phone: 608-298-1061
-Berbee                           Fax: 608-288-3007
-5520 Research Park Drive         NOC: 608-298-1102
-Madison, WI 53711
-
---nextPart6041310.sTJrLWFtUM
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (GNU/Linux)
-
-iD8DBQBB3bG4qtjaBHGZBeURAlh6AKCGTkaEa8sKvtg4k1Un3T474YTG/ACeLIZb
-2eeMHU7sz23LBGz7Gv/NpKA=
-=cn/n
------END PGP SIGNATURE-----
-
---nextPart6041310.sTJrLWFtUM--
+>
+> I would suggest sending a patch for each driver, diff'd against -mm 
+> (which auto-includes my netdev-2.6 and wireless-2.6 queues).
+>
+>     Jeff
+>
+>
+>
