@@ -1,209 +1,95 @@
 From: Nishanth Aravamudan <nacc@us.ibm.com>
-Subject: [PATCH] net/s2io: replace schedule_timeout() with msleep()/ssleep_interruptible()
-Date: Mon, 1 Nov 2004 12:20:47 -0800
-Message-ID: <20041101202047.GG1730@us.ibm.com>
-References: <E1CO1vc-00022t-N2@sputnik> <4184C7EE.5070107@pobox.com>
+Subject: [PATCH] net/sb1000: replace nicedelay() with ssleep_interruptible()
+Date: Mon, 1 Nov 2004 12:24:45 -0800
+Message-ID: <20041101202445.GH1730@us.ibm.com>
+References: <E1CO1w1-0002Uj-Hm@sputnik> <4184C6EB.1000700@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: kernel-janitors@lists.osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <4184C7EE.5070107@pobox.com>
+In-Reply-To: <4184C6EB.1000700@pobox.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Oct 31, 2004 at 06:09:34AM -0500, Jeff Garzik wrote:
+On Sun, Oct 31, 2004 at 06:05:15AM -0500, Jeff Garzik wrote:
 > janitor@sternwelten.at wrote:
-> >@@ -2846,11 +2838,10 @@ static int s2io_ethtool_idnic(struct net
-> > 		sp->id_timer.data = (unsigned long) sp;
-> > 	}
-> > 	mod_timer(&sp->id_timer, jiffies);
-> >-	set_current_state(TASK_INTERRUPTIBLE);
-> > 	if (data)
-> >-		schedule_timeout(data * HZ);
-> >+		msleep_interruptible(data * 1000);
+> >Any comments would be appreciated.
+> >
+> >Description: Use msleep_interruptible() instead of nicedelay()
+> >to guarantee the task delays as expected. Remove the prototype and
+> >definition of nicedelay(). This is a very weird function, because it is
+> >called to sleep in terms of usecs, but always sleeps for 1 second,
+> >completely ignoring the parameter. I have gone ahead and followed suit,
+> >just sleeping for a second in all cases, but maybe someone with the
+> >hardware could tell me if perhaps the paramter *should* matter.
+> >Also remove a random "^L" character.
 > 
-> 
-> clearly wants ssleep() here
+> use ssleep() here too
 
-Here is this patch. Depends, of course, on the patch sent just now to
-lkml/kj which adds ssleep_interruptible to linux/delay.h.
+Done, please fine patch below:
 
-Description: Uses msleep()/msleep_interruptible()/ssleep_interruptible()
-[as appropriate] to guarantee the task delays as expected. I decided to
-leave the MAX_SCHEDULE_TIMEOUT as is, since the overhead of converting
-to seconds/msecs and then back again within the corresponding sleep()
-function seemed unnecessary.
+Description: Use ssleep_interruptible() instead of nicedelay()
+to guarantee the task delays as expected. Remove the prototype and
+definition of nicedelay(). This is a very weird function, because it is
+called to sleep in terms of usecs, but always sleeps for 1 second,
+completely ignoring the parameter. I have gone ahead and followed suit,
+just sleeping for a second in all cases, but maybe someone with the
+hardware could tell me if perhaps the paramter *should* matter.
+escription.
 
 Signed-off-by: Nishanth Aravamudan <nacc@us.ibm.com>
 
-
---- 2.6.10-rc1-vanilla/drivers/net/s2io.c	2004-10-30 15:33:29.000000000 -0700
-+++ 2.6.10-rc1/drivers/net/s2io.c	2004-11-01 12:19:22.000000000 -0800
-@@ -555,8 +555,7 @@ static int initNic(struct s2io_nic *nic)
- 	val64 = 0;
- 	writeq(val64, &bar0->sw_reset);
- 	val64 = readq(&bar0->sw_reset);
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 2);
-+	msleep(500);
+--- 2.6.10-rc1-vanilla/drivers/net/sb1000.c	2004-10-30 15:33:28.000000000 -0700
++++ 2.6.10-rc1/drivers/net/sb1000.c	2004-11-01 12:22:26.000000000 -0800
+@@ -90,7 +90,6 @@ static int sb1000_close(struct net_devic
  
- 	/*  Enable Receiving broadcasts */
- 	val64 = readq(&bar0->mac_cfg);
-@@ -803,8 +802,7 @@ static int initNic(struct s2io_nic *nic)
- 				  dev->name);
- 			return -1;
- 		}
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 20);
-+		msleep(50);
- 		time++;
- 	}
  
-@@ -838,8 +836,7 @@ static int initNic(struct s2io_nic *nic)
- 			return -1;
- 		}
- 		time++;
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 20);
-+		msleep(50);
- 	}
+ /* SB1000 hardware routines to be used during open/configuration phases */
+-static inline void nicedelay(unsigned long usecs);
+ static inline int card_wait_for_busy_clear(const int ioaddr[],
+ 	const char* name);
+ static inline int card_wait_for_ready(const int ioaddr[], const char* name,
+@@ -254,13 +253,6 @@ static struct pnp_driver sb1000_driver =
  
- 	/* Initializing proper values as Pause threshold into all 
-@@ -1182,8 +1179,7 @@ static int startNic(struct s2io_nic *nic
- 	writeq(val64, &bar0->mc_rldram_mrs);
- 	val64 = readq(&bar0->mc_rldram_mrs);
+ const int TimeOutJiffies = (875 * HZ) / 100;
  
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 10);	/* Delay by around 100 ms. */
-+	msleep(100);			/* Delay by around 100 ms. */
+-static inline void nicedelay(unsigned long usecs)
+-{
+-	current->state = TASK_INTERRUPTIBLE;
+-	schedule_timeout(HZ);
+-	return;
+-}
+-
+ /* Card Wait For Busy Clear (cannot be used during an interrupt) */
+ static inline int
+ card_wait_for_busy_clear(const int ioaddr[], const char* name)
+@@ -475,7 +467,7 @@ sb1000_reset(const int ioaddr[], const c
+ 	udelay(1000);
+ 	outb(0x0, port);
+ 	inb(port);
+-	nicedelay(60000);
++	ssleep_interruptible(1);
+ 	outb(0x4, port);
+ 	inb(port);
+ 	udelay(1000);
+@@ -537,7 +529,7 @@ sb1000_activate(const int ioaddr[], cons
+ 	const unsigned char Command0[6] = {0x80, 0x11, 0x00, 0x00, 0x00, 0x00};
+ 	const unsigned char Command1[6] = {0x80, 0x16, 0x00, 0x00, 0x00, 0x00};
  
- 	/* Enabling ECC Protection. */
- 	val64 = readq(&bar0->adapter_control);
-@@ -1891,8 +1887,7 @@ int waitForCmdComplete(nic_t * sp)
- 			ret = SUCCESS;
- 			break;
- 		}
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 20);
-+		msleep(50);
- 		if (cnt++ > 10)
- 			break;
- 	}
-@@ -1931,15 +1926,13 @@ void s2io_reset(nic_t * sp)
- 	 * As of now I'am just giving a 250ms delay and hoping that the
- 	 * PCI write to sw_reset register is done by this time.
- 	 */
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 4);
-+	msleep(250);
+-	nicedelay(50000);
++	ssleep_interruptible(1);
+ 	if ((status = card_send_command(ioaddr, name, Command0, st)))
+ 		return status;
+ 	if ((status = card_send_command(ioaddr, name, Command1, st)))
+@@ -944,7 +936,7 @@ sb1000_open(struct net_device *dev)
+ 	/* initialize sb1000 */
+ 	if ((status = sb1000_reset(ioaddr, name)))
+ 		return status;
+-	nicedelay(200000);
++	ssleep_interruptible(1);
+ 	if ((status = sb1000_check_CRC(ioaddr, name)))
+ 		return status;
  
- 	/* Restore the PCI state saved during initializarion. */
- 	pci_restore_state(sp->pdev);
- 	s2io_init_pci(sp);
- 
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 4);
-+	msleep(250);
- 
- 	/* SXE-002: Configure link and activity LED to turn it off */
- 	subid = sp->pdev->subsystem_device;
-@@ -2157,8 +2150,7 @@ int s2io_close(struct net_device *dev)
- 
- /* If the device tasklet is running, wait till its done before killing it */
- 	while (atomic_read(&(sp->tasklet_status))) {
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 10);
-+		msleep(100);
- 	}
- 	tasklet_kill(&sp->task);
- 
-@@ -2169,8 +2161,7 @@ int s2io_close(struct net_device *dev)
- 			break;
- 		}
- 
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 20);
-+		msleep(50);
- 		cnt++;
- 		if (cnt == 10) {
- 			DBG_PRINT(ERR_DBG,
-@@ -2846,11 +2837,12 @@ static int s2io_ethtool_idnic(struct net
- 		sp->id_timer.data = (unsigned long) sp;
- 	}
- 	mod_timer(&sp->id_timer, jiffies);
--	set_current_state(TASK_INTERRUPTIBLE);
--	if (data)
--		schedule_timeout(data * HZ);
--	else
-+	if (data) {
-+		ssleep_interruptible(data);
-+	} else {
-+		set_current_state(TASK_INTERRUPTIBLE);
- 		schedule_timeout(MAX_SCHEDULE_TIMEOUT);
-+	}
- 	del_timer_sync(&sp->id_timer);
- 
- 	return 0;
-@@ -2943,8 +2935,7 @@ static u32 readEeprom(nic_t * sp, int of
- 			data = I2C_CONTROL_GET_DATA(val64);
- 			break;
- 		}
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 20);
-+		msleep(50);
- 		exit_cnt++;
- 	}
- 
-@@ -2983,8 +2974,7 @@ static int writeEeprom(nic_t * sp, int o
- 				ret = 0;
- 			break;
- 		}
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 20);
-+		msleep(50);
- 		exit_cnt++;
- 	}
- 
-@@ -3256,8 +3246,7 @@ static int s2io_bistTest(nic_t * sp, uin
- 			ret = 0;
- 			break;
- 		}
--		set_current_state(TASK_UNINTERRUPTIBLE);
--		schedule_timeout(HZ / 10);
-+		msleep(100);
- 		cnt++;
- 	}
- 
-@@ -3356,8 +3345,7 @@ static int s2io_rldramTest(nic_t * sp, u
- 			val64 = readq(&bar0->mc_rldram_test_ctrl);
- 			if (val64 & MC_RLDRAM_TEST_DONE)
- 				break;
--			set_current_state(TASK_UNINTERRUPTIBLE);
--			schedule_timeout(HZ / 5);
-+			msleep(200);
- 		}
- 
- 		if (cnt == 5)
-@@ -3373,8 +3361,7 @@ static int s2io_rldramTest(nic_t * sp, u
- 			val64 = readq(&bar0->mc_rldram_test_ctrl);
- 			if (val64 & MC_RLDRAM_TEST_DONE)
- 				break;
--			set_current_state(TASK_UNINTERRUPTIBLE);
--			schedule_timeout(HZ / 2);
-+			msleep(500);
- 		}
- 
- 		if (cnt == 5)
-@@ -3711,8 +3698,7 @@ static void s2io_set_link(unsigned long 
- 	/* Allow a small delay for the NICs self initiated 
- 	 * cleanup to complete.
- 	 */
--	set_current_state(TASK_UNINTERRUPTIBLE);
--	schedule_timeout(HZ / 10);
-+	msleep(100);
- 
- 	val64 = readq(&bar0->adapter_status);
- 	if (verify_xena_quiescence(val64, nic->device_enabled_once)) {
