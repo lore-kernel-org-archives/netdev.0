@@ -1,45 +1,53 @@
-From: Andi Kleen <ak@suse.de>
-Subject: Re: [PATCH] remove net/README
-Date: Fri, 5 Sep 2003 11:22:42 +0200
+From: Abhijit Menon-Sen <ams@wiw.org>
+Subject: how is recv(..., MSG_PEEK) racy?
+Date: Fri, 5 Sep 2003 16:16:42 +0530
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030905112242.2ad1a358.ak@suse.de>
-References: <20030904145204.GA27953@compsoc.man.ac.uk>
-	<20030904074520.5dceff3e.davem@redhat.com>
-	<20030905010725.5ee10cbf.ak@suse.de>
-	<20030904225823.68a7b7cd.davem@redhat.com>
+Message-ID: <20030905161642.A29720@lustre.dyn.wiw.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030904225823.68a7b7cd.davem@redhat.com>
+To: davem@redhat.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003 22:58:23 -0700
-"David S. Miller" <davem@redhat.com> wrote:
+(I posted this To: netdev twice, but it didn't show up, even though I am
+receiving other posts from the list. I apologise if anyone gets multiple
+copies of this message.)
 
-> On Fri, 5 Sep 2003 01:07:25 +0200
-> Andi Kleen <ak@suse.de> wrote:
-> 
-> > When you're doing janitor type stuff currently I would also suggest
-> > an update of the NET4 version numbers:
-> 
-> I don't think we need to print all this crap out at all.
+I'm trying to understand a fetchmail problem that causes large downloads
+from IMAP servers to fail randomly. For some reason, fetchmail uses the
+following bizarre code inside a loop to read data from the server:
 
-Makes sense. Especially since the version numbers tended to be stale
-traditionally.
+    if ((n = recv(sock, bp, len, MSG_PEEK)) <= 0)
+        return (-1);
 
-I would keep at least one printk for high level networking so that we know 
-it has started (useful to get some clue where we are on a total
-hang) 
+    if ((newline = memchr(bp, '\n', n)) != NULL)
+        n = newline - bp + 1;
 
-One small disadvantage when e.g. the appletalk or ipx printks
-are killed is that you cannot check if the user has compiled them
-in or loaded. But that's probably tolerable. If it should be a 
-problem a /proc/net/protocols would be probably a better solution.
+    if ((n = read(sock, bp, n)) == -1)
+        return (-1);
 
-Are you doing it or should I send a patch?
+The problem occurs (at an unpredictable time, but very often, and with a
+greater probability with a larger attachment) when the recv() returns 0,
+although tcpdump doesn't show the server closing the connection, or any
+other unusual behaviour.
 
--Andi
+Are there any circumstances other than the connection being closed where
+recv(..., MSG_PEEK) can return 0? (Stevens/SUSv3 don't mention any.)
+
+I found the following (paraphrased) comment in net/ipv4/tcp.c:
+
+    if ((flags & MSG_PEEK) && peek_seq != tp->copied_seq) {
+        printk(KERN_DEBUG "TCP(%s:%d): Application bug, race in MSG_PEEK.\n",
+               current->comm, current->pid);
+
+While fetchmail doesn't seem to be triggering that printk(), I'm curious
+about what the race condition is. Google found a post by DaveM saying it
+has something to do with URG data, but without any further details. I'd
+appreciate any explanation of the problem(s).
+
+Thank you.
+
+-- ams
