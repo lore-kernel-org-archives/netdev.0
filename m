@@ -1,93 +1,63 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere else")
-Date: Tue, 31 Aug 2004 20:12:03 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040831101203.GA1951@gondor.apana.org.au>
-References: <20040831082339.GA949@gondor.apana.org.au> <Pine.LNX.4.44.0408311208500.1773-100000@l>
+From: Henrik Nordstrom <hno@marasystems.com>
+Subject: Re: [RFC] MASQUERADE / policy routing ("Route send us somewhere
+ else")
+Date: Tue, 31 Aug 2004 12:24:34 +0200 (CEST)
+Sender: netfilter-devel-bounces@lists.netfilter.org
+Message-ID: <Pine.LNX.4.61.0408311145580.12063@filer.marasystems.com>
+References: <20040830201957.GY5824@sunbeam.de.gnumonks.org>
+	<20040830140729.7309ecc0.davem@davemloft.net>
+	<20040831013841.GA5824@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
-Cc: "David S. Miller" <davem@davemloft.net>, laforge@netfilter.org,
-        netfilter-devel@lists.netfilter.org, rusty@rustcorp.com.au,
-        netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0408311208500.1773-100000@l>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: netdev@oss.sgi.com, rusty@rustcorp.com.au,
+	netfilter-devel@lists.netfilter.org
+Return-path: <netfilter-devel-bounces@lists.netfilter.org>
+To: Harald Welte <laforge@netfilter.org>
+In-Reply-To: <20040831013841.GA5824@sunbeam.de.gnumonks.org>
+List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
+List-Archive: </pipermail/netfilter-devel>
+List-Post: <mailto:netfilter-devel@lists.netfilter.org>
+List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
+List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
+	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
+Errors-To: netfilter-devel-bounces@lists.netfilter.org
 List-Id: netdev.vger.kernel.org
 
+On Tue, 31 Aug 2004, Harald Welte wrote:
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+> and it apparently happens in a lot of 'typical' setups where you have a
+> masqueraded DSL line with dynamic ip address for bulk traffic, and
+> fwmark-based routing through one or more tunnel interfaces, optionally
+> with different masqerading/SNAT.
 
-On Tue, Aug 31, 2004 at 12:41:35PM +0300, Julian Anastasov wrote:
->
-> > Here is an untested patch which does exactly that? Please do your
-> > best to break it :)
-> 
-> 	No need for tests :) rt_spec_dst is your preferred src
-> to the sender (your local internal IP) and rt_src is the internal
-> IP of the sender (what we snat).
+Should only happen if the routing is screwed up, in principle..
 
-I knew it can't be that easy :)
+> Also, the MASQUERADE lookup (obviously) has no more saddr in the lookup,
+> that's another difference from the 'original' lookup.
 
-So let's go back to the previous idea of using inet_select_addr?
-Can you find any problems with this? In fact, it seems that the
-2.2 compatibility code does exactly this.
+This is a possible reason why it screws up for such many people? By not 
+including the source IP you make the route lookup for determining the 
+MASQUERADE information very different from the route lookup when 
+forwardning the packet.
 
-Cheers,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+I think it would for most make more sense that the source IP assignment is 
+based on routing using the original source address as key.
 
---YZ5djTAD1cGYuMQK
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+What I don't get is why MASQUERADE needs to do a route lookup at all. 
+Isn't the traffic already routed at this point, and shouldn't it simply 
+use the source IP of the current selected route or the interface primary 
+IP of no source IP set in the route?
 
-===== net/ipv4/netfilter/ipt_MASQUERADE.c 1.16 vs edited =====
---- 1.16/net/ipv4/netfilter/ipt_MASQUERADE.c	2004-08-02 12:27:11 +10:00
-+++ edited/net/ipv4/netfilter/ipt_MASQUERADE.c	2004-08-31 20:08:47 +10:00
-@@ -97,34 +97,12 @@
- 
- 	mr = targinfo;
- 
--	{
--		struct flowi fl = { .nl_u = { .ip4_u =
--					      { .daddr = (*pskb)->nh.iph->daddr,
--						.tos = (RT_TOS((*pskb)->nh.iph->tos) |
--							RTO_CONN),
--#ifdef CONFIG_IP_ROUTE_FWMARK
--						.fwmark = (*pskb)->nfmark
--#endif
--					      } } };
--		if (ip_route_output_key(&rt, &fl) != 0) {
--			/* Funky routing can do this. */
--			if (net_ratelimit())
--				printk("MASQUERADE:"
--				       " No route: Rusty's brain broke!\n");
--			return NF_DROP;
--		}
--		if (rt->u.dst.dev != out) {
--			if (net_ratelimit())
--				printk("MASQUERADE:"
--				       " Route sent us somewhere else.\n");
--			ip_rt_put(rt);
--			return NF_DROP;
--		}
--	}
-+	rt = (struct rtable *)(*pskb)->dst;
-+	newsrc = inet_select_addr(out, rt->rt_gateway, RT_SCOPE_LINK);
-+	if (!newsrc)
-+		return NF_DROP;
- 
--	newsrc = rt->rt_src;
- 	DEBUGP("newsrc = %u.%u.%u.%u\n", NIPQUAD(newsrc));
--	ip_rt_put(rt);
- 
- 	WRITE_LOCK(&masq_lock);
- 	ct->nat.masq_index = out->ifindex;
+> That is the presumption I am about to challenge.  Is the 'original'
+> interface really the one we want in this case?
 
---YZ5djTAD1cGYuMQK--
+If there is policy routing saying that packets with a given source 
+should go out another interface my opinion is that they should.
+
+I have been using SNAT in quite many complex routing setups and so far has 
+not run into any situation where routing gets wrong in an unmanageable and 
+unintuitive manner due to SNAT. MASQUERADE should not be more complex.
+
+Regards
+Henrik
