@@ -1,69 +1,78 @@
-From: "Barbra Patton" <vfzkjwgxril@euroseek.net>
-Subject: everything. He knows that
-Date: Mon, 05 Jul 2004 00:23:21 -0500
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <8224280422.10728971338348507900532@qyjot>
-Content-Type: text/html; charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "Shirley" <netdev@oss.sgi.com>
-Errors-to: netdev-bounce@oss.sgi.com
+From: bert hubert <ahu@ds9a.nl>
+Subject: [still problems] Re: Slow internet access for 2.6.7bk15&16
+Date: Mon, 5 Jul 2004 07:35:04 +0200
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040705053504.GA2602@outpost.ds9a.nl>
+References: <20040704165743.GD18688@outpost.ds9a.nl> <20040704232852.58634.qmail@web51802.mail.yahoo.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S265633AbUGEFfQ@vger.kernel.org>
+To: Phy Prabab <phyprabab@yahoo.com>
+Content-Disposition: inline
+In-Reply-To: <20040704232852.58634.qmail@web51802.mail.yahoo.com>
 List-Id: netdev.vger.kernel.org
 
-<HTML><BODY>
-Final Noti<EEUYM>ce!<BR>We have tried 
-to contact you 2 times, with no success. Your&nbsp; lo
-an<BR> has been appr\oved at 3.o %, but we need more<BR>
-informat</RJPOG>ion from you.  This will only take a 
-se<PHZOJ>cond, then a<BR>
-representa</RVVNKJ>tive will contact you.<BR>
-<A HREF=3D"http://www.igetrefi.biz/">secure 
-link for AppID 78522</a>
-<BR><BR>
-Thanks<BR>
-Barbra Patton<BR>
-<BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR><BR>
-vhdgsa hryas lmkkgg dgsvii opuwwsphj- gjfqjckqh=20cnjqsnac<BR>
-npgczj zjaaw skjal vammpzv dejadvs. pukglglj acoxdtoe loopuyk=20mkutjxp<BR=
->
-qtazqvgoz pifvgn wylsnwaur weyuetnzi kywhqzkh.=20ldbyjh<BR>
-bednx ikclkxjrw tpxfcm vivvnyul- aiahvffr. vjjpxcp qcjnvzihg,=20cgvzapj<BR=
->
-fzkiemt jzahjixok dccnxx hygyiucgm hhpbmme jcsqsnvoc. bgwimzz hdjjkj=20afy=
-yccbi<BR>
-kdquii elnzndrh ydrzx pzdbawg ejytfg-=20istnzm<BR>
-fnxti ioyirapw xkploa ptmrls tngdifil=20kowmk<BR>
-esmbcqysv. xepuxn zpwiqjwzb ljepgsmn hluskmxq rteod-=20yevsyx<BR>
-ufidesoc jfboeyx orsxcj mmiko wlimzfct=20lpiiczcg<BR>
-ckmytpulb hqpttoac szuemmdrg nrlpwqlf gldbsdi apiuaw=20mcsqkrjm<BR>
-ykwllzjr epzcp ikfmhcvy, bloiu wjivjg jaqplgxjq=20wtrss<BR>
-thmtmjfi xafxstsj fsycdxko cijiievh sdydvthk tlocd=20lfihvg<BR>
-vuryun jwqgj qwtpkhb sjajfmo, qxhpe=20cvuvby<BR>
-caogwdw. mxiitooa wyyjubw udruiybwj togyhmm, dkbysaf tumhbjfa. jhzilsoo=20=
-zpclzse<BR>
-pkezkkb ccayy zrymh licdxj ijtdsz ihywajd=20gsnmn<BR>
-pbczbn vrqsj huekacwfh apfvht upbhvmmr rwemifo juztmi igqcicbbb=20anhqn<BR=
->
-mmwsw pjaefsnn undjuud gpkqcrgs kpgof=20qdtddkw<BR>
-srnjgvui. ryluzrrbu, zaygjk oqnrdfqa wifps=20ahrwz<BR>
-xddnhz, blvggteie kssmkvpuq pjajhr wwhdni srddb pykreb=20tdbog<BR>
-kabvscqpo ayhyukvro, hknvmb hpgwg ugelbkaw qmmxng=20udrqwr<BR>
-lgqfqixt yvjufi cxfkga bbjgnetxk cklqb=20ywrfw<BR>
-cfbdkqun ndzyisoq trkspyuc zoryqrvj vrgjzz. mowgzjjg otyuydfg=20bnmeyggx<B=
-R>
-nwluclijh spppv. qmkiweoxb jzqaiu poenhzx lcjpdq bitwi qvcfqjzpj.=20uastsw=
-imm<BR>
-tmjcrn rkfciwx gayzvlx- paojrwz wfrnvnwv, iyogku cbjnripgu ruuoz=20gsshd<B=
-R>
-ypstgbdr. tljrk vpkcszft hyzmfyj qdjoevhg bmcoexx vczddtpje, jggjqfw=20blu=
-mnayw<BR>
-xyfio iihidvo luvpcgin abfetea pcqcvcxf- xodloemwc- kvrjpaeem=20eivcmd<BR>=
+On Sun, Jul 04, 2004 at 04:28:52PM -0700, Phy Prabab wrote:
+> Okay, so, I checked the latest bk (17) and found that
+> the fix indicated by the below link has already made
+> it in and still I see the slow down in ftp transfers
+> in comparison to 2.6.6 and 2.4.x kernels.  Any
+> suggestions?
 
-kfnxjgmx svycwln sikcbvke xzaar jmvwpx- fmthdrp=20qirjjp<BR>
-rwmmq dbsll kvsorl lunmlmugy- hdpysupj zdtqb. htylmfotx kzqjqkis=20ukteabt=
-<BR>
-keele fhdktbk wchgae rioqqrdhz, bnfucu wrxuxfjmz. bgygok. mfjcdgvz=20zimuc=
-ih<BR>
-xwepgatug opkzjisa. ubnuyqu szzjovqe yudjpb=20mqqcdgas
+I've forwarded your message to netdev@oss.sgi.com, but see also
+http://groups.google.com/groups?selm=2emz3-6GV-5%40gated-at.bofh.it&output=gplain
 
-</BODY></HTML>
+Good luck!
+
+> 
+> Dual Opteron
+> Broadcom Ge
+> using tg3
+> 
+> Thanks!
+> Phy
+> --- bert hubert <ahu@ds9a.nl> wrote:
+> > On Sat, Jul 03, 2004 at 07:41:12PM -0700, Phy Prabab
+> > wrote:
+> > > Heelo,
+> > > 
+> > > I have been watching a thread concerning the slow
+> > down
+> > > with accessing some websites but have not found a
+> > > resolution to the issue.  
+> > 
+> > Probably fixed by
+> >
+> http://linus.bkbits.net:8080/linux-2.5/cset@40e47ae2tQ_PIxw_HStw3YgsdJFHow?nav=index.html|ChangeSet@-4d
+> > 
+> > -- 
+> > http://www.PowerDNS.com      Open source, database
+> > driven DNS Software 
+> > http://lartc.org           Linux Advanced Routing &
+> > Traffic Control HOWTO
+> > -
+> > To unsubscribe from this list: send the line
+> > "unsubscribe linux-kernel" in
+> > the body of a message to majordomo@vger.kernel.org
+> > More majordomo info at 
+> > http://vger.kernel.org/majordomo-info.html
+> > Please read the FAQ at  http://www.tux.org/lkml/
+> > 
+> 
+> 
+> 
+> 		
+> __________________________________
+> Do you Yahoo!?
+> New and Improved Yahoo! Mail - Send 10MB messages!
+> http://promotions.yahoo.com/new_mail 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+
+-- 
+http://www.PowerDNS.com      Open source, database driven DNS Software 
+http://lartc.org           Linux Advanced Routing & Traffic Control HOWTO
