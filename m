@@ -1,34 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6 IPComp
-Date: Mon, 19 May 2003 23:35:32 -0700 (PDT)
+Subject: Re: Route cache performance under stress
+Date: Mon, 19 May 2003 23:46:24 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030519.233532.42779243.davem@redhat.com>
-References: <873cjebwn1.wl@karaba.org>
-	<20030516.140014.59676235.davem@redhat.com>
-	<871xyvqr7k.wl@karaba.org>
+Message-ID: <20030519.234624.123976229.davem@redhat.com>
+References: <20030519212209.P39592@shell.cyberus.ca>
+	<20030519.182410.10302536.davem@redhat.com>
+	<20030519220409.V39658@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: sim@netnation.com, netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: mk@linux-ipv6.org
-In-Reply-To: <871xyvqr7k.wl@karaba.org>
+To: hadi@shell.cyberus.ca
+In-Reply-To: <20030519220409.V39658@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
-   Date: Mon, 19 May 2003 17:24:31 +0900
+   From: Jamal Hadi <hadi@shell.cyberus.ca>
+   Date: Mon, 19 May 2003 22:13:33 -0400 (EDT)
+   
+   I dont think the hashes are similar - its the effect into the
+   slow path. I was told by someone who tested this on a priicey CISCO
+   that they simply die unless capable of a feature called CEF.
 
-   I would like to try to configure xfrm4 ipip tunnel for testing.
-   What is the suitable tool?, setkey???
+I found a description of this thing on Cisco's web site.  Amusingly it
+seems to contradict itself, it says that the CEF FIB is fully
+populated and has a 1-to-1 correspondance to the routing table yet it
+says that the first access to some destination is what creates
+CEF entries.
 
-Unfortunately setkey is not powerful enough to do this
-currently.  Only the netlink based ipsec configuration can
-set these things up.
-
-However, all of the testing we did was via tunnel mode IPCOMP.
-
-Note that for xfrm6_tunnel.c you will need to use some kind
-of "u32 --> in6_addr" mapping table.  You can do this with
-a simple hash table of some kind.  Then you can use
-xfrm_state_lookup() just like xfrm4_tunnel.c does.
+Go figure! :-)
