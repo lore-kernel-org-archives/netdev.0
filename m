@@ -1,75 +1,39 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: UDP sockets bound to ANY send answers with wrong src ip address
-Date: Fri, 11 Jun 2004 15:27:45 +0300
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <200406111527.45955.vda@port.imtp.ilyichevsk.odessa.ua>
-References: <E1BYjMY-0002CE-00@gondolin.me.apana.org.au>
+From: "Eble, Dan" <DanE@aiinet.com>
+Subject: RFC: Cisco HDLC bridging
+Date: Fri, 11 Jun 2004 09:01:20 -0400
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <C060DFCD9697A842B3189B458524FDC205D2C3@AIMAIL1.ai.aiinet.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7BIT
-Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, davem@redhat.com, pekkas@netcore.fi,
-	jmorris@redhat.com, linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1BYjMY-0002CE-00@gondolin.me.apana.org.au>
+Content-Type: text/plain
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Friday 11 June 2004 13:34, Herbert Xu wrote:
-> Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua> wrote:
-> > I looked into sendmsg(). Looks like ther is no way to
-> > indicate source ip.
-> >
-> > Shall I use some other technique?
->
-> IP_PKTINFO works just as well there.  Look at the ip_cmsg_send call
-> in udp_sendmsg.
+Greetings network geeks,
 
-int udp_sendmsg(...)
-{
-...
-        ipc.addr = inet->saddr;
+I am about to implement Ethernet/802.3 over Cisco HDLC.  My plan is to
+enhance hdlc_cisco.c to provide a new ethernet-like device, "cbeX"
+(cisco-bridged ethernet), corresponding to the existing "hdlcX" device that
+encapsulates the ethernet frames.  The "cbeX" device will suddenly appear
+when "sethdlc hdlcX cisco ..." is run, and disappear when "hdlcX" is taken
+out of Cisco mode.
 
-        ipc.oif = sk->sk_bound_dev_if;
-        if (msg->msg_controllen) {
-                err = ip_cmsg_send(msg, &ipc);
-                if (err)
-                        return err;
-                if (ipc.opt)
-                        free = 1;
-                connected = 0;
-        }
-        if (!ipc.opt)
-                ipc.opt = inet->opt;
+Using a separate device for the bridged frames provides a way to get
+ethernet-like behavior without obscuring the Cisco nature of "hdlcX".  For
+example, a tcpdump of "hdlcX" would still show SLARP keepalive frames and
+other ciscoey stuff.
 
-        saddr = ipc.addr;
-...
+I had also considered simply making "hdlcX" look like an ethernet device,
+and "preserving" the SLARP packets for tcpdump by prepending a phony
+ethernet header.  I abandoned that design because I could not find an
+appropriate ethertype to mark such packets.  (It has other drawbacks too,
+but at least it would be simple.)
 
-int ip_cmsg_send(struct msghdr *msg, struct ipcm_cookie *ipc)
-{
-...
-                case IP_PKTINFO:
-                {
-                        struct in_pktinfo *info;
-                        if (cmsg->cmsg_len != CMSG_LEN(sizeof(struct in_pktinfo)))
-                                return -EINVAL;
-                        info = (struct in_pktinfo *)CMSG_DATA(cmsg);
-                        ipc->oif = info->ipi_ifindex;
-                        ipc->addr = info->ipi_spec_dst.s_addr;
+Comments, suggestions, and warnings are welcome.
 
-manpage:
-IP_PKTINFO
-Pass an IP_PKTINFO ancillary message that contains a pktinfo structure that supplies some information  about  the
-incoming packet. This only works for datagram oriented sockets.
-
-struct in_pktinfo
-{
-    unsigned int   ipi_ifindex;  /* Interface index */
-    struct in_addr ipi_spec_dst; /* Routing destination address */
-    struct in_addr ipi_addr;     /* Header Destination address */
-};
-
-Hmmm... do I have to set a *routing dest address* field
-to set src ip address of my UDP packet?
 -- 
-vda
+Dan Eble <dane@aiinet.com>  _____  .
+Software Engineer          |  _  |/|
+Applied Innovation Inc.    | |_| | |
+http://www.aiinet.com/     |__/|_|_|
