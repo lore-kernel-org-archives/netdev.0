@@ -1,254 +1,192 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [RESEND PATCH 2/3] NET: Generic rate estimator
-Date: Mon, 4 Oct 2004 21:30:16 +0200
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [PATCH 2.6.9-rc3-mm2 1/5] r8169: Tx timeout rework
+Date: Mon, 4 Oct 2004 21:48:26 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041004193016.GD15898@postel.suug.ch>
-References: <20041003213124.GG14344@postel.suug.ch> <20041003213954.GI14344@postel.suug.ch> <20041003161436.50293f9a.davem@davemloft.net> <20041003233647.GN14344@postel.suug.ch> <1096852582.1046.378.camel@jzny.localdomain> <20041004125300.GA15898@postel.suug.ch> <1096896256.1072.4.camel@jzny.localdomain> <20041004141532.GB15898@postel.suug.ch> <1096901984.1073.9.camel@jzny.localdomain>
+Message-ID: <20041004194826.GA18404@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jamal Hadi Salim <hadi@cyberus.ca>, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: jgarzik@pobox.com
 Content-Disposition: inline
-In-Reply-To: <1096901984.1073.9.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Resend of generic rate estimator patch. The HZ%4 check has been removed
-and jiffies calculation has been adapted to avoid carrying on unacuracy.
-Small variance for 250ms interval happens with HZ values of 122 and 50.
+Tx timeout rework:
+- the ring descriptors of the chipset and the ring index of the driver
+  are synced during a reset of the device;
+- rtl8169_interrupt: rtl8169_hw_reset() replaces the previous stop code.
+  An implicit reset of the device is added but it makes no noticeable
+  difference with the former behavior (i.e.: stop the chipset).
 
-I suggest to apply this and think about using psched tick<->usec code
-later because it wouldn't really solve any problem but would be nice to have.
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-Introduces a generic rate estimator based on timers. Patch is based on
-Jamal's patch and adapted to the new generic network statistics API.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
---- linux-2.6.9-rc3.orig/include/linux/gen_stats.h	2004-10-03 23:00:15.000000000 +0200
-+++ linux-2.6.9-rc3/include/linux/gen_stats.h	2004-10-03 23:00:19.000000000 +0200
-@@ -47,4 +47,16 @@
- 	__u32	requeues;
- 	__u32	overlimits;
+diff -puN drivers/net/r8169.c~r8169-200 drivers/net/r8169.c
+--- linux-2.6.9-rc3/drivers/net/r8169.c~r8169-200	2004-10-04 21:13:45.000000000 +0200
++++ linux-2.6.9-rc3-fr/drivers/net/r8169.c	2004-10-04 21:15:41.000000000 +0200
+@@ -400,6 +400,7 @@ struct rtl8169_private {
+ 	void (*phy_reset_enable)(void *);
+ 	unsigned int (*phy_reset_pending)(void *);
+ 	unsigned int (*link_ok)(void *);
++	struct work_struct task;
  };
+ 
+ MODULE_AUTHOR("Realtek");
+@@ -420,6 +421,8 @@ static int rtl8169_close(struct net_devi
+ static void rtl8169_set_rx_mode(struct net_device *dev);
+ static void rtl8169_tx_timeout(struct net_device *dev);
+ static struct net_device_stats *rtl8169_get_stats(struct net_device *netdev);
++static int rtl8169_rx_interrupt(struct net_device *, struct rtl8169_private *,
++				void *);
+ #ifdef CONFIG_R8169_NAPI
+ static int rtl8169_poll(struct net_device *dev, int *budget);
+ #endif
+@@ -1456,6 +1459,8 @@ rtl8169_open(struct net_device *dev)
+ 	if (retval < 0)
+ 		goto err_free_rx;
+ 
++	INIT_WORK(&tp->task, NULL, dev);
 +
-+/**
-+ * @interval: sampling period
-+ * @ewma_log: the log of measurement window weight
-+ */
-+struct gnet_estimator
+ 	rtl8169_hw_start(dev);
+ 
+ 	rtl8169_request_timer(dev);
+@@ -1475,6 +1480,18 @@ err_free_irq:
+ 	goto out;
+ }
+ 
++static void rtl8169_hw_reset(void *ioaddr)
 +{
-+	signed char	interval;
-+	unsigned char	ewma_log;
-+};
++	/* Disable interrupts */
++	RTL_W16(IntrMask, 0x0000);
 +
++	/* Reset the chipset */
++	RTL_W8(ChipCmd, CmdReset);
 +
- #endif /* __LINUX_GEN_STATS_H */
---- linux-2.6.9-rc3.orig/net/core/gen_estimator.c	1970-01-01 01:00:00.000000000 +0100
-+++ linux-2.6.9-rc3/net/core/gen_estimator.c	2004-10-04 21:17:26.000000000 +0200
-@@ -0,0 +1,204 @@
-+/*
-+ * net/sched/gen_estimator.c	Simple rate estimator.
-+ *
-+ *		This program is free software; you can redistribute it and/or
-+ *		modify it under the terms of the GNU General Public License
-+ *		as published by the Free Software Foundation; either version
-+ *		2 of the License, or (at your option) any later version.
-+ *
-+ * Authors:	Alexey Kuznetsov, <kuznet@ms2.inr.ac.ru>
-+ *
-+ * Changes:
-+ *              Jamal Hadi Salim - moved it to net/core and reshulfed
-+ *              names to make it usable in general net subsystem.
-+ */
-+
-+#include <asm/uaccess.h>
-+#include <asm/system.h>
-+#include <asm/bitops.h>
-+#include <linux/module.h>
-+#include <linux/types.h>
-+#include <linux/kernel.h>
-+#include <linux/jiffies.h>
-+#include <linux/string.h>
-+#include <linux/mm.h>
-+#include <linux/socket.h>
-+#include <linux/sockios.h>
-+#include <linux/in.h>
-+#include <linux/errno.h>
-+#include <linux/interrupt.h>
-+#include <linux/netdevice.h>
-+#include <linux/skbuff.h>
-+#include <linux/rtnetlink.h>
-+#include <linux/init.h>
-+#include <net/sock.h>
-+#include <net/gen_stats.h>
-+
-+/*
-+   This code is NOT intended to be used for statistics collection,
-+   its purpose is to provide a base for statistical multiplexing
-+   for controlled load service.
-+   If you need only statistics, run a user level daemon which
-+   periodically reads byte counters.
-+
-+   Unfortunately, rate estimation is not a very easy task.
-+   F.e. I did not find a simple way to estimate the current peak rate
-+   and even failed to formulate the problem 8)8)
-+
-+   So I preferred not to built an estimator into the scheduler,
-+   but run this task separately.
-+   Ideally, it should be kernel thread(s), but for now it runs
-+   from timers, which puts apparent top bounds on the number of rated
-+   flows, has minimal overhead on small, but is enough
-+   to handle controlled load service, sets of aggregates.
-+
-+   We measure rate over A=(1<<interval) seconds and evaluate EWMA:
-+
-+   avrate = avrate*(1-W) + rate*W
-+
-+   where W is chosen as negative power of 2: W = 2^(-ewma_log)
-+
-+   The resulting time constant is:
-+
-+   T = A/(-ln(1-W))
-+
-+
-+   NOTES.
-+
-+   * The stored value for avbps is scaled by 2^5, so that maximal
-+     rate is ~1Gbit, avpps is scaled by 2^10.
-+
-+   * Minimal interval is HZ/4=250msec (it is the greatest common divisor
-+     for HZ=100 and HZ=1024 8)), maximal interval
-+     is (HZ*2^EST_MAX_INTERVAL)/4 = 8sec. Shorter intervals
-+     are too expensive, longer ones can be implemented
-+     at user level painlessly.
-+ */
-+
-+#define EST_MAX_INTERVAL	5
-+
-+struct gen_estimator
-+{
-+	struct gen_estimator	*next;
-+	struct gnet_stats_basic	*bstats;
-+	struct gnet_stats_rate_est	*rate_est;
-+	spinlock_t		*stats_lock;
-+	unsigned		interval;
-+	int			ewma_log;
-+	u64			last_bytes;
-+	u32			last_packets;
-+	u32			avpps;
-+	u32			avbps;
-+};
-+
-+struct gen_estimator_head
-+{
-+	struct timer_list	timer;
-+	struct gen_estimator	*list;
-+};
-+
-+static struct gen_estimator_head elist[EST_MAX_INTERVAL+1];
-+
-+/* Estimator array lock */
-+static rwlock_t est_lock = RW_LOCK_UNLOCKED;
-+
-+static void est_timer(unsigned long arg)
-+{
-+	int idx = (int)arg;
-+	struct gen_estimator *e;
-+
-+	read_lock(&est_lock);
-+	for (e = elist[idx].list; e; e = e->next) {
-+		u64 nbytes;
-+		u32 npackets;
-+		u32 rate;
-+
-+		spin_lock(e->stats_lock);
-+		nbytes = e->bstats->bytes;
-+		npackets = e->bstats->packets;
-+		rate = (nbytes - e->last_bytes)<<(7 - idx);
-+		e->last_bytes = nbytes;
-+		e->avbps += ((long)rate - (long)e->avbps) >> e->ewma_log;
-+		e->rate_est->bps = (e->avbps+0xF)>>5;
-+
-+		rate = (npackets - e->last_packets)<<(12 - idx);
-+		e->last_packets = npackets;
-+		e->avpps += ((long)rate - (long)e->avpps) >> e->ewma_log;
-+		e->rate_est->pps = (e->avpps+0x1FF)>>10;
-+		spin_unlock(e->stats_lock);
-+	}
-+
-+	mod_timer(&elist[idx].timer, jiffies + ((HZ<<idx)/4));
-+	read_unlock(&est_lock);
++	/* PCI commit */
++	RTL_R8(ChipCmd);
 +}
 +
-+int gen_new_estimator(struct gnet_stats_basic *bstats,
-+	struct gnet_stats_rate_est *rate_est, spinlock_t *stats_lock, struct rtattr *opt)
+ static void
+ rtl8169_hw_start(struct net_device *dev)
+ {
+@@ -1518,8 +1535,6 @@ rtl8169_hw_start(struct net_device *dev)
+ 		RTL_W16(CPlusCmd, tp->cp_cmd);
+ 	}
+ 
+-	tp->cur_rx = 0;
+-
+ 	RTL_W32(TxDescStartAddrLow, ((u64) tp->TxPhyAddr & DMA_32BIT_MASK));
+ 	RTL_W32(TxDescStartAddrHigh, ((u64) tp->TxPhyAddr >> 32));
+ 	RTL_W32(RxDescAddrLow, ((u64) tp->RxPhyAddr & DMA_32BIT_MASK));
+@@ -1634,12 +1649,16 @@ static inline void rtl8169_mark_as_last_
+ 	desc->opts1 |= cpu_to_le32(RingEnd);
+ }
+ 
++static void rtl8169_init_ring_indexes(struct rtl8169_private *tp)
 +{
-+	struct gen_estimator *est;
-+	struct gnet_estimator *parm = RTA_DATA(opt);
-+
-+	if (RTA_PAYLOAD(opt) < sizeof(*parm))
-+		return -EINVAL;
-+
-+	if (parm->interval < -2 || parm->interval > 3)
-+		return -EINVAL;
-+
-+	est = kmalloc(sizeof(*est), GFP_KERNEL);
-+	if (est == NULL)
-+		return -ENOBUFS;
-+
-+	memset(est, 0, sizeof(*est));
-+	est->interval = parm->interval + 2;
-+	est->bstats = bstats;
-+	est->rate_est = rate_est;
-+	est->stats_lock = stats_lock;
-+	est->ewma_log = parm->ewma_log;
-+	est->last_bytes = bstats->bytes;
-+	est->avbps = rate_est->bps<<5;
-+	est->last_packets = bstats->packets;
-+	est->avpps = rate_est->pps<<10;
-+
-+	est->next = elist[est->interval].list;
-+	if (est->next == NULL) {
-+		init_timer(&elist[est->interval].timer);
-+		elist[est->interval].timer.data = est->interval;
-+		elist[est->interval].timer.expires = jiffies + ((HZ<<est->interval)/4);
-+		elist[est->interval].timer.function = est_timer;
-+		add_timer(&elist[est->interval].timer);
-+	}
-+	write_lock_bh(&est_lock);
-+	elist[est->interval].list = est;
-+	write_unlock_bh(&est_lock);
-+	return 0;
++	tp->dirty_tx = tp->dirty_rx = tp->cur_tx = tp->cur_rx = 0;
 +}
 +
-+void gen_kill_estimator(struct gnet_stats_basic *bstats,
-+	struct gnet_stats_rate_est *rate_est)
+ static int rtl8169_init_ring(struct net_device *dev)
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 
+-	tp->cur_rx = tp->dirty_rx = 0;
+-	tp->cur_tx = tp->dirty_tx = 0;
++	rtl8169_init_ring_indexes(tp);
+ 
+ 	memset(tp->tx_skb, 0x0, NUM_TX_DESC * sizeof(struct ring_info));
+ 	memset(tp->Rx_skbuff, 0x0, NUM_RX_DESC * sizeof(struct sk_buff *));
+@@ -1691,31 +1710,53 @@ static void rtl8169_tx_clear(struct rtl8
+ 	tp->cur_tx = tp->dirty_tx = 0;
+ }
+ 
+-static void
+-rtl8169_tx_timeout(struct net_device *dev)
++static void rtl8169_schedule_work(struct net_device *dev, void (*task)(void *))
+ {
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+-	void *ioaddr = tp->mmio_addr;
+-	u8 tmp8;
+ 
+-	printk(KERN_INFO "%s: TX Timeout\n", dev->name);
+-	/* disable Tx, if not already */
+-	tmp8 = RTL_R8(ChipCmd);
+-	if (tmp8 & CmdTxEnb)
+-		RTL_W8(ChipCmd, tmp8 & ~CmdTxEnb);
++	PREPARE_WORK(&tp->task, task, dev);
++	schedule_delayed_work(&tp->task, 4);
++}
+ 
+-	/* Disable interrupts by clearing the interrupt mask. */
+-	RTL_W16(IntrMask, 0x0000);
++static void rtl8169_reset_task(void *_data)
 +{
-+	int idx;
-+	struct gen_estimator *est, **pest;
++	struct net_device *dev = _data;
++	struct rtl8169_private *tp = netdev_priv(dev);
+ 
+-	/* Stop a shared interrupt from scavenging while we are. */
+-	spin_lock_irq(&tp->lock);
++	if (!netif_running(dev))
++		return;
 +
-+	for (idx=0; idx <= EST_MAX_INTERVAL; idx++) {
-+		int killed = 0;
-+		pest = &elist[idx].list;
-+		while ((est=*pest) != NULL) {
-+			if (est->rate_est != rate_est || est->bstats != bstats) {
-+				pest = &est->next;
-+				continue;
-+			}
++	synchronize_irq(dev->irq);
 +
-+			write_lock_bh(&est_lock);
-+			*pest = est->next;
-+			write_unlock_bh(&est_lock);
++	/* Wait for any pending NAPI task to complete */
++	netif_poll_disable(dev);
 +
-+			kfree(est);
-+			killed++;
++	rtl8169_rx_interrupt(dev, tp, tp->mmio_addr);
+ 	rtl8169_tx_clear(tp);
+-	spin_unlock_irq(&tp->lock);
+ 
+-	/* ...and finally, reset everything */
+-	rtl8169_hw_start(dev);
++	if (tp->dirty_rx == tp->cur_rx) {
++		rtl8169_init_ring_indexes(tp);
++		rtl8169_hw_start(dev);
++		netif_wake_queue(dev);
++	} else {
++		if (net_ratelimit()) {
++			printk(PFX KERN_EMERG "%s: Rx buffers shortage\n",
++			       dev->name);
 +		}
-+		if (killed && elist[idx].list == NULL)
-+			del_timer(&elist[idx].timer);
++		rtl8169_schedule_work(dev, rtl8169_reset_task);
 +	}
 +}
 +
-+EXPORT_SYMBOL(gen_kill_estimator);
-+EXPORT_SYMBOL(gen_new_estimator);
++static void rtl8169_tx_timeout(struct net_device *dev)
++{
++	struct rtl8169_private *tp = netdev_priv(dev);
++
++	printk(KERN_INFO "%s: TX Timeout\n", dev->name);
+ 
+-	netif_wake_queue(dev);
++	rtl8169_hw_reset(tp->mmio_addr);
++
++	/* Let's wait a bit while any (async) irq lands on */
++	rtl8169_schedule_work(dev, rtl8169_reset_task);
+ }
+ 
+ static int rtl8169_xmit_frags(struct rtl8169_private *tp, struct sk_buff *skb,
+@@ -2057,9 +2098,7 @@ rtl8169_interrupt(int irq, void *dev_ins
+ 		if (unlikely(status & SYSErr)) {
+ 			printk(KERN_ERR PFX "%s: PCI error (status: 0x%04x)."
+ 			       " Device disabled.\n", dev->name, status);
+-			RTL_W8(ChipCmd, 0x00);
+-			RTL_W16(IntrMask, 0x0000);
+-			RTL_R16(IntrMask);
++			rtl8169_hw_reset(ioaddr);
+ 			break;
+ 		}
+ 
+@@ -2138,6 +2177,8 @@ rtl8169_close(struct net_device *dev)
+ 
+ 	netif_stop_queue(dev);
+ 
++	flush_scheduled_work();
++
+ 	rtl8169_delete_timer(dev);
+ 
+ 	spin_lock_irq(&tp->lock);
+
+_
