@@ -1,52 +1,39 @@
-From: MIYAZAWA Kazunori <kazunori@miyazawa.org>
-Subject: [PATCH][IPsec] fix process of error from crypto module
-Date: Wed, 26 Jan 2005 19:10:20 +0900
-Message-ID: <200501261910.20867.kazunori@miyazawa.org>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC] Stop using dst->xfrm
+Date: Wed, 26 Jan 2005 21:21:16 +1100
+Message-ID: <20050126102116.GA17413@gondor.apana.org.au>
+References: <1106373513.3691.49.camel@ori.thedillows.org> <E1CthU8-0001Uo-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="us-ascii"
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@davemloft.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: David Dillow <dave@thedillows.org>
 Content-Disposition: inline
+In-Reply-To: <E1CthU8-0001Uo-00@gondolin.me.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+On Wed, Jan 26, 2005 at 06:21:04PM +1100, Herbert Xu wrote:
+> 
+> > I'd like to see where you're going, so I can meet you there. The xfrm
+> > offload patches currently add dst->xfrm_offload to cache the info needed
+> > to offload the crypto operations. It'll be slower, but I could lookup
+> > that up each time if need be.
+> 
+> I'll take a look at your work first and get back to you.
 
-This patch fixes the process under the case that the crypto module
-returns error because of its weak keys or etc.
+I've had a look at some of your patches with the xfrm dst stuff in mind.
+It seems that you have nothing to worry about as far as dst consolidation
+goes.
 
+In fact, your current implementation of xfrm_accel_bundle() would benefit
+from such a move as it would have access to all the transforms in a single
+dst entry.
 
-diff -ur a/net/ipv4/esp4.c b/net/ipv4/esp4.c
---- a/net/ipv4/esp4.c 2004-12-25 06:34:58.000000000 +0900
-+++ b/net/ipv4/esp4.c 2005-01-26 18:57:18.000000000 +0900
-@@ -427,7 +427,8 @@
-    goto error;
-   get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
-  }
-- crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len);
-+ if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
-+  goto error;
-  x->props.header_len = sizeof(struct ip_esp_hdr) + esp->conf.ivlen;
-  if (x->props.mode)
-   x->props.header_len += sizeof(struct iphdr);
-diff -ur a/net/ipv6/esp6.c b/net/ipv6/esp6.c
---- a/net/ipv6/esp6.c 2004-12-25 06:35:01.000000000 +0900
-+++ b/net/ipv6/esp6.c 2005-01-26 18:57:04.000000000 +0900
-@@ -364,7 +364,8 @@
-    goto error;
-   get_random_bytes(esp->conf.ivec, esp->conf.ivlen);
-  }
-- crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len);
-+ if (crypto_cipher_setkey(esp->conf.tfm, esp->conf.key, esp->conf.key_len))
-+  goto error;
-  x->props.header_len = sizeof(struct ipv6_esp_hdr) + esp->conf.ivlen;
-  if (x->props.mode)
-   x->props.header_len += sizeof(struct ipv6hdr);
-
-
---
-Kazunori Miyazawa
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
