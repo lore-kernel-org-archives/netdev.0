@@ -1,35 +1,61 @@
-From: James Morris <jmorris@intercode.com.au>
-Subject: Re: [PATCH] LSM networking: tcp hooks for 2.5.59 (8/8)
-Date: Sat, 1 Feb 2003 11:12:33 +1100 (EST)
+From: devnetfs <devnetfs@yahoo.com>
+Subject: fragmentation
+Date: Sat, 1 Feb 2003 10:22:35 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0302011054440.4480-100000@blackbird.intercode.com.au>
-References: <20030130.161638.83467438.davem@redhat.com>
+Message-ID: <20030201182235.89076.qmail@web20422.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kuznet@ms2.inr.ac.ru, <netdev@oss.sgi.com>,
-   <linux-security-module@wirex.com>
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030130.161638.83467438.davem@redhat.com>
+To: linux-net@vger.kernel.org, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 30 Jan 2003, David S. Miller wrote:
+Hello,
 
-> If you think this is implementable, then I'll happily accept the
-> net/socket.c stuff and even the af_unix hack, with the assumption
-> being that the rest can be handled by netfilter or something similar.
-> Oh yes, I'd also take the netlink capability thing too as long as it
-> was inlined properly for the no-security case.
+I have a skb whose data I want to fragment into fixed size
+chunks with each fragment having its own (fixed size) header.
 
-Explicitly labeled networking and the SELinux extended sockets API
-probably can't be supported with just these hooks and Netfilter.
+What is the fastest way to do this, with minimal copying of data
+around? The easiest approach looks to be:
 
-However, this subset of the networking hooks will still be very useful in
-general, and we'll rework the patch accordingly.
+1. allocated a *new* skb of size=header_size+fragement_size
+2. *copy* part of data from my original skb into this new pkt
+3. setup the header in the fragmented-packet
+4. xmit this sk_buff (dev_queue_xmit)
 
+What I dont like is the *new* and (extra) *copy* part. As my original
+skb in in the kernel itself an additional copy (of fragment-size)
+before xmit seems wasteful to me.
 
-- James
--- 
-James Morris
-<jmorris@intercode.com.au>
+Is it possible to allocate buffer-space for just the header and then
+have pointers into the original skb for the fragement data, avoiding
+the extra *copy* of the fragment-data.
+
+So the question(s) are:
+
+[1] can I submit a packet (a sk_buff)to low level device (using
+    dev_queue_xmit()) that has its buffer/data in discontinuous 
+    blocks in the kernel -- some kind of iovec. 
+    And if the network device supports DMA gather -- this would 
+    make the xmit path very fast. right?
+OR
+[2] can I submit a chain of sk_buff's that need to be xmited as ONE
+    ether frame to dev_queue_xmit()?
+OR
+[2] such a chaining is not very useful and the above approach 
+    (steps 1-4) is ok.
+
+[btw this data is being generated in the kernel and sent over ether]
+
+Any insights or possible solutions would be helpful.
+
+Thanks,
+A.
+
+ps: I've just subscribed to netdev, so not sure if I will get the reply
+to this mail. So please Cc: me the reply -- thanks.
+
+__________________________________________________
+Do you Yahoo!?
+Yahoo! Mail Plus - Powerful. Affordable. Sign up now.
+http://mailplus.yahoo.com
