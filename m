@@ -1,94 +1,71 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: dummy as IMQ replacement
-Date: 01 Feb 2005 06:49:40 -0500
-Message-ID: <1107258578.1095.570.camel@jzny.localdomain>
+Date: 01 Feb 2005 07:02:41 -0500
+Message-ID: <1107259361.1095.584.camel@jzny.localdomain>
 References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <41FEB3AE.3090400@dsl.pipex.com>
+	 <20050131135810.GC31837@postel.suug.ch>
+	 <1107181169.7840.184.camel@jzny.localdomain>
+	 <20050131151532.GE31837@postel.suug.ch>
+	 <1107186044.1076.11.camel@jzny.localdomain>
+	 <20050131155929.GF31837@postel.suug.ch>
+	 <1107189625.1076.77.camel@jzny.localdomain>
+	 <20050131181553.GG31837@postel.suug.ch>
+	 <1107202715.1075.559.camel@jzny.localdomain>
+	 <20050131225328.GI31837@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
         Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <41FEB3AE.3090400@dsl.pipex.com>
+        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Damion de Soto <damion@snapgear.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050131225328.GI31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-31 at 17:39, Andy Furniss wrote:
-> Jamal Hadi Salim wrote:
+On Mon, 2005-01-31 at 17:53, Thomas Graf wrote:
 
-> > 2) Allows for queueing incoming traffic for shaping instead of
-> > dropping. I am not aware of any study that shows policing is 
-> > worse than shaping in achieving the end goal of rate control.
+> I was thinking of the parameters to define what a flow consists of.
+> Extended SFQ basically allows you to define the hash function. I think
+> I misunderstood you before and you don't want allow adjustable
+> states on only a subset of the attributes, e.g. only L3 data.
+
+Why bother putting extra classifier functionality into a qdisc? 
+you should be able to rip off the classifier from sfq so you dont depend
+on it; you can then select one of n queues (eaction meta set class 1:X
+based on result of sfq classifier - or you can have it set the classids
+based on resulting hash index) 
+
+> > I think the eactions etc are adding a lot of value towards usability.
+> > Hasso Tepper was ealrier complaining about this same issue. 
+> > As an example, I think u32 and ematches would improve a great deal now
+> > and be more understandable. True, work/time still needs to be invested.
 > 
-> I would say the end goal is shaping not just rate control. Shaping 
-> meaning different things to different people and ingress shaping being 
-> different from egress.
+> I'd guess that the basic classifier will make the race because the
+> documentation will be smaller due to the lack of parameters. ;->
 
-I know for a while the Bart howto was mislabeling the meaning of
-policing - not sure about shaping. 
-Shaping has a precise definition that involves a queue and a
-non-working-conserving scheduler in order to rate control. This doesnt
-matter where it happens (egress or ingress). Policing on the other hand
-is work conserving etc.
+Well, even if it is just being able to describe in english the u32
+parameters and displaying them in english (by using a ID stored)
+its already huge progress.
 
-> For me it's from the wrong end of a relativly narrow (512kbit) 
-> bottleneck link that has a 600ms fifo at the other end. My aim to 
-> sacrifice as little bandwidth as possible while not adding latency 
-> bursts for gaming and per user bandwidth allocation (with sharing of 
-> unused) and sfq within that for bulk tcp traffic.
->
-> If I was shaping LAN traffic, then policers/drops would be OK for me - 
-> but for a slow link I think queueing and dropping are better/give more 
-> control eg. I get to use sfq which should not drop the one packet a 56k 
-> user has managed to send me in the face of lots of incoming from low 
-> latency high bandwidth servers.
->
-> Even if it's possible I bet few can easily get policers to setup the 
-> complex sharing/prioritisations that you can with HTB or HFSC.
+> But yes I agree, I think we're making small step forwards and hopefully
+> the network config shell/tool/whatever will ease the steps to configure
+> things. My primary goal is to allow using it without looking up
+> parameters all the time, given one is aware of the common terms and basic
+> concepts. 
 
-sfq has a built in classifier that can efficiently separate those
-flows so you can achieve semi-fairness; so its not the shaping perse
-that helps, rather you ended up using a clever scheme that can isolate
-flows and benefited from shaping as a result; the hashing function
-should prove weak when a lot of flows start showing up.
-You could write some interesting classifier (as an example steal the one
-that sfq has) and achieve the same end results with policing. This would
-be easier now with ematches .. 
+Online easy to use help is always valuable.
 
-> > But i wont go back to putting netfilter hooks in the device to satisfy
-> > this.  I also dont think its worth it hacking dummy some more to be 
-> > aware of say L3 info and play ip rule tricks to achieve this.
-> > --> Instead the plan is to have a contrack related action. This action
-> > will selectively either query/create contrack state on incoming packets.
-> 
-> I don't understand exactly what you mean here - for my setup to work I 
-> need to see denatted addresses and mark (connbytes - it helps me be 
-> extra nasty to multiple simoultaneous connections in slowstart and 
-> prioritise browsing over bulk) in prerouting mangle. Of course if I can 
-> use netfilter to classify and save into contrack then I could do 
-> evrything in netfilter and then use something like connmark to save it 
-> per connection.
-> 
+> I'll have some more time next week and will try to implement the
+> traffic control bits or at least some of them. The wind forecast is pretty
+> good for the next days so I won't have too much time. ;->
 
-You may be refering to requirement #3 then? 
-In other words what you are doing is best served by knowing the state?
-Are pre/post routing sufficient as netfilter hooks for your case?
-
-> > Packets could then be redirected to dummy based on what happens -> eg 
-> > on incoming packets; if we find they are of known state we could send to
-> > a different queue than one which didnt have existing state. This
-> > all however is dependent on whatever rules the admin enters.
-> 
-> 
-> How does the admin enter the rules - netfilter or other?
-> 
-
-Just like i showed in that post (It was long - so dont wanna cutnpaste
-here).
+Weather is also predicted to be good here for the week; we are planning to 
+get out of our igloos and go tobagoning;->
 
 cheers,
 jamal
+ 
