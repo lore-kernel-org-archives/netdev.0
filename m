@@ -1,44 +1,107 @@
-From: Donald Becker <becker@scyld.com>
-Subject: Re: 3C905 + options=0x8
-Date: Mon, 20 Oct 2003 11:37:54 -0400 (EDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [Fwd: [RFT] NAPI for 8139too]
+Date: Mon, 20 Oct 2003 08:41:47 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0310201130220.3313-100000@training.scyld.com>
-References: <Sea2-DAV19xSl5CjBaX00005d53@hotmail.com>
+Message-ID: <20031020084147.3bb5b25c.shemminger@osdl.org>
+References: <3F9070B6.9090306@pobox.com>
+	<873cdqbt6z.fsf@devron.myhome.or.jp>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Marco Berizzi <pupilla@hotmail.com>
-In-Reply-To: <Sea2-DAV19xSl5CjBaX00005d53@hotmail.com>
+To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+In-Reply-To: <873cdqbt6z.fsf@devron.myhome.or.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Oct 2003, Marco Berizzi wrote:
+On Sat, 18 Oct 2003 21:56:20 +0900
+OGAWA Hirofumi <hirofumi@mail.parknet.co.jp> wrote:
 
-> I have found a strange 3C905 behaviour on linux 2.4.22 (same behaviuor
-> with 2.4.19 and 2.6.0-test7).
-> When the linux box load the module with /etc/modules.conf containing:
-> options 3c59x options=0x8,0x8
+> Hi,
+> 
+> I also working for it (patches attached). So I have several comment.
+> 
+> Jeff Garzik <jgarzik@pobox.com> writes:
+> 
+> > +	dev->weight = 16;
+> 
+> just question: Is there basis for believing that this value is
+> rightness?  Although I use 64, I don't have a reason for having chosen
+> it at all.
 
-Baseline: what do you expect this option setting to do when used with
-the 3c905_ (no suffix)?
+I chose 16 only because that was in the sample NAPI documentation,
+but it probably doesn't matter a lot unless you have multiple NIC's using
+NAPI in the same machine, which is not common since this chipset seems to be used
+mostly in cheap boxes.
 
-Note that the 3c905 has an external MII transceiver (trasceiver type 6),
-while the 3c905B and 3c905C have on-chip transceivers (transceiver type 8). 
+> 
+> >  	dev->stop = rtl8139_close;
+> >  	dev->get_stats = rtl8139_get_stats;
+> >  	dev->set_multicast_list = rtl8139_set_rx_mode;
+> > @@ -1879,24 +1877,28 @@
+> >  #endif
+> >  }
+> >  
+> > -static void rtl8139_rx_interrupt (struct net_device *dev,
+> > -				  struct rtl8139_private *tp, void *ioaddr)
+> > +/*
+> > + * NAPI poll routine.
+> > + */
+> > +static int rtl8139_poll(struct net_device *dev, int *budget)
+> >  {
+> > +	struct rtl8139_private *tp = dev->priv;
+> > +	void *ioaddr = tp->mmio_addr;
+> >  	unsigned char *rx_ring;
+> >  	u16 cur_rx;
+> > +	int rx, status;
+> > +	unsigned long flags;
+> >  
+> > -	assert (dev != NULL);
+> > -	assert (tp != NULL);
+> > -	assert (ioaddr != NULL);
+> > -
+> > +	spin_lock_irqsave(&tp->lock, flags);
+> 
+> I don't think lock of interrupt related path needed here. And this
+> thinks that it has a bad influence on TX path.
+> 
+> Instead of it, I think we need synchronize with ->tx_timeout because
+> ->tx_timeout touch IntrMask.
 
-> the 3C905 NICs don't receive/send packet. 3C905B NIC is working good.
+Locking in this version is more conservative than necessary, will think about
+how to do it better.
 
-I would say that the driver is working as you directed it to.
 
-You should not set driver options unless you have a non-standard
-configuration.  Setting driver options "just to make sure" is a common
-source of problems.
+> > + rescan:
+> >  	rx_ring = tp->rx_ring;
+> >  	cur_rx = tp->cur_rx;
+> > -
+> [...]
+> >  			RTL_W16_F (IntrStatus, RxAckBits);
+> > +
+> > +		if (++rx >= dev->quota)
+> 
+> Shouldn't we use "min(dev->quota, *budget)" for this limit? Users can
+> change "budget" via sysctl.
 
-I suspect that just removing the module options will restore correct
-operation.
+Once again, this not what the documentation, or some other drivers do.
 
--- 
-Donald Becker				becker@scyld.com
-Scyld Computing Corporation		http://www.scyld.com
-914 Bay Ridge Road, Suite 220		Scyld Beowulf cluster system
-Annapolis MD 21403			410-990-9993
+> 
+> > +	/* If received interrupt, then disable furthur interrupts
+> > +	 * and enable NAPI polling.
+> > +	 */
+> > +	if (netif_running (dev) && (status & RxAckBits)) {
+> > +		/* disable more receive interrupts */
+> > +		RTL_W16 (IntrMask, rtl8139_intr_mask & ~RxAckBits);
+> > +		netif_rx_schedule(dev);
+> > +	}
+> 
+> This style have problem on shutdowning interface path. Please see
+> 8139too-napi-stop-fix.patch.
+> 
+> Thanks.
+> -- 
+> OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+> 
+> 
