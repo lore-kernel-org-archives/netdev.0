@@ -1,32 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Add sysctl entries for bridge-nf
-Date: Wed, 24 Dec 2003 19:32:36 -0800
+Subject: Re: [PATCH] [2.6,2.4] Don't update MTU by invalid mtu value in RA
+Date: Wed, 24 Dec 2003 19:44:16 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031224193236.7ee420ff.davem@redhat.com>
-References: <200312222301.47186.bdschuym@pandora.be>
+Message-ID: <20031224194416.615c59e2.davem@redhat.com>
+References: <20031218.173408.17644747.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org, kago@jp.fujitsu.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
-In-Reply-To: <200312222301.47186.bdschuym@pandora.be>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031218.173408.17644747.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 22 Dec 2003 23:01:47 +0100
-Bart De Schuymer <bdschuym@pandora.be> wrote:
+On Thu, 18 Dec 2003 17:34:08 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> The following patch adds these sysctl entries in /proc/sys/net/bridge/:
-> bridge-nf-call-arptables - pass or don't pass bridged ARP traffic to
-> arptables' FORWARD chain.
-> bridge-nf-call-iptables - pass or don't pass bridged IPv4 traffic to
-> iptables' chains.
-> bridge-nf-filter-vlan-tagged - pass or don't pass bridged vlan-tagged
-> ARP/IP traffic to arptables/iptables.
-> 
-> It adds the necessary constants to sysctl.h, changes br_netfilter.c and
-> adds some info to the ip-sysctl documentation.
-> The default values are so that the old behavior is kept by default.
+> D: Don't update MTU by invalid mtu value in RA message.
+> D: Notified by Hiroaki Kago <kago@jp.fujitsu.com>.
 
-Applied, thanks Bart.
+Applied, thanks Yoshfuji and Hiroaki.
