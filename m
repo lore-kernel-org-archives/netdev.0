@@ -1,69 +1,46 @@
-From: che <che@oemmail.com>
-Subject: Re[1]: What about my order?
-Date: Sun, 07 Mar 2004 21:42:22 -0500
+From: "대출" <wxkekp193207@hotmail.com>
+Subject: =?ISO-8859-1?Q?=A2=C0=C4=AB=B5=E5=B0=AA=20=B4=EB=C3=E2=B7=CE?=
+	=?ISO-8859-1?Q?=C7=D8=B0=E1=C7=CF=B0=ED36=B0=B3=BF=F9=BA=D0=C8=B0=BB=F3=C8=AF,5=C3=B5=B8=B8=BF=F8=B1=EE=C1=F6!!!?= yp
+Date: Mon, 08 Mar 04 07:23:49 GMT
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200403080242.i282gMKO017537@oss.sgi.com>
-Reply-To: che <che@oemmail.com>
+Message-ID: <r4tx6$7y$c-uhm@adrvh>
+Reply-To: "대출" <wxkekp193207@hotmail.com>
 Mime-Version: 1.0
-Content-Type: text/html;  charset=windows-1251
-Content-Transfer-Encoding: 8bit
+Content-Type: multipart/alternative;
+	boundary="_F.CA67E.FB.09"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<!doctype html public "-//w3c//dtd html 4.01 transitional//en">
+
+--_F.CA67E.FB.09
+Content-Type: text/html;
+Content-Transfer-Encoding: quoted-printable
 
 <html>
 <head>
-<meta http-equiv="content-type" content="text/html;charset=iso-8859-1">
-</head>
-<body bgcolor="#0f5d7d" leftmargin="0" topmargin="0" marginwidth=0 marginheight=0>
-<br>
-<center>
-<table width="480" border=2 cellpadding=0 cellspacing=0 bgcolor="#107582" height=20%>
-<tr>
-<td height=75% valign=center width=480>
-<div align="center">
-<font size="+5" color="yellow" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b>e.R.X.s</b></font><br>
-<font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Stay Longer! Go HARDER!</font></b><br>
-<font color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b>BE BIGGER!</b></font><br>
-<font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">on sale for a short time only!</font><br>
-<br>
-<font color="yellow" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b>Enjoy the most intense</b><br></font>
-<font color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b>ORGASMS</b></font>
-<font color="yellow" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b>of your life!<br>
-Become immensely confident.</b></font>
-<font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b><br>
-</b></font><font color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><b><br>
-</b></font></div>
-<div align="left">
-<ul>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Increased circulation and <b>ENLARGE</b> your girth and size up <br>
+<title>=FFFFFFBB=FFFFFFF9=FFFFFFC7=FFFFFFC3</title>
+<meta http-equiv=3D"Content-Type" content=3D"text/html; charset=3Deuc-kr">=
 
-to 3 inches or even larger.</font>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Increased semen and sperm production up to 600 percent.<br>
-</font>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Increased testosterone up to 500 percent.</font>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Obtain <b>GIANT</b> rock-solid more powerful erections.</font>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Have <b>LONGER LASTING</b> erections.</font>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Increased libido and vitality have more energy for vigorous activity.</font>
-<li><font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">Best of all. Recommended by real doctors.</font>
-</ul>
-</div>
-<div align="center">
-<br>
-<font size="-1" color="white" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular"><i>eRXs is not doctor prescribed and its for men and women!</i><br>
-</font>
-<p><a href="http://www.lon%67a%73.us/index.php?id=27" target="_blank"><font size="+2" color="#eeac39" face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">go here for more details</font></a></p>
-<br>
-<font size="-2"><a href="http://%77w%77.longas.u%73/remove.php"><font color=#ffff00 face="Arial,Helvetica,Geneva,Swiss,SunSans-Regular">no thanks, opt me out</font></a><br>
-</font><font face="arial" size="3" color="#ffffff"><font face="arial" size="3" color="#ffffff"><font face="arial" size="2" color="#ffffff"><br>
-</font></font></font></div>
-</td>
-</tr>
+</head>
+
+<body bgcolor=3D"#FFFFFF" text=3D"#000000" leftmargin=3D"0" topmargin=3D"0=
+" marginwidth=3D"0" marginheight=3D"0">
+<table width=3D"54%" border=3D"1">
+  <tr> 
+    <td><a href=3D"http://www.loanbank.or.kr/main/main.php?spid=3Dloan15">=
+<img src=3D"http://www.loanbank.or.kr/image/lcg25.jpg" width=3D"544" heigh=
+t=3D"520" border=3D"0"></a></td>
+  </tr>
+  <tr> 
+    <td height=3D"19"><font size=3D"2">If you do not want to receive this =
+mail, just click  <a href=3D"http://www.reject.co.tv" target=3D"_blank">[r=
+eject]</a>button. thanks</font></td>
+  </tr>
 </table>
-<br>
-</center>
 </body>
 </html>
+lm b
+
+--_F.CA67E.FB.09--
