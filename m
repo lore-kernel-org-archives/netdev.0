@@ -1,57 +1,35 @@
-From: Steffen Persvold <sp@scali.com>
-Subject: Re: Re: pci-skeleton duplex check
-Date: Sun, 15 Dec 2002 01:37:27 +0100 (CET)
+From: Jes Sorensen <jes@trained-monkey.org>
+Subject: Re: [RFC][PATCH] net drivers and cache alignment
+Date: 15 Dec 2002 13:31:15 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0212150131400.1053-100000@sp-laptop.isdn.scali.no>
-References: <20021214161446.B23020@flint.arm.linux.org.uk>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: arun4linux <arun4linux@indiatimes.com>,
-   Michael Richardson <mcr@sandelman.ottawa.on.ca>, <netdev@oss.sgi.com>,
-   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+Message-ID: <m3fzszb0cs.fsf@trained-monkey.org>
+References: <3DF2844C.F9216283@digeo.com> <20021207.153045.26640406.davem@redhat.com> <3DF28748.186AB31F@digeo.com> <3DF28988.93F268EA@digeo.com>
+Cc: "David S. Miller" <davem@redhat.com>, jgarzik@pobox.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Russell King <rmk@arm.linux.org.uk>
-In-Reply-To: <20021214161446.B23020@flint.arm.linux.org.uk>
+To: Andrew Morton <akpm@digeo.com>
+In-Reply-To: Andrew Morton's message of "Sat, 07 Dec 2002 15:51:36 -0800"
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Dec 2002, Russell King wrote:
+>>>>> "Andrew" == Andrew Morton <akpm@digeo.com> writes:
 
-> On Sat, Dec 14, 2002 at 08:05:30PM +0530, arun4linux wrote:
-> > Interfaces should NEVER change in patch level versions.
-> > Just *DO NOT DO IT*.
-> > I do agree on this.
-> 
-> Rubbish.
-> 
-> Think about what you've just said.  Patch level version changes are
-> things like 2.5.43 to 2.5.44 or 2.4.19 to 2.4.20.
-> 
-> You are saying that we shouldn't change any interfaces between (eg)
-> 2.5.43 and 2.5.44, but we should change every interface we want to
-> change between 2.4.15 and 2.5.0.
-> 
-> This is obviously completely bogus.  2.5 is a _development_ tree.
-> Everyone should expect anything, including interfaces to change
-> between each development patch level.
-> 
-> > This is a common complaint about linux kernel developers. And this always
-> > gives an insecure feeling  :-) for the device driver or kernel module
-> > programmers. 
-> 
-> If interfaces are changed without extremely good reason between two
-> _stable_ patch level versions, that would be a bug.
->
+Andrew> Andrew Morton wrote:
+>> Then I am most confused.  None of these fields will be put under
+>> busmastering or anything like that, so what advantage is there in
+>> spreading them out?
 
-There have been a few during 2.4... The alloc_kiovec stuff for instance 
-and zap_page_range. 2.2 was much more stable.
+Andrew> Oh I see what you want - to be able to pick up all the
+Andrew> operating fields in a single fetch.
 
-Interface changes in development series is (or atleast should be to 
-everyone using linux) a known "feature".
+Andrew> That will increase the overall cache footprint though.  I
+Andrew> wonder if it's really a net win, over just keeping it small.
 
-Regards,
--- 
-  Steffen Persvold   |       Scali AS      
- mailto:sp@scali.com |  http://www.scali.com
-Tel: (+47) 2262 8950 |   Olaf Helsets vei 6
-Fax: (+47) 2262 8951 |   N0621 Oslo, NORWAY
+There's another case where it matters, I guess one could look at it as
+similar to the SMP case, but between CPU and device. Some devices have
+producer indices in host memory which they update whenever it
+receiving a packet. By putting that seperate from TX data structures
+you avoid the CPU and the NIC fighting over cache lines.
+
+Cheers,
+Jes
