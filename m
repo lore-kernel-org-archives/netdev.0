@@ -1,113 +1,105 @@
-From: Dan Williams <dcbw@redhat.com>
-Subject: [PATCH 2.6.11-rc2 2/2] wireless: WEXT quality cleanups + max rssi
-	level fix for at76c502e
-Date: Wed, 02 Feb 2005 10:18:53 -0500
-Message-ID: <1107357533.27197.7.camel@dcbw.boston.redhat.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: dummy as IMQ replacement
+Date: Wed, 2 Feb 2005 16:40:41 +0100
+Message-ID: <20050202154041.GQ31837@postel.suug.ch>
+References: <20050131155929.GF31837@postel.suug.ch> <1107189625.1076.77.camel@jzny.localdomain> <20050131181553.GG31837@postel.suug.ch> <1107202715.1075.559.camel@jzny.localdomain> <20050131225328.GI31837@postel.suug.ch> <1107259361.1095.584.camel@jzny.localdomain> <20050201125147.GK31837@postel.suug.ch> <1107263612.1095.598.camel@jzny.localdomain> <20050201224436.GO31837@postel.suug.ch> <1107354293.1105.85.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik@redhat.com, simon@thekelleys.org.uk
-To: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
+        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Damion de Soto <damion@snapgear.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1107354293.1105.85.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(resend)
+First of all, sorry for the massive amount of typos in my last post.
+I could barely see anything due to the sun shining onto my display.
 
-Use correct maximum rssi level for at76c502e-type cards, and correct
-values in the qual.updated field to more closely match the current
-Wireless Extensions API.
+> You cant avoid passing around metadata between the different blocks.
+> Whether the metadata is set by the admin or by some other block along
+> the packet path is way of life. 
 
-Signed-off-by: Dan Williams <dcbw@redhat.com>
+Agreed.
 
---- a/drivers/net/wireless/atmel.c	2005-02-01 16:25:38.000000000 -0500
-+++ b/drivers/net/wireless/atmel.c	2005-02-01 16:25:53.000000000 -0500
-@@ -1311,17 +1311,21 @@
- 	if (priv->operating_mode == IW_MODE_INFRA) {
- 		if (priv->station_state != STATION_STATE_READY) {
- 			priv->wstats.qual.qual = 0;
--			priv->wstats.qual.level	= 0;
-+			priv->wstats.qual.level = 0;
-+			priv->wstats.qual.updated = (IW_QUAL_QUAL_INVALID
-+					| IW_QUAL_LEVEL_INVALID);
- 		}
- 		priv->wstats.qual.noise = 0;
--		priv->wstats.qual.updated = 7;
-+		priv->wstats.qual.updated |= IW_QUAL_NOISE_INVALID;
- 	} else {
- 		/* Quality levels cannot be determined in ad-hoc mode,
- 		   because we can 'hear' more that one remote station. */
- 		priv->wstats.qual.qual = 0;
- 		priv->wstats.qual.level	= 0;
- 		priv->wstats.qual.noise	= 0;
--		priv->wstats.qual.updated = 0;
-+		priv->wstats.qual.updated = IW_QUAL_QUAL_INVALID
-+					| IW_QUAL_LEVEL_INVALID
-+					| IW_QUAL_NOISE_INVALID;
- 		priv->wstats.miss.beacon = 0;
- 	}
- 	
-@@ -2236,6 +2240,13 @@
- 	range->max_qual.qual = 100;
- 	range->max_qual.level = 100;
- 	range->max_qual.noise = 0;
-+	range->max_qual.updated = IW_QUAL_NOISE_INVALID;
-+
-+	range->avg_qual.qual = 50;
-+	range->avg_qual.level = 50;
-+	range->avg_qual.noise = 0;
-+	range->avg_qual.updated = IW_QUAL_NOISE_INVALID;
-+
- 	range->sensitivity = 0;
- 
- 	range->bitrate[0] =  1000000;
-@@ -2265,9 +2276,6 @@
- 	range->r_time_flags = 0;
- 	range->min_retry = 1;
- 	range->max_retry = 65535;
--	range->avg_qual.qual = 50;
--	range->avg_qual.level = 50;
--	range->avg_qual.noise = 0;
- 
- 	return 0;
- }
-@@ -3043,16 +3051,23 @@
- static void smooth_rssi(struct atmel_private *priv, u8 rssi)
- {
- 	u8 old = priv->wstats.qual.level;
-+	u8 max_rssi = 42; /* 502-rmfd-revd max by experiment, default for now */
- 
--	/* 502-rmfd-revd gives max signal level as 42, by experiment.
--	   This is going to break for other hardware variants. */
-+	switch (priv->firmware_type) {
-+		case ATMEL_FW_TYPE_502E:
-+			max_rssi = 63; /* 502-rmfd-reve max by experiment */
-+			break;
-+		default:
-+			break;
-+	}
- 
--	rssi = rssi * 100 / 42;
-+	rssi = rssi * 100 / max_rssi;
- 	if((rssi + old) % 2)
- 		priv->wstats.qual.level =  ((rssi + old)/2) + 1;
- 	else
- 		priv->wstats.qual.level =  ((rssi + old)/2);		
--	
-+	priv->wstats.qual.updated |= IW_QUAL_LEVEL_UPDATED;
-+	priv->wstats.qual.updated &= ~IW_QUAL_LEVEL_INVALID;
- }
- 
- static void atmel_smooth_qual(struct atmel_private *priv)
-@@ -3065,8 +3080,10 @@
- 			priv->beacons_this_sec * priv->beacon_period * (priv->wstats.qual.level + 100) / 4000;
- 		priv->beacons_this_sec = 0;
- 	}
-+	priv->wstats.qual.updated |= IW_QUAL_QUAL_UPDATED;
-+	priv->wstats.qual.updated &= ~IW_QUAL_QUAL_INVALID;
- }
--	
-+
- /* deals with incoming managment frames. */
- static void atmel_management_frame(struct atmel_private *priv, struct ieee802_11_hdr *header, 
- 		      u16 frame_len, u8 rssi)
+> All of the metadata defined and attached around skbs so far has a
+> standalone semantical meaning whic unfortunately cant just be hidden
+> from the user. Its the unfortunate consequence of giving someone a
+> weapon )they may shoot their toe off). 
+
+Agreed, I'm just trying avoid further confusion. I think my country
+has one of highest if not the higest density of fully automatic
+assault weapons (because everyone liable to miltary service needs
+to have one at home), everyone owning one is forced to practice once
+a year and shooting is a common sport.  OTOH, we have one of the lowest
+crime rates. Why's that?  Because almost everyone is well educated
+in terms of weapon saftey, so I think this should be our way as well.
+So yes, we can definitely add more complexity but we should try to make
+it easy to understand and use.
+
+> sfq as a matter of setting the hash is computing what flow you belong to
+> and thats why i suggested tc_classid (in this case not set by the admin,
+> rather by a smart stateful classifier).
+
+If the value for tc_classid is directly set by the user then I agree.
+What I want to avoid is having hidden uses of parameters which can also
+be modified by the user. It results in a backward compatibility hell
+later on because we can't just add another use for it without possibily
+breaking scripts.
+
+> Let me see if i understood correctly: Instead of giving static values
+> (such as 0x10) you want to assign a variable(ip_saddr_proto_hash) which
+> is computed at runtime to tcindex? 
+> Thats a parallel issue though but indeed useful .
+
+OK, so basically we weren't talking of exactly the same thing. In a
+user setting only context your argumentation makes sense. Let me follow
+on this thought a little further, what I basically want is a generic
+way to influence various qdiscs, be it a hashing index for sfq, a
+priority value for priority band based qdiscs, etc.
+
+tc_classid isn't a bad choice but it gets complex once we want a
+classful qdiscs to be able to use this input parameter.
+
+Summarizing what we currently have:
+  tc_index: May contain a dscp value if dsmark is told to fetch the dscp
+            field, the minor part of priority if dsmark is told to map
+            priority values via handle values, or the minor part of the
+            classid in a classifier result via ingress classification or
+            a classifier attached to a dsmark. cls_tcindex, gred, and
+            meta ematch use it as input value.
+
+  nf_mark:  cls_fw map to classids, meta ematch may read it, meta
+            eaction may set it.
+
+  tc_classid: Actions may set it to overwrite the result of a classifer,
+              meta ematch may read it and I guess meta eaction may
+              write to it.
+
+  tc_verd: Set early in net stack, used to track location and tc
+           relevant flags.
+
+  tclassid: Set withing routing db, may be read via meta ematch.
+
+At the moment all of them can be described properly and it should be
+easy to understand if the relations are outlined properly.
+
+Assuming we allow setting tc_classid to overwrite the sfq internal
+hash we introduce a not so obvious double use because tc_classid is
+assumed to at least partly point to a class. We can redefine tc_classid
+as being a generic flow/session descriptor but then it should be moved
+out of being used to overwrite the classid within actions. Assuming I
+have a classifier which normally classifies into a child class but
+sometimes I want the traffic to go into a leaf sfq qdisc by using the
+action to overwrite the result. It will then be impossible to overwrite
+the sfq hash because I would no longer be able to overwrite the
+classifier result. It's probably possible to find some working solution
+by having the minor part being the sfq input or vice versa but it
+gets really nasty. Therefore I think we should make a difference between
+the current use of tc_classid to overwrite the classifier result and
+giving qdiscs some kind of input not directly related to their handle.
+
+Thoughts?
