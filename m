@@ -1,91 +1,91 @@
-From: Michal Ostrowski <mostrows@watson.ibm.com>
+From: Stefan Rompf <srompf@isg.de>
 Subject: Re: Deadlock in sungem/ip_auto_config/linkwatch
-Date: Mon, 05 Jan 2004 11:19:25 -0500
+Date: Mon, 5 Jan 2004 17:50:55 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1073319565.2043.98923.camel@brick.watson.ibm.com>
-References: <1073307882.2041.98320.camel@brick.watson.ibm.com>
-	 <200401051550.51063.srompf@isg.de>
+Message-ID: <200401051750.56233.srompf@isg.de>
+References: <1073307882.2041.98320.camel@brick.watson.ibm.com> <200401051550.51063.srompf@isg.de> <1073319565.2043.98923.camel@brick.watson.ibm.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-T7Vi+m2S37xHNyQWLC01"
+Content-Type: multipart/signed;
+  protocol="application/pkcs7-signature";
+  micalg=sha1;
+  boundary="Boundary-02=_wXZ+/M91EO8KJ7L";
+  charset="iso-8859-15"
+Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <200401051550.51063.srompf@isg.de>
+To: Michal Ostrowski <mostrows@watson.ibm.com>
+In-Reply-To: <1073319565.2043.98923.camel@brick.watson.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-T7Vi+m2S37xHNyQWLC01
-Content-Type: text/plain
+--Boundary-02=_wXZ+/M91EO8KJ7L
+Content-Type: text/plain;
+  charset="iso-8859-15"
 Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-This can get pretty hairy.
+Am Montag, 05. Januar 2004 17:19 schrieb Michal Ostrowski:
 
-Suppose the linkwatch code backs-off in the case that rtnl_sem is held
-legitimately by thread A.  Meanwhile, thread B is doing a
-flush_scheduled_work in order to wait for pending linkwatch events to
-complete. =20
+> Suppose the linkwatch code backs-off in the case that rtnl_sem is held
+> legitimately by thread A.  Meanwhile, thread B is doing a
+> flush_scheduled_work in order to wait for pending linkwatch events to
+> complete.
 
-In the proposed solution this will result in incorrect behaviour
-(flush_scheduled_work returns with the linkwatch work not really done).=20
-(Admittedly I'm not sure if such a scenario really is feasible.)
+This won't happen. If a pending linkwatch event needs to be scheduled=20
+synchronously (f.e. when a device is unregistered), it is executed in conte=
+xt=20
+of the calling process, not inside the workqueue thread.
 
-My initial though was to use a seperate work-queue, un-entangled with
-the global queue used for flush_scheduled_work.  This would allow
-linkwatch events to be synchronized against explicitly.  For this
-solution though I think it would be nice to not have to have a thread
-per cpu for the linkwatch work queue.
+> My initial though was to use a seperate work-queue, un-entangled with
+> the global queue used for flush_scheduled_work. This would allow
+> linkwatch events to be synchronized against explicitly.
 
-On the other hand, ic_open_devs appears to be the only place where
-rtnl_sem is held while going into a driver's open() function, and so
-maybe the right rule is that rtnl_sem is not held when calling
-dev->open().
+That's overkill, and if I understand flush_workqueue() right, it doesn't ca=
+re=20
+about work that is queued with delay, so it even wouldn't help. That's why =
+I=20
+thought about a function to unregister pending work.
 
+Stefan
+=2D-=20
+"doesn't work" is not a magic word to explain everything.
 
---=20
-Michal Ostrowski <mostrows@watson.ibm.com>
+--Boundary-02=_wXZ+/M91EO8KJ7L
+Content-Type: application/pkcs7-signature; name="smime.p7s"
+Content-Transfer-Encoding: base64
+Content-Description: signature
+Content-Disposition: attachment; filename="smime.p7s"
 
+MIIGlwYJKoZIhvcNAQcCoIIGiDCCBoQCAQExCzAJBgUrDgMCGgUAMAsGCSqGSIb3DQEHAaCCBEAw
+ggQ8MIIDpaADAgECAgFHMA0GCSqGSIb3DQEBBAUAMIG+MQswCQYDVQQGEwJERTEPMA0GA1UECBMG
+SGVzc2VuMRowGAYDVQQHExFGcmFua2Z1cnQgYW0gTWFpbjEhMB8GA1UEChMYSW5ub3ZhdGl2ZSBT
+b2Z0d2FyZSBHbWJIMR8wHQYDVQQLExZOZXR3b3JrIEFkbWluaXN0cmF0aW9uMSIwIAYDVQQDExlJ
+U0cgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MRowGAYJKoZIhvcNAQkBFgtpbmZvQGlzZy5kZTAeFw0w
+MDA2MDUxMjIyNDlaFw0xMDAzMDUxMjIyNDlaMIG6MQswCQYDVQQGEwJERTEPMA0GA1UECBMGSGVz
+c2VuMRowGAYDVQQHExFGcmFua2Z1cnQgYW0gTWFpbjEhMB8GA1UEChMYSW5ub3ZhdGl2ZSBTb2Z0
+d2FyZSBHbWJIMR0wGwYDVQQLExRTb2Z0d2FyZSBEZXZlbG9wbWVudDEeMBwGA1UEAxMVU3RlZmFu
+IFJvbXBmIChJU0cgQ0EpMRwwGgYJKoZIhvcNAQkBFg1zcm9tcGZAaXNnLmRlMIGfMA0GCSqGSIb3
+DQEBAQUAA4GNADCBiQKBgQDBTlj0vQ81p59aQUY3XX81RM0MrcLzq5l5VetfLQOS4aTmwk/32siO
+rXQxxTwODgmui/kLzSgRRYqFtDfelSWvsrtYR4VaH3I1u7YgcXWTx4oTt0RdiMvJ3/VgKmfpbpRN
+DlyuV7b8daC+0vpMKbhBJyt5716u9LHrMZZbw5n1gwIDAQABo4IBSjCCAUYwCQYDVR0TBAIwADAs
+BglghkgBhvhCAQ0EHxYdT3BlblNTTCBHZW5lcmF0ZWQgQ2VydGlmaWNhdGUwHQYDVR0OBBYEFHGF
+b48a5LAWDpGcbEPw8Vn2aUYyMIHrBgNVHSMEgeMwgeCAFJyzCKYgVHSxntGNkKK4rHhml9G6oYHE
+pIHBMIG+MQswCQYDVQQGEwJERTEPMA0GA1UECBMGSGVzc2VuMRowGAYDVQQHExFGcmFua2Z1cnQg
+YW0gTWFpbjEhMB8GA1UEChMYSW5ub3ZhdGl2ZSBTb2Z0d2FyZSBHbWJIMR8wHQYDVQQLExZOZXR3
+b3JrIEFkbWluaXN0cmF0aW9uMSIwIAYDVQQDExlJU0cgQ2VydGlmaWNhdGUgQXV0aG9yaXR5MRow
+GAYJKoZIhvcNAQkBFgtpbmZvQGlzZy5kZYIBADANBgkqhkiG9w0BAQQFAAOBgQAoJXnCqMVpxWXn
+Q2Oo/Jv8YHL5qeNyFMBmmWPMgt+ecjt1roE6hPpr22bny5nWgLaFgvQk6DptEOkmxFOmFLUDjQUA
+Rrypgr7Q5H3dILmsSKJPRWPiZPlwFtnA9Z7eSmnLbqF34kOmrt9NDPZxW/vx9fewVao2i0Fk0/n3
+NpN0ETGCAh8wggIbAgEBMIHEMIG+MQswCQYDVQQGEwJERTEPMA0GA1UECBMGSGVzc2VuMRowGAYD
+VQQHExFGcmFua2Z1cnQgYW0gTWFpbjEhMB8GA1UEChMYSW5ub3ZhdGl2ZSBTb2Z0d2FyZSBHbWJI
+MR8wHQYDVQQLExZOZXR3b3JrIEFkbWluaXN0cmF0aW9uMSIwIAYDVQQDExlJU0cgQ2VydGlmaWNh
+dGUgQXV0aG9yaXR5MRowGAYJKoZIhvcNAQkBFgtpbmZvQGlzZy5kZQIBRzAJBgUrDgMCGgUAoIGx
+MBgGCSqGSIb3DQEJAzELBgkqhkiG9w0BBwEwHAYJKoZIhvcNAQkFMQ8XDTA0MDEwNTE2NTA1Nlow
+IwYJKoZIhvcNAQkEMRYEFMG1VMv2oQ9huoOf2E79m3hZ7W5TMFIGCSqGSIb3DQEJDzFFMEMwCgYI
+KoZIhvcNAwcwDgYIKoZIhvcNAwICAgCAMA0GCCqGSIb3DQMCAgFAMAcGBSsOAwIHMA0GCCqGSIb3
+DQMCAgEoMA0GCSqGSIb3DQEBAQUABIGAMTE+Yg0t0/XRnOiw0D2VISwWOKjKKYnCkNdGHOkQWohJ
++7uLlc1+pv6C/PK1JEcOM82l9ynE/ddOpcuKGdxPxujXc4uSq+kx/lAc+rWw7xSXUxxQpPjyVz9g
+oKDpnibM5P2dnVjyg0f7JZFUEILoPakkn/Rq8gG+VNvt2qr7RmM=
 
-On Mon, 2004-01-05 at 09:50, Stefan Rompf wrote:
-> Am Montag, 05. Januar 2004 14:07 schrieb Michal Ostrowski:
->=20
-> > ic_open_devs grabs rtnl_sem with an rtnl_shlock() call.
-> >
-> > The sungem driver at some point calls gem_init_one, which calls
-> > netif_carrier_*, which in turn calls schedule_work (linkwatch_event).
-> >
-> > linkwatch_event in turn needs rtnl_sem.
->=20
-> Good catch! The sungem driver shows clearly that we need some way to remo=
-ve=20
-> queued work without scheduling and waiting for other events.
->=20
-> I will change the linkwatch code to use rtnl_shlock_nowait() and backoff =
-and=20
-> retry in case of failure this week. Call it a workaround, but it increase=
-s=20
-> overall system stability.
->=20
-> Btw, what is the planned difference between rtnl_shlock() and rtnl_exlock=
-()?=20
-> Even though the later is a null operation right now, I don't want to hold=
-=20
-> more locks than needed in the linkwatch code.
->=20
-> Stefan
-
->=20
-
---=-T7Vi+m2S37xHNyQWLC01
-Content-Type: application/pgp-signature; name=signature.asc
-Content-Description: This is a digitally signed message part
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.3 (GNU/Linux)
-
-iD8DBQA/+Y6MDMDCqU5zPMARAhzgAKCYfZQv5KwkiFbAsdhEoMaLk4ZgkwCdEclN
-kHFuP/wl7cmOAbijpPORTco=
-=+eos
------END PGP SIGNATURE-----
-
---=-T7Vi+m2S37xHNyQWLC01--
+--Boundary-02=_wXZ+/M91EO8KJ7L--
