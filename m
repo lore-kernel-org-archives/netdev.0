@@ -1,150 +1,41 @@
-From: Colin Leroy <colin.lkml@colino.net>
-Subject: [(broken) PATCH] Sungem and wake_on_lan
-Date: Tue, 9 Nov 2004 15:11:54 +0100
-Message-ID: <20041109151154.43c897dd.colin.lkml@colino.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: Bug in ipv6_ifa_notify?
+Date: Tue, 09 Nov 2004 09:57:59 -0500 (EST)
+Message-ID: <20041109.095759.109272072.yoshfuji@linux-ipv6.org>
+References: <20041108121040.GA3618@gondor.apana.org.au>
+	<20041108203741.GA993@gondor.apana.org.au>
+	<20041109114839.GA1942@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261475AbUKIONU@vger.kernel.org>
-To: linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: davem@davemloft.net, acme@conectiva.com.br, netdev@oss.sgi.com,
+        jgarzik@pobox.com, buytenh@wantstofly.org, yoshfuji@linux-ipv6.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: herbert@gondor.apana.org.au
+In-Reply-To: <20041109114839.GA1942@gondor.apana.org.au>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi everyone,
+In article <20041109114839.GA1942@gondor.apana.org.au> (at Tue, 9 Nov 2004 22:48:39 +1100), Herbert Xu <herbert@gondor.apana.org.au> says:
 
-I'm trying to implement wake_on_lan in sungem. I did it by mimicking the
-Darwin AppleGMACEthernet driver. 
-I have some problems with it; not only it doesn't work (pinging the
-target machine does not wake it up, nor does ether-wake.c), but also the
-normal resume crashes instead of working - before powering screen up,
-so no log available...
+> On Tue, Nov 09, 2004 at 07:37:41AM +1100, herbert wrote:
+> > 
+> > Well I've found a way for this to occur, but I must say that it is
+> > fairly unlikely.  When you bring the interface down, addrconf_ifdown
+> > will try to to delete the addrconf timer and then notify DELADDR.
+> > Since it doesn't wait for the timer to complete, it might still be
+> > executing.  Therefore it is possible to have a NEWADDR after a DELADDR
+> > event.
+> 
+> The attractive thing about this theory is that it is an SMP-only
+> race.  This could explain why only Jeff/Lennert are seeing it.
+> 
+> Jeff/Lennert, could you please go back to 2.6.9, and then apply
+> this patch? If this warning triggers, then that would confirm
+> this theory.
 
-My laptop has a BCM5221 PHY, I suppose it supports WOL but did not
-check. Anyway it shouldn't crash on normal resume, as Darwin's driver
-doesn't seem to have special cases depending on PHYs.
+I think this only happens when you shut down interface while DAD;
+for example, "ifup eth0 &; ifdown eth0" or something like that.
 
-Before putting the laptop to sleep, I issue a 'sudo ethtool -s eth0 wol p'
-to enable gp->wake_on_lan.
-
-Here's the patch, in case anyone (BenH, David Miller ? :)) has an idea
-about something i do wrong. 
-Thanks,
--- 
-Colin
-
-diff -ur /tmp/linux-2.6.9/drivers/net/sungem.c drivers/net/sungem.c
---- /tmp/linux-2.6.9/drivers/net/sungem.c	2004-10-18 23:55:28.000000000 +0200
-+++ drivers/net/sungem.c	2004-11-09 14:40:04.000000000 +0100
-@@ -2132,7 +2132,29 @@
- 	writel(mifcfg, gp->regs + MIF_CFG);
- 
- 	if (gp->wake_on_lan) {
--		/* Setup wake-on-lan */
-+		u32 val_wake_up;
-+		u32 xif_cfg = readl(gp->regs + MAC_XIFCFG);
-+		unsigned char *e = &gp->dev->dev_addr[0];
-+
-+		/* set these bits for multicast filtering */
-+		writel(MAC_RXCFG_HFE|MAC_RXCFG_SFCS|MAC_RXCFG_ENAB, gp->regs + MAC_RXCFG);
-+
-+		/* write our MAC address */
-+		writel((e[0] << 8) | e[1], gp->regs + MAC_WOL_MAGIC2);
-+		writel((e[2] << 8) | e[3], gp->regs + MAC_WOL_MAGIC1);
-+		writel((e[4] << 8) | e[5], gp->regs + MAC_WOL_MAGIC0);
-+
-+		/* write the pattern match count */
-+		writel(PAT_MATCH_M | PAT_MATCH_N, gp->regs + PAT_MATCH_CFG);
-+		
-+		/* enable WOL */
-+		val_wake_up = WOL_ENABLE;
-+		if (!(xif_cfg & MAC_XIFCFG_GMII))
-+			val_wake_up |= WOL_MODE_MII;
-+		writel(val_wake_up, gp->regs + WOL_CSR_CFG);
-+
-+		/* sleep a bit, just to be sure */
-+		msleep(10);
- 	} else {
- 		writel(0, gp->regs + MAC_RXCFG);
- 		(void)readl(gp->regs + MAC_RXCFG);
-@@ -2159,7 +2181,7 @@
- 	}
- 
- 	if (found_mii_phy(gp) && gp->phy_mii.def->ops->suspend)
--		gp->phy_mii.def->ops->suspend(&gp->phy_mii, 0 /* wake on lan options */);
-+		gp->phy_mii.def->ops->suspend(&gp->phy_mii, gp->wake_on_lan);
- 
- 	if (!gp->wake_on_lan) {
- 		/* According to Apple, we must set the MDIO pins to this begnign
-@@ -2622,13 +2644,30 @@
- 	struct gem *gp = dev->priv;
- 	return gp->msg_enable;
- }
--  
-+
- static void gem_set_msglevel(struct net_device *dev, u32 value)
- {
- 	struct gem *gp = dev->priv;
- 	gp->msg_enable = value;
- }
--  
-+
-+static void gem_get_wol (struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct gem *gp = dev->priv;
-+	wol->wolopts   = 0; 
-+	/* let's say we support this, altough I don't know what it is */
-+	wol->supported = WAKE_PHY|WAKE_UCAST;
-+	if (gp->wake_on_lan == 1)
-+		wol->wolopts = wol->supported;
-+}
-+
-+static int gem_set_wol (struct net_device *dev, struct ethtool_wolinfo *wol)
-+{
-+	struct gem *gp = dev->priv;
-+	gp->wake_on_lan = (wol->wolopts != 0);
-+	return 0;
-+}
-+
- static struct ethtool_ops gem_ethtool_ops = {
- 	.get_drvinfo		= gem_get_drvinfo,
- 	.get_link		= ethtool_op_get_link,
-@@ -2637,6 +2676,8 @@
- 	.nway_reset		= gem_nway_reset,
- 	.get_msglevel		= gem_get_msglevel,
- 	.set_msglevel		= gem_set_msglevel,
-+	.get_wol		= gem_get_wol,
-+	.set_wol		= gem_set_wol,
- };
- 
- static int gem_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-diff -ur /tmp/linux-2.6.9/drivers/net/sungem.h drivers/net/sungem.h
---- /tmp/linux-2.6.9/drivers/net/sungem.h	2004-10-18 23:54:32.000000000 +0200
-+++ drivers/net/sungem.h	2004-11-09 10:10:46.000000000 +0100
-@@ -276,6 +276,9 @@
-  */
- 
- /* MAC Registers */
-+#define MAC_WOL_MAGIC0	0x3000UL	/* six address bytes		*/
-+#define MAC_WOL_MAGIC1	0x3004UL	
-+#define MAC_WOL_MAGIC2	0x3008UL
- #define MAC_TXRST	0x6000UL	/* TX MAC Software Reset Command*/
- #define MAC_RXRST	0x6004UL	/* RX MAC Software Reset Command*/
- #define MAC_SNDPAUSE	0x6008UL	/* Send Pause Command Register	*/
-@@ -750,6 +753,16 @@
- #define PCS_SCTRL_TXZ	0x0000c000	/* PLL input to Serialink	*/
- #define PCS_SCTRL_TXP	0x00030000	/* PLL input to Serialink	*/
- 
-+/* Pattern Match Count register. */
-+#define PAT_MATCH_CFG	0x300CUL
-+#define PAT_MATCH_N	0x0010UL
-+#define PAT_MATCH_M	0x0000UL 	/* Darwin source notes (0<<8) !?*/
-+
-+/* Wake on Lan CSR Register */
-+#define WOL_CSR_CFG	0x3010UL
-+#define WOL_ENABLE	0x0001UL
-+#define WOL_MODE_MII	0x0002UL
-+
- /* Shared Output Select Register.  For test and debug, allows multiplexing
-  * test outputs into the PROM address pins.  Set to zero for normal
-  * operation.
+--yoshfuji
