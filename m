@@ -1,32 +1,57 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPV6] fixed authentication error with TCP
-Date: Mon, 18 Aug 2003 00:45:22 -0700
+From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+Subject: [PATCH] IPv6: fix dst leakage caused by rt6_cow()
+Date: Mon, 18 Aug 2003 11:13:13 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030818004522.458a97b9.davem@redhat.com>
-References: <200308172329.DAA14889@dub.inr.ac.ru>
-	<Pine.LNX.4.44.0308181029560.18400-200000@rhea.tcs.hut.fi>
+Message-ID: <Pine.LNX.4.44.0308051642460.31172-100000@rhea.tcs.hut.fi>
+References: <Pine.LNX.4.44.0308051530560.30970-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, kazunori@miyazawa.org, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org, latten@austin.ibm.com
+Content-Type: TEXT/PLAIN; CHARSET=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0308181029560.18400-200000@rhea.tcs.hut.fi>
+To: davem@redhat.com, <usagi-core@linux-ipv6.org>
+In-Reply-To: <Pine.LNX.4.44.0308051530560.30970-200000@rhea.tcs.hut.fi>
+Content-ID: <Pine.LNX.4.44.0308061039421.1401@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 10:45:41 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+Hi,
 
-> The attached patch reverts to the old ip6_dst_lookup() interface and and
-> makes tcp_ipv6.c use that instead.
-> 
-> As an added bonus neither tcp_v6_connect() nor udpv6_connect() needs to do
-> source address selection anymore, since ip6_dst_lookup() already does this
-> for them.
+since rt6_cow() calls dst_hold() it looks like we're leaking refcounts in
+three places in route.c. The patch below should fix this.
 
-Thanks a lot for doing this work, I'll review and apply
-your patch.
+--- linux-2.5.OLD/net/ipv6/route.c	2003-08-18 10:04:24.000000000 +0300
++++ linux-2.5/net/ipv6/route.c	2003-08-15 16:20:19.000000000 +0300
+@@ -432,6 +432,7 @@
+ 		/* Race condition! In the gap, when rt6_lock was
+ 		   released someone could insert this route.  Relookup.
+ 		*/
++		dst_release(&rt->u.dst);
+ 		goto relookup;
+ 	}
+ 	dst_hold(&rt->u.dst);
+@@ -486,6 +487,7 @@
+ 		/* Race condition! In the gap, when rt6_lock was
+ 		   released someone could insert this route.  Relookup.
+ 		*/
++		dst_release(&rt->u.dst);
+ 		goto relookup;
+ 	}
+ 	dst_hold(&rt->u.dst);
+@@ -1094,8 +1096,8 @@
+ 			 */
+ 			dst_set_expires(&nrt->u.dst, ip6_rt_mtu_expires);
+ 			nrt->rt6i_flags |= RTF_DYNAMIC|RTF_EXPIRES;
+-			dst_release(&nrt->u.dst);
+ 		}
++		dst_release(&nrt->u.dst);
+ 	} else {
+ 		nrt = ip6_rt_copy(rt);
+ 		if (nrt == NULL)
 
-I was about to code this up myself :)
+Thanks,
+Ville
+--
+Ville Nuorvala
+Research Assistant, Institute of Digital Communications,
+Helsinki University of Technology
+email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
