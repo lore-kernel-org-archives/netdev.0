@@ -1,42 +1,52 @@
-From: <RAV@post.ott.idt.com>
-Subject: RAV AntiVirus scan results
-Date: Mon, 09 Feb 2004 07:02:18 -0500
+From: Petr Vandrovec <vandrove@vc.cvut.cz>
+Subject: 2.6.2 crash after network link failure
+Date: Mon, 9 Feb 2004 14:01:34 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040209120218.B626B1F0079@post.ott.idt.com>
-Cc: dan@solidum.com
+Message-ID: <20040209130134.GA14136@vana.vc.cvut.cz>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi,
+  on Saturday our network switch lost power due to scheduled
+Power outage, and unfortunately one of systems connected to the switch
+(mine :-( ) did not survive it. When I came to the system's console today, 
+I found (written by hand, made a bit shorter...) on screen:
 
-RAV AntiVirus for NetBSD i386 version: 8.3.2 (snapshot-20020111)
-Copyright (c) 1996-2001 GeCAD The Software Company. All rights reserved.
-Registered version for 2 domain(s).
-Running on host: post.ott.idt.com
-
------------------------
- RAV Antivirus results
------------------------
-
-The infected file was saved to quarantine with name: 1076328136-RAV22478.
-The file (part0002:body.pif) attached to mail (with subject:Hi) sent by netdev@oss.sgi.com to dan@solidum.com, 
-is infected with virus: Win32/Mydoom.A@mm.
-Cannot clean this file.
-The file was successfully deleted by RAV AntiVirus.
-------------------------
-this is a copy of the e-mail header:
-
-Received: from gigabit.solidum.com (gigabit.solidum.com [207.35.224.241])
-Received: (from spamfilter@localhost)
-
+e100: eth0 NIC Link is Up 100Mbps Full Duplex
+kernel/sched.c:1802: spin_is_locked on uninitialized spinlock d6e74e18
+Unable to handle NULL kernel pointer dereference at virtual address 00000000
+...
+EIP: C0120AF1  <__wake_up_common + 0x17/0x57>
+...
+EAX: D6E74E30   EBX: D6E74E18    ECX: 00000001    EDX: 00000000
+ESI: 00000001   EDI: 00000001    EBP: C9F3DEDC    ESP: C9F3DEC0
+...
+Call Trace:
+   __wake_up + 0x7B/0x139
+   sock_def_write_space + 0x8C/0x94
+   sock_wfree + 0x4B/0x4D
+   __kfree_skb + 0x5C/0xD9
+   net_tx_action + 0x3E/0x210
+   do_softirq + 0x92/0x94
+   do_IRQ + 0x207/0x360
+   common_interrupt + 0x18/0x20
 
 
-Scan engine 8.11 () for i386.
-Last update: Sat, 07 Feb 2004 22:02:25 -05
-Scanning for 89781 malwares (viruses, trojans and worms).
+It looks to me like that we've got skb on completion_queue which was connected
+to a bit unhappy socket - one which had sk->sk_sleep uninitialized. Only problem 
+is that only af_unix sets skb->destructor to sock_wfree, so I somehow miss how 
+this could be triggered by e100 link change.
 
-To get a free 60-days evaluation version of RAV AntiVirus v8
-(yet fully functional) please visit:
+Kernel is approx 2.6.2-bk2, UP, APIC, IOAPIC, no-preempt, all DEBUG options except
+CONFIG_FRAME_POINTER enabled.
 
-   http://www.ravantivirus.com
+System is 1.6GHz P4/512MB RAM.
+						Best regards,
+							Petr Vandrovec
+							vandrove@vc.cvut.cz
