@@ -1,22 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [bk patches 2.6] ethtool_ops
-Date: Thu, 7 Aug 2003 20:39:53 -0700
+Subject: Re: [PATCH] IPV6: Fix bugs in ip6ip6_tnl_xmit()
+Date: Thu, 7 Aug 2003 21:32:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030807203953.5b4bbc6f.davem@redhat.com>
-References: <20030808033219.GA5779@gtf.org>
+Message-ID: <20030807213259.56c953d5.davem@redhat.com>
+References: <Pine.LNX.4.44.0308011353520.16201-100000@rhea.tcs.hut.fi>
+	<Pine.LNX.4.44.0308051530560.30970-200000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jgarzik@pobox.com, linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <20030808033219.GA5779@gtf.org>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308051530560.30970-200000@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 7 Aug 2003 23:32:19 -0400
-Jeff Garzik <jgarzik@pobox.com> wrote:
+On Tue, 5 Aug 2003 16:42:32 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> ftp://ftp.??.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test2-bk7-ethtool1.patch.bz2
+> There were two bugs in ip6ip6_tnl_xmit() which are fixed in this patch
+> (made against Linux 2.6.0-test2 + cset 1.1612):
+> 
+> - ip6_tunnel must give its own getfrag function to ip6_append_data()
+> - fix dst leakage when encapsulated packet too big
 
-Two thumbs up :)
+Patch applied, thank you Ville.
