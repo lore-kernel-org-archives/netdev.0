@@ -1,39 +1,38 @@
-From: Pasi Sarolahti <pasi.sarolahti@iki.fi>
-Subject: Re: [RFC] Vegas and tcp parameters per route
-Date: Sat, 13 Mar 2004 08:41:05 +0200
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <1079160064.11606.15.camel@viivi>
-References: <20040312151729.25d9c696@dell_ss3.pdx.osdl.net>
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: v6-in-v4 IPsec and NAT traversal
+Date: Sat, 13 Mar 2004 11:43:04 +0200 (EET)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <Pine.LNX.4.44.0403131137400.22557-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040312151729.25d9c696@dell_ss3.pdx.osdl.net>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <netdev-bounce@oss.sgi.com>
+To: netdev@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Stephen,
+Hi,
 
-On Sat, 2004-03-13 at 01:17, Stephen Hemminger wrote:
-> This is the second more complete version of TCP Vegas that allows setting
-> the options based on route.  Reused the RTAX_FEATURE metric which got
-> defined but never used, to provide the ability to select vegas, westwood,
-> and/or frto per route.
-> 
-> There is an modified version of iproute2 available at
-> 	http://developer.osdl.org/shemminger/tcp/iproute2-exp.tar.bz2
-> With this it is possible to setup options per route with ip.
-> 	ip route add to 10.0.0.1 features vegas/frto
+I'm interested whether Linux IPsec implementations support:
 
-I would still like to keep the good old sysctl interface (well, at least
-for tcp_frto), because I'd belive it is more familiar and easier to use
-for many and not dependent of external tools.
+ 1) IPv6 payload inside IPv4 IPsec tunnel/transport?
 
-Would it be too complicated, if sysctl would give the global default,
-from which one can deviate using RTAX_FEATURE?
+ That is, when the intermediate network doesn't support IPv6, you
+could do IPv6, secured, without first encapsulating in IPv6-over-IPv4
+tunnel and then running IPv6 IPsec.
 
-- Pasi
+ 2) NAT-traversal? (There are at least some patches in OpenSWAN, etc. 
+for this).  This could be very handy combined with the above.
 
+[[ 3) Some feasible key management method, such as certificates.  I 
+think this exists, and doesn't require support in the kernel. ]]
 
+I'm considering how viable this kind of NAT -traversal supporting
+v6-in-v4 IPsec would be as an IPv6 tunneling/transition mechanism.
+
+What's the status (implementations, planned or future) of these 
+features?
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
