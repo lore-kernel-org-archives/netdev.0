@@ -1,35 +1,62 @@
 From: David Dillow <dave@thedillows.org>
-Subject: Re: [IPSEC] Stop using dst->xfrm
-Date: Sat, 22 Jan 2005 00:58:33 -0500
-Message-ID: <1106373513.3691.49.camel@ori.thedillows.org>
-References: <20050121102319.GA3160@gondor.apana.org.au>
+Subject: Re: [RFC 2.6.10 3/22] xfrm: Add offload management routines
+Date: Sat, 22 Jan 2005 01:00:35 -0500
+Message-ID: <1106373635.3691.51.camel@ori.thedillows.org>
+References: <20041230035000.11@ori.thedillows.org>
+	 <20041230035000.12@ori.thedillows.org>
+	 <20050121144738.7155893e.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, Netdev <netdev@oss.sgi.com>
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050121102319.GA3160@gondor.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050121144738.7155893e.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-01-21 at 21:23 +1100, Herbert Xu wrote:
+[ Sorry, David, if you get this multiple times. Had a doh! moment... ]
 
-> Here is a precursor to the xfrm dst consolidation that I talked about.
-> In order to be able to store multiple SAs in one dst, we need to stop
-> using dst->xfrm directly.
+On Fri, 2005-01-21 at 14:47 -0800, David S. Miller wrote: 
+> On Thu, 30 Dec 2004 03:48:35 -0500
+> David Dillow <dave@thedillows.org> wrote:
+> 
+> > +static inline struct xfrm_offload *
+> > +xfrm_offload_alloc(int sizeof_priv, struct net_device *dev)
+> 
+> This whole scheme looks buggy.  The intent is to 8-byte align
+> the object, but look at what the code is actually doing.
+> 
+> Whatever kmalloc() returns to xfrm_offload_alloc() is directly
+> used as the xfrm_offload pointer, and the members are initialized.
+> 
+> Then xfrm_offload_priv() does the alignments.
 
-Can you tell me more about this? A quick search of google and the netdev
-archives didn't turn up anything that looked relevant.
+Right, I'm not worried about the alignment of the xfrm_offload, as I'm
+assuming that kmalloc will give us something suitable. However, I do
+want to make sure that the private section used by the driver is 8 byte
+aligned in the face of a potentially oddly sized xfrm_offload struct.
 
-I'd like to see where you're going, so I can meet you there. The xfrm
-offload patches currently add dst->xfrm_offload to cache the info needed
-to offload the crypto operations. It'll be slower, but I could lookup
-that up each time if need be.
+Am I making a bad assumption that kmalloc() will give me a suitable
+alignment for the base struct?
 
-The part I'm most curious about is the storing of multiple SAs in one
-dst, since I think may cause the most changes for me. I'd like to start
-thinking about them early.
+> It is clear that kmalloc() is always giving you 8-byte aligned
+> data else the first time xfrm_offload_priv() is used you'd
+> get a bogus pointer since xfrm_offload_alloc() initialized
+> the object without first aligning the pointer.
+
+The driver calls xfrm_offload_alloc(), then calls xfrm_offload_priv() to
+get it's private struct, and inits that. I just want to make sure the
+private struct is 8 byte aligned, which I assume (wrongly?) will be
+sufficient to prevent misaligned accesses.
+
+> We do something similar when we allocate netdevs, so have a look
+> at how net/core/dev.c:alloc_netdev() works.
+
+I copied part of that code to xfrm_offload_alloc(), removing the part
+that aligned the base xfrm_offload struct. 32 byte alignment seemed a
+bit much, do you think it is needed? I'll be happy to add that if you
+want.
 -- 
 David Dillow <dave@thedillows.org>
