@@ -1,32 +1,33 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: mm kernel oops with r8169 & named, PREEMPT
-Date: Wed, 13 Oct 2004 20:18:40 +0200
+From: Ben Greear <greearb@candelatech.com>
+Subject: return values for hard_start_xmit and dev_queue_xmit
+Date: Wed, 13 Oct 2004 11:34:14 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041013181840.GA30852@electric-eye.fr.zoreil.com>
-References: <9625752b041012230068619e68@mail.gmail.com> <9625752b041013091772e26739@mail.gmail.com> <9625752b04101309182a96fbd2@mail.gmail.com> <200410131129.05657.jdmason@us.ltcfwd.linux.ibm.com>
+Message-ID: <416D7526.8050206@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Danny <dannydaemonic@gmail.com>, netdev@oss.sgi.com, jgarzik@pobox.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Mason <jdmason@us.ibm.com>
-Content-Disposition: inline
-In-Reply-To: <200410131129.05657.jdmason@us.ltcfwd.linux.ibm.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jon Mason <jdmason@us.ibm.com> :
-> Can you confirm that you are running r8169 driver with NAPI and TSO turned on, 
-> along with Preemptable Kernel?  Also, I didn't see anything in the Oops 
-> specific to the r8169 driver, do you have another adapter available to run 
-> the same test on?  Finally, what is your setup (arch, # of cpus, etc)?
+While trying to get pktgen to effectively use VLANs to send traffic,
+I noticed that the vlan code always returns 0 from it's hard_start_xmit
+method.  Since it calls dev_queue_xmit inside that method, I tried
+returning the value that dev_queue_xmit returns.  It seems that the
+return values have different meanings because this causes crashes due
+to freeing skbs when I shouldn't be...
 
-Yep, it does not look closely related to the network driver (there are both
-eth1 and unknown eth0 btw).
+The dev_queue_xmit method is fairly well documented in dev.c, but
+there are zero comments in the netdevice.h file to explain what the
+acceptable return values for hard_start_xmit are.
 
-Danny, can your drop the r8169 driver from 2.6.9-rc4-mm1 into vanilla
-2.6.9-rc4 and confirm that it works (preempt should not matter) ?
+Does anyone know if there is a definative guide to the return values
+for hard_start_xmit?
 
-If it does not, disable ACPI, preempt, profiling and publish the new oops.
+Thanks,
+Ben
 
---
-Ueimor
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
