@@ -1,25 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] MLDV2: Use IANA icmpv6 type for MLDv2 Report
-Date: Fri, 16 Apr 2004 14:52:29 -0700
+Subject: Re: [PATCH] IPv6 IPsec AH typo
+Date: Fri, 16 Apr 2004 14:53:17 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040416145229.265a741c.davem@redhat.com>
-References: <20040415.073324.44957072.yoshfuji@linux-ipv6.org>
+Message-ID: <20040416145317.67832409.davem@redhat.com>
+References: <20040415210223.24aabc4a@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040415.073324.44957072.yoshfuji@linux-ipv6.org>
+To: Masahide NAKAMURA <nakam@linux-ipv6.org>
+In-Reply-To: <20040415210223.24aabc4a@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 15 Apr 2004 07:33:24 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+On Thu, 15 Apr 2004 21:02:23 +0900
+Masahide NAKAMURA <nakam@linux-ipv6.org> wrote:
 
-> IANA has finally assigned an ICMPv6 type for MLDv2 Report.
-> (See: <http://www.iana.org/assignments/icmpv6-parameters>)
-> 
-> Patch also applies to 2.4.
+> this patch fixes a typo. Please apply it.
+ ...
+> -	err = xfrm_check_output(x, skb, AF_INET);
+> +	err = xfrm_check_output(x, skb, AF_INET6);
 
-Applied, thanks.
+It is fine, patch applied.
+
+Thanks.
