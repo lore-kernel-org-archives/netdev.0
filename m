@@ -1,43 +1,48 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH PKT_SCHED 4/4]: fix CONFIG_NET_CLS_ACT skb leaks in	HFSC/CBQ
-Date: Wed, 19 Jan 2005 14:33:46 +0100
-Message-ID: <41EE61BA.4030406@trash.net>
-References: <41EDE462.9040602@trash.net> <1106141206.1047.937.camel@jzny.localdomain>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: path: module replay
+Date: 19 Jan 2005 08:35:07 -0500
+Message-ID: <1106141706.1048.953.camel@jzny.localdomain>
+References: <1105900522.1090.798.camel@jzny.localdomain>
+	 <41EAB74F.6060507@trash.net>  <20050116185630.GZ26856@postel.suug.ch>
+	 <1105903033.1097.829.camel@jzny.localdomain>
+	 <1105903960.1097.836.camel@jzny.localdomain>  <41EDE15B.40300@trash.net>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Maillist netdev <netdev@oss.sgi.com>
+Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1106141206.1047.937.camel@jzny.localdomain>
+To: Patrick McHardy <kaber@trash.net>
+In-Reply-To: <41EDE15B.40300@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
+On Tue, 2005-01-18 at 23:26, Patrick McHardy wrote:
+> jamal wrote:
+> 
+> >Ok, here is the last patch. I think module replay should be done from
+> >that spot and to be consistent as well from cls_api.c for legacy stuff.
+> >I also fixed a module ref count leak. 
+> >the act_api piece is dependent on what i sent earlier for namsiz.
+> >the cls_api change i believe conflicts with what Thomas sent yesterday.
+> >
+> +replay:
+>                 act = tcf_action_init_1(tb[i], est, name, ovr, bind, err);
+> -               if (act == NULL)
+> -                       goto err;
+> +               if (act == NULL) {
+> +                       if (*err == -EAGAIN)
+> +                               goto replay;
+> +                       goto err_out;
+> +               }
+> 
+> This part is wrong. 
 
->I dont have time, but please double check that the following still
->applies:
->
->1) A qdisc receiving a STOLEN/QUEUED/SHOT signal from the classification
->result MUST free the packet and immediately stop processing that packet.
->The infrastructure code will clone packets if they want to steal or
->queue it.
->
-It does now. Before there were things like "unsigned int len = skb->len"
-after the call to tc_classify.
+And we exchanged emails on this topic already in private and you said 
+you will fix and send out the patch;-> So please do just that or you can
+wait until i have more time and my hardware at the same spot.
 
->2) Return code of qdisc from enqueue function need to be dealt with
->care. For example if the packet is localy generated and it is a TCP
->packet you could confuse the stack by telling it the packet was dropped
->because it will retransmit (and some things will happen with the window
->adjustments).
->
-TC_ACT_SHOT => NET_XMIT_DROP
-TC_ACT_STOLEN | TC_ACT_QUEUED => NET_XMIT_SUCCESS
-
->3) packets that are dropped because of a full Q should continue to
->return a XMIT_DROP (you want TCP for example to know about this)
->
-They do.
+cheers,
+jamal
