@@ -1,55 +1,139 @@
 From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: Re: 2.6.10 dst cache overflow
-Date: Wed, 16 Feb 2005 15:28:31 +0100
-Message-ID: <16915.22671.276946.919243@robur.slu.se>
-References: <1108550412.3799.81.camel@ts2.office.netland.nl>
-	<42134E22.4030808@davidcoulson.net>
+Subject: Re: Some pktgen fixes for 2.6.11-rc2
+Date: Wed, 16 Feb 2005 15:59:48 +0100
+Message-ID: <16915.24548.149702.188195@robur.slu.se>
+References: <16890.41237.608094.933695@robur.slu.se>
+	<20050215134120.3ae4c511.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "J. Simonetti" <jeroens@office.netland.nl>, netdev@oss.sgi.com
-To: David Coulson <david@davidcoulson.net>
-In-Reply-To: <42134E22.4030808@davidcoulson.net>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com,
+        Jens.Laas@data.slu.se
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050215134120.3ae4c511.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
+David S. Miller writes:
 
-David Coulson writes:
- > J. Simonetti wrote:
- > > I have a linux (Fedora core 3) based router. I does approximately 50Mbps
- > > aggregated traffic. However once every week (approx) the router dies
- > > with 'kernel: dst cache overflow' messages flooding syslog. I have
- > > tracked it down to being an issue with the routing cache.
- > 
- > Funny this came up now - One of my core routers failed last night with 
- > the identical problem. The route cache was set to 131k routes, although 
- > I couldn't get a sh prompt on the box even once the switch ports were 
- > down... Had to sysrq-b it.
- > 
- > I'm running 2.6.11-rc1-bk8 right now on those boxes. 20ish day uptime 
- > until yesterday and handling around 12Mbit of traffic. 'route -Cn | wc 
- > -l' right now shows around 29k routes cached. I cranked the route cache 
- > up to 1m entries, but I figure that's probably excessive.
+ > Robert, can you send me an updated patch against current
+ > sources?  Thanks a lot.
 
-Hello!
+ Hello!
 
-Very recently here on netdev "Memory leak in 2.6.11-rc1" was discussed 
-this resulted in:
+ Against linux-2.6.11-rc4
+ Some minor bugfixes and some clean ups. Yes version jumps with two.
+
+					    --ro
+
+
+--- net/core/pktgen.c.foo	2005-01-28 13:16:50.965630000 +0100
++++ net/core/pktgen.c	2005-01-28 16:51:32.932273576 +0100
+@@ -148,7 +148,7 @@
+ #include <asm/timex.h>
  
-> ===== net/ipv4/ip_output.c 1.74 vs edited =====
-> --- 1.74/net/ipv4/ip_output.c	2005-01-25 01:40:10 +01:00
-> +++ edited/net/ipv4/ip_output.c	2005-01-30 18:54:43 +01:00
-> @@ -389,6 +389,7 @@
->  	to->priority = from->priority;
->  	to->protocol = from->protocol;
->  	to->security = from->security;
-> +	dst_release(to->dst);
->  	to->dst = dst_clone(from->dst);
->  	to->dev = from->dev;  
-
-and a similar patch for ipv6. Should be a start.
-
-
-						--ro
+ 
+-#define VERSION  "pktgen v2.54: Packet Generator for packet performance testing.\n"
++#define VERSION  "pktgen v2.56: Packet Generator for packet performance testing.\n"
+ 
+ /* #define PG_DEBUG(a) a */
+ #define PG_DEBUG(a) 
+@@ -167,9 +167,6 @@
+ #define F_TXSIZE_RND  (1<<6)  /* Transmit size is random */
+ #define F_IPV6        (1<<7)  /* Interface in IPV6 Mode */
+ 
+-#define L_PUSH(t, i)              {i->next = t; t=i;}
+-#define L_POP(t, i)               {i=t; if(i) t = i->next;}
+-
+ /* Thread control flag bits */
+ #define T_TERMINATE   (1<<0)  
+ #define T_STOP        (1<<1)  /* Stop run */
+@@ -1366,19 +1363,15 @@
+         p += sprintf(p, "Running: ");
+         
+         if_lock(t);
+-        pkt_dev = t->if_list;
+-        while (pkt_dev && pkt_dev->running) {
+-                p += sprintf(p, "%s ", pkt_dev->ifname);
+-                pkt_dev = pkt_dev->next;
+-        }
++        for(pkt_dev = t->if_list;pkt_dev; pkt_dev = pkt_dev->next) 
++		if(pkt_dev->running)
++			p += sprintf(p, "%s ", pkt_dev->ifname);
++        
+         p += sprintf(p, "\nStopped: ");
+ 
+-        pkt_dev = t->if_list;
+-        while (pkt_dev && !pkt_dev->running) {
+-                p += sprintf(p, "%s ", pkt_dev->ifname);
+-                pkt_dev = pkt_dev->next;
+-        }
+-
++        for(pkt_dev = t->if_list;pkt_dev; pkt_dev = pkt_dev->next) 
++		if(!pkt_dev->running)
++			p += sprintf(p, "%s ", pkt_dev->ifname);
+ 
+ 	if (t->result[0])
+ 		p += sprintf(p, "\nResult: %s\n", t->result);
+@@ -2393,7 +2386,7 @@
+        thread_unlock();
+ }
+ 
+-static int running(struct pktgen_thread *t )
++static int thread_is_running(struct pktgen_thread *t )
+ {
+         struct pktgen_dev *next;
+         int res = 0;
+@@ -2415,7 +2408,7 @@
+         
+         if_lock(t);
+ 
+-        while(running(t)) {
++        while(thread_is_running(t)) {
+                 if_unlock(t);
+         
+                 interruptible_sleep_on_timeout(&queue, HZ/10);
+@@ -2520,13 +2513,15 @@
+                 return -EINVAL;
+         }
+ 
+-	if (pkt_dev->skb) 
+-		kfree_skb(pkt_dev->skb);
+-
+         pkt_dev->stopped_at = getCurUs();
+         pkt_dev->running = 0;
+ 
+ 	show_results(pkt_dev, skb_shinfo(pkt_dev->skb)->nr_frags);
++
++	if (pkt_dev->skb) 
++		kfree_skb(pkt_dev->skb);
++
++	pkt_dev->skb = NULL;
+ 	
+         return 0;
+ }
+@@ -2855,10 +2850,10 @@
+ 
+         for(pkt_dev=t->if_list; pkt_dev; pkt_dev = pkt_dev->next ) {
+                 if (strcmp(pkt_dev->ifname, ifname) == 0) {
+-                        goto out;
++                        break;
+                 }
+         }
+- out:
++
+         if_unlock(t);
+ 	PG_DEBUG(printk("pktgen: find_dev(%s) returning %p\n", ifname,pkt_dev));
+         return pkt_dev;
+@@ -2879,8 +2874,7 @@
+                 rv = -EBUSY;
+                 goto out;
+         }
+-
+-	L_PUSH(t->if_list, pkt_dev);
++	pkt_dev->next =t->if_list; t->if_list=pkt_dev;
+         pkt_dev->pg_thread = t;
+ 	pkt_dev->running = 0;
+ 
