@@ -1,79 +1,48 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] batched tc to improve change throughput
-Date: 17 Jan 2005 17:49:57 -0500
-Message-ID: <1106002197.1046.19.camel@jzny.localdomain>
-References: <20050117152312.GC26856@postel.suug.ch>
-	 <1105976711.1078.1.camel@jzny.localdomain>
-	 <20050117160539.GD26856@postel.suug.ch>
-	 <1105979807.1078.16.camel@jzny.localdomain>
-	 <20050117165626.GE26856@postel.suug.ch>
-Reply-To: hadi@cyberus.ca
+From: Tommy Christensen <tommy.christensen@tpack.net>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Mon, 17 Jan 2005 23:53:05 +0100
+Message-ID: <41EC41D1.1070704@tpack.net>
+References: <OFB7F7E23F.EFB88418-ONC1256F7E.0031769E-C1256F7E.003270AD@de.ibm.com> <1105363092.1041.146.camel@jzny.localdomain> <1105917038.1091.1041.camel@jzny.localdomain> <200501171404.19451.hasso@estpak.ee> <41EC3680.7060108@tpack.net> <41EC3894.9090304@pantasys.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, Stephen Hemminger <shemminger@osdl.org>,
-        netdev@oss.sgi.com
+Cc: Hasso Tepper <hasso@estpak.ee>, hadi@cyberus.ca,
+        Jeff Garzik <jgarzik@pobox.com>,
+        Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+        "David S. Miller" <davem@davemloft.net>,
+        Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com,
+        Paul Jakma <paul@clubi.ie>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20050117165626.GE26856@postel.suug.ch>
+To: Peter Buckingham <peter@pantasys.com>
+In-Reply-To: <41EC3894.9090304@pantasys.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-17 at 11:56, Thomas Graf wrote:
-> * jamal <1105979807.1078.16.camel@jzny.localdomain> 2005-01-17 11:36
-[..]
-> > Didnt follow this - uses the same code as command line. What logic gets
-> > duplicated?
+Peter Buckingham wrote:
+> Hi,
 > 
-> The parsing of top level nodes.
-
-Probably not very big deal - will just force you to type in
-the commands in full over and over in your batch file
-
-> > >  - it doesn't allow any commenting
-> > 
-> > Trivial thing you can fix in about 33.5 seconds ;-
+> Tommy Christensen wrote:
 > 
-> Simple full-line comments yes, mid-line comments no. -batch
-> is also not able to split things across multiple lines.
-> 
-> I want my scripts to look like this:
-> 
-> /**
->  * filter dla_fp
->  * match DLA traffic at lower watermark
->  */
-> tc filter add
-> 	dev %DEV
-> 	parent 1:12
-> 	prio 40
-> 	protocol all
-> 	basic match meta(nfmark eq %LOW_WATERMARK)
-> 		    and (
-> 		    	nbyte("\x0\x1\x2\x3\x4" at 4 layer 2) /* 00 01 02 03 04 (dla fp) */
-> 			or u32(ip src 10.0.0.0/8)
-> 		    )
-> 	flowid 1:20
+>> A proper solution would take care of both these issues: "stale packets"
+>> and "socket blocking". They are pretty much related.
+>>
+>> Using a socket for each interface *ought* not be needed.
+>> Carrier detection sounds like a good thing in its own right.
 > 
 > 
+> I came across this same problem with multicast/unicast with an e1000. 
+> For a quick hack we just check to see whether the carrier is ok, if it's 
+> not we just drop the packet. this might do some nasty things with tcp 
+> and it may be better to check to see wither the socket buffer is full, 
+> but this works for me here... (this is against a 2.6.9ish kernel)
 
-It does look clean. - btw look at Werners approach on tcng as well.
+Thanks for the input!
 
-> > >  - it doesn't get along with my more complicated ematch parsing
-> > 
-> > Example?
-> 
-> stuff like nbyte, kmp or regexp rely on quoted strings and those
-> would be destroyed if they'd contain whitespaces.
+The downside of this solution is that it doesn't do anything with the
+packets already queued for tx (in the qdisc queue and in the DMA ring).
+OTOH it probably works just fine in real life (!).
 
-sounds reasonable.
+Also, we may not want to handle all devices alike, as this patch does.
 
-Another thing that would be really neat is to have a iso like cli
-(something like what zebra has) so you can go down the parse tree to
-say the ematch level and just start typing away these commands.
-Should probably be easy to rip off the vtysh stuff off zebra or
-use libio or something along those lines to do this.
-
-cheers,
-jamal
+-Tommy
