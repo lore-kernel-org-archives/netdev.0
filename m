@@ -1,27 +1,37 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [5/6]: Dynamic neigh hash table growth
-Date: Fri, 24 Sep 2004 13:26:36 -0700
+From: Andre Tomt <andre@tomt.net>
+Subject: Re: [PATCH/RFC] PATCH: IPV6: Fix multiple leakages (is Re: unregister_netdevice:
+ waiting for tun6to4 to become free.)
+Date: Fri, 24 Sep 2004 22:51:06 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040924132636.195d4035.davem@davemloft.net>
-References: <20040923225127.10b0ef68.davem@davemloft.net>
-	<OF75C0DF94.8BDAC480-ON88256F19.006C04FD-88256F19.006EF59D@us.ibm.com>
+Message-ID: <415488BA.7020609@tomt.net>
+References: <41527796.4010204@tomt.net>	<4152843D.6010204@tomt.net>	<20040923.172253.125681726.yoshfuji@linux-ipv6.org> <20040925.040506.106641510.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: laforge@gnumonks.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=UTF-8; format=flowed
+Content-Transfer-Encoding: quoted-printable
+Cc: davem@davemloft.net, tgraf@suug.ch, pp@ee.oulu.fi, jgarzik@pobox.com,
+        dwmw2@infradead.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Krishna Kumar <kumarkr@us.ibm.com>
-In-Reply-To: <OF75C0DF94.8BDAC480-ON88256F19.006C04FD-88256F19.006EF59D@us.ibm.com>
+To: =?UTF-8?B?WU9TSElGVUpJIEhpZGVha2kgLyDlkInol6Toi7HmmI4=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040925.040506.106641510.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 24 Sep 2004 13:11:58 -0700
-Krishna Kumar <kumarkr@us.ibm.com> wrote:
+YOSHIFUJI Hideaki / =E5=90=89=E8=97=A4=E8=8B=B1=E6=98=8E wrote:
+>>Thank you everyone for tracking down this bug.
+>>I will fix this bug and come up with patch tomorrow (or so).
+>=20
+> Well, I've created changesets which should fix multiple leakages.
+> Here's the snapshot.  Please review.
 
-> In neigh_hash_grow(), next need not be set to NULL.
+I applied the following set to my internal 2.6.8.1 tree;
+> ChangeSet@1.2006, 2004-09-24 16:29:02+09:00, yoshfuji@linux-ipv6.org
+>  [IPV6] Don't multiply join multicast/anycast addresses.
 
-I thought the compiler would warn, but aparently it
-doesn't, so I'll remove the assignment, thanks.
+It fixed my problem, thanks :-)
 
-Perhaps an older version of gcc, which has poorer flow
-analysis, will warn though... we'll see.
+Unless someone convinces me it has ill-effects with whats in the 2.6.8.1
+ipv6 stack, it will probably go out in a router upgrade push some late
+night this weekend.
+
+--=20
+Andr=C3=A9 Tomt
