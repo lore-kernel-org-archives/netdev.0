@@ -1,340 +1,57 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] fix oops from acenic ethtool
-Date: Fri, 4 Jun 2004 14:53:33 -0700
+From: "Wesley W. Terpstra" <terpstra@gkec.tu-darmstadt.de>
+Subject: Re: Broken? 2.6.6 + IP_ADD_SOURCE_MEMBERSHIP + SO_REUSEADDR
+Date: Fri, 4 Jun 2004 23:29:16 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040604145333.34d1600f@dell_ss3.pdx.osdl.net>
+Message-ID: <20040604212916.GA6683@muffin>
+References: <20040604155423.GA5656@muffin> <20040605.015544.102223977.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=utf-8
+Content-Transfer-Encoding: quoted-printable
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jes Sorensen <jes@wildopensource.com>, Jeff Garzik <jgarzik@pobox.com>
+To: YOSHIFUJI Hideaki / =?utf-8?B?5ZCJ6Jek6Iux5piO?= <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040605.015544.102223977.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Fix the following OOPS that happens when doing ifup on FC-2
-with 2.6.7 in acenic and a security hole due to missing capable(NET_ADMIN), 
-by replacing private ethtool handling with ethtool_ops.
+On Sat, Jun 05, 2004 at 01:55:44AM +0900, YOSHIFUJI Hideaki / =E5=90=89=E8=
+=97=A4=E8=8B=B1=E6=98=8E wrote:
+> In article <20040604155423.GA5656@muffin> (at Fri, 4 Jun 2004 17:54:23 =
++0200), "Wesley W. Terpstra" <terpstra@gkec.tu-darmstadt.de> says:
+> > If I launch the same program twice with different senders, the first =
+program
+> > ceases to receive multicast packets. (Neither from its own sender, no=
+r the
+> > second program's sender) The second program receives packets from its
+> > designated sender only (as expected).
+> >
+> > If both programs specify the same sender, then both programs receive =
+the
+> > message (as expected).
+>=20
+> Thanks for the report.
+> The following patch should fix the issue. Please try.
+> Thanks again.
+>=20
+> =3D=3D=3D=3D=3D net/ipv4/udp.c 1.60 vs edited =3D=3D=3D=3D=3D
+> --- 1.60/net/ipv4/udp.c	2004-05-31 03:57:26 +09:00
+> +++ edited/net/ipv4/udp.c	2004-06-05 01:47:07 +09:00
+> @@ -294,7 +294,7 @@
+>  		    ipv6_only_sock(s)					||
+>  		    (s->sk_bound_dev_if && s->sk_bound_dev_if !=3D dif))
+>  			continue;
+> -		if (!ip_mc_sf_allow(sk, loc_addr, rmt_addr, dif))
+> +		if (!ip_mc_sf_allow(s, loc_addr, rmt_addr, dif))
+>  			continue;
+>  		goto found;
+>    	}
 
-(Yes, Jes because of DEV_ETHTOOL_OPS define it will still work
-on ancient kernels.)
+That works.
+I have confirmed that multiple senders for multiple processes is fixed.
 
----------------------------------
+I am amazed you fixed it so fast!
+Will this make it into 2.6.7?
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/06/04 14:31:06-07:00 shemminger@osdl.org 
-#   Fix an OOPS and security hole by using ethtool_ops in acenic.
-# 
-# drivers/net/acenic.h
-#   2004/06/04 14:30:56-07:00 shemminger@osdl.org +0 -1
-#   Fix an OOPS and security hole by using ethtool_ops in acenic.
-# 
-# drivers/net/acenic.c
-#   2004/06/04 14:30:56-07:00 shemminger@osdl.org +127 -121
-#   Fix an OOPS and security hole by using ethtool_ops in acenic.
-# 
-diff -Nru a/drivers/net/acenic.c b/drivers/net/acenic.c
---- a/drivers/net/acenic.c	2004-06-04 14:31:46 -07:00
-+++ b/drivers/net/acenic.c	2004-06-04 14:31:46 -07:00
-@@ -443,6 +443,18 @@
-   "acenic.c: v0.92 08/05/2002  Jes Sorensen, linux-acenic@SunSITE.dk\n"
-   "                            http://home.cern.ch/~jes/gige/acenic.html\n";
- 
-+#ifdef SET_ETHTOOL_OPS
-+static int ace_get_settings(struct net_device *, struct ethtool_cmd *);
-+static int ace_set_settings(struct net_device *, struct ethtool_cmd *);
-+static void ace_get_drvinfo(struct net_device *, struct ethtool_drvinfo *);
-+
-+static struct ethtool_ops ace_ethtool_ops = {
-+	.get_settings = ace_get_settings,
-+	.set_settings = ace_set_settings,
-+	.get_drvinfo = ace_get_drvinfo,
-+};
-+#endif
-+
- static int __devinit acenic_probe_one(struct pci_dev *pdev,
- 		const struct pci_device_id *id)
- {
-@@ -480,7 +492,9 @@
- 	dev->hard_start_xmit = &ace_start_xmit;
- 	dev->get_stats = &ace_get_stats;
- 	dev->set_multicast_list = &ace_set_multicast_list;
--	dev->do_ioctl = &ace_ioctl;
-+#ifdef SET_ETHTOOL_OPS
-+	SET_ETHTOOL_OPS(dev, &ace_ethtool_ops);
-+#endif
- 	dev->set_mac_address = &ace_set_mac_addr;
- 	dev->change_mtu = &ace_change_mtu;
- 
-@@ -2688,146 +2702,138 @@
- 	return 0;
- }
- 
--
--static int ace_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd)
-+#ifdef SET_ETHTOOL_OPS
-+static int ace_get_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
- {
- 	struct ace_private *ap = dev->priv;
- 	struct ace_regs *regs = ap->regs;
--#ifdef SIOCETHTOOL
--	struct ethtool_cmd ecmd;
--	u32 link, speed;
-+	u32 link;
- 
--	if (cmd != SIOCETHTOOL)
--		return -EOPNOTSUPP;
--	if (copy_from_user(&ecmd, ifr->ifr_data, sizeof(ecmd)))
--		return -EFAULT;
--	switch (ecmd.cmd) {
--	case ETHTOOL_GSET:
--		ecmd.supported =
--			(SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
--			 SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
--			 SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full |
--			 SUPPORTED_Autoneg | SUPPORTED_FIBRE);
--
--		ecmd.port = PORT_FIBRE;
--		ecmd.transceiver = XCVR_INTERNAL;
--		ecmd.phy_address = 0;
--
--		link = readl(&regs->GigLnkState);
--		if (link & LNK_1000MB)
--			ecmd.speed = SPEED_1000;
--		else {
--			link = readl(&regs->FastLnkState);
--			if (link & LNK_100MB)
--				ecmd.speed = SPEED_100;
--			else if (link & LNK_100MB)
--				ecmd.speed = SPEED_10;
--			else
--				ecmd.speed = 0;
--		}
--		if (link & LNK_FULL_DUPLEX)
--			ecmd.duplex = DUPLEX_FULL;
-+	memset(ecmd, 0, sizeof(struct ethtool_cmd));
-+	ecmd->supported =
-+		(SUPPORTED_10baseT_Half | SUPPORTED_10baseT_Full |
-+		 SUPPORTED_100baseT_Half | SUPPORTED_100baseT_Full |
-+		 SUPPORTED_1000baseT_Half | SUPPORTED_1000baseT_Full |
-+		 SUPPORTED_Autoneg | SUPPORTED_FIBRE);
-+
-+	ecmd->port = PORT_FIBRE;
-+	ecmd->transceiver = XCVR_INTERNAL;
-+
-+	link = readl(&regs->GigLnkState);
-+	if (link & LNK_1000MB)
-+		ecmd->speed = SPEED_1000;
-+	else {
-+		link = readl(&regs->FastLnkState);
-+		if (link & LNK_100MB)
-+			ecmd->speed = SPEED_100;
-+		else if (link & LNK_100MB)
-+			ecmd->speed = SPEED_10;
- 		else
--			ecmd.duplex = DUPLEX_HALF;
-+			ecmd->speed = 0;
-+	}
-+	if (link & LNK_FULL_DUPLEX)
-+		ecmd->duplex = DUPLEX_FULL;
-+	else
-+		ecmd->duplex = DUPLEX_HALF;
- 
--		if (link & LNK_NEGOTIATE)
--			ecmd.autoneg = AUTONEG_ENABLE;
--		else
--			ecmd.autoneg = AUTONEG_DISABLE;
-+	if (link & LNK_NEGOTIATE)
-+		ecmd->autoneg = AUTONEG_ENABLE;
-+	else
-+		ecmd->autoneg = AUTONEG_DISABLE;
- 
- #if 0
--		/*
--		 * Current struct ethtool_cmd is insufficient
--		 */
--		ecmd.trace = readl(&regs->TuneTrace);
-+	/*
-+	 * Current struct ethtool_cmd is insufficient
-+	 */
-+	ecmd->trace = readl(&regs->TuneTrace);
- 
--		ecmd.txcoal = readl(&regs->TuneTxCoalTicks);
--		ecmd.rxcoal = readl(&regs->TuneRxCoalTicks);
-+	ecmd->txcoal = readl(&regs->TuneTxCoalTicks);
-+	ecmd->rxcoal = readl(&regs->TuneRxCoalTicks);
- #endif
--		ecmd.maxtxpkt = readl(&regs->TuneMaxTxDesc);
--		ecmd.maxrxpkt = readl(&regs->TuneMaxRxDesc);
-+	ecmd->maxtxpkt = readl(&regs->TuneMaxTxDesc);
-+	ecmd->maxrxpkt = readl(&regs->TuneMaxRxDesc);
- 
--		if(copy_to_user(ifr->ifr_data, &ecmd, sizeof(ecmd)))
--			return -EFAULT;
--		return 0;
--
--	case ETHTOOL_SSET:
--		link = readl(&regs->GigLnkState);
--		if (link & LNK_1000MB)
--			speed = SPEED_1000;
--		else {
--			link = readl(&regs->FastLnkState);
--			if (link & LNK_100MB)
--				speed = SPEED_100;
--			else if (link & LNK_100MB)
--				speed = SPEED_10;
--			else
--				speed = SPEED_100;
--		}
-+	return 0;
-+}
- 
--		link = LNK_ENABLE | LNK_1000MB | LNK_100MB | LNK_10MB |
--			LNK_RX_FLOW_CTL_Y | LNK_NEG_FCTL;
--		if (!ACE_IS_TIGON_I(ap))
--			link |= LNK_TX_FLOW_CTL_Y;
--		if (ecmd.autoneg == AUTONEG_ENABLE)
--			link |= LNK_NEGOTIATE;
--		if (ecmd.speed != speed) {
--			link &= ~(LNK_1000MB | LNK_100MB | LNK_10MB);
--			switch (speed) {
--			case SPEED_1000:
--				link |= LNK_1000MB;
--				break;
--			case SPEED_100:
--				link |= LNK_100MB;
--				break;
--			case SPEED_10:
--				link |= LNK_10MB;
--				break;
--			}
-+static int ace_set_settings(struct net_device *dev, struct ethtool_cmd *ecmd)
-+{
-+	struct ace_private *ap = dev->priv;
-+	struct ace_regs *regs = ap->regs;
-+	u32 link, speed;
-+
-+	link = readl(&regs->GigLnkState);
-+	if (link & LNK_1000MB)
-+		speed = SPEED_1000;
-+	else {
-+		link = readl(&regs->FastLnkState);
-+		if (link & LNK_100MB)
-+			speed = SPEED_100;
-+		else if (link & LNK_100MB)
-+			speed = SPEED_10;
-+		else
-+			speed = SPEED_100;
-+	}
-+
-+	link = LNK_ENABLE | LNK_1000MB | LNK_100MB | LNK_10MB |
-+		LNK_RX_FLOW_CTL_Y | LNK_NEG_FCTL;
-+	if (!ACE_IS_TIGON_I(ap))
-+		link |= LNK_TX_FLOW_CTL_Y;
-+	if (ecmd->autoneg == AUTONEG_ENABLE)
-+		link |= LNK_NEGOTIATE;
-+	if (ecmd->speed != speed) {
-+		link &= ~(LNK_1000MB | LNK_100MB | LNK_10MB);
-+		switch (speed) {
-+		case SPEED_1000:
-+			link |= LNK_1000MB;
-+			break;
-+		case SPEED_100:
-+			link |= LNK_100MB;
-+			break;
-+		case SPEED_10:
-+			link |= LNK_10MB;
-+			break;
- 		}
--		if (ecmd.duplex == DUPLEX_FULL)
--			link |= LNK_FULL_DUPLEX;
-+	}
- 
--		if (link != ap->link) {
--			struct cmd cmd;
--			printk(KERN_INFO "%s: Renegotiating link state\n",
--			       dev->name);
-+	if (ecmd->duplex == DUPLEX_FULL)
-+		link |= LNK_FULL_DUPLEX;
- 
--			ap->link = link;
--			writel(link, &regs->TuneLink);
--			if (!ACE_IS_TIGON_I(ap))
--				writel(link, &regs->TuneFastLink);
--			wmb();
-+	if (link != ap->link) {
-+		struct cmd cmd;
-+		printk(KERN_INFO "%s: Renegotiating link state\n",
-+		       dev->name);
- 
--			cmd.evt = C_LNK_NEGOTIATION;
--			cmd.code = 0;
--			cmd.idx = 0;
--			ace_issue_cmd(regs, &cmd);
--		}
--		return 0;
-+		ap->link = link;
-+		writel(link, &regs->TuneLink);
-+		if (!ACE_IS_TIGON_I(ap))
-+			writel(link, &regs->TuneFastLink);
-+		wmb();
- 
--	case ETHTOOL_GDRVINFO: {
--		struct ethtool_drvinfo info = {ETHTOOL_GDRVINFO};
--		strncpy(info.driver, "acenic", sizeof(info.driver) - 1);
--		sprintf(info.fw_version, "%i.%i.%i", 
--			 tigonFwReleaseMajor, tigonFwReleaseMinor,
--			 tigonFwReleaseFix);
--		strncpy(info.version, version, sizeof(info.version) - 1);
--		if (ap && ap->pdev)
--			strcpy(info.bus_info, pci_name(ap->pdev));
--		if (copy_to_user(ifr->ifr_data, &info, sizeof(info)))
--			return -EFAULT;
--		return 0;
--	}
--	default:
--		break;
-+		cmd.evt = C_LNK_NEGOTIATION;
-+		cmd.code = 0;
-+		cmd.idx = 0;
-+		ace_issue_cmd(regs, &cmd);
- 	}
--	
--#endif
--
--	return -EOPNOTSUPP;
-+	return 0;
- }
- 
-+static void ace_get_drvinfo(struct net_device *dev, 
-+			    struct ethtool_drvinfo *info)
-+{
-+	struct ace_private *ap = dev->priv;
-+
-+	strlcpy(info->driver, "acenic", sizeof(info->driver));
-+	snprintf(info->version, sizeof(info->version), "%i.%i.%i", 
-+		tigonFwReleaseMajor, tigonFwReleaseMinor,
-+		tigonFwReleaseFix);
-+
-+	if (ap->pdev)
-+		strlcpy(info->bus_info, pci_name(ap->pdev), 
-+			sizeof(info->bus_info));
-+
-+}
-+#endif
- 
- /*
-  * Set the hardware MAC address.
-diff -Nru a/drivers/net/acenic.h b/drivers/net/acenic.h
---- a/drivers/net/acenic.h	2004-06-04 14:31:46 -07:00
-+++ b/drivers/net/acenic.h	2004-06-04 14:31:46 -07:00
-@@ -790,7 +790,6 @@
- static void ace_dump_trace(struct ace_private *ap);
- static void ace_set_multicast_list(struct net_device *dev);
- static int ace_change_mtu(struct net_device *dev, int new_mtu);
--static int ace_ioctl(struct net_device *dev, struct ifreq *ifr, int cmd);
- static int ace_set_mac_addr(struct net_device *dev, void *p);
- static void ace_set_rxtx_parms(struct net_device *dev, int jumbo);
- static int ace_allocate_descriptors(struct net_device *dev);
+--=20
+Wesley W. Terpstra
