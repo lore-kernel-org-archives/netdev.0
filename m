@@ -1,53 +1,33 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: Fw: Badness in local_bh_enable at kernel/softirq.c:119
-Date: Wed, 1 Oct 2003 07:40:36 -0700
+From: "Chad N. Tindel" <chad@tindel.net>
+Subject: Re: [Bonding-devel] Re: [bonding] compatibilty issues
+Date: Wed, 1 Oct 2003 14:26:10 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031001074036.466ded68.rddunlap@osdl.org>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E010124F0B1@orsmsx402.jf.intel.com>
+Message-ID: <20031001182610.GA25218@calma.pair.com>
+References: <E791C176A6139242A988ABA8B3D9B38A02A464F2@hasmsx403.iil.intel.com> <200310011149.04612.shmulik.hen@intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, jgarzik@pobox.com, akpm@osdl.org, netdev@oss.sgi.com,
-        cramerj@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, "Chad N. Tindel" <chad@tindel.net>,
+        fubar@us.ibm.com, jgarzik@pobox.com,
+        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Feldman, Scott" <scott.feldman@intel.com>
-In-Reply-To: <C6F5CF431189FA4CBAEC9E7DD5441E010124F0B1@orsmsx402.jf.intel.com>
+To: Shmulik Hen <shmulik.hen@intel.com>
+Content-Disposition: inline
+In-Reply-To: <200310011149.04612.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 1 Oct 2003 01:19:41 -0700 "Feldman, Scott" <scott.feldman@intel.com> wrote:
+> So here is what I did in the meantime:
+> * Created a version for 2.4 that puts back all old compatibility stuff 
+>   that was removed either during the propagation set or the cleanup 
+>   set.
+> * Created a version for 2.6 that puts back just the compatibility 
+>   stuff that was removed in the propagation set (BOND_SETHWADDR, since 
+>   we got a complaint from a RH9 user).
+> * Removed the mention of the multicast param from the read-me.
+> * Raised the ABI version to 2 so the new ifenslave keeps propagating 
+>   IP settings to slaves for older drivers, and doesn't do that for new 
+>   ones that contain Willy Tarreau's panic fix.
 
-| Chris can jump in here anytime.  :-)
-| 
-| Synchronizing on the hardware side is stumping me.  We have the list of
-| skbs you describe, but I'm concerned about unmapping the skb buffers if
-| hardware is right in the middle of some DMA  on one of the buffers.
-| Some archs really don't like hardware accessing unmapped buffers.
-| 
-| Here's what I'm thinking: when link down is detected in the timer, just
-| trick hardware into thinking link is still up (ILOS - Invert Loss of
-| Signal).  No locking, no disabling of interrupts.  Hardware will do the
-| natural thing by completing the outstanding sends and also provide the
-| interrupts so we can clean/return skbs as normal (e1000_clean_tx_irq).
-| Something like:
-| 
-| <timer>
-| 	if lost link
-| 		if outstanding Tx work
-| 			set ILOS		// h/w thinks link is
-| up, DMA continues
-| 			mdelay(10)
-| 			clear ILOS		// h/w thinks link is
-| down
-| 			
-| The mdelay(10) is terrible, but we've already got that in the current
-| tx_flush routine.
-| 
-| Chris, what am I missing?  I didn't included the ANE business for
-| clarity.
+I like this.
 
-What happens if the link comes back up (live) during the mdelay
-period?  Tiny race?  Just a delay until it's corrected?
-
---
-~Randy
+Chad
