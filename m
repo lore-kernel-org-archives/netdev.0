@@ -1,77 +1,77 @@
-From: =?ISO-2022-JP?B?GyRCJTolQyVdJWpSeiQoOX4kXxsoQg==?= <kumi@york.vig-seet.to>
-Subject: =?ISO-2022-JP?B?GyRCRCw/YSQtJF4kLyRqPjpFNyQ3JF4kLyRqInYbKEI=?=
-Date: Tue, 22 Mar 2005 20:21:25 +0900 (KST)
-Message-ID: <20050322112125.59A037E00B9@helo.ori-g.net>
-To: netdev@oss.sgi.com
-To: netdev@oss.sgi.com
+From: Adrian Bunk <bunk@stusta.de>
+Subject: [2.6 patch] fix net/ipv4/route.c with gcc 3.4
+Date: Tue, 22 Mar 2005 13:22:13 +0100
+Message-ID: <20050322122213.GH3982@stusta.de>
+References: <20050321025159.1cabd62e.akpm@osdl.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+To: Einar Lueck <elueck@de.ibm.com>
+Content-Disposition: inline
+In-Reply-To: <20050321025159.1cabd62e.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+The following compile error comes from Linus' tree with 
+CONFIG_IP_ROUTE_MULTIPATH_CACHED=y:
 
-━━━━━━━━≡エンターテイメントマガジン：：e-MAGA≡━━━━━━━━
+<--  snip  -->
 
-　　　　　　　　　完全マジ撮り素人盗撮映像♪∴＊∵∴☆♪♪♪《《《《《《《
+...
+  CC      net/ipv4/route.o
+net/ipv4/route.c: In function `rt_remove_balanced_route':
+net/ipv4/route.c:151: sorry, unimplemented: inlining failed in call to 'compare_keys': function body not available
+net/ipv4/route.c:540: sorry, unimplemented: called from here
+make[2]: *** [net/ipv4/route.o] Error 1
+
+<--  snip  -->
+
+
+This patch fixes this compile error by moving compare_keys up.
+
+Signed-off-by: Adrian Bunk <bunk@stusta.de>
+
+---
+
+ net/ipv4/route.c |   15 +++++++--------
+ 1 files changed, 7 insertions(+), 8 deletions(-)
+
+--- linux-2.6.12-rc1-mm1-full/net/ipv4/route.c.old	2005-03-22 13:10:35.000000000 +0100
++++ linux-2.6.12-rc1-mm1-full/net/ipv4/route.c	2005-03-22 13:12:29.000000000 +0100
+@@ -148,7 +148,6 @@
+ static void		 ipv4_link_failure(struct sk_buff *skb);
+ static void		 ip_rt_update_pmtu(struct dst_entry *dst, u32 mtu);
+ static int rt_garbage_collect(void);
+-static inline int compare_keys(struct flowi *fl1, struct flowi *fl2);
  
-▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
- 　http://sibuya.mycountry.cc/?ykvoydy672
-
-【女子校潜入盗撮特集】--------------------------------------☆
- ：：：：：：：：：：：：：：：：：：：：：
-  ■都内某女子校に決死の潜入に成功！！
-             初々しい女の子達の普段は見れない一面がバッチリ！！
-     
-
-【巧妙に仕掛けられたカメラが覗く秘密の地帯】------------------------☆
- ：：：：：：：：：：：：：：：：：：：：：
-　■踏に紛れて被写体を追跡！街で―屋内で―移動中に―――― 
-　　　　　　　あらゆる角度から狙いすましたベストショット！！もう決して逃れることは出来ない…。
  
-  ■無防備なオンナ達に迫るカメラの罠そしてついに禁断の領域までをも犯してしまう…。
- 　 　　　　　公園の公衆トイレに仕掛けられた一台の隠しカメラが決定的瞬間を捕らえた！！！
+ static struct dst_ops ipv4_dst_ops = {
+@@ -450,6 +449,13 @@
  
- 　http://sibuya.mycountry.cc/?ykvoydy672
- ╋╋╋╋╋╋╋╋　　                 ╋╋╋╋╋╋╋╋　
-                       ╋╋╋╋╋╋╋╋　　                   ╋╋╋╋╋╋╋╋
-　　 ■　　
-  ◆◆◆  素人盛りの夜の公園
-　　 ■　　数組のカップルに目をつけ、尾行撮影開始！！
-  ◆◆◆  ところかまわず激しくもつれる素人カップルを激写☆
-　　 ■
-  ◆◆◆   都内某所ナマ乱交現場
-　　 ■　　知る人ぞ知る噂のスポットで、大胆撮影大会♪
-　
-　http://sibuya.mycountry.cc/?ykvoydy672
-
-【街撮りフェチっ子写真館】--------------------------------------☆　　　　　
-　　 ■　　
-  ◆◆◆  　ピッタピタのローライズに身を包み惜しげもなく下着を見せて歩く
-　　 ■　　女の子たちをコッソリ撮影♪その他パンチラ＆ムネチラ満載♪　
-　　 ■
-【野外露出投稿】--------------------------------------------☆
-　　 ■
-  ◆◆◆　◎見られることに喜びを覚える素人娘たちが
-　　 ■　　　 大胆過激な行動を繰り返す。
-  http://sibuya.mycountry.cc/?ykvoydy672
-▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▲▼▲▼▲▼▲▼▲▼▲▼▲▼▲▼
-━━━━━━━━≡エンターテイメントマガジン：：e-MAGA≡━━━━━━━━
-
-     ■当局のメールマガジンに掲載されている情報の利用に関しては、
-　　　　ご購読者個人の責任においてご利用いただくことを前提としていますので
-　　　　ご紹介先のサイトにおけるいかなるトラブルや損害に対しても
-　　　　当局では一切の責任を負いかねます。
-　　　　又、掲載情報に関してのいかなるお問合せに対してもお答えしかねますので
-　　　　予めご了承下さい。
-　　　　
-　　　　掲載された記事の一部または全部を許可なく転載することを禁止致します。
-・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・・
-     ■購読解除方法
-
-　　　　購読解除をご希望の方は、お手数ですが下記のアドレスよりログインし、
-　　　　ご自身でお手続き下さい。
+ #endif /* CONFIG_PROC_FS */
+   
++static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
++{
++	return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, sizeof(fl1->nl_u.ip4_u)) == 0 &&
++	       fl1->oif     == fl2->oif &&
++	       fl1->iif     == fl2->iif;
++}
++
+ static __inline__ void rt_free(struct rtable *rt)
+ {
+ 	multipath_remove(rt);
+@@ -858,13 +864,6 @@
+ out:	return 0;
+ }
  
-    http://york.vig-seet.to/e-maga/
-━━━━━━━━≡エンターテイメントマガジン：：e-MAGA≡━━━━━━━━
-◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇◇
-∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞∞
+-static inline int compare_keys(struct flowi *fl1, struct flowi *fl2)
+-{
+-	return memcmp(&fl1->nl_u.ip4_u, &fl2->nl_u.ip4_u, sizeof(fl1->nl_u.ip4_u)) == 0 &&
+-	       fl1->oif     == fl2->oif &&
+-	       fl1->iif     == fl2->iif;
+-}
+-
+ static int rt_intern_hash(unsigned hash, struct rtable *rt, struct rtable **rp)
+ {
+ 	struct rtable	*rth, **rthp;
