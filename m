@@ -1,30 +1,31 @@
-From: Christoph Lameter <christoph@lameter.com>
-Subject: Re: atomic_dec_and_test for child dst needed in dst_destroy?
-Date: Wed, 6 Apr 2005 11:48:50 -0700 (PDT)
-Message-ID: <Pine.LNX.4.58.0504061146060.7083@graphe.net>
-References: <Pine.LNX.4.58.0504051925250.21486@graphe.net>
- <E1DJ5y2-0003rF-00@gondolin.me.apana.org.au> <20050406111721.3ac67605.davem@davemloft.net>
+From: Jean-Mickael Guerin <jean-mickael.guerin@6wind.com>
+Subject: Re: [IPv6] policy routing ?
+Date: Wed, 06 Apr 2005 21:36:52 +0200
+Message-ID: <42543A54.7030504@6wind.com>
+References: <20050406100401.0eab9374.didier@barvaux.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20050406111721.3ac67605.davem@davemloft.net>
+To: Didier Barvaux <didier@barvaux.org>
+In-Reply-To: <20050406100401.0eab9374.didier@barvaux.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 6 Apr 2005, David S. Miller wrote:
+Didier Barvaux wrote:
+> Hello,
+> 
+> 
+> I'm trying to do policy routing with IPv6 (source routing) on a 2.6.11 kernel. It works perfectly well with IPv4 using iproute2 (iproute2-2.6.11-050330), but it doesn't seem to work with IPv6.
 
-> See his other emails in this thread.  If it can be converted to
-> atomic_dec() then he wants to change the counter into an array
-> of counters on NUMA systems.
+Hi Didier,
+I beleive policy routing for IPv6 is not yet supported in the kernel.
+FYI a patch is included in the implementation of Mobile IPv6 provided by 
+MIPL: http://www.mobile-ipv6.org/
+Online patch is based on 2.6.8.1.
 
-Correct.
+Regards,
 
-> But his trick only works if the atomic_dec_and_test() can be eliminated
-> for all cases, which we're now quite certain is not possible.
-
-Some changes to the way locking is done between the garbage collector
-and dst_destroy would be necessary. Lets see if the author
-of the patch can come up with a solution to this.
+Jean-Mickael
