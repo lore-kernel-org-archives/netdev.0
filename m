@@ -1,41 +1,33 @@
-From: Julian Anastasov <ja@ssi.bg>
-Subject: Re: Bug? ARP with wrong src IP address
-Date: Thu, 24 Jul 2003 14:04:17 +0300 (EEST)
+From: kuznet@ms2.inr.ac.ru
+Subject: Re: O/M flags against 2.6.0-test1
+Date: Thu, 24 Jul 2003 18:02:35 +0400 (MSD)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0307241352340.2177-100000@l>
-References: <200307241238510034.210E4F24@192.168.128.16>
+Message-ID: <200307241402.SAA09143@dub.inr.ac.ru>
+References: <20030724000705.4662df54.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Bart De Schuymer <bdschuym@pandora.be>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: krkumar@us.ibm.com, yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Carlos Velasco <carlosev@newipnet.com>
-In-Reply-To: <200307241238510034.210E4F24@192.168.128.16>
+To: davem@redhat.com (David S. Miller)
+In-Reply-To: <20030724000705.4662df54.davem@redhat.com> from "David S. Miller" at éÀÌ 24, 2003 12:07:05 
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hello!
 
-	Hello,
+> Another idea is to define the user structure:
 
-On Thu, 24 Jul 2003, Carlos Velasco wrote:
+Actually, I saw it just as array indexed by values from sysctl.h.
 
-> On 24/07/2003 at 11:30 Bart De Schuymer wrote:
->
-> However I don't see how these tools can help in this ARP problem.
-> There is no need of filtering or mangling arp, the problem is an incorrect arp being sent.
+Maybe, struct is better, but I am inclined to think in this case it is wrong.
+It is going to be extended, so newly compiled applications will see
+truncated structs from older kernels and will have to do ugly job
+verifying validity of fields using some offsetof. In the case of array
+it is natural at least.
 
-	The src IP in the ARP probe is a hint. In most of the
-cases it is ignored. But the receiver has the right to answer
-based on it. You know, the reply is sent to the sender's hwaddr,
-not to the src IP. Also, Linux always replies if the remote host asks
-for IP configured on loopback interface. So, there is no problem.
-If the remote system has your patch, there is also no problem.
-What kind of problems do you see except the loopback IP as sender
-IP? Dropped probes? Unanswered probes?
+Alexey
 
-> Regards,
-> Carlos Velasco
-
-Regards
-
---
-Julian Anastasov <ja@ssi.bg>
+PS I know right way is not to change the struct. :-)
+It is another reason why I am still not sure that encoding
+sysctl values as separate subattributes is bad idea.
