@@ -1,29 +1,36 @@
-From: Jesse Pollard <jesse@cats-chateau.net>
+From: Werner Almesberger <werner@almesberger.net>
 Subject: Re: TOE brain dump
-Date: Wed, 6 Aug 2003 08:07:37 -0500
+Date: Wed, 6 Aug 2003 10:37:58 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <03080608073701.08387@tabby>
-References: <3F2CAE61.7070401@pobox.com> <5.1.0.14.2.20030806181359.02bf9570@mira-sjcm-3.cisco.com> <20030806012218.4012d9e4.davem@redhat.com>
+Message-ID: <20030806103758.H5798@almesberger.net>
+References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com> <3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net> <m1fzkiwnru.fsf@frodo.biederman.org> <20030804162433.L5798@almesberger.net> <m1u18wuinm.fsf@frodo.biederman.org> <20030806021304.E5798@almesberger.net> <m1llu7ushr.fsf@frodo.biederman.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 8bit
-Cc: andre@linux-ide.org, jgarzik@pobox.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, werner@almesberger.net, niv@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, Lincoln Dale <ltd@cisco.com>
-In-Reply-To: <20030806012218.4012d9e4.davem@redhat.com>
+To: "Eric W. Biederman" <ebiederm@xmission.com>
+Content-Disposition: inline
+In-Reply-To: <m1llu7ushr.fsf@frodo.biederman.org>; from ebiederm@xmission.com on Wed, Aug 06, 2003 at 01:58:56AM -0600
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wednesday 06 August 2003 03:22, David S. Miller wrote:
-> On Wed, 06 Aug 2003 18:20:06 +1000
->
-> Lincoln Dale <ltd@cisco.com> wrote:
-> > secondly, why would a router or switch even be touching the data at
-> > layer-4 (TCP), let alone recalculating a CRC?
->
-> To make sure emails about Falun Gong and other undesirable topics
-> don't make it into China.
+Eric W. Biederman wrote:
+> Afford, they can do.  A lot of the users are researchers and
+> a lot of people doing the code are researchers.  So corralling
+> them up and getting production quality code can be a challenge,
 
-Thats not a router, or switch... It's a firewall :-)
+Ah, the joy of herding cats :-) But I guess you just need a
+sufficiently competent and sufficiently well-funded group
+that goes ahead and does it. There is usually little point
+in directly involving everyone who may have an opinion.
+
+> to keep your latency down.  Do any ethernet switches do cut-through?
+
+According to Google, many at least claim to do this.
+
+- Werner
+
+-- 
+  _________________________________________________________________________
+ / Werner Almesberger, Buenos Aires, Argentina     werner@almesberger.net /
+/_http://www.almesberger.net/____________________________________________/
