@@ -1,63 +1,115 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [PATCH][NET] generalise per socket slab cache use
-Date: Mon, 13 Sep 2004 18:51:08 -0300
+From: S P <speattle@yahoo.com>
+Subject: [PATCH] linux 2.6.x.x net/sched/sch_api.c -- more comment reviews
+Date: Mon, 13 Sep 2004 14:59:44 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409131851.10705.acme@conectiva.com.br>
-References: <200409110023.34342.acme@conectiva.com.br> <Pine.LNX.4.58.0409131410540.19499@localhost.localdomain>
+Message-ID: <20040913215944.33830.qmail@web90010.mail.scd.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: 7bit
-Cc: "David S.Miller" <davem@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0409131410540.19499@localhost.localdomain>
-Content-Disposition: inline
+To: davem@davemloft.net
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Seg 13 Set 2004 18:17, Sridhar Samudrala escreveu:
-> Arnaldo,
->
-> looks good, but i have a few comments. It is great that SCTP now has its
-> own slabcaches.
->
-> > +struct ipv6_sk_offset raw_sock_offset = {
-> > +     .offset = offsetof(struct udp6_sock, inet6),
-> > +};
->
-> I think there is a typo here. udp6_sock should be raw6_sock
+OK,
+I used 'diff -Nru' this time.
+Sorry about last time.  Ignorance~~~  :)
 
-Good spotting! I'll fix this one
+Tense in the doc goes back and forth, making it a
+little difficult to understand.
 
-> > -                printk(KERN_CRIT "%s: Can't create protocol sock SLAB "
-> > -                    "caches!\n", __FUNCTION__);
->
-> You have removed the above critical messages. Is this by intent or a
-> mistake.
+I hope I understood the documentation w/ small changes
+I'm submitting.
 
-Humm, I'll put it on the sk_alloc_slab callers
+- S.P.
 
->
-> I am not clear on why we need this new structure ipv6_sk_offset.
->
-> > +struct ipv6_sk_offset {
-> > +     int     offset;
-> > +};
-> > +
->
-> Instead of adding the new field void *af_specific to struct proto, is it
-> not sufficient to add
->         int     pinet6_offset;
->
-> and assign it as follows for each v6 sock type
->         .pinet6_offset = offsetof(struct struct tcp6_sock, inet6)
->
-> In inet6_sk_generic(), you can directly use sk->sk_prot->pinet6_offset.
 
-I thought about it, but idea was to not introduce any family specific stuff in
-struct proto, I don't plan to have LLC over IPv6, for instance :)
+diff -Nru ../linus-2.6/net/sched/sch_api.c sch_api.c
+--- ../linus-2.6/net/sched/sch_api.c    2004-09-02
+14:47:49.000000000 -0700
++++ sch_api.c   2004-09-13 14:53:30.726090760 -0700
+@@ -78,7 +78,7 @@
+    checks and part of work, which is common to all
+qdiscs
+    and to provide rtnetlink notifications.
 
-> Thanks
-> Sridhar
+-   All real intelligent work is done inside qdisc
+modules.
++   All real intelligent work is done inside each
+qdisc modules.
+
+
+
+@@ -87,29 +87,29 @@
+    ---dequeue
+
+    dequeue usually returns a skb to send. It is
+allowed to return NULL,
+-   but it does not mean that queue is empty, it just
+means that
+-   discipline does not want to send anything this
+time.
++   but it does not mean the queue is empty; it means
+that
++   the discipline does not want to send anything this
+time.
+    Queue is really empty if q->q.qlen == 0.
+-   For complicated disciplines with multiple queues
+q->q is not
+-   real packet queue, but however q->q.qlen must be
+valid.
++   For complicated disciplines with multiple queues,
+q->q is not
++   real packet queue whereas q->q.qlen must be valid.
+
+    ---enqueue
+
+-   enqueue returns 0, if packet was enqueued
+successfully.
+-   If packet (this one or another one) was dropped,
+it returns
+-   not zero error code.
++   enqueue returns 0, if packet enqueues
+successfully.
++   If packet (this one or another one) is dropped, it
+returns
++   non-zero error code.
+    NET_XMIT_DROP       - this packet dropped
+-     Expected action: do not backoff, but wait until
+queue will clear.
+-   NET_XMIT_CN         - probably this packet
+enqueued, but another one dropped.
+-     Expected action: backoff or ignore
+-   NET_XMIT_POLICED    - dropped by police.
+-     Expected action: backoff or error to real-time
+apps.
++     Expected action: do not back-off, but wait until
+queue clears.
++   NET_XMIT_CN         - probably this packet is
+enqueued, but another packet isdropped.
++     Expected action: back-off or ignore
++   NET_XMIT_POLICED    - packet is dropped by police.
++     Expected action: back-off or error to real-time
+apps.
+
+    Auxiliary routines:
+
+    ---requeue
+
+-   requeues once dequeued packet. It is used for
+non-standard or
++   requeues once packet is dequeued. It is used for
+non-standard or
+    just buggy devices, which can defer output even if
+dev->tbusy=0.
+
+    ---reset
+
+
+
+	
+		
+__________________________________
+Do you Yahoo!?
+New and Improved Yahoo! Mail - 100MB free storage!
+http://promotions.yahoo.com/new_mail 
