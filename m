@@ -1,50 +1,51 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
-Date: Wed, 10 Mar 2004 13:07:17 -0500
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: Cleaner way to conditionally disallow a CONFIG option as static
+Date: Wed, 10 Mar 2004 10:16:27 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404F5955.6040702@pobox.com>
-References: <20040304023524.GA19453@bougret.hpl.hp.com> <20040310165548.A24693@infradead.org> <20040310172114.GA8867@bougret.hpl.hp.com>
+Message-ID: <Pine.LNX.4.58.0403101006390.3016@localhost.localdomain>
+References: <Pine.LNX.4.58.0403081659170.1656@localhost.localdomain>
+ <Pine.LNX.4.58.0403100437040.27654@serv>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Christoph Hellwig <hch@infradead.org>, prism54-devel@prism54.org,
-        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: kaos@ocs.com.au, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com
-In-Reply-To: <20040310172114.GA8867@bougret.hpl.hp.com>
+To: Roman Zippel <zippel@linux-m68k.org>
+In-Reply-To: <Pine.LNX.4.58.0403100437040.27654@serv>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jean Tourrilhes wrote:
-> On Wed, Mar 10, 2004 at 04:55:48PM +0000, Christoph Hellwig wrote:
-> 
->>On Wed, Mar 03, 2004 at 06:35:24PM -0800, Jean Tourrilhes wrote:
->>
->>>	Hi Dave & Jeff,
->>>
->>>	The attached .bz2 file is a patch for 2.6.3 adding the
->>>Intersil Prism54 wireless driver. Sorry for the attachement, the file
->>>is rather big, if you want inline+plaintext, I'll send that personal
->>>to you.
->>>	I've been using this driver with great success on 2.6.3 and
->>>2.6.4-rc1 (SMP). This driver support various popular CardBus and PCI
->>>802.11g cards (54 Mb/s) based on the Intersil PrismGT/PrismDuette
->>>chipset.
->>>	I would like this driver to go into 2.6.X. However, I
->>>understand that it's lot's of code to review.
->>
->>Here's a few things I found.
-> 
-> 
-> 	I'm forwarding to prism54-devel where the real developpers can
-> answer your questions.
+On Wed, 10 Mar 2004, Roman Zippel wrote:
 
-since I'm not on the this list, I am getting a bunch of "your message 
-for prism54-devel awaits moderator approval" responses.
+> Hi,
+>
+> On Mon, 8 Mar 2004, Sridhar Samudrala wrote:
+>
+> > In 2.6, net/sctp/Kconfig
+> >
+> > config IPV6_SCTP__
+> > 	tristate
+> > 	default y if IPV6=n
+> > 	default IPV6 if IPV6
+> >
+> > config IP_SCTP
+> > 	tristate "The SCTP Protocol (EXPERIMENTAL)"
+> > 	depends on IPV6_SCTP__
+>
+> This can be written as:
+>
+> config IP_SCTP
+> 	tristate "The SCTP Protocol (EXPERIMENTAL)"
+> 	depends on IPV6 || IPV6=n
+>
 
-Maybe the prism54 and hostAP developers could join us on netdev?  It 
-would be nice to have everybody in one place, if we're all gonna be 
-collaborating on a generic 802.11 stack.
+Thanks. Your 2.6 solution helped me come up with the following solution for
+2.4 too and avoid the hack.
 
-	Jeff
+if [ "$CONFIG_IPV6" = "n" ]; then
+  tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP
+else
+  dep_tristate '  The SCTP Protocol (EXPERIMENTAL)' CONFIG_IP_SCTP $CONFIG_IPV6
+fi
+
+Thanks
+-Sridhar
