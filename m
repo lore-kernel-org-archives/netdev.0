@@ -1,38 +1,58 @@
-From: akepner@sgi.com
-Subject: Re: [Patch 3/3 2.4] e1000: Update Documentation/networking/e1000.txt
-Date: Fri, 15 Oct 2004 12:20:48 -0700 (PDT)
+From: "Leonid Grossman" <leonid.grossman@s2io.com>
+Subject: RE: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
+Date: Fri, 15 Oct 2004 12:48:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.33.0410151153120.31839-100000@localhost.localdomain>
-References: <ckp6tr$nrg$1@sea.gmane.org>
+Message-ID: <200410151948.i9FJmo39006757@guinness.s2io.com>
+References: <41701B3C.8020006@pobox.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: <netdev@oss.sgi.com>
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'Raghavendra Koushik'" <raghavendra.koushik@s2io.com>,
+        "'Chris Leech'" <chris.leech@gmail.com>, <ravinandan.arakali@s2io.com>,
+        "'Francois Romieu'" <romieu@fr.zoreil.com>, <netdev@oss.sgi.com>,
+        <rapuru.sriram@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <ckp6tr$nrg$1@sea.gmane.org>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: <41701B3C.8020006@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 15 Oct 2004, Jason Lunz wrote:
+OK, we will debug and try to fix this. 
+Leonid
 
-> ganesh.venkatesan@intel.com said:
-> > +          This sets the InterruptThrottleRate to 3000 interrupts/sec for the 
-> > +          first, second, and third instances of the driver. The range of 2000 to 
-> > +          3000 interrupts per second works on a majority of systems and is a 
-> > +          good starting point, but the optimal value will be platform-specific. 
-> > +          If CPU utilization is not a concern, use RX_POLLING (NAPI) and default 
-> > +          driver settings.
+> -----Original Message-----
+> From: Jeff Garzik [mailto:jgarzik@pobox.com] 
+> Sent: Friday, October 15, 2004 11:47 AM
+> To: Leonid Grossman
+> Cc: 'Raghavendra Koushik'; 'Chris Leech'; 
+> ravinandan.arakali@s2io.com; 'Francois Romieu'; 
+> netdev@oss.sgi.com; rapuru.sriram@s2io.com
+> Subject: Re: [PATCH 2.6.9-rc2 8/8] S2io: two buffer mode
 > 
-> I don't understand this bit. Isn't the point of NAPI to disable rx
-> interrupts entirely, and only gather as many frames from the driver as
-> CPU time permits? That's supposed to limit network-rx CPU usage, not
-> increase it as the above paragraph implies.
-
-In my experience (on Altix systems, so that experience may be 
-somewhat atypical), NAPI results in few (2-7) packets processed 
-per interrupt, so the interrupt rate (and CPU utilization) can be 
-very high. Interrupt coalescence is much better in both of these 
-respects.
-
--- 
-Arthur
+> Leonid Grossman wrote:
+> >  "fragmented SKB on Rx" is an old problem - we tried to 
+> deploy 2 and 5 
+> > buffer Xframe modes before and it did not work in Linux.
+> > Is anyone aware of any network driver that successfully uses 
+> > fragmented SKBs?
+> 
+> Raghavendra Koushik wrote:
+> > I did try fragmented SKB on Rx but it didn't seem to work. 
+> If any one 
+> > can give me some pointers on how to get this working, I would 
+> > implement 2Buff mode using this method and avoid a copy in 
+> fast path.
+> 
+> 
+> 
+> My suggestion would be to investigate why fragmented SKBs 
+> don't work ;-)
+> 
+> The source code is all there, debug away...
+> 
+> If S2IO can fix this, a lot of people will benefit.
+> 
+> 	Jeff
+> 
+> 
