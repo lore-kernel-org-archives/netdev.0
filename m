@@ -1,46 +1,52 @@
-From: Krishna Kumar <krkumar@us.ibm.com>
-Subject: Re: Question about netlink
-Date: Tue, 08 Jul 2003 13:27:54 -0700
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH] netdev_ops
+Date: Tue, 08 Jul 2003 13:44:32 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F0B294A.9060302@us.ibm.com>
-References: <3F0B10E3.9050700@us.ibm.com> <20030709.040433.89038276.yoshfuji@linux-ipv6.org>
+Message-ID: <3F0B2D30.4020102@candelatech.com>
+References: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030709.040433.89038276.yoshfuji@linux-ipv6.org>
+To: Matthew Wilcox <willy@debian.org>
+In-Reply-To: <20030708163042.GL23597@parcelfarce.linux.theplanet.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I am still not convinced how it works, though I have been trying to seek the truth for some
-time now :-).
+Matthew Wilcox wrote:
+> After a conversation with acme, I realised that ethtool_ops is far too
+> narrow scope.  What we need are netdev_ops.  This patch renames the
+> ethtool_ops to netdev_ops and fixes some other minor flaws:
+> 
+>  - add _len() ops for operations which previously had to kmalloc their
+>    own memory.
+>  - move the netdev_ops from ethtool.h to netdevice.h
+>  - makes some ops generic as requested by Jeff Garzik.
+> 
+> I think netdev_ops is still a little too ethtool-specific; something
+> I'd like to do is convert the parameters to be a little less
+> ethtool-related.  For example, instead of ->get_drvinfo, I'd like to
+> see ethtool_get_drvinfo() call several methods and fill in all the data
+> that way.
+> 
+> But let's see what everyone thinks of this patch first ...
+> 
 
-These routines 'get' the value of args[0] and then 'set' it to the resultant value. How is
-this value set in the first place to the user provided value ? It seems to be initialized
-to ZERO in netlink_dump_start(). The only way it seems to use the value is if it gets
-called twice from netlink_dump(), the first time cb->args will be set to zero's while the
-second time it will have the values set by the first invocation to the same routine. Am I
-missing something or is 'args' not intended for user specified arguments ? If so, how
-should we access the arguments passed by the user ?
+> + * Each operation is passed a &struct net_device as its first parameter.
 
-Thanks,
+Some of these are missing their netdevice arg?
+> +	int	(*get_regs_len)(struct ethtool_regs *);
 
-- KK
+> +	int	(*self_test_len)(struct ethtool_test *);
 
-YOSHIFUJI Hideaki wrote:
-> In article <3F0B10E3.9050700@us.ibm.com> (at Tue, 08 Jul 2003 11:43:47 -0700), Krishna Kumar <krkumar@us.ibm.com> says:
-> 
-> 
->>Some of the netlink routines (eg rtnetlink_dump_ifinfo or inet6_dump_ifaddr) seem to get
->>user arguments from cb->args['n']. However I was not able to figure out where the
->>arguments are being set, can anyone help ?
-> 
-> 
-> Take a look at net/core/rtnelink.c:rtnetlink_dump_ifinfo()
->                net/core/neighbour.c:neigh_dump_{info,table}()
-> and seek the truth. :-)
-> 
-> --yoshfuji
-> 
+> +	int	(*get_strings_len)(struct ethtool_gstrings *);
+
+> +	int	(*get_stats_len)(struct ethtool_stats *);
+
+
+
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
