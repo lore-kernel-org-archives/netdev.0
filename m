@@ -1,24 +1,36 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [Fwd: [patch] fix slot clash in sch_sfq.c]
-Date: Wed, 11 Feb 2004 19:35:31 -0800
+Subject: Re: 2.6: QoS scheduling not working with IP-over-IP
+Date: Wed, 11 Feb 2004 20:05:49 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040211193531.685c73c6.davem@redhat.com>
-References: <1076532461.19204.50.camel@pitanga.ldhs.cetuc.puc-rio.br>
+Message-ID: <20040211200549.736fa8b3.davem@redhat.com>
+References: <Pine.LNX.4.44.0402101324350.810-100000@atlantis.knm.org.pl>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, shemminger@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Miguel Freitas <miguel@cetuc.puc-rio.br>
-In-Reply-To: <1076532461.19204.50.camel@pitanga.ldhs.cetuc.puc-rio.br>
+To: Dawid Kuroczko <qnex@atlantis.knm.org.pl>
+In-Reply-To: <Pine.LNX.4.44.0402101324350.810-100000@atlantis.knm.org.pl>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Feb 2004 18:47:41 -0200
-Miguel Freitas <miguel@cetuc.puc-rio.br> wrote:
+[ moving from linux-kernel to correct mailing list... ]
 
-> I better send a copy of this one to the mailing list...
+Czesc Dawid,
 
-Your patch is correct.  It is amusing that sfq_drop() was handling
-this correctly yet sfq_dequeue() was not.  In fact, this breaks
-pretty seriously the behavior of this scheduler as you've noted.
+On Tue, 10 Feb 2004 13:36:32 +0100 (CET)
+Dawid Kuroczko <qnex@atlantis.knm.org.pl> wrote:
+
+> There seems to be a bug in QoS scheduling code related to IP-over-IP
+> tunnels (ipip.ko).  My setup is a bit unusual -- my default route
+> goes through tunl1, so I want it shaped.  It worked fine with 2.4,
+> but it doesn't with 2.6 (2.6.1 and 2.6.2, I made a transition quite
+> recently).
+
+Can you assign QoS schedulers and classifiers successfully to eth0
+or some other non ipip device?
+
+Does it work with 'tunl0' instead of 'tunl1'?
+
+Stephen, I bet this problem got introduced when we moved ipip.c over
+to dynamic netdevice allocation, can you take a look?
