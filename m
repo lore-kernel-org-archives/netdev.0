@@ -1,42 +1,40 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: IPv4 and IPv6 stack multi-FIB, scalable in the million of
- entries.
-Date: Thu, 08 Apr 2004 19:18:41 +0200
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] etherdevice.h -- make constant args
+Date: Thu, 8 Apr 2004 11:06:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m3ptaiwfpq.fsf@averell.firstfloor.org>
-References: <1IJuR-8qH-39@gated-at.bofh.it>
+Message-ID: <20040408110653.003174e3@dell_ss3.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, Jeff Garzik <jgarzik@pobox.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Mathieu Giguere" <Mathieu.Giguere@ericsson.ca>
-In-Reply-To: <1IJuR-8qH-39@gated-at.bofh.it> (Mathieu Giguere's message of
- "Thu, 08 Apr 2004 17:21:01 +0200")
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"Mathieu Giguere" <Mathieu.Giguere@ericsson.ca> writes:
+Rather than forcing cast in some new validation code in the bridge;
+please fix a couple of inline functions should have "const" on args.
 
-[you should probably discuss that on netdev@oss.sgi.com instead, cc'ed]
-
->     We currently looking for a multi-FIB, scalable routing table in the
-> million of entries, no routing cache for IPv4 and IPv6.  We want a IP stack
-
-No routing cache? Doesn't sound like a good idea.
-
-> that can have a log(n) (or better) insertion/deletion and lookup
-> performance.  Predictable performance, even in the million of entries.
-
-And even more vast overkill for most linux users than the existing
-routing code already is.  Linux has at least the beginnings of a pluggable
-FIB interface (fib_table), which has slightly bit rotted, but probably
-not too bad. I would suggest you clean that up, make the existing
-hash table really optional and then you can just plug in anything you want.
-
->     I join a patch with the fib_hash in IPv4 replace with a patricia tree
-> ready for multi-FIB base on a 2.4.22 kernel.  This is the beginning of a
-> long cleanup.
-
-What do you consider dirty in the current stack? 
-
--Andi
+diff -Nru a/include/linux/etherdevice.h b/include/linux/etherdevice.h
+--- a/include/linux/etherdevice.h	Thu Apr  8 11:03:52 2004
++++ b/include/linux/etherdevice.h	Thu Apr  8 11:03:52 2004
+@@ -40,7 +40,9 @@
+ 					 unsigned char *haddr);
+ 
+ extern struct net_device *alloc_etherdev(int sizeof_priv);
+-static inline void eth_copy_and_sum (struct sk_buff *dest, unsigned char *src, int len, int base)
++static inline void eth_copy_and_sum (struct sk_buff *dest, 
++				     const unsigned char *src, 
++				     int len, int base)
+ {
+ 	memcpy (dest->data, src, len);
+ }
+@@ -55,7 +57,7 @@
+  *
+  * Return true if the address is valid.
+  */
+-static inline int is_valid_ether_addr( u8 *addr )
++static inline int is_valid_ether_addr( const u8 *addr )
+ {
+ 	const char zaddr[6] = {0,};
+ 
