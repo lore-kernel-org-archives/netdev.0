@@ -1,56 +1,47 @@
-From: Stephan von Krawczynski <skraw@ithnet.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Tue, 19 Aug 2003 19:12:46 +0200
+Date: Tue, 19 Aug 2003 10:07:12 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030819191246.027061dd.skraw@ithnet.com>
-References: <353568DCBAE06148B70767C1B1A93E625EAB58@post.pc.aspectgroup.co.uk>
-	<20030819145403.GA3407@alpha.home.local>
-	<20030819170751.2b92ba2e.skraw@ithnet.com>
-	<20030819085717.56046afd.davem@redhat.com>
-	<20030819185219.116fd259.skraw@ithnet.com>
-	<20030819095302.7213ddd5.davem@redhat.com>
+Message-ID: <20030819100712.2470d18d.davem@redhat.com>
+References: <353568DCBAE06148B70767C1B1A93E625EAB5B@post.pc.aspectgroup.co.uk>
+	<20030819095105.2cb9acc1.davem@redhat.com>
+	<20030819191010.43d83b79.skraw@ithnet.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: willy@w.ods.org, richard@aspectgroup.co.uk, alan@lxorguk.ukuu.org.uk,
+Cc: richard@aspectgroup.co.uk, willy@w.ods.org, alan@lxorguk.ukuu.org.uk,
    carlosev@newipnet.com, lamont@scriptkiddie.org, davidsen@tmr.com,
    bloemsaa@xs4all.nl, marcelo@conectiva.com.br, netdev@oss.sgi.com,
    linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
    linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030819095302.7213ddd5.davem@redhat.com>
+To: Stephan von Krawczynski <skraw@ithnet.com>
+In-Reply-To: <20030819191010.43d83b79.skraw@ithnet.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 19 Aug 2003 09:53:02 -0700
-"David S. Miller" <davem@redhat.com> wrote:
+On Tue, 19 Aug 2003 19:10:10 +0200
+Stephan von Krawczynski <skraw@ithnet.com> wrote:
 
-> On Tue, 19 Aug 2003 18:52:19 +0200
-> Stephan von Krawczynski <skraw@ithnet.com> wrote:
-> 
-> > On Tue, 19 Aug 2003 08:57:17 -0700
-> > "David S. Miller" <davem@redhat.com> wrote:
-> > 
-> > > "Be liberal in what you accept, and conservative in what you send"
-> > > -Jon Postel
-> > 
-> > If I understood what Richard said in this thread Jon just shot you
-> > down. The conservative way to _request_ arp would definitely be to
-> > request it from the "correct" subnet, because as a sender you ought
-> > to give credit to knowing that "bad" boxes out there won't answer if
-> > you do otherwise.
-> 
-> In the ARP request we are using the source address in the packet we
-> are building for output.
-> 
-> If ARP doesn't work using that source address, we can only assume IP
-> communication is not possible either.
-> 
-> It is the box not responding to this ARP which is preventing
-> communication not the box creating the ARP request.
+> Well, then you have a problem, at least with RFC-985 as quoted in my other
+> email.
 
-Please read my example from other email. Very simple to prove you wrong here.
+RFC-985 does not take into consideration a system model where IP
+addresses are owned by the host not specific interfaces which is a
+valid system model that the RFC standards allow.
 
-Regards,
-Stephan
+> <quote RFC-985>
+> An ARP request is discarded if the source IP address is not in the same subnet.
+> </quote>
+
+This RFC is broken in an environment consistent of systems using
+the host address ownership model.
+
+It also doesn't consider cases where the host receiving the
+ARP request is not aware of all subnets present on a LAN.
+
+Ignoring such ARPs is therefore broken and prevents valid
+communications from occuring.
+
+Some systems implement this check to provide "pseudo security",
+but it isn't even that.
