@@ -1,8 +1,8 @@
 From: David Dillow <dave@thedillows.org>
-Subject: [RFC BK 21/22] xfrm offload v2: typhoon: add callbacks to support crypto offload
-Date: Mon, 10 Jan 2005 10:37:03 -0500
-Message-ID: <20040110014300.30@ori.thedillows.org>
-References: <20040110014300.29@ori.thedillows.org>
+Subject: [RFC BK 10/22] xfrm offload v2: Add offloading of outbound AH & ESP packets
+Date: Mon, 10 Jan 2005 10:37:01 -0500
+Message-ID: <20040110014300.19@ori.thedillows.org>
+References: <20040110014300.18@ori.thedillows.org>
 Cc: dave@thedillows.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
@@ -13,101 +13,162 @@ List-Id: netdev.vger.kernel.org
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2005/01/10 01:08:03-05:00 dave@thedillows.org 
-#   Export the xfrm offload callbacks, and let the world know we
-#   support IPSEC offload.
-#   
-#   While we're at it, allow this to controlled by ethtool.
+#   2005/01/10 00:50:28-05:00 dave@thedillows.org 
+#   Add crypto processing for outbound AH and ESP xfrms (IPv4).
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-# drivers/net/typhoon.c
-#   2005/01/10 01:07:47-05:00 dave@thedillows.org +23 -4
-#   Export the xfrm offload callbacks, and let the world know we
-#   support IPSEC offload.
-#   
-#   While we're at it, allow this to controlled by ethtool.
+# net/ipv4/esp4.c
+#   2005/01/10 00:50:12-05:00 dave@thedillows.org +35 -21
+#   Add crypto offload for outbound ESP (IPv4) xfrms. Note that we always
+#   generate a random IV, as we are not guaranteed to have any state in
+#   the software crypto engine (we may have always been offloaded), and
+#   we cannot rely on secure IV generation by the NIC driver/hw.
 #   
 #   Signed-off-by: David Dillow <dave@thedillows.org>
 # 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2005-01-10 01:16:31 -05:00
-+++ b/drivers/net/typhoon.c	2005-01-10 01:16:31 -05:00
-@@ -33,9 +33,12 @@
- 	*) Waiting for a command response takes 8ms due to non-preemptable
- 		polling. Only significant for getting stats and creating
- 		SAs, but an ugly wart never the less.
-+	*) Inbound IPSEC packets of the form outer ESP transport, inner
-+		ESP tunnel seems to fail the hash on the inner ESP
-+	*) Inbound IPSEC packets of the form outer AH transport, inner
-+		AH tunnel seems to fail the hash on the outer AH
+# net/ipv4/ah4.c
+#   2005/01/10 00:50:12-05:00 dave@thedillows.org +31 -21
+#   Add crypto offload for outbound AH (IPv4) xfrms. Note that the NIC
+#   driver/hw is responsible for zeroing the mutable IP header fields.
+#   
+#   Signed-off-by: David Dillow <dave@thedillows.org>
+# 
+diff -Nru a/net/ipv4/ah4.c b/net/ipv4/ah4.c
+--- a/net/ipv4/ah4.c	2005-01-10 01:18:48 -05:00
++++ b/net/ipv4/ah4.c	2005-01-10 01:18:48 -05:00
+@@ -83,31 +83,41 @@
+ 	ah->spi = x->id.spi;
+ 	ah->seq_no = htonl(x->replay.oseq + 1);
  
- 	TODO:
--	*) Doesn't do IPSEC offloading. Yet. Keep yer pants on, it's coming.
- 	*) Add more support for ethtool (especially for NIC stats)
- 	*) Allow disabling of RX checksum offloading
- 	*) Fix MAC changing to work while the interface is up
-@@ -100,8 +103,8 @@
- #define PKT_BUF_SZ		1536
- 
- #define DRV_MODULE_NAME		"typhoon"
--#define DRV_MODULE_VERSION 	"1.5.7"
--#define DRV_MODULE_RELDATE	"05/01/07"
-+#define DRV_MODULE_VERSION 	"1.5.7-ipsec"
-+#define DRV_MODULE_RELDATE	"05/01/10"
- #define PFX			DRV_MODULE_NAME ": "
- #define ERR_PFX			KERN_ERR PFX
- 
-@@ -1411,6 +1414,8 @@
- 	.get_tso		= ethtool_op_get_tso,
- 	.set_tso		= ethtool_op_set_tso,
- 	.get_ringparam		= typhoon_get_ringparam,
-+	.get_ipsec		= ethtool_op_get_ipsec,
-+	.set_ipsec		= ethtool_op_set_ipsec,
- };
- 
- static int
-@@ -2258,6 +2263,9 @@
- 	tp->card_state = Running;
- 	smp_wmb();
- 
-+	if(dev->features & NETIF_F_IPSEC)
-+		xfrm_accel_add(dev);
+-	iph->tos = top_iph->tos;
+-	iph->ttl = top_iph->ttl;
+-	iph->frag_off = top_iph->frag_off;
+-
+-	if (top_iph->ihl != 5) {
+-		iph->daddr = top_iph->daddr;
+-		memcpy(iph+1, top_iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
+-		err = ip_clear_mutable_options(top_iph, &top_iph->daddr);
+-		if (err)
++	if (dst->xfrm_offload) {
++		err = -ENOMEM;
++		xfrm_offload_hold(dst->xfrm_offload);
++		if (skb_push_xfrm_offload(skb, dst->xfrm_offload)) {
++			xfrm_offload_release(dst->xfrm_offload);
+ 			goto error;
+-	}
++		}
++	} else {
++		/* Not offloaded, manually calculate the auth hash */
++		iph->tos = top_iph->tos;
++		iph->ttl = top_iph->ttl;
++		iph->frag_off = top_iph->frag_off;
 +
- 	iowrite32(TYPHOON_INTR_ENABLE_ALL, ioaddr + TYPHOON_REG_INTR_ENABLE);
- 	iowrite32(TYPHOON_INTR_NONE, ioaddr + TYPHOON_REG_INTR_MASK);
- 	typhoon_post_pci_writes(ioaddr);
-@@ -2332,6 +2340,14 @@
- 		typhoon_clean_tx(tp, &tp->txLoRing, &indexes->txLoCleared);
++		if (top_iph->ihl != 5) {
++			iph->daddr = top_iph->daddr;
++			memcpy(iph+1, top_iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
++			err = ip_clear_mutable_options(top_iph, &top_iph->daddr);
++			if (err)
++				goto error;
++		}
+ 
+-	top_iph->tos = 0;
+-	top_iph->frag_off = 0;
+-	top_iph->ttl = 0;
+-	top_iph->check = 0;
++		top_iph->tos = 0;
++		top_iph->frag_off = 0;
++		top_iph->ttl = 0;
++		top_iph->check = 0;
+ 
+-	ahp->icv(ahp, skb, ah->auth_data);
++		ahp->icv(ahp, skb, ah->auth_data);
+ 
+-	top_iph->tos = iph->tos;
+-	top_iph->ttl = iph->ttl;
+-	top_iph->frag_off = iph->frag_off;
+-	if (top_iph->ihl != 5) {
+-		top_iph->daddr = iph->daddr;
+-		memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
++		top_iph->tos = iph->tos;
++		top_iph->ttl = iph->ttl;
++		top_iph->frag_off = iph->frag_off;
++		if (top_iph->ihl != 5) {
++			top_iph->daddr = iph->daddr;
++			memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
++		}
  	}
  
-+	if(tp->dev->features & NETIF_F_IPSEC)
-+		xfrm_accel_flush(tp->dev);
+ 	/* Delay incrementing the replay sequence until we know we're going
+diff -Nru a/net/ipv4/esp4.c b/net/ipv4/esp4.c
+--- a/net/ipv4/esp4.c	2005-01-10 01:18:48 -05:00
++++ b/net/ipv4/esp4.c	2005-01-10 01:18:48 -05:00
+@@ -98,33 +98,47 @@
+ 	esph->spi = x->id.spi;
+ 	esph->seq_no = htonl(++x->replay.oseq);
+ 
+-	if (esp->conf.ivlen)
+-		crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++	if (dst->xfrm_offload) {
++		xfrm_offload_hold(dst->xfrm_offload);
++		if (skb_push_xfrm_offload(skb, dst->xfrm_offload)) {
++			xfrm_offload_release(dst->xfrm_offload);
++			goto error;
++		}
 +
-+	/* tp->card_state != Running, so nothing will change this out
-+         * from under us.
-+         */
-+	tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
++		if (esp->conf.ivlen)
++			get_random_bytes(esph->enc_data, esp->conf.ivlen);
++	} else {
++		if (esp->conf.ivlen)
++			crypto_cipher_set_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
 +
- 	return 0;
- }
++		do {
++			struct scatterlist *sg = &esp->sgbuf[0];
  
-@@ -3215,6 +3231,9 @@
- 	dev->set_mac_address	= typhoon_set_mac_address;
- 	dev->vlan_rx_register	= typhoon_vlan_rx_register;
- 	dev->vlan_rx_kill_vid	= typhoon_vlan_rx_kill_vid;
-+	dev->xfrm_state_add	= typhoon_xfrm_state_add;
-+	dev->xfrm_state_del	= typhoon_xfrm_state_del;
-+	dev->xfrm_bundle_add	= typhoon_xfrm_bundle_add;
- 	SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
+-	do {
+-		struct scatterlist *sg = &esp->sgbuf[0];
++			if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
++				sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
++				if (!sg)
++					goto error;
++			}
++			skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
++			crypto_cipher_encrypt(tfm, sg, sg, clen);
++			if (unlikely(sg != &esp->sgbuf[0]))
++				kfree(sg);
++		} while (0);
  
- 	/* We can handle scatter gather, up to 16 entries, and
-@@ -3222,7 +3241,7 @@
- 	 */
- 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--	dev->features |= NETIF_F_TSO;
-+	dev->features |= NETIF_F_TSO | NETIF_F_IPSEC;
+-		if (unlikely(nfrags > ESP_NUM_FAST_SG)) {
+-			sg = kmalloc(sizeof(struct scatterlist)*nfrags, GFP_ATOMIC);
+-			if (!sg)
+-				goto error;
++		if (esp->conf.ivlen) {
++			memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++			crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
++		}
++
++		if (esp->auth.icv_full_len) {
++			esp->auth.icv(esp, skb, (u8*)esph-skb->data,
++		              	sizeof(struct ip_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
+ 		}
+-		skb_to_sgvec(skb, sg, esph->enc_data+esp->conf.ivlen-skb->data, clen);
+-		crypto_cipher_encrypt(tfm, sg, sg, clen);
+-		if (unlikely(sg != &esp->sgbuf[0]))
+-			kfree(sg);
+-	} while (0);
+-
+-	if (esp->conf.ivlen) {
+-		memcpy(esph->enc_data, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
+-		crypto_cipher_get_iv(tfm, esp->conf.ivec, crypto_tfm_alg_ivsize(tfm));
+ 	}
  
- 	if(register_netdev(dev) < 0)
- 		goto error_out_reset;
+-	if (esp->auth.icv_full_len) {
+-		esp->auth.icv(esp, skb, (u8*)esph-skb->data,
+-		              sizeof(struct ip_esp_hdr) + esp->conf.ivlen+clen, trailer->tail);
++	/* Need to account for auth data, offloading or not... */
++	if (esp->auth.icv_full_len)
+ 		pskb_put(skb, trailer, alen);
+-	}
+ 
+ 	ip_send_check(top_iph);
+ 
