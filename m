@@ -1,39 +1,36 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: PPP-over-L2TP kernel support, new patch for review
-Date: 21 Sep 2004 23:03:42 -0400
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.6.8.1 IPv6 Routing Problem
+Date: Wed, 22 Sep 2004 12:06:30 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095822222.1046.16.camel@jzny.localdomain>
-References: <20040921210427.GB19575@kvack.org>
-	 <E1C9tj0-0003KE-00@gondolin.me.apana.org.au>
-	 <20040922011421.GE19575@kvack.org>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040922.120630.96674716.yoshfuji@linux-ipv6.org>
+References: <Pine.LNX.4.44.0409200806460.22679-100000@netcore.fi>
+	<20040920.152012.114156249.yoshfuji@linux-ipv6.org>
+	<20040921195752.015e3d1d.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, jchapman@katalix.com,
-        davem@davemloft.net, netdev@oss.sgi.com, kleptog@svana.org,
-        mostrows@styx.uwaterloo.ca
+Cc: pekkas@netcore.fi, laforge@gnumonks.org, netdev@oss.sgi.com,
+        usagi-users@linux-ipv6.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Benjamin LaHaise <bcrl@kvack.org>
-In-Reply-To: <20040922011421.GE19575@kvack.org>
+To: davem@davemloft.net
+In-Reply-To: <20040921195752.015e3d1d.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-21 at 21:14, Benjamin LaHaise wrote:
-> On Wed, Sep 22, 2004 at 09:07:06AM +1000, Herbert Xu wrote:
+In article <20040921195752.015e3d1d.davem@davemloft.net> (at Tue, 21 Sep 2004 19:57:52 -0700), "David S. Miller" <davem@davemloft.net> says:
 
-> CPU load.  
-> The main reason I was forced to revisit L2TP (imo, it's a 
-> horrible protocol that suffers from too many bad decisions) was in its 
-> role for terminating DSL.  In this case one expects to be able to have 
-> tens of thousands of connections terminated by a single box, which 
-> means pushing hundreds of megabits of traffic.  The overhead of crypto 
-> operations in such a scenario makes it a far too costly choice.
+> On Mon, 20 Sep 2004 15:20:12 +0900 (JST)
+> YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+> 
+> > This behavior lives for years (AFAIK),
+> > and we haven't got so many reports 
+> > because people usually bring loopback device first.
+> > 
+> > I think the following message will help people, anyway.
+> 
+> If ipv6 has a dependency upon this, why doesn't it just
+> bring the device up itself at this moment if necessary?
 
-Bad excuse ;->
-So use a crypto chip or do less connections and scale by distributing
-etc. I have a feeling tehres nothing inherent in your code that stops
-you from intergrating into ipsec.
+Okay, I'll make a patch for this.
 
-cheers,
-jamal
+--yoshfuji
