@@ -1,47 +1,36 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: 06 Dec 2004 21:22:55 -0500
-Message-ID: <1102386174.1093.21.camel@jzny.localdomain>
-References: <E1CbTv3-000732-00@gondolin.me.apana.org.au>
+Subject: Re: [PATCH] rtnetlink & address family problem
+Date: 06 Dec 2004 21:27:41 -0500
+Message-ID: <1102386461.1093.26.camel@jzny.localdomain>
+References: <41B0A5B4.6060108@suse.cz> <20041206140214.GA749@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Hasso Tepper <hasso@estpak.ee>, paul@clubi.ie, thomas.spatzier@de.ibm.com,
-        jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: Michal Ludvig <mludvig@suse.cz>, Andrew Morton <akpm@osdl.org>,
+        Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com,
+        Jan Kara <jack@suse.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <E1CbTv3-000732-00@gondolin.me.apana.org.au>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041206140214.GA749@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Mon, 2004-12-06 at 09:02, Thomas Graf wrote:
 
-On Mon, 2004-12-06 at 20:13, Herbert Xu wrote:
-> Hasso Tepper <hasso@estpak.ee> wrote:
-> > 
-> > Seems that it's no longer true. Seems that kernel is now trying as hard as 
-> > possible not to loose any data - data is queued and if the queue will be 
-> > full, all related sockets will be blocked to notify application. So, one 
-> > socket approach don't work any more for Quagga/Zebra. No problem, we can 
-> > take the "one socket per interface" approach. And we already have link 
-> > detection implemented to notify daemons.
-> 
-> I don't see why this should be happening.  Can you please provide a
-> minimal program that reproduces this blocking problem? For example,
-> something that sends a packet to a downed interface and then sends
-> one to an interface that's up?
+> Your patch would fix this issue but might break various things. The
+> actual problem is that iproute2 doesn't check the family in its filter.
+> It blindly assumes that the kernel only returns addresses of the kind it
+> has requested. I can understand if you think the current behaviour
+> is wrong but we shouldn't change it in the middle of a stable tree.
 
-This may be something to do with socket level changes maybe?
-Does this happen with sockets that are not raw?
+Why would it be wrong? The PF_UNSPEC is there for a purpose.
 
-Having said that: I think getting rid of obsolete messages is important.
-One of the suggested schemes of operation sounds to be the least brutal.
+If user space decides it wants to flush ipv4 addresses blindly that user
+spaces fault. The patch you attached seems legit. did you verify it?
 
-Jgarzik, I thought about it a little and it seems to me that allowing
-the device driver to drop packets on txmit when netcarrier is off is not
-that bad. This is almost like pretending packets were dropped on the
-wire. Thoughts?
+BTW, Stephen - are you still updating iproute2? 
 
 cheers,
-jamal 
+jamal
