@@ -1,26 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: TCP congestion control article
-Date: Fri, 25 Jun 2004 09:11:58 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040625091158.2e84ed3a.davem@redhat.com>
-References: <20040625123953.1d42b556.buffer@antifork.org>
+Subject: Re: [NAT-T] NON-IKE encapsulation
+Date: Fri, 25 Jun 2004 10:12:31 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040625101231.6f6b2f12.davem@redhat.com>
+References: <20040624123603.GA1241@gondor.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: "Angelo Dell'Aera" <buffer@antifork.org>
-In-Reply-To: <20040625123953.1d42b556.buffer@antifork.org>
+Cc: agruen@suse.de, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20040624123603.GA1241@gondor.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 25 Jun 2004 12:39:53 +0200
-"Angelo Dell'Aera" <buffer@antifork.org> wrote:
+On Thu, 24 Jun 2004 22:36:03 +1000
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> I just want to point out to you a really interesting article published
-> by  two  members   of  my  research  group.  The   paper  is  entitled
-> "Performance  Evaluation and  Comparison  of Westwood+,  New Reno  and
-> Vegas TCP  Congestion Control" and  it aims at evaluating  these three
-> algorithms in really different scenarios.
+> I'm having trouble understanding why we need to increase alen by
+> two bytes for NON-IKE.  As far as I can see it's adding two bytes
+> of random data to the end of the packet.  Is there something
+> obvious that I'm missing?
 
-Would be interesting to compare with BITCP which we have enabled
-by default now in current 2.6.x kernels.
+I now think it's trying to account for the udpdata32[] header area.
+But that's not 2 bytes, it's (2 * sizeof(u32)) or 8 bytes.
+
+The ESP added headers amount to esp->auth.icv_trunc_len + 8 in
+this case, so changing the "alen += 2;" into "alen += 8;" seems
+more appropriate.
+
+What do you think Herbert?  Does it make sense now?
