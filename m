@@ -1,99 +1,68 @@
-From: Ben Greear <greearb@candelatech.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: Linux router performance (3c59x) (fwd)
-Date: Mon, 17 Mar 2003 22:30:47 -0800
+Date: Tue, 18 Mar 2003 10:54:48 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E76BD17.7060208@candelatech.com>
-References: <Pine.LNX.4.51.0303172239390.30872@ns.istop.com> <3E76A508.30007@candelatech.com> <Pine.LNX.4.51.0303172356440.8302@ns.istop.com>
+Message-ID: <15990.60648.230534.852040@robur.slu.se>
+References: <Pine.LNX.4.51.0303172239390.30872@ns.istop.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: "netdev@oss.sgi.com" <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com, Robert.Olsson@data.slu.se
 Return-path: <netdev-bounce@oss.sgi.com>
 To: ralph+d@istop.com
-In-Reply-To: <Pine.LNX.4.51.0303172356440.8302@ns.istop.com>
+In-Reply-To: <Pine.LNX.4.51.0303172239390.30872@ns.istop.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ralph Doncaster wrote:
-> On Mon, 17 Mar 2003, Ben Greear wrote:
-> 
-> 
->>Ralph Doncaster wrote:
-> 
-> [...]
-> 
->>>Currently the box in question is running a 67% system load with ~40kpps.
->>>Here's the switch port stats that the 2 3c905cx cards are plugged into:
->>>
->>>  5 minute input rate 36143000 bits/sec, 8914 packets/sec
->>>  5 minute output rate 54338000 bits/sec, 10722 packets/sec
->>>-
->>>  5 minute input rate 50585000 bits/sec, 12445 packets/sec
->>>  5 minute output rate 34326000 bits/sec, 9596 packets/sec
->>
->>When using larger packets, NAPI doesn't have much effect.
-> 
-> 
-> So I should just give up on Linux and go with FreeBSD?
-> http://info.iet.unipi.it/~luigi/polling/
 
-It would be interesting to see a performance comparison.
+Ralph Doncaster writes:
+ > I haven't heard from Jamal or Dave, so perhaps someone from this list has
+ > some wisdom to impart.
+ > Currently the box in question is running a 67% system load with ~40kpps.
+ > Here's the switch port stats that the 2 3c905cx cards are plugged into:
 
+ Hello!
 
->>Have you tried routing with simple routing tables to see if that
->>speeds anything up?
->  
-> No, but I did read through a bunch of the route-cache code and even with
-> the dynamic hashtable size introduced in recent 2.4 revs, it looks very
-> ineficient for core routing.  I'd expect a speedup with a small routing
-> table, but then it would be useless as a core router in my network.
+ First we do a lot of testing with routing path but have no experience
+ with the hardware you have 3c59x or duron. 
 
-So, if making the routing table smaller 'fixes' things, then NAPI and your
-NIC is not the problem.
+ In general it seems hard to extrapolate performance X1 % CPU at X2 pps.
+ You don't see CPU used in IRQ context and not in some of softIRQ's.
 
->>Could also try an e100 or Tulip NIC.  Those usually work pretty
->>good...  Or, could use an e1000 GigE NIC...
-> 
-> 
-> If I can get confirmation that under similar conditions the e1000 performs
-> significantly better, then I'll go that route.
+ I think a better way for this tests is to input "overload" so your 
+ system gets saturated. You get the DoS test for free... After getting
+ the throughput you have figure out what's your bottleneck CPU, PCI etc.
 
-In my testing, I could get about 140kpps (64-byte packets) tx or
-rx on a single port.  Bi-directional I got about 90kpps.  This
-was a 1.8Ghz AMD processor with a tulip driver.
+ > This is a box doing straight routing (no firewalling), with a full bgp4
+ > routing table (>100k routes).  Kernel advanced router config option as
+ > well as fastroute was chosen.
 
-When using MTU sized packets, could fill 4 ports with tx+rx traffic
-at 90+Mbps.
+ The size of routing table itself has no effect... The challenge comes 
+ when there are a high number of new "flows" per second so garbage 
+ collection gets active. This can be seen with a program rtstat in the
+ iproute2 package.
+ 
+ Currently there is no driver with FASTROUTE support in the kernel so this 
+ will not do you any good now.
+ 
+ But Linux routing (and packet overload) performance is still very good.
 
-With e1000 on a 64/66 PCI bus, I could transmit around 860Mbps with 1500
-byte packets (tx + rx on the same machine, but different ports of
-a dual-port NIC), and could generate maybe 400kpps
-with small packets (I don't remember the exact number here...)
+ You can see performance numbers as well as profiles for different setups
+ 
+ http://robur.slu.se/Linux/net-development/experiments/router-profile.html
 
-This was using a slightly modified (and slower) pktgen module, which is standard in
-the latest kernels.
+ As seen packet memory allocation is one of the CPU consumers. And also
+ we see that slab is not not fully per CPU so we are spinning in case of
+ SMP.
 
-So, sending/receiving packets at extreme rates is possible.  Routing with 100k entries
-may not work nearly so well.
+ And as seen UP gives about 345 kpps. With skb recycling bump this up to
+ 507 kpps. The challenge for now is to get aggregated performance with SMP.
 
->>It's also possible that you are just reaching the limit of your
->>system.
-> 
-> 
-> The NAPI docs imply 144kpps is easily attainable on lesser hardware than
-> mine.  Also I can't see bandwidth being the issue as I'm moving
-> <25Mbytes/sec over the PCI bus.  I should be able to do more than double
-> that before I have to worry about PCI saturation.
-
-So, test w/smaller routing tables so you can see if it's routing or the NIC
-that is slowing you down.
-
-> 
-> -Ralph
-> 
+ Also remember that network and routing in particular is very much data
+ transport which is DMA transfers from and to memory and these has to 
+ interact with CPU/driver arbitrating for the bus to manage this DMA's.
+ Latencies and serializations are not obvious at this level.
 
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+ Cheers.
+						--ro
