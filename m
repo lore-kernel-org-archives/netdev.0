@@ -1,43 +1,54 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 2.4.26-bk1] netdevice.h add netif_msg_init helper
-Date: Fri, 16 Apr 2004 13:01:34 -0700 (PDT)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [2.6.5] Bad scheduling while atomic
+Date: Fri, 16 Apr 2004 13:16:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404162001.i3GK1Y806283@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040416131633.1bfbfa4c@dell_ss3.pdx.osdl.net>
+References: <200404161551.i3GFpD124970@tag.witbe.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: "Paul Rolland" <rol@witbe.net>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@pobox.com, netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <200404161551.i3GFpD124970@tag.witbe.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please apply the following patch to 2.4.26-bk1
+Bring up/down network devices with lapbether causes scheduling while
+atomic (if preempt enabled).
 
-This patch adds a helper function to initialize the debug bit mask
-for use with netif_msg_*.  When the debug_value is out of range
-it returns the default_msg_enable_bits.  Tested IA32.
+The calls to rcu_read_lock are unnecessary since lapb_device_event 
+is called from notifier with the rtnetlink semaphore held, it is
+already protected from the labp_devices list changing.
 
---- linux-2.4.26-bk1/include/linux/orig.netdevice.h	Fri Apr 16 11:09:23 2004
-+++ linux-2.4.26-bk1/include/linux/netdevice.h	Fri Apr 16 12:55:00 2004
-@@ -737,6 +737,17 @@
- #define netif_msg_hw(p)		((p)->msg_enable & NETIF_MSG_HW)
- #define netif_msg_wol(p)	((p)->msg_enable & NETIF_MSG_WOL)
+Patch against 2.6.6-rc1
+
+diff -Nru a/drivers/net/wan/lapbether.c b/drivers/net/wan/lapbether.c
+--- a/drivers/net/wan/lapbether.c	Fri Apr 16 11:00:35 2004
++++ b/drivers/net/wan/lapbether.c	Fri Apr 16 11:00:35 2004
+@@ -392,6 +392,8 @@
  
-+static inline u32 netif_msg_init(int debug_value, int default_msg_enable_bits)
-+{
-+	/* use default */
-+	if (debug_value < 0 || debug_value >= (sizeof(u32) * 8))
-+		return default_msg_enable_bits;
-+	if (debug_value == 0)	/* no output */
-+		return 0;
-+	/* set low N bits */
-+	return (1 << debug_value) - 1;
-+}
-+
- /* Schedule rx intr now? */
+ /*
+  *	Handle device status changes.
++ *
++ * Called from notifier with RTNL held.
+  */
+ static int lapbeth_device_event(struct notifier_block *this,
+ 				unsigned long event, void *ptr)
+@@ -402,7 +404,6 @@
+ 	if (!dev_is_ethdev(dev))
+ 		return NOTIFY_DONE;
  
- static inline int netif_rx_schedule_prep(struct net_device *dev)
-
--- 
-Don Fry
-brazilnut@us.ibm.com
+-	rcu_read_lock();
+ 	switch (event) {
+ 	case NETDEV_UP:
+ 		/* New ethernet device -> new LAPB interface	 */
+@@ -422,7 +423,6 @@
+ 			lapbeth_free_device(lapbeth);
+ 		break;
+ 	}
+-	rcu_read_unlock();
+ 
+ 	return NOTIFY_DONE;
+ }
