@@ -1,30 +1,38 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] Updated 8139too with NAPI
-Date: Wed, 12 Nov 2003 11:01:31 -0500
+From: Rask Ingemann Lambertsen <rask@sygehus.dk>
+Subject: Re: network interface cards native vlans support in linux kernel?
+Date: Wed, 12 Nov 2003 20:48:04 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FB2595B.8090506@pobox.com>
-References: <3F9070B6.9090306@pobox.com> <873cdqbt6z.fsf@devron.myhome.or.jp>	<20031020131106.6862e951.shemminger@osdl.org>	<877k2ysohc.fsf@devron.myhome.or.jp>	<20031028114707.1d234da6.shemminger@osdl.org>	<3FA01629.2080202@pobox.com> <873cdaabue.fsf@devron.myhome.or.jp>	<20031030104943.20b61af0.shemminger@osdl.org>	<87ekwu9tn4.fsf@devron.myhome.or.jp>	<20031111143143.794909e8.shemminger@osdl.org> <87d6bx4ms1.fsf@devron.myhome.or.jp>
+Message-ID: <20031112204804.B968@sygehus.dk>
+References: <Pine.LNX.4.44.0307091816280.1313-100000@hl.kauneta.net> <20030709152814.GC15293@gtf.org> <20031022140624.A9145@vip.cybercity.dk> <3F96B7FD.7080607@candelatech.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Stephen Hemminger <shemminger@osdl.org>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-In-Reply-To: <87d6bx4ms1.fsf@devron.myhome.or.jp>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <3F96B7FD.7080607@candelatech.com>; from greearb@candelatech.com on Wed, Oct 22, 2003 at 10:01:49AM -0700
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-OGAWA Hirofumi wrote:
->     netif_rx_complete(dev);
->     -- interrupted --
-> 	in rtl8139_interrupt(),
-> 		if (netif_rx_schedule_prep(dev)) {
-> 			RTL_W16_F (IntrMask, rtl8139_norx_intr_mask);
-> 			__netif_rx_schedule (dev);
-> 		}
->     -- resume --
->     /* enable interrupt, but rx-poll is already scheduling */
->     RTL_W16_F(IntrMask, rtl8139_intr_mask);
+On Wed, Oct 22, 2003 at 10:01:49AM -0700, Ben Greear wrote:
+> Rask Ingemann Lambertsen wrote:
+> > 
+> > What does a driver need to do to make sure it can handle vlan frames? Is it
+> > enought to be prepared to handle frames of size dev->mtu+4? How do I know 4
+> > bytes will be enough tomorrow when someone introduces VLAN2 with a 64-bit tag?
+> > Checking for CONFIG_VLAN is of no use, right?
+> 
+> It needs to be able to handle 1518 bytes (+crc), send and receive.  I'd
+> suggest using the Intel e100 or e1000, as they both support VLANs just fine.
+> Most other GigE nics work too.
 
+I was thinking about what to do as a driver *writer* rather than as a driver
+*user*.
 
-good point...
+#include <linux/if_vlan.h>
+
+and allocating buffers of (dev->mtu + VLAN_ETH_HLEN) bytes. Some chips, such
+as the Tulip series, need an extra 4 bytes for the CRC when receiving.
+
+-- 
+Regards,
+Rask Ingemann Lambertsen
