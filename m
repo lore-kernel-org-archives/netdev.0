@@ -1,67 +1,42 @@
-From: maks attems <janitor@sternwelten.at>
-Subject: [patch] compile fix 3c59x for eisa without pci
-Date: Fri, 10 Sep 2004 01:40:50 +0200
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IP6IP6] Handle ECN correctly
+Date: Fri, 10 Sep 2004 10:31:58 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040909234050.GK1927@stro.at>
+Message-ID: <20040910003158.GA25335@gondor.apana.org.au>
+References: <20040909034508.GA19547@gondor.apana.org.au> <20040908214023.08dec350.davem@davemloft.net> <20040909044336.GA19999@gondor.apana.org.au> <20040908214926.51b56a66.davem@davemloft.net> <20040909045415.GA20079@gondor.apana.org.au> <20040908220802.1c25b806.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
 Content-Disposition: inline
+In-Reply-To: <20040908220802.1c25b806.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-drivers/net/3c59x.c: In function `vortex_ioctl':
-drivers/net/3c59x.c:2916: warning: dereferencing `void *' pointer
-drivers/net/3c59x.c:2916: error: request for member `current_state' in something not a structure or union
-make[3]: *** [drivers/net/3c59x.o] Error 1
-make[2]: *** [drivers/net] Error 2
-make[1]: *** [drivers] Error 2
-make: *** [stamp-build] Error 2
+On Wed, Sep 08, 2004 at 10:08:02PM -0700, David S. Miller wrote:
+> 
+> > > I would expect a change for that to occur in net/ipv4/ipip.c
+> > > or similar. :)
+> > 
+> > OK, I'll take a look at this.  I presume that the TOS options
+> > in ip6tunnel.c is to your liking?
+> 
+> It looks fine.
 
-# CONFIG_PCI is not set
-CONFIG_EISA=y
+Hmm, perhaps I'm still confused.  But it seems that the ability to
+set the TOS to any value other than *1 is already there for ipip/ip_gre.
 
-compile fix below, quite an ugly addition of ifdefs.
-please tell me if better method exists.
+That feature is missing for SIT and IPsec though.
 
+We may also want to use the TOS value from parms to decide whether we want
+to encapsulate/decapsulate ECN.
 
---- kernel-source-2.6.8/drivers/net/3c59x.c	2004-08-14 07:36:10.000000000 +0200
-+++ b/drivers/net/3c59x.c	2004-09-10 01:29:14.000000000 +0200
-@@ -900,7 +900,9 @@ static void dump_tx_ring(struct net_devi
- static void update_stats(long ioaddr, struct net_device *dev);
- static struct net_device_stats *vortex_get_stats(struct net_device *dev);
- static void set_rx_mode(struct net_device *dev);
-+#ifdef CONFIG_PCI
- static int vortex_ioctl(struct net_device *dev, struct ifreq *rq, int cmd);
-+#endif
- static void vortex_tx_timeout(struct net_device *dev);
- static void acpi_set_WOL(struct net_device *dev);
- static struct ethtool_ops vortex_ethtool_ops;
-@@ -1468,7 +1470,9 @@ static int __devinit vortex_probe1(struc
- 
- 	dev->stop = vortex_close;
- 	dev->get_stats = vortex_get_stats;
-+#ifdef CONFIG_PCI
- 	dev->do_ioctl = vortex_ioctl;
-+#endif
- 	dev->ethtool_ops = &vortex_ethtool_ops;
- 	dev->set_multicast_list = set_rx_mode;
- 	dev->tx_timeout = vortex_tx_timeout;
-@@ -2868,6 +2872,7 @@ static struct ethtool_ops vortex_ethtool
- 	.get_drvinfo =		vortex_get_drvinfo,
- };
- 
-+#ifdef CONFIG_PCI
- static int vortex_do_ioctl(struct net_device *dev, struct ifreq *rq, int cmd)
- {
- 	struct vortex_private *vp = netdev_priv(dev);
-@@ -2925,6 +2930,7 @@ static int vortex_ioctl(struct net_devic
- 
- 	return err;
- }
-+#endif
- 
- 
- /* Pre-Cyclone chips have no documented multicast filter, so the only
+Is my understanding correct?
+
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
