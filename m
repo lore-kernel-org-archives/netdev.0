@@ -1,42 +1,30 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] (2/4) support large number of network devices -- name
- hash
-Date: Thu, 22 Jan 2004 11:10:54 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPV6: add missing sentinel for addrconf procfs
+Date: Wed, 21 Jan 2004 22:11:42 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040122.111054.106114998.yoshfuji@linux-ipv6.org>
-References: <20040116154814.7c7f31ac.shemminger@osdl.org>
-	<20040117.112244.90941296.yoshfuji@linux-ipv6.org>
-	<20040119112850.3b3575a7.shemminger@osdl.org>
+Message-ID: <20040121221142.1786ca19.davem@redhat.com>
+References: <20040120.094223.76534381.yoshfuji@linux-ipv6.org>
+	<20040120104820.77ff135f.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shemminger@osdl.org
-In-Reply-To: <20040119112850.3b3575a7.shemminger@osdl.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040120104820.77ff135f.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20040119112850.3b3575a7.shemminger@osdl.org> (at Mon, 19 Jan 2004 11:28:50 -0800), Stephen Hemminger <shemminger@osdl.org> says:
+On Tue, 20 Jan 2004 10:48:20 -0800
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Use strnlen, great idea, thanks.
+> On Tue, 20 Jan 2004 09:42:23 +0900 (JST)
+> YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org> wrote:
+> 
+> > Sorry, I forgot to increase the number of members in the array and 
+> > that the sentinel was removed.
+> > So, add missing sentinel explicitly.
+> 
+> How about adding all them explicitly to prevent future errors?
 
-> -	size_t len = min(strlen(name),(size_t)(IFNAMSIZ-1));
-> -	unsigned hash = full_name_hash(name, len);
-> +	unsigned hash = full_name_hash(name, 
-> +				       strnlen(name, IFNAMSIZ-1));
-
-I prefer IFNAMSIZ over IFNAMSIZ-1 here
-bacause maximum length of valid name is IFNAMSIZ-1.
-
-strnlen(3):
-       size_t strnlen(const char *s, size_t maxlen);
-:
-       The strnlen function returns strlen(s), if that is less than maxlen, or
-       maxlen  if there is no '\0' character among the first maxlen characters
-       pointed to by s.
-
-If strnlen(name,IFNAMSIZ) returns IFNAMSIZ, name is not terminated.
-while strnlen(name,IFNAMSIZ-1) does not tell whether it is terminated or not.
-
---yoshfuji
+Applied, thanks Stephen.
