@@ -1,32 +1,26 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: PROBLEM: udp not delivered on special socket receive buffer
- size
-Date: Wed, 10 Jul 2002 19:15:35 -0700 (PDT)
+From: Jason Lunz <lunz@falooley.org>
+Subject: Re: [ANNOUNCE] NAPI patches for 2.4.19-rc1
+Date: Thu, 11 Jul 2002 09:20:21 -0400
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <20020710.191535.28787427.davem@redhat.com>
-References: <200207100945.13002.welk@fokus.gmd.de>
+Message-ID: <20020711132021.GB12354@orr.falooley.org>
+References: <20020710223237.GA7995@orr.falooley.org> <3D2CBBA8.7080400@candelatech.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-   gober@fokus.gmd.de
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: welk@fokus.gmd.de
-In-Reply-To: <200207100945.13002.welk@fokus.gmd.de>
+To: Ben Greear <greearb@candelatech.com>
+Content-Disposition: inline
+In-Reply-To: <3D2CBBA8.7080400@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
-   From: Matthias Welk <welk@fokus.gmd.de>
-   Date: Wed, 10 Jul 2002 09:45:11 +0200
+On Wed, Jul 10, 2002 at  3:56PM -0700, Ben Greear wrote:
+> The tulip driver I saw on the napi web site was based off of the one
+> in kernel 2.4.2, which was back when tulip was broken for a lot of
+> cards (especially mine).
+> 
+> Is that where you got the basis for this last port?
 
-   So my question is:
-   
-   Is this a bug or are there any reasons for this magic 831 bytes
-   barrier ?
+I asked Robert Olssen about this a while back; he said that it was based
+on the driver in 2.5.3 "to make Jeff happy".
 
-Assuming anything about the meaning of the send/receive buffer sizes,
-as raw numbers, is going to cause no ends of problems for any
-application.
-
-Under Linux, the size of the socket buffer structure itself (not just
-the data) is subtracted from the socket buffer size when accounting.
-That is a perfectly legal thing to do.  So the Java code is broken.
+Jason
