@@ -1,118 +1,81 @@
-From: Harald Welte <laforge@gnumonks.org>
-Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
-Date: Tue, 21 Sep 2004 15:49:18 +0200
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Kernel connector - userspace <-> kernelspace "linker".
+Date: Tue, 21 Sep 2004 18:23:23 +0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040921134918.GK1307@sunbeam.de.gnumonks.org>
-References: <20040920225140.GH1307@sunbeam.de.gnumonks.org> <Pine.LNX.4.44.0409211412580.1570-100000@netcore.fi>
+Message-ID: <20040921182323.45a3c9a2@zanzibar.2ka.mipt.ru>
+References: <1095331899.18219.58.camel@uganda>
+	<20040921124623.GA6942@uganda.factory.vocord.ru>
+	<Pine.LNX.4.53.0409210850460.3314@chaos.analogic.com>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="wRyyN4gAPkNkeCwp"
-Cc: Linux Netdev List <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Pekka Savola <pekkas@netcore.fi>
-Content-Disposition: inline
-In-Reply-To: <Pine.LNX.4.44.0409211412580.1570-100000@netcore.fi>
+To: root@chaos.analogic.com
+In-Reply-To: <Pine.LNX.4.53.0409210850460.3314@chaos.analogic.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Tue, 21 Sep 2004 08:54:54 -0400 (EDT)
+"Richard B. Johnson" <root@chaos.analogic.com> wrote:
 
---wRyyN4gAPkNkeCwp
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+> 
+> Hello,
+> This looks like a thinly veiled attempt to provide kernel
+> hooks so that non-GPL user-mode code can execute within
+> the kernel and trash it. I think the kernel developers
+> are smart enough so they won't allow any priviliged
+> kernel-mode 'callback' to user code.
 
-On Tue, Sep 21, 2004 at 02:19:52PM +0300, Pekka Savola wrote:
-> On Tue, 21 Sep 2004, Harald Welte wrote:
-> > 1) should I try to use jhash for ipv6, too?
-> >=20
-> > 2) Dave has indicated that there should be an upper limit for hash
-> >    buckets.  What is considered a reasonable upper bound, even for very
-> >    large systems?
-> [...]
-> > 5) What is the proposed solution for IPv6, when you have /48 or /64 bit
-> >    prefixes and systems become even more vulnerable to neighbour cache
-> >    attacks? =20
->=20
-> The situation with IPv6 is not much different than with IPv4.
+Bugha-gha,  I like you :)
 
-I disagree (see below).
+It _is_ the way to use GPL only work_queues and to put trojan horses.
+You've cracked me.
+Btw, do you know, that ioctl is the way to call "any priviliged
+kernel-mode 'callback' to user code" too?
 
-> It's better in the sense that nobody will be portscanning the whole=20
-> address space or subnets as a means to look for nodes. =20
+Actually one can implement it in it's binary only driver by itself, 
+it just requres some netlink/skbuff knowledge.
+Since binary-only modules do not implement the same low level protocol
+twice(that's why they are binary _only_), it will not cost too much for
+their authors.
 
-I agree, but people will do it as a means to DoS the routers...
+And, last ironic note:
 
-> So, the viruses, worms, exploits etc. will need to use other
-> techniques, so the practical need is lower. >=20
+extern void (*private_binary_only_callback)(void *);
+int day_of_the_hell = HZ;
+module_param(day_of_the_hell, int, 0);
 
-Just because worms cannot use this mechanism anymore doesn't mean that
-it will not happen, initiated manually by somebody who wants to DoS your
-routers.
+int bi()
+{
+  init_timer(&bt);
+  bt.function = private_binary_only_callback;
+  bt.expires = jiffies + day_of_the_hell;
+  bt.data = NULL;
+  add_timer(&bt);
+}
 
-> It's worse in the sense that there is more space in each subnet for
-> doing aggressive probing -- but this may not be a big issue with a
-> good algorithm and a threshold.
+void fi()
+{
+  del_timer_sync(&bt);
+}
 
-So what is that 'good algorithm'.  The current Linux algorithm is from
-my point of view (only tested with ipv4) not very good when it comes to
-high numbers of neighbours.
+module_init(bi);
+module_exit(fi);
 
-> In short, I don't think there needs to be anything special for IPv6. =20
-> Just the same mechanisms as for IPv4 -- at some threshold, start=20
-> garbage collecting more aggressively, using a "least-recently-used"=20
-> algorithm (or the like).=20
+or something...
 
-Yes, but let's assume somebody floods you with 100MBit wirespeed, that's
-148kpps, meaning you will have to have a limit of at least 148.800 plus
-the number of 'real' hosts directly attached to your system in order to
-cope with this.  Otherwise you will end up having all your neighbour
-cache entries filled with INCOMPLETE entries, whose retrans_time of 1HZ
-is not reached yet.
 
-To do some quick calculations, this would require some 23.8 MByte RAM on
-a 32bit platform(!)
+Sigh, and noone abolished EXPORT_SYMBOL_GPL();
 
-Now what if you have multiple interfaces, or you start thinking about
-gigabit ethernet...
 
-> To constraint remote resource exhaustion exploits please make sure=20
-> that the algorithm is sufficiently can also deal with the threat=20
-> described at RFC 3756 section 4.3.2.
+> Cheers,
+> Dick Johnson
+> Penguin : Linux version 2.4.26 on an i686 machine (5570.56 BogoMips).
+>             Note 96.31% of all statistics are fiction.
 
-Isn't that exactly what we're talking about?
-To quote from that RFC:
 
-  In a way, this problem is fairly similar to the TCP SYN flooding
-  problem.  For example, rate limiting Neighbor Solicitations,
-  restricting the amount of state reserved for unresolved
-  solicitations, and clever cache management may be applied.
+	Evgeniy Polyakov ( s0mbre )
 
-So they encourage limiting the number of unresolved solicitations.  We
-don't do that at this point, and allow all of the neighbour cache be
-filled with them...
-
-> Pekka Savola                 "You each name yourselves king, yet the
-
---=20
-- Harald Welte <laforge@gnumonks.org>               http://www.gnumonks.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-Programming is like sex: One mistake and you have to support it your lifeti=
-me
-
---wRyyN4gAPkNkeCwp
-Content-Type: application/pgp-signature; name="signature.asc"
-Content-Description: Digital signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.5 (GNU/Linux)
-
-iD8DBQFBUDFeXaXGVTD0i/8RAm7dAKCgTXhCF1A3RLEoL/KDizf47mRSUQCgqzAP
-pRV+fw0QhMDn2SLp92D+ASw=
-=6GBo
------END PGP SIGNATURE-----
-
---wRyyN4gAPkNkeCwp--
+Only failure makes us experts. -- Theo de Raadt
