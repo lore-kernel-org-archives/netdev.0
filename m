@@ -1,36 +1,101 @@
-From: "Chad N. Tindel" <chad@tindel.net>
-Subject: Re: [bonding] compatibilty issues
-Date: Mon, 29 Sep 2003 20:23:31 -0400
+From: jamal <hadi@cyberus.ca>
+Subject: Re: Fw: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
+Date: 29 Sep 2003 22:17:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030930002331.GA4156@calma.pair.com>
-References: <20030929232534.GB93323@calma.pair.com> <3F78C262.30109@pobox.com>
+Message-ID: <1064888274.1025.12.camel@jzny.localdomain>
+References: <20030929123734.5bd97a47.akpm@osdl.org>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, dfages@arkoon.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
-In-Reply-To: <3F78C262.30109@pobox.com>
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20030929123734.5bd97a47.akpm@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Well, if that's David's sentiment, then I respectfully disagree with that.
 
-And in all actuality, I might have misunderstood it anyway.  ;-)
+Actually this is a known bug. Ive had a patch for a long time. Only
+problem is noone cares about CONFIG_NET_HW_FLOWCONTROL anymore.
+Summary, apply the patch for legacy reasons. The patch i had is slightly
+different; but this one looks sane too.
 
-> I'm realistic.  I'm not advocating that you support 2.2 through 2.8 
-> kernels in the same binary.  What I'm talking about is common sense -- 
-> you see 2.4 and 2.6 mixing in the field.  As I said, that's the common 
-> case for the near future.
+cheers,
+jamal
+
+On Mon, 2003-09-29 at 15:37, Andrew Morton wrote:
+> Begin forwarded message:
 > 
-> The common case should be supported.   :)
-
-Agreed.  Is there some point at which we can stop supporting 2.4 from the 2.6
-ifenslave?  I mean, its kind of nebulous to just say the "common case"...
-you gotta realize, most of us work in big companies like HP, IBM, Intel and
-concepts of support life have real meaning to us.
-
-This is a very interestng discussion.  Do you have any insights into what
-the other parts of the kernel are doing wrt to this problem?
-
-Chad
+> Date: Mon, 29 Sep 2003 14:08:54 +0200
+> From: dfages@arkoon.net
+> To: linux-kernel@vger.kernel.org
+> Subject: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
+> 
+> 
+> 
+> 
+> Hi,
+> by testing the CONFIG_NET_HW_FLOWCONTROL (NIC Hardware throttling) on
+> a SMP system, I found a bug in net/core/dev.c : the netdev_dropping
+> variable can be set to a negative value (the result is that a CPU can
+> be locked in "throttle" state).
+> This bug seems to exist in 2.4 and in 2.6 kernels.
+> 
+> Here's a typical scenario :
+> 
+> - Throttling --> (CPU 0)queue->throttle==1 && (CPU 1)queue->throttle==1
+>      && netdev_dropping == 2
+> - 1st packet Unthrottle ( in net_rx_action() ), received by CPU 0
+>      --> (CPU 0)queue->throttle==1 && (CPU 1)queue->throttle==1
+>      && netdev_dropping == 1
+> - 2nd packet Unthrottle ( in net_rx_action() ), received by CPU 0
+>      --> (CPU 0)queue->throttle==0 && (CPU 1)queue->throttle==1
+>      && netdev_dropping == 0
+> - 3nd packet Unthrottle ( in net_rx_action() ), received by CPU 1
+>      --> (CPU 0)queue->throttle==0 && (CPU 1)queue->throttle==0
+>      && netdev_dropping == -1
+> 
+> and so on...
+> 
+> The problem is that the (CPU)queue->throttle should be set to zero every
+> time the netdev_dropping variable is decremented.
+> 
+> 
+> Here's a patch for the 2.4.19 kernel (tested with success) :
+> 
+> --- linux-2.4.19/net/core/dev.c.orig     Mon Sep 29 12:49:14 2003
+> +++ linux-2.4.19/net/core/dev.c    Tue Sep 23 18:35:35 2003
+> @@ -1519,8 +1519,8 @@
+> 
+>  #ifdef CONFIG_NET_HW_FLOWCONTROL
+>      if (queue->throttle && queue->input_pkt_queue.qlen < no_cong_thresh ) {
+> +         queue->throttle = 0;
+>           if (atomic_dec_and_test(&netdev_dropping)) {
+> -              queue->throttle = 0;
+>                netdev_wakeup();
+>                goto softnet_break;
+>           }
+> 
+> 
+> 
+> 
+> I haven't done a patch for 2.4.22 (as we currently use 2.4.19) but the same
+> modification should be applied around lines 1572 to 1577 of net/core/dev.c
+> 
+> For 2.6.0-test5, the lines to modified are arount 1631 to 1637.
+> 
+> Regards,
+> ---
+> Daniel FAGES
+> ARKOON Network Security    http://www.arkoon.net
+> 
+> 
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+> 
+> 
+> 
