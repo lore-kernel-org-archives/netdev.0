@@ -1,33 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [APPLETALK]: Use '%Z' for size_t.
-Date: Thu, 19 Feb 2004 10:09:14 -0800
+Subject: Re: [PATCH] [NET 2.4] split arp_send into arp_create and arp_xmit
+Date: Thu, 19 Feb 2004 10:17:33 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040219100914.1a17e797.davem@redhat.com>
-References: <200402190209.i1J29KF2020707@hera.kernel.org>
-	<1077204436.18703.412.camel@hades.cambridge.redhat.com>
+Message-ID: <20040219101733.03140b8f.davem@redhat.com>
+References: <200402191211.07879.shmulik.hen@intel.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Woodhouse <dwmw2@infradead.org>
-In-Reply-To: <1077204436.18703.412.camel@hades.cambridge.redhat.com>
+To: Shmuel Hen <shmulik.hen@intel.com>
+In-Reply-To: <200402191211.07879.shmulik.hen@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 19 Feb 2004 15:27:17 +0000
-David Woodhouse <dwmw2@infradead.org> wrote:
+On Thu, 19 Feb 2004 12:11:05 +0200
+Shmuel Hen <shmulik.hen@intel.com> wrote:
 
-> On Wed, 2004-02-18 at 21:11 +0000, Linux Kernel Mailing List wrote:
-> > ChangeSet 1.1561.2.2, 2004/02/18 13:11:42-08:00, davem@nuts.davemloft.net
-> > 
-> > 	[APPLETALK]: Use '%Z' for size_t.
-> 
-> %Zd is an ancient GNUism. Please use %zd in new code instead.
+> Summary:
+> Enable intermediate network drivers like bonding to create an ARP 
+> packet and modify it to their needs before sending it, while avoiding 
+> code duplication. It does not affect any other place in the kernel 
+> that uses arp_send. 
 
-As long as lib/vsprintf.c in the kernel supports it, there is no reason not
-to use it.  They're never going to remove recognition of this thing from
-gcc printf's parsing.
-
-If it really bothers you, then go sick a kernel janitor onto it, because there
-are thousands of uses of %Z, I know because I put most of them into the tree :-)
+Applied.  Thanks for following up on this Shmuel.
