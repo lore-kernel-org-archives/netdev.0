@@ -1,51 +1,43 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: [PATCH 2.6.8.1] bonding: bonding might sleep with lock held
-Date: Tue, 17 Aug 2004 15:08:34 -0700
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: Re: [PATCH] SLAB_PANIC cleanup
+Date: Wed, 18 Aug 2004 01:24:05 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200408172208.i7HM8Yo7009451@death.nxdomain.ibm.com>
+Message-ID: <20040818042404.GB1007@conectiva.com.br>
+References: <Xine.LNX.4.44.0408170237020.7736-100000@dhcp83-76.boston.redhat.com> <20040817.155942.51047516.yoshfuji@linux-ipv6.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: jmorris@redhat.com, davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "YOSHIFUJI Hideaki / ?$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+Content-Disposition: inline
+In-Reply-To: <20040817.155942.51047516.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Em Tue, Aug 17, 2004 at 03:59:42PM +0900, YOSHIFUJI Hideaki / ?$B5HF#1QL@ escreveu:
+> In article <Xine.LNX.4.44.0408170237020.7736-100000@dhcp83-76.boston.redhat.com> (at Tue, 17 Aug 2004 02:43:38 -0400 (EDT)), James Morris <jmorris@redhat.com> says:
+> 
+> It generally seems okay. Just a few things for readability.
+> 
+> > diff -urN -X dontdiff linux-2.6.8.1-mm1.o/net/core/neighbour.c linux-2.6.8.1-mm1.w/net/core/neighbour.c
+> > --- linux-2.6.8.1-mm1.o/net/core/neighbour.c	2004-06-16 01:18:56.000000000 -0400
+> > +++ linux-2.6.8.1-mm1.w/net/core/neighbour.c	2004-08-17 02:57:22.888296160 -0400
+> > @@ -1165,12 +1165,9 @@
+> >  	if (!tbl->kmem_cachep)
+> >  		tbl->kmem_cachep = kmem_cache_create(tbl->id,
+> >  						     tbl->entry_size,
+> > -						     0, SLAB_HWCACHE_ALIGN,
+> > +						     0, SLAB_HWCACHE_ALIGN|
+> > +						     SLAB_PANIC,
+> 
+> I rather prefer
+> 						     tbl->entry_size, 0,
+> 						     SLAB_HWCACHE_ALIGN|SLAB_PANIC,
 
-	I posted a patch for this a while back, Andi Kleen suggested an
-alternate patch, which never made it into the mainline; here it is.
+I rather prefer:
 
-	To summarize the problem: In 802.3ad mode, the bond_close()
-function will eventually call dev_remove_pack() with a lock held.  In
-turn, dev_remove_pack() calls synchronize_net() which eventually might
-sleep in wait_for_completion().
+                                                     SLAB_HWCACHE_ALIGN | SLAB_PANIC,
 
-	Patch generated against 2.6.7, but applied ok to 2.6.8.1.
+Regards,
 
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
-
-Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
-
-diff -urN linux-2.6.7-virgin/drivers/net/bonding/bond_main.c linux-2.6.7/drivers/net/bonding/bond_main.c
---- linux-2.6.7-virgin/drivers/net/bonding/bond_main.c	2004-08-17 14:56:04.411984128 -0700
-+++ linux-2.6.7/drivers/net/bonding/bond_main.c	2004-08-17 14:57:08.441968256 -0700
-@@ -3566,15 +3566,15 @@
- {
- 	struct bonding *bond = bond_dev->priv;
- 
--	write_lock_bh(&bond->lock);
--
--	bond_mc_list_destroy(bond);
--
- 	if (bond->params.mode == BOND_MODE_8023AD) {
- 		/* Unregister the receive of LACPDUs */
- 		bond_unregister_lacpdu(bond);
- 	}
- 
-+	write_lock_bh(&bond->lock);
-+
-+	bond_mc_list_destroy(bond);
-+
- 	/* signal timers not to re-arm */
- 	bond->kill_timers = 1;
- 
+- Arnaldo
