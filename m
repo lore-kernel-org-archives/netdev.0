@@ -1,397 +1,82 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.4]: keep fragment queues private to each user
-Date: Thu, 27 Jan 2005 03:44:15 +0100
-Message-ID: <41F8557F.90305@trash.net>
-References: <41F5D1CB.9050804@trash.net> <20050125214158.4be3798c.davem@davemloft.net> <41F82830.9010009@trash.net>
+From: David Coulson <david@davidcoulson.net>
+Subject: EIP is at find_busiest_group+0xc9/0x310 (2.6.11-rc1-bk8)
+Date: Wed, 26 Jan 2005 22:01:33 -0500
+Message-ID: <41F8598D.4070400@davidcoulson.net>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------040607000208010700090105"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <41F82830.9010009@trash.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------040607000208010700090105
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Same kernel I've been working with for the last week, with Herbert's 
+checksum patch (Thanks for that, BTW :). Not sure if this is a network 
+issue, since the problem is in apic.c, but since it was all network 
+functions prior, I figured something kicked it off. I found an apparent 
+patch for find_busiest_group, but it didn't make it into the mainline in 
+six months, so I assume it's either wrong, broke, or the implementation 
+is whacked.
 
-2.4 backport of the ip_defrag fix.
+stack segment: 0000 [#1]
+SMP
+CPU:    0
+EIP:    0060:[<c01162b9>]    Not tainted VLI
+EFLAGS: 00010246   (2.6.11-rc1-bk8)
+EIP is at find_busiest_group+0xc9/0x310
+eax: c8000980   ebx: c8000980   ecx: ded227ff   edx: c89c3680
+esi: dd89d000   edi: c0314b40   ebp: 00000002   esp: c04bddbc
+ds: 007b   es: 007b   ss: 0068
+Process swapper (pid: 0, threadinfo=c04bc000 task=c0408b60)
+Stack: c0314b69 c8000980 c038800a ded22800 c047e5e0 c04bde20 c0542650 
+80000000
+        c02f0512 dd89d000 c0314b40 00000002 c04bde1c c79e4810 00000002 
+00000002
+        c0314b40 c02f0818 ded22800 dd89d000 c04bde20 c0314b40 80000000 
+00000000
+Call Trace:
+  [<c0314b69>] ip_forward_finish+0x29/0x50
+  [<c038800a>] ip_sabotage_out+0x10a/0x180
+  [<c02f0512>] nf_iterate+0x72/0xb0
+  [<c0314b40>] ip_forward_finish+0x0/0x50
+  [<c0314b40>] ip_forward_finish+0x0/0x50
+  [<c02f0818>] nf_hook_slow+0x68/0xf0
+  [<c0314b40>] ip_forward_finish+0x0/0x50
+  [<c0314a7c>] ip_forward+0x1bc/0x280
+  [<c0314b40>] ip_forward_finish+0x0/0x50
+  [<c03138e8>] ip_rcv_finish+0x1f8/0x270
+  [<c0386d10>] br_nf_pre_routing_finish+0x0/0x290
+  [<c03874cb>] br_nf_pre_routing+0x24b/0x3f0
+  [<c0386d10>] br_nf_pre_routing_finish+0x0/0x290
+  [<c0387eec>] ip_sabotage_in+0x1c/0x30
+  [<c02f0512>] nf_iterate+0x72/0xb0
+  [<c03136f0>] ip_rcv_finish+0x0/0x270
+  [<c03136f0>] ip_rcv_finish+0x0/0x270
+  [<c02f0818>] nf_hook_slow+0x68/0xf0
+  [<c03136f0>] ip_rcv_finish+0x0/0x270
+  [<c031345c>] ip_rcv+0x3ec/0x4b0
+  [<c03136f0>] ip_rcv_finish+0x0/0x270
+  [<c03833d0>] br_handle_frame_finish+0x0/0xf0
+  [<c02e70ed>] netif_receive_skb+0x20d/0x2b0
+  [<c02e7216>] process_backlog+0x86/0x120
+  [<c02e732f>] net_rx_action+0x7f/0x110
+  [<c011f986>] __do_softirq+0xb6/0xd0
+  [<c011f9cd>] do_softirq+0x2d/0x30
+  [<c010515e>] do_IRQ+0x1e/0x30
+  [<c0103912>] common_interrupt+0x1a/0x20
+  [<c0101053>] default_idle+0x23/0x30
+  [<c01010ff>] cpu_idle+0x5f/0x70
+  [<c04be88f>] start_kernel+0x13f/0x160
+  [<c04be330>] unknown_bootoption+0x0/0x1c0
+Code: 26 00 8b 45 c4 85 c0 0f 84 35 02 00 00 8b 3c 8d 20 30 51 c0 b8 c0 
+e0 50 c0
+  01 f8 8b 50 04 8b 40 08 c1 e2 07 39 c2 0f 43 c2 ff 45 <c8> 41 01 c6 ba 
+08 00 00
+  00 89 d8 e8 27 51 0e 00 83 f8 09 ba 08
+  <0>Kernel panic - not syncing: Fatal exception in interrupt
 
 
 
---------------040607000208010700090105
-Content-Type: text/plain;
- name="x"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="x"
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2005/01/27 03:42:30+01:00 kaber@coreworks.de 
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/netsyms.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +0 -1
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/netfilter/ip_nat_standalone.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +1 -1
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/netfilter/ip_conntrack_standalone.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +0 -7
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/netfilter/ip_conntrack_core.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +6 -10
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/ipvs/ip_vs_core.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +3 -3
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/ip_input.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +2 -2
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# net/ipv4/ip_fragment.c
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +13 -19
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# include/net/ip.h
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +13 -3
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-# include/linux/netfilter_ipv4/ip_conntrack.h
-#   2005/01/27 03:42:28+01:00 kaber@coreworks.de +1 -2
-#   [IPV4]: Keep fragment queues private to each user
-#   
-#   Signed-off-by: Patrick McHardy <kaber@trash.net>
-# 
-diff -Nru a/include/linux/netfilter_ipv4/ip_conntrack.h b/include/linux/netfilter_ipv4/ip_conntrack.h
---- a/include/linux/netfilter_ipv4/ip_conntrack.h	2005-01-27 03:42:45 +01:00
-+++ b/include/linux/netfilter_ipv4/ip_conntrack.h	2005-01-27 03:42:45 +01:00
-@@ -249,10 +249,9 @@
- /* Call me when a conntrack is destroyed. */
- extern void (*ip_conntrack_destroyed)(struct ip_conntrack *conntrack);
- 
--extern int ip_ct_no_defrag;
- /* Returns new sk_buff, or NULL */
- struct sk_buff *
--ip_ct_gather_frags(struct sk_buff *skb);
-+ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user);
- 
- /* Delete all conntracks which match. */
- extern void
-diff -Nru a/include/net/ip.h b/include/net/ip.h
---- a/include/net/ip.h	2005-01-27 03:42:45 +01:00
-+++ b/include/net/ip.h	2005-01-27 03:42:45 +01:00
-@@ -227,9 +227,19 @@
- /*
-  *	Functions provided by ip_fragment.o
-  */
-- 
--struct sk_buff *ip_defrag(struct sk_buff *skb);
--extern void ipfrag_flush(void);
-+
-+enum ip_defrag_users
-+{
-+	IP_DEFRAG_LOCAL_DELIVER,
-+	IP_DEFRAG_CALL_RA_CHAIN,
-+	IP_DEFRAG_CONNTRACK_IN,
-+	IP_DEFRAG_CONNTRACK_OUT,
-+	IP_DEFRAG_NAT_OUT,
-+	IP_DEFRAG_VS_OUT,
-+	IP_DEFRAG_VS_FWD
-+};
-+
-+struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user);
- extern int ip_frag_nqueues;
- extern atomic_t ip_frag_mem;
- 
-diff -Nru a/net/ipv4/ip_fragment.c b/net/ipv4/ip_fragment.c
---- a/net/ipv4/ip_fragment.c	2005-01-27 03:42:45 +01:00
-+++ b/net/ipv4/ip_fragment.c	2005-01-27 03:42:45 +01:00
-@@ -72,6 +72,7 @@
- struct ipq {
- 	struct ipq	*next;		/* linked list pointers			*/
- 	struct list_head lru_list;	/* lru list member 			*/
-+	u32		user;
- 	u32		saddr;
- 	u32		daddr;
- 	u16		id;
-@@ -242,13 +243,13 @@
- /* Memory limiting on fragments.  Evictor trashes the oldest 
-  * fragment queue until we are back under the threshold.
-  */
--static void __ip_evictor(int threshold)
-+static void ip_evictor(void)
- {
- 	struct ipq *qp;
- 	struct list_head *tmp;
- 	int work;
- 
--	work = atomic_read(&ip_frag_mem) - threshold;
-+	work = atomic_read(&ip_frag_mem) - sysctl_ipfrag_low_thresh;
- 	if (work <= 0)
- 		return;
- 
-@@ -273,11 +274,6 @@
- 	}
- }
- 
--static inline void ip_evictor(void)
--{
--	__ip_evictor(sysctl_ipfrag_low_thresh);
--}
--
- /*
-  * Oops, a fragment queue timed out.  Kill it and send an ICMP reply.
-  */
-@@ -324,7 +320,8 @@
- 		if(qp->id == qp_in->id		&&
- 		   qp->saddr == qp_in->saddr	&&
- 		   qp->daddr == qp_in->daddr	&&
--		   qp->protocol == qp_in->protocol) {
-+		   qp->protocol == qp_in->protocol &&
-+		   qp->user == qp_in->user) {
- 			atomic_inc(&qp->refcnt);
- 			write_unlock(&ipfrag_lock);
- 			qp_in->last_in |= COMPLETE;
-@@ -351,7 +348,7 @@
- }
- 
- /* Add an entry to the 'ipq' queue for a newly received IP datagram. */
--static struct ipq *ip_frag_create(unsigned hash, struct iphdr *iph)
-+static struct ipq *ip_frag_create(unsigned hash, struct iphdr *iph, u32 user)
- {
- 	struct ipq *qp;
- 
-@@ -363,6 +360,7 @@
- 	qp->id = iph->id;
- 	qp->saddr = iph->saddr;
- 	qp->daddr = iph->daddr;
-+	qp->user = user;
- 	qp->len = 0;
- 	qp->meat = 0;
- 	qp->fragments = NULL;
-@@ -385,7 +383,7 @@
- /* Find the correct entry in the "incomplete datagrams" queue for
-  * this IP datagram, and create new one, if nothing is found.
-  */
--static inline struct ipq *ip_find(struct iphdr *iph)
-+static inline struct ipq *ip_find(struct iphdr *iph, u32 user)
- {
- 	__u16 id = iph->id;
- 	__u32 saddr = iph->saddr;
-@@ -399,7 +397,8 @@
- 		if(qp->id == id		&&
- 		   qp->saddr == saddr	&&
- 		   qp->daddr == daddr	&&
--		   qp->protocol == protocol) {
-+		   qp->protocol == protocol &&
-+		   qp->user == user) {
- 			atomic_inc(&qp->refcnt);
- 			read_unlock(&ipfrag_lock);
- 			return qp;
-@@ -407,7 +406,7 @@
- 	}
- 	read_unlock(&ipfrag_lock);
- 
--	return ip_frag_create(hash, iph);
-+	return ip_frag_create(hash, iph, user);
- }
- 
- /* Add new segment to existing queue. */
-@@ -641,7 +640,7 @@
- }
- 
- /* Process an incoming IP datagram fragment. */
--struct sk_buff *ip_defrag(struct sk_buff *skb)
-+struct sk_buff *ip_defrag(struct sk_buff *skb, u32 user)
- {
- 	struct iphdr *iph = skb->nh.iph;
- 	struct ipq *qp;
-@@ -656,7 +655,7 @@
- 	dev = skb->dev;
- 
- 	/* Lookup (or create) queue header */
--	if ((qp = ip_find(iph)) != NULL) {
-+	if ((qp = ip_find(iph, user)) != NULL) {
- 		struct sk_buff *ret = NULL;
- 
- 		spin_lock(&qp->lock);
-@@ -686,9 +685,4 @@
- 	ipfrag_secret_timer.function = ipfrag_secret_rebuild;
- 	ipfrag_secret_timer.expires = jiffies + sysctl_ipfrag_secret_interval;
- 	add_timer(&ipfrag_secret_timer);
--}
--
--void ipfrag_flush(void)
--{
--	__ip_evictor(0);
- }
-diff -Nru a/net/ipv4/ip_input.c b/net/ipv4/ip_input.c
---- a/net/ipv4/ip_input.c	2005-01-27 03:42:44 +01:00
-+++ b/net/ipv4/ip_input.c	2005-01-27 03:42:44 +01:00
-@@ -170,7 +170,7 @@
- 		    && ((sk->bound_dev_if == 0) 
- 			|| (sk->bound_dev_if == skb->dev->ifindex))) {
- 			if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
--				skb = ip_defrag(skb);
-+				skb = ip_defrag(skb, IP_DEFRAG_CALL_RA_CHAIN);
- 				if (skb == NULL) {
- 					read_unlock(&ip_ra_lock);
- 					return 1;
-@@ -291,7 +291,7 @@
- 	 */
- 
- 	if (skb->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
--		skb = ip_defrag(skb);
-+		skb = ip_defrag(skb, IP_DEFRAG_LOCAL_DELIVER);
- 		if (!skb)
- 			return 0;
- 	}
-diff -Nru a/net/ipv4/ipvs/ip_vs_core.c b/net/ipv4/ipvs/ip_vs_core.c
---- a/net/ipv4/ipvs/ip_vs_core.c	2005-01-27 03:42:44 +01:00
-+++ b/net/ipv4/ipvs/ip_vs_core.c	2005-01-27 03:42:44 +01:00
-@@ -506,7 +506,7 @@
- 
- 	/* reassemble IP fragments, but will it happen in ICMP packets?? */
- 	if (skb->nh.iph->frag_off & __constant_htons(IP_MF|IP_OFFSET)) {
--		skb = ip_defrag(skb);
-+		skb = ip_defrag(skb, IP_DEFRAG_VS_OUT);
- 		if (!skb)
- 			return NF_STOLEN;
- 		*skb_p = skb;
-@@ -658,7 +658,7 @@
- 
- 	/* reassemble IP fragments */
- 	if (iph->frag_off & __constant_htons(IP_MF|IP_OFFSET)) {
--		skb = ip_defrag(skb);
-+		skb = ip_defrag(skb, IP_DEFRAG_VS_OUT);
- 		if (!skb)
- 			return NF_STOLEN;
- 		iph = skb->nh.iph;
-@@ -1164,7 +1164,7 @@
- 		return NF_ACCEPT;
- 
- 	if (iph->frag_off & __constant_htons(IP_MF|IP_OFFSET)) {
--		skb = ip_defrag(skb);
-+		skb = ip_defrag(skb, IP_DEFRAG_VS_FWD);
- 		if (!skb)
- 			return NF_STOLEN;
- 		*skb_p = skb;
-diff -Nru a/net/ipv4/netfilter/ip_conntrack_core.c b/net/ipv4/netfilter/ip_conntrack_core.c
---- a/net/ipv4/netfilter/ip_conntrack_core.c	2005-01-27 03:42:44 +01:00
-+++ b/net/ipv4/netfilter/ip_conntrack_core.c	2005-01-27 03:42:44 +01:00
-@@ -834,7 +834,10 @@
- 
- 	/* Gather fragments. */
- 	if ((*pskb)->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
--		*pskb = ip_ct_gather_frags(*pskb);
-+		*pskb = ip_ct_gather_frags(*pskb,
-+		                           hooknum == NF_IP_PRE_ROUTING ?
-+		                           IP_DEFRAG_CONNTRACK_IN :
-+		                           IP_DEFRAG_CONNTRACK_OUT);
- 		if (!*pskb)
- 			return NF_STOLEN;
- 	}
-@@ -1183,29 +1186,22 @@
- 	WRITE_UNLOCK(&ip_conntrack_lock);
- }
- 
--int ip_ct_no_defrag;
--
- /* Returns new sk_buff, or NULL */
- struct sk_buff *
--ip_ct_gather_frags(struct sk_buff *skb)
-+ip_ct_gather_frags(struct sk_buff *skb, u_int32_t user)
- {
- 	struct sock *sk = skb->sk;
- #ifdef CONFIG_NETFILTER_DEBUG
- 	unsigned int olddebug = skb->nf_debug;
- #endif
- 
--	if (unlikely(ip_ct_no_defrag)) {
--		kfree_skb(skb);
--		return NULL;
--	}
--
- 	if (sk) {
- 		sock_hold(sk);
- 		skb_orphan(skb);
- 	}
- 
- 	local_bh_disable(); 
--	skb = ip_defrag(skb);
-+	skb = ip_defrag(skb, user);
- 	local_bh_enable();
- 
- 	if (!skb) {
-diff -Nru a/net/ipv4/netfilter/ip_conntrack_standalone.c b/net/ipv4/netfilter/ip_conntrack_standalone.c
---- a/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-01-27 03:42:45 +01:00
-+++ b/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-01-27 03:42:45 +01:00
-@@ -393,13 +393,6 @@
-  cleanup_inandlocalops:
- 	nf_unregister_hook(&ip_conntrack_local_out_ops);
-  cleanup_inops:
--	/* Frag queues may hold fragments with skb->dst == NULL */
--	ip_ct_no_defrag = 1;
--	local_bh_disable();
--	br_write_lock(BR_NETPROTO_LOCK);
--	br_write_unlock(BR_NETPROTO_LOCK);
--	ipfrag_flush();
--	local_bh_enable();
- 	nf_unregister_hook(&ip_conntrack_in_ops);
-  cleanup_proc:
- 	proc_net_remove("ip_conntrack");
-diff -Nru a/net/ipv4/netfilter/ip_nat_standalone.c b/net/ipv4/netfilter/ip_nat_standalone.c
---- a/net/ipv4/netfilter/ip_nat_standalone.c	2005-01-27 03:42:45 +01:00
-+++ b/net/ipv4/netfilter/ip_nat_standalone.c	2005-01-27 03:42:45 +01:00
-@@ -201,7 +201,7 @@
- 	   I'm starting to have nightmares about fragments.  */
- 
- 	if ((*pskb)->nh.iph->frag_off & htons(IP_MF|IP_OFFSET)) {
--		*pskb = ip_ct_gather_frags(*pskb);
-+		*pskb = ip_ct_gather_frags(*pskb, IP_DEFRAG_NAT_OUT);
- 
- 		if (!*pskb)
- 			return NF_STOLEN;
-diff -Nru a/net/netsyms.c b/net/netsyms.c
---- a/net/netsyms.c	2005-01-27 03:42:45 +01:00
-+++ b/net/netsyms.c	2005-01-27 03:42:45 +01:00
-@@ -287,7 +287,6 @@
- EXPORT_SYMBOL(inetdev_by_index);
- EXPORT_SYMBOL(in_dev_finish_destroy);
- EXPORT_SYMBOL(ip_defrag);
--EXPORT_SYMBOL(ipfrag_flush);
- 
- /* Route manipulation */
- EXPORT_SYMBOL(ip_rt_ioctl);
-
---------------040607000208010700090105--
+David
