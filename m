@@ -1,69 +1,69 @@
-From: Aidas Kasparas <a.kasparas@gmc.lt>
-Subject: Re: IPSEC: on behavior of acquire
-Date: Sat, 02 Apr 2005 10:10:05 +0300
-Message-ID: <424E454D.4090402@gmc.lt>
-References: <1112405303.1096.37.camel@jzny.localdomain>
+From: jaganav@us.ibm.com
+Subject: Re: Linux support for RDMA (was: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit Proposed Topics)
+Date: Sat,  2 Apr 2005 02:29:51 -0500
+Message-ID: <1112426991.424e49ef57e2b@imap.linux.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=UTF-8; format=flowed
-Content-Transfer-Encoding: 7BIT
-Cc: ipsec-tools-devel@lists.sourceforge.net, netdev@oss.sgi.com,
-        nakam@linux-ipv6.org
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: Stephen Hemminger <shemminger@osdl.org>,
+        Roland Dreier <roland@topspin.com>, Benjamin LaHaise <bcrl@kvack.org>,
+        Dmitry Yusupov <dmitry_yus@yahoo.com>, open-iscsi@googlegroups.com,
+        "David  S. Miller" <davem@davemloft.net>, mpm@selenic.com,
+        andrea@suse.de, michaelc@cs.wisc.edu,
+        James.Bottomley@HansenPartnership.com, ksummit-2005-discuss@thunk.org,
+        netdev@oss.sgi.com, bmt@zurich.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-reply-to: <1112405303.1096.37.camel@jzny.localdomain>
-To: hadi@cyberus.ca
+To: Greg KH <greg@kroah.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Quoting Greg KH <greg@kroah.com>:
 
+> On Fri, Apr 01, 2005 at 09:27:38PM -0800, Greg KH wrote:
+> > On Fri, Apr 01, 2005 at 08:37:13PM -0500, jaganav@us.ibm.com wrote:
+> > > 
+> > > Several RNIC adapter vendors, who contribute to the 
+> > > openRDMA effort, are quite willing to opensource 
+> > > their drivers through openRDMA project.
+> > 
+> > "Several"?  Why not all?
 
-jamal wrote:
-> test1)on one window run setkey -x:
+Because I haven't heard from 'all' of them yet that they would opensource.
+I am sure every vendor will do when the most of the other vendors are
+opensourcing it but I can't speak for them. I have asked in the past and will
+continue to ask every vendor to opensource their driver and make it part of
+openRDMA stack.
+
+> > 
+> > And why the dual license?  What good is writing Linux kernel code that
+> > is BSD licensed for such a core component?  Didn't you all learn from
+> > the openib licensing mess?
 > 
-> ping -c 1 someDST
+> Oh, and for those of you who might not know what mess I am talking
+> about:
 > 
-> -1) packet arrives towards outbound
-> 0) Larval state created
-> 1) one acquire sent.
-> 2) timeout.
-> 3) packet dropped. -ESRCH returned.
-> 4) larval state deleted
+> The openib code was set up to be dual GPL and BSD licensed for the
+> express purpose of taking the openib code and placing it into a closed
+> source operating system (not any of the *BSDs).  Needless to say, this
+> has prevented me from doing any openib work, and probably the same for a
+> number of other Linux kernel developers.
 > 
-> So question 1): Shouldnt the return code be -ERESTART to ask
-> the app to retry?
-> question 2) Why is there a hardcoding of 1 try only?
 
-Re 1 try only. There is little sense to do more tries. If there is no 
-deamon listening to pfkey messages, then no connection will be made no 
-matter how many retries you'll do. If deamon/link/peer is slow and SA 
-was not established before timeout expired, then repeated acquire will 
-be simply ignored (deamon will find out that negotiation is already in 
-progress, there is no reason to start another negotiation and therefore 
-will drop that acquire request). And the only situation where repeated 
-acquires may help is when pfkey messages are lost. But pfkey was not 
-designed to survive message loses, therefore you should not operate your 
-boxes in mode when lost pfkey messages are a rule, not an exception. And 
-on the other hand, occasional pfkey message loses can be worked around 
-by applications/user retry.
+Absolutely understand the dual-license mess with openIB code. -:)
+However the intention of dual license with OpenRDMA is not for placing
+the code in closed source OSes but specifically for BSD* and in fact, the
+request is specifically made by the most adapter vendors as they wanted to offer
+the same on BSD platforms as well.
 
-Re error code returned. Error codes returned by pfkey never were 
-perfect. But your experiment is not perfect too. You sent pings with no 
-KE deamon running. pfkey code found that there is nothing receiving 
-acquire messages => there is no chance that any process will setup 
-required SAs and tried to inform about that (I agree, return code is not 
-very informative, at least until you learn about reasons why it is 
-such). If you would have racoon (or other pfkey based ISAKMP daemon) 
-running, you would get "resource temporarily unavailable" (don't know 
-which error code corresponds to that message), which IMHO is ok (if it 
-is not, please explain).
+BTW, unlike OpenIB initial stack (i.e. Gen1) which was already developed when it
+got opensourced, the openRDMA code is developed from scratch in true opensource
+fashion (of course, OpenIB has also followed this approach for their next
+generation stack though) with no ifdef code for BSD*.
 
-Re netlink behaviour I can not comment as I don't use it for ipsec 
-purposes, but would like to read similar explanation. Reason for that - 
-idea that ipsec-tools one day could support operation via netlink is not 
-ruled out of our minds. Yet, afaik nobody is working on it at the moment.
+If this dual license is a concern to other kernel developers as well from
+contributing to OpenRDMA, we would seriously consider this and discuss with the
+adapter vendors.
 
-
--- 
-Aidas Kasparas
-IT administrator
-GM Consult Group, UAB
+Thanks 
+Venkat
