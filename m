@@ -1,7 +1,7 @@
 From: "John W. Linville" <linville@tuxdriver.com>
-Subject: [patch 2.6.10-rc2] tulip: make tulip_stop_rxtx() wait for DMA to fully stop
-Date: Wed, 17 Nov 2004 15:12:44 -0500
-Message-ID: <20041117151244.B31363@tuxdriver.com>
+Subject: [patch 2.4.28-rc3] tulip: make tulip_stop_rxtx() wait for DMA to fully stop
+Date: Wed, 17 Nov 2004 15:15:53 -0500
+Message-ID: <20041117151553.C31363@tuxdriver.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com, jgarzik@pobox.com, grant.grundler@hp.com,
@@ -35,11 +35,11 @@ interest in having it upstream.
  drivers/net/tulip/tulip_core.c |    2 +-
  9 files changed, 22 insertions(+), 5 deletions(-)
 
---- tulip_stop_rxtx-2.6/drivers/net/tulip/tulip_core.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/tulip_core.c
-@@ -26,8 +26,8 @@
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/tulip_core.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/tulip_core.c
+@@ -20,8 +20,8 @@
  
- 
+ #include <linux/config.h>
  #include <linux/module.h>
 -#include "tulip.h"
  #include <linux/pci.h>
@@ -47,8 +47,8 @@ interest in having it upstream.
  #include <linux/init.h>
  #include <linux/etherdevice.h>
  #include <linux/delay.h>
---- tulip_stop_rxtx-2.6/drivers/net/tulip/media.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/media.c
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/media.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/media.c
 @@ -18,6 +18,7 @@
  #include <linux/mii.h>
  #include <linux/init.h>
@@ -57,21 +57,20 @@ interest in having it upstream.
  #include "tulip.h"
  
  
---- tulip_stop_rxtx-2.6/drivers/net/tulip/21142.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/21142.c
-@@ -14,9 +14,9 @@
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/21142.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/21142.c
+@@ -14,8 +14,8 @@
  
  */
  
 -#include "tulip.h"
  #include <linux/pci.h>
- #include <linux/delay.h>
 +#include "tulip.h"
+ #include <linux/delay.h>
  
  
- static u16 t21142_csr13[] = { 0x0001, 0x0009, 0x0009, 0x0000, 0x0001, };
---- tulip_stop_rxtx-2.6/drivers/net/tulip/timer.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/timer.c
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/timer.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/timer.c
 @@ -14,6 +14,7 @@
  
  */
@@ -80,9 +79,9 @@ interest in having it upstream.
  #include "tulip.h"
  
  
---- tulip_stop_rxtx-2.6/drivers/net/tulip/tulip.h.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/tulip.h
-@@ -149,6 +149,9 @@ enum status_bits {
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/tulip.h.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/tulip.h
+@@ -146,6 +146,9 @@ enum status_bits {
  	TxIntr = 0x01,
  };
  
@@ -92,29 +91,29 @@ interest in having it upstream.
  
  enum tulip_mode_bits {
  	TxThreshold		= (1 << 22),
-@@ -460,9 +463,19 @@ static inline void tulip_stop_rxtx(struc
- 	u32 csr6 = ioread32(ioaddr + CSR6);
+@@ -484,9 +487,19 @@ static inline void tulip_stop_rxtx(struc
+ 	u32 csr6 = inl(ioaddr + CSR6);
  
  	if (csr6 & RxTx) {
 +		unsigned i=1300/10;
- 		iowrite32(csr6 & ~RxTx, ioaddr + CSR6);
+ 		outl(csr6 & ~RxTx, ioaddr + CSR6);
  		barrier();
--		(void) ioread32(ioaddr + CSR6); /* mmio sync */
+-		(void) inl(ioaddr + CSR6); /* mmio sync */
 +		/* wait until in-flight frame completes.
 +		 * Max time @ 10BT: 1500*8b/10Mbps == 1200us (+ 100us margin)
-+		 * Typically expect this loop to end in < 50 us on 100BT.
++		 * Typically expect this loop to end in < 50us on 100BT.
 +		 */
-+		while (--i && (ioread32(ioaddr + CSR5) & (CSR5_TS|CSR5_RS)))
++		while (--i && (inl(ioaddr + CSR5) & (CSR5_TS|CSR5_RS))) 
 +			udelay(10);
 +
 +		if (!i)
-+			printk(KERN_DEBUG "%s: tulip_stop_rxtx() failed\n",
++			printk (KERN_DEBUG "%s: tulip_stop_rxtx() failed\n",
 +					tp->pdev->slot_name);
  	}
  }
  
---- tulip_stop_rxtx-2.6/drivers/net/tulip/pnic.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/pnic.c
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/pnic.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/pnic.c
 @@ -15,6 +15,7 @@
  */
  
@@ -123,8 +122,8 @@ interest in having it upstream.
  #include "tulip.h"
  
  
---- tulip_stop_rxtx-2.6/drivers/net/tulip/pnic2.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/pnic2.c
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/pnic2.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/pnic2.c
 @@ -76,8 +76,8 @@
  
  
@@ -135,8 +134,8 @@ interest in having it upstream.
  #include <linux/delay.h>
  
  
---- tulip_stop_rxtx-2.6/drivers/net/tulip/eeprom.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/eeprom.c
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/eeprom.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/eeprom.c
 @@ -14,6 +14,7 @@
  
  */
@@ -145,8 +144,8 @@ interest in having it upstream.
  #include "tulip.h"
  #include <linux/init.h>
  #include <asm/unaligned.h>
---- tulip_stop_rxtx-2.6/drivers/net/tulip/interrupt.c.orig
-+++ tulip_stop_rxtx-2.6/drivers/net/tulip/interrupt.c
+--- tulip_stop_rxtx-2.4/drivers/net/tulip/interrupt.c.orig
++++ tulip_stop_rxtx-2.4/drivers/net/tulip/interrupt.c
 @@ -14,10 +14,10 @@
  
  */
@@ -157,5 +156,5 @@ interest in having it upstream.
  #include <linux/etherdevice.h>
 -#include <linux/pci.h>
  
+ 
  int tulip_rx_copybreak;
- unsigned int tulip_max_interrupt_work;
