@@ -1,35 +1,41 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: iproute2 patch introducing mtu/txqlen/weight via rtnetlink
-Date: 10 Sep 2004 09:16:46 -0400
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: 10 Sep 2004 09:33:35 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094822205.1125.113.camel@jzny.localdomain>
-References: <20040909164834.GB18994@postel.suug.ch>
-	 <20040909103344.5a448b01.davem@davemloft.net>
-	 <20040909175411.GB19155@postel.suug.ch>
-	 <20040910.103341.28767986.yoshfuji@wide.ad.jp>
-	 <20040910092948.GB19930@postel.suug.ch>
-	 <20040910024030.28b7c66c@linux.site>
+Message-ID: <1094823215.1121.129.camel@jzny.localdomain>
+References: <20040908065152.GC27886@wotan.suse.de>
+	 <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	 <20040908072408.GI27886@wotan.suse.de>
+	 <1094629677.1089.155.camel@jzny.localdomain>
+	 <20040908134713.1bcd46d3.davem@davemloft.net>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>,
-        YOSHIFUJI "Hideaki / ?$B5HF#1QL@" <yoshfuji@wide.ad.jp>,
-        davem@davemloft.net, eric.lemoine@gmail.com, netdev@oss.sgi.com
+Cc: ak@suse.de, herbert@gondor.apana.org.au, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040910024030.28b7c66c@linux.site>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20040908134713.1bcd46d3.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Wed, 2004-09-08 at 16:47, David S. Miller wrote:
 
-On Fri, 2004-09-10 at 05:40, Stephen Hemminger wrote:
-> Unless there is some compelling reason, I think that keeping the old ioctl
-> interface for a least a year until the kernel changes become more ubiquitous.
+> 
+> We are merely moving the sch_generic.c locking logic into the
+> drivers.  The behavior is entirely equivalent except that one
+> level of unnecessary locking has been removed.
+> 
+> I think his change is valid, will not break existing drivers (as
+> you mentioned as well Jamal), and works well for the cases he has
+> shown patches of.  So I'm going to apply his patch.
+> 
+> BTW, if we are really concerned about some existing driver returning
+> -1 from hard_start_xmit() without the new feature flag being enabled,
+> we can test for that and log a debugging message if it happens.
 
-I think that iproute2 should first attempt to use netlink and on failure
-switch to ioctls.
-Maybe Thomas can create such a patch.
+I am not 100% happy but let me do some testing on it. Would the best
+image be the latest bk snapshot?
 
 cheers,
 jamal
