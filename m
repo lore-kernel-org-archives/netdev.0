@@ -1,43 +1,75 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: networking bugs and bugme.osdl.org
-Date: Fri, 27 Jun 2003 01:00:59 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030627.010059.68039169.davem@redhat.com>
-References: <18330000.1056692768@[10.10.2.4]>
-	<20030626.224739.88478624.davem@redhat.com>
-	<20030627075914.GO28900@mea-ext.zmailer.org>
+From: James Carlson <carlson@workingcode.com>
+Subject: Re: [PATCH, untested] Support for PPPOE on SMP
+Date: Fri, 27 Jun 2003 07:39:19 -0400 (EDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <16124.11495.374998.153330@h006008986325.ne.client2.attbi.com>
+References: <20030625.143334.85380461.davem@redhat.com>
+	<20030626035824.D68B62C147@lists.samba.org>
+	<20030625.205941.41631020.davem@redhat.com>
+	<16122.53298.150512.793074@h006008986325.ne.client2.attbi.com>
+	<20030626190407.S87648@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mbligh@aracnet.com, linux-kernel@vger.kernel.org,
-	linux-net@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: matti.aarnio@zmailer.org
-In-Reply-To: <20030627075914.GO28900@mea-ext.zmailer.org>
+Cc: "David S. Miller" <davem@redhat.com>, rusty@rustcorp.com.au,
+   paulus@samba.org, netdev@oss.sgi.com, fcusack@samba.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jamal Hadi <hadi@shell.cyberus.ca>
+In-Reply-To: Jamal Hadi's message of 26 June 2003 19:18:20
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Matti Aarnio <matti.aarnio@zmailer.org>
-   Date: Fri, 27 Jun 2003 10:59:14 +0300
+Jamal Hadi writes:
+> So what about packet being loss? Wouldnt that ensure reordering?
 
-   The problem with "post to the list" is that sometimes things slip
-   thru without anybody catching them.
+Please explain.  What pattern of loss possibly results in one packet
+being inserted in the stream ahead of another?
 
-It is not a problem, it is a feature.  What will happen is the
-same thing that happens if Linus drops a patch.
+Here's loss:		1 2 4 5 6
 
-It'll get retransmitted if the reporter cares about the
-bug.  If he doesn't, the one of two things:
+Here's reordering:	1 2 4 3 5 6
 
-1) the bug actually isn't that important
-2) it is important, and someone else will report the bug too
+Loss preserves ordering.  To get misordering, you have to
+intentionally hold onto a message and reinsert it later.  What I've
+been pointing out is that the 802 MAC layer *does not* permit
+misordering (or duplication, for that matter).  Loss, reordering, and
+duplication are all separate errors.
 
-Therefore important issues tend to keep showing up, even if
-they are not attended to the first time around.  This repeated
-reporting and patch sending may seem like useless work, but this
-is not true, it is actually a form of validation.
+> And there is no such thing as a lossless wire.
 
-   I thought you don't need to login to see things in bugzilla ?
+True, but not relevant.  When you put packets onto a wire, you must do
+so in a particular order -- it's not possible to put more than one
+packet at a given time on a single wire.  It's also not possible for
+the receiver to get them in a different order than you sent them.
+They're essentially "single file" on that wire.
 
-That's not the issue.  Asking people who want to help to
-read a list or two, isn't much to ask.  Getting them to click
-around some web site every day adds to the overhead.
+PPP relies on this fact (albeit for serial wires) as part of its
+protocol definition (RFC 1661):
+
+1.  Introduction
+
+   The Point-to-Point Protocol is designed for simple links which
+   transport packets between two peers.  These links provide full-duplex
+   simultaneous bi-directional operation, and are assumed to deliver
+   packets in order.  It is intended that PPP provide a common solution
+[...]
+
+In addition, the 802 MAC layer cannot reorder packets, so there is no
+conflict here.  Although there are many design mistakes in PPPoE, this
+just is not one of them.
+
+There is a design problem here, but it's not PPPoE's.
+
+> PS:- Paulus i wasnt preaching getting rid of ppp/pppoe although its
+> a nice thouhgt. More fix linux pppd and pppoe ;->
+
+Believe me, the IETF working group didn't want PPPoE, either.  It
+dropped from outer space.  The only reason it was published as
+"Informational" is that it had already been deployed (before anyone
+bothered to talk to the folks who are responsible for the PPP
+standards), and thus somebody might want to know about it.
+
+If we could have killed it, we would have.
+
+-- 
+James Carlson                                  <carlson@workingcode.com>
