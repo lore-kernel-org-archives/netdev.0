@@ -1,269 +1,324 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (6/7) 3c505 - dynamic allocation
-Date: Tue, 23 Sep 2003 14:59:52 -0700
+Subject: [PATCH] (5/7) sk16 dynamic allocation
+Date: Tue, 23 Sep 2003 14:57:29 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030923145952.0ca9e3e7.shemminger@osdl.org>
+Message-ID: <20030923145729.15b93c63.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Originally by viro NE18-3c505
-	* switched 3c505 to dynamic allocation
-	* 3c505: embedded ->priv
-	* 3c505: fixed use of uninitialized variable
-	* 3c505: fixed resource leaks on failure exits
+Originally from viro  NE17-sk16
+	* switched sk_g16 to dynamic allocation
+	* sk_g16: embedded ->priv
+	* sk_g16: fixed buggy check for signature (|| instead of &&, somebody
+	  forgot to replace it when inverting the test).
+	* sk_g16: fixed use after kfree()
+	* sk_g16: fixed init_etherdev() race
 
-diff -Nru a/drivers/net/3c505.c b/drivers/net/3c505.c
---- a/drivers/net/3c505.c	Tue Sep 23 13:49:44 2003
-+++ b/drivers/net/3c505.c	Tue Sep 23 13:49:44 2003
-@@ -1293,42 +1293,6 @@
- 	}
- }
- 
--/******************************************************
-- *
-- * initialise Etherlink Plus board
-- *
-- ******************************************************/
--
--static inline void elp_init(struct net_device *dev)
--{
--	elp_device *adapter = dev->priv;
--
--	/*
--	 * set ptrs to various functions
--	 */
--	dev->open = elp_open;				/* local */
--	dev->stop = elp_close;				/* local */
--	dev->get_stats = elp_get_stats;			/* local */
--	dev->hard_start_xmit = elp_start_xmit;		/* local */
--	dev->tx_timeout = elp_timeout;			/* local */
--	dev->watchdog_timeo = 10*HZ;
--	dev->set_multicast_list = elp_set_mc_list;	/* local */
--	dev->ethtool_ops = &netdev_ethtool_ops;		/* local */
--
--	/* Setup the generic properties */
--	ether_setup(dev);
--
--	/*
--	 * setup ptr to adapter specific information
--	 */
--	memset(&(adapter->stats), 0, sizeof(struct net_device_stats));
--
--	/*
--	 * memory information
--	 */
--	dev->mem_start = dev->mem_end = 0;
--}
--
- /************************************************************
-  *
-  * A couple of tests to see if there's 3C505 or not
-@@ -1442,12 +1406,13 @@
-  * work at all if it was in a weird state).
-  */
- 
--int __init elplus_probe(struct net_device *dev)
-+static int __init elplus_setup(struct net_device *dev)
- {
--	elp_device *adapter;
-+	elp_device *adapter = dev->priv;
- 	int i, tries, tries1, okay;
- 	unsigned long timeout;
- 	unsigned long cookie = 0;
-+	int err = -ENODEV;
- 
- 	SET_MODULE_OWNER(dev);
- 
-@@ -1456,17 +1421,8 @@
- 	 */
- 
- 	dev->base_addr = elp_autodetect(dev);
--	if (!(dev->base_addr))
--		return -ENODEV;
--
--	/*
--	 * setup ptr to adapter specific information
--	 */
--	adapter = (elp_device *) (dev->priv = kmalloc(sizeof(elp_device), GFP_KERNEL));
--	if (adapter == NULL) {
--		printk(KERN_ERR "%s: out of memory\n", dev->name);
-+	if (!dev->base_addr)
- 		return -ENODEV;
--	}
- 
- 	adapter->send_pcb_semaphore = 0;
- 
-@@ -1544,8 +1500,7 @@
- 		outb_control(adapter->hcr_val & ~(FLSH | ATTN), dev);
- 	}
- 	printk(KERN_ERR "%s: failed to initialise 3c505\n", dev->name);
--	release_region(dev->base_addr, ELP_IO_EXTENT);
--	return -ENODEV;
-+	goto out;
- 
-       okay:
- 	if (dev->irq) {		/* Is there a preset IRQ? */
-@@ -1560,14 +1515,14 @@
- 	case 0:
- 		printk(KERN_ERR "%s: IRQ probe failed: check 3c505 jumpers.\n",
- 		       dev->name);
--		return -ENODEV;
-+		goto out;
- 	case 1:
- 	case 6:
- 	case 8:
- 	case 13:
- 		printk(KERN_ERR "%s: Impossible IRQ %d reported by probe_irq_off().\n",
- 		       dev->name, dev->irq);
--		return -ENODEV;
-+		       goto out;
- 	}
- 	/*
- 	 *  Now we have the IRQ number so we can disable the interrupts from
-@@ -1636,16 +1591,48 @@
- 		printk(KERN_ERR "%s: adapter configuration failed\n", dev->name);
- 	}
- 
--	/*
--	 * initialise the device
--	 */
--	elp_init(dev);
-+	dev->open = elp_open;				/* local */
-+	dev->stop = elp_close;				/* local */
-+	dev->get_stats = elp_get_stats;			/* local */
-+	dev->hard_start_xmit = elp_start_xmit;		/* local */
-+	dev->tx_timeout = elp_timeout;			/* local */
-+	dev->watchdog_timeo = 10*HZ;
-+	dev->set_multicast_list = elp_set_mc_list;	/* local */
-+	dev->ethtool_ops = &netdev_ethtool_ops;		/* local */
-+
-+	memset(&(adapter->stats), 0, sizeof(struct net_device_stats));
-+	dev->mem_start = dev->mem_end = 0;
-+
-+	err = register_netdev(dev);
-+	if (err)
-+		goto out;
- 
- 	return 0;
-+out:
-+	release_region(dev->base_addr, ELP_IO_EXTENT);
-+	return err;
-+}
-+
-+struct net_device * __init elplus_probe(int unit)
-+{
-+	struct net_device *dev = alloc_etherdev(sizeof(elp_device));
-+	int err;
-+	if (!dev)
-+		return ERR_PTR(-ENOMEM);
-+
-+	sprintf(dev->name, "eth%d", unit);
-+	netdev_boot_setup_check(dev);
-+
-+	err = elplus_setup(dev);
-+	if (err) {
-+		free_netdev(dev);
-+		return ERR_PTR(err);
-+	}
-+	return dev;
- }
- 
- #ifdef MODULE
--static struct net_device dev_3c505[ELP_MAX_CARDS];
-+static struct net_device *dev_3c505[ELP_MAX_CARDS];
- static int io[ELP_MAX_CARDS];
- static int irq[ELP_MAX_CARDS];
- static int dma[ELP_MAX_CARDS];
-@@ -1661,10 +1648,12 @@
- 	int this_dev, found = 0;
- 
- 	for (this_dev = 0; this_dev < ELP_MAX_CARDS; this_dev++) {
--		struct net_device *dev = &dev_3c505[this_dev];
-+		struct net_device *dev = alloc_etherdev(sizeof(elp_device));
-+		if (!dev)
-+			break;
-+
- 		dev->irq = irq[this_dev];
- 		dev->base_addr = io[this_dev];
--		dev->init = elplus_probe;
- 		if (dma[this_dev]) {
- 			dev->dma = dma[this_dev];
- 		} else {
-@@ -1672,16 +1661,22 @@
- 			printk(KERN_WARNING "3c505.c: warning, using default DMA channel,\n");
- 		}
- 		if (io[this_dev] == 0) {
--			if (this_dev) break;
-+			if (this_dev) {
-+				kfree(dev);
-+				break;
-+			}
- 			printk(KERN_NOTICE "3c505.c: module autoprobe not recommended, give io=xx.\n");
- 		}
--		if (register_netdev(dev) != 0) {
-+		if (elplus_setup(dev) != 0) {
- 			printk(KERN_WARNING "3c505.c: Failed to register card at 0x%x.\n", io[this_dev]);
--			if (found != 0) return 0;
--			return -ENXIO;
-+			kfree(dev);
-+			break;
- 		}
-+		dev_3c505[this_dev] = dev;
- 		found++;
- 	}
-+	if (!found)
-+		return -ENODEV;
- 	return 0;
- }
- 
-@@ -1690,12 +1685,11 @@
- 	int this_dev;
- 
- 	for (this_dev = 0; this_dev < ELP_MAX_CARDS; this_dev++) {
--		struct net_device *dev = &dev_3c505[this_dev];
--		if (dev->priv != NULL) {
-+		struct net_device *dev = dev_3c505[this_dev];
-+		if (dev) {
- 			unregister_netdev(dev);
--			kfree(dev->priv);
--			dev->priv = NULL;
- 			release_region(dev->base_addr, ELP_IO_EXTENT);
-+			free_netdev(dev);
- 		}
- 	}
- }
 diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
---- a/drivers/net/Space.c	Tue Sep 23 13:49:44 2003
-+++ b/drivers/net/Space.c	Tue Sep 23 13:49:44 2003
-@@ -63,7 +63,7 @@
- extern int el16_probe(struct net_device *);
- extern int elmc_probe(struct net_device *);
- extern int skmca_probe(struct net_device *);
--extern int elplus_probe(struct net_device *);
-+extern struct net_device *elplus_probe(int unit);
- extern int ac3200_probe(struct net_device *);
- extern int es_probe(struct net_device *);
- extern int lne390_probe(struct net_device *);
-@@ -278,13 +278,13 @@
- #ifdef CONFIG_EL16		/* 3c507 */
- 	{el16_probe, 0},
+--- a/drivers/net/Space.c	Tue Sep 23 13:39:28 2003
++++ b/drivers/net/Space.c	Tue Sep 23 13:39:28 2003
+@@ -73,7 +73,7 @@
+ extern struct net_device *ni52_probe(int unit);
+ extern struct net_device *ni65_probe(int unit);
+ extern int sonic_probe(struct net_device *);
+-extern int SK_init(struct net_device *);
++extern struct net_device *SK_init(int unit);
+ extern int seeq8005_probe(struct net_device *);
+ extern int smc_init( struct net_device * );
+ extern int atarilance_probe(struct net_device *);
+@@ -281,13 +281,13 @@
+ #ifdef CONFIG_ELPLUS		/* 3c505 */
+ 	{elplus_probe, 0},
  #endif
--#ifdef CONFIG_ELPLUS		/* 3c505 */
--	{elplus_probe, 0},
+-#ifdef CONFIG_SK_G16
+-	{SK_init, 0},
 -#endif
  	{NULL, 0},
  };
  
  static struct devprobe2 isa_probes2[] __initdata = {
-+#ifdef CONFIG_ELPLUS		/* 3c505 */
-+	{elplus_probe, 0},
++#ifdef CONFIG_SK_G16
++	{SK_init, 0},
 +#endif
- #ifdef CONFIG_SK_G16
- 	{SK_init, 0},
+ #ifdef CONFIG_NI5010
+ 	{ni5010_probe, 0},
  #endif
+diff -Nru a/drivers/net/sk_g16.c b/drivers/net/sk_g16.c
+--- a/drivers/net/sk_g16.c	Tue Sep 23 13:39:28 2003
++++ b/drivers/net/sk_g16.c	Tue Sep 23 13:39:28 2003
+@@ -457,8 +457,6 @@
+ /* static variables */
+ 
+ static SK_RAM *board;  /* pointer to our memory mapped board components */
+-static struct net_device *SK_dev;
+-unsigned long SK_ioaddr;
+ static spinlock_t SK_lock = SPIN_LOCK_UNLOCKED;
+ 
+ /* Macros */
+@@ -472,7 +470,6 @@
+  * See for short explanation of each function its definitions header.
+  */
+ 
+-int          SK_init(struct net_device *dev);
+ static int   SK_probe(struct net_device *dev, short ioaddr);
+ 
+ static void  SK_timeout(struct net_device *dev);
+@@ -530,84 +527,71 @@
+  *     YY/MM/DD  uid  Description
+ -*/
+ 
++static int io;	/* 0 == probe */
++
+ /* 
+  * Check for a network adaptor of this type, and return '0' if one exists.
+  * If dev->base_addr == 0, probe all likely locations.
+  * If dev->base_addr == 1, always return failure.
+  */
+ 
+-int __init SK_init(struct net_device *dev)
++struct net_device * __init SK_init(int unit)
+ {
+-	int ioaddr;			   /* I/O port address used for POS regs */
+ 	int *port, ports[] = SK_IO_PORTS;  /* SK_G16 supported ports */
+ 	static unsigned version_printed;
++	struct net_device *dev = alloc_etherdev(sizeof(struct priv));
++	int err = -ENODEV;
++
++	if (!dev)
++		return ERR_PTR(-ENOMEM);
+ 
+-	/* get preconfigured base_addr from dev which is done in Space.c */
+-	int base_addr = dev->base_addr; 
++	if (unit >= 0) {
++		sprintf(dev->name, "eth%d", unit);
++		netdev_boot_setup_check(dev);
++		io = dev->base_addr;
++	}
+ 
+ 	if (version_printed++ == 0)
+ 	        PRINTK(("%s: %s", SK_NAME, rcsid));
+ 
+-	if (base_addr > 0x0ff)        /* Check a single specified address */
+-	{
+-	    int rc = -ENODEV;
+-
+-	    ioaddr = base_addr;
++	if (io > 0xff) {        /* Check a single specified address */
++		err = -EBUSY;
++		/* Check if on specified address is a SK_G16 */
++		if (request_region(io, ETHERCARD_TOTAL_SIZE, "sk_g16")) {
++			err = SK_probe(dev, io);
++			if (!err)
++				goto got_it;
++			release_region(io, ETHERCARD_TOTAL_SIZE);
++		}
++	} else if (io > 0) {       /* Don't probe at all */
++		err = -ENXIO;
++	} else {
++		/* Autoprobe base_addr */
++		for (port = &ports[0]; *port; port++) {
++			io = *port;
++
++			/* Check if I/O Port region is used by another board */
++			if (!request_region(io, ETHERCARD_TOTAL_SIZE, "sk_g16"))
++				continue;       /* Try next Port address */
++
++			/* Check if at ioaddr is a SK_G16 */
++			if (SK_probe(dev, io) == 0)
++				goto got_it;
+ 
+-	    /* Check if on specified address is a SK_G16 */
+-	    if (!request_region(ioaddr, ETHERCARD_TOTAL_SIZE, "sk_g16"))
+-	    	return -EBUSY;
+-
+-	    if ( (inb(SK_POS0) == SK_IDLOW) ||
+-		 (inb(SK_POS1) == SK_IDHIGH) )  
+-	    {
+-		rc = SK_probe(dev, ioaddr);
+-	    }
+-
+-	    if (rc)
+-	        release_region(ioaddr, ETHERCARD_TOTAL_SIZE);
+-	    return rc;
++			release_region(io, ETHERCARD_TOTAL_SIZE);
++		}
+ 	}
+-	else if (base_addr > 0)       /* Don't probe at all */
+-	{
+-		return -ENXIO;
++err_out:
++	free_netdev(dev);
++	return ERR_PTR(err);
++
++got_it:
++	err = register_netdev(dev);
++	if (err) {
++		release_region(dev->base_addr, ETHERCARD_TOTAL_SIZE);
++		goto err_out;
+ 	}
+-
+-	/* Autoprobe base_addr */
+-
+-	for (port = &ports[0]; *port; port++) 
+-	{
+-	    ioaddr = *port;           /* we need ioaddr for accessing POS regs */
+-
+-	    /* Check if I/O Port region is used by another board */
+-
+-	    if (!request_region(ioaddr, ETHERCARD_TOTAL_SIZE, "sk_g16"))
+-	    {
+-		continue;             /* Try next Port address */
+-	    }
+-
+-	    /* Check if at ioaddr is a SK_G16 */
+-
+-	    if ( !(inb(SK_POS0) == SK_IDLOW) ||
+-		 !(inb(SK_POS1) == SK_IDHIGH) )
+-	    {
+-	        release_region(ioaddr, ETHERCARD_TOTAL_SIZE);
+-		continue;             /* Try next Port address */
+-	    }
+-
+-	    dev->base_addr = ioaddr;  /* Set I/O Port Address */
+-
+-	    if (SK_probe(dev, ioaddr) == 0)  
+-	    {
+-		return 0; /* Card found and initialized */
+-	    }
+-
+-	    release_region(ioaddr, ETHERCARD_TOTAL_SIZE);
+-	}
+-
+-	dev->base_addr = base_addr;   /* Write back original base_addr */
+-
+-	return -ENODEV;                /* Failed to find or init driver */
++	return dev;
+ 
+ } /* End of SK_init */
+ 
+@@ -620,54 +604,22 @@
+ 
+ 
+ #ifdef MODULE
+-static int io;	/* 0 == probe */
+-
+ static int __init SK_init_module (void)
+ {
+-	int rc;
+-	
+-	SK_dev = init_etherdev (NULL, 0);
+-	if (!SK_dev)
+-		return -ENOMEM;
+-	
+-	SK_dev->base_addr = io;
+-
+-	rc = SK_init (SK_dev);
+-	if (rc) {
+-		unregister_netdev (SK_dev);
+-		kfree (SK_dev);
+-		SK_dev = NULL;
+-	}
+-	
+-	return rc;
++ 	SK_dev = SK_init(-1);
++ 	return IS_ERR(SK_dev) ? PTR_ERR(SK_dev) : 0;
+ }
+-#endif /* MODULE */
+-
+ 
+ static void __exit SK_cleanup_module (void)
+ {
+-	if (SK_dev) {
+-		if (SK_dev->priv) {
+-			kfree(SK_dev->priv);
+-			SK_dev->priv = NULL;
+-		}
+-		unregister_netdev(SK_dev);
+-		free_netdev(SK_dev);
+-		SK_dev = NULL;
+-	}
+-	if (SK_ioaddr) {
+-		release_region(SK_ioaddr, ETHERCARD_TOTAL_SIZE);
+-		SK_ioaddr = 0;
+-	}
+-		
++ 	unregister_netdev(SK_dev);
++ 	release_region(SK_dev->base_addr, ETHERCARD_TOTAL_SIZE);
++ 	free_netdev(SK_dev);
+ }
+ 
+-
+-#ifdef MODULE
+ module_init(SK_init_module);
+-#endif
+ module_exit(SK_cleanup_module);
+-
++#endif
+ 
+ 
+ /*-
+@@ -695,7 +647,11 @@
+     int sk_addr_flag = 0;   /* SK ADDR correct? 1 - no, 0 - yes */
+     unsigned int rom_addr;  /* used to store RAM address used for POS_ADDR */
+ 
+-    struct priv *p;         /* SK_G16 private structure */
++    struct priv *p = dev->priv;         /* SK_G16 private structure */
++
++    if (inb(SK_POS0) != SK_IDLOW || inb(SK_POS1) != SK_IDHIGH)
++	return -ENODEV;
++    dev->base_addr = ioaddr;
+ 
+     if (SK_ADDR & 0x3fff || SK_ADDR < 0xa0000)
+     {
+@@ -837,12 +793,6 @@
+ 	    dev->dev_addr[4],
+ 	    dev->dev_addr[5]);
+ 
+-    /* Allocate memory for private structure */
+-    p = dev->priv = (void *) kmalloc(sizeof(struct priv), GFP_KERNEL);
+-    if (p == NULL) {
+-	   printk("%s: ERROR - no memory for driver data!\n", dev->name);
+-	   return -ENOMEM;
+-    }
+     memset((char *) dev->priv, 0, sizeof(struct priv)); /* clear memory */
+ 
+     /* Assign our Device Driver functions */
+@@ -856,10 +806,6 @@
+     dev->watchdog_timeo		= HZ/7;
+ 
+ 
+-    /* Set the generic fields of the device structure */
+-
+-    ether_setup(dev);
+-    
+     dev->flags &= ~IFF_MULTICAST;
+ 
+     /* Initialize private structure */
+@@ -884,12 +830,7 @@
+     SK_print_pos(dev, "End of SK_probe");
+     SK_print_ram(dev);
+ #endif 
+-
+-    SK_dev = dev;
+-    SK_ioaddr = ioaddr;
+-
+     return 0;                            /* Initialization done */
+-
+ } /* End of SK_probe() */
+ 
+ 
+@@ -1280,7 +1221,7 @@
+ 
+ 	memcpy_toio((tmdp->u.buffer & 0x00ffffff), skb->data, skb->len);
+ 	if (len != skb->len)
+-		memcpy_toio((tmdp->u.buffer & 0x00ffffff) + sb->len, pad, len-skb->len);
++		memcpy_toio((tmdp->u.buffer & 0x00ffffff) + skb->len, pad, len-skb->len);
+ 
+ 	writew(-len, &tmdp->blen);            /* set length to transmit */
+ 
