@@ -1,49 +1,34 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.6] convert ipvs to module_param
-Date: Fri, 23 Jul 2004 13:11:42 -0700
+From: Jamal Hadi Salim <hadi@znyx.com>
+Subject: Re: [PATCH] pkt_cls.h incompatiables
+Date: 23 Jul 2004 16:25:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040723131142.13081ed3@dell_ss3.pdx.osdl.net>
+Message-ID: <1090614331.1220.50.camel@jzny.localdomain>
+References: <20040722134522.4e7e0b07@dell_ss3.pdx.osdl.net>
+	 <20040722.200426.99255296.yoshfuji@linux-ipv6.org>
+	 <1090593676.1128.25.camel@jzny.localdomain>
+	 <20040723.110007.27520072.yoshfuji@linux-ipv6.org>
+	 <20040723092111.44b289a9@dell_ss3.pdx.osdl.net>
+Reply-To: hadi@znyx.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
+Cc: YOSHIFUJI Hideaki / ____________ <yoshfuji@linux-ipv6.org>,
+        "David S. Miller" <davem@redhat.com>, arekm@pld-linux.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, wensong@linux-vs.org
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20040723092111.44b289a9@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Convert IPVS to not use MODULE_PARM.
+On Fri, 2004-07-23 at 12:21, Stephen Hemminger wrote:
 
-Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
- 
-diff -Nru a/net/ipv4/ipvs/ip_vs_ftp.c b/net/ipv4/ipvs/ip_vs_ftp.c
---- a/net/ipv4/ipvs/ip_vs_ftp.c	2004-07-23 13:04:54 -07:00
-+++ b/net/ipv4/ipvs/ip_vs_ftp.c	2004-07-23 13:04:54 -07:00
-@@ -25,6 +25,7 @@
-  */
- 
- #include <linux/module.h>
-+#include <linux/moduleparam.h>
- #include <linux/kernel.h>
- #include <linux/skbuff.h>
- #include <linux/in.h>
-@@ -44,16 +45,17 @@
-  * First port is set to the default port.
-  */
- static int ports[IP_VS_APP_MAX_PORTS] = {21, 0};
-+static int ports_c;
-+module_param_array(ports, int, ports_c, 0);
- 
- /*
-  *	Debug level
-  */
- #ifdef CONFIG_IP_VS_DEBUG
- static int debug=0;
--MODULE_PARM(debug, "i");
-+module_param(debug, int, 0);
- #endif
- 
--MODULE_PARM(ports, "1-" __MODULE_STRING(IP_VS_APP_MAX_PORTS) "i");
- 
- /*	Dummy variable */
- static int ip_vs_ftp_pasv;
+> Looking at the netlink style, wouldn't it make sense to add additional
+> separate payloads for the new features.  This keeps the API the same and
+> the kernel can easily adapt for new/old values.
+
+If things were perfect this is the way to go. Maybe in 2.7 we can start
+scrubbing some of this issues.
+
+cheers,
+jamal
