@@ -1,113 +1,34 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [4/4] [IPSEC] Store MTU at each xfrm_dst
-Date: Mon, 28 Mar 2005 22:10:54 +0200
-Message-ID: <424864CE.5060802@trash.net>
-References: <20050214221006.GA18415@gondor.apana.org.au> <20050214221200.GA18465@gondor.apana.org.au> <20050214221433.GB18465@gondor.apana.org.au> <20050214221607.GC18465@gondor.apana.org.au>
+From: Andy Furniss <andy.furniss@dsl.pipex.com>
+Subject: Re: IMQ again WAS(Re: iptables breakage WAS(Re:	dummy	as	IMQ	replacement
+Date: Mon, 28 Mar 2005 21:13:33 +0100
+Message-ID: <4248656D.6000101@dsl.pipex.com>
+References: <1107123123.8021.80.camel@jzny.localdomain>	 <4241D764.2030306@dsl.pipex.com>	 <1111612042.1072.53.camel@jzny.localdomain>	 <4241F1D2.9050202@dsl.pipex.com>  <4241F7F0.2010403@dsl.pipex.com>	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.com>	 <1111663947.1037.24.camel@jzny.localdomain>	 <1111665450.1037.27.camel@jzny.localdomain>	 <4242DFB5.9040802@dsl.pipex.com>	 <1111749220.1092.457.camel@jzny.localdomain>	 <42446DB2.9070809@dsl.pipex.com>	 <1111781443.1092.631.camel@jzny.localdomain>	 <4244802C.7020202@dsl.pipex.com>	 <1111788760.1090.712.camel@jzny.localdomain>	 <42470AF9.8050402@dsl.pipex.com>  <424808F7.50101@dsl.pipex.com>	 <1112017546.1089.1048.camel@jzny.localdomain>	 <1112018231.1090.1051.camel@jzny.localdomain>	 <424810C5.7080707@dsl.pipex.com>	 <1112019614.1090.1068.camel@jzny.localdomain>	 <42481499.1060103@dsl.pipex.com> <4248165E.405050
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
-        James Morris <jmorris@redhat.com>,
-        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
+        Remus <rmocius@auste.elnet.lt>, netdev <netdev@oss.sgi.com>,
+        Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
+        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050214221607.GC18465@gondor.apana.org.au>
+To: hadi@cyberus.ca
+In-Reply-To: <1112038041.1118.2.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Herbert,
+jamal wrote:
+> On Mon, 2005-03-28 at 10:24, Andy Furniss wrote:
+> 
+> 
+>>Played a bit more, it seems liks the qdisc has to be classful
+>>
+> 
+> 
+> Sorry, yes, should have made that clear.
+> 
 
-Herbert Xu wrote:
-> Finally this is the patch that sets the MTU values of each xfrm_dst
-> and keeps it up-to-date.
+My fault - You said try prio but I read it as try pfifo - at least I 
+know classless don't work now :-)
 
-while looking for ways to exchange the xfrm pointer of a live
-dst_entry I noticed what looks like an ABBA deadlock introduced
-by the call to xfrm_state_mtu() in xfrm_bundle_ok().
-
-spin_lock x->lock			(xfrm_state_delete)
-	read_lock xfrm_policy_lock	(xfrm_prune_bundles)
-		write_lock policy->lock	(xfrm_prune_bundles)
-
-read/write_lock policy->lock		(__xfrm46_find_acq/xfrm_lookup)
-	spin_lock x->lock		(xfrm_state_mtu)
-
-I haven't though of a way to avoid this yet. It would be nice though
-if we could keep the rule that xfrm_policy_lock and policy->lock nest
-with x->lock.
-
-Something unrelated I was also wondering about, from xfrm_find_state():
-
-         list_for_each_entry(x, xfrm_state_bydst+h, bydst) {
-                 if (x->props.family == family &&
-                     x->props.reqid == tmpl->reqid &&
-                     xfrm_state_addr_check(x, daddr, saddr, family) &&
-                     tmpl->mode == x->props.mode &&
-                     tmpl->id.proto == x->id.proto) {
-
-Shouldn't we check for (tmpl->id.spi == x->id.spi || !tmpl->id.spi) ?
-
-Regards
-Patrick
-
->   
-> -int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family)
-> +int xfrm_bundle_ok(struct xfrm_dst *first, struct flowi *fl, int family)
->  {
-> -	struct dst_entry *dst = &xdst->u.dst;
-> +	struct dst_entry *dst = &first->u.dst;
-> +	struct xfrm_dst *last;
-> +	u32 mtu;
->  
->  	if (dst->path->obsolete > 0 ||
->  	    (dst->dev && !netif_running(dst->dev)))
->  		return 0;
->  
-> +	last = NULL;
-> +
->  	do {
-> +		struct xfrm_dst *xdst = (struct xfrm_dst *)dst;
-> +
->  		if (fl && !xfrm_selector_match(&dst->xfrm->sel, fl, family))
->  			return 0;
->  		if (dst->xfrm->km.state != XFRM_STATE_VALID)
->  			return 0;
-> +
-> +		mtu = dst_pmtu(dst->child);
-> +		if (xdst->child_mtu_cached != mtu) {
-> +			last = xdst;
-> +			xdst->child_mtu_cached = mtu;
-> +		}
-> +
-> +		mtu = dst_pmtu(xdst->route);
-> +		if (xdst->child_mtu_cached != mtu) {
-> +			last = xdst;
-> +			xdst->route_mtu_cached = mtu;
-> +		}
-> +
->  		dst = dst->child;
->  	} while (dst->xfrm);
-> +
-> +	if (likely(!last))
-> +		return 1;
-> +
-> +	mtu = last->child_mtu_cached;
-> +	for (;;) {
-> +		dst = &last->u.dst;
-> +
-> +		mtu = xfrm_state_mtu(dst->xfrm, mtu);
-> +		if (mtu > last->route_mtu_cached)
-> +			mtu = last->route_mtu_cached;
-> +		dst->metrics[RTAX_MTU-1] = mtu;
-> +
-> +		if (last == first)
-> +			break;
-> +
-> +		last = last->u.next;
-> +		last->child_mtu_cached = mtu;
-> +	}
->  
->  	return 1;
->  }
+Andy.
