@@ -1,97 +1,80 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] QoS: new per flow queue
-Date: 05 Apr 2005 13:57:38 -0400
-Message-ID: <1112723858.1076.46.camel@jzny.localdomain>
-References: <20050405224956.0258.LARK@linux.net.cn>
-Reply-To: hadi@cyberus.ca
-Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev <netdev@oss.sgi.com>
+From: Magnus Damm <damm@opensource.se>
+Subject: [PATCH] arlan: module parameter fixes
+Date: Tue,  5 Apr 2005 20:05:50 +0200 (CEST)
+Message-ID: <20050405173419.10402.34298.66044@clementine.local>
+Cc: Magnus Damm <damm@opensource.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Wang Jian <lark@linux.net.cn>
-In-Reply-To: <20050405224956.0258.LARK@linux.net.cn>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Make sure the code compiles with and without ARLAN_ENTRY_EXIT_DEBUGGING.
+Only provide parameter descriptions when parameters are defined.
+Remove "arlan_"-prefix to shape up built-in parameter names:
 
-I quickly scanned the kernel portion. I dont think this is the best way
-to achieve this - your qdisc is both a classifier and scheduler. I think
-this is the major drwback.
-And if you take out the classifier - whats left in your qdisc cant beat
-htb or hfsc or cbq in terms of being proven to be accurate.
+arlan.arlan_debug -> arlan.debug
+arlan.arlan_EEPROM_bad -> arlan.EEPROM_bad
+arlan.arlan_entry_and_exit_debug -> arlan.entry_and_exit_debug
+arlan.arlan_entry_debug -> arlan.entry_debug
+arlan.arlan_exit_debug -> arlan.exit_debug
+
+Signed-off-by: Magnus Damm <damm@opensource.se>
+
+--- linux-2.6.12-rc2/drivers/net/wireless/arlan-main.c	2005-04-05 16:57:26.000000000 +0200
++++ linux-2.6.12-rc2-autoparam/drivers/net/wireless/arlan-main.c	2005-04-05 19:21:54.223472976 +0200
+@@ -33,8 +33,6 @@
  
-If you could write a meta action instead which is a simple dynamic
-setter of something like fwmark that would suffice i.e something along
-the lines of:
-
-example:
-----
-tc filter ip u32 match ip sport 80 0xffff flowid 1:12 \
-    action dynfwmark continue
-tc filter fwmark 0x1 .. classid aaaa
-tc filter fwmark 0x2 .. classid bbbb
-..
-..
-
-tc qdisc htb/hfsc/cbq .... your rate parameters here.
----
-
-dynfwmark will maintain your state table which gets deleted when timers
-expire and will hash based on the current jenkins hash
-Do you have to queue the packets? if not you could instead have the
-police action (attached to fwmark) drop the packet once it exceeds
-certain rate and then use any enqueueing scheme you want.
-The drawback with above scheme is you will have as many entries for
-fwmark as you want to have queues - each selecting its own queue.
-
-cheers,
-jamal
-
-On Tue, 2005-04-05 at 11:25, Wang Jian wrote:
-> Hi,
-> 
-> I write a per flow rate control qdisc. I posted it to LARTC list. Some
-> discussion about it is here
-> 
->     http://mailman.ds9a.nl/pipermail/lartc/2005q2/015381.html
-> 
-> I think I need more feedback and suggestion on it so I repost the patch
-> here. Please read the thread and get a picture about why and how.
-> 
-> The kernel patch is agains kernel 2.6.11, the iproute2 patch is against
-> iproute2-2.6.11-050314. 
-> 
-> The test scenario is like this
-> 
->       www server <- [ eth0   eth1 ] -> www clients
-> 
-> The attached t.sh is used to generate test rules. Clients download a
-> big ISO file from www server, so flows' rate can be estimated by view
-> progress.
-> 
-> I have some test on it and it works well. It provides good fairness.
-> When all slot being used, in most time, the real rate can keep at
-> specified guaranteed rate. But I know it should receive more test.
-> 
-> I have some consideration though
-> 
-> 1. In the test sometimes there a pair of unbalanced stream and don't get
-> balanced quickly. One stream get 8.4kbps and another get 11.5kbps. How
-> to find the flow with highest traffic and punish it most?
-> 
-> 2. The default ceil equals to rate. Should I calculate it as
->    ceil = rate * 1.05 * limit, or
->    ceil = rate * 1.05?
-> 
-> 3. when flow slots are full, optionally reclassify untraceable traffic
->    into another specified class, instead of dropping it?
-> 
-> TODO:
-> 
-> 1. rtnetlink related code should be improved;
-> 2. dump() and dump_stat();
-> 
-> 
-> Regards
+ #ifdef ARLAN_DEBUGGING
+ 
+-static int arlan_entry_debug;
+-static int arlan_exit_debug;
+ static int testMemory = testMemoryUNKNOWN;
+ static int irq = irqUNKNOWN;
+ static int txScrambled = 1;
+@@ -43,15 +41,13 @@
+ module_param(irq, int, 0);
+ module_param(mdebug, int, 0);
+ module_param(testMemory, int, 0);
+-module_param(arlan_entry_debug, int, 0);
+-module_param(arlan_exit_debug, int, 0);
+ module_param(txScrambled, int, 0);
+ MODULE_PARM_DESC(irq, "(unused)");
+ MODULE_PARM_DESC(testMemory, "(unused)");
+ MODULE_PARM_DESC(mdebug, "Arlan multicast debugging (0-1)");
+ #endif
+ 
+-module_param(arlan_debug, int, 0);
++module_param_named(debug, arlan_debug, int, 0);
+ module_param(spreadingCode, int, 0);
+ module_param(channelNumber, int, 0);
+ module_param(channelSet, int, 0);
+@@ -63,17 +59,19 @@
+ module_param(tx_delay_ms, int, 0);
+ module_param(retries, int, 0);
+ module_param(tx_queue_len, int, 0);
+-module_param(arlan_EEPROM_bad, int, 0);
+-MODULE_PARM_DESC(arlan_debug, "Arlan debug enable (0-1)");
++module_param_named(EEPROM_bad, arlan_EEPROM_bad, int, 0);
++MODULE_PARM_DESC(debug, "Arlan debug enable (0-1)");
+ MODULE_PARM_DESC(retries, "Arlan maximum packet retransmisions");
+ #ifdef ARLAN_ENTRY_EXIT_DEBUGGING
+-MODULE_PARM_DESC(arlan_entry_debug, "Arlan driver function entry debugging");
+-MODULE_PARM_DESC(arlan_exit_debug, "Arlan driver function exit debugging");
+-MODULE_PARM_DESC(arlan_entry_and_exit_debug, "Arlan driver function entry and exit debugging");
+-#else
+-MODULE_PARM_DESC(arlan_entry_debug, "(ignored)");
+-MODULE_PARM_DESC(arlan_exit_debug, "(ignored)");
+-MODULE_PARM_DESC(arlan_entry_and_exit_debug, "(ignored)");
++static int arlan_entry_debug;
++static int arlan_exit_debug;
++static int arlan_entry_and_exit_debug;
++module_param_named(entry_debug, arlan_entry_debug, int, 0);
++module_param_named(exit_debug, arlan_exit_debug, int, 0);
++module_param_named(entry_and_exit_debug, arlan_entry_and_exit_debug, int, 0);
++MODULE_PARM_DESC(entry_debug, "Arlan driver function entry debugging");
++MODULE_PARM_DESC(exit_debug, "Arlan driver function exit debugging");
++MODULE_PARM_DESC(entry_and_exit_debug, "Arlan driver function entry and exit debugging");
+ #endif
+ 
+ struct arlan_conf_stru arlan_conf[MAX_ARLANS];
