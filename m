@@ -1,35 +1,23 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] s390: claw network device driver
-Date: Tue, 29 Mar 2005 15:06:04 -0500
-Message-ID: <4249B52C.2000300@pobox.com>
-References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org> <20050329071002.GA16204@havoc.gtf.org> <20050329152057.GA27840@wohnheim.fh-wedel.de>
+From: Rick Jones <rick.jones2@hp.com>
+Subject: Re: [RFC] TCP congestion schedulers
+Date: Tue, 29 Mar 2005 12:09:20 -0800
+Message-ID: <4249B5F0.1050205@hp.com>
+References: <421D30FA.1060900@ev-en.org>	<20050225120814.5fa77b13@dxpl.pdx.osdl.net>	<20050309210442.3e9786a6.davem@davemloft.net>	<4230288F.1030202@ev-en.org>	<20050310182629.1eab09ec.davem@davemloft.net>	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>	<20050311201011.360c00da.davem@davemloft.net>	<20050314151726.532af90d@dxpl.pdx.osdl.net> <m13bur5qyo.fsf@muc.de>	<Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>	<20050322074122.GA64595@muc.de>	<Pine.LNX.4.58.0503291422100.3256@dexter.psc.edu> <20050329120306.558cea0c.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
-        schwidefsky@de.ibm.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: =?ISO-8859-1?Q?J=F6rn_Engel?= <joern@wohnheim.fh-wedel.de>
-In-Reply-To: <20050329152057.GA27840@wohnheim.fh-wedel.de>
+To: netdev@oss.sgi.com
+In-Reply-To: <20050329120306.558cea0c.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-J=F6rn Engel wrote:
-> On Tue, 29 March 2005 02:10:02 -0500, Jeff Garzik wrote:
->=20
->>As mentioned in the email, you want netdev, not linux-net...
->=20
->=20
-> Just out of curiosity: why are there two mailing lists?  Especially if
-> one of them is the Wrong One.
+> It could be L2 cache-coloring effects as well.  Try to keep the working
+> set size smaller than the L2 cache size of the cpu you are on.
 
-<shrug>
+When/if using netperf, it will send from and recv to a "ring" of buffers one 
+larger than the reported (as opposed to requested) socket buffer size divided by 
+the send/recv buffer size.  Controlled via the -W global command-line option.
 
-linux-net is mostly dead.  I get the impression it is occasionally used=20
-by users.
-
-netdev (as, perhaps, the name implies) is where the network developers=20
-hang out.
-
-	Jeff
+rick jones
