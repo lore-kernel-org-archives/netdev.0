@@ -1,74 +1,79 @@
-From: Dana Lacoste <dana.lacoste@peregrine.com>
+From: Adrian Bunk <bunk@fs.tum.de>
 Subject: Re: RFC: [2.6 patch] disallow modular IPv6
-Date: Tue, 30 Sep 2003 09:44:55 -0400
+Date: Tue, 30 Sep 2003 15:37:29 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064929494.98525.7.camel@dlacoste.ottawa.loran.com>
-References: <20030928225941.GW15338@fs.tum.de>
-	 <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de>
-	 <20030929220916.19c9c90d.davem@redhat.com>
-	 <1064903562.6154.160.camel@imladris.demon.co.uk>
-	 <20030930000302.3e1bf8bb.davem@redhat.com>
-	 <1064907572.21551.31.camel@hades.cambridge.redhat.com>
-	 <20030930010855.095c2c35.davem@redhat.com>
-	 <1064910398.21551.41.camel@hades.cambridge.redhat.com>
-	 <20030930013025.697c786e.davem@redhat.com>
-	 <1064911360.21551.49.camel@hades.cambridge.redhat.com>
-	 <20030930015125.5de36d97.davem@redhat.com>
-	 <1064913241.21551.69.camel@hades.cambridge.redhat.com>
-	 <20030930022410.08c5649c.davem@redhat.com>
+Message-ID: <20030930133729.GJ295@fs.tum.de>
+References: <20030928225941.GW15338@fs.tum.de> <20030928231842.GE1039@conectiva.com.br> <20030928232403.GX15338@fs.tum.de> <20030928233909.GG1039@conectiva.com.br> <20030929001439.GY15338@fs.tum.de> <20030929003229.GM1039@conectiva.com.br> <20030929221129.7689e088.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: David Woodhouse <dwmw2@infradead.org>, netdev@oss.sgi.com,
-        lksctp-developers@lists.sourceforge.net, linux-kernel@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Arnaldo Carvalho de Melo <acme@conectiva.com.br>, netdev@oss.sgi.com,
+        pekkas@netcore.fi, lksctp-developers@lists.sourceforge.net,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030930022410.08c5649c.davem@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <20030929221129.7689e088.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2003-09-30 at 05:24, David S. Miller wrote:
-> What this means is that it's required for the kernel image to be up to
-> date before any modules can be built.  If we can check that in the
-> build system for the sake of modversions (and if we're not doing that
-> now it's a bug we should fix) we can do it equally for ipv6.
+On Mon, Sep 29, 2003 at 10:11:29PM -0700, David S. Miller wrote:
+> On Sun, 28 Sep 2003 21:32:30 -0300
+> Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
+> 
+> > Em Mon, Sep 29, 2003 at 02:14:39AM +0200, Adrian Bunk escreveu:
+> > > On Sun, Sep 28, 2003 at 08:39:10PM -0300, Arnaldo Carvalho de Melo wrote:
+> > > What about the following solution (the names and help texts for the
+> > > config options might not be optimal, I hope you understand the
+> > > intention):
+> > > 
+> > > config IPV6_SUPPORT
+> > > 	bool "IPv6 support"
+> > > 
+> > > config IPV6_ENABLE
+> > > 	tristate "enable IPv6"
+> > > 	depends on IPV6_SUPPORT
+> > > 
+> > > IPV6_SUPPORT changes structs etc. and IPV6_ENABLE is responsible for 
+> > > ipv6.o .
+> > 
+> > Humm, and the idea is? This seems confusing, could you elaborate on why such
+> > scheme is a good thing?
+> 
+> I think the idea is totally broken.  At first, Adrian comments that
+> changing the layout of structs based upon a config option is broken,
+> then he proposes a config option that does nothing except change the
+> layout of structures.
+> 
+> The current situation is perfectly fine.
 
-So this procedure is flawed then :
+I did perhaps express my opinion not clearly.
 
-1. Compile kernel.  Set up everything that you need,
-   IPV6 is set to 'n'
-2. Install kernel and modules to your liking, reboot to take effect.
+My personal opinions:
 
-5 minutes later a user comes and complains that IPV6 isn't available
-and he will want it later, so you decide to compile the module for
-when he needs it and avoid another reboot :
+It's OK that setting an option to y changes structs or whatever else in 
+the kernel.
 
-3. Change config IPV6 to 'm'
-4. run make modules && make modules_install
+It's not OK if adding a module changes the layout of structs compiled 
+into the kernel.
 
-I think that arguing that the kernel image is out of date
-is preposterous in this case.  It was built just before the
-config was changed!
+Modules have many advantages, one advantage is e.g. that they allow 
+generic distribution kernels without resulting in huge kernel images.
 
-I'm not saying that changing the kernel is an invalid, I'm only
-saying that documentation should be updated to mention explicitly :
+Another advantage is that you can later add modules to a running kernel, 
+you can compile a module for your kernel and insert it without rebooting 
+the machine. This is currently not possible with moduler IPv6.
 
-If you are adding a kernel module to your config, you must also
-recompile your kernel and use the new kernel before you use that
-module.  Essentially, modules are useful only for hotplugging type
-situations and not for ease of developer access to kernel drivers.
+That was my personal opinion.
 
-I agree with Mr. Woodhouse in that this is completely non-intuitive
-and is absolutely not what most linux users think of as expected
-behaviour, but I can understand how something like IPV6 changes too
-many things to be reliably build as a module in this fashion.
+My opinions seem to be very close to the opinions of David Woodhouse, so 
+there's no need to repeat your discussion.
 
-SO
+cu
+Adrian
 
-TO GET TO MY POINT :)
+-- 
 
-Why can't the subject line of this thread be implemented?  If IPV6
-isn't modular, then WHY ALLOW IT AS A MODULE?
-
-Dana Lacoste
-Ottawa, Canada
+       "Is there not promise of rain?" Ling Tan asked suddenly out
+        of the darkness. There had been need of rain for many days.
+       "Only a promise," Lao Er said.
+                                       Pearl S. Buck - Dragon Seed
