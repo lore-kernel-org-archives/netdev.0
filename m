@@ -1,31 +1,23 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [TRIVIAL] Fix recent bug in fib_semantics.c
-Date: Fri, 17 Sep 2004 02:37:08 -0400
+From: Eric Mudama <edmudama@gmail.com>
+Subject: Re: The ultimate TOE design
+Date: Fri, 17 Sep 2004 00:46:59 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <414A8614.5000807@pobox.com>
-References: <20040917062042.GE6523@zax>
+Message-ID: <311601c90409162346184649eb@mail.gmail.com>
+References: <4148991B.9050200@pobox.com>
+	 <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
+Reply-To: Eric Mudama <edmudama@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, David Miller <davem@redhat.com>,
-        trivial@rustcorp.com.au, linux-kernel@vger.kernel.org,
-        netdev@oss.sgi.com
+Cc: Netdev <netdev@oss.sgi.com>, leonid.grossman@s2io.com,
+        Linux Kernel <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Gibson <david@gibson.dropbear.id.au>
-In-Reply-To: <20040917062042.GE6523@zax>
+To: David Stevens <dlstevens@us.ibm.com>
+In-Reply-To: <OF8783A4F6.D566336C-ON88256F10.006E51CE-88256F10.006EDA93@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David Gibson wrote:
-> Andrew, please apply:
-> 
-> When fib_create_info() allocates new hash tables, it neglects to
-> initialize them.  This leads to an oops during boot on at least
-> machine I use.  This patch addresses the problem.
-> 
-> Signed-off-by: David Gibson <dwg@au1.ibm.com>
+On Wed, 15 Sep 2004 14:11:04 -0600, David Stevens <dlstevens@us.ibm.com> wrote:
+> Why don't we off-load filesystems to disks instead?
 
-
-This may be the oops in fib_xxx I just saw on my Athlon64 box...
-
-	Jeff
+Disks have had file systems on them since close to the beginning...
