@@ -1,28 +1,27 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: [2/4] pollcontroller patch for 2.6.0-test10-bk25-netdrvr-exp1
-Date: Fri, 5 Dec 2003 14:06:20 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] IPv6 MIB:ipv6Prefix netlink notification
+Date: Fri, 5 Dec 2003 14:57:00 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229B1A@orsmsx402.jf.intel.com>
+Message-ID: <20031205145700.120e9e68.davem@redhat.com>
+References: <200311191621.38087.mashirle@us.ibm.com>
+	<200312051351.47962.mashirle@us.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
-Cc: <mpm@selenic.com>, <suparna@in.ibm.com>, <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, xma@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Feldman, Scott" <scott.feldman@intel.com>,
-        "Jeff Garzik" <jgarzik@pobox.com>, <prasanna@in.ibm.com>
+To: Shirley Ma <mashirle@us.ibm.com>
+In-Reply-To: <200312051351.47962.mashirle@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> Additionally, if you have VLANs enabled on the interface, we 
-> might need to care about netif_hwaccell_[rx|receive_skb].  
-> Something tells me all of the netif_* receive funcs need to 
-> handle the netdump conversation. That would be easier than 
-> special casing poll_controller in each driver. Is someone 
-> working on this?
+On Fri, 5 Dec 2003 13:51:47 -0800
+Shirley Ma <mashirle@us.ibm.com> wrote:
 
-Ok, nevermind, we looked closer at lkcd/netpoll patches and it looks
-like this is addressed.
+> Once receiving a router advertisement message for prefix info, 
+> a netlink notification event will be created.
+> 
+> This patch has been tested against linux-2.6.0-test11. 
 
--scott
+Let's queue this up for 2.6.1, please resend it after 2.6.0 is
+released.
