@@ -1,46 +1,46 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Don't assign a same IPv6 address on a same
- interface
-Date: Mon, 31 Mar 2003 11:05:51 -0800 (PST)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030331.110551.14104246.davem@redhat.com>
-References: <20030330163656.GA18645@ferrara.linux.it>
-	<20030331.033524.114862210.yoshfuji@linux-ipv6.org>
-	<20030331.103451.118020141.yoshfuji@linux-ipv6.org>
+From: "Hen, Shmulik" <shmulik.hen@intel.com>
+Subject: RE: [Bonding][patch] Adding Transmit load balancing mode to bondi
+	ng
+Date: Tue, 1 Apr 2003 19:09:09 +0300
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <E791C176A6139242A988ABA8B3D9B38A014C92C4@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
-Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-   usagi@linux-ipv6.org, pioppo@ferrara.linux.it
-Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030331.103451.118020141.yoshfuji@linux-ipv6.org>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Cc: bonding-devel@lists.sourceforge.net,
+	bonding-announce@lists.sourceforge.net, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com, jgarzik@pobox.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+content-class: urn:content-classes:message
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Mon, 31 Mar 2003 10:34:51 +0900 (JST)
+We haven't experimented with layer 4 load balancing in the past. I guess
+this is because of the big overhead of parsing the skb for the necessary
+data, but also because of the risk of dealing with IP fragmentation, large
+send issues, encryption and all kinds of off-loadings.
 
-   In article <20030331.033524.114862210.yoshfuji@linux-ipv6.org> (at Mon, 31 Mar 2003 03:35:24 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
-   
-   > In article <20030330163656.GA18645@ferrara.linux.it> (at Sun, 30 Mar 2003 18:36:56 +0200), Simone Piunno <pioppo@ferrara.linux.it> says:
-   > 
-   > >  - locking inside ipv6_add_addr() is simpler and more linear but
-   > >    semantically wrong because you're unable to tell the user why his 
-   > >    "ip addr add" failed.  E.g. you answer ENOBUFS instead of EEXIST.
-   > 
-   > We don't want to create duplicate address in any case.
-   > ipv6_add_addr() IS right place.
-   > And, we can return error code by using IS_ERR() etc.
-   > I'll fix this.
-   
-   Here's the revised patch.
 
-Applied to both 2.4.x and 2.5.x.
+	Shmulik.
 
-BTW, 2.4.x patch failed in two spots, one was author comment
-which I easily fixed, second was in privacy code which I did not
-apply yet to 2.4.x (I fixed this too, don't worry).
-
-I do not want to put privacy code into 2.4.x until crypto is there.
-I plan to put crypto lib into 2.4.22-pre1.
+> -----Original Message-----
+> From: David S. Miller [mailto:davem@redhat.com]
+> Sent: Thursday, March 27, 2003 6:06 PM
+> To: Hen, Shmulik
+> Cc: bonding-devel@lists.sourceforge.net; 
+> bonding-announce@lists.sourceforge.net; 
+> linux-net@vger.kernel.org; netdev@oss.sgi.com; 
+> linux-kernel@vger.kernel.org; jgarzik@pobox.com
+> Subject: Re: [Bonding][patch] Adding Transmit load balancing 
+> mode to bonding
+> 
+> 
+>    From: shmulik.hen@intel.com
+>    Date: Thu, 27 Mar 2003 17:38:02 +0200 (IST)
+> 
+>    Balancing is connection oriented (e.g. by IPv4 destination address)
+>    so packet order is always kept.
+> 
+> You could also key off of the destination/source port as well for
+> UDP/TCP/SCTP.  Have you experimented with this?
+> 
