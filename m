@@ -1,8 +1,8 @@
 From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM]: [ioctl][2/8] add registration functions (from levon@movementarian.org)
-Date: Thu, 25 Sep 2003 12:09:53 -0400
+Subject: [PATCH][ATM]: [ioctl][3/8] use new code for pppoatm and br2684 (from levon@movementarian.org)
+Date: Thu, 25 Sep 2003 12:10:04 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309251609.h8PG9qkT006932@ginger.cmf.nrl.navy.mil>
+Message-ID: <200309251610.h8PGA3kT006938@ginger.cmf.nrl.navy.mil>
 Reply-To: chas3@users.sourceforge.net
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
@@ -16,122 +16,166 @@ please apply to 2.6 -- thanks
 # Project Name: Linux kernel tree
 # This patch format is intended for GNU patch command version 2.5 or higher.
 # This patch includes the following deltas:
-#	           ChangeSet	1.1448  -> 1.1449 
-#	     net/atm/ioctl.c	1.1     -> 1.2    
-#	include/linux/atmdev.h	1.29    -> 1.30   
+#	           ChangeSet	1.1449  -> 1.1450 
+#	    net/atm/br2684.c	1.11    -> 1.12   
+#	     net/atm/ioctl.c	1.2     -> 1.3    
+#	   net/atm/pppoatm.c	1.14    -> 1.15   
 #
 # The following is the BitKeeper ChangeSet Log
 # --------------------------------------------
-# 03/09/23	chas@relax.cmf.nrl.navy.mil	1.1449
-# [ATM]: [ioctl][2/8] add registration functions (from levon@movementarian.org)
+# 03/09/23	chas@relax.cmf.nrl.navy.mil	1.1450
+# [ATM]: [ioctl][3/8] use new code for pppoatm and br2684 (from levon@movementarian.org)
 # --------------------------------------------
 #
-diff -Nru a/include/linux/atmdev.h b/include/linux/atmdev.h
---- a/include/linux/atmdev.h	Thu Sep 25 09:24:09 2003
-+++ b/include/linux/atmdev.h	Thu Sep 25 09:24:09 2003
-@@ -445,6 +445,28 @@
+diff -Nru a/net/atm/br2684.c b/net/atm/br2684.c
+--- a/net/atm/br2684.c	Thu Sep 25 09:24:19 2003
++++ b/net/atm/br2684.c	Thu Sep 25 09:24:19 2003
+@@ -634,9 +634,11 @@
+  * This handles ioctls actually performed on our vcc - we must return
+  * -ENOIOCTLCMD for any unrecognized ioctl
+  */
+-static int br2684_ioctl(struct atm_vcc *atmvcc, unsigned int cmd,
++static int br2684_ioctl(struct socket *sock, unsigned int cmd,
+ 	unsigned long arg)
+ {
++	struct atm_vcc *atmvcc = ATM_SD(sock);
++
+ 	int err;
+ 	switch(cmd) {
+ 	case ATM_SETBACKEND:
+@@ -667,6 +669,12 @@
+ 	return -ENOIOCTLCMD;
+ }
  
- void vcc_release_async(struct atm_vcc *vcc, int reply);
- 
-+struct atm_ioctl {
-+	struct module *owner;
-+	/* A module reference is kept if appropriate over this call.
-+	 * Return -ENOIOCTLCMD if you don't handle it. */
-+	int (*ioctl)(struct socket *, unsigned int cmd, unsigned long arg);
-+	struct list_head list;
++static struct atm_ioctl br2684_ioctl_ops = {
++	.owner	= THIS_MODULE,
++	.ioctl	= br2684_ioctl,
 +};
 +
-+/**
-+ * register_atm_ioctl - register handler for ioctl operations
-+ *
-+ * Special (non-device) handlers of ioctl's should
-+ * register here. If you're a normal device, you should
-+ * set .ioctl in your atmdev_ops instead.
-+ */
-+void register_atm_ioctl(struct atm_ioctl *);
 +
-+/**
-+ * deregister_atm_ioctl - remove the ioctl handler
-+ */
-+void deregister_atm_ioctl(struct atm_ioctl *);
-+
- #endif /* __KERNEL__ */
- 
- #endif
-diff -Nru a/net/atm/ioctl.c b/net/atm/ioctl.c
---- a/net/atm/ioctl.c	Thu Sep 25 09:24:09 2003
-+++ b/net/atm/ioctl.c	Thu Sep 25 09:24:09 2003
-@@ -1,6 +1,7 @@
--/* net/atm/common.c - ATM sockets (common part for PVC and SVC) */
-+/* ATM ioctl handling */
- 
- /* Written 1995-2000 by Werner Almesberger, EPFL LRC/ICA */
-+/* 2003 John Levon  <levon@movementarian.org> */
- 
- 
- #include <linux/config.h>
-@@ -18,7 +19,7 @@
- #ifdef CONFIG_ATM_CLIP
- #include <net/atmclip.h>	/* for clip_create */
- #endif
--#include "resources.h"		/* atm_find_dev */
-+#include "resources.h"
- #include "signaling.h"		/* for WAITING and sigd_attach */
- 
- #if defined(CONFIG_ATM_LANE) || defined(CONFIG_ATM_LANE_MODULE)
-@@ -153,11 +154,32 @@
- #endif
- #endif
- 
-+static DECLARE_MUTEX(ioctl_mutex);
-+static LIST_HEAD(ioctl_list);
-+
-+
-+void register_atm_ioctl(struct atm_ioctl *ioctl)
-+{
-+	down(&ioctl_mutex);
-+	list_add_tail(&ioctl->list, &ioctl_list);
-+	up(&ioctl_mutex);
-+}
-+
-+void deregister_atm_ioctl(struct atm_ioctl *ioctl)
-+{
-+	down(&ioctl_mutex);
-+	list_del(&ioctl->list);
-+	up(&ioctl_mutex);
-+}
-+
-+EXPORT_SYMBOL(register_atm_ioctl);
-+EXPORT_SYMBOL(deregister_atm_ioctl);
- 
- int vcc_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg)
+ #ifdef CONFIG_PROC_FS
+ static void *br2684_seq_start(struct seq_file *seq, loff_t *pos)
  {
- 	struct atm_vcc *vcc;
- 	int error;
-+	struct list_head * pos;
+@@ -774,7 +782,7 @@
+ 		return -ENOMEM;
+ 	p->proc_fops = &br2684_proc_ops;
+ #endif
+-	br2684_ioctl_set(br2684_ioctl);
++	register_atm_ioctl(&br2684_ioctl_ops);
+ 	return 0;
+ }
  
- 	vcc = ATM_SD(sock);
+@@ -783,7 +791,7 @@
+ 	struct net_device *net_dev;
+ 	struct br2684_dev *brdev;
+ 	struct br2684_vcc *brvcc;
+-	br2684_ioctl_set(NULL);
++	deregister_atm_ioctl(&br2684_ioctl_ops);
+ 
+ #ifdef CONFIG_PROC_FS
+ 	remove_proc_entry("br2684", atm_proc_root);
+diff -Nru a/net/atm/ioctl.c b/net/atm/ioctl.c
+--- a/net/atm/ioctl.c	Thu Sep 25 09:24:19 2003
++++ b/net/atm/ioctl.c	Thu Sep 25 09:24:19 2003
+@@ -122,38 +122,6 @@
+ #endif
+ #endif
+ 
+-#if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
+-static DECLARE_MUTEX(pppoatm_ioctl_mutex);
+-
+-static int (*pppoatm_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
+-
+-void pppoatm_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long))
+-{
+-	down(&pppoatm_ioctl_mutex);
+-	pppoatm_ioctl_hook = hook;
+-	up(&pppoatm_ioctl_mutex);
+-}
+-#ifdef CONFIG_PPPOATM_MODULE
+-EXPORT_SYMBOL(pppoatm_ioctl_set);
+-#endif
+-#endif
+-
+-#if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
+-static DECLARE_MUTEX(br2684_ioctl_mutex);
+-
+-static int (*br2684_ioctl_hook)(struct atm_vcc *, unsigned int, unsigned long);
+-
+-void br2684_ioctl_set(int (*hook)(struct atm_vcc *, unsigned int, unsigned long))
+-{
+-	down(&br2684_ioctl_mutex);
+-	br2684_ioctl_hook = hook;
+-	up(&br2684_ioctl_mutex);
+-}
+-#ifdef CONFIG_ATM_BR2684_MODULE
+-EXPORT_SYMBOL(br2684_ioctl_set);
+-#endif
+-#endif
+-
+ static DECLARE_MUTEX(ioctl_mutex);
+ static LIST_HEAD(ioctl_list);
+ 
+@@ -433,23 +401,6 @@
+ 
+ 	if (error != -ENOIOCTLCMD)
+ 		goto done;
+-
+-#if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
+-	down(&pppoatm_ioctl_mutex);
+-	if (pppoatm_ioctl_hook)
+-		error = pppoatm_ioctl_hook(vcc, cmd, arg);
+-	up(&pppoatm_ioctl_mutex);
+-	if (error != -ENOIOCTLCMD)
+-		goto done;
+-#endif
+-#if defined(CONFIG_ATM_BR2684) || defined(CONFIG_ATM_BR2684_MODULE)
+-	down(&br2684_ioctl_mutex);
+-	if (br2684_ioctl_hook)
+-		error = br2684_ioctl_hook(vcc, cmd, arg);
+-	up(&br2684_ioctl_mutex);
+-	if (error != -ENOIOCTLCMD)
+-		goto done;
+-#endif
+ 
+ 	error = atm_dev_ioctl(cmd, arg);
+ 
+diff -Nru a/net/atm/pppoatm.c b/net/atm/pppoatm.c
+--- a/net/atm/pppoatm.c	Thu Sep 25 09:24:19 2003
++++ b/net/atm/pppoatm.c	Thu Sep 25 09:24:19 2003
+@@ -315,9 +315,11 @@
+  * This handles ioctls actually performed on our vcc - we must return
+  * -ENOIOCTLCMD for any unrecognized ioctl
+  */
+-static int pppoatm_ioctl(struct atm_vcc *atmvcc, unsigned int cmd,
++static int pppoatm_ioctl(struct socket *sock, unsigned int cmd,
+ 	unsigned long arg)
+ {
++	struct atm_vcc *atmvcc = ATM_SD(sock);
++
+ 	if (cmd != ATM_SETBACKEND && atmvcc->push != pppoatm_push)
+ 		return -ENOIOCTLCMD;
  	switch (cmd) {
-@@ -396,6 +418,22 @@
- 			break;
- 	}
- 	error = -ENOIOCTLCMD;
+@@ -341,15 +343,20 @@
+ 	return -ENOIOCTLCMD;
+ }
+ 
++struct atm_ioctl pppoatm_ioctl_ops = {
++	.owner	= THIS_MODULE,
++	.ioctl	= pppoatm_ioctl,
++};
 +
-+	down(&ioctl_mutex);
-+	list_for_each(pos, &ioctl_list) {
-+		struct atm_ioctl * ic = list_entry(pos, struct atm_ioctl, list);
-+		if (try_module_get(ic->owner)) {
-+			error = ic->ioctl(sock, cmd, arg);
-+			module_put(ic->owner);
-+			if (error != -ENOIOCTLCMD)
-+				break;
-+		}
-+	}
-+	up(&ioctl_mutex);
-+
-+	if (error != -ENOIOCTLCMD)
-+		goto done;
-+
- #if defined(CONFIG_PPPOATM) || defined(CONFIG_PPPOATM_MODULE)
- 	down(&pppoatm_ioctl_mutex);
- 	if (pppoatm_ioctl_hook)
+ static int __init pppoatm_init(void)
+ {
+-	pppoatm_ioctl_set(pppoatm_ioctl);
++	register_atm_ioctl(&pppoatm_ioctl_ops);
+ 	return 0;
+ }
+ 
+ static void __exit pppoatm_exit(void)
+ {
+-	pppoatm_ioctl_set(NULL);
++	deregister_atm_ioctl(&pppoatm_ioctl_ops);
+ }
+ 
+ module_init(pppoatm_init);
