@@ -1,32 +1,33 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: patch for common networking error messages
-Date: Mon, 16 Jun 2003 15:55:33 -0700 (PDT)
+Date: Mon, 16 Jun 2003 15:57:17 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030616.155533.63022973.davem@redhat.com>
-References: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
+Message-ID: <20030616.155717.58468888.davem@redhat.com>
+References: <3EEE40F1.4030107@us.ibm.com>
+	<20030616.151308.55864910.davem@redhat.com>
+	<3EEE49BA.6070401@us.ibm.com>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: stekloff@us.ibm.com, janiceg@us.ibm.com, jgarzik@pobox.com,
-   kenistonj@us.ibm.com, lkessler@us.ibm.com, linux-kernel@vger.kernel.org,
-   netdev@oss.sgi.com, niv@us.ibm.com
+Cc: janiceg@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+   stekloff@us.ibm.com, girouard@us.ibm.com, lkessler@us.ibm.com,
+   kenistonj@us.ibm.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: girouard@us.ibm.com
-In-Reply-To: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
+To: niv@us.ibm.com
+In-Reply-To: <3EEE49BA.6070401@us.ibm.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Janice Girouard <girouard@us.ibm.com>
-   Date: Mon, 16 Jun 2003 17:50:08 -0500
-   
-   One possible suggestion would be to submit more than one stdmsgs.h
-   files.  One a legacy file, and one that is more consistent from
-   message to message.. shooting for a gradual migration.
+   From: Nivedita Singhvi <niv@us.ibm.com>
+   Date: Mon, 16 Jun 2003 15:50:34 -0700
 
-Let me know when you're back on planet earth ok?
+   I do see positives in the feature as a whole though.
 
-Standardizing strings is an absolutely FRUITLESS exercise.
+Would you design a network protocol this way?  By passing
+strings like "open connection please", "sure no problem"
+back and forth between server and client?
 
-If you want events, standardize events and push them over
-a queueing based communications channel to userspace, namely
-using netlink sockets.
+Of course not.
+
+So why are we even remotely considering the standardization
+of _STRINGS_ for event reporting?
