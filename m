@@ -1,46 +1,112 @@
-From: P@draigBrady.com
-Subject: Re: Xeon smp performance
-Date: Mon, 08 Mar 2004 15:15:30 +0000
+From: Wensong Zhang <wensong@linux-vs.org>
+Subject: [PATCH 2.4/2.6] IPVS: code tidy up
+Date: Tue, 9 Mar 2004 00:37:54 +0800 (CST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <404C8E12.4060403@draigBrady.com>
-References: <20040308132354.77437.qmail@web21101.mail.yahoo.com>
+Message-ID: <Pine.LNX.4.44.0403090018570.1981-300000@penguin.linux-vs.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: quoted-printable
-Cc: netdev@oss.sgi.com
+Content-Type: MULTIPART/MIXED; BOUNDARY="-1463811584-157386712-1078763874=:1981"
+Cc: "David S. Miller" <davem@redhat.com>, Horms <horms@vergenet.net>,
+        Julian Anastasov <ja@ssi.bg>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: satya srikanth <satyasrikanth2001@yahoo.com>
-In-Reply-To: <20040308132354.77437.qmail@web21101.mail.yahoo.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-satya srikanth wrote:
-> Hi,
->    I am writing a simple sniffer program that will
-> sniff packets in a gigabit network. I am using a dual
-> processor 2 GHz Xeon processor with one Intel Pro-1000
-> desktop adapter, running 2.4.20-8smp linux.=20
->    I found that for all packet sizes and network
-> bandwidth, 2.4.20-8 uniprocessor version that uses
-> only one processor is performing better than
-> 2.4.20-8smp using two processors in terms of packet
-> drops and CPU utilization. Each processor in smp is
-> utilizing more CPU than one processor in uni-processor
-> case. What is the reason for this peculiar behaviour?
-> Is it possible for me to use the power of second
-> processor without adding more NICs. Will I face
-> similar problems with 2.6 also? Anybody familiar with
-> these please help me out.
+  This message is in MIME format.  The first part should be readable text,
+  while the remaining parts are likely unreadable without MIME-aware tools.
+  Send mail to mime@docserver.cac.washington.edu for more info.
 
-That matches my experience. My chipset was Intel E7501
-with 2 intel pro-1000 adapters. I used the base 2.4.20 kernel
-with latest intel drivers.
+---1463811584-157386712-1078763874=:1981
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 
-I had 2 processes capturing packets and noticed that
-2 CPUs is 7% slower than one CPU. Note I was using a non SMP
-kernel for the one CPU case.
 
-I'm going to have to look into improving this soon.
-First I'm going to look at IRQ and process affinity.
 
-P=E1draig.
+Hi,
+
+Here are the minor patches for IPVS code in the kernel 2.4 and 2.6. Please
+consider to apply them respectively.
+
+Thanks,
+
+Wensong
+
+---1463811584-157386712-1078763874=:1981
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.4-ipvs-tidyup.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0403090037540.1981@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: attachment; filename="linux-2.4-ipvs-tidyup.patch"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTMzMyAgLT4gMS4xMzM0IA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuNCAgICAgLT4gMS41ICAgIA0K
+Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
+IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KIyAwNC8wMy8wOQl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjEz
+MzQNCiMgW0lQVlNdIGNvZGUgdGlkeSB1cA0KIyANCiMgUGF0Y2ggZnJvbSBI
+b3JtcyA8aG9ybXNAdmVyZ2VuZXQubmV0Pg0KIyANCiMgMS4gVGhlIHRyYWls
+aW5nICdcbicgd2FzIG1pc3NpbmcsIGl0IGhhcyBiZWVuIGFkZGVkDQojIDIu
+IFRoZSBwcm90b2NvbCBpcyBhbHJlYWR5IGluIGhvc3QgYnl0ZSBvcmRlciwN
+CiMgICAgdGhlIG50b2hsKCkgY2FsbCBoYXMgYmVlbiByZW1vdmVkDQojIC0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQoj
+DQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jIGIvbmV0
+L2lwdjQvaXB2cy9pcF92c19jdGwuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9p
+cF92c19jdGwuYwlUdWUgTWFyICA5IDAwOjAzOjI5IDIwMDQNCisrKyBiL25l
+dC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJVHVlIE1hciAgOSAwMDowMzoyOSAy
+MDA0DQpAQCAtMTczNyw5ICsxNzM3LDkgQEANCiAJICogQ2hlY2sgZm9yIHZh
+bGlkIHByb3RvY29sOiBUQ1Agb3IgVURQLiBFdmVuIGZvciBmd21hcmshPTAN
+CiAJICovDQogCWlmICh1cnVsZS0+cHJvdG9jb2whPUlQUFJPVE9fVENQICYm
+IHVydWxlLT5wcm90b2NvbCE9SVBQUk9UT19VRFApIHsNCi0JCUlQX1ZTX0lO
+Rk8oInZzX2N0bDogaW52YWxpZCBwcm90b2NvbDogJWQgJWQuJWQuJWQuJWQ6
+JWQgJXMiLA0KLQkJCSAgIG50b2hzKHVydWxlLT5wcm90b2NvbCksIE5JUFFV
+QUQodXJ1bGUtPnZhZGRyKSwNCi0JCQkgICBudG9ocyh1cnVsZS0+dnBvcnQp
+LCB1cnVsZS0+c2NoZWRfbmFtZSk7DQorCQlJUF9WU19FUlIoInNldF9jdGw6
+IGludmFsaWQgcHJvdG9jb2wgJWQgJWQuJWQuJWQuJWQ6JWQgJXNcbiIsDQor
+CQkJICB1cnVsZS0+cHJvdG9jb2wsIE5JUFFVQUQodXJ1bGUtPnZhZGRyKSwN
+CisJCQkgIG50b2hzKHVydWxlLT52cG9ydCksIHVydWxlLT5zY2hlZF9uYW1l
+KTsNCiAJCXJldCA9IC1FRkFVTFQ7DQogCQlnb3RvIG91dF91bmxvY2s7DQog
+CX0NCg==
+---1463811584-157386712-1078763874=:1981
+Content-Type: TEXT/PLAIN; charset=US-ASCII; name="linux-2.6-ipvs-tidyup.patch"
+Content-Transfer-Encoding: BASE64
+Content-ID: <Pine.LNX.4.44.0403090037541.1981@penguin.linux-vs.org>
+Content-Description: 
+Content-Disposition: attachment; filename="linux-2.6-ipvs-tidyup.patch"
+
+IyBUaGlzIGlzIGEgQml0S2VlcGVyIGdlbmVyYXRlZCBwYXRjaCBmb3IgdGhl
+IGZvbGxvd2luZyBwcm9qZWN0Og0KIyBQcm9qZWN0IE5hbWU6IExpbnV4IGtl
+cm5lbCB0cmVlDQojIFRoaXMgcGF0Y2ggZm9ybWF0IGlzIGludGVuZGVkIGZv
+ciBHTlUgcGF0Y2ggY29tbWFuZCB2ZXJzaW9uIDIuNSBvciBoaWdoZXIuDQoj
+IFRoaXMgcGF0Y2ggaW5jbHVkZXMgdGhlIGZvbGxvd2luZyBkZWx0YXM6DQoj
+CSAgICAgICAgICAgQ2hhbmdlU2V0CTEuMTY5MiAgLT4gMS4xNjkzIA0KIwlu
+ZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jCTEuMTIgICAgLT4gMS4xMyAgIA0K
+Iw0KIyBUaGUgZm9sbG93aW5nIGlzIHRoZSBCaXRLZWVwZXIgQ2hhbmdlU2V0
+IExvZw0KIyAtLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0t
+LS0tLS0tLQ0KIyAwNC8wMy8wOQl3ZW5zb25nQGxpbnV4LXZzLm9yZwkxLjE2
+OTMNCiMgW0lQVlNdIGNvZGUgdGlkeSB1cA0KIyANCiMgUGF0Y2ggZnJvbSBI
+b3JtcyA8aG9ybXNAdmVyZ2VuZXQubmV0Pg0KIyANCiMgMS4gVGhlIHRyYWls
+aW5nICdcbicgd2FzIG1pc3NpbmcsIGl0IGhhcyBiZWVuIGFkZGVkDQojIDIu
+IFRoZSBwcm90b2NvbCBpcyBhbHJlYWR5IGluIGhvc3QgYnl0ZSBvcmRlciwN
+CiMgICAgdGhlIG50b2hsKCkgY2FsbCBoYXMgYmVlbiByZW1vdmVkDQojIC0t
+LS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tLS0tDQoj
+DQpkaWZmIC1OcnUgYS9uZXQvaXB2NC9pcHZzL2lwX3ZzX2N0bC5jIGIvbmV0
+L2lwdjQvaXB2cy9pcF92c19jdGwuYw0KLS0tIGEvbmV0L2lwdjQvaXB2cy9p
+cF92c19jdGwuYwlUdWUgTWFyICA5IDAwOjM2OjI5IDIwMDQNCisrKyBiL25l
+dC9pcHY0L2lwdnMvaXBfdnNfY3RsLmMJVHVlIE1hciAgOSAwMDozNjoyOSAy
+MDA0DQpAQCAtMTgzNiw5ICsxODM2LDkgQEANCiANCiAJLyogQ2hlY2sgZm9y
+IHZhbGlkIHByb3RvY29sOiBUQ1Agb3IgVURQLCBldmVuIGZvciBmd21hcmsh
+PTAgKi8NCiAJaWYgKHVzdmMtPnByb3RvY29sIT1JUFBST1RPX1RDUCAmJiB1
+c3ZjLT5wcm90b2NvbCE9SVBQUk9UT19VRFApIHsNCi0JCUlQX1ZTX0lORk8o
+InZzX2N0bDogaW52YWxpZCBwcm90b2NvbDogJWQgJWQuJWQuJWQuJWQ6JWQg
+JXMiLA0KLQkJCSAgIG50b2hzKHVzdmMtPnByb3RvY29sKSwgTklQUVVBRCh1
+c3ZjLT5hZGRyKSwNCi0JCQkgICBudG9ocyh1c3ZjLT5wb3J0KSwgdXN2Yy0+
+c2NoZWRfbmFtZSk7DQorCQlJUF9WU19FUlIoInNldF9jdGw6IGludmFsaWQg
+cHJvdG9jb2w6ICVkICVkLiVkLiVkLiVkOiVkICVzXG4iLA0KKwkJCSAgdXN2
+Yy0+cHJvdG9jb2wsIE5JUFFVQUQodXN2Yy0+YWRkciksDQorCQkJICBudG9o
+cyh1c3ZjLT5wb3J0KSwgdXN2Yy0+c2NoZWRfbmFtZSk7DQogCQlyZXQgPSAt
+RUZBVUxUOw0KIAkJZ290byBvdXRfdW5sb2NrOw0KIAl9DQo=
+---1463811584-157386712-1078763874=:1981--
