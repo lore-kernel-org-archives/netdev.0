@@ -1,44 +1,32 @@
-From: "Leonid Grossman" <leonid.grossman@s2io.com>
-Subject: RE: The ultimate TOE design
-Date: Fri, 17 Sep 2004 16:36:12 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: Re: 2.6.8.1 IPv6 Routing Problem
+Date: Sat, 18 Sep 2004 08:43:04 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409172336.i8HNaL39020193@guinness.s2io.com>
-References: <470b6397040917162033bfa880@mail.gmail.com>
+Message-ID: <20040918.084304.75142669.yoshfuji@linux-ipv6.org>
+References: <20040917230803.GJ2678@sunbeam.de.gnumonks.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: <valdis.kletnieks@vt.edu>, "'Eric Mudama'" <edmudama@gmail.com>,
-        "'David Stevens'" <dlstevens@us.ibm.com>,
-        "'Netdev'" <netdev@oss.sgi.com>,
-        "'Linux Kernel'" <linux-kernel@vger.kernel.org>
+Cc: netdev@oss.sgi.com, usagi-users@linux-ipv6.org, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "'Tony Lee'" <tony.p.lee@gmail.com>,
-        "'David Lang'" <david.lang@digitalinsight.com>
-In-Reply-To: <470b6397040917162033bfa880@mail.gmail.com>
+To: laforge@netfilter.org
+In-Reply-To: <20040917230803.GJ2678@sunbeam.de.gnumonks.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
- 
+In article <20040917230803.GJ2678@sunbeam.de.gnumonks.org> (at Sat, 18 Sep 2004 01:08:03 +0200), Harald Welte <laforge@netfilter.org> says:
 
-> -----Original Message-----
-> From: Tony Lee [mailto:tony.p.lee@gmail.com] 
-> Sent: Friday, September 17, 2004 4:21 PM
-Skipped...
+> I'm experiencing some strange problems on a 2.6.8.1 vanilla kernel.  I
+> tried to reproduce it with a minimal system:
+:
+> (intermixed with a 'ip6tables -A OUTPUT -j LOG' and '-A INPUT -j LOG'
+> rules for diagnostics).
 
-> Question for Leonid of S2io.com:  Your company has an 
-> interesting card.
-> I think it must have some kind of embedded CPU.  Care to tell 
-> us what kind of CPU are they?
+It is not minimum with ip6tables. :-)
 
-Hi Tony, 
-For 10GbE card, we designed our own ASIC - embedded CPUs don't cut it at
-10GbE...
-Leonid
+Anyway, please try the latest bk tree.
+There are may fixes in it.
 
+Thanks.
 
-> -- 
-> -Tony
-> Having a lot of fun with Xilinx Virtex Pro II reconfigurable 
-> HW + ppc + Linux
-> 
+--yoshfuji
