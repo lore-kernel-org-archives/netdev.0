@@ -1,38 +1,43 @@
-From: Kai Makisara <Kai.Makisara@kolumbus.fi>
-Subject: Re: e1000 lockup in linux 2.6.9-rc2
-Date: Tue, 21 Sep 2004 00:25:32 +0300 (EEST)
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
+Date: Tue, 21 Sep 2004 07:59:06 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0409210023490.2075@kai.makisara.local>
-References: <Pine.LNX.4.58.0409202339050.2170@kai.makisara.local>
- <20040920135606.7a0885df.davem@davemloft.net>
+Message-ID: <20040920215906.GA26266@gondor.apana.org.au>
+References: <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net> <20040919215915.GB9573@gondor.apana.org.au> <1095633569.1047.107.camel@jzny.localdomain> <20040919231734.GA10124@gondor.apana.org.au> <1095647944.1046.206.camel@jzny.localdomain> <20040920025802.GA11567@gondor.apana.org.au> <1095683660.1047.254.camel@jzny.localdomain> <414F1E12.6010808@eurodev.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: netdev@oss.sgi.com, ganesh.venkatesan@intel.com
+Content-Type: text/plain; charset=us-ascii
+Cc: hadi@cyberus.ca, "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040920135606.7a0885df.davem@davemloft.net>
+To: Pablo Neira <pablo@eurodev.net>
+Content-Disposition: inline
+In-Reply-To: <414F1E12.6010808@eurodev.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Sep 2004, David S. Miller wrote:
+On Mon, Sep 20, 2004 at 08:14:42PM +0200, Pablo Neira wrote:
+> 
+> jamal wrote:
+>
+> >Agreed.
+> >For a test i typically have something adding say 10K items (actions in
+> >my case, but could be ipsec policies) and then try to dump them. On my
+> >xeon i get an overrun after about 6K items are dumped.
 
-> On Mon, 20 Sep 2004 23:53:15 +0300 (EEST)
-> Kai Makisara <Kai.Makisara@kolumbus.fi> wrote:
-> 
-> > When I started large data transfers in 100 Mb/s network, my computer very 
-> > soon locked totally (i.e., not responding to network, keyboard and mouse 
-> > dead). This had not happened for several days with 2.6.9-rc2 when the 
-> > network activity had been light (1 Mb/s DSL).
-> > 
-> > Some experimentation showed that the lockups were caused by this patch 
-> > fragment in 2.6.9-rc2:
-> 
-> Please make sure you have this patch in your
-> tree, it should fix your problem:
-> 
-I did not have this patch. Installed it and I can confirm that it fixes 
-the problem.
+Good.  That's something we can look at easily.  Dumping is meant to
+be self-controlling as each packet naturally stops the next one from
+being sent until the user has done a recvmsg.
 
-Thanks,
+> yes, this is exactly what I've observed.
+> 
+> Here a link to the tool that I use to stress netlink sockets.
+> 
+> http://eurodev.net/~pablo/netlinkbench-unicast-1.0.tar.gz
+
+Thanks for the link.  I'll take a look.
+
+Cheers,
 -- 
-Kai
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
