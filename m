@@ -1,31 +1,27 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH 2.5.72] (2/3) PPPoE fix oops on /proc/net/pppoe
-Date: Fri, 20 Jun 2003 17:33:24 -0700
+From: Alan Cox <alan@lxorguk.ukuu.org.uk>
+Subject: Re: patch for common networking error messages
+Date: 21 Jun 2003 13:36:54 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030620173324.47071b18.shemminger@osdl.org>
+Message-ID: <1056199013.25974.27.camel@dhcp22.swansea.linux.org.uk>
+References: <OFC2446DB8.6D4DA3ED-ON85256D47.007C79EE@us.ibm.com>
+	 <20030616.155533.63022973.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
+Cc: girouard@us.ibm.com, stekloff@us.ibm.com, janiceg@us.ibm.com,
+   jgarzik@pobox.com, kenistonj@us.ibm.com, lkessler@us.ibm.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>,
+   netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030616.155533.63022973.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Reading /proc/net/pppoe will OOPs because it calls hash_item() when the object pointer (po)
-is null.
+On Llu, 2003-06-16 at 23:55, David S. Miller wrote:
+> Let me know when you're back on planet earth ok?
+> 
+> Standardizing strings is an absolutely FRUITLESS exercise.
 
-diff -Nru a/drivers/net/pppoe.c b/drivers/net/pppoe.c
---- a/drivers/net/pppoe.c	Fri Jun 20 17:16:43 2003
-+++ b/drivers/net/pppoe.c	Fri Jun 20 17:16:43 2003
-@@ -1015,8 +1015,9 @@
- 		goto out;
- 	}
- 	po = v;
--	po = po->next;
--	if (!po) {
-+	if (po->next) 
-+		po = po->next;
-+	else {
- 		int hash = hash_item(po->pppoe_pa.sid, po->pppoe_pa.remote);
- 
- 		while (++hash < PPPOE_HASH_SIZE) {
+Standardising strings is a real help for end users, but its not the way
+to approach logging issues I agree.
