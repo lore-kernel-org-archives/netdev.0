@@ -1,31 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.4] Use double-linked list for dev->qdisc_list
-Date: Wed, 4 Aug 2004 13:44:32 -0700
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: Re: [PATCH] ibmtr: fix init (devinit) section usage
+Date: Wed, 4 Aug 2004 14:12:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804134432.40500c15.davem@redhat.com>
-References: <20040804125926.GA15324@krezus.e-wro.net>
-	<4110E505.1010205@trash.net>
-	<20040804145610.GA21339@krezus.e-wro.net>
+Message-ID: <20040804141221.5a230b77.rddunlap@osdl.org>
+References: <20040804094905.667b3954.rddunlap@osdl.org>
+	<OF5BF82238.ABA1EE0F-ON85256EE6.0064AACC-85256EE6.0064C0D5@urscorp.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kaber@trash.net, netdev@oss.sgi.com
+Cc: jgarzik@pobox.com, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl>
-In-Reply-To: <20040804145610.GA21339@krezus.e-wro.net>
+To: Mike_Phillips@URSCorp.com
+In-Reply-To: <OF5BF82238.ABA1EE0F-ON85256EE6.0064AACC-85256EE6.0064C0D5@urscorp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 4 Aug 2004 16:56:10 +0200
-Tomasz Paszkowski <tomasz.paszkowski@e-wro.pl> wrote:
+On Wed, 4 Aug 2004 14:20:31 -0400 Mike_Phillips@URSCorp.com wrote:
 
-> On Wed, Aug 04, 2004 at 03:30:45PM +0200, Patrick McHardy wrote:
-> > Looks good, except for the last hunk, the BUG_TRAP is valid in 2.4 because
-> > it doesn't use RCU. Change it to BUG_TRAP(list_empty(&dev->qdisc_list)).
-> 
-> Thanks. In attachment there's a corrected version of this patch.
+| Randy:
+| 
+| Does ibmtr_cs still compile with those changes ? It links in ibmtr.c and 
+| the probe functions. 
 
-Can someone regenerate this patch with the q_idx fix Patrick
-just posted added to it?
+Yes, it builds fine.  If HOTPLUG=y, __devinit means <emtpy>.
+If HOTPLUG=n, it means __init.
 
-Thanks.
+Also note that ibmtr_probe1() is already marked as __devinit.
+
+--
+~Randy
