@@ -1,39 +1,80 @@
-From: Pekka Savola <pekkas@netcore.fi>
-Subject: Re: [PATCH] IPv6: Privacy Extensions for Stateless Address
- Autoconfiguration in IPv6
-Date: Thu, 31 Oct 2002 10:24:11 +0200 (EET)
+From: Noriaki Takamiya <takamiya@po.ntts.co.jp>
+Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
+Date: Thu, 31 Oct 2002 17:44:42 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0210311021560.19356-100000@netcore.fi>
-References: <20021031.164940.672083668.yoshfuji@linux-ipv6.org>
+Message-ID: <20021031.174442.846937513.takamiya@po.ntts.co.jp>
+References: <20021017162624.GC16370@morphine.tml.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=ISO-8859-1
-Cc: linux-kernel@vger.kernel.org, <netdev@oss.sgi.com>, <davem@redhat.com>,
-   <kuznet@ms2.inr.ac.ru>, <usagi@linux-ipv6.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   linux-kernel@vger.kernel.org, yoshfuji@wide.ad.jp, pekkas@netcore.fi,
+   torvalds@transmeta.com, jagana@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20021031.164940.672083668.yoshfuji@linux-ipv6.org>
+To: ajtuomin@morphine.tml.hut.fi
+In-Reply-To: <20021017162624.GC16370@morphine.tml.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 31 Oct 2002, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
-> In article <Pine.LNX.4.44.0210310942030.19356-100000@netcore.fi> (at Thu, 31 Oct 2002 09:43:40 +0200 (EET)), Pekka Savola <pekkas@netcore.fi> says:
-> 
-> > Generating and re-generating new temporary addresses seems to be a useless 
-> > work and just new addresses unless they're being used at least by some 
-> > applications.
-> 
-> set default to 0 (don't use it) for now is ok?
+Hi,
 
-Sure, ok for me.  (I'm assuming we'll be able to change the default at 
-some point when more knowledge and experience is gained but we're talking 
-about at least a year or two here, I think).
+  This is Takamiya, a member of USAGI Project.
+  Your work is very cool.  However, we believe there are several
+  issues on direction / design and behavior in your implementation.
 
-(This is why I never perceived privacy addresses as a critical work item 
-at the moment -- e.g. multicast routing might be more interesting.)
+  Please note that we're preparing for checking to what extent this
+  patch is compliant to the Internet draft of MIPv6.  
 
-I don't know how Dave and Alexey feel, of course.
+  So we may comment other things later.
 
--- 
-Pekka Savola                 "Tell me of difficulties surmounted,
-Netcore Oy                   not those you stumble over and fall"
-Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
+(1) About MIPV6CALLFUNC and MIPV6CALLPROC
+	It is reasonable to use these macros for modularized
+	functions. But the current your implementation needs to select
+	HA or MN when compiling the kernel. So, it doesn't seems to be
+	needed this macros, and the real function may be called
+	directly. How about this?
+
+	Rather, how about using sysctl and so on to switch the
+	functionality?
+
+(2) Avoiding Netfilter Hooks
+	In your imprementation HA uses netfilter to intercept packets
+	sent to MN. We think it is costy so we have a suggestion to
+	use FIB structure to forward packets to MN. Bacause we think
+	forwarding packets from HA to MN is FORWARDING, not FILTERING.
+	We think the kernel maintainers may prefer such a manner using
+	FIB structure for forwarding.
+
+(3) Binding Cache
+	We think it is reasonable way to use FIB structure to holding
+	Binding Cache Entries if you us FIB structure for forwarding
+	packets from HA to MN as we suggested (4).
+
+(4) Processing Mobility Header
+	How about using ip6_txoptions and hdrproc_lst?
+	Because Mobility header is an extension header, we think it is
+	reasonable way to handle it in ipv6_parse_exthdrs().
+
+(5) How about using CryptoAPI?
+	CryptoAPI is merged to mainline.
+	We believe we can use the CryptoAPI for caluculating cookies 
+	of RR.  How do you think about this?
+
+(6) Order of HAO and Routing header
+	When MN acts also as CN, the order doesn't seems to be
+	compliant to ID-18 in the implementation. The order will be
+	the following:
+
+	[IPv6][HAO][RT2]
+
+	I-D says:
+
+	[IPv6][RT2][HAO]
+
+(7) Source Address Selection of MN
+	When host acts as MN, your implementation always select HoA as the
+	source address. The source address should be a CoA. 
+
+  Regards,
+--
+Noriaki Takamiya
