@@ -1,24 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Fix target address for (proxy/anycast) NA
-Date: Wed, 20 Aug 2003 11:20:34 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Best way to hook incoming eth pkts?
+Date: Wed, 20 Aug 2003 13:51:41 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030820112034.1f0158b1.davem@redhat.com>
-References: <20030819083621.2ae4abc8.davem@redhat.com>
-	<Pine.LNX.4.44.0308192019030.27510-200000@rhea.tcs.hut.fi>
+Message-ID: <20030820175141.GB23984@gtf.org>
+References: <20030820154727.GB9119@gtf.org> <1061401697.12293.8.camel@serpentine.internal.keyresearch.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: usagi-core@linux-ipv6.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ville Nuorvala <vnuorval@tcs.hut.fi>
-In-Reply-To: <Pine.LNX.4.44.0308192019030.27510-200000@rhea.tcs.hut.fi>
+To: "Bryan O'Sullivan" <bos@serpentine.com>
+Content-Disposition: inline
+In-Reply-To: <1061401697.12293.8.camel@serpentine.internal.keyresearch.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 20 Aug 2003 14:23:12 +0300 (EEST)
-Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
+On Wed, Aug 20, 2003 at 10:48:17AM -0700, Bryan O'Sullivan wrote:
+> On Wed, 2003-08-20 at 08:47, Jeff Garzik wrote:
+> 
+> > ATA-over-ethernet has its own
+> > IANA-registered ethernet type, but netconsole and netdump are using
+> > IP/UDP instead of a custom ethernet protocol.
+> 
+> This is useful, because it minimises the work needed to get them going
+> over other transports, such as Myrinet.  I'd rather not see the UDP
+> encapsulation go away.  Netconsole is already messy enough to configure
+> and deal with; Matt Mackall's 2.6 forward port, that makes configuration
+> more IP-oriented instead of less, is a step in the right direction.
 
-> the target address in neighbor advertisements must be the solicited
-> address. Otherwise proxy NAs (and NAs for anycast addresses) don't work.
+Configuration has zero to do with the protocol of choice.
 
-Applied, thanks.
+I fully agree that current RH netconsole/netdump configuration is
+positively awful...
+
+	Jeff
