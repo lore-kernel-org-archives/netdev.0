@@ -1,199 +1,43 @@
-From: Shirley Ma <mashirle@us.ibm.com>
-Subject: Re: [PATCH] IPv6 MIB:ipv6Prefix netlink notification
-Date: Wed, 14 Jan 2004 14:54:27 -0800
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [patch] 2.6.1-bk1-netdev4 - latent bug
+Date: Thu, 15 Jan 2004 00:33:19 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200401141454.27589.mashirle@us.ibm.com>
-References: <200311191621.38087.mashirle@us.ibm.com> <200312051351.47962.mashirle@us.ibm.com> <20031205145700.120e9e68.davem@redhat.com>
+Message-ID: <20040115003319.B4646@electric-eye.fr.zoreil.com>
+References: <20040114233350.A4646@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: Multipart/Mixed;
-  boundary="------------Boundary-00=_RY4INU1LDCZHEZOXOVR8"
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com, xma@us.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: dpollock@acm.org, damouse@ntlworld.com, brad@mainstreetsoftworks.com,
+        kinetik@orcon.net.nz
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031205145700.120e9e68.davem@redhat.com>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20040114233350.A4646@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Wed, Jan 14, 2004 at 11:33:50PM +0100
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Francois Romieu <romieu@fr.zoreil.com> :
+[bug expected in common revisions of r8169 driver ?]
+> against plain 2.6.x due to endianness conflict. I will regenerate a serie
+> for 2.6.1-bk1 in a few minutes.
 
---------------Boundary-00=_RY4INU1LDCZHEZOXOVR8
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
+Serie available at:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-b
 
-> Let's queue this up for 2.6.1, please resend it after 2.6.0 is
-> released.
+Tarball:
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.1-bk1-b/r8169-blob.tar.bz2
 
-This patch is agaist 2.6.1 kernel.
+I will welcome feedback related to the behavior of the driver once the
+following serie is applied on top of 2.6.1-bk1 (may apply to 2.6.1 as well):
+r8169-dma-api-tx.patch
+r8169-dma-api-rx-buffers.patch
+r8169-dma-api-rx-buffers-ahum.patch
+r8169-dma-api-rx-buffers-argl.patch
+r8169-rx-fill-typo.patch
+r8169-start-xmit-fixes.patch
+r8169-dma-api-tx-buffers.patch
+r8169-tx-index-overflow.patch
 
-Thanks
-Shirley Ma
-IBM Linux Technology Center
---------------Boundary-00=_RY4INU1LDCZHEZOXOVR8
-Content-Type: text/x-diff;
-  charset="iso-8859-1";
-  name="linux-2.6.1-ipv6mib3.patch"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: attachment; filename="linux-2.6.1-ipv6mib3.patch"
+No intermediate tests needed.
 
-diff -urN linux-2.6.1/include/linux/rtnetlink.h linux-2.6.1-ipv6mib3/include/linux/rtnetlink.h
---- linux-2.6.1/include/linux/rtnetlink.h	2004-01-08 22:59:55.000000000 -0800
-+++ linux-2.6.1-ipv6mib3/include/linux/rtnetlink.h	2004-01-13 10:26:07.000000000 -0800
-@@ -44,7 +44,10 @@
- #define	RTM_DELTFILTER	(RTM_BASE+29)
- #define	RTM_GETTFILTER	(RTM_BASE+30)
- 
--#define	RTM_MAX		(RTM_BASE+31)
-+#define RTM_NEWPREFIX	(RTM_BASE+36)
-+#define RTM_GETPREFIX	(RTM_BASE+38)
-+
-+#define	RTM_MAX		(RTM_BASE+39)
- 
- /* 
-    Generic structure for encapsulation of optional route information.
-@@ -459,6 +462,34 @@
- 	unsigned	ifi_change;		/* IFF_* change mask */
- };
- 
-+/********************************************************************
-+ *		prefix information 
-+ ****/
-+
-+struct prefixmsg
-+{
-+	unsigned char	prefix_family;
-+	int		prefix_ifindex;
-+	unsigned char	prefix_type;
-+	unsigned char	prefix_len;
-+	unsigned char	prefix_flags;
-+};
-+
-+enum 
-+{
-+	PREFIX_UNSPEC,
-+	PREFIX_ADDRESS,
-+	PREFIX_CACHEINFO,
-+};
-+
-+#define PREFIX_MAX	PREFIX_CACHEINFO
-+
-+struct prefix_cacheinfo
-+{
-+	__u32	preferred_time;
-+	__u32	valid_time;
-+};
-+
- /* The struct should be in sync with struct net_device_stats */
- struct rtnl_link_stats
- {
-@@ -615,6 +646,8 @@
- #define RTMGRP_DECnet_IFADDR    0x1000
- #define RTMGRP_DECnet_ROUTE     0x4000
- 
-+#define RTMGRP_IPV6_PREFIX	0x20000
-+
- /* End of information exported to user level */
- 
- #ifdef __KERNEL__
-diff -urN linux-2.6.1/include/net/if_inet6.h linux-2.6.1-ipv6mib3/include/net/if_inet6.h
---- linux-2.6.1/include/net/if_inet6.h	2004-01-08 23:00:04.000000000 -0800
-+++ linux-2.6.1-ipv6mib3/include/net/if_inet6.h	2004-01-13 10:26:07.000000000 -0800
-@@ -25,6 +25,10 @@
- #define IF_RA_RCVD	0x20
- #define IF_RS_SENT	0x10
- 
-+/* prefix flags */
-+#define IF_PREFIX_ONLINK	0x01
-+#define IF_PREFIX_AUTOCONF	0x02
-+
- #ifdef __KERNEL__
- 
- struct inet6_ifaddr 
-diff -urN linux-2.6.1/net/ipv6/addrconf.c linux-2.6.1-ipv6mib3/net/ipv6/addrconf.c
---- linux-2.6.1/net/ipv6/addrconf.c	2004-01-08 23:00:03.000000000 -0800
-+++ linux-2.6.1-ipv6mib3/net/ipv6/addrconf.c	2004-01-13 10:26:07.000000000 -0800
-@@ -138,6 +138,8 @@
- static void addrconf_rs_timer(unsigned long data);
- static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifa);
- 
-+static void inet6_prefix_notify(int event, struct inet6_dev *idev, 
-+				struct prefix_info *pinfo);
- static int ipv6_chk_same_addr(const struct in6_addr *addr, struct net_device *dev);
- 
- static struct notifier_block *inet6addr_chain;
-@@ -1491,6 +1493,7 @@
- 			addrconf_verify(0);
- 		}
- 	}
-+	inet6_prefix_notify(RTM_NEWPREFIX, in6_dev, pinfo);
- 	in6_dev_put(in6_dev);
- }
- 
-@@ -2802,6 +2805,66 @@
- 	return skb->len;
- }
- 
-+static int inet6_fill_prefix(struct sk_buff *skb, struct inet6_dev *idev,
-+			struct prefix_info *pinfo, u32 pid, u32 seq, int event)
-+{
-+	struct prefixmsg	*pmsg;
-+	struct nlmsghdr 	*nlh;
-+	unsigned char		*b = skb->tail;
-+	struct prefix_cacheinfo	ci;
-+
-+	nlh = NLMSG_PUT(skb, pid, seq, event, sizeof(*pmsg));
-+	
-+	if (pid) 
-+		nlh->nlmsg_flags |= NLM_F_MULTI;
-+	
-+	pmsg = NLMSG_DATA(nlh);
-+	pmsg->prefix_family = AF_INET6;
-+	pmsg->prefix_ifindex = idev->dev->ifindex;
-+	pmsg->prefix_len = pinfo->prefix_len;
-+	pmsg->prefix_type = pinfo->type;
-+	
-+	pmsg->prefix_flags = 0;
-+	if (pinfo->onlink)
-+		pmsg->prefix_flags |= IF_PREFIX_ONLINK;
-+	if (pinfo->autoconf)
-+		pmsg->prefix_flags |= IF_PREFIX_AUTOCONF;
-+
-+	RTA_PUT(skb, PREFIX_ADDRESS, sizeof(pinfo->prefix), &pinfo->prefix);
-+
-+	ci.preferred_time = ntohl(pinfo->prefered);
-+	ci.valid_time = ntohl(pinfo->valid);
-+	RTA_PUT(skb, PREFIX_CACHEINFO, sizeof(ci), &ci);
-+
-+	nlh->nlmsg_len = skb->tail - b;
-+	return skb->len;
-+
-+nlmsg_failure:
-+rtattr_failure:
-+	skb_trim(skb, b - skb->data);
-+	return -1;
-+}
-+
-+static void inet6_prefix_notify(int event, struct inet6_dev *idev, 
-+			 struct prefix_info *pinfo)
-+{
-+	struct sk_buff *skb;
-+	int size = NLMSG_SPACE(sizeof(struct prefixmsg)+128);
-+
-+	skb = alloc_skb(size, GFP_ATOMIC);
-+	if (!skb) {
-+		netlink_set_err(rtnl, 0, RTMGRP_IPV6_PREFIX, ENOBUFS);
-+		return;
-+	}
-+	if (inet6_fill_prefix(skb, idev, pinfo, 0, 0, event) < 0) {
-+		kfree_skb(skb);
-+		netlink_set_err(rtnl, 0, RTMGRP_IPV6_PREFIX, EINVAL);
-+		return;
-+	}
-+	NETLINK_CB(skb).dst_groups = RTMGRP_IPV6_PREFIX;
-+	netlink_broadcast(rtnl, skb, 0, RTMGRP_IPV6_PREFIX, GFP_ATOMIC);
-+}
-+
- static struct rtnetlink_link inet6_rtnetlink_table[RTM_MAX - RTM_BASE + 1] = {
- 	[RTM_GETLINK - RTM_BASE] = { .dumpit	= inet6_dump_ifinfo, },
- 	[RTM_NEWADDR - RTM_BASE] = { .doit	= inet6_rtm_newaddr, },
-
---------------Boundary-00=_RY4INU1LDCZHEZOXOVR8--
+--
+Ueimor
