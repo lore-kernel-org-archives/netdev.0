@@ -1,39 +1,48 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH - RFC] [1/2] 2.6 must-fix list - kernel error reporting
-Date: Sat, 12 Jul 2003 22:34:49 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: disablenetwork() syscall?
+Date: Sun, 13 Jul 2003 10:04:39 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030712223449.550d822a.davem@redhat.com>
-References: <20030711224142.557b5b5e.davem@redhat.com>
-	<Mutt.LNX.4.44.0307131052420.2146-100000@excalibur.intercode.com.au>
+Message-ID: <Pine.LNX.4.44.0307131003440.19847-100000@netcore.fi>
+References: <Mutt.LNX.4.44.0307080954170.5824-100000@excalibur.intercode.com.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jkenisto@us.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   akpm@osdl.org, jgarzik@pobox.com, alan@lxorguk.ukuu.org.uk,
-   rddunlap@osdl.org, kuznet@ms2.inr.ac.ru
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
-In-Reply-To: <Mutt.LNX.4.44.0307131052420.2146-100000@excalibur.intercode.com.au>
+To: netdev@oss.sgi.com
+In-Reply-To: <Mutt.LNX.4.44.0307080954170.5824-100000@excalibur.intercode.com.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 13 Jul 2003 11:17:35 +1000 (EST)
-James Morris <jmorris@intercode.com.au> wrote:
+FWIW,
 
-> On Fri, 11 Jul 2003, David S. Miller wrote:
-> 
-> > Oops, turns out this doesn't work.  data_ready is never NULL, look at
-> > how netlink_kernel_create() works.
-> 
-> It's ok: sk->data_ready is never null, but nlk_sk(sk)->data_ready will be 
-> null unless an input function is provided there.
-> 
-> > Also, the broadcast case probably needs to be handled
-> > too?
-> 
-> Netlink sockets created by netlink_kernel_create() do not subscribe to any 
-> groups and are not broadcast to.
+DJB created a (probably biased) web page:
 
-Oops, you're right on both counts, I brainfarted here.
+ http://cr.yp.to/unix/disablenetwork.html
 
-I'll apply your original patch, thanks.
+to describe the idea and alternatives at a bit more length.
+
+On Tue, 8 Jul 2003, James Morris wrote:
+
+> On Mon, 7 Jul 2003, Pekka Savola wrote:
+> 
+> > Hi,
+> > 
+> > In a bugtraq thread, DJ Bernstein brought up an idea which I'm not sure 
+> > has been brought up in the past.
+> 
+> Such a feature already exists in SELinux.
+> 
+> >  I'm not sure whether it's feasible or 
+> > not, but at least it (and other methods to limit the functions of a 
+> > user-level code) might bear consideration.
+> 
+> This is precisely what LSM is for, so new security models can be 
+> implemented without any direct effect on the core kernel.
+> 
+> 
+> - James
+> 
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
