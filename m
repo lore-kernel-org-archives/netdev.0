@@ -1,34 +1,106 @@
-From: Chris Wright <chrisw@osdl.org>
-Subject: Re: [PATCH] linux 2.9.10-rc1: Fix oops in unix_dgram_sendmsg when using SELinux and SOCK_SEQPACKET
-Date: Wed, 17 Nov 2004 22:07:59 -0800
-Message-ID: <20041117220756.N2357@build.pdx.osdl.net>
-References: <Xine.LNX.4.44.0411172222160.2531-100000@thoron.boston.redhat.com> <Xine.LNX.4.44.0411172323260.2700-100000@thoron.boston.redhat.com>
+From: Surakshan Mendis <surakshan@surasoft.com>
+Subject: Re: Fw: [Bugme-new] [Bug 3765] New: Network link down, when
+	writting to sata disk AND network in use
+Date: Thu, 18 Nov 2004 14:33:04 +0800
+Message-ID: <1100759584.11758.0.camel@localhost>
+References: <20041117211822.243aa8bd.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Ross Kendall Axe <ross.axe@blueyonder.co.uk>, netdev@oss.sgi.com,
-        Stephen Smalley <sds@epoch.ncsc.mil>,
-        lkml <linux-kernel@vger.kernel.org>, Chris Wright <chrisw@osdl.org>,
-        "David S. Miller" <davem@davemloft.net>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, bugtracker@surasoft.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <Xine.LNX.4.44.0411172323260.2700-100000@thoron.boston.redhat.com>; from jmorris@redhat.com on Wed, Nov 17, 2004 at 11:25:39PM -0500
+To: Andrew Morton <akpm@osdl.org>
+In-Reply-To: <20041117211822.243aa8bd.akpm@osdl.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* James Morris (jmorris@redhat.com) wrote:
-> On Wed, 17 Nov 2004, James Morris wrote:
-> 
-> > There is a non SELinux-related bug lurking in this code.
-> 
-> I also got this when trying to kill the server (which seems to run at 100% 
-> during exit after receving a message sent with sendto() + address):
+Yes quite strange.
+I've reproduced the issue again after doing the following
 
-I was seeing similar with my test (w/out SELinux), but got garbage for
-back trace.
+a) disconnecting extra fan, disconnecting extra HDD, disconnecting
+cd/dvd rom drives. In fact it was probably consume power less than ever.
 
-thanks,
--chris
--- 
-Linux Security Modules     http://lsm.immunix.org     http://lsm.bkbits.net
+b) I moved the sata cable to a different connector, same issue. Can't do
+much with onboard network card, since its onboard..
+
+I'm perplexed why the link goes up and down like this.
+The syslog doesn't indiciate more than link is up and link is down.
+
+Network is stable when no activity on the sata drive. 
+Network goes does when there is activity on the drive AND I do something
+network related, just getting a large ftp directory listing in mozilla
+triggers the "Link is down".
+
+As I said before this only happens when the drive is in use as well
+
+Surakshan
+
+On Wed, 2004-11-17 at 21:18 -0800, Andrew Morton wrote:
+> 
+> Well this is novel.  I'd be suspecting a hardware problem.  Are you sure
+> the power supply isn't overloaded, or in need of replacement?
+> 
+> 
+> Begin forwarded message:
+> 
+> Date: Wed, 17 Nov 2004 21:13:36 -0800
+> From: bugme-daemon@osdl.org
+> To: bugme-new@lists.osdl.org
+> Subject: [Bugme-new] [Bug 3765] New: Network link down, when writting to sata disk AND network in use
+> 
+> 
+> http://bugme.osdl.org/show_bug.cgi?id=3765
+> 
+>            Summary: Network link down, when writting to sata disk AND
+>                     network in use
+>     Kernel Version: linux-kernel 2.6.9
+>             Status: NEW
+>           Severity: high
+>              Owner: other_other@kernel-bugs.osdl.org
+>          Submitter: bugtracker@surasoft.com
+> 
+> 
+> Distribution: Gentoo
+> 
+> Hardware Environment: 
+> P4 2.66ghz
+> Motherboard: ASUS P4PE (with onboard lan)
+> Promise Sata150 TX4 PCI (sata expansion card)
+> 
+> Software Environment: 
+> Kernel 2.6.9
+> - onboard LAN: driver in use
+> - "Broadcom 4400 ethernet support" compiled into kernel
+> 
+> - Promise Sata150 TX4 PCI (sata expansion card)
+> - Driver "Promise SATA TX2/TX4 support" compiled into kernel
+> - 200GB Western Digital SATA drive attached to PCI sata card
+> 
+> Problem Description:
+> If data is being copied to the SATA drive (eg from another DISK which is on
+> motherboard IDE controller) AND I start a network data transfer where data is
+> goung through the Broadcom lan the following occurs (from kernel log)
+> 
+> Nov 18 11:43:10 synapse b44: eth0: Link is down.
+> Nov 18 11:43:15 synapse b44: eth0: Link is up at 100 Mbps, full duplex.
+> Nov 18 11:43:15 synapse b44: eth0: Flow control is on for TX and on for RX.
+> Nov 18 11:43:19 synapse b44: eth0: Link is down.
+> Nov 18 11:43:21 synapse b44: eth0: Link is up at 100 Mbps, full duplex. 
+> 
+> Link keeps going up and down, as long as there's data movment from the SATA
+> drive, and a network movement (network download doesn't have to be saving to the
+>  sata drive)
+> 
+> I've disabled APCI, problem persits.
+> 
+> Steps to reproduce:
+> 1. copy data to Sata drive CONNECTED to PCI controller
+> 2. Download file from network via onboard LAN, doesn't matter which drive you
+> save it
+> 3. Onboards lan "link" goes up and down, causing disruption to network useage.
+> 
+> ------- You are receiving this mail because: -------
+> You are on the CC list for the bug, or are watching someone who is.
+> 
+> 
