@@ -1,57 +1,78 @@
-From: Jim Keniston <jkenisto@us.ibm.com>
-Subject: Re: [PATCH] [1/2] kernel error reporting (revised)
-Date: Fri, 18 Jul 2003 16:29:19 -0700
+From: Dax Kelson <dax@gurulabs.com>
+Subject: Memory usage/tuning for ip_conntrack
+Date: 18 Jul 2003 18:12:21 -0600
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F1882CF.538FE76@us.ibm.com>
-References: <Mutt.LNX.4.44.0307181148340.5813-100000@excalibur.intercode.com.au>
+Message-ID: <1058573540.6491.18.camel@mentor.gurulabs.com>
+References: <1058558848.2674.88.camel@mentor.gurulabs.com>
+	 <1058563690.26030.23.camel@tux.rsn.bth.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Andrew Morton <akpm@osdl.org>, davem@redhat.com,
-   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com,
-   alan@lxorguk.ukuu.org.uk, rddunlap@osdl.org, kuznet@ms2.inr.ac.ru,
-   jkenisto@us.ibm.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: James Morris <jmorris@intercode.com.au>
+To: Martin Josefsson <gandalf@wlug.westbo.se>
+In-Reply-To: <1058563690.26030.23.camel@tux.rsn.bth.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jim Keniston wrote:
+On Fri, 2003-07-18 at 15:28, Martin Josefsson wrote:
 
-> James Morris wrote:
-> >
-> > On Thu, 17 Jul 2003, Jim Keniston wrote:
-> >
-> > > 3. Given the above, what should the evlog.c caller do when
-> > > kernel_error_event_iov() returns -EINPROGRESS?
-> > > a. Nothing.  Figure the packet will probably get logged.
-> > > b. Just to be safe, report it via printk, the same way we report dropped
-> > > packets.
-> > > We currently do (a).  (b) would mean that every event logged from IRQ
-> > > context would be cc-ed to printk.
-> >
-> > I don't think this irq detection logic should be added at all here, let
-> > the caller reschedule its logging if running in irq context.
-> >
-> > - James
-> > --
-> > James Morris
-> > <jmorris@intercode.com.au>
->
-> Yes, this makes sense.  At the kerror.c level, just return -EDEADLK if in_irq().
-> Delay packet delivery (via a tasklet, as before) at the evlog.c level instead.
-> That way, we know at the evlog.c level (in the tasklet) whether the event packet
-> was delivered to anybody, and can paraphrase it to printk if it wasn't.
->
-> Is this the sort of thing you had in mind?
-> Jim K
+> Increasing the number of buckets doesn't cost much memory compared to
+> the actual connections and it gives you a nice performanceboost if you
+> are trying to handle lots of connections. (the default is based on the
+> amount of memory in the machine and it's normally ok for desktop
+> machines and small servers/routers)
 
-I implemented the above change.  Now, an event logged from an interrupt
-handler when nobody's listening to our socket (e.g., during boot) is
-paraphrased to printk.  Here are the updated patches:
+I just wanted to followup publicly for archival purposes.
 
-http://prdownloads.sourceforge.net/evlog/kerror-2.5.75.patch?download
-http://prdownloads.sourceforge.net/evlog/evlog-2.5.75.patch?download
-http://prdownloads.sourceforge.net/evlog/kerrord.tar.gz?download
+OK, so getting more into the realm of "best practices", by default the
+maximum number of connections tracked will be 8x the number of buckets.
 
-Jim K
+The number of buckets is determined at boot time based on amount of ram
+(this in turns determines max connections that can be tracked -- (8 *
+buckets see above)).
+
+This is fine for desktop, small routers, etc.
+
+However, both numbers can be tuned independently of each other.
+
+On a box with lots of connections flowing through it (ie, a dedicated
+high volume NAT/firewall/router), you can get better performance if your
+max connections per bucket ratio is 2:1 instead of the default 8:1.
+
+On Red Hat Linux, to do this tuning, figure out how many maximum
+connections you want to track, divide this number in half (make sure it
+isn't a 2^n number on kernels < 2.4.21).  This is how many buckets you
+should have.  To configure your system with this many buckets, add the
+following lines to your /etc/modules.conf file:
+
+(The 44000 used below is just an example, estimate your worst case
+scenario and add 10% to it).
+
+# I want to have a 2:1 bucket to connection ratio for good performance
+# Since I want to have a maximum of 44000 connections tracked, I
+# set the number of buckets to 1/2 that value for a 2:1 ratio. 
+options ip_conntrack hashsize=22000
+
+Now by default you'll have 8 * 22000 this number of maximum connections
+which is much higher than the  To readjust this down to the good 2:1
+ratio add the following line to your /etc/sysctl.conf file:
+
+net.ipv4.ip_conntrack_max = 44000
+
+Now to figure out maximum possible memory consumption, do the following:
+
+(memory used per buckets * number of buckets) + (memory used per tracked
+connection * maximum number of tracked connections)
+
+Memory used per bucket is 8 bytes on 32bit hardware, 16 bytes on 64bit
+hardware.
+
+To determine "memory used per tracked connection", run this command:
+
+grep ip_conntrack /proc/slabinfo  | tr -s " " | cut -d " " -f 4
+
+Did I miss anything or do you have anything to add Martin?
+
+Dax Kelson
+Guru Labs
