@@ -1,51 +1,84 @@
 From: jamal <hadi@cyberus.ca>
-Subject: RE: [SET 2][PATCH 2/8][bonding] Propagating master's settings to
-	slaves
-Date: 10 Aug 2003 22:51:25 -0400
+Subject: Re: Ethernet bridge performance
+Date: 10 Aug 2003 22:55:37 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1060570284.1056.15.camel@jzny.localdomain>
-References: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com>
+Message-ID: <1060570537.1050.17.camel@jzny.localdomain>
+References: <3F3217E7.2080903@allot.com> <3F3284EA.5050406@candelatech.com>
+	 <3F328A0F.3040005@allot.com> <16178.41976.3643.584516@robur.slu.se>
+	 <1060284094.1024.36.camel@jzny.localdomain>  <3F35F51B.7080301@allot.com>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+   Ben Greear <greearb@candelatech.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Hen, Shmulik" <shmulik.hen@intel.com>
-In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C9474@hasmsx403.iil.intel.com>
+To: Felix Radensky <felix@allot.com>
+In-Reply-To: <3F35F51B.7080301@allot.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2003-08-09 at 06:29, Hen, Shmulik wrote:
 
-> > 
-> 
-> Not sure I fully understood the concerns above, but I'll try
-> to explain what the change was all about.
-> 
+Felix,
 
-I think it wasnt the one specific change rather a few posted that i
-spent a minute or two staring at. And you confirm my suspicion below.
-
-[..]
-
-> 
-> In the lonf term, the drive is to move any *smart* code done in
-> the config application into the driver itself and be left with
-> the smallest, most compact application as possible. This is the
-> trend we've seen in the VLAN config app, and the bridge module.
-> All the "brain" is in the kernel module and very little should be
-> done in the application.
-
-I am not very familiar with the bonding code although i think you guys
-have been doing very good work since you got involved.
-In any case the approach you state above is wrong. Actually Stephen
-Hemminger and I discussed this for bridging. Post 2.6 he is going to
-remove a lot of the bridge policy (or "brain" as you call it) out of the
-kernel. Netlink for kernel<->userspace not /proc. I think we should head
-towards that direction so we can have more sophisticated management.
-
-Thoughts?
+Actually i based my comments on the profiles you posted ;->
+Are you running any other nics? If not that profile does look strange.
 
 cheers,
 jamal
+
+On Sun, 2003-08-10 at 03:32, Felix Radensky wrote:
+> Hi, Jamal
+> 
+> I guess you were not reading my first posting 
+> very carefully :)
+> 
+> 2.4.22 has NAPI capable e1000 driver and I've
+> compiled the driver with NAPI support. 
+> 
+> So running non-NAPI driver is not my problem.
+> 
+> Felix.
+> 
+> jamal wrote:
+> > Actually seems his biggest problem is he is not running
+> > the NAPI driver
+> > 
+> > cheers,
+> > jamal
+> > 
+> > On Thu, 2003-08-07 at 15:09, Robert Olsson wrote:
+> >   
+> > > Felix Radensky writes:
+> > >  > Thanks for your help, Ben. What is skb-recycle patch
+> > >  > and where can I find it ?
+> > >  
+> > >  It's experimental and not updated for almost a year and current 
+> > >  implementation does not add anything to SMP. Got some idea how
+> > >  to improve this... but try to keep to slab as long as possible 
+> > >  it has been improved.
+> > > 
+> > >  Routing/bridging on SMP has affinty problem. If you are passing
+> > >  skb's say from eth0 to eth1 and they are bound on different CPU's
+> > >  you get cache boucing since the TX-interrupts come on another CPU.
+> > > 
+> > >  In a recent test with pktgen:
+> > >  300 kpps with TX interrupts on same CPU as sender.
+> > >  198 kpps with TX intr on different CPU as sender.
+> > > 
+> > >  Recycling tries to address this but current implementation fails
+> > >  as said.
+> > > 
+> > >  But you are probably hit by something else... Check were the drops 
+> > >  happens qdisc?. NIC ring RX/TX size, Number of interrupts. ksoftird 
+> > >  priority, link HW_FLOW control, checksumming, affinity etc. 
+> > > 
+> > >  
+> > >  Cheers.
+> > > 						--ro
+> > > 
+> > > 
+> > >     
+> > 
+> >   
+> 
