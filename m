@@ -1,50 +1,31 @@
-From: Duncan Sands <duncan.sands@math.u-psud.fr>
-Subject: Re: [Linux-ATM-General] [RFC][PATCH] Very basic sysfs support for ATM devices (updated)
-Date: Mon, 7 Feb 2005 10:03:08 +0100
-Message-ID: <200502071003.09211.duncan.sands@math.u-psud.fr>
-References: <20050121085123.GA2471@katya> <200502041811.j14IBOna020338@ginger.cmf.nrl.navy.mil> <20050204201327.GA2439@katya>
+From: Didier Barvaux <didier@barvaux.org>
+Subject: TAHI Conformance Test
+Date: Mon, 7 Feb 2005 10:26:32 +0100
+Message-ID: <20050207102632.5bdffee0.didier@barvaux.org>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="iso-8859-1"
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Roman Kagan <rkagan@mail.ru>,
-        chas williams - CONTRACTOR <chas@cmf.nrl.navy.mil>, netdev@oss.sgi.com,
-        linux-atm-general@lists.sourceforge.net
-To: usbatm@lists.infradead.org
-In-Reply-To: <20050204201327.GA2439@katya>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Roman,
+Hello,
 
-> Besides, I've encountered a problem with hotplug being called from
-> atm_dev_register: the device actually becomes usable only when the
-> driver sets .dev_data, which may happen after hotplug has been called.
-> E.g. if I call br2684ctl in my hotplug script, and it happens to attempt
-> to open a socket on the device before .dev_data is set, br2684ctl fails
-> (rather disgracefully BTW, forgetting to cleanup nasX).  I had to work
-> around it by adding a sleep for a couple of seconds to the hotplug
-> script, and hoping that was enough for the driver to complete
-> initializing atm_dev.  I suspect the only way to fix it is to split the
-> atm_dev initialization into two stages, allocation and registration, as
-> it is done for net_device.
 
-this is a long-standing problem with ATM device initialisation: the device
-becomes available before the struct atm_dev is initialised!  In theory a
-driver's ATM methods could be called the moment atm_dev_register returns,
-and before the driver has had a chance to fill in any fields.  That's why
-all the ATM methods in the speedtouch driver check atm_dev->dev_data, and
-return without doing anything if it is NULL: atm_dev->dev_data is only set
-to a non-NULL value when the struct atm_dev has been fully initialised (this
-is the reason for the memory barrier by the way).  When you say
-"the device actually becomes usable only when the driver sets .dev_data",
-I think that's a property of the speedtouch driver only.  With other drivers
-it is probably worse: you get to open a connection even though the structure
-is not initialized, and boom!  In the past, this race was only a theoretical
-problem for SMP machines; but with your patch it hits everyone.
+I'm searching for information about the current status of IPv6 in the Linux 2.6/2.4 vanilla kernels. Unfortunately, I have not found up-to-date data.
 
-Ciao,
+I have found Peter Bieringer's 'IPv6 & Linux' page [1] and some quite old TAHI Conformance Test's results on kernel 2.6.1 [2] from the USAGI project. As you can see, information I have found are quite outdated.
 
-Duncan.
+So, have someone more up-to-date data ?
+
+I would be very interested in reading some TAHI Conformance Test against the latest 2.6/2.4 vanilla kernels, or in reading some other document like Peter Bieringer's page. Thank you in advance.
+
+
+Regards,
+
+Didier Barvaux
+
+
+[1] "IPv6 & Linux - Current Status" http://www.bieringer.de/linux/IPv6/status/IPv6+Linux-status-kernel.html
+[2] "TAHI Conformance Test Report" http://www.linux-ipv6.org/tahitest/200401/summary-index.html
