@@ -1,31 +1,44 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: Assertions when lowering tcp_tso_win_divisor
-Date: Sat, 20 Nov 2004 19:25:30 -0800
-Message-ID: <20041120192530.31d8b113.davem@davemloft.net>
-References: <Pine.LNX.4.58.0411160931080.31882@w-sridhar.beaverton.ibm.com>
-	<E1CUAQ2-0002jT-00@gondolin.me.apana.org.au>
-	<20041116163106.3b62a39a.davem@davemloft.net>
-	<Pine.LNX.4.58.0411191755160.2567@w-sridhar.beaverton.ibm.com>
-	<20041119223527.1f243d6e.davem@davemloft.net>
-	<Pine.LNX.4.58.0411201503510.6242@w-sridhar.beaverton.ibm.com>
+From: Paul Jakma <paul@clubi.ie>
+Subject: Re: [patch 4/10] s390: network driver.
+Date: Sun, 21 Nov 2004 08:16:34 +0000 (GMT)
+Message-ID: <Pine.LNX.4.61.0411210806340.10262@hibernia.jakma.org>
+References: <OF88EC0E9F.DE8FC278-ONC1256F4A.0038D5C0-C1256F4A.00398E11@de.ibm.com>
+ <4196B4E9.40502@pobox.com> <Pine.LNX.4.61.0411150735070.10262@hibernia.jakma.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: herbert@gondor.apana.org.au, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0411201503510.6242@w-sridhar.beaverton.ibm.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Cc: Thomas Spatzier <thomas.spatzier@de.ibm.com>,
+	linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261918AbUKUIQ5@vger.kernel.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <Pine.LNX.4.61.0411150735070.10262@hibernia.jakma.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Sat, 20 Nov 2004 15:19:54 -0800 (PST)
-Sridhar Samudrala <sri@us.ibm.com> wrote:
+On Mon, 15 Nov 2004, Paul Jakma wrote:
 
-> I tried to do this myself by identifying the tso related patches
-> that went in after 2.6.9 and just wanted to find out if i missed
-> any other patches that may have fixed the tso related assertions.
+> non-raw/header-included sockets, eg BGP tcp sockets, a user like 
+> GNU Zebra / Quagga would much prefer packets to be dropped.
 
-At a minimum you missed the net/core/skbuff.c patch Herbert Xu
-made to fix missing of copying around tso bits when copying/cloning
-SKBs.
+Ur... not for TCP.. obviously.
+
+Anyway, is there any advice on how applications that use a single 
+socket for raw/udp should deal with this new behaviour? All of the 
+link-orientated routing protocol daemons in Quagga/GNU Zebra are 
+going to break on Linux with this new behaviour.
+
+Should such applications be changed to open a seperate socket per 
+interface? Or could we have a SO_DROP_DONT_QUEUE sockopt to allow a 
+privileged application to retain the previous behaviour, or some way 
+to flush the queue for a socket?
+
+Using a socket per interface wont address problem of sending quite 
+stale packets when a link comes back after a long time down, AUI. 
+(not a huge problem - but not nice).
+
+Jeff???
+
+regards,
+-- 
+Paul Jakma	paul@clubi.ie	paul@jakma.org	Key ID: 64A2FF6A
+Fortune:
+Be incomprehensible.  If they can't understand, they can't disagree.
