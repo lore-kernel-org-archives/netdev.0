@@ -1,45 +1,63 @@
-From: Joe Perches <joe@perches.com>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [IPX]: Fix checksum computation.
-Date: Fri, 31 Oct 2003 13:24:06 -0800
+Date: Fri, 31 Oct 2003 13:23:31 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1067635446.11564.92.camel@localhost.localdomain>
+Message-ID: <20031031132331.35a9aaca.davem@redhat.com>
 References: <200310312006.h9VK62Hh005910@hera.kernel.org>
+	<1067635446.11564.92.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <200310312006.h9VK62Hh005910@hera.kernel.org>
+To: Joe Perches <joe@perches.com>
+In-Reply-To: <1067635446.11564.92.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2003-10-30 at 19:43, Linux Kernel Mailing List wrote:
-> ChangeSet 1.1399, 2003/10/30 19:43:04-08:00, davem@nuts.ninka.net
-> 	[IPX]: Fix checksum computation.
-> diff -Nru a/net/appletalk/ddp.c b/net/appletalk/ddp.c
-> --- a/net/appletalk/ddp.c	Fri Oct 31 12:06:06 2003
-> +++ b/net/appletalk/ddp.c	Fri Oct 31 12:06:06 2003
-> @@ -937,9 +937,13 @@
->  {
->  	/* This ought to be unwrapped neatly. I'll trust gcc for now */
->  	while (len--) {
-> -		sum += *data++;
-> +		sum += *data;
->  		sum <<= 1;
-> -		sum = ((sum >> 16) + sum) & 0xFFFF;
-> +		if (sum & 0x10000) {
-> +			sum++;
-> +			sum &= 0xffff;
-> +		}
-> +		data++;
->  	}
->  	return sum;
->  }
+On Fri, 31 Oct 2003 13:24:06 -0800
+Joe Perches <joe@perches.com> wrote:
 
-This change didn't appear on this list for comment,
-it just appeared in the source.
+> Why is this a "fix"?  Performance?
+> It seems more like someone's idea of code neatening.
 
-Why is this a "fix"?  Performance?
-It seems more like someone's idea of code neatening.
+IPC checksums were being miscomputed in the original code,
+we're as mystified as you are as to why it is that:
 
-If this is done, why not if (unlikely())
+	if (sum & 0x10000) {
+		sum++;
+		sum &= 0xffff;
+	}
+
+works while:
+
+	sum = ((sym >> 16) + sum) & 0xffff;
+
+does not.  The theory was that it might be some x86 gcc bug,
+but looking at the assembler diff Arnaldo Carvalho de Melo
+(the appletalk maintainer) showed me between the before and
+after:
+
+ 	xorl	%eax, %eax
+-	decl	%ecx
+ 	movb	(%ebx), %al
+-	incl	%ebx
+ 	addl	%eax, %edx
+ 	addl	%edx, %edx
+-	movl	%edx, %eax
+-	shrl	$16, %eax
+-	addl	%edx, %eax
+-	movzwl	%ax,%edx
++	testl	$65536, %edx
++	je	.L982
++	incl	%edx
++	andl	$65535, %edx
++.L982:
++	decl	%ecx
++	incl	%ebx
+ 	cmpl	$-1, %ecx
+
+we still can't see what's wrong.
+
+He did confirm that the change in question makes IPX compute checksums
+correctly.
