@@ -1,45 +1,77 @@
-From: Russell King <rmk+lkml@arm.linux.org.uk>
-Subject: Re: Memory leak in 2.6.11-rc1?
-Date: Thu, 27 Jan 2005 19:25:04 +0000
-Message-ID: <20050127192504.D3036@flint.arm.linux.org.uk>
-References: <20050123095608.GD16648@suse.de> <20050123023248.263daca9.akpm@osdl.org> <20050123200315.A25351@flint.arm.linux.org.uk> <20050124114853.A16971@flint.arm.linux.org.uk> <20050125193207.B30094@flint.arm.linux.org.uk> <20050127082809.A20510@flint.arm.linux.org.uk> <20050127004732.5d8e3f62.akpm@osdl.org> <16888.58622.376497.380197@robur.slu.se> <20050127164918.C3036@flint.arm.linux.org.uk> <20050127183745.GA13365@linuxace.com>
+From: David Brownell <david-b@pacbell.net>
+Subject: Re: 2.6.11-rc2 TCP ignores PMTU ICMP (Re: Linux 2.6.11-rc2)
+Date: Thu, 27 Jan 2005 11:28:48 -0800
+Message-ID: <200501271128.48411.david-b@pacbell.net>
+References: <200501232251.42394.david-b@pacbell.net> <200501251054.37053.david-b@pacbell.net> <priv$1106815487.koan@shadow.banki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
-	Andrew Morton <akpm@osdl.org>, torvalds@osdl.org,
-	alexn@dsv.su.se, kas@fi.muni.cz, linux-kernel@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S262624AbVA0TZU@vger.kernel.org>
-To: Phil Oester <kernel@linuxace.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: David Ford <david+challenge-response@blue-labs.org>,
+        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Janos Farkas <jf-ml-k1-1087813225@lk8rp.mail.xeon.eu.org>
+In-Reply-To: <priv$1106815487.koan@shadow.banki.hu>
 Content-Disposition: inline
-In-Reply-To: <20050127183745.GA13365@linuxace.com>; from kernel@linuxace.com on Thu, Jan 27, 2005 at 10:37:45AM -0800
-Sender: linux-kernel-owner@vger.kernel.org
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jan 27, 2005 at 10:37:45AM -0800, Phil Oester wrote:
-> On Thu, Jan 27, 2005 at 04:49:18PM +0000, Russell King wrote:
-> > so obviously the GC does appear to be working - as can be seen from the
-> > number of entries in /proc/net/rt_cache.  However, the number of objects
-> > in the slab cache does grow day on day.  About 4 days ago, it was only
-> > about 600 active objects.  Now it's more than twice that, and it'll
-> > continue increasing until it hits 8192, where upon it's game over.
-> 
-> I can confirm the behavior you are seeing -- does seem to be a leak
-> somewhere.  Below from a heavily used gateway with 26 days uptime:
-> 
-> # wc -l /proc/net/rt_cache ; grep ip_dst /proc/slabinfo
->   12870 /proc/net/rt_cache
-> ip_dst_cache       53327  57855
-> 
-> Eventually I get the dst_cache overflow errors and have to reboot.
+On Thursday 27 January 2005 1:02 am, Janos Farkas wrote:
+> On 2005-01-25 at 10:54:36, David Brownell wrote:
+> > On Tuesday 25 January 2005 10:35 am, David Ford wrote:
+> > > PMTU bug -- or better said, bad firewall admin who blocks all ICMP.
+> > 
+> > PMTU bug, sure -- but one that came late in RC2.  Remember:  same firewall
+> > in both cases, but only RC2 breaks.  The ICMP packet has landed in
+> > the RC2 system, which ignores it.  2.6.10 handled it correctly... I
+> > suspect one of the TCP cleanups borked this.
 
-Can you provide some details, eg kernel configuration, loaded modules
-and a brief overview of any netfilter modules you may be using.
+And in fact, I'm pretty sure RC1 handled it fine too.  This failure
+appeared in a BK pull I did a couple days before RC2, and installing
+it clobbered a "more virgin" RC1 install; so it's hard to verify.
 
-Maybe we can work out what's common between our setups.
+It took a while to track the failure mode down to being PMTU related,
+but the only TCP-related changes I noticed in what I pulled sure
+seemed like cleanups (removing some "duplicated" state).
 
--- 
-Russell King
- Linux kernel    2.6 ARM Linux   - http://www.arm.linux.org.uk/
- maintainer of:  2.6 PCMCIA      - http://pcmcia.arm.linux.org.uk/
-                 2.6 Serial core
+
+> > My current workaround is "ifconfig eth0 mtu 1492" but that's not
+> > something I'd expect to keep.
+> 
+> Indeed, I had to shuffle my machines around a bit to get a proof that
+> something is broken, but now I can confirm the above with a connection
+> to cvs.sourceforge.net:
+
+Thanks for confirming it wasn't just me ... I confess I'm a bit
+surprised more folk haven't reported this yet! 
+
+Your symptoms are exactly like those I saw, just with a different
+mission-critical application:  CVS, not SMTP.  Did you happen to
+notice whether CVS pulls worked, when pushes (like this) failed?
+
+- Dave
+
+
+> ...
+> 
+> (the PPPoE gateway notifies the host about the PMTU issue, one for each
+> segment)
+> 
+> 08:05:45.265330 IP (tos 0xc0, ttl 128, id 17970, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
+> 08:05:45.265453 IP (tos 0xc0, ttl 128, id 17971, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
+> 
+> (the source host sends the full frame again...?)
+> 
+> 08:05:45.770331 IP (tos 0x0, ttl  64, id 21544, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2709754 312383166>
+> 08:05:45.770900 IP (tos 0xc0, ttl 128, id 17972, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
+> 
+> (and looping goes on..)
+> 
+> 08:05:46.783148 IP (tos 0x0, ttl  64, id 21546, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2710768 312383166>
+> 08:05:46.783752 IP (tos 0xc0, ttl 128, id 17973, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
+> 08:05:48.808861 IP (tos 0x0, ttl  64, id 21548, offset 0, flags [DF], length: 1500) 192.168.59.10.29612 > 66.35.250.207.2401: . [tcp sum ok] 499:1947(1448) ack 526 win 1728 <nop,nop,timestamp 2712796 312383166>
+> 08:05:48.809882 IP (tos 0xc0, ttl 128, id 17974, offset 0, flags [none], length: 576) 192.168.59.1 > 192.168.59.10: icmp 556: 66.35.250.207 unreachable - need to frag (mtu 1492)
+> 
+> ...
+> 
