@@ -1,58 +1,31 @@
-From: Daniel Egger <degger@fhm.edu>
-Subject: Re: [NET] net driver updates
-Date: Tue, 13 Apr 2004 23:09:54 +0200
+From: Praveen Kumar Amritaluru <praveen@india.hp.com>
+Subject: Re: zero window probes on linux (fwd)
+Date: Wed, 14 Apr 2004 14:27:09 +0530 (IST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E90D8BA8-8D8E-11D8-BAEB-000A9597297C@fhm.edu>
-References: <4072CD01.6070408@pobox.com> <FE87A41F-8809-11D8-8F2A-000A9597297C@fhm.edu> <407C31F4.9070800@pobox.com>
-Mime-Version: 1.0 (Apple Message framework v613)
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-9-504179173"
+Message-ID: <200404140857.OAA03903@shilpa.india.hp.com>
+References: <20040413205035.447c925c.ak@suse.de>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>,
-        Netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <407C31F4.9070800@pobox.com>
-To: Jeff Garzik <jgarzik@pobox.com>
+To: ak@suse.de
+In-Reply-To: <20040413205035.447c925c.ak@suse.de> from Andi Kleen at Apr "13," 2004 "08:50:35" pm
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> > 	This  seems  to be a bug.  Has it been  already  fixed in  later
+> > 	kernel versions or is this how it is intended to remain?
+> 
+> iirc this was intentional. The RFC suggested method doesn't work when talking to 
+> some stacks.
+> 
 
---Apple-Mail-9-504179173
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+	But  that  cannot  be  valid  enough   justification  for  doing
+	something against RFC right?
 
-On 13.04.2004, at 20:31, Jeff Garzik wrote:
+	Is there anyone who is aware/confirm the  reason/history?  Is it
+	the above reason mentioned by Andy?
 
-> RTL8169 is a nice chipset, though.  Robert Ollsson had some nice 
-> pktgen numbers for it, IIRC.
 
-You gotta be kidding. I've not seen a single OS where
-this cheapass chipset was fast. It's always the last in
-line but maybe that's just because Realtek wrote the
-drivers themselves. :)
-
-3Com/Marvell and Broadcom are much better though and I
-intend to try Intel, they are said to be the best.
-
-Servus,
-       Daniel
-
---Apple-Mail-9-504179173
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: This is a digitally signed message part
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (Darwin)
-
-iQEVAwUBQHxXIjBkNMiD99JrAQLtFwgAhE3raUOTf8SEYY2NQO0n/upDX57RrcCU
-oewk2m0Tm2GSs2pmnygYj5juGdxm2TmvIS/BalGXGL+SjHXKrnv0MKQaeShMkO5+
-WlQzLCASF0f2VfD2ajQvtODsgh38yIYaCYYHI7x3pvif3pgilASOvdGjNDaXtS4K
-u6KIBrCwzW9XOaNKBJq9VksbLRjRhNk7TZ07y5vi8N3ix6sA4Ftcm22MKH9r+Hkb
-c75HNJDLYZFVrrIBfZNE7rNMAHvFiE2b6qRRbEpgaF81SjuKLJUnedEsKnQ/69a7
-k3HriPbkEMM2Ke/UO5xV4UZTBp9cxSstAkCmlS/l8pgettyrF9+ezQ==
-=n0IY
------END PGP SIGNATURE-----
-
---Apple-Mail-9-504179173--
+> -Andi
