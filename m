@@ -1,30 +1,28 @@
-From: Lee Revell <rlrevell@joe-job.com>
-Subject: Re: linux-2.6.8.1 to linux-2.6.10: Kernel Patching Issues.
-Date: Fri, 25 Feb 2005 11:47:23 -0500
-Message-ID: <1109350044.9681.26.camel@krustophenia.net>
-References: <Pine.LNX.4.10.10502251550520.26208-100000@mtfhpc.demon.co.uk>
+From: Park Lee <parklee_sel@yahoo.com>
+Subject: Are there any explanation for struct flowi?
+Date: Fri, 25 Feb 2005 08:47:09 -0800 (PST)
+Message-ID: <20050225164709.66998.qmail@web51509.mail.yahoo.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, kuznet@ms2.inr.ac.ru, pekkas@netcore.fi,
-        jmorris@redhat.com, yoshfuji@linux-ipv6.org, kaber@coreworks.de,
-        netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-To: Mark Fortescue <mark@mtfhpc.demon.co.uk>
-In-Reply-To: <Pine.LNX.4.10.10502251550520.26208-100000@mtfhpc.demon.co.uk>
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2005-02-25 at 16:40 +0000, Mark Fortescue wrote:
-> Hi all,
-> 
-> I am not sure exactly where to send this email. A have chosen the
-> ip4/ip6 networking as the issues are in this area of the kernel.
->  
-> The kernel patch files patch-2.6.9 and patch-2.6.10 do not apear to be
-> correct.
+Hi,
+   I'm now learning the net stack of Linux. 
+   Would you please tell whether there are any
+explanation for struct flowi? What it is used for?
 
-No, you're doing it wrong.  2.6.8.1 was a bugfix release.  The correct
-patching order is 2.6.8 -> 2.6.9 -> 2.6.10. 
+Thank you.
 
-Lee
+
+=====
+Best Regards,
+Park Lee
+
+__________________________________________________
+Do You Yahoo!?
+Tired of spam?  Yahoo! Mail has the best spam protection around 
+http://mail.yahoo.com 
