@@ -1,93 +1,62 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
-Subject: RE: [Question] SMP for Linux
-Date: Sat, 19 Oct 2002 09:53:26 +0200
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: Ambiguities in TCP/IP - firewall bypassing (fwd)
+Date: Sat, 19 Oct 2002 14:38:56 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <15793.3958.926796.634263@robur.slu.se>
-References: <15792.13249.474279.391081@robur.slu.se>
-	<000b01c276fe$46626720$3701020a@CONCORDIA>
+Message-ID: <Pine.LNX.4.44.0210191437230.12141-100000@netcore.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "'Robert Olsson'" <Robert.Olsson@data.slu.se>, <netdev@oss.sgi.com>
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <J_Fraser@bit-net.com>
-In-Reply-To: <000b01c276fe$46626720$3701020a@CONCORDIA>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+See the thread on bugtraq.
 
-Jon Fraser writes:
+Linux 2.4.19 initiates TCP handshake with SYN and RST bits set.  SYN with 
+_RST_ seems like a total nonsense (SYN with FIN might even be useful for 
+stuff like T/TCP) but I guess the spec didn't take any stance on that..
 
- > The e1000 driver has been modified in a couple of ways.
- > The interrupts have been limited to 5k/second per card. This
- > mimics the actual hardware being shipped which uses an
- > intel 82543 chip but has an fpga used to do some
- > control functions and generate the interrupts.
- > 
- > We also don't use any transmit interrupts.  The Tx ring
- > is not cleaned at interrupt time.  It's cleaned when
- > we transmit frames and the number of free tx descriptors
- > drops below a threshold.  I also have some code which
- > directs the freed skb back to the cpu it was allocated on, 
- > but it's not in this driver version.
+-- 
+Pekka Savola                 "Tell me of difficulties surmounted,
+Netcore Oy                   not those you stumble over and fall"
+Systems. Networks. Security.  -- Robert Jordan: A Crown of Swords
 
- NAPI stuff will do interrupt mitigation for you. You probably
- get a lot less RX interrupts at your loads. 
+---------- Forwarded message ----------
+Date: Sat, 19 Oct 2002 01:03:47 +0200
+From: Florian Weimer <Weimer@CERT.Uni-Stuttgart.DE>
+To: Paul Starzetz <paul@starzetz.de>
+Subject: Re: Ambiguities in TCP/IP - firewall bypassing
 
- I did the old trick to clean TX-buffers at hard_xmit as well
- but don't see any particularly win from this.
+Paul Starzetz <paul@starzetz.de> writes:
 
-Input 1.14 Mpps. Both eth0, eth1 bound to CPU0
+> * Linux 2.4.19
+>
+> The examination of the source code of the TCP engine reveals that a
+> TCP connection can be opened by any combination of the TCP flags
+> having the SYN bit set and the ACK bit reset. For example we can open
+> a TCP connection by sending an obviously bogus SYN,RST packet:
+>
+> 14:25:43.888897 192.168.1.184.12345 > 192.168.1.111.9999: SR
+> 420:420(0) win 512 (DF) [tos 0x18]
+> 14:25:43.889143 192.168.1.111.9999 > 192.168.1.184.12345: S
+> 2168208394:2168208394(0) ack 421 win 5840 <mss 1460> (DF)
 
-Iface   MTU Met  RX-OK RX-ERR RX-DRP RX-OVR  TX-OK TX-ERR TX-DRP TX-OVR Flags
-eth0   1500   0 4313221 8316434 8316434 5658887     28      0      0      0 BRU
-eth1   1500   0     23      0      0      0 4313217      0      0      0 BRU
+As a result of this bug, it's quite complicated (if not impossible in
+some configurations) to properly filter connection attempts to Linux
+hosts on Cisco IOS routers.
 
-e1000 messes up RX-ERR and RX-DRP as seen but you see TX-OK on eth1. 491 kpps.
+If your access list is a whitelist with a "permit tcp any any
+established" statement somewhere, it's very likely that you can bypass
+the filter just by setting the RST in the initial SYN packet, as
+described above.  The router will forward the packet, and the Linux
+host will happily initiate the three-way handshake.
 
-           CPU0       CPU1       
- 24:      53005          1   IO-APIC-level  eth1
- 25:         19          0   IO-APIC-level  eth0
+"established" in Cisco parlance does not mean "SYN unset", but "ACK or
+RST set".  This means that the impact for non-Linux hosts (which do
+not react to SYN-RST packets according to Paul's survey) is less
+severe if your filters run IOS.
 
-Alltogether 19 RX and 53k TX interrupts was used. 
-
-0041d09c 00000000 000038d9 00000000 00000000 00000000 00000000 00000000 00000001
-00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000 00000000
-RC hit/miss = 4313099/384
-
-And this run used "bound" w. private skb receycling.
-
-
- >                   bound   float   split
- > 			cpu %    cpu%    cpu%
- >                 -----------------------
- > 1 flow           290     270     290
- > 			99%x1	 65%x2   99%x1
- > 
- > 2 flows          270     380     450
- >                  99%x1   82%x2  96%x2
-
- Looks promising that you get aggregated performance from SMP.
- But "float" is the number to look for... It's almost impossible
- to use any device binding with forwarding at least as a general
- solution.
-
- > Previously, I've used the CPU performance monitoring counters
- > to find that cache invalidates tends to be a big problem when
- > the interrupts are not bound to a pariticular cpu.  Bind the
- > card to a particular interrupt effectively binds the flow to
- > a particular cpu.
-
- Hope to verify this for "kfree-route" test. Did you use oprofile
- for performance counters?
-
- > I'll repeat the same tests on Monday with 82543 based cards.
- > I would expect similar results.
- > Oh, I used top and vmstat to collect cpu percentages, interrupts/second,
-
- Hmm top and vmstat doesn't give you time spent in irq/softirq's except for 
- softirq's run via ksoftird?
-
- Cheers.
-
-						--ro
+-- 
+Florian Weimer 	                  Weimer@CERT.Uni-Stuttgart.DE
+University of Stuttgart           http://CERT.Uni-Stuttgart.DE/people/fw/
+RUS-CERT                          fax +49-711-685-5898
