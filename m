@@ -1,31 +1,38 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: via-rhine unable to send back-to-back packets?
-Date: Tue, 30 Nov 2004 07:48:23 +0100
-Message-ID: <20041130064823.GA27872@xi.wantstofly.org>
-References: <20041129222700.GA22918@xi.wantstofly.org> <20041129172540.6b959858.davem@davemloft.net>
+From: Willy Tarreau <willy@w.ods.org>
+Subject: Re: 2.6.9 tcp problems
+Date: Tue, 30 Nov 2004 07:43:38 +0100
+Message-ID: <20041130064338.GI783@alpha.home.local>
+References: <41AB6476.8060405@nea-fast.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: rl@hellgate.ch, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
+To: kernel <kernel@nea-fast.com>
 Content-Disposition: inline
-In-Reply-To: <20041129172540.6b959858.davem@davemloft.net>
+In-Reply-To: <41AB6476.8060405@nea-fast.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Nov 29, 2004 at 05:25:40PM -0800, David S. Miller wrote:
+It is possible that the autoneg code has changed between 2.4 and 2.6
+for the interface connected to the current firewall, and that you lose
+packets because of a duplex mismatch. Please check the negociation
+with ethtool on your system, and do so on the other firewall.
 
-> > For example, when transmitting 300-byte packets, I can TX 38261 packets
-> > per second, but I should be able to TX ~38580.  When doing the math, it
-> > turns out that 38261 is exactly the number of 302-byte packets you can
-> > stuff into Fast Ethernet per second.
+Regards,
+willy
+
+On Mon, Nov 29, 2004 at 01:03:34PM -0500, kernel wrote:
+> I've run into a problem with 2.6.(8.1,9) after installing a secondary 
+> firewall. When I try to pull data through the original firewall (mail, 
+> http, ssh), it stops after approx. 260k. Running ethereal tells me "A 
+> segment before the frame was lost" followed by a bunch of  "This is a 
+> TCP duplicate ack" when using ssh. All 2.4.x machines and windows 
+> clients work fine. I built 2.4.28 and it works fine from my machine. I 
+> also fiddled with tcp_ecn and that didn't fix it either. I don't have 
+> any problems communicating to "local" machines. I've attached the 
+> tcpdump output from an scp attempt. NIC is a 3Com Corporation 3c905B.
 > 
-> Is the packet length in those calculations taking into consideration
-> the CRC et al. bytes that the card adds to the packet?
-
-Yeah, preamble (8 bytes), CRC (4 bytes), inter-packet gap (12 bytes).
-
-Perhaps the via-rhine simply can't send out packets back-to-back and
-needs 14 byte times of inter-packet gap.  I couldn't find any stray +2
-in the driver anywhere but I'm just checking.
+> Thanks !
+> walt
+> 
