@@ -1,58 +1,40 @@
-From: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
-Subject: Re: ksoftirqd uses 99% CPU triggered by network traffic (maybe
- RLT-8139 related)
-Date: Fri, 06 Aug 2004 00:28:40 +0900
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <871xiltxhz.fsf@devron.myhome.or.jp>
-References: <Pine.LNX.4.44.0408041915510.14609-100000@silmu.st.jyu.fi>
-	<41120882.40302@marcansoft.com> <41121237.4050305@marcansoft.com>
-	<20040805132233.A7430@electric-eye.fr.zoreil.com>
+From: Eugene Surovegin <ebs@ebshome.net>
+Subject: Re: [IPSEC] add missing flow_cache_genid update to xfrm_policy_delete()
+Date: Thu, 5 Aug 2004 09:01:44 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040805160144.GA28597@gate.ebshome.net>
+References: <20040805071459.GA31551@gate.ebshome.net> <E1BsgwG-0000O6-00@gondolin.me.apana.org.au>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Hector Martin <hector@marcansoft.com>,
-	Pasi Sjoholm <ptsjohol@cc.jyu.fi>,
-	Robert Olsson <Robert.Olsson@data.slu.se>,
-	Linux-Kernel <linux-kernel@vger.kernel.org>, akpm@osdl.org,
-	netdev@oss.sgi.com, brad@brad-x.com, shemminger@osdl.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S267695AbUHEPaS@vger.kernel.org>
-To: Francois Romieu <romieu@fr.zoreil.com>
-In-Reply-To: <20040805132233.A7430@electric-eye.fr.zoreil.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+Content-Disposition: inline
+In-Reply-To: <E1BsgwG-0000O6-00@gondolin.me.apana.org.au>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Francois Romieu <romieu@fr.zoreil.com> writes:
+On Thu, Aug 05, 2004 at 10:01:40PM +1000, Herbert Xu wrote:
+> Please add a dir < XFRM_POLICY_MAX check before the atomic_inc so that
+> dying sockets with policies don't blow away the flow cache.
 
-> Hector Martin <hector@marcansoft.com> :
-> [...]
-> > using a stabler TCP/IP stack. This one works OK. No problem so far... 
-> > anyway, even though it stopped and I had to restart the PS2 some times, 
-> > the PC has been receiving packets with no reboot whatsoever. I think 
-> > it's fixed :)
-> 
-> Ok, I'll send the final version of the patches for inclusion in -netdev
-> and/or -mm this evening. It will provide a broader testing.
+Ohh, you're right :). Updated patch follows.
 
-Bit interesting.
+Signed-off-by: Eugene Surovegin<ebs@ebshome.net>
 
-On the final analysis, what was the cause of this problem?
-I found the following in progguide-8100(100).pdf. Does this help something?
-
-2.5 Software Issues
-
-This section covers the handling of various data reception topics.
-
-    1. Handling a Receive Buffer Overflow:
-       The Rx DMA (FIFO to buffer) is stopped. The CAPR must be
-       updated first to dismiss the ISR (RxBufferOverflow) event. The
-       correct actions to process RxBufOvw are:
-           a. Update CAPR.
-           b. Write a 1 to ISR (ROK).
-       The Rx DMA resumes after step b.
-
-    2. Handling RxFIFOOvw:
-       When RxFIFOOvw occurs, all incoming packets are discarded.
-       Clearing ISR (RxFIFOOvw) doesn t dismiss the RxFIFOOvw event.
-       To dismiss the RxFIFOOvw event, the ISR (RxBufOvw) must be
-       written with a 1.
-
--- 
-OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>
+===== net/xfrm/xfrm_policy.c 1.52 vs edited =====
+--- 1.52/net/xfrm/xfrm_policy.c	2004-07-23 13:23:33 -07:00
++++ edited/net/xfrm/xfrm_policy.c	2004-08-05 08:58:22 -07:00
+@@ -536,8 +536,11 @@
+ 	write_lock_bh(&xfrm_policy_lock);
+ 	pol = __xfrm_policy_unlink(pol, dir);
+ 	write_unlock_bh(&xfrm_policy_lock);
+-	if (pol)
++	if (pol){
++		if (dir < XFRM_POLICY_MAX)
++			atomic_inc(&flow_cache_genid);
+ 		xfrm_policy_kill(pol);
++	}	
+ }
+ 
+ int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol)
