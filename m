@@ -1,42 +1,66 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: [PATCH] IPVS: linkage error without CONFIG_IP_VS_PROTO_TCP
-Date: Sat, 09 Aug 2003 16:29:52 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: problem setting net.ipvX.conf.all.forwarding via sysctl()
+ system call
+Date: Sat, 9 Aug 2003 01:06:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030809.162952.114376111.yoshfuji@linux-ipv6.org>
+Message-ID: <20030809010606.6cfce75c.davem@redhat.com>
+References: <20030803154427.GA12926@wsx.ksp.sk>
+	<20030808.174504.14391608.yoshfuji@linux-ipv6.org>
+	<20030808091124.GA17961@wsx.ksp.sk>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: Jan Oravec <jan.oravec@6com.sk>
+In-Reply-To: <20030808091124.GA17961@wsx.ksp.sk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This patch fixes linkage error occurs if CONFIG_IP_VS_PROTO_TCP 
-is not set.
+On Fri, 8 Aug 2003 11:11:24 +0200
+Jan Oravec <jan.oravec@6com.sk> wrote:
 
-Thanks.
+> this is a new patch
+ ...
+> +	ipv4_devconf.forwarding = new;
+>  	inet_forward_change();
+> -	return 1;
+> +	return 0;
 
-Index: linux26/net/ipv4/ipvs/ip_vs_core.c
-===================================================================
-RCS file: /cvsroot/usagi/usagi/kernel/linux26/net/ipv4/ipvs/ip_vs_core.c,v
-retrieving revision 1.1.1.1
-diff -u -r1.1.1.1 ip_vs_core.c
---- linux26/net/ipv4/ipvs/ip_vs_core.c	15 Jul 2003 07:42:29 -0000	1.1.1.1
-+++ linux26/net/ipv4/ipvs/ip_vs_core.c	9 Aug 2003 07:14:55 -0000
-@@ -53,7 +53,9 @@
- EXPORT_SYMBOL(ip_vs_conn_new);
- EXPORT_SYMBOL(ip_vs_conn_in_get);
- EXPORT_SYMBOL(ip_vs_conn_out_get);
-+#ifdef CONFIG_IP_VS_PROTO_TCP
- EXPORT_SYMBOL(ip_vs_tcp_conn_listen);
-+#endif
- EXPORT_SYMBOL(ip_vs_conn_put);
- #ifdef CONFIG_IP_VS_DEBUG
- EXPORT_SYMBOL(ip_vs_get_debug_level);
+This is still wrong.
 
+First of all we have the table->data pointer in "valp"
+so let's use that to set the value.  In this way we can
+use this function for other sysctl values if we ever desire
+to do that.
 
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+Second, if we set the table->data value, we must return > 0.
+This tells the caller that we've done the sysctl value update.
+If we return zero, it would update the value a second time.
+
+Here is the fix I'm going to use.
+
+# This is a BitKeeper generated patch for the following project:
+# Project Name: Linux kernel tree
+# This patch format is intended for GNU patch command version 2.5 or higher.
+# This patch includes the following deltas:
+#	           ChangeSet	1.1136  -> 1.1137 
+#	net/ipv4/sysctl_net_ipv4.c	1.11    -> 1.12   
+#
+# The following is the BitKeeper ChangeSet Log
+# --------------------------------------------
+# 03/08/09	davem@nuts.ninka.net	1.1137
+# [IPV4]: Fix setting net.ipv4.conf.all.forwarding via sysctl() system call.
+# --------------------------------------------
+#
+diff -Nru a/net/ipv4/sysctl_net_ipv4.c b/net/ipv4/sysctl_net_ipv4.c
+--- a/net/ipv4/sysctl_net_ipv4.c	Sat Aug  9 01:02:17 2003
++++ b/net/ipv4/sysctl_net_ipv4.c	Sat Aug  9 01:02:17 2003
+@@ -109,6 +109,7 @@
+ 		}
+ 	}
+ 
++	*valp = new;
+ 	inet_forward_change();
+ 	return 1;
+ }
