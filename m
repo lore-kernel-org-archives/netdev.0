@@ -1,69 +1,87 @@
-From: Andy Fleming <afleming@freescale.com>
-Subject: Re: [PATCH] MII bus API for PHY devices
-Date: Fri, 19 Nov 2004 18:04:07 -0600
-Message-ID: <B2AF8092-3A87-11D9-B023-000393C30512@freescale.com>
-References: <069B6F33-341C-11D9-9652-000393DBC2E8@freescale.com> <9B0D9272-398A-11D9-96F6-000393C30512@freescale.com> <1100820391.25521.14.camel@gaston> <97DA0EF0-3A70-11D9-B023-000393C30512@freescale.com> <1100904184.3856.46.camel@gaston>
-Mime-Version: 1.0 (Apple Message framework v619)
-Content-Type: text/plain; charset=US-ASCII; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: Jason McMullan <jason.mcmullan@timesys.com>,
-        Linux Kernel list <linux-kernel@vger.kernel.org>,
-        Netdev <netdev@oss.sgi.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169.c
+Date: Sat, 20 Nov 2004 01:29:46 +0100
+Message-ID: <20041120002946.GA18059__11377.2637247623$1100911401$gmane$org@electric-eye.fr.zoreil.com>
+References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com.jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <1100904184.3856.46.camel@gaston>
-To: Benjamin Herrenschmidt <benh@kernel.crashing.org>
+Resent-Message-Id: <200411200040.iAK0eSFK021403@electric-eye.fr.zoreil.com>
+To: Dorn Hetzel <kernel@dorn.hetzel.org>
+Content-Disposition: inline
+In-Reply-To: <20041120003754.GA32133@lilah.hetzel.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Dorn Hetzel <kernel@dorn.hetzel.org> :
+[...]
+> Thank you very much for the pointers.  I have been using Linux for
+> ages (well, since 1993 anyway), but this is my first attempt at fixing
+> something in the kernel.  (first time I've needed to :) )
+> 
+> I'm off to look for and try the -mm patchkit after I write this?
+> Will it apply to 2.6.10-rc2?  (I had to get to rc2 to get my SATA controller
+>  to work) :)
 
-On Nov 19, 2004, at 16:43, Benjamin Herrenschmidt wrote:
+You have two options (or more) on top of 2.6.10-rc2:
+- ftp://ftp.kernel.org/pub/linux/kernel/people/akpm/patches/2.6/2.6.10-rc2/2.6.10-rc2-mm2/2.6.10-rc2-mm2.bz2
+- http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.10-rc2-netdev1.patch.bz2
 
-> On Fri, 2004-11-19 at 15:18 -0600, Andy Fleming wrote:
->
->> So when you say instantiated, would you consider calling an "attach"
->> function with the phy_id and bus_id of the desired PHY instantiation?
->> I'm fine with that.  The PHY would need to be able to send
->> notifications to the enet controller (currently done through a
->> callback).  I'm interested in ideas on how the notifier could be used
->> (I have a distaste for callbacks).
->
-> Look at the notifier lists in include/linux/notifier.h
+Once you have applied one of the patch above, the patch below will improve
+your "transmit timed out" (please apply in order and enable NAPI):
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-250.patch
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-255.patch
 
-Ok, will do.
-
->
->> Autopoll features sound pretty neat.  I think the system should 
->> support
->> that.
->
-> But that becomes MAC-dependant again... That means you'd need 1) a way
-> for the MAC driver to ask the PHY driver what register it wants
-> autopolled, and a function in the PHY driver for the MAC to call when 
-> it
-> detects a change. Also, autopoll is broken in some MACs...
-
-What I'm envisioning here is that the driver would be able to tell the 
-PHY infrastructure that it's going to do its own thing, and then make 
-use of the reading/configuring part of the infrastructure, similar to 
-how sungem and gianfar are currently set up.  But they would have the 
-option of letting the infrastructure also handle the status updates.  
-And, of course, the driver would not go through the effort to use 
-autopoll if it were broken.
-
->
->>   PHY interrupts are supported (they work quite well on my 85xx
->> system), as is timer-based polling.  Do you really think that there 
->> are
->> special cases which can't be handled using a library similar to the
->> sungem_phy one?
->
-> Nope. I think timer based polling with a sungem-like fallback mecanism
-> to forced speeds would be nice.
-
-Yes, I agree.  The system I currently have does fallback to forced, 
-though it doesn't yet support the "magic aneg" feature you mentioned.  
-But that should be easy to add, and so it shall be.
+If things perform better you may want to use bigger frames and apply as
+well r8169-260.patch and r8169-265.patch.
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-260.patch
+http://www.fr.zoreil.com/linux/kernel/2.6.x/2.6.10-rc2-mm1/r8169-265.patch
 
 
-Andy Fleming
+[...]
+> with regard to the "original" version shipping with 2.6.10-rc2
+> (which seems to be identical to the version in 2.6.9)...
+
+Yes.
+I hope the current set of changes in -mm/-netdev will be merged in
+early post-2.6.10.
+
+> gcc version = 2.95.4  (happy to update that if you think it will help)
+
+You will be welcome to upgrade.
+
+[...]
+> > - realize that the so called version number in 2.6.9 has no meaning.
+> >
+> By this, do you mean that the comment of version number in the r8169.c
+> of 2.6.9 is no longer related to the version numbers at Realtek?
+
+Exactly.
+
+One year ago, Realtek's driver was split and merged in the kernel. That
+and the contributions of many people took several months to achieve a
+(imho) decently stable driver. At the same time, no change appeared on
+Realtek's side. Still some months later Realtek issues a new driver with
+a rev number bump (2.2). Its code suggests that it includes a partial
+merge from some of the changes made to the in-kernel driver as well as
+some internal experiments (hooks for missing code).
+
+The drivers are now quite different. A change of version number is 
+included in the -mm/-netdev driver to protect the innocent but it seems
+I'll have to push weirder numbers. :o)
+
+[...]
+> Yeah, I noticed just one version and no history, but to the good, it
+> does work for me, at least so far, after the minor patch :)
+
+1 - netif_stop_queue() race between the Tx xmit and the Tx IRQ handler.
+2 - "entry" can overflow in rtl8169_tx_interrupt() -> read of random
+    status and early free of Tx buffer.
+
+When the in-kernel version had similar code, it translated into "r8169
+hangs under load".
+
+--
+Ueimor
