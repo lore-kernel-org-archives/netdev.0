@@ -1,85 +1,102 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] Extend netlink error codes
-Date: 11 Sep 2004 17:10:35 -0400
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PATCH 2.6 NET] Device name changing via rtnetlink
+Date: Sun, 12 Sep 2004 00:06:14 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094937035.2344.189.camel@jzny.localdomain>
-References: <20040910225158.GO20088@postel.suug.ch>
-	 <20040911155839.GN4431@wotan.suse.de>
-	 <20040911162433.GC21181@postel.suug.ch>
-	 <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <20040911220614.GF21181@postel.suug.ch>
+References: <20040910200644.GJ20088@postel.suug.ch> <20040910201302.GA16556@bougret.hpl.hp.com> <20040910202235.GK20088@postel.suug.ch> <20040910203203.GA17078@bougret.hpl.hp.com> <20040910204348.GL20088@postel.suug.ch> <1094857082.1041.19.camel@jzny.localdomain> <20040910231726.GP20088@postel.suug.ch> <1094868070.1042.77.camel@jzny.localdomain> <20040911134409.GA21181@postel.suug.ch> <1094932793.2344.82.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Thomas Graf <tgraf@suug.ch>, Andi Kleen <ak@suse.de>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: jt@hpl.hp.com, "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Sam Leffler <sam@errno.com>
-In-Reply-To: <3A0D075D-0423-11D9-BBE1-000A95AD0668@errno.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1094932793.2344.82.camel@jzny.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 2004-09-11 at 14:48, Sam Leffler wrote:
-> On Sep 11, 2004, at 9:24 AM, Thomas Graf wrote:
+* jamal <1094932793.2344.82.camel@jzny.localdomain> 2004-09-11 15:59
+> So my suggestion is making your code the exception.
+> i.e something along the lines of:
 > 
-> > * Andi Kleen <20040911155839.GN4431@wotan.suse.de> 2004-09-11 17:58
-> >> IMHO it would be far better to just pass text errors
-> >> in a variable length packet back.  It's a bit plan9ish,
-> >> but it would work nicely here and be a bit improvement
-> >> (especially for the qdiscs)
-> >
-> > I had the same idea and the only good way to do so would
-> > be to add a char * errbuf or alike to struct netlink_opt
-> > and access it via skb.sk.sk_protinfo.
-> >
-> > The bad side is that the for example cls and sch api don't
-> > provide the skb to the implementing modules and therefore
-> > they can't access the error buffer. I don't want to change
-> > all netlink users because of this.
-> >
-> > Changing all paths back to netlink_ack to provide a struct
-> > containing the errno and an additional text error buffer is
-> > no option for me either.
-> >
-> > Correct me if I'm wrong.
-> >
+> addrchg = 1;
+> 
+> if (mtu/weight/name related)
+> 	addrchng = 0;
+> if (!err & addrchang)
+> 	call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
 
-just reuse skb->cb[] and intepret it in rtnetlink in the case of
-failures.
+OK, however I'd prefer to invert the concept. See patch
+below. This would send out the following updates:
 
-> A technique used for mbuf packet tags in FreeBSD is to define a 32-bit 
-> cookie that uniquely identifies a module or ABI code and concatenate 
-> this with the 16-bit tag number.  The ABI code is defined as the 
-> date+time that the module is created, expressed as the number of 
-> seconds since the epoch (e.g. the output of date -u +'%s').  Tag 
-> numbers are meaningful only within the context of the module/ABI.  A 
-> default/compatibility cookie is used for compatibility with previously 
-> defined tag values.  This scheme effectively distributes management of 
-> tags (so far there have been no collisions).
+ififlags - NETDEV_(UP|DOWN) if IFF_UP has changed
+IFLA_MAP - none
+IFLA_ADDRESS|IFLA_BROADCAST - NETDEV_CHANGEADDR
+IFLA_MTU - NETDEV_CHANGEMTU
+IFLA_WEIGHT - none
+IFLA_IFNAME - NETDEVCHANGENAME
 
-This sounds similar to the skb tags of different sorts that exist.
-It does however bring out a good point into the discussion.
-I think we need to identify errors by IDs - dont think we can avoid
-that. The IDs could be the T in TLV; their scope is per socket level (eg
-at rtnetlink); This means there are 16 bits space per socket type.
-The next level to addressing is at each submodule level eg qdisc,
-ipv4route, etc. Assuming we have 8 bits there that leaves upto 8 bits
-per submodule for different error types. 256 error codes per submodule
-liek a qdisc sounds very reasonable to me. We could reserve the last
-entry for future extensions. Example:
+PATCH:
+Only send NETDEV_CHANGEADDR notifies for address and broadcast changes.
+Notify is also sent out if only one of the 2 changes is successful.
 
-socket: rtnetlink
-submodule: qdisc (module 1)
-error id: Q_NASTYTHING which is 0x10
-qdisc_errors[Q_NASTYTHING] is "something really nasty just happened"
+Signed-off-by: Thomas Graf <tgraf@suug.ch>
 
-Then T = 0x110
-L length(qdisc_errors[Q_NASTYTHING])
-V = qdisc_errors[Q_NASTYTHING]
+--- linux-2.6.9-rc1-bk18.orig/net/core/rtnetlink.c	2004-09-11 16:30:30.000000000 +0200
++++ linux-2.6.9-rc1-bk18/net/core/rtnetlink.c	2004-09-11 23:30:05.000000000 +0200
+@@ -265,7 +265,7 @@
+ 	struct ifinfomsg  *ifm = NLMSG_DATA(nlh);
+ 	struct rtattr    **ida = arg;
+ 	struct net_device *dev;
+-	int err;
++	int err, send_addr_notify = 0;
+ 
+ 	dev = dev_get_by_index(ifm->ifi_index);
+ 	if (!dev)
+@@ -312,6 +312,7 @@
+ 		err = dev->set_mac_address(dev, RTA_DATA(ida[IFLA_ADDRESS - 1]));
+ 		if (err)
+ 			goto out;
++		send_addr_notify = 1;
+ 	}
+ 
+ 	if (ida[IFLA_BROADCAST - 1]) {
+@@ -319,6 +320,7 @@
+ 			goto out;
+ 		memcpy(dev->broadcast, RTA_DATA(ida[IFLA_BROADCAST - 1]),
+ 		       dev->addr_len);
++		send_addr_notify = 1;
+ 	}
+ 
+ 	if (ida[IFLA_MTU - 1]) {
+@@ -365,7 +367,7 @@
+ 	err = 0;
+ 
+ out:
+-	if (!err)
++	if (send_addr_notify)
+ 		call_netdevice_notifiers(NETDEV_CHANGEADDR, dev);
+ 
+ 	dev_put(dev);
 
-BTW, there was someone from IBM a while back who was talking about
-having drivers send error messages via netlink; someone needs to look at
-the ideas they have maybe we can borrow something.
 
+> Also note, the semantics of netlink are all-or-nothing transaction. i.e
+> if one of the things requested for fails then you undo the rest. We can
+> probably loosely say that unles the ATOMIC flag is set you dont need to
+> undo that .. something to think about (summary is you probably dont want
+> to send progress update to user space unless the transaction is
+> successful; you however want to report progress of where failure happens
+> - as we are discussing at the moment in the error code thread).
 
-cheers,
-jamal
+Agreed, I think undo should happen from user space though. In the
+example of do_setlink, you can see that while it would be quite easy to
+do the sanity checks before actually doing something you can't catch
+all errors if you don't want to implement the name/mtu/addr change
+routines yourself. Keeping in mind that those sanity checks will
+probably only fail during the development of a application it doesn't
+really help. That's why I implemented it this way.
+
+I'm experimenting with a commit/fallback netlink library which basically
+fetches the subject of change and stores the netlink message to be used
+in case of fallback. NLM_F_ATOMIC makes it even more useable but is
+quite expensive. A netlink change daemon would probably solve the
+problem better.
