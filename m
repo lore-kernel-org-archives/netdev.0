@@ -1,47 +1,40 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: inter-packet gap in pktgen
-Date: Wed, 8 Dec 2004 08:38:58 +0100
-Message-ID: <20041208073858.GA4027@xi.wantstofly.org>
-References: <20041207222522.GA30266@xi.wantstofly.org> <41B632F3.1090104@candelatech.com>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
+Subject: Re: [PATCH] fix select() for SOCK_RAW sockets (ipv6)
+Date: Wed, 08 Dec 2004 16:58:50 +0900 (JST)
+Message-ID: <20041208.165850.97660819.yoshfuji@linux-ipv6.org>
+References: <20041208.023530.26430801.yoshfuji@linux-ipv6.org>
+	<20041207100140.781f4c00@dxpl.pdx.osdl.net>
+	<20041207104815.3f7a4684.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, hadi@cyberus.ca,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-Content-Disposition: inline
-In-Reply-To: <41B632F3.1090104@candelatech.com>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, mitch@sfgoth.com, kernel@linuxace.com,
+	linux-net@vger.kernel.org, linux-kernel@vger.kernel.org,
+	netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Return-path: <linux-net-owner@vger.kernel.org>
+To: davem@davemloft.net
+In-Reply-To: <20041207104815.3f7a4684.davem@davemloft.net>
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 07, 2004 at 02:47:15PM -0800, Ben Greear wrote:
+In article <20041207104815.3f7a4684.davem@davemloft.net> (at Tue, 7 Dec 2004 10:48:15 -0800), "David S. Miller" <davem@davemloft.net> says:
 
-> >By tweaking the 'ipg' parameter I can generate pretty much any packet rate
-> >I want, as long as I set ipg=(1e9/rate)-496 instead of something possibly
-> >more straightforward.
+> On Tue, 7 Dec 2004 10:01:40 -0800
+> Stephen Hemminger <shemminger@osdl.org> wrote:
 > 
-> That 496 will also change with load on the system, at least on average.  I
-> dealt with this by having a user-space app sample the rate and adjust the 
-> ipg to keep the average rate where I want it.
+> > > Probably, we need to do the same for ipv6, don't we?
+> > 
+> > diff -Nru a/net/ipv6/af_inet6.c b/net/ipv6/af_inet6.c
+> > --- a/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
+> > +++ b/net/ipv6/af_inet6.c	2004-12-07 10:02:50 -08:00
+> > @@ -513,6 +513,27 @@
 > 
-> So, I'd suggest leaving the ipg as it is, and use external tools to get
-> the exact pps that you are looking for.
+> We didn't do the "UDP select() fix" on ipv6 because we don't
+> have the delayed checksumming optimization there.  So the
+> ipv6 side really doesn't need this change.
 
-Just because it's possible that way doesn't mean that it's the only
-way or even _the_ way of doing it.
+Ok, thanks for the explanation.
 
-Another option is:
+--yoshfuji @ Strasbourg
 
-	next_tx = get_time_in_ns();
-	while (--count) {
-		tx_packet();
-		next_tx += 1e9/intended_pps;
-		nanospin(next_tx - get_time_in_ns());
-	}
-
-This should be relatively independent of system load.  OK, I know,
-time to show some code.
-
-
---L
