@@ -1,24 +1,28 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 3/3] r8169: clean up
-Date: Tue, 2 Nov 2004 20:55:03 +0100
-Message-ID: <20041102195503.GM19714@rei.reeler.org>
-References: <200411021203.25100.jdmason@us.ibm.com> <20041102192746.GB24860@electric-eye.fr.zoreil.com> <200411021347.39047.jdmason@us.ibm.com>
+From: "John W. Linville" <linville@tuxdriver.com>
+Subject: Re: [PATCH 2.6] e100, e1000, ixgb: add MODULE_VERSION tags
+Date: Tue, 2 Nov 2004 15:06:39 -0500
+Message-ID: <20041102150639.A19501@tuxdriver.com>
+References: <20041102190724.GA6962@lists.us.dell.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
-        jgarzik@pobox.com
+Cc: netdev@oss.sgi.com, linux.nics@intel.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jon Mason <jdmason@us.ibm.com>
+To: Matt Domsch <Matt_Domsch@dell.com>
 Content-Disposition: inline
-In-Reply-To: <200411021347.39047.jdmason@us.ibm.com>
+In-Reply-To: <20041102190724.GA6962@lists.us.dell.com>; from Matt_Domsch@dell.com on Tue, Nov 02, 2004 at 01:07:24PM -0600
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > > 0; -       cmd->autoneg = !!(status & TBINwEnable);
-> > > +       cmd->autoneg = status & TBINwEnable;
-> Silly question, does "!!" not execute a bitwise not twice?  If not, then 
-> please forgive my ignorance.
+On Tue, Nov 02, 2004 at 01:07:24PM -0600, Matt Domsch wrote:
+> Patch below adds MODULE_VERSION tags to the e100, e1000, and ixgb
+> drivers.  Tools like DKMS will make use of this information to
 
-Yes but the result is not the same, the result will be either 1
-or 0 if done with !! and yours will result in TBINwEnable or 0.
+I had recently posted patches to this effect for e100, e1000 (nearly
+identical to yours) and several others.  I did not, however, include
+ixgb, so I'm sure that one will be quite welcome! :-)
+
+John
+-- 
+John W. Linville
+linville@tuxdriver.com
