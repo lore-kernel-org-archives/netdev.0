@@ -1,8 +1,8 @@
 From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH 0/8] 2.4.26-bk1 pcnet32.c
-Date: Tue, 20 Apr 2004 13:12:04 -0700 (PDT)
+Subject: [PATCH 4/8 2.4.26-bk1] pcnet32 correct name display
+Date: Tue, 20 Apr 2004 13:14:50 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200404202012.i3KKC9C13567@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <200404202014.i3KKEpf13638@DYN318364BLD.beaverton.ibm.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
@@ -11,17 +11,20 @@ To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Please apply the following patches to 2.4.26-bk1 to bring the 2.4 driver
-to the same level as 2.6.6 (and a little beyond).
+This displays the device name (eth%d) instead of the device type
+when registering the interrupt handler.
 
-[PATCH 1/8 2.4.26-bk1] pcnet32 whitespace only changes
-[PATCH 2/8 2.4.26-bk1] pcnet32 add 79C976 support
-[PATCH 3/8 2.4.26-bk1] pcnet32 all printk under netif_msg 
-[PATCH 4/8 2.4.26-bk1] pcnet32 correct name display
-[PATCH 5/8 2.4.26-bk1] pcnet32 add led blink capability
-[PATCH 6/8 2.4.26-bk1] pcnet32 transmit performance fix
-[PATCH 7/8 2.4.26-bk1] pcnet32 add register dump capability
-[PATCH 8/8 2.4.26-bk1] pcnet32 timer to free tx skbs for 79C971/972 
+--- linux-2.4.26-bk1/drivers/net/print.pcnet32.c	Tue Apr 20 12:45:37 2004
++++ linux-2.4.26-bk1/drivers/net/pcnet32.c	Tue Apr 20 12:46:18 2004
+@@ -1208,7 +1208,7 @@
+ 
+     if (dev->irq == 0 ||
+ 	request_irq(dev->irq, &pcnet32_interrupt,
+-		    lp->shared_irq ? SA_SHIRQ : 0, lp->name, (void *)dev)) {
++		    lp->shared_irq ? SA_SHIRQ : 0, dev->name, (void *)dev)) {
+ 	return -EAGAIN;
+     }
+ 
 
 -- 
 Don Fry
