@@ -1,37 +1,59 @@
-From: Kovacs Krisztian <hidden@balabit.hu>
-Subject: Re: [PATCH] ipv4 tcp autobind problem
-Date: Tue, 07 Oct 2003 14:35:50 +0200
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [Patch]: IPv6 Connection Tracking
+Date: Tue, 7 Oct 2003 14:30:21 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F82B326.9050508@balabit.hu>
-References: <200310071156.PAA31530@yakov.inr.ac.ru>
+Message-ID: <20031007123021.GX18246@sunbeam.de.gnumonks.org>
+References: <20030925092806.GC5758@sunbeam.de.gnumonks.org> <200310031119.UAA11088@toshiba.co.jp>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, jmorris@redhat.com,
-        netdev@oss.sgi.com, linux-net@vger.kernel.org,
-        Balazs Scheidler <bazsi@balabit.hu>
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="aEcIyhw0mmnxygNd"
+Cc: coreteam@netfilter.org, netfilter-devel@lists.netfilter.org,
+        netdev@oss.sgi.com, usagi-core@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200310071156.PAA31530@yakov.inr.ac.ru>
+To: Yasuyuki Kozakai <yasuyuki.kozakai@toshiba.co.jp>
+Content-Disposition: inline
+In-Reply-To: <200310031119.UAA11088@toshiba.co.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-   Hi,
+--aEcIyhw0mmnxygNd
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-kuznet@ms2.inr.ac.ru wrote:
-> Right place to finish tracking is when socket is removed from TCP
-> hash tables, and to start tracking is when the socket is inserted
-> to TCP hash tables. BTW you would not see the problem with binding
-> if it was made right.
+On Fri, Oct 03, 2003 at 08:19:07PM +0900, Yasuyuki Kozakai wrote:
+> I select 2), too.
 
-   Thanks for the reply. In the meantime, although because of slightly 
-different reasons, we also came to the same conclusion. Right now I'm 
-testing a version in which our "unassign" hook is removed from 
-inet_release(), and added to udp_v4_unhash() and tcp_put_port().
-However, I'm not quite sure there won't be locking problems when calling 
-our hook from these places.
+Ok, thanks for your patience and understanding.
 
--- 
-   Regards,
-     Krisztian KOVACS
+> Harald, Could you add my patch to patch-o-matic ?
+
+Ok, I'll put it into patch-o-matic asap.
+
+> Regards,
+> Yasuyuki KOZAKAI
+
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
+
+--aEcIyhw0mmnxygNd
+Content-Type: application/pgp-signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.3 (GNU/Linux)
+
+iD8DBQE/grHdXaXGVTD0i/8RAgpNAJ45UTeBOXL3dqPY74rWZjQqntjQiACgipl8
+M9YLjRtvXOs9Qs9ISzIQjtU=
+=IaCj
+-----END PGP SIGNATURE-----
+
+--aEcIyhw0mmnxygNd--
