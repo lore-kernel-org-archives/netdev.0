@@ -1,71 +1,57 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [PATCH] arp_queue: serializing unlink + kfree_skb
-Date: Fri, 4 Feb 2005 12:55:39 +1100
-Message-ID: <20050204015539.GA9727@gondor.apana.org.au>
-References: <20050131102920.GC4170@suse.de> <E1CvZo6-0001Bz-00@gondolin.me.apana.org.au> <20050203142705.GA11318@krispykreme.ozlabs.ibm.com> <20050203203010.GA7081@gondor.apana.org.au> <20050203141901.5ce04c92.davem@davemloft.net> <20050203235044.GA8422@gondor.apana.org.au> <20050203164922.2627a112.davem@davemloft.net> <20050204012053.GA8949@gondor.apana.org.au> <20050203172357.670c3402.davem@davemloft.net>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] s390: qeth network driver
+Date: Thu, 03 Feb 2005 22:05:55 -0500
+Message-ID: <4202E693.90808@pobox.com>
+References: <200502040211.j142BI35023854@hera.kernel.org>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="YiEDa0DAkWCtVeE4"
-Cc: anton@samba.org, okir@suse.de, netdev@oss.sgi.com,
-        linux-kernel@vger.kernel.org
-To: "David S. Miller" <davem@davemloft.net>
-Content-Disposition: inline
-In-Reply-To: <20050203172357.670c3402.davem@davemloft.net>
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: schwidefsky@de.ibm.com, akpm@osdl.org, Netdev <netdev@oss.sgi.com>
+To: Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
+In-Reply-To: <200502040211.j142BI35023854@hera.kernel.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-
-On Thu, Feb 03, 2005 at 05:23:57PM -0800, David S. Miller wrote:
+Linux Kernel Mailing List wrote:
+> ChangeSet 1.2072, 2005/02/03 17:04:37-08:00, schwidefsky@de.ibm.com
 > 
-> You're absolutely right.  Ok, so we do need to change kfree_skb().
-> I believe even with the memory barrier, the atomic_read() optimization
-> is still worth it.  atomic ops on sparc64 take a minimum of 40 some odd
-> cycles on UltraSPARC-III and later, whereas the memory barrier will
-> take up a single cycle most of the time.
+> 	[PATCH] s390: qeth network driver
+> 	
+> 	From: Steffen Thoss <thoss@de.ibm.com>
+> 	From: Frank Pavlic <pavlic@de.ibm.com>
+> 	
+> 	qeth network driver changes:
+> 	 - Improve performance by omitting svs.
+> 	 - Use function callback mechanism to set layer 2 parameters when getting
+> 	   a reply for a Layer 2 command.
+> 	 - dev->hard_header must not be NULL when fake_ll is no set since
+> 	   IPv6 and Layer2 needs the default function set by network stack.
+> 	 - ping6 works now when running in layer 2 mode.
+> 	 - Save original dev->hard_header to restore it when the user doesn't
+> 	   want to use fake_ll anymore.
+> 	 - Fake ethernet header in outgoing packets. This currently works
+> 	   only if qeth is compiled without ipv6 support.
+> 	 - Add more debug information in case of failures in qeth_set_offline.
+> 	 - Using fake_ll with HiperSockets devices results in misaligned
+> 	   ip packets and thus no traffic over HiperSockets.
+> 	 - Start qeth_remove_device only after the qeth recovery completed.
+> 	
+> 	Signed-off-by: Martin Schwidefsky <schwidefsky@de.ibm.com>
+> 	Signed-off-by: Andrew Morton <akpm@osdl.org>
+> 	Signed-off-by: Linus Torvalds <torvalds@osdl.org>
 
-OK, here is the patch to do that.  Let's get rid of kfree_skb_fast
-while we're at it since it's no longer used.
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+It would be nice if this stuff was CC'd to the network, and network 
+driver maintainers.
 
-Thanks,
--- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Two immediate concerns I have are,
 
---YiEDa0DAkWCtVeE4
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
+* saving and restoring dev->hard_header is more than a little bit of a hack
 
-===== include/linux/skbuff.h 1.59 vs edited =====
---- 1.59/include/linux/skbuff.h	2005-01-11 07:23:55 +11:00
-+++ edited/include/linux/skbuff.h	2005-02-04 12:46:15 +11:00
-@@ -353,15 +353,11 @@
-  */
- static inline void kfree_skb(struct sk_buff *skb)
- {
--	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
--		__kfree_skb(skb);
--}
--
--/* Use this if you didn't touch the skb state [for fast switching] */
--static inline void kfree_skb_fast(struct sk_buff *skb)
--{
--	if (atomic_read(&skb->users) == 1 || atomic_dec_and_test(&skb->users))
--		kfree_skbmem(skb);
-+	if (likely(atomic_read(&skb->users) == 1))
-+		smp_rmb();
-+	else if (likely(!atomic_dec_and_test(&skb->users)))
-+		return;
-+	__kfree_skb(skb);
- }
- 
- /**
+* overall, I'm not so sure IPv6 support should be conditionalized on 
+anything but CONFIG_IPV6.  Though S/390 and qeth are certainly unusual 
+cases, none of the other net drivers in the kernel require a special 
+config option to enable IPv6 support.
 
---YiEDa0DAkWCtVeE4--
+	Jeff
