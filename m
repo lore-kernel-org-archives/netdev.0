@@ -1,89 +1,167 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: IMQ / new Dummy device post.
-Date: 15 Apr 2004 23:52:33 -0400
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1082087553.1035.287.camel@jzny.localdomain>
-References: <407E5905.9070108@dsl.pipex.com>
-	 <1082031313.1039.13.camel@jzny.localdomain>
-	 <407EE3E5.8060200@dsl.pipex.com>
-Reply-To: hadi@cyberus.ca
+From: Andy Lutomirski <luto@stanford.edu>
+Subject: r8169 excessive PHY reset
+Date: Thu, 15 Apr 2004 22:19:04 -0700
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <407F6CC8.1060903@stanford.edu>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <407EE3E5.8060200@dsl.pipex.com>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------020206070400060601020304"
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Kernel Mailing List <linux-kernel@vger.kernel.org>,
+	netdev@oss.sgi.com, shuchen@realtek.com.tw
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2004-04-15 at 15:35, Andy Furniss wrote:
-> jamal wrote:
+This is a multi-part message in MIME format.
+--------------020206070400060601020304
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-> What I want to know is what state IP packets will be in if I
+On my r8169 (Really 8110S, I think -- it's a MSI K8T Neo-FIS2R, running x86_64), 
+if I unplug the network cable and reconnect it, the link stays down and the 
+driver starts resetting the PHY at an absurd rate (many times per second).
 
-Just to be sure, this is not specific just to IP; it could be ARP, IPX,
-v6 etc.
+Strangely enough, simply removing all the PHY reset code fixes it.  Is there any 
+reason for this code?  (The other end of my link is e1000, and I'm using 1000Mbps.)
 
->  
-> filter/shape with dummy - In my case I would need them to have been 
-> demasqued so I can tell the difference between local and to be forwarded 
-> ingress traffic.
+Patch against 2.6.5-mm5 (attached because my mailer will mangle it otherwise).
 
-The packets are grabbed before NAT on the way in and after NAT on the
-way out. 
-Coming from non-local machines before NAT you can redirect to a dummy
-device; and also be able to redirect on their way back to the non-local;
-to use the example i posted earlier:
+--Andy
 
-----
-$TC qdisc add dev dummy0 root handle 1: prio 
-$TC qdisc add dev dummy0 parent 1:1 handle 10: sfq
-$TC qdisc add dev dummy0 parent 1:2 handle 20: tbf rate 20kbit buffer
-1600 limit
- 3000
-$TC qdisc add dev dummy0 parent 1:3 handle 30:
-sfq                              
-  
-$TC filter add dev dummy0 protocol ip pref 1 parent 1: handle 1 fw
-classid 1:1
-$TC filter add dev dummy0 protocol ip pref 2 parent 1: handle 2 fw
-classid 1:2
+Please CC me b/c i'm not subscribed.
 
-ifconfig dummy0 up
+--------------020206070400060601020304
+Content-Type: text/plain;
+ name="r8169fix.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="r8169fix.patch"
 
-#deal with ingress of eth0 first
-$TC qdisc add dev eth0 ingress
+--- ./drivers/net/r8169.c.orig	2004-04-15 22:08:07.962654280 -0700
++++ ./drivers/net/r8169.c	2004-04-15 22:09:22.101383480 -0700
+@@ -98,7 +98,6 @@
+ 
+ #define RTL_MIN_IO_SIZE 0x80
+ #define RTL8169_TX_TIMEOUT	(6*HZ)
+-#define RTL8169_PHY_TIMEOUT	(HZ) 
+ 
+ /* write/read MMIO register */
+ #define RTL_W8(reg, val8)	writeb ((val8), ioaddr + (reg))
+@@ -323,7 +322,6 @@
+ 	dma_addr_t RxPhyAddr;
+ 	struct sk_buff *Rx_skbuff[NUM_RX_DESC];	/* Rx data buffers */
+ 	struct sk_buff *Tx_skbuff[NUM_TX_DESC];	/* Index of Transmit data buffer */
+-	struct timer_list timer;
+ 	unsigned long phy_link_down_cnt;
+ 	u16 cp_cmd;
+ };
+@@ -568,90 +566,6 @@
+ 	mdio_write(ioaddr, 31, 0x0000); //w 31 2 0 0
+ }
+ 
+-static void rtl8169_hw_phy_reset(struct net_device *dev)
+-{
+-	struct rtl8169_private *tp = dev->priv;
+-	void *ioaddr = tp->mmio_addr;
+-	int i, val;
+-
+-	printk(KERN_WARNING PFX "%s: Reset RTL8169s PHY\n", dev->name);
+-
+-	val = (mdio_read(ioaddr, 0) | 0x8000) & 0xffff;
+-	mdio_write(ioaddr, 0, val);
+-
+-	for (i = 50; i >= 0; i--) {
+-		if (!(mdio_read(ioaddr, 0) & 0x8000))
+-			break;
+-		udelay(100); /* Gross */
+-	}
+-
+-	if (i < 0) {
+-		printk(KERN_WARNING PFX "%s: no PHY Reset ack. Giving up.\n",
+-		       dev->name);
+-	}
+-}
+-
+-static void rtl8169_phy_timer(unsigned long __opaque)
+-{
+-	struct net_device *dev = (struct net_device *)__opaque;
+-	struct rtl8169_private *tp = dev->priv;
+-	struct timer_list *timer = &tp->timer;
+-	void *ioaddr = tp->mmio_addr;
+-
+-	assert(tp->mac_version > RTL_GIGA_MAC_VER_B);
+-	assert(tp->phy_version < RTL_GIGA_PHY_VER_G);
+-
+-	if (RTL_R8(PHYstatus) & LinkStatus)
+-		tp->phy_link_down_cnt = 0;
+-	else {
+-		tp->phy_link_down_cnt++;
+-		if (tp->phy_link_down_cnt >= 12) {
+-			int reg;
+-
+-			// If link on 1000, perform phy reset.
+-			reg = mdio_read(ioaddr, PHY_1000_CTRL_REG);
+-			if (reg & PHY_Cap_1000_Full) 
+-				rtl8169_hw_phy_reset(dev);
+-
+-			tp->phy_link_down_cnt = 0;
+-		}
+-	}
+-
+-	mod_timer(timer, RTL8169_PHY_TIMEOUT);
+-}
+-
+-static inline void rtl8169_delete_timer(struct net_device *dev)
+-{
+-	struct rtl8169_private *tp = dev->priv;
+-	struct timer_list *timer = &tp->timer;
+-
+-	if ((tp->mac_version <= RTL_GIGA_MAC_VER_B) ||
+-	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
+-		return;
+-
+-	del_timer_sync(timer);
+-
+-	tp->phy_link_down_cnt = 0;
+-}
+-
+-static inline void rtl8169_request_timer(struct net_device *dev)
+-{
+-	struct rtl8169_private *tp = dev->priv;
+-	struct timer_list *timer = &tp->timer;
+-
+-	if ((tp->mac_version <= RTL_GIGA_MAC_VER_B) ||
+-	    (tp->phy_version >= RTL_GIGA_PHY_VER_G))
+-		return;
+-
+-	tp->phy_link_down_cnt = 0;
+-
+-	init_timer(timer);
+-	timer->expires = jiffies + RTL8169_PHY_TIMEOUT;
+-	timer->data = (unsigned long)(dev);
+-	timer->function = rtl8169_phy_timer;
+-	add_timer(timer);
+-}
+-
+ static int __devinit
+ rtl8169_init_board(struct pci_dev *pdev, struct net_device **dev_out,
+ 		   void **ioaddr_out)
+@@ -1074,8 +988,6 @@
+ 		goto err_free_rx;
+ 
+ 	rtl8169_hw_start(dev);
+-
+-	rtl8169_request_timer(dev);
+ out:
+ 	return retval;
+ 
+@@ -1587,8 +1499,6 @@
+ 
+ 	netif_stop_queue(dev);
+ 
+-	rtl8169_delete_timer(dev);
+-
+ 	spin_lock_irq(&tp->lock);
+ 
+ 	/* Stop the chip's Tx and Rx DMA processes. */
 
-# redirect all IP packets arriving from 10.0.0.21/24 in eth0 to dummy0 
-# use mark 1 --> puts them onto class 1:1 of dummy
-#
-$TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
-match ip src 10.0.0.21/24 flowid 1:1 \
-action ipt -j MARK --set-mark 1 \
-action mirred egress redirect dev dummy0
-
-#deal with egress of eth0
-$TC qdisc add dev eth0 root handle 1: prio 
-
-# redirect all IP packets going to 10.0.0.21/24 in eth0 to dummy0 
-# use mark 2 --> puts them onto class 1:2 of dummy
-#
-$TC filter add dev eth0 parent 1:0 protocol ip prio 10 u32 \
-match ip dst 10.0.0.21/24 flowid 1:1 \
-action ipt -j MARK --set-mark 2 \
-action mirred egress redirect dev dummy0
------
-
-I havent tested the above but it should work (sans syntax bugs). If it
-doesnt then we have a bug that needs fixing.
-
-> Ie. where on the KPTD would dummy be - IMQ appears twice and by using 
-> the IMQ nat patch I can use the prerouting one to filter/shape the 
-> packets after they are denatted.
-> 
-
-does the above help?
-
-cheers,
-jamal
+--------------020206070400060601020304--
