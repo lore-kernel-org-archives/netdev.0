@@ -1,72 +1,33 @@
-From: Vladimir Kondratiev <vkondra@mail.ru>
-Subject: Re: generic 802.11 stack
-Date: Tue, 7 Sep 2004 22:54:12 +0300
+From: Andy Fleming <afleming@freescale.com>
+Subject: schedule_work, a summary
+Date: Tue, 7 Sep 2004 15:35:54 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200409072254.18804.vkondra@mail.ru>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua> <200409072141.58893.vkondra@mail.ru> <20040907121019.733cc7aa.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: multipart/signed;
-  boundary="nextPart2008819.eKJUJ3LL4V";
-  protocol="application/pgp-signature";
-  micalg=pgp-sha1
+Message-ID: <840161B2-010D-11D9-AF95-000393C30512@freescale.com>
+Mime-Version: 1.0 (Apple Message framework v618)
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, prism54-devel@prism54.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, Sam Leffler <sam@errno.com>,
-        Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20040907121019.733cc7aa.davem@davemloft.net>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---nextPart2008819.eKJUJ3LL4V
-Content-Type: text/plain;
-  charset="iso-8859-1"
-Content-Transfer-Encoding: quoted-printable
-Content-Disposition: inline
+Ok, so I got no response.  I will summarize on the theory that people 
+tend to ignore long emails:
 
-DS> > This should be done in generic way. This information used to
- communicate DS> > berween particular driver and generic stack. For example,
- Rx PHY info and Tx DS> > status info should be used for in-stack generic
- rate scaling algorithm. DS> >
-DS> > To complicate it a bit, cb[] is only 48 bytes long. PHY info may easi=
-ly
- exceed DS> > this size, so it's better to allocate something and free it in
- destructor. DS> >
-DS> > But again, point is this structure should be generic since it is used
- by DS> > stack.
-DS>
-DS> TCP does the same thing, and if space is an issue you can use
-DS> pointers in the cb[] area, other subsystems do this.
+1) My ethernet driver works in 2.6.8.1, but does not in newer kernels.  
+Note that nothing in the driver has changed.  So either there is a bug 
+in the kernel now, or one has been exposed in my driver.
 
-Sure, I agree. But this structure for PHY should be defined in stack, it is=
-=20
-not driver's decision.
+2) The bug causes the kernel to stop doing useful work as soon as 
+schedule_work is called.  I can confirm that the function executes to 
+completion, and that the process of scheduling the work is terminated 
+in try_to_wake_up() when it determines that the task (presumably the 
+task keventd is running in) is already running.  Once this happens, the 
+kernel stops printing out information, and the bdi2000 indicates it is 
+frequently in interrupt handling routines.
 
-Actually, I'd like to fit this stack into real life.
+3) I desperately need to know what's wrong, and if this is not the 
+right place to ask, please tell me where is.
 
-To get real, I want, for some wireless card, write driver that will be able=
- to=20
-Tx/Rx 802.11 frames, and let stack handle the rest. Like association,=20
-roaming... What should be done to get to this stage?
-
-Jeff, your opinion on this?
-
-Sam (you represent Atheros?), would you like to cooperate to make this=20
-possible?
-
-Anyone doing drivers for Intersil and Broadcom, are you on this list? Would=
-=20
-you join this effort?
-
---nextPart2008819.eKJUJ3LL4V
-Content-Type: application/pgp-signature
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.6 (GNU/Linux)
-
-iD8DBQBBPhHqqxdj7mhC6o0RAvh1AKCG4t+46iEN4rezX3GPNbSSLGs0JgCgkHAp
-/Kb6ZYVrwnMoV1LrnwD57xI=
-=JkRX
------END PGP SIGNATURE-----
-
---nextPart2008819.eKJUJ3LL4V--
+Thanks,
+Andy Fleming
