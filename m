@@ -1,26 +1,33 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: [PATCH] IPv6: Autoconfig link-local address on ip6-ip6 tunnel
- device
-Date: Thu, 27 Nov 2003 19:39:10 +0900 (JST)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.6]: IPv6: strcpy -> strlcpy
+Date: Thu, 27 Nov 2003 02:59:21 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031127.193910.96333709.yoshfuji@linux-ipv6.org>
-References: <Pine.LNX.4.58.0311051412180.28216@rhea.tcs.hut.fi>
-	<20031125.035531.94714784.yoshfuji@linux-ipv6.org>
-	<Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi>
+Message-ID: <20031127025921.3fed8dd4.davem@redhat.com>
+References: <1069920883.2476.1.camel@teapot.felipe-alfaro.com>
+	<20031127.173320.19253188.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
+Cc: felipe_alfaro@linuxmail.org, linux-kernel@vger.kernel.org,
+        yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: vnuorval@tcs.hut.fi
-In-Reply-To: <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi>
+To: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20031127.173320.19253188.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.LNX.4.58.0311271147250.3257@rhea.tcs.hut.fi> (at Thu, 27 Nov 2003 12:31:58 +0200 (EET)), Ville Nuorvala <vnuorval@tcs.hut.fi> says:
+On Thu, 27 Nov 2003 17:33:20 +0900 (JST)
+YOSHIFUJI Hideaki / _$B5HF#1QL@ <yoshfuji@linux-ipv6.org> wrote:
 
-> here is a new version. I made some other minor changes to it too.
+> -	strcpy(t->parms.name, dev->name);
+> +	strlcpy(t->parms.name, dev->name, IFNAMSIZ);
+>                                           sizeof(t->parms.name)
+> 
+> or something like that.
 
-looks fine.
---yoshfuji
+I agree, using sizeof() is the less error prone way of
+doing things like this.
+
+Felipe could you please rewrite your patch like this?
+
+Thank you.
