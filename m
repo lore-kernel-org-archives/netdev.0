@@ -1,55 +1,62 @@
-From: Chris Friesen <cfriesen@nortelnetworks.com>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: suggestion for routing code improvement
-Date: Wed, 10 Apr 2002 16:56:27 -0400
+Date: Thu, 11 Apr 2002 01:02:23 +0200
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <3CB4A6FB.F9146FDB@nortelnetworks.com>
-References: <3CB47B90.B4CF1FAD@nortelnetworks.com> <15540.40277.772027.111512@robur.slu.se>
+Message-ID: <15540.50303.858294.986710@robur.slu.se>
+References: <3CB47B90.B4CF1FAD@nortelnetworks.com>
+	<15540.40277.772027.111512@robur.slu.se>
+	<3CB4A6FB.F9146FDB@nortelnetworks.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: Chris Friesen <cfriesen@nortelnetworks.com>
+In-Reply-To: <3CB4A6FB.F9146FDB@nortelnetworks.com>
 List-Id: netdev.vger.kernel.org
 
-Robert Olsson wrote:
-> 
-> Chris Friesen writes:
->  > So, what do you guys think?  Is this a reasonable thing to do?  I think that it
->  > makes the system nicely symmetrical, as opposed to the asymmetrical handling of
->  > current kernels.
-> 
->  Hello!
-> 
->  Why not leave the routing policy job to a routing daemon?
 
-Because I've got static routes, and I know exactly what they are.
+Chris Friesen writes:
+ > The box(es) which inspired this sit on a private network, and once they are
+ > brought into service, the routes never change.  However, there is a command from
+ > our gui to manually drop and raise the ethernet link (just in case something
+ > goes wrong and can't be handled automatically) and it would simplify our code
+ > greatly if the routes that are automatically deleted would be automatically put
+ > back.
 
->  This Linux box has 110441 bgp routes. Internet routing is very much
->  like a living organism. Routes comes and goes.
+ If we limit us to "static routes" for the other routes we must definitely leave to 
+ some with routing/topologi knowledge and we must not break systems with "routing 
+ daemons".
 
-The box(es) which inspired this sit on a private network, and once they are
-brought into service, the routes never change.  However, there is a command from
-our gui to manually drop and raise the ethernet link (just in case something
-goes wrong and can't be handled automatically) and it would simplify our code
-greatly if the routes that are automatically deleted would be automatically put
-back.
+ If we look into the routing world a "route" can come from different origins/routing
+ protocols static/ospf/rip/bgp and there is preferences to decide which one to 
+ install.
 
->  If the interface comes back the router daemon recalcs again and installs
->  appropriate routes for this moment which may very well be different
->  compared to before "link down".
+ So
 
-In this case, my software *is* essentially the routing daemon, and I want it to
-be simpler to maintain.
+ ip route add x y proto static 
 
-I think the concept is simple: I added some routes, and I think they should stay
-there until I remove them or the machine reboots.  Doesn't this seem like a
-logical behaviour?
+ Is registered by routing daemon and installed if it has the best pref. and the 
+ route is hidden otherwise to be restored when appropriate. And the route is invalid 
+ but kept by the daemon over "link downs" 
 
-Chris
+ And I think
 
--- 
-Chris Friesen                    | MailStop: 043/33/F10  
-Nortel Networks                  | work: (613) 765-0557
-3500 Carling Avenue              | fax:  (613) 765-2986
-Nepean, ON K2H 8E9 Canada        | email: cfriesen@nortelnetworks.com
+ ip route rep x y proto static 
+
+ or something similar at link up for restoring "static" routes would not break 
+ for the daemons either. But I got a feeling it can hurt more than it helps.
+
+
+ > In this case, my software *is* essentially the routing daemon, and I want it to
+ > be simpler to maintain.
+ 
+ Well router daemons belongs to "user space" and via netlink you should be able to 
+ do most of what you want.
+
+ 
+ Cheers.
+
+							--ro
+
+ 
