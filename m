@@ -1,7 +1,7 @@
 From: Jouni Malinen <jkmaline@cc.hut.fi>
-Subject: [PATCH wireless-2.6 11/12] Host AP: Fix PRISM2_IO_DEBUG
-Date: Sun, 7 Nov 2004 23:17:10 -0800
-Message-ID: <20041108071710.GL1076@jm.kir.nu>
+Subject: [PATCH wireless-2.6 12/12] Host AP: Fix netif_carrier_off() in non-client modes
+Date: Sun, 7 Nov 2004 23:17:53 -0800
+Message-ID: <20041108071753.GM1076@jm.kir.nu>
 References: <20041108070156.GA1076@jm.kir.nu>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -14,39 +14,48 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->From Mark Glines <mark@glines.org>:
-I just noticed PRISM2_IO_DEBUG doesn't work.  This patch gets it
-working again.  I checked the development CVS snapshot, looks like
-its still broken there.
-
-jkm: in addition, fix the other PRISM2_IO_DEBUG function
+Connection status is reported properly only in client modes, so do not
+try to set netif_carrier_off() in non-client modes. Previously, Master
+mode may end up being in state where netif_carrier was left off and
+this may break things like bridging.
 
 Signed-off-by: Jouni Malinen <jkmaline@cc.hut.fi>
 
 
-diff -Nru a/drivers/net/wireless/hostap/hostap_wlan.h b/drivers/net/wireless/hostap/hostap_wlan.h
---- a/drivers/net/wireless/hostap/hostap_wlan.h	2004-11-07 22:39:16 -08:00
-+++ b/drivers/net/wireless/hostap/hostap_wlan.h	2004-11-07 22:39:16 -08:00
-@@ -1006,7 +1006,8 @@
- static inline void prism2_io_debug_add(struct net_device *dev, int cmd,
- 				       int reg, int value)
- {
--	local_info_t *local = dev->priv;
-+	struct hostap_interface *iface = dev->priv;
-+	local_info_t *local = iface->local;
+diff -Nru a/drivers/net/wireless/hostap/hostap_hw.c b/drivers/net/wireless/hostap/hostap_hw.c
+--- a/drivers/net/wireless/hostap/hostap_hw.c	2004-11-07 22:39:25 -08:00
++++ b/drivers/net/wireless/hostap/hostap_hw.c	2004-11-07 22:39:25 -08:00
+@@ -3399,8 +3399,11 @@
+ 					   "", dev_template);
  
- 	if (!local->io_debug_enabled)
- 		return;
-@@ -1023,7 +1024,8 @@
+ 	if (local->ddev) {
+-		netif_carrier_off(local->dev);
+-		netif_carrier_off(local->ddev);
++		if (local->iw_mode == IW_MODE_INFRA ||
++		    local->iw_mode == IW_MODE_ADHOC) {
++			netif_carrier_off(local->dev);
++			netif_carrier_off(local->ddev);
++		}
+ 		hostap_init_proc(local);
+ 		hostap_init_ap_proc(local);
+ 		return 0;
+diff -Nru a/drivers/net/wireless/hostap/hostap_ioctl.c b/drivers/net/wireless/hostap/hostap_ioctl.c
+--- a/drivers/net/wireless/hostap/hostap_ioctl.c	2004-11-07 22:39:25 -08:00
++++ b/drivers/net/wireless/hostap/hostap_ioctl.c	2004-11-07 22:39:25 -08:00
+@@ -1108,6 +1108,13 @@
+ 	if (double_reset && local->func->reset_port(dev))
+ 		return -EINVAL;
  
- static inline void prism2_io_debug_error(struct net_device *dev, int err)
- {
--	local_info_t *local = dev->priv;
-+	struct hostap_interface *iface = dev->priv;
-+	local_info_t *local = iface->local;
- 	unsigned long flags;
++	if (local->iw_mode != IW_MODE_INFRA && local->iw_mode != IW_MODE_ADHOC)
++	{
++		/* netif_carrier is used only in client modes for now, so make
++		 * sure carrier is on when moving to non-client modes. */
++		netif_carrier_on(local->dev);
++		netif_carrier_on(local->ddev);
++	}
+ 	return 0;
+ }
  
- 	if (!local->io_debug_enabled)
 
 
 -- 
