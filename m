@@ -1,33 +1,58 @@
-From: Martin Devera <devik@cdi.cz>
-Subject: Re: spin_trylock in qdisc_restart, OOPS, IMQ problem ?
-Date: Wed, 02 Mar 2005 12:01:28 +0100
-Message-ID: <42259D08.1060509@cdi.cz>
-References: <42258DC6.9030109@cdi.cz> <4225955E.7030306@trash.net>
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [Bugme-new] [Bug 4273] New: eepro100 driver discards (big but
+ valid) packets
+Date: Wed, 2 Mar 2005 03:04:50 -0800
+Message-ID: <20050302030450.2b84b3d2.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <4225955E.7030306@trash.net>
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Patrick McHardy wrote:
-> Martin Devera wrote:
-> 
->> I've seen some notes in 2.6.11rc3 changelog from Patrick about
->> issues similar to my OOPS (attached).
->> Patrick, does the oops ring some bells at your side ?
-> 
-> 
-> The fixes in 2.6.11-rc3 fixed some new bugs introduced in -rc2. This
-> looks like a problem with non-linear skbs, this patch from Rusty may
-> help:
-> 
-> http://linux.bkbits.net:8080/linux-2.6/cset@41db69b71pSJFXrCtc56tffafab_JQ?nav=index.html|src/net/|src/net|src/net/ipv4|src/net/ipv4/netfilter|related/net/ipv4/netfilter/ip_nat_proto_tcp.c 
 
-Thanks, it seems so, I'll test it. By the way, have you an idea what is
-going with that spinlocking errors I described in the last mail ?
 
-Martin
+Begin forwarded message:
+
+Date: Wed, 2 Mar 2005 03:00:42 -0800
+From: bugme-daemon@osdl.org
+To: bugme-new@lists.osdl.org
+Subject: [Bugme-new] [Bug 4273] New: eepro100 driver discards (big but valid) packets
+
+
+http://bugme.osdl.org/show_bug.cgi?id=4273
+
+           Summary: eepro100 driver discards (big but valid) packets
+    Kernel Version: 2.6.10
+            Status: NEW
+          Severity: normal
+             Owner: jgarzik@pobox.com
+         Submitter: pmarek@cpan.org
+
+
+Distribution: debian unstable
+Hardware Environment: x86, P4 1,7GHz
+Software Environment: clean 2.6.10 kernel, cisco vpnclient 4.0.5, 4.0.6
+Problem Description:
+
+Copied from
+http://www.cisco.com/en/US/products/sw/secursw/ps2308/prod_release_note09186a00802d398a.html#wp1388727
+:
+  CSCee60154
+
+  After making a VPN Client connection, some traffic types no longer work.
+  Specifically applications that send large packets like SMTP, HTTP, and SSH.
+
+  The 2.6.4 Kernel enabled a feature of certain Ethernet cards that discards
+  packets larger than the configured MTU. Since the VPN Client lowers the MTU
+  visible to the applications in order to add its overhead without exceeding the
+  original MTU, the resulting packets are bigger than the newly configured MTU.
+  Therefore the card throws out the large encrypted packets. 
+
+
+Steps to reproduce:
+install vpnclient, use eepro100 driver. try https, http, cvs or something like that.
+
+------- You are receiving this mail because: -------
+You are on the CC list for the bug, or are watching someone who is.
