@@ -1,81 +1,119 @@
-From: Jay Vosburgh <fubar@us.ibm.com>
-Subject: Re: [Bonding-devel] Re: [bonding] compatibilty issues
-Date: Tue, 30 Sep 2003 09:39:52 -0700
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: Fw: Badness in local_bh_enable at kernel/softirq.c:119
+Date: Tue, 30 Sep 2003 10:27:08 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200309301639.h8UGdqCq026858@death.ibm.com>
-References: <shmulik.hen@intel.com>
-Cc: "David S. Miller" <davem@redhat.com>, "Jeff Garzik" <jgarzik@pobox.com>,
-        chad@tindel.net, bonding-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E010222966E@orsmsx402.jf.intel.com>
+Mime-Version: 1.0
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
+Cc: <jgarzik@pobox.com>, <akpm@osdl.org>, <netdev@oss.sgi.com>,
+        "cramerj" <cramerj@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: shmulik.hen@intel.com
-In-Reply-To: Message from Shmulik Hen <shmulik.hen@intel.com>
-   of "Tue, 30 Sep 2003 14:42:31 +0300." <200309301442.31991.shmulik.hen@intel.com>
+content-class: urn:content-classes:message
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+> Sorry, in case it isn't painfully obvious, instead of hinting
+> at it let me state explicitly that ->xmit_lock is a BH 
+> disabling lock not an IRQ disabling one.
+> 
+> Therefore, e1000's IRQ disabling when grabbing that lock is
+> buggy and need to be changed to BH disabling.
+> 
+> If it needs to disable IRQs for it's own internal locking, it
+> needs to do so such that such IRQ disabling internal locks 
+> are not held while kfree_skb() is being invoked.
+> 
+> Calling kfree_skb() with IRQs disabled in the e1000 driver is
+> the cause of this bug.
 
->I'm going to need a ruling here :)
->Re-creating those 19 trees each time is killing me and I would like to 
->reduce the number of iterations to a minimum.
+Thanks David for your help.
+ 
+> Jeff, if you pushed these e1000 updates that make it grap
+> ->xmit_lock() with disabling IRQs instead of BH into 2.4.x
+> trees too, beware!
 
-	I say:
+The e1000 driver has been like this (broken) for quite a while.  Recent
+updates haven't messed with this code.
 
-	Toast the whatever_OLD guys (the backwards compat ioctls) in
-both 2.4 and 2.6.  Backwards compatibility is good, but there are
-limits, and I think these have reached their limit.
+This gets back to the problem of trying to flush any queued transmits
+when we lose link.  The e1000 hardware stops DMA when link lose is
+detected, so any work queued to hardware is "stuck", and therefore we
+don't release the associated skb resources until we regain link.  This
+causes problems when we're sitting under a failover setup like bonding
+or ANS.
 
-	Keep the ABI versioning stuff in both 2.4 and 2.6.  As I've
-said, that slimmed down ifenslave really makes my mouth water in
-anticipation, but I don't think we can escape our fate that easily
-just yet.  Someday....
+At this point, I'm leaning towards removing the offending code in the
+timer callback now, and taking a step back to solve the bigger problem,
+either with a better locking scheme, or a new plan on how to flush the
+"stuck" work.  We don't need kernel panics when you trip over the
+Ethernet cable!  Sound like a plan?
 
-	Any comments from the usual gang?
+@@ -1278,41 +1278,6 @@
+ 		e1000_leave_82542_rst(adapter);
+ }
+ 
+-static void
+-e1000_tx_flush(struct e1000_adapter *adapter)
+-{
+-	uint32_t ctrl, tctl, txcw, icr;
+-
+-	e1000_irq_disable(adapter);
+-
+-	if(adapter->hw.mac_type < e1000_82543) {
+-		/* Transmit Unit Reset */
+-		tctl = E1000_READ_REG(&adapter->hw, TCTL);
+-		E1000_WRITE_REG(&adapter->hw, TCTL, tctl |
+E1000_TCTL_RST);
+-		E1000_WRITE_REG(&adapter->hw, TCTL, tctl);
+-		e1000_clean_tx_ring(adapter);
+-		e1000_configure_tx(adapter);
+-	} else {
+-		txcw = E1000_READ_REG(&adapter->hw, TXCW);
+-		E1000_WRITE_REG(&adapter->hw, TXCW, txcw &
+~E1000_TXCW_ANE);
+-
+-		ctrl = E1000_READ_REG(&adapter->hw, CTRL);
+-		E1000_WRITE_REG(&adapter->hw, CTRL, ctrl |
+E1000_CTRL_SLU |
+-				E1000_CTRL_ILOS);
+-
+-		mdelay(10);
+-
+-		e1000_clean_tx_irq(adapter);
+-		E1000_WRITE_REG(&adapter->hw, CTRL, ctrl);
+-		E1000_WRITE_REG(&adapter->hw, TXCW, txcw);
+-
+-		/* clear the link status change interrupts this caused
+*/
+-		icr = E1000_READ_REG(&adapter->hw, ICR);
+-	}
+-
+-	e1000_irq_enable(adapter);
+-}
+-
+ /* need to wait a few seconds after link up to get diagnostic
+information from the phy */
+ 
+ static void
+@@ -1414,15 +1379,6 @@
+ 	e1000_update_stats(adapter);
+ 	e1000_update_adaptive(&adapter->hw);
+ 
+-	if(!netif_carrier_ok(netdev)) {
+-		if(E1000_DESC_UNUSED(txdr) + 1 < txdr->count) {
+-			unsigned long flags;
+-			spin_lock_irqsave(&netdev->xmit_lock, flags);
+-			e1000_tx_flush(adapter);
+-			spin_unlock_irqrestore(&netdev->xmit_lock,
+flags);
+-		}
+-	}
+-
+ 	/* Dynamic mode for Interrupt Throttle Rate (ITR) */
+ 	if(adapter->hw.mac_type >= e1000_82540 && adapter->itr == 1) {
+ 		/* Symmetric Tx/Rx gets a reduced ITR=2000; Total
 
->I'm currently working on putting back all compatibility stuff for 2.4. 
->I would like to also get any input/reservations about other issues 
->(besides compatibility and the multicast param) so I may get a chance 
->to get them all in at once.
-
-	I'm still looking through the patch set; I generally like what
-I see, and think it's probably all good to go for 2.6 (modulo the
-various changes we're discussing).  I was thinking the same for 2.4,
-but then I had a long chat with Chad, and now he's got me worried
-about potential stability problems from such a large set of changes.
-
-	I'm wondering if we should apply the set to 2.6 first, and
-give it some air time in that environment before going on to 2.4.
-
-	The only nit I have thus far is that you need to remove the
-documentation for multicast_mode along with the option (which I've
-mentioned before somewhere; just reminding, not whining).  Or perhaps
-better, leave some text explaining that the option is no longer
-supported (and why).  Chad and I were discussing whether or not we
-should leave a dummy option (that silently does nothing, or prints
-some sort of useful message) so that end users don't get a warning if
-they supply a multicast_mode module parameter.  If there is no
-paramter at all, users get a warning from modprobe (or insmod or
-somewhere) that the option does not exist, but the insmod does
-complete.
-
-	Another possibility would be a parameter that does nothing,
-unless the user selects a setting that conflicts with the calculated
-choice.  In that case, fail the insmod.  This way, end users won't get
-a warning as long as they're doing the right thing.  I haven't decided
-if I like this idea just because it seems kind of clever, or because
-it would actually be the right thing to do.
-
->Once we get that settled, I can start working on a 2.6 version that 
->also handles any compatibility issues (preferrably as the last patch 
->of the series). I'm working in the assumption that 2.4-2.6 similarity 
->is no longer an option for bonding.
-
-	Unfortunately, no, it doesn't seem to be feasible to keep the
-2.4 and 2.6 source bases identical (which I was pretty jazzed about).
-I still want to try to keep them as close as is reasonable, which is
-why I'd like to put the full cleanup set into 2.4 if we can.
-
-	-J
-
----
-	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+-scott
