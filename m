@@ -1,33 +1,26 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] New Patch Implementation for IPv6
- MIB:ipv6InterfaceTable
-Date: Mon, 20 Oct 2003 21:04:33 -0700
+Subject: Re: [irda-users] [PATCH] Make VLSI FIR depend on X86
+Date: Mon, 20 Oct 2003 21:17:06 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031020210433.27e25240.davem@redhat.com>
-References: <200310141032.23998.mashirle@us.ibm.com>
-	<20031014152441.1be6b336.davem@redhat.com>
-	<200310201600.10016.mashirle@us.ibm.com>
+Message-ID: <20031020211706.5be33474.davem@redhat.com>
+References: <Pine.GSO.4.58.0310171456080.13905@blinky>
+	<Pine.LNX.4.44.0310201138020.4246-100000@notebook.home.mdiehl.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Cc: noah@caltech.edu, irda-users@lists.sourceforge.net, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Shirley Ma <mashirle@us.ibm.com>
-In-Reply-To: <200310201600.10016.mashirle@us.ibm.com>
+To: Martin Diehl <lists@mdiehl.de>
+In-Reply-To: <Pine.LNX.4.44.0310201138020.4246-100000@notebook.home.mdiehl.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 20 Oct 2003 16:00:09 -0700
-Shirley Ma <mashirle@us.ibm.com> wrote:
+On Mon, 20 Oct 2003 19:30:33 +0200 (CEST)
+Martin Diehl <lists@mdiehl.de> wrote:
 
-> This is the new patch for IPv6 MIBs:ipv6InterfaceTable.
-> This patch has been tested against linux-2.6.0-test8 kernel plus xfmr patch.
-> 
-> Please review it. 
+> Well, it would work with any arch, _if_ there was a way to sync the 
+> streaming pci dma buffers before giving them back to hardware.
 
-It looks fine but I cannot merge it at this time.  Linus wants
-only critical bug fixes for nowin 2.6.x
-
-Maybe in 2.6.1, 2.6.2 or later we can merge this in.
-
-Thanks.
+If pci_dma_sync() doesn't perform the operation you want, please
+describe what that operation is.
