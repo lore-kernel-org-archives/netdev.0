@@ -1,31 +1,29 @@
-From: Nivedita Singhvi <niv@us.ibm.com>
-Subject: Re: Fw: [Bugme-new] [Bug 2133] New: bad: scheduling while atomic!
-Date: Wed, 18 Feb 2004 14:22:53 -0800
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [BUG] 2.6.3 + hp100 -> Oops
+Date: Wed, 18 Feb 2004 14:16:41 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4033E5BD.9080504@us.ibm.com>
-References: <20040218110024.3dee0e42.akpm@osdl.org>
+Message-ID: <20040218221641.GA1182@bougret.hpl.hp.com>
+References: <20040218201559.GA31872@bougret.hpl.hp.com> <20040218124034.05c9f6aa@dell_ss3.pdx.osdl.net>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Andi Kleen <ak@muc.de>, michal-bugzilla@logix.cz
+Content-Type: text/plain; charset=us-ascii
+Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
+        Linux kernel mailing list <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20040218110024.3dee0e42.akpm@osdl.org>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040218124034.05c9f6aa@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton rote:
-
-> This is possibly a locking bug in the ipv6 code: someone somewhere
-> forgot to undo a lock and the task ended up in atomic state.
-> Possibly it is specific to x86_64.
+On Wed, Feb 18, 2004 at 12:40:34PM -0800, Stephen Hemminger wrote:
 > 
-> Has anyone run the TAHI suite on x86?
+> This should fix the problem... The multi-bus probe logic error handling was
+> botched.
 
-Yep, we're running TAHI on x86, but haven't seen this.
-Not sure we're on 2.6.3 yet, though.
+	Thanks. The driver now seems to works. However, the kernel
+messages no longer show the device name...
 
-We'll check it out..
+	Thanks.
 
-thanks,
-Nivedita
+	Jean
