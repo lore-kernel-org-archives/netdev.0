@@ -1,13 +1,16 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.9-rc2-mm1 1/1] r8169: default on disabling PCIDAC
-Date: Mon, 20 Sep 2004 00:42:31 +0200
+Subject: [PATCH 2.6.9-rc2 1/1] r8169: default on disabling PCIDAC
+Date: Mon, 20 Sep 2004 00:41:02 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919224231.GB32577@electric-eye.fr.zoreil.com>
+Message-ID: <20040919224102.GA32577@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: jgarzik@pobox.com, netdev@oss.sgi.com
+Cc: Hans-Frieder Vogt <hfvogt@arcor.de>, Andy Lutomirski <luto@myrealbox.com>,
+        Jon Mason <jdmason@us.ibm.com>,
+        Srihari Vijayaraghavan <sriharivijayaraghavan@yahoo.com.au>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: akpm@osdl.org
+To: jgarzik@pobox.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
@@ -22,10 +25,10 @@ can thus be disabled.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/r8169.c~r8169-145a drivers/net/r8169.c
---- linux-2.6.9-rc2/drivers/net/r8169.c~r8169-145a	2004-09-19 00:17:04.000000000 +0200
-+++ linux-2.6.9-rc2-fr/drivers/net/r8169.c	2004-09-20 00:16:02.000000000 +0200
-@@ -171,6 +171,7 @@ static struct pci_device_id rtl8169_pci_
+diff -puN linux-2.6.9-rc2.orig/drivers/net/r8169.c linux-2.6.9-rc2/drivers/net/r8169.c
+--- linux-2.6.9-rc2.orig/drivers/net/r8169.c	2004-09-19 00:17:04.000000000 +0200
++++ linux-2.6.9-rc2/drivers/net/r8169.c	2004-09-20 00:16:02.000000000 +0200
+@@ -156,6 +156,7 @@ static struct pci_device_id rtl8169_pci_
  MODULE_DEVICE_TABLE(pci, rtl8169_pci_tbl);
  
  static int rx_copybreak = 200;
@@ -33,7 +36,7 @@ diff -puN drivers/net/r8169.c~r8169-145a drivers/net/r8169.c
  
  enum RTL8169_registers {
  	MAC0 = 0,		/* Ethernet hardware address. */
-@@ -405,6 +406,8 @@ MODULE_AUTHOR("Realtek");
+@@ -358,6 +359,8 @@ MODULE_AUTHOR("Realtek");
  MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
  MODULE_PARM(media, "1-" __MODULE_STRING(MAX_UNITS) "i");
  MODULE_PARM(rx_copybreak, "i");
@@ -42,7 +45,7 @@ diff -puN drivers/net/r8169.c~r8169-145a drivers/net/r8169.c
  MODULE_LICENSE("GPL");
  
  static int rtl8169_open(struct net_device *dev);
-@@ -422,7 +425,7 @@ static int rtl8169_poll(struct net_devic
+@@ -375,7 +378,7 @@ static int rtl8169_poll(struct net_devic
  #endif
  
  static const u16 rtl8169_intr_mask =
@@ -51,17 +54,16 @@ diff -puN drivers/net/r8169.c~r8169-145a drivers/net/r8169.c
  static const u16 rtl8169_napi_event =
  	RxOK | RxOverflow | RxFIFOOver | TxOK | TxErr;
  static const unsigned int rtl8169_rx_config =
-@@ -1162,7 +1165,8 @@ rtl8169_init_board(struct pci_dev *pdev,
+@@ -984,7 +987,7 @@ rtl8169_init_board(struct pci_dev *pdev,
+ 	tp->cp_cmd = PCIMulRW | RxChkSum;
  
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
- 
--	if ((sizeof(dma_addr_t) > 4) && !pci_set_dma_mask(pdev, DMA_64BIT_MASK)) {
-+	if ((sizeof(dma_addr_t) > 4) &&
-+	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK) && use_dac) {
+ 	if ((sizeof(dma_addr_t) > 4) &&
+-	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK))
++	    !pci_set_dma_mask(pdev, DMA_64BIT_MASK) && use_dac)
  		tp->cp_cmd |= PCIDAC;
- 		dev->features |= NETIF_F_HIGHDMA;
- 	} else {
-@@ -2050,6 +2054,15 @@ rtl8169_interrupt(int irq, void *dev_ins
+ 	else {
+ 		rc = pci_set_dma_mask(pdev, DMA_32BIT_MASK);
+@@ -1761,6 +1764,15 @@ rtl8169_interrupt(int irq, void *dev_ins
  		if (!(status & rtl8169_intr_mask))
  			break;
  
@@ -77,5 +79,3 @@ diff -puN drivers/net/r8169.c~r8169-145a drivers/net/r8169.c
  		if (status & LinkChg)
  			rtl8169_check_link_status(dev, tp, ioaddr);
  
-
-_
