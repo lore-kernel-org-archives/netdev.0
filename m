@@ -1,47 +1,57 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: 08 Sep 2004 03:38:36 -0400
+Subject: Re: [PATCH] NETIF_F_LLTX for devices 2
+Date: 08 Sep 2004 03:47:57 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1094628909.1097.145.camel@jzny.localdomain>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>
-	 <757AB580-0030-11D9-9224-000A95AD0668@errno.com>
-	 <20040906182328.08faf843.davem@davemloft.net>
-	 <200409062132.49356.sam@errno.com> <413DE9ED.30300@atheros.com>
-	 <20040907101027.7547e591.davem@davemloft.net>
+Message-ID: <1094629677.1089.155.camel@jzny.localdomain>
+References: <20040908065152.GC27886@wotan.suse.de>
+	 <E1C4wYe-0005qT-00@gondolin.me.apana.org.au>
+	 <20040908072408.GI27886@wotan.suse.de>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: greg chesson <greg@atheros.com>, sam@errno.com,
-        vda@port.imtp.ilyichevsk.odessa.ua, jgarzik@pobox.com,
-        netdev@oss.sgi.com, acx100-devel@lists.sourceforge.net,
-        jt@bougret.hpl.hp.com, jkmaline@cc.hut.fi, prism54-devel@prism54.org
+Cc: Herbert Xu <herbert@gondor.apana.org.au>,
+        "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040907101027.7547e591.davem@davemloft.net>
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040908072408.GI27886@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-07 at 13:10, David S. Miller wrote:
-> On Tue, 07 Sep 2004 10:03:41 -0700
-> greg chesson <greg@atheros.com> wrote:
-> 
-> > What about eth_type_trans()?
-> 
-> It determines the protocol type from the ethernet header
-> fields.  It is a simple shorthand header field fetcher,
-> not a protocol stack.
-> 
-> You would need a eth80211_type_trans() for wireless
-> drivers too, and surprise surprise my skeleton 802.11
-> stack code in fact does exactly this.
+On Wed, 2004-09-08 at 03:24, Andi Kleen wrote:
+> On Wed, Sep 08, 2004 at 05:07:56PM +1000, Herbert Xu wrote:
+> > Andi Kleen <ak@suse.de> wrote:
+> > >
+> > >> 1: means packet was not put on the ring. i.e if you return
+> > >> 1, the toplayer will retry later with the same skb. 
+> > >> [of course If you stash it on the ring, the danger is tx complete will
+> > >> try to free it later while the toplayer code is still referencing it. A
+> > >> good oops].
+> > > 
+> > > Actually when you return 1 then the kernel prints an ugly 
+> > > message and it is considered a bug.  Here -1 is legal.
 
-Or as Andi has been suggesting for sometime, not invoke it all ;->
-This is possible if the DMA descriptor already has all the info
-needed (quiet a few modern hardware can be programmed to do this).
-.. er, at the driver level. So this is not "a gross input packet
-hooked eater thing that's an ugly wart bolted onto the
-side of the driver API.";->
+Is this an effect of  your code? This is not so in existing code.
+
+> > 1 is legal in contexts where queueing occurs.  See for example
+> > qdisc_restart().
+> 
+> I agree my sentence was misleading. 
+> 
+> Basically the distinction here is:
+> 
+> 1 is for flow control 
+> -1 is for lock contention
+> 
+> I think it's better to separate them because it minimizes the risk
+> of breaking old drivers.
+> 
+
+Dont see how its going to break old drivers since they wont be making
+this kind of call anyways.
+
+In both cases it is semantically a flow control i.e "transmit path is
+busy"
 
 cheers,
 jamal
