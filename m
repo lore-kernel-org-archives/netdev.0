@@ -1,110 +1,69 @@
-From: Don Fry <brazilnut@us.ibm.com>
-Subject: [PATCH] 2.6.3 pcnet32.c transmit hang fix
-Date: Wed, 18 Feb 2004 16:14:30 -0800 (PST)
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: Re: [Bridge] Bridging on broken Broadcom hardware.
+Date: Wed, 18 Feb 2004 16:16:11 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402190014.i1J0EUo03980@DYN318364BLD.beaverton.ibm.com>
+Message-ID: <20040218161611.6365c3bf@dell_ss3.pdx.osdl.net>
+References: <1077146945.3779.17.camel@localhost>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, sjolly@foursticks.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: tsbogend@alpha.franken.de, jgarzik@pobox.com, netdev@oss.sgi.com
+To: Paul Schulz <pschulz@foursticks.com>
+In-Reply-To: <1077146945.3779.17.camel@localhost>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The transmit routine will stop interrupting and hang, causing the
-tx_timeout routine to attempt to restart the device when the 32-bit
-cur_tx counter wraps below dirty_tx.  If the device had called
-netif_stop_queue it will never call netif_wake_queue in the interrupt
-routine (at least on an IA32 system) due to 32-bit wrap around arithmetic.
+This looks like a network driver not bridging problem, so forwarding to
+the netdev list.
 
-On my IA32 system 'dirty_tx > lp->cur_tx - TX_RING_SIZE + 2' would
-always evaluate to false when dirty and cur_tx were less than 15,
-preventing netif_wake_queue to be called.
+On Thu, 19 Feb 2004 09:59:05 +1030
+Paul Schulz <pschulz@foursticks.com> wrote:
 
-By starting dirty_tx and cur_tx at 0xfffffff0 (to reduce test time) I
-found that once cur_tx wrapped to zero, that transmitted buffers would
-never be unmapped or freed because 'while (dirty_tx < lp->cur_tx) {'
-was not true.  cur_tx would keep incrementing (in start_xmit) but dirty_tx
-would not (in pcnet32_interrupt), thus leaking skb's and pci map entries.
-On PPC machines, the system would quickly run out of pci maps.
+> Greetings (first post to the list, with patch)...
+> 
+> The following patch is required to allow bridging to occur on an
+> IBM x305 (1RU server) - with the tg3 module.  
+> (This has been posted to the kernel-developers mailing list.)
+> 
+> Background:
+>   - The Dual Broadcom NICs in the IBM x305 have a broken checksum
+>     routine which wants to calculate the checksum the ethernet
+>     packet where the 'source' IP address is the IP address 
+>     of the sending interface.
+>     This breaks bridging! (Upstream hosts see an invalid checksum 
+>     and drop the packet.)
+> 
+>   - I have heard of other issues with Broadcom NICs not
+>     working with IPv6 and broadcast/multicast which could be 
+>     related.
+>     
+> I would like to get these results and the fix verified, as it will
+> effect any hosts using this chipset. Does anyone have any pointers?
+> 
+> Paul Schulz <pschulz@foursticks.com>
+> 
+> --------------------------------------------------------------------
+> diff -Naur linux-2.4.20/drivers/net/tg3.c linux-2.4.20-np/drivers/net/tg3.c
+> --- linux-2.4.20/drivers/net/tg3.c	Fri Nov 29 10:23:14 2002
+> +++ linux-2.4.20-np/drivers/net/tg3.c	Thu Jan 23 14:46:54 2003
+> @@ -6161,6 +6161,11 @@
+>  	if (tp->pci_chip_rev_id == CHIPREV_ID_5700_B0)
+>  		tp->tg3_flags |= TG3_FLAG_BROKEN_CHECKSUMS;
+>  
+> +	/* 5703 A2 have issues with checksumming too. (sarah) */
+> +	if (tp->pci_chip_rev_id == CHIPREV_ID_5703_A2)
+> +		tp->tg3_flags |= TG3_FLAG_BROKEN_CHECKSUMS;
+> +
+>  	/* Regardless of whether checksums work or not, we configure
+>  	 * the StrongARM chips to not compute the pseudo header checksums
+>  	 * in either direction.  Because of the way Linux checksum support
+> 
+> 
+> 
+> 
 
-Fix tested on PPC and IA32.
-
-
---- linux-2.6.3/drivers/net/slab.pcnet32.c	Wed Feb 18 15:26:43 2004
-+++ linux-2.6.3/drivers/net/pcnet32.c	Wed Feb 18 15:36:59 2004
-@@ -1082,7 +1082,7 @@
- 	pcnet32_restart(dev, 0x0042);
- 
- 	dev->trans_start = jiffies;
--	netif_start_queue(dev);
-+	netif_wake_queue(dev);
- 
- 	spin_unlock_irqrestore(&lp->lock, flags);
- }
-@@ -1108,9 +1108,10 @@
-      * interrupt when that option is available to us.
-      */
-     status = 0x8300;
-+    entry = (lp->cur_tx - lp->dirty_tx) & TX_RING_MOD_MASK;
-     if ((lp->ltint) &&
--	((lp->cur_tx - lp->dirty_tx == TX_RING_SIZE/2) ||
--	 (lp->cur_tx - lp->dirty_tx >= TX_RING_SIZE-2)))
-+	((entry == TX_RING_SIZE/2) ||
-+	 (entry >= TX_RING_SIZE-2)))
-     {
- 	/* Enable Successful-TxDone interrupt if we have
- 	 * 1/2 of, or nearly all of, our ring buffer Tx'd
-@@ -1125,7 +1126,7 @@
-     /* Mask to ring buffer boundary. */
-     entry = lp->cur_tx & TX_RING_MOD_MASK;
-   
--    /* Caution: the write order is important here, set the base address
-+    /* Caution: the write order is important here, set the status
-        with the "ownership" bits last. */
- 
-     lp->tx_ring[entry].length = le16_to_cpu(-skb->len);
-@@ -1147,7 +1148,7 @@
-     dev->trans_start = jiffies;
- 
-     if (lp->tx_ring[(entry+1) & TX_RING_MOD_MASK].base == 0)
--	netif_start_queue(dev);
-+	netif_wake_queue(dev);
-     else {
- 	lp->tx_full = 1;
- 	netif_stop_queue(dev);
-@@ -1194,8 +1195,9 @@
- 
- 	if (csr0 & 0x0200) {		/* Tx-done interrupt */
- 	    unsigned int dirty_tx = lp->dirty_tx;
-+	    int delta;
- 
--	    while (dirty_tx < lp->cur_tx) {
-+	    while (dirty_tx != lp->cur_tx) {
- 		int entry = dirty_tx & TX_RING_MOD_MASK;
- 		int status = (short)le16_to_cpu(lp->tx_ring[entry].status);
- 			
-@@ -1249,15 +1251,17 @@
- 		dirty_tx++;
- 	    }
- 
--	    if (lp->cur_tx - dirty_tx >= TX_RING_SIZE) {
-+	    delta = (lp->cur_tx - dirty_tx) & (TX_RING_MOD_MASK + TX_RING_SIZE);
-+	    if (delta >= TX_RING_SIZE) {
- 		printk(KERN_ERR "%s: out-of-sync dirty pointer, %d vs. %d, full=%d.\n",
- 			dev->name, dirty_tx, lp->cur_tx, lp->tx_full);
- 		dirty_tx += TX_RING_SIZE;
-+		delta -= TX_RING_SIZE;
- 	    }
- 
- 	    if (lp->tx_full &&
- 		netif_queue_stopped(dev) &&
--		dirty_tx > lp->cur_tx - TX_RING_SIZE + 2) {
-+		delta < TX_RING_SIZE - 2) {
- 		/* The ring is no longer full, clear tbusy. */
- 		lp->tx_full = 0;
- 		netif_wake_queue (dev);
 
 -- 
-Don Fry
-brazilnut@us.ibm.com
+Stephen Hemminger 		mailto:shemminger@osdl.org
+Open Source Development Lab	http://developer.osdl.org/shemminger
