@@ -1,28 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: Intel and TOE in the news
-Date: Mon, 21 Feb 2005 15:34:37 -0500
-Message-ID: <421A45DD.3020805@pobox.com>
-References: <000001c5184c$5599c890$0100a8c0@OFFICEONEATHOME>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: ARGH MORE BUGS!!!
+Date: Mon, 21 Feb 2005 21:56:06 +0100
+Message-ID: <20050221205606.GB26248@electric-eye.fr.zoreil.com>
+References: <421A3EB8.4050607@rapidforum.com> <20050221202854.GA26248@electric-eye.fr.zoreil.com> <421A45CA.80001@rapidforum.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "'Andi Kleen'" <ak@muc.de>,
-        "'Leonid Grossman'" <leonid.grossman@neterion.com>,
-        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com
-To: Alex Aizman <alex@neterion.com>
-In-Reply-To: <000001c5184c$5599c890$0100a8c0@OFFICEONEATHOME>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+To: Christian Schmid <webmaster@rapidforum.com>
+Content-Disposition: inline
+In-Reply-To: <421A45CA.80001@rapidforum.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Alex Aizman wrote:
-> 2.6.11-rc4 MTHCA driver still does request_irq() just once for MSI
-> (note: MSI, not MSI-X). 
+Christian Schmid <webmaster@rapidforum.com> :
+[...]
 
+Let's calm down, please.
 
-I doubt that will change.
+# cat>/tmp/momo<<EOD
+i=0
+while : ; do
+        cat /proc/slabinfo > /tmp/\$i
+        i=$[ $i + 1 ]
+        sleep 1
+done
+EOD
+# nice -n -19 vmstat 1 > /tmp/v & nice -n -19 sh /tmp/momo
 
-request_irq() is passed a "cookie" that enables your interrupt handler. 
-  This cookie can be associated with more than one interrupt vector.
+Wait a few minutes or more until the 5s pauses happen several times
+and post the result somewhere.
 
-	Jeff
+I doubt I'll fix it but it should give nifty graphics.
+
+--
+Ueimor
