@@ -1,37 +1,39 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: via-rhine unable to send back-to-back packets?
-Date: Tue, 30 Nov 2004 12:25:03 -0800
-Message-ID: <20041130122503.0adac947.davem@davemloft.net>
-References: <20041129222700.GA22918@xi.wantstofly.org>
-	<20041129172540.6b959858.davem@davemloft.net>
-	<20041130064823.GA27872@xi.wantstofly.org>
+From: Jon Mason <jdmason@us.ibm.com>
+Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
+Date: Tue, 30 Nov 2004 13:52:15 -0600
+Message-ID: <200411301352.15927.jdmason@us.ibm.com>
+References: <41A09541.5040405@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41A4E2C9.4070502@phekda.gotadsl.co.uk>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: rl@hellgate.ch, netdev@oss.sgi.com
+Cc: Francois Romieu <romieu@fr.zoreil.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041130064823.GA27872@xi.wantstofly.org>
+To: Richard Dawe <rich@phekda.gotadsl.co.uk>
+In-Reply-To: <41A4E2C9.4070502@phekda.gotadsl.co.uk>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 30 Nov 2004 07:48:23 +0100
-Lennert Buytenhek <buytenh@wantstofly.org> wrote:
+On Wednesday 24 November 2004 01:36 pm, Richard Dawe wrote:
+> Hello.
+>
+> I don't know if it will help, but FreeBSD's re driver source code is here:
+>
+> http://www.freebsd.org/cgi/cvsweb.cgi/src/sys/dev/re/if_re.c?only_with_tag=
+>HEAD
+>
+> Have you ever looked at that? It has some interesting comments about the
+> maximum Jumbo packet length and vendor-specific registers in the 8110.
+>
+> Thanks, bye, Rich =]
 
-> Yeah, preamble (8 bytes), CRC (4 bytes), inter-packet gap (12 bytes).
+I've experimented with the value of EarlyTxThld, and have been able to get it 
+to work upto a MTU of 8000.  I still need to do some more experimentation to 
+find the optimal value (and see if modifying any other registers will help 
+this).
 
-Ok.
-
-> Perhaps the via-rhine simply can't send out packets back-to-back and
-> needs 14 byte times of inter-packet gap.  I couldn't find any stray +2
-> in the driver anywhere but I'm just checking.
-
-Or the via-rhine driver is not programming one of the registers
-proper to get optimal spacing.
-
-As with most Donald Becker drivers, many of the register layouts
-are not documented in the sources so it's not possible to just
-scan the driver looking for potential problems like this.
-For example, maybe the TxConfig register has an "IPG" field but
-we'll never know by reading anything in the driver source.
+-- 
+Jon Mason
+jdmason@us.ibm.com
