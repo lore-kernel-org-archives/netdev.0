@@ -1,8 +1,8 @@
 From: "Maciej W. Rozycki" <macro@linux-mips.org>
-Subject: [PATCH] 2.6.8.1: Fix struct fddi_statistics for 64-bit
-Date: Mon, 4 Oct 2004 23:55:43 +0100 (BST)
+Subject: [PATCH] 2.4.27: Fix struct fddi_statistics for 64-bit
+Date: Mon, 4 Oct 2004 23:55:33 +0100 (BST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58L.0410040127280.22545@blysk.ds.pg.gda.pl>
+Message-ID: <Pine.LNX.4.58L.0410032238410.22545@blysk.ds.pg.gda.pl>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: linux-kernel@vger.kernel.org
@@ -31,17 +31,83 @@ also preserves the layout of the structure for 32-bit systems.
 MIPSel system.  All affected drivers were compiled successfully with 
 2.4.27 and 2.6.8.1.
 
- This is the updated patch for 2.6.
+ The patch applies both to 2.4 and 2.6, but one of the affected drivers
+has been removed from 2.6 leading to a reject.  Therefore I'll send an 
+updated patch for 2.6 separately.
 
   Maciej
 
 Signed-off-by: Maciej W. Rozycki <macro@linux-mips.org>
 
-patch-2.6.8.1-fddi-stats-1
-diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/defxx.c linux-2.6.8.1/drivers/net/defxx.c
---- linux-2.6.8.1.macro/drivers/net/defxx.c	2004-08-14 10:54:46.000000000 +0000
-+++ linux-2.6.8.1/drivers/net/defxx.c	2004-10-03 22:24:12.000000000 +0000
-@@ -1814,16 +1814,18 @@ static struct net_device_stats *dfx_ctl_
+patch-2.4.27-fddi-stats-1
+diff -up --recursive --new-file linux-2.4.27.macro/drivers/message/i2o/i2o_lan.c linux-2.4.27/drivers/message/i2o/i2o_lan.c
+--- linux-2.4.27.macro/drivers/message/i2o/i2o_lan.c	2002-08-12 18:55:51.000000000 +0000
++++ linux-2.4.27/drivers/message/i2o/i2o_lan.c	2004-10-03 21:12:32.000000000 +0000
+@@ -1043,13 +1043,13 @@ static struct net_device_stats *i2o_lan_
+ 		printk(KERN_INFO "%s: Unable to query LAN_HISTORICAL_STATS.\n", dev->name);
+ 	else {
+ 		dprintk(KERN_DEBUG "%s: LAN_HISTORICAL_STATS queried.\n", dev->name);
+-		priv->stats.tx_packets = val64[0];
+-		priv->stats.tx_bytes   = val64[1];
+-		priv->stats.rx_packets = val64[2];
+-		priv->stats.rx_bytes   = val64[3];
+-		priv->stats.tx_errors  = val64[4];
+-		priv->stats.rx_errors  = val64[5];
+-		priv->stats.rx_dropped = val64[6];
++		priv->stats.gen.tx_packets = val64[0];
++		priv->stats.gen.tx_bytes   = val64[1];
++		priv->stats.gen.rx_packets = val64[2];
++		priv->stats.gen.rx_bytes   = val64[3];
++		priv->stats.gen.tx_errors  = val64[4];
++		priv->stats.gen.rx_errors  = val64[5];
++		priv->stats.gen.rx_dropped = val64[6];
+ 	}
+ 
+ 	if (i2o_query_scalar(iop, i2o_dev->lct_data.tid, 0x0180, -1,
+@@ -1062,9 +1062,9 @@ static struct net_device_stats *i2o_lan_
+ 			printk(KERN_INFO "%s: Unable to query LAN_OPTIONAL_RX_HISTORICAL_STATS.\n", dev->name);
+ 		else {
+ 			dprintk(KERN_DEBUG "%s: LAN_OPTIONAL_RX_HISTORICAL_STATS queried.\n", dev->name);
+-			priv->stats.multicast	     = val64[4];
+-			priv->stats.rx_length_errors = val64[10];
+-			priv->stats.rx_crc_errors    = val64[0];
++			priv->stats.gen.multicast        = val64[4];
++			priv->stats.gen.rx_length_errors = val64[10];
++			priv->stats.gen.rx_crc_errors    = val64[0];
+ 		}
+ 	}
+ 
+@@ -1075,9 +1075,9 @@ static struct net_device_stats *i2o_lan_
+ 			printk(KERN_INFO "%s: Unable to query LAN_802_3_HISTORICAL_STATS.\n", dev->name);
+ 		else {
+ 			dprintk(KERN_DEBUG "%s: LAN_802_3_HISTORICAL_STATS queried.\n", dev->name);
+-	 		priv->stats.transmit_collision = val64[1] + val64[2];
+-			priv->stats.rx_frame_errors    = val64[0];
+-			priv->stats.tx_carrier_errors  = val64[6];
++	 		priv->stats.gen.collisions        = val64[1] + val64[2];
++			priv->stats.gen.rx_frame_errors   = val64[0];
++			priv->stats.gen.tx_carrier_errors = val64[6];
+ 		}
+ 
+ 		if (i2o_query_scalar(iop, i2o_dev->lct_data.tid, 0x0280, -1,
+@@ -1091,9 +1091,11 @@ static struct net_device_stats *i2o_lan_
+ 			else {
+ 				dprintk(KERN_DEBUG "%s: LAN_OPTIONAL_802_3_HISTORICAL_STATS queried.\n", dev->name);
+ 				if (supported_stats & 0x1)
+-					priv->stats.rx_over_errors = val64[0];
++					priv->stats.gen.rx_over_errors =
++								val64[0];
+ 				if (supported_stats & 0x4)
+-					priv->stats.tx_heartbeat_errors = val64[2];
++					priv->stats.gen.tx_heartbeat_errors =
++								val64[2];
+ 			}
+ 		}
+ 	}
+diff -up --recursive --new-file linux-2.4.27.macro/drivers/net/defxx.c linux-2.4.27/drivers/net/defxx.c
+--- linux-2.4.27.macro/drivers/net/defxx.c	2004-09-29 00:03:33.000000000 +0000
++++ linux-2.4.27/drivers/net/defxx.c	2004-10-03 21:31:16.000000000 +0000
+@@ -1809,16 +1809,18 @@ static struct net_device_stats *dfx_ctl_
  
  	/* Fill the bp->stats structure with driver-maintained counters */
  
@@ -70,10 +136,10 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/defxx.c linux-2.
  
  	/* Get FDDI SMT MIB objects */
  
-diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c linux-2.6.8.1/drivers/net/skfp/skfddi.c
---- linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c	2004-08-14 10:54:48.000000000 +0000
-+++ linux-2.6.8.1/drivers/net/skfp/skfddi.c	2004-10-03 22:24:12.000000000 +0000
-@@ -1095,7 +1095,7 @@ static int skfp_send_pkt(struct sk_buff 
+diff -up --recursive --new-file linux-2.4.27.macro/drivers/net/skfp/skfddi.c linux-2.4.27/drivers/net/skfp/skfddi.c
+--- linux-2.4.27.macro/drivers/net/skfp/skfddi.c	2002-08-12 18:55:55.000000000 +0000
++++ linux-2.4.27/drivers/net/skfp/skfddi.c	2004-10-03 21:04:51.000000000 +0000
+@@ -1363,7 +1363,7 @@ static int skfp_send_pkt(struct sk_buff 
  	 */
  
  	if (!(skb->len >= FDDI_K_LLC_ZLEN && skb->len <= FDDI_K_LLC_LEN)) {
@@ -82,7 +148,7 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c li
  		// dequeue packets from xmt queue and send them
  		netif_start_queue(dev);
  		dev_kfree_skb(skb);
-@@ -1546,8 +1546,8 @@ void mac_drv_tx_complete(struct s_smc *s
+@@ -1814,8 +1814,8 @@ void mac_drv_tx_complete(struct s_smc *s
  			 skb->len, PCI_DMA_TODEVICE);
  	txd->txd_os.dma_addr = 0;
  
@@ -93,7 +159,7 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c li
  
  	// free the skb
  	dev_kfree_skb_irq(skb);
-@@ -1629,7 +1629,7 @@ void mac_drv_rx_complete(struct s_smc *s
+@@ -1897,7 +1897,7 @@ void mac_drv_rx_complete(struct s_smc *s
  	skb = rxd->rxd_os.skb;
  	if (!skb) {
  		PRINTK(KERN_INFO "No skb in rxd\n");
@@ -102,7 +168,7 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c li
  		goto RequeueRxd;
  	}
  	virt = skb->data;
-@@ -1682,13 +1682,14 @@ void mac_drv_rx_complete(struct s_smc *s
+@@ -1950,13 +1950,14 @@ void mac_drv_rx_complete(struct s_smc *s
  	}
  
  	// Count statistics.
@@ -120,7 +186,7 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c li
  	}
  
  	// deliver frame to system
-@@ -1706,7 +1707,8 @@ void mac_drv_rx_complete(struct s_smc *s
+@@ -1974,7 +1975,8 @@ void mac_drv_rx_complete(struct s_smc *s
        RequeueRxd:
  	PRINTK(KERN_INFO "Rx: re-queue RXD.\n");
  	mac_drv_requeue_rxd(smc, rxd, frag_count);
@@ -130,7 +196,7 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c li
  
  }				// mac_drv_rx_complete
  
-@@ -2081,7 +2083,7 @@ void smt_stat_counter(struct s_smc *smc,
+@@ -2349,7 +2351,7 @@ void smt_stat_counter(struct s_smc *smc,
  		break;
  	case 1:
  		PRINTK(KERN_INFO "Receive fifo overflow.\n");
@@ -139,9 +205,9 @@ diff -up --recursive --new-file linux-2.6.8.1.macro/drivers/net/skfp/skfddi.c li
  		break;
  	default:
  		PRINTK(KERN_INFO "Unknown status (%d).\n", stat);
-diff -up --recursive --new-file linux-2.6.8.1.macro/include/linux/if_fddi.h linux-2.6.8.1/include/linux/if_fddi.h
---- linux-2.6.8.1.macro/include/linux/if_fddi.h	2004-08-14 10:55:32.000000000 +0000
-+++ linux-2.6.8.1/include/linux/if_fddi.h	2004-10-03 22:24:12.000000000 +0000
+diff -up --recursive --new-file linux-2.4.27.macro/include/linux/if_fddi.h linux-2.4.27/include/linux/if_fddi.h
+--- linux-2.4.27.macro/include/linux/if_fddi.h	1999-06-02 19:29:13.000000000 +0000
++++ linux-2.4.27/include/linux/if_fddi.h	2004-10-03 21:01:28.000000000 +0000
 @@ -5,7 +5,7 @@
   *
   *		Global definitions for the ANSI FDDI interface.
