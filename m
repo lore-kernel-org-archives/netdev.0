@@ -1,28 +1,23 @@
-From: BZ Benny <bennybbz@yahoo.fr>
-Subject: more about ethertap
-Date: Tue, 8 Mar 2005 10:12:58 +0100 (CET)
-Message-ID: <20050308091258.4718.qmail@web26607.mail.ukl.yahoo.com>
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: [PATCH][BLUETOOTH] kill bt_sock_alloc
+Date: Tue, 8 Mar 2005 06:49:37 -0300
+Message-ID: <20050308094937.GA9468@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
-To: netdev <netdev@oss.sgi.com>
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
+To: marcel@holtmann.org, maxk@qualcomm.com, davem@davemloft.net
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 Hi,
 
-Do you know how we could change the hardware adresse
-of an ethertap device?
+	Please take a look and if acceptable pull from:
 
-regards
-benny
+bk://kernel.bkbits.net/acme/connection_sock-2.6
+
+Best Regards,
 
 
-=09
-
-=09
-	=09
-D=E9couvrez le nouveau Yahoo! Mail : 250 Mo d'espace de stockage pour vos=
- mails !=20
-Cr=E9ez votre Yahoo! Mail sur http://fr.mail.yahoo.com/
+                        - Arnaldo
