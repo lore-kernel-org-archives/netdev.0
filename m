@@ -1,63 +1,35 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: [bk patches] add ethtool_ops to net drivers
-Date: Sun, 17 Aug 2003 14:38:48 -0400
+From: insecure <insecure@mail.od.ua>
+Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
+Date: Sun, 17 Aug 2003 22:46:12 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817183848.GA18728@gtf.org>
+Message-ID: <200308172246.12835.insecure@mail.od.ua>
+References: <Pine.LNX.3.96.1030728222606.21100A-100000@gatekeeper.tmr.com> <200308171845560303.00D4B163@192.168.128.16> <1061140404.29559.0.camel@laptop.fenrus.com>
+Reply-To: insecure@mail.od.ua
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain;
+  charset="koi8-r"
+Content-Transfer-Encoding: 8bit
+Cc: David T Hollis <dhollis@davehollis.com>,
+   Alan Cox <alan@lxorguk.ukuu.org.uk>,
+   Lamont Granquist <lamont@scriptkiddie.org>,
+   Bill Davidsen <davidsen@tmr.com>, "David S. Miller" <davem@redhat.com>,
+   bloemsaa@xs4all.nl, Marcelo Tosatti <marcelo@conectiva.com.br>,
+   netdev@oss.sgi.com, linux-net@vger.kernel.org, layes@loran.com,
+   Linux Kernel Mailing List <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torvalds@osdl.org
-Content-Disposition: inline
+To: arjanv@redhat.com, Carlos Velasco <carlosev@newipnet.com>
+In-Reply-To: <1061140404.29559.0.camel@laptop.fenrus.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Linus,
+On Sunday 17 August 2003 20:13, Arjan van de Ven wrote:
+> > 1. hidden patch is not in the main linuk kernel stream.... why?
+>
+> because arpfilter is a more generic way of doing things like this, and
+> that IS in the main linux kernel
 
-In order to maintain backwards compatibility and minimize impact,
-netdev_ops mentioned at KS was scaled back to ethtool_ops.  This allows
-driver-at-a-time replacement often-duplicated ioctl handling code with a
-Linux-style foo_ops set of function pointers.
-
-Also, I've been waiting on this patch to begin attacking the stack
-usage problems that often occur in ethtool ioctl handlers.  Since gcc
-sums instead of unions disjoint stack scopes (gcc bug #9997), huge
-functions that handle a bunch of ioctls wind up eating way more stack
-space than the programmer (rightfully) intended.  ethtool_ops not
-only makes a driver smaller, but it also neatly eliminates the stack
-usage problem.
-
-I much prefer this scaled back approach, which doesn't break anything,
-and DaveM is ok with it as well.  Please apply.
-
-
-BitKeeper repo:
-
-	bk pull http://gkernel.bkbits.net/ethtool-2.6
-
-Patch is also available from
-
-ftp://ftp.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/2.6.0-test3-bk5-ethtool1.patch.bz2
-
-This will update the following files:
-
- drivers/net/tg3.c         |  664 +++++++++++++++++++--------------------------
- include/linux/ethtool.h   |   99 ++++++
- include/linux/netdevice.h |    9 
- net/core/Makefile         |    4 
- net/core/dev.c            |   16 -
- net/core/ethtool.c        |  672 ++++++++++++++++++++++++++++++++++++++++++++++
- 6 files changed, 1076 insertions(+), 388 deletions(-)
-
-through these ChangeSets:
-
-<jgarzik@redhat.com> (03/08/07 1.1119.10.3)
-   [netdrvr] add SET_ETHTOOL_OPS back-compat hook
-
-<jgarzik@redhat.com> (03/08/07 1.1119.10.2)
-   [netdrvr tg3] convert to using ethtool_ops
-
-<jgarzik@redhat.com> (03/08/07 1.1119.10.1)
-   [netdrvr] add ethtool_ops to struct net_device, and associated infrastructure
-   
-   Contributed by Matthew Wilcox.
+I am interested in that but last time I googled for it,
+neither userspace utils nor any documentation turned up.
+I only see some kernel parts of it.
+-- 
+vda
