@@ -1,35 +1,84 @@
-From: Akshay Kawale <linux781@gmail.com>
-Subject: Re: Difference between skb_put() and skb_push()
-Date: Sat, 2 Apr 2005 13:44:07 -0500
-Message-ID: <72252ed0504021044e69d634@mail.gmail.com>
-References: <72252ed05033021463a1f45b6@mail.gmail.com>
-Reply-To: Akshay Kawale <linux781@gmail.com>
+From: "Asgeir Eiriksson" <asgeir@chelsio.com>
+Subject: RE: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit ProposedTopics
+Date: Sat, 2 Apr 2005 11:07:28 -0800
+Message-ID: <67D69596DDF0C2448DB0F0547D0F947E01781F2E@yogi.asicdesigners.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain;
+	charset="US-ASCII"
+Content-Transfer-Encoding: 8bit
+Cc: "David S. Miller" <davem@davemloft.net>, <mpm@selenic.com>,
+        <andrea@suse.de>, <michaelc@cs.wisc.edu>,
+        <James.Bottomley@HansenPartnership.com>,
+        <ksummit-2005-discuss@thunk.org>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <72252ed05033021463a1f45b6@mail.gmail.com>
+content-class: urn:content-classes:message
+To: "Dmitry Yusupov" <dmitry_yus@yahoo.com>, <open-iscsi@googlegroups.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Dmitry
 
-I am trying to access the tot_len field in the IP Header using a
-sk_buff structure inside a Netfilter hook.
+The CPU cycles is only at most half of the story with the other half
+being the memory sub-system BW.
 
-I do something like:
+So the validity of your observation depends on the BW we're talking
+about, i.e. if the client is using a fraction of 10Gbps for RDMA (or
+DDP, e.g. iSCSI DDP), yes then that fraction amounts to a fraction of
+the memory sub-system total BW so we don't much care about the extra
+copy.
 
-(**skb).nh.iph->tot_len += 64
+The situation is different if the client wants something close to 10Gbps
+(already have such client applications), because today 10Gbps is still a
+big chunk of the overall memory BW so you really care about eliminating
+that copy via DDP.
 
-I have tried other variants of the same statement but none of them work.
-I want to increment the length by 64 bytes, but it gives me an error
-saying that I am trying to access an 'incomplete data type'.
+'Asgeir
 
-Can anyone shed some light on this problem?
-tot_len if of type __u16 (unsigned short int).
-
-Thanks.
-
-- Akshay
+> -----Original Message-----
+> From: netdev-bounce@oss.sgi.com [mailto:netdev-bounce@oss.sgi.com] On
+> Behalf Of Dmitry Yusupov
+> Sent: Saturday, April 02, 2005 10:09 AM
+> To: open-iscsi@googlegroups.com
+> Cc: David S. Miller; mpm@selenic.com; andrea@suse.de;
+> michaelc@cs.wisc.edu; James.Bottomley@HansenPartnership.com;
+ksummit-2005-
+> discuss@thunk.org; netdev@oss.sgi.com
+> Subject: Re: [Ksummit-2005-discuss] Summary of 2005 Kernel Summit
+> ProposedTopics
+> 
+> On Mon, 2005-03-28 at 17:32 -0500, Benjamin LaHaise wrote:
+> > On Mon, Mar 28, 2005 at 12:48:56PM -0800, Dmitry Yusupov wrote:
+> > > If you have plans to start new project such as SoftRDMA than yes.
+lets
+> > > discuss it since set of problems will be similar to what we've got
+> with
+> > > software iSCSI Initiators.
+> >
+> > I'm somewhat interested in seeing a SoftRDMA project get off the
+ground.
+> > At least the NatSemi 83820 gige MAC is able to provide early-rx
+> interrupts
+> > that allow one to get an rx interrupt before the full payload has
+> arrived
+> > making it possible to write out a new rx descriptor to place the
+payload
+> > wherever it is ultimately desired.  It would be fun to work on if
+not
+> the
+> > most performant RDMA implementation.
+> 
+> I see a lot of skepticism around early-rx interrupt schema. It might
+> work for gige, but i'm not sure if it will fit into 10g.
+> 
+> What RDMA gives us is zero-copy on receive and new networking api
+which
+> has a potential to be HW accelerated. SoftRDMA will never avoid
+copying
+> on receive. But benefit for SoftRDMA would be its availability on
+client
+> sides. It is free and it could be easily deployed. Soon Intel & Co
+will
+> give us 2,4,8... multi-core CPUs for around 200$ :), So, who cares if
+> one of those cores will do receive side copying?
+> 
