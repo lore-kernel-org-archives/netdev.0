@@ -1,152 +1,122 @@
-From: Marco Mellia <mellia@prezzemolo.polito.it>
-Subject: Re: [E1000-devel] Transmission limit
-Date: 26 Nov 2004 16:59:01 +0100
-Message-ID: <1101484740.24742.213.camel@mellia.lipar.polito.it>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com>  <16807.20052.569125.686158@robur.slu.se>
-Reply-To: mellia@prezzemolo.polito.it
+From: <SpamControl@icrier.res.in>
+Subject: BANNED (P=p003,M=audio/x-wav,T=exe,T=exe-ms,N=message.scr) IN
+ MAIL FROM YOU
+Date: Fri, 26 Nov 2004 22:07:54 +0530 (IST)
+Message-ID: <VS30820-08@FIREWALL>
+References: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: P@draigBrady.com, mellia@prezzemolo.polito.it,
-        e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: multipart/report; report-type=delivery-status;
+ boundary="----------=_1101487074-30820-3"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
-In-Reply-To: <16807.20052.569125.686158@robur.slu.se>
+In-Reply-To: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
+To: <netdev@oss.sgi.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Robert,
-It a pleasure to hear from you.
+This is a multi-part message in MIME format...
 
->  > I questioned whether you actually did receive at that rate to
->  > which you responded:
->  > 
->  >  > - using Click, we can receive 100% of (small) packets at gigabit
->  >  >   speed with TWO cards (2gigabit/s ~ 2.8Mpps)
->  >  > - using linux and standard e1000 driver, we can receive up to about
->  >  >   80% of traffic from a single nic (~1.1Mpps)
->  >  > - using linux and a modified (simplified) version of the driver, we
->  >  >   can receive 100% on a single nic, but not 100% using two nics (up
->  >  >   to ~1.5Mpps).
->  >  >
->  >  > Reception means: receiving the packet up to the rx ring at the
->  >  > kernel level, and then IMMEDIATELY drop it (no packet processing,
->  >  > no forwarding, nothing more...)
->  
->  In more detail please... The RX ring must be refilled? And HW DMA's
->  the to memory-buffer? But I assume data it not touched otherwise.
-> 
->  Touching the packet-data givs a major impact. See eth_type_trans
->  in all profiles.
+------------=_1101487074-30820-3
+Content-Type: text/plain; charset="iso-8859-1"
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
 
-That's exactly what we removed from the driver code: touching the packet
-limit the reception rate at about 1.1Mpps, while avoiding to check the
-eth_type_trans actually allows to receive 100% of packets.
+BANNED CONTENTS ALERT
 
-skb are de/allocated using standard kernel memory management. Still,
-without touching the packet, we can receive 100% of them.
+Our content checker found
+    banned name: P=p003,M=audio/x-wav,T=exe,T=exe-ms,N=message.scr
+in email presumably from you (<netdev@oss.sgi.com>),
+to the following recipient:
+-> ija@icrier.res.in
 
->  So what forwarding numbers is seen?
+Delivery of the email was stopped!
 
-Forwarding is another issue. It seems to us that the bottleneck is in
-the transmission of packets. Indeed, considering only reception and
-transmission _separetely_
-- all packets can be received
-- no more than ~700kpps can be trasmitted
+The message has been blocked because it contains a component
+(as a MIME part or nested within) with declared name
+or MIME type or contents type violating our access policy.
 
-When IP-forwarding is considered, no more we hit the transmission limit
-(using NAPI, and your buffer recycling patch, as mentioned on the paper
-and on the slides... If no buffer recycling is adopted, performance drop
-a bit)
-So it seemd to us that the major bottleneck is due to the transmission
-limit.
+To transfer contents that may be considered risky or unwanted
+by site policies, or simply too large for mailing, please consider
+publishing your content on the web, and only sending an URL of the
+document to the recipient.
 
-Again, you can get numbers and more details from
+Depending on the recipient and sender site policies, with a little
+effort it might still be possible to send any contents (including
+viruses) using one of the following methods:
 
-http://www.tlc-networks.polito.it/~mellia/euroTLC.pdf
-http://www.tlc-networks.polito.it/mellia/papers/Euro_qos_ip.pdf
+- encrypted using pgp, gpg or other encryption methods;
 
->  >  > But the limit in TRANSMISSION seems to be 700Kpps. Regardless of
->  >  > - the traffic generator,
->  >  > - the driver version,
->  >  > - the O.S. (linux/click),
->  >  > - the hardware (broadcom card have the same limit).
->  > 
->  > > 
->  > > - in transmission we CAN ONLY trasmit about 700.000 pkt/s when the
->  > > minimum sized packets are considered (64bytes long ethernet minumum
->  > > frame size). That is about HALF the maximum number of pkt/s considering
->  > > a gigabit link.
->  > > 
->  > > What is weird, is that if we artificially "preload" the NIC tx-fifo with
->  > > packets, and then instruct it to start sending them, those are actually
->  > > transmitted AT WIRE SPEED!!
-> 
->  OK. Good to know about e1000. Networking is most DMA's and CPU is used 
->  adminstating it this is the challange.
+- wrapped in a password-protected or scrambled container or archive
+  (e.g.: zip -e, arj -g, arc g, rar -p, or other methods)
 
-That's true. There is still the chance that the limit is due to hardware
-CRC calculation (which must be added to the ethernet frame by the
-nic...). But we're quite confortable that that is not the limit, since
-in the reception path the same operation must be performed...
+Note that if the contents is not intended to be secret, the
+encryption key or password may be included in the same message
+for recipient's convenience.
 
->  > > These results have been obtained considering different software
->  > > generators (namely, UDPGEN, PACKETGEN, Application level generators)
->  > > under LINUX (2.4.x, 2.6.x), and under CLICK (using a modified version of
->  > > UDPGEN).
-> 
->  We get a hundred kpps more...Turn off all mitigation so interrupts are 
->  undelayed so TX ring can be filled as quick as possible.
-> 
->  Even you could try to fill TX as soon as the HW says there are available
->  buffers. This could even be done from TX-interrupt.
+We are sorry for inconvenience if the contents was not malicious.
 
-Are you suggesting to modify packetgen to be more aggressive?
- 
->  > > The hardware setup considers 
->  > > - a 2.8GHz Xeon hardware
->  > > - PCI-X bus (133MHz/64bit)
->  > > - 1G of Ram
->  > > - Intel PRO 1000 MT single, double, and quad cards, integrated or on a
->  > > PCI slot.
->  > > Is there any limit on the PCI-X (or PCI) that can be the bottleneck?
->  > > Or Limit on the number of packets per second that can be stored in the
->  > > NIC tx-fifo?
->  > > May the lenght of the tx-fifo impact on this?
-> 
->  Small packet performance is dependent on low latency. Higher bus speed
->  gives shorter latency but also on higher speed buses there use to be  
->  bridges that adds latency.
+The purpose of these restrictions is to cut the most common propagation
+methods used by viruses and other malware. These often exploit automatic
+mechanisms and security holes in certain mail readers (Microsoft mail
+readers and browsers are a common and easy target). By requiring an
+explicit and decisive action from the recipient to decode mail,
+the dangers of automatic malware propagation is largely reduced.
 
-That's true. We suspect that the limit is due to bus latency. But still,
-we are surprised, since the bus allows to receive 100%, but to transmit
-up to ~50%. Moreover the raw aggerate bandwidth of the buffer is _far_
-larger (133MHz*64bit ~ 8gbit/s
 
->  For packet generation we use still 866 MHz PIII:s and 82543GC on serverworks
->  64-bit board which are faster than most other systems. So for testing routing 
->  performance in pps we have to use several flows. This gives the advantage to 
->  test SMP/NUMA as well.
+For your reference, here are headers from your email:
+------------------------- BEGIN HEADERS -----------------------------
+Return-Path: <netdev@oss.sgi.com>
+Received: from icrier.res.in (unknown [82.124.144.60])
+	by firewall.icrier.res.in (Postfix) with ESMTP id 7AEBD2687D
+	for <ija@icrier.res.in>; Fri, 26 Nov 2004 22:07:47 +0530 (IST)
+From: netdev@oss.sgi.com
+To: ija@icrier.res.in
+Subject: Mail Delivery (failure ija@icrier.res.in)
+Date: Fri, 26 Nov 2004 17:28:19 +0100
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="multipart/alternative";
+	boundary="----=_NextPart_000_001B_01C0CA80.6B015D10"
+X-Priority: 3
+X-MSMail-Priority: Normal
+Message-Id: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
+-------------------------- END HEADERS ------------------------------
 
-We use an hardware generator (Agilent router tester)... which can
-saturate a gigabit link with no problem (and cost much more than a
-PC...). So our forwarding test are not limited...
- 
--- 
-Ciao,                    /\/\/\rco
+------------=_1101487074-30820-3
+Content-Type: message/delivery-status
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Content-Description: Delivery error report
 
-+-----------------------------------+  
-| Marco Mellia - Assistant Professor|
-| Tel: 39-011-2276-608              |
-| Tel: 39-011-564-4173              |
-| Cel: 39-340-9674888               |   /"\  .. . . . . . . . . . . . .
-| Politecnico di Torino             |   \ /  . ASCII Ribbon Campaign  .
-| Corso Duca degli Abruzzi 24       |    X   .- NO HTML/RTF in e-mail .
-| Torino - 10129 - Italy            |   / \  .- NO Word docs in e-mail.
-| http://www1.tlc.polito.it/mellia  |        .. . . . . . . . . . . . .
-+-----------------------------------+
-The box said "Requires Windows 95 or Better." So I installed Linux.
+Reporting-MTA: dns; FIREWALL
+Received-From-MTA: smtp; firewall.icrier.res.in ([127.0.0.1])
+Arrival-Date: Fri, 26 Nov 2004 22:07:54 +0530 (IST)
+
+Final-Recipient: rfc822; ija@icrier.res.in
+Action: failed
+Status: 5.7.1
+Diagnostic-Code: smtp; 550 5.7.1 Message content rejected, id=30820-08 - BANNED: P=p003,M=audio/x-wav,T=exe,T=exe-ms,N=message.scr
+Last-Attempt-Date: Fri, 26 Nov 2004 22:07:54 +0530 (IST)
+
+------------=_1101487074-30820-3
+Content-Type: text/rfc822-headers
+Content-Disposition: inline
+Content-Transfer-Encoding: 7bit
+Content-Description: Undelivered-message headers
+
+Received: from icrier.res.in (unknown [82.124.144.60])
+	by firewall.icrier.res.in (Postfix) with ESMTP id 7AEBD2687D
+	for <ija@icrier.res.in>; Fri, 26 Nov 2004 22:07:47 +0530 (IST)
+From: netdev@oss.sgi.com
+To: ija@icrier.res.in
+Subject: Mail Delivery (failure ija@icrier.res.in)
+Date: Fri, 26 Nov 2004 17:28:19 +0100
+MIME-Version: 1.0
+Content-Type: multipart/related;
+	type="multipart/alternative";
+	boundary="----=_NextPart_000_001B_01C0CA80.6B015D10"
+X-Priority: 3
+X-MSMail-Priority: Normal
+Message-Id: <20041126163747.7AEBD2687D@firewall.icrier.res.in>
+
+------------=_1101487074-30820-3--
