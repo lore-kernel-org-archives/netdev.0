@@ -1,37 +1,40 @@
-From: Andrew Morton <akpm@osdl.org>
-Subject: Re: [patch 12/13] pcnet32 79C975 fiber fix
-Date: Tue, 15 Mar 2005 17:03:22 -0800
-Message-ID: <20050315170322.3398bd60.akpm@osdl.org>
-References: <200503152222.j2FMMiLB016826@shell0.pdx.osdl.net>
-	<20050316005630.GA9421@us.ibm.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, jgarzik@pobox.com, netdev@oss.sgi.com,
-        steven.hardy@astrium.eads.net
-To: Don Fry <brazilnut@us.ibm.com>
-In-Reply-To: <20050316005630.GA9421@us.ibm.com>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [patch 2.6.11] bonding: avoid tx balance for IGMP (alb/tlb mode)
+Date: Tue, 15 Mar 2005 17:03:01 -0800
+Message-ID: <200503160103.j2G132YO016999@death.nxdomain.ibm.com>
+References: <rick.jones2@hp.com>
+Cc: "John W. Linville" <linville@tuxdriver.com>, linux-kernel@vger.kernel.org,
+        ctindel@users.sourceforge.net, bonding-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com, jgarzik@pobox.com
+To: Rick Jones <rick.jones2@hp.com>
+In-Reply-To: Message from Rick Jones <rick.jones2@hp.com>
+   of "Tue, 15 Mar 2005 16:52:14 PST." <4237833E.9080809@hp.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Don Fry <brazilnut@us.ibm.com> wrote:
+Rick Jones <rick.jones2@hp.com> wrote:
+
+><blank> treats IGMP packets the same as all other non-broadcast traffic (i.e. it
+>will attempt to load balance). This switch behavior seems rather odd in an
+>aggregated case, given the fact that most traffic (except broadcast packets)
+>will be load balanced by the partner device. In addition, the switch (in
+>theory) is suppose to treat the aggregated switch ports as 1 logical port
+>and therefore it should allow IGMP packets to be received back on any port
+>in the logical aggregation.
 >
-> I had not seen this problem until now.  The patch looks ok and
->  probably should have been written that way initially.  I have been
->  able to do a quick touch test with a 970A, 971, 972, 973, 975, 976, and
->  978 (some on ia32 and others on ppc64) without any adverse effects.
->  The 975 I have is copper not fiber.
+>IMO, the switch behavior in this case seems questionable.
 
-Great, thanks.
+	This patch only applies to the bonding balance-alb/tlb modes,
+which do not require the switch to be configured for aggregation.  Since
+the switch has no explicit knowledge that the links are being
+aggregated, it seems reasonable for it to be confused by what it gets in
+the described case.
 
->  Since only bit 12 is needed to enable LED writes, the code could
->  really be "a->write_bcr(ioaddr, 2, a->read_bcr(ioaddr, 2) | 0x1000);"
->  During pcnet32_open the ASEL bit is changed anyway.
+	I haven't tested the patch, but conceptually the problem John
+described in his original mail sounds plausible, as does the fix for it.
 
-OK, could you please prepare a final patch sometime and get it into Jeff? 
-cc me as well please so I can update the patch I have.
+	-J
 
->  This change should also be applied to 2.4.30 as well.
-
-And that too, I guess.
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
