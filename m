@@ -1,31 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPv6: Improvement of Source Address Selection
-Date: Fri, 27 Sep 2002 20:36:06 -0700 (PDT)
+From: Marcelo Tosatti <marcelo@conectiva.com.br>
+Subject: Re: [PATCH] khttpd crash fix
+Date: Fri, 27 Sep 2002 23:06:06 -0300 (BRT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20020927.203606.32735488.davem@redhat.com>
-References: <20020927.195507.87349906.davem@redhat.com>
-	<200209280338.HAA02810@sex.inr.ac.ru>
+Message-ID: <Pine.LNX.4.44.0209272304240.17618-100000@freak.distro.conectiva>
+References: <200208200446.g7K4kso02198@kegel.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: yoshfuji@linux-ipv6.org, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, <dank@alumni.caltech.edu>,
+   Arjan van de Ven <arjanv@redhat.com>, Alan Cox <alan@lxorguk.ukuu.org.uk>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-In-Reply-To: <200209280338.HAA02810@sex.inr.ac.ru>
+To: dank@kegel.com
+In-Reply-To: <200208200446.g7K4kso02198@kegel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: kuznet@ms2.inr.ac.ru
-   Date: Sat, 28 Sep 2002 07:38:09 +0400 (MSD)
 
-   Now I see retransmission of practicllay the same patch, which was deferred
-   for improvement that time.
 
-Ok, Yoshi please work Alexey to put source address selection into the
-right place and remove ipv6_get_saddr().
+On Mon, 19 Aug 2002 dank@kegel.com wrote:
 
-Alexey, I still am not clear, this belongs in the output routing logic
-right?  You dance in circles talking about this patch, that patch,
-but what I cannot decode this into an answer to question of where
-source address selection belongs.
+> I've been using this patch for some time now; it fixes
+> a nasty oops in khttpd on smp, and adds crucial details to the doc.
+> Sure, khttpd is going away in 2.5, but 2.4 is stable, let's fix it there.
+>
+> I sent it multiple times to the author of khttpd and to the khttpd-users
+> mailing list, and even to linux-kernel; I received good comments
+> from khttpd-users but silence elsewhere.
+> In desperation, I finally read the MAINTAINERS file, and learned that there
+> is no official maintainer for khttpd, so here I am mailing it to the
+> 'mail patches to' address for General Networking Stuff.
+>
+> Any chance this could be blessed for transmission to Marcello for 2.4.20?
+
+I guess Arjan could take a look at the patch, since he is the maintainer.
+
+Arjan ?
