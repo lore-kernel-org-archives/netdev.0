@@ -1,50 +1,32 @@
-From: "Tom Lendacky" <toml@us.ibm.com>
-Subject: Re: IPSec: Policy dst bundles exhausting storage
-Date: Tue, 17 Jun 2003 13:38:15 -0500
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: patch for common networking error messages
+Date: Tue, 17 Jun 2003 14:46:34 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF5E3AE43A.9C52FDB9-ON86256D48.0064B1C4-86256D48.0066613A@pok.ibm.com>
+Message-ID: <3EEF620A.40608@pobox.com>
+References: <OFCA1A4F38.D782F1D3-ON85256D48.000A5CED@us.ibm.com>	<200306170434.h5H4YZPZ003025@turing-police.cc.vt.edu>	<20030617090859.0ffa0ca8.shemminger@osdl.org> <20030617.090930.102574393.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, Valdis.Kletnieks@vt.edu, girouard@us.ibm.com,
+   stekloff@us.ibm.com, janiceg@us.ibm.com, lkessler@us.ibm.com,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, niv@us.ibm.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030617.090930.102574393.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+David S. Miller wrote:
+>    From: Stephen Hemminger <shemminger@osdl.org>
+>    Date: Tue, 17 Jun 2003 09:08:59 -0700
+> 
+>    Read the hotplug thread to see how Linus
+>    said, he will never add a binary event daemon interface.
+> 
+> Funny, rtnetlink is exactly this and it is in the tree :-)
 
-   Well, of course.  There is nothing initializing this.
 
-   You have to replace the x->u.rt.fl = *fl line with
-   assignments further down to rt6i_src and friends.
-   Something like:
+...and it's been in the tree for quite a while too.  It's a shame people 
+aren't taking advantage of it's obvious utility...
 
-             x->u.rt6.rt6i_src = rt0->rt6i_src;
-
-   etc. etc.
-
-   I don't understand where you expected these assignments
-   to be made.  This is where the objects get constructed, so
-   if it isn't being set here, it is being set nowhere :-)
-
-Ok, my explanation could have been better.  In __xfrm6_bundle_create,
-rt0->rt6i_src address and prefix length are zero (as well as rt->rt6i_src)
-and so in __xfrm6_find_bundle the values in the xfrm_dst structure were
-then zero.
-
-So doing a tunnel mode ping from fec0::1 to fec0:0:0:2::11 in my
-configuration, the following values exist in __xfrm6_bundle_create:
-
-  rt0->rt6i_src.addr = 0000:0000:0000:0000:0000:0000:0000:0000
-  rt0->rt6i_src.plen = 0
-  rt0->rt6i_dst.addr = fec0:0000:0000:0002:0000:0000:0000:0000
-  rt0->rt6i_dst.plen = 64
-
-  rt->rt6i_src.addr  = 0000:0000:0000:0000:0000:0000:0000:0000
-  rt->rt6i_src.plen  = 0
-  rt->rt6i_dst.addr  = fec0:0000:0000:0000:0000:0000:0000:0002
-  rt->rt6i_dst.plen  = 128
-
-Sorry for the confusion.
-
-Thanks,
-Tom
+	Jeff
