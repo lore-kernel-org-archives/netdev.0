@@ -1,7 +1,7 @@
 From: Jeff Garzik <jgarzik@pobox.com>
 Subject: Re: [PATCH] s390: claw network device driver
-Date: Tue, 29 Mar 2005 02:10:02 -0500
-Message-ID: <20050329071002.GA16204@havoc.gtf.org>
+Date: Tue, 29 Mar 2005 02:12:10 -0500
+Message-ID: <20050329071210.GA16409@havoc.gtf.org>
 References: <200503290533.j2T5XEYT028850@hera.kernel.org> <4248FBFD.5000809@pobox.com> <20050328230830.5e90396f.akpm@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
@@ -34,6 +34,7 @@ On Mon, Mar 28, 2005 at 11:08:30PM -0800, Andrew Morton wrote:
 > Was cc'ed to linux-net last Thursday, but it looks like the messages was
 > too large and the vger server munched it.
 
-As mentioned in the email, you want netdev, not linux-net...
+This also brings up a larger question... why was a completely unreviewed
+net driver merged?
 
 	Jeff
