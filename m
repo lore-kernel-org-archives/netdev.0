@@ -1,27 +1,37 @@
-From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Thu, 17 Jun 2004 01:57:51 -0400
+From: Tomas Szepe <szepe@pinerecords.com>
+Subject: Re: Linux 2.6.7
+Date: Thu, 17 Jun 2004 08:56:07 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040617055751.GH6253@ruslug.rutgers.edu>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl> <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <20040616152808.GA6270@fog.sekrit.org> <1087408417.25912.79.camel@sfeldma-mobl2.dsl-verizon.net>
+Message-ID: <20040617065607.GA11999@louise.pinerecords.com>
+References: <Pine.LNX.4.58.0406152253390.6392@ppc970.osdl.org> <20040616111329.GA1571@louise.pinerecords.com> <20040616121850.GO12308@parcelfarce.linux.theplanet.co.uk>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Gerald Britton <gbritton@doomcom.org>,
-        Gertjan van Wingerde <gwingerde@home.nl>, netdev@oss.sgi.com
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Scott Feldman <sfeldma@pobox.com>
+To: viro@parcelfarce.linux.theplanet.co.uk
 Content-Disposition: inline
-In-Reply-To: <1087408417.25912.79.camel@sfeldma-mobl2.dsl-verizon.net>
+In-Reply-To: <20040616121850.GO12308@parcelfarce.linux.theplanet.co.uk>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 16, 2004 at 10:53:38AM -0700, Scott Feldman wrote:
-> There are some drivers (i.e. prism54) that use module params that are
-> duplicates of the standard settings.  These need cleaning up as well.
+On Jun-16 2004, Wed, 13:18 +0100
+viro@parcelfarce.linux.theplanet.co.uk <viro@parcelfarce.linux.theplanet.co.uk> wrote:
 
-I've removed those already in my current WPA work.
+> > 2.6.7's airo.ko (unlike 2.6.6's) won't allow the user to set
+> > ESSID via "echo myessid >/proc/driver/aironet/ethX/SSID".
+> > 
+> > Changes like this shouldn't probably be made in the middle
+> > of a stable series.
+> 
+> Changes like this are called bugs.  The thing is, original variant of
+> function (actually, both read and write) was also buggy and trivially
+> exploitable, so fixing it was needed.  Fscking it up was not, obviously.
 
-	Luis
+Sure, I just assumed somebody had done this on purpose.
+
+> Fix follows; see if it works for you.
+
+Works for me, thanks.
 
 -- 
-GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
+Tomas Szepe <szepe@pinerecords.com>
