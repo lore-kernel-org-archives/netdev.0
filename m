@@ -1,202 +1,42 @@
-From: "markes\.albert\@libero\.it" <markes.albert@libero.it>
-Subject: Net module Realtek 8110S/8169S
-Date: Wed, 24 Mar 2004 23:10:06 +0100
+From: Daniel Ritz <daniel.ritz@gmx.ch>
+Subject: [PATCH 2.6] missing s/dev->priv/netdev_priv(dev) in drivers/net/pcmcia/
+Date: Wed, 24 Mar 2004 23:15:53 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <HV3PKU$46A35E9C06E9DB9727EB43EC9861B7A1@libero.it>
+Message-ID: <200403242315.53770.daniel.ritz@gmx.ch>
+Reply-To: daniel.ritz@gmx.ch
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="_=__=_XaM3_.1080166206.2A.785848.42.12147.52.42.007.13034"
-Cc: "netdev" <netdev@oss.sgi.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "romieu" <romieu@fr.zoreil.com>
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---_=__=_XaM3_.1080166206.2A.785848.42.12147.52.42.007.13034
-Content-Type: text/plain; charset=iso-8859-1
-Content-Transfer-Encoding: quoted-printable
+clean up the last two instances of dev->priv in drivers/net/pcmcia.
+against 2.6.5-rc2-bk.
 
-Hi Francois,
-      Fisrt, excuse for my bad english. I have big problem =
-with module r8169
-shipped with kernel 2.6.4. My system is a Pentium4HT, =
-mainborad is a MSI 865PE
-Neo2-P with integrated Fast Ethernet Realtek 81=
-10s/8169S (as I see in bios
-message). When I transfer a big file (size >=
- 5Mb) from my system to another PC,
-it freeze without any message. The=0D
-=
-only messages that I see in the log are some line with text "eth0: Too mu=
-ch work
-at interrupt!", not at same time with hang. I think is NIC modul=
-e problem
-because  only operation I do is transfer file (with samba clie=
-nt) in tty (not in
-X). With kernel 2.6.3 the problem isn't show.
-     A=
-s you write in README.txt in your site in /linux/kernel/2.6.x/2.6.4-rc2 I=
-
-tryed disable SMP and the new fetaure "SMT (Hyperthreading) scheduler s=
-upport",
-"Preemptible Kernel" and ACPI/APM support. But the problem pers=
-ists.
-     With Kernel 2.6.3 I noticed only a thing, if I unplugged the =
-cable and
-re-plug the network not respond (not link on NIC). Only if I s=
-top and start then
-daemon, network return-up. 
-     I have an 10Mbit Hu=
-b, but both problem rise if I use a switch 10/100 Mbit.
-I can't test wit=
-h GBit.
-I send you 'dmesg', 'lspci', 'lsmod', 'cat /proc/interrupts', 'i=
-fconfig' output.
-     For nmi watchdog I don't see the option in kernel =
-menu. If you tell me
-how... I'll try...
-     I tryed vanilla-kernel and=
- Andrew Morton's kernel.
-Any Idea? 
-
-Bye
-
-Alberto Marchesini.
-
-P.S=
-. I use Gentoo Distribution...
-
---_=__=_XaM3_.1080166206.2A.785848.42.12147.52.42.007.13034
-Content-Type: application/x-gzip;
-	name="=?iso-8859-1?Q?output.tar.gz?="
-Content-Transfer-Encoding: base64
-Content-Disposition: attachment;
-	filename="=?iso-8859-1?Q?output.tar.gz?="
-
-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
-8mGVegB4AAA=
-
---_=__=_XaM3_.1080166206.2A.785848.42.12147.52.42.007.13034--
+--- 1.27/drivers/net/pcmcia/3c589_cs.c	Wed Mar  3 01:03:51 2004
++++ edited/drivers/net/pcmcia/3c589_cs.c	Wed Mar 24 22:29:35 2004
+@@ -716,7 +716,7 @@
+ 	  "status %4.4x.\n", dev->name, (long)skb->len,
+ 	  inw(ioaddr + EL3_STATUS));
+ 
+-    ((struct el3_private *)dev->priv)->stats.tx_bytes += skb->len;
++    ((struct el3_private *)netdev_priv(dev))->stats.tx_bytes += skb->len;
+ 
+     /* Put out the doubleword header... */
+     outw(skb->len, ioaddr + TX_FIFO);
+--- 1.24/drivers/net/pcmcia/ibmtr_cs.c	Wed Mar  3 01:06:03 2004
++++ edited/drivers/net/pcmcia/ibmtr_cs.c	Wed Mar 24 22:29:51 2004
+@@ -444,7 +444,7 @@
+         link->state &= ~DEV_PRESENT;
+         if (link->state & DEV_CONFIG) {
+ 	    /* set flag to bypass normal interrupt code */
+-	    ((struct tok_info *)dev->priv)->sram_virt |= 1;
++	    ((struct tok_info *)netdev_priv(dev))->sram_virt |= 1;
+ 	    netif_device_detach(dev);
+ 	    ibmtr_release(link);
+         }
