@@ -1,33 +1,33 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: [PATCH] xfrm ip6ip6 (revised)
-Date: Fri, 13 Jun 2003 21:08:25 +0300 (EEST)
+Date: Fri, 13 Jun 2003 12:07:02 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.44.0306132105150.4922-100000@rhea.tcs.hut.fi>
-References: <20030614.011309.29519822.yoshfuji@linux-ipv6.org>
+Message-ID: <20030613.120702.71089628.davem@redhat.com>
+References: <87fzmv5ejc.wl@karaba.org>
+	<20030601.013040.116362760.davem@redhat.com>
+	<87smqerml5.wl@karaba.org>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Cc: mk@linux-ipv6.org, <davem@redhat.com>, <jmorris@intercode.com.au>,
-   <kuznet@ms2.inr.ac.ru>, <netdev@oss.sgi.com>, <usagi@linux-ipv6.org>
+Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Transfer-Encoding: 7bit
+Cc: jmorris@intercode.com.au, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+   usagi@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20030614.011309.29519822.yoshfuji@linux-ipv6.org>
+To: mk@linux-ipv6.org
+In-Reply-To: <87smqerml5.wl@karaba.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, 14 Jun 2003, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+   From: Mitsuru KANDA / 神田 充 <mk@linux-ipv6.org>
+   Date: Sat, 14 Jun 2003 01:03:50 +0900
 
-> In article <20030614.011146.116698702.yoshfuji@linux-ipv6.org> (at Sat, 14 Jun 2003 01:11:46 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
->
-> > Kanda-san, would you use the dynamic netdev allication scheme by
-> > alloc_netdev(), please? :-)
->
-> Oops, this comment is absolitely wrong... Very sorry...
+   	- to allocate unique spi values in xfrm6_tunnel.c  
+   	  by using just simple open addressing hash, 
 
-I can do the alloc_netdev() patch :)
+Mitsuru, what happens if two tunnels use same address?
 
--Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+Only first one will be found in hash, this is incorrect
+behavior as it will cause the wrong SPI to be used when
+packets are really destined for second user of that address.
+
+You need to add refcount to hash table entries, so that SPI can be
+shared by different xfrm6 tunnels with same address.
