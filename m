@@ -1,24 +1,28 @@
-From: Tomas Szepe <szepe@pinerecords.com>
+From: Julian Anastasov <ja@ssi.bg>
 Subject: Re: [PATCH] qdisc oops fix
-Date: Tue, 15 Apr 2003 23:10:49 +0200
+Date: Wed, 16 Apr 2003 01:42:43 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030415211049.GB22780@louise.pinerecords.com>
-References: <20030415084706.O1131@shell.cyberus.ca> <20030415134305.GF15944@louise.pinerecords.com> <20030415102918.U2397@shell.cyberus.ca>
+Message-ID: <Pine.LNX.4.44.0304160132130.1322-100000@u.domain.uli>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, jamal <hadi@cyberus.ca>, Martin Devera <devik@cdi.cz>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <20030415102918.U2397@shell.cyberus.ca>
+To: Tomas Szepe <szepe@pinerecords.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> [hadi@cyberus.ca]
-> 
-> Can you try a different qdisc - not htb to reproduce the problem?
 
-Not quite possible I'm afraid.
+	Hello,
 
--- 
-Tomas Szepe <szepe@pinerecords.com>
+	May be this is not the right fix:
+
+> -       sch = kmalloc(size, GFP_KERNEL);
+> +       sch = kmalloc(size, GFP_ATOMIC);
+
+	better Devik to provide fix for htb_change_class that will not 
+call qdisc_create_dflt under bh lock (sch_tree_lock).
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
