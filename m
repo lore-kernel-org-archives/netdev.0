@@ -1,24 +1,23 @@
-From: Andi Kleen <ak@suse.de>
+From: kuznet@ms2.inr.ac.ru
 Subject: Re: System crash in tcp_fragment()
-Date: Tue, 21 May 2002 01:54:07 +0200
+Date: Tue, 21 May 2002 04:11:00 +0400 (MSD)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <acc2ct$ctr$2@main.gmane.org>
-References: <3CE95190.75C52E2D@mvista.com> <200205202125.BAA03545@sex.inr.ac.ru>
+Message-ID: <200205210011.EAA04286@sex.inr.ac.ru>
+References: <20020521015407.A1296@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: george anzinger <george@mvista.com>, netdev@oss.sgi.com,
-   linux-net@vger.kernel.org, davem@redhat.com, ak@muc.de, pekkas@netcore.fi
+Cc: george@mvista.com, netdev@oss.sgi.com, linux-net@vger.kernel.org,
+   davem@redhat.com, ak@muc.de, pekkas@netcore.fi
 Return-path: <owner-netdev@oss.sgi.com>
-To: kuznet@ms2.inr.ac.ru
-Content-Disposition: inline
-In-Reply-To: <200205202125.BAA03545@sex.inr.ac.ru>
+To: ak@suse.de (Andi Kleen)
+In-Reply-To: <20020521015407.A1296@wotan.suse.de> from "Andi Kleen" at May 21, 2 01:54:07 am
 List-Id: netdev.vger.kernel.org
 
-> And also your reasoning about smp_processor_id() sounds strange,
-> preemption code must reschedule thread preemted in the kernel to the
-> same cpu, it is enough to avoid troubles with this. 
+Hello!
 
-It's unfortunately the truth. Even in_interrupt() is buggy current 
-on SMP preemptive.
+> It's unfortunately the truth. Even in_interrupt() is buggy current 
+> on SMP preemptive.
 
--Andi
+And why folks working on preemtive kernel do not repair this?
+To all that I remember it is well known issue.
+
+Alexey
