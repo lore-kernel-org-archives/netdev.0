@@ -1,39 +1,97 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: Intel and TOE in the news
-Date: 22 Feb 2005 22:43:45 +0100
-Message-ID: <20050222214345.GA51890@muc.de>
-References: <20050222180711.GA84438@muc.de> <200502222052.j1MKqaDD022407@guinness.s2io.com>
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFT] BIC TCP delayed ack compensation
+Date: Tue, 22 Feb 2005 13:50:46 -0800
+Message-ID: <20050222135046.23f7ec7d@dxpl.pdx.osdl.net>
+References: <050QTJA12@server5.heliogroup.fr>
+	<20050209105909.17da40a9@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "'Stephen Hemminger'" <shemminger@osdl.org>, hadi@cyberus.ca,
-        "'rick jones'" <rick.jones2@hp.com>, netdev@oss.sgi.com,
-        "'Alex Aizman'" <alex@neterion.com>
-Date: Tue, 22 Feb 2005 22:43:45 +0100
-To: Leonid Grossman <leonid.grossman@neterion.com>
-Content-Disposition: inline
-In-Reply-To: <200502222052.j1MKqaDD022407@guinness.s2io.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>, netdev@oss.sgi.com,
+        Injong Rhee
+ <rhee@eos.ncsu.edu>,
+        "David S. Miller" <davem@davemloft.net>
+To: Hubert Tonneau <hubert.tonneau@fullpliant.org>,
+        cliff white
+ <cliffw@osdl.org>
+In-Reply-To: <20050209105909.17da40a9@dxpl.pdx.osdl.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> TSO case is probably different - TSO hardware just sets PSH on the last
-> fragment only (and only if the flag was set on the original large tx
-> packet). Receiver doesn't really know if the sender is TSO-capable or not
-> and will ACK the same way - will it not?
-> Anyway, with LRO we do change rx packet count so affecting parts of TCP that
-> depend on packet count is indeed a concern; I guess we'll find out soon
-> enough whether there are real issues with the approach :-)
+This patch which was extracted from BIC TCP 1.1 compensates
+for systems (like MaxOSX) that don't ACK every other packet.
+It has no impact for normal transfers, but might help with problems
+with Mac like Hubert found.
 
-Linux doesn't depend on packet count; it keeps an estimate called rcv_mss
-about the biggest seen packet size and acks every 2*rcv_mss worth of data.
 
-Your scheme would likely result in acking every two of your large packets
-as soon as the connection is out of "quickack" mode. So there would
-be on wire differences. 
-
-> > Linux TCP RX path didn't care about PSH last time I checked. 
-
-Actually it does for measuring the rcv_mss for very small MTUs. 
-Shouldn't matter in practice though.
-
--Andi
+diff -Nru a/include/linux/tcp.h b/include/linux/tcp.h
+--- a/include/linux/tcp.h	2005-02-22 13:44:12 -08:00
++++ b/include/linux/tcp.h	2005-02-22 13:44:12 -08:00
+@@ -433,6 +433,7 @@
+ 		__u32 	last_max_cwnd;	/* last maximium snd_cwnd */
+ 		__u32	last_cwnd;	/* the last snd_cwnd */
+ 		__u32   last_stamp;     /* time when updated last_cwnd */
++		__u32	delayed_ack;	/* ratio of packets/ACKs */
+ 	} bictcp;
+ };
+ 
+diff -Nru a/include/net/tcp.h b/include/net/tcp.h
+--- a/include/net/tcp.h	2005-02-22 13:44:12 -08:00
++++ b/include/net/tcp.h	2005-02-22 13:44:12 -08:00
+@@ -508,6 +508,8 @@
+ #define BICTCP_BETA_SCALE    1024	/* Scale factor beta calculation
+ 					 * max_cwnd = snd_cwnd * beta
+ 					 */
++#define BICTCP_DELAY_SCALE   1024	/* Scale for delayed_ack ratio */
++
+ #define BICTCP_MAX_INCREMENT 32		/*
+ 					 * Limit on the amount of
+ 					 * increment allowed during
+diff -Nru a/net/ipv4/tcp_input.c b/net/ipv4/tcp_input.c
+--- a/net/ipv4/tcp_input.c	2005-02-22 13:44:12 -08:00
++++ b/net/ipv4/tcp_input.c	2005-02-22 13:44:12 -08:00
+@@ -339,6 +339,7 @@
+ 	tp->bictcp.last_max_cwnd = 0;
+ 	tp->bictcp.last_cwnd = 0;
+ 	tp->bictcp.last_stamp = 0;
++	tp->bictcp.delayed_ack = 2 * BICTCP_DELAY_SCALE;
+ }
+ 
+ /* 5. Recalculate window clamp after socket hit its memory bounds. */
+@@ -2075,6 +2076,13 @@
+ 			/* linear increase */
+ 			tp->bictcp.cnt = tp->snd_cwnd / BICTCP_MAX_INCREMENT;
+ 	}
++
++	/* compensate for delayed ack's */
++	tp->bictcp.cnt = (tp->bictcp.cnt * BICTCP_DELAY_SCALE)
++		/ tp->bictcp.delayed_ack;
++	if (tp->bictcp.cnt == 0)
++		tp->bictcp.cnt = 1;
++
+ 	return tp->bictcp.cnt;
+ }
+ 
+@@ -2418,6 +2426,7 @@
+ 	__u32 now = tcp_time_stamp;
+ 	int acked = 0;
+ 	__s32 seq_rtt = -1;
++	__u32 cnt = 0;
+ 
+ 	while ((skb = skb_peek(&sk->sk_write_queue)) &&
+ 	       skb != sk->sk_send_head) {
+@@ -2472,7 +2481,13 @@
+ 		tcp_packets_out_dec(tp, skb);
+ 		__skb_unlink(skb, skb->list);
+ 		sk_stream_free_skb(sk, skb);
++		++cnt;
+ 	}
++
++	/* compute average packets per ACK (scaled by 1024) */
++	if (cnt > 0 && tcp_is_bic(tp) && tp->ca_state == TCP_CA_Open)
++		tp->bictcp.delayed_ack = (15 * tp->bictcp.delayed_ack) / 16
++			+ (BICTCP_DELAY_SCALE/16) * cnt;
+ 
+ 	if (acked&FLAG_ACKED) {
+ 		tcp_ack_update_rtt(tp, acked, seq_rtt);
