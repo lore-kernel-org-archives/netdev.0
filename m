@@ -1,33 +1,17 @@
-From: Amit Kucheria <amitk@ittc.ku.edu>
-Subject: dev->hard_start_xmit non-reentrant?
-Date: Mon, 15 Apr 2002 18:46:44 -0500 (CDT)
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: kernel module to generate UDP & TCP traffic?
+Date: Mon, 15 Apr 2002 16:43:08 -0700 (PDT)
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.44.0204151846020.10038-100000@havoc.ittc.ku.edu>
+Message-ID: <20020415.164308.102569933.davem@redhat.com>
+References: <3CBB6414.5040506@candelatech.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: linux-net@vger.kernel.org
 Return-path: <linux-net-owner@vger.kernel.org>
-To: linux-net@vger.kernel.org
+To: greearb@candelatech.com
+In-Reply-To: <3CBB6414.5040506@candelatech.com>
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-Is it guaranteed by the higher layers that dev->hard_start_xmit is 
-non-reentrant?
-I saw a comment to that effect in loopback.c and wondered if this was true 
-for all devices.
-
-TIA.
-ciao,
-Amit
-
--- 
-I'm an angel!!! Honest!
-The horns are just there to hold the halo up straight.
-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^-^
-                  Amit Kucheria
-          EECS Grad. Research Assistant
-         University of Kansas @ Lawrence
-   (R)+1-(785)-830 8521 ||| (O)+1-(785)-864 7774
-____________________________________________________
-
-
+net/core/pg3.c
