@@ -1,183 +1,184 @@
-From: Matt Domsch <Matt_Domsch@dell.com>
-Subject: Re: [PATCH 2.6] dev.c: clear SIOCGIFHWADDR buffer if !dev->addr_len
-Date: Sun, 31 Oct 2004 22:44:33 -0600
-Message-ID: <20041101044433.GA18772@lists.us.dell.com>
-References: <20041030013700.GA21540@lists.us.dell.com> <E1CNiOT-0008GU-00@gondolin.me.apana.org.au> <20041030030936.GA25102@lists.us.dell.com> <1099163419.1039.97.camel@jzny.localdomain>
+From: Evgeniy Polyakov <johnpol@2ka.mipt.ru>
+Subject: Re: Asynchronous crypto layer.
+Date: Mon, 01 Nov 2004 08:12:52 +0300
+Message-ID: <1099285972.5070.24.camel@uganda>
+References: <1099030958.4944.148.camel@uganda>
+	 <1099053738.1024.104.camel@jzny.localdomain>
+	 <20041029180652.113f0f6e@zanzibar.2ka.mipt.ru>
+	 <20041030203550.GB6256@gate.ebshome.net>
+	 <20041031010415.4c798a04@zanzibar.2ka.mipt.ru>
+	 <20041030205630.GD6256@gate.ebshome.net>
+	 <20041031012423.74b98698@zanzibar.2ka.mipt.ru>
+	 <1099179687.1041.117.camel@jzny.localdomain>
+	 <20041031121308.648e98f9@zanzibar.2ka.mipt.ru>
+	 <1099234559.1040.183.camel@jzny.localdomain>
+Reply-To: johnpol@2ka.mipt.ru
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Herbert Xu <herbert@gondor.apana.org.au>, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-d3KlxGogRmLVGVXJBu/E"
+Cc: netdev@oss.sgi.com, cryptoapi@lists.logix.cz,
+        Eugene Surovegin <ebs@ebshome.net>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1099163419.1039.97.camel@jzny.localdomain>
+To: hadi@cyberus.ca
+In-Reply-To: <1099234559.1040.183.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Oct 30, 2004 at 03:10:19PM -0400, jamal wrote:
-> fix the net-snmp code. The addr_len is dependent on the device type.
-> 6 is good for ethernet but may not equate for others.
 
-I wish it were that simple.  The problem, in my mind, is that the
-SIOCGIFHWADDR ioctl does not behave in 2.6 kernels as it has behaved
-in previous kernels, and applications have no way to know this.  This
-will lead to unexpected behaviour in many applications that (wrongly)
-assume that the first 6 or more bytes of sa_data after ioctl() contain
-valid data, unless told otherwise by a failure return value.
+--=-d3KlxGogRmLVGVXJBu/E
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-I took the liberty of unpacking all the sources to Fedora Core 3
-development tree as of yesterday.  Of those I looked into the source
-for, nearly all the packages that call SIOCGIFHWADDR make an
-assumption on the number of bytes returned and the validity of such,
-nearly none clear the request structure before calling it (so when
-ioctl() returns 0 the app believes the data is correct).
+On Sun, 2004-10-31 at 17:56, jamal wrote:
+> On Sun, 2004-10-31 at 04:13, Evgeniy Polyakov wrote:
+> > On 30 Oct 2004 19:41:27 -0400
+> > jamal <hadi@cyberus.ca> wrote:
+>=20
+> > > Can you explain the "rate" or "speed" parameter ?
+> >=20
+> > Driver writer can set "rate" parameter to any number from 0 to 64k -
+> > and it will show speed of this driver in current mode/type/operation.
+> [..]
+> >=20
+> > That mean that this driver perform des 6 time faster than aes, but=20
+> > it should be fair numbers and somehow measured and compared to other
+> > drivers.
+> >=20
+>=20
+> So you have some init code that does testing? Or is this factor of six
+> part of the spec provided by chip vendor?
 
-anaconda-10.1.0.0/isys/getmacaddr.c:  if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
-  BROKEN: clears ifr before ioctl, copies first 6 bytes of ifr.ifr_hwaddr.sa_data
+Chip vendor, but what if vendor lies or it was measured in a different
+setup than other vendor?
+And what about software speeds?
 
-busybox-1.00.rc1/networking/udhcp/socket.c:		if (ioctl(fd, SIOCGIFHWADDR, &ifr) == 0) {
-  BROKEN: oesn't clear ifr before ioctl, copies first 6 bytes of
-  ifr.ifr_hraddr.sa_data
+> > This also can be achieved by qlen parameter - if driver writer sets
+> > it to bigger walue then in this mode driver/hardware works faster.
+> > But driver writer can set qlen in a too big value just because
+> > it want it to be such without any means of driver/hardware capabilities=
+.
+> > It is not forbidden.
+> >=20
+>=20
+> It is no different than say the way you will do ethernet drivers.
+> DMA ring sizes and link speeds. harder for ethernet drivers if link
+> speeds change (Linux net scheduling assumes fixed speed ;->)
+>=20
+> > And the last and the most interesting one is following:
+> > we create per session initialiser parameter "session_processin_time"=20
+> > which will be sum of the time slices when driver performed operation=20
+> > on session, since we alredy has "scomplete" paramenter which is equal=20
+> > to the amount of completed(processed) session then we have _fair_ speed=
+=20
+> > of the driver/hardware in a given mode/operation/type.
+> >=20
+> > Of course load blancer should select device with the lowest
+> > session_processing_time/scompleted.
+> >=20
+> > I think third variant is what we want. I will think of it some more
+> > and will implement soon.
+> >=20
+>=20
+> I think you should be able to have multiple, configurable LB algos.
 
-busybox-1.00.rc1/networking/nameif.c:		if (ioctl(ctl_sk, SIOCGIFHWADDR, &ifr))
-  BROKEN: doesn't clear ifr before ioctl, compares first ETH_ALEN bytes of
-  ifr.ifr_hraddr.sa_data
+Second is already implemented.
+Third I posted to my TODO.
+Should we add "rate" or will use "qlen" instead?
 
-busybox-1.00.rc1/networking/libiproute/iptunnel.c:	if (ioctl(fd, SIOCGIFHWADDR, &ifr)) {
-  OK, only copies ifr.ifr_addr.sa_family
+> > > I havent studied your code, however, what Eugene is pointing out is
+> > > valuable detail/feedback.
+> > >
+> > > You should have in your queuing towards the crypto chip ability to
+> > > batch. i.e sort of nagle-like "wait until we have 10 packets/20KB or =
+20
+> > > jiffies" before you send everything in the queue to the chip.
+> >=20
+> > That is exactly how crypto driver should be written.
+> > Driver has it's queue and number of session in it, so it and only it
+> > can decide when begin to process them in the most effective way.
+> >=20
+>=20
+> This should be above driver, really.
+> =20
+> You should have one or more queues where the scheduler feeds off and
+> shoves to hardware. Perhaps several levels:
 
-busybox-1.00.rc1/libbb/interface.c:	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-  BROKEN: doesn't clear ifr before ioctl, copies first 8 bytes of
-  ifr.ifr_hraddr.sa_data
+There are already several queues - one per crypto device.
+Scheduler decides what device should handle given session,=20
+and put session into selected device's queue and calls ->data_ready()
+device's callback.
+It is device that can handle several session per one "travel" of it's
+queue.
+Or do you say that scheduler can hold session until number of such
+session becomes more than threshold and then post them at once to some
+device's queue?
+Why it is needed? That can be implemented easily by splitting
+crypto_session_alloc() into two parts like James sugests, but I do not
+see a reason for it. What if no session will be allocated in the near
+future? Then first session will sit in a vacuum for a long while it=20
+could be already processed even non effectively.
 
-dhcp-0.10/common.c:	if (ioctl(skfd, SIOCGIFHWADDR, &if_hwaddr) < 0)
-  OK, doesn't clear ifr before ioctl, copies first 6 bytes of
-  ifr.ifr_hraddr.sa_data for sa_family ETHERNET, 0 for PPP.
+> ->LB-+
+>      +-> device1 scheduler --> driver queues/rings.
+>      |
+>      |
+>      +-> device2 scheduler --> driver queues/rings.
+>      |
+>      .
+>      .
+>      +-> devicen scheduler --> driver queues/rings.
+>=20
+> If you look at the linux traffic control, the stuff below LB is how it
+> behaves. That should be generic enough to _not_ sit in the driver.
+> This allows for adding smart algorithms to it; fe: qos, rate limiting,
+> feedback to LB so it could make smarter decisions etc.
 
-dhcp-3.0.1/common/discover.c:		if (ioctl (sock, SIOCGIFHWADDR, &ifr) < 0)
-  OK, doesn't clear ifr before ioctl, copies first 6 bytes of
-  ifr.ifr_hraddr.sa_data for sa_family ETHERNET, considers PPP an
-  error.
+It does not sit in the driver.
+Ethernet device has hard_start_xmit() which takes only one skb just
+because hardware can not handle several packets at once.
+Crypto devices [often] have ability to handle several sessions at once,=20
+that is why struct crypto_device has queue from which device can take
+sessions more than one in a time.
 
-e2fsprogs-1.35/lib/uuid/gen_uuid.c:		if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0)
-  BROKEN: doesn't clear ifr before ioctl, examines and copies first 6 bytes of
-  ifr.ifr_hraddr.sa_data
+Sessions are placed into device's queue by scheduler which has some
+algorithms inside(like qos), but then driver can get one session and
+process it - thus it will looks like netdevice, but it also can take
+several sessions and process them at once, netdev just can not do it.
 
-gnome-netstatus-2.8.0/src/netstatus-iface.c:  if (ioctl (fd, SIOCGIFHWADDR, &if_req) < 0)
-  BROKEN: doesn't clear ifr before ioctl, uses sa_family to determine action.
+> > > As he points out (and i am sure he can back it with data ;->), that
+> > > given the setup cost, packet size, algo and CPU and bus speed, it may
+> > > not make sense to use the chip at all ;->
+> >=20
+> > Michal has numbers - pure hardware beats soft in a certain setups
+> > in a fully synchronous schema, let's work SW and HW in parallel.
+> >=20
+> > Of course SW can encrypt 64 byte faster than it will be transfered to
+> > old ISA crypto card, but it worth to do it for compressing with LZW
+> > 9000 bytes jumbo frame.
+> >=20
+>=20
+> Would be interesting. I have seen the numbers from Eugene and they are=20
+> quiet intriguing - but they are for the sync mode.
+>=20
+> cheers,
+> jamal
+>=20
 
-gnome-nettool-0.99.3/src/info.c:			ioctl (sockfd, SIOCGIFHWADDR, &ifrcopy);
-  BROKEN: doesn't clear ifr before ioctl, prints first 6 bytes of sa_data
+--=20
+	Evgeniy Polyakov
 
-howl-0.9.6/src/lib/howl/Posix/posix_interface.c:	res = ioctl(sock, SIOCGIFHWADDR, &ifr);
-howl-0.9.6/src/lib/howl/Posix/posix_interface.c:	res = ioctl(sock, SIOCGIFHWADDR, ifr);
-  BROKEN: doesn't clear ifr before ioctl, copies first 6 bytes of sa_data (2 occurances)
+Crash is better than data corruption. -- Art Grabowski
 
-net-snmp-5.1.2/snmplib/snmpv3.c:    if (ioctl(sock, SIOCGIFHWADDR, &request)) {
-  BROKEN: does clear request, copies IFHWADDRLEN bytes of sa_data
+--=-d3KlxGogRmLVGVXJBu/E
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
 
-net-snmp-5.1.2/agent/mibgroup/tunnel/tunnel.c:        if (ioctl(fd, SIOCGIFHWADDR, &ifrq) == 0)
-  OK: doesn't clear request, doesn't look at sa_data, only sa_family.
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
 
-net-snmp-5.1.2/agent/mibgroup/mibII/interfaces.c:        if (ioctl(fd, SIOCGIFHWADDR, &ifrq) < 0)
-  BROKEN: doesn't clear ifrq, if ioctl fails it clears the 6
-  destination bytes. If ioctl succeeds, it copies the first 6 bytes of sa_data.
-  (this was the instance that made me realise the ioctl behaved differently)
+iD8DBQBBhcXUIKTPhE+8wY0RAkyXAKCYOKSW1z2BSFoG0iqhE2tfLqxPHACgkWkO
+XndqZ9iwcg25jNPlIdVmgdE=
+=JUJe
+-----END PGP SIGNATURE-----
 
-net-snmp-5.1.2/agent/mibgroup/mibII/ipv6.c:            if (ioctl(s, SIOCGIFHWADDR, &ifr) < 0) {
-  BROKEN: does clear ifrq, if ioctl fails it clears the 6 destination
-  bytes. If ioctl succeeds, it copies the first 6 bytes of sa_data.
-
-
-Exercise left to reader:
-iproute2-2.6.9/ip/iptunnel.c:	err = ioctl(fd, SIOCGIFHWADDR, &ifr);
-iproute2-2.6.9/misc/arpd.c:	if (ioctl(udp_sock, SIOCGIFHWADDR, &ifr))
-iputils/rarpd.c:			if (ioctl(fd, SIOCGIFHWADDR, ifrp)) {
-iputils/ifenslave.c:				rv = ioctl(skfd, SIOCGIFHWADDR, &if_hwaddr);
-iputils/ifenslave.c:	if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-irda-utils-0.9.16/irdaping/irdaping.c:        if (ioctl(self.fd, SIOCGIFHWADDR, &self.ifr) < 0 ) {
-isdn4k-utils-CVS-2003-09-23/ipppd/sys-linux.c:	if (ioctl (sockfd, SIOCGIFHWADDR, &ifreq) < 0) {
-isdn4k-utils-CVS-2003-09-23/libpcap-0.7.2/pcap-linux.c:	if (ioctl(fd, SIOCGIFHWADDR, &ifr) == -1) {
-kudzu-1.1.95/kudzu.c:		if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) goto next;
-libgtop-2.8.0/sysdeps/linux/netload.c:	if (!ioctl (skfd, SIOCGIFHWADDR, &ifr)) {
-ncpfs-2.2.4/ipx-1.0/ipx_cmd.c:		err = ioctl(fd_ipx, SIOCGIFHWADDR, &ifr);
-net-tools-1.60/lib/interface.c:    if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-net-tools-1.60/lib/interface.c.virtualname:    if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-net-tools-1.60/lib/interface.c.cycle:    if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-net-tools-1.60/lib/interface.c.siunits:    if (ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-net-tools-1.60/arp.c:    if (ioctl(sockfd, SIOCGIFHWADDR, &ifr) < 0) {
-net-tools-1.60/iptunnel.c:	err = ioctl(fd, SIOCGIFHWADDR, &ifr);
-net-tools-1.60/nameif.c:	r = ioctl(ctl_sk, SIOCGIFHWADDR, &ifr);
-net-tools-1.60/ether-wake.c:		if (ioctl(s, SIOCGIFHWADDR, &if_hwaddr) < 0) {
-nmap-3.70/tcpip.cc:if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0 ) {
-nmap-3.70/libpcap-possiblymodified/pcap-linux.c:	if (ioctl(fd, SIOCGIFHWADDR, &ifr) == -1) {
-openswan-2.1.5/testing/attacks/espiv/ipsec_hack.c:	if (ioctl (listen_s, SIOCGIFHWADDR, &ifr) < 0) {
-openswan-2.1.5/testing/attacks/espiv/ipsec_hack.c:	if (ioctl (send_s, SIOCGIFHWADDR, &ifr) < 0) {
-ppp-2.4.2/pppd/plugins/rp-pppoe/plugin.c:	    if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-ppp-2.4.2/pppd/plugins/rp-pppoe/if.c:	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-ppp-2.4.2/pppd/sys-linux.c:    if (ioctl (sock_fd, SIOCGIFHWADDR, &bestifreq) < 0) {
-ppp-2.4.2/pppd/sys-linux.c:	ret = ioctl(sock_fd, SIOCGIFHWADDR, &ifreq);
-ppp-2.4.2/pppd/sys-linux.c:	ok = ioctl (s, SIOCGIFHWADDR, (caddr_t) &ifr) >= 0;
-ppp-2.4.2/pppd/sys-linux.c:    if(ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0)
-pump-0.8.21/dhcp.c:    if (ioctl(sock, SIOCGIFHWADDR, &req))
-quagga-0.97.0/zebra/if_ioctl.c:  ret = if_ioctl (SIOCGIFHWADDR, (caddr_t) &ifreq);
-radvd-0.7.2/device-linux.c:	if (ioctl(sock, SIOCGIFHWADDR, &ifr) < 0)
-rarpd/rarpd.c:			if (ioctl(fd, SIOCGIFHWADDR, ifrp)) {
-rarpd/rarpd.c.ss981107:			if (ioctl(fd, SIOCGIFHWADDR, ifrp)) {
-rhpl-0.148/src/ethtool/ethtool.c:  err = ioctl(fd, SIOCGIFHWADDR, &ifr);
-rhpl-0.148/src/ethtool/iwlib.c:  if((ioctl(skfd, SIOCGIFHWADDR, &ifr) < 0) ||
-rp-pppoe-3.5/src/if.c:	if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-rp-pppoe-3.5/src/plugin.c:	    if (ioctl(fd, SIOCGIFHWADDR, &ifr) < 0) {
-scrollkeeper-0.3.14/libuuid/gen_uuid.c:		if (ioctl(sd, SIOCGIFHWADDR, &ifr) < 0)
-tcpdump-3.8.2/libpcap-0.8.3/pcap-linux.c:	if (ioctl(fd, SIOCGIFHWADDR, &ifr) == -1) {
-wvstreams-3.75.0/linuxstreams/wvinterface.cc:        if (req(SIOCGIFHWADDR, &ifr))
-efibootmgr (not in FC, but I'm the upstream maintainer on it and know
-it looks at just 6 bytes).
-
-
-Here's what 2.2.0 (possibly earlier) through 2.4.(current) has:
-  memcpy(ifr->ifr_hwaddr.sa_data,dev->dev_addr, MAX_ADDR_LEN);
-  ifr->ifr_hwaddr.sa_family=dev->type;
-  return 0;
-
-Here's what 2.6 has:
-  memcpy(ifr->ifr_hwaddr.sa_data, dev->dev_addr,
-         min(sizeof ifr->ifr_hwaddr.sa_data,
-	          (size_t) dev->addr_len));
-  ifr->ifr_hwaddr.sa_family = dev->type;
-  return 0;
-
-Thus for dev->addr_len < MAX_ADDR_LEN (8), the behavior is different
-(fewer bytes are copied, discarding what was most likely zeros)
-and for dev->addr_len > MAX_ADDR_LEN, the behaviour is different too
-(more valid bytes are copied), a good thing for apps that care and a
-no-op for those that thought 6 was a useful number.
-
-> Having said that i think we should somehow signal that info to user
-> space. perhaps returning -EINVAL in the case the L2 address is 0?
-> EINVAL will break a few apps and make them puke as opposed to silently
-> returning something wrong.
-
-My immediate concern was net-snmp, which, on failure, will do the
-right thing if returning -EINVAL in this case.  I did not review all
-the above to know if they would behave correctly on -EINVAL in that
-case.
-
-I think -EOVERFLOW would be appropriate return for dev->addr_len >
-sizeof sa_data, yes?
-
-I'd prefer though, that an "obsolete" function, be marked as such
-somehow (perhaps print a net_ratelimit()ed KERN_DEBUG message when
-it's called telling apps to move to rtnetlink), and that the behaviour
-for everything except overflow be consistent with the prior
-implementation, at least until such a time that all the apps in the
-distros are converted to rtnetlink.
-
-Thanks,
-Matt
-
--- 
-Matt Domsch
-Sr. Software Engineer, Lead Engineer
-Dell Linux Solutions linux.dell.com & www.dell.com/linux
-Linux on Dell mailing lists @ http://lists.us.dell.com
+--=-d3KlxGogRmLVGVXJBu/E--
