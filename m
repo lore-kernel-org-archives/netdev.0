@@ -1,50 +1,55 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: dummy as IMQ replacement
-Date: 31 Jan 2005 10:34:12 -0500
-Message-ID: <1107185652.1075.3.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <200501311614.31397.hasso@estpak.ee>
-	 <1107181551.7847.193.camel@jzny.localdomain>
-	 <200501311646.14322.hasso@estpak.ee>
-Reply-To: hadi@cyberus.ca
+From: "Jeremy M. Guthrie" <jeremy.guthrie@berbee.com>
+Subject: Re: V2.4 policy router operates faster/better than V2.6
+Date: Mon, 31 Jan 2005 09:37:27 -0600
+Message-ID: <200501310937.30427.jeremy.guthrie@berbee.com>
+References: <Pine.LNX.4.44.0501071416060.5818-100000@localhost.localdomain> <16879.58333.266843.335475@robur.slu.se> <200501201114.49517.jeremy.guthrie@berbee.com>
+Reply-To: jeremy.guthrie@berbee.com
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: multipart/signed;
+  boundary="nextPart1359121.nEJab2xqho";
+  protocol="application/pgp-signature";
+  micalg=pgp-sha1
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
-        Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
-        Damion de Soto <damion@snapgear.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200501311646.14322.hasso@estpak.ee>
+To: netdev@oss.sgi.com
+In-Reply-To: <200501201114.49517.jeremy.guthrie@berbee.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-01-31 at 09:46, Hasso Tepper wrote:
-> jamal wrote:
-> > Unfortunately this "index" thing continues to be a big secret although i
-> > have pointed it a few times. Bart should probably add it to his HOWTO.
-> 
-> All this stuff deserves better documentation ;). Call me oldfashioned, but 
-> IMHO would be good start to have all keywords at least somewhat documented 
-> in iproute2 man pages. I know, writing documentation is boring task etc, 
-> but at least you should mention all features in man pages. This gives to 
-> someone at least chance to kick you "hey, what's this?" ;).
-> 
+--nextPart1359121.nEJab2xqho
+Content-Type: text/plain;
+  charset="iso-8859-1"
+Content-Transfer-Encoding: quoted-printable
+Content-Disposition: inline
 
-But 50 emails later noone documented anything .. And every summer
-someone tries to write a qdisc to achive this ;->
+Just wanted to verify that by the term linear search from rtstat/lnstat, yo=
+u=20
+mean a search of the buckets for a particular hash?
 
-> This is somewhat related to killing the chance to use iptables as well ... 
-> Iptables has better documentation and people use it just because of that.
-> 
-> Just checked ... "tc action help" in newest iproute2 returns nothing as 
-> well :(.
+We're going live tomorrow with the app.  Afterwards I'll load up the no rou=
+te=20
+caching patch and test that.
 
-Should work. Are you sure you got the latest one?
-Also make sure you compile tc action in the scheduler part of kernel
-config.
+=2D-=20
 
-cheers,
-jamal
+=2D-------------------------------------------------
+Jeremy M. Guthrie        jeremy.guthrie@berbee.com
+Senior Network Engineer        Phone: 608-298-1061
+Berbee                           Fax: 608-288-3007
+5520 Research Park Drive         NOC: 608-298-1102
+Madison, WI 53711
+
+--nextPart1359121.nEJab2xqho
+Content-Type: application/pgp-signature
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQBB/lC6qtjaBHGZBeURAshqAJwKefXek3oK3jBGawBRWUbl5XsEzgCfUQkG
+STJq9A93N/Sk4NF8kvlQ31k=
+=Q33E
+-----END PGP SIGNATURE-----
+
+--nextPart1359121.nEJab2xqho--
