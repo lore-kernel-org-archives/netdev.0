@@ -1,26 +1,30 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: sundance driver does not work with D-Link DFE-580TX
-Date: Thu, 19 Jun 2003 13:19:50 -0400
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [PATCH] add prefetch to skb_queue_walk
+Date: Thu, 19 Jun 2003 12:13:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EF1F0B6.8020505@pobox.com>
-References: <200305261604.h4QG4iQY020725@sandelman.ottawa.on.ca> <57880000.1056026633@worker.muc.bieringer.de>
+Message-ID: <20030619121325.0a2059ee.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Peter Bieringer <pb@bieringer.de>
-In-Reply-To: <57880000.1056026633@worker.muc.bieringer.de>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Peter Bieringer wrote:
-> I (also others independed) finally find the bug:
-> 
-> RHL uses CONFIG_SUNDANCE_MMIO=y on kernel building which causes the
-> problem. 
+skb_queue_walk macro can use prefetch's  (like list_for_each)
 
-
-FWIW we've changed this to N.
-
-	Jeff
+--- include/linux/skbuff.h.orig	2003-06-19 12:08:17.000000000 -0700
++++ include/linux/skbuff.h	2003-06-19 12:08:43.000000000 -0700
+@@ -1149,9 +1149,9 @@
+ }
+ 
+ #define skb_queue_walk(queue, skb) \
+-		for (skb = (queue)->next;			\
++		for (skb = (queue)->next, prefetch(skb->next);	\
+ 		     (skb != (struct sk_buff *)(queue));	\
+-		     skb = skb->next)
++		     skb = skb->next, prefetch(skb->next))
+ 
+ 
+ extern struct sk_buff *skb_recv_datagram(struct sock *sk, unsigned flags,
