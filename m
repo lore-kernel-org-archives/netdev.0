@@ -1,53 +1,47 @@
-From: Ethan Sommer <sommere@ethanet.com>
-Subject: Re: [Fwd: [ANNOUNCE] Layer-7 Filter for Linux QoS]
-Date: Thu, 22 May 2003 09:40:17 -0500
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <3ECCE151.8000903@ethanet.com>
-References: <Pine.LNX.4.40.0305221019240.29409-100000@phil.home.phil>
+From: Daniel McNeil <daniel@osdl.org>
+Subject: Re: [PATCH 2.5.69] wanrouter clean up MOD_*_USE_COUNT
+Date: 22 May 2003 09:14:14 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <1053620053.2441.56.camel@ibm-c.pdx.osdl.net>
+References: <1053550112.2444.35.camel@ibm-c.pdx.osdl.net>
+	 <20030521231801.GE10295@conectiva.com.br>
+	 <20030521.162707.88487215.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; format=flowed; charset=us-ascii
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Jamal Hadi <hadi@shell.cyberus.ca>,
-	Martin Josefsson <gandalf@wlug.westbo.se>,
-	"David S. Miller" <davem@redhat.com>, linux-net@vger.kernel.org,
-	netdev@oss.sgi.com
-Return-path: <linux-net-owner@vger.kernel.org>
-In-reply-to: <Pine.LNX.4.40.0305221019240.29409-100000@phil.home.phil>
-To: Philippe Biondi <biondi@cartel-securite.fr>
+Cc: acme@conectiva.com.br, ncorbic@sangoma.com, dm@sangoma.com,
+   netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030521.162707.88487215.davem@redhat.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Philippe Biondi wrote:
+On Wed, 2003-05-21 at 16:27, David S. Miller wrote:
+>    From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+>    Date: Wed, 21 May 2003 20:18:01 -0300
+>    
+>    Already submitted to DaveM, CCed netdev, I'll fix this later
+>    tonight.
+> 
+> Note that, as I said in another email, these MOD_* calls can't just be
+> deleted, the PROCFS registry etc. have to set ->owner fields correctly
+> before this is valid.
+> 
+> By just removing MOD_*(), I can load just wanrouter, open a proc file,
+> unload the wanrouter module, and crash.
 
->>I take it back, it is regular (kinda) but you can't to it with a
->>deterministic finite atomaton. If there is a cycle in pattern1, off of
->>which pattern2 has a branch, then you would need to count how many times
->>you have gone around the cycle to know where to jump to in pattern2 if
->>it fails to match pattern1 (which you can't do, pumping lemma and all
->>that.) If you use a non-determistic FA, you should be able to just go
->>through each pattern until both crash or one matches and declare that
->>the winner.
->>    
->>
->
->
->Strange way of reasoning... what if pattern1 is "(subpat1|subpat2)" ?
->regexp is a regular language so it is equivalent to a DFA.
->For every NDFA, there exist a DFA that recognize the same language.
->So, it is possible.
->
+The proc file looked like a separate problem.  The MOD_* calls I removed
+were in register_wan_device/unregister_wan_device, so these did not
+protect the procfs entries for wanrouter.  If another module called
+register_wan_device, the wanrouter module couldn't be unloaded because
+of the symbol reference.  Of course, the modules that call
+register_wan_device also need to kept from being unloaded until
+have unregister_wan_device.  Again, I thought these were separate
+problems.
 
-That is true only if you only care if either are matched. Not if you 
-care which is matched. By combining them you lose the ability to tell 
-which matched.
+Arnaldo, sorry about the conflicting patch.  We in the middle of moving
+and I hadn't had a chance to catch up on the mailing list.
 
->
->The question is : will we have enough memory to store a DFA that recognize
->a big regexp ? The answer is : let loose some speed and use NDFA.
->  
->
-
-you will have to for the reason above.
-
-
-
-
+-- 
+Daniel McNeil <daniel@osdl.org>
