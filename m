@@ -1,38 +1,89 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: Re: Acer Aspire 1524WLMi and RealTek 8169 - very slow
-Date: Sun, 23 Jan 2005 00:01:56 +0100
-Message-ID: <20050122230156.GC24461@electric-eye.fr.zoreil.com>
-References: <41A09541.5040405@phekda.gotadsl.co.uk> <41A0F0D5.9050702@phekda.gotadsl.co.uk> <20041121205814.GA22460@electric-eye.fr.zoreil.com> <41A24F35.5080106@phekda.gotadsl.co.uk> <20041122213008.GA9618@electric-eye.fr.zoreil.com> <41D2844E.5070204@phekda.gotadsl.co.uk> <20041229235203.GA5465@electric-eye.fr.zoreil.com> <41F250D1.8000207@phekda.gotadsl.co.uk> <41F26FD1.2060407@phekda.gotadsl.co.uk>
+From: Martin Josefsson <gandalf@wlug.westbo.se>
+Subject: Re: [PATCH/RFC] Reduce call chain length in netfilter (was: Re:
+	do_IRQ: stack overflow: 872..)
+Date: Sun, 23 Jan 2005 00:22:33 +0100
+Message-ID: <1106436153.20995.42.camel@tux.rsn.bth.se>
+References: <1131604877.20041218092730@mail.ru.suse.lists.linux.kernel>
+	 <p73zn0ccaee.fsf@verdi.suse.de>
+	 <1105117559.11753.34.camel@baythorne.infradead.org>
+	 <20050107100017.454ddadc@dxpl.pdx.osdl.net>
+	 <1105133241.3375.16.camel@localhost.localdomain>
+	 <20050118135735.4b77d38d.davem@davemloft.net>
+	 <1106433059.4486.11.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1; protocol="application/pgp-signature"; boundary="=-JRxNfi+FN1JWlIJKUTiK"
+Cc: "David S. Miller" <davem@davemloft.net>, shemminger@osdl.org,
+        dwmw2@infradead.org, ak@suse.de, snort2004@mail.ru, bridge@osdl.org,
+        netdev@oss.sgi.com, Rusty Russell <rusty@rustcorp.com.au>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Richard Dawe <rich@phekda.gotadsl.co.uk>
-Content-Disposition: inline
-In-Reply-To: <41F26FD1.2060407@phekda.gotadsl.co.uk>
+To: Bart De Schuymer <bdschuym@pandora.be>
+In-Reply-To: <1106433059.4486.11.camel@localhost.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Richard Dawe <rich@phekda.gotadsl.co.uk> :
-[...]
-> So I looked at the latest RealTek driver for Linux (version 220) and 
-> that has some separate initialisation code for RTL_GIGA_MAC_VER_X 
-> (MCFG_METHOD_4, they call it). I ported that over to r8169.c in 
-> 2.6.11-rc1 and it appears to work.
 
-Nice. Have you checked that ethtool performs correctly when you try to
-set the link parameters with the new code (+ plug/unplug cable) ?
+--=-JRxNfi+FN1JWlIJKUTiK
+Content-Type: text/plain
+Content-Transfer-Encoding: quoted-printable
 
-> Attached is the patch against 2.6.11-rc1. I'm not sure if it caters to 
-> your tastes. Maybe you'll want to rename RTL_GIGA_MAC_VER_X. 
+On Sat, 2005-01-22 at 23:30 +0100, Bart De Schuymer wrote:
 
-I'll change the braces placement, the tab/spaces mix and push it.
+Hi Bart
 
-Please include something like the line below in your future patches:
-Signed-off-by: Richard Dawe <rich@phekda.gotadsl.co.uk>
+> @@ -138,23 +139,34 @@ void nf_log_packet(int pf,
+>  /* This is gross, but inline doesn't cut it for avoiding the function
+>     call in fast path: gcc doesn't inline (needs value tracking?). --RR *=
+/
+>  #ifdef CONFIG_NETFILTER_DEBUG
+> -#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			\
+> - nf_hook_slow((pf), (hook), (skb), (indev), (outdev), (okfn), INT_MIN)
+> -#define NF_HOOK_THRESH nf_hook_slow
+> +#define NF_HOOK(pf, hook, skb, indev, outdev, okfn)			    \
+> +({int __ret =3D 0;							    \
+> +if (!nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, INT_MIN, &__ret=
+);  \
+> +	__ret =3D (okfn)(skb);						    \
+> +__ret;})
+> +#define NF_HOOK_THRESH(pf, hook, skb, indev, outdev, okfn, thresh)	    \
+> +({int __ret =3D 0;							    \
+> +if (!nf_hook_slow(pf, hook, &(skb), indev, outdev, okfn, thresh, &__ret)=
+;   \
+> +	__ret =3D (okfn)(skb);						    \
+> +__ret;})
+>  #else
 
-Thanks.
+I guess you never testcompiled with CONFIG_NETFILTER_DEBUG set :)
+The if-statements above needs to have ; replaced with )
 
---
-Ueimor
+> +			if (verdict > NF_MAX_VERDICT) {
+> +				NFDEBUG("Evil return from %p(%u).\n",
+> +				        elem->hook, hook);
+> +				continue;
+> +			}
+
+Maybe add unlikely() around the test?
+
+Otherwise the changes look sane.
+
+The reoganisation of things in nf_hook_slow() shouldn't cause any
+performance changes, I tried to benchmark various variations of that
+code some time ago but the result of the changes were more or less in
+the noise.
+
+--=20
+/Martin
+
+--=-JRxNfi+FN1JWlIJKUTiK
+Content-Type: application/pgp-signature; name=signature.asc
+Content-Description: This is a digitally signed message part
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQBB8uA5Wm2vlfa207ERAtENAKC7lltDMufYxml4xtGpqJbU8f9xbwCeI5IR
+NYu/J4GXYnePqaOWQvzds3s=
+=pdyD
+-----END PGP SIGNATURE-----
+
+--=-JRxNfi+FN1JWlIJKUTiK--
