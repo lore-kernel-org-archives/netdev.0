@@ -1,33 +1,61 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] unclamp tcp receive window if doing dynamic receive
- sizing
-Date: Mon, 7 Jun 2004 16:17:41 -0700
+From: Marc Herbert <marc.herbert@free.fr>
+Subject: Re: [RFC] ethtool semantics
+Date: Tue, 8 Jun 2004 01:43:26 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040607161741.1f295aca.davem@redhat.com>
-References: <20040607133056.5ab9e72d@dell_ss3.pdx.osdl.net>
+Message-ID: <Pine.LNX.4.58.0406080111550.2832@fcat>
+References: <20040607212804.GA17012@k3.hellgate.ch> <20040607145723.41da5783.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=iso-8859-1
+Content-Transfer-Encoding: quoted-printable
+Cc: Roger Luethi <rl@hellgate.ch>, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040607133056.5ab9e72d@dell_ss3.pdx.osdl.net>
+To: netdev@oss.sgi.com
+In-Reply-To: <20040607145723.41da5783.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 7 Jun 2004 13:30:56 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Mon, 7 Jun 2004, David S. Miller wrote:
 
-> When running tests over higher speed links, the new 2.6 Dynamic Receiver Sizing
-> code doesn't increase the window large enough.  The problem is that the window
-> clamp restricts the allowed window to the socket receive buffer size (85k)
-> 
-> Easiest fix is to not restrict window clamp if we want to dynamic receiver stuff.
-> This is what web100 did.
-> 
-> Thanks to John Heffner for finding this.
+> On Mon, 7 Jun 2004 23:28:04 +0200
+> Roger Luethi <rl@hellgate.ch> wrote:
+>
+> > What is the correct response if a user passes ethtool speed or duplex
+> > arguments while autoneg is on? Some possible answers are:
+> >
+> > a) Yell at the user for doing something stupid.
+> >
+> > b) Fail silently (i.e. ignore command).
+> >
+> > c) Change advertised value accordingly and initiate new negotiation.
+> >
+> > d) Consider "autoneg off" implied, force media accordingly.
+> >
+> > The ethtool(8) man page I'm looking at doesn't address that question.=
+ The
+> > actual behavior I've seen is b) which is by far my least preferred
+> > solution.
 
-This turns off all tcp_app_win semantics, are you sure that
-tcp_app_win makes no sense when doing dynamic receive buffer
-sizing?  I think we should still factor it in, perhaps dynamically,
-during rcvbuf growth.
+> speed and duplex fields should be silently ignored in this case
+
+I find the c) feature very convenient. For instance it allows reliably
+downgrading a link connected to a switch without having to fiddle with
+the configuration of the switch, something which is usually (pick your
+favourites) non-standard, painful, not authorized, not implemented,
+buggy,...
+
+Command line parameters of the bcm5700=A0driver do implement c) (among
+other nifties). Documented in its man page. Command line parameters of
+e1000 also allow some control over the autonegociation process, even
+if not using c) but a different (and less user-friendly) syntax. See
+Documentation/--/e1000.txt. From David's words, I suspect this feature
+is simply missing from ethtool.
+
+Finally, silently ignoring user input is not very user-friendly IMHO.
+I would much prefer a) to b).
+
+I am aware that my preferences are probably in inverse order of the
+amount of work required.
+
+
+
+PS: I read netdev but not linux-kernel
