@@ -1,45 +1,67 @@
 From: Ben Greear <greearb@candelatech.com>
-Subject: Re: [leo@yuriev.ru: [PATCH] ethernet-bridge: update skb->priority
- in case forwarded frame has VLAN-header]
-Date: Tue, 08 Mar 2005 09:45:20 -0800
-Message-ID: <422DE4B0.6040201@candelatech.com>
-References: <20050305141225.GA5180@xi.wantstofly.org>	 <4229D98F.9010008@trash.net> <422A0C21.3050709@candelatech.com>	 <1110199696.1094.1299.camel@jzny.localdomain>	 <Pine.LNX.4.62.0503072034340.5934@kaber.coreworks.de>	 <1110238537.1043.62.camel@jzny.localdomain>  <422CE983.7060305@trash.net>	 <1110241190.1043.100.camel@jzny.localdomain>  <422D1E26.1010902@trash.net> <1110287626.1043.146.camel@jzny.localdomain>
+Subject: Re: netif_rx packet dumping
+Date: Tue, 08 Mar 2005 10:27:17 -0800
+Message-ID: <422DEE85.5010302@candelatech.com>
+References: <20050303123811.4d934249@dxpl.pdx.osdl.net>	<42278122.6000000@ev-en.org>	<20050303133659.0d224e61.davem@davemloft.net>	<42278554.2090902@ev-en.org>	<20050303135718.2e1a0170.davem@davemloft.net>	<422DC7CE.2040800@ev-en.org>	<m1y8cykr7i.fsf@muc.de> <20050308100902.24b67b2f.davem@davemloft.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>, leo@yuriev.ru,
-        Lennert Buytenhek <buytenh@wantstofly.org>, shemminger@osdl.org,
+Cc: Andi Kleen <ak@muc.de>, baruch@ev-en.org, shemminger@osdl.org,
         netdev@oss.sgi.com
-To: hadi@cyberus.ca
-In-Reply-To: <1110287626.1043.146.camel@jzny.localdomain>
+To: "David S. Miller" <davem@davemloft.net>
+In-Reply-To: <20050308100902.24b67b2f.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-jamal wrote:
-> On Mon, 2005-03-07 at 22:38, Patrick McHardy wrote:
+David S. Miller wrote:
+> On Tue, 08 Mar 2005 18:00:49 +0100
+> Andi Kleen <ak@muc.de> wrote:
 > 
->>jamal wrote:
+> 
+>>Baruch Even <baruch@ev-en.org> writes:
 >>
->>>Indeed that looks bad. But wouldnt have helped if we started at 0
->>>either. You need monotonically increasing values to make proper
->>>sense. So i suppose to do proper qos with L2, one must install the prio
->>>qdisc and rewrite the priomap.
+>>>I can squeeze the tcp_skb_cb to one pointer at the expense of extra
+>>>work to remove a packet from the list (the other pointer is the prev
+>>>pointer).
 >>
->>One reason more to move it to an optional ebtables target. Or leave it
->>all to prio + u32. But I guess a CLASSIFY target similar to iptables
->>could also be useful otherwise.
+>>You could also use a xor list in theory. But I'm not sure it's worth it.
+>>Increasing cb by 4 bytes shouldn't be a very big issue.
 > 
 > 
-> I think you still want (perhaps the vlan) driver to come up with some
-> sane defaults. From what i read from bgrear he has arbitrary values.
+> Going from "40" to "44" takes 64-bit platforms onto another cache line
+> for struct sk_buff, as I stated in another email.
 
-By default, everything is mapped to priority of zero, but the user can
-specify a mapping to any integer they desire.
+Seems like we might could squish the sk_buff a bit:
 
-If you have some suggestions for some defaults better than zero, I'm
-willing to consider it.
+Do we really need 32-bits for the mac-len:
 
+	unsigned int		len,
+				data_len,
+				mac_len,
+				csum;
+
+Some of these flags could be collapsed into a single field and we
+could do bit-shift operations for the single flags we care about.
+This would also make it easier to add new flags as desired w/out
+growing the structure.
+
+	unsigned char		local_df,
+				cloned,
+				pkt_type,
+				ip_summed;
+
+The priority could probably be 16 bits as well, do we really need more
+than 65k different priorities:
+
+	__u32			priority;
+
+Of course...this might be things for 2.7 since lots of modules will probably
+be accessing these fields.  Maybe to get started we could add macros to grab
+the flags and such so that when we finally do collapse things into a single
+flags field the external code doesn't have to know or care?
+
+Thanks,
 Ben
 
 -- 
