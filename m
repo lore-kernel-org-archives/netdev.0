@@ -1,45 +1,45 @@
-From: Erik Hensema <erik@hensema.net>
-Subject: Re: 2.6.0: something is leaking memory
-Date: Tue, 6 Jan 2004 20:36:15 +0100
+From: "Feldman, Scott" <scott.feldman@intel.com>
+Subject: RE: Problem with Compaq NC3131 dual eth card
+Date: Tue, 6 Jan 2004 11:43:39 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040106193615.GA4544@bender.home.hensema.net>
-References: <slrnbvgohn.1pb.erik@dexter.hensema.net> <Pine.LNX.4.58.0401041257290.2162@home.osdl.org> <slrnbvh1hd.jl6.erik@dexter.hensema.net> <Pine.LNX.4.58.0401041826400.2162@home.osdl.org> <20040104204834.40b6ca51.davem@redhat.com> <20040106155933.GA3373@bender.home.hensema.net> <20040106095909.7243b2ce.davem@redhat.com>
-Reply-To: erik@hensema.net
+Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102CBDDAF@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: torvalds@osdl.org, netdev@oss.sgi.com, acme@conectiva.com.br
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20040106095909.7243b2ce.davem@redhat.com>
+Content-Class: urn:content-classes:message
+To: "Chris Adams" <cmadams@hiwaay.net>, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Jan 06, 2004 at 09:59:09AM -0800, David S. Miller wrote:
-> On Tue, 6 Jan 2004 16:59:34 +0100
-> Erik Hensema <erik@hensema.net> wrote:
-> 
-> > David: are you sure it was fixed in rc1?
-> > 
-> > It doesn't seem to be in -rc2 either.
-> > 
-> > This is after 26 hours uptime:
-> > 
-> > tcp6_sock           6246   6248   1024    4    1 : tunables   54   27    0
-> > : slabdata   1562   1562      0
-> 
-> Someone mentioned about a bug in the userland program you're
-> using that is openning these sockets?  Something about leaving sockets
-> not closed.
+> eth1: OEM i82557/i82558 10/100 Ethernet, FF:FF:FF:FF:FF:FF, IRQ 11.
 
-That's correct. I suspect that this exposes the leak in the kernel more
-promimently than on other systems.
+[snip]
 
-The leak is in nscd, it doesn't properly close sockets to my LDAP server.
-This is not a kernel problem I think, because it also leaks in 2.4.x. The
-kernelspace leak however is not in 2.4, only in 2.6.
+> eth2: Invalid EEPROM checksum 0xffc0, check settings before 
+> activating this device!
 
-I'm restarting nscd in cron every night, which makes the CLOSE_WAIT sockets
-go away. However the kernel resources are not freed it seems.
--- 
-Erik Hensema (erik@hensema.net)
+You're EEPROM image is invalid - looks like it's all 0xFFs - verify with
+ethtool -e ethX.  The first three words of the EEPROM should be the MAC
+address.  e100 errors out because it wants a valid MAC address.
+
+> Is my card defective or is this a compatibility problem?  Is 
+> there a way to fix this?
+
+Get another nic or reprogram the EEPROM in this one.  Ok, so you want to
+reprogram the eeprom?  This isn't going to be pretty: 1) get a good
+image from a like-NC3131-nic using ethtool -e eth<x>; 2) modify e100 to
+skip the check for valid MAC address and valid checksum so the driver
+will load; 3) run ethtool -E eth<x> magic 4660 offset <y> value <z>,
+where x is your interface, y is the byte offset, and z is byte value to
+write.  You can do this by hand, or write a script to parse the output
+from ethtool -e; 4) revert e100 back to original  Told you it wasn't
+pretty.
+
+Maybe someone could write a little script to 
+
+# ethtool -e eth0 | up_eeprom eth1
+ Enter unique MAC address: 00:A0:45:78:90:02
+
+-scott
