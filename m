@@ -1,132 +1,57 @@
-From: "Art Haas" <ahaas@airmail.net>
-Subject: [PATCH] Add C99 initializers to ethtool.c
-Date: Wed, 18 Feb 2004 18:16:33 -0600
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Submission for S2io 10GbE driver
+Date: Thu, 19 Feb 2004 03:14:46 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040219001633.GC9704@artsapartment.org>
+Message-ID: <40347076.8030105@pobox.com>
+References: <4223A04BF7D1B941A25246ADD0462FF5010FA5EB@blr-m3-msg.wipro.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: leonid.grossman@s2io.com, netdev@oss.sgi.com, raghavendra.koushik@s2io.com,
+        ravinandan.arakali@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: raghavendra.koushik@wipro.com
+In-Reply-To: <4223A04BF7D1B941A25246ADD0462FF5010FA5EB@blr-m3-msg.wipro.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi.
+raghavendra.koushik@wipro.com wrote:
+> Hi Jeff,
+> 
+> 1. points 7 and 8, when initSharedMem returns error, I call
+> freeSharedMem which should free any partially alloced memory.
 
-Here's a little patch adding C99 initializers to ethtool.c. The patch is
-against the current BK, and the file has been recompiled with the
-changes successfully.
+For #8 quite possibly, and if so, I stand corrected.
 
-This patch and the one I just sent for the netfilter file were changed
-to make the code easier to read and to remove warnings if a '-W' flag is
-added to the compile command.
+For #7, it's a temporary variable so this would be impossible.
 
-Art Haas
 
-===== net/core/ethtool.c 1.9 vs edited =====
---- 1.9/net/core/ethtool.c	Sun Oct 12 06:18:38 2003
-+++ edited/net/core/ethtool.c	Wed Feb 18 17:22:52 2004
-@@ -76,7 +76,7 @@
- 
- static int ethtool_get_settings(struct net_device *dev, void *useraddr)
- {
--	struct ethtool_cmd cmd = { ETHTOOL_GSET };
-+	struct ethtool_cmd cmd = { .cmd = ETHTOOL_GSET };
- 	int err;
- 
- 	if (!dev->ethtool_ops->get_settings)
-@@ -168,7 +168,7 @@
- 
- static int ethtool_get_wol(struct net_device *dev, char *useraddr)
- {
--	struct ethtool_wolinfo wol = { ETHTOOL_GWOL };
-+	struct ethtool_wolinfo wol = { .cmd = ETHTOOL_GWOL };
- 
- 	if (!dev->ethtool_ops->get_wol)
- 		return -EOPNOTSUPP;
-@@ -195,7 +195,7 @@
- 
- static int ethtool_get_msglevel(struct net_device *dev, char *useraddr)
- {
--	struct ethtool_value edata = { ETHTOOL_GMSGLVL };
-+	struct ethtool_value edata = { .cmd = ETHTOOL_GMSGLVL };
- 
- 	if (!dev->ethtool_ops->get_msglevel)
- 		return -EOPNOTSUPP;
-@@ -231,7 +231,7 @@
- 
- static int ethtool_get_link(struct net_device *dev, void *useraddr)
- {
--	struct ethtool_value edata = { ETHTOOL_GLINK };
-+	struct ethtool_value edata = { .cmd = ETHTOOL_GLINK };
- 
- 	if (!dev->ethtool_ops->get_link)
- 		return -EOPNOTSUPP;
-@@ -331,7 +331,7 @@
- 
- static int ethtool_get_coalesce(struct net_device *dev, void *useraddr)
- {
--	struct ethtool_coalesce coalesce = { ETHTOOL_GCOALESCE };
-+	struct ethtool_coalesce coalesce = { .cmd = ETHTOOL_GCOALESCE };
- 
- 	if (!dev->ethtool_ops->get_coalesce)
- 		return -EOPNOTSUPP;
-@@ -358,7 +358,7 @@
- 
- static int ethtool_get_ringparam(struct net_device *dev, void *useraddr)
- {
--	struct ethtool_ringparam ringparam = { ETHTOOL_GRINGPARAM };
-+	struct ethtool_ringparam ringparam = { .cmd = ETHTOOL_GRINGPARAM };
- 
- 	if (!dev->ethtool_ops->get_ringparam)
- 		return -EOPNOTSUPP;
-@@ -385,7 +385,7 @@
- 
- static int ethtool_get_pauseparam(struct net_device *dev, void *useraddr)
- {
--	struct ethtool_pauseparam pauseparam = { ETHTOOL_GPAUSEPARAM };
-+	struct ethtool_pauseparam pauseparam = { .cmd = ETHTOOL_GPAUSEPARAM };
- 
- 	if (!dev->ethtool_ops->get_pauseparam)
- 		return -EOPNOTSUPP;
-@@ -412,7 +412,7 @@
- 
- static int ethtool_get_rx_csum(struct net_device *dev, char *useraddr)
- {
--	struct ethtool_value edata = { ETHTOOL_GRXCSUM };
-+	struct ethtool_value edata = { .cmd = ETHTOOL_GRXCSUM };
- 
- 	if (!dev->ethtool_ops->get_rx_csum)
- 		return -EOPNOTSUPP;
-@@ -440,7 +440,7 @@
- 
- static int ethtool_get_tx_csum(struct net_device *dev, char *useraddr)
- {
--	struct ethtool_value edata = { ETHTOOL_GTXCSUM };
-+	struct ethtool_value edata = { .cmd = ETHTOOL_GTXCSUM };
- 
- 	if (!dev->ethtool_ops->get_tx_csum)
- 		return -EOPNOTSUPP;
-@@ -467,7 +467,7 @@
- 
- static int ethtool_get_sg(struct net_device *dev, char *useraddr)
- {
--	struct ethtool_value edata = { ETHTOOL_GSG };
-+	struct ethtool_value edata = { .cmd = ETHTOOL_GSG };
- 
- 	if (!dev->ethtool_ops->get_sg)
- 		return -EOPNOTSUPP;
-@@ -494,7 +494,7 @@
- 
- static int ethtool_get_tso(struct net_device *dev, char *useraddr)
- {
--	struct ethtool_value edata = { ETHTOOL_GTSO };
-+	struct ethtool_value edata = { .cmd = ETHTOOL_GTSO };
- 
- 	if (!dev->ethtool_ops->get_tso)
- 		return -EOPNOTSUPP;
--- 
-Man once surrendering his reason, has no remaining guard against absurdities
-the most monstrous, and like a ship without rudder, is the sport of every wind.
+> 2. For point 17 and 33
+> We do support IPV6 checksum offload. There is one issue though,
+> our hardware only says whether the checksum is Ok or not it does
+> not actually return the checksum values!
+[...]
+> If I say features as NETIF_F_IP_CSUM instead of NETIF_F_HW_CSUM,
+> then I cannot utilize it's entire gamut of checksum offload feature
+> as the offload will be limited to just TCP/UDP over IPV4.
 
--Thomas Jefferson to James Smith, 1822
+Correct.  Your hardware cannot utilize NETIF_F_HW_CSUM.  You must be 
+able to supply a valid csum from hardware, to use NETIF_F_HW_CSUM. 
+Using NETIF_F_HW_CSUM as s2io does is abuse of the API, and prone to 
+breakage...
+
+For the future, it sounds like you should create a NETIF_F_IPV6_CSUM 
+that works for both IPv4 and IPv6, and more closely matches your 
+hardware.  We need to do this anyway, because most future cards will 
+almost certainly offload IPv6 as well as IPv4.
+
+For the present, NETIF_F_IP_CSUM is unfortunately your only choice. 
+Zero-copy only occurs for sendfile(2) system call, which works fine with 
+NETIF_F_IP_CSUM, so no big deal.
+
+In general, I certainly want to encourage s2io to participate in adding 
+features to Linux that is needed to more fully utilize the hardware. 
+Some of the proposed features might not be appropriate, but adding 
+NETIF_F_IPV6_CSUM for you guys certainly seems reasonable.
+
+	Jeff
