@@ -1,70 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: Function to determine if IP exists on a net-device?
-Date: Thu, 20 Nov 2003 00:30:28 -0800
+From: Hans Schwimmbeck <hans@schwimmbeck.de>
+Subject: forcedeth 0.18 on nForce
+Date: Thu, 20 Nov 2003 09:50:57 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBC7BA4.9070501@candelatech.com>
-References: <3FBB36F2.7030402@candelatech.com>	<20031119173103.1938bc51.davem@redhat.com>	<3FBC215B.2090100@candelatech.com> <20031119181529.4c2b861a.davem@redhat.com>
+Message-ID: <200311200950.58211.hans@schwimmbeck.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-In-Reply-To: <20031119181529.4c2b861a.davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-David S. Miller wrote:
-> On Wed, 19 Nov 2003 18:05:15 -0800
-> Ben Greear <greearb@candelatech.com> wrote:
-> 
-> 
->>Is there not a more direct access if I already have the netdevice in question?
->>ie, can I get at the list by looking at dev->ip_ptr struct?
-> 
-> 
-> Yes, using dev->ip_ptr as a "struct in_device *in_dev"
-> do something like this:
-> 
-> 	struct in_ifaddr *ifa;
-> 
-> 	read_lock(&in_dev->lock);
-> 	for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
-> 		if (inet_ifa_match(my_addr, ifa)) {
-> 			/* match */
-> 		}
-> 	}
-> 	read_unlock(&in_dev->lock);
-> 
-> should work...
-> 
+System:
+Mainboard MSI nForce K7N415 Pro
+OS SUSE 8.2
+updated kernel k_athlon-2.4.20-100 and kernel-source-2.4.20.SuSE-100
 
+I compiled forcedeth 0.18 as external module by "make" using the makefile
+---------
+KERNELDIR = /usr/src/linux
+CFLAGS = -D__KERNEL__ -DMODULE -I$(KERNELDIR)/include -O
 
-The inet_ifa_match thing uses a mask, and was matching everything on the subnet,
-or something...
+all: forcedeth.o
+---------
 
-This seems to work though:
+forcedeth.o is replacing nvnet.o and working so far without any problem. The 
+only output I get in my /var/log/messages is:
+---------
+Nov 20 08:22:52 linux kernel: forcedeth.c: Reverse Engineered nForce ethernet 
+driver. Version 0.18.
+Nov 20 08:22:52 linux kernel: PCI: Setting latency timer of device 00:04.0 to 
+64
+Nov 20 08:22:52 linux kernel: eth0: forcedeth.c: subsystem: 01462:373c
+---------
 
-static int is_ip_on_dev(struct net_device* dev, __u32 ip) {
-	int rv = 0;
-	struct in_device* in_dev = in_dev_get(dev);
-	if (in_dev) {
-		struct in_ifaddr *ifa;
+Is it possible to publish forcedeth.c in future releases as I prefer compiling 
+as an external module to patching the sources?
+Anyway - thank's a lot for the great driver, hopefully Nvidia will think about 
+their non-disclosure policy now.
 
-		read_lock(&in_dev->lock);
-		for (ifa = in_dev->ifa_list; ifa; ifa = ifa->ifa_next) {
-			if (ifa->ifa_address == ip) {
-				/* match */
-				rv = 1;
-				break;
-			}
-		}
-		read_unlock(&in_dev->lock);
-		in_dev_put(in_dev);
-	}
-	return rv;
-}
-
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+Hans
