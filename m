@@ -1,60 +1,35 @@
-From: Mitchell Blank Jr <mitch@sfgoth.com>
-Subject: [PATCH] small loopback.c cleanups
-Date: Sat, 16 Aug 2003 17:57:06 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] (1/5) get rid of useless hashbin in irtty
+Date: Sat, 16 Aug 2003 17:58:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030817005706.GE80721@gaz.sfgoth.com>
+Message-ID: <20030816175851.58a2c179.davem@redhat.com>
+References: <20030815154608.56cf0551.shemminger@osdl.org>
+	<20030815230546.GA31831@bougret.hpl.hp.com>
+	<20030816052048.5858d68a.davem@redhat.com>
+	<20030817001405.GA1916@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: jt@bougret.hpl.hp.com, shemminger@osdl.org,
+   irda-users@lists.sourceforge.net, netdev@oss.sgi.com, lists@mdiehl.de
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
+To: jt@hpl.hp.com
+In-Reply-To: <20030817001405.GA1916@bougret.hpl.hp.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Few trivial cleanups/improvements to drivers/net/loopback.c  Seems to work
-fine for me, although I don't know how to stress all of the code paths.
+On Sat, 16 Aug 2003 17:14:05 -0700
+Jean Tourrilhes <jt@bougret.hpl.hp.com> wrote:
 
-Patch is versus 2.6.0-test3 (should apply to current BK fine)
+> 	Curently driver do work properly (including SMP).
 
--Mitch
+Users can hold onto procfs files after the driver
+modules are unloaded.  For example:
 
---- linux-2.6.0-test3-VIRGIN/drivers/net/loopback.c	2003-07-13 20:30:48.000000000 -0700
-+++ linux-2.6.0-test3mnb1/drivers/net/loopback.c	2003-08-16 08:37:29.000000000 -0700
-@@ -128,17 +128,13 @@
- 	 *	instead are lobbed from tx queue to rx queue 
- 	 */
- 
--	if(atomic_read(&skb->users) != 1)
--	{
-+	if (skb_shared(skb)) {
- 	  	struct sk_buff *skb2=skb;
- 	  	skb=skb_clone(skb, GFP_ATOMIC);		/* Clone the buffer */
--	  	if(skb==NULL) {
--			kfree_skb(skb2);
-+		kfree_skb(skb2);
-+	  	if (unlikely(skb==NULL))
- 			return 0;
--		}
--	  	kfree_skb(skb2);
--	}
--	else
-+	} else
- 		skb_orphan(skb);
- 
- 	skb->protocol=eth_type_trans(skb,dev);
-@@ -148,12 +144,8 @@
- #endif
- 
- 	if (skb_shinfo(skb)->tso_size) {
--		struct iphdr *iph = skb->nh.iph;
--
--		if (skb->protocol != htons(ETH_P_IP))
--			BUG();
--		if (iph->protocol != IPPROTO_TCP)
--			BUG();
-+		BUG_ON(skb->protocol != htons(ETH_P_IP));
-+		BUG_ON(skb->nh.iph->protocol != IPPROTO_TCP);
- 
- 		emulate_large_send_offload(skb);
- 		return 0;
+rmmod eth0 </proc/sys/net/ipv4/eth0/whatever
+
+If IRDA creates any procfs files for devices that are
+registered, you have this problem too.
+
+This is not fixable without first making sure every net driver in the
+entire tree abides by a few rules, and that is what Stephen is doing.
