@@ -1,38 +1,35 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: Patch: Device operative state notification against 2.5.7
-Date: Thu, 11 Apr 2002 07:24:06 -0400 (EDT)
+Subject: Re: netlink question
+Date: Thu, 11 Apr 2002 07:41:04 -0400 (EDT)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0204110719400.651-100000@shell.cyberus.ca>
-References: <3CB2D065.A3DA60BB@isg.de>
+Message-ID: <Pine.GSO.4.30.0204110732000.651-100000@shell.cyberus.ca>
+References: <20020410132025.A8595@balabit.hu>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: Michael Richardson <mcr@sandelman.ottawa.on.ca>, <netdev@oss.sgi.com>
+Cc: <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Stefan Rompf <srompf@isg.de>
-In-Reply-To: <3CB2D065.A3DA60BB@isg.de>
+To: Balazs Scheidler <bazsi@balabit.hu>
+In-Reply-To: <20020410132025.A8595@balabit.hu>
 List-Id: netdev.vger.kernel.org
 
 
 
-On Tue, 9 Apr 2002, Stefan Rompf wrote:
 
-> Hi Jamal,
+On Wed, 10 Apr 2002, Balazs Scheidler wrote:
+
+> Hi,
 >
-> > [discussion whether IFOP_DOWN_LOWERLAYER should send netlink messages]
-> >
-> > I think they should be accessible; whether you send netlink
-> > advertisements everytime there is some state transition is the question.
+> As I need to communicate between two parts of the kernel (a core TCP part,
+> and a loaded module), Andi suggested to use netlink for this purpose.
 >
-> they should. For a routing daemon it is interesting to be notified when
-> interfaces becomes capable or incapable of handling packets, independant
-> of the reason. As long as we abstract virtual or subinterfaces as normal
-> interfaces to the upper layers (which is IMHO the correct decision),
-> IFOP_DOWN_LOWERLAYER must trigger a notification.
+> Since I'm not too familiar with Netlink (and I saw only userspace-kernel
+> communication using netlink), I'd need some introductory material about
+> netlink. Is some information about the subject available? Sample code would
+> be sufficient as well.
+>
 
-Well ... ok. Note, the user space program could maintain state
-and observe when all the interfaces are down to reach the same conclusion.
-
-Ok, Stefan, i think you should be ready to roll some code now ;->
+Look at notifier_chain_un/register(),un/register_netdevice_notifier(),
+and their usage. You could also look at the usage of netdev_state_change()
 
 cheers,
 jamal
