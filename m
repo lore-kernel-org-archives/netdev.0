@@ -1,48 +1,49 @@
 From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH 2.6.10-rc2-netdev1 1/4] r8169: missing netif_poll_enable and irq ack
-Date: Tue, 16 Nov 2004 23:30:40 +0100
-Message-ID: <20041116223040.GA16715@electric-eye.fr.zoreil.com>
+Subject: [PATCH 2.6.10-rc2-netdev1 4/4] r8169: reduce max MTU for large frames
+Date: Tue, 16 Nov 2004 23:36:04 +0100
+Message-ID: <20041116223604.GC16781@electric-eye.fr.zoreil.com>
+References: <20041116223040.GA16715@electric-eye.fr.zoreil.com> <20041116223332.GA16781@electric-eye.fr.zoreil.com> <20041116223439.GB16781@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: jgarzik@pobox.com
 Content-Disposition: inline
+In-Reply-To: <20041116223439.GB16781@electric-eye.fr.zoreil.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-- (noticed by Jon D. Mason) rtl8169_wait_for_quiescence() needs to disable
-  the NAPI processing but it has no reason to lock any part of the driver
-  which would try to do the same at a later time. Let's reenable NAPI
-  processing as soon as possible.
-- properly ack any aborted interruption: a reset of the device is not
-  always enough.
+The device does not support the whole mtu range it claims. Experimenting
+with the Tx threshold and/or the PCI burst size does not seem to improve
+the behavior.
 
 Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-diff -puN drivers/net/r8169.c~r8169-250 drivers/net/r8169.c
---- linux-2.6.10-rc2-mm1.orig/drivers/net/r8169.c~r8169-250	2004-11-15 00:28:53.000000000 +0100
-+++ linux-2.6.10-rc2-mm1/drivers/net/r8169.c	2004-11-16 22:32:23.000000000 +0100
-@@ -1742,10 +1742,19 @@ static void rtl8169_schedule_work(struct
+diff -puN drivers/net/r8169.c~r8169-265 drivers/net/r8169.c
+--- linux-2.6.10-rc2-mm1.orig/drivers/net/r8169.c~r8169-265	2004-11-16 22:26:06.000000000 +0100
++++ linux-2.6.10-rc2-mm1/drivers/net/r8169.c	2004-11-16 22:26:06.000000000 +0100
+@@ -112,7 +112,8 @@ static int multicast_filter_limit = 32;
+ #define RX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define TX_DMA_BURST	6	/* Maximum PCI burst, '6' is 1024 */
+ #define EarlyTxThld 	0x3F	/* 0x3F means NO early transmit */
+-#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC */
++#define RxPacketMaxSize	0x3FE8	/* 16K - 1 - ETH_HLEN - VLAN - CRC... */
++#define SafeMtu		0x1964	/* ... actually life sucks beyond ~7k */
+ #define InterFrameGap	0x03	/* 3 means InterFrameGap = the shortest one */
  
- static void rtl8169_wait_for_quiescence(struct net_device *dev)
- {
-+	struct rtl8169_private *tp = netdev_priv(dev);
-+	void __iomem *ioaddr = tp->mmio_addr;
-+
- 	synchronize_irq(dev->irq);
+ #define R8169_REGS_SIZE		256
+@@ -1592,9 +1593,9 @@ static int rtl8169_change_mtu(struct net
+ 	struct rtl8169_private *tp = netdev_priv(dev);
+ 	int ret = 0;
  
- 	/* Wait for any pending NAPI task to complete */
- 	netif_poll_disable(dev);
+-	if (new_mtu < ETH_ZLEN || new_mtu > RxPacketMaxSize)
++	if (new_mtu < ETH_ZLEN || new_mtu > SafeMtu)
+ 		return -EINVAL;
+-	
 +
-+	RTL_W16(IntrMask, 0x0000);
-+
-+	RTL_W16(IntrStatus, 0xffff);
-+
-+	netif_poll_enable(dev);
- }
+ 	dev->mtu = new_mtu;
  
- static void rtl8169_reinit_task(void *_data)
+ 	if (!netif_running(dev)) 
 
 _
