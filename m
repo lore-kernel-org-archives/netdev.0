@@ -1,47 +1,40 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] Bogus return status in drivers/net/tg3.c
-Date: Fri, 19 Dec 2003 23:32:31 +0100
+From: Stephen Hemminger <shemminger@osdl.org>
+Subject: [RFC] multiple eth0 mixed PCI/ISA init
+Date: Fri, 19 Dec 2003 15:14:15 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031219233231.A2420@electric-eye.fr.zoreil.com>
+Message-ID: <20031219151415.1cfdbe66.shemminger@osdl.org>
+References: <Pine.GS4.4.33.0312192251180.6715-100000@lutra.sztaki.hu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@redhat.com, Jeff Garzik <jgarzik@pobox.com>
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Zoltan Farkas <zfarkas@lutra.sztaki.hu>, Jeff Garzik
+ <jgarzik@pobox.com>,
+        Alexander Viro <aviro@redhat.com>
+In-Reply-To: <Pine.GS4.4.33.0312192251180.6715-100000@lutra.sztaki.hu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Apply on top of 2.6.0 + Jeff Garzik's 2.6.0-test11-bk5-netdrvr-exp2
+PCI is getting initialized before the old ISA probing code, so your PCI card
+is grabbing eth0 before the ISA card gets started.  
 
+You might be able workaround the problem probably by doing:
+	netdev=0,1,0,0,eth0
+which should cause the ISA probe code to skip eth0 and go on to eth1
 
-The status variable is not set before branching to the error path.
+This patch should fix 2.6.0 (have similar but different fix for net-drivers-2.5-exp).
+I don't have an ISA card to actually test this code path.
 
-
- drivers/net/tg3.c |    7 +++++--
- 1 files changed, 5 insertions(+), 2 deletions(-)
-
-diff -puN drivers/net/tg3.c~trivial-tg3-fscked-return-status drivers/net/tg3.c
---- linux-2.6.0-vanilla/drivers/net/tg3.c~trivial-tg3-fscked-return-status	2003-12-19 23:21:55.000000000 +0100
-+++ linux-2.6.0-vanilla-fr/drivers/net/tg3.c	2003-12-19 23:24:10.000000000 +0100
-@@ -7533,13 +7533,16 @@ static int __devinit tg3_init_one(struct
- 	if (pm_cap == 0) {
- 		printk(KERN_ERR PFX "Cannot find PowerManagement capability, "
- 		       "aborting.\n");
-+		err = -EIO;
- 		goto err_out_free_res;
+diff -Nru a/drivers/net/Space.c b/drivers/net/Space.c
+--- a/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
++++ b/drivers/net/Space.c	Fri Dec 19 15:10:50 2003
+@@ -350,7 +350,7 @@
+ 	 * Backwards compatibility - historically an I/O base of 1 was 
+ 	 * used to indicate not to probe for this ethN interface 
+ 	 */
+-	if (dev->base_addr == 1) {
++	if (__dev_get_by_name(dev->name) || dev->base_addr == 1) {
+ 		free_netdev(dev);
+ 		return -ENXIO;
  	}
- 
- 	/* Configure DMA attributes. */
--	if (!pci_set_dma_mask(pdev, 0xffffffffffffffffULL)) {
-+	err = pci_set_dma_mask(pdev, 0xffffffffffffffffULL);
-+	if (!err) {
- 		pci_using_dac = 1;
--		if (pci_set_consistent_dma_mask(pdev, 0xffffffffffffffffULL)) {
-+		err = pci_set_consistent_dma_mask(pdev, 0xffffffffffffffffULL);
-+		if (err < 0) {
- 			printk(KERN_ERR PFX "Unable to obtain 64 bit DMA "
- 			       "for consistent allocations\n");
- 			goto err_out_free_res;
-
-_
