@@ -1,37 +1,53 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH] PKT_SCHED: Initialize list field in dummy qdiscs
-Date: Fri, 5 Nov 2004 20:43:03 +0100
-Message-ID: <20041105194303.GA12289@postel.suug.ch>
-References: <418B4C7C.8000402@crocom.com.pl> <20041105115430.GP19714@rei.reeler.org> <418B4C7C.8000402@crocom.com.pl> <20041105141640.GQ19714@rei.reeler.org> <418BA66A.60804@trash.net> <20041105163951.GY12289@postel.suug.ch> <418BB7D2.6060908@trash.net> <20041105175812.GZ12289@postel.suug.ch> <418BC40E.8080402@trash.net>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [IPV6] Fix memory leaks in TCP error path
+Date: Fri, 5 Nov 2004 16:18:20 -0800
+Message-ID: <20041105161820.5c9bd53b.davem@davemloft.net>
+References: <20041105084904.GA8253@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com, spam@crocom.com.pl,
-        kuznet@ms2.inr.ac.ru, jmorris@redhat.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: yoshfuji@linux-ipv6.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <418BC40E.8080402@trash.net>
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20041105084904.GA8253@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <418BC40E.8080402@trash.net> 2004-11-05 19:18
-> Yes, but there doesn't seem to be a path where this is true.
+On Fri, 5 Nov 2004 19:49:04 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-I will double check this, there must be something wrong with
-one of the callers to qdisc_destroy since it's the only way
-entries can be removed from qdisc_list and otherwise the oops wouldn't
-show up with the POISON1.
+> I've gone through all the xfrm_lookup() calls in net/ipv6 and I haven't
+> seen anything that can cause an underflow.  I did find a couple of
+> memory leaks though.
+> 
+> In tcp_ipv6.c we may leak skb's if xfrm_lookup fails.
 
-> __qdisc_destroy is called from a rcu-callback, not directly from
-> qdisc_destroy.
+This patch actually adds a leak with the way xfrm_lookup() is currently
+coded.
 
-You're indeed right, I haven't noticed queue_lock being a softirq
-spinlock, stupid me.
+ 	/* sk = NULL, but it is safe for now. RST socket required. */
+-	if (!ip6_dst_lookup(NULL, &buff->dst, &fl)) {
+-
+-		if ((xfrm_lookup(&buff->dst, &fl, NULL, 0)) < 0) {
+-			dst_release(buff->dst);
+-			return;
+-		}
+-
++	if (!ip6_dst_lookup(NULL, &buff->dst, &fl) &&
++	    !xfrm_lookup(&buff->dst, &fl, NULL, 0)) {
 
-So to have qdisc_destroy be reliable we should either make sure
-dev->queue_lock is held for every call or switch to list_del_rcu.
-since qdisc_destroy might be called from bh context.
+To recount from yesterday's analysis, xfrm_lookup() behaves
+two different ways on error return:
 
-I will audit all paths, I'm pretty sure the reported oops is
-somehow related to this.
+1) Release 'dst' and set &dst to NULL
+2) Leave 'dst' alone and also do not modify &dst
+
+This means that to cover all cases you have to have the dst_release()
+there in that "if (xfrm_lookup()<0)" code path in order to handle
+case #2 above.
+
+We can get rid of the dst_release() calls only once the xfrm_lookup()
+patch I posted yesterday is included, which as per your advice today
+I'm not going to include until we've figured out the dst underflow
+problem :-)
