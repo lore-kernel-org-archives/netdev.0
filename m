@@ -1,28 +1,41 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [ROUTE] PMTU only works on half the time
-Date: Tue, 2 Dec 2003 21:33:04 +1100
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: [patch] 2.4 lacks dummy SET_NETDEV_DEV
+Date: Tue, 2 Dec 2003 12:40:25 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20031202103304.GA25658@gondor.apana.org.au>
-References: <20031201201651.GA20194@gondor.apana.org.au> <20031201204700.GA20349@gondor.apana.org.au> <20031201135154.6906454c.davem@redhat.com> <20031201220509.GA20827@gondor.apana.org.au> <20031201142131.5da50a07.davem@redhat.com> <20031201152215.522c2447.davem@redhat.com> <20031202101025.GA25422@gondor.apana.org.au> <20031202022733.43cf693e.davem@redhat.com>
+Message-ID: <20031202104024.GA9163@ee.oulu.fi>
+References: <20031110181917.GA25846@ee.oulu.fi> <20031110221430.GA26556@ee.oulu.fi> <20031110221429.04732a57.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-15
+Cc: marcelo.tosatti@cyclades.com.br
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20031202022733.43cf693e.davem@redhat.com>
+In-Reply-To: <20031110221429.04732a57.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, Dec 02, 2003 at 02:27:33AM -0800, David S. Miller wrote:
+On Mon, Nov 10, 2003 at 10:14:29PM -0800, David S. Miller wrote:
+> On Tue, 11 Nov 2003 00:14:30 +0200
+> Pekka Pietikainen <pp@ee.oulu.fi> wrote:
 > 
-> That behavior of glibc is incorrect, I know about it, and I explained
-> all this to Uli Drepper some time ago and he fixed it.
+> > (I still like the idea of being able to use exactly the same driver
+> > source on 2.4/2.6 though)
+> 
+> I agree, someone should merge in the dummy SET_NETDEV_DEV once
+> Marcelo starts up 2.4.24-preX
+Ping :-)
 
-Cool.  I can confirm that this is definitely fixed with a more recent
-glibc.
+--- linux-2.4.22-1.2115.nptl/include/linux/netdevice.h.orig	2003-11-10 20:08:42.922635848 +0200
++++ linux-2.4.22-1.2115.nptl/include/linux/netdevice.h	2003-11-10 20:09:09.754556776 +0200
+@@ -456,6 +456,8 @@
+ #endif /* CONFIG_NET_DIVERT */
+ };
+ 
++/* 2.6 compatibility */
++#define SET_NETDEV_DEV(net, pdev) do { } while (0)
+ 
+ struct packet_type 
+ {
+
 -- 
-Debian GNU/Linux 3.0 is out! ( http://www.debian.org/ )
-Email:  Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
+Pekka Pietikainen
