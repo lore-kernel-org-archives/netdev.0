@@ -1,37 +1,51 @@
-From: Roman Zippel <zippel@linux-m68k.org>
-Subject: Re: Cleaner way to conditionally disallow a CONFIG option as static
-Date: Wed, 10 Mar 2004 04:38:23 +0100 (CET)
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0403100437040.27654@serv>
-References: <Pine.LNX.4.58.0403081659170.1656@localhost.localdomain>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH 2.6] Intersil Prism54 wireless driver
+Date: Wed, 10 Mar 2004 02:12:22 -0500
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <404EBFD6.2090804@pobox.com>
+References: <20040304023524.GA19453@bougret.hpl.hp.com> <40469683.3000609@pobox.com> <20040310032452.GA25038@bougret.hpl.hp.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: kaos@ocs.com.au, linux-kernel@vger.kernel.org, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Sridhar Samudrala <sri@us.ibm.com>
-In-Reply-To: <Pine.LNX.4.58.0403081659170.1656@localhost.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com,
+	Linux kernel mailing list <linux-kernel@vger.kernel.org>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: jt@hpl.hp.com
+In-Reply-To: <20040310032452.GA25038@bougret.hpl.hp.com>
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Jean Tourrilhes wrote:
+> On Wed, Mar 03, 2004 at 09:37:55PM -0500, Jeff Garzik wrote:
+> 
+>>Jean Tourrilhes wrote:
+>>
+>>>	Hi Dave & Jeff,
+>>>
+>>>	The attached .bz2 file is a patch for 2.6.3 adding the
+>>>Intersil Prism54 wireless driver. Sorry for the attachement, the file
+>>>is rather big, if you want inline+plaintext, I'll send that personal
+>>>to you.
+>>>	I've been using this driver with great success on 2.6.3 and
+>>>2.6.4-rc1 (SMP). This driver support various popular CardBus and PCI
+>>>802.11g cards (54 Mb/s) based on the Intersil PrismGT/PrismDuette
+>>>chipset.
+>>>	I would like this driver to go into 2.6.X. However, I
+>>>understand that it's lot's of code to review.
+>>
+>>
+>>I would like it to go into 2.6 too :)  I'm glad somebody submitted it.
+>>
+>>I'll review it this weekend... and hopefully some other netdev denizens 
+>>will review as well and post their comments.
+>>
+>>	Jeff
+> 
+> 
+> 	Any news, Jeff ?
+> 	Thanks in advance...
 
-On Mon, 8 Mar 2004, Sridhar Samudrala wrote:
 
-> In 2.6, net/sctp/Kconfig
->
-> config IPV6_SCTP__
-> 	tristate
-> 	default y if IPV6=n
-> 	default IPV6 if IPV6
->
-> config IP_SCTP
-> 	tristate "The SCTP Protocol (EXPERIMENTAL)"
-> 	depends on IPV6_SCTP__
+Looks pretty decent to me.  I'm basically waiting on 2.6.4 release to 
+merge it.  I might remove some of the more egregious #ifdefs.
 
-This can be written as:
-
-config IP_SCTP
-	tristate "The SCTP Protocol (EXPERIMENTAL)"
-	depends on IPV6 || IPV6=n
-
-bye, Roman
+	Jeff
