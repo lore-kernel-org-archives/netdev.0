@@ -1,28 +1,33 @@
-From: "sena.co.kr PostMaster" <NmailServer@sena.co.kr>
-Subject: !Nmail Send error Timeout error
-Date: Tue, 03 Feb 2004 13:05:37 +0900
+From: Pete Zaitcev <zaitcev@redhat.com>
+Subject: Patchlet 2.6 iucv
+Date: Mon, 2 Feb 2004 20:12:03 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200402030404.i1344u7J030309@oss.sgi.com>
+Message-ID: <20040202201203.4c8b2053.zaitcev@redhat.com>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: schwidefsky@de.ibm.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Hi, Martin,
 
-Error Message : Timeout error
+it seems that someone misused container_of. Spotted by Al Viro.
+Please pass to whoever is responsible for IUCV.
 
--- You SendMail --
+-- Pete
 
->> Received: from oss.sgi.com (218.144.97.136)
->> 	by sena.co.kr (218.152.164.33) with [Nmail V3.3 20021108(S)]
->> 	for <sandra@kibwa.org> from <netdev@oss.sgi.com>;
->> 	Tue, 03 Feb 2004 12:54:18 +0900
->> From: netdev@oss.sgi.com
->> To: sandra@kibwa.org
->> Subject: 
->> Date: Tue, 3 Feb 2004 12:51:08 +0900
->> MIME-Version: 1.0
->> Content-Type: multipart/mixed;
->> 	boundary="----=_NextPart_000_0006_CD935793.74018A93"
->> X-Priority: 3
->> X-MSMail-Priority: Normal
+--- linux-2.6.1/drivers/s390/net/netiucv.c	2003-10-01 15:17:54.000000000 -0700
++++ linux-2.6.1-s390/drivers/s390/net/netiucv.c	2004-02-02 19:59:11.000000000 -0800
+@@ -1258,8 +1258,7 @@
+ buffer_write (struct device *dev, const char *buf, size_t count)
+ {
+ 	struct netiucv_priv *priv = dev->driver_data;
+-	struct net_device *ndev =
+-		container_of((void *)priv, struct net_device, priv);
++	struct net_device *ndev = priv->conn->netdev;
+ 	char         *e;
+ 	int          bs1;
+ 	char         tmp[CTRL_BUFSIZE];
