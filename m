@@ -1,31 +1,36 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: skb_padto and small fragmented transmits
-Date: Sat, 08 Feb 2003 00:53:03 -0800 (PST)
+From: James Morris <jmorris@intercode.com.au>
+Subject: Re: [PATCH] LSM networking update: summary (0/5)
+Date: Sat, 8 Feb 2003 20:43:55 +1100 (EST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030208.005303.80023391.davem@redhat.com>
-References: <1044559328.4618.54.camel@localhost.localdomain>
-	<20030206.144306.14966745.davem@redhat.com>
-	<1044624820.14026.7.camel@irongate.swansea.linux.org.uk>
+Message-ID: <Pine.LNX.4.44.0302082018220.10837-100000@blackbird.intercode.com.au>
+References: <20030208.004440.91323755.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: christopher.leech@intel.com, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Makan.Pourzandi@ericsson.ca, <kuznet@ms2.inr.ac.ru>,
+   <linux-security-module@wirex.com>, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: alan@lxorguk.ukuu.org.uk
-In-Reply-To: <1044624820.14026.7.camel@irongate.swansea.linux.org.uk>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030208.004440.91323755.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Alan Cox <alan@lxorguk.ukuu.org.uk>
-   Date: 07 Feb 2003 13:33:41 +0000
+On Sat, 8 Feb 2003, David S. Miller wrote:
 
-   On Thu, 2003-02-06 at 22:43, David S. Miller wrote:
-   > Indeed, Alan you need to fix the skb_padto stuff to use
-   > skb->len, ignore the skb->data_len as skb->len is the
-   > full length.
-   
-   Dave just fix it next time you touch the code and push it to Marcelo. It
-   doesnt affect the 2.2 backport so that will be ok
-   
-Ok, I will take care of this.
+>    From: James Morris <jmorris@intercode.com.au>
+>    Date: Sat, 8 Feb 2003 10:10:44 +1100 (EST)
+>    
+>    As mentioned during the last week, the current set of network hooks will
+>    not directly support explicitly labeled networking.
+> 
+> Why not?  I thought we had completely established that anything
+> the socket receive SKB hook could not handle would be implementable
+> via netfilter.
+> 
+
+By not directly supported, I mean by the LSM network hooks.
+
+
+- James
+-- 
+James Morris
+<jmorris@intercode.com.au>
