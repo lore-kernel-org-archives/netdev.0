@@ -1,68 +1,46 @@
-From: Harald Welte <laforge@netfilter.org>
-Subject: Re: RFC: promote netfilter MARK value from IPv6 packets to sit packets
-Date: Mon, 24 Feb 2003 15:41:16 +0100
-Sender: netfilter-devel-admin@lists.netfilter.org
-Message-ID: <20030224144116.GN24960@sunbeam.de.gnumonks.org>
-References: <20030217145727.GA3413@hensema.net> <20030223193339.GD15385@sunbeam.de.gnumonks.org> <20030223234225.GA23556@hensema.net> <20030224083946.H34066@shell.cyberus.ca>
+From: Bruce Allan <bwa@us.ibm.com>
+Subject: Re: [PATCH] subset of RFC2553
+Date: 24 Feb 2003 09:54:57 -0800
+Sender: linux-net-owner@vger.kernel.org
+Message-ID: <1046109300.3503.12.camel@w-bwa1.beaverton.ibm.com>
+References: <3E54128C.327D7759@us.ibm.com>
+	<20030219.162129.11584427.davem@redhat.com>
+	<1045847170.3104.7.camel@w-bwa1.beaverton.ibm.com>
+	<20030221.232639.129509431.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: multipart/signed; micalg=pgp-sha1;
-	protocol="application/pgp-signature"; boundary="lYetfuAxy9ic4HK3"
-Cc: Erik Hensema <erik@hensema.net>, Harald Welte <laforge@netfilter.org>,
-	netdev@oss.sgi.com,
-	Netfilter Development Mailinglist <netfilter-devel@lists.netfilter.org>
-Return-path: <netfilter-devel-admin@lists.netfilter.org>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <20030224083946.H34066@shell.cyberus.ca>
-Errors-To: netfilter-devel-admin@lists.netfilter.org
-List-Help: <mailto:netfilter-devel-request@lists.netfilter.org?subject=help>
-List-Post: <mailto:netfilter-devel@lists.netfilter.org>
-List-Subscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=subscribe>
-List-Unsubscribe: <https://lists.netfilter.org/mailman/listinfo/netfilter-devel>,
-	<mailto:netfilter-devel-request@lists.netfilter.org?subject=unsubscribe>
-List-Archive: <https://lists.netfilter.org/pipermail/netfilter-devel/>
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: lksctp-developers@lists.sourceforge.net, linux-net@vger.kernel.org,
+	netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030221.232639.129509431.davem@redhat.com>
 List-Id: netdev.vger.kernel.org
 
+Doh!  Sorry, here (see below) it is against 2.5.59.
 
---lYetfuAxy9ic4HK3
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
-Content-Transfer-Encoding: quoted-printable
+On Fri, 2003-02-21 at 23:26, David S. Miller wrote:
+> 
+> Bruce, while applying this I noticed that in6addr_{any,loopback}
+> are not exported by modules.
+> 
+> Please send me a small patch to add the exports if this will be
+> needed by SCTP and friends.
+> 
+> Thanks.
+> 
 
-On Mon, Feb 24, 2003 at 08:41:10AM -0500, jamal wrote:
-> If this is to be a config option, it should not be restricted to
-> netfilter specifics but rather skb specifics. Example the tcindex
-> (maybe even the cb) etc.
+--- linux-2.5.59/net/ipv6/ipv6_syms.c	2003-01-16 18:22:25.000000000 -0800
++++ linux-2.5.59-RFC2553/net/ipv6/ipv6_syms.c	2003-02-24 09:02:41.000000000 -0800
+@@ -25,3 +25,5 @@
+ EXPORT_SYMBOL(inet6_ioctl);
+ EXPORT_SYMBOL(ipv6_get_saddr);
+ EXPORT_SYMBOL(ipv6_chk_addr);
++EXPORT_SYMBOL(in6addr_any);
++EXPORT_SYMBOL(in6addr_loopback);
 
-No problem with me.  I do understand the usefulness of tcindex, but what
-would a totally different protcol (or the user) do with the cb of a
-different protocol?
+-- 
+Bruce Allan
+Linux Technology Center
+IBM Corporation, Beaverton OR
 
-> cheers,
-> jamal
-
---=20
-- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
-=3D
-  "Fragmentation is like classful addressing -- an interesting early
-   architectural error that shows how much experimentation was going
-   on while IP was being designed."                    -- Paul Vixie
-
---lYetfuAxy9ic4HK3
-Content-Type: application/pgp-signature
-Content-Disposition: inline
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.0.6 (GNU/Linux)
-Comment: For info see http://www.gnupg.org
-
-iD8DBQE+Wi8MXaXGVTD0i/8RAmfCAJsGL4Ga6R62Yezoj1HCJWC58wWR5gCfcEsv
-1Bm/rI31ua78Rs9d20eNLfw=
-=mrzP
------END PGP SIGNATURE-----
-
---lYetfuAxy9ic4HK3--
