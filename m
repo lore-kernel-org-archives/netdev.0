@@ -1,33 +1,26 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [PATCH] PKT_SCHED: Fix cls indev validation
-Date: Tue, 21 Dec 2004 11:17:23 +0100
-Message-ID: <41C7F833.4000909@trash.net>
-References: <20041219203050.GK17998@postel.suug.ch> <41C68CEF.3030803@trash.net> <1103552215.1048.333.camel@jzny.localdomain> <20041220200739.GX17998@postel.suug.ch>
+From: linux lover <linux.lover2004@gmail.com>
+Subject: what is use of dev_queue_xmit_nit?
+Date: Tue, 21 Dec 2004 15:36:14 +0530
+Message-ID: <72c6e379041221020653e7a488@mail.gmail.com>
+Reply-To: linux lover <linux.lover2004@gmail.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jamal <hadi@cyberus.ca>, "David S. Miller" <davem@davemloft.net>,
-        netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Thomas Graf <tgraf@suug.ch>
-In-Reply-To: <20041220200739.GX17998@postel.suug.ch>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: netdev@oss.sgi.com
+Return-path: <linux-net-owner@vger.kernel.org>
+To: linux-net@vger.kernel.org
+Sender: linux-net-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-Thomas Graf wrote:
-> * jamal <1103552215.1048.333.camel@jzny.localdomain> 2004-12-20 09:16
-> 
->>Hehe. I am sure thats a cutnpaste(LinuxWay) from some code in the kernel
->>probably sch_api.c (or maybe the code it was cutnpasted has been fixed
->>in the last 3 years ;->).
->>That needs fixing. Who is sending the patch?
-> 
-> I'll put it into my patchset so it gets into the test cycles.
-
-Could you make your patchset available somehow ?
-I'm not sure which areas of the code I can still
-touch without conflicting with you :)
-
-Regards
-Patrick
+Hello all,
+       I want to know what is use of dev_queue_xmit_nit function in
+dev.c file? Also why it calls following statement
+                        ptype->func(skb2, skb->dev, ptype);
+Also why skb2 is created by cloning skb? Acually i trace TCP packets
+and found that control goes from neigh_resolve_output to directly
+dev_queue_xmit_nit and then to HW driver 8139too.c? I want to know why
+it not goes from dev_queue_xmit? I place printk statments and found
+after dev_queue_xmit_nit control moves to network interface driver?
+Help to understand the control  packet path.
+Thanks in advance.
+linux_lover
