@@ -1,66 +1,72 @@
-From: =?ISO-8859-1?Q?Roar_Bj=F8rgum_Rotvik?= <roarbr@tihlde.org>
-Subject: Re: Required resources on network driver programming
-Date: Mon, 20 Dec 2004 10:44:05 +0100
-Message-ID: <41C69EE5.7070907@tihlde.org>
-References: <20041220074535.64217.qmail@web52208.mail.yahoo.com>
+From: Patrick McHardy <kaber@trash.net>
+Subject: Re: [PATCH] PKT_SCHED: Provide compat policer stats in	action	policer
+Date: Mon, 20 Dec 2004 11:17:48 +0100
+Message-ID: <41C6A6CC.1050105@trash.net>
+References: <20041215130128.GK8493@postel.suug.ch>	 <1103119774.1077.74.camel@jzny.localdomain>  <41C05B60.6030504@trash.net> <1103484249.1046.143.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
+Cc: Thomas Graf <tgraf@suug.ch>, "David S. Miller" <davem@davemloft.net>,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux lover <linux_lover2004@yahoo.com>
-In-Reply-To: <20041220074535.64217.qmail@web52208.mail.yahoo.com>
+To: hadi@cyberus.ca
+In-Reply-To: <1103484249.1046.143.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-linux lover wrote:
->  
-> Hi all,
->                   I am newbie to Linux kernel
-> programming. I want to write my own virtual network
-> device driver that take every packets from IP layer
-> just print the contents of packet(header part with its
-> starting addresses only) and send it to actual device
-> driver for packet transmission and at receiving end
-> receive packet from NIC card again print the header
-> addresses and send it to upper layer for normal packet
-> processing.
->                  I require help about where can i get
-> resources or any book for writing virtual network
-> driver with SAMPLE EXAMPLES?
+jamal wrote:
+> On Wed, 2004-12-15 at 10:42, Patrick McHardy wrote:
+> 
+>>Since
+>>this problem is not related to the policer oops fix it doesn't
+>>convince me that my time would have been well invested doing the
+>>tests you described.
+> 
+> 
+> But it is _absolutely_ related to the policer oops.
+> If those tests were run to begin with there would be no oops neither
+> this latest problem. 
 
-Another mail gave you pointers to driver programming.
-Here are links to TUN/TAP, a virtual ethernet (or point-to-point) device 
-driver in the Linux kernel.
+I agree that this problem would have been avoided if the
+regression tests were run when the change was made, and it
+made sense to run them at that time. Unfortunately I missed
+the patch when it went in, otherwise I would have objected
+to using a field called "priv" and making assumptions about
+the layout of the structure it points to in a file called
+act_api anyway.
 
-With TAP you have a virtual ethernet device, where the device driver is 
-replaced with a userspace application (that you write) that receives all 
-data sent to the tap device (for instance tap0) from the linux kernel 
-network stack.
-This data contains ethernet header + all other payload (like IP-header + 
-IP data with either TCP/UDP or arp-packets)..
+But reshuffling structure members of a structure not exposed
+to userspace doesn't require testing tc, and doesn't require
+testing old kernels. This was the only point I was trying to
+make, I run tests when they make sense, but not because I might
+find something unrelated by accident. As an exception to this,
+I am willing to run unrelated tests if it is little overhead
+(== fully automatic).
 
-Your userspace app may also send data to a tap-device and this data will 
-be sent to the linux network stack like it came from a real ethernet device.
+Even following your logic (We cant compromise quality by
+handwaving on instinct. Famous last words: "that couldnt have
+possibly caused a bug down there") I need to either test the
+entire kernel after each change ("down there" could be
+anywhere), or judge for myself which parts to test. Blindly
+running regression tests isn't going to do much good.
 
-So your userspace app may do whatever it want with the data, it may 
-print out the contents of the IP layer and forward the data to another 
-PC using the real ethernet device (eth0, or another network medium).
-The other PC may do the opposite, i.e. receive the data from the 
-ethernet device and send then to the tap device.
+> Hopefully with the regression tests in place this will get better.
 
-Your application may even encapsulate the data send between the two PC 
-in any protocol you may like (you got tunneling).
+On a side-note, you both seem to be inventing your own testing
+framework and regression tests. tcng already includes lots of
+regression tests for tc, tcng and the kernel. Unfortunately,
+last time I checked, it didn't work with 2.6.
 
-If you wanted to do all in kernel mode this is not what you want, but 
-tun/tap code may give you some tips on how to create a virtual ethernet 
-device..
+> [You fear Murphy less than i - and thats a style difference. Your style
+> is actually more effective in Linux because you can distribute the
+> burden onto users. As a matter of fact it is within Daves tolerance
+> range (but not mine[1]). So you should do just fine]
 
-See these links:
-http://lxr.linux.no/source/drivers/net/tun.c?v=2.6.8.1
-http://vtun.sourceforge.net/tun/
-http://vtun.sourceforge.net/tun/faq.html
+I don't feel like I'm distributing burden onto anyone. As I
+said, I run the tests I deem necessary, and I never send out
+patches of whichs correctness I'm not convinced. So far, my
+history of mistakes has been pretty good.
 
--- 
-Roar B. Rotvik
+Regards
+Patrick
