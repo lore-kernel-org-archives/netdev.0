@@ -1,29 +1,29 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [AH4] Save daddr iff options are present
-Date: Sat, 24 Jul 2004 11:44:15 +1000
+Subject: [AH6] Replace skb by iph in clear_mutable_options
+Date: Sat, 24 Jul 2004 14:50:41 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040724014415.GA5866@gondor.apana.org.au>
+Message-ID: <20040724045041.GA7091@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="r5Pyd7+fXNt84Ff3"
+Content-Type: multipart/mixed; boundary="GvXjxJ+pjyke8COw"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+To: "David S. Miller" <davem@redhat.com>,
+        Kazunori Miyazawa <kazunori@miyazawa.org>, netdev@oss.sgi.com
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---r5Pyd7+fXNt84Ff3
+--GvXjxJ+pjyke8COw
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
-Hi Dave:
+Hi:
 
-This is a little optimisation for AH4.  When I moved the tunnel code out,
-I put the daddr copying code on the main path which is unnecessary since
-daddr is only mutable if IP options are present.
+This patch replaces the skb argument in ipv6_clear_mutable_options() by
+an ipv6hdr.  Doing so allows us to point skb->nh elsewhere when calling
+this function.
 
-This patch moves the saving and restoring of daddr under the check for
-the existence of IP options.
+I've also thrown in some obvious clean-ups for that function.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -34,36 +34,101 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---r5Pyd7+fXNt84Ff3
+--GvXjxJ+pjyke8COw
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
-===== net/ipv4/ah4.c 1.37 vs edited =====
---- 1.37/net/ipv4/ah4.c	2004-07-12 20:00:21 +10:00
-+++ edited/net/ipv4/ah4.c	2004-07-24 11:39:40 +10:00
-@@ -73,9 +73,9 @@
- 	iph->tos = top_iph->tos;
- 	iph->ttl = top_iph->ttl;
- 	iph->frag_off = top_iph->frag_off;
--	iph->daddr = top_iph->daddr;
+===== ah6.c 1.33 vs edited =====
+--- 1.33/net/ipv6/ah6.c	2004-07-24 09:54:15 +10:00
++++ edited/ah6.c	2004-07-24 14:39:24 +10:00
+@@ -74,49 +74,42 @@
+ 	return 0;
+ }
  
- 	if (top_iph->ihl != 5) {
-+		iph->daddr = top_iph->daddr;
- 		memcpy(iph+1, top_iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
- 		err = ip_clear_mutable_options(top_iph, &top_iph->daddr);
+-static int ipv6_clear_mutable_options(struct sk_buff *skb,
+-				      unsigned int hdr_len)
++static int ipv6_clear_mutable_options(struct ipv6hdr *iph, int len)
+ {
+-	u16 offset = sizeof(struct ipv6hdr);
+-	struct ipv6_opt_hdr *exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
+-	u8 nexthdr = skb->nh.ipv6h->nexthdr;
++	union {
++		struct ipv6hdr *iph;
++		struct ipv6_opt_hdr *opth;
++		struct ipv6_rt_hdr *rth;
++		char *raw;
++	} exthdr = { .iph = iph };
++	char *end = exthdr.raw + len;
++	int nexthdr = iph->nexthdr;
+ 
+-	while (offset + 1 <= hdr_len) {
++	exthdr.iph++;
+ 
++	while (exthdr.raw < end) {
+ 		switch (nexthdr) {
+-
+ 		case NEXTHDR_HOP:
+-			offset += ipv6_optlen(exthdr);
+-			if (!zero_out_mutable_opts(exthdr)) {
+-				LIMIT_NETDEBUG(
+-				printk(KERN_WARNING "overrun hopopts\n")); 
++		case NEXTHDR_DEST:
++			if (!zero_out_mutable_opts(exthdr.opth)) {
++				LIMIT_NETDEBUG(printk(
++					KERN_WARNING "overrun %sopts\n",
++					nexthdr == NEXTHDR_HOP ?
++						"hop" : "dest"));
+ 				return -EINVAL;
+ 			}
+-			nexthdr = exthdr->nexthdr;
+-			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
+ 			break;
+ 
+ 		case NEXTHDR_ROUTING:
+-			offset += ipv6_optlen(exthdr);
+-			((struct ipv6_rt_hdr*)exthdr)->segments_left = 0; 
+-			nexthdr = exthdr->nexthdr;
+-			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
+-			break;
+-
+-		case NEXTHDR_DEST:
+-			offset += ipv6_optlen(exthdr);
+-			if (!zero_out_mutable_opts(exthdr))  {
+-				LIMIT_NETDEBUG(
+-					printk(KERN_WARNING "overrun destopt\n")); 
+-				return -EINVAL;
+-			}
+-			nexthdr = exthdr->nexthdr;
+-			exthdr = (struct ipv6_opt_hdr*)(skb->nh.raw + offset);
++			exthdr.rth->segments_left = 0; 
+ 			break;
+ 
+ 		default :
+ 			return 0;
+ 		}
++
++		nexthdr = exthdr.opth->nexthdr;
++		exthdr.raw += ipv6_optlen(exthdr.opth);
+ 	}
+ 
+ 	return 0;
+@@ -175,7 +168,7 @@
+ 		(*pskb)->nh.ipv6h = (struct ipv6hdr*)skb_push(*pskb, x->props.header_len);
+ 		iph->payload_len = htons((*pskb)->len - sizeof(struct ipv6hdr));
+ 		memcpy((*pskb)->nh.ipv6h, iph, hdr_len);
+-		err = ipv6_clear_mutable_options(*pskb, hdr_len);
++		err = ipv6_clear_mutable_options((*pskb)->nh.ipv6h, hdr_len);
  		if (err)
-@@ -104,9 +104,10 @@
- 	top_iph->tos = iph->tos;
- 	top_iph->ttl = iph->ttl;
- 	top_iph->frag_off = iph->frag_off;
--	top_iph->daddr = iph->daddr;
--	if (top_iph->ihl != 5)
-+	if (top_iph->ihl != 5) {
-+		top_iph->daddr = iph->daddr;
- 		memcpy(top_iph+1, iph+1, top_iph->ihl*4 - sizeof(struct iphdr));
-+	}
+ 			goto error_free_iph;
  
- 	ip_send_check(top_iph);
- 
+@@ -283,7 +276,7 @@
+ 	if (!tmp_hdr)
+ 		goto out;
+ 	memcpy(tmp_hdr, skb->nh.raw, hdr_len);
+-	if (ipv6_clear_mutable_options(skb, hdr_len))
++	if (ipv6_clear_mutable_options(skb->nh.ipv6h, hdr_len))
+ 		goto out;
+ 	skb->nh.ipv6h->priority    = 0;
+ 	skb->nh.ipv6h->flow_lbl[0] = 0;
 
---r5Pyd7+fXNt84Ff3--
+--GvXjxJ+pjyke8COw--
