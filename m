@@ -1,98 +1,32 @@
-From: Paul Wagland <paul@wagland.net>
-Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Thu, 13 May 2004 19:38:44 +0200
+From: "J. M." <snortwiz@hotmail.com>
+Subject: Re: OSDL Bugzilla #2399: A user can remotely route a packet through eth0 on a Li
+Date: Thu, 13 May 2004 12:45:11 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <61D92BA6-A504-11D8-BD91-000A95CD704C@wagland.net>
-References: <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu> <20040512202807.GA16849@elte.hu> <20040512203500.GA17999@elte.hu> <20040512205028.GA18806@elte.hu> <20040512140729.476ace9e.akpm@osdl.org> <20040512211748.GB20800@elte.hu> <20040512221823.GK1397@holomorphy.com>
-Mime-Version: 1.0 (Apple Message framework v613)
-Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-45-936026051"
-Content-Transfer-Encoding: 7bit
-Cc: greg@kroah.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-        Ingo Molnar <mingo@elte.hu>, netdev@oss.sgi.com,
-        davidel@xmailserver.org, Valdis.Kletnieks@vt.edu,
-        Andrew Morton <akpm@osdl.org>
+Message-ID: <BAY15-F10TbdkSmLAzt00054421@hotmail.com>
+Mime-Version: 1.0
+Content-Type: text/plain; format=flowed
+Cc: niv@us.ibm.com, dlstevens@us.ibm.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040512221823.GK1397@holomorphy.com>
-To: William Lee Irwin III <wli@holomorphy.com>
+To: shemminger@osdl.org
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+>On Linux, IP addresses are not bound to interfaces.  You need
+>to use SO_BINDTODEVICE if that is what you want.
 
---Apple-Mail-45-936026051
-Content-Transfer-Encoding: 7bit
-Content-Type: text/plain; charset=US-ASCII; format=flowed
+IP's are not bound to a specific interface - makes sense to me why the 
+traffic acts the way it acts.
 
-Nit pick I'm sure... but....
+>The security model is correct, and well defined, just different than BSD
+>derived systems.  It does conform to the standards (RFC's).
 
-On May 13, 2004, at 0:18, William Lee Irwin III wrote:
+The model is logical, may be well defined, and could conform to every 
+applicable RFC - but I would argue that it's got its problems.  After all, 
+conforming to RFC's doesn't make something secure and flawless - just look 
+at security flaws in TCP/IP designs over the years that followed the RFC's.  
+:)
 
-> Optimize the cases where HZ is a divisor of 1000 or vice-versa in
-> JIFFIES_TO_MSECS() and MSECS_TO_JIFFIES() by allowing the 
-> nonvanishing(!)
-> integral ratios to appear as a parenthesized expressions eligible for
-> constant folding optimizations.
->
->
-> -- wli
->
->
-> Index: linux-2.5/include/linux/time.h
-> ===================================================================
-> --- linux-2.5.orig/include/linux/time.h	2004-05-12 15:04:10.000000000 
-> -0700
-> +++ linux-2.5/include/linux/time.h	2004-05-12 15:12:49.000000000 -0700
-> @@ -184,12 +184,12 @@
->   * Avoid unnecessary multiplications/divisions in the
->   * two most common HZ cases:
->   */
-> -#if HZ == 1000
-> -# define JIFFIES_TO_MSECS(x)	(x)
-> -# define MSECS_TO_JIFFIES(x)	(x)
-> -#elif HZ == 100
-> -# define JIFFIES_TO_MSECS(x)	((x) * 10)
-> -# define MSECS_TO_JIFFIES(x)	(((x) + 9) / 10)
-> +#if HZ <= 1000 && !(1000 % HZ)
-> +# define JIFFIES_TO_MSECS(j)	((1000/HZ)*(j))
-> +# define MSECS_TO_JIFFIES(m)	(((m) + (1000/HZ) - 1)/(1000/HZ))
-> +#elif HZ > 1000 && !(HZ % 1000)
-> +# define JIFFIES_TO_MSECS(j)	(((j) + (HZ/1000) - 1)/(HZ/1000))
-> +# define MSECS_TO_JIFFIES(m)	((m)*(HZ/1000))
->  #else
->  # define JIFFIES_TO_MSECS(x)	(((x) * 1000) / HZ)
->  # define MSECS_TO_JIFFIES(x)	(((x) * HZ + 999) / 1000)
-
-Also, can we keep the same parameter name across all of the macros?
-
-This changes behaviour when HZ==(z)000
-
-JIFFIES_TO_MSECS  goes from
-((x) * 1000) / (z)000  to (((x) + (z) - 1)/(z))
-
-i.e. for x=1, z=2 this goes from ((1)*1000)/2000)=0 to (((1)+(2)-1)/2)=1
-
-However, MSECS_TO_JIFFIES remains the same going from
-(((x) * (z)000 + 999) / 1000) to ((x)*(z))
-
-I.e. they basically reduce down to the same thing (modulo overflows)
-
-All of the other permuations look correct to me...
-
-Cheers,
-Paul
-
---Apple-Mail-45-936026051
-content-type: application/pgp-signature; x-mac-type=70674453;
-	name=PGP.sig
-content-description: This is a digitally signed message part
-content-disposition: inline; filename=PGP.sig
-content-transfer-encoding: 7bit
-
------BEGIN PGP SIGNATURE-----
-Version: GnuPG v1.2.4 (Darwin)
-
-iD8DBQFAo7Kotch0EvEFvxURArAUAJwNpR4JSiDhL3UppN0nUK6JAj6P+ACfXGX+
-sQEy00pbB2arDZ8XGgg3i0s=
-=7wHH
------END PGP SIGNATURE-----
-
---Apple-Mail-45-936026051--
+_________________________________________________________________
+Watch LIVE baseball games on your computer with MLB.TV, included with MSN 
+Premium! 
+http://join.msn.com/?page=features/mlb&pgmarket=en-us/go/onm00200439ave/direct/01/
