@@ -1,43 +1,107 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: A better way to get driver stats than parsing /proc/net/dev ?
-Date: Fri, 11 Apr 2003 10:26:57 -0700
+From: "George E. Oakes" <oakes_ge@pannaway.com>
+Subject: PING statistics
+Date: Fri, 11 Apr 2003 16:33:28 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3E96FAE1.7030302@candelatech.com>
-References: <3E967535.2000409@candelatech.com> <slrnb9dn9r.fef.lunz@stoli.localnet>
+Message-ID: <DBEKJBEMDPJJJKJLGPKMOEOICKAA.oakes_ge@pannaway.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: multipart/mixed;
+	boundary="----=_NextPart_000_0000_01C30048.14D981B0"
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@falooley.org>
-In-Reply-To: <slrnb9dn9r.fef.lunz@stoli.localnet>
+To: <netdev@oss.sgi.com>
+Content-Class: urn:content-classes:message
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jason Lunz wrote:
-> greearb@candelatech.com said:
-> 
->>Is there an ioctl or some other binary means of getting the info that
->>/proc/net/dev provides?
-> 
-> 
-> You can do it with netlink sockets. See print_linkinfo() in the iproute2
-> code.
+This is a multi-part message in MIME format.
 
-Seems that a lot of code is needed just to read the stats :(
-And every man page I read says use libnetlink instead, but I can't find any docs
-on libnetlink itself (and the .ru ftp link for iproute2 seems down).
+------=_NextPart_000_0000_01C30048.14D981B0
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 7bit
 
-Do you know of any pointers as to how to use libnetlink, or if it
-really makes netlink easier to use?
+Hi,
+
+I'm looking at a box with an embedded web server running uClinux 2.4.20
+(Brecis) -
+
+Run a ping on my loopback then stop it, and result of ping is 211 sent and
+211 replies.
+
+Look at the output of netstat -s
+
+Under ICMP:
+
+428 ICMP messages received
+0 input ICMP message failed.
+ICMP input historam:
+  echo requests: 217 (unsure why this doesn't match 211 sent???????)
+  echo replies:211
+217 ICMP messages sent
+0 ICMP messages failed:
+ICMP output histogram:
+  echo replies: 217
+
+Output of netstat -i  for lo
+
+Link encap: Local Loopback
+inet addr: 127.0.0.1 Mask: 255.0.0.0
+UP LOOPBACK RUNNING MTU:16436 Metric:1
+RX packets:422 errors:0 dropped:0 overruns:0 frame:0
+TX packets:422 errors:0 dropped:0 overruns:0 frame:0 collisions:0
+txqueuelen:0
+
+My question: Why are RX and TX packets the same (adding echo request of 211
+and echo reply of 211 to equal 422)?
+
+Thanks for any light you can shed,
+
+Regards
+George Oakes
+Technical Writer, Pannaway Technologies
 
 
-> 
-> Jason
-> 
+------=_NextPart_000_0000_01C30048.14D981B0
+Content-Type: application/ms-tnef;
+	name="winmail.dat"
+Content-Transfer-Encoding: base64
+Content-Disposition: attachment;
+	filename="winmail.dat"
 
+eJ8+IhwUAQaQCAAEAAAAAAABAAEAAQeQBgAIAAAA5AQAAAAAAADoAAEIgAcAGAAAAElQTS5NaWNy
+b3NvZnQgTWFpbC5Ob3RlADEIAQ2ABAACAAAAAgACAAEGgAMADgAAANMHBAALABAAIQAAAAUAHwEB
+A5AGADwHAAAiAAAACwACAAEAAAALACMAAAAAAAMAJgAAAAAACwApAAAAAAADADYAAAAAAB4AcAAB
+AAAAEAAAAFBJTkcgc3RhdGlzdGljcwACAXEAAQAAABYAAAABwwBpmGBP2v/g+4hOqbMNDxAP0Bcz
+AAACAR0MAQAAABsAAABTTVRQOk9BS0VTX0dFQFBBTk5BV0FZLkNPTQAACwABDgAAAABAAAYOAGb+
+imkAwwECAQoOAQAAABgAAAAAAAAApiQsitfhMUqRTJm9thG4TcKAAAALAB8OAQAAAAIBCRABAAAA
+QgMAAD4DAADwBAAATFpGdadgLlgDAAoAcmNwZzEyNRYyAPgLYG4OEDAzM08B9wKkA+MCAGNoCsBz
+sGV0MCAHEwKAfQqBknYIkHdrC4BkNAxgDmMAUAsDC7UgSGkshwqiCoQKgEknbSAJACJvEmFnIGEF
+QGEgyQbgeCAD8HRoFXADoC5lBtAJgAEAZBYAZWISIBEgcnYEkCBydUZuAwAVUXVDbAuAdSEV8DIu
+NC4ToShCRQlwYwQAKSAtFApSGxfgFaFwFUICICBteckU8nBiANBrIBYwCfDVF1B0G9AgFiAsFlEX
+AJEJcHN1bAVAb2Ya9PMEABjAMTEXUQIwHRMegqcJcAtQCJBzLhQKTBURxxVyHEEbQHV0cCGgHcJu
+bhEwHJAVgS0QsBQZVYMSgBehSUNNUDoUCjg0Mjgj4xtwB5BzYeZnB5EZYWVpF5ALMRQiTxFQC4Ah
+wiVKIGYLcGxvCYAgBSVDJyRoBAAcoHK0YW0kNSAWgBDgbx1RpnEKUByQczoecTcZMO8X4B2ACXAW
+AGgbkBYwHlFkZG8HkG4nBUAAwHRrEOAedz8uhCkqbR+zOv8egRQEK9IlTB7CJqYlTChU/yQ1JUMh
+lSnTCcAqPy/lK8LlFApPIa8taSrAAhAFwB8JACAbC4AcIAnwY2Fw/yuwINA7EAMgINEb4xQEC4A3
+ETAVcBbQciuwDiA3LoYwPYEeoE1hc2srsTw1NT2DAUAjRCVwTE9AT1BCQUNLB/BVIE5OSU5HBdBU
+VcA6MTY0MzYF0BEw7QUQY0CwGkVYGvAcASJBajolADIWgHIDYBEQOrcRUD0QG9BwM+ERUG8Xke8X
+0UNCA1A1oGVDUBQIFwDuVEIfQy9EPyAI4RhwAJC/AiBHQgzQK1EKUCiAbkUqvQqATRuQK1NJsSuw
+Vyyh/wrAIXBCAR0iRgghQyXAB4D/GTA88RVCKuodwh6CHSIvh38bkE/1HKAWgCtQO5FGsSn6PxQK
+VBDwOsAzgQWxAHDRG5FpZ2gFQHkIYElAFQORcxxQZBP7UmVnMwsRIsVHZQWwKCFPYbtGYCLFVCrh
+AwA7glcFEBZ0BJAdAFAAcG5hd+5hG5BYMwjxZx/RRUkUBAUR4QBb8AAACwAAgAggBgAAAAAAwAAA
+AAAAAEYAAAAAA4UAAAAAAAADAAKACCAGAAAAAADAAAAAAAAARgAAAAAQhQAAAAAAAAMADIAIIAYA
+AAAAAMAAAAAAAABGAAAAAFKFAAB9bgEAHgANgAggBgAAAAAAwAAAAAAAAEYAAAAAVIUAAAEAAAAE
+AAAAOS4wAAsADoAIIAYAAAAAAMAAAAAAAABGAAAAAAaFAAAAAAAAAwAPgAggBgAAAAAAwAAAAAAA
+AEYAAAAAAYUAAAAAAAALABiACCAGAAAAAADAAAAAAAAARgAAAAAOhQAAAAAAAAMAGYAIIAYAAAAA
+AMAAAAAAAABGAAAAABGFAAAAAAAAAwAbgAggBgAAAAAAwAAAAAAAAEYAAAAAGIUAAAAAAAALADSA
+CCAGAAAAAADAAAAAAAAARgAAAACChQAAAQAAAAIB+A8BAAAAEAAAAKYkLIrX4TFKkUyZvbYRuE0C
+AfoPAQAAABAAAACmJCyK1+ExSpFMmb22EbhNAgH7DwEAAACjAAAAAAAAADihuxAF5RAaobsIACsq
+VsIAAFBTVFBSWC5ETEwAAAAAAAAAAE5JVEH5v7gBAKoAN9luAAAAQzpcRG9jdW1lbnRzIGFuZCBT
+ZXR0aW5nc1xvYWtlc19nZS5QQU5OQVdBWVxMb2NhbCBTZXR0aW5nc1xBcHBsaWNhdGlvbiBEYXRh
+XE1pY3Jvc29mdFxPdXRsb29rXG1haWxib3gucHN0AAADAP4PBQAAAAMADTT9NwAAAgF/AAEAAAA1
+AAAAPERCRUtKQkVNRFBKSkpLSkxHUEtNT0VPSUNLQUEub2FrZXNfZ2VAcGFubmF3YXkuY29tPgAA
+AAADAAYQL0qlcQMABxAIAwAAAwAQEAAAAAADABEQAAAAAB4ACBABAAAAZQAAAEhJLElNTE9PS0lO
+R0FUQUJPWFdJVEhBTkVNQkVEREVEV0VCU0VSVkVSUlVOTklOR1VDTElOVVgyNDIwKEJSRUNJUykt
+UlVOQVBJTkdPTk1ZTE9PUEJBQ0tUSEVOU1RPUElULEEAAAAAv7o=
 
--- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+------=_NextPart_000_0000_01C30048.14D981B0--
