@@ -1,27 +1,24 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [mini-howto] network-interface-naming
-Date: Tue, 15 Apr 2003 13:14:39 -0700
+From: Tomas Szepe <szepe@pinerecords.com>
+Subject: Re: [PATCH] qdisc oops fix
+Date: Tue, 15 Apr 2003 23:10:49 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030415131439.050edd43.rddunlap@osdl.org>
+Message-ID: <20030415211049.GB22780@louise.pinerecords.com>
+References: <20030415084706.O1131@shell.cyberus.ca> <20030415134305.GF15944@louise.pinerecords.com> <20030415102918.U2397@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: linux-net@vger.kernel.org
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <20030415102918.U2397@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+> [hadi@cyberus.ca]
+> 
+> Can you try a different qdisc - not htb to reproduce the problem?
 
-Based on a couple of email threads on lkml last month, I did a short
-writeup of (ethernet) network-interface naming.
+Not quite possible I'm afraid.
 
-It's available at
-  http://www.xenotime.net/linux/network-interface-names.txt
-
-Corrections to it are welcome.
-
-Thanks,
---
-~Randy
+-- 
+Tomas Szepe <szepe@pinerecords.com>
