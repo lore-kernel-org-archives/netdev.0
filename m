@@ -1,171 +1,329 @@
-From: Emmanuel Fleury <fleury@cs.auc.dk>
-Subject: Re: Announce: NetKeeper Firewall For Linux
-Date: Thu, 06 Nov 2003 11:26:16 +0100
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1068114376.1532.115.camel@rade7.s.cs.auc.dk>
-References: <1067285612.552.9.camel@aphrodite.olympus.net>
-	 <20031028014223.129933be.davem@redhat.com>
-	 <1067335655.10628.7.camel@rade7.s.cs.auc.dk>
-	 <1068001237.1064.31.camel@jzny.localdomain>
-	 <1068046114.31636.92.camel@rade7.s.cs.auc.dk>
-	 <1068089345.1020.17.camel@jzny.localdomain>
+From: "Alexandra N. Kossovsky" <sasha@oktet.ru>
+Subject: Re: r8169 with big-endian (patch)
+Date: Thu, 6 Nov 2003 14:55:38 +0300
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20031106145538.A21034@oktet.ru>
+References: <20031105104625.D26209@oktet.ru> <20031105193400.A12375@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=iso-8859-15
-Content-Transfer-Encoding: quoted-printable
-Cc: "David S. Miller" <davem@redhat.com>, netfilter-devel@lists.netfilter.org,
-        netdev@oss.sgi.com, Mikkel Christiansen <mixxel@cs.auc.dk>
-Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@cyberus.ca
-In-Reply-To: <1068089345.1020.17.camel@jzny.localdomain>
-Errors-to: netdev-bounce@oss.sgi.com
+Content-Type: multipart/mixed; boundary="fUYQa+Pmc3FrFX/N"
+Cc: linux-kernel@vger.kernel.org, ShuChen <shuchen@realtek.com.tw>,
+	netdev@oss.sgi.com, jgarzik@pobox.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
+To: Francois Romieu <romieu@fr.zoreil.com>
+Content-Disposition: inline
+In-Reply-To: <20031105193400.A12375@electric-eye.fr.zoreil.com>; from romieu@fr.zoreil.com on Wed, Nov 05, 2003 at 07:34:00PM +0100
 List-Id: netdev.vger.kernel.org
 
-Hi,
 
-On Thu, 2003-11-06 at 04:29, jamal wrote:
->=20
-> Yes, i think you missed my point ;->=20
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-Oops ! :)
+Hello.
 
-> You guys are doing a great job at coming up with some good packet
-> classification algorithm(s). I wanna encourage you to continue doing
-> that.=20
-> OTOH, I have spent a lot of time thinking and coming up with a good
-> architecture for the action part (that follows classification). So it
-> will be a shame if you miss that because you happened to see one
-> good thing in the old code.
->
-Putting the two together will result in some good things. You trying to
-> redo what i am doing will mean you are always a few steps behind[1]. No=
-w
-> if you can do it better than what i have, then you can convert me=20
-> too - thats the way opensource works.=20
+Here is next version of the patch, thanks to Francois Romieu.
 
-Ok, actually we were so focused on the classification scheme that we
-didn't really try to do something nice for the actions... In a matter of
-facts, we have only one action (log) and it is not even implemented.=20
+Best regards,
+    Alexandra.
+-- 
+Alexandra N. Kossovsky
+OKTET Ltd.
+http://www.oktet.ru/
+1 Ulianovskaya st., Petergof, St.Petersburg, 198904 Russia
+Phones: +7(812)428-43-84(work) +7(812)184-52-58(home) +7(812)956-42-86(mobile)
+mailto:sasha@oktet.ru
 
-So, we will definitely look at your code to avoid us to have to think
-about this part (and avoid to have to recode the actions).=20
 
-> Anything that requires "connection setup" to dynamically add rules is a
-> candidate. Think Voip SIP Proxy server for example which will insert
-> rules; think any authentication schemes that are needed before
-> installing rules, think tcp-splicing etc.
+--fUYQa+Pmc3FrFX/N
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="r8169.diff"
 
-Ok, but you are speaking about non permanent rules (aka dynamic rules).=20
+--- drivers/net/r8169.c.orig	2003-11-06 14:53:18.000000000 +0300
++++ drivers/net/r8169.c	2003-11-06 14:54:17.000000000 +0300
+@@ -33,6 +33,11 @@
+ 	- Copy mc_filter setup code from 8139cp
+ 	  (includes an optimization, and avoids set_bit use)
+ 
++VERSION 1.2.1	2003/11/04
++	(C) OKTET Ltd. (www.oktet.ru)
++	Author Alexandra N. Kossovsky <Alexandra.Kossovsky@oktet.ru>
++	- Replace bus_to_virt/virt_to_bus by pci_alloc_consistent.
++	- Insert cpu_to_le/le_to_cpu where it is necessary. 
+ */
+ 
+ #include <linux/module.h>
+@@ -45,7 +50,7 @@
+ 
+ #include <asm/io.h>
+ 
+-#define RTL8169_VERSION "1.2"
++#define RTL8169_VERSION "1.2.1"
+ #define MODULENAME "r8169"
+ #define RTL8169_DRIVER_NAME   MODULENAME " Gigabit Ethernet driver " RTL8169_VERSION
+ #define PFX MODULENAME ": "
+@@ -165,12 +170,6 @@
+ 	RxErr = 0x02,
+ 	RxOK = 0x01,
+ 
+-	/*RxStatusDesc */
+-	RxRES = 0x00200000,
+-	RxCRC = 0x00080000,
+-	RxRUNT = 0x00100000,
+-	RxRWT = 0x00400000,
+-
+ 	/*ChipCmdBits */
+ 	CmdReset = 0x10,
+ 	CmdRxEnb = 0x08,
+@@ -251,10 +250,16 @@
+ "RTL-8169", 0x00, 0xff7e1880,},};
+ 
+ enum _DescStatusBit {
+-	OWNbit = 0x80000000,
+-	EORbit = 0x40000000,
+-	FSbit = 0x20000000,
+-	LSbit = 0x10000000,
++	OWNbit = __constant_cpu_to_le32(0x80000000),
++	EORbit = __constant_cpu_to_le32(0x40000000),
++	FSbit = __constant_cpu_to_le32(0x20000000),
++	LSbit = __constant_cpu_to_le32(0x10000000),
++
++	/*RxStatusDesc */
++	RxRES = __constant_cpu_to_le32(0x00200000),
++	RxCRC = __constant_cpu_to_le32(0x00080000),
++	RxRUNT = __constant_cpu_to_le32(0x00100000),
++	RxRWT = __constant_cpu_to_le32(0x00400000),
+ };
+ 
+ struct TxDesc {
+@@ -280,17 +285,20 @@
+ 	unsigned long cur_rx;	/* Index into the Rx descriptor buffer of next Rx pkt. */
+ 	unsigned long cur_tx;	/* Index into the Tx descriptor buffer of next Rx pkt. */
+ 	unsigned long dirty_tx;
+-	unsigned char *TxDescArrays;	/* Index of Tx Descriptor buffer */
+-	unsigned char *RxDescArrays;	/* Index of Rx Descriptor buffer */
+ 	struct TxDesc *TxDescArray;	/* Index of 256-alignment Tx Descriptor buffer */
+ 	struct RxDesc *RxDescArray;	/* Index of 256-alignment Rx Descriptor buffer */
++	dma_addr_t     TxDescDmaAddr;	/* DMA address of TxDescArray */
++	dma_addr_t     RxDescDmaAddr;	/* DMA address of RxDescArray */
+ 	unsigned char *RxBufferRings;	/* Index of Rx Buffer  */
+ 	unsigned char *RxBufferRing[NUM_RX_DESC];	/* Index of Rx Buffer array */
++	dma_addr_t     RxBufferDmas;	/* DMA address of RxBufferRings */
++	dma_addr_t     RxBufferDma[NUM_RX_DESC];	/* DMA addresses of RxBufferRing */
+ 	struct sk_buff *Tx_skbuff[NUM_TX_DESC];	/* Index of Transmit data buffer */
+ };
+ 
+ MODULE_AUTHOR("Realtek");
+ MODULE_DESCRIPTION("RealTek RTL-8169 Gigabit Ethernet driver");
++MODULE_LICENSE("GPL");
+ MODULE_PARM(media, "1-" __MODULE_STRING(MAX_UNITS) "i");
+ 
+ static int rtl8169_open(struct net_device *dev);
+@@ -654,8 +662,6 @@
+ {
+ 	struct rtl8169_private *tp = dev->priv;
+ 	int retval;
+-	u8 diff;
+-	u32 TxPhyAddr, RxPhyAddr;
+ 
+ 	retval =
+ 	    request_irq(dev->irq, rtl8169_interrupt, SA_SHIRQ, dev->name, dev);
+@@ -663,36 +669,37 @@
+ 		return retval;
+ 	}
+ 
+-	tp->TxDescArrays =
+-	    kmalloc(NUM_TX_DESC * sizeof (struct TxDesc) + 256, GFP_KERNEL);
+-	// Tx Desscriptor needs 256 bytes alignment;
+-	TxPhyAddr = virt_to_bus(tp->TxDescArrays);
+-	diff = 256 - (TxPhyAddr - ((TxPhyAddr >> 8) << 8));
+-	TxPhyAddr += diff;
+-	tp->TxDescArray = (struct TxDesc *) (tp->TxDescArrays + diff);
+-
+-	tp->RxDescArrays =
+-	    kmalloc(NUM_RX_DESC * sizeof (struct RxDesc) + 256, GFP_KERNEL);
+-	// Rx Desscriptor needs 256 bytes alignment;
+-	RxPhyAddr = virt_to_bus(tp->RxDescArrays);
+-	diff = 256 - (RxPhyAddr - ((RxPhyAddr >> 8) << 8));
+-	RxPhyAddr += diff;
+-	tp->RxDescArray = (struct RxDesc *) (tp->RxDescArrays + diff);
++	tp->TxDescArray = (struct TxDesc *)
++	    pci_alloc_consistent(tp->pci_dev,
++				 NUM_TX_DESC * sizeof (struct TxDesc) + 256, 
++				 &tp->TxDescDmaAddr);
++
++	tp->RxDescArray = (struct RxDesc *)
++	    pci_alloc_consistent(tp->pci_dev,
++				 NUM_RX_DESC * sizeof (struct RxDesc) + 256, 
++				 &tp->RxDescDmaAddr);
+ 
+-	if (tp->TxDescArrays == NULL || tp->RxDescArrays == NULL) {
++	if (tp->TxDescArray == NULL || tp->RxDescArray == NULL) {
+ 		printk(KERN_INFO
+ 		       "Allocate RxDescArray or TxDescArray failed\n");
+ 		free_irq(dev->irq, dev);
+-		if (tp->TxDescArrays)
+-			kfree(tp->TxDescArrays);
+-		if (tp->RxDescArrays)
+-			kfree(tp->RxDescArrays);
++		if (tp->TxDescArray)
++			pci_free_consistent(tp->pci_dev, 
++				NUM_TX_DESC * sizeof (struct TxDesc) + 256,
++				tp->TxDescArray, tp->TxDescDmaAddr);
++		if (tp->RxDescArray)
++			pci_free_consistent(tp->pci_dev, 
++				NUM_RX_DESC * sizeof (struct RxDesc) + 256,
++				tp->RxDescArray, tp->RxDescDmaAddr);
+ 		return -ENOMEM;
+ 	}
+-	tp->RxBufferRings = kmalloc(RX_BUF_SIZE * NUM_RX_DESC, GFP_KERNEL);
++        tp->RxBufferRings = kmalloc(RX_BUF_SIZE * NUM_RX_DESC, GFP_KERNEL);
+ 	if (tp->RxBufferRings == NULL) {
+ 		printk(KERN_INFO "Allocate RxBufferRing failed\n");
+ 	}
++	tp->RxBufferDmas = pci_map_single(tp->pci_dev, tp->RxBufferRings,
++					  RX_BUF_SIZE * NUM_RX_DESC, 
++					  PCI_DMA_FROMDEVICE);
+ 
+ 	rtl8169_init_ring(dev);
+ 	rtl8169_hw_start(dev);
+@@ -733,13 +740,13 @@
+ 
+ 	/* Set DMA burst size and Interframe Gap Time */
+ 	RTL_W32(TxConfig,
+-		(TX_DMA_BURST << TxDMAShift) | (InterFrameGap <<
+-						TxInterFrameGapShift));
++		(TX_DMA_BURST << TxDMAShift) | 
++			    (InterFrameGap << TxInterFrameGapShift));
+ 
+ 	tp->cur_rx = 0;
+ 
+-	RTL_W32(TxDescStartAddr, virt_to_bus(tp->TxDescArray));
+-	RTL_W32(RxDescStartAddr, virt_to_bus(tp->RxDescArray));
++	RTL_W32(TxDescStartAddr, tp->TxDescDmaAddr);
++	RTL_W32(RxDescStartAddr, tp->RxDescDmaAddr);
+ 	RTL_W8(Cfg9346, Cfg9346_Lock);
+ 	udelay(10);
+ 
+@@ -775,12 +782,17 @@
+ 	for (i = 0; i < NUM_RX_DESC; i++) {
+ 		if (i == (NUM_RX_DESC - 1))
+ 			tp->RxDescArray[i].status =
+-			    (OWNbit | EORbit) + RX_BUF_SIZE;
++			    (OWNbit | EORbit) | 
++			    __constant_cpu_to_le32(RX_BUF_SIZE);
+ 		else
+-			tp->RxDescArray[i].status = OWNbit + RX_BUF_SIZE;
++			tp->RxDescArray[i].status = OWNbit | 
++				__constant_cpu_to_le32(RX_BUF_SIZE);
+ 
+ 		tp->RxBufferRing[i] = &(tp->RxBufferRings[i * RX_BUF_SIZE]);
+-		tp->RxDescArray[i].buf_addr = virt_to_bus(tp->RxBufferRing[i]);
++		tp->RxBufferDma[i] = 
++			(dma_addr_t)((unsigned int)tp->RxBufferDmas + 
++				     i * RX_BUF_SIZE);
++		tp->RxDescArray[i].buf_addr = cpu_to_le32(tp->RxBufferDma[i]);
+ 	}
+ }
+ 
+@@ -842,15 +854,19 @@
+ 
+ 	if ((tp->TxDescArray[entry].status & OWNbit) == 0) {
+ 		tp->Tx_skbuff[entry] = skb;
+-		tp->TxDescArray[entry].buf_addr = virt_to_bus(skb->data);
++		tp->TxDescArray[entry].buf_addr = 
++			cpu_to_le32(pci_map_single(tp->pci_dev, skb->data,
++						   skb->len, PCI_DMA_TODEVICE));
+ 		if (entry != (NUM_TX_DESC - 1))
+ 			tp->TxDescArray[entry].status =
+-			    (OWNbit | FSbit | LSbit) | ((skb->len > ETH_ZLEN) ?
+-							skb->len : ETH_ZLEN);
++			    (OWNbit | FSbit | LSbit) | 
++			    cpu_to_le32((skb->len > ETH_ZLEN) ?
++					skb->len : ETH_ZLEN);
+ 		else
+ 			tp->TxDescArray[entry].status =
+ 			    (OWNbit | EORbit | FSbit | LSbit) |
+-			    ((skb->len > ETH_ZLEN) ? skb->len : ETH_ZLEN);
++			    cpu_to_le32(((skb->len > ETH_ZLEN) ? 
++					 skb->len : ETH_ZLEN));
+ 
+ 		RTL_W8(TxPoll, 0x40);	//set polling bit
+ 
+@@ -884,8 +900,14 @@
+ 
+ 	while (tx_left > 0) {
+ 		if ((tp->TxDescArray[entry].status & OWNbit) == 0) {
+-			dev_kfree_skb_irq(tp->
+-					  Tx_skbuff[dirty_tx % NUM_TX_DESC]);
++			struct sk_buff *skb = 
++				tp->Tx_skbuff[dirty_tx % NUM_TX_DESC];
++
++			pci_unmap_single(tp->pci_dev, 
++					 le32_to_cpu(tp->TxDescArray[entry].
++						     buf_addr), 
++					 skb->len, PCI_DMA_TODEVICE);
++			dev_kfree_skb_irq(skb);
+ 			tp->Tx_skbuff[dirty_tx % NUM_TX_DESC] = NULL;
+ 			tp->stats.tx_packets++;
+ 			dirty_tx++;
+@@ -926,12 +948,16 @@
+ 				tp->stats.rx_crc_errors++;
+ 		} else {
+ 			pkt_size =
+-			    (int) (tp->RxDescArray[cur_rx].
+-				   status & 0x00001FFF) - 4;
++			    (int) (le32_to_cpu(tp->RxDescArray[cur_rx].
++				   status) & 0x00001FFF) - 4;
+ 			skb = dev_alloc_skb(pkt_size + 2);
+ 			if (skb != NULL) {
+ 				skb->dev = dev;
+ 				skb_reserve(skb, 2);	// 16 byte align the IP fields. //
++                                pci_dma_sync_single(tp->pci_dev, 
++                                                    tp->RxBufferDmas,
++                                                    RX_BUF_SIZE * NUM_RX_DESC,
++                                                    PCI_DMA_FROMDEVICE);
+ 				eth_copy_and_sum(skb, tp->RxBufferRing[cur_rx],
+ 						 pkt_size, 0);
+ 				skb_put(skb, pkt_size);
+@@ -940,13 +966,15 @@
+ 
+ 				if (cur_rx == (NUM_RX_DESC - 1))
+ 					tp->RxDescArray[cur_rx].status =
+-					    (OWNbit | EORbit) + RX_BUF_SIZE;
++					    (OWNbit | EORbit) | 
++					    __constant_cpu_to_le32(RX_BUF_SIZE);
+ 				else
+ 					tp->RxDescArray[cur_rx].status =
+-					    OWNbit + RX_BUF_SIZE;
++					    OWNbit | 
++					    __constant_cpu_to_le32(RX_BUF_SIZE);
+ 
+ 				tp->RxDescArray[cur_rx].buf_addr =
+-				    virt_to_bus(tp->RxBufferRing[cur_rx]);
++				    cpu_to_le32(tp->RxBufferDma[cur_rx]);
+ 				dev->last_rx = jiffies;
+ 				tp->stats.rx_bytes += pkt_size;
+ 				tp->stats.rx_packets++;
+@@ -1045,12 +1073,16 @@
+ 	free_irq(dev->irq, dev);
+ 
+ 	rtl8169_tx_clear(tp);
+-	kfree(tp->TxDescArrays);
+-	kfree(tp->RxDescArrays);
+-	tp->TxDescArrays = NULL;
+-	tp->RxDescArrays = NULL;
++	pci_free_consistent(tp->pci_dev, 
++		NUM_TX_DESC * sizeof (struct TxDesc) + 256,
++		tp->TxDescArray, tp->TxDescDmaAddr);
++	pci_free_consistent(tp->pci_dev, 
++		NUM_RX_DESC * sizeof (struct RxDesc) + 256,
++		tp->RxDescArray, tp->RxDescDmaAddr);
+ 	tp->TxDescArray = NULL;
+ 	tp->RxDescArray = NULL;
++	pci_unmap_single(tp->pci_dev, tp->RxBufferDmas, 
++			 RX_BUF_SIZE * NUM_RX_DESC, PCI_DMA_FROMDEVICE);
+ 	kfree(tp->RxBufferRings);
+ 	for (i = 0; i < NUM_RX_DESC; i++) {
+ 		tp->RxBufferRing[i] = NULL;
 
-The idea we have to handle stateful inspection is to have the core
-filter (totally static) plus some "state" nodes placed inside the IDD
-which are calling a function to evaluate the "state" of the packet
-(based on some informations given by the packet header and a database of
-the open connections). When reaching the terminals, one of the action
-can be to change the state of the connection.
-
-I guess that what you describe can be handled by such mechanism=20
-(better than changing the ruleset each time). As it is handled outside
-of the IDD, this take only the time of the look-up in the database and
-the time to modify the database (when necessary).
-
-But, I over simplified things here, this scheme is far from being ready
-at this point. We should investigate it more in depth (we need more
-time!!!).=20
-
-> I think thats a design issue. For example while u32 classifier may not
-> process as fast as you (lookups would take longer relatively ) - its
-> insertion time is independent of the complexity of the rules.
-> Lakshman (sp?) had a good paper on the tradeoffs between memory space
-> used, lookup times and insertion times (there was another variable) and
-> i think he may have proved you cant have all of them work well at the
-> same time.
-
-Ok. Could you give more details about the references of this paper from
-Lakshman ?
-
-> So if you add rule #50000 while there are already 49999 existing
-> it will take over an hour to install in the worst case, did i understan=
-d
-> this correctly?
-
-Yes (I messed up things in the following paragraph), you are totally
-right here. I totally forgot that you have to deal with rule-overlapping
-which is actually making things incredibly sequential).
-
-> > Of course your question was about taking one of this big filters and
-> > then add one tiny winy rule to it. So, I guess the time to do so woul=
-d
-> > be at most 1s (in the very worst case, I would say).
-
-I am wrong here, terribly wrong. The thing is that is you add a rule at
-the end of your filter, you will not have to rebuild it, but inserting a
-rule randomly in the list is... bad. For now, we don't have any good
-algorithm to insert a rule, so we just rebuild the whole thing.
-
-> > When coding in the kernel, we are coding with the idea that:=20
-> >    =AB The kernel should defend itself against user-space. =BB
-> >=20
-> > So, when the user say: "Commit".=20
-> >=20
-> > The kernel will first check the decision diagram for safety (no NULL
-> > pointers, out of range variables, no loops, etc) and depending of the
-> > tests, will take the decision to commit or not.
->=20
-> That sounds more like still a user space problem ;->
-
-No.
-
-Users shouldn't be able to break the kernel just by misconfiguring it.
-
-> I saw in your paper briefly that you have infact a checker for somethin=
-g
-> like this.=20
-
-If you are speaking about the "network access verifier", it is something
-totally different. But, I might have misunderstood you.
-
-> In my view the most important issues in priority order are:
-> lookup speed regardless of table size, insert/delete rate regardless of
-> table size, Capacity (should be able to go to the hundreds of thousands
-> of flows), memory use for storage purposes - although i dont really car=
-e
-> very much about these since memory is cheap these days.
-
-Ok, I think we have to work on the insert/delete part. I know for a fact
-that insert/delete inside the IDD is not an option (as the complexity of
-this operation is too high), so we will look at some other way to handle
-it.
-
-> > PS: I would like also to say here that we got a really great feed bac=
-k
-> > from the nf-hipac team. So, thank a lot to Michael Bellion and Thomas
-> > Heinz.
-> >=20
->=20
-> I am sorry i confused you with them;-> I suppose you are both from .dk.
-
-No, Michael and Thomas are from Germany. Mikkel Christiansen is from
-Denmark and I'm from France (working in Denmark currently).
-
-> [1]I briefly looked at your paper and it seems the only action you had
-> initially was DENY or ACCEPT.
-
-We can extend this without any problem.
-
-> Looking at your code you now have an action dispatcher that seems
-> to be exactly like the old one i have (you havent implemented code
-> around it but you have the hooks in place). This is why i made the
-> comment.=20
-
-Actually, as I said, we were just no so concerned about the handling of
-the actions, so we just did it in the most natural way (for us). It is a
-good sign that we are meeting your very first implementation.=20
-
-Regards
---=20
-Emmanuel Fleury
-
-Computer Science Department, |  Office: B1-201
-Aalborg University,          |  Phone:  +45 96 35 72 23
-Fredriks Bajersvej 7E,       |  Fax:    +45 98 15 98 89
-9220 Aalborg East, Denmark   |  Email:  fleury@cs.auc.dk
+--fUYQa+Pmc3FrFX/N--
