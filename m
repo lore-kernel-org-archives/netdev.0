@@ -1,8 +1,8 @@
 From: "Larry Sendlosky" <Larry.Sendlosky@storigen.com>
 Subject: RE: Changes in source?
-Date: Thu, 24 Oct 2002 09:46:26 -0400
+Date: Thu, 24 Oct 2002 09:49:53 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <7BFCE5F1EF28D64198522688F5449D5A03C06D@xchangeserver2.storigen.com>
+Message-ID: <7BFCE5F1EF28D64198522688F5449D5AC63248@xchangeserver2.storigen.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
 	charset="iso-8859-1"
@@ -12,6 +12,17 @@ content-class: urn:content-classes:message
 To: "Sreedharamurthy K" <sree_mu@yahoo.com>, <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
+
+oops forgot one thing... Redhat adds patches to the "stock"
+linux kernel. You may have to get the RedHat kernel source
+rpm and look at the patch files against 2.4.18.
+
+-----Original Message-----
+From: Larry Sendlosky 
+Sent: Thursday, October 24, 2002 9:46 AM
+To: Sreedharamurthy K; netdev@oss.sgi.com
+Subject: RE: Changes in source?
+
 
 http://linux.bkbits.net
 
