@@ -1,32 +1,34 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [BUG] drivers/net/ioc3_eth.c in 2.5
-Date: Mon, 9 Jun 2003 13:12:24 -0400
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 2.5.70] Add release_netdev -- hook for sysfs/net device
+ cleanup
+Date: Mon, 09 Jun 2003 10:09:48 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030609171224.GA14623@gtf.org>
-References: <20030606161658.1f01b8f9.shemminger@osdl.org> <20030607.013010.116359540.davem@redhat.com> <20030609101018.0ca2e1f9.shemminger@osdl.org>
+Message-ID: <20030609.100948.84378474.davem@redhat.com>
+References: <3EE4045D.4040002@pobox.com>
+	<20030608.225309.39172149.davem@redhat.com>
+	<3EE4BF39.2020503@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@redhat.com>, ralf@oss.sgi.com, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: shemminger@osdl.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-Content-Disposition: inline
-In-Reply-To: <20030609101018.0ca2e1f9.shemminger@osdl.org>
+To: jgarzik@pobox.com
+In-Reply-To: <3EE4BF39.2020503@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jun 09, 2003 at 10:10:18AM -0700, Stephen Hemminger wrote:
-> Looks like the right fix is:
-> --- ioc3-eth.c.orig	2003-06-09 10:05:45.000000000 -0700
-> +++ ioc3-eth.c	2003-06-09 10:04:45.000000000 -0700
-> @@ -1614,6 +1614,7 @@ static void __devexit ioc3_remove_one (s
->  	struct ioc3 *ioc3 = ip->regs;
->  
->  	iounmap(ioc3);
-> +	unregister_netdev(dev);
->  	pci_release_regions(pdev);
->  	kfree(dev);
->  }
+   From: Jeff Garzik <jgarzik@pobox.com>
+   Date: Mon, 09 Jun 2003 13:09:13 -0400
 
-You want to unregister before iounmap.
+   David S. Miller wrote:
+   > That's your plan, but did you do any of this yet?  It'll keep
+   > going deeper and deeper into bitkeeper history the longer that
+   > you wait :-)
+   
+   Yes, I have been following my plan.  You will see when Marcelo opens 
+   2.4.22-pre1 that I have been committing these to my net-drivers-2.4 queue.
 
-	Jeff
+Awesome.
+
+Now why was I asking this to begin with?  You wanted to do something,
+what was that? :-)
