@@ -1,50 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: gettime: Was (Re: Route cache performance under stress
-Date: Wed, 11 Jun 2003 08:57:24 -0700
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: Real World Traffic WAS(Re: Route cache performance tests (fwd)
+Date: Wed, 11 Jun 2003 20:00:46 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3EE75164.8030500@candelatech.com>
-References: <3EE682B8.8060708@candelatech.com> <20030610.182234.74725315.davem@redhat.com> <3EE68B15.60802@candelatech.com> <20030610.203325.41658167.davem@redhat.com> <20030611065255.L39678@shell.cyberus.ca>
+Message-ID: <Pine.LNX.4.44.0306111953480.2043-100000@netcore.fi>
+References: <20030611080924.D39831@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030611065255.L39678@shell.cyberus.ca>
+In-Reply-To: <20030611080924.D39831@shell.cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi wrote:
-> Ok, time to go into another separate thread ;->
+On Wed, 11 Jun 2003, Jamal Hadi wrote:
+> Look at the info on nyc-21:
+> The 95th percentile of traffic is around 63Kpps.
+> Then look at the 95th percentile for number of flows: 72K flows
 > 
-> Sounds like a good idea.
+> this implies that each flow is getting to send less than 1pps.
 > 
-> if (skbneedstimestamp)
-> 	do_gettimeofday(&skb->stamp);
-> else
-> 	defertimestamp()
+> I think the number of flows is also interesting. May help in formulizing
+> the garbage collection.
+> 376K flows(flowi/dst cache) stored at the worst case. In the worst case
+> 88K flows are active every second.
 > 
-> For defertimestamp() would it be feasible that you store only the
-> jiffies value in the skb then get timeofday later and somehow
-> compensate for the difference? Seems very doable to me.
-> 
-> Question is when do you decide skbneedstimestamp?
-> Is it when the device is in promiscous mode or do it in ip or icmp etc?
-> 
-> cheers,
-> jamal
+> Pekka, do you have similar data you collect as well?
 
-Jiffies is not nearly precise enough.  You need something with
-usec precision at least.
+I don't have data on flows but I can say some data from our perspective;
 
-If we make a macro to read the value (converting as needed), and just
-change all the readers to use that macro, then we don't have to make any
-interesting decisions in the networking core.
+On OC48 backbone interfaces, here:
 
-Ben
+ - about 600 Mbit/s of traffic equals about 120 kpps
+ - a DoS attack of 1.2 Gbit/s was 150 kpps
+ - about 1200 Mbit/s of traffic equals about 150 kpps
 
+A significant portion of these is large filetransfers, though (as the 
+average packet size is like 600-1000 bytes, calculated from above)...
 
 -- 
-Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
-President of Candela Technologies Inc      http://www.candelatech.com
-ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
