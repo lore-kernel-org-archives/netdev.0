@@ -1,112 +1,77 @@
-From: David Dillow <dave@thedillows.org>
-Subject: [RFC 2.6.10 21/22] typhoon: add callbacks to support crypto offload
-Date: Thu, 30 Dec 2004 03:48:37 -0500
-Message-ID: <20041230035000.30@ori.thedillows.org>
-References: <20041230035000.29@ori.thedillows.org>
-Cc: linux-kernel@vger.kernel.org, dave@thedillows.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261595AbUL3JJy@vger.kernel.org>
-To: netdev@oss.sgi.com
-Sender: linux-kernel-owner@vger.kernel.org
+From: Jan-Benedict Glaw <jbglaw@lug-owl.de>
+Subject: Re: [RFC 2.6.10 1/22] xfrm: Add direction information to xfrm_state
+Date: Thu, 30 Dec 2004 10:48:39 +0100
+Message-ID: <20041230094839.GX2460@lug-owl.de>
+References: <20041230035000.01@ori.thedillows.org> <20041230035000.10@ori.thedillows.org>
+Mime-Version: 1.0
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="urKaCNvFwQ8jDQOg"
+Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: David Dillow <dave@thedillows.org>
+Content-Disposition: inline
+In-Reply-To: <20041230035000.10@ori.thedillows.org>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/12/30 01:05:45-05:00 dave@thedillows.org 
-#   Export the xfrm offload callbacks, and let the world know we
-#   support IPSEC offload.
-#   
-#   While we're at it, allow this to controlled by ethtool.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-# drivers/net/typhoon.c
-#   2004/12/30 01:05:27-05:00 dave@thedillows.org +23 -4
-#   Export the xfrm offload callbacks, and let the world know we
-#   support IPSEC offload.
-#   
-#   While we're at it, allow this to controlled by ethtool.
-#   
-#   Signed-off-by: David Dillow <dave@thedillows.org>
-# 
-diff -Nru a/drivers/net/typhoon.c b/drivers/net/typhoon.c
---- a/drivers/net/typhoon.c	2004-12-30 01:07:53 -05:00
-+++ b/drivers/net/typhoon.c	2004-12-30 01:07:53 -05:00
-@@ -33,9 +33,12 @@
- 	*) Waiting for a command response takes 8ms due to non-preemptable
- 		polling. Only significant for getting stats and creating
- 		SAs, but an ugly wart never the less.
-+	*) Inbound IPSEC packets of the form outer ESP transport, inner
-+		ESP tunnel seems to fail the hash on the inner ESP
-+	*) Inbound IPSEC packets of the form outer AH transport, inner
-+		AH tunnel seems to fail the hash on the outer AH
- 
- 	TODO:
--	*) Doesn't do IPSEC offloading. Yet. Keep yer pants on, it's coming.
- 	*) Add more support for ethtool (especially for NIC stats)
- 	*) Allow disabling of RX checksum offloading
- 	*) Fix MAC changing to work while the interface is up
-@@ -100,8 +103,8 @@
- #define PKT_BUF_SZ		1536
- 
- #define DRV_MODULE_NAME		"typhoon"
--#define DRV_MODULE_VERSION 	"1.5.6"
--#define DRV_MODULE_RELDATE	"04/12/17"
-+#define DRV_MODULE_VERSION 	"1.5.6-ipsec"
-+#define DRV_MODULE_RELDATE	"04/12/19"
- #define PFX			DRV_MODULE_NAME ": "
- #define ERR_PFX			KERN_ERR PFX
- 
-@@ -1406,6 +1409,8 @@
- 	.get_tso		= ethtool_op_get_tso,
- 	.set_tso		= ethtool_op_set_tso,
- 	.get_ringparam		= typhoon_get_ringparam,
-+	.get_ipsec		= ethtool_op_get_ipsec,
-+	.set_ipsec		= ethtool_op_set_ipsec,
- };
- 
- static int
-@@ -2253,6 +2258,9 @@
- 	tp->card_state = Running;
- 	smp_wmb();
- 
-+	if(dev->features & NETIF_F_IPSEC)
-+		xfrm_accel_add(dev);
-+
- 	iowrite32(TYPHOON_INTR_ENABLE_ALL, ioaddr + TYPHOON_REG_INTR_ENABLE);
- 	iowrite32(TYPHOON_INTR_NONE, ioaddr + TYPHOON_REG_INTR_MASK);
- 	typhoon_post_pci_writes(ioaddr);
-@@ -2327,6 +2335,14 @@
- 		typhoon_clean_tx(tp, &tp->txLoRing, &indexes->txLoCleared);
- 	}
- 
-+	if(tp->dev->features & NETIF_F_IPSEC)
-+		xfrm_accel_flush(tp->dev);
-+
-+	/* tp->card_state != Running, so nothing will change this out
-+         * from under us.
-+         */
-+	tp->offload &= ~TYPHOON_OFFLOAD_IPSEC;
-+
- 	return 0;
- }
- 
-@@ -3183,6 +3199,9 @@
- 	dev->set_mac_address	= typhoon_set_mac_address;
- 	dev->vlan_rx_register	= typhoon_vlan_rx_register;
- 	dev->vlan_rx_kill_vid	= typhoon_vlan_rx_kill_vid;
-+	dev->xfrm_state_add	= typhoon_xfrm_state_add;
-+	dev->xfrm_state_del	= typhoon_xfrm_state_del;
-+	dev->xfrm_bundle_add	= typhoon_xfrm_bundle_add;
- 	SET_ETHTOOL_OPS(dev, &typhoon_ethtool_ops);
- 
- 	/* We can handle scatter gather, up to 16 entries, and
-@@ -3190,7 +3209,7 @@
- 	 */
- 	dev->features |= NETIF_F_SG | NETIF_F_IP_CSUM;
- 	dev->features |= NETIF_F_HW_VLAN_TX | NETIF_F_HW_VLAN_RX;
--	dev->features |= NETIF_F_TSO;
-+	dev->features |= NETIF_F_TSO | NETIF_F_IPSEC;
- 
- 	if(register_netdev(dev) < 0)
- 		goto error_out_reset;
+
+--urKaCNvFwQ8jDQOg
+Content-Type: text/plain; charset=utf-8
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
+
+On Thu, 2004-12-30 03:48:34 -0500, David Dillow <dave@thedillows.org>
+wrote in message <20041230035000.10@ori.thedillows.org>:
+> diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+> --- a/include/net/xfrm.h	2004-12-30 01:12:08 -05:00
+> +++ b/include/net/xfrm.h	2004-12-30 01:12:08 -05:00
+> @@ -146,6 +146,9 @@
+>  	/* Private data of this transformer, format is opaque,
+>  	 * interpreted by xfrm_type methods. */
+>  	void			*data;
+> +
+> +	/* Intended direction of this state, used for offloading */
+> +	int			dir;
+>  };
+> =20
+>  enum {
+> @@ -157,6 +160,12 @@
+>  	XFRM_STATE_DEAD
+>  };
+> =20
+> +enum {
+> +	XFRM_STATE_DIR_UNKNOWN,
+> +	XFRM_STATE_DIR_IN,
+> +	XFRM_STATE_DIR_OUT,
+> +};
+
+Any specific reason to first define such a nice enum and then using int
+in the struct?
+
+MfG, JBG
+
+--=20
+Jan-Benedict Glaw       jbglaw@lug-owl.de    . +49-172-7608481             =
+_ O _
+"Eine Freie Meinung in  einem Freien Kopf    | Gegen Zensur | Gegen Krieg  =
+_ _ O
+ fuer einen Freien Staat voll Freier B=C3=BCrger" | im Internet! |   im Ira=
+k!   O O O
+ret =3D do_actions((curr | FREE_SPEECH) & ~(NEW_COPYRIGHT_LAW | DRM | TCPA)=
+);
+
+--urKaCNvFwQ8jDQOg
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFB0873Hb1edYOZ4bsRAtCuAJ9evP8DkQ142XphAFaMDulpbbu15gCgieXS
+cBCw52xCYS6wmYrHlrMGijM=
+=44jp
+-----END PGP SIGNATURE-----
+
+--urKaCNvFwQ8jDQOg--
