@@ -1,40 +1,54 @@
-From: jamal <hadi@cyberus.ca>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [bonding] Add basic support for dynamic configuration of bond
-	interfaces
-Date: 11 Jan 2004 17:50:29 -0500
+ interfaces
+Date: Sun, 11 Jan 2004 14:51:23 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1073861429.1119.312.camel@jzny.localdomain>
-References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com>
-	 <200401111628.07930.amir.noam@intel.com> <4001A667.2020904@pobox.com>
-	 <4001C158.6040103@candelatech.com>  <4001C72E.8030108@pobox.com>
-Reply-To: hadi@cyberus.ca
+Message-ID: <4001D36B.8070402@candelatech.com>
+References: <E6F7D288B394A64585E67497E5126BA601F991D1@hasmsx403.iil.intel.com> <200401111628.07930.amir.noam@intel.com> <4001A667.2020904@pobox.com> <4001C158.6040103@candelatech.com> <4001C72E.8030108@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Ben Greear <greearb@candelatech.com>, Amir Noam <amir.noam@intel.com>,
-        bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
+Cc: Amir Noam <amir.noam@intel.com>, bonding-devel@lists.sourceforge.net,
+        netdev@oss.sgi.com, hadi@cyberus.ca
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Jeff Garzik <jgarzik@pobox.com>
 In-Reply-To: <4001C72E.8030108@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 2004-01-11 at 16:59, Jeff Garzik wrote:
-> ioctls are a pain for 32/64-bit emulation layers too.  It seems much 
-> easier to define a netlink protocol family of some sort and communicate 
-> that way.
+Jeff Garzik wrote:
+> Ben Greear wrote:
 > 
+>> I would also be open to moving the VLAN ioctls over into the
+>> ethtool ioctl space, but that just exchanges one magic ioctl for
+>> another...
+> 
+> 
+> 
+> The key question is what is the best interface for userland to configure 
+> in-kernel information -that is unrelated to a specific interface-. 
+> ethtool ioctl space doesn't apply, because that's a per-interface API.
+
+Actually, VLANs map very well to a per-interface API, since VLANs are
+interfaces and reside on other interfaces.
+
+> Opening a socket and just ioctl'ing away isn't terribly scalable in the 
+> long run, either.  Consider all the applications that could legitimately 
+> claim they need a SIOCxxx ioctl assignment, just for their little slice 
+> of the networking world.  Further, consider that all an ioctl is is a 
+
+My assumption is that adding a new ethtool message (or vlan ioctl message
+to the existing VLAN ioctl call) does not cause new emulation problems.
+Is that true?
+
 > I'll poke around and see what I can come up with.
 
-Theres a L2C netlink protocol (for Layer2 Config) which is already in
-place being reviewed by DaveM in whatever spurious time he has.
-Current user is MPLS but definete candidate for VLAN, and the move of
-bridging STP control to user space. It is true that netlink may not be
-intuitive to use for someone who hasnt spent time eyeballing it(mostly
-because of lack of programming docs really). We are going to try and
-improve things by making it easy to use from both kernel and user space
-POV and provide sample code which people can cutnpaste in the classical
-linux-way(tm). 
+I'm interested in seeing the result.  I've never found a simple
+example of something using the netlink api, and if it can be done,
+then I'll probably convert.
 
-cheers,
-jamal
+Ben
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
