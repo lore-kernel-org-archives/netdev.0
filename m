@@ -1,28 +1,27 @@
-From: James Morris <jmorris@redhat.com>
-Subject: Re: [IPCOMP6] Fix ICMP type check
-Date: Thu, 22 Jul 2004 10:25:24 -0400 (EDT)
+From: Christoph Hellwig <hch@infradead.org>
+Subject: Re: 2.6.7 oops, sk98lin related?
+Date: Thu, 22 Jul 2004 16:03:14 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0407221025010.7557@devserv.devel.redhat.com>
-References: <20040722113429.GA15083@gondor.apana.org.au>
+Message-ID: <20040722150314.GB13195@infradead.org>
+References: <200407221101.16388.bernd-schubert@web.de>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: Christoph Hellwig <hch@infradead.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040722113429.GA15083@gondor.apana.org.au>
+To: Bernd Schubert <bernd-schubert@web.de>
+Content-Disposition: inline
+In-Reply-To: <200407221101.16388.bernd-schubert@web.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 22 Jul 2004, Herbert Xu wrote:
-
-> Hi Dave:
+On Thu, Jul 22, 2004 at 11:01:14AM +0200, Bernd Schubert wrote:
+> Hello Christoph and all others,
 > 
-> It looks like IPCOMP was missed when the same problem was fixed in AH/ESP.
+> is this an sk98lin oops, maybe related to your patches or is it a completely 
+> different problem?
 
-What about esp4/ah4/ipcomp?  They look wrong too.
+I don't think there's skge patches from me in 2.6.7 yet, but certainly not
+in that area ;-)
 
-
-- James
--- 
-James Morris
-<jmorris@redhat.com>
+This is just a big memory allocation failing, not an oops anyway.
