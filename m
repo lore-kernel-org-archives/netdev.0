@@ -1,32 +1,42 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: [PATCH] mark CSZ scheduler as broken
-Date: Wed, 7 Jul 2004 16:56:28 -0700
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: pskb change in dst->output
+Date: Thu, 8 Jul 2004 10:04:21 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040707165628.02246aaf@dell_ss3.pdx.osdl.net>
-References: <20040707111936.760586b0@dell_ss3.pdx.osdl.net>
-	<20040707152803.6e2a7336.davem@redhat.com>
+Message-ID: <20040708000421.GA30918@gondor.apana.org.au>
+References: <20040707231221.GA30565@gondor.apana.org.au> <Xine.LNX.4.44.0407071931480.28863-100000@thoron.boston.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20040707152803.6e2a7336.davem@redhat.com>
+To: James Morris <jmorris@redhat.com>
+Content-Disposition: inline
+In-Reply-To: <Xine.LNX.4.44.0407071931480.28863-100000@thoron.boston.redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 7 Jul 2004 15:28:03 -0700
-"David S. Miller" <davem@redhat.com> wrote:
-
-> On Wed, 7 Jul 2004 11:19:36 -0700
-> Stephen Hemminger <shemminger@osdl.org> wrote:
+On Wed, Jul 07, 2004 at 07:33:18PM -0400, James Morris wrote:
 > 
-> > Since the configuration help for CSZ is broken, and other documentation
-> > says it just doesn't work.  Why not mark it as broken to make it obvious?
+> > So is there a caller to dst_output that does this as well?
 > 
-> I think marking it as experimental is more appropriate and
-> accurate.  Don't you think?
+> The TCP code often clones skbs to be transmitted.
 
-It builds fine and obeys all the conventions, so it isn't really BROKEN like
-other drivers. But do we really want to keep it in the tree at all?  The code to
-set it up isn't in the any version of 'tc' I saw (only stubs).
+Thanks for the pointer.
+
+I've looked at it and that appears to be safe.  The logic appears
+to be that the first packet passed to dst_output() via ip_queue_xmit()
+is a clone of the packet on the TCP output queue.  The output
+functions are allowed to modify all parts of the skb except the
+TCP payload.
+
+Subsequent retransmits will unclone the packet before adding the
+TCP header and passing it to ip_queue_xmit().
+
+So the bottom line is that we don't have to unclone the packet before
+touching the checksum in dst_output().
+
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
