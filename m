@@ -1,36 +1,23 @@
-From: Meelis Roos <mroos@linux.ee>
-Subject: Quieten privacy extensions message
-Date: Wed, 16 Feb 2005 19:27:40 +0200 (EET)
-Message-ID: <Pine.SOC.4.61.0502161924050.17280@math.ut.ee>
+From: Megh Bhatt <megh.bhatt@gmail.com>
+Subject: Question about Linux routing - ip_route_output_key vs fib_lookup
+Date: Wed, 16 Feb 2005 12:35:57 -0500
+Message-ID: <5d1f895705021609356e34aeec@mail.gmail.com>
+Reply-To: Megh Bhatt <megh.bhatt@gmail.com>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
 To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-It's not nice to see kernel internal pointers like this in dmesg:
-Disabled Privacy Extensions on device 00000000006a2970(lo)
+Hi,
+I had a question about Linux routing functions, suppose I want to find
+out what interface does a route to an IP address belong to - is it
+better (in terms of performance) to use ip_route_output_key or
+fib_lookup. My initial guess from looking at the source code is
+fib_lookup since the routing cache wont be helpful since I wont have
+any interface information (rather want to find out interface
+information) but wanted to be sure. Thanks.
 
-The patch removes the pointer from dmesg, resulting in
-Disabled Privacy Extensions on device lo
-
-Signed-off-by: Meelis Roos <mroos@linux.ee>
-
-===== net/ipv6/addrconf.c 1.129 vs edited =====
---- 1.129/net/ipv6/addrconf.c	2005-01-17 23:13:31 +02:00
-+++ edited/net/ipv6/addrconf.c	2005-02-16 19:21:59 +02:00
-@@ -364,8 +364,8 @@
-  		    dev->type == ARPHRD_TUNNEL ||
-  		    dev->type == ARPHRD_SIT) {
-  			printk(KERN_INFO
--				"Disabled Privacy Extensions on device %p(%s)\n",
--				dev, dev->name);
-+				"Disabled Privacy Extensions on device %s\n",
-+				dev->name);
-  			ndev->cnf.use_tempaddr = -1;
-  		} else {
-  			in6_dev_hold(ndev);
-
--- 
-Meelis Roos (mroos@linux.ee)
+Megh
