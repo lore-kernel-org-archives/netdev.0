@@ -1,232 +1,194 @@
 From: Masahide Nakamura <nakam@linux-ipv6.org>
-Subject: [PATCH] [iproute2] XFRM: fixing protocol
-Date: Mon, 6 Sep 2004 16:47:03 +0900
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20040906164703.3e674496@localhost>
+Subject: [PATCH] [iproute2] XFRM: support ICMP/ICMPv6's type and code
+Date: Mon, 6 Sep 2004 16:47:42 +0900
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040906164742.54795bf4@localhost>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org, nakam@linux-ipv6.org
-Return-path: <linux-net-owner@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
 To: Stephen Hemminger <shemminger@osdl.org>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Talking about "protocol" on IPsec/XFRM, there are two
-kinds of it, one is in selector and the other is in
-SA(state for transformation). This patch makes it
-is managed separately.
+This patch supports ICMP/ICMPv6's type and code in IPsec
+selector. Kernel has supported this feature from 2.6.9-rc1.
 
-The ChangeSets are also available at:
-<bk clone bk://bk.skbuff.net:38000/iproute2-FIX-proto/>
+The ChangeSet is also available at:
+<bk://bk.skbuff.net:38000/iproute2-icmp/>
 
 
 # This is a BitKeeper generated diff -Nru style patch.
 #
 # ChangeSet
-#   2004/09/02 19:11:13+09:00 nakam@linux-ipv6.org 
-#   fix error message.
+#   2004/09/01 14:45:04+09:00 nakam@linux-ipv6.org 
+#   support ICMP and ICMPv6's type/code for IPsec.
 # 
 # ip/xfrm_state.c
-#   2004/09/02 19:11:13+09:00 nakam@linux-ipv6.org +2 -2
-#   fix error message to use strxf_xfrmproto().
-# 
-# ChangeSet
-#   2004/09/02 13:35:13+09:00 nakam@linux-ipv6.org 
-#   distinguish xfrm protocol and selector protocol.
-# 
-# ip/xfrm_state.c
-#   2004/09/02 13:35:10+09:00 nakam@linux-ipv6.org +4 -4
+#   2004/09/01 14:44:59+09:00 nakam@linux-ipv6.org +3 -1
 #   fix usage.
 # 
 # ip/xfrm_policy.c
-#   2004/09/02 13:35:10+09:00 nakam@linux-ipv6.org +4 -4
+#   2004/09/01 14:44:59+09:00 nakam@linux-ipv6.org +2 -1
 #   fix usage.
 # 
-# ip/xfrm.h
-#   2004/09/02 13:35:10+09:00 nakam@linux-ipv6.org +2 -0
-#   add interfaces of xfrmproto.
-# 
 # ip/ipxfrm.c
-#   2004/09/02 13:35:10+09:00 nakam@linux-ipv6.org +45 -21
-#   add "xfrmproto" to distinguish xfrm protocol and selector protocol.
+#   2004/09/01 14:44:59+09:00 nakam@linux-ipv6.org +75 -4
+#   ICMP and ICMPv6's type/code can be specified in selector.
+#   fix to show sport/dport values when mask is specified.
 # 
 diff -Nru a/ip/ipxfrm.c b/ip/ipxfrm.c
---- a/ip/ipxfrm.c	2004-09-02 23:03:08 +09:00
-+++ b/ip/ipxfrm.c	2004-09-02 23:03:08 +09:00
-@@ -57,6 +57,43 @@
- 	int t_type;
- };
+--- a/ip/ipxfrm.c	2004-09-02 23:08:19 +09:00
++++ b/ip/ipxfrm.c	2004-09-02 23:08:19 +09:00
+@@ -352,10 +352,25 @@
  
-+static const struct typeent xfrmproto_types[]= {
-+	{ "esp", IPPROTO_ESP }, { "ah", IPPROTO_AH },
-+	{ "comp", IPPROTO_COMP }, { NULL, -1 }
-+};
-+
-+int xfrm_xfrmproto_getbyname(char *name)
-+{
-+	int i;
-+
-+	for (i = 0; ; i++) {
-+		const struct typeent *t = &xfrmproto_types[i];
-+		if (!t->t_name || t->t_type == -1)
-+			break;
-+
-+		if (strcmp(t->t_name, name) == 0)
-+			return t->t_type;
+ 	if (sel->proto)
+ 		fprintf(fp, "proto %s ", strxf_proto(sel->proto));
+-	if (sel->sport)
+-		fprintf(fp, "sport %u ", ntohs(sel->sport));
+-	if (sel->dport)
+-		fprintf(fp, "dport %u ", ntohs(sel->dport));
++	switch (sel->proto) {
++	case IPPROTO_TCP:
++	case IPPROTO_UDP:
++	case IPPROTO_SCTP:
++	default: /* XXX */
++		if (sel->sport_mask)
++			fprintf(fp, "sport %u ", ntohs(sel->sport));
++		if (sel->dport_mask)
++			fprintf(fp, "dport %u ", ntohs(sel->dport));
++		break;
++	case IPPROTO_ICMP:
++	case IPPROTO_ICMPV6:
++		/* type/code is stored at sport/dport in selector */
++		if (sel->sport_mask)
++			fprintf(fp, "type %u ", ntohs(sel->sport));
++		if (sel->dport_mask)
++			fprintf(fp, "code %u ", ntohs(sel->dport));
++		break;
 +	}
-+
-+	return -1;
-+}
-+
-+const char *strxf_xfrmproto(__u8 proto)
-+{
-+	int i;
-+
-+	for (i = 0; ; i++) {
-+		const struct typeent *t = &xfrmproto_types[i];
-+		if (!t->t_name || t->t_type == -1)
-+			break;
-+
-+		if (t->t_type == proto)
-+			return t->t_name;
-+	}
-+
-+	return NULL;
-+}
-+
- static const struct typeent algo_types[]= {
- 	{ "enc", XFRMA_ALG_CRYPT }, { "auth", XFRMA_ALG_AUTH },
- 	{ "comp", XFRMA_ALG_COMP }, { NULL, -1 }
-@@ -172,7 +209,7 @@
- 		fprintf(fp, prefix);
- 	fprintf(fp, "\t");
  
--	fprintf(fp, "proto %s ", strxf_proto(id->proto));
-+	fprintf(fp, "proto %s ", strxf_xfrmproto(id->proto));
- 
- 	spi = ntohl(id->spi);
- 	fprintf(fp, "spi 0x%08x", spi);
-@@ -522,7 +559,6 @@
+ 	if (sel->ifindex > 0) {
+ 		char buf[IF_NAMESIZE];
+@@ -653,6 +668,10 @@
+ {
+ 	int argc = *argcp;
  	char **argv = *argvp;
- 	inet_prefix dst;
- 	inet_prefix src;
--	__u8 proto = 0;
++	char *sportp = NULL;
++	char *dportp = NULL;
++	char *typep = NULL;
++	char *codep = NULL;
  
- 	memset(&dst, 0, sizeof(dst));
- 	memset(&src, 0, sizeof(src));
-@@ -555,27 +591,15 @@
- 			filter.id_dst_mask = dst.bitlen;
+ 	while (1) {
+ 		if (strcmp(*argv, "proto") == 0) {
+@@ -677,6 +696,8 @@
+ 			filter.upspec_proto_mask = XFRM_FILTER_MASK_FULL;
  
- 		} else if (strcmp(*argv, "proto") == 0) {
--			struct protoent *pp;
-+			int ret;
- 
+ 		} else if (strcmp(*argv, "sport") == 0) {
++			sportp = *argv;
++
  			NEXT_ARG();
  
--			pp = getprotobyname(*argv);
--			if (pp)
--				proto = pp->p_proto;
--			else {
--				if (get_u8(&proto, *argv, 0))
--					invarg("\"XFRM_PROTO\" is invalid", *argv);
--			}
-+			ret = xfrm_xfrmproto_getbyname(*argv);
-+			if (ret < 0)
-+				invarg("\"XFRM_PROTO\" is invalid", *argv);
+ 			if (get_u16(&sel->sport, *argv, 0))
+@@ -688,6 +709,8 @@
+ 			filter.upspec_sport_mask = XFRM_FILTER_MASK_FULL;
  
--			switch (proto) {
--			case IPPROTO_ESP:
--			case IPPROTO_AH:
--			case IPPROTO_COMP:
--				id->proto = proto;
--				break;
--			default:
--				invarg("\"XFRM_PROTO\" is unsuppored proto", *argv);
--			}
-+			id->proto = (__u8)ret;
+ 		} else if (strcmp(*argv, "dport") == 0) {
++			dportp = *argv;
++
+ 			NEXT_ARG();
  
- 			filter.id_proto_mask = XFRM_FILTER_MASK_FULL;
+ 			if (get_u16(&sel->dport, *argv, 0))
+@@ -698,6 +721,33 @@
  
-@@ -604,8 +628,8 @@
- 	if (src.family && dst.family && (src.family != dst.family))
- 		invarg("the same address family is required between \"SADDR\" and \"DADDR\"", *argv);
+ 			filter.upspec_dport_mask = XFRM_FILTER_MASK_FULL;
  
--	if (loose == 0 && proto == 0)
--		missarg("PROTO");
-+	if (loose == 0 && id->proto == 0)
-+		missarg("XFRM_PROTO");
- 	if (argc == *argcp)
- 		missarg("ID");
- 
-diff -Nru a/ip/xfrm.h b/ip/xfrm.h
---- a/ip/xfrm.h	2004-09-02 23:03:08 +09:00
-+++ b/ip/xfrm.h	2004-09-02 23:03:08 +09:00
-@@ -78,7 +78,9 @@
- int do_xfrm_state(int argc, char **argv);
- int do_xfrm_policy(int argc, char **argv);
- 
-+int xfrm_xfrmproto_getbyname(char *name);
- int xfrm_algotype_getbyname(char *name);
-+const char *strxf_xfrmproto(__u8 proto);
- const char *strxf_algotype(int type);
- const char *strxf_flags(__u8 flags);
- const char *strxf_share(__u8 share);
-diff -Nru a/ip/xfrm_policy.c b/ip/xfrm_policy.c
---- a/ip/xfrm_policy.c	2004-09-02 23:03:08 +09:00
-+++ b/ip/xfrm_policy.c	2004-09-02 23:03:08 +09:00
-@@ -78,11 +78,11 @@
- 	fprintf(stderr, "TMPL := ID [ mode MODE ] [ reqid REQID ] [ level LEVEL ]\n");
- 	fprintf(stderr, "ID := [ src ADDR ] [ dst ADDR ] [ proto XFRM_PROTO ] [ spi SPI ]\n");
- 
--	//fprintf(stderr, "XFRM_PROTO := [ esp | ah | ipcomp ]\n");
-+	//fprintf(stderr, "XFRM_PROTO := [ esp | ah | comp ]\n");
- 	fprintf(stderr, "XFRM_PROTO := [ ");
--	fprintf(stderr, "%s | ", strxf_proto(IPPROTO_ESP));
--	fprintf(stderr, "%s | ", strxf_proto(IPPROTO_AH));
--	fprintf(stderr, "%s", strxf_proto(IPPROTO_COMP));
-+	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_ESP));
-+	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_AH));
-+	fprintf(stderr, "%s", strxf_xfrmproto(IPPROTO_COMP));
- 	fprintf(stderr, " ]\n");
- 
-  	fprintf(stderr, "MODE := [ transport | tunnel ](default=transport)\n");
-diff -Nru a/ip/xfrm_state.c b/ip/xfrm_state.c
---- a/ip/xfrm_state.c	2004-09-02 23:03:08 +09:00
-+++ b/ip/xfrm_state.c	2004-09-02 23:03:08 +09:00
-@@ -63,11 +63,11 @@
- 	fprintf(stderr, "        [ FLAG_LIST ]\n");
- 
- 	fprintf(stderr, "ID := [ src ADDR ] [ dst ADDR ] [ proto XFRM_PROTO ] [ spi SPI ]\n");
--	//fprintf(stderr, "XFRM_PROTO := [ esp | ah | ipcomp ]\n");
-+	//fprintf(stderr, "XFRM_PROTO := [ esp | ah | comp ]\n");
- 	fprintf(stderr, "XFRM_PROTO := [ ");
--	fprintf(stderr, "%s | ", strxf_proto(IPPROTO_ESP));
--	fprintf(stderr, "%s | ", strxf_proto(IPPROTO_AH));
--	fprintf(stderr, "%s ", strxf_proto(IPPROTO_COMP));
-+	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_ESP));
-+	fprintf(stderr, "%s | ", strxf_xfrmproto(IPPROTO_AH));
-+	fprintf(stderr, "%s ", strxf_xfrmproto(IPPROTO_COMP));
- 	fprintf(stderr, "]\n");
- 
- 	//fprintf(stderr, "SPI - security parameter index(default=0)\n");
-@@ -308,14 +308,14 @@
- 		if (req.xsinfo.id.proto != IPPROTO_ESP &&
- 		    req.xsinfo.id.proto != IPPROTO_AH &&
- 		    req.xsinfo.id.proto != IPPROTO_COMP) {
--			fprintf(stderr, "\"ALGO\" is invalid with proto=%s\n", strxf_proto(req.xsinfo.id.proto));
-+			fprintf(stderr, "\"ALGO\" is invalid with proto=%s\n", strxf_xfrmproto(req.xsinfo.id.proto));
- 			exit(1);
- 		}
- 	} else {
- 		if (req.xsinfo.id.proto == IPPROTO_ESP ||
- 		    req.xsinfo.id.proto == IPPROTO_AH ||
- 		    req.xsinfo.id.proto == IPPROTO_COMP) {
--			fprintf(stderr, "\"ALGO\" is required with proto=%s\n", strxf_proto(req.xsinfo.id.proto));
-+			fprintf(stderr, "\"ALGO\" is required with proto=%s\n", strxf_xfrmproto(req.xsinfo.id.proto));
- 			exit (1);
- 		}
++		} else if (strcmp(*argv, "type") == 0) {
++			typep = *argv;
++
++			NEXT_ARG();
++
++			if (get_u16(&sel->sport, *argv, 0) ||
++			    (sel->sport & ~((__u16)0xff)))
++				invarg("\"type\" value is invalid", *argv);
++			sel->sport = htons(sel->sport);
++			sel->sport_mask = ~((__u16)0);
++
++			filter.upspec_sport_mask = XFRM_FILTER_MASK_FULL;
++
++
++		} else if (strcmp(*argv, "code") == 0) {
++			codep = *argv;
++
++			NEXT_ARG();
++
++			if (get_u16(&sel->dport, *argv, 0) ||
++			    (sel->dport & ~((__u16)0xff)))
++				invarg("\"code\" value is invalid", *argv);
++			sel->dport = htons(sel->dport);
++			sel->dport_mask = ~((__u16)0);
++
++			filter.upspec_dport_mask = XFRM_FILTER_MASK_FULL;
++
+ 		} else {
+ 			PREV_ARG(); /* back track */
+ 			break;
+@@ -709,6 +759,27 @@
  	}
-
+ 	if (argc == *argcp)
+ 		missarg("UPSPEC");
++	if (sportp || dportp) {
++		switch (sel->proto) {
++		case IPPROTO_TCP:
++		case IPPROTO_UDP:
++		case IPPROTO_SCTP:
++			break;
++		default:
++			fprintf(stderr, "\"sport\" and \"dport\" are invalid with proto=%s\n", strxf_proto(sel->proto));
++			exit(1);
++		}
++	}
++	if (typep || codep) {
++		switch (sel->proto) {
++		case IPPROTO_ICMP:
++		case IPPROTO_ICMPV6:
++			break;
++		default:
++			fprintf(stderr, "\"type\" and \"code\" are invalid with proto=%s\n", strxf_proto(sel->proto));
++			exit(1);
++		}
++	}
+ 
+ 	*argcp = argc;
+ 	*argvp = argv;
+diff -Nru a/ip/xfrm_policy.c b/ip/xfrm_policy.c
+--- a/ip/xfrm_policy.c	2004-09-02 23:08:19 +09:00
++++ b/ip/xfrm_policy.c	2004-09-02 23:08:19 +09:00
+@@ -62,7 +62,8 @@
+ 
+ 	fprintf(stderr, "SELECTOR := src ADDR[/PLEN] dst ADDR[/PLEN] [ UPSPEC ] [ dev DEV ]\n");
+ 
+-	fprintf(stderr, "UPSPEC := proto PROTO [ sport PORT ] [ dport PORT ]\n");
++	fprintf(stderr, "UPSPEC := proto PROTO [ [ sport PORT ] [ dport PORT ] |\n");
++	fprintf(stderr, "                        [ type NUMBER ] [ code NUMBER ] ]\n");
+ 
+ 	//fprintf(stderr, "DEV - device name(default=none)\n");
+ 
+diff -Nru a/ip/xfrm_state.c b/ip/xfrm_state.c
+--- a/ip/xfrm_state.c	2004-09-02 23:08:19 +09:00
++++ b/ip/xfrm_state.c	2004-09-02 23:08:19 +09:00
+@@ -91,7 +91,9 @@
+ 
+ 	fprintf(stderr, "SELECTOR := src ADDR[/PLEN] dst ADDR[/PLEN] [ upspec UPSPEC ] [ dev DEV ]\n");
+ 
+-	fprintf(stderr, "UPSPEC := proto PROTO [ sport PORT ] [ dport PORT ]\n");
++	fprintf(stderr, "UPSPEC := proto PROTO [ [ sport PORT ] [ dport PORT ] |\n");
++	fprintf(stderr, "                        [ type NUMBER ] [ code NUMBER ] ]\n");
++
+ 
+ 	//fprintf(stderr, "DEV - device name(default=none)\n");
+ 	fprintf(stderr, "LIMIT-LIST := [ LIMIT-LIST ] | [ limit LIMIT ]\n");
 
 
 
