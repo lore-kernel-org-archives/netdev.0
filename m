@@ -1,85 +1,34 @@
-From: Alex Riesen <fork0@users.sourceforge.net>
-Subject: Re: select implementation not POSIX compliant?
-Date: Wed, 11 Aug 2004 21:40:18 +0200
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040811194018.GA3971@steel.home>
-References: <37062.66.93.180.209.1092243659.squirrel@66.93.180.209>
-Reply-To: Alex Riesen <fork0@users.sourceforge.net>
+From: Pavel Machek <pavel@suse.cz>
+Subject: Re: ipw2100 wireless driver
+Date: Wed, 11 Aug 2004 22:27:04 +0200
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040811202704.GD1550@openzaurus.ucw.cz>
+References: <20040714114135.GA25175@elf.ucw.cz> <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com> <20040714115523.GC2269@elf.ucw.cz> <20040809201556.GB9677@louise.pinerecords.com> <Pine.LNX.4.61.0408101258130.1290@boston.corp.fedex.com> <20040810075558.A14154@infradead.org> <20040810101640.GF9034@atrey.karlin.mff.cuni.cz> <20040810113439.A15100@infradead.org> <20040811121735.GA31171@elf.ucw.cz> <411A5D3B.3010808@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Nick Palmer <nick@sluggardy.net>, netdev@oss.sgi.com
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S268187AbUHKTlQ@vger.kernel.org>
-To: linux-kernel <linux-kernel@vger.kernel.org>
+Cc: Pavel Machek <pavel@ucw.cz>, Christoph Hellwig <hch@infradead.org>,
+        Jeff Chua <jeffchua@silk.corp.fedex.com>,
+        Tomas Szepe <szepe@pinerecords.com>, netdev@oss.sgi.com,
+        kernel list <linux-kernel@vger.kernel.org>,
+        Jouni Malinen <jkmaline@cc.hut.fi>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <37062.66.93.180.209.1092243659.squirrel@66.93.180.209>
+In-Reply-To: <411A5D3B.3010808@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On linux-kernel, Nick Palmer wrote:
-> I am working on porting some software from Solaris to Linux 2.6.7. I
-> have run into a problem with the interaction of select and/or
-> recvmsg and close in our multi-threaded application. The application
-> expects that a close call on a socket that another thread is
-> blocking in select and/or recvmsg on will cause select and/or
-> recvmsg to return with an error. Linux does not seem to do this. (I
-> also verified that the same issue exists in Linux 2.4.25, just to be
-> sure it wasn't introduced in 2.6 in case you were wondering.)
+Hi!
 
-It works always for stream sockets and does not at all (even with
-shutdown, even using poll(2) or read(2) instead of select) for dgram
-sockets.
+> >Hmm, strange, one merge in last 8 weeks. That's not too active
+> >project. Are you sure this is the right tree to work against?
+> 
+> 
+> It's the right tree, but wireless development hasn't coalesced yet on 
+> that tree it appears.  It sounds like the Intel folks are interested 
+> in working on that tree, and others have mentioned they are 
+> interested as well.
 
-What domain (inet, local) are your sockets in?
-What type (stream, dgram)?
-
-There will probably be a problem anyway with changing the behaviour:
-there surely is lots of code, which start complaining about select and
-poll finishing "unexpectedly".
-
-I used this to check:
-
-#include <unistd.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <sys/socket.h>
-#include <sys/wait.h>
-#include <netinet/in.h>
-#include <fcntl.h>
-
-int main(int argc, char* argv[])
-{
-    int status;
-    int fds[2];
-    fd_set set;
-#if 0
-    puts("stream");
-    if (  socketpair(PF_LOCAL, SOCK_STREAM, 0, fds) < 0 )
-#else
-    puts("dgram");
-    if (  socketpair(PF_LOCAL, SOCK_DGRAM, 0, fds) < 0 )
-#endif
-    {
-	perror("socketpair");
-	exit(1);
-    }
-    fcntl(fds[0], F_SETFL, fcntl(fds[0], F_GETFL) | O_NONBLOCK);
-    fcntl(fds[1], F_SETFL, fcntl(fds[1], F_GETFL) | O_NONBLOCK);
-    switch ( fork() )
-    {
-    case 0:
-	sleep(1);
-	close(fds[0]);
-	shutdown(fds[1], SHUT_RD);
-	close(fds[1]);
-	exit(0);
-	break;
-    case -1:
-	perror("fork");
-	exit(1);
-    }
-    close(fds[1]);
-    FD_ZERO(&set);
-    FD_SET(fds[0], &set);
-    select(fds[0] + 1, &set, NULL, NULL, 0);
-    wait(&status);
-    return 0;
-}
+Is there way to access that tree without bk? Daily patches maybe?
+-- 
+64 bytes from 195.113.31.123: icmp_seq=28 ttl=51 time=448769.1 ms         
