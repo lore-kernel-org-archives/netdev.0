@@ -1,52 +1,74 @@
-From: Didier Barvaux <didier@barvaux.org>
-Subject: Re: (usagi-users 03197) Re: TAHI Conformance Test
-Date: Tue, 8 Feb 2005 13:21:54 +0100
-Message-ID: <20050208132154.21176283.didier@barvaux.org>
-References: <20050207102553.28a46fcd.didier@barvaux.org>
-	<20050207.194136.130656563.yoshfuji@linux-ipv6.org>
+From: Olaf Kirch <okir@suse.de>
+Subject: [PATCH] natsemi: long cable, short cable
+Date: Tue, 8 Feb 2005 15:18:49 +0100
+Message-ID: <20050208141849.GC23971@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: linux-net@vger.kernel.org, netdev@oss.sgi.com
-To: usagi-users@linux-ipv6.org
-In-Reply-To: <20050207.194136.130656563.yoshfuji@linux-ipv6.org>
-Sender: linux-net-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+To: netdev@oss.sgi.com
+Content-Disposition: inline
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+The current version of the natsemi driver comes with a workaround
+for a hardware problem that causes link failures on short cables.
+Unfortunately, this workaround causes massive link failures on _long_
+cables (270-300ft). This patch adds a module parameter to disable
+the workaround if required.
 
+Signed-off-by: Olaf Kirch <okir@suse.de>
 
-> Please do not multipost...
-
-Sorry about that.
-
-
-> Well, we haven't tested vanilla linux-2.4.x recently.
-> However, linux-2.6.11-rc2 w/ usagi-tools (userspace daemon etc.),
-> acting as host and/or router, passed IPv6 Ready Logo [1]
-> Phase 1 Self-Test, which is similar to CT.
-> (Note: usagi-linux24 and usagi-linux26 passed it, too.)
-
-Ok.
+Index: linux-2.6.10/drivers/net/natsemi.c
+===================================================================
+--- linux-2.6.10.orig/drivers/net/natsemi.c
++++ linux-2.6.10/drivers/net/natsemi.c
+@@ -186,6 +186,7 @@ static int debug = -1;
+ /* Maximum events (Rx packets, etc.) to handle at each interrupt. */
+ static int max_interrupt_work = 20;
+ static int mtu;
++static int no_cable_magic = 0;
  
-> And, we are trying passing Phase 2 Self-Test as well.
-> My private tree already passed it, and patches will soon be available
-> (in linux-2.6.12 timeframe).
+ /* Maximum number of multicast addresses to filter (vs. rx-all-multicast).
+    This chip uses a 512 element hash table based on the Ethernet CRC.  */
+@@ -257,6 +258,7 @@ module_param(debug, int, 0);
+ module_param(rx_copybreak, int, 0);
+ module_param_array(options, int, NULL, 0);
+ module_param_array(full_duplex, int, NULL, 0);
++module_param(no_cable_magic, int, 0);
+ MODULE_PARM_DESC(max_interrupt_work, 
+ 	"DP8381x maximum events handled per interrupt");
+ MODULE_PARM_DESC(mtu, "DP8381x MTU (all boards)");
+@@ -266,6 +268,9 @@ MODULE_PARM_DESC(rx_copybreak, 
+ MODULE_PARM_DESC(options, 
+ 	"DP8381x: Bits 0-3: media type, bit 17: full duplex");
+ MODULE_PARM_DESC(full_duplex, "DP8381x full duplex setting(s) (1)");
++MODULE_PARM_DESC(no_cable_magic,
++	"DP8381x: set no_cable_magic=1 to disable magic workaround for short cables "
++	"(may help with long cables:-)");
  
-Good news.
+ /*
+ 				Theory of Operation
+@@ -1578,6 +1583,9 @@ static void do_cable_magic(struct net_de
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem *ioaddr = ns_ioaddr(dev);
+ 
++	if (no_cable_magic)
++		return;
++
+ 	if (dev->if_port != PORT_TP)
+ 		return;
+ 
+@@ -1623,6 +1631,9 @@ static void undo_cable_magic(struct net_
+ 	struct netdev_private *np = netdev_priv(dev);
+ 	void __iomem * ioaddr = ns_ioaddr(dev);
+ 
++	if (no_cable_magic)
++		return;
++
+ 	if (dev->if_port != PORT_TP)
+ 		return;
+ 
 
-> I think linux-2.6.11-rc2 w/ usagi-tools can pass TAHI CT;
-> we will test later.
-> 
-> We may try to backport changes to 2.4.x.
-> 
-> I hope this helps.  Thanks.
-
-Thank you a lot for these information. Sorry for the multipost. Thank you for your job on the Linux kernel and on the USAGI project.
-
-
-Regards,
-
-Didier Barvaux
-
-
+-- 
+Olaf Kirch   |  --- o --- Nous sommes du soleil we love when we play
+okir@suse.de |    / | \   sol.dhoop.naytheet.ah kin.ir.samse.qurax
