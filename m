@@ -1,62 +1,35 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [BK PATCH] [IPV6] Multiple locking fixes/improvements
-Date: Tue, 23 Nov 2004 13:37:44 -0500 (EST)
-Message-ID: <20041123.133744.48357645.yoshfuji@linux-ipv6.org>
-References: <20041122.223205.14979415.yoshfuji@linux-ipv6.org>
-	<41A37CD4.3030503@hp.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: r8169.c
+Date: Tue, 23 Nov 2004 20:47:40 +0100
+Message-ID: <20041123194740.GA32210@electric-eye.fr.zoreil.com>
+References: <20041119162920.GA26836@lilah.hetzel.org> <20041119201203.GA13522@electric-eye.fr.zoreil.com> <20041120003754.GA32133@lilah.hetzel.org> <20041120002946.GA18059@electric-eye.fr.zoreil.com> <20041122181307.GA3625@lilah.hetzel.org> <20041123144901.GA19005@lilah.hetzel.org>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com, jgarzik@pobox.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brian.Haley@hp.com
-In-Reply-To: <41A37CD4.3030503@hp.com>
+To: Dorn Hetzel <kernel@dorn.hetzel.org>
+Content-Disposition: inline
+In-Reply-To: <20041123144901.GA19005@lilah.hetzel.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <41A37CD4.3030503@hp.com> (at Tue, 23 Nov 2004 13:09:24 -0500), Brian Haley <Brian.Haley@hp.com> says:
+Dorn Hetzel <kernel@dorn.hetzel.org> :
+[...]
+[...]
+[...]
+[...]
+[...]
+[...]
+[...]
+[...]
+[...]
+> Stacked on these 4 patches and things seem much better :)
 
-> Not to nitpick, but this is just easier to read:
-> 
-> +static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
-> +{
-> +	read_lock_bh(&addrconf_lock);
-> +	if (!ifp->idev->dead)
-> +		__ipv6_ifa_notify(event, ifp);
-> +	read_unlock_bh(&addrconf_lock);
->   }
+Did you change the compiler as well ?
 
-agreed and added one changeset.
+If yes, it would be nice to know if the system performs correctly when built with
+the previous compiler (feel free to answer #1 only if you are busy :o) ).
 
-# This is a BitKeeper generated diff -Nru style patch.
-#
-# ChangeSet
-#   2004/11/24 03:34:53+09:00 Brian.Haley@hp.com 
-#   [IPV6] improve ipv6_ifa_notify() readability.
-# 
-# net/ipv6/addrconf.c
-#   2004/11/24 03:34:41+09:00 Brian.Haley@hp.com +2 -4
-#   [IPV6] improve ipv6_ifa_notify() readability.
-# 
-diff -Nru a/net/ipv6/addrconf.c b/net/ipv6/addrconf.c
---- a/net/ipv6/addrconf.c	2004-11-24 03:35:33 +09:00
-+++ b/net/ipv6/addrconf.c	2004-11-24 03:35:33 +09:00
-@@ -3017,10 +3017,8 @@
- static void ipv6_ifa_notify(int event, struct inet6_ifaddr *ifp)
- {
- 	read_lock_bh(&addrconf_lock);
--	if (ifp->idev->dead)
--		goto out;
--	__ipv6_ifa_notify(event, ifp);
--out:
-+	if (likely(ifp->idev->dead == 0))
-+		__ipv6_ifa_notify(event, ifp);
- 	read_unlock_bh(&addrconf_lock);
- }
- 
-
-
--- 
-Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
-GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
+--
+Ueimor
