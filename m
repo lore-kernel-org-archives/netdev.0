@@ -1,37 +1,29 @@
-From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
-Subject: Re: [patch] Change Networking mibs to use kmalloc_percpu -- 1/3
-Date: Wed, 4 Dec 2002 20:34:27 -0200
+From: "Walker, Caleb" <cwalker@thezenith.com>
+Subject: Where do I ask Vortex Driver Questions?
+Date: Wed, 4 Dec 2002 15:32:51 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021204223427.GA23578@conectiva.com.br>
-References: <20021204180510.C17375@in.ibm.com> <20021204.090152.97851491.davem@redhat.com>
+Message-ID: <1FB25D2C0FC3D11193C10050046E9254079A4952@whlexch.thezenith.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: kiran@in.ibm.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
-   akpm@digeo.com, dipankar@in.ibm.com
+Content-Type: text/plain
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-Content-Disposition: inline
-In-Reply-To: <20021204.090152.97851491.davem@redhat.com>
+To: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Em Wed, Dec 04, 2002 at 09:01:52AM -0800, David S. Miller escreveu:
->    From: Ravikiran G Thirumalai <kiran@in.ibm.com>
->    Date: Wed, 4 Dec 2002 18:05:10 +0530
-> 
->    Here's a patchset to enable networking mibs to use kmalloc_percpu instead
->    of the traditional padded NR_CPUS arrays.
->    
->    Advantages:
->    1. Removes NR_CPUS bloat due to static definition
->    2. Can support node local allocation
->    3. Will work with modules
->    
-> I totally support this work.  Once the kmalloc percpu bits hit
-> Linus's tree, just retransmit these diffs to me privately and
-> I'll put them into my net-2.5 tree.
+I apologize for taking your time with this email, but I am wondering if you
+could tell me where I can ask such questions as:
+How do I set the card up to run at 100MB/Half Duplex?
 
-Cool stuff! I was planning to macroise this so that things like this would be
-possible without source impact but now its just there, keep it up :-)
+The document is a little hard to understand for someone as ignorant as me.
+I get everything but what half of the hex numbers mean.
 
-- Arnaldo
+Thank you,
+Caleb Walker
+-------------------------------------------------------------------------
+This email and any attachments constitute non-public information for use
+only by intended recipient(s) and may contain confidential information.  If
+you are not an intended recipient, please notify our Information Security
+Officer immediately at (941) 906-5844 and permanently delete the original of
+this email and any attachments, as well as any copies or printouts
+thereof.The unauthorized use, dissemination, distribution or reproduction of
+this email and any attachments is prohibited and may be unlawful.
