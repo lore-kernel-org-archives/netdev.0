@@ -1,36 +1,55 @@
-From: Marcus Meissner <meissner@suse.de>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Subject: Re: [patch] do not readlock all buckets in /proc/net/tcp
-Date: Mon, 5 Jul 2004 13:35:55 +0200
+Date: Mon, 05 Jul 2004 21:25:22 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040705113555.GA28665@suse.de>
-References: <20040705110949.GA1092@suse.de> <E1BhRda-0001Rs-00@gondolin.me.apana.org.au>
+Message-ID: <20040705.212522.126409437.yoshfuji@linux-ipv6.org>
+References: <E1BhRda-0001Rs-00@gondolin.me.apana.org.au>
+	<20040705113555.GA28665@suse.de>
+	<20040705120610.GA5728@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-Content-Disposition: inline
-In-Reply-To: <E1BhRda-0001Rs-00@gondolin.me.apana.org.au>
+To: herbert@gondor.apana.org.au, meissner@suse.de
+In-Reply-To: <20040705120610.GA5728@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, Jul 05, 2004 at 09:27:54PM +1000, Herbert Xu wrote:
-> Marcus Meissner <meissner@suse.de> wrote:
+In article <20040705120610.GA5728@gondor.apana.org.au> (at Mon, 5 Jul 2004 22:06:10 +1000), Herbert Xu <herbert@gondor.apana.org.au> says:
+
+> On Mon, Jul 05, 2004 at 01:35:55PM +0200, Marcus Meissner wrote:
 > > 
-> > This patch makes the files /proc/net/tcp and /proc/net/tcp6 not acquire
-> > the readlock for every bucket.
-> > 
-> > On ppc64 and ia64 the readlocks are so expensive, that reading /proc/net/tcp
-> > takes 0.25 seconds on a usual p670 LPAR.
-> > 
-> > And it locks 65536 buckets where just 20 chains are used at all in a normal
-> > non-netserver setup.
+> > Oh, and NETLINK+TCP_DIAG seems to have the same readlock contention problem,
+> > see tcpdiag_dump().
 > 
-> Why not use NETLINK+TCP_DIAG instead? It's much faster.
+> Then you wouldn't mind adding this optimisation for tcp_diag as well,
+> right? :)
 
-Not sure if you want / can fix all proprietary software.
+here it is. :-)
 
-Oh, and NETLINK+TCP_DIAG seems to have the same readlock contention problem,
-see tcpdiag_dump().
+Signed-off-by: Hideaki YOSHIFUJI <yoshfuji@linux-ipv6.org>
 
-Ciao, Marcus
+===== net/ipv4/tcp_diag.c 1.15 vs edited =====
+--- 1.15/net/ipv4/tcp_diag.c	2004-06-08 07:27:58 +09:00
++++ edited/net/ipv4/tcp_diag.c	2004-07-05 21:18:17 +09:00
+@@ -522,9 +522,13 @@
+ 		if (i > s_i)
+ 			s_num = 0;
+ 
+-		read_lock_bh(&head->lock);
+-
+ 		num = 0;
++
++		if (hlist_empty(&head->chain) &&
++		    (!(r->tcpdiag_states&TCPF_TIME_WAIT) || hlist_empty(&head->chain)))
++			continue;
++
++		read_lock_bh(&head->lock);
+ 		sk_for_each(sk, node, &head->chain) {
+ 			struct inet_opt *inet = inet_sk(sk);
+ 
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
