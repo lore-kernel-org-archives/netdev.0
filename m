@@ -1,70 +1,65 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [PATCH] PKT_SCHED: remove c99ism
-Date: Sun, 16 Jan 2005 00:40:56 +0100
-Message-ID: <20050115234056.GT26856@postel.suug.ch>
-References: <20050115144010.33182075.akpm@osdl.org> <20050115232554.GS26856@postel.suug.ch> <20050115153202.2f7f81c6.akpm@osdl.org>
+From: Pekka Pietikainen <pp@ee.oulu.fi>
+Subject: Re: Multicast on b44
+Date: Sun, 16 Jan 2005 02:08:09 +0200
+Message-ID: <20050116000809.GB5334@ee.oulu.fi>
+References: <f3ddc6d305011320416635914@mail.gmail.com> <20050115233836.GA5334@ee.oulu.fi>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: davem@davemloft.net, netdev@oss.sgi.com
+Content-Type: text/plain; charset=iso-8859-1
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
+To: James Hubbard <jameshubbard@gmail.com>
 Content-Disposition: inline
-In-Reply-To: <20050115153202.2f7f81c6.akpm@osdl.org>
+In-Reply-To: <20050115233836.GA5334@ee.oulu.fi>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Andrew Morton <20050115153202.2f7f81c6.akpm@osdl.org> 2005-01-15 15:32
-> An uglier but more efficient approach is to whack braces around the whole
-> thing.
+On Sun, Jan 16, 2005 at 01:38:36AM +0200, Pekka Pietikainen wrote:
+> It looks like the b44 driver is limited to 32 entries (B44_MCAST_TABLE_SIZE)
+> whereas bcm4400 goes up to 63. It's just a #define so you should be able to
+> up it to that and be safe, might be worth upping it to that in b44 by
+> default. 
+> 
+> If you need more than that you're stuck with allmulti, which if I remember
+> correctly didn't work. Yup, from a previous mail of mine I did test it at
+> one point:
+> 
+> "Ok, after some digging around ALLMULTI breaking is not a bug, the
+> vendor-provided driver seems to break in similar ways, at least on 2.6,
+> so that's a feature unless they fix it in theirs so I can copy the fix :-)"
+> 
+But do try with RXCONFIG_ALLMULTI instead of _PROMISC. Anyway, here's
+something totally untested:
 
-Fine with me as well. The code isn't used that often and not deep in the
-calling stack which is why I preferred the cleaner way first.
-
-Signed-off-by: Thomas Graf <tgraf@suug.ch>
-
---- linux-2.6.11-rc1-bk2.orig/net/sched/cls_api.c	2005-01-16 00:04:40.000000000 +0100
-+++ linux-2.6.11-rc1-bk2/net/sched/cls_api.c	2005-01-16 00:34:53.000000000 +0100
-@@ -486,24 +486,26 @@
- 	memset(exts, 0, sizeof(*exts));
- 	
- #ifdef CONFIG_NET_CLS_ACT
--	int err;
--	struct tc_action *act;
-+	{
-+		int err;
-+		struct tc_action *act;
+X-It-Compiles-Lets-Ship-It-By: pp@ee.oulu.fi
+--- ./b44.h.2	2005-01-16 02:00:27.000000000 +0200
++++ ./b44.h	2005-01-16 02:00:52.000000000 +0200
+@@ -358,7 +358,7 @@
+ 	DECLARE_PCI_UNMAP_ADDR(mapping);
+ };
  
--	if (map->police && tb[map->police-1]) {
--		act = tcf_action_init_1(tb[map->police-1], rate_tlv, "police",
--			TCA_ACT_NOREPLACE, TCA_ACT_BIND, &err);
--		if (act == NULL)
--			return err;
--
--		act->type = TCA_OLD_COMPAT;
--		exts->action = act;
--	} else if (map->action && tb[map->action-1]) {
--		act = tcf_action_init(tb[map->action-1], rate_tlv, NULL,
--			TCA_ACT_NOREPLACE, TCA_ACT_BIND, &err);
--		if (act == NULL)
--			return err;
-+		if (map->police && tb[map->police-1]) {
-+			act = tcf_action_init_1(tb[map->police-1], rate_tlv, "police",
-+				TCA_ACT_NOREPLACE, TCA_ACT_BIND, &err);
-+			if (act == NULL)
-+				return err;
-+
-+			act->type = TCA_OLD_COMPAT;
-+			exts->action = act;
-+		} else if (map->action && tb[map->action-1]) {
-+			act = tcf_action_init(tb[map->action-1], rate_tlv, NULL,
-+				TCA_ACT_NOREPLACE, TCA_ACT_BIND, &err);
-+			if (act == NULL)
-+				return err;
+-#define B44_MCAST_TABLE_SIZE	32
++#define B44_MCAST_TABLE_SIZE	63
+ #define B44_BOUNCEBUF_SHIFT	3
+ #define B44_NUM_BOUNCEBUFS	(1 << B44_BOUNCEBUF_SHIFT)
  
--		exts->action = act;
-+			exts->action = act;
-+		}
- 	}
- #elif defined CONFIG_NET_CLS_POLICE
- 	if (map->police && tb[map->police-1]) {
+--- ./b44.c.2	2005-01-16 02:00:25.000000000 +0200
++++ ./b44.c	2005-01-16 02:04:06.000000000 +0200
+@@ -1425,12 +1425,14 @@
+ 	} else {
+ 		__b44_set_mac_addr(bp);
+ 
+-		if (dev->flags & IFF_ALLMULTI)
+-			val |= RXCONFIG_ALLMULTI;
++		if ((dev->flags & IFF_ALLMULTI) || (dev->mc_count > B44_MCAST_TABLE_SIZE))
++			/* RXCONFIG_ALLMULTI seems to disable unicast packets :-( */
++			val |= RXCONFIG_PROMISC;
+ 		else
+ 			i=__b44_load_mcast(bp, dev);
+ 		
+-		for(;i<64;i++) {
++		/* Fill in remaining entries with zero */
++		for(;i<B44_MCAST_TABLE_SIZE+1;i++) {
+ 			__b44_cam_write(bp, zero, i);			
+ 		}
+ 		bw32(bp, B44_RXCONFIG, val);
