@@ -1,34 +1,38 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [Ipsec-tools-devel] ipv4/ipv6 forwarding check
-Date: Fri, 29 Oct 2004 00:04:47 -0700
+Subject: Re: Fw: [Bugme-new] [Bug 3657] New: downed interfaces acting as
+ aliases
+Date: Fri, 29 Oct 2004 00:06:51 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041029000447.4e7b68e3.davem@davemloft.net>
-References: <200410300506.i9U56Yse005815@faith.austin.ibm.com>
-	<4181EBC3.3020507@gmc.lt>
+Message-ID: <20041029000651.6fd7360f.davem@davemloft.net>
+References: <20041028234649.2d4ed3b8.akpm@osdl.org>
+	<20041028234502.203b42c3.davem@davemloft.net>
+	<4181ED02.1060501@candelatech.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: latten@austin.ibm.com, ipsec-tools-devel@lists.sourceforge.net,
-        netdev@oss.sgi.com
+Cc: akpm@osdl.org, netdev@oss.sgi.com, mbm@alt.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Aidas Kasparas <a.kasparas@gmc.lt>
-In-Reply-To: <4181EBC3.3020507@gmc.lt>
+To: Ben Greear <greearb@candelatech.com>
+In-Reply-To: <4181ED02.1060501@candelatech.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 29 Oct 2004 10:05:39 +0300
-Aidas Kasparas <a.kasparas@gmc.lt> wrote:
+On Fri, 29 Oct 2004 00:10:58 -0700
+Ben Greear <greearb@candelatech.com> wrote:
 
-> 	4) extend setkey's syntax to make explicit forward policy management 
-> possible and write docs for all the admins to change policies.
+> Why would you want this behaviour?  If it's configured down, it would
+> seem that the user is trying to tell the system not to use it :)
 
-This is what we're advocating to happen.
+Because IP addresses are assosciated with the host, not
+a specific interface or link.  That is the model that
+we've implemented since day one.
 
-There are reasons why people would want seperate INPUT, OUTPUT,
-and FORWARD policies.  So we're not taking that capability out
-of the kernel.  And by "auto-magically" making this happen
-transparently you are taking the capability away, which is why
-this idea won't fly either.
+According to the RFCs, this is one of several valid models.
 
-For the record, the freeswan tools handle all of this stuff
-just fine.
+People hate it that when there's a decision of whether to
+reply to something or not, we do whatever we can to reply
+to packets we receive if we can find a way to do so.  This
+approache increases the likelyhood that two hosts can
+communicate successfully.  I need not remind people about
+how much people dislike our default ARP behavior :-) but
+it is done that way for the same reason.
