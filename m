@@ -1,42 +1,46 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [RFC] TCP congestion schedulers
-Date: Tue, 29 Mar 2005 12:03:06 -0800
-Message-ID: <20050329120306.558cea0c.davem@davemloft.net>
-References: <421D30FA.1060900@ev-en.org>
-	<20050225120814.5fa77b13@dxpl.pdx.osdl.net>
-	<20050309210442.3e9786a6.davem@davemloft.net>
-	<4230288F.1030202@ev-en.org>
-	<20050310182629.1eab09ec.davem@davemloft.net>
-	<20050311120054.4bbf675a@dxpl.pdx.osdl.net>
-	<20050311201011.360c00da.davem@davemloft.net>
-	<20050314151726.532af90d@dxpl.pdx.osdl.net>
-	<m13bur5qyo.fsf@muc.de>
-	<Pine.LNX.4.58.0503211605300.6729@dexter.psc.edu>
-	<20050322074122.GA64595@muc.de>
-	<Pine.LNX.4.58.0503291422100.3256@dexter.psc.edu>
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] s390: claw network device driver
+Date: Tue, 29 Mar 2005 15:05:08 -0500
+Message-ID: <4249B4F4.4050205@pobox.com>
+References: <OF6B8E4881.48C8D8FB-ON41256FD3.0029171C-41256FD3.002ADBAE@de.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, shemminger@osdl.org, ak@muc.de, baruch@ev-en.org
+Cc: Andrew Morton <akpm@osdl.org>, linux-kernel@vger.kernel.org,
+        netdev@oss.sgi.com, Frank Pavlic <PAVLIC@de.ibm.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: John Heffner <jheffner@psc.edu>
-In-Reply-To: <Pine.LNX.4.58.0503291422100.3256@dexter.psc.edu>
+To: Martin Schwidefsky <schwidefsky@de.ibm.com>
+In-Reply-To: <OF6B8E4881.48C8D8FB-ON41256FD3.0029171C-41256FD3.002ADBAE@de.ibm.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 29 Mar 2005 14:32:33 -0500 (EST)
-John Heffner <jheffner@psc.edu> wrote:
+Martin Schwidefsky wrote:
+> Hi Jeff,
+> 
+> 
+>>>Was cc'ed to linux-net last Thursday, but it looks like the messages was
+>>>too large and the vger server munched it.
+>>
+>>As mentioned in the email, you want netdev, not linux-net...
+> 
+> 
+> we are currently thinking about changing the sign-off chain for the s390
+> network patches. Dave suggested that they should go through your hands.
+> If that is ok with you the new sign-off chain would be Frank Pavlic,
+> Jeff Garzik, Bitkeeper. This would solve two problems:
+> 1) Frank would create the patches and since he knows much more about
+>    linux networking then I do, hopefully the patches and the descriptions
+>    will improve (and you can probably teach him to send the patches to
+>    netdev instead of linux-net).
+> 2) The patches won't just slip in anymore but get a real review.
 
-> The motivation for my question is that I get very unpredictable
-> performance over loopback with UP for all architectures, often varying by
-> more than a factor of two.  I haven't really tried to track down the
-> cause, but an important characteristic seems to be that the greater the
-> differential between the CPU utilization of the sender and the receiver,
-> the slower the throughput.  (But I'm not sure if there's a causal relation
-> here.)  Maybe this is simply scheduler strangeness, since it doesn't seem
-> to be an issue that I've noticed on SMP.  Has anyone seen this or know
-> offhand what's going on?
+That's OK with me.  As an example, on the MIPS side of things, Ralf 
+sends most MIPS stuff straight to Linus, but I queue all his 
+drivers/net/* patches into my queue, and that gets submitted separately 
+(though just as rapidly) upstream with other net driver changes.
 
-It could be L2 cache-coloring effects as well.  Try to keep the working
-set size smaller than the L2 cache size of the cpu you are on.
+I certainly do recognize that qeth, in particular, is a network driver 
+unlike all others in the kernel ;-)
+
+	Jeff
