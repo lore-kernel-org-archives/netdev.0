@@ -1,59 +1,37 @@
-From: Mas.Net.Co.@oss.sgi.com, ltd <message@topgrace.jp>
-Subject: =?ISO-2022-JP?B?GyRCTCQ+NUJ6OS05cCIoJWwlcyU/JWslKCVDJTAlUyVlITwlOSU/ITwlSBsoQg==?=
-Date: Wed, 16 Apr 2003 16:27:26 +0900
+From: Julian Anastasov <ja@ssi.bg>
+Subject: Re: [PATCH] qdisc oops fix
+Date: Wed, 16 Apr 2003 10:24:12 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200304160727.h3G7RqFu003733@oss.sgi.com>
+Message-ID: <Pine.LNX.4.44.0304161018520.1138-100000@u.domain.uli>
+References: <Pine.LNX.4.33.0304160816080.557-200000@devix>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="ISO-2022-JP"
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: Tomas Szepe <szepe@pinerecords.com>, <netdev@oss.sgi.com>,
+   jamal <hadi@cyberus.ca>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: <netdev@oss.sgi.com>
+To: devik <devik@cdi.cz>
+In-Reply-To: <Pine.LNX.4.33.0304160816080.557-200000@devix>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-<事業者><送信者>　Mas Net Co.,Ltd.
-港区西新橋2-22-1
-Sinbashi Office
-message@topgrace.jp
---------------------------------------------------------
-特定商取引法施行規則　受け取りを希望しない場合の連絡方法
-弊社からの広告メールの配信停止を希望の場合は、
-1.下記ＵＲＬよりアドレスをお知らせください。
-http://topgrace.jp/kaijyo2.html
 
-2.件名を「配信停止」と書き換え
-このメールを返信してください。
-その返信元のアドレスに対する配信は停止いたします。
-　　　　message@topgrace.jp
+	Hello,
 
-★★★★★★レンタルエッグビュースタート★★★★★★
- 　　
-　　　　　　　【文章・データ入力スタッフの急募】
- 
-　　　★業務委託契約にてお仕事をお願いします★
- 　☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆
- 　　　　詳細・資料請求は下記URLから
- 　　　　　　　http://topgrace.jp/
- 　☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆
-　 在宅入力業務のお仕事が出来る方を募集しています。
-　　
-　　　　　　　    　　　　【特徴】
-インターネットを利用したエントリーシステムを採用しております。
- ●1件のお仕事でも納品可能ですので時間の有効活用ができます。
- ●お電話にて、操作習得までの完全サポートをいたします。
- ●入力速度と正確さに応じて収入が増えていきます。
- ●レンタルシステムの導入で簡単にスタートできます。
+On Wed, 16 Apr 2003, devik wrote:
 
- 
-　　　　　　   　　　　【募集内容】
- 【時間】4時間/日（20時間/週）以上のお時間の取れる方
- 【期間】１年以上継続出来る方
- 【収入】3万円/月〜10万円/月の収入を希望する方
-　　　　（入力スピードによって収入がかわります）
- 
- 　 
-　 ☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆
-   　　　 詳細・資料請求は下記URLから
-        　　　　http://topgrace.jp//
- 　☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆☆
- 
+> The bug you are speaking about was fixed at 27 Jan 2003
+> and is included in 2.4.21pre (I hope ;-).
+> I'm attaching diff from 2.4.20 version to my current one.
+
+	Oh, yes, I'm sleeping :) I'm even using this update, sorry!
+
+> regards,
+> -------------------------------
+>     Martin Devera aka devik
+> Linux kernel QoS/HTB maintainer
+>   http://luxik.cdi.cz/~devik/
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
