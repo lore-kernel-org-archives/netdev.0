@@ -1,77 +1,48 @@
-From: Brad House <brad@mcve.com>
-Subject: Re: [patches] 2.6.0-test9 - r8169 DMA API conversion
-Date: Wed, 19 Nov 2003 20:36:52 -0500
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: Function to determine if IP exists on a net-device?
+Date: Wed, 19 Nov 2003 18:05:15 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3FBC1AB4.3040900@mcve.com>
-References: <47973.68.105.173.45.1069042089.squirrel@mail.mainstreetsoftworks.com>	 <3FB9A277.70309@pobox.com>	 <20031118135848.A2451@electric-eye.fr.zoreil.com>	 <3FBBA76B.4070606@pobox.com>	 <20031120010056.A19444@electric-eye.fr.zoreil.com>	 <3FBC05FB.2020409@mcve.com>	 <20031120014550.A22377@electric-eye.fr.zoreil.com>	 <3FBC11F2.5080805@mcve.com> <1069292052.3241.36.camel@slurv.pasop.tomt.net> <3FBC1A72.9020101@mcve.com>
+Message-ID: <3FBC215B.2090100@candelatech.com>
+References: <3FBB36F2.7030402@candelatech.com> <20031119173103.1938bc51.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Andre Tomt <andre@tomt.net>, netdev@oss.sgi.com,
-        Francois Romieu <romieu@fr.zoreil.com>,
-        Jeff Garzik <jgarzik@pobox.com>, Brad House <brad_mssw@gentoo.org>
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Brad House <brad@mcve.com>
-In-Reply-To: <3FBC1A72.9020101@mcve.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031119173103.1938bc51.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-ok, misunderstood again ...
-geez .... now I get it ...
-he'll apply the 1.6 patch this weekend ... _sigh_
-I really must be brain dead today.
+David S. Miller wrote:
+> On Wed, 19 Nov 2003 01:25:06 -0800
+> Ben Greear <greearb@candelatech.com> wrote:
+> 
+> 
+>>Is there a method already written that will tell me if an IP exists on
+>>a netdevice?
+>>
+>>If not, I am quite sure the answer lies in the in_ifaddr
+>>list, but which field holds the IP address for the device?
+> 
+> 
+> Call getifaddrs(), walk the list finding the each and every list entry
+> with the 'ifa_name' name matching the device you want.  If there are
+> multiple addresses attached to an interface there will be multiple
+> in_ifaddr list entries with the 'ifa_name' of your interface.
+> 
+> In each of those entry, check the sockaddr pointed to by the 'ifa_addr'
+> field.
 
--Brad
 
-Brad House wrote:
-> yes, I definately misunderstood then ...
-> sorry ;)
-> I'll just apply the patches to my version and see what happens ;)
-> 
-> -Brad
-> 
-> Andre Tomt wrote:
-> 
->> On Thu, 2003-11-20 at 01:59, Brad House wrote:
->>
->>> any reason why it's not against the v1.6 ?
->>
->>
->>
->> I think you misunderstood. If I intepret the list correctly, the 1.6
->> changes are in that list (as "your changes (week-end)".)
->>
->>
->>> the current driver is missing support for the
->>> 8110S chip (or at least it doesn't seem to work at all),
->>> so you're cutting out all the chips on the mobos out there.
->>> Haven't looked to see if it's just a PCI ID or other functionality,
->>> but since the V1.2 is from realtek that's in the official
->>> kernel, it would make sense to use the 1.6 patch....
->>
->>
->>
->> IIRC, the realtek one got cleaned up a great deal before entering
->> mainline, both bug-fixes and coding style cleanups. Your patch may
->> revert a lot of that work (I havn't looked at it closely.) Also the
->> changelog differs for the 1.2 entry between the two versions, indicating
->> just this.
->>
->> Lets take one step at a time ;-)
->>
->>
->>>> It is against the original r8169. Once finished, it should look like:
->>>> - first cut at dma api conversion (today)
->>>> - remaining bits of dma api conversion (tomorrow)
->>>> - rx_copybreak (tomorrow)
->>>> - your changes (week-end)
->>>> - big-endian fixes (week-end)
->>>>
->>>> Each part divided in reasonably small patches to ease the 
->>>> test/review process.
->>
->>
->>
-> 
-> 
-> 
+Is there not a more direct access if I already have the netdevice in question?
+ie, can I get at the list by looking at dev->ip_ptr struct?
+
+
+Thanks,
+Ben
+
+
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
