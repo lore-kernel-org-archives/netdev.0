@@ -1,29 +1,38 @@
-From: Arnaldo Carvalho de Melo <arnaldo.melo@gmail.com>
-Subject: Re: [PATCH] Tcp port selection for IPV6.
-Date: Thu, 20 Jan 2005 22:53:18 -0200
-Message-ID: <39e6f6c705012016537fa48ca4@mail.gmail.com>
-References: <20050120164529.6d6a5f0b@dxpl.pdx.osdl.net>
-Reply-To: acme@ghostprotocols.net
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH 2.6.10] tg3: add tg3_set_eeprom
+Date: Thu, 20 Jan 2005 16:59:23 -0800
+Message-ID: <20050120165923.39f736f4.davem@davemloft.net>
+References: <B1508D50A0692F42B217C22C02D84972020F3D32@NT-IRVA-0741.brcm.ad.broadcom.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,
-        "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-        netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20050120164529.6d6a5f0b@dxpl.pdx.osdl.net>
+To: "Michael Chan" <mchan@broadcom.com>
+In-Reply-To: <B1508D50A0692F42B217C22C02D84972020F3D32@NT-IRVA-0741.brcm.ad.broadcom.com>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 20 Jan 2005 16:45:29 -0800, Stephen Hemminger
-<shemminger@osdl.org> wrote:
+On Thu, 20 Jan 2005 16:00:38 -0800
+"Michael Chan" <mchan@broadcom.com> wrote:
 
-> Now the code in ipv4/tcp_ipv4.c and ipv6/tcp_ipv6.c are
-> almost identical for tcp_hash_connect.
+> Detailed changes:
 
-Humm,  dccp_hash_connect is almost identical to tcp_hash_connect too...  /me
-adds an entry to his TODO list... :-)
+Thanks a lot Michael, patch applied.
 
-- Arnaldo
+Another thing that makes patches like this one easier to review
+is to split them up as much as is reasonable possible.  As a specific
+suggestion, for this patch we might have first done a change which
+added all of the NVRAM chip IDs and probed for them, the next change
+might be the change from tw32_f() to tw32() for the chip register
+accesses, the next change would make use of the NVRAM chip ID type
+and finally we'd have the change that implemented tg3_set_eeprom().
+
+That's how you likely, at least logically, implemented this patch
+in a step by step fashion.  If you really do split the change up into
+pieces like that, the individual patches are much easier to verify
+and review than the whole thing put together and submitted all at
+once.
+
+Thanks again.
