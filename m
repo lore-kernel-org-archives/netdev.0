@@ -1,36 +1,60 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
-Subject: Re: /proc/net/* read drops data
-Date: Thu, 28 Aug 2003 09:34:20 +0900 (JST)
+From: Chris <Save_Your_Skin@hotmail.com>
+Subject: New Email Address
+Date: Wed, 27 Aug 2003 19:38:25 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030828.093420.37091433.yoshfuji@linux-ipv6.org>
-References: <Pine.GSO.4.33.0308271658370.7750-100000@sweetums.bluetronic.net>
-	<Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net>
+Message-ID: <5.1.0.14.2.20030827193759.00a0aec0@hotmail.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset="iso-8859-1"; format=flowed
+Content-Transfer-Encoding: quoted-printable
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jfbeam@bluetronic.net
-In-Reply-To: <Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net>
+To: Save_your_Skin@hotmail.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <Pine.GSO.4.33.0308271935550.7750-100000@sweetums.bluetronic.net> (at Wed, 27 Aug 2003 19:58:17 -0400 (EDT)), Ricky Beam <jfbeam@bluetronic.net> says:
+Hi guys! I've just joined a new company,
+MicroDermAbrader=AE Home MicroDermAbrasion Systems,
+and I've got a new email address with them:
 
-> On Wed, 27 Aug 2003, Ricky Beam wrote:
-> >This smells like a simple "off by one" bug, but I've been too busy to go
-> >look at the code.
-> 
-> Ah hah!  it's a block size problem... netstat reads 1024 at a time.
-> 
-> Using dd...
-> 
-> [root:pts/5{9}]gir:~/[7:55pm]:dd if=/proc/net/udp bs=1024 | wc
-> 2+1 records in
-> 2+1 records out
->      18     216    2304
+Chris@microdermabrader.com
 
-Good idea. I'll chase this bug.
 
---yoshfuji
+If you know anyone who wants to get a discount on a home microdermabrasio=
+n=20
+kit, they can use my discount number and get $5 off.
+
+
+Just go to www.microdermabrader.com and use this password code:
+User: Chris
+Password: MDA00002
+
+
+These things are great and really affordable. Microdermabrasion for the m=
+asses!
+
+Also, the company is looking for new distributors and sales outlets.
+
+If you know anyone who wants to make some serious money, or has a point o=
+f=20
+sale which is good to sell home microdermabrasion kits, have them go to:
+
+www.microdermabrader.biz
+
+and have them use my password code I gave you above.
+
+
+Best wishes,
+
+
+Chris
+
+
+P.S. I've been sending out my new e-mail address to everyone in my compan=
+y=20
+address book. If you received this e-mail by mistake, or don't want to be=
+=20
+in my address book anymore, then just reply to this e-mail with "REMOVE" =
+in=20
+the subject header and I'll take you off my address list immediately. If=20
+so, I'm sorry to have sent you this by mistake, please excuse me, may God=
+=20
+bless, and have a great day!
