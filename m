@@ -1,127 +1,105 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: dummy as IMQ replacement
-Date: 02 Feb 2005 09:05:06 -0500
-Message-ID: <1107353106.1098.65.camel@jzny.localdomain>
-References: <1107123123.8021.80.camel@jzny.localdomain>
-	 <41FEB3AE.3090400@dsl.pipex.com>
-	 <1107258578.1095.570.camel@jzny.localdomain>
-	 <41FF97E9.7040501@dsl.pipex.com>
+Date: 02 Feb 2005 09:24:53 -0500
+Message-ID: <1107354293.1105.85.camel@jzny.localdomain>
+References: <20050131151532.GE31837@postel.suug.ch>
+	 <1107186044.1076.11.camel@jzny.localdomain>
+	 <20050131155929.GF31837@postel.suug.ch>
+	 <1107189625.1076.77.camel@jzny.localdomain>
+	 <20050131181553.GG31837@postel.suug.ch>
+	 <1107202715.1075.559.camel@jzny.localdomain>
+	 <20050131225328.GI31837@postel.suug.ch>
+	 <1107259361.1095.584.camel@jzny.localdomain>
+	 <20050201125147.GK31837@postel.suug.ch>
+	 <1107263612.1095.598.camel@jzny.localdomain>
+	 <20050201224436.GO31837@postel.suug.ch>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 Cc: netdev@oss.sgi.com, Nguyen Dinh Nam <nguyendinhnam@gmail.com>,
         Remus <rmocius@auste.elnet.lt>, Andre Tomt <andre@tomt.net>,
-        syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
-To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <41FF97E9.7040501@dsl.pipex.com>
+        syrius.ml@no-log.org, Andy Furniss <andy.furniss@dsl.pipex.com>,
+        Damion de Soto <damion@snapgear.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20050201224436.GO31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2005-02-01 at 09:53, Andy Furniss wrote:
-> jamal wrote: 
-> > I know for a while the Bart howto was mislabeling the meaning of
-> > policing - not sure about shaping. 
-> > Shaping has a precise definition that involves a queue and a
-> > non-working-conserving scheduler in order to rate control. This doesnt
-> > matter where it happens (egress or ingress). Policing on the other hand
-> > is work conserving etc.
+On Tue, 2005-02-01 at 17:44, Thomas Graf wrote:
+> > Let the meta action do that. Just set the skb->tc_classid in my opinion;
+> > recall we can change classid now ..
 > 
-> Ok, but shaping to LARTC posters means being able to classify traffic 
-> and set up sharing/priorotising of classes. 
->
-> This is the reason most need 
-> to be able to queue - they want to use htb/hfsc for complicated setups 
+> True, I don't really care but it's already quite confusing. The priority
+> of the packet is described in viarous field depeding on which qdisc/cls
+> being used, we have skb->priority with sch_prio, tc_index for dsmark
+> and cls_tcindex and now tc_classid directly.  Some even use u32 to
+> match on DSCP and set a nfmark.  I can already feel the perfect confusion
+> once we open up access for rt_classid, realm and other routing fields.
+> I'm always aiming for easy to understand solutions, this doesn't mean
+> it to be simple. Why is nfmark so heavly used? Because it's damn simple
+> to undertand, you can set and read it and that's it. The only thing one
+> has to care about is to make sure that is actually gets set before it being
+> read and to make sure all userspace apps read it in the same base ;->
+> (This is basically one of the issue in usability, the lack of clearliness
+> in what base number are read the displayed. Often they get displayed in
+> hex without a 0x prefix but are read with strtol(...,0) resulting in
+> a decimal reading if no prefix is specified)
 
-Close - but you are missing the rate control requirement. 
-You can do the above with prio qdisc for example but that does not
-equate to shaping. Understood about Lartc users definitions. However,
-note that they are influenced by what people tell them or what people
-write in docs. Help in making sure the redefinition doesnt propagate.
-Theres a very precise meaning to shaping and it is _exactly_ the way i
-described it above. Clue people who ask questions.
+So let me put it this way:
+You cant avoid passing around metadata between the different blocks.
+Whether the metadata is set by the admin or by some other block along
+the packet path is way of life. 
+All of the metadata defined and attached around skbs so far has a
+standalone semantical meaning whic unfortunately cant just be hidden
+from the user. Its the unfortunate consequence of giving someone a
+weapon )they may shoot their toe off). 
+As an example:
+People have been setting flowid/classid for years via the classifiers
+to stamp session a flow belongs to. All we are doing with
+skb->tc_classid is giving more power to them. i.e before you get to the
+queue given certain computation/state you may decide to belong to a
+different session.
+sfq as a matter of setting the hash is computing what flow you belong to
+and thats why i suggested tc_classid (in this case not set by the admin,
+rather by a smart stateful classifier).
 
-> and until now were not aware that it was even possible to replicate this 
-> in policers 
+> Long rant short statement, I'm pleading for a generic way to transfer
+> such things between a classifier and a qdisc because it's simply
+> easier to explain and use.
+> ... eaction meta set tc_index ip_saddr_proto_hash
+> ... qdisc sfq tcindex-hash
 
-I am sure i have written about 50 emails on this topic over the last 5
-years;->  look at the archives. I even joked about it here:
-http://www.cyberus.ca/~hadi/patches/action/README over 2 years ago.
-look at the text reading "it must be the summer heat again; weve had
-someone doing that every year around summer"
-Unfortunately people who are writting docs havent picked it up for
-whatever reasons. I am hoping we finaly get this documented somewhere.
-Can you help fix this?
-
-> and if it becomes feasable it will probably appear daunting 
-> to do compared with HTB and all the existing docs/scripts.
-> 
-
->From a usability perspective i agree with you. 
-Its still doable is all i can say ;-> (but you are correct in that it
-may not be for the weak hearts)
-As a reminder of some of the big discussions on shared and hierachical
-policing - look at the many many discussions I had with devik on this
-topic a few years back.
-It resulted in the birth of HTB (which is essentially a hierachy of the
-same token bucket meters used in policers; hierachical shared policers
-are doable - look at iproute2/examples/diffserv). HTB otoh has proven
-useful due to simplicty - so it stands on its own merit now.
-I think there may be peculiar occasions where you may need to have
-queues to shape traffic to a local app - but thats peculiar. 
-
-> For me, I think queuing and dropping is better than just dropping, you 
-> can affect tcp by delaying eg. 1 ack per packet rather than delayed acks 
-> and clocking out the packets helps smooth burstiness, 
-
-True - but i question the usefulness of localy terminating TCP packets
-being shaped. For packets being forwarded, the shaping happens on
-egress.
-
-> which hurts 
-> latency if you are doing traffic control from the wrong end of the 
-> bottleneck.
+> where ip_saddr_proto_hash is not a variable but rather a special meta
+> value calulated in the kernel.
 > 
 
-Not sure i followed the latency connection.
+Let me see if i understood correctly: Instead of giving static values
+(such as 0x10) you want to assign a variable(ip_saddr_proto_hash) which
+is computed at runtime to tcindex? 
+Thats a parallel issue though but indeed useful .
 
-> As long as I could use netfilter to mark/classify connections then I 
-> think I can sort my setup, don't know about others.
+> > You can let the user define that via tc but have a default;
+> > eg: 
+> > tc dev eth0 add sfq ematch
+> > tc dev eth0 set sfq pertub xxx
+> > 
+> > match u32 ...
+> > ematch sfq
+> > ematch meta classid 1:2 
+> > eaction meta set tcindex 101
+> > eaction meta set fwmark ..
 > 
-> 
+> I think we're on the same road or at least going into the same direction.
+> However I'm not sure whether it's a good to have ematches return
+> some values besides true/false. I'd rather like to see an eaction store
+> it in the skb and the sfq catching it up again. Of course we can have the
+> userspace part be configured within the sfq.
 
-Great. yes, you can.
-
-> > Are pre/post routing sufficient as netfilter hooks for your case?
-> 
-> Yes but depends on where in pre/postrouting. For me after/before nat, as 
-> I say above though I could workaround if I classify connections with 
-> netfilter. For others as long as they can filter on a mark/classify set 
-> in forward, then I think it will be OK for them.
-> 
-
-You can mark in netfilter or even in tc and use those marks in both
-places.
-
-
-> I am not sure what exactly can can't be done in your example:
->
->  ># redirect all IP packets arriving in eth0 to dummy0
->  ># use mark 1 --> puts them onto class 1:1
->  >$TC filter add dev eth0 parent ffff: protocol ip prio 10 u32 \
->  >match u32 0 0 flowid 1:1 \
-> 
-> What I can do here depends where it hooks packets.
-> 
->  >action ipt -j MARK --set-mark 1 \
-> 
-> I don't know what table I am using - may be OK as long as I can test for 
-> a mark I made earlier in the egress dummy case or test connmark/state I 
-> set for that connection in the ingress case.
-> 
-
-That would be doable. Thanks for taking the time Andy.
+A classifier is allowed to select/set the class/flow/sessionID. 
+The sfq hash result should at least set/map to the minor value of the
+classid
 
 cheers,
 jamal
