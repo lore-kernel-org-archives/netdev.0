@@ -1,45 +1,47 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: [E1000-devel] Transmission limit
-Date: 30 Nov 2004 09:25:54 -0500
-Message-ID: <1101824754.1044.126.camel@jzny.localdomain>
-References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com> <16807.20052.569125.686158@robur.slu.se>
-	 <1101484740.24742.213.camel@mellia.lipar.polito.it>
-	 <41A76085.7000105@draigBrady.com>
-	 <1101499285.1079.45.camel@jzny.localdomain>
-	 <16811.8052.678955.795327@robur.slu.se>
-	 <1101821501.1043.43.camel@jzny.localdomain>
-	 <20041130134600.GA31515@xi.wantstofly.org>
-Reply-To: hadi@cyberus.ca
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: [PATCH] fix missing security_*() check in net/compat.c
+Date: Tue, 30 Nov 2004 06:54:44 -0800
+Message-ID: <20041130145444.GF63669@gaz.sfgoth.com>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: Robert Olsson <Robert.Olsson@data.slu.se>, P@draigBrady.com,
-        mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
-        Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
-        Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041130134600.GA31515@xi.wantstofly.org>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-11-30 at 08:46, Lennert Buytenhek wrote:
-> On Tue, Nov 30, 2004 at 08:31:41AM -0500, jamal wrote:
-> 
-> > >  Also from what I understand new HW and MSI can help in the case where
-> > >  pass objects between CPU. Did I dream or did someone tell me that S2IO 
-> > >  could have several TX ring that could via MSI be routed to proper cpu?
-> > 
-> > I am wondering if the per CPU tx/rx irqs are valuable at all. They sound
-> > like more hell to maintain.
-> 
-> On the TX path you'd have qdiscs to deal with as well, no?
+While looking at the SCM passing code in net/core/scm.c I noticed that there's
+a 32-bit compat implementation of scm_detach_fds()'s called 
+scm_detach_fds_compat() living in net/compat.c.  While these two functions
+are mostly the same the latter does not include the call to the
+security_file_receive() hook which is almost certainly a bug.
 
-I think management of it would be non-trivial in SMP. Youd have to start
-playing stupid loadbalancing tricks which would reduce the value of
-existence of tx irqs to begin with. 
+My sparc64 test box isn't set up currently so this is not tested.  Someone
+running a 64-bit kernel with CONFIG_COMPAT should verify that this at
+least compiles.
 
-cheers,
-jamal
+Signed-off-by: Mitchell Blank Jr <mitch@sfgoth.com>
+
+-Mitch
+
+--- linux-2.6.10-rc2-bk9-VIRGIN/net/compat.c	2004-10-18 14:54:37.000000000 -0700
++++ linux-2.6.10-rc2-bk9/net/compat.c	2004-11-30 06:40:52.156434868 -0800
+@@ -22,6 +22,7 @@
+ #include <linux/filter.h>
+ #include <linux/compat.h>
+ #include <linux/netfilter_ipv4/ip_tables.h>
++#include <linux/security.h>
+ 
+ #include <net/scm.h>
+ #include <net/sock.h>
+@@ -264,6 +265,9 @@
+ 
+ 	for (i = 0, cmfptr = (int __user *) CMSG_COMPAT_DATA(cm); i < fdmax; i++, cmfptr++) {
+ 		int new_fd;
++		err = security_file_receive(fp[i]);
++		if (err)
++			break;
+ 		err = get_unused_fd();
+ 		if (err < 0)
+ 			break;
