@@ -1,52 +1,44 @@
-From: Ben Greear <greearb@candelatech.com>
-Subject: Re: 2.4.21: bug report for tg3:  tx lockup when changing MTU
-Date: Fri, 01 Aug 2003 17:24:00 -0700
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] ethtool_ops rev 4
+Date: Fri, 01 Aug 2003 19:42:44 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F2B04A0.9030101@candelatech.com>
-References: <3F2AEFBF.3040604@candelatech.com> <3F2AFE7A.10203@pobox.com>
+Message-ID: <3F2AFAF4.3040604@pobox.com>
+References: <20030801150232.GV22222@parcelfarce.linux.theplanet.co.uk>	<20030801154021.GA7696@gtf.org>	<20030801154656.GW22222@parcelfarce.linux.theplanet.co.uk>	<20030801162536.GA18574@gtf.org>	<20030801132037.3f3542ae.davem@redhat.com>	<3F2AE91D.5090705@pobox.com>	<20030801153255.204baf66.davem@redhat.com>	<3F2AF141.2010308@pobox.com>	<20030801160136.3342c5cc.davem@redhat.com>	<3F2AF525.3000605@pobox.com> <20030801161937.1d9a7126.davem@redhat.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+Cc: willy@debian.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <3F2AFE7A.10203@pobox.com>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20030801161937.1d9a7126.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jeff Garzik wrote:
-> Ben Greear wrote:
-> 
->> I just noticed that if you change the MTU of a tg3 NIC, it will not work
->> untill you ifdown/ifup it.  This problem is repeatable on tg3, and 
->> does not
->> happen with the e1000 driver/cards.
->>
->> I am setting the MTU via an ioctl call, not via ifconfig or something 
->> like
->> that.
+David S. Miller wrote:
+> On Fri, 01 Aug 2003 19:17:57 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
 > 
 > 
+>>Solution #2 chooses to create a tiny bit more 
+>>merge-to-mainline pain, but also keeps the mainline kernel drivers more 
+>>clean.
 > 
-> Can you provide the ioctl call info, so I can reproduce?
 > 
-> And, are you changing MTU when the interface is up or down?
-
-Interface is up and transmitting/receiving pkts at the time.
-
-I just reproduced it with commands below.  It is probably a race,
-so not sure that either of these will always fail.  Running about
-10kpps rx+tx.  Was sending pktgen (UDP) traffic of fixed length, so the actual
-transmitted packet sizes remains the same in this case.
-
-# MTU is at 1500
-ifconfig eth5 mtu 4096  #worked
-ifconfig eth5 mtu 4000  # failed.
+> You don't need DO_ETHTOOL_OPS and thus the merge-to-mainline pain
+> at all if you do something like:
+> 
+> 1) SET_ETHDEV_OPS() also overrides the ->do_ioctl() setting to
+>    a kcompat_netdev_ioctl() one, but remembers the original pointer
+>    somewhere.
+> 
+> 2) kcompat_netdev_ioctl() does the things DO_ETHTOOL_OPS would
+>    have done, failing that it calls the saved ->do_ioctl() pointer.
 
 
+Certainly.  That's a bit nicer than the back-compat gunk I was plotting, 
+even.
 
+Still need the boring and obvious definition of SET_ETHTOOL_OPS in 
+mainline, though.
 
-
--- 
-Ben Greear <greearb@candelatech.com>
-Candela Technologies Inc  http://www.candelatech.com
+	Jeff
