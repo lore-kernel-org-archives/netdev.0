@@ -1,7 +1,7 @@
 From: jamal <hadi@cyberus.ca>
 Subject: Re: iptables breakage WAS(Re: dummy as IMQ replacement
-Date: 25 Mar 2005 06:13:41 -0500
-Message-ID: <1111749220.1092.457.camel@jzny.localdomain>
+Date: 25 Mar 2005 07:39:06 -0500
+Message-ID: <1111754346.1092.480.camel@jzny.localdomain>
 References: <1107123123.8021.80.camel@jzny.localdomain>
 	 <00c301c524b4$938cd240$6e69690a@RIMAS>
 	 <1110379135.1091.143.camel@jzny.localdomain>
@@ -22,34 +22,60 @@ References: <1107123123.8021.80.camel@jzny.localdomain>
 	 <1111625608.1037.16.camel@jzny.localdomain> <424212F7.10106@dsl.pipex.co
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="=-FBURZWxYAYwT4fQioS20"
 Cc: Harald Welte <laforge@gnumonks.org>, Patrick McHardy <kaber@trash.net>,
         Remus <rmocius@auste.elnet.lt>, netdev@oss.sgi.com,
         Nguyen Dinh Nam <nguyendinhnam@gmail.com>, Andre Tomt <andre@tomt.net>,
         syrius.ml@no-log.org, Damion de Soto <damion@snapgear.com>
 To: Andy Furniss <andy.furniss@dsl.pipex.com>
-In-Reply-To: <4242DFB5.9040802@dsl.pipex.com>
+In-Reply-To: <1111749220.1092.457.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, 2005-03-24 at 10:41, Andy Furniss wrote:
 
-> I can still get
-> 
-> tc -s filter ls dev eth0 parent ffff:
-> 
-> to not exit till <ctrl><c> (ps shows it aswell) - I tested from clean 
-> boot without X/KDE etc. It only happens with action mirred egress redirect.
-> 
-> action ipt or action ok don't cause it.
+--=-FBURZWxYAYwT4fQioS20
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+On Fri, 2005-03-25 at 06:13, jamal wrote:
+
+> I have reproduced this as well ;-> Reproduced typically means it will be
+> fixed!
+> I gotta give it to you - you have helped isolate more bugs in this one
+> session than all others in the past summed up.
 > 
 
-I have reproduced this as well ;-> Reproduced typically means it will be
-fixed!
-I gotta give it to you - you have helped isolate more bugs in this one
-session than all others in the past summed up.
+Dang - this is a _serious_  kernel bug. I went back to some of the rcx
+kernels pre-2611 and its there too.
+Essentially what happens is once you enter netlink from user space
+you cant go back in to query.
+
+I am attaching a workaround patch for tc - Actually it is a solution -
+but this means we have a kernel bug that needs investigation. In other
+words we close that theres an issue for mirred.
 
 cheers,
 jamal
+
+
+--=-FBURZWxYAYwT4fQioS20
+Content-Disposition: attachment; filename=p2_mirred
+Content-Type: text/plain; name=p2_mirred; charset=ISO-8859-1
+Content-Transfer-Encoding: 7bit
+
+--- iproute2-2.6.11/tc/m_mirred.c	2005/03/25 12:32:39	1.2
++++ iproute2-2.6.11/tc/m_mirred.c	2005/03/25 12:34:05
+@@ -263,7 +263,10 @@
+ 	}
+ 	p = RTA_DATA(tb[TCA_MIRRED_PARMS]);
+ 
++	/*
+ 	ll_init_map(&rth);
++	*/
++
+ 
+ 	if ((dev = ll_index_to_name(p->ifindex)) == 0) {
+ 		fprintf(stderr, "Cannot find device %d\n", p->ifindex);
+
+--=-FBURZWxYAYwT4fQioS20--
