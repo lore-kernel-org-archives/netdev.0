@@ -1,107 +1,206 @@
-From: Jeff Moyer <jmoyer@redhat.com>
-Subject: Re: serious netpoll bug w/NAPI
-Date: Tue, 15 Feb 2005 17:49:50 -0500
-Message-ID: <16914.31886.665975.522710@segfault.boston.redhat.com>
-References: <20050208201634.03074349.davem@davemloft.net>
-	<20050209183219.GA2366@waste.org>
-	<20050209164658.409f8950.davem@davemloft.net>
-	<20050210011104.GF2366@waste.org>
-Reply-To: jmoyer@redhat.com
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [IPSEC] Merge xfrm4_bundle_ok/xfrm6_bundle_ok/stale_bundle
+Date: Wed, 16 Feb 2005 09:54:42 +1100
+Message-ID: <20050215225442.GA28142@gondor.apana.org.au>
+References: <20050129123803.GA17390@gondor.apana.org.au> <20050215141743.1010f2e6.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
-To: Matt Mackall <mpm@selenic.com>
-In-Reply-To: <20050210011104.GF2366@waste.org>
+Content-Type: multipart/mixed; boundary="bp/iNruPH9dso1Pn"
+Cc: netdev@oss.sgi.com
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20050215141743.1010f2e6.davem@davemloft.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-==> Regarding Re: serious netpoll bug w/NAPI; Matt Mackall <mpm@selenic.com> adds:
 
-Sorry, Matt, I'm just now getting to this.
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-mpm> On Wed, Feb 09, 2005 at 04:46:58PM -0800, David S. Miller wrote:
->> On Wed, 9 Feb 2005 10:32:19 -0800 Matt Mackall <mpm@selenic.com> wrote:
->> 
->> > On closer inspection, there's a couple other related failure cases >
->> with the new ->poll logic in netpoll. I'm afraid it looks like >
->> CONFIG_NETPOLL will need to guard ->poll() with a per-device spinlock >
->> on netpoll-enabled devices.
->> > 
->> > This will mean putting a pointer to struct netpoll in struct >
->> net_device (which I should have done in the first place) and will take >
->> a few patches to sort out.
->> 
->> Will this ->poll() guarding lock be acquired only in the netpoll code or
->> system-wide?  If the latter, this introduced an incredible performance
->> regression for devices using the LLTX locking scheme (ie. the most
->> important high-performance gigabit drivers in the tree use this).
+On Tue, Feb 15, 2005 at 02:17:43PM -0800, David S. Miller wrote:
+> On Sat, 29 Jan 2005 23:38:03 +1100
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
+> 
+> > This patch merges __xfrm4_bundle_ok/__xfrm6_bundle_ok/stale_bundle
+> > so that when I add MTU verification code I don't have to put it in
+> > three places.
+> > 
+> > It also moves the tests on dst->dev and dst->obsolete outside the
+> > loop since the former is identical throughout the bundle and the
+> > latter can only be positive on the final element which also happens
+> > to be dst->path.
+> > 
+> > Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> 
+> Applied to my 2.6.12-pending tree.  Thanks a lot.
 
-mpm> The lock will only be taken in net_rx_action iff netpoll is enabled
-mpm> for the given device. Lock contention should be basically nil.
+Sorry Dave, but that patch has a critical error in stale_bundle
+where I forgot to add an exclamation mark.
 
-mpm> Here's my current patch (on top of -mm), which I'm struggling to find
-mpm> an appropriate test box for (my dual box with NAPI got pressed into
-mpm> service as a web server a couple weeks ago). I've attached the other
-mpm> two patches it relies on as well.
+I've resent the corrected patch in the thread containing the other
+MTU patches.  Here it is again.
 
-mpm> --------------
 
-mpm> Introduce a per-client poll lock and flag. The lock assures we never
-mpm> have more than one caller in dev->poll(). The flag provides recursion
-mpm> avoidance on UP where the lock disappears.
+This patch merges xfrm4_bundle_ok/xfrm6_bundle_ok/stale_bundle
+so that later additions for MTU calculation only need to be done once.
 
-,----
-|  /*
-| - * Check whether delayed processing was scheduled for our current CPU,
-| - * and then manually invoke NAPI polling to pump data off the card.
-| + * Check whether delayed processing was scheduled for our NIC. If so,
-| + * we attempt to grab the poll lock and use ->poll() to pump the card.
-| + * If this fails, either we've recursed in ->poll() or it's already
-| + * running on another CPU.
-| + *
-| + * Note: we don't mask interrupts with this lock because we're using
-| + * trylock here and interrupts are already disabled in the softirq
-| + * case. Further, we test the poll_flag to avoid recursion on UP
-| + * systems where the lock doesn't exist.
-|   *
-|   * In cases where there is bi-directional communications, reading only
-|   * one message at a time can lead to packets being dropped by the
-| @@ -74,13 +80,9 @@
-|  static void poll_napi(struct netpoll *np)
-|  {
-|  	int budget = 16;
-| -	unsigned long flags;
-| -	struct softnet_data *queue;
-|  
-| -	spin_lock_irqsave(&netpoll_poll_lock, flags);
-| -	queue = &__get_cpu_var(softnet_data);
-|  	if (test_bit(__LINK_STATE_RX_SCHED, &np->dev->state) &&
-| -	    !list_empty(&queue->poll_list)) {
-| +	    !np->poll_flag && spin_trylock(&np->poll_lock)) {
-|  		np->rx_flags |= NETPOLL_RX_DROP;
-|  		atomic_inc(&trapped);
-|  
-| @@ -88,8 +90,8 @@
-|  
-|  		atomic_dec(&trapped);
-|  		np->rx_flags &= ~NETPOLL_RX_DROP;
-| +		spin_unlock(&np->poll_lock);
-|  	}
-| -	spin_unlock_irqrestore(&netpoll_poll_lock, flags);
-|  }
+Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
-Okay, I've only taken a quick glance at this, but I don't quite understand
-why it's safe to take out the check for the per-cpu queue.  Realize that an
-interrupt may have been serviced on another processor, and a NAPI poll may
-have been scheduled there.
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
-Also, could you use the -p flag to diff when you generate your next patch?
-It makes it *much* easier to review.
+--bp/iNruPH9dso1Pn
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=xfrm-1
 
-I'll look the patch over more closely tomorrow.
+diff -Nru a/include/net/xfrm.h b/include/net/xfrm.h
+--- a/include/net/xfrm.h	2005-02-14 14:13:05 +11:00
++++ b/include/net/xfrm.h	2005-02-14 14:13:05 +11:00
+@@ -857,6 +857,7 @@
+ extern void xfrm_policy_flush(void);
+ extern int xfrm_sk_policy_insert(struct sock *sk, int dir, struct xfrm_policy *pol);
+ extern int xfrm_flush_bundles(void);
++extern int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family);
+ 
+ extern wait_queue_head_t km_waitq;
+ extern int km_new_mapping(struct xfrm_state *x, xfrm_address_t *ipaddr, u16 sport);
+diff -Nru a/net/ipv4/xfrm4_policy.c b/net/ipv4/xfrm4_policy.c
+--- a/net/ipv4/xfrm4_policy.c	2005-02-14 14:13:05 +11:00
++++ b/net/ipv4/xfrm4_policy.c	2005-02-14 14:13:05 +11:00
+@@ -22,26 +22,6 @@
+ 	return __ip_route_output_key((struct rtable**)dst, fl);
+ }
+ 
+-/* Check that the bundle accepts the flow and its components are
+- * still valid.
+- */
+-
+-static int __xfrm4_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl)
+-{
+-	do {
+-		if (xdst->u.dst.ops != &xfrm4_dst_ops)
+-			return 1;
+-
+-		if (!xfrm_selector_match(&xdst->u.dst.xfrm->sel, fl, AF_INET))
+-			return 0;
+-		if (xdst->u.dst.xfrm->km.state != XFRM_STATE_VALID ||
+-		    xdst->u.dst.path->obsolete > 0)
+-			return 0;
+-		xdst = (struct xfrm_dst*)xdst->u.dst.child;
+-	} while (xdst);
+-	return 0;
+-}
+-
+ static struct dst_entry *
+ __xfrm4_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+ {
+@@ -53,7 +33,7 @@
+ 		if (xdst->u.rt.fl.oif == fl->oif &&	/*XXX*/
+ 		    xdst->u.rt.fl.fl4_dst == fl->fl4_dst &&
+ 	    	    xdst->u.rt.fl.fl4_src == fl->fl4_src &&
+-		    __xfrm4_bundle_ok(xdst, fl)) {
++		    xfrm_bundle_ok(xdst, fl, AF_INET)) {
+ 			dst_clone(dst);
+ 			break;
+ 		}
+diff -Nru a/net/ipv6/xfrm6_policy.c b/net/ipv6/xfrm6_policy.c
+--- a/net/ipv6/xfrm6_policy.c	2005-02-14 14:13:05 +11:00
++++ b/net/ipv6/xfrm6_policy.c	2005-02-14 14:13:05 +11:00
+@@ -31,26 +31,6 @@
+ 	return err;
+ }
+ 
+-/* Check that the bundle accepts the flow and its components are
+- * still valid.
+- */
+-
+-static int __xfrm6_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl)
+-{
+-	do {
+-		if (xdst->u.dst.ops != &xfrm6_dst_ops)
+-			return 1;
+-
+-		if (!xfrm_selector_match(&xdst->u.dst.xfrm->sel, fl, AF_INET6))
+-			return 0;
+-		if (xdst->u.dst.xfrm->km.state != XFRM_STATE_VALID ||
+-		    xdst->u.dst.path->obsolete > 0)
+-			return 0;
+-		xdst = (struct xfrm_dst*)xdst->u.dst.child;
+-	} while (xdst);
+-	return 0;
+-}
+-
+ static struct dst_entry *
+ __xfrm6_find_bundle(struct flowi *fl, struct xfrm_policy *policy)
+ {
+@@ -70,7 +50,7 @@
+ 				 xdst->u.rt6.rt6i_src.plen);
+ 		if (ipv6_addr_equal(&xdst->u.rt6.rt6i_dst.addr, &fl_dst_prefix) &&
+ 		    ipv6_addr_equal(&xdst->u.rt6.rt6i_src.addr, &fl_src_prefix) &&
+-		    __xfrm6_bundle_ok(xdst, fl)) {
++		    xfrm_bundle_ok(xdst, fl, AF_INET6)) {
+ 			dst_clone(dst);
+ 			break;
+ 		}
+diff -Nru a/net/xfrm/xfrm_policy.c b/net/xfrm/xfrm_policy.c
+--- a/net/xfrm/xfrm_policy.c	2005-02-14 14:13:05 +11:00
++++ b/net/xfrm/xfrm_policy.c	2005-02-14 14:13:05 +11:00
+@@ -1021,18 +1021,7 @@
+ 
+ static int stale_bundle(struct dst_entry *dst)
+ {
+-	struct dst_entry *child = dst;
+-
+-	while (child) {
+-		if (child->obsolete > 0 ||
+-		    (child->dev && !netif_running(child->dev)) ||
+-		    (child->xfrm && child->xfrm->km.state != XFRM_STATE_VALID)) {
+-			return 1;
+-		}
+-		child = child->child;
+-	}
+-
+-	return 0;
++	return !xfrm_bundle_ok((struct xfrm_dst *)dst, NULL, AF_UNSPEC);
+ }
+ 
+ static void xfrm_dst_destroy(struct dst_entry *dst)
+@@ -1108,6 +1097,31 @@
+ 	return 0;
+ }
+ 
++/* Check that the bundle accepts the flow and its components are
++ * still valid.
++ */
++
++int xfrm_bundle_ok(struct xfrm_dst *xdst, struct flowi *fl, int family)
++{
++	struct dst_entry *dst = &xdst->u.dst;
++
++	if (dst->path->obsolete > 0 ||
++	    (dst->dev && !netif_running(dst->dev)))
++		return 0;
++
++	do {
++		if (fl && !xfrm_selector_match(&dst->xfrm->sel, fl, family))
++			return 0;
++		if (dst->xfrm->km.state != XFRM_STATE_VALID)
++			return 0;
++		dst = dst->child;
++	} while (dst->xfrm);
++
++	return 1;
++}
++
++EXPORT_SYMBOL(xfrm_bundle_ok);
++ 
+ /* Well... that's _TASK_. We need to scan through transformation
+  * list and figure out what mss tcp should generate in order to
+  * final datagram fit to mtu. Mama mia... :-)
 
-Thanks,
-
-Jeff
+--bp/iNruPH9dso1Pn--
