@@ -1,43 +1,34 @@
-From: jamal <hadi@cyberus.ca>
+From: Ben Greear <greearb@candelatech.com>
 Subject: Re: [PATCH]  Break 'budget' dependency on netdev_max_backlog.
-Date: Tue, 22 Oct 2002 23:44:35 -0400 (EDT)
+Date: Tue, 22 Oct 2002 21:00:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.GSO.4.30.0210222340520.24323-100000@shell.cyberus.ca>
-References: <3DB61AC4.4070907@candelatech.com>
+Message-ID: <3DB61EFB.4020401@candelatech.com>
+References: <Pine.GSO.4.30.0210222340520.24323-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 Cc: "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ben Greear <greearb@candelatech.com>
-In-Reply-To: <3DB61AC4.4070907@candelatech.com>
+To: jamal <hadi@cyberus.ca>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+jamal wrote:
 
+> What i recall is 64 was a good number and thats why we had it as default.
+> I cant remember who changed the value to 16(Robert?), but it does seem to
+> be a good value as well. If that was the only driver and it had a lot of
+> packets, it would still get to use all the 300 packets in the budget; it
+> will just have to do it in 300/16 times ..
 
-On Tue, 22 Oct 2002, Ben Greear wrote:
+Is there any way to influence how often the poll loop gets run?
 
-> No reason not to provide both!  The IOCTL can take care of any drivers
-> that don't take module parameters for it, and can do it in a generic
-> way.
+I'll have a patch to set the weight via IOCTL soon....
 
-sure maybe via the ethertool or whatever tool that is being used would
-be a good start. The default should still be weight_p.
+Thanks,
+Ben
 
->
-> The tulip driver I am poking at hard-coded it to 16.  64 seems to work
-> just as good.
->
-> Any idea (other than trial and error) for how to determine a good value
-> for this?  Maybe should take the number of active devices into account
-> and wiggle things dynamically from user-space?
->
-
-What i recall is 64 was a good number and thats why we had it as default.
-I cant remember who changed the value to 16(Robert?), but it does seem to
-be a good value as well. If that was the only driver and it had a lot of
-packets, it would still get to use all the 300 packets in the budget; it
-will just have to do it in 300/16 times ..
-
-cheers,
-jamal
+-- 
+Ben Greear <greearb@candelatech.com>       <Ben_Greear AT excite.com>
+President of Candela Technologies Inc      http://www.candelatech.com
+ScryMUD:  http://scry.wanfear.com     http://scry.wanfear.com/~greear
