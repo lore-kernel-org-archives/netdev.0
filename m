@@ -1,37 +1,40 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [NET] Give skb_checksum_help an sk_buff * again
-Date: Mon, 25 Oct 2004 16:26:06 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [RFC] tcp ephemeral port selection
+Date: Mon, 25 Oct 2004 16:34:18 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041025162606.5938f8df.davem@davemloft.net>
-References: <20041025123507.GA4346@gondor.apana.org.au>
+Message-ID: <20041025163418.30c703e2.davem@redhat.com>
+References: <20041011171422.65f88472@zqx3.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: jmorris@redhat.com, netdev@oss.sgi.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20041025123507.GA4346@gondor.apana.org.au>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20041011171422.65f88472@zqx3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 25 Oct 2004 22:35:07 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, 11 Oct 2004 17:14:22 -0700
+Stephen Hemminger <shemminger@osdl.org> wrote:
 
-> Since skb_checksum_help has been using pskb_expand_head for a while
-> now without any ill effects, I thought it would be a good idea to
-> remove the double pointers from it and its callers.
+> Here is a test patch which changes how TCP ephemeral ports are
+> selected from a simple roving pointer to:
+> 	* net_random() as starting point when doing pure local
+>         searchs.
+> 	* use md hash (like isn) when doing connection based
+>         assignments with a rover
 > 
-> This is what the following patch does.  The only "rider" bit is the
-> removal of an unnecessary BUG_ON in ip6_pkt_discard_out.  The preceding
-> assignment was only added because the following function oopsed so
-> there is no point in doing BUG_ON.
-> 
-> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+> This is *not* for 2.6.9 but wanted to get it out for comment for
+> future versions.
 
-Looks great, patch applied.
+I'm not totally against this kind of idea at all.
 
-It looks like this makes a few netfilter paths no longer
-need a **pskb anymore as well.  Folks can feel free to make
-that simplification. :-)
+I hope we don't run into situations with the new
+code where we don't actually check the whole port
+range due to some logic error or similar.
 
-Thanks Herbert.
+Another thing we need to eventually do is allow
+allocation into the local port space more completely.
+Even if every local port has one user, we could still
+allocate some ports if the daddr/dport is known and
+is different from the existing user.
