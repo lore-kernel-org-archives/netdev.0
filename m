@@ -1,37 +1,25 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] depca: release resources on errors
-Date: Sun, 25 Jan 2004 19:30:17 -0800
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH 3/6][8021q][2.4] Use VLAN tag set functionality in
+ 8021q module
+Date: Sun, 25 Jan 2004 21:34:23 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040125193017.450d6ff8.rddunlap@osdl.org>
-References: <20040124223109.1c134ca1.rddunlap@osdl.org>
-	<4013F096.4090705@pobox.com>
+Message-ID: <20040125.213423.98866177.davem@redhat.com>
+References: <E791C176A6139242A988ABA8B3D9B38A014C96A4@hasmsx403.iil.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, ogasawara@osdl.org
+Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <4013F096.4090705@pobox.com>
+To: shmulik.hen@intel.com
+In-Reply-To: <E791C176A6139242A988ABA8B3D9B38A014C96A4@hasmsx403.iil.intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 25 Jan 2004 11:36:38 -0500 Jeff Garzik <jgarzik@pobox.com> wrote:
+   From: "Hen, Shmulik" <shmulik.hen@intel.com>
+   Date: Sun, 25 Jan 2004 14:28:51 +0200
 
-| Most of these patches you're sending are already in netdev-2.6, AFAICS...
+   > Please resend these two changes after he does a release.
+   
+   Fair enough. What about 2.4 ?
 
-
-net: remove unnecessary type casting -- not found in netdev
-
-tc35815: handle ioremap() failure -- still missed (*Leann)
-
-depca: release resource on errors -- yes, already in netdev
-
-dgrs: add iounmap()s to failure paths -- still missed (*Leann)
-
---
-~Randy
-
-
-*Leann:  Please rediff these 2 patches after Jeff's netdev
-patches are merged, or rediff them against his patchsets.
-  http://www.kernel.org/pub/linux/kernel/people/jgarzik/patchkits/2.6/
+Sure, send it once 2.4.26-preX starts up.
