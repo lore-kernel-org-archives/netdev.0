@@ -1,59 +1,29 @@
-From: aris@cathedrallabs.org (Aristeu Sergio Rozanski Filho)
-Subject: [patch] ne.c: print info message after register_netdev()
-Date: Mon, 24 May 2004 15:49:18 -0300
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: Kernel BUG: Qos seg. fault
+Date: Mon, 24 May 2004 21:19:58 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524184918.GB15546@cathedrallabs.org>
+Message-ID: <20040524211958.A3940@electric-eye.fr.zoreil.com>
+References: <40B1E325.80408@upf.edu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="jRHKVT23PllUwdXP"
+Content-Type: text/plain; charset=us-ascii
+Cc: davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jaume Catarineu <jaume.catarineu@upf.edu>
 Content-Disposition: inline
+In-Reply-To: <40B1E325.80408@upf.edu>; from jaume.catarineu@upf.edu on Mon, May 24, 2004 at 11:57:25AM +0000
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Jaume Catarineu <jaume.catarineu@upf.edu> :
+[...]
+> I've configured succesfuly different QoS configurations, but there is
+> one that *allways* returns a segmentation fault in the kernel module (or
+> code). This part of the kernel seems to crash when installing an IP
+> filter. I've tried the code in 2 different computers with different
+> hardware and even different kernel version (2.4.25 and 2.6.4)
 
---jRHKVT23PllUwdXP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+Do you still notice the same behavior if you do not load any vmware nor
+nvidia thing ?
 
-hi,
-	this patch avoids printing eth%d everytime a card is detected.
-
--- 
-Aristeu
-
-P.S:
-	I'm not sure if this is the right list to send this and I'm not
-	subscribed to this list either. so, please cc me for any
-	comments.
-
-
---jRHKVT23PllUwdXP
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename="ne-print.diff"
-
---- 2.6-clean/drivers/net/ne.c	2004-05-09 23:32:29.000000000 -0300
-+++ 2.6/drivers/net/ne.c	2004-05-24 13:31:38.000000000 -0300
-@@ -477,9 +477,6 @@ static int __init ne_probe1(struct net_d
- 		dev->dev_addr[i] = SA_prom[i];
- 	}
- 
--	printk("\n%s: %s found at %#x, using IRQ %d.\n",
--		dev->name, name, ioaddr, dev->irq);
--
- 	ei_status.name = name;
- 	ei_status.tx_start_page = start_page;
- 	ei_status.stop_page = stop_page;
-@@ -795,6 +792,10 @@ int init_module(void)
- 		dev->base_addr = io[this_dev];
- 		if (do_ne_probe(dev) == 0) {
- 			if (register_netdev(dev) == 0) {
-+				printk("\n%s: %s found at %#lx, using IRQ %d.\n",
-+					dev->name, ei_status.name,
-+					dev->base_addr, dev->irq);
-+
- 				dev_ne[found++] = dev;
- 				continue;
- 			}
-
---jRHKVT23PllUwdXP--
+--
+Ueimor
