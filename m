@@ -1,54 +1,38 @@
 From: "santosh kumar gowda" <ipv6_san@rediffmail.com>
 Subject: Re: Re: connecting ipv6 nodes throu' ipv4 network ....
-Date: 20 Feb 2003 12:15:46 -0000
+Date: 20 Feb 2003 12:13:35 -0000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030220121546.27110.qmail@webmail28.rediffmail.com>
+Message-ID: <20030220121335.22268.qmail@webmail28.rediffmail.com>
 Reply-To: "santosh kumar gowda" <ipv6_san@rediffmail.com>
 Mime-Version: 1.0
 Content-Type: text/plain;
-	format=flowed
+	charset=iso-8859-1
+Content-Transfer-Encoding: 8bit
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "Maciej Soltysiak" <solt@dns.toxicfilms.tv>
+To: "YOSHIFUJI Hideaki / $B5HF#1QL@\(B" <yoshfuji@linux-ipv6.org>
 Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-when i connect my two IPv6 hosts using a cross cable, i'm unable 
-to
-ping and the ethernet link seems to be down.
-Also, one machine has bridged-ethernet.
-Is it correct to do so ??
+as iam in a IPv4 LAN, do i need to setup a tunnel for these IPv6 hosts
+to communicate ??
 
-pls help.
--san
------------------------------
+any configuration required ??
+-San
+------------------------------
 
-On Thu, 20 Feb 2003 Maciej Soltysiak wrote :
-> > IPv6 addr of machine-1 is 3ff3:1234::1
-> > IPv6 addr of machine-2 is 3ff3:1234::2
-> > My LAN is based on IPv4.
-> > To make these IPv6-hosts to communicate on the LAN, what
-> > configuration do i need to make ???
+On Thu, 20 Feb 2003 YOSHIFUJI Hideaki / $B5HF#1QL@(B wrote :
+>In article <20030220114636.21895.qmail@webmail29.rediffmail.com> (at 20 Feb 2003 11:46:36 -0000), "santosh kumar gowda" <ipv6_san@rediffmail.com> says:
 >
->Well, as in ipv4 the hosts need an address and routing:
->machine-1:
-># ip addr add 3ff3:1234::1 dev eth0
-># ip route add 3ffe:1234/mask dev eth0
+> > 8: epmac1: <BROADCAST,UP> mtu 1500 qdisc pfifo_fast qlen 100
+> >     inet6 3ffe:1234::2/128 scope global
+>:
+> >     inet6 3ffe:1234::1/128 scope global
 >
->machine-2:
-># ip addr add 3ff3:1234::1 dev eth0
-># ip route add 3ff3:1234/mask dev eth0
+>use /64 instead.
 >
->If you have a route to the ip6 world, then add to them:
-># ip route add 2001::/3 via (your:ip6:router:address) dev eth0
+>--yoshfuji
 >
-> > I tried connecting only these two machines using a cross cable 
->and
-> > sending IPv6 packets. But it failed. Is it correct to do so 
->???
->Should work, maybe the cables are bad?
 >
->Regards,
->Maciej
->
+ 
