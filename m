@@ -1,45 +1,32 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH 2.6] netem update
-Date: Fri, 27 Aug 2004 16:56:59 -0700
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [PATCH/RFC] remove include/linux/netflinter_ipv6/ip6t_REJECT.h
+Date: Fri, 27 Aug 2004 16:59:02 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040827165659.616ed762.davem@redhat.com>
-References: <20040827121752.6b7fdf82@dell_ss3.pdx.osdl.net>
+Message-ID: <20040827165902.352fd5df.davem@davemloft.net>
+References: <20040828.011451.79815651.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: hadi@znyx.com, netdev@oss.sgi.com
+Content-Type: text/plain; charset=ISO-8859-1
+Content-Transfer-Encoding: 8bit
+Cc: laforge@gnumonks.org, netdev@oss.sgi.com,
+        netfilter-devel@lists.netfilter.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Stephen Hemminger <shemminger@osdl.org>
-In-Reply-To: <20040827121752.6b7fdf82@dell_ss3.pdx.osdl.net>
+To: yoshfuji@linux-ipv6.org
+In-Reply-To: <20040828.011451.79815651.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Aug 2004 12:17:52 -0700
-Stephen Hemminger <shemminger@osdl.org> wrote:
+On Sat, 28 Aug 2004 01:14:51 +0900 (JST)
+YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
 
-> This is a third revision of the netem extensions which provides
-> 	* packet duplication
-> 	* correlated random number
-> 	* loading distribution table
+> There're no users of include/linux/netflinter_ipv6/ip6t_REJECT.h,
+> which contains wrong, useless definitions.
 > 
-> The API is backwards compatible and now uses nested elements to allow
-> for easier future changes.
+> Yes, I know ip6t_REJECT.c lives in patch-o-matic, but
+> it (almost) completely replaces ip6t_REJECT.h;
+> which implies that ip6t_REJECT.h is useless at all.
+> 
+> So, how about removing ip6t_REJECT.h for now?
+> Of course, introducing appropriate ip6t_REJECT.c and ip6t_REJECT.h is
+> the alternate option. :-)
 
-Looks great, applied.  A 2.4.x version is coming? :-)
-
-Also, if someone is bored, can we get the pkt_sched.h
-enumeration stuff cleaned up a bit?  I mean, instead
-of all of these error prone FOO_MAX tricks, just do
-what we do for the netlink headers.
-
-enum {
-	FOO_A,
-	FOO_B,
-	...
-	__FOO_MAX,
-};
-
-#define FOO_MAX		(__FOO_MAX - 1)
-
-This way to add new enumerations is just a one line
-change and less error prone.
+I agree, patch applied.
