@@ -1,40 +1,59 @@
-From: "John W. Linville" <linville@tuxdriver.com>
-Subject: Re: [patch 2.6.9 0/11] Add MODULE_VERSION to several network drivers
-Date: Thu, 21 Oct 2004 09:33:22 -0400
+From: Bob Wirka <bobwirka@rtcworks.com>
+Subject: Re: NFS and Network Driver Question
+Date: Thu, 21 Oct 2004 10:09:09 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041021093322.E29340@tuxdriver.com>
-References: <20041020141146.C8775@tuxdriver.com> <1098350269.2810.17.camel@laptop.fenrus.com> <20041021082205.A29340@tuxdriver.com> <1098366370.2810.31.camel@laptop.fenrus.com> <20041021085509.B29340@tuxdriver.com> <1098367875.2810.36.camel@laptop.fenrus.com>
+Message-ID: <4177D115.5070205@rtcworks.com>
+References: <41704198.8000206@rtcworks.com> <4175AEFE.7090002@rtcworks.com> <41768B15.1090402@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org, jgarzik@pobox.com,
-        davem@davemloft.net, john.ronciak@intel.com,
-        ganesh.venkatesan@intel.com, akpm@osdl.org, romieu@fr.zoreil.com,
-        ctindel@users.sourceforge.net, fubar@us.ibm.com,
-        greearb@candelatech.com
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Arjan van de Ven <arjan@fenrus.demon.nl>
-Content-Disposition: inline
-In-Reply-To: <1098367875.2810.36.camel@laptop.fenrus.com>; from arjan@fenrus.demon.nl on Thu, Oct 21, 2004 at 04:11:17PM +0200
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <41768B15.1090402@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Oct 21, 2004 at 04:11:17PM +0200, Arjan van de Ven wrote:
-> On Thu, 2004-10-21 at 14:55, John W. Linville wrote:
+Here is another wrinkle: The program on my embedded system cannot send 
+UDP broadcast messages when NFS mounted. When the system is booted 
+without NFS (using the DiskOnChip for root file system) I can send UDP 
+broadcasts. When the system is booted with NFS (using my laptop for root 
+file system) UDP broadcasts result in "Network unreachable" errors, 
+though it CAN send directed UDP messages and TCP messages.
 
-> > Again, I think it would have to be the maintainer's responsibility
-> > to make the version numbers meaningful.
-> 
-> absolutely; however you're not the maintainer of all of the ones you
-> patched... and I still argue that until the number is meaningful
-> exporting it as meaning something is more harm than good.
+The kernel configuration is identical, except for kernel IP 
+autoconfiguration, root over nfs, and compiled-in network driver. The 
+NFS configuration on the host has 'no_root_squash', and <<now>> all the 
+files on the host root file system are owned by root.
 
-As you say, I'm not the maintainer.  I just proposed the patches.
+Any ideas?
 
-It seems you are not really talking to me.  Instead, you are telling the
-maintainers that by applying these patches, they should be committing
-themselves to making/keeping the version numbers meaningful?
+Thanks,
 
-John
--- 
-John W. Linville
-linville@tuxdriver.com
+Bob Wirka
+Realtime Control Works
+
+Stephen Hemminger wrote:
+
+> Bob Wirka wrote:
+>
+>> Ok, now I feel like I'm taking crazy pills...
+>>
+>> The embedded system boots up and mounts the root file system on my 
+>> host laptop. The 'rc.sysinit' startup script executes the command 
+>> 'mount -a' which should mount /proc, /dev/pts, and /dev/shm, as 
+>> listed in /etc/fstab. When executed, that command returns  "mount: 
+>> only root can do that".
+>>
+>> When I get to the bash prompt, 'whoami' reports that I am, indeed, 
+>> root. A 'mount -a' from the command prompt gives the same result; it 
+>> doesn't think I'm root for the mount command.
+>>
+>> I can chown a file owned by root to some other user, and I can create 
+>> a file or directory in a directory owned by root; so it doesn't 
+>> always think I'm not root.
+>>
+> Are you getting bit by the nfs uid mapping on the server. Is it 
+> mapping your local "root" to "nobody"
+> on the server?
+>
