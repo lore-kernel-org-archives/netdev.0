@@ -1,52 +1,31 @@
-From: Martin Josefsson <gandalf@wlug.westbo.se>
-Subject: [PATCH] zero rt_cache_stat statistics at init
-Date: 14 Feb 2003 16:55:03 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: NAPI note (was Re: lockups with 2.4.20 (tg3? net/core/dev.c|deliver_to_old_ones))
+Date: Fri, 14 Feb 2003 18:58:13 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1045238103.23312.70.camel@tux.rsn.bth.se>
+Message-ID: <3E4D8295.2050400@pobox.com>
+References: <3E4D66DF.3040800@colorfullife.com>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: Pete Zaitcev <zaitcev@redhat.com>, James Bourne <jbourne@mtroyal.ab.ca>,
+   davem@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+To: Manfred Spraul <manfred@colorfullife.com>
+In-Reply-To: <3E4D66DF.3040800@colorfullife.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi,
+Manfred Spraul wrote:
+> It seems to be a generic NAPI restriction:
+> The caller of netif_receive_skb() must not own a spinlock that is 
+> acquired from an interrupt handler.
 
-I'm running 2.5.58-mm1 with slab-debugging enabled and noticed this in
-/proc/net/rt_cache_stat (long line):
 
-000000ae  5b61f6cf 5ab13072 5a5a5a5a 5a5a5a5a 5a5d0c9a 5a5a5a7f 5a5a5aa6  5a61e025 5a5a961a 5a5a5aea 5a5a5a5a 5a5a5a5a 5a5a5a5a 5a5a5a5a
+Thanks much for noticing this, Manfred.  tg3 is definitely buggy in this 
+regard.  I've CC'd netdev as an FYI...  We should probably patch 
+NAPI_HOWTO for this note.
 
-Here's a patch against 2.5.58(-mm1) to memset() it at init, also
-includes a whitespace change to conform to the other sizeof's in
-ip_rt_init():
+I note that David pointed this out as an area for improvement, so he was 
+already thinking in this direction anyway :)
 
---- linux-2.5.58/net/ipv4/route.c.orig	2003-02-14 16:07:46.000000000 +0100
-+++ linux-2.5.58/net/ipv4/route.c	2003-02-14 16:43:11.000000000 +0100
-@@ -2652,11 +2652,18 @@
- 	ipv4_dst_ops.gc_thresh = (rt_hash_mask + 1);
- 	ip_rt_max_size = (rt_hash_mask + 1) * 16;
- 
--	rt_cache_stat = kmalloc_percpu(sizeof (struct rt_cache_stat),
-+	rt_cache_stat = kmalloc_percpu(sizeof(struct rt_cache_stat),
- 					GFP_KERNEL);
- 	if (!rt_cache_stat) 
- 		goto out_enomem1;
- 
-+	for (i = 0; i < NR_CPUS; i++) {
-+		if (!cpu_possible(i))
-+			continue;
-+		memset(per_cpu_ptr(rt_cache_stat, i), 0,
-+		       sizeof(struct rt_cache_stat));
-+	}
-+
- 	devinet_init();
- 	ip_fib_init();
- 
-
--- 
-/Martin
-
-Never argue with an idiot. They drag you down to their level, then beat you with experience.
+	Jeff
