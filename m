@@ -1,49 +1,25 @@
-From: David Stevens <dlstevens@us.ibm.com>
-Subject: Re: Fragment ID wrap workaround (read-only, untested).
-Date: Thu, 15 Jul 2004 09:54:53 -0700
+From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
+Subject: Re: [PATCH] [sparse] irlmp warnings.
+Date: Thu, 15 Jul 2004 09:28:59 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF6D39F992.163676EB-ON88256ED2.005AF110-88256ED2.005CC82F@us.ibm.com>
-References: <20040715182735.3787c8b1.ak@suse.de>
+Message-ID: <20040715162859.GB25405@bougret.hpl.hp.com>
+References: <20040713100956.66ff796f@dell_ss3.pdx.osdl.net>
+Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
-Content-Type: text/plain; charset="US-ASCII"
-Cc: netdev@oss.sgi.com, rusty@au1.ibm.com
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-In-Reply-To: <20040715182735.3787c8b1.ak@suse.de>
-To: Andi Kleen <ak@suse.de>
+To: Stephen Hemminger <shemminger@osdl.org>
+Content-Disposition: inline
+In-Reply-To: <20040713100956.66ff796f@dell_ss3.pdx.osdl.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andi Kleen wrote on 07/15/2004 09:27:35 AM:
+On Tue, Jul 13, 2004 at 10:09:56AM -0700, Stephen Hemminger wrote:
+> Get rid of sparse warnings about 0 vs NULL. in irlmp.
 
-> I'm well aware of the Gigabit+ NFS problem. My standard suggestion to 
-solve
-> it is to just get rid of NFS over UDP - it always was a bad idea.
+	I feel freat that you are on top of that. I currently have
+family at home, so please feel free to push that where it needs ;-)
+	Have fun...
 
-No disagreement here.
-
-> My point was just that you're concentrating on that one only,
-> but you're potentially causing more problems for slow links.
-> The stack has to work well both for slow and fast links though.
-
-That's the problem it's intended to solve, but of course any
-actual solution would have to behave well for all links, and
-that's in fact the whole reason to have a dynamic frag queue
-timeout instead of a fixed one for all links. As long as the
-timeout is conservative without being so enormously so that it
-allows IP ID wrap, it shouldn't affect any existing use at all.
-
-If the timeout were scaled to be only 10 (or 100!) times any reasonable
-expectation of success rather than thousands or tens of thousands
-of times too large, the problem wouldn't exist on fast links, and
-slow links would behave exactly as they do now.
-
-I agree that NFS over UDP should be dead as soon as possible,
-and fragmentation in general not far behind it. They aren't quite
-dead yet; until they are, why not make them better behaved? And
-if your argument is that it isn't worth fixing because it isn't
-used, then of course the argument that it'll break slow links to
-change it doesn't fly. Sites obviously have fast links where this
-can break, and done correctly, this shouldn't affect slow links
-at all. People who don't use NFS over UDP aren't affected by it
-either way, right? :-)
-                                                        +-DLS
+	Jean
