@@ -1,58 +1,39 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: [PATCH] ibmtr: fix init (devinit) section usage
-Date: Wed, 4 Aug 2004 09:49:05 -0700
+From: Mike_Phillips@URSCorp.com
+Subject: Re: [PATCH] ibmtr: fix init (devinit) section usage
+Date: Wed, 4 Aug 2004 14:20:31 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040804094905.667b3954.rddunlap@osdl.org>
+Message-ID: <OF5BF82238.ABA1EE0F-ON85256EE6.0064AACC-85256EE6.0064C0D5@urscorp.com>
+References: <20040804094905.667b3954.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: jgarzik <jgarzik@pobox.com>
+Content-Type: multipart/alternative; boundary="=_alternative 0064BDAF85256EE6_="
+Cc: jgarzik <jgarzik@pobox.com>, netdev <netdev@oss.sgi.com>,
+        netdev-bounce@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev <netdev@oss.sgi.com>
+In-Reply-To: <20040804094905.667b3954.rddunlap@osdl.org>
+To: "Randy.Dunlap" <rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+This is a multipart message in MIME format.
+--=_alternative 0064BDAF85256EE6_=
+Content-Type: text/plain; charset="US-ASCII"
 
-(resend from 2.6.4 days)
+Randy:
 
-Use __devinit on 2 functions so that section usage is valid.
+Does ibmtr_cs still compile with those changes ? It links in ibmtr.c and 
+the probe functions. 
 
-Removes these problems when CONFIG_HOTPLUG=n:
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000b7 R_386_PC32        .init.text
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000c8 R_386_32          .init.data
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000cf R_386_PC32        .init.text
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000d5 R_386_32          .init.data
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000df R_386_32          .init.data
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000e6 R_386_PC32        .init.text
-Error: ./drivers/net/tokenring/ibmtr.o .text refers to 000000f4 R_386_32          .init.data
+Mike
 
-Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+--=_alternative 0064BDAF85256EE6_=
+Content-Type: text/html; charset="US-ASCII"
 
 
-diffstat:=
- drivers/net/tokenring/ibmtr.c |    4 ++--
- 1 files changed, 2 insertions(+), 2 deletions(-)
-
-diff -Naurp ./drivers/net/tokenring/ibmtr.c~ibmtr_init ./drivers/net/tokenring/ibmtr.c
---- ./drivers/net/tokenring/ibmtr.c~ibmtr_init	2004-03-06 20:57:06.000000000 -0800
-+++ ./drivers/net/tokenring/ibmtr.c	2004-03-07 18:31:11.000000000 -0800
-@@ -334,7 +334,7 @@ static void ibmtr_cleanup_card(struct ne
- #endif		
- }
- 
--int ibmtr_probe_card(struct net_device *dev)
-+int __devinit ibmtr_probe_card(struct net_device *dev)
- {
- 	int err = ibmtr_probe(dev);
- 	if (!err) {
-@@ -357,7 +357,7 @@ int ibmtr_probe_card(struct net_device *
-  *	which references it.
-  ****************************************************************************/
- 
--static int ibmtr_probe(struct net_device *dev)
-+static int __devinit ibmtr_probe(struct net_device *dev)
- {
- 	int i;
- 	int base_addr = dev->base_addr;
-
---
+<br><font size=2 face="sans-serif">Randy:</font>
+<br>
+<br><font size=2 face="sans-serif">Does ibmtr_cs still compile with those
+changes ? It links in ibmtr.c and the probe functions. </font>
+<br>
+<br><font size=2 face="sans-serif">Mike</font>
+<br>
+--=_alternative 0064BDAF85256EE6_=--
