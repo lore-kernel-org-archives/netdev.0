@@ -1,47 +1,116 @@
-From: Andi Kleen <ak@muc.de>
-Subject: Re: [ANNOUNCE] Experimental Driver for Neterion/S2io 10GbE Adapters
-Date: Tue, 15 Mar 2005 00:27:32 +0100
-Message-ID: <m1br9l6c63.fsf@muc.de>
-References: <20050314123815.73e7ee78.davem@davemloft.net>
-	<200503142054.j2EKs2DD003697@guinness.s2io.com>
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: [patch linux-2.6.11-bk10 1/1] r8169: incoming frame length check
+Date: Tue, 15 Mar 2005 00:31:03 +0100
+Message-ID: <20050314233103.GC16072@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: <netdev@oss.sgi.com>, <leonid@neterion.com>, <jgarzik@pobox.com>,
-        alex@neterion.com
-To: "Leonid Grossman" <leonid.grossman@neterion.com>
-In-Reply-To: <200503142054.j2EKs2DD003697@guinness.s2io.com> (Leonid
- Grossman's message of "Mon, 14 Mar 2005 12:53:57 -0800")
+Cc: jgarzik@pobox.com, Jon Mason <jdmason@us.ibm.com>,
+        Stephen Hemminger <shemminger@osdl.org>, mark@kiora.ath.cx
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-"Leonid Grossman" <leonid.grossman@neterion.com> writes:
->
-> Do you have other objections to the submission? We'd like to see if these
-> could be addressed; going forward we see significant benefits both for
-> S2io/Neterion (and our customers) and for community to use this driver.
+The size of the incoming frame is not correctly checked.
 
-I guess the main objection to the HAL comes not from performance
-issues (Usually the only thing that really counts for performance
-is data cache misses and the HAL is unlikely to affect this much), but
-the coding style etc.. Indeed it does not look too Linux like. 
+The RxMaxSize register (0xDA) does not work as expected and incoming
+frames whose size exceeds the MTU actually end spanning multiple
+descriptors. The first Rx descriptor contains the size of the whole
+frame (or some garbage in its place). The driver does not expect 
+something above the space allocated to the current skb and crashes
+loudly when it issues a skb_put.
 
-One thing that's frowned upon in Linux are lots of wrappers for
-standard functions (like spin_lock etc.). I would recommend
-to at least replace them with the standard Linux functions.
-In principle this can be even done with some kind of preprocessor
-Also less ifdefs would be nice.
+The fix contains two parts:
+- disable hardware Rx size filtering: so far it only proved to be able
+  to trigger some new fancy errors;
+- drop multi-descriptors frame: as the driver allocates MTU sized Rx
+  buffers, it provides an adequate filtering.
 
-An possible compromise might be to get rid of all the HAL parts that
-wraps Linux functionality, and then only use a leaner low level
-library to access the more difficult parts of the hardware.  This
-would involve moving more code into the Linux specific layers. This
-should be more low level code, nothing like the high level queue
-handling functions you currently have etc., with the high level logic
-all in Linux code
+As a bonus, wrong descriptors were not returned to the asic after their
+processing.
 
--Andi
+Signed-off-by: Francois Romieu <romieu@fr.zoreil.com>
 
-P.S.: The patch would be much easier to read if it created new
-files instead of changing the old ones. This makes sense since
-the new driver will probably live next to the old one for some time.
+diff -puN drivers/net/r8169.c~r8169-570 drivers/net/r8169.c
+--- linux-2.6.11/drivers/net/r8169.c~r8169-570	2005-03-13 23:35:37.000000000 +0100
++++ linux-2.6.11-fr/drivers/net/r8169.c	2005-03-14 23:47:56.529014957 +0100
+@@ -1585,8 +1585,8 @@ rtl8169_hw_start(struct net_device *dev)
+ 	RTL_W8(ChipCmd, CmdTxEnb | CmdRxEnb);
+ 	RTL_W8(EarlyTxThres, EarlyTxThld);
+ 
+-	/* For gigabit rtl8169, MTU + header + CRC + VLAN */
+-	RTL_W16(RxMaxSize, tp->rx_buf_sz);
++	/* Low hurts. Let's disable the filtering. */
++	RTL_W16(RxMaxSize, 16383);
+ 
+ 	/* Set Rx Config register */
+ 	i = rtl8169_rx_config |
+@@ -2127,6 +2127,11 @@ rtl8169_tx_interrupt(struct net_device *
+ 	}
+ }
+ 
++static inline int rtl8169_fragmented_frame(u32 status)
++{
++	return (status & (FirstFrag | LastFrag)) != (FirstFrag | LastFrag);
++}
++
+ static inline void rtl8169_rx_csum(struct sk_buff *skb, struct RxDesc *desc)
+ {
+ 	u32 opts1 = le32_to_cpu(desc->opts1);
+@@ -2177,27 +2182,41 @@ rtl8169_rx_interrupt(struct net_device *
+ 
+ 	while (rx_left > 0) {
+ 		unsigned int entry = cur_rx % NUM_RX_DESC;
++		struct RxDesc *desc = tp->RxDescArray + entry;
+ 		u32 status;
+ 
+ 		rmb();
+-		status = le32_to_cpu(tp->RxDescArray[entry].opts1);
++		status = le32_to_cpu(desc->opts1);
+ 
+ 		if (status & DescOwn)
+ 			break;
+ 		if (status & RxRES) {
+-			printk(KERN_INFO "%s: Rx ERROR!!!\n", dev->name);
++			printk(KERN_INFO "%s: Rx ERROR. status = %08x\n",
++			       dev->name, status);
+ 			tp->stats.rx_errors++;
+ 			if (status & (RxRWT | RxRUNT))
+ 				tp->stats.rx_length_errors++;
+ 			if (status & RxCRC)
+ 				tp->stats.rx_crc_errors++;
++			rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
+ 		} else {
+-			struct RxDesc *desc = tp->RxDescArray + entry;
+ 			struct sk_buff *skb = tp->Rx_skbuff[entry];
+ 			int pkt_size = (status & 0x00001FFF) - 4;
+ 			void (*pci_action)(struct pci_dev *, dma_addr_t,
+ 				size_t, int) = pci_dma_sync_single_for_device;
+ 
++			/*
++			 * The driver does not support incoming fragmented
++			 * frames. They are seen as a symptom of over-mtu
++			 * sized frames.
++			 */
++			if (unlikely(rtl8169_fragmented_frame(status))) {
++				tp->stats.rx_dropped++;
++				tp->stats.rx_length_errors++;
++				rtl8169_mark_to_asic(desc, tp->rx_buf_sz);
++				goto move_on;
++			}
++
+ 			rtl8169_rx_csum(skb, desc);
+ 			
+ 			pci_dma_sync_single_for_cpu(tp->pci_dev,
+@@ -2224,7 +2243,7 @@ rtl8169_rx_interrupt(struct net_device *
+ 			tp->stats.rx_bytes += pkt_size;
+ 			tp->stats.rx_packets++;
+ 		}
+-		
++move_on:		
+ 		cur_rx++; 
+ 		rx_left--;
+ 	}
+
+_
