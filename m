@@ -1,39 +1,58 @@
-From: Francois Romieu <romieu@fr.zoreil.com>
-Subject: [PATCH] 2.6.3 - incorrect handling of the status code from skge_probe
-Date: Fri, 20 Feb 2004 23:50:40 +0100
+From: Harald Welte <laforge@netfilter.org>
+Subject: Re: [PATCH] Add C99 initializers to ip_conntrack_standalone.c
+Date: Fri, 20 Feb 2004 23:48:46 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040220235040.B26032@electric-eye.fr.zoreil.com>
+Message-ID: <20040220224846.GX4797@sunbeam.de.gnumonks.org>
+References: <20040219001343.GB9704@artsapartment.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: mlindner@syskonnect.de, jgarzik@pobox.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="2RPSo2VWgDbGU+zh"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Art Haas <ahaas@airmail.net>
 Content-Disposition: inline
+In-Reply-To: <20040219001343.GB9704@artsapartment.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
-skge_probe() can return -ENODEV as well as number of detected adapters.
+--2RPSo2VWgDbGU+zh
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
+On Wed, Feb 18, 2004 at 06:13:43PM -0600, Art Haas wrote:
+> Hi.
+>=20
+> Here's a patch that converts this file to use C99 initializers. The code
+> is much easier to read after the conversion, I believe. I have
+> recompiled the file with the changes successfully.
 
- drivers/net/sk98lin/skge.c |    5 +++--
- 1 files changed, 3 insertions(+), 2 deletions(-)
+Thanks, I integrated your patch with some clashing changes we had in our
+set of pending patches and submitted it to davem a couple of hours ago.
 
-diff -puN drivers/net/sk98lin/skge.c~sk98-bad-test drivers/net/sk98lin/skge.c
---- linux-2.6.3/drivers/net/sk98lin/skge.c~sk98-bad-test	2004-02-20 23:39:41.000000000 +0100
-+++ linux-2.6.3-fr/drivers/net/sk98lin/skge.c	2004-02-20 23:43:59.000000000 +0100
-@@ -779,9 +779,10 @@ static int __init skge_init_module(void)
- 
- 	cards = skge_probe();
- 	if (cards == 0) {
--		printk("sk98lin: No adapter found.\n");
-+		printk(KERN_INFO "sk98lin: No adapter found.\n");
-+		cards = -ENODEV;
- 	}
--	return cards ? 0 : -ENODEV;
-+	return (cards > 0 ) ? 0 : cards;
- } /* skge_init_module */
- 
- 
+> Art Haas
+--=20
+- Harald Welte <laforge@netfilter.org>             http://www.netfilter.org/
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=3D=
+=3D
+  "Fragmentation is like classful addressing -- an interesting early
+   architectural error that shows how much experimentation was going
+   on while IP was being designed."                    -- Paul Vixie
 
-_
+--2RPSo2VWgDbGU+zh
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (GNU/Linux)
+
+iD8DBQFANo7OXaXGVTD0i/8RAiHwAJ9ofTrjyFOdbHywKbm3ViQ+KveSsACcD6Zr
+ddBD779EEyhanW84d7pOe0Y=
+=8Qu+
+-----END PGP SIGNATURE-----
+
+--2RPSo2VWgDbGU+zh--
