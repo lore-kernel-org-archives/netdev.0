@@ -1,48 +1,91 @@
-From: Roland Dreier <roland@topspin.com>
-Subject: Re: [PATCH][v5][0/24] Latest IB patch queue
-Date: Tue, 28 Dec 2004 15:24:43 -0800
-Message-ID: <52pt0uhupw.fsf@topspin.com>
-References: <200412272150.IBRnA4AvjendsF8x@topspin.com>
-	<20041227225417.3ac7a0a6.davem@davemloft.net>
-	<52pt0unr0i.fsf@topspin.com>
-	<20041228141710.4daebcfb.davem@davemloft.net>
+From: jamal <hadi@cyberus.ca>
+Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+Date: 28 Dec 2004 18:39:25 -0500
+Message-ID: <1104277165.1100.291.camel@jzny.localdomain>
+References: <20041227121658.GI7884@postel.suug.ch>
+	 <1104240053.1100.53.camel@jzny.localdomain>
+	 <20041228134022.GA32419@postel.suug.ch>
+	 <1104242397.1090.94.camel@jzny.localdomain>
+	 <20041228161117.GD32419@postel.suug.ch>
+	 <1104251817.1090.164.camel@jzny.localdomain>
+	 <20041228192603.GE32419@postel.suug.ch>
+	 <1104268498.1090.254.camel@jzny.localdomain>
+	 <20041228221021.GF32419@postel.suug.ch>
+	 <1104275197.1100.276.camel@jzny.localdomain>
+	 <20041228231916.GG32419@postel.suug.ch>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-	openib-general@openib.org
-Return-path: <openib-general-bounces@openib.org>
-To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20041228141710.4daebcfb.davem@davemloft.net> (David S.
-	Miller's message of "Tue, 28 Dec 2004 14:17:10 -0800")
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Thomas Graf <tgraf@suug.ch>
+In-Reply-To: <20041228231916.GG32419@postel.suug.ch>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-    David> I believe that you didn't test the sparc64 build of the
-    David> infiniband stuff because arch/sparc64/Kconfig needs to
-    David> explicitly include the infiniband Kconfig since it does not
-    David> use drivers/Kconfig.  You didn't send me any such changes.
+On Tue, 2004-12-28 at 18:19, Thomas Graf wrote:
+> * jamal <1104275197.1100.276.camel@jzny.localdomain> 2004-12-28 18:06
+> > Its maintainance work. Nothing it provides isnt provided by
+> > new policer. 
+> 
+> I'll remove it.
+> 
 
-Actually I did test the build (and Tom Duffy at Sun has actually run
-the drivers on his system), but I forgot to include the required Kconfig
-change -- I just have it in my local test tree.
+Well one of your goals was to reduce the ifdef  cluter.
+That goal is achieved with that goal. So I would keep it as is for now
+but kill it in the future. I am hoping we are talking about the same
+thing here - the old policer ;->
 
-    David> There are a few platforms which also are in this situation.
-    David> I added the sparc64 one to my tree while integrating your
-    David> changes, but the others need to be attended to if you wish
-    David> infiniband to be configurable on them.
 
-I think sparc64 is the only such platform where InfiniBand is likely
-to be of much interest.  However I'll check out all of arch/ and send
-patches to hook up drivers/infiniband/ to the relevant maintainers
-once IB makes it upstream.
+> > Since these keys are packed in a selector and the selector is what gets
+> > transported from/to user space we need a selector2 which packs these new
+> > keys instead. Makes sense? i.e need a TCA_U32_SEL2 where the extended
+> > matches are stored. 
+> 
+> Why? I don't get that. Generic matches must only be considered if all
+> keys of u32 match. u32 keys are just ANDed matches if one fails we can
+> directly declare the classifier as unmatched. 
 
-Thanks,
-  Roland
+yes - and that still applies here but you can now interleaf - as i
+mentioned earlier:
+
+match u32 ..
+ematch string "Thomas" ...
+match u32 ...
+ematch meta tcindex ..
+
+I dont wanna go into details of whether we could actually make the new
+keys do more than just strict AND from left to right - but you can see
+the potential to "fix" this if we are defining a new key ;->
+
+The same applies for interleafing of actions and eactions.
+
+> The only thing we would
+> gain is that we could add multiple generic matches but with lack of real
+> logical expressions. I'd rather implemnt some simple form of logical
+> expression in the generic part so all classifiers can benfit.
+
+Ok, the logical expressions are the tricky part. But refer to what i am
+saying above. You still need to be backward compatible. But for the new
+keys you could go onto the adventorous side. I havent given the logical
+expressions much thought but i will in the background
+
+> > Makes sense?
+> 
+> Not for me. ;->
+> 
+> > Back to what i said earlier i can now write a single page of code
+> > to scan for word "Thomas" if i get a match on TCP port 25 for all IP
+> > addresses... i.e metadata is a subset of all this.
+> 
+> Agreed, and smart as you are you simply take the Knuth-Morris-Pratt
+> code out of my EGP patch to get some performance. ;->
+
+Of course;->  Ive worked long enough in Linux to appreciate 
+the definition of TheLinuxWay(tm) ;-> I also get to inherit your bugs
+this way.
+
+cheers,
+jamal
