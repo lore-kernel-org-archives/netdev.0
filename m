@@ -1,67 +1,72 @@
-From: Roger Luethi <rl@hellgate.ch>
-Subject: Re: [0/3] mc_filter on big-endian arch
-Date: Mon, 7 Jun 2004 13:48:32 +0200
+From: Vladimir Kondratiev <vkondra@mail.ru>
+Subject: TGe (QoS in wireless)
+Date: Wed, 9 Jun 2004 09:36:16 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040607114832.GA32569@k3.hellgate.ch>
-References: <20040606165322.GA13247@k3.hellgate.ch> <1086575392.4731.9.camel@ori.thedillows.org>
+Message-ID: <200406090936.16943.vkondra@mail.ru>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, Andrew Morton <akpm@osdl.org>,
-        Netdev <netdev@oss.sgi.com>
+Content-Type: text/plain;
+  charset="us-ascii"
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Dillow <dave@thedillows.org>
+To: netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <1086575392.4731.9.camel@ori.thedillows.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, 06 Jun 2004 22:29:52 -0400, David Dillow wrote:
-> I think typhoon's OK -- I calculate the filter on the host, and then do
-> a cpu_to_le32() on the final values, since the processor on the NIC is
-> in little-endian mode.
-> 
-> However, I've never tested it. I'll be happy to do so, if someone will
-> point me to appropriate code -- I've got an Ultra5 as well, so I can
-> test both big and little endian machines. Otherwise, I'll test it when I
-> get around to writing something, or someone reports a bug. :)
+I will give short overview for TGe.
 
-Warning: This is a very basic functionality test using standard Linux
-tools. Some existing multicast problems are detected by this (if you
-screw up the endianness of the filter hash, you will know :-)). Others
-are not.
+TGe is working group in IEEE, who is working on QoS for 802.11 wireless 
+network. This work is close to completion, final draft will be voted and 
+become standard shortly.
 
-Multicast Driver Testing Quick How-To
-=====================================
+Next generation of wireless cards will support TGe.
 
-Make sure the host you are testing replies to broadcasts:
+Now, to the business.
 
-target# cat /proc/sys/net/ipv4/icmp_echo_ignore_all
-0
-target# cat /proc/sys/net/ipv4/icmp_echo_ignore_broadcasts
-0
+Single radio channel used.
 
-Our test packets need to go to the target host, so either have a
-route or use ping "-r -I <ifname>" option:
-tester# route add -net 224.0.0.0 netmask 240.0.0.0 eth0
+There are 2 access disciplines: 
 
-Since every multicast capable host interface joins 224.0.0.1, you
-can already ping your target:
+- EDCA, which is CSCA, or contention based. 4 AC (access categories) exist, 
+they differ by channel access parameters. Parameters include backoff, 
+contention window and TXOP (more on this later). Parameters are set by AP and 
+may be changed during operation.
 
-tester# ping -r -I eth0 -t 1 -c 2 224.0.0.1
+- HCCA, which is contention free access. AP (access point) gives TXOP directly 
+to each STA, deciding who will speak.
 
-Your target host should answer this (so may your tester, depending on
-your setup).
+TXOP stands for transmitt opportunity. When each AC gets access to the 
+channel, it is allowed to do burst (without backoff) for TXOP period, which 
+is several ms.
 
-We haven't joined the next group yet, so there should be no answer:
+Traffic classified into 16 categories, or TID. Each packet get its TID.
+TID 0-7 get mapped statically to 4 AC, roughly it corresponds to TOS bits.
 
-tester# ping -r -I eth0 -t 1 -c 2 224.1.1.1
+TID 8-15 mapped to TSPECs. TSPEC is traffic specification, which consist of 
+bandwidth specification (throughput, delay etc. - see RSVP for example) and 
+TCLAS - classifiers passed to AP side to classify packets.
 
-Use packet sniffer to confirm that target is not seeing the request
-(use -p option for tcpdump or tethereal to prevent promiscuous mode)
+TSPEC may be for HCCA or EDCA access. In case of HCCA, it get simple periodic 
+schedule, set by AP. AP will poll STA accordingly to this schedule, and Tx to 
+STA accordingly to schedule. In case of EDCA, it is just bandwidth allocation 
+control.
 
-Now join the group:
-target# ip maddr add 01:00:5e:01:01:01 dev eth0
+Admission. AP may enforce admission control for some (actually, 2 high prio) 
+AC, prohibiting its normal operation and requiring TSPEC establishment in 
+order to use these categories.
 
-tester# ping -r -I eth0 -t 1 -c 2 224.1.1.1
+I did not touched B-ACK (block ack), local broadcast, and DLP (direct link 
+protocol) that deals nothing with QoS.
 
-Use packet sniffer to confirm that target is seeing the request now.
+----------below is my interpretation-----------
+This leads to the following channel model :
+- single Rx channel
+- 4 FIFO/DMA rings, one per AC.
+- 1 to 8 FIFO/DMA rings for TSPEC traffic.
+ In-NIC scheduler decides which FIFO get to the air. Time for decision is 
+about 10 us, thus it can't be done on host.
+Decision is the following:
+- poll from AP -> TSPEC
+- channel is clear, random backoff expired -> AC
+
+Vladimir.
