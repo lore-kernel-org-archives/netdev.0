@@ -1,47 +1,62 @@
-From: Robert Olsson <Robert.Olsson@data.slu.se>
+From: Julian Anastasov <ja@ssi.bg>
 Subject: Re: suggestion for routing code improvement
-Date: Thu, 11 Apr 2002 15:01:03 +0200
+Date: Thu, 11 Apr 2002 15:58:20 +0300 (EEST)
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <15541.35087.61146.809057@robur.slu.se>
-References: <15541.29604.537736.704406@robur.slu.se>
-	<Pine.LNX.4.44.0204111451570.9056-100000@l>
+Message-ID: <Pine.LNX.4.44.0204111536470.2204-100000@l>
+References: <Pine.GSO.4.30.0204110805460.651-100000@shell.cyberus.ca>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
    Chris Friesen <cfriesen@nortelnetworks.com>, <netdev@oss.sgi.com>
 Return-path: <owner-netdev@oss.sgi.com>
-To: Julian Anastasov <ja@ssi.bg>
-In-Reply-To: <Pine.LNX.4.44.0204111451570.9056-100000@l>
+To: jamal <hadi@cyberus.ca>
+In-Reply-To: <Pine.GSO.4.30.0204110805460.651-100000@shell.cyberus.ca>
 List-Id: netdev.vger.kernel.org
 
 
+	Hello,
 
-Hello!
+On Thu, 11 Apr 2002, jamal wrote:
 
-Julian Anastasov writes:
- > 
- > 	Well, I now see, it is used in gated. But only in one route table
- > which is a drawback.
- 
- gated netlink code came from Alexey. I had to adjust the preference for 
- "static" in gated to get the desired effect.
- 
- > 
- > 	More correctly, the settings are more complex than the mentioned
- > daemons can handle. Sticking with one route table is not enough in most
- > of the cases. This is the main reason the mentioned patches for static
- > routes to exist. They are more manageable (with scripts) for setups where
- > routing protocols are not used.
+> > 	Well, I now see, it is used in gated. But only in one route table
+> > which is a drawback.
+>
+> I thought gated was capable of using at least main and local.
 
- Well we can be happy for the well-designed routing/netlink system Linux 
- got and as you say routing software does not yet fully utilize this. 
- But I think we agree that we shouldn't have kernel to compensate for this.
+	Looking in the sources, main+default and after patching
+with one table more
 
- I did some benchmarking/profiling on the routing lookup/cache/garbage 
- collection it seems to be well done too. Having listened to all fuzz 
- about routing lookups at GIGE speeds. :-)
+> If i am not mistaken zebra is now capable of using more tables as well.
 
- Cheers.
+	Last time I checked it 6 months ago and today I don't see
+much progress on the web site but you can be right :)
 
-						--ro
+> It would probably be actually better policy to enter all static routes in
+> one table.
+
+	It is not always possible, all we are using Advanced Linux
+Networking, though :)
+
+> Robert, when you enter a static route from gated, is it registered as
+> proto gated or proto static?
+
+	I see that gated uses many protos while Zebra uses small
+number (one?). Actually, gated can use RTPROT_STATIC for its table.
+
+> While i like Julians patch (adding no complexity, IMO) I see that the
+> functionality could be very easily moved outside the kernel where you
+> could also do a lot more fancy things (very complex decision making
+> example: based on which devs go down, what next multihops to use etc).
+> Unfortunately, it does require extra code in user space.
+
+	Yes, we can ping indirect nexthops, do layer 7 health checks,
+alter the nexthops' weights. Usually we don't demand such super
+job from a routing daemon, the things are mostly "do it yourself" :)
+
+> cheers,
+> jamal
+
+Regards
+
+--
+Julian Anastasov <ja@ssi.bg>
