@@ -1,21 +1,36 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] mv643xx: permit VLAN tagged rx packets + minor cleanup
-Date: Wed, 02 Mar 2005 01:20:36 -0500
-Message-ID: <42255B34.4070003@pobox.com>
-References: <20050217224239.GA16609@xyzzy> <20050301000742.GA3163@xyzzy>
+Subject: Re: [2.6.11-rc4-mm1 patch] fix buggy IEEE80211_CRYPT_* selects
+Date: Wed, 02 Mar 2005 01:43:04 -0500
+Message-ID: <42256078.1040002@pobox.com>
+References: <20050223014233.6710fd73.akpm@osdl.org> <20050226113123.GJ3311@stusta.de>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Ralf Baechle <ralf@linux-mips.org>,
-        Manish Lachwani <mlachwani@mvista.com>,
-        Brian Waite <brian@waitefamily.us>,
-        "Steven J. Hill" <sjhill@realitydiluted.com>,
-        Benjamin Herrenschmidt <benh@kernel.crashing.org>,
-        James Chapman <jchapman@katalix.com>
-To: Dale Farnsworth <dale@farnsworth.org>
-In-Reply-To: <20050301000742.GA3163@xyzzy>
+Cc: Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
+To: Adrian Bunk <bunk@stusta.de>
+In-Reply-To: <20050226113123.GJ3311@stusta.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-pulled, thanks
+Adrian Bunk wrote:
+> +	select CRYPTO
+>  	select CRYPTO_AES
+>  	---help---
+>  	Include software based cipher suites in support of IEEE 802.11i 
+>  	(aka TGi, WPA, WPA2, WPA-PSK, etc.) for use with CCMP enabled 
+>  	networks.
+> @@ -54,10 +55,11 @@
+>  	"ieee80211_crypt_ccmp".
+>  
+>  config IEEE80211_CRYPT_TKIP
+>  	tristate "IEEE 802.11i TKIP encryption"
+>  	depends on IEEE80211
+> +	select CRYPTO
+>  	select CRYPTO_MICHAEL_MIC
+
+
+'select CRYPTO_AES' should 'select CRYPTO' automatically, I would hope.
+
+	Jeff
