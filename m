@@ -1,34 +1,35 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] fix netfilter refcounting [was Re: Conntrack leak
- (2.6.2rc2)]
-Date: Tue, 3 Feb 2004 09:48:08 -0800
+From: Sridhar Samudrala <sri@us.ibm.com>
+Subject: Re: SCTP sockopt discrepancy between 2.4 and 2.6.
+Date: Tue, 3 Feb 2004 10:13:54 -0800 (PST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040203094808.2bb3640a.davem@redhat.com>
-References: <Pine.LNX.4.33.0402031629150.11737-100000@blackhole.kfki.hu>
-	<Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
+Message-ID: <Pine.LNX.4.58.0402031008120.2060@localhost.localdomain>
+References: <1075747382.786.366.camel@hades.cambridge.redhat.com>
+ <Pine.LNX.4.58.0402021056290.2352@localhost.localdomain>
+ <20040202112150.3c8d5218.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: steve@navaho.co.uk, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: dwmw2@infradead.org, netdev@oss.sgi.com, marcelo.tosatti@cyclades.com,
+        lksctp-developers@lists.sourceforge.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jozsef Kadlecsik <kadlec@blackhole.kfki.hu>
-In-Reply-To: <Pine.LNX.4.33.0402031825170.11950-100000@blackhole.kfki.hu>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040202112150.3c8d5218.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 3 Feb 2004 18:43:38 +0100 (CET)
-Jozsef Kadlecsik <kadlec@blackhole.kfki.hu> wrote:
+On Mon, 2 Feb 2004, David S. Miller wrote:
 
-> Steve Hill reported a conntrack leakage in 2.6.2-rc2 when nat is enabled
-> and the system forwards fragmented packets. It turned out that an
-> nf_conntrack_put was missing from ip_copy_metadata:
+>
+> I appreciate your status report Sridhar, thank you.
+>
+> But the fact of the matter is that 2.4.x and 2.6.x cannot export two
+> totally incompatible user visible APIs for the SCTP socket layer.
+>
+> This is something which must be fixed, not something we would like to
+> be fixed :-)
 
-Yeah, but... look at what you patched.
+I contacted the team that started the 2.4 backport and we will try to fix
+this in the next few weeks so that 2.4 lksctp is in sync 2.6. Hopefully
+this will happen by 2.4.26.
 
->  	/* Connection association is same as pre-frag packet */
-> +	nf_conntrack_put(to->nfct);
->  	to->nfct = from->nfct;
->  	nf_conntrack_get(to->nfct);
-
-What about that comment?
+Thanks
+Sridhar
