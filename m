@@ -1,98 +1,122 @@
-From: greg chesson <greg@atheros.com>
-Subject: Re: [RFC] acx100 inclusion in mainline; generic 802.11 stack
-Date: Wed, 08 Sep 2004 09:02:59 -0700
-Sender: acx100-devel-admin@lists.sourceforge.net
-Message-ID: <413F2D33.1000508@atheros.com>
-References: <200408312111.02438.vda@port.imtp.ilyichevsk.odessa.ua>	 <757AB580-0030-11D9-9224-000A95AD0668@errno.com>	 <20040906182328.08faf843.davem@davemloft.net>	 <200409062132.49356.sam@errno.com> <413DE9ED.30300@atheros.com>	 <20040907101027.7547e591.davem@davemloft.net> <1094628909.1097.145.camel@jzny.localdomain>
-Reply-To: acx100-devel@lists.sourceforge.net
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [VLAN] Bad: scheduling while atomic! in 2.6.8.1]
+Date: Wed, 08 Sep 2004 10:11:47 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <413F3D53.2030505@candelatech.com>
+References: <413F1707.1090508@pobox.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@davemloft.net>,  sam@errno.com,
- vda@port.imtp.ilyichevsk.odessa.ua,  jgarzik@pobox.com,
- netdev@oss.sgi.com,  acx100-devel@lists.sourceforge.net,
- jt@bougret.hpl.hp.com,  jkmaline@cc.hut.fi,  prism54-devel@prism54.org
-Return-path: <acx100-devel-admin@lists.sourceforge.net>
-To: hadi@cyberus.ca
-In-Reply-To: <1094628909.1097.145.camel@jzny.localdomain>
-Errors-To: acx100-devel-admin@lists.sourceforge.net
-List-Unsubscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=unsubscribe>
-List-Post: <mailto:acx100-devel@lists.sourceforge.net>
-List-Help: <mailto:acx100-devel-request@lists.sourceforge.net?subject=help>
-List-Subscribe: <https://lists.sourceforge.net/lists/listinfo/acx100-devel>,
-	<mailto:acx100-devel-request@lists.sourceforge.net?subject=subscribe>
-List-Archive: <http://sourceforge.net/mailarchive/forum.php?forum=acx100-devel>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: "Linux 802.1Q VLAN" <vlan@wanfear.com>,
+        "'netdev@oss.sgi.com'" <netdev@oss.sgi.com>
+In-Reply-To: <413F1707.1090508@pobox.com>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-You guys are too serious and, I believe, missed the real points.
-
-1.  There is a need in the OS for a "service" to convert between
-       .11 and .3 packet formats.   It should be designed for 
-hw-independence.
-      Everyone sees the same potential for unification
-       of wireless drivers.
-
-2.  It's harder to do than it first appears because the complete
-      transformation from .3 to .11 cannot be done in isolation
-      from the driver(s) and there are monkey wrenches that get
-      tossed in from crypto, interaction between crypto and fragementation,
-      power-save, observing txoplimits, and other things that tend
-      to cross architecture lines that would otherwise be nice and clean.
-
-3.  I personally don't have religion about whether a service
-      that transforms headers is implemented as a stack or implemented
-      as a side call.   I think that a variety of factors are worth 
-considering.
-      In this particular case (header transformation), I believe a side call
-      "helper function" is appropriate and has less overhead than the full
-      protocol stack mechanism.   But it's pointless to argue about it 
-without
-      measurements.
-
-4.  David's skeleton code is quite interesting and a good start.
-       You won't know its usefulness until someone tries to implement
-      a real driver.
-
-g
-
-
-
-jamal wrote:
-> On Tue, 2004-09-07 at 13:10, David S. Miller wrote:
+Andre Correa wrote:
 > 
->>On Tue, 07 Sep 2004 10:03:41 -0700
->>greg chesson <greg@atheros.com> wrote:
->>
->>
->>>What about eth_type_trans()?
->>
->>It determines the protocol type from the ethernet header
->>fields.  It is a simple shorthand header field fetcher,
->>not a protocol stack.
->>
->>You would need a eth80211_type_trans() for wireless
->>drivers too, and surprise surprise my skeleton 802.11
->>stack code in fact does exactly this.
+> Hi, I set up a Linux box as a firewall with 4 NICs (3C905) on a Dell
+> with 2.6.8.1 and iptables 1.2.11. 3 NICs have several IP addresses and
+> the 4th has 4 VLANs associated. This box is plugged on Cisco switches.
 > 
+> Everything was fine, firewalling OK, until I plugged the 4th NIC. When
+> traffic start to flow the box logs a _LOT_ of errors on syslog:
+
+Mr. Hemminger recently added some RCU locking changes to VLAN.
+That said, I don't see any mention of vlan in the stack traces
+below, so it could be that there is some other problem.
+
+I'm forwarding this to the netdev mailing list as well.
+
+
 > 
-> Or as Andi has been suggesting for sometime, not invoke it all ;->
-> This is possible if the DMA descriptor already has all the info
-> needed (quiet a few modern hardware can be programmed to do this).
-> .. er, at the driver level. So this is not "a gross input packet
-> hooked eater thing that's an ugly wart bolted onto the
-> side of the driver API.";->
+> <snip>
+> Sep  1 03:58:48 fw01 kernel: bad: scheduling while atomic!
+> Sep  1 03:58:48 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
+> Sep  1 03:58:48 fw01 kernel:  [<c0230c74>] sys_socketcall+0x150/0x1f4
+> Sep  1 03:58:48 fw01 kernel:  [<c0103c0e>] work_resched+0x5/0x16
+> Sep  1 03:58:48 fw01 kernel: bad: scheduling while atomic!
+> Sep  1 03:58:48 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
+> Sep  1 03:58:48 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
+> Sep  1 03:58:48 fw01 kernel:  [<c028c5d4>] schedule_timeout+0x14/0xb0
+> Sep  1 03:58:48 fw01 kernel:  [<c02862ac>] unix_wait_for_peer+0xac/0xc8
+> Sep  1 03:58:48 fw01 kernel:  [<c010f348>] 
+> autoremove_wake_function+0x0/0x40
+> Sep  1 03:58:48 fw01 kernel:  [<c010f348>] 
+> autoremove_wake_function+0x0/0x40
+> Sep  1 03:58:48 fw01 kernel:  [<c0286d4f>] unix_dgram_sendmsg+0x39b/0x4b0
+> Sep  1 03:58:48 fw01 kernel:  [<c022f6b1>] sock_aio_write+0x101/0x10c
+> Sep  1 03:58:48 fw01 kernel:  [<c013d6e6>] do_sync_write+0x7a/0xac
+> Sep  1 03:58:48 fw01 kernel:  [<c023298b>] kfree_skbmem+0x17/0x1c
+> Sep  1 03:58:48 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
+> Sep  1 03:58:48 fw01 kernel:  [<c013d7cd>] vfs_write+0xb5/0xd4
+> Sep  1 03:58:48 fw01 kernel:  [<c013d898>] sys_write+0x40/0x6c
+> Sep  1 03:58:48 fw01 kernel:  [<c0103be7>] syscall_call+0x7/0xb
+> Sep  1 03:58:48 fw01 kernel: bad: scheduling while atomic!
+> Sep  1 03:58:48 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
+> Sep  1 03:58:49 fw01 kernel:  [<c0230c74>] sys_socketcall+0x150/0x1f4
+> Sep  1 03:58:49 fw01 kernel:  [<c0103c0e>] work_resched+0x5/0x16
+> Sep  1 03:58:49 fw01 kernel: bad: scheduling while atomic!
+> Sep  1 03:58:49 fw01 kernel:  [<c028bddc>] schedule+0x3c/0x428
+> Sep  1 03:58:49 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
+> Sep  1 03:58:49 fw01 kernel:  [<c028c5d4>] schedule_timeout+0x14/0xb0
+> Sep  1 03:58:49 fw01 kernel:  [<c02862ac>] unix_wait_for_peer+0xac/0xc8
+> Sep  1 03:58:49 fw01 kernel:  [<c010f348>] 
+> autoremove_wake_function+0x0/0x40
+> Sep  1 03:58:49 fw01 kernel:  [<c010f348>] 
+> autoremove_wake_function+0x0/0x40
+> Sep  1 03:58:49 fw01 kernel:  [<c0286d4f>] unix_dgram_sendmsg+0x39b/0x4b0
+> Sep  1 03:58:49 fw01 kernel:  [<c022f6b1>] sock_aio_write+0x101/0x10c
+> Sep  1 03:58:49 fw01 kernel:  [<c013d6e6>] do_sync_write+0x7a/0xac
+> Sep  1 03:58:49 fw01 kernel:  [<c023298b>] kfree_skbmem+0x17/0x1c
+> Sep  1 03:58:49 fw01 kernel:  [<c0232a63>] __kfree_skb+0xd3/0xd8
+> Sep  1 03:58:49 fw01 kernel:  [<c013d7cd>] vfs_write+0xb5/0xd4
+> Sep  1 03:58:49 fw01 kernel:  [<c013d898>] sys_write+0x40/0x6c
+> Sep  1 03:58:49 fw01 kernel:  [<c0103be7>] syscall_call+0x7/0xb
+> <snip>
 > 
-> cheers,
-> jamal
+> I got more then 110Mb of it in ~2 hours of tests. Shutting down
+> interface doesn't stop it, just a reboot takes the machine back to its
+> normal state, if cable is unplugged.
 > 
+> I've tested NIC, cable, PCI slot, switch port, switch and even changed
+> the box itself, but nothing helped. When I take VLAN down, on Cisco
+> switch, no errors are logged. If I go back to 2.6.7 + VLAN, no errors
+> too, all OK.
 > 
+> It seens to be related to VLAN on 2.6.8.1 only. Searching kernel source
+> I found that it comes from kernel/sched.c, but it doesn't tells me much.
+> 
+> <snip>
+>         /*
+>          * Test if we are atomic.  Since do_exit() needs to call into
+>          * schedule() atomically, we ignore that path for now.
+>          * Otherwise, whine if we are scheduling when we should not be.
+>          */
+>         if (likely(!(current->state & (TASK_DEAD | TASK_ZOMBIE)))) {
+>                 if (unlikely(in_atomic())) {
+>                         printk(KERN_ERR "bad: scheduling while atomic!\n");
+>                         dump_stack();
+>                 }
+>         }
+> <snip>
+> 
+> Does anybody can help on it?! Does it look like a bug or what?
+> 
+> Any help is appreciated.
+> 
+> tks
+> 
+> Andre
+> 
+> _______________________________________________
+> VLAN mailing list  -  VLAN@wanfear.com
+> http://www.WANfear.com/mailman/listinfo/vlan
+> VLAN Page:  http://scry.wanfear.com/~greear/vlan.html
 > 
 
 
-
--------------------------------------------------------
-This SF.Net email is sponsored by BEA Weblogic Workshop
-FREE Java Enterprise J2EE developer tools!
-Get your free copy of BEA WebLogic Workshop 8.1 today.
-http://ads.osdn.com/?ad_id=5047&alloc_id=10808&op=click
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
