@@ -1,100 +1,64 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: [PATCH 2.6-bk 1/1] tg3: add license
-Date: Tue, 09 Nov 2004 11:59:58 +0100
-Message-ID: <4190A32E.6090200@wanadoo.es>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: Bug in ipv6_ifa_notify?
+Date: Tue, 9 Nov 2004 22:48:39 +1100
+Message-ID: <20041109114839.GA1942@gondor.apana.org.au>
+References: <20041108061529.GA1774@gondor.apana.org.au> <20041108073441.GA2200@gondor.apana.org.au> <20041108121040.GA3618@gondor.apana.org.au> <20041108203741.GA993@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------000508030809010109000007"
+Content-Type: multipart/mixed; boundary="YZ5djTAD1cGYuMQK"
+Cc: Jeff Garzik <jgarzik@pobox.com>,
+        Lennert Buytenhek <buytenh@wantstofly.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com, linux-kernel@vger.kernel.org,
-        "David S. Miller" <davem@redhat.com>, Jeff Garzik <jgarzik@pobox.com>
+To: "David S. Miller" <davem@davemloft.net>,
+        Arnaldo Carvalho de Melo <acme@conectiva.com.br>,
+        YOSHIFUJI Hideaki <yoshfuji@linux-ipv6.org>, netdev@oss.sgi.com
+Content-Disposition: inline
+In-Reply-To: <20041108203741.GA993@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------000508030809010109000007
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
 
-hi,
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-there is no license, yes it's GPL but...
+On Tue, Nov 09, 2004 at 07:37:41AM +1100, herbert wrote:
+> 
+> Well I've found a way for this to occur, but I must say that it is
+> fairly unlikely.  When you bring the interface down, addrconf_ifdown
+> will try to to delete the addrconf timer and then notify DELADDR.
+> Since it doesn't wait for the timer to complete, it might still be
+> executing.  Therefore it is possible to have a NEWADDR after a DELADDR
+> event.
 
--thanks-
+The attractive thing about this theory is that it is an SMP-only
+race.  This could explain why only Jeff/Lennert are seeing it.
 
---------------000508030809010109000007
-Content-Type: text/plain;
- name="tg3_license.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="tg3_license.diff"
+Jeff/Lennert, could you please go back to 2.6.9, and then apply
+this patch? If this warning triggers, then that would confirm
+this theory.
 
-diff -Nuar o/drivers/net/tg3.c n/drivers/net/tg3.c
---- o/drivers/net/tg3.c	2004-11-09 11:49:06.000000000 +0100
-+++ n/drivers/net/tg3.c	2004-11-09 11:43:23.000000000 +0100
-@@ -9,6 +9,26 @@
-  * 	Copyright (C) 2000-2003 Broadcom Corporation.
-  */
- 
-+/*
-+ * This file is part of Linux.
-+ *
-+ * Linux is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License Version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * Linux is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with Linux; if not, write to:
-+ *
-+ *   Free Software Foundation Inc.
-+ *   59 Temple Place, Suite 330
-+ *   Boston MA  02111-1307  USA
-+ */
-+
- #include <linux/config.h>
- 
- #include <linux/module.h>
-diff -Nuar o/drivers/net/tg3.h n/drivers/net/tg3.h
---- o/drivers/net/tg3.h	2004-11-09 11:49:06.000000000 +0100
-+++ n/drivers/net/tg3.h	2004-11-09 11:46:41.000000000 +0100
-@@ -1,4 +1,4 @@
--/* $Id: tg3.h,v 1.37.2.32 2002/03/11 12:18:18 davem Exp $
-+/*
-  * tg3.h: Definitions for Broadcom Tigon3 ethernet driver.
-  *
-  * Copyright (C) 2001, 2002, 2003, 2004 David S. Miller (davem@redhat.com)
-@@ -6,6 +6,26 @@
-  * Copyright (C) 2004 Sun Microsystems Inc.
-  */
- 
-+/*
-+ * This file is part of Linux.
-+ *
-+ * Linux is free software; you can redistribute it and/or modify
-+ * it under the terms of the GNU General Public License Version 2
-+ * as published by the Free Software Foundation.
-+ *
-+ * Linux is distributed in the hope that it will be useful, but
-+ * WITHOUT ANY WARRANTY; without even the implied warranty of
-+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
-+ * GNU General Public License for more details.
-+ *
-+ * You should have received a copy of the GNU General Public License
-+ * along with Linux; if not, write to:
-+ *
-+ *   Free Software Foundation Inc.
-+ *   59 Temple Place, Suite 330
-+ *   Boston MA  02111-1307  USA
-+ */
-+
- #ifndef _T3_H
- #define _T3_H
- 
+Thanks,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---------------000508030809010109000007--
+--YZ5djTAD1cGYuMQK
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename=p
+
+===== net/ipv6/addrconf.c 1.115 vs edited =====
+--- 1.115/net/ipv6/addrconf.c	2004-10-26 14:11:35 +10:00
++++ edited/net/ipv6/addrconf.c	2004-11-09 22:44:35 +11:00
+@@ -2989,6 +2989,7 @@
+ 		dst_hold(&ifp->rt->u.dst);
+ 		if (ip6_ins_rt(ifp->rt, NULL, NULL))
+ 			dst_release(&ifp->rt->u.dst);
++		WARN_ON(ifp->dead);
+ 		if (ifp->idev->cnf.forwarding)
+ 			addrconf_join_anycast(ifp);
+ 		break;
+
+--YZ5djTAD1cGYuMQK--
