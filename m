@@ -1,54 +1,28 @@
-From: "Feldman, Scott" <scott.feldman@intel.com>
-Subject: RE: new SiS gige driver
-Date: Mon, 11 Aug 2003 21:22:59 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] Missing break in switch statement.
+Date: Mon, 11 Aug 2003 22:26:33 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <C6F5CF431189FA4CBAEC9E7DD5441E0102229342@orsmsx402.jf.intel.com>
+Message-ID: <20030811222633.13f6759c.davem@redhat.com>
+References: <E19mFqr-00068T-00@tetrachloride>
+	<20030812.021414.128414948.yoshfuji@hongo.wide.ad.jp>
 Mime-Version: 1.0
-Content-Type: text/plain;
-	charset="us-ascii"
-Content-Transfer-Encoding: 8bit
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: davej@redhat.com, netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-content-class: urn:content-classes:message
-To: "Jeff Garzik" <jgarzik@pobox.com>, <netdev@oss.sgi.com>
+To: YOSHIFUJI Hideaki <yoshfuji@hongo.wide.ad.jp>
+In-Reply-To: <20030812.021414.128414948.yoshfuji@hongo.wide.ad.jp>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Time to give something back:
+On Tue, 12 Aug 2003 02:14:14 +0900 (JST)
+YOSHIFUJI Hideaki <yoshfuji@hongo.wide.ad.jp> wrote:
 
-* sis190_pci_driver.remove should be __devexit_p()
-* suspend/resume important in today's world?
-* SiS190_get_stats is defined static but declared non-static.
-  A little rearranging would eliminate the need for forward
-  declarations, thus avoiding this issue.
-* // comments
-* Missing KERN_XXX on some printk's.
-* err_out does unregister_netdev() in _init_board before
-register_netdev().
-* In _remove_one, no pci_disable_device().
-* _open: cleanup on RxBufferRings failure is missing - no error
-  return or cleanup.
-* _hw_start: pretty scary magic numbers.
-* Comment on sis190_private.curr_tx says "Rx".
-* Modulo operator on ring indexes is expensive on some archs.
-* _start_xmit: setting PSize can just use skb->len since already
-skb_padto.
-* MODULE_PARAM(media) isn't used.  Then goes MAX_UNITS.
-* no big-endian support.
-* no NETIF_MSG_xxx or msg_enable suppport.
-* Add class net ethernet restiction to sis190_pci_tbl[].
-* Use PCI_VENDOR_ID_SI for 0x1039 in sis190_pci_tbl[].
-* Use ETH_ALEN for MAC_ADDR_LEN.
-* MAX_ETH_FRAME_SIZE isn't used.
-* TX_FIFO_THRESH and TX_DMA_BURST aren't used.
-* EarlyTxThld, RxPacketMaxSize, InterFrameGap aren't used.
-* not sure why there is a cast on SiS_R32(reg) using (unsigned long)?
-* [Ouch!] Is that a skb_copy_and_sum in the Rx path?  That's going
-  to hurt performance.  Looks like RxDescArray[].buf_addr could
-  point to a pci_map_single(skb).
-* Alternatively, in _rx_interurpt, why keep setting
-RxDescArray.buf_addr?
-  Maybe h/w erases the previous value?
-* _interrupt: handled is never set to 1.
-* ____cacheline_aligned sis190_private.
+> In article <E19mFqr-00068T-00@tetrachloride> (at Mon, 11 Aug 2003 17:48:57 +0100), davej@redhat.com says:
+> 
+> > Is this intentional? It should at least have a 
+> > /* FALLTHROUGH */ or similar if so.
+> 
+> Of course not.
 
--scott
+Patch applied, thanks David.
