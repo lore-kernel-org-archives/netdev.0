@@ -1,103 +1,62 @@
-From: Marco Mellia <mellia@prezzemolo.polito.it>
+From: Robert Olsson <Robert.Olsson@data.slu.se>
 Subject: Re: [E1000-devel] Transmission limit
-Date: 29 Nov 2004 13:44:27 +0100
-Message-ID: <1101732267.14930.75.camel@verza.polito.it>
+Date: Mon, 29 Nov 2004 14:09:08 +0100
+Message-ID: <16811.8052.678955.795327@robur.slu.se>
 References: <1101467291.24742.70.camel@mellia.lipar.polito.it>
-	 <41A73826.3000109@draigBrady.com>
-	 <20041127200030.GD27762@xi.wantstofly.org>
-Reply-To: mellia@prezzemolo.polito.it
+	<41A73826.3000109@draigBrady.com>
+	<16807.20052.569125.686158@robur.slu.se>
+	<1101484740.24742.213.camel@mellia.lipar.polito.it>
+	<41A76085.7000105@draigBrady.com>
+	<1101499285.1079.45.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: mellia@prezzemolo.polito.it, e1000-devel@lists.sourceforge.net,
+Cc: P@draigBrady.com, mellia@prezzemolo.polito.it,
+        Robert Olsson <Robert.Olsson@data.slu.se>,
+        e1000-devel@lists.sourceforge.net,
         Jorge Manuel Finochietto <jorge.finochietto@polito.it>,
         Giulio Galante <galante@polito.it>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Lennert Buytenhek <buytenh@wantstofly.org>
-In-Reply-To: <20041127200030.GD27762@xi.wantstofly.org>
+To: hadi@cyberus.ca
+In-Reply-To: <1101499285.1079.45.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-> > >What is weird, is that if we artificially "preload" the NIC tx-fifo with
-> > >packets, and then instruct it to start sending them, those are actually
-> > >transmitted AT WIRE SPEED!!
-> 
-> I've very interested in exactly what it is you're doing here.  What
-> do you mean by 'preload'?
 
-Here is a brief description of the trick we used.
-The modified driver code can be grabbed from 
-http://www.tlc-networks.polito.it/~mellia/e1000_modified.tar.gz
+jamal writes:
 
-So: with "preloaded" we mean that we put the packets to be transmitted 
-previously in the TX fifo of the nic without actually updating the
-register which counts the number of packets in the fifo queue.
-To do this a student modified the network 
-driver adding an entry in /proc/net/e1000/eth#.
-If you read from there you will get the values of the internal registers
-of the NIC regarding the internal fifo.
+ > Have to read the paper - When Robert was last visiting here; we did some
+ > tests and packet recycling is not very valuable as far as SMP is
+ > concerned (given that packets can be alloced on one CPU and freed on
+ > another). There a clear win on single CPU machines.
 
-Writing a number to it, you can set the TDFPC register which contains
-the number of pkts in the TX queue of the internal FIFO.
 
-To get the above result you have to:
-Compile this version of the driver (don't remember on which version it
-was based on)
-Load it.
-After that you can take a look at the internal registers with:
+ Correct yes at you lab about 2 1/2 years ago. I see those experiments in a 
+ different light today as we never got any packet budget contribution
+ from SMP with shared mem arch whatsoever. Spent a week w. Alexey in the lab 
+ to understand whats going on. Two flows with total affinity (for each CPU)
+ even removed all locks and part of the IP stack. We were still confused...
 
-cat /proc/net/e1000/eth# (# replace it with the correct number)
+ When Opteron/NUMA gave good contribution in those setups. We start thinking
+ it must be latency and memory controllers that makes the difference. As w. 
+ each CPU has it's own memory and memory controller in Opteron case.
 
-Then we start placing something inthe TX fifo.
-To do this i simply used:
+ So from that aspect we expecting the impossible from recycling patch
+ maybe it will do better on boxes w. local memory.
 
-ping -c 10 x.x.x.x
+ But I think we should give it up in current form skb recycling. If extend 
+ it to deal cache bouncing etc. We end up having something like slab in 
+ every driver. slab has improved is not so dominant in profiles now.
 
-This has placed and also transmitted 10 ping pkts. But they aren't
-deleted 
-from the internal FIFO; only the pointers have been updated. Take a look
-at the registers again with:
+ Also from what I understand new HW and MSI can help in the case where
+ pass objects between CPU. Did I dream or did someone tell me that S2IO 
+ could have several TX ring that could via MSI be routed to proper cpu?
+ 
+ slab packet-objects have been discussed. It would do some contribution
+ but is the complexity worth it?
+ 
+ Also I think it could possible to do more lightweight variant of skb
+ recycling in case we need to recycle PCI-mapping etc.
 
-cat /proc/net/e1000/eth#
-
-Now use:
-
-echo 10 > /proc/net/e1000/eth#
-
-Naturally 10 is the number we used above.
-This "resets" the registers and writes in the TDFPC that there are 10
-pkts in the TX queue.
-Now when we do:
-
-ping -c 1 x.x.x.x
-
-You will see that the NIC will transmit 11 pkts (10 we "preloaded" + the
-new one).
-If you try to measure the TX speed you will see that it is ~ the wire
-speed.
-
-Note:
-- note that if you haven't static arp tables there will be also some arp
-pkts (should be two more pkts)
-- probably if you write too many pkts it won't work because the FIFO is 
-organized like a circular buffer and you will begin to overwrite the
-first pkts.
-- the normal ping pkts aren't minimum size but reduce them with the -s
-option
-- the code modoifications have been writen with having "quick and dirty"
-in mind, certainly it is possible to write them better
--- 
-Ciao,                    /\/\/\rco
-
-+-----------------------------------+  
-| Marco Mellia - Assistant Professor|
-| Tel: 39-011-2276-608              |
-| Tel: 39-011-564-4173              |
-| Cel: 39-340-9674888               |   /"\  .. . . . . . . . . . . . .
-| Politecnico di Torino             |   \ /  . ASCII Ribbon Campaign  .
-| Corso Duca degli Abruzzi 24       |    X   .- NO HTML/RTF in e-mail .
-| Torino - 10129 - Italy            |   / \  .- NO Word docs in e-mail.
-| http://www1.tlc.polito.it/mellia  |        .. . . . . . . . . . . . .
-+-----------------------------------+
-The box said "Requires Windows 95 or Better." So I installed Linux.
+					 --ro
