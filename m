@@ -1,62 +1,85 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: Re: [PATCH][BRIDGE-NF] Fix wrong use of skb->protocol
-Date: Fri, 31 Dec 2004 09:33:52 +0100
-Message-ID: <20041231083352.GA25031@xi.wantstofly.org>
-References: <1104432914.15601.19.camel@localhost.localdomain> <20041230222415.GB19587@xi.wantstofly.org> <1104448248.15601.55.camel@localhost.localdomain>
+From: Wichert Akkerman <wichert@wiggy.net>
+Subject: Re: ing_filter debug messages
+Date: Fri, 31 Dec 2004 10:38:27 +0100
+Message-ID: <20041231093827.GG24603@wiggy.net>
+References: <20041230160643.GD24603@wiggy.net> <1104469666.1049.231.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
-        snort2004@mail.ru
+Cc: netdev@oss.sgi.com, tgraf@suug.ch
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Bart De Schuymer <bdschuym@pandora.be>
+To: jamal <hadi@cyberus.ca>
 Content-Disposition: inline
-In-Reply-To: <1104448248.15601.55.camel@localhost.localdomain>
+In-Reply-To: <1104469666.1049.231.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, Dec 31, 2004 at 12:10:48AM +0100, Bart De Schuymer wrote:
+Previously jamal wrote:
+> The emssage is useful but debug (mostly). 
+> Whats your ifconfig look like? Have some tunnels in there maybe?
 
-> > A while ago there were a number of problems with bridging CIPE ethernet
-> > devices, which turned out to be the bridge code not initialising
-> > skb->protocol for locally originated STP frames.
-> > 
-> > At the time I was told that initialising skb->protocol for locally
-> > originated packets is required, so that is how I fixed it then.
-> 
-> Hi Lennert,
+three ethernet interfaces and a ipv6/ip tunnel. Here is the ifconfig
+output:
 
-Hello,
+eth0      Link encap:Ethernet  HWaddr 00:50:04:0B:DD:79
+          inet addr:192.168.10.1  Bcast:192.168.10.255  Mask:255.255.255.0
+          inet6 addr: fe80::250:4ff:fe0b:dd79/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:673540 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:668357 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:229549898 (218.9 MiB)  TX bytes:465650601 (444.0 MiB)
+          Interrupt:11 Base address:0xec00
 
+eth1      Link encap:Ethernet  HWaddr 00:90:27:BE:60:55
+          inet addr:194.109.254.66  Bcast:255.255.255.255  Mask:255.255.255.0
+          inet6 addr: fe80::290:27ff:febe:6055/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:1276385 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:1172898 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:1128 txqueuelen:1000
+          RX bytes:1332651102 (1.2 GiB)  TX bytes:293617934 (280.0 MiB)
 
-> skb->protocol is not set for locally generated packets when the packet
-> is still in the IP stack. I don't know what happens with it after the IP
-> stack is finished with the packet.
-> The comment in skbuff.h says "packet protocol from driver", from which I
-> tend to conclude that skb->protocol is only set by drivers when a packet
-> enters the box.
-> Too bad stuff like this isn't clearly spelled out,
+eth2      Link encap:Ethernet  HWaddr 00:90:27:BE:4B:EC
+          inet addr:192.168.1.1  Bcast:192.168.1.255  Mask:255.255.255.0
+          inet6 addr: 2001:888:101d::1/64 Scope:Global
+          inet6 addr: fe80::290:27ff:febe:4bec/64 Scope:Link
+          UP BROADCAST RUNNING MULTICAST  MTU:1500  Metric:1
+          RX packets:713928 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:752929 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:1000
+          RX bytes:111560554 (106.3 MiB)  TX bytes:860040830 (820.1 MiB)
 
-This is what I thought back then too.  Indeed, it's rather misleading.
+lo        Link encap:Local Loopback
+          inet addr:127.0.0.1  Mask:255.0.0.0
+          inet6 addr: ::1/128 Scope:Host
+          UP LOOPBACK RUNNING  MTU:16436  Metric:1
+          RX packets:33261 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:33261 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:3401641 (3.2 MiB)  TX bytes:3401641 (3.2 MiB)
 
+xs4all    Link encap:IPv6-in-IPv4
+          inet6 addr: 2001:888:10:1d::2/64 Scope:Global
+          inet6 addr: fe80::c26d:fe42/64 Scope:Link
+          inet6 addr: fe80::c0a8:a01/64 Scope:Link
+          inet6 addr: fe80::c0a8:102/64 Scope:Link
+          inet6 addr: fe80::c0a8:101/64 Scope:Link
+          UP POINTOPOINT RUNNING NOARP  MTU:1480  Metric:1
+          RX packets:128 errors:0 dropped:0 overruns:0 frame:0
+          TX packets:116 errors:0 dropped:0 overruns:0 carrier:0
+          collisions:0 txqueuelen:0
+          RX bytes:95545 (93.3 KiB)  TX bytes:19613 (19.1 KiB)
 
-> the FIXME for the dst field has been sitting there for probably more
-> than a year too.
+there is also a secondary address on eth2 which ifconfig does not show.
 
-Yes :(
+> Whats your netfilter setup? 
 
-Just one more thing: AFAIK it is possible to inject a raw IPv4 packet
-with an invalid IPv4 header.  So maybe the better 'fix' would be to have
-different hooks for PF_INET and PF_INET6, and distinguish v4/v6 packets
-that way instead of peeking into the header.  (The hook you're talking
-about is a PF_INET* and not a PF_BRIDGE hook, right?)
+One chain attached to the FORWARD chain and two to the OUTPUT chain,
+all pretty simple.
 
-Then again, that would add yet another function onto the already rather
-deep call chains that we have in there.
+Wichert.
 
-Too bad I don't see any cleaner way of integrating the whole bridging
-thing into the stack.  I wonder if any of the *BSDs found a cleaner way
-of doing this.
-
-
---L
+-- 
+Wichert Akkerman <wichert@wiggy.net>    It is simple to make things.
+http://www.wiggy.net/                   It is hard to make things simple.
