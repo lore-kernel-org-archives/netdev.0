@@ -1,29 +1,37 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] Panic in ipv6_add_dev
-Date: Wed, 11 Jun 2003 23:35:28 -0700 (PDT)
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030611.233528.26511069.davem@redhat.com>
-References: <3EE52C92.4060509@us.ibm.com>
-	<20030610.135601.20565349.yoshfuji@linux-ipv6.org>
+Subject: Re: Route cache performance under stress
+Date: Wed, 11 Jun 2003 23:45:34 -0700 (PDT)
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030611.234534.52193216.davem@redhat.com>
+References: <Pine.LNX.4.51.0306101332300.8755@ns.istop.com>
+	<20030610.103234.116374169.davem@redhat.com>
+	<16102.9418.43884.336925@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org,
-	kuznet@ms2.inr.ac.ru, krkumar@us.ibm.com
-Return-path: <linux-net-owner@vger.kernel.org>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20030610.135601.20565349.yoshfuji@linux-ipv6.org>
+Cc: ralph+d@istop.com, ralph@istop.com, hadi@shell.cyberus.ca,
+   xerox@foonet.net, sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Robert.Olsson@data.slu.se
+In-Reply-To: <16102.9418.43884.336925@robur.slu.se>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org>
-   Date: Tue, 10 Jun 2003 13:56:01 +0900 (JST)
+   From: Robert Olsson <Robert.Olsson@data.slu.se>
+   Date: Tue, 10 Jun 2003 20:34:50 +0200
 
-   Well, it is also the problem that the tasks of 
-     neigh_parms_alloc() / neigh_sysctl_register()
-   and 
-     neigh_parms_release() / neigh_sysctl_unregister()
-   were not symmetric.
- ...   
-   Here's the fix.
+   I ripped out the route hash just to test the slow path.
 
-Patch applied, thanks.
+I want to point out an error in such simulations.
+
+It doesn't eliminate some of the most expensive part of the routing
+cache, the 'dst' management.  All of that still happens even after
+your patch.
+
+A better simulation of a "pure slowpath" would be to move the DST
+entry into the fib entries themselves.
+
+That is a lot more work, but it would validate the various ideas and
+claims being made.  For example, it would say for sure whether
+eliminating the routing cache is a win or not for DoS traffic.
