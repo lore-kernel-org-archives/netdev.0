@@ -1,33 +1,33 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
 Subject: Re: [PATCH] Improve behaviour of Netlink Sockets
-Date: Mon, 20 Sep 2004 09:17:34 +1000
+Date: Mon, 20 Sep 2004 09:31:18 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040919231734.GA10124@gondor.apana.org.au>
-References: <414D0CCD.90209@eurodev.net> <E1C8way-0000aH-00@gondolin.me.apana.org.au> <20040919120249.GA5963@gondor.apana.org.au> <414DF11C.1080505@eurodev.net> <20040919215915.GB9573@gondor.apana.org.au> <1095633569.1047.107.camel@jzny.localdomain>
+Message-ID: <20040919233118.GB10124@gondor.apana.org.au>
+References: <E1C8way-0000aH-00@gondolin.me.apana.org.au> <414DF05E.7020601@eurodev.net> <20040919212033.GA9254@gondor.apana.org.au> <414E04D6.5010106@eurodev.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Pablo Neira <pablo@eurodev.net>, "David S. Miller" <davem@redhat.com>,
-        netdev@oss.sgi.com
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
+To: Pablo Neira <pablo@eurodev.net>
 Content-Disposition: inline
-In-Reply-To: <1095633569.1047.107.camel@jzny.localdomain>
+In-Reply-To: <414E04D6.5010106@eurodev.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sun, Sep 19, 2004 at 06:39:29PM -0400, jamal wrote:
+On Mon, Sep 20, 2004 at 12:14:46AM +0200, Pablo Neira wrote:
 > 
-> Theres one valuable piece in his patch. Ability to congestion control
-> the kernel so user space can clear the socket queue. The alternative is
-> an overun. You have shot a hole in the workqueue approach. May i also
+> When the buffer is full, I wake up the user process and put the kernel 
+> thread to sleep to let the user process empty the queue.
 
-Congestion control would be a good alternative to overruns.  I too would
-love to see netlink made more reliable if possible.  But hopefully without
-sacrificing the good bits in it like performance.
+Well that sounds like a good idea but it isn't:
 
-However, in the scenarios that's been cited so far I can't see how it can
-work.  For example, in the ip_queue context, the kernel really doesn't
-have any alternative to dropping the packet, right?
+1) You wake up no-one or the wrong process half of the time.
+2) Every time a packet is added to the queue the destination process is
+woken up.  So by the time it's full it has been woken up many times
+already.  If all those wake_up's didn't make a difference, then this
+extra one here isn't likely to either.
+3) All kernel callers of this function have timeout set to zero.  Therefore
+they won't even encounter your code.
 
 Cheers,
 -- 
