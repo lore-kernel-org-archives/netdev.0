@@ -1,35 +1,45 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: Linux 2.6.0-test9
-Date: Mon, 27 Oct 2003 22:36:21 +0300 (MSK)
+From: Simon Roscic <simon.roscic@chello.at>
+Subject: Re: [2.6.0-test8/9] ethertap oops
+Date: Mon, 27 Oct 2003 18:40:53 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310271936.WAA07348@yakov.inr.ac.ru>
-References: <Pine.LNX.4.44.0310261607230.3157-100000@home.osdl.org>
+Message-ID: <200310271840.53980.simon.roscic@chello.at>
+References: <L1fo.3gb.9@gated-at.bofh.it> <20031026234828.2cb1f746.davem@redhat.com> <20031027122635.GB16013@wotan.suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: akpm@osdl.org, Andries.Brouwer@cwi.nl,
-        linux-kernel@vger.kernel.org (Kernel Mailing List), netdev@oss.sgi.com,
-        davem@redhat.com (David S. Miller), kuznet@ms2.inr.ac.ru
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: torvalds@osdl.org (Linus Torvalds)
-In-Reply-To: <Pine.LNX.4.44.0310261607230.3157-100000@home.osdl.org> from "Linus Torvalds" at Oct 26, 2003 04:21:59 PM
+To: Andi Kleen <ak@muc.de>, "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20031027122635.GB16013@wotan.suse.de>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello!
+On Monday, 27. Oct 2003 13:26, Andi Kleen wrote:
+> On Sun, Oct 26, 2003 at 11:48:28PM -0800, David S. Miller wrote:
+> > On Sun, 26 Oct 2003 23:45:52 +0100
+> >
+> > Andi Kleen <ak@muc.de> wrote:
+> > > diff -u linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o
+> > > linux-2.6.0test7mm1-averell/drivers/net/ethertap.c ---
+> > > linux-2.6.0test7mm1-averell/drivers/net/ethertap.c-o	2003-09-11
+> > > 04:12:33.000000000 +0200 +++
+> > > linux-2.6.0test7mm1-averell/drivers/net/ethertap.c	2003-10-26
+> > > 23:41:17.000000000 +0100
+> >
+> > This part looks good, applied.
+>
+> I don't know if it actually fixed the bug, I did not test it
+> (sorry, should have stated that in the original mail)
+> But at least it should printk now instead of crashing.
+>
+> -Andi
 
-> And Alexey apparently tried to do the "FIXME" part, but without thinking 
-> about the SIGURG part.
+Hi Andi,
 
-Actually, it was thought a lot for several linux-2.x. :-)
+Your patch fixed the bug!  Thanks a lot!
+I applyed the first hunk as David wrote above.
 
-
-> We _need_ to stop at urgent data and we _should_ return -EINTR, and let
-> the SIGURG handler do the URG read. Otherwise we'll lose urgent data (or
-> we'll just read it inline without realizing that it was urgent data).
-
-The patch was expected not to break this property. Alas, something
-is overlooked yet. I still do not understand what exactly is broken,
-I feel I have to find some rlogin to experiment in vivo.
-
-Alexey
+bye,
+        simon.
