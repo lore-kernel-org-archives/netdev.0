@@ -1,83 +1,27 @@
-From: ebiederm@xmission.com (Eric W. Biederman)
-Subject: Re: TOE brain dump
-Date: 06 Aug 2003 01:58:56 -0600
+From: "Yaron Klein" <klein@SANRAD.COM>
+Subject: iSCSI driver for SGI
+Date: Wed, 6 Aug 2003 11:08:25 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <m1llu7ushr.fsf@frodo.biederman.org>
-References: <20030802140444.E5798@almesberger.net> <3F2BF5C7.90400@us.ibm.com>
-	<3F2C0C44.6020002@pobox.com> <20030802184901.G5798@almesberger.net>
-	<m1fzkiwnru.fsf@frodo.biederman.org>
-	<20030804162433.L5798@almesberger.net>
-	<m1u18wuinm.fsf@frodo.biederman.org>
-	<20030806021304.E5798@almesberger.net>
+Message-ID: <838D8D2617300146B7F47E4D9AE7FF1086F746@SANSRV1.SAN-RAD.CO.IL>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Content-Type: text/plain;
+	charset="iso-8859-1"
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Werner Almesberger <werner@almesberger.net>
-In-Reply-To: <20030806021304.E5798@almesberger.net>
+content-class: urn:content-classes:message
+To: <netdev@oss.sgi.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Werner Almesberger <werner@almesberger.net> writes:
+Hi there,
 
-> Eric W. Biederman wrote:
-> > MPI is not a transport.  It an interface like the Berkeley sockets
-> > layer.
-> 
-> Hmm, but doesn't it also unify transport semantics (i.e. chop
-> TCP streams into messages), maybe add reliability to transports
-> that don't have it, and provide addressing ? Okay, perhaps you
-> wouldn't call this a transport in the OSI sense, but it still
-> seems to have considerably more functionality than just
-> providing an API.
+My name is Yaron Klein and I m the Technical Lead of Sanrad (www.sanrad.com). We manufacture iSCSI switches with virtualization capabilities.
 
-Those are all features of the MPI implementation.  It is
-not that MPI does not have an underlying transport.  MPI has
-a lot of underlying transports.  And there is a different MPI
-implementation for each transport.  Although a lot of them start
-with a common base.
- 
-> > Mostly I think the that is less true, at least if they can stand the
-> > process of severe code review and cleaning up their code.
-> 
-> Hmm, people putting dozens of millions into building clusters
-> can't afford to have what is probably their most essential
-> infrastructure code reviewed and cleaned up ? Oh dear.
+We have several clients with SGI servers that would like to connect them to our switch.
 
-Afford, they can do.  A lot of the users are researchers and
-a lot of people doing the code are researchers.  So corralling
-them up and getting production quality code can be a challenge,
-or getting them to take small enough steps that they don't
-frighten the rest of the world.
+Is there any iSCSI driver for SGI servers? Do you know of any company that distributes such driver?
 
-Plus ten million dollars pretty much buys you a spot in the top 10 of
-the top 500 supercomputers.  The bulk of the clusters are a lot less
-expensive than that.
- 
-> > But of course to get through the peer review process people need
-> > to understand what they are doing.
-> 
-> A good point :-)
-> 
-> > So store and forward of packets in a 3 layer switch hierarchy, at 1.3 us
-> > per copy.
-> 
-> But your switch could just do cut-through, no ? Or do they
-> need to recompute checksums ?
+Thanks
 
-Correct, switches can and generally do implement cut-through in that
-kind of environment.  I was just showing that even at 10Gbps treating
-a packet as an atomic unit has issues.  cut-through is necessary
-to keep your latency down.  Do any ethernet switches do cut-through?
- 
-> > A lot of the NICs which are used for MPI tend to be smart for two
-> > reasons.  1) So they can do source routing. 2) So they can safely
-> > export some of their interface to user space, so in the fast path
-> > they can bypass the kernel.
-> 
-> The second part could be interesting for TOE, too. Only that
-> the interface exported would just be the socket interface.
-
-Agreed.  
-
-Eric
+Yaron Klein
+Sanrad
