@@ -1,56 +1,37 @@
-From: Florian Weimer <fw@deneb.enyo.de>
+From: "David S. Miller" <davem@redhat.com>
 Subject: Re: Route cache performance under stress
-Date: Tue, 10 Jun 2003 20:41:00 +0200
+Date: Tue, 10 Jun 2003 11:57:59 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <87el21wzb7.fsf@deneb.enyo.de>
-References: <008001c32eda$56760830$4a00000a@badass>
-	<20030609195652.E35696@shell.cyberus.ca>
-	<Pine.LNX.4.51.0306092006420.12038@ns.istop.com>
-	<20030609204257.L35799@shell.cyberus.ca>
-	<Pine.LNX.4.51.0306092200150.28167@ns.istop.com>
-	<20030610061010.Y36963@shell.cyberus.ca>
+Message-ID: <20030610.115759.26513736.davem@redhat.com>
+References: <Pine.LNX.4.51.0306101332300.8755@ns.istop.com>
+	<20030610.103234.116374169.davem@redhat.com>
+	<16102.9418.43884.336925@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: ralph+d@istop.com, CIT/Paul <xerox@foonet.net>,
-   "'Simon Kirby'" <sim@netnation.com>, "'David S. Miller'" <davem@redhat.com>,
-   "netdev@oss.sgi.com" <netdev@oss.sgi.com>,
-   "linux-net@vger.kernel.org" <linux-net@vger.kernel.org>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: ralph+d@istop.com, ralph@istop.com, hadi@shell.cyberus.ca,
+   xerox@foonet.net, sim@netnation.com, fw@deneb.enyo.de, netdev@oss.sgi.com,
+   linux-net@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jamal Hadi <hadi@shell.cyberus.ca>
-In-Reply-To: <20030610061010.Y36963@shell.cyberus.ca> (Jamal Hadi's message
- of "Tue, 10 Jun 2003 06:53:04 -0400 (EDT)")
+To: Robert.Olsson@data.slu.se
+In-Reply-To: <16102.9418.43884.336925@robur.slu.se>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jamal Hadi <hadi@shell.cyberus.ca> writes:
+   From: Robert Olsson <Robert.Olsson@data.slu.se>
+   Date: Tue, 10 Jun 2003 20:34:50 +0200
+   
+   I ripped out the route hash just to test the slow path. Seems like your 
+   patch was very good as we see the same performance w/o dst hash ~114 kpps.
 
-> Typically, real world is less intense than the lab. Ex: noone sends
-> 100Mbps at 64 byte packet size.
+How did you "rip it out"?  Just never look into the routing
+cache hash and never add entries there?  If so, then yes it is
+excellent simulation for pure slow path.
 
-Unfortunately, compromised hosts do send such traffic, and DoS victims
-receive it. 8-(
+This is not purely an algorithmic problem.  The highest cost thing we
+do in the slow path of input route processing is source validation.
+This requires real brains to eliminate.
 
-You don't want your core routers to break down just because a couple
-of the 150,000 hosts in your regional network have been compromised
-(think of Slammer) or you are running an IRC server.
-
-> Have you seen how the big boys advertise?
-
-Typical GSR linecards for OC-48 are specified to handle 2 Mpps, but
-the switch fabric is reportedly somewhat inert and the router might
-choke before that if there are too many linecards involved (I haven't
-observed this personally, this just chatter from someone who works
-daily with those beasts).  A couple of hundred kpps aren't a problem
-for those routers, though, as are 300 Mbit (or was it 400?) of Slammer
-traffic (with random destination addresses).
-
-In general, the forwarding performance is nowadays specified in pps
-and even flows per second if you look carefully at the data sheets.
-Most vendors have learnt that people want routers with comforting
-worst-case behavior.  However, you have to read carefully, e.g. a
-Catalyst 6500 with Supervisor Engine 1 (instead of 2) can only create
-650,000 flows per second, even if it has a much, much higher peak IP
-forwarding rate.
-
-(The times of routers which died when confronted with a rapid ICMP
-sweep across a /16 are gone for good, I hope.)
+Actually, that's a good idea, if someone if brave just rip out
+fib_validate_source (just don't call it, should work for valid
+traffic) and see what happens :)
