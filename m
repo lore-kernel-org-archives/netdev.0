@@ -1,77 +1,62 @@
 From: jamal <hadi@cyberus.ca>
-Subject: Re: [patch 4/10] s390: network driver.
-Date: 06 Dec 2004 21:39:39 -0500
-Message-ID: <1102387179.1091.39.camel@jzny.localdomain>
-References: <OFAF17275D.316533A1-ONC1256F5C.0026AFAD-C1256F5C.002877C1@de.ibm.com>
-	 <Pine.LNX.4.61.0412050605550.21671@hibernia.jakma.org>
-	 <1102332479.1048.2243.camel@jzny.localdomain>
-	 <200412061642.00552.hasso@estpak.ee>
+Subject: Re: _High_ CPU usage while routing (mostly) small UDP packets
+Date: 06 Dec 2004 21:46:35 -0500
+Message-ID: <1102387595.1088.48.camel@jzny.localdomain>
+References: <20041206224107.GA8529@soohrt.org>
+	 <E1CbSf8-00047p-00@calista.eckenfels.6bone.ka-ip.net>
+	 <20041207002012.GB30674@quickstop.soohrt.org>
 Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: Paul Jakma <paul@clubi.ie>, Thomas Spatzier <thomas.spatzier@de.ibm.com>,
-        jgarzik@pobox.com, netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: Hasso Tepper <hasso@estpak.ee>
-In-Reply-To: <200412061642.00552.hasso@estpak.ee>
-Sender: netdev-bounce@oss.sgi.com
-Errors-to: netdev-bounce@oss.sgi.com
+Cc: Bernd Eckenfels <ecki-news2004-05@lina.inka.de>,
+	"David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com,
+	linux-kernel@vger.kernel.org
+Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261739AbULGCqp@vger.kernel.org>
+To: Karsten Desler <kdesler@soohrt.org>
+In-Reply-To: <20041207002012.GB30674@quickstop.soohrt.org>
+Sender: linux-kernel-owner@vger.kernel.org
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2004-12-06 at 09:42, Hasso Tepper wrote:
 
-> I'm trying to summarize. The approach - one raw socket to send/receive 
-> messages no matter how many interfaces are used - worked for Quagga/Zebra 
-> routing software daemons till now. If some of these interfaces was 
-> operationally down, socket wasn't blocked even if the queue was full.
->
->  In 
-> fact "man sendmsg" has still text:
-> 
-> ENOBUFS
-> 	The output queue for a network interface was full.  This  gener-
-> 	ally  indicates  that the interface has stopped sending, but may
-> 	be caused by transient congestion.   (Normally,  this  does  not
-> 	occur  in Linux. Packets are just silently dropped when a device
-> 	queue overflows.)
-> 
-> Seems that it's no longer true. Seems that kernel is now trying as hard as 
-> possible not to loose any data - data is queued and if the queue will be 
-> full, all related sockets will be blocked to notify application.
+Your numbers are very suspect. You may be having other issues in the
+box. You should be able to do much higher packet rates even with
+iptables compiled in.
+Some numbers at:
 
-We need to investigate why this happens. It doesnt sound like good
-behavior neither legit.
-Does this happen to only raw sockets? Herbert asked for a sample small
-program that reproduces it.
+http://www.suug.ch/sucon/04/slides/pkt_cls.pdf
 
->  So, one 
-> socket approach don't work any more for Quagga/Zebra. No problem, we can 
-> take the "one socket per interface" approach. And we already have link 
-> detection implemented to notify daemons.
-> 
-
-I dont think it would be necessary with latest changes to notifications
-in 2.6.x
-
-> But there will be still potential problem - sending the "interface down" 
-> message from kernel to the zebra daemon and then to the routing protocol 
-> daemon takes time. And during this time daemon can send packets which will 
-> sit in queue and may cause many problems if sent to the network later (if 
-> link comes up again). Think about statelss routing protocols like rip(ng), 
-> ipv6 router advertisements etc. They may carry the info that's no longer 
-> true causing routing loops etc.
-> 
-> And to clarify a little bit: no - the Quagga/Zebra didn't work with previous 
-> approach perfectly. I fact with link detection and socket per interface it 
-> will be better than ever no matter what's the kernel behaviour. We just 
-> want to make sure that solution will be bulletproof.
-> 
-> So, problem - how can we make sure that no potentially dangerous aged 
-> (routing) info will be in the network?
-
-I think the idea of having driver junk packets when link is down does
-sound plausible as a solution.
+If all you need is std filtering then consider using tc actions.
+I do have a suspicion that your problem has to do with your machine
+more than it does with Linux.
 
 cheers,
-jamal 
+jamal
+
+On Mon, 2004-12-06 at 19:20, Karsten Desler wrote:
+> Bernd Eckenfels <ecki-news2004-05@lina.inka.de> wrote:
+> > In article <20041206224107.GA8529@soohrt.org> you wrote:
+> > > Removing the iptables rules helps reducing the load a little, but the
+> > > majority of time is still spent somewhere else.
+> > 
+> > In handling Interrupts. Are those equally sidtributed on eth0 and eth1?
+> 
+> Yes they are.
+> 
+> Thanks,
+>  Karsten
+> 
+>            CPU0       CPU1       
+>   0:  117199776  133677244    IO-APIC-edge  timer
+>   1:          0          9    IO-APIC-edge  i8042
+>   8:          0          4    IO-APIC-edge  rtc
+>   9:          0          0   IO-APIC-level  acpi
+> 169:        139  893669684   IO-APIC-level  eth0
+> 177:  919803109      30665   IO-APIC-level  eth1
+> 209:     414257     413316   IO-APIC-level  libata
+> NMI:          0          0 
+> LOC:  250918849  250918819 
+> ERR:          0
+> MIS:          0
+> 
+> 
