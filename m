@@ -1,58 +1,36 @@
-From: Xose Vazquez Perez <xose@wanadoo.es>
-Subject: [PATCH] detailled bcm help - 2.6.3
-Date: Mon, 23 Feb 2004 14:33:17 +0100
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: [PATCH] 2.6 UDP recvmsg vs POSIX
+Date: Mon, 23 Feb 2004 09:42:16 -0800
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <403A011D.1050909@wanadoo.es>
+Message-ID: <20040223094216.66602afd.davem@redhat.com>
+References: <20040217121726.GD8554@suse.de>
+	<20040221130853.4c98bad6.davem@redhat.com>
+	<20040223094209.GA12663@suse.de>
 Mime-Version: 1.0
-Content-Type: multipart/mixed;
- boundary="------------050307040908070904040101"
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jgarzik@redhat.com, Andrew Morton <akpm@osdl.org>, netdev@oss.sgi.com
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: <20040223094209.GA12663@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-This is a multi-part message in MIME format.
---------------050307040908070904040101
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+On Mon, 23 Feb 2004 10:42:10 +0100
+Olaf Kirch <okir@suse.de> wrote:
 
+> But that breaks poll/recvmsg on a blocking socket, because poll with
+> assert POLLIN, but the recvmsg call with block.
 
-This patch adds more realistic information about bcm NICs.
-People only know the commercial names and not about chips names.
+There is nothing wrong with that, I even pinged Linus about this and he
+agreed with me.
 
--- 
-x86-64 GenuineIntel
+What stops another thread from pulling a packet from the
+receive queue and thus emptying it?  Nothing.  POLLIN does not guarentee
+a read will give you data right now, it never has and it never will.
 
+Therefore, the only bug was returning -EAGAIN unconditionally and that's
+what is fixed by the correct half of your changes.
 
---------------050307040908070904040101
-Content-Type: text/plain;
- name="bcm-help.diff"
-Content-Transfer-Encoding: 7bit
-Content-Disposition: inline;
- filename="bcm-help.diff"
-
---- linux-2.6.2/drivers/net/Kconfig	2004-02-20 14:39:40.000000000 +0100
-+++ n/drivers/net/Kconfig	2004-02-23 14:17:23.000000000 +0100
-@@ -1275,9 +1275,7 @@
- 	tristate "Broadcom 4400 ethernet support (EXPERIMENTAL)"
- 	depends on NET_PCI && PCI && EXPERIMENTAL
- 	help
--	  If you have a network (Ethernet) controller of this type, say Y and
--	  read the Ethernet-HOWTO, available from
--	  <http://www.tldp.org/docs.html#howto>.
-+	  This driver supports Broadcom BCM440X based 10/100 Ethernet cards.
- 
- 	  To compile this driver as a module, choose M here and read
- 	  <file:Documentation/networking/net-modules.txt>.  The module will be
-@@ -2056,7 +2054,7 @@
- 	tristate "Broadcom Tigon3 support"
- 	depends on PCI
- 	help
--	  This driver supports Broadcom Tigon3 based gigabit Ethernet cards.
-+	  This driver supports Broadcom NetXtreme BCM570X based gigabit Ethernet cards.
- 
- 	  To compile this driver as a module, choose M here: the module
- 	  will be called tg3.  This is recommended.
-
-
---------------050307040908070904040101--
+TCP does the same thing Olaf, and there is no way I'm adding the gross poll
+hacks there :-)
