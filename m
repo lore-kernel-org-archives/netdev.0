@@ -1,140 +1,110 @@
-From: Greg Banks <gnb@sgi.com>
-Subject: Re: [PATCH] fix BUG in tg3_tx
-Date: Mon, 24 May 2004 18:04:31 +1000
-Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040524080431.GD27177@sgi.com>
-References: <20040524072657.GC27177@sgi.com> <20040524004045.58b3eb44.davem@redhat.com>
+From: Yusuf Goolamabbas <yusufg@outblaze.com>
+Subject: AF_UNIX/tcp bw regression in  2.6.6/2.6.7-rc1 compared to 2.4.22-2188.nptl
+Date: Mon, 24 May 2004 16:29:26 +0800
+Sender: linux-kernel-owner@vger.kernel.org
+Message-ID: <20040524082925.GA23012@outblaze.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
 Cc: netdev@oss.sgi.com
-Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S264117AbUEXI3g@vger.kernel.org>
+To: linux-kernel@vger.kernel.org
 Content-Disposition: inline
-In-Reply-To: <20040524004045.58b3eb44.davem@redhat.com>
-Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, May 24, 2004 at 12:40:45AM -0700, David S. Miller wrote:
-> On Mon, 24 May 2004 17:26:58 +1000
-> Greg Banks <gnb@sgi.com> wrote:
-> 
-> > The tg3 transmit code assumes that tg3_tx() will never have to clean
-> > up part of an skb queued for transmit.  This assumption is wrong;
-> 
-> Greg, perhaps my reading of the tg3 chip docs is different
-> from yours.  The hardware is NEVER supposed to do this.
+Hi, I ran lmbench 2.0.4 on a P3-500 with 384 MB ram box with the latest
+Fedora Core 1 kernel (2.4.22-2188.nptl, 2.6.6 and 2.6.7-rc1 (CONFIG_REGPARM=y)
 
-I'd like to know where you read that, because neither I nor any of
-the other SGI engineers who have read the Broadcom docs can find any
-such guarantee.  The consensus here is that there is no guarantee
-about where the transmit ring consumer index is when the card DMAs
-a status block update.
+There seems to be  regression in AF_UNIX/tcp bandwidth in 2.6.7-rc1
+I did two runs per kernel
 
-We've seen that BUG() trip many times both on 2.4 and 2.6.  SGI ProPack
-for Linux has been shipping for a year now with a workaround for this
-bug (the BUG() is changed to a break).
+output from lmbench follows
 
-> Or is there an errata in some chip versions?
+cc: netdev in case this is of interest to networking hackers
 
-We've seen this on both 5701 and 5704 hardware.  The SGI cards ship
-have slightly different firmware from stock Broadcom cards, I don't
-know if that's a factor.  It might also be something to do with the
-Altix IO architecture.  I don't know why the card chooses to do this,
-but it most certainly does.
-
-The IRIX driver guys tells me this same behaviour happens on the
-Origin hardware, and the IRIX driver had an equivalent fix applied
-about 18 months ago.
-
-> I've never triggered that BUG() assertion on any of my
-> hardware, ever.
-
-Ok, here's one of several mostly identical stack traces reported by
-various people inside SGI on 2.6 kernels.  If you want to wait for
-a day or so I can probably make a 2.4 kernel do this also (I did
-that during testing a coupld of days ago but didn't save the stack
-trace, doh!)
-
-[root@budgie root]# swapper[0]: bugcheck! 0 [1]
-
-Pid: 0, CPU 0, comm:              swapper
-psr : 0000101009022018 ifs : 8000000000000d1e ip  : [<a000000200165980>]
-Not tainted
-ip is at tg3_tx+0x5a0/0x5c0 [tg3]
-unat: 0000000000000000 pfs : 0000000000000d1e rsc : 0000000000000003
-rnat: 800000025da66955 bsps: a0000001000fdec0 pr  : 80000000ff7669a5
-ldrs: 0000000000000000 ccv : 0000000000000000 fpsr: 0009804c8a70033f
-csd : 0000000000000000 ssd : 0000000000000000
-b0  : a000000200165980 b6  : a000000100003320 b7  : a0000001000cc200
-f6  : 1003e0fc0fc0fc0fc0fc1 f7  : 0ffdaa200000000000000
-f8  : 1003e0000000000000240 f9  : 1003e0000000000002490
-f10 : 1003e000000000ea00000 f11 : 1003e00000000367b7ad0
-r1  : a0000001009ec7f0 r2  : 0000000000000000 r3  : 0000000000004000
-r8  : 0000000000000026 r9  : 0000000000000002 r10 : 0000000000000001
-r11 : 0000000000000004 r12 : e0000030146a3c50 r13 : e00000301469c000
-r14 : 0000000000004000 r15 : a000000100734fb0 r16 : e00000b004a147a8
-r17 : e00000b07ba88060 r18 : e000003007ba0000 r19 : 0000000000180000
-r20 : 0000000000000014 r21 : 0000000000080000 r22 : 0000000000100000
-r23 : e00000b004a150e4 r24 : e00000b004a150d8 r25 : e0000030146a3bf0
-r26 : e00000b004a15810 r27 : 0000000000000074 r28 : 0000000000000074
-r29 : e000003007ba002c r30 : e00000b07ba8802c r31 : 0000000000000002
-
-Call Trace:
- [<a000000100015180>] show_stack+0x80/0xa0
-                                sp=e0000030146a3820 bsp=e00000301469d2c8
- [<a0000001000384f0>] die+0x1b0/0x280
-                                sp=e0000030146a39f0 bsp=e00000301469d2a0
- [<a000000100038960>] ia64_bad_break+0x340/0x480
-                                sp=e0000030146a39f0 bsp=e00000301469d280
- [<a00000010000de20>] ia64_leave_kernel+0x0/0x260
-                                sp=e0000030146a3a80 bsp=e00000301469d280
- [<a000000200165980>] tg3_tx+0x5a0/0x5c0 [tg3]
-                                sp=e0000030146a3c50 bsp=e00000301469d188
- [<a000000200166cf0>] tg3_interrupt_main_work+0x150/0x280 [tg3]
-                                sp=e0000030146a3c50 bsp=e00000301469d158
- [<a000000200166f20>] tg3_interrupt+0x100/0x1c0 [tg3]
-                                sp=e0000030146a3c50 bsp=e00000301469d110
- [<a000000100011640>] handle_IRQ_event+0xa0/0x120
-                                sp=e0000030146a3c50 bsp=e00000301469d0c8
- [<a000000100012170>] do_IRQ+0x390/0x4a0
-                                sp=e0000030146a3c50 bsp=e00000301469d078
- [<a000000100014160>] ia64_handle_irq+0xc0/0x1a0
-                                sp=e0000030146a3c50 bsp=e00000301469d040
- [<a00000010000de20>] ia64_leave_kernel+0x0/0x260
-                                sp=e0000030146a3c50 bsp=e00000301469d040
- [<a000000100084010>] snidle+0xb0/0x180
-                                sp=e0000030146a3e20 bsp=e00000301469d038
- [<a000000100015cb0>] cpu_idle+0x130/0x220
-                                sp=e0000030146a3e20 bsp=e00000301469cfa8
- [<a000000100630fa0>] start_kernel+0x460/0x4e0
-                                sp=e0000030146a3e20 bsp=e00000301469cf50
- [<a000000100008600>] _start+0x2c0/0x0
-                                sp=e0000030146a3e30 bsp=e00000301469cf50
- 3 out of 4 cpus in kdb, waiting for the rest
-1 cpu are not in kdb, their state is unknown
-
-Entering kdb (current=0xe00000301469c000, pid 0) on processor 0 Oops: <NULL>
-due to oops @ 0xa000000200165980
- psr: 0x0000101009022018   ifs: 0x8000000000000d1e    ip: 0xa000000200165980  
-unat: 0x0000000000000000   pfs: 0x0000000000000d1e   rsc: 0x0000000000000003  
-rnat: 0x800000025da66955  bsps: 0xa0000001000fdec0    pr: 0x80000000ff7669a5  
-ldrs: 0x0000000000000000   ccv: 0x0000000000000000  fpsr: 0x0009804c8a70033f  
-  b0: 0xa000000200165980    b6: 0xa000000100003320    b7: 0xa0000001000cc200  
-  r1: 0xa0000001009ec7f0    r2: 0x0000000000000000    r3: 0x0000000000004000  
-  r8: 0x0000000000000026    r9: 0x0000000000000002   r10: 0x0000000000000001  
- r11: 0x0000000000000004   r12: 0xe0000030146a3c50   r13: 0xe00000301469c000  
- r14: 0x0000000000004000   r15: 0xa000000100734fb0   r16: 0xe00000b004a147a8  
- r17: 0xe00000b07ba88060   r18: 0xe000003007ba0000   r19: 0x0000000000180000  
- r20: 0x0000000000000014   r21: 0x0000000000080000   r22: 0x0000000000100000  
- r23: 0xe00000b004a150e4   r24: 0xe00000b004a150d8   r25: 0xe0000030146a3bf0  
- r26: 0xe00000b004a15810   r27: 0x0000000000000074   r28: 0x0000000000000074  
- r29: 0xe000003007ba002c   r30: 0xe00000b07ba8802c   r31: 0x0000000000000002  
-&regs = e0000030146a3a90
-[0]kdb>
+                 L M B E N C H  2 . 0   S U M M A R Y
+                 ------------------------------------
 
 
+Basic system parameters
+----------------------------------------------------
+Host                 OS Description              Mhz
+                                                    
+--------- ------------- ----------------------- ----
+214.2.168 Linux 2.4.22-       i686-pc-linux-gnu  407
+214.2.168 Linux 2.4.22-       i686-pc-linux-gnu  407
+214.2.168 Linux 2.6.7-r       i686-pc-linux-gnu  407
+214.2.168 Linux 2.6.7-r       i686-pc-linux-gnu  407
+214.2.168   Linux 2.6.6       i686-pc-linux-gnu  407
+214.2.168   Linux 2.6.6       i686-pc-linux-gnu  407
 
-Greg.
--- 
-Greg Banks, R&D Software Engineer, SGI Australian Software Group.
-I don't speak for SGI.
+Processor, Processes - times in microseconds - smaller is better
+----------------------------------------------------------------
+Host                 OS  Mhz null null      open selct sig  sig  fork exec sh  
+                             call  I/O stat clos TCP   inst hndl proc proc proc
+--------- ------------- ---- ---- ---- ---- ---- ----- ---- ---- ---- ---- ----
+214.2.168 Linux 2.4.22-  407 0.77 1.16 6.59 8.03  35.6 2.14 6.80 340. 1387 5802
+214.2.168 Linux 2.4.22-  407 0.77 1.14 6.58 7.93  37.8 2.14 6.80 341. 1492 5980
+214.2.168 Linux 2.6.7-r  407 0.42 0.72 7.01 8.14  28.2 1.99 7.67 383. 1381 5920
+214.2.168 Linux 2.6.7-r  407 0.42 0.71 6.97 8.04  30.4 1.99 7.62 390. 1386 5949
+214.2.168   Linux 2.6.6  407 0.42 0.74 6.93 8.19  28.0 1.99 7.03 425. 1412 6018
+214.2.168   Linux 2.6.6  407 0.42 0.73 7.01 8.26  28.3 1.99 7.04 425. 1430 6083
+
+Context switching - times in microseconds - smaller is better
+-------------------------------------------------------------
+Host                 OS 2p/0K 2p/16K 2p/64K 8p/16K 8p/64K 16p/16K 16p/64K
+                        ctxsw  ctxsw  ctxsw ctxsw  ctxsw   ctxsw   ctxsw
+--------- ------------- ----- ------ ------ ------ ------ ------- -------
+214.2.168 Linux 2.4.22- 1.870   18.3   82.7   19.6  178.4    29.0   258.9
+214.2.168 Linux 2.4.22- 1.970   18.2   52.4   23.6  182.3    36.9   260.4
+214.2.168 Linux 2.6.7-r 2.840   20.7   88.7   22.1  185.0    30.7   271.7
+214.2.168 Linux 2.6.7-r 2.900   20.7   57.3   35.7  192.2    44.7   265.8
+214.2.168   Linux 2.6.6 2.280   19.3   54.5   20.6  190.8    34.7   268.6
+214.2.168   Linux 2.6.6 2.490   19.2   54.3   28.1  164.6    32.5   266.3
+
+*Local* Communication latencies in microseconds - smaller is better
+-------------------------------------------------------------------
+Host                 OS 2p/0K  Pipe AF     UDP  RPC/   TCP  RPC/ TCP
+                        ctxsw       UNIX         UDP         TCP conn
+--------- ------------- ----- ----- ---- ----- ----- ----- ----- ----
+214.2.168 Linux 2.4.22- 1.870  10.7 20.3  47.7 108.3  62.4 144.5 248.
+214.2.168 Linux 2.4.22- 1.970  10.8 20.3  48.4 108.2  71.1 144.3 242.
+214.2.168 Linux 2.6.7-r 2.840  12.4 31.6  52.6 113.4  71.9 141.2 249.
+214.2.168 Linux 2.6.7-r 2.900  12.8 31.9  56.4 113.1  70.8 141.3 254.
+214.2.168   Linux 2.6.6 2.280  11.0 21.5  51.1 112.0  75.0 149.2 252.
+214.2.168   Linux 2.6.6 2.490  11.1 21.8  53.0 111.7  78.7 146.3 255.
+
+File & VM system latencies in microseconds - smaller is better
+--------------------------------------------------------------
+Host                 OS   0K File      10K File      Mmap    Prot    Page	
+                        Create Delete Create Delete  Latency Fault   Fault 
+--------- ------------- ------ ------ ------ ------  ------- -----   ----- 
+214.2.168 Linux 2.4.22-  156.9   39.1  418.8  105.8   1946.0 0.427 3.00000
+214.2.168 Linux 2.4.22-  156.8   39.1  434.8   98.9   1961.0 0.464 3.00000
+214.2.168 Linux 2.6.7-r  150.2   31.8  406.5  105.1   2394.0 0.869 4.00000
+214.2.168 Linux 2.6.7-r  150.2   31.5  406.5  105.0   2468.0 0.828 4.00000
+214.2.168   Linux 2.6.6  147.1   30.4  406.2  103.8   2449.0 1.078 4.00000
+214.2.168   Linux 2.6.6  147.6   30.3  401.8  105.1   2584.0 1.172 4.00000
+
+*Local* Communication bandwidths in MB/s - bigger is better
+-----------------------------------------------------------
+Host                OS  Pipe AF    TCP  File   Mmap  Bcopy  Bcopy  Mem   Mem
+                             UNIX      reread reread (libc) (hand) read write
+--------- ------------- ---- ---- ---- ------ ------ ------ ------ ---- -----
+214.2.168 Linux 2.4.22- 186. 118. 85.9  148.8  229.9   75.5   56.2 230.  74.6
+214.2.168 Linux 2.4.22- 194. 118. 71.8  146.8  230.7   75.5   56.1 230.  74.6
+214.2.168 Linux 2.6.7-r 144. 99.1 58.8  144.4  228.4   73.0   55.6 228.  73.0
+214.2.168 Linux 2.6.7-r 162. 99.0 62.7  143.6  228.2   72.7   55.5 228.  73.0
+214.2.168   Linux 2.6.6 183. 108. 56.6  142.7  228.3   73.0   55.5 228.  72.9
+214.2.168   Linux 2.6.6 174. 119. 64.5  144.3  228.1   73.2   55.5 228.  72.9
+
+Memory latencies in nanoseconds - smaller is better
+    (WARNING - may not be correct, check graphs)
+---------------------------------------------------
+Host                 OS   Mhz  L1 $   L2 $    Main mem    Guesses
+--------- -------------  ---- ----- ------    --------    -------
+214.2.168 Linux 2.4.22-   407 7.361   54.1  254.6
+214.2.168 Linux 2.4.22-   407 7.362   54.1  254.6
+214.2.168 Linux 2.6.7-r   407 7.468   55.0  257.7
+214.2.168 Linux 2.6.7-r   407 7.468   86.5  257.5
+214.2.168   Linux 2.6.6   407 7.469   55.2  257.8
+214.2.168   Linux 2.6.6   407 7.468   55.2  257.8
