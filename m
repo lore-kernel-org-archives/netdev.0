@@ -1,28 +1,58 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
- <yoshfuji@linux-ipv6.org>
+From: "Krishna Kumar" <kumarkr@us.ibm.com>
 Subject: Re: [PATCHSET] Mobile IPv6 for 2.5.43
-Date: Fri, 18 Oct 2002 02:18:02 +0900 (JST)
+Date: Thu, 17 Oct 2002 10:22:21 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20021018.021802.87011078.yoshfuji@linux-ipv6.org>
-References: <20021017162624.GC16370@morphine.tml.hut.fi>
+Message-ID: <OF817FBE23.BF8717DA-ON88256C55.005F5EFB@boulder.ibm.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   linux-kernel@vger.kernel.org, pekkas@netcore.fi, torvalds@transmeta.com,
-   jagana@us.ibm.com, yoshfuji@linux-ipv6.org
+Content-Type: text/plain; charset=iso-2022-jp
+Cc: ajtuomin@morphine.tml.hut.fi, davem@redhat.com, kuznet@ms2.inr.ac.ru,
+   linux-kernel@vger.kernel.org, netdev@oss.sgi.com, netdev-bounce@oss.sgi.com,
+   pekkas@netcore.fi, torvalds@transmeta.com,
+   "Venkata Jagana" <jagana@us.ibm.com>, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ajtuomin@morphine.tml.hut.fi
-In-Reply-To: <20021017162624.GC16370@morphine.tml.hut.fi>
+To: YOSHIFUJI Hideaki /  =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20021017162624.GC16370@morphine.tml.hut.fi> (at Thu, 17 Oct 2002 19:26:25 +0300), Antti Tuominen <ajtuomin@morphine.tml.hut.fi> says:
+
+> > http://www.mipl.mediapoli.com/patches/mipv6_cn_support.patch
+> > http://www.mipl.mediapoli.com/patches/mipv6_mn_support.patch
+> > http://www.mipl.mediapoli.com/patches/mipv6_ha_support.patch
+>
+> Well, I can't find them. I hope they'll be available when I wake up
+> tomorrow...
+
+Just replace "_" with "-".
+
+- KK
+
+
+
+
+                                                                                                                                          
+                      YOSHIFUJI Hideaki                                                                                                   
+                      / 吉藤英明               To:       ajtuomin@morphine.tml.hut.fi                                                     
+                      <yoshfuji@linux-i        cc:       davem@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,                      
+                      pv6.org>                  linux-kernel@vger.kernel.org, pekkas@netcore.fi, torvalds@transmeta.com, Venkata          
+                      Sent by:                  Jagana/Beaverton/IBM@IBMUS, yoshfuji@linux-ipv6.org                                       
+                      netdev-bounce@oss        Subject:  Re: [PATCHSET] Mobile IPv6 for 2.5.43                                            
+                      .sgi.com                                                                                                            
+                                                                                                                                          
+                                                                                                                                          
+                      10/17/2002 10:18                                                                                                    
+                      AM                                                                                                                  
+                                                                                                                                          
+                                                                                                                                          
+
+
+
+In article <20021017162624.GC16370@morphine.tml.hut.fi> (at Thu, 17 Oct
+2002 19:26:25 +0300), Antti Tuominen <ajtuomin@morphine.tml.hut.fi> says:
 
 > The patch has been split for easier reading as follows:
-> 
-> ipv6_tunnel.patch	6over6 tunneling
-> network_mods.patch	Modifications to network code and hooks
+>
+> ipv6_tunnel.patch            6over6 tunneling
+> network_mods.patch           Modifications to network code and hooks
 
 Several comments.
 
@@ -50,6 +80,6 @@ more comment will come later...
 Well, I can't find them. I hope they'll be available when I wake up
 tomorrow...
 
--- 
+--
 Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
 GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
