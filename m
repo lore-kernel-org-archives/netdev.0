@@ -1,55 +1,23 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [2.4 PATCH] bugfix: ARP respond on all devices
-Date: Mon, 18 Aug 2003 04:44:19 -0700
-Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20030818044419.0bc24d14.davem@redhat.com>
-References: <20030728213933.F81299@coredump.scriptkiddie.org>
-	<200308171509570955.003E4FEC@192.168.128.16>
-	<200308171516090038.0043F977@192.168.128.16>
-	<1061127715.21885.35.camel@dhcp23.swansea.linux.org.uk>
-	<200308171555280781.0067FB36@192.168.128.16>
-	<1061134091.21886.40.camel@dhcp23.swansea.linux.org.uk>
-	<200308171759540391.00AA8CAB@192.168.128.16>
-	<1061137577.21885.50.camel@dhcp23.swansea.linux.org.uk>
-	<200308171827130739.00C3905F@192.168.128.16>
-	<1061141045.21885.74.camel@dhcp23.swansea.linux.org.uk>
-	<20030817224849.GB734@alpha.home.local>
-	<20030817223118.3cbc497c.davem@redhat.com>
-	<20030818133957.3d3d51d2.skraw@ithnet.com>
+Subject: Re: [PATCH] IPv6: Fix tunnel encapsulation limit in ip6_tunnel.c
+Date: Mon, 18 Aug 2003 04:48:10 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20030818044810.01a28c38.davem@redhat.com>
+References: <Pine.LNX.4.44.0308181423250.19167-100000@rhea.tcs.hut.fi>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: willy@w.ods.org, alan@lxorguk.ukuu.org.uk, carlosev@newipnet.com,
-	lamont@scriptkiddie.org, davidsen@tmr.com, bloemsaa@xs4all.nl,
-	marcelo@conectiva.com.br, netdev@oss.sgi.com,
-	linux-net@vger.kernel.org, layes@loran.com, torvalds@osdl.org,
-	linux-kernel@vger.kernel.org
-Return-path: <linux-net-owner@vger.kernel.org>
-To: Stephan von Krawczynski <skraw@ithnet.com>
-In-Reply-To: <20030818133957.3d3d51d2.skraw@ithnet.com>
+Cc: netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.44.0308181423250.19167-100000@rhea.tcs.hut.fi>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 18 Aug 2003 13:39:57 +0200
-Stephan von Krawczynski <skraw@ithnet.com> wrote:
+On Mon, 18 Aug 2003 14:50:51 +0300 (EEST)
+Ville Nuorvala <vnuorval@tcs.hut.fi> wrote:
 
-> Can you please give us a striking example of a widespread application where
-> current behaviour is a requirement or at least a very positive thing?
+> I reread RFC 2473 and noticed the tunnel encapsulation limit handling was
+> off by one. This patch fixes the bug. Please apply!
 
-[ I've been waiting what seems like centuries for someone
-  to even consider talking about source address selection,
-  alas I have to bring it up myself :( ]
-
-I'll responsd by asking questions of you.
-
-Do you know how source address selection works when the user tries to
-connect to a remote location yet doesn't specify a specific source
-address to use?
-
-Once you understand source address selection, the next thing
-you need to do is:
-
-1) consider how you might want to make that configurable
-   by the user
-2) what the default behavior should be
-3) what kind of ARP behavior is necessary in order for
-   these various configurations to work
+Applied, thanks Ville.
