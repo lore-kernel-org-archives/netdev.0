@@ -1,64 +1,86 @@
-From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [NET] Get rid of unused glbl counter in neighbour
-Date: Thu, 4 Nov 2004 18:25:11 +1100
-Message-ID: <20041104072511.GA29842@gondor.apana.org.au>
+From: Andreas Maier <andi@cosy.sbg.ac.at>
+Subject: Hide AF_INET
+Date: Thu, 04 Nov 2004 13:13:10 +0000
+Message-ID: <1099573990l.4491l.1l@leu>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="TB36FDmn/VVEgNH/"
+Content-Type: text/plain; charset=ISO-8859-1; DelSp=Yes; Format=Flowed
+Content-Transfer-Encoding: 8bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+To: netdev@oss.sgi.com
 Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+I need a Linux testbed to test applications in an IPv6-only  
+environment. Unfortunately IPv6 cannot be enabled without also enabling  
+IPv4. Therefor I try to hide AF_INET from user space with the appended  
+patch.
 
---TB36FDmn/VVEgNH/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: inline
+It is a partial success in that AF_INET is no longer available to user  
+space, the kernel does not crash, TCP6 connections (ssh) work and UDP6  
+connections seem to work (DNS).
 
-Hi Dave:
+The drawback is that ICMP6 (ping6) does not work and that I think my  
+basic approach is ugly.
 
-This patch gets rid of an unused global counter in neighbour.c.
+What could be a quick hack to get ICMP6 working in my scenario?
 
-Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
+Would it be possible - with reasonable effort - to convert networking  
+code so that IPv6 no longer depends on IPv4 so that an IPv6-only  
+configuration can be created easily?
 
-Cheers,
+Thanks for your help,
+-andi
+
+
+--- net/ipv4/af_inet.c.orig	2004-10-29 15:01:42.000000000 +0200
++++ net/ipv4/af_inet.c	2004-11-04 11:57:11.000000000 +0100
+@@ -1032,7 +1032,10 @@
+ 	 *	Tell SOCKET that we are alive...
+ 	 */
+
++#define HIDE_V4
++#ifndef HIDE_V4
+   	(void)sock_register(&inet_family_ops);
++#endif
+
+ 	/*
+ 	 *	Add all the base protocols.
+@@ -1066,9 +1069,11 @@
+   	 *	Set the IP module up
+   	 */
+
++#ifndef HIDE_V4
+ 	ip_init();
+
+ 	tcp_v4_init(&inet_family_ops);
++#endif
+
+ 	/* Setup TCP slab cache for open requests. */
+ 	tcp_init();
+@@ -1078,7 +1083,9 @@
+ 	 *	Set the ICMP layer up
+ 	 */
+
++#ifndef HIDE_V4
+ 	icmp_init(&inet_family_ops);
++#endif
+
+ 	/*
+ 	 *	Initialise the multicast router
+@@ -1093,7 +1100,9 @@
+ 	if(init_ipv4_mibs())
+ 		printk(KERN_CRIT "inet_init: Cannot init ipv4 mibs\n"); ;
+ 	
++#ifndef HIDE_V4
+ 	ipv4_proc_init();
++#endif
+
+ 	ipfrag_init();
+
 -- 
-Visit Openswan at http://www.openswan.org/
-Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
-Home Page: http://gondor.apana.org.au/~herbert/
-PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
-
---TB36FDmn/VVEgNH/
-Content-Type: text/plain; charset=us-ascii
-Content-Disposition: attachment; filename=p
-
-===== net/core/neighbour.c 1.55 vs edited =====
---- 1.55/net/core/neighbour.c	2004-11-04 10:41:49 +11:00
-+++ edited/net/core/neighbour.c	2004-11-04 14:47:14 +11:00
-@@ -59,7 +59,6 @@
- static int pneigh_ifdown(struct neigh_table *tbl, struct net_device *dev);
- void neigh_changeaddr(struct neigh_table *tbl, struct net_device *dev);
- 
--static int neigh_glbl_allocs;
- static struct neigh_table *neigh_tables;
- static struct file_operations neigh_stat_seq_fops;
- 
-@@ -282,7 +281,6 @@
- 	n->timer.data	  = (unsigned long)n;
- 
- 	NEIGH_CACHE_STAT_INC(tbl, allocs);
--	neigh_glbl_allocs++;
- 	n->tbl		  = tbl;
- 	atomic_set(&n->refcnt, 1);
- 	n->dead		  = 1;
-@@ -612,7 +610,6 @@
- 
- 	NEIGH_PRINTK2("neigh %p is destroyed.\n", neigh);
- 
--	neigh_glbl_allocs--;
- 	atomic_dec(&neigh->tbl->entries);
- 	kmem_cache_free(neigh->tbl->kmem_cachep, neigh);
- }
-
---TB36FDmn/VVEgNH/--
+| Andreas Maier               Paris-Lodron University of Salzburg   |
+| (andi [at] cosy.sbg.ac.at)  Department of Scientific Computing    |
+| Tel. +43/662/8044-6339      Jakob Haringerstr. 2                  |
+| Fax. +43/662/8044-172       5020 Salzburg / Austria, Europe       |
