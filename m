@@ -1,47 +1,125 @@
 From: Marcel Holtmann <marcel@holtmann.org>
 Subject: Re: [PATCH][NET] make all protos partially use sk_prot
-Date: Sat, 26 Mar 2005 17:22:20 +0100
-Message-ID: <1111854140.9195.199.camel@pegasus>
+Date: Sat, 26 Mar 2005 17:31:53 +0100
+Message-ID: <1111854713.9195.202.camel@pegasus>
 References: <20050326144516.GA21949@conectiva.com.br>
+	 <1111854140.9195.199.camel@pegasus>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="=-qi6vU9HfmBaFNAJkOXX2"
+Content-Type: multipart/mixed; boundary="=-pyAgmupZb9Bct14kjJFX"
 Cc: "David S. Miller" <davem@davemloft.net>,
         Network Development Mailing List <netdev@oss.sgi.com>
 To: Arnaldo Carvalho de Melo <acme@ghostprotocols.net>
-In-Reply-To: <20050326144516.GA21949@conectiva.com.br>
+In-Reply-To: <1111854140.9195.199.camel@pegasus>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---=-qi6vU9HfmBaFNAJkOXX2
+--=-pyAgmupZb9Bct14kjJFX
 Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
 
 Hi Arnaldo,
 
-> 	Here is an updated patch, taking, I hope, all of Marcel
-> considerations into account and also fixing a bug in proto_register,
-> I was returning on error without dropping the lock.
+> > 	Here is an updated patch, taking, I hope, all of Marcel
+> > considerations into account and also fixing a bug in proto_register,
+> > I was returning on error without dropping the lock.
+> 
+> the error path of some init function in the Bluetooth subsystem is still
+> wrong. And I don't really like your way of using the labels, because
+> this twists my brain too much. I fixed all of these and while we are at
+> it, I cleaned up the init functions. Please use the attached patch
+> instead of your changes to the Bluetooth subsystem.
 
-the error path of some init function in the Bluetooth subsystem is still
-wrong. And I don't really like your way of using the labels, because
-this twists my brain too much. I fixed all of these and while we are at
-it, I cleaned up the init functions. Please use the attached patch
-instead of your changes to the Bluetooth subsystem.
-
-Signed-off-by: Marcel Holtmann <marcel@holtmann.org>
+oops, I forgot to include hci_sock.c into that patch. Here is a fixed
+one.
 
 Regards
 
 Marcel
 
 
---=-qi6vU9HfmBaFNAJkOXX2
+--=-pyAgmupZb9Bct14kjJFX
 Content-Disposition: attachment; filename=patch
 Content-Type: text/plain; name=patch; charset=ISO-8859-1
 Content-Transfer-Encoding: 7bit
 
+===== net/bluetooth/hci_sock.c 1.37 vs edited =====
+--- 1.37/net/bluetooth/hci_sock.c	2005-03-18 15:07:23 +01:00
++++ edited/net/bluetooth/hci_sock.c	2005-03-26 17:26:55 +01:00
+@@ -590,6 +590,12 @@
+ 	.mmap		= sock_no_mmap
+ };
+ 
++static struct proto hci_sk_proto = {
++	.name		= "HCI",
++	.owner		= THIS_MODULE,
++	.obj_size	= sizeof(struct hci_pinfo)
++};
++
+ static int hci_sock_create(struct socket *sock, int protocol)
+ {
+ 	struct sock *sk;
+@@ -601,7 +607,7 @@
+ 
+ 	sock->ops = &hci_sock_ops;
+ 
+-	sk = sk_alloc(PF_BLUETOOTH, GFP_KERNEL, sizeof(struct hci_pinfo), NULL);
++	sk = sk_alloc(PF_BLUETOOTH, GFP_KERNEL, &hci_sk_proto, 1);
+ 	if (!sk)
+ 		return -ENOMEM;
+ 
+@@ -611,8 +617,6 @@
+ 
+ 	sk->sk_protocol = protocol;
+ 
+-	sk_set_owner(sk, THIS_MODULE);
+-
+ 	sock->state = SS_UNCONNECTED;
+ 	sk->sk_state = BT_OPEN;
+ 
+@@ -668,23 +672,36 @@
+ 
+ int __init hci_sock_init(void)
+ {
+-	if (bt_sock_register(BTPROTO_HCI, &hci_sock_family_ops)) {
+-		BT_ERR("HCI socket registration failed");
+-		return -EPROTO;
+-	}
++	int err;
++
++	err = proto_register(&hci_sk_proto, 0);
++	if (err < 0)
++		return err;
++
++	err = bt_sock_register(BTPROTO_HCI, &hci_sock_family_ops);
++	if (err < 0)
++		goto error;
+ 
+ 	hci_register_notifier(&hci_sock_nblock);
+ 
+ 	BT_INFO("HCI socket layer initialized");
+ 
+ 	return 0;
++
++error:
++	BT_ERR("HCI socket registration failed");
++	proto_unregister(&hci_sk_proto);
++	return err;
+ }
+ 
+ int __exit hci_sock_cleanup(void)
+ {
+-	if (bt_sock_unregister(BTPROTO_HCI))
++	if (bt_sock_unregister(BTPROTO_HCI) < 0)
+ 		BT_ERR("HCI socket unregistration failed");
+ 
+ 	hci_unregister_notifier(&hci_sock_nblock);
++
++	proto_unregister(&hci_sk_proto);
++
+ 	return 0;
+ }
 ===== net/bluetooth/l2cap.c 1.53 vs edited =====
 --- 1.53/net/bluetooth/l2cap.c	2005-03-18 15:07:25 +01:00
 +++ edited/net/bluetooth/l2cap.c	2005-03-26 17:07:04 +01:00
@@ -474,4 +552,4 @@ Content-Transfer-Encoding: 7bit
 +	proto_unregister(&hidp_proto);
  }
 
---=-qi6vU9HfmBaFNAJkOXX2--
+--=-pyAgmupZb9Bct14kjJFX--
