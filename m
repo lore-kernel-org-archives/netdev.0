@@ -1,27 +1,44 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] unexport xfrm_policy_delete
-Date: Tue, 18 Jan 2005 12:38:09 -0800
-Message-ID: <20050118123809.3a051164.davem@davemloft.net>
-References: <20050118102932.GD4274@stusta.de>
+Subject: Re: possible bug in net/core/pktgen.c (2.6.10 kernel)
+Date: Tue, 18 Jan 2005 12:41:00 -0800
+Message-ID: <20050118124100.17b7f47a.davem@davemloft.net>
+References: <200501141129.21461.dsp@llnl.gov>
+	<16874.25146.335366.990655@robur.slu.se>
+	<200501180935.25419.dsp@llnl.gov>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261409AbVARUms@vger.kernel.org>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20050118102932.GD4274@stusta.de>
-Sender: linux-kernel-owner@vger.kernel.org
+Cc: Robert.Olsson@data.slu.se, robert.olsson@its.uu.se, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Dave Peterson <dsp@llnl.gov>
+In-Reply-To: <200501180935.25419.dsp@llnl.gov>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 Jan 2005 11:29:32 +0100
-Adrian Bunk <bunk@stusta.de> wrote:
+On Tue, 18 Jan 2005 09:35:25 -0800
+Dave Peterson <dsp@llnl.gov> wrote:
 
-> I haven't found any way how xfrm_policy_delete could be called from 
-> modular code in 2.6.11-rc1-mm1.
+> On Sunday 16 January 2005 04:46 am, Robert Olsson wrote:
+> > Dave Peterson writes:
+> >  > I found a piece of code that looks problematic in the 2.6.10 kernel.
+> >  > The following code appears starting on line 746 in function inject()
+> >  > of net/core/pktgen.c:
+> >  >                                         schedule();
+> >  >                                 else
+> >  >                                         do_softirq();
+> >
+> >  Thanks!
+> >  So it should be?
 > 
-> Unless I'm wrong or a patch for a modular usage is pending, I'm 
-> therefore suggesting this patch for removing the EXPORT_SYMBOL.
+> Cool!  Looks like a fix to me.
 
-Looks good to me, applied.
+I'm still a little bit confused on this one.
 
-Thanks Adrian.
+Since when does do_softirq() need preemption disabled
+around calls to it?
+
+do_softirq() disabled hard IRQs during the duration of it's
+execution, thus effectively disabling preemption.
+
+What is the problematic case again?
