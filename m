@@ -1,8 +1,8 @@
 From: James Morris <jmorris@redhat.com>
 Subject: Re: Crypto tests via tcrypt.o modules failes
-Date: Thu, 16 Sep 2004 15:25:44 -0400 (EDT)
+Date: Thu, 16 Sep 2004 15:29:10 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Xine.LNX.4.44.0409161524190.4676-100000@thoron.boston.redhat.com>
+Message-ID: <Xine.LNX.4.44.0409161528250.4676-100000@thoron.boston.redhat.com>
 References: <1095358282.3359.83.camel@swoop.gemtek.lt>
 Mime-Version: 1.0
 Content-Type: TEXT/PLAIN; charset=US-ASCII
@@ -15,17 +15,11 @@ List-Id: netdev.vger.kernel.org
 
 On Thu, 16 Sep 2004, Zilvinas Valinskas wrote:
 
-> Details are here,http://www.gemtek.lt/~zilvinas/crypto/tcrypt-tests
+> I would say Xscale IXP425 has a rather interesting 32, 16 bits
+> read/write results if address is not aligned properly.
 
-AES is failing, but it has proven to be endian safe on other 
-architectures.
-
-
-Where does the 'fig' come from in:
-
-<4>decrypt: fig
-
-Can you try a completely unpatched kernel?
+Odd, no other algorithms seem to be having any problems.  Can you post 
+your .config?
 
 
 - James
