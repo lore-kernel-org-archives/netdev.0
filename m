@@ -1,17 +1,17 @@
 From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH] [2.6] Update forcedeth to 0.23
-Date: Thu, 05 Feb 2004 04:48:44 -0500
+Subject: Re: [BK] Updated 2.6 typhoon driver for 3CR990 & 3CR990B cards
+Date: Thu, 05 Feb 2004 05:16:35 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4022117C.60400@pobox.com>
-References: <402190AC.2040307@gmx.net>
+Message-ID: <40221803.7070208@pobox.com>
+References: <1075260716.3637.4.camel@ori.thedillows.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, Manfred Spraul <manfred@colorfullife.com>
+Cc: Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
-In-Reply-To: <402190AC.2040307@gmx.net>
+To: David Dillow <dave@thedillows.org>
+In-Reply-To: <1075260716.3637.4.camel@ori.thedillows.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-applied
+applied to 2.4 and 2.6
