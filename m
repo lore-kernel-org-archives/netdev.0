@@ -1,28 +1,46 @@
-From: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
-Subject: [PATCH] Add MODULE_VERSION to the 3c515 driver
-Date: Sat, 22 Jan 2005 11:30:37 +0100
-Message-ID: <20050122103037.GB6476@bayes.mathematik.tu-chemnitz.de>
+From: "MMS Notifier" <mms-notifier@aaa-calif.com>
+Subject: SecureMail Server notification
+Date: Sat, 22 Jan 2005 02:43:42 -0800
+Message-ID: <6DECF1D95JO1565372-01@MMS__aaa-calif.com_>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Network Development Mailing List <netdev@oss.sgi.com>
+Content-Type: multipart/mixed;
+ boundary="_-==6DECF1D4BSK77364==-_"
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-Content-Disposition: inline
+To: netdev@oss.sgi.com
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Add MODULE_VERSION to the 3c515 driver.
 
-Signed-off-by: Steffen Klassert <klassert@mathematik.tu-chemnitz.de>
+--_-==6DECF1D4BSK77364==-_
+Content-Type: text/plain;
+ charset=iso-8859-1
+Content-Disposition: inline
 
---- vanilla-2.6.11-rc1/drivers/net/3c515.c	Wed Jan 12 11:56:16 2005
-+++ linux-2.6.11-rc1/drivers/net/3c515.c	Sat Jan 22 11:25:21 2005
-@@ -86,6 +86,7 @@
- MODULE_AUTHOR("Donald Becker <becker@scyld.com>");
- MODULE_DESCRIPTION("3Com 3c515 Corkscrew driver");
- MODULE_LICENSE("GPL");
-+MODULE_VERSION(DRV_VERSION);
+Our EMail system has detected a virus that cannot be cleaned in your
+original email sent to one of our users.  Please take action to clean
+your system. Virus Scanner found the 
+ W32/Lovgate.x@MM!zip virus
+   in the attached file: readme.zip
  
- /* "Knobs" for adjusting internal parameters. */
- /* Put out somewhat more debugging messages. (0 - no msg, 1 minimal msgs). */
+
+--_-==6DECF1D4BSK77364==-_
+Content-Type: message/rfc822
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline
+
+Received: from 69.224.107.86 by mail.aaa-calif.com with ESMTP (
+ Tumbleweed MMS SMTP Relay); Sat, 22 Jan 2005 02:43:31 -0800
+X-Server-Uuid: 0C5A08D0-32A3-4639-8D0C-F6C8FC676303
+From: netdev@oss.sgi.com
+To: john@aaa-calif.com
+Subject: test
+Date: Sat, 22 Jan 2005 02:43:13 -0800
+MIME-Version: 1.0
+X-Priority: 3
+X-MSMail-Priority: Normal
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
+
+
+--_-==6DECF1D4BSK77364==-_--
