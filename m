@@ -1,42 +1,84 @@
-From: Thomas Munck Steenholdt <tmus@tmus.dk>
-Subject: Re: [PATCH] 2.6.3 pcnet32.c fix link reporting for non-mii devices
-Date: Sat, 21 Feb 2004 08:27:37 +0100
+From: Francois Romieu <romieu@fr.zoreil.com>
+Subject: Re: [PATCH] Re: rtl8169 problem and 2.4.23
+Date: Sat, 21 Feb 2004 14:43:04 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <40370869.1040304@tmus.dk>
+Message-ID: <20040221144304.A3230@electric-eye.fr.zoreil.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed; boundary="7AUc2qLy4jB3hD7Z"
+Cc: netdev@oss.sgi.com,
+        Linux Kernel Mailinglist <linux-kernel@vger.kernel.org>,
+        Daniel Egger <degger@fhm.edu>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Jeff Garzik <jgarzik@pobox.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Don Fry wrote:
-> Thomas,
-> 
-> Thanks for the input.  I am the unofficial maintainer, sort of.  I don't
-> have a card without an mii, so I can't test some of the changes.  Do
-> you know of a way to determine the link state so I can correctly return
-> the state?
-> 
-> By the way, are you running 2.4 or 2.6?
-> 
-> 
 
-This patch was made against 2.6.3 but it seems that at least Linus'
-kernel tree has been pretty much untouched for at least a little while,
-so i think it'll patch very nicely against some of the newer 2.4 kernels.
+--7AUc2qLy4jB3hD7Z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
 
-If you can test my patch on som NICs with mii and it works I guess it's
-okay! The only NIC that doesn't have mii that I have personaly
-experience with is the virtual device found in VMware. Thats also the
-one I used to test the patch and it works fine.
+Jeff,
 
-Perhaps check this comment posted to a redhat kernel bug for info:
-https://bugzilla.redhat.com/bugzilla/show_bug.cgi?id=100527#c5
+  can you push the attached patch directly to both 2.6.x and 2.4.x ?
+It will exhibit an offset of 3 lines against 2.4.x but it works the same
+on 2.4.x and on 2.6.x. The fix already exists in -mm/-netdev serie.
 
-The guy suggests taking a peek at the LED status register to figure out
-if there's a link or not. However I have no idea if that will work for
-the VMware NIC anyway and that's the reason for doing it the way I did!
+Daniel Egger <degger@fhm.edu> confirmed I did not manage to add a giant
+typo in a 4 lines patch. When hit, this bug is more or less a killer.
 
-Thomas
+Daniel, I have no clear idea for the performance issues. Actually I am more
+concerned with the stability side of this driver, especially in the new,
+shamelessly hacked, branch of the driver. I'll probably regenerate a set
+of patches and spam^W reach the testers to have a new data point.
+
+--
+Ueimor
+
+--7AUc2qLy4jB3hD7Z
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: attachment; filename="r8169-tx-desc-overflow.patch"
+
+Assume tp->dirty_tx = NUM_TX_DESC/2, tp->cur_tx = NUM_TX_DESC - 1,
+watch "entry" go beyond NUM_TX_DESC. This bug was copied from the 
+(2.6.x only) sis190 driver where it is now fixed.
+Stats are fixed as an extra bonus.
+
+
+diff -Nrup drivers/net/r8169.c.orig drivers/net/r8169.c
+--- drivers/net/r8169.c.orig	Thu Dec 18 03:58:50 2003
++++ drivers/net/r8169.c	Sat Feb 21 14:11:31 2004
+@@ -871,7 +871,6 @@ rtl8169_tx_interrupt(struct net_device *
+ 		     void *ioaddr)
+ {
+ 	unsigned long dirty_tx, tx_left = 0;
+-	int entry = tp->cur_tx % NUM_TX_DESC;
+ 
+ 	assert(dev != NULL);
+ 	assert(tp != NULL);
+@@ -881,14 +880,18 @@ rtl8169_tx_interrupt(struct net_device *
+ 	tx_left = tp->cur_tx - dirty_tx;
+ 
+ 	while (tx_left > 0) {
++		int entry = dirty_tx % NUM_TX_DESC;
++
+ 		if ((tp->TxDescArray[entry].status & OWNbit) == 0) {
+-			dev_kfree_skb_irq(tp->
+-					  Tx_skbuff[dirty_tx % NUM_TX_DESC]);
+-			tp->Tx_skbuff[dirty_tx % NUM_TX_DESC] = NULL;
++			struct sk_buff *skb = tp->Tx_skbuff[entry];
++
++			tp->stats.tx_bytes += skb->len >= ETH_ZLEN ?
++					      skb->len : ETH_ZLEN;
+ 			tp->stats.tx_packets++;
++			dev_kfree_skb_irq(skb);
++			tp->Tx_skbuff[entry] = NULL;
+ 			dirty_tx++;
+ 			tx_left--;
+-			entry++;
+ 		}
+ 	}
+ 
+
+--7AUc2qLy4jB3hD7Z--
