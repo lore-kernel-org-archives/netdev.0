@@ -1,30 +1,32 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: netif_poll_disable() hangs
-Date: Mon, 08 Sep 2003 18:16:49 -0400
+From: Sven-Haegar Koch <haegar@sdinet.de>
+Subject: Re: [PATCH] Re: ifconfig up/down problem
+Date: Tue, 9 Sep 2003 00:40:41 +0200 (CEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <3F5CFFD1.6050702@pobox.com>
-References: <20030907232145.6ec197fd.akpm@osdl.org>
+Message-ID: <Pine.LNX.4.56.0309090039210.28325@space.comunit.de>
+References: <Pine.LNX.4.56.0309090004100.24700@space.comunit.de>
+ <3F5CFF7E.1090005@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: netdev@oss.sgi.com, "David S. Miller" <davem@redhat.com>,
+   Andrew Morton <akpm@digeo.com>, LKML <linux-kernel@vger.kernel.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Andrew Morton <akpm@osdl.org>
-In-Reply-To: <20030907232145.6ec197fd.akpm@osdl.org>
+To: Jeff Garzik <jgarzik@pobox.com>
+In-Reply-To: <3F5CFF7E.1090005@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andrew Morton wrote:
-> Very simple:
-> 
-> 	ifup eth0
-> 	ifdown eth0
-> 	ifup eth0
-> 	ifdown eth0	<- hangs in dev_close -> netif_poll_disable()
-> 
-> 
-> Because the first close sets __LINK_STATE_RX_SCHED and nothing ever clears
-> it.  
+On Mon, 8 Sep 2003, Jeff Garzik wrote:
 
+> Sven-Haegar Koch wrote:
+> > Short: ifconfig ethX down locks
+> Does the attached patch fix it?
 
-Thanks, fix patch just sent.
+Yes, it does - thanks a lot!
+
+c'ya
+sven
+
+-- 
+
+The Internet treats censorship as a routing problem, and routes around it.
+(John Gilmore on http://www.cygnus.com/~gnu/)
