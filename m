@@ -1,8 +1,9 @@
 From: "Carlos Velasco" <carlosev@newipnet.com>
 Subject: Bug? ARP with wrong src IP address
-Date: Wed, 23 Jul 2003 17:12:00 +0200
+Date: Wed, 23 Jul 2003 17:25:40 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200307231712000985.1CE20A63@192.168.128.16>
+Message-ID: <200307231725400974.1CEE8D78@192.168.128.16>
+References: <200307231712000985.1CE20A63@192.168.128.16>
 Mime-Version: 1.0
 Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 8bit
