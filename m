@@ -1,47 +1,72 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: PROBLEM: IProute hangs after running traffic shaping scripts
-Date: Mon, 8 Nov 2004 19:33:00 +0100
-Message-ID: <20041108183300.GF31969@postel.suug.ch>
-References: <418B4C7C.8000402@crocom.com.pl> <418EA032.7050507@trash.net> <418ECE85.9090203@trash.net> <20041108135431.GE31969@postel.suug.ch> <418F9AD0.1040701@trash.net>
+From: "Ravinandan Arakali" <ravinandan.arakali@s2io.com>
+Subject: RE: Please ignore the corrupt patches sent earlier.
+Date: Mon, 8 Nov 2004 11:07:56 -0800
+Message-ID: <001f01c4c5c6$422f5050$9810100a@S2IOtech.com>
+Reply-To: <ravinandan.arakali@s2io.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: Szymon Miotk <spam@crocom.com.pl>, netdev@oss.sgi.com
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: "'koushik'" <raghavendra.koushik@s2io.com>, <romieu@fr.zoreil.com>,
+        <netdev@oss.sgi.com>, <leonid.grossman@s2io.com>,
+        <rapuru.sriram@s2io.com>, <alicia.pena@s2io.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-Content-Disposition: inline
-In-Reply-To: <418F9AD0.1040701@trash.net>
+To: "'Jeff Garzik'" <jgarzik@pobox.com>
+In-Reply-To: 
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* Patrick McHardy <418F9AD0.1040701@trash.net> 2004-11-08 17:12
-> Thomas Graf wrote:
-> 
-> >>+	/* unlink inner qdiscs from dev->qdisc_list immediately */
-> >>+	if (qdisc->ops->cl_ops != NULL)
-> >>+		list_add(&qdisc->list, &cql);
-> >>   
-> >>
-> >
-> >I think you should extend the above to:
-> >
-> >if (qdisc->ops->cl_ops != NULL && !list_empty(&qdisc->list))
-> >
-> >Otherwise you might unlink entries just added before the
-> >rcu callback and it prevents an unneeded attempt to delete
-> >qdiscs for inner classful qdiscs
-> > 
-> >
-> There is some optimization possible, I will do this for the final
-> patch. But I don't understand the problem you refer to, can you
-> please explain ?
+Jeff,
+By default, sendmail puts the From: address as "root@linux.site".
+We suspect this may be causing your pobox domain to reject the
+message. We'll try sending the first patch to you with
+From: address set to Koushik's(using -f option of sendmail).
+Kindly ack if you get the patch and we'll send the rest of the
+patches.
 
-I don't have the time to verify this at the moment but:
+Thanks,
+Ravi
 
-1) qdisc_destroy unlinking all the lists
-2) RTM_NEWQDISC creating a new qdisc with the same major classid as the old one
-   which will suceed since the old one cannot be found anymore.
-3) rcu callback __qdisc_destroy -> qdisc_destroy looking through qdisc_list
-   again and then deleting the new entries because their major classid matches.
+-----Original Message-----
+From: Ravinandan Arakali [mailto:ravinandan.arakali@s2io.com]
+Sent: Monday, November 08, 2004 9:56 AM
+To: 'Jeff Garzik'
+Cc: 'koushik'; 'romieu@fr.zoreil.com'; 'netdev@oss.sgi.com';
+'leonid.grossman@s2io.com'; 'rapuru.sriram@s2io.com';
+'alicia.pena@s2io.com'
+Subject: RE: Please ignore the corrupt patches sent earlier.
 
-I might be missing something though.
+
+Jeff,
+All the 12 patches were sent by Koushik on Fri evening. We(Rapuru,
+myself) have received it.
+mailq shows the following error for your address "Sender address
+rejected: Domain not found". Is there an alternate address where
+we can send the patches ?
+
+Can anybody on the netdev list confirm if they got the patches ?
+
+Regards,
+Ravi
+
+-----Original Message-----
+From: Jeff Garzik [mailto:jgarzik@pobox.com]
+Sent: Saturday, November 06, 2004 9:11 AM
+To: ravinandan.arakali@s2io.com
+Cc: 'koushik'; romieu@fr.zoreil.com; netdev@oss.sgi.com;
+leonid.grossman@s2io.com; rapuru.sriram@s2io.com; alicia.pena@s2io.com
+Subject: Re: Please ignore the corrupt patches sent earlier.
+
+
+Ravinandan Arakali wrote:
+> Jeff,
+> Thanks for the excellent suggestion. We have used this method to send all
+> the 12 patches. Note that since our mail server went down and came back
+> up during this process, the mail containing patch3 has appeared twice. 
+> Pls ignore the duplicate.
+
+Alas, I'm still waiting for the patches...  Does 'mailq' show messages 
+waiting to be delivered?
+
+	Jeff
