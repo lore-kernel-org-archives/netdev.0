@@ -1,31 +1,70 @@
-From: Jeff Chua <jeffchua@silk.corp.fedex.com>
-Subject: Re: ipw2100 wireless driver
-Date: Wed, 14 Jul 2004 19:48:43 +0800 (SGT)
+From: Mikael Pettersson <mikpe@csd.uu.se>
+Subject: [PATCH][2.6.8-rc1-mm1] net/sunrpc/xprt.c gcc341 inlining fix
+Date: Wed, 14 Jul 2004 14:17:25 +0200 (MEST)
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <Pine.LNX.4.60.0407141947270.27995@boston.corp.fedex.com>
-References: <20040714114135.GA25175@elf.ucw.cz>
-Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII; format=flowed
-Cc: netdev@oss.sgi.com, kernel list <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S267214AbUGNLvS@vger.kernel.org>
-To: Pavel Machek <pavel@ucw.cz>
-In-Reply-To: <20040714114135.GA25175@elf.ucw.cz>
+Message-ID: <200407141217.i6ECHPT3008341@harpo.it.uu.se>
+Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S267371AbUGNMS2@vger.kernel.org>
+To: akpm@osdl.org
 List-Id: netdev.vger.kernel.org
 
+gcc-3.4.1 errors out in 2.6.8-rc1-mm1 at net/sunrpc/xprt.c:
 
-On Wed, 14 Jul 2004, Pavel Machek wrote:
+net/sunrpc/xprt.c: In function `xprt_reserve':
+net/sunrpc/xprt.c:84: sorry, unimplemented: inlining failed in call to 'do_xprt_reserve': function body not available
+net/sunrpc/xprt.c:1307: sorry, unimplemented: called from here
+make[2]: *** [net/sunrpc/xprt.o] Error 1
+make[1]: *** [net/sunrpc] Error 2
+make: *** [net] Error 2
 
-> Hi!
->
-> What is the status of ipw2100? Is there chance that it would be pushed
-> into mainline?
->
-> I have few problems with that:
->
-> * it will not compile with gcc-2.95. Attached patch fixes one problem
-> but more remain.
+do_xprt_reserve() is marked inline but used defore its function
+body is available. Moving it before its only caller fixes the problem.
 
-I've given up hope on that. Don't think it'll ever compile on 2.95. I'm 
-using ndiswrapper and it works nicely.
+Signed-off-by: Mikael Pettersson <mikpe@csd.uu.se>
 
-Jeff.
+--- linux-2.6.8-rc1-mm1/net/sunrpc/xprt.c.~1~	2004-07-14 12:58:35.000000000 +0200
++++ linux-2.6.8-rc1-mm1/net/sunrpc/xprt.c	2004-07-14 13:47:46.000000000 +0200
+@@ -1296,21 +1296,6 @@
+ /*
+  * Reserve an RPC call slot.
+  */
+-void
+-xprt_reserve(struct rpc_task *task)
+-{
+-	struct rpc_xprt	*xprt = task->tk_xprt;
+-
+-	task->tk_status = -EIO;
+-	if (!xprt->shutdown) {
+-		spin_lock(&xprt->xprt_lock);
+-		do_xprt_reserve(task);
+-		spin_unlock(&xprt->xprt_lock);
+-		if (task->tk_rqstp)
+-			del_timer_sync(&xprt->timer);
+-	}
+-}
+-
+ static inline void
+ do_xprt_reserve(struct rpc_task *task)
+ {
+@@ -1332,6 +1317,21 @@
+ 	rpc_sleep_on(&xprt->backlog, task, NULL, NULL);
+ }
+ 
++void
++xprt_reserve(struct rpc_task *task)
++{
++	struct rpc_xprt	*xprt = task->tk_xprt;
++
++	task->tk_status = -EIO;
++	if (!xprt->shutdown) {
++		spin_lock(&xprt->xprt_lock);
++		do_xprt_reserve(task);
++		spin_unlock(&xprt->xprt_lock);
++		if (task->tk_rqstp)
++			del_timer_sync(&xprt->timer);
++	}
++}
++
+ /*
+  * Allocate a 'unique' XID
+  */
