@@ -1,108 +1,236 @@
-From: Christoph Hellwig <hch@lst.de>
-Subject: [PATCH][RFC] use completions instead of sleep_on for rpciod
-Date: Sat, 7 Feb 2004 15:44:05 +0100
+From: Marcel Holtmann <marcel@holtmann.org>
+Subject: Re: some bluetooth fixes
+Date: Sat, 07 Feb 2004 17:57:48 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040207144405.GA19416@lst.de>
+Message-ID: <1076173068.2670.4.camel@pegasus>
+References: <20040206050042.20a2b3b0.ak@suse.de>
+	 <1076079512.2806.40.camel@pegasus> <20040207032428.56ffbebc.ak@suse.de>
+	 <1076152411.14418.73.camel@pegasus>  <20040207125723.391a1fcd.ak@suse.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: multipart/mixed; boundary="=-khpDIt7H5QVmzre/GLkY"
+Cc: bluez-devel@lists.sourceforge.net, netdev@oss.sgi.com,
+        viro@zenII.linux.org.uk
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: Andi Kleen <ak@suse.de>
+In-Reply-To: <20040207125723.391a1fcd.ak@suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-[let's hope some sunrpc folks are on this list, too, the nfs list
- mentioned in MAINTAINERS refuses postings from non-subsribers..]
 
-The rpciod shutdown code gives ugly sleep_on without BKL warnings in
--mm.  And it looks indeed somewhat racy.
+--=-khpDIt7H5QVmzre/GLkY
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 
-The easy fix would be to simply use a completion as in the patch below,
-but that removes all the signal fuzzing semantics the current code has.
-I don't really understand why we want to cancel the operation by
-signals, but I think it'd be better to leave that to people familar with
-the code anyway..
+Hi Andi,
+
+> > I check this. Maybe we have more of them. What do you propose as max
+> > size value for kmalloc? 2*PAGE_SIZE or 4*PAGE_SIZE?
+> 
+> What better fits the intended use case. I don't know how many objects are expected
+> here. Smaller is better probably.
+
+I now looked carefully through your patch and changed and added some
+parts to better fit into. I also fixed another RFCOMM refcount bug.
+Please review it, before I send it to Dave.
+
+> If you want to handle more objects this way you should use seq_file instead.
+
+The general plan is to move over to sysfs.
+
+Regards
+
+Marcel
 
 
---- 1.27/net/sunrpc/sched.c	Fri Jun 20 22:16:26 2003
-+++ edited/net/sunrpc/sched.c	Wed Feb  4 06:29:02 2004
-@@ -71,7 +71,7 @@
-  * rpciod-related stuff
-  */
- static DECLARE_WAIT_QUEUE_HEAD(rpciod_idle);
--static DECLARE_WAIT_QUEUE_HEAD(rpciod_killer);
-+static DECLARE_COMPLETION(rpciod_killer);
- static DECLARE_MUTEX(rpciod_sema);
- static unsigned int		rpciod_users;
- static pid_t			rpciod_pid;
-@@ -950,7 +950,6 @@
- static int
- rpciod(void *ptr)
- {
--	wait_queue_head_t *assassin = (wait_queue_head_t*) ptr;
- 	int		rounds = 0;
+--=-khpDIt7H5QVmzre/GLkY
+Content-Disposition: attachment; filename=patch
+Content-Type: text/x-patch; name=patch; charset=iso-8859-15
+Content-Transfer-Encoding: 7bit
+
+diff -Nru a/net/bluetooth/hci_conn.c b/net/bluetooth/hci_conn.c
+--- a/net/bluetooth/hci_conn.c	Sat Feb  7 17:52:09 2004
++++ b/net/bluetooth/hci_conn.c	Sat Feb  7 17:52:09 2004
+@@ -353,21 +353,24 @@
+ 	struct hci_conn_info *ci;
+ 	struct hci_dev *hdev;
+ 	struct list_head *p;
+-	int n = 0, size;
++	int n = 0, size, err;
  
- 	lock_kernel();
-@@ -992,11 +991,11 @@
- 		rpciod_killall();
- 	}
+ 	if (copy_from_user(&req, (void *) arg, sizeof(req)))
+ 		return -EFAULT;
  
--	rpciod_pid = 0;
--	wake_up(assassin);
+-	if (!(hdev = hci_dev_get(req.dev_id)))
+-		return -ENODEV;
 -
- 	dprintk("RPC: rpciod exiting\n");
- 	unlock_kernel();
+-	size = req.conn_num * sizeof(struct hci_conn_info) + sizeof(req);
++	size = sizeof(req) + req.conn_num * sizeof(*ci);
+ 
+-	if (verify_area(VERIFY_WRITE, (void *)arg, size))
+-		return -EFAULT;
++	if (size > PAGE_SIZE * 2)
++		return -EINVAL;
+ 
+ 	if (!(cl = (void *) kmalloc(size, GFP_KERNEL)))
+ 		return -ENOMEM;
 +
-+	rpciod_pid = 0;
-+	complete_and_exit(&rpciod_killer, 0);
- 	return 0;
- }
++	if (!(hdev = hci_dev_get(req.dev_id))) {
++		kfree(cl);
++		return -ENODEV;
++	}
++
+ 	ci = cl->conn_info;
  
-@@ -1041,7 +1040,7 @@
- 	/*
- 	 * Create the rpciod thread and wait for it to start.
- 	 */
--	error = kernel_thread(rpciod, &rpciod_killer, 0);
-+	error = kernel_thread(rpciod, NULL, 0);
- 	if (error < 0) {
- 		printk(KERN_WARNING "rpciod_up: create thread failed, error=%d\n", error);
- 		rpciod_users--;
-@@ -1057,8 +1056,6 @@
- void
- rpciod_down(void)
- {
--	unsigned long flags;
--
- 	down(&rpciod_sema);
- 	dprintk("rpciod_down pid %d sema %d\n", rpciod_pid, rpciod_users);
- 	if (rpciod_users) {
-@@ -1073,27 +1070,8 @@
+ 	hci_dev_lock_bh(hdev);
+@@ -381,20 +384,21 @@
+ 		(ci + n)->out   = c->out;
+ 		(ci + n)->state = c->state;
+ 		(ci + n)->link_mode = c->link_mode;
+-		n++;
++		if (++n >= req.conn_num)
++			break;
  	}
+ 	hci_dev_unlock_bh(hdev);
  
- 	kill_proc(rpciod_pid, SIGKILL, 1);
--	/*
--	 * Usually rpciod will exit very quickly, so we
--	 * wait briefly before checking the process id.
--	 */
--	clear_thread_flag(TIF_SIGPENDING);
--	yield();
--	/*
--	 * Display a message if we're going to wait longer.
--	 */
--	while (rpciod_pid) {
--		dprintk("rpciod_down: waiting for pid %d to exit\n", rpciod_pid);
--		if (signalled()) {
--			dprintk("rpciod_down: caught signal\n");
--			break;
--		}
--		interruptible_sleep_on(&rpciod_killer);
--	}
--	spin_lock_irqsave(&current->sighand->siglock, flags);
--	recalc_sigpending();
--	spin_unlock_irqrestore(&current->sighand->siglock, flags);
--out:
-+	wait_for_completion(&rpciod_killer);
-+ out:
- 	up(&rpciod_sema);
+ 	cl->dev_id = hdev->id;
+ 	cl->conn_num = n;
+-	size = n * sizeof(struct hci_conn_info) + sizeof(req);
++	size = sizeof(req) + n * sizeof(*ci);
+ 
+ 	hci_dev_put(hdev);
+ 
+-	copy_to_user((void *) arg, cl, size);
++	err = copy_to_user((void *) arg, cl, size);
+ 	kfree(cl);
+ 
+-	return 0;
++	return err ? -EFAULT : 0;
  }
  
+ int hci_get_conn_info(struct hci_dev *hdev, unsigned long arg)
+@@ -407,9 +411,6 @@
+ 	if (copy_from_user(&req, (void *) arg, sizeof(req)))
+ 		return -EFAULT;
+ 
+-	if (verify_area(VERIFY_WRITE, ptr, sizeof(ci)))
+-		return -EFAULT;
+-
+ 	hci_dev_lock_bh(hdev);
+ 	conn = hci_conn_hash_lookup_ba(hdev, req.type, &req.bdaddr);
+ 	if (conn) {
+@@ -425,6 +426,5 @@
+ 	if (!conn)
+ 		return -ENOENT;
+ 
+-	copy_to_user(ptr, &ci, sizeof(ci));
+-	return 0;
++	return copy_to_user(ptr, &ci, sizeof(ci)) ? -EFAULT : 0;
+ }
+diff -Nru a/net/bluetooth/hci_core.c b/net/bluetooth/hci_core.c
+--- a/net/bluetooth/hci_core.c	Sat Feb  7 17:52:09 2004
++++ b/net/bluetooth/hci_core.c	Sat Feb  7 17:52:09 2004
+@@ -716,7 +716,7 @@
+ 	struct hci_dev_list_req *dl;
+ 	struct hci_dev_req *dr;
+ 	struct list_head *p;
+-	int n = 0, size;
++	int n = 0, size, err;
+ 	__u16 dev_num;
+ 
+ 	if (get_user(dev_num, (__u16 *) arg))
+@@ -724,14 +724,15 @@
+ 
+ 	if (!dev_num)
+ 		return -EINVAL;
+-	
+-	size = dev_num * sizeof(*dr) + sizeof(*dl);
+ 
+-	if (verify_area(VERIFY_WRITE, (void *) arg, size))
+-		return -EFAULT;
++	size = sizeof(*dl) + dev_num * sizeof(*dr);
++
++	if (size > PAGE_SIZE * 2)
++		return -EINVAL;
+ 
+ 	if (!(dl = kmalloc(size, GFP_KERNEL)))
+ 		return -ENOMEM;
++
+ 	dr = dl->dev_req;
+ 
+ 	read_lock_bh(&hci_dev_list_lock);
+@@ -746,12 +747,12 @@
+ 	read_unlock_bh(&hci_dev_list_lock);
+ 
+ 	dl->dev_num = n;
+-	size = n * sizeof(*dr) + sizeof(*dl);
++	size = sizeof(*dl) + n * sizeof(*dr);
+ 
+-	copy_to_user((void *) arg, dl, size);
++	err = copy_to_user((void *) arg, dl, size);
+ 	kfree(dl);
+ 
+-	return 0;
++	return err ? -EFAULT : 0;
+ }
+ 
+ int hci_get_dev_info(unsigned long arg)
+diff -Nru a/net/bluetooth/rfcomm/tty.c b/net/bluetooth/rfcomm/tty.c
+--- a/net/bluetooth/rfcomm/tty.c	Sat Feb  7 17:52:09 2004
++++ b/net/bluetooth/rfcomm/tty.c	Sat Feb  7 17:52:09 2004
+@@ -349,7 +349,7 @@
+ 	struct rfcomm_dev_list_req *dl;
+ 	struct rfcomm_dev_info *di;
+ 	struct list_head *p;
+-	int n = 0, size;
++	int n = 0, size, err;
+ 	u16 dev_num;
+ 
+ 	BT_DBG("");
+@@ -362,8 +362,8 @@
+ 
+ 	size = sizeof(*dl) + dev_num * sizeof(*di);
+ 
+-	if (verify_area(VERIFY_WRITE, (void *)arg, size))
+-		return -EFAULT;
++	if (size > PAGE_SIZE * 4)
++		return -EINVAL;
+ 
+ 	if (!(dl = kmalloc(size, GFP_KERNEL)))
+ 		return -ENOMEM;
+@@ -389,9 +389,10 @@
+ 	dl->dev_num = n;
+ 	size = sizeof(*dl) + n * sizeof(*di);
+ 
+-	copy_to_user((void *) arg, dl, size);
++	err = copy_to_user((void *) arg, dl, size);
+ 	kfree(dl);
+-	return 0;
++
++	return err ? -EFAULT : 0;
+ }
+ 
+ static int rfcomm_get_dev_info(unsigned long arg)
+@@ -563,8 +564,10 @@
+ 	set_bit(RFCOMM_TTY_ATTACHED, &dev->flags);
+ 
+ 	err = rfcomm_dlc_open(dlc, &dev->src, &dev->dst, dev->channel);
+-	if (err < 0)
++	if (err < 0) {
++		rfcomm_dev_put(dev);
+ 		return err;
++	}
+ 
+ 	/* Wait for DLC to connect */
+ 	add_wait_queue(&dev->wait, &wait);
+@@ -588,6 +591,9 @@
+ 	}
+ 	set_current_state(TASK_RUNNING);
+ 	remove_wait_queue(&dev->wait, &wait);
++
++	if (err < 0)
++		rfcomm_dev_put(dev);
+ 
+ 	return err;
+ }
+
+--=-khpDIt7H5QVmzre/GLkY--
