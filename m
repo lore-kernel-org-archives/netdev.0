@@ -1,7 +1,7 @@
 From: Stephen Hemminger <shemminger@osdl.org>
-Subject: [PATCH] (8/12) skge: only allow tx/rx csum on Yukon chipset
-Date: Thu, 3 Mar 2005 11:39:19 -0800
-Message-ID: <20050303113919.4b365d90@dxpl.pdx.osdl.net>
+Subject: [PATCH] (9/12) skge: interrupt coalecsing related fixes
+Date: Thu, 3 Mar 2005 11:41:47 -0800
+Message-ID: <20050303114147.1bc9ca1b@dxpl.pdx.osdl.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
@@ -11,81 +11,85 @@ Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Only allow transmit and receive checksum to be set on Yukon chipsets
-because the Genesis chipset support probably is broken based on the
-comments in the sk98lin driver.
+Avoid overflows (and 64 bit) in tha math for computing interrupt
+coalesce values.  Turn on transmit coalescing by default.
 
 Signed-off-by: Stephen Hemminger <shemminger@osdl.org>
 
---- skge-2.6.11/drivers/net/skge.c.orig	2005-03-03 09:42:33.000000000 -0800
-+++ skge-2.6.11/drivers/net/skge.c	2005-03-03 09:51:52.000000000 -0800
-@@ -480,6 +480,17 @@
- 	return ethtool_op_set_sg(dev, data);
- }
- 
-+static int skge_set_tx_csum(struct net_device *dev, u32 data)
-+{
-+	struct skge_port *skge = netdev_priv(dev);
-+	struct skge_hw *hw = skge->hw;
-+
-+	if (hw->chip_id == CHIP_ID_GENESIS && data)
-+		return -EOPNOTSUPP;
-+
-+	return ethtool_op_set_tx_csum(dev, data);
-+}
-+
- static u32 skge_get_rx_csum(struct net_device *dev)
- {
- 	struct skge_port *skge = netdev_priv(dev);
-@@ -487,6 +498,7 @@
- 	return skge->rx_csum;
- }
- 
-+/* Only Yukon supports checksum offload. */
- static int skge_set_rx_csum(struct net_device *dev, u32 data)
- {
- 	struct skge_port *skge = netdev_priv(dev);
-@@ -498,6 +510,7 @@
+--- skge-2.6.11/drivers/net/skge.c.orig	2005-03-03 10:22:43.000000000 -0800
++++ skge-2.6.11/drivers/net/skge.c	2005-03-03 10:26:58.000000000 -0800
+@@ -553,14 +553,27 @@
  	return 0;
  }
  
-+/* Only Yukon II supports TSO (not implemented yet) */
- static int skge_set_tso(struct net_device *dev, u32 data)
+-static inline u32 skge_freq(const struct skge_hw *hw)
++/* Chip internal frequency for clock calculations */
++static inline u32 hwkhz(const struct skge_hw *hw)
  {
- 	if (data)
-@@ -750,7 +763,7 @@
- 	.get_sg		= ethtool_op_get_sg,
- 	.set_sg		= skge_set_sg,
- 	.get_tx_csum	= ethtool_op_get_tx_csum,
--	.set_tx_csum	= ethtool_op_set_tx_csum,
-+	.set_tx_csum	= skge_set_tx_csum,
- 	.get_rx_csum	= skge_get_rx_csum,
- 	.set_rx_csum	= skge_set_rx_csum,
- 	.get_strings	= skge_get_strings,
-@@ -3065,14 +3078,11 @@
- 	dev->poll_controller = skge_netpoll;
- #endif
- 	dev->irq = hw->pdev->irq;
--	if (hw->chip_id != CHIP_ID_GENESIS)
--		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
- 
- 	skge = netdev_priv(dev);
- 	skge->netdev = dev;
- 	skge->hw = hw;
- 	skge->msg_enable = netif_msg_init(debug, default_msg);
--	skge->rx_csum = 1;
- 	skge->tx_ring.count = DEFAULT_TX_RING_SIZE;
- 	skge->rx_ring.count = DEFAULT_RX_RING_SIZE;
- 
-@@ -3097,6 +3107,11 @@
- 	skge->led_blink.function = skge_blink_timer;
- 	skge->led_blink.data = (unsigned long) skge;
- 
-+	if (hw->chip_id != CHIP_ID_GENESIS) {
-+		dev->features |= NETIF_F_IP_CSUM | NETIF_F_SG;
-+		skge->rx_csum = 1;
-+	}
+ 	if (hw->chip_id == CHIP_ID_GENESIS)
+-		return 53215000; /* or:  53.125 MHz */
++		return 53215; /* or:  53.125 MHz */
+ 	else if (hw->chip_id == CHIP_ID_YUKON_EC)
+-		return 125000000; /* or: 125.000 MHz */
++		return 125000; /* or: 125.000 MHz */
+ 	else
+-		return 78215000; /* or:  78.125 MHz */
++		return 78215; /* or:  78.125 MHz */
++}
 +
- 	/* read the mac address */
- 	memcpy_fromio(dev->dev_addr, hw->regs + B2_MAC_1 + port*8, ETH_ALEN);
++/* Chip hz to microseconds */
++static inline u32 skge_clk2usec(const struct skge_hw *hw, u32 ticks)
++{
++	return (ticks * 1000) / hwkhz(hw);
++}
++
++/* Microseconds to chip hz */
++static inline u32 skge_usecs2clk(const struct skge_hw *hw, u32 usec)
++{
++	return hwkhz(hw) * usec / 1000;
+ }
  
+ static int skge_get_coalesce(struct net_device *dev,
+@@ -574,14 +587,8 @@
+ 	ecmd->tx_coalesce_usecs = 0;
+ 
+ 	if (skge_read32(hw, B2_IRQM_CTRL) & TIM_START) {
+-		u32 msk;
+-		u64 delay = skge_read32(hw, B2_IRQM_INI);
+-
+-		pr_debug("irqm = %lld\n", delay);
+-		delay *=  USEC_PER_SEC;
+-
+-		do_div(delay, skge_freq(hw));
+-		msk = skge_read32(hw, B2_IRQM_MSK);
++		u32 delay = skge_clk2usec(hw, skge_read32(hw, B2_IRQM_INI));
++		u32 msk = skge_read32(hw, B2_IRQM_MSK);
+ 
+ 		if (msk & rxirqmask[port])
+ 			ecmd->rx_coalesce_usecs = delay;
+@@ -626,10 +633,7 @@
+ 	if (msk == 0)
+ 		skge_write32(hw, B2_IRQM_CTRL, TIM_STOP);
+ 	else {
+-		u64 ticks = (u64) delay * skge_freq(hw);
+-		pr_debug("ticks * 10^6=%lld\n", ticks);
+-		do_div(ticks, USEC_PER_SEC);
+-		skge_write32(hw, B2_IRQM_INI, ticks);
++		skge_write32(hw, B2_IRQM_INI, skge_usecs2clk(hw, delay));
+ 		skge_write32(hw, B2_IRQM_CTRL, TIM_START);
+ 	}
+ 	return 0;
+@@ -3025,6 +3029,13 @@
+ 
+ 	skge_write32(hw, B0_HWE_IMSK, IS_ERR_MSK);
+ 
++	/* Set interrupt moderation for Transmit only
++	 * Receive interrupts avoided by NAPI
++	 */
++	skge_write32(hw, B2_IRQM_MSK, IS_XA1_F|IS_XA2_F);
++	skge_write32(hw, B2_IRQM_INI, skge_usecs2clk(hw, 100));
++	skge_write32(hw, B2_IRQM_CTRL, TIM_START);
++
+ 	hw->intr_mask = IS_HW_ERR | IS_EXT_REG | IS_PORT_1;
+ 	if (isdualport(hw))
+ 		hw->intr_mask |= IS_PORT_2;
