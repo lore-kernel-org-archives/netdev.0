@@ -1,31 +1,59 @@
-From: Patrick McHardy <kaber@trash.net>
-Subject: Re: [RFC, PATCH 4/5]: netfilter+ipsec - policy lookup
-Date: Mon, 22 Mar 2004 03:29:45 +0100
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: Submission #4  for S2io 10GbE driver
+Date: Sat, 20 Mar 2004 05:00:54 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <405E4F99.7060605@trash.net>
-References: <20040308110331.GA20719@gondor.apana.org.au> <404C874D.4000907@trash.net> <20040308115858.75cdddca.davem@redhat.com> <4059CF17.8090907@trash.net> <20040321221604.GA32277@gondor.apana.org.au> <405E2673.4090808@trash.net> <20040322020322.GA1187@gondor.apana.org.au>
+Message-ID: <405C1656.8080004@pobox.com>
+References: <001001c40e34$d2c3c4b0$0300a8c0@S2IOtech.com> <405C153A.2020809@pobox.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com,
-        netfilter-devel@lists.netfilter.org
+Content-Type: multipart/mixed;
+ boundary="------------090801020801050302080103"
+Cc: netdev@oss.sgi.com, "'ravinandan arakali'" <ravinandan.arakali@s2io.com>,
+        raghavendra.koushik@s2io.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040322020322.GA1187@gondor.apana.org.au>
+To: Leonid Grossman <leonid.grossman@s2io.com>
+In-Reply-To: <405C153A.2020809@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu wrote:
-> On Mon, Mar 22, 2004 at 12:34:11AM +0100, Patrick McHardy wrote:
->
->>Is it correct that __xfrm_route_forward will use NULL for the sock
->>parameter to xfrm_lookup even if the packet is from a local socket ?
-> 
-> No that would be wrong as socket policies won't be applied correctly.
-> Forget about that idea :)
+This is a multi-part message in MIME format.
+--------------090801020801050302080103
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-Thanks anyway, it reminded me to check for !(dst->flags & DST_NOXFRM)
-before xfrm_lookup, I'm going to change this now.
+Jeff Garzik wrote:
+> ===== drivers/net/s2io.h 1.1 vs 1.2 =====
+> --- 1.1/drivers/net/s2io.h	Sat Mar 20 04:38:16 2004
+> +++ 1.2/drivers/net/s2io.h	Sat Mar 20 04:47:53 2004
+> @@ -14,8 +14,8 @@
+>  #define _S2IO_H
+>  
+>  #define TBD 0
+> -#define BIT(loc)        (((u64)0x8000000000000000ULL) >> loc)
+> -#define vBIT(val, loc, sz)  (((u64)val) << (64-loc-sz))
+> +#define BIT(loc)		(1ULL << (loc))
+> +#define vBIT(val, loc, sz)	(((u64)val) << (64-loc-sz))
 
-Regards
-Patrick
+and here is a patch correcting an incorrect cleanup...
+
+
+--------------090801020801050302080103
+Content-Type: text/plain;
+ name="patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="patch"
+
+===== drivers/net/s2io.h 1.2 vs edited =====
+--- 1.2/drivers/net/s2io.h	Sat Mar 20 04:47:53 2004
++++ edited/drivers/net/s2io.h	Sat Mar 20 04:59:28 2004
+@@ -14,7 +14,7 @@
+ #define _S2IO_H
+ 
+ #define TBD 0
+-#define BIT(loc)		(1ULL << (loc))
++#define BIT(loc)		(0x8000000000000000ULL >> (loc))
+ #define vBIT(val, loc, sz)	(((u64)val) << (64-loc-sz))
+ 
+ #ifndef BOOL
+
+--------------090801020801050302080103--
