@@ -1,39 +1,49 @@
 From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
 Subject: Re: [PATCH] Drop ISA dependencies from IRDA drivers
-Date: Thu, 15 Jul 2004 15:35:28 -0700
-Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <20040715223528.GA4645@bougret.hpl.hp.com>
-References: <m34qo96x8m.fsf@averell.firstfloor.org> <40F6B547.7050800@pobox.com> <20040715205001.GA2527@muc.de> <40F6F076.2080001@pobox.com> <20040715215552.GA46635@muc.de>
+Date: Thu, 15 Jul 2004 15:42:35 -0700
+Sender: netdev-bounce@oss.sgi.com
+Message-ID: <20040715224235.GA5164@bougret.hpl.hp.com>
+References: <20040715215552.GA46635@muc.de> <Pine.LNX.4.44.0407160027410.14037-100000@notebook.home.mdiehl.de>
 Reply-To: jt@hpl.hp.com
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Jeff Garzik <jgarzik@pobox.com>, netdev@oss.sgi.com,
-	irda-users@lists.sourceforge.net, jt@hpl.hp.com,
-	the_nihilant@autistici.org,
-	Linux Kernel <linux-kernel@vger.kernel.org>
-Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org-S266427AbUGOWff@vger.kernel.org>
-To: Andi Kleen <ak@muc.de>
+Cc: Andi Kleen <ak@muc.de>, Jeff Garzik <jgarzik@pobox.com>,
+        netdev@oss.sgi.com, irda-users@lists.sourceforge.net, jt@hpl.hp.com,
+        the_nihilant@autistici.org,
+        Linux Kernel <linux-kernel@vger.kernel.org>
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Martin Diehl <lists@mdiehl.de>
 Content-Disposition: inline
-In-Reply-To: <20040715215552.GA46635@muc.de>
+In-Reply-To: <Pine.LNX.4.44.0407160027410.14037-100000@notebook.home.mdiehl.de>
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Jul 15, 2004 at 11:55:52PM +0200, Andi Kleen wrote:
+On Fri, Jul 16, 2004 at 12:32:44AM +0200, Martin Diehl wrote:
+> On 15 Jul 2004, Andi Kleen wrote:
 > 
-> Anyways, this is only tangential to the original reason for the patch.
-> Can you please drop the bogus ISA dependencies. Jean has clearly stated
-> that the drivers have nothing to do with ISA itself.
+> > Remove wrong ISA dependencies for IRDA drivers.
+> > 
+> > 
+> > diff -u linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig
+> > --- linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig-o	2004-07-12 06:09:05.000000000 +0200
+> > +++ linux-2.6.8rc1-amd64/drivers/net/irda/Kconfig	2004-07-15 18:33:48.000000000 +0200
+> > @@ -310,7 +310,7 @@
+> >  
+> >  config NSC_FIR
+> >  	tristate "NSC PC87108/PC87338"
+> > -	depends on IRDA && ISA
+> > +	depends on IRDA
+> 
+> 
+> Admittedly I haven't tried either, but I'm pretty sure this patch will 
+> break building those drivers because they are calling irda_setup_dma - 
+> which is CONFIG_ISA. Maybe this can be dropped but I don't see what's 
+> wrong with !64BIT instead.
 
-	Andy, I never said that, please quote me accurately. I
-personally don't have strong opinions on whether those drivers should
-be tagged with CONFIG_ISA or not, but those hardware are definitely
-mapped on the ISA bus.
+	irda_setup_dma was (supposedly) fixed in 2.6.8-rc1, and no
+longer depend on CONFIG_ISA. Those driver are supposed to work on 64
+bits.
 
-	Also, I just had a report of an user having a problem with the
-removal of isa_virt_to_bus on x86-64 :
-		http://bugme.osdl.org/show_bug.cgi?id=3073
-	Depending on how this bug pans out, we *may* have to revert
-the patch and brings back isa_virt_to_bus.
-
-	Regards,
+> Martin
 
 	Jean
