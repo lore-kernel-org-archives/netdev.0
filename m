@@ -1,22 +1,30 @@
 From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [2.6 patch] net/key/af_key.c: make pfkey_table static
-Date: Mon, 27 Dec 2004 19:05:50 -0800
-Message-ID: <20041227190550.165862d0.davem@davemloft.net>
-References: <20041215004254.GG23151@stusta.de>
+Subject: Re: [2.6 patch] net/netlink/af_netlink.c: possible cleanups
+Date: Mon, 27 Dec 2004 19:08:16 -0800
+Message-ID: <20041227190816.1d166ba2.davem@davemloft.net>
+References: <20041215004604.GH23151@stusta.de>
+	<1103119623.1077.71.camel@jzny.localdomain>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, linux-kernel@vger.kernel.org
+Cc: bunk@stusta.de, alan@redhat.com, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
+        linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Adrian Bunk <bunk@stusta.de>
-In-Reply-To: <20041215004254.GG23151@stusta.de>
+To: hadi@cyberus.ca
+In-Reply-To: <1103119623.1077.71.camel@jzny.localdomain>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 15 Dec 2004 01:42:54 +0100
-Adrian Bunk <bunk@stusta.de> wrote:
+On 15 Dec 2004 09:07:03 -0500
+jamal <hadi@cyberus.ca> wrote:
 
-> The patch below makes the needlessly global pfkey_table static.
+> I think this should be left alone for now; what we need to do is
+> deprecate NETLINK_DEV incase someone is still using it.
+> Else we could get rid of it totaly including what Adrian is deleting
+> below. Any users of NETLINK_DEV? Maybe deleting the feature will get
+> someone whining? ;->
 
-Applied, thanks Adrian.
+While I agree we should probably just kill NETLINK_DEV now
+and don't look back, I have applied Adrian's patch for
+the time being.
