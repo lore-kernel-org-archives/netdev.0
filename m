@@ -1,60 +1,41 @@
-From: "Randy.Dunlap" <rddunlap@osdl.org>
-Subject: Re: [janitor] use netdev_priv() in synclink (char. driver)
-Date: Sat, 6 Mar 2004 20:16:40 -0800
+From: Carl-Daniel Hailfinger <c-d.hailfinger.kernel.2004@gmx.net>
+Subject: Re: Issue Report: forcedeth v0.23, irq with unknown events
+Date: Sun, 07 Mar 2004 14:08:12 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040306201640.7dd15986.rddunlap@osdl.org>
-References: <20040303142907.09d0f7bd.rddunlap@osdl.org>
-	<20040303150105.7ff770b0.rddunlap@osdl.org>
-	<1078499709.2076.5.camel@deimos.microgate.com>
+Message-ID: <404B1EBC.6030901@gmx.net>
+References: <1078624409.404a80995e634@webmail.colorado.edu>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, jgarzik@pobox.com
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Paul Fulghum <paulkf@microgate.com>
-In-Reply-To: <1078499709.2076.5.camel@deimos.microgate.com>
+To: Adam.Torgerson@colorado.edu
+In-Reply-To: <1078624409.404a80995e634@webmail.colorado.edu>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 05 Mar 2004 09:15:09 -0600 Paul Fulghum <paulkf@microgate.com> wrote:
+Adam.Torgerson@colorado.edu wrote:
+> Hello, I'm getting tons of these kernel messages:
+> 
+> "eth0: received irq with unknown events 0x1. Please report"
 
-| On Wed, 2004-03-03 at 17:01, Randy.Dunlap wrote:
-| > | 
-| > | From: Carlo Perassi <carlo@linux.it>
-| > | and Randy.Dunlap <rddunlap@osdl.org>
-| > 
-| > 
-| > Jeff, can you add this patch and the fusion/mptlan driver
-| > patch as well?
-| > 
-| > --
-| > ~Randy
-| > 
-| > 
-| > 
-[snip]
-| > _
-| 
-| 
-| This patch breaks the driver.
-| 
-| The pointer stored in dev->priv points to a structure that is
-| allocated and maintained by the driver.
-| 
-| Changing from dev->priv to netdev_priv(dev) returns a pointer
-| to memory at the end of the net_device structure.
-| 
-| These are two different things.
-| 
-| So with the patch, the driver gets a pointer to something
-| other than the device private information that it needs.
-| 
-| Please dont apply this patch.
+This event is no longer unknown. It is a RX error and you are not the only
+one encountering it. I have a patch which will speed up the network a bit
+and remove the message, but it seems you have serious connection problems.
 
-Yes, I see.
+> on an Abit NF7 (nforce2 Ultra400 + MCP-T is what the box says), so I
+> figured I better report it. The driver works, but is quite slow (only
+> 256kB/s on a local 100Mbit network). lspci shows the device as:
+> 
+> 00:04.0 Ethernet controller: nVidia Corporation nForce2 Ethernet
+> Controller (rev a1)
+> 
+> Currently using 2.6.4-rc1-mm2. Let me know if I can provide any more
+> information (please CC me as I'm not on any lists).
 
-I appreciate you reviewing and catching that, Paul.
+I will send you an updated version of the driver soon for testing.
 
-Thanks,
---
-~Randy
+Rregards,
+Carl-Daniel
+-- 
+http://www.hailfinger.org/
