@@ -1,47 +1,49 @@
-From: Tim Mattox <tmattox@gmail.com>
+From: jamal <hadi@cyberus.ca>
 Subject: Re: [RFC,PATCH] fastroute dead code...
-Date: Fri, 30 Jul 2004 16:29:05 -0400
+Date: 30 Jul 2004 16:27:46 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <ea86ce2204073013292c055a3@mail.gmail.com>
-References: <20040730060348.GA22854@havoc.gtf.org> <ea86ce220407301229522be64f@mail.gmail.com> <20040730193515.GA11365@havoc.gtf.org>
+Message-ID: <1091219266.1029.470.camel@jzny.localdomain>
+References: <20040730060348.GA22854@havoc.gtf.org>
+	 <ea86ce220407301229522be64f@mail.gmail.com>
+	 <20040730193515.GA11365@havoc.gtf.org>
+	 <20040730131004.2be1274d.davem@redhat.com>
+Reply-To: hadi@cyberus.ca
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain
 Content-Transfer-Encoding: 7bit
-Cc: davem@redhat.com, hadi@cyberus.ca, netdev@oss.sgi.com
+Cc: Jeff Garzik <jgarzik@pobox.com>, tmattox@gmail.com, netdev@oss.sgi.com,
+        Ralf Baechle <ralf@linux-mips.org>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jeff Garzik <jgarzik@pobox.com>
-In-Reply-To: <20040730193515.GA11365@havoc.gtf.org>
+To: "David S. Miller" <davem@redhat.com>
+In-Reply-To: <20040730131004.2be1274d.davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-The code that uses (used?) fastroute is not in mainline.  AFAIK there were
-two ethernet drivers that you could load that used it, one tulip based
-and the other 8390 based.  Here's one of several archives of the
-ancient driver code:
-http://www.linuxgrill.com/anonymous/fire/alexey/fastroute/
-They do not look like they have been maintained, in many years.  It dates
-from early 2.2 kernel days.  Apparently in it's day, a Linux box with fastroute
-could keep up with a Cisco router, but I've not been able to find the relevant
-benchmark numbers via google as of yet, and I've stopped looking.
-
-So, yes, I don't dispute that it's dead code as seen in mainline kernel source,
-and should probably be removed now.  If it was still important, we would
-have seen fastroute GigE drivers by now, IMHO.
-
-On Fri, 30 Jul 2004 15:35:15 -0400, Jeff Garzik <jgarzik@pobox.com> wrote:
-[snip]
-> Well my main point is that the code _doesn't do anything_.
+On Fri, 2004-07-30 at 16:10, David S. Miller wrote:
+> On Fri, 30 Jul 2004 15:35:15 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
 > 
-> It is dead code, as-is, in the kernel.  It would require patches to
-> actually work at all.
+> > It is dead code, as-is, in the kernel.  It would require patches to
+> > actually work at all.
+> > 
+> > It is impossible that fastrouting is being actively used, without patches.
 > 
-> It is impossible that fastrouting is being actively used, without patches.
-> 
->         Jeff
+> I totally agree.  And people can always resurrect it from the
+> repository history or an old tarball if they wish.
 
-Some might consider dropping in a new network driver module a patch,
-others wouldn't...  Anyway, as I said before, IMHO I agree its dead code
-worthy of removal unless someone comes up with a GigE driver that
-actually uses it.
--- 
-Tim Mattox - tmattox@gmail.com - http://homepage.mac.com/tmattox/
+Patches are needed for the driver to use that code. So its not entirely
+dead code i.e it is referenced from fastroute enabled drivers.
+Sample (really old) code found at:
+http://ftp.iasi.roedu.net/mirrors/ftp.inr.ac.ru/ip-routing/fastroute/
+
+ 
+> I think it should be killed entirely, and that's what I'm going
+> to do.
+
+Nod from here. 
+Before you kill it lets hear from Ralf who is acquinted with someone
+that uses it and sings praises of it (although i personaly dont believe
+it ;->).
+
+cheers,
+jamal
