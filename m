@@ -1,22 +1,34 @@
-From: "David S. Miller" <davem@davemloft.net>
-Subject: Re: [PATCH]: Remove duplicate declarations from netlink.h
-Date: Fri, 27 Aug 2004 17:30:39 -0700
+From: Matthew Galgoci <mgalgoci@redhat.com>
+Subject: [patch] kill warning in sk98lin
+Date: Fri, 27 Aug 2004 21:18:57 -0400 (EDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040827173039.2bb348cc.davem@davemloft.net>
-References: <412F304B.7080804@trash.net>
+Message-ID: <Pine.LNX.4.44.0408272116540.16018-100000@lacrosse.corp.redhat.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Content-Type: TEXT/PLAIN; charset=US-ASCII
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Patrick McHardy <kaber@trash.net>
-In-Reply-To: <412F304B.7080804@trash.net>
+To: netdev@oss.sgi.com, <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 27 Aug 2004 14:59:55 +0200
-Patrick McHardy <kaber@trash.net> wrote:
 
-> This patch removes some duplicate delarations from netlink.h.
+Fix up a warning in sk98lin:
 
-Applied, thanks Patrick.
+--- drivers/net/sk98lin/skge.c.orig	2004-08-27 21:01:33.447576657 -0400
++++ drivers/net/sk98lin/skge.c	2004-08-27 21:06:07.199406778 -0400
+@@ -788,8 +788,9 @@
+ 	cards = skge_probe();
+ 	if (cards == 0) {
+ 		printk("sk98lin: No adapter found.\n");
++		cards = -ENODEV;
+ 	}
+-	return cards ? 0 : -ENODEV;
++	return cards;
+ } /* skge_init_module */
+ 
+ 
+
+-- 
+Matthew Galgoci
+System Administrator and Sr. Manager of Ruminants
+Red Hat, Inc
+919.754.3700 x44155
