@@ -1,90 +1,132 @@
-From: Jean Tourrilhes <jt@bougret.hpl.hp.com>
-Subject: Re: [RFC] Wireless extensions rethink
-Date: Wed, 16 Jun 2004 13:42:48 -0700
+From: Jeb Cramer <cramerj@intel.com>
+Subject: [PATCH 1/1 2.4] e1000 management reset fix
+Date: 15 Jun 2004 21:41:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040616204248.GA23617@bougret.hpl.hp.com>
-References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl> <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <40D08769.3070106@home.nl>
-Reply-To: jt@hpl.hp.com
+Message-ID: <1087360890.12233.11.camel@mini>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: sfeldma@pobox.com, netdev@oss.sgi.com, jkmaline@cc.hut.fi
+Content-Type: text/plain
+Content-Transfer-Encoding: 7bit
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Gertjan van Wingerde <gwingerde@home.nl>
-Content-Disposition: inline
-In-Reply-To: <40D08769.3070106@home.nl>
+To: jgarzik@pobox.com, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, Jun 16, 2004 at 07:46:17PM +0200, Gertjan van Wingerde wrote:
-> 
-> Scott,
-> 
-> I'm afraid that this isn't enough. I think we have to split up the various 
-> settings over
-> multiple commands. If we add just two commands (one for GET and one for 
-> SET) we have to
-> change the binary ioctl-interface every time a new setting arrives (e.g. 
-> see how new
-> settings will be added due to WPA support. That solution just isn't 
-> future-proof.
-> 
-> Jean, Jouni, Jeff: What are your thoughts about this?
+* Resetting the adapter blew away management settings.  So we save the
+important bits before performing a reset.
 
-	You are asking me what I think about throwing away the API I
-designed and restarting from scratch. You must be joking ;-)
-	Furthermore, if you really want to redesign the API, then you
-don't want to ask the guy responsible of the first one to avoid its
-influence and avoid doing the same mistakes ;-)
+-------------------------------------------------------
 
-	If you really want to have more background on my thoughts,
-please look at this thread :
-		http://marc.theaimsgroup.com/?t=107835339400003&r=1&w=2
 
-	Seriously, these are my thoughts :
-	o Backward/forward compatibility has always be my number one
-priority since 1996. There is many wireless drivers *NOT* in the
-kernel (see my web page) and many utilities using the current API. For
-example, both the Red-Hat configurator and the Debian installer link
-with libiw. So, it's not just about rewritting iwconfig.
-	o Designing an API is not about choosing if you use multiple
-ioctls or a single ioctl, or another mechanism. I don't care about
-those details. Making choices will always make people unhappy.
-	o I'm slow and lazy, but not opposed to changes, as long as
-they are well motivated and designed. Yeah, for WPA, I totally suck,
-but Jouni is going to save the day. I'm not opposed to fixing my
-mistakes, as long as it's painless for people using the API.
-	o If you really want to improve Linux-802.11 support, we
-should focus first on the missing parts (in-kernel 802.11 framing and
-management), not redo the stuff that already works.
-	o I don't want to get in your way, so don't expect much from
-me. If you can do a better job than me, then we all win.
-
-	I also asked Jeff why he want to redesign the API, and in the
-end there was only two issues :
-	1) type-safe handler versus generic handler. I personally
-disagree with Jeff on that one. But, you can easilly fix it by
-offering wrapper to the current API :
-	http://marc.theaimsgroup.com/?l=linux-netdev&m=107896289630224&w=2
-	2) The use of ioctls. I've created a patch to add RtNetlink
-support to the Wireless Extension API, and so far nobody has commented
-on this :
-	http://marc.theaimsgroup.com/?l=linux-netdev&m=107846135617655&w=2
-	A more recent/functional version of this patch is on my web
-page. I'm not going to waste time on this if nobody cares.
-
-> I agree that we should be able to remove the commit 
-> command if we are
-> able to set multiple settings that belong together at the same time.
-
-	Setting that belong together is highly dependant on how the
-firware is written. With most cards, *all* setting belong together
-(check the Raylink driver if you have time).
-	The commit command in current WE is optional. You don't like
-it, you don't use it.
-
-	Are those the answer you were looking for, or did I miss
-something ?
-
-	Have fun...
-
-	Jean
+diff -Nuarp
+--- A/drivers/net/e1000/e1000.h
++++ B/drivers/net/e1000/e1000.h
+@@ -197,6 +197,7 @@ struct e1000_adapter {
+ 	uint32_t part_num;
+ 	uint32_t wol;
+ 	uint32_t smartspeed;
++	uint32_t en_mng_pt;
+ 	uint16_t link_speed;
+ 	uint16_t link_duplex;
+ 	spinlock_t stats_lock;
+diff -Nuarp
+--- A/drivers/net/e1000/e1000_hw.c
++++ B/drivers/net/e1000/e1000_hw.c
+@@ -265,6 +265,17 @@ e1000_set_mac_type(struct e1000_hw *hw)
+         return -E1000_ERR_MAC_TYPE;
+     }
+ 
++    switch(hw->mac_type) {
++    case e1000_82541:
++    case e1000_82547:
++    case e1000_82541_rev_2:
++    case e1000_82547_rev_2:
++        hw->asf_firmware_present = TRUE;
++        break;
++    default:
++        break;
++    }
++
+     return E1000_SUCCESS;
+ }
+ 
+@@ -5189,3 +5200,27 @@ e1000_set_vco_speed(struct e1000_hw *hw)
+     return E1000_SUCCESS;
+ }
+ 
++/******************************************************************************
++ * Verifies the hardware needs to allow ARPs to be processed by the host
++ *
++ * hw - Struct containing variables accessed by shared code
++ *
++ * returns: - TRUE/FALSE
++ *
++ *****************************************************************************/
++uint32_t
++e1000_enable_mng_pass_thru(struct e1000_hw *hw)
++{
++    uint32_t manc;
++
++    if (hw->asf_firmware_present) {
++        manc = E1000_READ_REG(hw, MANC);
++
++        if (!(manc & E1000_MANC_RCV_TCO_EN) ||
++            !(manc & E1000_MANC_EN_MAC_ADDR_FILTER))
++            return FALSE;
++        if ((manc & E1000_MANC_SMBUS_EN) && !(manc & E1000_MANC_ASF_EN))
++            return TRUE;
++    }
++    return FALSE;
++}
+diff -Nuarp
+--- A/drivers/net/e1000/e1000_hw.h
++++ B/drivers/net/e1000/e1000_hw.h
+@@ -307,6 +307,7 @@ int32_t e1000_led_off(struct e1000_hw *h
+ /* Adaptive IFS Functions */
+ 
+ /* Everything else */
++uint32_t e1000_enable_mng_pass_thru(struct e1000_hw *hw);
+ void e1000_clear_hw_cntrs(struct e1000_hw *hw);
+ void e1000_reset_adaptive(struct e1000_hw *hw);
+ void e1000_update_adaptive(struct e1000_hw *hw);
+@@ -983,6 +984,7 @@ struct e1000_hw {
+     e1000_ms_type master_slave;
+     e1000_ms_type original_master_slave;
+     e1000_ffe_config ffe_config_state;
++    uint32_t asf_firmware_present;
+     unsigned long io_base;
+     uint32_t phy_id;
+     uint32_t phy_revision;
+diff -Nuarp
+--- A/drivers/net/e1000/e1000_main.c
++++ B/drivers/net/e1000/e1000_main.c
+@@ -299,7 +299,7 @@ e1000_down(struct e1000_adapter *adapter
+ void
+ e1000_reset(struct e1000_adapter *adapter)
+ {
+-	uint32_t pba;
++	uint32_t pba, manc;
+ 	/* Repartition Pba for greater than 9k mtu
+ 	 * To take effect CTRL.RST is required.
+ 	 */
+@@ -341,6 +341,12 @@ e1000_reset(struct e1000_adapter *adapte
+ 
+ 	e1000_reset_adaptive(&adapter->hw);
+ 	e1000_phy_get_info(&adapter->hw, &adapter->phy_info);
++
++	if(adapter->en_mng_pt) {
++		manc = E1000_READ_REG(&adapter->hw, MANC);
++		manc |= (E1000_MANC_ARP_EN | E1000_MANC_EN_MNG2HOST);
++		E1000_WRITE_REG(&adapter->hw, MANC, manc);
++	}
+ }
+ 
+ /**
+@@ -483,6 +489,8 @@ e1000_probe(struct pci_dev *pdev,
+ 	if(pci_using_dac)
+ 		netdev->features |= NETIF_F_HIGHDMA;
+ 
++	adapter->en_mng_pt = e1000_enable_mng_pass_thru(&adapter->hw);
++
+ 	/* before reading the EEPROM, reset the controller to 
+ 	 * put the device in a known good starting state */
+ 	
