@@ -1,32 +1,64 @@
-From: Johannes Stezenbach <js@linuxtv.org>
-Subject: Re: 2.6.11: USB broken on nforce4, ipv6 still broken, centrino speedstep even more broken than in 2.6.10
-Date: Tue, 22 Mar 2005 17:22:03 +0100
-Message-ID: <20050322162203.GB19668@linuxtv.org>
-References: <20050311202122.GA13205@fefe.de> <20050311173308.7a076e8f.akpm@osdl.org> <20050321163358.1b4968a0.akpm@osdl.org> <20050322021857.GA17972@linuxtv.org>
+From: Stephen Frost <sfrost@snowman.net>
+Subject: Re: [IPSEC] Too many SADs!
+Date: Tue, 22 Mar 2005 11:59:28 -0500
+Message-ID: <20050322165928.GC8725@ns.snowman.net>
+References: <200503220052.52756.wolfgang.walter@studentenwerk.mhn.de>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-To: Andrew Morton <akpm@osdl.org>, felix-linuxkernel@fefe.de,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: multipart/signed; micalg=pgp-sha1;
+	protocol="application/pgp-signature"; boundary="TRYliJ5NKNqkz5bu"
+Cc: netdev@oss.sgi.com
+To: Wolfgang Walter <wolfgang.walter@studentenwerk.mhn.de>
 Content-Disposition: inline
-In-Reply-To: <20050322021857.GA17972@linuxtv.org>
+In-Reply-To: <200503220052.52756.wolfgang.walter@studentenwerk.mhn.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Johannes Stezenbach wrote:
-> Grab the ncp package from http://www.fefe.de/ncp/, or more specifically
-> ftp://ftp.fu-berlin.de/unix/network/ncp/ncp-1.2.3.tar.bz2.
-> 
-> It's a very useful and handy tool for pushing around data within
-> a LAN of a small workgroup, one guy does "npush foo" and yells
-> at the intended recepient "do npoll". The first one to do
-> it wins and gets foo ;-)
 
-In case that description sounded too silly: The essential feature
-of ncp is that it requires no configuration or installation of a
-server daemon, and you don't even need to worry about host names or the
-IP address of the source or destination machine. Just hook two computers
-to the same network and you're ready to npush/npoll. Similar to
-netcat + tar, but way more convenient.
+--TRYliJ5NKNqkz5bu
+Content-Type: text/plain; charset=us-ascii
+Content-Disposition: inline
+Content-Transfer-Encoding: quoted-printable
 
-Johannes
+* Wolfgang Walter (wolfgang.walter@studentenwerk.mhn.de) wrote:
+> We had the same problem. Seems to be a limitation of the pfkey-implementa=
+tion=20
+> of linux.
+>=20
+> racoon and setkey both use the pfkey-interface.
+>=20
+> We switched to iproute2 and openswan which both use the netfilter-interfa=
+ce.=20
+> Therefor they can handle thousands of SAD and SPD rules.
+
+Well, that's quite interesting.  I didn't realize there were multiple
+interfaces to the IPSEC in Linux.  Additionally, the problem isn't that
+I've got too many policies which end up requiring too many SADs- the
+problem is that SADs are being created above and beyond what's actually
+necessary for my policies, which is a problem.  I'm not entirely sure
+why that's happening either.  At one point a SAD was being added every
+second when there was *already* an apparently current SAD for the
+required policy.  Not good, looks like a bug to me, and I would have
+thought it was a kernel bug but I could be wrong there.
+
+I'm certainly curious about the alternative interface to IPSEC in
+Linux, and especially your claim that it's a 'netfilter' interface.
+I'll certainly look into that...  What kernel are you using?  What
+version of iproute2 and Openswan?  Do you have to patch the kernel?
+
+	Stephen
+
+--TRYliJ5NKNqkz5bu
+Content-Type: application/pgp-signature; name="signature.asc"
+Content-Description: Digital signature
+Content-Disposition: inline
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.5 (GNU/Linux)
+
+iD8DBQFCQE7vrzgMPqB3kigRAsEfAJ47pfPW9pXIg/onxRgPQ74AwSYtvgCghzem
+EQII5fyl34+XyQRsTlF559o=
+=ehm+
+-----END PGP SIGNATURE-----
+
+--TRYliJ5NKNqkz5bu--
