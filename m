@@ -1,53 +1,62 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: take 2-2  WAS(Re: PATCH: IPSEC xfrm events
-Date: 04 Apr 2005 09:16:55 -0400
-Message-ID: <1112620614.1088.489.camel@jzny.localdomain>
-References: <1112403845.1088.14.camel@jzny.localdomain>
-	 <20050402012813.GA24575@gondor.apana.org.au>
-	 <1112406164.1088.54.camel@jzny.localdomain>
-	 <20050402014619.GB24861@gondor.apana.org.au>
-	 <1112469601.1088.173.camel@jzny.localdomain>
-	 <1112538718.1096.394.camel@jzny.localdomain>
-	 <20050404005805.GA16543@gondor.apana.org.au>
-	 <1112614706.1096.439.camel@jzny.localdomain>
-	 <20050404121641.GA12103@gondor.apana.org.au>
-	 <1112619096.1088.473.camel@jzny.localdomain>
-	 <20050404130224.GA12546@gondor.apana.org.au>
-Reply-To: hadi@cyberus.ca
+From: Robert Olsson <Robert.Olsson@data.slu.se>
+Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
+Date: Mon, 4 Apr 2005 15:17:12 +0200
+Message-ID: <16977.15960.242211.442811@robur.slu.se>
+References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au>
+	<424E641A.1020609@cosmosbay.com>
+	<16974.41648.568927.54429@robur.slu.se>
+	<20050402193224.GA25157@gondor.apana.org.au>
+	<16976.17876.832677.945878@robur.slu.se>
+	<20050403214358.GA15901@gondor.apana.org.au>
+	<16977.6411.415326.988754@robur.slu.se>
+	<20050404104857.GA32359@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: Patrick McHardy <kaber@trash.net>,
-        Masahide NAKAMURA <nakam@linux-ipv6.org>,
-        "David S. Miller" <davem@davemloft.net>, netdev <netdev@oss.sgi.com>
+Cc: Robert Olsson <Robert.Olsson@data.slu.se>,
+        Eric Dumazet <dada1@cosmosbay.com>, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20050404130224.GA12546@gondor.apana.org.au>
+In-Reply-To: <20050404104857.GA32359@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Mon, 2005-04-04 at 09:02, Herbert Xu wrote:
 
-> > -static struct list_head xfrm_km_list = LIST_HEAD_INIT(xfrm_km_list);
-> > -static DEFINE_RWLOCK(xfrm_km_lock);
-> 
-> All I wanted was to leave these lines as is so that they didn't
-> appear in the patch at all (except as conext) :)
->
-> When reviewing patches the most annoying thing is to see things
-> moved around or rearranged because that distracts the reviewer
-> from the substantiative changes.
+Herbert Xu writes:
 
-Ok, fair enough. It annoys me too when i review patches ;->
-So i will fix this before final.
+ > What I'm trying to catch is the case when you've got x number of
+ > entries in the table and a large fraction of them are all in one
+ > chain.
+ > 
+ > This does not conflict with the goal of keeping the chains short.
+ > 
+ > Even if you strictly allow only 8 entries per chain, it's trivial
+ > to exceed 8 times the average chain length.
 
->  
-> > ;-> Yes, indeed. I think its time for you to throw in the towel ;->
-> 
-> Alright I give in :)
+ OK! Since deletions doen't happen instantly..
+ 
+ Try some code it can print a warning to start with.
 
-Goody - now we can have Masahide run his full test.
 
-cheers,
-jamal
+ > >  IMO the thoughts of extending in-flow GC etc are interesting and can
+ > >  hopefully give us more robust performance.
+ > 
+ > Indeed, it looks like Alexey has already put the code there.  It just
+ > needs to be made more strict :) It needs to free entries even if they
+ > are in use.
+ > 
+ > After all, freeing an entry in use can't be much worse than not having
+ > a cache at all.  OTOH, having a very long chain is definitely much worse
+ > than not having a cache :)
+
+ FYI I'm experimenting with "new" routing algo that does 24-bit ipv4 lookup 
+ and routing without route hash to see if we can come close route hash
+ performance  This needs memory. :)
+
+ IP: FIB routing table of 16777216 buckets, 65536Kbytes for table id=255
+
+ Needs some more work before testing.
+
+						--ro
