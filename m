@@ -1,8 +1,8 @@
 From: Shmulik Hen <shmulik.hen@intel.com>
-Subject: [SET 1][PATCH 5/6][bonding] backport 2.6 changes to 2.4
-Date: Fri, 8 Aug 2003 17:44:38 +0300
+Subject: [SET 1][PATCH 6/6][bonding] backport 2.6 changes to 2.4
+Date: Fri, 8 Aug 2003 17:44:43 +0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200308081744.38315.shmulik.hen@intel.com>
+Message-ID: <200308081744.43532.shmulik.hen@intel.com>
 Reply-To: shmulik.hen@intel.com
 Mime-Version: 1.0
 Content-Type: text/plain;
@@ -13,332 +13,114 @@ To: bonding-devel@lists.sourceforge.net, netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Use a linked list to handle numerous bond devices instead of a static
-array.
+Update versions/contributions in header and bump version
 
-Also, fix handling of errors in bonding_init(): gracefully unregister
-and deallocate all previously created bond devices.
-
+diff -Nuarp linux-2.4.22-rc1/Documentation/networking/ifenslave.c linux-2.4.22-rc1-devel/Documentation/networking/ifenslave.c
+--- linux-2.4.22-rc1/Documentation/networking/ifenslave.c	Fri Aug  8 14:02:36 2003
++++ linux-2.4.22-rc1-devel/Documentation/networking/ifenslave.c	Fri Aug  8 14:02:37 2003
+@@ -140,6 +140,7 @@ static const char *howto_msg =
+ #include <sys/types.h>
+ #include <sys/socket.h>
+ #include <sys/ioctl.h>
++#include <linux/if.h>
+ #include <net/if_arp.h>
+ #include <linux/if_ether.h>
+ #include <linux/if_bonding.h>
 diff -Nuarp linux-2.4.22-rc1/drivers/net/bonding/bond_main.c linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c
---- linux-2.4.22-rc1/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:33 2003
-+++ linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:34 2003
-@@ -388,6 +388,12 @@
+--- linux-2.4.22-rc1/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:36 2003
++++ linux-2.4.22-rc1-devel/drivers/net/bonding/bond_main.c	Fri Aug  8 14:02:37 2003
+@@ -278,7 +278,7 @@
+  *	  bonding round-robin mode ignoring links after failover/recovery
+  *
+  * 2003/03/17 - Jay Vosburgh <fubar at us dot ibm dot com>
+- *	- kmalloc fix (GPF_KERNEL to GPF_ATOMIC) reported by
++ *	- kmalloc fix (GFP_KERNEL to GFP_ATOMIC) reported by
+  *	  Shmulik dot Hen at intel.com.
+  *	- Based on discussion on mailing list, changed use of
+  *	  update_slave_cnt(), created wrapper functions for adding/removing
+@@ -323,22 +323,22 @@
+  * 2003/03/18 - Amir Noam <amir.noam at intel dot com>,
+  *		Tsippy Mendelson <tsippy.mendelson at intel dot com> and
+  *		Shmulik Hen <shmulik.hen at intel dot com>
+- *    - Added support for IEEE 802.3ad Dynamic link aggregation mode.
++ *	- Added support for IEEE 802.3ad Dynamic link aggregation mode.
+  *
+  * 2003/05/01 - Amir Noam <amir.noam at intel dot com>
+- *    - Added ABI version control to restore compatibility between
+- *      new/old ifenslave and new/old bonding.
++ *	- Added ABI version control to restore compatibility between
++ *	  new/old ifenslave and new/old bonding.
+  *
+  * 2003/05/01 - Shmulik Hen <shmulik.hen at intel dot com>
+- *    - Fixed bug in bond_release_all(): save old value of current_slave
+- *      before setting it to NULL.
+- *    - Changed driver versioning scheme to include version number instead
+- *      of release date (that is already in another field). There are 3
+- *      fields X.Y.Z where:
+- *            X - Major version - big behavior changes
+- *            Y - Minor version - addition of features
+- *            Z - Extra version - minor changes and bug fixes
+- *      The current version is 1.0.0 as a base line.
++ *	- Fixed bug in bond_release_all(): save old value of current_slave
++ *	  before setting it to NULL.
++ *	- Changed driver versioning scheme to include version number instead
++ *	  of release date (that is already in another field). There are 3
++ *	  fields X.Y.Z where:
++ *		X - Major version - big behavior changes
++ *		Y - Minor version - addition of features
++ *		Z - Extra version - minor changes and bug fixes
++ *	  The current version is 1.0.0 as a base line.
+  *
+  * 2003/05/01 - Tsippy Mendelson <tsippy.mendelson at intel dot com> and
+  *		Amir Noam <amir.noam at intel dot com>
+@@ -382,18 +382,32 @@
+  *	  ABI version if receiving unsupported ioctl commands.
+  *
+  * 2003/05/22 - Jay Vosburgh <fubar at us dot ibm dot com>
++ *	- Fix ifenslave -c causing bond to loose existing routes;
++ *	  added bond_set_mac_address() that doesn't require the
++ *	  bond to be down.
+  *	- In conjunction with fix for ifenslave -c, in
+  *	  bond_change_active(), changing to the already active slave
+  *	  is no longer an error (it successfully does nothing).
   *
   * 2003/06/30 - Amir Noam <amir.noam at intel dot com>
   * 	- Fixed bond_change_active() for ALB/TLB modes.
++ *	  Version to 2.2.14.
 + *
-+ * 2003/08/06 - Amir Noam <amir.noam at intel dot com>
-+ * 	- Back port from 2.6: use alloc_netdev(); fix /proc handling;
-+ *	  made stats a part of bond struct so no need to allocate
-+ *	  and free it separately; use standard list operations instead
-+ *	  of pre-allocated array of bonds.
++ * 2003/07/29 - Amir Noam <amir.noam at intel dot com>
++ * 	- Fixed ARP monitoring bug.
++ *	  Version to 2.2.15.
++ *
++ * 2003/07/31 - Willy Tarreau <willy at ods dot org>
++ * 	- Fixed kernel panic when using ARP monitoring without
++ *	  setting bond's IP address.
++ *	  Version to 2.2.16.
+  *
+  * 2003/08/06 - Amir Noam <amir.noam at intel dot com>
+  * 	- Back port from 2.6: use alloc_netdev(); fix /proc handling;
+  *	  made stats a part of bond struct so no need to allocate
+  *	  and free it separately; use standard list operations instead
+  *	  of pre-allocated array of bonds.
++ *	  Version to 2.3.0.
   */
  
  #include <linux/config.h>
-@@ -515,9 +521,7 @@ static struct bond_parm_tbl bond_lacp_tb
- {	NULL,		-1},
- };
+@@ -438,10 +452,10 @@
+ #include "bond_3ad.h"
+ #include "bond_alb.h"
  
--static int first_pass	= 1;
--static struct bonding *these_bonds =  NULL;
--static struct net_device *dev_bonds = NULL;
-+static LIST_HEAD(bond_dev_list);
+-#define DRV_VERSION		"2.2.14"
+-#define DRV_RELDATE		"June 30, 2003"
+-#define DRV_NAME		"bonding"
+-#define DRV_DESCRIPTION		"Ethernet Channel Bonding Driver"
++#define DRV_VERSION	"2.3.0"
++#define DRV_RELDATE	"August 6, 2003"
++#define DRV_NAME	"bonding"
++#define DRV_DESCRIPTION	"Ethernet Channel Bonding Driver"
  
- MODULE_PARM(max_bonds, "i");
- MODULE_PARM_DESC(max_bonds, "Max number of bonded devices");
-@@ -3498,47 +3502,13 @@ static int bond_read_proc(char *buf, cha
- static int bond_event(struct notifier_block *this, unsigned long event, 
- 			void *ptr)
- {
--	struct bonding *this_bond = (struct bonding *)these_bonds;
--	struct bonding *last_bond;
- 	struct net_device *event_dev = (struct net_device *)ptr;
-+	struct net_device *master = event_dev->master;
- 
--	/* while there are bonds configured */
--	while (this_bond != NULL) {
--		if (this_bond == event_dev->priv ) {
--			switch (event) {
--			case NETDEV_UNREGISTER:
--				/* 
--				 * remove this bond from a linked list of 
--				 * bonds 
--				 */
--				if (this_bond == these_bonds) {
--					these_bonds = this_bond->next_bond;
--				} else {
--					for (last_bond = these_bonds; 
--					     last_bond != NULL; 
--					     last_bond = last_bond->next_bond) {
--						if (last_bond->next_bond == 
--						    this_bond) {
--							last_bond->next_bond = 
--							this_bond->next_bond;
--						}
--					}
--				}
--				return NOTIFY_DONE;
--
--			default:
--				return NOTIFY_DONE;
--			}
--		} else if (this_bond->device == event_dev->master) {
--			switch (event) {
--			case NETDEV_UNREGISTER:
--				bond_release(this_bond->device, event_dev);
--				break;
--			}
--			return NOTIFY_DONE;
--		}
--		this_bond = this_bond->next_bond;
-+	if ((event == NETDEV_UNREGISTER) && (master != NULL)) {
-+		bond_release(master, event_dev);
- 	}
-+
- 	return NOTIFY_DONE;
- }
- 
-@@ -3546,19 +3516,40 @@ static struct notifier_block bond_netdev
- 	notifier_call: bond_event,
- };
- 
-+static void bond_deinit(struct net_device *dev)
-+{
-+	struct bonding *bond = dev->priv;
-+
-+	list_del(&bond->bond_list);
-+
-+#ifdef CONFIG_PROC_FS
-+	remove_proc_entry("info", bond->bond_proc_dir);
-+	remove_proc_entry(dev->name, proc_net);
-+#endif
-+}
-+
-+static void bond_free_all(void)
-+{
-+	struct bonding *bond, *nxt;
-+
-+	list_for_each_entry_safe(bond, nxt, &bond_dev_list, bond_list) {
-+		struct net_device *dev = bond->device;
-+
-+		unregister_netdev(dev);
-+		bond_deinit(dev);
-+		kfree(dev);
-+	}
-+}
-+
- static int __init bond_init(struct net_device *dev)
- {
--	bonding_t *bond, *this_bond, *last_bond;
-+	struct bonding *bond;
- 	int count;
- 
- #ifdef BONDING_DEBUG
- 	printk (KERN_INFO "Begin bond_init for %s\n", dev->name);
- #endif
--	bond = kmalloc(sizeof(struct bonding), GFP_KERNEL);
--	if (bond == NULL) {
--		return -ENOMEM;
--	}
--	memset(bond, 0, sizeof(struct bonding));
-+	bond = dev->priv;
- 
- 	/* initialize rwlocks */
- 	rwlock_init(&bond->lock);
-@@ -3568,7 +3559,6 @@ static int __init bond_init(struct net_d
- 	bond->current_slave = NULL;
- 	bond->current_arp_slave = NULL;
- 	bond->device = dev;
--	dev->priv = bond;
- 
- 	/* Initialize the device structure. */
- 	switch (bond_mode) {
-@@ -3593,7 +3583,6 @@ static int __init bond_init(struct net_d
- 		break;
- 	default:
- 		printk(KERN_ERR "Unknown bonding mode %d\n", bond_mode);
--		kfree(bond);
- 		return -EINVAL;
- 	}
- 
-@@ -3602,14 +3591,6 @@ static int __init bond_init(struct net_d
- 	dev->stop = bond_close;
- 	dev->set_multicast_list = set_multicast_list;
- 	dev->do_ioctl = bond_ioctl;
--
--	/* 
--	 * Fill in the fields of the device structure with ethernet-generic 
--	 * values. 
--	 */
--
--	ether_setup(dev);
--
- 	dev->set_mac_address = bond_set_mac_address;
- 	dev->tx_queue_len = 0;
- 	dev->flags |= IFF_MASTER|IFF_MULTICAST;
-@@ -3643,7 +3624,6 @@ static int __init bond_init(struct net_d
- 	if (bond->bond_proc_dir == NULL) {
- 		printk(KERN_ERR "%s: Cannot init /proc/net/%s/\n", 
- 			dev->name, dev->name);
--		kfree(bond);
- 		return -ENOMEM;
- 	}
- 	bond->bond_proc_dir->owner = THIS_MODULE;
-@@ -3655,25 +3635,12 @@ static int __init bond_init(struct net_d
- 		printk(KERN_ERR "%s: Cannot init /proc/net/%s/info\n", 
- 			dev->name, dev->name);
- 		remove_proc_entry(dev->name, proc_net);
--		kfree(bond);
- 		return -ENOMEM;
- 	}
- 	bond->bond_proc_info_file->owner = THIS_MODULE;
- #endif /* CONFIG_PROC_FS */
- 
--	if (first_pass == 1) {
--		these_bonds = bond;
--		register_netdevice_notifier(&bond_netdev_notifier);
--		first_pass = 0;
--	} else {
--		last_bond = these_bonds;
--		this_bond = these_bonds->next_bond;
--		while (this_bond != NULL) {
--			last_bond = this_bond;
--			this_bond = this_bond->next_bond;
--		}
--		last_bond->next_bond = bond;
--	} 
-+	list_add_tail(&bond->bond_list, &bond_dev_list);
- 
- 	return 0;
- }
-@@ -3713,9 +3680,6 @@ static int __init bonding_init(void)
- 	int no;
- 	int err;
- 
--	/* Find a name for this unit */
--	static struct net_device *dev_bond = NULL;
--
- 	printk(KERN_INFO "%s", version);
- 
- 	/*
-@@ -3766,12 +3730,6 @@ static int __init bonding_init(void)
- 		       max_bonds, 1, INT_MAX, BOND_DEFAULT_MAX_BONDS);
- 		max_bonds = BOND_DEFAULT_MAX_BONDS;
- 	}
--	dev_bond = dev_bonds = kmalloc(max_bonds*sizeof(struct net_device), 
--					GFP_KERNEL);
--	if (dev_bond == NULL) {
--		return -ENOMEM;
--	}
--	memset(dev_bonds, 0, max_bonds*sizeof(struct net_device));
- 
- 	if (miimon < 0) {
- 		printk(KERN_WARNING 
-@@ -3962,47 +3920,62 @@ static int __init bonding_init(void)
- 		primary = NULL;
- 	}
- 
-+	rtnl_lock();
- 
-+	err = 0;
- 	for (no = 0; no < max_bonds; no++) {
--		dev_bond->init = bond_init;
--	
--		err = dev_alloc_name(dev_bond,"bond%d");
-+		struct net_device *dev;
-+
-+		dev = alloc_netdev(sizeof(struct bonding), "", ether_setup);
-+		if (!dev) {
-+			err = -ENOMEM;
-+			goto out_err;
-+		}
-+
-+		err = dev_alloc_name(dev, "bond%d");
-+		if (err < 0) {
-+			kfree(dev);
-+			goto out_err;
-+		}
-+
-+		/* bond_init() must be called after dev_alloc_name() (for the
-+		 * /proc files), but before register_netdevice(), because we
-+		 * need to set function pointers.
-+		 */
-+		err = bond_init(dev);
-+		if (err < 0) {
-+			kfree(dev);
-+			goto out_err;
-+		}
-+
-+		SET_MODULE_OWNER(dev);
-+
-+		err = register_netdevice(dev);
- 		if (err < 0) {
--			kfree(dev_bonds);
--			return err;
-+			bond_deinit(dev);
-+			kfree(dev);
-+			goto out_err;
- 		}
--		SET_MODULE_OWNER(dev_bond);
--		if (register_netdev(dev_bond) != 0) {
--			kfree(dev_bonds);
--			return -EIO;
--		}	
--		dev_bond++;
- 	}
-+
-+	rtnl_unlock();
-+	register_netdevice_notifier(&bond_netdev_notifier);
-+
- 	return 0;
-+
-+out_err:
-+	rtnl_unlock();
-+
-+	/* free and unregister all bonds that were successfully added */
-+	bond_free_all();
-+
-+	return err;
- }
- 
- static void __exit bonding_exit(void)
- {
--	struct net_device *dev_bond = dev_bonds;
--	struct bonding *bond;
--	int no;
--
- 	unregister_netdevice_notifier(&bond_netdev_notifier);
--		 
--	for (no = 0; no < max_bonds; no++) {
--
--#ifdef CONFIG_PROC_FS
--		bond = (struct bonding *) dev_bond->priv;
--		remove_proc_entry("info", bond->bond_proc_dir);
--		remove_proc_entry(dev_bond->name, proc_net);
--#endif
--		unregister_netdev(dev_bond);
--		kfree(dev_bond->priv);
--
--		dev_bond->priv = NULL;
--		dev_bond++;
--	}
--	kfree(dev_bonds);
-+	bond_free_all();
- }
- 
- module_init(bonding_init);
-diff -Nuarp linux-2.4.22-rc1/drivers/net/bonding/bonding.h linux-2.4.22-rc1-devel/drivers/net/bonding/bonding.h
---- linux-2.4.22-rc1/drivers/net/bonding/bonding.h	Fri Aug  8 14:02:33 2003
-+++ linux-2.4.22-rc1-devel/drivers/net/bonding/bonding.h	Fri Aug  8 14:02:34 2003
-@@ -104,7 +104,7 @@ typedef struct bonding {
- 	struct proc_dir_entry *bond_proc_dir;
- 	struct proc_dir_entry *bond_proc_info_file;
- #endif /* CONFIG_PROC_FS */
--	struct bonding *next_bond;
-+	struct list_head bond_list;
- 	struct net_device *device;
- 	struct dev_mc_list *mc_list;
- 	unsigned short flags;
+ static const char *version =
+ DRV_NAME ".c:v" DRV_VERSION " (" DRV_RELDATE ")\n";
 
 -- 
 | Shmulik Hen   Advanced Network Services  |
