@@ -1,60 +1,19 @@
-From: Vinod <geekvinod@yahoo.com>
-Subject: RE: making routes permanent
-Date: Tue, 30 Apr 2002 12:25:05 -0700 (PDT)
+From: Bernd Eckenfels <ecki-news2002-04@lina.inka.de>
+Subject: Re: Obtaining the ip address of an interface dynamically
+Date: Tue, 30 Apr 2002 21:38:34 +0200
 Sender: linux-net-owner@vger.kernel.org
-Message-ID: <20020430192505.44334.qmail@web21108.mail.yahoo.com>
-References: <A00147B07D14F240825D27196B05DD53069A10@zms.staff.zeelandnet.nl>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: linux-net@vger.kernel.org
+Message-ID: <E172dSM-0003Y3-00@sites.inka.de>
+References: <001401c1f066$cce6c210$0300a8c0@yellow>
 Return-path: <linux-net-owner@vger.kernel.org>
-To: Serge Maandag <serge.maandag@staff.zeelandnet.nl>
-In-Reply-To: <A00147B07D14F240825D27196B05DD53069A10@zms.staff.zeelandnet.nl>
+To: linux-net@vger.kernel.org
+In-Reply-To: <001401c1f066$cce6c210$0300a8c0@yellow>
 List-Id: netdev.vger.kernel.org
 
-i had tried this also.but no luck.stuck with manually
-configuring the route everytime as of now.
-Thanks anyway.appreciate it.
-Vinod
---- Serge Maandag <serge.maandag@staff.zeelandnet.nl>
-wrote:
-> >         device args
-> > 
-> >    When a network interface is brought up, each
-> line
-> > for that interface
-> >     is passed to route as:
-> > 
-> >         route add -args device
-> 
-> If I read this correctly, you should try the line:
-> 
-> -net 10.0.3.0 netmask 255.255.255.0 gw 10.0.0.10 dev
-> 
-> 
-> or
-> 
-> -net 10.0.3.0/24 gw 10.0.0.10 dev 
-> 
-> in your static-routes file. Have you tried that?
-> 
-> Serge.
-> 
-> b.t.w., a quick search in Google gives this page:
-> http://www.physiology.wisc.edu/~cai/linux/a21p/
-> 
-> Which uses this form:
-> 
-> eth0-cln net 192.168.2.0 netmask 255.255.255.0 gw
-> 192.168.2.99
-> 
-> which would be in your case:
-> 
-> eth1 net 10.0.3.0 netmask 255.255.255.0 gw 10.0.0.10
-> 
+In article <001401c1f066$cce6c210$0300a8c0@yellow> you wrote:
+> IPCon_GetIpAddrByStr sometimes, so I'm not sure.
 
+You should look for errno/return value of ictl to be able to provide more
+info where the problem is. 
 
-__________________________________________________
-Do You Yahoo!?
-Yahoo! Health - your guide to health and wellness
-http://health.yahoo.com
+BTW: you version leaks file descriptors.
+
