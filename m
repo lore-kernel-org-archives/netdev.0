@@ -1,60 +1,158 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: Re: [PATCH 2/3] NET: Generic rate estimator
-Date: Mon, 4 Oct 2004 17:29:15 +0200
+From: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+Subject: [SKBUFF] introduce skb_valid_link_header(skb, hdrlen)
+Date: Mon, 04 Oct 2004 13:35:14 -0300
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20041004152915.GC15898@postel.suug.ch>
-References: <20041003213124.GG14344@postel.suug.ch> <20041003213954.GI14344@postel.suug.ch> <20041003161436.50293f9a.davem@davemloft.net> <20041003233647.GN14344@postel.suug.ch> <1096852582.1046.378.camel@jzny.localdomain> <20041004125300.GA15898@postel.suug.ch> <1096896256.1072.4.camel@jzny.localdomain> <20041004141532.GB15898@postel.suug.ch> <1096901984.1073.9.camel@jzny.localdomain>
+Message-ID: <41617BC2.7010004@conectiva.com.br>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Content-Type: multipart/mixed;
+ boundary="------------020704050702080000070909"
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jamal <hadi@cyberus.ca>
-Content-Disposition: inline
-In-Reply-To: <1096901984.1073.9.camel@jzny.localdomain>
+To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-* jamal <1096901984.1073.9.camel@jzny.localdomain> 2004-10-04 10:59
-> is that bad to let those have a slight different innacurate value?
+This is a multi-part message in MIME format.
+--------------020704050702080000070909
+Content-Type: text/plain; charset=ISO-8859-1; format=flowed
+Content-Transfer-Encoding: 7bit
 
-I don't see this as a problem, I think the timers will be more
-inacurate anyway.
+Hi David,
 
-> BTW wasnt there a jiffies2ms converter somewhere that we could use?
-> I thought i saw something posted of that nature recently.
+	Please consider pulling from:
 
-#define PSCHED_US2JIFFIE(delay)
-#define PSCHED_JIFFIE2US(delay)
+bk://kernel.bkbits.net/acme/sk_buff-2.6
 
-but we don't have half a jiffie ;) The only way to make it accurate in
-the case of 122 and 50 would be to set timer_expires based on a flip-flop
-adding HZ/4 and (HZ/4)+1 repeaditly and this only works if HZ%2==0.
+	Nowadays only the netfilter folks use such thing, in an
+open coded way, but this seems useful for other cases, so I've
+moved it to skbuff.h, abstracting another direct reference to
+the skb "wannabe-private" headers.
 
-I would be fine using PSCHED_ because the user can decide accuracy
-over performance and vice versa. It would make the code dependant on
-sch_api.c though.
+	Now there are eleven outstanding changesets in this tree.
 
-> There should really be no difference between the two;-> you realize /4
-> is merely <<2 ?
+Best Regards,
 
-Oh yes there is: HZ=50, idx=2
+- Arnaldo
 
-(HZ/4)<<idx:
-octave:8> 50/4
-ans = 12.500
-octave:9> dec2bin(12)
-ans = 1100
-octave:10> bin2dec('110000')
-ans = 48
+--------------020704050702080000070909
+Content-Type: text/plain;
+ name="skb_valid_link_header.patch"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="skb_valid_link_header.patch"
 
-(HZ<<idx)/4:
-octave:11> dec2bin(50)
-ans = 110010
-octave:12> bin2dec('11001000')
-ans = 200
-octave:13> 200/4
-ans = 50
+===================================================================
 
-It avoids carrying on the inaccuracy, of course this only works because
-(2*HZ)%4==0 is true for all existing HZ values. Or do I misundstand the
-compiler and it's all in floating points?
+
+ChangeSet@1.2040, 2004-10-04 13:21:41-03:00, acme@amd64.kerneljanitors.org
+  [SKBUFF] introduce skb_valid_link_header(skb, hdrlen)
+  
+  Signed-off-by: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+  Signed-off-by: David S. Miller <davem@redhat.com>
+
+
+ drivers/message/fusion/mptlan.c |    2 +-
+ include/linux/skbuff.h          |    7 +++++++
+ net/bridge/br_netfilter.c       |    2 +-
+ net/ipv4/netfilter/ipt_mac.c    |    5 ++---
+ net/ipv6/netfilter/ip6t_eui64.c |   10 ++++------
+ net/ipv6/netfilter/ip6t_mac.c   |    5 ++---
+ 6 files changed, 17 insertions(+), 14 deletions(-)
+
+
+diff -Nru a/drivers/message/fusion/mptlan.c b/drivers/message/fusion/mptlan.c
+--- a/drivers/message/fusion/mptlan.c	2004-10-04 13:23:51 -03:00
++++ b/drivers/message/fusion/mptlan.c	2004-10-04 13:23:51 -03:00
+@@ -770,7 +770,7 @@
+ 
+ 	pSendReq = (LANSendRequest_t *) mf;
+ 
+-	/* Set the mac.raw pointer, since this apparently isn't getting
++	/* Set the link header pointer, since this apparently isn't getting
+ 	 * done before we get the skb. Pull the data pointer past the mac data.
+ 	 */
+ 	skb_set_link_header(skb);
+diff -Nru a/include/linux/skbuff.h b/include/linux/skbuff.h
+--- a/include/linux/skbuff.h	2004-10-04 13:23:51 -03:00
++++ b/include/linux/skbuff.h	2004-10-04 13:23:51 -03:00
+@@ -295,6 +295,13 @@
+ 	skb->mac.raw = skb->data;
+ }
+ 
++static inline int skb_valid_link_header(const struct sk_buff *skb,
++					const int hdrlen)
++{
++	return skb->mac.raw >= skb->head &&
++	       (skb->mac.raw + hdrlen) <= skb->data;
++}
++
+ extern void	       __kfree_skb(struct sk_buff *skb);
+ extern struct sk_buff *alloc_skb(unsigned int size, int priority);
+ extern void	       kfree_skbmem(struct sk_buff *skb);
+diff -Nru a/net/bridge/br_netfilter.c b/net/bridge/br_netfilter.c
+--- a/net/bridge/br_netfilter.c	2004-10-04 13:23:51 -03:00
++++ b/net/bridge/br_netfilter.c	2004-10-04 13:23:51 -03:00
+@@ -759,7 +759,7 @@
+ #ifdef CONFIG_NETFILTER_DEBUG
+ 	/* Be very paranoid. This probably won't happen anymore, but let's
+ 	 * keep the check just to be sure... */
+-	if (skb->mac.raw < skb->head || skb->mac.raw + ETH_HLEN > skb->data) {
++	if (!skb_valid_link_header(skb, ETH_HLEN)) {
+ 		printk(KERN_CRIT "br_netfilter: Argh!! br_nf_post_routing: "
+ 				 "bad mac.raw pointer.");
+ 		goto print_error;
+diff -Nru a/net/ipv4/netfilter/ipt_mac.c b/net/ipv4/netfilter/ipt_mac.c
+--- a/net/ipv4/netfilter/ipt_mac.c	2004-10-04 13:23:51 -03:00
++++ b/net/ipv4/netfilter/ipt_mac.c	2004-10-04 13:23:51 -03:00
+@@ -30,10 +30,9 @@
+     const struct ipt_mac_info *info = matchinfo;
+ 
+     /* Is mac pointer valid? */
+-    return (skb->mac.raw >= skb->head
+-	    && (skb->mac.raw + ETH_HLEN) <= skb->data
++    return (skb_valid_link_header(skb, ETH_HLEN) &&
+ 	    /* If so, compare... */
+-	    && ((memcmp(eth_hdr(skb)->h_source, info->srcaddr, ETH_ALEN)
++	    ((memcmp(eth_hdr(skb)->h_source, info->srcaddr, ETH_ALEN)
+ 		== 0) ^ info->invert));
+ }
+ 
+diff -Nru a/net/ipv6/netfilter/ip6t_eui64.c b/net/ipv6/netfilter/ip6t_eui64.c
+--- a/net/ipv6/netfilter/ip6t_eui64.c	2004-10-04 13:23:51 -03:00
++++ b/net/ipv6/netfilter/ip6t_eui64.c	2004-10-04 13:23:51 -03:00
+@@ -32,12 +32,10 @@
+     unsigned char eui64[8];
+     int i=0;
+ 
+-     if ( !(skb->mac.raw >= skb->head
+-                && (skb->mac.raw + ETH_HLEN) <= skb->data)
+-                && offset != 0) {
+-                        *hotdrop = 1;
+-                        return 0;
+-                }
++    if (!skb_valid_link_header(skb, ETH_HLEN) && offset != 0) {
++        *hotdrop = 1;
++        return 0;
++    }
+     
+     memset(eui64, 0, sizeof(eui64));
+ 
+diff -Nru a/net/ipv6/netfilter/ip6t_mac.c b/net/ipv6/netfilter/ip6t_mac.c
+--- a/net/ipv6/netfilter/ip6t_mac.c	2004-10-04 13:23:51 -03:00
++++ b/net/ipv6/netfilter/ip6t_mac.c	2004-10-04 13:23:51 -03:00
+@@ -32,10 +32,9 @@
+     const struct ip6t_mac_info *info = matchinfo;
+ 
+     /* Is mac pointer valid? */
+-    return (skb->mac.raw >= skb->head
+-	    && (skb->mac.raw + ETH_HLEN) <= skb->data
++    return (skb_valid_link_header(skb, ETH_HLEN) &&
+ 	    /* If so, compare... */
+-	    && ((memcmp(eth_hdr(skb)->h_source, info->srcaddr, ETH_ALEN)
++	    ((memcmp(eth_hdr(skb)->h_source, info->srcaddr, ETH_ALEN)
+ 		== 0) ^ info->invert));
+ }
+ 
+
+
+--------------020704050702080000070909--
