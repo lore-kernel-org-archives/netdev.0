@@ -1,27 +1,37 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: IPsec xfrm resolution
-Date: Sun, 20 Feb 2005 05:32:02 +1100
-Message-ID: <20050219183202.GA10773@gondor.apana.org.au>
-References: <20050209085251.GA9030@gondor.apana.org.au> <420B9DF1.3020704@trash.net> <20050210202810.GA1609@gondor.apana.org.au> <42144C3F.2060501@trash.net> <20050217091137.GA9476@gondor.apana.org.au> <42152841.5000707@trash.net> <20050218100854.GA19427@gondor.apana.org.au> <4216D6B4.5070901@trash.net> <20050219092314.GA8153@gondor.apana.org.au> <42173125.3040505@trash.net>
+Subject: Re: [XFRM]: Fix ICMP tempsel
+Date: Sun, 20 Feb 2005 05:43:51 +1100
+Message-ID: <20050219184351.GB10773@gondor.apana.org.au>
+References: <4217266F.6090700@trash.net>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Maillist netdev <netdev@oss.sgi.com>
+Cc: "David S. Miller" <davem@davemloft.net>,
+        Maillist netdev <netdev@oss.sgi.com>
 To: Patrick McHardy <kaber@trash.net>
 Content-Disposition: inline
-In-Reply-To: <42173125.3040505@trash.net>
+In-Reply-To: <4217266F.6090700@trash.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Sat, Feb 19, 2005 at 01:29:25PM +0100, Patrick McHardy wrote:
->
-> This is not what happens currently. If an optional IPCOMP SA is missing
-> it is skipped entirely. It is also legal to configure an optional
-> ah/esp tunnel, although we don't accept such packets if the SA isn't
-> present.
+On Sat, Feb 19, 2005 at 12:43:43PM +0100, Patrick McHardy wrote:
+> The selector ports are initialized to fl_ip_sport/fl_ip_dport instead
+> of xfrm_flowi_sport(fl)/xfrm_flowi_dport(fl). This is wrong for ICMP,
+> type and code should be stored in sport and dport, in struct flowi both
+> are contained in fl_ip_sport.
 
-That's a bug.  How can you forward packets properly if the tunnel mode
-SA is missing?
+I know this comment is probably a bit late but why didn't we simply put
+type/code into sport/dport in struct flowi instead of introducing the
+monstrosities of xfrm_flowi_sport/xfrm_flowi_dport?
+
+Something like
+
+struct {
+	__u16	type;
+	__u16	code;
+} icmpt;
+
+would've done (and still would do) the trick, no?
 
 Cheers,
 -- 
