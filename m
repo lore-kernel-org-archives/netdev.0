@@ -1,59 +1,40 @@
-From: David Liontooth <liontooth@cogweb.net>
-Subject: ICS1883 LAN PHY not detected
-Date: Sat, 02 Apr 2005 11:25:15 -0800
-Message-ID: <424EF19B.7030105@cogweb.net>
+From: Herbert Xu <herbert@gondor.apana.org.au>
+Subject: Re: [BUG] overflow in net/ipv4/route.c rt_check_expire()
+Date: Sun, 3 Apr 2005 05:32:24 +1000
+Message-ID: <20050402193224.GA25157@gondor.apana.org.au>
+References: <E1DHdsP-0003Lr-00@gondolin.me.apana.org.au> <424E641A.1020609@cosmosbay.com> <16974.41648.568927.54429@robur.slu.se>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
-Return-path: <linux-kernel-owner+glk-linux-kernel=40m.gmane.org-S261187AbVDBTZ7@vger.kernel.org>
-To: venza@brownhat.org, netdev@oss.sgi.com,
-	linux-kernel@vger.kernel.org
-Sender: linux-kernel-owner@vger.kernel.org
+Content-Type: text/plain; charset=us-ascii
+Cc: Eric Dumazet <dada1@cosmosbay.com>, davem@davemloft.net,
+        netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: Robert Olsson <Robert.Olsson@data.slu.se>
+Content-Disposition: inline
+In-Reply-To: <16974.41648.568927.54429@robur.slu.se>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+On Sat, Apr 02, 2005 at 03:48:32PM +0200, Robert Olsson wrote:
+>  
+>  > Crashes usually occurs when secret_interval interval is elapsed : rt_cache_flush(0); is called, and the whole machine begins to die.
+> 
+>  A good idea to increase the secret_interval interval but it should survive.
 
-Gigabyte's K8NS Ultra-939 mobo has a 100/10 LAN PHY chip, ICS1883, which
-isn't detected by the 2.6.12-rc1 kernel (and likely not previous kernels).
+Incidentally we should change the way the rehashing is triggered.
+Instead of doing it regularly, we can do it when we notice that a
+specific hash chain grows beyond a certain size.
 
-http://www.giga-byte.com/MotherBoard/Products/Products_Spec_GA-K8NS%20Ultra-939.htm
+The idea is that if someone is attacking our hash then they can
+only do so by lengthening the chains.  If they're not doing that
+then even if they knew how to attack us we don't really care.
 
-On the other hand, the ports light up when connected.
+Of course when it does happen it'll still kill your machine unless
+we can find a way to amortise this.
 
-The device may be similar to ICS1893, which is supported by the sis900 
-driver.
-However, I figure the device first has to be detected?
-
-Any advice appreciated. 
-
-Dave
-
-
-
-# lspci
-0000:00:00.0 Host bridge: nVidia Corporation: Unknown device 00e1 (rev a1)
-0000:00:01.0 ISA bridge: nVidia Corporation: Unknown device 00e0 (rev a2)
-0000:00:01.1 SMBus: nVidia Corporation: Unknown device 00e4 (rev a1)
-0000:00:02.0 USB Controller: nVidia Corporation: Unknown device 00e7 
-(rev a1)
-0000:00:02.1 USB Controller: nVidia Corporation: Unknown device 00e7 
-(rev a1)
-0000:00:02.2 USB Controller: nVidia Corporation: Unknown device 00e8 
-(rev a2)
-0000:00:05.0 Bridge: nVidia Corporation: Unknown device 00df (rev a2)
-0000:00:06.0 Multimedia audio controller: nVidia Corporation: Unknown 
-device 00ea (rev a1)
-0000:00:08.0 IDE interface: nVidia Corporation: Unknown device 00e5 (rev a2)
-0000:00:0a.0 IDE interface: nVidia Corporation: Unknown device 00e3 (rev a2)
-0000:00:0b.0 PCI bridge: nVidia Corporation: Unknown device 00e2 (rev a2)
-0000:00:0e.0 PCI bridge: nVidia Corporation: Unknown device 00ed (rev a2)
-0000:00:18.0 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
-0000:00:18.1 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
-0000:00:18.2 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
-0000:00:18.3 Host bridge: Advanced Micro Devices [AMD] K8 NorthBridge
-0000:02:0b.0 Ethernet controller: Marvell Technology Group Ltd. Yukon 
-Gigabit Ethernet 10/100/1000Base-T Adapter (rev 13)
-0000:02:0d.0 Unknown mass storage controller: Silicon Image, Inc. 
-(formerly CMD Technology Inc)SiI 3512 [SATALink/SATARaid] Serial ATA 
-Controller (rev 01)
-0000:02:0e.0 FireWire (IEEE 1394): Texas Instruments TSB82AA2 IEEE-1394b 
-Link Layer Controller (rev 01)
+Cheers,
+-- 
+Visit Openswan at http://www.openswan.org/
+Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
+Home Page: http://gondor.apana.org.au/~herbert/
+PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
