@@ -1,61 +1,74 @@
-From: Stephen Hemminger <shemminger@osdl.org>
-Subject: Re: RFC new ethtool command
-Date: Tue, 1 Mar 2005 10:43:38 -0800
-Message-ID: <20050301104338.1380b7cc@dxpl.pdx.osdl.net>
-References: <3a958240e12af10ef6777f908abfe682@freescale.com>
+From: Quantum Scientific <Info@quantum-sci.com>
+Subject: Re: (usagi-users 03222) Re: support of IPv6 by NFS
+Date: Tue, 1 Mar 2005 12:56:20 -0600
+Message-ID: <200503011256.25282.Info@quantum-sci.com>
+References: <42243F8D.5030302@bull.net> <200503010744.38339.Info@Quantum-Sci.com> <1109689712.17484.6.camel@firenze.zurich.ibm.com>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain;
+  charset="iso-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: Netdev <netdev@oss.sgi.com>, Jeff Garzik <jgarzik@pobox.com>
-To: Andy Fleming <afleming@freescale.com>
-In-Reply-To: <3a958240e12af10ef6777f908abfe682@freescale.com>
+Cc: usagi-users@linux-ipv6.org
+To: netdev@oss.sgi.com, Jeroen Massar <jeroen@unfix.org>
+In-Reply-To: <1109689712.17484.6.camel@firenze.zurich.ibm.com>
+Content-Disposition: inline
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 1 Mar 2005 09:22:07 -0600
-Andy Fleming <afleming@freescale.com> wrote:
-
-> I propose adding a new command to ethtool which allows ethernet drivers 
-> to specify a command list.  A command list would consist of a 
-> name/value pair, conforming to the cmdline_info structure already 
-> present in ethtool.  I see two immediate benefits of this system:
+On Tuesday 01 March 2005 9:08, Jeroen Massar wrote:
+> On Tue, 2005-03-01 at 07:44 -0600, Quantum Scientific wrote: 
+> >On Tuesday 01 March 2005 4:10, Gilles Quillard wrote:
+> >> This works but this needs that the kernel has been compiled with IPv6, 
+> >> which is not mandotary. A lot of people in the Linux community do not 
+> >> have experience with IPv6 yet and are not ready to use it. So making it 
+> >> mandatory for NFS, even in a pure IPv4 network, is not easy.
+> >
+> >My experience is that IPV6 is extremely difficult to figure out how to set 
+up 
+> >securely, for the time being, due to lack of connection-sharing.
 > 
-> 1) controllers which have "cutting-edge", or at least unusual, features 
-> can easily add support for these features.  As an example, the 85xx 
-> allows the ethernet controller's DMA engine to allocate and/or lock 
-> buffer descriptors into the L2 cache of the processor.  Using this 
-> method, a command could be created which is specific to that driver 
-> which allows users to turn this feature on or off.
+> NAT is not a firewall. Get that into your brain.
+
+Jeroen, was this addressed to me, or to Giles?  Never mind, it doesn't matter;  your 
+words show that you are an uneducated man.
+
+ 
+On Tuesday 01 March 2005 9:08, Jeroen Massar wrote:
+> First couple of hits when doing a google on "Teredo BSD", or for you to
+> click as that might be difficult:
+> http://www.google.com/search?q=teredo+bsd
+...
+> On Tue, 2005-03-01 at 07:44 -0600, Quantum Scientific wrote: 
+> >Although I realize that all of us who run Linux are ostensibly uber-gurus, 
+> >fact is this is a negative first experience for most, stemming from
+> >attempts by distros to encourage ppl to use it with an inoperative
+> >function, and without an obvious way to troubleshoot/repair.
 > 
-> 2) When debugging a new driver, or a new feature for an old driver, it 
-> is easy to add a quick interface to change the testing parameters 
-> without having to add new /proc entries.
-> 
-> Three patches follow; the first allows ethtool to use this new feature, 
-> the second allows the kernel to invoke the new feature, and the third 
-> is an example of how the gianfar driver uses this feature to expose 
-> failure testing features in the PHY-level code (note that this third 
-> patch is not a final version.  It also contains a few elements from the 
-> PHY abstraction patch, which can be ignored for the purposes of this 
-> discussion).
+> I can clearly assume that you are not part of the 'ostensibly
+> uber-gurus' you try to mention. 
 
-I understand the motivation, but it seems to go against the philosophy
-of having a general purpose interface.  Rather than having device driver
-specific special cases, why not add useful abstractions for new features.
-Phy interface testing and management is generic, and several devices could
-support it.
+And we can clearly assume that you are petty, and just an asshole.  No, I am 
+not a Linux uber-guru.  I am a commercial real estate developer, using Linux 
+as a hobby.  You may not want my input, but others seem to, judging from 
+emails I've gotten in back-channel about you.
 
-This proposal is basically a device specific multiplexing interface like
-ioctl or SIOCDEVPRIVATE. This style of interface is considered bad, and
-undesirable.
 
-For the first case, of "cutting-edge" controller's, the best solution is to
-always turn the feature on and make it work correctly.  If you can't make it
-work correctly then use module parameter or chip set detection to turn it off.
-Another option to expose warts is using sysfs attribute groups to add additional
-fields to /sys/class/net/ethXX/.  
+> Loads of people seem to have no problem at all with IPv6, getting it up
+> and running and actually using it for a lot of traffic.
+> That fact that you are only complaining, without doing any actual
+> research, typing two words in google, says enough. You are not even
+> capable of configuring your mailer properly to include your own name,
+> the field is not called "Realname" for nothing...
 
-When debugging a new driver, module parameters work find for controlling
-test parameters.  If this needs to make into production code, sysfs could
-also be used.
+Obviously you have not been following my emails, and have simply written your 
+response to carp and ignorantly pretend you are superior in some way.  This 
+is no different than noise.
+
+As most here have ascertained, I said the things I have said, as reflective of 
+the experiences of the majority when trying to set up IPV6.  If you have a 
+problem with that, you are unable to understand the true issues, and show it 
+with every word.  
+
+You will have no more responses from me.
+
+Carl Cook
