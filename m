@@ -1,37 +1,47 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] xfrm ip6ip6
-Date: Sun, 01 Jun 2003 01:34:52 -0700 (PDT)
+From: Andreas Jellinghaus <aj@dungeon.inka.de>
+Subject: ipsec / pppoe
+Date: Sun, 1 Jun 2003 12:33:22 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030601.013452.68050592.davem@redhat.com>
-References: <87fzmv5ejc.wl@karaba.org>
-	<Mutt.LNX.4.44.0306010158450.7298-100000@excalibur.intercode.com.au>
+Message-ID: <200306011233.22544.aj@dungeon.inka.de>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain;
+  charset="us-ascii"
 Content-Transfer-Encoding: 7bit
-Cc: mk@linux-ipv6.org, kuznet@ms2.inr.ac.ru, netdev@oss.sgi.com,
-   usagi@linux-ipv6.org
+Cc: howto@lartc.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jmorris@intercode.com.au
-In-Reply-To: <Mutt.LNX.4.44.0306010158450.7298-100000@excalibur.intercode.com.au>
+To: netdev@oss.sgi.com
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: James Morris <jmorris@intercode.com.au>
-   Date: Sun, 1 Jun 2003 02:01:42 +1000 (EST)
+with pppoe it is usualy necessary to clamp the maximum segment
+size down to 1452 bytes. This can be done with a netfilter module
+or with "-m 1452" option to pppoe.
 
-   We need to either filter them out or make sure they are 
-   displayed as ipip.
-   
-   Part of the answer will depend on whether we want to expose xfrm-based 
-   ipip tunnels for general use, or only use them internally for ipcomp.
-   
-I think it is an error to extend PF_KEY for our Linux purposes.
-Our API here is basically defined to be whatever is in KAME :-)
+with ipsec (esp, tunnel mode) even on a wlan interface before
+the ppp connection I needed to clamp the mss down further
+to 1384 bytes. now all connections are working fine.
 
-However, setkey should filter entries it does not understand.
+my calculation gave me
+1500 mtu (wlan0) - 20 (ip) - 48 (esp) - 20 (ip) - 20 (tcp) = 1392
+or 1492 (ppp(oe)) - 20 (ip) - 20 (tcp) = 1452,
+so the min of 1392 should have been the right value.
 
-Currently I see no use for exposing these tunnel transforms
-outside of the kernel.  Mobile IPV6, if it decides to use
-xfrm6_tunnel, can configure them itself in the kernel side support.
-Or, if user side is more appropriate for MIPV6 access, we may allow
-it to use xfrm netlink interface somehow.
+Don't know why I need to clamp the mss down to 1384,
+but e.g. http connections to www.microsoft.com work
+fine with 1384 and do not work at all with 1392.
+
+still I don't know why some machines don't respond to
+icmp packet to big errors with a smaller packet but not
+act on it at all. maybe some broken firewall thinks it is
+some kind of attack? I don't know what exactly is between
+me and websites such as www.google.com or www.microsoft.com,
+so I can't figure out.
+
+sorry to have bothered everyone and many thanks to james for
+his help. 
+
+cc: to howto@lartc.org, it think this would make a nice
+howto entry.
+
+Regards, Andreas
