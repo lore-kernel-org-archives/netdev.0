@@ -1,42 +1,19 @@
-From: David Mosberger <davidm@napali.hpl.hp.com>
-Subject: Re: SOMAXCONN too low
-Date: Wed, 29 Oct 2003 11:15:49 -0800
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: [PATCH] Updated 8139too with NAPI
+Date: Wed, 29 Oct 2003 14:34:01 -0500
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <16288.4581.143121.899848@napali.hpl.hp.com>
-References: <200310290658.h9T6w04k015302@napali.hpl.hp.com>
-	<20031029105809.0a1f27a1.davem@redhat.com>
-Reply-To: davidm@hpl.hp.com
+Message-ID: <3FA01629.2080202@pobox.com>
+References: <3F9070B6.9090306@pobox.com>	<873cdqbt6z.fsf@devron.myhome.or.jp>	<20031020131106.6862e951.shemminger@osdl.org>	<877k2ysohc.fsf@devron.myhome.or.jp> <20031028114707.1d234da6.shemminger@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: davidm@hpl.hp.com, netdev@oss.sgi.com
+Cc: OGAWA Hirofumi <hirofumi@mail.parknet.co.jp>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20031029105809.0a1f27a1.davem@redhat.com>
+To: Stephen Hemminger <shemminger@osdl.org>
+In-Reply-To: <20031028114707.1d234da6.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
->>>>> On Wed, 29 Oct 2003 10:58:09 -0800, "David S. Miller" <davem@redhat.com> said:
-
-  DaveM> On Tue, 28 Oct 2003 22:58:00 -0800 David Mosberger
-  DaveM> <davidm@napali.hpl.hp.com> wrote:
-
-  >> You obviously want some control over how big the listen queue can
-  >> grow, but it seems to me that a sysctl would be in place.  I
-  >> found this patch to do that, but no reaction to it:
-
-  >> http://www.ussg.iu.edu/hypermail/linux/kernel/0205.0/1287.html
-
-  DaveM> I think I'm going to apply this patch.
-
-  DaveM> People can then set the limit to what they want, the default
-  DaveM> stays at 128, and the SOMAXCONN define itself does not
-  DaveM> change.
-
-  DaveM> Ok David?
-
-Yup.
-
-Thanks!
-
-	--david
+I'd like to apply this to net-drivers-2.[45]-exp, but it doesn't apply 
+cleanly.  Can you wait a bit, for my posting of those queues, and then 
+resend?
