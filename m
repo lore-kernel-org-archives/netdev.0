@@ -1,44 +1,35 @@
-From: "Zhenyu Wu" <y030729@njupt.edu.cn>
-Subject: A Question On CBQ
-Date: Sun, 02 Jan 2005 11:17:09 +0800
-Message-ID: <304635829.27548@njupt.edu.cn>
-Reply-To: "Zhenyu Wu" <y030729@njupt.edu.cn>
-Content-Type: text/plain
-Cc: lartc@mailman.ds9a.nl, tgraf@suug.ch
-Return-path: <lartc-admin@mailman.ds9a.nl>
+From: Matthew J Galgoci <mgalgoci@parcelfarce.linux.theplanet.co.uk>
+Subject: 2.6.10-bk4 ip_conntrack oops fix
+Date: Sun, 2 Jan 2005 06:12:38 +0000 (GMT)
+Message-ID: <Pine.LNX.4.58.0501020611430.12403@parcelfarce.linux.theplanet.co.uk>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
-Sender: lartc-admin@mailman.ds9a.nl
-Errors-To: lartc-admin@mailman.ds9a.nl
-List-Help: <mailto:lartc-request@mailman.ds9a.nl?subject=help>
-List-Post: <mailto:lartc@mailman.ds9a.nl>
-List-Subscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=subscribe>
-List-Unsubscribe: <http://mailman.ds9a.nl/mailman/listinfo/lartc>,
-	<mailto:lartc-request@mailman.ds9a.nl?subject=unsubscribe>
-List-Archive: <http://mailman.ds9a.nl/pipermail/lartc/>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hello,
+I stumbled onto an annoying oops in 2.6.10-bk4.
 
-As it is well know that CBQ is the class based queue. But i am confused on the
-word "class" now, especially it is used in Diffserv. IMO, different classes should
-mean that there are different kinds of traffics, so the class should be difined by
-the parameters (such as bandwidth, priority..) the traffic wanted. That is, using
-cbq we can define different kinds of traffics which need different bandwidth at
-the gateway, am i right??
+Here is how to cause the oops.
 
-Then, in diffserv the traffic is identified by the DSCP, right? From Floyd's paper
-Link-sharing and Resource Management Models for Packet Networks, we can see if
-there are two classes of traffic such as class A and class B, and each of them has
-traffics video and ftp, then how the two different FTP are identified in diffserv,
-by their DSCP? IMO, at first, according to the bandwidth the traffic needed, the
-traffic is classified into class A or class B, then at each class the traffic is
-identified by their DSCP.
+load ip_conntrack
+remove ip_conntrack
+ls /proc/net/stat
+boom
 
-Eagerly waiting for your reply!
-Happy New Year!
+Here is what I think the fix is:
 
 
-_______________________________________________
-LARTC mailing list / LARTC@mailman.ds9a.nl
-http://mailman.ds9a.nl/mailman/listinfo/lartc HOWTO: http://lartc.org/
+--- linux-2.6.10-bk4/net/ipv4/netfilter/ip_conntrack_standalone.c.orig	2005-01-01 23:44:42.000000000 -0500
++++ linux-2.6.10-bk4/net/ipv4/netfilter/ip_conntrack_standalone.c	2005-01-02 00:57:20.000000000 -0500
+@@ -820,7 +820,7 @@
+ 	nf_unregister_hook(&ip_conntrack_defrag_ops);
+  cleanup_proc_stat:
+ #ifdef CONFIG_PROC_FS
+-	proc_net_remove("ip_conntrack_stat");
++	remove_proc_entry("ip_conntrack", proc_net_stat);
+ cleanup_proc_exp:
+ 	proc_net_remove("ip_conntrack_expect");
+  cleanup_proc:
