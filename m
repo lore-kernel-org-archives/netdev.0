@@ -1,34 +1,31 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: Re: [6/6]: jenkins hash for neigh
-Date: Tue, 28 Sep 2004 08:00:15 +1000
+Subject: Re: [TCP] Fixed mss in tcp_init_cwnd
+Date: Tue, 28 Sep 2004 08:02:40 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <E1CC3Xb-0001yY-00@gondolin.me.apana.org.au>
-References: <E1CC3FW-0001wo-00@gondolin.me.apana.org.au>
-Cc: davem@davemloft.net, herbert@gondor.apana.org.au, laforge@gnumonks.org,
-        netdev@oss.sgi.com
+Message-ID: <20040927220240.GA7633@gondor.apana.org.au>
+References: <20040927080828.GA12056@gondor.apana.org.au> <20040927120031.55fb4a49.davem@davemloft.net>
+Mime-Version: 1.0
+Content-Type: text/plain; charset=us-ascii
+Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: herbert@gondor.apana.org.au (Herbert Xu)
-In-Reply-To: <E1CC3FW-0001wo-00@gondolin.me.apana.org.au>
+To: "David S. Miller" <davem@davemloft.net>
+Content-Disposition: inline
+In-Reply-To: <20040927120031.55fb4a49.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Mon, Sep 27, 2004 at 12:00:31PM -0700, David S. Miller wrote:
+> On Mon, 27 Sep 2004 18:08:28 +1000
+> Herbert Xu <herbert@gondor.apana.org.au> wrote:
 > 
-> Please at least do something like this:
+> > The MSS in tcp_init_cwnd should be the real one instead of the TSO value.
 > 
-> size = tbl->hash_mask + 1;
-> if (tbl->entries > size) {
->        write_lock_bh(&tbl->lock);
->        neigh_hash_grow(tbl, size << 1);
->        write_unlock_bh(&tbl->lock);
-> }
-> 
-> That'll at least kill the first race.  You can kill the race of
-> growing into the same size by doing the if check again inside the
-> locks.
+> This happens too early in the connections lifetime
+> to make a difference for anything.
 
-Never mind.  Unless you do the check again inside the lock this
-may actually shrink :)
+I know.  That's why I put it in a different thread.
+
+IMHO we should still fix it though at least for consistency.
 -- 
 Visit Openswan at http://www.openswan.org/
 Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
