@@ -1,54 +1,64 @@
 From: Patrick McHardy <kaber@trash.net>
-Subject: [PATCH 2.6 0/7]: assorted fixes
-Date: Sun, 03 Oct 2004 23:12:39 +0200
+Subject: [PATCH 2.6 1/7]: Fix module leak in tc_ctl_tfilter error path
+Date: Sun, 03 Oct 2004 23:12:48 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41606B47.9040703@trash.net>
+Message-ID: <41606B50.3080201@trash.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-15; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: multipart/mixed;
+ boundary="------------000601040605010702000606"
 Cc: netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi Dave.
+This is a multi-part message in MIME format.
+--------------000601040605010702000606
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
 
-following are 6 assorted fixes and one small cleanup patch.
-You can pull all patches from bk://212.42.230.204/net-2.6
-I'll send 2.4 versions later.
+When tp_ops->init fails we leak a module reference.
 
-ChangeSet@1.2043.1.7, 2004-10-03 20:44:53+02:00, kaber@coreworks.de
-  [VLAN]: Missing rtnl_unlock in register_vlan_device error path
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-ChangeSet@1.2043.1.6, 2004-10-03 20:43:32+02:00, kaber@coreworks.de
-  [IPV6]: Fix free_netdev after failed alloc_netdev in sit_init
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
 
-ChangeSet@1.2043.1.5, 2004-10-03 20:42:17+02:00, kaber@coreworks.de
-  [IPV4]: Fix ipip_fb_tunnel_dev leak in ipip_fini
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
+--------------000601040605010702000606
+Content-Type: text/x-patch;
+ name="01.diff"
+Content-Transfer-Encoding: 7bit
+Content-Disposition: inline;
+ filename="01.diff"
 
-ChangeSet@1.2043.1.4, 2004-10-03 20:41:00+02:00, kaber@coreworks.de
-  [IPV4]: Fix free_netdev after failed alloc_netdev in ipip_init
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
+# This is a BitKeeper generated diff -Nru style patch.
+#
+# ChangeSet
+#   2004/10/03 20:25:10+02:00 kaber@coreworks.de 
+#   [NET_SCHED]: Fix module leak in tc_ctl_tfilter error path
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+# net/sched/cls_api.c
+#   2004/10/03 20:24:47+02:00 kaber@coreworks.de +6 -2
+#   [NET_SCHED]: Fix module leak in tc_ctl_tfilter error path
+#   
+#   Signed-off-by: Patrick McHardy <kaber@trash.net>
+# 
+diff -Nru a/net/sched/cls_api.c b/net/sched/cls_api.c
+--- a/net/sched/cls_api.c	2004-10-03 22:18:04 +02:00
++++ b/net/sched/cls_api.c	2004-10-03 22:18:04 +02:00
+@@ -231,8 +231,12 @@
+ 		tp->classify = tp_ops->classify;
+ 		tp->classid = parent;
+ 		err = -EBUSY;
+-		if (!try_module_get(tp_ops->owner) ||
+-		    (err = tp_ops->init(tp)) != 0) {
++		if (!try_module_get(tp_ops->owner)) {
++			kfree(tp);
++			goto errout;
++		}
++		if ((err = tp_ops->init(tp)) != 0) {
++			module_put(tp_ops->owner);
+ 			kfree(tp);
+ 			goto errout;
+ 		}
 
-ChangeSet@1.2043.1.3, 2004-10-03 20:39:25+02:00, kaber@coreworks.de
-  [IPV4]: Fix free_netdev after failed alloc_netdev in ipgre_init
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-ChangeSet@1.2043.1.2, 2004-10-03 20:29:51+02:00, kaber@coreworks.de
-  [NET_SCHED]: Remove useless variable in tc_ctl_tfilter
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
-
-ChangeSet@1.2043.1.1, 2004-10-03 20:25:10+02:00, kaber@coreworks.de
-  [NET_SCHED]: Fix module leak in tc_ctl_tfilter error path
- 
-  Signed-off-by: Patrick McHardy <kaber@trash.net>
+--------------000601040605010702000606--
