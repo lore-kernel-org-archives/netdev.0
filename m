@@ -1,25 +1,69 @@
-From: Rick Jones <rick.jones2@hp.com>
-Subject: Re: 2.6.10 TCP troubles -- suggested patch
-Date: Tue, 15 Feb 2005 15:42:48 -0800
-Message-ID: <421288F8.7090501@hp.com>
-References: <0525M9211@server5.heliogroup.fr>	<20050211150420.74737b2e@dxpl.pdx.osdl.net>	<20050211170740.2608419b.davem@davemloft.net>	<20050212141641.GA27456@yakov.inr.ac.ru>	<20050212114132.5f7b7ffe.davem@davemloft.net>	<20050212200318.GB28895@yakov.inr.ac.ru> <20050215152651.58f5ccc0.davem@davemloft.net>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
-Content-Transfer-Encoding: 7bit
-To: netdev@oss.sgi.com
-In-Reply-To: <20050215152651.58f5ccc0.davem@davemloft.net>
+From: Jay Vosburgh <fubar@us.ibm.com>
+Subject: Re: [PATCH] VLAN over bonding
+Date: Tue, 15 Feb 2005 15:50:52 -0800
+Message-ID: <200502152350.j1FNoq6f030802@death.nxdomain.ibm.com>
+References: <okir@suse.de>
+Cc: netdev@oss.sgi.com, bonding-devel@lists.sourceforge.net
+To: Olaf Kirch <okir@suse.de>
+In-Reply-To: Message from Olaf Kirch <okir@suse.de>
+   of "Mon, 14 Feb 2005 12:29:05 +0100." <20050214112905.GF23861@suse.de>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
+Olaf Kirch <okir@suse.de> wrote:
+>It seems when you create a VLAN configuration on top of a bonding
+>device, any normal (non-VLAN) traffic stops completely. The reason
+>is that bond_dev_queue_xmit() drops all outgoing frames that have
+>no VLAN tag.
+>
+>The attached patch tries to fix this - is this the right way to do this,
+>or does that break other areas of VLAN-over-bonding?
 
-> In short, for properly working TCP stream with no drops and no
-> reordering, Darwin delays ACKs until delack timer fires or PSH
-> is seen :-)
+	Logically this looks good.  I tried it out on a non-VLAN aware
+e100, and it seems to the do right thing.  I tweaked the patch to update
+the comments to reflect the new reality (and fix a typo while I was
+there).
 
-As a supporter of ACK avoidance heuristics in general, I will come-out and say 
-that the heuristic above does indeed sound quite broken.  It is not the 
-heuristic with which I am familiar, which has a configurable maximum number of 
-segments for which to delay the ACK.
+	-J
 
-rick jones
+---
+	-Jay Vosburgh, IBM Linux Technology Center, fubar@us.ibm.com
+
+Signed-off-by: Jay Vosburgh <fubar@us.ibm.com>
+
+--- linux-2.6.11-rc4-netdev1-virgin/drivers/net/bonding/bond_main.c	2005-02-15 11:31:40.000000000 -0800
++++ linux-2.6.11-rc4-netdev1/drivers/net/bonding/bond_main.c	2005-02-15 16:09:10.000000000 -0800
+@@ -793,29 +793,20 @@
+  * @skb: hw accel VLAN tagged skb to transmit
+  * @slave_dev: slave that is supposed to xmit this skbuff
+  * 
+- * When the bond gets an skb to tarnsmit that is
++ * When the bond gets an skb to transmit that is
+  * already hardware accelerated VLAN tagged, and it
+  * needs to relay this skb to a slave that is not
+  * hw accel capable, the skb needs to be "unaccelerated",
+  * i.e. strip the hwaccel tag and re-insert it as part
+  * of the payload.
+- * 
+- * Assumption - once a VLAN device is created over the bond device, all
+- * packets are going to be hardware accelerated VLAN tagged since the IP
+- * binding is done over the VLAN device
+  */
+ int bond_dev_queue_xmit(struct bonding *bond, struct sk_buff *skb, struct net_device *slave_dev)
+ {
+ 	unsigned short vlan_id;
+-	int res;
+ 
+ 	if (!list_empty(&bond->vlan_list) &&
+-	    !(slave_dev->features & NETIF_F_HW_VLAN_TX)) {
+-		res = vlan_get_tag(skb, &vlan_id);
+-		if (res) {
+-			return -EINVAL;
+-		}
+-
++	    !(slave_dev->features & NETIF_F_HW_VLAN_TX) &&
++	    vlan_get_tag(skb, &vlan_id) == 0) {
+ 		skb->dev = slave_dev;
+ 		skb = vlan_put_tag(skb, vlan_id);
+ 		if (!skb) {
