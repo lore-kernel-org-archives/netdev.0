@@ -1,45 +1,37 @@
-From: Lennert Buytenhek <buytenh@wantstofly.org>
-Subject: [PATCH,pktgen] account for preamble and inter-packet gap
-Date: Sun, 28 Nov 2004 22:32:51 +0100
-Message-ID: <20041128213251.GA9330@xi.wantstofly.org>
+From: Ben Greear <greearb@candelatech.com>
+Subject: Re: [PATCH,pktgen] account for preamble and inter-packet gap
+Date: Sun, 28 Nov 2004 19:21:31 -0800
+Message-ID: <41AA95BB.7060400@candelatech.com>
+References: <20041128213251.GA9330@xi.wantstofly.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Transfer-Encoding: 7bit
+Cc: robert.olsson@data.slu.se, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: robert.olsson@data.slu.se
-Content-Disposition: inline
+To: Lennert Buytenhek <buytenh@wantstofly.org>
+In-Reply-To: <20041128213251.GA9330@xi.wantstofly.org>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Hi!
+Lennert Buytenhek wrote:
+> Hi!
+> 
+> If you account for the Frame Check Sequence when computing bandwidth
+> stats, it's only fair that you count the preamble and inter-packet gap
+> as well.  Suggested patch attached.
 
-If you account for the Frame Check Sequence when computing bandwidth
-stats, it's only fair that you count the preamble and inter-packet gap
-as well.  Suggested patch attached.
+a) When an ethernet NIC claims 100Mbps, does this count the preamble and IPG?
 
+b) Or, can send and receive 100Mbps of data by only counting
+    the ethernet header + payload + CRC?
 
-cheers,
-Lennert
+If b is true, then I definately would not want to see the IPG and preamble
+counted.  If a is true, then I still don't want it counted, but I would
+agree that it is worth considering :)
 
+Ben
 
---- pktgen.c.orig	2004-11-28 22:27:50.008829106 +0100
-+++ pktgen.c	2004-11-28 22:30:48.773867119 +0100
-@@ -2564,7 +2564,7 @@
- static void show_results(struct pktgen_dev *pkt_dev, int nr_frags)
- {
-        __u64 total_us, bps, mbps, pps, idle;
--       int size = pkt_dev->cur_pkt_size + 4; /* incl 32bit ethernet CRC */
-+       int size = pkt_dev->cur_pkt_size + 4 + 8 + 12; /* incl 32bit ethernet CRC plus preamble plus inter-packet gap */
-        char *p = pkt_dev->result;
- 
-        total_us = pkt_dev->stopped_at - pkt_dev->started_at;
-@@ -2777,7 +2777,7 @@
- 			pkt_dev->last_ok = 1;    
- 			pkt_dev->sofar++;
- 			pkt_dev->seq_num++;
--			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4); /* count csum */
-+			pkt_dev->tx_bytes += (pkt_dev->cur_pkt_size + 4 + 8 + 12); /* count csum and preamble and inter-packet gap*/
- 			
- 		} else if (ret == NETDEV_TX_LOCKED 
- 			   && (odev->features & NETIF_F_LLTX)) {
+-- 
+Ben Greear <greearb@candelatech.com>
+Candela Technologies Inc  http://www.candelatech.com
