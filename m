@@ -1,31 +1,35 @@
 From: Herbert Xu <herbert@gondor.apana.org.au>
-Subject: [2/2] Modularise xfrm_tunnel
-Date: Thu, 19 Aug 2004 21:40:50 +1000
+Subject: Re: [2/2] Modularise xfrm_tunnel
+Date: Thu, 19 Aug 2004 21:43:59 +1000
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040819114050.GA16049@gondor.apana.org.au>
-References: <20040819113841.GA13872@gondor.apana.org.au>
+Message-ID: <20040819114359.GA16189@gondor.apana.org.au>
+References: <20040819113841.GA13872@gondor.apana.org.au> <20040819114050.GA16049@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: multipart/mixed; boundary="4Ckj6UjgE2iN1+kY"
+Content-Type: multipart/mixed; boundary="sdtB3X0nJg68CQEu"
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Content-Disposition: inline
-In-Reply-To: <20040819113841.GA13872@gondor.apana.org.au>
+In-Reply-To: <20040819114050.GA16049@gondor.apana.org.au>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
 
---4Ckj6UjgE2iN1+kY
+--sdtB3X0nJg68CQEu
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: inline
 
 Hi Dave:
 
-This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
-modules.
+On Thu, Aug 19, 2004 at 09:40:50PM +1000, herbert wrote:
+> 
+> This patch allows the the user to build xfrm4_tunnel/xfrm6_tunnel as
+> modules.
+> 
+> This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
+> which are modules themselves.  It also means that distros can cut
+> down on there core kernel size when compiling with IPsec support.
 
-This makes sense because they're only used by IPComp/IPIP/IP6Tunnel
-which are modules themselves.  It also means that distros can cut
-down on there core kernel size when compiling with IPsec support.
+I missed xfrm_export.c in that patch.  Here is the corrected version.
 
 Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
@@ -36,7 +40,7 @@ Email: Herbert Xu ~{PmV>HI~} <herbert@gondor.apana.org.au>
 Home Page: http://gondor.apana.org.au/~herbert/
 PGP Key: http://gondor.apana.org.au/~herbert/pubkey.txt
 
---4Ckj6UjgE2iN1+kY
+--sdtB3X0nJg68CQEu
 Content-Type: text/plain; charset=us-ascii
 Content-Disposition: attachment; filename=p
 
@@ -247,5 +251,17 @@ Content-Disposition: attachment; filename=p
 +module_init(xfrm6_tunnel_init);
 +module_exit(xfrm6_tunnel_fini);
 +MODULE_LICENSE("GPL");
+===== net/xfrm/xfrm_export.c 1.4 vs edited =====
+--- 1.4/net/xfrm/xfrm_export.c	2004-08-14 20:59:44 +10:00
++++ edited/net/xfrm/xfrm_export.c	2004-08-19 21:39:54 +10:00
+@@ -33,8 +33,6 @@
+ EXPORT_SYMBOL(xfrm_get_acqseq);
+ EXPORT_SYMBOL(xfrm_parse_spi);
+ EXPORT_SYMBOL(xfrm4_rcv);
+-EXPORT_SYMBOL(xfrm4_tunnel_register);
+-EXPORT_SYMBOL(xfrm4_tunnel_deregister);
+ EXPORT_SYMBOL(xfrm_register_type);
+ EXPORT_SYMBOL(xfrm_unregister_type);
+ EXPORT_SYMBOL(xfrm_get_type);
 
---4Ckj6UjgE2iN1+kY--
+--sdtB3X0nJg68CQEu--
