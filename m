@@ -1,34 +1,32 @@
-From: kuznet@ms2.inr.ac.ru
-Subject: Re: [PATCH] connect() return value.
-Date: Mon, 12 Aug 2002 05:28:38 +0400 (MSD)
+From: "v.chitra" <vkchitra@rediffmail.com>
+Subject: ipv6 problem
+Date: 12 Aug 2002 12:21:01 -0000
 Sender: owner-netdev@oss.sgi.com
-Message-ID: <200208120128.FAA16791@sex.inr.ac.ru>
-References: <20020811232546.GA27168@anakin.wychk.org>
+Message-ID: <20020812122101.15832.qmail@mailFA11.rediffmail.com>
+Reply-To: "v.chitra" <vkchitra@rediffmail.com>
 Mime-Version: 1.0
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain;
+	format=flowed
+Cc: ak@muc.de, kuznet@msz.inr.ac.ru.sgi.com, netdev@oss.sgi.com
 Return-path: <owner-netdev@oss.sgi.com>
-To: glee@gnupilgrims.org (Geoffrey Lee)
-In-Reply-To: <20020811232546.GA27168@anakin.wychk.org> from "Geoffrey Lee" at Aug 12, 2 09:25:46 am
+To: davem@redhat.com
+Content-Disposition: inline
 List-Id: netdev.vger.kernel.org
 
-Hello!
+hye
+i am working in drdl. i am creating socket library for IPv6 in 
+Linux OS.
+i did a sample program giving AF_INET6 to socket function.
+but when i compiled the program, it is saying that Family not 
+supported.
+for compilation i gave the following command:
 
->					     I wanted to know what 
-> is the "correct" behavior for connect() by default with signal().
+g++ -o server server.cpp
 
-This simply does not matter, that's answer.
+i want to know how to compile programs for IPv6. what are the 
+linker options we have to give. since i month i am facing this 
+problem.
 
-Actually, it is not so easy to implement restartable connect().
-I think this is the only reason why it not restartable in some OSes.
-
-BTW could you make the following experiments on the same OSes:
-connect() on nonblocking socket, then repeat the connect()
-until it returns EISCONN. I guess the behaviour also will be different.
-
-
-> it should be trivial to hand edit my prevoius patch posted.
-
-Yes, of course. Though the first part of it also from the class
-"does not matter", it is worth to do this just for sanity.
-
-Alexey
+reply as soon as possible.
+thank you
+bye
