@@ -1,28 +1,29 @@
-From: Christian Schmid <webmaster@rapidforum.com>
-Subject: How to remove TCP-limits?
-Date: Sat, 29 Jan 2005 17:06:53 +0100
-Message-ID: <41FBB49D.2020809@rapidforum.com>
+From: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>
+Subject: Re: [PATCH] NETLINK: Use SKB_MAXORDER to calculate NLMSG_GOODSIZE
+Date: Sat, 29 Jan 2005 21:40:36 +0300
+Message-ID: <20050129184036.GB29233@yakov.inr.ac.ru>
+References: <20050128230327.GV31837@postel.suug.ch> <E1CufRB-0000zf-00@gondolin.me.apana.org.au> <20050128234828.GA24868@yakov.inr.ac.ru> <20050129002128.GX31837@postel.suug.ch>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Alexey Kuznetsov <kuznet@ms2.inr.ac.ru>,
+        Herbert Xu <herbert@gondor.apana.org.au>, davem@davemloft.net,
+        netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
+To: Thomas Graf <tgraf@suug.ch>
+Content-Disposition: inline
+In-Reply-To: <20050129002128.GX31837@postel.suug.ch>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Referring to the following:
+Hello!
 
- >In 2.6.10 there has been a "bug" introduced. You may also call it a feature, but its a crappy 
- >feature for big servers. It seems the kernel is dynamically adjusting the buffer-space available 
- >for sockets. Even if send-buffer has been set to 1024 KB, the kernel blocks at less if there are 
- >enough sockets in use. If you have 10 sockets with 1024 KB each, they do not block at all, using 
- >full 1024 KB. If you have 4000 sockets, they only use 200 KB. So it seems its blocking at 800 MB. 
- >This is good, if you have a 1/3 system, because else the kernel would run out of low mem. But I 
- >have a 2/2 system and I need them for buffers. So what can I do? Where can I adjust the "pool"?
+> alignment though. Can someone enlighten me about the magic 31 in there?
 
-How can I disable this? I have been searching the code but I can't find it. Or can I at least adjust 
-it somehow? Thank you in advance.
+It was me who wrote both NLMSG_GOODSIZE and this crap. Does the explanation
+sound enough? :-)
 
-Best regards,
-Christian Schmid - RapidTec
+Apparently it was a brainless attempt of formal merge of (broken)
+NLMSG_GOODSIZE and inversed calculation in alloc_skb. Delete this 31.
+
+Alexey
