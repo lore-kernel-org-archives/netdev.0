@@ -1,47 +1,65 @@
-From: Thomas Graf <tgraf@suug.ch>
-Subject: [ANNOUNCE] netlink library 0.5.0
-Date: Tue, 5 Apr 2005 01:29:34 +0200
-Message-ID: <20050404232934.GK26731@postel.suug.ch>
+From: "Ravinandan Arakali" <ravinandan.arakali@neterion.com>
+Subject: RE: High CPU utilization with Bonding driver ?
+Date: Mon, 4 Apr 2005 17:49:07 -0700
+Message-ID: <004101c53979$45f02800$3a10100a@pc.s2io.com>
+References: <Pine.LNX.4.61.0503291027240.23261@linux.site>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
+Content-Type: text/plain;
+	charset="us-ascii"
+Content-Transfer-Encoding: 7bit
+Cc: <netdev@oss.sgi.com>, <bonding-devel@lists.sourceforge.net>,
+        "'Leonid. Grossman \(E-mail\)'" <leonid.grossman@neterion.com>,
+        "'Raghavendra. Koushik \(E-mail\)'" <raghavendra.koushik@neterion.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-Content-Disposition: inline
+To: "'Arthur Kepner'" <akepner@sgi.com>
+In-Reply-To: <Pine.LNX.4.61.0503291027240.23261@linux.site>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-I released libnl 0.5.0 today introducing address, routing,
-and routing rules support, various cleanups, more callbacks
-to customize message parsers, support for non-blocking
-sockets and a complete API reference in HTML and PostScript.
+Arthur,
+On what kernel version should your below mentioned patch be applied ? 
+We tried on one of the older kernels(2.6.5) and got an Oops while 
+loading the bonding driver.
 
-About 70% of the features have been implemented of what
-I would call the basics needed for a feature freeze
-to let things stabilize for a 1.0 version.
+Thanks,
+Ravi
 
-http://people.suug.ch/~tgr/libnl/
+-----Original Message-----
+From: Arthur Kepner [mailto:akepner@sgi.com]
+Sent: Tuesday, March 29, 2005 10:29 AM
+To: Ravinandan Arakali
+Cc: netdev@oss.sgi.com; bonding-devel@lists.sourceforge.net; Leonid.
+Grossman (E-mail); Raghavendra. Koushik (E-mail)
+Subject: Re: High CPU utilization with Bonding driver ?
 
-http://people.suug.ch/~tgr/libnl/files/libnl-0.5.0.tar.gz
 
-Summary of Changes from 0.4.4 to 0.5.0
-================================================
-	Thomas Graf <tgraf@suug.ch>
-	  o API documentation
-	  o nl_cache_filter to manually filter on a object
-	  o partial routing support
-	  o routing rules support
-	  o Propely set address family when setting addresses
-	  o debug flag and some rare messages, more to come
-	  o make error mesage verboseness configureable
-	  o tc fixes to wait for ack
-	  o cleanup and adaption of address code to latest internal API
-	  o various cleanups
-	  o dozens of API breakages (better now than later)
 
-	Daniel Hottinger <hotti@hotti.ch>
-	  o arch 64bit printf length modifier fixes
+On Tue, 29 Mar 2005, Ravinandan Arakali wrote:
 
-	Baruch Even <baruch@ev-en.org>,
-	Mediatrix Telecom, inc. <ericb@mediatrix.com>
-	  o address support
+> ....
+> Results(8 nttcp/chariot streams):
+> ---------------------------------
+> 1. Combined throughputs(but no bonding):
+> 3.1 + 6.2 = 9.3 Gbps with 58% CPU idle.
+> 
+> 2. eth0 and eth1 bonded together in LACP mode:
+> 8.2 Gbps with 1% CPU idle.
+> 
+> From the above results, when Bonding driver is used(#2), the CPUs are
+> completely maxed out compared to the case when traffic is run
+> simultaneously on both the cards(#1).
+> Can anybody suggest some reasons for the above behavior ?
+> 
+
+Ravi;
+
+Have you tried this patch? 
+
+http://marc.theaimsgroup.com/?l=linux-netdev&m=111091146828779&w=2
+
+If not, it will likely go a long way to solving your 
+problem.
+
+--
+Arthur
