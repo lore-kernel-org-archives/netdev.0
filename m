@@ -1,36 +1,27 @@
-From: robinjaegergrote@t-online.de
-Subject: Auslaendergewalt: Herr Rau, wo waren Sie?
-Date: Thu, 17 Jun 2004 03:17:57 GMT
+From: mcgrof@studorgs.rutgers.edu (Luis R. Rodriguez)
+Subject: Re: [RFC] Wireless extensions rethink
+Date: Thu, 17 Jun 2004 01:57:51 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <2767473d16aca6.8afb8.qmail@t-online.de>
+Message-ID: <20040617055751.GH6253@ruslug.rutgers.edu>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E0103AF626C@orsmsx402.amr.corp.intel.com> <40CF263E.70009@home.nl> <1087377197.25912.54.camel@sfeldma-mobl2.dsl-verizon.net> <20040616152808.GA6270@fog.sekrit.org> <1087408417.25912.79.camel@sfeldma-mobl2.dsl-verizon.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset="us-ascii"
-Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=us-ascii
+Cc: Gerald Britton <gbritton@doomcom.org>,
+        Gertjan van Wingerde <gwingerde@home.nl>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: support@oss.sgi.com
+To: Scott Feldman <sfeldma@pobox.com>
+Content-Disposition: inline
+In-Reply-To: <1087408417.25912.79.camel@sfeldma-mobl2.dsl-verizon.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Mordversuch wegen 'falschem' Hemdaufdruck! Wo waren Sie, Herr Rau?
-Wo blieben die Schlagzeilen der Massenmedien und der Tagesschau?
+On Wed, Jun 16, 2004 at 10:53:38AM -0700, Scott Feldman wrote:
+> There are some drivers (i.e. prism54) that use module params that are
+> duplicates of the standard settings.  These need cleaning up as well.
 
-SIEGBURG - Ein naechtlicher Stadtbummel dreier junger Deutscher in der Nacht vom 15.-16. Juni waere fuer einen der Jugendlichen fast toedlich ausgegangen. Die drei jungen Leute, 17, 18 und 21 Jahre alt, schlenderten ruhig und gut gelaunt nach Mitternacht von McDonalds kommend durch die Siegburger Innenstadt.
+I've removed those already in my current WPA work.
 
-Sie trugen die bei Jugendlichen beliebten Hemden mit Aufschriften (engldeutsch 'T-Shirt' genannt). Bei einem prangte 'Lieber Currywurst als Doener' auf der Brust, womit er wohl zeigen wollte, dass er als offenbar umerzogener Amideutscher in der multikulturellen Gesellschaft McDonald statt Doener bevorzugte.
+	Luis
 
-Doch diese Vorliebe haette er besser nicht so offen gezeigt. In der Fussgaengerzone kamen den Jugendlichen sieben bis acht auslaendische Mitbuerger der zweiten Generation - nach Polizeibericht mit 'suedlaendischem Aussehen, vermutlich tuerkischer Herkunft' - entgegen, denen diese Parole offenbar nicht gefiel und die sich wohl an den Aufruf des Herrn Bundeskanzlers Schroeder zum 'Aufstand der Anstaendigen' erinnerten.
-
-Mit lauten Rufen wie 'Heil Hitler' und 'Nazi-Deutsche' stuerzten sie sich auf die drei, laut Zeugenaussagen 'ohne erkennbaren Grund'.
-
-Waehrend die zwei Juengeren fliehen konnten, schaffte es der 21-jaehrige nicht. Weil ihm ein Bein gestellt wurde, stuerzte er, und die Gruppe schlug und trat auf ihn ein. Einer der Angreifer riss aus einer seitlichen Baumpflanzung einen zwei Meter langen Pflanzpfahl heraus und schlug ihn dem Opfer mehrfach auf den Kopf. Danach flohen die Angreifer, bevor die alarmierte Polizei eintraf.
-
-Der ueberfallene schwebte tagelang in Lebensgefahr, von den Taetern fehlt bislang jede Spur, obwohl die Polizei das Umfeld des Tatortes nach Spuren absuchte und die Bonner Mordkommission den Fall uebernommen hat.
-
-'Ich bin erschrocken ueber das Ausmass an Brutalitaet, mit der da vorgegangen wurde', erklaerte Robert Scholten, Sprecher der Polizei in Bonn. Es sei zwar richtig, dass die drei Angegriffenen zur rechten Szene gehoerten, das koenne jedoch das Vorgehen der Angreifer in keiner Weise rechtfertigen.
-
-
->Zitat<: WIR sind ueberhaupt nicht erschrocken, denn seit mehr als 20 Jahren wissen und warnen wir vor all solchen Folgen der 'multikulturellen Gesellschaft'. Dass weder der Herr Bundespraesident ans Bett des fast Erschlagenen eilte, noch die Massenmedien ueber diesen brutalen Mordversuch berichteten, entlarvt die Geisteshaltung des Herrn Rau und die Heuchelei der sogenannten 'Anstaendigen' bei den Massenmedien.
-
-
-Kommentar des Sober Autors:
-Wenn drei leicht angetrunkene Bundeswehr Soldaten mit A. H. Gruss durch die Stadt laufen, ist die Presse mit groesstem Eifer dabei, unsere eigenen Leute nieder zu machen!!!
+-- 
+GnuPG Key fingerprint = 113F B290 C6D2 0251 4D84  A34A 6ADD 4937 E20A 525E
