@@ -1,49 +1,58 @@
-From: jamal <hadi@cyberus.ca>
-Subject: Re: LLTX and netif_stop_queue
-Date: 28 Dec 2004 08:31:57 -0500
-Message-ID: <1104240717.1100.66.camel@jzny.localdomain>
-References: <52llbwoaej.fsf@topspin.com>
-	<20041217214432.07b7b21e.davem@davemloft.net>
-	<1103484675.1050.158.camel@jzny.localdomain>
-	<5cac192f04122210491d64d4b6@mail.gmail.com>
-	<20041222202919.057b8331.davem@davemloft.net>
-	<5cac192f0412230110628749e3@mail.gmail.com>
-	<41CAF444.3000305@trash.net>
-	<5cac192f04122408102129af43@mail.gmail.com>
+From: Thomas Graf <tgraf@suug.ch>
+Subject: Re: [PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+Date: Tue, 28 Dec 2004 14:40:22 +0100
+Message-ID: <20041228134022.GA32419@postel.suug.ch>
+References: <200412270715.iBR7Fffe026855@hera.kernel.org> <20041227121658.GI7884@postel.suug.ch> <1104240053.1100.53.camel@jzny.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, Patrick McHardy <kaber@trash.net>,
-	openib-general@openib.org, "David S. Miller" <davem@davemloft.net>
-Return-path: <openib-general-bounces@openib.org>
-To: Eric Lemoine <eric.lemoine@gmail.com>
-In-Reply-To: <5cac192f04122408102129af43@mail.gmail.com>
-List-Unsubscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=unsubscribe>
-List-Archive: <http://openib.org/pipermail/openib-general>
-List-Post: <mailto:openib-general@openib.org>
-List-Help: <mailto:openib-general-request@openib.org?subject=help>
-List-Subscribe: <http://openib.org/mailman/listinfo/openib-general>,
-	<mailto:openib-general-request@openib.org?subject=subscribe>
-Sender: openib-general-bounces@openib.org
-Errors-To: openib-general-bounces@openib.org
+Content-Type: text/plain; charset=us-ascii
+Cc: "David S. Miller" <davem@davemloft.net>, netdev@oss.sgi.com
+Return-path: <netdev-bounce@oss.sgi.com>
+To: jamal <hadi@cyberus.ca>
+Content-Disposition: inline
+In-Reply-To: <1104240053.1100.53.camel@jzny.localdomain>
+Sender: netdev-bounce@oss.sgi.com
+Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 2004-12-24 at 11:10, Eric Lemoine wrote:
+* jamal <1104240053.1100.53.camel@jzny.localdomain> 2004-12-28 08:20
+> On Mon, 2004-12-27 at 07:16, Thomas Graf wrote:
+> > > ChangeSet 1.2055.37.1, 2004/11/17 16:08:01-08:00, util@deuroconsult.ro
+> > > 
+> > > 	[PKT_SCHED]: Allow using nfmark as key in U32 classifier.
+> > > 	
+> > > 	Signed-off-by: Catalin(ux aka Dino) BOIE <catab at umbrella.ro>
+> > > 	Signed-off-by: David S. Miller <davem@davemloft.net>
+> > 
+> > I must have missed this one. This should have been implemented in the
+> > metadata action module to make it available to all classifiers.
+> 
+> You mean meta match. 
 
-> Yes but requiring drivers to release a lock that they should not even
-> be aware of doesn't sound good. Another way would be to keep
-> dev->queue_lock grabbed when entering start_xmit() and let the driver
-> drop it (and re-acquire it before it returns) only if it wishes so.
-> Although I don't like this too much either, that's the best way I can
-> think of up to now...
+Yes, I was thinking about implementing it as action, any objections?
 
-I am not a big fan of that patch either, but i cant think of a cleaner
-way to do it. 
-The violation already happens with the LLTX flag. So maybe a big warning
-that says "Do this only if you driver is LLTX enabled". The other way to
-do it is put a check to see if LLTX is enabled before releasing that
-lock - but why the extra cycles? Driver writer should know.
+> >  We
+> > should really stop to add more stuff to specific classifiers which have
+> > to be removed once we have metamatch. I've made a proposal on paper
+> > just need some more time to cook up a patch.
+> 
+> I have cycles now. Are you working on this or should i invest some of my
+> cycles in it? Lets fix this once and for all.
 
-cheers,
-jamal
+I don't care, I'm still testing the patchset to make classifer changes
+consistent again. A few big changes to tcindex/route classifier need
+extensive testing.
+
+My thoughts on meta match:
+  
+  A match consists of a header, lvalue, rvalue and stats. The header
+  contains the handle, the requested operand (eq,lt,gt) and a flag to
+  invert the meaning of the match. A value consists of a type and data
+  where type specifies the actual metadata to be used. A few upper bits
+  of the type specify the kind, i.e. wether it's numeric or a
+  bytestring. Only values with matching upper bits can be compared.
+  Additionally a mask and shift operator can be configured. Why so
+  complicated? Comparing two kernel meta values can useful, realdev
+  == indev when classyfing on tunnels, comparing backlogs, etc. Device
+  matches should be made available as both numeric and bytestring match
+  to have a fastpath when ifindex is stable and a slower path which is
+  more flexible to changes.
