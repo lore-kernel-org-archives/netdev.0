@@ -1,28 +1,22 @@
-From: Andi Kleen <ak@muc.de>
+From: "David S. Miller" <davem@davemloft.net>
 Subject: Re: Do you know the linux TCP stack?
-Date: Sat, 05 Mar 2005 19:34:22 +0100
-Message-ID: <m1wtsmrlg1.fsf@muc.de>
+Date: Sat, 5 Mar 2005 10:39:29 -0800
+Message-ID: <20050305103929.46255b6c.davem@davemloft.net>
 References: <E1D7aML-0007Wp-00@smtp01.mrf.mail.rcn.net>
+	<E1D7aML-0007Wp-00@smtp01.mrf.mail.rcn.net>
+	<E1D7cr7-0006TO-00@smtp06.mrf.mail.rcn.net>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=US-ASCII
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, linux-net@vger.kernel.org
 To: Zdenek Radouch <zdenek@rcn.com>
-In-Reply-To: <E1D7aML-0007Wp-00@smtp01.mrf.mail.rcn.net> (Zdenek Radouch's
- message of "Sat, 05 Mar 2005 09:31:32 -0500")
+In-Reply-To: <E1D7cr7-0006TO-00@smtp06.mrf.mail.rcn.net>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Zdenek Radouch <zdenek@rcn.com> writes:
->
-> If you can do it, and are interested in helping me,  please send me
-> a note, with your hourly consulting rate, or a suggestion of how
-> you'd like to be compensated for the work.  Of course, if you'd
-> like to just send me an answer, that would be fine, too. :-)
 
-((struct rtentry *)(skb->dst))->rt_spec_dst
+The routing entry used is in "skb->dst", cast it to a
+"struct rtentry *" and look at the contents.
 
-You would need to make sure the packet is IP first, and even then
-it may fail (e.g. injected IP packet from a packet socket)
-
--Andi
+$5000.00USD please :-)
