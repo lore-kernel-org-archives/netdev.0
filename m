@@ -1,162 +1,77 @@
-From: chas williams <chas@cmf.nrl.navy.mil>
-Subject: [PATCH][ATM][6/6] setsockopt/getsockopt cleanup
-Date: Mon, 13 Oct 2003 23:47:19 -0400
+From: "Noah J. Misch" <noah@caltech.edu>
+Subject: Re: patches for PROC_FS=n (2.6.0-test7)
+Date: Mon, 13 Oct 2003 22:17:57 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200310140347.h9E3lIkT005624@ginger.cmf.nrl.navy.mil>
-Reply-To: chas3@users.sourceforge.net
-Cc: netdev@oss.sgi.com
+Message-ID: <Pine.GSO.4.58.0310122215370.24@inky>
+References: <Pine.GSO.4.58.0310101519330.9806@inky> <20031012191725.093139d5.rddunlap@osdl.org>
+Mime-Version: 1.0
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: maxk@qualcomm.com, netdev@oss.sgi.com, davem@redhat.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@redhat.com
+To: "Randy.Dunlap" <rddunlap@osdl.org>
+In-Reply-To: <20031012191725.093139d5.rddunlap@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-please apply to 2.4 --thanks
+Randy,
 
-# This is a BitKeeper generated patch for the following project:
-# Project Name: Linux kernel tree
-# This patch format is intended for GNU patch command version 2.5 or higher.
-# This patch includes the following deltas:
-#	           ChangeSet	1.1144  -> 1.1145 
-#	       net/atm/pvc.c	1.9     -> 1.10   
-#	       net/atm/svc.c	1.10    -> 1.11   
-#	    net/atm/common.h	1.9     -> 1.10   
-#	    net/atm/common.c	1.26    -> 1.27   
-#
-# The following is the BitKeeper ChangeSet Log
-# --------------------------------------------
-# 03/10/13	chas@relax.cmf.nrl.navy.mil	1.1145
-# [ATM]: setsockopt/getsockopt cleanup
-# --------------------------------------------
-#
-diff -Nru a/net/atm/common.c b/net/atm/common.c
---- a/net/atm/common.c	Mon Oct 13 18:41:42 2003
-+++ b/net/atm/common.c	Mon Oct 13 18:41:42 2003
-@@ -987,14 +987,16 @@
- 	return check_tp(&qos->rxtp);
- }
- 
--
--static int atm_do_setsockopt(struct socket *sock,int level,int optname,
--    void *optval,int optlen)
-+int vcc_setsockopt(struct socket *sock, int level, int optname,
-+		   char *optval, int optlen)
- {
- 	struct atm_vcc *vcc;
- 	unsigned long value;
- 	int error;
- 
-+	if (__SO_LEVEL_MATCH(optname, level) && optlen != __SO_SIZE(optname))
-+		return -EINVAL;
-+
- 	vcc = ATM_SD(sock);
- 	switch (optname) {
- 		case SO_ATMQOS:
-@@ -1028,10 +1030,16 @@
- }
- 
- 
--static int atm_do_getsockopt(struct socket *sock,int level,int optname,
--    void *optval,int optlen)
-+int vcc_getsockopt(struct socket *sock, int level, int optname,
-+		   char *optval, int *optlen)
- {
- 	struct atm_vcc *vcc;
-+	int len;
-+
-+	if (get_user(len, optlen))
-+		return -EFAULT;
-+	if (__SO_LEVEL_MATCH(optname, level) && len != __SO_SIZE(optname))
-+		return -EINVAL;
- 
- 	vcc = ATM_SD(sock);
- 	switch (optname) {
-@@ -1062,28 +1070,7 @@
- 			break;
- 	}
- 	if (!vcc->dev || !vcc->dev->ops->getsockopt) return -EINVAL;
--	return vcc->dev->ops->getsockopt(vcc,level,optname,optval,optlen);
--}
--
--
--int atm_setsockopt(struct socket *sock,int level,int optname,char *optval,
--    int optlen)
--{
--	if (__SO_LEVEL_MATCH(optname, level) && optlen != __SO_SIZE(optname))
--		return -EINVAL;
--	return atm_do_setsockopt(sock,level,optname,optval,optlen);
--}
--
--
--int atm_getsockopt(struct socket *sock,int level,int optname,
--    char *optval,int *optlen)
--{
--	int len;
--
--	if (get_user(len,optlen)) return -EFAULT;
--	if (__SO_LEVEL_MATCH(optname, level) && len != __SO_SIZE(optname))
--		return -EINVAL;
--	return atm_do_getsockopt(sock,level,optname,optval,len);
-+	return vcc->dev->ops->getsockopt(vcc, level, optname, optval, len);
- }
- 
- 
-diff -Nru a/net/atm/common.h b/net/atm/common.h
---- a/net/atm/common.h	Mon Oct 13 18:41:42 2003
-+++ b/net/atm/common.h	Mon Oct 13 18:41:42 2003
-@@ -19,10 +19,10 @@
- 		struct scm_cookie *scm);
- unsigned int atm_poll(struct file *file,struct socket *sock,poll_table *wait);
- int vcc_ioctl(struct socket *sock, unsigned int cmd, unsigned long arg);
--int atm_setsockopt(struct socket *sock,int level,int optname,char *optval,
--    int optlen);
--int atm_getsockopt(struct socket *sock,int level,int optname,char *optval,
--    int *optlen);
-+int vcc_setsockopt(struct socket *sock, int level, int optname, char *optval,
-+		   int optlen);
-+int vcc_getsockopt(struct socket *sock, int level, int optname, char *optval,
-+		   int *optlen);
- 
- void atm_shutdown_dev(struct atm_dev *dev);
- 
-diff -Nru a/net/atm/pvc.c b/net/atm/pvc.c
---- a/net/atm/pvc.c	Mon Oct 13 18:41:42 2003
-+++ b/net/atm/pvc.c	Mon Oct 13 18:41:42 2003
-@@ -67,7 +67,7 @@
- 	int error;
- 
- 	lock_sock(sk);
--	error = atm_setsockopt(sock, level, optname, optval, optlen);
-+	error = vcc_setsockopt(sock, level, optname, optval, optlen);
- 	release_sock(sk);
- 	return error;
- }
-@@ -80,7 +80,7 @@
- 	int error;
- 
- 	lock_sock(sk);
--	error = atm_getsockopt(sock, level, optname, optval, optlen);
-+	error = vcc_getsockopt(sock, level, optname, optval, optlen);
- 	release_sock(sk);
- 	return error;
- }
-diff -Nru a/net/atm/svc.c b/net/atm/svc.c
---- a/net/atm/svc.c	Mon Oct 13 18:41:42 2003
-+++ b/net/atm/svc.c	Mon Oct 13 18:41:42 2003
-@@ -470,7 +470,7 @@
- 
- 	if (!__SO_LEVEL_MATCH(optname, level) || optname != SO_ATMSAP ||
- 	    optlen != sizeof(struct atm_sap)) {
--		error = atm_setsockopt(sock, level, optname, optval, optlen);
-+		error = vcc_setsockopt(sock, level, optname, optval, optlen);
- 		goto out;
- 	}
- 	vcc = ATM_SD(sock);
-@@ -493,7 +493,7 @@
- 
- 	lock_sock(sk);
- 	if (!__SO_LEVEL_MATCH(optname, level) || optname != SO_ATMSAP) {
--		error = atm_getsockopt(sock, level, optname, optval, optlen);
-+		error = vcc_getsockopt(sock, level, optname, optval, optlen);
- 		goto out;
- 	}
- 	if (get_user(len, optlen)) {
+That fix looks like the best to me.  I did notice also that proc_bt_rfcomm and
+proc_bt_hci have similar #ifdef wrappers.  I think that's okay since they aren't
+EXPORT_SYMBOL-ed, and they're used in fewer places.
+
+FYI, IPX won't compile without CONFIG_PROC_FS at this time.  The merged patch
+depended on a patch that I sent to Linus and posted to linux-kernel alongside
+the IPX patch.  I also sent them to linux-net (accidentally, instead of netdev).
+I may need to resend that patch.  In the mean time, if you actually need to use
+IPX without procfs, you can grab the patch (and rationale) here:
+http://www.ussg.iu.edu/hypermail/linux/kernel/0310.1/0452.html
+
+FYI #2, from elsewhere in the department of fixing exotic breakage, I'm working
+on patches that will allow one to compile a linux kernel under Unix and other
+similar systems.  I've gotten allnoconfig for i386 to build from Solaris 2.7 on
+sun4u, but a number of the userspace tools that support the build process of
+optional components need a bit more help.
+
+On Sun, 12 Oct 2003, Randy.Dunlap wrote:
+
+> On Fri, 10 Oct 2003 16:06:29 -0700 (PDT) "Noah J. Misch" <noah@caltech.edu> wrote:
+>
+> | > There are several other drivers/protocols that don't build
+> | > with PROC_FS=n, like arlan, siimage, ipx, llc, and bluetooth.
+> |
+> | I put in a patch for ipx yesterday, and I have patches for siimage and llc
+> | pretty much ready to go.  I noticed the others but I have not done much.
+>
+> ipx is merged.  I'll leave siimage and llc to Noah.
+> Patch below fixes af_bluetooth.  Comments on it?
+>
+> --
+> ~Randy
+>
+>
+> patch_name:	bt_noprocfs.patch
+> patch_version:	2003-10-12.19:11:03
+> author:		Randy.Dunlap <rddunlap@osdl.org>
+> description:	af_bluetooth uses/needs proc_bt when PROC_FS=n
+> product:	Linux
+> product_versions: 2.6.0-test7
+> diffstat:	=
+>  net/bluetooth/af_bluetooth.c |    2 --
+>  1 files changed, 2 deletions(-)
+>
+>
+> diff -Naur ./net/bluetooth/af_bluetooth.c~btprocfs ./net/bluetooth/af_bluetooth.c
+> --- ./net/bluetooth/af_bluetooth.c~btprocfs	2003-10-08 12:24:02.000000000 -0700
+> +++ ./net/bluetooth/af_bluetooth.c	2003-10-12 19:09:11.000000000 -0700
+> @@ -56,9 +56,7 @@
+>  #define BT_DBG( A... )
+>  #endif
+>
+> -#ifdef CONFIG_PROC_FS
+>  struct proc_dir_entry *proc_bt;
+> -#endif
+>
+>  /* Bluetooth sockets */
+>  #define BT_MAX_PROTO	5
+>
+>
