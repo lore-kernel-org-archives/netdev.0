@@ -1,30 +1,44 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: [PATCH 2.6.9-rc2 4/8] S2io: hardware fixes
-Date: Fri, 08 Oct 2004 20:31:44 -0400
+From: "Randy.Dunlap" <rddunlap@osdl.org>
+Subject: [PATCH] pktgen: sprintf arg type warning
+Date: Fri, 8 Oct 2004 20:30:27 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41673170.6020402@pobox.com>
-References: <004301c4ad97$be6a7010$9810100a@S2IOtech.com>
+Message-ID: <20041008203027.643a2a97.rddunlap@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: "'Francois Romieu'" <romieu@fr.zoreil.com>, netdev@oss.sgi.com,
-        leonid.grossman@s2io.com, raghavendra.koushik@s2io.com,
-        rapuru.sriram@s2io.com
+Cc: davem@davemloft.net
 Return-path: <netdev-bounce@oss.sgi.com>
-To: ravinandan.arakali@s2io.com
-In-Reply-To: <004301c4ad97$be6a7010$9810100a@S2IOtech.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Ravinandan Arakali wrote:
-> Jeff,
-> Sorry about that. We'll add the signed-off-by line.
-> We are sending the patches as and when they are completed.
-> In the next couple of days, the remaining patches should
-> be done. Do you want us to send them after all are complete
-> or is it okay to send each patch as and when completed ?
 
-I apply a patch series all at the same time.  So, right now I'm waiting 
-for patches 5-8 before I will apply 1-8.
+Fix sprintf arg type error (gcc 3.3.3), although it looks more like
+a gcc problem than a kernel source code problem to me.
+Doesn't matter on x86-32.  Fixes a warning on x86-64.
 
-	Jeff
+net/core/pktgen.c:607: warning: long long unsigned int format, long unsigned int arg (arg 4)
+
+Signed-off-by: Randy Dunlap <rddunlap@osdl.org>
+
+
+diffstat:=
+ net/core/pktgen.c |    2 +-
+ 1 files changed, 1 insertion(+), 1 deletion(-)
+
+diff -Naurp ./net/core/pktgen.c~pktgen_type ./net/core/pktgen.c
+--- ./net/core/pktgen.c~pktgen_type	2004-10-06 15:04:06.260548504 -0700
++++ ./net/core/pktgen.c	2004-10-08 20:16:57.191340296 -0700
+@@ -603,7 +603,7 @@ static void show_results(struct pktgen_i
+ 	do_div(idle, cpu_speed);
+ 
+ 	p += sprintf(p, "OK: %llu(c%llu+d%lu) usec, %llu (%dbyte,%dfrags)\n",
+-		     total, total - idle, idle,
++		     total, total - (__u64)idle, idle,
+ 		     info->sofar, size, nr_frags);
+ 
+ 	pps = info->sofar * USEC_PER_SEC;
+
+
+--
+~Randy
