@@ -1,110 +1,68 @@
-From: Luca Deri <deri@ntop.org>
-Subject: Re: Luca Deri's paper: Improving Passive Packet Capture: Beyond Device
- Polling
-Date: Wed, 07 Apr 2004 09:11:27 +0200
+From: Daniel Egger <degger@fhm.edu>
+Subject: Re: [NET] net driver updates
+Date: Tue, 6 Apr 2004 22:35:51 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <4073A99F.1000006@ntop.org>
-References: <20040330142354.GA17671@outblaze.com> <1081033332.2037.61.camel@jzny.localdomain> <c4rvvv$dbf$1@sea.gmane.org> <407286BB.8080107@draigBrady.com> <4072A1CD.8070905@ntop.org> <E1BAt0s-0003V8-00@crown.reflexsecurity.com>
-Mime-Version: 1.0
-Content-Type: text/plain; charset=us-ascii; format=flowed
+Message-ID: <FE87A41F-8809-11D8-8F2A-000A9597297C@fhm.edu>
+References: <4072CD01.6070408@pobox.com>
+Mime-Version: 1.0 (Apple Message framework v613)
+Content-Type: multipart/signed; protocol="application/pgp-signature"; micalg=pgp-sha1; boundary="Apple-Mail-4--102663672"
 Content-Transfer-Encoding: 7bit
-Cc: ntop-misc@fuji.unipi.it, netdev@oss.sgi.com, Robert.Olsson@data.slu.se,
-        hadi@cyberus.ca
+Cc: Linux Kernel <linux-kernel@vger.kernel.org>, Andrew Morton <akpm@osdl.org>,
+        Netdev <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Jason Lunz <lunz@reflexsecurity.com>
-In-Reply-To: <E1BAt0s-0003V8-00@crown.reflexsecurity.com>
+In-Reply-To: <4072CD01.6070408@pobox.com>
+To: Jeff Garzik <jgarzik@pobox.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Jason,
-Jason Lunz wrote:
 
->[This message has also been posted to gmane.linux.network.]
->deri@ntop.org said:
->  
->
->>In addition if you do care about performance, I believe you're willing
->>to turn off packet transmission and only do packet receive. 
->>    
->>
->
->I don't understand what you mean by this. packet-mmap works perfectly
->well on an UP|PROMISC interface with no addresses bound to it. As long
->as no packets are injected through a packet socket, the tx path never
->gets involved.
->
->  
->
-my PF_RING does not allow you to send data, but just to receive it. I 
-have not implemented transmission as this work is mainly for receiving 
-data and not for sending (although it should be fairly easy to do add 
-this feature). So 1) everything is optimized for receiving packets and 
-2) as I have explained before the trip of a packet from the NIC to the 
-userland is much shorter that with pcap-mmap (for instance you don't 
-cross netfilter at all).
+--Apple-Mail-4--102663672
+Content-Transfer-Encoding: 7bit
+Content-Type: text/plain; charset=US-ASCII; format=flowed
 
->>IRQ: Linux has far too much latency, in particular at high speeds. I'm
->>not the right person who can say "this is the way to go", however I
->>believe that we need some sort of interrupt prioritization like RTIRQ
->>does.
->>    
->>
->
->I don't think this is the problem, since small-packet performance is bad
->even with a fully-polling e1000 in NAPI mode. As Robert Olsson has
->demonstrated, a highly-loaded napi e1000 only generates a few hundred
->interrupts per second. So the vast majority of packets recieved are
->coming in without a hardware interrupt occurring at all.
->
->Could it be that each time an hw irq _is_ generated, it causes many
->packets to be lost? That's a possibility. Can you explain in more detail
->how you measured the effect of interrupt latency on recieve efficiency?
->  
->
-I'm not an expert here. All i can tell you is that measuring performance 
-with rtdisc I have realized that even at high load, even if there are 
-few incoming interrupts (as Robert demonstrated) the kernel latency is 
-not acceptable. That's why I used RTIRQ.
+On 06.04.2004, at 17:30, Jeff Garzik wrote:
 
+> * Francois work on r8169, epic100, sis190: PCI DMA, NAPI, other minor 
+> fixes and cleanups
 
->  
->
->>Finally It would be nice to have in the standard Linux core some
->>packet capture improvements. It could either be based on my work or on
->>somebody else's work. It doesn't really matter as long as Linux gets
->>faster.
->>    
->>
->
->I agree. I think a good place to start would be reading and
->understanding this thread:
->
->http://thread.gmane.org/gmane.linux.kernel/193758
->
->There's some disagreement for a while about where all this softirq load
->is coming from. It looks like an interaction of softirqs and RCU, but
->the first patch doesn't help.  Finally Olsson pointed out:
->
->http://article.gmane.org/gmane.linux.kernel/194412
->
->that the majority of softirq's are being run from hardirq exit. Even
->with NAPI. At this point, I think, it's clear that the problem exists
->regardless of rcu, and indeed, Linux is bad at doing packet-mmap RX of a
->small-packet gigabit flood on both 2.4 and 2.6 (my old 2.4 measurements
->earlier in this thread show this).
->
->I'm particularly interested in trying Andrea's suggestion from
->http://article.gmane.org/gmane.linux.kernel/194486 , but I won't have
->the time anytime soon.
->
->Jason
->  
->
-I'll read them.
+r8169 seems to work though it is not even a tad bit faster
+than plain 2.6.5.
 
-Thanks, Luca
+Those cards are really driving me nuts. Between two r8169 cards, one
+on Athlon with kernel 2.4.24, one on Athlon with 2.6.5 or 2.4.24, I
+get 90Mbit/s in one direction and 39Mbit/s in the other using iperf and
+TCP. With iperf and UDP they deliver 100Mbit/s resp. 230Mbit/s depending
+on the direction. Crosschecking with my PowerBook (OS X) shows that I 
+can
+get 844Mbit/s (UDP) or 572Mbit/s (TCP) to one host and 844Mbit/s (UDP) 
+but
+only 88Mbit/s (TCP) to the other.
 
--- 
-Luca Deri <deri@ntop.org>	http://luca.ntop.org/
-Hacker: someone who loves to program and enjoys being
-clever about it - Richard Stallman
+The environment is switched and changing cables and/or ports doesn't
+improve the results.
+
+Ideas? (Yeah, I'll get Intel NICs RSN...)
+
+Servus,
+       Daniel
+
+--Apple-Mail-4--102663672
+content-type: application/pgp-signature; x-mac-type=70674453;
+	name=PGP.sig
+content-description: This is a digitally signed message part
+content-disposition: inline; filename=PGP.sig
+content-transfer-encoding: 7bit
+
+-----BEGIN PGP SIGNATURE-----
+Version: GnuPG v1.2.4 (Darwin)
+
+iQEVAwUBQHMUpzBkNMiD99JrAQL45Qf/b96+36QbfCn1DYBW1dc3kdvwwK89svqT
+Hu2akhQbncciQ8Wuy0yw8tYd4N5oDAOi+4NnJMA77JveHIlKSoMcRB5m8O2of5SJ
+PvNhKQhU3I6ysoUrOO5AIpoiycymYuxgv76tMKQbiouSY/xR8EfxXPRGkCxzfV3w
+7yHhjgMFEz9DbgTEQJj3ed5I4GalpCVh/x5EPqv7c/7+LLkWkDYhwoWtZCxb3lrS
+W5LjRVfHmks+kqk+9WbhwnJEtcoSGEVOLyRGmL8PxUgTDYZjm98MxSgUbnWO6KP2
+C0FVe6VtBfElQbLgWuJOHqDjynxwuosMeeEsdigOCuis2hIUBUXQ9w==
+=j3y8
+-----END PGP SIGNATURE-----
+
+--Apple-Mail-4--102663672--
