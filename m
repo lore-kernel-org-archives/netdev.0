@@ -1,34 +1,37 @@
-From: Ville Nuorvala <vnuorval@tcs.hut.fi>
+From: Pekka Savola <pekkas@netcore.fi>
 Subject: Re: [PATCH|RFC] IPv6 netfilter: a module for complete proxy ND
  support
-Date: Thu, 15 Jan 2004 17:09:00 +0200 (EET)
+Date: Thu, 15 Jan 2004 17:42:38 +0200 (EET)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <Pine.LNX.4.58.0401151705500.29722@rhea.tcs.hut.fi>
-References: <Pine.LNX.4.58.0401141726490.24125@rhea.tcs.hut.fi>
- <20040115.223430.100570163.yoshfuji@linux-ipv6.org>
- <Pine.LNX.4.58.0401151537000.29722@rhea.tcs.hut.fi>
- <20040116.000117.133662773.yoshfuji@linux-ipv6.org>
+Message-ID: <Pine.LNX.4.44.0401151740400.16820-100000@netcore.fi>
+References: <Pine.LNX.4.58.0401151719160.29722@rhea.tcs.hut.fi>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=iso-8859-15
-Content-Transfer-Encoding: quoted-printable
-Cc: netfilter-devel@lists.netfilter.org, davem@redhat.com, netdev@oss.sgi.com,
-        kuznet@ms2.inr.ac.ru
+Content-Type: TEXT/PLAIN; charset=US-ASCII
+Cc: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>,
+        <netfilter-devel@lists.netfilter.org>, <davem@redhat.com>,
+        <netdev@oss.sgi.com>, <kuznet@ms2.inr.ac.ru>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-In-Reply-To: <20040116.000117.133662773.yoshfuji@linux-ipv6.org>
+To: Ville Nuorvala <vnuorval@tcs.hut.fi>
+In-Reply-To: <Pine.LNX.4.58.0401151719160.29722@rhea.tcs.hut.fi>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Fri, 16 Jan 2004, YOSHIFUJI Hideaki / [iso-2022-jp] =B5=C8=C6=A3=B1=D1=
-=CC=C0 wrote:
+On Thu, 15 Jan 2004, Ville Nuorvala wrote:
+> In the current implementation the proxying router captures the multicast
+> queries since it has joined the solicited-node multicast group, but it
+> doesn't capture the unicast queries.
+> 
+> This is what I want to fix.
 
-> Really? I doubt that because of usage and comment in net/ipv4.
+But isn't this like a trivial thing to do, hardly something you want 
+to add a netfilter dependency for?
 
-Sorry, could you clarify? What usage and comment in net/ipv4 ?-)
+In addition to cycling through your own addresses for responding to 
+unicast queries, you also respond to a specific set of addresses which 
+have been explicitly configured somewhere? (with a configuration tool 
+like 'arp', e.g. KAME has 'ndp' for that)
 
-Ville
---
-Ville Nuorvala
-Research Assistant, Institute of Digital Communications,
-Helsinki University of Technology
-email: vnuorval@tcs.hut.fi, phone: +358 (0)9 451 5257
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
