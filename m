@@ -1,31 +1,33 @@
-From: Joe Perches <joe@perches.com>
-Subject: comment on [NET]: Delete support for old-style protocols, no
-	longer necessary.
-Date: Tue, 07 Oct 2003 11:37:09 -0700
+From: "David S. Miller" <davem@redhat.com>
+Subject: Re: comment on [NET]: Delete support for old-style protocols, no
+ longer necessary.
+Date: Tue, 7 Oct 2003 11:52:44 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1065551829.2340.9.camel@localhost.localdomain>
+Message-ID: <20031007115244.14a887ed.davem@redhat.com>
+References: <1065551829.2340.9.camel@localhost.localdomain>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: davem@nuts.ninka.net, linux-net@vger.kernel.org, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: davem@nuts.ninka.net, linux-net@vger.kernel.org, netdev@oss.sgi.com
+To: Joe Perches <joe@perches.com>
+In-Reply-To: <1065551829.2340.9.camel@localhost.localdomain>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-How about
+On Tue, 07 Oct 2003 11:37:09 -0700
+Joe Perches <joe@perches.com> wrote:
 
-netdevice.h
+> -       void                    *af_packet_priv;
+> +       struct sock             *sk;	/* appropriate comment: socket copy? */
 
-struct sock;
+AF_PACKET is the only user of this private field, and
+I want people to be aware of this and not try to use it
+for other stuff.
 
-struct packet_type {
-        unsigned short          type;   /* This is really htons(ether_type).    */
-        struct net_device               *dev;   /* NULL is wildcarded here              */
-        int                     (*func) (struct sk_buff *, struct net_device *,
-                                         struct packet_type *);
--       void                    *af_packet_priv;
-+       struct sock             *sk;	/* appropriate comment: socket copy? */
-        struct list_head        list;
- };
+Nobody else can use it for something different, the code
+in net/core/dev.c does specific things when it's non-NULL
+knowing that this non-NULL value means that it's an
+AF_PACKET packet_type being passed to it.
 
-and s/af_packet_priv/sk/g in the rest of the files?
+So we won't make your suggested change.
