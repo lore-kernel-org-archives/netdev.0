@@ -1,45 +1,39 @@
-From: Rusty Russell <rusty@rustcorp.com.au>
-Subject: Re: [PATCH 2.6] ip_nat_ftp - manip at the right place
-Date: Thu, 16 Sep 2004 08:13:20 +1000
+From: Jeff Garzik <jgarzik@pobox.com>
+Subject: Re: The ultimate TOE design
+Date: Wed, 15 Sep 2004 18:26:42 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1095286400.1940.8.camel@bach>
-References: <Pine.LNX.4.58.0409111042580.1315@u.domain.uli>
-	 <20040913163002.35aae28c.davem@davemloft.net>
+Message-ID: <4148C1A2.2030309@pobox.com>
+References: <4148991B.9050200@pobox.com>	<Pine.LNX.4.61.0409152102050.23011@fogarty.jakma.org>	<1095275660.20569.0.camel@localhost.localdomain>	<4148A90F.80003@pobox.com>	<20040915140123.14185ede.davem@davemloft.net>	<20040915210818.GA22649@havoc.gtf.org>	<20040915141346.5c5e5377.davem@davemloft.net>	<4148B2E5.50106@pobox.com> <20040915142926.7bc456a4.davem@davemloft.net>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=us-ascii; format=flowed
 Content-Transfer-Encoding: 7bit
-Cc: Julian Anastasov <ja@ssi.bg>, Harald Welte <laforge@netfilter.org>,
-        netdev@oss.sgi.com
+Cc: alan@lxorguk.ukuu.org.uk, paul@clubi.ie, netdev@oss.sgi.com,
+        leonid.grossman@s2io.com, linux-kernel@vger.kernel.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: "David S. Miller" <davem@davemloft.net>
-In-Reply-To: <20040913163002.35aae28c.davem@davemloft.net>
+In-Reply-To: <20040915142926.7bc456a4.davem@davemloft.net>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 2004-09-14 at 09:30, David S. Miller wrote:
-> On Sat, 11 Sep 2004 10:53:53 +0300 (EEST)
-> Julian Anastasov <ja@ssi.bg> wrote:
+David S. Miller wrote:
+> On Wed, 15 Sep 2004 17:23:49 -0400
+> Jeff Garzik <jgarzik@pobox.com> wrote:
 > 
-> > 	This is a resend/resync for v2.6.9-rc1-bk17: change the
-> > way the ip_nat_ftp helper manipulates the packets:
-> > 
-> > - no manips => no fixup
-> > 
-> > - check the direction, do manip once and at the same time when the
-> > headers are changed
-> > 
-> > 	This is needed mostly for IPVS setups and I hope we do not
-> > create troubles for other setups or FTP software.
 > 
-> I'm still waiting for ACK/NACK of this.  I know Rusty is travelling
-> and Harald is probably busy too, so I know the delay in response is not
-> because these guys are slackers :-)
+>>The typical definition of TOE is "offload 90+% of the net stack", as 
+>>opposed to "TCP assist", which is stuff like TSO.
+> 
+> 
+> I think a better goal is "offload 90+% of the net stack cost" which
+> is effectively what TSO does on the send side.
 
-Mine is because I'm porting the existing FTP testsuite to nfsim, so I
-can test the patch doesn't break anything.  As far as I can tell, this
-change isn't vital, so I'm not losing sleep to do it...
 
-Thanks,
-Rusty.
--- 
-Anyone who quotes me in their signature is an idiot -- Rusty Russell
+A better goal is to not bother with TOE at all, and just get multi-core 
+processors with huge memory bandwidth :)
+
+Again, the point of my message is to have something _positive_ to tell 
+people when they specifically asked about TOE.  Rather than "no, we'll 
+never do TOE" we have "it's possible, but there are better questions you 
+should be asking"
+
+	Jeff
