@@ -1,28 +1,31 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH] IPSec: Use of "sizeof" for header sizes, part II
-Date: Tue, 01 Apr 2003 14:07:27 -0800 (PST)
+From: Jason Lunz <lunz@reflexsecurity.com>
+Subject: Re: [Fwd: [E1000] NAPI re-insertion w/ changes]
+Date: Tue, 1 Apr 2003 22:40:03 +0000 (UTC)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030401.140727.73666851.davem@redhat.com>
-References: <1049234673.5116.11.camel@tomlt2.tomloffice.austin.ibm.com>
-Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
-Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com, kuznet@ms2.inr.ac.ru
+Message-ID: <slrnb8k5ai.j2k.lunz@stoli.localnet>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E010107D314@orsmsx402.jf.intel.com> <slrnb8jppb.eh6.lunz@stoli.localnet>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: toml@us.ibm.com
-In-Reply-To: <1049234673.5116.11.camel@tomlt2.tomloffice.austin.ibm.com>
+To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Tom Lendacky <toml@us.ibm.com>
-   Date: 01 Apr 2003 16:04:32 -0600
-   
-   Please review and let me know if any changes are required.
+lunz@reflexsecurity.com said:
+> It works. Reducing PCI accessess gives a measurable improvement. I'll
+> post plots later today.
 
-Ok, now that I look at this I realize my suggestions from the other
-day were wrong.
+The graphs are up now. The best driver measured so far is Robert's
+change to reinstate irq-disable-on-poll + reduce-pci-traffic, with
+XsumRX turned off. I'm currently measuring to see if it still has an
+advantage with checksumming turned on.
 
-These expressions are huge, it's almost less readable.  Let's compact
-this, by creating a struct named {ip,ipv6}_esp_header_no_enc_data.
+Scott, your bugfix of removing the while() from e1000_clean() puts the
+original 5.0.43-k1 driver from 2.5.66 back in the running. It no longer
+suffers from watchdog timeouts, and doesn't degrade under high load.  It
+still scores lowest, though.  I've seen that the max-pps-ceiling visible
+in these graphs is highly sensitive to CPU load, so I'd guess that the
+sf1 test lost solely because of the overhead of still running the irq
+handler once in a while.  
 
-How about that?
+-- 
+Jason Lunz			Reflex Security
+lunz@reflexsecurity.com		http://www.reflexsecurity.com/
