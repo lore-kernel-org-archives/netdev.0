@@ -1,40 +1,43 @@
-From: Andre Tomt <andre@tomt.net>
-Subject: Re: tg3 link state detection
-Date: Tue, 21 Sep 2004 17:58:31 +0200
+From: Pekka Savola <pekkas@netcore.fi>
+Subject: Re: [PATCH + RFC] neighbour/ARP cache scalability
+Date: Tue, 21 Sep 2004 18:58:05 +0300 (EEST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <41504FA7.60400@tomt.net>
-References: <41504EF0.4050208@tomt.net>
+Message-ID: <Pine.LNX.4.44.0409211856260.9906-100000@netcore.fi>
+References: <20040922.001448.73843048.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1; format=flowed
-Content-Transfer-Encoding: 7bit
+Content-Type: TEXT/PLAIN; charset=ISO-8859-1
+Cc: laforge@gnumonks.org, <netdev@oss.sgi.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: netdev@oss.sgi.com
-In-Reply-To: <41504EF0.4050208@tomt.net>
+To: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+In-Reply-To: <20040922.001448.73843048.yoshfuji@linux-ipv6.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-Andre Tomt wrote:
-> With 2.6.8(.1)+the add_pin_to_irq fix we're seeing problem with link 
-> state detection using tg3 devices. The network in question has a severe 
-> case of cable monkeys, so the link is a bit jumpy.
+On Wed, 22 Sep 2004, YOSHIFUJI Hideaki / [iso-2022-jp] 吉藤英明 wrote:
+> > > It's worse in the sense that there is more space in each subnet for
+> > > doing aggressive probing -- but this may not be a big issue with a
+> > > good algorithm and a threshold.
+> > 
+> > So what is that 'good algorithm'.  The current Linux algorithm is from
+> > my point of view (only tested with ipv4) not very good when it comes to
+> > high numbers of neighbours.
 > 
->  From time to time the tg3's do not detect that the link is up again, 
-> and thus has to be rebooted (ifdown/up has not been tested due to 
-> triggerhappy non-technical on-site monkeys.)
+> Well, of course, we should limit number of total entries.
 > 
-> Is this a known problem?
-> 
->> tg3.c:v3.8 (July 14, 2004)
->> ACPI: PCI interrupt 0000:02:00.0[A] -> GSI 16 (level, low) -> IRQ 185
->> eth0: Tigon3 [partno(BCM95704A6) rev 2002 PHY(5704)] 
->> (PCIX:133MHz:64-bit) 10/100/1000BaseT Ethernet 00:0d:56:fe:4f:e7
->> eth0: HostTXDS[1] RXcsums[1] LinkChgREG[1] MIirq[1] ASF[0] Split[0] 
->> WireSpeed[1] TSOcap[1]
->> ACPI: PCI interrupt 0000:02:00.1[B] -> GSI 17 (level, low) -> IRQ 193
->> eth1: Tigon3 [partno(BCM95704A6) rev 2002 PHY(5704)] 
->> (PCIX:133MHz:64-bit) 10/100/1000BaseT Ethernet 00:0d:56:fe:4f:e8
->> eth1: HostTXDS[1] RXcsums[1] LinkChgREG[1] MIirq[1] ASF[0] Split[0] 
->> WireSpeed[1] TSOcap[1]
+> If we have enough memory for usual use,
+> we should not purge the "probably reachable" routes
+> (REACHABLE, STALE, DELAY, and PROBE) neighbours.
+> Probably, we should split neighbour entries to two parts.
+>  - INCOMPLETE
+>  - REACHABLE, STALE, DELAY and PROBE
+> Which means, we should NOT purge "known" entries by unknown entries.
 
-I forgot to mention, these are copper tg3 nic's, not fibre (I know the 
-fibre negatioation code has recieved some attention post-2.6.8)
+This still doesn't take a stance on rate-limiting the ND/ARP packets,
+in case that there still is enough memory, but some kind of attack is
+clearly underway.  Should it still be done?  Consider 100Kpps of
+router-generated ARP/ND probes -- not good!
+
+-- 
+Pekka Savola                 "You each name yourselves king, yet the
+Netcore Oy                    kingdom bleeds."
+Systems. Networks. Security. -- George R.R. Martin: A Clash of Kings
