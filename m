@@ -1,105 +1,82 @@
-From: Dana Lacoste <dana.lacoste@peregrine.com>
-Subject: route cache and messed up network
-Date: Mon, 29 Sep 2003 15:58:36 -0400
+From: Andrew Morton <akpm@osdl.org>
+Subject: Fw: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
+Date: Mon, 29 Sep 2003 12:37:34 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <1064865515.8417.2.camel@dlacoste.ottawa.loran.com>
+Message-ID: <20030929123734.5bd97a47.akpm@osdl.org>
 Mime-Version: 1.0
-Content-Type: text/plain
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
+Cc: dfages@arkoon.net
 Return-path: <netdev-bounce@oss.sgi.com>
 To: netdev@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-(Originally sent to linux-net, but that list seems to
-be almost zero traffic lately and Dave Miller suggested
-that this list might have better results :)
 
-(Note also that I'm not subscribed [can't find out how
-to do so on the sgi site])
 
-I'm trying to get a system working where Linux's network
-route cache is causing problems.
+Begin forwarded message:
 
-Essentially, the linux side of the problem appears to be that
-/proc/sys/net/ipv4/gc_timeout (for ICMP redirect entries) times
-out not on how long it's been in the cache but on how long it's
-been idle : if the entry is not idle it will never time out.
+Date: Mon, 29 Sep 2003 14:08:54 +0200
+From: dfages@arkoon.net
+To: linux-kernel@vger.kernel.org
+Subject: [BUG/PATCH] CONFIG_NET_HW_FLOWCONTROL and SMP
 
-I verified this behaviour by setting the timeout to 20 seconds
-and testing it with ping :
 
-echo '20' > /proc/sys/net/ipv4/gc_timeout
-ping ip_address once
-   Redirect message appears in output
-ping ip_address again (once)
-   Redirect does not appear
-sleep 30
-ping ip_address again (once)
-   Redirect message appears in output
-ping for 30 seconds
-ping ip_address again (once)
-   Redirect does not appear
-sleep 30
-ping ip_address again (once)
-   Redirect message appears in output
 
-So it only expires the cache if it's not active.
 
-Can I change this?  I notice that net/ipv4/route.c has a line
-that says :
-               /* Entry is expired even if it is in use */
-(kernel 2.4.22, stock, line 408)
+Hi,
+by testing the CONFIG_NET_HW_FLOWCONTROL (NIC Hardware throttling) on
+a SMP system, I found a bug in net/core/dev.c : the netdev_dropping
+variable can be set to a negative value (the result is that a CPU can
+be locked in "throttle" state).
+This bug seems to exist in 2.4 and in 2.6 kernels.
 
-Can I force it to timeout entries that are in use?
+Here's a typical scenario :
 
-Here's the situation :
+- Throttling --> (CPU 0)queue->throttle==1 && (CPU 1)queue->throttle==1
+     && netdev_dropping == 2
+- 1st packet Unthrottle ( in net_rx_action() ), received by CPU 0
+     --> (CPU 0)queue->throttle==1 && (CPU 1)queue->throttle==1
+     && netdev_dropping == 1
+- 2nd packet Unthrottle ( in net_rx_action() ), received by CPU 0
+     --> (CPU 0)queue->throttle==0 && (CPU 1)queue->throttle==1
+     && netdev_dropping == 0
+- 3nd packet Unthrottle ( in net_rx_action() ), received by CPU 1
+     --> (CPU 0)queue->throttle==0 && (CPU 1)queue->throttle==0
+     && netdev_dropping == -1
 
-System A is a linux server
-System B is a Cisco router
-System C is a PIX firewall
+and so on...
 
-Subnet X has the linux server, Cisco router, and PIX firewall
-Subnet Y is an internal network connected via System B
-Subnet Z is the internet, behind the PIX
+The problem is that the (CPU)queue->throttle should be set to zero every
+time the netdev_dropping variable is decremented.
 
-System A (linux) has a single default route to System B (cisco
-router) for all traffic.
 
-System B (cisco router) has static routes for (is connected to)
-Subnets X and Y, and a default route to System C (the firewall.)
+Here's a patch for the 2.4.19 kernel (tested with success) :
 
-Sometimes the connection to Subnet Y on System B (cisco router)
-will go down when System A (Linux server) tries to communicate
-with a system in Subnet Y.  It for some unknown and really
-bass-ackwards reason decides then that the default route (to
-System C, the firewall) is where the packets should be going,
-so it sends them there along with an ICMP redirect back to
-System A (the linux box,) to let it know that it would be more
-efficient to send the packet to System C (the firewall) than to
-System B (the cisco router.)
+--- linux-2.4.19/net/core/dev.c.orig     Mon Sep 29 12:49:14 2003
++++ linux-2.4.19/net/core/dev.c    Tue Sep 23 18:35:35 2003
+@@ -1519,8 +1519,8 @@
 
-Well, System C (the firewall) doesn't route packets from the
-internal network to the internal network : it just throws them
-away.  So the packets from System A (linux server) to Subnet Y
-(internal network) don't arrive.  As the gc_timeout is set to
-300 seconds and the linux kernel only times out on idle routes,
-and System A (the linux server) tries to reconnect every minute,
-the (bad) route cache entry never expires and the packets never
-reach their destination again.
+ #ifdef CONFIG_NET_HW_FLOWCONTROL
+     if (queue->throttle && queue->input_pkt_queue.qlen < no_cong_thresh ) {
++         queue->throttle = 0;
+          if (atomic_dec_and_test(&netdev_dropping)) {
+-              queue->throttle = 0;
+               netdev_wakeup();
+               goto softnet_break;
+          }
 
-I've proposed that the cisco box shouldn't send ICMP redirects
-for subnets which it has a local connection to if no other connection
-to that subnet exists, and that the PIX firewall should be intelligent
-enough to do another ICMP redirect back to the cisco router,
-but instead it just throws all the packets away and I'm not
-allowed to change either of these things.
 
-Which means I can only change the linux box.  Is there a way I can
-change it so that it does a timeout on all route cache entries,
-wether they're used or not?
 
-Thanks
 
-Dana Lacoste
-Ottawa, Canada
+I haven't done a patch for 2.4.22 (as we currently use 2.4.19) but the same
+modification should be applied around lines 1572 to 1577 of net/core/dev.c
+
+For 2.6.0-test5, the lines to modified are arount 1631 to 1637.
+
+Regards,
+---
+Daniel FAGES
+ARKOON Network Security    http://www.arkoon.net
+
+
