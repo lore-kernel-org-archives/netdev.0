@@ -1,173 +1,329 @@
-From: Krishna Kumar <kumarkr@us.ibm.com>
-Subject: Re: rudimentary ISR question
-Date: Mon, 12 Apr 2004 16:23:28 -0700
+From: Vincent Lefevre <vincent@vinc17.org>
+Subject: PROBLEM: kernel BUG at tcp_input.c:2927
+Date: Tue, 13 Apr 2004 04:45:17 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <OF0DAE5AB0.7BE32C3B-ON88256E74.007FB9B2@us.ibm.com>
+Message-ID: <20040413024517.GE3858__45209.2527448714$1081826045@ay.vinc17.org>
 Mime-Version: 1.0
-Content-Type: multipart/related;
-	Boundary="0__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22"
-Cc: netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Steve Modica <modica@sgi.com>
+Resent-Message-Id: <20040413.121246.39559361.yoshfuji@linux-ipv6.org>
+To: linux-kernel@vger.kernel.org
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
---0__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22
-Content-type: multipart/alternative;
-	Boundary="1__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22"
+[1.] One line summary of the problem:
 
---1__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22
-Content-type: text/plain; charset=US-ASCII
+Crash; "kernel BUG at tcp_input.c:2927" written in the console.
 
+[2.] Full description of the problem/report:
 
+The machine didn't answer to ping. When I went to see what was wrong,
+I saw the following in the console:
 
+kernel BUG at tcp_input.c:2927!
+invalid operand: 0000
+[...]
 
+(I didn't have the time to copy the following data, and unfortunately
+I couldn't see these data in any log file after rebooting the machine.)
 
-I think it is because the interrupt routine can be called as
-dev->poll_controller()
-and race with real interrupts.
+This was the first time such a problem occurred.
 
-- KK
+[3.] Keywords (i.e., modules, networking, kernel):
 
+networking
 
+[4.] Kernel version (from /proc/version):
 
-|---------+---------------------------->
-|         |           Steve Modica     |
-|         |           <modica@sgi.com> |
-|         |           Sent by:         |
-|         |           netdev-bounce@oss|
-|         |           .sgi.com         |
-|         |                            |
-|         |                            |
-|         |           04/12/2004 03:16 |
-|         |           PM               |
-|         |                            |
-|---------+---------------------------->
-  >-------------------------------------------------------------------------------------------------------------------------|
-  |                                                                                                                         |
-  |       To:       netdev@oss.sgi.com                                                                                      |
-  |       cc:                                                                                                               |
-  |       Subject:  rudimentary ISR question                                                                                |
-  |                                                                                                                         |
-  >-------------------------------------------------------------------------------------------------------------------------|
+Linux version 2.4.25 (root@greux.loria.fr) (gcc version 3.3.3 (Debian)) #1 SMP Fri Feb 20 14:51:57 CET 2004
 
+[5.] Output of Oops.. message (if applicable) with symbolic information 
+     resolved (see Documentation/oops-tracing.txt)
+[6.] A small shell script or example program which triggers the
+     problem (if possible)
+[7.] Environment
+[7.1.] Software (add the output of the ver_linux script here)
 
+Linux greux.loria.fr 2.4.25 #1 SMP Fri Feb 20 14:51:57 CET 2004 i686 GNU/Linux
+ 
+Gnu C                  3.3.3
+Gnu make               3.80
+util-linux             2.12
+mount                  2.12
+modutils               2.4.26
+e2fsprogs              1.35
+Linux C Library        2.3.2
+Dynamic linker (ldd)   2.3.2
+Procps                 3.2.0
+Net-tools              1.60
+Console-tools          0.2.3
+Sh-utils               5.0.91
+Modules Loaded         
 
+[7.2.] Processor information (from /proc/cpuinfo):
 
-Hi All,
+processor       : 0
+vendor_id       : GenuineIntel
+cpu family      : 6
+model           : 8
+model name      : Pentium III (Coppermine)
+stepping        : 3
+cpu MHz         : 731.026
+cache size      : 256 KB
+fdiv_bug        : no
+hlt_bug         : no
+f00f_bug        : no
+coma_bug        : no
+fpu             : yes
+fpu_exception   : yes
+cpuid level     : 2
+wp              : yes
+flags           : fpu vme de pse tsc msr pae mce cx8 apic sep mtrr pge mca cmov pat pse36 mmx fxsr sse
+bogomips        : 1458.17
 
-I'm looking at the tg3.c driver in the 2.4.21 kernel and in the
-_interrupt routing, the driver is calling spin_lock_irqsave.
+[7.3.] Module information (from /proc/modules):
 
-Since it's guaranteed that the tg3 interrupt handler will be disabled
-for the duration of the interrupt handler, why can't the driver simply
-call spin_lock?
+nothing
 
-Steve
+[7.4.] Loaded driver and hardware information (/proc/ioports, /proc/iomem)
 
+0000-001f : dma1
+0020-003f : pic1
+0040-005f : timer
+0060-006f : keyboard
+0080-008f : dma page reg
+00a0-00bf : pic2
+00c0-00df : dma2
+00f0-00ff : fpu
+0170-0177 : ide1
+02f8-02ff : serial(set)
+0376-0376 : ide1
+03c0-03df : vga+
+03f8-03ff : serial(set)
+0cf8-0cff : PCI conf1
+5000-50ff : Adaptec AIC-7892P U160/m
+5400-543f : Intel Corp. 82557/8/9 [Ethernet Pro 100]
+  5400-543f : eepro100
+6000-60ff : Intel Corp. 82801AA AC'97 Audio
+6400-643f : Intel Corp. 82801AA AC'97 Audio
+6440-645f : Intel Corp. 82801AA USB
+  6440-645f : usb-uhci
+6460-646f : Intel Corp. 82801AA IDE
+  6460-6467 : ide0
+  6468-646f : ide1
+fc00-fc0f : Intel Corp. 82801AA SMBus
 
+00000000-0009fbff : System RAM
+0009fc00-0009ffff : reserved
+000a0000-000bffff : Video RAM area
+000c0000-000c7fff : Video ROM
+000c8000-000c97ff : Extension ROM
+000c9800-000cf5ff : Extension ROM
+000e0000-000effff : Extension ROM
+000f0000-000fffff : System ROM
+00100000-07feffff : System RAM
+  00100000-00336f80 : Kernel code
+  00336f81-003f3483 : Kernel data
+07ff0000-07ffffff : reserved
+d4000000-d7ffffff : Intel Corp. 82840 840 (Carmel) Chipset Host Bridge (Hub A)
+f9d00000-f9d00fff : Intel Corp. 82557/8/9 [Ethernet Pro 100]
+  f9d00000-f9d00fff : eepro100
+f9e00000-f9efffff : Intel Corp. 82557/8/9 [Ethernet Pro 100]
+f9f00000-f9f00fff : Adaptec AIC-7892P U160/m
+  f9f00000-f9f00fff : aic7xxx
+fa000000-fbffffff : PCI Bus #01
+  fa000000-fbffffff : Matrox Graphics, Inc. MGA G400 AGP
+fd700000-fdffffff : PCI Bus #01
+  fd700000-fd703fff : Matrox Graphics, Inc. MGA G400 AGP
+  fd800000-fdffffff : Matrox Graphics, Inc. MGA G400 AGP
 
---1__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22
-Content-type: text/html; charset=US-ASCII
-Content-Disposition: inline
+[7.5.] PCI information ('lspci -vvv' as root)
 
-<html><body>
-<p>I think it is because the interrupt routine can be called as dev-&gt;poll_controller()<br>
-and race with real interrupts.<br>
-<br>
-- KK<br>
-<br>
-<img src="cid:10__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com" width="16" height="16" alt="Inactive hide details for Steve Modica &lt;modica@sgi.com&gt;">Steve Modica &lt;modica@sgi.com&gt;<br>
-<br>
-<br>
+pcilib: Cannot open /sys/bus/pci/devices
+0000:00:00.0 Host bridge: Intel Corp. 82840 840 (Carmel) Chipset Host Bridge (Hub A) (rev 01)
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort+ >SERR+ <PERR+
+	Latency: 0
+	Region 0: Memory at d4000000 (32-bit, prefetchable) [size=64M]
+	Capabilities: [a0] AGP version 2.0
+		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW+ AGP3- Rate=x1,x2,x4
+		Command: RQ=1 ArqSz=0 Cal=0 SBA- AGP- GART64- 64bit- FW- Rate=<none>
 
-<table V5DOTBL=true width="100%" border="0" cellspacing="0" cellpadding="0">
-<tr valign="top"><td width="1%"><img src="cid:20__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com" border="0" height="1" width="72" alt=""><br>
-</td><td style="background-image:url(cid:30__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com); background-repeat: no-repeat; " width="1%"><img src="cid:20__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com" border="0" height="1" width="225" alt=""><br>
+0000:00:01.0 PCI bridge: Intel Corp. 82840 840 (Carmel) Chipset AGP Bridge (rev 01) (prog-if 00 [Normal decode])
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap- 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64
+	Bus: primary=00, secondary=01, subordinate=01, sec-latency=32
+	I/O behind bridge: 0000f000-00000fff
+	Memory behind bridge: fd700000-fdffffff
+	Prefetchable memory behind bridge: fa000000-fbffffff
+	BridgeCtl: Parity- SERR+ NoISA+ VGA+ MAbort- >Reset- FastB2B-
 
-<ul>
-<ul>
-<ul>
-<ul><b><font size="2">Steve Modica &lt;modica@sgi.com&gt;</font></b><br>
-<font size="2">Sent by: netdev-bounce@oss.sgi.com</font>
-<p><font size="2">04/12/2004 03:16 PM</font></ul>
-</ul>
-</ul>
-</ul>
-</td><td width="100%"><img src="cid:20__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com" border="0" height="1" width="1" alt=""><br>
-<font size="1" face="Arial">	</font><br>
-<font size="2">	To:	</font><font size="2">netdev@oss.sgi.com</font><br>
-<font size="2">	cc:	</font><br>
-<font size="2">	Subject:	</font><font size="2">rudimentary ISR question</font></td></tr>
-</table>
-<br>
-<br>
-<font face="Courier New">Hi All,<br>
-<br>
-I'm looking at the tg3.c driver in the 2.4.21 kernel and in the <br>
-_interrupt routing, the driver is calling spin_lock_irqsave.<br>
-<br>
-Since it's guaranteed that the tg3 interrupt handler will be disabled <br>
-for the duration of the interrupt handler, why can't the driver simply <br>
-call spin_lock?<br>
-<br>
-Steve<br>
-<br>
-</font>
+0000:00:1e.0 PCI bridge: Intel Corp. 82801AA PCI Bridge (rev 02) (prog-if 00 [Normal decode])
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=fast >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Bus: primary=00, secondary=02, subordinate=02, sec-latency=32
+	I/O behind bridge: 00005000-00005fff
+	Memory behind bridge: f9d00000-f9ffffff
+	Prefetchable memory behind bridge: fff00000-000fffff
+	BridgeCtl: Parity- SERR+ NoISA+ VGA- MAbort- >Reset- FastB2B-
 
-</body></html>
+0000:00:1f.0 ISA bridge: Intel Corp. 82801AA ISA Bridge (LPC) (rev 02)
+	Control: I/O+ Mem+ BusMaster+ SpecCycle+ MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR+ <PERR-
+	Latency: 0
 
---1__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22--
+0000:00:1f.1 IDE interface: Intel Corp. 82801AA IDE (rev 02) (prog-if 80 [Master])
+	Subsystem: Intel Corp. 82801AA IDE
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Region 4: I/O ports at 6460 [size=16]
 
+0000:00:1f.2 USB Controller: Intel Corp. 82801AA USB (rev 02) (prog-if 00 [UHCI])
+	Subsystem: Intel Corp. 82801AA USB
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Interrupt: pin D routed to IRQ 19
+	Region 4: I/O ports at 6440 [size=32]
 
---0__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22
-Content-type: image/gif;
-	name="graycol.gif"
-Content-Disposition: inline; filename="graycol.gif"
-Content-ID: <10__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com>
-Content-transfer-encoding: base64
+0000:00:1f.3 SMBus: Intel Corp. 82801AA SMBus (rev 02)
+	Subsystem: Intel Corp. 82801AA SMBus
+	Control: I/O+ Mem- BusMaster- SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Interrupt: pin B routed to IRQ 17
+	Region 4: I/O ports at fc00 [size=16]
 
-R0lGODlhEAAQAKECAMzMzAAAAP///wAAACH5BAEAAAIALAAAAAAQABAAAAIXlI+py+0PopwxUbpu
-ZRfKZ2zgSJbmSRYAIf4fT3B0aW1pemVkIGJ5IFVsZWFkIFNtYXJ0U2F2ZXIhAAA7
+0000:00:1f.5 Multimedia audio controller: Intel Corp. 82801AA AC'97 Audio (rev 02)
+	Subsystem: Compaq Computer Corporation: Unknown device b197
+	Control: I/O+ Mem- BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap- 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 0
+	Interrupt: pin B routed to IRQ 17
+	Region 0: I/O ports at 6000 [size=256]
+	Region 1: I/O ports at 6400 [size=64]
 
---0__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22
-Content-type: image/gif;
-	name="ecblank.gif"
-Content-Disposition: inline; filename="ecblank.gif"
-Content-ID: <20__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com>
-Content-transfer-encoding: base64
+0000:01:00.0 VGA compatible controller: Matrox Graphics, Inc. MGA G400 AGP (rev 04) (prog-if 00 [VGA])
+	Subsystem: Matrox Graphics, Inc. Millennium G400 16Mb SGRAM
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR- FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64 (4000ns min, 8000ns max), Cache Line Size: 0x08 (32 bytes)
+	Interrupt: pin A routed to IRQ 18
+	Region 0: Memory at fa000000 (32-bit, prefetchable) [size=32M]
+	Region 1: Memory at fd700000 (32-bit, non-prefetchable) [size=16K]
+	Region 2: Memory at fd800000 (32-bit, non-prefetchable) [size=8M]
+	Expansion ROM at <unassigned> [disabled] [size=64K]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI+ D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
+	Capabilities: [f0] AGP version 2.0
+		Status: RQ=32 Iso- ArqSz=0 Cal=0 SBA+ ITACoh- GART64- HTrans- 64bit- FW- AGP3- Rate=x1,x2,x4
+		Command: RQ=32 ArqSz=0 Cal=0 SBA+ AGP+ GART64- 64bit- FW- Rate=x1
 
-R0lGODlhEAABAIAAAAAAAP///yH5BAEAAAEALAAAAAAQAAEAAAIEjI8ZBQA7
+0000:02:02.0 Ethernet controller: Intel Corp. 82557/8/9 [Ethernet Pro 100] (rev 08)
+	Subsystem: Compaq Computer Corporation 82559 Fast Ethernet LOM with Alert on LAN*
+	Control: I/O+ Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap+ 66MHz- UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 66 (2000ns min, 14000ns max), Cache Line Size: 0x08 (32 bytes)
+	Interrupt: pin A routed to IRQ 18
+	Region 0: Memory at f9d00000 (32-bit, non-prefetchable) [size=4K]
+	Region 1: I/O ports at 5400 [size=64]
+	Region 2: Memory at f9e00000 (32-bit, non-prefetchable) [size=1M]
+	Expansion ROM at <unassigned> [disabled] [size=1M]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI+ D1+ D2+ AuxCurrent=0mA PME(D0+,D1+,D2+,D3hot+,D3cold+)
+		Status: D0 PME-Enable- DSel=0 DScale=2 PME-
 
---0__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22
-Content-type: image/gif;
-	name="pic29317.gif"
-Content-Disposition: inline; filename="pic29317.gif"
-Content-ID: <30__=07BBE4E7DFEC3F228f9e8a93df938@us.ibm.com>
-Content-transfer-encoding: base64
+0000:02:07.0 SCSI storage controller: Adaptec AIC-7892P U160/m (rev 02)
+	Subsystem: Compaq Computer Corporation: Unknown device b1bc
+	Control: I/O- Mem+ BusMaster+ SpecCycle- MemWINV- VGASnoop- ParErr- Stepping- SERR+ FastB2B-
+	Status: Cap+ 66MHz+ UDF- FastB2B+ ParErr- DEVSEL=medium >TAbort- <TAbort- <MAbort- >SERR- <PERR-
+	Latency: 64 (10000ns min, 6250ns max), Cache Line Size: 0x08 (32 bytes)
+	Interrupt: pin A routed to IRQ 19
+	BIST result: 00
+	Region 0: I/O ports at 5000 [disabled] [size=256]
+	Region 1: Memory at f9f00000 (64-bit, non-prefetchable) [size=4K]
+	Expansion ROM at <unassigned> [disabled] [size=128K]
+	Capabilities: [dc] Power Management version 2
+		Flags: PMEClk- DSI- D1- D2- AuxCurrent=0mA PME(D0-,D1-,D2-,D3hot-,D3cold-)
+		Status: D0 PME-Enable- DSel=0 DScale=0 PME-
 
-R0lGODlhWABDALP/AAAAAK04Qf79/o+Gm7WuwlNObwoJFCsoSMDAwGFsmIuezf///wAAAAAAAAAA
-AAAAACH5BAEAAAgALAAAAABYAEMAQAT/EMlJq704682770RiFMRinqggEUNSHIchG0BCfHhOjAuh
-EDeUqTASLCbBhQrhG7xis2j0lssNDopE4jfIJhDaggI8YB1sZeZgLVA9YVCpnGagVjV171aRVrYR
-RghXcAGFhoUETwYxcXNyADJ3GlcSKGAwLwllVC1vjIUHBWsFilKQdI8GA5IcpApeJQt8L09lmgkH
-LZikoU5wjqcyAMMFrJIDPAKvCFletKSev1HBw8KrxtjZ2tvc3d5VyKtCKW3jfz4uMKmq3xu4N0nK
-BVoJQmx2LGVOmrqNjjJf2hHAQo/eDwJGTKhQMcgQEEAnEjFS98+RnW3smGkZU6ncCWav/4wYOnAI
-TihRL/4FEwbp28BXMMcoscQCVxlepL4IGDSCyJyVQOu0o7CjmLN50OZlqWmyFy5/6yBBuji0AxFR
-M00oQAqNIstqI6qKHUsWRAEAvagsmfUEAImyxgbmUpJk3IklNUtJOUAVLoUr1+wqDGTE4zk+T6FG
-uQb3SizBCwatiiUgCBN8vrz+zFjVyQ8FWkOlg4NQiZMB5QS8QO3mpOaKnL0Z2EKvNMSILEThKhCg
-zMKPVxYJh23qm9KNW7pArPynMqZDiErsTMqI+LRi3QAgkFUbXpuFKhSYZALd0O5RKa2z9EYKBbpb
-qxIKsjUPRgD7I2XYV6wyrOw92ykExP8NW4URhknC5dKGE4v4NENQj2jXjmfNgOZDaXb5glRmXQ33
-YEWQYNcZFnrYcIQLNzyTFDQNkXIff0ExVlY4srziQk43inZgL4rwxxINMvpFFAz1KOODHiu+4aEw
-NEjFl5B3JIKWKF3k6I9bfUGp5ZZcdunll5IA4cuHvQQJ5gcsoCWOOUwgltIwAKRxJgbIkJAQZEq0
-2YliZnpZZ4BH3CnYOXldOUOfQoYDqF1LFHbXCrO8xmRsfoXDXJ6ChjCAH3QlhJcT6VWE6FCkfCco
-CgrMFsROrIEX3o2whVjWDjoJccN3LdggSGXLCdLEgHr1lyU3O3QxhgohNKXJCWv8JQr/PDdaqd6w
-2rj1inLiGeiCJoDspAoQlYE6QWLSECehcWIYxIQES6zhbn1iImTHEQyqJ4eIxJJoUBc+3CbBuwZE
-V5cJPPkIjFDdeEabQbd6WgICTxiiz0f5dBKquXF6k4senwEhYGnKEFJeGrxUZy8dB8gmAXI/sPvH
-ESfCwVt5hTgYiqQqtdRNHQIU1PJ33ZqmzgE90OwLaoJcnMop1WiMmgkPHQRIrwgFuNV90A3doNKT
-mrKIN07AnGcI9BQjhCBN4RfA1qIZnMqorJCogKfGQnxSCDilTVIA0yl5ciTovgLuBDKFUDE9aQcw
-9SA+rjSNf9/M1gxrj6VwDTS0IUSElMzBfsj0NFXR2kwsV1A5IF1grLgLL/r1R40BZEnuBWgmQEyb
-jqRwSAt6bqMCOFkvKFN2GPPkUzIm/SCF8z8pVzpbjVnMsy0vOr1hw3SaSRUhpY09v0z0J1FnwzPl
-fmh+xl4WtR0zGu24I4KbMQm3lnVu2oNWxI9W/lcyzA+mCKF4DBikxb/+UWtOGRiFP8qEwAayIgIA
-Ow==
+[7.6.] SCSI information (from /proc/scsi/scsi)
 
---0__=07BBE4E7DFEC3F228f9e8a93df938690918c07BBE4E7DFEC3F22--
+Attached devices: 
+Host: scsi0 Channel: 00 Id: 00 Lun: 00
+  Vendor: COMPAQPC Model: MAJ3091MP        Rev: 1812
+  Type:   Direct-Access                    ANSI SCSI revision: 02
+
+[7.7.] Other information that might be relevant to the problem
+       (please look in /proc and include all information that you
+       think to be relevant):
+
+/var/log/messages contains:
+
+Apr 11 06:47:29 greux syslogd 1.4.1#14: restart.
+Apr 11 07:17:19 greux -- MARK --
+Apr 11 07:37:19 greux -- MARK --
+Apr 11 07:57:19 greux -- MARK --
+Apr 11 08:17:19 greux -- MARK --
+Apr 11 08:37:19 greux -- MARK --
+Apr 11 08:39:22 greux kernel: recvmsg bug: copied 7CCF6E4D seq 7CCF6EDC
+Apr 11 08:39:22 greux last message repeated 90 times
+Apr 11 08:39:22 greux kernel: CCF6EDC
+Apr 11 08:39:22 greux kernel: recvmsg bug: copied 7CCF6E4D seq 7CCF6EDC
+Apr 11 08:39:22 greux last message repeated 1336 times
+Apr 11 08:39:22 greux kernel: CCF6EDC
+Apr 11 08:39:22 greux kernel: recvmsg bug: copied 7CCF6E4D seq 7CCF6EDC
+Apr 11 08:39:22 greux last message repeated 1455 times
+Apr 11 08:39:22 greux kernel: CCF6EDC
+[...]
+Apr 11 08:45:15 greux kernel: recvmsg bug: copied 7CCF6E4D seq 7CCF6EDC
+Apr 11 08:45:15 greux last message repeated 3787 times
+Apr 11 08:45:15 greux kernel: CCF6EDC
+Apr 11 08:45:15 greux kernel: recvmsg bug: copied 7CCF6E4D seq 7CCF6EDC
+Apr 11 08:45:16 greux last message repeated 3399 times
+Apr 11 08:45:16 greux kernel: CCF6EDC
+Apr 11 08:45:16 greux kernel: recvmsg bug: copied 7CCF6E4D seq 7CCF6EDC
+Apr 11 17:06:29 greux syslogd 1.4.1#14: restart.
+Apr 11 17:06:29 greux kernel: klogd 1.4.1#14, log source = /proc/kmsg started.
+Apr 11 17:06:29 greux kernel: Inspecting /boot/System.map-2.4.25
+[...]
+
+(I rebooted the machine at 17:06.)
+
+I've just done some pings:
+
+loria1:~> ping greux
+PING greux.loria.fr (152.81.2.43) 56(84) bytes of data.
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=1 ttl=63 time=0.277 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=3 ttl=63 time=0.287 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=4 ttl=63 time=0.285 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=5 ttl=63 time=0.296 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=2 ttl=63 time=3876 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=9 ttl=63 time=0.282 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=10 ttl=63 time=0.287 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=11 ttl=63 time=0.280 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=12 ttl=63 time=0.351 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=6 ttl=63 time=6440 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=7 ttl=63 time=5441 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=8 ttl=63 time=4441 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=16 ttl=63 time=0.278 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=17 ttl=63 time=0.302 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=18 ttl=63 time=0.329 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=13 ttl=63 time=5019 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=14 ttl=63 time=4019 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=15 ttl=63 time=3020 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=23 ttl=63 time=0.284 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=19 ttl=63 time=4776 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=20 ttl=63 time=3776 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=21 ttl=63 time=2777 ms
+64 bytes from greux.loria.fr (152.81.2.43): icmp_seq=22 ttl=63 time=1777 ms
+
+--- greux.loria.fr ping statistics ---
+25 packets transmitted, 23 received, 8% packet loss, time 24110ms
+rtt min/avg/max/mdev = 0.277/1972.673/6440.864/2233.875 ms, pipe 7
+
+It seems that there is still a network problem.
