@@ -1,37 +1,114 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPSEC] IPsec policy can be matched by ICMP type and
- code
-Date: Wed, 11 Aug 2004 13:30:43 -0700
+From: khandelw@cs.fsu.edu
+Subject: Re: select implementation not POSIX compliant?
+Date: Wed, 11 Aug 2004 16:33:17 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040811133043.455c81fa.davem@redhat.com>
-References: <20040810230144.2a68914b.davem@redhat.com>
-	<OF94FC19D3.2EA706DF-ON88256EED.006875F7-88256EED.006980E7@us.ibm.com>
+Message-ID: <1092256397.512046f64c822@system.cs.fsu.edu>
+References: <20040811194018.GA3971@steel.home>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=US-ASCII
+Content-Type: text/plain; charset="ISO-8859-1"
 Content-Transfer-Encoding: 7bit
-Cc: nakam@linux-ipv6.org, netdev@oss.sgi.com, usagi-core@linux-ipv6.org,
-        yoshfuji@linux-ipv6.org
+Cc: linux-kernel <linux-kernel@vger.kernel.org>,
+        Nick Palmer <nick@sluggardy.net>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: David Stevens <dlstevens@us.ibm.com>
-In-Reply-To: <OF94FC19D3.2EA706DF-ON88256EED.006875F7-88256EED.006980E7@us.ibm.com>
+To: Alex Riesen <fork0@users.sourceforge.net>
+In-Reply-To: <20040811194018.GA3971@steel.home>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, 11 Aug 2004 13:14:19 -0600
-David Stevens <dlstevens@us.ibm.com> wrote:
+select should work for any type of socket. Its based on the type of file
+descriptor not whether it is stream/dgram.
 
-> raw sockets predate VJ contributions by many years and are
-> typically used by protocols not in the kernel. The original "ping"
-> used raw sockets, as well as routing protocols like BGP and RIP
-> which are directly encapsulated in IP, without a separate transport
-> protocol. The original traceroute I believe used UDP and just set
-> the TTL-- I don't believe it used raw sockets at all. Don't know what
-> the current versions do; haven't looked in a while.
+man recvmsg -
 
-"ping" does not use the hdrinclude feature.
+recvmsg() may be used to receive data on a socket whether it
+     is in a connected state or not. s is a socket  created  with
+     socket(3SOCKET).
 
-> And IPv6 does support raw sockets; it just doesn't let you
-> generate bad checksums and some header fields, I expect
-> to make it harder to write attack software.
+so why should recvmsg return error???? upon closing the socket in other thread?
+wouldn't the socket linger around for some time...
 
-So like I said, raw without the hdrinclude feature.
+If no messages are available at the socket, the receive call
+     waits  for  a  message  to arrive, unless the socket is non-
+     blocking (see fcntl(2)) in which case -1  is  returned  with
+     the external variable errno set to EWOULDBLOCK.
+
+
+Quoting Alex Riesen <fork0@users.sourceforge.net>:
+
+> On linux-kernel, Nick Palmer wrote:
+> > I am working on porting some software from Solaris to Linux 2.6.7. I
+> > have run into a problem with the interaction of select and/or
+> > recvmsg and close in our multi-threaded application. The application
+> > expects that a close call on a socket that another thread is
+> > blocking in select and/or recvmsg on will cause select and/or
+> > recvmsg to return with an error. Linux does not seem to do this. (I
+> > also verified that the same issue exists in Linux 2.4.25, just to be
+> > sure it wasn't introduced in 2.6 in case you were wondering.)
+>
+> It works always for stream sockets and does not at all (even with
+> shutdown, even using poll(2) or read(2) instead of select) for dgram
+> sockets.
+>
+> What domain (inet, local) are your sockets in?
+> What type (stream, dgram)?
+>
+> There will probably be a problem anyway with changing the behaviour:
+> there surely is lots of code, which start complaining about select and
+> poll finishing "unexpectedly".
+>
+> I used this to check:
+>
+> #include <unistd.h>
+> #include <stdio.h>
+> #include <stdlib.h>
+> #include <sys/socket.h>
+> #include <sys/wait.h>
+> #include <netinet/in.h>
+> #include <fcntl.h>
+>
+> int main(int argc, char* argv[])
+> {
+>     int status;
+>     int fds[2];
+>     fd_set set;
+> #if 0
+>     puts("stream");
+>     if (  socketpair(PF_LOCAL, SOCK_STREAM, 0, fds) < 0 )
+> #else
+>     puts("dgram");
+>     if (  socketpair(PF_LOCAL, SOCK_DGRAM, 0, fds) < 0 )
+> #endif
+>     {
+> 	perror("socketpair");
+> 	exit(1);
+>     }
+>     fcntl(fds[0], F_SETFL, fcntl(fds[0], F_GETFL) | O_NONBLOCK);
+>     fcntl(fds[1], F_SETFL, fcntl(fds[1], F_GETFL) | O_NONBLOCK);
+>     switch ( fork() )
+>     {
+>     case 0:
+> 	sleep(1);
+> 	close(fds[0]);
+> 	shutdown(fds[1], SHUT_RD);
+> 	close(fds[1]);
+> 	exit(0);
+> 	break;
+>     case -1:
+> 	perror("fork");
+> 	exit(1);
+>     }
+>     close(fds[1]);
+>     FD_ZERO(&set);
+>     FD_SET(fds[0], &set);
+>     select(fds[0] + 1, &set, NULL, NULL, 0);
+>     wait(&status);
+>     return 0;
+> }
+>
+> -
+> To unsubscribe from this list: send the line "unsubscribe linux-kernel" in
+> the body of a message to majordomo@vger.kernel.org
+> More majordomo info at  http://vger.kernel.org/majordomo-info.html
+> Please read the FAQ at  http://www.tux.org/lkml/
+>
