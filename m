@@ -1,40 +1,37 @@
-From: Jeff Garzik <jgarzik@pobox.com>
-Subject: Re: your mail
-Date: Thu, 18 Sep 2003 15:38:42 -0400
+From: Mitchell Blank Jr <mitch@sfgoth.com>
+Subject: Re: [PATCH] more const in skbuff
+Date: Thu, 18 Sep 2003 13:42:53 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030918193842.GC9605@gtf.org>
-References: <3F69FAF8.mail2M211N69M@robur.slu.se>
+Message-ID: <20030918204253.GA43611@gaz.sfgoth.com>
+References: <20030918102709.34211ee5.shemminger@osdl.org>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: netdev@oss.sgi.com, davem@redhat.com, akpm@osdl.org
+Cc: "David S. Miller" <davem@redhat.com>, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Robert Olsson <Robert.Olsson@data.slu.se>
+To: Stephen Hemminger <shemminger@osdl.org>
 Content-Disposition: inline
-In-Reply-To: <3F69FAF8.mail2M211N69M@robur.slu.se>
+In-Reply-To: <20030918102709.34211ee5.shemminger@osdl.org>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Thu, Sep 18, 2003 at 08:35:36PM +0200, Robert Olsson wrote:
-
-This issue is already fixed in 2.4 and 2.5 :)
-
-
-> --- include/linux/netdevice.h.orig	2003-09-08 21:50:31.000000000 +0200
-> +++ include/linux/netdevice.h	2003-09-17 17:27:58.000000000 +0200
-> @@ -830,9 +830,9 @@
->  	local_irq_restore(flags);
->  }
->  
-> -static inline void netif_poll_disable(struct net_device *dev)
-> +static inline void netif_poll_sync(struct net_device *dev)
+Stephen Hemminger wrote:
+> -static inline int skb_cloned(struct sk_buff *skb)
+> +static inline int skb_cloned(const struct sk_buff *skb)
 >  {
-> -	while (test_and_set_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
-> +	while (test_bit(__LINK_STATE_RX_SCHED, &dev->state)) {
->  		/* No hurry. */
->  		current->state = TASK_INTERRUPTIBLE;
->  		schedule_timeout(1);
+>  	return skb->cloned && atomic_read(&skb_shinfo(skb)->dataref) != 1;
+>  }
 
-This patch breaks tg3 build, and operation...
-tg3 wants a different operation than net/core/dev.c.
+Are you sure that atomic_read() is garaunteed to take a const pointer?
+My understanding is that an arch could in theory take a spinlock (although
+none do currently)
 
-	Jeff
+If it is garaunteed to take a const pointer then please fix the inline in
+include/asm-parisc/atomic.h or your patch will create a lot of warnings on
+that architecture.
+
+Other than that this patch is a strict subset of the "small skbuff.[ch]
+tweaks" patch I posted here 2 weeks ago:
+  http://oss.sgi.com/projects/netdev/archive/2003-09/msg00036.html
+Never heard from davem one way or the other on that one.
+
+-Mitch
