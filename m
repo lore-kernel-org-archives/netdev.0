@@ -1,60 +1,27 @@
-From: Denis Vlasenko <vda@port.imtp.ilyichevsk.odessa.ua>
-Subject: Re: 2.4.20-pre11: PCI Wavelan card loses connection
-Date: Wed, 15 Jan 2003 10:06:04 +0200
+From: Stefan Rompf <srompf@isg.de>
+Subject: Re: Flush Tx skbs after link down
+Date: Wed, 15 Jan 2003 10:50:33 +0100
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <200301150806.h0F86Ts05193@Port.imtp.ilyichevsk.odessa.ua>
-References: <200301130821.h0D8Kis26772@Port.imtp.ilyichevsk.odessa.ua> <20030113172435.GC20409@bougret.hpl.hp.com>
-Reply-To: vda@port.imtp.ilyichevsk.odessa.ua
+Message-ID: <3E252EE9.D8CA8EDC@isg.de>
+References: <C6F5CF431189FA4CBAEC9E7DD5441E01087ADF@orsmsx402.jf.intel.com>
 Mime-Version: 1.0
-Content-Type: text/plain;
-  charset="koi8-r"
-Content-Transfer-Encoding: 8bit
-Cc: linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Content-Type: text/plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, "Cramer, Jeb J" <jeb.j.cramer@intel.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: jt@hpl.hp.com, Jean Tourrilhes <jt@bougret.hpl.hp.com>
-In-Reply-To: <20030113172435.GC20409@bougret.hpl.hp.com>
+To: "Feldman, Scott" <scott.feldman@intel.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On 13 January 2003 19:24, Jean Tourrilhes wrote:
-> On Mon, Jan 13, 2003 at 10:20:14AM +0200, Denis Vlasenko wrote:
-> > I bought a PCI wireless card, a DLink-520 (I think, I forgot
-> > exactly (it's at home), anyway, lspci dump is below).
-> >
-> > We (my father and me) made a fairly long helical aerial.
-> > We are trying to communicate over ~15 km with a small wireless
-> > cell. (~10 hosts, one AP).
-> >
-> > We can successfully associate with it, signal is weak as expected.
-> > But after a short while our eth0 seems to 'fall off the net'
-> > and while it looks like we can send packets, we see no incoming
-> > data at all.
-> >
-> > Since I have almost zero wireless experience, I'll be happy if
-> > someone with said experience can read further and say what bites
-> > us.
->
-> 	Personally, I never managed to get this hardware to work at
-> all. And Orinoco is known to have problems with PrismII cards. Please
-> use the HostAP or linux-wlan-ng driver.
+Hi,
 
-Count me in. I want to make it work.
+> Someone most know the answer to this: What's the proper way to dispose
+> of Tx skbs that are owned by the h/w ("in-flight") when link was lost?
 
-It's not a Prism II, it says Prism I. It is a D-Link DWL-520 PCI card.
-Does that matter?
+I think this can't be achieved without driver support, simply because
+pending DMA transfers must be removed before freeing the skbs, and this
+is specific. So the driver model needs to be extended to have a reset
+method similiar to the qdiscs. If available, this method is called on
+link down event by the linkwatch stuff included in recent 2.5 kernels.
 
-By the way, I wouldn't want to admit it, but it works much better under
-Win98 (ick). It cycles between "Associated: (mac addr)" and "Scanning..."
-for _several minutes_ before giving up. And ping is working all this time.
-Under Linux, average time before failure is 20 sec :(
-
-I presume card is considering AP to be too weak and try to find a better
-one. There isn't any. How can I disable this reassociation or lower
-reassociation threshold?
-
-At the very least, how can I see whether it is associated or scanning?
-Pointers to 802.1b docs? (I am googling in parallel...)
-
-Meanwhile will download and look into HostAP.
---
-vda
+Stefan
