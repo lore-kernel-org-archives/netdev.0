@@ -1,25 +1,27 @@
 From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [XFRM] Kill unused flow_hash
-Date: Wed, 18 Aug 2004 14:54:55 -0700
+Subject: Re: [PATCH] SLAB_PANIC cleanup
+Date: Wed, 18 Aug 2004 14:56:30 -0700
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040818145455.5d58f2fe.davem@redhat.com>
-References: <20040817013501.GA21685@gondor.apana.org.au>
+Message-ID: <20040818145630.2bdd0b24.davem@redhat.com>
+References: <20040817100755.A20489@infradead.org>
+	<Xine.LNX.4.44.0408170933240.9207-100000@dhcp83-76.boston.redhat.com>
+	<20040817150739.A22153@infradead.org>
+	<20040818042800.GC1007@conectiva.com.br>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: netdev@oss.sgi.com
+Cc: hch@infradead.org, jmorris@redhat.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Herbert Xu <herbert@gondor.apana.org.au>
-In-Reply-To: <20040817013501.GA21685@gondor.apana.org.au>
+To: Arnaldo Carvalho de Melo <acme@conectiva.com.br>
+In-Reply-To: <20040818042800.GC1007@conectiva.com.br>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 17 Aug 2004 11:35:01 +1000
-Herbert Xu <herbert@gondor.apana.org.au> wrote:
+On Wed, 18 Aug 2004 01:28:00 -0300
+Arnaldo Carvalho de Melo <acme@conectiva.com.br> wrote:
 
-> Hi Dave:
-> 
-> This patch removes a left-over from the days when the flow cache lived
-> in xfrm_policy.c.
+> Agreed, not because it is "not important", but because panicing at module
+> load, even in very rare cases is unnacceptable IMHO.
 
-Applied, thanks Herbert.
+I think even non-modular cases should fail gracefully.
+If the ipv4 one fails, no ipv4 networking sorry. :-)
