@@ -1,24 +1,31 @@
-From: Ricky Beam <jfbeam@bluetronic.net>
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?=
+	<yoshfuji@linux-ipv6.org>
 Subject: Re: /proc/net/* read drops data
-Date: Thu, 4 Sep 2003 12:21:00 -0400 (EDT)
+Date: Fri, 05 Sep 2003 02:13:07 +0900 (JST)
 Sender: linux-kernel-owner@vger.kernel.org
-Message-ID: <Pine.GSO.4.33.0309041220070.13584-100000@sweetums.bluetronic.net>
+Message-ID: <20030905.021307.123497946.yoshfuji@linux-ipv6.org>
 References: <20030904004638.1d4b001d.davem@redhat.com>
+	<Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net>
 Mime-Version: 1.0
-Content-Type: TEXT/PLAIN; charset=US-ASCII
-Cc: "YOSHIFUJI Hideaki / _$B5HF#1QL@" <yoshfuji@linux-ipv6.org>,
-	<linux-kernel@vger.kernel.org>, <netdev@oss.sgi.com>
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: davem@redhat.com, linux-kernel@vger.kernel.org, netdev@oss.sgi.com,
+	yoshfuji@linux-ipv6.org
 Return-path: <linux-kernel-owner+linux-kernel=40quimby.gnus.org@vger.kernel.org>
-To: "David S. Miller" <davem@redhat.com>
-In-Reply-To: <20030904004638.1d4b001d.davem@redhat.com>
+To: jfbeam@bluetronic.net
+In-Reply-To: <Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net>
 List-Id: netdev.vger.kernel.org
 
-On Thu, 4 Sep 2003, David S. Miller wrote:
->> D: Fixing a bug that reading /proc/net/{udp,udp6} may drop some data
->
->This fix looks good to me.  Applied.
+In article <Pine.GSO.4.33.0309041223430.13584-100000@sweetums.bluetronic.net> (at Thu, 4 Sep 2003 12:25:16 -0400 (EDT)), Ricky Beam <jfbeam@bluetronic.net> says:
 
-That might fix udp, but that's not the only one to be fixed.  I'll compile
-a list. (tcp for sure.)
+> The list:
+> (file)			(bs=1)	(bs=10000)
+> /proc/net/igmp		122     191
+> /proc/net/route		128     384
+> /proc/net/rt_acct	0	4096
+> /proc/net/rt_cache	384     512
+> /proc/net/tcp		1800    1950
+> /proc/net/udp		1024    1152
 
---Ricky
+Okay, I'll seek the code.
+--yoshfuji
