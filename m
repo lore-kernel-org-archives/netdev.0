@@ -1,23 +1,56 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: tcp_ipv6_check_established
-Date: Wed, 19 May 2004 23:29:29 -0700
+From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
+Subject: [BK-PATCH 2.4] IPV6: ensure to evaluate checksum
+Date: Thu, 20 May 2004 19:33:12 +0900 (JST)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040519232929.624da428.davem@redhat.com>
-References: <40A163A4.8050905@mvista.com>
-	<20040518.162213.76191660.yoshfuji@linux-ipv6.org>
+Message-ID: <20040520.193312.19702393.yoshfuji@linux-ipv6.org>
 Mime-Version: 1.0
-Content-Type: text/plain; charset=ISO-8859-1
-Content-Transfer-Encoding: 8bit
-Cc: mhuth@mvista.com, netdev@oss.sgi.com
+Content-Type: Text/Plain; charset=us-ascii
+Content-Transfer-Encoding: 7bit
+Cc: netdev@oss.sgi.com, yoshfuji@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: yoshfuji@linux-ipv6.org
-In-Reply-To: <20040518.162213.76191660.yoshfuji@linux-ipv6.org>
+To: davem@redhat.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Tue, 18 May 2004 16:22:13 +0900 (JST)
-YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> wrote:
+Hello.
 
-> Correct. David, please apply.
+Following changesets fixes checksum for rawv6 sockets.
+ - don't receive packets with incorrect checksum
 
-Done.  Thanks everyone.
+Please pull following csets from <bk://bk.skbuff.net:20426>.
+
+Thanks in advance.
+
+CHANGESET
+---------
+ChangeSet@1.1414, 2004-05-20 19:07:49+09:00, yoshfuji@linux-ipv6.org
+  [IPV6] ensure to evaluate the checksum for sockets with the IPV6_CHECKSUM option.
+
+diff -Nru a/net/ipv6/raw.c b/net/ipv6/raw.c
+--- a/net/ipv6/raw.c	Thu May 20 19:08:48 2004
++++ b/net/ipv6/raw.c	Thu May 20 19:08:48 2004
+@@ -279,8 +279,11 @@
+ 
+ static inline int rawv6_rcv_skb(struct sock * sk, struct sk_buff * skb)
+ {
++	if ((sk->tp_pinfo.tp_raw.checksum
+ #if defined(CONFIG_FILTER)
+-	if (sk->filter && skb->ip_summed != CHECKSUM_UNNECESSARY) {
++	    || sk->filter 
++#endif
++	    ) && skb->ip_summed != CHECKSUM_UNNECESSARY) {
+ 		if ((unsigned short)csum_fold(skb_checksum(skb, 0, skb->len, skb->csum))) {
+ 			IP6_INC_STATS_BH(Ip6InDiscards);
+ 			kfree_skb(skb);
+@@ -288,7 +291,6 @@
+ 		}
+ 		skb->ip_summed = CHECKSUM_UNNECESSARY;
+ 	}
+-#endif
+ 	/* Charge it to the socket. */
+ 	if (sock_queue_rcv_skb(sk,skb)<0) {
+ 		IP6_INC_STATS_BH(Ip6InDiscards);
+
+-- 
+Hideaki YOSHIFUJI @ USAGI Project <yoshfuji@linux-ipv6.org>
+GPG FP: 9022 65EB 1ECF 3AD1 0BDF  80D8 4807 F894 E062 0EEA
