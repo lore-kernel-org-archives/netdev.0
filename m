@@ -1,32 +1,32 @@
 From: "David S. Miller" <davem@redhat.com>
 Subject: Re: gettime: Was (Re: Route cache performance under stress
-Date: Wed, 11 Jun 2003 20:29:15 -0700 (PDT)
+Date: Wed, 11 Jun 2003 20:30:15 -0700 (PDT)
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030611.202915.71117016.davem@redhat.com>
-References: <3EE68B15.60802@candelatech.com>
-	<20030610.203325.41658167.davem@redhat.com>
+Message-ID: <20030611.203015.104061804.davem@redhat.com>
+References: <20030610.203325.41658167.davem@redhat.com>
 	<20030611065255.L39678@shell.cyberus.ca>
+	<20030611120803.GB22720@wotan.suse.de>
 Mime-Version: 1.0
 Content-Type: Text/Plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: greearb@candelatech.com, netdev@oss.sgi.com
+Cc: hadi@shell.cyberus.ca, greearb@candelatech.com, netdev@oss.sgi.com
 Return-path: <netdev-bounce@oss.sgi.com>
-To: hadi@shell.cyberus.ca
-In-Reply-To: <20030611065255.L39678@shell.cyberus.ca>
+To: ak@suse.de
+In-Reply-To: <20030611120803.GB22720@wotan.suse.de>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Jamal Hadi <hadi@shell.cyberus.ca>
-   Date: Wed, 11 Jun 2003 07:54:53 -0400 (EDT)
+   From: Andi Kleen <ak@suse.de>
+   Date: Wed, 11 Jun 2003 14:08:03 +0200
 
-   Sounds like a good idea.
+   Another way is to just store jiffies (= 10 or 1ms accuracy) 
    
-   if (skbneedstimestamp)
-   	do_gettimeofday(&skb->stamp);
-   else
-   	defertimestamp()
+   This should be nearly zero cost and accurate enough at least for TCP.
    
-Damn, read the thread Jamal :(  This is not possible at all.
+TCP doesn't use it Andi.  SO_RECVSTAMP etc. uses it and that
+MUST be accurate.
 
-We do not know the value of 'skbneedstimestamp' until much later,
-but we MUST make the timestamp now in order for it to be accurate.
+People, start approaching this from an actually implementable
+angle, not one's that have no basis in reality :)
+
+   
