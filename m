@@ -1,30 +1,45 @@
-From: "David S. Miller" <davem@redhat.com>
-Subject: Re: [PATCH][IPV6] keeping dst refcnt correctly with using xfrm
-Date: Thu, 05 Jun 2003 22:55:47 -0700 (PDT)
+From: Peter Bieringer <pb@bieringer.de>
+Subject: Re: IPsec 2.5.70-bk9 and FreeS/WAN 1.99 with algopatches 0.8.1rc2
+ (in)compatible encryption methods
+Date: Fri, 06 Jun 2003 08:25:47 +0200
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20030605.225547.28789693.davem@redhat.com>
-References: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
+Message-ID: <122560000.1054880747@gate.muc.bieringer.de>
+References: <35410000.1054818456@klopffest.muc.aerasec.de>
+ <20030605.215907.71090944.davem@redhat.com>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=us-ascii
+Content-Type: text/plain; charset=us-ascii
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, usagi@linux-ipv6.org, netdev@oss.sgi.com
+Cc: usagi-users@linux-ipv6.org
 Return-path: <netdev-bounce@oss.sgi.com>
-To: kazunori@miyazawa.org
-In-Reply-To: <20030606144925.29ad2a9f.kazunori@miyazawa.org>
+To: netdev@oss.sgi.com
+In-Reply-To: <20030605.215907.71090944.davem@redhat.com>
+Content-Disposition: inline
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-   From: Kazunori Miyazawa <kazunori@miyazawa.org>
-   Date: Fri, 6 Jun 2003 14:49:25 +0900
 
-   In dst_pop refernce cound of dsts except for last are incremented in
-   dst_clone and decremented in next call dst_pop but last dst refernce
-   count will be never decremented.
-   All dst are held by xfrm_policy and there is no need to touch the
-   refernce count here.
-   
-Ok, so the idea is to hold onto top-level parent DST entry the entire
-time, and this prevents the DST and all it's children from being
-destroyed.  Is this correct?
 
-Let me study this a little bit, I want to make sure it is correct.
+--On Thursday, June 05, 2003 09:59:07 PM -0700 "David S. Miller"
+<davem@redhat.com> wrote:
+
+>    From: "Dr. Peter Bieringer" <pb@bieringer.de>
+>    Date: Thu, 05 Jun 2003 15:07:36 +0200
+> 
+>    because I got no success, I've tried different encryption methods than 
+>    3DES. And *suddenly* it began to work.
+>    
+> Sounds like an out-of-date include/linux/pfkeyv2.h file
+> used during tool building.
+
+Yes, it looks like.
+
+BTW: is there something like a "version information" which is used in that
+way that user space tools can detect and report such changes at runtime?
+Would be perhaps helpful if racoon reports something like "incompatible" in
+this case. Very much better than such strange problems...
+
+        Peter
+-- 
+Dr. Peter Bieringer                     http://www.bieringer.de/pb/
+GPG/PGP Key 0x958F422D               mailto: pb at bieringer dot de 
+Deep Space 6 Co-Founder and Core Member  http://www.deepspace6.net/
