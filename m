@@ -1,29 +1,57 @@
-From: YOSHIFUJI Hideaki / =?iso-2022-jp?B?GyRCNUhGIzFRTEAbKEI=?= <yoshfuji@linux-ipv6.org>
-Subject: Re: [12/*] [IPSEC] Handle local_df in IPv4
-Date: Wed, 16 Mar 2005 03:28:20 +0900 (JST)
-Message-ID: <20050316.032820.59615306.yoshfuji@linux-ipv6.org>
-References: <20050314102614.GA9610@gondor.apana.org.au>
-	<20050314212557.23f0ab09.davem@davemloft.net>
-	<20050316.032537.72822422.yoshfuji@linux-ipv6.org>
+From: "David S. Miller" <davem@davemloft.net>
+Subject: Re: [17/*] [NET] Replace dst_pmtu with dst_mtu
+Date: Tue, 15 Mar 2005 10:24:50 -0800
+Message-ID: <20050315102450.0f3f1618.davem@davemloft.net>
+References: <20050214221433.GB18465@gondor.apana.org.au>
+	<20050214221607.GC18465@gondor.apana.org.au>
+	<20050306213214.7d8a143d.davem@davemloft.net>
+	<20050307103536.GB7137@gondor.apana.org.au>
+	<20050308102741.GA23468@gondor.apana.org.au>
+	<20050314102614.GA9610@gondor.apana.org.au>
+	<20050314105313.GA21001@gondor.apana.org.au>
+	<20050314111002.GA29156@gondor.apana.org.au>
+	<20050315091904.GA6256@gondor.apana.org.au>
+	<20050315095837.GA7130@gondor.apana.org.au>
+	<20050315100522.GA7275@gondor.apana.org.au>
 Mime-Version: 1.0
-Content-Type: Text/Plain; charset=iso-2022-jp
+Content-Type: text/plain; charset=US-ASCII
 Content-Transfer-Encoding: 7bit
-Cc: kuznet@ms2.inr.ac.ru, kaber@trash.net, netdev@oss.sgi.com,
-        yoshfuji@linux-ipv6.org
-To: davem@davemloft.net, herbert@gondor.apana.org.au
-In-Reply-To: <20050316.032537.72822422.yoshfuji@linux-ipv6.org>
+Cc: kuznet@ms2.inr.ac.ru, yoshfuji@linux-ipv6.org, kaber@trash.net,
+        netdev@oss.sgi.com
+To: Herbert Xu <herbert@gondor.apana.org.au>
+In-Reply-To: <20050315100522.GA7275@gondor.apana.org.au>
 Sender: netdev-bounce@oss.sgi.com
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-In article <20050316.032537.72822422.yoshfuji@linux-ipv6.org> (at Wed, 16 Mar 2005 03:25:37 +0900 (JST)), YOSHIFUJI Hideaki / 吉藤英明 <yoshfuji@linux-ipv6.org> says:
+On Tue, 15 Mar 2005 21:05:22 +1100
+Herbert Xu <herbert@gondor.apana.org.au> wrote:
 
-> > > that we don't have any local_df support over there.  That is, we
-> > > always fragment outbound UDP/raw packets.  Did I miss something?
-> > 
-> > I have no idea offhand.  Perhaps Yoshifuji can figure it out?
+> This patch replaces most of the other uses of dst_pmtu with dst_mtu.
+> As far as I can tell these are either identical because dst->path == dst,
+> or they're a straightforward replacement of (the slightly incorrect)
+> dst_pmtu(dst) - dst->header_Len with dst_mtu(dst).
 > 
-> Currently, yes.
-I mean: we always fragment outbount UDP/raw packets.
+> Signed-off-by: Herbert Xu <herbert@gondor.apana.org.au>
 
---yoshfuji
+Applied, thanks Herbert.
+
+> At this point the only remaining user of dst_pmtu is ipt_REJECT which
+> will go away either when we use icmp_send in there or when I replace
+> it with dst_mtu.
+
+Yes, I saw that posting on netfilter-devel where you asked Rusty
+why icmp_send() wasn't directly used even though it appears it
+should be.
+
+> We can now remove the other users of dst->path as well with the removal
+> of that attribute itself as the goal.
+
+Ok, sounds great.
+
+So, at that point, I guess the next task is to handle PMTU events of already
+encrypted packets properly?  We still have that problem right?  When the
+ICMP payload is encrypted we have to cache some information on IPSEC output
+so that a proto+SPI key can find us the encrypted inner IP header info, which
+we'll need in order to process (and/or forward) the ICMP PMTU information
+correctly.
