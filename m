@@ -1,8 +1,8 @@
 From: akpm@osdl.org
-Subject: [patch 1/2] cancel_rearming_delayed_work()
-Date: Sun, 30 Jan 2005 22:33:01 -0800
-Message-ID: <200501310633.j0V6X0l01364@mail.osdl.org>
-Cc: netdev@oss.sgi.com, akpm@osdl.org, arjan@infradead.org
+Subject: [patch 2/2] ipvs deadlock fix
+Date: Sun, 30 Jan 2005 22:33:02 -0800
+Message-ID: <200501310633.j0V6X1l01385@mail.osdl.org>
+Cc: netdev@oss.sgi.com, akpm@osdl.org
 Return-path: <netdev-bounce@oss.sgi.com>
 To: davem@davemloft.net
 Sender: netdev-bounce@oss.sgi.com
@@ -11,68 +11,81 @@ List-Id: netdev.vger.kernel.org
 
 
 
-Add library functions to reliably kill off a delayed work whose handler
-re-adds the delayed work.  One for keventd, one for caller-owned workqueues.
-DESC
-make cancel_rearming_delayed_workqueue static
-EDESC
-From: Arjan van de Ven <arjan@infradead.org>
+update_defense_level() is calling si_meminfo() from timer context.  But
+si_meminfo takes non-irq-safe locks.
 
-cancel_rearming_delayed_workqueue() is only used inside workqueue.c; make
-this function static (the more useful wrapper around it later in that
-function remains non-static and exported)
+Move it all to keventd context.  
 
-Signed-off-by: Arjan van de Ven <arjan@infradead.org>
 Signed-off-by: Andrew Morton <akpm@osdl.org>
 ---
 
- 25-akpm/include/linux/workqueue.h |    1 +
- 25-akpm/kernel/workqueue.c        |   24 ++++++++++++++++++++++++
- 2 files changed, 25 insertions(+)
+ 25-akpm/net/ipv4/ipvs/ip_vs_ctl.c |   19 ++++++++-----------
+ 1 files changed, 8 insertions(+), 11 deletions(-)
 
-diff -puN kernel/workqueue.c~cancel_rearming_delayed_work kernel/workqueue.c
---- 25/kernel/workqueue.c~cancel_rearming_delayed_work	2004-11-30 23:46:09.387318016 -0800
-+++ 25-akpm/kernel/workqueue.c	2004-11-30 23:46:21.763436560 -0800
-@@ -423,6 +423,30 @@ void flush_scheduled_work(void)
- 	flush_workqueue(keventd_wq);
- }
- 
-+/**
-+ * cancel_rearming_delayed_workqueue - reliably kill off a delayed
-+ *			work whose handler rearms the delayed work.
-+ * @wq:   the controlling workqueue structure
-+ * @work: the delayed work struct
-+ */
-+static void cancel_rearming_delayed_workqueue(struct workqueue_struct *wq,
-+					struct work_struct *work)
-+{
-+	while (!cancel_delayed_work(work))
-+		flush_workqueue(wq);
-+}
-+
-+/**
-+ * cancel_rearming_delayed_work - reliably kill off a delayed keventd
-+ *			work whose handler rearms the delayed work.
-+ * @work: the delayed work struct
-+ */
-+void cancel_rearming_delayed_work(struct work_struct *work)
-+{
-+	cancel_rearming_delayed_workqueue(keventd_wq, work);
-+}
-+EXPORT_SYMBOL(cancel_rearming_delayed_work);
-+
- int keventd_up(void)
- {
- 	return keventd_wq != NULL;
-diff -puN include/linux/workqueue.h~cancel_rearming_delayed_work include/linux/workqueue.h
---- 25/include/linux/workqueue.h~cancel_rearming_delayed_work	2004-11-30 23:46:09.388317864 -0800
-+++ 25-akpm/include/linux/workqueue.h	2004-11-30 23:46:21.762436712 -0800
-@@ -70,6 +70,7 @@ extern int current_is_keventd(void);
- extern int keventd_up(void);
- 
- extern void init_workqueues(void);
-+void cancel_rearming_delayed_work(struct work_struct *work);
+diff -puN net/ipv4/ipvs/ip_vs_ctl.c~ipvs-deadlock-fix net/ipv4/ipvs/ip_vs_ctl.c
+--- 25/net/ipv4/ipvs/ip_vs_ctl.c~ipvs-deadlock-fix	2005-01-10 21:15:28.220163464 -0800
++++ 25-akpm/net/ipv4/ipvs/ip_vs_ctl.c	2005-01-10 21:15:28.226162552 -0800
+@@ -26,7 +26,7 @@
+ #include <linux/fs.h>
+ #include <linux/sysctl.h>
+ #include <linux/proc_fs.h>
+-#include <linux/timer.h>
++#include <linux/workqueue.h>
+ #include <linux/swap.h>
+ #include <linux/proc_fs.h>
+ #include <linux/seq_file.h>
+@@ -90,7 +90,7 @@ int ip_vs_get_debug_level(void)
+ #endif
  
  /*
-  * Kill off a pending schedule_delayed_work().  Note that the work callback
+- *	update_defense_level is called from timer bh and from sysctl.
++ *	update_defense_level is called from keventd and from sysctl.
+  */
+ static void update_defense_level(void)
+ {
+@@ -212,19 +212,19 @@ static void update_defense_level(void)
+ /*
+  *	Timer for checking the defense
+  */
+-static struct timer_list defense_timer;
+ #define DEFENSE_TIMER_PERIOD	1*HZ
++static void defense_work_handler(void *data);
++static DECLARE_WORK(defense_work, defense_work_handler, NULL);
+ 
+-static void defense_timer_handler(unsigned long data)
++static void defense_work_handler(void *data)
+ {
+ 	update_defense_level();
+ 	if (atomic_read(&ip_vs_dropentry))
+ 		ip_vs_random_dropentry();
+ 
+-	mod_timer(&defense_timer, jiffies + DEFENSE_TIMER_PERIOD);
++	schedule_delayed_work(&defense_work, DEFENSE_TIMER_PERIOD);
+ }
+ 
+-
+ int
+ ip_vs_use_count_inc(void)
+ {
+@@ -2370,10 +2370,7 @@ int ip_vs_control_init(void)
+ 	ip_vs_new_estimator(&ip_vs_stats);
+ 
+ 	/* Hook the defense timer */
+-	init_timer(&defense_timer);
+-	defense_timer.function = defense_timer_handler;
+-	defense_timer.expires = jiffies + DEFENSE_TIMER_PERIOD;
+-	add_timer(&defense_timer);
++	schedule_delayed_work(&defense_work, DEFENSE_TIMER_PERIOD);
+ 
+ 	LeaveFunction(2);
+ 	return 0;
+@@ -2384,7 +2381,7 @@ void ip_vs_control_cleanup(void)
+ {
+ 	EnterFunction(2);
+ 	ip_vs_trash_cleanup();
+-	del_timer_sync(&defense_timer);
++	cancel_rearming_delayed_work(&defense_work);
+ 	ip_vs_kill_estimator(&ip_vs_stats);
+ 	unregister_sysctl_table(sysctl_header);
+ 	proc_net_remove("ip_vs_stats");
 _
