@@ -1,56 +1,30 @@
-From: William Lee Irwin III <wli@holomorphy.com>
+From: "Bill Rugolsky Jr." <brugolsky@telemetry-investments.com>
 Subject: Re: MSEC_TO_JIFFIES is messed up...
-Date: Wed, 12 May 2004 15:18:23 -0700
+Date: Wed, 12 May 2004 18:44:54 -0400
 Sender: netdev-bounce@oss.sgi.com
-Message-ID: <20040512221823.GK1397@holomorphy.com>
-References: <40A26FFA.4030701@pobox.com> <20040512193349.GA14936@elte.hu> <200405121947.i4CJlJm5029666@turing-police.cc.vt.edu> <Pine.LNX.4.58.0405121255170.11950@bigblue.dev.mdolabs.com> <200405122007.i4CK7GPQ020444@turing-police.cc.vt.edu> <20040512202807.GA16849@elte.hu> <20040512203500.GA17999@elte.hu> <20040512205028.GA18806@elte.hu> <20040512140729.476ace9e.akpm@osdl.org> <20040512211748.GB20800@elte.hu>
+Message-ID: <20040512224454.GJ21953@ti64.telemetry-investments.com>
+References: <20040512020700.6f6aa61f.akpm@osdl.org> <20040512181903.GG13421@kroah.com> <40A26FFA.4030701@pobox.com> <20040512205407.GD25515@ti64.telemetry-investments.com>
+Reply-To: "Bill Rugolsky Jr." <brugolsky@telemetry-investments.com>
 Mime-Version: 1.0
 Content-Type: text/plain; charset=us-ascii
-Cc: Andrew Morton <akpm@osdl.org>, Valdis.Kletnieks@vt.edu,
-        davidel@xmailserver.org, jgarzik@pobox.com, greg@kroah.com,
-        linux-kernel@vger.kernel.org, netdev@oss.sgi.com
+Cc: Greg KH <greg@kroah.com>, Andrew Morton <akpm@osdl.org>, mingo@elte.hu,
+        linux-kernel@vger.kernel.org, Netdev <netdev@oss.sgi.com>,
+        Sridhar Samudrala <sri@us.ibm.com>, davem@redhat.com,
+        George Anzinger <george@mvista.com>
 Return-path: <netdev-bounce@oss.sgi.com>
-To: Ingo Molnar <mingo@elte.hu>
+To: Jeff Garzik <jgarzik@pobox.com>
 Content-Disposition: inline
-In-Reply-To: <20040512211748.GB20800@elte.hu>
+In-Reply-To: <20040512205407.GD25515@ti64.telemetry-investments.com>
 Errors-to: netdev-bounce@oss.sgi.com
 List-Id: netdev.vger.kernel.org
 
-On Wed, May 12, 2004 at 11:17:48PM +0200, Ingo Molnar wrote:
-> ok. -A3 attached, it does the roundup in the msec->jiffies conversion. 
-> (not the other way around though, and that's fine.)
+On Wed, May 12, 2004 at 04:54:07PM -0400, Bill Rugolsky Jr. wrote:
+> The attached patch combines Sridhar's consolidation patch with my
+> more accurate routines in the spirit of the rest of time.h.  It is against
+> 2.6.6-rc3-bk3.  Feedback welcome.  I'm happy to rediff against latest kernel,
+> I just haven't had time the last few days.
+ 
+Sorry to reply to myself, but please ignore the patch that I sent;
+upon reflection, the 64-bit logic is (still) wrong.
 
-I'm assuming -A3 is current, then:
-
-Optimize the cases where HZ is a divisor of 1000 or vice-versa in
-JIFFIES_TO_MSECS() and MSECS_TO_JIFFIES() by allowing the nonvanishing(!)
-integral ratios to appear as a parenthesized expressions eligible for
-constant folding optimizations.
-
-
--- wli
-
-
-Index: linux-2.5/include/linux/time.h
-===================================================================
---- linux-2.5.orig/include/linux/time.h	2004-05-12 15:04:10.000000000 -0700
-+++ linux-2.5/include/linux/time.h	2004-05-12 15:12:49.000000000 -0700
-@@ -184,12 +184,12 @@
-  * Avoid unnecessary multiplications/divisions in the
-  * two most common HZ cases:
-  */
--#if HZ == 1000
--# define JIFFIES_TO_MSECS(x)	(x)
--# define MSECS_TO_JIFFIES(x)	(x)
--#elif HZ == 100
--# define JIFFIES_TO_MSECS(x)	((x) * 10)
--# define MSECS_TO_JIFFIES(x)	(((x) + 9) / 10)
-+#if HZ <= 1000 && !(1000 % HZ)
-+# define JIFFIES_TO_MSECS(j)	((1000/HZ)*(j))
-+# define MSECS_TO_JIFFIES(m)	(((m) + (1000/HZ) - 1)/(1000/HZ))
-+#elif HZ > 1000 && !(HZ % 1000)
-+# define JIFFIES_TO_MSECS(j)	(((j) + (HZ/1000) - 1)/(HZ/1000))
-+# define MSECS_TO_JIFFIES(m)	((m)*(HZ/1000))
- #else
- # define JIFFIES_TO_MSECS(x)	(((x) * 1000) / HZ)
- # define MSECS_TO_JIFFIES(x)	(((x) * HZ + 999) / 1000)
+	Bill Rugolsky
